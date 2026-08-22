@@ -1,0 +1,57 @@
+{
+  "generatedAt": "2026-08-19T09:40:00Z",
+  "themes": [
+    { "id": "windows-update", "label": "Windows Update" },
+    { "id": "system", "label": "Système" },
+    { "id": "wsl", "label": "WSL" },
+    { "id": "security", "label": "Sécurité" }
+  ],
+  "modules": [
+    { "id": "wu-lock", "theme": "windows-update", "label": "Verrouillage des mises à jour", "status": "ok",
+      "fields": [
+        { "key": "noAutoUpdate", "label": "MAJ automatiques", "value": false, "kind": "bool" },
+        { "key": "aclLock", "label": "Verrou ACL des tâches", "value": true, "kind": "bool" },
+        { "key": "tasksDisabled", "label": "Tâches désactivées", "value": 8, "kind": "number" },
+        { "key": "tasksReady", "label": "Tâches actives (protégées)", "value": 12, "kind": "number" },
+        { "key": "rebootPending", "label": "Redémarrage en attente", "value": false, "kind": "bool" }
+      ],
+      "actions": [
+        { "id": "update-mode-on", "label": "Mode MAJ (déverrouiller)", "confirm": true },
+        { "id": "run-audit", "label": "Lancer l'audit" }
+      ] },
+    { "id": "wu-history", "theme": "windows-update", "label": "Historique", "status": "ok",
+      "fields": [
+        { "key": "lastReboot", "label": "Dernier redémarrage", "value": "2026-08-19T01:40:54", "kind": "date" },
+        { "key": "lastUpdate", "label": "Dernière MAJ installée", "value": "KB5123304 (18/08)", "kind": "text" },
+        { "key": "waasMedic", "label": "WaaSMedic (réparateur)", "value": "Neutralisé", "kind": "text" }
+      ],
+      "actions": [ { "id": "open-folder", "label": "Ouvrir le dossier" } ] },
+    { "id": "disk-c", "theme": "system", "label": "Disque C:", "status": "ok",
+      "fields": [
+        { "key": "free", "label": "Espace libre", "value": 262, "kind": "number", "unit": "Go" },
+        { "key": "threshold", "label": "Seuil d'alerte", "value": 60, "kind": "number", "unit": "Go" },
+        { "key": "used", "label": "Occupation", "value": 71, "kind": "number", "unit": "%" }
+      ],
+      "actions": [ { "id": "disk-clean", "label": "Analyser / nettoyer" } ] },
+    { "id": "wsl", "theme": "wsl", "label": "WSL2", "status": "warn",
+      "fields": [
+        { "key": "ram", "label": "RAM allouée", "value": "16 Go", "kind": "text" },
+        { "key": "swap", "label": "Swap", "value": "désactivé", "kind": "text" },
+        { "key": "boot", "label": "Boot distro", "value": "lent (systemd)", "kind": "text" }
+      ],
+      "actions": [
+        { "id": "wsl-diag", "label": "Diagnostic boot" },
+        { "id": "wsl-shutdown", "label": "Arrêter WSL", "confirm": true }
+      ] },
+    { "id": "vbs", "theme": "security", "label": "Sécurité de la virtualisation", "status": "warn",
+      "fields": [
+        { "key": "vbs", "label": "VBS", "value": true, "kind": "bool" },
+        { "key": "hvci", "label": "Intégrité mémoire (HVCI)", "value": false, "kind": "bool" },
+        { "key": "perf", "label": "Impact perf. virtualisation", "value": "modéré", "kind": "text" }
+      ],
+      "actions": [
+        { "id": "toggle-vbs", "label": "Basculer VBS", "confirm": true },
+        { "id": "toggle-hvci", "label": "Basculer intégrité mémoire", "confirm": true }
+      ] }
+  ]
+}

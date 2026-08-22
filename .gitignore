@@ -1,0 +1,20 @@
+# --- Secrets & etat local (NE JAMAIS committer) ---
+backend/.secrets/
+backend/.state/
+backend/logs/
+
+# --- Sauvegardes locales creees pendant l'edition ---
+*.bak-*
+**/.bak-*/
+.bak-*/
+
+# --- Corbeille locale (le sandbox ne peut pas supprimer) ---
+_to_delete/
+
+# --- Divers ---
+__pycache__/
+*.pyc
+node_modules/
+Thumbs.db
+desktop.ini
+*.log

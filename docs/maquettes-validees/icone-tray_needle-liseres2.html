@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HYPERION — liseré, intermédiaires 3↔4</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--border:#2d333b;--text:#e6edf3;--muted:#8b949e;
+        --ok:#3fb950;--warn:#d29922;--err:#f85149;--track:#30363d;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,"Segoe UI",Roboto,sans-serif;padding:28px}
+  h1{font-size:19px;margin:0 0 4px}
+  p.sub{color:var(--muted);margin:0 0 24px;font-size:13.5px;max-width:760px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px;text-align:center}
+  .name{font-weight:700;font-size:14px;margin-bottom:2px}
+  .desc{color:var(--muted);font-size:11.5px;margin-bottom:12px;min-height:44px}
+  .row{display:flex;justify-content:center;gap:10px;align-items:center}
+  .tray{background:linear-gradient(#20262e,#161b22);border:1px solid var(--border);border-radius:8px;padding:6px 12px;display:inline-flex;align-items:center;gap:12px;margin-top:10px}
+  .trayLight{background:linear-gradient(#e9edf2,#d6dbe2)}
+  .lbl{font-size:11px;color:var(--muted);margin-top:10px}
+  svg{display:block;margin:0 auto}
+</style>
+</head>
+<body>
+<h1>HYPERION — dosage du liseré : intermédiaires entre 3 et 4</h1>
+<p class="sub">Icône B (anneau), aiguille large couleur du statut, point blanc. Grand = « conforme » (vert). En dessous, les 3 statuts à la taille réelle. Dis‑moi la lettre.</p>
+<div class="grid" id="grid"></div>
+
+<script>
+const C = { ok:'#3fb950', warn:'#d29922', err:'#f85149' };
+const FR = { ok:0.88, warn:0.5, err:0.14 };
+const TRACK = '#30363d';
+const A0 = 135, SPAN = 270;
+function pt(cx,cy,r,deg){const a=deg*Math.PI/180;return [cx+r*Math.cos(a), cy+r*Math.sin(a)];}
+function arc(cx,cy,r,a0,a1){const [x0,y0]=pt(cx,cy,r,a0);const [x1,y1]=pt(cx,cy,r,a1);
+  const large=(Math.abs(a1-a0)>180)?1:0;const sweep=(a1>=a0)?1:0;
+  return `M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${r} ${r} 0 ${large} ${sweep} ${x1.toFixed(2)} ${y1.toFixed(2)}`;}
+function darken(hex,f){const n=parseInt(hex.slice(1),16);let r=(n>>16)&255,g=(n>>8)&255,b=n&255;
+  return `rgb(${Math.round(r*f)},${Math.round(g*f)},${Math.round(b*f)})`;}
+
+// spec: {mode:'dark'|'tint', op, w, factor}
+function icon(spec, key, s){
+  const c=C[key], cx=s/2, cy=s/2, r=s*0.35, sw=s*0.11, ang=A0+FR[key]*SPAN;
+  let out='';
+  out += `<circle cx="${cx}" cy="${cy}" r="${s*0.45}" fill="none" stroke="${c}" stroke-opacity="0.35" stroke-width="${s*0.024}"/>`;
+  out += `<path d="${arc(cx,cy,r,A0,A0+SPAN)}" fill="none" stroke="${TRACK}" stroke-width="${sw}" stroke-linecap="round"/>`;
+  for(let i=0;i<=6;i++){const a=A0+(i/6)*SPAN;const [x0,y0]=pt(cx,cy,r*0.98,a),[x1,y1]=pt(cx,cy,r*0.80,a);
+    out += `<line x1="${x0.toFixed(2)}" y1="${y0.toFixed(2)}" x2="${x1.toFixed(2)}" y2="${y1.toFixed(2)}" stroke="#8b949e" stroke-opacity="0.35" stroke-width="${s*0.02}"/>`;}
+  out += `<path d="${arc(cx,cy,r,A0,ang)}" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>`;
+  const [nx,ny]=pt(cx,cy,r*0.92,ang);const [tx,ty]=pt(cx,cy,-s*0.06,ang);
+  const col = spec.mode==='tint' ? darken(c, spec.factor) : '#0b0e14';
+  out += `<line x1="${tx.toFixed(2)}" y1="${ty.toFixed(2)}" x2="${nx.toFixed(2)}" y2="${ny.toFixed(2)}" stroke="${col}" stroke-opacity="${spec.op}" stroke-width="${s*spec.w}" stroke-linecap="round"/>`;
+  out += `<line x1="${tx.toFixed(2)}" y1="${ty.toFixed(2)}" x2="${nx.toFixed(2)}" y2="${ny.toFixed(2)}" stroke="${c}" stroke-width="${s*0.082}" stroke-linecap="round"/>`;
+  out += `<circle cx="${cx}" cy="${cy}" r="${s*0.095}" fill="${c}"/>`;
+  out += `<circle cx="${cx}" cy="${cy}" r="${s*0.042}" fill="#f0f6fc"/>`;
+  return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}">${out}</svg>`;
+}
+
+const opts = [
+  {n:'A — Ombre +', d:'Comme le n°3 mais un cran plus dense (ombre sombre, opacité 0,34).', spec:{mode:'dark',op:0.34,w:0.094}},
+  {n:'B — Teinte 0,72', d:'Teinte foncée de la couleur, subtile (proche de 3, sans noir).', spec:{mode:'tint',op:0.95,factor:0.72,w:0.098}},
+  {n:'C — Teinte 0,62', d:'Teinte foncée intermédiaire — le juste milieu 3↔4.', spec:{mode:'tint',op:0.95,factor:0.62,w:0.098}},
+  {n:'D — Teinte 0,55 fine', d:'Teinte foncée du n°4 mais liseré plus fin : marqué mais discret.', spec:{mode:'tint',op:0.95,factor:0.55,w:0.09}},
+];
+
+document.getElementById('grid').innerHTML = opts.map(o=>`
+  <div class="card">
+    <div class="name">${o.n}</div>
+    <div class="desc">${o.d}</div>
+    ${icon(o.spec,'ok',72)}
+    <div class="lbl">3 statuts (18px) — sombre / clair :</div>
+    <div class="tray">${icon(o.spec,'ok',18)}${icon(o.spec,'warn',18)}${icon(o.spec,'err',18)}</div>
+    <div class="tray trayLight">${icon(o.spec,'ok',18)}${icon(o.spec,'warn',18)}${icon(o.spec,'err',18)}</div>
+  </div>`).join('');
+</script>
+</body>
+</html>

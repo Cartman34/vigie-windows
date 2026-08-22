@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vigie</title>
+<!--
+  Front statique. Ne connait QUE le contrat REST (api/openapi.yaml).
+  Servi par le back : le jeton est injecte dans __API_TOKEN__ (route GET / de Pode).
+  Ouvert en file:// : pas de jeton -> repli sur ./mock/state.json puis mock inline.
+-->
+<script>
+  window.API_TOKEN = "__API_TOKEN__";
+  window.API_BASE  = "/api/v1";
+  window.APP_VERSION = "__APP_VERSION__";
+</script>
+<style>
+  :root {
+    --bg:#0d1117; --panel:#161b22; --panel-2:#1c2230; --border:#2d333b;
+    --text:#e6edf3; --muted:#8b949e; --accent:#388bfd;
+    --ok:#3fb950; --warn:#d29922; --err:#f85149;
+    --ok-bg:rgba(63,185,80,.12); --warn-bg:rgba(210,153,34,.12); --err-bg:rgba(248,81,73,.12);
+    --radius:12px; --shadow:0 1px 3px rgba(0,0,0,.4);
+  }
+  [data-theme="light"] {
+    --bg:#e9edf4; --panel:#ffffff; --panel-2:#e6ebf2; --border:#c2cbd8;
+    --text:#141a22; --muted:#586274; --accent:#0b64e6;
+    --ok:#0f7a37; --warn:#9a5b00; --err:#d21c2c;
+    --ok-bg:rgba(15,122,55,.16); --warn-bg:rgba(154,91,0,.17); --err-bg:rgba(210,28,44,.15);
+    --shadow:0 1px 4px rgba(70,90,120,.22);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.45}
+  header{position:sticky;top:0;z-index:10;background:var(--panel);border-bottom:1px solid var(--border);padding:14px 22px;display:flex;align-items:center;gap:16px;box-shadow:var(--shadow)}
+  header .title{font-weight:700;font-size:16px} header .title small{color:var(--muted);font-weight:500;margin-left:8px}
+  .global{display:flex;align-items:center;gap:8px;padding:5px 12px;border-radius:999px;border:1px solid var(--border);background:var(--panel-2)}
+  .spacer{flex:1}
+  .meta{color:var(--muted);font-size:12.5px}
+  button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);padding:7px 12px;transition:.15s}
+  button:hover{border-color:var(--accent)}
+  .modebar{height:3px;padding:0;border:none}
+  .modebar.ok{background:var(--ok)}
+  .modebar.warn{background:var(--warn)}
+  .modebar.err{background:var(--err)}
+  .modebar.neutral{background:var(--border)}
+  main{max-width:1180px;margin:0 auto;padding:22px}
+  .theme-block{margin-bottom:30px}
+  .theme-head{display:flex;align-items:center;gap:10px;margin:0 4px 12px}
+  .theme-head h2{font-size:14px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin:0;font-weight:600}
+  .theme-head .count{color:var(--muted);font-size:12px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);display:flex;flex-direction:column}
+  .card-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  .card-head .name{font-weight:600;font-size:15px;flex:1}
+  .badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px}
+  .badge .dot{width:8px;height:8px;border-radius:50%}
+  .badge.ok{color:var(--ok);background:var(--ok-bg)} .badge.ok .dot{background:var(--ok)}
+  .badge.warn{color:var(--warn);background:var(--warn-bg)} .badge.warn .dot{background:var(--warn)}
+  .badge.error{color:var(--err);background:var(--err-bg)} .badge.error .dot{background:var(--err)}
+  .fields{display:flex;flex-direction:column;gap:2px;margin-bottom:12px}
+  .field{display:flex;justify-content:space-between;align-items:center;padding:7px 2px;border-bottom:1px dashed var(--border)}
+  .field:last-child{border-bottom:none}
+  .field .k{color:var(--muted)} .field .v{font-variant-numeric:tabular-nums;font-weight:600}
+  .pill{padding:2px 8px;border-radius:6px;font-size:12px;font-weight:600}
+  .pill.yes{color:var(--ok);background:var(--ok-bg)} .pill.no{color:var(--muted);background:var(--panel-2)}
+  .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto}
+  .actions button{font-size:13px;padding:6px 11px}
+  .toast-stack{position:fixed;right:18px;bottom:18px;display:flex;flex-direction:column;gap:8px;z-index:45;max-width:min(380px,92vw)}
+  .toast{display:flex;align-items:flex-start;gap:9px;background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--muted);border-radius:10px;padding:10px 12px;box-shadow:0 10px 30px rgba(0,0,0,.4);font-size:13px;opacity:0;transform:translateX(14px);transition:.2s;pointer-events:auto}
+  .toast.show{opacity:1;transform:none}
+  .toast.done{border-left-color:var(--ok)} .toast.error{border-left-color:var(--err)} .toast.running{border-left-color:var(--accent)}
+  .toast .t-body{min-width:0;flex:1} .toast .t-label{font-weight:700;display:block} .toast .t-msg{color:var(--muted);display:block;margin-top:2px;word-break:break-word}
+  .toast .t-x{margin-left:4px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;line-height:1}
+  .t-dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;margin-top:4px;background:var(--muted)}
+  .t-dot.done{background:var(--ok)} .t-dot.error{background:var(--err)} .t-dot.running{background:var(--accent)}
+  .bell{position:relative}
+  .bell-count{position:absolute;top:-6px;right:-6px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--accent);color:#fff;font-size:10px;font-weight:800;display:none;align-items:center;justify-content:center;line-height:1}
+  .drawer-back{position:fixed;inset:0;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:.2s;z-index:49}
+  .drawer-back.show{opacity:1;pointer-events:auto}
+  .drawer{position:fixed;top:0;right:0;height:100%;width:min(360px,92vw);background:var(--panel);border-left:1px solid var(--border);box-shadow:-12px 0 40px rgba(0,0,0,.4);transform:translateX(100%);transition:transform .2s;z-index:50;display:flex;flex-direction:column}
+  .drawer.open{transform:none}
+  .drawer-head{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);font-weight:700}
+  .drawer-clear{margin-left:auto;font-size:12px;font-weight:600;color:var(--muted);background:none;border:1px solid var(--border);border-radius:8px;padding:4px 9px;cursor:pointer}
+  .drawer-clear:hover{border-color:var(--accent);color:var(--text)}
+  .drawer-x{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1}
+  .drawer-body{padding:12px;overflow:auto;display:flex;flex-direction:column;gap:8px}
+  .drawer-empty{color:var(--muted);text-align:center;padding:30px 0;font-size:13px}
+  .dn{background:var(--panel-2);border:1px solid var(--border);border-left:4px solid var(--muted);border-radius:10px;padding:9px 11px;font-size:13px}
+  .dn.done{border-left-color:var(--ok)} .dn.error{border-left-color:var(--err)} .dn.running{border-left-color:var(--accent)}
+  .dn-head{display:flex;align-items:center;gap:8px;font-weight:600}
+  .dn-del{margin-left:auto;background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;line-height:1}
+  .dn-del:hover{color:var(--err)}
+  .dn-msg{color:var(--muted);margin-top:4px;word-break:break-word}
+  .dn-time{color:var(--muted);opacity:.75;font-size:11px;margin-top:3px;display:flex;align-items:center;gap:5px}
+  /* accent de statut par carte + icone */
+  .card{border-left:4px solid var(--border)}
+  .card.st-ok{border-left-color:var(--ok)}
+  .card.st-warn{border-left-color:var(--warn)}
+  .card.st-error{border-left-color:var(--err)}
+  .badge{font-size:12.5px;padding:4px 10px}
+  .badge .ic{font-weight:800;font-size:13px;line-height:1}
+  /* statut par parametre (ligne) */
+  .fdot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:8px;background:var(--border);vertical-align:middle}
+  .fdot{box-sizing:border-box}
+  .fdot.ok{background:var(--ok)} .fdot.warn{background:var(--warn)} .fdot.error{background:var(--err)}
+  .fdot.neutral{background:transparent;border:1.5px solid var(--muted)}
+  .field .v.ok{color:var(--ok)} .field .v.warn{color:var(--warn)} .field .v.error{color:var(--err)}
+  .fhelp{margin-left:7px;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;color:var(--muted);border:1px solid var(--muted);border-radius:50%;background:none;cursor:pointer;padding:0;flex:0 0 auto}
+  .fhelp svg{width:9px;height:9px;display:block}
+  .fhelp:hover{color:var(--accent);border-color:var(--accent)}
+  .fhelp.warn{color:var(--warn);border-color:var(--warn)} .fhelp.error{color:var(--err);border-color:var(--err)}
+  .field-detail{display:none;padding:0 10px 10px 28px;font-size:12.5px;color:var(--muted);border-bottom:1px dashed var(--border);overflow-wrap:anywhere;word-break:break-word}
+  .field-detail.open{display:block}
+  .field-detail.warn{color:var(--warn)} .field-detail.error{color:var(--err)}
+  .badge.neutral{color:var(--muted);background:var(--panel-2)}
+  .card.st-neutral{border-left-color:var(--muted)}
+  /* panneau de suivi des actions */
+  .actions-panel{position:fixed;right:18px;bottom:18px;width:340px;max-height:62vh;overflow:auto;display:flex;flex-direction:column;gap:8px;z-index:20}
+  .act-panel-head{font-size:10.5px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);font-weight:800;padding:3px 9px;align-self:flex-end;background:var(--panel-2);border:1px solid var(--border);border-radius:999px;box-shadow:var(--shadow)}
+  .act-item{background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--muted);border-radius:10px;padding:10px 12px;box-shadow:0 8px 26px rgba(15,23,42,.38),0 0 0 1px var(--border);font-size:13px}
+  .act-item.running{border-left-color:var(--accent)}
+  .act-item.done{border-left-color:var(--ok)}
+  .act-item.error{border-left-color:var(--err)}
+  .act-head{display:flex;align-items:center;gap:8px;font-weight:600}
+  .act-chip{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;display:inline-flex;align-items:center;gap:5px}
+  .act-chip.running{color:var(--accent);background:rgba(56,139,253,.15)}
+  .act-chip.done{color:var(--ok);background:var(--ok-bg)}
+  .act-chip.error{color:var(--err);background:var(--err-bg)}
+  .act-msg{color:var(--muted);margin-top:5px;word-break:break-word}
+  .act-close{margin-left:auto;cursor:pointer;color:var(--muted);border:none;background:none;font-size:15px;line-height:1}
+  .spin{display:inline-block;width:10px;height:10px;border:2px solid var(--accent);border-top-color:transparent;border-radius:50%;animation:sp .7s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  /* --- Vue dense (compacte) : beaucoup d'infos d'un coup --- */
+  main{max-width:none;padding:16px}
+  .theme-block{margin-bottom:16px}
+  .theme-head{margin-bottom:8px}
+  .grid{grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+  .card{padding:11px 13px}
+  .card-head{margin-bottom:7px}
+  .card-head .name{font-size:13.5px}
+  .badge{font-size:11px;padding:2px 8px}
+  .fields{margin-bottom:8px}
+  .field{padding:3px 2px;font-size:12.5px}
+  .fdot{width:7px;height:7px;margin-right:7px}
+  .actions{gap:6px}
+  .actions button{font-size:12px;padding:5px 9px}
+  .field-detail{padding:0 8px 7px 24px;font-size:12px}
+  /* --- Filtre rapide par groupe (chips en haut) --- */
+  .filterbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:16px}
+  .filterbar .flabel{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:700;margin-right:2px}
+  .fchip{font:inherit;cursor:pointer;font-size:12px;font-weight:600;padding:4px 12px;border-radius:999px;border:1px solid var(--border);background:var(--panel-2);color:var(--muted);transition:.12s}
+  .fchip.active{background:var(--accent);border-color:var(--accent);color:#fff}
+  .fchip:hover{border-color:var(--accent)}
+  /* --- Masonry : les cartes remplissent les colonnes (plusieurs groupes possibles par colonne) --- */
+  /* Chaque carte porte le nom de son groupe, et reste insecable (break-inside:avoid). */
+  .loading-note{display:flex;flex-direction:column;align-items:center;gap:12px;justify-content:center;color:var(--muted);font-size:13.5px;padding:64px 0}
+  .loading-note .spin{width:22px;height:22px;border-width:3px}
+  .masonry{columns:280px;column-gap:16px}
+  .masonry .card{width:100%;margin:0 0 16px;break-inside:avoid;-webkit-column-break-inside:avoid}
+  .card-titles{display:flex;flex-direction:column;min-width:0;flex:1}
+  .card-group{font-size:10.5px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);font-weight:700;line-height:1.3}
+  .card-refresh{background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;width:26px;height:26px;line-height:1;cursor:pointer;flex:0 0 auto;font-size:14px;padding:0}
+  .card-refresh:hover{border-color:var(--accent);color:var(--text)}
+  .card.card-loading{opacity:.55;pointer-events:none}
+  .card-refresh .cr-ic{display:inline-block;line-height:1}
+  .card.card-loading .card-refresh .cr-ic{animation:sp .7s linear infinite}
+  /* --- Parametres : label a gauche, valeur coloree en face (dessous si longue, alignee a droite) --- */
+  .fields{margin-bottom:8px}
+  .frow{padding:4px 2px;border-bottom:1px dashed var(--border)}
+  .frow:last-child{border-bottom:none}
+  .field{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:2px 12px;font-size:13px}
+  .field .k{color:var(--muted);display:flex;align-items:center;gap:6px;min-width:0}
+  .field .v{font-weight:700;margin-left:auto;text-align:right;word-break:break-word}
+  .fk-label.clickable{cursor:pointer}
+  .fk-label.clickable:hover{color:var(--text);text-decoration:underline dotted}
+  .v-ok{color:var(--ok)} .v-warn{color:var(--warn)} .v-error{color:var(--err)} .v-neutral{color:var(--text)}
+  .frow-actions{padding:3px 0 2px 22px}
+  .fsolve{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px;border:1px solid currentColor;background:none;cursor:pointer}
+  .fsolve svg{width:11px;height:11px;flex:0 0 auto}
+  /* L'icone du bouton Resoudre se fond dans la couleur du texte (le type reste indique par la FORME) */
+  .fsolve.k-immediate svg,.fsolve.k-confirm svg,.fsolve.k-manual svg{color:currentColor}
+  .fsolve.warn{color:var(--warn)} .fsolve.error{color:var(--err)}
+  .fsolve:hover{background:rgba(127,127,127,.14)}
+  /* Etat "action en cours" sur un bouton */
+  .act.busy,.fsolve.busy{opacity:.9;cursor:progress}
+  .card.busy{animation:cardbusy 1.6s ease-in-out infinite}
+  @keyframes cardbusy{0%,100%{box-shadow:0 0 0 0 rgba(210,153,34,0)}50%{box-shadow:0 0 11px -1px var(--warn,#d29922)}}
+  .act.busy .spin,.fsolve.busy .spin{border-color:currentColor;border-top-color:transparent;vertical-align:-1px;margin-right:5px}
+  .frow .field-detail{display:none;margin-top:2px;padding:0 2px 4px 22px;border:none;font-size:12px;color:var(--muted);white-space:pre-line;overflow-wrap:anywhere;word-break:break-word}
+  .frow .field-detail.open{display:block}
+  .frow .field-detail.warn{color:var(--warn)} .frow .field-detail.error{color:var(--err)}
+  /* icones par type d'action */
+  .actions button.act{display:inline-flex;align-items:center;gap:6px}
+  .actions button.act svg{flex:none}
+  .k-confirm svg{color:var(--warn)} .k-manual svg{color:var(--accent)} .k-immediate svg{color:var(--muted)}
+  .k-manual{border-style:dashed}
+  /* ===== Design system : Dialog (modale in-app reutilisable) ===== */
+  .hds-back{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:50;padding:20px;backdrop-filter:blur(2px)}
+  .hds-back.show{display:flex;animation:hds-fade .12s ease}
+  @keyframes hds-fade{from{opacity:0}to{opacity:1}}
+  .hds-dialog{background:var(--panel);border:1px solid var(--border);border-radius:12px;max-width:520px;width:100%;box-shadow:0 12px 44px rgba(0,0,0,.55);animation:hds-pop .14s ease}
+  @keyframes hds-pop{from{transform:translateY(6px) scale(.98);opacity:.5}to{transform:none;opacity:1}}
+  .hds-dialog-head{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);font-weight:700}
+  .hds-dialog-ic{width:22px;height:22px;flex:0 0 auto;display:none;align-items:center;justify-content:center;border-radius:50%;font-size:13px;font-weight:800}
+  .hds-dialog.has-ic .hds-dialog-ic{display:inline-flex}
+  .hds-dialog--warn .hds-dialog-ic{color:var(--warn);background:var(--warn-bg)}
+  .hds-dialog--danger .hds-dialog-ic{color:var(--err);background:var(--err-bg)}
+  .hds-dialog--info .hds-dialog-ic{color:var(--accent);background:rgba(56,139,253,.14)}
+  .hds-x{margin-left:auto;background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1}
+  .hds-dialog-body{padding:16px;white-space:pre-line;line-height:1.55;max-height:60vh;overflow:auto}
+  .hds-dialog-foot{display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid var(--border);flex-wrap:wrap}
+  .hds-dialog-foot:empty{display:none}
+  /* Boutons reutilisables */
+  .hds-btn{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);padding:8px 16px;font-weight:600;transition:.15s}
+  .hds-btn:hover{border-color:var(--accent)}
+  .hds-btn--primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .hds-btn--primary:hover{filter:brightness(1.08)}
+  .hds-btn--danger{background:var(--err);border-color:var(--err);color:#fff}
+  .hds-btn--danger:hover{filter:brightness(1.08)}
+  .hds-btn--ghost{background:transparent}
+  .hds-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+</head>
+<body>
+<header>
+  <div class="title"><span id="appTitle">…</span> <small>Vigie</small></div>
+  <div class="global" id="global"><span class="dot"></span><span id="globalTxt">—</span></div>
+  <div class="spacer"></div>
+  <div class="meta" id="lastRefresh">—</div>
+  <button id="btnRefresh" onclick="refresh()">↻ Rafraîchir</button>
+  <button class="bell" id="bellBtn" onclick="toggleDrawer()" title="Notifications">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22a2.4 2.4 0 0 0 2.4-2h-4.8A2.4 2.4 0 0 0 12 22zm7-6v-5.2C19 7.6 17 5.1 14.2 4.4V4a2.2 2.2 0 0 0-4.4 0v.4C7 5.1 5 7.6 5 10.8V16l-2 2v1h18v-1l-2-2z"/></svg>
+    <span id="bellCount" class="bell-count"></span>
+  </button>
+  <button onclick="toggleTheme()" id="themeBtn">☀ Clair</button>
+</header>
+<div class="modebar neutral" id="modebar"></div>
+<main id="app"></main>
+<div class="toast-stack" id="toastStack"></div>
+<div class="drawer-back" id="drawerBack" onclick="toggleDrawer()"></div>
+<aside class="drawer" id="drawer" aria-label="Notifications">
+  <div class="drawer-head"><span>Notifications</span>
+    <button class="drawer-clear" onclick="clearNotifs()" title="Tout effacer">Tout effacer</button>
+    <button class="drawer-x" onclick="toggleDrawer()" title="Fermer" aria-label="Fermer">×</button></div>
+  <div class="drawer-body" id="drawerBody"></div>
+</aside>
+<div class="hds-back" id="hdsBack">
+  <div class="hds-dialog" role="dialog" aria-modal="true" aria-labelledby="hdsTitle">
+    <div class="hds-dialog-head"><span class="hds-dialog-ic" id="hdsIc"></span><span id="hdsTitle"></span><button class="hds-x" id="hdsX" title="Fermer" aria-label="Fermer">×</button></div>
+    <div class="hds-dialog-body" id="hdsBody"></div>
+    <div class="hds-dialog-foot" id="hdsFoot"></div>
+  </div>
+</div>
+
+<script>
+// ===== Detection du mode : API en direct ou mock =====
+const TOKEN = window.API_TOKEN || "";
+const API   = window.API_BASE || "/api/v1";
+const API_MODE = TOKEN && !TOKEN.includes("__");   // jeton reel injecte par le back
+const openDetails = new Set();     // details deplies conserves entre refresh
+let fieldsByKey = {};              // index des champs pour la remediation
+const ICONS = {
+  immediate:'<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>',
+  confirm:'<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M4 5h16a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V6a1 1 0 011-1zm1 3v9h14V8H5zm1.6-1.9a.9.9 0 100 1.8.9.9 0 000-1.8z"/></svg>',
+  manual:'<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7zM19 19H5V5h7V3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7h-2v7z"/></svg>'
+};
+const KIND_LABEL = { immediate:'Action immédiate', confirm:'Ouvre une fenêtre de confirmation', manual:'Ouvre un logiciel externe' };
+
+// Mock inline = ultime repli si ni API ni fichier mock accessibles (file://).
+const INLINE_MOCK = {
+  generatedAt: new Date().toISOString(),
+  themes: [{id:"windows-update",label:"Windows Update"}],
+  modules: [{ id:"wu-lock", theme:"windows-update", label:"Verrouillage des mises à jour", status:"warn",
+    fields:[{key:"info",label:"Mode",value:"maquette (aucune donnée réelle)",kind:"text"}],
+    actions:[] }]
+};
+
+function withTimeout(ms){ const c=new AbortController(); const id=setTimeout(()=>c.abort(),ms); return {signal:c.signal,done:()=>clearTimeout(id)}; }
+async function fetchState(){
+  if (API_MODE){
+    const t=withTimeout(90000);
+    try {
+      const r = await fetch(API + "/state", { headers:{ Authorization:"Bearer "+TOKEN }, signal:t.signal });
+      if(!r.ok) throw new Error("API "+r.status);
+      return { data: await r.json(), mode:"live" };
+    } finally { t.done(); }
+  }
+  try {
+    const r = await fetch("./mock/state.json");
+    if(!r.ok) throw new Error();
+    return { data: await r.json(), mode:"mock" };
+  } catch(e){
+    return { data: INLINE_MOCK, mode:"mock" };
+  }
+}
+
+const STATUS_RANK = { neutral:0, ok:0, warn:1, error:2 };
+function esc(s){ return (''+(s==null?'':s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmt(f){
+  if(f.kind==="bool") return f.value?'Oui':'Non';
+  if(f.kind==="number") return `${f.value}${f.unit?(' '+f.unit):''}`;
+  if(f.kind==="date"){ const d=new Date(f.value);
+    return isNaN(d)?(f.value||'—'):d.toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); }
+  return f.value;
+}
+
+let themeLabels={};
+let lastModules=[];
+let hiddenThemes=new Set();
+function applyFilter(){
+  document.querySelectorAll('.masonry .card[data-theme]').forEach(c=>{
+    c.style.display = hiddenThemes.has(c.dataset.theme) ? 'none' : '';
+  });
+}
+function toggleGroup(id){
+  if(hiddenThemes.has(id)) hiddenThemes.delete(id); else hiddenThemes.add(id);
+  document.querySelectorAll('.fchip[data-theme="'+id+'"]').forEach(b=>b.classList.toggle('active', !hiddenThemes.has(id)));
+  applyFilter();
+}
+
+// Rendu d'UNE carte (reutilise par le rendu complet ET le rafraichissement par carte).
+function cardHtml(m, groupLabel){
+  const st=['ok','warn','error','neutral'].includes(m.status)?m.status:'neutral';
+  const stTxt={ok:'Conforme',warn:'À surveiller',error:'Problème',neutral:'Info'}[st];
+  const stIc={ok:'✓',warn:'!',error:'✕',neutral:'i'}[st];
+  const actById={}; (m.actions||[]).forEach(a=>{ actById[a.id]=a; });
+  const usedAsFix=new Set();
+  const fields=(m.fields||[]).map(f=>{
+    const stt=f.status||'neutral';
+    const key=m.id+'::'+f.key;
+    const fa=f.fixAction?actById[f.fixAction]:null;
+    const fkind = fa ? (fa.kind||'immediate') : (f.fixAction ? 'confirm' : 'manual');
+    const fconfirm = fa ? !!fa.confirm : true;
+    fieldsByKey[key]=Object.assign({},f,{moduleId:m.id,fixKind:fkind,fixConfirm:fconfirm});
+    const help=(f.help||'').replace(/"/g,'&quot;');
+    const isProblem=(stt==='warn'||stt==='error');
+    const info=(f.help||f.guide)?`<button class="fhelp ${stt}" title="${help}" onclick="toggleDetail(this)"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5.5" r="2.3"/><rect x="9.7" y="9.5" width="4.6" height="10.5" rx="2.3"/></svg></button>`:'';
+    const solveLbl = fa ? fa.label : 'Résoudre';
+    if(isProblem && f.fixAction) usedAsFix.add(f.fixAction);
+    const solve=(isProblem && f.fixAction)?`<button class="fsolve ${stt} k-${fkind}" title="${esc(solveLbl)} — ${KIND_LABEL[fkind]}" onclick="solveField('${key}',this)">${ICONS[fkind]||''}<span>${esc(solveLbl)}</span></button>`:'';
+    const detTxt=(f.guide||f.help||'');
+    const open=openDetails.has(key)?' open':'';
+    const det=detTxt?`<div class="field-detail ${stt}${open}" data-k="${key}">${esc(detTxt)}</div>`:'';
+    return `<div class="frow">
+      <div class="field"><span class="k"><span class="fdot ${stt}"></span><span class="fk-label${detTxt?' clickable':''}"${detTxt?' onclick="toggleDetail(this)"':''}>${f.label}</span>${info}</span><span class="v v-${stt}">${fmt(f)}</span></div>
+      ${det}
+      ${solve?`<div class="frow-actions">${solve}</div>`:''}
+    </div>`;
+  }).join('');
+  const busy=!!m.busy;
+  const actions=(m.actions||[]).filter(a=>!usedAsFix.has(a.id)).map(a=>{
+    const h=(a.help||'').replace(/"/g,'&quot;');
+    const kind=a.kind||'immediate';
+    const bcls=busy?' busy':''; const dis=busy?' disabled':'';
+    const inner=busy?'<span class="spin"></span>En cours…':`${ICONS[kind]||''}<span>${a.label}</span>`;
+    return `<button class="act k-${kind}${bcls}"${dis} data-a="${a.id}" data-m="${m.id}" data-c="${a.confirm?1:0}" data-h="${h}" title="${h||a.label}">${inner}</button>`;
+  }).join('');
+  return `<div class="card st-${st}${m.busy?' busy':''}" data-module="${m.id}" data-theme="${m.theme}">
+    <div class="card-head">
+      <div class="card-titles"><span class="card-group">${esc(groupLabel||'')}</span><span class="name">${m.label}</span></div>
+      <span class="badge ${st}"><span class="ic">${stIc}</span>${stTxt}</span>
+      <button class="card-refresh" title="Rafraîchir cette carte" onclick="refreshCard('${m.id}',this)"><span class="cr-ic">↻</span></button>
+    </div>
+    <div class="fields">${fields}</div>
+    ${actions?`<div class="actions">${actions}</div>`:''}
+  </div>`;
+}
+
+function wireCardActions(root){
+  (root||document).querySelectorAll('.actions button').forEach(b=>b.onclick=()=>doAction(b.dataset.a,b.dataset.m,b.dataset.c==='1',b.textContent,b.dataset.h,b));
+}
+
+function renderState(s, mode){
+  const app=document.getElementById('app'); app.innerHTML='';
+  fieldsByKey={};
+  themeLabels={}; (s.themes||[]).forEach(t=>{ themeLabels[t.id]=t.label; });
+  lastModules=(s.modules||[]).slice();
+  let worst='ok';
+  let html='';
+  (s.themes||[]).forEach(theme=>{
+    (s.modules||[]).filter(m=>m.theme===theme.id).forEach(m=>{
+      if(STATUS_RANK[m.status]>STATUS_RANK[worst]) worst=m.status;
+      html+=cardHtml(m, theme.label);
+    });
+  });
+  (s.modules||[]).filter(m=>!themeLabels[m.theme]).forEach(m=>{
+    if(STATUS_RANK[m.status]>STATUS_RANK[worst]) worst=m.status;
+    html+=cardHtml(m, m.theme||'');
+  });
+  // Filtre rapide par groupe (afficher/masquer)
+  const themesWithMods=(s.themes||[]).filter(t=>(s.modules||[]).some(m=>m.theme===t.id));
+  if(themesWithMods.length>1){
+    const fbar=document.createElement('div'); fbar.className='filterbar';
+    fbar.innerHTML='<span class="flabel">Groupes</span>'+themesWithMods.map(t=>{
+      const active=!hiddenThemes.has(t.id);
+      return `<button class="fchip${active?' active':''}" data-theme="${t.id}" onclick="toggleGroup('${t.id}')">${esc(t.label)}</button>`;
+    }).join('');
+    app.appendChild(fbar);
+  }
+  const masonry=document.createElement('div'); masonry.className='masonry';
+  masonry.innerHTML=html;
+  app.appendChild(masonry);
+  wireCardActions(masonry);
+  applyFilter();
+  const g=document.getElementById('global'), gt=document.getElementById('globalTxt');
+  // Topbar = sante globale (worst). Liseré = etat de la connexion a l'API (live / maquette / erreur).
+  const col=worst==='ok'?'var(--ok)':(worst==='warn'?'var(--warn)':'var(--err)');
+  g.querySelector('.dot').style.cssText=`width:9px;height:9px;border-radius:50%;background:${col}`;
+  gt.textContent=worst==='ok'?'Tout est conforme':(worst==='warn'?'Points à surveiller':'Action requise');
+  gt.style.color=col;
+  document.getElementById('lastRefresh').textContent='Mis à jour à '+new Date().toLocaleTimeString('fr-FR');
+  const at=document.getElementById('appTitle'); if(at && s.host){ at.textContent=s.host; document.title=s.host+' — Vigie'; }
+  const mb=document.getElementById('modebar'); mb.className='modebar '+(mode==='live'?'ok':'warn'); mb.title=(mode==='live'?'Connecté à l\'API locale (données réelles)':'Maquette — back non lancé'); mb.textContent='';
+}
+
+// Remplace le DOM d'une carte par son rendu a jour. Renvoie l'element cree (ou null).
+function replaceCardDom(m){
+  const sel='.card[data-module="'+((window.CSS&&CSS.escape)?CSS.escape(m.id):m.id)+'"]';
+  const card=document.querySelector(sel);
+  if(!card) return null;
+  const tmp=document.createElement('div');
+  tmp.innerHTML=cardHtml(m, themeLabels[m.theme]||m.theme||'');
+  const fresh=tmp.firstElementChild;
+  card.replaceWith(fresh);
+  wireCardActions(fresh);
+  const i=(lastModules||[]).findIndex(x=>x.id===m.id);
+  if(i>=0) lastModules[i]=m; else lastModules.push(m);
+  return fresh;
+}
+// Recupere l'etat d'un module (live) ou le dernier connu (maquette).
+async function fetchModule(moduleId){
+  if(API_MODE){
+    try{
+      const r=await fetch(API+'/modules/'+encodeURIComponent(moduleId),{ headers:{ Authorization:'Bearer '+TOKEN } });
+      if(r.ok) return await r.json();
+    }catch(e){}
+    return null;
+  }
+  return (lastModules||[]).find(x=>x.id===moduleId)||null;
+}
+// Rafraichit UNE seule carte (via GET /modules/:id), sans recharger toute la page.
+async function refreshCard(moduleId, btn){
+  const sel='.card[data-module="'+((window.CSS&&CSS.escape)?CSS.escape(moduleId):moduleId)+'"]';
+  const card=document.querySelector(sel);
+  if(!card) return;
+  card.classList.add('card-loading');
+  const m=await fetchModule(moduleId);
+  if(m){ replaceCardDom(m); } else { card.classList.remove('card-loading'); }
+}
+// Interroge une carte jusqu'a la fin d'une tache de fond (m.busy faux), sans bloquer.
+async function pollCardUntilIdle(moduleId, entry, name){
+  const startTs=Date.now(), maxMs=180000;
+  let delay=1400;
+  async function tick(){
+    const m=await fetchModule(moduleId);
+    if(m) replaceCardDom(m);
+    const stillBusy = m && m.busy;
+    if(stillBusy && (Date.now()-startTs)<maxMs){
+      delay=Math.min(delay+400, 4000);
+      setTimeout(tick, delay);
+    } else if(stillBusy){
+      if(entry) updateNotif(entry,'error', name+' : délai dépassé, toujours en cours.');
+    } else {
+      if(entry) updateNotif(entry,'done', name+' : terminé.');
+    }
+  }
+  setTimeout(tick, 900);
+}
+
+// ===== Notifications : toasts auto-dismiss + drawer (historique, supprimable) =====
+function heure(d){ return d.toLocaleTimeString('fr-FR'); }
+let notifs=[]; let toastEls={}; let nextNotifId=1;
+function addNotif(label, status, message){
+  const n={ id:nextNotifId++, label, message, status, ts:new Date() };
+  notifs.unshift(n); showToast(n); renderDrawer(); updateBell(); return n;
+}
+function updateNotif(n, status, message){
+  n.status=status; n.message=message; n.ts=new Date(); showToast(n); renderDrawer();
+}
+function toastHtml(n){
+  return `<span class="t-dot ${n.status}"></span><div class="t-body"><span class="t-label">${esc(n.label)}</span><span class="t-msg">${esc(n.message||'')}</span></div><button class="t-x" title="Fermer" onclick="dismissToast(${n.id})">×</button>`;
+}
+function showToast(n){
+  const stack=document.getElementById('toastStack'); if(!stack) return;
+  let rec=toastEls[n.id];
+  if(!rec){ const el=document.createElement('div'); el.className='toast'; stack.appendChild(el); rec={el,timer:null}; toastEls[n.id]=rec; requestAnimationFrame(()=>el.classList.add('show')); }
+  rec.el.className='toast show '+n.status;
+  rec.el.innerHTML=toastHtml(n);
+  if(rec.timer){ clearTimeout(rec.timer); rec.timer=null; }
+  if(n.status==='done') rec.timer=setTimeout(()=>dismissToast(n.id), 4500);
+  else if(n.status==='error') rec.timer=setTimeout(()=>dismissToast(n.id), 9000);
+}
+function dismissToast(id){
+  const rec=toastEls[id]; if(!rec) return;
+  if(rec.timer) clearTimeout(rec.timer);
+  rec.el.classList.remove('show');
+  setTimeout(()=>{ if(rec.el&&rec.el.parentNode) rec.el.remove(); }, 220);
+  delete toastEls[id];
+}
+function deleteNotif(id){ notifs=notifs.filter(n=>n.id!==id); dismissToast(id); renderDrawer(); updateBell(); }
+function clearNotifs(){ notifs.slice().forEach(n=>dismissToast(n.id)); notifs=[]; renderDrawer(); updateBell(); }
+function renderDrawer(){
+  const body=document.getElementById('drawerBody'); if(!body) return;
+  if(!notifs.length){ body.innerHTML='<div class="drawer-empty">Aucune notification.</div>'; return; }
+  body.innerHTML=notifs.map(n=>{
+    const chip=n.status==='running'?'<span class="spin"></span>En cours':n.status==='done'?'✓ Réussi':'✕ Échec';
+    return `<div class="dn ${n.status}">
+      <div class="dn-head"><span class="t-dot ${n.status}"></span><span class="dn-label">${esc(n.label)}</span>
+        <button class="dn-del" title="Supprimer" onclick="deleteNotif(${n.id})">×</button></div>
+      <div class="dn-msg">${esc(n.message||'')}</div>
+      <div class="dn-time">${chip} — ${heure(n.ts)}</div>
+    </div>`;
+  }).join('');
+}
+function updateBell(){ const b=document.getElementById('bellCount'); if(!b) return; b.textContent=notifs.length; b.style.display=notifs.length?'inline-flex':'none'; }
+function toggleDrawer(){ const d=document.getElementById('drawer'); const bk=document.getElementById('drawerBack'); const open=d.classList.toggle('open'); if(bk) bk.classList.toggle('show', open); }
+
+function toggleDetail(btn){
+  const t=btn.closest('.frow'); const d=t&&t.querySelector('.field-detail');
+  if(!d) return;
+  d.classList.toggle('open');
+  const k=d.dataset.k;
+  if(k){ if(d.classList.contains('open')) openDetails.add(k); else openDetails.delete(k); }
+}
+function solveField(key,btn){
+  const f=fieldsByKey[key]; if(!f) return;
+  const text=f.guide||f.help||'Aucune instruction disponible.';
+  if(f.fixAction){ doAction(f.fixAction, f.moduleId, f.fixConfirm!==false, 'Résoudre : '+f.label, text, btn); }
+  else { openModal('Résoudre : '+f.label, text); }
+}
+// ===== Design system : Dialog reutilisable (modales in-app) =====
+// HDS.open(opts) -> Promise(valeur du bouton clique)
+// HDS.confirm({title,body,confirmLabel,cancelLabel,danger}) -> Promise(bool)
+// HDS.info(title, body) -> Promise (bouton Fermer)
+const HDS = (function(){
+  const back=document.getElementById('hdsBack');
+  const dlg=back.querySelector('.hds-dialog');
+  const elTitle=document.getElementById('hdsTitle');
+  const elBody=document.getElementById('hdsBody');
+  const elFoot=document.getElementById('hdsFoot');
+  const elIc=document.getElementById('hdsIc');
+  const elX=document.getElementById('hdsX');
+  const ICON={info:'i',warn:'!',danger:'!'};
+  let resolver=null, lastFocus=null, cancelValue=null;
+
+  function settle(v){
+    if(!resolver) return;
+    const r=resolver; resolver=null;
+    back.classList.remove('show');
+    document.removeEventListener('keydown',onKey,true);
+    if(lastFocus&&lastFocus.focus){ try{lastFocus.focus();}catch(e){} }
+    r(v);
+  }
+  function onKey(e){
+    if(e.key==='Escape'){ e.preventDefault(); settle(cancelValue); }
+    else if(e.key==='Enter'){ const b=elFoot.querySelector('[data-default]'); if(b){ e.preventDefault(); b.click(); } }
+    else if(e.key==='Tab'){
+      const f=dlg.querySelectorAll('button'); if(!f.length) return;
+      const first=f[0], last=f[f.length-1];
+      if(e.shiftKey&&document.activeElement===first){ e.preventDefault(); last.focus(); }
+      else if(!e.shiftKey&&document.activeElement===last){ e.preventDefault(); first.focus(); }
+    }
+  }
+  function open(opts){
+    opts=opts||{};
+    const variant=opts.variant||'info';
+    cancelValue=('cancelValue' in opts)?opts.cancelValue:null;
+    elTitle.textContent=opts.title||'';
+    elBody.textContent=opts.body||'';
+    dlg.className='hds-dialog hds-dialog--'+variant+(opts.icon===false?'':' has-ic');
+    elIc.textContent=ICON[variant]||'i';
+    elX.style.display=(opts.dismissable===false)?'none':'';
+    elFoot.innerHTML='';
+    const actions=opts.actions||[{label:'Fermer',kind:'primary',value:true,default:true}];
+    actions.forEach(a=>{
+      const b=document.createElement('button');
+      b.className='hds-btn'+(a.kind?(' hds-btn--'+a.kind):'');
+      b.textContent=a.label;
+      if(a.default) b.setAttribute('data-default','1');
+      b.onclick=()=>settle('value' in a?a.value:true);
+      elFoot.appendChild(b);
+    });
+    lastFocus=document.activeElement;
+    back.classList.add('show');
+    document.addEventListener('keydown',onKey,true);
+    const def=elFoot.querySelector('[data-default]')||elFoot.querySelector('button');
+    if(def) setTimeout(()=>{ try{def.focus();}catch(e){} },0);
+    return new Promise(res=>{ resolver=res; });
+  }
+  function info(title, body, opts){
+    opts=opts||{};
+    return open({ title, body, variant:opts.variant||'info',
+      actions:[{label:opts.okLabel||'Fermer',kind:'primary',value:true,default:true}] });
+  }
+  function confirm(opts){
+    opts=opts||{};
+    const danger=!!opts.danger;
+    return open({ title:opts.title||'Confirmer', body:opts.body||'',
+      variant:danger?'danger':'warn', cancelValue:false,
+      actions:[
+        {label:opts.cancelLabel||'Annuler',kind:'ghost',value:false},
+        {label:opts.confirmLabel||'Confirmer',kind:danger?'danger':'primary',value:true,default:true}
+      ]});
+  }
+  back.addEventListener('click',e=>{ if(e.target===back) settle(cancelValue); });
+  elX.addEventListener('click',()=>settle(cancelValue));
+  return { open, info, confirm, close:()=>settle(cancelValue) };
+})();
+
+// Compat : anciens appels -> HDS
+function openModal(title, body){ HDS.info(title, body); }
+function closeModal(){ HDS.close(); }
+function setBtnBusy(btn){
+  if(!btn||btn.dataset.busy) return;
+  btn.dataset.busy='1';
+  btn.dataset.prevHtml=btn.innerHTML;
+  btn.style.minWidth=btn.offsetWidth+'px';
+  btn.disabled=true; btn.classList.add('busy');
+  btn.innerHTML='<span class="spin"></span>En cours…';
+}
+function clearBtnBusy(btn){
+  if(!btn||!btn.dataset.busy) return;
+  btn.innerHTML=btn.dataset.prevHtml;
+  btn.disabled=false; btn.classList.remove('busy');
+  btn.style.minWidth='';
+  delete btn.dataset.busy; delete btn.dataset.prevHtml;
+}
+async function doAction(type,module,confirmNeeded,label,help,btnEl){
+  const name = label || type;
+  if(confirmNeeded){
+    const ok = await HDS.confirm({
+      title: name,
+      body: (help ? help + '\n\n' : '') + 'Confirmer cette action ?',
+      confirmLabel: 'Confirmer', cancelLabel: 'Annuler'
+    });
+    if(!ok) return;
+  }
+  setBtnBusy(btnEl);
+  const entry=addNotif(name, 'running', 'Envoi de la commande…');
+  if(!API_MODE){ updateNotif(entry,'done','(maquette) POST /actions {type:"'+type+'"}'); clearBtnBusy(btnEl); return; }
+  try{
+    const r=await fetch(API+"/actions",{ method:"POST",
+      headers:{ "Content-Type":"application/json", Authorization:"Bearer "+TOKEN },
+      body: JSON.stringify({ type, module }) });
+    const j=await r.json().catch(()=>({}));
+    const okFlag = !j.result || j.result.ok!==false;   // result.ok===false => echec logique meme si HTTP 200
+    const st = (r.ok && j.status==='done' && okFlag) ? 'done' : 'error';
+    const msg = (j.message || j.status || ('HTTP '+r.status)) + (j.jobId ? ('  [job '+j.jobId+']') : '');
+    if(st==='done' && j.result && j.result.async){
+      // Action longue non bloquante : la carte passe en "en cours" et s'actualise seule.
+      const pollMod = j.result.module || module;
+      updateNotif(entry, 'running', j.message || (name+' : en cours…'));
+      clearBtnBusy(btnEl);
+      if(pollMod){ refreshCard(pollMod); pollCardUntilIdle(pollMod, entry, name); }
+      return;
+    }
+    updateNotif(entry, st, msg);
+    clearBtnBusy(btnEl);
+    setTimeout(()=>{ if(module){ refreshCard(module); } else { refresh(); } }, 700);
+  }catch(e){ updateNotif(entry,'error','Erreur : '+e.message); clearBtnBusy(btnEl); }
+}
+
+function setLoading(on){
+  const btn=document.getElementById('btnRefresh');
+  if(btn){ btn.disabled=on; btn.innerHTML = on ? '<span class="spin"></span> Actualisation…' : '↻ Rafraîchir'; }
+  // Non bloquant : on garde les cartes existantes pendant l'actualisation.
+  // Seulement au TOUT premier chargement (aucune carte), on affiche un repere.
+  const app=document.getElementById('app');
+  if(on && app && !app.querySelector('.masonry')){
+    app.innerHTML='<div class="loading-note"><span class="spin"></span> Chargement du panneau…</div>';
+  }
+}
+async function refresh(){
+  setLoading(true);
+  try{
+    const {data,mode}=await fetchState();
+    if(mode==='live' && data && data.version && window.APP_VERSION && !window.APP_VERSION.includes('__') && data.version!==window.APP_VERSION){ location.reload(); return; }
+    renderState(data,mode);
+  }
+  catch(e){
+    const mb=document.getElementById('modebar'); mb.className='modebar err'; mb.title='Connexion à l\'API impossible'; mb.textContent='';
+    const msg = (e && e.name==='AbortError') ? 'délai dépassé — le premier calcul peut être long (sondes système). Réessayez dans un instant.' : (e && e.message ? e.message : e);
+    const gt=document.getElementById('globalTxt'); if(gt){ gt.textContent='Erreur : '+msg; gt.style.color='var(--err)'; }
+    const gdot=document.querySelector('#global .dot'); if(gdot){ gdot.style.cssText='width:9px;height:9px;border-radius:50%;background:var(--err)'; }
+  }
+  finally{ setLoading(false); }
+}
+async function checkVersion(){
+  try{
+    if(!window.APP_VERSION || window.APP_VERSION.includes('__')) return;
+    const r=await fetch(API+'/health'); if(!r.ok) return;
+    const j=await r.json();
+    if(j && j.version && j.version!==window.APP_VERSION) location.reload();
+  }catch(e){}
+}
+
+let dark=true;
+function toggleTheme(){ dark=!dark;
+  document.documentElement.setAttribute('data-theme',dark?'':'light');
+  document.getElementById('themeBtn').textContent=dark?'☀ Clair':'☾ Sombre'; }
+let toastT;
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),3200); }
+
+refresh();
+setInterval(refresh, 60000);      // rafraichissement auto (60 s)
+setInterval(checkVersion, 15000); // rechargement auto si la version serveur change
+</script>
+</body>
+</html>

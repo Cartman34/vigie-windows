@@ -1,0 +1,169 @@
+openapi: 3.0.3
+info:
+  title: HYPERION Control Panel API
+  version: "1.0.0"
+  description: >
+    Contrat REST du panneau de controle local. SOURCE DE VERITE : le front et
+    tout back (Pode, Node, .NET, Go, PHP...) doivent s'y conformer. L'etat est
+    une liste de "modules" generiques regroupes par "theme" ; ajouter une sonde
+    n'entraine AUCUNE modification de ce contrat.
+servers:
+  - url: http://127.0.0.1:47600/api/v1
+    description: Instance locale (ecoute strictement locale)
+security:
+  - bearerAuth: []
+paths:
+  /health:
+    get:
+      summary: Verifie que le service repond
+      security: []
+      responses:
+        "200": { description: OK }
+  /state:
+    get:
+      summary: Instantane complet de l'etat (tous les modules)
+      responses:
+        "200":
+          description: Etat courant
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/State" }
+  /modules/{id}:
+    get:
+      summary: Etat d'un module precis
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Module
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Module" }
+        "404": { description: Module inconnu }
+  /actions:
+    post:
+      summary: Declenche une action (synchrone ou longue)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ActionRequest" }
+      responses:
+        "200":
+          description: Action synchrone terminee
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        "202":
+          description: Action longue acceptee (suivre via /actions/{jobId})
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        "400": { description: Requete invalide }
+  /actions/{jobId}:
+    get:
+      summary: Statut d'une action longue
+      parameters:
+        - { name: jobId, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Statut
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        "404": { description: Job inconnu }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    State:
+      type: object
+      required: [generatedAt, themes, modules]
+      properties:
+        generatedAt: { type: string, format: date-time }
+        themes:
+          type: array
+          items: { $ref: "#/components/schemas/Theme" }
+        modules:
+          type: array
+          items: { $ref: "#/components/schemas/Module" }
+    Theme:
+      type: object
+      required: [id, label]
+      properties:
+        id: { type: string, example: windows-update }
+        label: { type: string, example: Windows Update }
+        icon: { type: string, description: nom d'icone optionnel }
+    Module:
+      type: object
+      required: [id, theme, label, status, fields, actions]
+      properties:
+        id: { type: string, example: wu-lock }
+        theme: { type: string, example: windows-update }
+        label: { type: string }
+        status:
+          type: string
+          enum: [ok, warn, error]
+        fields:
+          type: array
+          items: { $ref: "#/components/schemas/Field" }
+        actions:
+          type: array
+          items: { $ref: "#/components/schemas/Action" }
+    Field:
+      type: object
+      required: [key, label, value, kind]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        value: {}
+        kind:
+          type: string
+          enum: [bool, number, text, date]
+        unit: { type: string }
+        status:
+          type: string
+          enum: [ok, warn, error, neutral]
+          description: statut de ce parametre precis (pastille de couleur)
+        fixAction:
+          type: string
+          description: id d'action a executer pour resoudre (si programmable)
+        guide:
+          type: string
+          description: instructions manuelles (affichees en popin si pas d'action)
+        help: { type: string }
+    Action:
+      type: object
+      required: [id, label]
+      properties:
+        id: { type: string, example: update-mode-on }
+        label: { type: string }
+        confirm: { type: boolean, description: demander confirmation avant execution }
+        help: { type: string, description: explication affichee en tooltip et dans la confirmation }
+        kind: { type: string, enum: [immediate, confirm, manual], description: nature de l'action (icone) }
+        params:
+          type: object
+          additionalProperties: true
+    ActionRequest:
+      type: object
+      required: [type]
+      properties:
+        type: { type: string, example: update-mode-on }
+        module: { type: string }
+        params:
+          type: object
+          additionalProperties: true
+    Job:
+      type: object
+      required: [jobId, status]
+      properties:
+        jobId: { type: string }
+        status:
+          type: string
+          enum: [running, done, error]
+        message: { type: string }
+        result:
+          type: object
+          additionalProperties: true
