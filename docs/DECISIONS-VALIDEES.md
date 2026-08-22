@@ -234,3 +234,26 @@ fonctionne donc sans configuration, avec ces actions désactivées.
 `localhost` en littéral. Ce n'est **pas** une copie de `BindAddress` mais la liste des
 origines de **bouclage**, volontairement fixe : même si `BindAddress` changeait, seule une
 origine locale doit être acceptée. Le port, lui, dérive bien de la config.
+
+## D19 — Menu du tray : style Windows 11
+
+Le menu contextuel de la barre système suit la référence « menu sombre arrondi type Win11 » :
+
+- **Coins arrondis natifs** via DWM (`DwmSetWindowAttribute`, `DWMWA_WINDOW_CORNER_PREFERENCE`
+  = `DWMWCP_ROUND`), et non par découpe de région : on conserve l'anticrénelage et l'ombre
+  système. Couleur de bordure posée par `DWMWA_BORDER_COLOR`. Appliqué à chaque ouverture
+  (idempotent, le menu peut recréer son handle).
+- **Survol encarté et arrondi** (rayon 5 px, marge latérale 5 px) au lieu d'une bande pleine
+  largeur — c'est la différence la plus visible avec le rendu WinForms par défaut.
+- **Items de 32 px** (mesuré), séparateurs fins et encartés alignés sur les mêmes marges.
+- Palette définie **une seule fois** dans `VigieMenuPalette` (**D15**) : la table de couleurs
+  et le renderer y puisent tous les deux.
+- Couleur et hauteur des items sont posées par **une seule boucle** sur `$menu.Items`, plus
+  item par item.
+
+Tout échec (compilation, DWM) retombe silencieusement sur le rendu par défaut : le menu reste
+utilisable. Sur une version antérieure à Windows 11, l'appel DWM échoue sans dommage.
+
+**Piège à retenir** : `System.Drawing` est scindé en plusieurs assemblages — `Color` vient de
+`System.Drawing.Primitives`, `Graphics` et `GraphicsPath` de `System.Drawing.Common`. Un
+`Add-Type` qui ne référence que le premier échoue sur `Drawing2D`.

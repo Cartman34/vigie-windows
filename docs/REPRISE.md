@@ -46,7 +46,9 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
    + `config.local.psd1` (ignoré par git) + `config.local.sample.psd1`. `ToolsPath` optionnel,
    URL et port dérivés d'un seul endroit (`Get-AppUrl` / `Get-ApiUrl` / `Get-ToolsPath` /
    `Get-AdminRoot`), plus aucune valeur en dur (**D15**).
-4. **Style du menu contextuel du tray** (référence : menu sombre arrondi type Win11) — pas encore satisfaisant.
+4. ~~Style du menu contextuel du tray~~ — **FAIT** (**D19**) : coins arrondis natifs DWM,
+   survol encarté arrondi, items de 32 px, séparateurs encartés, palette définie une seule fois.
+   **À juger à l'œil** : le rendu n'a pas pu être vu depuis la session de l'agent — relancer le tray.
 5. **Terminer le retrait du nom de machine** dans le code — **défaut de généricité**, pas un point
    cosmétique : le produit ne doit contenir aucune valeur propre à un PC donné.
    Fait : tâche planifiée `Vigie`, raccourci `Vigie.url`, mutex `Local\VigieState_*` et

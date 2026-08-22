@@ -29,6 +29,8 @@ $uiScript = {
         Add-Type -AssemblyName System.Windows.Forms
         Add-Type -AssemblyName System.Drawing
         Add-Type -Namespace VigieNative -Name Ico -MemberDefinition '[System.Runtime.InteropServices.DllImport("user32.dll")] public static extern bool DestroyIcon(System.IntPtr handle);'
+        # Coins arrondis Windows 11 : sans effet sur les versions anterieures (l'appel echoue sans dommage).
+        Add-Type -Namespace VigieNative -Name Dwm -MemberDefinition '[System.Runtime.InteropServices.DllImport("dwmapi.dll")] public static extern int DwmSetWindowAttribute(System.IntPtr hwnd, int attr, ref int value, int size);'
 
         $cfg       = Get-Config -Backend $backend
         $url       = Get-AppUrl -Config $cfg
@@ -133,54 +135,150 @@ $uiScript = {
         $menu = New-Object System.Windows.Forms.ContextMenuStrip
         $menu.ShowImageMargin = $false
         try { $menu.Font = New-Object System.Drawing.Font('Segoe UI', 9.5) } catch { }
+        # --- Style Win11 : coins arrondis natifs (DWM), survol encarte arrondi ---
+        # Tout echec retombe silencieusement sur le rendu par defaut : le menu reste
+        # utilisable meme si le style ne s'applique pas.
         try {
-            $csrc = @"
-public class VigieDarkColors : System.Windows.Forms.ProfessionalColorTable {
-  static System.Drawing.Color BG = System.Drawing.Color.FromArgb(28,33,40);
-  static System.Drawing.Color HI = System.Drawing.Color.FromArgb(55,62,71);
-  static System.Drawing.Color BD = System.Drawing.Color.FromArgb(68,76,86);
-  public override System.Drawing.Color ToolStripDropDownBackground { get { return BG; } }
-  public override System.Drawing.Color ImageMarginGradientBegin { get { return BG; } }
-  public override System.Drawing.Color ImageMarginGradientMiddle { get { return BG; } }
-  public override System.Drawing.Color ImageMarginGradientEnd { get { return BG; } }
-  public override System.Drawing.Color MenuBorder { get { return BD; } }
-  public override System.Drawing.Color MenuItemBorder { get { return HI; } }
-  public override System.Drawing.Color MenuItemSelected { get { return HI; } }
-  public override System.Drawing.Color MenuItemSelectedGradientBegin { get { return HI; } }
-  public override System.Drawing.Color MenuItemSelectedGradientEnd { get { return HI; } }
-  public override System.Drawing.Color MenuItemPressedGradientBegin { get { return BG; } }
-  public override System.Drawing.Color MenuItemPressedGradientEnd { get { return BG; } }
-  public override System.Drawing.Color SeparatorDark { get { return BD; } }
-  public override System.Drawing.Color SeparatorLight { get { return BD; } }
+            $csrc = @'
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Windows.Forms;
+
+// Palette du menu. Une seule definition des couleurs, partagee par la table et le rendu.
+public static class VigieMenuPalette {
+  public static readonly Color Surface   = Color.FromArgb(43, 48, 56);
+  public static readonly Color Hover     = Color.FromArgb(60, 67, 77);
+  public static readonly Color Border    = Color.FromArgb(68, 76, 86);
+  public static readonly Color Separator = Color.FromArgb(58, 65, 74);
+  public const int CornerRadius = 5;   // arrondi du survol (les coins du menu sont geres par DWM)
+  public const int InsetX       = 5;   // marge laterale du rectangle de survol
+  public const int InsetY       = 2;
 }
-"@
-            Add-Type -TypeDefinition $csrc -ReferencedAssemblies @([System.Windows.Forms.ToolStrip].Assembly.Location, [System.Drawing.Color].Assembly.Location) -ErrorAction Stop
-            $menu.Renderer = New-Object System.Windows.Forms.ToolStripProfessionalRenderer ([VigieDarkColors]::new())
-            $menu.BackColor = [System.Drawing.Color]::FromArgb(28,33,40)
+
+public class VigieDarkColors : ProfessionalColorTable {
+  public override Color ToolStripDropDownBackground { get { return VigieMenuPalette.Surface; } }
+  public override Color ImageMarginGradientBegin    { get { return VigieMenuPalette.Surface; } }
+  public override Color ImageMarginGradientMiddle   { get { return VigieMenuPalette.Surface; } }
+  public override Color ImageMarginGradientEnd      { get { return VigieMenuPalette.Surface; } }
+  public override Color MenuBorder                  { get { return VigieMenuPalette.Border; } }
+  public override Color MenuItemBorder              { get { return VigieMenuPalette.Hover; } }
+  public override Color MenuItemSelected            { get { return VigieMenuPalette.Hover; } }
+  public override Color MenuItemSelectedGradientBegin { get { return VigieMenuPalette.Hover; } }
+  public override Color MenuItemSelectedGradientEnd   { get { return VigieMenuPalette.Hover; } }
+  public override Color MenuItemPressedGradientBegin  { get { return VigieMenuPalette.Surface; } }
+  public override Color MenuItemPressedGradientEnd    { get { return VigieMenuPalette.Surface; } }
+  public override Color SeparatorDark               { get { return VigieMenuPalette.Separator; } }
+  public override Color SeparatorLight              { get { return VigieMenuPalette.Separator; } }
+}
+
+public class VigieMenuRenderer : ToolStripProfessionalRenderer {
+  public VigieMenuRenderer() : base(new VigieDarkColors()) { this.RoundedEdges = false; }
+
+  static GraphicsPath RoundedRect(Rectangle r, int radius) {
+    int d = radius * 2;
+    GraphicsPath p = new GraphicsPath();
+    if (d <= 0 || r.Width <= d || r.Height <= d) { p.AddRectangle(r); return p; }
+    p.AddArc(r.X, r.Y, d, d, 180, 90);
+    p.AddArc(r.Right - d, r.Y, d, d, 270, 90);
+    p.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90);
+    p.AddArc(r.X, r.Bottom - d, d, d, 90, 90);
+    p.CloseFigure();
+    return p;
+  }
+
+  // Survol : rectangle ENCARTE et arrondi (Win11), et non une bande pleine largeur.
+  protected override void OnRenderMenuItemBackground(ToolStripItemRenderEventArgs e) {
+    if (!e.Item.Selected || !e.Item.Enabled) return;
+    Rectangle b = new Rectangle(Point.Empty, e.Item.Size);
+    Rectangle r = new Rectangle(
+      b.X + VigieMenuPalette.InsetX,
+      b.Y + VigieMenuPalette.InsetY,
+      b.Width  - VigieMenuPalette.InsetX * 2,
+      b.Height - VigieMenuPalette.InsetY * 2);
+    if (r.Width <= 0 || r.Height <= 0) return;
+    SmoothingMode old = e.Graphics.SmoothingMode;
+    e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+    using (GraphicsPath path = RoundedRect(r, VigieMenuPalette.CornerRadius))
+    using (SolidBrush brush = new SolidBrush(VigieMenuPalette.Hover))
+      e.Graphics.FillPath(brush, path);
+    e.Graphics.SmoothingMode = old;
+  }
+
+  // Separateur : trait fin encarte, aligne sur les marges du survol.
+  protected override void OnRenderSeparator(ToolStripSeparatorRenderEventArgs e) {
+    Rectangle b = new Rectangle(Point.Empty, e.Item.Size);
+    int y = b.Top + b.Height / 2;
+    using (Pen pen = new Pen(VigieMenuPalette.Separator))
+      e.Graphics.DrawLine(pen, b.Left + VigieMenuPalette.InsetX + 3, y, b.Right - VigieMenuPalette.InsetX - 3, y);
+  }
+
+  // Fond uni : pas de degrade, pas de bande de marge d'icone.
+  protected override void OnRenderToolStripBackground(ToolStripRenderEventArgs e) {
+    using (SolidBrush brush = new SolidBrush(VigieMenuPalette.Surface))
+      e.Graphics.FillRectangle(brush, e.AffectedBounds);
+  }
+
+  // Bordure geree par DWM (coins arrondis natifs) : ne rien dessiner ici.
+  protected override void OnRenderToolStripBorder(ToolStripRenderEventArgs e) { }
+}
+'@
+            # System.Drawing est scinde : Color vient de System.Drawing.Primitives,
+            # GraphicsPath/Graphics de System.Drawing.Common. Il faut les DEUX.
+            $refs = @(
+                [System.Windows.Forms.ToolStrip].Assembly.Location,
+                [System.Drawing.Color].Assembly.Location,
+                [System.Drawing.Drawing2D.GraphicsPath].Assembly.Location
+            ) | Sort-Object -Unique
+            Add-Type -TypeDefinition $csrc -ReferencedAssemblies $refs -ErrorAction Stop
+            $menu.Renderer  = New-Object VigieMenuRenderer
+            $menu.BackColor = [VigieMenuPalette]::Surface
             $menu.ForeColor = [System.Drawing.Color]::FromArgb(230,237,243)
-            TLog "menu sombre applique"
+            $menu.Padding   = New-Object System.Windows.Forms.Padding(0, 5, 0, 5)
+            TLog "style menu Win11 applique"
         } catch { TLog ("style menu KO (fallback): " + $_.Exception.Message) }
+
+        # Coins arrondis NATIFS via DWM (Windows 11). Applique a chaque ouverture :
+        # idempotent, et la fenetre du menu peut recreer son handle entre deux affichages.
+        $roundCorners = {
+            try {
+                $h = $menu.Handle
+                if ($h -ne [System.IntPtr]::Zero) {
+                    $round = 2                                   # DWMWCP_ROUND
+                    [void][VigieNative.Dwm]::DwmSetWindowAttribute($h, 33, [ref]$round, 4)
+                    $border = 0x00564C44                         # COLORREF (BGR) de #444C56
+                    [void][VigieNative.Dwm]::DwmSetWindowAttribute($h, 34, [ref]$border, 4)
+                }
+            } catch { }
+        }
+        $menu.add_Opened({ & $roundCorners })
 
         $lite = [System.Drawing.Color]::FromArgb(230,237,243)
         $miShow = $menu.Items.Add('Afficher l''application', $null, [System.EventHandler]{ & $openApp })
-        $miShow.ForeColor = $lite
         try { $miShow.Font = New-Object System.Drawing.Font('Segoe UI', 9.5, [System.Drawing.FontStyle]::Bold) } catch { }
-        $miWeb = $menu.Items.Add('Ouvrir dans le navigateur', $null, [System.EventHandler]{ & $openBrowser })
-        $miWeb.ForeColor = $lite
+        [void]$menu.Items.Add('Ouvrir dans le navigateur', $null, [System.EventHandler]{ & $openBrowser })
         [void]$menu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator))
         $miInfo = New-Object System.Windows.Forms.ToolStripLabel('Etat : demarrage...')
         $miInfo.ForeColor = [System.Drawing.Color]::FromArgb(139,148,158)
         [void]$menu.Items.Add($miInfo)
         [void]$menu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator))
-        $mi1 = $menu.Items.Add('Relancer l''application', $null, [System.EventHandler]$relaunch)
-        $mi2 = $menu.Items.Add('Redémarrer le serveur', $null, [System.EventHandler]{ & $stopServer; Start-Sleep -Milliseconds 600; & $startServer })
-        $mi3 = $menu.Items.Add('Ouvrir les journaux', $null, [System.EventHandler]{ Start-Process (Get-LogDir -Backend $backend) })
-        $mi4 = $menu.Items.Add('À propos de Vigie', $null, [System.EventHandler]{ & $openRepo })
-        $mi4.ToolTipText = $repoUrl
-        foreach ($mi in @($mi1,$mi2,$mi3,$mi4)) { $mi.ForeColor = $lite }
+        [void]$menu.Items.Add('Relancer l''application', $null, [System.EventHandler]$relaunch)
+        [void]$menu.Items.Add('Redémarrer le serveur', $null, [System.EventHandler]{ & $stopServer; Start-Sleep -Milliseconds 600; & $startServer })
+        [void]$menu.Items.Add('Ouvrir les journaux', $null, [System.EventHandler]{ Start-Process (Get-LogDir -Backend $backend) })
+        $miAbout = $menu.Items.Add('À propos de Vigie', $null, [System.EventHandler]{ & $openRepo })
+        $miAbout.ToolTipText = $repoUrl
         [void]$menu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator))
-        $miQuit = $menu.Items.Add('Quitter', $null, [System.EventHandler]{ & $stopServer; $icon.Visible = $false; $icon.Dispose(); [System.Windows.Forms.Application]::Exit() })
-        $miQuit.ForeColor = $lite
+        [void]$menu.Items.Add('Quitter', $null, [System.EventHandler]{ & $stopServer; $icon.Visible = $false; $icon.Dispose(); [System.Windows.Forms.Application]::Exit() })
+
+        # Couleur et hauteur des items : reglees ICI en un seul endroit, pour tous les
+        # items d'un coup. Le libelle d'etat garde sa couleur attenuee (ce n'est pas un
+        # ToolStripMenuItem). Hauteur facon Win11 : ~32 px avec la police 9,5.
+        $itemPad = New-Object System.Windows.Forms.Padding(2, 6, 2, 6)
+        foreach ($it in $menu.Items) {
+            if ($it -is [System.Windows.Forms.ToolStripMenuItem]) {
+                $it.ForeColor = $lite
+                $it.Padding   = $itemPad
+            }
+        }
         $icon.ContextMenuStrip = $menu
         $icon.add_MouseDoubleClick({ & $openApp })
 

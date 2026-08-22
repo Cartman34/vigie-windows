@@ -122,6 +122,28 @@ Toutes les modifs de sondes / `common.ps1` / actions sont **live** (re-sourcees 
       possible mais volontairement NON faite (principe "rien sans consentement").
 - [ ] Perf : `lock.probe` lente (~14 s) a cause de Get-ScheduledTask ; a optimiser si genant.
 
+## 2026-08-22 (nuit, suite) — Menu du tray facon Windows 11
+
+- **Coins arrondis NATIFS** via DWM (`DWMWA_WINDOW_CORNER_PREFERENCE` = `DWMWCP_ROUND`,
+  `DWMWA_BORDER_COLOR`) plutôt qu'une découpe de région : anticrénelage et ombre système
+  préservés. Appliqué à chaque ouverture (idempotent).
+- **Survol encarté et arrondi** (rayon 5, marge 5) au lieu d'une bande pleine largeur — c'est
+  ce qui distingue le plus un menu Win11 du rendu WinForms par défaut. Séparateurs fins,
+  encartés sur les mêmes marges. Fond uni, sans dégradé ni bande de marge d'icône.
+- **Items de 32 px** (hauteur mesurée, pas estimée).
+- **DRY** : palette dans `VigieMenuPalette`, source unique pour la table de couleurs ET le
+  renderer ; couleur + hauteur des items posées par une seule boucle sur `$menu.Items`
+  (elles étaient recopiées item par item).
+- **Repli** : toute erreur (compilation C#, DWM) retombe sur le rendu par défaut, menu
+  utilisable. Sur Windows 10, l'appel DWM échoue sans dommage.
+- **Piège rencontré** : `Add-Type` échouait sur `System.Drawing.Drawing2D`. `System.Drawing`
+  est scindé : `Color` est dans `System.Drawing.Primitives`, `Graphics`/`GraphicsPath` dans
+  `System.Drawing.Common`. Il faut référencer les deux.
+- **Validé réellement** : Parser OK ; **C# compilé** (les 4 overrides sont bien présents) ;
+  menu construit hors écran — items à **32 px**, séparateur à 6 px ; les deux attributs DWM
+  renvoient **HRESULT 0** sur cette machine (Windows 10.0.26200).
+- **Non vérifié** : l'aspect visuel. Il faut relancer le tray pour juger à l'œil.
+
 ## 2026-08-22 (nuit) — Configuration générique, une valeur = un seul endroit
 
 - **Configuration en deux couches (D18)** : `config.psd1` versionné et **générique** (plus aucun
