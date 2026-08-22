@@ -24,8 +24,12 @@
 - Le script lancé par l'utilisateur **demande l'UAC** si besoin ; le serveur tourne **élevé** mais protégé.
 
 ## Validation avant de dire « prêt »
-- Chaque `.ps1` : **parser** via `[System.Management.Automation.Language.Parser]::ParseFile` (pwsh 7.4 du conteneur).
-- Chaque JS d'`index.html` : **`node --check`**.
+- Chaque `.ps1` / `.psd1` : **parser** via `[System.Management.Automation.Language.Parser]::ParseFile`
+  (`pwsh` de la machine), et on rapporte la **sortie réelle**.
+- Le JS d'`index.html` : **charger la page en `file://` et lire la console** (**D06**).
+  Node n'est pas installé et ne doit pas l'être : le projet n'a aucune dépendance JS.
+  Une erreur de syntaxe empêche l'exécution de **tout** le bloc `<script>` — vérifier qu'une
+  constante définie en fin de script existe suffit à prouver que le fichier parse.
 - Vérifier l'**ASCII** des lanceurs, l'**UTF-8** du reste.
 
 ## Cache & perfs

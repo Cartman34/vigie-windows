@@ -1,5 +1,5 @@
 <#
-    tray.ps1 - App integree HYPERION dans la barre systeme.
+    tray.ps1 - App integree Vigie dans la barre systeme.
     - Serveur Pode EN FOND (cache). Icone = STATUT DE L'APP (pas des composants) via /health :
         vert = en marche, orange = demarrage, rouge = erreur/arret. Poll leger toutes les 8 s.
     - "Afficher l'application" -> fenetre DEDIEE (Edge/Chrome en mode --app). "Ouvrir dans le navigateur" -> onglet.
@@ -7,6 +7,9 @@
     - Journalise dans logs/tray_*.log. UI en runspace STA. Instance unique.
 #>
 $ErrorActionPreference = 'Stop'
+# URL du depot : CONSTANTE volontaire (pas un reglage) - elle ne doit pas changer facilement.
+# Equivalent cote front : REPO_URL dans frontend/index.html.
+$RepoUrl = 'https://github.com/Cartman34/vigie-windows'
 $backend = $PSScriptRoot
 $logDir  = Join-Path $backend 'logs'
 if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
@@ -14,18 +17,18 @@ $trayLog = Join-Path $logDir ('tray_' + (Get-Date -Format 'yyyyMMdd') + '.log')
 function TLog($m) { try { ("[" + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + "] " + $m) | Out-File -FilePath $trayLog -Append -Encoding UTF8 } catch { } }
 TLog "demarrage (PS $($PSVersionTable.PSVersion), $([System.Threading.Thread]::CurrentThread.GetApartmentState()))"
 
-$mutex = New-Object System.Threading.Mutex($false, 'HyperionControlPanelTray')
+$mutex = New-Object System.Threading.Mutex($false, 'VigieTray')
 if (-not $mutex.WaitOne(4000)) { TLog "deja lance (mutex) - sortie"; return }
 
 $uiScript = {
-    param($backend, $trayLog)
+    param($backend, $trayLog, $repoUrl)
     $ErrorActionPreference = 'Continue'
     function TLog($m) { try { ("[" + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + "] " + $m) | Out-File -FilePath $trayLog -Append -Encoding UTF8 } catch { } }
     try {
         . (Join-Path $backend 'lib/common.ps1')
         Add-Type -AssemblyName System.Windows.Forms
         Add-Type -AssemblyName System.Drawing
-        Add-Type -Namespace HcpNative -Name Ico -MemberDefinition '[System.Runtime.InteropServices.DllImport("user32.dll")] public static extern bool DestroyIcon(System.IntPtr handle);'
+        Add-Type -Namespace VigieNative -Name Ico -MemberDefinition '[System.Runtime.InteropServices.DllImport("user32.dll")] public static extern bool DestroyIcon(System.IntPtr handle);'
 
         $cfg       = Get-Config -Backend $backend
         $url       = "http://{0}:{1}/" -f $cfg.BindAddress, $cfg.Port
@@ -62,7 +65,9 @@ $uiScript = {
             if ($b) { try { Start-Process -FilePath $b -ArgumentList "--app=$url","--window-size=1240,840" } catch { Start-Process $url } }
             else    { Start-Process $url }
         }
-        $openBrowser = { Start-Process $url }
+        $openUrl     = { param($u) try { Start-Process $u } catch { TLog ("ouverture KO (" + $u + ") : " + $_.Exception.Message) } }
+        $openBrowser = { & $openUrl $url }
+        $openRepo    = { & $openUrl $repoUrl }
 
         $icon = New-Object System.Windows.Forms.NotifyIcon
         $icon.Text = 'Vigie'
@@ -118,7 +123,7 @@ $uiScript = {
             $g.Dispose()
             $h = $bmp.GetHicon(); $bmp.Dispose()
             $icon.Icon = [System.Drawing.Icon]::FromHandle($h)
-            if ($iconHandle -ne [System.IntPtr]::Zero) { [void][HcpNative.Ico]::DestroyIcon($iconHandle) }
+            if ($iconHandle -ne [System.IntPtr]::Zero) { [void][VigieNative.Ico]::DestroyIcon($iconHandle) }
             $script:iconHandle = $h
         }
         & $setIcon 'warn'
@@ -130,7 +135,7 @@ $uiScript = {
         try { $menu.Font = New-Object System.Drawing.Font('Segoe UI', 9.5) } catch { }
         try {
             $csrc = @"
-public class HcpDarkColors : System.Windows.Forms.ProfessionalColorTable {
+public class VigieDarkColors : System.Windows.Forms.ProfessionalColorTable {
   static System.Drawing.Color BG = System.Drawing.Color.FromArgb(28,33,40);
   static System.Drawing.Color HI = System.Drawing.Color.FromArgb(55,62,71);
   static System.Drawing.Color BD = System.Drawing.Color.FromArgb(68,76,86);
@@ -150,7 +155,7 @@ public class HcpDarkColors : System.Windows.Forms.ProfessionalColorTable {
 }
 "@
             Add-Type -TypeDefinition $csrc -ReferencedAssemblies @([System.Windows.Forms.ToolStrip].Assembly.Location, [System.Drawing.Color].Assembly.Location) -ErrorAction Stop
-            $menu.Renderer = New-Object System.Windows.Forms.ToolStripProfessionalRenderer ([HcpDarkColors]::new())
+            $menu.Renderer = New-Object System.Windows.Forms.ToolStripProfessionalRenderer ([VigieDarkColors]::new())
             $menu.BackColor = [System.Drawing.Color]::FromArgb(28,33,40)
             $menu.ForeColor = [System.Drawing.Color]::FromArgb(230,237,243)
             TLog "menu sombre applique"
@@ -170,7 +175,9 @@ public class HcpDarkColors : System.Windows.Forms.ProfessionalColorTable {
         $mi1 = $menu.Items.Add('Relancer l''application', $null, [System.EventHandler]$relaunch)
         $mi2 = $menu.Items.Add('Redémarrer le serveur', $null, [System.EventHandler]{ & $stopServer; Start-Sleep -Milliseconds 600; & $startServer })
         $mi3 = $menu.Items.Add('Ouvrir les journaux', $null, [System.EventHandler]{ Start-Process (Get-LogDir -Backend $backend) })
-        foreach ($mi in @($mi1,$mi2,$mi3)) { $mi.ForeColor = $lite }
+        $mi4 = $menu.Items.Add('À propos de Vigie', $null, [System.EventHandler]{ & $openRepo })
+        $mi4.ToolTipText = $repoUrl
+        foreach ($mi in @($mi1,$mi2,$mi3,$mi4)) { $mi.ForeColor = $lite }
         [void]$menu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator))
         $miQuit = $menu.Items.Add('Quitter', $null, [System.EventHandler]{ & $stopServer; $icon.Visible = $false; $icon.Dispose(); [System.Windows.Forms.Application]::Exit() })
         $miQuit.ForeColor = $lite
@@ -201,14 +208,14 @@ public class HcpDarkColors : System.Windows.Forms.ProfessionalColorTable {
 
         TLog "Application.Run"
         [System.Windows.Forms.Application]::Run()
-        if ($iconHandle -ne [System.IntPtr]::Zero) { [void][HcpNative.Ico]::DestroyIcon($iconHandle) }
+        if ($iconHandle -ne [System.IntPtr]::Zero) { [void][VigieNative.Ico]::DestroyIcon($iconHandle) }
         TLog "sortie boucle"
     } catch { TLog ("ERREUR UI: " + $_.Exception.ToString()) }
 }
 
 $rs = [runspacefactory]::CreateRunspace(); $rs.ApartmentState = 'STA'; $rs.ThreadOptions = 'ReuseThread'; $rs.Open()
 $ps = [PowerShell]::Create(); $ps.Runspace = $rs
-[void]$ps.AddScript($uiScript).AddArgument($backend).AddArgument($trayLog)
+[void]$ps.AddScript($uiScript).AddArgument($backend).AddArgument($trayLog).AddArgument($RepoUrl)
 try { $ps.Invoke() } catch { TLog ("ERREUR Invoke: " + $_.Exception.ToString()) }
 foreach ($er in $ps.Streams.Error) { TLog ("STREAM ERROR: " + $er.ToString()) }
 try { $rs.Close() } catch { }

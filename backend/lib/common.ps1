@@ -36,7 +36,7 @@ function Update-StateJson {
     $leaf = (Split-Path $Path -Leaf) -replace '[^A-Za-z0-9]', '_'
     $mx = $null; $held = $false
     try {
-        $mx = New-Object System.Threading.Mutex($false, "Local\HcpState_$leaf")
+        $mx = New-Object System.Threading.Mutex($false, "Local\VigieState_$leaf")
         try { $held = $mx.WaitOne(5000) }
         catch [System.Threading.AbandonedMutexException] { $held = $true }
         catch { $held = $false }
@@ -408,7 +408,7 @@ function Get-State {
         $stale = @($stale | Sort-Object @{ Expression = { if ($slow -contains $_.Name) { 1 } else { 0 } } }, Name)
         $mx = $null; $got = $false
         try {
-            $mx = New-Object System.Threading.Mutex($false, 'Local\HcpStateRecompute')
+            $mx = New-Object System.Threading.Mutex($false, 'Local\VigieStateRecompute')
             try { $got = $mx.WaitOne(0) }
             catch [System.Threading.AbandonedMutexException] { $got = $true }
             catch { $got = $false }

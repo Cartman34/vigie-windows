@@ -8,7 +8,11 @@
 **Vigie** est un tableau de bord **local** pour *surveiller et piloter* un PC Windows :
 verrouillage de Windows Update (sans redémarrage forcé), disque, WSL, sécurité de la
 virtualisation, réseau, gestionnaires de paquets… Interface web locale + application
-dans la barre système, lancée avec la session. Nom de code historique : « HYPERION ».
+dans la barre système, lancée avec la session.
+
+> Le projet s'appelle **Vigie** (dépôt `vigie-windows`). « HYPERION » est le **nom de la machine**
+> de l'utilisateur, jamais un nom de code du projet : toute occurrence restante est un défaut de
+> généricité (valeur machine codée en dur) à corriger.
 
 Dépôt : https://github.com/Cartman34/vigie-windows
 

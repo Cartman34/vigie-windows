@@ -17,7 +17,7 @@ Chaque techno : role, pourquoi, alternatives ecartees, installation.
   PowerShell pour chaque action privilegiee) ; ASP.NET (plus lourd).
 - **Installation** : `Install-Module Pode -Scope CurrentUser` (sans admin).
 - **Point d'attention** : Pode isole les routes en runspaces. On passe le
-  contexte par variables d'environnement (`HCP_BACKEND`, `HCP_TOKEN`) et on
+  contexte par variables d'environnement (`VIGIE_BACKEND`, `VIGIE_TOKEN`) et on
   re-source `lib/common.ps1` dans chaque route.
 
 ## OpenAPI 3 (api/openapi.yaml)

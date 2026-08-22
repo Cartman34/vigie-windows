@@ -34,7 +34,7 @@ Reference unique des conventions. Toute nouvelle convention se note ICI.
 
 ## Technique
 - Pode isole les routes en runspaces : le contexte passe par **variables
-  d'environnement** (`HCP_BACKEND`, `HCP_TOKEN`) ; chaque route re-source
+  d'environnement** (`VIGIE_BACKEND`, `VIGIE_TOKEN`) ; chaque route re-source
   `lib/common.ps1`. (Voir `technologies.md`.)
 - Scripts de tache planifiee : **idempotents** (`Register-ScheduledTask -Force`).
 - Toujours **verifier les prerequis en amont** (droits, modules, runtime).

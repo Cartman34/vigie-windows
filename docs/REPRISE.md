@@ -3,7 +3,10 @@
 Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, `PRISE-EN-MAIN.md`.
 
 ## Le projet
-**Vigie** (nom de code interne « HYPERION ») : tableau de bord **local** pour un PC Windows.
+**Vigie** : tableau de bord **local** pour un PC Windows. Dépôt : `vigie-windows`.
+> ⚠️ « HYPERION » n'est **pas** un nom de code du projet : c'est le **nom de la machine** de
+> l'utilisateur. Toute occurrence dans le code, les identifiants ou la doc est un **défaut de
+> généricité** (valeur machine codée en dur) à éliminer, pas un héritage à conserver.
 - Backend **PowerShell + Pode** (`backend/`), écoute **127.0.0.1:47600**, jeton Bearer + anti-CSRF + liste blanche d'actions.
 - Frontend **HTML/JS pur** (`frontend/index.html`), sert la maquette `frontend/mock/state.json` si le back est absent.
 - **App tray WinForms** (`backend/tray.ps1`) : lance le serveur en fond, icône = statut de l'app (jauge), menu, fenêtre dédiée (Edge/Chrome `--app`).
@@ -35,60 +38,91 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
 - **Rebrand interface** : « Control Panel » → **« Vigie »** (titre onglet, sous-titre, `document.title`, tray). Le titre principal reste le **nom de la machine** (dynamique).
 
 ## État — À FAIRE (backlog)
-1. **Écran de chargement soigné** au démarrage avec « Vigie » en **gros** (splash qui s'efface après chargement).
-2. **Lien GitHub retrouvable** dans l'app (https://github.com/Cartman34/vigie-windows) — à placer (splash / pied de page / à-propos).
+1. ~~Écran de chargement soigné~~ — **FAIT** (**D08**) : `#splash` dans le HTML statique, « Vigie » en gros,
+   marque **D01** en SVG, effacement au premier chargement (durée mini 550 ms, garde-fou 90 s).
+2. ~~Lien GitHub retrouvable~~ — **FAIT** (**D09**) : splash, topbar, pied de page, menu tray
+   « À propos de Vigie ». URL en **constante unique** par langage (`REPO_URL` / `$RepoUrl`).
 3. **Rendre `backend/config.psd1` générique** : `ToolsPath` est un chemin absolu machine-spécifique → calculer/relativiser + `config.sample.psd1`.
 4. **Style du menu contextuel du tray** (référence : menu sombre arrondi type Win11) — pas encore satisfaisant.
-5. **Rename interne complet** HYPERION → Vigie (commentaires, noms de mutex `HyperionControlPanelTray`, `Local\Hcp*`) — optionnel, l'interface est déjà faite.
+5. **Terminer le retrait du nom de machine** dans le code — **défaut de généricité**, pas un point
+   cosmétique : le produit ne doit contenir aucune valeur propre à un PC donné.
+   Fait : tâche planifiée `Vigie`, raccourci `Vigie.url`, mutex `Local\VigieState_*` et
+   `Local\VigieStateRecompute` (`common.ps1`), titre openapi `Vigie API`, lanceur
+   `backend/demarrer-vigie.vbs`, documentation.
+   Également fait : `backend/tray.ps1` (mutex `VigieTray`, types `VigieNative` / `VigieDarkColors`)
+   et les variables d'environnement `VIGIE_BACKEND` / `VIGIE_TOKEN` / `VIGIE_PORT` (ex-`HCP_*`).
+   **Le nom de machine a totalement disparu du projet** (vérifié par recherche exhaustive).
+   Exception : `docs/maquettes-validees/` n'est pas retouché (archive des supports de décision).
 6. **Couleur WSL « Inactif »** : aujourd'hui rouge **au niveau du champ** seulement (la carte reste neutre pour ne pas alarmer). À confirmer si on veut la carte entière en rouge.
-7. **Publier sur GitHub** (voir plus bas).
+7. **Migrer l'installation** (**D07**) — exige un PowerShell **administrateur**, impossible depuis
+   la session de l'agent :
+   `backend/install-autostart.ps1` (tâche `Vigie` pointant sur le dépôt), puis
+   `backend/uninstall-legacy.ps1 -LegacyWorkspace <ancien dossier>` (**D11**) pour retirer la tâche
+   et le raccourci hérités et mettre l'ancien espace de travail de côté en `.old`.
+   Le lancer d'abord avec `-WhatIf` : son chemin élevé n'a pas pu être testé.
+8. **Supprimer définitivement** `LocalWork/hyperion-control-panel.old` une fois la migration confirmée.
+   Aucun script ne le fait : c'est une suppression, elle reste manuelle et volontaire.
 
 ## Décisions validées
 Voir `docs/DECISIONS-VALIDEES.md` : icône tray = option B (graduations + talon confirmés) ; nom = dépôt « Vigie Windows » (slug `vigie-windows`), interface « Vigie » à la place de « Control Panel ».
 
-## Publier sur GitHub (dépôt Cartman34/vigie-windows)
-> IMPORTANT : ce dossier (`LocalWork/hyperion-control-panel`) est l'**espace de travail**, PAS le dépôt.
-> Créer le dépôt local **ailleurs** (emplacement des projets de l'utilisateur) et y **copier le contenu**,
-> en excluant `_to_delete/`, `*.bak-*`, `backend/.secrets/`, `backend/.state/`, `backend/logs/`.
-> Le dépôt distant vide existe déjà. Demander à l'utilisateur le chemin cible avant de copier.
-Depuis Claude Code / un terminal **sur la machine**. Config déjà OK : `credential.helper=manager`,
-user.name/email réglés. Remote en **HTTPS** (token *fine-grained* All repos + Contents R/W,
-mémorisé une fois par le Credential Manager au 1er push) :
-Chemins (machine « hyperion ») :
-- Espace de travail : `C:\EspaceRestreint\Workspaces\AiTeam\LocalWork\hyperion-control-panel`
-- Dépôts git : `C:\EspaceRestreint\Workspaces\Git` → dépôt `...\Git\vigie-windows`
+## Dépôt GitHub (état à jour)
 
-Flux **clone-first** (le dossier de travail n'est PAS le dépôt) :
-```
-# 1) cloner le depot vide
-cd /c/EspaceRestreint/Workspaces/Git
-git clone https://github.com/Cartman34/vigie-windows.git
-cd vigie-windows
+**La publication est faite.** Le dépôt `Cartman34/vigie-windows` est peuplé ; l'import initial est
+le commit **`e45a062`** (« Vigie — import initial »), branche **`main`**.
 
-# 2) copier le contenu de l'espace de travail (exclut secrets/etat/logs/sauvegardes/corbeille)
-SRC="/c/EspaceRestreint/Workspaces/AiTeam/LocalWork/hyperion-control-panel"
-tar -C "$SRC" --exclude='./_to_delete' --exclude='./backend/.secrets' \
-  --exclude='./backend/.state' --exclude='./backend/logs' --exclude='*.bak-*' \
-  -cf - . | tar -xf -
+**Source de vérité aujourd'hui** : `C:\EspaceRestreint\Workspaces\Git\vigie-windows`.
+C'est le dépôt git, et c'est **là** qu'on travaille (Claude Code s'ouvre dans ce dossier).
 
-# 3) verifier, committer, pousser
-git add .
-git status      # NI .secrets/ NI .state/ NI logs/ NI *.bak-*
-git commit -m "Vigie — import initial"
-git branch -M main
-git push -u origin main   # Username: Cartman34 ; Password: le token (memorise ensuite)
-```
-Puis ouvrir l'agent (Claude Code) DANS `C:\EspaceRestreint\Workspaces\Git\vigie-windows` — plus dans l'espace de travail.
-Avant le commit, `git status` ne doit montrer NI `.secrets/`, NI `.state/`, NI `logs/`, NI `*.bak-*`.
-Au 1er push : Username `Cartman34`, Password = le token (mémorisé ensuite par le Credential Manager).
-Au 1er push : Username = `Cartman34`, Password = le **token** (pas le mot de passe GitHub).
-Créer le dépôt **vide** sur GitHub (sans README) avant le push. `.gitignore` exclut déjà
-le jeton API, l'état et les logs. (Alternative zéro-token : remote SSH `git@github.com:Cartman34/vigie-windows.git` avec la clé locale.)
+**Ancien espace de travail** : `C:\EspaceRestreint\Workspaces\AiTeam\LocalWork\hyperion-control-panel`
+— **en cours de retrait**, il n'est plus la source. Ne plus y éditer, ne plus y recopier.
+Conformément à **D07** il est **renommé** (suffixe `.old`) et non supprimé ; la suppression
+n'aura lieu qu'après confirmation explicite que tout fonctionne depuis le dépôt.
+
+### Config git / accès (toujours valable)
+- `credential.helper=manager` ; `user.name` / `user.email` déjà réglés.
+- Remote en **HTTPS** : `https://github.com/Cartman34/vigie-windows.git`.
+- Authentification : token *fine-grained* (All repos + **Contents R/W**), mémorisé par le Credential
+  Manager au 1er push. Username = `Cartman34`, Password = le **token** (pas le mot de passe GitHub).
+- Alternative zéro-token : remote SSH `git@github.com:Cartman34/vigie-windows.git` avec la clé locale.
+- `.gitignore` exclut déjà le jeton API (`backend/.secrets/`), l'état (`backend/.state/`) et les logs.
+  Avant tout commit, `git status` ne doit montrer NI `.secrets/`, NI `.state/`, NI `logs/`, NI `*.bak-*`.
 
 ## Contraintes environnement (importantes)
-- Ce dossier a été édité via **Cowork/`device_bash`** (VM Linux, montage de ton dossier) :
-  - **git ne peut pas s'initialiser DANS le dossier** depuis ce montage (suppression interdite) → sur ta vraie machine / Claude Code, `git init` marche normalement.
-  - **pas de pwsh** sur cette VM Linux (validation PS faite par reconstruction/parse ailleurs).
-  - **SSH bloqué** vers GitHub depuis la VM ; **HTTPS OK**.
-- Validation à privilégier : `pwsh` (Parser) pour PowerShell, `node --check` pour le JS de `index.html`.
-- Ne jamais committer `backend/.secrets/api.token`.
+
+> Cette section decrit la machine de travail REELLE. Elle remplace l'ancienne, qui
+> decrivait une VM Linux ephemere (Cowork/`device_bash`) et n'a plus cours : le projet
+> est desormais edite directement sur la machine, dans le depot git.
+
+### Outils presents
+- **PowerShell 7** (`pwsh`) : present. C'est l'outil de validation du code PowerShell.
+- **Python 3.11** : present (sert a `backend/assets/tray/generer-icones_B.py`).
+- **Chocolatey**, **git**, **php**, **composer**, **symfony-cli** : presents.
+- **git** fonctionne normalement : depot, branches et worktrees operationnels. **HTTPS** vers
+  GitHub, jeton memorise par le Credential Manager.
+
+### Outils ABSENTS (et volontairement non installes)
+- **Node / npm** : absent de la machine (verifie : PATH, nvm, fnm, volta, scoop, paquets
+  Chocolatey, et recherche de `node.exe` sous Program Files / LOCALAPPDATA / APPDATA /
+  ProgramData). Le projet n'a **aucune** dependance JS : pas de `package.json`, pas d'etape
+  de build, un seul fichier HTML servi tel quel. On n'installe donc pas Node (voir **D06**).
+
+### Comment valider (ne JAMAIS inventer une validation)
+- **PowerShell** : `[System.Management.Automation.Language.Parser]::ParseFile(...)` sur chaque
+  `.ps1` / `.psd1` modifie, et on rapporte la sortie reelle.
+- **JavaScript du front** : charger `frontend/index.html` en `file://` dans un navigateur et
+  lire la console (**D06**). Une erreur de syntaxe empeche l'execution de tout le bloc
+  `<script>` : verifier qu'une constante definie en fin de script existe bien suffit a prouver
+  que le fichier parse. Ce test couvre en plus les erreurs d'execution et le repli sur
+  `mock/state.json`.
+- **Lanceurs** (`.cmd`, `.vbs`) : doivent rester **ASCII pur** (verification octet par octet).
+  Le reste du code est en **UTF-8 avec accents**.
+
+### Privileges
+- La session de l'agent n'est **pas elevee**. Toute operation sur la tache planifiee
+  (enregistree en `RunLevel Highest`) exige un PowerShell administrateur lance par
+  l'utilisateur : `install-autostart.ps1`, `uninstall-autostart.ps1`, `uninstall-legacy.ps1`.
+
+### A ne jamais committer
+- `backend/.secrets/` (jeton API), `backend/.state/`, `backend/logs/`, `*.bak-*`, `_to_delete/`.
+  Le `.gitignore` les couvre deja ; verifier malgre tout `git status` avant chaque commit.

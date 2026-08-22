@@ -9,7 +9,7 @@
 $ErrorActionPreference = 'Stop'
 $backend  = $PSScriptRoot
 $tray     = Join-Path $backend 'tray.ps1'
-$taskName = 'HyperionControlPanel'
+$taskName = 'Vigie'
 
 $isAdmin = ([Security.Principal.WindowsPrincipal] `
     [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -33,7 +33,7 @@ Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Pr
 Write-Host ("Tache '" + $taskName + "' enregistree (lancement a l'ouverture de session, eleve).")
 
 $desktop = [Environment]::GetFolderPath('Desktop')
-$lnk = Join-Path $desktop 'HYPERION Control Panel.url'
+$lnk = Join-Path $desktop 'Vigie.url'
 Set-Content -Path $lnk -Value ("[InternetShortcut]`r`nURL=http://127.0.0.1:47600/`r`n") -Encoding ASCII
 Write-Host ("Raccourci bureau cree : " + $lnk)
 

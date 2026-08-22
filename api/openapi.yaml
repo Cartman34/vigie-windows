@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: HYPERION Control Panel API
+  title: Vigie API
   version: "1.0.0"
   description: >
     Contrat REST du panneau de controle local. SOURCE DE VERITE : le front et
