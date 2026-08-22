@@ -39,6 +39,11 @@ Add-PodeMiddleware -Name 'security' -ScriptBlock {
     $method = ("" + $WebEvent.Method).ToUpperInvariant()
     if ($method -ne 'GET' -and $method -ne 'HEAD') {
         $origin = $req.Headers['Origin']; if (-not $origin) { $origin = $req.Headers['Referer'] }
+        # Le PORT derive de config.psd1 (via VIGIE_PORT, pose par start.ps1) : pas de duplication.
+        # 127.0.0.1 et localhost ne sont PAS une copie de BindAddress : c'est la liste blanche
+        # des origines de BOUCLAGE, volontairement fixe. Meme si BindAddress changeait, seule
+        # une origine locale doit etre acceptee. Un middleware Pode tourne dans un runspace
+        # separe : $cfg n'y est pas visible, d'ou le passage par les variables d'environnement.
         $allowed = @("http://127.0.0.1:$($env:VIGIE_PORT)", "http://localhost:$($env:VIGIE_PORT)")
         $ok = $false
         foreach ($a in $allowed) { if ($origin -and $origin.StartsWith($a)) { $ok = $true } }

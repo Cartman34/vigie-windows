@@ -1,4 +1,5 @@
 # --- Secrets & etat local (NE JAMAIS committer) ---
+backend/config.local.psd1
 backend/.secrets/
 backend/.state/
 backend/logs/

@@ -4,8 +4,9 @@
 param([string]$Module, [hashtable]$Params)
 $backend = Split-Path $PSScriptRoot -Parent
 . (Join-Path $backend 'lib/common.ps1')
-$cfg    = Get-Config -Backend $backend
-$script = Join-Path $cfg.ToolsPath 'update-mode.ps1'
+$tools = Get-ToolsPath -Backend $backend
+if (-not $tools) { return New-ToolsMissingResult }
+$script = Join-Path $tools 'update-mode.ps1'
 if (-not (Test-Path $script)) { return @{ message = "Script introuvable : $script"; result = @{ ok = $false } } }
 
 $log = Join-Path (Get-LogDir -Backend $backend) ('action-update-mode-off_' + (Get-Date -Format 'yyyyMMdd_HHmmss') + '.log')

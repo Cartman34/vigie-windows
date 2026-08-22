@@ -2,6 +2,7 @@
 param([string]$Module, [hashtable]$Params)
 $backend = Split-Path $PSScriptRoot -Parent
 . (Join-Path $backend 'lib/common.ps1')
-$cfg = Get-Config -Backend $backend
-Start-Process explorer.exe (Split-Path $cfg.ToolsPath -Parent)
+$adminRoot = Get-AdminRoot -Backend $backend
+if (-not $adminRoot) { return New-ToolsMissingResult }
+Start-Process explorer.exe $adminRoot
 @{ message = 'Dossier ouvert dans l''explorateur.'; result = @{ ok = $true } }

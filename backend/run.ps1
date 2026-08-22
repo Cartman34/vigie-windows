@@ -61,7 +61,7 @@ if (-not (Get-Module -ListAvailable -Name Pode)) {
 }
 
 $cfg = Get-Config -Backend $backend
-$url = "http://{0}:{1}/" -f $cfg.BindAddress, $cfg.Port
+$url = Get-AppUrl -Config $cfg
 
 if (Test-ServerUp -Address $cfg.BindAddress -Port $cfg.Port) {
     Write-Log -Backend $backend -Name 'run' -Message ("Deja en cours : " + $url + " - ouverture UI.")

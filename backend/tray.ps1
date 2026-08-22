@@ -31,8 +31,8 @@ $uiScript = {
         Add-Type -Namespace VigieNative -Name Ico -MemberDefinition '[System.Runtime.InteropServices.DllImport("user32.dll")] public static extern bool DestroyIcon(System.IntPtr handle);'
 
         $cfg       = Get-Config -Backend $backend
-        $url       = "http://{0}:{1}/" -f $cfg.BindAddress, $cfg.Port
-        $healthUrl = "http://{0}:{1}{2}/health" -f $cfg.BindAddress, $cfg.Port, $cfg.ApiBase
+        $url       = Get-AppUrl -Config $cfg
+        $healthUrl = (Get-ApiUrl -Config $cfg) + '/health'
         $pwsh      = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
         $trayPath  = Join-Path $backend 'tray.ps1'
         $state     = [hashtable]::Synchronized(@{ Proc = $null; Drawn = ''; EverUp = $false; StartTicks = [datetime]::UtcNow.Ticks })

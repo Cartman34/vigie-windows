@@ -174,7 +174,63 @@ suivantes. Il est complété. Les deux fichiers ont des rôles distincts et sont
 `SUIVI.md` = journal de travail détaillé (état courant, TODO, décisions techniques) ;
 `CHANGELOG.md` = ce qui change **pour l'utilisateur de l'app**, par date.
 
-## D14 — Rythme de commit
+## D14 — Rythme de commit et push (REMPLACE la version initiale)
 
-Un commit unique par lot de travail validé, sur la branche dédiée (**D10**).
-Aucun commit ni push sans accord explicite de l'utilisateur, demandé à chaque fois.
+Un commit unique par lot de travail terminé, sur la branche dédiée (**D10**),
+**puis push immédiat sans demander**.
+
+Ne **jamais** poser la question « est-ce que je pousse ? » : c'est une branche dédiée,
+relue avant fusion (**D10**), donc pousser est sans risque et le demander est une
+interruption inutile. La règle initiale « pas de push sans accord explicite » est
+**annulée** par l'utilisateur.
+
+## D15 — Une valeur unique n'est définie qu'à UN SEUL endroit
+
+Règle générale, pas un cas particulier : toute valeur unique du produit (port,
+adresse d'écoute, URL, chemin, nom, délai…) a **une seule** définition, dont tout
+le reste dérive. Aucune recopie, aucun « en dur » qui doublonne une source existante.
+
+Cas déclencheur : `install-autostart.ps1` écrivait `http://127.0.0.1:47600/` en dur
+dans le raccourci bureau alors que `config.psd1` porte déjà `BindAddress` et `Port`
+et que `Get-Config` existe — changer le port produisait un raccourci mort.
+
+Corollaire déjà appliqué : l'URL du dépôt est une constante unique par langage
+(`REPO_URL` / `$RepoUrl`, **D09**).
+
+## D16 — Traiter tout le backlog, dans l'ordre reçu
+
+Les sujets du backlog se traitent **tous**, **dans l'ordre**, l'un après l'autre.
+Ne pas demander à l'utilisateur lequel prendre ensuite : l'ordre est déjà donné.
+Un sujet réellement bloqué (droits, décision manquante) est signalé et **sauté**,
+le suivant est traité — on ne s'arrête pas au blocage.
+
+## D17 — Ne se charger que d'informations utiles
+
+Ne pas aller lire d'anciennes entrées, d'anciens fichiers ou d'anciennes sections
+quand ce n'est pas nécessaire à la tâche en cours. Le contexte est une ressource :
+le remplir d'informations inutiles dégrade le travail. Corollaire : ne pas soulever
+de questions cosmétiques sur du contenu ancien qu'on n'avait aucune raison d'ouvrir.
+
+## D18 — Configuration : un socle versionné générique + une surcharge locale
+
+`backend/config.psd1` est **versionné et générique** : il porte LA définition de chaque
+valeur et ne contient plus rien de propre à une machine. `ToolsPath` y vaut `''`.
+
+`backend/config.local.psd1` est **ignoré par git**, optionnel, et surcharge les seules
+valeurs qui ne peuvent pas être génériques (chemins d'une machine donnée).
+`backend/config.local.sample.psd1` est le modèle versionné qui documente ce qu'on peut
+y surcharger. `Get-Config` fusionne les deux, et **échoue avec un message explicite**
+si le fichier local est illisible.
+
+Toute valeur dérivée est calculée à UN endroit (**D15**), dans `lib/common.ps1` :
+`Get-AppUrl`, `Get-ApiUrl`, `Get-ToolsPath`, `Get-AdminRoot`, et la réponse commune
+`New-ToolsMissingResult`. Plus aucune URL ni port en dur ailleurs dans le code.
+
+L'outillage externe est **optionnel** : `ToolsPath` vide ou introuvable → les six actions
+qui en dépendent rendent un message clair au lieu d'échouer obscurément. Un clone neuf
+fonctionne donc sans configuration, avec ces actions désactivées.
+
+**Exception assumée** : dans `server.ps1`, la liste blanche anti-CSRF garde `127.0.0.1` et
+`localhost` en littéral. Ce n'est **pas** une copie de `BindAddress` mais la liste des
+origines de **bouclage**, volontairement fixe : même si `BindAddress` changeait, seule une
+origine locale doit être acceptée. Le port, lui, dérive bien de la config.

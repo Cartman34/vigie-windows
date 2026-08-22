@@ -122,6 +122,35 @@ Toutes les modifs de sondes / `common.ps1` / actions sont **live** (re-sourcees 
       possible mais volontairement NON faite (principe "rien sans consentement").
 - [ ] Perf : `lock.probe` lente (~14 s) a cause de Get-ScheduledTask ; a optimiser si genant.
 
+## 2026-08-22 (nuit) — Configuration générique, une valeur = un seul endroit
+
+- **Configuration en deux couches (D18)** : `config.psd1` versionné et **générique** (plus aucun
+  chemin de machine) + `config.local.psd1` **ignoré par git** pour les surcharges locales, avec
+  `config.local.sample.psd1` comme modèle. `Get-Config` fusionne les deux et échoue avec un
+  message explicite si le fichier local est illisible.
+- **`ToolsPath` devient optionnel** : vide ou introuvable → `Get-ToolsPath` / `Get-AdminRoot`
+  rendent `$null` et les 6 actions concernées (`run-audit`, `update-mode-on/off`, `toggle-vbs`,
+  `toggle-hvci`, `open-folder`) renvoient `New-ToolsMissingResult`, un message unique et clair.
+  Un clone neuf fonctionne donc sans configuration.
+- **Une valeur = un seul endroit (D15)**, dette remboursée :
+  - `install-autostart.ps1` écrivait `http://127.0.0.1:47600/` en dur (×2) — un changement de
+    port produisait un raccourci mort. Dérive maintenant de `Get-AppUrl`.
+  - `Test-ServerUp` avait des valeurs par défaut `'127.0.0.1'` / `47600` qui doublonnaient la
+    config alors que **tous** les appelants passent leurs paramètres : défauts supprimés,
+    paramètres rendus obligatoires.
+  - La construction d'URL était recopiée dans `run.ps1`, `start.ps1` et `tray.ps1` →
+    `Get-AppUrl` / `Get-ApiUrl` dans `common.ps1`.
+- **Exception documentée** : la liste blanche anti-CSRF de `server.ps1` garde `127.0.0.1` et
+  `localhost` en littéral — ce sont les origines de **bouclage**, pas une copie de `BindAddress`
+  (le port, lui, dérive bien). Un middleware Pode tourne dans un runspace séparé où `$cfg`
+  n'est pas visible : d'où le passage par `$env:VIGIE_*`.
+- **Sur cette machine** : `backend/config.local.psd1` a été créé (dans le worktree ET dans le
+  dépôt principal) avec l'ancien `ToolsPath`, pour ne pas régresser l'installation existante.
+  Fichier ignoré par git (vérifié via `git check-ignore`).
+- **Validé** : Parser sur 41 fichiers, 0 erreur ; fusion de config testée (valeurs et dérivées
+  correctes) ; cas générique sans config locale testé (`$null` + message d'action) ; cas chemin
+  configuré mais inexistant testé ; `Test-ServerUp` refuse bien un appel sans paramètre.
+
 ## 2026-08-22 (soir) — Écran de chargement, lien GitHub, élimination du nom de machine
 
 - **Écran de chargement (D08)** : `#splash` plein écran présent dans le HTML *statique* (visible avant

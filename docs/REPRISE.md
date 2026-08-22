@@ -42,7 +42,10 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
    marque **D01** en SVG, effacement au premier chargement (durée mini 550 ms, garde-fou 90 s).
 2. ~~Lien GitHub retrouvable~~ — **FAIT** (**D09**) : splash, topbar, pied de page, menu tray
    « À propos de Vigie ». URL en **constante unique** par langage (`REPO_URL` / `$RepoUrl`).
-3. **Rendre `backend/config.psd1` générique** : `ToolsPath` est un chemin absolu machine-spécifique → calculer/relativiser + `config.sample.psd1`.
+3. ~~Rendre `backend/config.psd1` générique~~ — **FAIT** (**D18**) : socle versionné générique
+   + `config.local.psd1` (ignoré par git) + `config.local.sample.psd1`. `ToolsPath` optionnel,
+   URL et port dérivés d'un seul endroit (`Get-AppUrl` / `Get-ApiUrl` / `Get-ToolsPath` /
+   `Get-AdminRoot`), plus aucune valeur en dur (**D15**).
 4. **Style du menu contextuel du tray** (référence : menu sombre arrondi type Win11) — pas encore satisfaisant.
 5. **Terminer le retrait du nom de machine** dans le code — **défaut de généricité**, pas un point
    cosmétique : le produit ne doit contenir aucune valeur propre à un PC donné.
