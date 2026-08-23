@@ -18,7 +18,7 @@
 Uniquement des renvois : les titres vivent plus bas, une seule fois.
 Ajouter une décision = ajouter son numéro à une ligne.
 
-- **Identité et nommage** — D03 · D04 · D05 · D28 · D30
+- **Identité et nommage** — D03 · D04 · D05 · D28 · D30 · D41
 - **Structure du dépôt** — D29 · D32 · D33 · D35
 - **Configuration** — D15 · D18
 - **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38
@@ -63,7 +63,7 @@ démarrage (orange) / erreur ou arrêt (rouge). Jamais l'état des composants.
 
 ## D02 — Reproduction de l'icône en `.ico` (déployée)
 
-- Générée à l'identique de **D01** par `apps/tray/assets/generer-icones.py` (PIL)
+- Générée à l'identique de **D01** par `apps/tray/assets/generate-icons.py` (PIL)
   → `ok.ico` / `warn.ico` / `error.ico` (multi-résolutions 16→256).
 - Chargées par `tray.ps1` (fonction `setIcon`), avec repli sur le dessin GDI+ si un fichier manque.
 
@@ -101,7 +101,7 @@ Renommages retenus :
 | Types .NET `HcpNative`, `HcpDarkColors` | `VigieNative`, `VigieDarkColors` |
 | Variables d'environnement `HCP_BACKEND`, `HCP_TOKEN`, `HCP_PORT` | `VIGIE_BACKEND`, `VIGIE_TOKEN`, `VIGIE_PORT` |
 | Titre `apps/backend-pode/api/openapi.yaml` « HYPERION Control Panel API » | « Vigie API » |
-| `backend/demarrer-hyperion.vbs` | `scripts/demarrer-vigie.vbs` |
+| `backend/demarrer-hyperion.vbs` | `scripts/start-vigie.vbs` |
 
 **Exception** : `docs/maquettes-validees/` n'est pas retouché — c'est l'archive des supports
 de décision, on n'y réécrit pas l'histoire.
@@ -351,11 +351,11 @@ voulu quand tout va bien.
 
 Toute la géométrie de **D01** est conservée : seules les fractions changent. La valeur est
 écrite à **deux** endroits qui doivent rester identiques, faute de quoi le `.ico` et le repli
-GDI+ divergeraient : `apps/tray/assets/generer-icones.py` et `apps/tray/tray.ps1`.
+GDI+ divergeraient : `apps/tray/assets/generate-icons.py` et `apps/tray/tray.ps1`.
 Les `.ico` ont été **régénérés** (Pillow installé dans le scratchpad, pas dans le Python
 de la machine).
 
-Le générateur est renommé `generer-icones_B.py` → **`generer-icones.py`** : la lettre
+Le générateur est renommé `generer-icones_B.py` → **`generate-icons.py`** : la lettre
 d'option ne survit pas à la validation (**D04**).
 
 ## D24 — Un atelier de validation visuelle, **servi** et outillé
@@ -792,7 +792,7 @@ les extrémités arrondies, centrés sur `r`, dépassaient en formant des bosses
 
 ### Miroir obligatoire
 
-Les seuils et épaisseurs existent **à deux endroits** : `apps/tray/assets/generer-icones.py`
+Les seuils et épaisseurs existent **à deux endroits** : `apps/tray/assets/generate-icons.py`
 et la simulation de `apps/atelier/index.html`. Ils doivent changer ensemble — sinon
 l'Atelier montre autre chose que ce que Windows affiche, et il ne sert plus à rien (**D24**).
 
@@ -846,28 +846,68 @@ technique, qui relevait de la décision et non de l'arbitrage.
 
 ## D40 — Les droits de l'agent sont un fichier du dépôt, pas un réglage de session
 
-Les demandes de permission incessantes venaient d'une **liste d'autorisations** : elle ne
-couvre que les commandes **analysables statiquement**. Dès qu'une commande contient une
-boucle, une substitution `$(...)` ou un test `[ ]`, l'analyse échoue et la permission est
-redemandée — alors que la même commande écrite simplement passerait. Allonger la liste ne
-corrige rien : le défaut est dans le mécanisme, pas dans la liste.
+Les demandes de permission incessantes venaient de règles **par motif de commande**
+(`Bash(git *)`) : elles ne couvrent que les commandes **analysables statiquement**. Dès
+qu'une commande contient une boucle, une substitution `$(...)` ou un test `[ ]`, l'analyse
+échoue et la permission est redemandée — alors que la même commande écrite simplement
+passerait. Allonger la liste de motifs ne corrige rien : le défaut est dans le grain de la
+règle, pas dans la liste.
 
-Le projet décide donc sur le **texte** de la commande, via
-[`scripts/decider-permission.ps1`](../scripts/decider-permission.ps1), branché sur
-l'évènement `PreToolUse` par [`.claude/settings.json`](../.claude/settings.json) — les deux
-**versionnés**, donc relisibles, diffables, modifiables à un seul endroit.
+La règle retenue est **au niveau de l'outil** — `"Bash"`, `"PowerShell"`, sans parenthèses —
+dans [`.claude/settings.json`](../.claude/settings.json), **versionné**. Elle couvre toutes
+les commandes, analysables ou non. Rien à maintenir.
 
-Le script **autorise par défaut** et ne redemande que sur une courte liste de gestes
-destructeurs : suppression récursive, `push --force`, réécriture d'historique,
-`reset --hard`, `clean -f`, arrêt machine, opération disque, registre, comptes et droits,
-exécution de code téléchargé. Liste **volontairement courte** : une liste longue n'est plus
-relue, donc plus maintenue.
+### Tentative abandonnée : un hook qui juge le texte de la commande
 
-**Le défaut est sûr** : script absent, en panne ou sortie invalide ⇒ le comportement normal
-de l'outil reprend, c'est-à-dire la demande de permission. Jamais l'autorisation muette.
+Une première version branchait un script PowerShell sur l'évènement `PreToolUse` : il
+autorisait par défaut et redemandait sur une liste de motifs destructeurs (`rm -rf`,
+`push --force`, `format`, `shutdown`…). **Retirée après deux faux positifs immédiats** :
 
-Corollaire pratique : une modification de ces fichiers ne prend effet qu'au **redémarrage de
-la session** — l'agent ne relit pas un réglage apparu en cours de route.
+- `Get-ScheduledTask … | Format-List` bloqué sur le motif `format` ;
+- `grep -n "format|diskpart"` bloqué en **cherchant** le motif dans le script lui-même.
+
+La cause n'est pas une frontière de mot mal écrite. Un hook ne voit que le **texte** d'une
+commande, jamais son effet : toute liste de mots-clés bloque aussi les commandes qui se
+contentent de **mentionner** le mot. Corriger un motif déplace le problème au suivant, et
+chaque faux positif est exactement la nuisance qu'on voulait supprimer.
+
+S'ajoutait un coût permanent : un démarrage de `pwsh` (~1 s) **avant chaque commande**.
+
+Ce dépôt est local, mono-utilisateur et entièrement poussé sur GitHub : le filet de sécurité
+réel est l'**historique git**, pas une liste de mots.
+
+Corollaire pratique : une modification de `.claude/settings.json` ne prend effet qu'au
+**redémarrage de la session** — l'agent ne relit pas un réglage apparu en cours de route.
 
 Ce qui reste hors du dépôt est local par nature : `.claude/settings.local.json` (réglages de
 poste) et `.claude/worktrees/` (arbres de travail), tous deux ignorés.
+
+## D41 — Le code est en anglais ; le français est la langue de l'écrit
+
+**Deux registres, une frontière nette :**
+
+| En anglais | En français |
+|---|---|
+| noms de fichiers de code, identifiants, fonctions, paramètres | documentation (`docs/`, `README.md`, `CHANGELOG.md`, `SUIVI.md`) |
+| valeurs techniques, clés de configuration | échanges avec l'utilisateur |
+| | libellés affichés à l'utilisateur (interface, messages) |
+
+**Langages** : PowerShell pour les outils **Windows** — c'est sa raison d'être ici. Pour tout
+le reste, **PHP** (l'Atelier l'utilise déjà). Pas de troisième langage sans argument.
+
+Renommages appliqués :
+
+| Avant | Après |
+|---|---|
+| `scripts/installer-hooks.ps1` | `scripts/install-hooks.ps1` |
+| `scripts/demarrer-vigie.vbs` | `scripts/start-vigie.vbs` |
+| `apps/tray/assets/generer-icones.py` | `apps/tray/assets/generate-icons.py` |
+
+**Exceptions** : `vigie` et `atelier` sont des **noms propres** — un nom de produit ne se
+traduit pas. `docs/maquettes-validees/` reste intact (**D05** : on ne réécrit pas l'archive
+des supports de décision), de même que les entrées historiques de `CHANGELOG.md` et
+`SUIVI.md`, qui consignent des faits datés.
+
+**Reste à faire** : les commentaires internes des scripts sont encore en français. Ils
+portent le raisonnement derrière chaque choix — les traduire est une passe à part entière,
+à mener fichier par fichier, pas un `sed`.

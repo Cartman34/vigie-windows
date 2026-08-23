@@ -105,7 +105,7 @@ Servie en `http`, la page fonctionne entièrement. Elle reste néanmoins ouvrabl
 ## Ce que contient la page
 
 ### Marque du tray
-Reproduction exacte de [`apps/tray/assets/generer-icones.py`](../tray/assets/generer-icones.py),
+Reproduction exacte de [`apps/tray/assets/generate-icons.py`](../tray/assets/generate-icons.py),
 avec un curseur de **fraction**, le choix de l'état, et un rendu de 16 à 128 px — dont
 une bande imitant la barre des tâches pour juger le contraste réel.
 
@@ -132,7 +132,7 @@ exactes à recopier** dans `VigieMenuPalette` ([`apps/tray/tray.ps1`](../tray/tr
 Les géométries de la page sont une **reproduction** du code, pas sa source.
 Toute valeur retenue doit être reportée **en miroir** :
 
-1. dans le code (`generer-icones.py`, `tray.ps1`, …) ;
+1. dans le code (`generate-icons.py`, `tray.ps1`, …) ;
 2. dans [`DECISIONS-VALIDEES.md`](DECISIONS-VALIDEES.md).
 
 Sans cela l'atelier devient trompeur — c'est précisément ce qu'il sert à éviter.

@@ -38,7 +38,7 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
 - Résolutions câblées : Latence → `net-speedtest` ; Windows Update « Détectées » → `open-windows-update` (note raccourcie).
 - WSL : champ **Statut Actif/Inactif** coloré + **trio Démarrer/Redémarrer/Arrêter** (boutons pertinents). Actions `wsl-start`/`wsl-restart` + invalidation sonde.
 - Topbar : **liseré coloré = état de connexion à l'API** (vert live / orange maquette / rouge erreur) ; santé globale dans la topbar.
-- **Icône tray** : `.ico` multi-résolutions nets, design **option B validée** (anneau + graduations + aiguille à talon + point blanc), générés par `apps/tray/assets/generer-icones.py`, chargés par `tray.ps1` (`setIcon`) avec repli GDI+.
+- **Icône tray** : `.ico` multi-résolutions nets, design **option B validée** (anneau + graduations + aiguille à talon + point blanc), générés par `apps/tray/assets/generate-icons.py`, chargés par `tray.ps1` (`setIcon`) avec repli GDI+.
 - **Rebrand interface** : « Control Panel » → **« Vigie »** (titre onglet, sous-titre, `document.title`, tray). Le titre principal reste le **nom de la machine** (dynamique).
 
 ## État — À FAIRE (backlog)
@@ -52,12 +52,12 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
    `Get-AdminRoot`), plus aucune valeur en dur (**D15**).
 4. ~~Style du menu contextuel du tray~~ — **FAIT** (**D19**) : coins arrondis natifs DWM,
    survol encarté arrondi, items de 32 px, séparateurs encartés, palette définie une seule fois.
-   **À juger à l'œil** : le rendu n'a pas pu être vu depuis la session de l'agent — relancer le tray.
+   **PAS validé** : vu par l'utilisateur, refusé deux fois de plus depuis. Voir le point 9.
 5. **Terminer le retrait du nom de machine** dans le code — **défaut de généricité**, pas un point
    cosmétique : le produit ne doit contenir aucune valeur propre à un PC donné.
    Fait : tâche planifiée `Vigie`, raccourci `Vigie.url`, mutex `Local\VigieState_*` et
    `Local\VigieStateRecompute` (`common.ps1`), titre openapi `Vigie API`, lanceur
-   `scripts/demarrer-vigie.vbs`, documentation.
+   `scripts/start-vigie.vbs`, documentation.
    Également fait : `apps/tray/tray.ps1` (mutex `VigieTray`, types `VigieNative` / `VigieDarkColors`)
    et les variables d'environnement `VIGIE_BACKEND` / `VIGIE_TOKEN` / `VIGIE_PORT` (ex-`HCP_*`).
    **Le nom de machine a totalement disparu du projet** (vérifié par recherche exhaustive).
@@ -73,6 +73,33 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
    Le lancer d'abord avec `-WhatIf` : son chemin élevé n'a pas pu être testé.
 8. **Supprimer définitivement** `LocalWork/hyperion-control-panel.old` une fois la migration confirmée.
    Aucun script ne le fait : c'est une suppression, elle reste manuelle et volontaire.
+9. **Menu du tray — TOUJOURS REFUSÉ par l'utilisateur** (prioritaire à la reprise).
+   Deux défauts constatés **sur le tray réellement lancé** (tâche `Vigie`, code de `main`,
+   PID confirmé, donc bien la version corrigée — ce n'est pas un problème de vieille instance) :
+   - **alignement vertical du texte** dans l'item : signalé **5 fois**, jamais résolu ;
+   - **survol** : ne prend pas toute la largeur.
+
+   Ce qui a déjà été essayé et n'a pas suffi : `Padding` de l'item, `InsetX = 0`,
+   `TextPadX = 14`, et une surcharge `OnRenderItemText` fixant `e.TextRectangle` sur toute la
+   hauteur de l'item avec `TextFormatFlags.VerticalCenter`.
+
+   **Mesure faite, à réutiliser** : pour un item de 34 px, le moteur de disposition du
+   `ToolStripDropDown` renvoie `ContentRectangle = {X=-12, Y=-5, Height=44}`. Le `Padding` est
+   donc **inutilisable** pour placer le contenu. La prochaine tentative doit **partir de cette
+   mesure** et non re-tenter les propriétés déjà écartées ; deux scripts de diagnostic
+   existent dans le scratchpad de session (`mesure-item.ps1`, `capture-menu2.ps1`) — ils
+   réutilisent le vrai code du tray plutôt qu'une reconstruction.
+10. **L'Atelier montre d'anciennes valeurs de menu** — viole **D24** (l'Atelier doit refléter ce
+    qui est livré, sinon il ne sert plus à valider). Au chargement il propose `#2b3038` /
+    `#3c434d` / bordure `#444c56` / séparateur `#3a414a`, arrondi de survol 5 px, marge 5 px ;
+    `apps/tray/tray.ps1` livre `#2c2c2c` / `#3d3d3d` / `#454545` / `#404040`, arrondi 0, marge 0.
+    Le préréglage « Gris Win11 » donne les bonnes valeurs mais il faut le cliquer.
+11. **Traduire en anglais les commentaires internes des scripts** (**D41**). Les noms de fichiers
+    et les renommages sont faits ; les commentaires portent le raisonnement derrière chaque
+    choix — c'est une passe fichier par fichier, jamais un `sed`. Concerne aussi les
+    identifiants encore français (`$cible`, `$ecarts`, paramètre `-Verifier` de
+    `scripts/install-hooks.ps1`).
+12. **Écran de chargement (splash) jamais validé à l'œil** par l'utilisateur (**D08**).
 
 ## Décisions validées
 Voir `docs/DECISIONS-VALIDEES.md` : icône tray = option B (graduations + talon confirmés) ; nom = dépôt « Vigie Windows » (slug `vigie-windows`), interface « Vigie » à la place de « Control Panel ».
@@ -99,6 +126,14 @@ n'aura lieu qu'après confirmation explicite que tout fonctionne depuis le dép�
 - `.gitignore` exclut déjà le jeton API (`apps/backend-pode/var/secrets/`), l'état (`apps/backend-pode/var/cache/`) et les logs.
   Avant tout commit, `git status` ne doit montrer NI `var/secrets/`, NI `var/cache/`, NI `apps/*/var/log/`, NI `*.bak-*`.
 
+### Droits de l'agent (**D40**)
+`.claude/settings.json` est **versionné** et accorde les outils au niveau de l'outil
+(`"Bash"`, `"PowerShell"`, sans parenthèses) : plus aucune demande de permission, y compris
+sur les commandes composées. Ne **pas** revenir à des règles par motif (`Bash(git *)`) : elles
+ne couvrent que les commandes analysables statiquement, ce qui était la cause du problème.
+Un hook `PreToolUse` jugeant le texte a été essayé puis **retiré** (faux positifs inévitables,
++1 s par commande) — l'historique complet est dans **D40**, ne pas le refaire.
+
 ## Contraintes environnement (importantes)
 
 > Cette section decrit la machine de travail REELLE. Elle remplace l'ancienne, qui
@@ -107,7 +142,7 @@ n'aura lieu qu'après confirmation explicite que tout fonctionne depuis le dép�
 
 ### Outils presents
 - **PowerShell 7** (`pwsh`) : present. C'est l'outil de validation du code PowerShell.
-- **Python 3.11** : present (sert a `apps/tray/assets/generer-icones.py`).
+- **Python 3.11** : present (sert a `apps/tray/assets/generate-icons.py`).
 - **Chocolatey**, **git**, **php**, **composer**, **symfony-cli** : presents.
 - **git** fonctionne normalement : depot, branches et worktrees operationnels. **HTTPS** vers
   GitHub, jeton memorise par le Credential Manager.

@@ -132,7 +132,7 @@ $uiScript = {
         $setIcon = {
             param($status)
             # L'icone est TOUJOURS le fichier .ico livre (assets/), genere par
-            # assets/generer-icones.py. C'est la SEULE representation de la marque.
+            # assets/generate-icons.py. C'est la SEULE representation de la marque.
             $name = switch ($status) { 'ok' { 'ok' } 'warn' { 'warn' } 'error' { 'error' } default { 'error' } }
             $icoPath = Join-Path $trayRoot ('assets\' + $name + '.ico')
             if (Test-Path $icoPath) {

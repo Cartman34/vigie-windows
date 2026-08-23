@@ -2,7 +2,7 @@
 """
 Genere les icones du tray : ok.ico / warn.ico / error.ico.
 
-    python generer-icones.py <dossier-de-sortie>
+    python generate-icons.py <dossier-de-sortie>
 
 POURQUOI CE SCRIPT EST STRUCTURE AINSI
 --------------------------------------
@@ -152,7 +152,7 @@ def make(color, frac, out_path, sizes=(16, 20, 24, 32, 48, 256)):
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        print("usage: python generer-icones.py <dossier-de-sortie>")
+        print("usage: python generate-icons.py <dossier-de-sortie>")
         raise SystemExit(2)
     out = sys.argv[1]
     if not os.path.isdir(out):
