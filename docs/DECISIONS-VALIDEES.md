@@ -15,36 +15,16 @@
 
 ## Sommaire
 
-Chaque décision porte un numéro **définitif** : il n'est jamais réattribué, même si la
-décision est plus tard remplacée (une nouvelle est alors ajoutée, qui dit laquelle elle
-remplace). C'est ce qui permet d'y renvoyer sans ambiguïté des mois plus tard.
+Uniquement des renvois : les titres vivent plus bas, une seule fois.
+Ajouter une décision = ajouter son numéro à une ligne.
 
-**Identité et nommage** — [D03](#d03) nom du projet · [D04](#d04) nommage des options
-validées · [D05](#d05) HYPERION est un nom de machine · [D28](#d28) Vigie vs Atelier ·
-[D30](#d30) apps nommées par techno
-
-**Structure du dépôt** — [D29](#d29) `apps/` + `scripts/` · [D33](#d33) `var/` et `config/`
-par app · [D32](#d32) pas de `_to_delete/` · [D35](#d35) réglages d'IDE non versionnés
-
-**Configuration** — [D15](#d15) une valeur, un seul endroit · [D18](#d18) socle générique
-+ surcharge locale
-
-**Interface** — [D01](#d01) icône du tray · [D02](#d02) génération des `.ico` ·
-[D23](#d23) jauge pleine · [D27](#d27) graduations sous l'arc · [D08](#d08) écran de
-chargement · [D09](#d09) lien GitHub · [D19](#d19) menu Windows 11 · [D26](#d26) coins par
-découpe de région · [D20](#d20) WSL inactif signalé · [D25](#d25) redémarrage ≠ panne
-
-**Sécurité et installation** — [D22](#d22) expliquer avant toute élévation · [D34](#d34)
-l'Atelier filtre ce qu'il sert · [D07](#d07) bascule vers le dépôt · [D11](#d11)
-désinstallation des vestiges
-
-**Outillage** — [D24](#d24) l'Atelier · [D06](#d06) validation du JS sans Node ·
-[D21](#d21) statut `neutral` au contrat
-
-**Méthode de travail** — [D10](#d10) branche dédiée · [D14](#d14) commit puis push ·
-[D16](#d16) tout le backlog dans l'ordre · [D17](#d17) informations utiles seulement ·
-[D31](#d31) doc maintenue en toute circonstance · [D36](#d36) écrire les fichiers sans
-couche shell · [D12](#d12) `REPRISE.md` décrit le réel · [D13](#d13) `CHANGELOG.md` à jour
+- **Identité et nommage** — D03 · D04 · D05 · D28 · D30
+- **Structure du dépôt** — D29 · D32 · D33 · D35
+- **Configuration** — D15 · D18
+- **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27
+- **Sécurité et installation** — D07 · D11 · D22 · D34
+- **Outillage** — D06 · D21 · D24
+- **Méthode de travail** — D10 · D12 · D13 · D14 · D16 · D17 · D31 · D36
 
 ---
 
