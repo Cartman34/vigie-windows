@@ -546,3 +546,193 @@ function Test-ServerUp {
         return $true
     } catch { return $false }
 }
+
+# --- Elevation : expliquer AVANT de demander ---------------------------------
+# Principe (demande explicite de l'utilisateur, D22) : on n'envoie jamais l'invite
+# UAC "nue". On affiche d'abord une fenetre qui dit ce qui va etre modifie et
+# pourquoi l'elevation est necessaire, comme le fait Android avant une permission.
+# L'utilisateur peut refuser sans qu'aucune invite systeme n'apparaisse.
+
+# Echappe une chaine pour l'inserer dans une commande PowerShell (guillemets simples).
+function ConvertTo-PSLiteral {
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$Value)
+    "'" + $Value.Replace("'", "''") + "'"
+}
+
+# Le processus courant est-il eleve ? (une seule redaction de ce test)
+function Test-IsElevated {
+    (New-Object Security.Principal.WindowsPrincipal(
+        [Security.Principal.WindowsIdentity]::GetCurrent()
+    )).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+# --- Habillage des fenetres (DWM) --------------------------------------------
+# Barre de titre sombre et coins arrondis Windows 11. Declare UNE SEULE FOIS ici
+# et utilise partout (fenetre de consentement, menu du tray) : la signature
+# P/Invoke ne doit pas etre recopiee dans chaque script.
+# Sans effet sur les versions de Windows anterieures : l'appel echoue sans dommage.
+function Set-WindowChrome {
+    param(
+        [Parameter(Mandatory)][IntPtr]$Handle,
+        [switch]$DarkTitleBar,
+        [switch]$RoundedCorners,
+        # Couleur de bordure au format COLORREF (0x00BBGGRR). -1 = ne pas toucher.
+        [int]$BorderColor = -1
+    )
+    if ($Handle -eq [IntPtr]::Zero) { return }
+    try {
+        if (-not ('VigieNative.Dwm' -as [type])) {
+            Add-Type -Namespace VigieNative -Name Dwm -MemberDefinition '[System.Runtime.InteropServices.DllImport("dwmapi.dll")] public static extern int DwmSetWindowAttribute(System.IntPtr hwnd, int attr, ref int value, int size);' -ErrorAction Stop
+        }
+        # 20 = DWMWA_USE_IMMERSIVE_DARK_MODE, 33 = WINDOW_CORNER_PREFERENCE, 34 = BORDER_COLOR
+        if ($DarkTitleBar)   { $v = 1; [void][VigieNative.Dwm]::DwmSetWindowAttribute($Handle, 20, [ref]$v, 4) }
+        if ($RoundedCorners) { $v = 2; [void][VigieNative.Dwm]::DwmSetWindowAttribute($Handle, 33, [ref]$v, 4) }
+        if ($BorderColor -ne -1) { $v = $BorderColor; [void][VigieNative.Dwm]::DwmSetWindowAttribute($Handle, 34, [ref]$v, 4) }
+    } catch { }
+}
+
+# Fenetre explicative. Renvoie $true si l'utilisateur accepte de continuer.
+# -AssumeYes court-circuite l'affichage (execution non interactive, tache planifiee).
+function Show-ElevationRationale {
+    param(
+        [Parameter(Mandatory)][string]$Title,
+        [Parameter(Mandatory)][string]$Summary,
+        [string[]]$Changes = @(),
+        [switch]$AssumeYes
+    )
+    if ($AssumeYes) { return $true }
+
+    $nl = [Environment]::NewLine
+    $bullets = if ($Changes.Count) { ($Changes | ForEach-Object { "   - $_" }) -join $nl } else { '' }
+
+    try {
+        Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
+        Add-Type -AssemblyName System.Drawing -ErrorAction Stop
+
+        $bg  = [System.Drawing.Color]::FromArgb(22, 27, 34)
+        $fg  = [System.Drawing.Color]::FromArgb(230, 237, 243)
+        $mut = [System.Drawing.Color]::FromArgb(139, 148, 158)
+        $acc = [System.Drawing.Color]::FromArgb(56, 139, 253)
+
+        $form                 = New-Object System.Windows.Forms.Form
+        $form.Text            = 'Vigie — autorisation requise'
+        $form.StartPosition   = 'CenterScreen'
+        $form.FormBorderStyle = 'FixedDialog'
+        $form.MaximizeBox     = $false
+        $form.MinimizeBox     = $false
+        $form.TopMost         = $true
+        $form.BackColor       = $bg
+        $form.ForeColor       = $fg
+        $form.ClientSize      = New-Object System.Drawing.Size(580, 306)
+
+        $lblTitle           = New-Object System.Windows.Forms.Label
+        $lblTitle.Text      = $Title
+        $lblTitle.Font      = New-Object System.Drawing.Font('Segoe UI', 13, [System.Drawing.FontStyle]::Bold)
+        $lblTitle.ForeColor = $fg
+        $lblTitle.Location  = New-Object System.Drawing.Point(24, 20)
+        $lblTitle.Size      = New-Object System.Drawing.Size(532, 30)
+
+        $lblBody           = New-Object System.Windows.Forms.Label
+        $lblBody.Text      = $Summary
+        $lblBody.Font      = New-Object System.Drawing.Font('Segoe UI', 9.5)
+        $lblBody.ForeColor = $fg
+        $lblBody.Location  = New-Object System.Drawing.Point(24, 56)
+        $lblBody.Size      = New-Object System.Drawing.Size(532, 44)
+
+        $lblChanges           = New-Object System.Windows.Forms.Label
+        $lblChanges.Text      = $bullets
+        $lblChanges.Font      = New-Object System.Drawing.Font('Segoe UI', 9.5)
+        $lblChanges.ForeColor = $fg
+        $lblChanges.Location  = New-Object System.Drawing.Point(24, 104)
+        $lblChanges.Size      = New-Object System.Drawing.Size(532, 110)
+
+        $lblUac           = New-Object System.Windows.Forms.Label
+        $lblUac.Text      = "Si tu continues, Windows demandera ensuite l'autorisation administrateur." + $nl + "Rien n'est modifié avant cette étape, et tu peux encore refuser."
+        $lblUac.Font      = New-Object System.Drawing.Font('Segoe UI', 9)
+        $lblUac.ForeColor = $mut
+        $lblUac.Location  = New-Object System.Drawing.Point(24, 218)
+        $lblUac.Size      = New-Object System.Drawing.Size(532, 36)
+
+        $btnOk              = New-Object System.Windows.Forms.Button
+        $btnOk.Text         = 'Continuer'
+        $btnOk.DialogResult = [System.Windows.Forms.DialogResult]::OK
+        $btnOk.BackColor    = $acc
+        $btnOk.ForeColor    = [System.Drawing.Color]::White
+        $btnOk.FlatStyle    = 'Flat'
+        $btnOk.FlatAppearance.BorderSize = 0
+        $btnOk.Size         = New-Object System.Drawing.Size(124, 32)
+        $btnOk.Location     = New-Object System.Drawing.Point(432, 260)
+
+        $btnNo              = New-Object System.Windows.Forms.Button
+        $btnNo.Text         = 'Annuler'
+        $btnNo.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+        $btnNo.BackColor    = [System.Drawing.Color]::FromArgb(33, 38, 45)
+        $btnNo.ForeColor    = $fg
+        $btnNo.FlatStyle    = 'Flat'
+        $btnNo.FlatAppearance.BorderColor = [System.Drawing.Color]::FromArgb(68, 76, 86)
+        $btnNo.Size         = New-Object System.Drawing.Size(104, 32)
+        $btnNo.Location     = New-Object System.Drawing.Point(318, 260)
+
+        $form.Controls.AddRange(@($lblTitle, $lblBody, $lblChanges, $lblUac, $btnOk, $btnNo))
+        $form.AcceptButton = $btnOk
+        $form.CancelButton = $btnNo          # Echap et la croix ferment en REFUSANT
+
+        # Barre de titre sombre + coins arrondis : coherent avec le reste de Vigie.
+        Set-WindowChrome -Handle $form.Handle -DarkTitleBar -RoundedCorners
+
+        $res = $form.ShowDialog()
+        $form.Dispose()
+        return ($res -eq [System.Windows.Forms.DialogResult]::OK)
+    } catch {
+        # Pas d'interface graphique (session sans bureau, execution automatisee) :
+        # on explique en console et on REFUSE par defaut. Rien ne doit s'elever sans
+        # consentement ; utiliser -Yes pour un lancement volontairement automatise.
+        Write-Host ""
+        Write-Host $Title -ForegroundColor Cyan
+        Write-Host $Summary
+        if ($bullets) { Write-Host $bullets }
+        Write-Host "Interface graphique indisponible : relance avec -Yes pour confirmer." -ForegroundColor Yellow
+        return $false
+    }
+}
+
+# Relance LE MEME script en session elevee en conservant ses parametres, puis
+# restitue sa sortie. On ne peut pas rediriger un processus lance avec -Verb RunAs :
+# la session elevee ecrit donc dans un journal, qu'on relit ensuite.
+# Renvoie le code de retour de la session elevee.
+function Invoke-ElevatedSelf {
+    param(
+        [Parameter(Mandatory)][string]$ScriptPath,
+        [string[]]$Arguments = @(),
+        [string]$LogDir = $env:TEMP
+    )
+    if (-not (Test-Path -LiteralPath $LogDir)) { New-Item -ItemType Directory -Path $LogDir -Force | Out-Null }
+    $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+    $name  = [IO.Path]::GetFileNameWithoutExtension($ScriptPath)
+    $log   = Join-Path $LogDir ('elevated_' + $name + '_' + $stamp + '.log')
+
+    $parts = @('&', (ConvertTo-PSLiteral $ScriptPath))
+    foreach ($a in $Arguments) {
+        if ($a -like '-*') { $parts += $a } else { $parts += (ConvertTo-PSLiteral ([string]$a)) }
+    }
+    $cmd = ($parts -join ' ') + ' *> ' + (ConvertTo-PSLiteral $log)
+
+    $pwshPath = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
+    if (-not $pwshPath) { Write-Host "pwsh introuvable." -ForegroundColor Red; return 1 }
+
+    try {
+        $proc = Start-Process $pwshPath -Verb RunAs -Wait -PassThru -WindowStyle Hidden -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $cmd)
+    } catch {
+        Write-Host ("Elevation refusee ou impossible : " + $_.Exception.Message) -ForegroundColor Yellow
+        return 1
+    }
+
+    if (Test-Path -LiteralPath $log) {
+        Write-Host "----- compte rendu de la session elevee -----"
+        Get-Content -LiteralPath $log | ForEach-Object { Write-Host $_ }
+        Write-Host ("----- journal : " + $log)
+    } else {
+        Write-Host "Aucune sortie produite par la session elevee." -ForegroundColor Yellow
+    }
+    return $proc.ExitCode
+}

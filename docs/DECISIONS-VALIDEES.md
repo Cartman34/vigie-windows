@@ -289,3 +289,38 @@ pas une valeur propre à une machine (**D18**).
 `api/openapi.yaml` déclarait `enum: [ok, warn, error]` pour le statut d'un module, alors que
 `New-ModuleObject` accepte `neutral` et que les sondes en émettent (ex. WSL non installé).
 Le contrat était faux : `neutral` y est ajouté et documenté. L'implémentation était juste.
+
+## D22 — Jamais d'invite UAC « nue » : expliquer avant de demander
+
+Quand un script de Vigie a besoin des droits administrateur, il affiche **d'abord** une
+fenêtre qui dit ce qui va être modifié et pourquoi, **puis seulement** déclenche l'invite UAC.
+Même principe qu'Android, qui explique une permission avant de la demander.
+
+- L'utilisateur peut refuser **sans qu'aucune invite système n'apparaisse**.
+- La fenêtre énumère les changements concrets (tâche, raccourci, dossier) et précise
+  explicitement ce qui n'est **pas** touché.
+- Échap et la croix **refusent** (`CancelButton`), jamais l'inverse.
+- Sans interface graphique (session sans bureau, exécution automatisée), on explique en
+  console et on **refuse par défaut** ; `-Yes` permet un lancement délibérément automatisé.
+
+Implémentation partagée dans `lib/common.ps1` — chaque script avait auparavant **sa propre
+copie** du bloc d'élévation :
+
+| Fonction | Rôle |
+|---|---|
+| `Test-IsElevated` | le test d'élévation, rédigé une seule fois |
+| `Show-ElevationRationale` | la fenêtre explicative, renvoie le consentement |
+| `Invoke-ElevatedSelf` | relance le script en élevé **en conservant ses paramètres** et restitue sa sortie |
+| `ConvertTo-PSLiteral` | échappement des apostrophes pour la ligne de commande élevée |
+| `Set-WindowChrome` | barre de titre sombre / coins arrondis / couleur de bordure (DWM) |
+
+Utilisé par `install-autostart.ps1`, `uninstall-autostart.ps1` et `uninstall-legacy.ps1`.
+Code de retour **3** = refusé par l'utilisateur (distinct d'un échec).
+
+**Point technique** : un processus lancé avec `-Verb RunAs` ne peut pas voir sa sortie
+redirigée. `Invoke-ElevatedSelf` passe donc par `-Command` + un fichier journal, relu et
+réaffiché par le processus appelant : le compte rendu n'est jamais perdu.
+
+**Corollaire (D15)** : la signature P/Invoke `DwmSetWindowAttribute` n'est plus déclarée
+qu'à un seul endroit (`Set-WindowChrome`). `tray.ps1` la déclarait de son côté pour les
+coins arrondis de son menu (**D19**) ; il utilise désormais le helper partagé.

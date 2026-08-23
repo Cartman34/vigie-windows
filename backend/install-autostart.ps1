@@ -2,10 +2,20 @@
     install-autostart.ps1 - Acces PERMANENT au panneau. IDEMPOTENT.
     Enregistre une tache planifiee qui lance le serveur a chaque ouverture de
     session (en eleve, cache), et cree un raccourci bureau vers l'UI.
-    Necessite les droits admin (auto-elevation).
 
-    Usage :  powershell -ExecutionPolicy Bypass -File .\install-autostart.ps1
+    Necessite les droits admin. Avant toute invite UAC, une fenetre explique ce
+    qui va etre modifie et pourquoi (D22) : rien ne s'eleve sans consentement.
+
+    Usage :  pwsh -ExecutionPolicy Bypass -File .\install-autostart.ps1
+             pwsh -ExecutionPolicy Bypass -File .\install-autostart.ps1 -Yes   (sans fenetre)
+
+    Codes de retour : 0 = installe ; 1 = prerequis manquant ; 3 = refuse par l'utilisateur.
 #>
+param(
+    # Passe l'explication graphique : execution volontairement automatisee.
+    [switch] $Yes
+)
+
 $ErrorActionPreference = 'Stop'
 $backend  = $PSScriptRoot
 . (Join-Path $backend 'lib/common.ps1')
@@ -14,17 +24,25 @@ $taskName = 'Vigie'
 # L'URL derive de config.psd1 : adresse et port n'ont qu'UNE definition (D15).
 $appUrl   = Get-AppUrl -Backend $backend
 
-$isAdmin = ([Security.Principal.WindowsPrincipal] `
-    [Security.Principal.WindowsIdentity]::GetCurrent()
-).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-if (-not $isAdmin) {
-    Write-Host "Elevation requise pour enregistrer la tache planifiee..."
-    Start-Process powershell -Verb RunAs -WindowStyle Hidden -ArgumentList @('-NoProfile','-WindowStyle','Hidden','-ExecutionPolicy','Bypass','-File', $PSCommandPath)
-    return
+if (-not (Test-IsElevated)) {
+    $ok = Show-ElevationRationale -AssumeYes:$Yes `
+        -Title   "Installer Vigie au démarrage de session" `
+        -Summary "Vigie va s'enregistrer pour démarrer automatiquement à chaque ouverture de session. C'est réversible à tout moment avec uninstall-autostart.ps1." `
+        -Changes @(
+            "Tâche planifiée '$taskName' : lance $tray à l'ouverture de session",
+            "Elle s'exécute avec les droits administrateur (nécessaire pour le verrou Windows Update)",
+            "Raccourci sur le bureau : Vigie.url → $appUrl",
+            "L'application est lancée tout de suite après l'installation",
+            "Aucun fichier de ton système n'est modifié ou supprimé"
+        )
+    if (-not $ok) { Write-Host "Installation annulée. Rien n'a été modifié."; exit 3 }
+
+    $code = Invoke-ElevatedSelf -ScriptPath $PSCommandPath -Arguments @('-Yes') -LogDir (Get-LogDir -Backend $backend)
+    exit $code
 }
 
 $pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
-if (-not $pwsh) { Write-Host "pwsh introuvable. Lance d'abord install.ps1 (installe PowerShell 7)." -ForegroundColor Yellow; return }
+if (-not $pwsh) { Write-Host "pwsh introuvable. Lance d'abord install.ps1 (installe PowerShell 7)." -ForegroundColor Yellow; exit 1 }
 
 $arg       = '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $tray + '"'
 $action    = New-ScheduledTaskAction -Execute $pwsh -Argument $arg
@@ -42,3 +60,4 @@ Write-Host ("Raccourci bureau cree : " + $lnk)
 
 Start-ScheduledTask -TaskName $taskName
 Write-Host ("App barre systeme lancee (icone dans la zone de notification). Serveur en fond, panneau sur " + $appUrl)
+exit 0
