@@ -163,20 +163,28 @@ $uiScript = {
         # utilisable meme si le style ne s'applique pas.
         try {
             $csrc = @'
+using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 
 // Palette du menu. Une seule definition des couleurs, partagee par la table et le rendu.
+// La reference demandee est le menu de WINDOWS 11 : gris NEUTRE, pas le bleute de la
+// palette Vigie. Le bleu #2b3038 livre jusqu'ici venait de mes valeurs par defaut, qui
+// avaient pris le pas sur la reference.
 public static class VigieMenuPalette {
-  public static readonly Color Surface   = Color.FromArgb(43, 48, 56);
-  public static readonly Color Hover     = Color.FromArgb(60, 67, 77);
-  public static readonly Color Border    = Color.FromArgb(68, 76, 86);
-  public static readonly Color Separator = Color.FromArgb(58, 65, 74);
+  public static readonly Color Surface   = Color.FromArgb(44, 44, 44);   // #2c2c2c
+  public static readonly Color Hover     = Color.FromArgb(61, 61, 61);   // #3d3d3d
+  public static readonly Color Border    = Color.FromArgb(69, 69, 69);   // #454545
+  public static readonly Color Separator = Color.FromArgb(64, 64, 64);   // #404040
   public const int CornerRadius = 5;   // arrondi du RECTANGLE DE SURVOL
   public const int MenuRadius   = 8;   // arrondi des COINS DU MENU (decoupe de region)
   public const int InsetX       = 5;   // marge laterale du rectangle de survol
   public const int InsetY       = 2;
+  // Retrait du TEXTE dans l'item. Doit etre superieur a InsetX, sinon le texte touche
+  // le bord du rectangle de survol. Win11 laisse respirer autour du libelle.
+  public const int TextPadX     = 14;
+  public const int TextPadY     = 7;
 }
 
 public class VigieDarkColors : ProfessionalColorTable {
@@ -213,12 +221,19 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
   // Survol : rectangle ENCARTE et arrondi (Win11), et non une bande pleine largeur.
   protected override void OnRenderMenuItemBackground(ToolStripItemRenderEventArgs e) {
     if (!e.Item.Selected || !e.Item.Enabled) return;
-    Rectangle b = new Rectangle(Point.Empty, e.Item.Size);
+
+    // L'item peut etre plus LARGE que la zone visible du menu : ses derniers pixels
+    // passent sous la bordure. Un rectangle calcule sur e.Item.Size sortait donc a
+    // droite et s'y faisait rogner a angle droit -- arrondi a gauche, coupe net a
+    // droite. On borne la largeur a ce qui est reellement visible.
+    int visible = e.ToolStrip.ClientSize.Width - e.Item.Bounds.Left;
+    int largeur = Math.Min(e.Item.Size.Width, visible);
+
     Rectangle r = new Rectangle(
-      b.X + VigieMenuPalette.InsetX,
-      b.Y + VigieMenuPalette.InsetY,
-      b.Width  - VigieMenuPalette.InsetX * 2,
-      b.Height - VigieMenuPalette.InsetY * 2);
+      VigieMenuPalette.InsetX,
+      VigieMenuPalette.InsetY,
+      largeur - VigieMenuPalette.InsetX * 2,
+      e.Item.Size.Height - VigieMenuPalette.InsetY * 2);
     if (r.Width <= 0 || r.Height <= 0) return;
     SmoothingMode old = e.Graphics.SmoothingMode;
     e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
@@ -311,14 +326,20 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
         [void]$menu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator))
         [void]$menu.Items.Add('Quitter', $null, [System.EventHandler]{ & $stopServer; $icon.Visible = $false; $icon.Dispose(); [System.Windows.Forms.Application]::Exit() })
 
-        # Couleur et hauteur des items : reglees ICI en un seul endroit, pour tous les
-        # items d'un coup. Le libelle d'etat garde sa couleur attenuee (ce n'est pas un
-        # ToolStripMenuItem). Hauteur facon Win11 : ~32 px avec la police 9,5.
-        $itemPad = New-Object System.Windows.Forms.Padding(2, 6, 2, 6)
+        # Couleur, retrait et hauteur des items : regles ICI en un seul endroit, pour tous
+        # les items d'un coup. Le retrait horizontal vient de la palette (TextPadX) et est
+        # volontairement SUPERIEUR a InsetX : sinon le texte touche le bord du rectangle de
+        # survol. Il valait 2 px, d'ou un libelle colle au bord.
+        $padX = [VigieMenuPalette]::TextPadX
+        $padY = [VigieMenuPalette]::TextPadY
+        $itemPad = New-Object System.Windows.Forms.Padding($padX, $padY, $padX, $padY)
         foreach ($it in $menu.Items) {
             if ($it -is [System.Windows.Forms.ToolStripMenuItem]) {
                 $it.ForeColor = $lite
                 $it.Padding   = $itemPad
+            } elseif ($it -is [System.Windows.Forms.ToolStripLabel]) {
+                # Le libelle d'etat s'aligne sur les autres : sans cela il decroche.
+                $it.Padding = New-Object System.Windows.Forms.Padding($padX, 4, $padX, 4)
             }
         }
         $icon.ContextMenuStrip = $menu
