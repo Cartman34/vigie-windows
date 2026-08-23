@@ -71,13 +71,29 @@ $uiScript = {
             try { [void](& $launchHidden $pwsh @('-NoProfile','-ExecutionPolicy','Bypass','-File', $trayPath)) } catch { }
             $icon.Visible = $false; $icon.Dispose(); [System.Windows.Forms.Application]::Exit()
         }
+        # Ouvre la fenetre dediee (navigateur en mode --app). JOURNALISE chaque etape :
+        # sans trace, un double-clic sans effet est indiagnosticable -- on ne sait meme
+        # pas si le gestionnaire a ete appele.
         $openApp = {
+            TLog "openApp demande"
             $bases = @(${env:ProgramFiles(x86)}, $env:ProgramFiles, $env:LOCALAPPDATA) | Where-Object { $_ }
             $rel = @('Microsoft\Edge\Application\msedge.exe','Google\Chrome\Application\chrome.exe')
             $b = $null
             foreach ($base in $bases) { foreach ($rp in $rel) { $cand = Join-Path $base $rp; if (Test-Path $cand) { $b = $cand; break } }; if ($b) { break } }
-            if ($b) { try { Start-Process -FilePath $b -ArgumentList "--app=$url","--window-size=1240,840" } catch { Start-Process $url } }
-            else    { Start-Process $url }
+            if ($b) {
+                try {
+                    Start-Process -FilePath $b -ArgumentList "--app=$url","--window-size=1240,840"
+                    TLog ("openApp ok (fenetre dediee) : " + $b)
+                } catch {
+                    TLog ("openApp : --app KO (" + $_.Exception.Message + ") - repli navigateur")
+                    try { Start-Process $url; TLog "openApp ok (repli navigateur)" }
+                    catch { TLog ("openApp ECHEC : " + $_.Exception.Message) }
+                }
+            } else {
+                TLog "openApp : ni Edge ni Chrome trouve - repli navigateur par defaut"
+                try { Start-Process $url; TLog "openApp ok (navigateur par defaut)" }
+                catch { TLog ("openApp ECHEC : " + $_.Exception.Message) }
+            }
         }
         $openUrl     = { param($u) try { Start-Process $u } catch { TLog ("ouverture KO (" + $u + ") : " + $_.Exception.Message) } }
         $openBrowser = { & $openUrl $url }
@@ -301,7 +317,10 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
             }
         }
         $icon.ContextMenuStrip = $menu
-        $icon.add_MouseDoubleClick({ & $openApp })
+        # Le double-clic est trace AVANT d'agir : si rien ne se passe, le journal dit
+        # si le clic a seulement atteint l'application. Sans cela, impossible de
+        # distinguer un gestionnaire jamais appele d'une ouverture qui echoue.
+        $icon.add_MouseDoubleClick({ TLog "double-clic sur l'icone"; & $openApp })
 
         & $startServer
         TLog "serveur ok"
