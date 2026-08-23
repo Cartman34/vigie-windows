@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vigie — atelier de validation</title>
+<!--
+  Atelier de validation VISUELLE. Ouvrir directement (file://), aucune dependance,
+  aucun serveur. Sert a juger a l'oeil ce qui ne se valide pas par un parseur :
+  la marque du tray a sa taille reelle, les .ico livres, l'ecran de chargement,
+  la palette du menu.
+
+  Les geometries reproduisent EXACTEMENT backend/assets/tray/generer-icones.py.
+  Toute valeur retenue ici doit etre reportee dans ce generateur ET dans le repli
+  GDI+ de backend/tray.ps1, puis consignee dans docs/DECISIONS-VALIDEES.md.
+-->
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel-2:#1c2230; --border:#2d333b;
+    --text:#e6edf3; --muted:#8b949e; --accent:#388bfd;
+    --ok:#3fb950; --warn:#d29922; --err:#f85149;
+    --gauge-track:#30363d;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);
+       color:var(--text);font-size:14px;line-height:1.5}
+  header{padding:18px 26px;border-bottom:1px solid var(--border);background:var(--panel);
+         display:flex;align-items:center;gap:14px}
+  header h1{font-size:17px;margin:0;font-weight:700}
+  header .sub{color:var(--muted);font-size:12.5px}
+  main{max-width:1100px;margin:0 auto;padding:24px}
+  section{background:var(--panel);border:1px solid var(--border);border-radius:12px;
+          padding:20px;margin-bottom:22px}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);
+     margin:0 0 4px;font-weight:700}
+  .hint{color:var(--muted);font-size:12.5px;margin:0 0 16px}
+  .row{display:flex;flex-wrap:wrap;gap:26px;align-items:flex-end}
+  .ctrl{display:flex;flex-direction:column;gap:6px}
+  .ctrl label{font-size:12px;color:var(--muted);font-weight:600}
+  input[type=range]{width:260px;accent-color:var(--accent)}
+  .chips{display:flex;gap:8px}
+  button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--border);
+         background:var(--panel-2);color:var(--muted);padding:6px 13px;font-weight:600;
+         font-size:12.5px;transition:.12s}
+  button:hover{border-color:var(--accent);color:var(--text)}
+  button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .val{font-variant-numeric:tabular-nums;font-weight:700;color:var(--text)}
+  .sizes{display:flex;align-items:flex-end;gap:26px;flex-wrap:wrap;margin-top:20px}
+  .size{display:flex;flex-direction:column;align-items:center;gap:7px}
+  .size .cap{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+  /* Fond imitant une barre des taches, pour juger le contraste reel */
+  .taskbar{background:#202020;border:1px solid #333;border-radius:8px;padding:10px 14px;
+           display:flex;align-items:center;gap:14px}
+  .taskbar .cap{color:#9aa4ae}
+  table{border-collapse:collapse;width:100%;font-size:13px;margin-top:10px}
+  th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--border)}
+  th{color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.5px}
+  code{background:var(--panel-2);padding:1px 6px;border-radius:5px;font-size:12.5px}
+  .swatch{display:inline-block;width:18px;height:18px;border-radius:4px;
+          border:1px solid var(--border);vertical-align:-4px;margin-right:8px}
+  .frame{width:100%;height:520px;border:1px solid var(--border);border-radius:10px;background:#000}
+  .note{border-left:3px solid var(--warn);padding:10px 14px;background:rgba(210,153,34,.08);
+        border-radius:0 8px 8px 0;color:var(--muted);font-size:12.5px;margin-top:16px}
+  .note b{color:var(--text)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Vigie — atelier de validation</h1>
+  <span class="sub">ce qui ne se valide pas par un parseur : la marque, les icônes, l'écran de chargement</span>
+</header>
+
+<main>
+
+<section>
+  <h2>Marque du tray — réglage de la jauge</h2>
+  <p class="hint">
+    Géométrie identique à <code>generer-icones.py</code>. Le curseur règle la
+    <b>fraction</b> : c'est elle qui décide si la jauge paraît « pleine ».
+    Juge à <b>16 px</b>, c'est la taille réelle dans la barre des tâches.
+  </p>
+
+  <div class="row">
+    <div class="ctrl">
+      <label>Fraction — <span class="val" id="fracTxt">1.00</span></label>
+      <input type="range" id="frac" min="0" max="1" step="0.01" value="1.00">
+    </div>
+    <div class="ctrl">
+      <label>État</label>
+      <div class="chips">
+        <button class="on" data-state="ok">Conforme</button>
+        <button data-state="warn">Démarrage</button>
+        <button data-state="err">Erreur</button>
+      </div>
+    </div>
+    <div class="ctrl">
+      <label>Repères</label>
+      <div class="chips">
+        <button class="on" id="btnTicks">Graduations</button>
+        <button class="on" id="btnNeedle">Aiguille</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sizes" id="preview"></div>
+
+  <div class="taskbar" style="margin-top:20px">
+    <span class="cap" style="font-size:12px">Sur fond de barre des tâches :</span>
+    <span id="tb16"></span><span id="tb24"></span><span id="tb32"></span>
+  </div>
+
+  <div class="note">
+    <b>Valeurs actuellement livrées</b> — conforme <code>1.00</code> (jauge pleine), démarrage
+    <code>0.50</code>, erreur <code>0.14</code>. Une fraction de <code>1.00</code> rend la
+    jauge pleine : l'aiguille rejoint alors la fin de l'arc, en bas à droite.
+    Toute valeur retenue est à reporter dans <code>generer-icones.py</code> <i>et</i> dans le
+    repli GDI+ de <code>tray.ps1</code>, puis à consigner dans <code>DECISIONS-VALIDEES.md</code>.
+  </div>
+</section>
+
+<section>
+  <h2>Icônes réellement livrées (.ico)</h2>
+  <p class="hint">
+    Ce que Windows affiche vraiment, lu depuis <code>backend/assets/tray/</code>.
+    À comparer avec la simulation ci-dessus : si elles diffèrent, le générateur n'a pas été rejoué.
+  </p>
+  <div class="sizes" id="icos"></div>
+</section>
+
+<section>
+  <h2>Écran de chargement</h2>
+  <p class="hint">
+    <code>frontend/index.html</code> en direct. Le splash s'efface au premier chargement —
+    recharge le cadre pour le revoir.
+  </p>
+  <div class="row" style="margin-bottom:12px">
+    <button id="reloadSplash">Recharger le cadre</button>
+  </div>
+  <iframe class="frame" id="appFrame" src="../frontend/index.html"></iframe>
+</section>
+
+<section>
+  <h2>Palette du menu du tray</h2>
+  <p class="hint">Valeurs de <code>VigieMenuPalette</code> dans <code>backend/tray.ps1</code>.</p>
+  <table>
+    <tr><th>Rôle</th><th>Couleur</th><th>Usage</th></tr>
+    <tr><td>Surface</td><td><span class="swatch" style="background:#2b3038"></span><code>#2b3038</code></td><td>fond du menu</td></tr>
+    <tr><td>Survol</td><td><span class="swatch" style="background:#3c434d"></span><code>#3c434d</code></td><td>rectangle encarté, rayon 5</td></tr>
+    <tr><td>Bordure</td><td><span class="swatch" style="background:#444c56"></span><code>#444c56</code></td><td>bordure DWM</td></tr>
+    <tr><td>Séparateur</td><td><span class="swatch" style="background:#3a414a"></span><code>#3a414a</code></td><td>trait fin encarté</td></tr>
+  </table>
+</section>
+
+</main>
+
+<script>
+// ===== Marque : reproduction EXACTE de generer-icones.py =====
+// Toute divergence ici rendrait l'atelier trompeur : ne modifier qu'en miroir du generateur.
+const COLORS = { ok:'#3fb950', warn:'#d29922', err:'#f85149' };
+const A0 = 135, SPAN = 270;
+const SIZES = [16, 20, 24, 32, 48, 128];
+
+let state = 'ok', ticks = true, needle = true;
+
+const pt = (r, deg) => {
+  const a = deg * Math.PI / 180;
+  return [50 + r * Math.cos(a), 50 + r * Math.sin(a)];
+};
+const darken = (hex, f) => {
+  const n = parseInt(hex.slice(1), 16);
+  const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(v => Math.round(v * f));
+  return '#' + c.map(v => v.toString(16).padStart(2, '0')).join('');
+};
+const arcPath = () => {
+  const [x0, y0] = pt(35, A0), [x1, y1] = pt(35, A0 + SPAN);
+  return `M ${x0.toFixed(3)} ${y0.toFixed(3)} A 35 35 0 1 1 ${x1.toFixed(3)} ${y1.toFixed(3)}`;
+};
+
+function markSvg(frac, colorKey, px){
+  const col = COLORS[colorKey];
+  const len = 2 * Math.PI * 35 * (SPAN / 360);          // longueur totale de l'arc
+  const [hx, hy] = pt(-6, A0);                          // talon
+  const [nx, ny] = pt(35 * 0.92, A0);                   // pointe
+  const rot = frac * SPAN;
+
+  let tickEls = '';
+  if (ticks) {
+    for (let i = 0; i <= 6; i++) {                      // 7 traits, bornes comprises
+      const a = A0 + (i / 6) * SPAN;
+      const [ax, ay] = pt(35 * 0.98, a), [bx, by] = pt(35 * 0.80, a);
+      tickEls += `<line x1="${ax.toFixed(3)}" y1="${ay.toFixed(3)}" x2="${bx.toFixed(3)}" y2="${by.toFixed(3)}"/>`;
+    }
+  }
+  const needleEls = needle ? `
+    <g transform="rotate(${rot} 50 50)" stroke-linecap="round">
+      <line x1="${hx.toFixed(3)}" y1="${hy.toFixed(3)}" x2="${nx.toFixed(3)}" y2="${ny.toFixed(3)}" stroke="${darken(col,0.72)}" stroke-opacity=".95" stroke-width="9.8"/>
+      <line x1="${hx.toFixed(3)}" y1="${hy.toFixed(3)}" x2="${nx.toFixed(3)}" y2="${ny.toFixed(3)}" stroke="${col}" stroke-width="8.2"/>
+    </g>` : '';
+
+  return `<svg width="${px}" height="${px}" viewBox="0 0 100 100">
+    <circle cx="50" cy="50" r="45" fill="none" stroke="${col}" stroke-opacity=".35" stroke-width="2.4"/>
+    <path d="${arcPath()}" fill="none" stroke="var(--gauge-track)" stroke-width="11" stroke-linecap="round"/>
+    <g stroke="#8b949e" stroke-opacity=".35" stroke-width="2">${tickEls}</g>
+    <path d="${arcPath()}" fill="none" stroke="${col}" stroke-width="11" stroke-linecap="round"
+          stroke-dasharray="${len.toFixed(2)}" stroke-dashoffset="${(len * (1 - frac)).toFixed(2)}"/>
+    ${needleEls}
+    <circle cx="50" cy="50" r="9.5" fill="${col}"/>
+    <circle cx="50" cy="50" r="4.2" fill="#f0f6fc"/>
+  </svg>`;
+}
+
+function render(){
+  const frac = parseFloat(document.getElementById('frac').value);
+  document.getElementById('fracTxt').textContent = frac.toFixed(2);
+  document.getElementById('preview').innerHTML = SIZES.map(px =>
+    `<div class="size">${markSvg(frac, state, px)}<span class="cap">${px} px</span></div>`).join('');
+  [16, 24, 32].forEach(px => {
+    document.getElementById('tb' + px).innerHTML = markSvg(frac, state, px);
+  });
+}
+
+document.getElementById('frac').addEventListener('input', render);
+document.querySelectorAll('[data-state]').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('[data-state]').forEach(x => x.classList.remove('on'));
+  b.classList.add('on'); state = b.dataset.state; render();
+}));
+document.getElementById('btnTicks').addEventListener('click', e => {
+  ticks = !ticks; e.target.classList.toggle('on', ticks); render();
+});
+document.getElementById('btnNeedle').addEventListener('click', e => {
+  needle = !needle; e.target.classList.toggle('on', needle); render();
+});
+
+// ===== Icones .ico reellement livrees =====
+document.getElementById('icos').innerHTML = ['ok', 'warn', 'error'].map(n =>
+  [16, 24, 32, 48, 128].map(px =>
+    `<div class="size"><img src="../backend/assets/tray/${n}.ico" width="${px}" height="${px}" alt="${n}">
+     <span class="cap">${n} · ${px}px</span></div>`).join('')).join('');
+
+document.getElementById('reloadSplash').addEventListener('click', () => {
+  const f = document.getElementById('appFrame');
+  f.src = f.src.split('?')[0] + '?t=' + Date.now();
+});
+
+render();
+</script>
+</body>
+</html>

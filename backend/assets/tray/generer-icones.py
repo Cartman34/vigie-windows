@@ -34,7 +34,9 @@ def make(color, frac, out):
     wr=M*0.042; d.ellipse([cx-wr,cy-wr,cx+wr,cy+wr],fill=(0xf0,0xf6,0xfc,255))
     base=img.resize((256,256),Image.LANCZOS)
     base.save(out, format='ICO', sizes=[(256,256),(48,48),(32,32),(24,24),(20,20),(16,16)])
-make((63,185,80),  0.88, os.path.join(OUT,'ok.ico'))
+# Fractions du niveau (voir docs/DECISIONS-VALIDEES.md) :
+#   conforme = 1.00 -> jauge PLEINE (v2). Doit rester identique au repli GDI+ de tray.ps1.
+make((63,185,80),  1.00, os.path.join(OUT,'ok.ico'))
 make((210,153,34), 0.50, os.path.join(OUT,'warn.ico'))
 make((248,81,73),  0.14, os.path.join(OUT,'error.ico'))
 print('OK', sorted(x for x in os.listdir(OUT) if x.endswith('.ico')))

@@ -34,7 +34,7 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
 - Résolutions câblées : Latence → `net-speedtest` ; Windows Update « Détectées » → `open-windows-update` (note raccourcie).
 - WSL : champ **Statut Actif/Inactif** coloré + **trio Démarrer/Redémarrer/Arrêter** (boutons pertinents). Actions `wsl-start`/`wsl-restart` + invalidation sonde.
 - Topbar : **liseré coloré = état de connexion à l'API** (vert live / orange maquette / rouge erreur) ; santé globale dans la topbar.
-- **Icône tray** : `.ico` multi-résolutions nets, design **option B validée** (anneau + graduations + aiguille à talon + point blanc), générés par `backend/assets/tray/generer-icones_B.py`, chargés par `tray.ps1` (`setIcon`) avec repli GDI+.
+- **Icône tray** : `.ico` multi-résolutions nets, design **option B validée** (anneau + graduations + aiguille à talon + point blanc), générés par `backend/assets/tray/generer-icones.py`, chargés par `tray.ps1` (`setIcon`) avec repli GDI+.
 - **Rebrand interface** : « Control Panel » → **« Vigie »** (titre onglet, sous-titre, `document.title`, tray). Le titre principal reste le **nom de la machine** (dynamique).
 
 ## État — À FAIRE (backlog)
@@ -103,7 +103,7 @@ n'aura lieu qu'après confirmation explicite que tout fonctionne depuis le dép�
 
 ### Outils presents
 - **PowerShell 7** (`pwsh`) : present. C'est l'outil de validation du code PowerShell.
-- **Python 3.11** : present (sert a `backend/assets/tray/generer-icones_B.py`).
+- **Python 3.11** : present (sert a `backend/assets/tray/generer-icones.py`).
 - **Chocolatey**, **git**, **php**, **composer**, **symfony-cli** : presents.
 - **git** fonctionne normalement : depot, branches et worktrees operationnels. **HTTPS** vers
   GitHub, jeton memorise par le Credential Manager.
