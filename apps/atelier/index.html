@@ -265,29 +265,50 @@ const ARC = (() => {
 })();
 const ARCLEN = 2 * Math.PI * R * (SPAN / 360);
 
+// Niveaux de detail — MIROIR EXACT de apps/tray/assets/generer-icones.py (D37).
+// En dessous d'un certain nombre de pixels, un element cesse d'etre lisible et devient
+// du bruit : on le retire plutot que de le laisser se transformer en tache.
+// Si ces seuils changent d'un cote, ils DOIVENT changer de l'autre, sinon l'atelier
+// montre autre chose que ce que Windows affiche — et il ne sert plus a rien.
+const DETAIL = { ring: 48, ticks: 64, edge: 32 };
+function strokeWidths(px){
+  if (px >= 48) return { arc:11.0, needle:8.2,  edge:9.8,  hub:9.5,  dot:4.2 };
+  if (px >= 32) return { arc:12.5, needle:9.5,  edge:11.2, hub:10.5, dot:4.6 };
+  return          { arc:15.0, needle:11.5, edge:0,    hub:12.5, dot:5.2 };
+}
+
 function markSvg(frac, key, px){
   const col = COLORS[key];
+  const w = strokeWidths(px);
   const [hx,hy] = pt(-6, A0), [nx,ny] = pt(R * 0.92, A0);
+
+  const showRing  = px >= DETAIL.ring;
+  const showTicks = ticks && px >= DETAIL.ticks;
+  const showEdge  = px >= DETAIL.edge && w.edge > 0;
+
   let tk = '';
-  if (ticks) for (let i = 0; i <= 6; i++){          // 7 traits, bornes comprises
+  if (showTicks) for (let i = 0; i <= 6; i++){       // 7 traits, bornes comprises
     const a = A0 + (i/6) * SPAN;
     const [ax,ay] = pt(R*0.98, a), [bx,by] = pt(R*0.80, a);
     tk += '<line x1="'+ax.toFixed(2)+'" y1="'+ay.toFixed(2)+'" x2="'+bx.toFixed(2)+'" y2="'+by.toFixed(2)+'"/>';
   }
-  const nd = needle
-    ? '<g transform="rotate('+(frac*SPAN).toFixed(2)+' 50 50)" stroke-linecap="round">'
-      + '<line x1="'+hx.toFixed(2)+'" y1="'+hy.toFixed(2)+'" x2="'+nx.toFixed(2)+'" y2="'+ny.toFixed(2)+'" stroke="'+darken(col,0.72)+'" stroke-opacity=".95" stroke-width="9.8"/>'
-      + '<line x1="'+hx.toFixed(2)+'" y1="'+hy.toFixed(2)+'" x2="'+nx.toFixed(2)+'" y2="'+ny.toFixed(2)+'" stroke="'+col+'" stroke-width="8.2"/></g>'
-    : '';
+  let nd = '';
+  if (needle) {
+    nd = '<g transform="rotate('+(frac*SPAN).toFixed(2)+' 50 50)" stroke-linecap="round">';
+    if (showEdge) {
+      nd += '<line x1="'+hx.toFixed(2)+'" y1="'+hy.toFixed(2)+'" x2="'+nx.toFixed(2)+'" y2="'+ny.toFixed(2)+'" stroke="'+darken(col,0.72)+'" stroke-opacity=".95" stroke-width="'+w.edge+'"/>';
+    }
+    nd += '<line x1="'+hx.toFixed(2)+'" y1="'+hy.toFixed(2)+'" x2="'+nx.toFixed(2)+'" y2="'+ny.toFixed(2)+'" stroke="'+col+'" stroke-width="'+w.needle+'"/></g>';
+  }
   return '<svg width="'+px+'" height="'+px+'" viewBox="0 0 100 100" aria-hidden="true">'
-    + '<circle cx="50" cy="50" r="45" fill="none" stroke="'+col+'" stroke-opacity=".35" stroke-width="2.4"/>'
-    + '<path d="'+ARC+'" fill="none" stroke="'+TRACK+'" stroke-width="11" stroke-linecap="round"/>'
+    + (showRing ? '<circle cx="50" cy="50" r="45" fill="none" stroke="'+col+'" stroke-opacity=".35" stroke-width="2.4"/>' : '')
+    + '<path d="'+ARC+'" fill="none" stroke="'+TRACK+'" stroke-width="'+w.arc+'" stroke-linecap="round"/>'
     + '<g stroke="#8b949e" stroke-opacity=".35" stroke-width="2">'+tk+'</g>'
-    + '<path d="'+ARC+'" fill="none" stroke="'+col+'" stroke-width="11" stroke-linecap="round"'
+    + '<path d="'+ARC+'" fill="none" stroke="'+col+'" stroke-width="'+w.arc+'" stroke-linecap="round"'
     + ' stroke-dasharray="'+ARCLEN.toFixed(2)+'" stroke-dashoffset="'+(ARCLEN*(1-frac)).toFixed(2)+'"/>'
     + nd
-    + '<circle cx="50" cy="50" r="9.5" fill="'+col+'"/>'
-    + '<circle cx="50" cy="50" r="4.2" fill="#f0f6fc"/></svg>';
+    + '<circle cx="50" cy="50" r="'+w.hub+'" fill="'+col+'"/>'
+    + '<circle cx="50" cy="50" r="'+w.dot+'" fill="#f0f6fc"/></svg>';
 }
 
 function renderMark(){
