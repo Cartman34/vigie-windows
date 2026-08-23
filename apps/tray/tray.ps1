@@ -206,14 +206,19 @@ public static class VigieMenuPalette {
   public static readonly Color Hover     = Color.FromArgb(61, 61, 61);   // #3d3d3d
   public static readonly Color Border    = Color.FromArgb(69, 69, 69);   // #454545
   public static readonly Color Separator = Color.FromArgb(64, 64, 64);   // #404040
-  public const int CornerRadius = 5;   // arrondi du RECTANGLE DE SURVOL
+  // Survol PLEINE LARGEUR : bande edge-to-edge, sans marge ni arrondi. C'est le rendu
+  // demande. Les valeurs restent nommees pour qu'un survol encarte redevienne un simple
+  // changement de constantes, sans toucher au trace.
+  public const int CornerRadius = 0;   // arrondi du RECTANGLE DE SURVOL
   public const int MenuRadius   = 8;   // arrondi des COINS DU MENU (decoupe de region)
-  public const int InsetX       = 5;   // marge laterale du rectangle de survol
-  public const int InsetY       = 2;
+  public const int InsetX       = 0;   // marge laterale du rectangle de survol
+  public const int InsetY       = 0;
   // Retrait du TEXTE dans l'item. Doit etre superieur a InsetX, sinon le texte touche
   // le bord du rectangle de survol. Win11 laisse respirer autour du libelle.
   public const int TextPadX     = 14;
-  public const int TextPadY     = 7;
+  public const int TextPadY     = 7;   // ne sert QUE a fixer la hauteur de ligne
+  // Libelles non cliquables (ligne d'etat) : gris attenue, lisible sur fond sombre.
+  public static readonly Color TextDisabled = Color.FromArgb(154, 160, 166);
 }
 
 public class VigieDarkColors : ProfessionalColorTable {
@@ -272,12 +277,37 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
     e.Graphics.SmoothingMode = old;
   }
 
+  // Placement du TEXTE, explicite.
+  //
+  // Le moteur de disposition des menus deroulants calcule lui-meme la boite des items :
+  // regler Padding y produit un ContentRectangle incoherent (mesure : {X=-12, Y=-5,
+  // Height=44} pour un item de 34 px). S'appuyer dessus revenait a se battre contre le
+  // moteur -- le texte n'etait jamais centre verticalement, quatre tentatives durant.
+  //
+  // On ne subit plus la mise en page : on donne le rectangle de texte et on demande un
+  // centrage vertical. Meme resultat pour TOUS les types d'items, y compris ceux que le
+  // moteur decale (un ToolStripLabel est pose 8 px plus a droite qu'un ToolStripMenuItem).
+  protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e) {
+    Size s = e.Item.Size;
+    e.TextRectangle = new Rectangle(
+        VigieMenuPalette.TextPadX, 0,
+        Math.Max(0, s.Width - VigieMenuPalette.TextPadX * 2), s.Height);
+    e.TextFormat = TextFormatFlags.Left | TextFormatFlags.VerticalCenter
+                 | TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix;
+    // Un item desactive sert de libelle (ligne d'etat) : le gris systeme serait
+    // illisible sur fond sombre.
+    if (!e.Item.Enabled) e.TextColor = VigieMenuPalette.TextDisabled;
+    base.OnRenderItemText(e);
+  }
+
   // Separateur : trait fin encarte, aligne sur les marges du survol.
   protected override void OnRenderSeparator(ToolStripSeparatorRenderEventArgs e) {
     Rectangle b = new Rectangle(Point.Empty, e.Item.Size);
     int y = b.Top + b.Height / 2;
+    // Le separateur s'aligne sur le TEXTE, pas sur le survol : avec un survol pleine
+    // largeur, un trait pleine largeur decouperait le menu en tranches.
     using (Pen pen = new Pen(VigieMenuPalette.Separator))
-      e.Graphics.DrawLine(pen, b.Left + VigieMenuPalette.InsetX + 3, y, b.Right - VigieMenuPalette.InsetX - 3, y);
+      e.Graphics.DrawLine(pen, b.Left + VigieMenuPalette.TextPadX, y, b.Right - VigieMenuPalette.TextPadX, y);
   }
 
   // Fond uni : pas de degrade, pas de bande de marge d'icone.
@@ -334,8 +364,13 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
         try { $miShow.Font = New-Object System.Drawing.Font('Segoe UI', 9.5, [System.Drawing.FontStyle]::Bold) } catch { }
         [void]$menu.Items.Add('Ouvrir dans le navigateur', $null, [System.EventHandler]{ & $openBrowser })
         [void]$menu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator))
-        $miInfo = New-Object System.Windows.Forms.ToolStripLabel('État : démarrage…')
-        $miInfo.ForeColor = [System.Drawing.Color]::FromArgb(139,148,158)
+        # Ligne d'etat : un ToolStripMenuItem DESACTIVE, pas un ToolStripLabel. Le moteur
+        # de disposition pose un Label 8 px plus a droite qu'un item, d'ou un decalage
+        # visible. Meme type d'item = meme geometrie, sans correction a maintenir.
+        # Sa couleur attenuee est appliquee par le renderer (TextDisabled), le gris
+        # systeme etant illisible sur fond sombre.
+        $miInfo = New-Object System.Windows.Forms.ToolStripMenuItem('État : démarrage…')
+        $miInfo.Enabled = $false
         [void]$menu.Items.Add($miInfo)
         [void]$menu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator))
         [void]$menu.Items.Add('Relancer l''application', $null, [System.EventHandler]$relaunch)
@@ -355,20 +390,16 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
         [void]$menu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator))
         [void]$menu.Items.Add('Quitter', $null, [System.EventHandler]{ & $quitApp 'menu' })
 
-        # Couleur, retrait et hauteur des items : regles ICI en un seul endroit, pour tous
-        # les items d'un coup. Le retrait horizontal vient de la palette (TextPadX) et est
-        # volontairement SUPERIEUR a InsetX : sinon le texte touche le bord du rectangle de
-        # survol. Il valait 2 px, d'ou un libelle colle au bord.
-        $padX = [VigieMenuPalette]::TextPadX
-        $padY = [VigieMenuPalette]::TextPadY
-        $itemPad = New-Object System.Windows.Forms.Padding($padX, $padY, $padX, $padY)
+        # Couleur et HAUTEUR DE LIGNE, en un seul endroit pour tous les items.
+        # Le padding vertical ne sert qu'a fixer la hauteur : la POSITION du texte est
+        # imposee par le renderer (OnRenderItemText), parce que le moteur de disposition
+        # des menus deroulants rend Padding inexploitable pour placer le contenu.
+        # Aucun padding horizontal ici : il ferait doublon avec TextPadX du renderer.
+        $itemPad = New-Object System.Windows.Forms.Padding(0, [VigieMenuPalette]::TextPadY, 0, [VigieMenuPalette]::TextPadY)
         foreach ($it in $menu.Items) {
             if ($it -is [System.Windows.Forms.ToolStripMenuItem]) {
                 $it.ForeColor = $lite
                 $it.Padding   = $itemPad
-            } elseif ($it -is [System.Windows.Forms.ToolStripLabel]) {
-                # Le libelle d'etat s'aligne sur les autres : sans cela il decroche.
-                $it.Padding = New-Object System.Windows.Forms.Padding($padX, 4, $padX, 4)
             }
         }
         $icon.ContextMenuStrip = $menu

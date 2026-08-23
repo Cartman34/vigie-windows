@@ -23,7 +23,7 @@ Ajouter une décision = ajouter son numéro à une ligne.
 - **Configuration** — D15 · D18
 - **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38
 - **Sécurité et installation** — D07 · D11 · D22 · D34
-- **Outillage** — D06 · D21 · D24
+- **Outillage** — D06 · D21 · D24 · D40
 - **Méthode de travail** — D10 · D12 · D13 · D14 · D16 · D17 · D31 · D36 · D39
 
 ---
@@ -843,3 +843,31 @@ Format obligatoire, sinon elle n'est pas vue :
 fois sous forme de suggestions en prose, en clôture de longs messages. L'utilisateur n'a vu
 **aucune question** — et il avait raison, ce n'en étaient pas. C'était de surcroît un détail
 technique, qui relevait de la décision et non de l'arbitrage.
+
+## D40 — Les droits de l'agent sont un fichier du dépôt, pas un réglage de session
+
+Les demandes de permission incessantes venaient d'une **liste d'autorisations** : elle ne
+couvre que les commandes **analysables statiquement**. Dès qu'une commande contient une
+boucle, une substitution `$(...)` ou un test `[ ]`, l'analyse échoue et la permission est
+redemandée — alors que la même commande écrite simplement passerait. Allonger la liste ne
+corrige rien : le défaut est dans le mécanisme, pas dans la liste.
+
+Le projet décide donc sur le **texte** de la commande, via
+[`scripts/decider-permission.ps1`](../scripts/decider-permission.ps1), branché sur
+l'évènement `PreToolUse` par [`.claude/settings.json`](../.claude/settings.json) — les deux
+**versionnés**, donc relisibles, diffables, modifiables à un seul endroit.
+
+Le script **autorise par défaut** et ne redemande que sur une courte liste de gestes
+destructeurs : suppression récursive, `push --force`, réécriture d'historique,
+`reset --hard`, `clean -f`, arrêt machine, opération disque, registre, comptes et droits,
+exécution de code téléchargé. Liste **volontairement courte** : une liste longue n'est plus
+relue, donc plus maintenue.
+
+**Le défaut est sûr** : script absent, en panne ou sortie invalide ⇒ le comportement normal
+de l'outil reprend, c'est-à-dire la demande de permission. Jamais l'autorisation muette.
+
+Corollaire pratique : une modification de ces fichiers ne prend effet qu'au **redémarrage de
+la session** — l'agent ne relit pas un réglage apparu en cours de route.
+
+Ce qui reste hors du dépôt est local par nature : `.claude/settings.local.json` (réglages de
+poste) et `.claude/worktrees/` (arbres de travail), tous deux ignorés.
