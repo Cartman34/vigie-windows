@@ -29,8 +29,6 @@ $uiScript = {
         Add-Type -AssemblyName System.Windows.Forms
         Add-Type -AssemblyName System.Drawing
         Add-Type -Namespace VigieNative -Name Ico -MemberDefinition '[System.Runtime.InteropServices.DllImport("user32.dll")] public static extern bool DestroyIcon(System.IntPtr handle);'
-        # Coins arrondis Windows 11 : sans effet sur les versions anterieures (l'appel echoue sans dommage).
-        Add-Type -Namespace VigieNative -Name Dwm -MemberDefinition '[System.Runtime.InteropServices.DllImport("dwmapi.dll")] public static extern int DwmSetWindowAttribute(System.IntPtr hwnd, int attr, ref int value, int size);'
 
         $cfg       = Get-Config -Backend $backend
         $url       = Get-AppUrl -Config $cfg
@@ -239,17 +237,9 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
 
         # Coins arrondis NATIFS via DWM (Windows 11). Applique a chaque ouverture :
         # idempotent, et la fenetre du menu peut recreer son handle entre deux affichages.
-        $roundCorners = {
-            try {
-                $h = $menu.Handle
-                if ($h -ne [System.IntPtr]::Zero) {
-                    $round = 2                                   # DWMWCP_ROUND
-                    [void][VigieNative.Dwm]::DwmSetWindowAttribute($h, 33, [ref]$round, 4)
-                    $border = 0x00564C44                         # COLORREF (BGR) de #444C56
-                    [void][VigieNative.Dwm]::DwmSetWindowAttribute($h, 34, [ref]$border, 4)
-                }
-            } catch { }
-        }
+        # Set-WindowChrome vient de lib/common.ps1 : la signature P/Invoke n'est
+        # declaree qu'a un seul endroit, partage avec la fenetre de consentement.
+        $roundCorners = { Set-WindowChrome -Handle $menu.Handle -RoundedCorners -BorderColor 0x00564C44 }
         $menu.add_Opened({ & $roundCorners })
 
         $lite = [System.Drawing.Color]::FromArgb(230,237,243)

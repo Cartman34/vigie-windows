@@ -14,36 +14,59 @@
     Ce script ne SUPPRIME jamais de dossier : l'ancien espace de travail est
     seulement mis de cote (suffixe .old).
 
-    Prerequis : session ELEVEE (la tache planifiee est enregistree en RunLevel
-    Highest). Le script ne s'auto-eleve pas, pour que son compte rendu reste lisible.
+    Necessite les droits admin (la tache planifiee est en RunLevel Highest). Avant
+    toute invite UAC, une fenetre explique ce qui va etre retire et pourquoi (D22).
+    La session elevee ecrit un journal, restitue ici : rien n'est perdu.
 
     Usage :
-      pwsh -ExecutionPolicy Bypass -File .\uninstall-legacy.ps1
-      pwsh -ExecutionPolicy Bypass -File .\uninstall-legacy.ps1 -LegacyWorkspace 'C:\chemin\vers\ancien-dossier'
       pwsh -ExecutionPolicy Bypass -File .\uninstall-legacy.ps1 -WhatIf
+      pwsh -ExecutionPolicy Bypass -File .\uninstall-legacy.ps1 -LegacyWorkspace 'C:\chemin\vers\ancien-dossier'
 
-    Codes de retour : 0 = termine sans erreur ; 1 = prerequis manquant ; 2 = au moins une etape en echec.
+    Codes de retour : 0 = termine sans erreur ; 2 = au moins une etape en echec ;
+                      3 = refuse par l'utilisateur.
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(
     # Ancien espace de travail a mettre de cote. Machine-specifique : aucune valeur
     # par defaut, sinon le script porterait un chemin d'une machine particuliere.
-    [string] $LegacyWorkspace
+    [string] $LegacyWorkspace,
+    # Passe l'explication graphique : execution volontairement automatisee.
+    [switch] $Yes
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'lib/common.ps1')
 
 # --- Noms herites, confines a ce fichier ---------------------------------------
 $LegacyTaskNames     = @('HyperionControlPanel')
 $LegacyShortcutNames = @('HYPERION Control Panel.url')
 
-# --- Prerequis -----------------------------------------------------------------
-$isAdmin = ([Security.Principal.WindowsPrincipal] `
-    [Security.Principal.WindowsIdentity]::GetCurrent()
-).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-if (-not $isAdmin) {
-    Write-Host "Session non elevee. Relance ce script depuis un PowerShell administrateur." -ForegroundColor Yellow
-    exit 1
+# --- Consentement puis elevation (D22) ------------------------------------------
+if (-not (Test-IsElevated)) {
+    $changes = @(
+        "Suppression de la tâche planifiée héritée : " + ($LegacyTaskNames -join ', '),
+        "Suppression du raccourci bureau hérité : " + ($LegacyShortcutNames -join ', ')
+    )
+    if ($LegacyWorkspace) {
+        $changes += "Ancien espace de travail MIS DE CÔTÉ (renommé en .old, jamais supprimé) : $LegacyWorkspace"
+    } else {
+        $changes += "Aucun ancien espace de travail indiqué : rien ne sera renommé"
+    }
+    $changes += "Aucun dossier n'est supprimé, aucune donnée n'est perdue"
+    if ($WhatIfPreference) { $changes += "MODE SIMULATION (-WhatIf) : rien ne sera réellement modifié" }
+
+    $ok = Show-ElevationRationale -AssumeYes:$Yes `
+        -Title   "Nettoyer les vestiges de l'ancienne installation" `
+        -Summary "Une installation antérieure au renommage Vigie a laissé une tâche planifiée et un raccourci orphelins. Ce nettoyage les retire." `
+        -Changes $changes
+    if (-not $ok) { Write-Host "Nettoyage annulé. Rien n'a été modifié."; exit 3 }
+
+    $argv = @()
+    if ($LegacyWorkspace) { $argv += @('-LegacyWorkspace', $LegacyWorkspace) }
+    if ($WhatIfPreference) { $argv += '-WhatIf' }
+    $argv += '-Yes'
+    $code = Invoke-ElevatedSelf -ScriptPath $PSCommandPath -Arguments $argv -LogDir (Get-LogDir -Backend $PSScriptRoot)
+    exit $code
 }
 
 $done = 0

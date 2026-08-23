@@ -122,6 +122,29 @@ Toutes les modifs de sondes / `common.ps1` / actions sont **live** (re-sourcees 
       possible mais volontairement NON faite (principe "rien sans consentement").
 - [ ] Perf : `lock.probe` lente (~14 s) a cause de Get-ScheduledTask ; a optimiser si genant.
 
+## 2026-08-22 (nuit, fin+) — Consentement explicite avant toute élévation
+
+- **Plus jamais d'invite UAC « nue » (D22)** : une fenêtre explique d'abord ce qui va être
+  modifié et pourquoi, puis seulement Windows demande l'autorisation. Refuser n'affiche
+  aucune invite système. Échap et la croix refusent.
+- **Bloc d'élévation factorisé** : `Test-IsElevated`, `Show-ElevationRationale`,
+  `Invoke-ElevatedSelf`, `ConvertTo-PSLiteral`, `Set-WindowChrome` dans `lib/common.ps1`.
+  Les trois scripts (`install-autostart`, `uninstall-autostart`, `uninstall-legacy`) avaient
+  chacun **sa propre copie** du test d'élévation et de la relance.
+- **La sortie de la session élevée n'est plus perdue** : `-Verb RunAs` interdit la
+  redirection, donc la session élevée écrit un journal que l'appelant relit et réaffiche.
+- **Code de retour 3** = refusé par l'utilisateur, distinct d'un échec.
+- **`Set-WindowChrome`** centralise l'appel DWM (barre de titre sombre, coins arrondis,
+  couleur de bordure). `tray.ps1` déclarait sa propre signature P/Invoke : supprimée.
+  Vérifié : `dwmapi.dll` n'apparaît plus qu'à **un seul endroit** du projet.
+- **Textes de l'interface accentués** : les scripts sont lus par `pwsh` (PS7), qui lit
+  l'UTF-8 sans BOM. Vérifié par décodage UTF-8 strict et relecture d'un accent précis.
+  Les lanceurs `.cmd`/`.vbs` restent ASCII pur.
+- **Validé réellement** : Parser sur 41 fichiers ; helpers chargés ; échappement des
+  apostrophes testé ; `-AssumeYes` court-circuite bien ; **fenêtre affichée et capturée**
+  (596×345, boucle de messages réelle) ; fermeture automatique → **False**, le refus est
+  bien le défaut ; les 3 attributs DWM renvoient HRESULT 0.
+
 ## 2026-08-22 (nuit, fin) — WSL inactif signalé, contrat corrigé
 
 - **WSL inactif = rouge, champ ET carte (D20)**. Levait une contradiction : le champ était déjà
