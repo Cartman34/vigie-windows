@@ -257,3 +257,35 @@ utilisable. Sur une version antérieure à Windows 11, l'appel DWM échoue sans 
 **Piège à retenir** : `System.Drawing` est scindé en plusieurs assemblages — `Color` vient de
 `System.Drawing.Primitives`, `Graphics` et `GraphicsPath` de `System.Drawing.Common`. Un
 `Add-Type` qui ne référence que le premier échoue sur `Drawing2D`.
+
+## D20 — WSL inactif est signalé : champ ET carte en rouge
+
+« WSL inactif » est un **état à signaler**, pas un état normal : le champ « Statut » **et**
+la carte passent en rouge. La carte reçoit un lisere gauche rouge de 4 px et le badge
+« Problème » ; le bouton « Démarrer » reste proposé.
+
+Cela corrige au passage une **contradiction** : le champ était déjà rouge alors que la carte
+restait neutre. Désormais les deux dérivent de la **même** variable, ils ne peuvent plus
+diverger. WSL **non installé** reste neutre : on ne reproche pas à une machine de ne pas
+l'avoir installé.
+
+**Exigence explicite de l'utilisateur : ce choix doit rester trivial à rebasculer.**
+Il tient donc en **une seule ligne**, en tête de `backend/probes/wsl/wsl.probe.ps1`, sous un
+bandeau de commentaire qui énumère les valeurs possibles :
+
+```powershell
+$inactiveSeverity = 'error'   # 'error' rouge | 'warn' orange | 'neutral' gris
+```
+
+Aucune autre ligne n'est à toucher, et **rien** n'est à changer côté front : les trois valeurs
+sont déjà rendues. Vérifié en exécutant la sonde réelle sur les **6** combinaisons
+(3 sévérités × actif/inactif) : carte et champ concordent à chaque fois.
+
+Ce réglage vit dans la sonde et non dans `config.psd1` : c'est une décision **produit**,
+pas une valeur propre à une machine (**D18**).
+
+## D21 — Le contrat accepte `neutral` comme statut de module
+
+`api/openapi.yaml` déclarait `enum: [ok, warn, error]` pour le statut d'un module, alors que
+`New-ModuleObject` accepte `neutral` et que les sondes en émettent (ex. WSL non installé).
+Le contrat était faux : `neutral` y est ajouté et documenté. L'implémentation était juste.

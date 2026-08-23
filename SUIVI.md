@@ -122,6 +122,21 @@ Toutes les modifs de sondes / `common.ps1` / actions sont **live** (re-sourcees 
       possible mais volontairement NON faite (principe "rien sans consentement").
 - [ ] Perf : `lock.probe` lente (~14 s) a cause de Get-ScheduledTask ; a optimiser si genant.
 
+## 2026-08-22 (nuit, fin) — WSL inactif signalé, contrat corrigé
+
+- **WSL inactif = rouge, champ ET carte (D20)**. Levait une contradiction : le champ était déjà
+  `error` alors que la carte restait `neutral`. Les deux dérivent maintenant de la **même**
+  variable et ne peuvent plus diverger. WSL non installé reste neutre.
+- **Rebascule en une seule ligne**, exigence explicite : `$inactiveSeverity = 'error'` en tête de
+  `backend/probes/wsl/wsl.probe.ps1`, sous un bandeau qui énumère `error` / `warn` / `neutral`.
+  **Rien à changer côté front** : `.card.st-error` (lisere gauche 4 px) et le badge « Problème »
+  existent déjà pour les trois valeurs.
+- **Contrat corrigé (D21)** : `api/openapi.yaml` interdisait `neutral` en statut de module alors
+  que `New-ModuleObject` l'accepte et que les sondes en émettent. Le contrat était faux.
+- **Validé réellement** : sonde exécutée sur les **6** combinaisons (3 sévérités × actif/inactif)
+  à partir du contenu réel du fichier — carte et champ concordent partout, boutons pertinents
+  (Actif : Redémarrer/Arrêter ; Inactif : Démarrer).
+
 ## 2026-08-22 (nuit, suite) — Menu du tray facon Windows 11
 
 - **Coins arrondis NATIFS** via DWM (`DWMWA_WINDOW_CORNER_PREFERENCE` = `DWMWCP_ROUND`,

@@ -12,11 +12,23 @@ try {
     if ($guid) { $default = (Get-ItemProperty (Join-Path $lxss $guid) -Name DistributionName -ErrorAction SilentlyContinue).DistributionName }
 } catch { }
 $running = [bool](Get-Process -Name 'vmmemWSL','vmmem','wslservice' -ErrorAction SilentlyContinue)
-$st = if (-not $installed) { 'neutral' } elseif ($running) { 'ok' } else { 'neutral' }
+
+# =============================================================================
+# GRAVITE DE L'ETAT "INACTIF" - decision produit, UNE SEULE LIGNE A CHANGER.
+# Le champ ET la carte en derivent : ils ne peuvent plus se contredire.
+#   'error'   -> rouge  : WSL inactif est signale franchement   (choix actuel, D20)
+#   'warn'    -> orange : a surveiller, sans alarmer
+#   'neutral' -> gris   : etat normal, aucune alerte
+# =============================================================================
+$inactiveSeverity = 'error'
 
 # Statut lisible + colore (Actif/Inactif) plutot qu'un simple Oui/Non.
 $statutValue = if ($running) { 'Actif' } else { 'Inactif' }
-$statutStat  = if ($running) { 'ok' } else { 'error' }
+$statutStat  = if ($running) { 'ok' } else { $inactiveSeverity }
+
+# La carte porte le MEME jugement que le champ : une seule source de verite.
+# WSL absent reste neutre : on ne reproche pas a la machine de ne pas l'avoir installe.
+$st = if (-not $installed) { 'neutral' } elseif ($running) { 'ok' } else { $inactiveSeverity }
 
 # Trio start/restart/stop : uniquement les boutons pertinents selon l'etat.
 $wslActions = @()

@@ -58,7 +58,9 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
    et les variables d'environnement `VIGIE_BACKEND` / `VIGIE_TOKEN` / `VIGIE_PORT` (ex-`HCP_*`).
    **Le nom de machine a totalement disparu du projet** (vérifié par recherche exhaustive).
    Exception : `docs/maquettes-validees/` n'est pas retouché (archive des supports de décision).
-6. **Couleur WSL « Inactif »** : aujourd'hui rouge **au niveau du champ** seulement (la carte reste neutre pour ne pas alarmer). À confirmer si on veut la carte entière en rouge.
+6. ~~Couleur WSL « Inactif »~~ — **FAIT** (**D20**) : champ **et** carte en rouge (la contradiction
+   d'avant est levée). Rebasculable en **une seule ligne** (`$inactiveSeverity` en tête de la sonde),
+   sans rien toucher au front.
 7. **Migrer l'installation** (**D07**) — exige un PowerShell **administrateur**, impossible depuis
    la session de l'agent :
    `backend/install-autostart.ps1` (tâche `Vigie` pointant sur le dépôt), puis
