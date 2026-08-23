@@ -693,3 +693,22 @@ ressources légitimes en **200** ; et trois contournements (traversée ../, enco
 **Portée du défaut** : l''Atelier écoute uniquement en local et ne tourne qu''à la demande,
 donc l''exposition restait limitée aux processus de la machine — qui peuvent de toute façon
 lire le fichier sur disque. Ce n''en était pas moins une fuite gratuite, et corrigée.
+
+## D35 — Les réglages d''IDE ne sont pas versionnés
+
+.idea/, .vscode/ et *.code-workspace sont ignorés **en entier**.
+
+PhpStorm dépose lui-même un .idea/.gitignore qui exclut le volatil et le sensible
+(workspace.xml, dataSources* — là où atterriraient des identifiants de base de
+données). Git ne voyait donc que cs.xml et ce .gitignore, tous deux inoffensifs :
+vérifié, aucun mot de passe, jeton ni chemin machine.
+
+On ignore malgré tout le dossier entier : l''IDE ne sert pas à éditer ce projet, et des
+réglages d''éditeur versionnés finissent toujours par diverger d''un poste à l''autre.
+
+Si un jour la config IDE doit être partagée, le sous-ensemble à versionner serait
+cs.xml, modules.xml, *.iml et misc.xml — **jamais** workspace.xml ni
+dataSources*.
+
+*(Note : .claude/worktrees/ est exclu par .git/info/exclude, un mécanisme local au
+dépôt et non versionné. C''est voulu : c''est de l''outillage propre à cette machine.)*

@@ -15,6 +15,17 @@ apps/*/var/
 **/.bak-*/
 .bak-*/
 
+# --- Reglages d'editeurs / IDE (jamais versionnes) ---
+# PhpStorm pose deja son propre .idea/.gitignore, qui exclut le volatil et le
+# sensible (workspace.xml, dataSources* ou atterriraient des identifiants).
+# On ignore ici le dossier ENTIER : l'IDE ne sert pas a editer ce projet, et des
+# reglages d'editeur versionnes finissent toujours par diverger d'un poste a l'autre.
+# Si un jour on veut partager la config IDE, le sous-ensemble a versionner serait
+# vcs.xml, modules.xml, *.iml et misc.xml -- JAMAIS workspace.xml ni dataSources*.
+.idea/
+.vscode/
+*.code-workspace
+
 # --- Divers ---
 __pycache__/
 *.pyc
