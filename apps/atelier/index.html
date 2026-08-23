@@ -314,8 +314,12 @@ function markSvg(frac, key, px){
 function renderMark(){
   const frac = parseFloat(document.getElementById('frac').value);
   document.getElementById('fracTxt').textContent = frac.toFixed(2);
+  // La plus grande vignette prend sa propre ligne : la largeur maximale est connue,
+  // une cellule de grille calibree sur les petites tailles ne peut pas la contenir.
+  const maxPx = Math.max.apply(null, SIZES);
   document.getElementById('preview').innerHTML = SIZES.map(px =>
-    '<div class="cell"><div class="art">' + markSvg(frac, state, px) + '</div><span class="cap">' + px + ' px</span></div>').join('');
+    '<div class="cell' + (px === maxPx ? ' wide' : '') + '"><div class="art">'
+    + markSvg(frac, state, px) + '</div><span class="cap">' + px + ' px</span></div>').join('');
   [16,20,24,32].forEach(px => { document.getElementById('tb'+px).innerHTML = markSvg(frac, state, px); });
 }
 
@@ -341,7 +345,8 @@ document.getElementById('icos').innerHTML = [
   return '<div class="rowlabel"><span class="dot" style="background:'+col+'"></span><b>'+label+'</b>'
        + '<span class="f">'+n+'.ico</span></div><div class="grid">'
        + ICO_SIZES.map(px =>
-           '<div class="cell"><div class="art"><img src="../tray/assets/'+n+'.ico" width="'+px+'" height="'+px+'" alt=""></div>'
+           '<div class="cell' + (px === Math.max.apply(null, ICO_SIZES) ? ' wide' : '')
+         + '"><div class="art"><img src="../tray/assets/'+n+'.ico" width="'+px+'" height="'+px+'" alt=""></div>'
          + '<span class="cap">'+px+' px</span></div>').join('')
        + '</div>';
 }).join('');
