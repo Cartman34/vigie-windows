@@ -115,15 +115,7 @@
 <main>
 
 <div class="alert" id="alertPaths">
-  <b>Des icônes n'ont pas pu être chargées.</b>
-  Si le serveur de l'Atelier vient d'être relancé, clique
-  <b>« Recharger les icônes »</b> : l'échec est probablement passager.<br>
-  Sinon, la page n'est pas ouverte depuis le dépôt.
-  Elle lit les vrais assets par chemin relatif : ouvre
-  <code>C:\EspaceRestreint\Workspaces\Git\vigie-windows\docs\atelier-validation.html</code>.
-  Ailleurs, les sections « icônes livrées » et « écran de chargement » ne peuvent rien montrer
-  — c'est ce qui produit des images cassées et un cadre noir. Les autres sections
-  fonctionnent partout.
+  <span id="alertBody"></span>
 </div>
 
 <section>
@@ -363,6 +355,26 @@ document.getElementById('icos').innerHTML = [
 // d'anormal. Sans nouvelle tentative, un incident de quelques secondes marquait la page
 // "illisible" DEFINITIVEMENT -- indiscernable d'un vrai probleme d'assets.
 const ICO_RETRIES = 2, ICO_RETRY_MS = 700;
+
+// La cause se DETECTE, elle ne se devine pas : ouverte en file://, la page ne peut
+// structurellement pas lire les assets ; servie en http, un echec est probablement
+// passager (serveur relance). Afficher la mauvaise cause envoie chercher au mauvais
+// endroit -- c'est arrive.
+const SERVIE = location.protocol.startsWith('http');
+document.getElementById('alertBody').innerHTML = SERVIE
+  ? "<b>Des icônes n'ont pas pu être chargées.</b> Le serveur de l'Atelier a probablement "
+    + "été relancé pendant que la page était ouverte : clique <b>« Recharger les icônes »</b>. "
+    + "Si elles ne reviennent pas, vérifie que <code>apps/tray/assets/</code> contient bien les "
+    + "trois <code>.ico</code>."
+  : "<b>Cette page est ouverte en <code>file://</code>, pas servie par l'Atelier.</b> "
+    + "Elle lit les assets par chemin relatif : les sections « icônes livrées » et « écran de "
+    + "chargement » ne peuvent structurellement rien montrer. Lance "
+    + "<code>apps\\atelier\\atelier.cmd</code> et ouvre "
+    + "<code>http://127.0.0.1:47610/apps/atelier/index.html</code>. "
+    + "Les autres sections fonctionnent ici.";
+
+// En file://, on le dit TOUT DE SUITE, sans attendre que 18 images echouent une a une.
+if (!SERVIE) document.getElementById('alertPaths').classList.add('show');
 
 function watchIco(img){
   let tries = 0;
