@@ -20,5 +20,5 @@ if ($pub) {
     Update-StateJson -Path $measFile -Set @{ publicIp = $pub; publicIpAt = (Get-Date).ToString('s') } | Out-Null
     @{ message = "IP publique : $pub"; result = @{ ok = $true; invalidate = $inv } }
 } else {
-    @{ message = "Impossible de recuperer l'IP publique (aucun service joignable, ou pas d'acces Internet sortant)."; result = @{ ok = $false; invalidate = $inv } }
+    @{ message = "Impossible de récupérer l'IP publique (aucun service joignable, ou pas d'accès Internet sortant)."; result = @{ ok = $false; invalidate = $inv } }
 }

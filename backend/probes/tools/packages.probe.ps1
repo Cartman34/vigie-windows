@@ -45,38 +45,38 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
     $vg += ("Chemin : " + $src)
     $fields = @()
     $fields += New-Field -Key 'version' -Label 'Version' -Value $ver -Kind 'text' -Status 'ok' `
-        -Help "Version installee, detectee dans le PATH." -Guide ($vg -join "`n")
+        -Help "Version installée, détectée dans le PATH." -Guide ($vg -join "`n")
 
     # Champ Mises a jour.
     $majStatus = 'neutral'; $majValue = '—'; $mg2 = @()
     if (-not $supported) {
         $majValue = 'non pris en charge'
-        $mg2 += "La verification automatique des MAJ n'est pas disponible pour ce gestionnaire."
+        $mg2 += "La vérification automatique des MAJ n'est pas disponible pour ce gestionnaire."
     } elseif ($checking) {
         $verbe = if ($op -eq 'upgrade') { 'Mise à jour' } else { 'Vérification' }
         $majValue = "$verbe en cours…"
-        $mg2 += ("$verbe lancee" + $(if ($u.startedAt) { " le $($u.startedAt)" } else { "" }) + ".")
-        if ($null -ne $u.count) { $mg2 += ("Dernier resultat connu : $([int]$u.count) MAJ.") }
+        $mg2 += ("$verbe lancée" + $(if ($u.startedAt) { " le $($u.startedAt)" } else { "" }) + ".")
+        if ($null -ne $u.count) { $mg2 += ("Dernier résultat connu : $([int]$u.count) MAJ.") }
     } elseif ($u -and $u.at) {
         if ($cnt -gt 0) {
             $majStatus = 'warn'; $majValue = "$cnt disponible(s)"
             foreach ($it in @($u.items)) { $mg2 += ("- " + $it) }
         } else {
             $majStatus = 'ok'; $majValue = 'à jour'
-            $mg2 += "Aucune mise a jour disponible."
+            $mg2 += "Aucune mise à jour disponible."
         }
         $mg2 += ""
-        $mg2 += ("Verifie le : " + $u.at)
-        if ($u.error) { $mg2 += ("Erreur lors de la verification : " + $u.error) }
+        $mg2 += ("Vérifié le : " + $u.at)
+        if ($u.error) { $mg2 += ("Erreur lors de la vérification : " + $u.error) }
     } else {
         $majValue = 'non vérifiées'
-        $mg2 += "Cliquez « Verifier les mises a jour » : la verification s'execute en tache de fond."
+        $mg2 += "Cliquez « Vérifier les mises à jour » : la vérification s'exécute en tâche de fond."
     }
     # Le champ MAJ pointe vers l'action d'upgrade (bouton "Mettre a jour") quand
     # des MAJ existent ET que le gestionnaire sait se mettre a jour tout seul.
     $majFieldArgs = @{
         Key = 'updates'; Label = 'Mises à jour'; Value = $majValue; Kind = 'text'; Status = $majStatus
-        Help = "Nombre de mises a jour disponibles (verifie a la demande, sans bloquer)."; Guide = ($mg2 -join "`n")
+        Help = "Nombre de mises à jour disponibles (vérifié à la demande, sans bloquer)."; Guide = ($mg2 -join "`n")
     }
     if ($cnt -gt 0 -and $upSupported -and -not $checking) { $majFieldArgs.FixAction = 'pkg-upgrade' }
     $fields += New-Field @majFieldArgs
@@ -87,11 +87,11 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
     $actions = @()
     if ($supported) {
         $actions += New-Action -Id 'pkg-check-updates' -Label 'Vérifier les mises à jour' -Kind 'immediate' `
-            -Help ("Interroge " + $mg.label + " pour lister les MAJ disponibles. S'execute en tache de fond ; la carte s'actualise seule.")
+            -Help ("Interroge " + $mg.label + " pour lister les MAJ disponibles. S'exécute en tâche de fond ; la carte s'actualise seule.")
     }
     if ($upSupported -and $cnt -gt 0 -and -not $checking) {
         $actions += New-Action -Id 'pkg-upgrade' -Label 'Mettre à jour' -Confirm -Kind 'confirm' `
-            -Help ("Met a jour tous les paquets de " + $mg.label + " en tache de fond (peut etre long).")
+            -Help ("Met à jour tous les paquets de " + $mg.label + " en tâche de fond (peut être long).")
     }
 
     $modules += (New-ModuleObject -Id ("pkg-" + $mg.id) -Theme 'tools' -Label $mg.label -Status $modStatus -Fields $fields -Actions $actions -Busy:$checking)
@@ -100,7 +100,7 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
 if (-not $modules.Count) {
     $modules += (New-ModuleObject -Id 'pkg-none' -Theme 'tools' -Label 'Gestionnaires de paquets' -Status 'neutral' -Fields @(
         New-Field -Key 'none' -Label 'Gestionnaires' -Value 'aucun détecté' -Kind 'text' -Status 'neutral' `
-            -Help "Aucun gestionnaire de paquets connu trouve dans le PATH."
+            -Help "Aucun gestionnaire de paquets connu trouvé dans le PATH."
     ))
 }
 

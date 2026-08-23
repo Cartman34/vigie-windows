@@ -11,7 +11,7 @@ $up = if ($os) { (Get-Date) - $os.LastBootUpTime } else { [TimeSpan]::Zero }
 $upTxt = "{0}j {1}h {2}m" -f $up.Days, $up.Hours, $up.Minutes
 New-ModuleObject -Id 'perf' -Theme 'system' -Label 'Ressources' -Status $(if ($ramPct -ge 90 -or $cpu -ge 90) {'warn'} else {'ok'}) -Fields @(
     New-Field -Key 'ramUsed' -Label 'RAM utilisée' -Value $ramPct  -Kind 'number' -Unit '%'  -Status $(if ($ramPct -ge 90) {'warn'} else {'ok'})      -Help 'Pourcentage de mémoire vive utilisée.'
-    New-Field -Key 'ramFree' -Label 'RAM libre'    -Value $freeGB  -Kind 'number' -Unit 'Go' -Status 'neutral'                                        -Help 'Memoire vive disponible.'
-    New-Field -Key 'cpu'     -Label 'CPU'          -Value $cpu     -Kind 'number' -Unit '%'  -Status $(if ($cpu -ge 90) {'warn'} else {'neutral'})   -Help 'Charge processeur instantanee.'
-    New-Field -Key 'uptime'  -Label 'Uptime'       -Value $upTxt   -Kind 'text'               -Status 'neutral'                                        -Help 'Duree depuis le dernier demarrage de Windows.'
+    New-Field -Key 'ramFree' -Label 'RAM libre'    -Value $freeGB  -Kind 'number' -Unit 'Go' -Status 'neutral'                                        -Help 'Mémoire vive disponible.'
+    New-Field -Key 'cpu'     -Label 'CPU'          -Value $cpu     -Kind 'number' -Unit '%'  -Status $(if ($cpu -ge 90) {'warn'} else {'neutral'})   -Help 'Charge processeur instantanée.'
+    New-Field -Key 'uptime'  -Label 'Uptime'       -Value $upTxt   -Kind 'text'               -Status 'neutral'                                        -Help 'Durée depuis le dernier démarrage de Windows.'
 )

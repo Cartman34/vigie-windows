@@ -25,7 +25,7 @@ $needElev = (-not $isAdmin)   # le serveur doit tourner avec les droits (UAC si 
 
 $runLog = Join-Path (Get-LogDir -Backend $backend) ('run_' + (Get-Date -Format 'yyyyMMdd_HHmmss') + '.log')
 try { Start-Transcript -Path $runLog -Force | Out-Null } catch { }
-Write-Log -Backend $backend -Name 'run' -Message ("run.ps1 : PS=" + $PSVersionTable.PSVersion + " eleve=" + $isAdmin)
+Write-Log -Backend $backend -Name 'run' -Message ("run.ps1 : PS=" + $PSVersionTable.PSVersion + " élevé=" + $isAdmin)
 
 # --- Relance sous pwsh et/ou eleve si necessaire (fenetre maintenue) ---
 if ($needPwsh -or $needElev) {
@@ -37,12 +37,12 @@ if ($needPwsh -or $needElev) {
     }
     $argList = @('-NoExit','-NoProfile','-ExecutionPolicy','Bypass','-File', $PSCommandPath)
     if ($NoBrowser) { $argList += '-NoBrowser' }
-    Write-Log -Backend $backend -Name 'run' -Message ("Relance pwsh (eleve=" + $needElev + ")")
+    Write-Log -Backend $backend -Name 'run' -Message ("Relance pwsh (élevé=" + $needElev + ")")
     try {
         if ($needElev) { Start-Process $pwsh.Source -Verb RunAs -ArgumentList $argList }
         else           { Start-Process $pwsh.Source -ArgumentList $argList }
     } catch {
-        Write-Log -Backend $backend -Name 'run' -Level 'ERROR' -Message ("Relance echouee : " + $_.Exception.Message)
+        Write-Log -Backend $backend -Name 'run' -Level 'ERROR' -Message ("Relance échouée : " + $_.Exception.Message)
         Write-Host "Relance impossible. Ouvre un terminal pwsh (admin) et lance start.ps1." -ForegroundColor Yellow
     }
     try { Stop-Transcript | Out-Null } catch { }
@@ -54,7 +54,7 @@ if (-not (Get-Module -ListAvailable -Name Pode)) {
     Write-Log -Backend $backend -Name 'run' -Level 'WARN' -Message "Pode manquant - installation automatique..."
     & (Join-Path $backend 'install.ps1')
     if (-not (Get-Module -ListAvailable -Name Pode)) {
-        Write-Log -Backend $backend -Name 'run' -Level 'ERROR' -Message "Pode toujours absent apres install.ps1."
+        Write-Log -Backend $backend -Name 'run' -Level 'ERROR' -Message "Pode toujours absent après install.ps1."
         try { Stop-Transcript | Out-Null } catch { }
         return
     }
@@ -64,7 +64,7 @@ $cfg = Get-Config -Backend $backend
 $url = Get-AppUrl -Config $cfg
 
 if (Test-ServerUp -Address $cfg.BindAddress -Port $cfg.Port) {
-    Write-Log -Backend $backend -Name 'run' -Message ("Deja en cours : " + $url + " - ouverture UI.")
+    Write-Log -Backend $backend -Name 'run' -Message ("Déjà en cours : " + $url + " - ouverture UI.")
     if (-not $NoBrowser) { Start-Process $url }
     try { Stop-Transcript | Out-Null } catch { }
     return
@@ -84,7 +84,7 @@ if (-not $NoBrowser) {
         }
         Start-Process $u
     } -ArgumentList $url, $cfg.BindAddress, $cfg.Port | Out-Null
-    Write-Log -Backend $backend -Name 'run' -Message ("Navigateur planifie (attente ecoute) : " + $url)
+    Write-Log -Backend $backend -Name 'run' -Message ("Navigateur planifié (attente écoute) : " + $url)
 }
 
 try { Stop-Transcript | Out-Null } catch { }   # start.ps1 a son propre transcript

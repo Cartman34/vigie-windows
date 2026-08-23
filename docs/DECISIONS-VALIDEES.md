@@ -343,22 +343,71 @@ de la machine).
 Le générateur est renommé `generer-icones_B.py` → **`generer-icones.py`** : la lettre
 d'option ne survit pas à la validation (**D04**).
 
-## D24 — Un atelier de validation visuelle dans le dépôt
+## D24 — Un atelier de validation visuelle, **servi** et outillé
 
-`docs/atelier-validation.html` — page autonome, ouverte en `file://`, sans serveur ni
-dépendance. Elle montre ce qu'aucun parseur ne peut valider :
+`docs/atelier-validation.html` — page de validation visuelle, **servie par un petit serveur
+local** (`docs/atelier.ps1`, serveur intégré de PHP), pas ouverte en double-clic.
 
-- la **marque** du tray avec un curseur de fraction, rendue de 16 à 128 px, dont un fond
-  imitant la barre des tâches pour juger le contraste réel ;
-- les **`.ico` réellement livrés**, à côté de la simulation : s'ils diffèrent, c'est que le
-  générateur n'a pas été rejoué ;
-- l'**écran de chargement** en direct dans un cadre ;
-- la **palette** du menu du tray.
+**Pourquoi un serveur** : ouverte en `file://`, la page ne peut pas faire son travail. Les
+chemins relatifs vers les `.ico` cassent dès qu'on déplace le fichier (images cassées), et le
+navigateur refuse d'afficher `frontend/index.html` dans un cadre (rectangle noir). Les deux
+défauts ont été constatés en livrant la première version : **c'était une livraison
+inutilisable**. Servie en `http`, la page fonctionne entièrement.
 
-**Pourquoi** : l'agent ne voit pas l'écran. Sans cette page, chaque réglage visuel coûte un
-aller-retour « je code à l'aveugle, tu corriges après coup ». La page rend la décision
-immédiate et reproductible.
+Elle reste ouvrable en `file://` mais **le dit** alors, au lieu d'afficher des cassures
+silencieuses.
 
-**Règle** : la géométrie y est une **reproduction** du générateur. Toute modification doit
-être faite en miroir, sinon l'atelier devient trompeur — c'est précisément ce qu'il sert à
-éviter.
+**Contenu** : la marque du tray avec un curseur de fraction (16 → 128 px, dont une bande
+imitant la barre des tâches) ; les `.ico` **réellement livrés** à côté de la simulation ;
+le **menu du tray** réglable, qui écrit les valeurs exactes à recopier dans
+`VigieMenuPalette` ; l'écran de chargement en direct.
+
+**Exigences tenues** (demande explicite de l'utilisateur) :
+
+| Exigence | Réponse |
+|---|---|
+| Configuration à un seul endroit | `BindAddress` et `AtelierPort` dans `config.psd1`, lus via `Get-Config`. L'URL en dérive, aucune recopie (**D15**). |
+| Outils de gestion | `-Status`, `-Stop`, `-Background`, `-NoBrowser`. Idempotent. Codes de retour distincts. |
+| Documentation | `docs/atelier.md` : démarrage, commandes, configuration, périmètre, tableau de dépannage. |
+| Aide intégrée | Aide basée sur les commentaires : `Get-Help .\docstelier.ps1 -Full`. |
+
+**Périmètre** : écoute strictement locale, **aucun droit administrateur**, port distinct de
+celui du serveur applicatif — les deux cohabitent. Il ne sert aucune API, n'exécute aucune
+sonde, n'a accès à aucun secret.
+
+**Règle** : la géométrie de la page est une **reproduction** du code. Toute modification doit
+être faite en miroir dans le code ET ici, sinon l'atelier devient trompeur — c'est
+précisément ce qu'il sert à éviter.
+
+## D25 — Un redémarrage demandé n'est pas une panne
+
+Le tray affichait **rouge** dès que le serveur devenait injoignable, y compris pendant un
+redémarrage que l'utilisateur venait lui-même de demander. L'orange « démarrage » ne
+s'appliquait qu'au tout premier lancement : une fois `EverUp` vrai, il ne revenait jamais.
+
+Désormais l'état porte un drapeau `Starting`, remis à vrai par **tout** démarrage voulu, avec
+une fenêtre de tolérance de 25 secondes :
+
+- démarrage en cours, dans la fenêtre → **orange** « Démarrage… » ;
+- démarrage en cours, fenêtre dépassée → **rouge** « Échec de démarrage » ;
+- pas de démarrage en cours et injoignable → **rouge** « Arrêtée / injoignable ».
+
+« Redémarrer le serveur » passe l'icône en orange **immédiatement**, sans attendre le sondage
+suivant (8 s) qui affichait un rouge injustifié. Conforme à **D01** : trois états, et le rouge
+reste réservé à un vrai problème.
+
+## D26 — Coins du menu : découpe de région, pas DWM
+
+**D19** arrondissait les coins du menu par DWM. Constaté à l'écran : ça ne fonctionne pas.
+DWM n'arrondit pas les fenêtres **sans cadre standard**, ce qu'est un menu contextuel — le
+menu restait à coins carrés alors que l'appel renvoyait pourtant `HRESULT 0`.
+
+`Set-RoundedRegion` (dans `lib/common.ps1`) découpe le contrôle en rectangle arrondi : ça
+s'applique **toujours**. L'appel DWM est conservé avant, sans dommage s'il est ignoré.
+Contrepartie assumée : bords sans anticrénelage et ombre coupée au tracé.
+
+Rayon dans `VigieMenuPalette.MenuRadius` (8 px), distinct de `CornerRadius` qui est celui du
+**rectangle de survol** (5 px) — les deux étaient confondus dans le commentaire d'origine.
+
+**Leçon** : un `HRESULT 0` prouve que l'appel a été **accepté**, pas qu'il a **produit** un
+effet. Ce n'était donc pas une validation suffisante.

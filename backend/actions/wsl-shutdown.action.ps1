@@ -8,5 +8,5 @@ for ($i = 0; $i -lt 12; $i++) {
     if (-not (Get-Process -Name 'vmmemWSL','vmmem','wslservice' -ErrorAction SilentlyContinue)) { break }
     Start-Sleep -Milliseconds 500
 }
-if ($ok) { @{ message = 'WSL arrete.'; result = @{ ok = $true; invalidate = @('wsl.probe.ps1') } } }
-else     { @{ message = 'Delai depasse en arretant WSL.'; result = @{ ok = $false; invalidate = @('wsl.probe.ps1') } } }
+if ($ok) { @{ message = 'WSL arrêté.'; result = @{ ok = $true; invalidate = @('wsl.probe.ps1') } } }
+else     { @{ message = 'Délai dépassé en arrêtant WSL.'; result = @{ ok = $false; invalidate = @('wsl.probe.ps1') } } }

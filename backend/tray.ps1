@@ -35,7 +35,9 @@ $uiScript = {
         $healthUrl = (Get-ApiUrl -Config $cfg) + '/health'
         $pwsh      = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
         $trayPath  = Join-Path $backend 'tray.ps1'
-        $state     = [hashtable]::Synchronized(@{ Proc = $null; Drawn = ''; EverUp = $false; StartTicks = [datetime]::UtcNow.Ticks })
+        # Starting : un demarrage a ete demande et le serveur n'a pas encore repondu.
+        $state     = [hashtable]::Synchronized(@{ Proc = $null; Drawn = ''; EverUp = $false; Starting = $true; StartTicks = [datetime]::UtcNow.Ticks })
+        $startupGrace = 25    # secondes de tolerance avant de declarer un echec de demarrage
         $iconHandle = [System.IntPtr]::Zero
 
         $Pt = { param($cx,$cy,$r,$deg) $a = $deg * [math]::PI / 180.0; ,@(($cx + $r * [math]::Cos($a)), ($cy + $r * [math]::Sin($a))) }
@@ -50,6 +52,10 @@ $uiScript = {
         }
         $startServer = {
             if (Test-ServerUp -Address $cfg.BindAddress -Port $cfg.Port) { return }
+            # Un demarrage VOULU rouvre la fenetre de tolerance : pendant $startupGrace
+            # secondes, "injoignable" veut dire "demarre" (orange) et non "en panne" (rouge).
+            $state.StartTicks = [datetime]::UtcNow.Ticks
+            $state.Starting   = $true
             if ($pwsh) { $state.Proc = & $launchHidden $pwsh @('-NoProfile','-ExecutionPolicy','Bypass','-File', (Join-Path $backend 'start.ps1')) }
         }
         $stopServer = { try { if ($state.Proc -and -not $state.Proc.HasExited) { $state.Proc.Kill() } } catch { } }
@@ -149,7 +155,8 @@ public static class VigieMenuPalette {
   public static readonly Color Hover     = Color.FromArgb(60, 67, 77);
   public static readonly Color Border    = Color.FromArgb(68, 76, 86);
   public static readonly Color Separator = Color.FromArgb(58, 65, 74);
-  public const int CornerRadius = 5;   // arrondi du survol (les coins du menu sont geres par DWM)
+  public const int CornerRadius = 5;   // arrondi du RECTANGLE DE SURVOL
+  public const int MenuRadius   = 8;   // arrondi des COINS DU MENU (decoupe de region)
   public const int InsetX       = 5;   // marge laterale du rectangle de survol
   public const int InsetY       = 2;
 }
@@ -240,7 +247,13 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
         # idempotent, et la fenetre du menu peut recreer son handle entre deux affichages.
         # Set-WindowChrome vient de lib/common.ps1 : la signature P/Invoke n'est
         # declaree qu'a un seul endroit, partage avec la fenetre de consentement.
-        $roundCorners = { Set-WindowChrome -Handle $menu.Handle -RoundedCorners -BorderColor 0x00564C44 }
+        # DWM d'abord (ombre et anticrenelage natifs quand il veut bien s'appliquer),
+        # puis decoupe de region qui, elle, arrondit TOUJOURS : sans elle le menu reste
+        # a coins carres, DWM n'arrondissant pas les fenetres sans cadre standard.
+        $roundCorners = {
+            Set-WindowChrome  -Handle $menu.Handle -RoundedCorners -BorderColor 0x00564C44
+            Set-RoundedRegion -Control $menu -Radius ([VigieMenuPalette]::MenuRadius)
+        }
         $menu.add_Opened({ & $roundCorners })
 
         $lite = [System.Drawing.Color]::FromArgb(230,237,243)
@@ -253,7 +266,15 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
         [void]$menu.Items.Add($miInfo)
         [void]$menu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator))
         [void]$menu.Items.Add('Relancer l''application', $null, [System.EventHandler]$relaunch)
-        [void]$menu.Items.Add('Redémarrer le serveur', $null, [System.EventHandler]{ & $stopServer; Start-Sleep -Milliseconds 600; & $startServer })
+        [void]$menu.Items.Add('Redémarrer le serveur', $null, [System.EventHandler]{
+            & $stopServer
+            Start-Sleep -Milliseconds 600
+            & $startServer
+            # Retour visuel immediat : sans cela l'icone garde son etat jusqu'au prochain
+            # sondage (8 s) et l'utilisateur voit un rouge qui n'a pas lieu d'etre.
+            & $setIcon 'warn'; $state.Drawn = 'warn'
+            $icon.Text = 'Vigie - Démarrage…'; $miInfo.Text = 'État : Démarrage…'
+        })
         [void]$menu.Items.Add('Ouvrir les journaux', $null, [System.EventHandler]{ Start-Process (Get-LogDir -Backend $backend) })
         $miAbout = $menu.Items.Add('À propos de Vigie', $null, [System.EventHandler]{ & $openRepo })
         $miAbout.ToolTipText = $repoUrl
@@ -279,13 +300,20 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
         $poll = {
             try {
                 [void](Invoke-RestMethod -Uri $healthUrl -TimeoutSec 5 -ErrorAction Stop)
-                $state.EverUp = $true
+                $state.EverUp   = $true
+                $state.Starting = $false
                 $app = 'ok'; $lbl = 'En marche'
             } catch {
                 $elapsed = ([datetime]::UtcNow.Ticks - $state.StartTicks) / 1e7
-                if ($state.EverUp) { $app = 'error'; $lbl = 'Arrêtée / injoignable' }
-                elseif ($elapsed -gt 25) { $app = 'error'; $lbl = 'Échec de démarrage' }
-                else { $app = 'warn'; $lbl = 'Démarrage…' }
+                if ($state.Starting -and $elapsed -le $startupGrace) {
+                    # Demarrage en cours (premier lancement OU redemarrage demande par
+                    # l'utilisateur) : c'est une attente normale, pas une panne.
+                    $app = 'warn';  $lbl = 'Démarrage…'
+                } elseif ($state.Starting) {
+                    $app = 'error'; $lbl = 'Échec de démarrage'
+                } else {
+                    $app = 'error'; $lbl = 'Arrêtée / injoignable'
+                }
             }
             $miInfo.Text = "État : $lbl"
             if ($app -ne $state.Drawn) { & $setIcon $app; $state.Drawn = $app; $icon.Text = "Vigie - $lbl"; TLog "app=$app" }

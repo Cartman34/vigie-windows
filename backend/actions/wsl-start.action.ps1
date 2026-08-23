@@ -10,5 +10,5 @@ for ($i = 0; $i -lt 20; $i++) {
     if (Get-Process -Name 'vmmemWSL','vmmem','wslservice' -ErrorAction SilentlyContinue) { $running = $true; break }
     Start-Sleep -Milliseconds 500
 }
-if ($running) { @{ message = 'WSL demarre.'; result = @{ ok = $true; invalidate = @('wsl.probe.ps1') } } }
-else          { @{ message = 'WSL lance mais etat non confirme.'; result = @{ ok = $false; invalidate = @('wsl.probe.ps1') } } }
+if ($running) { @{ message = 'WSL démarré.'; result = @{ ok = $true; invalidate = @('wsl.probe.ps1') } } }
+else          { @{ message = 'WSL lancé mais état non confirmé.'; result = @{ ok = $false; invalidate = @('wsl.probe.ps1') } } }

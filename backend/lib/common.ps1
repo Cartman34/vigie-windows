@@ -606,6 +606,32 @@ function Get-LaunchOrigin {
     return $null
 }
 
+# Decoupe un controle en rectangle arrondi. Necessaire pour les menus contextuels :
+# DWM (Set-WindowChrome) n'arrondit PAS les fenetres sans cadre standard, ce qui laisse
+# un menu a coins carres. La region, elle, s'applique toujours.
+# Contrepartie assumee : bords sans anticrenelage et ombre coupee au trace.
+function Set-RoundedRegion {
+    param(
+        [Parameter(Mandatory)][System.Windows.Forms.Control]$Control,
+        [int]$Radius = 8
+    )
+    try {
+        if ($Radius -le 0 -or $Control.Width -le 0 -or $Control.Height -le 0) { return }
+        $w = $Control.Width; $h = $Control.Height
+        $d = [Math]::Min($Radius * 2, [Math]::Min($w, $h))
+        $path = New-Object System.Drawing.Drawing2D.GraphicsPath
+        $path.AddArc(0, 0, $d, $d, 180, 90)
+        $path.AddArc($w - $d, 0, $d, $d, 270, 90)
+        $path.AddArc($w - $d, $h - $d, $d, $d, 0, 90)
+        $path.AddArc(0, $h - $d, $d, $d, 90, 90)
+        $path.CloseFigure()
+        $old = $Control.Region
+        $Control.Region = New-Object System.Drawing.Region($path)
+        if ($old) { $old.Dispose() }
+        $path.Dispose()
+    } catch { }
+}
+
 # Fenetre explicative. Renvoie $true si l'utilisateur accepte de continuer.
 # -AssumeYes court-circuite l'affichage (execution non interactive, tache planifiee).
 function Show-ElevationRationale {

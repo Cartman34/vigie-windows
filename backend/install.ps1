@@ -41,12 +41,12 @@ try { Start-Transcript -Path $log -Force | Out-Null } catch { }
 try {
     $isAdmin = Test-Elevated
     $scope = if ($isAdmin) { 'AllUsers' } else { 'CurrentUser' }
-    Write-Log -Backend $backend -Name 'install' -Message ("Installation (PowerShell " + $PSVersionTable.PSVersion + ", eleve=" + $isAdmin + ", portee=" + $scope + ")")
+    Write-Log -Backend $backend -Name 'install' -Message ("Installation (PowerShell " + $PSVersionTable.PSVersion + ", élevé=" + $isAdmin + ", portée=" + $scope + ")")
 
     if (-not (Get-PackageProvider -ListAvailable -Name NuGet -ErrorAction SilentlyContinue)) {
         Write-Log -Backend $backend -Name 'install' -Message "Installation du provider NuGet..."
         Install-PackageProvider -Name NuGet -Force -Scope $scope | Out-Null
-    } else { Write-Log -Backend $backend -Name 'install' -Message "Provider NuGet : deja present." }
+    } else { Write-Log -Backend $backend -Name 'install' -Message "Provider NuGet : déjà présent." }
 
     if ((Get-PSRepository -Name PSGallery -ErrorAction SilentlyContinue).InstallationPolicy -ne 'Trusted') {
         Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
@@ -59,34 +59,34 @@ try {
         # En admin : on garantit une copie AllUsers, visible par tous les PS7.
         if (Test-Path $allUsersPode) {
             $v = (Get-ChildItem $allUsersPode -Directory -ErrorAction SilentlyContinue | Select-Object -Last 1).Name
-            Write-Log -Backend $backend -Name 'install' -Message ("Pode (AllUsers) : deja present (" + $v + ").")
+            Write-Log -Backend $backend -Name 'install' -Message ("Pode (AllUsers) : déjà présent (" + $v + ").")
         } else {
             Write-Log -Backend $backend -Name 'install' -Message "Installation de Pode (AllUsers)..."
             Install-Module Pode -Scope AllUsers -Force
-            Write-Log -Backend $backend -Name 'install' -Message "Pode installe (AllUsers)."
+            Write-Log -Backend $backend -Name 'install' -Message "Pode installé (AllUsers)."
         }
     } else {
         if (Get-Module -ListAvailable -Name Pode) {
-            Write-Log -Backend $backend -Name 'install' -Message ("Pode : deja installe (v" + (Get-Module -ListAvailable -Name Pode | Select-Object -First 1).Version + ").")
+            Write-Log -Backend $backend -Name 'install' -Message ("Pode : déjà installé (v" + (Get-Module -ListAvailable -Name Pode | Select-Object -First 1).Version + ").")
         } else {
             Write-Log -Backend $backend -Name 'install' -Message "Installation de Pode (CurrentUser)..."
             Install-Module Pode -Scope CurrentUser -Force
-            Write-Log -Backend $backend -Name 'install' -Message "Pode installe (CurrentUser)."
+            Write-Log -Backend $backend -Name 'install' -Message "Pode installé (CurrentUser)."
         }
     }
 
     $null = Get-ApiToken -Backend $backend
-    Write-Log -Backend $backend -Name 'install' -Message "Jeton d'API pret : backend/.secrets/api.token"
+    Write-Log -Backend $backend -Name 'install' -Message "Jeton d'API prêt : backend/.secrets/api.token"
 
     $wvKeys = @(
       'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}',
       'HKLM:\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
     )
     $wv = $false; foreach ($k in $wvKeys) { if (Test-Path $k) { $wv = $true } }
-    Write-Log -Backend $backend -Name 'install' -Message ("WebView2 runtime : " + $(if ($wv) { 'present' } else { 'absent' }))
+    Write-Log -Backend $backend -Name 'install' -Message ("WebView2 runtime : " + $(if ($wv) { 'présent' } else { 'absent' }))
 
     Write-Host ""
-    Write-Host "Termine. Pour lancer :  pwsh -File .\run.ps1" -ForegroundColor Green
+    Write-Host "Terminé. Pour lancer :  pwsh -File .\run.ps1" -ForegroundColor Green
 }
 catch {
     Write-Log -Backend $backend -Name 'install' -Level 'ERROR' -Message ("FATAL: " + $_.Exception.Message)
