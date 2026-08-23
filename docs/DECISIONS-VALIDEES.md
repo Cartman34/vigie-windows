@@ -24,7 +24,7 @@ Ajouter une décision = ajouter son numéro à une ligne.
 - **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38
 - **Sécurité et installation** — D07 · D11 · D22 · D34
 - **Outillage** — D06 · D21 · D24
-- **Méthode de travail** — D10 · D12 · D13 · D14 · D16 · D17 · D31 · D36
+- **Méthode de travail** — D10 · D12 · D13 · D14 · D16 · D17 · D31 · D36 · D39
 
 ---
 
@@ -816,3 +816,30 @@ raison est indiagnosticable si la cause n'est pas tracée.
 Corollaire **D15** : il n'existe plus qu'**une seule** représentation de la marque, le
 `.ico` généré. Deux dessins de la même chose finissent toujours par diverger ; celui-ci
 avait déjà divergé.
+
+## D39 — Les détails techniques se tranchent, ils ne se demandent pas
+
+**Le silence de l'utilisateur vaut accord.** Sur un détail technique, s'il ne dit rien,
+c'est qu'il n'a rien à dire : on décide et on avance. S'il a une décision technique à
+préciser, il en fait part de lui-même.
+
+Ne demander d'arbitrage que lorsque le choix est **produit** — comportement visible, parti
+pris d'interface, priorité — et qu'aucune règle déjà consignée ne permet de le déduire.
+Un choix d'implémentation, un nom interne, une structure de code se tranchent.
+
+En cas de doute, la bonne posture est : **décider, annoncer la décision et sa raison, et
+indiquer qu'elle est réversible**. Pas attendre.
+
+### Quand on pose une question, elle doit être identifiable
+
+Format obligatoire, sinon elle n'est pas vue :
+
+- numérotée `Q1`, `Q2`… — numéros uniques tant que les questions sont ouvertes,
+  réutilisables une fois répondues ;
+- réponses fermées en **A**, **B**, **C**, une ligne chacune, la recommandation en premier ;
+- dans un **bloc identifiable**, jamais diluée dans un paragraphe de fin de message.
+
+**Manquement à ne pas reproduire** : le sort du repli GDI+ de l'icône a été « posé » deux
+fois sous forme de suggestions en prose, en clôture de longs messages. L'utilisateur n'a vu
+**aucune question** — et il avait raison, ce n'en étaient pas. C'était de surcroît un détail
+technique, qui relevait de la décision et non de l'arbitrage.
