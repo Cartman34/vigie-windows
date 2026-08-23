@@ -56,11 +56,15 @@
   .val{font-variant-numeric:tabular-nums;font-weight:700;color:var(--text)}
 
   /* Cellules de hauteur FIXE : toutes les tailles s'alignent sur une meme ligne. */
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(94px,1fr));gap:12px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(94px,1fr));gap:12px;
+        align-items:stretch}
+  .cell.wide{grid-column:1 / -1}
   .cell{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:8px;
-        height:148px;padding:10px;background:var(--panel-2);border:1px solid var(--border);
-        border-radius:9px}
-  .cell .art{display:flex;align-items:center;justify-content:center;flex:1;min-height:0}
+        min-height:148px;padding:12px 10px;background:var(--panel-2);
+        border:1px solid var(--border);border-radius:9px;overflow:hidden}
+  /* flex:1 0 auto + pas de min-height:0 : la zone de dessin ne peut plus etre comprimee
+     sous la taille de la vignette, c'est la CELLULE qui s'agrandit. */
+  .cell .art{display:flex;align-items:center;justify-content:center;flex:1 0 auto}
   .cell .cap{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
   .cell.dead{border-color:var(--err);background:rgba(248,81,73,.07)}
   .cell.dead .cap{color:var(--err)}
