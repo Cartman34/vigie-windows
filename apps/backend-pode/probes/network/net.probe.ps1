@@ -106,7 +106,7 @@ $adapterDetail = if ($adapterLines.Count) { "Interfaces actives :`n- " + ($adapt
 $vpn = [bool]($nics | Where-Object { $_.Description -match 'VPN|WireGuard|OpenVPN|AnyConnect|Tailscale|ZeroTier|TAP' })
 
 $lat = '-'; $down = '-'; $up = '-'; $measAt = $null; $pubIp = '-'; $pubAt = $null
-$measFile = Join-Path $backend '.state\netmeasure.json'
+$measFile = Get-VarPath -Backend $backend -Kind 'cache' -File 'netmeasure.json'
 if (Test-Path $measFile) {
     try {
         $m = Get-Content $measFile -Raw | ConvertFrom-Json

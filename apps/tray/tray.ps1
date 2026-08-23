@@ -18,7 +18,8 @@ $RepoUrl = 'https://github.com/Cartman34/vigie-windows'
 $appsRoot = Split-Path $PSScriptRoot -Parent
 $backend  = Join-Path $appsRoot 'backend-pode'   # BOOTSTRAP : nom en clair, cf. common.ps1
 $repoRoot = Split-Path $appsRoot -Parent
-$logDir  = Join-Path $repoRoot 'logs'      # journaux communs a toutes les apps
+# Chaque app gere ses fichiers locaux sous SON var/ (D33).
+$logDir  = Join-Path $PSScriptRoot 'var/log'
 if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
 $trayLog = Join-Path $logDir ('tray_' + (Get-Date -Format 'yyyyMMdd') + '.log')
 function TLog($m) { try { ("[" + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + "] " + $m) | Out-File -FilePath $trayLog -Append -Encoding UTF8 } catch { } }
@@ -282,6 +283,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
             & $setIcon 'warn'; $state.Drawn = 'warn'
             $icon.Text = 'Vigie - Démarrage…'; $miInfo.Text = 'État : Démarrage…'
         })
+        # Les journaux du SERVEUR : c'est ce qu'on veut voir pour diagnostiquer.
         [void]$menu.Items.Add('Ouvrir les journaux', $null, [System.EventHandler]{ Start-Process (Get-LogDir -Backend $backend) })
         $miAbout = $menu.Items.Add('À propos de Vigie', $null, [System.EventHandler]{ & $openRepo })
         $miAbout.ToolTipText = $repoUrl

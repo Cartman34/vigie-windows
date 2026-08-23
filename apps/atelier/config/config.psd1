@@ -6,12 +6,12 @@
     # ne lit pas celle du backend. Chaque valeur n'a qu'une seule definition, mais
     # chaque app est maitresse des siennes.
     #
-    # Ne jamais confondre avec apps/backend-pode/config.psd1, qui configure
+    # Ne jamais confondre avec apps/backend-pode/config/config.psd1, qui configure
     # l'application livree (port 47600, elevee).
     # ---------------------------------------------------------------------------
 
-    # Adresse d'ecoute : STRICTEMENT locale. L'Atelier ne doit jamais etre expose.
-    BindAddress = '127.0.0.1'
+    # BindAddress vient de config/common.psd1 (racine) : elle est partagee par toutes
+    # les apps du depot et n'est donc pas recopiee ici (D15/D33).
 
     # Port du serveur de l'Atelier. Meme plage locale que Vigie (47600-47699),
     # port DISTINCT pour que les deux apps tournent en meme temps sans se gener.

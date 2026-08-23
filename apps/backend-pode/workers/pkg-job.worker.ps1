@@ -1,7 +1,7 @@
 <# Worker DETACHE unique : execute une operation paquet ('check' ou 'upgrade')
    pour UN gestionnaire, puis rafraichit le compte de MAJ et invalide la sonde.
    Lance par Start-PkgJob via Start-DetachedAction (pwsh cache). N'ecrit QUE dans
-   .state + logs. Traite erreurs + sortie via Get-PkgUpdates / Invoke-PkgUpgrade. #>
+   var/cache + var/log. Traite erreurs + sortie via Get-PkgUpdates / Invoke-PkgUpgrade. #>
 param([string]$Backend, [string]$ArgsB64)
 if (-not $Backend) { return }
 . (Join-Path $Backend 'lib/common.ps1')
@@ -17,7 +17,7 @@ try {
 } catch { }
 if (-not $mgr) { return }
 
-$outFile = Join-Path $Backend '.state\pkgupdates.json'
+$outFile = Get-VarPath -Backend $Backend -Kind 'cache' -File 'pkgupdates.json'
 try {
     if ($op -eq 'upgrade') {
         $up = Invoke-PkgUpgrade -Id $mgr

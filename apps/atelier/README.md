@@ -46,7 +46,7 @@ démarrage ou d'arrêt.
 
 ## Configuration
 
-**Sa propre config** : [`apps/atelier/config.psd1`](config.psd1).
+**Sa propre config** : [`apps/atelier/config/config.psd1`](config.psd1).
 
 | Clé | Rôle |
 |---|---|
@@ -58,7 +58,7 @@ L'Atelier **ne lit pas la config du backend** : c'est une app distincte, elle es
 maîtresse de ses propres valeurs. **D15** dit « une valeur, une définition » — pas
 « un fichier pour toutes les valeurs ».
 
-Le port de Vigie (`47600`) vit, lui, dans `apps/backend-pode/config.psd1`. Les deux sont dans
+Le port de Vigie (`47600`) vit, lui, dans `apps/backend-pode/config/config.psd1`. Les deux sont dans
 la même plage locale mais **distincts**, pour que les deux apps tournent en même temps.
 
 ---

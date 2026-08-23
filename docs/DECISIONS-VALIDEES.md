@@ -213,12 +213,12 @@ de questions cosmétiques sur du contenu ancien qu'on n'avait aucune raison d'ou
 
 ## D18 — Configuration : un socle versionné générique + une surcharge locale
 
-`apps/backend-pode/config.psd1` est **versionné et générique** : il porte LA définition de chaque
+`apps/backend-pode/config/config.psd1` est **versionné et générique** : il porte LA définition de chaque
 valeur et ne contient plus rien de propre à une machine. `ToolsPath` y vaut `''`.
 
-`apps/backend-pode/config.local.psd1` est **ignoré par git**, optionnel, et surcharge les seules
+`apps/backend-pode/config/config.local.psd1` est **ignoré par git**, optionnel, et surcharge les seules
 valeurs qui ne peuvent pas être génériques (chemins d'une machine donnée).
-`apps/backend-pode/config.local.sample.psd1` est le modèle versionné qui documente ce qu'on peut
+`apps/backend-pode/config/config.local.sample.psd1` est le modèle versionné qui documente ce qu'on peut
 y surcharger. `Get-Config` fusionne les deux, et **échoue avec un message explicite**
 si le fichier local est illisible.
 
@@ -366,7 +366,7 @@ le **menu du tray** réglable, qui écrit les valeurs exactes à recopier dans
 
 | Exigence | Réponse |
 |---|---|
-| Configuration à un seul endroit | `BindAddress`, `Port` et `StartPage` dans `apps/atelier/config.psd1` — la config de **cette** app. L'URL en dérive, aucune recopie (**D15**). |
+| Configuration à un seul endroit | `BindAddress`, `Port` et `StartPage` dans `apps/atelier/config/config.psd1` — la config de **cette** app. L'URL en dérive, aucune recopie (**D15**). |
 | Outils de gestion | `-Status`, `-Stop`, `-Background`, `-NoBrowser`. Idempotent. Codes de retour distincts. |
 | Documentation | `apps/atelier/README.md` : démarrage, commandes, configuration, périmètre, tableau de dépannage. |
 | Aide intégrée | Aide basée sur les commentaires : `Get-Help .\docstelier.ps1 -Full`. |
@@ -484,8 +484,8 @@ applicatif : installer, désinstaller, lancer et migrer ne sont pas des fonction
 
 ### Règles qui en découlent
 
-- **Chaque app est maîtresse de sa config.** L'Atelier a `apps/atelier/config.psd1` ; le
-  backend garde `apps/backend-pode/config.psd1`. Cela **précise D15** : « une valeur, une
+- **Chaque app est maîtresse de sa config.** L'Atelier a `apps/atelier/config/config.psd1` ; le
+  backend garde `apps/backend-pode/config/config.psd1`. Cela **précise D15** : « une valeur, une
   définition » ne veut pas dire « un fichier pour toutes les valeurs ». `AtelierPort` a
   quitté la config du backend.
 - **L'Atelier ne dépend pas de la bibliothèque du backend.** Il ne dot-source plus
@@ -514,8 +514,8 @@ L'emplacement du contrat et le nommage des apps sont réglés par **D30**.
 ### Migration réalisée
 
 Déplacements en `git mv` (historique préservé). Points à ne pas oublier lors d'un
-déplacement analogue : les fichiers **ignorés par git** (`.secrets/`, `.state/`,
-`config.local.psd1`, `logs/`) ne suivent pas et se déplacent à la main, et la **tâche
+déplacement analogue : les fichiers **ignorés par git** (`var/secrets/`, `var/cache/`,
+`config.local.psd1`, `apps/*/var/log/`) ne suivent pas et se déplacent à la main, et la **tâche
 planifiée** porte un chemin absolu — elle doit être réenregistrée, sans quoi l'app ne
 démarre plus à l'ouverture de session.
 
@@ -558,3 +558,103 @@ backend, qui l'implémente et le publie.
 descriptions finissent toujours par diverger. Si un second backend apparaît, il faudra soit
 désigner un contrat de référence, soit vérifier automatiquement que les implémentations
 restent conformes. Ce n'est pas un problème aujourd'hui : il n'y a qu'un backend.
+
+## D31 — La documentation est maintenue **en toute circonstance**
+
+Une doc qui ment est pire qu'une doc absente : on la croit.
+
+**Règle** : aucun état intermédiaire ne doit laisser un document affirmer le contraire de
+la réalité. Si un changement rend une phrase fausse, elle est corrigée **dans le même
+commit**, pas « plus tard ».
+
+**Ce qui a déclenché cette règle** (manquements réels, à ne pas reproduire) :
+
+- `docs/MIGRATION-APPS.md` a porté un avertissement « ⛔ ne pas fusionner » **après** que la
+  fusion ait eu lieu. Lu tel quel, il aurait fait renoncer à une action déjà faite.
+- **D29** et la note de migration ont gardé une section « question laissée ouverte » sur
+  l'emplacement du contrat alors que **D30** l'avait tranchée.
+- La section « Configuration » de l'Atelier décrivait encore une clé `AtelierPort` déplacée
+  depuis.
+
+**En pratique** :
+
+1. Un renommage ou un déplacement se propage **dans le même commit** : code, doc, décisions.
+2. Les fichiers **sans extension** (`.gitignore`, `.cmd`…) sont vérifiés à part : un
+   remplacement filtré par extension les rate. C'est exactement ce qui a laissé passer
+   `config.local.psd1` dans git.
+3. Une décision remplacée n'est pas réécrite : la nouvelle indique celle qu'elle remplace,
+   et l'ancienne renvoie vers la nouvelle. L'historique reste lisible, sans contradiction.
+4. Un document de transition (note de reprise) décrit l'état **courant**, jamais l'état
+   souhaité au moment où il a été écrit.
+5. `CHANGELOG.md` fait exception aux propagations de chemins : ses entrées datées
+   décrivent une réalité vraie à l'époque. On y ajoute, on n'y réécrit pas.
+
+## D32 — Pas de dossier `_to_delete/` dans le projet
+
+**Aucun dossier `_to_delete/` ne doit exister dans le projet versionné.** Ce qui est mort se
+supprime ; git conserve l'historique, c'est son rôle. Une « corbeille » dans le dépôt est
+du bruit qui survit toujours plus longtemps que prévu.
+
+À l'application de cette décision : vérifié qu'il n'était **ni suivi, ni présent sur le
+disque, ni dans aucun commit de l'historique**.
+
+La règle `_to_delete/` a été **retirée de `.gitignore`**, et c'est délibéré : l'ignorer
+revenait à tolérer la pratique en silence. Sans cette règle, un tel dossier apparaît dans
+`git status` et se fait remarquer.
+
+*(Origine : l'environnement d'édition d'origine ne pouvait pas supprimer de fichiers et les
+déplaçait dans cette corbeille. Cette contrainte n'existe plus.)*
+
+## D33 — `var/` par app, `config/` par app, `config/` commun à la racine
+
+Convention **Symfony**, appliquée telle quelle.
+
+### `var/` — tout ce que l'app génère ou gère en local
+
+```
+apps/<app>/var/
+  cache/     état calculé : state-cache.json, netmeasure.json, pkgupdates.json
+  log/       journaux de l'app
+  secrets/   secrets GÉNÉRÉS à l'exécution : api.token
+```
+
+Pas seulement le cache : **tout** fichier temporaire, téléversé, ou local géré par l'app.
+Remplace `.state/`, `.secrets/` et le `logs/` commun à la racine.
+
+**Chaque app a son `var/`**, y compris le tray, qui écrit désormais dans
+`apps/tray/var/log/`. L'entrée « Ouvrir les journaux » du menu continue d'ouvrir ceux du
+**serveur** : c'est ce qu'on veut voir pour diagnostiquer.
+
+Le jeton d'API est dans `var/secrets/` et non dans `config/` : il est **généré par l'app**,
+pas rédigé par un humain. C'est une donnée d'exécution.
+
+### `config/` — ce qui est rédigé
+
+```
+config/common.psd1                     valeurs partagées par plusieurs apps
+apps/<app>/config/config.psd1          config propre à l'app (versionnée)
+apps/<app>/config/config.local.psd1    surcharge machine (ignorée par git)
+apps/<app>/config/config.local.sample.psd1   le modèle (versionné)
+```
+
+**Fusion en trois couches**, de la plus générale à la plus spécifique : commune → app →
+locale. La plus spécifique gagne.
+
+`BindAddress` était **recopiée** dans les deux apps : elle vit maintenant dans
+`config/common.psd1`, avec la plage de ports du projet. Chaque app y choisit **son** port,
+dans sa propre config — Vigie 47600, Atelier 47610.
+
+L'Atelier lit la config commune sans que cela contredise **D29** : lire un fichier de
+config partagé n'est pas dépendre d'une **app**. Il ne charge toujours pas `common.ps1`.
+
+### Dette remboursée au passage
+
+Le chemin `.state\` était **recomposé à la main dans 8 fichiers** (actions, sondes,
+workers, `common.ps1`). Tous passent désormais par
+`Get-VarPath -Kind cache|log|secrets [-File <nom>]`, qui crée le dossier au besoin.
+Le chemin n'est écrit qu'**une fois**, conformément à **D15**.
+
+### `.gitignore`
+
+`apps/*/var/` couvre d'un coup cache, journaux, état et secrets générés ; plus besoin
+d'énumérer. `apps/*/config/config.local.psd1` reste ignoré, son `.sample` versionné.

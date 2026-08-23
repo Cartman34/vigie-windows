@@ -7,7 +7,7 @@
     ouvre apps/atelier/index.html dans le navigateur.
 
     L'ATELIER N'EST PAS VIGIE. C'est une app DISTINCTE, de developpement :
-      - Vigie    : apps/backend + apps/frontend + apps/tray, PowerShell + Pode, port 47600,
+      - Vigie    : apps/backend-pode + apps/frontend-web + apps/tray, PowerShell + Pode, port 47600,
                    ELEVEE, lancee par la tache planifiee a l'ouverture de session.
       - Atelier  : cette app, PHP, port 47610, JAMAIS elevee, lancee a la main.
     L'Atelier n'expose aucune API, n'execute aucune sonde et n'a acces a aucun secret.
@@ -18,7 +18,7 @@
     et le navigateur refuse d'afficher l'ecran de chargement dans un cadre. Servie en http,
     elle fonctionne entierement.
 
-    CONFIGURATION : apps/atelier/config.psd1 - la config de CETTE app. Elle ne lit pas celle
+    CONFIGURATION : apps/atelier/config/config.psd1 - la config de CETTE app. Elle ne lit pas celle
     du backend : chaque app est maitresse de ses propres valeurs.
 
 .PARAMETER Status
@@ -68,14 +68,22 @@ $ErrorActionPreference = 'Stop'
 # apps/atelier -> apps -> racine du depot (c'est elle qui est servie).
 $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 
-# Config de CETTE app. L'Atelier ne depend pas de la bibliotheque du backend :
-# une app de developpement qui s'appuie sur l'app livree, c'est la frontiere percee.
-$cfgPath = Join-Path $PSScriptRoot 'config.psd1'
+# Config en deux couches (D33) : config/common.psd1 (racine, partage par les apps)
+# puis la config de CETTE app, qui gagne. L'Atelier ne depend PAS de la bibliotheque
+# du backend : une app de developpement qui s'appuie sur l'app livree, c'est la
+# frontiere percee. Lire un fichier de config commun n'est pas une dependance a une app.
+$cfg = @{}
+$commonPath = Join-Path $repoRoot 'config/common.psd1'
+if (Test-Path -LiteralPath $commonPath) {
+    try { (Import-PowerShellDataFile -Path $commonPath).GetEnumerator() | ForEach-Object { $cfg[$_.Key] = $_.Value } }
+    catch { Write-Host ("config/common.psd1 illisible : " + $_.Exception.Message) -ForegroundColor Red; exit 1 }
+}
+$cfgPath = Join-Path $PSScriptRoot 'config/config.psd1'
 if (-not (Test-Path -LiteralPath $cfgPath)) {
     Write-Host "Configuration introuvable : $cfgPath" -ForegroundColor Red
     exit 1
 }
-try { $cfg = Import-PowerShellDataFile -Path $cfgPath }
+try { (Import-PowerShellDataFile -Path $cfgPath).GetEnumerator() | ForEach-Object { $cfg[$_.Key] = $_.Value } }
 catch { Write-Host ("config.psd1 illisible : " + $_.Exception.Message) -ForegroundColor Red; exit 1 }
 
 $address = $cfg.BindAddress

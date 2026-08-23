@@ -1,11 +1,11 @@
 <#
     Action : mesure latence (ping) + débit descendant (~10 Mo) + débit montant (~5 Mo).
-    Fusionne le resultat dans .state/netmeasure.json (preserve l'IP publique).
+    Fusionne le resultat dans var/cache/netmeasure.json (preserve l'IP publique).
 #>
 param([string]$Module, [hashtable]$Params)
 $backend = Split-Path $PSScriptRoot -Parent
 . (Join-Path $backend 'lib/common.ps1')
-$measFile = Join-Path $backend '.state\netmeasure.json'
+$measFile = Get-VarPath -Backend $backend -Kind 'cache' -File 'netmeasure.json'
 
 $lat = '-'
 try {

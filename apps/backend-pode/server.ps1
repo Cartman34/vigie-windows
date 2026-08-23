@@ -13,7 +13,7 @@ $base = $cfg.ApiBase
 Add-PodeEndpoint -Address $cfg.BindAddress -Port $cfg.Port -Protocol Http
 
 # --- Journalisation Pode sur fichier (erreurs + requetes) ---
-$logDir = Join-Path $backend 'logs'
+$logDir = Get-VarPath -Backend $backend -Kind 'log'
 if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
 try {
     if (Get-Command New-PodeLogFileMethod -ErrorAction SilentlyContinue) {

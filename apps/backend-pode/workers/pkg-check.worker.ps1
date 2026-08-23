@@ -1,6 +1,6 @@
 <# Worker DETACHE : verifie les MAJ d'UN gestionnaire et fusionne le resultat,
    puis invalide la sonde packages pour que la carte s'actualise aussitot.
-   Lance par Start-DetachedAction (pwsh cache). N'ecrit QUE dans .state (lecture
+   Lance par Start-DetachedAction (pwsh cache). N'ecrit QUE dans var/cache (lecture
    seule cote systeme). Traite erreurs + sortie via Get-PkgUpdates/Invoke-Native. #>
 param([string]$Backend, [string]$ArgsB64)
 if (-not $Backend) { return }
@@ -17,7 +17,7 @@ try {
 } catch { }
 if (-not $mgr) { return }
 
-$outFile = Join-Path $Backend '.state\pkgupdates.json'
+$outFile = Get-VarPath -Backend $Backend -Kind 'cache' -File 'pkgupdates.json'
 try {
     $u = Get-PkgUpdates -Id $mgr
     # Ecrit le resultat final : l'absence de "checking" signale la fin.
