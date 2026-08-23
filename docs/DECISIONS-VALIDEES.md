@@ -411,3 +411,52 @@ Rayon dans `VigieMenuPalette.MenuRadius` (8 px), distinct de `CornerRadius` qui 
 
 **Leçon** : un `HRESULT 0` prouve que l'appel a été **accepté**, pas qu'il a **produit** un
 effet. Ce n'était donc pas une validation suffisante.
+
+## D27 — Jauge pleine : surface unie, sans graduations
+
+À l'état **conforme**, l'arc plein recouvre les graduations : la jauge est une **surface
+unie**. C'est **volontaire et validé**. Les graduations réapparaissent dès que la jauge
+n'est plus pleine, c'est-à-dire dès qu'il y a quelque chose à regarder.
+
+Conséquence de **D23** (fraction portée à `1.00`) : l'arc de valeur est dessiné **après**
+les graduations, donc il les masque. À `0.88` il en restait une visible ; à `1.00`, aucune.
+
+L'ordre de dessin reste donc : anneau → piste → **graduations** → arc de valeur → aiguille
+→ moyeu → point blanc. **Ne pas le réordonner** pour « récupérer » les graduations : elles
+sont sous l'arc par construction, et c'est le rendu retenu.
+
+Ceci **précise D01** sans l'annuler : les graduations restent au dessin (7 traits, mêmes
+paramètres), simplement invisibles quand la jauge est pleine.
+
+## D28 — Deux briques, deux noms : **Vigie** et **Atelier**
+
+L'application et l'outil de développement ne doivent **jamais** être confondus, ni dans le
+code, ni dans la documentation, ni dans les conversations.
+
+|  | **Vigie** | **Atelier** |
+|---|---|---|
+| Nature | l'**application** livrée | **outil de développement** interne |
+| Serveur | **PowerShell + Pode** | **PHP** (`php -S`) |
+| Port | **47600** | **47610** |
+| Élévation | **oui** (`RunLevel Highest`) | **non**, jamais |
+| Lancement | tâche planifiée `Vigie` à l'ouverture de session | à la main, `docstelier.cmd` |
+| Code | `backend/`, `frontend/` | `docs/atelier*` |
+| Sondes, actions, secrets | oui | **aucun accès** |
+| Doit tourner pour l'utilisateur final | oui | non |
+
+**PHP est cantonné à l'outillage** et n'entre pas dans l'application. Trois raisons
+mesurées, pas des préférences :
+
+1. **Élévation** — le verrouillage Windows Update pose des ACL (`icacls`/`takeown`),
+   désactive des tâches et écrit dans `HKLM`. Ce qui sert l'API doit être élevé ; un
+   serveur HTTP en administrateur est une surface d'attaque bien plus large.
+2. **Concurrence** — `php -S` traite **une requête à la fois** (mesuré : 2 s seule,
+   4,0 s à deux). L'interface rafraîchit carte par carte et interroge en boucle.
+3. **Coût des processus** — un `pwsh` froid coûte **~350 ms**. À 12 sondes, un appel par
+   sonde ferait **~4,2 s** de pur démarrage par rafraîchissement complet ; aujourd'hui
+   `/health` répond en **65 ms** dans un runtime déjà chaud.
+
+Documenté dans `README.md`, `docs/REPRISE.md` et `docs/atelier.md`.
+
+**Règle de travail associée** : en cas de doute sur l'appartenance d'un composant à l'une ou
+l'autre brique, **demander à l'utilisateur avec une suggestion** plutôt que de trancher seul.

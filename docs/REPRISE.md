@@ -12,6 +12,10 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
 - **App tray WinForms** (`backend/tray.ps1`) : lance le serveur en fond, icône = statut de l'app (jauge), menu, fenêtre dédiée (Edge/Chrome `--app`).
 - Fonction phare : **verrouiller Windows Update** (ACL deny SYSTEM sur les dossiers de tâches) pour bloquer les redémarrages forcés, sans masquer les vraies MAJ.
 
+> **Ne pas confondre avec l'Atelier.** « Vigie » = l'application (PowerShell + Pode, port
+> 47600, élevée). « **Atelier** » = l'outil de développement (PHP, port 47610, jamais
+> élevé, `docs/atelier*`). Voir **D28** et `docs/atelier.md`.
+
 ## Règles de conception (permanentes)
 - **On parle français, le code est en anglais.**
 - Pas de duplication (helpers partagés dans `backend/lib/common.ps1`).

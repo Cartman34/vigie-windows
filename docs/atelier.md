@@ -62,6 +62,22 @@ Pour un réglage propre à ta machine (port déjà pris, par exemple), ne modifi
 
 ---
 
+## « Atelier » n'est pas « Vigie »
+
+Deux briques distinctes, à ne jamais confondre (**D28**) :
+
+|  | **Vigie** | **Atelier** |
+|---|---|---|
+| Nature | l'**application** livrée | cet **outil de développement** |
+| Serveur | PowerShell + Pode | PHP (`php -S`) |
+| Port | 47600 | **47610** |
+| Élévation | oui (`RunLevel Highest`) | **non**, jamais |
+| Lancement | tâche planifiée, à l'ouverture de session | à la main |
+| Sondes, actions, secrets | oui | **aucun accès** |
+
+PHP est **volontairement cantonné à l'outillage** : il n'entre pas dans l'application.
+Les raisons (élévation, concurrence, coût des processus) sont chiffrées dans **D28**.
+
 ## Ce que fait le serveur — et ce qu'il ne fait pas
 
 - Serveur **intégré de PHP** (`php -S`), servant la **racine du dépôt** en lecture seule.
