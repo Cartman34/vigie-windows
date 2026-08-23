@@ -48,7 +48,7 @@ démarrage (orange) / erreur ou arrêt (rouge). Jamais l'état des composants.
 
 ## D02 — Reproduction de l'icône en `.ico` (déployée)
 
-- Générée à l'identique de **D01** par `backend/assets/tray/generer-icones_B.py` (PIL)
+- Générée à l'identique de **D01** par `backend/assets/tray/generer-icones.py` (PIL)
   → `ok.ico` / `warn.ico` / `error.ico` (multi-résolutions 16→256).
 - Chargées par `tray.ps1` (fonction `setIcon`), avec repli sur le dessin GDI+ si un fichier manque.
 
@@ -324,3 +324,41 @@ réaffiché par le processus appelant : le compte rendu n'est jamais perdu.
 **Corollaire (D15)** : la signature P/Invoke `DwmSetWindowAttribute` n'est plus déclarée
 qu'à un seul endroit (`Set-WindowChrome`). `tray.ps1` la déclarait de son côté pour les
 coins arrondis de son menu (**D19**) ; il utilise désormais le helper partagé.
+
+## D23 — Icône tray « v2 — jauge pleine à l'état conforme » (REMPLACE D01 sur ce point)
+
+À l'état **conforme**, la jauge est **pleine** : fraction `1.00` au lieu de `0.88`.
+Une jauge arrêtée avant la fin se lit comme « presque bon », ce qui n'est pas le message
+voulu quand tout va bien.
+
+- conforme : **1.00** (l'aiguille rejoint la fin de l'arc, en bas à droite) ;
+- démarrage : `0.50` — inchangé ; erreur : `0.14` — inchangé.
+
+Toute la géométrie de **D01** est conservée : seules les fractions changent. La valeur est
+écrite à **deux** endroits qui doivent rester identiques, faute de quoi le `.ico` et le repli
+GDI+ divergeraient : `backend/assets/tray/generer-icones.py` et `backend/tray.ps1`.
+Les `.ico` ont été **régénérés** (Pillow installé dans le scratchpad, pas dans le Python
+de la machine).
+
+Le générateur est renommé `generer-icones_B.py` → **`generer-icones.py`** : la lettre
+d'option ne survit pas à la validation (**D04**).
+
+## D24 — Un atelier de validation visuelle dans le dépôt
+
+`docs/atelier-validation.html` — page autonome, ouverte en `file://`, sans serveur ni
+dépendance. Elle montre ce qu'aucun parseur ne peut valider :
+
+- la **marque** du tray avec un curseur de fraction, rendue de 16 à 128 px, dont un fond
+  imitant la barre des tâches pour juger le contraste réel ;
+- les **`.ico` réellement livrés**, à côté de la simulation : s'ils diffèrent, c'est que le
+  générateur n'a pas été rejoué ;
+- l'**écran de chargement** en direct dans un cadre ;
+- la **palette** du menu du tray.
+
+**Pourquoi** : l'agent ne voit pas l'écran. Sans cette page, chaque réglage visuel coûte un
+aller-retour « je code à l'aveugle, tu corriges après coup ». La page rend la décision
+immédiate et reproductible.
+
+**Règle** : la géométrie y est une **reproduction** du générateur. Toute modification doit
+être faite en miroir, sinon l'atelier devient trompeur — c'est précisément ce qu'il sert à
+éviter.

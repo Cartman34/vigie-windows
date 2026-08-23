@@ -92,7 +92,8 @@ $uiScript = {
                 'error' { [System.Drawing.Color]::FromArgb(248,81,73) }
                 default { [System.Drawing.Color]::FromArgb(248,81,73) }
             }
-            $frac = switch ($status) { 'ok' { 0.88 } 'warn' { 0.5 } 'error' { 0.14 } default { 0.14 } }
+            # Fractions IDENTIQUES a assets/tray/generer-icones.py : conforme = jauge pleine.
+            $frac = switch ($status) { 'ok' { 1.0 } 'warn' { 0.5 } 'error' { 0.14 } default { 0.14 } }
             $s = 32.0; $cx = $s/2; $cy = $s/2; $r = $s*0.35; $sw = $s*0.13
             $a0 = 135.0; $span = 270.0; $ang = $a0 + $frac*$span
             $bmp = New-Object System.Drawing.Bitmap ([int]$s), ([int]$s)
@@ -247,7 +248,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
         try { $miShow.Font = New-Object System.Drawing.Font('Segoe UI', 9.5, [System.Drawing.FontStyle]::Bold) } catch { }
         [void]$menu.Items.Add('Ouvrir dans le navigateur', $null, [System.EventHandler]{ & $openBrowser })
         [void]$menu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator))
-        $miInfo = New-Object System.Windows.Forms.ToolStripLabel('Etat : demarrage...')
+        $miInfo = New-Object System.Windows.Forms.ToolStripLabel('État : démarrage…')
         $miInfo.ForeColor = [System.Drawing.Color]::FromArgb(139,148,158)
         [void]$menu.Items.Add($miInfo)
         [void]$menu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator))
@@ -282,11 +283,11 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                 $app = 'ok'; $lbl = 'En marche'
             } catch {
                 $elapsed = ([datetime]::UtcNow.Ticks - $state.StartTicks) / 1e7
-                if ($state.EverUp) { $app = 'error'; $lbl = 'Arretee / injoignable' }
-                elseif ($elapsed -gt 25) { $app = 'error'; $lbl = 'Echec de demarrage' }
-                else { $app = 'warn'; $lbl = 'Demarrage...' }
+                if ($state.EverUp) { $app = 'error'; $lbl = 'Arrêtée / injoignable' }
+                elseif ($elapsed -gt 25) { $app = 'error'; $lbl = 'Échec de démarrage' }
+                else { $app = 'warn'; $lbl = 'Démarrage…' }
             }
-            $miInfo.Text = "Etat : $lbl"
+            $miInfo.Text = "État : $lbl"
             if ($app -ne $state.Drawn) { & $setIcon $app; $state.Drawn = $app; $icon.Text = "Vigie - $lbl"; TLog "app=$app" }
         }
         $timer = New-Object System.Windows.Forms.Timer; $timer.Interval = 8000; $timer.add_Tick($poll); $timer.Start()

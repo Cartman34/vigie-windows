@@ -593,6 +593,19 @@ function Set-WindowChrome {
     } catch { }
 }
 
+# D'ou vient ce lancement ? Renvoie une chaine descriptive si un agent automatise
+# est detecte, sinon $null (lancement a la main).
+# Enjeu de securite : une demande de droits administrateur qui ne vient PAS d'un clic
+# de l'utilisateur doit s'annoncer comme telle. Sans cela, un agent pourrait obtenir
+# une elevation que l'utilisateur croirait avoir lui-meme declenchee.
+function Get-LaunchOrigin {
+    if ($env:AI_AGENT)       { return $env:AI_AGENT }
+    if ($env:CLAUDECODE)     { return 'Claude Code' }
+    if ($env:GITHUB_ACTIONS) { return 'GitHub Actions' }
+    if ($env:TF_BUILD)       { return 'Azure Pipelines' }
+    return $null
+}
+
 # Fenetre explicative. Renvoie $true si l'utilisateur accepte de continuer.
 # -AssumeYes court-circuite l'affichage (execution non interactive, tache planifiee).
 function Show-ElevationRationale {
@@ -600,11 +613,16 @@ function Show-ElevationRationale {
         [Parameter(Mandatory)][string]$Title,
         [Parameter(Mandatory)][string]$Summary,
         [string[]]$Changes = @(),
+        # Origine du lancement. Par defaut : detectee automatiquement, pour qu'un agent
+        # ne puisse pas masquer son role en oubliant de le declarer.
+        [string]$InitiatedBy = (Get-LaunchOrigin),
         [switch]$AssumeYes
     )
     if ($AssumeYes) { return $true }
 
     $nl = [Environment]::NewLine
+    # Decalage vertical si un bandeau d'origine doit etre affiche.
+    $off = if ($InitiatedBy) { 40 } else { 0 }
     $bullets = if ($Changes.Count) { ($Changes | ForEach-Object { "   - $_" }) -join $nl } else { '' }
 
     try {
@@ -625,7 +643,7 @@ function Show-ElevationRationale {
         $form.TopMost         = $true
         $form.BackColor       = $bg
         $form.ForeColor       = $fg
-        $form.ClientSize      = New-Object System.Drawing.Size(580, 306)
+        $form.ClientSize      = New-Object System.Drawing.Size(580, (306 + $off))
         # Icone de Vigie plutot que celle de PowerShell : la fenetre doit s'annoncer
         # comme venant de l'application, pas de l'interpreteur qui l'execute.
         try {
@@ -633,32 +651,46 @@ function Show-ElevationRationale {
             if (Test-Path -LiteralPath $ico) { $form.Icon = New-Object System.Drawing.Icon($ico) }
         } catch { }
 
+        # Bandeau d'origine : visible AVANT tout le reste, car c'est l'information la
+        # plus importante si ce n'est pas l'utilisateur qui a declenche l'action.
+        $lblOrigin = $null
+        if ($InitiatedBy) {
+            $lblOrigin           = New-Object System.Windows.Forms.Label
+            $lblOrigin.Text      = "Demandé par un agent automatisé : $InitiatedBy" + $nl + "Ce n'est pas toi qui as lancé cette action."
+            $lblOrigin.Font      = New-Object System.Drawing.Font('Segoe UI', 9, [System.Drawing.FontStyle]::Bold)
+            $lblOrigin.ForeColor = [System.Drawing.Color]::FromArgb(210, 153, 34)
+            $lblOrigin.BackColor = [System.Drawing.Color]::FromArgb(38, 34, 22)
+            $lblOrigin.Padding   = New-Object System.Windows.Forms.Padding(10, 6, 10, 6)
+            $lblOrigin.Location  = New-Object System.Drawing.Point(24, 16)
+            $lblOrigin.Size      = New-Object System.Drawing.Size(532, 44)
+        }
+
         $lblTitle           = New-Object System.Windows.Forms.Label
         $lblTitle.Text      = $Title
         $lblTitle.Font      = New-Object System.Drawing.Font('Segoe UI', 13, [System.Drawing.FontStyle]::Bold)
         $lblTitle.ForeColor = $fg
-        $lblTitle.Location  = New-Object System.Drawing.Point(24, 20)
+        $lblTitle.Location  = New-Object System.Drawing.Point(24, (20 + $off))
         $lblTitle.Size      = New-Object System.Drawing.Size(532, 30)
 
         $lblBody           = New-Object System.Windows.Forms.Label
         $lblBody.Text      = $Summary
         $lblBody.Font      = New-Object System.Drawing.Font('Segoe UI', 9.5)
         $lblBody.ForeColor = $fg
-        $lblBody.Location  = New-Object System.Drawing.Point(24, 56)
+        $lblBody.Location  = New-Object System.Drawing.Point(24, (56 + $off))
         $lblBody.Size      = New-Object System.Drawing.Size(532, 44)
 
         $lblChanges           = New-Object System.Windows.Forms.Label
         $lblChanges.Text      = $bullets
         $lblChanges.Font      = New-Object System.Drawing.Font('Segoe UI', 9.5)
         $lblChanges.ForeColor = $fg
-        $lblChanges.Location  = New-Object System.Drawing.Point(24, 104)
+        $lblChanges.Location  = New-Object System.Drawing.Point(24, (104 + $off))
         $lblChanges.Size      = New-Object System.Drawing.Size(532, 110)
 
         $lblUac           = New-Object System.Windows.Forms.Label
         $lblUac.Text      = "Si tu continues, Windows demandera ensuite l'autorisation administrateur." + $nl + "Rien n'est modifié avant cette étape, et tu peux encore refuser."
         $lblUac.Font      = New-Object System.Drawing.Font('Segoe UI', 9)
         $lblUac.ForeColor = $mut
-        $lblUac.Location  = New-Object System.Drawing.Point(24, 218)
+        $lblUac.Location  = New-Object System.Drawing.Point(24, (218 + $off))
         $lblUac.Size      = New-Object System.Drawing.Size(532, 36)
 
         $btnOk              = New-Object System.Windows.Forms.Button
@@ -669,7 +701,7 @@ function Show-ElevationRationale {
         $btnOk.FlatStyle    = 'Flat'
         $btnOk.FlatAppearance.BorderSize = 0
         $btnOk.Size         = New-Object System.Drawing.Size(124, 32)
-        $btnOk.Location     = New-Object System.Drawing.Point(432, 260)
+        $btnOk.Location     = New-Object System.Drawing.Point(432, (260 + $off))
 
         $btnNo              = New-Object System.Windows.Forms.Button
         $btnNo.Text         = 'Annuler'
@@ -679,9 +711,11 @@ function Show-ElevationRationale {
         $btnNo.FlatStyle    = 'Flat'
         $btnNo.FlatAppearance.BorderColor = [System.Drawing.Color]::FromArgb(68, 76, 86)
         $btnNo.Size         = New-Object System.Drawing.Size(104, 32)
-        $btnNo.Location     = New-Object System.Drawing.Point(318, 260)
+        $btnNo.Location     = New-Object System.Drawing.Point(318, (260 + $off))
 
-        $form.Controls.AddRange(@($lblTitle, $lblBody, $lblChanges, $lblUac, $btnOk, $btnNo))
+        $controls = @($lblTitle, $lblBody, $lblChanges, $lblUac, $btnOk, $btnNo)
+        if ($lblOrigin) { $controls += $lblOrigin }
+        $form.Controls.AddRange($controls)
         $form.AcceptButton = $btnOk
         $form.CancelButton = $btnNo          # Echap et la croix ferment en REFUSANT
 
@@ -696,6 +730,10 @@ function Show-ElevationRationale {
         # on explique en console et on REFUSE par defaut. Rien ne doit s'elever sans
         # consentement ; utiliser -Yes pour un lancement volontairement automatise.
         Write-Host ""
+        if ($InitiatedBy) {
+            Write-Host ("Demandé par un agent automatisé : " + $InitiatedBy) -ForegroundColor Yellow
+            Write-Host "Ce n'est pas toi qui as lancé cette action." -ForegroundColor Yellow
+        }
         Write-Host $Title -ForegroundColor Cyan
         Write-Host $Summary
         if ($bullets) { Write-Host $bullets }
