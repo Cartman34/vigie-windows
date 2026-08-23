@@ -1,9 +1,9 @@
 <# Action net-publicip : recupere l'IP publique via un service externe (a la demande).
-   Fusionne le resultat dans .state/netmeasure.json via Update-StateJson (preserve latence/debit). #>
+   Fusionne le resultat dans var/cache/netmeasure.json via Update-StateJson (preserve latence/debit). #>
 param([string]$Module, [hashtable]$Params)
 $backend = Split-Path $PSScriptRoot -Parent
 . (Join-Path $backend 'lib/common.ps1')
-$measFile = Join-Path $backend '.state\netmeasure.json'
+$measFile = Get-VarPath -Backend $backend -Kind 'cache' -File 'netmeasure.json'
 
 $services = @('https://api.ipify.org','https://ifconfig.me/ip','https://icanhazip.com','https://checkip.amazonaws.com')
 $pub = $null

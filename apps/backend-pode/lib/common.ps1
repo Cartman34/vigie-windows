@@ -53,7 +53,7 @@ function Invoke-Native {
 # Fusionne des cles dans un fichier JSON d'etat (lecture-fusion-ecriture ATOMIQUE),
 # serialise par un mutex nomme derive du fichier : plusieurs ecrivains (actions,
 # workers detaches) ne s'ecrasent pas entre eux. Regle : un seul code pour ecrire
-# les fichiers .state (netmeasure.json, pkgupdates.json, ...).
+# les fichiers de var/cache (netmeasure.json, pkgupdates.json, ...).
 function Update-StateJson {
     param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][hashtable]$Set)
     $dir = Split-Path $Path -Parent
@@ -85,7 +85,7 @@ function Update-StateJson {
 # ET les workers detaches). Best-effort, ecriture atomique.
 function Remove-ProbeCache {
     param([Parameter(Mandatory)][string[]]$Names, [string]$Backend = (Get-BackendRoot))
-    $cacheFile = Join-Path $Backend '.state\state-cache.json'
+    $cacheFile = Get-VarPath -Backend $Backend -Kind 'cache' -File 'state-cache.json'
     if (-not (Test-Path $cacheFile)) { return }
     try {
         $obj = Get-Content $cacheFile -Raw | ConvertFrom-Json
@@ -248,7 +248,7 @@ function Start-PkgJob {
     if ($Op -eq 'upgrade' -and (-not $known.upgArgs -or @($known.upgArgs).Count -eq 0)) {
         return @{ message = "Mise a jour automatique non prise en charge pour $($known.label)."; result = @{ ok = $false } }
     }
-    $stateDir = Join-Path $Backend '.state'
+    $stateDir = Get-VarPath -Backend $Backend -Kind 'cache'
     if (-not (Test-Path $stateDir)) { New-Item -ItemType Directory -Path $stateDir -Force | Out-Null }
     $outFile = Join-Path $stateDir 'pkgupdates.json'
     # Marque "en cours" (conserve le dernier compte connu pour l'affichage).
@@ -278,8 +278,17 @@ function Start-PkgJob {
 # peuvent pas etre generiques : chemins propres a une machine. Voir config.local.sample.psd1.
 function Get-Config {
     param([string]$Backend = (Get-BackendRoot))
-    $cfg = Import-PowerShellDataFile -Path (Join-Path $Backend 'config.psd1')
-    $localPath = Join-Path $Backend 'config.local.psd1'
+    # Fusion en trois couches (D33), de la plus generale a la plus specifique :
+    #   config/common.psd1 (racine)  ->  apps/<app>/config/config.psd1  ->  config.local.psd1
+    $cfg = @{}
+    $commonPath = Join-Path (Get-RepoRoot) 'config/common.psd1'
+    if (Test-Path -LiteralPath $commonPath) {
+        try { (Import-PowerShellDataFile -Path $commonPath).GetEnumerator() | ForEach-Object { $cfg[$_.Key] = $_.Value } }
+        catch { throw ("config/common.psd1 illisible : " + $_.Exception.Message) }
+    }
+    $appCfg = Import-PowerShellDataFile -Path (Join-Path $Backend 'config/config.psd1')
+    foreach ($k in $appCfg.Keys) { $cfg[$k] = $appCfg[$k] }
+    $localPath = Join-Path $Backend 'config/config.local.psd1'
     if (Test-Path -LiteralPath $localPath) {
         try { $local = Import-PowerShellDataFile -Path $localPath }
         catch { throw ("config.local.psd1 illisible (" + $localPath + ") : " + $_.Exception.Message) }
@@ -321,14 +330,14 @@ function Get-AdminRoot {
 # Reponse commune quand l'outillage externe n'est pas configure (une seule redaction).
 function New-ToolsMissingResult {
     @{
-        message = "Outillage externe non configure. Renseigne ToolsPath dans apps/backend/config.local.psd1 (modele : config.local.sample.psd1)."
+        message = "Outillage externe non configure. Renseigne ToolsPath dans apps/backend-pode/config/config.local.psd1 (modele : config.local.sample.psd1)."
         result  = @{ ok = $false }
     }
 }
 
 function Get-ApiToken {
     param([string]$Backend = (Get-BackendRoot))
-    $dir  = Join-Path $Backend '.secrets'
+    $dir  = Get-VarPath -Backend $Backend -Kind 'secrets'
     $file = Join-Path $dir 'api.token'
     if (-not (Test-Path $file)) {
         New-Item -ItemType Directory -Path $dir -Force | Out-Null
@@ -346,11 +355,28 @@ function Get-AppVersion {
 }
 
 # --- Journalisation ---------------------------------------------------------
+# --- Donnees d'execution : apps/<app>/var/ (convention Symfony) -----------------
+# Tout ce que l'app GENERE ou gere en local vit sous var/ : cache, journaux, etat,
+# secrets generes. Rien de tout cela n'est versionne.
+# Ces chemins sont ecrits ICI et nulle part ailleurs : ils etaient auparavant
+# recomposes a la main dans 8 fichiers (actions, sondes, workers).
+function Get-VarPath {
+    param(
+        [string]$Backend = (Get-BackendRoot),
+        [Parameter(Mandatory)][ValidateSet('cache','log','secrets')][string]$Kind,
+        [string]$File
+    )
+    $dir = Join-Path (Join-Path $Backend 'var') $Kind
+    if (-not (Test-Path -LiteralPath $dir)) {
+        New-Item -ItemType Directory -Path $dir -Force -WhatIf:$false | Out-Null
+    }
+    if ($File) { return (Join-Path $dir $File) }
+    return $dir
+}
+
 function Get-LogDir {
     param([string]$Backend = (Get-BackendRoot))
-    # Un seul dossier de journaux pour tout le depot : le serveur et le tray sont
-    # deux apps distinctes, mais on ne fait pas chercher l'utilisateur a deux endroits.
-    $d = Join-Path (Split-Path (Split-Path $Backend -Parent) -Parent) 'logs'
+    $d = Get-VarPath -Backend $Backend -Kind 'log'
     # -WhatIf:$false : creer le dossier de journaux est de la plomberie, pas une
     # operation que l'utilisateur simule. Sans cela, -WhatIf empeche toute journalisation.
     if (-not (Test-Path $d)) { New-Item -ItemType Directory -Path $d -Force -WhatIf:$false | Out-Null }
@@ -453,7 +479,7 @@ $script:ProbeTtls = @{
 function Get-State {
     param([string]$Backend = (Get-BackendRoot), [switch]$Force)
     $probesDir = Join-Path $Backend 'probes'
-    $cacheFile = Join-Path $Backend '.state\state-cache.json'
+    $cacheFile = Get-VarPath -Backend $Backend -Kind 'cache' -File 'state-cache.json'
     $stateDir  = Split-Path $cacheFile -Parent
     if (-not (Test-Path $stateDir)) { New-Item -ItemType Directory -Path $stateDir -Force | Out-Null }
     $defaultTtl = 30

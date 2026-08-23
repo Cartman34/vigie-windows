@@ -204,7 +204,7 @@ Toutes les modifs de sondes / `common.ps1` / actions sont **live** (re-sourcees 
   `localhost` en littéral — ce sont les origines de **bouclage**, pas une copie de `BindAddress`
   (le port, lui, dérive bien). Un middleware Pode tourne dans un runspace séparé où `$cfg`
   n'est pas visible : d'où le passage par `$env:VIGIE_*`.
-- **Sur cette machine** : `apps/backend-pode/config.local.psd1` a été créé (dans le worktree ET dans le
+- **Sur cette machine** : `apps/backend-pode/config/config.local.psd1` a été créé (dans le worktree ET dans le
   dépôt principal) avec l'ancien `ToolsPath`, pour ne pas régresser l'installation existante.
   Fichier ignoré par git (vérifié via `git check-ignore`).
 - **Validé** : Parser sur 41 fichiers, 0 erreur ; fusion de config testée (valeurs et dérivées

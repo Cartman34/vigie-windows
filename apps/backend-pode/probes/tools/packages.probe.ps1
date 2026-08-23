@@ -1,14 +1,14 @@
 <# Sonde : UNE carte par gestionnaire de paquets detecte (presence + version + MAJ).
    LECTURE SEULE et RAPIDE. La verification des MAJ (lente/reseau) est faite a la
    demande par l'action pkg-check-updates (worker detache) ; ici on ne fait que
-   LIRE .state/pkgupdates.json (compte, elements, etat "en cours"). #>
+   LIRE var/cache/pkgupdates.json (compte, elements, etat "en cours"). #>
 param()
 $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $backend 'lib/common.ps1')
 
 # Etat des MAJ / verification en cours (ecrit par l'action + le worker).
 $upd = @{}
-$updFile = Join-Path $backend '.state\pkgupdates.json'
+$updFile = Get-VarPath -Backend $backend -Kind 'cache' -File 'pkgupdates.json'
 if (Test-Path $updFile) {
     try { $j = Get-Content $updFile -Raw | ConvertFrom-Json; foreach ($p in $j.PSObject.Properties) { $upd[$p.Name] = $p.Value } } catch { }
 }

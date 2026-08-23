@@ -46,7 +46,7 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
    marque **D01** en SVG, effacement au premier chargement (durée mini 550 ms, garde-fou 90 s).
 2. ~~Lien GitHub retrouvable~~ — **FAIT** (**D09**) : splash, topbar, pied de page, menu tray
    « À propos de Vigie ». URL en **constante unique** par langage (`REPO_URL` / `$RepoUrl`).
-3. ~~Rendre `apps/backend-pode/config.psd1` générique~~ — **FAIT** (**D18**) : socle versionné générique
+3. ~~Rendre `apps/backend-pode/config/config.psd1` générique~~ — **FAIT** (**D18**) : socle versionné générique
    + `config.local.psd1` (ignoré par git) + `config.local.sample.psd1`. `ToolsPath` optionnel,
    URL et port dérivés d'un seul endroit (`Get-AppUrl` / `Get-ApiUrl` / `Get-ToolsPath` /
    `Get-AdminRoot`), plus aucune valeur en dur (**D15**).
@@ -96,8 +96,8 @@ n'aura lieu qu'après confirmation explicite que tout fonctionne depuis le dép�
 - Authentification : token *fine-grained* (All repos + **Contents R/W**), mémorisé par le Credential
   Manager au 1er push. Username = `Cartman34`, Password = le **token** (pas le mot de passe GitHub).
 - Alternative zéro-token : remote SSH `git@github.com:Cartman34/vigie-windows.git` avec la clé locale.
-- `.gitignore` exclut déjà le jeton API (`apps/backend-pode/.secrets/`), l'état (`apps/backend-pode/.state/`) et les logs.
-  Avant tout commit, `git status` ne doit montrer NI `.secrets/`, NI `.state/`, NI `logs/`, NI `*.bak-*`.
+- `.gitignore` exclut déjà le jeton API (`apps/backend-pode/var/secrets/`), l'état (`apps/backend-pode/var/cache/`) et les logs.
+  Avant tout commit, `git status` ne doit montrer NI `var/secrets/`, NI `var/cache/`, NI `apps/*/var/log/`, NI `*.bak-*`.
 
 ## Contraintes environnement (importantes)
 
@@ -135,5 +135,5 @@ n'aura lieu qu'après confirmation explicite que tout fonctionne depuis le dép�
   l'utilisateur : `install-autostart.ps1`, `uninstall-autostart.ps1`, `uninstall-legacy.ps1`.
 
 ### A ne jamais committer
-- `apps/backend-pode/.secrets/` (jeton API), `apps/backend-pode/.state/`, `logs/`, `*.bak-*`, `_to_delete/`.
+- `apps/backend-pode/var/secrets/` (jeton API), `apps/backend-pode/var/cache/`, `apps/*/var/log/`, `*.bak-*`.
   Le `.gitignore` les couvre deja ; verifier malgre tout `git status` avant chaque commit.

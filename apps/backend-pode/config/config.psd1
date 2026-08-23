@@ -6,11 +6,11 @@
     # valeurs ailleurs dans le code.
     #
     # Pour ce qui est propre a TA machine, ne modifie pas ce fichier : cree
-    # apps/backend-pode/config.local.psd1 (ignore par git) a partir de config.local.sample.psd1.
+    # apps/backend-pode/config/config.local.psd1 (ignore par git) a partir de config.local.sample.psd1.
     # ---------------------------------------------------------------------------
 
-    # Adresse d'ecoute : STRICTEMENT locale (ne jamais exposer, le back est eleve).
-    BindAddress = '127.0.0.1'
+    # BindAddress vient de config/common.psd1 (racine) : partagee par toutes les apps,
+    # elle n'est pas recopiee ici (D15/D33). Ecoute STRICTEMENT locale.
 
     # Port d'ecoute. Un port fixe par projet, dans la plage locale 47600-47699.
     Port        = 47600

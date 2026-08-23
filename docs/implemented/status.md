@@ -9,7 +9,7 @@ Reference les IDs de `../targeting/features.md`. Maj : 2026-08-19.
 | CORE-BACKEND    | DONE*   | `apps/backend-pode/start.ps1` + `apps/backend-pode/server.ps1` (Pode) ; routes `/health`, `/state`, `/modules/{id}`, `/actions` ; `apps/backend-pode/lib/common.ps1` | *Necessite `Install-Module Pode` ; actions reelles necessitent une execution ELEVEE |
 | CORE-FRONTEND   | DONE    | `apps/frontend-web/index.html` v2 : consomme le contrat, mode API en direct + repli `apps/frontend-web/mock/state.json` / mock inline | Themes system/wsl/security pas encore alimentes |
 | CORE-PROBES     | DONE    | Modele auto-decouvert (`apps/backend-pode/lib/common.ps1` -> `Get-State`) ; sondes `apps/backend-pode/probes/windows-update/lock.probe.ps1`, `history.probe.ps1` | Sondes des autres themes a ecrire |
-| CORE-SECURITY   | DONE    | Ecoute 127.0.0.1 ; jeton Bearer (`apps/backend-pode/.secrets/api.token`) ; injecte dans la page servie | Middleware simple ; a auditer avant exposition eventuelle |
+| CORE-SECURITY   | DONE    | Ecoute 127.0.0.1 ; jeton Bearer (`apps/backend-pode/var/secrets/api.token`) ; injecte dans la page servie | Middleware simple ; a auditer avant exposition eventuelle |
 | CORE-TRAY       | TODO    | — | Icone barre systeme a faire |
 | CORE-WINDOW     | TODO    | — | Fenetre WebView2 a faire |
 | CORE-AUTOSTART  | PARTIAL | — | Tache planifiee d'ouverture de session (elevee) a faire |

@@ -29,7 +29,7 @@ Reference unique des conventions. Toute nouvelle convention se note ICI.
 
 ## Securite
 - API en ecoute **127.0.0.1 uniquement**. Jamais exposee (le back tourne eleve).
-- **Jeton Bearer** genere une fois (`apps/backend-pode/.secrets/api.token`), exige sur tous
+- **Jeton Bearer** genere une fois (`apps/backend-pode/var/secrets/api.token`), exige sur tous
   les endpoints sauf `/health`. Injecte dans la page servie (meme origine).
 
 ## Technique
@@ -65,7 +65,7 @@ Concretement :
 
 ## Ports (organisation)
 - Plage locale reservee : **47600-47699**. Registre central : `LocalWork/PORTS.md`.
-- Chaque projet : **un port fixe**, configurable (ici `apps/backend-pode/config.psd1`),
+- Chaque projet : **un port fixe**, configurable (ici `apps/backend-pode/config/config.psd1`),
   inscrit au registre ; verifier le registre avant d'allouer.
 - Defaut de ce projet : **47600**.
 
@@ -87,7 +87,7 @@ courbes) casse l'analyse des chaines. Regle : **scripts PowerShell en ASCII pur*
 - Encodage d'ecriture recommande : UTF-8 (avec BOM si edite sous Windows).
 
 ## Journalisation (logs recuperables)
-- Tout ecrit sous **`logs/`** (recuperable via le pont pour diagnostic).
+- Tout ecrit sous **`apps/*/var/log/`** (recuperable via le pont pour diagnostic).
 - `install.ps1` / `start.ps1` : transcript complet (`install_*.log`,
   `start_*.log`) + lignes `Write-Log` (helper de `lib/common.ps1`).
 - Serveur Pode : logs d'erreurs et de requetes (`pode-error_*.log`,

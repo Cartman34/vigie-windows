@@ -1,18 +1,16 @@
 # --- Secrets & etat local (NE JAMAIS committer) ---
 # Un dossier d'app peut etre renomme (D30) : on ignore par MOTIF, pas par chemin
 # exact, pour qu'un renommage ne fasse plus passer un fichier local a travers.
-apps/*/config.local.psd1
-apps/*/.secrets/
-apps/*/.state/
-logs/
+# var/ = tout ce qu'une app genere ou gere en local (cache, journaux, etat,
+# secrets generes). Convention Symfony. Jamais versionne.
+apps/*/var/
+# Config propre a la machine, jamais versionnee (le modele .sample l'est).
+apps/*/config/config.local.psd1
 
 # --- Sauvegardes locales creees pendant l'edition ---
 *.bak-*
 **/.bak-*/
 .bak-*/
-
-# --- Corbeille locale (le sandbox ne peut pas supprimer) ---
-_to_delete/
 
 # --- Divers ---
 __pycache__/

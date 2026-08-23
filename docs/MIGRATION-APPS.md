@@ -61,12 +61,12 @@ Déplacements en `git mv` : **l'historique des fichiers est préservé**.
 - `scripts/*.ps1` : résolvent `apps/backend-pode` ; `install-autostart.ps1` vise
   `apps/tray/tray.ps1`.
 - `apps/atelier/atelier.ps1` : **autonome**, plus aucune dépendance à `common.ps1`.
-- `apps/atelier/config.psd1` créé ; `AtelierPort` retiré de la config du backend.
+- `apps/atelier/config/config.psd1` créé ; `AtelierPort` retiré de la config du backend.
 - `.gitignore` mis à jour.
 
 ### Fichiers ignorés par git — déjà déplacés
 
-`config.local.psd1`, `.secrets/`, `.state/` → `apps/backend-pode/` ; `logs/` → racine.
+`config.local.psd1`, `var/secrets/`, `var/cache/` → `apps/backend-pode/` ; `apps/*/var/log/` → racine.
 L'ancien dossier `backend/` a entièrement disparu.
 
 ### Validé

@@ -69,7 +69,7 @@ et l'Atelier n'a aucun rôle à l'exécution du produit.
     docs/           Documentation + docs/DECISIONS-VALIDEES.md (a ne jamais perdre)
 
 ## Sécurité / ce qui n'est jamais versionné
-`apps/backend-pode/.secrets/` (jeton API), `apps/backend-pode/.state/` (cache/état), `logs/` — voir `.gitignore`.
+`apps/backend-pode/var/secrets/` (jeton API), `apps/backend-pode/var/cache/` (cache/état), `apps/*/var/log/` — voir `.gitignore`.
 
 ## Démarrage rapide
 - **Front seul (maquette)** : ouvrir `apps/frontend-web/index.html` (utilise `apps/frontend-web/mock/state.json`).
