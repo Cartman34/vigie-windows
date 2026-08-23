@@ -403,7 +403,9 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
             # Battement de coeur : c'est lui qui permet a un script de savoir si le tray
             # est vivant, sans avoir a inspecter un processus eleve.
             try {
-                Set-Content -LiteralPath $heartbeat -Encoding ASCII -NoNewline `
+                # UTF8 et non ASCII : l'etat contient des accents (« Démarrage… »), que
+                # l'ASCII remplace par des points d'interrogation.
+                Set-Content -LiteralPath $heartbeat -Encoding UTF8 -NoNewline `
                     -Value ("{0};{1};{2}" -f $PID, (Get-Date -Format 'o'), $lbl)
             } catch { }
         }
