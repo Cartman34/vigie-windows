@@ -69,6 +69,14 @@ if (-not (Test-IsElevated)) {
     exit $code
 }
 
+# Trace d'entree : un script de migration doit dire ce qu'il a recu, sinon un compte
+# rendu vide est indistinguable d'un "rien a faire".
+$ws = if ($LegacyWorkspace) { $LegacyWorkspace } else { '(aucun)' }
+Write-Host ("Nettoyage des vestiges - taches: " + ($LegacyTaskNames -join ', ') +
+            " | raccourcis: " + ($LegacyShortcutNames -join ', ') +
+            " | espace de travail: " + $ws +
+            " | simulation: " + $WhatIfPreference)
+
 $done = 0
 $skipped = 0
 $failed = 0
