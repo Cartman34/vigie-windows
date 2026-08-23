@@ -6,7 +6,7 @@
     # valeurs ailleurs dans le code.
     #
     # Pour ce qui est propre a TA machine, ne modifie pas ce fichier : cree
-    # backend/config.local.psd1 (ignore par git) a partir de config.local.sample.psd1.
+    # apps/backend/config.local.psd1 (ignore par git) a partir de config.local.sample.psd1.
     # ---------------------------------------------------------------------------
 
     # Adresse d'ecoute : STRICTEMENT locale (ne jamais exposer, le back est eleve).
@@ -17,10 +17,6 @@
 
     # Prefixe des routes de l'API REST (voir api/openapi.yaml).
     ApiBase     = '/api/v1'
-
-    # Port de l'atelier de validation (docs/atelier.ps1, serveur php temporaire).
-    # Meme plage locale que le serveur, port distinct pour ne jamais le concurrencer.
-    AtelierPort = 47610
 
     # Outillage externe OPTIONNEL (scripts d'administration vivant hors du depot :
     # verrouillage MAJ, update-mode, audits). Vide = non configure : les actions qui

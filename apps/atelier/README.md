@@ -13,7 +13,7 @@ chargement.
 ## Démarrer
 
 ```
-docs\atelier.cmd
+appsteliertelier.cmd
 ```
 
 ou, directement :
@@ -22,7 +22,7 @@ ou, directement :
 pwsh -ExecutionPolicy Bypass -File .\docs\atelier.ps1
 ```
 
-Le navigateur s'ouvre sur `http://127.0.0.1:47610/docs/atelier-validation.html`.
+Le navigateur s'ouvre sur `http://127.0.0.1:47610/apps/atelier/index.html`.
 La console affiche les requêtes ; **Ctrl+C** arrête le serveur.
 
 ### Toutes les commandes
@@ -46,19 +46,20 @@ démarrage ou d'arrêt.
 
 ## Configuration
 
-**Un seul endroit** : [`backend/config.psd1`](../backend/config.psd1).
+**Sa propre config** : [`apps/atelier/config.psd1`](config.psd1).
 
 | Clé | Rôle |
 |---|---|
 | `BindAddress` | adresse d'écoute — strictement locale |
-| `AtelierPort` | port de l'atelier (`47610` par défaut) |
+| `Port` | port de l'Atelier (`47610` par défaut) |
+| `StartPage` | page ouverte au démarrage, relative à la racine servie |
 
-Ces valeurs ne sont **recopiées nulle part ailleurs** : le script les lit via `Get-Config`,
-et l'URL en dérive. Changer le port ici suffit.
+L'Atelier **ne lit pas la config du backend** : c'est une app distincte, elle est
+maîtresse de ses propres valeurs. **D15** dit « une valeur, une définition » — pas
+« un fichier pour toutes les valeurs ».
 
-Pour un réglage propre à ta machine (port déjà pris, par exemple), ne modifie pas
-`config.psd1` : crée `backend/config.local.psd1` à partir de
-`backend/config.local.sample.psd1`. Il est ignoré par git.
+Le port de Vigie (`47600`) vit, lui, dans `apps/backend/config.psd1`. Les deux sont dans
+la même plage locale mais **distincts**, pour que les deux apps tournent en même temps.
 
 ---
 
@@ -84,16 +85,16 @@ Les raisons (élévation, concurrence, coût des processus) sont chiffrées dans
 - Écoute **strictement en local**. **Aucun droit administrateur** n'est requis.
 - Port **distinct** de celui du serveur applicatif (`47600`) : les deux peuvent tourner
   en même temps sans se gêner.
-- Il **ne remplace pas** `backend/start.ps1`. C'est un outil de développement : il ne sert
+- Il **ne remplace pas** `apps/backend/start.ps1`. C'est un outil de développement : il ne sert
   aucune API, n'exécute aucune sonde et n'a accès à aucun secret.
 
 ### Pourquoi un serveur plutôt qu'un double-clic sur le fichier
 
 Ouverte en `file://`, la page ne peut pas faire son travail :
 
-- les chemins relatifs vers `backend/assets/tray/*.ico` cassent dès que le fichier est
+- les chemins relatifs vers `apps/tray/assets/*.ico` cassent dès que le fichier est
   copié ailleurs — d'où des **images cassées** ;
-- le navigateur refuse d'afficher `frontend/index.html` dans un cadre — d'où un
+- le navigateur refuse d'afficher `apps/frontend/index.html` dans un cadre — d'où un
   **rectangle noir** à la place de l'écran de chargement.
 
 Servie en `http`, la page fonctionne entièrement. Elle reste néanmoins ouvrable en
@@ -104,7 +105,7 @@ Servie en `http`, la page fonctionne entièrement. Elle reste néanmoins ouvrabl
 ## Ce que contient la page
 
 ### Marque du tray
-Reproduction exacte de [`backend/assets/tray/generer-icones.py`](../backend/assets/tray/generer-icones.py),
+Reproduction exacte de [`apps/tray/assets/generer-icones.py`](../tray/assets/generer-icones.py),
 avec un curseur de **fraction**, le choix de l'état, et un rendu de 16 à 128 px — dont
 une bande imitant la barre des tâches pour juger le contraste réel.
 
@@ -119,10 +120,10 @@ rejoué**.
 ### Menu du tray
 Reproduction réglable de ce que dessine `VigieMenuRenderer` : arrondi du menu, arrondi et
 marge du survol, hauteur d'item, palette complète. Un bloc de code affiche **les valeurs
-exactes à recopier** dans `VigieMenuPalette` ([`backend/tray.ps1`](../backend/tray.ps1)).
+exactes à recopier** dans `VigieMenuPalette` ([`apps/tray/tray.ps1`](../tray/tray.ps1)).
 
 ### Écran de chargement
-`frontend/index.html` en direct, rechargeable pour revoir le splash.
+`apps/frontend/index.html` en direct, rechargeable pour revoir le splash.
 
 ---
 
@@ -143,8 +144,8 @@ Sans cela l'atelier devient trompeur — c'est précisément ce qu'il sert à é
 | Symptôme | Cause | Solution |
 |---|---|---|
 | « php introuvable » | PHP absent du `PATH` | l'installer, ou ouvrir la page en `file://` (fonctions réduites) |
-| Bandeau rouge « pas ouverte depuis le dépôt » | page ouverte en `file://` ou copiée ailleurs | passer par `docs\atelier.cmd` |
-| Icônes en croix rouge | mêmes causes, ou `.ico` absents | vérifier `backend/assets/tray/` |
+| Bandeau rouge « pas ouverte depuis le dépôt » | page ouverte en `file://` ou copiée ailleurs | passer par `appsteliertelier.cmd` |
+| Icônes en croix rouge | mêmes causes, ou `.ico` absents | vérifier `apps/tray/assets/` |
 | Port déjà utilisé | un atelier tourne déjà | `.\docs\atelier.ps1 -Status`, puis `-Stop` |
 | Le serveur ne s'arrête pas | processus détaché | `.\docs\atelier.ps1 -Stop` (retrouve le PID par le port) |
 | Les icônes ne changent pas | générateur non rejoué | régénérer les `.ico`, puis recharger la page |

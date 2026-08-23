@@ -48,7 +48,7 @@ démarrage (orange) / erreur ou arrêt (rouge). Jamais l'état des composants.
 
 ## D02 — Reproduction de l'icône en `.ico` (déployée)
 
-- Générée à l'identique de **D01** par `backend/assets/tray/generer-icones.py` (PIL)
+- Générée à l'identique de **D01** par `apps/tray/assets/generer-icones.py` (PIL)
   → `ok.ico` / `warn.ico` / `error.ico` (multi-résolutions 16→256).
 - Chargées par `tray.ps1` (fonction `setIcon`), avec repli sur le dessin GDI+ si un fichier manque.
 
@@ -86,7 +86,7 @@ Renommages retenus :
 | Types .NET `HcpNative`, `HcpDarkColors` | `VigieNative`, `VigieDarkColors` |
 | Variables d'environnement `HCP_BACKEND`, `HCP_TOKEN`, `HCP_PORT` | `VIGIE_BACKEND`, `VIGIE_TOKEN`, `VIGIE_PORT` |
 | Titre `api/openapi.yaml` « HYPERION Control Panel API » | « Vigie API » |
-| `backend/demarrer-hyperion.vbs` | `backend/demarrer-vigie.vbs` |
+| `backend/demarrer-hyperion.vbs` | `scripts/demarrer-vigie.vbs` |
 
 **Exception** : `docs/maquettes-validees/` n'est pas retouché — c'est l'archive des supports
 de décision, on n'y réécrit pas l'histoire.
@@ -97,7 +97,7 @@ de décision, on n'y réécrit pas l'histoire.
 dépendance JS (pas de `package.json`, pas de build, un seul fichier HTML servi tel quel) ;
 installer un runtime permanent pour une seule vérification syntaxique n'est pas justifié.
 
-Validation retenue : charger `frontend/index.html` en `file://` dans un navigateur et lire
+Validation retenue : charger `apps/frontend/index.html` en `file://` dans un navigateur et lire
 la console. Cela couvre **plus** que `node --check` : erreurs de syntaxe, erreurs d'exécution,
 rendu réel, et le repli sur la maquette `mock/state.json` qui est précisément le mode `file://`.
 `node --check` sera réintroduit si le front acquiert un jour une vraie chaîne de build.
@@ -119,8 +119,8 @@ session de l'agent. Ce qui suit décrit la **cible**, pas l'existant.
   worktree, qui est temporaire.
 - L'ancien espace de travail est **renommé** (suffixe `.old`) et non supprimé ; sa suppression
   n'aura lieu qu'après confirmation explicite que tout fonctionne.
-- Outil : `backend/uninstall-legacy.ps1` (voir **D11**) retire la tâche et le raccourci hérités
-  et met l'ancien dossier de côté. `backend/install-autostart.ps1` enregistre la tâche courante.
+- Outil : `scripts/uninstall-legacy.ps1` (voir **D11**) retire la tâche et le raccourci hérités
+  et met l'ancien dossier de côté. `scripts/install-autostart.ps1` enregistre la tâche courante.
   Les deux exigent un PowerShell **administrateur**.
 
 ## D08 — Écran de chargement (splash)
@@ -149,8 +149,8 @@ Les installations antérieures au renommage laissent une tâche planifiée et un
 **orphelins**. Les nettoyer suppose de connaître les anciens noms — ce que **D05** demande
 justement d'éliminer du projet.
 
-Arbitrage retenu : `backend/uninstall-autostart.ps1` ne connaît **que** les noms courants,
-et un script **dédié et jetable**, `backend/uninstall-legacy.ps1`, porte seul les anciens noms.
+Arbitrage retenu : `scripts/uninstall-autostart.ps1` ne connaît **que** les noms courants,
+et un script **dédié et jetable**, `scripts/uninstall-legacy.ps1`, porte seul les anciens noms.
 Il est daté (vestiges antérieurs au 2026-08-22), idempotent, exige une session élevée
 (il ne s'auto-élève pas, pour que son compte rendu reste lisible), supporte `-WhatIf`, et
 **ne supprime jamais de dossier** : l'ancien espace de travail est seulement mis de côté
@@ -213,12 +213,12 @@ de questions cosmétiques sur du contenu ancien qu'on n'avait aucune raison d'ou
 
 ## D18 — Configuration : un socle versionné générique + une surcharge locale
 
-`backend/config.psd1` est **versionné et générique** : il porte LA définition de chaque
+`apps/backend/config.psd1` est **versionné et générique** : il porte LA définition de chaque
 valeur et ne contient plus rien de propre à une machine. `ToolsPath` y vaut `''`.
 
-`backend/config.local.psd1` est **ignoré par git**, optionnel, et surcharge les seules
+`apps/backend/config.local.psd1` est **ignoré par git**, optionnel, et surcharge les seules
 valeurs qui ne peuvent pas être génériques (chemins d'une machine donnée).
-`backend/config.local.sample.psd1` est le modèle versionné qui documente ce qu'on peut
+`apps/backend/config.local.sample.psd1` est le modèle versionné qui documente ce qu'on peut
 y surcharger. `Get-Config` fusionne les deux, et **échoue avec un message explicite**
 si le fichier local est illisible.
 
@@ -270,7 +270,7 @@ diverger. WSL **non installé** reste neutre : on ne reproche pas à une machine
 l'avoir installé.
 
 **Exigence explicite de l'utilisateur : ce choix doit rester trivial à rebasculer.**
-Il tient donc en **une seule ligne**, en tête de `backend/probes/wsl/wsl.probe.ps1`, sous un
+Il tient donc en **une seule ligne**, en tête de `apps/backend/probes/wsl/wsl.probe.ps1`, sous un
 bandeau de commentaire qui énumère les valeurs possibles :
 
 ```powershell
@@ -336,7 +336,7 @@ voulu quand tout va bien.
 
 Toute la géométrie de **D01** est conservée : seules les fractions changent. La valeur est
 écrite à **deux** endroits qui doivent rester identiques, faute de quoi le `.ico` et le repli
-GDI+ divergeraient : `backend/assets/tray/generer-icones.py` et `backend/tray.ps1`.
+GDI+ divergeraient : `apps/tray/assets/generer-icones.py` et `apps/tray/tray.ps1`.
 Les `.ico` ont été **régénérés** (Pillow installé dans le scratchpad, pas dans le Python
 de la machine).
 
@@ -345,12 +345,12 @@ d'option ne survit pas à la validation (**D04**).
 
 ## D24 — Un atelier de validation visuelle, **servi** et outillé
 
-`docs/atelier-validation.html` — page de validation visuelle, **servie par un petit serveur
-local** (`docs/atelier.ps1`, serveur intégré de PHP), pas ouverte en double-clic.
+`apps/atelier/index.html` — page de validation visuelle, **servie par un petit serveur
+local** (`apps/atelier/atelier.ps1`, serveur intégré de PHP), pas ouverte en double-clic.
 
 **Pourquoi un serveur** : ouverte en `file://`, la page ne peut pas faire son travail. Les
 chemins relatifs vers les `.ico` cassent dès qu'on déplace le fichier (images cassées), et le
-navigateur refuse d'afficher `frontend/index.html` dans un cadre (rectangle noir). Les deux
+navigateur refuse d'afficher `apps/frontend/index.html` dans un cadre (rectangle noir). Les deux
 défauts ont été constatés en livrant la première version : **c'était une livraison
 inutilisable**. Servie en `http`, la page fonctionne entièrement.
 
@@ -366,9 +366,9 @@ le **menu du tray** réglable, qui écrit les valeurs exactes à recopier dans
 
 | Exigence | Réponse |
 |---|---|
-| Configuration à un seul endroit | `BindAddress` et `AtelierPort` dans `config.psd1`, lus via `Get-Config`. L'URL en dérive, aucune recopie (**D15**). |
+| Configuration à un seul endroit | `BindAddress`, `Port` et `StartPage` dans `apps/atelier/config.psd1` — la config de **cette** app. L'URL en dérive, aucune recopie (**D15**). |
 | Outils de gestion | `-Status`, `-Stop`, `-Background`, `-NoBrowser`. Idempotent. Codes de retour distincts. |
-| Documentation | `docs/atelier.md` : démarrage, commandes, configuration, périmètre, tableau de dépannage. |
+| Documentation | `apps/atelier/README.md` : démarrage, commandes, configuration, périmètre, tableau de dépannage. |
 | Aide intégrée | Aide basée sur les commentaires : `Get-Help .\docstelier.ps1 -Full`. |
 
 **Périmètre** : écoute strictement locale, **aucun droit administrateur**, port distinct de
@@ -440,7 +440,7 @@ code, ni dans la documentation, ni dans les conversations.
 | Port | **47600** | **47610** |
 | Élévation | **oui** (`RunLevel Highest`) | **non**, jamais |
 | Lancement | tâche planifiée `Vigie` à l'ouverture de session | à la main, `docstelier.cmd` |
-| Code | `backend/`, `frontend/` | `docs/atelier*` |
+| Code | `apps/backend/`, `apps/frontend/`, `apps/tray/` | `apps/atelier/` |
 | Sondes, actions, secrets | oui | **aucun accès** |
 | Doit tourner pour l'utilisateur final | oui | non |
 
@@ -456,7 +456,75 @@ mesurées, pas des préférences :
    sonde ferait **~4,2 s** de pur démarrage par rafraîchissement complet ; aujourd'hui
    `/health` répond en **65 ms** dans un runtime déjà chaud.
 
-Documenté dans `README.md`, `docs/REPRISE.md` et `docs/atelier.md`.
+Documenté dans `README.md`, `docs/REPRISE.md` et `apps/atelier/README.md`.
 
 **Règle de travail associée** : en cas de doute sur l'appartenance d'un composant à l'une ou
 l'autre brique, **demander à l'utilisateur avec une suggestion** plutôt que de trancher seul.
+
+## D29 — Le dépôt contient plusieurs apps : `apps/` + `scripts/`
+
+L'Atelier n'est pas un « outil » rangé dans `docs/` : c'est **une app du projet**, même si
+elle ne sert qu'au développement. Le tray non plus n'est pas un morceau du backend : il a
+son interface, ses icônes et son cycle de vie propres.
+
+```
+api/                 contrat REST partagé
+apps/
+  backend/           serveur Pode, sondes, actions, workers, lib, config
+  frontend/          interface web
+  tray/              app barre système : tray.ps1 + assets/ (icônes + générateur)
+  atelier/           app de développement : serveur php, page, sa config
+scripts/             install, désinstall, run, migration
+docs/                documentation transverse
+logs/                journaux communs à toutes les apps
+```
+
+**Un dossier par app, un dossier par rôle.** `scripts/` sort les scripts de gestion du code
+applicatif : installer, désinstaller, lancer et migrer ne sont pas des fonctions du backend.
+
+### Règles qui en découlent
+
+- **Chaque app est maîtresse de sa config.** L'Atelier a `apps/atelier/config.psd1` ; le
+  backend garde `apps/backend/config.psd1`. Cela **précise D15** : « une valeur, une
+  définition » ne veut pas dire « un fichier pour toutes les valeurs ». `AtelierPort` a
+  quitté la config du backend.
+- **L'Atelier ne dépend pas de la bibliothèque du backend.** Il ne dot-source plus
+  `common.ps1` : une app de développement qui s'appuie sur l'app livrée, c'est la frontière
+  de **D28** percée dès le premier jour.
+- **Le tray pilote le backend sans en faire partie.** Il résout `apps/backend` comme une app
+  **sœur** et ne garde que deux liens vers elle : la bibliothèque partagée et le démarrage
+  du serveur.
+- **Les chemins inter-apps sont calculés à un seul endroit** : `Get-RepoRoot`,
+  `Get-AppsRoot`, `Get-AppPath` dans `apps/backend/lib/common.ps1`. Aucun script ne
+  recompose un chemin inter-apps à la main.
+- **Les journaux sont communs**, à la racine : le serveur et le tray sont deux apps, mais on
+  ne fait pas chercher l'utilisateur à deux endroits.
+
+### Ce qui n'a pas bougé, et pourquoi
+
+`backend` et `frontend` sont restés **voisins** sous `apps/`. Les quatre endroits qui
+calculaient « dossier parent + `frontend` » (dont `server.ps1` et `Get-AppVersion`)
+fonctionnent donc **sans une ligne de modification**. Les lanceurs `.cmd`/`.vbs` utilisent
+`%~dp0` : ils trouvent leurs voisins dans `scripts/`.
+
+### Question laissée ouverte
+
+**Où ranger `api/openapi.yaml` ?** Laissé à la racine, non tranché.
+
+- *Racine* : le principe directeur n°1 dit que le front ne connaît que le contrat et que le
+  back n'en est qu'une implémentation remplaçable. Le fichier se lit alors comme la
+  **norme** à laquelle les backends se conforment.
+- *`apps/backend/api/`* : le fichier décrit ce qu'un backend implémente ; avec plusieurs
+  backends, chacun décrirait le sien.
+
+L'argument de « dépendance » avancé au départ était **exagéré** : un chemin ne crée pas de
+couplage technique, il ne fait que signaler une intention. C'est un choix de signal, et un
+`git mv` suffit à basculer.
+
+### Migration réalisée
+
+Déplacements en `git mv` (historique préservé). Points à ne pas oublier lors d'un
+déplacement analogue : les fichiers **ignorés par git** (`.secrets/`, `.state/`,
+`config.local.psd1`, `logs/`) ne suivent pas et se déplacent à la main, et la **tâche
+planifiée** porte un chemin absolu — elle doit être réenregistrée, sans quoi l'app ne
+démarre plus à l'ouverture de session.

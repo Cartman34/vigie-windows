@@ -24,8 +24,8 @@ l'execution (`$env:COMPUTERNAME`), jamais code en dur.
 - Contract-first : front <-> back uniquement via `api/openapi.yaml`.
 - Front statique (HTML/JS). Back = Pode (PowerShell), interchangeable.
 - Generique a plugins : etat = modules par theme ; ajouter une **sonde**
-  (`backend/probes/<theme>/*.probe.ps1`) ou une **action**
-  (`backend/actions/<id>.action.ps1`) sans toucher contrat ni front.
+  (`apps/backend/probes/<theme>/*.probe.ps1`) ou une **action**
+  (`apps/backend/actions/<id>.action.ps1`) sans toucher contrat ni front.
 - Securite : API 127.0.0.1 + jeton Bearer.
 
 ## Lancer / tester maintenant
@@ -34,7 +34,7 @@ l'execution (`$env:COMPUTERNAME`), jamais code en dur.
     # Demarrer :
     powershell -ExecutionPolicy Bypass -File backend\start.ps1
     # Puis ouvrir http://127.0.0.1:47600/  (UI) — l'API est sous /api/v1
-Sans lancer le back, ouvrir `frontend/index.html` affiche le mode maquette.
+Sans lancer le back, ouvrir `apps/frontend/index.html` affiche le mode maquette.
 
 ## Lien avec LocalAgentAdmin
 La logique Windows Update (verrouillage, mode MAJ, audit) vit dans

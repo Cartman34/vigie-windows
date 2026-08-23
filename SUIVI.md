@@ -5,7 +5,7 @@
 
 ## Etat au 20/08/2026
 
-Serveur **operationnel**, lance en admin via `backend/run.cmd` (ou `run.ps1`), PS7 + Pode (portee AllUsers).
+Serveur **operationnel**, lance en admin via `scripts/run.cmd` (ou `run.ps1`), PS7 + Pode (portee AllUsers).
 Toutes les modifs de sondes / `common.ps1` / actions sont **live** (re-sourcees a chaque requete) ;
 `index.html` change => la page se recharge seule (version).
 
@@ -13,7 +13,7 @@ Toutes les modifs de sondes / `common.ps1` / actions sont **live** (re-sourcees 
 
 - **backend/** : serveur Pode (`server.ps1`), bibliotheque partagee (`lib/common.ps1`),
   sondes (`probes/<theme>/*.probe.ps1`), actions (`actions/*.action.ps1`), config (`config.psd1`, port 47600).
-- **frontend/index.html** : SPA (masonry de cartes, modales in-app `HDS`, rafraichissement par carte).
+- **apps/frontend/index.html** : SPA (masonry de cartes, modales in-app `HDS`, rafraichissement par carte).
 - **Lanceurs** (ASCII) : `run.cmd` (robuste, contourne ExecutionPolicy/MOTW) -> `run.ps1` -> `start.ps1` ; `install.ps1`.
 - Securite : 127.0.0.1 only, jeton Bearer, anti-CSRF, whitelist d'actions + confinement chemin.
 
@@ -54,8 +54,8 @@ Toutes les modifs de sondes / `common.ps1` / actions sont **live** (re-sourcees 
 - [ ] Nom de machine code en dur : "HYPERION" est le NOM DE LA MACHINE de l'utilisateur, pas un nom de projet.
       Ce n'est PAS cosmetique : c'est un defaut de genericite (l'app ne doit rien contenir de specifique a un PC).
       Fait : tache planifiee `Vigie`, raccourci `Vigie.url`, mutex `Local\VigieState_*` / `Local\VigieStateRecompute`,
-      titre openapi `Vigie API`, lanceur `backend/demarrer-vigie.vbs`, docs.
-      Fait aussi : `backend/tray.ps1` (mutex `VigieTray`, types `VigieNative` / `VigieDarkColors`) et les
+      titre openapi `Vigie API`, lanceur `scripts/demarrer-vigie.vbs`, docs.
+      Fait aussi : `apps/tray/tray.ps1` (mutex `VigieTray`, types `VigieNative` / `VigieDarkColors`) et les
       variables d'environnement `VIGIE_BACKEND` / `VIGIE_TOKEN` / `VIGIE_PORT` (ex-`HCP_*`).
       Le nom de machine a TOTALEMENT disparu du projet (verifie par recherche exhaustive).
       Exception : `docs/maquettes-validees/` n'est pas retouche (archive des supports de decision).
@@ -151,7 +151,7 @@ Toutes les modifs de sondes / `common.ps1` / actions sont **live** (re-sourcees 
   `error` alors que la carte restait `neutral`. Les deux dérivent maintenant de la **même**
   variable et ne peuvent plus diverger. WSL non installé reste neutre.
 - **Rebascule en une seule ligne**, exigence explicite : `$inactiveSeverity = 'error'` en tête de
-  `backend/probes/wsl/wsl.probe.ps1`, sous un bandeau qui énumère `error` / `warn` / `neutral`.
+  `apps/backend/probes/wsl/wsl.probe.ps1`, sous un bandeau qui énumère `error` / `warn` / `neutral`.
   **Rien à changer côté front** : `.card.st-error` (lisere gauche 4 px) et le badge « Problème »
   existent déjà pour les trois valeurs.
 - **Contrat corrigé (D21)** : `api/openapi.yaml` interdisait `neutral` en statut de module alors
@@ -204,7 +204,7 @@ Toutes les modifs de sondes / `common.ps1` / actions sont **live** (re-sourcees 
   `localhost` en littéral — ce sont les origines de **bouclage**, pas une copie de `BindAddress`
   (le port, lui, dérive bien). Un middleware Pode tourne dans un runspace séparé où `$cfg`
   n'est pas visible : d'où le passage par `$env:VIGIE_*`.
-- **Sur cette machine** : `backend/config.local.psd1` a été créé (dans le worktree ET dans le
+- **Sur cette machine** : `apps/backend/config.local.psd1` a été créé (dans le worktree ET dans le
   dépôt principal) avec l'ancien `ToolsPath`, pour ne pas régresser l'installation existante.
   Fichier ignoré par git (vérifié via `git check-ignore`).
 - **Validé** : Parser sur 41 fichiers, 0 erreur ; fusion de config testée (valeurs et dérivées
@@ -237,7 +237,7 @@ Toutes les modifs de sondes / `common.ps1` / actions sont **live** (re-sourcees 
   front chargé en `file://` — script intégralement exécuté (aucune erreur de syntaxe), 3 liens
   câblés, 7 graduations, aucun débordement horizontal. Node n'est **pas** installé et ne l'est
   pas devenu (**D06**).
-- **Script de désinstallation des vestiges (D11)** : `backend/uninstall-legacy.ps1` — daté, jetable,
+- **Script de désinstallation des vestiges (D11)** : `scripts/uninstall-legacy.ps1` — daté, jetable,
   idempotent, `-WhatIf`, ne supprime jamais de dossier (l'ancien espace de travail est mis de côté en
   `.old`), chemin en paramètre sans valeur par défaut. Il porte SEUL les anciens noms, pour que
   `uninstall-autostart.ps1` ne connaisse que les noms courants.

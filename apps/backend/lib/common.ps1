@@ -6,6 +6,17 @@
 
 function Get-BackendRoot { Split-Path $PSScriptRoot -Parent }
 
+# --- Reperes de l'arborescence ------------------------------------------------
+# Le depot contient PLUSIEURS apps (apps/backend, apps/frontend, apps/tray,
+# apps/atelier) plus scripts/ et docs/. Ces reperes sont calcules ICI et nulle
+# part ailleurs : aucun script ne doit recomposer un chemin inter-apps a la main.
+function Get-RepoRoot { Split-Path (Split-Path (Get-BackendRoot) -Parent) -Parent }
+function Get-AppsRoot { Split-Path (Get-BackendRoot) -Parent }
+function Get-AppPath {
+    param([Parameter(Mandatory)][ValidateSet('backend','frontend','tray','atelier')][string]$Name)
+    Join-Path (Get-AppsRoot) $Name
+}
+
 # --- Helpers partages (regle : une fonctionnalite = un seul code) -----------
 
 # Le processus courant est-il eleve (administrateur) ?
@@ -296,7 +307,7 @@ function Get-AdminRoot {
 # Reponse commune quand l'outillage externe n'est pas configure (une seule redaction).
 function New-ToolsMissingResult {
     @{
-        message = "Outillage externe non configure. Renseigne ToolsPath dans backend/config.local.psd1 (modele : config.local.sample.psd1)."
+        message = "Outillage externe non configure. Renseigne ToolsPath dans apps/backend/config.local.psd1 (modele : config.local.sample.psd1)."
         result  = @{ ok = $false }
     }
 }
@@ -316,14 +327,16 @@ function Get-ApiToken {
 # --- Version applicative (change quand index.html change) -------------------
 function Get-AppVersion {
     param([string]$Backend = (Get-BackendRoot))
-    $idx = Join-Path (Split-Path $Backend -Parent) 'frontend/index.html'
+    $idx = Join-Path (Split-Path $Backend -Parent) 'frontend/index.html'   # apps/frontend
     if (Test-Path $idx) { "$((Get-Item $idx).LastWriteTimeUtc.Ticks)" } else { '0' }
 }
 
 # --- Journalisation ---------------------------------------------------------
 function Get-LogDir {
     param([string]$Backend = (Get-BackendRoot))
-    $d = Join-Path $Backend 'logs'
+    # Un seul dossier de journaux pour tout le depot : le serveur et le tray sont
+    # deux apps distinctes, mais on ne fait pas chercher l'utilisateur a deux endroits.
+    $d = Join-Path (Split-Path (Split-Path $Backend -Parent) -Parent) 'logs'
     # -WhatIf:$false : creer le dossier de journaux est de la plomberie, pas une
     # operation que l'utilisateur simule. Sans cela, -WhatIf empeche toute journalisation.
     if (-not (Test-Path $d)) { New-Item -ItemType Directory -Path $d -Force -WhatIf:$false | Out-Null }

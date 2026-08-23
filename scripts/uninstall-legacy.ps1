@@ -35,7 +35,10 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-. (Join-Path $PSScriptRoot 'lib/common.ps1')
+# Les scripts de gestion vivent dans scripts/ : la bibliotheque est dans apps/backend.
+$repoRoot = Split-Path $PSScriptRoot -Parent
+$backend  = Join-Path $repoRoot 'apps/backend'
+. (Join-Path $backend 'lib/common.ps1')
 
 # --- Noms herites, confines a ce fichier ---------------------------------------
 $LegacyTaskNames     = @('HyperionControlPanel')
@@ -65,7 +68,7 @@ if (-not (Test-IsElevated)) {
     if ($LegacyWorkspace) { $argv += @('-LegacyWorkspace', $LegacyWorkspace) }
     if ($WhatIfPreference) { $argv += '-WhatIf' }
     $argv += '-Yes'
-    $code = Invoke-ElevatedSelf -ScriptPath $PSCommandPath -Arguments $argv -LogDir (Get-LogDir -Backend $PSScriptRoot)
+    $code = Invoke-ElevatedSelf -ScriptPath $PSCommandPath -Arguments $argv -LogDir (Get-LogDir -Backend $backend)
     exit $code
 }
 

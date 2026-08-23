@@ -8,7 +8,7 @@
   Atelier de validation VISUELLE.
 
   À OUVRIR DEPUIS LE DÉPÔT : la page lit les vrais assets par chemin relatif
-  (../backend/assets/tray/, ../frontend/index.html). Ouverte ailleurs, elle le DIT
+  (../tray/assets/, ../frontend/index.html). Ouverte ailleurs, elle le DIT
   au lieu d'afficher des images cassées et un cadre noir.
 
   Aucune dépendance, aucun serveur.
@@ -168,15 +168,15 @@
     <b>Livré aujourd'hui</b> — conforme <code>1.00</code> (jauge pleine), démarrage
     <code>0.50</code>, erreur <code>0.14</code>. Une valeur retenue est à reporter dans
     <b>deux</b> endroits qui doivent rester identiques :
-    <code>backend/assets/tray/generer-icones.py</code> et le repli GDI+ de
-    <code>backend/tray.ps1</code>. Puis régénérer les <code>.ico</code>.
+    <code>apps/tray/assets/generer-icones.py</code> et le repli GDI+ de
+    <code>apps/tray/tray.ps1</code>. Puis régénérer les <code>.ico</code>.
   </div>
 </section>
 
 <section>
   <h2>Icônes réellement livrées (.ico)</h2>
   <p class="hint">
-    Lues depuis <code>backend/assets/tray/</code>. Sert à vérifier que le générateur a bien été
+    Lues depuis <code>apps/tray/assets/</code>. Sert à vérifier que le générateur a bien été
     rejoué : si elles diffèrent de la simulation ci-dessus, les <code>.ico</code> sont périmés.
     <b>Réserve honnête</b> : un navigateur choisit une seule sous-image du <code>.ico</code> et la
     redimensionne — le rendu à 16 px ici n'est donc pas exactement celui de Windows, qui pioche
@@ -189,7 +189,7 @@
   <h2>Menu du tray — réglage du style</h2>
   <p class="hint">
     Reproduction de ce que dessine <code>VigieMenuRenderer</code>. Règle jusqu'à ce que ça te
-    convienne : les valeurs exactes à reporter dans <code>backend/tray.ps1</code> s'écrivent
+    convienne : les valeurs exactes à reporter dans <code>apps/tray/tray.ps1</code> s'écrivent
     en dessous, prêtes à recopier.
   </p>
 
@@ -233,7 +233,7 @@
 <section>
   <h2>Écran de chargement</h2>
   <p class="hint">
-    <code>frontend/index.html</code> en direct. Le splash s'efface au premier chargement —
+    <code>apps/frontend/index.html</code> en direct. Le splash s'efface au premier chargement —
     recharge le cadre pour le revoir.
   </p>
   <div class="chips" style="margin-bottom:14px">
@@ -247,7 +247,7 @@
 
 <script>
 // =============================================================================
-// 1) MARQUE — reproduction EXACTE de backend/assets/tray/generer-icones.py.
+// 1) MARQUE — reproduction EXACTE de apps/tray/assets/generer-icones.py.
 //    Ne modifier qu'en miroir du generateur, sinon l'atelier ment.
 // =============================================================================
 const COLORS = { ok:'#3fb950', warn:'#d29922', err:'#f85149' };
@@ -320,7 +320,7 @@ document.getElementById('icos').innerHTML = [
   return '<div class="rowlabel"><span class="dot" style="background:'+col+'"></span><b>'+label+'</b>'
        + '<span class="f">'+n+'.ico</span></div><div class="grid">'
        + ICO_SIZES.map(px =>
-           '<div class="cell"><div class="art"><img src="../backend/assets/tray/'+n+'.ico" width="'+px+'" height="'+px+'" alt=""></div>'
+           '<div class="cell"><div class="art"><img src="../tray/assets/'+n+'.ico" width="'+px+'" height="'+px+'" alt=""></div>'
          + '<span class="cap">'+px+' px</span></div>').join('')
        + '</div>';
 }).join('');
@@ -377,7 +377,7 @@ function renderMenu(){
       + 'background:'+(it.hover ? v.cHover : 'transparent')+'">'+it.t+'</div>').join('');
 
   document.getElementById('menuCode').innerHTML =
-      '<span class="c">// backend/tray.ps1 — classe VigieMenuPalette</span>\n'
+      '<span class="c">// apps/tray/tray.ps1 — classe VigieMenuPalette</span>\n'
     + '<span class="k">Surface</span>      = Color.FromArgb(<span class="v">' + rgb(v.cSurface) + '</span>);   <span class="c">// ' + v.cSurface + '</span>\n'
     + '<span class="k">Hover</span>        = Color.FromArgb(<span class="v">' + rgb(v.cHover)   + '</span>);   <span class="c">// ' + v.cHover   + '</span>\n'
     + '<span class="k">Border</span>       = Color.FromArgb(<span class="v">' + rgb(v.cBorder)  + '</span>);   <span class="c">// ' + v.cBorder  + '</span>\n'

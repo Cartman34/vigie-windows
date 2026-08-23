@@ -46,7 +46,7 @@ Bearer empeche tout autre processus local non autorise d'appeler les actions.
 Ces scripts remplacent les commandes manuelles ci-dessus.
 
 ## Logs
-Emplacement : `backend/logs/`.
+Emplacement : `logs/`.
 - `install_*.log`, `start_*.log` : transcript + evenements.
 - `pode-error_*.log`, `pode-request_*.log` : runtime du serveur.
 En cas de souci, fournir/relire ces fichiers (ils sont recuperables via le pont).

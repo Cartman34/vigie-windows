@@ -46,7 +46,7 @@
 ## Livraison (device)
 - Modifs **live** : `common.ps1`, sondes, actions (re-sourcées à chaque requête) → effet immédiat.
 - `server.ps1` / `start.ps1` → **redémarrage serveur** requis.
-- `frontend/index.html` → auto-reload via version.
+- `apps/frontend/index.html` → auto-reload via version.
 
 ## Documentation (toujours à jour)
 - `SUIVI.md` (reprise à tout moment), `CHANGELOG.md`, `docs/conventions.md`, `docs/targeting/features.md`.

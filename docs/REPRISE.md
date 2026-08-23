@@ -8,17 +8,17 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
 > l'utilisateur. Toute occurrence dans le code, les identifiants ou la doc est un **défaut de
 > généricité** (valeur machine codée en dur) à éliminer, pas un héritage à conserver.
 - Backend **PowerShell + Pode** (`backend/`), écoute **127.0.0.1:47600**, jeton Bearer + anti-CSRF + liste blanche d'actions.
-- Frontend **HTML/JS pur** (`frontend/index.html`), sert la maquette `frontend/mock/state.json` si le back est absent.
-- **App tray WinForms** (`backend/tray.ps1`) : lance le serveur en fond, icône = statut de l'app (jauge), menu, fenêtre dédiée (Edge/Chrome `--app`).
+- Frontend **HTML/JS pur** (`apps/frontend/index.html`), sert la maquette `apps/frontend/mock/state.json` si le back est absent.
+- **App tray WinForms** (`apps/tray/tray.ps1`) : lance le serveur en fond, icône = statut de l'app (jauge), menu, fenêtre dédiée (Edge/Chrome `--app`).
 - Fonction phare : **verrouiller Windows Update** (ACL deny SYSTEM sur les dossiers de tâches) pour bloquer les redémarrages forcés, sans masquer les vraies MAJ.
 
 > **Ne pas confondre avec l'Atelier.** « Vigie » = l'application (PowerShell + Pode, port
 > 47600, élevée). « **Atelier** » = l'outil de développement (PHP, port 47610, jamais
-> élevé, `docs/atelier*`). Voir **D28** et `docs/atelier.md`.
+> élevé, `apps/atelier/`). Voir **D28**, **D29** et `apps/atelier/README.md`.
 
 ## Règles de conception (permanentes)
 - **On parle français, le code est en anglais.**
-- Pas de duplication (helpers partagés dans `backend/lib/common.ps1`).
+- Pas de duplication (helpers partagés dans `apps/backend/lib/common.ps1`).
 - **Toujours** traiter erreurs + sortie + code retour (`Invoke-Native`).
 - Scripts **idempotents**. **PS7 + UTF-8 avec accents** (les lanceurs restent ASCII).
 - **Vérifier les prérequis en amont.** **Valider avant de dire « prêt »** (ne jamais inventer une validation).
@@ -26,10 +26,10 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
 
 ## Architecture (contract-first)
 - `api/openapi.yaml` = source de vérité du contrat REST.
-- Sonde = `backend/probes/<theme>/*.probe.ps1`, renvoie 1 module OU un tableau de modules.
-- Action = `backend/actions/<id>.action.ps1`, renvoie `@{ message; result }`. `result.invalidate=@('x.probe.ps1')` force le recalcul.
+- Sonde = `apps/backend/probes/<theme>/*.probe.ps1`, renvoie 1 module OU un tableau de modules.
+- Action = `apps/backend/actions/<id>.action.ps1`, renvoie `@{ message; result }`. `result.invalidate=@('x.probe.ps1')` force le recalcul.
 - Agrégation + cache (mtime+TTL, single-flight, serve-stale) : `Get-State` dans `common.ps1`.
-- **Tâches de fond** : `Start-DetachedAction` (worker pwsh caché) ; ex. paquets via `Start-PkgJob` + `backend/workers/pkg-job.worker.ps1`. Une action longue répond `result.async=$true` + `module`; le front met la carte en « busy » et l'interroge jusqu'à fin.
+- **Tâches de fond** : `Start-DetachedAction` (worker pwsh caché) ; ex. paquets via `Start-PkgJob` + `apps/backend/workers/pkg-job.worker.ps1`. Une action longue répond `result.async=$true` + `module`; le front met la carte en « busy » et l'interroge jusqu'à fin.
 
 ## État — FAIT (déployé sur la machine, validé hors-ligne)
 - Socle asynchrone non bloquant (`Start-DetachedAction`, `Remove-ProbeCache`, `Update-StateJson` avec mutex inter-processus).
@@ -38,7 +38,7 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
 - Résolutions câblées : Latence → `net-speedtest` ; Windows Update « Détectées » → `open-windows-update` (note raccourcie).
 - WSL : champ **Statut Actif/Inactif** coloré + **trio Démarrer/Redémarrer/Arrêter** (boutons pertinents). Actions `wsl-start`/`wsl-restart` + invalidation sonde.
 - Topbar : **liseré coloré = état de connexion à l'API** (vert live / orange maquette / rouge erreur) ; santé globale dans la topbar.
-- **Icône tray** : `.ico` multi-résolutions nets, design **option B validée** (anneau + graduations + aiguille à talon + point blanc), générés par `backend/assets/tray/generer-icones.py`, chargés par `tray.ps1` (`setIcon`) avec repli GDI+.
+- **Icône tray** : `.ico` multi-résolutions nets, design **option B validée** (anneau + graduations + aiguille à talon + point blanc), générés par `apps/tray/assets/generer-icones.py`, chargés par `tray.ps1` (`setIcon`) avec repli GDI+.
 - **Rebrand interface** : « Control Panel » → **« Vigie »** (titre onglet, sous-titre, `document.title`, tray). Le titre principal reste le **nom de la machine** (dynamique).
 
 ## État — À FAIRE (backlog)
@@ -46,7 +46,7 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
    marque **D01** en SVG, effacement au premier chargement (durée mini 550 ms, garde-fou 90 s).
 2. ~~Lien GitHub retrouvable~~ — **FAIT** (**D09**) : splash, topbar, pied de page, menu tray
    « À propos de Vigie ». URL en **constante unique** par langage (`REPO_URL` / `$RepoUrl`).
-3. ~~Rendre `backend/config.psd1` générique~~ — **FAIT** (**D18**) : socle versionné générique
+3. ~~Rendre `apps/backend/config.psd1` générique~~ — **FAIT** (**D18**) : socle versionné générique
    + `config.local.psd1` (ignoré par git) + `config.local.sample.psd1`. `ToolsPath` optionnel,
    URL et port dérivés d'un seul endroit (`Get-AppUrl` / `Get-ApiUrl` / `Get-ToolsPath` /
    `Get-AdminRoot`), plus aucune valeur en dur (**D15**).
@@ -57,8 +57,8 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
    cosmétique : le produit ne doit contenir aucune valeur propre à un PC donné.
    Fait : tâche planifiée `Vigie`, raccourci `Vigie.url`, mutex `Local\VigieState_*` et
    `Local\VigieStateRecompute` (`common.ps1`), titre openapi `Vigie API`, lanceur
-   `backend/demarrer-vigie.vbs`, documentation.
-   Également fait : `backend/tray.ps1` (mutex `VigieTray`, types `VigieNative` / `VigieDarkColors`)
+   `scripts/demarrer-vigie.vbs`, documentation.
+   Également fait : `apps/tray/tray.ps1` (mutex `VigieTray`, types `VigieNative` / `VigieDarkColors`)
    et les variables d'environnement `VIGIE_BACKEND` / `VIGIE_TOKEN` / `VIGIE_PORT` (ex-`HCP_*`).
    **Le nom de machine a totalement disparu du projet** (vérifié par recherche exhaustive).
    Exception : `docs/maquettes-validees/` n'est pas retouché (archive des supports de décision).
@@ -67,8 +67,8 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
    sans rien toucher au front.
 7. **Migrer l'installation** (**D07**) — exige un PowerShell **administrateur**, impossible depuis
    la session de l'agent :
-   `backend/install-autostart.ps1` (tâche `Vigie` pointant sur le dépôt), puis
-   `backend/uninstall-legacy.ps1 -LegacyWorkspace <ancien dossier>` (**D11**) pour retirer la tâche
+   `scripts/install-autostart.ps1` (tâche `Vigie` pointant sur le dépôt), puis
+   `scripts/uninstall-legacy.ps1 -LegacyWorkspace <ancien dossier>` (**D11**) pour retirer la tâche
    et le raccourci hérités et mettre l'ancien espace de travail de côté en `.old`.
    Le lancer d'abord avec `-WhatIf` : son chemin élevé n'a pas pu être testé.
 8. **Supprimer définitivement** `LocalWork/hyperion-control-panel.old` une fois la migration confirmée.
@@ -96,7 +96,7 @@ n'aura lieu qu'après confirmation explicite que tout fonctionne depuis le dép�
 - Authentification : token *fine-grained* (All repos + **Contents R/W**), mémorisé par le Credential
   Manager au 1er push. Username = `Cartman34`, Password = le **token** (pas le mot de passe GitHub).
 - Alternative zéro-token : remote SSH `git@github.com:Cartman34/vigie-windows.git` avec la clé locale.
-- `.gitignore` exclut déjà le jeton API (`backend/.secrets/`), l'état (`backend/.state/`) et les logs.
+- `.gitignore` exclut déjà le jeton API (`apps/backend/.secrets/`), l'état (`apps/backend/.state/`) et les logs.
   Avant tout commit, `git status` ne doit montrer NI `.secrets/`, NI `.state/`, NI `logs/`, NI `*.bak-*`.
 
 ## Contraintes environnement (importantes)
@@ -107,7 +107,7 @@ n'aura lieu qu'après confirmation explicite que tout fonctionne depuis le dép�
 
 ### Outils presents
 - **PowerShell 7** (`pwsh`) : present. C'est l'outil de validation du code PowerShell.
-- **Python 3.11** : present (sert a `backend/assets/tray/generer-icones.py`).
+- **Python 3.11** : present (sert a `apps/tray/assets/generer-icones.py`).
 - **Chocolatey**, **git**, **php**, **composer**, **symfony-cli** : presents.
 - **git** fonctionne normalement : depot, branches et worktrees operationnels. **HTTPS** vers
   GitHub, jeton memorise par le Credential Manager.
@@ -121,7 +121,7 @@ n'aura lieu qu'après confirmation explicite que tout fonctionne depuis le dép�
 ### Comment valider (ne JAMAIS inventer une validation)
 - **PowerShell** : `[System.Management.Automation.Language.Parser]::ParseFile(...)` sur chaque
   `.ps1` / `.psd1` modifie, et on rapporte la sortie reelle.
-- **JavaScript du front** : charger `frontend/index.html` en `file://` dans un navigateur et
+- **JavaScript du front** : charger `apps/frontend/index.html` en `file://` dans un navigateur et
   lire la console (**D06**). Une erreur de syntaxe empeche l'execution de tout le bloc
   `<script>` : verifier qu'une constante definie en fin de script existe bien suffit a prouver
   que le fichier parse. Ce test couvre en plus les erreurs d'execution et le repli sur
@@ -135,5 +135,5 @@ n'aura lieu qu'après confirmation explicite que tout fonctionne depuis le dép�
   l'utilisateur : `install-autostart.ps1`, `uninstall-autostart.ps1`, `uninstall-legacy.ps1`.
 
 ### A ne jamais committer
-- `backend/.secrets/` (jeton API), `backend/.state/`, `backend/logs/`, `*.bak-*`, `_to_delete/`.
+- `apps/backend/.secrets/` (jeton API), `apps/backend/.state/`, `logs/`, `*.bak-*`, `_to_delete/`.
   Le `.gitignore` les couvre deja ; verifier malgre tout `git status` avant chaque commit.

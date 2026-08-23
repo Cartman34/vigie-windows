@@ -17,9 +17,11 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$backend  = $PSScriptRoot
+# Les scripts de gestion vivent dans scripts/ : les apps sont dans apps/.
+$repoRoot = Split-Path $PSScriptRoot -Parent
+$backend  = Join-Path $repoRoot 'apps/backend'
 . (Join-Path $backend 'lib/common.ps1')
-$tray     = Join-Path $backend 'tray.ps1'
+$tray     = Join-Path $repoRoot 'apps/tray/tray.ps1'   # le tray est une app a part
 $taskName = 'Vigie'
 # L'URL derive de config.psd1 : adresse et port n'ont qu'UNE definition (D15).
 $appUrl   = Get-AppUrl -Backend $backend

@@ -28,7 +28,7 @@ Il ne faut **jamais** les confondre : l'une est le produit, l'autre un outil de 
 | Port | **47600** | **47610** |
 | Élévation | **oui** (`RunLevel Highest`) | **non**, jamais |
 | Lancé par | tâche planifiée `Vigie`, à l'ouverture de session | à la main : `docstelier.cmd` |
-| Code | `backend/`, `frontend/` | `docs/atelier*` |
+| Code | `apps/backend/`, `apps/frontend/`, `apps/tray/` | `apps/atelier/` |
 | Accès aux sondes, actions, secrets | oui | **aucun** |
 | Doit tourner pour l'utilisateur final | oui | non |
 
@@ -55,7 +55,7 @@ et l'Atelier n'a aucun rôle à l'exécution du produit.
    (Pode/PowerShell aujourd'hui, remplaçable sans toucher au front).
 2. **Générique et extensible** — socle à base de **sondes** (lecture d'état) et
    d'**actions**, regroupées par **thème**. Ajouter une sonde = déposer un fichier dans
-   `backend/probes/<theme>/`, sans modifier ni le contrat, ni le front.
+   `apps/backend/probes/<theme>/`, sans modifier ni le contrat, ni le front.
 3. **Front statique** — HTML/CSS/JS pur, aucun rendu serveur, uniquement `fetch()`.
 4. **Non bloquant** — toute opération longue (MAJ paquets, mesure réseau, WSL…) tourne
    en **tâche de fond** ; l'UI reste réactive et chaque carte s'actualise seule.
@@ -69,10 +69,10 @@ et l'Atelier n'a aucun rôle à l'exécution du produit.
     docs/           Documentation + docs/DECISIONS-VALIDEES.md (a ne jamais perdre)
 
 ## Sécurité / ce qui n'est jamais versionné
-`backend/.secrets/` (jeton API), `backend/.state/` (cache/état), `backend/logs/` — voir `.gitignore`.
+`apps/backend/.secrets/` (jeton API), `apps/backend/.state/` (cache/état), `logs/` — voir `.gitignore`.
 
 ## Démarrage rapide
-- **Front seul (maquette)** : ouvrir `frontend/index.html` (utilise `frontend/mock/state.json`).
+- **Front seul (maquette)** : ouvrir `apps/frontend/index.html` (utilise `apps/frontend/mock/state.json`).
 - **Complet** : lancer le serveur (voir `PRISE-EN-MAIN.md`) — l'app se sert sur `http://127.0.0.1:47600`.
 
 ## Reprise / contexte

@@ -16,7 +16,9 @@ param(
     [switch]$NoBrowser
 )
 $ErrorActionPreference = 'Stop'
-$backend = $PSScriptRoot
+# Les scripts de gestion vivent dans scripts/ : les apps sont dans apps/.
+$repoRoot = Split-Path $PSScriptRoot -Parent
+$backend  = Join-Path $repoRoot 'apps/backend'
 . (Join-Path $backend 'lib/common.ps1')
 
 $needPwsh = $PSVersionTable.PSVersion.Major -lt 7

@@ -1,5 +1,9 @@
 <#
-    tray.ps1 - App integree Vigie dans la barre systeme.
+    tray.ps1 - App Vigie de la barre systeme (apps/tray).
+
+    C'est une app A PART ENTIERE, distincte du backend : elle a son interface
+    WinForms, ses icones (assets/) et son cycle de vie. Elle PILOTE le backend
+    (le demarre, l'arrete, sonde sa sante) sans en faire partie.
     - Serveur Pode EN FOND (cache). Icone = STATUT DE L'APP (pas des composants) via /health :
         vert = en marche, orange = demarrage, rouge = erreur/arret. Poll leger toutes les 8 s.
     - "Afficher l'application" -> fenetre DEDIEE (Edge/Chrome en mode --app). "Ouvrir dans le navigateur" -> onglet.
@@ -10,8 +14,11 @@ $ErrorActionPreference = 'Stop'
 # URL du depot : CONSTANTE volontaire (pas un reglage) - elle ne doit pas changer facilement.
 # Equivalent cote front : REPO_URL dans frontend/index.html.
 $RepoUrl = 'https://github.com/Cartman34/vigie-windows'
-$backend = $PSScriptRoot
-$logDir  = Join-Path $backend 'logs'
+# Le backend est une app SOEUR (apps/backend), pas le dossier courant.
+$appsRoot = Split-Path $PSScriptRoot -Parent
+$backend  = Join-Path $appsRoot 'backend'
+$repoRoot = Split-Path $appsRoot -Parent
+$logDir  = Join-Path $repoRoot 'logs'      # journaux communs a toutes les apps
 if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
 $trayLog = Join-Path $logDir ('tray_' + (Get-Date -Format 'yyyyMMdd') + '.log')
 function TLog($m) { try { ("[" + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + "] " + $m) | Out-File -FilePath $trayLog -Append -Encoding UTF8 } catch { } }
@@ -21,7 +28,7 @@ $mutex = New-Object System.Threading.Mutex($false, 'VigieTray')
 if (-not $mutex.WaitOne(4000)) { TLog "deja lance (mutex) - sortie"; return }
 
 $uiScript = {
-    param($backend, $trayLog, $repoUrl)
+    param($backend, $trayLog, $repoUrl, $trayRoot)
     $ErrorActionPreference = 'Continue'
     function TLog($m) { try { ("[" + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + "] " + $m) | Out-File -FilePath $trayLog -Append -Encoding UTF8 } catch { } }
     try {
@@ -34,7 +41,7 @@ $uiScript = {
         $url       = Get-AppUrl -Config $cfg
         $healthUrl = (Get-ApiUrl -Config $cfg) + '/health'
         $pwsh      = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
-        $trayPath  = Join-Path $backend 'tray.ps1'
+        $trayPath  = Join-Path $trayRoot 'tray.ps1'      # cette app, pas le backend
         # Starting : un demarrage a ete demande et le serveur n'a pas encore repondu.
         $state     = [hashtable]::Synchronized(@{ Proc = $null; Drawn = ''; EverUp = $false; Starting = $true; StartTicks = [datetime]::UtcNow.Ticks })
         $startupGrace = 25    # secondes de tolerance avant de declarer un echec de demarrage
@@ -82,7 +89,7 @@ $uiScript = {
             param($status)
             # Icone = fichier .ico multi-resolutions (net). Repli sur le dessin GDI+ si absent.
             $name = switch ($status) { 'ok' { 'ok' } 'warn' { 'warn' } 'error' { 'error' } default { 'error' } }
-            $icoPath = Join-Path $backend ('assets\tray\' + $name + '.ico')
+            $icoPath = Join-Path $trayRoot ('assets\' + $name + '.ico')   # icones de CETTE app
             if (Test-Path $icoPath) {
                 try {
                     $newIco = New-Object System.Drawing.Icon($icoPath)
@@ -98,7 +105,7 @@ $uiScript = {
                 'error' { [System.Drawing.Color]::FromArgb(248,81,73) }
                 default { [System.Drawing.Color]::FromArgb(248,81,73) }
             }
-            # Fractions IDENTIQUES a assets/tray/generer-icones.py : conforme = jauge pleine.
+            # Fractions IDENTIQUES a assets/generer-icones.py : conforme = jauge pleine.
             $frac = switch ($status) { 'ok' { 1.0 } 'warn' { 0.5 } 'error' { 0.14 } default { 0.14 } }
             $s = 32.0; $cx = $s/2; $cy = $s/2; $r = $s*0.35; $sw = $s*0.13
             $a0 = 135.0; $span = 270.0; $ang = $a0 + $frac*$span
@@ -332,7 +339,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
 
 $rs = [runspacefactory]::CreateRunspace(); $rs.ApartmentState = 'STA'; $rs.ThreadOptions = 'ReuseThread'; $rs.Open()
 $ps = [PowerShell]::Create(); $ps.Runspace = $rs
-[void]$ps.AddScript($uiScript).AddArgument($backend).AddArgument($trayLog).AddArgument($RepoUrl)
+[void]$ps.AddScript($uiScript).AddArgument($backend).AddArgument($trayLog).AddArgument($RepoUrl).AddArgument($PSScriptRoot)
 try { $ps.Invoke() } catch { TLog ("ERREUR Invoke: " + $_.Exception.ToString()) }
 foreach ($er in $ps.Streams.Error) { TLog ("STREAM ERROR: " + $er.ToString()) }
 try { $rs.Close() } catch { }
