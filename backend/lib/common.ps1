@@ -324,7 +324,9 @@ function Get-AppVersion {
 function Get-LogDir {
     param([string]$Backend = (Get-BackendRoot))
     $d = Join-Path $Backend 'logs'
-    if (-not (Test-Path $d)) { New-Item -ItemType Directory -Path $d -Force | Out-Null }
+    # -WhatIf:$false : creer le dossier de journaux est de la plomberie, pas une
+    # operation que l'utilisateur simule. Sans cela, -WhatIf empeche toute journalisation.
+    if (-not (Test-Path $d)) { New-Item -ItemType Directory -Path $d -Force -WhatIf:$false | Out-Null }
     $d
 }
 function Write-Log {
@@ -706,7 +708,10 @@ function Invoke-ElevatedSelf {
         [string[]]$Arguments = @(),
         [string]$LogDir = $env:TEMP
     )
-    if (-not (Test-Path -LiteralPath $LogDir)) { New-Item -ItemType Directory -Path $LogDir -Force | Out-Null }
+    # -WhatIf ne doit PAS s'appliquer a la relance : c'est le script relance qui doit
+    # simuler ses propres operations. Sans -WhatIf:$false, -WhatIf simulerait l'elevation
+    # et rien ne s'executerait - on ne verrait donc jamais ce qui allait etre fait.
+    if (-not (Test-Path -LiteralPath $LogDir)) { New-Item -ItemType Directory -Path $LogDir -Force -WhatIf:$false | Out-Null }
     $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
     $name  = [IO.Path]::GetFileNameWithoutExtension($ScriptPath)
     $log   = Join-Path $LogDir ('elevated_' + $name + '_' + $stamp + '.log')
@@ -721,7 +726,7 @@ function Invoke-ElevatedSelf {
     if (-not $pwshPath) { Write-Host "pwsh introuvable." -ForegroundColor Red; return 1 }
 
     try {
-        $proc = Start-Process $pwshPath -Verb RunAs -Wait -PassThru -WindowStyle Hidden -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $cmd)
+        $proc = Start-Process $pwshPath -Verb RunAs -Wait -PassThru -WindowStyle Hidden -WhatIf:$false -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $cmd)
     } catch {
         Write-Host ("Elevation refusee ou impossible : " + $_.Exception.Message) -ForegroundColor Yellow
         return 1
