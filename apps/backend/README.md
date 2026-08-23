@@ -11,7 +11,7 @@ Le back est un **socle generique**. Il ne code pas les modules en dur : il
 **decouvre** des sondes.
 
 ### Sonde (probe) — lecture d'etat
-- Emplacement : `backend/probes/<theme>/<nom>.probe.ps1`
+- Emplacement : `apps/backend/probes/<theme>/<nom>.probe.ps1`
 - Contrat : le script ecrit sur la sortie standard **un objet JSON conforme au
   schema `Module`** de l'OpenAPI (id, theme, label, status, fields[], actions[]).
 - Le back agrege toutes les sondes d'un theme dans `GET /state`.
@@ -19,7 +19,7 @@ Le back est un **socle generique**. Il ne code pas les modules en dur : il
   (ex. `wsl`) bornes par un delai.
 
 ### Action — effet de bord
-- Emplacement : `backend/actions/<id>.action.ps1`
+- Emplacement : `apps/backend/actions/<id>.action.ps1`
 - Declaree par une sonde dans `actions[]` (id + label).
 - Invoquee par `POST /actions {type:<id>, module, params}`.
 - Retourne un objet `Job` (jobId, status, message, result). Action longue =

@@ -6,7 +6,7 @@
     # valeurs ailleurs dans le code.
     #
     # Pour ce qui est propre a TA machine, ne modifie pas ce fichier : cree
-    # backend/config.local.psd1 (ignore par git) a partir de config.local.sample.psd1.
+    # apps/backend/config.local.psd1 (ignore par git) a partir de config.local.sample.psd1.
     # ---------------------------------------------------------------------------
 
     # Adresse d'ecoute : STRICTEMENT locale (ne jamais exposer, le back est eleve).

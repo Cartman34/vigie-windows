@@ -307,7 +307,7 @@ function Get-AdminRoot {
 # Reponse commune quand l'outillage externe n'est pas configure (une seule redaction).
 function New-ToolsMissingResult {
     @{
-        message = "Outillage externe non configure. Renseigne ToolsPath dans backend/config.local.psd1 (modele : config.local.sample.psd1)."
+        message = "Outillage externe non configure. Renseigne ToolsPath dans apps/backend/config.local.psd1 (modele : config.local.sample.psd1)."
         result  = @{ ok = $false }
     }
 }

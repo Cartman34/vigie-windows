@@ -33,7 +33,7 @@ risques et les mesures. A relire a chaque ajout d'action.
     - Lancer le serveur **en utilisateur** (non eleve) et n'elever **que
       l'action** au moment ou elle s'execute (invite UAC par action).
     - Rotation periodique du jeton.
-    - Restreindre l'ACL du fichier `backend/.secrets/api.token`.
+    - Restreindre l'ACL du fichier `apps/backend/.secrets/api.token`.
 
 ## Regle
 Toute nouvelle action doit : porter un `id` simple (`[a-z0-9-]`), ne jamais

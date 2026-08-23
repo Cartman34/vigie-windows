@@ -169,7 +169,7 @@
     <code>0.50</code>, erreur <code>0.14</code>. Une valeur retenue est à reporter dans
     <b>deux</b> endroits qui doivent rester identiques :
     <code>apps/tray/assets/generer-icones.py</code> et le repli GDI+ de
-    <code>backend/tray.ps1</code>. Puis régénérer les <code>.ico</code>.
+    <code>apps/tray/tray.ps1</code>. Puis régénérer les <code>.ico</code>.
   </div>
 </section>
 
@@ -189,7 +189,7 @@
   <h2>Menu du tray — réglage du style</h2>
   <p class="hint">
     Reproduction de ce que dessine <code>VigieMenuRenderer</code>. Règle jusqu'à ce que ça te
-    convienne : les valeurs exactes à reporter dans <code>backend/tray.ps1</code> s'écrivent
+    convienne : les valeurs exactes à reporter dans <code>apps/tray/tray.ps1</code> s'écrivent
     en dessous, prêtes à recopier.
   </p>
 
@@ -233,7 +233,7 @@
 <section>
   <h2>Écran de chargement</h2>
   <p class="hint">
-    <code>frontend/index.html</code> en direct. Le splash s'efface au premier chargement —
+    <code>apps/frontend/index.html</code> en direct. Le splash s'efface au premier chargement —
     recharge le cadre pour le revoir.
   </p>
   <div class="chips" style="margin-bottom:14px">
@@ -377,7 +377,7 @@ function renderMenu(){
       + 'background:'+(it.hover ? v.cHover : 'transparent')+'">'+it.t+'</div>').join('');
 
   document.getElementById('menuCode').innerHTML =
-      '<span class="c">// backend/tray.ps1 — classe VigieMenuPalette</span>\n'
+      '<span class="c">// apps/tray/tray.ps1 — classe VigieMenuPalette</span>\n'
     + '<span class="k">Surface</span>      = Color.FromArgb(<span class="v">' + rgb(v.cSurface) + '</span>);   <span class="c">// ' + v.cSurface + '</span>\n'
     + '<span class="k">Hover</span>        = Color.FromArgb(<span class="v">' + rgb(v.cHover)   + '</span>);   <span class="c">// ' + v.cHover   + '</span>\n'
     + '<span class="k">Border</span>       = Color.FromArgb(<span class="v">' + rgb(v.cBorder)  + '</span>);   <span class="c">// ' + v.cBorder  + '</span>\n'
