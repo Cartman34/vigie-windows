@@ -1,7 +1,9 @@
 # --- Secrets & etat local (NE JAMAIS committer) ---
-apps/backend/config.local.psd1
-apps/backend/.secrets/
-apps/backend/.state/
+# Un dossier d'app peut etre renomme (D30) : on ignore par MOTIF, pas par chemin
+# exact, pour qu'un renommage ne fasse plus passer un fichier local a travers.
+apps/*/config.local.psd1
+apps/*/.secrets/
+apps/*/.state/
 logs/
 
 # --- Sauvegardes locales creees pendant l'edition ---
