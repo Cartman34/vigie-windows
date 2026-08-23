@@ -115,7 +115,10 @@
 <main>
 
 <div class="alert" id="alertPaths">
-  <b>Cette page n'est pas ouverte depuis le dépôt.</b><br>
+  <b>Des icônes n'ont pas pu être chargées.</b>
+  Si le serveur de l'Atelier vient d'être relancé, clique
+  <b>« Recharger les icônes »</b> : l'échec est probablement passager.<br>
+  Sinon, la page n'est pas ouverte depuis le dépôt.
   Elle lit les vrais assets par chemin relatif : ouvre
   <code>C:\EspaceRestreint\Workspaces\Git\vigie-windows\docs\atelier-validation.html</code>.
   Ailleurs, les sections « icônes livrées » et « écran de chargement » ne peuvent rien montrer
@@ -184,6 +187,7 @@
     redimensionne — le rendu à 16 px ici n'est donc pas exactement celui de Windows, qui pioche
     la vraie sous-image 16×16.
   </p>
+  <div class="chips" style="margin-bottom:14px"><button id="retryIco">Recharger les icônes</button></div>
   <div id="icos"></div>
 </section>
 
@@ -348,20 +352,58 @@ document.getElementById('icos').innerHTML = [
        + '<span class="f">'+n+'.ico</span></div><div class="grid">'
        + ICO_SIZES.map(px =>
            '<div class="cell' + (px === Math.max.apply(null, ICO_SIZES) ? ' wide' : '')
-         + '"><div class="art"><img src="../tray/assets/'+n+'.ico" width="'+px+'" height="'+px+'" alt=""></div>'
+         + '" data-ico="'+n+'" data-px="'+px+'" data-cap="'+px+' px">'
+         + '<div class="art"><img src="../tray/assets/'+n+'.ico" width="'+px+'" height="'+px+'" alt=""></div>'
          + '<span class="cap">'+px+' px</span></div>').join('')
        + '</div>';
 }).join('');
 
-let icoBroken = 0;
-document.querySelectorAll('#icos img').forEach(img => {
+// Un echec de chargement est d'abord suppose PASSAGER : le serveur de l'Atelier est
+// arrete et relance a la main, et une image qui echoue pendant ce laps de temps n'a rien
+// d'anormal. Sans nouvelle tentative, un incident de quelques secondes marquait la page
+// "illisible" DEFINITIVEMENT -- indiscernable d'un vrai probleme d'assets.
+const ICO_RETRIES = 2, ICO_RETRY_MS = 700;
+
+function watchIco(img){
+  let tries = 0;
+  const src = img.dataset.src || img.getAttribute('src');
+  img.dataset.src = src;
   img.addEventListener('error', () => {
+    if (++tries <= ICO_RETRIES) {
+      setTimeout(() => { img.src = src + '?r=' + Date.now(); }, ICO_RETRY_MS * tries);
+      return;
+    }
     const cell = img.closest('.cell');
     cell.classList.add('dead');
     cell.querySelector('.art').innerHTML = '<span style="font-size:22px;color:var(--err)">&times;</span>';
     cell.querySelector('.cap').textContent = 'illisible';
-    if (++icoBroken === 1) document.getElementById('alertPaths').classList.add('show');
+    document.getElementById('alertPaths').classList.add('show');
   });
+  img.addEventListener('load', () => {
+    // Une image qui finit par arriver efface son propre echec.
+    const cell = img.closest('.cell');
+    if (cell.classList.contains('dead')) {
+      cell.classList.remove('dead');
+      cell.querySelector('.cap').textContent = cell.dataset.cap;
+    }
+    if (!document.querySelectorAll('#icos .cell.dead').length) {
+      document.getElementById('alertPaths').classList.remove('show');
+    }
+  });
+}
+document.querySelectorAll('#icos img').forEach(watchIco);
+
+// Bouton de reprise : recharge toutes les vignettes sans recharger la page.
+document.getElementById('retryIco').addEventListener('click', () => {
+  document.querySelectorAll('#icos .cell').forEach(cell => {
+    cell.classList.remove('dead');
+    cell.querySelector('.cap').textContent = cell.dataset.cap;
+    const px = cell.dataset.px, n = cell.dataset.ico;
+    cell.querySelector('.art').innerHTML =
+      '<img src="../tray/assets/' + n + '.ico?r=' + Date.now() + '" width="' + px + '" height="' + px + '" alt="">';
+    watchIco(cell.querySelector('img'));
+  });
+  document.getElementById('alertPaths').classList.remove('show');
 });
 
 // =============================================================================
