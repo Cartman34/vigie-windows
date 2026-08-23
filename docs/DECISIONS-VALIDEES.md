@@ -21,7 +21,7 @@ Ajouter une décision = ajouter son numéro à une ligne.
 - **Identité et nommage** — D03 · D04 · D05 · D28 · D30
 - **Structure du dépôt** — D29 · D32 · D33 · D35
 - **Configuration** — D15 · D18
-- **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27
+- **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38
 - **Sécurité et installation** — D07 · D11 · D22 · D34
 - **Outillage** — D06 · D21 · D24
 - **Méthode de travail** — D10 · D12 · D13 · D14 · D16 · D17 · D31 · D36
@@ -754,3 +754,65 @@ ponctuel, un ajout de ligne. Au moindre accent ou backtick, on passe par l'outil
 **Vérification après écriture de doc** : chercher `''` (apostrophes doublées) et les
 backticks manquants autour des chemins. Voir **D31** — une doc fausse est pire qu'une doc
 absente, et celle-ci l'était.
+
+## D37 — Chaque taille d'icône est dessinée à sa résolution
+
+**Défaut** : le générateur dessinait **une seule fois à 256 px** et laissait Pillow réduire
+vers chaque taille. À 16 px, l'anneau fin et l'arc épais fusionnaient en une pastille
+illisible. Un détail conçu pour 256 px ne survit pas à une réduction en 16 — c'est déjà ce
+qui avait fait supprimer les graduations le 21/08, en traitant le symptôme.
+
+Désormais chaque taille est **dessinée à sa propre résolution** (supersampling ×8 puis
+réduction), et le `.ico` embarque ces dessins-là via `append_images`, pas des réductions.
+
+### Niveaux de détail
+
+| Élément | Dessiné à partir de | Pourquoi |
+|---|---|---|
+| Anneau extérieur | 48 px | trait très fin, devient un halo flou en dessous |
+| Graduations | 64 px | déjà sous l'arc plein (**D27**), pur parasite en petit |
+| Liseré de l'aiguille | 32 px | ferait moins d'un pixel en dessous |
+
+Les traits s'épaississent à mesure que l'icône rétrécit : `arc` de 0,110 à 0,150, `needle`
+de 0,082 à 0,115. On retire chaque élément **avant** qu'il ne devienne du bruit, plutôt que
+de le laisser se transformer en tache.
+
+### Piège Pillow, corrigé
+
+`ImageDraw.arc(..., width=w)` épaissit le trait **vers l'intérieur** du rectangle
+englobant : un rectangle de rayon `r` donne un trait sur `[r-w, r]`, d'axe `r-w/2`. SVG,
+lui, centre le trait **sur** le tracé, soit `[r-w/2, r+w/2]`.
+
+Conséquences observées : l'arc du `.ico` était décalé vers l'intérieur d'une demi-épaisseur
+— donc plus petit que la simulation à géométrie pourtant identique — et les disques simulant
+les extrémités arrondies, centrés sur `r`, dépassaient en formant des bosses visibles.
+
+**Correction** : le rectangle est élargi à `r + w/2`. Le trait retombe centré sur `r`, et le
+`.ico` coïncide enfin avec la simulation de l'Atelier.
+
+### Miroir obligatoire
+
+Les seuils et épaisseurs existent **à deux endroits** : `apps/tray/assets/generer-icones.py`
+et la simulation de `apps/atelier/index.html`. Ils doivent changer ensemble — sinon
+l'Atelier montre autre chose que ce que Windows affiche, et il ne sert plus à rien (**D24**).
+
+## D38 — Le mode dégradé de l'icône est un disque, pas une imitation
+
+`setIcon` charge le `.ico` livré. En cas d'échec, l'ancien repli **redessinait la jauge en
+GDI+** : un second dessin de la même marque, qui avait fini par **diverger** — aiguille
+partant du centre au lieu du talon, aucune graduation, épaisseurs et couleur de piste
+différentes. C'était le design d'avant que **D01** ne rétablisse graduations et talon.
+
+Pire : l'échec de lecture était avalé par un `catch` vide. Le tray pouvait donc afficher une
+**autre marque** sans que personne ne le remarque.
+
+Le repli est désormais un **simple disque de la couleur du statut**. Il ne cherche pas à
+ressembler à la marque : il signale que les assets manquent, tout en conservant
+l'information utile (la couleur). Personne ne le prendra pour l'icône réelle.
+
+Tout échec — fichier absent ou illisible — est **journalisé**. Une icône qui change sans
+raison est indiagnosticable si la cause n'est pas tracée.
+
+Corollaire **D15** : il n'existe plus qu'**une seule** représentation de la marque, le
+`.ico` généré. Deux dessins de la même chose finissent toujours par diverger ; celui-ci
+avait déjà divergé.

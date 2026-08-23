@@ -48,8 +48,6 @@ $uiScript = {
         $startupGrace = 25    # secondes de tolerance avant de declarer un echec de demarrage
         $iconHandle = [System.IntPtr]::Zero
 
-        $Pt = { param($cx,$cy,$r,$deg) $a = $deg * [math]::PI / 180.0; ,@(($cx + $r * [math]::Cos($a)), ($cy + $r * [math]::Sin($a))) }
-
         $launchHidden = {
             param($file, $argv)
             $psi = New-Object System.Diagnostics.ProcessStartInfo
@@ -104,9 +102,10 @@ $uiScript = {
 
         $setIcon = {
             param($status)
-            # Icone = fichier .ico multi-resolutions (net). Repli sur le dessin GDI+ si absent.
+            # L'icone est TOUJOURS le fichier .ico livre (assets/), genere par
+            # assets/generer-icones.py. C'est la SEULE representation de la marque.
             $name = switch ($status) { 'ok' { 'ok' } 'warn' { 'warn' } 'error' { 'error' } default { 'error' } }
-            $icoPath = Join-Path $trayRoot ('assets\' + $name + '.ico')   # icones de CETTE app
+            $icoPath = Join-Path $trayRoot ('assets\' + $name + '.ico')
             if (Test-Path $icoPath) {
                 try {
                     $newIco = New-Object System.Drawing.Icon($icoPath)
@@ -114,43 +113,38 @@ $uiScript = {
                     if ($script:iconObj) { try { $script:iconObj.Dispose() } catch { } }
                     $script:iconObj = $newIco
                     return
-                } catch { }
+                } catch {
+                    # Jamais silencieux : une icone qui change sans raison est
+                    # indiagnosticable si l'echec n'est pas trace.
+                    TLog ("icone : lecture KO (" + $icoPath + ") : " + $_.Exception.Message)
+                }
+            } else {
+                TLog ("icone : fichier absent : " + $icoPath)
             }
+
+            # --- Mode degrade -------------------------------------------------------
+            # Volontairement un simple DISQUE, pas une imitation de la marque.
+            # L'ancien repli redessinait la jauge en GDI+ : deux dessins de la meme
+            # marque, qui avaient FINI PAR DIVERGER (aiguille partant du centre, aucune
+            # graduation, epaisseurs et couleur de piste differentes). Comme l'echec de
+            # lecture etait avale, le tray pouvait afficher une AUTRE marque sans que
+            # personne ne le voie. Un disque uni ne trompe personne : il signale que
+            # les assets manquent, tout en gardant l'information de statut (la couleur).
             $c = switch ($status) {
                 'ok'    { [System.Drawing.Color]::FromArgb(63,185,80) }
                 'warn'  { [System.Drawing.Color]::FromArgb(210,153,34) }
                 'error' { [System.Drawing.Color]::FromArgb(248,81,73) }
                 default { [System.Drawing.Color]::FromArgb(248,81,73) }
             }
-            # Fractions IDENTIQUES a assets/generer-icones.py : conforme = jauge pleine.
-            $frac = switch ($status) { 'ok' { 1.0 } 'warn' { 0.5 } 'error' { 0.14 } default { 0.14 } }
-            $s = 32.0; $cx = $s/2; $cy = $s/2; $r = $s*0.35; $sw = $s*0.13
-            $a0 = 135.0; $span = 270.0; $ang = $a0 + $frac*$span
+            $s = 32.0
             $bmp = New-Object System.Drawing.Bitmap ([int]$s), ([int]$s)
             $g = [System.Drawing.Graphics]::FromImage($bmp)
             $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
             $g.Clear([System.Drawing.Color]::Transparent)
-            $track = [System.Drawing.Color]::FromArgb(70,78,88)
-            $dark  = [System.Drawing.Color]::FromArgb(242, [int]($c.R*0.72), [int]($c.G*0.72), [int]($c.B*0.72))
-            $tick  = [System.Drawing.Color]::FromArgb(120,160,168,176)
-            $ringC = [System.Drawing.Color]::FromArgb(120, $c.R, $c.G, $c.B)
-            $white = [System.Drawing.Color]::FromArgb(245,250,255)
-            $rr = $s*0.45
-            $penRing = New-Object System.Drawing.Pen ($ringC, [single]($s*0.03))
-            $g.DrawEllipse($penRing, [single]($cx-$rr), [single]($cy-$rr), [single](2*$rr), [single](2*$rr)); $penRing.Dispose()
-            $penTrack = New-Object System.Drawing.Pen ($track, [single]$sw); $penTrack.StartCap='Round'; $penTrack.EndCap='Round'
-            $g.DrawArc($penTrack, [single]($cx-$r), [single]($cy-$r), [single](2*$r), [single](2*$r), [single]$a0, [single]$span); $penTrack.Dispose()
-            $penVal = New-Object System.Drawing.Pen ($c, [single]$sw); $penVal.StartCap='Round'; $penVal.EndCap='Round'
-            $g.DrawArc($penVal, [single]($cx-$r), [single]($cy-$r), [single](2*$r), [single](2*$r), [single]$a0, [single]($frac*$span)); $penVal.Dispose()
-            $np = (& $Pt $cx $cy ($r*0.94) $ang)[0]; $tp = @($cx, $cy)
-            $penLis = New-Object System.Drawing.Pen ($dark, [single]($s*0.118)); $penLis.StartCap='Round'; $penLis.EndCap='Round'
-            $g.DrawLine($penLis, [single]$tp[0], [single]$tp[1], [single]$np[0], [single]$np[1]); $penLis.Dispose()
-            $penNeedle = New-Object System.Drawing.Pen ($c, [single]($s*0.10)); $penNeedle.StartCap='Round'; $penNeedle.EndCap='Round'
-            $g.DrawLine($penNeedle, [single]$tp[0], [single]$tp[1], [single]$np[0], [single]$np[1]); $penNeedle.Dispose()
-            $hr = $s*0.11
-            $g.FillEllipse((New-Object System.Drawing.SolidBrush $c), [single]($cx-$hr), [single]($cy-$hr), [single](2*$hr), [single](2*$hr))
-            $wr = $s*0.05
-            $g.FillEllipse((New-Object System.Drawing.SolidBrush $white), [single]($cx-$wr), [single]($cy-$wr), [single](2*$wr), [single](2*$wr))
+            $pad = $s * 0.12
+            $brush = New-Object System.Drawing.SolidBrush $c
+            $g.FillEllipse($brush, [single]$pad, [single]$pad, [single]($s - 2*$pad), [single]($s - 2*$pad))
+            $brush.Dispose()
             $g.Dispose()
             $h = $bmp.GetHicon(); $bmp.Dispose()
             $icon.Icon = [System.Drawing.Icon]::FromHandle($h)
