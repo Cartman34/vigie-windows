@@ -79,7 +79,23 @@ Write-Host ("Nettoyage des vestiges - taches: " + ($LegacyTaskNames -join ', ') 
 
 $done = 0
 $skipped = 0
+$planned = 0
 $failed = 0
+
+# -WhatIf : les messages "What if:" de ShouldProcess sont ecrits DIRECTEMENT sur l'hote
+# et non dans un flux redirigeable. En session elevee cachee, la sortie est capturee par
+# redirection : ces messages sont donc perdus et le compte rendu arrive vide. On emet
+# notre propre ligne, qui passe par le journal comme tout le reste.
+# Renvoie $true s'il faut REELLEMENT appliquer le changement.
+function Test-ShouldApply {
+    param([Parameter(Mandatory)][string] $Operation, [Parameter(Mandatory)][string] $Target)
+    if ($WhatIfPreference) {
+        Write-Host ("SIMULATION  " + $Operation + " : " + $Target) -ForegroundColor Cyan
+        $script:planned++
+        return $false
+    }
+    return $true
+}
 
 function Invoke-Step {
     param([string] $Label, [scriptblock] $Action)
@@ -100,7 +116,7 @@ foreach ($name in $LegacyTaskNames) {
             $script:skipped++
             return
         }
-        if ($PSCmdlet.ShouldProcess($name, 'Unregister-ScheduledTask')) {
+        if (Test-ShouldApply -Operation "Supprimer la tache planifiee" -Target $name) {
             Unregister-ScheduledTask -TaskName $name -Confirm:$false
             Write-Host ("RETIRE tache '" + $name + "'") -ForegroundColor Green
             $script:done++
@@ -118,7 +134,7 @@ foreach ($shortcut in $LegacyShortcutNames) {
             $script:skipped++
             return
         }
-        if ($PSCmdlet.ShouldProcess($path, 'Remove-Item')) {
+        if (Test-ShouldApply -Operation "Supprimer le raccourci" -Target $path) {
             Remove-Item -LiteralPath $path -Force
             Write-Host ("RETIRE raccourci " + $path) -ForegroundColor Green
             $script:done++
@@ -140,7 +156,7 @@ if ($LegacyWorkspace) {
             $script:skipped++
             return
         }
-        if ($PSCmdlet.ShouldProcess($LegacyWorkspace, ('Rename-Item -> ' + (Split-Path $target -Leaf)))) {
+        if (Test-ShouldApply -Operation ("Renommer en " + (Split-Path $target -Leaf)) -Target $LegacyWorkspace) {
             Rename-Item -LiteralPath $LegacyWorkspace -NewName (Split-Path $target -Leaf)
             Write-Host ("MIS DE COTE " + $LegacyWorkspace + " -> " + $target) -ForegroundColor Green
             Write-Host "  (dossier conserve : supprime-le toi-meme une fois la migration confirmee)"
@@ -154,6 +170,11 @@ if ($LegacyWorkspace) {
 
 # --- Compte rendu ---------------------------------------------------------------
 Write-Host ""
-Write-Host ("Termine : " + $done + " action(s), " + $skipped + " ignoree(s), " + $failed + " echec(s).")
+if ($WhatIfPreference) {
+    Write-Host ("SIMULATION terminee : " + $planned + " changement(s) prevu(s), " + $skipped + " sans objet, " + $failed + " echec(s).")
+    Write-Host "Relance la meme commande SANS -WhatIf pour les appliquer."
+} else {
+    Write-Host ("Termine : " + $done + " action(s), " + $skipped + " ignoree(s), " + $failed + " echec(s).")
+}
 if ($failed -gt 0) { exit 2 }
 exit 0
