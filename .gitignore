@@ -15,6 +15,12 @@ apps/*/var/
 **/.bak-*/
 .bak-*/
 
+# --- Agent (Claude Code) ---
+# .claude/settings.json EST versionne : c'est le reglage du projet (D40).
+# Le reste est local a la machine ou a une session, jamais partage.
+.claude/worktrees/
+.claude/settings.local.json
+
 # --- Reglages d'editeurs / IDE (jamais versionnes) ---
 # PhpStorm pose deja son propre .idea/.gitignore, qui exclut le volatil et le
 # sensible (workspace.xml, dataSources* ou atterriraient des identifiants).

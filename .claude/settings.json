@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Read",
+      "Glob",
+      "Grep",
+      "Write",
+      "Edit",
+      "NotebookEdit",
+      "WebFetch",
+      "WebSearch",
+      "Bash(git *)",
+      "Bash(gh *)",
+      "Bash(pwsh *)",
+      "Bash(python *)",
+      "Bash(py *)",
+      "Bash(php *)",
+      "Bash(node *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(cd *)",
+      "Bash(echo *)",
+      "PowerShell(git *)",
+      "PowerShell(pwsh *)",
+      "PowerShell(python *)",
+      "PowerShell(php *)",
+      "PowerShell(Get-*)",
+      "PowerShell(Test-Path *)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "powershell",
+            "command": "pwsh -NoProfile -File \"$env:CLAUDE_PROJECT_DIR/scripts/decider-permission.ps1\"",
+            "timeout": 15,
+            "statusMessage": "Verification de la commande"
+          }
+        ]
+      }
+    ]
+  }
+}
