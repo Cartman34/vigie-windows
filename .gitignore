@@ -5,7 +5,10 @@
 # secrets generes). Convention Symfony. Jamais versionne.
 apps/*/var/
 # Config propre a la machine, jamais versionnee (le modele .sample l'est).
-apps/*/config/config.local.psd1
+# Motif VOLONTAIREMENT large : ce fichier s'est retrouve suivi DEUX fois, chaque
+# fois parce qu'un motif trop precis ne couvrait plus l'emplacement d'ou il venait
+# d'etre deplace. Ici, quel que soit son dossier, il est ignore.
+**/config.local.psd1
 
 # --- Sauvegardes locales creees pendant l'edition ---
 *.bak-*
