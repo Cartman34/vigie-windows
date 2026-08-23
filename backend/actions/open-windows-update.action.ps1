@@ -3,7 +3,7 @@
 param([string]$Module, [hashtable]$Params)
 try {
     Start-Process 'ms-settings:windowsupdate'
-    @{ message = "Fenetre Windows Update ouverte. Pour installer : deverrouillez (Mode MAJ), installez, puis re-verrouillez."; result = @{ ok = $true } }
+    @{ message = "Fenêtre Windows Update ouverte. Pour installer : déverrouillez (Mode MAJ), installez, puis re-verrouillez."; result = @{ ok = $true } }
 } catch {
     @{ message = "Impossible d'ouvrir Windows Update : $($_.Exception.Message)"; result = @{ ok = $false } }
 }

@@ -8,4 +8,4 @@ if (-not $tools) { return New-ToolsMissingResult }
 $script = Join-Path $tools 'audit-update-tasks.ps1'
 if (-not (Test-Path $script)) { return @{ message = "Script introuvable : $script"; result = @{ ok = $false } } }
 & $script *> $null
-@{ message = "Audit lance. Rapport ecrit dans le dossier LocalAgentAdmin."; result = @{ ok = $true } }
+@{ message = "Audit lancé. Rapport écrit dans le dossier LocalAgentAdmin."; result = @{ ok = $true } }

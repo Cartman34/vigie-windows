@@ -101,7 +101,7 @@ foreach ($n in $nics) {
         $adapterLines += ("{0} [{1}] : IPv4 {2} | MAC {3}" -f $n.Name, $n.NetworkInterfaceType, $ipTxt, (Format-Mac $n))
     } catch { }
 }
-$adapterDetail = if ($adapterLines.Count) { "Interfaces actives :`n- " + ($adapterLines -join "`n- ") } else { "Aucune interface active detectee." }
+$adapterDetail = if ($adapterLines.Count) { "Interfaces actives :`n- " + ($adapterLines -join "`n- ") } else { "Aucune interface active détectée." }
 
 $vpn = [bool]($nics | Where-Object { $_.Description -match 'VPN|WireGuard|OpenVPN|AnyConnect|Tailscale|ZeroTier|TAP' })
 
@@ -119,31 +119,31 @@ if (Test-Path $measFile) {
     } catch { }
 }
 $latSt = if ($lat -eq '-') { 'neutral' } elseif ([double]($lat) -lt 80) { 'ok' } elseif ([double]($lat) -lt 200) { 'warn' } else { 'error' }
-$pubGuide = if ($pubAt) { "Derniere recuperation : $pubAt. Cliquez « Obtenir l'IP publique » pour actualiser." } else { "Non recuperee. Cliquez « Obtenir l'IP publique » (appel a un service externe)." }
+$pubGuide = if ($pubAt) { "Dernière récupération : $pubAt. Cliquez « Obtenir l'IP publique » pour actualiser." } else { "Non récupérée. Cliquez « Obtenir l'IP publique » (appel à un service externe)." }
 
 $fields = @(
     New-Field -Key 'connected' -Label 'Connexion Internet' -Value $connected -Kind 'bool' -Status $(if ($connected) {'ok'} else {'warn'}) `
-        -Help "Connectivite verifiee par une connexion TCP reelle (1.1.1.1 / 8.8.8.8), avec repli sur l'indicateur Windows." -Guide "Si « Non » : verifiez wifi/cable, box/routeur."
-    New-Field -Key 'connType' -Label 'Type de connexion' -Value $connType -Kind 'text' -Status 'neutral' -Help "Type de l'interface active portant la route par defaut (Wi-Fi ou Ethernet)."
-    New-Field -Key 'netName'  -Label 'Réseau (nom)' -Value $netName -Kind 'text' -Status 'neutral' -Help "Nom du reseau : SSID en Wi-Fi, sinon nom de l'interface."
+        -Help "Connectivité vérifiée par une connexion TCP réelle (1.1.1.1 / 8.8.8.8), avec repli sur l'indicateur Windows." -Guide "Si « Non » : vérifiez wifi/câble, box/routeur."
+    New-Field -Key 'connType' -Label 'Type de connexion' -Value $connType -Kind 'text' -Status 'neutral' -Help "Type de l'interface active portant la route par défaut (Wi-Fi ou Ethernet)."
+    New-Field -Key 'netName'  -Label 'Réseau (nom)' -Value $netName -Kind 'text' -Status 'neutral' -Help "Nom du réseau : SSID en Wi-Fi, sinon nom de l'interface."
 )
 if ($hasWifi) {
-    $fields += New-Field -Key 'wifi' -Label 'État Wi-Fi' -Value $wifiText -Kind 'text' -Status $(if ($wifiState -match 'connect') {'ok'} else {'neutral'}) -Help "Etat de l'adaptateur Wi-Fi (connecte + force du signal)."
+    $fields += New-Field -Key 'wifi' -Label 'État Wi-Fi' -Value $wifiText -Kind 'text' -Status $(if ($wifiState -match 'connect') {'ok'} else {'neutral'}) -Help "État de l'adaptateur Wi-Fi (connecté + force du signal)."
 }
 $fields += @(
-    New-Field -Key 'ip'  -Label 'IP locale (LAN)' -Value $ip  -Kind 'text' -Status 'neutral' -Help "Adresse IPv4 privee de l'interface portant la route par defaut (reseau local)."
-    New-Field -Key 'publicIp' -Label 'IP publique' -Value $pubIp -Kind 'text' -Status 'neutral' -Help "Adresse IP publique vue depuis Internet (recuperee a la demande)." -Guide $pubGuide
-    New-Field -Key 'ip6' -Label 'Adresse IPv6' -Value $ip6 -Kind 'text' -Status 'neutral' -Help "Adresse IPv6 principale (interface par defaut). « - » si non attribuee."
-    New-Field -Key 'mac' -Label 'Adresse MAC'  -Value $mac -Kind 'text' -Status 'neutral' -Help "Adresse MAC de l'interface principale. Depliez pour voir toutes les interfaces actives." -Guide $adapterDetail
+    New-Field -Key 'ip'  -Label 'IP locale (LAN)' -Value $ip  -Kind 'text' -Status 'neutral' -Help "Adresse IPv4 privée de l'interface portant la route par défaut (réseau local)."
+    New-Field -Key 'publicIp' -Label 'IP publique' -Value $pubIp -Kind 'text' -Status 'neutral' -Help "Adresse IP publique vue depuis Internet (récupérée à la demande)." -Guide $pubGuide
+    New-Field -Key 'ip6' -Label 'Adresse IPv6' -Value $ip6 -Kind 'text' -Status 'neutral' -Help "Adresse IPv6 principale (interface par défaut). « - » si non attribuée."
+    New-Field -Key 'mac' -Label 'Adresse MAC'  -Value $mac -Kind 'text' -Status 'neutral' -Help "Adresse MAC de l'interface principale. Dépliez pour voir toutes les interfaces actives." -Guide $adapterDetail
     New-Field -Key 'vpn' -Label 'VPN actif'    -Value $vpn -Kind 'bool' -Status 'neutral' -Help "Un adaptateur VPN est actuellement actif."
-    New-Field -Key 'latency' -Label 'Latence'  -Value $(if ($lat -eq '-') {'non mesure'} else {"$lat ms"}) -Kind 'text' -Status $latSt -Help "Latence mesurée (ping). Cliquez 'Mesurer' pour actualiser." -FixAction 'net-speedtest'
-    New-Field -Key 'down'    -Label 'Débit descendant' -Value $(if ($down -eq '-') {'non mesure'} else {"$down Mbps"}) -Kind 'text' -Status 'neutral' -Help "Débit descendant estimé. Cliquez 'Mesurer' pour actualiser."
-    New-Field -Key 'up'      -Label 'Débit montant' -Value $(if ($up -eq '-') {'non mesure'} else {"$up Mbps"}) -Kind 'text' -Status 'neutral' -Help "Débit montant estimé (upload ~5 Mo). Cliquez 'Mesurer débit/latence'."
+    New-Field -Key 'latency' -Label 'Latence'  -Value $(if ($lat -eq '-') {'non mesuré'} else {"$lat ms"}) -Kind 'text' -Status $latSt -Help "Latence mesurée (ping). Cliquez 'Mesurer' pour actualiser." -FixAction 'net-speedtest'
+    New-Field -Key 'down'    -Label 'Débit descendant' -Value $(if ($down -eq '-') {'non mesuré'} else {"$down Mbps"}) -Kind 'text' -Status 'neutral' -Help "Débit descendant estimé. Cliquez 'Mesurer' pour actualiser."
+    New-Field -Key 'up'      -Label 'Débit montant' -Value $(if ($up -eq '-') {'non mesuré'} else {"$up Mbps"}) -Kind 'text' -Status 'neutral' -Help "Débit montant estimé (upload ~5 Mo). Cliquez 'Mesurer débit/latence'."
 )
 if ($measAt) {
     $fields += New-Field -Key 'measAt' -Label 'Mesure du' -Value $measAt -Kind 'date' -Status 'neutral' -Help "Date de la dernière mesure débit/latence."
 }
 New-ModuleObject -Id 'net' -Theme 'network' -Label 'Réseau' -Status $(if ($connected) {'ok'} else {'warn'}) -Fields $fields -Actions @(
-    New-Action -Id 'net-publicip'  -Label "Obtenir l'IP publique" -Kind 'immediate' -Help "Interroge un service externe (api.ipify.org...) pour connaitre l'adresse IP publique. Un appel sortant est effectue."
-    New-Action -Id 'net-speedtest' -Label 'Mesurer débit/latence'  -Kind 'immediate' -Help "Mesure la latence (ping) et le débit descendant en telechargeant ~10 Mo. Prend quelques secondes et consomme un peu de data."
+    New-Action -Id 'net-publicip'  -Label "Obtenir l'IP publique" -Kind 'immediate' -Help "Interroge un service externe (api.ipify.org...) pour connaître l'adresse IP publique. Un appel sortant est effectué."
+    New-Action -Id 'net-speedtest' -Label 'Mesurer débit/latence'  -Kind 'immediate' -Help "Mesure la latence (ping) et le débit descendant en téléchargeant ~10 Mo. Prend quelques secondes et consomme un peu de data."
 )

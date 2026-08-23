@@ -8,4 +8,4 @@ if (-not $tools) { return New-ToolsMissingResult }
 $script = Join-Path $tools 'update-mode.ps1'
 if (-not (Test-Path $script)) { return @{ message = "Script introuvable : $script"; result = @{ ok = $false } } }
 & $script -On *> $null
-@{ message = 'Mode mise à jour ACTIVE (déverrouille). Fais tes MAJ, redémarre quand tu veux, puis re-verrouille.'; result = @{ ok = $true } }
+@{ message = 'Mode mise à jour ACTIVÉ (déverrouillé). Fais tes MAJ, redémarre quand tu veux, puis re-verrouille.'; result = @{ ok = $true } }

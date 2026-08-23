@@ -18,6 +18,10 @@
     # Prefixe des routes de l'API REST (voir api/openapi.yaml).
     ApiBase     = '/api/v1'
 
+    # Port de l'atelier de validation (docs/atelier.ps1, serveur php temporaire).
+    # Meme plage locale que le serveur, port distinct pour ne jamais le concurrencer.
+    AtelierPort = 47610
+
     # Outillage externe OPTIONNEL (scripts d'administration vivant hors du depot :
     # verrouillage MAJ, update-mode, audits). Vide = non configure : les actions qui
     # en dependent rendent alors un message clair au lieu d'echouer.

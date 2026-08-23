@@ -6,10 +6,10 @@ $vbsOn  = [bool]($dg -and $dg.VirtualizationBasedSecurityStatus -eq 2)
 $hvciOn = [bool]($dg -and ($dg.SecurityServicesRunning -contains 2))
 New-ModuleObject -Id 'vbs' -Theme 'security' -Label 'Sécurité de la virtualisation' -Status 'neutral' -Fields @(
     New-Field -Key 'vbs'  -Label 'VBS' -Value $vbsOn -Kind 'bool' -Status 'neutral' `
-        -Help 'Virtualization-Based Security : isole des fonctions de sécurité dans un environnement virtualise. Plus sur, mais cout en performances de virtualisation (WSL/VM).'
+        -Help 'Virtualization-Based Security : isole des fonctions de sécurité dans un environnement virtualisé. Plus sûr, mais coût en performances de virtualisation (WSL/VM).'
     New-Field -Key 'hvci' -Label 'Intégrité mémoire (HVCI)' -Value $hvciOn -Kind 'bool' -Status 'neutral' `
-        -Help 'Hypervisor-Enforced Code Integrity : bloque le code noyau non signe. Peut degrader nettement les perfs de virtualisation.'
+        -Help 'Hypervisor-Enforced Code Integrity : bloque le code noyau non signé. Peut dégrader nettement les perfs de virtualisation.'
 ) -Actions @(
-    New-Action -Id 'toggle-vbs'  -Label 'Basculer VBS' -Confirm -Help "Active ou désactivé la sécurité basee sur la virtualisation (VBS). Redémarrage requis. Impacte les performances de virtualisation (WSL/VM)."
-    New-Action -Id 'toggle-hvci' -Label 'Basculer intégrité mémoire' -Confirm -Help "Active ou désactivé l'intégrité mémoire (HVCI). Redémarrage requis. Peut degrader les performances de virtualisation."
+    New-Action -Id 'toggle-vbs'  -Label 'Basculer VBS' -Confirm -Help "Active ou désactive la sécurité basée sur la virtualisation (VBS). Redémarrage requis. Impacte les performances de virtualisation (WSL/VM)."
+    New-Action -Id 'toggle-hvci' -Label 'Basculer intégrité mémoire' -Confirm -Help "Active ou désactive l'intégrité mémoire (HVCI). Redémarrage requis. Peut dégrader les performances de virtualisation."
 )

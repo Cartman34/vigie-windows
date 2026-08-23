@@ -34,15 +34,15 @@ $st = if (-not $installed) { 'neutral' } elseif ($running) { 'ok' } else { $inac
 $wslActions = @()
 if ($installed) {
     if ($running) {
-        $wslActions += New-Action -Id 'wsl-restart'  -Label 'Redémarrer' -Confirm -Kind 'confirm' -Help "Arrete puis relance WSL. Les programmes WSL non sauvegardes seront fermes."
-        $wslActions += New-Action -Id 'wsl-shutdown' -Label 'Arrêter'    -Confirm -Kind 'confirm' -Help "Arrete proprement toutes les distributions WSL en cours."
+        $wslActions += New-Action -Id 'wsl-restart'  -Label 'Redémarrer' -Confirm -Kind 'confirm' -Help "Arrête puis relance WSL. Les programmes WSL non sauvegardés seront fermés."
+        $wslActions += New-Action -Id 'wsl-shutdown' -Label 'Arrêter'    -Confirm -Kind 'confirm' -Help "Arrête proprement toutes les distributions WSL en cours."
     } else {
-        $wslActions += New-Action -Id 'wsl-start'    -Label 'Démarrer'   -Kind 'immediate' -Help "Demarre WSL (boot de la distribution par defaut)."
+        $wslActions += New-Action -Id 'wsl-start'    -Label 'Démarrer'   -Kind 'immediate' -Help "Démarre WSL (boot de la distribution par défaut)."
     }
 }
 
 New-ModuleObject -Id 'wsl' -Theme 'wsl' -Label 'WSL2' -Status $st -Fields @(
-    New-Field -Key 'installed' -Label 'WSL installe'      -Value $installed -Kind 'bool' -Status $(if ($installed) {'ok'} else {'neutral'}) -Help 'Sous-système Windows pour Linux present sur la machine.'
-    New-Field -Key 'default'   -Label 'Distribution defaut' -Value $default -Kind 'text' -Status 'neutral' -Help 'Distribution WSL par defaut (lue dans le registre).'
-    New-Field -Key 'running'   -Label 'Statut' -Value $statutValue -Kind 'text' -Status $statutStat -Help 'Etat actuel de WSL (Actif si un processus vmmem/wslservice tourne, sinon Inactif).'
+    New-Field -Key 'installed' -Label 'WSL installé'      -Value $installed -Kind 'bool' -Status $(if ($installed) {'ok'} else {'neutral'}) -Help 'Sous-système Windows pour Linux présent sur la machine.'
+    New-Field -Key 'default'   -Label 'Distribution défaut' -Value $default -Kind 'text' -Status 'neutral' -Help 'Distribution WSL par défaut (lue dans le registre).'
+    New-Field -Key 'running'   -Label 'Statut' -Value $statutValue -Kind 'text' -Status $statutStat -Help 'État actuel de WSL (Actif si un processus vmmem/wslservice tourne, sinon Inactif).'
 ) -Actions $wslActions

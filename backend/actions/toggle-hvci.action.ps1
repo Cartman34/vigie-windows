@@ -7,4 +7,4 @@ if (-not $adminRoot) { return New-ToolsMissingResult }
 $script = Join-Path $adminRoot 'toggle-memory-integrity.ps1'
 if (-not (Test-Path $script)) { return @{ message = "Introuvable : $script"; result = @{ ok = $false } } }
 & $script *> $null
-@{ message = 'Bascule intégrité mémoire demandee (redémarrage souvent requis).'; result = @{ ok = $true } }
+@{ message = 'Bascule intégrité mémoire demandée (redémarrage souvent requis).'; result = @{ ok = $true } }

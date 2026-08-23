@@ -17,7 +17,7 @@ $modSt = if ($known.Count -eq 0) { 'neutral' } elseif ($offCount -eq 0) { 'ok' }
 
 function FwField($key, $label, $val) {
     if ($null -eq $val) {
-        New-Field -Key $key -Label $label -Value 'inconnu' -Kind 'text' -Status 'neutral' -Help "Etat du pare-feu non lisible pour ce profil."
+        New-Field -Key $key -Label $label -Value 'inconnu' -Kind 'text' -Status 'neutral' -Help "État du pare-feu non lisible pour ce profil."
     } else {
         New-Field -Key $key -Label $label -Value ([bool]$val) -Kind 'bool' -Status $(if ($val) {'ok'} else {'error'}) `
             -Help "Pare-feu Windows actif sur ce profil réseau." `

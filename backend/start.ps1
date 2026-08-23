@@ -34,7 +34,7 @@ try {
         & (Join-Path $backend 'install.ps1')
         $pode = Get-Module -ListAvailable -Name Pode | Select-Object -First 1
         if (-not $pode) {
-            Write-Log -Backend $backend -Name 'start' -Level 'ERROR' -Message "Pode toujours absent apres install.ps1. Verifie la connexion PSGallery."
+            Write-Log -Backend $backend -Name 'start' -Level 'ERROR' -Message "Pode toujours absent après install.ps1. Vérifie la connexion PSGallery."
             return
         }
     }
@@ -42,7 +42,7 @@ try {
 
     $cfg = Get-Config -Backend $backend
     if (Test-ServerUp -Address $cfg.BindAddress -Port $cfg.Port) {
-        Write-Log -Backend $backend -Name 'start' -Message ("Deja en cours sur " + (Get-AppUrl -Config $cfg) + " - abandon.")
+        Write-Log -Backend $backend -Name 'start' -Message ("Déjà en cours sur " + (Get-AppUrl -Config $cfg) + " - abandon.")
         return
     }
 
@@ -51,7 +51,7 @@ try {
     $env:VIGIE_PORT    = "$($cfg.Port)"
 
     Import-Module Pode
-    Write-Log -Backend $backend -Name 'start' -Message ("Demarrage : " + (Get-ApiUrl -Config $cfg))
+    Write-Log -Backend $backend -Name 'start' -Message ("Démarrage : " + (Get-ApiUrl -Config $cfg))
     Write-Host ("UI  : " + (Get-AppUrl -Config $cfg))
 
     Start-PodeServer -Threads 3 {

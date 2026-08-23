@@ -7,4 +7,4 @@ if (-not $adminRoot) { return New-ToolsMissingResult }
 $script = Join-Path $adminRoot 'toggle-vbs.ps1'
 if (-not (Test-Path $script)) { return @{ message = "Introuvable : $script"; result = @{ ok = $false } } }
 & $script *> $null
-@{ message = 'Bascule VBS demandee (redémarrage souvent requis).'; result = @{ ok = $true } }
+@{ message = 'Bascule VBS demandée (redémarrage souvent requis).'; result = @{ ok = $true } }
