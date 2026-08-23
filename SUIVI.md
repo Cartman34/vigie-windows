@@ -13,7 +13,7 @@ Toutes les modifs de sondes / `common.ps1` / actions sont **live** (re-sourcees 
 
 - **backend/** : serveur Pode (`server.ps1`), bibliotheque partagee (`lib/common.ps1`),
   sondes (`probes/<theme>/*.probe.ps1`), actions (`actions/*.action.ps1`), config (`config.psd1`, port 47600).
-- **apps/frontend/index.html** : SPA (masonry de cartes, modales in-app `HDS`, rafraichissement par carte).
+- **apps/frontend-web/index.html** : SPA (masonry de cartes, modales in-app `HDS`, rafraichissement par carte).
 - **Lanceurs** (ASCII) : `run.cmd` (robuste, contourne ExecutionPolicy/MOTW) -> `run.ps1` -> `start.ps1` ; `install.ps1`.
 - Securite : 127.0.0.1 only, jeton Bearer, anti-CSRF, whitelist d'actions + confinement chemin.
 
@@ -151,10 +151,10 @@ Toutes les modifs de sondes / `common.ps1` / actions sont **live** (re-sourcees 
   `error` alors que la carte restait `neutral`. Les deux dérivent maintenant de la **même**
   variable et ne peuvent plus diverger. WSL non installé reste neutre.
 - **Rebascule en une seule ligne**, exigence explicite : `$inactiveSeverity = 'error'` en tête de
-  `apps/backend/probes/wsl/wsl.probe.ps1`, sous un bandeau qui énumère `error` / `warn` / `neutral`.
+  `apps/backend-pode/probes/wsl/wsl.probe.ps1`, sous un bandeau qui énumère `error` / `warn` / `neutral`.
   **Rien à changer côté front** : `.card.st-error` (lisere gauche 4 px) et le badge « Problème »
   existent déjà pour les trois valeurs.
-- **Contrat corrigé (D21)** : `api/openapi.yaml` interdisait `neutral` en statut de module alors
+- **Contrat corrigé (D21)** : `apps/backend-pode/api/openapi.yaml` interdisait `neutral` en statut de module alors
   que `New-ModuleObject` l'accepte et que les sondes en émettent. Le contrat était faux.
 - **Validé réellement** : sonde exécutée sur les **6** combinaisons (3 sévérités × actif/inactif)
   à partir du contenu réel du fichier — carte et champ concordent partout, boutons pertinents
@@ -204,7 +204,7 @@ Toutes les modifs de sondes / `common.ps1` / actions sont **live** (re-sourcees 
   `localhost` en littéral — ce sont les origines de **bouclage**, pas une copie de `BindAddress`
   (le port, lui, dérive bien). Un middleware Pode tourne dans un runspace séparé où `$cfg`
   n'est pas visible : d'où le passage par `$env:VIGIE_*`.
-- **Sur cette machine** : `apps/backend/config.local.psd1` a été créé (dans le worktree ET dans le
+- **Sur cette machine** : `apps/backend-pode/config.local.psd1` a été créé (dans le worktree ET dans le
   dépôt principal) avec l'ancien `ToolsPath`, pour ne pas régresser l'installation existante.
   Fichier ignoré par git (vérifié via `git check-ignore`).
 - **Validé** : Parser sur 41 fichiers, 0 erreur ; fusion de config testée (valeurs et dérivées

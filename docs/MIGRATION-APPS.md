@@ -53,12 +53,12 @@ Déplacements en `git mv` : **l'historique des fichiers est préservé**.
 
 ### Code
 
-- `apps/backend/lib/common.ps1` : `Get-RepoRoot`, `Get-AppsRoot`, `Get-AppPath`.
+- `apps/backend-pode/lib/common.ps1` : `Get-RepoRoot`, `Get-AppsRoot`, `Get-AppPath`.
   Les chemins inter-apps sont calculés **là et nulle part ailleurs** (D15).
   `Get-LogDir` pointe sur `<racine>/logs`.
-- `apps/tray/tray.ps1` : résout `apps/backend` comme app **sœur**, lit ses icônes dans
+- `apps/tray/tray.ps1` : résout `apps/backend-pode` comme app **sœur**, lit ses icônes dans
   `assets/`, journalise dans `<racine>/logs`.
-- `scripts/*.ps1` : résolvent `apps/backend` ; `install-autostart.ps1` vise
+- `scripts/*.ps1` : résolvent `apps/backend-pode` ; `install-autostart.ps1` vise
   `apps/tray/tray.ps1`.
 - `apps/atelier/atelier.ps1` : **autonome**, plus aucune dépendance à `common.ps1`.
 - `apps/atelier/config.psd1` créé ; `AtelierPort` retiré de la config du backend.
@@ -66,7 +66,7 @@ Déplacements en `git mv` : **l'historique des fichiers est préservé**.
 
 ### Fichiers ignorés par git — déjà déplacés
 
-`config.local.psd1`, `.secrets/`, `.state/` → `apps/backend/` ; `logs/` → racine.
+`config.local.psd1`, `.secrets/`, `.state/` → `apps/backend-pode/` ; `logs/` → racine.
 L'ancien dossier `backend/` a entièrement disparu.
 
 ### Validé
@@ -78,11 +78,12 @@ L'ancien dossier `backend/` a entièrement disparu.
 
 ---
 
-## Question laissée ouverte
+## Tranché depuis
 
-**Où ranger `api/openapi.yaml` ?** Laissé **à la racine**, non tranché. Les deux positions
-sont argumentées dans **D29**. C'est un choix de signal, pas de contrainte : un `git mv` et
-trois liens suffisent à basculer.
+**Le contrat appartient au backend** : `apps/backend-pode/api/openapi.yaml` (**D30**).
+**Les apps portent leur techno** : `backend-pode`, `frontend-web` — elles sont des
+implémentations remplaçables du contrat. `tray` et `atelier` n'ont pas de suffixe :
+ils n'implémentent aucun contrat.
 
 ---
 

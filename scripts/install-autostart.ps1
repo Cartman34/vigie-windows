@@ -19,7 +19,7 @@ param(
 $ErrorActionPreference = 'Stop'
 # Les scripts de gestion vivent dans scripts/ : les apps sont dans apps/.
 $repoRoot = Split-Path $PSScriptRoot -Parent
-$backend  = Join-Path $repoRoot 'apps/backend'
+$backend  = Join-Path $repoRoot 'apps/backend-pode'   # BOOTSTRAP, cf. common.ps1
 . (Join-Path $backend 'lib/common.ps1')
 $tray     = Join-Path $repoRoot 'apps/tray/tray.ps1'   # le tray est une app a part
 $taskName = 'Vigie'

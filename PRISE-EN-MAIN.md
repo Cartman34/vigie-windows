@@ -15,17 +15,17 @@ l'execution (`$env:COMPUTERNAME`), jamais code en dur.
 1. `README.md` — vue d'ensemble + arborescence.
 2. `docs/conventions.md` — **toutes** les conventions.
 3. `docs/technologies.md` — **toutes** les technos et leurs raisons.
-4. `api/openapi.yaml` — **le contrat REST (source de verite)**.
+4. `apps/backend-pode/api/openapi.yaml` — **le contrat REST (source de verite)**.
 5. `docs/targeting/features.md` — ce que le produit DOIT faire (IDs).
 6. `docs/implemented/status.md` — ce qui est REELLEMENT fait.
 7. `SUIVI.md` — **fichier de suivi** : etat courant + prochaine action + journal.
 
 ## Architecture (resume)
-- Contract-first : front <-> back uniquement via `api/openapi.yaml`.
+- Contract-first : front <-> back uniquement via `apps/backend-pode/api/openapi.yaml`.
 - Front statique (HTML/JS). Back = Pode (PowerShell), interchangeable.
 - Generique a plugins : etat = modules par theme ; ajouter une **sonde**
-  (`apps/backend/probes/<theme>/*.probe.ps1`) ou une **action**
-  (`apps/backend/actions/<id>.action.ps1`) sans toucher contrat ni front.
+  (`apps/backend-pode/probes/<theme>/*.probe.ps1`) ou une **action**
+  (`apps/backend-pode/actions/<id>.action.ps1`) sans toucher contrat ni front.
 - Securite : API 127.0.0.1 + jeton Bearer.
 
 ## Lancer / tester maintenant
@@ -34,7 +34,7 @@ l'execution (`$env:COMPUTERNAME`), jamais code en dur.
     # Demarrer :
     powershell -ExecutionPolicy Bypass -File backend\start.ps1
     # Puis ouvrir http://127.0.0.1:47600/  (UI) — l'API est sous /api/v1
-Sans lancer le back, ouvrir `apps/frontend/index.html` affiche le mode maquette.
+Sans lancer le back, ouvrir `apps/frontend-web/index.html` affiche le mode maquette.
 
 ## Lien avec LocalAgentAdmin
 La logique Windows Update (verrouillage, mode MAJ, audit) vit dans

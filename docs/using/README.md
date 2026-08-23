@@ -14,7 +14,7 @@ Aujourd'hui (dev), on le lance a la main :
     powershell -ExecutionPolicy Bypass -File backend\start.ps1
 
 puis on ouvre **http://127.0.0.1:47600/**. Sans back lance, ouvrir
-`apps/frontend/index.html` montre le mode maquette (donnees simulees).
+`apps/frontend-web/index.html` montre le mode maquette (donnees simulees).
 
 ## Lire le tableau de bord
 

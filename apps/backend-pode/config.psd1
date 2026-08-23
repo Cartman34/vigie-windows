@@ -6,7 +6,7 @@
     # valeurs ailleurs dans le code.
     #
     # Pour ce qui est propre a TA machine, ne modifie pas ce fichier : cree
-    # apps/backend/config.local.psd1 (ignore par git) a partir de config.local.sample.psd1.
+    # apps/backend-pode/config.local.psd1 (ignore par git) a partir de config.local.sample.psd1.
     # ---------------------------------------------------------------------------
 
     # Adresse d'ecoute : STRICTEMENT locale (ne jamais exposer, le back est eleve).
@@ -15,7 +15,7 @@
     # Port d'ecoute. Un port fixe par projet, dans la plage locale 47600-47699.
     Port        = 47600
 
-    # Prefixe des routes de l'API REST (voir api/openapi.yaml).
+    # Prefixe des routes de l'API REST (voir apps/backend-pode/api/openapi.yaml).
     ApiBase     = '/api/v1'
 
     # Outillage externe OPTIONNEL (scripts d'administration vivant hors du depot :

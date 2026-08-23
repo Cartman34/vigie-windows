@@ -8,7 +8,7 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
 > l'utilisateur. Toute occurrence dans le code, les identifiants ou la doc est un **défaut de
 > généricité** (valeur machine codée en dur) à éliminer, pas un héritage à conserver.
 - Backend **PowerShell + Pode** (`backend/`), écoute **127.0.0.1:47600**, jeton Bearer + anti-CSRF + liste blanche d'actions.
-- Frontend **HTML/JS pur** (`apps/frontend/index.html`), sert la maquette `apps/frontend/mock/state.json` si le back est absent.
+- Frontend **HTML/JS pur** (`apps/frontend-web/index.html`), sert la maquette `apps/frontend-web/mock/state.json` si le back est absent.
 - **App tray WinForms** (`apps/tray/tray.ps1`) : lance le serveur en fond, icône = statut de l'app (jauge), menu, fenêtre dédiée (Edge/Chrome `--app`).
 - Fonction phare : **verrouiller Windows Update** (ACL deny SYSTEM sur les dossiers de tâches) pour bloquer les redémarrages forcés, sans masquer les vraies MAJ.
 
@@ -18,18 +18,18 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
 
 ## Règles de conception (permanentes)
 - **On parle français, le code est en anglais.**
-- Pas de duplication (helpers partagés dans `apps/backend/lib/common.ps1`).
+- Pas de duplication (helpers partagés dans `apps/backend-pode/lib/common.ps1`).
 - **Toujours** traiter erreurs + sortie + code retour (`Invoke-Native`).
 - Scripts **idempotents**. **PS7 + UTF-8 avec accents** (les lanceurs restent ASCII).
 - **Vérifier les prérequis en amont.** **Valider avant de dire « prêt »** (ne jamais inventer une validation).
 - **Toute décision validée est consignée dans `docs/DECISIONS-VALIDEES.md`** + son support copié dans `docs/maquettes-validees/`.
 
 ## Architecture (contract-first)
-- `api/openapi.yaml` = source de vérité du contrat REST.
-- Sonde = `apps/backend/probes/<theme>/*.probe.ps1`, renvoie 1 module OU un tableau de modules.
-- Action = `apps/backend/actions/<id>.action.ps1`, renvoie `@{ message; result }`. `result.invalidate=@('x.probe.ps1')` force le recalcul.
+- `apps/backend-pode/api/openapi.yaml` = source de vérité du contrat REST.
+- Sonde = `apps/backend-pode/probes/<theme>/*.probe.ps1`, renvoie 1 module OU un tableau de modules.
+- Action = `apps/backend-pode/actions/<id>.action.ps1`, renvoie `@{ message; result }`. `result.invalidate=@('x.probe.ps1')` force le recalcul.
 - Agrégation + cache (mtime+TTL, single-flight, serve-stale) : `Get-State` dans `common.ps1`.
-- **Tâches de fond** : `Start-DetachedAction` (worker pwsh caché) ; ex. paquets via `Start-PkgJob` + `apps/backend/workers/pkg-job.worker.ps1`. Une action longue répond `result.async=$true` + `module`; le front met la carte en « busy » et l'interroge jusqu'à fin.
+- **Tâches de fond** : `Start-DetachedAction` (worker pwsh caché) ; ex. paquets via `Start-PkgJob` + `apps/backend-pode/workers/pkg-job.worker.ps1`. Une action longue répond `result.async=$true` + `module`; le front met la carte en « busy » et l'interroge jusqu'à fin.
 
 ## État — FAIT (déployé sur la machine, validé hors-ligne)
 - Socle asynchrone non bloquant (`Start-DetachedAction`, `Remove-ProbeCache`, `Update-StateJson` avec mutex inter-processus).
@@ -46,7 +46,7 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
    marque **D01** en SVG, effacement au premier chargement (durée mini 550 ms, garde-fou 90 s).
 2. ~~Lien GitHub retrouvable~~ — **FAIT** (**D09**) : splash, topbar, pied de page, menu tray
    « À propos de Vigie ». URL en **constante unique** par langage (`REPO_URL` / `$RepoUrl`).
-3. ~~Rendre `apps/backend/config.psd1` générique~~ — **FAIT** (**D18**) : socle versionné générique
+3. ~~Rendre `apps/backend-pode/config.psd1` générique~~ — **FAIT** (**D18**) : socle versionné générique
    + `config.local.psd1` (ignoré par git) + `config.local.sample.psd1`. `ToolsPath` optionnel,
    URL et port dérivés d'un seul endroit (`Get-AppUrl` / `Get-ApiUrl` / `Get-ToolsPath` /
    `Get-AdminRoot`), plus aucune valeur en dur (**D15**).
@@ -96,7 +96,7 @@ n'aura lieu qu'après confirmation explicite que tout fonctionne depuis le dép�
 - Authentification : token *fine-grained* (All repos + **Contents R/W**), mémorisé par le Credential
   Manager au 1er push. Username = `Cartman34`, Password = le **token** (pas le mot de passe GitHub).
 - Alternative zéro-token : remote SSH `git@github.com:Cartman34/vigie-windows.git` avec la clé locale.
-- `.gitignore` exclut déjà le jeton API (`apps/backend/.secrets/`), l'état (`apps/backend/.state/`) et les logs.
+- `.gitignore` exclut déjà le jeton API (`apps/backend-pode/.secrets/`), l'état (`apps/backend-pode/.state/`) et les logs.
   Avant tout commit, `git status` ne doit montrer NI `.secrets/`, NI `.state/`, NI `logs/`, NI `*.bak-*`.
 
 ## Contraintes environnement (importantes)
@@ -121,7 +121,7 @@ n'aura lieu qu'après confirmation explicite que tout fonctionne depuis le dép�
 ### Comment valider (ne JAMAIS inventer une validation)
 - **PowerShell** : `[System.Management.Automation.Language.Parser]::ParseFile(...)` sur chaque
   `.ps1` / `.psd1` modifie, et on rapporte la sortie reelle.
-- **JavaScript du front** : charger `apps/frontend/index.html` en `file://` dans un navigateur et
+- **JavaScript du front** : charger `apps/frontend-web/index.html` en `file://` dans un navigateur et
   lire la console (**D06**). Une erreur de syntaxe empeche l'execution de tout le bloc
   `<script>` : verifier qu'une constante definie en fin de script existe bien suffit a prouver
   que le fichier parse. Ce test couvre en plus les erreurs d'execution et le repli sur
@@ -135,5 +135,5 @@ n'aura lieu qu'après confirmation explicite que tout fonctionne depuis le dép�
   l'utilisateur : `install-autostart.ps1`, `uninstall-autostart.ps1`, `uninstall-legacy.ps1`.
 
 ### A ne jamais committer
-- `apps/backend/.secrets/` (jeton API), `apps/backend/.state/`, `logs/`, `*.bak-*`, `_to_delete/`.
+- `apps/backend-pode/.secrets/` (jeton API), `apps/backend-pode/.state/`, `logs/`, `*.bak-*`, `_to_delete/`.
   Le `.gitignore` les couvre deja ; verifier malgre tout `git status` avant chaque commit.

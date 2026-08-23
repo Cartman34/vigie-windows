@@ -4,8 +4,9 @@
     erreurs et requetes dans backend/logs/ via la journalisation Pode.
 #>
 $backend = $env:VIGIE_BACKEND
-$front   = Join-Path (Split-Path $backend -Parent) 'frontend'
 . "$backend/lib/common.ps1"
+# Le nom du dossier du front n'est ecrit que dans Get-AppPath (common.ps1).
+$front   = Get-AppPath -Role 'frontend'
 $cfg  = Get-Config -Backend $backend
 $base = $cfg.ApiBase
 
@@ -90,7 +91,7 @@ Add-PodeRoute -Method Post -Path "$base/actions" -ScriptBlock {
 
 # --- UI : sert index.html en injectant le jeton (page meme origine) ---
 Add-PodeRoute -Method Get -Path '/' -ScriptBlock {
-    $front = Join-Path (Split-Path $env:VIGIE_BACKEND -Parent) 'frontend'
+    $front = Get-AppPath -Role 'frontend'
     $html  = Get-Content -Path (Join-Path $front 'index.html') -Raw
     $html  = $html.Replace('__API_TOKEN__', $env:VIGIE_TOKEN)
     . "$env:VIGIE_BACKEND/lib/common.ps1"

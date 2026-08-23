@@ -85,7 +85,7 @@ Renommages retenus :
 | Mutex `Local\HcpStateRecompute` | `Local\VigieStateRecompute` |
 | Types .NET `HcpNative`, `HcpDarkColors` | `VigieNative`, `VigieDarkColors` |
 | Variables d'environnement `HCP_BACKEND`, `HCP_TOKEN`, `HCP_PORT` | `VIGIE_BACKEND`, `VIGIE_TOKEN`, `VIGIE_PORT` |
-| Titre `api/openapi.yaml` « HYPERION Control Panel API » | « Vigie API » |
+| Titre `apps/backend-pode/api/openapi.yaml` « HYPERION Control Panel API » | « Vigie API » |
 | `backend/demarrer-hyperion.vbs` | `scripts/demarrer-vigie.vbs` |
 
 **Exception** : `docs/maquettes-validees/` n'est pas retouché — c'est l'archive des supports
@@ -97,7 +97,7 @@ de décision, on n'y réécrit pas l'histoire.
 dépendance JS (pas de `package.json`, pas de build, un seul fichier HTML servi tel quel) ;
 installer un runtime permanent pour une seule vérification syntaxique n'est pas justifié.
 
-Validation retenue : charger `apps/frontend/index.html` en `file://` dans un navigateur et lire
+Validation retenue : charger `apps/frontend-web/index.html` en `file://` dans un navigateur et lire
 la console. Cela couvre **plus** que `node --check` : erreurs de syntaxe, erreurs d'exécution,
 rendu réel, et le repli sur la maquette `mock/state.json` qui est précisément le mode `file://`.
 `node --check` sera réintroduit si le front acquiert un jour une vraie chaîne de build.
@@ -213,12 +213,12 @@ de questions cosmétiques sur du contenu ancien qu'on n'avait aucune raison d'ou
 
 ## D18 — Configuration : un socle versionné générique + une surcharge locale
 
-`apps/backend/config.psd1` est **versionné et générique** : il porte LA définition de chaque
+`apps/backend-pode/config.psd1` est **versionné et générique** : il porte LA définition de chaque
 valeur et ne contient plus rien de propre à une machine. `ToolsPath` y vaut `''`.
 
-`apps/backend/config.local.psd1` est **ignoré par git**, optionnel, et surcharge les seules
+`apps/backend-pode/config.local.psd1` est **ignoré par git**, optionnel, et surcharge les seules
 valeurs qui ne peuvent pas être génériques (chemins d'une machine donnée).
-`apps/backend/config.local.sample.psd1` est le modèle versionné qui documente ce qu'on peut
+`apps/backend-pode/config.local.sample.psd1` est le modèle versionné qui documente ce qu'on peut
 y surcharger. `Get-Config` fusionne les deux, et **échoue avec un message explicite**
 si le fichier local est illisible.
 
@@ -270,7 +270,7 @@ diverger. WSL **non installé** reste neutre : on ne reproche pas à une machine
 l'avoir installé.
 
 **Exigence explicite de l'utilisateur : ce choix doit rester trivial à rebasculer.**
-Il tient donc en **une seule ligne**, en tête de `apps/backend/probes/wsl/wsl.probe.ps1`, sous un
+Il tient donc en **une seule ligne**, en tête de `apps/backend-pode/probes/wsl/wsl.probe.ps1`, sous un
 bandeau de commentaire qui énumère les valeurs possibles :
 
 ```powershell
@@ -286,7 +286,7 @@ pas une valeur propre à une machine (**D18**).
 
 ## D21 — Le contrat accepte `neutral` comme statut de module
 
-`api/openapi.yaml` déclarait `enum: [ok, warn, error]` pour le statut d'un module, alors que
+`apps/backend-pode/api/openapi.yaml` déclarait `enum: [ok, warn, error]` pour le statut d'un module, alors que
 `New-ModuleObject` accepte `neutral` et que les sondes en émettent (ex. WSL non installé).
 Le contrat était faux : `neutral` y est ajouté et documenté. L'implémentation était juste.
 
@@ -350,7 +350,7 @@ local** (`apps/atelier/atelier.ps1`, serveur intégré de PHP), pas ouverte en d
 
 **Pourquoi un serveur** : ouverte en `file://`, la page ne peut pas faire son travail. Les
 chemins relatifs vers les `.ico` cassent dès qu'on déplace le fichier (images cassées), et le
-navigateur refuse d'afficher `apps/frontend/index.html` dans un cadre (rectangle noir). Les deux
+navigateur refuse d'afficher `apps/frontend-web/index.html` dans un cadre (rectangle noir). Les deux
 défauts ont été constatés en livrant la première version : **c'était une livraison
 inutilisable**. Servie en `http`, la page fonctionne entièrement.
 
@@ -440,7 +440,7 @@ code, ni dans la documentation, ni dans les conversations.
 | Port | **47600** | **47610** |
 | Élévation | **oui** (`RunLevel Highest`) | **non**, jamais |
 | Lancement | tâche planifiée `Vigie` à l'ouverture de session | à la main, `docstelier.cmd` |
-| Code | `apps/backend/`, `apps/frontend/`, `apps/tray/` | `apps/atelier/` |
+| Code | `apps/backend-pode/`, `apps/frontend-web/`, `apps/tray/` | `apps/atelier/` |
 | Sondes, actions, secrets | oui | **aucun accès** |
 | Doit tourner pour l'utilisateur final | oui | non |
 
@@ -485,17 +485,17 @@ applicatif : installer, désinstaller, lancer et migrer ne sont pas des fonction
 ### Règles qui en découlent
 
 - **Chaque app est maîtresse de sa config.** L'Atelier a `apps/atelier/config.psd1` ; le
-  backend garde `apps/backend/config.psd1`. Cela **précise D15** : « une valeur, une
+  backend garde `apps/backend-pode/config.psd1`. Cela **précise D15** : « une valeur, une
   définition » ne veut pas dire « un fichier pour toutes les valeurs ». `AtelierPort` a
   quitté la config du backend.
 - **L'Atelier ne dépend pas de la bibliothèque du backend.** Il ne dot-source plus
   `common.ps1` : une app de développement qui s'appuie sur l'app livrée, c'est la frontière
   de **D28** percée dès le premier jour.
-- **Le tray pilote le backend sans en faire partie.** Il résout `apps/backend` comme une app
+- **Le tray pilote le backend sans en faire partie.** Il résout `apps/backend-pode` comme une app
   **sœur** et ne garde que deux liens vers elle : la bibliothèque partagée et le démarrage
   du serveur.
 - **Les chemins inter-apps sont calculés à un seul endroit** : `Get-RepoRoot`,
-  `Get-AppsRoot`, `Get-AppPath` dans `apps/backend/lib/common.ps1`. Aucun script ne
+  `Get-AppsRoot`, `Get-AppPath` dans `apps/backend-pode/lib/common.ps1`. Aucun script ne
   recompose un chemin inter-apps à la main.
 - **Les journaux sont communs**, à la racine : le serveur et le tray sont deux apps, mais on
   ne fait pas chercher l'utilisateur à deux endroits.
@@ -507,19 +507,9 @@ calculaient « dossier parent + `frontend` » (dont `server.ps1` et `Get-AppVers
 fonctionnent donc **sans une ligne de modification**. Les lanceurs `.cmd`/`.vbs` utilisent
 `%~dp0` : ils trouvent leurs voisins dans `scripts/`.
 
-### Question laissée ouverte
+### Question tranchée depuis
 
-**Où ranger `api/openapi.yaml` ?** Laissé à la racine, non tranché.
-
-- *Racine* : le principe directeur n°1 dit que le front ne connaît que le contrat et que le
-  back n'en est qu'une implémentation remplaçable. Le fichier se lit alors comme la
-  **norme** à laquelle les backends se conforment.
-- *`apps/backend/api/`* : le fichier décrit ce qu'un backend implémente ; avec plusieurs
-  backends, chacun décrirait le sien.
-
-L'argument de « dépendance » avancé au départ était **exagéré** : un chemin ne crée pas de
-couplage technique, il ne fait que signaler une intention. C'est un choix de signal, et un
-`git mv` suffit à basculer.
+L'emplacement du contrat et le nommage des apps sont réglés par **D30**.
 
 ### Migration réalisée
 
@@ -528,3 +518,43 @@ déplacement analogue : les fichiers **ignorés par git** (`.secrets/`, `.state/
 `config.local.psd1`, `logs/`) ne suivent pas et se déplacent à la main, et la **tâche
 planifiée** porte un chemin absolu — elle doit être réenregistrée, sans quoi l'app ne
 démarre plus à l'ouverture de session.
+
+## D30 — Les apps portent leur techno ; le contrat appartient au backend
+
+### Nommage
+
+| Dossier | Techno | Pourquoi ce suffixe |
+|---|---|---|
+| `apps/backend-pode` | PowerShell + **Pode** | implémentation **remplaçable** du contrat |
+| `apps/frontend-web` | HTML/CSS/JS, sans framework ni build | idem, côté client |
+| `apps/tray` | WinForms | **pas de suffixe** |
+| `apps/atelier` | PHP | **pas de suffixe** |
+
+Le suffixe rend visible le principe directeur n°1 : le back et le front ne sont que des
+**implémentations** du contrat. Un dossier `frontend` ne dit rien ; `frontend-web` annonce
+qu'un autre pourrait exister à côté.
+
+**Le tray et l'Atelier n'en portent pas**, et c'est délibéré : le suffixe signifie
+« implémentation interchangeable d'un contrat ». Ces deux-là n'implémentent aucun contrat
+et n'auront pas d'alternative ; un `tray-winforms` promettrait un échange qui n'arrivera pas.
+
+### Les noms ne vivent qu'à un seul endroit
+
+`Get-AppPath -Role 'backend'|'frontend'|'tray'|'atelier'` traduit un **rôle** en **dossier**.
+Le code demande un rôle et ne connaît jamais le nom du dossier : renommer une implémentation
+ne touche qu'une ligne de `common.ps1`.
+
+**Exception inévitable : le bootstrap.** Un script qui doit *charger* `common.ps1` ne peut
+pas encore appeler `Get-AppPath` — il faut savoir où est la bibliothèque avant de s'en
+servir. Le nom `backend-pode` figure donc en clair dans `tray.ps1` et `scripts/*.ps1`,
+chaque fois signalé par un commentaire `BOOTSTRAP`.
+
+### Le contrat
+
+`api/openapi.yaml` → **`apps/backend-pode/api/openapi.yaml`**. Le contrat est fourni par le
+backend, qui l'implémente et le publie.
+
+**Réserve consignée** : avec plusieurs backends, chacun décrirait le sien, et deux
+descriptions finissent toujours par diverger. Si un second backend apparaît, il faudra soit
+désigner un contrat de référence, soit vérifier automatiquement que les implémentations
+restent conformes. Ce n'est pas un problème aujourd'hui : il n'y a qu'un backend.

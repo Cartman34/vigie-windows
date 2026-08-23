@@ -8,19 +8,19 @@ Reference unique des conventions. Toute nouvelle convention se note ICI.
 
 ## Arborescence et nommage
 - Sources : voir `../README.md`.
-- Sonde : `apps/backend/probes/<theme>/<nom>.probe.ps1`.
-- Action : `apps/backend/actions/<id>.action.ps1` (le `<id>` = valeur `type` du contrat).
+- Sonde : `apps/backend-pode/probes/<theme>/<nom>.probe.ps1`.
+- Action : `apps/backend-pode/actions/<id>.action.ps1` (le `<id>` = valeur `type` du contrat).
 - Rapports horodates : `<nom>_AAAAMMJJ_HHMMSS.txt` (+ `.json`).
 
 ## Contrat d'abord (contract-first)
-- `api/openapi.yaml` est la **source de verite**. Toute evolution d'API s'y
+- `apps/backend-pode/api/openapi.yaml` est la **source de verite**. Toute evolution d'API s'y
   decide AVANT le code. Le front ne depend que du contrat ; le back est
   interchangeable.
 
 ## Modele sonde / action
 - **Sonde** : LECTURE SEULE, rapide, sans effet de bord. Sort UN objet `Module`
   (schema OpenAPI). Utiliser les fabriques `New-ModuleObject` / `New-Field` /
-  `New-Action` de `apps/backend/lib/common.ps1`. Appels lents bornes par un delai.
+  `New-Action` de `apps/backend-pode/lib/common.ps1`. Appels lents bornes par un delai.
 - **Action** : effet de bord. Signature `param([string]$Module,[hashtable]$Params)`.
   Retourne `@{ message=...; result=... }`. Reutilise l'outillage existant
   (`LocalAgentAdmin/tools/`) plutot que de reimplementer.
@@ -29,7 +29,7 @@ Reference unique des conventions. Toute nouvelle convention se note ICI.
 
 ## Securite
 - API en ecoute **127.0.0.1 uniquement**. Jamais exposee (le back tourne eleve).
-- **Jeton Bearer** genere une fois (`apps/backend/.secrets/api.token`), exige sur tous
+- **Jeton Bearer** genere une fois (`apps/backend-pode/.secrets/api.token`), exige sur tous
   les endpoints sauf `/health`. Injecte dans la page servie (meme origine).
 
 ## Technique
@@ -65,7 +65,7 @@ Concretement :
 
 ## Ports (organisation)
 - Plage locale reservee : **47600-47699**. Registre central : `LocalWork/PORTS.md`.
-- Chaque projet : **un port fixe**, configurable (ici `apps/backend/config.psd1`),
+- Chaque projet : **un port fixe**, configurable (ici `apps/backend-pode/config.psd1`),
   inscrit au registre ; verifier le registre avant d'allouer.
 - Defaut de ce projet : **47600**.
 
@@ -98,7 +98,7 @@ courbes) casse l'analyse des chaines. Regle : **scripts PowerShell en ASCII pur*
 ## Regles transverses (2026-08-20)
 
 ### 1. Pas de duplication : une fonctionnalite = un seul code
-Toute logique partagee vit dans `apps/backend/lib/common.ps1` et est reutilisee, jamais recopiee.
+Toute logique partagee vit dans `apps/backend-pode/lib/common.ps1` et est reutilisee, jamais recopiee.
 Helpers partages en place :
 - `Test-Elevated` : le processus est-il administrateur ? (utilise par run/start/install + sondes)
 - `Test-UpdateTasksAclLock` : le verrou ACL (refus SYSTEM) est-il pose ? Comparaison par **SID**

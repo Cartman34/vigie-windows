@@ -20,7 +20,7 @@ Chaque techno : role, pourquoi, alternatives ecartees, installation.
   contexte par variables d'environnement (`VIGIE_BACKEND`, `VIGIE_TOKEN`) et on
   re-source `lib/common.ps1` dans chaque route.
 
-## OpenAPI 3 (api/openapi.yaml)
+## OpenAPI 3 (apps/backend-pode/api/openapi.yaml)
 - **Role** : contrat REST, source de verite front/back.
 - **Pourquoi** : standard, outillable, permet de changer de back sans toucher
   au front.
