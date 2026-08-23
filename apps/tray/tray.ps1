@@ -269,8 +269,19 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
         # puis decoupe de region qui, elle, arrondit TOUJOURS : sans elle le menu reste
         # a coins carres, DWM n'arrondissant pas les fenetres sans cadre standard.
         $roundCorners = {
-            Set-WindowChrome  -Handle $menu.Handle -RoundedCorners -BorderColor 0x00564C44
-            Set-RoundedRegion -Control $menu -Radius ([VigieMenuPalette]::MenuRadius)
+            try {
+                Set-WindowChrome  -Handle $menu.Handle -RoundedCorners -BorderColor 0x00564C44
+                Set-RoundedRegion -Control $menu -Radius ([VigieMenuPalette]::MenuRadius)
+                # Trace du RESULTAT, pas de l'intention : "region appliquee" ne prouve rien,
+                # seul le fait qu'un coin soit hors region prouve que l'arrondi a pris.
+                $horsCoin = if ($menu.Region) {
+                    -not $menu.Region.IsVisible((New-Object System.Drawing.Point(0,0)))
+                } else { $false }
+                TLog ("menu ouvert : {0}x{1}, region={2}, coin decoupe={3}" -f `
+                      $menu.Width, $menu.Height, [bool]$menu.Region, $horsCoin)
+            } catch {
+                TLog ("arrondi du menu KO : " + $_.Exception.Message)
+            }
         }
         $menu.add_Opened({ & $roundCorners })
 
