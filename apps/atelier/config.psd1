@@ -6,7 +6,7 @@
     # ne lit pas celle du backend. Chaque valeur n'a qu'une seule definition, mais
     # chaque app est maitresse des siennes.
     #
-    # Ne jamais confondre avec apps/backend/config.psd1, qui configure
+    # Ne jamais confondre avec apps/backend-pode/config.psd1, qui configure
     # l'application livree (port 47600, elevee).
     # ---------------------------------------------------------------------------
 

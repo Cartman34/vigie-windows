@@ -16,7 +16,7 @@ $ErrorActionPreference = 'Stop'
 $RepoUrl = 'https://github.com/Cartman34/vigie-windows'
 # Le backend est une app SOEUR (apps/backend), pas le dossier courant.
 $appsRoot = Split-Path $PSScriptRoot -Parent
-$backend  = Join-Path $appsRoot 'backend'
+$backend  = Join-Path $appsRoot 'backend-pode'   # BOOTSTRAP : nom en clair, cf. common.ps1
 $repoRoot = Split-Path $appsRoot -Parent
 $logDir  = Join-Path $repoRoot 'logs'      # journaux communs a toutes les apps
 if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }

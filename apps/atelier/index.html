@@ -8,7 +8,7 @@
   Atelier de validation VISUELLE.
 
   À OUVRIR DEPUIS LE DÉPÔT : la page lit les vrais assets par chemin relatif
-  (../tray/assets/, ../frontend/index.html). Ouverte ailleurs, elle le DIT
+  (../tray/assets/, ../frontend-web/index.html). Ouverte ailleurs, elle le DIT
   au lieu d'afficher des images cassées et un cadre noir.
 
   Aucune dépendance, aucun serveur.
@@ -233,14 +233,14 @@
 <section>
   <h2>Écran de chargement</h2>
   <p class="hint">
-    <code>apps/frontend/index.html</code> en direct. Le splash s'efface au premier chargement —
+    <code>apps/frontend-web/index.html</code> en direct. Le splash s'efface au premier chargement —
     recharge le cadre pour le revoir.
   </p>
   <div class="chips" style="margin-bottom:14px">
     <button id="reloadSplash">Recharger le cadre</button>
     <button id="openSplash">Ouvrir dans un onglet</button>
   </div>
-  <iframe class="frame" id="appFrame" src="../frontend/index.html" title="Aperçu de Vigie"></iframe>
+  <iframe class="frame" id="appFrame" src="../frontend-web/index.html" title="Aperçu de Vigie"></iframe>
 </section>
 
 </main>

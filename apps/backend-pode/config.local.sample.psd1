@@ -3,7 +3,7 @@
     # MODELE de configuration LOCALE. Copie ce fichier en 'config.local.psd1'
     # (meme dossier) et adapte-le : il est ignore par git et ne quitte pas ta machine.
     #
-    #     Copy-Item apps/backend/config.local.sample.psd1 apps/backend/config.local.psd1
+    #     Copy-Item apps/backend-pode/config.local.sample.psd1 apps/backend-pode/config.local.psd1
     #
     # Ne mets ici QUE les valeurs qui ne peuvent pas etre generiques, c'est-a-dire
     # celles qui dependent de la machine. Toute cle presente ici ecrase celle de

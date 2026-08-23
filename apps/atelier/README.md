@@ -58,7 +58,7 @@ L'Atelier **ne lit pas la config du backend** : c'est une app distincte, elle es
 maîtresse de ses propres valeurs. **D15** dit « une valeur, une définition » — pas
 « un fichier pour toutes les valeurs ».
 
-Le port de Vigie (`47600`) vit, lui, dans `apps/backend/config.psd1`. Les deux sont dans
+Le port de Vigie (`47600`) vit, lui, dans `apps/backend-pode/config.psd1`. Les deux sont dans
 la même plage locale mais **distincts**, pour que les deux apps tournent en même temps.
 
 ---
@@ -85,7 +85,7 @@ Les raisons (élévation, concurrence, coût des processus) sont chiffrées dans
 - Écoute **strictement en local**. **Aucun droit administrateur** n'est requis.
 - Port **distinct** de celui du serveur applicatif (`47600`) : les deux peuvent tourner
   en même temps sans se gêner.
-- Il **ne remplace pas** `apps/backend/start.ps1`. C'est un outil de développement : il ne sert
+- Il **ne remplace pas** `apps/backend-pode/start.ps1`. C'est un outil de développement : il ne sert
   aucune API, n'exécute aucune sonde et n'a accès à aucun secret.
 
 ### Pourquoi un serveur plutôt qu'un double-clic sur le fichier
@@ -94,7 +94,7 @@ Ouverte en `file://`, la page ne peut pas faire son travail :
 
 - les chemins relatifs vers `apps/tray/assets/*.ico` cassent dès que le fichier est
   copié ailleurs — d'où des **images cassées** ;
-- le navigateur refuse d'afficher `apps/frontend/index.html` dans un cadre — d'où un
+- le navigateur refuse d'afficher `apps/frontend-web/index.html` dans un cadre — d'où un
   **rectangle noir** à la place de l'écran de chargement.
 
 Servie en `http`, la page fonctionne entièrement. Elle reste néanmoins ouvrable en
@@ -123,7 +123,7 @@ marge du survol, hauteur d'item, palette complète. Un bloc de code affiche **le
 exactes à recopier** dans `VigieMenuPalette` ([`apps/tray/tray.ps1`](../tray/tray.ps1)).
 
 ### Écran de chargement
-`apps/frontend/index.html` en direct, rechargeable pour revoir le splash.
+`apps/frontend-web/index.html` en direct, rechargeable pour revoir le splash.
 
 ---
 

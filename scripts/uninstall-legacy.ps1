@@ -37,7 +37,7 @@ param(
 $ErrorActionPreference = 'Stop'
 # Les scripts de gestion vivent dans scripts/ : la bibliotheque est dans apps/backend.
 $repoRoot = Split-Path $PSScriptRoot -Parent
-$backend  = Join-Path $repoRoot 'apps/backend'
+$backend  = Join-Path $repoRoot 'apps/backend-pode'   # BOOTSTRAP, cf. common.ps1
 . (Join-Path $backend 'lib/common.ps1')
 
 # --- Noms herites, confines a ce fichier ---------------------------------------

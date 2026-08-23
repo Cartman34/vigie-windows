@@ -12,10 +12,24 @@ function Get-BackendRoot { Split-Path $PSScriptRoot -Parent }
 # part ailleurs : aucun script ne doit recomposer un chemin inter-apps a la main.
 function Get-RepoRoot { Split-Path (Split-Path (Get-BackendRoot) -Parent) -Parent }
 function Get-AppsRoot { Split-Path (Get-BackendRoot) -Parent }
+# Les noms de dossiers d'apps portent leur TECHNO : ce sont des implementations
+# remplacables (principe n.1). Ils ne sont ecrits QU'ICI ; tout le code passe par
+# Get-AppPath. Seul le bootstrap fait exception (voir la note plus bas).
 function Get-AppPath {
-    param([Parameter(Mandatory)][ValidateSet('backend','frontend','tray','atelier')][string]$Name)
-    Join-Path (Get-AppsRoot) $Name
+    param([Parameter(Mandatory)][ValidateSet('backend','frontend','tray','atelier')][string]$Role)
+    $folder = switch ($Role) {
+        'backend'  { 'backend-pode' }    # PowerShell + Pode
+        'frontend' { 'frontend-web' }    # HTML/CSS/JS, sans framework ni build
+        'tray'     { 'tray' }            # pas de suffixe : n'implemente aucun contrat
+        'atelier'  { 'atelier' }         # idem
+    }
+    Join-Path (Get-AppsRoot) $folder
 }
+
+# NOTE sur le bootstrap : un script qui doit CHARGER cette bibliotheque ne peut pas
+# encore appeler Get-AppPath. Le nom du dossier backend y figure donc en clair
+# (tray.ps1, scripts/*.ps1). C'est inevitable : il faut savoir ou est la bibliotheque
+# avant de pouvoir s'en servir. Ces lignes sont signalees par un commentaire.
 
 # --- Helpers partages (regle : une fonctionnalite = un seul code) -----------
 
@@ -327,7 +341,7 @@ function Get-ApiToken {
 # --- Version applicative (change quand index.html change) -------------------
 function Get-AppVersion {
     param([string]$Backend = (Get-BackendRoot))
-    $idx = Join-Path (Split-Path $Backend -Parent) 'frontend/index.html'   # apps/frontend
+    $idx = Join-Path (Get-AppPath -Role 'frontend') 'index.html'
     if (Test-Path $idx) { "$((Get-Item $idx).LastWriteTimeUtc.Ticks)" } else { '0' }
 }
 
