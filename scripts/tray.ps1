@@ -55,7 +55,8 @@ $SEUIL_SEC = 30
 function Get-TrayState {
     if (-not (Test-Path -LiteralPath $heartbeat)) { return $null }
     try {
-        $parts = (Get-Content -LiteralPath $heartbeat -Raw).Trim() -split ';'
+        # UTF8 explicite : l'etat contient des accents (« Démarrage… »).
+        $parts = (Get-Content -LiteralPath $heartbeat -Raw -Encoding UTF8).Trim() -split ';'
         $age = ([datetime]::Now - [datetime]::Parse($parts[1])).TotalSeconds
         return [pscustomobject]@{ Pid = [int]$parts[0]; AgeSec = [int]$age; Etat = $parts[2] }
     } catch { return $null }
