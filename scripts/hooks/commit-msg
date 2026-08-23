@@ -1,0 +1,27 @@
+#!/bin/sh
+# Vigie — interdiction des co-auteurs dans les messages de commit.
+#
+# REGLE : l'utilisateur est le SEUL auteur de ce depot. Aucun commit ne doit porter de
+# ligne « Co-Authored-By », quelle qu'en soit la forme ou la casse.
+#
+# Ce hook NETTOIE au lieu de refuser : un refus obligerait a recomposer le message et
+# laisserait passer l'oubli suivant. Ici, la ligne est retiree silencieusement, donc la
+# regle tient sans discipline a maintenir.
+#
+# Installation : scripts/installer-hooks.ps1 (les hooks ne sont pas versionnes par git,
+# ce fichier en est la source de verite).
+
+msg="$1"
+[ -f "$msg" ] || exit 0
+
+# -i : insensible a la casse. Couvre aussi les variantes avec espaces autour des ':'.
+if grep -qiE '^[[:space:]]*co[-_ ]?authored[-_ ]?by[[:space:]]*:' "$msg"; then
+    tmp="$msg.vigie"
+    grep -viE '^[[:space:]]*co[-_ ]?authored[-_ ]?by[[:space:]]*:' "$msg" > "$tmp"
+    # Supprime les lignes vides devenues orphelines en fin de message.
+    awk 'BEGIN{n=0} {lines[n++]=$0} END{while(n>0 && lines[n-1] ~ /^[[:space:]]*$/) n--; for(i=0;i<n;i++) print lines[i]}' "$tmp" > "$msg"
+    rm -f "$tmp"
+    echo "hook commit-msg : ligne(s) Co-Authored-By retiree(s) (interdites sur ce depot)." >&2
+fi
+
+exit 0
