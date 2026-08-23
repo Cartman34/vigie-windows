@@ -1,4 +1,4 @@
-# PRISE-EN-MAIN — HYPERION Control Panel
+# PRISE-EN-MAIN — Vigie
 
 > Fichier d'initialisation du projet, a **nom volontairement non-standard** pour
 > ne pas etre charge automatiquement par les agents. Tout agent qui reprend le
@@ -6,8 +6,10 @@
 
 ## But
 Panneau de controle **local** (web + moteur natif Windows) pour surveiller et
-piloter l'etat de la machine `HYPERION` (Windows Update, disque, WSL, securite),
+piloter l'etat de la machine locale (Windows Update, disque, WSL, securite),
 lance avec la session, avec icone barre systeme. Voir `README.md`.
+Le produit s'appelle **Vigie** ; le nom de machine affiche est calcule a
+l'execution (`$env:COMPUTERNAME`), jamais code en dur.
 
 ## A lire, dans l'ordre
 1. `README.md` — vue d'ensemble + arborescence.

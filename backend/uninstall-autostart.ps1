@@ -9,7 +9,7 @@ if (-not $isAdmin) {
     Start-Process powershell -Verb RunAs -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File', $PSCommandPath)
     return
 }
-Unregister-ScheduledTask -TaskName 'HyperionControlPanel' -Confirm:$false
-$lnk = Join-Path ([Environment]::GetFolderPath('Desktop')) 'HYPERION Control Panel.url'
+Unregister-ScheduledTask -TaskName 'Vigie' -Confirm:$false
+$lnk = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Vigie.url'
 if (Test-Path $lnk) { Remove-Item $lnk -Force }
 Write-Host "Acces permanent retire (tache + raccourci)."

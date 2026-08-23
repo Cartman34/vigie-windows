@@ -1,4 +1,4 @@
-# Documentation — HYPERION Control Panel
+# Documentation — Vigie
 
 La doc est en **quatre volets**, chacun avec un public et un but distincts.
 Regle d'or : **pas de doublon**. Chaque information vit dans UN seul volet ; les

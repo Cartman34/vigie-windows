@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: HYPERION Control Panel API
+  title: Vigie API
   version: "1.0.0"
   description: >
     Contrat REST du panneau de controle local. SOURCE DE VERITE : le front et
@@ -105,7 +105,11 @@ components:
         label: { type: string }
         status:
           type: string
-          enum: [ok, warn, error]
+          enum: [ok, warn, error, neutral]
+          description: >
+            Statut de la carte. 'neutral' = sans objet ou non evalue (ex. WSL non installe) :
+            aucune couleur d'alerte. Le contrat omettait cette valeur alors que les sondes
+            l'emettent et que New-ModuleObject l'accepte.
         fields:
           type: array
           items: { $ref: "#/components/schemas/Field" }

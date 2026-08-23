@@ -21,6 +21,9 @@
     --ok:#3fb950; --warn:#d29922; --err:#f85149;
     --ok-bg:rgba(63,185,80,.12); --warn-bg:rgba(210,153,34,.12); --err-bg:rgba(248,81,73,.12);
     --radius:12px; --shadow:0 1px 3px rgba(0,0,0,.4);
+    /* Marque Vigie (D01) : liseré = teinte du statut assombrie (facteur 0,72) ; piste de jauge. */
+    --warn-dark:#976e18; --gauge-track:#30363d;
+    --splash-fade:.45s;   /* doit rester egal a SPLASH_FADE_MS cote JS */
   }
   [data-theme="light"] {
     --bg:#e9edf4; --panel:#ffffff; --panel-2:#e6ebf2; --border:#c2cbd8;
@@ -28,6 +31,7 @@
     --ok:#0f7a37; --warn:#9a5b00; --err:#d21c2c;
     --ok-bg:rgba(15,122,55,.16); --warn-bg:rgba(154,91,0,.17); --err-bg:rgba(210,28,44,.15);
     --shadow:0 1px 4px rgba(70,90,120,.22);
+    --warn-dark:#6e4100; --gauge-track:#c2cbd8;
   }
   *{box-sizing:border-box}
   body{margin:0;font-family:-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.45}
@@ -219,9 +223,83 @@
   .hds-btn--danger:hover{filter:brightness(1.08)}
   .hds-btn--ghost{background:transparent}
   .hds-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  /* ================= Ecran de chargement (D08) =================
+     Present dans le HTML statique : visible avant meme l'execution du JS.
+     S'efface des le premier chargement (reussi ou en erreur : l'erreur doit rester lisible). */
+  #splash{position:fixed;inset:0;z-index:9999;background:var(--bg);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;
+    transition:opacity var(--splash-fade,.45s) ease}
+  #splash.splash-off{opacity:0;pointer-events:none}
+  #splash[hidden]{display:none}
+  .splash-mark{width:104px;height:104px;display:block}
+  /* L'aiguille monte de 0 a la fraction "demarrage" (0,50) de D01, arc et aiguille synchronises. */
+  .splash-arc-val{stroke-dasharray:164.93;stroke-dashoffset:164.93;animation:splash-fill 1.1s cubic-bezier(.22,.8,.28,1) forwards}
+  .splash-needle{transform-origin:50px 50px;animation:splash-sweep 1.1s cubic-bezier(.22,.8,.28,1) forwards}
+  @keyframes splash-fill{to{stroke-dashoffset:82.47}}
+  @keyframes splash-sweep{from{transform:rotate(0deg)}to{transform:rotate(135deg)}}
+  .splash-id{display:flex;flex-direction:column;align-items:center;gap:6px}
+  .splash-name{font-size:clamp(54px,11vw,88px);font-weight:700;letter-spacing:-.035em;line-height:1;margin:0}
+  .splash-sub{color:var(--muted);font-size:13.5px;letter-spacing:.4px;margin:0}
+  .splash-bar{width:186px;height:3px;border-radius:999px;background:var(--border);overflow:hidden}
+  .splash-bar i{display:block;width:38%;height:100%;border-radius:inherit;background:var(--accent);
+    animation:splash-slide 1.25s ease-in-out infinite}
+  @keyframes splash-slide{0%{transform:translateX(-110%)}100%{transform:translateX(370%)}}
+  .splash-foot{position:absolute;bottom:26px;margin:0;font-size:12.5px}
+  @media (prefers-reduced-motion:reduce){
+    #splash{transition:none}
+    .splash-arc-val{animation:none;stroke-dashoffset:82.47}
+    .splash-needle{animation:none;transform:rotate(135deg)}
+    .splash-bar i{animation:none;width:100%}
+  }
+  /* ================= Lien vers le depot (D09) ================= */
+  .repo-link{color:var(--muted);text-decoration:none;border-bottom:1px solid transparent;transition:.15s}
+  .repo-link:hover{color:var(--text);border-bottom-color:var(--border)}
+  .repo-ic{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;
+    border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--muted);
+    text-decoration:none;flex:0 0 auto;transition:.15s}
+  .repo-ic:hover{border-color:var(--accent);color:var(--text)}
+  .appfoot{max-width:1180px;margin:0 auto;padding:0 22px 26px;display:flex;align-items:center;gap:10px;
+    color:var(--muted);font-size:12.5px}
+  .appfoot .sep{opacity:.5}
 </style>
 </head>
 <body>
+<!-- ================= Ecran de chargement (D08) =================
+     Marque "icone tray v1 - jauge a graduations" (D01), etat "demarrage" (orange, fraction 0,50).
+     Geometrie identique a backend/assets/tray/generer-icones_B.py, en fractions d'une taille de 100. -->
+<div id="splash" role="status" aria-live="polite" aria-label="Chargement de Vigie">
+  <svg class="splash-mark" viewBox="0 0 100 100" aria-hidden="true">
+    <defs>
+      <!-- Piste et arc de valeur partagent exactement le meme trace. -->
+      <path id="gaugeArc" d="M 25.251 74.749 A 35 35 0 1 1 74.749 74.749"/>
+    </defs>
+    <circle cx="50" cy="50" r="45" fill="none" stroke="var(--warn)" stroke-opacity=".35" stroke-width="2.4"/>
+    <use href="#gaugeArc" fill="none" stroke="var(--gauge-track)" stroke-width="11" stroke-linecap="round"/>
+    <g stroke="var(--muted)" stroke-opacity=".35" stroke-width="2">
+        <line x1="25.746" y1="74.254" x2="30.201" y2="69.799"/>
+        <line x1="15.700" y1="50.000" x2="22.000" y2="50.000"/>
+        <line x1="25.746" y1="25.746" x2="30.201" y2="30.201"/>
+        <line x1="50.000" y1="15.700" x2="50.000" y2="22.000"/>
+        <line x1="74.254" y1="25.746" x2="69.799" y2="30.201"/>
+        <line x1="84.300" y1="50.000" x2="78.000" y2="50.000"/>
+        <line x1="74.254" y1="74.254" x2="69.799" y2="69.799"/>
+    </g>
+    <use class="splash-arc-val" href="#gaugeArc" fill="none" stroke="var(--warn)" stroke-width="11" stroke-linecap="round"/>
+    <g class="splash-needle" stroke-linecap="round">
+      <line x1="54.243" y1="45.757" x2="27.231" y2="72.769" stroke="var(--warn-dark)" stroke-opacity=".95" stroke-width="9.8"/>
+      <line x1="54.243" y1="45.757" x2="27.231" y2="72.769" stroke="var(--warn)" stroke-width="8.2"/>
+    </g>
+    <circle cx="50" cy="50" r="9.5" fill="var(--warn)"/>
+    <circle cx="50" cy="50" r="4.2" fill="#f0f6fc"/>
+  </svg>
+  <div class="splash-id">
+    <p class="splash-name">Vigie</p>
+    <p class="splash-sub" id="splashSub">Tableau de bord local</p>
+  </div>
+  <div class="splash-bar"><i></i></div>
+  <p class="splash-foot"><a class="repo-link" data-repo-link="label"></a></p>
+</div>
 <header>
   <div class="title"><span id="appTitle">…</span> <small>Vigie</small></div>
   <div class="global" id="global"><span class="dot"></span><span id="globalTxt">—</span></div>
@@ -232,10 +310,19 @@
     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22a2.4 2.4 0 0 0 2.4-2h-4.8A2.4 2.4 0 0 0 12 22zm7-6v-5.2C19 7.6 17 5.1 14.2 4.4V4a2.2 2.2 0 0 0-4.4 0v.4C7 5.1 5 7.6 5 10.8V16l-2 2v1h18v-1l-2-2z"/></svg>
     <span id="bellCount" class="bell-count"></span>
   </button>
+  <a class="repo-ic" data-repo-link aria-label="Dépôt du projet sur GitHub">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38l-.01-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.93-.89-1.18-.89-1.18-.73-.5.06-.49.06-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.22 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.2c0 .21.15.46.55.38A8 8 0 0 0 8 0z"/></svg>
+  </a>
   <button onclick="toggleTheme()" id="themeBtn">☀ Clair</button>
 </header>
 <div class="modebar neutral" id="modebar"></div>
 <main id="app"></main>
+<footer class="appfoot">
+  <span>Vigie</span><span class="sep">·</span>
+  <span id="footVersion"></span>
+  <span class="spacer"></span>
+  <a class="repo-link" data-repo-link="label"></a>
+</footer>
 <div class="toast-stack" id="toastStack"></div>
 <div class="drawer-back" id="drawerBack" onclick="toggleDrawer()"></div>
 <aside class="drawer" id="drawer" aria-label="Notifications">
@@ -253,6 +340,16 @@
 </div>
 
 <script>
+// ===== Constantes de l'application (source unique de verite) =====
+// L'URL du depot est volontairement une CONSTANTE et non un reglage : elle ne doit pas
+// pouvoir changer facilement. Cote PowerShell, son equivalent est $RepoUrl dans tray.ps1.
+const REPO_URL        = 'https://github.com/Cartman34/vigie-windows';   // D09
+const SPLASH_MIN_MS   = 550;     // duree minimale d'affichage (evite un flash desagreable)
+const SPLASH_MAX_MS   = 90000;   // garde-fou : l'ecran ne reste jamais bloque (delai max de /state)
+const SPLASH_FADE_MS  = 450;     // doit rester egal a la transition CSS de #splash (--splash-fade)
+const REFRESH_MS      = 60000;   // rafraichissement automatique de l'etat
+const VERSION_POLL_MS = 15000;   // detection d'une nouvelle version servie
+
 // ===== Detection du mode : API en direct ou mock =====
 const TOKEN = window.API_TOKEN || "";
 const API   = window.API_BASE || "/api/v1";
@@ -409,7 +506,7 @@ function renderState(s, mode){
   gt.textContent=worst==='ok'?'Tout est conforme':(worst==='warn'?'Points à surveiller':'Action requise');
   gt.style.color=col;
   document.getElementById('lastRefresh').textContent='Mis à jour à '+new Date().toLocaleTimeString('fr-FR');
-  const at=document.getElementById('appTitle'); if(at && s.host){ at.textContent=s.host; document.title=s.host+' — Vigie'; }
+  setMachineName(s.host);
   const mb=document.getElementById('modebar'); mb.className='modebar '+(mode==='live'?'ok':'warn'); mb.title=(mode==='live'?'Connecté à l\'API locale (données réelles)':'Maquette — back non lancé'); mb.textContent='';
 }
 
@@ -660,6 +757,48 @@ async function doAction(type,module,confirmNeeded,label,help,btnEl){
   }catch(e){ updateNotif(entry,'error','Erreur : '+e.message); clearBtnBusy(btnEl); }
 }
 
+// Un seul endroit connait REPO_URL : tous les liens marques data-repo-link la recoivent d'ici.
+// data-repo-link="label" => le texte affiche est derive de l'URL (pas de duplication).
+function wireRepoLinks(){
+  const label = REPO_URL.replace(/^https?:\/\//, '');
+  document.querySelectorAll('[data-repo-link]').forEach(a=>{
+    a.href = REPO_URL;
+    a.target = '_blank';          // jamais dans la fenetre --app, qui n'a pas de barre d'adresse
+    a.rel = 'noopener';
+    if(a.dataset.repoLink === 'label') a.textContent = label;
+    if(!a.title) a.title = 'Ouvrir le depot du projet (' + label + ')';
+  });
+}
+
+// Le nom de la machine s'affiche a deux endroits : titre de la barre et sous-titre du splash.
+function setMachineName(host){
+  if(!host) return;
+  const at = document.getElementById('appTitle');  if(at) at.textContent = host;
+  const ss = document.getElementById('splashSub'); if(ss) ss.textContent = host;
+  document.title = host + ' — Vigie';
+}
+
+function setFootVersion(){
+  const el = document.getElementById('footVersion'); if(!el) return;
+  const v = window.APP_VERSION;
+  el.textContent = (v && !v.includes('__')) ? ('version ' + v) : 'maquette';
+}
+
+// Efface l'ecran de chargement, une seule fois, apres une duree minimale d'affichage.
+// Appele aussi en cas d'erreur : le message d'erreur doit devenir visible.
+let splashDone = false;
+const splashShownAt = Date.now();
+function hideSplash(){
+  if(splashDone) return;
+  splashDone = true;
+  const el = document.getElementById('splash'); if(!el) return;
+  const wait = Math.max(0, SPLASH_MIN_MS - (Date.now() - splashShownAt));
+  setTimeout(()=>{
+    el.classList.add('splash-off');
+    setTimeout(()=>{ el.hidden = true; }, SPLASH_FADE_MS);
+  }, wait);
+}
+
 function setLoading(on){
   const btn=document.getElementById('btnRefresh');
   if(btn){ btn.disabled=on; btn.innerHTML = on ? '<span class="spin"></span> Actualisation…' : '↻ Rafraîchir'; }
@@ -683,7 +822,7 @@ async function refresh(){
     const gt=document.getElementById('globalTxt'); if(gt){ gt.textContent='Erreur : '+msg; gt.style.color='var(--err)'; }
     const gdot=document.querySelector('#global .dot'); if(gdot){ gdot.style.cssText='width:9px;height:9px;border-radius:50%;background:var(--err)'; }
   }
-  finally{ setLoading(false); }
+  finally{ setLoading(false); hideSplash(); }
 }
 async function checkVersion(){
   try{
@@ -702,9 +841,13 @@ let toastT;
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
   clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),3200); }
 
+// ===== Demarrage =====
+wireRepoLinks();
+setFootVersion();
+setTimeout(hideSplash, SPLASH_MAX_MS);   // garde-fou si /state ne repond jamais
 refresh();
-setInterval(refresh, 60000);      // rafraichissement auto (60 s)
-setInterval(checkVersion, 15000); // rechargement auto si la version serveur change
+setInterval(refresh, REFRESH_MS);
+setInterval(checkVersion, VERSION_POLL_MS);
 </script>
 </body>
 </html>

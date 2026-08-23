@@ -8,8 +8,11 @@
 #>
 $ErrorActionPreference = 'Stop'
 $backend  = $PSScriptRoot
+. (Join-Path $backend 'lib/common.ps1')
 $tray     = Join-Path $backend 'tray.ps1'
-$taskName = 'HyperionControlPanel'
+$taskName = 'Vigie'
+# L'URL derive de config.psd1 : adresse et port n'ont qu'UNE definition (D15).
+$appUrl   = Get-AppUrl -Backend $backend
 
 $isAdmin = ([Security.Principal.WindowsPrincipal] `
     [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -33,9 +36,9 @@ Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Pr
 Write-Host ("Tache '" + $taskName + "' enregistree (lancement a l'ouverture de session, eleve).")
 
 $desktop = [Environment]::GetFolderPath('Desktop')
-$lnk = Join-Path $desktop 'HYPERION Control Panel.url'
-Set-Content -Path $lnk -Value ("[InternetShortcut]`r`nURL=http://127.0.0.1:47600/`r`n") -Encoding ASCII
+$lnk = Join-Path $desktop 'Vigie.url'
+Set-Content -Path $lnk -Value ("[InternetShortcut]`r`nURL=" + $appUrl + "`r`n") -Encoding ASCII
 Write-Host ("Raccourci bureau cree : " + $lnk)
 
 Start-ScheduledTask -TaskName $taskName
-Write-Host "App barre systeme lancee (icone dans la zone de notification). Serveur en fond, panneau sur http://127.0.0.1:47600/"
+Write-Host ("App barre systeme lancee (icone dans la zone de notification). Serveur en fond, panneau sur " + $appUrl)

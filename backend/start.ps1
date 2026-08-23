@@ -42,20 +42,20 @@ try {
 
     $cfg = Get-Config -Backend $backend
     if (Test-ServerUp -Address $cfg.BindAddress -Port $cfg.Port) {
-        Write-Log -Backend $backend -Name 'start' -Message ("Deja en cours sur http://{0}:{1}/ - abandon." -f $cfg.BindAddress, $cfg.Port)
+        Write-Log -Backend $backend -Name 'start' -Message ("Deja en cours sur " + (Get-AppUrl -Config $cfg) + " - abandon.")
         return
     }
 
-    $env:HCP_BACKEND = $backend
-    $env:HCP_TOKEN   = Get-ApiToken -Backend $backend
-    $env:HCP_PORT    = "$($cfg.Port)"
+    $env:VIGIE_BACKEND = $backend
+    $env:VIGIE_TOKEN   = Get-ApiToken -Backend $backend
+    $env:VIGIE_PORT    = "$($cfg.Port)"
 
     Import-Module Pode
-    Write-Log -Backend $backend -Name 'start' -Message ("Demarrage : http://{0}:{1}{2}" -f $cfg.BindAddress, $cfg.Port, $cfg.ApiBase)
-    Write-Host ("UI  : http://{0}:{1}/" -f $cfg.BindAddress, $cfg.Port)
+    Write-Log -Backend $backend -Name 'start' -Message ("Demarrage : " + (Get-ApiUrl -Config $cfg))
+    Write-Host ("UI  : " + (Get-AppUrl -Config $cfg))
 
     Start-PodeServer -Threads 3 {
-        . "$env:HCP_BACKEND/server.ps1"
+        . "$env:VIGIE_BACKEND/server.ps1"
     }
 }
 catch {

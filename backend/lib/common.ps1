@@ -36,7 +36,7 @@ function Update-StateJson {
     $leaf = (Split-Path $Path -Leaf) -replace '[^A-Za-z0-9]', '_'
     $mx = $null; $held = $false
     try {
-        $mx = New-Object System.Threading.Mutex($false, "Local\HcpState_$leaf")
+        $mx = New-Object System.Threading.Mutex($false, "Local\VigieState_$leaf")
         try { $held = $mx.WaitOne(5000) }
         catch [System.Threading.AbandonedMutexException] { $held = $true }
         catch { $held = $false }
@@ -248,9 +248,57 @@ function Start-PkgJob {
 }
 
 
+# config.psd1 (versionne) porte LA definition de chaque valeur.
+# config.local.psd1 (ignore par git, optionnel) surcharge les SEULES valeurs qui ne
+# peuvent pas etre generiques : chemins propres a une machine. Voir config.local.sample.psd1.
 function Get-Config {
     param([string]$Backend = (Get-BackendRoot))
-    Import-PowerShellDataFile -Path (Join-Path $Backend 'config.psd1')
+    $cfg = Import-PowerShellDataFile -Path (Join-Path $Backend 'config.psd1')
+    $localPath = Join-Path $Backend 'config.local.psd1'
+    if (Test-Path -LiteralPath $localPath) {
+        try { $local = Import-PowerShellDataFile -Path $localPath }
+        catch { throw ("config.local.psd1 illisible (" + $localPath + ") : " + $_.Exception.Message) }
+        foreach ($k in $local.Keys) { $cfg[$k] = $local[$k] }
+    }
+    $cfg
+}
+
+# --- Valeurs derivees de la config : definies ICI et nulle part ailleurs ------
+# L'adresse et le port n'existent qu'une fois (config.psd1) ; toute URL en derive.
+function Get-AppUrl {
+    param([string]$Backend = (Get-BackendRoot), [hashtable]$Config)
+    if (-not $Config) { $Config = Get-Config -Backend $Backend }
+    'http://{0}:{1}/' -f $Config.BindAddress, $Config.Port
+}
+function Get-ApiUrl {
+    param([string]$Backend = (Get-BackendRoot), [hashtable]$Config)
+    if (-not $Config) { $Config = Get-Config -Backend $Backend }
+    'http://{0}:{1}{2}' -f $Config.BindAddress, $Config.Port, $Config.ApiBase
+}
+
+# --- Outillage externe optionnel (scripts d'administration hors depot) -------
+# ToolsPath vide ou introuvable => $null, et les actions concernees rendent un
+# message clair au lieu d'echouer obscurement.
+function Get-ToolsPath {
+    param([string]$Backend = (Get-BackendRoot), [hashtable]$Config)
+    if (-not $Config) { $Config = Get-Config -Backend $Backend }
+    $p = [string]$Config.ToolsPath
+    if ([string]::IsNullOrWhiteSpace($p)) { return $null }
+    if (-not (Test-Path -LiteralPath $p)) { return $null }
+    (Resolve-Path -LiteralPath $p).Path
+}
+function Get-AdminRoot {
+    param([string]$Backend = (Get-BackendRoot), [hashtable]$Config)
+    $tools = Get-ToolsPath -Backend $Backend -Config $Config
+    if (-not $tools) { return $null }
+    Split-Path $tools -Parent
+}
+# Reponse commune quand l'outillage externe n'est pas configure (une seule redaction).
+function New-ToolsMissingResult {
+    @{
+        message = "Outillage externe non configure. Renseigne ToolsPath dans backend/config.local.psd1 (modele : config.local.sample.psd1)."
+        result  = @{ ok = $false }
+    }
 }
 
 function Get-ApiToken {
@@ -408,7 +456,7 @@ function Get-State {
         $stale = @($stale | Sort-Object @{ Expression = { if ($slow -contains $_.Name) { 1 } else { 0 } } }, Name)
         $mx = $null; $got = $false
         try {
-            $mx = New-Object System.Threading.Mutex($false, 'Local\HcpStateRecompute')
+            $mx = New-Object System.Threading.Mutex($false, 'Local\VigieStateRecompute')
             try { $got = $mx.WaitOne(0) }
             catch [System.Threading.AbandonedMutexException] { $got = $true }
             catch { $got = $false }
@@ -489,7 +537,8 @@ function Invoke-ActionById {
 
 # --- Idempotence : le serveur ecoute-t-il deja ? ---------------------------
 function Test-ServerUp {
-    param([string]$Address = '127.0.0.1', [int]$Port = 47600)
+    # Pas de valeur par defaut : l'adresse et le port n'ont qu'UNE definition (config.psd1).
+    param([Parameter(Mandatory)][string]$Address, [Parameter(Mandatory)][int]$Port)
     try {
         $c = [System.Net.Sockets.TcpClient]::new()
         $c.Connect($Address, $Port)
