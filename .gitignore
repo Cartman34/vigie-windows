@@ -1,8 +1,8 @@
 # --- Secrets & etat local (NE JAMAIS committer) ---
-backend/config.local.psd1
-backend/.secrets/
-backend/.state/
-backend/logs/
+apps/backend/config.local.psd1
+apps/backend/.secrets/
+apps/backend/.state/
+logs/
 
 # --- Sauvegardes locales creees pendant l'edition ---
 *.bak-*
