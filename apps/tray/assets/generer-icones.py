@@ -76,8 +76,23 @@ def draw_mark(size, color, frac, supersample=8):
         return (cx + radius * math.cos(a), cy + radius * math.sin(a))
 
     def arc_round(radius, a0, a1, col, width):
-        """Arc a extremites arrondies : Pillow ne sait pas les faire nativement."""
-        d.arc([cx - radius, cy - radius, cx + radius, cy + radius], a0, a1,
+        """Arc a extremites arrondies : Pillow ne sait pas les faire nativement.
+
+        PIEGE : `ImageDraw.arc(..., width=w)` epaissit le trait VERS L'INTERIEUR du
+        rectangle englobant. Un rectangle de rayon `radius` donne donc un trait occupant
+        [radius - w, radius], d'axe `radius - w/2` -- alors que SVG centre le trait SUR
+        le trace, soit [radius - w/2, radius + w/2].
+
+        Consequences de l'ancienne version : l'arc etait decale vers l'interieur d'une
+        demi-epaisseur, et les disques de coin, centres sur `radius`, depassaient vers
+        l'exterieur en formant des bosses visibles. C'est ce qui faisait diverger les
+        .ico de la simulation de l'atelier.
+
+        On elargit donc le rectangle a `radius + w/2` : le trait retombe centre sur
+        `radius`, exactement comme en SVG, et les coins se centrent sur `radius`.
+        """
+        outer = radius + width / 2.0
+        d.arc([cx - outer, cy - outer, cx + outer, cy + outer], a0, a1,
               fill=col, width=int(round(width)))
         cr = width / 2.0
         for a in (a0, a1):
