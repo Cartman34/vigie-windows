@@ -626,6 +626,12 @@ function Show-ElevationRationale {
         $form.BackColor       = $bg
         $form.ForeColor       = $fg
         $form.ClientSize      = New-Object System.Drawing.Size(580, 306)
+        # Icone de Vigie plutot que celle de PowerShell : la fenetre doit s'annoncer
+        # comme venant de l'application, pas de l'interpreteur qui l'execute.
+        try {
+            $ico = Join-Path (Get-BackendRoot) 'assets/tray/ok.ico'
+            if (Test-Path -LiteralPath $ico) { $form.Icon = New-Object System.Drawing.Icon($ico) }
+        } catch { }
 
         $lblTitle           = New-Object System.Windows.Forms.Label
         $lblTitle.Text      = $Title
