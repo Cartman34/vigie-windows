@@ -48,6 +48,22 @@ $uiScript = {
         $startupGrace = 25    # secondes de tolerance avant de declarer un echec de demarrage
         $iconHandle = [System.IntPtr]::Zero
 
+        # --- Pilotage par ordres deposes dans var/run ----------------------------------
+        # Le tray tourne ELEVE : depuis une session normale, on ne peut ni lire sa ligne
+        # de commande ni signaler un objet noyau qu'il a cree. Un dossier d'ordres evite
+        # ces deux obstacles, reste inspectable a l'oeil, scriptable depuis n'importe quoi,
+        # et accepte de nouveaux ordres sans toucher au mecanisme.
+        # Voir scripts/tray.ps1 pour le cote emetteur.
+        $runDir    = Join-Path $trayRoot 'var/run'
+        $heartbeat = Join-Path $runDir 'tray.alive'
+        if (-not (Test-Path -LiteralPath $runDir)) {
+            New-Item -ItemType Directory -Path $runDir -Force | Out-Null
+        }
+        # Un arret brutal laisse des ordres non consommes : ils ne doivent pas s'appliquer
+        # au demarrage suivant.
+        Get-ChildItem -LiteralPath $runDir -File -ErrorAction SilentlyContinue |
+            Remove-Item -Force -ErrorAction SilentlyContinue
+
         $launchHidden = {
             param($file, $argv)
             $psi = New-Object System.Diagnostics.ProcessStartInfo
@@ -65,9 +81,22 @@ $uiScript = {
             if ($pwsh) { $state.Proc = & $launchHidden $pwsh @('-NoProfile','-ExecutionPolicy','Bypass','-File', (Join-Path $backend 'start.ps1')) }
         }
         $stopServer = { try { if ($state.Proc -and -not $state.Proc.HasExited) { $state.Proc.Kill() } } catch { } }
+
+        # Sortie PROPRE, seul chemin de fin de vie. Libere l'icone : un processus tue
+        # laisse son icone en fantome dans la zone de notification, qui ne repond plus
+        # a rien et affiche indefiniment le dernier etat connu.
+        $quitApp = {
+            param($origine)
+            TLog ("arret demande (" + $origine + ")")
+            & $stopServer
+            try { $icon.Visible = $false; $icon.Dispose() } catch { }
+            try { Remove-Item -LiteralPath $heartbeat -Force -ErrorAction SilentlyContinue } catch { }
+            [System.Windows.Forms.Application]::Exit()
+        }
         $relaunch = {
             try { [void](& $launchHidden $pwsh @('-NoProfile','-ExecutionPolicy','Bypass','-File', $trayPath)) } catch { }
-            $icon.Visible = $false; $icon.Dispose(); [System.Windows.Forms.Application]::Exit()
+            try { $icon.Visible = $false; $icon.Dispose() } catch { }
+            [System.Windows.Forms.Application]::Exit()
         }
         # Ouvre la fenetre dediee (navigateur en mode --app). JOURNALISE chaque etape :
         # sans trace, un double-clic sans effet est indiagnosticable -- on ne sait meme
@@ -324,7 +353,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
         $miAbout = $menu.Items.Add('À propos de Vigie', $null, [System.EventHandler]{ & $openRepo })
         $miAbout.ToolTipText = $repoUrl
         [void]$menu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator))
-        [void]$menu.Items.Add('Quitter', $null, [System.EventHandler]{ & $stopServer; $icon.Visible = $false; $icon.Dispose(); [System.Windows.Forms.Application]::Exit() })
+        [void]$menu.Items.Add('Quitter', $null, [System.EventHandler]{ & $quitApp 'menu' })
 
         # Couleur, retrait et hauteur des items : regles ICI en un seul endroit, pour tous
         # les items d'un coup. Le retrait horizontal vient de la palette (TextPadX) et est
@@ -371,9 +400,37 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
             }
             $miInfo.Text = "État : $lbl"
             if ($app -ne $state.Drawn) { & $setIcon $app; $state.Drawn = $app; $icon.Text = "Vigie - $lbl"; TLog "app=$app" }
+            # Battement de coeur : c'est lui qui permet a un script de savoir si le tray
+            # est vivant, sans avoir a inspecter un processus eleve.
+            try {
+                Set-Content -LiteralPath $heartbeat -Encoding ASCII -NoNewline `
+                    -Value ("{0};{1};{2}" -f $PID, (Get-Date -Format 'o'), $lbl)
+            } catch { }
         }
         $timer = New-Object System.Windows.Forms.Timer; $timer.Interval = 8000; $timer.add_Tick($poll); $timer.Start()
         $first = New-Object System.Windows.Forms.Timer; $first.Interval = 2000; $first.add_Tick({ $first.Stop(); & $poll }); $first.Start()
+
+        # Lecture des ordres. Un simple sondage d'un dossier quasi vide : negligeable, et
+        # bien plus simple a maintenir qu'un FileSystemWatcher, dont les evenements
+        # arrivent sur un autre fil et devraient etre remis sur le fil d'interface.
+        $commandes = {
+            try {
+                $stop = Join-Path $runDir 'stop'
+                if (Test-Path -LiteralPath $stop) {
+                    Remove-Item -LiteralPath $stop -Force -ErrorAction SilentlyContinue
+                    & $quitApp 'ordre stop'
+                    return
+                }
+                $restart = Join-Path $runDir 'restart'
+                if (Test-Path -LiteralPath $restart) {
+                    Remove-Item -LiteralPath $restart -Force -ErrorAction SilentlyContinue
+                    TLog "arret demande (ordre restart)"
+                    & $relaunch
+                }
+            } catch { TLog ("lecture des ordres KO : " + $_.Exception.Message) }
+        }
+        $cmdTimer = New-Object System.Windows.Forms.Timer
+        $cmdTimer.Interval = 1000; $cmdTimer.add_Tick($commandes); $cmdTimer.Start()
 
         try { $icon.ShowBalloonTip(3000, 'Vigie', "Panneau lance en fond. Double-cliquez l'icone pour l'ouvrir.", [System.Windows.Forms.ToolTipIcon]::Info) } catch { }
 
