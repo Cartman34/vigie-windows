@@ -13,6 +13,41 @@
 
 ---
 
+## Sommaire
+
+Chaque décision porte un numéro **définitif** : il n'est jamais réattribué, même si la
+décision est plus tard remplacée (une nouvelle est alors ajoutée, qui dit laquelle elle
+remplace). C'est ce qui permet d'y renvoyer sans ambiguïté des mois plus tard.
+
+**Identité et nommage** — [D03](#d03) nom du projet · [D04](#d04) nommage des options
+validées · [D05](#d05) HYPERION est un nom de machine · [D28](#d28) Vigie vs Atelier ·
+[D30](#d30) apps nommées par techno
+
+**Structure du dépôt** — [D29](#d29) `apps/` + `scripts/` · [D33](#d33) `var/` et `config/`
+par app · [D32](#d32) pas de `_to_delete/` · [D35](#d35) réglages d'IDE non versionnés
+
+**Configuration** — [D15](#d15) une valeur, un seul endroit · [D18](#d18) socle générique
++ surcharge locale
+
+**Interface** — [D01](#d01) icône du tray · [D02](#d02) génération des `.ico` ·
+[D23](#d23) jauge pleine · [D27](#d27) graduations sous l'arc · [D08](#d08) écran de
+chargement · [D09](#d09) lien GitHub · [D19](#d19) menu Windows 11 · [D26](#d26) coins par
+découpe de région · [D20](#d20) WSL inactif signalé · [D25](#d25) redémarrage ≠ panne
+
+**Sécurité et installation** — [D22](#d22) expliquer avant toute élévation · [D34](#d34)
+l'Atelier filtre ce qu'il sert · [D07](#d07) bascule vers le dépôt · [D11](#d11)
+désinstallation des vestiges
+
+**Outillage** — [D24](#d24) l'Atelier · [D06](#d06) validation du JS sans Node ·
+[D21](#d21) statut `neutral` au contrat
+
+**Méthode de travail** — [D10](#d10) branche dédiée · [D14](#d14) commit puis push ·
+[D16](#d16) tout le backlog dans l'ordre · [D17](#d17) informations utiles seulement ·
+[D31](#d31) doc maintenue en toute circonstance · [D36](#d36) écrire les fichiers sans
+couche shell · [D12](#d12) `REPRISE.md` décrit le réel · [D13](#d13) `CHANGELOG.md` à jour
+
+---
+
 ## D01 — Icône du tray : « v1 — jauge à graduations »
 
 **Nom de référence : `icône tray v1 — jauge à graduations`.**
@@ -369,7 +404,7 @@ le **menu du tray** réglable, qui écrit les valeurs exactes à recopier dans
 | Configuration à un seul endroit | `BindAddress`, `Port` et `StartPage` dans `apps/atelier/config/config.psd1` — la config de **cette** app. L'URL en dérive, aucune recopie (**D15**). |
 | Outils de gestion | `-Status`, `-Stop`, `-Background`, `-NoBrowser`. Idempotent. Codes de retour distincts. |
 | Documentation | `apps/atelier/README.md` : démarrage, commandes, configuration, périmètre, tableau de dépannage. |
-| Aide intégrée | Aide basée sur les commentaires : `Get-Help .\docstelier.ps1 -Full`. |
+| Aide intégrée | Aide basée sur les commentaires : `Get-Help ./apps/atelier/atelier.ps1 -Full`. |
 
 **Périmètre** : écoute strictement locale, **aucun droit administrateur**, port distinct de
 celui du serveur applicatif — les deux cohabitent. Il ne sert aucune API, n'exécute aucune
@@ -439,7 +474,7 @@ code, ni dans la documentation, ni dans les conversations.
 | Serveur | **PowerShell + Pode** | **PHP** (`php -S`) |
 | Port | **47600** | **47610** |
 | Élévation | **oui** (`RunLevel Highest`) | **non**, jamais |
-| Lancement | tâche planifiée `Vigie` à l'ouverture de session | à la main, `docstelier.cmd` |
+| Lancement | tâche planifiée `Vigie` à l'ouverture de session | à la main, `apps/atelier/atelier.cmd` |
 | Code | `apps/backend-pode/`, `apps/frontend-web/`, `apps/tray/` | `apps/atelier/` |
 | Sondes, actions, secrets | oui | **aucun accès** |
 | Doit tourner pour l'utilisateur final | oui | non |
@@ -659,56 +694,83 @@ Le chemin n'est écrit qu'**une fois**, conformément à **D15**.
 `apps/*/var/` couvre d'un coup cache, journaux, état et secrets générés ; plus besoin
 d'énumérer. `apps/*/config/config.local.psd1` reste ignoré, son `.sample` versionné.
 
-## D34 — L''Atelier filtre ce qu''il sert
+## D34 — L'Atelier filtre ce qu'il sert
 
-**Défaut trouvé en testant** : l''Atelier sert la **racine du dépôt** — il lui faut des
+**Défaut trouvé en testant** : l'Atelier sert la **racine du dépôt** — il lui faut des
 fichiers de plusieurs apps (icônes du tray, frontend, contrat). Sans filtre, il exposait
-donc aussi pps/backend-pode/var/secrets/api.token, **le jeton de l''API de Vigie**,
+donc aussi `apps/backend-pode/var/secrets/api.token`, **le jeton de l'API de Vigie**,
 téléchargeable en HTTP.
 
-pps/atelier/router.php refuse désormais, quel que soit le chemin :
+`apps/atelier/router.php` refuse désormais, quel que soit le chemin :
 
 | Refusé | Pourquoi |
 |---|---|
-| ar/ | données d''exécution : cache, journaux, **secrets générés** |
-| config/ | configurations, dont les surcharges machine |
-| tout élément commençant par . | .git, .gitignore… |
-| .psd1, .log, .token | par extension, où qu''ils soient |
+| `var/` | données d'exécution : cache, journaux, **secrets générés** |
+| `config/` | configurations, dont les surcharges machine |
+| tout élément commençant par `.` | `.git`, `.gitignore`… |
+| `.psd1`, `.log`, `.token` | par extension, où qu'ils soient |
 
-**Liste de REFUS, pas d''autorisation** : une liste d''autorisation casserait dès qu''on
-ajoute une ressource à la page, et la tentation serait de l''élargir jusqu''à ne plus rien
+**Liste de REFUS, pas d'autorisation** : une liste d'autorisation casserait dès qu'on
+ajoute une ressource à la page, et la tentation serait de l'élargir jusqu'à ne plus rien
 filtrer.
 
-Les antislashs sont normalisés avant le test : sous Windows, pps\\backend-pode\\var\\
-atteindrait le même fichier en contournant un motif qui ne testerait que les slashs.
+Les antislashs sont normalisés avant le test : sous Windows, un chemin écrit avec des
+antislashs atteindrait le même fichier en contournant un motif qui ne testerait que les
+slashs.
 
-**telier.ps1 REFUSE de démarrer si 
-outer.php est absent.** Un filtre de sécurité
-qu''on peut désactiver en supprimant un fichier n''en est pas un.
+**`atelier.ps1` REFUSE de démarrer si `router.php` est absent.** Un filtre de sécurité
+qu'on peut désactiver en supprimant un fichier n'en est pas un.
 
-**Vérifié réellement** : jeton, cache, configs et .gitignore en **403** ; les 5
-ressources légitimes en **200** ; et trois contournements (traversée ../, encodage
-%2F, double slash) tous en **403**.
+**Vérifié réellement** : jeton, cache, configs et `.gitignore` en **403** ; les 5
+ressources légitimes en **200** ; et trois contournements (traversée `../`, encodage
+`%2F`, double slash) tous en **403**.
 
-**Portée du défaut** : l''Atelier écoute uniquement en local et ne tourne qu''à la demande,
-donc l''exposition restait limitée aux processus de la machine — qui peuvent de toute façon
-lire le fichier sur disque. Ce n''en était pas moins une fuite gratuite, et corrigée.
+**Portée du défaut** : l'Atelier écoute uniquement en local et ne tourne qu'à la demande,
+donc l'exposition restait limitée aux processus de la machine — qui peuvent de toute façon
+lire le fichier sur disque. Ce n'en était pas moins une fuite gratuite, et corrigée.
 
-## D35 — Les réglages d''IDE ne sont pas versionnés
+## D35 — Les réglages d'IDE ne sont pas versionnés
 
-.idea/, .vscode/ et *.code-workspace sont ignorés **en entier**.
+`.idea/`, `.vscode/` et `*.code-workspace` sont ignorés **en entier**.
 
-PhpStorm dépose lui-même un .idea/.gitignore qui exclut le volatil et le sensible
-(workspace.xml, dataSources* — là où atterriraient des identifiants de base de
-données). Git ne voyait donc que cs.xml et ce .gitignore, tous deux inoffensifs :
+PhpStorm dépose lui-même un `.idea/.gitignore` qui exclut le volatil et le sensible
+(`workspace.xml`, `dataSources*` — là où atterriraient des identifiants de base de
+données). Git ne voyait donc que `vcs.xml` et ce `.gitignore`, tous deux inoffensifs :
 vérifié, aucun mot de passe, jeton ni chemin machine.
 
-On ignore malgré tout le dossier entier : l''IDE ne sert pas à éditer ce projet, et des
-réglages d''éditeur versionnés finissent toujours par diverger d''un poste à l''autre.
+On ignore malgré tout le dossier entier : l'IDE ne sert pas à éditer ce projet, et des
+réglages d'éditeur versionnés finissent toujours par diverger d'un poste à l'autre.
 
 Si un jour la config IDE doit être partagée, le sous-ensemble à versionner serait
-cs.xml, modules.xml, *.iml et misc.xml — **jamais** workspace.xml ni
-dataSources*.
+`vcs.xml`, `modules.xml`, `*.iml` et `misc.xml` — **jamais** `workspace.xml` ni
+`dataSources*`.
 
-*(Note : .claude/worktrees/ est exclu par .git/info/exclude, un mécanisme local au
-dépôt et non versionné. C''est voulu : c''est de l''outillage propre à cette machine.)*
+*(Note : `.claude/worktrees/` est exclu par `.git/info/exclude`, un mécanisme local au
+dépôt et non versionné. C'est voulu : c'est de l'outillage propre à cette machine.)*
+
+## D36 — Le contenu de fichier s'écrit avec l'outil d'édition, pas à travers un shell
+
+**Défaut réel** : D34 et D35 ont été écrites en faisant passer du texte français dans une
+here-string PowerShell. PowerShell y traite l'accent grave comme caractère d'échappement :
+`` `a `` et `` `v `` ont été **avalés**, `` `r `` est devenu un retour chariot. Résultat :
+« `apps/...` » affichait « pps/... », « `var/` » affichait « ar/ », et toutes les
+apostrophes étaient doublées. Le texte était faux **et** illisible — dans le fichier censé
+faire autorité sur les décisions du projet.
+
+**Règle** : tout contenu de fichier — documentation, code, markdown accentué — s'écrit avec
+l'**outil d'édition** (écriture / remplacement exact), qui transmet le contenu tel quel.
+Aucune couche shell entre le texte et le fichier.
+
+Un shell ajoute au moins une passe d'interprétation : guillemets, accent grave, `$`, `%`,
+antislash. Chaque couche est une occasion de corrompre silencieusement. Ici il y en avait
+deux (PowerShell, puis Python), et c'est exactement ce qui est arrivé.
+
+**Ce à quoi servent les shells** : exécuter, mesurer, valider, inspecter. Pas à produire du
+contenu.
+
+Reste acceptable pour du texte **strictement ASCII et sans métacaractère** : un `sed`
+ponctuel, un ajout de ligne. Au moindre accent ou backtick, on passe par l'outil d'édition.
+
+**Vérification après écriture de doc** : chercher `''` (apostrophes doublées) et les
+backticks manquants autour des chemins. Voir **D31** — une doc fausse est pire qu'une doc
+absente, et celle-ci l'était.
