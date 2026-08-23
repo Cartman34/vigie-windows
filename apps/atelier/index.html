@@ -121,7 +121,7 @@
 <section>
   <h2>Marque du tray — réglage de la jauge</h2>
   <p class="hint">
-    Reproduction exacte de <code>generer-icones.py</code>. La <b>fraction</b> décide si la
+    Reproduction exacte de <code>generate-icons.py</code>. La <b>fraction</b> décide si la
     jauge paraît pleine. Juge à <b>16 px</b> : c'est la taille réelle dans la barre des tâches.
   </p>
 
@@ -165,7 +165,7 @@
     <b>Livré aujourd'hui</b> — conforme <code>1.00</code> (jauge pleine), démarrage
     <code>0.50</code>, erreur <code>0.14</code>. Une valeur retenue est à reporter dans
     <b>deux</b> endroits qui doivent rester identiques :
-    <code>apps/tray/assets/generer-icones.py</code> et le repli GDI+ de
+    <code>apps/tray/assets/generate-icons.py</code> et le repli GDI+ de
     <code>apps/tray/tray.ps1</code>. Puis régénérer les <code>.ico</code>.
   </div>
 </section>
@@ -245,7 +245,7 @@
 
 <script>
 // =============================================================================
-// 1) MARQUE — reproduction EXACTE de apps/tray/assets/generer-icones.py.
+// 1) MARQUE — reproduction EXACTE de apps/tray/assets/generate-icons.py.
 //    Ne modifier qu'en miroir du generateur, sinon l'atelier ment.
 // =============================================================================
 const COLORS = { ok:'#3fb950', warn:'#d29922', err:'#f85149' };
@@ -263,7 +263,7 @@ const ARC = (() => {
 })();
 const ARCLEN = 2 * Math.PI * R * (SPAN / 360);
 
-// Niveaux de detail — MIROIR EXACT de apps/tray/assets/generer-icones.py (D37).
+// Niveaux de detail — MIROIR EXACT de apps/tray/assets/generate-icons.py (D37).
 // En dessous d'un certain nombre de pixels, un element cesse d'etre lisible et devient
 // du bruit : on le retire plutot que de le laisser se transformer en tache.
 // Si ces seuils changent d'un cote, ils DOIVENT changer de l'autre, sinon l'atelier
