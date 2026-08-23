@@ -658,3 +658,38 @@ Le chemin n'est écrit qu'**une fois**, conformément à **D15**.
 
 `apps/*/var/` couvre d'un coup cache, journaux, état et secrets générés ; plus besoin
 d'énumérer. `apps/*/config/config.local.psd1` reste ignoré, son `.sample` versionné.
+
+## D34 — L''Atelier filtre ce qu''il sert
+
+**Défaut trouvé en testant** : l''Atelier sert la **racine du dépôt** — il lui faut des
+fichiers de plusieurs apps (icônes du tray, frontend, contrat). Sans filtre, il exposait
+donc aussi pps/backend-pode/var/secrets/api.token, **le jeton de l''API de Vigie**,
+téléchargeable en HTTP.
+
+pps/atelier/router.php refuse désormais, quel que soit le chemin :
+
+| Refusé | Pourquoi |
+|---|---|
+| ar/ | données d''exécution : cache, journaux, **secrets générés** |
+| config/ | configurations, dont les surcharges machine |
+| tout élément commençant par . | .git, .gitignore… |
+| .psd1, .log, .token | par extension, où qu''ils soient |
+
+**Liste de REFUS, pas d''autorisation** : une liste d''autorisation casserait dès qu''on
+ajoute une ressource à la page, et la tentation serait de l''élargir jusqu''à ne plus rien
+filtrer.
+
+Les antislashs sont normalisés avant le test : sous Windows, pps\\backend-pode\\var\\
+atteindrait le même fichier en contournant un motif qui ne testerait que les slashs.
+
+**telier.ps1 REFUSE de démarrer si 
+outer.php est absent.** Un filtre de sécurité
+qu''on peut désactiver en supprimant un fichier n''en est pas un.
+
+**Vérifié réellement** : jeton, cache, configs et .gitignore en **403** ; les 5
+ressources légitimes en **200** ; et trois contournements (traversée ../, encodage
+%2F, double slash) tous en **403**.
+
+**Portée du défaut** : l''Atelier écoute uniquement en local et ne tourne qu''à la demande,
+donc l''exposition restait limitée aux processus de la machine — qui peuvent de toute façon
+lire le fichier sur disque. Ce n''en était pas moins une fuite gratuite, et corrigée.

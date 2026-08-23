@@ -13,6 +13,11 @@
     L'Atelier n'expose aucune API, n'execute aucune sonde et n'a acces a aucun secret.
     Il ne doit pas tourner chez l'utilisateur final.
 
+    SECURITE : il sert la RACINE du depot (il lui faut des fichiers de plusieurs apps),
+    mais router.php refuse var/, config/, les fichiers caches, .psd1, .log et .token.
+    Sans ce routeur, le jeton de l'API de Vigie serait telechargeable en HTTP.
+    Le script REFUSE de demarrer si router.php est absent.
+
     POURQUOI un serveur plutot qu'un double-clic : ouverte en file://, la page ne peut pas
     lire les assets (les chemins relatifs cassent des que le fichier est deplace ou copie)
     et le navigateur refuse d'afficher l'ecran de chargement dans un cadre. Servie en http,
@@ -147,7 +152,15 @@ if (Get-AtelierProcess) {
 Write-Host ("Atelier (app de developpement) : " + $url)
 Write-Host ("Racine servie                  : " + $repoRoot)
 
-$phpArgs = @('-S', ("{0}:{1}" -f $address, $port), '-t', $repoRoot)
+# Le routeur FILTRE : l'Atelier sert la racine du depot, il exposerait sinon
+# apps/<app>/var/secrets/api.token, le jeton de l'API de Vigie. Voir router.php.
+$router  = Join-Path $PSScriptRoot 'router.php'
+if (-not (Test-Path -LiteralPath $router)) {
+    Write-Host "router.php introuvable : refus de demarrer sans filtre de securite." -ForegroundColor Red
+    Write-Host "  attendu : $router"
+    exit 1
+}
+$phpArgs = @('-S', ("{0}:{1}" -f $address, $port), '-t', $repoRoot, $router)
 
 # --- Tache de fond -----------------------------------------------------------
 if ($Background) {
