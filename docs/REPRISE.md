@@ -1,5 +1,9 @@
 # Vigie — reprise du projet (à lire en premier)
 
+> **Rôle de ce document (consigne utilisateur)** : servir à reprendre le travail en cas de
+> perte de session — **uniquement ce qui est utile à l'instant**. Pas de journal : le
+> passé vit dans `git log` et `CHANGELOG.md`, les règles dans `DECISIONS-VALIDEES.md`.
+
 Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, `PRISE-EN-MAIN.md`.
 
 ## Le projet
@@ -63,149 +67,32 @@ sort aussitôt puisque le port répond — on sert alors indéfiniment du code p
 - Agrégation + cache (mtime+TTL, single-flight, serve-stale) : `Get-State` dans `common.ps1`.
 - **Tâches de fond** : `Start-DetachedAction` (worker pwsh caché) ; ex. paquets via `Start-PkgJob` + `apps/backend-pode/workers/pkg-job.worker.ps1`. Une action longue répond `result.async=$true` + `module`; le front met la carte en « busy » et l'interroge jusqu'à fin.
 
-## État — FAIT (déployé sur la machine, validé hors-ligne)
-- Socle asynchrone non bloquant (`Start-DetachedAction`, `Remove-ProbeCache`, `Update-StateJson` avec mutex inter-processus).
-- Paquets : **une carte par gestionnaire**, **vérification ET mise à jour** en tâche de fond (winget/choco/scoop/npm/gem/pip), polling par carte. L'état « en cours » s'affiche dans le **liseré gauche** de la carte, qui clignote (**D46**) — le halo a été supprimé.
-- Paquets, **mise à jour AU CHOIX** (jumelle de **D45**) : « Mettre à jour » ouvre une fenêtre
-  de choix (`pkg-list-updates`, `kind: dialog`) ; seuls les paquets cochés sont mis à jour
-  (winget par `--id`, Chocolatey et pip par nom). Un gestionnaire qui ne sait pas cibler un
-  paquet (scoop, npm, gem) affiche quand même sa liste, **cochée et non décochable**, et le
-  dit. Le champ `upgOne` du catalogue (`common.ps1`) est la **seule** source de cette capacité.
-- Paquets, **interface graphique du gestionnaire** : bouton `pkg-open-gui` (`kind: manual`),
-  ajouté **uniquement si la cible existe** sur la machine — Microsoft Store pour winget,
-  Chocolatey GUI pour Chocolatey (absent ici), rien pour pip.
-- **Verrouillage Windows Update : natif** (plus aucun script hors dépôt). `lib/common.ps1`
-  porte `Get-UpdateTaskCatalog` (LA liste des dossiers, tâches et services — la sonde,
-  les actions et l'audit y puisent), `Get-UpdateLockState` (lecture complète),
-  `Set-UpdateLock` (unique porte d'entrée en écriture, refuse sans élévation et relit
-  l'état après coup) et `Invoke-UpdateAudit` (rapport texte + JSON dans `var/log/`).
-  `ToolsPath` est *préféré* s'il porte `update-mode.ps1`, jamais requis.
-- **VBS / intégrité mémoire : natifs** aussi. `Get-DeviceGuardCatalog` (cles + libellés),
-  `Get-DeviceGuardState` (distingue `configured` / `running` / `requested` / `effective`),
-  `Set-DeviceGuardFeature` (unique porte d'entrée, sauvegarde `.reg` dans `var/log`, refuse
-  sans élévation, **relit le registre** — jamais l'état actif, qui ne bouge qu'au
-  redémarrage) et `Invoke-DeviceGuardToggle` (décision + compte rendu, partagé par les deux
-  actions). La bascule s'appuie sur `effective` : recliquer avant de redémarrer **annule**
-  la demande au lieu de réécrire la même valeur.
-  La carte affiche « En attente de redémarrage » et propose `system-restart` **uniquement**
-  après une bascule de Vigie — pas sur un simple écart registre/actif, qui peut être
-  permanent (valeur imposée par l'UEFI ; c'est le cas sur cette machine : registre VBS=0,
-  VBS pourtant en cours).
-- `Test-RestartCountdown` (`common.ps1`) : « un redémarrage différé court-il encore ? »,
-  partagé par les cartes Windows Update et virtualisation.
-- **`ToolsPath` / `Get-AdminRoot` ne conditionnent plus aucune fonction.** Seule
-  `open-folder` les utilise, et la sonde `history.probe.ps1` **ne propose pas le bouton**
-  si le dossier n'est pas configuré ou n'existe pas.
-- Boutons de résolution : prennent le **libellé de l'action** (plus de « Résoudre » générique), n'apparaissent que si une action existe. **Icônes** (**D45**) : triangle = action immédiate ; **triangle d'avertissement orange** = confirmation ; liste cochée = fenêtre de choix ; flèche sortante = logiciel externe.
-- Résolutions câblées : Latence → `net-speedtest` ; Windows Update « Détectées » → `open-windows-update` (note raccourcie).
-- WSL : champ **Statut Actif/Inactif** coloré + **trio Démarrer/Redémarrer/Arrêter** (boutons pertinents). Actions `wsl-start`/`wsl-restart` + invalidation sonde.
-- Topbar : **liseré coloré sous l'en-tête = état de connexion à l'API** (vert live / orange maquette / rouge erreur). À ne pas confondre avec le liseré **gauche** de chaque carte, qui porte le statut de CE module (**D46**).
-- **Icône tray** : `.ico` multi-résolutions nets, design **option B validée** (anneau + graduations + aiguille à talon + point blanc), générés par `apps/tray/assets/generate-icons.py`, chargés par `tray.ps1` (`setIcon`). Le repli GDI+ a été **supprimé** (**D38**) : en cas d'échec, un simple disque de la couleur du statut, et l'échec est journalisé.
-- **Rebrand interface** : « Control Panel » → **« Vigie »** (titre onglet, sous-titre, `document.title`, tray). Le titre principal reste le **nom de la machine** (dynamique).
+## État actuel du produit (résumé — le détail est dans le code et les docs)
 
-## État — À FAIRE (backlog)
-1. ~~Écran de chargement soigné~~ — **FAIT** (**D08**) : `#splash` dans le HTML statique, « Vigie » en gros,
-   marque **D01** en SVG, effacement au premier chargement (durée mini 550 ms, garde-fou 90 s).
-2. ~~Lien GitHub retrouvable~~ — **FAIT** (**D09**) : splash, topbar, pied de page, menu tray
-   « À propos de Vigie ». URL en **constante unique** par langage (`REPO_URL` / `$RepoUrl`).
-3. ~~Rendre `apps/backend-pode/config/config.psd1` générique~~ — **FAIT** (**D18**) : socle versionné générique
-   + `config.local.psd1` (ignoré par git) + `config.local.sample.psd1`. `ToolsPath` optionnel,
-   URL et port dérivés d'un seul endroit (`Get-AppUrl` / `Get-ApiUrl` / `Get-ToolsPath` /
-   `Get-AdminRoot`), plus aucune valeur en dur (**D15**).
-4. ~~Style du menu contextuel du tray~~ — **FAIT et VALIDÉ à l'œil** par l'utilisateur
-   (**D19**) : coins arrondis natifs DWM, gris neutre Win11, texte centré verticalement
-   (`OnRenderItemText` fixe lui-même `e.TextRectangle`), survol **pleine largeur**,
-   séparateurs alignés sur le retrait du texte, palette définie une seule fois.
-5. **Terminer le retrait du nom de machine** dans le code — **défaut de généricité**, pas un point
-   cosmétique : le produit ne doit contenir aucune valeur propre à un PC donné.
-   Fait : tâche planifiée `Vigie`, raccourci `Vigie.url`, mutex `Local\VigieState_*` et
-   `Local\VigieStateRecompute` (`common.ps1`), titre openapi `Vigie API`, lanceur
-   `scripts/start-vigie.vbs`, documentation.
-   Également fait : `apps/tray/tray.ps1` (mutex `VigieTray`, types `VigieNative` / `VigieDarkColors`)
-   et les variables d'environnement `VIGIE_BACKEND` / `VIGIE_TOKEN` / `VIGIE_PORT` (ex-`HCP_*`).
-   **Le nom de machine a totalement disparu du projet** (vérifié par recherche exhaustive).
-   Exception : `docs/maquettes-validees/` n'est pas retouché (archive des supports de décision).
-6. ~~Couleur WSL « Inactif »~~ — **FAIT** (**D20**) : champ **et** carte en rouge (la contradiction
-   d'avant est levée). Rebasculable en **une seule ligne** (`$inactiveSeverity` en tête de la sonde),
-   sans rien toucher au front.
-7. **Migrer l'installation** (**D07**) — exige un PowerShell **administrateur**, impossible depuis
-   la session de l'agent :
-   `scripts/install-autostart.ps1` (tâche `Vigie` pointant sur le dépôt), puis
-   `scripts/uninstall-legacy.ps1 -LegacyWorkspace <ancien dossier>` (**D11**) pour retirer la tâche
-   et le raccourci hérités et mettre l'ancien espace de travail de côté en `.old`.
-   Le lancer d'abord avec `-WhatIf` : son chemin élevé n'a pas pu être testé.
-8. **Supprimer définitivement** `LocalWork/hyperion-control-panel.old` une fois la migration confirmée.
-   Aucun script ne le fait : c'est une suppression, elle reste manuelle et volontaire.
-9. ~~Menu du tray refusé (alignement vertical, survol)~~ — **VALIDÉ** par l'utilisateur.
-   Ce qui a fini par marcher : ne plus se battre contre le moteur de disposition des menus
-   déroulants. Il renvoie un `ContentRectangle` incohérent (`{X=-12, Y=-5, Height=44}` pour
-   un item de 34 px), ce qui rend `Padding` **inutilisable pour placer le contenu** — quatre
-   tentatives s'y sont perdues. La surcharge `OnRenderItemText` fixe désormais elle-même
-   `e.TextRectangle` sur toute la hauteur de l'item, avec `TextFormatFlags.VerticalCenter`.
-   Le survol est pleine largeur (`InsetX = InsetY = CornerRadius = 0`), borné à la largeur
-   visible du menu pour ne pas se faire rogner à droite.
-10. ~~L'Atelier montre d'anciennes valeurs de menu~~ — **FAIT** (**D24**) :
-    `apps/atelier/palette.php` lit les constantes dans `apps/tray/tray.ps1`, la page en part
-    au chargement et signale si les curseurs s'en écartent. Plus de recopie, donc plus de
-    dérive. Vérifié servi : valeurs conformes, en-tête « identique au livré », aucune erreur
-    console.
-11. **Traduire en anglais les commentaires internes des scripts** (**D41**). Les noms de fichiers
-    et les renommages sont faits ; les commentaires portent le raisonnement derrière chaque
-    choix — c'est une passe fichier par fichier, jamais un `sed`. Concerne aussi les
-    identifiants encore français (`$cible`, `$ecarts`, paramètre `-Verifier` de
-    `scripts/install-hooks.ps1`).
-12. ~~Écran de chargement (splash) jamais validé~~ — **VU et réglé** par l'utilisateur :
-    jauge montant par crans en boucle, vert fixe, sous-titre à 16 px du nom.
-13. **Vue de gestion des modules** — **LIVRÉ** (D48, 24/08 après-midi) : `module.psd1`
-    par dossier de sondes, choix utilisateur dans `config/modules.local.psd1` (ignoré par
-    git, motif ajouté après un faux pas), `units[]` au contrat même désactivés,
-    `GET /units` + `POST /units/{id}`, tiroir « Modules » (bouton ▦ + menu ⋮ en haut à
-    droite de chaque carte, avec cases de notification par carte). Éprouvé en réel :
-    WSL coupé → carte et groupe disparus ; rallumé → recalcul et retour.
-    Reste ouvert : quelles CLÉS DE CONFIGURATION exposer par module (seule question
-    restante de D48 — rejoint la Q1 de l'historique sur les seuils).
+Vigie tourne en production sur la machine : tray élevé (auto-démarré par tâche planifiée,
+qu'il répare lui-même : délai MSIX + reprises) + serveur Pode 47600 + front une page +
+Atelier PHP 47610. Modules actifs : Windows Update (verrouillage natif, MAJ au choix),
+Système (disque avec seuil paramétrable D57, ressources, OS), Sécurité (antivirus,
+pare-feu, VBS/HVCI natifs), Réseau (Wi-Fi scindé, stabilité), WSL, Outils & paquets
+(une carte par gestionnaire, MAJ au choix, résultat conservé), **Jeux** (détection du
+jeu, applis gourmandes, seuils D57). Menu Paramètres unique (D56) : notifications (D54),
+modules (D48), paramètres (D57), apparence, à propos. Fonte d'icônes maison (D58).
+Historique : étapes 1-2 (échantillonnage + `GET /history/{measureId}`), **aucun
+affichage** (décision Q2). Docs de référence : `MODULES.md` (créer/maintenir un module),
+`DESIGN.md` (design système), `DECISIONS-VALIDEES.md` (toutes les règles).
 
-14. **Documentation publique** — livrée : `README.md` (EN) et `README.fr.md` (FR) se
-    renvoyant l'un à l'autre, `docs/en/` et `docs/fr/` en miroir, développement séparé.
-    Licence **MIT** (`LICENSE`). **Reste** : le workflow de publication n'est pas versionné,
-    le jeton GitHub n'ayant pas la permission *Workflows*. Son YAML complet est dans
-    `docs/en/development/README.md` et `docs/fr/developpement/README.md`, à coller via
-    l'interface web de GitHub ou à débloquer en accordant la permission.
+### File de travail (dans l'ordre)
 
-15. **Archive de distribution** — livrée : `scripts/build-release.ps1` produit
-    `dist/vigie-0.1.zip` (93 fichiers). Elle exclut l'Atelier, les documents de travail
-    internes et tout ce qu'ignore `.gitignore` ; un garde-fou **sort en code 2** si un
-    secret est forcé dans l'index. Aucune release n'a encore été publiée.
-
-16. **Autonomie du produit** — le verrouillage Windows Update, l'audit et les bascules
-    VBS/HVCI sont **internalisés** : `ToolsPath` et `Get-AdminRoot` ne conditionnent plus
-    aucune fonction. **Reste à éprouver depuis un serveur ÉLEVÉ** : aucune écriture réelle
-    n'a été appliquée (pose du verrou, bascule VBS/HVCI, sauvegarde `.reg`), ni le
-    comportement après un vrai redémarrage.
-
-17. **Traduire en anglais les commentaires internes des scripts** (**D41**). Les noms de
-    fichiers et les renommages sont faits ; les commentaires portent le raisonnement
-    derrière chaque choix — passe fichier par fichier, jamais un `sed`. Concerne aussi les
-    identifiants encore français (`$cible`, `$ecarts`, paramètre `-Verifier` de
-    `scripts/install-hooks.ps1`).
-
-18. **Trois propositions en attente d'arbitrage**, visibles dans l'Atelier (section
-    « Propositions à évaluer », `http://127.0.0.1:47610/apps/atelier/index.html`) :
-    étendre la vérification du contrat aux actions et au front ; garder un historique pour
-    signaler les dérives ; faire alerter le tray sur changement d'état.
-
-19. **Améliorations mineures repérées, aucune bloquante** :
-    - `apps/atelier/index.html` écrit son propre port dans deux messages (`location.origin`
-      supprimerait la recopie) ;
-    - `Invoke-Native` juge le succès sur « code = 0 » seul ; le cas 3010 (« redémarrage
-      requis », qui est un succès) n'est traité que dans `Invoke-PkgUpgrade` ;
-    - `openapi.yaml` écrit le port dans `servers.url`, deuxième source pour une valeur qui
-      vit dans `config.psd1` ;
-    - `wu-install.json` conserve son résultat sans limite d'âge : la carte affiche
-      « Dernière installation » indéfiniment ;
-    - `.claude/settings.json` porte `disableAllHooks: true`, posé pour tenter de désactiver
-      l'aperçu automatique (**D47**) : **sans effet constaté**, à retester après un
-      redémarrage de session et à retirer s'il ne sert à rien.
+1. **Routes anciennes en JSON** : `/modules/{id}` et consorts rendent la page d'erreur
+   HTML de Pode sur 404/400 — passer au `-StatusCode` comme la route history.
+2. **Étendre les paramètres** (D57) : TTL par sonde, paquets ignorés (winget/choco),
+   cible de latence, rétention d'historique par mesure.
+3. **Notifications déclarées** : passer de « une par carte » à `notifications[]` par
+   module (le tiroir Modules est déjà structuré pour).
+4. **Historique étapes suivantes UNIQUEMENT sur demande** (Q2 : rien à l'écran).
+5. Fond ancien : éprouver verrou/VBS après un vrai redémarrage (le redémarrage a eu lieu
+   le 24/08 au soir — l'épreuve reste à faire) ; commentaires en anglais (D41) ;
+   workflow GitHub à coller ; bulle de notification du tray jamais observée en réel.
 
 ## État de la machine de l'utilisateur — à savoir avant de conclure quoi que ce soit
 
@@ -275,121 +162,6 @@ trancher, puis lui redonner le sujet corrigé.
 - Ils ne peuvent pas juger un rendu visuel : ce qui se voit reste à l'agent principal, via
   la page **servie** (jamais `file://`).
 
-
-## Session du 24/08 après-midi — livré et vérifié
-
-- **D51** : `check-probes.ps1 -Only` (boucle de dev ciblée) ; passe par défaut ~2 s au lieu
-  de 19 s (sondes coûteuses inchangées vérifiées sur leur dernière sortie réelle) ; `-All`
-  avant livraison.
-- **D52** : journal `var/cache/probe-runs.jsonl` — chaque exécution réelle d'une sonde,
-  avec durée et origine (`Write-ProbeRun`/`Get-ProbeRuns`). Nourri par `Get-State` ET par
-  le contrôleur.
-- **D53** : historique validé — conceptions cible et migration dans `docs/conception/`
-  (réalignées sur D52 par le sous-agent). **Q1** (seuils de dérive) et **Q2** (restitution
-  des événements) attendent l'arbitrage — visibles dans l'Atelier, page Propositions.
-- **D54** : notifications du tray sur bascule de module — guetteur dans `apps/tray/tray.ps1`
-  (lecture du cache d'état, jamais /state), réglages `config/notifications.local.json` via
-  `GET/POST /notifications`, popin ⚙ dans l'en-tête. **Non éprouvé en réel : la bulle
-  elle-même** (aucun module n'a basculé depuis le déploiement). Deux pièges corrigés :
-  `modules` est un dictionnaire (pas PSObject.Properties), et Pode livre le corps JSON en
-  dictionnaire aussi.
-- **D55** : Atelier réorganisé — un sujet = une page (`tray-marque`, `tray-menu`, `splash`,
-  `propositions`), accueil en sommaire En cours / Archivé, lien « Ouvrir Vigie » sur toutes
-  les pages via `vigie.php` (port LU dans la config, jamais recopié).
-- Wi-Fi scindé en « Lien Wi-Fi » + « Stabilité » (sous-agent, vérifié en réel ; le chemin
-  « coupures détectées » n'a pas pu être observé).
-- « Redémarrage en attente » déplacé : carte **Windows** (avec action) ; la carte mises à
-  jour propose aussi le redémarrage quand la dernière installation le requiert (le bouton
-  ne s'y voit qu'après une installation lancée depuis Vigie).
-- **D56** : menu **Paramètres** unique (⚙) — onglets Notifications / Modules / Apparence /
-  À propos ; thème rapide au footer près du logo GitHub, GitHub retiré de l'en-tête ;
-  le ⋮ d'une carte ouvre l'onglet Modules sur son module. Tout nouveau réglage y va.
-- Front : footer **fixe**, `toast()` réparé (visait un élément disparu), favicon versionnée
-  par le build (cache navigateur), bouton **Atelier** dans l'en-tête **uniquement si le
-  serveur local répond** (détection côté serveur, `Get-AtelierUrl` dans /health), bouton de
-  thème en icône.
-
-
-### Fin de journée du 24/08 — suite et fin de session
-
-- **D56** livré puis REFONDU : menu Paramètres = tiroir **large (720 px)** à navigation
-  latérale (icônes : ⚑ notifications, 🧩 modules, ☀ apparence, i-cerclé à propos) ; le
-  bouton rapide de thème vit au **footer**, GitHub retiré de l'en-tête (footer + À propos).
-  Apparence en **cartes-radio** de thèmes (extensibles). Onglet Modules : sous-sections
-  **Notifications** (un switch par notification — aujourd'hui une par carte, mais le modèle
-  est « n notifications par module », demain déclarées) et **Paramètres**.
-- **D57** livré : `Config` (défauts, versionnés dans `module.psd1`) + `Parameters`
-  (déclaration) + surcharges dans `config/parameters.local.json` via
-  `GET/POST /parameters(/unit)` ; `Get-ModuleSetting` = seul point de lecture. Premier cas
-  réel éprouvé de bout en bout : seuil d'alerte du disque (60 → 150 → warn → défaut → ok).
-  Un changement invalide les sondes du module ; le panneau se réaffiche aussitôt, les
-  cartes se recalculent derrière. **Candidats suivants** : TTL par sonde, paquets ignorés
-  (winget/choco), cible de latence, rétention d'historique.
-- **Design système** : `docs/DESIGN.md` (DA en 5 principes + tableau des composants) +
-  page Atelier `design-systeme.html` — **palette lue en direct** dans le front par
-  `tokens.php` (même principe que palette.php), composants reproduits en miroir.
-  DISCIPLINE : toute évolution visuelle met la page à jour dans la même livraison.
-- **Flux paquets cohérent** : pendant = « 1 sur 3 en cours… (depuis N min) » + liste ;
-  après = « Dernière mise à jour : … réussie / N ÉCHEC(S) » conservé dans la carte
-  (`sel` posé par Start-PkgJob, `last` écrit par le worker). GameInput : l'échec venait de
-  l'installateur MSI (1603) — cause probable : redémarrage Windows en attente.
-- **Auto-guérison du serveur** : panne réelle vécue — Pode tenait le port mais répondait
-  408 à tout (NullReferenceException du listener). Le tray détecte désormais « port ouvert
-  + /health muet ×3 » et tue/relance le serveur seul.
-- **Icônes** : règle consignée (police + habillage CSS, SVG réservé à la marque).
-  **CHOIX EN ATTENTE** : fonte d'icônes — voie 1 recommandée (Bootstrap Icons vendorisée,
-  MIT, un woff2 dans le dépôt) ou voie 2 (fonte maison, fonttools à installer).
-- **Q1/Q2 arbitrés** (voir D57) ; page Propositions de l'Atelier à jour.
-- **Incident consigné** : un script d'édition planté a laissé `index.html` à 0 octet,
-  commité et poussé — d'où la discipline « écriture atomique » (plus haut) et l'interdit
-  de chaîner git derrière un script par un simple retour à la ligne.
-
-- **Autostart en panne au logon du 24/08 au soir** : la tâche « Vigie » échoue en
-  0xC0070154 — pwsh vient du Store (MSIX) et son paquet n'est pas prêt à la seconde du
-  logon. Correctif dans `install-autostart.ps1` (délai PT45S + 3 reprises/1 min), mais la
-  tâche DÉJÀ INSTALLÉE n'a pas pu être modifiée sans élévation : **relancer une fois
-  `scripts/install-autostart.ps1` (UAC) pour l'appliquer**. En attendant, relance manuelle
-  propre : `Start-ScheduledTask -TaskName Vigie` (élevé sans UAC). L'Atelier se lance par
-  `apps/atelier/atelier.ps1` (jamais élevé).
-
-### Soirée du 24/08 — après le redémarrage machine
-
-- **Autostart** : cause trouvée (0xC0070154, pwsh MSIX pas prêt au logon) ; correctif
-  dans l'installeur ET **auto-réparation par le tray** (élevé, il corrige sa propre tâche
-  au démarrage : délai PT45S + 3 reprises — constaté posé sur la tâche réelle).
-- **Historique étapes 1 et 2 FAITES** (deux passes de SA, vérifiées en production) :
-  échantillonnage silencieux (`var/history/*.jsonl`) + `GET /history/{measureId}` au
-  contrat. **Q2 rappelée par l'utilisateur : AUCUN affichage** — pas de sparkline sans
-  demande explicite. Défaut préexistant signalé par le SA : les anciennes routes rendent
-  la page d'erreur HTML de Pode au lieu de JSON sur 404/400 (sa route contourne par
-  `-StatusCode`) — correction en file.
-- **Fonte d'icônes maison** (D58) : générateur + ttf + intégration front complète
-  (en-tête, badges, cartes, Paramètres, footer) ; jugée sur captures par l'utilisateur
-  (à distance : passer par Chrome headless + SendUserFile, le panneau navigateur ne
-  composite pas).
-- **Module Jeux** (`probes/gaming/`) : jeu détecté (premier plan ou top GPU), ressources
-  du jeu, « autres applis gourmandes » en warn au-delà des seuils (CPU 1 % par défaut —
-  demande utilisateur : sur ce processeur, 1 % normalisé tous cœurs est déjà une charge),
-  3 paramètres D57. Mesures sans compteurs localisés (delta Get-Process + GPU Engine).
-  Éprouvé SANS jeu (VIGIE_FAKE_GAME) ET sous charge GPU réelle (WebGL, 19 % — détection
-  par le vrai chemin).
-- **`docs/MODULES.md` créé : LA référence** pour créer/maintenir modules et cartes — à
-  citer dans tout brief de SA touchant aux sondes ; inscrite dans les disciplines.
-- Environnement : `fonttools` et `pillow` installés (pip) — generation de fonte et rendu
-  de planches PNG pour jugement à distance.
-
-### File de travail (dans l'ordre)
-
-1. **Routes anciennes en JSON** : `/modules/{id}` et consorts rendent la page d'erreur
-   HTML de Pode sur 404/400 — passer au `-StatusCode` comme la route history.
-2. **Étendre les paramètres** (D57) : TTL par sonde, paquets ignorés (winget/choco),
-   cible de latence, rétention d'historique par mesure.
-3. **Notifications déclarées** : passer de « une par carte » à `notifications[]` par
-   module (le tiroir Modules est déjà structuré pour).
-4. **Historique étapes suivantes UNIQUEMENT sur demande** (Q2 : rien à l'écran).
-5. Fond ancien : éprouver verrou/VBS après un vrai redémarrage (le redémarrage a eu lieu
-   le 24/08 au soir — l'épreuve reste à faire) ; commentaires en anglais (D41) ;
-   workflow GitHub à coller ; bulle de notification du tray jamais observée en réel.
 
 ## Décisions validées
 Voir `docs/DECISIONS-VALIDEES.md` : icône tray = option B (graduations + talon confirmés) ; nom = dépôt « Vigie Windows » (slug `vigie-windows`), interface « Vigie » à la place de « Control Panel ».
