@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Design système — atelier Vigie</title>
+<!--
+  PAGE MAQUETTE DU DESIGN SYSTÈME — à maintenir à jour à CHAQUE évolution visuelle du
+  front (c'est une discipline du projet, voir docs/DESIGN.md).
+
+  La PALETTE est lue en direct dans apps/frontend-web/index.html via tokens.php : elle ne
+  peut pas dériver. Les EXEMPLES de composants sont des reproductions locales : si un
+  composant change dans le front, cette page doit être retouchée en miroir — comme la
+  géométrie de la jauge sur la page « Marque du tray ».
+-->
+<link rel="stylesheet" href="atelier.css">
+<style>
+  .crumb{color:var(--muted);text-decoration:none;font-size:12.5px;border:1px solid var(--border);border-radius:7px;padding:4px 10px}
+  .crumb:hover{color:var(--text);border-color:var(--accent)}
+  .crumb.vigie{margin-left:auto;color:var(--accent);border-color:var(--accent)}
+  .crumb.vigie:hover{background:var(--accent);color:#fff}
+  .badge{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:2px 9px;border-radius:999px}
+  .badge.encours{color:var(--accent);background:rgba(56,139,253,.14)}
+
+  /* --- Palette --- */
+  .sw-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+  .sw{border:1px solid var(--border);border-radius:9px;overflow:hidden;font-size:11.5px}
+  .sw .c{height:44px}
+  .sw .t{padding:6px 9px;display:flex;justify-content:space-between;gap:6px}
+  .sw .t code{color:var(--muted)}
+  .sw .t b{font-variant-numeric:tabular-nums;font-weight:600}
+
+  /* --- Reproductions de composants (miroir du front) --- */
+  .demo{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;background:var(--bg);
+        border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px}
+  .lgd{color:var(--muted);font-size:12px;margin:0 0 14px;max-width:80ch}
+  .lgd code{font-size:11.5px}
+
+  .d-card{background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--warn);
+          border-radius:10px;padding:13px 15px;width:280px;font-size:13px}
+  .d-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .d-name{font-weight:600;flex:1}
+  .d-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;
+           padding:2px 8px;border-radius:999px}
+  .d-badge.ok{color:var(--ok);background:rgba(63,185,80,.13)}
+  .d-badge.warn{color:var(--warn);background:rgba(210,153,34,.13)}
+  .d-badge.error{color:var(--err);background:rgba(248,81,73,.13)}
+  .d-field{display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:1px dashed var(--border)}
+  .d-field:last-child{border-bottom:none}
+  .d-dot{width:7px;height:7px;border-radius:50%}
+  .d-val{margin-left:auto;font-weight:700}
+  .ic-i{width:14px;height:14px;border:1.4px solid var(--muted);border-radius:50%;color:var(--muted);
+        display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;font-style:normal}
+
+  .d-modebar{height:3px;border-radius:2px;width:220px}
+
+  .d-act{font:inherit;font-size:12.5px;font-weight:600;border-radius:7px;padding:6px 11px;cursor:default;
+         display:inline-flex;align-items:center;gap:7px;border:1px solid var(--border);
+         background:var(--panel);color:var(--text)}
+  .d-act .ai{font-weight:700}
+  .d-act.fix .ai{color:var(--ok)}   .d-act.fix:hover{border-color:var(--ok);color:var(--ok)}
+  .d-act.info .ai{color:var(--accent)} .d-act.info:hover{border-color:var(--accent);color:var(--accent)}
+  .d-act.danger .ai{color:var(--err)} .d-act.danger:hover{border-color:var(--err);color:var(--err)}
+
+  .d-confirm{border-radius:10px;border:1px solid var(--border);background:var(--panel);
+             padding:13px 15px;width:250px;font-size:12.5px}
+  .d-confirm b.o{color:var(--warn)} .d-confirm b.r{color:var(--err)}
+  .d-confirm .bts{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+  .d-confirm .bts span{border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:12px}
+  .d-confirm .bts .p{background:var(--accent);border-color:var(--accent);color:#fff}
+  .d-confirm .bts .d{background:var(--err);border-color:var(--err);color:#fff}
+
+  table.regles{border-collapse:collapse;font-size:12.5px;width:100%}
+  table.regles th,table.regles td{border:1px solid var(--border);padding:7px 10px;text-align:left;vertical-align:top}
+  table.regles th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+</style>
+</head>
+<body>
+<header>
+  <a class="crumb" href="index.html">&larr; Atelier</a>
+  <h1>Design système</h1>
+  <span class="badge encours">sujet permanent</span>
+  <span class="sub">la direction artistique de Vigie, avec exemples — maintenu à chaque évolution visuelle</span>
+<a class="crumb vigie" href="vigie.php" target="_blank" rel="noopener">Ouvrir Vigie ↗</a>
+</header>
+<main>
+
+<section>
+  <h2>Direction artistique — en cinq principes</h2>
+  <p class="hint">
+    <b>1. Sobriété sombre d'abord</b> : fond profond, panneaux à peine plus clairs, la couleur est
+    réservée au <b>sens</b> (statut, sévérité), jamais à la décoration.
+    <b>2. Le statut se lit sans lire</b> : liserés, pastilles et badges portent la même échelle
+    ok / warn / error partout (D46, D49).
+    <b>3. Une action annonce sa sévérité</b> : neutre au repos, sa couleur au survol ; l'icône, elle,
+    est toujours colorée (D50).
+    <b>4. Le texte explique, l'infobulle décrit</b> : la valeur est dans la carte, l'aide en tooltip,
+    le guide en dépliant ou fenêtre (D49).
+    <b>5. Icônes à partir d'une police</b>, habillées en CSS si besoin (cercle, pastille) —
+    le SVG est réservé à la marque (jauge, GitHub).
+  </p>
+</section>
+
+<section>
+  <h2>Palette — lue en direct dans le front</h2>
+  <p class="hint">Valeurs extraites de <code>apps/frontend-web/index.html</code> par <code>tokens.php</code> :
+     cette section ne peut pas dériver. À gauche le thème sombre (défaut), à droite le clair.</p>
+  <p class="warn" id="tokWarn" hidden></p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px">
+    <div><h3 style="font-size:12px;color:var(--muted);margin:0 0 8px">SOMBRE</h3><div class="sw-grid" id="swDark"></div></div>
+    <div><h3 style="font-size:12px;color:var(--muted);margin:0 0 8px">CLAIR</h3><div class="sw-grid" id="swLight"></div></div>
+  </div>
+</section>
+
+<section>
+  <h2>Statuts — la même échelle partout</h2>
+  <p class="lgd">Deux liserés distincts (D46) : <code>.modebar</code> sous l'en-tête = statut de
+     l'<b>application</b> ; le liseré <b>gauche</b> d'une carte = statut du <b>module</b>.
+     Le badge de carte répète le statut en toutes lettres, avec son icône en police.</p>
+  <div class="demo">
+    <div>
+      <div class="d-modebar" style="background:var(--ok);margin-bottom:6px"></div>
+      <div class="d-modebar" style="background:var(--warn);margin-bottom:6px"></div>
+      <div class="d-modebar" style="background:var(--err)"></div>
+      <p class="lgd" style="margin:8px 0 0">liseré application</p>
+    </div>
+    <span class="d-badge ok">✓ Conforme</span>
+    <span class="d-badge warn">! À voir</span>
+    <span class="d-badge error">✕ Problème</span>
+    <div class="d-card">
+      <div class="d-head"><span class="d-name">Carte exemple</span><span class="d-badge warn">! À voir</span></div>
+      <div class="d-field"><span class="d-dot" style="background:var(--ok)"></span>Champ conforme <span class="ic-i">i</span><span class="d-val" style="color:var(--ok)">Oui</span></div>
+      <div class="d-field"><span class="d-dot" style="background:var(--warn)"></span>Champ à voir <span class="ic-i">i</span><span class="d-val" style="color:var(--warn)">Non</span></div>
+      <p class="lgd" style="margin:8px 0 0">liseré module à gauche ; l'aide vit dans l'infobulle du <span class="ic-i">i</span></p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Actions — la couleur suit la sévérité, au survol</h2>
+  <p class="lgd">Sévérités (D50) : <b>fix</b> (vert, corrige), <b>info</b> (bleu, informe),
+     <b>danger</b> (rouge, touche la machine). Bouton <b>neutre au repos</b>, il prend sa couleur
+     au survol ; l'icône est toujours colorée. Les points de suspension sont <b>réservés à une
+     action en cours</b> (« Mise à jour… » = ça tourne, jamais un libellé au repos).</p>
+  <div class="demo">
+    <button class="d-act fix"><span class="ai">▲</span>Basculer VBS</button>
+    <button class="d-act info"><span class="ai">▶</span>Vérifier les mises à jour</button>
+    <button class="d-act danger"><span class="ai">⏻</span>Redémarrer Windows</button>
+    <button class="d-act" disabled style="opacity:.6"><span class="ai" style="color:var(--accent)">▶</span>Mise à jour…</button>
+  </div>
+</section>
+
+<section>
+  <h2>Actions critiques — deux confirmations, deux endroits</h2>
+  <p class="lgd">Standard D50 : première fenêtre au <b>centre</b>, alerte en <b>gras orange</b> ;
+     seconde <b>en haut</b>, en <b>gras rouge</b>, libellés différents — elles ne se superposent
+     jamais et la seconde nomme la conséquence. Le geste reste réversible quand c'est possible
+     (redémarrage différé 60 s, annulable).</p>
+  <div class="demo">
+    <div class="d-confirm"><b class="o">! Redémarrer Windows ?</b><br>Les applications ouvertes seront fermées.
+      <div class="bts"><span>Annuler</span><span class="p">Continuer</span></div></div>
+    <div class="d-confirm"><b class="r">! Dernière étape</b><br>Le redémarrage fermera votre session dans 60 secondes.
+      <div class="bts"><span>Annuler</span><span class="d">Redémarrer</span></div></div>
+  </div>
+</section>
+
+<section>
+  <h2>Règles d'écriture des textes</h2>
+  <table class="regles">
+    <tr><th>Où</th><th>Règle</th><th>Exemple</th></tr>
+    <tr><td>Valeur de champ</td><td>courte, factuelle ; la couleur porte le statut</td><td>« 3 disponible(s) »</td></tr>
+    <tr><td>Pendant une opération</td><td>dire QUOI, sur COMBIEN, depuis QUAND</td><td>« 1 sur 3 en cours… (depuis 2 min) »</td></tr>
+    <tr><td>Après une opération</td><td>le résultat reste visible dans le guide</td><td>« Dernière mise à jour : 1 paquet, réussie. »</td></tr>
+    <tr><td>Infobulle (i)</td><td>décrit ce que MONTRE le champ</td><td>« Version installée, détectée dans le PATH. »</td></tr>
+    <tr><td>Guide (dépliant)</td><td>informations supplémentaires, mode d'emploi</td><td>liste des paquets, chemins</td></tr>
+    <tr><td>warn / error</td><td>toujours une résolution OU un guide (D49)</td><td>bouton « Basculer VBS »</td></tr>
+    <tr><td>Points de suspension</td><td>UNIQUEMENT une action en cours (D50)</td><td>« Vérification… »</td></tr>
+  </table>
+</section>
+
+<div class="note">
+  <b>Discipline.</b> Toute évolution visuelle du front se répercute ici (composants) — la palette,
+  elle, suit toute seule. La règle écrite vit dans <code>docs/DESIGN.md</code> ; les décisions
+  d'origine : D46 (liserés), D49 (contenu des cartes), D50 (sévérité, confirmations),
+  D56 (menu Paramètres).
+</div>
+
+</main>
+<script>
+// Palette en direct : tokens.php lit le :root du front. En cas d'echec, on le DIT.
+(async () => {
+  const warn = document.getElementById('tokWarn');
+  try {
+    const r = await fetch('tokens.php', { cache: 'no-store' });
+    const j = await r.json();
+    if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
+    const rend = (vars, cible) => {
+      document.getElementById(cible).innerHTML = Object.entries(vars)
+        .filter(([, v]) => /^#|^rgb/.test(v))
+        .map(([k, v]) => '<div class="sw"><div class="c" style="background:' + v + '"></div>'
+          + '<div class="t"><code>' + k + '</code><b>' + v + '</b></div></div>').join('');
+    };
+    rend(j.dark, 'swDark');
+    rend(j.light, 'swLight');
+  } catch (e) {
+    warn.hidden = false;
+    warn.textContent = 'Palette NON vérifiée : lecture du front impossible (' + (e.message || e)
+      + '). Servir la page par l’Atelier, pas en file://.';
+  }
+})();
+</script>
+</body>
+</html>
