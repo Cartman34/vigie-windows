@@ -27,4 +27,26 @@
     # Vide = non configure : ces actions-la rendent un message clair au lieu d'echouer.
     # Un chemin absolu est propre a une machine : renseigne-le dans config.local.psd1.
     ToolsPath   = ''
+
+    # --- Historique des mesures (docs/conception/historique-cible.md, section 5) ------
+    # Series echantillonnees au passage des sondes, stockees dans var/history/ (un
+    # fichier JSONL par mesure). Resolution en couches par Get-HistoryConfig
+    # (lib/common.ps1) : ces valeurs globales, puis le reglage par mesure ci-dessous.
+    History = @{
+        # Interrupteur general. Desactive = plus aucune ecriture (les fichiers restent).
+        Enabled            = $true
+        # Retention PAR DEFAUT, en jours. S'applique a toute mesure sans reglage propre.
+        RetentionDays      = 90
+        # Garde-fou de taille par fichier de mesure (lignes), en plus de l'age.
+        MaxLinesPerMeasure = 50000
+        # Reglages PAR MESURE : la cle est l'identifiant du catalogue
+        # ($script:MeasureCatalog dans lib/common.ps1). Toute cle absente herite du
+        # global. IntervalMinutes surcharge l'intervalle minimal du catalogue.
+        # RetentionDays = 0 : ne plus echantillonner la mesure (le fichier existant
+        # n'est pas supprime : detruire une archive reste un geste manuel).
+        Measures = @{
+            'disk.free'   = @{ RetentionDays = 365 }
+            'net.latency' = @{ RetentionDays = 30 }
+        }
+    }
 }

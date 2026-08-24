@@ -21,4 +21,21 @@
 
     # Decommente seulement si le port par defaut est deja pris sur cette machine.
     # Port = 47601
+
+    # Historique des mesures : surcharge FACULTATIVE de la section History de config.psd1.
+    # ATTENTION : une cle de premier niveau remplace la table ENTIERE -- si tu poses
+    # History ici, les sous-cles absentes reprennent les defauts internes de
+    # Get-HistoryConfig (Enabled=$true, RetentionDays=90, MaxLinesPerMeasure=50000,
+    # Measures vide), PAS les valeurs de config.psd1. Recopie donc tout ce que tu veux garder.
+    # History = @{
+    #     Enabled            = $true       # $false = plus aucune ecriture (fichiers conserves)
+    #     RetentionDays      = 180
+    #     MaxLinesPerMeasure = 50000
+    #     Measures = @{
+    #         'disk.free'   = @{ RetentionDays = 365 }
+    #         # IntervalMinutes surcharge l'intervalle minimal du catalogue ;
+    #         # RetentionDays = 0 coupe l'echantillonnage de la mesure.
+    #         'net.latency' = @{ RetentionDays = 30 }
+    #     }
+    # }
 }
