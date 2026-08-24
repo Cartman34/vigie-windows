@@ -98,29 +98,78 @@ $uiScript = {
             try { $icon.Visible = $false; $icon.Dispose() } catch { }
             [System.Windows.Forms.Application]::Exit()
         }
-        # Ouvre la fenetre dediee (navigateur en mode --app). JOURNALISE chaque etape :
-        # sans trace, un double-clic sans effet est indiagnosticable -- on ne sait meme
-        # pas si le gestionnaire a ete appele.
+        # Chemin de l'executable du navigateur PAR DEFAUT, lu dans l'association http de
+        # l'utilisateur. C'est le seul navigateur dont on sait qu'il fonctionne sur cette
+        # machine -- il est donc essaye en premier.
+        $defaultBrowser = {
+            try {
+                $key = 'HKCU:\SOFTWARE\Microsoft\Windows\Shell\Associations\UrlAssociations\http\UserChoice'
+                $progId = (Get-ItemProperty -Path $key -ErrorAction Stop).ProgId
+                if (-not $progId) { return $null }
+                $cmd = (Get-ItemProperty -Path "Registry::HKEY_CLASSES_ROOT\$progId\shell\open\command" -ErrorAction Stop).'(default)'
+                if ($cmd -match '"([^"]+\.exe)"') { return $Matches[1] }
+                if ($cmd -match '^\s*(\S+\.exe)')  { return $Matches[1] }
+            } catch { }
+            return $null
+        }
+
+        # Ouvre la fenetre dediee (navigateur en mode --app).
+        #
+        # POURQUOI ON VERIFIE AU LIEU DE FAIRE CONFIANCE A Start-Process
+        # L'ancienne version prenait le PREMIER navigateur trouve sur disque, dans l'ordre
+        # Edge puis Chrome. Sur cette machine, Edge est present mais NE DEMARRE PAS : le
+        # processus sort en moins d'une seconde, sans fenetre et sans erreur. Start-Process
+        # rendait donc la main sans lever d'exception et le journal ecrivait « openApp ok »
+        # -- un mensonge, quatre signalements durant. Un double-clic ne faisait rien.
+        #
+        # Deux corrections : on essaie d'abord le navigateur PAR DEFAUT (celui qui marche,
+        # par definition, puisque « Ouvrir dans le navigateur » fonctionnait), et surtout
+        # on CONSTATE le resultat avant de le declarer. Un candidat qui meurt fait passer
+        # au suivant ; si aucun ne tient, on ouvre un onglet normal plutot que rien.
         $openApp = {
             TLog "openApp demande"
-            $bases = @(${env:ProgramFiles(x86)}, $env:ProgramFiles, $env:LOCALAPPDATA) | Where-Object { $_ }
-            $rel = @('Microsoft\Edge\Application\msedge.exe','Google\Chrome\Application\chrome.exe')
-            $b = $null
-            foreach ($base in $bases) { foreach ($rp in $rel) { $cand = Join-Path $base $rp; if (Test-Path $cand) { $b = $cand; break } }; if ($b) { break } }
-            if ($b) {
-                try {
-                    Start-Process -FilePath $b -ArgumentList "--app=$url","--window-size=1240,840"
-                    TLog ("openApp ok (fenetre dediee) : " + $b)
-                } catch {
-                    TLog ("openApp : --app KO (" + $_.Exception.Message + ") - repli navigateur")
-                    try { Start-Process $url; TLog "openApp ok (repli navigateur)" }
-                    catch { TLog ("openApp ECHEC : " + $_.Exception.Message) }
-                }
-            } else {
-                TLog "openApp : ni Edge ni Chrome trouve - repli navigateur par defaut"
-                try { Start-Process $url; TLog "openApp ok (navigateur par defaut)" }
-                catch { TLog ("openApp ECHEC : " + $_.Exception.Message) }
+
+            # Le mode --app n'existe que sur les navigateurs Chromium.
+            $chromium = @('chrome', 'msedge', 'brave', 'vivaldi', 'opera')
+            $candidats = New-Object System.Collections.Generic.List[string]
+            $parDefaut = & $defaultBrowser
+            if ($parDefaut -and (Test-Path -LiteralPath $parDefaut) -and
+                ($chromium -contains [IO.Path]::GetFileNameWithoutExtension($parDefaut).ToLower())) {
+                $candidats.Add($parDefaut)
             }
+            $bases = @($env:ProgramFiles, ${env:ProgramFiles(x86)}, $env:LOCALAPPDATA) | Where-Object { $_ }
+            $rel   = @('Google\Chrome\Application\chrome.exe','Microsoft\Edge\Application\msedge.exe')
+            foreach ($base in $bases) {
+                foreach ($rp in $rel) {
+                    $c = Join-Path $base $rp
+                    if ((Test-Path -LiteralPath $c) -and -not $candidats.Contains($c)) { $candidats.Add($c) }
+                }
+            }
+
+            foreach ($exe in $candidats) {
+                $nom = [IO.Path]::GetFileNameWithoutExtension($exe)
+                $avant = @(Get-Process -Name $nom -ErrorAction SilentlyContinue).Count
+                try {
+                    $p = Start-Process -FilePath $exe -ArgumentList "--app=$url","--window-size=1240,840" -PassThru
+                } catch {
+                    TLog ("openApp : " + $exe + " refuse (" + $_.Exception.Message + ")")
+                    continue
+                }
+                Start-Sleep -Milliseconds 1500
+                # Deux facons de reussir : notre processus tient, OU il a delegue a une
+                # instance deja lancee -- dans ce cas il sort vite mais le navigateur a
+                # gagne des processus. Ne tester que HasExited ouvrirait deux fenetres.
+                $apres = @(Get-Process -Name $nom -ErrorAction SilentlyContinue).Count
+                if ((-not $p.HasExited) -or ($apres -gt $avant)) {
+                    TLog ("openApp OK (fenetre dediee) : " + $exe)
+                    return
+                }
+                TLog ("openApp : " + $exe + " sort aussitot sans fenetre - candidat suivant")
+            }
+
+            TLog "openApp : aucun navigateur Chromium exploitable - repli onglet normal"
+            try { Start-Process $url; TLog "openApp OK (onglet normal)" }
+            catch { TLog ("openApp ECHEC : " + $_.Exception.Message) }
         }
         $openUrl     = { param($u) try { Start-Process $u } catch { TLog ("ouverture KO (" + $u + ") : " + $_.Exception.Message) } }
         $openBrowser = { & $openUrl $url }
