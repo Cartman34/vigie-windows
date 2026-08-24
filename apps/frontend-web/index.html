@@ -231,17 +231,25 @@
   /* icones par type d'action */
   .actions button.act{display:inline-flex;align-items:center;gap:6px}
   .actions button.act svg{flex:none}
-  /* COULEUR = severite (ce que l'action vaut), ICONE = type (comment ca se passe).
+  /* SEVERITE = ce que l'action vaut ; TYPE = comment elle se passe (l'icone).
      Les deux etaient confondus : la couleur suivait la forme, ce qui n'apprenait rien.
-     La couleur porte sur TOUT le bouton -- texte, bordure, icone : un bouton dont seule
-     l'icone changeait de couleur se lisait comme une erreur d'assemblage. */
-  .sev-neutral{color:var(--muted);border-color:var(--border)}
-  .sev-info{color:var(--accent);border-color:color-mix(in srgb, var(--accent) 55%, transparent)}
-  .sev-fix{color:var(--ok);border-color:color-mix(in srgb, var(--ok) 55%, transparent)}
-  .sev-neutral svg,.sev-info svg,.sev-fix svg{color:currentColor}
-  .sev-info:hover{border-color:var(--accent)}
-  .sev-fix:hover{border-color:var(--ok)}
-  .sev-neutral:hover{border-color:var(--muted)}
+
+     Deux traitements, selon la place du bouton :
+     - action PRINCIPALE (barre d'actions) : bouton NEUTRE au repos, il prend sa couleur
+       au SURVOL. Une barre entierement coloree crie autant qu'elle informe ;
+     - bouton de RESOLUTION (dans la ligne du champ) : colore en permanence, c'est un
+       correctif propose sur un defaut, il doit se remarquer.
+     Dans les deux cas, l'ICONE porte toujours la couleur de la severite. */
+  .act.sev-neutral svg{color:var(--muted)}
+  .act.sev-info    svg{color:var(--accent)}
+  .act.sev-fix     svg{color:var(--ok)}
+  .act.sev-info:hover{color:var(--accent);border-color:var(--accent)}
+  .act.sev-fix:hover{color:var(--ok);border-color:var(--ok)}
+  .act.sev-neutral:hover{color:var(--muted);border-color:var(--muted)}
+
+  .fsolve.sev-neutral{color:var(--muted);border-color:var(--muted)}
+  .fsolve.sev-info{color:var(--accent);border-color:var(--accent)}
+  .fsolve.sev-fix{color:var(--ok);border-color:var(--ok)}
   .k-manual{border-style:dashed}
   /* ===== Design system : Dialog (modale in-app reutilisable) ===== */
   .hds-back{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:50;padding:20px;backdrop-filter:blur(2px)}

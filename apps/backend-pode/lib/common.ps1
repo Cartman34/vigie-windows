@@ -498,9 +498,11 @@ function New-Action {
     $a['kind'] = if ($Kind) { $Kind } elseif ($Confirm) { 'confirm' } else { 'immediate' }
     # Defaut raisonnable : ouvrir quelque chose informe, le reste est neutre. Une action
     # corrective doit se declarer -- on ne devine pas qu'elle repare.
-    $a['severity'] = if ($Severity) { $Severity }
-                     elseif ($a['kind'] -in @('manual','dialog')) { 'info' }
-                     else { 'neutral' }
+    # Defaut : 'info'. Un bouton EST une action : il fait quelque chose, son icone merite
+    # une couleur. Le gris etait le defaut, si bien que toute action ordinaire paraissait
+    # inerte ; il se DECLARE desormais, pour le cas rare ou il n'y a aucun enjeu.
+    # 'fix' se declare aussi : on ne devine pas qu'une action repare.
+    $a['severity'] = if ($Severity) { $Severity } else { 'info' }
     [pscustomobject]$a
 }
 function New-ModuleObject {
