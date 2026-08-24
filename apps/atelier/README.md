@@ -13,13 +13,13 @@ chargement.
 ## Démarrer
 
 ```
-appsteliertelier.cmd
+apps\atelier\atelier.cmd
 ```
 
 ou, directement :
 
 ```
-pwsh -ExecutionPolicy Bypass -File .\docs\atelier.ps1
+pwsh -ExecutionPolicy Bypass -File .\apps\atelier\atelier.ps1
 ```
 
 Le navigateur s'ouvre sur `http://127.0.0.1:47610/apps/atelier/index.html`.
@@ -29,12 +29,12 @@ La console affiche les requêtes ; **Ctrl+C** arrête le serveur.
 
 | Commande | Effet |
 |---|---|
-| `.\docs\atelier.ps1` | démarre au premier plan et ouvre le navigateur |
-| `.\docs\atelier.ps1 -Background` | démarre en tâche de fond et rend la main |
-| `.\docs\atelier.ps1 -Status` | indique s'il tourne, sur quel port, avec quel PID |
-| `.\docs\atelier.ps1 -Stop` | arrête l'atelier |
-| `.\docs\atelier.ps1 -NoBrowser` | démarre sans ouvrir d'onglet |
-| `Get-Help .\docs\atelier.ps1 -Full` | aide complète, exemples inclus |
+| `.\apps\atelier\atelier.ps1` | démarre au premier plan et ouvre le navigateur |
+| `.\apps\atelier\atelier.ps1 -Background` | démarre en tâche de fond et rend la main |
+| `.\apps\atelier\atelier.ps1 -Status` | indique s'il tourne, sur quel port, avec quel PID |
+| `.\apps\atelier\atelier.ps1 -Stop` | arrête l'atelier |
+| `.\apps\atelier\atelier.ps1 -NoBrowser` | démarre sans ouvrir d'onglet |
+| `Get-Help .\apps\atelier\atelier.ps1 -Full` | aide complète, exemples inclus |
 
 Le script est **idempotent** : relancé alors qu'il tourne déjà, il ouvre simplement le
 navigateur au lieu d'échouer.
@@ -46,7 +46,7 @@ démarrage ou d'arrêt.
 
 ## Configuration
 
-**Sa propre config** : [`apps/atelier/config/config.psd1`](config.psd1).
+**Sa propre config** : [`apps/atelier/config/config.psd1`](config/config.psd1).
 
 | Clé | Rôle |
 |---|---|
@@ -133,7 +133,7 @@ Les géométries de la page sont une **reproduction** du code, pas sa source.
 Toute valeur retenue doit être reportée **en miroir** :
 
 1. dans le code (`generate-icons.py`, `tray.ps1`, …) ;
-2. dans [`DECISIONS-VALIDEES.md`](DECISIONS-VALIDEES.md).
+2. dans [`docs/DECISIONS-VALIDEES.md`](../../docs/DECISIONS-VALIDEES.md).
 
 Sans cela l'atelier devient trompeur — c'est précisément ce qu'il sert à éviter.
 
@@ -144,8 +144,8 @@ Sans cela l'atelier devient trompeur — c'est précisément ce qu'il sert à é
 | Symptôme | Cause | Solution |
 |---|---|---|
 | « php introuvable » | PHP absent du `PATH` | l'installer, ou ouvrir la page en `file://` (fonctions réduites) |
-| Bandeau rouge « pas ouverte depuis le dépôt » | page ouverte en `file://` ou copiée ailleurs | passer par `appsteliertelier.cmd` |
+| Bandeau rouge « pas ouverte depuis le dépôt » | page ouverte en `file://` ou copiée ailleurs | passer par `apps\atelier\atelier.cmd` |
 | Icônes en croix rouge | mêmes causes, ou `.ico` absents | vérifier `apps/tray/assets/` |
-| Port déjà utilisé | un atelier tourne déjà | `.\docs\atelier.ps1 -Status`, puis `-Stop` |
-| Le serveur ne s'arrête pas | processus détaché | `.\docs\atelier.ps1 -Stop` (retrouve le PID par le port) |
+| Port déjà utilisé | un atelier tourne déjà | `.\apps\atelier\atelier.ps1 -Status`, puis `-Stop` |
+| Le serveur ne s'arrête pas | processus détaché | `.\apps\atelier\atelier.ps1 -Stop` (retrouve le PID par le port) |
 | Les icônes ne changent pas | générateur non rejoué | régénérer les `.ico`, puis recharger la page |
