@@ -52,7 +52,18 @@ New-ModuleObject -Id 'wu-lock' -Theme 'windows-update' -Label 'Verrouillage des 
     $aclField
     New-Field -Key 'tasksDisabled' -Label 'Tâches désactivées' -Value $disabled -Kind 'number' -Status 'neutral' -Help "Nombre de tâches de mise à jour désactivées. Dépliez pour l'état réel de chaque tâche." -Guide $taskDetail
     New-Field -Key 'tasksReady' -Label 'Tâches actives' -Value $ready -Kind 'number' -Status 'neutral' -Help "Tâches de mise à jour encore actives (souvent protégées par Windows ; inoffensives tant que les MAJ auto sont coupées)."
-    New-Field -Key 'rebootPending' -Label 'Redémarrage en attente' -Value ([bool]$reboot) -Kind 'bool' -Status $(if ($reboot) {'error'} else {'ok'}) `
-        -Help "Un redémarrage est en attente pour terminer une mise à jour." `
-        -Guide "Enregistrez votre travail, puis redémarrez Windows quand VOUS le souhaitez (menu Démarrer > Redémarrer). Le panneau ne force aucun redémarrage."
+    # Un redemarrage en attente n'est PAS une erreur : c'est l'issue NORMALE d'une mise a
+    # jour installee. Le marquer en rouge faisait passer la carte entiere en « Problème »
+    # alors que tout s'etait bien passe. C'est un point a traiter, donc « à voir ».
+    New-Field -Key 'rebootPending' -Label 'Redémarrage en attente' -Value ([bool]$reboot) -Kind 'bool' -Status $(if ($reboot) {'warn'} else {'ok'}) `
+        -Help "Une mise à jour est installée mais ne sera active qu'après un redémarrage de Windows." `
+        -Guide $(if ($reboot) {
+            "Ce que c'est : une mise à jour a été installée ; Windows a besoin de redémarrer pour la terminer. Ce n'est pas une panne.`n`n" +
+            "Le risque à ne rien faire : les correctifs installés ne protègent pas encore, et Windows finira par redémarrer de lui-même si le verrouillage est levé.`n`n" +
+            "Ce que vous pouvez faire :`n" +
+            "- redémarrer quand cela vous arrange (menu Démarrer > Redémarrer) — c'est la seule action qui lève cet état ;`n" +
+            "- continuer à travailler : Vigie ne force jamais un redémarrage, et le verrou du Mode MAJ empêche Windows de le faire."
+        } else {
+            "Aucun redémarrage en attente : toutes les mises à jour installées sont actives."
+        })
 ) -Actions $actions

@@ -71,12 +71,29 @@ if ($null -eq $count) {
             -Help "Installation lancée depuis Vigie. Elle continue même si vous fermez la fenêtre." `
             -Guide $(if ($inst.titres) { "Mises à jour retenues :`n- " + (@($inst.titres) -join "`n- ") } else { '' })
     } elseif ($inst -and $inst.phase -eq 'termine') {
-        # On rapporte le RESULTAT constate, code de retour compris (D43).
-        $val = if ($inst.error) { 'échec' } elseif ($inst.partiel) { 'terminée avec erreurs' } else { 'terminée' }
-        $st  = if ($inst.error) { 'error' } elseif ($inst.partiel) { 'warn' } else { 'ok' }
+        # On rapporte le RESULTAT constate, code de retour compris (D43) -- mais le code
+        # global 3 (« reussi avec erreurs ») ne dit PAS qu'une mise a jour a echoue : il
+        # sort aussi quand tout s'est installe et qu'il ne manque qu'un redemarrage. On
+        # tranche donc sur le detail PAR mise a jour : 4 = echec, 5 = annulee.
+        $echecs = 0
+        foreach ($d in @($inst.detail)) { if ("$($d[1])" -match '^(Échec|Annulée)') { $echecs++ } }
+        $val = if ($inst.error)          { 'échec' }
+               elseif ($echecs -gt 0)    { "$echecs sur $($inst.total) en échec" }
+               elseif ($inst.redemarrage){ 'installée, redémarrage requis' }
+               else                      { 'terminée' }
+        $st  = if ($inst.error -or $echecs -gt 0) { 'error' }
+               elseif ($inst.redemarrage)         { 'warn' }
+               else                               { 'ok' }
         $g = @()
         if ($inst.error) { $g += "Erreur : $($inst.error)" }
-        if ($inst.redemarrage) { $g += "Un REDÉMARRAGE est nécessaire pour terminer." }
+        if ($inst.redemarrage) {
+            $g += "Ce que c'est : les mises à jour sont installées, mais Windows doit redémarrer pour les activer. Ce n'est pas une panne."
+            $g += "Ce que vous pouvez faire : redémarrer quand cela vous arrange (menu Démarrer > Redémarrer). Vigie ne redémarre jamais de lui-même."
+        }
+        if ($echecs -gt 0) {
+            $g += "Ce qui a échoué : $echecs mise(s) à jour sur $($inst.total). Le détail par mise à jour est dans le tableau ci-dessous, avec le code d'erreur Windows."
+            $g += "Ce que vous pouvez faire : relancer l'installation (une seconde tentative suffit souvent), ou passer par « Ouvrir Windows Update » qui affiche le message d'erreur complet de Windows."
+        }
         # Le detail PAR mise a jour, en tableau : « terminé avec erreurs » ne dit pas
         # laquelle a echoue, ce tableau si.
         $lignes = @()
