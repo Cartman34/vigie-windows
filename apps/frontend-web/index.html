@@ -114,11 +114,12 @@
   .dn-del:hover{color:var(--err)}
   .dn-msg{color:var(--muted);margin-top:4px;word-break:break-word}
   .dn-time{color:var(--muted);opacity:.75;font-size:11px;margin-top:3px;display:flex;align-items:center;gap:5px}
-  /* accent de statut par carte + icone */
-  .card{border-left:4px solid var(--border)}
-  .card.st-ok{border-left-color:var(--ok)}
-  .card.st-warn{border-left-color:var(--warn)}
-  .card.st-error{border-left-color:var(--err)}
+  /* Accent de statut : liseré EN HAUT de la carte (validé). Il etait a gauche depuis
+     l'import initial ; la version validee le place en bandeau superieur. */
+  .card{border-top:4px solid var(--border)}
+  .card.st-ok{border-top-color:var(--ok)}
+  .card.st-warn{border-top-color:var(--warn)}
+  .card.st-error{border-top-color:var(--err)}
   .badge{font-size:12.5px;padding:4px 10px}
   .badge .ic{font-weight:800;font-size:13px;line-height:1}
   /* statut par parametre (ligne) */

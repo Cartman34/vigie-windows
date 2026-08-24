@@ -126,6 +126,30 @@ function Test-UpdateTasksAclLock {
     return $false
 }
 
+# Pose ou leve le verrou des mises a jour (script update-mode.ps1 de l'outillage).
+#
+# Ecrit ICI et nulle part ailleurs : les actions update-mode-on / update-mode-off et
+# l'installation des MAJ appellent toutes cette fonction. Sans cela, l'installation aurait
+# recopie l'invocation du script -- troisieme copie, donc future divergence (D15).
+#
+# Renvoie $true si l'etat demande est REELLEMENT obtenu, verifie apres coup et non deduit
+# du fait que le script n'a pas leve d'erreur (D43).
+function Set-UpdateLock {
+    param(
+        [Parameter(Mandatory)][ValidateSet('pose','leve')][string]$Etat,
+        [string]$Backend = (Get-BackendRoot)
+    )
+    $tools = Get-ToolsPath -Backend $Backend
+    if (-not $tools) { return $false }
+    $script = Join-Path $tools 'update-mode.ps1'
+    if (-not (Test-Path -LiteralPath $script)) { return $false }
+    try {
+        if ($Etat -eq 'pose') { & $script -Off *> $null } else { & $script -On *> $null }
+    } catch { return $false }
+    $verrouille = Test-UpdateTasksAclLock
+    return $(if ($Etat -eq 'pose') { $verrouille } else { -not $verrouille })
+}
+
 # --- Taches de fond (regle : une action lente ne bloque jamais la requete) ---
 # Lance un script worker dans un pwsh DETACHE, fenetre cachee (aucune console
 # visible, pas de restauration d'onglets Terminal). L'executable pwsh est celui
