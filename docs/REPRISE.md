@@ -22,6 +22,30 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
 - **Toujours** traiter erreurs + sortie + code retour (`Invoke-Native`).
 - Scripts **idempotents**. **PS7 + UTF-8 avec accents** (les lanceurs restent ASCII).
 - **Vérifier les prérequis en amont.** **Valider avant de dire « prêt »** (ne jamais inventer une validation).
+
+### Disciplines de validation — dans cet ordre, avant toute livraison
+
+| Ce qu'on touche | Ce qu'on lance | Ce que ça attrape |
+|---|---|---|
+| n'importe quel `.ps1` | `[Parser]::ParseFile` sur chaque fichier | la syntaxe, **rien de plus** |
+| une **sonde** | `pwsh -File .\scripts\check-probes.ps1` | l'exécution réelle + les invariants **D49**/**D50** |
+| `apps/frontend-web/index.html` | recharger la page **servie** (`http://127.0.0.1:47600`) et lire la console | erreurs de syntaxe et d'exécution JS |
+| un contrat (`openapi.yaml`) | relecture — aucun parseur YAML sur la machine | rien d'automatique, à dire tel quel |
+
+**Le parseur ne suffit pas** (**D50bis**) : un paramètre passé deux fois le franchit sans un
+mot et fait disparaître une carte à l'exécution. C'est arrivé, livré et annoncé comme fait.
+
+**Un fichier rendu (`.html`) ne s'édite JAMAIS avec les outils Edit/Write** (**D47**) :
+l'aperçu du panneau ouvre alors le fichier en `file://` et vole le focus de l'utilisateur.
+Passer par un script de remplacement exact — et relancer ensuite le garde-fou de chaînes JS
+(chaîne monoquote non terminée, expression régulière coupée par un retour à la ligne : deux
+couches d'écriture ont déjà mangé des échappements).
+
+**Redéployer** = commit sur la branche, `git merge --no-ff` dans `main` depuis le dépôt
+principal, `git push` des deux, puis :
+`Stop-Process` sur l'écouteur du port 47600, puis `pwsh -File scripts/tray.ps1 -Restart`.
+**Relancer le tray ne relance PAS le serveur** : l'ancien devient orphelin et `$startServer`
+sort aussitôt puisque le port répond — on sert alors indéfiniment du code périmé.
 - **Toucher une sonde ⇒ lancer `scripts/check-probes.ps1`** : le parseur ne voit pas qu'un paramètre est passé deux fois, l'exécution si (**D50bis**).
 - **Toute décision validée est consignée dans `docs/DECISIONS-VALIDEES.md`** + son support copié dans `docs/maquettes-validees/`.
 
@@ -134,35 +158,115 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
     Gain annexe mesuré : couper un module retire ses sondes du calcul ; `windows-update/`
     pèse une quinzaine de secondes à lui seul (`lock` ≈ 11 s).
 
-14. **Refonte de la documentation publique** — demandée, **arbitrage en attente** (Q1/Q2).
+14. **Documentation publique** — livrée : `README.md` (EN) et `README.fr.md` (FR) se
+    renvoyant l'un à l'autre, `docs/en/` et `docs/fr/` en miroir, développement séparé.
+    Licence **MIT** (`LICENSE`). **Reste** : le workflow de publication n'est pas versionné,
+    le jeton GitHub n'ayant pas la permission *Workflows*. Son YAML complet est dans
+    `docs/en/development/README.md` et `docs/fr/developpement/README.md`, à coller via
+    l'interface web de GitHub ou à débloquer en accordant la permission.
 
-    Objectif : qu'un visiteur de GitHub comprenne ce que fait Vigie, l'installe sans
-    effort, et retrouve toute l'information d'usage. Attendu :
-    - un **README** qui annonce ce que fait l'application et ses **points d'attention**
-      (elle verrouille Windows Update, elle tourne élevée) sans noyer le lecteur ;
-    - un **guide de prise en main** : installation facile, premier lancement ;
-    - la documentation **en anglais ET en français** ;
-    - les détails techniques atteignables **par navigation**, pas entassés dans le README ;
-    - la documentation de **développement** accessible mais **nettement séparée** de celle
-      de l'utilisateur.
+15. **Archive de distribution** — livrée : `scripts/build-release.ps1` produit
+    `dist/vigie-0.1.zip` (93 fichiers). Elle exclut l'Atelier, les documents de travail
+    internes et tout ce qu'ignore `.gitignore` ; un garde-fou **sort en code 2** si un
+    secret est forcé dans l'index. Aucune release n'a encore été publiée.
 
-    Existant à reprendre plutôt qu'à refaire : `PRISE-EN-MAIN.md`, `docs/REPRISE.md`
-    (interne), `docs/DECISIONS-VALIDEES.md` (interne), `apps/atelier/README.md`,
-    `apps/backend-pode/actions/README.md`.
+16. **Autonomie du produit** — le verrouillage Windows Update, l'audit et les bascules
+    VBS/HVCI sont **internalisés** : `ToolsPath` et `Get-AdminRoot` ne conditionnent plus
+    aucune fonction. **Reste à éprouver depuis un serveur ÉLEVÉ** : aucune écriture réelle
+    n'a été appliquée (pose du verrou, bascule VBS/HVCI, sauvegarde `.reg`), ni le
+    comportement après un vrai redémarrage.
 
-15. **Améliorations mineures repérées** (passe de cohérence du 2026-08-24, aucune bloquante) :
-    - `apps/atelier/index.html` écrit son propre port dans deux messages ; `location.origin`
-      supprimerait la recopie ;
-    - `Invoke-Native` juge `Ok` sur « code = 0 » seul : le cas 3010 (« redémarrage requis »,
-      qui est un succès) n'est traité que dans `Invoke-PkgUpgrade`. À généraliser si un autre
-      appelant installe des paquets ;
-    - `openapi.yaml` écrit le port dans `servers.url` — documentation, mais c'est une
-      deuxième source pour une valeur qui vit dans `config.psd1` ;
-    - `wu-install.json` conserve `phase = termine` indéfiniment : la carte affiche « Dernière
-      installation » sans limite d'âge. Volontaire pour l'instant, à revoir si ça encombre ;
+17. **Traduire en anglais les commentaires internes des scripts** (**D41**). Les noms de
+    fichiers et les renommages sont faits ; les commentaires portent le raisonnement
+    derrière chaque choix — passe fichier par fichier, jamais un `sed`. Concerne aussi les
+    identifiants encore français (`$cible`, `$ecarts`, paramètre `-Verifier` de
+    `scripts/install-hooks.ps1`).
+
+18. **Trois propositions en attente d'arbitrage**, visibles dans l'Atelier (section
+    « Propositions à évaluer », `http://127.0.0.1:47610/apps/atelier/index.html`) :
+    étendre la vérification du contrat aux actions et au front ; garder un historique pour
+    signaler les dérives ; faire alerter le tray sur changement d'état.
+
+19. **Améliorations mineures repérées, aucune bloquante** :
+    - `apps/atelier/index.html` écrit son propre port dans deux messages (`location.origin`
+      supprimerait la recopie) ;
+    - `Invoke-Native` juge le succès sur « code = 0 » seul ; le cas 3010 (« redémarrage
+      requis », qui est un succès) n'est traité que dans `Invoke-PkgUpgrade` ;
+    - `openapi.yaml` écrit le port dans `servers.url`, deuxième source pour une valeur qui
+      vit dans `config.psd1` ;
+    - `wu-install.json` conserve son résultat sans limite d'âge : la carte affiche
+      « Dernière installation » indéfiniment ;
     - `.claude/settings.json` porte `disableAllHooks: true`, posé pour tenter de désactiver
-      l'aperçu automatique (**D47**) : **à retester après un redémarrage de session**, et à
-      retirer s'il ne sert à rien.
+      l'aperçu automatique (**D47**) : **sans effet constaté**, à retester après un
+      redémarrage de session et à retirer s'il ne sert à rien.
+
+## État de la machine de l'utilisateur — à savoir avant de conclure quoi que ce soit
+
+- **Windows Update est VERROUILLÉ** (`NoAutoUpdate=1`, verrou ACL posé) : c'est voulu, c'est
+  la fonction phare. Les actions de Vigie lèvent le verrou le temps d'agir puis le reposent.
+- **Un redémarrage est en attente** depuis l'installation de mises à jour.
+- **Écart permanent registre/actif sur VBS** : le registre dit 0, VBS tourne pourtant. Ne
+  jamais en déduire une bascule en attente — la proposition de redémarrage ne doit
+  apparaître qu'après une bascule faite **depuis Vigie**.
+- **Edge est installé mais ne démarre pas** (sort en moins d'une seconde, sans fenêtre).
+  Chrome est le navigateur par défaut et fonctionne.
+- **`netsh wlan` échoue** (erreur 5) : ni force de signal, ni SSID par ce chemin.
+- **git n'est que dans le PATH utilisateur**, pas machine : un processus élevé ne le trouve
+  pas sans chemin résolu.
+- **Node n'est pas installé** et ne le sera pas (**D06**) ; **aucun parseur YAML** non plus.
+
+
+## Travailler avec des sous-agents (autorisé par l'utilisateur)
+
+**Cadre posé par l'utilisateur** : jusqu'à **3 sous-agents**, chacun dans **son propre
+worktree**, chacun **fusionne lui-même** dans `main`. Ils sont **persistants** : on leur
+renvoie un sujet plutôt que d'en relancer un neuf, ils gardent leur contexte. « Ne les gave
+pas » — un sujet à la fois, cadré ; le rôle de l'agent principal est l'**orchestration**.
+
+### Répartition qui a fonctionné
+
+Découper par **fichiers disjoints**, pas par thème : deux agents dans `common.ps1` en même
+temps, c'est un conflit garanti. Répartition tenue :
+sondes d'un côté · gestionnaires de paquets et backend de l'autre · documentation seule
+(elle ne touche aucun `.ps1`). L'agent principal garde le front (`index.html`) et le socle.
+
+### Ce qu'un brief doit contenir, sans exception
+
+1. **Où lire** — `docs/REPRISE.md` puis les décisions précises (`D15`, `D43`, `D47`…), pas
+   « lis la doc ».
+2. **Le sujet, un seul**, avec le modèle existant à copier quand il y en a un (« étudie
+   `wu-list-pending.action.ps1` avant d'écrire »).
+3. **Les règles non négociables** : français accentué pour l'utilisateur, commentaires sans
+   accents, identifiants en anglais, points de suspension réservés à une action en cours,
+   validation par le Parser **et** `check-probes.ps1`, jamais de ligne `Co-Authored-By`.
+4. **Les pièges connus**, nommés — sinon ils les retrouvent à leurs frais : `--disable-interactivity`
+   pour winget, `netsh wlan` qui échoue ici, l'aperçu `file://` qui vole le focus.
+5. **Ce qu'il ne doit PAS toucher** : les fichiers d'un autre agent, et le **redémarrage du
+   serveur** (port 47600) que l'agent principal se réserve.
+6. **La prudence machine** : « ne laisse pas la machine dans un état différent de celui où
+   tu l'as trouvée » — indispensable dès qu'on touche au verrou Windows Update ou à VBS.
+7. **Le format de réponse attendu** : deux ou trois phrases — ce qui a changé, ce qui a été
+   vérifié **en conditions réelles**, ce qui reste incertain.
+
+### Ce qu'ils ont apporté que je n'aurais pas trouvé seul
+
+Ils **exécutent** au lieu de relire, et remontent ce que le brief avait de faux. Exemples
+réels : `$pid` est en lecture seule et l'exception était avalée par un `catch` vide ; le
+découpage des colonnes winget donnait une version comme identifiant de paquet ; une clé de
+registre absente faisait échouer le verrou **en silence** sur une machine neuve ; et surtout
+la correction de mon propre brief — `Get-AdminRoot` existe à côté de `Get-ToolsPath`, mon
+`grep` ne voyait que le second.
+
+**Leçon** : un agent qui conteste le brief a souvent raison. Vérifier soi-même avant de
+trancher, puis lui redonner le sujet corrigé.
+
+### Limites constatées
+
+- L'isolation du worktree peut **refuser** les commandes git visant le dépôt partagé ; ils
+  contournent alors par `git push origin HEAD:main` depuis leur worktree. Conséquence :
+  **le `main` local se retrouve en retard**, faire `git pull` avant toute fusion.
+- Ils ne peuvent pas juger un rendu visuel : ce qui se voit reste à l'agent principal, via
+  la page **servie** (jamais `file://`).
 
 ## Décisions validées
 Voir `docs/DECISIONS-VALIDEES.md` : icône tray = option B (graduations + talon confirmés) ; nom = dépôt « Vigie Windows » (slug `vigie-windows`), interface « Vigie » à la place de « Control Panel ».
