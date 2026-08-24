@@ -1126,6 +1126,16 @@ function setFootVersion(){
 
 // Efface l'ecran de chargement, une seule fois, apres une duree minimale d'affichage.
 // Appele aussi en cas d'erreur : le message d'erreur doit devenir visible.
+// Progression REELLE du chargement, en trois etapes connues. Tant que la progression est
+// inconnue, la jauge monte par crans en boucle ; des qu'une etape est franchie, elle
+// affiche l'avancement veritable. Le mode « progression connue » existait en CSS sans
+// que rien ne l'active : du decor.
+function progresSplash(fraction){
+  const el = document.getElementById('splash');
+  if(!el || splashDone) return;
+  el.classList.add('splash-determine');
+  el.style.setProperty('--splash-frac', String(Math.max(0, Math.min(1, fraction))));
+}
 let splashDone = false;
 const splashShownAt = Date.now();
 function hideSplash(){
@@ -1174,10 +1184,13 @@ function setLoading(on){
 }
 async function refresh(force){
   setLoading(true);
+  progresSplash(0.2);             // requete partie
   try{
     const {data,mode}=await fetchState(force);
     if(mode==='live' && data && data.build && window.APP_BUILD && !window.APP_BUILD.includes('__') && data.build!==window.APP_BUILD){ location.reload(); return; }
+    progresSplash(0.75);          // etat recu
     renderState(data,mode);
+    progresSplash(1);             // panneau affiche
   }
   catch(e){
     const mb=document.getElementById('modebar'); const occupeErr=mb.classList.contains('busy'); mb.className='modebar err'+(occupeErr?' busy':''); mb.title='Connexion à l\'API impossible'; mb.textContent='';
