@@ -219,6 +219,10 @@ public static class VigieMenuPalette {
   public const int TextPadY     = 7;   // ne sert QUE a fixer la hauteur de ligne
   // Libelles non cliquables (ligne d'etat) : gris attenue, lisible sur fond sombre.
   public static readonly Color TextDisabled = Color.FromArgb(154, 160, 166);
+  // Couleur du LIBELLE actif. Definie ICI et nulle part ailleurs (D15) : elle etait
+  // ecrite en dur a deux endroits du script, ce qui obligeait a la recopier dans
+  // l Atelier -- qui la relit desormais (palette.php).
+  public static readonly Color Text = Color.FromArgb(230, 237, 243);
 }
 
 public class VigieDarkColors : ProfessionalColorTable {
@@ -330,7 +334,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
             Add-Type -TypeDefinition $csrc -ReferencedAssemblies $refs -ErrorAction Stop
             $menu.Renderer  = New-Object VigieMenuRenderer
             $menu.BackColor = [VigieMenuPalette]::Surface
-            $menu.ForeColor = [System.Drawing.Color]::FromArgb(230,237,243)
+            $menu.ForeColor = [VigieMenuPalette]::Text
             $menu.Padding   = New-Object System.Windows.Forms.Padding(0, 5, 0, 5)
             TLog "style menu Win11 applique"
         } catch { TLog ("style menu KO (fallback): " + $_.Exception.Message) }
@@ -359,7 +363,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
         }
         $menu.add_Opened({ & $roundCorners })
 
-        $lite = [System.Drawing.Color]::FromArgb(230,237,243)
+        $lite = [VigieMenuPalette]::Text
         $miShow = $menu.Items.Add('Afficher l''application', $null, [System.EventHandler]{ & $openApp })
         try { $miShow.Font = New-Object System.Drawing.Font('Segoe UI', 9.5, [System.Drawing.FontStyle]::Bold) } catch { }
         [void]$menu.Items.Add('Ouvrir dans le navigateur', $null, [System.EventHandler]{ & $openBrowser })
