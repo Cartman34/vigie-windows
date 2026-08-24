@@ -149,14 +149,14 @@ sort aussitôt puisque le port répond — on sert alors indéfiniment du code p
     `scripts/install-hooks.ps1`).
 12. ~~Écran de chargement (splash) jamais validé~~ — **VU et réglé** par l'utilisateur :
     jauge montant par crans en boucle, vert fixe, sous-titre à 16 px du nom.
-13. **Vue de gestion des modules** — forme validée ET **découpage tranché** (**D48**) :
-    un module = un **dossier de sondes**, déclaré par un `module.psd1` versionné, les choix
-    de l'utilisateur dans `config/modules.local.psd1` ignoré par git, les modules exposés
-    dans une clé `units[]` du contrat même désactivés. **Prêt à implémenter.**
-    Seul point encore ouvert : quelles clés de configuration exposer par module — c'est le
-    seul qui ne se déduit pas du code.
-    Gain annexe mesuré : couper un module retire ses sondes du calcul ; `windows-update/`
-    pèse une quinzaine de secondes à lui seul (`lock` ≈ 11 s).
+13. **Vue de gestion des modules** — **LIVRÉ** (D48, 24/08 après-midi) : `module.psd1`
+    par dossier de sondes, choix utilisateur dans `config/modules.local.psd1` (ignoré par
+    git, motif ajouté après un faux pas), `units[]` au contrat même désactivés,
+    `GET /units` + `POST /units/{id}`, tiroir « Modules » (bouton ▦ + menu ⋮ en haut à
+    droite de chaque carte, avec cases de notification par carte). Éprouvé en réel :
+    WSL coupé → carte et groupe disparus ; rallumé → recalcul et retour.
+    Reste ouvert : quelles CLÉS DE CONFIGURATION exposer par module (seule question
+    restante de D48 — rejoint la Q1 de l'historique sur les seuils).
 
 14. **Documentation publique** — livrée : `README.md` (EN) et `README.fr.md` (FR) se
     renvoyant l'un à l'autre, `docs/en/` et `docs/fr/` en miroir, développement séparé.
