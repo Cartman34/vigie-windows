@@ -68,10 +68,31 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
         $majValue = 'non pris en charge'
         $mg2 += "La vérification automatique des MAJ n'est pas disponible pour ce gestionnaire."
     } elseif ($checking) {
-        $verbe = if ($op -eq 'upgrade') { 'Mise à jour' } else { 'Vérification' }
-        $majValue = "$verbe en cours…"
-        $mg2 += ("$verbe lancée" + $(if ($u.startedAt) { " le $($u.startedAt)" } else { "" }) + ".")
-        if ($null -ne $u.count) { $mg2 += ("Dernier résultat connu : $([int]$u.count) MAJ.") }
+        # La carte dit EXACTEMENT ce qui tourne : quoi, sur combien, depuis quand.
+        # « Mise à jour en cours... » seul laissait l'utilisateur sans reponse (constate).
+        $duree = ''
+        if ($u.startedAt) {
+            try {
+                $min = [int]((Get-Date) - [datetime]$u.startedAt).TotalMinutes
+                $duree = if ($min -lt 1) { " (depuis moins d'une minute)" } else { " (depuis $min min)" }
+            } catch { }
+        }
+        if ($op -eq 'upgrade') {
+            $sel = @($u.sel)
+            $majValue = if ($sel.Count -gt 0 -and $null -ne $u.count -and [int]$u.count -gt 0) {
+                "$($sel.Count) sur $([int]$u.count) en cours…"
+            } elseif ($sel.Count -gt 0) { "$($sel.Count) paquet(s) en cours…" }
+            else { "Mise à jour en cours…" }
+            if ($sel.Count -gt 0) {
+                $mg2 += "Paquets en cours de mise à jour :"
+                foreach ($p0 in $sel) { $mg2 += ("- " + $p0) }
+            } else { $mg2 += "Mise à jour de TOUT le gestionnaire." }
+            $mg2 += ("Lancée" + $(if ($u.startedAt) { " le $($u.startedAt)" } else { "" }) + $duree + ".")
+        } else {
+            $majValue = "Vérification en cours…"
+            $mg2 += ("Vérification lancée" + $(if ($u.startedAt) { " le $($u.startedAt)" } else { "" }) + $duree + ".")
+            if ($null -ne $u.count) { $mg2 += ("Dernier résultat connu : $([int]$u.count) MAJ.") }
+        }
     } elseif ($u -and $u.at) {
         if ($cnt -gt 0) {
             $majStatus = 'warn'; $majValue = "$cnt disponible(s)"
@@ -85,6 +106,21 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
         if ($tacheAbandonnee) {
             $majStatus = 'warn'
             $mg2 += "L'opération précédente ne répond plus depuis plus de $DELAI_TACHE_MIN minutes : elle est considérée comme interrompue. Relancez-la si besoin."
+        }
+        # Le resultat de la DERNIERE mise a jour reste visible : une operation qui se
+        # termine en silence laisse croire qu'il ne s'est rien passe.
+        if ($u.last) {
+            $quoi = if ([int]$u.last.count -gt 0) { "$([int]$u.last.count) paquet(s)" } else { "tout le gestionnaire" }
+            $echecs = @($u.last.failed)
+            if ($echecs.Count -gt 0) {
+                $majStatus = 'warn'
+                $mg2 += ("Dernière mise à jour ($($u.last.at)) : $quoi, $($echecs.Count) ÉCHEC(S) : " + ($echecs -join ', ') + ".")
+            } elseif ([bool]$u.last.ok) {
+                $mg2 += ("Dernière mise à jour ($($u.last.at)) : $quoi, réussie.")
+            } else {
+                $majStatus = 'warn'
+                $mg2 += ("Dernière mise à jour ($($u.last.at)) : $quoi, EN ERREUR — voir le journal pkgupgrade dans var/log.")
+            }
         }
         if ($u.reboot) { $mg2 += "Un REDÉMARRAGE est nécessaire pour terminer la dernière mise à jour." }
         if ($u.error) { $mg2 += ("Erreur lors de la vérification : " + $u.error) }
