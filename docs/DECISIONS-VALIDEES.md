@@ -21,7 +21,7 @@ Ajouter une décision = ajouter son numéro à une ligne.
 - **Identité et nommage** — D03 · D04 · D05 · D28 · D30 · D41
 - **Structure du dépôt** — D29 · D32 · D33 · D35
 - **Configuration** — D15 · D18
-- **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46
+- **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46 · D48
 - **Sécurité et installation** — D07 · D11 · D22 · D34
 - **Outillage** — D06 · D21 · D24 · D40 · D44 · D47
 - **Méthode de travail** — D10 · D12 · D13 · D14 · D16 · D17 · D31 · D36 · D39 · D43
@@ -1115,3 +1115,39 @@ Contrepartie assumée : une couche de script a déjà cassé des chaînes JavaSc
 non terminées — **et** un rechargement de la page servie avant d'annoncer quoi que ce soit.
 `docs/DECISIONS-VALIDEES.md` garde la règle inverse (**D36**) : lui s'écrit avec l'outil
 d'édition, car une couche shell l'avait corrompu.
+
+## D48 — Gestion des modules : un panneau latéral, deux portes d'entrée
+
+**Forme retenue** : un **panneau latéral large** (~520 px), même mécanique que le tiroir des
+notifications. Il présente la **liste des modules** ; en choisir un ouvre sa **configuration
+dans le même panneau** (liste → détail). Écartés : la vue plein écran (routage à inventer
+pour un besoin de réglage) et la modale par carte (trop étroite pour de la configuration).
+
+**Deux portes d'entrée, et il en faut bien deux :**
+
+1. **Un menu de gestion dédié**, indépendant des cartes. Indispensable : un module désactivé
+   n'a **pas de carte**, donc aucune carte ne peut y mener. Sans cette entrée, un module
+   désactivé serait irrécupérable depuis l'interface.
+2. **Un menu par carte** (bouton ⋮ / ☰) qui ouvre directement la configuration **de ce
+   module**. Raccourci, jamais l'unique chemin.
+
+### Ce qui reste à étudier avant d'écrire une ligne
+
+Le découpage est le vrai sujet. Le contrat ne connaît que deux niveaux — `theme` (le groupe
+affiché) et `module` (une carte) — alors qu'un module au sens de l'utilisateur produit
+**plusieurs cartes** : « Windows Update » en donne trois (historique, verrouillage, mises à
+jour en attente). Il recouvre à peu près un thème, mais pas exactement. Le niveau qui
+manque est l'**unité fonctionnelle** : ce qu'on active, désactive et configure, distinct de
+la carte qui l'affiche.
+
+Questions ouvertes, à trancher avant l'implémentation :
+
+- troisième niveau dans le contrat (`unit` / `feature`) possédant ses cartes, ou `theme`
+  enrichi devenant cette unité ?
+- une sonde = une carte aujourd'hui ; si l'unité regroupe des sondes, qui porte
+  l'activation : le fichier de sonde, ou une déclaration séparée ?
+- où vit la configuration d'un module : le `config.psd1` du backend, ou un fichier par
+  module sous `apps/backend-pode/config/modules/` ?
+- un module désactivé disparaît-il de `/state`, ou y figure-t-il avec un drapeau ? Le
+  premier est plus simple ; le second permet de le réactiver depuis le panneau sans
+  connaître la liste des modules possibles.
