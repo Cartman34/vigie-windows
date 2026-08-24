@@ -1371,3 +1371,19 @@ Un réglage nouveau rejoint ce menu — on n'ajoute plus de bouton épars dans l
 police, éventuellement habillé en CSS (cercle, pastille). Pas de tracé SVG ad hoc pour
 une icône d'interface — seule la marque (jauge, logo GitHub) reste en SVG.
 
+## D57 — Config et paramètres : le défaut vient de la config (2026-08-24)
+
+**Décision (formulée par l'utilisateur).** L'app a une **config** ; les modules peuvent
+avoir des **paramètres** et des configs. Un **paramètre** est ce qui est réglable dans
+l'app via le menu Paramètres. Chaque paramètre a pour **défaut une valeur de config**
+(possiblement tous — c'est la bonne pratique), et l'utilisateur peut changer cette valeur
+dans les Paramètres.
+
+**Application.** La config d'un module vit dans son `module.psd1` (`Config`, versionnée) ;
+les paramètres réglables y sont déclarés (`Parameters` : clé, libellé, type, aide) ; les
+surcharges de l'utilisateur vont dans `config/parameters.local.json` (jamais versionné),
+posées par `POST /parameters/{unit}` — `null` = retour au défaut. Les sondes lisent la
+valeur effective par `Get-ModuleSetting`, jamais le fichier local. Premier cas réel : le
+seuil d'alerte du disque. **Q2 (même arbitrage)** : l'historique enregistre les
+événements, **aucun affichage pour l'instant**.
+
