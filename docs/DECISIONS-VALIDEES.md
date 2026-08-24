@@ -21,9 +21,9 @@ Ajouter une décision = ajouter son numéro à une ligne.
 - **Identité et nommage** — D03 · D04 · D05 · D28 · D30 · D41
 - **Structure du dépôt** — D29 · D32 · D33 · D35
 - **Configuration** — D15 · D18
-- **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45
+- **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46
 - **Sécurité et installation** — D07 · D11 · D22 · D34
-- **Outillage** — D06 · D21 · D24 · D40 · D44
+- **Outillage** — D06 · D21 · D24 · D40 · D44 · D47
 - **Méthode de travail** — D10 · D12 · D13 · D14 · D16 · D17 · D31 · D36 · D39 · D43
 
 ---
@@ -1067,3 +1067,39 @@ comme une case vide, pas comme une mise en garde.
 **Manquement à ne pas reproduire** : cette fonction a été demandée **cinq fois** avant
 d'être faite. Une demande répétée qui reste sans réponse n'est pas une demande de moindre
 priorité — c'est la plus urgente.
+
+## D46 — Les deux liserés ne disent pas la même chose
+
+Ils ont été confondus, puis intervertis. Ils sont distincts et le restent :
+
+| Élément | Emplacement | Ce qu'il porte |
+|---|---|---|
+| `.modebar` | bande horizontale **sous l'en-tête** | statut de l'**application** (en ligne / maquette / erreur) |
+| `.card` | liseré **à gauche** de chaque carte | statut de **ce module** |
+
+Le liseré de carte reste **à gauche** — il avait été déplacé en haut par erreur, sur une
+confusion avec la barre de l'application.
+
+**L'état « en cours » vit dans le même liseré**, en clignotant vers la couleur d'accent.
+Il était auparavant rendu par un **halo** autour de la carte : deux signaux séparés pour une
+même chose, et un halo se lit comme une alerte. Une carte a un seul endroit où dire son
+état. *(Validé à l'œil par l'utilisateur.)*
+
+## D47 — Ne jamais ouvrir le front en `file://`
+
+Éditer `apps/frontend-web/index.html` avec l'outil d'édition de l'agent déclenche l'aperçu
+automatique du panneau navigateur : il charge le fichier en `file://`, **vole le focus** et
+affiche une copie qui n'est pas celle que sert le back — sans jeton d'API, donc sans données.
+
+Deux règles en découlent :
+
+1. **Toute vérification passe par un serveur** : `http://127.0.0.1:47600` pour l'application,
+   `http://127.0.0.1:47610` pour l'Atelier. Jamais un chemin de fichier.
+2. **Les fichiers du front se modifient par script** (remplacement exact en Python), pas avec
+   l'outil d'édition — c'est ce qui déclenche l'aperçu.
+
+Contrepartie assumée : une couche de script a déjà cassé des chaînes JavaScript
+(apostrophes, `\n`). Elle impose donc son garde-fou — recherche des chaînes monoquotes
+non terminées — **et** un rechargement de la page servie avant d'annoncer quoi que ce soit.
+`docs/DECISIONS-VALIDEES.md` garde la règle inverse (**D36**) : lui s'écrit avec l'outil
+d'édition, car une couche shell l'avait corrompu.
