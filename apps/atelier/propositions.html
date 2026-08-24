@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Propositions en cours — atelier Vigie</title>
+<link rel="stylesheet" href="atelier.css">
+<style>
+  .crumb{color:var(--muted);text-decoration:none;font-size:12.5px;border:1px solid var(--border);
+         border-radius:7px;padding:4px 10px}
+  .crumb:hover{color:var(--text);border-color:var(--accent)}
+  .badge{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
+         padding:2px 9px;border-radius:999px}
+  .badge.archive{color:var(--ok);background:rgba(63,185,80,.14)}
+  .badge.encours{color:var(--accent);background:rgba(56,139,253,.14)}
+  .q{border:1px solid var(--border);border-radius:11px;background:var(--panel-2);
+     padding:16px 18px;margin-bottom:16px}
+  .q h3{margin:0 0 6px;font-size:14.5px}
+  .q p{color:var(--muted);font-size:13px;margin:0 0 10px;max-width:78ch}
+  .q ol{margin:0;padding-left:0;list-style:none}
+  .q li{padding:7px 10px;border:1px dashed var(--border);border-radius:8px;margin-bottom:7px;font-size:13px}
+  .q li b{color:var(--accent)}
+  .q li.reco{border-style:solid;border-color:var(--accent)}
+  .fait{border:1px solid var(--border);border-radius:9px;padding:10px 14px;margin-bottom:9px;
+        font-size:13px;display:flex;gap:10px;align-items:baseline}
+  .fait .ok{color:var(--ok);font-weight:700;white-space:nowrap}
+</style>
+</head>
+<body>
+<header>
+  <a class="crumb" href="index.html">&larr; Atelier</a>
+  <h1>Propositions en cours</h1>
+  <span class="badge encours">sujet permanent</span>
+  <span class="sub">ce qui attend ton arbitrage — et la trace de ce qui vient d’être tranché</span>
+</header>
+<main>
+
+<section>
+  <h2>En attente d’arbitrage</h2>
+  <p class="hint">
+    Deux questions issues de la conception de l’<b>historique des mesures</b>
+    (<code>docs/conception/historique-cible.md</code> et <code>historique-migration.md</code>).
+    La recommandation est toujours en premier ; réponds par Q1A, Q1B…
+  </p>
+
+  <div class="q">
+    <h3>Q1 — Où vivent les seuils de dérive ?</h3>
+    <p>Exemple : « plus de 3 redémarrages de WSL en 24 h ⇒ warning ». Ces seuils devront pouvoir évoluer sans fouiller le code.</p>
+    <ol>
+      <li class="reco"><b>A (recommandé)</b> — en tête de chaque sonde, rebasculables en une ligne (le modèle D20 déjà en place).</li>
+      <li><b>B</b> — dans <code>config.psd1</code>, tous regroupés.</li>
+      <li><b>C</b> — dans le futur panneau de gestion des modules.</li>
+    </ol>
+  </div>
+
+  <div class="q">
+    <h3>Q2 — Comment restituer les événements (redémarrages WSL, levées du verrou) ?</h3>
+    <p>Les mesures continues auront leur tendance ; reste la forme des événements ponctuels.</p>
+    <ol>
+      <li class="reco"><b>A (recommandé)</b> — une ligne de faits dans la carte : « 4 redémarrages hier ».</li>
+      <li><b>B</b> — une mini-frise graphique.</li>
+      <li><b>C</b> — rien à l’écran, consultation par l’API seulement.</li>
+    </ol>
+  </div>
+</section>
+
+<section>
+  <h2>Arbitré récemment</h2>
+  <p class="hint">Trace des décisions prises ici, avec leur décision au registre. Le détail vit dans <code>docs/DECISIONS-VALIDEES.md</code>.</p>
+  <div class="fait"><span class="ok">P1 ✓ livré</span><span>Vérification du contrat des sondes — étendue : validation ciblée (<code>-Only</code>), sondes coûteuses inchangées vérifiées sur leur dernière sortie réelle (<b>D51</b>).</span></div>
+  <div class="fait"><span class="ok">P2 ✓ validé</span><span>Historique des mesures — rétention configurable au global et par mesure, conception finale et de migration livrées, ajout progressif par sous-agent (<b>D53</b>).</span></div>
+  <div class="fait"><span class="ok">P3 ✓ livré</span><span>Notifications du tray sur bascule de module — réglage fin par module + interrupteur global qui masque sans effacer (<b>D54</b>). L’icône du tray reste le statut de l’app.</span></div>
+</section>
+
+<div class="note">
+  <b>Règle du sujet (D55).</b> Une proposition qui grossit — demande de développement,
+  ou nécessité — devient un sujet entier de l’Atelier, avec sa page. Ce qui est validé
+  part dans « Arbitré récemment » puis s’archive.
+</div>
+
+</main>
+</body>
+</html>

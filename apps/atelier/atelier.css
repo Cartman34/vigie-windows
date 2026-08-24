@@ -1,0 +1,125 @@
+/* Styles communs de l'Atelier. UNE definition pour toutes les pages (D15) :
+   chaque sujet vit dans sa page (D55), le style reste partage ici. */
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel-2:#1c2230; --border:#2d333b;
+    --text:#e6edf3; --muted:#8b949e; --accent:#388bfd;
+    --ok:#3fb950; --warn:#d29922; --err:#f85149;
+    --gauge-track:#30363d;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);
+       color:var(--text);font-size:14px;line-height:1.5}
+  header{padding:16px 26px;border-bottom:1px solid var(--border);background:var(--panel);
+         display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;position:sticky;top:0;z-index:5}
+  header h1{font-size:16px;margin:0;font-weight:700}
+  header .sub{color:var(--muted);font-size:12.5px}
+  main{max-width:1060px;margin:0 auto;padding:24px}
+  section{background:var(--panel);border:1px solid var(--border);border-radius:12px;
+          padding:22px;margin-bottom:22px}
+  h2{font-size:12.5px;text-transform:uppercase;letter-spacing:.9px;color:var(--muted);
+     margin:0 0 4px;font-weight:700}
+  .hint{color:var(--muted);font-size:12.5px;margin:0 0 18px;max-width:74ch}
+  .warn{color:#f0b429;background:#3a2d10;border:1px solid #6b5015;border-radius:6px;
+        padding:8px 11px;font-size:12.5px;margin:0 0 16px;max-width:74ch}
+  .hint b{color:var(--text)}
+  .controls{display:flex;flex-wrap:wrap;gap:22px;align-items:flex-end;padding:14px 16px;
+            background:var(--panel-2);border-radius:10px;border:1px solid var(--border);
+            margin-bottom:16px}
+  .ctrl{display:flex;flex-direction:column;gap:6px}
+  .ctrl > label{font-size:11px;color:var(--muted);font-weight:700;
+                text-transform:uppercase;letter-spacing:.5px}
+  input[type=range]{width:200px;accent-color:var(--accent)}
+  input[type=color]{width:54px;height:28px;padding:0;border:1px solid var(--border);
+                    border-radius:6px;background:none;cursor:pointer}
+  .chips{display:flex;gap:7px}
+  button{font:inherit;cursor:pointer;border-radius:7px;border:1px solid var(--border);
+         background:var(--panel);color:var(--muted);padding:6px 13px;font-weight:600;
+         font-size:12.5px;transition:.12s}
+  button:hover{border-color:var(--accent);color:var(--text)}
+  button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .val{font-variant-numeric:tabular-nums;font-weight:700;color:var(--text)}
+
+  /* Cellules de hauteur FIXE : toutes les tailles s'alignent sur une meme ligne. */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(94px,1fr));gap:12px;
+        align-items:stretch}
+  /* La plus grande vignette ne tient pas dans une colonne calibree sur les petites
+     tailles : elle en occupe deux. Pleine largeur serait disproportionne. */
+  .cell.wide{grid-column:span 2}
+  .cell{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:8px;
+        min-height:148px;padding:12px 10px;background:var(--panel-2);
+        border:1px solid var(--border);border-radius:9px;overflow:hidden}
+  /* flex:1 0 auto + pas de min-height:0 : la zone de dessin ne peut plus etre comprimee
+     sous la taille de la vignette, c'est la CELLULE qui s'agrandit. */
+  .cell .art{display:flex;align-items:center;justify-content:center;flex:1 0 auto}
+  .cell .cap{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .cell.dead{border-color:var(--err);background:rgba(248,81,73,.07)}
+  .cell.dead .cap{color:var(--err)}
+
+  .strip{display:flex;align-items:center;gap:18px;background:#202020;border:1px solid #3a3a3a;
+         border-radius:9px;padding:12px 18px;margin-top:16px}
+  .strip .cap{font-size:12px;color:#9aa4ae}
+
+  .rowlabel{display:flex;align-items:center;gap:10px;margin:20px 0 10px}
+  .rowlabel b{font-size:13px}
+  .rowlabel .f{color:var(--muted);font-size:12px}
+  .dot{width:9px;height:9px;border-radius:50%}
+
+  .alert{border-left:3px solid var(--err);padding:13px 16px;background:rgba(248,81,73,.09);
+         border-radius:0 8px 8px 0;font-size:13px;margin-bottom:20px;display:none}
+  .alert.show{display:block}
+  .alert b{color:var(--err)}
+
+  /* --- Propositions soumises a evaluation --- */
+  .prop{border:1px solid var(--border);border-radius:11px;background:var(--panel-2);
+        padding:16px 18px;margin-bottom:16px}
+  .prop-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+  .prop-head h3{margin:0;font-size:14.5px}
+  .prop-etat{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
+             padding:2px 8px;border-radius:999px}
+  .prop-etat.livre{color:var(--ok);background:rgba(63,185,80,.14)}
+  .prop-etat.propose{color:var(--accent);background:rgba(56,139,253,.14)}
+  .prop-pitch{color:var(--muted);font-size:13px;margin:0 0 14px;max-width:78ch}
+  .prop-apercu{background:var(--bg);border:1px solid var(--border);border-radius:9px;
+               padding:14px;margin-bottom:14px}
+  .prop-bilan{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+  .prop-bilan div{font-size:12.5px}
+  .prop-bilan b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.5px;
+                color:var(--muted);margin-bottom:3px}
+  /* Maquette de carte, pour juger le rendu sans lancer l'application. */
+  .mk{background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--warn);
+      border-radius:10px;padding:13px 15px;max-width:340px;font-size:13px}
+  .mk-t{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)}
+  .mk-n{font-weight:700;margin-bottom:9px}
+  .mk-l{display:flex;justify-content:space-between;align-items:center;padding:5px 0;
+        border-bottom:1px dashed var(--border)}
+  .mk-l:last-child{border-bottom:none}
+  .mk-v{font-weight:700;font-variant-numeric:tabular-nums}
+  .mk-baisse{color:var(--warn)}
+  /* Maquette de notification Windows. */
+  .toastw{background:#2b2b2b;border:1px solid #3d3d3d;border-radius:8px;padding:13px 15px;
+          max-width:370px;box-shadow:0 8px 28px rgba(0,0,0,.5);display:flex;gap:12px}
+  .toastw .app{font-size:11px;color:#9aa0a6;margin-bottom:5px}
+  .toastw .ti{font-weight:700;margin-bottom:3px;color:#fff}
+  .toastw .tx{font-size:12.5px;color:#c9d1d9}
+  .toastw .bt{margin-top:10px;display:flex;gap:8px}
+  .toastw .bt span{border:1px solid #4a4a4a;border-radius:5px;padding:4px 10px;font-size:12px;color:#e6edf3}
+  .note{border-left:3px solid var(--warn);padding:11px 15px;background:rgba(210,153,34,.08);
+        border-radius:0 8px 8px 0;color:var(--muted);font-size:12.5px;margin-top:18px}
+  .note b{color:var(--text)}
+
+  code{background:var(--panel-2);padding:1px 6px;border-radius:5px;font-size:12.5px}
+  pre{background:#0b0f14;border:1px solid var(--border);border-radius:9px;padding:15px 17px;
+      overflow-x:auto;font-size:12.5px;line-height:1.65;margin:16px 0 0;white-space:pre}
+  pre .k{color:#79c0ff} pre .v{color:#a5d6ff} pre .c{color:var(--muted)}
+  .frame{width:100%;height:500px;border:1px solid var(--border);border-radius:10px;
+         background:var(--bg);display:block}
+
+  /* --- Reproduction du menu du tray --- */
+  .desk{border:1px solid var(--border);border-radius:10px;padding:36px;display:flex;
+        justify-content:center;background-image:linear-gradient(135deg,#1b2733,#26384c)}
+  .menu{min-width:242px;padding:4px 0;font-size:13px;user-select:none;
+        box-shadow:0 10px 30px rgba(0,0,0,.6)}
+  .menu .mi{display:flex;align-items:center;white-space:nowrap}
+  .menu .mi.bold{font-weight:700}
+  .menu .mi.dim{opacity:.6}
+  .menu .sep{height:1px}
