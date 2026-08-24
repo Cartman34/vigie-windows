@@ -484,8 +484,8 @@ function toggleGroup(id){
 // Rendu d'UNE carte (reutilise par le rendu complet ET le rafraichissement par carte).
 function cardHtml(m, groupLabel){
   const st=['ok','warn','error','neutral'].includes(m.status)?m.status:'neutral';
-  const stTxt={ok:'Conforme',warn:'À surveiller',error:'Problème',neutral:'Info'}[st];
-  const stIc={ok:'✓',warn:'!',error:'✕',neutral:'i'}[st];
+  const stTxt={ok:'Conforme',warn:'À surveiller',error:'Problème',neutral:'Non évalué'}[st];
+  const stIc={ok:'✓',warn:'!',error:'✕',neutral:'–'}[st];
   const actById={}; (m.actions||[]).forEach(a=>{ actById[a.id]=a; });
   const usedAsFix=new Set();
   const fields=(m.fields||[]).map(f=>{
