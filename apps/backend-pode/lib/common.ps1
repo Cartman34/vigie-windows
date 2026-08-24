@@ -530,6 +530,24 @@ $script:ProbeTtls = @{
     'packages.probe.ps1'= 5
 }
 
+# Ramene une date lue depuis JSON a un [datetime] UTC, quelle que soit sa forme.
+#
+# ConvertFrom-Json convertit parfois lui-meme les chaines ISO-8601 en [datetime] : selon le
+# chemin, on recoit une chaine ou un objet, et le Kind peut etre Utc, Local ou Unspecified.
+# Comparer sans normaliser donne un age faux de plusieurs heures -- c'est ce qui rendait le
+# cache d'etat inoperant. La conversion se fait donc ICI, en un seul endroit.
+function ConvertTo-UtcDate {
+    param($Value)
+    if ($null -eq $Value) { return $null }
+    $d = if ($Value -is [datetime]) { $Value }
+         else { [datetimeoffset]::Parse([string]$Value, [Globalization.CultureInfo]::InvariantCulture).UtcDateTime }
+    switch ($d.Kind) {
+        'Local'       { return $d.ToUniversalTime() }
+        'Unspecified' { return [datetime]::SpecifyKind($d, [DateTimeKind]::Utc) }
+        default       { return $d }
+    }
+}
+
 function Get-State {
     param([string]$Backend = (Get-BackendRoot), [switch]$Force)
     $probesDir = Join-Path $Backend 'probes'
@@ -545,7 +563,13 @@ function Get-State {
     }
 
     # Sondes + fraicheur (invalidation PAR sonde : mtime du fichier + TTL)
-    $now = Get-Date
+    #
+    # L'age se calcule ENTIEREMENT en UTC. La date est ecrite en UTC (`ToUniversalTime`) ;
+    # elle etait comparee a `Get-Date`, qui rend l'heure LOCALE. Sur un poste a UTC+2,
+    # toute entree paraissait donc vieille de deux heures : aucune n'a jamais ete jugee
+    # fraiche, le cache ne servait a rien et chaque appel a /state recalculait les douze
+    # sondes -- une vingtaine de secondes, dont dix pour la seule sonde `lock`.
+    $nowUtc = [datetime]::UtcNow
     $probeFiles = @(Get-ChildItem -Path $probesDir -Recurse -Filter '*.probe.ps1' -ErrorAction SilentlyContinue | Sort-Object FullName)
     $stale = @()
     foreach ($pf in $probeFiles) {
@@ -553,7 +577,10 @@ function Get-State {
         $ttl = if ($script:ProbeTtls.ContainsKey($name)) { $script:ProbeTtls[$name] } else { $defaultTtl }
         $entry = $cache[$name]; $fresh = $false
         if ($entry -and $entry.at -and ("$($entry.codeStamp)" -eq $stamp)) {
-            try { if ((($now - [datetime]$entry.at).TotalSeconds) -lt $ttl) { $fresh = $true } } catch { }
+            try {
+                $at = ConvertTo-UtcDate $entry.at
+                if ($at -and ($nowUtc - $at).TotalSeconds -lt $ttl) { $fresh = $true }
+            } catch { }
         }
         if (-not $fresh) { $stale += [pscustomobject]@{ File = $pf.FullName; Name = $name; Stamp = $stamp } }
     }
