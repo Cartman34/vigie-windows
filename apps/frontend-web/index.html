@@ -1268,7 +1268,9 @@ function toast(msg){
 function toggleUnits(){
   unitsOpen=!unitsOpen;
   document.getElementById('unitsBack').classList.toggle('show',unitsOpen);
-  document.getElementById('unitsDrawer').classList.toggle('show',unitsOpen);
+  // Le tiroir s ouvre par la classe 'open' (comme celui des notifications) ;
+  // 'show' est la classe du voile de fond.
+  document.getElementById('unitsDrawer').classList.toggle('open',unitsOpen);
   if(unitsOpen) renderUnits();
 }
 function openUnits(unitId){
