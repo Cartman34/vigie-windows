@@ -1,0 +1,15 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>charge GPU de test</title></head>
+<body style="margin:0"><canvas id="c"></canvas><script>
+// Charge GPU volontaire et bornee : un shader lourd par pixel, plein ecran de la fenetre.
+const cv=document.getElementById('c'); cv.width=1600; cv.height=900;
+const gl=cv.getContext('webgl');
+const vs='attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}';
+const fs='precision highp float;uniform float t;void main(){vec2 u=gl_FragCoord.xy/900.;float a=0.;for(int i=0;i<220;i++){a+=sin(u.x*float(i)+t)*cos(u.y*float(i)-t);}gl_FragColor=vec4(fract(a),fract(a*1.7),fract(a*2.3),1.);}';
+function sh(t,s){const h=gl.createShader(t);gl.shaderSource(h,s);gl.compileShader(h);return h;}
+const pr=gl.createProgram();gl.attachShader(pr,sh(gl.VERTEX_SHADER,vs));gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,fs));gl.linkProgram(pr);gl.useProgram(pr);
+const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);
+gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
+const lp=gl.getAttribLocation(pr,'p');gl.enableVertexAttribArray(lp);gl.vertexAttribPointer(lp,2,gl.FLOAT,false,0,0);
+const lt=gl.getUniformLocation(pr,'t');let t0=Date.now();
+(function f(){gl.uniform1f(lt,(Date.now()-t0)/300);gl.drawArrays(gl.TRIANGLES,0,3);requestAnimationFrame(f);})();
+</script></body></html>

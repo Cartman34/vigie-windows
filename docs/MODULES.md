@@ -61,7 +61,14 @@ vraies données — quitte à ce qu'elles vaillent 0 :
   sonde (exemple : `VIGIE_FAKE_GAME='chrome'` fait traiter chrome comme le jeu) ;
 - la simulation ne fabrique **pas** de fausses valeurs : elle force le **chemin**, les
   mesures restent réelles ;
-- l'épreuve fait partie de la validation avant livraison (voir ci-dessous).
+- l'épreuve fait partie de la validation avant livraison (voir ci-dessous) ;
+- quand une **charge réelle** est fabricable, elle vaut mieux que la simulation :
+  `scripts/dev/gpu-load.html` (WebGL lourd) lancé dans un Chrome à profil jetable fait
+  monter le GPU pour éprouver la détection de jeu — avec OBLIGATOIREMENT
+  `--disable-backgrounding-occluded-windows --disable-renderer-backgrounding
+  --disable-background-timer-throttling` (Chrome gèle le rendu d'une fenêtre occultée,
+  constaté en session distante), puis `taskkill /T` sur le PID lancé et suppression du
+  profil. Éprouvé le 24/08 : chrome vu à 19 % GPU et désigné comme jeu, sans simulation.
 
 ## Valider avant de livrer (dans cet ordre)
 
