@@ -784,12 +784,6 @@ function ouvrirDetail(key){
   }
   HDS.info(f.label, f.guide || f.help || 'Aucun détail disponible.', {variant:'info'});
 }
-function solveField(key,btn){
-  const f=fieldsByKey[key]; if(!f) return;
-  const text=f.guide||f.help||'Aucune instruction disponible.';
-  if(f.fixAction){ doAction(f.fixAction, f.moduleId, f.fixConfirm!==false, 'Résoudre : '+f.label, text, btn, null, f.fixKind); }
-  else { openModal('Résoudre : '+f.label, text); }
-}
 // ===== Design system : Dialog reutilisable (modales in-app) =====
 // HDS.open(opts) -> Promise(valeur du bouton clique)
 // HDS.confirm({title,body,confirmLabel,cancelLabel,danger}) -> Promise(bool)
@@ -967,7 +961,6 @@ const HDS = (function(){
 })();
 
 // Compat : anciens appels -> HDS
-function openModal(title, body){ HDS.info(title, body); }
 function closeModal(){ HDS.close(); }
 function setBtnBusy(btn){
   if(!btn||btn.dataset.busy) return;
@@ -1155,6 +1148,9 @@ function setLoading(on){
   // le premier se voit du coin de l'oeil, le second l'ecrit noir sur blanc.
   const mb=document.getElementById('modebar');
   if(mb) mb.classList.toggle('busy', !!on);
+  // Toutes les cartes, pas seulement celle qu'on rafraichit isolement : pendant un
+  // recalcul global, leurs valeurs sont en sursis et leurs boutons ne doivent pas partir.
+  document.querySelectorAll('.card').forEach(c => c.classList.toggle('card-loading', !!on));
   const meta=document.getElementById('lastRefresh');
   if(meta){
     meta.classList.toggle('busy', !!on);
