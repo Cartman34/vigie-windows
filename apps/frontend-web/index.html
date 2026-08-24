@@ -58,6 +58,12 @@
   .spacer{flex:1}
   .meta{color:var(--muted);font-size:12.5px}
   .meta.busy{color:var(--accent);font-weight:600}
+  /* Fonte d'icones MAISON (apps/frontend-web/assets/generate-icon-font.py, D58) :
+     de vrais caracteres en zone privee, embarques en data-URI pour rester autonome.
+     Usage : <span class="vi">&#xE001;</span> - la table des noms vit dans le generateur. */
+  @font-face{font-family:'Vigie Icons';src:url(data:font/ttf;base64,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) format('truetype')}
+  .vi{font-family:'Vigie Icons';font-style:normal;font-weight:400;line-height:1;
+      display:inline-block;vertical-align:-0.08em;-webkit-font-smoothing:antialiased}
   button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);padding:7px 12px;transition:.15s}
   button:hover{border-color:var(--accent)}
   .modebar{height:3px;padding:0;border:none;position:relative;overflow:hidden}
@@ -503,13 +509,13 @@
   <div class="global" id="global"><span class="dot"></span><span id="globalTxt">—</span></div>
   <div class="spacer"></div>
   <div class="meta" id="lastRefresh">—</div>
-  <button id="btnRefresh" class="ic-btn" onclick="refresh(true)" aria-label="Actualiser" title="Actualiser : recalcule toutes les sondes sans utiliser le cache (peut prendre plusieurs minutes)">↻</button>
+  <button id="btnRefresh" class="ic-btn" onclick="refresh(true)" aria-label="Actualiser" title="Actualiser : recalcule toutes les sondes sans utiliser le cache (peut prendre plusieurs minutes)"><span class="vi">&#xE008;</span></button>
   <button class="bell" id="bellBtn" onclick="toggleDrawer()" title="Notifications">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22a2.4 2.4 0 0 0 2.4-2h-4.8A2.4 2.4 0 0 0 12 22zm7-6v-5.2C19 7.6 17 5.1 14.2 4.4V4a2.2 2.2 0 0 0-4.4 0v.4C7 5.1 5 7.6 5 10.8V16l-2 2v1h18v-1l-2-2z"/></svg>
+    <span class="vi" style="font-size:15px">&#xE004;</span>
     <span id="bellCount" class="bell-count"></span>
   </button>
   <a class="ic-btn" id="atelierBtn" target="_blank" rel="noopener" hidden title="Ouvrir l’atelier de validation (détecté en local)">⚒</a>
-  <button class="ic-btn" id="settingsBtn" onclick="openSettings()" aria-label="Paramètres" title="Paramètres : notifications, modules, apparence, à propos">⚙</button>
+  <button class="ic-btn" id="settingsBtn" onclick="openSettings()" aria-label="Paramètres" title="Paramètres : notifications, modules, apparence, à propos"><span class="vi">&#xE001;</span></button>
 </header>
 <div class="modebar neutral" id="modebar"></div>
 <main id="app"></main>
@@ -517,7 +523,7 @@
   <span>Vigie</span><span class="sep">·</span>
   <span id="footVersion"></span>
   <span class="spacer"></span>
-  <button onclick="toggleTheme()" id="themeBtn" class="ic-btn" title="Basculer entre le thème sombre et le thème clair">☀</button>
+  <button onclick="toggleTheme()" id="themeBtn" class="ic-btn" title="Basculer entre le thème sombre et le thème clair"><span class="vi" id="themeIc">&#xE005;</span></button>
   <a class="repo-ic" data-repo-link aria-label="Depot du projet sur GitHub"><svg width="16" height="16" aria-hidden="true"><use href="#ghMark"/></svg></a>
 </footer>
 <div class="toast-stack" id="toastStack"></div>
@@ -634,7 +640,7 @@ function toggleGroup(id){
 function cardHtml(m, groupLabel){
   const st=['ok','warn','error','neutral'].includes(m.status)?m.status:'neutral';
   const stTxt={ok:'Conforme',warn:'À voir',error:'Problème'}[st];
-  const stIc={ok:'✓',warn:'!',error:'✕'}[st];
+  const stIc={ok:'&#xE00A;',warn:'&#xE00B;',error:'&#xE00C;'}[st];
   const actById={}; (m.actions||[]).forEach(a=>{ actById[a.id]=a; });
   const fields=(m.fields||[]).map(f=>{
     const stt=f.status||'neutral';
@@ -656,7 +662,7 @@ function cardHtml(m, groupLabel){
     const aTable  = !!(f.table && f.table.rows && f.table.rows.length);
     const detLong = aTable || (!!detTxt && (detTxt.length > 400 || detTxt.split(String.fromCharCode(10)).length > 8));
     const clicDetail = (detTxt||aTable) ? (detLong ? `ouvrirDetail('${key}')` : 'toggleDetail(this)') : '';
-    const info=(f.help||f.guide)?`<button class="fhelp ${stt}" title="${help}" onclick="${clicDetail||'toggleDetail(this)'}"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5.5" r="2.3"/><rect x="9.7" y="9.5" width="4.6" height="10.5" rx="2.3"/></svg></button>`:'';
+    const info=(f.help||f.guide)?`<button class="fhelp ${stt}" title="${help}" onclick="${clicDetail||'toggleDetail(this)'}"><span class="vi" style="font-size:12px">&#xE007;</span></button>`:'';
     const solve='';
     const det = (detTxt && !detLong) ? `<div class="field-detail ${stt}${open}" data-k="${key}">${esc(detTxt)}</div>` : '';
     return `<div class="frow">
@@ -685,9 +691,9 @@ function cardHtml(m, groupLabel){
   return `<div class="card st-${st}${m.busy?' busy':''}" data-module="${m.id}" data-theme="${m.theme}">
     <div class="card-head">
       <div class="card-titles"><span class="card-group">${esc(groupLabel||'')}</span><span class="name">${m.label}</span></div>
-      ${stTxt?`<span class="badge ${st}"><span class="ic">${stIc}</span>${stTxt}</span>`:''}
-      <button class="card-refresh" title="Rafraîchir cette carte" onclick="refreshCard('${m.id}',this)"><span class="cr-ic">↻</span></button>
-      <button class="card-refresh card-menu" title="Gérer ce module : activation, notifications" onclick="openSettings('modules','${m.theme}')">⋮</button>
+      ${stTxt?`<span class="badge ${st}"><span class="ic vi">${stIc}</span>${stTxt}</span>`:''}
+      <button class="card-refresh" title="Rafraîchir cette carte" onclick="refreshCard('${m.id}',this)"><span class="cr-ic vi">&#xE008;</span></button>
+      <button class="card-refresh card-menu" title="Gérer ce module : activation, notifications" onclick="openSettings('modules','${m.theme}')"><span class="vi">&#xE009;</span></button>
     </div>
     <div class="fields">${fields}</div>
     ${actions?`<div class="actions">${actions}</div>`:''}
@@ -1317,7 +1323,9 @@ async function checkVersion(){
 }
 
 let dark=true;
-function toggleTheme(){ dark=!dark;
+function toggleTheme(){
+  // L'icone du footer montre le theme CIBLE : lune quand on est en clair, soleil sinon.
+  setTimeout(()=>{ const ic=document.getElementById('themeIc'); if(ic) ic.innerHTML=(dark?'&#xE005;':'&#xE006;'); },0); dark=!dark;
   document.documentElement.setAttribute('data-theme',dark?'':'light');
   const tb=document.getElementById('themeBtn');
   tb.textContent = dark ? '☀' : '☾';
@@ -1348,7 +1356,7 @@ function openSettings(tab, unitFocus){
 }
 async function renderSettings(){
   const body=document.getElementById('settingsBody');
-  const TABS=[['notifications','Notifications','⚑'],['modules','Modules','🧩︎'],['apparence','Apparence','☀'],['apropos','À propos','<span class="ic-round">i</span>']];
+  const TABS=[['notifications','Notifications','<span class="vi">&#xE003;</span>'],['modules','Modules','<span class="vi">&#xE002;</span>'],['apparence','Apparence','<span class="vi">&#xE005;</span>'],['apropos','\u00c0 propos','<span class="vi">&#xE007;</span>']];
   body.innerHTML='<div class="set-wrap"><nav class="set-nav">'+TABS.map(t=>
     '<button class="set-item'+(settingsTab===t[0]?' on':'')+'" data-tab="'+t[0]+'">'
     +'<span class="set-ic">'+t[2]+'</span>'+t[1]+'</button>').join('')
