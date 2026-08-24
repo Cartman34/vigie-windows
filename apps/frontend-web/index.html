@@ -114,12 +114,13 @@
   .dn-del:hover{color:var(--err)}
   .dn-msg{color:var(--muted);margin-top:4px;word-break:break-word}
   .dn-time{color:var(--muted);opacity:.75;font-size:11px;margin-top:3px;display:flex;align-items:center;gap:5px}
-  /* Accent de statut : liseré EN HAUT de la carte (validé). Il etait a gauche depuis
-     l'import initial ; la version validee le place en bandeau superieur. */
-  .card{border-top:4px solid var(--border)}
-  .card.st-ok{border-top-color:var(--ok)}
-  .card.st-warn{border-top-color:var(--warn)}
-  .card.st-error{border-top-color:var(--err)}
+  /* Accent de statut de la CARTE : liseré à GAUCHE. A ne pas confondre avec la barre
+     horizontale sous l'en-tete (.modebar), qui porte le statut de l'APPLICATION.
+     Ce sont deux informations differentes, a deux endroits differents. */
+  .card{border-left:4px solid var(--border)}
+  .card.st-ok{border-left-color:var(--ok)}
+  .card.st-warn{border-left-color:var(--warn)}
+  .card.st-error{border-left-color:var(--err)}
   .badge{font-size:12.5px;padding:4px 10px}
   .badge .ic{font-weight:800;font-size:13px;line-height:1}
   /* statut par parametre (ligne) */
@@ -206,8 +207,12 @@
   .fsolve:hover{background:rgba(127,127,127,.14)}
   /* Etat "action en cours" sur un bouton */
   .act.busy,.fsolve.busy{opacity:.9;cursor:progress}
-  .card.busy{animation:cardbusy 1.6s ease-in-out infinite}
-  @keyframes cardbusy{0%,100%{box-shadow:0 0 0 0 rgba(210,153,34,0)}50%{box-shadow:0 0 11px -1px var(--warn,#d29922)}}
+  /* « En cours » est un ETAT de la carte : il s'exprime donc dans le MEME liséré que le
+     statut, et non dans un halo separe. Un halo autour de la carte dissociait deux
+     informations qui parlent de la meme chose, et se lisait comme une alerte. */
+  .card.busy{border-left-color:var(--accent);animation:cardbusy 1.6s ease-in-out infinite}
+  @keyframes cardbusy{0%,100%{border-left-color:var(--accent)}50%{border-left-color:var(--border)}}
+  @media (prefers-reduced-motion:reduce){ .card.busy{animation:none} }
   .act.busy .spin,.fsolve.busy .spin{border-color:currentColor;border-top-color:transparent;vertical-align:-1px;margin-right:5px}
   .frow .field-detail{display:none;margin-top:2px;padding:0 2px 4px 22px;border:none;font-size:12px;color:var(--muted);white-space:pre-line;overflow-wrap:anywhere;word-break:break-word}
   .frow .field-detail.open{display:block}
