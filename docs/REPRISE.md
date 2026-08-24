@@ -109,10 +109,14 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
     `scripts/install-hooks.ps1`).
 12. ~~Écran de chargement (splash) jamais validé~~ — **VU et réglé** par l'utilisateur :
     jauge montant par crans en boucle, vert fixe, sous-titre à 16 px du nom.
-13. **Vue de gestion des modules** — forme **validée** (**D48**) : panneau latéral large,
-    liste puis configuration, avec un menu de gestion dédié ET un menu ⋮ par carte.
-    **Le découpage reste à trancher** avant d'implémenter : les questions ouvertes sont
-    dans D48, pas ici — un même sujet ne se documente pas à deux endroits.
+13. **Vue de gestion des modules** — forme validée ET **découpage tranché** (**D48**) :
+    un module = un **dossier de sondes**, déclaré par un `module.psd1` versionné, les choix
+    de l'utilisateur dans `config/modules.local.psd1` ignoré par git, les modules exposés
+    dans une clé `units[]` du contrat même désactivés. **Prêt à implémenter.**
+    Seul point encore ouvert : quelles clés de configuration exposer par module — c'est le
+    seul qui ne se déduit pas du code.
+    Gain annexe mesuré : couper un module retire ses sondes du calcul ; `windows-update/`
+    pèse une quinzaine de secondes à lui seul (`lock` ≈ 11 s).
 
 14. **Refonte de la documentation publique** — demandée, **arbitrage en attente** (Q1/Q2).
 

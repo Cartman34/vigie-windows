@@ -21,7 +21,7 @@ Ajouter une décision = ajouter son numéro à une ligne.
 - **Identité et nommage** — D03 · D04 · D05 · D28 · D30 · D41
 - **Structure du dépôt** — D29 · D32 · D33 · D35
 - **Configuration** — D15 · D18
-- **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46 · D48
+- **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46 · D48 · D49 · D50
 - **Sécurité et installation** — D07 · D11 · D22 · D34
 - **Outillage** — D06 · D21 · D24 · D40 · D44 · D47
 - **Méthode de travail** — D10 · D12 · D13 · D14 · D16 · D17 · D31 · D36 · D39 · D43
@@ -1159,3 +1159,123 @@ Questions ouvertes, à trancher avant l'implémentation :
 - un module désactivé disparaît-il de `/state`, ou y figure-t-il avec un drapeau ? Le
   premier est plus simple ; le second permet de le réactiver depuis le panneau sans
   connaître la liste des modules possibles.
+
+### Découpage retenu (**tranché**, détails techniques — **D39**)
+
+**Un module est un DOSSIER de sondes.** L'arborescence porte déjà ce découpage sans qu'on
+l'ait nommé :
+
+| Dossier | Sondes | Cartes produites |
+|---|---|---|
+| `windows-update/` | 4 | historique, verrouillage, mises à jour en attente |
+| `security/` | 4 | antivirus, pare-feu, virtualisation |
+| `system/` | 4 | disque, Windows, ressources |
+| `network/` | 1 | réseau |
+| `wsl/` | 2 | WSL |
+| `tools/` | 1 | une carte **par gestionnaire** de paquets |
+
+C'est exactement ce que décrit l'utilisateur : « à peu près les groupes, mais pas
+exactement » — `tools/` est un module qui produit N cartes découvertes à l'exécution.
+Aucun troisième niveau à inventer : il existait déjà, il n'était pas déclaré.
+
+**Quatre choix qui en découlent :**
+
+1. **Manifeste par module** — `apps/backend-pode/probes/<module>/module.psd1` : identifiant,
+   libellé, thème d'affichage, activation par défaut, et le schéma de sa configuration.
+   Versionné : c'est la définition du module, pas un réglage de poste.
+2. **Les choix de l'utilisateur ne vivent pas dans le dépôt** — `config/modules.local.psd1`,
+   ignoré par git, se superpose au manifeste. Une mise à jour du dépôt ne doit jamais
+   réactiver un module que l'utilisateur avait coupé (**D18**, même raisonnement).
+3. **Un module désactivé reste VISIBLE dans le contrat**, sous une nouvelle clé de premier
+   niveau `units[]` : `{ id, label, theme, enabled, configurable }`. Ses sondes ne sont pas
+   exécutées et il ne produit aucune carte. Le faire disparaître obligerait le panneau à
+   connaître une liste de modules possibles qu'il n'a aucun moyen d'obtenir — on ne
+   réactive pas ce qu'on ne voit pas.
+4. **Chaque carte porte son module** (`unit` sur le module du contrat), ce qui permet au
+   menu ⋮ d'une carte d'ouvrir la configuration du bon module. `theme` reste ce qu'il est :
+   un regroupement d'AFFICHAGE, sans autre rôle.
+
+**Gain immédiat, indépendant du panneau** : ne plus exécuter les sondes d'un module coupé
+retire son coût du calcul de l'état. Sur cette machine, `windows-update/` pèse à lui seul
+une quinzaine de secondes de recalcul (`lock` ≈ 11 s).
+
+**Reste à valider par l'utilisateur avant d'implémenter** : quelles clés de configuration
+exposer par module. C'est le seul point qui ne se déduit pas du code.
+
+
+## D49 — Ce qu'une carte doit dire, et comment elle le dit
+
+Cinq règles nées des retours de l'utilisateur au fil de la session. Elles valent pour
+**toute** sonde, présente ou future — elles ne sont pas des correctifs ponctuels.
+
+### 1. Une information absente est un avertissement, pas un état neutre
+
+Une valeur manquante (« non mesurée », « non récupérée », « non vérifiée ») passe en
+**`warn`** et désigne l'action qui la remplira (`FixAction`). En `neutral`, elle se
+confondait avec une valeur sans enjeu : personne ne la voyait, et rien ne disait comment
+l'obtenir.
+
+### 2. Un guide ne dit jamais « Si X… » quand la sonde sait déjà si on est dans le cas X
+
+Le champ « Connexion Internet » affichait « Oui » et son détail disait *« Si "Non" :
+vérifiez wifi/câble »*. L'application connaît la réponse : elle n'a pas à faire trier
+l'utilisateur. Le guide décrit l'état **réel** et ne propose des vérifications que
+lorsqu'elles servent.
+
+### 3. Un champ dit ce que c'est, quel est le problème, et les issues
+
+Trois temps, dans cet ordre. « Intégrité mémoire (HVCI) : Non » ne veut rien dire pour
+qui ne connaît pas HVCI. Il faut : ce que la protection fait, ce qu'on risque sans elle,
+et ce qu'on peut faire — y compris « la laisser désactivée en connaissance de cause »,
+qui est une issue légitime quand le compromis est réel.
+
+### 4. Le statut d'une carte ne dépasse jamais celui de son pire champ
+
+Posé **une seule fois** dans `New-ModuleObject` : aucune sonde ne peut plus l'oublier. Une
+carte affichait « Problème » sans aucune ligne rouge. Les champs `neutral` ne bornent rien,
+sinon une carte verte faite de lignes neutres serait dégradée sans raison.
+
+### 5. Un redémarrage en attente n'est pas une erreur
+
+C'est l'issue **normale** d'une mise à jour installée. `warn`, jamais `error`, et le
+bouton qui le résout doit être là (**D48** : un problème signalé a toujours sa résolution).
+
+## D50 — Le vocabulaire des actions
+
+Trois dimensions indépendantes, longtemps confondues :
+
+| Dimension | Ce qu'elle décide | Valeurs |
+|---|---|---|
+| `kind` | l'**icône** : comment ça se passe | `immediate`, `confirm`, `dialog`, `manual` |
+| `severity` | la **couleur** : ce que ça vaut | `neutral` (gris), `info` (bleu), `fix` (vert) |
+| `busyLabel` | le **libellé pendant l'exécution** | « Mise à jour… », jamais « En cours… » |
+
+La couleur suivait la forme de l'action, ce qui n'apprenait rien. Défaut de `severity` :
+**`info`** — un bouton *est* une action, il mérite une couleur ; le gris se déclare, il ne
+s'attrape plus par omission.
+
+**Application :** une action principale est **neutre au repos et prend sa couleur au
+survol** ; un bouton de résolution est coloré en permanence. L'icône, elle, porte toujours
+la couleur de la sévérité.
+
+**Les points de suspension sont réservés à une action en cours.** Un libellé au repos n'en
+porte jamais.
+
+**Une seule action s'anime** — celle que le module désigne par `busyAction`. Animer tous
+les boutons de la carte faisait perdre lequel travaillait ; les autres sont désactivés,
+avec l'infobulle qui dit pourquoi.
+
+### Actions critiques : deux confirmations, à deux endroits
+
+Standard du projet pour tout geste qui ferme le travail en cours ou touche la machine
+entière (`confirmTwice` au contrat) :
+
+- **première** fenêtre au centre, alerte en **gras orange** ;
+- **seconde** fenêtre **en haut**, alerte en **gras rouge**, libellés différents.
+
+Les deux ne se superposent jamais : un double clic rapide validerait les deux sans qu'aucune
+soit lue. Et la seconde ne repose pas la même question — elle nomme la conséquence.
+
+Le geste lui-même reste réversible quand c'est possible : le redémarrage est **différé de
+60 secondes** et **annulable**, la fenêtre d'annulation se fermant d'elle-même à
+l'expiration du délai.
