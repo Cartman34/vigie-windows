@@ -294,6 +294,8 @@
               padding:7px 8px;border-radius:8px;cursor:pointer}
   .hds-choice:hover{background:var(--panel-2)}
   .hds-choice input{margin-top:3px;accent-color:var(--accent)}
+  .hds-choice--fige{cursor:default;pointer-events:none}
+  .hds-choice--fige:hover{background:transparent}
   .hds-choice-t{white-space:normal;word-break:break-word}
   .hds-choice-d{grid-column:2;color:var(--muted);font-size:12px}
   .hds-btn:disabled{opacity:.45;cursor:not-allowed}
@@ -805,6 +807,7 @@ const HDS = (function(){
 
   function settle(v){
     if(!resolver) return;
+    back.classList.remove('haut');
     const r=resolver; resolver=null;
     back.classList.remove('show');
     document.removeEventListener('keydown',onKey,true);
@@ -889,16 +892,22 @@ const HDS = (function(){
     const cocheDefaut = opts.tousCoches!==false;
     let items = opts.items || [];
 
+    // Liste VERROUILLEE (`verrouille`) : la source ne sait pas traiter un element en
+    // particulier. On montre quand meme la liste -- elle informe -- mais les cases sont
+    // cochees et NON decochables, et l'intro dit pourquoi. Laisser decocher un choix qui
+    // serait ensuite ignore serait un mensonge d'interface.
+    let verrou = false;
     const ligne = it =>
-      '<label class="hds-choice"><input type="checkbox" value="'+esc(it.id)+'"'+(cocheDefaut?' checked':'')+'>'
+      '<label class="hds-choice'+(verrou?' hds-choice--fige':'')+'"><input type="checkbox" value="'+esc(it.id)+'"'+((verrou||cocheDefaut)?' checked':'')+(verrou?' tabindex="-1"':'')+'>'
       + '<span class="hds-choice-t">'+esc(it.titre)+'</span>'
       + (it.detail?'<span class="hds-choice-d">'+esc(it.detail)+'</span>':'')
       + '</label>';
-    const barre = '<div class="hds-choice-bar"><button type="button" class="hds-lnk" id="hdsAll" title="Sélectionner toutes les lignes de la liste">Tout cocher</button>'
-                + '<button type="button" class="hds-lnk" id="hdsNone" title="Désélectionner toutes les lignes de la liste">Tout décocher</button>'
-                + '<span class="hds-count" id="hdsCount"></span></div>';
+    const barre = () => verrou ? '' :
+      '<div class="hds-choice-bar"><button type="button" class="hds-lnk" id="hdsAll" title="Sélectionner toutes les lignes de la liste">Tout cocher</button>'
+      + '<button type="button" class="hds-lnk" id="hdsNone" title="Désélectionner toutes les lignes de la liste">Tout décocher</button>'
+      + '<span class="hds-count" id="hdsCount"></span></div>';
     const corps = (intro, dedans) =>
-      (intro ? '<p class="hds-intro">'+esc(intro)+'</p>' : '') + barre + '<div class="hds-choices">'+dedans+'</div>';
+      (intro ? '<p class="hds-intro">'+esc(intro)+'</p>' : '') + barre() + '<div class="hds-choices">'+dedans+'</div>';
     const chargeur = '<div class="hds-loading"><span class="spin"></span> Lecture en cours…</div>';
 
     const p = open({ title:opts.title||'Choisir',
@@ -911,6 +920,10 @@ const HDS = (function(){
     const valider=()=>elFoot.querySelector('[data-default]');
     let retenus=[];
     const maj=()=>{
+      // Liste figee : la case reste ACTIVE (une case `disabled` est grisee par le
+      // navigateur, on ne verrait plus qu'elle est cochee). L'interaction est coupee par
+      // le CSS ; ce filet garantit qu'aucune ne peut se retrouver decochee.
+      if(verrou) boites().forEach(b=>{ b.checked = true; });
       retenus = boites().filter(b=>b.checked).map(b=>b.value);
       const c=elBody.querySelector('#hdsCount');
       if(c) c.textContent = items.length ? (retenus.length+' / '+items.length+' sélectionnée(s)') : '';
@@ -930,7 +943,13 @@ const HDS = (function(){
       const v=valider(); if(v) v.disabled=true;
       opts.charger().then(res=>{
         items = (res && res.items) || [];
+        verrou = !!(res && res.verrouille);
         const intro = (res && res.intro) || opts.intro;
+        // Le libelle du bouton n'est connu qu'apres lecture (« Installer » pour Windows
+        // Update, « Mettre a jour » pour un gestionnaire de paquets) : la fenetre, elle,
+        // s'ouvre AVANT. On le corrige a l'arrivee de la liste.
+        const lib = res && res.confirmLabel;
+        if(lib){ const b=valider(); if(b) b.textContent = lib; }
         if(!items.length){
           elBody.innerHTML = '<p class="hds-intro">'+esc((res && res.vide) || 'Rien à afficher.')+'</p>';
           return;
@@ -994,7 +1013,8 @@ async function listeDeChoix(type, module){
 function itemsDeMaj(j){
   return (j.result && j.result.updates || []).map(u=>({
     id:u.id, titre:u.titre,
-    detail:[u.modele, u.kb, u.pilote?'pilote':null, u.dateP, u.octets?octets(u.octets):null,
+    // Detail deja compose par le serveur (paquets), sinon assemble ici (Windows Update).
+    detail: u.detail || [u.modele, u.kb, u.pilote?'pilote':null, u.dateP, u.octets?octets(u.octets):null,
             u.telecharge?'déjà téléchargée':null].filter(Boolean).join(' · ')
   }));
 }
@@ -1039,11 +1059,16 @@ async function doAction(type,module,confirmNeeded,label,help,btnEl,params,kind,c
       title: name, variant: 'warn', tousCoches: false, confirmLabel: 'Installer',
       charger: async () => {
         charge = await listeDeChoix(type, module);
-        const avis = charge.result && charge.result.verrou
+        const r = charge.result || {};
+        const avis = r.verrou
           ? " Le verrou du Mode MAJ sera levé le temps de l'opération, puis reposé." : "";
+        // Le serveur peut imposer ses textes et INTERDIRE la selection (`selection:false`).
+        // Sans cela, tous les gestionnaires auraient l'air de savoir cibler un paquet.
         return { items: itemsDeMaj(charge),
-                 intro: "Cochez les mises à jour à installer. L'installation continue même si vous fermez cette fenêtre."+avis,
-                 vide: "Aucune mise à jour à installer." };
+                 verrouille: (r.selection === false),
+                 confirmLabel: r.confirmLabel,
+                 intro: r.intro || ("Cochez les mises à jour à installer. L'installation continue même si vous fermez cette fenêtre."+avis),
+                 vide: r.vide || "Aucune mise à jour à installer." };
       }
     });
     if(!choisis || !choisis.length) return;

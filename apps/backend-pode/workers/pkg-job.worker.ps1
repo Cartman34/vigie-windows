@@ -6,13 +6,14 @@ param([string]$Backend, [string]$ArgsB64)
 if (-not $Backend) { return }
 . (Join-Path $Backend 'lib/common.ps1')
 
-# Parametres (JSON base64) : mgr + op.
-$mgr = $null; $op = 'check'
+# Parametres (JSON base64) : mgr + op + pkgs (paquets retenus, vide = tout).
+$mgr = $null; $op = 'check'; $pkgs = @()
 try {
     if ($ArgsB64) {
         $a = ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($ArgsB64))) | ConvertFrom-Json
         $mgr = "$($a.mgr)"
         if ($a.op) { $op = "$($a.op)" }
+        if ($a.pkgs) { $pkgs = @($a.pkgs | ForEach-Object { "$_" }) }
     }
 } catch { }
 if (-not $mgr) { return }
@@ -20,8 +21,12 @@ if (-not $mgr) { return }
 $outFile = Get-VarPath -Backend $Backend -Kind 'cache' -File 'pkgupdates.json'
 try {
     if ($op -eq 'upgrade') {
-        $up = Invoke-PkgUpgrade -Id $mgr
-        try { Write-Log -Backend $Backend -Name 'pkgupgrade' -Message ("$mgr : exit=$($up.exit) ok=$($up.ok) reboot=$($up.reboot)") } catch { }
+        $up = Invoke-PkgUpgrade -Id $mgr -Pkgs $pkgs
+        # On journalise ce qui a ETE FAIT (nombre de paquets, echecs constates), pas ce qui
+        # a ete demande : un paquet peut echouer seul sans faire echouer les autres.
+        $detail = if ($up.count) { " paquets=$($up.count)" } else { " (tout le gestionnaire)" }
+        if ($up.failed -and @($up.failed).Count) { $detail += " echecs=" + (@($up.failed) -join ',') }
+        try { Write-Log -Backend $Backend -Name 'pkgupgrade' -Message ("$mgr : exit=$($up.exit) ok=$($up.ok) reboot=$($up.reboot)$detail") } catch { }
         try {
             $logf = Join-Path (Get-LogDir -Backend $Backend) ("pkgupgrade_" + $mgr + "_" + (Get-Date -Format 'yyyyMMdd_HHmmss') + ".log")
             "$($up.output)" | Out-File -FilePath $logf -Encoding UTF8
@@ -29,7 +34,9 @@ try {
     }
     # Dans les deux cas on rafraichit le compte de MAJ (l'absence de "checking" = fin).
     $u = Get-PkgUpdates -Id $mgr
-    $etat = @{ count = [int]$u.count; items = @($u.items); at = (Get-Date).ToString('s') }
+    # `pkgs` (identifiants ciblables) est conserve avec le reste : la fenetre de choix le
+    # relit tel quel, sans relancer une verification lente au moment du clic.
+    $etat = @{ count = [int]$u.count; items = @($u.items); pkgs = @($u.pkgs); at = (Get-Date).ToString('s') }
     # Un redemarrage en attente doit se VOIR dans la carte : c'est une action attendue de
     # l'utilisateur, pas une ligne de journal.
     if ($op -eq 'upgrade' -and $up -and $up.reboot) { $etat.reboot = $true }

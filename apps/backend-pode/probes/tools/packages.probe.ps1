@@ -48,7 +48,10 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
     }
     $op          = if ($checking -and $u.op) { "$($u.op)" } else { 'check' }
     $supported   = ($mg.updMode -ne 'none' -and @($mg.updArgs).Count -gt 0)
-    $upSupported = ($null -ne $mg.upgArgs -and @($mg.upgArgs).Count -gt 0)
+    # Deux capacites DISTINCTES : savoir tout mettre a jour, et savoir n'en cibler qu'un.
+    # pip ne sait que la seconde ; scoop, npm et gem que la premiere.
+    $selectable  = ($null -ne $mg.upgOne  -and @($mg.upgOne).Count  -gt 0)
+    $upSupported = (($null -ne $mg.upgArgs -and @($mg.upgArgs).Count -gt 0) -or $selectable)
     $cnt         = if ($u -and $null -ne $u.count) { [int]$u.count } else { -1 }
 
     # Champ Version (toujours present).
@@ -95,7 +98,7 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
         Key = 'updates'; Label = 'Mises à jour'; Value = $majValue; Kind = 'text'; Status = $majStatus
         Help = "Nombre de mises à jour disponibles (vérifié à la demande, sans bloquer)."; Guide = ($mg2 -join "`n")
     }
-    if ($cnt -gt 0 -and $upSupported -and -not $checking) { $majFieldArgs.FixAction = 'pkg-upgrade' }
+    if ($cnt -gt 0 -and $upSupported -and -not $checking) { $majFieldArgs.FixAction = 'pkg-list-updates' }
     $fields += New-Field @majFieldArgs
 
     # Statut de la carte : neutre pendant l'operation, sinon selon les MAJ.
@@ -106,13 +109,26 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
         $actions += New-Action -Id 'pkg-check-updates' -Label 'Vérifier les mises à jour' -BusyLabel 'Vérification…' -Kind 'immediate' `
             -Help ("Interroge " + $mg.label + " pour lister les MAJ disponibles. S'exécute en tâche de fond ; la carte s'actualise seule.")
     }
+    # Le bouton ouvre la fenetre de CHOIX (comme Windows Update), il ne lance plus la mise
+    # a jour sur un simple oui/non : mettre a jour « tout » sans voir quoi n'est pas un choix.
     if ($upSupported -and $cnt -gt 0 -and -not $checking) {
-        $actions += New-Action -Id 'pkg-upgrade' -Severity 'fix' -Label 'Mettre à jour' -BusyLabel 'Mise à jour…' -Confirm -Kind 'confirm' `
-            -Help ("Met à jour tous les paquets de " + $mg.label + " en tâche de fond (peut être long).")
+        $aide = if ($selectable) {
+            "Ouvre la liste des paquets de " + $mg.label + " : cochez ceux à mettre à jour. La mise à jour s'exécute en tâche de fond."
+        } else {
+            $mg.label + " ne sait pas cibler un paquet : la liste est affichée pour information et TOUS les paquets seront mis à jour."
+        }
+        $actions += New-Action -Id 'pkg-list-updates' -Severity 'fix' -Label 'Mettre à jour' -BusyLabel 'Mise à jour…' -Kind 'dialog' -Help $aide
+    }
+    # Interface graphique du gestionnaire, UNIQUEMENT si elle est installee (Get-PkgGui le
+    # verifie). Meme role que « Ouvrir Windows Update » sur la carte Windows Update.
+    $gui = $null
+    try { $gui = Get-PkgGui -Id $mg.id } catch { }
+    if ($gui) {
+        $actions += New-Action -Id 'pkg-open-gui' -Severity 'info' -Label $gui.label -Kind 'manual' -Help $gui.help
     }
 
     $modules += (New-ModuleObject -Id ("pkg-" + $mg.id) -Theme 'tools' -Label $mg.label -Status $modStatus -Fields $fields -Actions $actions -Busy:$checking `
-        -BusyAction $(if ($checking) { if ($op -eq 'upgrade') { 'pkg-upgrade' } else { 'pkg-check-updates' } } else { $null }))
+        -BusyAction $(if ($checking) { if ($op -eq 'upgrade') { 'pkg-list-updates' } else { 'pkg-check-updates' } } else { $null }))
 }
 
 if (-not $modules.Count) {

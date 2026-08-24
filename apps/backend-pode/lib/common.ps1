@@ -184,52 +184,163 @@ function Start-DetachedAction {
 # --- Gestionnaires de paquets (source unique : sonde, verif MAJ ET upgrade) --
 # Un seul catalogue : id, libelle, args version, args/mode de MAJ, args upgrade.
 # upgArgs vide = pas de mise a jour automatique proposee pour ce gestionnaire.
+#
+# upgOne = args pour mettre a jour UN SEUL paquet, `{pkg}` etant remplace par son
+# identifiant. C'est ce qui rend le CHOIX possible : sans upgOne, le gestionnaire ne sait
+# que « tout mettre a jour » et l'interface le dit au lieu de laisser croire au contraire.
+#
+# gui* = interface graphique du gestionnaire, quand elle existe ET qu'elle est installee.
+#   guiKind 'uri' -> protocole verifie dans HKEY_CLASSES_ROOT (le Store n'est pas un .exe)
+#   guiKind 'exe' -> executable cherche dans le PATH puis dans guiPaths
+# Un bouton qui ouvre un logiciel absent est pire que pas de bouton : la presence est
+# verifiee a chaque passage de la sonde, jamais supposee.
 function Get-PackageManagerCatalog {
     @(
-        [pscustomobject]@{ id='winget'; label='winget';       verArgs=@('--version'); updArgs=@('upgrade','--include-unknown','--disable-interactivity','--accept-source-agreements'); updMode='winget';   upgArgs=@('upgrade','--all','--silent','--include-unknown','--disable-interactivity','--accept-source-agreements','--accept-package-agreements') }
-        [pscustomobject]@{ id='choco';  label='Chocolatey';   verArgs=@('--version'); updArgs=@('outdated','-r','--nocolor');   updMode='chocor';   upgArgs=@('upgrade','all','-y') }
-        [pscustomobject]@{ id='scoop';  label='Scoop';        verArgs=@('--version'); updArgs=@('status');                      updMode='lines';    upgArgs=@('update','*') }
-        [pscustomobject]@{ id='npm';    label='npm';          verArgs=@('-v');        updArgs=@('outdated','-g','--json');      updMode='jsonkeys'; upgArgs=@('update','-g') }
-        [pscustomobject]@{ id='pnpm';   label='pnpm';         verArgs=@('-v');        updArgs=@('outdated','-g');               updMode='lines';    upgArgs=@() }
-        [pscustomobject]@{ id='yarn';   label='Yarn';         verArgs=@('-v');        updArgs=@();                             updMode='none';     upgArgs=@() }
-        [pscustomobject]@{ id='pip';    label='pip (Python)'; verArgs=@('--version'); updArgs=@('list','--outdated','--format=json'); updMode='jsonlist'; upgArgs=@() }
-        [pscustomobject]@{ id='pipx';   label='pipx';         verArgs=@('--version'); updArgs=@();                             updMode='none';     upgArgs=@() }
-        [pscustomobject]@{ id='cargo';  label='Cargo (Rust)'; verArgs=@('--version'); updArgs=@();                             updMode='none';     upgArgs=@() }
-        [pscustomobject]@{ id='gem';    label='RubyGems';     verArgs=@('--version'); updArgs=@('outdated');                    updMode='lines';    upgArgs=@('update') }
-        [pscustomobject]@{ id='dotnet'; label='.NET SDK';     verArgs=@('--version'); updArgs=@();                             updMode='none';     upgArgs=@() }
+        [pscustomobject]@{ id='winget'; label='winget';       verArgs=@('--version'); updArgs=@('upgrade','--include-unknown','--disable-interactivity','--accept-source-agreements'); updMode='winget';   upgArgs=@('upgrade','--all','--silent','--include-unknown','--disable-interactivity','--accept-source-agreements','--accept-package-agreements')
+                           upgOne=@('upgrade','--id','{pkg}','--silent','--disable-interactivity','--accept-source-agreements','--accept-package-agreements')
+                           guiKind='uri'; guiTarget='ms-windows-store://downloadsandupdates'; guiProbe='ms-windows-store'; guiLabel='Ouvrir le Microsoft Store'
+                           guiHelp="Ouvre la page « Téléchargements et mises à jour » du Microsoft Store, qui partage le catalogue de winget." }
+        [pscustomobject]@{ id='choco';  label='Chocolatey';   verArgs=@('--version'); updArgs=@('outdated','-r','--nocolor');   updMode='chocor';   upgArgs=@('upgrade','all','-y')
+                           upgOne=@('upgrade','{pkg}','-y')
+                           guiKind='exe'; guiTarget='ChocolateyGUI.exe'; guiProbe='ChocolateyGUI'; guiLabel='Ouvrir Chocolatey GUI'
+                           guiHelp="Ouvre Chocolatey GUI, l'interface graphique de Chocolatey (paquet « chocolateygui »)." }
+        [pscustomobject]@{ id='scoop';  label='Scoop';        verArgs=@('--version'); updArgs=@('status');                      updMode='lines';    upgArgs=@('update','*');  upgOne=@() }
+        [pscustomobject]@{ id='npm';    label='npm';          verArgs=@('-v');        updArgs=@('outdated','-g','--json');      updMode='jsonkeys'; upgArgs=@('update','-g'); upgOne=@() }
+        [pscustomobject]@{ id='pnpm';   label='pnpm';         verArgs=@('-v');        updArgs=@('outdated','-g');               updMode='lines';    upgArgs=@();              upgOne=@() }
+        [pscustomobject]@{ id='yarn';   label='Yarn';         verArgs=@('-v');        updArgs=@();                             updMode='none';     upgArgs=@();              upgOne=@() }
+        [pscustomobject]@{ id='pip';    label='pip (Python)'; verArgs=@('--version'); updArgs=@('list','--outdated','--format=json'); updMode='jsonlist'; upgArgs=@();        upgOne=@('install','-U','{pkg}') }
+        [pscustomobject]@{ id='pipx';   label='pipx';         verArgs=@('--version'); updArgs=@();                             updMode='none';     upgArgs=@();              upgOne=@() }
+        [pscustomobject]@{ id='cargo';  label='Cargo (Rust)'; verArgs=@('--version'); updArgs=@();                             updMode='none';     upgArgs=@();              upgOne=@() }
+        [pscustomobject]@{ id='gem';    label='RubyGems';     verArgs=@('--version'); updArgs=@('outdated');                    updMode='lines';    upgArgs=@('update');      upgOne=@() }
+        [pscustomobject]@{ id='dotnet'; label='.NET SDK';     verArgs=@('--version'); updArgs=@();                             updMode='none';     upgArgs=@();              upgOne=@() }
     )
 }
 
+# Interface graphique REELLEMENT presente pour un gestionnaire, ou $null.
+# Renvoie @{ target; label; help } : de quoi construire le bouton et l'action.
+function Get-PkgGui {
+    param([Parameter(Mandatory)][string]$Id)
+    $mg = Get-PackageManagerCatalog | Where-Object { $_.id -eq $Id } | Select-Object -First 1
+    if (-not $mg -or -not $mg.guiKind) { return $null }
+    $cible = $null
+    switch ($mg.guiKind) {
+        'uri' {
+            # Un protocole non enregistre ouvrirait une boite « application introuvable ».
+            if (Test-Path -LiteralPath ("Registry::HKEY_CLASSES_ROOT\" + $mg.guiProbe)) { $cible = $mg.guiTarget }
+        }
+        'exe' {
+            $c = Get-Command $mg.guiProbe -ErrorAction SilentlyContinue
+            if ($c -and $c.Source) { $cible = $c.Source }
+            else {
+                $racine = if ($env:ChocolateyInstall) { $env:ChocolateyInstall } else { 'C:\ProgramData\chocolatey' }
+                foreach ($p in @((Join-Path $racine ('bin\' + $mg.guiTarget)), (Join-Path $racine ('lib\chocolateygui\tools\' + $mg.guiTarget)))) {
+                    if (Test-Path -LiteralPath $p) { $cible = $p; break }
+                }
+            }
+        }
+    }
+    if (-not $cible) { return $null }
+    return @{ target = $cible; label = $mg.guiLabel; help = $mg.guiHelp }
+}
+
 # Verifie les MAJ disponibles d'UN gestionnaire (appel lent/reseau). Traite la
-# sortie ET le code de retour via Invoke-Native. Renvoie @{ count; items; supported }.
+# sortie ET le code de retour via Invoke-Native.
+# Renvoie @{ count; items; pkgs; supported; selectable }.
+#   items = chaines d'AFFICHAGE (tronquees a 25, elles remplissent le detail de la carte)
+#   pkgs  = liste COMPLETE @{ id; titre; detail }, `id` etant l'identifiant a passer au
+#           gestionnaire pour ne mettre a jour QUE ce paquet. Sans lui, aucun choix n'est
+#           possible : on ne peut pas demander « lesquels ? » avec des libelles d'affichage.
 function Get-PkgUpdates {
     param([Parameter(Mandatory)][string]$Id)
     $mg = Get-PackageManagerCatalog | Where-Object { $_.id -eq $Id } | Select-Object -First 1
-    if (-not $mg) { return @{ count = 0; items = @(); supported = $false } }
+    if (-not $mg) { return @{ count = 0; items = @(); pkgs = @(); supported = $false; selectable = $false } }
+    $selectable = ($null -ne $mg.upgOne -and @($mg.upgOne).Count -gt 0)
     $cmd = Get-Command $Id -ErrorAction SilentlyContinue
-    if (-not $cmd -or -not $cmd.Source) { return @{ count = 0; items = @(); supported = $false } }
-    if ($mg.updMode -eq 'none' -or $mg.updArgs.Count -eq 0) { return @{ count = 0; items = @(); supported = $false } }
-    $count = 0; $items = @()
+    if (-not $cmd -or -not $cmd.Source) { return @{ count = 0; items = @(); pkgs = @(); supported = $false; selectable = $selectable } }
+    if ($mg.updMode -eq 'none' -or $mg.updArgs.Count -eq 0) { return @{ count = 0; items = @(); pkgs = @(); supported = $false; selectable = $selectable } }
+    $count = 0; $items = @(); $pkgs = @()
     try {
         $r = Invoke-Native -File $cmd.Source -Arguments $mg.updArgs
         $out = "$($r.Output)"
         switch ($mg.updMode) {
             'jsonlist' {
-                if ($out.Trim()) { $j = $out | ConvertFrom-Json; $items = @($j | ForEach-Object { "{0}  {1} -> {2}" -f $_.name, $_.version, $_.latest_version }); $count = $items.Count }
+                if ($out.Trim()) {
+                    $j = $out | ConvertFrom-Json
+                    foreach ($e in @($j)) {
+                        $items += ("{0}  {1} -> {2}" -f $e.name, $e.version, $e.latest_version)
+                        $pkgs  += [ordered]@{ id = "$($e.name)"; titre = "$($e.name)"; detail = ("{0} -> {1}" -f $e.version, $e.latest_version) }
+                    }
+                    $count = $items.Count
+                }
             }
             'jsonkeys' {
-                if ($out.Trim() -and $out.Trim() -ne '{}') { $j = $out | ConvertFrom-Json; $items = @($j.PSObject.Properties | ForEach-Object { "{0} -> {1}" -f $_.Name, $_.Value.latest }); $count = $items.Count }
+                if ($out.Trim() -and $out.Trim() -ne '{}') {
+                    $j = $out | ConvertFrom-Json
+                    foreach ($e in @($j.PSObject.Properties)) {
+                        $items += ("{0} -> {1}" -f $e.Name, $e.Value.latest)
+                        $pkgs  += [ordered]@{ id = "$($e.Name)"; titre = "$($e.Name)"; detail = "$($e.Value.latest)" }
+                    }
+                    $count = $items.Count
+                }
             }
             'chocor' {
-                $items = @(($out -split "`r?`n") | Where-Object { $_ -match '\|' } | ForEach-Object { $p = $_.Split('|'); "{0}  {1} -> {2}" -f $p[0], $p[1], $p[2] })
+                foreach ($l in (($out -split "`r?`n") | Where-Object { $_ -match '\|' })) {
+                    $p = $l.Split('|')
+                    $items += ("{0}  {1} -> {2}" -f $p[0], $p[1], $p[2])
+                    $pkgs  += [ordered]@{ id = "$($p[0])"; titre = "$($p[0])"; detail = ("{0} -> {1}" -f $p[1], $p[2]) }
+                }
                 $count = $items.Count
             }
             'winget' {
                 $lines = @($out -split "`r?`n"); $idx = -1
                 for ($i = 0; $i -lt $lines.Count; $i++) { if ($lines[$i] -match '^-{3,}') { $idx = $i; break } }
                 if ($idx -ge 0 -and $idx -lt ($lines.Count - 1)) {
+                    # Colonnes winget : Nom | Id | Version | Disponible | Source. L'Id est la
+                    # SEULE colonne utilisable pour cibler un paquet -- le nom n'est pas unique.
+                    #
+                    # Decoupage a POSITION FIXE, pas sur « deux espaces ou plus » : winget
+                    # remplit chaque colonne a la largeur de son plus long element, si bien
+                    # qu'un nom long ne laisse qu'UN espace avant l'Id, et qu'un numero de
+                    # version large en laisse un seul avant le suivant. Constate en reel :
+                    # le decoupage par espaces rendait « 12.0.40664.0 » comme identifiant du
+                    # Redistribuable Visual C++ -- une mise a jour aurait vise un paquet
+                    # inexistant. Les debuts de colonne sont lus dans la ligne d'en-tete.
+                    $hdr = if ($idx -ge 1) { "$($lines[$idx-1])" } else { '' }
+                    $debuts = @()
+                    if ($hdr.Length) {
+                        if ($hdr[0] -ne ' ') { $debuts += 0 }
+                        for ($k = 2; $k -lt $hdr.Length; $k++) {
+                            if ($hdr[$k] -ne ' ' -and $hdr[$k-1] -eq ' ' -and $hdr[$k-2] -eq ' ') { $debuts += $k }
+                        }
+                    }
                     $rest = @($lines[($idx+1)..($lines.Count-1)] | Where-Object { $_.Trim() -and $_ -notmatch 'niveau|upgrade|mise' })
-                    $items = @($rest | ForEach-Object { (($_ -split '\s{2,}') | Where-Object { $_ })[0] })
+                    foreach ($l in $rest) {
+                        $cols = @()
+                        if ($debuts.Count -ge 2) {
+                            for ($c = 0; $c -lt $debuts.Count; $c++) {
+                                $s = $debuts[$c]
+                                if ($s -ge $l.Length) { $cols += ''; continue }
+                                $e = if ($c + 1 -lt $debuts.Count) { [Math]::Min($debuts[$c+1], $l.Length) } else { $l.Length }
+                                $cols += $l.Substring($s, $e - $s).Trim()
+                            }
+                        } else {
+                            # Repli si l'en-tete est absent (sortie inattendue) : mieux vaut une
+                            # liste approximative que rien du tout.
+                            $cols = @(($l -split '\s{2,}') | Where-Object { $_ } | ForEach-Object { "$_".Trim() })
+                        }
+                        if (-not $cols.Count) { continue }
+                        $nom = "$($cols[0])"
+                        if (-not $nom) { continue }
+                        $items += $nom
+                        # PAS de variable nommee $pid : c'est une variable automatique en
+                        # lecture seule (identifiant du processus). L'affectation levait une
+                        # exception avalee par le catch, et la liste revenait VIDE.
+                        $ident = if ($cols.Count -ge 2) { "$($cols[1])" } else { '' }
+                        if ($ident) {
+                            $det = if ($cols.Count -ge 4 -and $cols[3]) { ("{0} -> {1}" -f "$($cols[2])", "$($cols[3])") } else { $ident }
+                            $pkgs += [ordered]@{ id = $ident; titre = $nom; detail = $det }
+                        }
+                    }
                     $count = $items.Count
                 }
             }
@@ -239,26 +350,55 @@ function Get-PkgUpdates {
             }
         }
     } catch { }
+    # La liste choisissable n'est PAS tronquee : on ne peut pas cocher ce qu'on ne voit pas.
+    # Seul l'affichage condense de la carte l'est.
     if ($items.Count -gt 25) { $items = @($items[0..24] + "... (+$($items.Count - 25))") }
-    return @{ count = $count; items = @($items); supported = $true }
+    return @{ count = $count; items = @($items); pkgs = @($pkgs); supported = $true; selectable = $selectable }
 }
 
-# Met a jour TOUS les paquets d'UN gestionnaire (appel lent, systeme). Herite de
-# l'elevation du serveur. Traite sortie + code de retour. Renvoie @{ ok; supported; exit; output }.
+# Met a jour les paquets d'UN gestionnaire (appel lent, systeme). Herite de l'elevation
+# du serveur. Traite sortie + code de retour. Renvoie @{ ok; supported; exit; output }.
+#
+# -Pkgs vide  -> comportement historique : TOUT le gestionnaire, en une commande.
+# -Pkgs rempli -> une commande PAR paquet (upgOne), donc uniquement ceux-la. Si le
+#   gestionnaire ne sait pas cibler un paquet, la selection est ignoree et on retombe sur
+#   la mise a jour globale : c'est ce que la fenetre de choix a annonce a l'utilisateur.
 function Invoke-PkgUpgrade {
-    param([Parameter(Mandatory)][string]$Id)
+    param([Parameter(Mandatory)][string]$Id, [string[]]$Pkgs)
     $mg = Get-PackageManagerCatalog | Where-Object { $_.id -eq $Id } | Select-Object -First 1
-    if (-not $mg -or -not $mg.upgArgs -or @($mg.upgArgs).Count -eq 0) { return @{ ok = $false; supported = $false; output = '' } }
+    if (-not $mg) { return @{ ok = $false; supported = $false; output = '' } }
+    $liste = @($Pkgs | Where-Object { "$_" -match '\S' } | ForEach-Object { "$_" })
+    $unParUn = ($liste.Count -gt 0 -and $null -ne $mg.upgOne -and @($mg.upgOne).Count -gt 0)
+    if (-not $unParUn -and (-not $mg.upgArgs -or @($mg.upgArgs).Count -eq 0)) { return @{ ok = $false; supported = $false; output = '' } }
     $cmd = Get-Command $Id -ErrorAction SilentlyContinue
     if (-not $cmd -or -not $cmd.Source) { return @{ ok = $false; supported = $false; output = '' } }
-    $r = Invoke-Native -File $cmd.Source -Arguments $mg.upgArgs
+
     # 3010 = ERROR_SUCCESS_REBOOT_REQUIRED : l'installation a REUSSI, elle demande un
     # redemarrage. Le traiter comme un echec (« ok=False ») etait faux et affichait une
     # erreur sur une operation qui avait fonctionne -- constate sur Chocolatey.
     # 1641 = redemarrage DEJA declenche, meme famille.
-    $redemarrage = ($r.ExitCode -eq 3010 -or $r.ExitCode -eq 1641)
-    return @{ ok = ($r.Ok -or $redemarrage); supported = $true; exit = $r.ExitCode
-              reboot = $redemarrage; output = $r.Output }
+    if (-not $unParUn) {
+        $r = Invoke-Native -File $cmd.Source -Arguments $mg.upgArgs
+        $redemarrage = ($r.ExitCode -eq 3010 -or $r.ExitCode -eq 1641)
+        return @{ ok = ($r.Ok -or $redemarrage); supported = $true; exit = $r.ExitCode
+                  reboot = $redemarrage; output = $r.Output; count = 0; failed = @() }
+    }
+
+    $sorties = @(); $echecs = @(); $redemarrage = $false; $dernier = 0
+    foreach ($p in $liste) {
+        # .Replace et non -replace : un identifiant de paquet ('Microsoft.VC++', 'a.b')
+        # contient des caracteres que le moteur d'expressions regulieres interpreterait.
+        $argv = @($mg.upgOne | ForEach-Object { "$_".Replace('{pkg}', $p) })
+        $r = Invoke-Native -File $cmd.Source -Arguments $argv
+        $rb = ($r.ExitCode -eq 3010 -or $r.ExitCode -eq 1641)
+        if ($rb) { $redemarrage = $true }
+        if (-not ($r.Ok -or $rb)) { $echecs += $p }
+        $dernier = $r.ExitCode
+        $sorties += ("=== $p (code $($r.ExitCode)) ===" + [Environment]::NewLine + "$($r.Output)")
+    }
+    return @{ ok = ($echecs.Count -eq 0); supported = $true; exit = $dernier; reboot = $redemarrage
+              output = ($sorties -join ([Environment]::NewLine + [Environment]::NewLine))
+              count = $liste.Count; failed = @($echecs) }
 }
 
 # Lanceur GENERIQUE (non bloquant) d'une operation paquet : 'check' ou 'upgrade'.
@@ -268,14 +408,19 @@ function Start-PkgJob {
     param(
         [Parameter(Mandatory)][string]$Mgr,
         [ValidateSet('check','upgrade')][string]$Op = 'check',
+        # Paquets RETENUS par l'utilisateur. Vide = tout le gestionnaire (comportement
+        # historique). Voir Invoke-PkgUpgrade.
+        [string[]]$Pkgs,
         [string]$Backend = (Get-BackendRoot)
     )
     $known = Get-PackageManagerCatalog | Where-Object { $_.id -eq $Mgr } | Select-Object -First 1
     if (-not $known) { return @{ message = "Gestionnaire inconnu : $Mgr"; result = @{ ok = $false } } }
+    $choisis = @($Pkgs | Where-Object { "$_" -match '\S' } | ForEach-Object { "$_" })
+    $unParUn = ($choisis.Count -gt 0 -and $null -ne $known.upgOne -and @($known.upgOne).Count -gt 0)
     if ($Op -eq 'check'   -and ($known.updMode -eq 'none' -or @($known.updArgs).Count -eq 0)) {
         return @{ message = "Verification non prise en charge pour $($known.label)."; result = @{ ok = $false } }
     }
-    if ($Op -eq 'upgrade' -and (-not $known.upgArgs -or @($known.upgArgs).Count -eq 0)) {
+    if ($Op -eq 'upgrade' -and -not $unParUn -and (-not $known.upgArgs -or @($known.upgArgs).Count -eq 0)) {
         return @{ message = "Mise a jour automatique non prise en charge pour $($known.label)."; result = @{ ok = $false } }
     }
     $stateDir = Get-VarPath -Backend $Backend -Kind 'cache'
@@ -286,18 +431,22 @@ function Start-PkgJob {
     if (Test-Path $outFile) {
         try {
             $j = Get-Content $outFile -Raw | ConvertFrom-Json; $e = $j.$Mgr
-            if ($e -and $null -ne $e.count) { $entry.count = [int]$e.count; $entry.items = @($e.items) }
+            if ($e -and $null -ne $e.count) {
+                $entry.count = [int]$e.count; $entry.items = @($e.items)
+                if ($e.pkgs) { $entry.pkgs = @($e.pkgs) }
+            }
         } catch { }
     }
     Update-StateJson -Path $outFile -Set @{ $Mgr = $entry } | Out-Null
     # Worker unique (branche sur op). Detache, fenetre cachee : ne bloque pas.
     $worker  = Join-Path $Backend 'workers/pkg-job.worker.ps1'
     $started = $false
-    try { $null = Start-DetachedAction -Script $worker -ArgsMap @{ mgr = $Mgr; op = $Op } -Backend $Backend; $started = $true } catch { }
+    try { $null = Start-DetachedAction -Script $worker -ArgsMap @{ mgr = $Mgr; op = $Op; pkgs = $choisis } -Backend $Backend; $started = $true } catch { }
     if (-not $started) { return @{ message = "Impossible de lancer l'operation sur $($known.label)."; result = @{ ok = $false } } }
-    $verb = if ($Op -eq 'upgrade') { 'Mise a jour' } else { 'Verification' }
+    $verb = if ($Op -eq 'upgrade') { 'Mise à jour' } else { 'Vérification' }
+    $portee = if ($Op -eq 'upgrade' -and $unParUn) { " ($($choisis.Count) paquet(s) sélectionné(s))" } else { "" }
     @{
-        message = "$verb de $($known.label) lancee en tache de fond."
+        message = "$verb de $($known.label) lancée en tâche de fond$portee."
         result  = @{ ok = $true; async = $true; module = ("pkg-" + $Mgr); invalidate = @('packages.probe.ps1') }
     }
 }
@@ -606,7 +755,16 @@ function ConvertTo-UtcDate {
 }
 
 function Get-State {
-    param([string]$Backend = (Get-BackendRoot), [switch]$Force)
+    param(
+        [string]$Backend = (Get-BackendRoot),
+        [switch]$Force,
+        # Secondes d'attente du verrou de recalcul. 0 = renoncer si un calcul tourne deja.
+        # Seule une demande EXPLICITE de l'utilisateur attend ; le rafraichissement de fond
+        # renonce, sans quoi les workers s'empilent en se bloquant les uns les autres.
+        # Plafonne sous le delai du client (90 s) : attendre plus longtemps que lui
+        # reviendrait a travailler pour une requete deja abandonnee.
+        [int]$WaitSeconds = 0
+    )
     $probesDir = Join-Path $Backend 'probes'
     $cacheFile = Get-VarPath -Backend $Backend -Kind 'cache' -File 'state-cache.json'
     $stateDir  = Split-Path $cacheFile -Parent
@@ -664,12 +822,24 @@ function Get-State {
         $aDifferer  = @($stale | Where-Object {      $cache[$_.Name] -and $cache[$_.Name].module  })
         if ($aDifferer.Count -gt 0) {
             $stale = $sansValeur
+            # UN SEUL rafraichissement de fond a la fois. On verifie AVANT de lancer :
+            # demarrer un processus pour qu'il constate qu'il n'a rien a faire coute une
+            # seconde de pwsh a chaque requete, pour rien.
+            $dejaEnCours = $false
             try {
-                $w = Join-Path $Backend 'workers/state-refresh.worker.ps1'
-                # Un seul rafraichissement de fond a la fois : le worker prend le meme
-                # verrou que le recalcul synchrone et sort si un autre travaille deja.
-                $null = Start-DetachedAction -Script $w -Backend $Backend
+                $tmp = $null
+                if ([System.Threading.Mutex]::TryOpenExisting('Local\VigieStateRecompute', [ref]$tmp)) {
+                    $dejaEnCours = -not $tmp.WaitOne(0)
+                    if (-not $dejaEnCours) { try { $tmp.ReleaseMutex() } catch { } }
+                    try { $tmp.Dispose() } catch { }
+                }
             } catch { }
+            if (-not $dejaEnCours) {
+                try {
+                    $w = Join-Path $Backend 'workers/state-refresh.worker.ps1'
+                    $null = Start-DetachedAction -Script $w -Backend $Backend
+                } catch { }
+            }
         }
     }
 
@@ -683,7 +853,7 @@ function Get-State {
             # requetes ordinaires n'attendent pas et se contentent du cache.
             # Avec WaitOne(0) pour tout le monde, le bouton ne faisait rien des qu'un
             # rafraichissement de fond tenait le verrou : il rendait la main aussitot.
-            $attente = if ($Force) { 180000 } else { 0 }
+            $attente = [Math]::Min([Math]::Max($WaitSeconds, 0), 75) * 1000
             try { $got = $mx.WaitOne($attente) }
             catch [System.Threading.AbandonedMutexException] { $got = $true }
             catch { $got = $false }
