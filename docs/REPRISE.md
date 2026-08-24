@@ -27,6 +27,7 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
 
 | Ce qu'on touche | Ce qu'on lance | Ce que ça attrape |
 |---|---|---|
+| un **module** (creation/evolution) | suivre **`docs/MODULES.md`** — LA reference, a citer dans tout brief de SA qui touche aux sondes | l'oubli d'une regle D48/D49/D57 |
 | n'importe quel `.ps1` | `[Parser]::ParseFile` sur chaque fichier | la syntaxe, **rien de plus** |
 | une **sonde** | `pwsh -File .\scripts\check-probes.ps1 -Only <sonde|module>` (dev, ciblé — D51) puis `-All` avant livraison | l'exécution réelle + les invariants **D49**/**D50** |
 | `apps/frontend-web/index.html` | recharger la page **servie** (`http://127.0.0.1:47600`) et lire la console | erreurs de syntaxe et d'exécution JS |
