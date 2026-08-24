@@ -149,6 +149,37 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/NotificationSettings" }
+  /history/{measureId}:
+    get:
+      summary: Serie historisee d'une mesure (etape 2 du plan historique)
+      description: >
+        Lecture seule des points echantillonnes dans var/history/ (voir
+        docs/conception/historique-cible.md). La reponse est DECIMEE cote serveur
+        (~200 points au plus) pour une mesure de nature `gauge` ; le bloc `summary`
+        est calcule AVANT decimation, sur tous les points de la fenetre. Un fichier
+        absent ou vide n'est pas une erreur : l'historique est jeune, `points` est
+        vide et `summary.count` vaut 0.
+      parameters:
+        - name: measureId
+          in: path
+          required: true
+          schema: { type: string, example: disk.free }
+          description: identifiant du catalogue de mesures ($script:MeasureCatalog)
+        - name: window
+          in: query
+          required: false
+          schema: { type: string, default: "7d", example: "24h" }
+          description: >
+            Fenetre de lecture, de maintenant vers le passe : `<n>h` (heures) ou
+            `<n>d` (jours). Defaut 7d. Toute autre forme est refusee (400).
+      responses:
+        "200":
+          description: Serie de la mesure sur la fenetre demandee
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/History" }
+        "400": { description: Fenetre invalide }
+        "404": { description: Mesure inconnue (absente du catalogue) }
   /actions:
     post:
       summary: Declenche une action (synchrone ou longue)
@@ -200,6 +231,40 @@ components:
           type: object
           additionalProperties: { type: boolean }
           description: Reglage fin par id de module. Cle absente = notifications actives pour ce module.
+    History:
+      type: object
+      required: [measureId, kind, window, points, summary]
+      properties:
+        measureId: { type: string, example: disk.free }
+        kind:
+          type: string
+          enum: [gauge, event]
+          description: nature de la mesure ; seuls les `gauge` sont decimes
+        unit: { type: string, example: Go, description: unite d'affichage de la valeur }
+        window: { type: string, example: "7d", description: fenetre effectivement appliquee }
+        points:
+          type: array
+          description: points de la fenetre, du plus ancien au plus recent, decimes (~200 max pour une gauge)
+          items: { $ref: "#/components/schemas/HistoryPoint" }
+        summary: { $ref: "#/components/schemas/HistorySummary" }
+    HistoryPoint:
+      type: object
+      required: [at, v]
+      properties:
+        at: { type: string, format: date-time, description: horodatage UTC (ISO 8601) }
+        v: { type: number }
+    HistorySummary:
+      type: object
+      required: [count]
+      description: >
+        Calcule sur TOUS les points de la fenetre, avant decimation. Quand la
+        fenetre est vide, `count` vaut 0 et les autres champs sont null.
+      properties:
+        count: { type: integer, description: nombre de points dans la fenetre (avant decimation) }
+        min:   { type: number, nullable: true }
+        max:   { type: number, nullable: true }
+        first: { type: number, nullable: true, description: valeur du point le plus ancien de la fenetre }
+        last:  { type: number, nullable: true, description: valeur du point le plus recent de la fenetre }
     State:
       type: object
       required: [generatedAt, themes, modules]

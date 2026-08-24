@@ -1667,6 +1667,113 @@ function Invoke-HistoryPurge {
     }
 }
 
+# Interprete une fenetre de lecture de l'historique ("24h", "7d") en [TimeSpan].
+# $null = forme invalide : la route repond alors 400, la fonction ne devine jamais.
+# Bornes larges mais finies : une fenetre enorme n'est pas une erreur de forme,
+# elle lit simplement tout le fichier (la retention borne deja les donnees).
+function ConvertTo-HistoryWindow {
+    param([string]$Window)
+    if (-not $Window) { return $null }
+    if ($Window -notmatch '^([0-9]{1,4})([hd])$') { return $null }
+    $n = [int]$Matches[1]
+    if ($n -le 0) { return $null }
+    if ($Matches[2] -eq 'h') { return [TimeSpan]::FromHours($n) }
+    return [TimeSpan]::FromDays($n)
+}
+
+# Lit la serie d'UNE mesure pour GET /history/{measureId} (etape 2 du plan
+# docs/conception/historique-migration.md). Lecture seule, sous le MEME mutex que
+# l'ecriture (Local\VigieHistory_<leaf>) : un append peut etre en cours pendant la
+# lecture. Les lignes illisibles (ecriture interrompue) sont ignorees sans echouer.
+# Rend $null si la mesure n'est pas au catalogue (la route repond 404) ; sinon un
+# objet conforme au schema History du contrat : points (decimes a ~$MaxPoints pour
+# une gauge, tels quels pour un event -- ils sont rares) + summary calcule AVANT
+# decimation. Fichier absent ou vide = points vides, summary.count = 0 : un
+# historique jeune n'est pas une erreur.
+function Get-MeasureHistory {
+    param(
+        [string]$Backend = (Get-BackendRoot),
+        [Parameter(Mandatory)][string]$MeasureId,
+        [Parameter(Mandatory)][TimeSpan]$Window,
+        [string]$WindowLabel = '',
+        [int]$MaxPoints = 200
+    )
+    $cat = $script:MeasureCatalog[$MeasureId]
+    if (-not $cat) { return $null }
+    $file = Get-VarPath -Backend $Backend -Kind 'history' -File ($MeasureId + '.jsonl')
+    $lines = @()
+    if (Test-Path -LiteralPath $file) {
+        $leaf = (Split-Path $file -Leaf) -replace '[^A-Za-z0-9]', '_'
+        $mx = New-Object System.Threading.Mutex($false, "Local\VigieHistory_$leaf")
+        $got = $false
+        try {
+            try { $got = $mx.WaitOne(2000) }
+            catch [System.Threading.AbandonedMutexException] { $got = $true }
+            catch { $got = $false }
+            # Mutex indisponible : on lit quand meme (pire cas, une ligne finale
+            # tronquee, deja geree) plutot que de rendre une erreur au client.
+            $lines = [IO.File]::ReadAllLines($file)
+        } finally {
+            if ($got) { try { $mx.ReleaseMutex() } catch { } }
+            try { $mx.Dispose() } catch { }
+        }
+    }
+    $nowUtc = [datetime]::UtcNow
+    $cutoff = $nowUtc - $Window
+    # Filtre + normalisation. Le fichier est append-only donc deja chronologique ;
+    # on retrie malgre tout : une purge interrompue ou une ligne forgee ne doit pas
+    # rendre une serie desordonnee.
+    $pts = New-Object System.Collections.Generic.List[object]
+    foreach ($l in $lines) {
+        if ([string]::IsNullOrWhiteSpace($l)) { continue }
+        $o = $null
+        try { $o = $l | ConvertFrom-Json } catch { continue }
+        $at = $null
+        # ConvertFrom-Json rend la date tantot en chaine, tantot en [datetime] (D44) :
+        # ConvertTo-UtcDate normalise, comparer sans lui fausserait la fenetre.
+        try { $at = ConvertTo-UtcDate $o.at } catch { continue }
+        if (-not $at -or $null -eq $o.v) { continue }
+        if ($at -lt $cutoff) { continue }
+        $v = 0.0
+        if (-not [double]::TryParse("$($o.v)", [Globalization.NumberStyles]::Float,
+                [Globalization.CultureInfo]::InvariantCulture, [ref]$v)) { continue }
+        $pts.Add([pscustomobject]@{ atUtc = $at; v = $v })
+    }
+    $sorted = @($pts | Sort-Object atUtc)
+    # Summary sur TOUS les points de la fenetre, avant decimation : la decimation
+    # peut faire sauter l'extreme, le resume ne doit pas le perdre.
+    $summary = [ordered]@{ count = $sorted.Count; min = $null; max = $null; first = $null; last = $null }
+    if ($sorted.Count -gt 0) {
+        $mesures = $sorted | Measure-Object -Property v -Minimum -Maximum
+        $summary.min   = $mesures.Minimum
+        $summary.max   = $mesures.Maximum
+        $summary.first = $sorted[0].v
+        $summary.last  = $sorted[$sorted.Count - 1].v
+    }
+    # Decimation uniforme par index, premier et dernier points conserves. Les events
+    # (etape 4) partiront tels quels : ils sont rares et chaque occurrence compte.
+    $kept = $sorted
+    if ("$($cat.Kind)" -ne 'event' -and $MaxPoints -gt 0 -and $sorted.Count -gt $MaxPoints) {
+        $kept = New-Object System.Collections.Generic.List[object]
+        $step = ($sorted.Count - 1) / [double]($MaxPoints - 1)
+        $lastIdx = -1
+        for ($i = 0; $i -lt $MaxPoints; $i++) {
+            $idx = [int][math]::Round($i * $step)
+            if ($idx -eq $lastIdx) { continue }   # deux i arrondis au meme index
+            $kept.Add($sorted[$idx])
+            $lastIdx = $idx
+        }
+    }
+    return [ordered]@{
+        measureId = $MeasureId
+        kind      = "$($cat.Kind)"
+        unit      = "$($cat.Unit)"
+        window    = $WindowLabel
+        points    = @($kept | ForEach-Object { [ordered]@{ at = $_.atUtc.ToString('o'); v = $_.v } })
+        summary   = $summary
+    }
+}
+
 function Get-State {
     param(
         [string]$Backend = (Get-BackendRoot),
