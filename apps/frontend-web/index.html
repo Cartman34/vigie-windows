@@ -1433,9 +1433,10 @@ async function renderTabModules(pane){
   // Un parametre change ne recalcule QUE les cartes de son module : le serveur a deja
   // invalide leurs sondes, chaque carte se recharge fraiche sans payer les autres.
   async function apresParam(unit){
-    const ids=(lastModules||[]).filter(m=>m.theme===unit).map(m=>m.id);
-    await Promise.all(ids.map(id=>refreshCard(id)));
-    renderSettings();
+    // Le panneau d abord (valeur et bouton defaut a jour tout de suite), les cartes
+    // ensuite, sans bloquer : chacune se remplace quand son calcul aboutit.
+    await renderSettings();
+    (lastModules||[]).filter(m=>m.theme===unit).forEach(m=>{ refreshCard(m.id); });
   }
   pane.querySelectorAll('[data-pval]').forEach(c=>{ c.onchange=async()=>{
     const [unit,key]=c.getAttribute('data-pval').split('::');
