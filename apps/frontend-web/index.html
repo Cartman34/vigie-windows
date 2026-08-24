@@ -507,7 +507,7 @@ function cardHtml(m, groupLabel){
     const open=openDetails.has(key)?' open':'';
     const det=detTxt?`<div class="field-detail ${stt}${open}" data-k="${key}">${esc(detTxt)}</div>`:'';
     return `<div class="frow">
-      <div class="field"><span class="k"><span class="fdot ${stt}"></span><span class="fk-label${detTxt?' clickable':''}"${detTxt?' onclick="toggleDetail(this)"':''}>${f.label}</span>${info}</span><span class="v v-${stt}">${fmt(f)}</span></div>
+      <div class="field"><span class="k"><span class="fdot ${stt}"></span><span class="fk-label${detTxt?' clickable':''}"${help?` title="${help}"`:''}${detTxt?' onclick="toggleDetail(this)"':''}>${f.label}</span>${info}</span><span class="v v-${stt}">${fmt(f)}</span></div>
       ${det}
       ${solve?`<div class="frow-actions">${solve}</div>`:''}
     </div>`;
