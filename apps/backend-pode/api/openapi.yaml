@@ -230,6 +230,35 @@ components:
             module: { type: string,  description: "module a suivre jusqu'a busy = false" }
             choose: { type: boolean, description: "le client doit ouvrir une fenetre de choix puis rappeler `action`" }
             action: { type: string,  description: "action a rappeler avec la selection (accompagne `choose`)" }
+            selection:
+              type: boolean
+              description: >
+                Accompagne `choose`. true (defaut) : l'utilisateur choisit librement.
+                false : la source ne sait pas traiter un element en particulier -- la liste
+                est affichee POUR INFORMATION, cases cochees et non decochables, et TOUS
+                les elements seront traites. Le client doit le dire, pas laisser croire a
+                un choix qui serait ignore.
+            confirmLabel:
+              type: string
+              description: "libelle du bouton de validation de la fenetre de choix (ex. « Installer », « Mettre a jour »)"
+            intro:
+              type: string
+              description: "phrase d'introduction de la fenetre de choix, imposee par le serveur"
+            vide:
+              type: string
+              description: "phrase affichee quand `updates` est vide"
+            updates:
+              type: array
+              description: >
+                Elements CHOISISSABLES (accompagne `choose`). Les `id` retenus sont renvoyes
+                dans `params.ids` de l'action citee par `action`.
+              items:
+                type: object
+                required: [id, titre]
+                properties:
+                  id:     { type: string, description: "identifiant stable, passe tel quel a l'action de suite" }
+                  titre:  { type: string, description: "libelle affiche" }
+                  detail: { type: string, description: "complement d'une ligne (ex. « 1.2 -> 1.3 ») ; sinon compose par le client" }
             invalidate:
               type: array
               items: { type: string }

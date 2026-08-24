@@ -302,3 +302,67 @@
 - **D07** : la tâche planifiée pointe encore sur l'ancien espace de travail
   `LocalWork/hyperion-control-panel` ; le repointage sur le dépôt exige une
   session élevée (RunLevel Highest).
+
+## 2026-08-24 — Paquets : mise à jour au choix, interface du gestionnaire
+### Ajoute
+- **Choisir les paquets à mettre à jour**, gestionnaire par gestionnaire, sur le
+  modèle exact de Windows Update (**D45**) : nouvelle action
+  `pkg-list-updates` (`kind: dialog`, `severity: fix`) qui renvoie
+  `result.choose`, `result.action` et `result.updates[]`. Le bouton
+  « Mettre à jour » de la carte ouvre désormais cette fenêtre au lieu de
+  demander un simple oui/non — mettre à jour « tout » sans voir quoi n'est pas
+  un choix.
+- **Identifiant ciblable par paquet** dans `Get-PkgUpdates` (`pkgs[]` :
+  `id`, `titre`, `detail`) — colonne Id pour winget, nom pour Chocolatey et pip.
+  Les chaînes d'affichage (`items`) sont inchangées. Le catalogue porte un
+  champ `upgOne` (args de mise à jour d'UN paquet, `{pkg}` substitué) : c'est
+  lui, et lui seul, qui décide si le choix est possible (**D15**).
+- **pip devient « à jour »-able** : il n'avait pas de commande « tout mettre à
+  jour », il a maintenant `install -U <nom>` par paquet.
+- **Bouton vers l'interface graphique du gestionnaire**, jumeau de « Ouvrir
+  Windows Update » : action `pkg-open-gui` (`kind: manual`, `severity: info`).
+  Le bouton n'apparaît QUE si la cible est réellement installée
+  (`Get-PkgGui` : protocole enregistré dans `HKEY_CLASSES_ROOT` pour le
+  Microsoft Store, exécutable présent pour Chocolatey GUI). Un bouton mort est
+  pire que pas de bouton. Sur cette machine : Store présent, Chocolatey GUI
+  absent, pip sans interface.
+- **Liste verrouillée** quand le gestionnaire ne sait pas cibler un paquet
+  (scoop, npm, gem) : la liste s'affiche quand même, cases cochées et **non
+  décochables**, et la fenêtre dit pourquoi. Contrat : `result.selection`,
+  `result.intro`, `result.vide`, `result.confirmLabel`.
+### Modifie
+- `Invoke-PkgUpgrade` accepte `-Pkgs` : une commande par paquet retenu, résultat
+  agrégé (code de retour, redémarrage 3010/1641, liste des échecs). Sans liste,
+  comportement historique inchangé (tout le gestionnaire, une commande).
+  `Start-PkgJob` et `pkg-job.worker.ps1` transportent la sélection.
+- `api/openapi.yaml` : `result.selection`, `result.confirmLabel`, `result.intro`,
+  `result.vide` et `result.updates[]` sont décrits.
+### Corrige
+- **winget : identifiant faux sur les noms longs.** Le découpage se faisait sur
+  « deux espaces ou plus » ; winget dimensionne chaque colonne sur son plus long
+  élément, si bien qu'un nom long ne laisse qu'UN espace avant l'Id. Constaté en
+  réel : `12.0.40664.0` était pris pour l'identifiant du Redistribuable Visual
+  C++ 2013 — la mise à jour aurait visé un paquet inexistant. Le découpage se
+  fait désormais aux **positions de colonnes lues dans l'en-tête**.
+- **Variable `$pid`** (automatique, en lecture seule) utilisée pour l'identifiant
+  de paquet : l'affectation levait une exception avalée par un `catch` vide et la
+  liste revenait **vide** en annonçant zéro mise à jour. Renommée `$ident`.
+  Même famille de défaut que **D43** : un échec silencieux passe pour un succès.
+- Cases **verrouillées** rendues avec `disabled` : le navigateur les grise et on
+  ne voyait plus qu'elles étaient cochées — exactement ce qu'il fallait montrer.
+  Elles restent actives, l'interaction est coupée par le CSS.
+### Verifie
+- Parser PowerShell OK sur `common.ps1`, `packages.probe.ps1`,
+  `pkg-job.worker.ps1` et les actions `pkg-list-updates`, `pkg-upgrade`,
+  `pkg-open-gui`, `pkg-check-updates`.
+- `Get-PkgUpdates -Id winget` exécuté en réel : 3 paquets, identifiants exacts
+  (`Microsoft.GameInput`, `Microsoft.Teams.Free`, `Microsoft.VCRedist.2013.x86`).
+- `pkg-list-updates` exécutée en réel sur `winget` (choix libre), `gem`
+  (verrouillé) et `yarn` (refus explicite) ; sonde `packages.probe.ps1` exécutée :
+  bouton `dialog` et bouton Store présents, `pkg-open-gui` absent pour Chocolatey.
+- Front servi en **http** (**D47**, jamais `file://`) : script exécuté
+  intégralement, aucune erreur console, fenêtre de choix testée dans les deux
+  modes (libre : rien de coché au départ, bouton désactivé tant que rien n'est
+  retenu, compteur juste ; verrouillé : tout coché, indécochable, barre
+  « Tout cocher » masquée, libellé du bouton corrigé après chargement).
+- `api/openapi.yaml` relu par un analyseur YAML.
