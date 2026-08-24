@@ -45,7 +45,11 @@
      contenu est court, au lieu de remonter coller sous la derniere carte. */
   body{margin:0;font-family:-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.45;
        min-height:100vh;display:flex;flex-direction:column}
-  body > main{flex:1 0 auto}
+  /* width:100% est INDISPENSABLE : dans un conteneur flex, les marges laterales
+     `auto` de main desactivent l etirement transversal. Sans cette ligne, main
+     tombe a sa largeur de contenu (627 px sur 1404) et la grille perd la moitie
+     de ses colonnes. */
+  body > main{flex:1 0 auto;width:100%}
   header{position:sticky;top:0;z-index:10;background:var(--panel);border-bottom:1px solid var(--border);padding:14px 22px;display:flex;align-items:center;gap:16px;box-shadow:var(--shadow)}
   header .title{font-weight:700;font-size:16px} header .title small{color:var(--muted);font-weight:500;margin-left:8px}
   .global{display:flex;align-items:center;gap:8px;padding:5px 12px;border-radius:999px;border:1px solid var(--border);background:var(--panel-2)}
@@ -279,6 +283,7 @@
     .splash-bar i{animation:none;width:100%}
   }
   /* ================= Lien vers le depot (D09) ================= */
+  .svg-sprite{position:absolute;width:0;height:0;overflow:hidden}
   .repo-link{color:var(--muted);text-decoration:none;border-bottom:1px solid transparent;transition:.15s}
   .repo-link:hover{color:var(--text);border-bottom-color:var(--border)}
   .repo-ic{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;
@@ -293,7 +298,7 @@
 <body>
 <!-- Marque GitHub definie UNE fois, reutilisee par <use>. Elle apparaissait a trois
      endroits : trois copies d'un meme trace finissent toujours par diverger (D15). -->
-<svg hidden aria-hidden="true"><symbol id="ghMark" viewBox="0 0 16 16"><path fill="currentColor" d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38l-.01-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.93-.89-1.18-.89-1.18-.73-.5.06-.49.06-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.22 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.2c0 .21.15.46.55.38A8 8 0 0 0 8 0z"/></symbol></svg>
+<svg class="svg-sprite" aria-hidden="true"><symbol id="ghMark" viewBox="0 0 16 16"><path fill="currentColor" d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38l-.01-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.93-.89-1.18-.89-1.18-.73-.5.06-.49.06-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.22 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.2c0 .21.15.46.55.38A8 8 0 0 0 8 0z"/></symbol></svg>
 <!-- ================= Ecran de chargement (D08) =================
      Marque "icone tray v1 - jauge a graduations" (D01), etat "demarrage" (orange, fraction 0,50).
      Geometrie identique a apps/tray/assets/generate-icons.py, en fractions d'une taille de 100. -->
