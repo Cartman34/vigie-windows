@@ -40,36 +40,17 @@
 
 <section>
   <h2>En attente d’arbitrage</h2>
-  <p class="hint">
-    Deux questions issues de la conception de l’<b>historique des mesures</b>
-    (<code>docs/conception/historique-cible.md</code> et <code>historique-migration.md</code>).
-    La recommandation est toujours en premier ; réponds par Q1A, Q1B…
-  </p>
-
-  <div class="q">
-    <h3>Q1 — Où vivent les seuils de dérive ?</h3>
-    <p>Exemple : « plus de 3 redémarrages de WSL en 24 h ⇒ warning ». Ces seuils devront pouvoir évoluer sans fouiller le code.</p>
-    <ol>
-      <li class="reco"><b>A (recommandé)</b> — en tête de chaque sonde, rebasculables en une ligne (le modèle D20 déjà en place).</li>
-      <li><b>B</b> — dans <code>config.psd1</code>, tous regroupés.</li>
-      <li><b>C</b> — dans le futur panneau de gestion des modules.</li>
-    </ol>
-  </div>
-
-  <div class="q">
-    <h3>Q2 — Comment restituer les événements (redémarrages WSL, levées du verrou) ?</h3>
-    <p>Les mesures continues auront leur tendance ; reste la forme des événements ponctuels.</p>
-    <ol>
-      <li class="reco"><b>A (recommandé)</b> — une ligne de faits dans la carte : « 4 redémarrages hier ».</li>
-      <li><b>B</b> — une mini-frise graphique.</li>
-      <li><b>C</b> — rien à l’écran, consultation par l’API seulement.</li>
-    </ol>
-  </div>
+  <p class="hint">Rien pour le moment — une seule question ouverte, côté discussion :
+     quelle fonte d’icônes ? <b>Voie 1 recommandée</b> : vendoriser un sous-ensemble de
+     Bootstrap Icons (MIT, un fichier woff2 dans le dépôt) ; voie 2 : fonte maison via
+     fonttools (à installer).</p>
 </section>
 
 <section>
   <h2>Arbitré récemment</h2>
   <p class="hint">Trace des décisions prises ici, avec leur décision au registre. Le détail vit dans <code>docs/DECISIONS-VALIDEES.md</code>.</p>
+  <div class="fait"><span class="ok">Q1 ✓ arbitré</span><span>Config et paramètres — le défaut d’un paramètre vient de la config du module, la surcharge se fait dans le menu Paramètres (<b>D57</b>). Premier cas : seuil d’alerte du disque.</span></div>
+  <div class="fait"><span class="ok">Q2 ✓ arbitré</span><span>Événements — l’historique enregistre, aucun affichage pour l’instant (<b>D57</b>).</span></div>
   <div class="fait"><span class="ok">P1 ✓ livré</span><span>Vérification du contrat des sondes — étendue : validation ciblée (<code>-Only</code>), sondes coûteuses inchangées vérifiées sur leur dernière sortie réelle (<b>D51</b>).</span></div>
   <div class="fait"><span class="ok">P2 ✓ validé</span><span>Historique des mesures — rétention configurable au global et par mesure, conception finale et de migration livrées, ajout progressif par sous-agent (<b>D53</b>).</span></div>
   <div class="fait"><span class="ok">P3 ✓ livré</span><span>Notifications du tray sur bascule de module — réglage fin par module + interrupteur global qui masque sans effacer (<b>D54</b>). L’icône du tray reste le statut de l’app.</span></div>
