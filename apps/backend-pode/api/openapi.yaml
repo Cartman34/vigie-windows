@@ -93,6 +93,36 @@ paths:
         "200":
           description: Catalogue apres modification
         "404": { description: Module inconnu }
+  /parameters:
+    get:
+      summary: Parametres de modules (D57) - defaut = config, surcharge utilisateur
+      responses:
+        "200":
+          description: Catalogue par module (cle, libelle, type, defaut, valeur courante)
+  /parameters/{unit}:
+    post:
+      summary: Pose ou retire des surcharges de parametres d'un module
+      description: >
+        `values` associe cle -> valeur ; une valeur null RETIRE la surcharge et le
+        parametre revient a sa valeur de config. Seules les cles declarees dans le
+        module.psd1 du module sont acceptees. Les sondes du module sont invalidees.
+      parameters:
+        - { name: unit, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [values]
+              properties:
+                values:
+                  type: object
+                  additionalProperties: true
+      responses:
+        "200":
+          description: Catalogue apres modification
+        "400": { description: Parametre non declare ou requete invalide }
   /notifications:
     get:
       summary: Reglages des notifications du tray (D54)

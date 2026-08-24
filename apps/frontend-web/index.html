@@ -276,6 +276,13 @@
   .swx input:checked + i{background:var(--accent)}
   .swx input:checked + i::after{transform:translateX(14px);background:#fff}
   .swx input:disabled + i{opacity:.5}
+  .um-num{width:64px;font:inherit;font-size:12.5px;color:var(--text);background:var(--panel-2);
+          border:1px solid var(--border);border-radius:6px;padding:3px 6px;text-align:right}
+  .um-num:focus{outline:none;border-color:var(--accent)}
+  .um-reset{font:inherit;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;
+            color:var(--muted);background:none;border:1px dashed var(--border);border-radius:6px;
+            padding:2px 7px;cursor:pointer}
+  .um-reset:hover{color:var(--text);border-color:var(--accent)}
   .apropos-l{display:flex;justify-content:space-between;gap:12px;font-size:13px;
              padding:6px 0;border-bottom:1px dashed var(--border)}
   .apropos-l span{color:var(--muted)}
@@ -1381,6 +1388,11 @@ async function renderTabNotifs(pane){
 async function renderTabModules(pane){
   const units=lastUnits||[];
   if(!units.length){ pane.innerHTML='<div class="drawer-empty">Aucun module connu (maquette&nbsp;?).</div>'; return; }
+  let paramCat={};
+  try{
+    const r=await fetch(API+"/parameters",{headers:{Authorization:"Bearer "+TOKEN}});
+    if(r.ok){ const j=await r.json(); (j.modules||[]).forEach(m=>{ paramCat[m.unit]=m.params||[]; }); }
+  }catch(e){}
   const cfg=await getNotifCfg();
   const on=id=> (id in cfg.modules)? !!cfg.modules[id] : true;
   pane.innerHTML='<p class="um-hint">Couper un module retire ses cartes et ses calculs ; il reste listé ici pour être rallumé. Chaque carte expose ses paramètres — aujourd’hui, sa notification.</p>'+units.map(u=>{
@@ -1392,12 +1404,38 @@ async function renderTabModules(pane){
       +'<span class="um-sw"><span>'+(u.enabled?'Actif':'Coupé')+'</span>'
       +'<span class="swx"><input type="checkbox" data-unit="'+esc(u.id)+'"'+(u.enabled?' checked':'')+'><i></i></span></span></div>'
       +(u.enabled ? lignes : '<div class="um-note">Module coupé : ses cartes ne sont ni calculées ni affichées.</div>')
+      +(u.enabled ? (paramCat[u.id]||[]).map(pr=>
+        '<div class="um-card um-pline" title="'+esc(pr.help||'')+'"><span>'+esc(pr.label)+'</span>'
+        +'<span class="um-param">'
+        +(pr.overridden?'<button class="um-reset" data-preset="'+esc(u.id)+'::'+esc(pr.key)+'" title="Revenir à la valeur par défaut ('+esc(String(pr.default))+(pr.unit?' '+esc(pr.unit):'')+')">défaut</button>':'')
+        +(pr.type==='bool'
+          ? '<span class="swx"><input type="checkbox" data-pval="'+esc(u.id)+'::'+esc(pr.key)+'"'+(pr.value?' checked':'')+'><i></i></span>'
+          : '<input class="um-num" type="number" data-pval="'+esc(u.id)+'::'+esc(pr.key)+'" value="'+esc(String(pr.value))+'">'+(pr.unit?'<span>'+esc(pr.unit)+'</span>':''))
+        +'</span></div>').join('') : '')
       +'</div>';
   }).join('');
   pane.querySelectorAll('[data-unotif]').forEach(c=>{ c.onchange=async()=>{
     const modules={}; modules[c.getAttribute('data-unotif')]=c.checked;
     try{ await postNotif({modules}); }
     catch(e){ c.checked=!c.checked; toast('Réglage impossible : '+(e.message||e)); }
+  }; });
+  async function postParam(unit, key, valeur){
+    const values={}; values[key]=valeur;
+    const r=await fetch(API+'/parameters/'+encodeURIComponent(unit),{ method:'POST',
+      headers:{ Authorization:'Bearer '+TOKEN, 'Content-Type':'application/json' },
+      body: JSON.stringify({ values }) });
+    if(!r.ok) throw new Error('HTTP '+r.status);
+  }
+  pane.querySelectorAll('[data-pval]').forEach(c=>{ c.onchange=async()=>{
+    const [unit,key]=c.getAttribute('data-pval').split('::');
+    const valeur=(c.type==='checkbox')?c.checked:Number(c.value);
+    try{ await postParam(unit,key,valeur); toast('Paramètre enregistré'); await refresh(); renderSettings(); }
+    catch(e){ toast('Réglage impossible : '+(e.message||e)); }
+  }; });
+  pane.querySelectorAll('.um-reset').forEach(b=>{ b.onclick=async()=>{
+    const [unit,key]=b.getAttribute('data-preset').split('::');
+    try{ await postParam(unit,key,null); toast('Retour à la valeur par défaut'); await refresh(); renderSettings(); }
+    catch(e){ toast('Réglage impossible : '+(e.message||e)); }
   }; });
   pane.querySelectorAll('[data-unit]').forEach(c=>{ c.onchange=async()=>{
     const id=c.getAttribute('data-unit');
