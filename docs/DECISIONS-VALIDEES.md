@@ -253,7 +253,13 @@ fonctionne donc sans configuration, avec ces actions désactivées.
 > `lib/common.ps1` (`Set-UpdateLock`, `Invoke-UpdateAudit`, `Get-UpdateLockState`,
 > `Get-UpdateTaskCatalog`) : une installation faite depuis GitHub dispose de la fonction
 > entière. `ToolsPath` reste *préféré* s'il porte `update-mode.ps1`, jamais requis.
-> Restent tributaires de l'outillage : `toggle-vbs`, `toggle-hvci` et `open-folder`.
+>
+> *Mis à jour (suite) :* les bascules **VBS** et **intégrité mémoire** le sont aussi
+> (`Set-DeviceGuardFeature`, `Get-DeviceGuardState`, `Get-DeviceGuardCatalog`).
+> **Plus aucune fonction ne dépend de `ToolsPath`.** Seule `open-folder` l'utilise encore,
+> et c'est légitime : elle ouvre un dossier *configuré*. Règle qui en découle — une action
+> qui ne peut rien faire n'est **pas proposée** par sa sonde : un bouton mort est pire que
+> pas de bouton.
 
 **Exception assumée** : dans `server.ps1`, la liste blanche anti-CSRF garde `127.0.0.1` et
 `localhost` en littéral. Ce n'est **pas** une copie de `BindAddress` mais la liste des

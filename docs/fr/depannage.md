@@ -59,20 +59,32 @@ Une tâche de fond peut mourir sans rien écrire (machine mise en veille, proces
 cartes de gestionnaires de paquets abandonnent au bout de **45 minutes** et cessent
 d'afficher « en cours ». Pour les autres, redémarrez le serveur depuis le menu du tray.
 
-### « Outillage externe non configuré »
+### « Aucun dossier d'outillage n'est configuré »
 
-Attendu, et ce n'est pas un défaut — mais cela ne concerne **plus** Windows Update :
-le verrouillage, le déverrouillage et l'audit sont natifs depuis ce dépôt. Ce message ne
-reste possible que sur les **bascules VBS / intégrité mémoire** et *Ouvrir le dossier*,
-qui appellent encore des scripts non livrés. Voir
-[Configuration](configuration.md#outillage-externe).
+Ce message ne concerne **plus aucune fonction** : le verrouillage de Windows Update, son
+audit et les bascules VBS / intégrité mémoire sont natifs. Seule *Ouvrir le dossier* peut
+encore le rendre, et uniquement si le dossier disparaît entre l'affichage de la carte et le
+clic — sans chemin configuré, le bouton n'est pas proposé.
+Voir [Configuration](configuration.md#outillage-externe).
 
 ### « Le serveur de Vigie n'est pas administrateur »
 
-Poser ou lever le verrou modifie les permissions de dossiers système : sans élévation, la
-manœuvre échouerait à moitié, en silence. Vigie refuse donc **avant** d'agir et ne touche à
-rien. Relancez Vigie en administrateur (menu du tray → *Redémarrer le serveur*, l'invite
-UAC s'affichera), puis recliquez.
+Poser ou lever le verrou modifie les permissions de dossiers système ; basculer VBS ou
+l'intégrité mémoire écrit dans une clé de registre protégée. Sans élévation, la manœuvre
+échouerait à moitié, en silence. Vigie refuse donc **avant** d'agir et ne touche à rien.
+Relancez Vigie en administrateur (menu du tray → *Redémarrer le serveur*, l'invite UAC
+s'affichera), puis recliquez.
+
+### La bascule VBS ou intégrité mémoire « ne change rien »
+
+C'est normal et c'est dit : ces réglages sont lus par Windows **au démarrage**. La demande
+est écrite dans le registre, la carte affiche *En attente de redémarrage* et propose
+*Redémarrer Windows*. L'état affiché au-dessus reste celui qui tourne jusque-là.
+
+Si la valeur ne s'applique toujours pas **après** un redémarrage, elle est imposée par
+l'UEFI ou par une stratégie d'entreprise : passez par *Sécurité Windows → Sécurité des
+appareils → Isolation du noyau*, ou voyez votre service informatique. Vigie ne peut pas
+passer outre, et le dit plutôt que de prétendre avoir réussi.
 
 ### « Verrouiller maintenant » dit que le verrou ACL n'a pas pu être posé
 

@@ -332,6 +332,259 @@ function Set-UpdateLock {
     return [bool]$obtenu
 }
 
+# --- Securite de la virtualisation (VBS / HVCI) ---------------------------------
+# LE catalogue du sujet, defini une seule fois (D15) : cles de registre, noms de valeurs
+# et libelles. La sonde, la lecture d'etat et la bascule y puisent tous.
+#
+# Ce qui distingue ce sujet du verrou Windows Update : une valeur ecrite ici ne prend
+# effet qu'au REDEMARRAGE. Il y a donc DEUX etats a ne jamais confondre --
+#   `configured` : ce que demande le registre (ce qu'on ecrit, verifiable tout de suite) ;
+#   `running`    : ce que Windows execute reellement (ne bougera qu'apres un redemarrage).
+function Get-DeviceGuardCatalog {
+    $racine = 'HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard'
+    [ordered]@{
+        Root      = $racine
+        RootReg   = 'HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard'   # forme attendue par reg.exe
+        Features  = [ordered]@{
+            vbs  = [pscustomobject]@{
+                Key = $racine; Name = 'EnableVirtualizationBasedSecurity'
+                Label = 'Sécurité par virtualisation (VBS)'; Court = 'VBS'
+            }
+            hvci = [pscustomobject]@{
+                Key = "$racine\Scenarios\HypervisorEnforcedCodeIntegrity"; Name = 'Enabled'
+                Label = 'Intégrité mémoire (HVCI)'; Court = 'intégrité mémoire'
+            }
+        }
+    }
+}
+
+# Marqueur des bascules DEMANDEES et pas encore effectives (var/cache). Il sert a deux
+# choses : savoir quoi afficher (« demandé, effectif au redémarrage ») et sur quelle
+# valeur basculer quand on reclique avant d'avoir redemarre.
+function Get-DeviceGuardMarkerPath {
+    param([string]$Backend = (Get-BackendRoot))
+    Get-VarPath -Backend $Backend -Kind 'cache' -File 'deviceguard.json'
+}
+
+# Etat REEL et complet de VBS / HVCI. LECTURE SEULE.
+#
+# Pour chaque fonction :
+#   configured : valeur du registre (0/1), $null si la valeur n'existe pas
+#   running    : ce que Windows execute maintenant (Win32_DeviceGuard)
+#   requested  : ce que Vigie a demande et qui attend un redemarrage ($null sinon)
+#   pending    : une demande de Vigie n'est pas encore effective
+#   effective  : l'etat a AFFICHER et celui sur lequel une bascule s'appuie -- la demande
+#                en attente si elle existe, sinon ce qui tourne. Basculer depuis `running`
+#                alors qu'une demande attend ferait revenir en arriere sans le dire.
+function Get-DeviceGuardState {
+    param([string]$Backend = (Get-BackendRoot))
+    $cat = Get-DeviceGuardCatalog
+    $dg = Get-CimInstance -Namespace 'root/Microsoft/Windows/DeviceGuard' -ClassName Win32_DeviceGuard -ErrorAction SilentlyContinue
+    $running = @{
+        vbs  = [bool]($dg -and $dg.VirtualizationBasedSecurityStatus -eq 2)
+        hvci = [bool]($dg -and ($dg.SecurityServicesRunning -contains 2))
+    }
+    $marque = @{}
+    try {
+        $f = Get-DeviceGuardMarkerPath -Backend $Backend
+        if (Test-Path -LiteralPath $f) {
+            $j = Get-Content -LiteralPath $f -Raw | ConvertFrom-Json
+            foreach ($p in $j.PSObject.Properties) { $marque[$p.Name] = $p.Value }
+        }
+    } catch { }
+
+    $etat = [ordered]@{ elevated = (Test-Elevated); vbsStatus = $(if ($dg) { [int]$dg.VirtualizationBasedSecurityStatus } else { $null }) }
+    foreach ($id in $cat.Features.Keys) {
+        $f = $cat.Features[$id]
+        $cfg = $null
+        try {
+            $v = (Get-ItemProperty -LiteralPath $f.Key -Name $f.Name -ErrorAction SilentlyContinue).$($f.Name)
+            if ($null -ne $v) { $cfg = [int]$v }
+        } catch { }
+        $dem = $null
+        try { if ($marque[$id] -and $null -ne $marque[$id].requested) { $dem = [int]$marque[$id].requested } } catch { }
+        # Une demande qui correspond deja a ce qui tourne n'est plus en attente : le
+        # marqueur se perime tout seul au redemarrage, sans delai arbitraire a regler.
+        $enAttente = ($null -ne $dem -and [bool]$dem -ne $running[$id])
+        $etat[$id] = [ordered]@{
+            label      = $f.Label
+            court      = $f.Court
+            configured = $cfg
+            running    = $running[$id]
+            requested  = $(if ($enAttente) { $dem } else { $null })
+            pending    = $enAttente
+            effective  = $(if ($enAttente) { [bool]$dem } else { $running[$id] })
+        }
+    }
+    $etat['pending'] = ($etat.vbs.pending -or $etat.hvci.pending)
+    $etat
+}
+
+# Sauvegarde de la cle DeviceGuard AVANT toute ecriture, dans var/log.
+# Un reglage de demarrage se defait mal a la main : on garde de quoi revenir en arriere.
+function Backup-DeviceGuardKey {
+    param([string]$Backend = (Get-BackendRoot))
+    $cat = Get-DeviceGuardCatalog
+    $f = Join-Path (Get-LogDir -Backend $Backend) ('deviceguard_' + (Get-Date -Format 'yyyyMMdd_HHmmss') + '.reg')
+    try {
+        $r = Invoke-Native -File 'reg.exe' -Arguments @('export', $cat.RootReg, $f, '/y')
+        # D43 : la sauvegarde existe quand le FICHIER est la, pas quand l'appel est passe.
+        if ((Test-Path -LiteralPath $f) -and $r.Ok) { return $f }
+    } catch { }
+    return $null
+}
+
+# Ecrit la valeur d'UNE fonction. UNIQUE porte d'entree en ECRITURE (D15).
+#
+# Renvoie un objet (et non un booleen comme Set-UpdateLock) parce qu'il n'y a rien a
+# preserver ici : aucun appelant existant, et « ecrit » ne suffit pas a raconter ce qui
+# s'est passe -- il faut distinguer « deja a cette valeur », « ecrit, attend le
+# redemarrage » et « ecrit mais toujours actif » (valeur imposee par l'UEFI ou une
+# strategie). Le resultat est RELU dans le registre, jamais suppose (D43).
+function Set-DeviceGuardFeature {
+    param(
+        [Parameter(Mandatory)][ValidateSet('vbs','hvci')][string]$Feature,
+        [Parameter(Mandatory)][bool]$Enable,
+        [string]$Backend = (Get-BackendRoot)
+    )
+    $cat = Get-DeviceGuardCatalog
+    if (-not (Test-Elevated)) {
+        try { Write-Log -Backend $Backend -Name 'deviceguard' -Level 'WARN' -Message "$Feature : refuse, le serveur n'est pas administrateur." } catch { }
+        return @{ ok = $false; elevated = $false }
+    }
+    $cible = [int][bool]$Enable
+    $avant = Get-DeviceGuardState -Backend $Backend
+    $sauvegarde = Backup-DeviceGuardKey -Backend $Backend
+
+    # Les valeurs a poser. HVCI ne peut PAS tourner sans VBS : desactiver VBS en laissant
+    # l'integrite memoire demandee laisse une configuration incoherente, que Windows
+    # resout parfois en rallumant VBS. On coupe donc les deux -- et on le DIT.
+    # L'inverse n'est pas vrai : activer VBS n'active pas l'integrite memoire dans le dos
+    # de l'utilisateur, c'est une decision distincte avec ses propres contreparties.
+    $aEcrire = @( [pscustomobject]@{ Id = $Feature; Valeur = $cible } )
+    $hvciCoupeAussi = $false
+    if ($Feature -eq 'vbs' -and $cible -eq 0) {
+        $aEcrire += [pscustomobject]@{ Id = 'hvci'; Valeur = 0 }
+        $hvciCoupeAussi = $true
+    }
+
+    $erreurs = @()
+    foreach ($e in $aEcrire) {
+        $f = $cat.Features[$e.Id]
+        try {
+            # Idempotent : New-Item -Force sur une cle existante ne l'efface pas, et
+            # reecrire la meme valeur est sans effet. Rejouer la bascule ne casse rien.
+            if (-not (Test-Path -LiteralPath $f.Key)) { New-Item -Path $f.Key -Force -ErrorAction Stop | Out-Null }
+            New-ItemProperty -Path $f.Key -Name $f.Name -Value $e.Valeur -PropertyType DWord -Force -ErrorAction Stop | Out-Null
+        } catch {
+            $erreurs += "$($e.Id) : $($_.Exception.Message)"
+        }
+    }
+
+    # Marqueur : ce que Vigie a demande. Il sert a proposer le redemarrage et a savoir sur
+    # quelle valeur rebasculer si l'utilisateur reclique avant d'avoir redemarre.
+    try {
+        $set = @{}
+        foreach ($e in $aEcrire) { $set[$e.Id] = @{ requested = $e.Valeur; at = (Get-Date).ToUniversalTime().ToString('o') } }
+        Update-StateJson -Path (Get-DeviceGuardMarkerPath -Backend $Backend) -Set $set | Out-Null
+    } catch { }
+
+    # CONSTAT : on relit le REGISTRE, seul etat qui puisse avoir change maintenant.
+    # Relire `running` pour juger serait un faux echec garanti -- il ne bougera qu'au
+    # redemarrage. C'est la difference a ne pas rater avec le verrou Windows Update.
+    $apres = Get-DeviceGuardState -Backend $Backend
+    $ecrit = ($apres[$Feature].configured -eq $cible)
+    try {
+        Write-Log -Backend $Backend -Name 'deviceguard' -Message (
+            "$Feature -> $cible : ecrit=$ecrit configAvant=$($avant[$Feature].configured) configApres=$($apres[$Feature].configured) " +
+            "actif=$($apres[$Feature].running) hvciCoupeAussi=$hvciCoupeAussi sauvegarde=$sauvegarde" +
+            $(if ($erreurs.Count) { ' erreurs=' + ($erreurs -join ' | ') } else { '' }))
+    } catch { }
+
+    @{
+        ok             = $ecrit
+        elevated       = $true
+        feature        = $Feature
+        value          = $cible
+        already        = ($avant[$Feature].configured -eq $cible)
+        running        = $apres[$Feature].running
+        rebootNeeded   = ($apres[$Feature].running -ne [bool]$cible)
+        hvciCoupeAussi = $hvciCoupeAussi
+        backup         = $sauvegarde
+        errors         = @($erreurs)
+        state          = $apres
+    }
+}
+
+# Bascule d'UNE fonction, du point de vue de l'utilisateur : on inverse ce que la carte
+# AFFICHE (`effective`), pas ce qui tourne. Recliquer avant d'avoir redemarre revient
+# donc bien a l'etat de depart, au lieu de reecrire deux fois la meme valeur.
+#
+# Renvoie directement @{ message; result } : les deux actions ne different que par le nom
+# de la fonction, il n'y a aucune raison d'ecrire ce compte rendu deux fois (D15).
+function Invoke-DeviceGuardToggle {
+    param(
+        [Parameter(Mandatory)][ValidateSet('vbs','hvci')][string]$Feature,
+        [string]$Backend = (Get-BackendRoot)
+    )
+    $inv = @('vbs.probe.ps1')
+    $etat = Get-DeviceGuardState -Backend $Backend
+    $nom  = $etat[$Feature].court
+
+    if (-not $etat.elevated) {
+        return @{
+            message = "Le serveur de Vigie n'est pas administrateur : la bascule $nom est impossible. Relancez Vigie en administrateur (l'invite UAC s'affichera)."
+            result  = @{ ok = $false }
+        }
+    }
+
+    $cible = -not $etat[$Feature].effective
+    $r = Set-DeviceGuardFeature -Feature $Feature -Enable $cible -Backend $Backend
+    $verbe = if ($cible) { 'activée' } else { 'désactivée' }
+
+    if (-not $r.ok) {
+        $det = if (@($r.errors).Count) { ' ' + (@($r.errors) -join ' ; ') } else { '' }
+        return @{
+            message = "La valeur de $nom n'a pas pu être écrite dans le registre.$det"
+            result  = @{ ok = $false; invalidate = $inv }
+        }
+    }
+
+    $bonus = if ($r.hvciCoupeAussi) { " L'intégrité mémoire est coupée avec elle : elle ne peut pas fonctionner sans VBS." } else { '' }
+    $garde = if ($r.backup) { " Sauvegarde du registre : $($r.backup)." } else { " Attention : la sauvegarde du registre n'a pas pu être écrite." }
+
+    if (-not $r.rebootNeeded) {
+        # Valeur ecrite ET deja conforme a ce qui tourne : rien a attendre.
+        return @{
+            message = "$nom déjà $verbe : la configuration et l'état actif concordent, aucun redémarrage nécessaire.$bonus"
+            result  = @{ ok = $true; invalidate = $inv }
+        }
+    }
+    $rappel = if ($r.already) { " Cette valeur était déjà demandée : si elle ne s'applique toujours pas après un redémarrage, elle est imposée par l'UEFI ou par une stratégie d'entreprise." } else { '' }
+    @{
+        message = "$nom sera $verbe au prochain redémarrage de Windows — la demande est écrite, elle ne prend effet qu'au démarrage.$bonus$rappel$garde"
+        result  = @{ ok = $true; invalidate = $inv }
+    }
+}
+
+# Un redemarrage differe est-il en cours (et donc encore annulable) ?
+# Borne dans le TEMPS : un compte a rebours expire n'est plus annulable -- soit la machine
+# a redemarre, soit il a ete annule ailleurs. Le drapeau seul resterait vrai pour toujours.
+# Partage par les cartes qui proposent un redemarrage (Windows Update, virtualisation) :
+# ce calcul vivait dans une seule sonde et allait etre recopie dans une seconde (D15).
+function Test-RestartCountdown {
+    param([string]$Backend = (Get-BackendRoot))
+    $f = Get-VarPath -Backend $Backend -Kind 'cache' -File 'restart.json'
+    if (-not (Test-Path -LiteralPath $f)) { return $false }
+    try {
+        $j = Get-Content -LiteralPath $f -Raw | ConvertFrom-Json
+        if (-not ($j.pending -and $j.at)) { return $false }
+        $delaiPrevu = if ($j.delay) { [int]$j.delay } else { 60 }
+        $ecoule = ([datetime]::UtcNow - (ConvertTo-UtcDate $j.at)).TotalSeconds
+        return ($ecoule -ge 0 -and $ecoule -lt ($delaiPrevu + 15))
+    } catch { return $false }
+}
+
 # Audit complet de la machinerie Windows Update. LECTURE SEULE, ne modifie rien.
 #
 # Reimplemente dans le depot : l'audit servait a comprendre pourquoi un verrouillage ne
@@ -817,9 +1070,14 @@ function Get-AdminRoot {
     Split-Path $tools -Parent
 }
 # Reponse commune quand l'outillage externe n'est pas configure (une seule redaction).
+# Reponse commune des actions qui dependent ENCORE d'un chemin d'outillage configure.
+# Depuis que le verrouillage Windows Update et les bascules VBS / HVCI sont natifs, la
+# seule concernee est « ouvrir le dossier » -- et sa sonde ne propose meme plus le bouton
+# quand le chemin manque. Ce garde-fou couvre le cas ou le dossier disparait entre
+# l'affichage de la carte et le clic.
 function New-ToolsMissingResult {
     @{
-        message = "Outillage externe non configure. Renseigne ToolsPath dans apps/backend-pode/config/config.local.psd1 (modele : config.local.sample.psd1)."
+        message = "Aucun dossier d'outillage n'est configuré. Renseignez ToolsPath dans apps/backend-pode/config/config.local.psd1 (modèle : config.local.sample.psd1)."
         result  = @{ ok = $false }
     }
 }

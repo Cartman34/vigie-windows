@@ -19,7 +19,7 @@ Detailed on its own page: **[Windows Update](windows-update.md)**. Summary:
 |---|---|---|
 | **Update lock** | automatic updates on/off, ACL lock on the task folders, number of disabled vs. still-active update tasks (expand for the real state of each one), pending reboot | *Update mode (unlock)* or *Lock now* — whichever applies, always with confirmation — and *Run the audit* |
 | **System update** | updates detected in the local Windows Update cache, last online scan and its result, current or last installation | *Check for updates* (online scan, runs in the background), *Install updates* (opens a list, you pick), *Open Windows Update* |
-| **History** | last reboot, WaaSMedic startup state | *Open the folder* (external tooling) |
+| **History** | last reboot, WaaSMedic startup state | *Open the folder* — offered **only** when an administration folder is configured |
 
 A **pending reboot is shown as amber, not red**: it is the normal outcome of a successful
 installation, not a failure. Vigie never reboots your machine.
@@ -51,9 +51,19 @@ outside world on your behalf, and only when you ask.
 | **Firewall** | the state of each Windows Firewall profile. A disabled profile is red. | — |
 | **Virtualisation security** | VBS and memory integrity (HVCI) | *Toggle VBS*, *Toggle memory integrity* — both with confirmation |
 
-Both security toggles rely on **external tooling** that does not ship with the repository.
-Without it configured, the action returns a clear message instead of failing obscurely —
-see [Configuration](configuration.md#external-tooling).
+Both toggles are **native**: they write the value into the registry
+(`HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard`), after dropping a `.reg` backup into
+Vigie's logs. They require an **administrator** server and say so plainly otherwise.
+
+**They only take effect on reboot.** The card shows it: while the request is not applied, a
+*Pending reboot* line appears and the *Restart Windows* button — deferred by 60 seconds,
+cancellable — is offered on that card. Clicking the toggle again before rebooting simply
+**cancels the request**.
+
+Turning VBS off also turns memory integrity off, since it cannot run without VBS; the
+converse is not true — turning VBS on does not silently enable memory integrity. If a value
+still does not apply after a reboot, it is enforced by UEFI or by a corporate policy, and
+Vigie cannot override it.
 
 ## WSL
 

@@ -431,3 +431,69 @@
   depuis un serveur Vigie lancé en administrateur.
 - `toggle-vbs`, `toggle-hvci` et `open-folder` appellent **toujours** des scripts hors
   dépôt : le produit ne tient pas encore entièrement debout seul.
+  → **Traité le 2026-08-24 (c)**, ci-dessous.
+
+## 2026-08-24 (c) — VBS / intégrité mémoire natives ; plus aucune dépendance externe
+### Ajoute
+- **Basculer VBS et l'intégrité mémoire sans aucun script hors dépôt.** Les deux derniers
+  boutons qui déléguaient (`toggle-vbs.ps1`, `toggle-memory-integrity.ps1`) écrivent
+  désormais eux-mêmes dans `HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard`.
+  **Plus aucune fonction de Vigie ne dépend de `ToolsPath`.**
+- `Get-DeviceGuardCatalog` : LE catalogue du sujet (clés, noms de valeurs, libellés).
+- `Get-DeviceGuardState` : lecture unique, partagée par la sonde et les bascules. Elle
+  distingue quatre choses qu'on ne peut pas confondre — `configured` (ce que demande le
+  registre), `running` (ce que Windows exécute), `requested` (ce que Vigie a demandé et
+  qui attend un redémarrage) et `effective` (ce que la carte affiche).
+- `Set-DeviceGuardFeature` : **unique porte d'entrée en écriture** (**D15**). Sauvegarde
+  `.reg` de la clé dans `var/log` avant d'écrire, refuse sans élévation, écrit, puis
+  **relit le registre**.
+- `Invoke-DeviceGuardToggle` : décision + compte rendu, partagé — les deux actions ne
+  diffèrent que par le nom de la fonction visée et tiennent en une ligne chacune.
+- `Test-RestartCountdown` : « un redémarrage différé court-il encore ? ». Ce calcul vivait
+  dans `lock.probe.ps1` et allait être recopié dans `vbs.probe.ps1` (**D15**).
+- **Carte de la virtualisation : ligne « En attente de redémarrage »** quand une bascule
+  est écrite mais pas appliquée, et bouton **Redémarrer Windows** — l'action
+  `system-restart` existante (double confirmation, différée 60 s, annulable), pas une
+  copie. Un redémarrage déjà programmé fait apparaître *Annuler le redémarrage* à la place.
+### Modifie
+- **Une bascule ne prend effet qu'au REDÉMARRAGE** : le succès se juge donc sur la valeur
+  **écrite dans le registre**, jamais sur l'état actif — qui ne bougera pas avant le
+  redémarrage et ferait un faux échec garanti à chaque clic. Le message le dit :
+  « sera désactivée au prochain redémarrage », pas « désactivée ».
+- **La bascule s'appuie sur ce que la carte affiche** (`effective`), pas sur ce qui tourne.
+  Recliquer avant d'avoir redémarré **annule la demande** au lieu de réécrire la même
+  valeur — une bascule qui ne bascule pas serait un piège.
+- **Désactiver VBS coupe aussi l'intégrité mémoire**, qui ne peut pas fonctionner sans
+  elle : la laisser demandée produit une configuration incohérente que Windows résout
+  parfois en rallumant VBS. Le message l'annonce. L'inverse n'est **pas** fait : activer
+  VBS n'active pas l'intégrité mémoire dans le dos de l'utilisateur.
+- **`open-folder` n'est plus un bouton mort** : `history.probe.ps1` ne propose l'action que
+  si le dossier d'administration est configuré **et** existe. Le libellé d'aide affiche le
+  chemin réel. Dépendre d'un chemin configuré est légitime pour « ouvrir un dossier » ;
+  proposer un bouton qui ne peut rien faire ne l'est pas.
+- `lock.probe.ps1` consomme `Test-RestartCountdown` au lieu de sa copie locale.
+- `New-ToolsMissingResult` : message en français **accentué** (il ne concerne plus qu'une
+  seule action), et il tutoyait l'utilisateur.
+- Documentation alignée : `docs/fr` et `docs/en` (configuration, fonctionnalités,
+  dépannage), `docs/REPRISE.md`, note de mise à jour sous **D18**.
+### Verifie
+- Parser PowerShell OK sur **tous** les `.ps1` / `.psd1` du dépôt ; les **12 sondes**
+  s'exécutent sans erreur.
+- `Get-DeviceGuardState` confrontée à un relevé manuel du registre et de
+  `Win32_DeviceGuard` : mêmes valeurs (`configured=0`, `running=True`, `vbsStatus=2`).
+- Refus d'élévation éprouvé **en conditions réelles** (session non élevée) sur les deux
+  actions **et** sur `Set-DeviceGuardFeature` : registre **inchangé**, aucun marqueur écrit.
+- Rendu de l'attente de redémarrage éprouvé en amorçant le marqueur de Vigie (fichier
+  d'état, aucun réglage Windows touché) : la ligne apparaît, `system-restart` apparaît avec
+  sa double confirmation, et un nouveau clic viserait bien l'annulation de la demande.
+- Cas du redémarrage déjà programmé : *Annuler le redémarrage* remplace *Redémarrer* ;
+  compte à rebours expiré correctement ignoré.
+- **L'écart préexistant de cette machine** (registre VBS=0 mais VBS en cours, valeur
+  imposée) ne déclenche **pas** le bouton de redémarrage — c'était le piège à éviter.
+- `open-folder` : bouton absent sans chemin configuré, présent et pointant le bon dossier
+  avec un `ToolsPath` valide (éprouvé via un `config.local.psd1` temporaire, puis retiré).
+### A faire
+- Aucune bascule réelle n'a été appliquée : la session de l'agent n'est pas élevée et la
+  machine de l'utilisateur ne devait pas changer d'état. À éprouver depuis un serveur Vigie
+  lancé en administrateur — écriture effective des deux clés, sauvegarde `.reg`, puis
+  comportement après un vrai redémarrage.
