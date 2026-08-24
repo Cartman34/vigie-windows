@@ -65,7 +65,9 @@ Add-PodeRoute -Method Get -Path "$base/state" -ScriptBlock {
     # bouton « Rafraichir » de l'interface, par opposition au chargement de la page, qui
     # doit s'afficher vite et se contente du cache.
     $fresh = ("" + $WebEvent.Query['fresh']) -in @('1','true')
-    Write-PodeJsonResponse -Value (Get-State -Backend $env:VIGIE_BACKEND -Force:$fresh) -Depth 8
+    # -WaitSeconds : seule la demande explicite attend son tour derriere un calcul
+    # deja lance. 75 s, sous le delai de 90 s du client.
+    Write-PodeJsonResponse -Value (Get-State -Backend $env:VIGIE_BACKEND -Force:$fresh -WaitSeconds $(if ($fresh) { 75 } else { 0 })) -Depth 8
 }
 Add-PodeRoute -Method Get -Path "$base/modules/:id" -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
