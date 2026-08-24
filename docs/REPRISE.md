@@ -99,7 +99,23 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
     **Le découpage reste à trancher** avant d'implémenter : les questions ouvertes sont
     dans D48, pas ici — un même sujet ne se documente pas à deux endroits.
 
-14. **Améliorations mineures repérées** (passe de cohérence du 2026-08-24, aucune bloquante) :
+14. **Refonte de la documentation publique** — demandée, **arbitrage en attente** (Q1/Q2).
+
+    Objectif : qu'un visiteur de GitHub comprenne ce que fait Vigie, l'installe sans
+    effort, et retrouve toute l'information d'usage. Attendu :
+    - un **README** qui annonce ce que fait l'application et ses **points d'attention**
+      (elle verrouille Windows Update, elle tourne élevée) sans noyer le lecteur ;
+    - un **guide de prise en main** : installation facile, premier lancement ;
+    - la documentation **en anglais ET en français** ;
+    - les détails techniques atteignables **par navigation**, pas entassés dans le README ;
+    - la documentation de **développement** accessible mais **nettement séparée** de celle
+      de l'utilisateur.
+
+    Existant à reprendre plutôt qu'à refaire : `PRISE-EN-MAIN.md`, `docs/REPRISE.md`
+    (interne), `docs/DECISIONS-VALIDEES.md` (interne), `apps/atelier/README.md`,
+    `apps/backend-pode/actions/README.md`.
+
+15. **Améliorations mineures repérées** (passe de cohérence du 2026-08-24, aucune bloquante) :
     - `apps/atelier/index.html` écrit son propre port dans deux messages ; `location.origin`
       supprimerait la recopie ;
     - `Invoke-Native` juge `Ok` sur « code = 0 » seul : le cas 3010 (« redémarrage requis »,
