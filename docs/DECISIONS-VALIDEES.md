@@ -1305,3 +1305,53 @@ soit lue. Et la seconde ne repose pas la même question — elle nomme la consé
 Le geste lui-même reste réversible quand c'est possible : le redémarrage est **différé de
 60 secondes** et **annulable**, la fenêtre d'annulation se fermant d'elle-même à
 l'expiration du délai.
+
+## D51 — Valider ciblé pendant le dev, valider tout avant de livrer (2026-08-24)
+
+**Décision.** Pendant un développement, on valide **la fonctionnalité touchée et ses
+régressions proches** — jamais toute l'application. `check-probes.ps1 -Only <sonde|module>`
+exécute exactement cela. La passe par défaut n'exécute que les sondes rapides ou modifiées :
+une sonde **coûteuse ET inchangée** est vérifiée sur sa **dernière sortie réelle**
+(enregistrée avec l'empreinte du fichier — dès que le code bouge, elle est réexécutée,
+D50bis reste entier). `-All` reste la passe d'avant-livraison.
+
+**Pourquoi.** La passe complète coûte ~19 s dont 8 s pour la seule sonde du verrou ; un
+garde-fou trop cher finit par ne plus être appelé. Le seuil de « coûteuse » n'est pas une
+liste tenue à la main : c'est la durée **mesurée** au dernier passage réel.
+
+## D52 — Chaque exécution réelle d'une sonde est journalisée (2026-08-24)
+
+**Décision.** Toute exécution réelle d'une sonde est **systématiquement conservée** avec sa
+durée : `var/cache/probe-runs.jsonl`, une ligne JSON par passage (`at`, `probe`, `ms`,
+`origin` = forced/background/check, `outcome`, `modules`). Écrit par `Write-ProbeRun` sous
+mutex nommé, purgé par taille (~5000 lignes). Lu par `Get-ProbeRuns`.
+
+**Pourquoi.** Sans trace, « Vigie met parfois du temps à charger » reste une impression :
+on ne sait ni quelle sonde a coûté ni si c'est habituel. Ce journal est aussi le premier
+échantillonnage sur lequel l'**historique** (P2) s'appuiera. Le journal **n'arbitre pas** :
+une erreur d'écriture ne fait jamais échouer une sonde.
+
+## D53 — Historique des mesures : oui, par un sous-agent, conception d'abord (2026-08-24)
+
+**Décision.** L'historique (proposition P2) est retenu, avec une **durée de rétention
+configurable au global et par mesure**. Il sera ajouté **petit à petit par un sous-agent**,
+qui doit produire **d'abord** deux documents : la **conception finale** (cible) et la
+**conception de migration** (comment on y va par étapes sans rien casser). Pas de code
+avant validation de ces deux conceptions.
+
+## D54 — Notifications du tray : sur résultat de sonde, réglables finement (2026-08-24)
+
+**Décision.** La proposition P3 est retenue avec une distinction ferme : **la couleur de
+l'icône du tray reflète le statut de l'application** (chargement, joignabilité) — elle ne
+change pas de rôle. Les **notifications**, elles, remontent des **résultats de sonde**
+(bascule d'un module). Dans les paramètres de l'application : chaque notification peut être
+**désactivée finement**, et un interrupteur **global** coupe tout **sans perdre les réglages
+fins** (le global masque, il n'écrase pas).
+
+## D55 — L'Atelier s'organise par sujets, le validé s'archive (2026-08-24)
+
+**Décision.** L'Atelier sépare **chaque sujet** ; ce qui est **déjà validé est archivé**
+(consultable, hors de la vue courante). Un sujet permanent porte les **propositions en
+cours** ; une proposition qui grossit (demande de développement, ou nécessité) devient un
+**sujet entier** — rien n'est bridé, mais tout a une place.
+
