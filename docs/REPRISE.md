@@ -50,9 +50,10 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
    + `config.local.psd1` (ignoré par git) + `config.local.sample.psd1`. `ToolsPath` optionnel,
    URL et port dérivés d'un seul endroit (`Get-AppUrl` / `Get-ApiUrl` / `Get-ToolsPath` /
    `Get-AdminRoot`), plus aucune valeur en dur (**D15**).
-4. ~~Style du menu contextuel du tray~~ — **FAIT** (**D19**) : coins arrondis natifs DWM,
-   survol encarté arrondi, items de 32 px, séparateurs encartés, palette définie une seule fois.
-   **PAS validé** : vu par l'utilisateur, refusé deux fois de plus depuis. Voir le point 9.
+4. ~~Style du menu contextuel du tray~~ — **FAIT et VALIDÉ à l'œil** par l'utilisateur
+   (**D19**) : coins arrondis natifs DWM, gris neutre Win11, texte centré verticalement
+   (`OnRenderItemText` fixe lui-même `e.TextRectangle`), survol **pleine largeur**,
+   séparateurs alignés sur le retrait du texte, palette définie une seule fois.
 5. **Terminer le retrait du nom de machine** dans le code — **défaut de généricité**, pas un point
    cosmétique : le produit ne doit contenir aucune valeur propre à un PC donné.
    Fait : tâche planifiée `Vigie`, raccourci `Vigie.url`, mutex `Local\VigieState_*` et
@@ -73,27 +74,19 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
    Le lancer d'abord avec `-WhatIf` : son chemin élevé n'a pas pu être testé.
 8. **Supprimer définitivement** `LocalWork/hyperion-control-panel.old` une fois la migration confirmée.
    Aucun script ne le fait : c'est une suppression, elle reste manuelle et volontaire.
-9. **Menu du tray — TOUJOURS REFUSÉ par l'utilisateur** (prioritaire à la reprise).
-   Deux défauts constatés **sur le tray réellement lancé** (tâche `Vigie`, code de `main`,
-   PID confirmé, donc bien la version corrigée — ce n'est pas un problème de vieille instance) :
-   - **alignement vertical du texte** dans l'item : signalé **5 fois**, jamais résolu ;
-   - **survol** : ne prend pas toute la largeur.
-
-   Ce qui a déjà été essayé et n'a pas suffi : `Padding` de l'item, `InsetX = 0`,
-   `TextPadX = 14`, et une surcharge `OnRenderItemText` fixant `e.TextRectangle` sur toute la
-   hauteur de l'item avec `TextFormatFlags.VerticalCenter`.
-
-   **Mesure faite, à réutiliser** : pour un item de 34 px, le moteur de disposition du
-   `ToolStripDropDown` renvoie `ContentRectangle = {X=-12, Y=-5, Height=44}`. Le `Padding` est
-   donc **inutilisable** pour placer le contenu. La prochaine tentative doit **partir de cette
-   mesure** et non re-tenter les propriétés déjà écartées ; deux scripts de diagnostic
-   existent dans le scratchpad de session (`mesure-item.ps1`, `capture-menu2.ps1`) — ils
-   réutilisent le vrai code du tray plutôt qu'une reconstruction.
-10. **L'Atelier montre d'anciennes valeurs de menu** — viole **D24** (l'Atelier doit refléter ce
-    qui est livré, sinon il ne sert plus à valider). Au chargement il propose `#2b3038` /
-    `#3c434d` / bordure `#444c56` / séparateur `#3a414a`, arrondi de survol 5 px, marge 5 px ;
-    `apps/tray/tray.ps1` livre `#2c2c2c` / `#3d3d3d` / `#454545` / `#404040`, arrondi 0, marge 0.
-    Le préréglage « Gris Win11 » donne les bonnes valeurs mais il faut le cliquer.
+9. ~~Menu du tray refusé (alignement vertical, survol)~~ — **VALIDÉ** par l'utilisateur.
+   Ce qui a fini par marcher : ne plus se battre contre le moteur de disposition des menus
+   déroulants. Il renvoie un `ContentRectangle` incohérent (`{X=-12, Y=-5, Height=44}` pour
+   un item de 34 px), ce qui rend `Padding` **inutilisable pour placer le contenu** — quatre
+   tentatives s'y sont perdues. La surcharge `OnRenderItemText` fixe désormais elle-même
+   `e.TextRectangle` sur toute la hauteur de l'item, avec `TextFormatFlags.VerticalCenter`.
+   Le survol est pleine largeur (`InsetX = InsetY = CornerRadius = 0`), borné à la largeur
+   visible du menu pour ne pas se faire rogner à droite.
+10. ~~L'Atelier montre d'anciennes valeurs de menu~~ — **FAIT** (**D24**) :
+    `apps/atelier/palette.php` lit les constantes dans `apps/tray/tray.ps1`, la page en part
+    au chargement et signale si les curseurs s'en écartent. Plus de recopie, donc plus de
+    dérive. Vérifié servi : valeurs conformes, en-tête « identique au livré », aucune erreur
+    console.
 11. **Traduire en anglais les commentaires internes des scripts** (**D41**). Les noms de fichiers
     et les renommages sont faits ; les commentaires portent le raisonnement derrière chaque
     choix — c'est une passe fichier par fichier, jamais un `sed`. Concerne aussi les
