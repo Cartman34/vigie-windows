@@ -232,6 +232,18 @@ def g_warn(pen):
     cercle(pen, 500, 220, 55, horaire=True)
 
 
+def g_cross(pen):
+    """Croix (erreur / fermer) : deux barres a 45 degres."""
+    import math as _m
+    e = 62
+    for (A, B) in [((190, 190), (810, 810)), ((190, 810), (810, 190))]:
+        dx, dy = B[0] - A[0], B[1] - A[1]
+        l = _m.hypot(dx, dy)
+        nx, ny = -dy / l * e, dx / l * e
+        poly(pen, [(A[0] + nx, A[1] + ny), (B[0] + nx, B[1] + ny),
+                   (B[0] - nx, B[1] - ny), (A[0] - nx, A[1] - ny)], horaire=True)
+
+
 ICONS = {
     # nom -> (point de code PUA, dessinateur)
     'gear':    (0xE001, g_gear),
@@ -245,6 +257,7 @@ ICONS = {
     'dots':    (0xE009, g_dots),
     'check':   (0xE00A, g_check),
     'warn':    (0xE00B, g_warn),
+    'cross':   (0xE00C, g_cross),
 }
 
 
