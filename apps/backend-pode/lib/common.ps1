@@ -348,54 +348,24 @@ function Get-ApiToken {
 }
 
 # --- Version applicative (change quand index.html change) -------------------
-# Chemin de git, resolu SANS dependre du PATH.
+# Numero de VERSION du produit, lu dans le fichier VERSION a la racine du depot.
 #
-# Sur cette machine git n'est inscrit que dans le PATH de l'UTILISATEUR, pas celui de la
-# machine : le backend, lance eleve par la tache planifiee, ne le trouvait pas. La version
-# affichee retombait donc sur la date sans que rien ne le signale.
-# On cherche d'abord dans le PATH courant, puis aux emplacements d'installation connus.
-function Resolve-GitPath {
-    $c = Get-Command git -CommandType Application -ErrorAction SilentlyContinue
-    if ($c) { return $c.Source }
-    $candidats = @(
-        (Join-Path $env:ProgramFiles           'Git\cmd\git.exe'),
-        (Join-Path ${env:ProgramFiles(x86)}    'Git\cmd\git.exe'),
-        (Join-Path $env:ProgramFiles           'Git\mingw64\bin\git.exe'),
-        (Join-Path $env:LOCALAPPDATA           'Programs\Git\cmd\git.exe')
-    ) | Where-Object { $_ }
-    foreach ($p in $candidats) { if (Test-Path -LiteralPath $p) { return $p } }
-    return $null
-}
-
-# Version LISIBLE, destinee a l'affichage. Elle vaut ce que dit git : une etiquette ANNOTEE
-# (une vraie version publiee) si le depot en porte une, sinon l'empreinte courte du commit,
-# suffixee « + » si l'arbre a des modifications non validees.
+# UN SEUL endroit le porte (D15). Le projet n'est pas publie : il est en 0.1, et ce numero
+# ne change que sur decision explicite de l'utilisateur -- pas au fil des commits.
 #
-# `describe` est appele SANS --tags : seules les etiquettes ANNOTEES comptent. Les
-# etiquettes legeres servent de marque-page de travail (ex. « sauvegarde-avant-nettoyage »,
-# posee avant une reecriture d'historique) et n'ont rien a faire dans un numero de version.
-#
-# Elle remplace l'ancienne valeur, qui affichait les TICKS de la date du fichier --
-# « version 639231069781032063 ». Correcte comme jeton de changement, illisible comme
-# version : personne ne peut la comparer, la citer, ni la relier a un commit.
+# Deux tentatives ont ete ecartees avant celle-ci :
+#   - les TICKS de la date du fichier (« version 639231069781032063 ») : un jeton de
+#     changement deguise en version, illisible et incomparable ;
+#   - `git describe` : varie a chaque commit, depend de git et du PATH, et faisait
+#     apparaitre des etiquettes de travail internes dans l'interface.
 # Le role de jeton de changement revient a Get-AppBuildId, ci-dessous.
 function Get-AppVersion {
     param([string]$Backend = (Get-BackendRoot))
-    $repo = Get-RepoRoot
-    $git  = Resolve-GitPath
-    if ($git) {
-        try {
-            # On teste la SORTIE, pas $LASTEXITCODE : dans un espace d'execution Pode cette
-            # variable n'est pas definie, si bien que le test echouait meme quand git
-            # repondait -- la version retombait silencieusement sur la date.
-            $v = (& $git -C $repo describe --always --dirty='+' 2>$null | Select-Object -First 1)
-            if ($v) { return "$v".Trim() }
-        } catch { }
+    $f = Join-Path (Get-RepoRoot) 'VERSION'
+    if (Test-Path -LiteralPath $f) {
+        $v = (Get-Content -LiteralPath $f -Raw -ErrorAction SilentlyContinue)
+        if ($v) { return "$v".Trim() }
     }
-    # Pas de git (copie deployee sans .git, git absent) : la date du front reste une
-    # information vraie et lisible, contrairement aux ticks.
-    $idx = Join-Path (Get-AppPath -Role 'frontend') 'index.html'
-    if (Test-Path $idx) { return (Get-Item $idx).LastWriteTimeUtc.ToString('yyyy-MM-dd') }
     return 'inconnue'
 }
 
@@ -477,7 +447,10 @@ function New-Action {
         [Parameter(Mandatory)][string]$Label,
         [switch]$Confirm,
         [string]$Help,
-        [ValidateSet('immediate','confirm','manual')][string]$Kind
+        # 'dialog' : ouvre une fenetre de CHOIX dans l'application (liste a cocher).
+        # Distinct de 'manual', qui ouvre un LOGICIEL EXTERNE, et de 'confirm', qui ne
+        # demande qu'un oui/non. Les trois ne se ressemblaient pas assez a l'ecran.
+        [ValidateSet('immediate','confirm','manual','dialog')][string]$Kind
     )
     $a = [ordered]@{ id = $Id; label = $Label }
     if ($Confirm) { $a['confirm'] = $true }
