@@ -125,6 +125,11 @@ components:
         actions:
           type: array
           items: { $ref: "#/components/schemas/Action" }
+        busyAction:
+          type: string
+          description: >
+            Identifiant de l'action reellement en cours. Sans lui, le client anime tous les
+            boutons de la carte et on ne sait plus lequel travaille.
         busy:
           type: boolean
           description: >
@@ -175,6 +180,19 @@ components:
         label: { type: string }
         confirm: { type: boolean, description: demander confirmation avant execution }
         help: { type: string, description: explication affichee en tooltip et dans la confirmation }
+        busyLabel:
+          type: string
+          description: >
+            Libelle affiche PENDANT l'execution -- « Mise a jour... », pas « En cours... ».
+            Les points de suspension sont reserves a une action en cours ; un libelle au
+            repos n'en porte jamais.
+        severity:
+          type: string
+          enum: [neutral, info, fix]
+          description: >
+            Ce que l'action VAUT : neutral = sans enjeu (gris), info = consultation ou
+            ouverture (bleu), fix = corrige quelque chose (vert). A ne pas confondre avec
+            `kind`, qui dit COMMENT elle se passe et choisit l'icone.
         kind: { type: string, enum: [immediate, confirm, dialog, manual], description: "nature de l'action : immediate=part aussitot, confirm=oui/non, dialog=fenetre de choix dans l'app, manual=logiciel externe" }
         params:
           type: object

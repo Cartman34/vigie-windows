@@ -558,9 +558,15 @@ function cardHtml(m, groupLabel){
     const h=(a.help||'').replace(/"/g,'&quot;');
     const kind=a.kind||'immediate';
     const sev=a.severity||'neutral';
-    const bcls=busy?' busy':''; const dis=busy?' disabled':'';
-    const inner=busy?'<span class="spin"></span>En cours…':`${ICONS[kind]||''}<span>${a.label}</span>`;
-    return `<button class="act k-${kind} sev-${sev}${bcls}"${dis} data-a="${a.id}" data-m="${m.id}" data-c="${a.confirm?1:0}" data-k="${kind}" data-h="${h}" title="${h||a.label}">${inner}</button>`;
+    // SEULE l'action reellement en cours s'anime. Toutes les autres restent lisibles, mais
+    // desactivees : lancer une seconde operation pendant la premiere n'aurait pas de sens.
+    // Animer les trois boutons faisait perdre lequel travaillait.
+    const cetteAction = busy && (!m.busyAction || m.busyAction===a.id);
+    const bcls = cetteAction ? ' busy' : ''; const dis = busy ? ' disabled' : '';
+    const inner = cetteAction
+      ? `<span class="spin"></span><span>${esc(a.busyLabel || (a.label+'…'))}</span>`
+      : `${ICONS[kind]||''}<span>${esc(a.label)}</span>`;
+    return `<button class="act k-${kind} sev-${sev}${bcls}"${dis} data-a="${a.id}" data-m="${m.id}" data-c="${a.confirm?1:0}" data-k="${kind}" data-h="${h}" title="${busy&&!cetteAction?'Opération en cours sur cette carte — patientez':(h||a.label)}">${inner}</button>`;
   }).join('');
   return `<div class="card st-${st}${m.busy?' busy':''}" data-module="${m.id}" data-theme="${m.theme}">
     <div class="card-head">

@@ -22,7 +22,7 @@ try {
 } catch { }
 
 if ($null -eq $count) {
-    New-ModuleObject -Id 'wu-pending' -Theme 'windows-update' -Label 'Mises à jour en attente' -Status 'neutral' -Fields @(
+    New-ModuleObject -Id 'wu-pending' -Theme 'windows-update' -Label 'Mise à jour du système' -Status 'neutral' -Fields @(
         New-Field -Key 'pending' -Label 'Détectées' -Value 'indisponible' -Kind 'text' -Status 'neutral' -Help "Recherche locale indisponible (le verrouillage coupe les analyses ; le cache peut être vide)."
     )
 } else {
@@ -59,8 +59,15 @@ if ($null -eq $count) {
             -Guide $(if ($scan.error) { "Erreur : $($scan.error)" } else { '' })
     }
     if ($enCours) {
-        $phase = if ($inst.phase) { "$($inst.phase)" } else { 'en cours' }
-        $champs += New-Field -Key 'install' -Label 'Installation' -Value "$phase…" -Kind 'text' -Status 'neutral' `
+        # Les phases sont des identifiants techniques : elles se traduisent avant d'etre
+        # montrees. « demarrage… » s'affichait tel quel, sans accent ni majuscule.
+        $libellePhase = switch ("$($inst.phase)") {
+            'demarrage'      { 'Démarrage…' }
+            'telechargement' { 'Téléchargement…' }
+            'installation'   { 'Installation…' }
+            default          { 'En cours…' }
+        }
+        $champs += New-Field -Key 'install' -Label 'Installation' -Value $libellePhase -Kind 'text' -Status 'neutral' `
             -Help "Installation lancée depuis Vigie. Elle continue même si vous fermez la fenêtre." `
             -Guide $(if ($inst.titres) { "Mises à jour retenues :`n- " + (@($inst.titres) -join "`n- ") } else { '' })
     } elseif ($inst -and $inst.phase -eq 'termine') {
@@ -68,28 +75,34 @@ if ($null -eq $count) {
         $val = if ($inst.error) { 'échec' } elseif ($inst.partiel) { 'terminée avec erreurs' } else { 'terminée' }
         $st  = if ($inst.error) { 'error' } elseif ($inst.partiel) { 'warn' } else { 'ok' }
         $g = @()
-        if ($inst.titres) { $g += "Mises à jour traitées :`n- " + (@($inst.titres) -join "`n- ") }
         if ($inst.error) { $g += "Erreur : $($inst.error)" }
         if ($inst.redemarrage) { $g += "Un REDÉMARRAGE est nécessaire pour terminer." }
+        # Le detail PAR mise a jour, en tableau : « terminé avec erreurs » ne dit pas
+        # laquelle a echoue, ce tableau si.
+        $lignes = @()
+        if ($inst.detail) { foreach ($d in @($inst.detail)) { $lignes += ,@("$($d[0])", "$($d[1])") } }
+        elseif ($inst.titres) { foreach ($t in @($inst.titres)) { $lignes += ,@("$t", '—') } }
         $champs += New-Field -Key 'install' -Label 'Dernière installation' -Value $val -Kind 'text' -Status $st `
-            -Help "Résultat de la dernière installation lancée depuis Vigie." -Guide ($g -join "`n`n")
+            -Help "Résultat de la dernière installation lancée depuis Vigie." -Guide ($g -join "`n`n") `
+            -Table @{ columns = @('Mise à jour', 'Résultat'); rows = $lignes }
     }
 
     $actions = @()
     # Recherche EN LIGNE : la sonde ne lit que le cache local de Windows, qui peut etre
     # perime. Ce bouton interroge les serveurs -- c'est long, donc detache.
-    $actions += New-Action -Id 'wu-scan' -Label 'Vérifier les mises à jour' -Kind 'immediate' `
+    $actions += New-Action -Id 'wu-scan' -Label 'Vérifier les mises à jour' -BusyLabel 'Recherche en ligne…' -Kind 'immediate' `
         -Help "Interroge les serveurs Microsoft (plusieurs minutes). La valeur affichée provient sinon du cache local de Windows, qui peut être périmé."
     if ($count -gt 0) {
-        $actions += New-Action -Id 'wu-list-pending' -Severity 'fix' -Label 'Installer des mises à jour…' -Kind 'dialog' `
+        $actions += New-Action -Id 'wu-list-pending' -Severity 'fix' -Label 'Installer des mises à jour' -BusyLabel 'Installation des mises à jour…' -Kind 'dialog' `
             -Help "Ouvre la liste des mises à jour détectées pour choisir celles à installer. Rien ne s'installe sans votre sélection."
     }
     $actions += New-Action -Id 'open-windows-update' -Label 'Ouvrir Windows Update' -Kind 'manual' -Help "Ouvre les Paramètres Windows Update pour installer manuellement. Déverrouillez (Mode MAJ) avant si nécessaire, puis re-verrouillez."
 
-    New-ModuleObject -Id 'wu-pending' -Theme 'windows-update' -Label 'Mises à jour en attente' -Status $(if ($enCours -or $scanEnCours) {'neutral'} elseif ($count -gt 0) {'warn'} else {'ok'}) -Fields (@(
+    New-ModuleObject -Id 'wu-pending' -Theme 'windows-update' -Label 'Mise à jour du système' -Status $(if ($enCours -or $scanEnCours) {'neutral'} elseif ($count -gt 0) {'warn'} else {'ok'}) -Fields (@(
         # La resolution est l'INSTALLATION, pas l'ouverture de Windows Update. Elle reste
         # visible dans la barre d'actions : une action designee comme correctif n'en est
         # plus retiree.
         New-Field -Key 'pending' -Label 'Détectées (non installées)' -Value $count -Kind 'number' -Status $(if ($count -gt 0) {'warn'} else {'ok'}) -Help $help -Guide $guide -FixAction $(if ($count -gt 0) { 'wu-list-pending' } else { $null })
-    ) + $champs) -Actions $actions -Busy:($enCours -or $scanEnCours)
+    ) + $champs) -Actions $actions -Busy:($enCours -or $scanEnCours) `
+        -BusyAction $(if ($enCours) { 'wu-list-pending' } elseif ($scanEnCours) { 'wu-scan' } else { $null })
 }

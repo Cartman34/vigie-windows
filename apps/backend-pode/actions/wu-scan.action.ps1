@@ -22,8 +22,8 @@ try {
     return @{ message = "Impossible de lancer l'analyse : $($_.Exception.Message)"; result = @{ ok = $false } }
 }
 
-$avis = if ($etaitVerrouille) { " Le verrou du Mode MAJ est leve pour l'analyse, puis repose." } else { "" }
+$avis = if ($etaitVerrouille) { " Le verrou du Mode MAJ est levé le temps de l'analyse, puis reposé." } else { "" }
 @{
-    message = "Recherche en ligne des mises a jour lancee.$avis"
+    message = "Recherche en ligne des mises à jour lancée.$avis"
     result  = @{ ok = $true; async = $true; module = 'wu-pending'; invalidate = @('pending.probe.ps1','lock.probe.ps1') }
 }

@@ -59,7 +59,7 @@ $verrou = $false
 try { $verrou = Test-UpdateTasksAclLock } catch { }
 
 @{
-    message = "$($updates.Count) mise(s) a jour detectee(s)."
+    message = "$($updates.Count) mise(s) à jour détectée(s)."
     result  = @{
         ok       = $true
         choose   = $true          # l'interface doit ouvrir une fenetre de choix
