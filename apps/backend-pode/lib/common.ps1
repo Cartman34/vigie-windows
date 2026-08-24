@@ -483,12 +483,24 @@ function New-Action {
         # 'dialog' : ouvre une fenetre de CHOIX dans l'application (liste a cocher).
         # Distinct de 'manual', qui ouvre un LOGICIEL EXTERNE, et de 'confirm', qui ne
         # demande qu'un oui/non. Les trois ne se ressemblaient pas assez a l'ecran.
-        [ValidateSet('immediate','confirm','manual','dialog')][string]$Kind
+        [ValidateSet('immediate','confirm','manual','dialog')][string]$Kind,
+        # SEVERITE : ce que l'action represente, independamment de la FORME qu'elle prend.
+        # `kind` choisit l'ICONE (comment ca se passe : oui/non, fenetre de choix, logiciel
+        # externe) ; `severity` choisit la COULEUR (ce que ca vaut) :
+        #   neutral = sans enjeu (gris) | info = consultation, ouverture (bleu)
+        #   fix     = corrige quelque chose (vert)
+        # Les deux etaient confondus : la couleur suivait la forme, ce qui n'apprend rien.
+        [ValidateSet('neutral','info','fix')][string]$Severity
     )
     $a = [ordered]@{ id = $Id; label = $Label }
     if ($Confirm) { $a['confirm'] = $true }
     if ($Help)    { $a['help']    = $Help }
     $a['kind'] = if ($Kind) { $Kind } elseif ($Confirm) { 'confirm' } else { 'immediate' }
+    # Defaut raisonnable : ouvrir quelque chose informe, le reste est neutre. Une action
+    # corrective doit se declarer -- on ne devine pas qu'elle repare.
+    $a['severity'] = if ($Severity) { $Severity }
+                     elseif ($a['kind'] -in @('manual','dialog')) { 'info' }
+                     else { 'neutral' }
     [pscustomobject]$a
 }
 function New-ModuleObject {
@@ -593,6 +605,31 @@ function Get-State {
 
     # Recalcul en SINGLE-FLIGHT : un seul thread recalcule a la fois ; les autres requetes
     # servent le cache existant immediatement (evite l'effet troupeau -> plus de 408).
+    # SERVIR D'ABORD, RECALCULER ENSUITE.
+    #
+    # Une sonde perimee qui possede DEJA une valeur en cache ne doit pas faire attendre
+    # l'affichage : on rend la valeur connue tout de suite et on recalcule en tache de
+    # fond. Seules les sondes qui n'ont RIEN en cache sont calculees dans la requete --
+    # sinon il n'y aurait rien a montrer.
+    #
+    # Avant, toute peremption bloquait la reponse : selon l'instant, ouvrir Vigie prenait
+    # de 0,3 s a plus de 20 s, sans que rien n'explique la difference a l'utilisateur.
+    # Le bouton « Rafraichir » (-Force) garde, lui, le recalcul synchrone : c'est ce qu'on
+    # lui demande explicitement.
+    if (-not $Force -and $stale.Count -gt 0) {
+        $sansValeur = @($stale | Where-Object { -not ($cache[$_.Name] -and $cache[$_.Name].module) })
+        $aDifferer  = @($stale | Where-Object {      $cache[$_.Name] -and $cache[$_.Name].module  })
+        if ($aDifferer.Count -gt 0) {
+            $stale = $sansValeur
+            try {
+                $w = Join-Path $Backend 'workers/state-refresh.worker.ps1'
+                # Un seul rafraichissement de fond a la fois : le worker prend le meme
+                # verrou que le recalcul synchrone et sort si un autre travaille deja.
+                $null = Start-DetachedAction -Script $w -Backend $Backend
+            } catch { }
+        }
+    }
+
     if ($stale.Count -gt 0) {
         $slow  = @('lock.probe.ps1','pending.probe.ps1','wsl.probe.ps1')   # calculees en dernier
         $stale = @($stale | Sort-Object @{ Expression = { if ($slow -contains $_.Name) { 1 } else { 0 } } }, Name)

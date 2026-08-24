@@ -16,6 +16,6 @@ New-ModuleObject -Id 'vbs' -Theme 'security' -Label 'Sécurité de la virtualisa
     New-Field -Key 'hvci' -Label 'Intégrité mémoire (HVCI)' -Value $hvciOn -Kind 'bool' -Status $statutHvci `
         -Help 'Hypervisor-Enforced Code Integrity : bloque le code noyau non signé. Peut dégrader nettement les perfs de virtualisation.'
 ) -Actions @(
-    New-Action -Id 'toggle-vbs'  -Label 'Basculer VBS' -Confirm -Help "Active ou désactive la sécurité basée sur la virtualisation (VBS). Redémarrage requis. Impacte les performances de virtualisation (WSL/VM)."
-    New-Action -Id 'toggle-hvci' -Label 'Basculer intégrité mémoire' -Confirm -Help "Active ou désactive l'intégrité mémoire (HVCI). Redémarrage requis. Peut dégrader les performances de virtualisation."
+    New-Action -Id 'toggle-vbs' -Severity 'fix'  -Label 'Basculer VBS' -Confirm -Help "Active ou désactive la sécurité basée sur la virtualisation (VBS). Redémarrage requis. Impacte les performances de virtualisation (WSL/VM)."
+    New-Action -Id 'toggle-hvci' -Severity 'fix' -Label 'Basculer intégrité mémoire' -Confirm -Help "Active ou désactive l'intégrité mémoire (HVCI). Redémarrage requis. Peut dégrader les performances de virtualisation."
 )

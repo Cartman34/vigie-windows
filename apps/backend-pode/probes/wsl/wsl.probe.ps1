@@ -34,10 +34,10 @@ $st = if (-not $installed) { 'neutral' } elseif ($running) { 'ok' } else { $inac
 $wslActions = @()
 if ($installed) {
     if ($running) {
-        $wslActions += New-Action -Id 'wsl-restart'  -Label 'Redémarrer' -Confirm -Kind 'confirm' -Help "Arrête puis relance WSL. Les programmes WSL non sauvegardés seront fermés."
+        $wslActions += New-Action -Id 'wsl-restart' -Severity 'fix'  -Label 'Redémarrer' -Confirm -Kind 'confirm' -Help "Arrête puis relance WSL. Les programmes WSL non sauvegardés seront fermés."
         $wslActions += New-Action -Id 'wsl-shutdown' -Label 'Arrêter'    -Confirm -Kind 'confirm' -Help "Arrête proprement toutes les distributions WSL en cours."
     } else {
-        $wslActions += New-Action -Id 'wsl-start'    -Label 'Démarrer'   -Kind 'immediate' -Help "Démarre WSL (boot de la distribution par défaut)."
+        $wslActions += New-Action -Id 'wsl-start' -Severity 'fix'    -Label 'Démarrer'   -Kind 'immediate' -Help "Démarre WSL (boot de la distribution par défaut)."
     }
 }
 

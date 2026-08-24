@@ -107,7 +107,7 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
             -Help ("Interroge " + $mg.label + " pour lister les MAJ disponibles. S'exécute en tâche de fond ; la carte s'actualise seule.")
     }
     if ($upSupported -and $cnt -gt 0 -and -not $checking) {
-        $actions += New-Action -Id 'pkg-upgrade' -Label 'Mettre à jour' -Confirm -Kind 'confirm' `
+        $actions += New-Action -Id 'pkg-upgrade' -Severity 'fix' -Label 'Mettre à jour' -Confirm -Kind 'confirm' `
             -Help ("Met à jour tous les paquets de " + $mg.label + " en tâche de fond (peut être long).")
     }
 

@@ -81,7 +81,7 @@ if ($null -eq $count) {
     $actions += New-Action -Id 'wu-scan' -Label 'Vérifier les mises à jour' -Kind 'immediate' `
         -Help "Interroge les serveurs Microsoft (plusieurs minutes). La valeur affichée provient sinon du cache local de Windows, qui peut être périmé."
     if ($count -gt 0) {
-        $actions += New-Action -Id 'wu-list-pending' -Label 'Installer des mises à jour…' -Kind 'dialog' `
+        $actions += New-Action -Id 'wu-list-pending' -Severity 'fix' -Label 'Installer des mises à jour…' -Kind 'dialog' `
             -Help "Ouvre la liste des mises à jour détectées pour choisir celles à installer. Rien ne s'installe sans votre sélection."
     }
     $actions += New-Action -Id 'open-windows-update' -Label 'Ouvrir Windows Update' -Kind 'manual' -Help "Ouvre les Paramètres Windows Update pour installer manuellement. Déverrouillez (Mode MAJ) avant si nécessaire, puis re-verrouillez."
