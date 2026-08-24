@@ -343,6 +343,14 @@ trancher, puis lui redonner le sujet corrigé.
   commité et poussé — d'où la discipline « écriture atomique » (plus haut) et l'interdit
   de chaîner git derrière un script par un simple retour à la ligne.
 
+- **Autostart en panne au logon du 24/08 au soir** : la tâche « Vigie » échoue en
+  0xC0070154 — pwsh vient du Store (MSIX) et son paquet n'est pas prêt à la seconde du
+  logon. Correctif dans `install-autostart.ps1` (délai PT45S + 3 reprises/1 min), mais la
+  tâche DÉJÀ INSTALLÉE n'a pas pu être modifiée sans élévation : **relancer une fois
+  `scripts/install-autostart.ps1` (UAC) pour l'appliquer**. En attendant, relance manuelle
+  propre : `Start-ScheduledTask -TaskName Vigie` (élevé sans UAC). L'Atelier se lance par
+  `apps/atelier/atelier.ps1` (jamais élevé).
+
 ### File de travail (dans l'ordre)
 
 1. **Fonte d'icônes** — dès l'arbitrage (voie 1 prête à faire).
