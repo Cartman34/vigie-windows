@@ -223,6 +223,16 @@
   .um-card small{margin-left:auto;color:var(--muted);font-size:11px}
   .um-note{color:var(--muted);font-size:12.5px;font-style:italic}
   .um-hint{color:var(--muted);font-size:12px;margin:0 0 14px}
+  .set-tabs{display:flex;gap:6px;margin:0 0 14px;flex-wrap:wrap}
+  .set-tab{font-size:12px;font-weight:600;color:var(--muted);background:none;
+           border:1px solid var(--border);border-radius:999px;padding:5px 12px;cursor:pointer}
+  .set-tab.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .um-dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto;background:var(--border)}
+  .um-dot.ok{background:var(--ok)} .um-dot.warn{background:var(--warn)}
+  .um-dot.error{background:var(--err)}
+  .apropos-l{display:flex;justify-content:space-between;gap:12px;font-size:13px;
+             padding:6px 0;border-bottom:1px dashed var(--border)}
+  .apropos-l span{color:var(--muted)}
   .card.card-loading .card-refresh .cr-ic{animation:sp .7s linear infinite}
   /* --- Parametres : label a gauche, valeur coloree en face (dessous si longue, alignee a droite) --- */
   .fields{margin-bottom:8px}
@@ -439,13 +449,8 @@
     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22a2.4 2.4 0 0 0 2.4-2h-4.8A2.4 2.4 0 0 0 12 22zm7-6v-5.2C19 7.6 17 5.1 14.2 4.4V4a2.2 2.2 0 0 0-4.4 0v.4C7 5.1 5 7.6 5 10.8V16l-2 2v1h18v-1l-2-2z"/></svg>
     <span id="bellCount" class="bell-count"></span>
   </button>
-  <a class="repo-ic" data-repo-link aria-label="Dépôt du projet sur GitHub">
-    <svg width="16" height="16" aria-hidden="true"><use href="#ghMark"/></svg>
-  </a>
-  <button class="ic-btn" id="notifCfgBtn" onclick="openNotifSettings()" aria-label="Réglages des notifications" title="Réglages des notifications du tray : choisir ce qui déclenche une notification Windows">⚙</button>
-  <button class="ic-btn" id="unitsBtn" onclick="openUnits()" aria-label="Gérer les modules" title="Gérer les modules : activer, désactiver, notifications">▦</button>
   <a class="ic-btn" id="atelierBtn" target="_blank" rel="noopener" hidden title="Ouvrir l’atelier de validation (détecté en local)">⚒</a>
-  <button onclick="toggleTheme()" id="themeBtn" class="ic-btn" title="Basculer entre le thème sombre et le thème clair">☀</button>
+  <button class="ic-btn" id="settingsBtn" onclick="openSettings()" aria-label="Paramètres" title="Paramètres : notifications, modules, apparence, à propos">⚙</button>
 </header>
 <div class="modebar neutral" id="modebar"></div>
 <main id="app"></main>
@@ -453,6 +458,7 @@
   <span>Vigie</span><span class="sep">·</span>
   <span id="footVersion"></span>
   <span class="spacer"></span>
+  <button onclick="toggleTheme()" id="themeBtn" class="ic-btn" title="Basculer entre le thème sombre et le thème clair">☀</button>
   <a class="repo-ic" data-repo-link aria-label="Depot du projet sur GitHub"><svg width="16" height="16" aria-hidden="true"><use href="#ghMark"/></svg></a>
 </footer>
 <div class="toast-stack" id="toastStack"></div>
@@ -463,11 +469,11 @@
     <button class="drawer-x" onclick="toggleDrawer()" title="Fermer" aria-label="Fermer">×</button></div>
   <div class="drawer-body" id="drawerBody"></div>
 </aside>
-<div class="drawer-back" id="unitsBack" onclick="toggleUnits()"></div>
-<aside class="drawer" id="unitsDrawer" aria-label="Gestion des modules">
-  <div class="drawer-head"><span>Modules</span>
-    <button class="drawer-x" onclick="toggleUnits()" title="Fermer" aria-label="Fermer">×</button></div>
-  <div class="drawer-body" id="unitsBody"></div>
+<div class="drawer-back" id="settingsBack" onclick="toggleSettings()"></div>
+<aside class="drawer" id="settingsDrawer" aria-label="Paramètres">
+  <div class="drawer-head"><span>Paramètres</span>
+    <button class="drawer-x" onclick="toggleSettings()" title="Fermer" aria-label="Fermer">×</button></div>
+  <div class="drawer-body" id="settingsBody"></div>
 </aside>
 <div class="hds-back" id="hdsBack">
   <div class="hds-dialog" role="dialog" aria-modal="true" aria-labelledby="hdsTitle">
@@ -552,7 +558,7 @@ function fmt(f){
 
 let themeLabels={};
 let lastModules=[];
-let lastUnits=[], unitsOpen=false, pendingUnitFocus=null;
+let lastUnits=[], unitsOpen=false, pendingUnitFocus=null, lastHost='';
 let hiddenThemes=new Set();
 function applyFilter(){
   document.querySelectorAll('.masonry .card[data-theme]').forEach(c=>{
@@ -622,7 +628,7 @@ function cardHtml(m, groupLabel){
       <div class="card-titles"><span class="card-group">${esc(groupLabel||'')}</span><span class="name">${m.label}</span></div>
       ${stTxt?`<span class="badge ${st}"><span class="ic">${stIc}</span>${stTxt}</span>`:''}
       <button class="card-refresh" title="Rafraîchir cette carte" onclick="refreshCard('${m.id}',this)"><span class="cr-ic">↻</span></button>
-      <button class="card-refresh card-menu" title="Gérer ce module : activation, notifications" onclick="openUnits('${m.theme}')">⋮</button>
+      <button class="card-refresh card-menu" title="Gérer ce module : activation, notifications" onclick="openSettings('modules','${m.theme}')">⋮</button>
     </div>
     <div class="fields">${fields}</div>
     ${actions?`<div class="actions">${actions}</div>`:''}
@@ -639,6 +645,7 @@ function renderState(s, mode){
   themeLabels={}; (s.themes||[]).forEach(t=>{ themeLabels[t.id]=t.label; });
   lastModules=(s.modules||[]).slice();
   lastUnits=(s.units||[]).slice();
+  lastHost=s.host||'';
   let worst='ok';
   let html='';
   (s.themes||[]).forEach(theme=>{
@@ -1265,37 +1272,79 @@ function toast(msg){
   setTimeout(()=>{ el.classList.remove('show'); setTimeout(()=>el.remove(),220); },3200);
 }
 
-// ===== Gestion des modules (D48) =====
-// Un module = un dossier de sondes. Le couper retire ses sondes du calcul et ses cartes
-// de l’affichage ; il reste listé ici (units[] du contrat) pour pouvoir être rallumé.
-function toggleUnits(){
+// ===== Paramètres de l’application =====
+// Un seul menu, quatre onglets : Notifications, Modules (D48), Apparence, À propos.
+// Il remplace l’ancienne popin de notifications et l’ancien tiroir des modules.
+let settingsTab='notifications';
+function toggleSettings(){
   unitsOpen=!unitsOpen;
-  document.getElementById('unitsBack').classList.toggle('show',unitsOpen);
-  // Le tiroir s ouvre par la classe 'open' (comme celui des notifications) ;
-  // 'show' est la classe du voile de fond.
-  document.getElementById('unitsDrawer').classList.toggle('open',unitsOpen);
-  if(unitsOpen) renderUnits();
+  document.getElementById('settingsBack').classList.toggle('show',unitsOpen);
+  document.getElementById('settingsDrawer').classList.toggle('open',unitsOpen);
+  if(unitsOpen) renderSettings();
 }
-function openUnits(unitId){
-  pendingUnitFocus=unitId||null;
-  if(!unitsOpen) toggleUnits(); else renderUnits();
+function openSettings(tab, unitFocus){
+  if(tab) settingsTab=tab;
+  pendingUnitFocus=unitFocus||null;
+  if(!unitsOpen) toggleSettings(); else renderSettings();
 }
-async function renderUnits(){
-  const body=document.getElementById('unitsBody');
-  const units=lastUnits||[];
-  if(!units.length){ body.innerHTML='<div class="drawer-empty">Aucun module connu (maquette&nbsp;?).</div>'; return; }
+async function renderSettings(){
+  const body=document.getElementById('settingsBody');
+  const TABS=[['notifications','Notifications'],['modules','Modules'],['apparence','Apparence'],['apropos','À propos']];
+  body.innerHTML='<div class="set-tabs">'+TABS.map(t=>
+    '<button class="set-tab'+(settingsTab===t[0]?' on':'')+'" data-tab="'+t[0]+'">'+t[1]+'</button>').join('')
+    +'</div><div id="setPane"></div>';
+  body.querySelectorAll('.set-tab').forEach(b=>{ b.onclick=()=>{ settingsTab=b.getAttribute('data-tab'); renderSettings(); }; });
+  const pane=document.getElementById('setPane');
+  if(settingsTab==='notifications') await renderTabNotifs(pane);
+  else if(settingsTab==='modules') await renderTabModules(pane);
+  else if(settingsTab==='apparence') renderTabApparence(pane);
+  else renderTabApropos(pane);
+}
+async function getNotifCfg(){
   let cfg={enabled:true,modules:{}};
   try{
     const r=await fetch(API+"/notifications",{headers:{Authorization:"Bearer "+TOKEN}});
     if(r.ok) cfg=await r.json();
   }catch(e){}
   if(!cfg.modules) cfg.modules={};
-  const notifOn=id=> (id in cfg.modules)? !!cfg.modules[id] : true;
-  body.innerHTML='<p class="um-hint">Couper un module retire ses cartes et ses calculs. La case « notification » suit le réglage fin de chaque carte (⚙).</p>'+units.map(u=>{
+  return cfg;
+}
+async function postNotif(payload){
+  const r=await fetch(API+'/notifications',{ method:'POST',
+    headers:{ Authorization:'Bearer '+TOKEN, 'Content-Type':'application/json' },
+    body: JSON.stringify(payload) });
+  if(!r.ok) throw new Error('HTTP '+r.status);
+}
+// --- Onglet Notifications : interrupteur global + réglage fin par carte (D54) ---
+async function renderTabNotifs(pane){
+  const cfg=await getNotifCfg();
+  const on=id=> (id in cfg.modules)? !!cfg.modules[id] : true;
+  const mods=(lastModules||[]);
+  pane.innerHTML='<p class="um-hint">Quand une carte change d’état, le tray affiche une notification Windows — uniquement sur un changement, jamais en rappel.</p>'
+    +'<label class="um-card"><input type="checkbox" id="ntfGlobal"'+(cfg.enabled?' checked':'')+'><span><b>Activer les notifications</b></span></label>'
+    +'<p class="um-hint">Coupé, plus aucune notification — les réglages fins ci-dessous restent mémorisés.</p>'
+    +'<div id="ntfListe"'+(cfg.enabled?'':' style="opacity:.45"')+'>'
+    +(mods.length? mods.map(m=>'<label class="um-card"><input type="checkbox" data-unotif="'+esc(m.id)+'"'+(on(m.id)?' checked':'')+'><span>'+esc(m.label)+'</span></label>').join('')
+                 : '<div class="drawer-empty">Aucune carte connue (maquette&nbsp;?).</div>')
+    +'</div>';
+  pane.querySelector('#ntfGlobal').onchange=async e=>{
+    try{ await postNotif({enabled:e.target.checked});
+         document.getElementById('ntfListe').style.opacity=e.target.checked?'1':'0.45'; }
+    catch(err){ e.target.checked=!e.target.checked; toast('Réglage impossible : '+(err.message||err)); }
+  };
+  pane.querySelectorAll('[data-unotif]').forEach(c=>{ c.onchange=async()=>{
+    const modules={}; modules[c.getAttribute('data-unotif')]=c.checked;
+    try{ await postNotif({modules}); }
+    catch(e){ c.checked=!c.checked; toast('Réglage impossible : '+(e.message||e)); }
+  }; });
+}
+// --- Onglet Modules (D48) : activer / couper, cartes du module en rappel ---
+async function renderTabModules(pane){
+  const units=lastUnits||[];
+  if(!units.length){ pane.innerHTML='<div class="drawer-empty">Aucun module connu (maquette&nbsp;?).</div>'; return; }
+  pane.innerHTML='<p class="um-hint">Couper un module retire ses cartes et ses calculs ; il reste listé ici pour être rallumé. Les notifications se règlent dans l’onglet dédié.</p>'+units.map(u=>{
     const cards=(lastModules||[]).filter(m=>m.theme===u.id);
-    const lignes=cards.map(m=>
-      '<label class="um-card"><input type="checkbox" data-unotif="'+esc(m.id)+'"'+(notifOn(m.id)?' checked':'')+'>'
-      +'<span>'+esc(m.label)+'</span><small>notification</small></label>').join('');
+    const lignes=cards.map(m=>'<div class="um-card"><span class="um-dot '+(m.status||'neutral')+'"></span><span>'+esc(m.label)+'</span></div>').join('');
     return '<div class="um'+(u.enabled?'':' off')+'" id="um-'+esc(u.id)+'">'
       +'<div class="um-head"><div class="um-t"><b>'+esc(u.label)+'</b><small>'+esc(u.description||'')+'</small></div>'
       +'<label class="um-sw"><input type="checkbox" data-unit="'+esc(u.id)+'"'+(u.enabled?' checked':'')+'>'
@@ -1303,7 +1352,7 @@ async function renderUnits(){
       +(u.enabled ? lignes : '<div class="um-note">Module coupé : ses cartes ne sont ni calculées ni affichées.</div>')
       +'</div>';
   }).join('');
-  body.querySelectorAll('[data-unit]').forEach(c=>{ c.onchange=async()=>{
+  pane.querySelectorAll('[data-unit]').forEach(c=>{ c.onchange=async()=>{
     const id=c.getAttribute('data-unit');
     c.disabled=true;
     try{
@@ -1313,18 +1362,8 @@ async function renderUnits(){
       if(!r.ok) throw new Error('HTTP '+r.status);
       toast(c.checked ? 'Module activé — recalcul en cours' : 'Module désactivé');
       await refresh();
-      renderUnits();
+      renderSettings();
     }catch(e){ c.checked=!c.checked; c.disabled=false; toast('Changement impossible : '+(e.message||e)); }
-  }; });
-  body.querySelectorAll('[data-unotif]').forEach(c=>{ c.onchange=async()=>{
-    const id=c.getAttribute('data-unotif');
-    const modules={}; modules[id]=c.checked;
-    try{
-      const r=await fetch(API+'/notifications',{ method:'POST',
-        headers:{ Authorization:'Bearer '+TOKEN, 'Content-Type':'application/json' },
-        body: JSON.stringify({ modules }) });
-      if(!r.ok) throw new Error('HTTP '+r.status);
-    }catch(e){ c.checked=!c.checked; toast('Réglage impossible : '+(e.message||e)); }
   }; });
   if(pendingUnitFocus){
     const el=document.getElementById('um-'+pendingUnitFocus);
@@ -1333,51 +1372,21 @@ async function renderUnits(){
     pendingUnitFocus=null;
   }
 }
-
-// ===== Réglages des notifications du tray (D54) =====
-// Le tray notifie sur bascule d’un MODULE ; l’icône du tray, elle, reste le statut de
-// l’application. Le réglage fin survit à l’interrupteur global : il masque, il n’écrase pas.
-async function openNotifSettings(){
-  let cfg = { enabled:true, modules:{} };
-  try{
-    const r = await fetch(API+"/notifications", { headers:{ Authorization:"Bearer "+TOKEN } });
-    if(r.ok) cfg = await r.json();
-  }catch(e){}
-  if(!cfg.modules) cfg.modules = {};
-  const mods = (lastModules||[]).map(m=>({ id:m.id, label:m.label }));
-  if(!mods.length){
-    HDS.info("Réglages des notifications", "Aucun module connu pour le moment. Recharge la page une fois l’état affiché.");
-    return;
-  }
-  const actif = id => (id in cfg.modules) ? !!cfg.modules[id] : true;
-  let html = "<p class='hds-intro'>Quand un module change d’état, le tray affiche une notification Windows — uniquement sur un changement, jamais en rappel. L’icône du tray, elle, continue de refléter le statut de l’application.</p>";
-  html += "<label class='hds-choice'><input type='checkbox' id='ntfGlobal'" + (cfg.enabled ? " checked" : "") + ">"
-        + "<span class='hds-choice-t'>Activer les notifications</span>"
-        + "<span class='hds-choice-d'>Interrupteur général : coupé, plus aucune notification — les réglages fins ci-dessous restent mémorisés.</span></label>";
-  html += "<div class='hds-choices' id='ntfList'>";
-  mods.forEach(m=>{
-    html += "<label class='hds-choice'><input type='checkbox' data-ntf='" + esc(m.id) + "'" + (actif(m.id) ? " checked" : "") + ">"
-          + "<span class='hds-choice-t'>" + esc(m.label) + "</span></label>";
-  });
-  html += "</div>";
-  const p = HDS.open({ title:"Réglages des notifications", html, variant:"info", cancelValue:false,
-    actions:[ {label:"Annuler",kind:"ghost",value:false},
-              {label:"Enregistrer",kind:"primary",value:true,default:true} ] });
-  const g = document.getElementById("ntfGlobal");
-  const liste = document.getElementById("ntfList");
-  const grise = ()=>{ liste.style.opacity = g.checked ? "1" : "0.45"; };
-  g.onchange = grise; grise();
-  const ok = await p;
-  if(!ok) return;
-  const modules = {};
-  liste.querySelectorAll("[data-ntf]").forEach(c=>{ modules[c.getAttribute("data-ntf")] = c.checked; });
-  try{
-    const r = await fetch(API+"/notifications", { method:"POST",
-      headers:{ Authorization:"Bearer "+TOKEN, "Content-Type":"application/json" },
-      body: JSON.stringify({ enabled: g.checked, modules }) });
-    if(!r.ok) throw new Error("HTTP "+r.status);
-    toast("Réglages des notifications enregistrés");
-  }catch(e){ toast("Enregistrement impossible : "+(e.message||e)); }
+// --- Onglet Apparence ---
+function renderTabApparence(pane){
+  pane.innerHTML='<p class="um-hint">Le thème s’applique immédiatement. Le bouton rapide reste disponible dans le pied de page.</p>'
+    +'<label class="um-card"><input type="checkbox" id="setDark"'+(dark?' checked':'')+'><span>Thème sombre</span></label>';
+  pane.querySelector('#setDark').onchange=e=>{ if(e.target.checked!==dark) toggleTheme(); };
+}
+// --- Onglet À propos ---
+function renderTabApropos(pane){
+  pane.innerHTML='<div class="um"><b>Vigie</b><p class="um-hint" style="margin:2px 0 10px">Tableau de bord local Windows.</p>'
+    +'<div class="apropos-l"><span>Version</span><b>'+esc(window.APP_VERSION&&!window.APP_VERSION.includes('__')?window.APP_VERSION:'—')+'</b></div>'
+    +'<div class="apropos-l"><span>Build</span><b>'+esc(window.APP_BUILD&&!window.APP_BUILD.includes('__')?window.APP_BUILD:'—')+'</b></div>'
+    +'<div class="apropos-l"><span>Machine</span><b>'+esc(lastHost||'—')+'</b></div>'
+    +'<div class="apropos-l"><span>Licence</span><b>MIT</b></div>'
+    +'<p style="margin:12px 0 0"><a data-repo-link="label"></a></p></div>';
+  wireRepoLinks();
 }
 
 // ===== Demarrage =====
