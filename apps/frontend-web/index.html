@@ -566,7 +566,7 @@ function cardHtml(m, groupLabel){
     const inner = cetteAction
       ? `<span class="spin"></span><span>${esc(a.busyLabel || (a.label+'…'))}</span>`
       : `${ICONS[kind]||''}<span>${esc(a.label)}</span>`;
-    return `<button class="act k-${kind} sev-${sev}${bcls}"${dis} data-a="${a.id}" data-m="${m.id}" data-c="${a.confirm?1:0}" data-k="${kind}" data-h="${h}" title="${busy&&!cetteAction?'Opération en cours sur cette carte — patientez':(h||a.label)}">${inner}</button>`;
+    return `<button class="act k-${kind} sev-${sev}${bcls}"${dis} data-a="${a.id}" data-m="${m.id}" data-c="${a.confirm?1:0}" data-c2="${a.confirmTwice?1:0}" data-k="${kind}" data-h="${h}" title="${busy&&!cetteAction?'Opération en cours sur cette carte — patientez':(h||a.label)}">${inner}</button>`;
   }).join('');
   return `<div class="card st-${st}${m.busy?' busy':''}" data-module="${m.id}" data-theme="${m.theme}">
     <div class="card-head">
@@ -580,7 +580,7 @@ function cardHtml(m, groupLabel){
 }
 
 function wireCardActions(root){
-  (root||document).querySelectorAll('.actions button').forEach(b=>b.onclick=()=>doAction(b.dataset.a,b.dataset.m,b.dataset.c==='1',b.textContent,b.dataset.h,b,null,b.dataset.k));
+  (root||document).querySelectorAll('.actions button').forEach(b=>b.onclick=()=>doAction(b.dataset.a,b.dataset.m,b.dataset.c==='1',b.textContent,b.dataset.h,b,null,b.dataset.k,b.dataset.c2==='1'));
 }
 
 function renderState(s, mode){
@@ -980,7 +980,7 @@ function itemsDeMaj(j){
   }));
 }
 
-async function doAction(type,module,confirmNeeded,label,help,btnEl,params,kind){
+async function doAction(type,module,confirmNeeded,label,help,btnEl,params,kind,confirmerDeuxFois){
   const name = label || type;
   if(confirmNeeded){
     const ok = await HDS.confirm({
@@ -989,6 +989,20 @@ async function doAction(type,module,confirmNeeded,label,help,btnEl,params,kind){
       confirmLabel: 'Confirmer', cancelLabel: 'Annuler'
     });
     if(!ok) return;
+    // DEUXIEME confirmation, volontairement DIFFERENTE de la premiere : elle nomme la
+    // consequence au lieu de reposer la meme question. Reservee aux gestes qui ferment
+    // le travail en cours. Enchainer deux fois « Confirmer ? » ne protege personne :
+    // la seconde ne se lit plus.
+    if(confirmerDeuxFois){
+      const sur = await HDS.confirm({
+        title: name,
+        body: "Dernière vérification." + String.fromCharCode(10,10)
+            + "Toutes vos applications vont être fermées. Enregistrez votre travail maintenant." + String.fromCharCode(10,10)
+            + "Voulez-vous vraiment continuer ?",
+        confirmLabel: 'Oui, redémarrer', cancelLabel: 'Non, annuler', danger: true
+      });
+      if(!sur) return;
+    }
   }
   // Action de type « fenetre de choix » : la fenetre s'ouvre TOUT DE SUITE, avec son
   // chargeur, et n'interroge le serveur que si sa liste locale a expire. Auparavant on

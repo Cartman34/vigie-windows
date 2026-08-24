@@ -49,6 +49,32 @@ if ($elevated) {
         -Guide "Redémarrez le serveur (il demandera l'UAC) : ce verrou pourra alors être vérifié et appliqué."
 }
 
+# Redemarrage : propose SEULEMENT quand il est utile, et toujours annulable.
+$restartFile = Get-VarPath -Backend $backend -Kind 'cache' -File 'restart.json'
+# Un compte a rebours EXPIRE n'est plus annulable : soit la machine a redemarre, soit il a
+# ete annule ailleurs. Le drapeau seul resterait vrai pour toujours -- au retour du
+# redemarrage, la carte aurait propose d'annuler un redemarrage deja survenu.
+# On borne donc dans le TEMPS : annulable tant que le delai court, avec une marge.
+$restartPending = $false
+try {
+    if (Test-Path $restartFile) {
+        $j = Get-Content $restartFile -Raw | ConvertFrom-Json
+        if ($j.pending -and $j.at) {
+            $delaiPrevu = if ($j.delay) { [int]$j.delay } else { 60 }
+            $ecoule = ([datetime]::UtcNow - (ConvertTo-UtcDate $j.at)).TotalSeconds
+            $restartPending = ($ecoule -ge 0 -and $ecoule -lt ($delaiPrevu + 15))
+        }
+    }
+} catch { }
+if ($restartPending) {
+    $actions += New-Action -Id 'system-restart-cancel' -Label 'Annuler le redémarrage' -Severity 'fix' `
+        -BusyLabel 'Annulation…' -Confirm -Help "Annule le redémarrage programmé. Windows reste allumé."
+} elseif ($reboot) {
+    $actions += New-Action -Id 'system-restart' -Label 'Redémarrer Windows' -Severity 'fix' `
+        -BusyLabel 'Redémarrage programmé…' -ConfirmTwice -Kind 'confirm' `
+        -Help "Redémarre Windows dans 60 secondes pour terminer les mises à jour installées. Enregistrez votre travail : toutes les applications seront fermées. Le redémarrage reste annulable pendant le délai."
+}
+
 New-ModuleObject -Id 'wu-lock' -Theme 'windows-update' -Label 'Verrouillage des mises à jour' -Status $status -Fields @(
     New-Field -Key 'autoUpdatesEnabled' -Label 'MAJ automatiques' -Value ([bool](-not $locked)) -Kind 'bool' -Status $(if ($locked) {'ok'} else {'warn'}) `
         -Help "Si Oui, Windows installe les mises à jour et peut redémarrer tout seul. Verrouillé = Non." `

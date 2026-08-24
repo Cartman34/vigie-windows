@@ -499,10 +499,15 @@ function New-Action {
         # Libelle affiche PENDANT l'execution. Il doit dire ce qui se passe -- « Mise à
         # jour… », pas « En cours… ». Les points de suspension sont RESERVES a une action
         # en cours : un libelle au repos n'en porte jamais.
-        [string]$BusyLabel
+        [string]$BusyLabel,
+        # DEUX confirmations distinctes avant execution. Reserve aux gestes qui ferment le
+        # travail en cours de l'utilisateur ou touchent la machine entiere : un seul clic
+        # de trop ne doit pas suffire.
+        [switch]$ConfirmTwice
     )
     $a = [ordered]@{ id = $Id; label = $Label }
-    if ($Confirm) { $a['confirm'] = $true }
+    if ($Confirm -or $ConfirmTwice) { $a['confirm'] = $true }
+    if ($ConfirmTwice) { $a['confirmTwice'] = $true }
     if ($Help)    { $a['help']    = $Help }
     $a['kind'] = if ($Kind) { $Kind } elseif ($Confirm) { 'confirm' } else { 'immediate' }
     # Defaut raisonnable : ouvrir quelque chose informe, le reste est neutre. Une action

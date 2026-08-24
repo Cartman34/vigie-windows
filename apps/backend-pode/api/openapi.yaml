@@ -179,6 +179,12 @@ components:
         id: { type: string, example: update-mode-on }
         label: { type: string }
         confirm: { type: boolean, description: demander confirmation avant execution }
+        confirmTwice:
+          type: boolean
+          description: >
+            Exiger DEUX confirmations distinctes, la seconde nommant la consequence.
+            Reserve aux gestes qui ferment le travail en cours de l'utilisateur ou
+            touchent la machine entiere (redemarrage).
         help: { type: string, description: explication affichee en tooltip et dans la confirmation }
         busyLabel:
           type: string
