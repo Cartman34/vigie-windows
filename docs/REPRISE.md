@@ -308,6 +308,52 @@ trancher, puis lui redonner le sujet corrigé.
   serveur local répond** (détection côté serveur, `Get-AtelierUrl` dans /health), bouton de
   thème en icône.
 
+
+### Fin de journée du 24/08 — suite et fin de session
+
+- **D56** livré puis REFONDU : menu Paramètres = tiroir **large (720 px)** à navigation
+  latérale (icônes : ⚑ notifications, 🧩 modules, ☀ apparence, i-cerclé à propos) ; le
+  bouton rapide de thème vit au **footer**, GitHub retiré de l'en-tête (footer + À propos).
+  Apparence en **cartes-radio** de thèmes (extensibles). Onglet Modules : sous-sections
+  **Notifications** (un switch par notification — aujourd'hui une par carte, mais le modèle
+  est « n notifications par module », demain déclarées) et **Paramètres**.
+- **D57** livré : `Config` (défauts, versionnés dans `module.psd1`) + `Parameters`
+  (déclaration) + surcharges dans `config/parameters.local.json` via
+  `GET/POST /parameters(/unit)` ; `Get-ModuleSetting` = seul point de lecture. Premier cas
+  réel éprouvé de bout en bout : seuil d'alerte du disque (60 → 150 → warn → défaut → ok).
+  Un changement invalide les sondes du module ; le panneau se réaffiche aussitôt, les
+  cartes se recalculent derrière. **Candidats suivants** : TTL par sonde, paquets ignorés
+  (winget/choco), cible de latence, rétention d'historique.
+- **Design système** : `docs/DESIGN.md` (DA en 5 principes + tableau des composants) +
+  page Atelier `design-systeme.html` — **palette lue en direct** dans le front par
+  `tokens.php` (même principe que palette.php), composants reproduits en miroir.
+  DISCIPLINE : toute évolution visuelle met la page à jour dans la même livraison.
+- **Flux paquets cohérent** : pendant = « 1 sur 3 en cours… (depuis N min) » + liste ;
+  après = « Dernière mise à jour : … réussie / N ÉCHEC(S) » conservé dans la carte
+  (`sel` posé par Start-PkgJob, `last` écrit par le worker). GameInput : l'échec venait de
+  l'installateur MSI (1603) — cause probable : redémarrage Windows en attente.
+- **Auto-guérison du serveur** : panne réelle vécue — Pode tenait le port mais répondait
+  408 à tout (NullReferenceException du listener). Le tray détecte désormais « port ouvert
+  + /health muet ×3 » et tue/relance le serveur seul.
+- **Icônes** : règle consignée (police + habillage CSS, SVG réservé à la marque).
+  **CHOIX EN ATTENTE** : fonte d'icônes — voie 1 recommandée (Bootstrap Icons vendorisée,
+  MIT, un woff2 dans le dépôt) ou voie 2 (fonte maison, fonttools à installer).
+- **Q1/Q2 arbitrés** (voir D57) ; page Propositions de l'Atelier à jour.
+- **Incident consigné** : un script d'édition planté a laissé `index.html` à 0 octet,
+  commité et poussé — d'où la discipline « écriture atomique » (plus haut) et l'interdit
+  de chaîner git derrière un script par un simple retour à la ligne.
+
+### File de travail (dans l'ordre)
+
+1. **Fonte d'icônes** — dès l'arbitrage (voie 1 prête à faire).
+2. **Historique** — implémentation par étapes par un sous-agent (conceptions validées,
+   `docs/conception/`), étape 1 = s'appuyer sur `probe-runs.jsonl` (D52).
+3. **Étendre les paramètres** (D57) aux candidats listés ci-dessus.
+4. **Notifications déclarées** : passer de « une par carte » à `notifications[]` par module.
+5. Fond ancien : éprouver verrou/VBS depuis serveur élevé après un vrai redémarrage ;
+   commentaires en anglais (D41) ; workflow GitHub à coller ; bulle de notification du
+   tray jamais observée en réel.
+
 ## Décisions validées
 Voir `docs/DECISIONS-VALIDEES.md` : icône tray = option B (graduations + talon confirmés) ; nom = dépôt « Vigie Windows » (slug `vigie-windows`), interface « Vigie » à la place de « Control Panel ».
 
