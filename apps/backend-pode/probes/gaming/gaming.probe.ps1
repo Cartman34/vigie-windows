@@ -27,6 +27,7 @@ $gameGpuMin   = [int](Get-ModuleSetting -Unit 'gaming' -Key 'GameGpuMinPct');   
 $otherCpuWarn = [int](Get-ModuleSetting -Unit 'gaming' -Key 'OtherCpuWarnPct'); if (-not $otherCpuWarn) { $otherCpuWarn = 1 }
 $otherGpuWarn = [int](Get-ModuleSetting -Unit 'gaming' -Key 'OtherGpuWarnPct'); if (-not $otherGpuWarn) { $otherGpuWarn = 15 }
 $vramWarn     = [int](Get-ModuleSetting -Unit 'gaming' -Key 'VramWarnPct');     if (-not $vramWarn)     { $vramWarn = 90 }
+$tempWarn     = [int](Get-ModuleSetting -Unit 'gaming' -Key 'GpuTempWarnC');   if (-not $tempWarn)     { $tempWarn = 87 }
 
 # Processus au premier plan : meilleur indice du jeu quand la partie est active.
 $fgPid = 0
@@ -59,14 +60,19 @@ $t0 = Get-Date
 Start-Sleep -Milliseconds 900
 
 # --- GPU et VRAM par processus (compteurs non localises, verifies ici) --------
-$gpuParPid = @{}; $vramParPid = @{}; $gpuDispo = $false
+$gpuParPid = @{}; $vramParPid = @{}; $luidParPid = @{}; $gpuDispo = $false
 try {
     $g = Get-Counter '\GPU Engine(*)\Utilization Percentage' -ErrorAction Stop
     $gpuDispo = $true
     foreach ($s in $g.CounterSamples) {
-        if ($s.InstanceName -match '^pid_(\d+)_') {
+        if ($s.InstanceName -match '^pid_(\d+)_luid_0x[0-9A-Fa-f]+_0x([0-9A-Fa-f]+)_') {
             $gp = [int]$Matches[1]
+            $lu = [Convert]::ToInt64($Matches[2], 16)
             $gpuParPid[$gp] = [double]($gpuParPid[$gp]) + $s.CookedValue
+            # Quel ADAPTATEUR travaille pour ce processus : necessaire pour reperer un
+            # jeu rendu par la carte integree (Optimus) au lieu de la dediee.
+            if (-not $luidParPid.ContainsKey($gp)) { $luidParPid[$gp] = @{} }
+            $luidParPid[$gp][$lu] = [double]($luidParPid[$gp][$lu]) + $s.CookedValue
         }
     }
 } catch { }
@@ -125,6 +131,19 @@ try {
     $vramTotale = ($cles | ForEach-Object { [double]$_.'HardwareInformation.qwMemorySize' } |
                    Measure-Object -Maximum).Maximum
 } catch { }
+
+# Table luid -> nom d'adaptateur (base DirectX du registre) : c'est elle qui permet de
+# dire si un processus est rendu par la carte dediee ou par l'integree.
+$nomParLuid = @{}
+try {
+    foreach ($k in (Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\DirectX' -ErrorAction Stop)) {
+        $pr = Get-ItemProperty $k.PSPath -ErrorAction SilentlyContinue
+        if ($pr -and $null -ne $pr.AdapterLuid -and $pr.Description) {
+            $nomParLuid[[int64]$pr.AdapterLuid] = "$($pr.Description)"
+        }
+    }
+} catch { }
+$aCarteDediee = [bool]($nomParLuid.Values | Where-Object { $_ -notmatch 'Intel|UHD|Iris|Basic Render' })
 
 $bruit = @('Idle','System','Memory Compression','Registry','csrss','dwm','svchost',
            'MsMpEng','SearchIndexer','fontdrvhost','WmiPrvSE','conhost','pwsh','powershell')
@@ -189,6 +208,52 @@ if (-not $gpuDispo) {
         -Guide "Sans eux, impossible d'attribuer le GPU aux processus.`nPiste : redémarrer, ou reconstruire les compteurs : lodctr /R (invite administrateur)."
 }
 
+# --- Sante du GPU dedie (nvidia-smi, livre avec le pilote) --------------------
+$aNvidia = [bool]($gpus | Where-Object { $_.Name -match 'NVIDIA' })
+if ($aNvidia) {
+    $smi = 'C:\Windows\System32\nvidia-smi.exe'
+    if (Test-Path $smi) {
+        try {
+            $ln = (& $smi '--query-gpu=temperature.gpu,power.draw,clocks.sm,utilization.gpu,clocks_event_reasons.active' '--format=csv,noheader,nounits' 2>$null | Select-Object -First 1)
+            if (-not $ln) {
+                # Pilotes plus anciens : l'ancien nom du champ de bridage.
+                $ln = (& $smi '--query-gpu=temperature.gpu,power.draw,clocks.sm,utilization.gpu,clocks_throttle_reasons.active' '--format=csv,noheader,nounits' 2>$null | Select-Object -First 1)
+            }
+            if ($ln) {
+                $c = @(($ln -split ',') | ForEach-Object { "$_".Trim() })
+                $temp = [int]$c[0]
+                # 0x...1 = GPU au repos (horloges basses volontaires), pas un bridage.
+                $bridage = ($c.Count -ge 5 -and $c[4] -notin @('0x0000000000000000','0x0000000000000001','[N/A]',''))
+                $stT = if ($temp -ge $tempWarn -or $bridage) { 'warn' } else { 'ok' }
+                $vT = "$temp" + [char]0x00B0 + "C"
+                if ($bridage) { $vT += ' (bridée)' }
+                $gT = @("Consommation : $($c[1]) W " + [char]0x00B7 + " horloge $($c[2]) MHz " + [char]0x00B7 + " utilisation $($c[3]) %")
+                if ($bridage) { $gT += "La carte BRIDE ses fréquences (raison $($c[4])) : chaleur ou limite de puissance. Vérifiez la ventilation et les entrées d'air." }
+                elseif ($temp -ge $tempWarn) { $gT += "Au-delà de $tempWarn degrés (réglable), la carte va se brider : chutes de FPS. Vérifiez la ventilation." }
+                $fields += New-Field -Key 'gpu-temp' -Label 'Température GPU' -Value $vT -Kind 'text' -Status $stT `
+                    -Help "Température de la carte dédiée, et son éventuel bridage (la cause première des chutes de FPS sur portable)." `
+                    -Guide ($gT -join "`n")
+            }
+        } catch { }
+    } else {
+        $fields += New-Field -Key 'gpu-temp' -Label 'Température GPU' -Value 'indisponible' -Kind 'text' -Status 'warn' `
+            -Help "nvidia-smi est absent alors qu'une carte NVIDIA est détectée." `
+            -Guide "L'outil est normalement livré avec le pilote NVIDIA : réinstallez ou mettez à jour le pilote."
+    }
+}
+
+# --- Alimentation : jouer sur batterie bride tout -----------------------------
+$surSecteur = $true; $pctBatterie = $null
+try {
+    $bat = Get-CimInstance Win32_Battery -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($bat) {
+        $surSecteur = ($bat.BatteryStatus -ne 1)   # 1 = en decharge
+        $pctBatterie = [int]$bat.EstimatedChargeRemaining
+    }
+} catch { }
+$plan = ''
+try { if ((powercfg /getactivescheme) -match '\(([^)]+)\)') { $plan = $Matches[1] } } catch { }
+
 # --- Le jeu et les pompeurs ---------------------------------------------------
 if ($jeu) {
     $fields += New-Field -Key 'game' -Label 'Jeu détecté' -Value $jeu.Name -Kind 'text' -Status 'ok' `
@@ -197,6 +262,25 @@ if ($jeu) {
         -Value ("CPU {0} % · GPU {1} % · VRAM {2} Go" -f $jeu.Cpu, $jeu.Gpu, $jeu.VramGb) -Kind 'text' -Status 'neutral' `
         -Help "Part de la machine consommée par le jeu à l'instant de la mesure." `
         -Guide ("RAM : {0} Go`nE/S (disque+réseau) : {1} Mo/s" -f $jeu.RamGb, $jeu.IoMbs)
+
+    # Sur quel adaptateur le jeu est-il rendu ? Le piege Optimus : la carte integree
+    # rend le jeu pendant que la dediee dort -- performances divisees sans message.
+    if ($luidParPid.ContainsKey($jeu.Id) -and $nomParLuid.Count -gt 0) {
+        $luDominant = ($luidParPid[$jeu.Id].GetEnumerator() | Sort-Object Value -Descending | Select-Object -First 1).Key
+        $nomAd = $nomParLuid[[int64]$luDominant]
+        if ($nomAd) {
+            $surIntegree = ($nomAd -match 'Intel|UHD|Iris|Basic Render')
+            $stAd = if ($surIntegree -and $aCarteDediee) { 'warn' } else { 'ok' }
+            $argsAd = @{
+                Key = 'game-adapter'; Label = 'Rendu par'; Value = $nomAd; Kind = 'text'; Status = $stAd
+                Help = "L'adaptateur graphique qui rend le jeu. Sur ce portable, la carte dédiée doit s'en charger."
+            }
+            if ($stAd -eq 'warn') {
+                $argsAd.Guide = "Le jeu tourne sur la carte INTÉGRÉE alors qu'une carte dédiée existe : performances bridées.`nParamètres Windows > Système > Affichage > Cartes graphiques : ajoutez l'exécutable du jeu et choisissez « Hautes performances »."
+            }
+            $fields += New-Field @argsAd
+        }
+    }
 
     # Les processus freres du jeu (meme nom : lanceur, anti-triche, rendu) font partie
     # du jeu, pas des pompeurs.
@@ -213,6 +297,16 @@ if ($jeu) {
     } else {
         $fields += New-Field -Key 'hogs' -Label 'Autres applis gourmandes' -Value 'aucune' -Kind 'text' -Status 'ok' `
             -Help "Aucune autre application au-dessus des seuils pendant la partie."
+    }
+    if (-not $surSecteur) {
+        $fields += New-Field -Key 'power' -Label 'Alimentation' `
+            -Value ("Batterie" + $(if ($null -ne $pctBatterie) { " ($pctBatterie %)" })) -Kind 'text' -Status 'warn' `
+            -Help "Sur batterie, processeur et carte graphique sont bridés : performances de jeu réduites." `
+            -Guide ("Branchez le secteur pour la partie." + $(if ($plan) { "`nPlan d'alimentation actif : $plan." }))
+    } else {
+        $fields += New-Field -Key 'power' -Label 'Alimentation' `
+            -Value ("Secteur" + $(if ($plan) { " " + [char]0x00B7 + " $plan" })) -Kind 'text' -Status 'ok' `
+            -Help "Sur secteur, la machine donne toute sa puissance."
     }
 } else {
     $fields += New-Field -Key 'game' -Label 'Jeu détecté' -Value 'aucun' -Kind 'text' -Status 'neutral' `
