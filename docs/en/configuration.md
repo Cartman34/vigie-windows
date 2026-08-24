@@ -63,22 +63,20 @@ Restart the server after changing it (tray menu → *Restart the server*).
 
 ## External tooling
 
-`ToolsPath` is **optional** and no longer gates the Windows Update lock.
+`ToolsPath` is **optional**. **No Vigie feature depends on it any more.**
 
-**Native, no tooling needed** — *Update mode (unlock)*, *Lock now* and *Run the audit* are
-implemented in this repository (`lib/common.ps1`: `Set-UpdateLock`, `Invoke-UpdateAudit`).
-They only require the server to run **as administrator**, and say so plainly when it does
-not. If `ToolsPath` is set **and** contains `update-mode.ps1`, Vigie prefers that script, so
-existing installs keep their behaviour — but its absence blocks nothing.
+**Everything is native** — the Windows Update lock (*Update mode*, *Lock now*), its *audit*,
+and the *VBS* and *memory integrity* toggles are implemented in this repository
+(`lib/common.ps1`: `Set-UpdateLock`, `Invoke-UpdateAudit`, `Set-DeviceGuardFeature`). They
+only require the server to run **as administrator**, and say so plainly when it does not.
 
-**Still external** — these three actions call scripts that do not ship with the repository.
-Without `ToolsPath` they return a clear message instead of failing obscurely.
+If `ToolsPath` is set **and** contains `update-mode.ps1`, Vigie prefers that script for the
+lock, so existing installs keep their behaviour — but its absence blocks nothing.
 
-| Action | Script it calls |
-|---|---|
-| *Toggle VBS* | `<parent>\toggle-vbs.ps1` |
-| *Toggle memory integrity* | `<parent>\toggle-hvci.ps1` |
-| *Open the folder* | opens the administration root in Explorer |
+**The one remaining use** is *Open the folder*, which opens the administration root (the
+`<parent>` of `ToolsPath`) in Explorer. That is legitimate: the button only means anything
+if there is a folder to open. With no path configured — or one pointing nowhere — the card
+**does not offer the button at all**, rather than showing a dead one.
 
 **Everything else works without it**: every probe reads the system natively.
 

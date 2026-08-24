@@ -63,23 +63,22 @@ Redémarrez le serveur après modification (menu du tray → *Redémarrer le ser
 
 ## Outillage externe
 
-`ToolsPath` est **facultatif** et ne conditionne plus le verrouillage de Windows Update.
+`ToolsPath` est **facultatif**. **Aucune fonction de Vigie n'en dépend plus.**
 
-**Natif, aucun outillage requis** — *Mode MAJ (déverrouiller)*, *Verrouiller maintenant* et
-*Lancer l'audit* sont implémentés dans ce dépôt (`lib/common.ps1` : `Set-UpdateLock`,
-`Invoke-UpdateAudit`). Ils exigent seulement que le serveur tourne **en administrateur**,
-et le disent clairement si ce n'est pas le cas. Si `ToolsPath` est renseigné **et** contient
-`update-mode.ps1`, Vigie préfère ce script : les installations historiques gardent leur
-comportement, sans que son absence bloque quoi que ce soit.
+**Tout est natif** — le verrouillage de Windows Update (*Mode MAJ*, *Verrouiller
+maintenant*), son *audit*, et les bascules *VBS* et *intégrité mémoire* sont implémentés
+dans ce dépôt (`lib/common.ps1` : `Set-UpdateLock`, `Invoke-UpdateAudit`,
+`Set-DeviceGuardFeature`). Ils exigent seulement que le serveur tourne **en
+administrateur**, et le disent clairement si ce n'est pas le cas.
 
-**Encore externe** — ces trois actions appellent des scripts qui ne sont pas livrés avec le
-dépôt. Sans `ToolsPath`, elles rendent un message clair au lieu d'échouer obscurément.
+Si `ToolsPath` est renseigné **et** contient `update-mode.ps1`, Vigie préfère ce script pour
+le verrou : les installations historiques gardent leur comportement, sans que son absence
+bloque quoi que ce soit.
 
-| Action | Script appelé |
-|---|---|
-| *Basculer VBS* | `<parent>\toggle-vbs.ps1` |
-| *Basculer intégrité mémoire* | `<parent>\toggle-hvci.ps1` |
-| *Ouvrir le dossier* | ouvre la racine d'administration dans l'explorateur |
+**Le seul usage restant** est *Ouvrir le dossier*, qui ouvre la racine d'administration
+(`<parent>` de `ToolsPath`) dans l'explorateur. C'est légitime : ce bouton n'a de sens que
+s'il existe un dossier à ouvrir. Sans chemin configuré — ou s'il pointe dans le vide — la
+carte **ne propose pas le bouton du tout**, plutôt que d'afficher un bouton mort.
 
 **Tout le reste fonctionne sans lui** : chaque sonde lit le système nativement.
 

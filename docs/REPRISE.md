@@ -48,7 +48,22 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
   `Set-UpdateLock` (unique porte d'entrée en écriture, refuse sans élévation et relit
   l'état après coup) et `Invoke-UpdateAudit` (rapport texte + JSON dans `var/log/`).
   `ToolsPath` est *préféré* s'il porte `update-mode.ps1`, jamais requis.
-  **Encore externes** : `toggle-vbs`, `toggle-hvci`, `open-folder`.
+- **VBS / intégrité mémoire : natifs** aussi. `Get-DeviceGuardCatalog` (cles + libellés),
+  `Get-DeviceGuardState` (distingue `configured` / `running` / `requested` / `effective`),
+  `Set-DeviceGuardFeature` (unique porte d'entrée, sauvegarde `.reg` dans `var/log`, refuse
+  sans élévation, **relit le registre** — jamais l'état actif, qui ne bouge qu'au
+  redémarrage) et `Invoke-DeviceGuardToggle` (décision + compte rendu, partagé par les deux
+  actions). La bascule s'appuie sur `effective` : recliquer avant de redémarrer **annule**
+  la demande au lieu de réécrire la même valeur.
+  La carte affiche « En attente de redémarrage » et propose `system-restart` **uniquement**
+  après une bascule de Vigie — pas sur un simple écart registre/actif, qui peut être
+  permanent (valeur imposée par l'UEFI ; c'est le cas sur cette machine : registre VBS=0,
+  VBS pourtant en cours).
+- `Test-RestartCountdown` (`common.ps1`) : « un redémarrage différé court-il encore ? »,
+  partagé par les cartes Windows Update et virtualisation.
+- **`ToolsPath` / `Get-AdminRoot` ne conditionnent plus aucune fonction.** Seule
+  `open-folder` les utilise, et la sonde `history.probe.ps1` **ne propose pas le bouton**
+  si le dossier n'est pas configuré ou n'existe pas.
 - Boutons de résolution : prennent le **libellé de l'action** (plus de « Résoudre » générique), n'apparaissent que si une action existe. **Icônes** (**D45**) : triangle = action immédiate ; **triangle d'avertissement orange** = confirmation ; liste cochée = fenêtre de choix ; flèche sortante = logiciel externe.
 - Résolutions câblées : Latence → `net-speedtest` ; Windows Update « Détectées » → `open-windows-update` (note raccourcie).
 - WSL : champ **Statut Actif/Inactif** coloré + **trio Démarrer/Redémarrer/Arrêter** (boutons pertinents). Actions `wsl-start`/`wsl-restart` + invalidation sonde.

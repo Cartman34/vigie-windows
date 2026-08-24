@@ -59,19 +59,31 @@ Background jobs can die without writing anything (machine suspended, process kil
 Package-manager cards give up after **45 minutes** and stop showing as busy. For the
 others, restart the server from the tray menu.
 
-### "External tooling not configured"
+### "No tooling folder is configured"
 
-Expected, and not a bug — but it no longer concerns Windows Update: locking, unlocking and
-the audit are native to this repository. The message is now only possible on the **VBS /
-memory-integrity toggles** and *Open the folder*, which still call scripts that do not
-ship here. See [Configuration](configuration.md#external-tooling).
+This message no longer concerns **any feature**: the Windows Update lock, its audit and the
+VBS / memory-integrity toggles are all native. Only *Open the folder* can still return it,
+and only if the folder disappears between the card being drawn and the click — with no path
+configured, the button is not offered at all.
+See [Configuration](configuration.md#external-tooling).
 
 ### "The Vigie server is not running as administrator"
 
-Setting or lifting the lock changes permissions on system folders: without elevation the
-operation would half-fail in silence. Vigie therefore refuses **before** acting and touches
-nothing. Restart Vigie as administrator (tray menu → *Restart the server*, the UAC prompt
-will appear), then click again.
+Setting or lifting the lock changes permissions on system folders; toggling VBS or memory
+integrity writes to a protected registry key. Without elevation the operation would
+half-fail in silence. Vigie therefore refuses **before** acting and touches nothing. Restart
+Vigie as administrator (tray menu → *Restart the server*, the UAC prompt will appear), then
+click again.
+
+### The VBS or memory-integrity toggle "does nothing"
+
+That is expected, and it is stated: Windows reads these settings **at boot**. The request is
+written to the registry, the card shows *Pending reboot* and offers *Restart Windows*. The
+state shown above stays the running one until then.
+
+If the value still does not apply **after** a reboot, it is enforced by UEFI or a corporate
+policy: go through *Windows Security → Device security → Core isolation*, or ask your IT
+department. Vigie cannot override it, and says so rather than claiming success.
 
 ### "Lock now" reports the ACL lock could not be applied
 

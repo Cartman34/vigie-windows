@@ -1,10 +1,11 @@
-<# Action : bascule VBS via LocalAgentAdmin\toggle-vbs.ps1 (nécessite admin). #>
+<# Action toggle-vbs : active ou desactive la securite par virtualisation (VBS).
+
+   Capacite NATIVE du produit : aucune dependance a un outillage hors depot. Toute la
+   logique (elevation, sauvegarde du registre, ecriture, relecture, compte rendu) vit
+   dans Invoke-DeviceGuardToggle / Set-DeviceGuardFeature (lib/common.ps1) -- les deux
+   bascules ne different que par le nom de la fonction visee. #>
 param([string]$Module, [hashtable]$Params)
 $backend = Split-Path $PSScriptRoot -Parent
 . (Join-Path $backend 'lib/common.ps1')
-$adminRoot = Get-AdminRoot -Backend $backend
-if (-not $adminRoot) { return New-ToolsMissingResult }
-$script = Join-Path $adminRoot 'toggle-vbs.ps1'
-if (-not (Test-Path $script)) { return @{ message = "Introuvable : $script"; result = @{ ok = $false } } }
-& $script *> $null
-@{ message = 'Bascule VBS demandée (redémarrage souvent requis).'; result = @{ ok = $true } }
+
+Invoke-DeviceGuardToggle -Feature 'vbs' -Backend $backend

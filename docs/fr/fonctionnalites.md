@@ -19,7 +19,7 @@ Détaillé sur sa propre page : **[Windows Update](windows-update.md)**. En rés
 |---|---|---|
 | **Verrouillage des mises à jour** | MAJ automatiques oui/non, verrou ACL sur les dossiers de tâches, nombre de tâches désactivées face à celles encore actives (dépliez pour l'état réel de chacune), redémarrage en attente | *Mode MAJ (déverrouiller)* ou *Verrouiller maintenant* — selon l'état, toujours avec confirmation — et *Lancer l'audit* |
 | **Mise à jour du système** | mises à jour détectées dans le cache local de Windows Update, dernière analyse en ligne et son résultat, installation en cours ou dernière installation | *Vérifier les mises à jour* (analyse en ligne, en tâche de fond), *Installer des mises à jour* (ouvre une liste, vous choisissez), *Ouvrir Windows Update* |
-| **Historique** | dernier redémarrage, état de démarrage de WaaSMedic | *Ouvrir le dossier* (outillage externe) |
+| **Historique** | dernier redémarrage, état de démarrage de WaaSMedic | *Ouvrir le dossier* — proposé **seulement** si un dossier d'administration est configuré |
 
 Un **redémarrage en attente s'affiche en orange, pas en rouge** : c'est l'issue normale
 d'une installation réussie, pas une panne. Vigie ne redémarre jamais votre machine.
@@ -51,9 +51,20 @@ où Vigie parle au monde extérieur en votre nom, et uniquement à votre demande
 | **Pare-feu** | l'état de chaque profil du pare-feu Windows. Un profil désactivé est rouge. | — |
 | **Sécurité de la virtualisation** | VBS et intégrité mémoire (HVCI) | *Basculer VBS*, *Basculer intégrité mémoire* — les deux avec confirmation |
 
-Les deux bascules de sécurité s'appuient sur un **outillage externe** qui n'est pas livré
-avec le dépôt. Sans lui, l'action rend un message clair au lieu d'échouer obscurément —
-voir [Configuration](configuration.md#outillage-externe).
+Les deux bascules sont **natives** : elles écrivent la valeur dans le registre
+(`HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard`), après une sauvegarde `.reg` déposée
+dans les journaux de Vigie. Elles exigent un serveur **administrateur** et le disent
+clairement sinon.
+
+**Elles ne prennent effet qu'au redémarrage.** La carte l'affiche : tant que la demande
+n'est pas appliquée, une ligne *En attente de redémarrage* apparaît et le bouton
+*Redémarrer Windows* — différé de 60 secondes, annulable — est proposé sur cette carte.
+Recliquer sur la bascule avant d'avoir redémarré **annule simplement la demande**.
+
+Désactiver VBS coupe aussi l'intégrité mémoire, qui ne peut pas fonctionner sans elle ;
+l'inverse n'est pas vrai, activer VBS n'active pas l'intégrité mémoire dans votre dos.
+Si une valeur ne s'applique toujours pas après un redémarrage, elle est imposée par l'UEFI
+ou par une stratégie d'entreprise, et Vigie ne peut pas passer outre.
 
 ## WSL
 
