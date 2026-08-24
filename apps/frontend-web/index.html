@@ -805,6 +805,7 @@ const HDS = (function(){
 
   function settle(v){
     if(!resolver) return;
+    back.classList.remove('haut');
     const r=resolver; resolver=null;
     back.classList.remove('show');
     document.removeEventListener('keydown',onKey,true);
