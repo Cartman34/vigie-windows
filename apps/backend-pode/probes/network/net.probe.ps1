@@ -218,18 +218,25 @@ $qualStatus = @('neutral', 'ok', 'warn', 'error')[$qualRank]
 # sain, elle mesure le trafic et non la qualite. Un decrochage, lui, ne s'interprete pas.
 # Il faut aussi que la fenetre couvre une vraie duree : quatre releves en cinq secondes
 # ne prouvent rien sur la tenue d'un lien.
-$stabLabel = ''
-if ($sampleCount -ge 4 -and $spanSec -ge 120) {
-    $stabLabel = if ($dropCount -eq 0) { 'sans coupure' }
-                 elseif ($dropCount -eq 1) { '1 coupure' }
-                 else { "$dropCount coupures" }
-    # Un lien rapide qui decroche reste un mauvais lien : le statut doit le dire.
-    if ($dropCount -gt 0 -and $qualStatus -eq 'ok') { $qualStatus = 'warn' }
+# La stabilite est un CHAMP a part entiere, distinct de la qualite : chacun porte son
+# statut et son guide. Pas encore etablie = warn avec explication, jamais un champ vide.
+$stabEstablished = ($sampleCount -ge 4 -and $spanSec -ge 120)
+$spanMin = [int][Math]::Round($spanSec / 60)
+$stabLabel = ''; $stabStatus = 'warn'
+if ($stabEstablished) {
+    if ($dropCount -eq 0) {
+        $stabLabel = 'Aucune coupure'; $stabStatus = 'ok'
+    } elseif ($dropCount -eq 1) {
+        $stabLabel = "1 coupure sur les $spanMin dernières minutes"
+    } else {
+        $stabLabel = "$dropCount coupures sur les $spanMin dernières minutes"
+    }
+} else {
+    $stabLabel = "Pas encore établie ($sampleCount relevé$(if ($sampleCount -gt 1) {'s'}) sur 4)"
 }
 
 $wifiText = if (-not $wifiUp)        { $wifiState }
             elseif ($peak -le 0)     { 'Connecté, qualité non mesurable' }
-            elseif ($stabLabel)      { "$qualLabel, $stabLabel ($peakMbps Mb/s)" }
             else                     { "$qualLabel ($peakMbps Mb/s)" }
 
 # Un Wi-Fi eteint n'est pas un probleme en soi (cable Ethernet branche, mode Avion
@@ -263,20 +270,13 @@ $wifiGuide = if (-not $wifiUp) {
     "Ce que c'est : la qualité du lien radio entre ce PC et le point d'accès, jugée sur le meilleur débit que la liaison a négocié au cours des 30 dernières minutes. Une mauvaise réception plafonne ce sommet ; c'est donc lui qui mesure la qualité, et non le débit de l'instant — au repos, la carte laisse retomber sa modulation faute de trafic à passer.`n`n" +
     "Retenu pour le jugement : $peakMbps Mb/s, le plus haut des $($rates.Count) relevé(s) de la fenêtre.`n" +
     "Relevé à l'instant : $linkMbps Mb/s (réception $rxMbps Mb/s, émission $txMbps Mb/s) — bas au repos, c'est normal." +
-    $(if ($best -gt 0) { " Meilleur débit jamais obtenu sur ce réseau : $([int][Math]::Round($best / 1e6)) Mb/s." } else { '' }) + "`n" +
-    $(if ($stabLabel) {
-        "Stabilité : $stabLabel sur les $([int][Math]::Round($spanSec / 60)) dernières minutes ($sampleCount relevés)." +
-        $(if ($dropCount -gt 0) { " Le lien a perdu son association : c'est ce qui coupe une visioconférence net." } else { " L'association n'a jamais été perdue." })
-    } else {
-        "Stabilité : pas encore établie — elle demande au moins 4 relevés étalés sur 2 minutes, et Vigie en a $sampleCount. Un relevé est enregistré à chaque rafraîchissement de la carte.`n" +
-        "Elle ne compte que les décrochages de l'association, seul signe non ambigu : la variation du débit négocié, elle, suit le trafic et non la qualité — la retenir afficherait « instable » sur un lien parfaitement sain."
-    }) + "`n`n" +
+    $(if ($best -gt 0) { " Meilleur débit jamais obtenu sur ce réseau : $([int][Math]::Round($best / 1e6)) Mb/s." } else { '' }) + "`n`n" +
     $(switch ($qualRank) {
         1 { "Le problème : aucun. Le lien est au niveau de ce que ce réseau sait faire." }
         2 { "Le problème : le lien est nettement en dessous de ce qu'un Wi-Fi moderne permet. La navigation reste correcte, mais les gros téléchargements et la visioconférence en souffrent." }
         default { "Le problème : le lien est très bas. Attendez-vous à des visioconférences hachées, des téléchargements lents et des pages qui traînent." }
     }) +
-    $(if ($qualRank -ge 2 -or $dropCount -gt 0) {
+    $(if ($qualRank -ge 2) {
         "`n`nLes issues possibles :`n" +
         "- rapprochez-vous du point d'accès, ou retirez ce qui s'interpose (mur porteur, miroir, plancher chauffant) ;`n" +
         "- passez sur la bande 5 GHz si votre box la propose : plus rapide et moins encombrée que 2,4 GHz ;`n" +
@@ -284,6 +284,31 @@ $wifiGuide = if (-not $wifiUp) {
         "- éloignez les brouilleurs : four à micro-ondes, téléphone DECT, adaptateur CPL ;`n" +
         "- si le besoin est durable, un câble Ethernet règle la question définitivement."
     } else { '' }) + "`n`n" + $noSignalNote
+}
+
+# Guide de la stabilite : champ separe, donc explication separee. Trois etats reels :
+# pas encore etablie (fenetre trop courte), aucune coupure, ou des coupures — et dans ce
+# dernier cas le guide propose des issues (D49).
+$stabGuide = if (-not $stabEstablished) {
+    "Ce que c'est : la continuité de l'association Wi-Fi — le lien a-t-il décroché du point d'accès ? Un décrochage coupe une visioconférence net, même quand le débit est bon le reste du temps. Ici : pas encore mesurable.`n`n" +
+    "Le problème : la mesure demande au moins 4 relevés étalés sur 2 minutes, et Vigie en a $sampleCount" +
+    $(if ($spanMin -gt 0) { ", étalés sur $spanMin minute$(if ($spanMin -gt 1) {'s'})." } else { '.' }) +
+    " Un relevé est enregistré à chaque rafraîchissement de la carte : laissez Vigie ouverte quelques minutes et la valeur apparaîtra d'elle-même.`n`n" +
+    "Seuls les décrochages de l'association sont comptés, seul signe non ambigu : la variation du débit négocié, elle, suit le trafic et non la qualité — la retenir afficherait « instable » sur un lien parfaitement sain."
+} elseif ($dropCount -eq 0) {
+    "Ce que c'est : la continuité de l'association Wi-Fi — le lien a-t-il décroché du point d'accès ? Ici : aucune coupure sur les $spanMin dernières minutes ($sampleCount relevés).`n`n" +
+    "Le problème : aucun. L'association n'a jamais été perdue sur la fenêtre observée.`n`n" +
+    "Seuls les décrochages de l'association sont comptés, seul signe non ambigu : la variation du débit négocié, elle, suit le trafic et non la qualité — la retenir afficherait « instable » sur un lien parfaitement sain."
+} else {
+    "Ce que c'est : la continuité de l'association Wi-Fi — le lien a-t-il décroché du point d'accès ? Ici : $dropCount coupure$(if ($dropCount -gt 1) {'s'}) sur les $spanMin dernières minutes ($sampleCount relevés).`n`n" +
+    "Le problème : le lien a perdu son association avec le point d'accès. C'est ce qui coupe une visioconférence net ou fige un téléchargement, même si le débit est bon entre deux coupures.`n`n" +
+    "Les issues possibles :`n" +
+    "- rapprochez-vous du point d'accès, ou retirez ce qui s'interpose (mur porteur, miroir, plancher chauffant) ;`n" +
+    "- passez sur la bande 5 GHz si votre box la propose : plus rapide et moins encombrée que 2,4 GHz ;`n" +
+    "- changez le canal de la box : un voisin sur le même canal se partage le débit avec vous ;`n" +
+    "- éloignez les brouilleurs : four à micro-ondes, téléphone DECT, adaptateur CPL ;`n" +
+    "- mettez à jour le pilote de la carte Wi-Fi (site du fabricant) : certains décrochent en économie d'énergie ;`n" +
+    "- si le besoin est durable, un câble Ethernet règle la question définitivement."
 }
 
 # Nom du reseau : le profil Windows de l'interface principale — pour du Wi-Fi, c'est le
@@ -405,8 +430,15 @@ $fields = @(
 )
 if ($hasWifi) {
     $fields += New-Field -Key 'wifi' -Label 'Lien Wi-Fi' -Value $wifiText -Kind 'text' -Status $qualStatus `
-        -Help "Qualité du lien radio, jugée sur le débit négocié de la liaison, et sa stabilité sur les 30 dernières minutes." `
+        -Help "Qualité du lien radio, jugée sur le meilleur débit négocié de la liaison au cours des 30 dernières minutes." `
         -Guide $wifiGuide
+    # La stabilite n'a de sens que si le lien est etabli : un adaptateur eteint ou non
+    # associe n'a pas d'association a tenir, la ligne « Lien Wi-Fi » dit deja son etat.
+    if ($wifiUp) {
+        $fields += New-Field -Key 'wifiStability' -Label 'Stabilité' -Value $stabLabel -Kind 'text' -Status $stabStatus `
+            -Help "Continuité de l'association Wi-Fi sur les 30 dernières minutes : compte les décrochages du lien radio." `
+            -Guide $stabGuide
+    }
 }
 $fields += @(
     New-Field -Key 'ip'  -Label 'IP locale (LAN)' -Value $ip  -Kind 'text' -Status 'neutral' -Help "Adresse IPv4 privée de l'interface portant la route par défaut (réseau local)."
@@ -432,11 +464,14 @@ $fields += @(
 if ($measAt) {
     $fields += New-Field -Key 'measAt' -Label 'Mesure du' -Value $measAt -Kind 'date' -Status 'neutral' -Help "Date de la dernière mesure débit/latence."
 }
-# Statut de la CARTE : la connectivite d'abord, mais un lien Wi-Fi degrade doit se voir
-# depuis la liste — sinon la carte reste verte alors qu'une de ses lignes est orange, et
-# l'utilisateur ne la deplie jamais.
+# Statut de la CARTE : la connectivite d'abord, mais un lien Wi-Fi degrade ou instable
+# doit se voir depuis la liste — sinon la carte reste verte alors qu'une de ses lignes
+# est orange, et l'utilisateur ne la deplie jamais. La stabilite « pas encore etablie »
+# ne degrade PAS la carte : c'est une attente normale, comme la latence non mesuree.
 $modStatus = if (-not $connected) { 'warn' }
-             elseif ($hasWifi -and $qualStatus -in @('warn', 'error')) { $qualStatus }
+             elseif ($hasWifi -and $qualStatus -eq 'error') { 'error' }
+             elseif ($hasWifi -and $qualStatus -eq 'warn') { 'warn' }
+             elseif ($hasWifi -and $wifiUp -and $stabEstablished -and $dropCount -gt 0) { 'warn' }
              else { 'ok' }
 
 New-ModuleObject -Id 'net' -Theme 'network' -Label 'Réseau' -Status $modStatus -Fields $fields -Actions @(
