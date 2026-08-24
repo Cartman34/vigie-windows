@@ -27,14 +27,16 @@ Tout est à un clic d'ici, et chaque page est à un clic de n'importe quelle aut
 ## Documents de travail internes
 
 Ce sont la mémoire du projet, pas de la documentation d'usage. Ils restent tels quels.
+Ils sont livrés avec le dépôt, **pas** avec l'archive de distribution : les liens
+ci-dessous mènent donc à GitHub.
 
-- [`docs/DECISIONS-VALIDEES.md`](../DECISIONS-VALIDEES.md) — chaque décision tranchée, numérotée `D01`…
-- [`docs/REPRISE.md`](../REPRISE.md) — où en est le projet, et la suite
-- [`SUIVI.md`](../../SUIVI.md) — journal courant
+- [`docs/DECISIONS-VALIDEES.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/DECISIONS-VALIDEES.md) — chaque décision tranchée, numérotée `D01`…
+- [`docs/REPRISE.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/REPRISE.md) — où en est le projet, et la suite
+- [`SUIVI.md`](https://github.com/Cartman34/vigie-windows/blob/main/SUIVI.md) — journal courant
 - [`CHANGELOG.md`](../../CHANGELOG.md) — historique des changements
-- [`docs/targeting/features.md`](../targeting/features.md) — fonctionnalités cibles, par ID
-- [`docs/implemented/status.md`](../implemented/status.md) — ce qui est réellement fait, par ID
-- [`docs/conventions.md`](../conventions.md), [`docs/technologies.md`](../technologies.md)
+- [`docs/targeting/features.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/targeting/features.md) — fonctionnalités cibles, par ID
+- [`docs/implemented/status.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/implemented/status.md) — ce qui est réellement fait, par ID
+- [`docs/conventions.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/conventions.md), [`docs/technologies.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/technologies.md)
 
 ## État
 

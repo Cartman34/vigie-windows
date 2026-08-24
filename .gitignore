@@ -10,6 +10,11 @@ apps/*/var/
 # d'etre deplace. Ici, quel que soit son dossier, il est ignore.
 **/config.local.psd1
 
+# --- Sorties de fabrication ---
+# Archives de distribution produites par scripts/build-release.ps1. Elles se refabriquent
+# a l'identique depuis les sources : les versionner ferait grossir le depot pour rien.
+dist/
+
 # --- Sauvegardes locales creees pendant l'edition ---
 *.bak-*
 **/.bak-*/

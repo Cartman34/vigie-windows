@@ -55,10 +55,11 @@ The recommended route is the **archive from GitHub Releases** — no git, no clo
 
 1. **Prerequisite**: PowerShell 7 (`pwsh`). `scripts\install.ps1` installs it via winget
    if it is missing.
-2. Download the Vigie archive from the
+2. Download `vigie-<version>.zip` from the
    [Releases page](https://github.com/Cartman34/vigie-windows/releases) and unzip it
    somewhere permanent (not `Downloads`, not a temp folder — the scheduled task will
-   point at this path). *No release is published yet; until then, use the git route.*
+   point at this path). It expands into a single `vigie-<version>/` folder.
+   *If that page is empty, no version has been tagged yet: take the git route below.*
 3. Open PowerShell in that folder and run the prerequisites once:
    ```powershell
    pwsh -ExecutionPolicy Bypass -File .\scripts\install.ps1

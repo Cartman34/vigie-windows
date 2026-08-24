@@ -59,11 +59,12 @@ La voie recommandée est l'**archive publiée dans les Releases GitHub** — ni 
 
 1. **Prérequis** : PowerShell 7 (`pwsh`). `scripts\install.ps1` l'installe via winget s'il
    manque.
-2. Téléchargez l'archive de Vigie depuis la
+2. Téléchargez `vigie-<version>.zip` depuis la
    [page des Releases](https://github.com/Cartman34/vigie-windows/releases) et
    décompressez-la à un endroit durable (ni `Téléchargements`, ni un dossier temporaire :
-   la tâche planifiée pointera sur ce chemin). *Aucune version n'est publiée pour
-   l'instant ; en attendant, passez par git.*
+   la tâche planifiée pointera sur ce chemin). Elle se déplie en un unique dossier
+   `vigie-<version>/`. *Si cette page est vide, aucune version n'a encore été taguée :
+   passez par git, ci-dessous.*
 3. Ouvrez PowerShell dans ce dossier et installez les prérequis, une seule fois :
    ```powershell
    pwsh -ExecutionPolicy Bypass -File .\scripts\install.ps1

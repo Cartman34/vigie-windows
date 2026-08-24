@@ -74,7 +74,7 @@ Aucune de ces pistes n'est implémentée en v0.1.
 - Si elle touche à la sécurité du système, la faire relire ici avant de l'intégrer.
 
 Voir [Sondes et actions](developpement/sondes-et-actions.md) pour la mécanique, et
-[`docs/operating/SECURITY.md`](../operating/SECURITY.md) pour la revue de sécurité interne
+[`docs/operating/SECURITY.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/operating/SECURITY.md) pour la revue de sécurité interne
 du projet.
 
 ## Ce que Vigie ne fait pas

@@ -5,9 +5,9 @@
 Two routes. The **archive** is the recommended one: it needs no git and no developer
 tooling. The **git clone** is for people who intend to read or change the code.
 
-> Vigie is version **0.1 and not published**: no release is available yet, so today the
-> git route is the only one that actually works. The archive route is documented because
-> it is the route Vigie will ship on.
+> Vigie is version **0.1**. The archive is produced by `scripts/build-release.ps1`, and
+> a maintainer attaches it to a GitHub Release. If the Releases page is still empty, no
+> version has been published yet and the git route is the one that works.
 
 ---
 
@@ -28,10 +28,10 @@ There is no Node, no npm, no build step: the front end is one static HTML file.
 ## Route 1 — the published archive (recommended)
 
 1. Go to the [Releases page](https://github.com/Cartman34/vigie-windows/releases) and
-   download the Vigie archive.
-2. Unzip it **somewhere permanent**. The autostart task will store this exact path, so
-   avoid `Downloads`, avoid temporary folders, and do not move the folder afterwards
-   without re-running the autostart script.
+   download `vigie-<version>.zip`.
+2. Unzip it **somewhere permanent**. It expands into a single `vigie-<version>/` folder.
+   The autostart task will store this exact path, so avoid `Downloads`, avoid temporary
+   folders, and do not move the folder afterwards without re-running the autostart script.
 3. Windows marks downloaded files as blocked. Either unblock the folder once:
    ```powershell
    Get-ChildItem -Recurse | Unblock-File
@@ -39,6 +39,24 @@ There is no Node, no npm, no build step: the front end is one static HTML file.
    or use the `.cmd` launchers below, which bypass the execution policy on purpose.
 
 Then follow [First run](#first-run).
+
+### What is in the archive — and what is not
+
+The archive is the **product**, not the repository. It carries the server, the front end,
+the tray app, the installation scripts, this documentation, the licence and the version
+file — around 90 files.
+
+Left out on purpose:
+
+| Not included | Why |
+|---|---|
+| `apps/atelier/` | a development tool (PHP, port 47610) that a user never runs |
+| `scripts/build-release.ps1`, `scripts/install-hooks.ps1`, `scripts/hooks/` | maintainer tooling; they need a git repository, which the archive is not |
+| `scripts/uninstall-legacy.ps1` | a dated, disposable cleanup for machines installed before the project was renamed — irrelevant to a fresh install |
+| The project's internal documents (decision records, backlog, running log, conventions) | the repository's working memory, not user documentation. The doc pages that reference them link to GitHub |
+| `apps/*/var/`, `config.local.psd1`, logs, the API token | runtime data and secrets. They are never versioned, so they can never reach the archive |
+
+If you need any of those, take the git route.
 
 ## Route 2 — git clone
 
@@ -133,7 +151,8 @@ from what you asked it to change on the system:
 ### Leftovers from a pre-rename installation
 
 Machines installed before the project was renamed to Vigie carry an orphan scheduled task
-and shortcut. A dated, disposable script cleans them up:
+and shortcut. A dated, disposable script cleans them up — **it ships with the repository
+only, not with the archive**, since it cannot apply to a fresh install:
 
 ```powershell
 pwsh -ExecutionPolicy Bypass -File .\scripts\uninstall-legacy.ps1 -WhatIf
