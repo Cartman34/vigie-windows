@@ -218,7 +218,9 @@
   .um-sw{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);
          cursor:pointer;white-space:nowrap;padding-top:2px}
   .um-sw input{accent-color:var(--accent)}
-  .um-list{border:1px solid var(--border);border-radius:9px;overflow:hidden;margin-top:10px}
+  .um-sub{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;
+          color:var(--muted);margin:12px 0 0}
+  .um-list{border:1px solid var(--border);border-radius:9px;overflow:hidden;margin-top:6px}
   .um-card{display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:13px;min-height:36px;
            border-bottom:1px solid var(--border);background:var(--panel)}
   .um-card:last-child{border-bottom:none}
@@ -1401,14 +1403,15 @@ async function renderTabModules(pane){
   const on=id=> (id in cfg.modules)? !!cfg.modules[id] : true;
   pane.innerHTML='<p class="um-hint">Couper un module retire ses cartes et ses calculs ; il reste listé ici pour être rallumé. Chaque carte expose ses paramètres — aujourd’hui, sa notification.</p>'+units.map(u=>{
     const cards=(lastModules||[]).filter(m=>m.theme===u.id);
-    const lignes='<div class="um-list">'+cards.map(m=>'<div class="um-card"><span>'+esc(m.label)+'</span>'
-      +'<span class="um-param">notification<span class="swx"><input type="checkbox" data-unotif="'+esc(m.id)+'"'+(on(m.id)?' checked':'')+'><i></i></span></span></div>').join('')+'</div>';
+    const lignes=(cards.length?'<div class="um-sub">Notifications</div>':'')
+      +'<div class="um-list">'+cards.map(m=>'<div class="um-card"><span>'+esc(m.label)+'</span>'
+      +'<span class="um-param"><span class="swx"><input type="checkbox" data-unotif="'+esc(m.id)+'"'+(on(m.id)?' checked':'')+'><i></i></span></span></div>').join('')+'</div>';
     return '<div class="um'+(u.enabled?'':' off')+'" id="um-'+esc(u.id)+'">'
       +'<div class="um-head"><div class="um-t"><b>'+esc(u.label)+'</b><small>'+esc(u.description||'')+'</small></div>'
       +'<span class="um-sw"><span>'+(u.enabled?'Actif':'Coupé')+'</span>'
       +'<span class="swx"><input type="checkbox" data-unit="'+esc(u.id)+'"'+(u.enabled?' checked':'')+'><i></i></span></span></div>'
       +(u.enabled ? lignes : '<div class="um-note">Module coupé : ses cartes ne sont ni calculées ni affichées.</div>')
-      +(u.enabled && (paramCat[u.id]||[]).length ? '<div class="um-list">'+(paramCat[u.id]||[]).map(pr=>
+      +(u.enabled && (paramCat[u.id]||[]).length ? '<div class="um-sub">Paramètres</div><div class="um-list">'+(paramCat[u.id]||[]).map(pr=>
         '<div class="um-card um-pline" title="'+esc(pr.help||'')+'"><span>'+esc(pr.label)+'</span>'
         +'<span class="um-param">'
         +(pr.overridden?'<button class="um-reset" data-preset="'+esc(u.id)+'::'+esc(pr.key)+'" title="Revenir à la valeur par défaut ('+esc(String(pr.default))+(pr.unit?' '+esc(pr.unit):'')+')">défaut</button>':'')
