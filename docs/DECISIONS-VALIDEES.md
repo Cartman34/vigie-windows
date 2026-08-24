@@ -1096,7 +1096,17 @@ Deux règles en découlent :
 1. **Toute vérification passe par un serveur** : `http://127.0.0.1:47600` pour l'application,
    `http://127.0.0.1:47610` pour l'Atelier. Jamais un chemin de fichier.
 2. **Les fichiers du front se modifient par script** (remplacement exact en Python), pas avec
-   l'outil d'édition — c'est ce qui déclenche l'aperçu.
+   l'outil d'édition — c'est ce qui déclenche l'aperçu. Vérifié : une modification par
+   script ne l'a jamais déclenché.
+
+Pistes essayées pour désactiver l'aperçu, **sans succès à ce jour** :
+
+- fermer le panneau navigateur : l'aperçu le **rouvre** ;
+- `disableAllHooks: true` dans `.claude/settings.json` : sans effet dans la session en
+  cours. Le réglage est conservé — il n'y a aucun autre hook dans ce projet — et reste à
+  vérifier après un redémarrage de session ;
+- aucun fichier de hook n'existe sur disque : l'aperçu est intégré au panneau, pas
+  configurable par le dépôt.
 
 Contrepartie assumée : une couche de script a déjà cassé des chaînes JavaScript
 (apostrophes, `\n`). Elle impose donc son garde-fou — recherche des chaînes monoquotes
