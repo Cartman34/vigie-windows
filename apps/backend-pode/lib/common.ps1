@@ -990,7 +990,10 @@ function Start-PkgJob {
     if (-not (Test-Path $stateDir)) { New-Item -ItemType Directory -Path $stateDir -Force | Out-Null }
     $outFile = Join-Path $stateDir 'pkgupdates.json'
     # Marque "en cours" (conserve le dernier compte connu pour l'affichage).
+    # `sel` = les paquets RETENUS : c'est ce qui permet a la carte de dire exactement
+    # ce qui se met a jour (« 1 paquet sur 3 »), au lieu d'un « en cours » muet.
     $entry = @{ checking = $true; op = $Op; startedAt = (Get-Date).ToString('s') }
+    if ($Op -eq 'upgrade' -and $choisis.Count -gt 0) { $entry.sel = @($choisis) }
     if (Test-Path $outFile) {
         try {
             $j = Get-Content $outFile -Raw | ConvertFrom-Json; $e = $j.$Mgr

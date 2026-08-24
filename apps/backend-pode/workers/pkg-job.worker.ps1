@@ -40,6 +40,16 @@ try {
     # Un redemarrage en attente doit se VOIR dans la carte : c'est une action attendue de
     # l'utilisateur, pas une ligne de journal.
     if ($op -eq 'upgrade' -and $up -and $up.reboot) { $etat.reboot = $true }
+    # Le RESULTAT de la mise a jour est conserve pour la carte : sans lui, l'operation se
+    # termine en silence et l'utilisateur ne sait pas ce qui a ete fait ni si ca a marche.
+    if ($op -eq 'upgrade' -and $up) {
+        $etat.last = @{
+            at     = (Get-Date).ToString('s')
+            ok     = [bool]$up.ok
+            count  = if ($up.count) { [int]$up.count } else { 0 }   # 0 = tout le gestionnaire
+            failed = @($up.failed)
+        }
+    }
     Update-StateJson -Path $outFile -Set @{ $mgr = $etat } | Out-Null
     Write-Log -Backend $Backend -Name 'pkgcheck' -Message ("$mgr ($op) : $([int]$u.count) MAJ disponible(s)")
 } catch {
