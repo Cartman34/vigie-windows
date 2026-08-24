@@ -33,12 +33,12 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
 
 ## État — FAIT (déployé sur la machine, validé hors-ligne)
 - Socle asynchrone non bloquant (`Start-DetachedAction`, `Remove-ProbeCache`, `Update-StateJson` avec mutex inter-processus).
-- Paquets : **une carte par gestionnaire**, **vérification ET mise à jour** en tâche de fond (winget/choco/scoop/npm/gem), polling par carte, halo « en cours ».
-- Boutons de résolution : prennent le **libellé de l'action** (plus de « Résoudre » générique), n'apparaissent que si une action existe. **Icônes** : boîte-flèche = logiciel externe ; fenêtre = popin.
+- Paquets : **une carte par gestionnaire**, **vérification ET mise à jour** en tâche de fond (winget/choco/scoop/npm/gem), polling par carte. L'état « en cours » s'affiche dans le **liseré gauche** de la carte, qui clignote (**D46**) — le halo a été supprimé.
+- Boutons de résolution : prennent le **libellé de l'action** (plus de « Résoudre » générique), n'apparaissent que si une action existe. **Icônes** (**D45**) : triangle = action immédiate ; **triangle d'avertissement orange** = confirmation ; liste cochée = fenêtre de choix ; flèche sortante = logiciel externe.
 - Résolutions câblées : Latence → `net-speedtest` ; Windows Update « Détectées » → `open-windows-update` (note raccourcie).
 - WSL : champ **Statut Actif/Inactif** coloré + **trio Démarrer/Redémarrer/Arrêter** (boutons pertinents). Actions `wsl-start`/`wsl-restart` + invalidation sonde.
-- Topbar : **liseré coloré = état de connexion à l'API** (vert live / orange maquette / rouge erreur) ; santé globale dans la topbar.
-- **Icône tray** : `.ico` multi-résolutions nets, design **option B validée** (anneau + graduations + aiguille à talon + point blanc), générés par `apps/tray/assets/generate-icons.py`, chargés par `tray.ps1` (`setIcon`) avec repli GDI+.
+- Topbar : **liseré coloré sous l'en-tête = état de connexion à l'API** (vert live / orange maquette / rouge erreur). À ne pas confondre avec le liseré **gauche** de chaque carte, qui porte le statut de CE module (**D46**).
+- **Icône tray** : `.ico` multi-résolutions nets, design **option B validée** (anneau + graduations + aiguille à talon + point blanc), générés par `apps/tray/assets/generate-icons.py`, chargés par `tray.ps1` (`setIcon`). Le repli GDI+ a été **supprimé** (**D38**) : en cas d'échec, un simple disque de la couleur du statut, et l'échec est journalisé.
 - **Rebrand interface** : « Control Panel » → **« Vigie »** (titre onglet, sous-titre, `document.title`, tray). Le titre principal reste le **nom de la machine** (dynamique).
 
 ## État — À FAIRE (backlog)
