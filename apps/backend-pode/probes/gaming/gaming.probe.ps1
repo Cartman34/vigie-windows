@@ -220,7 +220,9 @@ if ($jeu) {
 }
 
 # --- Repartition : le top par DIMENSION, pour trouver qui prend quoi ----------
-$horsBruit = @(Group-ByApp ($procs.Values | Where-Object { @('Idle','System','Memory Compression','Registry','pwsh','powershell','conhost') -notcontains $_.Name }))
+# svchost agrege (des dizaines de services) dominerait sans rien designer ; dwm reste
+# visible, sa VRAM de compositeur est une vraie information.
+$horsBruit = @(Group-ByApp ($procs.Values | Where-Object { @('Idle','System','Memory Compression','Registry','pwsh','powershell','conhost','svchost') -notcontains $_.Name }))
 function Format-Top {
     param($Liste, [string]$Propriete, [string]$Unite)
     @($Liste | Sort-Object $Propriete -Descending | Select-Object -First 3 |
