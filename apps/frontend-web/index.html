@@ -246,6 +246,19 @@
                 text-decoration:none;font-size:13px;border:1px solid var(--border);
                 border-radius:8px;padding:7px 12px}
   .apropos-repo:hover{border-color:var(--accent)}
+  /* Apparence : cartes-radio de themes. La coche native est masquee, la carte entiere
+     est le controle ; d'autres themes s'ajoutent en une entree de la liste THEMES. */
+  .theme-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+  .theme-opt{border:2px solid var(--border);border-radius:11px;padding:10px;cursor:pointer;
+             display:flex;flex-direction:column;gap:8px;align-items:stretch}
+  .theme-opt:hover{border-color:var(--accent)}
+  .theme-opt.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  .theme-opt input{position:absolute;opacity:0;pointer-events:none}
+  .theme-prev{display:flex;align-items:center;justify-content:center;border-radius:8px;
+              height:64px;border:1px solid var(--border)}
+  .theme-prev-card{border-radius:6px;padding:8px 14px;font-weight:700;font-size:14px;
+                   box-shadow:0 2px 8px rgba(0,0,0,.25)}
+  .theme-nom{font-size:12.5px;font-weight:600;text-align:center}
   .um-dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto;background:var(--border)}
   .um-dot.ok{background:var(--ok)} .um-dot.warn{background:var(--warn)}
   .um-dot.error{background:var(--err)}
@@ -1392,11 +1405,26 @@ async function renderTabModules(pane){
     pendingUnitFocus=null;
   }
 }
-// --- Onglet Apparence ---
+// --- Onglet Apparence : cartes-radio, pretes a accueillir d autres themes ---
+const THEMES=[
+  {id:'dark',  nom:'Thème sombre', fond:'#0d1117', panneau:'#161b22', texte:'#e6edf3'},
+  {id:'light', nom:'Thème clair',  fond:'#e9edf4', panneau:'#ffffff', texte:'#1c2230'}
+];
 function renderTabApparence(pane){
+  const courant = dark ? 'dark' : 'light';
   pane.innerHTML='<p class="um-hint">Le thème s’applique immédiatement. Le bouton rapide reste disponible dans le pied de page.</p>'
-    +'<label class="um-card"><input type="checkbox" id="setDark"'+(dark?' checked':'')+'><span>Thème sombre</span></label>';
-  pane.querySelector('#setDark').onchange=e=>{ if(e.target.checked!==dark) toggleTheme(); };
+    +'<div class="theme-grid">'+THEMES.map(t=>
+      '<label class="theme-opt'+(t.id===courant?' on':'')+'">'
+      +'<input type="radio" name="setTheme" value="'+t.id+'"'+(t.id===courant?' checked':'')+'>'
+      +'<span class="theme-prev" style="background:'+t.fond+'">'
+      +'<span class="theme-prev-card" style="background:'+t.panneau+';color:'+t.texte+'">Aa</span></span>'
+      +'<span class="theme-nom">'+t.nom+'</span></label>').join('')
+    +'</div>';
+  pane.querySelectorAll('[name="setTheme"]').forEach(r=>{ r.onchange=()=>{
+    const versSombre = (r.value==='dark');
+    if(versSombre!==dark) toggleTheme();
+    pane.querySelectorAll('.theme-opt').forEach(o=>o.classList.toggle('on', o.querySelector('input').value===r.value));
+  }; });
 }
 // --- Onglet À propos ---
 function renderTabApropos(pane){
