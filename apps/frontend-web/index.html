@@ -522,7 +522,6 @@ function cardHtml(m, groupLabel){
   const stTxt={ok:'Conforme',warn:'À voir',error:'Problème'}[st];
   const stIc={ok:'✓',warn:'!',error:'✕'}[st];
   const actById={}; (m.actions||[]).forEach(a=>{ actById[a.id]=a; });
-  const usedAsFix=new Set();
   const fields=(m.fields||[]).map(f=>{
     const stt=f.status||'neutral';
     const key=m.id+'::'+f.key;
@@ -544,10 +543,7 @@ function cardHtml(m, groupLabel){
     const detLong = aTable || (!!detTxt && (detTxt.length > 400 || detTxt.split(String.fromCharCode(10)).length > 8));
     const clicDetail = (detTxt||aTable) ? (detLong ? `ouvrirDetail('${key}')` : 'toggleDetail(this)') : '';
     const info=(f.help||f.guide)?`<button class="fhelp ${stt}" title="${help}" onclick="${clicDetail||'toggleDetail(this)'}"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5.5" r="2.3"/><rect x="9.7" y="9.5" width="4.6" height="10.5" rx="2.3"/></svg></button>`:'';
-    const solveLbl = fa ? fa.label : 'Résoudre';
-    if(isProblem && f.fixAction) usedAsFix.add(f.fixAction);
-    const fsev = fa ? (fa.severity||'fix') : 'fix';
-    const solve=(isProblem && f.fixAction)?`<button class="fsolve ${stt} k-${fkind} sev-${fsev}" title="${esc(solveLbl)} — ${KIND_LABEL[fkind]}" onclick="solveField('${key}',this)">${ICONS[fkind]||''}<span>${esc(solveLbl)}</span></button>`:'';
+    const solve='';
     const det = (detTxt && !detLong) ? `<div class="field-detail ${stt}${open}" data-k="${key}">${esc(detTxt)}</div>` : '';
     return `<div class="frow">
       <div class="field"><span class="k"><span class="fdot ${stt}"></span><span class="fk-label${(detTxt||aTable)?' clickable':''}"${help?` title="${help}"`:''}${clicDetail?` onclick="${clicDetail}"`:''}>${f.label}</span>${info}</span><span class="v v-${stt}">${fmt(f)}</span></div>
@@ -556,7 +552,9 @@ function cardHtml(m, groupLabel){
     </div>`;
   }).join('');
   const busy=!!m.busy;
-  const actions=(m.actions||[]).filter(a=>!usedAsFix.has(a.id)).map(a=>{
+  // Aucune action n'est retiree de la barre : celle qui resout un champ y reste, meme
+  // si le champ la designe. C'est en bas qu'on cherche les boutons.
+  const actions=(m.actions||[]).map(a=>{
     const h=(a.help||'').replace(/"/g,'&quot;');
     const kind=a.kind||'immediate';
     const sev=a.severity||'neutral';
