@@ -33,7 +33,19 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
     } catch { }
 
     $u           = $upd[$mg.id]
-    $checking    = [bool]($u -and $u.checking)
+    # Une tache de fond peut MOURIR sans rien ecrire (processus tue, machine arretee) ou
+    # RESTER BLOQUEE. Sans peremption, son drapeau « en cours » ne retombe jamais et la
+    # carte tourne indefiniment -- constate sur une mise a jour winget restee 22 minutes
+    # a 0 % de CPU. Passe ce delai, on considere qu'elle ne reviendra pas.
+    $DELAI_TACHE_MIN = 45
+    $checking = [bool]($u -and $u.checking)
+    $tacheAbandonnee = $false
+    if ($checking -and $u.startedAt) {
+        try {
+            $depuis = ((Get-Date) - [datetime]$u.startedAt).TotalMinutes
+            if ($depuis -gt $DELAI_TACHE_MIN) { $checking = $false; $tacheAbandonnee = $true }
+        } catch { }
+    }
     $op          = if ($checking -and $u.op) { "$($u.op)" } else { 'check' }
     $supported   = ($mg.updMode -ne 'none' -and @($mg.updArgs).Count -gt 0)
     $upSupported = ($null -ne $mg.upgArgs -and @($mg.upgArgs).Count -gt 0)
@@ -67,6 +79,10 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
         }
         $mg2 += ""
         $mg2 += ("Vérifié le : " + $u.at)
+        if ($tacheAbandonnee) {
+            $majStatus = 'warn'
+            $mg2 += "L'opération précédente ne répond plus depuis plus de $DELAI_TACHE_MIN minutes : elle est considérée comme interrompue. Relancez-la si besoin."
+        }
         if ($u.reboot) { $mg2 += "Un REDÉMARRAGE est nécessaire pour terminer la dernière mise à jour." }
         if ($u.error) { $mg2 += ("Erreur lors de la vérification : " + $u.error) }
     } else {
