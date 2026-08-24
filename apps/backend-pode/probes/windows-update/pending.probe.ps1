@@ -92,7 +92,7 @@ if ($null -eq $count) {
         if ($inst.error) { $g += "Erreur : $($inst.error)" }
         if ($inst.redemarrage) {
             $g += "Ce que c'est : les mises à jour sont installées, mais Windows doit redémarrer pour les activer. Ce n'est pas une panne."
-            $g += "Ce que vous pouvez faire : redémarrer quand cela vous arrange (menu Démarrer > Redémarrer). Vigie ne redémarre jamais de lui-même."
+            $g += "Ce que vous pouvez faire : redémarrer quand cela vous arrange (le bouton « Redémarrer Windows » de cette carte, ou menu Démarrer > Redémarrer). Vigie ne redémarre jamais de lui-même."
         }
         if ($echecs -gt 0) {
             $g += "Ce qui a échoué : $echecs mise(s) à jour sur $($inst.total). Le détail par mise à jour est dans le tableau ci-dessous, avec le code d'erreur Windows."
@@ -103,12 +103,27 @@ if ($null -eq $count) {
         $lignes = @()
         if ($detailInst.Count) { foreach ($d in $detailInst) { $lignes += ,@("$($d[0])", "$($d[1])") } }
         elseif ($inst.titres)   { foreach ($t in @($inst.titres)) { $lignes += ,@("$t", '—') } }
+        $restartCountdown = Test-RestartCountdown -Backend $backend
         $champs += New-Field -Key 'install' -Label 'Dernière installation' -Value $val -Kind 'text' -Status $st `
             -Help "Résultat de la dernière installation lancée depuis Vigie." -Guide ($g -join "`n`n") `
+            -FixAction $(if ($inst.redemarrage -and -not $inst.error -and $echecs -eq 0 -and -not $restartCountdown) { 'system-restart' } else { $null }) `
             -Table @{ columns = @('Mise à jour', 'Résultat'); rows = $lignes }
     }
 
     $actions = @()
+    # Le besoin et le geste au MEME endroit : quand la derniere installation attend un
+    # redemarrage, le bouton de redemarrage est disponible dans cette carte aussi (le
+    # champ general « Redémarrage en attente » vit dans la carte Windows, theme system).
+    if ($inst -and $inst.phase -eq 'termine' -and $inst.redemarrage) {
+        if ($restartCountdown) {
+            $actions += New-Action -Id 'system-restart-cancel' -Label 'Annuler le redémarrage' -Severity 'fix' `
+                -BusyLabel 'Annulation…' -Confirm -Help "Annule le redémarrage programmé. Windows reste allumé."
+        } else {
+            $actions += New-Action -Id 'system-restart' -Label 'Redémarrer Windows' -Severity 'fix' `
+                -BusyLabel 'Redémarrage programmé…' -ConfirmTwice -Kind 'confirm' `
+                -Help "Redémarre Windows dans 60 secondes pour terminer les mises à jour installées. Enregistrez votre travail : toutes les applications seront fermées. Le redémarrage reste annulable pendant le délai."
+        }
+    }
     # Recherche EN LIGNE : la sonde ne lit que le cache local de Windows, qui peut etre
     # perime. Ce bouton interroge les serveurs -- c'est long, donc detache.
     $actions += New-Action -Id 'wu-scan' -Label 'Vérifier les mises à jour' -BusyLabel 'Recherche en ligne…' -Kind 'immediate' `
