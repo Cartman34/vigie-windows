@@ -535,8 +535,24 @@ function New-ModuleObject {
         # boutons de la carte : on ne sait plus lequel travaille.
         [string]$BusyAction
     )
+    # INVARIANT : une carte n'est jamais PLUS GRAVE que le pire de ses champs. Une carte
+    # « Problème » (rouge) dont aucune ligne n'est rouge est une contradiction que
+    # l'utilisateur voit immediatement, et il n'a nulle part ou aller pour la resoudre.
+    # La borne est posee ICI, une seule fois, pour toutes les sondes (aucune ne peut plus
+    # l'oublier). Les champs « neutral » ne bornent RIEN : ils ne portent pas de jugement,
+    # une carte verte faite de lignes neutres reste legitime.
+    $rank = @{ neutral = 0; ok = 1; warn = 2; error = 3 }
+    $cap = 0
+    foreach ($f in @($Fields)) {
+        $s = "$($f.status)"
+        if ($s -and $rank.ContainsKey($s) -and $rank[$s] -gt $cap) { $cap = $rank[$s] }
+    }
+    $effective = $Status
+    if ($cap -gt 0 -and $rank["$Status"] -gt $cap) {
+        $effective = ($rank.GetEnumerator() | Where-Object { $_.Value -eq $cap }).Name
+    }
     $o = [ordered]@{
-        id = $Id; theme = $Theme; label = $Label; status = $Status
+        id = $Id; theme = $Theme; label = $Label; status = $effective
         fields = @($Fields); actions = @($Actions)
     }
     if ($Busy) { $o['busy'] = $true }
