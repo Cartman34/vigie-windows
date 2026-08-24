@@ -21,7 +21,7 @@ Ajouter une décision = ajouter son numéro à une ligne.
 - **Identité et nommage** — D03 · D04 · D05 · D28 · D30 · D41
 - **Structure du dépôt** — D29 · D32 · D33 · D35
 - **Configuration** — D15 · D18
-- **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42
+- **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45
 - **Sécurité et installation** — D07 · D11 · D22 · D34
 - **Outillage** — D06 · D21 · D24 · D40 · D44
 - **Méthode de travail** — D10 · D12 · D13 · D14 · D16 · D17 · D31 · D36 · D39 · D43
@@ -1027,3 +1027,43 @@ Deux besoins distincts, désormais distingués dans le contrat :
 Le bouton appelait la même route que le chargement : il rendait la main aussitôt en
 réaffichant les mêmes valeurs, donc il ne rafraîchissait rien. `Get-State` acceptait déjà
 `-Force` ; la route ne le passait simplement jamais.
+
+## D45 — Installer les mises à jour Windows depuis Vigie, au choix
+
+L'application ne savait qu'**ouvrir** Windows Update. Elle peut désormais **installer**, mais
+jamais en bloc : l'utilisateur coche ce qu'il veut dans une fenêtre de choix.
+
+Le parcours en deux temps, volontaire :
+
+1. `wu-list-pending` — lecture seule, recherche **locale** (`Online = $false`, comme la
+   sonde) : renvoie titre, KB, taille et un identifiant stable par mise à jour ;
+2. `wu-install` — reçoit les identifiants **retenus** et lance un worker détaché.
+
+Une liste vide est **refusée** plutôt qu'interprétée comme « tout ». Le verrou du Mode MAJ
+est détecté **avant** de lancer quoi que ce soit : le dire coûte une seconde, le découvrir
+après dix minutes d'installation ratée coûte la confiance.
+
+**Détaché, donc increvable** : une installation dure des minutes. Portée par la requête
+HTTP, une fermeture d'onglet l'interromprait en plein téléchargement. Ici le navigateur peut
+disparaître, l'installation continue, et la carte reprend son état à la reconnexion.
+
+Le résultat rapporté est celui **constaté** — code de retour de `Install()`, réussite
+partielle (code 3) distinguée de la réussite, redémarrage requis signalé (**D43**).
+
+### Quatrième type d'action : `dialog`
+
+Trois types ne suffisaient plus, et deux se ressemblaient trop à l'écran :
+
+| Type | Icône | Sens |
+|---|---|---|
+| `immediate` | triangle « lecture » gris | part tout de suite |
+| `confirm` | **triangle d'avertissement orange** | demande un oui/non |
+| `dialog` | liste cochée bleue | ouvre une fenêtre de **choix** dans l'application |
+| `manual` | flèche sortante bleue | ouvre un **logiciel externe** |
+
+L'icône de `confirm` était un rectangle de fenêtre depuis l'import initial : il se lisait
+comme une case vide, pas comme une mise en garde.
+
+**Manquement à ne pas reproduire** : cette fonction a été demandée **cinq fois** avant
+d'être faite. Une demande répétée qui reste sans réponse n'est pas une demande de moindre
+priorité — c'est la plus urgente.
