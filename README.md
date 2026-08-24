@@ -1,81 +1,107 @@
 # Vigie
 
-> **Local-only control panel for a single Windows PC.** Locks the Windows Update task
-> folders (ACL deny for SYSTEM) to stop forced reboots, and surfaces system, security,
-> network, WSL and package-manager health as live cards. PowerShell/Pode backend +
-> tray app, bound to 127.0.0.1 with a bearer token and a strict action whitelist.
+**English** · [Français](README.fr.md)
 
-**Vigie** est un tableau de bord **local** pour *surveiller et piloter* un PC Windows :
-verrouillage de Windows Update (sans redémarrage forcé), disque, WSL, sécurité de la
-virtualisation, réseau, gestionnaires de paquets… Interface web locale + application
-dans la barre système, lancée avec la session.
+**A local control panel for one Windows PC.** Vigie watches Windows Update, disk, memory,
+network, WSL, security and your package managers, and shows the whole thing as a set of
+cards in a browser window. Its headline feature: it **holds Windows Update shut** so
+Windows can never reboot your machine on its own — while still letting you install
+updates whenever *you* decide to.
 
-> Le projet s'appelle **Vigie** (dépôt `vigie-windows`). « HYPERION » est le **nom de la machine**
-> de l'utilisateur, jamais un nom de code du projet : toute occurrence restante est un défaut de
-> généricité (valeur machine codée en dur) à corriger.
+Repository: <https://github.com/Cartman34/vigie-windows>
 
-Dépôt : https://github.com/Cartman34/vigie-windows
+> **Version 0.1 — not released yet.** There is no published release, no installer and no
+> stability promise. The code runs on the author's machine; expect rough edges, and read
+> the points below before installing it on yours.
 
-## Deux briques, deux noms, deux serveurs
+---
 
-Il ne faut **jamais** les confondre : l'une est le produit, l'autre un outil de travail.
+## Read this before you install
 
-|  | **Vigie** | **Atelier** |
-|---|---|---|
-| Nature | l'**application** livrée | **outil de développement** interne |
-| À quoi ça sert | surveiller et piloter le PC | juger à l'œil ce qu'aucun parseur ne valide |
-| Serveur | **PowerShell + Pode** | **PHP** (`php -S`) |
-| Port | **47600** | **47610** |
-| Élévation | **oui** (`RunLevel Highest`) | **non**, jamais |
-| Lancé par | tâche planifiée `Vigie`, à l'ouverture de session | à la main : `docstelier.cmd` |
-| Code | `apps/backend-pode/`, `apps/frontend-web/`, `apps/tray/` | `apps/atelier/` |
-| Accès aux sondes, actions, secrets | oui | **aucun** |
-| Doit tourner pour l'utilisateur final | oui | non |
+Vigie is not a passive monitor. Three things you must know:
 
-**Pourquoi PowerShell reste le serveur de l'application** — et pas PHP :
+1. **It locks Windows Update.** When the lock is on, automatic updates are switched off
+   (`NoAutoUpdate`) and an ACL lock prevents Windows from re-enabling its update tasks.
+   No update installs itself, and **no reboot is ever forced** — but nothing installs
+   itself either. Keeping a machine patched becomes *your* deliberate act, from Vigie's
+   "Update mode" or from Windows Settings. See [Windows Update](docs/en/windows-update.md).
+2. **It runs as administrator.** Reading and applying that lock means registry writes
+   under `HKLM`, scheduled-task changes and ACL changes. The scheduled task that starts
+   Vigie is registered with the highest privileges, and starting it by hand triggers a
+   UAC prompt. Every elevation is explained in a window *before* the UAC prompt appears.
+3. **It listens on 127.0.0.1 only** — never on a network interface. The API requires a
+   bearer token, checks the request origin, and only runs actions from a fixed
+   whitelist. There is one known residual risk (the token is injected into the served
+   page), described honestly in [Security](docs/en/security.md).
 
-1. **L'élévation.** Le verrouillage de Windows Update pose des ACL (`icacls`/`takeown`),
-   désactive des tâches planifiées et écrit dans `HKLM`. Ce qui sert l'API doit donc
-   être élevé. Un serveur HTTP tournant en administrateur est une surface d'attaque bien
-   plus large qu'un processus PowerShell dédié.
-2. **La concurrence.** `php -S` traite **une requête à la fois** (mesuré : 2 s seule,
-   4,0 s à deux). L'interface rafraîchit carte par carte et interroge en boucle : une
-   sonde lente bloquerait tout le reste.
-3. **Le coût des processus.** Un `pwsh` froid coûte **~350 ms** avant de travailler.
-   À 12 sondes, un appel par sonde ferait **~4,2 s** de pur démarrage à chaque
-   rafraîchissement complet. Aujourd'hui tout vit dans un runtime déjà chaud :
-   `/health` répond en **65 ms**.
+---
 
-PHP est donc **volontairement cantonné à l'outillage**. Il n'entre pas dans l'application,
-et l'Atelier n'a aucun rôle à l'exécution du produit.
+## What it actually does
 
-## Principes directeurs
-1. **Contract-first** — le contrat REST (`apps/backend-pode/api/openapi.yaml`) est la source de vérité.
-   Le front ne connaît que ce contrat ; le back n'en est qu'une implémentation
-   (Pode/PowerShell aujourd'hui, remplaçable sans toucher au front).
-2. **Générique et extensible** — socle à base de **sondes** (lecture d'état) et
-   d'**actions**, regroupées par **thème**. Ajouter une sonde = déposer un fichier dans
-   `apps/backend-pode/probes/<theme>/`, sans modifier ni le contrat, ni le front.
-3. **Front statique** — HTML/CSS/JS pur, aucun rendu serveur, uniquement `fetch()`.
-4. **Non bloquant** — toute opération longue (MAJ paquets, mesure réseau, WSL…) tourne
-   en **tâche de fond** ; l'UI reste réactive et chaque carte s'actualise seule.
-5. **Sécurité** — API strictement locale (127.0.0.1) + jeton Bearer + anti-CSRF +
-   liste blanche d'actions. Jamais une porte dérobée.
+| Theme | Cards |
+|---|---|
+| **Windows Update** | update lock (auto-updates, ACL lock, disabled vs. active tasks, pending reboot), pending updates (online scan, selective install), history (last reboot, WaaSMedic) |
+| **System** | Windows edition/activation/build, C: free space against a threshold, RAM/CPU/uptime |
+| **Network** | connectivity, connection type, Wi-Fi, local IP, public IP, IPv6, MAC, VPN, on-demand latency and throughput measurement |
+| **Security** | antivirus (name, active, up to date), firewall profiles, VBS and memory integrity (HVCI) |
+| **WSL** | installed, default distribution, running/stopped, start / restart / shut down |
+| **Package managers** | one card per manager found in `PATH` (winget, Chocolatey, Scoop, npm, pnpm, Yarn, pip, pipx, Cargo, RubyGems, .NET SDK) — version, available updates, background upgrade |
 
-## Arborescence
-    api/            Contrat REST (openapi.yaml) — SOURCE DE VERITE
-    frontend/       Front statique (dashboard). mock/ = jeu de donnees sans back
-    backend/        Implementation Pode : lib/, probes/<theme>/, actions/, workers/, assets/
-    docs/           Documentation + docs/DECISIONS-VALIDEES.md (a ne jamais perdre)
+Full detail, card by card: [What Vigie monitors](docs/en/features.md).
 
-## Sécurité / ce qui n'est jamais versionné
-`apps/backend-pode/var/secrets/` (jeton API), `apps/backend-pode/var/cache/` (cache/état), `apps/*/var/log/` — voir `.gitignore`.
+## Quick start
 
-## Démarrage rapide
-- **Front seul (maquette)** : ouvrir `apps/frontend-web/index.html` (utilise `apps/frontend-web/mock/state.json`).
-- **Complet** : lancer le serveur (voir `PRISE-EN-MAIN.md`) — l'app se sert sur `http://127.0.0.1:47600`.
+The recommended route is the **archive from GitHub Releases** — no git, no clone.
 
-## Reprise / contexte
-- **Contexte pour Claude Code** : `CLAUDE.md`
-- État courant & prochaines actions : `SUIVI.md`, `PRISE-EN-MAIN.md`
-- **Décisions validées** : `docs/DECISIONS-VALIDEES.md`
+1. **Prerequisite**: PowerShell 7 (`pwsh`). `scripts\install.ps1` installs it via winget
+   if it is missing.
+2. Download the Vigie archive from the
+   [Releases page](https://github.com/Cartman34/vigie-windows/releases) and unzip it
+   somewhere permanent (not `Downloads`, not a temp folder — the scheduled task will
+   point at this path). *No release is published yet; until then, use the git route.*
+3. Open PowerShell in that folder and run the prerequisites once:
+   ```powershell
+   pwsh -ExecutionPolicy Bypass -File .\scripts\install.ps1
+   ```
+4. Start it (a UAC prompt appears — Vigie needs administrator rights):
+   ```powershell
+   pwsh -ExecutionPolicy Bypass -File .\scripts\run.ps1
+   ```
+   The browser opens on <http://127.0.0.1:47600/> once the server is actually listening.
+5. To get it back at every logon, with a tray icon:
+   ```powershell
+   pwsh -ExecutionPolicy Bypass -File .\scripts\install-autostart.ps1
+   ```
+
+The git route, what each script does, and how to uninstall:
+[Installation](docs/en/install.md). First run and how to read the dashboard:
+[Getting started](docs/en/getting-started.md).
+
+## Documentation
+
+| | |
+|---|---|
+| [Documentation index](docs/en/README.md) | everything, in one page |
+| [Installation](docs/en/install.md) | archive or git clone, autostart, uninstall |
+| [Getting started](docs/en/getting-started.md) | first launch, tray icon, reading a card |
+| [What Vigie monitors](docs/en/features.md) | every card and every action |
+| [Windows Update](docs/en/windows-update.md) | the lock, update mode, installing updates |
+| [Security](docs/en/security.md) | elevation, local binding, token, residual risk |
+| [Configuration](docs/en/configuration.md) | port, external tooling, local overrides |
+| [Troubleshooting](docs/en/troubleshooting.md) | logs, tray commands, common failures |
+| **[Development](docs/en/development/README.md)** | architecture, probes and actions, contributing |
+
+## Requirements
+
+- Windows 10 or 11.
+- **PowerShell 7** (`pwsh`) — installed by `scripts\install.ps1` if absent.
+- The **Pode** PowerShell module — installed by the same script.
+- Administrator rights, for the Windows Update actions and the autostart task.
+- A Chromium-based browser (Edge or Chrome) for the dedicated app window; any browser
+  works for the plain page.
+
+No Node, no build step, no package manager: the front end is a single static HTML file.
+
+## Licence
+
+No licence file is present in the repository yet.

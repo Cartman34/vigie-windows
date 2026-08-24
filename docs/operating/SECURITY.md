@@ -1,5 +1,9 @@
 # Revue de securite
 
+> Document **interne** : la revue, a relire a chaque ajout d'action. La page destinee aux
+> utilisateurs est [`docs/fr/securite.md`](../fr/securite.md)
+> ([English](../en/security.md)) — elle dit la meme chose sans le detail d'implementation.
+
 L'outil expose une API REST **locale** qui peut piloter Windows, potentiellement
 depuis un serveur **eleve** (demarrage automatique). Cette page recense les
 risques et les mesures. A relire a chaque ajout d'action.
