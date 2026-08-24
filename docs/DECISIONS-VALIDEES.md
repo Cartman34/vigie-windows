@@ -23,7 +23,7 @@ Ajouter une décision = ajouter son numéro à une ligne.
 - **Configuration** — D15 · D18
 - **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42
 - **Sécurité et installation** — D07 · D11 · D22 · D34
-- **Outillage** — D06 · D21 · D24 · D40
+- **Outillage** — D06 · D21 · D24 · D40 · D44
 - **Méthode de travail** — D10 · D12 · D13 · D14 · D16 · D17 · D31 · D36 · D39 · D43
 
 ---
@@ -995,3 +995,35 @@ la vérification PowerShell qui ne validait aucun fichier tout en affichant « O
 tray. Après un redémarrage du tray, l'ancien serveur devient orphelin et `$startServer` sort
 immédiatement puisque le port répond — le tray sert alors indéfiniment du code périmé. C'est
 ce qui a fait croire, ce jour-là, que le correctif du 500 n'avait rien changé.
+
+## D44 — Le cache d'état comparait des heures de fuseaux différents
+
+Les dates du cache sont écrites en **UTC** (`ToUniversalTime().ToString('o')`) mais étaient
+comparées à `Get-Date`, qui rend l'heure **locale**. Sur un poste à UTC+2, toute entrée
+paraissait donc vieille de deux heures : **aucune n'a jamais été jugée fraîche**.
+
+Conséquence mesurée : chaque appel à `/state` recalculait les **douze** sondes — environ
+21 s, dont 10 s pour la seule sonde `lock`. Le cache, son TTL par sonde, son invalidation
+par empreinte de code et son verrou anti-troupeau étaient tous corrects — et tous inutiles.
+Après correction : **0,3 s** au lieu de 21 s.
+
+La normalisation est faite en un seul endroit, `ConvertTo-UtcDate` : `ConvertFrom-Json`
+rend tantôt une chaîne, tantôt un `[datetime]`, avec un `Kind` qui peut valoir `Utc`,
+`Local` ou `Unspecified`. Comparer sans normaliser est un piège qui se represente à chaque
+nouvelle lecture de date.
+
+**Règle** : une date qui traverse un fichier se compare en UTC des deux côtés. Le seul
+moyen de le vérifier est de **mesurer** l'âge obtenu, pas de relire le code — les deux
+lignes fautives étaient chacune correcte prise isolément.
+
+### Rafraîchir n'est pas recharger
+
+Deux besoins distincts, désormais distingués dans le contrat :
+
+- **chargement de la page** — `GET /state` : peut servir le cache, doit s'afficher vite ;
+- **bouton « Rafraîchir »** — `GET /state?fresh=1` : **recalcule** les sondes (≈ 24 s,
+  bouton désactivé et animé pendant l'opération).
+
+Le bouton appelait la même route que le chargement : il rendait la main aussitôt en
+réaffichant les mêmes valeurs, donc il ne rafraîchissait rien. `Get-State` acceptait déjà
+`-Force` ; la route ne le passait simplement jamais.
