@@ -86,8 +86,16 @@ Add-PodeRoute -Method Post -Path "$base/notifications" -ScriptBlock {
     $d = $WebEvent.Data
     $mods = $null
     if ($d -and $d.modules) {
+        # Pode livre le corps JSON en DICTIONNAIRE (pas en PSCustomObject) : enumerer
+        # PSObject.Properties decrirait alors le conteneur (Keys, IsReadOnly...) et non
+        # les cles -- c'est arrive : le fichier portait un module « True ». On gere les
+        # deux formes explicitement.
         $mods = @{}
-        foreach ($pr in $d.modules.PSObject.Properties) { $mods[$pr.Name] = [bool]$pr.Value }
+        if ($d.modules -is [System.Collections.IDictionary]) {
+            foreach ($k in @($d.modules.Keys)) { $mods["$k"] = [bool]$d.modules[$k] }
+        } else {
+            foreach ($pr in $d.modules.PSObject.Properties) { $mods["$($pr.Name)"] = [bool]$pr.Value }
+        }
     }
     $en = if ($d -and $null -ne $d.enabled) { [bool]$d.enabled } else { $null }
     Write-PodeJsonResponse -Value (Set-NotificationSettings -Backend $env:VIGIE_BACKEND -Enabled $en -Modules $mods) -Depth 4
