@@ -25,12 +25,24 @@ try {
         try { $pilote = ($u.Type -eq 2) } catch { }   # 2 = ushDriver
         $kb = @()
         try { foreach ($k in $u.KBArticleIDs) { $kb += "KB$k" } } catch { }
+        # Deux pilotes portent souvent le MEME titre (« Lenovo System Driver Update »),
+        # a la version pres. Sans element distinctif, la liste demande de choisir entre
+        # deux lignes identiques. On expose donc le materiel vise et la date du pilote.
+        $modele = ''
+        try { if ($u.DriverModel)  { $modele = "$($u.DriverModel)" } } catch { }
+        $classe = ''
+        try { if ($u.DriverClass)  { $classe = "$($u.DriverClass)" } } catch { }
+        $dateP = ''
+        try { if ($u.DriverVerDate) { $dateP = ([datetime]$u.DriverVerDate).ToString('yyyy-MM-dd') } } catch { }
         $updates += [ordered]@{
             id        = "$($u.Identity.UpdateID)"
             titre     = "$($u.Title)"
             kb        = ($kb -join ', ')
             octets    = $taille
             pilote    = $pilote
+            modele    = $modele
+            classe    = $classe
+            dateP     = $dateP
             telecharge = [bool]$u.IsDownloaded
         }
     }
