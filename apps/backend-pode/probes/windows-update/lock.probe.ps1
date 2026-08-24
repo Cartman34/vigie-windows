@@ -47,8 +47,21 @@ if ($elevated) {
 
 # Redemarrage : propose SEULEMENT quand il est utile, et toujours annulable.
 $restartFile = Get-VarPath -Backend $backend -Kind 'cache' -File 'restart.json'
+# Un compte a rebours EXPIRE n'est plus annulable : soit la machine a redemarre, soit il a
+# ete annule ailleurs. Le drapeau seul resterait vrai pour toujours -- au retour du
+# redemarrage, la carte aurait propose d'annuler un redemarrage deja survenu.
+# On borne donc dans le TEMPS : annulable tant que le delai court, avec une marge.
 $restartPending = $false
-try { if (Test-Path $restartFile) { $restartPending = [bool](Get-Content $restartFile -Raw | ConvertFrom-Json).pending } } catch { }
+try {
+    if (Test-Path $restartFile) {
+        $j = Get-Content $restartFile -Raw | ConvertFrom-Json
+        if ($j.pending -and $j.at) {
+            $delaiPrevu = if ($j.delay) { [int]$j.delay } else { 60 }
+            $ecoule = ([datetime]::UtcNow - (ConvertTo-UtcDate $j.at)).TotalSeconds
+            $restartPending = ($ecoule -ge 0 -and $ecoule -lt ($delaiPrevu + 15))
+        }
+    }
+} catch { }
 if ($restartPending) {
     $actions += New-Action -Id 'system-restart-cancel' -Label 'Annuler le redémarrage' -Severity 'fix' `
         -BusyLabel 'Annulation…' -Confirm -Help "Annule le redémarrage programmé. Windows reste allumé."
