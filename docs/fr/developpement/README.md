@@ -26,7 +26,9 @@ apps/
   tray/tray.ps1            L'app de la barre système (WinForms) + assets/
   atelier/                 Outil interne de validation visuelle (PHP) — hors produit
 scripts/                   install, run, démarrage auto, désinstallation, pilote du tray, hooks git
+  build-release.ps1          Fabrique l'archive de distribution
 docs/                      Cette documentation + les documents de travail internes
+dist/                      Sortie de fabrication (ignorée par git)
 ```
 
 ## Lancer depuis les sources
@@ -66,7 +68,7 @@ le navigateur refuse d'afficher la page dans un cadre.
    complet. Tout vit dans un runtime déjà chaud : `/health` répond en **65 ms**.
 
 PHP est volontairement cantonné à l'outillage. Voir
-[`apps/atelier/README.md`](../../../apps/atelier/README.md).
+[`apps/atelier/README.md`](https://github.com/Cartman34/vigie-windows/blob/main/apps/atelier/README.md).
 
 ## Conventions
 
@@ -83,8 +85,8 @@ PHP est volontairement cantonné à l'outillage. Voir
 - **Constater le résultat, ne pas croire le code de retour.** Après un changement, relire le
   système et rapporter ce qu'on a réellement obtenu.
 
-Le détail : [`docs/conventions.md`](../../conventions.md) et
-[`docs/technologies.md`](../../technologies.md).
+Le détail : [`docs/conventions.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/conventions.md) et
+[`docs/technologies.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/technologies.md).
 
 ## Comment valider un changement
 
@@ -93,7 +95,128 @@ Le détail : [`docs/conventions.md`](../../conventions.md) et
 | PowerShell | `[System.Management.Automation.Language.Parser]::ParseFile(...)` sur chaque `.ps1` / `.psd1` modifié, et on rapporte la sortie réelle |
 | JavaScript du front | charger la page **en HTTP** dans un navigateur et lire la console. Une erreur de syntaxe empêche l'exécution de tout le bloc `<script>` : vérifier qu'une constante définie en fin de fichier existe prouve que le fichier parse |
 | Lanceurs | `.cmd` et `.vbs` doivent rester ASCII, octet par octet |
-| Tout ce qui est visuel | l'Atelier — voir [`apps/atelier/README.md`](../../../apps/atelier/README.md) |
+| Tout ce qui est visuel | l'Atelier — voir [`apps/atelier/README.md`](https://github.com/Cartman34/vigie-windows/blob/main/apps/atelier/README.md) |
+
+## Publier une version
+
+```powershell
+pwsh -File .\scripts\build-release.ps1 -ListOnly   # voir exactement ce qui partirait
+pwsh -File .\scripts\build-release.ps1             # produit dist/vigie-<version>.zip
+```
+
+Le nom de l'archive vient du fichier `VERSION`, et de nulle part ailleurs. Pour publier :
+incrémenter `VERSION`, committer, pousser le tag correspondant (`v0.1` pour `0.1`), lancer
+le script, et attacher `dist/vigie-<version>.zip` à la Release GitHub. Le
+[workflow ci-dessous](#automatiser--le-workflow-de-publication) fait tout cela seul, une
+fois installé.
+
+**Comment l'archive reste propre.** La liste des fichiers vient de `git ls-files`, jamais
+d'un parcours du disque. Tout ce que `.gitignore` ignore — le jeton d'API, `var/`, les
+journaux, `config.local.psd1`, les `*.bak-*` — n'est donc même pas candidat : on ne peut
+pas oublier d'exclure ce qui n'a jamais été proposé. Par-dessus, une liste d'exclusions
+retire ce qui **est** versionné mais n'a rien à faire chez un utilisateur (l'Atelier, les
+scripts de mainteneur, les documents de travail internes) ; chaque règle porte sa raison
+dans le script. Enfin un garde-fou relit la liste, puis l'archive produite, et s'arrête
+avec le code `2` plutôt que de livrer un doute.
+
+Conséquence à garder en tête : exclure un fichier casse tous les liens de documentation
+qui le visaient. Ces liens sont écrits en URL GitHub absolue, et la fabrication signale
+ceux qui ne résolvent plus nulle part dans l'archive.
+
+Codes de retour : `0` fabriquée, `1` prérequis manquant, `2` fichier interdit détecté
+(rien n'est écrit), `3` échec de fabrication.
+
+### Automatiser : le workflow de publication
+
+Le dépôt ne porte pas de dossier `.github/workflows/`. GitHub refuse un push qui ajoute ou
+modifie un fichier de workflow si l'identifiant qui pousse n'a pas la portée **workflow**,
+et le jeton avec lequel ce projet pousse ne l'a pas. Le workflow vit donc ici, en entier,
+plutôt qu'à moitié committé à un endroit où il ne pourrait plus être mis à jour.
+
+Deux façons de l'installer, l'une comme l'autre en une fois :
+
+- **Par l'interface web de GitHub** — *Actions* → *New workflow* → *set up a workflow
+  yourself*, nommer le fichier `release.yml`, coller le bloc ci-dessous, committer.
+  L'interface web n'est pas soumise à la portée du jeton.
+- **Ou accorder la permission** — donner au jeton **Workflows: read and write** (jeton
+  *fine-grained* : *Repository permissions* → *Workflows*), puis committer le fichier dans
+  `.github/workflows/release.yml` et pousser normalement.
+
+Il n'utilise que `actions/checkout` (maintenue par GitHub) et `gh`, préinstallé sur
+`windows-latest`. À savoir : il n'a jamais été exécuté — il est écrit, pas éprouvé.
+
+```yaml
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write        # necessaire pour creer la Release et y attacher l'archive
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Recuperer les sources
+        uses: actions/checkout@v4
+        # Le script lit la liste des fichiers avec « git ls-files » : il lui faut un vrai
+        # depot git, c'est exactement ce que fournit ce checkout.
+
+      - name: Verifier que le tag correspond au fichier VERSION
+        shell: pwsh
+        run: |
+          # Le numero de version n'a qu'UNE definition : le fichier VERSION (D15). Le tag
+          # doit s'y conformer, sinon la Release s'appellerait autrement que son archive.
+          $version = "$(Get-Content -LiteralPath VERSION -Raw)".Trim()
+          $tag = "${{ github.ref_name }}"
+          $attendu = "v$version"
+          if ($tag -ne $attendu) {
+            Write-Host "::error::Le tag '$tag' ne correspond pas au fichier VERSION ('$version', soit '$attendu'). Mets à jour VERSION, ou retire et repose le tag."
+            exit 1
+          }
+          Write-Host "Tag '$tag' conforme au fichier VERSION."
+          "version=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Fabriquer l'archive
+        shell: pwsh
+        run: |
+          # Le script s'arrete de lui-meme (code 2) si un fichier interdit approche de
+          # l'archive : aucun controle n'est repris ici, il vivrait en double.
+          ./scripts/build-release.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Publier la Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # On constate le resultat avant de publier, on ne se fie pas au seul code de
+          # retour de l'etape precedente (D43).
+          $zip = "dist/vigie-$env:version.zip"
+          if (-not (Test-Path -LiteralPath $zip)) {
+            Write-Host "::error::Archive introuvable : $zip"
+            exit 1
+          }
+          Write-Host ("Archive : {0} ({1:N0} octets)" -f $zip, (Get-Item $zip).Length)
+
+          $arguments = @(
+            'release', 'create', "${{ github.ref_name }}", $zip,
+            '--title', "Vigie ${{ github.ref_name }}",
+            '--generate-notes'
+          )
+          # Tant que Vigie est en 0.x, rien n'est presente comme une version stable.
+          if ($env:version.StartsWith('0.')) { $arguments += '--prerelease' }
+          gh @arguments
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+```
+
+Ce qu'il garantit : un tag en désaccord avec `VERSION` arrête l'exécution avant toute
+fabrication ; l'existence de l'archive est constatée avant de créer la Release ; et tant
+que la version est en `0.x`, la Release est marquée avant-première.
 
 ## À ne jamais committer
 
@@ -111,8 +234,8 @@ Le détail : [`docs/conventions.md`](../../conventions.md) et
 Mémoire du projet, pas documentation d'usage — à lire avant de proposer un changement qui
 reviendrait sur une décision déjà tranchée.
 
-- [`docs/DECISIONS-VALIDEES.md`](../../DECISIONS-VALIDEES.md) — chaque décision tranchée, numérotée `D01`…, avec le raisonnement et les pistes écartées
-- [`docs/REPRISE.md`](../../REPRISE.md) — où en est le projet, et le backlog
-- [`SUIVI.md`](../../../SUIVI.md), [`CHANGELOG.md`](../../../CHANGELOG.md)
-- [`docs/targeting/features.md`](../../targeting/features.md) — les fonctionnalités cibles par ID · [`docs/implemented/status.md`](../../implemented/status.md) — ce qui est réellement fait, avec les mêmes ID
-- [`docs/operating/SECURITY.md`](../../operating/SECURITY.md) — la revue de sécurité interne
+- [`docs/DECISIONS-VALIDEES.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/DECISIONS-VALIDEES.md) — chaque décision tranchée, numérotée `D01`…, avec le raisonnement et les pistes écartées
+- [`docs/REPRISE.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/REPRISE.md) — où en est le projet, et le backlog
+- [`SUIVI.md`](https://github.com/Cartman34/vigie-windows/blob/main/SUIVI.md), [`CHANGELOG.md`](../../../CHANGELOG.md)
+- [`docs/targeting/features.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/targeting/features.md) — les fonctionnalités cibles par ID · [`docs/implemented/status.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/implemented/status.md) — ce qui est réellement fait, avec les mêmes ID
+- [`docs/operating/SECURITY.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/operating/SECURITY.md) — la revue de sécurité interne

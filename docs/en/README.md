@@ -27,15 +27,16 @@ Everything is one click from here, and every page is one click from any other.
 ## Internal working documents
 
 These are the project's own memory, not user documentation. They are French-only, and
-they are deliberately left as they are.
+they are deliberately left as they are. They ship with the repository, **not** with the
+distribution archive, so the links below point at GitHub.
 
-- [`docs/DECISIONS-VALIDEES.md`](../DECISIONS-VALIDEES.md) — every settled decision, numbered `D01`…
-- [`docs/REPRISE.md`](../REPRISE.md) — where the project stands and what comes next
-- [`SUIVI.md`](../../SUIVI.md) — running log
+- [`docs/DECISIONS-VALIDEES.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/DECISIONS-VALIDEES.md) — every settled decision, numbered `D01`…
+- [`docs/REPRISE.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/REPRISE.md) — where the project stands and what comes next
+- [`SUIVI.md`](https://github.com/Cartman34/vigie-windows/blob/main/SUIVI.md) — running log
 - [`CHANGELOG.md`](../../CHANGELOG.md) — change history
-- [`docs/targeting/features.md`](../targeting/features.md) — target features, by ID
-- [`docs/implemented/status.md`](../implemented/status.md) — what is really implemented, by ID
-- [`docs/conventions.md`](../conventions.md), [`docs/technologies.md`](../technologies.md)
+- [`docs/targeting/features.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/targeting/features.md) — target features, by ID
+- [`docs/implemented/status.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/implemented/status.md) — what is really implemented, by ID
+- [`docs/conventions.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/conventions.md), [`docs/technologies.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/technologies.md)
 
 ## Status
 

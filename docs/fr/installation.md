@@ -5,9 +5,9 @@
 Deux voies. L'**archive** est celle qu'on recommande : ni git, ni outillage de
 développement. Le **clone git** s'adresse à qui compte lire ou modifier le code.
 
-> Vigie est en version **0.1 et n'est pas publiée** : aucune release n'est disponible pour
-> l'instant, donc seule la voie git fonctionne aujourd'hui. L'archive est documentée parce
-> que c'est la voie sur laquelle Vigie sera livrée.
+> Vigie est en version **0.1**. L'archive est fabriquée par `scripts/build-release.ps1`,
+> puis attachée à une Release GitHub par un mainteneur. Si la page des Releases est encore
+> vide, aucune version n'a été publiée et c'est la voie git qui fonctionne.
 
 ---
 
@@ -29,10 +29,11 @@ Ni Node, ni npm, ni étape de construction : le front est un unique fichier HTML
 
 1. Rendez-vous sur la
    [page des Releases](https://github.com/Cartman34/vigie-windows/releases) et
-   téléchargez l'archive de Vigie.
-2. Décompressez-la **à un endroit durable**. La tâche de démarrage automatique retiendra ce
-   chemin exact : évitez `Téléchargements`, évitez les dossiers temporaires, et ne déplacez
-   pas le dossier ensuite sans relancer le script de démarrage automatique.
+   téléchargez `vigie-<version>.zip`.
+2. Décompressez-la **à un endroit durable**. Elle se déplie en un unique dossier
+   `vigie-<version>/`. La tâche de démarrage automatique retiendra ce chemin exact :
+   évitez `Téléchargements`, évitez les dossiers temporaires, et ne déplacez pas le
+   dossier ensuite sans relancer le script de démarrage automatique.
 3. Windows marque les fichiers téléchargés comme bloqués. Soit vous débloquez le dossier
    une fois :
    ```powershell
@@ -42,6 +43,24 @@ Ni Node, ni npm, ni étape de construction : le front est un unique fichier HTML
    stratégie d'exécution.
 
 Puis suivez [Premier lancement](#premier-lancement).
+
+### Ce que contient l'archive — et ce qu'elle ne contient pas
+
+L'archive est le **produit**, pas le dépôt. Elle porte le serveur, le front, l'app de la
+barre système, les scripts d'installation, cette documentation, la licence et le fichier
+de version — une petite centaine de fichiers.
+
+Volontairement laissés de côté :
+
+| Absent | Pourquoi |
+|---|---|
+| `apps/atelier/` | outil de développement (PHP, port 47610) qu'un utilisateur ne lance jamais |
+| `scripts/build-release.ps1`, `scripts/install-hooks.ps1`, `scripts/hooks/` | outillage de mainteneur ; ils exigent un dépôt git, ce que l'archive n'est pas |
+| `scripts/uninstall-legacy.ps1` | nettoyage daté et jetable des postes antérieurs au renommage — sans objet sur une installation neuve |
+| Les documents de travail internes (décisions, backlog, journal, conventions) | la mémoire du dépôt, pas de la documentation d'usage. Les pages qui y renvoient pointent vers GitHub |
+| `apps/*/var/`, `config.local.psd1`, les journaux, le jeton d'API | données d'exécution et secrets. Ils ne sont jamais versionnés, donc ils ne peuvent pas atteindre l'archive |
+
+Si l'un d'eux vous manque, passez par la voie git.
 
 ## Voie 2 — clone git
 
@@ -136,7 +155,9 @@ sauf ce que vous lui avez demandé de changer sur le système :
 ### Vestiges d'une installation antérieure au renommage
 
 Les postes installés avant que le projet ne s'appelle Vigie portent une tâche planifiée et
-un raccourci orphelins. Un script daté et jetable les retire :
+un raccourci orphelins. Un script daté et jetable les retire — **il est livré avec le
+dépôt uniquement, pas avec l'archive**, puisqu'il ne peut pas concerner une installation
+neuve :
 
 ```powershell
 pwsh -ExecutionPolicy Bypass -File .\scripts\uninstall-legacy.ps1 -WhatIf
