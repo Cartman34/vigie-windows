@@ -35,6 +35,12 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
 **Le parseur ne suffit pas** (**D50bis**) : un paramètre passé deux fois le franchit sans un
 mot et fait disparaître une carte à l'exécution. C'est arrivé, livré et annoncé comme fait.
 
+**Toute écriture scriptée d'un fichier source est ATOMIQUE** : écrire dans `fichier.tmp`,
+vérifier la taille, puis `os.replace`. Un script Python qui plante en plein `write()` sur
+le fichier ouvert en 'w' laisse un fichier TRONQUÉ — c'est arrivé le 24/08 (index.html à
+0 octet, commité et poussé sur main par la chaîne shell qui suivait). Et ne jamais chaîner
+`git commit` derrière un script par un simple retour à la ligne : `&&` uniquement.
+
 **Un fichier rendu (`.html`) ne s'édite JAMAIS avec les outils Edit/Write** (**D47**) :
 l'aperçu du panneau ouvre alors le fichier en `file://` et vole le focus de l'utilisateur.
 Passer par un script de remplacement exact — et relancer ensuite le garde-fou de chaînes JS
