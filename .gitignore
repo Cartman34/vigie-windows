@@ -11,6 +11,7 @@ apps/*/var/
 **/config.local.psd1
 # Reglages locaux ecrits par le backend (notifications, modules...) : meme statut.
 config/*.local.json
+config/*.local.psd1
 
 # --- Sorties de fabrication ---
 # Archives de distribution produites par scripts/build-release.ps1. Elles se refabriquent
