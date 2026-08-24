@@ -515,8 +515,7 @@ function cardHtml(m, groupLabel){
     // Un detail COURT se deplie dans la carte ; un detail LONG ouvre une fenetre. Deplie
     // dans la carte, il la fait exploser en hauteur et noie le reste du tableau de bord
     // -- constate sur la liste des interfaces reseau, plusieurs dizaines de lignes.
-    const detLong = !!detTxt && (detTxt.length > 400 || detTxt.split(/
-/).length > 8);
+    const detLong = !!detTxt && (detTxt.length > 400 || detTxt.split(String.fromCharCode(10)).length > 8);
     const clicDetail = detTxt ? (detLong ? `ouvrirDetail('${key}')` : 'toggleDetail(this)') : '';
     const info=(f.help||f.guide)?`<button class="fhelp ${stt}" title="${help}" onclick="${clicDetail||'toggleDetail(this)'}"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5.5" r="2.3"/><rect x="9.7" y="9.5" width="4.6" height="10.5" rx="2.3"/></svg></button>`:'';
     const solveLbl = fa ? fa.label : 'Résoudre';
