@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Menu du tray — atelier Vigie</title>
+<link rel="stylesheet" href="atelier.css">
+<style>
+  .crumb{color:var(--muted);text-decoration:none;font-size:12.5px;border:1px solid var(--border);
+         border-radius:7px;padding:4px 10px}
+  .crumb:hover{color:var(--text);border-color:var(--accent)}
+  .badge{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
+         padding:2px 9px;border-radius:999px}
+  .badge.archive{color:var(--ok);background:rgba(63,185,80,.14)}
+  .badge.encours{color:var(--accent);background:rgba(56,139,253,.14)}
+</style>
+</head>
+<body>
+<header>
+  <a class="crumb" href="index.html">&larr; Atelier</a>
+  <h1>Menu du tray</h1>
+  <span class="badge archive">validé — archivé</span>
+  <span class="sub">style du menu, valeurs lues dans tray.ps1 via palette.php — consultation</span>
+</header>
+<main>
+<section>
+  <h2>Menu du tray — réglage du style</h2>
+  <p class="hint">
+    Reproduction de ce que dessine <code>VigieMenuRenderer</code>. Les curseurs partent des
+    valeurs <b>réellement livrées</b>, lues dans <code>apps/tray/tray.ps1</code> par
+    <code>palette.php</code> — plus aucune recopie, donc plus de dérive possible (<b>D24</b>).
+    Règle jusqu'à ce que ça te convienne : le bloc à reporter s'écrit en dessous.
+  </p>
+  <p class="warn" id="paletteWarn" hidden></p>
+
+  <div class="controls">
+    <div class="ctrl">
+      <label>Coins du menu — <span class="val" id="vmenuR">8</span> px</label>
+      <input type="range" id="menuR" min="0" max="16" step="1" value="8">
+    </div>
+    <div class="ctrl">
+      <label>Coins du survol — <span class="val" id="vhovR">0</span> px</label>
+      <input type="range" id="hovR" min="0" max="12" step="1" value="0">
+    </div>
+    <div class="ctrl">
+      <label>Marge du survol — <span class="val" id="vinset">0</span> px</label>
+      <input type="range" id="inset" min="0" max="14" step="1" value="0">
+    </div>
+    <div class="ctrl">
+      <label>Retrait horizontal du texte — <span class="val" id="vpadX">14</span> px</label>
+      <input type="range" id="padX" min="0" max="24" step="1" value="14">
+    </div>
+    <div class="ctrl">
+      <label>Retrait vertical du texte — <span class="val" id="vpadY">7</span> px</label>
+      <input type="range" id="padY" min="0" max="16" step="1" value="7">
+    </div>
+  </div>
+  <div class="controls">
+    <div class="ctrl"><label>Fond</label><input type="color" id="cSurface" value="#2c2c2c"></div>
+    <div class="ctrl"><label>Survol</label><input type="color" id="cHover" value="#3d3d3d"></div>
+    <div class="ctrl"><label>Bordure</label><input type="color" id="cBorder" value="#454545"></div>
+    <div class="ctrl"><label>Séparateur</label><input type="color" id="cSep" value="#404040"></div>
+    <div class="ctrl"><label>Texte</label><input type="color" id="cText" value="#e6edf3"></div>
+    <div class="ctrl">
+      <label>Préréglages</label>
+      <div class="chips">
+        <button id="pShipped" class="on">Livré</button>
+        <button id="pVigie">Bleu Vigie (abandonné)</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="desk"><div class="menu" id="menuPreview"></div></div>
+  <pre id="menuCode"></pre>
+</section>
+</main>
+<script>
+// =============================================================================
+// 3) MENU DU TRAY — reproduction reglable. Produit les valeurs a reporter.
+// =============================================================================
+const ITEMS = [
+  { t:'Afficher l\u2019application', bold:true },
+  { t:'Ouvrir dans le navigateur' },
+  { sep:true },
+  { t:'\u00c9tat : En marche', dim:true },
+  { sep:true },
+  { t:'Relancer l\u2019application' },
+  { t:'Red\u00e9marrer le serveur', hover:true },
+  { t:'Ouvrir les journaux' },
+  { t:'\u00c0 propos de Vigie' },
+  { sep:true },
+  { t:'Quitter' }
+];
+const NUMS = ['menuR','hovR','inset','padX','padY'];
+const COLS = ['cSurface','cHover','cBorder','cSep','cText'];
+// Ancienne palette bleutee, conservee comme point de comparaison : c'est elle qui avait
+// pris le pas sur la reference Win11 et qu'on a fini par abandonner.
+const VIGIE = { cSurface:'#2b3038', cHover:'#3c434d', cBorder:'#444c56', cSep:'#3a414a', cText:'#e6edf3' };
+// Rempli par palette.php au chargement : les valeurs REELLEMENT livrees. Les valeurs des
+// champs HTML n'en sont qu'un repli, affiche avec un avertissement si la lecture echoue.
+let SHIPPED = null;
+
+// Correspondance nom de constante C# -> identifiant du champ. Unique endroit ou les deux
+// vocabulaires se rencontrent.
+const FROM_PALETTE = {
+  Surface:'cSurface', Hover:'cHover', Border:'cBorder', Separator:'cSep', Text:'cText',
+  MenuRadius:'menuR', CornerRadius:'hovR', InsetX:'inset', TextPadX:'padX', TextPadY:'padY'
+};
+
+async function loadShippedPalette(){
+  const warn = document.getElementById('paletteWarn');
+  try {
+    const r = await fetch('palette.php', { cache:'no-store' });
+    const body = await r.json();
+    if (!r.ok) throw new Error(body.error || ('HTTP ' + r.status));
+    SHIPPED = {};
+    Object.entries(FROM_PALETTE).forEach(([k, id]) => {
+      if (body.palette[k] !== undefined) SHIPPED[id] = String(body.palette[k]);
+    });
+    applyPreset(SHIPPED, 'pShipped', 'pVigie');
+    warn.hidden = true;
+  } catch (e) {
+    // Repli explicite : les champs gardent leurs valeurs HTML, mais on DIT qu'elles ne
+    // sont pas verifiees. Une valeur fausse mais plausible se ferait valider sans bruit.
+    const cause = location.protocol === 'file:'
+      ? 'la page est ouverte en file:// — passe par http://127.0.0.1:47610/apps/atelier/index.html'
+      : e.message;
+    warn.textContent = 'Valeurs NON verifiees : lecture de tray.ps1 impossible (' + cause
+      + '). Les curseurs affichent un repli ecrit en dur, qui peut avoir derive.';
+    warn.hidden = false;
+  }
+}
+
+const rgb = hex => [1,3,5].map(i => parseInt(hex.substr(i,2),16)).join(', ');
+
+function renderMenu(){
+  const v = {};
+  NUMS.forEach(id => { v[id] = +document.getElementById(id).value;
+                       document.getElementById('v'+id).textContent = v[id]; });
+  COLS.forEach(id => { v[id] = document.getElementById(id).value; });
+
+  const el = document.getElementById('menuPreview');
+  el.style.background   = v.cSurface;
+  el.style.border       = '1px solid ' + v.cBorder;
+  el.style.borderRadius = v.menuR + 'px';
+  el.style.color        = v.cText;
+  el.innerHTML = ITEMS.map(it => it.sep
+    ? '<div class="sep" style="background:'+v.cSep+';margin:5px '+(v.inset+3)+'px"></div>'
+    // Hauteur = hauteur de ligne + 2 x retrait vertical, exactement comme le fait le
+    // Padding des ToolStripMenuItem dans tray.ps1. Elle n'est donc PAS un reglage.
+    : '<div class="mi'+(it.bold?' bold':'')+(it.dim?' dim':'')+'" style="height:'+(20 + v.padY*2)+'px;'
+      + 'margin:0 '+v.inset+'px;padding:0 '+v.padX+'px;border-radius:'+v.hovR+'px;'
+      + 'background:'+(it.hover ? v.cHover : 'transparent')+'">'+it.t+'</div>').join('');
+
+  const ecarts = SHIPPED
+    ? Object.keys(SHIPPED).filter(id => String(v[id]) !== SHIPPED[id])
+    : null;
+  const entete = ecarts === null
+    ? '<span class="c">// apps/tray/tray.ps1 — classe VigieMenuPalette (valeurs NON verifiees)</span>\n'
+    : ecarts.length === 0
+      ? '<span class="c">// apps/tray/tray.ps1 — classe VigieMenuPalette (identique au livre)</span>\n'
+      : '<span class="c">// apps/tray/tray.ps1 — classe VigieMenuPalette (' + ecarts.length
+        + ' valeur(s) modifiee(s), a reporter)</span>\n';
+
+  document.getElementById('menuCode').innerHTML = entete
+    + '<span class="k">Surface</span>      = Color.FromArgb(<span class="v">' + rgb(v.cSurface) + '</span>);   <span class="c">// ' + v.cSurface + '</span>\n'
+    + '<span class="k">Hover</span>        = Color.FromArgb(<span class="v">' + rgb(v.cHover)   + '</span>);   <span class="c">// ' + v.cHover   + '</span>\n'
+    + '<span class="k">Border</span>       = Color.FromArgb(<span class="v">' + rgb(v.cBorder)  + '</span>);   <span class="c">// ' + v.cBorder  + '</span>\n'
+    + '<span class="k">Separator</span>    = Color.FromArgb(<span class="v">' + rgb(v.cSep)     + '</span>);   <span class="c">// ' + v.cSep     + '</span>\n'
+    + '<span class="k">Text</span>         = Color.FromArgb(<span class="v">' + rgb(v.cText)    + '</span>);   <span class="c">// ' + v.cText    + '</span>\n'
+    + '<span class="k">MenuRadius</span>   = <span class="v">' + v.menuR + '</span>;   <span class="c">// arrondi des coins du menu</span>\n'
+    + '<span class="k">CornerRadius</span> = <span class="v">' + v.hovR  + '</span>;   <span class="c">// arrondi du survol</span>\n'
+    + '<span class="k">InsetX</span>       = <span class="v">' + v.inset + '</span>;   <span class="c">// marge laterale du survol</span>\n'
+    + '<span class="k">TextPadX</span>     = <span class="v">' + v.padX  + '</span>;   <span class="c">// retrait horizontal du texte</span>\n'
+    + '<span class="k">TextPadY</span>     = <span class="v">' + v.padY  + '</span>;   <span class="c">// retrait vertical, fixe la hauteur de ligne</span>';
+}
+
+NUMS.concat(COLS).forEach(id =>
+  document.getElementById(id).addEventListener('input', renderMenu));
+
+function applyPreset(preset, onBtn, offBtn){
+  Object.keys(preset).forEach(k => { document.getElementById(k).value = preset[k]; });
+  document.getElementById(onBtn).classList.add('on');
+  document.getElementById(offBtn).classList.remove('on');
+  renderMenu();
+}
+// « Livre » ne fait rien tant que la palette n'a pas ete lue : proposer un retour a des
+// valeurs inconnues serait mensonger. L'avertissement au-dessus dit deja pourquoi.
+document.getElementById('pShipped').addEventListener('click', () => {
+  if (SHIPPED) applyPreset(SHIPPED, 'pShipped', 'pVigie');
+});
+document.getElementById('pVigie').addEventListener('click', () => applyPreset(VIGIE,'pVigie','pShipped'));
+
+
+renderMenu();
+loadShippedPalette();
+
+</script>
+</body>
+</html>

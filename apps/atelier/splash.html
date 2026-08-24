@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Écran de chargement — atelier Vigie</title>
+<link rel="stylesheet" href="atelier.css">
+<style>
+  .crumb{color:var(--muted);text-decoration:none;font-size:12.5px;border:1px solid var(--border);
+         border-radius:7px;padding:4px 10px}
+  .crumb:hover{color:var(--text);border-color:var(--accent)}
+  .badge{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
+         padding:2px 9px;border-radius:999px}
+  .badge.archive{color:var(--ok);background:rgba(63,185,80,.14)}
+  .badge.encours{color:var(--accent);background:rgba(56,139,253,.14)}
+</style>
+</head>
+<body>
+<header>
+  <a class="crumb" href="index.html">&larr; Atelier</a>
+  <h1>Écran de chargement</h1>
+  <span class="badge archive">validé — archivé</span>
+  <span class="sub">splash de Vigie (D08), rendu réel dans un cadre</span>
+</header>
+<main>
+<section>
+  <h2>Écran de chargement</h2>
+  <p class="hint">
+    <code>apps/frontend-web/index.html</code> en direct. Le splash s'efface au premier chargement —
+    recharge le cadre pour le revoir.
+  </p>
+  <div class="chips" style="margin-bottom:14px">
+    <button id="reloadSplash">Recharger le cadre</button>
+    <button id="openSplash">Ouvrir dans un onglet</button>
+  </div>
+  <iframe class="frame" id="appFrame" src="../frontend-web/index.html" title="Aperçu de Vigie"></iframe>
+</section>
+</main>
+<script>
+// =============================================================================
+// 4) ECRAN DE CHARGEMENT
+// =============================================================================
+document.getElementById('reloadSplash').addEventListener('click', () => {
+  const f = document.getElementById('appFrame');
+  f.src = f.src.split('?')[0] + '?t=' + Date.now();
+});
+document.getElementById('openSplash').addEventListener('click', () => {
+  window.open(document.getElementById('appFrame').src, '_blank');
+});
+
+renderMark();
+renderMenu();
+loadShippedPalette();
+</script>
+</body>
+</html>
