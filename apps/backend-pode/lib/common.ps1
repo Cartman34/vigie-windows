@@ -348,6 +348,25 @@ function Get-ApiToken {
 }
 
 # --- Version applicative (change quand index.html change) -------------------
+# Chemin de git, resolu SANS dependre du PATH.
+#
+# Sur cette machine git n'est inscrit que dans le PATH de l'UTILISATEUR, pas celui de la
+# machine : le backend, lance eleve par la tache planifiee, ne le trouvait pas. La version
+# affichee retombait donc sur la date sans que rien ne le signale.
+# On cherche d'abord dans le PATH courant, puis aux emplacements d'installation connus.
+function Resolve-GitPath {
+    $c = Get-Command git -CommandType Application -ErrorAction SilentlyContinue
+    if ($c) { return $c.Source }
+    $candidats = @(
+        (Join-Path $env:ProgramFiles           'Git\cmd\git.exe'),
+        (Join-Path ${env:ProgramFiles(x86)}    'Git\cmd\git.exe'),
+        (Join-Path $env:ProgramFiles           'Git\mingw64\bin\git.exe'),
+        (Join-Path $env:LOCALAPPDATA           'Programs\Git\cmd\git.exe')
+    ) | Where-Object { $_ }
+    foreach ($p in $candidats) { if (Test-Path -LiteralPath $p) { return $p } }
+    return $null
+}
+
 # Version LISIBLE, destinee a l'affichage. Elle vaut ce que dit git : une etiquette si le
 # depot en porte une, sinon l'empreinte courte du commit, suffixee « + » si l'arbre a des
 # modifications non validees.
@@ -359,13 +378,16 @@ function Get-ApiToken {
 function Get-AppVersion {
     param([string]$Backend = (Get-BackendRoot))
     $repo = Get-RepoRoot
-    try {
-        # On teste la SORTIE, pas $LASTEXITCODE : dans un espace d'execution Pode cette
-        # variable n'est pas definie, si bien que le test echouait meme quand git repondait
-        # -- la version affichee retombait silencieusement sur la date.
-        $v = (& git -C $repo describe --tags --always --dirty='+' 2>$null | Select-Object -First 1)
-        if ($v) { return "$v".Trim() }
-    } catch { }
+    $git  = Resolve-GitPath
+    if ($git) {
+        try {
+            # On teste la SORTIE, pas $LASTEXITCODE : dans un espace d'execution Pode cette
+            # variable n'est pas definie, si bien que le test echouait meme quand git
+            # repondait -- la version retombait silencieusement sur la date.
+            $v = (& $git -C $repo describe --tags --always --dirty='+' 2>$null | Select-Object -First 1)
+            if ($v) { return "$v".Trim() }
+        } catch { }
+    }
     # Pas de git (copie deployee sans .git, git absent) : la date du front reste une
     # information vraie et lisible, contrairement aux ticks.
     $idx = Join-Path (Get-AppPath -Role 'frontend') 'index.html'
