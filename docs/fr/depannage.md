@@ -61,9 +61,18 @@ d'afficher « en cours ». Pour les autres, redémarrez le serveur depuis le men
 
 ### « Outillage externe non configuré »
 
-Attendu, et ce n'est pas un défaut : le verrouillage/déverrouillage de Windows Update,
-l'audit et les bascules VBS appellent des scripts qui ne sont pas livrés avec ce dépôt.
-Voir [Configuration](configuration.md#outillage-externe).
+Attendu, et ce n'est pas un défaut — mais cela ne concerne **plus** Windows Update :
+le verrouillage, le déverrouillage et l'audit sont natifs depuis ce dépôt. Ce message ne
+reste possible que sur les **bascules VBS / intégrité mémoire** et *Ouvrir le dossier*,
+qui appellent encore des scripts non livrés. Voir
+[Configuration](configuration.md#outillage-externe).
+
+### « Le serveur de Vigie n'est pas administrateur »
+
+Poser ou lever le verrou modifie les permissions de dossiers système : sans élévation, la
+manœuvre échouerait à moitié, en silence. Vigie refuse donc **avant** d'agir et ne touche à
+rien. Relancez Vigie en administrateur (menu du tray → *Redémarrer le serveur*, l'invite
+UAC s'affichera), puis recliquez.
 
 ### « Verrouiller maintenant » dit que le verrou ACL n'a pas pu être posé
 

@@ -105,12 +105,22 @@ $backend = Split-Path $PSScriptRoot -Parent
 2. **Traiter la sortie ET le code retour** — via `Invoke-Native`, partagé.
 3. **Vérifier le résultat, ne pas croire le code de retour.** Après un changement, relire le
    système et rapporter ce qu'on a réellement obtenu. `update-mode-off` est le modèle : il
-   lance le script, journalise la sortie brute d'`icacls`, puis re-teste l'ACL et la clé de
-   registre, et distingue succès complet, succès partiel et échec.
+   agit via `Set-UpdateLock`, journalise le code de retour de chaque `icacls` / `takeown`,
+   puis **relit** l'état complet avec `Get-UpdateLockState` et distingue succès complet,
+   succès partiel (MAJ auto coupées mais verrou ACL absent) et échec.
 4. **Ne pas recopier une invocation.** Si deux actions ont besoin de la même opération, elle
    va dans un helper partagé de `lib/common.ps1` — `Set-UpdateLock` existe précisément
    parce que le verrou allait être invoqué depuis un troisième endroit.
-5. **La faire relire dans [Sécurité](../securite.md)** si elle touche à la sécurité du
+5. **Une capacité du produit s'implémente dans le produit.** Le verrouillage de Windows
+   Update et son audit ont d'abord été délégués à des scripts hors dépôt : sur une machine
+   qui installe Vigie depuis GitHub, les boutons ne faisaient rien. Ils vivent désormais
+   dans `lib/common.ps1` (`Set-UpdateLock`, `Invoke-UpdateAudit`, `Get-UpdateLockState`,
+   `Get-UpdateTaskCatalog`). Un outillage externe peut rester *préféré* quand il existe,
+   jamais *requis*.
+6. **Vérifier l'élévation avant d'agir, pas après.** `icacls` et `takeown` échouent en
+   silence sans droits administrateur : on refuserait de bonne foi un état faux. Les deux
+   actions de verrou testent `Test-Elevated` d'abord et ne touchent à rien sinon.
+7. **La faire relire dans [Sécurité](../securite.md)** si elle touche à la sécurité du
    système.
 
 ### Actions longues

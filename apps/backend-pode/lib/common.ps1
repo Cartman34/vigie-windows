@@ -101,10 +101,53 @@ function Remove-ProbeCache {
     } catch { }
 }
 
+# --- Machinerie Windows Update : LE catalogue ------------------------------------
+# Chemins, comptes et taches du verrouillage, definis UNE SEULE FOIS (D15). La sonde,
+# la lecture d'etat, la pose du verrou et l'audit y puisent tous : ces listes etaient
+# auparavant recopiees dans la sonde, dans le helper de lecture et dans un script
+# EXTERIEUR au depot -- trois copies qui ne pouvaient que diverger.
+function Get-UpdateTaskCatalog {
+    [ordered]@{
+        # Strategie : NoAutoUpdate=1 coupe les mises a jour automatiques.
+        RegAu    = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU'
+        RegWu    = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate'
+        RegUx    = 'HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings'
+        # Comptes vises, en SID : jamais par nom, qui est traduit selon la langue de Windows.
+        SidSystem = 'S-1-5-18'
+        SidAdmins = 'S-1-5-32-544'
+        # Dossiers de taches sur DISQUE : c'est la que se pose le verrou de permissions.
+        Dirs = @(
+            "$env:windir\System32\Tasks\Microsoft\Windows\UpdateOrchestrator"
+            "$env:windir\System32\Tasks\Microsoft\Windows\WindowsUpdate"
+            "$env:windir\System32\Tasks\Microsoft\Windows\InstallService"
+            "$env:windir\System32\Tasks\Microsoft\Windows\WaaSMedic"
+        )
+        # Memes dossiers vus par le PLANIFICATEUR (lecture d'etat).
+        TaskPaths = @(
+            '\Microsoft\Windows\UpdateOrchestrator\'
+            '\Microsoft\Windows\WindowsUpdate\'
+            '\Microsoft\Windows\InstallService\'
+            '\Microsoft\Windows\WaaSMedic\'
+        )
+        # Les SEULES taches que Windows laisse desactiver. Les autres sont protegees :
+        # tenter de les basculer echoue, c'est normal et ce n'est pas une panne.
+        Managed = @(
+            [pscustomobject]@{ Path = '\Microsoft\Windows\WindowsUpdate\';  Name = 'Scheduled Start' }
+            [pscustomobject]@{ Path = '\Microsoft\Windows\InstallService\'; Name = 'RestoreDevice' }
+            [pscustomobject]@{ Path = '\Microsoft\Windows\InstallService\'; Name = 'ScanForUpdates' }
+            [pscustomobject]@{ Path = '\Microsoft\Windows\InstallService\'; Name = 'ScanForUpdatesAsUser' }
+            [pscustomobject]@{ Path = '\Microsoft\Windows\InstallService\'; Name = 'SmartRetry' }
+        )
+        # Services de la machinerie de MAJ (WaaSMedicSvc est le « reparateur » qui defait
+        # les reglages : son etat explique bien des retours en arriere inexpliques).
+        Services = @('wuauserv','UsoSvc','WaaSMedicSvc','BITS','DoSvc','InstallService')
+    }
+}
+
 # Le verrou ACL (refus d'ecriture a SYSTEM) est-il pose sur le dossier de taches ?
 # Comparaison par SID (S-1-5-18), independante de la langue et de la traduction du compte.
 function Test-UpdateTasksAclLock {
-    param([string]$Path = "$env:windir\System32\Tasks\Microsoft\Windows\UpdateOrchestrator")
+    param([string]$Path = (Get-UpdateTaskCatalog).Dirs[0])
     if (-not (Test-Path -LiteralPath $Path)) { return $false }
     # icacls est la source autoritaire (c'est aussi ce que pose update-mode.ps1). Le seul
     # refus applique est celui de SYSTEM : une entree (DENY) => verrou pose. "(DENY)" n'est
@@ -126,28 +169,295 @@ function Test-UpdateTasksAclLock {
     return $false
 }
 
-# Pose ou leve le verrou des mises a jour (script update-mode.ps1 de l'outillage).
+# Etat REEL et complet du verrouillage Windows Update. LECTURE SEULE.
 #
-# Ecrit ICI et nulle part ailleurs : les actions update-mode-on / update-mode-off et
-# l'installation des MAJ appellent toutes cette fonction. Sans cela, l'installation aurait
-# recopie l'invocation du script -- troisieme copie, donc future divergence (D15).
+# C'est la seule lecture d'etat du sujet : la sonde l'affiche, les actions s'en servent
+# pour dire ce qui a ete OBSERVE apres avoir agi (D43), l'audit la reprend telle quelle.
 #
-# Renvoie $true si l'etat demande est REELLEMENT obtenu, verifie apres coup et non deduit
-# du fait que le script n'a pas leve d'erreur (D43).
+# `locked` = verrou COMPLET : mises a jour automatiques coupees ET verrou de permissions
+# pose. Les deux moities repondent a des questions differentes et ne se confondent pas.
+function Get-UpdateLockState {
+    $cat = Get-UpdateTaskCatalog
+    $noAuto = $null
+    try { $noAuto = (Get-ItemProperty -Path $cat.RegAu -Name NoAutoUpdate -ErrorAction SilentlyContinue).NoAutoUpdate } catch { }
+    $taches = @()
+    foreach ($p in $cat.TaskPaths) {
+        # -ErrorAction Ignore et non SilentlyContinue : un dossier vide ou dont l'acces est
+        # refuse (c'est precisement l'effet du verrou) fait lever une erreur que
+        # SilentlyContinue masque a l'ecran mais empile quand meme dans $Error. L'absence
+        # est ici une information attendue, rapportee plus bas, pas un incident a collecter.
+        foreach ($t in (Get-ScheduledTask -TaskPath $p -ErrorAction Ignore)) {
+            $taches += [pscustomobject]@{ path = "$($t.TaskPath)"; name = "$($t.TaskName)"; state = "$($t.State)" }
+        }
+    }
+    $acl = Test-UpdateTasksAclLock
+    $autoOff = ($noAuto -eq 1)
+    [ordered]@{
+        elevated       = (Test-Elevated)
+        noAutoUpdate   = $noAuto
+        autoUpdatesOff = $autoOff
+        aclLock        = $acl
+        locked         = ($autoOff -and $acl)
+        tasks          = @($taches)
+        tasksDisabled  = @($taches | Where-Object { $_.state -eq 'Disabled' }).Count
+        tasksReady     = @($taches | Where-Object { $_.state -ne 'Disabled' }).Count
+    }
+}
+
+# Ecriture NATIVE du verrou : ni script externe, ni dependance hors depot.
+# Interne -- l'unique porte d'entree reste Set-UpdateLock, qui constate le resultat.
+#
+# Idempotence : chaque geste est deja ecrit pour supporter d'etre rejoue. Poser un refus
+# deja pose, desactiver une tache deja desactivee ou reecrire NoAutoUpdate a la meme
+# valeur ne change rien et ne doit RIEN signaler d'anormal.
+function Invoke-UpdateLockNative {
+    param(
+        [Parameter(Mandatory)][ValidateSet('pose','leve')][string]$Etat,
+        [string]$Backend = (Get-BackendRoot)
+    )
+    $cat = Get-UpdateTaskCatalog
+    $sys = '*' + $cat.SidSystem
+    $adm = '*' + $cat.SidAdmins
+    $trace = New-Object System.Collections.Generic.List[string]
+    $noter = { param($m) $trace.Add([string]$m) }
+
+    # 1) Strategie : couper ou rendre les mises a jour automatiques.
+    # La cle de strategie n'existe PAS sur une machine neuve : l'ecriture y echouait
+    # silencieusement. On la cree -- c'est ce qui fait la difference entre « ca marche
+    # chez moi » et « ca marche sur une installation propre ».
+    $valeur = if ($Etat -eq 'pose') { 1 } else { 0 }
+    try {
+        if (-not (Test-Path -LiteralPath $cat.RegAu)) { New-Item -Path $cat.RegAu -Force -ErrorAction Stop | Out-Null }
+        New-ItemProperty -Path $cat.RegAu -Name 'NoAutoUpdate' -Value $valeur -PropertyType DWord -Force -ErrorAction Stop | Out-Null
+        & $noter "NoAutoUpdate = $valeur"
+    } catch {
+        & $noter "NoAutoUpdate : ECHEC -- $($_.Exception.Message)"
+    }
+
+    # 2) Rendre les dossiers ecrivables AVANT toute autre chose. Meme pour poser le
+    # verrou : on ne peut pas desactiver une tache dans un dossier dont l'acces est
+    # refuse. Retirer un refus absent est sans effet -- donc rejouable.
+    foreach ($d in $cat.Dirs) {
+        if (-not (Test-Path -LiteralPath $d)) { continue }
+        $r1 = Invoke-Native -File 'icacls.exe' -Arguments @($d, '/remove:d', $sys, '/t', '/c', '/q')
+        $r2 = Invoke-Native -File 'icacls.exe' -Arguments @($d, '/grant', ($sys + ':(OI)(CI)F'), '/t', '/c', '/q')
+        & $noter ("deverrouillage " + (Split-Path $d -Leaf) + " : remove:d=" + $r1.ExitCode + " grant=" + $r2.ExitCode)
+    }
+
+    # 3) Taches gerees : desactiver (pose) ou reactiver (levee). Les autres taches du
+    # dossier sont protegees par Windows et ne se basculent pas -- ce n'est pas un echec.
+    foreach ($m in $cat.Managed) {
+        try {
+            if ($Etat -eq 'pose') { Disable-ScheduledTask -TaskName $m.Name -TaskPath $m.Path -ErrorAction Stop | Out-Null }
+            else                  { Enable-ScheduledTask  -TaskName $m.Name -TaskPath $m.Path -ErrorAction Stop | Out-Null }
+            & $noter ("tache " + $m.Name + " -> " + $(if ($Etat -eq 'pose') { 'desactivee' } else { 'activee' }))
+        } catch {
+            # Tache absente selon l'edition de Windows, ou protegee : on le note, on continue.
+            & $noter ("tache " + $m.Name + " : ignoree -- " + $_.Exception.Message)
+        }
+    }
+
+    if ($Etat -eq 'pose') {
+        # 4) Verrou de permissions : prendre la main sur les dossiers, garder l'acces aux
+        # administrateurs, puis REFUSER a SYSTEM la creation et la modification. C'est ce
+        # refus qui empeche Windows de recreer ses taches et de forcer un redemarrage.
+        foreach ($d in $cat.Dirs) {
+            if (-not (Test-Path -LiteralPath $d)) { continue }
+            $nom = Split-Path $d -Leaf
+            $rt = Invoke-Native -File 'takeown.exe' -Arguments @('/f', $d, '/r', '/a', '/d', 'O')
+            $rg = Invoke-Native -File 'icacls.exe'  -Arguments @($d, '/grant', ($adm + ':(OI)(CI)F'), '/t', '/c')
+            $rd = Invoke-Native -File 'icacls.exe'  -Arguments @($d, '/deny',  ($sys + ':(OI)(CI)(WD,AD,DC)'), '/t', '/c')
+            & $noter ("verrouillage $nom : takeown=" + $rt.ExitCode + " grant=" + $rg.ExitCode + " deny=" + $rd.ExitCode)
+            if (-not $rd.Ok) { & $noter ("  detail deny $nom : " + (($rd.Output -split "`r?`n" | Select-Object -Last 3) -join ' | ')) }
+        }
+    } else {
+        # 4bis) Levee : prevenir Windows que la strategie a change, sinon l'interface de
+        # Windows Update continue d'afficher l'ancien reglage jusqu'a son propre cycle.
+        $uso = Join-Path $env:windir 'System32\UsoClient.exe'
+        if (Test-Path -LiteralPath $uso) {
+            $ru = Invoke-Native -File $uso -Arguments @('RefreshSettings')
+            & $noter ("UsoClient RefreshSettings : exit=" + $ru.ExitCode)
+        }
+    }
+    return @($trace)
+}
+
+# Pose ou leve le verrou des mises a jour. UNIQUE porte d'entree en ECRITURE (D15) :
+# les actions update-mode-on / update-mode-off, l'installation et l'analyse des MAJ
+# passent toutes par ici. Sans cela, chaque appelant recopierait la manoeuvre.
+#
+# Implementation NATIVE : le verrouillage est une capacite du produit, pas un service
+# rendu par un script exterieur au depot. Un outillage `ToolsPath` fourni et portant
+# `update-mode.ps1` reste PREFERE quand il existe (installations historiques), mais son
+# absence n'empeche plus rien.
+#
+# Renvoie $true si l'etat demande est REELLEMENT obtenu, relu APRES coup et jamais deduit
+# du fait qu'aucune commande n'a leve d'erreur (D43).
 function Set-UpdateLock {
     param(
         [Parameter(Mandatory)][ValidateSet('pose','leve')][string]$Etat,
         [string]$Backend = (Get-BackendRoot)
     )
+    # Sans elevation, icacls et takeown echouent en silence et on croirait avoir verrouille.
+    # On refuse AVANT d'agir : l'appelant a un etat faux a annoncer, pas une demi-mesure.
+    if (-not (Test-Elevated)) {
+        try { Write-Log -Backend $Backend -Name 'updatelock' -Level 'WARN' -Message "$Etat : refuse, le serveur n'est pas administrateur." } catch { }
+        return $false
+    }
+    $voie = 'native'
+    $trace = @()
+    $script = $null
     $tools = Get-ToolsPath -Backend $Backend
-    if (-not $tools) { return $false }
-    $script = Join-Path $tools 'update-mode.ps1'
-    if (-not (Test-Path -LiteralPath $script)) { return $false }
+    if ($tools) {
+        $candidat = Join-Path $tools 'update-mode.ps1'
+        if (Test-Path -LiteralPath $candidat) { $script = $candidat; $voie = 'outillage' }
+    }
     try {
-        if ($Etat -eq 'pose') { & $script -Off *> $null } else { & $script -On *> $null }
-    } catch { return $false }
-    $verrouille = Test-UpdateTasksAclLock
-    return $(if ($Etat -eq 'pose') { $verrouille } else { -not $verrouille })
+        if ($script) {
+            if ($Etat -eq 'pose') { & $script -Off *> $null } else { & $script -On *> $null }
+        } else {
+            $trace = Invoke-UpdateLockNative -Etat $Etat -Backend $Backend
+        }
+    } catch {
+        try { Write-Log -Backend $Backend -Name 'updatelock' -Level 'ERROR' -Message "$Etat ($voie) : $($_.Exception.Message)" } catch { }
+    }
+    # CONSTAT : on relit l'etat reel, c'est lui qui fait foi.
+    $etatReel = Get-UpdateLockState
+    $obtenu = if ($Etat -eq 'pose') { $etatReel.aclLock } else { -not $etatReel.aclLock }
+    try {
+        foreach ($t in $trace) { Write-Log -Backend $Backend -Name 'updatelock' -Message "  $t" }
+        Write-Log -Backend $Backend -Name 'updatelock' -Message (
+            "$Etat ($voie) : obtenu=$obtenu verrouACL=$($etatReel.aclLock) NoAutoUpdate=$($etatReel.noAutoUpdate) tachesDesactivees=$($etatReel.tasksDisabled)")
+    } catch { }
+    return [bool]$obtenu
+}
+
+# Audit complet de la machinerie Windows Update. LECTURE SEULE, ne modifie rien.
+#
+# Reimplemente dans le depot : l'audit servait a comprendre pourquoi un verrouillage ne
+# tient pas (service reparateur, strategie ecrasee, tache recreee). Une fonction de
+# diagnostic qui exige un outillage absent ne sert justement plus quand on en a besoin.
+#
+# Le rapport va dans var/log/ (convention du projet : tout ce que l'app genere vit sous
+# var/), en texte pour etre lu et en JSON pour etre repris.
+function Invoke-UpdateAudit {
+    param([string]$Backend = (Get-BackendRoot))
+    $cat    = Get-UpdateTaskCatalog
+    $stamp  = Get-Date -Format 'yyyyMMdd_HHmmss'
+    $dir    = Get-LogDir -Backend $Backend
+    $txt    = Join-Path $dir "update-audit_$stamp.txt"
+    $json   = Join-Path $dir "update-audit_$stamp.json"
+    $lignes = New-Object System.Collections.Generic.List[string]
+    $rap    = [ordered]@{}
+    $L   = { param($s = '') $lignes.Add([string]$s) }
+    $Sec = { param($t) & $L ''; & $L ('===== ' + $t + ' =====') }
+
+    $etat = Get-UpdateLockState
+    $rap.at       = (Get-Date).ToString('o')
+    $rap.elevated = $etat.elevated
+    & $L ("Audit Windows Update du " + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + "  (administrateur = " + $etat.elevated + ")")
+    if (-not $etat.elevated) { & $L "ATTENTION : serveur non administrateur -- une partie de l'etat n'est pas lisible." }
+
+    & $Sec 'Verrouillage'
+    & $L ("   Mises a jour automatiques coupees : " + $etat.autoUpdatesOff + "   (NoAutoUpdate=" + $etat.noAutoUpdate + ")")
+    & $L ("   Verrou de permissions (ACL)       : " + $etat.aclLock)
+    & $L ("   Verrou complet                    : " + $etat.locked)
+    $rap.lock = @{ autoUpdatesOff = $etat.autoUpdatesOff; noAutoUpdate = $etat.noAutoUpdate
+                   aclLock = $etat.aclLock; locked = $etat.locked }
+
+    & $Sec 'Edition et licence'
+    try {
+        $cv = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -ErrorAction Stop
+        & $L ("   " + $cv.ProductName + "  (EditionID=" + $cv.EditionID + ")  build " + $cv.CurrentBuild + "." + $cv.UBR)
+        $rap.edition = @{ product = "$($cv.ProductName)"; editionId = "$($cv.EditionID)"; build = "$($cv.CurrentBuild).$($cv.UBR)" }
+    } catch { & $L "   (illisible)" }
+
+    # Les strategies expliquent la plupart des « le verrou n'a pas tenu » : une valeur
+    # ecrite ailleurs (GPO, autre outil) ecrase la notre sans rien dire.
+    $vider = {
+        param($chemin, $titre)
+        & $Sec $titre
+        $o = [ordered]@{}
+        if (-not (Test-Path -LiteralPath $chemin)) { & $L '   (absente)'; return $o }
+        $p = Get-ItemProperty -LiteralPath $chemin -ErrorAction SilentlyContinue
+        # Une cle qui EXISTE peut rendre $null (aucune valeur, ou lecture refusee sans
+        # elevation). Or $null.PSObject.Properties.Name rend un element $null, qui passe le
+        # filtre et sert ensuite d'index -- constate : « the array index evaluated to null ».
+        # On ecarte donc explicitement le vide, plutot que de supposer une liste de noms.
+        if ($null -eq $p) { & $L '   (illisible ou vide)'; return $o }
+        $noms = @($p.PSObject.Properties.Name | Where-Object { $_ -and ("$_" -notlike 'PS*') })
+        foreach ($n in $noms) { & $L ("   {0,-40} = {1}" -f $n, $p.$n); $o[$n] = $p.$n }
+        if (-not $noms.Count) { & $L '   (vide)' }
+        return $o
+    }
+    $rap.policyWindowsUpdate = & $vider $cat.RegWu 'Strategie WindowsUpdate'
+    $rap.policyAu            = & $vider $cat.RegAu 'Strategie WindowsUpdate\AU'
+    $rap.ux                  = & $vider $cat.RegUx 'Reglages UX (heures actives, notifications)'
+
+    & $Sec 'Redemarrage en attente'
+    $enAttente = [ordered]@{}
+    $enAttente.CBS_RebootPending = Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending'
+    $enAttente.WU_RebootRequired = Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired'
+    $enAttente.PendingFileRename = [bool]((Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager' -Name PendingFileRenameOperations -ErrorAction SilentlyContinue).PendingFileRenameOperations)
+    foreach ($k in $enAttente.Keys) { & $L ("   {0,-22} = {1}" -f $k, $enAttente[$k]) }
+    $rap.pendingReboot = $enAttente
+
+    & $Sec 'Taches planifiees de mise a jour'
+    if (-not @($etat.tasks).Count) { & $L '   (aucune lisible -- acces refuse ?)' }
+    foreach ($p in $cat.TaskPaths) {
+        $lot = @($etat.tasks | Where-Object { $_.path -eq $p })
+        & $L ''
+        & $L ("[" + $p + "]")
+        if (-not $lot.Count) { & $L '   (aucune / acces refuse)'; continue }
+        foreach ($t in $lot) { & $L ("   {0,-34} {1}" -f $t.name, $t.state) }
+    }
+    $rap.tasks = @($etat.tasks)
+    $rap.tasksDisabled = $etat.tasksDisabled
+    $rap.tasksReady    = $etat.tasksReady
+
+    & $Sec 'Services de mise a jour'
+    $svc = @()
+    foreach ($n in $cat.Services) {
+        $s = Get-Service -Name $n -ErrorAction SilentlyContinue
+        if (-not $s) { & $L ("   {0,-16} (absent)" -f $n); continue }
+        $dem = ''
+        try { $dem = "$((Get-CimInstance Win32_Service -Filter "Name='$n'" -ErrorAction SilentlyContinue).StartMode)" } catch { }
+        & $L ("   {0,-16} statut={1,-10} demarrage={2}" -f $n, $s.Status, $dem)
+        $svc += @{ name = $n; status = "$($s.Status)"; start = $dem }
+    }
+    # WaaSMedicSvc remet volontiers la machinerie en marche : son mode de demarrage lu
+    # dans le registre est plus fiable que celui rapporte par le gestionnaire de services.
+    try {
+        $wm = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Services\WaaSMedicSvc' -Name Start -ErrorAction SilentlyContinue).Start
+        if ($null -ne $wm) { & $L ("   WaaSMedicSvc Start (registre) = " + $wm + "  (2=automatique, 3=manuel, 4=desactive)"); $rap.waasMedicStart = $wm }
+    } catch { }
+    $rap.services = $svc
+
+    & $Sec 'Contexte'
+    try {
+        $os = Get-CimInstance Win32_OperatingSystem -ErrorAction Stop
+        & $L ("   Dernier demarrage : " + $os.LastBootUpTime)
+        $rap.lastBoot = "$($os.LastBootUpTime)"
+    } catch { }
+    $hf = @()
+    try {
+        foreach ($h in (Get-HotFix -ErrorAction SilentlyContinue | Sort-Object InstalledOn -Descending | Select-Object -First 5)) {
+            & $L ("   {0,-12} {1}" -f $h.HotFixID, $h.InstalledOn)
+            $hf += @{ id = "$($h.HotFixID)"; installedOn = "$($h.InstalledOn)" }
+        }
+    } catch { }
+    $rap.hotfixes = $hf
+
+    $ecrit = $false
+    try {
+        ($lignes -join "`r`n") | Out-File -FilePath $txt  -Encoding UTF8
+        ($rap | ConvertTo-Json -Depth 8) | Out-File -FilePath $json -Encoding UTF8
+        # D43 : le rapport est « ecrit » quand le fichier EXISTE, pas quand l'appel est passe.
+        $ecrit = (Test-Path -LiteralPath $txt) -and (Test-Path -LiteralPath $json)
+    } catch {
+        try { Write-Log -Backend $Backend -Name 'updateaudit' -Level 'ERROR' -Message $_.Exception.Message } catch { }
+    }
+    return @{ ok = $ecrit; txt = $txt; json = $json; elevated = $etat.elevated; state = $etat; lines = @($lignes) }
 }
 
 # --- Taches de fond (regle : une action lente ne bloque jamais la requete) ---
@@ -960,11 +1270,10 @@ function ConvertTo-PSLiteral {
 }
 
 # Le processus courant est-il eleve ? (une seule redaction de ce test)
-function Test-IsElevated {
-    (New-Object Security.Principal.WindowsPrincipal(
-        [Security.Principal.WindowsIdentity]::GetCurrent()
-    )).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-}
+# Le test d'elevation n'a qu'UNE implementation (Test-Elevated, plus haut). Ce nom-ci
+# est celui qu'emploient les scripts d'installation ; il delegue au lieu de reecrire le
+# meme test une seconde fois (D15). Les deux copies existaient et pouvaient diverger.
+function Test-IsElevated { Test-Elevated }
 
 # --- Habillage des fenetres (DWM) --------------------------------------------
 # Barre de titre sombre et coins arrondis Windows 11. Declare UNE SEULE FOIS ici

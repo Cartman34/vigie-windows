@@ -366,3 +366,68 @@
   retenu, compteur juste ; verrouillé : tout coché, indécochable, barre
   « Tout cocher » masquée, libellé du bouton corrigé après chargement).
 - `api/openapi.yaml` relu par un analyseur YAML.
+
+## 2026-08-24 (b) — Le verrouillage Windows Update devient natif
+### Ajoute
+- **Verrouiller, déverrouiller et auditer Windows Update sans aucun script hors dépôt.**
+  Une installation faite depuis GitHub disposait de la LECTURE mais pas de
+  l'ÉCRITURE : les trois boutons rendaient « outillage externe non configuré » et ne
+  faisaient rien. La fonction phare du produit ne pouvait pas rester sous-traitée.
+- `Get-UpdateTaskCatalog` (`lib/common.ps1`) : **LE** catalogue du sujet — dossiers de
+  tâches, chemins du planificateur, tâches désactivables, services, SID visés et clés de
+  stratégie. Ces listes étaient recopiées dans la sonde **et** dans un script extérieur.
+- `Get-UpdateLockState` : lecture complète et unique (stratégie, verrou ACL, tâches,
+  élévation), reprise telle quelle par la sonde, les actions et l'audit.
+- `Invoke-UpdateAudit` : audit **lecture seule** de la machinerie Windows Update
+  (édition, stratégies, redémarrage en attente, tâches, services dont WaaSMedic,
+  derniers correctifs). Rapport texte **et** JSON écrits dans `var/log/`, conformément à
+  la convention du projet — l'ancien script écrivait à la racine d'un autre dépôt.
+### Modifie
+- `Set-UpdateLock` reste l'**unique porte d'entrée en écriture** (**D15**) mais applique
+  désormais le verrou elle-même : stratégie `NoAutoUpdate`, réouverture des dossiers,
+  bascule des tâches gérées, puis `takeown` + `icacls` (grant administrateurs, **deny**
+  SYSTEM par SID). Chaque geste est **idempotent** : rejouable sans effet ni alarme.
+  Un `ToolsPath` contenant `update-mode.ps1` reste **préféré** — jamais requis.
+- **Élévation vérifiée AVANT d'agir** : sans droits administrateur, `icacls` et `takeown`
+  échouent en silence et Vigie annoncerait un verrou qu'elle n'a pas posé. Les deux
+  actions et `Set-UpdateLock` refusent d'emblée, sans rien toucher, avec une phrase qui
+  le dit.
+- `update-mode-on` / `update-mode-off` : court-circuit **idempotent** (l'état demandé est
+  déjà celui de la machine → succès tranquille), puis compte rendu de ce qui a été
+  **observé** après coup (**D43**), distinguant verrou complet, MAJ automatiques coupées
+  sans verrou ACL, et échec.
+- `lock.probe.ps1` consomme `Get-UpdateLockState` au lieu de refaire sa propre lecture.
+- `Test-IsElevated` délègue à `Test-Elevated` : le même test existait en double.
+- `run-audit` rapporte un résumé (verrou, tâches désactivées/actives) et le chemin du
+  rapport, au lieu de « Audit lancé » sans savoir si quoi que ce soit avait été écrit.
+- `ToolsPath` documenté comme **facultatif** : `config.psd1`, `config.local.sample.psd1`,
+  `docs/fr` et `docs/en` (configuration, windows-update, dépannage, sondes-et-actions).
+  Restent tributaires de l'outillage : `toggle-vbs`, `toggle-hvci`, `open-folder`.
+### Corrige
+- **Clé de stratégie absente** : l'écriture de `NoAutoUpdate` échouait silencieusement
+  quand `...\WindowsUpdate\AU` n'existait pas — le cas d'une machine neuve, donc
+  exactement celui qu'on prétendait servir. La clé est créée avant écriture.
+- **Audit : « the array index evaluated to null »** sur une clé de registre qui existe
+  mais se lit `$null` (aucune valeur, ou lecture refusée sans élévation) :
+  `$null.PSObject.Properties.Name` rend un élément `$null` qui passait le filtre et
+  servait ensuite d'index. Constaté à l'exécution, pas déduit.
+- `Get-ScheduledTask` passe en `-ErrorAction Ignore` : un dossier dont l'accès est refusé
+  — précisément l'effet du verrou — empilait une erreur dans `$Error` à chaque lecture.
+### Verifie
+- Parser PowerShell OK sur **tous** les `.ps1` / `.psd1` du dépôt.
+- `Get-UpdateLockState` confrontée à un relevé manuel de la machine : même
+  `NoAutoUpdate`, même présence du `(DENY)`, mêmes tâches désactivées.
+- Audit exécuté en réel : rapport complet écrit (texte + JSON), 0 erreur non terminante.
+- Refus d'élévation éprouvé **en conditions réelles** (session agent non élevée) :
+  `Set-UpdateLock` et les deux actions refusent, et l'état de la machine est **identique
+  avant et après** (`NoAutoUpdate=1`, verrou ACL posé, 6 tâches désactivées).
+- Mécanique ACL et **idempotence** éprouvées sur un dossier jetable : pose jouée deux
+  fois (mêmes codes de retour, verrou détecté à chaque fois), levée jouée deux fois
+  (codes 0, verrou absent à chaque fois).
+- Sonde `lock.probe.ps1` exécutée : mêmes champs, mêmes actions qu'avant la bascule.
+### A faire
+- Le verrou n'a **pas** pu être posé ni levé pour de vrai : la session de l'agent n'est
+  pas élevée et la machine de l'utilisateur ne devait pas changer d'état. À éprouver
+  depuis un serveur Vigie lancé en administrateur.
+- `toggle-vbs`, `toggle-hvci` et `open-folder` appellent **toujours** des scripts hors
+  dépôt : le produit ne tient pas encore entièrement debout seul.

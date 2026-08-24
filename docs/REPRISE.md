@@ -42,6 +42,13 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
 - Paquets, **interface graphique du gestionnaire** : bouton `pkg-open-gui` (`kind: manual`),
   ajouté **uniquement si la cible existe** sur la machine — Microsoft Store pour winget,
   Chocolatey GUI pour Chocolatey (absent ici), rien pour pip.
+- **Verrouillage Windows Update : natif** (plus aucun script hors dépôt). `lib/common.ps1`
+  porte `Get-UpdateTaskCatalog` (LA liste des dossiers, tâches et services — la sonde,
+  les actions et l'audit y puisent), `Get-UpdateLockState` (lecture complète),
+  `Set-UpdateLock` (unique porte d'entrée en écriture, refuse sans élévation et relit
+  l'état après coup) et `Invoke-UpdateAudit` (rapport texte + JSON dans `var/log/`).
+  `ToolsPath` est *préféré* s'il porte `update-mode.ps1`, jamais requis.
+  **Encore externes** : `toggle-vbs`, `toggle-hvci`, `open-folder`.
 - Boutons de résolution : prennent le **libellé de l'action** (plus de « Résoudre » générique), n'apparaissent que si une action existe. **Icônes** (**D45**) : triangle = action immédiate ; **triangle d'avertissement orange** = confirmation ; liste cochée = fenêtre de choix ; flèche sortante = logiciel externe.
 - Résolutions câblées : Latence → `net-speedtest` ; Windows Update « Détectées » → `open-windows-update` (note raccourcie).
 - WSL : champ **Statut Actif/Inactif** coloré + **trio Démarrer/Redémarrer/Arrêter** (boutons pertinents). Actions `wsl-start`/`wsl-restart` + invalidation sonde.

@@ -243,9 +243,17 @@ Toute valeur dérivée est calculée à UN endroit (**D15**), dans `lib/common.p
 `Get-AppUrl`, `Get-ApiUrl`, `Get-ToolsPath`, `Get-AdminRoot`, et la réponse commune
 `New-ToolsMissingResult`. Plus aucune URL ni port en dur ailleurs dans le code.
 
-L'outillage externe est **optionnel** : `ToolsPath` vide ou introuvable → les six actions
-qui en dépendent rendent un message clair au lieu d'échouer obscurément. Un clone neuf
+L'outillage externe est **optionnel** : `ToolsPath` vide ou introuvable → les actions qui
+en dépendent rendent un message clair au lieu d'échouer obscurément. Un clone neuf
 fonctionne donc sans configuration, avec ces actions désactivées.
+
+> *Mis à jour :* « avec ces actions désactivées » n'était pas tenable pour la fonction
+> **phare** du produit. Le verrouillage de Windows Update (`update-mode-on`,
+> `update-mode-off`) et son audit (`run-audit`) sont désormais **natifs**, dans
+> `lib/common.ps1` (`Set-UpdateLock`, `Invoke-UpdateAudit`, `Get-UpdateLockState`,
+> `Get-UpdateTaskCatalog`) : une installation faite depuis GitHub dispose de la fonction
+> entière. `ToolsPath` reste *préféré* s'il porte `update-mode.ps1`, jamais requis.
+> Restent tributaires de l'outillage : `toggle-vbs`, `toggle-hvci` et `open-folder`.
 
 **Exception assumée** : dans `server.ps1`, la liste blanche anti-CSRF garde `127.0.0.1` et
 `localhost` en littéral. Ce n'est **pas** une copie de `BindAddress` mais la liste des

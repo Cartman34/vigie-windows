@@ -33,7 +33,7 @@ Chaque app fusionne, dans cet ordre — la plus spécifique gagne :
 |---|---|---|
 | `Port` | `47600` | le port d'écoute de Vigie |
 | `ApiBase` | `/api/v1` | préfixe des routes REST |
-| `ToolsPath` | *(vide)* | dossier d'outillage externe, optionnel — voir plus bas |
+| `ToolsPath` | *(vide)* | dossier d'outillage externe, facultatif — ne conditionne plus Windows Update, voir plus bas |
 
 L'URL du tableau de bord et celle de l'API en **dérivent** (`Get-AppUrl`, `Get-ApiUrl`) :
 elles ne sont réécrites nulle part ailleurs dans le code.
@@ -63,22 +63,25 @@ Redémarrez le serveur après modification (menu du tray → *Redémarrer le ser
 
 ## Outillage externe
 
-`ToolsPath` désigne un dossier de **scripts d'administration qui ne sont pas livrés avec ce
-dépôt**. Son dossier parent devient la racine d'administration.
+`ToolsPath` est **facultatif** et ne conditionne plus le verrouillage de Windows Update.
+
+**Natif, aucun outillage requis** — *Mode MAJ (déverrouiller)*, *Verrouiller maintenant* et
+*Lancer l'audit* sont implémentés dans ce dépôt (`lib/common.ps1` : `Set-UpdateLock`,
+`Invoke-UpdateAudit`). Ils exigent seulement que le serveur tourne **en administrateur**,
+et le disent clairement si ce n'est pas le cas. Si `ToolsPath` est renseigné **et** contient
+`update-mode.ps1`, Vigie préfère ce script : les installations historiques gardent leur
+comportement, sans que son absence bloque quoi que ce soit.
+
+**Encore externe** — ces trois actions appellent des scripts qui ne sont pas livrés avec le
+dépôt. Sans `ToolsPath`, elles rendent un message clair au lieu d'échouer obscurément.
 
 | Action | Script appelé |
 |---|---|
-| *Mode MAJ (déverrouiller)* / *Verrouiller maintenant* | `<ToolsPath>\update-mode.ps1` |
-| *Lancer l'audit* | `<ToolsPath>\audit-update-tasks.ps1` |
 | *Basculer VBS* | `<parent>\toggle-vbs.ps1` |
 | *Basculer intégrité mémoire* | `<parent>\toggle-hvci.ps1` |
 | *Ouvrir le dossier* | ouvre la racine d'administration dans l'explorateur |
 
-Laissez `ToolsPath` vide et ces boutons rendent un message clair — *« outillage externe non
-configuré »* — au lieu d'échouer obscurément. **Tout le reste fonctionne sans lui** :
-chaque sonde lit le système nativement, y compris l'état du verrou Windows Update.
-
-Cette dépendance externe est une limite connue de la v0.1.
+**Tout le reste fonctionne sans lui** : chaque sonde lit le système nativement.
 
 ---
 

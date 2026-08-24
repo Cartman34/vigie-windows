@@ -18,9 +18,13 @@
     # Prefixe des routes de l'API REST (voir apps/backend-pode/api/openapi.yaml).
     ApiBase     = '/api/v1'
 
-    # Outillage externe OPTIONNEL (scripts d'administration vivant hors du depot :
-    # verrouillage MAJ, update-mode, audits). Vide = non configure : les actions qui
-    # en dependent rendent alors un message clair au lieu d'echouer.
+    # Outillage externe OPTIONNEL (scripts d'administration vivant hors du depot).
+    # Le verrouillage de Windows Update et son audit sont NATIFS depuis lib/common.ps1
+    # (Set-UpdateLock, Invoke-UpdateAudit) : ils n'ont plus besoin de ce chemin. S'il est
+    # renseigne ET contient update-mode.ps1, ce script reste prefere -- les installations
+    # historiques gardent leur comportement.
+    # Restent tributaires de ce chemin : bascules VBS / HVCI, action "ouvrir le dossier".
+    # Vide = non configure : ces actions-la rendent un message clair au lieu d'echouer.
     # Un chemin absolu est propre a une machine : renseigne-le dans config.local.psd1.
     ToolsPath   = ''
 }

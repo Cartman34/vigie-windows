@@ -83,18 +83,21 @@ toujours.
 
 ---
 
-## Verrouiller et déverrouiller exigent un outillage externe
+## Verrouiller, déverrouiller et auditer : tout est natif
 
-Le côté **lecture** est natif : la carte *Verrouillage des mises à jour* lit elle-même le
-registre, les tâches planifiées et les ACL, sans aucune dépendance externe.
+Lecture **et** écriture vivent dans ce dépôt. La carte *Verrouillage des mises à jour* lit
+elle-même le registre, les tâches planifiées et les ACL ; `Mode MAJ (déverrouiller)`,
+`Verrouiller maintenant` et `Lancer l'audit` agissent eux aussi sans aucun script
+extérieur. Une installation faite depuis GitHub dispose donc de la fonction entière.
 
-Le côté **écriture**, non. `Mode MAJ (déverrouiller)`, `Verrouiller maintenant` et
-`Lancer l'audit` appellent un script `update-mode.ps1` / d'audit qui vit **hors de ce
-dépôt**, dans un dossier d'outillage que vous désignez avec `ToolsPath`. Non configuré,
-ces boutons rendent un message clair — « outillage externe non configuré » — au lieu
-d'échouer obscurément. Voir [Configuration](configuration.md#outillage-externe).
+La seule exigence est l'**élévation** : poser ou lever le verrou modifie les permissions de
+dossiers système. Si le serveur de Vigie ne tourne pas en administrateur, ces boutons le
+disent en une phrase et ne touchent à rien — plutôt que d'échouer à moitié en silence.
 
-C'est une limite réelle de la v0.1, dite ici plutôt que découverte sur la machine.
+`ToolsPath` reste **facultatif** : s'il désigne un dossier contenant `update-mode.ps1`,
+Vigie le préfère (installations historiques) ; sinon elle applique sa propre
+implémentation. Son absence ne bloque plus rien.
+Voir [Configuration](configuration.md#outillage-externe).
 
 ## Vigie constate le résultat, elle ne croit pas le code de retour
 

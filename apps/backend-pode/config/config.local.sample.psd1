@@ -12,9 +12,11 @@
     # N'y mets JAMAIS de secret : le jeton d'API vit dans backend/.secrets/.
     # ---------------------------------------------------------------------------
 
-    # Dossier des scripts d'administration externes (audit-update-tasks.ps1,
-    # update-mode.ps1). Son dossier PARENT sert de racine d'administration
-    # (toggle-vbs.ps1, toggle-hvci.ps1, action "ouvrir le dossier").
+    # Dossier de scripts d'administration externes. FACULTATIF.
+    # Le verrouillage de Windows Update et son audit sont natifs : ils fonctionnent SANS
+    # cette cle. Elle ne sert plus qu'aux bascules VBS / HVCI et a l'action "ouvrir le
+    # dossier", qui utilisent le dossier PARENT comme racine d'administration.
+    # Si le dossier contient update-mode.ps1, ce script reste prefere pour le verrou.
     # ToolsPath = 'C:\chemin\vers\LocalAgentAdmin\tools'
 
     # Decommente seulement si le port par defaut est deja pris sur cette machine.

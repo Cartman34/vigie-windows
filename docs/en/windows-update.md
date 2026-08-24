@@ -79,18 +79,20 @@ when you want Windows' own interface; the lock state still applies.
 
 ---
 
-## Locking and unlocking need external tooling
+## Locking, unlocking and auditing are all native
 
-The **read** side is native: the *Update lock* card reads the registry, the scheduled
-tasks and the ACLs itself, with no external dependency.
+Both the read and the write side live in this repository. The *Update lock* card reads the
+registry, the scheduled tasks and the ACLs itself; `Update mode (unlock)`, `Lock now` and
+`Run the audit` act without any outside script either. An install straight from GitHub
+therefore gets the whole feature.
 
-The **write** side is not. `Update mode (unlock)`, `Lock now` and `Run the audit` call an
-`update-mode.ps1` / audit script that lives **outside this repository**, in a tooling
-folder you point at with `ToolsPath`. When it is not configured, those buttons return a
-plain message — "external tooling not configured" — instead of failing obscurely. See
-[Configuration](configuration.md#external-tooling).
+The one requirement is **elevation**: setting or lifting the lock changes permissions on
+system folders. If the Vigie server is not running as administrator, those buttons say so
+in one sentence and touch nothing — rather than half-failing in silence.
 
-This is a real limitation of v0.1, stated here rather than discovered on the machine.
+`ToolsPath` stays **optional**: if it points at a folder holding `update-mode.ps1`, Vigie
+prefers it (existing installs); otherwise it uses its own implementation. Its absence no
+longer blocks anything. See [Configuration](configuration.md#external-tooling).
 
 ## Vigie checks the result, it does not trust the return code
 
