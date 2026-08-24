@@ -28,7 +28,7 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
 | Ce qu'on touche | Ce qu'on lance | Ce que ça attrape |
 |---|---|---|
 | n'importe quel `.ps1` | `[Parser]::ParseFile` sur chaque fichier | la syntaxe, **rien de plus** |
-| une **sonde** | `pwsh -File .\scripts\check-probes.ps1` | l'exécution réelle + les invariants **D49**/**D50** |
+| une **sonde** | `pwsh -File .\scripts\check-probes.ps1 -Only <sonde|module>` (dev, ciblé — D51) puis `-All` avant livraison | l'exécution réelle + les invariants **D49**/**D50** |
 | `apps/frontend-web/index.html` | recharger la page **servie** (`http://127.0.0.1:47600`) et lire la console | erreurs de syntaxe et d'exécution JS |
 | un contrat (`openapi.yaml`) | relecture — aucun parseur YAML sur la machine | rien d'automatique, à dire tel quel |
 
@@ -267,6 +267,37 @@ trancher, puis lui redonner le sujet corrigé.
   **le `main` local se retrouve en retard**, faire `git pull` avant toute fusion.
 - Ils ne peuvent pas juger un rendu visuel : ce qui se voit reste à l'agent principal, via
   la page **servie** (jamais `file://`).
+
+
+## Session du 24/08 après-midi — livré et vérifié
+
+- **D51** : `check-probes.ps1 -Only` (boucle de dev ciblée) ; passe par défaut ~2 s au lieu
+  de 19 s (sondes coûteuses inchangées vérifiées sur leur dernière sortie réelle) ; `-All`
+  avant livraison.
+- **D52** : journal `var/cache/probe-runs.jsonl` — chaque exécution réelle d'une sonde,
+  avec durée et origine (`Write-ProbeRun`/`Get-ProbeRuns`). Nourri par `Get-State` ET par
+  le contrôleur.
+- **D53** : historique validé — conceptions cible et migration dans `docs/conception/`
+  (réalignées sur D52 par le sous-agent). **Q1** (seuils de dérive) et **Q2** (restitution
+  des événements) attendent l'arbitrage — visibles dans l'Atelier, page Propositions.
+- **D54** : notifications du tray sur bascule de module — guetteur dans `apps/tray/tray.ps1`
+  (lecture du cache d'état, jamais /state), réglages `config/notifications.local.json` via
+  `GET/POST /notifications`, popin ⚙ dans l'en-tête. **Non éprouvé en réel : la bulle
+  elle-même** (aucun module n'a basculé depuis le déploiement). Deux pièges corrigés :
+  `modules` est un dictionnaire (pas PSObject.Properties), et Pode livre le corps JSON en
+  dictionnaire aussi.
+- **D55** : Atelier réorganisé — un sujet = une page (`tray-marque`, `tray-menu`, `splash`,
+  `propositions`), accueil en sommaire En cours / Archivé, lien « Ouvrir Vigie » sur toutes
+  les pages via `vigie.php` (port LU dans la config, jamais recopié).
+- Wi-Fi scindé en « Lien Wi-Fi » + « Stabilité » (sous-agent, vérifié en réel ; le chemin
+  « coupures détectées » n'a pas pu être observé).
+- « Redémarrage en attente » déplacé : carte **Windows** (avec action) ; la carte mises à
+  jour propose aussi le redémarrage quand la dernière installation le requiert (le bouton
+  ne s'y voit qu'après une installation lancée depuis Vigie).
+- Front : footer **fixe**, `toast()` réparé (visait un élément disparu), favicon versionnée
+  par le build (cache navigateur), bouton **Atelier** dans l'en-tête **uniquement si le
+  serveur local répond** (détection côté serveur, `Get-AtelierUrl` dans /health), bouton de
+  thème en icône.
 
 ## Décisions validées
 Voir `docs/DECISIONS-VALIDEES.md` : icône tray = option B (graduations + talon confirmés) ; nom = dépôt « Vigie Windows » (slug `vigie-windows`), interface « Vigie » à la place de « Control Panel ».
