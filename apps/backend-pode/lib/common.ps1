@@ -1322,6 +1322,93 @@ function ConvertTo-UtcDate {
     }
 }
 
+# --- Journal des passages de sondes ------------------------------------------
+# On conserve SYSTEMATIQUEMENT chaque execution reelle d'une sonde et sa duree, d'ou
+# qu'elle vienne : requete de l'utilisateur, rafraichissement de fond, ou controle du
+# contrat. Sans cette trace, « Vigie met parfois beaucoup de temps a charger » reste une
+# impression : on ne sait ni QUELLE sonde a coute, ni si c'est habituel.
+#
+# Format : une ligne JSON par execution (JSONL). Append-only, donc pas de relecture du
+# fichier pour ecrire -- c'est ce qui le rend utilisable sous concurrence.
+# Ce journal est aussi le premier echantillonnage sur lequel l'historique s'appuiera.
+$script:ProbeRunMaxBytes = 1.5MB   # au-dela, on ne garde que les passages recents
+$script:ProbeRunKeepLines = 5000
+
+function Write-ProbeRun {
+    param(
+        [string]$Backend = (Get-BackendRoot),
+        [Parameter(Mandatory)][string]$Probe,
+        [Parameter(Mandatory)][int]$Ms,
+        # D'ou vient l'execution : 'forced' (bouton Rafraichir), 'background' (worker),
+        # 'check' (controle du contrat).
+        [string]$Origin = 'background',
+        [ValidateSet('ok','error','empty')][string]$Outcome = 'ok',
+        [int]$Modules = 0,
+        [string]$Detail
+    )
+    try {
+        $file = Get-VarPath -Backend $Backend -Kind 'cache' -File 'probe-runs.jsonl'
+        $rec = [ordered]@{
+            at      = [datetime]::UtcNow.ToString('o')
+            probe   = $Probe
+            ms      = $Ms
+            origin  = $Origin
+            outcome = $Outcome
+            modules = $Modules
+        }
+        if ($Detail) { $rec.detail = $Detail }
+        $ligne = ($rec | ConvertTo-Json -Compress -Depth 4)
+
+        $mx = New-Object System.Threading.Mutex($false, 'Local\VigieProbeRuns')
+        $got = $false
+        try {
+            try { $got = $mx.WaitOne(2000) }
+            catch [System.Threading.AbandonedMutexException] { $got = $true }
+            catch { $got = $false }
+            if (-not $got) { return }
+
+            [IO.File]::AppendAllText($file, $ligne + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))
+
+            # Purge paresseuse : on ne lit le fichier que lorsqu'il a vraiment grossi.
+            $fi = Get-Item -LiteralPath $file -ErrorAction SilentlyContinue
+            if ($fi -and $fi.Length -gt $script:ProbeRunMaxBytes) {
+                $lignes = [IO.File]::ReadAllLines($file)
+                if ($lignes.Count -gt $script:ProbeRunKeepLines) {
+                    $garde = $lignes[($lignes.Count - $script:ProbeRunKeepLines)..($lignes.Count - 1)]
+                    [IO.File]::WriteAllLines($file, $garde, [Text.UTF8Encoding]::new($false))
+                }
+            }
+        } finally {
+            if ($got) { try { $mx.ReleaseMutex() } catch { } }
+            try { $mx.Dispose() } catch { }
+        }
+    } catch {
+        # Le journal ne doit JAMAIS faire echouer une sonde : il observe, il n'arbitre pas.
+    }
+}
+
+# Relit le journal des passages. Sert au diagnostic (« quelle sonde coute ? ») et,
+# plus tard, a l'historique.
+function Get-ProbeRuns {
+    param(
+        [string]$Backend = (Get-BackendRoot),
+        [string]$Probe,
+        [int]$Last = 200
+    )
+    $file = Get-VarPath -Backend $Backend -Kind 'cache' -File 'probe-runs.jsonl'
+    if (-not (Test-Path -LiteralPath $file)) { return @() }
+    $lignes = @(Get-Content -LiteralPath $file -Encoding UTF8 -ErrorAction SilentlyContinue)
+    $res = @()
+    foreach ($l in $lignes) {
+        if (-not $l) { continue }
+        try { $o = $l | ConvertFrom-Json } catch { continue }
+        if ($Probe -and "$($o.probe)" -notlike $Probe) { continue }
+        $res += $o
+    }
+    if ($Last -gt 0 -and $res.Count -gt $Last) { $res = $res[($res.Count - $Last)..($res.Count - 1)] }
+    return @($res)
+}
+
 function Get-State {
     param(
         [string]$Backend = (Get-BackendRoot),
@@ -1426,13 +1513,19 @@ function Get-State {
             catch [System.Threading.AbandonedMutexException] { $got = $true }
             catch { $got = $false }
             if ($got) {
+                # L'origine du passage, pour le journal : une demande explicite attend
+                # (WaitSeconds > 0 ou -Force), le reste est un rafraichissement de fond.
+                $origine = if ($Force -or $WaitSeconds -gt 0) { 'forced' } else { 'background' }
                 foreach ($sp in $stale) {
                     $t0 = Get-Date
                     try {
                         $m = & $sp.File
+                        $duree = [int]((Get-Date) - $t0).TotalMilliseconds
                         if ($m) { $cache[$sp.Name] = [ordered]@{ module = $m; at = (Get-Date).ToUniversalTime().ToString('o'); codeStamp = $sp.Stamp } }
-                        Write-Log -Backend $Backend -Name 'state' -Message ("sonde " + $sp.Name + " recalculee (" + [int]((Get-Date) - $t0).TotalMilliseconds + " ms)")
+                        Write-ProbeRun -Backend $Backend -Probe $sp.Name -Ms $duree -Origin $origine -Outcome ($(if ($m) { 'ok' } else { 'empty' })) -Modules @($m).Count
+                        Write-Log -Backend $Backend -Name 'state' -Message ("sonde " + $sp.Name + " recalculee (" + $duree + " ms)")
                     } catch {
+                        Write-ProbeRun -Backend $Backend -Probe $sp.Name -Ms ([int]((Get-Date) - $t0).TotalMilliseconds) -Origin $origine -Outcome 'error' -Detail $_.Exception.Message
                         Write-Log -Backend $Backend -Name 'state' -Level 'ERROR' -Message ("sonde erreur : " + $sp.Name + " : " + $_.Exception.Message)
                         $errMod = New-ModuleObject -Id $sp.Name -Theme 'system' -Label $sp.Name -Status 'error' -Fields @(New-Field -Key 'error' -Label 'Erreur de sonde' -Value $_.Exception.Message -Kind 'text')
                         $cache[$sp.Name] = [ordered]@{ module = $errMod; at = (Get-Date).ToUniversalTime().ToString('o'); codeStamp = $sp.Stamp }
@@ -1468,6 +1561,69 @@ function Get-State {
         themes      = $themes
         modules     = @($modules)
     }
+}
+
+# --- Reglages des notifications (D54) ----------------------------------------
+# Le TRAY notifie sur bascule d'un MODULE (resultat de sonde) ; la couleur de son icone,
+# elle, reste le statut de l'APPLICATION -- les deux roles ne se melangent pas.
+#
+# Reglages : un interrupteur global + un reglage FIN par module. Le global MASQUE, il
+# n'ecrase pas : couper tout puis rallumer retrouve les choix fins intacts. C'est pour
+# cela que les deux vivent dans des cles separees.
+#
+# Stockage : config/notifications.local.json a la racine (jamais versionne). JSON et non
+# psd1 : ce fichier est ECRIT par le backend (l'interface le modifie via l'API), et le
+# tray le RELIT ; JSON se lit et s'ecrit sans peine des deux cotes.
+function Get-NotificationSettingsPath {
+    Join-Path (Get-RepoRoot) 'config/notifications.local.json'
+}
+
+function Get-NotificationSettings {
+    param([string]$Backend = (Get-BackendRoot))
+    $s = [ordered]@{ enabled = $true; modules = [ordered]@{} }
+    $p = Get-NotificationSettingsPath
+    if (Test-Path -LiteralPath $p) {
+        try {
+            $j = Get-Content -LiteralPath $p -Raw -Encoding UTF8 | ConvertFrom-Json
+            if ($null -ne $j.enabled) { $s.enabled = [bool]$j.enabled }
+            if ($j.modules) { foreach ($pr in $j.modules.PSObject.Properties) { $s.modules[$pr.Name] = [bool]$pr.Value } }
+        } catch { }
+    }
+    [pscustomobject]$s
+}
+
+function Set-NotificationSettings {
+    param(
+        [string]$Backend = (Get-BackendRoot),
+        $Enabled,
+        # Table module -> $true/$false. FUSIONNEE avec l'existant : ne fournir que ce qui
+        # change ; une cle absente garde son reglage (le global ne perd jamais le fin).
+        [hashtable]$Modules
+    )
+    $cur = Get-NotificationSettings -Backend $Backend
+    $out = [ordered]@{ enabled = [bool]$cur.enabled; modules = [ordered]@{} }
+    foreach ($k in @($cur.modules.Keys)) { $out.modules["$k"] = [bool]$cur.modules[$k] }
+    if ($null -ne $Enabled) { $out.enabled = [bool]$Enabled }
+    if ($Modules) { foreach ($k in $Modules.Keys) { $out.modules["$k"] = [bool]$Modules[$k] } }
+    $p = Get-NotificationSettingsPath
+    $tmp = "$p.tmp"
+    ($out | ConvertTo-Json -Depth 4) | Set-Content -LiteralPath $tmp -Encoding UTF8
+    Move-Item -LiteralPath $tmp -Destination $p -Force
+    [pscustomobject]$out
+}
+
+# Le tray applique la regle SANS refaire la logique : une notification pour ce module
+# passe-t-elle ? (global coupe = rien ; sinon le reglage fin, actif par defaut)
+function Test-NotificationAllowed {
+    param([Parameter(Mandatory)][string]$ModuleId, $Settings)
+    if (-not $Settings) { $Settings = Get-NotificationSettings }
+    if (-not [bool]$Settings.enabled) { return $false }
+    # `modules` est un DICTIONNAIRE (jamais un objet JSON brut : Get-NotificationSettings
+    # normalise) -- l'acces passe donc par ContainsKey. La premiere version interrogeait
+    # PSObject.Properties, qui sur un dictionnaire decrit le conteneur et pas les cles :
+    # tous les reglages fins etaient silencieusement ignores.
+    if ($Settings.modules.Contains("$ModuleId")) { return [bool]$Settings.modules["$ModuleId"] }
+    return $true
 }
 
 # --- Actions ---------------------------------------------------------------

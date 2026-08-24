@@ -9,6 +9,8 @@ apps/*/var/
 # fois parce qu'un motif trop precis ne couvrait plus l'emplacement d'ou il venait
 # d'etre deplace. Ici, quel que soit son dossier, il est ignore.
 **/config.local.psd1
+# Reglages locaux ecrits par le backend (notifications, modules...) : meme statut.
+config/*.local.json
 
 # --- Sorties de fabrication ---
 # Archives de distribution produites par scripts/build-release.ps1. Elles se refabriquent

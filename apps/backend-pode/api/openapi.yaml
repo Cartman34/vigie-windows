@@ -58,6 +58,32 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Module" }
         "404": { description: Module inconnu }
+  /notifications:
+    get:
+      summary: Reglages des notifications du tray (D54)
+      responses:
+        "200":
+          description: Reglages courants
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotificationSettings" }
+    post:
+      summary: Modifie les reglages des notifications
+      description: >
+        Fusion, pas remplacement : `enabled` absent garde le global ; dans `modules`,
+        seule une cle FOURNIE change -- les autres gardent leur reglage fin. Couper le
+        global ne perd donc jamais les reglages fins (D54).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NotificationSettings" }
+      responses:
+        "200":
+          description: Reglages apres fusion
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotificationSettings" }
   /actions:
     post:
       summary: Declenche une action (synchrone ou longue)
@@ -87,6 +113,16 @@ components:
       type: http
       scheme: bearer
   schemas:
+    NotificationSettings:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          description: Interrupteur global. false = aucune notification, sans toucher aux reglages fins.
+        modules:
+          type: object
+          additionalProperties: { type: boolean }
+          description: Reglage fin par id de module. Cle absente = notifications actives pour ce module.
     State:
       type: object
       required: [generatedAt, themes, modules]

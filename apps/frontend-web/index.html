@@ -72,7 +72,7 @@
   .modebar.warn{background:var(--warn)}
   .modebar.err{background:var(--err)}
   .modebar.neutral{background:var(--border)}
-  main{max-width:1180px;margin:0 auto;padding:22px}
+  main{max-width:1180px;margin:0 auto;padding:22px 22px 64px}
   .theme-block{margin-bottom:30px}
   .theme-head{display:flex;align-items:center;gap:10px;margin:0 4px 12px}
   .theme-head h2{font-size:14px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin:0;font-weight:600}
@@ -94,7 +94,7 @@
   .pill.yes{color:var(--ok);background:var(--ok-bg)} .pill.no{color:var(--muted);background:var(--panel-2)}
   .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto}
   .actions button{font-size:13px;padding:6px 11px}
-  .toast-stack{position:fixed;right:18px;bottom:18px;display:flex;flex-direction:column;gap:8px;z-index:45;max-width:min(380px,92vw)}
+  .toast-stack{position:fixed;right:18px;bottom:52px;display:flex;flex-direction:column;gap:8px;z-index:45;max-width:min(380px,92vw)}
   .toast{display:flex;align-items:flex-start;gap:9px;background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--muted);border-radius:10px;padding:10px 12px;box-shadow:0 10px 30px rgba(0,0,0,.4);font-size:13px;opacity:0;transform:translateX(14px);transition:.2s;pointer-events:auto}
   .toast.show{opacity:1;transform:none}
   .toast.done{border-left-color:var(--ok)} .toast.error{border-left-color:var(--err)} .toast.running{border-left-color:var(--accent)}
@@ -166,7 +166,7 @@
   .spin{display:inline-block;width:10px;height:10px;border:2px solid var(--accent);border-top-color:transparent;border-radius:50%;animation:sp .7s linear infinite}
   @keyframes sp{to{transform:rotate(360deg)}}
   /* --- Vue dense (compacte) : beaucoup d'infos d'un coup --- */
-  main{max-width:none;padding:16px}
+  main{max-width:none;padding:16px 16px 60px}
   .theme-block{margin-bottom:16px}
   .theme-head{margin-bottom:8px}
   .grid{grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
@@ -359,7 +359,8 @@
     border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--muted);
     text-decoration:none;flex:0 0 auto;transition:.15s}
   .repo-ic:hover{border-color:var(--accent);color:var(--text)}
-  .appfoot{max-width:1180px;margin:0 auto;padding:0 22px 26px;display:flex;align-items:center;gap:10px;
+  .appfoot{position:fixed;left:0;right:0;bottom:0;z-index:40;background:var(--panel);
+    border-top:1px solid var(--border);padding:7px 22px;display:flex;align-items:center;gap:10px;
     color:var(--muted);font-size:12.5px}
   .appfoot .sep{opacity:.5}
 </style>
@@ -416,6 +417,7 @@
   <a class="repo-ic" data-repo-link aria-label="Dépôt du projet sur GitHub">
     <svg width="16" height="16" aria-hidden="true"><use href="#ghMark"/></svg>
   </a>
+  <button class="ic-btn" id="notifCfgBtn" onclick="openNotifSettings()" aria-label="Réglages des notifications" title="Réglages des notifications du tray : choisir ce qui déclenche une notification Windows">⚙</button>
   <button onclick="toggleTheme()" id="themeBtn" title="Basculer entre le thème sombre et le thème clair">☀ Clair</button>
 </header>
 <div class="modebar neutral" id="modebar"></div>
@@ -1218,6 +1220,52 @@ function toggleTheme(){ dark=!dark;
 let toastT;
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
   clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),3200); }
+
+// ===== Réglages des notifications du tray (D54) =====
+// Le tray notifie sur bascule d’un MODULE ; l’icône du tray, elle, reste le statut de
+// l’application. Le réglage fin survit à l’interrupteur global : il masque, il n’écrase pas.
+async function openNotifSettings(){
+  let cfg = { enabled:true, modules:{} };
+  try{
+    const r = await fetch(API+"/notifications", { headers:{ Authorization:"Bearer "+TOKEN } });
+    if(r.ok) cfg = await r.json();
+  }catch(e){}
+  if(!cfg.modules) cfg.modules = {};
+  const mods = (lastModules||[]).map(m=>({ id:m.id, label:m.label }));
+  if(!mods.length){
+    HDS.info("Réglages des notifications", "Aucun module connu pour le moment. Recharge la page une fois l’état affiché.");
+    return;
+  }
+  const actif = id => (id in cfg.modules) ? !!cfg.modules[id] : true;
+  let html = "<p class='hds-intro'>Quand un module change d’état, le tray affiche une notification Windows — uniquement sur un changement, jamais en rappel. L’icône du tray, elle, continue de refléter le statut de l’application.</p>";
+  html += "<label class='hds-choice'><input type='checkbox' id='ntfGlobal'" + (cfg.enabled ? " checked" : "") + ">"
+        + "<span class='hds-choice-t'>Activer les notifications</span>"
+        + "<span class='hds-choice-d'>Interrupteur général : coupé, plus aucune notification — les réglages fins ci-dessous restent mémorisés.</span></label>";
+  html += "<div class='hds-choices' id='ntfList'>";
+  mods.forEach(m=>{
+    html += "<label class='hds-choice'><input type='checkbox' data-ntf='" + esc(m.id) + "'" + (actif(m.id) ? " checked" : "") + ">"
+          + "<span class='hds-choice-t'>" + esc(m.label) + "</span></label>";
+  });
+  html += "</div>";
+  const p = HDS.open({ title:"Réglages des notifications", html, variant:"info", cancelValue:false,
+    actions:[ {label:"Annuler",kind:"ghost",value:false},
+              {label:"Enregistrer",kind:"primary",value:true,default:true} ] });
+  const g = document.getElementById("ntfGlobal");
+  const liste = document.getElementById("ntfList");
+  const grise = ()=>{ liste.style.opacity = g.checked ? "1" : "0.45"; };
+  g.onchange = grise; grise();
+  const ok = await p;
+  if(!ok) return;
+  const modules = {};
+  liste.querySelectorAll("[data-ntf]").forEach(c=>{ modules[c.getAttribute("data-ntf")] = c.checked; });
+  try{
+    const r = await fetch(API+"/notifications", { method:"POST",
+      headers:{ Authorization:"Bearer "+TOKEN, "Content-Type":"application/json" },
+      body: JSON.stringify({ enabled: g.checked, modules }) });
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    toast("Réglages des notifications enregistrés");
+  }catch(e){ toast("Enregistrement impossible : "+(e.message||e)); }
+}
 
 // ===== Demarrage =====
 wireRepoLinks();

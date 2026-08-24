@@ -83,7 +83,9 @@ public static bool Focus(System.IntPtr h) {
         $pwsh      = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
         $trayPath  = Join-Path $trayRoot 'tray.ps1'      # cette app, pas le backend
         # Starting : un demarrage a ete demande et le serveur n'a pas encore repondu.
-        $state     = [hashtable]::Synchronized(@{ Proc = $null; Drawn = ''; EverUp = $false; Starting = $true; StartTicks = [datetime]::UtcNow.Ticks })
+        $state     = [hashtable]::Synchronized(@{ Proc = $null; Drawn = ''; EverUp = $false; Starting = $true; StartTicks = [datetime]::UtcNow.Ticks; Mods = @{}; ModsInit = $false })
+        # Cache d'etat du backend : lu (jamais ecrit) par le guetteur de modules (D54).
+        $stateCacheFile = Join-Path $backend 'var/cache/state-cache.json'
         $startupGrace = 25    # secondes de tolerance avant de declarer un echec de demarrage
         $iconHandle = [System.IntPtr]::Zero
 
@@ -542,6 +544,52 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                 Set-Content -LiteralPath $heartbeat -Encoding UTF8 -NoNewline `
                     -Value ("{0};{1};{2}" -f $PID, (Get-Date -Format 'o'), $lbl)
             } catch { }
+
+            # --- Notifications sur bascule d'un MODULE (D54) -------------------------
+            # L'icone reste le statut de l'APP ; ici on remonte les RESULTATS de sonde.
+            # Lecture directe du cache d'etat du backend (fichier) : aucun appel /state,
+            # donc aucun recalcul provoque -- on observe ce qui a DEJA ete calcule.
+            # On ne notifie QUE sur changement (jamais de rappel repete), et jamais au
+            # premier passage : au demarrage on prend l'etat comme reference, sinon
+            # chaque lancement arroserait l'utilisateur de tout ce qui est deja connu.
+            try {
+                if (Test-Path -LiteralPath $stateCacheFile) {
+                    $j = Get-Content -LiteralPath $stateCacheFile -Raw -Encoding UTF8 | ConvertFrom-Json
+                    $vus = @{}
+                    foreach ($pr in $j.PSObject.Properties) {
+                        foreach ($m in @($pr.Value.module)) {
+                            if ($m -and $m.id) { $vus["$($m.id)"] = @{ status = "$($m.status)"; label = "$($m.label)" } }
+                        }
+                    }
+                    if (-not $state.ModsInit) {
+                        $state.Mods = $vus; $state.ModsInit = $true
+                    } else {
+                        $reglages = $null
+                        $bascules = @()
+                        foreach ($id in $vus.Keys) {
+                            $avant = $state.Mods[$id]
+                            if (-not $avant) { continue }   # nouveau module : reference, pas une bascule
+                            if ($avant.status -eq $vus[$id].status) { continue }
+                            if ($null -eq $reglages) { $reglages = Get-NotificationSettings -Backend $backend }
+                            if (-not (Test-NotificationAllowed -ModuleId $id -Settings $reglages)) { continue }
+                            $bascules += [pscustomobject]@{ id = $id; label = $vus[$id].label; de = $avant.status; vers = $vus[$id].status }
+                        }
+                        $state.Mods = $vus
+                        if ($bascules.Count -gt 0) {
+                            # Une seule bulle, meme pour plusieurs bascules simultanees :
+                            # trois notifications d'un coup, c'est du bruit.
+                            $pire  = if (@($bascules | Where-Object { $_.vers -eq 'error' }).Count) { 'error' }
+                                     elseif (@($bascules | Where-Object { $_.vers -eq 'warn' }).Count) { 'warn' } else { 'ok' }
+                            $tipIc = switch ($pire) { 'error' { 'Error' } 'warn' { 'Warning' } default { 'Info' } }
+                            $mot   = @{ ok = 'rétabli'; warn = 'à surveiller'; error = 'en erreur'; neutral = 'sans objet' }
+                            $texte = (@($bascules | ForEach-Object { "{0} : {1}" -f $_.label, $mot[$_.vers] }) -join [Environment]::NewLine)
+                            $titre = if ($bascules.Count -eq 1) { 'Un module a changé d''état' } else { "$($bascules.Count) modules ont changé d'état" }
+                            TLog ("notification : " + (@($bascules | ForEach-Object { "$($_.id) $($_.de)->$($_.vers)" }) -join ', '))
+                            try { $icon.ShowBalloonTip(6000, $titre, $texte, [System.Windows.Forms.ToolTipIcon]::$tipIc) } catch { }
+                        }
+                    }
+                }
+            } catch { TLog ("guetteur de modules : " + $_.Exception.Message) }
         }
         $timer = New-Object System.Windows.Forms.Timer; $timer.Interval = 8000; $timer.add_Tick($poll); $timer.Start()
         $first = New-Object System.Windows.Forms.Timer; $first.Interval = 2000; $first.add_Tick({ $first.Stop(); & $poll }); $first.Start()
