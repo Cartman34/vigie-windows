@@ -61,7 +61,11 @@ Add-PodeRoute -Method Get -Path "$base/health" -ScriptBlock {
 }
 Add-PodeRoute -Method Get -Path "$base/state" -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
-    Write-PodeJsonResponse -Value (Get-State -Backend $env:VIGIE_BACKEND) -Depth 8
+    # fresh=1 : RECALCULE les sondes au lieu de servir le cache. C'est ce que demande le
+    # bouton « Rafraichir » de l'interface, par opposition au chargement de la page, qui
+    # doit s'afficher vite et se contente du cache.
+    $fresh = ("" + $WebEvent.Query['fresh']) -in @('1','true')
+    Write-PodeJsonResponse -Value (Get-State -Backend $env:VIGIE_BACKEND -Force:$fresh) -Depth 8
 }
 Add-PodeRoute -Method Get -Path "$base/modules/:id" -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"

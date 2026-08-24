@@ -22,6 +22,15 @@ paths:
   /state:
     get:
       summary: Instantane complet de l'etat (tous les modules)
+      parameters:
+        - name: fresh
+          in: query
+          required: false
+          description: >
+            1 = recalculer toutes les sondes en ignorant le cache. Sert au bouton
+            « Rafraichir » de l'interface. Sans ce parametre, la reponse peut provenir
+            du cache : c'est le mode du chargement de page, qui doit etre rapide.
+          schema: { type: string, enum: ["1", "true"] }
       responses:
         "200":
           description: Etat courant
