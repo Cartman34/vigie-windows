@@ -9,6 +9,8 @@
 <link rel="icon" href="/favicon.ico" sizes="any">
 <!--
   Front statique. Ne connait QUE le contrat REST (apps/backend-pode/api/openapi.yaml).
+  NE PAS ouvrir ce fichier en file:// : sans jeton d'API il n'affiche rien de reel (D47).
+  Toute verification passe par le serveur -> http://127.0.0.1:47600.
   Servi par le back : le jeton est injecte dans __API_TOKEN__ (route GET / de Pode).
   Ouvert en file:// : pas de jeton -> repli sur ./mock/state.json puis mock inline.
 -->
