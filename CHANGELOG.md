@@ -492,6 +492,14 @@
   imposée) ne déclenche **pas** le bouton de redémarrage — c'était le piège à éviter.
 - `open-folder` : bouton absent sans chemin configuré, présent et pointant le bon dossier
   avec un `ToolsPath` valide (éprouvé via un `config.local.psd1` temporaire, puis retiré).
+### Corrige (hors sujet, constaté au passage)
+- **La carte Réseau avait disparu du tableau de bord.** `net.probe.ps1` levait
+  *« parameter 'FixAction' is specified more than once »* et ne rendait donc aucun module.
+  Le champ *Latence* portait **deux** `-FixAction` : la forme conditionnelle ajoutée lors
+  de la refonte (identique à celles de *Débit descendant* et *Débit montant*) et, en fin de
+  ligne, l'ancienne inconditionnelle restée là. Le reliquat est retiré ; les trois champs
+  ont désormais la même forme. Défaut **préexistant sur `main`**, pas introduit par cette
+  fusion (vérifié : le fichier était identique à `origin/main` avant correction).
 ### A faire
 - Aucune bascule réelle n'a été appliquée : la session de l'agent n'est pas élevée et la
   machine de l'utilisateur ne devait pas changer d'état. À éprouver depuis un serveur Vigie

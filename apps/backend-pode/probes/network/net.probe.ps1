@@ -421,7 +421,7 @@ $fields += @(
     New-Field -Key 'vpn' -Label 'VPN actif'    -Value $vpn -Kind 'bool' -Status 'neutral' -Help "Présence d'un adaptateur de tunnel VPN actif sur ce PC." -Guide $vpnGuide
     New-Field -Key 'latency' -Label 'Latence'  -Value $(if ($lat -eq '-') {'non mesurée'} else {"$lat ms"}) -Kind 'text' `
         -Status $(if ($lat -eq '-') {'warn'} else {$latSt}) -FixAction $(if ($lat -eq '-') {'net-speedtest'} else {$null}) `
-        -Help "Délai d'aller-retour vers un serveur public. Cliquez « Mesurer débit/latence » pour l'actualiser." -Guide $latGuide -FixAction 'net-speedtest'
+        -Help "Délai d'aller-retour vers un serveur public. Cliquez « Mesurer débit/latence » pour l'actualiser." -Guide $latGuide
     New-Field -Key 'down'    -Label 'Débit descendant' -Value $(if ($down -eq '-') {'non mesuré'} else {"$down Mbps"}) -Kind 'text' `
         -Status $(if ($down -eq '-') {'warn'} else {'neutral'}) -FixAction $(if ($down -eq '-') {'net-speedtest'} else {$null}) `
         -Help "Débit obtenu en réception lors de la dernière mesure." -Guide $speedGuide
