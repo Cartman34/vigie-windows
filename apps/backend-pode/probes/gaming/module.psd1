@@ -6,7 +6,7 @@
     # CONFIG : les valeurs par defaut, versionnees (D57).
     Config = @{
         GameGpuMinPct   = 15   # % GPU minimal pour considerer qu'un jeu tourne
-        OtherCpuWarnPct = 20   # % CPU d'une AUTRE appli qui declenche l'avertissement
+        OtherCpuWarnPct = 1    # % CPU (normalise TOUS coeurs) : 1 % ici = une vraie charge
         OtherGpuWarnPct = 15   # % GPU d'une AUTRE appli qui declenche l'avertissement
     }
 

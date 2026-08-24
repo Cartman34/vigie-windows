@@ -80,7 +80,14 @@ $bruit = @('Idle','System','Memory Compression','Registry','csrss','dwm','svchos
            'MsMpEng','SearchIndexer','fontdrvhost','WmiPrvSE','conhost','pwsh','powershell')
 
 # Le jeu : le premier plan s'il consomme du GPU, sinon le plus gros GPU au-dessus du seuil.
+# TEST SANS JEU (docs/MODULES.md) : VIGIE_FAKE_GAME=<nom de processus> force ce processus
+# a etre traite comme le jeu. La simulation force le CHEMIN, pas les valeurs : les mesures
+# restent reelles, quitte a valoir 0.
 $jeu = $null
+if ($env:VIGIE_FAKE_GAME) {
+    $jeu = $procs.Values | Where-Object { $_.Name -like $env:VIGIE_FAKE_GAME } |
+           Sort-Object Gpu -Descending | Select-Object -First 1
+}
 if ($fgPid -and $procs.ContainsKey($fgPid) -and $procs[$fgPid].Gpu -ge $gameGpuMin -and $bruit -notcontains $procs[$fgPid].Name) {
     $jeu = $procs[$fgPid]
 }

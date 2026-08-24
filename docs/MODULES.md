@@ -1,0 +1,89 @@
+# Créer et maintenir un module — LA référence
+
+> Ce document est **la** marche à suivre : toute création ou modification de module s'y
+> conforme, et tout brief de sous-agent qui touche aux sondes pointe ici. Ce qui suit est
+> issu des décisions (D41, D43, D44, D48, D49, D50, D57) — le détail de chaque règle est
+> dans `docs/DECISIONS-VALIDEES.md`.
+
+## Le modèle en une phrase
+
+Un **module** = un **dossier de sondes** (`apps/backend-pode/probes/<id>/`), déclaré par un
+`module.psd1` versionné ; chaque **sonde** (`*.probe.ps1`) rend une ou plusieurs
+**cartes** ; l'utilisateur active/coupe le module et règle ses **paramètres** dans le menu
+Paramètres.
+
+## Créer un module, pas à pas
+
+1. **Le dossier** : `apps/backend-pode/probes/<id>/` — `<id>` en anglais, en minuscules ;
+   c'est aussi l'identifiant du thème (groupe à l'écran).
+2. **La déclaration** `module.psd1` :
+   ```powershell
+   @{
+       Label       = 'Nom affiché'          # français accentué
+       Description = 'Une phrase.'          # affichée dans Paramètres > Modules
+       Config      = @{ SeuilX = 10 }       # valeurs par DÉFAUT, versionnées (D57)
+       Parameters  = @(                     # les clés de Config réglables à l'écran
+           @{ Key='SeuilX'; Label='…'; Type='int'; Unit='%'; Help='…' }
+       )
+   }
+   ```
+   Tout défaut réglable vit dans `Config` ; la sonde ne lit JAMAIS le fichier local de
+   surcharge — uniquement `Get-ModuleSetting -Unit '<id>' -Key 'SeuilX'` (avec un filet
+   en dur si la déclaration disparaissait).
+3. **Le thème** : ajouter l'entrée dans `$script:ThemeCatalog` (`lib/common.ps1`) — id du
+   dossier, label français.
+4. **Le TTL** : ajouter la sonde dans `$script:ProbeTtls` (`lib/common.ps1`) — court si ça
+   bouge vite (5–15 s), long si c'est stable (10–60 min). Sans entrée : 30 s.
+5. **La sonde** `<nom>.probe.ps1` : en tête, le commentaire dit CE QU'ELLE RÉPOND et
+   comment elle mesure ; puis `New-ModuleObject -Id … -Theme '<id du dossier>' -Label …
+   -Status … -Fields @(New-Field …)`. LECTURE SEULE : une sonde n'agit jamais.
+
+## Ce qu'une carte doit dire (D49 — le contrôleur le vérifie)
+
+- Le **statut du module** ne dépasse jamais celui de son pire champ.
+- Tout champ porte une **aide** (`-Help`) : elle décrit ce que MONTRE le champ (infobulle).
+- Tout champ `warn`/`error` propose une **résolution** (`-FixAction`) OU un **guide**
+  (`-Guide` : informations supplémentaires, mode d'emploi, liste).
+- Une **information attendue mais absente** est un `warn` avec une piste de solution,
+  jamais une ligne muette.
+- Pendant une opération : dire **quoi, sur combien, depuis quand** ; après : le **résultat
+  reste visible**. Les points de suspension sont réservés à une action en cours (D50).
+- Toute action citée par un champ doit exister dans `actions/` ; libellés d'actions selon
+  `kind`/`severity`/`busyLabel` (D50).
+
+## Testabilité : une sonde doit pouvoir s'éprouver SANS son événement
+
+Une sonde dont une branche ne s'exécute que dans une situation rare (un jeu qui tourne,
+une panne, un verrou posé) doit offrir un **moyen de forcer cette branche** avec de
+vraies données — quitte à ce qu'elles vaillent 0 :
+
+- convention : une variable d'environnement `VIGIE_FAKE_<QUOI>` documentée en tête de la
+  sonde (exemple : `VIGIE_FAKE_GAME='chrome'` fait traiter chrome comme le jeu) ;
+- la simulation ne fabrique **pas** de fausses valeurs : elle force le **chemin**, les
+  mesures restent réelles ;
+- l'épreuve fait partie de la validation avant livraison (voir ci-dessous).
+
+## Valider avant de livrer (dans cet ordre)
+
+```powershell
+# 1. Boucle de dev : la sonde touchée, exécutée pour de vrai
+pwsh -File .\scripts\check-probes.ps1 -Only <id>
+# 2. Les branches rares, forcées (si la sonde en a)
+$env:VIGIE_FAKE_GAME='chrome'; pwsh -File .\scripts\check-probes.ps1 -Only gaming; Remove-Item Env:VIGIE_FAKE_GAME
+# 3. Avant fusion : la passe complète
+pwsh -File .\scripts\check-probes.ps1 -All
+```
+
+Le parseur ne suffit pas (D50bis) ; le code de retour ne suffit pas non plus : on
+**constate** la sortie (D43). Dates : UTC en écriture, `ConvertTo-UtcDate` en relecture
+(D44).
+
+## Maintenir
+
+- Un seuil ou réglage nouveau → une clé `Config` + une entrée `Parameters`, jamais un
+  nombre en dur ajouté dans la sonde.
+- Une évolution visible à l'écran → répercuter la page « Design système » de l'Atelier
+  dans la même livraison (`docs/DESIGN.md`).
+- Un nouveau module → il apparaît automatiquement dans Paramètres > Modules (catalogue) ;
+  vérifier que couper/rallumer fonctionne.
+- Après toute modification servie : recharger la page **servie** (jamais `file://`, D47).
