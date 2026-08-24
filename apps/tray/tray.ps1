@@ -87,6 +87,27 @@ public static bool Focus(System.IntPtr h) {
         # Cache d'etat du backend : lu (jamais ecrit) par le guetteur de modules (D54).
         $stateCacheFile = Join-Path $backend 'var/cache/state-cache.json'
         $startupGrace = 25    # secondes de tolerance avant de declarer un echec de demarrage
+
+        # --- Auto-reparation de la tache de demarrage -------------------------------
+        # Le tray tourne ELEVE : il est le seul a pouvoir corriger sa propre tache
+        # planifiee sans redemander une elevation a l'utilisateur. La tache echouait par
+        # intermittence au logon (0xC0070154 : pwsh vient du Store et son paquet MSIX
+        # n'est pas toujours pret a la seconde ou la session s'ouvre). Idempotent :
+        # ne touche que le delai et les reprises, et seulement s'ils manquent.
+        try {
+            $tache = Get-ScheduledTask -TaskName 'Vigie' -ErrorAction Stop
+            $aCorriger = $false
+            if (-not $tache.Triggers[0].Delay) { $tache.Triggers[0].Delay = 'PT45S'; $aCorriger = $true }
+            if (-not $tache.Settings.RestartCount) {
+                $tache.Settings.RestartCount = 3
+                $tache.Settings.RestartInterval = 'PT1M'
+                $aCorriger = $true
+            }
+            if ($aCorriger) {
+                Set-ScheduledTask -InputObject $tache | Out-Null
+                TLog "tache planifiee reparee : delai PT45S + 3 reprises (echec MSIX au logon)"
+            }
+        } catch { TLog ("tache planifiee non reparable ici : " + $_.Exception.Message) }
         $iconHandle = [System.IntPtr]::Zero
 
         # --- Pilotage par ordres deposes dans var/run ----------------------------------
