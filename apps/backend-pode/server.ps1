@@ -107,6 +107,42 @@ Add-PodeRoute -Method Post -Path "$base/units/:id" -ScriptBlock {
     Write-PodeJsonResponse -Value @{ units = @(Get-UnitCatalog -Backend $env:VIGIE_BACKEND) } -Depth 6
 }
 
+# --- Parametres de modules (D57) : defaut = config, surcharge par l'utilisateur ---
+Add-PodeRoute -Method Get -Path "$base/parameters" -ScriptBlock {
+    . "$env:VIGIE_BACKEND/lib/common.ps1"
+    Write-PodeJsonResponse -Value @{ modules = @(Get-ModuleParameterCatalog -Backend $env:VIGIE_BACKEND) } -Depth 6
+}
+Add-PodeRoute -Method Post -Path "$base/parameters/:unit" -ScriptBlock {
+    . "$env:VIGIE_BACKEND/lib/common.ps1"
+    $unit = $WebEvent.Parameters['unit']
+    $d = $WebEvent.Data
+    if (-not $d -or -not $d.values) {
+        Set-PodeResponseStatus -Code 400
+        Write-PodeJsonResponse -Value @{ error = "Champ 'values' requis (cle -> valeur ; null = retour au defaut)" }
+        return
+    }
+    $vals = @{}
+    if ($d.values -is [System.Collections.IDictionary]) {
+        foreach ($k in @($d.values.Keys)) { $vals["$k"] = $d.values[$k] }
+    } else {
+        foreach ($pr in $d.values.PSObject.Properties) { $vals["$($pr.Name)"] = $pr.Value }
+    }
+    try { Set-ModuleParameters -Unit $unit -Values $vals -Backend $env:VIGIE_BACKEND }
+    catch {
+        Set-PodeResponseStatus -Code 400
+        Write-PodeJsonResponse -Value @{ error = $_.Exception.Message }
+        return
+    }
+    # Un reglage change doit se VOIR : les sondes du module sont recalculees au prochain
+    # /state, sans attendre leur TTL.
+    try {
+        $probes = @(Get-ChildItem -Path (Join-Path (Join-Path "$env:VIGIE_BACKEND/probes" $unit)) -Filter '*.probe.ps1' -File |
+                    ForEach-Object { $_.Name })
+        if ($probes.Count) { Remove-ProbeCache -Names $probes -Backend $env:VIGIE_BACKEND }
+    } catch { }
+    Write-PodeJsonResponse -Value @{ modules = @(Get-ModuleParameterCatalog -Backend $env:VIGIE_BACKEND) } -Depth 6
+}
+
 # --- Reglages des notifications (D54) : lus/ecrits par l'interface -----------
 Add-PodeRoute -Method Get -Path "$base/notifications" -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"

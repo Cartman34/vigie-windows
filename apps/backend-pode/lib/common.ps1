@@ -1630,6 +1630,107 @@ function Get-UnitCatalog {
     })
 }
 
+# --- Parametres de modules (D57) ----------------------------------------------
+# Modele valide par l'utilisateur : la CONFIG (module.psd1, versionnee) porte les valeurs
+# par DEFAUT ; un PARAMETRE est une surcharge de l'utilisateur, posee via le menu
+# Parametres et stockee dans config/parameters.local.json (jamais versionne).
+# Chaque parametre a pour defaut une valeur de config -- c'est la regle, pas l'exception.
+function Get-ParametersLocalPath {
+    Join-Path (Get-RepoRoot) 'config/parameters.local.json'
+}
+
+function Get-ParameterOverrides {
+    $p = Get-ParametersLocalPath
+    $out = @{}
+    if (Test-Path -LiteralPath $p) {
+        try {
+            $j = Get-Content -LiteralPath $p -Raw -Encoding UTF8 | ConvertFrom-Json
+            foreach ($u in $j.PSObject.Properties) {
+                $out[$u.Name] = @{}
+                foreach ($k in $u.Value.PSObject.Properties) { $out[$u.Name][$k.Name] = $k.Value }
+            }
+        } catch { }
+    }
+    return $out
+}
+
+# La valeur EFFECTIVE d'un reglage : surcharge utilisateur si presente, sinon la config
+# du module. C'est LE point d'entree des sondes -- elles ne lisent jamais le fichier local.
+function Get-ModuleSetting {
+    param(
+        [Parameter(Mandatory)][string]$Unit,
+        [Parameter(Mandatory)][string]$Key,
+        [string]$Backend = (Get-BackendRoot)
+    )
+    $sur = Get-ParameterOverrides
+    if ($sur.ContainsKey($Unit) -and $sur[$Unit].ContainsKey($Key)) { return $sur[$Unit][$Key] }
+    $declPath = Join-Path (Join-Path (Join-Path $Backend 'probes') $Unit) 'module.psd1'
+    if (Test-Path -LiteralPath $declPath) {
+        try {
+            $d = Import-PowerShellDataFile -Path $declPath
+            if ($d.Config -and $d.Config.ContainsKey($Key)) { return $d.Config[$Key] }
+        } catch { }
+    }
+    return $null
+}
+
+# Catalogue pour l'interface : chaque module declare (module.psd1) ses parametres
+# reglables -- cle, libelle, type, aide -- et la valeur courante est calculee ici.
+function Get-ModuleParameterCatalog {
+    param([string]$Backend = (Get-BackendRoot))
+    $sur = Get-ParameterOverrides
+    @(foreach ($u in (Get-UnitCatalog -Backend $Backend)) {
+        $declPath = Join-Path (Join-Path (Join-Path $Backend 'probes') $u.id) 'module.psd1'
+        $decl = @{}
+        if (Test-Path -LiteralPath $declPath) {
+            try { $decl = Import-PowerShellDataFile -Path $declPath } catch { }
+        }
+        if (-not $decl.Parameters) { continue }
+        $params = @(foreach ($pm in @($decl.Parameters)) {
+            $cle = "$($pm.Key)"
+            $defaut = if ($decl.Config -and $decl.Config.ContainsKey($cle)) { $decl.Config[$cle] } else { $null }
+            $courant = if ($sur.ContainsKey($u.id) -and $sur[$u.id].ContainsKey($cle)) { $sur[$u.id][$cle] } else { $defaut }
+            [ordered]@{
+                key      = $cle
+                label    = "$($pm.Label)"
+                type     = if ($pm.Type) { "$($pm.Type)" } else { 'int' }
+                unit     = if ($pm.Unit) { "$($pm.Unit)" } else { $null }
+                help     = if ($pm.Help) { "$($pm.Help)" } else { '' }
+                default  = $defaut
+                value    = $courant
+                overridden = ($sur.ContainsKey($u.id) -and $sur[$u.id].ContainsKey($cle))
+            }
+        })
+        [pscustomobject][ordered]@{ unit = $u.id; label = $u.label; params = $params }
+    })
+}
+
+# Pose (ou retire) des surcharges. $null pour une cle = retour a la valeur de config.
+# Seules les cles DECLAREES par le module sont acceptees : un parametre non declare
+# n'a pas d'interface, il n'a donc pas non plus de surcharge.
+function Set-ModuleParameters {
+    param(
+        [Parameter(Mandatory)][string]$Unit,
+        [Parameter(Mandatory)][hashtable]$Values,
+        [string]$Backend = (Get-BackendRoot)
+    )
+    $cat = @(Get-ModuleParameterCatalog -Backend $Backend | Where-Object { $_.unit -eq $Unit })
+    if (-not $cat) { throw "Module sans parametres declares : $Unit" }
+    $connues = @($cat[0].params | ForEach-Object { $_.key })
+    $sur = Get-ParameterOverrides
+    if (-not $sur.ContainsKey($Unit)) { $sur[$Unit] = @{} }
+    foreach ($k in $Values.Keys) {
+        if ($connues -notcontains "$k") { throw "Parametre non declare : $Unit.$k" }
+        if ($null -eq $Values[$k]) { $sur[$Unit].Remove("$k") }
+        else { $sur[$Unit]["$k"] = $Values[$k] }
+    }
+    if ($sur[$Unit].Count -eq 0) { $sur.Remove($Unit) }
+    $p = Get-ParametersLocalPath
+    $tmp = "$p.tmp"
+    ($sur | ConvertTo-Json -Depth 5) | Set-Content -LiteralPath $tmp -Encoding UTF8
+    Move-Item -LiteralPath $tmp -Destination $p -Force
+}
+
 # --- Reglages des notifications (D54) ----------------------------------------
 # Le TRAY notifie sur bascule d'un MODULE (resultat de sonde) ; la couleur de son icone,
 # elle, reste le statut de l'APPLICATION -- les deux roles ne se melangent pas.
