@@ -867,6 +867,19 @@ fois sous forme de suggestions en prose, en clôture de longs messages. L'utilis
 **aucune question** — et il avait raison, ce n'en étaient pas. C'était de surcroît un détail
 technique, qui relevait de la décision et non de l'arbitrage.
 
+### Un rapport, c'est une phrase par sujet
+
+**Règle** : un compte rendu se lit d'un coup d'œil. Une ligne par sujet traité, verdict en
+premier. Pas de récit de l'enquête, pas de justification de la méthode, pas de rappel de ce
+qui a déjà été dit.
+
+Le détail — cause, mesure, raisonnement — va dans le **dépôt** : décision, commentaire de
+code, ou entrée de `docs/REPRISE.md`. C'est là qu'il survit et qu'on le retrouve ; dans un
+message, il se lit une fois puis se perd.
+
+Une phrase de plus n'est justifiée que si elle change une décision de l'utilisateur : un
+défaut encore ouvert, une vérification qui n'a pas pu être faite, une action attendue de lui.
+
 ## D40 — Les droits de l'agent sont un fichier du dépôt, pas un réglage de session
 
 Les demandes de permission incessantes venaient de règles **par motif de commande**
