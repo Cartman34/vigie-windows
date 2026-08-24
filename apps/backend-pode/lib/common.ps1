@@ -252,7 +252,13 @@ function Invoke-PkgUpgrade {
     $cmd = Get-Command $Id -ErrorAction SilentlyContinue
     if (-not $cmd -or -not $cmd.Source) { return @{ ok = $false; supported = $false; output = '' } }
     $r = Invoke-Native -File $cmd.Source -Arguments $mg.upgArgs
-    return @{ ok = $r.Ok; supported = $true; exit = $r.ExitCode; output = $r.Output }
+    # 3010 = ERROR_SUCCESS_REBOOT_REQUIRED : l'installation a REUSSI, elle demande un
+    # redemarrage. Le traiter comme un echec (« ok=False ») etait faux et affichait une
+    # erreur sur une operation qui avait fonctionne -- constate sur Chocolatey.
+    # 1641 = redemarrage DEJA declenche, meme famille.
+    $redemarrage = ($r.ExitCode -eq 3010 -or $r.ExitCode -eq 1641)
+    return @{ ok = ($r.Ok -or $redemarrage); supported = $true; exit = $r.ExitCode
+              reboot = $redemarrage; output = $r.Output }
 }
 
 # Lanceur GENERIQUE (non bloquant) d'une operation paquet : 'check' ou 'upgrade'.
@@ -387,8 +393,11 @@ function Get-AppVersion {
     param([string]$Backend = (Get-BackendRoot))
     $f = Join-Path (Get-RepoRoot) 'VERSION'
     if (Test-Path -LiteralPath $f) {
-        $v = (Get-Content -LiteralPath $f -Raw -ErrorAction SilentlyContinue)
-        if ($v) { return "$v".Trim() }
+        $v = "$(Get-Content -LiteralPath $f -Raw -ErrorAction SilentlyContinue)".Trim()
+        # Convention du projet : un numero de version s'affiche prefixe de « v ». Le
+        # fichier VERSION ne porte QUE le numero ; le prefixe est ajoute ici, une fois,
+        # pour qu'il ne se recopie pas dans chaque endroit qui affiche la version.
+        if ($v) { return $(if ($v.StartsWith('v')) { $v } else { "v$v" }) }
     }
     return 'inconnue'
 }

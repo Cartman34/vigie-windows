@@ -67,6 +67,7 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
         }
         $mg2 += ""
         $mg2 += ("Vérifié le : " + $u.at)
+        if ($u.reboot) { $mg2 += "Un REDÉMARRAGE est nécessaire pour terminer la dernière mise à jour." }
         if ($u.error) { $mg2 += ("Erreur lors de la vérification : " + $u.error) }
     } else {
         $majValue = 'non vérifiées'

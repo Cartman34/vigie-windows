@@ -41,7 +41,23 @@ if ($null -eq $count) {
     } catch { }
     $enCours = [bool]($inst -and $inst.installing)
 
+    $scan = $null
+    try {
+        $fs = Get-VarPath -Backend $backend -Kind 'cache' -File 'wu-scan.json'
+        if (Test-Path $fs) { $scan = Get-Content $fs -Raw | ConvertFrom-Json }
+    } catch { }
+    $scanEnCours = [bool]($scan -and $scan.scanning)
+
     $champs = @()
+    if ($scanEnCours) {
+        $champs += New-Field -Key 'scan' -Label 'Analyse en ligne' -Value 'en cours…' -Kind 'text' -Status 'neutral' `
+            -Help "Interrogation des serveurs Microsoft. Elle continue même si vous fermez la fenêtre."
+    } elseif ($scan -and $null -ne $scan.trouvees) {
+        $champs += New-Field -Key 'scan' -Label 'Dernière analyse en ligne' -Value "$([int]$scan.trouvees) trouvée(s)" -Kind 'text' `
+            -Status $(if ($scan.error) {'error'} else {'ok'}) `
+            -Help "Résultat de la dernière recherche lancée depuis Vigie." `
+            -Guide $(if ($scan.error) { "Erreur : $($scan.error)" } else { '' })
+    }
     if ($enCours) {
         $phase = if ($inst.phase) { "$($inst.phase)" } else { 'en cours' }
         $champs += New-Field -Key 'install' -Label 'Installation' -Value "$phase…" -Kind 'text' -Status 'neutral' `
@@ -60,16 +76,20 @@ if ($null -eq $count) {
     }
 
     $actions = @()
+    # Recherche EN LIGNE : la sonde ne lit que le cache local de Windows, qui peut etre
+    # perime. Ce bouton interroge les serveurs -- c'est long, donc detache.
+    $actions += New-Action -Id 'wu-scan' -Label 'Vérifier les mises à jour' -Kind 'immediate' `
+        -Help "Interroge les serveurs Microsoft (plusieurs minutes). La valeur affichée provient sinon du cache local de Windows, qui peut être périmé."
     if ($count -gt 0) {
         $actions += New-Action -Id 'wu-list-pending' -Label 'Installer des mises à jour…' -Kind 'dialog' `
             -Help "Ouvre la liste des mises à jour détectées pour choisir celles à installer. Rien ne s'installe sans votre sélection."
     }
     $actions += New-Action -Id 'open-windows-update' -Label 'Ouvrir Windows Update' -Kind 'manual' -Help "Ouvre les Paramètres Windows Update pour installer manuellement. Déverrouillez (Mode MAJ) avant si nécessaire, puis re-verrouillez."
 
-    New-ModuleObject -Id 'wu-pending' -Theme 'windows-update' -Label 'Mises à jour en attente' -Status $(if ($enCours) {'neutral'} elseif ($count -gt 0) {'warn'} else {'ok'}) -Fields (@(
+    New-ModuleObject -Id 'wu-pending' -Theme 'windows-update' -Label 'Mises à jour en attente' -Status $(if ($enCours -or $scanEnCours) {'neutral'} elseif ($count -gt 0) {'warn'} else {'ok'}) -Fields (@(
         # FixAction pointe sur l'ouverture de Windows Update, PAS sur l'installation :
         # une action reprise comme « correctif » disparait de la barre d'actions pour se
         # replier dans la ligne du champ, ou l'utilisateur ne la trouve pas.
         New-Field -Key 'pending' -Label 'Détectées (non installées)' -Value $count -Kind 'number' -Status $(if ($count -gt 0) {'warn'} else {'ok'}) -Help $help -Guide $guide -FixAction 'open-windows-update'
-    ) + $champs) -Actions $actions -Busy:$enCours
+    ) + $champs) -Actions $actions -Busy:($enCours -or $scanEnCours)
 }

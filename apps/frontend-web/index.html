@@ -881,13 +881,12 @@ async function doAction(type,module,confirmNeeded,label,help,btnEl,params){
                .filter(Boolean).join(' · ')
       }));
       if(!liste.length){ updateNotif(entry,'done', name+' : aucune mise à jour à installer.'); return; }
-      if(j.result.verrou){
-        updateNotif(entry,'error', name+" : mises à jour verrouillées (Mode MAJ). Déverrouillez avant d'installer.");
-        await HDS.info(name, "Les mises à jour sont verrouillées par le Mode MAJ.\n\nDéverrouillez-les (bouton « Mode MAJ »), puis relancez cette action.", {variant:'warn'});
-        return;
-      }
+      // Le verrou du Mode MAJ ne BLOQUE pas : l'application le leve et le repose seule.
+      // On se contente d'en informer -- c'est une mecanique interne dont l'utilisateur
+      // n'a pas a s'occuper. Il etait ici bloquant, ce qui contredisait l'action.
+      const avis = j.result.verrou ? " Le verrou du Mode MAJ sera levé le temps de l'opération, puis reposé." : "";
       const choisis = await HDS.choose({
-        title: name, intro: "Cochez les mises à jour à installer. L'installation continue même si vous fermez cette fenêtre.",
+        title: name, intro: "Cochez les mises à jour à installer. L'installation continue même si vous fermez cette fenêtre."+avis,
         items: liste, tousCoches: false, confirmLabel: 'Installer', variant:'warn'
       });
       if(!choisis || !choisis.length){ updateNotif(entry,'done', name+' : annulé.'); return; }
@@ -932,7 +931,8 @@ function setMachineName(host){
 function setFootVersion(){
   const el = document.getElementById('footVersion'); if(!el) return;
   const v = window.APP_VERSION;
-  el.textContent = (v && !v.includes('__')) ? ('version ' + v) : 'maquette';
+  // « version v0.1 » serait redondant : le prefixe porte deja le sens.
+  el.textContent = (v && !v.includes('__')) ? v : 'maquette';
 }
 
 // Efface l'ecran de chargement, une seule fois, apres une duree minimale d'affichage.
