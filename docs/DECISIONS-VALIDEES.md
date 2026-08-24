@@ -1246,6 +1246,26 @@ sinon une carte verte faite de lignes neutres serait dégradée sans raison.
 C'est l'issue **normale** d'une mise à jour installée. `warn`, jamais `error`, et le
 bouton qui le résout doit être là (**D48** : un problème signalé a toujours sa résolution).
 
+## D50bis — Le parseur ne suffit pas : les sondes s'exécutent
+
+Le PowerShell est validé par `[Parser]::ParseFile` avant toute livraison (**D06**). Ce
+contrôle vérifie la **syntaxe**, pas l'exécution.
+
+**Ce qui est passé au travers** : un paramètre passé deux fois sur la même ligne
+(`-FixAction` conditionnel ajouté sans retirer l'ancien) franchit le parseur sans un mot,
+puis fait échouer la sonde à l'exécution. La **carte Réseau a disparu du tableau de bord**,
+et le travail a été annoncé comme fait — la validation avait été respectée à la lettre et
+ne prouvait rien.
+
+[`scripts/check-probes.ps1`](../scripts/check-probes.ps1) exécute donc **toutes** les sondes
+et vérifie les invariants de **D49** et **D50** : chaque sonde rend un module, aucun statut
+ne dépasse celui de son pire champ, tout champ en défaut propose une résolution ou un guide,
+tout champ porte une aide, toute action citée existe, aucun libellé au repos ne porte de
+points de suspension.
+
+**À lancer avant toute livraison touchant une sonde.** Le garde-fou a été éprouvé en
+reproduisant le défaut d'origine dans une sonde jetable : il le signale et sort en code 1.
+
 ## D50 — Le vocabulaire des actions
 
 Trois dimensions indépendantes, longtemps confondues :
