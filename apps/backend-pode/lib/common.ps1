@@ -678,12 +678,14 @@ function Get-State {
                         $errMod = New-ModuleObject -Id $sp.Name -Theme 'system' -Label $sp.Name -Status 'error' -Fields @(New-Field -Key 'error' -Label 'Erreur de sonde' -Value $_.Exception.Message -Kind 'text')
                         $cache[$sp.Name] = [ordered]@{ module = $errMod; at = (Get-Date).ToUniversalTime().ToString('o'); codeStamp = $sp.Stamp }
                     }
-                    # Ecriture incrementale ATOMIQUE : chaque sonde finie est conservee.
-                    try {
-                        $tmp = "$cacheFile.tmp"
-                        ([pscustomobject]$cache) | ConvertTo-Json -Depth 8 | Set-Content -Path $tmp -Encoding UTF8
-                        Move-Item -Path $tmp -Destination $cacheFile -Force
-                    } catch { }
+                    # Ecriture FUSIONNEE, entree par entree, sous mutex (Update-StateJson).
+                    #
+                    # On reecrivait tout le fichier depuis la copie memoire : deux recalculs
+                    # simultanes (la requete forcee et le rafraichissement de fond) se
+                    # clobberaient l'un l'autre, et une entree deja corrigee revenait a son
+                    # ancienne valeur -- une carte en erreur ressuscitait apres correction.
+                    # Ne reecrire QUE la sonde qu'on vient de calculer supprime la course.
+                    try { Update-StateJson -Path $cacheFile -Set @{ $sp.Name = $cache[$sp.Name] } | Out-Null } catch { }
                 }
             }
         } finally {
