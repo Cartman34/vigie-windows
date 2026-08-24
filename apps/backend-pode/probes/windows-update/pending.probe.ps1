@@ -67,6 +67,9 @@ if ($null -eq $count) {
     $actions += New-Action -Id 'open-windows-update' -Label 'Ouvrir Windows Update' -Kind 'manual' -Help "Ouvre les Paramètres Windows Update pour installer manuellement. Déverrouillez (Mode MAJ) avant si nécessaire, puis re-verrouillez."
 
     New-ModuleObject -Id 'wu-pending' -Theme 'windows-update' -Label 'Mises à jour en attente' -Status $(if ($enCours) {'neutral'} elseif ($count -gt 0) {'warn'} else {'ok'}) -Fields (@(
-        New-Field -Key 'pending' -Label 'Détectées (non installées)' -Value $count -Kind 'number' -Status $(if ($count -gt 0) {'warn'} else {'ok'}) -Help $help -Guide $guide -FixAction 'wu-list-pending'
+        # FixAction pointe sur l'ouverture de Windows Update, PAS sur l'installation :
+        # une action reprise comme « correctif » disparait de la barre d'actions pour se
+        # replier dans la ligne du champ, ou l'utilisateur ne la trouve pas.
+        New-Field -Key 'pending' -Label 'Détectées (non installées)' -Value $count -Kind 'number' -Status $(if ($count -gt 0) {'warn'} else {'ok'}) -Help $help -Guide $guide -FixAction 'open-windows-update'
     ) + $champs) -Actions $actions -Busy:$enCours
 }

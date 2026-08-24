@@ -12,10 +12,12 @@ if (-not $Backend) { return }
 . (Join-Path $Backend 'lib/common.ps1')
 
 $ids = @()
+$reposerVerrou = $false
 try {
     if ($ArgsB64) {
         $a = ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($ArgsB64))) | ConvertFrom-Json
         $ids = @($a.ids)
+        $reposerVerrou = [bool]$a.reposerVerrou
     }
 } catch { }
 if (-not $ids -or $ids.Count -eq 0) { return }
@@ -27,7 +29,23 @@ function Set-Etat {
     try { Update-StateJson -Path $outFile -Set $Set | Out-Null } catch { }
 }
 
+# Le verrou du Mode MAJ empeche l'installation. On le LEVE ici et on le REPOSE dans le
+# finally : quoi qu'il arrive -- succes, echec, exception -- la machine retrouve l'etat dans
+# lequel l'utilisateur l'avait laissee. Un verrou de securite qu'on oublie de remettre est
+# pire que pas de verrou du tout.
+$verrouLeve = $false
 try {
+    if ($reposerVerrou) {
+        $verrouLeve = Set-UpdateLock -Etat 'leve' -Backend $Backend
+        Write-Log -Backend $Backend -Name 'wuinstall' -Message ("verrou leve : " + $verrouLeve)
+        if (-not $verrouLeve) {
+            Set-Etat @{ installing = $false; phase = 'termine'; ok = $false
+                        at = (Get-Date).ToUniversalTime().ToString('o')
+                        error = "Le verrou des mises a jour n'a pas pu etre leve." }
+            Write-Log -Backend $Backend -Name 'wuinstall' -Level 'ERROR' -Message 'verrou non levable'
+            return
+        }
+    }
     Write-Log -Backend $Backend -Name 'wuinstall' -Message ("demande : " + $ids.Count + " mise(s) a jour")
     $session  = New-Object -ComObject Microsoft.Update.Session
     $searcher = $session.CreateUpdateSearcher()
@@ -84,7 +102,16 @@ try {
     Set-Etat @{ installing = $false; phase = 'termine'; ok = $false
                 at = (Get-Date).ToUniversalTime().ToString('o'); error = $_.Exception.Message }
     Write-Log -Backend $Backend -Name 'wuinstall' -Level 'ERROR' -Message $_.Exception.Message
+} finally {
+    if ($verrouLeve) {
+        $repose = Set-UpdateLock -Etat 'pose' -Backend $Backend
+        Write-Log -Backend $Backend -Name 'wuinstall' -Message ("verrou repose : " + $repose)
+        if (-not $repose) {
+            # Etat anormal : on le SIGNALE au lieu de le taire, la machine reste ouverte.
+            Set-Etat @{ verrouNonRepose = $true }
+            Write-Log -Backend $Backend -Name 'wuinstall' -Level 'ERROR' -Message 'VERROU NON REPOSE'
+        }
+    }
+    # Les deux cartes doivent refleter le resultat sans attendre le TTL des sondes.
+    try { Remove-ProbeCache -Names @('pending.probe.ps1','lock.probe.ps1') -Backend $Backend } catch { }
 }
-
-# La carte doit refleter le resultat sans attendre le TTL de la sonde.
-try { Remove-ProbeCache -Names @('pending.probe.ps1') -Backend $Backend } catch { }

@@ -17,16 +17,11 @@ if ($ids.Count -eq 0) {
     return @{ message = "Aucune mise a jour selectionnee."; result = @{ ok = $false } }
 }
 
-# Le verrou du Mode MAJ bloque l'installation : le dire AVANT plutot que de laisser
-# echouer une operation de plusieurs minutes.
-try {
-    if (Test-UpdateTasksAclLock) {
-        return @{
-            message = "Les mises a jour sont verrouillees (Mode MAJ). Deverrouillez avant d'installer."
-            result  = @{ ok = $false; verrou = $true }
-        }
-    }
-} catch { }
+# Le verrou du Mode MAJ est une mecanique INTERNE a l'application : elle le leve le temps
+# d'installer, puis le REPOSE. L'utilisateur est prevenu, pas bloque -- lui demander de
+# defaire a la main un verrou que l'application a pose elle-meme n'a pas de sens.
+$etaitVerrouille = $false
+try { $etaitVerrouille = Test-UpdateTasksAclLock } catch { }
 
 $outFile = Get-VarPath -Backend $backend -Kind 'cache' -File 'wu-install.json'
 Update-StateJson -Path $outFile -Set @{
@@ -36,13 +31,14 @@ Update-StateJson -Path $outFile -Set @{
 
 $worker = Join-Path $backend 'workers/wu-install.worker.ps1'
 try {
-    $null = Start-DetachedAction -Script $worker -ArgsMap @{ ids = $ids } -Backend $backend
+    $null = Start-DetachedAction -Script $worker -ArgsMap @{ ids = $ids; reposerVerrou = $etaitVerrouille } -Backend $backend
 } catch {
     Update-StateJson -Path $outFile -Set @{ installing = $false; error = $_.Exception.Message } | Out-Null
     return @{ message = "Impossible de lancer l'installation : $($_.Exception.Message)"; result = @{ ok = $false } }
 }
 
+$avis = if ($etaitVerrouille) { " Le verrou du Mode MAJ est leve pour l'operation, puis repose." } else { "" }
 @{
-    message = "Installation de $($ids.Count) mise(s) a jour lancee en tache de fond."
-    result  = @{ ok = $true; async = $true; module = 'wu-pending'; invalidate = @('pending.probe.ps1') }
+    message = "Installation de $($ids.Count) mise(s) a jour lancee en tache de fond.$avis"
+    result  = @{ ok = $true; async = $true; module = 'wu-pending'; invalidate = @('pending.probe.ps1','lock.probe.ps1') }
 }
