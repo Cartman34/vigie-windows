@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Vigie</title>
+<!-- Servi par la route /favicon.ico du back, qui relit le .ico LIVRE du tray :
+     une seule representation de la marque, pas une copie de plus (D15). -->
+<link rel="icon" href="/favicon.ico" sizes="any">
 <!--
   Front statique. Ne connait QUE le contrat REST (apps/backend-pode/api/openapi.yaml).
   Servi par le back : le jeton est injecte dans __API_TOKEN__ (route GET / de Pode).
@@ -12,7 +15,11 @@
 <script>
   window.API_TOKEN = "__API_TOKEN__";
   window.API_BASE  = "/api/v1";
+  // Deux valeurs distinctes, deux usages : APP_VERSION s'AFFICHE (lisible, issue de git),
+  // APP_BUILD sert UNIQUEMENT a detecter qu'une nouvelle version est servie. Les confondre
+  // obligeait a afficher un jeton de changement -- « version 639231069781032063 ».
   window.APP_VERSION = "__APP_VERSION__";
+  window.APP_BUILD   = "__APP_BUILD__";
 </script>
 <style>
   :root {
@@ -34,7 +41,11 @@
     --warn-dark:#6e4100; --gauge-track:#c2cbd8;
   }
   *{box-sizing:border-box}
-  body{margin:0;font-family:-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.45}
+  /* Colonne pleine hauteur : le pied de page tombe EN BAS de la fenetre meme quand le
+     contenu est court, au lieu de remonter coller sous la derniere carte. */
+  body{margin:0;font-family:-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.45;
+       min-height:100vh;display:flex;flex-direction:column}
+  body > main{flex:1 0 auto}
   header{position:sticky;top:0;z-index:10;background:var(--panel);border-bottom:1px solid var(--border);padding:14px 22px;display:flex;align-items:center;gap:16px;box-shadow:var(--shadow)}
   header .title{font-weight:700;font-size:16px} header .title small{color:var(--muted);font-weight:500;margin-left:8px}
   .global{display:flex;align-items:center;gap:8px;padding:5px 12px;border-radius:999px;border:1px solid var(--border);background:var(--panel-2)}
@@ -77,7 +88,10 @@
   .toast .t-x{margin-left:4px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;line-height:1}
   .t-dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;margin-top:4px;background:var(--muted)}
   .t-dot.done{background:var(--ok)} .t-dot.error{background:var(--err)} .t-dot.running{background:var(--accent)}
-  .bell{position:relative}
+  /* Bouton a ICONE SEULE : le padding des boutons a texte (7px 12px) decentrait
+     le glyphe. Meme boite carree que .repo-ic, contenu centre. */
+  .bell{position:relative;display:inline-flex;align-items:center;justify-content:center;
+        width:32px;height:32px;padding:0;flex:0 0 auto}
   .bell-count{position:absolute;top:-6px;right:-6px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--accent);color:#fff;font-size:10px;font-weight:800;display:none;align-items:center;justify-content:center;line-height:1}
   .drawer-back{position:fixed;inset:0;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:.2s;z-index:49}
   .drawer-back.show{opacity:1;pointer-events:auto}
@@ -233,13 +247,25 @@
   #splash.splash-off{opacity:0;pointer-events:none}
   #splash[hidden]{display:none}
   .splash-mark{width:104px;height:104px;display:block}
-  /* L'aiguille monte de 0 a la fraction "demarrage" (0,50) de D01, arc et aiguille synchronises. */
-  .splash-arc-val{stroke-dasharray:164.93;stroke-dashoffset:164.93;animation:splash-fill 1.1s cubic-bezier(.22,.8,.28,1) forwards}
-  .splash-needle{transform-origin:50px 50px;animation:splash-sweep 1.1s cubic-bezier(.22,.8,.28,1) forwards}
-  @keyframes splash-fill{to{stroke-dashoffset:82.47}}
-  @keyframes splash-sweep{from{transform:rotate(0deg)}to{transform:rotate(135deg)}}
-  .splash-id{display:flex;flex-direction:column;align-items:center;gap:6px}
-  .splash-name{font-size:clamp(54px,11vw,88px);font-weight:700;letter-spacing:-.035em;line-height:1;margin:0}
+  /* La jauge monte AVEC le chargement. Tant que la progression est inconnue, elle monte
+     d'un CRAN a la fois -- les 7 graduations de D01, donc 6 intervalles -- puis repart de
+     zero. Un balayage continu se lirait comme une progression reelle qu'on ne mesure pas.
+     L'animation va jusqu'a 315deg (7 crans) pour que steps(7,end) affiche bien la position
+     pleine 270deg : avec 270deg, le dernier cran ne serait jamais atteint. */
+  .splash-arc-val{stroke-dasharray:164.93;stroke-dashoffset:164.93;
+    animation:splash-fill 2.8s steps(7,end) infinite}
+  .splash-needle{transform-origin:50px 50px;animation:splash-sweep 2.8s steps(7,end) infinite}
+  @keyframes splash-fill{from{stroke-dashoffset:164.93}to{stroke-dashoffset:-27.49}}
+  @keyframes splash-sweep{from{transform:rotate(0deg)}to{transform:rotate(315deg)}}
+  /* Progression CONNUE : le JS pose --splash-frac et coupe la boucle. */
+  #splash.splash-determine .splash-arc-val{animation:none;
+    stroke-dashoffset:calc(164.93 - 164.93 * var(--splash-frac,0))}
+  #splash.splash-determine .splash-needle{animation:none;
+    transform:rotate(calc(270deg * var(--splash-frac,0)))}
+  .splash-id{display:flex;flex-direction:column;align-items:center;gap:10px}
+  /* line-height 1 coupait la boite au ras de la ligne de base : la jambe du « g » plongeait
+     dans la gouttiere de 6 px et le sous-titre paraissait colle. */
+  .splash-name{font-size:clamp(54px,11vw,88px);font-weight:700;letter-spacing:-.035em;line-height:1.1;margin:0}
   .splash-sub{color:var(--muted);font-size:13.5px;letter-spacing:.4px;margin:0}
   .splash-bar{width:186px;height:3px;border-radius:999px;background:var(--border);overflow:hidden}
   .splash-bar i{display:block;width:38%;height:100%;border-radius:inherit;background:var(--accent);
@@ -265,6 +291,9 @@
 </style>
 </head>
 <body>
+<!-- Marque GitHub definie UNE fois, reutilisee par <use>. Elle apparaissait a trois
+     endroits : trois copies d'un meme trace finissent toujours par diverger (D15). -->
+<svg hidden aria-hidden="true"><symbol id="ghMark" viewBox="0 0 16 16"><path fill="currentColor" d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38l-.01-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.93-.89-1.18-.89-1.18-.73-.5.06-.49.06-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.22 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.2c0 .21.15.46.55.38A8 8 0 0 0 8 0z"/></symbol></svg>
 <!-- ================= Ecran de chargement (D08) =================
      Marque "icone tray v1 - jauge a graduations" (D01), etat "demarrage" (orange, fraction 0,50).
      Geometrie identique a apps/tray/assets/generate-icons.py, en fractions d'une taille de 100. -->
@@ -298,7 +327,7 @@
     <p class="splash-sub" id="splashSub">Tableau de bord local</p>
   </div>
   <div class="splash-bar"><i></i></div>
-  <p class="splash-foot"><a class="repo-link" data-repo-link="label"></a></p>
+  <p class="splash-foot"><a class="repo-ic" data-repo-link aria-label="Depot du projet sur GitHub"><svg width="16" height="16" aria-hidden="true"><use href="#ghMark"/></svg></a></p>
 </div>
 <header>
   <div class="title"><span id="appTitle">…</span> <small>Vigie</small></div>
@@ -311,7 +340,7 @@
     <span id="bellCount" class="bell-count"></span>
   </button>
   <a class="repo-ic" data-repo-link aria-label="Dépôt du projet sur GitHub">
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38l-.01-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.93-.89-1.18-.89-1.18-.73-.5.06-.49.06-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.22 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48l-.01 2.2c0 .21.15.46.55.38A8 8 0 0 0 8 0z"/></svg>
+    <svg width="16" height="16" aria-hidden="true"><use href="#ghMark"/></svg>
   </a>
   <button onclick="toggleTheme()" id="themeBtn">☀ Clair</button>
 </header>
@@ -321,7 +350,7 @@
   <span>Vigie</span><span class="sep">·</span>
   <span id="footVersion"></span>
   <span class="spacer"></span>
-  <a class="repo-link" data-repo-link="label"></a>
+  <a class="repo-ic" data-repo-link aria-label="Depot du projet sur GitHub"><svg width="16" height="16" aria-hidden="true"><use href="#ghMark"/></svg></a>
 </footer>
 <div class="toast-stack" id="toastStack"></div>
 <div class="drawer-back" id="drawerBack" onclick="toggleDrawer()"></div>
@@ -813,7 +842,7 @@ async function refresh(){
   setLoading(true);
   try{
     const {data,mode}=await fetchState();
-    if(mode==='live' && data && data.version && window.APP_VERSION && !window.APP_VERSION.includes('__') && data.version!==window.APP_VERSION){ location.reload(); return; }
+    if(mode==='live' && data && data.build && window.APP_BUILD && !window.APP_BUILD.includes('__') && data.build!==window.APP_BUILD){ location.reload(); return; }
     renderState(data,mode);
   }
   catch(e){
@@ -826,10 +855,10 @@ async function refresh(){
 }
 async function checkVersion(){
   try{
-    if(!window.APP_VERSION || window.APP_VERSION.includes('__')) return;
+    if(!window.APP_BUILD || window.APP_BUILD.includes('__')) return;
     const r=await fetch(API+'/health'); if(!r.ok) return;
     const j=await r.json();
-    if(j && j.version && j.version!==window.APP_VERSION) location.reload();
+    if(j && j.build && j.build!==window.APP_BUILD) location.reload();
   }catch(e){}
 }
 

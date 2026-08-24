@@ -56,7 +56,8 @@ Add-PodeMiddleware -Name 'security' -ScriptBlock {
 # --- API REST ---
 Add-PodeRoute -Method Get -Path "$base/health" -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
-    Write-PodeJsonResponse -Value @{ status = 'ok'; version = (Get-AppVersion -Backend $env:VIGIE_BACKEND) }
+    Write-PodeJsonResponse -Value @{ status = 'ok'; version = (Get-AppVersion -Backend $env:VIGIE_BACKEND);
+                                 build = (Get-AppBuildId -Backend $env:VIGIE_BACKEND) }
 }
 Add-PodeRoute -Method Get -Path "$base/state" -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
@@ -101,6 +102,18 @@ Add-PodeRoute -Method Get -Path '/' -ScriptBlock {
     $html  = Get-Content -Path (Join-Path $front 'index.html') -Raw
     $html  = $html.Replace('__API_TOKEN__', $env:VIGIE_TOKEN)
     $html  = $html.Replace('__APP_VERSION__', (Get-AppVersion -Backend $env:VIGIE_BACKEND))
+    $html  = $html.Replace('__APP_BUILD__',   (Get-AppBuildId -Backend $env:VIGIE_BACKEND))
     Write-PodeTextResponse -Value $html -ContentType 'text/html; charset=utf-8'
 }
 Add-PodeStaticRoute -Path '/mock' -Source (Join-Path $front 'mock')
+
+# Favicon : sert le .ico LIVRE du tray. Sans favicon, la fenetre dediee du navigateur
+# (--app) affiche un globe generique dans la barre des taches -- l'application n'avait
+# pas d'icone. On relit le fichier existant plutot que d'ajouter une copie de la marque
+# dans le front : une seule representation (D15, D38).
+Add-PodeRoute -Method Get -Path '/favicon.ico' -ScriptBlock {
+    . "$env:VIGIE_BACKEND/lib/common.ps1"
+    $ico = Join-Path (Get-AppPath -Role 'tray') 'assets/ok.ico'
+    if (-not (Test-Path -LiteralPath $ico)) { Set-PodeResponseStatus -Code 404; return }
+    Write-PodeFileResponse -Path $ico -ContentType 'image/x-icon'
+}

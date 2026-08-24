@@ -348,7 +348,32 @@ function Get-ApiToken {
 }
 
 # --- Version applicative (change quand index.html change) -------------------
+# Version LISIBLE, destinee a l'affichage. Elle vaut ce que dit git : une etiquette si le
+# depot en porte une, sinon l'empreinte courte du commit, suffixee « + » si l'arbre a des
+# modifications non validees.
+#
+# Elle remplace l'ancienne valeur, qui affichait les TICKS de la date du fichier --
+# « version 639231069781032063 ». Correcte comme jeton de changement, illisible comme
+# version : personne ne peut la comparer, la citer, ni la relier a un commit.
+# Le role de jeton de changement revient a Get-AppBuildId, ci-dessous.
 function Get-AppVersion {
+    param([string]$Backend = (Get-BackendRoot))
+    $repo = Get-RepoRoot
+    try {
+        $v = & git -C $repo describe --tags --always --dirty='+' 2>$null
+        if ($LASTEXITCODE -eq 0 -and $v) { return "$v".Trim() }
+    } catch { }
+    # Pas de git (copie deployee sans .git, git absent) : la date du front reste une
+    # information vraie et lisible, contrairement aux ticks.
+    $idx = Join-Path (Get-AppPath -Role 'frontend') 'index.html'
+    if (Test-Path $idx) { return (Get-Item $idx).LastWriteTimeUtc.ToString('yyyy-MM-dd') }
+    return 'inconnue'
+}
+
+# Jeton de CHANGEMENT, jamais affiche. Le front le compare au sien et recharge la page des
+# qu'il differe. Il doit donc bouger a chaque modification du fichier servi -- ce que ne
+# fait pas une empreinte de commit, qui ignore les modifications non validees.
+function Get-AppBuildId {
     param([string]$Backend = (Get-BackendRoot))
     $idx = Join-Path (Get-AppPath -Role 'frontend') 'index.html'
     if (Test-Path $idx) { "$((Get-Item $idx).LastWriteTimeUtc.Ticks)" } else { '0' }
@@ -551,6 +576,7 @@ function Get-State {
     [pscustomobject][ordered]@{
         generatedAt = (Get-Date).ToUniversalTime().ToString('o')
         version     = (Get-AppVersion -Backend $Backend)
+        build       = (Get-AppBuildId -Backend $Backend)
         host        = "$env:COMPUTERNAME"
         themes      = $themes
         modules     = @($modules)
