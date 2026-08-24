@@ -1387,3 +1387,21 @@ valeur effective par `Get-ModuleSetting`, jamais le fichier local. Premier cas r
 seuil d'alerte du disque. **Q2 (même arbitrage)** : l'historique enregistre les
 événements, **aucun affichage pour l'instant**.
 
+## D58 — Fonte d'icônes maison (2026-08-24)
+
+**Décision.** Les icônes de l'interface viennent d'une **fonte fabriquée par le projet** :
+`apps/frontend-web/assets/vigie-icons.ttf`, générée par
+`apps/frontend-web/assets/generate-icon-font.py` (fontTools) — de vrais caractères en zone
+d'usage privée (U+E001…), embarqués dans le front en data-URI. Le générateur est la
+source de vérité (même principe que la jauge du tray, D01) : **un glyphe manquant se
+dessine** (une fonction Python par icône), on ne revient pas aux bibliothèques externes —
+arbitré par l'utilisateur : « les libs d'icônes ne sont jamais totalement complètes ;
+si tu sais les faire, on aura tout ce qu'il nous faut ».
+
+**Corollaires.** Usage front : `<span class="vi">&#xE001;</span>` ; la table des noms vit
+dans le générateur et s'expose sur la page « Design système » de l'Atelier. Le SVG reste
+réservé à la marque (jauge du tray, logo GitHub). Pièges de fabrication consignés dans le
+générateur : remplissage non-zéro (un « trou » qui déborde du contour SE REMPLIT — le
+croissant de lune se trace en un seul chemin à deux arcs), contours horaires = pleins,
+anti-horaires = trous.
+

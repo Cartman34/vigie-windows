@@ -352,19 +352,44 @@ trancher, puis lui redonner le sujet corrigé.
   propre : `Start-ScheduledTask -TaskName Vigie` (élevé sans UAC). L'Atelier se lance par
   `apps/atelier/atelier.ps1` (jamais élevé).
 
+### Soirée du 24/08 — après le redémarrage machine
+
+- **Autostart** : cause trouvée (0xC0070154, pwsh MSIX pas prêt au logon) ; correctif
+  dans l'installeur ET **auto-réparation par le tray** (élevé, il corrige sa propre tâche
+  au démarrage : délai PT45S + 3 reprises — constaté posé sur la tâche réelle).
+- **Historique étapes 1 et 2 FAITES** (deux passes de SA, vérifiées en production) :
+  échantillonnage silencieux (`var/history/*.jsonl`) + `GET /history/{measureId}` au
+  contrat. **Q2 rappelée par l'utilisateur : AUCUN affichage** — pas de sparkline sans
+  demande explicite. Défaut préexistant signalé par le SA : les anciennes routes rendent
+  la page d'erreur HTML de Pode au lieu de JSON sur 404/400 (sa route contourne par
+  `-StatusCode`) — correction en file.
+- **Fonte d'icônes maison** (D58) : générateur + ttf + intégration front complète
+  (en-tête, badges, cartes, Paramètres, footer) ; jugée sur captures par l'utilisateur
+  (à distance : passer par Chrome headless + SendUserFile, le panneau navigateur ne
+  composite pas).
+- **Module Jeux** (`probes/gaming/`) : jeu détecté (premier plan ou top GPU), ressources
+  du jeu, « autres applis gourmandes » en warn au-delà des seuils (CPU 1 % par défaut —
+  demande utilisateur : sur ce processeur, 1 % normalisé tous cœurs est déjà une charge),
+  3 paramètres D57. Mesures sans compteurs localisés (delta Get-Process + GPU Engine).
+  Éprouvé SANS jeu (VIGIE_FAKE_GAME) ET sous charge GPU réelle (WebGL, 19 % — détection
+  par le vrai chemin).
+- **`docs/MODULES.md` créé : LA référence** pour créer/maintenir modules et cartes — à
+  citer dans tout brief de SA touchant aux sondes ; inscrite dans les disciplines.
+- Environnement : `fonttools` et `pillow` installés (pip) — generation de fonte et rendu
+  de planches PNG pour jugement à distance.
+
 ### File de travail (dans l'ordre)
 
-1. **Fonte d'icônes** — dès l'arbitrage (voie 1 prête à faire).
-2. **Historique** — **étape 1 FAITE** (24/08 soir, par SA, vérifiée en production :
-   `var/history/disk.free.jsonl` et `net.latency.jsonl` s'écrivent, intervalle minimal et
-   purge éprouvés ; piège D44 retrouvé et corrigé par le SA sur `measAt`).
-   Prochaine : **étape 2** — `GET /history/{measureId}` au contrat (`docs/conception/
-   historique-migration.md`).
-3. **Étendre les paramètres** (D57) aux candidats listés ci-dessus.
-4. **Notifications déclarées** : passer de « une par carte » à `notifications[]` par module.
-5. Fond ancien : éprouver verrou/VBS depuis serveur élevé après un vrai redémarrage ;
-   commentaires en anglais (D41) ; workflow GitHub à coller ; bulle de notification du
-   tray jamais observée en réel.
+1. **Routes anciennes en JSON** : `/modules/{id}` et consorts rendent la page d'erreur
+   HTML de Pode sur 404/400 — passer au `-StatusCode` comme la route history.
+2. **Étendre les paramètres** (D57) : TTL par sonde, paquets ignorés (winget/choco),
+   cible de latence, rétention d'historique par mesure.
+3. **Notifications déclarées** : passer de « une par carte » à `notifications[]` par
+   module (le tiroir Modules est déjà structuré pour).
+4. **Historique étapes suivantes UNIQUEMENT sur demande** (Q2 : rien à l'écran).
+5. Fond ancien : éprouver verrou/VBS après un vrai redémarrage (le redémarrage a eu lieu
+   le 24/08 au soir — l'épreuve reste à faire) ; commentaires en anglais (D41) ;
+   workflow GitHub à coller ; bulle de notification du tray jamais observée en réel.
 
 ## Décisions validées
 Voir `docs/DECISIONS-VALIDEES.md` : icône tray = option B (graduations + talon confirmés) ; nom = dépôt « Vigie Windows » (slug `vigie-windows`), interface « Vigie » à la place de « Control Panel ».
