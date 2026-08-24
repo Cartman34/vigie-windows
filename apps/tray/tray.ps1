@@ -83,7 +83,7 @@ public static bool Focus(System.IntPtr h) {
         $pwsh      = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
         $trayPath  = Join-Path $trayRoot 'tray.ps1'      # cette app, pas le backend
         # Starting : un demarrage a ete demande et le serveur n'a pas encore repondu.
-        $state     = [hashtable]::Synchronized(@{ Proc = $null; Drawn = ''; EverUp = $false; Starting = $true; StartTicks = [datetime]::UtcNow.Ticks; Mods = @{}; ModsInit = $false })
+        $state     = [hashtable]::Synchronized(@{ Proc = $null; Drawn = ''; EverUp = $false; Starting = $true; StartTicks = [datetime]::UtcNow.Ticks; Mods = @{}; ModsInit = $false; HealthKo = 0 })
         # Cache d'etat du backend : lu (jamais ecrit) par le guetteur de modules (D54).
         $stateCacheFile = Join-Path $backend 'var/cache/state-cache.json'
         $startupGrace = 25    # secondes de tolerance avant de declarer un echec de demarrage
@@ -521,8 +521,27 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                 [void](Invoke-RestMethod -Uri $healthUrl -TimeoutSec 5 -ErrorAction Stop)
                 $state.EverUp   = $true
                 $state.Starting = $false
+                $state.HealthKo = 0
                 $app = 'ok'; $lbl = 'En marche'
             } catch {
+                # Serveur COINCE : le port repond (TCP) mais plus aucune requete n'aboutit
+                # (constate le 24/08 : bug du listener Pode, tout finissait en 408). Dans ce
+                # cas, relancer est la seule guerison -- et personne d'autre que le tray ne
+                # peut la faire, puisque le port ouvert masque la panne. Trois echecs
+                # consecutifs (~24 s) hors demarrage => on tue l'ecouteur et on repart.
+                if (-not $state.Starting -and (Test-ServerUp -Address $cfg.BindAddress -Port $cfg.Port)) {
+                    $state.HealthKo = [int]$state.HealthKo + 1
+                    if ($state.HealthKo -ge 3) {
+                        TLog "serveur coince (port ouvert, health muet x$($state.HealthKo)) : relance forcee"
+                        try {
+                            $conn = Get-NetTCPConnection -LocalPort $cfg.Port -State Listen -ErrorAction SilentlyContinue |
+                                    Select-Object -First 1
+                            if ($conn) { Stop-Process -Id $conn.OwningProcess -Force -ErrorAction SilentlyContinue }
+                        } catch { }
+                        $state.HealthKo = 0
+                        & $startServer
+                    }
+                }
                 $elapsed = ([datetime]::UtcNow.Ticks - $state.StartTicks) / 1e7
                 if ($state.Starting -and $elapsed -le $startupGrace) {
                     # Demarrage en cours (premier lancement OU redemarrage demande par
