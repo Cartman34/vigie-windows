@@ -859,14 +859,12 @@ async function doAction(type,module,confirmNeeded,label,help,btnEl,params){
       }));
       if(!liste.length){ updateNotif(entry,'done', name+' : aucune mise à jour à installer.'); return; }
       if(j.result.verrou){
-        updateNotif(entry,'error', name+' : mises à jour verrouillées (Mode MAJ). Déverrouillez avant d'installer.');
-        await HDS.info(name, 'Les mises à jour sont verrouillées par le Mode MAJ.
-
-Déverrouillez-les, puis relancez cette action.', {variant:'warn'});
+        updateNotif(entry,'error', name+" : mises à jour verrouillées (Mode MAJ). Déverrouillez avant d'installer.");
+        await HDS.info(name, "Les mises à jour sont verrouillées par le Mode MAJ.\n\nDéverrouillez-les (bouton « Mode MAJ »), puis relancez cette action.", {variant:'warn'});
         return;
       }
       const choisis = await HDS.choose({
-        title: name, intro: 'Cochez les mises à jour à installer. L'installation continue même si vous fermez cette fenêtre.',
+        title: name, intro: "Cochez les mises à jour à installer. L'installation continue même si vous fermez cette fenêtre.",
         items: liste, tousCoches: false, confirmLabel: 'Installer', variant:'warn'
       });
       if(!choisis || !choisis.length){ updateNotif(entry,'done', name+' : annulé.'); return; }
