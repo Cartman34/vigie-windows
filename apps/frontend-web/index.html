@@ -105,6 +105,11 @@
   /* Bouton a ICONE SEULE : le padding des boutons a texte (7px 12px) decentrait
      le glyphe. Meme boite carree que .repo-ic, contenu centre. */
   .ic-btn{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;flex:0 0 auto}
+  /* La meme apparence pour un LIEN habille en ic-btn : une ancre n'herite pas du
+     style des <button> et prenait le bleu souligne des liens. */
+  a.ic-btn{cursor:pointer;border-radius:8px;border:1px solid var(--border);
+    background:var(--panel-2);color:var(--text);text-decoration:none;transition:.15s}
+  a.ic-btn:hover{border-color:var(--accent)}
   .bell{position:relative;display:inline-flex;align-items:center;justify-content:center;
         width:32px;height:32px;padding:0;flex:0 0 auto}
   .bell-count{position:absolute;top:-6px;right:-6px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--accent);color:#fff;font-size:10px;font-weight:800;display:none;align-items:center;justify-content:center;line-height:1}
