@@ -23,9 +23,12 @@ reproductions à maintenir **en miroir** — c'est une discipline du projet : *t
 4. **Le texte explique, l'infobulle décrit** (**D49**) : valeur courte dans la carte ;
    `help` en infobulle du (i) ; `guide` en dépliant (court) ou fenêtre (long). Tout champ
    `warn`/`error` propose une **résolution ou un guide**.
-5. **Icônes à partir d'une police**, habillées en CSS si besoin (le (i) est un `i` de
-   police dans un cercle CSS). Le SVG est réservé à la **marque** : jauge du tray
-   (générée par `generate-icons.py`) et logo GitHub (`#ghMark`, défini une fois).
+5. **Icônes : notre propre fonte** (`vigie-icons.ttf`, **D58**) — générée par
+   `apps/frontend-web/assets/generate-icon-font.py`, embarquée en data-URI, utilisée par
+   `<span class="vi">&#xE001;</span>`. Un glyphe manquant se **dessine** dans le
+   générateur (une fonction par icône), on n'importe pas de bibliothèque. Le SVG est
+   réservé à la **marque** : jauge du tray (`generate-icons.py`) et logo GitHub
+   (`#ghMark`, défini une fois).
 
 ## Composants et règles
 
@@ -45,6 +48,9 @@ reproductions à maintenir **en miroir** — c'est une discipline du projet : *t
 
 - **Palette et typo du front** : le bloc `:root` de `apps/frontend-web/index.html` —
   l'unique définition (D15). `tokens.php` la sert à l'Atelier.
+- **Icônes d'interface** : `apps/frontend-web/assets/generate-icon-font.py` (D58) —
+  la table des glyphes (nom → point de code) vit là ; la fonte `.ttf` générée est
+  versionnée à côté et montrée sur la page « Design système » de l'Atelier.
 - **Marque (jauge)** : `apps/tray/assets/generate-icons.py` (D01, D37) — miroir dans
   la page « Marque du tray » et le repli GDI+ de `tray.ps1`.
 - **Menu du tray** : classe `VigieMenuPalette` dans `apps/tray/tray.ps1`, servie par
