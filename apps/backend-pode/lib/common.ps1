@@ -495,7 +495,11 @@ function New-Action {
         #   neutral = sans enjeu (gris) | info = consultation, ouverture (bleu)
         #   fix     = corrige quelque chose (vert)
         # Les deux etaient confondus : la couleur suivait la forme, ce qui n'apprend rien.
-        [ValidateSet('neutral','info','fix')][string]$Severity
+        [ValidateSet('neutral','info','fix')][string]$Severity,
+        # Libelle affiche PENDANT l'execution. Il doit dire ce qui se passe -- « Mise à
+        # jour… », pas « En cours… ». Les points de suspension sont RESERVES a une action
+        # en cours : un libelle au repos n'en porte jamais.
+        [string]$BusyLabel
     )
     $a = [ordered]@{ id = $Id; label = $Label }
     if ($Confirm) { $a['confirm'] = $true }
@@ -508,6 +512,9 @@ function New-Action {
     # inerte ; il se DECLARE desormais, pour le cas rare ou il n'y a aucun enjeu.
     # 'fix' se declare aussi : on ne devine pas qu'une action repare.
     $a['severity'] = if ($Severity) { $Severity } else { 'info' }
+    # Defaut : le libelle suivi de points de suspension. Correct grammaticalement dans la
+    # plupart des cas ; on precise quand la forme nominale est meilleure.
+    $a['busyLabel'] = if ($BusyLabel) { $BusyLabel } else { "$Label…" }
     [pscustomobject]$a
 }
 function New-ModuleObject {
@@ -518,13 +525,17 @@ function New-ModuleObject {
         [Parameter(Mandatory)][ValidateSet('ok','warn','error','neutral')][string]$Status,
         [object[]]$Fields = @(),
         [object[]]$Actions = @(),
-        [switch]$Busy
+        [switch]$Busy,
+        # Identifiant de l'action REELLEMENT en cours. Sans lui, l'interface anime tous les
+        # boutons de la carte : on ne sait plus lequel travaille.
+        [string]$BusyAction
     )
     $o = [ordered]@{
         id = $Id; theme = $Theme; label = $Label; status = $Status
         fields = @($Fields); actions = @($Actions)
     }
     if ($Busy) { $o['busy'] = $true }
+    if ($Busy -and $BusyAction) { $o['busyAction'] = $BusyAction }
     [pscustomobject]$o
 }
 

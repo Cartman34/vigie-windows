@@ -103,15 +103,16 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
 
     $actions = @()
     if ($supported) {
-        $actions += New-Action -Id 'pkg-check-updates' -Label 'Vérifier les mises à jour' -Kind 'immediate' `
+        $actions += New-Action -Id 'pkg-check-updates' -Label 'Vérifier les mises à jour' -BusyLabel 'Vérification…' -Kind 'immediate' `
             -Help ("Interroge " + $mg.label + " pour lister les MAJ disponibles. S'exécute en tâche de fond ; la carte s'actualise seule.")
     }
     if ($upSupported -and $cnt -gt 0 -and -not $checking) {
-        $actions += New-Action -Id 'pkg-upgrade' -Severity 'fix' -Label 'Mettre à jour' -Confirm -Kind 'confirm' `
+        $actions += New-Action -Id 'pkg-upgrade' -Severity 'fix' -Label 'Mettre à jour' -BusyLabel 'Mise à jour…' -Confirm -Kind 'confirm' `
             -Help ("Met à jour tous les paquets de " + $mg.label + " en tâche de fond (peut être long).")
     }
 
-    $modules += (New-ModuleObject -Id ("pkg-" + $mg.id) -Theme 'tools' -Label $mg.label -Status $modStatus -Fields $fields -Actions $actions -Busy:$checking)
+    $modules += (New-ModuleObject -Id ("pkg-" + $mg.id) -Theme 'tools' -Label $mg.label -Status $modStatus -Fields $fields -Actions $actions -Busy:$checking `
+        -BusyAction $(if ($checking) { if ($op -eq 'upgrade') { 'pkg-upgrade' } else { 'pkg-check-updates' } } else { $null }))
 }
 
 if (-not $modules.Count) {

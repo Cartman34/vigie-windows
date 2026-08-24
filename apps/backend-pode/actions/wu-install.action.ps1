@@ -14,7 +14,7 @@ $backend = Split-Path $PSScriptRoot -Parent
 $ids = @()
 if ($Params -and $Params.ids) { $ids = @($Params.ids | Where-Object { "$_" -match '\S' } | ForEach-Object { "$_" }) }
 if ($ids.Count -eq 0) {
-    return @{ message = "Aucune mise a jour selectionnee."; result = @{ ok = $false } }
+    return @{ message = "Aucune mise à jour sélectionnée."; result = @{ ok = $false } }
 }
 
 # Le verrou du Mode MAJ est une mecanique INTERNE a l'application : elle le leve le temps
@@ -37,8 +37,8 @@ try {
     return @{ message = "Impossible de lancer l'installation : $($_.Exception.Message)"; result = @{ ok = $false } }
 }
 
-$avis = if ($etaitVerrouille) { " Le verrou du Mode MAJ est leve pour l'operation, puis repose." } else { "" }
+$avis = if ($etaitVerrouille) { " Le verrou du Mode MAJ est levé le temps de l'opération, puis reposé." } else { "" }
 @{
-    message = "Installation de $($ids.Count) mise(s) a jour lancee en tache de fond.$avis"
+    message = "Installation de $($ids.Count) mise(s) à jour lancée en tâche de fond.$avis"
     result  = @{ ok = $true; async = $true; module = 'wu-pending'; invalidate = @('pending.probe.ps1','lock.probe.ps1') }
 }

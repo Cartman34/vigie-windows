@@ -41,7 +41,7 @@ try {
         if (-not $verrouLeve) {
             Set-Etat @{ installing = $false; phase = 'termine'; ok = $false
                         at = (Get-Date).ToUniversalTime().ToString('o')
-                        error = "Le verrou des mises a jour n'a pas pu etre leve." }
+                        error = "Le verrou des mises à jour n'a pas pu être levé." }
             Write-Log -Backend $Backend -Name 'wuinstall' -Level 'ERROR' -Message 'verrou non levable'
             return
         }
@@ -64,7 +64,7 @@ try {
     }
     if ($coll.Count -eq 0) {
         Set-Etat @{ installing = $false; at = (Get-Date).ToUniversalTime().ToString('o')
-                    error = "Aucune des mises a jour demandees n'a ete retrouvee." }
+                    error = "Aucune des mises à jour demandées n'a été retrouvée." }
         Write-Log -Backend $Backend -Name 'wuinstall' -Level 'ERROR' -Message 'aucune correspondance'
         return
     }
@@ -84,17 +84,39 @@ try {
     # ResultCode : 2 = reussi, 3 = reussi avec erreurs. Tout le reste est un echec.
     $ok = ($rIn.ResultCode -eq 2)
     $partiel = ($rIn.ResultCode -eq 3)
+
+    # « Termine avec erreurs » sans dire LAQUELLE n'apprend rien. Windows fournit un
+    # resultat PAR mise a jour : on le releve et on l'expose.
+    $detail = @()
+    for ($i = 0; $i -lt $coll.Count; $i++) {
+        $r = $null
+        try { $r = $rIn.GetUpdateResult($i) } catch { }
+        $c = if ($r) { [int]$r.ResultCode } else { -1 }
+        $h = if ($r) { [int]$r.HResult } else { 0 }
+        $verdict = switch ($c) {
+            2       { 'Installée' }
+            3       { 'Installée avec erreurs' }
+            4       { 'Échec' }
+            5       { 'Annulée' }
+            default { 'Inconnu' }
+        }
+        if ($h -ne 0) { $verdict += (" (0x{0:X8})" -f $h) }
+        $detail += ,@($retenus[$i], $verdict)
+        Write-Log -Backend $Backend -Name 'wuinstall' -Message (
+            "resultat : " + $retenus[$i] + " -> " + $verdict)
+    }
     Set-Etat @{
         installing = $false
         phase      = 'termine'
         at         = (Get-Date).ToUniversalTime().ToString('o')
         total      = $coll.Count
         titres     = @($retenus)
+        detail     = @($detail)
         ok         = $ok
         partiel    = $partiel
         redemarrage = [bool]$rIn.RebootRequired
         code       = [int]$rIn.ResultCode
-        error      = $(if ($ok -or $partiel) { $null } else { "Installation en echec (code $($rIn.ResultCode))." })
+        error      = $(if ($ok -or $partiel) { $null } else { "Installation en échec (code $($rIn.ResultCode))." })
     }
     Write-Log -Backend $Backend -Name 'wuinstall' -Message (
         "installation : code " + $rIn.ResultCode + " redemarrage=" + $rIn.RebootRequired)
