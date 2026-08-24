@@ -464,7 +464,11 @@ function New-Field {
         [ValidateSet('ok','warn','error','neutral')][string]$Status,
         [string]$Help,
         [string]$FixAction,
-        [string]$Guide
+        [string]$Guide,
+        # Detail STRUCTURE : @{ columns = @('...'); rows = @(@('...'), ...) }.
+        # Une liste de plusieurs dizaines de lignes mise en forme dans une chaine reste
+        # illisible ou qu'on l'affiche. Un tableau se parcourt du regard ; le texte, non.
+        [hashtable]$Table
     )
     $f = [ordered]@{ key = $Key; label = $Label; value = $Value; kind = $Kind }
     if ($Unit)      { $f['unit']      = $Unit }
@@ -472,6 +476,7 @@ function New-Field {
     if ($Help)      { $f['help']      = $Help }
     if ($FixAction) { $f['fixAction'] = $FixAction }
     if ($Guide)     { $f['guide']     = $Guide }
+    if ($Table -and $Table.rows -and @($Table.rows).Count) { $f['table'] = $Table }
     [pscustomobject]$f
 }
 function New-Action {

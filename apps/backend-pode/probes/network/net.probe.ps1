@@ -92,6 +92,7 @@ $netName = if ($ssid) { $ssid } elseif ($primary) { $primary.Name } else { '-' }
 $wifiText = if ($wifiState) { if ($signal) { "$wifiState ($signal)" } else { $wifiState } } else { 'non connecté' }
 
 $adapterLines = @()
+$adapterRows  = @()
 foreach ($n in $nics) {
     try {
         $ips = @($n.GetIPProperties().UnicastAddresses |
@@ -99,6 +100,8 @@ foreach ($n in $nics) {
                  ForEach-Object { $_.Address.ToString() })
         $ipTxt = if ($ips.Count) { $ips -join ', ' } else { '-' }
         $adapterLines += ("{0} [{1}] : IPv4 {2} | MAC {3}" -f $n.Name, $n.NetworkInterfaceType, $ipTxt, (Format-Mac $n))
+        # Meme information, en COLONNES : c'est cette forme que l'interface affiche.
+        $adapterRows  += ,@("$($n.Name)", "$($n.NetworkInterfaceType)", $ipTxt, (Format-Mac $n))
     } catch { }
 }
 $adapterDetail = if ($adapterLines.Count) { "Interfaces actives :`n- " + ($adapterLines -join "`n- ") } else { "Aucune interface active détectée." }
@@ -134,7 +137,9 @@ $fields += @(
     New-Field -Key 'ip'  -Label 'IP locale (LAN)' -Value $ip  -Kind 'text' -Status 'neutral' -Help "Adresse IPv4 privée de l'interface portant la route par défaut (réseau local)."
     New-Field -Key 'publicIp' -Label 'IP publique' -Value $pubIp -Kind 'text' -Status 'neutral' -Help "Adresse IP publique vue depuis Internet (récupérée à la demande)." -Guide $pubGuide
     New-Field -Key 'ip6' -Label 'Adresse IPv6' -Value $ip6 -Kind 'text' -Status 'neutral' -Help "Adresse IPv6 principale (interface par défaut). « - » si non attribuée."
-    New-Field -Key 'mac' -Label 'Adresse MAC'  -Value $mac -Kind 'text' -Status 'neutral' -Help "Adresse MAC de l'interface principale. Dépliez pour voir toutes les interfaces actives." -Guide $adapterDetail
+    New-Field -Key 'mac' -Label 'Adresse MAC'  -Value $mac -Kind 'text' -Status 'neutral' `
+        -Help "Adresse MAC de l'interface principale. Cliquez pour voir toutes les interfaces actives." `
+        -Table @{ columns = @('Interface', 'Type', 'IPv4', 'MAC'); rows = $adapterRows }
     New-Field -Key 'vpn' -Label 'VPN actif'    -Value $vpn -Kind 'bool' -Status 'neutral' -Help "Un adaptateur VPN est actuellement actif."
     New-Field -Key 'latency' -Label 'Latence'  -Value $(if ($lat -eq '-') {'non mesuré'} else {"$lat ms"}) -Kind 'text' -Status $latSt -Help "Latence mesurée (ping). Cliquez 'Mesurer' pour actualiser." -FixAction 'net-speedtest'
     New-Field -Key 'down'    -Label 'Débit descendant' -Value $(if ($down -eq '-') {'non mesuré'} else {"$down Mbps"}) -Kind 'text' -Status 'neutral' -Help "Débit descendant estimé. Cliquez 'Mesurer' pour actualiser."

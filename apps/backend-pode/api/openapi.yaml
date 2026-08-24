@@ -151,6 +151,21 @@ components:
         guide:
           type: string
           description: instructions manuelles (affichees en popin si pas d'action)
+        table:
+          type: object
+          description: >
+            Detail STRUCTURE, affiche en tableau dans une fenetre. A preferer a `guide`
+            des que l'information est une liste : une liste mise en forme dans une chaine
+            reste illisible ou qu'on l'affiche.
+          properties:
+            columns:
+              type: array
+              items: { type: string }
+            rows:
+              type: array
+              items:
+                type: array
+                items: { type: string }
         help: { type: string }
     Action:
       type: object
