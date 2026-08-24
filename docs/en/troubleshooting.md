@@ -61,9 +61,17 @@ others, restart the server from the tray menu.
 
 ### "External tooling not configured"
 
-Expected, and not a bug: the Windows Update lock/unlock, the audit and the VBS toggles
-call scripts that do not ship with this repository. See
-[Configuration](configuration.md#external-tooling).
+Expected, and not a bug — but it no longer concerns Windows Update: locking, unlocking and
+the audit are native to this repository. The message is now only possible on the **VBS /
+memory-integrity toggles** and *Open the folder*, which still call scripts that do not
+ship here. See [Configuration](configuration.md#external-tooling).
+
+### "The Vigie server is not running as administrator"
+
+Setting or lifting the lock changes permissions on system folders: without elevation the
+operation would half-fail in silence. Vigie therefore refuses **before** acting and touches
+nothing. Restart Vigie as administrator (tray menu → *Restart the server*, the UAC prompt
+will appear), then click again.
 
 ### "Lock now" reports the ACL lock could not be applied
 

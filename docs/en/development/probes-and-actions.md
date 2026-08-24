@@ -101,13 +101,23 @@ $backend = Split-Path $PSScriptRoot -Parent
    action is a fixed script on disk; the resolved path is confined to `actions/`.
 2. **Handle output and exit code** — use the shared `Invoke-Native`.
 3. **Verify the result; do not trust the return code.** After a change, re-read the system
-   and report what you actually obtained. `update-mode-off` is the model: it runs the
-   script, logs the raw `icacls` output, then re-tests the ACL and the registry key and
-   distinguishes full success, partial success and failure.
+   and report what you actually obtained. `update-mode-off` is the model: it acts through
+   `Set-UpdateLock`, logs the exit code of every `icacls` / `takeown`, then **re-reads** the
+   full state with `Get-UpdateLockState` and distinguishes full success, partial success
+   (auto-updates off but no ACL lock) and failure.
 4. **Do not copy an invocation.** If two actions need the same operation, it belongs in a
    shared helper in `lib/common.ps1` — `Set-UpdateLock` exists precisely because the lock
    was about to be invoked from a third place.
-5. **Review it in [Security](../security.md)** if it touches system security.
+5. **A product capability is implemented in the product.** The Windows Update lock and its
+   audit were first delegated to scripts outside the repository: on a machine installing
+   Vigie from GitHub, those buttons did nothing. They now live in `lib/common.ps1`
+   (`Set-UpdateLock`, `Invoke-UpdateAudit`, `Get-UpdateLockState`,
+   `Get-UpdateTaskCatalog`). External tooling may stay *preferred* where it exists, never
+   *required*.
+6. **Check elevation before acting, not after.** `icacls` and `takeown` fail silently
+   without administrator rights, so you would report a false state in good faith. Both lock
+   actions test `Test-Elevated` first and touch nothing otherwise.
+7. **Review it in [Security](../security.md)** if it touches system security.
 
 ### Long actions
 
