@@ -354,8 +354,11 @@ trancher, puis lui redonner le sujet corrigé.
 ### File de travail (dans l'ordre)
 
 1. **Fonte d'icônes** — dès l'arbitrage (voie 1 prête à faire).
-2. **Historique** — implémentation par étapes par un sous-agent (conceptions validées,
-   `docs/conception/`), étape 1 = s'appuyer sur `probe-runs.jsonl` (D52).
+2. **Historique** — **étape 1 FAITE** (24/08 soir, par SA, vérifiée en production :
+   `var/history/disk.free.jsonl` et `net.latency.jsonl` s'écrivent, intervalle minimal et
+   purge éprouvés ; piège D44 retrouvé et corrigé par le SA sur `measAt`).
+   Prochaine : **étape 2** — `GET /history/{measureId}` au contrat (`docs/conception/
+   historique-migration.md`).
 3. **Étendre les paramètres** (D57) aux candidats listés ci-dessus.
 4. **Notifications déclarées** : passer de « une par carte » à `notifications[]` par module.
 5. Fond ancien : éprouver verrou/VBS depuis serveur élevé après un vrai redémarrage ;
