@@ -88,6 +88,41 @@
          border-radius:0 8px 8px 0;font-size:13px;margin-bottom:20px;display:none}
   .alert.show{display:block}
   .alert b{color:var(--err)}
+
+  /* --- Propositions soumises a evaluation --- */
+  .prop{border:1px solid var(--border);border-radius:11px;background:var(--panel-2);
+        padding:16px 18px;margin-bottom:16px}
+  .prop-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+  .prop-head h3{margin:0;font-size:14.5px}
+  .prop-etat{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
+             padding:2px 8px;border-radius:999px}
+  .prop-etat.livre{color:var(--ok);background:rgba(63,185,80,.14)}
+  .prop-etat.propose{color:var(--accent);background:rgba(56,139,253,.14)}
+  .prop-pitch{color:var(--muted);font-size:13px;margin:0 0 14px;max-width:78ch}
+  .prop-apercu{background:var(--bg);border:1px solid var(--border);border-radius:9px;
+               padding:14px;margin-bottom:14px}
+  .prop-bilan{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+  .prop-bilan div{font-size:12.5px}
+  .prop-bilan b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.5px;
+                color:var(--muted);margin-bottom:3px}
+  /* Maquette de carte, pour juger le rendu sans lancer l'application. */
+  .mk{background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--warn);
+      border-radius:10px;padding:13px 15px;max-width:340px;font-size:13px}
+  .mk-t{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)}
+  .mk-n{font-weight:700;margin-bottom:9px}
+  .mk-l{display:flex;justify-content:space-between;align-items:center;padding:5px 0;
+        border-bottom:1px dashed var(--border)}
+  .mk-l:last-child{border-bottom:none}
+  .mk-v{font-weight:700;font-variant-numeric:tabular-nums}
+  .mk-baisse{color:var(--warn)}
+  /* Maquette de notification Windows. */
+  .toastw{background:#2b2b2b;border:1px solid #3d3d3d;border-radius:8px;padding:13px 15px;
+          max-width:370px;box-shadow:0 8px 28px rgba(0,0,0,.5);display:flex;gap:12px}
+  .toastw .app{font-size:11px;color:#9aa0a6;margin-bottom:5px}
+  .toastw .ti{font-weight:700;margin-bottom:3px;color:#fff}
+  .toastw .tx{font-size:12.5px;color:#c9d1d9}
+  .toastw .bt{margin-top:10px;display:flex;gap:8px}
+  .toastw .bt span{border:1px solid #4a4a4a;border-radius:5px;padding:4px 10px;font-size:12px;color:#e6edf3}
   .note{border-left:3px solid var(--warn);padding:11px 15px;background:rgba(210,153,34,.08);
         border-radius:0 8px 8px 0;color:var(--muted);font-size:12.5px;margin-top:18px}
   .note b{color:var(--text)}
@@ -249,6 +284,123 @@
     <button id="openSplash">Ouvrir dans un onglet</button>
   </div>
   <iframe class="frame" id="appFrame" src="../frontend-web/index.html" title="Aperçu de Vigie"></iframe>
+</section>
+
+
+<section>
+  <h2>Propositions à évaluer</h2>
+  <p class="hint">
+    Trois pistes soumises à ton arbitrage, avec leur aperçu. Rien n'est engagé :
+    dis-moi lesquelles retenir, et dans quel ordre. Le coût annoncé est mon
+    estimation du travail, pas une promesse.
+  </p>
+
+  <div class="prop">
+    <div class="prop-head">
+      <h3>1. Vérification automatique du contrat</h3>
+      <span class="prop-etat livre">livré &mdash; forme minimale</span>
+    </div>
+    <p class="prop-pitch">
+      Les règles qu'on s'est données ne tenaient que par ma vigilance &mdash; et j'ai
+      livré trois régressions dans la session, dont une qui a fait disparaître la
+      carte Réseau sans que rien ne le signale. Un script exécute désormais toutes
+      les sondes et vérifie les invariants. Reste à étendre aux actions et au front.
+    </p>
+    <div class="prop-apercu">
+      <pre style="margin:0"><span class="c">pwsh -File .\scripts\check-probes.ps1</span>
+Sondes executees : 14 module(s)
+<span class="k">Tous les invariants sont respectes.</span>
+
+<span class="c">// sur le defaut reel du 2026-08-24 :</span>
+1 manquement(s) :
+  - net.probe.ps1 : la sonde LEVE une erreur
+    parameter 'FixAction' is specified more than once</pre>
+    </div>
+    <div class="prop-bilan">
+      <div><b>Ce que ça change</b>Une régression de sonde est vue avant la livraison, pas par toi.</div>
+      <div><b>Coût</b>Fait pour les sondes. Étendre aux actions et au front : une demi-journée.</div>
+      <div><b>Risque</b>Aucun : lecture seule, il ne déclenche aucune action.</div>
+    </div>
+  </div>
+
+  <div class="prop">
+    <div class="prop-head">
+      <h3>2. De l'historique, pour surveiller au lieu de constater</h3>
+      <span class="prop-etat propose">à décider</span>
+    </div>
+    <p class="prop-pitch">
+      Vigie ne montre que l'instant. Garder quelques semaines de mesures lui permettrait de
+      dire ce qui <b>change</b> &mdash; c'est ce que son nom promet. Le socle existe déjà
+      (<code>Update-StateJson</code>, <code>var/cache/</code>) : il s'agit d'échantillonner,
+      pas de bâtir un entrepôt.
+    </p>
+    <div class="prop-apercu" style="display:flex;gap:22px;flex-wrap:wrap;align-items:center">
+      <div class="mk">
+        <div class="mk-t">Système</div>
+        <div class="mk-n">Disque C:</div>
+        <div class="mk-l"><span>Espace libre</span><span class="mk-v">140 Go</span></div>
+        <div class="mk-l"><span>Tendance 30 j</span><span class="mk-v mk-baisse">&minus;20 Go</span></div>
+        <div style="margin-top:10px">
+          <svg viewBox="0 0 300 56" width="100%" height="56" aria-label="Espace libre sur 30 jours">
+            <polyline fill="none" stroke="var(--warn)" stroke-width="2"
+              points="0,10 25,12 50,11 75,18 100,17 125,22 150,21 175,28 200,27 225,34 250,33 275,40 300,44"/>
+            <polyline fill="none" stroke="var(--border)" stroke-width="1" stroke-dasharray="3 3"
+              points="0,52 300,52"/>
+          </svg>
+          <div style="font-size:11px;color:var(--muted)">30 jours &nbsp;&middot;&nbsp; au rythme actuel, seuil d'alerte atteint dans ~12 semaines</div>
+        </div>
+      </div>
+      <div style="font-size:12.5px;color:var(--muted);max-width:34ch">
+        Autres usages immédiats : &laquo; WSL a redémarré 4 fois hier &raquo;,
+        &laquo; le verrou a été levé 3 fois cette semaine &raquo;,
+        &laquo; la latence a doublé depuis mardi &raquo;.
+      </div>
+    </div>
+    <div class="prop-bilan">
+      <div><b>Ce que ça change</b>L'application signale une dérive avant qu'elle devienne un problème.</div>
+      <div><b>Coût</b>Un à deux jours : échantillonnage, purge, rendu.</div>
+      <div><b>Risque</b>Un fichier qui grossit &mdash; à borner dès le départ (30 jours, purge automatique).</div>
+    </div>
+  </div>
+
+  <div class="prop">
+    <div class="prop-head">
+      <h3>3. Que le tray alerte au lieu d'attendre</h3>
+      <span class="prop-etat propose">à décider</span>
+    </div>
+    <p class="prop-pitch">
+      L'icône change de couleur, mais il faut ouvrir l'application pour savoir quoi. Une
+      notification Windows quand un module bascule rendrait Vigie utile sans être ouverte
+      &mdash; et seulement sur un <b>changement</b>, jamais en rappel répété.
+    </p>
+    <div class="prop-apercu">
+      <div class="toastw">
+        <svg width="34" height="34" viewBox="0 0 100 100" style="flex:0 0 auto">
+          <circle cx="50" cy="50" r="45" fill="none" stroke="#d29922" stroke-opacity=".35" stroke-width="2.4"/>
+          <path d="M 25.251 74.749 A 35 35 0 1 1 74.749 74.749" fill="none" stroke="#30363d" stroke-width="11" stroke-linecap="round"/>
+          <path d="M 25.251 74.749 A 35 35 0 0 1 20.6 44" fill="none" stroke="#d29922" stroke-width="11" stroke-linecap="round"/>
+          <circle cx="50" cy="50" r="9.5" fill="#d29922"/><circle cx="50" cy="50" r="4.2" fill="#f0f6fc"/>
+        </svg>
+        <div>
+          <div class="app">Vigie</div>
+          <div class="ti">Redémarrage en attente</div>
+          <div class="tx">Des mises à jour sont installées. Elles ne protègent qu'après un redémarrage.</div>
+          <div class="bt"><span>Redémarrer…</span><span>Ouvrir Vigie</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="prop-bilan">
+      <div><b>Ce que ça change</b>Tu apprends un problème quand il survient, sans rien ouvrir.</div>
+      <div><b>Coût</b>Une demi-journée : le tray sait déjà lire l'état, il lui manque de comparer.</div>
+      <div><b>Risque</b>Devenir bruyant. Garde-fou : sur changement seulement, et jamais deux fois le même.</div>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>Ce que je ne propose pas, et pourquoi.</b> Un module &laquo; performances &raquo; avec
+    des graphiques temps réel : le Gestionnaire des tâches le fait déjà mieux, et
+    Vigie doit dire ce qui <b>ne va pas</b>, pas rivaliser avec les outils de Windows.
+  </div>
 </section>
 
 </main>
