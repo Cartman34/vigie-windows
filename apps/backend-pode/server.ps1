@@ -76,6 +76,23 @@ Add-PodeRoute -Method Get -Path "$base/modules/:id" -ScriptBlock {
     if ($m) { Write-PodeJsonResponse -Value $m -Depth 8 }
     else    { Set-PodeResponseStatus -Code 404; Write-PodeJsonResponse -Value @{ error = "Module inconnu : $id" } }
 }
+# --- Reglages des notifications (D54) : lus/ecrits par l'interface -----------
+Add-PodeRoute -Method Get -Path "$base/notifications" -ScriptBlock {
+    . "$env:VIGIE_BACKEND/lib/common.ps1"
+    Write-PodeJsonResponse -Value (Get-NotificationSettings -Backend $env:VIGIE_BACKEND) -Depth 4
+}
+Add-PodeRoute -Method Post -Path "$base/notifications" -ScriptBlock {
+    . "$env:VIGIE_BACKEND/lib/common.ps1"
+    $d = $WebEvent.Data
+    $mods = $null
+    if ($d -and $d.modules) {
+        $mods = @{}
+        foreach ($pr in $d.modules.PSObject.Properties) { $mods[$pr.Name] = [bool]$pr.Value }
+    }
+    $en = if ($d -and $null -ne $d.enabled) { [bool]$d.enabled } else { $null }
+    Write-PodeJsonResponse -Value (Set-NotificationSettings -Backend $env:VIGIE_BACKEND -Enabled $en -Modules $mods) -Depth 4
+}
+
 Add-PodeRoute -Method Post -Path "$base/actions" -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
     $d = $WebEvent.Data

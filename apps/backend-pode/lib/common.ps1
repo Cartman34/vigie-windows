@@ -1563,6 +1563,69 @@ function Get-State {
     }
 }
 
+# --- Reglages des notifications (D54) ----------------------------------------
+# Le TRAY notifie sur bascule d'un MODULE (resultat de sonde) ; la couleur de son icone,
+# elle, reste le statut de l'APPLICATION -- les deux roles ne se melangent pas.
+#
+# Reglages : un interrupteur global + un reglage FIN par module. Le global MASQUE, il
+# n'ecrase pas : couper tout puis rallumer retrouve les choix fins intacts. C'est pour
+# cela que les deux vivent dans des cles separees.
+#
+# Stockage : config/notifications.local.json a la racine (jamais versionne). JSON et non
+# psd1 : ce fichier est ECRIT par le backend (l'interface le modifie via l'API), et le
+# tray le RELIT ; JSON se lit et s'ecrit sans peine des deux cotes.
+function Get-NotificationSettingsPath {
+    Join-Path (Get-RepoRoot) 'config/notifications.local.json'
+}
+
+function Get-NotificationSettings {
+    param([string]$Backend = (Get-BackendRoot))
+    $s = [ordered]@{ enabled = $true; modules = [ordered]@{} }
+    $p = Get-NotificationSettingsPath
+    if (Test-Path -LiteralPath $p) {
+        try {
+            $j = Get-Content -LiteralPath $p -Raw -Encoding UTF8 | ConvertFrom-Json
+            if ($null -ne $j.enabled) { $s.enabled = [bool]$j.enabled }
+            if ($j.modules) { foreach ($pr in $j.modules.PSObject.Properties) { $s.modules[$pr.Name] = [bool]$pr.Value } }
+        } catch { }
+    }
+    [pscustomobject]$s
+}
+
+function Set-NotificationSettings {
+    param(
+        [string]$Backend = (Get-BackendRoot),
+        $Enabled,
+        # Table module -> $true/$false. FUSIONNEE avec l'existant : ne fournir que ce qui
+        # change ; une cle absente garde son reglage (le global ne perd jamais le fin).
+        [hashtable]$Modules
+    )
+    $cur = Get-NotificationSettings -Backend $Backend
+    $out = [ordered]@{ enabled = [bool]$cur.enabled; modules = [ordered]@{} }
+    foreach ($k in @($cur.modules.Keys)) { $out.modules["$k"] = [bool]$cur.modules[$k] }
+    if ($null -ne $Enabled) { $out.enabled = [bool]$Enabled }
+    if ($Modules) { foreach ($k in $Modules.Keys) { $out.modules["$k"] = [bool]$Modules[$k] } }
+    $p = Get-NotificationSettingsPath
+    $tmp = "$p.tmp"
+    ($out | ConvertTo-Json -Depth 4) | Set-Content -LiteralPath $tmp -Encoding UTF8
+    Move-Item -LiteralPath $tmp -Destination $p -Force
+    [pscustomobject]$out
+}
+
+# Le tray applique la regle SANS refaire la logique : une notification pour ce module
+# passe-t-elle ? (global coupe = rien ; sinon le reglage fin, actif par defaut)
+function Test-NotificationAllowed {
+    param([Parameter(Mandatory)][string]$ModuleId, $Settings)
+    if (-not $Settings) { $Settings = Get-NotificationSettings }
+    if (-not [bool]$Settings.enabled) { return $false }
+    # `modules` est un DICTIONNAIRE (jamais un objet JSON brut : Get-NotificationSettings
+    # normalise) -- l'acces passe donc par ContainsKey. La premiere version interrogeait
+    # PSObject.Properties, qui sur un dictionnaire decrit le conteneur et pas les cles :
+    # tous les reglages fins etaient silencieusement ignores.
+    if ($Settings.modules.Contains("$ModuleId")) { return [bool]$Settings.modules["$ModuleId"] }
+    return $true
+}
+
 # --- Actions ---------------------------------------------------------------
 function New-JobId { [guid]::NewGuid().ToString('N').Substring(0, 12) }
 
