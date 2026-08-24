@@ -49,9 +49,15 @@ if (-not $pwsh) { Write-Host "pwsh introuvable. Lance d'abord install.ps1 (insta
 $arg       = '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $tray + '"'
 $action    = New-ScheduledTaskAction -Execute $pwsh -Argument $arg
 $trigger   = New-ScheduledTaskTrigger -AtLogOn
+# 45 s de delai : pwsh vient du Microsoft Store (MSIX) et son paquet peut ne pas etre
+# encore disponible a l'instant du logon -- la tache echouait en 0xC0070154 (constate
+# le 24/08, session ouverte a 19:04, Vigie jamais demarre). Trois reprises espacees
+# d'une minute couvrent le cas ou le delai ne suffirait pas.
+$trigger.Delay = 'PT45S'
 $principal = New-ScheduledTaskPrincipal -UserId ("$env:USERDOMAIN\$env:USERNAME") -LogonType Interactive -RunLevel Highest
 $settings  = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
-                -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew
+                -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew `
+                -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
 Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
 Write-Host ("Tache '" + $taskName + "' enregistree (lancement a l'ouverture de session, eleve).")
 
