@@ -81,6 +81,32 @@ Add-PodeRoute -Method Get -Path "$base/modules/:id" -ScriptBlock {
     if ($m) { Write-PodeJsonResponse -Value $m -Depth 8 }
     else    { Set-PodeResponseStatus -Code 404; Write-PodeJsonResponse -Value @{ error = "Module inconnu : $id" } }
 }
+# --- Gestion des modules (D48) : lister, activer, desactiver ------------------
+Add-PodeRoute -Method Get -Path "$base/units" -ScriptBlock {
+    . "$env:VIGIE_BACKEND/lib/common.ps1"
+    Write-PodeJsonResponse -Value @{ units = @(Get-UnitCatalog -Backend $env:VIGIE_BACKEND) } -Depth 6
+}
+Add-PodeRoute -Method Post -Path "$base/units/:id" -ScriptBlock {
+    . "$env:VIGIE_BACKEND/lib/common.ps1"
+    $id = $WebEvent.Parameters['id']
+    $connu = @(Get-UnitCatalog -Backend $env:VIGIE_BACKEND | Where-Object { $_.id -eq $id })
+    if (-not $connu) {
+        Set-PodeResponseStatus -Code 404
+        Write-PodeJsonResponse -Value @{ error = "Module inconnu : $id" }
+        return
+    }
+    $d = $WebEvent.Data
+    if (-not $d -or $null -eq $d.enabled) {
+        Set-PodeResponseStatus -Code 400
+        Write-PodeJsonResponse -Value @{ error = "Champ 'enabled' requis" }
+        return
+    }
+    Set-UnitEnabled -UnitId $id -Enabled ([bool]$d.enabled)
+    # Rallumer un module doit se VOIR : ses sondes n'ont plus de cache frais garanti,
+    # le prochain /state les recalcule en fond comme n'importe quelle peremption.
+    Write-PodeJsonResponse -Value @{ units = @(Get-UnitCatalog -Backend $env:VIGIE_BACKEND) } -Depth 6
+}
+
 # --- Reglages des notifications (D54) : lus/ecrits par l'interface -----------
 Add-PodeRoute -Method Get -Path "$base/notifications" -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
