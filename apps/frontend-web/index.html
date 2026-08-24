@@ -499,7 +499,11 @@ function cardHtml(m, groupLabel){
     const solveLbl = fa ? fa.label : 'Résoudre';
     if(isProblem && f.fixAction) usedAsFix.add(f.fixAction);
     const solve=(isProblem && f.fixAction)?`<button class="fsolve ${stt} k-${fkind}" title="${esc(solveLbl)} — ${KIND_LABEL[fkind]}" onclick="solveField('${key}',this)">${ICONS[fkind]||''}<span>${esc(solveLbl)}</span></button>`:'';
-    const detTxt=(f.guide||f.help||'');
+    // SEUL le guide s'affiche sous la ligne : ce sont les informations SUPPLEMENTAIRES
+    // (liste, valeurs detaillees, mode d'emploi). La description de ce que montre le
+    // champ (`help`) reste une INFOBULLE. Le repli sur `help` recopiait la description
+    // sous la ligne, ou elle faisait doublon avec le survol.
+    const detTxt=(f.guide||'');
     const open=openDetails.has(key)?' open':'';
     const det=detTxt?`<div class="field-detail ${stt}${open}" data-k="${key}">${esc(detTxt)}</div>`:'';
     return `<div class="frow">
@@ -609,9 +613,17 @@ async function refreshCard(moduleId, btn){
   if(m){ replaceCardDom(m); } else { card.classList.remove('card-loading'); }
 }
 // Interroge une carte jusqu'a la fin d'une tache de fond (m.busy faux), sans bloquer.
+//
+// PLAFOND A 1 HEURE, pas 3 minutes. Une mise a jour de paquets prend couramment dix
+// minutes ou plus : l'ancien plafond abandonnait en plein travail, la carte restait
+// « en cours » et plus rien n'arrivait -- constate sur une mise a jour Chocolatey.
+// Le compteur de temps ecoule s'affiche : une operation longue doit se VOIR vivante.
+const POLL_MAX_MS = 3600000;
 async function pollCardUntilIdle(moduleId, entry, name){
-  const startTs=Date.now(), maxMs=180000;
+  const startTs=Date.now();
   let delay=1400;
+  const ecoule=()=>{ const s=Math.round((Date.now()-startTs)/1000);
+                     return s<60 ? s+' s' : Math.floor(s/60)+' min '+(s%60)+' s'; };
   async function tick(){
     const m=await fetchModule(moduleId);
     if(m) replaceCardDom(m);
@@ -620,13 +632,16 @@ async function pollCardUntilIdle(moduleId, entry, name){
     // ce vide pour un succes et annoncait « termine » aussitot, alors que la tache de fond
     // tournait encore et que la valeur affichee restait « non verifiees ».
     const stillBusy = (!m) || m.busy;
-    if(stillBusy && (Date.now()-startTs)<maxMs){
+    if(stillBusy && (Date.now()-startTs)<POLL_MAX_MS){
+      if(entry) updateNotif(entry,'running', name+' : en cours depuis '+ecoule()+'…');
       delay=Math.min(delay+400, 4000);
       setTimeout(tick, delay);
     } else if(stillBusy){
-      if(entry) updateNotif(entry,'error', name+' : délai dépassé, toujours en cours.');
+      // On rend la carte a un etat lisible au lieu de la laisser tourner indefiniment.
+      refreshCard(moduleId);
+      if(entry) updateNotif(entry,'error', name+' : toujours en cours après '+ecoule()+', suivi abandonné.');
     } else {
-      if(entry) updateNotif(entry,'done', name+' : terminé.');
+      if(entry) updateNotif(entry,'done', name+' : terminé en '+ecoule()+'.');
     }
   }
   setTimeout(tick, 900);
