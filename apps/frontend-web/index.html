@@ -203,6 +203,23 @@
   .card-refresh:hover{border-color:var(--accent);color:var(--text)}
   .card.card-loading{opacity:.55;pointer-events:none}
   .card-refresh .cr-ic{display:inline-block;line-height:1}
+  .card-menu{font-weight:700;letter-spacing:1px}
+  /* --- Tiroir de gestion des modules (D48) --- */
+  .um{border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin:0 0 12px}
+  .um.off{opacity:.65}
+  .um.flash{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  .um-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:8px}
+  .um-t{flex:1;min-width:0}
+  .um-t b{display:block;font-size:14px}
+  .um-t small{color:var(--muted);font-size:12px}
+  .um-sw{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);
+         cursor:pointer;white-space:nowrap;padding-top:2px}
+  .um-sw input{accent-color:var(--accent)}
+  .um-card{display:flex;align-items:center;gap:8px;padding:5px 2px;font-size:13px;cursor:pointer}
+  .um-card input{accent-color:var(--accent)}
+  .um-card small{margin-left:auto;color:var(--muted);font-size:11px}
+  .um-note{color:var(--muted);font-size:12.5px;font-style:italic}
+  .um-hint{color:var(--muted);font-size:12px;margin:0 0 14px}
   .card.card-loading .card-refresh .cr-ic{animation:sp .7s linear infinite}
   /* --- Parametres : label a gauche, valeur coloree en face (dessous si longue, alignee a droite) --- */
   .fields{margin-bottom:8px}
@@ -423,6 +440,7 @@
     <svg width="16" height="16" aria-hidden="true"><use href="#ghMark"/></svg>
   </a>
   <button class="ic-btn" id="notifCfgBtn" onclick="openNotifSettings()" aria-label="Réglages des notifications" title="Réglages des notifications du tray : choisir ce qui déclenche une notification Windows">⚙</button>
+  <button class="ic-btn" id="unitsBtn" onclick="openUnits()" aria-label="Gérer les modules" title="Gérer les modules : activer, désactiver, notifications">▦</button>
   <a class="ic-btn" id="atelierBtn" target="_blank" rel="noopener" hidden title="Ouvrir l’atelier de validation (détecté en local)">⚒</a>
   <button onclick="toggleTheme()" id="themeBtn" class="ic-btn" title="Basculer entre le thème sombre et le thème clair">☀</button>
 </header>
@@ -441,6 +459,12 @@
     <button class="drawer-clear" onclick="clearNotifs()" title="Tout effacer">Tout effacer</button>
     <button class="drawer-x" onclick="toggleDrawer()" title="Fermer" aria-label="Fermer">×</button></div>
   <div class="drawer-body" id="drawerBody"></div>
+</aside>
+<div class="drawer-back" id="unitsBack" onclick="toggleUnits()"></div>
+<aside class="drawer" id="unitsDrawer" aria-label="Gestion des modules">
+  <div class="drawer-head"><span>Modules</span>
+    <button class="drawer-x" onclick="toggleUnits()" title="Fermer" aria-label="Fermer">×</button></div>
+  <div class="drawer-body" id="unitsBody"></div>
 </aside>
 <div class="hds-back" id="hdsBack">
   <div class="hds-dialog" role="dialog" aria-modal="true" aria-labelledby="hdsTitle">
@@ -525,6 +549,7 @@ function fmt(f){
 
 let themeLabels={};
 let lastModules=[];
+let lastUnits=[], unitsOpen=false, pendingUnitFocus=null;
 let hiddenThemes=new Set();
 function applyFilter(){
   document.querySelectorAll('.masonry .card[data-theme]').forEach(c=>{
@@ -594,6 +619,7 @@ function cardHtml(m, groupLabel){
       <div class="card-titles"><span class="card-group">${esc(groupLabel||'')}</span><span class="name">${m.label}</span></div>
       ${stTxt?`<span class="badge ${st}"><span class="ic">${stIc}</span>${stTxt}</span>`:''}
       <button class="card-refresh" title="Rafraîchir cette carte" onclick="refreshCard('${m.id}',this)"><span class="cr-ic">↻</span></button>
+      <button class="card-refresh card-menu" title="Gérer ce module : activation, notifications" onclick="openUnits('${m.theme}')">⋮</button>
     </div>
     <div class="fields">${fields}</div>
     ${actions?`<div class="actions">${actions}</div>`:''}
@@ -609,6 +635,7 @@ function renderState(s, mode){
   fieldsByKey={};
   themeLabels={}; (s.themes||[]).forEach(t=>{ themeLabels[t.id]=t.label; });
   lastModules=(s.modules||[]).slice();
+  lastUnits=(s.units||[]).slice();
   let worst='ok';
   let html='';
   (s.themes||[]).forEach(theme=>{
@@ -1233,6 +1260,73 @@ function toast(msg){
   const el=document.createElement('div'); el.className='toast'; el.textContent=msg;
   stack.appendChild(el); requestAnimationFrame(()=>el.classList.add('show'));
   setTimeout(()=>{ el.classList.remove('show'); setTimeout(()=>el.remove(),220); },3200);
+}
+
+// ===== Gestion des modules (D48) =====
+// Un module = un dossier de sondes. Le couper retire ses sondes du calcul et ses cartes
+// de l’affichage ; il reste listé ici (units[] du contrat) pour pouvoir être rallumé.
+function toggleUnits(){
+  unitsOpen=!unitsOpen;
+  document.getElementById('unitsBack').classList.toggle('show',unitsOpen);
+  document.getElementById('unitsDrawer').classList.toggle('show',unitsOpen);
+  if(unitsOpen) renderUnits();
+}
+function openUnits(unitId){
+  pendingUnitFocus=unitId||null;
+  if(!unitsOpen) toggleUnits(); else renderUnits();
+}
+async function renderUnits(){
+  const body=document.getElementById('unitsBody');
+  const units=lastUnits||[];
+  if(!units.length){ body.innerHTML='<div class="drawer-empty">Aucun module connu (maquette&nbsp;?).</div>'; return; }
+  let cfg={enabled:true,modules:{}};
+  try{
+    const r=await fetch(API+"/notifications",{headers:{Authorization:"Bearer "+TOKEN}});
+    if(r.ok) cfg=await r.json();
+  }catch(e){}
+  if(!cfg.modules) cfg.modules={};
+  const notifOn=id=> (id in cfg.modules)? !!cfg.modules[id] : true;
+  body.innerHTML='<p class="um-hint">Couper un module retire ses cartes et ses calculs. La case « notification » suit le réglage fin de chaque carte (⚙).</p>'+units.map(u=>{
+    const cards=(lastModules||[]).filter(m=>m.theme===u.id);
+    const lignes=cards.map(m=>
+      '<label class="um-card"><input type="checkbox" data-unotif="'+esc(m.id)+'"'+(notifOn(m.id)?' checked':'')+'>'
+      +'<span>'+esc(m.label)+'</span><small>notification</small></label>').join('');
+    return '<div class="um'+(u.enabled?'':' off')+'" id="um-'+esc(u.id)+'">'
+      +'<div class="um-head"><div class="um-t"><b>'+esc(u.label)+'</b><small>'+esc(u.description||'')+'</small></div>'
+      +'<label class="um-sw"><input type="checkbox" data-unit="'+esc(u.id)+'"'+(u.enabled?' checked':'')+'>'
+      +'<span>'+(u.enabled?'Actif':'Coupé')+'</span></label></div>'
+      +(u.enabled ? lignes : '<div class="um-note">Module coupé : ses cartes ne sont ni calculées ni affichées.</div>')
+      +'</div>';
+  }).join('');
+  body.querySelectorAll('[data-unit]').forEach(c=>{ c.onchange=async()=>{
+    const id=c.getAttribute('data-unit');
+    c.disabled=true;
+    try{
+      const r=await fetch(API+'/units/'+encodeURIComponent(id),{ method:'POST',
+        headers:{ Authorization:'Bearer '+TOKEN, 'Content-Type':'application/json' },
+        body: JSON.stringify({ enabled: c.checked }) });
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      toast(c.checked ? 'Module activé — recalcul en cours' : 'Module désactivé');
+      await refresh();
+      renderUnits();
+    }catch(e){ c.checked=!c.checked; c.disabled=false; toast('Changement impossible : '+(e.message||e)); }
+  }; });
+  body.querySelectorAll('[data-unotif]').forEach(c=>{ c.onchange=async()=>{
+    const id=c.getAttribute('data-unotif');
+    const modules={}; modules[id]=c.checked;
+    try{
+      const r=await fetch(API+'/notifications',{ method:'POST',
+        headers:{ Authorization:'Bearer '+TOKEN, 'Content-Type':'application/json' },
+        body: JSON.stringify({ modules }) });
+      if(!r.ok) throw new Error('HTTP '+r.status);
+    }catch(e){ c.checked=!c.checked; toast('Réglage impossible : '+(e.message||e)); }
+  }; });
+  if(pendingUnitFocus){
+    const el=document.getElementById('um-'+pendingUnitFocus);
+    if(el){ el.scrollIntoView({block:'start',behavior:'smooth'}); el.classList.add('flash');
+            setTimeout(()=>el.classList.remove('flash'),1400); }
+    pendingUnitFocus=null;
+  }
 }
 
 // ===== Réglages des notifications du tray (D54) =====

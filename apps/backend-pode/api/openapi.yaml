@@ -58,6 +58,41 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Module" }
         "404": { description: Module inconnu }
+  /units:
+    get:
+      summary: Modules-dossiers (D48), y compris desactives
+      responses:
+        "200":
+          description: Catalogue des modules
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  units:
+                    type: array
+                    items: { $ref: "#/components/schemas/Unit" }
+  /units/{id}:
+    post:
+      summary: Active ou desactive un module-dossier
+      description: >
+        Un module desactive voit ses sondes retirees du calcul et ses cartes de
+        l'affichage, mais reste liste dans units[] pour pouvoir etre rallume.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties:
+                enabled: { type: boolean }
+      responses:
+        "200":
+          description: Catalogue apres modification
+        "404": { description: Module inconnu }
   /notifications:
     get:
       summary: Reglages des notifications du tray (D54)
@@ -113,6 +148,18 @@ components:
       type: http
       scheme: bearer
   schemas:
+    Unit:
+      type: object
+      required: [id, label, enabled]
+      properties:
+        id: { type: string, example: windows-update, description: nom du dossier de sondes }
+        label: { type: string }
+        description: { type: string }
+        enabled: { type: boolean }
+        probes:
+          type: array
+          items: { type: string }
+          description: sondes du dossier, sans extension
     NotificationSettings:
       type: object
       properties:
@@ -127,6 +174,10 @@ components:
       type: object
       required: [generatedAt, themes, modules]
       properties:
+        units:
+          type: array
+          items: { $ref: "#/components/schemas/Unit" }
+          description: tous les modules-dossiers, y compris desactives (D48)
         generatedAt: { type: string, format: date-time }
         themes:
           type: array

@@ -1444,6 +1444,14 @@ function Get-State {
     # sondes -- une vingtaine de secondes, dont dix pour la seule sonde `lock`.
     $nowUtc = [datetime]::UtcNow
     $probeFiles = @(Get-ChildItem -Path $probesDir -Recurse -Filter '*.probe.ps1' -ErrorAction SilentlyContinue | Sort-Object FullName)
+    # Modules coupes par l'utilisateur (D48) : leurs sondes sortent du calcul ET de
+    # l'affichage. Le filtre se fait sur le DOSSIER parent -- un module est un dossier.
+    $unitesCoupees = @(Get-DisabledUnits)
+    if ($unitesCoupees.Count -gt 0) {
+        $probeFiles = @($probeFiles | Where-Object {
+            $unitesCoupees -notcontains (Split-Path (Split-Path $_.FullName -Parent) -Leaf)
+        })
+    }
     $stale = @()
     foreach ($pf in $probeFiles) {
         $name = $pf.Name; $stamp = "$($pf.LastWriteTimeUtc.Ticks)"
@@ -1560,7 +1568,63 @@ function Get-State {
         host        = "$env:COMPUTERNAME"
         themes      = $themes
         modules     = @($modules)
+        # TOUS les modules-dossiers, y compris desactives (D48) : c'est ce qui permet a
+        # la vue de gestion de proposer de rallumer ce qui n'est plus affiche.
+        units       = @(Get-UnitCatalog -Backend $Backend)
     }
+}
+
+# --- Gestion des modules (D48) ------------------------------------------------
+# Un MODULE (unite) = un DOSSIER de sondes, declare par un module.psd1 versionne.
+# L'activation est un choix de l'utilisateur : config/modules.local.psd1, jamais
+# versionne. Un module coupe retire ses sondes du calcul, mais reste EXPOSE dans la
+# cle units[] du contrat -- sinon l'interface ne pourrait plus proposer de le rallumer.
+function Get-UnitsLocalPath {
+    Join-Path (Get-RepoRoot) 'config/modules.local.psd1'
+}
+
+function Get-DisabledUnits {
+    $p = Get-UnitsLocalPath
+    if (-not (Test-Path -LiteralPath $p)) { return @() }
+    try {
+        $d = Import-PowerShellDataFile -Path $p
+        return @($d.Disabled | ForEach-Object { "$_" })
+    } catch { return @() }
+}
+
+function Set-UnitEnabled {
+    param(
+        [Parameter(Mandatory)][string]$UnitId,
+        [Parameter(Mandatory)][bool]$Enabled
+    )
+    $off = [System.Collections.Generic.List[string]]::new()
+    foreach ($u in (Get-DisabledUnits)) { if ($u -ne $UnitId) { $off.Add($u) } }
+    if (-not $Enabled) { $off.Add($UnitId) }
+    $liste = ($off | ForEach-Object { "'" + ($_ -replace "'", "''") + "'" }) -join ', '
+    $texte = "@{`n    # Modules DESACTIVES par l'utilisateur (D48). Fichier ecrit par l'application`n    # (vue de gestion des modules), jamais versionne. Vide = tout est actif.`n    Disabled = @($liste)`n}`n"
+    $p = Get-UnitsLocalPath
+    Set-Content -LiteralPath $p -Value $texte -Encoding UTF8
+}
+
+function Get-UnitCatalog {
+    param([string]$Backend = (Get-BackendRoot))
+    $probesDir = Join-Path $Backend 'probes'
+    $off = Get-DisabledUnits
+    @(foreach ($dir in (Get-ChildItem -Path $probesDir -Directory | Sort-Object Name)) {
+        $decl = @{}
+        $declPath = Join-Path $dir.FullName 'module.psd1'
+        if (Test-Path -LiteralPath $declPath) {
+            try { $decl = Import-PowerShellDataFile -Path $declPath } catch { }
+        }
+        $probes = @(Get-ChildItem -Path $dir.FullName -Filter '*.probe.ps1' -File)
+        [pscustomobject][ordered]@{
+            id          = $dir.Name
+            label       = if ($decl.Label) { "$($decl.Label)" } else { $dir.Name }
+            description = if ($decl.Description) { "$($decl.Description)" } else { '' }
+            enabled     = ($off -notcontains $dir.Name)
+            probes      = @($probes | ForEach-Object { $_.Name -replace '\.probe\.ps1$', '' })
+        }
+    })
 }
 
 # --- Reglages des notifications (D54) ----------------------------------------
