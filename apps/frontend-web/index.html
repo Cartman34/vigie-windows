@@ -213,10 +213,8 @@
   .fsolve{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px;border:1px solid currentColor;background:none;cursor:pointer}
   .fsolve svg{width:11px;height:11px;flex:0 0 auto}
   /* L'icone du bouton Resoudre se fond dans la couleur du texte (le type reste indique par la FORME) */
-  .fsolve.k-immediate svg,.fsolve.k-confirm svg,.fsolve.k-manual svg{color:currentColor}
-  .fsolve.warn{color:var(--warn)} .fsolve.error{color:var(--err)}
-  /* Un bouton de resolution CORRIGE : son icone est verte quel que soit l'etat du champ. */
-  .fsolve.sev-fix svg{color:var(--ok)}
+  .fsolve svg{color:currentColor}
+
   .fsolve:hover{background:rgba(127,127,127,.14)}
   /* Etat "action en cours" sur un bouton */
   .act.busy,.fsolve.busy{opacity:.9;cursor:progress}
@@ -234,10 +232,16 @@
   .actions button.act{display:inline-flex;align-items:center;gap:6px}
   .actions button.act svg{flex:none}
   /* COULEUR = severite (ce que l'action vaut), ICONE = type (comment ca se passe).
-     Les deux etaient confondus : la couleur suivait la forme, ce qui n'apprenait rien. */
-  .sev-neutral svg{color:var(--muted)}
-  .sev-info    svg{color:var(--accent)}
-  .sev-fix     svg{color:var(--ok)}
+     Les deux etaient confondus : la couleur suivait la forme, ce qui n'apprenait rien.
+     La couleur porte sur TOUT le bouton -- texte, bordure, icone : un bouton dont seule
+     l'icone changeait de couleur se lisait comme une erreur d'assemblage. */
+  .sev-neutral{color:var(--muted);border-color:var(--border)}
+  .sev-info{color:var(--accent);border-color:color-mix(in srgb, var(--accent) 55%, transparent)}
+  .sev-fix{color:var(--ok);border-color:color-mix(in srgb, var(--ok) 55%, transparent)}
+  .sev-neutral svg,.sev-info svg,.sev-fix svg{color:currentColor}
+  .sev-info:hover{border-color:var(--accent)}
+  .sev-fix:hover{border-color:var(--ok)}
+  .sev-neutral:hover{border-color:var(--muted)}
   .k-manual{border-style:dashed}
   /* ===== Design system : Dialog (modale in-app reutilisable) ===== */
   .hds-back{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:50;padding:20px;backdrop-filter:blur(2px)}
