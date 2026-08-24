@@ -360,8 +360,11 @@ function Get-AppVersion {
     param([string]$Backend = (Get-BackendRoot))
     $repo = Get-RepoRoot
     try {
-        $v = & git -C $repo describe --tags --always --dirty='+' 2>$null
-        if ($LASTEXITCODE -eq 0 -and $v) { return "$v".Trim() }
+        # On teste la SORTIE, pas $LASTEXITCODE : dans un espace d'execution Pode cette
+        # variable n'est pas definie, si bien que le test echouait meme quand git repondait
+        # -- la version affichee retombait silencieusement sur la date.
+        $v = (& git -C $repo describe --tags --always --dirty='+' 2>$null | Select-Object -First 1)
+        if ($v) { return "$v".Trim() }
     } catch { }
     # Pas de git (copie deployee sans .git, git absent) : la date du front reste une
     # information vraie et lisible, contrairement aux ticks.
