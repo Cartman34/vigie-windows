@@ -21,10 +21,10 @@ Ajouter une décision = ajouter son numéro à une ligne.
 - **Identité et nommage** — D03 · D04 · D05 · D28 · D30 · D41
 - **Structure du dépôt** — D29 · D32 · D33 · D35
 - **Configuration** — D15 · D18
-- **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38
+- **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42
 - **Sécurité et installation** — D07 · D11 · D22 · D34
 - **Outillage** — D06 · D21 · D24 · D40
-- **Méthode de travail** — D10 · D12 · D13 · D14 · D16 · D17 · D31 · D36 · D39
+- **Méthode de travail** — D10 · D12 · D13 · D14 · D16 · D17 · D31 · D36 · D39 · D43
 
 ---
 
@@ -934,3 +934,51 @@ des supports de décision), de même que les entrées historiques de `CHANGELOG.
 **Reste à faire** : les commentaires internes des scripts sont encore en français. Ils
 portent le raisonnement derrière chaque choix — les traduire est une passe à part entière,
 à mener fichier par fichier, pas un `sed`.
+
+## D42 — Fraction de la jauge à l'état erreur : `0.17` (remplace **D23** sur ce point)
+
+- conforme : `1.00` — inchangé (**D23**) ; démarrage : `0.50` — inchangé ;
+- **erreur : `0.17`** (au lieu de `0.14`).
+
+La fraction n'est écrite qu'à **un seul** endroit,
+[`apps/tray/assets/generate-icons.py`](../apps/tray/assets/generate-icons.py) — le repli GDI+
+qui la dupliquait a été supprimé (**D38**). Les `.ico` ont été régénérés : `ok.ico` et
+`warn.ico` sont ressortis **identiques à l'octet près**, ce qui confirme au passage que le
+générateur est déterministe et que seul l'état erreur a bougé.
+
+## D43 — On constate le résultat, on ne fait pas confiance au code de retour
+
+**L'application ne s'ouvrait pas depuis le tray** — signalé **quatre fois** avant d'être
+diagnostiqué. Pendant tout ce temps le journal affichait `openApp ok (fenetre dediee)`.
+
+Deux défauts distincts, tous deux masqués par un succès apparent :
+
+1. `Add-PodeRoute -Path '/'` chargeait `common.ps1` **après** avoir appelé `Get-AppPath`.
+   Une route Pode s'exécute dans son **propre espace d'exécution** : rien de ce qui est
+   chargé au démarrage du serveur n'y existe. La route levait donc
+   *« Get-AppPath is not recognized »* et rendait **500** — le serveur répondait, mais la
+   page n'existait pas. Toutes les autres routes chargeaient bien `common.ps1` en première
+   ligne ; celle-là était la seule exception.
+2. Le tray prenait le **premier** navigateur trouvé sur disque, Edge avant Chrome. Sur cette
+   machine Edge est installé mais **ne démarre pas** : le processus sort en moins d'une
+   seconde, sans fenêtre et sans erreur. `Start-Process` rendait la main sans exception, et
+   le code écrivait « ok » sur cette seule base. « Ouvrir dans le navigateur » marchait,
+   lui, parce qu'il passe par le navigateur **par défaut** — Chrome.
+
+**Règle qui en découle** : un lancement, une écriture, un rendu ne sont pas « réussis »
+parce que l'appel n'a pas levé d'exception. Le code doit **observer l'effet** avant de le
+déclarer, et le journal doit rapporter ce qui a été observé, pas ce qui a été tenté.
+
+Appliqué ici : le tray essaie d'abord le navigateur **par défaut** (celui dont on sait qu'il
+fonctionne), vérifie **1,5 s plus tard** que le processus tient — ou que le navigateur a
+gagné des processus, cas de la délégation à une instance déjà lancée — et passe au candidat
+suivant sinon. En dernier recours il ouvre un onglet normal : mieux vaut une fenêtre
+imparfaite que rien.
+
+C'est le même défaut que le repli GDI+ de **D38** (échec avalé par un `catch` vide) et que
+la vérification PowerShell qui ne validait aucun fichier tout en affichant « OK ».
+
+**Reste ouvert** : `$stopServer` ne tue que le serveur lancé par l'instance **courante** du
+tray. Après un redémarrage du tray, l'ancien serveur devient orphelin et `$startServer` sort
+immédiatement puisque le port répond — le tray sert alors indéfiniment du code périmé. C'est
+ce qui a fait croire, ce jour-là, que le correctif du 500 n'avait rien changé.
