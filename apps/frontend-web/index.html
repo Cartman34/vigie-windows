@@ -1217,9 +1217,14 @@ function toggleTheme(){ dark=!dark;
   const tb=document.getElementById('themeBtn');
   tb.textContent = dark ? '☀ Clair' : '☾ Sombre';
   tb.title = dark ? 'Passer au thème clair' : 'Passer au thème sombre'; }
-let toastT;
-function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
-  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),3200); }
+// Message bref et autonome, dans la MEME pile que les toasts d’actions (#toastStack).
+// L’ancienne version visait un #toast qui n’existe plus : tout appel levait une erreur.
+function toast(msg){
+  const stack=document.getElementById('toastStack'); if(!stack) return;
+  const el=document.createElement('div'); el.className='toast'; el.textContent=msg;
+  stack.appendChild(el); requestAnimationFrame(()=>el.classList.add('show'));
+  setTimeout(()=>{ el.classList.remove('show'); setTimeout(()=>el.remove(),220); },3200);
+}
 
 // ===== Réglages des notifications du tray (D54) =====
 // Le tray notifie sur bascule d’un MODULE ; l’icône du tray, elle, reste le statut de
