@@ -1355,3 +1355,15 @@ fins** (le global masque, il n'écrase pas).
 cours** ; une proposition qui grossit (demande de développement, ou nécessité) devient un
 **sujet entier** — rien n'est bridé, mais tout a une place.
 
+## D56 — Un menu Paramètres unique (2026-08-24)
+
+**Décision.** Tous les réglages de l'application vivent dans **un seul menu Paramètres**
+(tiroir, bouton ⚙ de l'en-tête), en quatre onglets : **Notifications** (D54),
+**Modules** (D48, y compris leurs futurs paramètres), **Apparence** (thème), **À propos**
+(version, build, machine, licence, lien GitHub). Le menu ⋮ d'une carte ouvre directement
+l'onglet Modules, positionné sur son module.
+
+**Corollaires.** Le bouton rapide de thème reste, mais **au footer**, à côté du logo
+GitHub ; le logo GitHub **disparaît de l'en-tête** (il vit au footer et dans À propos).
+Un réglage nouveau rejoint ce menu — on n'ajoute plus de bouton épars dans l'en-tête.
+

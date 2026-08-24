@@ -294,6 +294,9 @@ trancher, puis lui redonner le sujet corrigé.
 - « Redémarrage en attente » déplacé : carte **Windows** (avec action) ; la carte mises à
   jour propose aussi le redémarrage quand la dernière installation le requiert (le bouton
   ne s'y voit qu'après une installation lancée depuis Vigie).
+- **D56** : menu **Paramètres** unique (⚙) — onglets Notifications / Modules / Apparence /
+  À propos ; thème rapide au footer près du logo GitHub, GitHub retiré de l'en-tête ;
+  le ⋮ d'une carte ouvre l'onglet Modules sur son module. Tout nouveau réglage y va.
 - Front : footer **fixe**, `toast()` réparé (visait un élément disparu), favicon versionnée
   par le build (cache navigateur), bouton **Atelier** dans l'en-tête **uniquement si le
   serveur local répond** (détection côté serveur, `Get-AtelierUrl` dans /health), bouton de
