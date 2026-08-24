@@ -1,9 +1,11 @@
-<# Sonde : réseau (connectivite / type / nom (SSID) / IP LAN / IP publique / IPv6 / MAC / VPN + débit).
+<# Sonde : réseau (connexion / nom (SSID) / qualite du lien Wi-Fi / IP LAN / IP publique /
+   IPv6 / MAC / VPN + débit).
    Detection via System.Net.NetworkInformation (.NET pur, fiable dans le runspace Pode).
-   Etat Wi-Fi et SSID via l'adaptateur + le profil reseau Windows (lisibles SANS privilege).
-   netsh wlan n'apporte que la force du signal, en bonus : il exige le service de
-   localisation et l'elevation, donc il echoue souvent et ne decide de rien.
-   IP publique a la demande (action net-publicip). LECTURE SEULE. #>
+   Etat et qualite du Wi-Fi via l'adaptateur + le profil reseau Windows : lisibles SANS
+   privilege et SANS le service de localisation, contrairement a netsh wlan.
+   Seule ecriture : un court historique de debits de liaison dans var/cache/netwifi.json
+   (via Update-StateJson), pour deduire une STABILITE — un releve isole n'en dit rien.
+   IP publique a la demande (action net-publicip). Rien d'autre n'est modifie. #>
 $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $backend 'lib/common.ps1')
 
@@ -124,49 +126,123 @@ if ($wifiAdapter) {
     }
 } elseif ($wifiNic) { $wifiUp = $true; $wifiState = 'Connecté' }
 
-# Bonus : la force du signal radio n'existe que dans netsh. Son echec est previsible et
-# ne doit rien changer a l'etat affiche ; on retient seulement qu'elle est indisponible.
-$signal = ''; $signalReadable = $false
-if ($wifiUp) {
-    try {
-        $w = Invoke-Native -File 'netsh.exe' -Arguments @('wlan','show','interfaces')
-        if ($w.Ok) {
-            $signalReadable = $true
-            foreach ($line in ($w.Output -split "`r?`n")) {
-                if ($line -match 'BSSID') { continue }
-                if     ($line -match '^\s*Signal\s*:\s*(.+?)\s*$')            { $signal = $Matches[1] }
-                elseif (-not $ssid -and $line -match '^\s*SSID\s*:\s*(.+?)\s*$') { $ssid = $Matches[1] }
-            }
-        }
-    } catch { }
+# --- Qualite et stabilite du lien Wi-Fi -------------------------------------------
+# CE QUI EST REELLEMENT MESURABLE ICI (verifie en l'executant sur la machine) :
+#   - le debit NEGOCIE de la liaison radio : Get-NetAdapter, ReceiveLinkSpeed et
+#     TransmitLinkSpeed. La carte descend en modulation des que la reception se
+#     degrade : ce debit est donc un indicateur direct de la qualite du lien, et il
+#     bouge en continu (releve : 39 -> 78 Mb/s en dix secondes). Cout : ~80 ms.
+#   - l'etat du media, pour distinguer une coupure d'une simple baisse.
+# CE QUI N'EST PAS MESURABLE ICI (teste, et negatif) :
+#   - « netsh wlan show interfaces » : erreur 5, exige le service de localisation ET
+#     l'elevation. C'est ce qui faisait afficher « non connecte » a tort.
+#   - la classe WMI root\wmi MSNdis_80211_ReceivedSignalStrength : le pilote de cette
+#     carte repond « non pris en charge ».
+#   - les compteurs de performance reseau : leur nom est traduit, donc non portable.
+# Consequence assumee : AUCUNE force de signal en % ou en dBm n'est affichee. Un
+# chiffre faux serait pire que pas de chiffre — le champ le dit explicitement.
+$rxBps = 0L; $txBps = 0L
+if ($wifiAdapter) {
+    try { $rxBps = [long]$wifiAdapter.ReceiveLinkSpeed } catch { }
+    try { $txBps = [long]$wifiAdapter.TransmitLinkSpeed } catch { }
 }
-$linkSpeed = if ($wifiAdapter -and $wifiAdapter.LinkSpeed) { "$($wifiAdapter.LinkSpeed)" } else { '' }
+# On retient le sens le PLUS RAPIDE des deux, et non le plus lent. Raison : la carte
+# n'entretient une modulation haute que dans le sens ou du trafic circule ; le sens
+# inactif retombe tres bas. Prendre le minimum, c'est mesurer l'inactivite, pas la
+# qualite — verifie ici : emission a 24 Mb/s pendant que la reception tenait 78 Mb/s,
+# sans que rien n'ait bouge.
+$linkBps = [Math]::Max($rxBps, $txBps)
+$linkMbps = if ($linkBps -gt 0) { [int][Math]::Round($linkBps / 1e6) } else { 0 }
+$rxMbps   = if ($rxBps  -gt 0) { [int][Math]::Round($rxBps  / 1e6) } else { 0 }
+$txMbps   = if ($txBps  -gt 0) { [int][Math]::Round($txBps  / 1e6) } else { 0 }
 
-$wifiText = if (-not $wifiUp)      { $wifiState }
-            elseif ($ssid -and $signal) { "Connecté à $ssid ($signal)" }
-            elseif ($ssid)         { "Connecté à $ssid" }
-            elseif ($signal)       { "Connecté ($signal)" }
-            else                   { 'Connecté' }
+# Historique court, pour deduire une STABILITE : un seul releve ne dit rien d'une
+# variation. La sonde a un TTL de 15 s, elle passe donc assez souvent pour accumuler.
+# Ecriture par Update-StateJson : c'est le seul code autorise a ecrire dans var/cache.
+$wifiHistFile = Get-VarPath -Backend $backend -Kind 'cache' -File 'netwifi.json'
+$nowT = [long][DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+$samples = @(); $best = 0L
+if ($hasWifi) {
+    $hist = $null
+    if (Test-Path $wifiHistFile) { try { $hist = Get-Content $wifiHistFile -Raw | ConvertFrom-Json } catch { } }
+    # Changer de reseau remet le compteur a zero : le meilleur debit d'un SSID ne dit
+    # rien d'un autre, et comparer les deux fabriquerait une fausse degradation.
+    if ($hist -and "$($hist.ssid)" -eq $ssid) {
+        try { $best = [long]$hist.best } catch { }
+        try {
+            $samples = @(@($hist.samples) | Where-Object { $null -ne $_ -and $null -ne $_.t } |
+                         ForEach-Object { @{ t = [long]$_.t; bps = [long]$_.bps; up = [int]$_.up } })
+        } catch { $samples = @() }
+    }
+    # Fenetre glissante : 30 minutes, 24 releves au plus. Au-dela, on decrirait un
+    # etat passe (autre piece, autre bande) et non celui de maintenant.
+    $samples = @($samples | Where-Object { ($nowT - $_.t) -le 1800 })
+    $samples += ,@{ t = $nowT; bps = $linkBps; up = [int][bool]$wifiUp }
+    if ($samples.Count -gt 24) { $samples = @($samples[($samples.Count - 24)..($samples.Count - 1)]) }
+    if ($linkBps -gt $best) { $best = $linkBps }
+    try { Update-StateJson -Path $wifiHistFile -Set @{ ssid = $ssid; best = $best; samples = $samples } | Out-Null } catch { }
+}
+$rates      = @($samples | Where-Object { $_.up -eq 1 -and $_.bps -gt 0 } | ForEach-Object { [double]$_.bps })
+$dropCount  = @($samples | Where-Object { $_.up -ne 1 }).Count
+$sampleCount = $samples.Count
+$spanSec    = if ($sampleCount -ge 2) { $samples[$sampleCount - 1].t - $samples[0].t } else { 0 }
+
+# On juge sur le SOMMET de la fenetre, pas sur l'instant ni sur la moyenne. Une carte
+# Wi-Fi ne monte en modulation que quand elle a du trafic a passer : au repos, le debit
+# negocie s'effondre sans que le lien se soit degrade (releve ici : 6 Mb/s au repos,
+# 116 Mb/s quelques secondes plus tot). Le plus haut debit atteint recemment est donc le
+# seul chiffre qui dise ce que la radio SAIT faire — et une mauvaise reception, elle,
+# plafonne bel et bien ce sommet.
+$peak = if ($rates.Count) { ($rates | Measure-Object -Maximum).Maximum } else { 0 }
+$peakMbps = if ($peak -gt 0) { [int][Math]::Round($peak / 1e6) } else { 0 }
+
+# Qualite. Deux jugements complementaires, on retient le PIRE : c'est celui que
+# l'utilisateur subit. L'absolu dit ce que le lien peut porter ; le relatif compare au
+# meilleur deja obtenu sur CE reseau, donc detecte une degradation meme sur un lien
+# intrinsequement lent. Le relatif n'entre en jeu qu'avec assez de releves : sans
+# reference etablie, « le premier releve est le maximum » serait un faux « tout va bien ».
+$qualRank = 0   # 0 = inconnue, 1 = bonne, 2 = moyenne, 3 = faible
+if ($wifiUp -and $peak -gt 0) {
+    $qualRank = if ($peakMbps -ge 100) { 1 } elseif ($peakMbps -ge 30) { 2 } else { 3 }
+    if ($rates.Count -ge 4 -and $best -gt 0) {
+        $ratio = $peak / $best
+        $rel = if ($ratio -ge 0.70) { 1 } elseif ($ratio -ge 0.40) { 2 } else { 3 }
+        if ($rel -gt $qualRank) { $qualRank = $rel }
+    }
+}
+$qualLabel  = @('', 'Bonne', 'Moyenne', 'Faible')[$qualRank]
+$qualStatus = @('neutral', 'ok', 'warn', 'error')[$qualRank]
+
+# Stabilite : UNIQUEMENT la continuite de l'association. On avait d'abord essaye la
+# dispersion des debits — a jeter : au repos elle atteint 94 % sur un lien parfaitement
+# sain, elle mesure le trafic et non la qualite. Un decrochage, lui, ne s'interprete pas.
+# Il faut aussi que la fenetre couvre une vraie duree : quatre releves en cinq secondes
+# ne prouvent rien sur la tenue d'un lien.
+$stabLabel = ''
+if ($sampleCount -ge 4 -and $spanSec -ge 120) {
+    $stabLabel = if ($dropCount -eq 0) { 'sans coupure' }
+                 elseif ($dropCount -eq 1) { '1 coupure' }
+                 else { "$dropCount coupures" }
+    # Un lien rapide qui decroche reste un mauvais lien : le statut doit le dire.
+    if ($dropCount -gt 0 -and $qualStatus -eq 'ok') { $qualStatus = 'warn' }
+}
+
+$wifiText = if (-not $wifiUp)        { $wifiState }
+            elseif ($peak -le 0)     { 'Connecté, qualité non mesurable' }
+            elseif ($stabLabel)      { "$qualLabel, $stabLabel ($peakMbps Mb/s)" }
+            else                     { "$qualLabel ($peakMbps Mb/s)" }
 
 # Un Wi-Fi eteint n'est pas un probleme en soi (cable Ethernet branche, mode Avion
-# voulu) : c'est la ligne « Connexion Internet » qui porte l'alerte. On reste neutre
-# tant qu'Internet repond par ailleurs.
-$wifiStatus = if ($wifiUp) { 'ok' } elseif (-not $connected) { 'warn' } else { 'neutral' }
+# voulu) : c'est la ligne « Connexion » qui porte l'alerte. On reste neutre tant
+# qu'Internet repond par ailleurs.
+if (-not $wifiUp) { $qualStatus = if ($connected) { 'neutral' } else { 'warn' } }
 
-$wifiGuide = if ($wifiUp) {
-    "Ce que c'est : l'état de l'association entre l'adaptateur Wi-Fi de ce PC et un réseau sans fil." +
-    $(if ($ssid) { " Ici : associé au réseau « $ssid »." } else { " Ici : associé à un réseau." }) +
-    $(if ($linkSpeed) { " Débit négocié du lien radio : $linkSpeed." } else { '' }) + "`n`n" +
-    "Le problème : aucun. Le lien radio est établi.`n`n" +
-    $(if ($signal) {
-        "Force du signal : $signal. En dessous de 50 %, rapprochez-vous du point d'accès ou changez de bande (5 GHz plus rapide, 2,4 GHz plus lointaine)."
-    } elseif ($signalReadable) {
-        "La force du signal n'a pas été renvoyée par Windows pour cet adaptateur ; cela n'affecte pas la connexion."
-    } else {
-        "La force du signal n'est pas affichée : elle ne se lit que via « netsh wlan », qui exige le service de localisation de Windows (et des droits administrateur). Pour l'obtenir : Paramètres > Confidentialité et sécurité > Localisation, puis autoriser les applications de bureau. Ce refus n'a aucun effet sur la connexion elle-même."
-    })
-} else {
-    "Ce que c'est : l'état de l'association entre l'adaptateur Wi-Fi de ce PC et un réseau sans fil. Ici : $wifiState.`n`n" +
+# Ce que Windows ne laisse PAS lire ici. Dit une fois, dans le guide, plutot qu'un
+# indicateur invente : c'est la seule facon honnete de traiter une mesure absente.
+$noSignalNote = "À noter : la force du signal (en %) n'est pas lisible sur ce PC. « netsh wlan » la refuse sans le service de localisation ni droits administrateur, et le pilote de cette carte ne publie pas la classe WMI correspondante. Vigie s'appuie donc sur le débit négocié, qui se lit sans privilège, plutôt que d'afficher un chiffre inventé."
+
+$wifiGuide = if (-not $wifiUp) {
+    "Ce que c'est : la qualité du lien radio entre ce PC et un point d'accès Wi-Fi. Ici : $wifiState.`n`n" +
     "Le problème : aucun réseau sans fil n'est associé à cet adaptateur." +
     $(if ($connected) { " L'accès à Internet passe par une autre interface ($connType), donc rien n'est bloqué pour l'instant." }
       else { " Et aucune autre interface ne fournit d'accès à Internet : la machine est hors ligne." }) + "`n`n" +
@@ -176,6 +252,38 @@ $wifiGuide = if ($wifiUp) {
     "- la box ou le point d'accès n'émet plus : vérifiez-le depuis un autre appareil ;`n" +
     "- l'adaptateur est désactivé : réactivez-le (Paramètres > Réseau et Internet > Paramètres réseau avancés) ;`n" +
     "- l'adaptateur est absent : le pilote n'est pas chargé, regardez le Gestionnaire de périphériques."
+} elseif ($peak -le 0) {
+    "Ce que c'est : la qualité du lien radio entre ce PC et le point d'accès. Ici : le lien est établi, mais Windows ne publie aucun débit de liaison pour cet adaptateur.`n`n" +
+    "Le problème : la qualité ne peut pas être évaluée. Ce n'est pas une panne du réseau — la connexion fonctionne.`n`n" +
+    "Les issues possibles :`n" +
+    "- le pilote de la carte ne remonte pas cette information : une mise à jour du pilote (site du fabricant) la rétablit en général ;`n" +
+    "- en attendant, jugez la connexion sur la latence et le débit mesurés plus bas dans cette carte.`n`n" +
+    $noSignalNote
+} else {
+    "Ce que c'est : la qualité du lien radio entre ce PC et le point d'accès, jugée sur le meilleur débit que la liaison a négocié au cours des 30 dernières minutes. Une mauvaise réception plafonne ce sommet ; c'est donc lui qui mesure la qualité, et non le débit de l'instant — au repos, la carte laisse retomber sa modulation faute de trafic à passer.`n`n" +
+    "Retenu pour le jugement : $peakMbps Mb/s, le plus haut des $($rates.Count) relevé(s) de la fenêtre.`n" +
+    "Relevé à l'instant : $linkMbps Mb/s (réception $rxMbps Mb/s, émission $txMbps Mb/s) — bas au repos, c'est normal." +
+    $(if ($best -gt 0) { " Meilleur débit jamais obtenu sur ce réseau : $([int][Math]::Round($best / 1e6)) Mb/s." } else { '' }) + "`n" +
+    $(if ($stabLabel) {
+        "Stabilité : $stabLabel sur les $([int][Math]::Round($spanSec / 60)) dernières minutes ($sampleCount relevés)." +
+        $(if ($dropCount -gt 0) { " Le lien a perdu son association : c'est ce qui coupe une visioconférence net." } else { " L'association n'a jamais été perdue." })
+    } else {
+        "Stabilité : pas encore établie — elle demande au moins 4 relevés étalés sur 2 minutes, et Vigie en a $sampleCount. Un relevé est enregistré à chaque rafraîchissement de la carte.`n" +
+        "Elle ne compte que les décrochages de l'association, seul signe non ambigu : la variation du débit négocié, elle, suit le trafic et non la qualité — la retenir afficherait « instable » sur un lien parfaitement sain."
+    }) + "`n`n" +
+    $(switch ($qualRank) {
+        1 { "Le problème : aucun. Le lien est au niveau de ce que ce réseau sait faire." }
+        2 { "Le problème : le lien est nettement en dessous de ce qu'un Wi-Fi moderne permet. La navigation reste correcte, mais les gros téléchargements et la visioconférence en souffrent." }
+        default { "Le problème : le lien est très bas. Attendez-vous à des visioconférences hachées, des téléchargements lents et des pages qui traînent." }
+    }) +
+    $(if ($qualRank -ge 2 -or $dropCount -gt 0) {
+        "`n`nLes issues possibles :`n" +
+        "- rapprochez-vous du point d'accès, ou retirez ce qui s'interpose (mur porteur, miroir, plancher chauffant) ;`n" +
+        "- passez sur la bande 5 GHz si votre box la propose : plus rapide et moins encombrée que 2,4 GHz ;`n" +
+        "- changez le canal de la box : un voisin sur le même canal se partage le débit avec vous ;`n" +
+        "- éloignez les brouilleurs : four à micro-ondes, téléphone DECT, adaptateur CPL ;`n" +
+        "- si le besoin est durable, un câble Ethernet règle la question définitivement."
+    } else { '' }) + "`n`n" + $noSignalNote
 }
 
 # Nom du reseau : le profil Windows de l'interface principale — pour du Wi-Fi, c'est le
@@ -220,33 +328,112 @@ if (Test-Path $measFile) {
 $latSt = if ($lat -eq '-') { 'neutral' } elseif ([double]($lat) -lt 80) { 'ok' } elseif ([double]($lat) -lt 200) { 'warn' } else { 'error' }
 $pubGuide = if ($pubAt) { "Dernière récupération : $pubAt. Cliquez « Obtenir l'IP publique » pour actualiser." } else { "Non récupérée. Cliquez « Obtenir l'IP publique » (appel à un service externe)." }
 
+# REGLE GENERALE de cette sonde : jamais de consigne conditionnelle (« si Non, verifiez
+# X ») quand la sonde SAIT dans quel cas on est. Elle connait la reponse, elle la donne :
+# un guide decrit l'etat REEL, et ne propose des verifications que si elles servent
+# maintenant. Trier la consigne n'est pas le travail de l'utilisateur.
+
+# « Connexion Internet » et « Type de connexion » disaient la meme chose en deux lignes
+# (« Oui » puis « Wi-Fi »). Fusionnees : une seule ligne qui porte l'etat ET le moyen.
+$connValue = if (-not $connected) { 'Déconnecté' } elseif ($connType -ne '-') { $connType } else { 'Connecté' }
+$connGuide = if ($connected) {
+    "Ce que c'est : la liaison par laquelle ce PC atteint Internet, et le type d'interface qu'elle emprunte. Ici : connecté en $connValue" +
+    $(if ($primary) { " via l'interface « $($primary.Name) »." } else { '.' }) + "`n`n" +
+    "Le problème : aucun. La connectivité vient d'être confirmée par une vraie connexion TCP sortante (1.1.1.1, 8.8.8.8 ou 9.9.9.9) — pas par le seul indicateur de Windows, qui reste parfois au vert après une coupure."
+} else {
+    "Ce que c'est : la liaison par laquelle ce PC atteint Internet. Ici : aucune. Ni la connexion TCP de test (1.1.1.1, 8.8.8.8, 9.9.9.9) ni l'indicateur de Windows ne rapportent d'accès.`n`n" +
+    "Le problème : ce PC est hors ligne. Tout ce qui dépend du réseau est indisponible.`n`n" +
+    "Les issues possibles :`n" +
+    "- vérifiez le lien physique : câble Ethernet enfoncé des deux côtés, ou Wi-Fi activé et mode Avion coupé ;`n" +
+    "- redémarrez la box ou le routeur, puis laissez-lui le temps de retrouver la ligne ;`n" +
+    "- testez depuis un autre appareil : s'il n'a rien non plus, la panne est chez l'opérateur ;`n" +
+    $(if ($vpn) { "- un tunnel VPN est actif sur ce PC : coupez-le, il peut détourner tout le trafic vers un serveur injoignable ;`n" } else { '' }) +
+    "- en dernier recours, réinitialisez la pile réseau (Paramètres > Réseau et Internet > Paramètres réseau avancés > Réinitialisation du réseau)."
+}
+
+$ip6Guide = if ($ip6 -ne '-') {
+    "Ce que c'est : l'adresse IPv6 de l'interface principale, le format d'adressage moderne d'Internet. Ici : $ip6.`n`n" +
+    "Le problème : aucun. IPv6 est actif ; les services qui l'exigent sont joignables."
+} else {
+    "Ce que c'est : l'adresse IPv6 de l'interface principale. Ici : aucune adresse IPv6 attribuée.`n`n" +
+    "Le problème : rien de bloquant, IPv4 suffit à tout usage courant. Quelques services récents sont simplement un peu plus lents à joindre.`n`n" +
+    "Les issues possibles :`n" +
+    "- votre opérateur ne fournit pas encore IPv6 : rien à faire de votre côté ;`n" +
+    "- IPv6 est décoché sur la carte réseau : réactivez-le dans les propriétés de l'interface ;`n" +
+    "- la box est réglée en « IPv4 seul » : l'option se change dans son interface d'administration."
+}
+
+$vpnGuide = if ($vpn) {
+    "Ce que c'est : la présence d'un tunnel VPN actif sur ce PC. Ici : oui, un adaptateur de tunnel est actif.`n`n" +
+    "Le problème : aucun en soi. Sachez seulement que votre trafic transite par le VPN : l'IP publique affichée est celle du fournisseur, et les débits mesurés incluent le détour."
+} else {
+    "Ce que c'est : la présence d'un tunnel VPN actif sur ce PC. Ici : aucun.`n`n" +
+    "Le problème : aucun. Votre trafic sort directement par votre connexion, sans tunnel."
+}
+
+$latGuide = if ($lat -eq '-') {
+    "Ce que c'est : le délai d'aller-retour vers un serveur public — ce qui rend une visioconférence fluide ou saccadée, et un jeu en ligne jouable ou non. Ici : pas encore mesuré.`n`n" +
+    "Lancez « Mesurer débit/latence » pour obtenir la valeur."
+} elseif ($latSt -eq 'ok') {
+    "Ce que c'est : le délai d'aller-retour vers un serveur public. Ici : $lat ms.`n`n" +
+    "Le problème : aucun. En dessous de 80 ms, visioconférence et jeu en ligne sont confortables."
+} else {
+    "Ce que c'est : le délai d'aller-retour vers un serveur public. Ici : $lat ms.`n`n" +
+    $(if ($latSt -eq 'warn') { "Le problème : la réactivité est moyenne. La navigation reste fluide, mais les échanges en temps réel accusent un retard perceptible." }
+      else { "Le problème : la latence est élevée. Visioconférence et jeu en ligne deviennent pénibles, même si le débit brut est bon." }) + "`n`n" +
+    "Les issues possibles :`n" +
+    "- une autre application sature la ligne (sauvegarde, téléchargement, mise à jour) : attendez qu'elle finisse ;`n" +
+    $(if ($connType -eq 'Wi-Fi') { "- le lien Wi-Fi est en cause : voyez la ligne « Lien Wi-Fi » ci-dessus, ou branchez un câble Ethernet ;`n" } else { '' }) +
+    $(if ($vpn) { "- le VPN actif ajoute un détour : mesurez à nouveau sans lui pour comparer ;`n" } else { '' }) +
+    "- redémarrez la box : une session qui traîne depuis des semaines finit par dériver ;`n" +
+    "- si la valeur reste haute en Ethernet et sans VPN, la cause est en amont, chez l'opérateur."
+}
+$speedGuide = if ($down -eq '-') {
+    "Ce que c'est : le débit réellement obtenu, mesuré en téléchargeant un fichier de test. Ici : pas encore mesuré.`n`n" +
+    "Lancez « Mesurer débit/latence » pour obtenir la valeur. La mesure prend quelques secondes et consomme une dizaine de mégaoctets."
+} else {
+    "Ce que c'est : le débit réellement obtenu lors de la dernière mesure, à ne pas confondre avec le débit négocié du lien Wi-Fi (qui est un plafond théorique). Ici : $down Mb/s en réception" +
+    $(if ($up -ne '-') { ", $up Mb/s en émission." } else { '.' }) + "`n`n" +
+    "Le problème : à juger par rapport à votre abonnement. Un écart important tient le plus souvent au lien Wi-Fi ou à une application qui occupait la ligne pendant la mesure — relancez la mesure au calme pour comparer."
+}
+
 $fields = @(
-    New-Field -Key 'connected' -Label 'Connexion Internet' -Value $connected -Kind 'bool' -Status $(if ($connected) {'ok'} else {'warn'}) `
-        -Help "Connectivité vérifiée par une connexion TCP réelle (1.1.1.1 / 8.8.8.8), avec repli sur l'indicateur Windows." -Guide "Si « Non » : vérifiez wifi/câble, box/routeur."
-    New-Field -Key 'connType' -Label 'Type de connexion' -Value $connType -Kind 'text' -Status 'neutral' -Help "Type de l'interface active portant la route par défaut (Wi-Fi ou Ethernet)."
+    New-Field -Key 'connected' -Label 'Connexion' -Value $connValue -Kind 'text' -Status $(if ($connected) {'ok'} else {'warn'}) `
+        -Help "État de l'accès à Internet et interface qui le porte. Vérifié par une connexion TCP réelle (1.1.1.1 / 8.8.8.8), avec repli sur l'indicateur Windows." `
+        -Guide $connGuide
     New-Field -Key 'netName'  -Label 'Réseau (nom)' -Value $netName -Kind 'text' -Status 'neutral' -Help "Nom du réseau : SSID en Wi-Fi, sinon nom de l'interface."
 )
 if ($hasWifi) {
-    $fields += New-Field -Key 'wifi' -Label 'État Wi-Fi' -Value $wifiText -Kind 'text' -Status $wifiStatus `
-        -Help "État de l'adaptateur Wi-Fi : réseau associé, et force du signal quand Windows en autorise la lecture." `
+    $fields += New-Field -Key 'wifi' -Label 'Lien Wi-Fi' -Value $wifiText -Kind 'text' -Status $qualStatus `
+        -Help "Qualité du lien radio, jugée sur le débit négocié de la liaison, et sa stabilité sur les 30 dernières minutes." `
         -Guide $wifiGuide
 }
 $fields += @(
     New-Field -Key 'ip'  -Label 'IP locale (LAN)' -Value $ip  -Kind 'text' -Status 'neutral' -Help "Adresse IPv4 privée de l'interface portant la route par défaut (réseau local)."
     New-Field -Key 'publicIp' -Label 'IP publique' -Value $pubIp -Kind 'text' -Status 'neutral' -Help "Adresse IP publique vue depuis Internet (récupérée à la demande)." -Guide $pubGuide
-    New-Field -Key 'ip6' -Label 'Adresse IPv6' -Value $ip6 -Kind 'text' -Status 'neutral' -Help "Adresse IPv6 principale (interface par défaut). « - » si non attribuée."
+    New-Field -Key 'ip6' -Label 'Adresse IPv6' -Value $ip6 -Kind 'text' -Status 'neutral' -Help "Adresse IPv6 principale de l'interface par défaut." -Guide $ip6Guide
     New-Field -Key 'mac' -Label 'Adresse MAC'  -Value $mac -Kind 'text' -Status 'neutral' `
         -Help "Adresse MAC de l'interface principale. Cliquez pour voir toutes les interfaces actives." `
         -Table @{ columns = @('Interface', 'Type', 'IPv4', 'MAC'); rows = $adapterRows }
-    New-Field -Key 'vpn' -Label 'VPN actif'    -Value $vpn -Kind 'bool' -Status 'neutral' -Help "Un adaptateur VPN est actuellement actif."
-    New-Field -Key 'latency' -Label 'Latence'  -Value $(if ($lat -eq '-') {'non mesuré'} else {"$lat ms"}) -Kind 'text' -Status $latSt -Help "Latence mesurée (ping). Cliquez 'Mesurer' pour actualiser." -FixAction 'net-speedtest'
-    New-Field -Key 'down'    -Label 'Débit descendant' -Value $(if ($down -eq '-') {'non mesuré'} else {"$down Mbps"}) -Kind 'text' -Status 'neutral' -Help "Débit descendant estimé. Cliquez 'Mesurer' pour actualiser."
-    New-Field -Key 'up'      -Label 'Débit montant' -Value $(if ($up -eq '-') {'non mesuré'} else {"$up Mbps"}) -Kind 'text' -Status 'neutral' -Help "Débit montant estimé (upload ~5 Mo). Cliquez 'Mesurer débit/latence'."
+    New-Field -Key 'vpn' -Label 'VPN actif'    -Value $vpn -Kind 'bool' -Status 'neutral' -Help "Présence d'un adaptateur de tunnel VPN actif sur ce PC." -Guide $vpnGuide
+    New-Field -Key 'latency' -Label 'Latence'  -Value $(if ($lat -eq '-') {'non mesuré'} else {"$lat ms"}) -Kind 'text' -Status $latSt `
+        -Help "Délai d'aller-retour vers un serveur public. Cliquez « Mesurer débit/latence » pour l'actualiser." -Guide $latGuide -FixAction 'net-speedtest'
+    New-Field -Key 'down'    -Label 'Débit descendant' -Value $(if ($down -eq '-') {'non mesuré'} else {"$down Mbps"}) -Kind 'text' -Status 'neutral' `
+        -Help "Débit obtenu en réception lors de la dernière mesure." -Guide $speedGuide
+    New-Field -Key 'up'      -Label 'Débit montant' -Value $(if ($up -eq '-') {'non mesuré'} else {"$up Mbps"}) -Kind 'text' -Status 'neutral' `
+        -Help "Débit obtenu en émission lors de la dernière mesure (envoi d'environ 5 Mo)." -Guide $speedGuide
 )
 if ($measAt) {
     $fields += New-Field -Key 'measAt' -Label 'Mesure du' -Value $measAt -Kind 'date' -Status 'neutral' -Help "Date de la dernière mesure débit/latence."
 }
-New-ModuleObject -Id 'net' -Theme 'network' -Label 'Réseau' -Status $(if ($connected) {'ok'} else {'warn'}) -Fields $fields -Actions @(
+# Statut de la CARTE : la connectivite d'abord, mais un lien Wi-Fi degrade doit se voir
+# depuis la liste — sinon la carte reste verte alors qu'une de ses lignes est orange, et
+# l'utilisateur ne la deplie jamais.
+$modStatus = if (-not $connected) { 'warn' }
+             elseif ($hasWifi -and $qualStatus -in @('warn', 'error')) { $qualStatus }
+             else { 'ok' }
+
+New-ModuleObject -Id 'net' -Theme 'network' -Label 'Réseau' -Status $modStatus -Fields $fields -Actions @(
     New-Action -Id 'net-publicip'  -Label "Obtenir l'IP publique" -Kind 'immediate' -Help "Interroge un service externe (api.ipify.org...) pour connaître l'adresse IP publique. Un appel sortant est effectué."
     New-Action -Id 'net-speedtest' -Label 'Mesurer débit/latence'  -Kind 'immediate' -Help "Mesure la latence (ping) et le débit descendant en téléchargeant ~10 Mo. Prend quelques secondes et consomme un peu de data."
 )
