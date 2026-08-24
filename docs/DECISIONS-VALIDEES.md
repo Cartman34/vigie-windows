@@ -377,6 +377,26 @@ imitant la barre des tâches) ; les `.ico` **réellement livrés** à côté de 
 le **menu du tray** réglable, qui écrit les valeurs exactes à recopier dans
 `VigieMenuPalette` ; l'écran de chargement en direct.
 
+### L'Atelier lit les valeurs livrées, il ne les recopie pas
+
+Les couleurs du menu étaient **recopiées à la main** dans la page. Elles ont divergé : fond
+bleuté `#2b3038` dans l'Atelier contre gris neutre `#2c2c2c` dans le tray. L'Atelier
+affichait donc autre chose que ce qui est livré — et ne servait plus à valider quoi que ce
+soit, ce que cette décision interdit précisément.
+
+`apps/atelier/palette.php` lit désormais les constantes **dans `apps/tray/tray.ps1`** et la
+page en part au chargement. Le bloc de code sous l'aperçu indique s'il est *identique au
+livré* ou combien de valeurs ont été modifiées. Une recopie finit toujours par diverger ; la
+seule correction qui tienne est de supprimer la recopie.
+
+Corollaire **D15** : la couleur du libellé actif, écrite en dur à deux endroits de
+`tray.ps1`, a été remontée dans `VigieMenuPalette.Text`. Ce qui n'a pas de définition unique
+ne peut pas être lu à la source.
+
+En cas d'échec de lecture (page ouverte en `file://`, constante disparue), la page **avertit
+en jaune** au lieu de replier silencieusement sur ses valeurs écrites en dur : une valeur
+fausse mais plausible se ferait valider sans qu'on voie le problème.
+
 **Exigences tenues** (demande explicite de l'utilisateur) :
 
 | Exigence | Réponse |
