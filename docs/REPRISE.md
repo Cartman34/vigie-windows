@@ -33,7 +33,15 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
 
 ## État — FAIT (déployé sur la machine, validé hors-ligne)
 - Socle asynchrone non bloquant (`Start-DetachedAction`, `Remove-ProbeCache`, `Update-StateJson` avec mutex inter-processus).
-- Paquets : **une carte par gestionnaire**, **vérification ET mise à jour** en tâche de fond (winget/choco/scoop/npm/gem), polling par carte. L'état « en cours » s'affiche dans le **liseré gauche** de la carte, qui clignote (**D46**) — le halo a été supprimé.
+- Paquets : **une carte par gestionnaire**, **vérification ET mise à jour** en tâche de fond (winget/choco/scoop/npm/gem/pip), polling par carte. L'état « en cours » s'affiche dans le **liseré gauche** de la carte, qui clignote (**D46**) — le halo a été supprimé.
+- Paquets, **mise à jour AU CHOIX** (jumelle de **D45**) : « Mettre à jour » ouvre une fenêtre
+  de choix (`pkg-list-updates`, `kind: dialog`) ; seuls les paquets cochés sont mis à jour
+  (winget par `--id`, Chocolatey et pip par nom). Un gestionnaire qui ne sait pas cibler un
+  paquet (scoop, npm, gem) affiche quand même sa liste, **cochée et non décochable**, et le
+  dit. Le champ `upgOne` du catalogue (`common.ps1`) est la **seule** source de cette capacité.
+- Paquets, **interface graphique du gestionnaire** : bouton `pkg-open-gui` (`kind: manual`),
+  ajouté **uniquement si la cible existe** sur la machine — Microsoft Store pour winget,
+  Chocolatey GUI pour Chocolatey (absent ici), rien pour pip.
 - Boutons de résolution : prennent le **libellé de l'action** (plus de « Résoudre » générique), n'apparaissent que si une action existe. **Icônes** (**D45**) : triangle = action immédiate ; **triangle d'avertissement orange** = confirmation ; liste cochée = fenêtre de choix ; flèche sortante = logiciel externe.
 - Résolutions câblées : Latence → `net-speedtest` ; Windows Update « Détectées » → `open-windows-update` (note raccourcie).
 - WSL : champ **Statut Actif/Inactif** coloré + **trio Démarrer/Redémarrer/Arrêter** (boutons pertinents). Actions `wsl-start`/`wsl-restart` + invalidation sonde.
