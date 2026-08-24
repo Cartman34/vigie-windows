@@ -8,6 +8,7 @@
         GameGpuMinPct   = 15   # % GPU minimal pour considerer qu'un jeu tourne
         OtherCpuWarnPct = 1    # % CPU (normalise TOUS coeurs) : 1 % ici = une vraie charge
         OtherGpuWarnPct = 15   # % GPU d'une AUTRE appli qui declenche l'avertissement
+        VramWarnPct     = 90   # % de VRAM occupee au-dela duquel on avertit
     }
 
     # PARAMETRES : les cles de Config reglables dans le menu Parametres de l'app.
@@ -18,5 +19,7 @@
            Help = 'Pendant un jeu, une autre application au-delà de ce CPU déclenche un avertissement.' }
         @{ Key = 'OtherGpuWarnPct'; Label = 'Alerte GPU des autres applis'; Type = 'int'; Unit = '%'
            Help = 'Pendant un jeu, une autre application au-delà de ce GPU déclenche un avertissement.' }
+        @{ Key = 'VramWarnPct'; Label = 'Alerte de VRAM occupée'; Type = 'int'; Unit = '%'
+           Help = 'Au-delà de ce remplissage de la mémoire vidéo, la carte avertit : saccades probables.' }
     )
 }
