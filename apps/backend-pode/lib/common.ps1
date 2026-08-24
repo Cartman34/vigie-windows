@@ -367,9 +367,13 @@ function Resolve-GitPath {
     return $null
 }
 
-# Version LISIBLE, destinee a l'affichage. Elle vaut ce que dit git : une etiquette si le
-# depot en porte une, sinon l'empreinte courte du commit, suffixee « + » si l'arbre a des
-# modifications non validees.
+# Version LISIBLE, destinee a l'affichage. Elle vaut ce que dit git : une etiquette ANNOTEE
+# (une vraie version publiee) si le depot en porte une, sinon l'empreinte courte du commit,
+# suffixee « + » si l'arbre a des modifications non validees.
+#
+# `describe` est appele SANS --tags : seules les etiquettes ANNOTEES comptent. Les
+# etiquettes legeres servent de marque-page de travail (ex. « sauvegarde-avant-nettoyage »,
+# posee avant une reecriture d'historique) et n'ont rien a faire dans un numero de version.
 #
 # Elle remplace l'ancienne valeur, qui affichait les TICKS de la date du fichier --
 # « version 639231069781032063 ». Correcte comme jeton de changement, illisible comme
@@ -384,7 +388,7 @@ function Get-AppVersion {
             # On teste la SORTIE, pas $LASTEXITCODE : dans un espace d'execution Pode cette
             # variable n'est pas definie, si bien que le test echouait meme quand git
             # repondait -- la version retombait silencieusement sur la date.
-            $v = (& $git -C $repo describe --tags --always --dirty='+' 2>$null | Select-Object -First 1)
+            $v = (& $git -C $repo describe --always --dirty='+' 2>$null | Select-Object -First 1)
             if ($v) { return "$v".Trim() }
         } catch { }
     }
