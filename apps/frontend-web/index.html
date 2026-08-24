@@ -507,19 +507,24 @@ function cardHtml(m, groupLabel){
     fieldsByKey[key]=Object.assign({},f,{moduleId:m.id,fixKind:fkind,fixConfirm:fconfirm});
     const help=(f.help||'').replace(/"/g,'&quot;');
     const isProblem=(stt==='warn'||stt==='error');
-    const info=(f.help||f.guide)?`<button class="fhelp ${stt}" title="${help}" onclick="toggleDetail(this)"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5.5" r="2.3"/><rect x="9.7" y="9.5" width="4.6" height="10.5" rx="2.3"/></svg></button>`:'';
+    // SEUL le guide s'affiche sous la ligne : ce sont les informations SUPPLEMENTAIRES
+    // (liste, valeurs detaillees, mode d'emploi). La description de ce que montre le
+    // champ (`help`) reste une INFOBULLE.
+    const detTxt=(f.guide||'');
+    const open=openDetails.has(key)?' open':'';
+    // Un detail COURT se deplie dans la carte ; un detail LONG ouvre une fenetre. Deplie
+    // dans la carte, il la fait exploser en hauteur et noie le reste du tableau de bord
+    // -- constate sur la liste des interfaces reseau, plusieurs dizaines de lignes.
+    const detLong = !!detTxt && (detTxt.length > 400 || detTxt.split(/
+/).length > 8);
+    const clicDetail = detTxt ? (detLong ? `ouvrirDetail('${key}')` : 'toggleDetail(this)') : '';
+    const info=(f.help||f.guide)?`<button class="fhelp ${stt}" title="${help}" onclick="${clicDetail||'toggleDetail(this)'}"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5.5" r="2.3"/><rect x="9.7" y="9.5" width="4.6" height="10.5" rx="2.3"/></svg></button>`:'';
     const solveLbl = fa ? fa.label : 'Résoudre';
     if(isProblem && f.fixAction) usedAsFix.add(f.fixAction);
     const solve=(isProblem && f.fixAction)?`<button class="fsolve ${stt} k-${fkind}" title="${esc(solveLbl)} — ${KIND_LABEL[fkind]}" onclick="solveField('${key}',this)">${ICONS[fkind]||''}<span>${esc(solveLbl)}</span></button>`:'';
-    // SEUL le guide s'affiche sous la ligne : ce sont les informations SUPPLEMENTAIRES
-    // (liste, valeurs detaillees, mode d'emploi). La description de ce que montre le
-    // champ (`help`) reste une INFOBULLE. Le repli sur `help` recopiait la description
-    // sous la ligne, ou elle faisait doublon avec le survol.
-    const detTxt=(f.guide||'');
-    const open=openDetails.has(key)?' open':'';
-    const det=detTxt?`<div class="field-detail ${stt}${open}" data-k="${key}">${esc(detTxt)}</div>`:'';
+    const det = (detTxt && !detLong) ? `<div class="field-detail ${stt}${open}" data-k="${key}">${esc(detTxt)}</div>` : '';
     return `<div class="frow">
-      <div class="field"><span class="k"><span class="fdot ${stt}"></span><span class="fk-label${detTxt?' clickable':''}"${help?` title="${help}"`:''}${detTxt?' onclick="toggleDetail(this)"':''}>${f.label}</span>${info}</span><span class="v v-${stt}">${fmt(f)}</span></div>
+      <div class="field"><span class="k"><span class="fdot ${stt}"></span><span class="fk-label${detTxt?' clickable':''}"${help?` title="${help}"`:''}${detTxt?(detLong?` onclick="ouvrirDetail('${key}')"`:' onclick="toggleDetail(this)"'):''}>${f.label}</span>${info}</span><span class="v v-${stt}">${fmt(f)}</span></div>
       ${det}
       ${solve?`<div class="frow-actions">${solve}</div>`:''}
     </div>`;
@@ -713,6 +718,11 @@ function toggleDetail(btn){
   d.classList.toggle('open');
   const k=d.dataset.k;
   if(k){ if(d.classList.contains('open')) openDetails.add(k); else openDetails.delete(k); }
+}
+// Detail long : fenetre dediee. Elle a la place et le defilement qu'une carte n'a pas.
+function ouvrirDetail(key){
+  const f=fieldsByKey[key]; if(!f) return;
+  HDS.info(f.label, f.guide || f.help || 'Aucun détail disponible.', {variant:'info'});
 }
 function solveField(key,btn){
   const f=fieldsByKey[key]; if(!f) return;
