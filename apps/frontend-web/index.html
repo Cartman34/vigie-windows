@@ -215,6 +215,8 @@
   /* L'icone du bouton Resoudre se fond dans la couleur du texte (le type reste indique par la FORME) */
   .fsolve.k-immediate svg,.fsolve.k-confirm svg,.fsolve.k-manual svg{color:currentColor}
   .fsolve.warn{color:var(--warn)} .fsolve.error{color:var(--err)}
+  /* Un bouton de resolution CORRIGE : son icone est verte quel que soit l'etat du champ. */
+  .fsolve.sev-fix svg{color:var(--ok)}
   .fsolve:hover{background:rgba(127,127,127,.14)}
   /* Etat "action en cours" sur un bouton */
   .act.busy,.fsolve.busy{opacity:.9;cursor:progress}
@@ -231,8 +233,11 @@
   /* icones par type d'action */
   .actions button.act{display:inline-flex;align-items:center;gap:6px}
   .actions button.act svg{flex:none}
-  .k-confirm svg{color:var(--warn)} .k-manual svg{color:var(--accent)} .k-immediate svg{color:var(--muted)}
-  .k-dialog svg{color:var(--accent)}
+  /* COULEUR = severite (ce que l'action vaut), ICONE = type (comment ca se passe).
+     Les deux etaient confondus : la couleur suivait la forme, ce qui n'apprenait rien. */
+  .sev-neutral svg{color:var(--muted)}
+  .sev-info    svg{color:var(--accent)}
+  .sev-fix     svg{color:var(--ok)}
   .k-manual{border-style:dashed}
   /* ===== Design system : Dialog (modale in-app reutilisable) ===== */
   .hds-back{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:50;padding:20px;backdrop-filter:blur(2px)}
@@ -520,7 +525,8 @@ function cardHtml(m, groupLabel){
     const info=(f.help||f.guide)?`<button class="fhelp ${stt}" title="${help}" onclick="${clicDetail||'toggleDetail(this)'}"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5.5" r="2.3"/><rect x="9.7" y="9.5" width="4.6" height="10.5" rx="2.3"/></svg></button>`:'';
     const solveLbl = fa ? fa.label : 'Résoudre';
     if(isProblem && f.fixAction) usedAsFix.add(f.fixAction);
-    const solve=(isProblem && f.fixAction)?`<button class="fsolve ${stt} k-${fkind}" title="${esc(solveLbl)} — ${KIND_LABEL[fkind]}" onclick="solveField('${key}',this)">${ICONS[fkind]||''}<span>${esc(solveLbl)}</span></button>`:'';
+    const fsev = fa ? (fa.severity||'fix') : 'fix';
+    const solve=(isProblem && f.fixAction)?`<button class="fsolve ${stt} k-${fkind} sev-${fsev}" title="${esc(solveLbl)} — ${KIND_LABEL[fkind]}" onclick="solveField('${key}',this)">${ICONS[fkind]||''}<span>${esc(solveLbl)}</span></button>`:'';
     const det = (detTxt && !detLong) ? `<div class="field-detail ${stt}${open}" data-k="${key}">${esc(detTxt)}</div>` : '';
     return `<div class="frow">
       <div class="field"><span class="k"><span class="fdot ${stt}"></span><span class="fk-label${detTxt?' clickable':''}"${help?` title="${help}"`:''}${detTxt?(detLong?` onclick="ouvrirDetail('${key}')"`:' onclick="toggleDetail(this)"'):''}>${f.label}</span>${info}</span><span class="v v-${stt}">${fmt(f)}</span></div>
@@ -532,9 +538,10 @@ function cardHtml(m, groupLabel){
   const actions=(m.actions||[]).filter(a=>!usedAsFix.has(a.id)).map(a=>{
     const h=(a.help||'').replace(/"/g,'&quot;');
     const kind=a.kind||'immediate';
+    const sev=a.severity||'neutral';
     const bcls=busy?' busy':''; const dis=busy?' disabled':'';
     const inner=busy?'<span class="spin"></span>En cours…':`${ICONS[kind]||''}<span>${a.label}</span>`;
-    return `<button class="act k-${kind}${bcls}"${dis} data-a="${a.id}" data-m="${m.id}" data-c="${a.confirm?1:0}" data-k="${kind}" data-h="${h}" title="${h||a.label}">${inner}</button>`;
+    return `<button class="act k-${kind} sev-${sev}${bcls}"${dis} data-a="${a.id}" data-m="${m.id}" data-c="${a.confirm?1:0}" data-k="${kind}" data-h="${h}" title="${h||a.label}">${inner}</button>`;
   }).join('');
   return `<div class="card st-${st}${m.busy?' busy':''}" data-module="${m.id}" data-theme="${m.theme}">
     <div class="card-head">

@@ -12,4 +12,4 @@ New-ModuleObject -Id 'disk-c' -Theme 'system' -Label 'Disque C:' -Status $st -Fi
     New-Field -Key 'threshold' -Label 'Seuil d''alerte' -Value $threshold -Kind 'number' -Unit 'Go' -Status 'neutral' -Help 'Seuil en dessous duquel on alerte (60 Go, cf. tools/disk-guard.ps1).'
     New-Field -Key 'used'      -Label 'Occupation'     -Value $usedPct  -Kind 'number' -Unit '%'  -Status 'neutral' -Help 'Pourcentage d''occupation du disque C:.'
     New-Field -Key 'total'     -Label 'Taille totale'  -Value $totGB    -Kind 'number' -Unit 'Go' -Status 'neutral' -Help 'Capacité totale du disque C:.'
-) -Actions @(New-Action -Id 'disk-cleanup' -Label 'Nettoyage de disque...' -Kind 'manual' -Help "Ouvre l'outil Windows 'Nettoyage de disque' (cleanmgr). Vous choisissez quoi supprimer ; rien n'est supprimé automatiquement.")
+) -Actions @(New-Action -Id 'disk-cleanup' -Severity 'fix' -Label 'Nettoyage de disque...' -Kind 'manual' -Help "Ouvre l'outil Windows 'Nettoyage de disque' (cleanmgr). Vous choisissez quoi supprimer ; rien n'est supprimé automatiquement.")
