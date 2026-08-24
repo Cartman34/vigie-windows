@@ -606,7 +606,16 @@ function ConvertTo-UtcDate {
 }
 
 function Get-State {
-    param([string]$Backend = (Get-BackendRoot), [switch]$Force)
+    param(
+        [string]$Backend = (Get-BackendRoot),
+        [switch]$Force,
+        # Secondes d'attente du verrou de recalcul. 0 = renoncer si un calcul tourne deja.
+        # Seule une demande EXPLICITE de l'utilisateur attend ; le rafraichissement de fond
+        # renonce, sans quoi les workers s'empilent en se bloquant les uns les autres.
+        # Plafonne sous le delai du client (90 s) : attendre plus longtemps que lui
+        # reviendrait a travailler pour une requete deja abandonnee.
+        [int]$WaitSeconds = 0
+    )
     $probesDir = Join-Path $Backend 'probes'
     $cacheFile = Get-VarPath -Backend $Backend -Kind 'cache' -File 'state-cache.json'
     $stateDir  = Split-Path $cacheFile -Parent
@@ -664,12 +673,24 @@ function Get-State {
         $aDifferer  = @($stale | Where-Object {      $cache[$_.Name] -and $cache[$_.Name].module  })
         if ($aDifferer.Count -gt 0) {
             $stale = $sansValeur
+            # UN SEUL rafraichissement de fond a la fois. On verifie AVANT de lancer :
+            # demarrer un processus pour qu'il constate qu'il n'a rien a faire coute une
+            # seconde de pwsh a chaque requete, pour rien.
+            $dejaEnCours = $false
             try {
-                $w = Join-Path $Backend 'workers/state-refresh.worker.ps1'
-                # Un seul rafraichissement de fond a la fois : le worker prend le meme
-                # verrou que le recalcul synchrone et sort si un autre travaille deja.
-                $null = Start-DetachedAction -Script $w -Backend $Backend
+                $tmp = $null
+                if ([System.Threading.Mutex]::TryOpenExisting('Local\VigieStateRecompute', [ref]$tmp)) {
+                    $dejaEnCours = -not $tmp.WaitOne(0)
+                    if (-not $dejaEnCours) { try { $tmp.ReleaseMutex() } catch { } }
+                    try { $tmp.Dispose() } catch { }
+                }
             } catch { }
+            if (-not $dejaEnCours) {
+                try {
+                    $w = Join-Path $Backend 'workers/state-refresh.worker.ps1'
+                    $null = Start-DetachedAction -Script $w -Backend $Backend
+                } catch { }
+            }
         }
     }
 
@@ -683,7 +704,7 @@ function Get-State {
             # requetes ordinaires n'attendent pas et se contentent du cache.
             # Avec WaitOne(0) pour tout le monde, le bouton ne faisait rien des qu'un
             # rafraichissement de fond tenait le verrou : il rendait la main aussitot.
-            $attente = if ($Force) { 180000 } else { 0 }
+            $attente = [Math]::Min([Math]::Max($WaitSeconds, 0), 75) * 1000
             try { $got = $mx.WaitOne($attente) }
             catch [System.Threading.AbandonedMutexException] { $got = $true }
             catch { $got = $false }
