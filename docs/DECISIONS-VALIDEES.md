@@ -349,11 +349,14 @@ voulu quand tout va bien.
 - conforme : **1.00** (l'aiguille rejoint la fin de l'arc, en bas à droite) ;
 - démarrage : `0.50` — inchangé ; erreur : `0.14` — inchangé.
 
-Toute la géométrie de **D01** est conservée : seules les fractions changent. La valeur est
-écrite à **deux** endroits qui doivent rester identiques, faute de quoi le `.ico` et le repli
-GDI+ divergeraient : `apps/tray/assets/generate-icons.py` et `apps/tray/tray.ps1`.
+Toute la géométrie de **D01** est conservée : seules les fractions changent.
 Les `.ico` ont été **régénérés** (Pillow installé dans le scratchpad, pas dans le Python
 de la machine).
+
+> *Mis à jour :* cette décision exigeait de reporter la fraction à **deux** endroits
+> (`generate-icons.py` et le repli GDI+ de `tray.ps1`). Le repli a depuis été **supprimé**
+> (**D38**) : il n'existe plus qu'un seul endroit. La fraction d'erreur, elle, est passée
+> à `0.17` (**D42**).
 
 Le générateur est renommé `generer-icones_B.py` → **`generate-icons.py`** : la lettre
 d'option ne survit pas à la validation (**D04**).

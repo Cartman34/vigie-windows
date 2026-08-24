@@ -162,5 +162,5 @@ if __name__ == '__main__':
     # Fractions du niveau (D23) : conforme = jauge PLEINE.
     make((63, 185, 80), 1.00, os.path.join(out, 'ok.ico'))
     make((210, 153, 34), 0.50, os.path.join(out, 'warn.ico'))
-    make((248, 81, 73), 0.14, os.path.join(out, 'error.ico'))
+    make((248, 81, 73), 0.17, os.path.join(out, 'error.ico'))
     print('OK', sorted(x for x in os.listdir(out) if x.endswith('.ico')))
