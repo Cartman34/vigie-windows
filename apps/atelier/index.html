@@ -16,6 +16,8 @@
 -->
 <link rel="stylesheet" href="atelier.css">
 <style>
+  .crumb{color:var(--muted);text-decoration:none;font-size:12.5px;border:1px solid var(--border);border-radius:7px;padding:4px 10px}
+
   .sujet{display:flex;align-items:baseline;gap:14px;border:1px solid var(--border);
          border-radius:11px;background:var(--panel-2);padding:15px 18px;margin-bottom:12px;
          text-decoration:none;color:var(--text)}
@@ -27,12 +29,15 @@
   .badge.archive{color:var(--ok);background:rgba(63,185,80,.14)}
   .badge.encours{color:var(--accent);background:rgba(56,139,253,.14)}
   h2.grp{margin-top:26px}
+  .crumb.vigie{margin-left:auto;color:var(--accent);border-color:var(--accent)}
+  .crumb.vigie:hover{background:var(--accent);color:#fff}
 </style>
 </head>
 <body>
 <header>
   <h1>Vigie — atelier de validation</h1>
   <span class="sub">juger et régler ce qu’aucun parseur ne valide — un sujet par page</span>
+<a class="crumb vigie" href="vigie.php" target="_blank" rel="noopener">Ouvrir Vigie ↗</a>
 </header>
 <main>
 
