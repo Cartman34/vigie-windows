@@ -254,6 +254,17 @@
   /* ===== Design system : Dialog (modale in-app reutilisable) ===== */
   .hds-back{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:50;padding:20px;backdrop-filter:blur(2px)}
   .hds-back.show{display:flex;animation:hds-fade .12s ease}
+  /* Emplacement HAUT : reserve a la seconde confirmation d'une action critique. Les deux
+     fenetres ne doivent jamais se superposer, sinon un double clic rapide les valide
+     toutes les deux sans qu'aucune ait ete lue. */
+  .hds-back.haut{align-items:flex-start;padding-top:7vh}
+  /* Alerte d'action critique : en gras, pleine largeur, impossible a manquer.
+     Orange a la premiere confirmation, rouge a la seconde. */
+  .hds-alerte{display:flex;align-items:flex-start;gap:9px;font-weight:700;line-height:1.45;
+              border-radius:9px;padding:11px 13px;margin:0 0 14px}
+  .hds-alerte .ic{font-weight:800;flex:0 0 auto}
+  .hds-alerte.warn{color:var(--warn);background:var(--warn-bg);border:1px solid var(--warn)}
+  .hds-alerte.danger{color:var(--err);background:var(--err-bg);border:1px solid var(--err)}
   @keyframes hds-fade{from{opacity:0}to{opacity:1}}
   .hds-dialog{background:var(--panel);border:1px solid var(--border);border-radius:12px;max-width:520px;width:100%;box-shadow:0 12px 44px rgba(0,0,0,.55);animation:hds-pop .14s ease}
   @keyframes hds-pop{from{transform:translateY(6px) scale(.98);opacity:.5}to{transform:none;opacity:1}}
@@ -817,8 +828,15 @@ const HDS = (function(){
     elTitle.textContent=opts.title||'';
     // `html` est reserve a du contenu que NOUS composons (les libelles venant du
     // serveur y sont echappes par esc()). `body` reste du texte brut, jamais interprete.
-    if(opts.html!==undefined){ elBody.innerHTML=opts.html; } else { elBody.textContent=opts.body||''; }
+    const alerte = opts.alerte
+      ? '<div class="hds-alerte '+(opts.alerteNiveau||'warn')+'"><span class="ic">!</span><span>'+esc(opts.alerte)+'</span></div>'
+      : '';
+    if(opts.html!==undefined){ elBody.innerHTML = alerte + opts.html; }
+    else if(alerte){ const t=document.createElement('div'); t.textContent=opts.body||'';
+                     elBody.innerHTML = alerte; elBody.appendChild(t); }
+    else { elBody.textContent = opts.body||''; }
     dlg.className='hds-dialog hds-dialog--'+variant+(opts.icon===false?'':' has-ic');
+    back.classList.toggle('haut', opts.placement==='haut');
     elIc.textContent=ICON[variant]||'i';
     elX.style.display=(opts.dismissable===false)?'none':'';
     elFoot.innerHTML='';
@@ -848,6 +866,7 @@ const HDS = (function(){
     const danger=!!opts.danger;
     return open({ title:opts.title||'Confirmer', body:opts.body||'',
       variant:danger?'danger':'warn', cancelValue:false,
+      placement:opts.placement, alerte:opts.alerte, alerteNiveau:opts.alerteNiveau,
       actions:[
         {label:opts.cancelLabel||'Annuler',kind:'ghost',value:false},
         {label:opts.confirmLabel||'Confirmer',kind:danger?'danger':'primary',value:true,default:true}
@@ -982,24 +1001,31 @@ function itemsDeMaj(j){
 
 async function doAction(type,module,confirmNeeded,label,help,btnEl,params,kind,confirmerDeuxFois){
   const name = label || type;
+  // ACTION CRITIQUE = double confirmation. C'est le standard du projet pour tout geste
+  // qui ferme le travail en cours ou touche la machine entiere.
+  //
+  // Les deux fenetres ne s'affichent PAS au meme endroit : la premiere au centre, la
+  // seconde en haut. Superposees, un double clic rapide les validerait toutes les deux
+  // sans qu'aucune ait ete lue. Chacune porte une alerte en gras -- orange, puis rouge.
   if(confirmNeeded){
     const ok = await HDS.confirm({
       title: name,
-      body: (help ? help + '\n\n' : '') + 'Confirmer cette action ?',
-      confirmLabel: 'Confirmer', cancelLabel: 'Annuler'
+      body: help || '',
+      alerte: confirmerDeuxFois
+        ? "Action critique : elle affecte l'ensemble de la machine."
+        : "Cette action modifie votre système.",
+      alerteNiveau: 'warn',
+      confirmLabel: 'Continuer', cancelLabel: 'Annuler'
     });
     if(!ok) return;
-    // DEUXIEME confirmation, volontairement DIFFERENTE de la premiere : elle nomme la
-    // consequence au lieu de reposer la meme question. Reservee aux gestes qui ferment
-    // le travail en cours. Enchainer deux fois « Confirmer ? » ne protege personne :
-    // la seconde ne se lit plus.
     if(confirmerDeuxFois){
       const sur = await HDS.confirm({
         title: name,
-        body: "Dernière vérification." + String.fromCharCode(10,10)
-            + "Toutes vos applications vont être fermées. Enregistrez votre travail maintenant." + String.fromCharCode(10,10)
-            + "Voulez-vous vraiment continuer ?",
-        confirmLabel: 'Oui, redémarrer', cancelLabel: 'Non, annuler', danger: true
+        body: "Cette confirmation est la dernière.",
+        alerte: "Toutes vos applications vont être fermées. Enregistrez votre travail maintenant.",
+        alerteNiveau: 'danger',
+        placement: 'haut',
+        confirmLabel: 'Oui, je confirme', cancelLabel: 'Non, annuler', danger: true
       });
       if(!sur) return;
     }
