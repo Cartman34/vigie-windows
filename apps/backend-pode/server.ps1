@@ -143,6 +143,27 @@ Add-PodeRoute -Method Post -Path "$base/parameters/:unit" -ScriptBlock {
     Write-PodeJsonResponse -Value @{ modules = @(Get-ModuleParameterCatalog -Backend $env:VIGIE_BACKEND) } -Depth 6
 }
 
+# --- Historique des mesures (etape 2 du plan) : lecture seule -----------------
+Add-PodeRoute -Method Get -Path "$base/history/:measureId" -ScriptBlock {
+    . "$env:VIGIE_BACKEND/lib/common.ps1"
+    $id  = $WebEvent.Parameters['measureId']
+    $win = "" + $WebEvent.Query['window']
+    if (-not $win) { $win = '7d' }   # defaut du contrat
+    $span = ConvertTo-HistoryWindow -Window $win
+    # -StatusCode et non Set-PodeResponseStatus : ce dernier rend la page d'erreur
+    # HTML de Pode et le corps JSON est perdu (constate sur les routes historiques).
+    if (-not $span) {
+        Write-PodeJsonResponse -StatusCode 400 -Value @{ error = "Fenêtre invalide : « $win » (attendu <n>h ou <n>d, ex. 24h, 7d)" }
+        return
+    }
+    $h = Get-MeasureHistory -Backend $env:VIGIE_BACKEND -MeasureId $id -Window $span -WindowLabel $win
+    if ($null -eq $h) {
+        Write-PodeJsonResponse -StatusCode 404 -Value @{ error = "Mesure inconnue : $id" }
+        return
+    }
+    Write-PodeJsonResponse -Value $h -Depth 6
+}
+
 # --- Reglages des notifications (D54) : lus/ecrits par l'interface -----------
 Add-PodeRoute -Method Get -Path "$base/notifications" -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
