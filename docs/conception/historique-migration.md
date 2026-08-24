@@ -4,15 +4,16 @@
 > **petit à petit** : chaque étape est livrable seule, utile seule, et ne casse rien de
 > l'existant. On peut s'arrêter après n'importe laquelle avec un produit cohérent.
 
-## Constat de départ (vérifié dans le code au 2026-08-24)
+## Constat de départ (vérifié dans le code au 2026-08-24, après D52)
 
-- **Aucun journal structuré n'existe.** Ni `Write-ProbeRun`, ni `Get-ProbeRuns`, ni
-  `var/cache/probe-runs.jsonl` — nulle part dans le dépôt. La seule trace des passages de
-  sondes est le log **texte** (`Write-Log 'state'` : « sonde X recalculée (N ms) »), écrit
-  dans la boucle de recalcul de `Get-State` (`common.ps1`). L'étape 1 crée donc le journal ;
-  elle ne s'appuie sur rien d'autre que ce point d'accroche existant.
-- Les briques réutilisables sont là : `Update-StateJson` (fusion JSON sous mutex),
-  `ConvertTo-UtcDate`, `Get-VarPath`, la mesure de durée déjà faite pour le log.
+- **Le journal des passages existe** (décision **D52**) : `Write-ProbeRun`/`Get-ProbeRuns`
+  dans `common.ps1`, fichier `var/cache/probe-runs.jsonl` (`at`, `probe`, `ms`, `origin`,
+  `outcome`, `modules`, `detail` optionnel), écrit sous mutex à chaque exécution réelle
+  dans la boucle de recalcul de `Get-State`, purgé par taille (~5000 lignes). Son format
+  couvre le besoin de l'historique (voir cible §3) : **la migration ne le crée pas, elle
+  s'appuie dessus.**
+- Les autres briques réutilisables sont là : `Update-StateJson` (fusion JSON sous mutex),
+  `ConvertTo-UtcDate`, `Get-VarPath`, le point d'accroche unique du recalcul.
 
 ## Règles valables à toutes les étapes
 
@@ -27,35 +28,14 @@
 
 ---
 
-## Étape 1 — Le journal des passages de sondes
+## Étape 1 — Le socle des séries de mesures, avec deux mesures pilotes
 
-**Livrable** : `apps/backend-pode/var/history/probe-runs.jsonl`, alimenté à chaque recalcul.
-
-- `Get-VarPath` accepte `-Kind 'history'` (création du dossier comme pour les autres).
-- Nouveau helper `Write-ProbeRun` dans `common.ps1` : append d'une ligne
-  `{at, probe, ms, status, error?}` sous mutex nommé (`Local\VigieHistory_probe_runs_jsonl`),
-  appelé aux deux issues (succès/erreur) de la boucle de recalcul de `Get-State` — là où
-  la durée est déjà calculée pour `Write-Log`. Le log texte **reste** : il sert le
-  diagnostic au fil de l'eau, le JSONL sert la lecture outillée.
-- Helper de lecture `Get-ProbeRuns` (`-Probe`, `-Since`) pour l'exploitation en console.
-- Bornage minimal dès cette étape : à l'ouverture, si le fichier dépasse un plafond de
-  lignes, on tronque aux plus récentes (pas encore de config : constante en tête de
-  fonction, la config arrive à l'étape 2).
-
-**Utile seule** : répondre à « pourquoi le rafraîchissement est lent ? » par des données
-(`lock` ≈ 11 s, combien de fois, quand) au lieu de fouiller un log texte. C'est aussi la
-matière première de la future série `probe.duration`.
-
-**Ne touche pas** : contrat, front, sondes, config.
-
-**Validation** : parser sur `common.ps1` ; `check-probes.ps1` ; appeler `/state?fresh=1`
-sur le serveur local puis constater les lignes ajoutées (D43 : on observe l'effet, on ne
-croit pas l'absence d'exception).
-
-## Étape 2 — Le socle des séries de mesures, avec deux mesures pilotes
+> L'ancienne « étape 1 » (créer le journal des passages) est **déjà faite par D52** ; le
+> plan démarre donc directement sur les séries, en s'appuyant sur ce journal existant.
 
 **Livrable** : l'infrastructure d'échantillonnage + `disk.free` et `net.latency` archivées.
 
+- `Get-VarPath` accepte `-Kind 'history'` (création du dossier comme pour les autres).
 - `$script:MeasureCatalog` dans `common.ps1` : identifiant, sonde source, extracteur,
   nature (`gauge`/`event`), intervalle minimal. Deux entrées seulement — une gauge lente
   (disk) et une gauge liée à une mesure externe (`net.latency`, notée quand `measAt`
@@ -69,8 +49,8 @@ croit pas l'absence d'exception).
   dès cette étape — c'est l'exigence, pas une option à retard). `Get-HistoryConfig` résout
   les couches. `config.local.sample.psd1` documente la surcharge.
 - Purge : `Invoke-HistoryPurge`, déclenchée au plus une fois par 24 h depuis
-  `Write-MeasureSamples` (date en index), réécriture atomique sous mutex. Couvre aussi
-  `probe-runs.jsonl` (qui perd sa constante provisoire de l'étape 1).
+  `Write-MeasureSamples` (date en index), réécriture atomique sous mutex. Elle ne couvre
+  **que** `var/history/` : `probe-runs.jsonl` garde sa purge par taille propre (D52).
 
 **Utile seule** : les archives se constituent silencieusement — chaque jour qui passe rend
 les étapes suivantes plus intéressantes ; les fichiers se lisent déjà à l'œil ou en console.
@@ -81,7 +61,7 @@ les étapes suivantes plus intéressantes ; les fichiers se lisent déjà à l'�
 points, respect de l'intervalle, index à jour ; passer `Enabled = $false` et constater
 qu'il ne s'écrit plus rien.
 
-## Étape 3 — L'historique entre au contrat : `GET /history/{measureId}`
+## Étape 2 — L'historique entre au contrat : `GET /history/{measureId}`
 
 **Livrable** : la route `GET /api/v1/history/{measureId}?window=7d` (Bearer, comme le
 reste), décrite dans `openapi.yaml`, avec décimation serveur (~200 points max) et bloc
@@ -99,14 +79,14 @@ front ; le contrat est posé et relisible.
 **Validation** : appel réel sur le serveur local, fenêtres 24 h / 7 j / inconnue / mesure
 inexistante.
 
-## Étape 4 — La tendance se voit : sparkline sur les cartes
+## Étape 3 — La tendance se voit : sparkline sur les cartes
 
 **Livrable** : `New-Field` accepte `-MeasureId` ; les sondes `disk` et `net` le posent sur
 « Espace libre » et « Latence » ; le front dessine la sparkline (SVG inline, JS pur) sous
 tout champ qui porte `measureId`, avec le dépliage 24 h / 7 j / 30 j.
 
 - `openapi.yaml` documente la propriété optionnelle `measureId` d'un champ.
-- Le front est générique dès le premier jour : ajouter une mesure ensuite (étapes 5+) ne
+- Le front est générique dès le premier jour : ajouter une mesure ensuite (étapes 4+) ne
   demandera plus une ligne de JS.
 - Sans historique ou avec moins de 2 points : **pas de sparkline du tout** — pas de cadre
   vide, pas de « données insuffisantes ».
@@ -118,7 +98,7 @@ visuelle du format et de la décimation.
 chaînes JS après modification par script (D47) ; `check-probes.ps1` pour les deux sondes
 touchées.
 
-## Étape 5 — Les événements : WSL, verrou, redémarrage en attente
+## Étape 4 — Les événements : WSL, verrou, redémarrage en attente
 
 **Livrable** : nature `event` opérationnelle ; `wsl.running`, `update.lock`,
 `update.rebootPending` au catalogue ; restitution en ligne de faits (« 3 redémarrages WSL
@@ -136,15 +116,15 @@ cette semaine ? » — des questions qu'on se pose déjà et que rien ne sait da
 **Validation** : arrêter/démarrer WSL depuis la carte et constater l'événement écrit puis
 restitué ; `check-probes.ps1`.
 
-## Étape 6 — Une dérive devient un avertissement (D49)
+## Étape 5 — Une dérive devient un avertissement (D49)
 
 **Livrable** : `Get-MeasureTrend` dans `common.ps1` (pente, médianes, comparaison de
 fenêtres, refus de conclure sous un nombre minimal de points) ; **une seule** règle câblée
 pour commencer : la **projection de saturation disque**, dans la sonde `disk` — champ
 `warn` avec le constat chiffré, `FixAction 'disk-cleanup'` et le guide.
 
-- Une règle à la fois, éprouvée avant la suivante : latence (étape 6b), WSL instable (6c),
-  verrou levé trop longtemps (6d) suivront le même moule.
+- Une règle à la fois, éprouvée avant la suivante : latence (étape 5b), WSL instable (5c),
+  verrou levé trop longtemps (5d) suivront le même moule.
 - Seuils en tête de sonde, rebasculables en une ligne (modèle D20).
 
 **Utile seule** : l'historique cesse d'être une archive pour devenir de la vigilance — le
@@ -154,11 +134,12 @@ cœur de la proposition P2.
 en défaut propose une issue) ; test avec un fichier d'historique forgé dans
 `var/history/` pour provoquer la dérive sans attendre 30 jours.
 
-## Étape 7 — Extension tranquille du catalogue
+## Étape 6 — Extension tranquille du catalogue
 
 **Livrable** (au fil de l'eau, sans urgence) : `disk.used`, `net.down`/`net.up`,
 `pkg.pending`, `perf.cpu`/`perf.ram` (rétention courte), `probe.duration` dérivée du
-journal de l'étape 1. Chaque ajout = une entrée de catalogue + éventuellement un
+journal D52 (via `Get-ProbeRuns`, en écartant `origin = check`). Chaque ajout = une
+entrée de catalogue + éventuellement un
 `-MeasureId` sur un champ ; le reste suit tout seul.
 
 C'est aussi ici que l'historique rejoindra la **gestion des modules** (D48) quand elle
@@ -170,14 +151,14 @@ du module concerné — même valeur, même définition (`config`), juste une po
 ## Ordre et dépendances
 
 ```
-1 (journal) ──► 2 (socle + pilotes) ──► 3 (contrat) ──► 4 (sparkline)
-                        │                                    
-                        ├──────────► 5 (events) ──► 6 (dérives → warn)
-                        └──────────► 7 (extension, au fil de l'eau)
+D52 (journal, fait) ──► 1 (socle + pilotes) ──► 2 (contrat) ──► 3 (sparkline)
+                                │
+                                ├──────────► 4 (events) ──► 5 (dérives → warn)
+                                └──────────► 6 (extension, au fil de l'eau)
 ```
 
-Seul enchaînement contraint : 2 avant 3, 3 avant 4, 2 avant 5, 5 avant 6d. Les étapes 5 à
-7 peuvent s'intercaler selon l'envie et le temps ; chaque livraison suit le rite habituel
+Seul enchaînement contraint : 1 avant 2, 2 avant 3, 1 avant 4, 4 avant 5d. Les étapes 4 à
+6 peuvent s'intercaler selon l'envie et le temps ; chaque livraison suit le rite habituel
 (commit sur branche, fusion, redéploiement complet — y compris `Stop-Process` du port
 47600, cf. `docs/REPRISE.md`).
 
@@ -185,9 +166,9 @@ Seul enchaînement contraint : 2 avant 3, 3 avant 4, 2 avant 5, 5 avant 6d. Les 
 
 | Risque | Parade |
 |---|---|
-| Grossissement silencieux d'un fichier | plafond de lignes dès l'étape 1, rétention + purge dès l'étape 2 |
+| Grossissement silencieux d'un fichier | rétention + purge + plafond de lignes dès l'étape 1 (le journal D52 a déjà le sien) |
 | Deux écrivains simultanés (requête forcée + rafraîchissement de fond) | append sous mutex par fichier ; l'index passe par `Update-StateJson` qui a déjà réglé ce problème |
 | Mélange UTC/local (déjà vécu, D44) | écriture `'o'` UTC unique dans les helpers, relecture via `ConvertTo-UtcDate`, et **mesurer** un âge en test plutôt que relire le code |
-| Ralentir `/state` | échantillonnage = un append + une lecture d'index ; mesurer la durée avant/après à l'étape 2 et le dire avec les chiffres (D43) |
+| Ralentir `/state` | échantillonnage = un append + une lecture d'index ; mesurer la durée avant/après à l'étape 1 et le dire avec les chiffres (D43) |
 | Faux warnings de dérive sur historique jeune | `Get-MeasureTrend` refuse de conclure sous un minimum de points ; pas de warning « historique absent » |
 | Vidage de cache emportant l'historique | dossier `var/history/` distinct de `var/cache/` dès l'étape 1 |

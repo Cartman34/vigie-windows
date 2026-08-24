@@ -74,31 +74,37 @@ définition de mesure.
 n'écrit elle-même dans l'historique — sinon chaque sonde réinvente l'échantillonnage, et
 l'une finira par oublier le mutex ou l'UTC.
 
-## 3. Le journal des passages de sondes
+## 3. Le journal des passages de sondes (existe : D52)
 
-Fichier `apps/backend-pode/var/history/probe-runs.jsonl` — une ligne par recalcul de sonde :
+Le journal **existe déjà** (décision **D52**) : `apps/backend-pode/var/cache/probe-runs.jsonl`,
+une ligne JSON par exécution réelle de sonde, écrite par `Write-ProbeRun` (sous mutex nommé
+`Local\VigieProbeRuns`, au seul endroit qui recalcule — la boucle de `Get-State`), lue par
+`Get-ProbeRuns`, purgée **par taille** (~5000 lignes) :
 
 ```json
-{"at":"2026-08-24T10:12:03.412Z","probe":"lock.probe.ps1","ms":11240,"status":"ok"}
-{"at":"2026-08-24T10:12:04.001Z","probe":"net.probe.ps1","ms":540,"status":"error","error":"..."}
+{"at":"…Z","probe":"lock.probe.ps1","ms":11240,"origin":"background","outcome":"ok","modules":1}
+{"at":"…Z","probe":"net.probe.ps1","ms":540,"origin":"forced","outcome":"error","modules":0,"detail":"…"}
 ```
 
-- écrit par un helper unique `Write-ProbeRun`, appelé au **seul** endroit qui recalcule
-  (la boucle de `Get-State`), là où la durée est déjà mesurée pour `Write-Log` ;
-- `status` = `ok` ou `error` (l'erreur d'exécution de la sonde, pas le statut de la carte) ;
-- lu par `Get-ProbeRuns` (filtre par sonde, par fenêtre de temps).
+Son format **couvre le besoin de l'historique** : `ms` et `outcome` suffisent à dériver la
+série `probe.duration` sans rien recalculer, et `origin` permet d'écarter les passages
+`check` (contrôle du contrat) qui ne disent rien du fonctionnement réel. Aucun champ ne
+manque.
 
-C'est le **premier échantillonnage de l'historique** : il rend diagnosticables les sondes
-lentes ou instables (aujourd'hui il faut fouiller un log texte), et la série
-`probe.duration` en dérive sans rien recalculer.
+Deux particularités assumées, qui ne contredisent pas le §1-2 :
 
-> Note d'exactitude : ce journal **n'existe pas encore** — seul un log texte
-> (`Write-Log 'state'`) trace les durées. Sa création est l'étape 1 de la migration.
+- il vit dans `var/cache/` (choix D52) et non `var/history/` : c'est un **outil de
+  diagnostic régénérable** — le perdre coûte peu. La série `probe.duration` qui en dérive,
+  elle, est archivée dans `var/history/` avec une vraie rétention ;
+- sa purge est par taille (D52), pas par âge : la section `History` de la config **ne le
+  gouverne pas**. Si un jour on veut l'aligner, ce sera une évolution de D52, pas un
+  contournement.
 
 ## 4. Format de stockage
 
 **Un fichier JSONL par mesure** : `apps/backend-pode/var/history/<measureId>.jsonl`
-(ex. `disk.free.jsonl`), plus `probe-runs.jsonl` (§3).
+(ex. `disk.free.jsonl`). Le journal des passages, lui, reste où D52 l'a mis
+(`var/cache/probe-runs.jsonl`, cf. §3).
 
 ```json
 {"at":"2026-08-24T10:12:03Z","v":212.4}                  // gauge
