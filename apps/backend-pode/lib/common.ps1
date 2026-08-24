@@ -1447,6 +1447,50 @@ $script:MeasureCatalog = @{
             return @{ v = $v }
         }
     }
+    # Session de jeu (module gaming) : notee UNIQUEMENT quand un jeu tourne -- la
+    # presence meme des points raconte la session (debut, fin, intensite). Le nom du
+    # jeu accompagne chaque point (champ n), pour repondre a « pourquoi ca ramait
+    # hier soir ? » sans rien afficher (Q2 : enregistrement seul).
+    'game.gpu' = @{
+        Probe = 'gaming.probe.ps1'; Kind = 'gauge'; Unit = '%'; IntervalMinutes = 1
+        Extract = {
+            param($Modules)
+            $m = @($Modules) | Where-Object { "$($_.id)" -eq 'gaming' } | Select-Object -First 1
+            if (-not $m) { return $null }
+            $g = @($m.fields) | Where-Object { "$($_.key)" -eq 'game' } | Select-Object -First 1
+            $r = @($m.fields) | Where-Object { "$($_.key)" -eq 'game-res' } | Select-Object -First 1
+            if (-not $g -or "$($g.value)" -eq 'aucun' -or -not $r) { return $null }
+            if ("$($r.value)" -notmatch 'GPU\s+([0-9]+(?:[.,][0-9]+)?)\s*%') { return $null }
+            return @{ v = [double](($Matches[1]) -replace ',', '.'); n = "$($g.value)" }
+        }
+    }
+    'game.vram' = @{
+        Probe = 'gaming.probe.ps1'; Kind = 'gauge'; Unit = 'Go'; IntervalMinutes = 1
+        Extract = {
+            param($Modules)
+            $m = @($Modules) | Where-Object { "$($_.id)" -eq 'gaming' } | Select-Object -First 1
+            if (-not $m) { return $null }
+            $g = @($m.fields) | Where-Object { "$($_.key)" -eq 'game' } | Select-Object -First 1
+            $r = @($m.fields) | Where-Object { "$($_.key)" -eq 'game-res' } | Select-Object -First 1
+            if (-not $g -or "$($g.value)" -eq 'aucun' -or -not $r) { return $null }
+            if ("$($r.value)" -notmatch 'VRAM\s+([0-9]+(?:[.,][0-9]+)?)\s*Go') { return $null }
+            return @{ v = [double](($Matches[1]) -replace ',', '.'); n = "$($g.value)" }
+        }
+    }
+    'game.hogs' = @{
+        Probe = 'gaming.probe.ps1'; Kind = 'gauge'; Unit = 'applis'; IntervalMinutes = 1
+        Extract = {
+            param($Modules)
+            $m = @($Modules) | Where-Object { "$($_.id)" -eq 'gaming' } | Select-Object -First 1
+            if (-not $m) { return $null }
+            $g = @($m.fields) | Where-Object { "$($_.key)" -eq 'game' } | Select-Object -First 1
+            $h = @($m.fields) | Where-Object { "$($_.key)" -eq 'hogs' } | Select-Object -First 1
+            if (-not $g -or "$($g.value)" -eq 'aucun' -or -not $h) { return $null }
+            $n = 0
+            if ("$($h.value)" -match '^([0-9]+)') { $n = [int]$Matches[1] }
+            return @{ v = [double]$n; n = "$($g.value)" }
+        }
+    }
     'net.latency' = @{
         Probe = 'net.probe.ps1'; Kind = 'gauge'; Unit = 'ms'; IntervalMinutes = 0
         Extract = {
@@ -1577,7 +1621,11 @@ function Write-MeasureSamples {
                 } catch { }
             }
             $file = Get-VarPath -Backend $Backend -Kind 'history' -File ($id + '.jsonl')
-            $line = ([ordered]@{ at = $nowUtc.ToString('o'); v = $sample.v } | ConvertTo-Json -Compress -Depth 4)
+            # Champ optionnel n : un NOM attache au point (ex. le jeu d'une session) --
+            # c'est lui qui permettra de repondre « qu'est-ce qui tournait a cette heure ? ».
+            $obj = [ordered]@{ at = $nowUtc.ToString('o'); v = $sample.v }
+            if ($sample.n) { $obj.n = "$($sample.n)" }
+            $line = ($obj | ConvertTo-Json -Compress -Depth 4)
             if (Add-HistoryLine -Path $file -Line $line) {
                 $set = @{ lastAt = $nowUtc.ToString('o'); lastValue = $sample.v }
                 if ($sample.key) { $set.lastKey = "$($sample.key)" }
