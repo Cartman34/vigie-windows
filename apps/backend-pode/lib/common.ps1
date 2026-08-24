@@ -658,7 +658,12 @@ function Get-State {
         $mx = $null; $got = $false
         try {
             $mx = New-Object System.Threading.Mutex($false, 'Local\VigieStateRecompute')
-            try { $got = $mx.WaitOne(0) }
+            # Une demande EXPLICITE (-Force, bouton « Rafraichir ») ATTEND son tour ; les
+            # requetes ordinaires n'attendent pas et se contentent du cache.
+            # Avec WaitOne(0) pour tout le monde, le bouton ne faisait rien des qu'un
+            # rafraichissement de fond tenait le verrou : il rendait la main aussitot.
+            $attente = if ($Force) { 180000 } else { 0 }
+            try { $got = $mx.WaitOne($attente) }
             catch [System.Threading.AbandonedMutexException] { $got = $true }
             catch { $got = $false }
             if ($got) {

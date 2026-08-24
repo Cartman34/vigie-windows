@@ -75,8 +75,12 @@ if ($null -eq $count) {
         # global 3 (« reussi avec erreurs ») ne dit PAS qu'une mise a jour a echoue : il
         # sort aussi quand tout s'est installe et qu'il ne manque qu'un redemarrage. On
         # tranche donc sur le detail PAR mise a jour : 4 = echec, 5 = annulee.
+        # @($null) rend un tableau d'UN element nul : indexer dessus leve « Cannot index
+        # into a null array ». Les entrees de cache anterieures n'ont pas de `detail`.
+        $detailInst = @()
+        if ($inst.detail) { $detailInst = @($inst.detail | Where-Object { $_ -and @($_).Count -ge 2 }) }
         $echecs = 0
-        foreach ($d in @($inst.detail)) { if ("$($d[1])" -match '^(Échec|Annulée)') { $echecs++ } }
+        foreach ($d in $detailInst) { if ("$($d[1])" -match '^(Échec|Annulée)') { $echecs++ } }
         $val = if ($inst.error)          { 'échec' }
                elseif ($echecs -gt 0)    { "$echecs sur $($inst.total) en échec" }
                elseif ($inst.redemarrage){ 'installée, redémarrage requis' }
@@ -97,8 +101,8 @@ if ($null -eq $count) {
         # Le detail PAR mise a jour, en tableau : « terminé avec erreurs » ne dit pas
         # laquelle a echoue, ce tableau si.
         $lignes = @()
-        if ($inst.detail) { foreach ($d in @($inst.detail)) { $lignes += ,@("$($d[0])", "$($d[1])") } }
-        elseif ($inst.titres) { foreach ($t in @($inst.titres)) { $lignes += ,@("$t", '—') } }
+        if ($detailInst.Count) { foreach ($d in $detailInst) { $lignes += ,@("$($d[0])", "$($d[1])") } }
+        elseif ($inst.titres)   { foreach ($t in @($inst.titres)) { $lignes += ,@("$t", '—') } }
         $champs += New-Field -Key 'install' -Label 'Dernière installation' -Value $val -Kind 'text' -Status $st `
             -Help "Résultat de la dernière installation lancée depuis Vigie." -Guide ($g -join "`n`n") `
             -Table @{ columns = @('Mise à jour', 'Résultat'); rows = $lignes }
