@@ -334,7 +334,7 @@
   <div class="global" id="global"><span class="dot"></span><span id="globalTxt">—</span></div>
   <div class="spacer"></div>
   <div class="meta" id="lastRefresh">—</div>
-  <button id="btnRefresh" onclick="refresh()">↻ Rafraîchir</button>
+  <button id="btnRefresh" onclick="refresh(true)" title="Recalcule toutes les sondes, sans utiliser le cache">↻ Rafraîchir</button>
   <button class="bell" id="bellBtn" onclick="toggleDrawer()" title="Notifications">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22a2.4 2.4 0 0 0 2.4-2h-4.8A2.4 2.4 0 0 0 12 22zm7-6v-5.2C19 7.6 17 5.1 14.2 4.4V4a2.2 2.2 0 0 0-4.4 0v.4C7 5.1 5 7.6 5 10.8V16l-2 2v1h18v-1l-2-2z"/></svg>
     <span id="bellCount" class="bell-count"></span>
@@ -402,11 +402,15 @@ const INLINE_MOCK = {
 };
 
 function withTimeout(ms){ const c=new AbortController(); const id=setTimeout(()=>c.abort(),ms); return {signal:c.signal,done:()=>clearTimeout(id)}; }
-async function fetchState(){
+// force = true : on demande au back de RECALCULER les sondes au lieu de servir son cache.
+// C'est ce que doit faire le bouton « Rafraichir » -- sans cela il rendait la main
+// instantanement en reaffichant les memes valeurs, donc il ne rafraichissait rien.
+// Le chargement de la page, lui, se contente du cache : il doit s'afficher vite.
+async function fetchState(force){
   if (API_MODE){
     const t=withTimeout(90000);
     try {
-      const r = await fetch(API + "/state", { headers:{ Authorization:"Bearer "+TOKEN }, signal:t.signal });
+      const r = await fetch(API + "/state" + (force ? "?fresh=1" : ""), { headers:{ Authorization:"Bearer "+TOKEN }, signal:t.signal });
       if(!r.ok) throw new Error("API "+r.status);
       return { data: await r.json(), mode:"live" };
     } finally { t.done(); }
@@ -838,10 +842,10 @@ function setLoading(on){
     app.innerHTML='<div class="loading-note"><span class="spin"></span> Chargement du panneau…</div>';
   }
 }
-async function refresh(){
+async function refresh(force){
   setLoading(true);
   try{
-    const {data,mode}=await fetchState();
+    const {data,mode}=await fetchState(force);
     if(mode==='live' && data && data.build && window.APP_BUILD && !window.APP_BUILD.includes('__') && data.build!==window.APP_BUILD){ location.reload(); return; }
     renderState(data,mode);
   }

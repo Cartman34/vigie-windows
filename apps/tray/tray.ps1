@@ -38,6 +38,45 @@ $uiScript = {
         Add-Type -AssemblyName System.Drawing
         Add-Type -Namespace VigieNative -Name Ico -MemberDefinition '[System.Runtime.InteropServices.DllImport("user32.dll")] public static extern bool DestroyIcon(System.IntPtr handle);'
 
+        # Retrouver une fenetre par son titre, et la ramener au premier plan.
+        # Sans cela, chaque double-clic ouvrait une fenetre de PLUS : l'application se
+        # retrouvait en deux exemplaires dans la barre des taches.
+        Add-Type -Namespace VigieNative -Name Win -MemberDefinition @'
+[System.Runtime.InteropServices.DllImport("user32.dll")]
+public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, System.IntPtr lParam);
+public delegate bool EnumWindowsProc(System.IntPtr hWnd, System.IntPtr lParam);
+[System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+public static extern int GetWindowText(System.IntPtr hWnd, System.Text.StringBuilder text, int count);
+[System.Runtime.InteropServices.DllImport("user32.dll")]
+public static extern bool IsWindowVisible(System.IntPtr hWnd);
+[System.Runtime.InteropServices.DllImport("user32.dll")]
+public static extern bool SetForegroundWindow(System.IntPtr hWnd);
+[System.Runtime.InteropServices.DllImport("user32.dll")]
+public static extern bool ShowWindow(System.IntPtr hWnd, int nCmdShow);
+[System.Runtime.InteropServices.DllImport("user32.dll")]
+public static extern bool IsIconic(System.IntPtr hWnd);
+
+// Titre EXACT attendu : le front pose « <machine> - Vigie » (document.title).
+public static System.IntPtr FindBySuffix(string suffix) {
+    System.IntPtr found = System.IntPtr.Zero;
+    EnumWindows(delegate(System.IntPtr h, System.IntPtr p) {
+        if (!IsWindowVisible(h)) return true;
+        System.Text.StringBuilder sb = new System.Text.StringBuilder(512);
+        if (GetWindowText(h, sb, sb.Capacity) == 0) return true;
+        if (sb.ToString().EndsWith(suffix, System.StringComparison.Ordinal)) { found = h; return false; }
+        return true;
+    }, System.IntPtr.Zero);
+    return found;
+}
+
+// SW_RESTORE = 9 : deminiaturise si besoin, puis met au premier plan.
+public static bool Focus(System.IntPtr h) {
+    if (h == System.IntPtr.Zero) return false;
+    if (IsIconic(h)) ShowWindow(h, 9);
+    return SetForegroundWindow(h);
+}
+'@
+
         $cfg       = Get-Config -Backend $backend
         $url       = Get-AppUrl -Config $cfg
         $healthUrl = (Get-ApiUrl -Config $cfg) + '/health'
@@ -128,6 +167,17 @@ $uiScript = {
         # au suivant ; si aucun ne tient, on ouvre un onglet normal plutot que rien.
         $openApp = {
             TLog "openApp demande"
+
+            # DEJA OUVERTE ? On la ramene au premier plan au lieu d'en ouvrir une seconde.
+            # Le suffixe est celui que pose le front (document.title = "<machine> - Vigie").
+            $existante = [VigieNative.Win]::FindBySuffix(' — Vigie')
+            if ($existante -ne [System.IntPtr]::Zero) {
+                if ([VigieNative.Win]::Focus($existante)) {
+                    TLog "openApp : fenetre deja ouverte, ramenee au premier plan"
+                    return
+                }
+                TLog "openApp : fenetre trouvee mais impossible a activer - on en ouvre une"
+            }
 
             # Le mode --app n'existe que sur les navigateurs Chromium.
             $chromium = @('chrome', 'msedge', 'brave', 'vivaldi', 'opera')
