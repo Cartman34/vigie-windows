@@ -33,9 +33,40 @@ if ($null -eq $count) {
     $parts += $note
     if ($count -gt 0 -and $titles.Count) { $parts += "Liste des mises à jour détectées :`n- " + ($titles -join "`n- ") }
     $guide = ($parts -join "`n`n")
-    New-ModuleObject -Id 'wu-pending' -Theme 'windows-update' -Label 'Mises à jour en attente' -Status $(if ($count -gt 0) {'warn'} else {'ok'}) -Fields @(
-        New-Field -Key 'pending' -Label 'Détectées (non installées)' -Value $count -Kind 'number' -Status $(if ($count -gt 0) {'warn'} else {'ok'}) -Help $help -Guide $guide -FixAction 'open-windows-update'
-    ) -Actions @(
-        New-Action -Id 'open-windows-update' -Label 'Ouvrir Windows Update' -Kind 'manual' -Help "Ouvre les Paramètres Windows Update pour installer manuellement. Déverrouillez (Mode MAJ) avant si nécessaire, puis re-verrouillez."
-    )
+    # Etat d'une installation lancee depuis l'application (worker wu-install).
+    $inst = $null
+    try {
+        $f = Get-VarPath -Backend $backend -Kind 'cache' -File 'wu-install.json'
+        if (Test-Path $f) { $inst = Get-Content $f -Raw | ConvertFrom-Json }
+    } catch { }
+    $enCours = [bool]($inst -and $inst.installing)
+
+    $champs = @()
+    if ($enCours) {
+        $phase = if ($inst.phase) { "$($inst.phase)" } else { 'en cours' }
+        $champs += New-Field -Key 'install' -Label 'Installation' -Value "$phase…" -Kind 'text' -Status 'neutral' `
+            -Help "Installation lancée depuis Vigie. Elle continue même si vous fermez la fenêtre." `
+            -Guide $(if ($inst.titres) { "Mises à jour retenues :`n- " + (@($inst.titres) -join "`n- ") } else { '' })
+    } elseif ($inst -and $inst.phase -eq 'termine') {
+        # On rapporte le RESULTAT constate, code de retour compris (D43).
+        $val = if ($inst.error) { 'échec' } elseif ($inst.partiel) { 'terminée avec erreurs' } else { 'terminée' }
+        $st  = if ($inst.error) { 'error' } elseif ($inst.partiel) { 'warn' } else { 'ok' }
+        $g = @()
+        if ($inst.titres) { $g += "Mises à jour traitées :`n- " + (@($inst.titres) -join "`n- ") }
+        if ($inst.error) { $g += "Erreur : $($inst.error)" }
+        if ($inst.redemarrage) { $g += "Un REDÉMARRAGE est nécessaire pour terminer." }
+        $champs += New-Field -Key 'install' -Label 'Dernière installation' -Value $val -Kind 'text' -Status $st `
+            -Help "Résultat de la dernière installation lancée depuis Vigie." -Guide ($g -join "`n`n")
+    }
+
+    $actions = @()
+    if ($count -gt 0) {
+        $actions += New-Action -Id 'wu-list-pending' -Label 'Installer des mises à jour…' -Kind 'dialog' `
+            -Help "Ouvre la liste des mises à jour détectées pour choisir celles à installer. Rien ne s'installe sans votre sélection."
+    }
+    $actions += New-Action -Id 'open-windows-update' -Label 'Ouvrir Windows Update' -Kind 'manual' -Help "Ouvre les Paramètres Windows Update pour installer manuellement. Déverrouillez (Mode MAJ) avant si nécessaire, puis re-verrouillez."
+
+    New-ModuleObject -Id 'wu-pending' -Theme 'windows-update' -Label 'Mises à jour en attente' -Status $(if ($enCours) {'neutral'} elseif ($count -gt 0) {'warn'} else {'ok'}) -Fields (@(
+        New-Field -Key 'pending' -Label 'Détectées (non installées)' -Value $count -Kind 'number' -Status $(if ($count -gt 0) {'warn'} else {'ok'}) -Help $help -Guide $guide -FixAction 'wu-list-pending'
+    ) + $champs) -Actions $actions -Busy:$enCours
 }

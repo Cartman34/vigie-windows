@@ -29,7 +29,7 @@
     --ok-bg:rgba(63,185,80,.12); --warn-bg:rgba(210,153,34,.12); --err-bg:rgba(248,81,73,.12);
     --radius:12px; --shadow:0 1px 3px rgba(0,0,0,.4);
     /* Marque Vigie (D01) : liseré = teinte du statut assombrie (facteur 0,72) ; piste de jauge. */
-    --warn-dark:#976e18; --gauge-track:#30363d;
+    --warn-dark:#976e18; --ok-dark:#2d853a; --gauge-track:#30363d;
     --splash-fade:.45s;   /* doit rester egal a SPLASH_FADE_MS cote JS */
   }
   [data-theme="light"] {
@@ -38,7 +38,7 @@
     --ok:#0f7a37; --warn:#9a5b00; --err:#d21c2c;
     --ok-bg:rgba(15,122,55,.16); --warn-bg:rgba(154,91,0,.17); --err-bg:rgba(210,28,44,.15);
     --shadow:0 1px 4px rgba(70,90,120,.22);
-    --warn-dark:#6e4100; --gauge-track:#c2cbd8;
+    --warn-dark:#6e4100; --ok-dark:#0a5828; --gauge-track:#c2cbd8;
   }
   *{box-sizing:border-box}
   /* Colonne pleine hauteur : le pied de page tombe EN BAS de la fenetre meme quand le
@@ -215,6 +215,7 @@
   .actions button.act{display:inline-flex;align-items:center;gap:6px}
   .actions button.act svg{flex:none}
   .k-confirm svg{color:var(--warn)} .k-manual svg{color:var(--accent)} .k-immediate svg{color:var(--muted)}
+  .k-dialog svg{color:var(--accent)}
   .k-manual{border-style:dashed}
   /* ===== Design system : Dialog (modale in-app reutilisable) ===== */
   .hds-back{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:50;padding:20px;backdrop-filter:blur(2px)}
@@ -230,6 +231,18 @@
   .hds-dialog--info .hds-dialog-ic{color:var(--accent);background:rgba(56,139,253,.14)}
   .hds-x{margin-left:auto;background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1}
   .hds-dialog-body{padding:16px;white-space:pre-line;line-height:1.55;max-height:60vh;overflow:auto}
+  .hds-intro{margin:0 0 10px;color:var(--muted)}
+  .hds-choice-bar{display:flex;align-items:center;gap:12px;margin-bottom:8px;font-size:12.5px}
+  .hds-lnk{background:none;border:none;color:var(--accent);cursor:pointer;padding:0;font:inherit;text-decoration:underline}
+  .hds-count{margin-left:auto;color:var(--muted);font-variant-numeric:tabular-nums}
+  .hds-choices{display:flex;flex-direction:column;gap:2px}
+  .hds-choice{display:grid;grid-template-columns:auto 1fr;gap:4px 9px;align-items:start;
+              padding:7px 8px;border-radius:8px;cursor:pointer}
+  .hds-choice:hover{background:var(--panel-2)}
+  .hds-choice input{margin-top:3px;accent-color:var(--accent)}
+  .hds-choice-t{white-space:normal;word-break:break-word}
+  .hds-choice-d{grid-column:2;color:var(--muted);font-size:12px}
+  .hds-btn:disabled{opacity:.45;cursor:not-allowed}
   .hds-dialog-foot{display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid var(--border);flex-wrap:wrap}
   .hds-dialog-foot:empty{display:none}
   /* Boutons reutilisables */
@@ -308,7 +321,7 @@
       <!-- Piste et arc de valeur partagent exactement le meme trace. -->
       <path id="gaugeArc" d="M 25.251 74.749 A 35 35 0 1 1 74.749 74.749"/>
     </defs>
-    <circle cx="50" cy="50" r="45" fill="none" stroke="var(--warn)" stroke-opacity=".35" stroke-width="2.4"/>
+    <circle cx="50" cy="50" r="45" fill="none" stroke="var(--ok)" stroke-opacity=".35" stroke-width="2.4"/>
     <use href="#gaugeArc" fill="none" stroke="var(--gauge-track)" stroke-width="11" stroke-linecap="round"/>
     <g stroke="var(--muted)" stroke-opacity=".35" stroke-width="2">
         <line x1="25.746" y1="74.254" x2="30.201" y2="69.799"/>
@@ -319,12 +332,12 @@
         <line x1="84.300" y1="50.000" x2="78.000" y2="50.000"/>
         <line x1="74.254" y1="74.254" x2="69.799" y2="69.799"/>
     </g>
-    <use class="splash-arc-val" href="#gaugeArc" fill="none" stroke="var(--warn)" stroke-width="11" stroke-linecap="round"/>
+    <use class="splash-arc-val" href="#gaugeArc" fill="none" stroke="var(--ok)" stroke-width="11" stroke-linecap="round"/>
     <g class="splash-needle" stroke-linecap="round">
-      <line x1="54.243" y1="45.757" x2="27.231" y2="72.769" stroke="var(--warn-dark)" stroke-opacity=".95" stroke-width="9.8"/>
-      <line x1="54.243" y1="45.757" x2="27.231" y2="72.769" stroke="var(--warn)" stroke-width="8.2"/>
+      <line x1="54.243" y1="45.757" x2="27.231" y2="72.769" stroke="var(--ok-dark)" stroke-opacity=".95" stroke-width="9.8"/>
+      <line x1="54.243" y1="45.757" x2="27.231" y2="72.769" stroke="var(--ok)" stroke-width="8.2"/>
     </g>
-    <circle cx="50" cy="50" r="9.5" fill="var(--warn)"/>
+    <circle cx="50" cy="50" r="9.5" fill="var(--ok)"/>
     <circle cx="50" cy="50" r="4.2" fill="#f0f6fc"/>
   </svg>
   <div class="splash-id">
@@ -395,9 +408,14 @@ const ICONS = {
   // confirm = TRIANGLE d'avertissement (validé). Le rectangle de fenêtre affiché
   // jusqu'ici se lisait comme une case vide, pas comme une mise en garde.
   confirm:'<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>',
-  manual:'<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7zM19 19H5V5h7V3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7h-2v7z"/></svg>'
+  manual:'<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7zM19 19H5V5h7V3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7h-2v7z"/></svg>',
+  // dialog = liste a COCHER : ouvre une fenetre de choix DANS l'application. A ne pas
+  // confondre avec manual (fleche sortante = logiciel externe) ni avec confirm (triangle
+  // = simple oui/non). Les trois etaient trop proches a l'ecran.
+  dialog:'<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M3 5h8v2H3V5zm0 6h8v2H3v-2zm0 6h8v2H3v-2zm16.3-9.3l-4.6 4.6-2-2L11.3 12l3.4 3.4 6-6-1.4-1.7z"/></svg>'
 };
-const KIND_LABEL = { immediate:'Action immédiate', confirm:'Ouvre une fenêtre de confirmation', manual:'Ouvre un logiciel externe' };
+const KIND_LABEL = { immediate:'Action immédiate', confirm:'Ouvre une fenêtre de confirmation',
+                     dialog:'Ouvre une fenêtre de choix', manual:'Ouvre un logiciel externe' };
 
 // Mock inline = ultime repli si ni API ni fichier mock accessibles (file://).
 const INLINE_MOCK = {
@@ -707,7 +725,9 @@ const HDS = (function(){
     const variant=opts.variant||'info';
     cancelValue=('cancelValue' in opts)?opts.cancelValue:null;
     elTitle.textContent=opts.title||'';
-    elBody.textContent=opts.body||'';
+    // `html` est reserve a du contenu que NOUS composons (les libelles venant du
+    // serveur y sont echappes par esc()). `body` reste du texte brut, jamais interprete.
+    if(opts.html!==undefined){ elBody.innerHTML=opts.html; } else { elBody.textContent=opts.body||''; }
     dlg.className='hds-dialog hds-dialog--'+variant+(opts.icon===false?'':' has-ic');
     elIc.textContent=ICON[variant]||'i';
     elX.style.display=(opts.dismissable===false)?'none':'';
@@ -745,7 +765,42 @@ const HDS = (function(){
   }
   back.addEventListener('click',e=>{ if(e.target===back) settle(cancelValue); });
   elX.addEventListener('click',()=>settle(cancelValue));
-  return { open, info, confirm, close:()=>settle(cancelValue) };
+  // Fenetre de CHOIX : une case a cocher par element, resultat = tableau d'identifiants
+  // retenus, ou null si l'utilisateur annule. Rien n'est preselectionne par defaut quand
+  // `tousCoches` est faux : une action qui installe ne doit pas partir sur un choix subi.
+  function choose(opts){
+    opts=opts||{};
+    const items=opts.items||[];
+    const cocheDefaut = opts.tousCoches!==false;
+    const lignes = items.map((it,i)=>
+      '<label class="hds-choice"><input type="checkbox" value="'+esc(it.id)+'"'+(cocheDefaut?' checked':'')+'>'
+      + '<span class="hds-choice-t">'+esc(it.titre)+'</span>'
+      + (it.detail?'<span class="hds-choice-d">'+esc(it.detail)+'</span>':'')
+      + '</label>').join('');
+    const entete = opts.intro ? '<p class="hds-intro">'+esc(opts.intro)+'</p>' : '';
+    const barre = '<div class="hds-choice-bar"><button type="button" class="hds-lnk" id="hdsAll">Tout cocher</button>'
+                + '<button type="button" class="hds-lnk" id="hdsNone">Tout décocher</button>'
+                + '<span class="hds-count" id="hdsCount"></span></div>';
+    const p = open({ title:opts.title||'Choisir', html: entete+barre+'<div class="hds-choices">'+lignes+'</div>',
+      variant:opts.variant||'info', cancelValue:null,
+      actions:[ {label:opts.cancelLabel||'Annuler',kind:'ghost',value:null},
+                {label:opts.confirmLabel||'Valider',kind:'primary',value:'__ok__',default:true} ] });
+    const boites=()=>[...elBody.querySelectorAll('input[type=checkbox]')];
+    const maj=()=>{ const n=boites().filter(b=>b.checked).length;
+                    const c=elBody.querySelector('#hdsCount'); if(c) c.textContent=n+' / '+items.length+' sélectionnée(s)';
+                    const v=elFoot.querySelector('[data-default]'); if(v) v.disabled=(n===0); };
+    elBody.querySelector('#hdsAll') && (elBody.querySelector('#hdsAll').onclick=()=>{ boites().forEach(b=>b.checked=true); maj(); });
+    elBody.querySelector('#hdsNone') && (elBody.querySelector('#hdsNone').onclick=()=>{ boites().forEach(b=>b.checked=false); maj(); });
+    boites().forEach(b=>b.addEventListener('change',maj));
+    // Les cases sont lues AVANT la fermeture : apres, le corps de la fenetre est reecrit.
+    let retenus=null;
+    const veille=setInterval(()=>{ retenus=boites().filter(b=>b.checked).map(b=>b.value); },120);
+    retenus=boites().filter(b=>b.checked).map(b=>b.value);
+    maj();
+    return p.then(v=>{ clearInterval(veille); return v==='__ok__' ? retenus : null; });
+  }
+
+  return { open, info, confirm, choose, close:()=>settle(cancelValue) };
 })();
 
 // Compat : anciens appels -> HDS
@@ -766,7 +821,13 @@ function clearBtnBusy(btn){
   btn.style.minWidth='';
   delete btn.dataset.busy; delete btn.dataset.prevHtml;
 }
-async function doAction(type,module,confirmNeeded,label,help,btnEl){
+function octets(n){
+  n=+n||0; if(!n) return '';
+  const u=['o','Ko','Mo','Go']; let i=0;
+  while(n>=1024 && i<u.length-1){ n/=1024; i++; }
+  return (i?n.toFixed(1):n)+' '+u[i];
+}
+async function doAction(type,module,confirmNeeded,label,help,btnEl,params){
   const name = label || type;
   if(confirmNeeded){
     const ok = await HDS.confirm({
@@ -782,11 +843,36 @@ async function doAction(type,module,confirmNeeded,label,help,btnEl){
   try{
     const r=await fetch(API+"/actions",{ method:"POST",
       headers:{ "Content-Type":"application/json", Authorization:"Bearer "+TOKEN },
-      body: JSON.stringify({ type, module }) });
+      body: JSON.stringify(params ? { type, module, params } : { type, module }) });
     const j=await r.json().catch(()=>({}));
     const okFlag = !j.result || j.result.ok!==false;   // result.ok===false => echec logique meme si HTTP 200
     const st = (r.ok && j.status==='done' && okFlag) ? 'done' : 'error';
     const msg = (j.message || j.status || ('HTTP '+r.status)) + (j.jobId ? ('  [job '+j.jobId+']') : '');
+    // Reponse qui demande un CHOIX : on ouvre la fenetre, puis on relance l'action
+    // designee avec les identifiants retenus. Rien n'est lance sans selection explicite.
+    if(st==='done' && j.result && j.result.choose){
+      clearBtnBusy(btnEl);
+      const liste=(j.result.updates||[]).map(u=>({
+        id:u.id, titre:u.titre,
+        detail:[u.kb, u.pilote?'pilote':null, u.octets?octets(u.octets):null, u.telecharge?'déjà téléchargée':null]
+               .filter(Boolean).join(' · ')
+      }));
+      if(!liste.length){ updateNotif(entry,'done', name+' : aucune mise à jour à installer.'); return; }
+      if(j.result.verrou){
+        updateNotif(entry,'error', name+' : mises à jour verrouillées (Mode MAJ). Déverrouillez avant d'installer.');
+        await HDS.info(name, 'Les mises à jour sont verrouillées par le Mode MAJ.
+
+Déverrouillez-les, puis relancez cette action.', {variant:'warn'});
+        return;
+      }
+      const choisis = await HDS.choose({
+        title: name, intro: 'Cochez les mises à jour à installer. L'installation continue même si vous fermez cette fenêtre.',
+        items: liste, tousCoches: false, confirmLabel: 'Installer', variant:'warn'
+      });
+      if(!choisis || !choisis.length){ updateNotif(entry,'done', name+' : annulé.'); return; }
+      updateNotif(entry,'running', choisis.length+' mise(s) à jour retenue(s)…');
+      return doAction(j.result.action, module, false, name, help, btnEl, { ids: choisis });
+    }
     if(st==='done' && j.result && j.result.async){
       // Action longue non bloquante : la carte passe en "en cours" et s'actualise seule.
       const pollMod = j.result.module || module;
