@@ -1289,6 +1289,7 @@ $script:ThemeCatalog = @(
     [pscustomobject]@{ id = 'security';       label = 'Sécurité' }
     [pscustomobject]@{ id = 'network';        label = 'Réseau' }
     [pscustomobject]@{ id = 'tools';          label = 'Outils & paquets' }
+    [pscustomobject]@{ id = 'gaming';         label = 'Jeux' }
 )
 
 # --- Agregation des sondes (journalisee) -----------------------------------
@@ -1307,6 +1308,7 @@ $script:ProbeTtls = @{
     'pending.probe.ps1' = 900
     'os.probe.ps1'      = 3600
     'packages.probe.ps1'= 5
+    'gaming.probe.ps1'  = 10
 }
 
 # Ramene une date lue depuis JSON a un [datetime] UTC, quelle que soit sa forme.
