@@ -616,11 +616,17 @@ function renderState(s, mode){
   wireCardActions(masonry);
   applyFilter();
   const g=document.getElementById('global'), gt=document.getElementById('globalTxt');
-  // Topbar = sante globale (worst). Liseré = etat de la connexion a l'API (live / maquette / erreur).
-  const col=worst==='ok'?'var(--ok)':(worst==='warn'?'var(--warn)':'var(--err)');
-  g.querySelector('.dot').style.cssText=`width:9px;height:9px;border-radius:50%;background:${col}`;
-  gt.textContent=worst==='ok'?'Tout est conforme':(worst==='warn'?'Points à surveiller':'Action requise');
-  gt.style.color=col;
+  // Le badge de l'en-tete et le liseré disent la MEME chose : l'etat de l'application
+  // elle-meme (connectee, en maquette, en erreur). Ils portaient auparavant deux
+  // informations differentes -- badge rouge « Action requise » au-dessus d'un liseré vert
+  // -- et se contredisaient a l'oeil. La sante des cartes se lit sur les cartes.
+  const etat = mode==='live'
+    ? { col:'var(--ok)',   txt:'Connecté',  aide:"Connecté à l'API locale : les données affichées sont réelles." }
+    : { col:'var(--warn)', txt:'Maquette',  aide:"Le service n'est pas joignable : les données affichées sont une maquette." };
+  g.querySelector('.dot').style.cssText=`width:9px;height:9px;border-radius:50%;background:${etat.col}`;
+  gt.textContent=etat.txt;
+  gt.style.color=etat.col;
+  g.title=etat.aide;
   document.getElementById('lastRefresh').textContent='Mis à jour à '+new Date().toLocaleTimeString('fr-FR');
   setMachineName(s.host);
   const mb=document.getElementById('modebar'); const occupe=mb.classList.contains('busy'); mb.className='modebar '+(mode==='live'?'ok':'warn')+(occupe?' busy':''); mb.title=(mode==='live'?'Connecté à l\'API locale (données réelles)':'Maquette — back non lancé'); mb.textContent='';
@@ -1115,7 +1121,7 @@ async function refresh(force){
   catch(e){
     const mb=document.getElementById('modebar'); const occupeErr=mb.classList.contains('busy'); mb.className='modebar err'+(occupeErr?' busy':''); mb.title='Connexion à l\'API impossible'; mb.textContent='';
     const msg = (e && e.name==='AbortError') ? 'délai dépassé — le premier calcul peut être long (sondes système). Réessayez dans un instant.' : (e && e.message ? e.message : e);
-    const gt=document.getElementById('globalTxt'); if(gt){ gt.textContent='Erreur : '+msg; gt.style.color='var(--err)'; }
+    const gt=document.getElementById('globalTxt'); if(gt){ gt.textContent='Hors ligne'; gt.style.color='var(--err)'; gt.parentElement.title='Connexion impossible : '+msg; }
     const gdot=document.querySelector('#global .dot'); if(gdot){ gdot.style.cssText='width:9px;height:9px;border-radius:50%;background:var(--err)'; }
   }
   finally{ setLoading(false); hideSplash(); }
