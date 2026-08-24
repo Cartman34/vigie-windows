@@ -91,10 +91,15 @@ Add-PodeRoute -Method Post -Path "$base/actions" -ScriptBlock {
 
 # --- UI : sert index.html en injectant le jeton (page meme origine) ---
 Add-PodeRoute -Method Get -Path '/' -ScriptBlock {
+    # PREMIERE ligne, comme dans toutes les autres routes. Une route Pode s'execute dans
+    # son PROPRE espace d'execution : rien de ce qui est charge au demarrage du serveur
+    # n'y existe. Ici le chargement etait place APRES deux appels d'aide -- la route
+    # levait donc « Get-AppPath is not recognized » et rendait 500 : l'application ne
+    # s'affichait pas du tout, alors que le serveur repondait.
+    . "$env:VIGIE_BACKEND/lib/common.ps1"
     $front = Get-AppPath -Role 'frontend'
     $html  = Get-Content -Path (Join-Path $front 'index.html') -Raw
     $html  = $html.Replace('__API_TOKEN__', $env:VIGIE_TOKEN)
-    . "$env:VIGIE_BACKEND/lib/common.ps1"
     $html  = $html.Replace('__APP_VERSION__', (Get-AppVersion -Backend $env:VIGIE_BACKEND))
     Write-PodeTextResponse -Value $html -ContentType 'text/html; charset=utf-8'
 }

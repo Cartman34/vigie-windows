@@ -167,10 +167,10 @@
 
   <div class="note">
     <b>Livré aujourd'hui</b> — conforme <code>1.00</code> (jauge pleine), démarrage
-    <code>0.50</code>, erreur <code>0.14</code>. Une valeur retenue est à reporter dans
-    <b>deux</b> endroits qui doivent rester identiques :
-    <code>apps/tray/assets/generate-icons.py</code> et le repli GDI+ de
-    <code>apps/tray/tray.ps1</code>. Puis régénérer les <code>.ico</code>.
+    <code>0.50</code>, erreur <code>0.17</code>. Une valeur retenue se reporte dans
+    <b>un seul</b> endroit — <code>apps/tray/assets/generate-icons.py</code> — puis on
+    régénère les <code>.ico</code>. Le repli GDI+ qui redessinait la marque a été supprimé
+    (<b>D38</b>) : il avait divergé sans que personne ne le voie.
   </div>
 </section>
 
