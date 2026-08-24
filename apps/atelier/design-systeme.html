@@ -165,6 +165,37 @@
 </section>
 
 <section>
+  <h2>Icônes — la fonte maison (D58)</h2>
+  <p class="lgd">Chargée ici depuis le <b>vrai fichier</b>
+     <code>apps/frontend-web/assets/vigie-icons.ttf</code> : ce que tu vois est ce que le
+     front embarque. Générée par <code>generate-icon-font.py</code> — un glyphe manquant se
+     dessine là-bas (une fonction Python par icône), on n’importe pas de bibliothèque.</p>
+  <style>
+    @font-face{font-family:'Vigie Icons DS';src:url('../frontend-web/assets/vigie-icons.ttf') format('truetype')}
+    .vids{font-family:'Vigie Icons DS';font-style:normal;line-height:1}
+    .ico-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
+    .ico{border:1px solid var(--border);border-radius:9px;padding:12px 8px;text-align:center}
+    .ico .vids{font-size:34px}
+    .ico small{display:block;color:var(--muted);font-size:11px;margin-top:8px}
+    .ico code{font-size:10.5px;color:var(--muted)}
+  </style>
+  <div class="ico-grid">
+    <div class="ico"><span class="vids">&#xE001;</span><small>gear</small><code>E001</code></div>
+    <div class="ico"><span class="vids">&#xE002;</span><small>puzzle</small><code>E002</code></div>
+    <div class="ico"><span class="vids">&#xE003;</span><small>flag</small><code>E003</code></div>
+    <div class="ico"><span class="vids">&#xE004;</span><small>bell</small><code>E004</code></div>
+    <div class="ico"><span class="vids">&#xE005;</span><small>sun</small><code>E005</code></div>
+    <div class="ico"><span class="vids">&#xE006;</span><small>moon</small><code>E006</code></div>
+    <div class="ico"><span class="vids">&#xE007;</span><small>info</small><code>E007</code></div>
+    <div class="ico"><span class="vids">&#xE008;</span><small>refresh</small><code>E008</code></div>
+    <div class="ico"><span class="vids">&#xE009;</span><small>dots</small><code>E009</code></div>
+    <div class="ico"><span class="vids">&#xE00A;</span><small>check</small><code>E00A</code></div>
+    <div class="ico"><span class="vids">&#xE00B;</span><small>warn</small><code>E00B</code></div>
+    <div class="ico"><span class="vids">&#xE00C;</span><small>cross</small><code>E00C</code></div>
+  </div>
+</section>
+
+<section>
   <h2>Réglages — interrupteurs et menu Paramètres</h2>
   <p class="lgd">Un seul composant on/off : l’interrupteur (<code>.swx</code>, rail + bouton en CSS,
      couleur accent à l’état actif). Le menu <b>Paramètres</b> (D56) est un tiroir large à
