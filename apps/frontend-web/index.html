@@ -1308,7 +1308,7 @@ function openSettings(tab, unitFocus){
 }
 async function renderSettings(){
   const body=document.getElementById('settingsBody');
-  const TABS=[['notifications','Notifications','⚑'],['modules','Modules','▦'],['apparence','Apparence','☀'],['apropos','À propos','ⓘ']];
+  const TABS=[['notifications','Notifications','⚑'],['modules','Modules','▦'],['apparence','Apparence','☀'],['apropos','À propos','<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5.5" r="2.3"/><rect x="9.7" y="9.5" width="4.6" height="10.5" rx="2.3"/></svg>']];
   body.innerHTML='<div class="set-wrap"><nav class="set-nav">'+TABS.map(t=>
     '<button class="set-item'+(settingsTab===t[0]?' on':'')+'" data-tab="'+t[0]+'">'
     +'<span class="set-ic">'+t[2]+'</span>'+t[1]+'</button>').join('')
