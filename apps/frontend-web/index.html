@@ -236,6 +236,10 @@
   .set-item:hover{background:var(--panel-2);color:var(--text)}
   .set-item.on{background:var(--panel-2);color:var(--text);box-shadow:inset 3px 0 0 var(--accent)}
   .set-ic{width:18px;text-align:center;flex:0 0 auto}
+  /* i cercle en POLICE + CSS (regle du projet : icones a partir d'une font). */
+  .ic-round{width:15px;height:15px;border:1.5px solid currentColor;border-radius:50%;
+            display:inline-flex;align-items:center;justify-content:center;
+            font-size:10px;font-weight:700;line-height:1}
   .set-pane{flex:1;min-width:0;overflow-y:auto;padding:16px 18px}
   @media (max-width:560px){
     .set-wrap{flex-direction:column}
@@ -1321,7 +1325,7 @@ function openSettings(tab, unitFocus){
 }
 async function renderSettings(){
   const body=document.getElementById('settingsBody');
-  const TABS=[['notifications','Notifications','⚑'],['modules','Modules','▦'],['apparence','Apparence','☀'],['apropos','À propos','<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5.5" r="2.3"/><rect x="9.7" y="9.5" width="4.6" height="10.5" rx="2.3"/></svg>']];
+  const TABS=[['notifications','Notifications','⚑'],['modules','Modules','▦'],['apparence','Apparence','☀'],['apropos','À propos','<span class="ic-round">i</span>']];
   body.innerHTML='<div class="set-wrap"><nav class="set-nav">'+TABS.map(t=>
     '<button class="set-item'+(settingsTab===t[0]?' on':'')+'" data-tab="'+t[0]+'">'
     +'<span class="set-ic">'+t[2]+'</span>'+t[1]+'</button>').join('')

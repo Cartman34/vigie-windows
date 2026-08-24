@@ -1367,3 +1367,7 @@ l'onglet Modules, positionné sur son module.
 GitHub ; le logo GitHub **disparaît de l'en-tête** (il vit au footer et dans À propos).
 Un réglage nouveau rejoint ce menu — on n'ajoute plus de bouton épars dans l'en-tête.
 
+**Icônes : à partir d'une police** (rappelé deux fois par l'utilisateur) : glyphe de
+police, éventuellement habillé en CSS (cercle, pastille). Pas de tracé SVG ad hoc pour
+une icône d'interface — seule la marque (jauge, logo GitHub) reste en SVG.
+
