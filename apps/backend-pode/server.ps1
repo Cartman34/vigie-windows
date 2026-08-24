@@ -57,7 +57,12 @@ Add-PodeMiddleware -Name 'security' -ScriptBlock {
 Add-PodeRoute -Method Get -Path "$base/health" -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
     Write-PodeJsonResponse -Value @{ status = 'ok'; version = (Get-AppVersion -Backend $env:VIGIE_BACKEND);
-                                 build = (Get-AppBuildId -Backend $env:VIGIE_BACKEND) }
+                                 build = (Get-AppBuildId -Backend $env:VIGIE_BACKEND);
+                                 # URL de l'Atelier si son serveur repond en LOCAL, sinon null.
+                                 # C'est le serveur qui detecte : le front ne peut pas sonder un
+                                 # autre port proprement (cross-origin), et le port de l'Atelier
+                                 # ne doit exister que dans SA config (D15).
+                                 atelier = (Get-AtelierUrl) }
 }
 Add-PodeRoute -Method Get -Path "$base/state" -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"

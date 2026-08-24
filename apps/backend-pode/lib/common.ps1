@@ -1659,6 +1659,31 @@ function Invoke-ActionById {
     }
 }
 
+# --- Atelier : present en local ? --------------------------------------------
+# L'Atelier est un outil de developpement lance A LA MAIN : l'interface de Vigie ne
+# montre un lien vers lui QUE s'il repond vraiment. La detection vit ici (serveur) car
+# le front ne peut pas sonder un autre port proprement, et le port de l'Atelier n'est
+# defini que dans SA config (D15) -- on la lit, on ne la recopie pas.
+function Get-AtelierUrl {
+    param([string]$Backend = (Get-BackendRoot))
+    try {
+        $cfgPath = Join-Path (Get-RepoRoot) 'apps/atelier/config/config.psd1'
+        if (-not (Test-Path -LiteralPath $cfgPath)) { return $null }
+        $acfg = Import-PowerShellDataFile -Path $cfgPath
+        $port = [int]$acfg.Port
+        if (-not $port) { return $null }
+        $addr = (Get-Config -Backend $Backend).BindAddress
+        if (-not $addr) { $addr = '127.0.0.1' }
+        # Connexion TCP brute, delai court : sur l'hote local, un port ferme repond
+        # immediatement -- ce test ne ralentit pas /health.
+        $c = [System.Net.Sockets.TcpClient]::new()
+        try {
+            if (-not $c.ConnectAsync($addr, $port).Wait(250)) { return $null }
+        } finally { $c.Dispose() }
+        return ('http://{0}:{1}/apps/atelier/index.html' -f $addr, $port)
+    } catch { return $null }
+}
+
 # --- Idempotence : le serveur ecoute-t-il deja ? ---------------------------
 function Test-ServerUp {
     # Pas de valeur par defaut : l'adresse et le port n'ont qu'UNE definition (config.psd1).

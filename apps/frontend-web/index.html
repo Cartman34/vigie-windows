@@ -418,7 +418,8 @@
     <svg width="16" height="16" aria-hidden="true"><use href="#ghMark"/></svg>
   </a>
   <button class="ic-btn" id="notifCfgBtn" onclick="openNotifSettings()" aria-label="Réglages des notifications" title="Réglages des notifications du tray : choisir ce qui déclenche une notification Windows">⚙</button>
-  <button onclick="toggleTheme()" id="themeBtn" title="Basculer entre le thème sombre et le thème clair">☀ Clair</button>
+  <a class="ic-btn" id="atelierBtn" target="_blank" rel="noopener" hidden title="Ouvrir l’atelier de validation (détecté en local)">⚒</a>
+  <button onclick="toggleTheme()" id="themeBtn" class="ic-btn" title="Basculer entre le thème sombre et le thème clair">☀</button>
 </header>
 <div class="modebar neutral" id="modebar"></div>
 <main id="app"></main>
@@ -1204,9 +1205,12 @@ async function refresh(force){
 }
 async function checkVersion(){
   try{
-    if(!window.APP_BUILD || window.APP_BUILD.includes('__')) return;
     const r=await fetch(API+'/health'); if(!r.ok) return;
     const j=await r.json();
+    // Bouton Atelier : visible UNIQUEMENT si son serveur repond en local (outil de dev).
+    const ab=document.getElementById('atelierBtn');
+    if(ab){ if(j && j.atelier){ ab.href=j.atelier; ab.hidden=false; } else { ab.hidden=true; } }
+    if(!window.APP_BUILD || window.APP_BUILD.includes('__')) return;
     if(j && j.build && j.build!==window.APP_BUILD) location.reload();
   }catch(e){}
 }
@@ -1215,7 +1219,7 @@ let dark=true;
 function toggleTheme(){ dark=!dark;
   document.documentElement.setAttribute('data-theme',dark?'':'light');
   const tb=document.getElementById('themeBtn');
-  tb.textContent = dark ? '☀ Clair' : '☾ Sombre';
+  tb.textContent = dark ? '☀' : '☾';
   tb.title = dark ? 'Passer au thème clair' : 'Passer au thème sombre'; }
 // Message bref et autonome, dans la MEME pile que les toasts d’actions (#toastStack).
 // L’ancienne version visait un #toast qui n’existe plus : tout appel levait une erreur.
@@ -1278,6 +1282,7 @@ setFootVersion();
 setTimeout(hideSplash, SPLASH_MAX_MS);   // garde-fou si /state ne repond jamais
 refresh();
 setInterval(refresh, REFRESH_MS);
+checkVersion();
 setInterval(checkVersion, VERSION_POLL_MS);
 </script>
 </body>
