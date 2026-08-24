@@ -1140,7 +1140,9 @@ function Get-AppBuildId {
 function Get-VarPath {
     param(
         [string]$Backend = (Get-BackendRoot),
-        [Parameter(Mandatory)][ValidateSet('cache','log','secrets')][string]$Kind,
+        # 'history' : series de mesures (docs/conception/historique-cible.md). Distinct de
+        # 'cache' : un cache perdu se recalcule, un historique perdu ne se recalcule pas.
+        [Parameter(Mandatory)][ValidateSet('cache','log','secrets','history')][string]$Kind,
         [string]$File
     )
     $dir = Join-Path (Join-Path $Backend 'var') $Kind
@@ -1412,6 +1414,259 @@ function Get-ProbeRuns {
     return @($res)
 }
 
+# --- Historique des mesures (series) ------------------------------------------
+# Etape 1 du plan docs/conception/historique-migration.md. On note AU PASSAGE des
+# valeurs deja calculees par les sondes : le seul point d'accroche est le recalcul
+# reussi d'une sonde dans Get-State -- aucune sonde n'ecrit elle-meme, aucune cadence
+# propre a l'historique. Stockage : un fichier JSONL par mesure dans var/history/
+# (distinct de var/cache/ : un historique perdu ne se recalcule pas). Best-effort :
+# une erreur d'ecriture se journalise et ne fait jamais echouer un recalcul.
+
+# LE catalogue des mesures (D15 : une valeur, une definition). Pour chaque mesure :
+# la sonde source, la nature (gauge/event), l'unite, l'intervalle minimal par defaut
+# (surchargable par la config, voir Get-HistoryConfig) et l'extracteur, qui lit la
+# valeur dans les MODULES RENDUS par la sonde (jamais en relancant quoi que ce soit).
+# L'extracteur rend $null (rien a noter) ou @{ v = <valeur>; key = <jeton optionnel> }.
+# `key` sert aux mesures liees a une mesure externe : on n'ecrit que quand il change.
+# Exemple : net.latency n'a une valeur NOUVELLE que quand `measAt` change, quel que
+# soit le nombre de recalculs de la sonde entre deux mesures de debit/latence.
+$script:MeasureCatalog = @{
+    'disk.free' = @{
+        Probe = 'disk.probe.ps1'; Kind = 'gauge'; Unit = 'Go'; IntervalMinutes = 30
+        Extract = {
+            param($Modules)
+            $m = @($Modules) | Where-Object { "$($_.id)" -eq 'disk-c' } | Select-Object -First 1
+            if (-not $m) { return $null }
+            $f = @($m.fields) | Where-Object { "$($_.key)" -eq 'free' } | Select-Object -First 1
+            if ($null -eq $f -or $null -eq $f.value) { return $null }
+            $v = 0.0
+            if (-not [double]::TryParse("$($f.value)", [Globalization.NumberStyles]::Float,
+                    [Globalization.CultureInfo]::InvariantCulture, [ref]$v)) { return $null }
+            return @{ v = $v }
+        }
+    }
+    'net.latency' = @{
+        Probe = 'net.probe.ps1'; Kind = 'gauge'; Unit = 'ms'; IntervalMinutes = 0
+        Extract = {
+            param($Modules)
+            $m = @($Modules) | Where-Object { "$($_.id)" -eq 'net' } | Select-Object -First 1
+            if (-not $m) { return $null }
+            $lat = @($m.fields) | Where-Object { "$($_.key)" -eq 'latency' } | Select-Object -First 1
+            $mea = @($m.fields) | Where-Object { "$($_.key)" -eq 'measAt' }  | Select-Object -First 1
+            # Pas de champ de date = latence jamais mesuree : rien a noter.
+            if (-not $lat -or -not $mea -or $null -eq $mea.value) { return $null }
+            # La valeur affichee est un texte ("23 ms") : on en extrait le nombre.
+            if ("$($lat.value)" -notmatch '^\s*([0-9]+(?:[.,][0-9]+)?)\s*ms') { return $null }
+            $v = [double](($Matches[1]) -replace ',', '.')
+            # La cle est la date de la mesure, NORMALISEE : ConvertFrom-Json rend tantot
+            # une chaine, tantot un [datetime] (D44) -- comparer les formes brutes ecrirait
+            # un point a chaque recalcul.
+            $key = $null
+            try { $key = (ConvertTo-UtcDate $mea.value).ToString('o') } catch { return $null }
+            return @{ v = $v; key = $key }
+        }
+    }
+}
+
+# Resout la configuration de l'historique en COUCHES (meme logique que la config, D33) :
+# defauts internes -> section History de config.psd1 (surchargee par config.local.psd1)
+# -> reglage par mesure, la plus specifique gagne. Sans -MeasureId : les valeurs
+# globales. Avec : les valeurs EFFECTIVES de la mesure (RetentionDays, IntervalMinutes,
+# MaxLines). RetentionDays <= 0 sur une mesure = ne plus l'echantillonner.
+function Get-HistoryConfig {
+    param([string]$Backend = (Get-BackendRoot), [string]$MeasureId, [hashtable]$Config)
+    if (-not $Config) { $Config = Get-Config -Backend $Backend }
+    $h = $Config.History
+    $res = @{ Enabled = $true; RetentionDays = 90; MaxLinesPerMeasure = 50000; Measures = @{} }
+    if ($h -is [hashtable]) {
+        if ($h.ContainsKey('Enabled'))            { $res.Enabled            = [bool]$h.Enabled }
+        if ($h.ContainsKey('RetentionDays'))      { $res.RetentionDays      = [int]$h.RetentionDays }
+        if ($h.ContainsKey('MaxLinesPerMeasure')) { $res.MaxLinesPerMeasure = [int]$h.MaxLinesPerMeasure }
+        if ($h.Measures -is [hashtable])          { $res.Measures           = $h.Measures }
+    }
+    if (-not $MeasureId) { return $res }
+    $cat = $script:MeasureCatalog[$MeasureId]
+    $eff = @{
+        Enabled         = $res.Enabled
+        RetentionDays   = $res.RetentionDays
+        MaxLines        = $res.MaxLinesPerMeasure
+        IntervalMinutes = $(if ($cat -and $cat.ContainsKey('IntervalMinutes')) { [int]$cat.IntervalMinutes } else { 0 })
+    }
+    $mo = $res.Measures[$MeasureId]
+    if ($mo -is [hashtable]) {
+        if ($mo.ContainsKey('RetentionDays'))   { $eff.RetentionDays   = [int]$mo.RetentionDays }
+        if ($mo.ContainsKey('IntervalMinutes')) { $eff.IntervalMinutes = [int]$mo.IntervalMinutes }
+    }
+    # Retention nulle = mesure coupee. Le fichier existant n'est PAS supprime :
+    # detruire une archive reste un geste manuel et volontaire.
+    if ($eff.RetentionDays -le 0) { $eff.Enabled = $false }
+    return $eff
+}
+
+# Append d'UNE ligne dans un fichier d'historique, sous le mutex du fichier
+# (Local\VigieHistory_<leaf>, meme convention que Update-StateJson). Necessaire :
+# deux recalculs simultanes existent reellement (requete forcee + rafraichissement
+# de fond) et leurs ecritures ne doivent pas s'entremeler.
+function Add-HistoryLine {
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$Line)
+    $leaf = (Split-Path $Path -Leaf) -replace '[^A-Za-z0-9]', '_'
+    $mx = New-Object System.Threading.Mutex($false, "Local\VigieHistory_$leaf")
+    $got = $false
+    try {
+        try { $got = $mx.WaitOne(2000) }
+        catch [System.Threading.AbandonedMutexException] { $got = $true }
+        catch { $got = $false }
+        if (-not $got) { return $false }
+        [IO.File]::AppendAllText($Path, $Line + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))
+        return $true
+    } finally {
+        if ($got) { try { $mx.ReleaseMutex() } catch { } }
+        try { $mx.Dispose() } catch { }
+    }
+}
+
+# Echantillonne les mesures d'UNE sonde, juste apres son recalcul reussi (appel
+# unique : la boucle de Get-State). Consulte le catalogue, applique l'intervalle
+# minimal via l'index (history-index.json : lastAt/lastValue/lastKey par mesure,
+# ecrit par Update-StateJson donc fusion sous mutex), appende dans
+# var/history/<measureId>.jsonl. Declenche aussi la purge, au plus 1 fois par 24 h.
+# Best-effort de bout en bout : jamais d'echec remonte au recalcul.
+function Write-MeasureSamples {
+    param(
+        [string]$Backend = (Get-BackendRoot),
+        [Parameter(Mandatory)][string]$Probe,
+        [Parameter(Mandatory)]$Modules
+    )
+    try {
+        $ids = @($script:MeasureCatalog.Keys | Where-Object { $script:MeasureCatalog[$_].Probe -eq $Probe })
+        if ($ids.Count -eq 0) { return }
+        $cfg = Get-Config -Backend $Backend
+        $global = Get-HistoryConfig -Backend $Backend -Config $cfg
+        if (-not $global.Enabled) { return }
+        $indexFile = Get-VarPath -Backend $Backend -Kind 'history' -File 'history-index.json'
+        $index = $null
+        if (Test-Path -LiteralPath $indexFile) {
+            try { $index = Get-Content -LiteralPath $indexFile -Raw | ConvertFrom-Json } catch { }
+        }
+        $nowUtc = [datetime]::UtcNow
+        foreach ($id in ($ids | Sort-Object)) {
+            $cat = $script:MeasureCatalog[$id]
+            $eff = Get-HistoryConfig -Backend $Backend -MeasureId $id -Config $cfg
+            if (-not $eff.Enabled) { continue }
+            $sample = $null
+            try { $sample = & $cat.Extract $Modules } catch { $sample = $null }
+            if ($null -eq $sample -or $null -eq $sample.v) { continue }
+            $prop  = if ($index) { $index.PSObject.Properties[$id] } else { $null }
+            $entry = if ($prop) { $prop.Value } else { $null }
+            # Mesure a cle (liee a une mesure externe) : on n'ecrit que si la cle change.
+            # La cle relue passe par ConvertTo-UtcDate : ConvertFrom-Json rend la date
+            # stockee en [datetime] (D44), la comparer telle quelle a la chaine 'o' de
+            # l'extracteur ne matchait JAMAIS -- constate en test, un point par recalcul.
+            if ($sample.key -and $entry -and $entry.lastKey) {
+                $prevKey = "$($entry.lastKey)"
+                try { $prevKey = (ConvertTo-UtcDate $entry.lastKey).ToString('o') } catch { }
+                if ($prevKey -eq "$($sample.key)") { continue }
+            }
+            # Gauge ordinaire : intervalle minimal depuis le dernier point.
+            if ((-not $sample.key) -and $eff.IntervalMinutes -gt 0 -and $entry -and $entry.lastAt) {
+                try {
+                    $last = ConvertTo-UtcDate $entry.lastAt
+                    if ($last -and ($nowUtc - $last).TotalMinutes -lt $eff.IntervalMinutes) { continue }
+                } catch { }
+            }
+            $file = Get-VarPath -Backend $Backend -Kind 'history' -File ($id + '.jsonl')
+            $line = ([ordered]@{ at = $nowUtc.ToString('o'); v = $sample.v } | ConvertTo-Json -Compress -Depth 4)
+            if (Add-HistoryLine -Path $file -Line $line) {
+                $set = @{ lastAt = $nowUtc.ToString('o'); lastValue = $sample.v }
+                if ($sample.key) { $set.lastKey = "$($sample.key)" }
+                try { Update-StateJson -Path $indexFile -Set @{ $id = $set } | Out-Null } catch { }
+            }
+        }
+        # Purge : au plus une fois par 24 h, adossee a un recalcul deja en cours (jamais
+        # de reveil dedie). La date est posee AVANT de purger, pour que deux recalculs
+        # simultanes ne lancent pas deux purges.
+        $due = $true
+        $pp = if ($index) { $index.PSObject.Properties['purgedAt'] } else { $null }
+        if ($pp -and $pp.Value) {
+            try {
+                $p = ConvertTo-UtcDate $pp.Value
+                if ($p -and ($nowUtc - $p).TotalHours -lt 24) { $due = $false }
+            } catch { }
+        }
+        if ($due) {
+            try { Update-StateJson -Path $indexFile -Set @{ purgedAt = $nowUtc.ToString('o') } | Out-Null } catch { }
+            Invoke-HistoryPurge -Backend $Backend
+        }
+    } catch {
+        # L'historique OBSERVE, il n'arbitre pas : jamais d'echec remonte a Get-State.
+        try { Write-Log -Backend $Backend -Name 'state' -Level 'WARN' -Message ("historique : echantillonnage ignore (" + $Probe + ") : " + $_.Exception.Message) } catch { }
+    }
+}
+
+# Purge des fichiers de var/history/ : retention en jours (globale, surchargee par
+# mesure) PLUS plafond de lignes (garde-fou de taille : un intervalle mal regle ne
+# doit pas remplir le disque). Reecriture ATOMIQUE (.tmp + garde + Move-Item) sous
+# le mutex du fichier. Les lignes illisibles (ecriture interrompue) sont eliminees
+# et comptees, jamais bloquantes. probe-runs.jsonl n'est PAS concerne : il vit dans
+# var/cache/ et garde sa purge par taille propre (D52).
+function Invoke-HistoryPurge {
+    param([string]$Backend = (Get-BackendRoot))
+    try {
+        $cfg = Get-Config -Backend $Backend
+        $dir = Get-VarPath -Backend $Backend -Kind 'history'
+        $files = @(Get-ChildItem -Path $dir -Filter '*.jsonl' -File -ErrorAction SilentlyContinue)
+        $nowUtc = [datetime]::UtcNow
+        foreach ($fi in $files) {
+            $id  = [IO.Path]::GetFileNameWithoutExtension($fi.Name)
+            $eff = Get-HistoryConfig -Backend $Backend -MeasureId $id -Config $cfg
+            # Retention <= 0 : la mesure n'est plus echantillonnee, mais on ne vide
+            # jamais une archive existante -- geste manuel uniquement.
+            if ($eff.RetentionDays -le 0) { continue }
+            $cutoff = $nowUtc.AddDays(-$eff.RetentionDays)
+            $leaf = ($fi.Name) -replace '[^A-Za-z0-9]', '_'
+            $mx = New-Object System.Threading.Mutex($false, "Local\VigieHistory_$leaf")
+            $got = $false
+            try {
+                try { $got = $mx.WaitOne(5000) }
+                catch [System.Threading.AbandonedMutexException] { $got = $true }
+                catch { $got = $false }
+                if (-not $got) { continue }
+                $lines = [IO.File]::ReadAllLines($fi.FullName)
+                $keep = New-Object System.Collections.Generic.List[string]
+                $dropped = 0
+                foreach ($l in $lines) {
+                    if ([string]::IsNullOrWhiteSpace($l)) { $dropped++; continue }
+                    $o = $null
+                    try { $o = $l | ConvertFrom-Json } catch { $dropped++; continue }
+                    $at = $null
+                    try { $at = ConvertTo-UtcDate $o.at } catch { }
+                    if (-not $at -or $at -lt $cutoff) { $dropped++; continue }
+                    $keep.Add($l)
+                }
+                if ($eff.MaxLines -gt 0 -and $keep.Count -gt $eff.MaxLines) {
+                    $excess = $keep.Count - $eff.MaxLines
+                    $keep.RemoveRange(0, $excess)
+                    $dropped += $excess
+                }
+                if ($dropped -gt 0) {
+                    $tmp = $fi.FullName + '.tmp'
+                    [IO.File]::WriteAllLines($tmp, $keep, [Text.UTF8Encoding]::new($false))
+                    # Garde de taille : si on garde des lignes, le .tmp ne peut pas etre vide.
+                    $ok = (Test-Path -LiteralPath $tmp) -and ($keep.Count -eq 0 -or (Get-Item -LiteralPath $tmp).Length -gt 0)
+                    if ($ok) { Move-Item -Path $tmp -Destination $fi.FullName -Force }
+                    else { try { Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue } catch { } }
+                    Write-Log -Backend $Backend -Name 'state' -Message ("historique : purge de " + $fi.Name + " : " + $dropped + " ligne(s) retiree(s), " + $keep.Count + " gardee(s)")
+                }
+            } finally {
+                if ($got) { try { $mx.ReleaseMutex() } catch { } }
+                try { $mx.Dispose() } catch { }
+            }
+        }
+    } catch {
+        try { Write-Log -Backend $Backend -Name 'state' -Level 'WARN' -Message ("historique : purge en echec : " + $_.Exception.Message) } catch { }
+    }
+}
+
 function Get-State {
     param(
         [string]$Backend = (Get-BackendRoot),
@@ -1535,6 +1790,9 @@ function Get-State {
                         if ($m) { $cache[$sp.Name] = [ordered]@{ module = $m; at = (Get-Date).ToUniversalTime().ToString('o'); codeStamp = $sp.Stamp } }
                         Write-ProbeRun -Backend $Backend -Probe $sp.Name -Ms $duree -Origin $origine -Outcome ($(if ($m) { 'ok' } else { 'empty' })) -Modules @($m).Count
                         Write-Log -Backend $Backend -Name 'state' -Message ("sonde " + $sp.Name + " recalculee (" + $duree + " ms)")
+                        # Historique : echantillonne les mesures du catalogue APRES un
+                        # recalcul reussi. Best-effort (la fonction n'echoue jamais).
+                        if ($m) { Write-MeasureSamples -Backend $Backend -Probe $sp.Name -Modules @($m) }
                     } catch {
                         Write-ProbeRun -Backend $Backend -Probe $sp.Name -Ms ([int]((Get-Date) - $t0).TotalMilliseconds) -Origin $origine -Outcome 'error' -Detail $_.Exception.Message
                         Write-Log -Backend $Backend -Name 'state' -Level 'ERROR' -Message ("sonde erreur : " + $sp.Name + " : " + $_.Exception.Message)
