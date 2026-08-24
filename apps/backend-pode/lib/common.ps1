@@ -581,9 +581,12 @@ function Get-State {
     if (-not (Test-Path $stateDir)) { New-Item -ItemType Directory -Path $stateDir -Force | Out-Null }
     $defaultTtl = 30
 
-    # Charge le cache existant
+    # Charge le cache existant. TOUJOURS, meme avec -Force : forcer signifie « recalcule »,
+    # pas « oublie tout ». Repartir d'un cache vide faisait disparaitre les modules un a un
+    # du fichier pendant le recalcul, et un lecteur simultane recevait un etat AMPUTE --
+    # une carte s'evanouissait le temps du rafraichissement.
     $cache = @{}
-    if (-not $Force -and (Test-Path $cacheFile)) {
+    if (Test-Path $cacheFile) {
         try { $j = Get-Content $cacheFile -Raw | ConvertFrom-Json; foreach ($pr in $j.PSObject.Properties) { $cache[$pr.Name] = $pr.Value } } catch { }
     }
 
@@ -601,7 +604,8 @@ function Get-State {
         $name = $pf.Name; $stamp = "$($pf.LastWriteTimeUtc.Ticks)"
         $ttl = if ($script:ProbeTtls.ContainsKey($name)) { $script:ProbeTtls[$name] } else { $defaultTtl }
         $entry = $cache[$name]; $fresh = $false
-        if ($entry -and $entry.at -and ("$($entry.codeStamp)" -eq $stamp)) {
+        # -Force : tout est considere perime, sans rien effacer.
+        if (-not $Force -and $entry -and $entry.at -and ("$($entry.codeStamp)" -eq $stamp)) {
             try {
                 $at = ConvertTo-UtcDate $entry.at
                 if ($at -and ($nowUtc - $at).TotalSeconds -lt $ttl) { $fresh = $true }
