@@ -45,6 +45,19 @@ if ($elevated) {
         -Guide "Redémarrez le serveur (il demandera l'UAC) : ce verrou pourra alors être vérifié et appliqué."
 }
 
+# Redemarrage : propose SEULEMENT quand il est utile, et toujours annulable.
+$restartFile = Get-VarPath -Backend $backend -Kind 'cache' -File 'restart.json'
+$restartPending = $false
+try { if (Test-Path $restartFile) { $restartPending = [bool](Get-Content $restartFile -Raw | ConvertFrom-Json).pending } } catch { }
+if ($restartPending) {
+    $actions += New-Action -Id 'system-restart-cancel' -Label 'Annuler le redémarrage' -Severity 'fix' `
+        -BusyLabel 'Annulation…' -Confirm -Help "Annule le redémarrage programmé. Windows reste allumé."
+} elseif ($reboot) {
+    $actions += New-Action -Id 'system-restart' -Label 'Redémarrer Windows' -Severity 'fix' `
+        -BusyLabel 'Redémarrage programmé…' -ConfirmTwice -Kind 'confirm' `
+        -Help "Redémarre Windows dans 60 secondes pour terminer les mises à jour installées. Enregistrez votre travail : toutes les applications seront fermées. Le redémarrage reste annulable pendant le délai."
+}
+
 New-ModuleObject -Id 'wu-lock' -Theme 'windows-update' -Label 'Verrouillage des mises à jour' -Status $status -Fields @(
     New-Field -Key 'autoUpdatesEnabled' -Label 'MAJ automatiques' -Value ([bool](-not $locked)) -Kind 'bool' -Status $(if ($locked) {'ok'} else {'warn'}) `
         -Help "Si Oui, Windows installe les mises à jour et peut redémarrer tout seul. Verrouillé = Non." `
