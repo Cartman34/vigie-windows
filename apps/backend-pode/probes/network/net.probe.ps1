@@ -1,6 +1,8 @@
 <# Sonde : réseau (connectivite / type / nom (SSID) / IP LAN / IP publique / IPv6 / MAC / VPN + débit).
    Detection via System.Net.NetworkInformation (.NET pur, fiable dans le runspace Pode).
-   SSID / etat Wi-Fi via netsh (Invoke-Native : sortie + code de retour traites).
+   Etat Wi-Fi et SSID via l'adaptateur + le profil reseau Windows (lisibles SANS privilege).
+   netsh wlan n'apporte que la force du signal, en bonus : il exige le service de
+   localisation et l'elevation, donc il echoue souvent et ne decide de rien.
    IP publique a la demande (action net-publicip). LECTURE SEULE. #>
 $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $backend 'lib/common.ps1')
@@ -29,13 +31,18 @@ function Format-Mac {
     return '-'
 }
 
-$connected = (Test-InternetActive) -or [bool](Get-NetConnectionProfile -ErrorAction SilentlyContinue |
+# Profils reseau Windows : lus UNE seule fois. Ils servent a la connectivite ET au nom
+# du reseau — pour une interface sans fil, le nom du profil EST le SSID.
+$profiles = @()
+try { $profiles = @(Get-NetConnectionProfile -ErrorAction Stop) } catch { }
+
+$connected = (Test-InternetActive) -or [bool]($profiles |
     Where-Object { $_.IPv4Connectivity -eq 'Internet' -or $_.IPv6Connectivity -eq 'Internet' })
 
 $nics = @()
 try {
-    $nics = [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces() |
-            Where-Object { $_.OperationalStatus -eq 'Up' -and $_.NetworkInterfaceType -ne 'Loopback' }
+    $nics = @([System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces() |
+              Where-Object { $_.OperationalStatus -eq 'Up' -and $_.NetworkInterfaceType -ne 'Loopback' })
 } catch { }
 
 $primary = $null
@@ -73,23 +80,112 @@ if ($primary) {
     $mac = Format-Mac $primary
 }
 
-$hasWifi = [bool]($nics | Where-Object { "$($_.NetworkInterfaceType)" -eq 'Wireless80211' })
-$ssid = ''; $wifiState = ''; $signal = ''
-if ($hasWifi) {
+# --- Etat Wi-Fi -------------------------------------------------------------------
+# L'ancienne version confiait l'etat a « netsh wlan show interfaces ». Cette commande
+# exige le service de localisation ET l'elevation ; quand elle echoue (cas courant :
+# « WlanQueryInterface renvoie l'erreur 5 »), l'etat restait vide et le champ AFFIRMAIT
+# « non connecté » alors que la machine etait associee a un reseau. On ne devine plus :
+# l'etat vient de l'adaptateur (Get-NetAdapter, repli .NET) et le SSID du profil reseau,
+# tous deux lisibles sans privilege. netsh ne sert plus qu'au bonus « force du signal ».
+$wifiAdapter = $null
+try {
+    $wifiAdapter = Get-NetAdapter -Physical -ErrorAction Stop |
+                   Where-Object { "$($_.PhysicalMediaType)" -match '802\.11' } | Select-Object -First 1
+} catch { }
+
+# Interface .NET correspondante : c'est elle qui porte adresses et passerelle. Le repli
+# ecarte les pseudo-adaptateurs (pilotes de filtrage, Wi-Fi Direct) : eux n'ont jamais
+# de passerelle.
+$wifiNic = $null
+try {
+    if ($wifiAdapter) { $wifiNic = $nics | Where-Object { $_.Name -eq $wifiAdapter.Name } | Select-Object -First 1 }
+    if (-not $wifiNic) {
+        $wifiNic = $nics | Where-Object {
+            "$($_.NetworkInterfaceType)" -eq 'Wireless80211' -and $_.GetIPProperties().GatewayAddresses.Count -gt 0
+        } | Select-Object -First 1
+    }
+} catch { }
+$hasWifi = [bool]($wifiAdapter -or $wifiNic)
+
+$wifiAlias = if ($wifiAdapter) { "$($wifiAdapter.Name)" } elseif ($wifiNic) { "$($wifiNic.Name)" } else { '' }
+$wifiProfile = if ($wifiAlias) { $profiles | Where-Object { $_.InterfaceAlias -eq $wifiAlias } | Select-Object -First 1 } else { $null }
+$ssid = if ($wifiProfile) { "$($wifiProfile.Name)" } else { '' }
+
+# Get-NetAdapter distingue « pas associe » de « desactive » et de « absent ». Sans lui,
+# on ne sait dire que « le lien est actif », et seulement si l'interface remonte.
+$wifiUp = $false; $wifiState = 'état inconnu'
+if ($wifiAdapter) {
+    switch ("$($wifiAdapter.Status)") {
+        'Up'           { $wifiUp = $true; $wifiState = 'Connecté' }
+        'Disconnected' { $wifiState = 'Non connecté' }
+        'Disabled'     { $wifiState = 'Adaptateur désactivé' }
+        'Not Present'  { $wifiState = 'Adaptateur absent' }
+        default        { $wifiState = "$($wifiAdapter.Status)" }
+    }
+} elseif ($wifiNic) { $wifiUp = $true; $wifiState = 'Connecté' }
+
+# Bonus : la force du signal radio n'existe que dans netsh. Son echec est previsible et
+# ne doit rien changer a l'etat affiche ; on retient seulement qu'elle est indisponible.
+$signal = ''; $signalReadable = $false
+if ($wifiUp) {
     try {
         $w = Invoke-Native -File 'netsh.exe' -Arguments @('wlan','show','interfaces')
         if ($w.Ok) {
+            $signalReadable = $true
             foreach ($line in ($w.Output -split "`r?`n")) {
                 if ($line -match 'BSSID') { continue }
-                if     ($line -match '^\s*SSID\s*:\s*(.+?)\s*$')                { $ssid = $Matches[1] }
-                elseif ($line -match '^\s*(?:État|Etat|State)\s*:\s*(.+?)\s*$') { $wifiState = $Matches[1] }
-                elseif ($line -match '^\s*Signal\s*:\s*(.+?)\s*$')             { $signal = $Matches[1] }
+                if     ($line -match '^\s*Signal\s*:\s*(.+?)\s*$')            { $signal = $Matches[1] }
+                elseif (-not $ssid -and $line -match '^\s*SSID\s*:\s*(.+?)\s*$') { $ssid = $Matches[1] }
             }
         }
     } catch { }
 }
-$netName = if ($ssid) { $ssid } elseif ($primary) { $primary.Name } else { '-' }
-$wifiText = if ($wifiState) { if ($signal) { "$wifiState ($signal)" } else { $wifiState } } else { 'non connecté' }
+$linkSpeed = if ($wifiAdapter -and $wifiAdapter.LinkSpeed) { "$($wifiAdapter.LinkSpeed)" } else { '' }
+
+$wifiText = if (-not $wifiUp)      { $wifiState }
+            elseif ($ssid -and $signal) { "Connecté à $ssid ($signal)" }
+            elseif ($ssid)         { "Connecté à $ssid" }
+            elseif ($signal)       { "Connecté ($signal)" }
+            else                   { 'Connecté' }
+
+# Un Wi-Fi eteint n'est pas un probleme en soi (cable Ethernet branche, mode Avion
+# voulu) : c'est la ligne « Connexion Internet » qui porte l'alerte. On reste neutre
+# tant qu'Internet repond par ailleurs.
+$wifiStatus = if ($wifiUp) { 'ok' } elseif (-not $connected) { 'warn' } else { 'neutral' }
+
+$wifiGuide = if ($wifiUp) {
+    "Ce que c'est : l'état de l'association entre l'adaptateur Wi-Fi de ce PC et un réseau sans fil." +
+    $(if ($ssid) { " Ici : associé au réseau « $ssid »." } else { " Ici : associé à un réseau." }) +
+    $(if ($linkSpeed) { " Débit négocié du lien radio : $linkSpeed." } else { '' }) + "`n`n" +
+    "Le problème : aucun. Le lien radio est établi.`n`n" +
+    $(if ($signal) {
+        "Force du signal : $signal. En dessous de 50 %, rapprochez-vous du point d'accès ou changez de bande (5 GHz plus rapide, 2,4 GHz plus lointaine)."
+    } elseif ($signalReadable) {
+        "La force du signal n'a pas été renvoyée par Windows pour cet adaptateur ; cela n'affecte pas la connexion."
+    } else {
+        "La force du signal n'est pas affichée : elle ne se lit que via « netsh wlan », qui exige le service de localisation de Windows (et des droits administrateur). Pour l'obtenir : Paramètres > Confidentialité et sécurité > Localisation, puis autoriser les applications de bureau. Ce refus n'a aucun effet sur la connexion elle-même."
+    })
+} else {
+    "Ce que c'est : l'état de l'association entre l'adaptateur Wi-Fi de ce PC et un réseau sans fil. Ici : $wifiState.`n`n" +
+    "Le problème : aucun réseau sans fil n'est associé à cet adaptateur." +
+    $(if ($connected) { " L'accès à Internet passe par une autre interface ($connType), donc rien n'est bloqué pour l'instant." }
+      else { " Et aucune autre interface ne fournit d'accès à Internet : la machine est hors ligne." }) + "`n`n" +
+    "Les issues possibles :`n" +
+    "- le Wi-Fi est coupé : mode Avion, interrupteur physique ou touche Fn du clavier ;`n" +
+    "- la connexion a été perdue : rouvrez la liste des réseaux (Paramètres > Réseau et Internet > Wi-Fi) et reconnectez-vous ;`n" +
+    "- la box ou le point d'accès n'émet plus : vérifiez-le depuis un autre appareil ;`n" +
+    "- l'adaptateur est désactivé : réactivez-le (Paramètres > Réseau et Internet > Paramètres réseau avancés) ;`n" +
+    "- l'adaptateur est absent : le pilote n'est pas chargé, regardez le Gestionnaire de périphériques."
+}
+
+# Nom du reseau : le profil Windows de l'interface principale — pour du Wi-Fi, c'est le
+# SSID. Une seule source, celle qui reste lisible sans autorisation de localisation.
+$primaryProfile = $null
+if ($primary) { $primaryProfile = $profiles | Where-Object { $_.InterfaceAlias -eq $primary.Name } | Select-Object -First 1 }
+$netName = if ($primaryProfile) { "$($primaryProfile.Name)" }
+           elseif ($ssid -and $connType -eq 'Wi-Fi') { $ssid }
+           elseif ($primary) { $primary.Name }
+           else { '-' }
 
 $adapterLines = @()
 $adapterRows  = @()
@@ -131,7 +227,9 @@ $fields = @(
     New-Field -Key 'netName'  -Label 'Réseau (nom)' -Value $netName -Kind 'text' -Status 'neutral' -Help "Nom du réseau : SSID en Wi-Fi, sinon nom de l'interface."
 )
 if ($hasWifi) {
-    $fields += New-Field -Key 'wifi' -Label 'État Wi-Fi' -Value $wifiText -Kind 'text' -Status $(if ($wifiState -match 'connect') {'ok'} else {'neutral'}) -Help "État de l'adaptateur Wi-Fi (connecté + force du signal)."
+    $fields += New-Field -Key 'wifi' -Label 'État Wi-Fi' -Value $wifiText -Kind 'text' -Status $wifiStatus `
+        -Help "État de l'adaptateur Wi-Fi : réseau associé, et force du signal quand Windows en autorise la lecture." `
+        -Guide $wifiGuide
 }
 $fields += @(
     New-Field -Key 'ip'  -Label 'IP locale (LAN)' -Value $ip  -Kind 'text' -Status 'neutral' -Help "Adresse IPv4 privée de l'interface portant la route par défaut (réseau local)."

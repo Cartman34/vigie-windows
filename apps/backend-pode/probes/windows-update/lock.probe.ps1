@@ -27,7 +27,11 @@ $aclLock = Test-UpdateTasksAclLock
 
 # Statut de la CARTE = sante fonctionnelle. Les MAJ auto coupees (NoAutoUpdate) = fonction OK.
 # Le verrou ACL, s'il manque, reste un avertissement de LIGNE (sans impact) mais ne degrade pas la carte.
-$status = if ($reboot) { 'error' } elseif ($locked) { 'ok' } else { 'warn' }
+# Le redemarrage en attente ne met PLUS la carte en erreur : le champ correspondant vaut
+# « warn » (issue normale d'une MAJ installee, cf. plus bas), et une carte ne peut pas etre
+# plus grave que le pire de ses champs — sinon l'utilisateur lit « Problème » sans trouver
+# une seule ligne en rouge. C'est New-ModuleObject qui garantit desormais cette borne.
+$status = if ($reboot -or -not $locked) { 'warn' } else { 'ok' }
 
 $fullyLocked = $locked -and $aclLock   # verrou complet = MAJ auto coupees ET verrou ACL applique
 $actions = @()
