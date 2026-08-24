@@ -259,9 +259,9 @@
   .theme-prev-card{border-radius:6px;padding:8px 14px;font-weight:700;font-size:14px;
                    box-shadow:0 2px 8px rgba(0,0,0,.25)}
   .theme-nom{font-size:12.5px;font-weight:600;text-align:center}
-  .um-dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto;background:var(--border)}
-  .um-dot.ok{background:var(--ok)} .um-dot.warn{background:var(--warn)}
-  .um-dot.error{background:var(--err)}
+  .um-param{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:11.5px;
+            color:var(--muted);cursor:pointer;white-space:nowrap}
+  .um-param input{accent-color:var(--accent)}
   .apropos-l{display:flex;justify-content:space-between;gap:12px;font-size:13px;
              padding:6px 0;border-bottom:1px dashed var(--border)}
   .apropos-l span{color:var(--muted)}
@@ -1375,9 +1375,12 @@ async function renderTabNotifs(pane){
 async function renderTabModules(pane){
   const units=lastUnits||[];
   if(!units.length){ pane.innerHTML='<div class="drawer-empty">Aucun module connu (maquette&nbsp;?).</div>'; return; }
-  pane.innerHTML='<p class="um-hint">Couper un module retire ses cartes et ses calculs ; il reste listé ici pour être rallumé. Les notifications se règlent dans l’onglet dédié.</p>'+units.map(u=>{
+  const cfg=await getNotifCfg();
+  const on=id=> (id in cfg.modules)? !!cfg.modules[id] : true;
+  pane.innerHTML='<p class="um-hint">Couper un module retire ses cartes et ses calculs ; il reste listé ici pour être rallumé. Chaque carte expose ses paramètres — aujourd’hui, sa notification.</p>'+units.map(u=>{
     const cards=(lastModules||[]).filter(m=>m.theme===u.id);
-    const lignes=cards.map(m=>'<div class="um-card"><span class="um-dot '+(m.status||'neutral')+'"></span><span>'+esc(m.label)+'</span></div>').join('');
+    const lignes=cards.map(m=>'<div class="um-card"><span>'+esc(m.label)+'</span>'
+      +'<label class="um-param"><input type="checkbox" data-unotif="'+esc(m.id)+'"'+(on(m.id)?' checked':'')+'>notification</label></div>').join('');
     return '<div class="um'+(u.enabled?'':' off')+'" id="um-'+esc(u.id)+'">'
       +'<div class="um-head"><div class="um-t"><b>'+esc(u.label)+'</b><small>'+esc(u.description||'')+'</small></div>'
       +'<label class="um-sw"><input type="checkbox" data-unit="'+esc(u.id)+'"'+(u.enabled?' checked':'')+'>'
@@ -1385,6 +1388,11 @@ async function renderTabModules(pane){
       +(u.enabled ? lignes : '<div class="um-note">Module coupé : ses cartes ne sont ni calculées ni affichées.</div>')
       +'</div>';
   }).join('');
+  pane.querySelectorAll('[data-unotif]').forEach(c=>{ c.onchange=async()=>{
+    const modules={}; modules[c.getAttribute('data-unotif')]=c.checked;
+    try{ await postNotif({modules}); }
+    catch(e){ c.checked=!c.checked; toast('Réglage impossible : '+(e.message||e)); }
+  }; });
   pane.querySelectorAll('[data-unit]').forEach(c=>{ c.onchange=async()=>{
     const id=c.getAttribute('data-unit');
     c.disabled=true;
