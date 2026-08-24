@@ -65,7 +65,9 @@ démarrage (orange) / erreur ou arrêt (rouge). Jamais l'état des composants.
 
 - Générée à l'identique de **D01** par `apps/tray/assets/generate-icons.py` (PIL)
   → `ok.ico` / `warn.ico` / `error.ico` (multi-résolutions 16→256).
-- Chargées par `tray.ps1` (fonction `setIcon`), avec repli sur le dessin GDI+ si un fichier manque.
+- Chargées par `tray.ps1` (fonction `setIcon`). *Mis à jour :* le repli GDI+ décrit ici a été
+  **supprimé** (**D38**) ; en cas d'échec de lecture, un simple disque de la couleur du statut
+  est dessiné et l'échec est journalisé.
 
 ## D03 — Nom du projet
 

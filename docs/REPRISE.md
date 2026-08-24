@@ -92,7 +92,43 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
     choix — c'est une passe fichier par fichier, jamais un `sed`. Concerne aussi les
     identifiants encore français (`$cible`, `$ecarts`, paramètre `-Verifier` de
     `scripts/install-hooks.ps1`).
-12. **Écran de chargement (splash) jamais validé à l'œil** par l'utilisateur (**D08**).
+12. ~~Écran de chargement (splash) jamais validé~~ — **VU et réglé** par l'utilisateur :
+    jauge montant par crans en boucle, vert fixe, sous-titre à 16 px du nom.
+13. **Vue de gestion des modules** — à concevoir, **arbitrage en attente**.
+
+    Besoin : activer/désactiver les modules et régler la configuration de chacun.
+
+    **Le découpage est le vrai sujet, pas la vue.** Aujourd'hui le contrat ne connaît que
+    deux niveaux : `theme` (le groupe affiché) et `module` (une carte). Or un module au sens
+    de l'utilisateur peut produire **plusieurs cartes** — « Windows Update » en donne trois
+    (historique, verrouillage, mises à jour en attente) — et recouvre à peu près, mais pas
+    exactement, un thème. Il manque donc un niveau : l'unité **fonctionnelle** qu'on active,
+    désactive et configure, distincte de la carte qui l'affiche.
+
+    Conséquences à trancher avant d'écrire une ligne :
+    - un troisième niveau dans le contrat (`unit` / `feature`) qui possède ses cartes, ou
+      bien un `theme` enrichi qui devient cette unité ?
+    - une sonde = une carte aujourd'hui ; si l'unité regroupe des sondes, qui porte
+      l'activation — le fichier de sonde, ou une déclaration à part ?
+    - où vit la configuration d'un module : `config.psd1` du backend, ou un fichier par
+      module sous `apps/backend-pode/config/modules/` ?
+    - un module désactivé disparaît-il de `/state`, ou y figure-t-il avec un drapeau ?
+      (Le premier est plus simple, le second permet de le réactiver depuis la vue.)
+
+    Forme de la vue : proposition faite à l'utilisateur, en attente de réponse.
+14. **Améliorations mineures repérées** (passe de cohérence du 2026-08-24, aucune bloquante) :
+    - `apps/atelier/index.html` écrit son propre port dans deux messages ; `location.origin`
+      supprimerait la recopie ;
+    - `Invoke-Native` juge `Ok` sur « code = 0 » seul : le cas 3010 (« redémarrage requis »,
+      qui est un succès) n'est traité que dans `Invoke-PkgUpgrade`. À généraliser si un autre
+      appelant installe des paquets ;
+    - `openapi.yaml` écrit le port dans `servers.url` — documentation, mais c'est une
+      deuxième source pour une valeur qui vit dans `config.psd1` ;
+    - `wu-install.json` conserve `phase = termine` indéfiniment : la carte affiche « Dernière
+      installation » sans limite d'âge. Volontaire pour l'instant, à revoir si ça encombre ;
+    - `.claude/settings.json` porte `disableAllHooks: true`, posé pour tenter de désactiver
+      l'aperçu automatique (**D47**) : **à retester après un redémarrage de session**, et à
+      retirer s'il ne sert à rien.
 
 ## Décisions validées
 Voir `docs/DECISIONS-VALIDEES.md` : icône tray = option B (graduations + talon confirmés) ; nom = dépôt « Vigie Windows » (slug `vigie-windows`), interface « Vigie » à la place de « Control Panel ».

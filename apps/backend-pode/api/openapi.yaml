@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Vigie API
-  version: "1.0.0"
+  version: "0.1.0"
   description: >
     Contrat REST du panneau de controle local. SOURCE DE VERITE : le front et
     tout back (Pode, Node, .NET, Go, PHP...) doivent s'y conformer. L'etat est
@@ -18,7 +18,16 @@ paths:
       summary: Verifie que le service repond
       security: []
       responses:
-        "200": { description: OK }
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:  { type: string, enum: [ok] }
+                  version: { type: string, description: "version LISIBLE du produit, prefixee (ex. v0.1)" }
+                  build:   { type: string, description: "jeton de changement, jamais affiche : le front recharge la page quand il differe du sien" }
   /state:
     get:
       summary: Instantane complet de l'etat (tous les modules)
@@ -63,24 +72,15 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Job" }
-        "202":
-          description: Action longue acceptee (suivre via /actions/{jobId})
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Job" }
         "400": { description: Requete invalide }
-  /actions/{jobId}:
-    get:
-      summary: Statut d'une action longue
-      parameters:
-        - { name: jobId, in: path, required: true, schema: { type: string } }
-      responses:
-        "200":
-          description: Statut
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Job" }
-        "404": { description: Job inconnu }
+      description: >
+        Une action LONGUE renvoie elle aussi 200, avec result.async = true et
+        result.module : le client suit alors ce module jusqu'a ce que son champ `busy`
+        retombe a faux. Aucun code 202 n'est emis.
+  # NOTE : il n'existe PAS de route /actions/{jobId}. Elle a ete decrite ici sans jamais
+  # etre implementee, et retiree du contrat le 2026-08-24. Le suivi d'une action longue se
+  # fait en relisant le module concerne (GET /modules/{id}) : son champ `busy` retombe a
+  # faux quand la tache de fond se termine.
 components:
   securitySchemes:
     bearerAuth:
@@ -125,6 +125,11 @@ components:
         actions:
           type: array
           items: { $ref: "#/components/schemas/Action" }
+        busy:
+          type: boolean
+          description: >
+            Une tache de fond travaille sur ce module. Le client garde la carte en
+            attente tant que ce drapeau est vrai ; sa disparition vaut fin de tache.
     Field:
       type: object
       required: [key, label, value, kind]
@@ -155,7 +160,7 @@ components:
         label: { type: string }
         confirm: { type: boolean, description: demander confirmation avant execution }
         help: { type: string, description: explication affichee en tooltip et dans la confirmation }
-        kind: { type: string, enum: [immediate, confirm, manual], description: nature de l'action (icone) }
+        kind: { type: string, enum: [immediate, confirm, dialog, manual], description: "nature de l'action : immediate=part aussitot, confirm=oui/non, dialog=fenetre de choix dans l'app, manual=logiciel externe" }
         params:
           type: object
           additionalProperties: true
@@ -180,3 +185,13 @@ components:
         result:
           type: object
           additionalProperties: true
+          properties:
+            ok:     { type: boolean, description: "echec LOGIQUE meme si HTTP 200" }
+            async:  { type: boolean, description: "tache de fond lancee : suivre `module`" }
+            module: { type: string,  description: "module a suivre jusqu'a busy = false" }
+            choose: { type: boolean, description: "le client doit ouvrir une fenetre de choix puis rappeler `action`" }
+            action: { type: string,  description: "action a rappeler avec la selection (accompagne `choose`)" }
+            invalidate:
+              type: array
+              items: { type: string }
+              description: "sondes dont le cache est invalide par cette action" 
