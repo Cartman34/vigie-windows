@@ -269,6 +269,14 @@
   .hds-choice-bar{display:flex;align-items:center;gap:12px;margin-bottom:8px;font-size:12.5px}
   .hds-lnk{background:none;border:none;color:var(--accent);cursor:pointer;padding:0;font:inherit;text-decoration:underline}
   .hds-count{margin-left:auto;color:var(--muted);font-variant-numeric:tabular-nums}
+  .hds-table{width:100%;border-collapse:collapse;font-size:12.5px}
+  .hds-table th{text-align:left;font-weight:700;color:var(--muted);text-transform:uppercase;
+                letter-spacing:.5px;font-size:11px;padding:6px 10px 6px 0;border-bottom:1px solid var(--border);
+                position:sticky;top:0;background:var(--panel)}
+  .hds-table td{padding:6px 10px 6px 0;border-bottom:1px solid var(--border);vertical-align:top;
+                word-break:break-word}
+  .hds-table tr:last-child td{border-bottom:none}
+  .hds-table td:nth-child(n+3){font-variant-numeric:tabular-nums;white-space:nowrap}
   .hds-loading{display:flex;align-items:center;gap:9px;color:var(--muted);padding:14px 2px}
   .hds-choices{display:flex;flex-direction:column;gap:2px}
   .hds-choice{display:grid;grid-template-columns:auto 1fr;gap:4px 9px;align-items:start;
@@ -532,8 +540,9 @@ function cardHtml(m, groupLabel){
     // Un detail COURT se deplie dans la carte ; un detail LONG ouvre une fenetre. Deplie
     // dans la carte, il la fait exploser en hauteur et noie le reste du tableau de bord
     // -- constate sur la liste des interfaces reseau, plusieurs dizaines de lignes.
-    const detLong = !!detTxt && (detTxt.length > 400 || detTxt.split(String.fromCharCode(10)).length > 8);
-    const clicDetail = detTxt ? (detLong ? `ouvrirDetail('${key}')` : 'toggleDetail(this)') : '';
+    const aTable  = !!(f.table && f.table.rows && f.table.rows.length);
+    const detLong = aTable || (!!detTxt && (detTxt.length > 400 || detTxt.split(String.fromCharCode(10)).length > 8));
+    const clicDetail = (detTxt||aTable) ? (detLong ? `ouvrirDetail('${key}')` : 'toggleDetail(this)') : '';
     const info=(f.help||f.guide)?`<button class="fhelp ${stt}" title="${help}" onclick="${clicDetail||'toggleDetail(this)'}"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5.5" r="2.3"/><rect x="9.7" y="9.5" width="4.6" height="10.5" rx="2.3"/></svg></button>`:'';
     const solveLbl = fa ? fa.label : 'Résoudre';
     if(isProblem && f.fixAction) usedAsFix.add(f.fixAction);
@@ -541,7 +550,7 @@ function cardHtml(m, groupLabel){
     const solve=(isProblem && f.fixAction)?`<button class="fsolve ${stt} k-${fkind} sev-${fsev}" title="${esc(solveLbl)} — ${KIND_LABEL[fkind]}" onclick="solveField('${key}',this)">${ICONS[fkind]||''}<span>${esc(solveLbl)}</span></button>`:'';
     const det = (detTxt && !detLong) ? `<div class="field-detail ${stt}${open}" data-k="${key}">${esc(detTxt)}</div>` : '';
     return `<div class="frow">
-      <div class="field"><span class="k"><span class="fdot ${stt}"></span><span class="fk-label${detTxt?' clickable':''}"${help?` title="${help}"`:''}${detTxt?(detLong?` onclick="ouvrirDetail('${key}')"`:' onclick="toggleDetail(this)"'):''}>${f.label}</span>${info}</span><span class="v v-${stt}">${fmt(f)}</span></div>
+      <div class="field"><span class="k"><span class="fdot ${stt}"></span><span class="fk-label${(detTxt||aTable)?' clickable':''}"${help?` title="${help}"`:''}${clicDetail?` onclick="${clicDetail}"`:''}>${f.label}</span>${info}</span><span class="v v-${stt}">${fmt(f)}</span></div>
       ${det}
       ${solve?`<div class="frow-actions">${solve}</div>`:''}
     </div>`;
@@ -740,6 +749,16 @@ function toggleDetail(btn){
 // Detail long : fenetre dediee. Elle a la place et le defilement qu'une carte n'a pas.
 function ouvrirDetail(key){
   const f=fieldsByKey[key]; if(!f) return;
+  if(f.table && f.table.rows && f.table.rows.length){
+    const cols=f.table.columns||[];
+    const html = '<table class="hds-table"><thead><tr>'
+      + cols.map(c=>'<th>'+esc(c)+'</th>').join('')
+      + '</tr></thead><tbody>'
+      + f.table.rows.map(r=>'<tr>'+(r||[]).map(v=>'<td>'+esc(v===null||v===undefined?'':String(v))+'</td>').join('')+'</tr>').join('')
+      + '</tbody></table>';
+    HDS.open({ title:f.label, html, variant:'info' });
+    return;
+  }
   HDS.info(f.label, f.guide || f.help || 'Aucun détail disponible.', {variant:'info'});
 }
 function solveField(key,btn){
