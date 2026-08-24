@@ -243,6 +243,7 @@
   .hds-choice-bar{display:flex;align-items:center;gap:12px;margin-bottom:8px;font-size:12.5px}
   .hds-lnk{background:none;border:none;color:var(--accent);cursor:pointer;padding:0;font:inherit;text-decoration:underline}
   .hds-count{margin-left:auto;color:var(--muted);font-variant-numeric:tabular-nums}
+  .hds-loading{display:flex;align-items:center;gap:9px;color:var(--muted);padding:14px 2px}
   .hds-choices{display:flex;flex-direction:column;gap:2px}
   .hds-choice{display:grid;grid-template-columns:auto 1fr;gap:4px 9px;align-items:start;
               padding:7px 8px;border-radius:8px;cursor:pointer}
@@ -484,8 +485,8 @@ function toggleGroup(id){
 // Rendu d'UNE carte (reutilise par le rendu complet ET le rafraichissement par carte).
 function cardHtml(m, groupLabel){
   const st=['ok','warn','error','neutral'].includes(m.status)?m.status:'neutral';
-  const stTxt={ok:'Conforme',warn:'À surveiller',error:'Problème',neutral:'Non évalué'}[st];
-  const stIc={ok:'✓',warn:'!',error:'✕',neutral:'–'}[st];
+  const stTxt={ok:'Conforme',warn:'À voir',error:'Problème'}[st];
+  const stIc={ok:'✓',warn:'!',error:'✕'}[st];
   const actById={}; (m.actions||[]).forEach(a=>{ actById[a.id]=a; });
   const usedAsFix=new Set();
   const fields=(m.fields||[]).map(f=>{
@@ -520,12 +521,12 @@ function cardHtml(m, groupLabel){
     const kind=a.kind||'immediate';
     const bcls=busy?' busy':''; const dis=busy?' disabled':'';
     const inner=busy?'<span class="spin"></span>En cours…':`${ICONS[kind]||''}<span>${a.label}</span>`;
-    return `<button class="act k-${kind}${bcls}"${dis} data-a="${a.id}" data-m="${m.id}" data-c="${a.confirm?1:0}" data-h="${h}" title="${h||a.label}">${inner}</button>`;
+    return `<button class="act k-${kind}${bcls}"${dis} data-a="${a.id}" data-m="${m.id}" data-c="${a.confirm?1:0}" data-k="${kind}" data-h="${h}" title="${h||a.label}">${inner}</button>`;
   }).join('');
   return `<div class="card st-${st}${m.busy?' busy':''}" data-module="${m.id}" data-theme="${m.theme}">
     <div class="card-head">
       <div class="card-titles"><span class="card-group">${esc(groupLabel||'')}</span><span class="name">${m.label}</span></div>
-      <span class="badge ${st}"><span class="ic">${stIc}</span>${stTxt}</span>
+      ${stTxt?`<span class="badge ${st}"><span class="ic">${stIc}</span>${stTxt}</span>`:''}
       <button class="card-refresh" title="Rafraîchir cette carte" onclick="refreshCard('${m.id}',this)"><span class="cr-ic">↻</span></button>
     </div>
     <div class="fields">${fields}</div>
@@ -534,7 +535,7 @@ function cardHtml(m, groupLabel){
 }
 
 function wireCardActions(root){
-  (root||document).querySelectorAll('.actions button').forEach(b=>b.onclick=()=>doAction(b.dataset.a,b.dataset.m,b.dataset.c==='1',b.textContent,b.dataset.h,b));
+  (root||document).querySelectorAll('.actions button').forEach(b=>b.onclick=()=>doAction(b.dataset.a,b.dataset.m,b.dataset.c==='1',b.textContent,b.dataset.h,b,null,b.dataset.k));
 }
 
 function renderState(s, mode){
@@ -707,7 +708,7 @@ function toggleDetail(btn){
 function solveField(key,btn){
   const f=fieldsByKey[key]; if(!f) return;
   const text=f.guide||f.help||'Aucune instruction disponible.';
-  if(f.fixAction){ doAction(f.fixAction, f.moduleId, f.fixConfirm!==false, 'Résoudre : '+f.label, text, btn); }
+  if(f.fixAction){ doAction(f.fixAction, f.moduleId, f.fixConfirm!==false, 'Résoudre : '+f.label, text, btn, null, f.fixKind); }
   else { openModal('Résoudre : '+f.label, text); }
 }
 // ===== Design system : Dialog reutilisable (modales in-app) =====
@@ -791,36 +792,71 @@ const HDS = (function(){
   // Fenetre de CHOIX : une case a cocher par element, resultat = tableau d'identifiants
   // retenus, ou null si l'utilisateur annule. Rien n'est preselectionne par defaut quand
   // `tousCoches` est faux : une action qui installe ne doit pas partir sur un choix subi.
+  // Fenetre de CHOIX : une case a cocher par element, resultat = tableau d'identifiants
+  // retenus, ou null si l'utilisateur annule.
+  //
+  // Elle s'ouvre IMMEDIATEMENT. Si les elements doivent etre charges (`charger`), la
+  // fenetre affiche un chargeur et garde son bouton de validation desactive, puis se
+  // remplit. Attendre le serveur AVANT d'ouvrir donnait un clic sans reaction visible :
+  // l'utilisateur ne savait pas si son clic avait ete pris.
   function choose(opts){
     opts=opts||{};
-    const items=opts.items||[];
     const cocheDefaut = opts.tousCoches!==false;
-    const lignes = items.map((it,i)=>
+    let items = opts.items || [];
+
+    const ligne = it =>
       '<label class="hds-choice"><input type="checkbox" value="'+esc(it.id)+'"'+(cocheDefaut?' checked':'')+'>'
       + '<span class="hds-choice-t">'+esc(it.titre)+'</span>'
       + (it.detail?'<span class="hds-choice-d">'+esc(it.detail)+'</span>':'')
-      + '</label>').join('');
-    const entete = opts.intro ? '<p class="hds-intro">'+esc(opts.intro)+'</p>' : '';
+      + '</label>';
     const barre = '<div class="hds-choice-bar"><button type="button" class="hds-lnk" id="hdsAll">Tout cocher</button>'
                 + '<button type="button" class="hds-lnk" id="hdsNone">Tout décocher</button>'
                 + '<span class="hds-count" id="hdsCount"></span></div>';
-    const p = open({ title:opts.title||'Choisir', html: entete+barre+'<div class="hds-choices">'+lignes+'</div>',
+    const corps = (intro, dedans) =>
+      (intro ? '<p class="hds-intro">'+esc(intro)+'</p>' : '') + barre + '<div class="hds-choices">'+dedans+'</div>';
+    const chargeur = '<div class="hds-loading"><span class="spin"></span> Lecture en cours…</div>';
+
+    const p = open({ title:opts.title||'Choisir',
+      html: corps(opts.intro, opts.charger ? chargeur : items.map(ligne).join('')),
       variant:opts.variant||'info', cancelValue:null,
       actions:[ {label:opts.cancelLabel||'Annuler',kind:'ghost',value:null},
                 {label:opts.confirmLabel||'Valider',kind:'primary',value:'__ok__',default:true} ] });
+
     const boites=()=>[...elBody.querySelectorAll('input[type=checkbox]')];
-    const maj=()=>{ const n=boites().filter(b=>b.checked).length;
-                    const c=elBody.querySelector('#hdsCount'); if(c) c.textContent=n+' / '+items.length+' sélectionnée(s)';
-                    const v=elFoot.querySelector('[data-default]'); if(v) v.disabled=(n===0); };
-    elBody.querySelector('#hdsAll') && (elBody.querySelector('#hdsAll').onclick=()=>{ boites().forEach(b=>b.checked=true); maj(); });
-    elBody.querySelector('#hdsNone') && (elBody.querySelector('#hdsNone').onclick=()=>{ boites().forEach(b=>b.checked=false); maj(); });
-    boites().forEach(b=>b.addEventListener('change',maj));
-    // Les cases sont lues AVANT la fermeture : apres, le corps de la fenetre est reecrit.
-    let retenus=null;
-    const veille=setInterval(()=>{ retenus=boites().filter(b=>b.checked).map(b=>b.value); },120);
-    retenus=boites().filter(b=>b.checked).map(b=>b.value);
-    maj();
-    return p.then(v=>{ clearInterval(veille); return v==='__ok__' ? retenus : null; });
+    const valider=()=>elFoot.querySelector('[data-default]');
+    let retenus=[];
+    const maj=()=>{
+      retenus = boites().filter(b=>b.checked).map(b=>b.value);
+      const c=elBody.querySelector('#hdsCount');
+      if(c) c.textContent = items.length ? (retenus.length+' / '+items.length+' sélectionnée(s)') : '';
+      const v=valider(); if(v) v.disabled = (retenus.length===0);
+    };
+    const brancher=()=>{
+      const a=elBody.querySelector('#hdsAll'), n=elBody.querySelector('#hdsNone');
+      if(a) a.onclick=()=>{ boites().forEach(b=>b.checked=true); maj(); };
+      if(n) n.onclick=()=>{ boites().forEach(b=>b.checked=false); maj(); };
+      boites().forEach(b=>b.addEventListener('change',maj));
+      maj();
+    };
+    brancher();
+
+    if(opts.charger){
+      // Le bouton reste desactive tant qu'il n'y a rien a valider.
+      const v=valider(); if(v) v.disabled=true;
+      opts.charger().then(res=>{
+        items = (res && res.items) || [];
+        const intro = (res && res.intro) || opts.intro;
+        if(!items.length){
+          elBody.innerHTML = '<p class="hds-intro">'+esc((res && res.vide) || 'Rien à afficher.')+'</p>';
+          return;
+        }
+        elBody.innerHTML = corps(intro, items.map(ligne).join(''));
+        brancher();
+      }).catch(e=>{
+        elBody.innerHTML = '<p class="hds-intro">Lecture impossible : '+esc(e.message||String(e))+'</p>';
+      });
+    }
+    return p.then(v => v==='__ok__' ? retenus : null);
   }
 
   return { open, info, confirm, choose, close:()=>settle(cancelValue) };
@@ -850,7 +886,35 @@ function octets(n){
   while(n>=1024 && i<u.length-1){ n/=1024; i++; }
   return (i?n.toFixed(1):n)+' '+u[i];
 }
-async function doAction(type,module,confirmNeeded,label,help,btnEl,params){
+// Listes de choix deja obtenues, par action+module. Une fenetre de choix ne redemande au
+// serveur QUE si son information locale a vieilli : rouvrir la meme fenetre dans la foulee
+// ne doit pas relancer une lecture.
+const CHOIX_CACHE = {};
+const CHOIX_FRAIS_MS = 60000;
+async function poster(type, module, params){
+  const r = await fetch(API+"/actions", { method:"POST",
+    headers:{ "Content-Type":"application/json", Authorization:"Bearer "+TOKEN },
+    body: JSON.stringify(params ? { type, module, params } : { type, module }) });
+  const j = await r.json().catch(()=>({}));
+  return { r, j };
+}
+async function listeDeChoix(type, module){
+  const cle = type+'|'+module;
+  const c = CHOIX_CACHE[cle];
+  if(c && (Date.now()-c.at) < CHOIX_FRAIS_MS) return c.j;
+  const { j } = await poster(type, module);
+  CHOIX_CACHE[cle] = { at: Date.now(), j };
+  return j;
+}
+function itemsDeMaj(j){
+  return (j.result && j.result.updates || []).map(u=>({
+    id:u.id, titre:u.titre,
+    detail:[u.modele, u.kb, u.pilote?'pilote':null, u.dateP, u.octets?octets(u.octets):null,
+            u.telecharge?'déjà téléchargée':null].filter(Boolean).join(' · ')
+  }));
+}
+
+async function doAction(type,module,confirmNeeded,label,help,btnEl,params,kind){
   const name = label || type;
   if(confirmNeeded){
     const ok = await HDS.confirm({
@@ -860,6 +924,29 @@ async function doAction(type,module,confirmNeeded,label,help,btnEl,params){
     });
     if(!ok) return;
   }
+  // Action de type « fenetre de choix » : la fenetre s'ouvre TOUT DE SUITE, avec son
+  // chargeur, et n'interroge le serveur que si sa liste locale a expire. Auparavant on
+  // attendait la reponse avant d'ouvrir : le clic restait sans effet visible.
+  if(kind === 'dialog'){
+    let charge = null;
+    const choisis = await HDS.choose({
+      title: name, variant: 'warn', tousCoches: false, confirmLabel: 'Installer',
+      charger: async () => {
+        charge = await listeDeChoix(type, module);
+        const avis = charge.result && charge.result.verrou
+          ? " Le verrou du Mode MAJ sera levé le temps de l'opération, puis reposé." : "";
+        return { items: itemsDeMaj(charge),
+                 intro: "Cochez les mises à jour à installer. L'installation continue même si vous fermez cette fenêtre."+avis,
+                 vide: "Aucune mise à jour à installer." };
+      }
+    });
+    if(!choisis || !choisis.length) return;
+    const suite = (charge && charge.result && charge.result.action) || null;
+    if(!suite){ addNotif(name,'error','Réponse du serveur inattendue : action de suite absente.'); return; }
+    delete CHOIX_CACHE[type+'|'+module];   // la liste va changer : ne pas la resservir
+    return doAction(suite, module, false, name, help, btnEl, { ids: choisis });
+  }
+
   setBtnBusy(btnEl);
   const entry=addNotif(name, 'running', 'Envoi de la commande…');
   if(!API_MODE){ updateNotif(entry,'done','(maquette) POST /actions {type:"'+type+'"}'); clearBtnBusy(btnEl); return; }
@@ -871,28 +958,6 @@ async function doAction(type,module,confirmNeeded,label,help,btnEl,params){
     const okFlag = !j.result || j.result.ok!==false;   // result.ok===false => echec logique meme si HTTP 200
     const st = (r.ok && j.status==='done' && okFlag) ? 'done' : 'error';
     const msg = (j.message || j.status || ('HTTP '+r.status)) + (j.jobId ? ('  [job '+j.jobId+']') : '');
-    // Reponse qui demande un CHOIX : on ouvre la fenetre, puis on relance l'action
-    // designee avec les identifiants retenus. Rien n'est lance sans selection explicite.
-    if(st==='done' && j.result && j.result.choose){
-      clearBtnBusy(btnEl);
-      const liste=(j.result.updates||[]).map(u=>({
-        id:u.id, titre:u.titre,
-        detail:[u.kb, u.pilote?'pilote':null, u.octets?octets(u.octets):null, u.telecharge?'déjà téléchargée':null]
-               .filter(Boolean).join(' · ')
-      }));
-      if(!liste.length){ updateNotif(entry,'done', name+' : aucune mise à jour à installer.'); return; }
-      // Le verrou du Mode MAJ ne BLOQUE pas : l'application le leve et le repose seule.
-      // On se contente d'en informer -- c'est une mecanique interne dont l'utilisateur
-      // n'a pas a s'occuper. Il etait ici bloquant, ce qui contredisait l'action.
-      const avis = j.result.verrou ? " Le verrou du Mode MAJ sera levé le temps de l'opération, puis reposé." : "";
-      const choisis = await HDS.choose({
-        title: name, intro: "Cochez les mises à jour à installer. L'installation continue même si vous fermez cette fenêtre."+avis,
-        items: liste, tousCoches: false, confirmLabel: 'Installer', variant:'warn'
-      });
-      if(!choisis || !choisis.length){ updateNotif(entry,'done', name+' : annulé.'); return; }
-      updateNotif(entry,'running', choisis.length+' mise(s) à jour retenue(s)…');
-      return doAction(j.result.action, module, false, name, help, btnEl, { ids: choisis });
-    }
     if(st==='done' && j.result && j.result.async){
       // Action longue non bloquante : la carte passe en "en cours" et s'actualise seule.
       const pollMod = j.result.module || module;
