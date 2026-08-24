@@ -118,7 +118,10 @@
   .drawer{position:fixed;top:0;right:0;height:100%;width:min(360px,92vw);background:var(--panel);border-left:1px solid var(--border);box-shadow:-12px 0 40px rgba(0,0,0,.4);transform:translateX(100%);transition:transform .2s;z-index:50;display:flex;flex-direction:column}
   .drawer.open{transform:none}
   .drawer-head{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);font-weight:700}
-  .drawer-clear{margin-left:auto;font-size:12px;font-weight:600;color:var(--muted);background:none;border:1px solid var(--border);border-radius:8px;padding:4px 9px;cursor:pointer}
+  /* Regle commune a TOUS les tiroirs : le titre prend l espace, la croix de fermeture
+     finit toujours au bord droit, avec ou sans bouton intermediaire. */
+  .drawer-head > span:first-child{flex:1}
+  .drawer-clear{font-size:12px;font-weight:600;color:var(--muted);background:none;border:1px solid var(--border);border-radius:8px;padding:4px 9px;cursor:pointer}
   .drawer-clear:hover{border-color:var(--accent);color:var(--text)}
   .drawer-x{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1}
   .drawer-body{padding:12px;overflow:auto;display:flex;flex-direction:column;gap:8px}
