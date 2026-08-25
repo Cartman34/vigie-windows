@@ -931,6 +931,27 @@ function Get-PkgUpdates {
     return @{ count = $count; items = @($items); pkgs = @($pkgs); supported = $true; selectable = $selectable }
 }
 
+# Traduit EN CLAIR un message d'echec de gestionnaire de paquets : ce que ca veut dire,
+# et quoi faire. Le message brut de l'outil est du jargon (constate : « technologie
+# d'installation differente » n'evoque rien) ; la carte doit porter l'explication.
+function Get-PkgFailureAdvice {
+    param([string]$Reason)
+    if (-not $Reason) { return $null }
+    if ($Reason -match 'technologie d.installation est diff|install technology is different') {
+        return ("En clair : cette application a été installée à l'origine par un autre canal " +
+                "que winget (installateur classique, Store...) ; winget refuse de mettre à jour par-dessus. " +
+                "Que faire : réinstaller l'application depuis son installateur officiel — l'installation est " +
+                "remplacée proprement, les données et profils sont conservés.")
+    }
+    if ($Reason -match '0x80070005|acc.s refus|access is denied') {
+        return "En clair : Windows a refusé l'accès. Que faire : réessayer ; si ça persiste, un antivirus ou un verrou de fichier bloque l'écriture."
+    }
+    if ($Reason -match '1603|0x80070643') {
+        return "En clair : l'installateur du paquet a échoué (erreur générique MSI). Que faire : redémarrer Windows puis réessayer — c'est la cause la plus fréquente."
+    }
+    return $null
+}
+
 # Met a jour les paquets d'UN gestionnaire (appel lent, systeme). Herite de l'elevation
 # du serveur. Traite sortie + code de retour. Renvoie @{ ok; supported; exit; output }.
 #
