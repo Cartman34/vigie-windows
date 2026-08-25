@@ -92,15 +92,24 @@ if ($null -eq $count) {
         }
         $echecs = 0
         foreach ($d in $detailInst) { if ("$($d[1])" -match '^(Échec|Annulée)') { $echecs++ } }
+        # La date de l'installation, en heure locale : c'est ELLE l'information une fois
+        # l'operation soldee -- « terminee » sans date ne disait plus rien d'utile.
+        $quand = ''
+        try {
+            $d0 = ConvertTo-UtcDate $inst.at
+            if ($d0) { $quand = $d0.ToLocalTime().ToString('dd/MM/yyyy HH:mm') }
+        } catch { }
         $val = if ($inst.error)          { 'échec' }
                elseif ($echecs -gt 0)    { "$echecs sur $($inst.total) en échec" }
-               elseif ($redemarrageFait) { 'terminée (redémarrage effectué)' }
-               elseif ($inst.redemarrage){ 'installée, redémarrage requis' }
+               elseif ($inst.redemarrage -and -not $redemarrageFait) { 'installée, redémarrage requis' }
+               elseif ($quand)           { "$($inst.total) le $quand" }
                else                      { 'terminée' }
         $st  = if ($inst.error -or $echecs -gt 0) { 'error' }
                elseif ($inst.redemarrage -and -not $redemarrageFait) { 'warn' }
-               else                               { 'ok' }
+               else                               { 'neutral' }
         $g = @()
+        if ($quand) { $g += "Installation lancée depuis Vigie, terminée le $quand ($($inst.total) mise(s) à jour)." }
+        if ($redemarrageFait) { $g += "Le redémarrage demandé a été effectué depuis : rien à faire." }
         if ($inst.error) { $g += "Erreur : $($inst.error)" }
         if ($inst.redemarrage -and -not $redemarrageFait) {
             $g += "Ce que c'est : les mises à jour sont installées, mais Windows doit redémarrer pour les activer. Ce n'est pas une panne."
