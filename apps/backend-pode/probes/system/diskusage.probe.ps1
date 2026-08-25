@@ -108,8 +108,8 @@ if ($enCours) {
             $lignes += ,@("$([int]$arbre.o.c) autres dossiers", (Format-ByteSize ([long]$arbre.o.s)), "$pc %")
         }
         $plusGros = if ($enfants.Count) { "$($enfants[0].n) — $(Format-ByteSize ([long]$enfants[0].s))" } else { '—' }
-        $fields += New-Field -Key 'top' -Label 'Plus gros dossier' -Value $plusGros -Kind 'text' -Status 'neutral' `
-            -Help "Répartition de $racine au premier niveau." `
+        $fields += New-Field -Key 'top' -Label 'Premier niveau' -Value $plusGros -Kind 'text' -Status 'neutral' `
+            -Help "Répartition de $racine au premier niveau : le plus gros dossier est affiché, le détail complet est dans le tableau." `
             -Table @{ columns = @('Dossier', 'Taille', 'Part'); rows = $lignes }
 
         $fields += New-Field -Key 'total' -Label 'Total mesuré' -Value (Format-ByteSize $total) -Kind 'text' -Status 'neutral' `
@@ -121,8 +121,11 @@ if ($enCours) {
             $rowsD += ,@("$($d.n)", (Format-ByteSize ([long]$d.s)), "$([int]$d.f)")
         }
         if ($rowsD.Count) {
-            $fields += New-Field -Key 'folders' -Label 'Plus gros dossiers' -Value ("$($rowsD.Count) repérés") -Kind 'text' -Status 'neutral' `
-                -Help "Les dossiers les plus lourds à tous les niveaux (chemins relatifs à $racine)." `
+            # La VALEUR dit le coupable ; le tableau donne le classement complet. « 20
+            # reperes » n'apprenait rien -- c'est le nom du dossier qu'on vient chercher.
+            $coupable = "$($etat.bigFolders[0].n) — $(Format-ByteSize ([long]$etat.bigFolders[0].s))"
+            $fields += New-Field -Key 'folders' -Label 'Où part la place' -Value $coupable -Kind 'text' -Status 'neutral' `
+                -Help "Le dossier le plus lourd où la place se partage vraiment, tous niveaux confondus (chemins relatifs à $racine). Les dossiers dont un seul enfant explique tout le poids sont écartés : c'est l'enfant qui est montré." `
                 -Table @{ columns = @('Dossier', 'Taille', 'Fichiers'); rows = $rowsD }
         }
 
@@ -130,7 +133,8 @@ if ($enCours) {
         $rowsF = @()
         foreach ($f in @($etat.bigFiles)) { $rowsF += ,@("$($f.n)", (Format-ByteSize ([long]$f.s))) }
         if ($rowsF.Count) {
-            $fields += New-Field -Key 'files' -Label 'Plus gros fichiers' -Value ("$($rowsF.Count) repérés") -Kind 'text' -Status 'neutral' `
+            $nomFichier = Split-Path "$($etat.bigFiles[0].n)" -Leaf
+            $fields += New-Field -Key 'files' -Label 'Plus gros fichier' -Value ("$nomFichier — $(Format-ByteSize ([long]$etat.bigFiles[0].s))") -Kind 'text' -Status 'neutral' `
                 -Help "Les fichiers les plus lourds rencontrés. Un fichier système (pagefile.sys, hiberfil.sys) est normal : ne le supprimez pas." `
                 -Table @{ columns = @('Fichier', 'Taille'); rows = $rowsF }
         }
