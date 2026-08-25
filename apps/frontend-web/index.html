@@ -1427,14 +1427,28 @@ async function renderTabModules(pane){
       +'<span class="um-sw"><span>'+(u.enabled?'Actif':'Coupé')+'</span>'
       +'<span class="swx"><input type="checkbox" data-unit="'+esc(u.id)+'"'+(u.enabled?' checked':'')+'><i></i></span></span></div>'
       +(u.enabled ? lignes : '<div class="um-note">Module coupé : ses cartes ne sont ni calculées ni affichées.</div>')
-      +(u.enabled && (paramCat[u.id]||[]).length ? '<div class="um-sub">Paramètres</div><div class="um-list">'+(paramCat[u.id]||[]).map(pr=>
-        '<div class="um-card um-pline" title="'+esc(pr.help||'')+'"><span>'+esc(pr.label)+'</span>'
-        +'<span class="um-param">'
-        +(pr.overridden?'<button class="um-reset" data-preset="'+esc(u.id)+'::'+esc(pr.key)+'" title="Revenir à la valeur par défaut ('+esc(String(pr.default))+(pr.unit?' '+esc(pr.unit):'')+')">défaut</button>':'')
-        +(pr.type==='bool'
-          ? '<span class="swx"><input type="checkbox" data-pval="'+esc(u.id)+'::'+esc(pr.key)+'"'+(pr.value?' checked':'')+'><i></i></span>'
-          : '<input class="um-num" type="number" data-pval="'+esc(u.id)+'::'+esc(pr.key)+'" value="'+esc(String(pr.value))+'">'+(pr.unit?'<span>'+esc(pr.unit)+'</span>':''))
-        +'</span></div>').join('')+'</div>' : '')
+      +(u.enabled && (paramCat[u.id]||[]).length ? '<div class="um-sub">Paramètres</div><div class="um-list">'+(paramCat[u.id]||[]).map(pr=>{
+        const ref=esc(u.id)+'::'+esc(pr.key);
+        const btnDef=pr.overridden?'<button class="um-reset" data-preset="'+ref+'" title="Revenir à la valeur par défaut ('+esc(Array.isArray(pr.default)?(pr.default.join(', ')||'vide'):String(pr.default))+(pr.unit?' '+esc(pr.unit):'')+')">défaut</button>':'';
+        let ctl='';
+        if(pr.type==='bool'){
+          ctl='<span class="swx"><input type="checkbox" data-pval="'+ref+'"'+(pr.value?' checked':'')+'><i></i></span>';
+        } else if(pr.type==='list'){
+          const items=Array.isArray(pr.value)?pr.value:[];
+          ctl='<span class="um-chips" data-plist="'+ref+'">'
+            +items.map(v=>'<span class="um-chip">'+esc(String(v))+'<button data-pdel title="Retirer">×</button></span>').join('')
+            +'<input class="um-chip-add" type="text" placeholder="ajouter… (Entrée)"></span>';
+        } else {
+          const curseur=(pr.min!=null&&pr.max!=null)
+            ? '<input class="um-range" type="range" data-prange="'+ref+'" min="'+pr.min+'" max="'+pr.max+'" step="'+(pr.step||1)+'" value="'+esc(String(pr.value))+'">'
+            : '';
+          ctl=curseur+'<input class="um-num" type="number" data-pval="'+ref+'"'
+            +(pr.min!=null?' min="'+pr.min+'"':'')+(pr.max!=null?' max="'+pr.max+'"':'')
+            +' value="'+esc(String(pr.value))+'">'+(pr.unit?'<span>'+esc(pr.unit)+'</span>':'');
+        }
+        return '<div class="um-card um-pline" title="'+esc(pr.help||'')+'"><span>'+esc(pr.label)+'</span>'
+          +'<span class="um-param">'+btnDef+ctl+'</span></div>';
+      }).join('')+'</div>' : '')
       +'</div>';
   }).join('');
   pane.querySelectorAll('[data-unotif]').forEach(c=>{ c.onchange=async()=>{
