@@ -1,4 +1,5 @@
 # @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+# @libelle: Gestionnaire des tâches | manual | info   -- affiche quand un champ cite cette action (D66)
 <# Action : ouvre le Gestionnaire des taches de Windows.
 
    C'est la resolution proposee quand des applications pompent les ressources pendant une

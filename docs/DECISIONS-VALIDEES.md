@@ -1639,3 +1639,28 @@ stabilité Wi-Fi est passée en neutre tant que la fenêtre de mesure est trop c
 **Garde-fou.** `scripts/check-probes.ps1` **refuse** désormais tout champ `warn`/`error`
 sans `FixAction` — la règle n'est plus à retenir, elle est vérifiée à chaque livraison.
 Le contrôleur vérifie aussi que l'action pointée existe.
+
+### D66 — pourquoi aucun bouton n'apparaissait (correctif du 25/08)
+
+Le champ citait bien son action, et l'action existait : le bouton n'apparaissait pas
+quand même. **Deux défauts empilés**, trouvés en lisant le rendu plutôt qu'en le
+regardant :
+
+1. **Le front le neutralisait en dur** : `const solve='';` dans la fabrication d'une
+   ligne de carte. Aucune carte n'affichait de bouton de résolution, quelle que soit la
+   sonde — la règle D49 était donc inapplicable depuis cette ligne. Rétabli : un champ
+   `warn`/`error` qui cite une action porte son bouton, sous la ligne, câblé sur le même
+   chemin d'exécution que les boutons de la barre (mêmes confirmations, même état
+   « en cours », même refus visible si le compte n'y a pas droit — D65).
+2. **L'action citée devait aussi figurer dans les actions de la carte**, sinon
+   l'interface n'avait ni libellé ni genre à dessiner. C'est désormais un **invariant
+   tenu par le serveur** : à l'assemblage de l'état, toute action citée par un champ et
+   absente de la carte y est ajoutée. La sonde n'a plus à la redéclarer dans sa barre.
+
+Le libellé du bouton vient de l'action elle-même : `# @libelle: Texte | kind | severity`
+en tête du fichier, à côté de `# @droits:`. Sans déclaration : « Résoudre ».
+
+**Le piège à connaître** : un état lu dans `var/cache/state-cache.json` peut dater de
+plusieurs jours. Vérifier un invariant sur ce cache donne des résultats faux (deux champs
+sont apparus « en alerte sans bouton » alors qu'à l'exécution ils étaient neutre et vert).
+On contrôle sur l'exécution réelle des sondes — c'est ce que fait `check-probes.ps1`.
