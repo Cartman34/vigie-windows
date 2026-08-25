@@ -76,7 +76,8 @@ sort aussitôt puisque le port répond — on sert alors indéfiniment du code p
 Vigie tourne en production sur la machine : tray élevé (auto-démarré par tâche planifiée,
 qu'il répare lui-même : délai MSIX + reprises) + serveur Pode 47600 + front une page +
 Atelier PHP 47610. Modules actifs : Windows Update (verrouillage natif, MAJ au choix),
-Système (disque avec seuil paramétrable D57, ressources, OS), Sécurité (antivirus,
+Système (disque avec seuil paramétrable D57, **consommation du disque** — analyse en tâche
+de fond, D60 —, ressources, OS), Sécurité (antivirus,
 pare-feu, VBS/HVCI natifs), Réseau (Wi-Fi scindé, stabilité), WSL, Outils & paquets
 (une carte par gestionnaire, MAJ au choix, résultat conservé), **Jeux** (détection du
 jeu, applis gourmandes, seuils D57). Menu Paramètres unique (D56) : notifications (D54),
@@ -87,13 +88,11 @@ affichage** (décision Q2). Docs de référence : `MODULES.md` (créer/maintenir
 
 ### File de travail (dans l'ordre)
 
-1. **S13 — Analyse de la consommation du disque** (demande utilisateur, non commencé) :
-   action « Analyser » sur la carte Disque → worker détaché qui énumère en .NET
-   (System.IO.Enumeration, rapide), agrège les tailles PAR DOSSIER, ne conserve que le
-   top-N par niveau (profondeur bornée) dans un JSON de cache ; la carte/popin affiche
-   l'arbre des plus gros. Exigence : optimisé et intelligent, l'arborescence peut être
-   énorme — jamais la liste complète en mémoire ni dans le JSON. Candidat sous-agent
-   (brief : citer docs/MODULES.md).
+1. **S13b — Suites possibles de l'analyse du disque** (à proposer, non demandé) : le JSON
+   de cache contient déjà l'ARBRE (top-N par niveau jusqu'à la profondeur réglée) mais
+   l'écran n'en montre que le premier niveau + deux palmarès. Un explorateur repliable
+   dans la popin, et une action « ouvrir le dossier » depuis une ligne du tableau,
+   seraient la suite naturelle. Base livrée : **D60**.
 2. **Icônes (S8) — état factuel** : géométrie mesurée au canvas à ±0,6 px du centre dans
    la page (correctifs faits : spécificité .vi.vi-fw, LSB=xMin, encre recentrée à la
    génération). L'utilisateur voit ENCORE un décalage sur son écran (vidéo fournie,
