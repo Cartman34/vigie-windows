@@ -353,6 +353,39 @@ if (Test-Path $measFile) {
 # Seuils de latence : config du module, surchargeable dans Parametres (D57).
 $latWarn = [int](Get-ModuleSetting -Unit 'network' -Key 'LatencyWarnMs');  if (-not $latWarn)  { $latWarn = 80 }
 $latErr  = [int](Get-ModuleSetting -Unit 'network' -Key 'LatencyErrorMs'); if (-not $latErr)   { $latErr = 200 }
+# --- DNS : le resolveur configure et une resolution REELLE -------------------
+$dnsServeurs = @()
+try {
+    $dnsServeurs = @(Get-DnsClientServerAddress -AddressFamily IPv4 -ErrorAction Stop |
+        Where-Object { $_.ServerAddresses } |
+        ForEach-Object { $_.ServerAddresses } | Select-Object -Unique)
+} catch { }
+$dnsLocal = ($dnsServeurs -contains '127.0.0.1')
+$dnsOk = $false; $dnsMs = 0
+try {
+    $sw = [Diagnostics.Stopwatch]::StartNew()
+    $dnsOk = [bool](Resolve-DnsName 'www.microsoft.com' -Type A -QuickTimeout -ErrorAction Stop)
+    $sw.Stop(); $dnsMs = [int]$sw.ElapsedMilliseconds
+} catch { }
+# Le nom du proxy local, si un service connu tourne (Acrylic ici) : nommer aide a agir.
+$dnsProxyNom = ''
+if ($dnsLocal) {
+    try {
+        $svc = Get-Service *acrylic* -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($svc) { $dnsProxyNom = "$($svc.Name)" }
+    } catch { }
+}
+$dnsValeur = if ($dnsLocal) { '127.0.0.1 (résolveur local)' } else { ($dnsServeurs | Select-Object -First 2) -join ', ' }
+if (-not $dnsServeurs.Count) { $dnsValeur = 'aucun serveur' }
+$dnsStatut = if ($dnsOk) { 'ok' } elseif ($connected) { 'error' } else { 'warn' }
+$dnsGuide = if ($dnsOk) {
+    "Résolution vérifiée en $dnsMs ms." + $(if ($dnsLocal) { "`nLe trafic DNS passe par un proxy LOCAL" + $(if ($dnsProxyNom) { " (service $dnsProxyNom)" }) + " : s'il tombe, tout semble « sans internet » alors que le réseau va bien — ce champ fera la différence." } else { '' })
+} elseif ($dnsLocal) {
+    "La résolution de noms ÉCHOUE alors que la connexion réseau semble bonne : votre résolveur LOCAL" + $(if ($dnsProxyNom) { " ($dnsProxyNom)" }) + " ne répond plus.`nQue faire : redémarrer le service" + $(if ($dnsProxyNom) { " « $dnsProxyNom »" } else { " du proxy DNS" }) + " (services.msc), ou repasser temporairement le DNS de la carte sur la box/un DNS public."
+} else {
+    "La résolution de noms échoue : sans DNS, les sites ne s'ouvrent plus même si la connexion est bonne.`nQue faire : vérifier le serveur DNS de la carte réseau, ou la box."
+}
+
 $latSt = if ($lat -eq '-') { 'neutral' } elseif ([double]($lat) -lt $latWarn) { 'ok' } elseif ([double]($lat) -lt $latErr) { 'warn' } else { 'error' }
 $pubGuide = if ($pubAt) { "Dernière récupération : $pubAt. Cliquez « Obtenir l'IP publique » pour actualiser." } else { "Non récupérée. Cliquez « Obtenir l'IP publique » (appel à un service externe)." }
 
@@ -453,6 +486,8 @@ $fields += @(
     New-Field -Key 'mac' -Label 'Adresse MAC'  -Value $mac -Kind 'text' -Status 'neutral' `
         -Help "Adresse MAC de l'interface principale. Cliquez pour voir toutes les interfaces actives." `
         -Table @{ columns = @('Interface', 'Type', 'IPv4', 'MAC'); rows = $adapterRows }
+    New-Field -Key 'dns' -Label 'DNS' -Value $dnsValeur -Kind 'text' -Status $dnsStatut `
+        -Help "Le serveur qui traduit les noms de sites en adresses. Testé par une résolution réelle à chaque passage." -Guide $dnsGuide
     New-Field -Key 'vpn' -Label 'VPN actif'    -Value $vpn -Kind 'bool' -Status 'neutral' -Help "Présence d'un adaptateur de tunnel VPN actif sur ce PC." -Guide $vpnGuide
     New-Field -Key 'latency' -Label 'Latence'  -Value $(if ($lat -eq '-') {'non mesurée'} else {"$lat ms"}) -Kind 'text' `
         -Status $(if ($lat -eq '-') {'warn'} else {$latSt}) -FixAction $(if ($lat -eq '-') {'net-speedtest'} else {$null}) `
