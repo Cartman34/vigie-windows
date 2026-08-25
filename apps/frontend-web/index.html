@@ -163,6 +163,7 @@
   .fdot.neutral{background:transparent;border:1.5px solid var(--muted)}
   .field .v.ok{color:var(--ok)} .field .v.warn{color:var(--warn)} .field .v.error{color:var(--err)}
   /* Le cercle est DANS le glyphe (fonte D58) : le bouton n'en dessine plus un second. */
+  .fhelp .vi{font-size:1.3em}
   .fhelp{margin-left:7px;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;color:var(--muted);border:none;border-radius:50%;background:none;cursor:pointer;padding:0;flex:0 0 auto}
   .fhelp svg{width:9px;height:9px;display:block}
   .fhelp:hover{color:var(--accent)}
@@ -671,7 +672,7 @@ function cardHtml(m, groupLabel){
     const aTable  = !!(f.table && f.table.rows && f.table.rows.length);
     const detLong = aTable || (!!detTxt && (detTxt.length > 400 || detTxt.split(String.fromCharCode(10)).length > 8));
     const clicDetail = (detTxt||aTable) ? (detLong ? `ouvrirDetail('${key}')` : 'toggleDetail(this)') : '';
-    const info=(f.help||f.guide)?`<button class="fhelp ${stt}" title="${help}" onclick="${clicDetail||'toggleDetail(this)'}"><span class="vi" style="font-size:14px">&#xE007;</span></button>`:'';
+    const info=(f.help||f.guide)?`<button class="fhelp ${stt}" title="${help}" onclick="${clicDetail||'toggleDetail(this)'}"><span class="vi">&#xE007;</span></button>`:'';
     const solve='';
     const det = (detTxt && !detLong) ? `<div class="field-detail ${stt}${open}" data-k="${key}">${esc(detTxt)}</div>` : '';
     return `<div class="frow">
