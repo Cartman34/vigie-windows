@@ -1349,6 +1349,14 @@ function toggleSettings(){
   document.getElementById('settingsDrawer').classList.toggle('open',unitsOpen);
   if(unitsOpen) renderSettings();
 }
+// Lien profond : #parametres ou #parametres/<onglet> ouvre le menu au chargement.
+function ouvrirDepuisHash(){
+  const h=(location.hash||'').replace(/^#/,'');
+  if(!h.startsWith('parametres')) return;
+  const onglet=h.split('/')[1]||null;
+  setTimeout(()=>{ openSettings(onglet); }, 400);
+}
+window.addEventListener('hashchange', ouvrirDepuisHash);
 function openSettings(tab, unitFocus){
   if(tab) settingsTab=tab;
   pendingUnitFocus=unitFocus||null;
@@ -1540,6 +1548,7 @@ function renderTabApropos(pane){
 
 // ===== Demarrage =====
 wireRepoLinks();
+ouvrirDepuisHash();
 setFootVersion();
 setTimeout(hideSplash, SPLASH_MAX_MS);   // garde-fou si /state ne repond jamais
 refresh();
