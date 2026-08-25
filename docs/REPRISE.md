@@ -94,36 +94,25 @@ affichage** (décision Q2). Docs de référence : `MODULES.md` (créer/maintenir
 
 ### File de travail (dans l'ordre)
 
-1. **S18 — Multi-utilisateurs, reste à faire** : les réglages par compte (**D65**) et la
-   **politique par action** (déclaration `# @droits:` + `config/actions.policy.json`,
-   bouton refusé visible et expliqué) sont livrés. Reste **l'installation accessible à
-   tous les comptes** : l'app vit dans l'espace de travail de l'utilisateur
-   (`C:\EspaceRestreint\...`), que les autres comptes ne peuvent pas lire, et la tâche
-   planifiée n'existe que pour lui. À faire : emplacement lisible par tous + lancement
-   par compte. Un seul utilisateur connecté à la fois : pas de concurrence à gérer.
-   Jamais éprouvé avec un vrai second compte — à constater ensemble.
-2. **S13b — Suites possibles de l'analyse du disque** (à proposer, non demandé) : le JSON
-   de cache contient déjà l'ARBRE (top-N par niveau jusqu'à la profondeur réglée) mais
-   l'écran n'en montre que le premier niveau + deux palmarès. Un explorateur repliable
-   dans la popin, et une action « ouvrir le dossier » depuis une ligne du tableau,
-   seraient la suite naturelle. Base livrée : **D60**.
-3. **Jeux — branche « jeu reconnu » à constater en vraie partie** : la détection par
-   faits (D64 pour les noms, examen Game Bar / bibliothèque Steam / moteur / plein écran)
-   est livrée et validée au contrat ; le chemin « c'est un jeu » n'a PAS été vu en
-   conditions réelles — à observer au prochain lancement de jeu de l'utilisateur (aucune
-   charge fabriquée, D62 ; aucun test d'intégration sans demander, D63).
-4. **Icônes (S8) — état factuel** : géométrie mesurée au canvas à ±0,6 px du centre dans
-   la page (correctifs faits : spécificité .vi.vi-fw, LSB=xMin, encre recentrée à la
-   génération). L'utilisateur voit ENCORE un décalage sur son écran (vidéo fournie,
-   frames extraites dans le scratchpad, analyse pixel en cours — piste : échelle
-   d'affichage de SA session ≠ 100 %, arrondis d'anticrénelage). À reprendre par mesure
-   sur SES pixels, pas à l'œil.
-5. **Edge cassé** : réparation = winget install --force / installateur officiel —
-   EN ATTENTE du feu vert utilisateur (la carte explique déjà l'échec en clair).
-6. **S5 — invalidation immédiate de la sonde réseau** sur événement Windows de
-   changement d'adresse (optionnel, proposé).
-7. Fond ancien : éprouver verrou/VBS élevé après redémarrage ; commentaires en anglais
+1. **Multi-utilisateurs — à éprouver avec un vrai second compte** : tout est livré
+   (réglages par compte, politique par action, écran Paramètres > Utilisateurs, outil en
+   ligne de commande `scripts/vigie-comptes.ps1`, déploiement `scripts/deploy-prod.ps1`
+   vers `C:\Program Files\Vigie`). **Rien n'a été déployé ni activé en réel** : c'est un
+   test d'intégration, il se demande (D63). À faire ensemble : lancer `deploy-prod.ps1`,
+   activer le compte `Famille`, puis ouvrir une session avec lui et constater — Vigie doit
+   démarrer **non élevé**, ses actions administrateur s'afficher **refusées et
+   expliquées**, et ses réglages être séparés des vôtres.
+2. **Jeux — branche « jeu reconnu » à constater en vraie partie** (aucune charge
+   fabriquée, D62).
+3. **Icônes (S8)** : l'utilisateur voit encore un décalage sur SON écran. Frames de sa
+   vidéo dans le scratchpad, analyse pixel à reprendre — par mesure, pas à l'œil.
+   Piste : échelle d'affichage de sa session.
+4. **Edge cassé** : réparation EN ATTENTE de son feu vert explicite.
+5. **S5 — invalidation immédiate de la sonde réseau** sur changement d'adresse (optionnel).
+6. Fond ancien : éprouver verrou/VBS élevé après redémarrage ; commentaires en anglais
    (D41) ; workflow GitHub ; bulle de notification du tray à observer en réel.
+   **Tray** : il ne prend plus l'ordre `-Restart` en 15 s (constaté plusieurs fois le
+   25/08) ; c'est son auto-guérison qui relance le serveur. À regarder.
 
 ## État de la machine de l'utilisateur — à savoir avant de conclure quoi que ce soit
 
