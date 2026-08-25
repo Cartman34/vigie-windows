@@ -108,6 +108,9 @@ affichage** (décision Q2). Docs de référence : `MODULES.md` (créer/maintenir
   apparaître qu'après une bascule faite **depuis Vigie**.
 - **Edge est installé mais ne démarre pas** (sort en moins d'une seconde, sans fenêtre).
   Chrome est le navigateur par défaut et fonctionne.
+- **Le DNS passe par Acrylic** (proxy DNS local, service `AcrylicDNSProxySvc`,
+  127.0.0.1 sur le Wi-Fi) : une panne d'Acrylic ressemble à « plus d'internet » —
+  le champ DNS de la carte Réseau (S11) fait la différence.
 - **`netsh wlan` échoue** (erreur 5) : ni force de signal, ni SSID par ce chemin.
 - **git n'est que dans le PATH utilisateur**, pas machine : un processus élevé ne le trouve
   pas sans chemin résolu.
