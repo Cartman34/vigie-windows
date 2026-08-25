@@ -397,6 +397,9 @@
   .hds-table td{padding:6px 10px 6px 0;border-bottom:1px solid var(--border);vertical-align:top;
                 word-break:break-word}
   .hds-table tr:last-child td{border-bottom:none}
+  /* Une ligne qui porte une infobulle le dit : sans repere visuel, personne ne survole. */
+  .hds-table tr[title]{cursor:help}
+  .hds-table tr[title]:hover td{background:var(--panel-2)}
   .hds-table td:nth-child(n+3){font-variant-numeric:tabular-nums;white-space:nowrap}
   .hds-loading{display:flex;align-items:center;gap:9px;color:var(--muted);padding:14px 2px}
   .hds-choices{display:flex;flex-direction:column;gap:2px}
@@ -914,7 +917,14 @@ function ouvrirDetail(key){
     const html = '<table class="hds-table"><thead><tr>'
       + cols.map(c=>'<th>'+esc(c)+'</th>').join('')
       + '</tr></thead><tbody>'
-      + f.table.rows.map(r=>'<tr>'+(r||[]).map(v=>'<td>'+esc(v===null||v===undefined?'':String(v))+'</td>').join('')+'</tr>').join('')
+      + f.table.rows.map((r,i)=>{
+          // Infobulle FACULTATIVE par ligne (contrat : table.tips, parallele a rows) :
+          // survoler un nom de processus doit dire d'ou il vient (chemin absolu, editeur,
+          // PID). Le title est pose sur la LIGNE : une seule bulle, pas une par cellule
+          // qui se disputeraient le survol.
+          const tip=(f.table.tips&&f.table.tips[i])?' title="'+esc(String(f.table.tips[i]))+'"':'';
+          return '<tr'+tip+'>'+(r||[]).map(v=>'<td>'+esc(v===null||v===undefined?'':String(v))+'</td>').join('')+'</tr>';
+        }).join('')
       + '</tbody></table>';
     HDS.open({ title:f.label, html, variant:'info' });
     return;

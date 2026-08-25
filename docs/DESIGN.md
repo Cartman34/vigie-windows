@@ -23,7 +23,13 @@ reproductions à maintenir **en miroir** — c'est une discipline du projet : *t
 4. **Le texte explique, l'infobulle décrit** (**D49**) : valeur courte dans la carte ;
    `help` en infobulle du (i) ; `guide` en dépliant (court) ou fenêtre (long). Tout champ
    `warn`/`error` propose une **résolution ou un guide**.
-5. **Icônes : notre propre fonte** (`vigie-icons.ttf`, **D58**) — générée par
+5. **Un nom technique ne s'affiche jamais seul** (**D64**) : un nom de processus se
+   montre sous la forme *description Windows (nom technique)* — « Processus d'exécution
+   client-serveur (csrss) » — et sa ligne porte une **infobulle** donnant le **chemin
+   absolu**, l'éditeur, la version et les PID. Contrat : `table.tips`, tableau parallèle à
+   `table.rows` ; la bulle est posée sur la **ligne** (`<tr title>`), jamais sur chaque
+   cellule — deux bulles imbriquées se disputent le survol.
+6. **Icônes : notre propre fonte** (`vigie-icons.ttf`, **D58**) — générée par
    `apps/frontend-web/assets/generate-icon-font.py`, embarquée en data-URI, utilisée par
    `<span class="vi">&#xE001;</span>`. Un glyphe manquant se **dessine** dans le
    générateur (une fonction par icône), on n'importe pas de bibliothèque. Le SVG est

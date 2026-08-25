@@ -1511,7 +1511,40 @@ machine) :
   de résultat) ;
 - toute **charge fabriquée** (**D62**).
 
+**La frontière, arbitrée le 25/08.** Fusionner dans `main`, pousser et **redéployer** le
+serveur restent à l'initiative de l'agent dès que les tests de contrat passent (statu quo
+voulu par l'utilisateur). Ce qui se demande, c'est d'**agir sur la machine** : exécuter
+une action ou un worker pour de vrai, piloter l'app de bout en bout, fabriquer une
+charge (**D62**).
+
 **Pourquoi.** Un test d'intégration lancé de sa propre initiative agit sur LA machine de
 l'utilisateur pendant qu'il s'en sert. La bonne conduite : livrer avec les tests de
 contrat, **dire** ce qui reste à éprouver en conditions réelles, et **demander** avant de
 le faire — ou laisser l'utilisateur le faire lui-même.
+
+## D64 — De vrais noms, et une infobulle qui dit d'où vient le processus (2026-08-25)
+
+**Demande (utilisateur, 25/08).** « csrss, ça ne me parle pas, y'a pas moyen d'avoir de
+vrais noms ? » puis « quand tu affiches un nom de processus, tu dois afficher une tooltip
+au survol qui donne plus d'infos (genre au moins son chemin absolu, si possible plus).
+Attention aux conflits. »
+
+**Décision.**
+- Un nom de processus s'affiche **« Description Windows (nom technique) »** : la
+  description vient des informations de version de l'exécutable (`FileDescription`), lue
+  sur le **fichier** et non sur le processus — les processus protégés (csrss, lsass)
+  refusent l'accès à leur module mais leur fichier se lit. Le nom technique est conservé :
+  c'est lui qu'on retrouve dans le Gestionnaire des tâches.
+- Quand la description n'apprend rien (absente, ou identique au nom), on affiche le **nom
+  technique seul** — pas de parenthèse vide.
+- Toute ligne portant un nom de processus porte une **infobulle** : **chemin absolu**
+  d'abord, puis éditeur · version, puis le nombre de processus et leurs PID.
+- **Conflits d'homonymes** : deux processus du même nom peuvent venir de **binaires
+  différents** (constaté : `claude` = l'application WindowsApps *et* l'outil en ligne de
+  commande). L'infobulle annonce alors « N emplacements différents pour ce nom » et les
+  liste. Pour un processus protégé, elle distingue « chemin non communiqué » du
+  « binaire système attendu » — la nuance compte pour qui traque un imposteur.
+- **Contrat** : `table.tips` (facultatif, parallèle à `table.rows`) ; le front pose le
+  `title` sur la **ligne**, jamais sur chaque cellule.
+- Helpers partagés : `Get-AppDisplayName` et `Get-AppInfoTip` dans `lib/common.ps1` —
+  point unique, toute sonde qui montre un processus les utilise.

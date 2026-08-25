@@ -193,8 +193,15 @@ $servicesWindows = @('lsass','services','wininit','winlogon','smss','csrss','dwm
 function Group-ByApp {
     param($Liste)
     @($Liste | Group-Object Name | ForEach-Object {
+        # Nom LISIBLE : « csrss » ne parle a personne. Le chemin vient du premier processus
+        # du groupe qui accepte de le donner.
+        $chemins = @($_.Group | ForEach-Object { $_.Path } | Where-Object { $_ } | Sort-Object -Unique)
+        $chemin = @($chemins | Select-Object -First 1)[0]
         [pscustomobject]@{
             Name   = $_.Name
+            Label  = (Get-AppDisplayName -ProcessName $_.Name -Path $chemin -Complet)
+            Court  = (Get-AppDisplayName -ProcessName $_.Name -Path $chemin)
+            Tip    = (Get-AppInfoTip -ProcessName $_.Name -Paths $chemins -Ids @($_.Group | ForEach-Object { [int]$_.Id }))
             Cpu    = [Math]::Round((($_.Group | Measure-Object Cpu -Sum).Sum), 1)
             Gpu    = [Math]::Round([Math]::Min(100.0, ($_.Group | Measure-Object Gpu -Sum).Sum), 1)
             VramGb = [Math]::Round((($_.Group | Measure-Object VramGb -Sum).Sum), 2)
@@ -325,11 +332,13 @@ if ($vramTotale -gt 0) {
         -Value ("{0:N1} / {1:N0} Go ({2} %)" -f ($vramUtilisee/1GB), ($vramTotale/1GB), $pctVram) -Kind 'text' -Status $stVram `
         -Help "Mémoire dédiée de la carte graphique. Pleine, le jeu compense par la RAM : saccades." `
         -Guide "Au-delà de $vramWarn % (réglable), baissez la qualité des textures ou fermez les applis 3D en fond." `
-        -Table @{ columns = @('Application', 'VRAM (Go)')
-                  rows = @($procs.Values | Where-Object { $_.VramGb -gt 0 } |
-                           Group-Object Name | ForEach-Object {
-                               ,@("$($_.Name)", [Math]::Round((($_.Group | Measure-Object VramGb -Sum).Sum), 2))
-                           } | Sort-Object { [double]$_[1] } -Descending | Select-Object -First 6) }
+        -Table $(
+            $vramApps = @(Group-ByApp ($procs.Values | Where-Object { $_.VramGb -gt 0 }) |
+                          Sort-Object VramGb -Descending | Select-Object -First 6)
+            @{ columns = @('Application', 'VRAM (Go)')
+               rows = @($vramApps | ForEach-Object { ,@($_.Label, $_.VramGb) })
+               # Une infobulle par ligne : chemin absolu, editeur, PID (demande utilisateur).
+               tips = @($vramApps | ForEach-Object { $_.Tip }) })
 }
 if (-not $gpuDispo) {
     $fields += New-Field -Key 'gpu' -Label 'Compteurs GPU' -Value 'indisponibles' -Kind 'text' -Status 'warn' `
@@ -403,7 +412,8 @@ if ($jeu) {
                 elseif ($jeuRaisons) { @('Reconnu comme jeu parce que :') + @($jeuRaisons | ForEach-Object { "- $_" }) }
                 else { @() }
     if ($jeu.Path) { $pourquoi += "Exécutable : $($jeu.Path)" }
-    $fields += New-Field -Key 'game' -Label 'Jeu détecté' -Value $jeu.Name -Kind 'text' -Status 'ok' `
+    $fields += New-Field -Key 'game' -Label 'Jeu détecté' `
+        -Value (Get-AppDisplayName -ProcessName $jeu.Name -Path $jeu.Path -Complet) -Kind 'text' -Status 'ok' `
         -Help "Application qui consomme le GPU ET qui présente des signes de jeu (bibliothèque de jeux, moteur, plein écran)." `
         -Guide $(if ($pourquoi.Count) { $pourquoi -join "`n" } else { $null })
     $fields += New-Field -Key 'game-res' -Label 'Ressources du jeu' `
@@ -439,7 +449,7 @@ if ($jeu) {
     if ($pompeurs.Count -gt 0) {
         $lignes = @($pompeurs | ForEach-Object {
             $note = if ($servicesWindows -contains $_.Name) { " [service Windows légitime — ne pas fermer]" } else { "" }
-            "- {0}{1} : CPU {2} % · GPU {3} % · VRAM {4} Go · E/S {5} Mo/s" -f $_.Name, $note, $_.Cpu, $_.Gpu, $_.VramGb, $_.IoMbs })
+            "- {0}{1} : CPU {2} % · GPU {3} % · VRAM {4} Go · E/S {5} Mo/s" -f $_.Label, $note, $_.Cpu, $_.Gpu, $_.VramGb, $_.IoMbs })
         $fields += New-Field -Key 'hogs' -Label 'Autres applis gourmandes' -Value ("{0} détectée(s)" -f $pompeurs.Count) `
             -Kind 'text' -Status 'warn' `
             -Help "Applications qui consomment beaucoup pendant que le jeu tourne." `
@@ -463,12 +473,13 @@ if ($jeu) {
     # laquelle et POURQUOI elle n'a pas ete retenue. Sinon « aucun » ressemble a un rate.
     $guideAucun = $null
     if ($rejete) {
-        $guideAucun = (@("$($rejete.Proc.Name) utilise le GPU ($($rejete.Proc.Gpu) %) mais n'est pas un jeu :") +
+        $nomRejete = Get-AppDisplayName -ProcessName $rejete.Proc.Name -Path $rejete.Proc.Path -Complet
+        $guideAucun = (@("$nomRejete utilise le GPU ($($rejete.Proc.Gpu) %) mais n'est pas un jeu :") +
                        @($rejete.Raisons | ForEach-Object { "- $_" }) +
                        @('', 'Son activité reste visible dans « Répartition des ressources ».')) -join "`n"
     }
     $fields += New-Field -Key 'game' -Label 'Jeu détecté' -Value 'aucun' -Kind 'text' -Status 'neutral' `
-        -Help $(if ($rejete) { "Aucune application de jeu en cours. Le plus gros consommateur GPU est $($rejete.Proc.Name), qui n'en est pas un." }
+        -Help $(if ($rejete) { "Aucune application de jeu en cours. Le plus gros consommateur GPU est $(Get-AppDisplayName -ProcessName $rejete.Proc.Name -Path $rejete.Proc.Path -Complet), qui n'en est pas un." }
                 else { "Aucun processus n'utilise le GPU au-dessus du seuil de détection (réglable dans Paramètres)." }) `
         -Guide $guideAucun
 }
@@ -480,15 +491,18 @@ $horsBruit = @(Group-ByApp ($procs.Values | Where-Object { $bruit -notcontains $
 # Un TABLEAU unique : chaque application avec toutes ses dimensions -- c'est la vue
 # « qui prend quoi » demandee, bien plus lisible qu'une liste par dimension.
 $meneur = @($horsBruit | Sort-Object { $_.Cpu * 1.5 + $_.Gpu } -Descending)[0]
-$lignesRep = @($horsBruit |
+$repApps = @($horsBruit |
     Sort-Object { $_.Cpu * 1.5 + $_.Gpu + $_.VramGb * 10 } -Descending |
-    Select-Object -First 8 |
-    ForEach-Object { ,@(("$($_.Name)" + $(if ($servicesWindows -contains $_.Name) { ' (Windows)' } else { '' })), $_.Cpu, $_.Gpu, $_.VramGb, $_.RamGb, $_.IoMbs) })
+    Select-Object -First 8)
+$lignesRep = @($repApps |
+    ForEach-Object { ,@(($_.Label + $(if ($servicesWindows -contains $_.Name) { ' (Windows)' } else { '' })), $_.Cpu, $_.Gpu, $_.VramGb, $_.RamGb, $_.IoMbs) })
 $fields += New-Field -Key 'top' -Label 'Répartition des ressources' `
-    -Value $(if ($meneur) { $meneur.Name } else { '—' }) -Kind 'text' -Status 'neutral' `
+    -Value $(if ($meneur) { $meneur.Label } else { '—' }) -Kind 'text' -Status 'neutral' `
     -Help "Les applications les plus consommatrices, toutes dimensions confondues — pour voir qui prend quoi." `
     -Guide "Triées par poids global. E/S = disque et réseau confondus (Windows ne les sépare pas par processus)." `
-    -Table @{ columns = @('Application', 'CPU %', 'GPU %', 'VRAM Go', 'RAM Go', 'E/S Mo/s'); rows = $lignesRep }
+    -Table @{ columns = @('Application', 'CPU %', 'GPU %', 'VRAM Go', 'RAM Go', 'E/S Mo/s')
+              rows = $lignesRep
+              tips = @($repApps | ForEach-Object { $_.Tip }) }
 
 $statut = if (($fields | Where-Object { $_.status -eq 'warn' })) { 'warn' } else { 'ok' }
 New-ModuleObject -Id 'gaming' -Theme 'gaming' -Label 'Session de jeu' -Status $statut -Fields $fields
