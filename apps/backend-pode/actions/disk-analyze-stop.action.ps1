@@ -12,5 +12,5 @@ Set-Content -LiteralPath $stopFile -Value ((Get-Date).ToUniversalTime().ToString
 
 @{
     message = "Arrêt demandé : l'analyse s'interrompt dans quelques secondes."
-    result  = @{ ok = $true; async = $true; module = 'disk-usage'; invalidate = @('diskusage.probe.ps1') }
+    result  = @{ ok = $true; async = $true; module = 'storage'; invalidate = @('disk.probe.ps1') }
 }

@@ -30,18 +30,40 @@ $vramWarn     = [int](Get-ModuleSetting -Unit 'gaming' -Key 'VramWarnPct');     
 $tempWarn     = [int](Get-ModuleSetting -Unit 'gaming' -Key 'GpuTempWarnC');   if (-not $tempWarn)     { $tempWarn = 87 }
 
 # Processus au premier plan : meilleur indice du jeu quand la partie est active.
+# Le PLEIN ECRAN est mesure ici aussi : c'est un comportement de jeu, pas un nom.
+# NB : le type porte un nom NEUF (Win) parce qu'un type deja charge dans le serveur ne
+# peut pas etre complete -- Add-Type serait ignore et les nouvelles methodes absentes.
 $fgPid = 0
+$fgPleinEcran = $false
 try {
-    if (-not ('VigieProbe.Fg' -as [type])) {
-        Add-Type -Namespace VigieProbe -Name Fg -MemberDefinition @'
+    if (-not ('VigieProbe.Win' -as [type])) {
+        Add-Type -Namespace VigieProbe -Name Win -MemberDefinition @'
 [System.Runtime.InteropServices.DllImport("user32.dll")]
 public static extern System.IntPtr GetForegroundWindow();
 [System.Runtime.InteropServices.DllImport("user32.dll")]
 public static extern int GetWindowThreadProcessId(System.IntPtr hWnd, out int pid);
+[System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+public struct RECT { public int Left, Top, Right, Bottom; }
+[System.Runtime.InteropServices.DllImport("user32.dll")]
+public static extern bool GetWindowRect(System.IntPtr hWnd, out RECT r);
+[System.Runtime.InteropServices.DllImport("user32.dll")]
+public static extern int GetSystemMetrics(int i);
 '@
     }
-    $h = [VigieProbe.Fg]::GetForegroundWindow()
-    if ($h -ne [IntPtr]::Zero) { [void][VigieProbe.Fg]::GetWindowThreadProcessId($h, [ref]$fgPid) }
+    $h = [VigieProbe.Win]::GetForegroundWindow()
+    if ($h -ne [IntPtr]::Zero) {
+        [void][VigieProbe.Win]::GetWindowThreadProcessId($h, [ref]$fgPid)
+        $r = New-Object VigieProbe.Win+RECT
+        if ([VigieProbe.Win]::GetWindowRect($h, [ref]$r)) {
+            # Ecran PRINCIPAL : une fenetre sur un second ecran n'est pas vue comme plein
+            # ecran. C'est une limite assumee, pas un oubli.
+            $largeur = [VigieProbe.Win]::GetSystemMetrics(0)
+            $hauteur = [VigieProbe.Win]::GetSystemMetrics(1)
+            if ($largeur -gt 0 -and $hauteur -gt 0) {
+                $fgPleinEcran = (($r.Right - $r.Left) -ge ($largeur * 0.98) -and ($r.Bottom - $r.Top) -ge ($hauteur * 0.98))
+            }
+        }
+    }
 } catch { }
 
 # --- Instantane 1 : CPU + E/S cumulees ---------------------------------------

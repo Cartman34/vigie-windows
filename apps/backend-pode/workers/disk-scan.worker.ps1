@@ -244,4 +244,4 @@ if ($arret) {
 }
 
 # La carte se rafraichit au prochain acces, sans attendre le TTL.
-try { Remove-ProbeCache -Names @('diskusage.probe.ps1') -Backend $Backend } catch { }
+try { Remove-ProbeCache -Names @('disk.probe.ps1') -Backend $Backend } catch { }
