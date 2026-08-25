@@ -1548,3 +1548,45 @@ Attention aux conflits. »
   `title` sur la **ligne**, jamais sur chaque cellule.
 - Helpers partagés : `Get-AppDisplayName` et `Get-AppInfoTip` dans `lib/common.ps1` —
   point unique, toute sonde qui montre un processus les utilise.
+
+## D65 — Multi-utilisateurs : chacun ses réglages, aucun pouvoir en plus (2026-08-25)
+
+**Demande (utilisateur, 25/08).** « J'aimerais que l'app soit disponible pour tous les
+utilisateurs de mon ordi mais avec chacun ses paramètres. » Précisions données : « il ne
+peut y avoir qu'un utilisateur connecté à la fois » ; « il doit être possible d'interdire
+certaines actions agissant sur le système pour un utilisateur standard » ; « de base, on
+ne permet rien de plus que ce que Windows permet déjà » ; « pour récupérer l'IP publique,
+par exemple, il n'y a pas de problème de sécurité, donc n'importe qui peut le faire ».
+
+### Réglages : trois couches, la plus personnelle gagne
+
+1. **Défauts versionnés** — `probes/<module>/module.psd1`, clé `Config` (D57).
+2. **Couche machine** — `config/*.local.*` dans l'installation. C'est là que vivaient tous
+   les réglages avant le multi-utilisateur : ils deviennent la base commune, personne ne
+   perd rien.
+3. **Couche utilisateur** — `%LOCALAPPDATA%\Vigie\` : `parameters.local.json`,
+   `modules.local.psd1`, `notifications.local.json`.
+
+On **lit** les trois, on **écrit** toujours dans la couche utilisateur : un compte ne
+modifie jamais les réglages d'un autre. Le bouton « défaut » rend la valeur dont le compte
+**hérite** réellement (machine si elle est réglée, sinon le défaut du module) — promettre
+le défaut du module alors qu'on retombe sur celui de la machine serait un mensonge.
+Un processus élevé du même compte partage son `LOCALAPPDATA` : serveur élevé et tray
+écrivent bien au même endroit que l'utilisateur connecté.
+
+### Droits : la règle de BASE, pas une règle gravée
+
+**Par défaut, Vigie ne permet rien de plus que ce que Windows permet déjà à ce compte.**
+Un compte standard ne doit pas obtenir, via Vigie, ce que Windows lui refuse — sinon
+l'application devient un moyen d'élévation de privilèges.
+
+**Mais c'est une valeur par défaut, pas un dogme** (précision de l'utilisateur) : il doit
+pouvoir changer d'avis **sur une action précise**, sans refonte. La suite se construit donc
+ainsi : chaque action **déclare** si elle agit sur le système, et une **politique par
+action** (couche machine, modifiable seulement par un administrateur) dit qui peut la
+lancer — `administrateurs` par défaut, `tous` si l'utilisateur en décide ainsi pour cette
+action-là. Ce qui ne touche pas la machine (IP publique, mesures, lectures) reste ouvert
+à tous sans réglage.
+
+Une action refusée se **voit et s'explique** (« nécessite un compte administrateur ») :
+elle ne disparaît pas de la carte (**D59**).
