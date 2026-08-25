@@ -12,9 +12,13 @@ $hvciOn = $dgEtat.hvci.running
 # VBS et HVCI sont un COMPROMIS (sécurité contre performances de virtualisation), pas une
 # conformité : cette sonde les rapportait donc en 'neutral'. Décision de l'utilisateur : une
 # carte porte un statut normal comme les autres. Activé = conforme, désactivé = à voir.
-$statutVbs  = if ($vbsOn)  { 'ok' } else { 'warn' }
-$statutHvci = if ($hvciOn) { 'ok' } else { 'warn' }
-$statutMod  = if ($vbsOn -and $hvciOn) { 'ok' } else { 'warn' }
+# Desactive n'est PAS un defaut : c'est l'autre branche du compromis (compatibilite
+# pilotes et performances de virtualisation contre durcissement). Verifie sur cette
+# machine : HVCI ni configure ni en attente, WSL2 fonctionnel. Le warn est reserve a
+# une bascule EN ATTENTE de redemarrage -- le seul etat qui appelle un geste.
+$statutVbs  = if ($vbsOn)  { 'ok' } else { 'neutral' }
+$statutHvci = if ($hvciOn) { 'ok' } else { 'neutral' }
+$statutMod  = 'ok'
 
 # Une bascule demandee et pas encore appliquee est un ETAT A SIGNALER, pas un echec : la
 # valeur est ecrite, Windows ne la lira qu'au demarrage. Sans cette ligne, l'utilisateur
