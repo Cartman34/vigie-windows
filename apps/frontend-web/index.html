@@ -397,6 +397,23 @@
   .hds-choice-bar{display:flex;align-items:center;gap:12px;margin-bottom:8px;font-size:12.5px}
   .hds-lnk{background:none;border:none;color:var(--accent);cursor:pointer;padding:0;font:inherit;text-decoration:underline}
   .hds-count{margin-left:auto;color:var(--muted);font-variant-numeric:tabular-nums}
+  /* Arborescence du disque (S13b) : une ligne = un dossier, sa taille, sa part. */
+  .tree-root{font-size:12.5px}
+  .tree-node>summary{display:flex;align-items:center;gap:8px;padding:4px 2px;cursor:pointer;
+                     border-bottom:1px solid var(--border);list-style:none}
+  .tree-node>summary::-webkit-details-marker{display:none}
+  .tree-node>summary::before{content:'B8';color:var(--muted);font-size:10px;flex:none;transition:transform .15s}
+  .tree-node[open]>summary::before{transform:rotate(90deg)}
+  .tree-kids{margin-left:14px;border-left:1px solid var(--border);padding-left:8px}
+  .tree-leaf{display:flex;align-items:center;gap:8px;padding:4px 2px 4px 16px;border-bottom:1px solid var(--border)}
+  .tree-n{flex:1 1 auto;word-break:break-word}
+  .tree-s{flex:none;font-variant-numeric:tabular-nums;color:var(--text)}
+  .tree-p{flex:none;width:52px;text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
+  .tree-file{color:var(--muted)}
+  .tree-mut{color:var(--muted);font-style:italic}
+  .tree-open{flex:none;font:inherit;font-size:12px;line-height:1;color:var(--muted);background:none;
+             border:1px solid var(--border);border-radius:6px;padding:2px 6px;cursor:pointer}
+  .tree-open:hover{color:var(--accent);border-color:var(--accent)}
   .hds-table{width:100%;border-collapse:collapse;font-size:12.5px}
   .hds-table th{text-align:left;font-weight:700;color:var(--muted);text-transform:uppercase;
                 letter-spacing:.5px;font-size:11px;padding:6px 10px 6px 0;border-bottom:1px solid var(--border);
@@ -943,8 +960,44 @@ function toggleDetail(btn){
   if(k){ if(d.classList.contains('open')) openDetails.add(k); else openDetails.delete(k); }
 }
 // Detail long : fenetre dediee. Elle a la place et le defilement qu'une carte n'a pas.
+// Arbre repliable (S13b) : chaque noeud dit sa taille, sa part, et propose d'ouvrir le
+// dossier dans l'explorateur. Les branches ne sont dessinees qu'a l'ouverture -- un arbre
+// entierement deplie d'un coup serait illisible ET lourd.
+function arbreHtml(noeud, profondeur){
+  const enfants=(noeud.k||[]);
+  const fichiers=(noeud.t||[]);
+  const ouvert = profondeur===0 ? ' open' : '';
+  const bouton = noeud.path
+    ? `<button class="tree-open" data-path="${esc(noeud.path).replace(/"/g,'&quot;')}" title="Ouvrir ce dossier dans l'explorateur Windows">&#x2197;</button>`
+    : '';
+  const entete = `<span class="tree-n">${esc(noeud.n)}</span>`
+    + `<span class="tree-s">${esc(noeud.size||'')}</span>`
+    + (noeud.pct!=null?`<span class="tree-p">${noeud.pct} %</span>`:'')
+    + bouton;
+  if(!enfants.length && !fichiers.length){
+    return `<div class="tree-leaf">${entete}</div>`;
+  }
+  const corps = enfants.map(e=>arbreHtml(e, profondeur+1)).join('')
+    + (noeud.o?`<div class="tree-leaf tree-mut">${noeud.o.c} autres dossiers<span class="tree-s">${esc(noeud.o.size)}</span></div>`:'')
+    + fichiers.map(ff=>`<div class="tree-leaf tree-file">${esc(ff.n)}<span class="tree-s">${esc(ff.size)}</span></div>`).join('')
+    + (noeud.of?`<div class="tree-leaf tree-mut">${noeud.of.c} autres fichiers<span class="tree-s">${esc(noeud.of.size)}</span></div>`:'');
+  return `<details class="tree-node"${ouvert}><summary>${entete}</summary><div class="tree-kids">${corps}</div></details>`;
+}
 function ouvrirDetail(key){
   const f=fieldsByKey[key]; if(!f) return;
+  if(f.tree){
+    HDS.open({ title:f.label, html:`<div class="tree-root">${arbreHtml(f.tree,0)}</div>`, variant:'info' });
+    // Ouvrir un dossier : c'est une action serveur ordinaire (droits compris, D65).
+    setTimeout(()=>{
+      document.querySelectorAll('.tree-open').forEach(b=>{ b.onclick=async(ev)=>{
+        ev.preventDefault(); ev.stopPropagation();
+        try{
+          await doAction('open-scan-folder', f.moduleId, false, 'Ouvrir le dossier', '', b, { path: b.getAttribute('data-path') }, 'manual', false);
+        }catch(e){ toast('Impossible d'ouvrir : '+(e.message||e)); }
+      }; });
+    }, 50);
+    return;
+  }
   if(f.table && f.table.rows && f.table.rows.length){
     const cols=f.table.columns||[];
     const html = '<table class="hds-table"><thead><tr>'
@@ -1635,7 +1688,7 @@ async function renderTabUtilisateurs(pane){
       '<div class="um-card"><span>'+esc(u.name)
       +(u.current?' <span class="um-tag">vous</span>':'')
       +(u.admin?' <span class="um-tag">administrateur</span>':'')
-      +(u.fullName?'<br><span class="um-mut">'+esc(u.fullName)+'</span>':'')
+      +((u.fullName&&u.fullName!==u.name)?'<br><span class="um-mut">'+esc(u.fullName)+'</span>':'')
       +'</span>'
       +'<span class="swx"><input type="checkbox" data-user="'+esc(u.name)+'"'+(u.enabled?' checked':'')+(inerte?' disabled':'')+'><i></i></span>'
       +'</div>').join('')+'</div>';

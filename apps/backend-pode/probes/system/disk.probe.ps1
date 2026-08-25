@@ -142,9 +142,49 @@ if ($enCours) {
             $lignes += ,@("$([int]$arbre.o.c) autres dossiers", (Format-ByteSize ([long]$arbre.o.s)), "$pc %")
         }
         $plusGros = if ($enfants.Count) { "$($enfants[0].n) — $(Format-ByteSize ([long]$enfants[0].s))" } else { '—' }
+        # ARBORESCENCE (S13b) : le cache contient deja l'arbre, niveau par niveau. On le
+        # transmet tel quel, en ajoutant a chaque noeud son CHEMIN COMPLET (le front en a
+        # besoin pour proposer d'ouvrir le dossier) et sa taille lisible. Le volume reste
+        # celui du cache : borne par le reglage « elements gardes par niveau ».
+        function ConvertTo-ArbreAffichable {
+            param($Noeud, [string]$Chemin, [long]$Total)
+            $enf = @($Noeud.k | Sort-Object -Property @{ Expression = { [long]$_.s } } -Descending)
+            $fic = @($Noeud.t | Sort-Object -Property @{ Expression = { [long]$_.s } } -Descending)
+            $o = [ordered]@{
+                n    = "$($Noeud.n)"
+                path = $Chemin
+                s    = [long]$Noeud.s
+                size = (Format-ByteSize ([long]$Noeud.s))
+                pct  = $(if ($Total -gt 0) { [math]::Round(([double]$Noeud.s / $Total) * 100, 1) } else { 0 })
+                f    = [int]$Noeud.f
+            }
+            if ($enf.Count) {
+                $o.k = @(foreach ($e in $enf) {
+                    ConvertTo-ArbreAffichable -Noeud $e -Chemin (Join-Path $Chemin "$($e.n)") -Total $Total
+                })
+            }
+            if ($fic.Count) {
+                $o.t = @(foreach ($ff in $fic) { [ordered]@{ n = "$($ff.n)"; size = (Format-ByteSize ([long]$ff.s)) } })
+            }
+            if ($Noeud.o -and [long]$Noeud.o.s -gt 0) {
+                $o.o = [ordered]@{ c = [int]$Noeud.o.c; size = (Format-ByteSize ([long]$Noeud.o.s)) }
+            }
+            if ($Noeud.of -and [long]$Noeud.of.s -gt 0) {
+                $o.of = [ordered]@{ c = [int]$Noeud.of.c; size = (Format-ByteSize ([long]$Noeud.of.s)) }
+            }
+            $o
+        }
+        $arbreAff = ConvertTo-ArbreAffichable -Noeud $arbre -Chemin $racine -Total $total
+
         $fields += New-Field -Key 'scan-top' -Label 'Premier niveau' -Value $plusGros -Kind 'text' -Status 'neutral' `
             -Help "Répartition de $racine au premier niveau : le plus gros dossier est affiché, le détail complet est dans le tableau." `
             -Table @{ columns = @('Dossier', 'Taille', 'Part'); rows = $lignes }
+
+        # L'arbre complet : une ligne a part, qui ouvre l'explorateur de l'analyse.
+        $fields += New-Field -Key 'scan-tree' -Label 'Explorer l''arborescence' `
+            -Value ("$($enfants.Count) dossiers au premier niveau") -Kind 'text' -Status 'neutral' `
+            -Help "Dépliez niveau par niveau pour voir où part la place, et ouvrez un dossier dans l'explorateur Windows." `
+            -Tree $arbreAff
 
         $fields += New-Field -Key 'scan-total' -Label 'Total mesuré' -Value (Format-ByteSize $total) -Kind 'text' -Status 'neutral' `
             -Help "Somme des fichiers réellement lus. Elle peut être inférieure à l'espace occupé du disque : les dossiers protégés (System Volume Information, corbeilles d'autres comptes) ne sont pas lisibles, et les liens de jonction ne sont comptés qu'une fois."
