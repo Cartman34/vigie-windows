@@ -292,7 +292,12 @@ def main():
         rec.replay(TransformPen(pen, (1, 0, 0, 1, dx, dy)))
         glyphes[nom] = pen.glyph()
     fb.setupGlyf(glyphes)
-    fb.setupHorizontalMetrics({n: (ADV, 0) for n in noms})
+    # LSB = xMin REEL de chaque glyphe : un LSB declare different fait recaler le dessin
+    # par le rasterizer (constate : icones glissees a gauche de ~4 px a 17 px).
+    def lsb(n):
+        g = glyphes[n]
+        return getattr(g, 'xMin', 0) or 0
+    fb.setupHorizontalMetrics({n: (ADV, lsb(n)) for n in noms})
     fb.setupHorizontalHeader(ascent=800, descent=-200)
     fb.setupOS2(sTypoAscender=800, sTypoDescender=-200, usWinAscent=800, usWinDescent=200)
     fb.setupNameTable({'familyName': 'Vigie Icons', 'styleName': 'Regular',
