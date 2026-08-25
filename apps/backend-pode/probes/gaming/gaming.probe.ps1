@@ -154,7 +154,8 @@ if ($vramTotale -gt 0) {
 }
 
 $bruit = @('Idle','System','Memory Compression','Registry','csrss','dwm','svchost',
-           'MsMpEng','SearchIndexer','fontdrvhost','WmiPrvSE','conhost','pwsh','powershell')
+           'MsMpEng','SearchIndexer','fontdrvhost','WmiPrvSE','conhost','pwsh','powershell',
+           'lsass','services','wininit','winlogon','smss','RuntimeBroker','SearchHost','taskhostw')
 
 # Une APPLICATION = tous ses processus du meme nom, sommes. Trois lignes « chrome »
 # separees ne disent rien ; une seule ligne agregee dit qui prend quoi.
