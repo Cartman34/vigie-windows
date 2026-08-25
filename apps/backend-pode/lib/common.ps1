@@ -2111,6 +2111,11 @@ function Get-ModuleParameterCatalog {
                 type     = if ($pm.Type) { "$($pm.Type)" } else { 'int' }
                 unit     = if ($pm.Unit) { "$($pm.Unit)" } else { $null }
                 help     = if ($pm.Help) { "$($pm.Help)" } else { '' }
+                # Bornes de curseur : l'interface propose un reglage guide, la saisie
+                # manuelle reste toujours possible (champ nombre synchronise).
+                min      = if ($null -ne $pm.Min)  { [int]$pm.Min }  else { $null }
+                max      = if ($null -ne $pm.Max)  { [int]$pm.Max }  else { $null }
+                step     = if ($null -ne $pm.Step) { [int]$pm.Step } else { $null }
                 default  = $defaut
                 value    = $courant
                 overridden = ($sur.ContainsKey($u.id) -and $sur[$u.id].ContainsKey($cle))
