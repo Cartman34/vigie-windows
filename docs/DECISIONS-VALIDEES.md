@@ -1405,3 +1405,16 @@ générateur : remplissage non-zéro (un « trou » qui déborde du contour SE R
 croissant de lune se trace en un seul chemin à deux arcs), contours horaires = pleins,
 anti-horaires = trous.
 
+## D59 — Aucun état ne masque une carte (2026-08-25)
+
+**Décision (utilisateur).** Seuls deux mécanismes peuvent retirer une carte de l'écran :
+les **filtres de groupe** (choix d'affichage, persisté) et la **désactivation du module**
+(D48). Aucun état — erreur de sonde, erreur de rendu, opération en cours, données
+manquantes — ne doit faire disparaître une carte.
+
+**Application.** Côté serveur, une sonde qui échoue rend une carte d'erreur (déjà le
+cas). Côté front, le rendu passe par `cardHtmlSafe` : une exception donne une carte
+« Affichage en erreur » à sa place dans la grille, jamais une absence (deux cartes
+avaient disparu à l'écran le 25/08 au matin). Les filtres de groupe sont persistés
+(`localStorage`) pour survivre aux rechargements.
+
