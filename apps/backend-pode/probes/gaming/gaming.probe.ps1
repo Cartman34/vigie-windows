@@ -266,7 +266,11 @@ function Get-GameScore {
     }
     if ($jeuxWindows -contains $Path.ToLower()) { $score += 4; $raisons += 'reconnu comme jeu par Windows (Game Bar)' }
     foreach ($lib in $steamLibs) {
-        if ($lib -and $Path.ToLower().StartsWith($lib)) { $score += 3; $raisons += 'installé dans une bibliothèque Steam'; break }
+        # « steamapps\common » : c'est LA ou Steam installe les jeux. Viser la racine de la
+        # bibliotheque suffirait a faire passer steam.exe lui-meme pour un jeu.
+        if ($lib -and $Path.ToLower().StartsWith($lib) -and $Path.ToLower().Contains('steamapps\common')) {
+            $score += 3; $raisons += 'installé dans une bibliothèque Steam'; break
+        }
     }
     # Moteur ou SDK de jeu, a cote de l'executable ou juste au-dessus (3 niveaux).
     $d = $dossier; $trouve = $null
@@ -295,8 +299,13 @@ if ($env:VIGIE_FAKE_GAME) {
 if (-not $jeu) {
     # On n'examine que les vrais candidats (six au plus) : ouvrir le dossier de chaque
     # processus de la machine couterait cher pour rien.
+    # Le SEUIL ne filtre plus les candidats : un jeu en pause ou dans un menu retombe sous
+    # les 15 % et disparaissait de la carte (signale par l'utilisateur pendant une partie
+    # d'Autonauts). C'est desormais l'EXAMEN qui fait foi ; le seuil ne sert plus qu'a dire
+    # si le jeu rend activement (voir plus bas). On garde un plancher a 1 % : en dessous, le
+    # processus ne rend rien du tout.
     $candidats = @($procs.Values |
-        Where-Object { $_.Gpu -ge $gameGpuMin -and $bruit -notcontains $_.Name -and $servicesWindows -notcontains $_.Name } |
+        Where-Object { $_.Gpu -ge 1 -and $bruit -notcontains $_.Name -and $servicesWindows -notcontains $_.Name } |
         Sort-Object Gpu -Descending | Select-Object -First 6)
     $examen = @(foreach ($c in $candidats) {
         $sc = Get-GameScore -Path $c.Path -PleinEcran ($c.Id -eq $fgPid -and $fgPleinEcran)
@@ -412,8 +421,11 @@ if ($jeu) {
                 elseif ($jeuRaisons) { @('Reconnu comme jeu parce que :') + @($jeuRaisons | ForEach-Object { "- $_" }) }
                 else { @() }
     if ($jeu.Path) { $pourquoi += "Exécutable : $($jeu.Path)" }
+    # Le jeu reste LE jeu meme quand il ne rend pas : on le dit au lieu de le faire
+    # disparaitre (menu, pause, chargement).
+    $auRepos = ($jeu.Gpu -lt $gameGpuMin)
     $fields += New-Field -Key 'game' -Label 'Jeu détecté' `
-        -Value (Get-AppDisplayName -ProcessName $jeu.Name -Path $jeu.Path -Complet) -Kind 'text' -Status 'ok' `
+        -Value ((Get-AppDisplayName -ProcessName $jeu.Name -Path $jeu.Path -Complet) + $(if ($auRepos) { ' (menu ou pause)' } else { '' })) -Kind 'text' -Status 'ok' `
         -Help "Application qui consomme le GPU ET qui présente des signes de jeu (bibliothèque de jeux, moteur, plein écran)." `
         -Guide $(if ($pourquoi.Count) { $pourquoi -join "`n" } else { $null })
     $fields += New-Field -Key 'game-res' -Label 'Ressources du jeu' `
