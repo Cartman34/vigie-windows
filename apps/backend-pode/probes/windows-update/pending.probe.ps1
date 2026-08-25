@@ -43,8 +43,8 @@ if ($null -eq $count) {
     # jour (boucle classique des pilotes OEM mal cibles -- constate sur deux pilotes
     # Lenovo poses en machine et redetectes). Sans explication, l'utilisateur reessaie
     # en vain et croit Vigie en panne.
+    $dejaFaites = @()
     if ($count -gt 0 -and $titles.Count -and $inst -and $inst.phase -eq 'termine' -and -not $inst.error) {
-        $dejaFaites = @()
         $titresInst = @()
         if ($inst.detail) { foreach ($d0 in @($inst.detail)) { if (@($d0).Count -ge 2 -and "$($d0[1])" -match 'Install') { $titresInst += "$($d0[0])" } } }
         elseif ($inst.titres) { $titresInst = @($inst.titres) }
@@ -54,6 +54,7 @@ if ($null -eq $count) {
         }
     }
     $guide = ($parts -join "`n`n")
+    $effectif = [Math]::Max(0, $count - $dejaFaites.Count)
     $enCours = [bool]($inst -and $inst.installing)
 
     $scan = $null
@@ -174,7 +175,13 @@ if ($null -eq $count) {
         # La resolution est l'INSTALLATION, pas l'ouverture de Windows Update. Elle reste
         # visible dans la barre d'actions : une action designee comme correctif n'en est
         # plus retiree.
-        New-Field -Key 'pending' -Label 'Détectées (non installées)' -Value $count -Kind 'number' -Status $(if ($count -gt 0) {'warn'} else {'ok'}) -Help $help -Guide $guide -FixAction $(if ($count -gt 0) { 'wu-list-pending' } else { $null })
+        # Decompte EFFECTIF : les reproposees (deja installees avec succes) ne comptent
+        # pas et ne declenchent pas d'avertissement -- reinstaller ne changerait rien.
+        New-Field -Key 'pending' -Label 'Détectées (non installées)' `
+            -Value $(if ($dejaFaites.Count -gt 0) { "$effectif ($($dejaFaites.Count) reproposée$(if($dejaFaites.Count -gt 1){'s'}))" } else { $count }) `
+            -Kind $(if ($dejaFaites.Count -gt 0) { 'text' } else { 'number' }) `
+            -Status $(if ($effectif -gt 0) {'warn'} else {'ok'}) -Help $help -Guide $guide `
+            -FixAction $(if ($effectif -gt 0) { 'wu-list-pending' } else { $null })
     ) + $champs) -Actions $actions -Busy:($enCours -or $scanEnCours) `
         -BusyAction $(if ($enCours) { 'wu-list-pending' } elseif ($scanEnCours) { 'wu-scan' } else { $null })
 }
