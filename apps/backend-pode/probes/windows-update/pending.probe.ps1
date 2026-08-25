@@ -26,6 +26,13 @@ if ($null -eq $count) {
         New-Field -Key 'pending' -Label 'Détectées' -Value 'indisponible' -Kind 'text' -Status 'neutral' -Help "Recherche locale indisponible (le verrouillage coupe les analyses ; le cache peut être vide)."
     )
 } else {
+    # Etat d'une installation lancee depuis l'application (worker wu-install).
+    $inst = $null
+    try {
+        $f = Get-VarPath -Backend $backend -Kind 'cache' -File 'wu-install.json'
+        if (Test-Path $f) { $inst = Get-Content $f -Raw | ConvertFrom-Json }
+    } catch { }
+
     $help = "Mises à jour déjà détectées et non installées (recherche LOCALE dans le cache : aucune analyse en ligne, aucune installation)."
     $note = "Pilotes/MAJ facultatives : non comptés par l'écran principal de Windows. Rien ne s'installe sans vous — pour installer, utilisez « Ouvrir Windows Update » (déverrouillez via Mode MAJ si besoin)."
     $parts = @($help)
@@ -47,12 +54,6 @@ if ($null -eq $count) {
         }
     }
     $guide = ($parts -join "`n`n")
-    # Etat d'une installation lancee depuis l'application (worker wu-install).
-    $inst = $null
-    try {
-        $f = Get-VarPath -Backend $backend -Kind 'cache' -File 'wu-install.json'
-        if (Test-Path $f) { $inst = Get-Content $f -Raw | ConvertFrom-Json }
-    } catch { }
     $enCours = [bool]($inst -and $inst.installing)
 
     $scan = $null
