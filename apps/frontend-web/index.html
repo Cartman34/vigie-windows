@@ -634,7 +634,10 @@ function fmt(f){
 let themeLabels={};
 let lastModules=[];
 let lastUnits=[], unitsOpen=false, pendingUnitFocus=null, lastHost='';
+// Persistes : un rechargement (frequent, l'app se recharge a chaque build) ne doit
+// pas rendre les groupes que l'utilisateur a masques.
 let hiddenThemes=new Set();
+try{ hiddenThemes=new Set(JSON.parse(localStorage.getItem('vigie.hiddenThemes')||'[]')); }catch(e){}
 function applyFilter(){
   document.querySelectorAll('.masonry .card[data-theme]').forEach(c=>{
     c.style.display = hiddenThemes.has(c.dataset.theme) ? 'none' : '';
@@ -642,6 +645,7 @@ function applyFilter(){
 }
 function toggleGroup(id){
   if(hiddenThemes.has(id)) hiddenThemes.delete(id); else hiddenThemes.add(id);
+  try{ localStorage.setItem('vigie.hiddenThemes', JSON.stringify([...hiddenThemes])); }catch(e){}
   document.querySelectorAll('.fchip[data-theme="'+id+'"]').forEach(b=>b.classList.toggle('active', !hiddenThemes.has(id)));
   applyFilter();
 }
