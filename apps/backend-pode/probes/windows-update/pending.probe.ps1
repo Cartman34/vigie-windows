@@ -177,9 +177,7 @@ if ($null -eq $count) {
         # plus retiree.
         # Decompte EFFECTIF : les reproposees (deja installees avec succes) ne comptent
         # pas et ne declenchent pas d'avertissement -- reinstaller ne changerait rien.
-        New-Field -Key 'pending' -Label 'Détectées (non installées)' `
-            -Value $(if ($dejaFaites.Count -gt 0) { "$effectif ($($dejaFaites.Count) reproposée$(if($dejaFaites.Count -gt 1){'s'}))" } else { $count }) `
-            -Kind $(if ($dejaFaites.Count -gt 0) { 'text' } else { 'number' }) `
+        New-Field -Key 'pending' -Label 'Détectées (non installées)' -Value $effectif -Kind 'number' `
             -Status $(if ($effectif -gt 0) {'warn'} else {'ok'}) -Help $help -Guide $guide `
             -FixAction $(if ($effectif -gt 0) { 'wu-list-pending' } else { $null })
     ) + $champs) -Actions $actions -Busy:($enCours -or $scanEnCours) `
