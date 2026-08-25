@@ -1418,3 +1418,37 @@ cas). Côté front, le rendu passe par `cardHtmlSafe` : une exception donne une 
 avaient disparu à l'écran le 25/08 au matin). Les filtres de groupe sont persistés
 (`localStorage`) pour survivre aux rechargements.
 
+
+## D60 — Analyse de la consommation du disque : mesurer tout, ne garder que l'utile (2026-08-25)
+
+**Demande (utilisateur).** « Un outil d'analyse optimisé pour afficher la consommation du
+disque. L'arborescence, le nom des dossiers et des fichiers peut être énorme, donc il faut
+vraiment que ce soit bien optimisé et intelligent. »
+
+**Décision.** Le parcours est **complet** (tout le disque est mesuré) mais **rien n'est
+conservé en entier** : le détail est borné, jamais les mesures.
+- Tâche de fond (`workers/disk-scan.worker.ps1`), lancée par l'action `disk-analyze` ; la
+  sonde `probes/system/diskusage.probe.ps1` ne fait que **lire** le résultat
+  (`var/cache/diskscan.json`) — elle reste instantanée.
+- Un seul passage en .NET (`DirectoryInfo.EnumerateFiles/Directories` +
+  `EnumerationOptions`) : les `FileInfo` portent déjà leur taille, aucun appel système par
+  fichier. Parcours **itératif** (pile explicite, post-ordre) : pas de récursion.
+- Chaque dossier ne remonte à son parent qu'une **somme** ; le parent ne garde que les N
+  plus gros enfants, le reste est replié dans une ligne « autres » (dite à l'écran, jamais
+  silencieuse). Mémoire bornée par `topN^profondeur`, pas par le nombre de fichiers.
+- `AttributesToSkip = ReparsePoint` : les jonctions ne sont pas suivies (sinon boucles
+  infinies et doubles comptes) ; les dossiers **cachés et système sont comptés** — c'est
+  souvent là qu'est la place, et le défaut de .NET les écarterait.
+- **Intelligence du classement** : le palmarès des gros dossiers ne retient que ceux **où
+  la place se partage** (un dossier dont un unique enfant explique plus de 85 % du poids
+  n'apprend rien : c'est l'enfant qu'il faut montrer). Sans ce filtre, le classement était
+  une chaîne d'ancêtres pesant tous la même chose.
+- Arrêt propre par **drapeau** (`var/cache/diskscan.stop`) relu à chaque point de
+  progression : on ne tue pas le worker, et un arrêt **conserve le dernier résultat
+  complet** (`result`) — un résultat partiel serait trompeur.
+- `scan` (état de la dernière tâche) et `result` (dernière analyse complète) sont **deux
+  blocs distincts** : les confondre faisait dater l'arbre du jour d'une interruption.
+
+**Mesuré en conditions réelles (25/08)** : C:\ complet — 342 849 dossiers, 1 615 077
+fichiers, 836 Go — parcouru en **58 à 110 s**, JSON de sortie **92 Ko**. Arrêt constaté
+effectif en moins de 3 s.
