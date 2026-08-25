@@ -208,12 +208,12 @@ if ($vramTotale -gt 0) {
     $fields += New-Field -Key 'vram' -Label 'VRAM utilisée' `
         -Value ("{0:N1} / {1:N0} Go ({2} %)" -f ($vramUtilisee/1GB), ($vramTotale/1GB), $pctVram) -Kind 'text' -Status $stVram `
         -Help "Mémoire dédiée de la carte graphique. Pleine, le jeu compense par la RAM : saccades." `
-        -Guide (@("Qui l'occupe :") + @($procs.Values | Where-Object { $_.VramGb -gt 0 } |
-                 Group-Object Name | ForEach-Object {
-                     [pscustomobject]@{ N = $_.Name; V = [Math]::Round((($_.Group | Measure-Object VramGb -Sum).Sum), 2) }
-                 } | Sort-Object V -Descending | Select-Object -First 4 |
-                 ForEach-Object { "- $($_.N) : $($_.V) Go" }) +
-                @("", "Au-delà de $vramWarn % (réglable), baissez la qualité des textures ou fermez les applis 3D en fond.") -join "`n")
+        -Guide "Au-delà de $vramWarn % (réglable), baissez la qualité des textures ou fermez les applis 3D en fond." `
+        -Table @{ columns = @('Application', 'VRAM (Go)')
+                  rows = @($procs.Values | Where-Object { $_.VramGb -gt 0 } |
+                           Group-Object Name | ForEach-Object {
+                               ,@("$($_.Name)", [Math]::Round((($_.Group | Measure-Object VramGb -Sum).Sum), 2))
+                           } | Sort-Object { [double]$_[1] } -Descending | Select-Object -First 6) }
 }
 if (-not $gpuDispo) {
     $fields += New-Field -Key 'gpu' -Label 'Compteurs GPU' -Value 'indisponibles' -Kind 'text' -Status 'warn' `
@@ -343,23 +343,18 @@ if ($jeu) {
 # svchost agrege (des dizaines de services) dominerait sans rien designer ; dwm reste
 # visible, sa VRAM de compositeur est une vraie information.
 $horsBruit = @(Group-ByApp ($procs.Values | Where-Object { @('Idle','System','Memory Compression','Registry','pwsh','powershell','conhost','svchost') -notcontains $_.Name }))
-function Format-Top {
-    param($Liste, [string]$Propriete, [string]$Unite)
-    @($Liste | Sort-Object $Propriete -Descending | Select-Object -First 3 |
-      Where-Object { $_.$Propriete -gt 0 } |
-      ForEach-Object { "  {0} : {1} {2}" -f $_.Name, $_.$Propriete, $Unite })
-}
-$rep = @()
-$rep += 'Processeur :';            $rep += Format-Top $horsBruit 'Cpu' '%'
-$rep += 'GPU :';                   $rep += Format-Top $horsBruit 'Gpu' '%'
-$rep += 'VRAM :';                  $rep += Format-Top $horsBruit 'VramGb' 'Go'
-$rep += 'RAM :';                   $rep += Format-Top $horsBruit 'RamGb' 'Go'
-$rep += 'E/S (disque+réseau) :';   $rep += Format-Top $horsBruit 'IoMbs' 'Mo/s'
+# Un TABLEAU unique : chaque application avec toutes ses dimensions -- c'est la vue
+# « qui prend quoi » demandee, bien plus lisible qu'une liste par dimension.
 $meneur = @($horsBruit | Sort-Object { $_.Cpu * 1.5 + $_.Gpu } -Descending)[0]
+$lignesRep = @($horsBruit |
+    Sort-Object { $_.Cpu * 1.5 + $_.Gpu + $_.VramGb * 10 } -Descending |
+    Select-Object -First 8 |
+    ForEach-Object { ,@("$($_.Name)", $_.Cpu, $_.Gpu, $_.VramGb, $_.RamGb, $_.IoMbs) })
 $fields += New-Field -Key 'top' -Label 'Répartition des ressources' `
     -Value $(if ($meneur) { $meneur.Name } else { '—' }) -Kind 'text' -Status 'neutral' `
-    -Help "Le top 3 par dimension (processeur, GPU, VRAM, RAM, entrées/sorties) — pour voir qui prend quoi." `
-    -Guide ($rep -join "`n")
+    -Help "Les applications les plus consommatrices, toutes dimensions confondues — pour voir qui prend quoi." `
+    -Guide "Triées par poids global. E/S = disque et réseau confondus (Windows ne les sépare pas par processus)." `
+    -Table @{ columns = @('Application', 'CPU %', 'GPU %', 'VRAM Go', 'RAM Go', 'E/S Mo/s'); rows = $lignesRep }
 
 $statut = if (($fields | Where-Object { $_.status -eq 'warn' })) { 'warn' } else { 'ok' }
 New-ModuleObject -Id 'gaming' -Theme 'gaming' -Label 'Session de jeu' -Status $statut -Fields $fields
