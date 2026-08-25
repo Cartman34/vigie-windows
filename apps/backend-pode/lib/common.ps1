@@ -939,7 +939,7 @@ function Get-PkgFailureAdvice {
     if (-not $Reason) { return $null }
     if ($Reason -match 'technologie d.installation est diff|install technology is different') {
         return ("En clair : cette application a été installée à l'origine par un autre canal " +
-                "que winget (installateur classique, Store...) ; winget refuse de mettre à jour par-dessus. " +
+                "que winget (préinstallée avec Windows, installateur classique, Store...) ; winget refuse de mettre à jour par-dessus. " +
                 "Que faire : réinstaller l'application depuis son installateur officiel — l'installation est " +
                 "remplacée proprement, les données et profils sont conservés.")
     }
