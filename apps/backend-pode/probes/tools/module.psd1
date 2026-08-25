@@ -9,10 +9,13 @@
     # CONFIG : les valeurs par defaut, versionnees (D57).
     Config = @{
         IgnoredPackages = @()   # motifs (joker * accepte) exclus du decompte des MAJ
+        PreselectAllUpdates = $true   # fenetre de MAJ : tout coche a l'ouverture
     }
 
     Parameters = @(
         @{ Key = 'IgnoredPackages'; Label = 'Paquets ignorés'; Type = 'list'
            Help = 'Ces paquets ne comptent plus dans « mises à jour disponibles » (motifs, joker * accepté — ex. Microsoft.Teams*). L''équivalent d''un épinglage.' }
+        @{ Key = 'PreselectAllUpdates'; Label = 'Tout cocher à l''ouverture'; Type = 'bool'
+           Help = 'Dans la fenêtre « Mettre à jour » d''un gestionnaire, toutes les mises à jour sont cochées d''avance.' }
     )
 }
