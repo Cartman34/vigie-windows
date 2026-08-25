@@ -25,6 +25,10 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
 - Pas de duplication (helpers partagés dans `apps/backend-pode/lib/common.ps1`).
 - **Toujours** traiter erreurs + sortie + code retour (`Invoke-Native`).
 - Scripts **idempotents**. **PS7 + UTF-8 avec accents** (les lanceurs restent ASCII).
+- **Numéroter les sujets (S1, S2…) dans les comptes rendus** : l'utilisateur répond par
+  numéro. **Un statut d'alerte se vérifie avant de s'afficher** : un compromis volontaire
+  (HVCI coupé…) se décrit en neutre, il ne s'alerte pas — vérifier l'état réel et les
+  contraintes de LA machine avant d'affirmer.
 - **Vérifier les prérequis en amont.** **Valider avant de dire « prêt »** (ne jamais inventer une validation).
 
 ### Disciplines de validation — dans cet ordre, avant toute livraison
