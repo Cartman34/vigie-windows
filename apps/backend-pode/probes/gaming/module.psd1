@@ -14,15 +14,15 @@
 
     # PARAMETRES : les cles de Config reglables dans le menu Parametres de l'app.
     Parameters = @(
-        @{ Key = 'GameGpuMinPct'; Label = 'Seuil de détection du jeu'; Type = 'int'; Unit = '% GPU'
+        @{ Key = 'GameGpuMinPct'; Label = 'Seuil de détection du jeu'; Type = 'int'; Unit = '% GPU'; Min = 5; Max = 80; Step = 5
            Help = 'En dessous de cette utilisation GPU, aucun processus n''est considéré comme un jeu.' }
-        @{ Key = 'OtherCpuWarnPct'; Label = 'Alerte CPU des autres applis'; Type = 'int'; Unit = '%'
+        @{ Key = 'OtherCpuWarnPct'; Label = 'Alerte CPU des autres applis'; Type = 'int'; Unit = '%'; Min = 1; Max = 50; Step = 1
            Help = 'Pendant un jeu, une autre application au-delà de ce CPU déclenche un avertissement.' }
-        @{ Key = 'OtherGpuWarnPct'; Label = 'Alerte GPU des autres applis'; Type = 'int'; Unit = '%'
+        @{ Key = 'OtherGpuWarnPct'; Label = 'Alerte GPU des autres applis'; Type = 'int'; Unit = '%'; Min = 1; Max = 80; Step = 1
            Help = 'Pendant un jeu, une autre application au-delà de ce GPU déclenche un avertissement.' }
-        @{ Key = 'VramWarnPct'; Label = 'Alerte de VRAM occupée'; Type = 'int'; Unit = '%'
+        @{ Key = 'VramWarnPct'; Label = 'Alerte de VRAM occupée'; Type = 'int'; Unit = '%'; Min = 50; Max = 100; Step = 5
            Help = 'Au-delà de ce remplissage de la mémoire vidéo, la carte avertit : saccades probables.' }
-        @{ Key = 'GpuTempWarnC'; Label = 'Alerte de température GPU'; Type = 'int'; Unit = '°C'
+        @{ Key = 'GpuTempWarnC'; Label = 'Alerte de température GPU'; Type = 'int'; Unit = '°C'; Min = 60; Max = 95; Step = 1
            Help = 'Au-delà de cette température, la carte graphique va brider ses fréquences.' }
     )
 }

@@ -79,7 +79,7 @@ Add-PodeRoute -Method Get -Path "$base/modules/:id" -ScriptBlock {
     $id = $WebEvent.Parameters['id']
     $m  = (Get-State -Backend $env:VIGIE_BACKEND).modules | Where-Object { $_.id -eq $id }
     if ($m) { Write-PodeJsonResponse -Value $m -Depth 8 }
-    else    { Set-PodeResponseStatus -Code 404; Write-PodeJsonResponse -Value @{ error = "Module inconnu : $id" } }
+    else    { Write-PodeJsonResponse -StatusCode 404 -Value @{ error = "Module inconnu : $id" } }
 }
 # --- Gestion des modules (D48) : lister, activer, desactiver ------------------
 Add-PodeRoute -Method Get -Path "$base/units" -ScriptBlock {
@@ -91,14 +91,12 @@ Add-PodeRoute -Method Post -Path "$base/units/:id" -ScriptBlock {
     $id = $WebEvent.Parameters['id']
     $connu = @(Get-UnitCatalog -Backend $env:VIGIE_BACKEND | Where-Object { $_.id -eq $id })
     if (-not $connu) {
-        Set-PodeResponseStatus -Code 404
-        Write-PodeJsonResponse -Value @{ error = "Module inconnu : $id" }
+        Write-PodeJsonResponse -StatusCode 404 -Value @{ error = "Module inconnu : $id" }
         return
     }
     $d = $WebEvent.Data
     if (-not $d -or $null -eq $d.enabled) {
-        Set-PodeResponseStatus -Code 400
-        Write-PodeJsonResponse -Value @{ error = "Champ 'enabled' requis" }
+        Write-PodeJsonResponse -StatusCode 400 -Value @{ error = "Champ 'enabled' requis" }
         return
     }
     Set-UnitEnabled -UnitId $id -Enabled ([bool]$d.enabled)
@@ -117,8 +115,7 @@ Add-PodeRoute -Method Post -Path "$base/parameters/:unit" -ScriptBlock {
     $unit = $WebEvent.Parameters['unit']
     $d = $WebEvent.Data
     if (-not $d -or -not $d.values) {
-        Set-PodeResponseStatus -Code 400
-        Write-PodeJsonResponse -Value @{ error = "Champ 'values' requis (cle -> valeur ; null = retour au defaut)" }
+        Write-PodeJsonResponse -StatusCode 400 -Value @{ error = "Champ 'values' requis (cle -> valeur ; null = retour au defaut)" }
         return
     }
     $vals = @{}
@@ -129,8 +126,7 @@ Add-PodeRoute -Method Post -Path "$base/parameters/:unit" -ScriptBlock {
     }
     try { Set-ModuleParameters -Unit $unit -Values $vals -Backend $env:VIGIE_BACKEND }
     catch {
-        Set-PodeResponseStatus -Code 400
-        Write-PodeJsonResponse -Value @{ error = $_.Exception.Message }
+        Write-PodeJsonResponse -StatusCode 400 -Value @{ error = $_.Exception.Message }
         return
     }
     # Un reglage change doit se VOIR : les sondes du module sont recalculees au prochain
@@ -193,20 +189,18 @@ Add-PodeRoute -Method Post -Path "$base/actions" -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
     $d = $WebEvent.Data
     if (-not $d -or -not $d.type) {
-        Set-PodeResponseStatus -Code 400
-        Write-PodeJsonResponse -Value @{ error = "Champ 'type' requis" }
+        Write-PodeJsonResponse -StatusCode 400 -Value @{ error = "Champ 'type' requis" }
         return
     }
     if ($d.type -notmatch '^[a-z][a-z0-9-]{1,40}$') {
-        Set-PodeResponseStatus -Code 400
-        Write-PodeJsonResponse -Value @{ error = "type d'action invalide" }
+        Write-PodeJsonResponse -StatusCode 400 -Value @{ error = "type d'action invalide" }
         return
     }
     $params = @{}
     if ($d.params) { $d.params.GetEnumerator() | ForEach-Object { $params[$_.Key] = $_.Value } }
     $job = Invoke-ActionById -Type $d.type -Module $d.module -Params $params -Backend $env:VIGIE_BACKEND
-    if ($job.status -eq 'error') { Set-PodeResponseStatus -Code 400 }
-    Write-PodeJsonResponse -Value $job -Depth 8
+    if ($job.status -eq 'error') { Write-PodeJsonResponse -StatusCode 400 -Value $job -Depth 8 }
+    else { Write-PodeJsonResponse -Value $job -Depth 8 }
 }
 
 # --- UI : sert index.html en injectant le jeton (page meme origine) ---

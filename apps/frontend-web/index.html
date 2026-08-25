@@ -1455,6 +1455,31 @@ async function renderTabModules(pane){
     try{ await postParam(unit,key,valeur); toast('Paramètre enregistré'); await apresParam(unit); }
     catch(e){ toast('Réglage impossible : '+(e.message||e)); }
   }; });
+  // Curseur : il suit le champ nombre et reciproquement ; seul le relachement enregistre.
+  pane.querySelectorAll('[data-prange]').forEach(r=>{
+    const num=pane.querySelector('[data-pval="'+r.getAttribute('data-prange')+'"]');
+    r.oninput=()=>{ if(num) num.value=r.value; };
+    r.onchange=()=>{ if(num){ num.value=r.value; num.dispatchEvent(new Event('change')); } };
+    if(num){ num.addEventListener('input',()=>{ r.value=num.value; }); }
+  });
+  // Jetons : ajout par Entree, retrait par la croix ; chaque geste enregistre la liste.
+  pane.querySelectorAll('[data-plist]').forEach(bloc=>{
+    const [unit,key]=bloc.getAttribute('data-plist').split('::');
+    const envoyer=async()=>{
+      const items=[...bloc.querySelectorAll('.um-chip')].map(ch=>ch.firstChild.textContent);
+      try{ await postParam(unit,key,items); toast('Liste enregistrée'); await apresParam(unit); }
+      catch(e){ toast('Réglage impossible : '+(e.message||e)); }
+    };
+    bloc.querySelectorAll('[data-pdel]').forEach(b2=>{ b2.onclick=()=>{ b2.closest('.um-chip').remove(); envoyer(); }; });
+    const champ=bloc.querySelector('.um-chip-add');
+    if(champ){ champ.onkeydown=e=>{
+      if(e.key==='Enter'&&champ.value.trim()){
+        const chip=document.createElement('span'); chip.className='um-chip';
+        chip.textContent=champ.value.trim(); champ.value='';
+        bloc.insertBefore(chip,champ); envoyer();
+      }
+    }; }
+  });
   pane.querySelectorAll('.um-reset').forEach(b=>{ b.onclick=async()=>{
     const [unit,key]=b.getAttribute('data-preset').split('::');
     try{ await postParam(unit,key,null); toast('Retour à la valeur par défaut'); await apresParam(unit); }

@@ -54,6 +54,32 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
     $upSupported = (($null -ne $mg.upgArgs -and @($mg.upgArgs).Count -gt 0) -or $selectable)
     $cnt         = if ($u -and $null -ne $u.count) { [int]$u.count } else { -1 }
 
+    # Paquets IGNORES par l'utilisateur (Parametres > Modules > Outils & paquets) :
+    # exclus du decompte et de la liste, mais dits dans le guide -- une exclusion
+    # silencieuse finirait par faire croire qu'une MAJ n'existe pas.
+    $ignores = @(Get-ModuleSetting -Unit 'tools' -Key 'IgnoredPackages' | Where-Object { "$_" -match '\S' })
+    $nbIgnores = 0
+    $itemsAff = @($u.items)
+    if ($ignores.Count -gt 0 -and $itemsAff.Count -gt 0) {
+        # Un motif peut viser la ligne AFFICHEE (« Microsoft GameInput 3.3 -> 3.4 ») ou
+        # l'IDENTIFIANT ciblable (« Microsoft.GameInput ») : items et pkgs sont paralleles
+        # (meme source, meme ordre), on teste les deux formes.
+        $pkgsIds = @($u.pkgs)
+        $garde = @()
+        for ($i = 0; $i -lt $itemsAff.Count; $i++) {
+            $ligne = "$($itemsAff[$i])"
+            # pkgs est une liste d'OBJETS { id, titre, detail } : c'est l'id qu'on vise.
+            $idPkg = if ($i -lt $pkgsIds.Count) { "$($pkgsIds[$i].id)" } else { '' }
+            $vise = @($ignores | Where-Object {
+                $ligne -like ('*' + $_ + '*') -or ($idPkg -and $idPkg -like $_)
+            }).Count -gt 0
+            if (-not $vise) { $garde += $itemsAff[$i] }
+        }
+        $nbIgnores = $itemsAff.Count - $garde.Count
+        $itemsAff = $garde
+        if ($cnt -gt 0) { $cnt = [Math]::Max(0, $cnt - $nbIgnores) }
+    }
+
     # Champ Version (toujours present).
     $vg = @()
     if ($raw) { $vg += $raw }
@@ -96,11 +122,12 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
     } elseif ($u -and $u.at) {
         if ($cnt -gt 0) {
             $majStatus = 'warn'; $majValue = "$cnt disponible(s)"
-            foreach ($it in @($u.items)) { $mg2 += ("- " + $it) }
+            foreach ($it in $itemsAff) { $mg2 += ("- " + $it) }
         } else {
             $majStatus = 'ok'; $majValue = 'à jour'
             $mg2 += "Aucune mise à jour disponible."
         }
+        if ($nbIgnores -gt 0) { $mg2 += ("($nbIgnores mise(s) à jour masquée(s) par la liste des paquets ignorés.)") }
         $mg2 += ""
         $mg2 += ("Vérifié le : " + $u.at)
         if ($tacheAbandonnee) {

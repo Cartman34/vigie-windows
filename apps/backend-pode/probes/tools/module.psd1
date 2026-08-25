@@ -5,4 +5,14 @@
     # config/modules.local.psd1 (jamais versionne).
     Label       = 'Outils & paquets'
     Description = 'Gestionnaires de paquets : winget, Chocolatey, pip.'
+
+    # CONFIG : les valeurs par defaut, versionnees (D57).
+    Config = @{
+        IgnoredPackages = @()   # motifs (joker * accepte) exclus du decompte des MAJ
+    }
+
+    Parameters = @(
+        @{ Key = 'IgnoredPackages'; Label = 'Paquets ignorés'; Type = 'list'
+           Help = 'Ces paquets ne comptent plus dans « mises à jour disponibles » (motifs, joker * accepté — ex. Microsoft.Teams*). L''équivalent d''un épinglage.' }
+    )
 }

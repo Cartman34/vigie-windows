@@ -350,7 +350,10 @@ if (Test-Path $measFile) {
         if ($m.publicIpAt) { $pubAt = $m.publicIpAt }
     } catch { }
 }
-$latSt = if ($lat -eq '-') { 'neutral' } elseif ([double]($lat) -lt 80) { 'ok' } elseif ([double]($lat) -lt 200) { 'warn' } else { 'error' }
+# Seuils de latence : config du module, surchargeable dans Parametres (D57).
+$latWarn = [int](Get-ModuleSetting -Unit 'network' -Key 'LatencyWarnMs');  if (-not $latWarn)  { $latWarn = 80 }
+$latErr  = [int](Get-ModuleSetting -Unit 'network' -Key 'LatencyErrorMs'); if (-not $latErr)   { $latErr = 200 }
+$latSt = if ($lat -eq '-') { 'neutral' } elseif ([double]($lat) -lt $latWarn) { 'ok' } elseif ([double]($lat) -lt $latErr) { 'warn' } else { 'error' }
 $pubGuide = if ($pubAt) { "Dernière récupération : $pubAt. Cliquez « Obtenir l'IP publique » pour actualiser." } else { "Non récupérée. Cliquez « Obtenir l'IP publique » (appel à un service externe)." }
 
 # REGLE GENERALE de cette sonde : jamais de consigne conditionnelle (« si Non, verifiez

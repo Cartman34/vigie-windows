@@ -14,7 +14,7 @@
 
     # PARAMETRES : les cles de Config reglables dans le menu Parametres de l'app.
     Parameters = @(
-        @{ Key = 'DiskWarnGb'; Label = 'Seuil d''alerte du disque'; Type = 'int'; Unit = 'Go'
+        @{ Key = 'DiskWarnGb'; Label = 'Seuil d''alerte du disque'; Type = 'int'; Unit = 'Go'; Min = 20; Max = 500; Step = 10
            Help = 'En dessous de cet espace libre sur C:, la carte passe en avertissement.' }
     )
 }
