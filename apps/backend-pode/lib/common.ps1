@@ -1382,7 +1382,11 @@ function New-Field {
         # Detail STRUCTURE : @{ columns = @('...'); rows = @(@('...'), ...) }.
         # Une liste de plusieurs dizaines de lignes mise en forme dans une chaine reste
         # illisible ou qu'on l'affiche. Un tableau se parcourt du regard ; le texte, non.
-        [hashtable]$Table
+        [hashtable]$Table,
+        # ARBORESCENCE repliable (S13b/D60) : @{ n; path; size; pct; k = @(...) }. Un
+        # tableau met a plat ce qui est hierarchique ; un arbre se parcourt de branche en
+        # branche, ce qui est justement la question posee (« ou part la place ? »).
+        $Tree
     )
     $f = [ordered]@{ key = $Key; label = $Label; value = $Value; kind = $Kind }
     if ($Unit)      { $f['unit']      = $Unit }
@@ -1391,6 +1395,7 @@ function New-Field {
     if ($FixAction) { $f['fixAction'] = $FixAction }
     if ($Guide)     { $f['guide']     = $Guide }
     if ($Table -and $Table.rows -and @($Table.rows).Count) { $f['table'] = $Table }
+    if ($Tree) { $f['tree'] = $Tree }
     [pscustomobject]$f
 }
 function New-Action {

@@ -1694,3 +1694,21 @@ d'édition arrivent parfois **simples** dans le fichier — une regex `(^|\)` es
 `(^|\)` et a fait échouer **silencieusement** tout l'inventaire des comptes (chaque compte
 apparaissait « sans Vigie »). Remède retenu : **ne pas écrire d'antislash dans le source**
 quand on peut l'éviter — `Split([char]92)` plutôt qu'une expression régulière.
+
+### D60 — explorer l'arborescence (S13b, livrée le 25/08)
+
+L'analyse gardait déjà l'arbre (top-N par niveau, profondeur réglée) : seul l'affichage
+manquait. La carte Stockage porte désormais une ligne **« Explorer l'arborescence »** qui
+ouvre un arbre **repliable** — chaque nœud dit sa taille, sa **part du total**, et propose
+d'**ouvrir le dossier** dans l'explorateur Windows.
+
+- **Contrat** : nouveau champ facultatif `tree` sur un champ de carte (à côté de `table`).
+  Une hiérarchie mise à plat dans un tableau ne répond pas à la question posée (« où part
+  la place ? ») : elle se parcourt de branche en branche.
+- **Rendu** : les branches ne se dessinent qu'à l'ouverture ; les lignes « N autres
+  dossiers » et « N autres fichiers » disent ce que le top-N a replié — rien ne disparaît
+  en silence.
+- **Ouvrir un dossier** : action `open-scan-folder`, `@droits: tous` (Windows l'accorde à
+  tous). Le chemin venant du client est vérifié deux fois : il doit être un **dossier
+  existant** ET se trouver **sous la racine analysée** — sans quoi l'application
+  deviendrait un moyen d'ouvrir n'importe quoi. Vigie n'efface rien : elle ouvre.
