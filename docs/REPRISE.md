@@ -87,16 +87,25 @@ affichage** (décision Q2). Docs de référence : `MODULES.md` (créer/maintenir
 
 ### File de travail (dans l'ordre)
 
-1. **Routes anciennes en JSON** : `/modules/{id}` et consorts rendent la page d'erreur
-   HTML de Pode sur 404/400 — passer au `-StatusCode` comme la route history.
-2. **Étendre les paramètres** (D57) : TTL par sonde, paquets ignorés (winget/choco),
-   cible de latence, rétention d'historique par mesure.
-3. **Notifications déclarées** : passer de « une par carte » à `notifications[]` par
-   module (le tiroir Modules est déjà structuré pour).
-4. **Historique étapes suivantes UNIQUEMENT sur demande** (Q2 : rien à l'écran).
-5. Fond ancien : éprouver verrou/VBS après un vrai redémarrage (le redémarrage a eu lieu
-   le 24/08 au soir — l'épreuve reste à faire) ; commentaires en anglais (D41) ;
-   workflow GitHub à coller ; bulle de notification du tray jamais observée en réel.
+1. **S13 — Analyse de la consommation du disque** (demande utilisateur, non commencé) :
+   action « Analyser » sur la carte Disque → worker détaché qui énumère en .NET
+   (System.IO.Enumeration, rapide), agrège les tailles PAR DOSSIER, ne conserve que le
+   top-N par niveau (profondeur bornée) dans un JSON de cache ; la carte/popin affiche
+   l'arbre des plus gros. Exigence : optimisé et intelligent, l'arborescence peut être
+   énorme — jamais la liste complète en mémoire ni dans le JSON. Candidat sous-agent
+   (brief : citer docs/MODULES.md).
+2. **Icônes (S8) — état factuel** : géométrie mesurée au canvas à ±0,6 px du centre dans
+   la page (correctifs faits : spécificité .vi.vi-fw, LSB=xMin, encre recentrée à la
+   génération). L'utilisateur voit ENCORE un décalage sur son écran (vidéo fournie,
+   frames extraites dans le scratchpad, analyse pixel en cours — piste : échelle
+   d'affichage de SA session ≠ 100 %, arrondis d'anticrénelage). À reprendre par mesure
+   sur SES pixels, pas à l'œil.
+3. **Edge cassé** : réparation = winget install --force / installateur officiel —
+   EN ATTENTE du feu vert utilisateur (la carte explique déjà l'échec en clair).
+4. **S5 — invalidation immédiate de la sonde réseau** sur événement Windows de
+   changement d'adresse (optionnel, proposé).
+5. Fond ancien : éprouver verrou/VBS élevé après redémarrage ; commentaires en anglais
+   (D41) ; workflow GitHub ; bulle de notification du tray à observer en réel.
 
 ## État de la machine de l'utilisateur — à savoir avant de conclure quoi que ce soit
 
