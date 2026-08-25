@@ -83,6 +83,8 @@ if ($verifieLe) { $intro += " Liste vérifiée le $verifieLe." }
         choose       = $true            # l'interface doit ouvrir une fenetre de choix
         action       = 'pkg-upgrade'    # action a rappeler avec les identifiants retenus
         selection    = $selectable      # $false => cases cochees et NON decochables
+        # Precochage : reglage utilisateur (Parametres > Outils & paquets), D57.
+        preselect    = [bool](Get-ModuleSetting -Unit 'tools' -Key 'PreselectAllUpdates')
         confirmLabel = 'Mettre à jour'
         intro        = $intro
         vide         = "Aucun paquet à mettre à jour. Lancez « Vérifier les mises à jour » si la liste vous semble ancienne."
