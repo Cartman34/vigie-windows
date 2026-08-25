@@ -2159,22 +2159,46 @@ function Get-State {
     }
 }
 
+# --- OU vivent les reglages : MACHINE puis UTILISATEUR (D65) -------------------
+# L'ordinateur a plusieurs comptes Windows et chacun doit avoir SES reglages.
+# Trois couches, de la plus generale a la plus personnelle :
+#   1. les defauts VERSIONNES        (probes/<module>/module.psd1, Config)
+#   2. la couche MACHINE             (config/*.local.* dans l'installation) -- ce qui
+#      etait deja regle avant le multi-utilisateur reste donc en place pour tout le monde
+#   3. la couche UTILISATEUR         (%LOCALAPPDATA%\Vigie) -- ce que CE compte a choisi
+# On LIT les trois (la plus personnelle gagne) ; on ECRIT toujours dans la couche
+# utilisateur : un compte ne modifie jamais les reglages d'un autre.
+#
+# Un processus eleve du meme compte partage son LOCALAPPDATA : le serveur eleve et le
+# tray ecrivent donc bien au meme endroit que l'utilisateur connecte.
+function Get-UserConfigDir {
+    $base = $env:LOCALAPPDATA
+    if (-not $base) { $base = Join-Path $env:USERPROFILE 'AppData\Local' }
+    $d = Join-Path $base 'Vigie'
+    if (-not (Test-Path -LiteralPath $d)) {
+        try { New-Item -ItemType Directory -Path $d -Force -WhatIf:$false | Out-Null } catch { }
+    }
+    $d
+}
+function Get-UserConfigPath   { param([Parameter(Mandatory)][string]$File) Join-Path (Get-UserConfigDir) $File }
+function Get-MachineConfigPath { param([Parameter(Mandatory)][string]$File) Join-Path (Get-RepoRoot) (Join-Path 'config' $File) }
+
 # --- Gestion des modules (D48) ------------------------------------------------
 # Un MODULE (unite) = un DOSSIER de sondes, declare par un module.psd1 versionne.
 # L'activation est un choix de l'utilisateur : config/modules.local.psd1, jamais
 # versionne. Un module coupe retire ses sondes du calcul, mais reste EXPOSE dans la
 # cle units[] du contrat -- sinon l'interface ne pourrait plus proposer de le rallumer.
-function Get-UnitsLocalPath {
-    Join-Path (Get-RepoRoot) 'config/modules.local.psd1'
-}
+# Couche utilisateur si elle existe, couche machine sinon (D65). On n'UNIT pas les deux :
+# rallumer chez soi un module coupe pour la machine doit rester possible.
+function Get-UnitsLocalPath { Get-UserConfigPath -File 'modules.local.psd1' }
 
 function Get-DisabledUnits {
-    $p = Get-UnitsLocalPath
-    if (-not (Test-Path -LiteralPath $p)) { return @() }
-    try {
-        $d = Import-PowerShellDataFile -Path $p
-        return @($d.Disabled | ForEach-Object { "$_" })
-    } catch { return @() }
+    foreach ($p in @((Get-UserConfigPath -File 'modules.local.psd1'), (Get-MachineConfigPath -File 'modules.local.psd1'))) {
+        if (Test-Path -LiteralPath $p) {
+            try { return @((Import-PowerShellDataFile -Path $p).Disabled | ForEach-Object { "$_" }) } catch { return @() }
+        }
+    }
+    return @()
 }
 
 function Set-UnitEnabled {
@@ -2217,21 +2241,38 @@ function Get-UnitCatalog {
 # par DEFAUT ; un PARAMETRE est une surcharge de l'utilisateur, posee via le menu
 # Parametres et stockee dans config/parameters.local.json (jamais versionne).
 # Chaque parametre a pour defaut une valeur de config -- c'est la regle, pas l'exception.
-function Get-ParametersLocalPath {
-    Join-Path (Get-RepoRoot) 'config/parameters.local.json'
-}
+# On ECRIT dans la couche utilisateur (D65).
+function Get-ParametersLocalPath { Get-UserConfigPath -File 'parameters.local.json' }
 
-function Get-ParameterOverrides {
-    $p = Get-ParametersLocalPath
+# Lecture d'UNE couche.
+function Get-ParameterOverridesFrom {
+    param([Parameter(Mandatory)][string]$Path)
     $out = @{}
-    if (Test-Path -LiteralPath $p) {
+    if (Test-Path -LiteralPath $Path) {
         try {
-            $j = Get-Content -LiteralPath $p -Raw -Encoding UTF8 | ConvertFrom-Json
+            $j = Get-Content -LiteralPath $Path -Raw -Encoding UTF8 | ConvertFrom-Json
             foreach ($u in $j.PSObject.Properties) {
                 $out[$u.Name] = @{}
                 foreach ($k in $u.Value.PSObject.Properties) { $out[$u.Name][$k.Name] = $k.Value }
             }
         } catch { }
+    }
+    return $out
+}
+
+# Machine PUIS utilisateur : le reglage personnel gagne, cle par cle (et seulement les
+# cles reglees -- le reste continue de suivre la machine, puis le defaut du module).
+function Get-ParameterOverrides {
+    param([switch]$UtilisateurSeul)
+    $out = @{}
+    $couches = if ($UtilisateurSeul) { @((Get-UserConfigPath -File 'parameters.local.json')) }
+               else { @((Get-MachineConfigPath -File 'parameters.local.json'), (Get-UserConfigPath -File 'parameters.local.json')) }
+    foreach ($c in $couches) {
+        $couche = Get-ParameterOverridesFrom -Path $c
+        foreach ($u in $couche.Keys) {
+            if (-not $out.ContainsKey($u)) { $out[$u] = @{} }
+            foreach ($k in $couche[$u].Keys) { $out[$u][$k] = $couche[$u][$k] }
+        }
     }
     return $out
 }
@@ -2260,7 +2301,9 @@ function Get-ModuleSetting {
 # reglables -- cle, libelle, type, aide -- et la valeur courante est calculee ici.
 function Get-ModuleParameterCatalog {
     param([string]$Backend = (Get-BackendRoot))
-    $sur = Get-ParameterOverrides
+    # `sur` = ce que CE compte a regle ; `mach` = ce qui est regle pour la machine.
+    $sur  = Get-ParameterOverrides -UtilisateurSeul
+    $mach = Get-ParameterOverridesFrom -Path (Get-MachineConfigPath -File 'parameters.local.json')
     @(foreach ($u in (Get-UnitCatalog -Backend $Backend)) {
         $declPath = Join-Path (Join-Path (Join-Path $Backend 'probes') $u.id) 'module.psd1'
         $decl = @{}
@@ -2271,6 +2314,9 @@ function Get-ModuleParameterCatalog {
         $params = @(foreach ($pm in @($decl.Parameters)) {
             $cle = "$($pm.Key)"
             $defaut = if ($decl.Config -and $decl.Config.ContainsKey($cle)) { $decl.Config[$cle] } else { $null }
+            # Ce dont ce compte HERITE s'il n'a rien regle : le defaut du module, ou le
+            # reglage de la machine s'il y en a un (D65).
+            if ($mach.ContainsKey($u.id) -and $mach[$u.id].ContainsKey($cle)) { $defaut = $mach[$u.id][$cle] }
             $courant = if ($sur.ContainsKey($u.id) -and $sur[$u.id].ContainsKey($cle)) { $sur[$u.id][$cle] } else { $defaut }
             [ordered]@{
                 key      = $cle
@@ -2304,7 +2350,9 @@ function Set-ModuleParameters {
     $cat = @(Get-ModuleParameterCatalog -Backend $Backend | Where-Object { $_.unit -eq $Unit })
     if (-not $cat) { throw "Module sans parametres declares : $Unit" }
     $connues = @($cat[0].params | ForEach-Object { $_.key })
-    $sur = Get-ParameterOverrides
+    # UtilisateurSeul : on ne recopie pas les valeurs de la machine dans le fichier
+    # personnel -- sinon elles y seraient figees et ne suivraient plus l'installation.
+    $sur = Get-ParameterOverrides -UtilisateurSeul
     if (-not $sur.ContainsKey($Unit)) { $sur[$Unit] = @{} }
     foreach ($k in $Values.Keys) {
         if ($connues -notcontains "$k") { throw "Parametre non declare : $Unit.$k" }
@@ -2329,14 +2377,20 @@ function Set-ModuleParameters {
 # Stockage : config/notifications.local.json a la racine (jamais versionne). JSON et non
 # psd1 : ce fichier est ECRIT par le backend (l'interface le modifie via l'API), et le
 # tray le RELIT ; JSON se lit et s'ecrit sans peine des deux cotes.
-function Get-NotificationSettingsPath {
-    Join-Path (Get-RepoRoot) 'config/notifications.local.json'
+# Ecriture : couche utilisateur (D65). Lecture : la sienne si elle existe, celle de la
+# machine sinon.
+function Get-NotificationSettingsPath { Get-UserConfigPath -File 'notifications.local.json' }
+function Get-NotificationSettingsReadPath {
+    foreach ($p in @((Get-UserConfigPath -File 'notifications.local.json'), (Get-MachineConfigPath -File 'notifications.local.json'))) {
+        if (Test-Path -LiteralPath $p) { return $p }
+    }
+    return (Get-UserConfigPath -File 'notifications.local.json')
 }
 
 function Get-NotificationSettings {
     param([string]$Backend = (Get-BackendRoot))
     $s = [ordered]@{ enabled = $true; modules = [ordered]@{} }
-    $p = Get-NotificationSettingsPath
+    $p = Get-NotificationSettingsReadPath
     if (Test-Path -LiteralPath $p) {
         try {
             $j = Get-Content -LiteralPath $p -Raw -Encoding UTF8 | ConvertFrom-Json

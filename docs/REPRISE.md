@@ -94,27 +94,35 @@ affichage** (décision Q2). Docs de référence : `MODULES.md` (créer/maintenir
 
 ### File de travail (dans l'ordre)
 
-1. **S13b — Suites possibles de l'analyse du disque** (à proposer, non demandé) : le JSON
+1. **S18 — Multi-utilisateurs, suite** : les réglages par utilisateur sont livrés
+   (trois couches, **D65**). Restent, dans l'ordre : (a) la **politique par action** —
+   chaque action déclare si elle agit sur le système, une politique machine dit qui peut
+   la lancer (`administrateurs` par défaut, `tous` si l'utilisateur le décide POUR CETTE
+   action) et une action refusée s'affiche en l'expliquant ; (b) l'**installation
+   accessible à tous les comptes** (l'app vit aujourd'hui dans l'espace de travail de
+   l'utilisateur, que les autres comptes ne peuvent pas lire) et son lancement par
+   compte. Un seul utilisateur connecté à la fois : pas de concurrence à gérer.
+2. **S13b — Suites possibles de l'analyse du disque** (à proposer, non demandé) : le JSON
    de cache contient déjà l'ARBRE (top-N par niveau jusqu'à la profondeur réglée) mais
    l'écran n'en montre que le premier niveau + deux palmarès. Un explorateur repliable
    dans la popin, et une action « ouvrir le dossier » depuis une ligne du tableau,
    seraient la suite naturelle. Base livrée : **D60**.
-2. **Jeux — branche « jeu reconnu » à constater en vraie partie** : la détection par
+3. **Jeux — branche « jeu reconnu » à constater en vraie partie** : la détection par
    faits (D64 pour les noms, examen Game Bar / bibliothèque Steam / moteur / plein écran)
    est livrée et validée au contrat ; le chemin « c'est un jeu » n'a PAS été vu en
    conditions réelles — à observer au prochain lancement de jeu de l'utilisateur (aucune
    charge fabriquée, D62 ; aucun test d'intégration sans demander, D63).
-3. **Icônes (S8) — état factuel** : géométrie mesurée au canvas à ±0,6 px du centre dans
+4. **Icônes (S8) — état factuel** : géométrie mesurée au canvas à ±0,6 px du centre dans
    la page (correctifs faits : spécificité .vi.vi-fw, LSB=xMin, encre recentrée à la
    génération). L'utilisateur voit ENCORE un décalage sur son écran (vidéo fournie,
    frames extraites dans le scratchpad, analyse pixel en cours — piste : échelle
    d'affichage de SA session ≠ 100 %, arrondis d'anticrénelage). À reprendre par mesure
    sur SES pixels, pas à l'œil.
-4. **Edge cassé** : réparation = winget install --force / installateur officiel —
+5. **Edge cassé** : réparation = winget install --force / installateur officiel —
    EN ATTENTE du feu vert utilisateur (la carte explique déjà l'échec en clair).
-5. **S5 — invalidation immédiate de la sonde réseau** sur événement Windows de
+6. **S5 — invalidation immédiate de la sonde réseau** sur événement Windows de
    changement d'adresse (optionnel, proposé).
-6. Fond ancien : éprouver verrou/VBS élevé après redémarrage ; commentaires en anglais
+7. Fond ancien : éprouver verrou/VBS élevé après redémarrage ; commentaires en anglais
    (D41) ; workflow GitHub ; bulle de notification du tray à observer en réel.
 
 ## État de la machine de l'utilisateur — à savoir avant de conclure quoi que ce soit
