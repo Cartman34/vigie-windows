@@ -153,9 +153,14 @@ if ($vramTotale -gt 0) {
     }
 }
 
-$bruit = @('Idle','System','Memory Compression','Registry','csrss','dwm','svchost',
-           'MsMpEng','SearchIndexer','fontdrvhost','WmiPrvSE','conhost','pwsh','powershell',
-           'lsass','services','wininit','winlogon','smss','RuntimeBroker','SearchHost','taskhostw')
+# Deux natures distinctes (choix utilisateur) :
+# - bruit de MESURE, jamais montre : le faux processus Idle et Vigie elle-meme ;
+# - services WINDOWS legitimes : montres s'ils consomment, mais ANNOTES comme tels --
+#   les masquer cacherait une information, conseiller de les fermer serait faux.
+$bruit = @('Idle','System','Memory Compression','Registry','conhost','pwsh','powershell')
+$servicesWindows = @('lsass','services','wininit','winlogon','smss','csrss','dwm','svchost',
+                     'MsMpEng','SearchIndexer','fontdrvhost','WmiPrvSE','RuntimeBroker',
+                     'SearchHost','taskhostw')
 
 # Une APPLICATION = tous ses processus du meme nom, sommes. Trois lignes « chrome »
 # separees ne disent rien ; une seule ligne agregee dit qui prend quoi.
@@ -180,11 +185,12 @@ if ($env:VIGIE_FAKE_GAME) {
            Sort-Object Gpu -Descending | Select-Object -First 1
 }
 if (-not $jeu -and $fgPid -and $procs.ContainsKey($fgPid) -and
-    $procs[$fgPid].Gpu -ge $gameGpuMin -and $bruit -notcontains $procs[$fgPid].Name) {
+    $procs[$fgPid].Gpu -ge $gameGpuMin -and $bruit -notcontains $procs[$fgPid].Name -and
+    $servicesWindows -notcontains $procs[$fgPid].Name) {
     $jeu = $procs[$fgPid]
 }
 if (-not $jeu) {
-    $cand = $procs.Values | Where-Object { $bruit -notcontains $_.Name -and $_.Gpu -ge $gameGpuMin } |
+    $cand = $procs.Values | Where-Object { $bruit -notcontains $_.Name -and $servicesWindows -notcontains $_.Name -and $_.Gpu -ge $gameGpuMin } |
             Sort-Object Gpu -Descending | Select-Object -First 1
     if ($cand) { $jeu = $cand }
 }
@@ -316,11 +322,13 @@ if ($jeu) {
     }) | Where-Object { $_.Cpu -ge $otherCpuWarn -or $_.Gpu -ge $otherGpuWarn } |
         Sort-Object { $_.Cpu + $_.Gpu } -Descending | Select-Object -First 5)
     if ($pompeurs.Count -gt 0) {
-        $lignes = @($pompeurs | ForEach-Object { "- {0} : CPU {1} % · GPU {2} % · VRAM {3} Go · E/S {4} Mo/s" -f $_.Name, $_.Cpu, $_.Gpu, $_.VramGb, $_.IoMbs })
+        $lignes = @($pompeurs | ForEach-Object {
+            $note = if ($servicesWindows -contains $_.Name) { " [service Windows légitime — ne pas fermer]" } else { "" }
+            "- {0}{1} : CPU {2} % · GPU {3} % · VRAM {4} Go · E/S {5} Mo/s" -f $_.Name, $note, $_.Cpu, $_.Gpu, $_.VramGb, $_.IoMbs })
         $fields += New-Field -Key 'hogs' -Label 'Autres applis gourmandes' -Value ("{0} détectée(s)" -f $pompeurs.Count) `
             -Kind 'text' -Status 'warn' `
             -Help "Applications qui consomment beaucoup pendant que le jeu tourne." `
-            -Guide (($lignes + '', 'Fermez ce qui n''est pas utile a la partie ; les seuils se reglent dans Parametres > Modules > Jeux.') -join "`n")
+            -Guide (($lignes + '', 'Fermez ce qui n''est pas utile a la partie (JAMAIS les services Windows marqués : leur activité est normale) ; les seuils se reglent dans Parametres > Modules > Jeux.') -join "`n")
     } else {
         $fields += New-Field -Key 'hogs' -Label 'Autres applis gourmandes' -Value 'aucune' -Kind 'text' -Status 'ok' `
             -Help "Aucune autre application au-dessus des seuils pendant la partie."
@@ -343,14 +351,14 @@ if ($jeu) {
 # --- Repartition : le top par DIMENSION, pour trouver qui prend quoi ----------
 # svchost agrege (des dizaines de services) dominerait sans rien designer ; dwm reste
 # visible, sa VRAM de compositeur est une vraie information.
-$horsBruit = @(Group-ByApp ($procs.Values | Where-Object { @('Idle','System','Memory Compression','Registry','pwsh','powershell','conhost','svchost') -notcontains $_.Name }))
+$horsBruit = @(Group-ByApp ($procs.Values | Where-Object { $bruit -notcontains $_.Name }))
 # Un TABLEAU unique : chaque application avec toutes ses dimensions -- c'est la vue
 # « qui prend quoi » demandee, bien plus lisible qu'une liste par dimension.
 $meneur = @($horsBruit | Sort-Object { $_.Cpu * 1.5 + $_.Gpu } -Descending)[0]
 $lignesRep = @($horsBruit |
     Sort-Object { $_.Cpu * 1.5 + $_.Gpu + $_.VramGb * 10 } -Descending |
     Select-Object -First 8 |
-    ForEach-Object { ,@("$($_.Name)", $_.Cpu, $_.Gpu, $_.VramGb, $_.RamGb, $_.IoMbs) })
+    ForEach-Object { ,@(("$($_.Name)" + $(if ($servicesWindows -contains $_.Name) { ' (Windows)' } else { '' })), $_.Cpu, $_.Gpu, $_.VramGb, $_.RamGb, $_.IoMbs) })
 $fields += New-Field -Key 'top' -Label 'Répartition des ressources' `
     -Value $(if ($meneur) { $meneur.Name } else { '—' }) -Kind 'text' -Status 'neutral' `
     -Help "Les applications les plus consommatrices, toutes dimensions confondues — pour voir qui prend quoi." `
