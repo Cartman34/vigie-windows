@@ -9,12 +9,21 @@
     # CONFIG : les valeurs par defaut, versionnees (D57). Une sonde les lit via
     # Get-ModuleSetting, qui applique d'abord l'eventuelle surcharge utilisateur.
     Config = @{
-        DiskWarnGb = 60    # espace libre (Go) sous lequel la carte Disque passe en warn
+        DiskWarnGb    = 60   # espace libre (Go) sous lequel la carte Disque passe en warn
+        # Analyse de la consommation : ce qui borne le DETAIL conserve (le parcours, lui,
+        # est toujours complet). Plus la profondeur est grande, plus le resultat est fin
+        # et gros ; le cout memoire de l'analyse est en topN^profondeur.
+        DiskScanDepth = 3    # niveaux de detail conserves sous la racine
+        DiskScanTop   = 10   # elements gardes par niveau (le reste est replie en « autres »)
     }
 
     # PARAMETRES : les cles de Config reglables dans le menu Parametres de l'app.
     Parameters = @(
         @{ Key = 'DiskWarnGb'; Label = 'Seuil d''alerte du disque'; Type = 'int'; Unit = 'Go'; Min = 20; Max = 500; Step = 10
            Help = 'En dessous de cet espace libre sur C:, la carte passe en avertissement.' }
+        @{ Key = 'DiskScanDepth'; Label = 'Profondeur de l''analyse du disque'; Type = 'int'; Unit = 'niveaux'; Min = 1; Max = 6; Step = 1
+           Help = 'Nombre de niveaux de sous-dossiers dont le détail est conservé. Le parcours reste complet : seul le détail affiché est borné.' }
+        @{ Key = 'DiskScanTop'; Label = 'Éléments gardés par niveau'; Type = 'int'; Unit = 'éléments'; Min = 3; Max = 30; Step = 1
+           Help = 'Nombre de dossiers et de fichiers les plus gros conservés à chaque niveau. Les autres sont regroupés dans une ligne « autres ».' }
     )
 }

@@ -67,7 +67,13 @@ function Invoke-Native {
 # workers detaches) ne s'ecrasent pas entre eux. Regle : un seul code pour ecrire
 # les fichiers de var/cache (netmeasure.json, pkgupdates.json, ...).
 function Update-StateJson {
-    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][hashtable]$Set)
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][hashtable]$Set,
+        # Profondeur de serialisation. 8 suffit aux etats plats ; un ARBRE (analyse du
+        # disque) depasse cette limite et ConvertTo-Json tronque alors en SILENCE.
+        [int]$Depth = 8
+    )
     $dir = Split-Path $Path -Parent
     if ($dir -and -not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
     $leaf = (Split-Path $Path -Leaf) -replace '[^A-Za-z0-9]', '_'
@@ -83,7 +89,7 @@ function Update-StateJson {
         }
         foreach ($k in $Set.Keys) { $data[$k] = $Set[$k] }
         $tmp = "$Path.tmp"
-        ($data | ConvertTo-Json -Depth 8) | Out-File -FilePath $tmp -Encoding UTF8
+        ($data | ConvertTo-Json -Depth $Depth) | Out-File -FilePath $tmp -Encoding UTF8
         Move-Item -Path $tmp -Destination $Path -Force
         return $data
     } finally {
@@ -1229,6 +1235,17 @@ function Write-Log {
 }
 
 # --- Fabriques d'objets du contrat -----------------------------------------
+# Taille en octets -> texte lisible (une seule decimale : « 12,4 Go »). Point unique de
+# mise en forme des tailles : une carte qui affiche des octets bruts n'apprend rien.
+function Format-ByteSize {
+    param([Parameter(Mandatory)][long]$Bytes)
+    if ($Bytes -ge 1TB) { return ('{0:N1} To' -f ($Bytes / 1TB)) }
+    if ($Bytes -ge 1GB) { return ('{0:N1} Go' -f ($Bytes / 1GB)) }
+    if ($Bytes -ge 1MB) { return ('{0:N1} Mo' -f ($Bytes / 1MB)) }
+    if ($Bytes -ge 1KB) { return ('{0:N0} Ko' -f ($Bytes / 1KB)) }
+    return ("$Bytes o")
+}
+
 function New-Field {
     param(
         [Parameter(Mandatory)][string]$Key,
@@ -1353,6 +1370,8 @@ $script:ProbeTtls = @{
     'net.probe.ps1'     = 15
     'wsl.probe.ps1'     = 600
     'disk.probe.ps1'    = 60
+    # Lit un JSON deja calcule : le TTL court sert a SUIVRE la progression d'une analyse.
+    'diskusage.probe.ps1' = 5
     'history.probe.ps1' = 120
     'firewall.probe.ps1'= 120
     'defender.probe.ps1'= 300
