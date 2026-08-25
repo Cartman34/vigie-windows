@@ -32,6 +32,20 @@ if ($null -eq $count) {
     if ($drivers -gt 0) { $parts += "Dont $drivers pilote(s)/optionnel(s)." }
     $parts += $note
     if ($count -gt 0 -and $titles.Count) { $parts += "Liste des mises à jour détectées :`n- " + ($titles -join "`n- ") }
+    # REPROPOSITION : Windows dit « installee avec succes » puis redetecte la MEME mise a
+    # jour (boucle classique des pilotes OEM mal cibles -- constate sur deux pilotes
+    # Lenovo poses en machine et redetectes). Sans explication, l'utilisateur reessaie
+    # en vain et croit Vigie en panne.
+    if ($count -gt 0 -and $titles.Count -and $inst -and $inst.phase -eq 'termine' -and -not $inst.error) {
+        $dejaFaites = @()
+        $titresInst = @()
+        if ($inst.detail) { foreach ($d0 in @($inst.detail)) { if (@($d0).Count -ge 2 -and "$($d0[1])" -match 'Install') { $titresInst += "$($d0[0])" } } }
+        elseif ($inst.titres) { $titresInst = @($inst.titres) }
+        foreach ($t0 in $titles) { if ($titresInst -contains "$t0") { $dejaFaites += "$t0" } }
+        if ($dejaFaites.Count -gt 0) {
+            $parts += ("ATTENTION : " + $dejaFaites.Count + " de ces mises à jour ont déjà été installées AVEC SUCCÈS et Windows les repropose quand même :`n- " + ($dejaFaites -join "`n- ") + "`nC'est une boucle connue des pilotes constructeur mal ciblés : le pilote est bien posé (vérifiable dans le Gestionnaire de périphériques), réinstaller ne change rien. Vous pouvez les laisser ou les masquer avec l'outil Microsoft wushowhide.")
+        }
+    }
     $guide = ($parts -join "`n`n")
     # Etat d'une installation lancee depuis l'application (worker wu-install).
     $inst = $null
