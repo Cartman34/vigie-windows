@@ -45,9 +45,21 @@ function Test-Elevated {
 # toujours traiter erreurs/affichages/codes de retour). Renvoie un objet uniforme.
 function Invoke-Native {
     param([Parameter(Mandatory)][string]$File, [string[]]$Arguments = @())
-    $out = & $File @Arguments 2>&1
-    $code = $LASTEXITCODE
-    [pscustomobject]@{ Ok = ($code -eq 0); ExitCode = $code; Output = (($out | Out-String).TrimEnd()) }
+    # winget (et d'autres outils modernes) emettent de l'UTF-8 ; PowerShell decodait avec
+    # la page de code OEM (850) et chaque accent devenait « ├® » -- jusque dans les
+    # messages d'erreur montres a l'utilisateur. On force UTF-8 le temps de la capture.
+    $avant = [Console]::OutputEncoding
+    try { [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false) } catch { }
+    try {
+        $out = & $File @Arguments 2>&1
+        $code = $LASTEXITCODE
+    } finally {
+        try { [Console]::OutputEncoding = $avant } catch { }
+    }
+    # winget decore sa sortie de sequences ANSI (surlignage) : illisibles une fois
+    # capturees, on les retire. [...lettre = la forme CSI standard.
+    $texte = (($out | Out-String).TrimEnd()) -replace "\[[0-9;]*[A-Za-z]", ''
+    [pscustomobject]@{ Ok = ($code -eq 0); ExitCode = $code; Output = $texte }
 }
 
 # Fusionne des cles dans un fichier JSON d'etat (lecture-fusion-ecriture ATOMIQUE),
