@@ -141,7 +141,11 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
             $echecs = @($u.last.failed)
             if ($echecs.Count -gt 0) {
                 $majStatus = 'warn'
-                $mg2 += ("Dernière mise à jour ($($u.last.at)) : $quoi, $($echecs.Count) ÉCHEC(S) : " + ($echecs -join ', ') + ".")
+                $mg2 += ("Dernière mise à jour ($($u.last.at)) : $quoi, $($echecs.Count) ÉCHEC(S) :")
+                foreach ($e0 in $echecs) {
+                    $r0 = if ($u.last.reasons) { $u.last.reasons."$e0" } else { $null }
+                    $mg2 += ("- " + $e0 + $(if ($r0) { " : " + $r0 } else { "" }))
+                }
             } elseif ([bool]$u.last.ok) {
                 $mg2 += ("Dernière mise à jour ($($u.last.at)) : $quoi, réussie.")
             } else {
