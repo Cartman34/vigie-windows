@@ -1235,6 +1235,101 @@ function Write-Log {
 }
 
 # --- Fabriques d'objets du contrat -----------------------------------------
+# Nom de processus -> nom LISIBLE, celui que Windows affiche lui-meme.
+#
+# « csrss » ne dit rien a personne (signale par l'utilisateur le 25/08). Le vrai nom est
+# dans les informations de version de l'executable (FileDescription) : « Processus
+# d'execution client-serveur », « Explorateur Windows », « Google Chrome ». On le lit sur
+# le FICHIER et non sur le processus : les processus proteges (csrss, lsass) refusent
+# l'acces a leur module principal, alors que leur fichier se lit sans probleme.
+#
+# Le nom technique n'est pas jete : il est conserve entre parentheses, parce que c'est lui
+# qu'on retrouve dans le Gestionnaire des taches.
+$script:AppNameCache = @{}
+function Get-AppDisplayName {
+    param(
+        [Parameter(Mandatory)][string]$ProcessName,
+        [string]$Path,
+        # Sans -Complet, on ne rend que le nom lisible (pour une valeur de champ courte).
+        [switch]$Complet
+    )
+    $cle = $ProcessName.ToLower()
+    if (-not $script:AppNameCache.ContainsKey($cle)) {
+        $desc = $null
+        $exe = $Path
+        if (-not $exe) {
+            # Processus protege : son chemin est refuse, mais un binaire systeme du meme
+            # nom se lit tres bien. On ne DEVINE pas : on verifie que le fichier existe.
+            $candidat = Join-Path $env:SystemRoot ("System32\" + $ProcessName + ".exe")
+            if (Test-Path -LiteralPath $candidat) { $exe = $candidat }
+        }
+        if ($exe -and (Test-Path -LiteralPath $exe)) {
+            try {
+                $d = "$([System.Diagnostics.FileVersionInfo]::GetVersionInfo($exe).FileDescription)".Trim()
+                if ($d -and $d -ne $ProcessName) { $desc = $d }
+            } catch { }
+        }
+        $script:AppNameCache[$cle] = $desc
+    }
+    $lisible = $script:AppNameCache[$cle]
+    if (-not $lisible) { return $ProcessName }          # rien a dire de mieux
+    if ($Complet) { return "$lisible ($ProcessName)" }
+    return $lisible
+}
+
+# Ce qu'on dit d'une application quand on survole son nom : chemin ABSOLU d'abord (demande
+# utilisateur), puis editeur et version, puis les processus reels derriere le nom.
+#
+# HOMONYMES : deux processus du meme nom peuvent venir de DEUX binaires differents (deux
+# installations de chrome, un faux « svchost » pose ailleurs que dans System32). On ne
+# choisit pas a la place de l'utilisateur : tous les emplacements distincts sont dits, et
+# le fait qu'il y en ait plusieurs est annonce.
+function Get-AppInfoTip {
+    param(
+        [Parameter(Mandatory)][string]$ProcessName,
+        [string[]]$Paths = @(),
+        [int[]]$Ids = @()
+    )
+    $lignes = @()
+    $chemins = @($Paths | Where-Object { $_ } | Sort-Object -Unique)
+    if ($chemins.Count -eq 0) {
+        # Processus protege (csrss, lsass...) : Windows refuse son chemin. Si un binaire
+        # systeme du meme nom EXISTE, on le nomme -- en disant que c'est le binaire attendu
+        # et non le chemin lu, la nuance compte pour qui traque un imposteur.
+        $sys = Join-Path $env:SystemRoot ("System32\" + $ProcessName + ".exe")
+        if (Test-Path -LiteralPath $sys) {
+            $lignes += "Chemin non communiqué (processus protégé par Windows)."
+            $lignes += "Binaire système attendu : $sys"
+            $chemins = @($sys)
+        } else {
+            $lignes += "Chemin : non communiqué (processus protégé par Windows)."
+        }
+    } elseif ($chemins.Count -eq 1) {
+        $lignes += "$($chemins[0])"
+    } else {
+        $lignes += "$($chemins.Count) emplacements différents pour ce nom :"
+        foreach ($c in ($chemins | Select-Object -First 4)) { $lignes += "- $c" }
+    }
+    $ref = @($chemins | Select-Object -First 1)[0]
+    if ($ref -and (Test-Path -LiteralPath $ref)) {
+        try {
+            $vi = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($ref)
+            $editeur = "$($vi.CompanyName)".Trim()
+            $version = "$($vi.FileVersion)".Trim()
+            $detail = @($editeur, $version | Where-Object { $_ }) -join ' · '
+            if ($detail) { $lignes += $detail }
+        } catch { }
+    }
+    $pids = @($Ids | Where-Object { $_ -gt 0 })
+    if ($pids.Count -eq 1) { $lignes += "1 processus (PID $($pids[0]))" }
+    elseif ($pids.Count -gt 1) {
+        $vus = @($pids | Select-Object -First 6) -join ', '
+        $suite = if ($pids.Count -gt 6) { '…' } else { '' }
+        $lignes += "$($pids.Count) processus (PID $vus$suite)"
+    }
+    $lignes -join "`n"
+}
+
 # Taille en octets -> texte lisible (une seule decimale : « 12,4 Go »). Point unique de
 # mise en forme des tailles : une carte qui affiche des octets bruts n'apprend rien.
 function Format-ByteSize {
