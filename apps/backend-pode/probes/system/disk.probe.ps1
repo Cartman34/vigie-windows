@@ -155,7 +155,9 @@ if ($enCours) {
                 path = $Chemin
                 s    = [long]$Noeud.s
                 size = (Format-ByteSize ([long]$Noeud.s))
-                pct  = $(if ($Total -gt 0) { [math]::Round(([double]$Noeud.s / $Total) * 100, 1) } else { 0 })
+                # Part en TEXTE deja mis en forme : le JSON serialise un nombre avec un
+                # point decimal, ce qui jurait a cote des tailles ecrites a la francaise.
+                pct  = $(if ($Total -gt 0) { ('{0:N1}' -f ([double]$Noeud.s / $Total * 100)) } else { '0,0' })
                 f    = [int]$Noeud.f
             }
             if ($enf.Count) {

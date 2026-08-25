@@ -972,7 +972,7 @@ function arbreHtml(noeud, profondeur){
     : '';
   const entete = `<span class="tree-n">${esc(noeud.n)}</span>`
     + `<span class="tree-s">${esc(noeud.size||'')}</span>`
-    + (noeud.pct!=null?`<span class="tree-p">${noeud.pct} %</span>`:'')
+    + (noeud.pct!=null?`<span class="tree-p">${esc(String(noeud.pct))} %</span>`:'')
     + bouton;
   if(!enfants.length && !fichiers.length){
     return `<div class="tree-leaf">${entete}</div>`;
