@@ -370,10 +370,8 @@ try {
 # Le nom du proxy local, si un service connu tourne (Acrylic ici) : nommer aide a agir.
 $dnsProxyNom = ''
 if ($dnsLocal) {
-    try {
-        $svc = Get-Service *acrylic* -ErrorAction SilentlyContinue | Select-Object -First 1
-        if ($svc) { $dnsProxyNom = "$($svc.Name)" }
-    } catch { }
+    $proxy = Get-LocalDnsProxyService
+    if ($proxy) { $dnsProxyNom = "$($proxy.Name)" }
 }
 $dnsValeur = if ($dnsLocal) { '127.0.0.1 (résolveur local)' } else { ($dnsServeurs | Select-Object -First 2) -join ', ' }
 if (-not $dnsServeurs.Count) { $dnsValeur = 'aucun serveur' }
@@ -516,6 +514,6 @@ $modStatus = if (-not $connected) { 'warn' }
 New-ModuleObject -Id 'net' -Theme 'network' -Label 'Réseau' -Status $modStatus -Fields $fields -Actions @(
     New-Action -Id 'net-publicip'  -Label "Obtenir l'IP publique" -Kind 'immediate' -Help "Interroge un service externe (api.ipify.org...) pour connaître l'adresse IP publique. Un appel sortant est effectué."
     New-Action -Id 'net-dns-flush' -Severity 'fix' -Label 'Purger le cache DNS' -BusyLabel 'Purge…' -Kind 'confirm' -Confirm `
-        -Help "Vide le cache DNS de Windows ET du proxy local (Acrylic) en redémarrant son service. À utiliser quand quelques sites ne répondent plus alors qu'internet fonctionne. Coupe la résolution une à deux secondes."
+        -Help "Vide le cache DNS de Windows et celui du proxy local s’il en existe un (détecté sur le port 53). À utiliser quand quelques sites ne répondent plus alors qu'internet fonctionne. Coupe la résolution une à deux secondes."
     New-Action -Id 'net-speedtest' -Label 'Mesurer débit/latence'  -Kind 'immediate' -Help "Mesure la latence (ping) et le débit descendant en téléchargeant ~10 Mo. Prend quelques secondes et consomme un peu de data."
 )

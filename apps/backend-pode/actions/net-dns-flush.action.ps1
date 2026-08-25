@@ -18,8 +18,10 @@ $etapes = @()
 $r = Invoke-Native -File "$env:SystemRoot\System32\ipconfig.exe" -Arguments @('/flushdns')
 $etapes += $(if ($r.Ok) { 'cache Windows purgé' } else { 'cache Windows : échec' })
 
-# 2) Proxy DNS local (Acrylic ou equivalent) : redemarrage du service = cache memoire vide.
-$svc = Get-Service *acrylic* -ErrorAction SilentlyContinue | Select-Object -First 1
+# 2) Proxy DNS local, s'il existe : detecte par le port 53 (Acrylic ou n'importe quel
+#    autre -- et rien du tout si la machine n'en a pas). Redemarrer = cache memoire vide.
+$proxy = Get-LocalDnsProxyService
+$svc = if ($proxy) { Get-Service -Name $proxy.Name -ErrorAction SilentlyContinue } else { $null }
 if ($svc) {
     try {
         Stop-Service -Name $svc.Name -Force -ErrorAction Stop

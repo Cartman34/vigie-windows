@@ -931,6 +931,20 @@ function Get-PkgUpdates {
     return @{ count = $count; items = @($items); pkgs = @($pkgs); supported = $true; selectable = $selectable }
 }
 
+# Le PROXY DNS LOCAL, s'il existe : le service Windows dont le processus ecoute sur le
+# port 53. Detection par COMPORTEMENT et non par nom -- Acrylic aujourd'hui, n'importe
+# quel autre demain, et null s'il n'y en a pas.
+function Get-LocalDnsProxyService {
+    try {
+        $ep = Get-NetUDPEndpoint -LocalPort 53 -ErrorAction Stop | Select-Object -First 1
+        if (-not $ep -or -not $ep.OwningProcess) { return $null }
+        $svc = Get-CimInstance Win32_Service -Filter "ProcessId=$($ep.OwningProcess)" -ErrorAction Stop |
+               Select-Object -First 1
+        if ($svc) { return [pscustomobject]@{ Name = $svc.Name; DisplayName = $svc.DisplayName; Pid = $ep.OwningProcess } }
+    } catch { }
+    return $null
+}
+
 # Traduit EN CLAIR un message d'echec de gestionnaire de paquets : ce que ca veut dire,
 # et quoi faire. Le message brut de l'outil est du jargon (constate : « technologie
 # d'installation differente » n'evoque rien) ; la carte doit porter l'explication.
