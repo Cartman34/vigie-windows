@@ -271,9 +271,13 @@ def main():
     glyphes = {}
     pen = TTGlyphPen(None)
     glyphes['.notdef'] = pen.glyph()
+    from fontTools.pens.transformPen import TransformPen
     for nom, (_, dessin) in ICONS.items():
         pen = TTGlyphPen(None)
-        dessin(pen)
+        # Decalage vertical -100 : les dessins vivent dans 0..800 (centre 400) mais le
+        # centre de ligne (ascent 800 / descent 200) est a 300. Corrige ICI, la fonte
+        # est centree partout -- plus aucune rustine translateY dans le CSS.
+        dessin(TransformPen(pen, (1, 0, 0, 1, 0, -100)))
         glyphes[nom] = pen.glyph()
     fb.setupGlyf(glyphes)
     fb.setupHorizontalMetrics({n: (ADV, 0) for n in noms})
