@@ -30,6 +30,12 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
   (HVCI coupé…) se décrit en neutre, il ne s'alerte pas — vérifier l'état réel et les
   contraintes de LA machine avant d'affirmer.
 - **Vérifier les prérequis en amont.** **Valider avant de dire « prêt »** (ne jamais inventer une validation).
+- **Tests courants = tests de CONTRAT** (**D63**) : parseur + `check-probes.ps1` (sondes
+  en lecture seule, invariants). Exécuter une action/un worker pour de vrai ou piloter
+  l'app de bout en bout = test d'intégration : ça se **demande**, à chaque fois.
+- **Rien qui consomme la machine sans autorisation** (**D62**) : charge GPU/CPU, test
+  lourd, benchmark — on demande à CHAQUE fois. Une permission passée ne vaut pas pour la
+  suite. Les branches rares se valident par simulation (`VIGIE_FAKE_<QUOI>`).
 
 ### Disciplines de validation — dans cet ordre, avant toute livraison
 

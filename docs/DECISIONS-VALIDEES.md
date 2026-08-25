@@ -1470,3 +1470,48 @@ représenter le stockage sur le PC. »
   dont le résultat **enrichit les lignes de la même carte**.
 - Règle générale qui en découle : **une question = une carte**. Un nouveau résultat sur un
   sujet déjà porté par une carte vient l'enrichir ; il ne crée pas une carte voisine.
+
+## D62 — Aucune charge sur la machine sans autorisation, à chaque fois (2026-08-25)
+
+**Consigne (utilisateur, 25/08).** « Tu n'as pas à faire de test GPU sans me demander, tu
+n'as pas à consommer des ressources. Aucun test ne doit le permettre sans ma permission !
+Je t'ai accordé une permission, elle aurait dû rester exceptionnelle. »
+
+**Règle.** Tout ce qui **consomme volontairement** les ressources de la machine — charge
+GPU (`scripts/dev/gpu-load.html`), charge CPU, parcours de disque à des fins de test,
+téléchargement lourd, benchmark — exige une **autorisation explicite de l'utilisateur,
+demandée à chaque fois**. Une autorisation donnée une fois ne vaut **jamais** pour la
+suite : elle était exceptionnelle.
+
+**Ce qui reste permis sans demander** : la lecture (sondes, compteurs, registre), et les
+opérations que l'utilisateur vient lui-même de demander.
+
+**Conséquence sur la validation.** Une branche de sonde qui ne s'observe que sous charge se
+valide par la **simulation** (`VIGIE_FAKE_<QUOI>`, D48/MODULES.md) ou en attendant une
+charge **naturelle** (une vraie partie). La charge fabriquée n'est pas un outil de
+validation ordinaire : c'est une exception à demander.
+
+## D63 — Tests courants = tests de CONTRAT uniquement (2026-08-25)
+
+**Consigne (utilisateur, 25/08).** « Tes tests courants ne doivent être que des tests de
+contrat, aucune automatisation des tests d'intégration ; c'est seulement quand tu remontes
+un souci ou un besoin, et tu dois le demander. »
+
+**Ce qui est courant, sans rien demander** (ça ne coûte que du calcul, ça ne touche pas la
+machine) :
+- `[Parser]::ParseFile` sur chaque `.ps1`/`.psd1` touché ;
+- `scripts/check-probes.ps1 -Only <x>` puis `-All` : exécution des sondes (LECTURE SEULE)
+  et vérification des **invariants de contrat** D49/D50 ;
+- relecture du contrat REST (`openapi.yaml`) et du rendu de la page servie.
+
+**Ce qui n'est PAS courant et se DEMANDE à chaque fois** :
+- exécuter une **action** ou un **worker** pour de vrai (analyse de disque, mise à jour de
+  paquets, purge DNS, bascule VBS…) ;
+- piloter l'application de bout en bout (cliquer les boutons, enchaîner action + attente
+  de résultat) ;
+- toute **charge fabriquée** (**D62**).
+
+**Pourquoi.** Un test d'intégration lancé de sa propre initiative agit sur LA machine de
+l'utilisateur pendant qu'il s'en sert. La bonne conduite : livrer avec les tests de
+contrat, **dire** ce qui reste à éprouver en conditions réelles, et **demander** avant de
+le faire — ou laisser l'utilisateur le faire lui-même.
