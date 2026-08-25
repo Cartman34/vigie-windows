@@ -79,18 +79,30 @@ if ($null -eq $count) {
         # into a null array ». Les entrees de cache anterieures n'ont pas de `detail`.
         $detailInst = @()
         if ($inst.detail) { $detailInst = @($inst.detail | Where-Object { $_ -and @($_).Count -ge 2 }) }
+        # Un redemarrage SURVENU APRES l'installation solde le « redemarrage requis » :
+        # sans cette comparaison, la mention survivait indefiniment au redemarrage
+        # (constate). On compare en UTC (D44).
+        $redemarrageFait = $false
+        if ($inst.redemarrage -and $inst.at) {
+            try {
+                $boot = (Get-CimInstance Win32_OperatingSystem).LastBootUpTime.ToUniversalTime()
+                $finInst = ConvertTo-UtcDate $inst.at
+                if ($finInst -and $boot -gt $finInst) { $redemarrageFait = $true }
+            } catch { }
+        }
         $echecs = 0
         foreach ($d in $detailInst) { if ("$($d[1])" -match '^(Échec|Annulée)') { $echecs++ } }
         $val = if ($inst.error)          { 'échec' }
                elseif ($echecs -gt 0)    { "$echecs sur $($inst.total) en échec" }
+               elseif ($redemarrageFait) { 'terminée (redémarrage effectué)' }
                elseif ($inst.redemarrage){ 'installée, redémarrage requis' }
                else                      { 'terminée' }
         $st  = if ($inst.error -or $echecs -gt 0) { 'error' }
-               elseif ($inst.redemarrage)         { 'warn' }
+               elseif ($inst.redemarrage -and -not $redemarrageFait) { 'warn' }
                else                               { 'ok' }
         $g = @()
         if ($inst.error) { $g += "Erreur : $($inst.error)" }
-        if ($inst.redemarrage) {
+        if ($inst.redemarrage -and -not $redemarrageFait) {
             $g += "Ce que c'est : les mises à jour sont installées, mais Windows doit redémarrer pour les activer. Ce n'est pas une panne."
             $g += "Ce que vous pouvez faire : redémarrer quand cela vous arrange (le bouton « Redémarrer Windows » de cette carte, ou menu Démarrer > Redémarrer). Vigie ne redémarre jamais de lui-même."
         }
@@ -106,7 +118,7 @@ if ($null -eq $count) {
         $restartCountdown = Test-RestartCountdown -Backend $backend
         $champs += New-Field -Key 'install' -Label 'Dernière installation' -Value $val -Kind 'text' -Status $st `
             -Help "Résultat de la dernière installation lancée depuis Vigie." -Guide ($g -join "`n`n") `
-            -FixAction $(if ($inst.redemarrage -and -not $inst.error -and $echecs -eq 0 -and -not $restartCountdown) { 'system-restart' } else { $null }) `
+            -FixAction $(if ($inst.redemarrage -and -not $redemarrageFait -and -not $inst.error -and $echecs -eq 0 -and -not $restartCountdown) { 'system-restart' } else { $null }) `
             -Table @{ columns = @('Mise à jour', 'Résultat'); rows = $lignes }
     }
 

@@ -166,10 +166,11 @@ def g_moon(pen):
 
 
 def g_info(pen):
-    """i cercle : anneau + point + fut."""
-    anneau(pen, 500, 400, 360, 70)
-    cercle(pen, 500, 560, 62, horaire=True)
-    rect_arrondi(pen, 445, 205, 555, 460, 48, horaire=True)
+    """i cercle, dessine pour rester lisible a 12 px : anneau FIN, i GROS et espace.
+    (l'ancienne version - anneau 70, petit i - se fondait en donut a petite taille)."""
+    anneau(pen, 500, 400, 385, 52)
+    cercle(pen, 500, 585, 82, horaire=True)
+    rect_arrondi(pen, 435, 170, 565, 445, 56, horaire=True)
 
 
 def g_refresh(pen):
