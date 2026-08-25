@@ -272,12 +272,24 @@ def main():
     pen = TTGlyphPen(None)
     glyphes['.notdef'] = pen.glyph()
     from fontTools.pens.transformPen import TransformPen
+    from fontTools.pens.recordingPen import RecordingPen
+    from fontTools.pens.boundsPen import BoundsPen
     for nom, (_, dessin) in ICONS.items():
+        # 1. Dessin enregistre, 2. boite d'encre mesuree, 3. translation EXACTE pour que
+        # le centre d'encre tombe sur (500, 300) -- centre de la chasse (1000) et de la
+        # ligne (ascent 800 / descent 200). Un forfait (-100) supposait des dessins tous
+        # centres sur (500, 400) : faux pour certains, d'ou des icones de travers.
+        rec = RecordingPen()
+        dessin(rec)
+        bp = BoundsPen(None)
+        rec.replay(bp)
+        dx, dy = 0, 0
+        if bp.bounds:
+            x0, y0, x1, y1 = bp.bounds
+            dx = 500 - (x0 + x1) / 2.0
+            dy = 300 - (y0 + y1) / 2.0
         pen = TTGlyphPen(None)
-        # Decalage vertical -100 : les dessins vivent dans 0..800 (centre 400) mais le
-        # centre de ligne (ascent 800 / descent 200) est a 300. Corrige ICI, la fonte
-        # est centree partout -- plus aucune rustine translateY dans le CSS.
-        dessin(TransformPen(pen, (1, 0, 0, 1, 0, -100)))
+        rec.replay(TransformPen(pen, (1, 0, 0, 1, dx, dy)))
         glyphes[nom] = pen.glyph()
     fb.setupGlyf(glyphes)
     fb.setupHorizontalMetrics({n: (ADV, 0) for n in noms})
