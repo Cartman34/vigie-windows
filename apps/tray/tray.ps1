@@ -572,6 +572,16 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                     $app = 'error'; $lbl = 'Échec de démarrage'
                 } else {
                     $app = 'error'; $lbl = 'Arrêtée / injoignable'
+                    # Serveur MORT (port ferme) : le tray le relance seul. C'est le
+                    # pendant du cas « coince » ci-dessus -- constate le 25/08 au matin :
+                    # serveur tue, tray vivant, et personne pour redemarrer. startServer
+                    # repose la fenetre de tolerance, ce qui espace naturellement les
+                    # tentatives si le demarrage echoue en boucle.
+                    if ($state.EverUp -and -not (Test-ServerUp -Address $cfg.BindAddress -Port $cfg.Port)) {
+                        TLog "serveur mort (port ferme) : relance automatique"
+                        & $startServer
+                        $app = 'warn'; $lbl = 'Redémarrage…'
+                    }
                 }
             }
             $miInfo.Text = "État : $lbl"
