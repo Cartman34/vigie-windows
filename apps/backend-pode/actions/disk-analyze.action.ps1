@@ -29,7 +29,7 @@ try {
             $depuis = ((Get-Date).ToUniversalTime() - (ConvertTo-UtcDate $j.scan.startedAt)).TotalMinutes
             if ($depuis -lt 60) {
                 return @{ message = "Une analyse est déjà en cours."
-                          result = @{ ok = $true; async = $true; module = 'disk-usage'; invalidate = @('diskusage.probe.ps1') } }
+                          result = @{ ok = $true; async = $true; module = 'storage'; invalidate = @('disk.probe.ps1') } }
             }
         }
     }
@@ -46,5 +46,5 @@ if (-not $lance) { return @{ message = "Impossible de lancer l'analyse du disque
 
 @{
     message = "Analyse de $racine lancée en tâche de fond."
-    result  = @{ ok = $true; async = $true; module = 'disk-usage'; invalidate = @('diskusage.probe.ps1') }
+    result  = @{ ok = $true; async = $true; module = 'storage'; invalidate = @('disk.probe.ps1') }
 }

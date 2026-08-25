@@ -1428,7 +1428,7 @@ vraiment que ce soit bien optimisé et intelligent. »
 **Décision.** Le parcours est **complet** (tout le disque est mesuré) mais **rien n'est
 conservé en entier** : le détail est borné, jamais les mesures.
 - Tâche de fond (`workers/disk-scan.worker.ps1`), lancée par l'action `disk-analyze` ; la
-  sonde `probes/system/diskusage.probe.ps1` ne fait que **lire** le résultat
+  sonde `probes/system/disk.probe.ps1` ne fait que **lire** le résultat
   (`var/cache/diskscan.json`) — elle reste instantanée.
 - Un seul passage en .NET (`DirectoryInfo.EnumerateFiles/Directories` +
   `EnumerationOptions`) : les `FileInfo` portent déjà leur taille, aucun appel système par
@@ -1452,3 +1452,21 @@ conservé en entier** : le détail est borné, jamais les mesures.
 **Mesuré en conditions réelles (25/08)** : C:\ complet — 342 849 dossiers, 1 615 077
 fichiers, 836 Go — parcouru en **58 à 110 s**, JSON de sortie **92 Ko**. Arrêt constaté
 effectif en moins de 3 s.
+
+## D61 — Une seule carte pour le stockage, l'analyse est une ACTION (2026-08-25)
+
+**Correction (utilisateur).** « Je n'ai pas demandé une carte, j'avais demandé une action.
+L'analyse peut mener à des mises à jour des données connues mais globalement tout se fait
+dans la carte existante. Tu l'as appelée par erreur “ Disque C: ”, cette carte DOIT
+représenter le stockage sur le PC. »
+
+**Décision.**
+- La carte du module Système s'appelle **« Stockage »** (id `storage`, plus `disk-c`) et
+  représente **le stockage de la machine** : espace libre et occupation du disque
+  système (`$env:SystemDrive`, jamais « C: » en dur), plus une ligne par autre disque
+  fixe s'il y en a.
+- L'**analyse de la consommation** (D60) n'est PAS une carte : c'est une **action** de
+  cette carte (« Analyser l'espace » / « Relancer l'analyse » / « Arrêter l'analyse »),
+  dont le résultat **enrichit les lignes de la même carte**.
+- Règle générale qui en découle : **une question = une carte**. Un nouveau résultat sur un
+  sujet déjà porté par une carte vient l'enrichir ; il ne crée pas une carte voisine.

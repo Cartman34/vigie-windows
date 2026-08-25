@@ -76,8 +76,8 @@ sort aussitôt puisque le port répond — on sert alors indéfiniment du code p
 Vigie tourne en production sur la machine : tray élevé (auto-démarré par tâche planifiée,
 qu'il répare lui-même : délai MSIX + reprises) + serveur Pode 47600 + front une page +
 Atelier PHP 47610. Modules actifs : Windows Update (verrouillage natif, MAJ au choix),
-Système (disque avec seuil paramétrable D57, **consommation du disque** — analyse en tâche
-de fond, D60 —, ressources, OS), Sécurité (antivirus,
+Système (**Stockage** : seuil D57 + analyse de la consommation en tâche de fond, D60/D61 ;
+ressources ; OS), Sécurité (antivirus,
 pare-feu, VBS/HVCI natifs), Réseau (Wi-Fi scindé, stabilité), WSL, Outils & paquets
 (une carte par gestionnaire, MAJ au choix, résultat conservé), **Jeux** (détection du
 jeu, applis gourmandes, seuils D57). Menu Paramètres unique (D56) : notifications (D54),

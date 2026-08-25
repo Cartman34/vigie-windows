@@ -1369,9 +1369,9 @@ $script:ProbeTtls = @{
     'perf.probe.ps1'    = 8
     'net.probe.ps1'     = 15
     'wsl.probe.ps1'     = 600
-    'disk.probe.ps1'    = 60
-    # Lit un JSON deja calcule : le TTL court sert a SUIVRE la progression d'une analyse.
-    'diskusage.probe.ps1' = 5
+    # Court : la carte Stockage porte la progression de l'analyse d'espace (D60), et
+    # la sonde ne fait que lire deux JSON -- la recalculer coute quelques dizaines de ms.
+    'disk.probe.ps1'    = 5
     'history.probe.ps1' = 120
     'firewall.probe.ps1'= 120
     'defender.probe.ps1'= 300
@@ -1509,7 +1509,7 @@ $script:MeasureCatalog = @{
         Probe = 'disk.probe.ps1'; Kind = 'gauge'; Unit = 'Go'; IntervalMinutes = 30
         Extract = {
             param($Modules)
-            $m = @($Modules) | Where-Object { "$($_.id)" -eq 'disk-c' } | Select-Object -First 1
+            $m = @($Modules) | Where-Object { "$($_.id)" -eq 'storage' } | Select-Object -First 1
             if (-not $m) { return $null }
             $f = @($m.fields) | Where-Object { "$($_.key)" -eq 'free' } | Select-Object -First 1
             if ($null -eq $f -or $null -eq $f.value) { return $null }
