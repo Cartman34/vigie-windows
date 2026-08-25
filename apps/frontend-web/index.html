@@ -993,7 +993,7 @@ function ouvrirDetail(key){
         ev.preventDefault(); ev.stopPropagation();
         try{
           await doAction('open-scan-folder', f.moduleId, false, 'Ouvrir le dossier', '', b, { path: b.getAttribute('data-path') }, 'manual', false);
-        }catch(e){ toast('Impossible d'ouvrir : '+(e.message||e)); }
+        }catch(e){ toast("Ouverture impossible : "+(e.message||e)); }
       }; });
     }, 50);
     return;
