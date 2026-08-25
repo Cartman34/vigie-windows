@@ -2221,6 +2221,120 @@ function Get-State {
     }
 }
 
+# --- QUELS COMPTES Windows ont Vigie (D65) ------------------------------------
+# L'ordinateur a plusieurs comptes ; l'utilisateur choisit ceux qui ont Vigie, et peut
+# changer d'avis a tout moment (exigence : « un outil doit toujours permettre de changer
+# quel compte a acces »).
+#
+# Activer un compte = lui poser SA tache planifiee de demarrage. Rien d'autre : les
+# reglages sont deja par compte (couche %LOCALAPPDATA%), et les donnees d'execution
+# suivent le compte des que l'installation n'est pas inscriptible (Get-VarRoot).
+#
+# Le niveau d'execution suit le COMPTE, pas notre envie : `Highest` pour un
+# administrateur, `Limited` pour un compte standard. Donner Highest a un compte standard
+# ne marcherait pas -- et ne DOIT pas marcher : Vigie ne donne rien de plus que Windows.
+$script:VigieTaskPrefix = 'Vigie - '
+
+# Le groupe des administrateurs par son SID : le nom depend de la langue de Windows
+# (« Administrateurs » ici, « Administrators » ailleurs) -- le SID, non.
+function Test-LocalAccountIsAdmin {
+    param([Parameter(Mandatory)][string]$Name)
+    try {
+        $grp = Get-LocalGroup -SID 'S-1-5-32-544' -ErrorAction Stop
+        $membres = @(Get-LocalGroupMember -Group $grp.Name -ErrorAction Stop)
+        return [bool](@($membres | Where-Object { "$($_.Name)" -like "*\$Name" }).Count -gt 0)
+    } catch { return $false }
+}
+
+# Le principal d'une tache s'ecrit « MACHINE\compte » ou « compte » selon l'outil qui
+# l'a creee. On compare le NOM DE COMPTE, sans expression reguliere : les echappements de
+# l'antislash sont un nid a fautes (une regex mal echappee a fait echouer tout l'inventaire
+# des comptes, silencieusement, sur chaque compte de la machine).
+function Test-TaskUserIs {
+    param([string]$UserId, [Parameter(Mandatory)][string]$Name)
+    if (-not $UserId) { return $false }
+    # [char]92 = l antislash, construit plutot qu ecrit : les couches d ecriture
+    # successives mangent les echappements (constate plusieurs fois ce jour).
+    $court = @(("$UserId").Split([char]92))[-1]
+    return ($court -eq $Name)
+}
+
+function Get-VigieAccountTaskName {
+    param([Parameter(Mandatory)][string]$Name)
+    $script:VigieTaskPrefix + $Name
+}
+
+# Les comptes de la machine, avec pour chacun : est-il administrateur, Vigie demarre-t-il
+# avec lui, et par quelle tache. La tache historique s'appelle « Vigie » tout court : elle
+# compte comme active pour le compte qu'elle vise, sinon l'ecran dirait faussement
+# « inactif » a l'utilisateur qui s'en sert depuis le debut.
+function Get-VigieAccounts {
+    $taches = @()
+    try { $taches = @(Get-ScheduledTask -ErrorAction Stop | Where-Object { $_.TaskName -eq 'Vigie' -or $_.TaskName -like ($script:VigieTaskPrefix + '*') }) } catch { }
+    $comptes = @()
+    try { $comptes = @(Get-LocalUser -ErrorAction Stop | Where-Object { $_.Enabled }) } catch { }
+    @(foreach ($c in $comptes) {
+        $nom = "$($c.Name)"
+        $tache = @($taches | Where-Object {
+            $_.TaskName -eq (Get-VigieAccountTaskName -Name $nom) -or
+            ($_.TaskName -eq 'Vigie' -and (Test-TaskUserIs -UserId "$($_.Principal.UserId)" -Name $nom))
+        })[0]
+        [pscustomobject][ordered]@{
+            name        = $nom
+            fullName    = "$($c.FullName)"
+            description = "$($c.Description)"
+            admin       = (Test-LocalAccountIsAdmin -Name $nom)
+            enabled     = [bool]$tache
+            task        = if ($tache) { "$($tache.TaskName)" } else { $null }
+            # Le compte qui execute le serveur en ce moment : l'interface doit pouvoir dire
+            # « c'est vous » et empecher de se retirer soi-meme par megarde.
+            current     = ($nom -eq "$env:USERNAME")
+            lastLogon   = if ($c.LastLogon) { $c.LastLogon.ToString('s') } else { $null }
+        }
+    })
+}
+
+# Pose (ou retire) la tache de demarrage d'UN compte. Exige l'elevation : creer une tache
+# pour autrui est une operation d'administration -- Windows l'exige, Vigie aussi.
+function Set-VigieAccountEnabled {
+    param(
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][bool]$Enabled,
+        [string]$Backend = (Get-BackendRoot)
+    )
+    if (-not (Test-IsElevated)) { throw "Modifier les comptes autorises demande un compte administrateur." }
+    $compte = @(Get-VigieAccounts | Where-Object { $_.name -eq $Name })[0]
+    if (-not $compte) { throw "Compte inconnu sur cette machine : $Name" }
+
+    if (-not $Enabled) {
+        # On retire la tache DEDIEE. La tache historique « Vigie » n'est pas supprimee
+        # ici : elle est le demarrage installe par install-autostart, et son retrait a son
+        # propre script (uninstall-autostart) -- supprimer sans le dire serait pire.
+        $t = Get-VigieAccountTaskName -Name $Name
+        try { Unregister-ScheduledTask -TaskName $t -Confirm:$false -ErrorAction Stop } catch { }
+        return (Get-VigieAccounts | Where-Object { $_.name -eq $Name })
+    }
+
+    $pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
+    if (-not $pwsh) { throw "pwsh introuvable : impossible de creer la tache." }
+    $tray = Join-Path (Get-RepoRoot) 'apps/tray/tray.ps1'
+    if (-not (Test-Path -LiteralPath $tray)) { throw "Application introuvable : $tray" }
+
+    $arg     = '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $tray + '"'
+    $action  = New-ScheduledTaskAction -Execute $pwsh -Argument $arg
+    $trigger = New-ScheduledTaskTrigger -AtLogOn
+    # 45 s : pwsh vient du Store (MSIX) et n'est pas toujours pret a l'instant du logon.
+    $trigger.Delay = 'PT45S'
+    $niveau  = if ($compte.admin) { 'Highest' } else { 'Limited' }
+    $princ   = New-ScheduledTaskPrincipal -UserId ("$env:COMPUTERNAME\$Name") -LogonType Interactive -RunLevel $niveau
+    $set     = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
+                  -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew `
+                  -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
+    Register-ScheduledTask -TaskName (Get-VigieAccountTaskName -Name $Name) `
+        -Action $action -Trigger $trigger -Principal $princ -Settings $set -Force | Out-Null
+    return (Get-VigieAccounts | Where-Object { $_.name -eq $Name })
+}
+
 # --- QUI a le droit de lancer une action (D65) ---------------------------------
 # Regle de BASE, choisie par l'utilisateur : Vigie ne permet rien de plus que ce que
 # Windows permet deja a ce compte. Un compte standard ne doit pas obtenir par Vigie ce que

@@ -244,6 +244,9 @@
   .um-card input{accent-color:var(--accent)}
   .um-card small{margin-left:auto;color:var(--muted);font-size:11px}
   .um-note{color:var(--muted);font-size:12.5px;font-style:italic}
+  .um-tag{font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);
+          border:1px solid var(--border);border-radius:999px;padding:1px 6px;margin-left:4px}
+  .um-mut{font-size:11.5px;color:var(--muted)}
   .um-hint{color:var(--muted);font-size:12px;margin:0 0 14px}
   /* Parametres : tiroir LARGE, navigation verticale a gauche (elle ne casse jamais a
      la ligne et accueille autant de sections qu'il faudra), contenu a droite. */
@@ -1442,7 +1445,7 @@ function openSettings(tab, unitFocus){
 }
 async function renderSettings(){
   const body=document.getElementById('settingsBody');
-  const TABS=[['notifications','Notifications','<span class="vi vi-fw">&#xE003;</span>'],['modules','Modules','<span class="vi vi-fw">&#xE002;</span>'],['apparence','Apparence','<span class="vi vi-fw">&#xE005;</span>'],['apropos','\u00c0 propos','<span class="vi vi-fw vi-lg">&#xE007;</span>']];
+  const TABS=[['notifications','Notifications','<span class="vi vi-fw">&#xE003;</span>'],['modules','Modules','<span class="vi vi-fw">&#xE002;</span>'],['utilisateurs','Utilisateurs','<span class="vi vi-fw">&#xE004;</span>'],['apparence','Apparence','<span class="vi vi-fw">&#xE005;</span>'],['apropos','\u00c0 propos','<span class="vi vi-fw vi-lg">&#xE007;</span>']];
   body.innerHTML='<div class="set-wrap"><nav class="set-nav">'+TABS.map(t=>
     '<button class="set-item'+(settingsTab===t[0]?' on':'')+'" data-tab="'+t[0]+'">'
     +'<span class="set-ic">'+t[2]+'</span>'+t[1]+'</button>').join('')
@@ -1451,6 +1454,7 @@ async function renderSettings(){
   const pane=document.getElementById('setPane');
   if(settingsTab==='notifications') await renderTabNotifs(pane);
   else if(settingsTab==='modules') await renderTabModules(pane);
+  else if(settingsTab==='utilisateurs') await renderTabUtilisateurs(pane);
   else if(settingsTab==='apparence') renderTabApparence(pane);
   else renderTabApropos(pane);
 }
@@ -1610,6 +1614,43 @@ const THEMES=[
   {id:'dark',  nom:'Thème sombre', fond:'#0d1117', panneau:'#161b22', texte:'#e6edf3'},
   {id:'light', nom:'Thème clair',  fond:'#e9edf4', panneau:'#ffffff', texte:'#1c2230'}
 ];
+// --- Onglet Utilisateurs (D65) : qui, sur cette machine, a Vigie au demarrage ---
+// L'ecriture demande un serveur eleve : sinon les interrupteurs restent VISIBLES mais
+// inertes, et disent pourquoi (rien ne disparait de l'interface -- D59).
+async function renderTabUtilisateurs(pane){
+  pane.innerHTML='<div class="hds-loading"><span class="spin"></span>Lecture des comptes de la machine…</div>';
+  let data={users:[],canWrite:false};
+  try{
+    const r=await fetch(API+'/users',{headers:{Authorization:'Bearer '+TOKEN}});
+    if(r.ok) data=await r.json();
+  }catch(e){}
+  const users=data.users||[];
+  const inerte=!data.canWrite;
+  pane.innerHTML=
+    '<div class="um-sub">Comptes de cet ordinateur</div>'
+    +'<div class="um-note">Vigie démarre avec les comptes cochés. Chacun garde SES réglages, ses notifications et son historique. '
+    +'Un compte standard ne reçoit aucun pouvoir supplémentaire : les actions qui exigent un administrateur lui sont refusées, comme le ferait Windows.</div>'
+    +(inerte?'<div class="um-note">Pour modifier ces choix, Vigie doit tourner en administrateur.</div>':'')
+    +'<div class="um-list">'+users.map(u=>
+      '<div class="um-card"><span>'+esc(u.name)
+      +(u.current?' <span class="um-tag">vous</span>':'')
+      +(u.admin?' <span class="um-tag">administrateur</span>':'')
+      +(u.fullName?'<br><span class="um-mut">'+esc(u.fullName)+'</span>':'')
+      +'</span>'
+      +'<span class="swx"><input type="checkbox" data-user="'+esc(u.name)+'"'+(u.enabled?' checked':'')+(inerte?' disabled':'')+'><i></i></span>'
+      +'</div>').join('')+'</div>';
+  pane.querySelectorAll('[data-user]').forEach(c=>{ c.onchange=async()=>{
+    const nom=c.getAttribute('data-user');
+    try{
+      const r=await fetch(API+'/users/'+encodeURIComponent(nom),{ method:'POST',
+        headers:{ Authorization:'Bearer '+TOKEN, 'Content-Type':'application/json' },
+        body: JSON.stringify({enabled:c.checked}) });
+      if(!r.ok){ const j=await r.json().catch(()=>({})); throw new Error(j.error||('HTTP '+r.status)); }
+      toast(c.checked?('Vigie démarrera avec '+nom):('Vigie ne démarrera plus avec '+nom));
+    }catch(e){ toast('Impossible : '+(e.message||e)); c.checked=!c.checked; }
+  }; });
+}
+
 function renderTabApparence(pane){
   const courant = dark ? 'dark' : 'light';
   pane.innerHTML='<p class="um-hint">Le thème s’applique immédiatement. Le bouton rapide reste disponible dans le pied de page.</p>'

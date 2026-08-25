@@ -1664,3 +1664,33 @@ en tête du fichier, à côté de `# @droits:`. Sans déclaration : « Résoudre
 plusieurs jours. Vérifier un invariant sur ce cache donne des résultats faux (deux champs
 sont apparus « en alerte sans bouton » alors qu'à l'exécution ils étaient neutre et vert).
 On contrôle sur l'exécution réelle des sondes — c'est ce que fait `check-probes.ps1`.
+
+### D65 — mise en oeuvre du multi-comptes (livrée le 25/08)
+
+- **Données d'exécution** : `Get-VarRoot` **teste l'écriture** dans `<installation>/var`
+  au lieu de deviner d'après le chemin. Installation inscriptible (dépôt de dev) → rien ne
+  change ; installation partagée où le compte n'écrit pas → `%LOCALAPPDATA%\Vigiear`
+  (cache, journaux, historique, jeton). Chaque compte est chez lui.
+- **Comptes autorisés** : `Get-VigieAccounts` liste les comptes Windows actifs avec, pour
+  chacun, s'il est administrateur et si Vigie démarre avec lui ;
+  `Set-VigieAccountEnabled` pose ou retire **sa** tâche planifiée (`Vigie - <compte>`).
+  Le niveau d'exécution suit le compte : `Highest` pour un administrateur, `Limited`
+  pour un compte standard — Vigie ne donne rien de plus que Windows. La tâche historique
+  `Vigie` compte comme active pour le compte qu'elle vise.
+- **Trois portes d'entrée, une seule logique** : `GET/POST /users` (contrat),
+  `scripts/vigie-comptes.ps1` (ligne de commande, utilisable pendant l'installation), et
+  **Paramètres > Utilisateurs** dans l'application. « Un outil doit toujours permettre de
+  changer quel compte a accès » : c'est modifiable à tout moment, pas seulement à
+  l'installation. Sans élévation, les interrupteurs restent **visibles mais inertes** et
+  disent pourquoi (D59).
+- **Déploiement** : `scripts/deploy-prod.ps1` installe une **version choisie**, prise dans
+  l'archive fabriquée par `build-release.ps1` (liste de fichiers issue de git, garde-fous
+  déjà en place), vers `C:\Program Files\Vigie` par défaut. Les **réglages machine**
+  présents à destination sont conservés : une mise à jour ne remet jamais les choix à
+  zéro. Chez l'utilisateur final il n'y a qu'un seul dépôt : celui de prod.
+
+**Piège d'écriture rencontré (à connaître)** : les antislashs doublés de mes scripts
+d'édition arrivent parfois **simples** dans le fichier — une regex `(^|\)` est devenue
+`(^|\)` et a fait échouer **silencieusement** tout l'inventaire des comptes (chaque compte
+apparaissait « sans Vigie »). Remède retenu : **ne pas écrire d'antislash dans le source**
+quand on peut l'éviter — `Split([char]92)` plutôt qu'une expression régulière.

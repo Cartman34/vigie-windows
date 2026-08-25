@@ -105,6 +105,33 @@ Add-PodeRoute -Method Post -Path "$base/units/:id" -ScriptBlock {
     Write-PodeJsonResponse -Value @{ units = @(Get-UnitCatalog -Backend $env:VIGIE_BACKEND) } -Depth 6
 }
 
+# --- Comptes Windows autorises (D65) -----------------------------------------
+# Lecture ouverte (savoir QUI a Vigie n'est pas un secret) ; ecriture reservee a un
+# serveur eleve -- creer une tache pour autrui est une operation d'administration.
+Add-PodeRoute -Method Get -Path "$base/users" -ScriptBlock {
+    . "$env:VIGIE_BACKEND/lib/common.ps1"
+    Write-PodeJsonResponse -Value @{
+        users    = @(Get-VigieAccounts)
+        # L'interface doit pouvoir dire POURQUOI les interrupteurs sont inertes.
+        canWrite = [bool](Test-IsElevated)
+    } -Depth 6
+}
+Add-PodeRoute -Method Post -Path "$base/users/:name" -ScriptBlock {
+    . "$env:VIGIE_BACKEND/lib/common.ps1"
+    $nom = $WebEvent.Parameters['name']
+    $d = $WebEvent.Data
+    if (-not $d -or $null -eq $d.enabled) {
+        Write-PodeJsonResponse -StatusCode 400 -Value @{ error = "Champ 'enabled' requis" }
+        return
+    }
+    try {
+        Set-VigieAccountEnabled -Name $nom -Enabled ([bool]$d.enabled) -Backend $env:VIGIE_BACKEND | Out-Null
+        Write-PodeJsonResponse -Value @{ users = @(Get-VigieAccounts); canWrite = [bool](Test-IsElevated) } -Depth 6
+    } catch {
+        Write-PodeJsonResponse -StatusCode 403 -Value @{ error = "$($_.Exception.Message)" }
+    }
+}
+
 # --- Parametres de modules (D57) : defaut = config, surcharge par l'utilisateur ---
 Add-PodeRoute -Method Get -Path "$base/parameters" -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
