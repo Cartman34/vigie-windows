@@ -1196,6 +1196,33 @@ function Get-AppBuildId {
 # secrets generes. Rien de tout cela n'est versionne.
 # Ces chemins sont ecrits ICI et nulle part ailleurs : ils etaient auparavant
 # recomposes a la main dans 8 fichiers (actions, sondes, workers).
+# L'installation est-elle INSCRIPTIBLE par le compte qui execute ? (D65)
+#
+# Deux situations, et une seule regle pour les distinguer : l'ecriture reelle.
+#   - depot de DEV (ou installation dans un espace personnel) : var/ s'ecrit sur place,
+#     comme depuis toujours -- rien ne change ;
+#   - installation PARTAGEE (Program Files) : un compte standard n'y ecrit pas. Ses
+#     donnees d'execution vont alors dans son profil, ou il est chez lui.
+# On ne DEVINE pas d'apres le chemin : on tente d'ecrire, une fois, et on retient.
+$script:VarRacineCache = $null
+function Get-VarRoot {
+    param([string]$Backend = (Get-BackendRoot))
+    if ($script:VarRacineCache) { return $script:VarRacineCache }
+    $surPlace = Join-Path $Backend 'var'
+    $ok = $false
+    try {
+        if (-not (Test-Path -LiteralPath $surPlace)) {
+            New-Item -ItemType Directory -Path $surPlace -Force -WhatIf:$false | Out-Null
+        }
+        $temoin = Join-Path $surPlace ('.ecriture-' + [guid]::NewGuid().ToString('N').Substring(0,8))
+        [IO.File]::WriteAllText($temoin, 'x')
+        Remove-Item -LiteralPath $temoin -Force -ErrorAction SilentlyContinue
+        $ok = $true
+    } catch { $ok = $false }
+    $script:VarRacineCache = if ($ok) { $surPlace } else { Join-Path (Get-UserConfigDir) 'var' }
+    return $script:VarRacineCache
+}
+
 function Get-VarPath {
     param(
         [string]$Backend = (Get-BackendRoot),
@@ -1204,7 +1231,7 @@ function Get-VarPath {
         [Parameter(Mandatory)][ValidateSet('cache','log','secrets','history')][string]$Kind,
         [string]$File
     )
-    $dir = Join-Path (Join-Path $Backend 'var') $Kind
+    $dir = Join-Path (Get-VarRoot -Backend $Backend) $Kind
     if (-not (Test-Path -LiteralPath $dir)) {
         New-Item -ItemType Directory -Path $dir -Force -WhatIf:$false | Out-Null
     }
@@ -2144,6 +2171,23 @@ function Get-State {
     $modules = @()
     foreach ($pf in $probeFiles) { $e = $cache[$pf.Name]; if ($e -and $e.module) { $modules += $e.module } }
 
+    # INVARIANT (D66) : une action CITEE par un champ (fixAction) doit figurer dans les
+    # actions de la carte, sinon l'interface n'a ni libelle ni genre a dessiner et le
+    # bouton de resolution n'apparait pas. On complete ici plutot que d'obliger chaque
+    # sonde a redeclarer l'action dans sa barre.
+    foreach ($m in $modules) {
+        $connues = @(@($m.actions) | Where-Object { $_ -and $_.id } | ForEach-Object { "$($_.id)" })
+        foreach ($ch in @($m.fields)) {
+            $fa = "$($ch.fixAction)"
+            if (-not $fa -or $connues -contains $fa) { continue }
+            $pres = Get-ActionPresentation -Type $fa -Backend $Backend
+            $act = New-Action -Id $fa -Label $pres.label -Kind $pres.kind -Severity $pres.severity `
+                              -Help "Résolution proposée par la ligne « $($ch.label) »."
+            try { $m.actions = @(@($m.actions) + $act) } catch { }
+            $connues += $fa
+        }
+    }
+
     # Droits : chaque action dit si elle est lancable par CE compte, et sinon pourquoi
     # (D65). C'est fait ici, une fois pour toutes, plutot que dans chaque sonde.
     foreach ($m in $modules) {
@@ -2218,6 +2262,34 @@ function Get-ActionRequirement {
 
 # L'action est-elle lancable ICI et MAINTENANT ? Rend un objet parlant : le front doit
 # pouvoir DIRE pourquoi un bouton est inerte (une action ne disparait jamais -- D59).
+# Ce que l'action AFFICHE quand un champ la cite : libelle, genre, severite. Declares en
+# tete du fichier d'action (`# @libelle: Texte | kind | severity`), a cote des droits.
+# Sans declaration : « Resoudre », en immediate/fix -- un bouton parlant vaut mieux que
+# pas de bouton (D66), mais un libelle precis vaut mieux qu'un mot generique.
+function Get-ActionPresentation {
+    param(
+        [Parameter(Mandatory)][string]$Type,
+        [string]$Backend = (Get-BackendRoot)
+    )
+    $label = 'Résoudre'; $kind = 'immediate'; $sev = 'fix'
+    try {
+        $f = Join-Path $Backend ("actions/$Type.action.ps1")
+        if (Test-Path -LiteralPath $f) {
+            foreach ($ligne in (Get-Content -LiteralPath $f -TotalCount 40)) {
+                if ($ligne -match '^\s*#\s*@libelle\s*:\s*(.+)$') {
+                    $bouts = @("$($Matches[1])" -split '\|' | ForEach-Object { $_.Trim() })
+                    # Le commentaire qui suit « -- » ne fait pas partie de la declaration.
+                    if ($bouts.Count -ge 1 -and $bouts[0]) { $label = ($bouts[0] -replace '\s*--.*$', '').Trim() }
+                    if ($bouts.Count -ge 2 -and $bouts[1]) { $kind  = ($bouts[1] -replace '\s*--.*$', '').Trim() }
+                    if ($bouts.Count -ge 3 -and $bouts[2]) { $sev   = ($bouts[2] -replace '\s*--.*$', '').Trim() }
+                    break
+                }
+            }
+        }
+    } catch { }
+    [pscustomobject]@{ label = $label; kind = $kind; severity = $sev }
+}
+
 function Test-ActionAllowed {
     param(
         [Parameter(Mandatory)][string]$Type,

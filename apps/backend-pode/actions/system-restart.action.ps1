@@ -1,4 +1,5 @@
 # @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+# @libelle: Redémarrer Windows | confirm | fix   -- affiche quand un champ cite cette action (D66)
 <# Action : redemarrer Windows.
 
    C'est le geste le plus intrusif de l'application : il ferme tout ce que l'utilisateur a

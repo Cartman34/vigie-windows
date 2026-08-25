@@ -1,4 +1,5 @@
 # @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+# @libelle: Mettre à jour | dialog | fix   -- affiche quand un champ cite cette action (D66)
 <# Action : liste les paquets a mettre a jour d'UN gestionnaire, pour la fenetre de choix.
 
    LECTURE SEULE. Jumelle de wu-list-pending : renvoie result.choose = $true, l'action a

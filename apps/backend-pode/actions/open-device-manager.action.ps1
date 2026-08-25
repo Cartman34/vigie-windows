@@ -1,4 +1,5 @@
 # @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+# @libelle: Gestionnaire de périphériques | manual | info   -- affiche quand un champ cite cette action (D66)
 <# Action : ouvre le Gestionnaire de peripheriques de Windows.
 
    Resolution proposee quand un adaptateur graphique manque ou que l'outil du pilote est

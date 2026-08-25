@@ -1,4 +1,5 @@
 # @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+# @libelle: Analyser l'espace | immediate | info   -- affiche quand un champ cite cette action (D66)
 <# Action : lance l'analyse de la consommation du disque (tache de fond).
    Reponse immediate (async) : la carte passe en "en cours" et suit la progression.
    Le parcours lui-meme est dans workers/disk-scan.worker.ps1. #>

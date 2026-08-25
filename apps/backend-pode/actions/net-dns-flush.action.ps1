@@ -1,4 +1,5 @@
 # @droits: admin   -- modifie le systeme : Windows exige l'elevation (D65)
+# @libelle: Purger le cache DNS | immediate | fix   -- affiche quand un champ cite cette action (D66)
 <# Action : purge le cache DNS -- Windows ET le proxy local s'il existe (Acrylic).
 
    Pourquoi : un cache DNS perime rend QUELQUES sites inaccessibles (constate le 25/08 :

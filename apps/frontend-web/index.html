@@ -360,6 +360,7 @@
   .act.sev-fix:hover{color:var(--ok);border-color:var(--ok)}
   .act.sev-neutral:hover{color:var(--muted);border-color:var(--muted)}
 
+  .fsolve.denied{opacity:.45;cursor:help;border-style:dashed}
   .fsolve.sev-neutral{color:var(--muted);border-color:var(--muted)}
   .fsolve.sev-info{color:var(--accent);border-color:var(--accent)}
   .fsolve.sev-fix{color:var(--ok);border-color:var(--ok)}
@@ -696,7 +697,20 @@ function cardHtml(m, groupLabel){
     const detLong = aTable || (!!detTxt && (detTxt.length > 400 || detTxt.split(String.fromCharCode(10)).length > 8));
     const clicDetail = (detTxt||aTable) ? (detLong ? `ouvrirDetail('${key}')` : 'toggleDetail(this)') : '';
     const info=(f.help||f.guide)?`<button class="fhelp ${stt}" title="${help}" onclick="${clicDetail||'toggleDetail(this)'}"><span class="vi vi-fw vi-lg">&#xE007;</span></button>`:'';
-    const solve='';
+    // BOUTON DE RESOLUTION (D66) : un champ orange ou rouge qui cite une action porte
+    // TOUJOURS son bouton, juste sous la ligne. Il etait neutralise en dur ici (`const
+    // solve=''`) : aucune carte n'en affichait, quelle que soit la sonde -- c'est le
+    // defaut signale sur « Compteurs GPU ».
+    // Le libelle vient de l'action quand la carte la declare aussi ; sinon le serveur
+    // l'a completee depuis la declaration du fichier d'action.
+    const interditeF = fa && (fa.allowed===false);
+    const solve = (f.fixAction && isProblem)
+      ? `<button class="fsolve sev-${fa?(fa.severity||'fix'):'fix'}${interditeF?' denied':''}"${interditeF?' disabled':''}`
+        + ` data-a="${f.fixAction}" data-m="${m.id}" data-k="${fkind}" data-c="${fconfirm?1:0}"`
+        + ` data-c2="${fa&&fa.confirmTwice?1:0}" data-h="${((fa&&fa.help)||'').replace(/"/g,'&quot;')}"`
+        + ` title="${esc(interditeF?(fa.deniedReason||'Action réservée à un compte administrateur.'):((fa&&fa.help)||'Résoudre ce point')).replace(/"/g,'&quot;')}">`
+        + `${ICONS[fkind]||''}<span>${esc((fa&&fa.label)||'Résoudre')}</span></button>`
+      : '';
     const det = (detTxt && !detLong) ? `<div class="field-detail ${stt}${open}" data-k="${key}">${esc(detTxt)}</div>` : '';
     return `<div class="frow">
       <div class="field"><span class="k"><span class="fdot ${stt}"></span><span class="fk-label${(detTxt||aTable)?' clickable':''}"${help?` title="${help}"`:''}${clicDetail?` onclick="${clicDetail}"`:''}>${f.label}</span>${info}</span><span class="v v-${stt}">${fmt(f)}</span></div>
@@ -741,7 +755,13 @@ function cardHtml(m, groupLabel){
 }
 
 function wireCardActions(root){
-  (root||document).querySelectorAll('.actions button').forEach(b=>b.onclick=()=>doAction(b.dataset.a,b.dataset.m,b.dataset.c==='1',b.textContent,b.dataset.h,b,null,b.dataset.k,b.dataset.c2==='1'));
+  // Les boutons de la barre ET ceux des lignes (resolution d'un champ, D66) : meme
+  // chemin d'execution, pour que l'etat « en cours » et les confirmations se comportent
+  // pareil des deux endroits.
+  (root||document).querySelectorAll('.actions button, .frow-actions button.fsolve').forEach(b=>{
+    if (b.disabled) return;
+    b.onclick=()=>doAction(b.dataset.a,b.dataset.m,b.dataset.c==='1',b.textContent,b.dataset.h,b,null,b.dataset.k,b.dataset.c2==='1');
+  });
 }
 
 function renderState(s, mode){
