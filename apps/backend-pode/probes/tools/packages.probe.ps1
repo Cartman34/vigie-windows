@@ -145,6 +145,8 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
                 foreach ($e0 in $echecs) {
                     $r0 = if ($u.last.reasons) { $u.last.reasons."$e0" } else { $null }
                     $mg2 += ("- " + $e0 + $(if ($r0) { " : " + $r0 } else { "" }))
+                    $avis = Get-PkgFailureAdvice -Reason $r0
+                    if ($avis) { $mg2 += ("  " + $avis) }
                 }
             } elseif ([bool]$u.last.ok) {
                 $mg2 += ("Dernière mise à jour ($($u.last.at)) : $quoi, réussie.")

@@ -73,7 +73,8 @@ try {
         foreach ($upd in $updates) {
             if (@($cacheMaj.last.failed) -contains $upd.id) {
                 $r1 = if ($cacheMaj.last.reasons) { $cacheMaj.last.reasons."$($upd.id)" } else { $null }
-                $upd.detail = ("$($upd.detail) — ÉCHEC précédent" + $(if ($r1) { " : $r1" } else { "" })).Trim(' —')
+                $avis = Get-PkgFailureAdvice -Reason $r1
+                $upd.detail = ("$($upd.detail) — ÉCHEC précédent" + $(if ($avis) { ". $avis" } elseif ($r1) { " : $r1" } else { "" })).Trim(' —')
             }
         }
     }
