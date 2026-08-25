@@ -222,14 +222,17 @@ $qualStatus = @('neutral', 'ok', 'warn', 'error')[$qualRank]
 # statut et son guide. Pas encore etablie = warn avec explication, jamais un champ vide.
 $stabEstablished = ($sampleCount -ge 4 -and $spanSec -ge 120)
 $spanMin = [int][Math]::Round($spanSec / 60)
-$stabLabel = ''; $stabStatus = 'warn'
+# Une mesure qui n'est PAS ENCORE faite n'est pas une alerte : c'est une attente. Elle
+# reste donc neutre -- alerter sans cause use l'attention, et il n'y a rien a resoudre
+# (une alerte doit toujours pouvoir proposer un bouton, D66).
+$stabLabel = ''; $stabStatus = 'neutral'
 if ($stabEstablished) {
     if ($dropCount -eq 0) {
         $stabLabel = 'Aucune coupure'; $stabStatus = 'ok'
     } elseif ($dropCount -eq 1) {
-        $stabLabel = "1 coupure sur les $spanMin dernières minutes"
+        $stabLabel = "1 coupure sur les $spanMin dernières minutes"; $stabStatus = 'warn'
     } else {
-        $stabLabel = "$dropCount coupures sur les $spanMin dernières minutes"
+        $stabLabel = "$dropCount coupures sur les $spanMin dernières minutes"; $stabStatus = 'warn'
     }
 } else {
     $stabLabel = "Pas encore établie ($sampleCount relevé$(if ($sampleCount -gt 1) {'s'}) sur 4)"
@@ -471,6 +474,7 @@ if ($hasWifi) {
     if ($wifiUp) {
         $fields += New-Field -Key 'wifiStability' -Label 'Stabilité' -Value $stabLabel -Kind 'text' -Status $stabStatus `
             -Help "Continuité de l'association Wi-Fi sur les 30 dernières minutes : compte les décrochages du lien radio." `
+            -FixAction $(if ($stabStatus -eq 'warn') { 'open-network-settings' } else { $null }) `
             -Guide $stabGuide
     }
 }

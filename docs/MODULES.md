@@ -42,8 +42,10 @@ Paramètres.
 
 - Le **statut du module** ne dépasse jamais celui de son pire champ.
 - Tout champ porte une **aide** (`-Help`) : elle décrit ce que MONTRE le champ (infobulle).
-- Tout champ `warn`/`error` propose une **résolution** (`-FixAction`) OU un **guide**
-  (`-Guide` : informations supplémentaires, mode d'emploi, liste).
+- Tout champ `warn`/`error` porte **un bouton de résolution** (`-FixAction`) — TOUJOURS
+  (**D66**) — et, en plus, un `-Guide` qui explique. Le bouton répare, ou mène à l'endroit
+  où l'utilisateur décide (Gestionnaire des tâches, de périphériques…). Ce qui ne se résout
+  pas ne s'alerte pas : une attente reste **neutre**. `check-probes.ps1` le vérifie.
 - Une **information attendue mais absente** est un `warn` avec une piste de solution,
   jamais une ligne muette.
 - Pendant une opération : dire **quoi, sur combien, depuis quand** ; après : le **résultat

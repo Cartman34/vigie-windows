@@ -1611,3 +1611,31 @@ elle ne disparaît pas de la carte (**D59**).
   survol pourquoi (**D59** : rien ne disparaît d'une carte).
 - Le contrat porte `allowed` (et `deniedReason` quand c'est non) sur chaque action de
   `/state` ; un état ancien sans ce champ se lit comme autorisé.
+
+## D66 — Une résolution est TOUJOURS un bouton (2026-08-25)
+
+**Consigne (utilisateur, 25/08).** « Y'a pas de piste dans les détails de l'item. Une
+résolution, c'est toujours un bouton de résolution, TOUJOURS. Après, ce qu'il fait, ça
+varie selon le cas. » (Constaté sur « Compteurs GPU : indisponibles », dont le détail
+disait « Piste : redémarrer, ou reconstruire les compteurs : lodctr /R » — c'est-à-dire
+le travail laissé à l'utilisateur, à la main, en invite administrateur.)
+
+**Décision — amende D49.** Tout champ `warn` ou `error` porte un **`FixAction`**. Le
+`Guide` explique, il ne remplace **jamais** le bouton. La formule « résolution **ou**
+guide » de D49 est abandonnée : c'est résolution **et** explication.
+
+**Ce que fait le bouton varie selon le cas** — les deux familles :
+- il **répare** (`perf-counters-rebuild` reconstruit les compteurs de Windows puis
+  **constate** qu'ils répondent, `net-dns-flush`, `disk-cleanup`…) ;
+- ou il **mène au bon endroit** quand la décision revient à l'utilisateur ou que Windows
+  seul peut agir : Gestionnaire des tâches (fermer une appli gourmande), Gestionnaire de
+  périphériques (pilote manquant), options d'alimentation (sur batterie), paramètres
+  Wi-Fi (décrochages). Vigie n'y agit pas à la place de l'utilisateur.
+
+**Corollaire, aussi important** : **ce qui ne se résout pas ne s'alerte pas.** Une mesure
+« pas encore établie » est une **attente**, pas un défaut : elle reste **neutre** (la
+stabilité Wi-Fi est passée en neutre tant que la fenêtre de mesure est trop courte).
+
+**Garde-fou.** `scripts/check-probes.ps1` **refuse** désormais tout champ `warn`/`error`
+sans `FixAction` — la règle n'est plus à retenir, elle est vérifiée à chaque livraison.
+Le contrôleur vérifie aussi que l'action pointée existe.
