@@ -1006,7 +1006,15 @@ const HDS = (function(){
         {label:opts.confirmLabel||'Confirmer',kind:danger?'danger':'primary',value:true,default:true}
       ]});
   }
-  back.addEventListener('click',e=>{ if(e.target===back) settle(cancelValue); });
+  // Fermer UNIQUEMENT si l'appui ET le relachement ont eu lieu sur le voile : un clic
+  // entame dans la fenetre (selection de texte...) et relache dehors declenchait
+  // 'click' sur l'ancetre commun -- le voile -- et fermait la popin (constate).
+  let appuiSurVoile=false;
+  back.addEventListener('mousedown',e=>{ appuiSurVoile=(e.target===back); });
+  back.addEventListener('mouseup',e=>{
+    if(appuiSurVoile && e.target===back) settle(cancelValue);
+    appuiSurVoile=false;
+  });
   elX.addEventListener('click',()=>settle(cancelValue));
   // Fenetre de CHOIX : une case a cocher par element, resultat = tableau d'identifiants
   // retenus, ou null si l'utilisateur annule. Rien n'est preselectionne par defaut quand

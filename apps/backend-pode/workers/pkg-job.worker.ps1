@@ -44,10 +44,11 @@ try {
     # termine en silence et l'utilisateur ne sait pas ce qui a ete fait ni si ca a marche.
     if ($op -eq 'upgrade' -and $up) {
         $etat.last = @{
-            at     = (Get-Date).ToString('s')
-            ok     = [bool]$up.ok
-            count  = if ($up.count) { [int]$up.count } else { 0 }   # 0 = tout le gestionnaire
-            failed = @($up.failed)
+            at      = (Get-Date).ToString('s')
+            ok      = [bool]$up.ok
+            count   = if ($up.count) { [int]$up.count } else { 0 }   # 0 = tout le gestionnaire
+            failed  = @($up.failed)
+            reasons = $(if ($up.reasons) { $up.reasons } else { @{} })
         }
     }
     Update-StateJson -Path $outFile -Set @{ $mgr = $etat } | Out-Null

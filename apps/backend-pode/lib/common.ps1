@@ -947,7 +947,7 @@ function Invoke-PkgUpgrade {
                   reboot = $redemarrage; output = $r.Output; count = 0; failed = @() }
     }
 
-    $sorties = @(); $echecs = @(); $redemarrage = $false; $dernier = 0
+    $sorties = @(); $echecs = @(); $raisons = @{}; $redemarrage = $false; $dernier = 0
     foreach ($p in $liste) {
         # .Replace et non -replace : un identifiant de paquet ('Microsoft.VC++', 'a.b')
         # contient des caracteres que le moteur d'expressions regulieres interpreterait.
@@ -955,13 +955,19 @@ function Invoke-PkgUpgrade {
         $r = Invoke-Native -File $cmd.Source -Arguments $argv
         $rb = ($r.ExitCode -eq 3010 -or $r.ExitCode -eq 1641)
         if ($rb) { $redemarrage = $true }
-        if (-not ($r.Ok -or $rb)) { $echecs += $p }
+        if (-not ($r.Ok -or $rb)) {
+            $echecs += $p
+            # La RAISON de l'echec : la derniere ligne parlante de la sortie winget --
+            # c'est elle qui dit quoi faire (« technologie d'installation differente... »).
+            $ligneUtile = @(("$($r.Output)" -split "`r?`n") | Where-Object { $_ -match '\S' } | Select-Object -Last 1)
+            if ($ligneUtile) { $raisons[$p] = "$ligneUtile".Trim() }
+        }
         $dernier = $r.ExitCode
         $sorties += ("=== $p (code $($r.ExitCode)) ===" + [Environment]::NewLine + "$($r.Output)")
     }
     return @{ ok = ($echecs.Count -eq 0); supported = $true; exit = $dernier; reboot = $redemarrage
               output = ($sorties -join ([Environment]::NewLine + [Environment]::NewLine))
-              count = $liste.Count; failed = @($echecs) }
+              count = $liste.Count; failed = @($echecs); reasons = $raisons }
 }
 
 # Lanceur GENERIQUE (non bloquant) d'une operation paquet : 'check' ou 'upgrade'.
