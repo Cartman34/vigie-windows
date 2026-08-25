@@ -340,6 +340,9 @@
   .frow .field-detail.warn{color:var(--warn)} .frow .field-detail.error{color:var(--err)}
   /* icones par type d'action */
   .actions button.act{display:inline-flex;align-items:center;gap:6px}
+  /* Action refusee a ce compte Windows (D65) : lisible, inerte, et le curseur dit qu'il y
+     a une explication au survol -- on ne la retire pas de la carte. */
+  .actions button.act.denied{opacity:.45;cursor:help;border-style:dashed}
   .actions button.act svg{flex:none}
   /* SEVERITE = ce que l'action vaut ; TYPE = comment elle se passe (l'icone).
      Les deux etaient confondus : la couleur suivait la forme, ce qui n'apprenait rien.
@@ -712,11 +715,18 @@ function cardHtml(m, groupLabel){
     // desactivees : lancer une seconde operation pendant la premiere n'aurait pas de sens.
     // Animer les trois boutons faisait perdre lequel travaillait.
     const cetteAction = busy && (!m.busyAction || m.busyAction===a.id);
-    const bcls = cetteAction ? ' busy' : ''; const dis = busy ? ' disabled' : '';
+    // Droits (D65) : une action que ce compte Windows n'a pas le droit de lancer reste
+    // VISIBLE et dit pourquoi -- rien ne disparait d'une carte (D59). `allowed` n'est
+    // absent que d'un etat servi par une version anterieure : on le lit alors comme oui.
+    const interdite = (a.allowed===false);
+    const bcls = cetteAction ? ' busy' : (interdite ? ' denied' : '');
+    const dis = (busy || interdite) ? ' disabled' : '';
     const inner = cetteAction
       ? `<span class="spin"></span><span>${esc(a.busyLabel || (a.label+'…'))}</span>`
       : `${ICONS[kind]||''}<span>${esc(a.label)}</span>`;
-    return `<button class="act k-${kind} sev-${sev}${bcls}"${dis} data-a="${a.id}" data-m="${m.id}" data-c="${a.confirm?1:0}" data-c2="${a.confirmTwice?1:0}" data-k="${kind}" data-h="${h}" title="${busy&&!cetteAction?'Opération en cours sur cette carte — patientez':(h||a.label)}">${inner}</button>`;
+    const bulle = interdite ? (a.deniedReason||'Action réservée à un compte administrateur.')
+                : (busy&&!cetteAction ? 'Opération en cours sur cette carte — patientez' : (h||a.label));
+    return `<button class="act k-${kind} sev-${sev}${bcls}"${dis} data-a="${a.id}" data-m="${m.id}" data-c="${a.confirm?1:0}" data-c2="${a.confirmTwice?1:0}" data-k="${kind}" data-h="${h}" title="${esc(bulle).replace(/"/g,'&quot;')}">${inner}</button>`;
   }).join('');
   return `<div class="card st-${st}${m.busy?' busy':''}" data-module="${m.id}" data-theme="${m.theme}">
     <div class="card-head">

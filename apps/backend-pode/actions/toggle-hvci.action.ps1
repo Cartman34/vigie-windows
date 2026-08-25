@@ -1,3 +1,4 @@
+# @droits: admin   -- modifie le systeme : Windows exige l'elevation (D65)
 <# Action toggle-hvci : active ou desactive l'integrite memoire (HVCI).
 
    Capacite NATIVE du produit : aucune dependance a un outillage hors depot. Toute la

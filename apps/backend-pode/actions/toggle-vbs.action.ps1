@@ -1,3 +1,4 @@
+# @droits: admin   -- modifie le systeme : Windows exige l'elevation (D65)
 <# Action toggle-vbs : active ou desactive la securite par virtualisation (VBS).
 
    Capacite NATIVE du produit : aucune dependance a un outillage hors depot. Toute la

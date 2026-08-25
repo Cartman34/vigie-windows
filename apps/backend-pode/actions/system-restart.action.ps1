@@ -1,3 +1,4 @@
+# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 <# Action : redemarrer Windows.
 
    C'est le geste le plus intrusif de l'application : il ferme tout ce que l'utilisateur a

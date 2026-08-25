@@ -94,14 +94,14 @@ affichage** (décision Q2). Docs de référence : `MODULES.md` (créer/maintenir
 
 ### File de travail (dans l'ordre)
 
-1. **S18 — Multi-utilisateurs, suite** : les réglages par utilisateur sont livrés
-   (trois couches, **D65**). Restent, dans l'ordre : (a) la **politique par action** —
-   chaque action déclare si elle agit sur le système, une politique machine dit qui peut
-   la lancer (`administrateurs` par défaut, `tous` si l'utilisateur le décide POUR CETTE
-   action) et une action refusée s'affiche en l'expliquant ; (b) l'**installation
-   accessible à tous les comptes** (l'app vit aujourd'hui dans l'espace de travail de
-   l'utilisateur, que les autres comptes ne peuvent pas lire) et son lancement par
-   compte. Un seul utilisateur connecté à la fois : pas de concurrence à gérer.
+1. **S18 — Multi-utilisateurs, reste à faire** : les réglages par compte (**D65**) et la
+   **politique par action** (déclaration `# @droits:` + `config/actions.policy.json`,
+   bouton refusé visible et expliqué) sont livrés. Reste **l'installation accessible à
+   tous les comptes** : l'app vit dans l'espace de travail de l'utilisateur
+   (`C:\EspaceRestreint\...`), que les autres comptes ne peuvent pas lire, et la tâche
+   planifiée n'existe que pour lui. À faire : emplacement lisible par tous + lancement
+   par compte. Un seul utilisateur connecté à la fois : pas de concurrence à gérer.
+   Jamais éprouvé avec un vrai second compte — à constater ensemble.
 2. **S13b — Suites possibles de l'analyse du disque** (à proposer, non demandé) : le JSON
    de cache contient déjà l'ARBRE (top-N par niveau jusqu'à la profondeur réglée) mais
    l'écran n'en montre que le premier niveau + deux palmarès. Un explorateur repliable

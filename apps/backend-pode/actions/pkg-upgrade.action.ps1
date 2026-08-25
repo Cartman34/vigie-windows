@@ -1,3 +1,4 @@
+# @droits: admin   -- modifie le systeme : Windows exige l'elevation (D65)
 <# Action : met a jour les paquets d'UN gestionnaire (en tache de fond).
    Gestionnaire deduit du module (pkg-<id>) ou de params.mgr. Modifie le systeme
    -> passe par la fenetre de choix (pkg-list-updates). Reponse immediate (async) :
