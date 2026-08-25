@@ -487,6 +487,7 @@ $fields += @(
         -Help "Adresse MAC de l'interface principale. Cliquez pour voir toutes les interfaces actives." `
         -Table @{ columns = @('Interface', 'Type', 'IPv4', 'MAC'); rows = $adapterRows }
     New-Field -Key 'dns' -Label 'DNS' -Value $dnsValeur -Kind 'text' -Status $dnsStatut `
+        -FixAction $(if ($dnsStatut -ne 'ok') { 'net-dns-flush' } else { $null }) `
         -Help "Le serveur qui traduit les noms de sites en adresses. Testé par une résolution réelle à chaque passage." -Guide $dnsGuide
     New-Field -Key 'vpn' -Label 'VPN actif'    -Value $vpn -Kind 'bool' -Status 'neutral' -Help "Présence d'un adaptateur de tunnel VPN actif sur ce PC." -Guide $vpnGuide
     New-Field -Key 'latency' -Label 'Latence'  -Value $(if ($lat -eq '-') {'non mesurée'} else {"$lat ms"}) -Kind 'text' `
@@ -514,5 +515,7 @@ $modStatus = if (-not $connected) { 'warn' }
 
 New-ModuleObject -Id 'net' -Theme 'network' -Label 'Réseau' -Status $modStatus -Fields $fields -Actions @(
     New-Action -Id 'net-publicip'  -Label "Obtenir l'IP publique" -Kind 'immediate' -Help "Interroge un service externe (api.ipify.org...) pour connaître l'adresse IP publique. Un appel sortant est effectué."
+    New-Action -Id 'net-dns-flush' -Severity 'fix' -Label 'Purger le cache DNS' -BusyLabel 'Purge…' -Kind 'confirm' -Confirm `
+        -Help "Vide le cache DNS de Windows ET du proxy local (Acrylic) en redémarrant son service. À utiliser quand quelques sites ne répondent plus alors qu'internet fonctionne. Coupe la résolution une à deux secondes."
     New-Action -Id 'net-speedtest' -Label 'Mesurer débit/latence'  -Kind 'immediate' -Help "Mesure la latence (ping) et le débit descendant en téléchargeant ~10 Mo. Prend quelques secondes et consomme un peu de data."
 )
