@@ -1,3 +1,4 @@
+# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 <# Action net-publicip : recupere l'IP publique via un service externe (a la demande).
    Fusionne le resultat dans var/cache/netmeasure.json via Update-StateJson (preserve latence/debit). #>
 param([string]$Module, [hashtable]$Params)

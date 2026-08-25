@@ -2144,6 +2144,24 @@ function Get-State {
     $modules = @()
     foreach ($pf in $probeFiles) { $e = $cache[$pf.Name]; if ($e -and $e.module) { $modules += $e.module } }
 
+    # Droits : chaque action dit si elle est lancable par CE compte, et sinon pourquoi
+    # (D65). C'est fait ici, une fois pour toutes, plutot que dans chaque sonde.
+    foreach ($m in $modules) {
+        foreach ($act in @($m.actions)) {
+            if (-not $act -or -not $act.id) { continue }
+            $droit = Test-ActionAllowed -Type "$($act.id)" -Backend $Backend
+            try {
+                if ($act -is [System.Collections.IDictionary]) {
+                    $act['allowed'] = $droit.allowed
+                    if (-not $droit.allowed) { $act['deniedReason'] = $droit.reason }
+                } else {
+                    Add-Member -InputObject $act -NotePropertyName 'allowed' -NotePropertyValue $droit.allowed -Force
+                    if (-not $droit.allowed) { Add-Member -InputObject $act -NotePropertyName 'deniedReason' -NotePropertyValue $droit.reason -Force }
+                }
+            } catch { }
+        }
+    }
+
     $present = @($modules | Select-Object -ExpandProperty theme -Unique)
     $themes  = @($script:ThemeCatalog | Where-Object { $present -contains $_.id })
     [pscustomobject][ordered]@{
@@ -2156,6 +2174,61 @@ function Get-State {
         # TOUS les modules-dossiers, y compris desactives (D48) : c'est ce qui permet a
         # la vue de gestion de proposer de rallumer ce qui n'est plus affiche.
         units       = @(Get-UnitCatalog -Backend $Backend)
+    }
+}
+
+# --- QUI a le droit de lancer une action (D65) ---------------------------------
+# Regle de BASE, choisie par l'utilisateur : Vigie ne permet rien de plus que ce que
+# Windows permet deja a ce compte. Un compte standard ne doit pas obtenir par Vigie ce que
+# Windows lui refuse -- l'application deviendrait un moyen d'elevation de privileges.
+#
+# Mais c'est une valeur PAR DEFAUT, pas un dogme : on doit pouvoir changer d'avis sur UNE
+# action precise. D'ou deux niveaux :
+#   1. la DECLARATION, en tete du fichier d'action : `# @droits: admin` ou `# @droits: tous` ;
+#      elle vit a cote du code qu'elle protege, et se lit sans executer le script ;
+#   2. la POLITIQUE de la machine, config/actions.policy.json, qui peut ouvrir ou fermer
+#      une action nommement -- c'est le point ou l'utilisateur change d'avis.
+# En l'absence de declaration : `admin`. Le silence n'ouvre rien.
+function Get-ActionRequirement {
+    param(
+        [Parameter(Mandatory)][string]$Type,
+        [string]$Backend = (Get-BackendRoot)
+    )
+    # 1. Politique de la machine (elle tranche).
+    try {
+        $pol = Get-MachineConfigPath -File 'actions.policy.json'
+        if (Test-Path -LiteralPath $pol) {
+            $j = Get-Content -LiteralPath $pol -Raw -Encoding UTF8 | ConvertFrom-Json
+            $v = $j.PSObject.Properties | Where-Object { $_.Name -eq $Type } | Select-Object -First 1
+            if ($v -and "$($v.Value)" -match '^(admin|tous)$') { return "$($v.Value)" }
+        }
+    } catch { }
+    # 2. Declaration de l'action.
+    try {
+        $f = Join-Path $Backend ("actions/$Type.action.ps1")
+        if (Test-Path -LiteralPath $f) {
+            foreach ($ligne in (Get-Content -LiteralPath $f -TotalCount 40)) {
+                # La valeur peut etre suivie d'un commentaire : on s'arrete au mot, pas a la ligne.
+                if ($ligne -match '^\s*#\s*@droits\s*:\s*(admin|tous)') { return $Matches[1] }
+            }
+        }
+    } catch { }
+    return 'admin'
+}
+
+# L'action est-elle lancable ICI et MAINTENANT ? Rend un objet parlant : le front doit
+# pouvoir DIRE pourquoi un bouton est inerte (une action ne disparait jamais -- D59).
+function Test-ActionAllowed {
+    param(
+        [Parameter(Mandatory)][string]$Type,
+        [string]$Backend = (Get-BackendRoot)
+    )
+    $besoin = Get-ActionRequirement -Type $Type -Backend $Backend
+    if ($besoin -ne 'admin') { return [pscustomobject]@{ allowed = $true; requirement = $besoin; reason = $null } }
+    if (Test-IsElevated) { return [pscustomobject]@{ allowed = $true; requirement = 'admin'; reason = $null } }
+    [pscustomobject]@{
+        allowed = $false; requirement = 'admin'
+        reason  = "Cette action modifie le système : elle demande un compte administrateur. Windows la refuserait de la même façon."
     }
 }
 
@@ -2448,6 +2521,12 @@ function Invoke-ActionById {
     # Sécurité : n'accepter qu'un identifiant simple (pas de traversee de chemin)
     if ($Type -notmatch '^[a-z][a-z0-9-]{1,40}$') {
         return [pscustomobject]@{ jobId = (New-JobId); status = 'error'; message = "Type d'action invalide." }
+    }
+    # Garde REELLE : le bouton grise n'est qu'un affichage ; c'est ici que le refus
+    # compte, une requete pouvant arriver sans passer par l'interface.
+    $droit = Test-ActionAllowed -Type $Type -Backend $Backend
+    if (-not $droit.allowed) {
+        return [pscustomobject]@{ jobId = (New-JobId); status = 'error'; message = $droit.reason }
     }
     $file = Join-Path $Backend ("actions/$Type.action.ps1")
     $full = try { (Resolve-Path -LiteralPath $file -ErrorAction Stop).Path } catch { $null }

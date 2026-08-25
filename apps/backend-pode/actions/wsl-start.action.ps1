@@ -1,3 +1,4 @@
+# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 <# Action : demarre WSL (boot de la distribution par defaut), borne par un delai. #>
 param([string]$Module, [hashtable]$Params)
 # -e true : execute /bin/true dans la distrib par defaut -> booter la VM WSL.

@@ -1,3 +1,4 @@
+# @droits: admin   -- modifie le systeme : Windows exige l'elevation (D65)
 <# Action update-mode-off : RE-VERROUILLE (coupe les MAJ auto + pose le verrou ACL).
 
    Capacite NATIVE du produit : aucune dependance a un outillage hors depot. Toute

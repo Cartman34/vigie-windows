@@ -1590,3 +1590,24 @@ action-là. Ce qui ne touche pas la machine (IP publique, mesures, lectures) res
 
 Une action refusée se **voit et s'explique** (« nécessite un compte administrateur ») :
 elle ne disparaît pas de la carte (**D59**).
+
+### D65 — mise en oeuvre de la politique par action (livrée le 25/08)
+
+- **Déclaration** : chaque `actions/<id>.action.ps1` porte en première ligne
+  `# @droits: admin` ou `# @droits: tous`. La règle vit à côté du code qu'elle protège et
+  se lit **sans exécuter** le script. Absence de déclaration → `admin` : le silence
+  n'ouvre rien.
+- **Classement retenu** (ce que Windows permet déjà fait foi — interdire plus que Windows
+  serait aussi faux qu'autoriser plus) : `tous` pour les lectures et mesures (analyse du
+  disque, IP publique, débit, listes de mises à jour, audit, ouverture d'un dossier ou
+  d'un logiciel, WSL, redémarrage — un compte standard peut redémarrer Windows) ;
+  `admin` pour ce qui exige vraiment l'élévation : verrou Windows Update, VBS/HVCI,
+  installation de mises à jour et de paquets, purge DNS (redémarrage de service).
+- **Changer d'avis** : `config/actions.policy.json` (couche machine) nomme une action et
+  tranche — `{ "toggle-vbs": "tous" }`. Elle l'emporte sur la déclaration.
+- **Deux gardes, pas une** : le bouton de la carte est grisé **et** `Invoke-ActionById`
+  refuse — une requête peut arriver sans passer par l'interface.
+- **À l'écran** : le bouton refusé reste **visible**, en pointillés et atténué, et dit au
+  survol pourquoi (**D59** : rien ne disparaît d'une carte).
+- Le contrat porte `allowed` (et `deniedReason` quand c'est non) sur chaque action de
+  `/state` ; un état ancien sans ce champ se lit comme autorisé.

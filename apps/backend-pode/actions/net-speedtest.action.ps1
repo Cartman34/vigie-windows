@@ -1,3 +1,4 @@
+# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 <#
     Action : mesure latence (ping) + débit descendant (~10 Mo) + débit montant (~5 Mo).
     Fusionne le resultat dans var/cache/netmeasure.json (preserve l'IP publique).
