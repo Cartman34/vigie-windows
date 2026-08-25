@@ -62,7 +62,9 @@ vraies données — quitte à ce qu'elles vaillent 0 :
 - la simulation ne fabrique **pas** de fausses valeurs : elle force le **chemin**, les
   mesures restent réelles ;
 - l'épreuve fait partie de la validation avant livraison (voir ci-dessous) ;
-- quand une **charge réelle** est fabricable, elle vaut mieux que la simulation :
+- une **charge fabriquée** (GPU, CPU, disque) ne se lance **jamais sans l'autorisation
+  explicite de l'utilisateur, redemandée à chaque fois** (**D62**) — la recette qui suit
+  n'est utilisable que dans ce cadre :
   `scripts/dev/gpu-load.html` (WebGL lourd) lancé dans un Chrome à profil jetable fait
   monter le GPU pour éprouver la détection de jeu — avec OBLIGATOIREMENT
   `--disable-backgrounding-occluded-windows --disable-renderer-backgrounding
@@ -71,6 +73,11 @@ vraies données — quitte à ce qu'elles vaillent 0 :
   profil. Éprouvé le 24/08 : chrome vu à 19 % GPU et désigné comme jeu, sans simulation.
 
 ## Valider avant de livrer (dans cet ordre)
+
+> **Ce qui suit est le test COURANT : du contrat, rien d'autre** (**D63**). Les sondes
+> sont en lecture seule. Exécuter une **action** ou un **worker** pour de vrai, ou piloter
+> l'application de bout en bout, est un test d'**intégration** : il se **demande** à
+> l'utilisateur, à chaque fois — comme toute charge fabriquée (**D62**).
 
 ```powershell
 # 1. Boucle de dev : la sonde touchée, exécutée pour de vrai
