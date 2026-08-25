@@ -125,8 +125,13 @@ function Test-Contract {
             if (-not $champ.hasHelp) {
                 $trouves += "{0} -- {1} / {2} : le champ n'a pas d'aide" -f $Source, $m.id, $champ.key
             }
-            if (($st -eq 'warn' -or $st -eq 'error') -and -not $champ.fixAction -and -not $champ.hasGuide) {
-                $trouves += "{0} -- {1} / {2} : en '{3}' sans resolution ni guide (D49)" -f $Source, $m.id, $champ.key, $st
+            # D66 : une resolution est TOUJOURS un bouton. Un guide explique, il ne
+            # resout pas -- « Piste : lancez telle commande en administrateur » laissait
+            # l'utilisateur faire le travail a la main (constate sur les compteurs GPU).
+            # Ce qu'il fait varie selon le cas : reparer, ou ouvrir l'outil Windows qui
+            # convient. Ce qui ne se resout pas ne s'alerte pas : c'est neutre.
+            if (($st -eq 'warn' -or $st -eq 'error') -and -not $champ.fixAction) {
+                $trouves += "{0} -- {1} / {2} : en '{3}' sans BOUTON de resolution (D66)" -f $Source, $m.id, $champ.key, $st
             }
             if ($champ.fixAction -and $actionsConnues -notcontains "$($champ.fixAction)") {
                 $trouves += "{0} -- {1} / {2} : renvoie a l'action inconnue '{3}'" -f $Source, $m.id, $champ.key, $champ.fixAction

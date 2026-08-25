@@ -80,6 +80,7 @@ $champs += New-Field -Key 'hvci' -Label 'Intégrité mémoire (HVCI)' -Value $hv
 if ($attente.Count) {
     $champs += New-Field -Key 'pendingReboot' -Label 'En attente de redémarrage' `
         -Value (($attente | ForEach-Object { & $phrase $_ }) -join ' ; ') -Kind 'text' -Status 'warn' `
+        -FixAction 'system-restart' `
         -Help "Une bascule a été écrite dans le registre. Windows ne la lit qu'au démarrage : elle prendra effet au prochain redémarrage." `
         -Guide ("Ce que c'est : la demande est enregistrée ; l'état affiché au-dessus est encore celui qui tourne.`n`n" +
                 "Ce que vous pouvez faire :`n" +

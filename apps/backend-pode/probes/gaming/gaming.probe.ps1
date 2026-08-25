@@ -332,7 +332,8 @@ if ($gpus.Count -gt 0) {
 } else {
     $fields += New-Field -Key 'gpu-card' -Label 'Carte graphique' -Value 'non détectée' -Kind 'text' -Status 'warn' `
         -Help "Aucun adaptateur graphique remonté par Windows." `
-        -Guide "Vérifiez le pilote dans le Gestionnaire de périphériques ; sans adaptateur, le suivi GPU est impossible."
+        -FixAction 'open-device-manager' `
+        -Guide "Sans adaptateur, le suivi GPU est impossible. Le bouton ouvre le Gestionnaire de périphériques, section Cartes graphiques : c'est là que Windows montre l'état du matériel et propose la mise à jour du pilote."
 }
 if ($vramTotale -gt 0) {
     $pctVram = [Math]::Round($vramUtilisee / $vramTotale * 100)
@@ -352,7 +353,8 @@ if ($vramTotale -gt 0) {
 if (-not $gpuDispo) {
     $fields += New-Field -Key 'gpu' -Label 'Compteurs GPU' -Value 'indisponibles' -Kind 'text' -Status 'warn' `
         -Help "Les compteurs de performance GPU de Windows ne répondent pas." `
-        -Guide "Sans eux, impossible d'attribuer le GPU aux processus.`nPiste : redémarrer, ou reconstruire les compteurs : lodctr /R (invite administrateur)."
+        -FixAction 'perf-counters-rebuild' `
+        -Guide "Sans eux, impossible d'attribuer le GPU aux processus.`nLe bouton reconstruit la base des compteurs de Windows (lodctr /R) puis resynchronise WMI, et vérifie ensuite qu'ils répondent. Si ce n'est pas le cas, un redémarrage de Windows les rétablit."
 }
 
 # --- Sante du GPU dedie (nvidia-smi, livre avec le pilote) --------------------
@@ -398,7 +400,8 @@ if ($aNvidia) {
     } else {
         $fields += New-Field -Key 'gpu-temp' -Label 'Température GPU' -Value 'indisponible' -Kind 'text' -Status 'warn' `
             -Help "nvidia-smi est absent alors qu'une carte NVIDIA est détectée." `
-            -Guide "L'outil est normalement livré avec le pilote NVIDIA : réinstallez ou mettez à jour le pilote."
+            -FixAction 'open-device-manager' `
+            -Guide "L'outil est livré avec le pilote NVIDIA : son absence signale un pilote incomplet. Le bouton ouvre le Gestionnaire de périphériques pour mettre à jour ou réinstaller le pilote."
     }
 }
 
@@ -463,7 +466,7 @@ if ($jeu) {
             $note = if ($servicesWindows -contains $_.Name) { " [service Windows légitime — ne pas fermer]" } else { "" }
             "- {0}{1} : CPU {2} % · GPU {3} % · VRAM {4} Go · E/S {5} Mo/s" -f $_.Label, $note, $_.Cpu, $_.Gpu, $_.VramGb, $_.IoMbs })
         $fields += New-Field -Key 'hogs' -Label 'Autres applis gourmandes' -Value ("{0} détectée(s)" -f $pompeurs.Count) `
-            -Kind 'text' -Status 'warn' `
+            -Kind 'text' -Status 'warn' -FixAction 'open-task-manager' `
             -Help "Applications qui consomment beaucoup pendant que le jeu tourne." `
             -Guide (($lignes + '', 'Fermez ce qui n''est pas utile a la partie (JAMAIS les services Windows marqués : leur activité est normale) ; les seuils se reglent dans Parametres > Modules > Jeux.') -join "`n")
     } else {
@@ -473,6 +476,7 @@ if ($jeu) {
     if (-not $surSecteur) {
         $fields += New-Field -Key 'power' -Label 'Alimentation' `
             -Value ("Batterie" + $(if ($null -ne $pctBatterie) { " ($pctBatterie %)" })) -Kind 'text' -Status 'warn' `
+            -FixAction 'open-power-options' `
             -Help "Sur batterie, processeur et carte graphique sont bridés : performances de jeu réduites." `
             -Guide ("Branchez le secteur pour la partie." + $(if ($plan) { "`nPlan d'alimentation actif : $plan." }))
     } else {
