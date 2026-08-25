@@ -651,6 +651,19 @@ function toggleGroup(id){
 }
 
 // Rendu d'UNE carte (reutilise par le rendu complet ET le rafraichissement par carte).
+// D59 : une exception de rendu ne fait JAMAIS disparaitre la carte -- elle s'affiche
+// en carte d'erreur minimale, diagnosticable, a sa place dans la grille.
+function cardHtmlSafe(m, groupLabel){
+  try{ return cardHtml(m, groupLabel); }
+  catch(e){
+    console.error('rendu de carte en erreur', m && m.id, e);
+    return '<div class="card st-error" data-module="'+esc((m&&m.id)||'?')+'" data-theme="'+esc((m&&m.theme)||'')+'">'
+      +'<div class="card-head"><div class="card-titles"><span class="card-group">'+esc(groupLabel||'')+'</span>'
+      +'<span class="name">'+esc((m&&m.label)||'Carte')+'</span></div>'
+      +'<span class="badge error"><span class="ic vi">&#xE00C;</span>Affichage en erreur</span></div>'
+      +'<div class="fields"><div class="frow"><span style="font-size:12.5px;color:var(--muted)">Le rendu de cette carte a échoué ('+esc(String(e&&e.message||e))+'). Les données du module sont intactes ; rechargez ou signalez.</span></div></div></div>';
+  }
+}
 function cardHtml(m, groupLabel){
   const st=['ok','warn','error','neutral'].includes(m.status)?m.status:'neutral';
   const stTxt={ok:'Conforme',warn:'À voir',error:'Problème'}[st];
@@ -730,12 +743,12 @@ function renderState(s, mode){
   (s.themes||[]).forEach(theme=>{
     (s.modules||[]).filter(m=>m.theme===theme.id).forEach(m=>{
       if(STATUS_RANK[m.status]>STATUS_RANK[worst]) worst=m.status;
-      html+=cardHtml(m, theme.label);
+      html+=cardHtmlSafe(m, theme.label);
     });
   });
   (s.modules||[]).filter(m=>!themeLabels[m.theme]).forEach(m=>{
     if(STATUS_RANK[m.status]>STATUS_RANK[worst]) worst=m.status;
-    html+=cardHtml(m, m.theme||'');
+    html+=cardHtmlSafe(m, m.theme||'');
   });
   // Filtre rapide par groupe (afficher/masquer)
   const themesWithMods=(s.themes||[]).filter(t=>(s.modules||[]).some(m=>m.theme===t.id));
@@ -775,7 +788,7 @@ function replaceCardDom(m){
   const card=document.querySelector(sel);
   if(!card) return null;
   const tmp=document.createElement('div');
-  tmp.innerHTML=cardHtml(m, themeLabels[m.theme]||m.theme||'');
+  tmp.innerHTML=cardHtmlSafe(m, themeLabels[m.theme]||m.theme||'');
   const fresh=tmp.firstElementChild;
   card.replaceWith(fresh);
   wireCardActions(fresh);
