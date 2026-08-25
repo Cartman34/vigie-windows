@@ -63,6 +63,22 @@ if (-not $updates.Count) {
     } catch { }
 }
 
+# L'ECHEC PRECEDENT d'un paquet se repete sur SA ligne : relancer sans le savoir menerait
+# au meme resultat (constate avec Edge : technologie d'installation differente).
+try {
+    $cacheMaj = $null
+    $fc = Get-VarPath -Kind 'cache' -File 'pkgupdates.json'
+    if (Test-Path $fc) { $cacheMaj = (Get-Content $fc -Raw | ConvertFrom-Json).$mgr }
+    if ($cacheMaj -and $cacheMaj.last -and $cacheMaj.last.failed) {
+        foreach ($upd in $updates) {
+            if (@($cacheMaj.last.failed) -contains $upd.id) {
+                $r1 = if ($cacheMaj.last.reasons) { $cacheMaj.last.reasons."$($upd.id)" } else { $null }
+                $upd.detail = ("$($upd.detail) — ÉCHEC précédent" + $(if ($r1) { " : $r1" } else { "" })).Trim(' —')
+            }
+        }
+    }
+} catch { }
+
 # 3) Dernier repli : le gestionnaire ne rend AUCUN identifiant (mode 'lines'). On propose
 #    quand meme la mise a jour globale, en une seule ligne verrouillee et nommee.
 if (-not $updates.Count -and -not $selectable -and $upSupported) {
