@@ -145,6 +145,14 @@ try {
 } catch { }
 $aCarteDediee = [bool]($nomParLuid.Values | Where-Object { $_ -notmatch 'Intel|UHD|Iris|Basic Render' })
 
+# Le compteur « Dedicated Usage » MENT parfois (dwm vu a 32 Go sur une carte de 8) :
+# une valeur par processus superieure a la VRAM physique est aberrante, on l'ecarte.
+if ($vramTotale -gt 0) {
+    foreach ($pid2 in @($procs.Keys)) {
+        if ($procs[$pid2].VramGb -gt ($vramTotale / 1GB)) { $procs[$pid2].VramGb = 0 }
+    }
+}
+
 $bruit = @('Idle','System','Memory Compression','Registry','csrss','dwm','svchost',
            'MsMpEng','SearchIndexer','fontdrvhost','WmiPrvSE','conhost','pwsh','powershell')
 
@@ -200,7 +208,12 @@ if ($vramTotale -gt 0) {
     $fields += New-Field -Key 'vram' -Label 'VRAM utilisée' `
         -Value ("{0:N1} / {1:N0} Go ({2} %)" -f ($vramUtilisee/1GB), ($vramTotale/1GB), $pctVram) -Kind 'text' -Status $stVram `
         -Help "Mémoire dédiée de la carte graphique. Pleine, le jeu compense par la RAM : saccades." `
-        -Guide "Au-delà de $vramWarn % (réglable), baissez la qualité des textures ou fermez les applis 3D en fond.`nLes plus gros occupants VRAM sont dans « Répartition des ressources »."
+        -Guide (@("Qui l'occupe :") + @($procs.Values | Where-Object { $_.VramGb -gt 0 } |
+                 Group-Object Name | ForEach-Object {
+                     [pscustomobject]@{ N = $_.Name; V = [Math]::Round((($_.Group | Measure-Object VramGb -Sum).Sum), 2) }
+                 } | Sort-Object V -Descending | Select-Object -First 4 |
+                 ForEach-Object { "- $($_.N) : $($_.V) Go" }) +
+                @("", "Au-delà de $vramWarn % (réglable), baissez la qualité des textures ou fermez les applis 3D en fond.") -join "`n")
 }
 if (-not $gpuDispo) {
     $fields += New-Field -Key 'gpu' -Label 'Compteurs GPU' -Value 'indisponibles' -Kind 'text' -Status 'warn' `
@@ -222,13 +235,26 @@ if ($aNvidia) {
             if ($ln) {
                 $c = @(($ln -split ',') | ForEach-Object { "$_".Trim() })
                 $temp = [int]$c[0]
-                # 0x...1 = GPU au repos (horloges basses volontaires), pas un bridage.
-                $bridage = ($c.Count -ge 5 -and $c[4] -notin @('0x0000000000000000','0x0000000000000001','[N/A]',''))
+                # Le masque de raisons melange gestion d'energie NORMALE (repos 0x1,
+                # limite logicielle de puissance 0x4, plafond applicatif 0x2, sync 0x10)
+                # et VRAIS bridages : ralenti materiel 0x8, thermique logiciel 0x20,
+                # thermique materiel 0x40, frein de puissance materiel 0x80. Tout melanger
+                # affichait « bridee » au repos a 48 degres (constate) : faux positif.
+                $masque = 0L
+                if ($c.Count -ge 5 -and $c[4] -match '^0x[0-9A-Fa-f]+$') {
+                    try { $masque = [Convert]::ToInt64($c[4].Substring(2), 16) } catch { }
+                }
+                $raisons = @()
+                if ($masque -band 0x8)  { $raisons += 'ralenti matériel (chaleur ou alimentation)' }
+                if ($masque -band 0x40) { $raisons += 'bridage thermique matériel' }
+                if ($masque -band 0x80) { $raisons += 'frein de puissance matériel' }
+                if (($masque -band 0x20) -and $temp -ge $tempWarn) { $raisons += 'bridage thermique logiciel' }
+                $bridage = ($raisons.Count -gt 0)
                 $stT = if ($temp -ge $tempWarn -or $bridage) { 'warn' } else { 'ok' }
                 $vT = "$temp" + [char]0x00B0 + "C"
                 if ($bridage) { $vT += ' (bridée)' }
                 $gT = @("Consommation : $($c[1]) W " + [char]0x00B7 + " horloge $($c[2]) MHz " + [char]0x00B7 + " utilisation $($c[3]) %")
-                if ($bridage) { $gT += "La carte BRIDE ses fréquences (raison $($c[4])) : chaleur ou limite de puissance. Vérifiez la ventilation et les entrées d'air." }
+                if ($bridage) { $gT += ("La carte BRIDE ses fréquences : " + ($raisons -join ' ; ') + ". Vérifiez la ventilation et les entrées d'air.") }
                 elseif ($temp -ge $tempWarn) { $gT += "Au-delà de $tempWarn degrés (réglable), la carte va se brider : chutes de FPS. Vérifiez la ventilation." }
                 $fields += New-Field -Key 'gpu-temp' -Label 'Température GPU' -Value $vT -Kind 'text' -Status $stT `
                     -Help "Température de la carte dédiée, et son éventuel bridage (la cause première des chutes de FPS sur portable)." `
