@@ -1651,6 +1651,10 @@ $script:ProbeTtls = @{
     'os.probe.ps1'      = 3600
     'packages.probe.ps1'= 5
     'gaming.probe.ps1'  = 10
+    # L'alimentation change d'un instant a l'autre (on debranche, une pointe de
+    # charge fait lacher le chargeur) : une valeur vieille d'une minute ne veut
+    # deja plus rien dire.
+    'power.probe.ps1'   = 15
 }
 
 # Ramene une date lue depuis JSON a un [datetime] UTC, quelle que soit sa forme.
@@ -2175,7 +2179,13 @@ function Get-State {
         # renonce, sans quoi les workers s'empilent en se bloquant les uns les autres.
         # Plafonne sous le delai du client (90 s) : attendre plus longtemps que lui
         # reviendrait a travailler pour une requete deja abandonnee.
-        [int]$WaitSeconds = 0
+        [int]$WaitSeconds = 0,
+        # RECALCUL CIBLE : identifiant du module dont on veut des valeurs fraiches, et de
+        # LUI SEUL. C'est ce que demande le bouton « Rafraichir » d'une carte : rendre le
+        # resultat recalcule, et non la derniere valeur connue pendant qu'un
+        # rafraichissement de fond traine derriere -- constate sur la carte Jeux, qui
+        # annoncait « aucun jeu » alors que la sonde voyait deja la partie en cours.
+        [string]$ForceModule = ''
     )
     $probesDir = Join-Path $Backend 'probes'
     $cacheFile = Get-VarPath -Backend $Backend -Kind 'cache' -File 'state-cache.json'
@@ -2190,6 +2200,19 @@ function Get-State {
     $cache = @{}
     if (Test-Path $cacheFile) {
         try { $j = Get-Content $cacheFile -Raw | ConvertFrom-Json; foreach ($pr in $j.PSObject.Properties) { $cache[$pr.Name] = $pr.Value } } catch { }
+    }
+
+    # Quelle sonde produit le module vise ? Le cache le dit : chaque entree porte le
+    # module rendu par la sonde (ou son tableau de modules).
+    $sondesCiblees = @()
+    if ($ForceModule) {
+        foreach ($nomSonde in @($cache.Keys)) {
+            $e = $cache[$nomSonde]
+            if (-not $e -or -not $e.module) { continue }
+            foreach ($mm in @($e.module)) {
+                if ("$($mm.id)" -eq $ForceModule) { $sondesCiblees += "$nomSonde" }
+            }
+        }
     }
 
     # Sondes + fraicheur (invalidation PAR sonde : mtime du fichier + TTL)
@@ -2215,7 +2238,8 @@ function Get-State {
         $ttl = if ($script:ProbeTtls.ContainsKey($name)) { $script:ProbeTtls[$name] } else { $defaultTtl }
         $entry = $cache[$name]; $fresh = $false
         # -Force : tout est considere perime, sans rien effacer.
-        if (-not $Force -and $entry -and $entry.at -and ("$($entry.codeStamp)" -eq $stamp)) {
+        # Une sonde VISEE est perimee d'office : c'est tout le sens de la demande.
+        if (-not $Force -and ($sondesCiblees -notcontains $name) -and $entry -and $entry.at -and ("$($entry.codeStamp)" -eq $stamp)) {
             try {
                 $at = ConvertTo-UtcDate $entry.at
                 if ($at -and ($nowUtc - $at).TotalSeconds -lt $ttl) { $fresh = $true }
@@ -2238,8 +2262,9 @@ function Get-State {
     # Le bouton « Rafraichir » (-Force) garde, lui, le recalcul synchrone : c'est ce qu'on
     # lui demande explicitement.
     if (-not $Force -and $stale.Count -gt 0) {
-        $sansValeur = @($stale | Where-Object { -not ($cache[$_.Name] -and $cache[$_.Name].module) })
-        $aDifferer  = @($stale | Where-Object {      $cache[$_.Name] -and $cache[$_.Name].module  })
+        # Une sonde VISEE ne se differe JAMAIS : la reponse doit porter son recalcul.
+        $sansValeur = @($stale | Where-Object { ($sondesCiblees -contains $_.Name) -or -not ($cache[$_.Name] -and $cache[$_.Name].module) })
+        $aDifferer  = @($stale | Where-Object { ($sondesCiblees -notcontains $_.Name) -and $cache[$_.Name] -and $cache[$_.Name].module })
         if ($aDifferer.Count -gt 0) {
             $stale = $sansValeur
             # UN SEUL rafraichissement de fond a la fois. On verifie AVANT de lancer :
@@ -2280,7 +2305,7 @@ function Get-State {
             if ($got) {
                 # L'origine du passage, pour le journal : une demande explicite attend
                 # (WaitSeconds > 0 ou -Force), le reste est un rafraichissement de fond.
-                $origine = if ($Force -or $WaitSeconds -gt 0) { 'forced' } else { 'background' }
+                $origine = if ($Force -or $ForceModule -or $WaitSeconds -gt 0) { 'forced' } else { 'background' }
                 foreach ($sp in $stale) {
                     $t0 = Get-Date
                     try {
