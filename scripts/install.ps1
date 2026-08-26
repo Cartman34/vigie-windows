@@ -38,21 +38,64 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
         Write-Host ("  powershell -ExecutionPolicy Bypass -File " + $PSCommandPath)
         return
     }
+    $cible = Join-Path (Join-Path (Join-Path $env:ProgramFiles 'PowerShell') '7') 'pwsh.exe'
+
+    # 1) winget, en imposant le MSI.
+    #
+    # Deux pieges rencontres le 26/08, dans cet ordre :
+    #   - sans --installer-type msi, winget prend le MSIXBUNDLE et tente de le
+    #     « provisionner » pour tous les comptes : echec 0x80070005 -- et il avait DEJA
+    #     desinstalle la version du compte, la machine s'est donc retrouvee SANS
+    #     PowerShell du tout ;
+    #   - avec --installer-type msi, la source winget n'a AUCUN paquet MSI pour cet
+    #     identifiant : elle balaie toutes les versions puis renonce (0x8a150010).
+    # D'ou le repli ci-dessous. Un installateur doit ABOUTIR, pas renvoyer l'utilisateur
+    # vers une page de telechargement.
     if (Get-Command winget -ErrorAction SilentlyContinue) {
-        # --scope machine : POUR TOUTE LA MACHINE, jamais pour le seul compte qui installe.
-        # Sans ce drapeau, winget pose le paquet MSIX dans le profil de l'utilisateur ;
-        # les taches de demarrage des AUTRES comptes pointent alors vers un chemin qu'ils
-        # ne peuvent pas lire, se creent sans erreur et ne lancent rien. Vigie ne demarrait
-        # pas chez le compte « Famille », sans le moindre message (26/08, D79).
-        # --installer-type msi : winget choisit sinon le MSIX et tente de le provisionner
-        # pour tous les comptes -- echec 0x80070005 constate le 26/08. Le MSI, lui, pose
-        # pwsh dans C:\Program Files\PowerShell : un chemin lancable par tous.
         winget install --id Microsoft.PowerShell -e --scope machine --installer-type msi --source winget --accept-package-agreements --accept-source-agreements
-        Write-Host "Si l'installation a reussi, RELANCE install.ps1 (il basculera en PS7)." -ForegroundColor Green
-    } else {
-        Write-Host "winget introuvable. Installe PowerShell 7 : https://aka.ms/powershell-release" -ForegroundColor Yellow
     }
-    return
+
+    # 2) Repli : le MSI publie par l'equipe PowerShell, installe pour TOUTE la machine.
+    if (-not (Test-Path -LiteralPath $cible)) {
+        Write-Host ""
+        Write-Host "winget n'a pas de paquet MSI : passage par le MSI officiel de PowerShell." -ForegroundColor Yellow
+        try {
+            # TLS 1.2 : Windows PowerShell 5.1 ne l'active pas toujours, et GitHub refuse
+            # tout le reste. Sans cette ligne, le telechargement echoue sur une erreur de
+            # connexion qui n'explique rien.
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+            $rel = Invoke-RestMethod -Uri 'https://api.github.com/repos/PowerShell/PowerShell/releases/latest' `
+                                     -Headers @{ 'User-Agent' = 'Vigie-install' } -TimeoutSec 60
+            $asset = @($rel.assets | Where-Object { $_.name -like '*-win-x64.msi' }) | Select-Object -First 1
+            if (-not $asset) { throw "aucun MSI x64 dans la derniere version publiee" }
+            $msi = Join-Path $env:TEMP $asset.name
+            $mo  = [math]::Round(([double]$asset.size) / 1MB, 1)
+            Write-Host ("Telechargement de " + $asset.name + " (" + $mo + " Mo)...")
+            Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $msi -UseBasicParsing -TimeoutSec 900
+            Write-Host "Installation pour toute la machine..."
+            # ALLUSERS=1 : installation MACHINE. /qn : sans interface, on est deja eleve.
+            $mi = Start-Process -FilePath 'msiexec.exe' -Wait -PassThru -ArgumentList @(
+                      '/i', ('"' + $msi + '"'), '/qn', 'ALLUSERS=1', 'ADD_PATH=1')
+            Write-Host ("msiexec a rendu le code " + $mi.ExitCode + ".")
+            Remove-Item -LiteralPath $msi -Force -ErrorAction SilentlyContinue
+        } catch {
+            Write-Host ("Echec du repli MSI : " + $_.Exception.Message) -ForegroundColor Red
+        }
+    }
+
+    # 3) On CONSTATE, et on enchaine tout seul : l'utilisateur n'a pas a relancer.
+    if (Test-Path -LiteralPath $cible) {
+        Write-Host ""
+        Write-Host ("PowerShell 7 installe pour la machine : " + $cible) -ForegroundColor Green
+        Write-Host "Suite de l'installation avec lui..." -ForegroundColor Green
+        & $cible -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath
+        return
+    }
+    Write-Host ""
+    Write-Host "PowerShell 7 n'a PAS pu etre installe." -ForegroundColor Red
+    Write-Host "Telecharge le MSI a la main : https://github.com/PowerShell/PowerShell/releases" -ForegroundColor Yellow
+    Write-Host "(fichier PowerShell-<version>-win-x64.msi), puis relance cette installation."
+    exit 1
 }
 
 # Les scripts de gestion vivent dans scripts/ : les apps sont dans apps/.
