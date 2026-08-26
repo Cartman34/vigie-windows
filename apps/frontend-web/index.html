@@ -224,10 +224,18 @@
   .card.card-loading{opacity:.55;pointer-events:none}
   .card-menu{font-weight:700;letter-spacing:1px}
   /* --- Tiroir de gestion des modules (D48) --- */
-  .um{border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin:0 0 12px}
+  .um{border:1px solid var(--border);border-radius:10px;padding:0;margin:0 0 10px;overflow:hidden}
+  .um > summary{list-style:none;cursor:pointer;padding:12px 14px;display:flex;align-items:center;gap:10px}
+  .um > summary::-webkit-details-marker{display:none}
+  .um > summary::after{content:'B8';color:var(--muted);font-size:11px;align-self:center;transition:transform .15s}
+  .um[open] > summary::after{transform:rotate(90deg)}
+  .um > summary:hover{background:var(--panel-2)}
+  .um[open] > summary{border-bottom:1px solid var(--border)}
+  .um > *:not(summary){padding-left:14px;padding-right:14px}
+  .um > *:last-child{padding-bottom:12px}
   .um.off{opacity:.65}
   .um.flash{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
-  .um-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:8px}
+  .um-head{display:flex;align-items:center;gap:10px;margin:0;flex:1}
   .um-t{flex:1;min-width:0}
   .um-t b{display:block;font-size:14px}
   .um-t small{color:var(--muted);font-size:12px}
@@ -244,6 +252,19 @@
   .um-card input{accent-color:var(--accent)}
   .um-card small{margin-left:auto;color:var(--muted);font-size:11px}
   .um-note{color:var(--muted);font-size:12.5px;font-style:italic}
+  /* Liste geree en SECTION : lire, ajouter, retirer sans se battre avec une ligne. */
+  .um-liste{border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:10px}
+  .um-lrow{display:flex;align-items:center;justify-content:space-between;gap:8px;
+           padding:7px 10px;font-size:12.5px;border-bottom:1px solid var(--border)}
+  .um-lrow:hover{background:var(--panel-2)}
+  .um-lvide{padding:9px 10px;font-size:12.5px;color:var(--muted);font-style:italic;border-bottom:1px solid var(--border)}
+  .um-ldel{font:inherit;font-size:14px;line-height:1;color:var(--muted);background:none;border:none;cursor:pointer;padding:0 4px}
+  .um-ldel:hover{color:var(--err)}
+  .um-ladd{display:flex;gap:8px;padding:8px 10px;background:var(--panel-2)}
+  .um-ladd .um-chip-add{flex:1 1 auto;width:auto;border-radius:6px;border-style:solid}
+  .um-lplus{font:inherit;font-size:12px;color:var(--text);background:none;border:1px solid var(--border);
+            border-radius:6px;padding:3px 12px;cursor:pointer}
+  .um-lplus:hover{border-color:var(--accent);color:var(--accent)}
   .um-points{margin:6px 0 12px;padding-left:18px;color:var(--muted);font-size:12.5px;line-height:1.65}
   .um-points li{margin:2px 0}
   .um-points b{color:var(--text);font-weight:600}
@@ -253,7 +274,7 @@
   .um-hint{color:var(--muted);font-size:12px;margin:0 0 14px}
   /* Parametres : tiroir LARGE, navigation verticale a gauche (elle ne casse jamais a
      la ligne et accueille autant de sections qu'il faudra), contenu a droite. */
-  #settingsDrawer{width:min(720px,96vw)}
+  #settingsDrawer{width:min(920px,96vw)}
   #settingsDrawer .drawer-body{padding:0;overflow:hidden;flex-direction:row;gap:0;flex:1;min-height:0}
   .set-wrap{display:flex;flex:1;min-height:0;width:100%}
   .set-nav{flex:0 0 190px;border-right:1px solid var(--border);padding:12px 10px;
@@ -417,6 +438,13 @@
   .tree-open{flex:none;font:inherit;font-size:12px;line-height:1;color:var(--muted);background:none;
              border:1px solid var(--border);border-radius:6px;padding:2px 6px;cursor:pointer}
   .tree-open:hover{color:var(--accent);border-color:var(--accent)}
+  /* Une ligne de choix = la case a cocher + son bouton « Ignorer » (D69). */
+  .hds-choice-row{display:flex;align-items:center;gap:8px}
+  .hds-choice-row .hds-choice{flex:1 1 auto}
+  .hds-exclu{flex:none;font:inherit;font-size:11.5px;color:var(--muted);background:none;
+             border:1px solid var(--border);border-radius:6px;padding:2px 9px;cursor:pointer}
+  .hds-exclu:hover{color:var(--err);border-color:var(--err)}
+  .hds-exclu:disabled{opacity:.5;cursor:progress}
   .hds-table{width:100%;border-collapse:collapse;font-size:12.5px}
   .hds-table th{text-align:left;font-weight:700;color:var(--muted);text-transform:uppercase;
                 letter-spacing:.5px;font-size:11px;padding:6px 10px 6px 0;border-bottom:1px solid var(--border);
@@ -1144,11 +1172,17 @@ const HDS = (function(){
     // cochees et NON decochables, et l'intro dit pourquoi. Laisser decocher un choix qui
     // serait ensuite ignore serait un mensonge d'interface.
     let verrou = false;
+    // EXCLURE un element depuis la liste (`opts.exclure`) : la fenetre qui montre les
+    // mises a jour est exactement l'endroit ou l'on decide qu'un paquet ne doit plus
+    // etre propose. Sans cela il fallait retenir son identifiant et aller le taper dans
+    // les parametres -- exigence utilisateur.
     const ligne = it =>
-      '<label class="hds-choice'+(verrou?' hds-choice--fige':'')+'"><input type="checkbox" value="'+esc(it.id)+'"'+((verrou||cocheDefaut)?' checked':'')+(verrou?' tabindex="-1"':'')+'>'
+      '<div class="hds-choice-row"><label class="hds-choice'+(verrou?' hds-choice--fige':'')+'"><input type="checkbox" value="'+esc(it.id)+'"'+((verrou||cocheDefaut)?' checked':'')+(verrou?' tabindex="-1"':'')+'>'
       + '<span class="hds-choice-t">'+esc(it.titre)+'</span>'
       + (it.detail?'<span class="hds-choice-d">'+esc(it.detail)+'</span>':'')
-      + '</label>';
+      + '</label>'
+      + (opts.exclure ? '<button type="button" class="hds-exclu" data-exclu="'+esc(it.id)+'" title="Ne plus proposer cette mise à jour">Ignorer</button>' : '')
+      + '</div>';
     const barre = () => verrou ? '' :
       '<div class="hds-choice-bar"><button type="button" class="hds-lnk" id="hdsAll" title="Sélectionner toutes les lignes de la liste">Tout cocher</button>'
       + '<button type="button" class="hds-lnk" id="hdsNone" title="Désélectionner toutes les lignes de la liste">Tout décocher</button>'
@@ -1181,6 +1215,27 @@ const HDS = (function(){
       if(a) a.onclick=()=>{ boites().forEach(b=>b.checked=true); maj(); };
       if(n) n.onclick=()=>{ boites().forEach(b=>b.checked=false); maj(); };
       boites().forEach(b=>b.addEventListener('change',maj));
+      // « Ignorer » : l'element sort de la liste ET du perimetre, durablement. On attend
+      // que l'enregistrement ait REUSSI avant de retirer la ligne : sinon l'utilisateur
+      // croirait avoir exclu un paquet qui reviendrait au prochain passage.
+      elBody.querySelectorAll('[data-exclu]').forEach(b=>{ b.onclick=async()=>{
+        const id=b.getAttribute('data-exclu');
+        b.disabled=true; b.textContent='…';
+        try{
+          await opts.exclure(id);
+          const rangee=b.closest('.hds-choice-row');
+          items = items.filter(x=>String(x.id)!==String(id));
+          if(rangee) rangee.remove();
+          if(!items.length){
+            const z=elBody.querySelector('.hds-choices');
+            if(z) z.innerHTML='<p class="hds-intro">Plus rien à proposer : tout est ignoré.</p>';
+          }
+          maj();
+        }catch(e){
+          b.disabled=false; b.textContent='Ignorer';
+          toast('Impossible d’ignorer : '+(e.message||e));
+        }
+      }; });
       maj();
     };
     brancher();
@@ -1308,6 +1363,23 @@ async function doAction(type,module,confirmNeeded,label,help,btnEl,params,kind,c
   if(kind === 'dialog'){
     let charge = null;
     const choisis = await HDS.choose({
+      // Exclure un paquet DEPUIS la liste : il part dans « Paquets ignores » du module
+      // Outils & paquets, et ne sera plus propose. C'est ici qu'on le decide, pas dans
+      // les parametres -- exigence utilisateur.
+      exclure: async id=>{
+        const r=await fetch(API+'/parameters',{headers:{Authorization:'Bearer '+TOKEN}});
+        if(!r.ok) throw new Error('HTTP '+r.status);
+        const j=await r.json();
+        const mod=(j.modules||[]).find(m=>m.unit==='tools')||{};
+        const pr=(mod.params||[]).find(x=>x.key==='IgnoredPackages')||{};
+        const liste=Array.isArray(pr.value)?pr.value.slice():[];
+        if(liste.indexOf(id)<0) liste.push(id);
+        const w=await fetch(API+'/parameters/tools',{ method:'POST',
+          headers:{ Authorization:'Bearer '+TOKEN, 'Content-Type':'application/json' },
+          body: JSON.stringify({values:{IgnoredPackages:liste}}) });
+        if(!w.ok) throw new Error('HTTP '+w.status);
+        toast(id+" : ne sera plus proposé");
+      },
       title: name, variant: 'warn', tousCoches: false, confirmLabel: 'Installer',
       charger: async () => {
         charge = await listeDeChoix(type, module);
@@ -1582,26 +1654,31 @@ async function renderTabModules(pane){
     const onNotif=(unit,key)=>{ const r=unit+'.'+key; return (cfg.notifs && (r in cfg.notifs)) ? !!cfg.notifs[r] : on(unit); };
     const lignes=(decl.length
       ? '<div class="um-sub">Notifications</div><div class="um-list">'
-        +decl.map(nn=>'<div class="um-card" title="'+esc(nn.help||'')+'"><span>'+esc(nn.label)+'</span>'
+        +decl.map(nn=>'<div class="um-card" title="'+esc(nn.help||'')+'"><span>'+esc(nn.label)
+        // Qui peut agir : une notification « admin » ne derange pas un compte standard,
+        // sauf si elle est critique -- alors elle remonte quand meme, en invitant a
+        // prevenir un administrateur.
+        +(nn.rights==='admin'?' <span class="um-tag">admin</span>':'')
+        +(nn.critical?' <span class="um-tag">critique</span>':'')+'</span>'
         +'<span class="um-param"><span class="swx"><input type="checkbox" data-unotif="'+esc(u.id)+'::'+esc(nn.key)+'"'
         +(onNotif(u.id,nn.key)?' checked':'')+'><i></i></span></span></div>').join('')+'</div>'
       : '<div class="um-sub">Notifications</div><div class="um-note">Ce module ne signale aucun événement : il décrit un état.</div>');
-    return '<div class="um'+(u.enabled?'':' off')+'" id="um-'+esc(u.id)+'">'
-      +'<div class="um-head"><div class="um-t"><b>'+esc(u.label)+'</b><small>'+esc(u.description||'')+'</small></div>'
+    // ACCORDEON, coherent avec le reste de l'app (l'arbre du disque et les details de
+    // champ se deplient deja ainsi ; les onglets, eux, sont deja pris par la navigation
+    // des Parametres). Tout est replie : la liste des modules se lit d'un coup d'oeil,
+    // et on ouvre celui qu'on veut regler.
+    const cible=(pendingUnitFocus===u.id);
+    return '<details class="um'+(u.enabled?'':' off')+'" id="um-'+esc(u.id)+'"'+(cible?' open':'')+'>'
+      +'<summary class="um-head"><div class="um-t"><b>'+esc(u.label)+'</b><small>'+esc(u.description||'')+'</small></div>'
       +'<span class="um-sw"><span>'+(u.enabled?'Actif':'Coupé')+'</span>'
-      +'<span class="swx"><input type="checkbox" data-unit="'+esc(u.id)+'"'+(u.enabled?' checked':'')+'><i></i></span></span></div>'
+      +'<span class="swx"><input type="checkbox" data-unit="'+esc(u.id)+'"'+(u.enabled?' checked':'')+'><i></i></span></span></summary>'
       +(u.enabled ? lignes : '<div class="um-note">Module coupé : ses cartes ne sont ni calculées ni affichées.</div>')
-      +(u.enabled && (paramCat[u.id]||[]).length ? '<div class="um-sub">Paramètres</div><div class="um-list">'+(paramCat[u.id]||[]).map(pr=>{
+      +(u.enabled && (paramCat[u.id]||[]).filter(pr=>pr.type!=='list').length ? '<div class="um-sub">Paramètres</div><div class="um-list">'+(paramCat[u.id]||[]).filter(pr=>pr.type!=='list').map(pr=>{
         const ref=esc(u.id)+'::'+esc(pr.key);
         const btnDef=pr.overridden?'<button class="um-reset" data-preset="'+ref+'" title="Revenir à la valeur par défaut ('+esc(Array.isArray(pr.default)?(pr.default.join(', ')||'vide'):String(pr.default))+(pr.unit?' '+esc(pr.unit):'')+')">défaut</button>':'';
         let ctl='';
         if(pr.type==='bool'){
           ctl='<span class="swx"><input type="checkbox" data-pval="'+ref+'"'+(pr.value?' checked':'')+'><i></i></span>';
-        } else if(pr.type==='list'){
-          const items=Array.isArray(pr.value)?pr.value:[];
-          ctl='<span class="um-chips" data-plist="'+ref+'">'
-            +items.map(v=>'<span class="um-chip">'+esc(String(v))+'<button data-pdel title="Retirer">×</button></span>').join('')
-            +'<input class="um-chip-add" type="text" placeholder="ajouter… (Entrée)"></span>';
         } else {
           const curseur=(pr.min!=null&&pr.max!=null)
             ? '<input class="um-range" type="range" data-prange="'+ref+'" min="'+pr.min+'" max="'+pr.max+'" step="'+(pr.step||1)+'" value="'+esc(String(pr.value))+'">'
@@ -1613,8 +1690,28 @@ async function renderTabModules(pane){
         return '<div class="um-card um-pline" title="'+esc(pr.help||'')+'"><span>'+esc(pr.label)+'</span>'
           +'<span class="um-param">'+btnDef+ctl+'</span></div>';
       }).join('')+'</div>' : '')
-      +'</div>';
+      // LISTES : une SECTION dediee par liste (exigence utilisateur). Une ligne de
+      // parametre est trop etroite pour lire, ajouter et retirer ; ici la liste prend
+      // toute la largeur, chaque element porte sa croix, le champ d'ajout est visible.
+      +(u.enabled ? (paramCat[u.id]||[]).filter(pr=>pr.type==='list').map(pr=>{
+        const ref=esc(u.id)+'::'+esc(pr.key);
+        const items=Array.isArray(pr.value)?pr.value:[];
+        return '<div class="um-sub">'+esc(pr.label)+'</div>'
+          +(pr.help?'<div class="um-note">'+esc(pr.help)+'</div>':'')
+          +'<div class="um-liste" data-plist="'+ref+'">'
+          +(items.length
+             ? items.map(v=>'<div class="um-lrow"><span>'+esc(String(v))+'</span>'
+               +'<button class="um-ldel" data-pdel title="Retirer de la liste">×</button></div>').join('')
+             : '<div class="um-lvide">Aucun élément.</div>')
+          +'<div class="um-ladd"><input class="um-chip-add" type="text" placeholder="ajouter… (Entrée)">'
+          +'<button class="um-lplus" data-padd title="Ajouter a la liste">Ajouter</button></div>'
+          +'</div>';
+      }).join('') : '')
+      +'</details>';
   }).join('');
+  // L interrupteur vit DANS l en-tete depliante : sans cela, le clic dessus replierait
+  // le module au lieu de le couper.
+  pane.querySelectorAll('.um-head .swx').forEach(sw=>{ sw.addEventListener('click', e=>{ e.stopPropagation(); }); });
   // Un interrupteur = UNE notification (« module::cle »). Le reglage part dans `notifs`,
   // qui l'emporte sur le reglage du module : couper une notification precise ne coupe pas
   // les autres.
@@ -1656,19 +1753,27 @@ async function renderTabModules(pane){
   pane.querySelectorAll('[data-plist]').forEach(bloc=>{
     const [unit,key]=bloc.getAttribute('data-plist').split('::');
     const envoyer=async()=>{
-      const items=[...bloc.querySelectorAll('.um-chip')].map(ch=>ch.firstChild.textContent);
+      const items=[...bloc.querySelectorAll('.um-lrow > span')].map(sp=>sp.textContent);
       try{ await postParam(unit,key,items); toast('Liste enregistrée'); await apresParam(unit); }
       catch(e){ toast('Réglage impossible : '+(e.message||e)); }
     };
-    bloc.querySelectorAll('[data-pdel]').forEach(b2=>{ b2.onclick=()=>{ b2.closest('.um-chip').remove(); envoyer(); }; });
+    bloc.querySelectorAll('[data-pdel]').forEach(b2=>{ b2.onclick=()=>{ b2.closest('.um-lrow').remove(); envoyer(); }; });
     const champ=bloc.querySelector('.um-chip-add');
-    if(champ){ champ.onkeydown=e=>{
-      if(e.key==='Enter'&&champ.value.trim()){
-        const chip=document.createElement('span'); chip.className='um-chip';
-        chip.textContent=champ.value.trim(); champ.value='';
-        bloc.insertBefore(chip,champ); envoyer();
-      }
-    }; }
+    const ajouter=()=>{
+      const v=(champ.value||'').trim();
+      if(!v) return;
+      const vide=bloc.querySelector('.um-lvide'); if(vide) vide.remove();
+      const ligne=document.createElement('div'); ligne.className='um-lrow';
+      const txt=document.createElement('span'); txt.textContent=v; ligne.appendChild(txt);
+      const x=document.createElement('button'); x.className='um-ldel'; x.textContent='×';
+      x.title='Retirer de la liste';
+      x.onclick=()=>{ ligne.remove(); envoyer(); };
+      ligne.appendChild(x);
+      bloc.insertBefore(ligne, bloc.querySelector('.um-ladd'));
+      champ.value=''; envoyer();
+    };
+    if(champ){ champ.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); ajouter(); } }; }
+    const plus=bloc.querySelector('[data-padd]'); if(plus){ plus.onclick=ajouter; }
   });
   pane.querySelectorAll('.um-reset').forEach(b=>{ b.onclick=async()=>{
     const [unit,key]=b.getAttribute('data-preset').split('::');

@@ -32,12 +32,15 @@
     Notifications = @(
         @{ Key = 'disk-low'; Label = 'Espace disque faible'
            Card = 'storage'; Field = 'free'
+           Droits = 'tous'; Critique = $false
            Help = 'Le disque système passe sous le seuil d''alerte.' }
         @{ Key = 'reboot'; Label = 'Redémarrage en attente'
            Card = 'os'; Field = 'rebootPending'
+           Droits = 'tous'; Critique = $false
            Help = 'Windows attend un redémarrage pour finir une installation.' }
         @{ Key = 'ram-high'; Label = 'Mémoire vive saturée'
            Card = 'perf'; Field = 'ramUsed'
+           Droits = 'tous'; Critique = $false
            Help = 'La mémoire utilisée dépasse le seuil : la machine va ralentir.' }
     )
 }

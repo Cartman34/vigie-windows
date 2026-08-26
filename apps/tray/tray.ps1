@@ -642,7 +642,10 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                                 if (-not $interessant) { continue }
                                 if ($null -eq $reglages) { $reglages = Get-NotificationSettings -Backend $backend }
                                 if (-not (Test-NotificationAllowed -ModuleId $u.unit -Key $nn.key -Settings $reglages)) { continue }
-                                $bascules += [pscustomobject]@{ id = "$($u.unit).$($nn.key)"; label = "$($nn.label)"; de = $avant.status; vers = $apres.status }
+                                # Prevenu SANS pouvoir agir : on le dit, au lieu de laisser
+                                # l'utilisateur devant un probleme qui lui echappe.
+                                $aPrevenir = ("$($nn.rights)" -eq 'admin' -and -not (Test-IsElevated))
+                                $bascules += [pscustomobject]@{ id = "$($u.unit).$($nn.key)"; label = "$($nn.label)"; de = $avant.status; vers = $apres.status; prevenir = $aPrevenir }
                             }
                         }
                         $state.Mods = $vus
@@ -653,7 +656,10 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                                      elseif (@($bascules | Where-Object { $_.vers -eq 'warn' }).Count) { 'warn' } else { 'ok' }
                             $tipIc = switch ($pire) { 'error' { 'Error' } 'warn' { 'Warning' } default { 'Info' } }
                             $mot   = @{ ok = 'rétabli'; warn = 'à surveiller'; error = 'en erreur'; neutral = 'sans objet' }
-                            $texte = (@($bascules | ForEach-Object { "{0} : {1}" -f $_.label, $mot[$_.vers] }) -join [Environment]::NewLine)
+                            $texte = (@($bascules | ForEach-Object {
+                                ("{0} : {1}" -f $_.label, $mot[$_.vers]) +
+                                $(if ($_.prevenir -and $_.vers -ne 'ok') { [Environment]::NewLine + "   -> signalez-le a un administrateur" } else { '' })
+                            }) -join [Environment]::NewLine)
                             $titre = if ($bascules.Count -eq 1) { 'Un module a changé d''état' } else { "$($bascules.Count) modules ont changé d'état" }
                             TLog ("notification : " + (@($bascules | ForEach-Object { "$($_.id) $($_.de)->$($_.vers)" }) -join ', '))
                             try { $icon.ShowBalloonTip(6000, $titre, $texte, [System.Windows.Forms.ToolTipIcon]::$tipIc) } catch { }

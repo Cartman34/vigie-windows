@@ -11,9 +11,11 @@
     Notifications = @(
         @{ Key = 'wu-pending'; Label = 'Mises à jour à installer'
            Card = 'wu-pending'; Field = 'pending'
+           Droits = 'admin'; Critique = $true
            Help = 'Windows a détecté des mises à jour non installées.' }
         @{ Key = 'wu-unlocked'; Label = 'Mises à jour automatiques réactivées'
            Card = 'wu-lock'; Field = 'autoUpdatesEnabled'
+           Droits = 'admin'; Critique = $false
            Help = 'Le verrou de Windows Update n''est plus en place.' }
     )
 }
