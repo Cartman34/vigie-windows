@@ -257,6 +257,13 @@
   .um-card input{accent-color:var(--accent)}
   .um-card small{margin-left:auto;color:var(--muted);font-size:11px}
   .um-note{color:var(--muted);font-size:12px;line-height:1.5;margin:0 0 8px}
+  /* Carte de reglage isolee (hors accordeon) : titre + explication a gauche,
+     interrupteur a droite, toujours dans le cadre. */
+  .setcard{display:flex;align-items:center;gap:14px;border:1px solid var(--border);
+           border-radius:10px;padding:12px 14px;margin:0 0 4px}
+  .setcard-t{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:3px}
+  .setcard-t b{font-size:13.5px}
+  .setcard-t small{color:var(--muted);font-size:12px;line-height:1.45}
   /* Liste geree en SECTION : lire, ajouter, retirer sans se battre avec une ligne. */
   .um-liste{border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:10px}
   .um-lrow{display:flex;align-items:center;justify-content:space-between;gap:8px;
@@ -1708,11 +1715,20 @@ async function renderTabNotifs(pane){
   const cfg=await getNotifCfg();
   const on=id=> (id in cfg.modules)? !!cfg.modules[id] : true;
   const mods=(lastModules||[]);
-  pane.innerHTML='<p class="um-hint">Vigie signale un événement quand il <b>survient</b> ou quand il est <b>résolu</b> — jamais en rappel. La bulle nomme l’événement, par exemple « Température GPU élevée ».</p>'
-    +'<div class="um"><div class="um-head"><div class="um-t"><b>Activer les notifications</b>'
-    +'<small>Coupé, plus aucune notification — les réglages par carte (onglet Modules) restent mémorisés.</small></div>'
-    +'<span class="swx"><input type="checkbox" id="ntfGlobal"'+(cfg.enabled?' checked':'')+'><i></i></span></div></div>'
-    +'<p class="um-hint">Le réglage fin se fait dans l’onglet <b>Modules</b> : chaque module y liste <b>les événements qu’il sait signaler</b>, avec un interrupteur par notification.</p>';
+  // Combien d'evenements Vigie sait-il signaler ? Le dire donne la mesure de ce que
+  // l'interrupteur commande.
+  const total=(cfg.catalog||[]).reduce((t,u)=>t+((u.notifications||[]).length),0);
+  pane.innerHTML=
+     '<div class="setcard"><div class="setcard-t"><b>Activer les notifications</b>'
+    +'<small>Coupé, plus aucune bulle ne s’affiche. Les réglages fins restent mémorisés.</small></div>'
+    +'<span class="swx"><input type="checkbox" id="ntfGlobal"'+(cfg.enabled?' checked':'')+'><i></i></span></div>'
+    +'<div class="um-sub">Comment ça marche<span class="um-cpt">'+total+' événements suivis</span></div>'
+    +'<ul class="um-points">'
+    +'<li>Une bulle apparaît quand un événement <b>survient</b> ou qu’il est <b>résolu</b> — jamais en rappel.</li>'
+    +'<li>Elle <b>nomme</b> l’événement : « Température GPU élevée », « Antivirus inactif »…</li>'
+    +'<li>Un événement qui demande un administrateur n’est pas signalé à un compte standard, <b>sauf s’il est critique</b> — il l’est alors avec la mention « signalez-le à un administrateur ».</li>'
+    +'<li>Le détail se règle dans l’onglet <b>Modules</b>, un interrupteur par événement.</li>'
+    +'</ul>';
   pane.querySelector('#ntfGlobal').onchange=async e=>{
     try{ await postNotif({enabled:e.target.checked}); }
     catch(err){ e.target.checked=!e.target.checked; toast('Réglage impossible : '+(err.message||err)); }
@@ -1730,7 +1746,7 @@ async function renderTabModules(pane){
   const cfg=await getNotifCfg();
   const notifCat=cfg.catalog||[];
   const on=id=> (id in cfg.modules)? !!cfg.modules[id] : true;
-  pane.innerHTML='<p class="um-hint">Couper un module retire ses cartes et ses calculs ; il reste listé ici pour être rallumé. Chaque carte expose ses paramètres — aujourd’hui, sa notification.</p>'+units.map(u=>{
+  pane.innerHTML='<p class="um-hint">Couper un module retire ses cartes et ses calculs ; il reste listé ici pour être rallumé. Dépliez-en un pour régler <b>ses notifications</b> et <b>ses paramètres</b>.</p>'+units.map(u=>{
     const cards=(lastModules||[]).filter(m=>m.theme===u.id);
     // NOTIFICATIONS : les evenements que le module sait signaler, avec leur vrai nom
     // (« Temperature GPU elevee »), pas le nom des cartes -- exigence utilisateur.
