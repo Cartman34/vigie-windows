@@ -57,13 +57,14 @@ Le détail carte par carte : [Ce que surveille Vigie](docs/fr/fonctionnalites.md
 
 La voie recommandée est l'**archive publiée dans les Releases GitHub** — ni git, ni clone.
 
-**Trois double-clics, dans cet ordre. Tout est dans le dossier `scripts\`.**
+**Un double-clic suffit : `scripts\install.cmd`.** Il fait tout — les prérequis,
+PowerShell 7 **pour la machine**, le module Pode, le démarrage à chaque ouverture de
+session, et le lancement de Vigie.
 
 | | Fichier | Ce qu'il fait |
 |---|---|---|
-| 1 | **`scripts\install.cmd`** | Installe les prérequis. **Demande les droits administrateur** (fenêtre Windows à accepter) : PowerShell 7 est installé **pour toute la machine**, pas pour votre seul compte. À faire **une fois**. |
-| 2 | **`scripts\run.cmd`** | Lance Vigie. Le navigateur s'ouvre sur <http://127.0.0.1:47600/> dès que le serveur écoute vraiment. |
-| 3 | **`scripts\install-autostart.cmd`** | Facultatif : Vigie revient à chaque ouverture de session, avec son icône dans la barre système. |
+| 1 | **`scripts\install.cmd`** | **L'installation complète.** Demande les droits administrateur (fenêtre Windows à accepter) : PowerShell 7 est installé **pour toute la machine**, pas pour votre seul compte. À faire **une fois**. |
+| 2 | **`scripts\run.cmd`** | Relance Vigie si vous l'avez fermée. Le navigateur s'ouvre sur <http://127.0.0.1:47600/> dès que le serveur écoute vraiment. |
 
 Avant le premier double-clic : téléchargez `vigie-<version>.zip` depuis la
 [page des Releases](https://github.com/Cartman34/vigie-windows/releases) et décompressez-la

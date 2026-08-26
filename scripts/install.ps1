@@ -212,8 +212,43 @@ try {
     $wv = $false; foreach ($k in $wvKeys) { if (Test-Path $k) { $wv = $true } }
     Write-Log -Backend $backend -Name 'install' -Message ("WebView2 runtime : " + $(if ($wv) { 'présent' } else { 'absent' }))
 
+    # --- L'INSTALLATION VA JUSQU'AU BOUT ---------------------------------------
+    # « Le script d'install est cense tout faire » : il ne s'arrete donc pas aux
+    # prerequis pour renvoyer l'utilisateur vers deux autres commandes. Il enregistre
+    # le demarrage automatique et lance l'application.
+    #
+    # C'est aussi ce qui REPARE une tache existante : elle est reecrite avec
+    # l'interpreteur de la machine. Le 26/08, la tache pointait vers le pwsh du paquet
+    # Store, supprime entre-temps -- Vigie ne demarrait plus du tout, et rien ne le
+    # disait.
+    $autostart = Join-Path $PSScriptRoot 'install-autostart.ps1'
+    if (-not $isAdmin) {
+        Write-Host ""
+        Write-Host "Prerequis installes." -ForegroundColor Green
+        Write-Host "Le demarrage automatique demande les droits administrateur : relance cette" -ForegroundColor Yellow
+        Write-Host "installation en administrateur (ou double-clic sur scripts\install.cmd)." -ForegroundColor Yellow
+    } elseif (Test-Path -LiteralPath $autostart) {
+        Write-Host ""
+        Write-Host "Enregistrement du demarrage automatique..." -ForegroundColor Green
+        # -Yes : on est deja eleve et l'utilisateur a deja consenti en lancant
+        # l'installation ; une seconde fenetre d'explication serait du bruit.
+        # LE RESULTAT SE LIT : 0 = fait, 3 = refuse, le reste est un echec.
+        & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $autostart -Yes
+        $codeAuto = $LASTEXITCODE
+        Write-Log -Backend $backend -Name 'install' -Message ("Demarrage automatique : code " + $codeAuto)
+        switch ([int]$codeAuto) {
+            0 { Write-Host "Vigie demarre a chaque ouverture de session, et vient d'etre lancee." -ForegroundColor Green }
+            3 { Write-Host "Demarrage automatique refuse. Vigie s'installe quand meme, a lancer a la main." -ForegroundColor Yellow }
+            default {
+                Write-Host ("Le demarrage automatique a echoue (code " + $codeAuto + ").") -ForegroundColor Red
+                Write-Host "Vigie reste lancable a la main : double-clic sur scripts\run.cmd"
+            }
+        }
+    }
+
     Write-Host ""
-    Write-Host "Terminé. Pour lancer :  pwsh -File .\run.ps1" -ForegroundColor Green
+    Write-Host "Termine." -ForegroundColor Green
+    Write-Host "Panneau : http://127.0.0.1:47600/   (double-clic sur scripts\run.cmd si besoin)"
 }
 catch {
     Write-Log -Backend $backend -Name 'install' -Level 'ERROR' -Message ("FATAL: " + $_.Exception.Message)

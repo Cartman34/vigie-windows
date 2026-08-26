@@ -53,13 +53,14 @@ Full detail, card by card: [What Vigie monitors](docs/en/features.md).
 
 The recommended route is the **archive from GitHub Releases** — no git, no clone.
 
-**Three double-clicks, in this order. Everything lives in the `scripts\` folder.**
+**One double-click does it all: `scripts\install.cmd`.** Prerequisites,
+PowerShell 7 **machine-wide**, the Pode module, the logon autostart, and Vigie itself,
+started.
 
 | | File | What it does |
 |---|---|---|
-| 1 | **`scripts\install.cmd`** | Installs the prerequisites. **Asks for administrator rights** (a Windows prompt to accept): PowerShell 7 is installed **machine-wide**, not just for your account. Run it **once**. |
-| 2 | **`scripts\run.cmd`** | Starts Vigie. The browser opens on <http://127.0.0.1:47600/> once the server is actually listening. |
-| 3 | **`scripts\install-autostart.cmd`** | Optional: Vigie comes back at every logon, with its tray icon. |
+| 1 | **`scripts\install.cmd`** | **The whole install.** Asks for administrator rights (a Windows prompt to accept): PowerShell 7 is installed **machine-wide**, not just for your account. Run it **once**. |
+| 2 | **`scripts\run.cmd`** | Starts Vigie again if you closed it. The browser opens on <http://127.0.0.1:47600/> once the server is actually listening. |
 
 Before that first double-click: download `vigie-<version>.zip` from the
 [Releases page](https://github.com/Cartman34/vigie-windows/releases) and unzip it
