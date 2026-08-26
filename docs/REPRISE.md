@@ -118,29 +118,64 @@ système), `DECISIONS-VALIDEES.md` (toutes les règles, D01→D72).
 
 ### File de travail (dans l'ordre)
 
-> **ETAT A L'INSTANT (nuit du 26 au 27/08).** `main` est a jour et pousse ; Vigie tourne
-> (tray + serveur relances, PowerShell 7 installe pour la MACHINE dans
-> `C:\Program Files\PowerShell\7`). Les huit ameliorations proposees ont ete faites
-> sauf la n°6 (paquet de diagnostic), ecartee faute d'usage reel.
+> **ETAT A LA FIN DE LA SESSION DU 26/08.** `main` = `origin/main`, arbre propre, rien
+> en attente. **Vigie tourne** (tray + serveur relances plusieurs fois dans la soiree).
+> PowerShell 7 est installe **pour la machine** (`C:\Program Files\PowerShell\7`) -- c'est le sujet qui a
+> occupe la moitie de la session, voir D79 et D81.
 
-1. **Redeployer, quand l'utilisateur le voudra.** L'installation partagee date d'avant le
-   suivi des commits : la carte Comptes et la carte Debogage l'annoncent (« deployee avant
-   le suivi des commits »). Un `vigie-update` (bouton « Mettre a jour Vigie ») posera le
-   **premier tag v0.1.1**, gravera la marque dans l'archive et relancera. **A demander
-   avant de le faire** (D76).
+1. **Redeployer — a DEMANDER avant de le faire** (D76). L'installation partagee
+   (`C:\Program Files\Sowapps\Vigie`) date d'avant le suivi des commits : les cartes Comptes et Debogage
+   l'annoncent (« deployee avant le suivi des commits »). Le bouton **« Mettre a jour
+   Vigie »** (carte Debogage) fait tout : tag `v0.1.1`, archive marquee, deploiement,
+   relance. C'est aussi la premiere mise a l'epreuve reelle de D87.
 2. **Session `Famille` — a constater.** Sa tache a ete **reparee automatiquement** au
-   demarrage du serveur (journal : « tache Vigie - Famille : interpreteur MSIX, enregistre
-   par compte -> reparee »). Il reste a ouvrir sa session et a voir Vigie demarrer.
-3. **Alimentation** — a constater en vrai : debrancher le chargeur, ou brancher un
-   chargeur faible sous forte charge.
-4. **Icones — a eprouver sur la page Design systeme** (Atelier a lancer a la main :
-   `pwsh -File apps/atelier/atelier.ps1`), plus l'ancien sujet du **centrage vu sur SON
-   ecran** (frames au scratchpad, a mesurer).
-5. **Exports** — livres et vus a l'ecran (fiche materielle et etat actuel). Restent a
-   eprouver **a l'impression reelle** : pagination, sauts de page, marges A4.
-6. **Jeux** — latence corrigee, a constater a la prochaine partie.
-7. Fond ancien : verrou/VBS eleve apres redemarrage ; commentaires en anglais (D41) ;
+   demarrage du serveur (journal : « tache Vigie - Famille : interpreteur MSIX,
+   enregistre par compte -> reparee »). Il reste a ouvrir sa session et a voir Vigie
+   demarrer : non eleve, actions administrateur refusees et expliquees, reglages separes.
+3. **Alimentation** — carte livree, a constater en vrai : debrancher le chargeur, ou
+   brancher un chargeur faible sous forte charge. Doit passer en avertissement « Le
+   secteur ne suit pas : la batterie se decharge (x W) » + notification.
+4. **Exports (D86)** — les deux documents sont livres et vus a l'ecran
+   (`/rapport?type=materiel` et `?type=etat`, entree dans Parametres > A propos).
+   Restent a eprouver **a l'impression reelle** : pagination, sauts de page, marges A4.
+5. **Icones** — a eprouver sur la page Design systeme de l'Atelier (a lancer a la main :
+   `pwsh -File apps/atelier/atelier.ps1`). Plus l'ancien sujet du **centrage vu sur SON
+   ecran** (frames de sa video au scratchpad, a mesurer, pas a l'oeil).
+6. **Jeux** — latence d'affichage corrigee, a constater a la prochaine partie.
+7. **Composants (D88) — chantier ouvert.** `UI.bande / liste / ligne / ligneHtml /
+   interrupteur / etiquette / note / carte` existent et servent dans Notifications,
+   Modules et Utilisateurs. **A poursuivre** : le reste du front (cartes du tableau de
+   bord, tiroirs, fenetres de choix) construit encore son balisage a la main. Regle a
+   tenir : un motif qui se repete devient un composant AVANT d'etre copie.
+8. Fond ancien : verrou/VBS eleve apres redemarrage ; commentaires en anglais (D41) ;
    workflow GitHub ; bulle de notification du tray a observer en reel.
+
+### Ce que cette session a appris (le detail est dans DECISIONS-VALIDEES.md)
+
+- **D76** je fusionne des qu'une fonctionnalite est finie ; le deploiement, lui, se
+  demande. **D77** une mise a jour deja faite ne se propose pas et n'echoue pas.
+- **D78** relancer l'application, c'est relancer le serveur AUSSI (un tray relance
+  *adopte* le serveur et n'en est pas le parent). **D79** PowerShell 7 est une
+  dependance, installee pour la MACHINE -- jamais pour un compte.
+- **D80** une tache de fond se voit tant qu'elle dure. **D81** un installateur aboutit
+  ou dit pourquoi ; les processus s'enchainent seuls et chaque code de retour est lu.
+- **D82** aucune tache de fond ne peut echouer en silence (un veilleur attend et
+  rapporte). **D83** Vigie repare ses propres taches. **D84** version ET commit, tag pose
+  au deploiement seulement.
+- **D85** un module peut naitre eteint (Debogage). **D86** deux exports imprimables.
+  **D87** Vigie se met a jour elle-meme. **D88** un seul cadre arrondi, et des composants
+  plutot que des copies.
+
+### Deux reflexes a garder
+
+- **Mesurer ne remplace pas regarder.** J'ai mesure la geometrie des lignes sans jamais
+  ouvrir l'oeil sur la bande de titre juste au-dessus : elle etait collee au bord, et
+  c'est l'utilisateur qui l'a vu.
+- **Le garde-fou des antislashs existe** : `scripts/check-probes.ps1` refuse tout
+  caractere de controle dans les sources et nomme fichier et ligne. Il ne voit PAS, en
+  revanche, un antislash d'echappement mange dans une chaine JavaScript -- ce qui a casse
+  tout le front une fois de plus ce soir. Dans le front, preferer l'apostrophe
+  typographique (') a l'apostrophe echappee.
 
 ## État de la machine de l'utilisateur — à savoir avant de conclure quoi que ce soit
 
