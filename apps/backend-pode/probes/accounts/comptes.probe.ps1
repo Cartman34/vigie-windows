@@ -47,9 +47,31 @@ if (-not $comptes.Count) {
 # bouton qui corrige (D66 : une alerte porte toujours sa resolution).
 $partagee = [bool](Get-SharedInstallPath)
 if ($partagee) {
-    $fields += New-Field -Key 'partage' -Label 'Installation' -Value 'accessible a tous les comptes' -Kind 'text' -Status 'ok' `
-        -Help "Emplacement lisible par tous les comptes de la machine : leurs taches de demarrage pointent dessus." `
-        -Guide ("Installation partagee : " + (Get-SharedInstallPath))
+    # A JOUR ? Le numero de version ne suffit pas : deux « v0.1 » peuvent differer de
+    # vingt commits. On compare donc le COMMIT, et on dit l'ecart (D84).
+    $cmp = Compare-SharedInstall -Backend $backend
+    $etat = 'accessible a tous les comptes'
+    $niveau = 'ok'
+    $detail = "Installation partagee : " + (Get-SharedInstallPath)
+    if ($cmp) {
+        $detail += [Environment]::NewLine + "Deployee : " + $cmp.there.version +
+                   $(if ($cmp.there.commit) { " (" + $cmp.there.commit.Substring(0, [Math]::Min(8, $cmp.there.commit.Length)) + ")" } else { " (commit inconnu)" })
+        $detail += [Environment]::NewLine + "Ce depot : " + $cmp.here.version +
+                   $(if ($cmp.here.commit) { " (" + $cmp.here.commit.Substring(0, [Math]::Min(8, $cmp.here.commit.Length)) + ")" } else { "" })
+        if ($cmp.same) {
+            $etat = $cmp.there.version + ' - a jour'
+        } elseif ($null -ne $cmp.behind -and $cmp.behind -gt 0) {
+            $etat = $cmp.there.version + ' - en retard de ' + $cmp.behind + ' commit(s)'
+            $niveau = 'warn'
+        } elseif (-not $cmp.there.commit) {
+            $etat = $cmp.there.version + ' - deployee avant le suivi des commits'
+            $niveau = 'warn'
+        }
+    }
+    $fields += New-Field -Key 'partage' -Label 'Installation' -Value $etat -Kind 'text' -Status $niveau `
+        -FixAction $(if ($niveau -eq 'warn') { 'deploy-shared' } else { '' }) `
+        -Help "Emplacement lisible par tous les comptes de la machine : leurs taches de demarrage pointent dessus. Les autres comptes lancent CETTE version, pas celle du depot." `
+        -Guide $detail
 } else {
     $fields += New-Field -Key 'partage' -Label 'Installation' -Value 'lisible par vous seul' -Kind 'text' -Status 'warn' `
         -FixAction 'deploy-shared' `
@@ -94,6 +116,23 @@ if (-not $eleve) {
         -Help "Windows protège le profil de chaque compte : leur détail n'est lisible que par un Vigie lancé en administrateur. Vigie ne montre rien de plus que ce que Windows laisse voir."
 }
 
+# TACHES MALADES : une tache qui vise un interpreteur ou une application disparus se
+# lance et meurt en silence. La sonde ne repare RIEN (lecture seule) : elle constate, et
+# porte le bouton qui repare (D66).
+$malades = @($comptes | Where-Object { $_.taskAilment })
+if ($malades.Count) {
+    $fields += New-Field -Key 'taches' -Label 'Démarrage automatique' `
+        -Value ($malades.Count.ToString() + " tâche(s) hors service") -Kind 'text' -Status 'error' `
+        -FixAction 'repair-tasks' `
+        -Help "Une tâche de démarrage de Vigie ne peut plus lancer l'application : elle démarre et meurt aussitôt, sans message. Vigie ne se lancera pas à l'ouverture de session." `
+        -Guide (($malades | ForEach-Object { $_.name + " : " + $_.taskAilment }) -join [Environment]::NewLine)
+}
+
+# LE SORT DE LA DERNIERE OPERATION lancee depuis cette carte (D82). Une ligne verte
+# quand elle a abouti, ROUGE avec son journal quand elle a echoue -- jamais rien.
+$dernier = New-LastRunField -Module 'accounts'
+if ($dernier) { $fields += $dernier }
+
 $pire = if (@($fields | Where-Object { "$($_.status)" -eq 'error' }).Count) { 'error' }
         elseif (@($fields | Where-Object { "$($_.status)" -eq 'warn' }).Count) { 'warn' }
         else { 'ok' }
@@ -107,6 +146,9 @@ New-ModuleObject -Id 'accounts' -Theme 'accounts' -Label 'Comptes' -Status $pire
     New-Action -Id 'deploy-shared' -Label 'Déployer pour tous les comptes' -Kind 'confirm' -Severity 'fix' -Confirm `
         -BusyLabel 'Déploiement…' `
         -Help "Installe cette version dans C:\Program Files\Sowapps\Vigie, lisible par tous les comptes de la machine."
+    New-Action -Id 'repair-tasks' -Label 'Réparer le démarrage de Vigie' -Kind 'immediate' -Severity 'fix' `
+        -BusyLabel 'Réparation…' `
+        -Help "Réécrit les tâches de démarrage de Vigie qui ne fonctionnent plus (interpréteur ou application déplacés). Ne touche à rien d'autre sur la machine."
     New-Action -Id 'accounts-refresh' -Label 'Actualiser la liste' -Kind 'immediate' -Severity 'neutral' `
         -BusyLabel 'Relevé…' `
         -Help "Refait le relevé des comptes. La liste est mémorisée 24 h : elle ne change qu'exceptionnellement."

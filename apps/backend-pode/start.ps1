@@ -50,6 +50,21 @@ try {
     $env:VIGIE_TOKEN   = Get-ApiToken -Backend $backend
     $env:VIGIE_PORT    = "$($cfg.Port)"
 
+    # AUTO-REPARATION DE NOS PROPRES TACHES, au demarrage (D83).
+    # Autorise explicitement : « l'app peut auto-corriger le systeme tant que c'est du
+    # pur Vigie ». Une tache qui vise un interpreteur disparu se lance et meurt sans un
+    # mot ; la reparer ici, c'est la reparer avant que quiconque s'en apercoive. Ne
+    # touche a aucune tache qui ne soit pas la notre, et ne cree jamais rien.
+    try {
+        $repares = @(Repair-VigieTasks -Backend $backend)
+        foreach ($r in $repares) {
+            Write-Log -Backend $backend -Name 'start' -Level $(if ($r.repare) { 'INFO' } else { 'ERROR' }) `
+                      -Message ("tache " + $r.tache + " : " + $r.mal + " -> " + $(if ($r.repare) { 'reparee' } else { 'ECHEC' }))
+        }
+    } catch {
+        Write-Log -Backend $backend -Name 'start' -Level 'ERROR' -Message ("auto-reparation : " + $_.Exception.Message)
+    }
+
     Import-Module Pode
     Write-Log -Backend $backend -Name 'start' -Message ("Démarrage : " + (Get-ApiUrl -Config $cfg))
     Write-Host ("UI  : " + (Get-AppUrl -Config $cfg))

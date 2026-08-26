@@ -1196,6 +1196,15 @@ function Get-ApiToken {
 # Le role de jeton de changement revient a Get-AppBuildId, ci-dessous.
 function Get-AppVersion {
     param([string]$Backend = (Get-BackendRoot))
+    # Une installation deployee porte sa marque (fichier BUILD) : c'est elle qui fait foi,
+    # le fichier VERSION du depot ne decrivant que le depot.
+    $marque = Join-Path (Get-RepoRoot) 'BUILD'
+    if (Test-Path -LiteralPath $marque) {
+        try {
+            $j = Get-Content -LiteralPath $marque -Raw | ConvertFrom-Json
+            if ($j -and $j.version) { return "$($j.version)" }
+        } catch { }
+    }
     $f = Join-Path (Get-RepoRoot) 'VERSION'
     if (Test-Path -LiteralPath $f) {
         $v = "$(Get-Content -LiteralPath $f -Raw -ErrorAction SilentlyContinue)".Trim()
@@ -1214,6 +1223,84 @@ function Get-AppBuildId {
     param([string]$Backend = (Get-BackendRoot))
     $idx = Join-Path (Get-AppPath -Role 'frontend') 'index.html'
     if (Test-Path $idx) { "$((Get-Item $idx).LastWriteTimeUtc.Ticks)" } else { '0' }
+}
+
+# --- IDENTITE PRECISE D'UNE VERSION : le numero ET le commit -----------------
+#
+# « Au niveau technique je conseille de prendre la version ET le commit. » Le numero dit
+# ce qu'on a voulu livrer ; le commit dit ce qui a REELLEMENT ete livre. Deux
+# deploiements du meme v0.1 peuvent differer de vingt commits -- et c'est exactement le
+# cas d'un poste de developpement.
+#
+# La marque est POSEE DANS L'ARCHIVE au moment de la fabrication (fichier BUILD, une
+# ligne « version commit date »), parce qu'une installation deployee n'a pas de depot
+# git : elle ne peut pas se decrire elle-meme autrement.
+function Get-GitCommit {
+    param([string]$Path = (Get-RepoRoot), [switch]$Court)
+    try {
+        $git = (Get-Command git -ErrorAction SilentlyContinue)
+        if (-not $git) { return $null }
+        $forme = if ($Court) { '%h' } else { '%H' }
+        $c = (& $git.Source -C $Path log -1 --format=$forme 2>$null | Select-Object -First 1)
+        if ($c) { return "$c".Trim() }
+    } catch { }
+    return $null
+}
+
+# La marque d'une installation : version, commit, date. Lue dans le fichier BUILD s'il
+# existe (installation deployee), sinon calculee depuis git (poste de developpement).
+function Get-BuildStamp {
+    param([string]$Root = (Get-RepoRoot))
+    $f = Join-Path $Root 'BUILD'
+    if (Test-Path -LiteralPath $f) {
+        try {
+            $j = Get-Content -LiteralPath $f -Raw | ConvertFrom-Json
+            if ($j -and $j.version) { return $j }
+        } catch { }
+    }
+    $vf = Join-Path $Root 'VERSION'
+    $v = if (Test-Path -LiteralPath $vf) { "$(Get-Content -LiteralPath $vf -Raw)".Trim() } else { '' }
+    return [pscustomobject][ordered]@{
+        version = $(if ($v) { $(if ($v.StartsWith('v')) { $v } else { "v$v" }) } else { 'inconnue' })
+        commit  = (Get-GitCommit -Path $Root)
+        at      = $null
+        source  = 'depot'
+    }
+}
+
+# Ecrit la marque : appele par la fabrication de l'archive, une seule fois.
+function Write-BuildStamp {
+    param([Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][string]$Version, [string]$Commit)
+    $o = [ordered]@{ version = $Version; commit = $Commit
+                     at = (Get-Date).ToUniversalTime().ToString('o'); source = 'archive' }
+    ($o | ConvertTo-Json -Depth 4) | Out-File -FilePath (Join-Path $Root 'BUILD') -Encoding UTF8
+}
+
+# L'installation partagee est-elle a jour par rapport a ce depot ? Rend un constat
+# lisible, jamais un simple booleen : « pareil », « en retard de 12 commits », « inconnu ».
+function Compare-SharedInstall {
+    param([string]$Backend = (Get-BackendRoot))
+    $partagee = Get-SharedInstallPath
+    if (-not $partagee) { return $null }
+    $ici = Get-BuildStamp -Root (Get-RepoRoot)
+    $la  = Get-BuildStamp -Root $partagee
+    $ecart = $null
+    if ($ici.commit -and $la.commit) {
+        if ($ici.commit -eq $la.commit) { $ecart = 0 }
+        else {
+            try {
+                $git = (Get-Command git -ErrorAction SilentlyContinue)
+                if ($git) {
+                    $c = (& $git.Source -C (Get-RepoRoot) rev-list --count ("$($la.commit)..$($ici.commit)") 2>$null | Select-Object -First 1)
+                    if ($c -match '^\d+$') { $ecart = [int]$c }
+                }
+            } catch { }
+        }
+    }
+    [pscustomobject][ordered]@{
+        path = $partagee; here = $ici; there = $la; behind = $ecart
+        same = ($ici.commit -and $la.commit -and $ici.commit -eq $la.commit)
+    }
 }
 
 # --- Journalisation ---------------------------------------------------------
@@ -2474,6 +2561,112 @@ function Get-ModuleBusyMark {
     return $o
 }
 
+# --- LE SORT D'UNE TACHE DE FOND : garde, puis dit ---------------------------
+#
+# « Le suivi des erreurs est primordial » : une action longue ne peut pas echouer en
+# silence. Le veilleur (workers/watched-action.worker.ps1) ecrit ici ce qu'il a constate ;
+# la sonde de la carte le relit et en fait une ligne, verte ou rouge.
+function Get-ModuleLastRunPath {
+    param([Parameter(Mandatory)][string]$Module, [string]$Backend = (Get-BackendRoot))
+    Get-VarPath -Backend $Backend -Kind 'cache' -File ('lastrun-' + $Module + '.json')
+}
+
+function Set-ModuleLastRun {
+    param(
+        [Parameter(Mandatory)][string]$Module,
+        [string]$Action = '', [string]$Label = '',
+        [Parameter(Mandatory)][int]$Code,
+        [int]$Seconds = 0, [string]$Log = '', [string]$Error = '',
+        [string]$Backend = (Get-BackendRoot)
+    )
+    $f = Get-ModuleLastRunPath -Module $Module -Backend $Backend
+    $d = Split-Path $f -Parent
+    if (-not (Test-Path -LiteralPath $d)) { New-Item -ItemType Directory -Path $d -Force | Out-Null }
+    $o = [ordered]@{ action = $Action; label = $Label; code = $Code; seconds = $Seconds
+                     log = $Log; error = $Error; at = (Get-Date).ToUniversalTime().ToString('o') }
+    try { ($o | ConvertTo-Json -Depth 4) | Out-File -FilePath $f -Encoding UTF8 } catch { }
+}
+
+function Get-ModuleLastRun {
+    param([Parameter(Mandatory)][string]$Module, [string]$Backend = (Get-BackendRoot))
+    $f = Get-ModuleLastRunPath -Module $Module -Backend $Backend
+    if (-not (Test-Path -LiteralPath $f)) { return $null }
+    try { return (Get-Content -LiteralPath $f -Raw | ConvertFrom-Json) } catch { return $null }
+}
+
+function Clear-ModuleLastRun {
+    param([Parameter(Mandatory)][string]$Module, [string]$Backend = (Get-BackendRoot))
+    Remove-Item -LiteralPath (Get-ModuleLastRunPath -Module $Module -Backend $Backend) `
+                -Force -ErrorAction SilentlyContinue
+}
+
+function Clear-ModuleBusyMark {
+    param([Parameter(Mandatory)][string]$Module, [string]$Backend = (Get-BackendRoot))
+    Remove-Item -LiteralPath (Get-ModuleBusyMarkPath -Module $Module -Backend $Backend) `
+                -Force -ErrorAction SilentlyContinue
+}
+
+# LA facon de lancer un travail long. Une action ne lance plus rien elle-meme : elle
+# passe par ici, et le sort du travail est garanti d'etre constate.
+function Start-WatchedAction {
+    param(
+        [Parameter(Mandatory)][string]$Module,     # carte concernee (id du module)
+        [Parameter(Mandatory)][string]$Probe,      # sonde a invalider a la fin
+        [Parameter(Mandatory)][string]$Label,      # « Deploiement », « Installation de... »
+        [Parameter(Mandatory)][string]$File,       # programme a lancer
+        [string[]]$Arguments = @(),
+        [string]$Action = '',                      # id de l'action, pour l'interface
+        [string]$Log = '',
+        [string]$Backend = (Get-BackendRoot)
+    )
+    $charge = @{ module = $Module; probe = $Probe; label = $Label; action = $Action
+                 file = $File; arguments = @($Arguments); log = $Log }
+    $json = ($charge | ConvertTo-Json -Compress -Depth 6)
+    $b64  = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($json))
+    $exe = $null
+    try { $exe = (Get-Process -Id $PID).Path } catch { }
+    if (-not $exe) { $exe = 'pwsh.exe' }
+    $veilleur = Join-Path (Join-Path $Backend 'workers') 'watched-action.worker.ps1'
+    if (-not (Test-Path -LiteralPath $veilleur)) { throw "Veilleur introuvable : $veilleur" }
+    # Le resultat precedent disparait DES LE LANCEMENT : sinon la carte afficherait
+    # l'echec d'hier pendant le travail d'aujourd'hui.
+    Clear-ModuleLastRun -Module $Module -Backend $Backend
+    $psi = [System.Diagnostics.ProcessStartInfo]::new()
+    $psi.FileName  = $exe
+    $psi.Arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$veilleur`" -Backend `"$Backend`" -ArgsB64 $b64"
+    $psi.UseShellExecute  = $false
+    $psi.CreateNoWindow   = $true
+    $psi.WindowStyle      = [System.Diagnostics.ProcessWindowStyle]::Hidden
+    $psi.WorkingDirectory = $Backend
+    $p = [System.Diagnostics.Process]::Start($psi)
+    if ($p) { return $p.Id }
+    return $null
+}
+
+# La ligne que la carte affiche apres coup : rien tant qu'aucun travail n'a eu lieu,
+# une ligne verte s'il a reussi, une ligne ROUGE avec le journal s'il a echoue.
+function New-LastRunField {
+    param(
+        [Parameter(Mandatory)][string]$Module,
+        [string]$Key = 'lastrun',
+        [string]$Backend = (Get-BackendRoot)
+    )
+    $r = Get-ModuleLastRun -Module $Module -Backend $Backend
+    if (-not $r) { return $null }
+    $quand = ''
+    try { $quand = (ConvertTo-UtcDate $r.at).ToLocalTime().ToString('dd/MM/yyyy HH:mm') } catch { }
+    $duree = if ([int]$r.seconds -ge 60) { [string][int]([int]$r.seconds / 60) + ' min' } else { "$([int]$r.seconds) s" }
+    if ([int]$r.code -eq 0) {
+        return (New-Field -Key $Key -Label "$($r.label)" -Value ("réussi le " + $quand + " (" + $duree + ")") `
+                          -Kind 'text' -Status 'ok' -Help "Dernière opération lancée depuis cette carte.")
+    }
+    $detail = if ($r.error) { "$($r.error)" } else { "code de sortie " + [int]$r.code }
+    return (New-Field -Key $Key -Label "$($r.label)" -Value ("ÉCHEC le " + $quand + " — " + $detail) `
+                      -Kind 'text' -Status 'error' `
+                      -Help "La dernière opération lancée depuis cette carte a échoué. Elle n'a pas abouti : rien ne s'est fait à moitié sans le dire." `
+                      -Guide $(if ($r.log) { "Journal complet : " + $r.log } else { '' }))
+}
+
 # --- QUELS COMPTES Windows ont Vigie (D65) ------------------------------------
 # L'ordinateur a plusieurs comptes ; l'utilisateur choisit ceux qui ont Vigie, et peut
 # changer d'avis a tout moment (exigence : « un outil doit toujours permettre de changer
@@ -2611,6 +2804,92 @@ function Get-SharedInstallPath {
     return $null
 }
 
+# --- AUTO-REPARATION DES TACHES DE VIGIE -------------------------------------
+#
+# Regle posee par l'utilisateur : « l'app peut auto-corriger le systeme tant que c'est du
+# pur Vigie ». Une tache planifiee nommee « Vigie - <compte> » (ou « Vigie ») est a nous :
+# on a le droit de la remettre d'aplomb sans rien demander. On ne touche a RIEN d'autre.
+#
+# Le cas vecu le 26/08 : les taches pointaient vers
+# C:\Users\<moi>\AppData\Local\Microsoft\WindowsApps\pwsh.exe -- un chemin du profil de
+# l'administrateur, devenu inexistant apres un changement d'installation de PowerShell.
+# Windows n'a rien dit : la tache existait, elle se lancait, et mourait aussitot. Vigie
+# ne demarrait plus, ni pour moi ni pour « Famille », sans le moindre message.
+#
+# Ce qui est verifie, et repare : l'INTERPRETEUR (existe-t-il encore ?) et le CHEMIN DE
+# L'APPLICATION (l'autre compte peut-il le lire ?).
+function Test-VigieTaskHealthy {
+    param([Parameter(Mandatory)]$Task)
+    $a = @($Task.Actions)[0]
+    if (-not $a) { return $false }
+    $exe = "$($a.Execute)".Trim('"')
+    if (-not $exe -or -not (Test-Path -LiteralPath $exe)) { return $false }
+    # Le script lance est cite dans les arguments, entre guillemets.
+    if ("$($a.Arguments)" -match '-File\s+"([^"]+)"') {
+        if (-not (Test-Path -LiteralPath $Matches[1])) { return $false }
+    }
+    return $true
+}
+
+# Ce qui CLOCHE, en clair, pour l'afficher. $null si tout va bien.
+function Get-VigieTaskAilment {
+    param([Parameter(Mandatory)]$Task)
+    $a = @($Task.Actions)[0]
+    if (-not $a) { return "la tache ne lance rien" }
+    $exe = "$($a.Execute)".Trim('"')
+    if (-not $exe) { return "aucun interpreteur" }
+    if (-not (Test-Path -LiteralPath $exe)) { return "l'interpreteur n'existe plus : $exe" }
+    if ("$($a.Arguments)" -match '-File\s+"([^"]+)"') {
+        if (-not (Test-Path -LiteralPath $Matches[1])) { return ("l'application n'est plus la : " + $Matches[1]) }
+    }
+    return $null
+}
+
+# Repare ce qui peut l'etre, et RAPPORTE ce qu'elle a fait. Silencieuse quand tout va
+# bien. Ne cree jamais une tache absente : activer un compte reste une decision.
+function Repair-VigieTasks {
+    param([string]$Backend = (Get-BackendRoot))
+    $faits = @()
+    if (-not (Test-IsElevated)) { return $faits }
+    $taches = @()
+    try {
+        $taches = @(Get-ScheduledTask -ErrorAction Stop |
+                    Where-Object { "$($_.TaskName)" -eq 'Vigie' -or "$($_.TaskName)".StartsWith($script:VigieTaskPrefix) })
+    } catch { return $faits }
+
+    foreach ($t in $taches) {
+        $mal = Get-VigieTaskAilment -Task $t
+        if (-not $mal) { continue }
+        $nom = "$($t.TaskName)"
+        # De QUI est cette tache ? « Vigie » = le compte courant ; « Vigie - X » = X.
+        $compte = if ($nom -eq 'Vigie') { "$env:USERNAME" } else { $nom.Substring($script:VigieTaskPrefix.Length) }
+        try {
+            if ($nom -eq 'Vigie') {
+                # Notre propre tache : on la reecrit avec l'interpreteur de la machine et
+                # le chemin ou l'application se trouve REELLEMENT maintenant.
+                $pwsh = Get-SharedPwshPath
+                if (-not $pwsh) { $pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Source }
+                $tray = Join-Path (Join-Path (Get-RepoRoot) 'apps') (Join-Path 'tray' 'tray.ps1')
+                if (-not $pwsh -or -not (Test-Path -LiteralPath $tray)) { continue }
+                $arg = '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $tray + '"'
+                Set-ScheduledTask -TaskName $nom -Action (New-ScheduledTaskAction -Execute $pwsh -Argument $arg) -ErrorAction Stop | Out-Null
+            } else {
+                # Tache d'un autre compte : Set-VigieAccountEnabled sait la refaire
+                # entierement (interpreteur machine, installation partagee, niveau).
+                $null = Set-VigieAccountEnabled -Name $compte -Enabled $true -Backend $Backend
+            }
+            $faits += [pscustomobject]@{ tache = $nom; mal = $mal; repare = $true }
+            Write-Log -Backend $Backend -Name 'comptes' -Message ("tache " + $nom + " reparee (" + $mal + ")")
+        } catch {
+            $faits += [pscustomobject]@{ tache = $nom; mal = $mal; repare = $false; erreur = "$($_.Exception.Message)" }
+            Write-Log -Backend $Backend -Name 'comptes' -Level 'ERROR' `
+                      -Message ("tache " + $nom + " NON reparee (" + $mal + ") : " + $_.Exception.Message)
+        }
+    }
+    if ($faits.Count) { Clear-VigieAccountsCache -Backend $Backend }
+    return $faits
+}
+
 function Get-VigieAccountTaskName {
     param([Parameter(Mandatory)][string]$Name)
     $script:VigieTaskPrefix + $Name
@@ -2734,6 +3013,11 @@ function Get-VigieAccountsFresh {
             lastUse     = $(if ($up -and $up.LastUseTime) { ([datetime]$up.LastUseTime).ToString('s') } else { $null })
             enabled     = [bool]$tache
             task        = if ($tache) { "$($tache.TaskName)" } else { $null }
+            # La tache existe-t-elle VRAIMENT en etat de marche ? Une tache qui pointe
+            # vers un interpreteur disparu se lance et meurt aussitot, sans un mot :
+            # Vigie ne demarre pas et l'ecran des comptes affiche « activee ». C'est
+            # exactement ce qui est arrive le 26/08 (D83).
+            taskAilment = if ($tache) { Get-VigieTaskAilment -Task $tache } else { $null }
             # Le compte qui execute le serveur en ce moment : l'interface doit pouvoir dire
             # « c'est vous » et empecher de se retirer soi-meme par megarde.
             current     = ($nom -eq "$env:USERNAME")
