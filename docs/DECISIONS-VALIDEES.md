@@ -1917,3 +1917,22 @@ Utilisateurs.
 **Inventaire mémorisé 24 h** (2 091 ms → 13 ms), invalidé dès qu'un compte change, avec un
 bouton **« Actualiser la liste »** — proposition de l'utilisateur : « y'aura pas des
 nouveaux comptes tous les jours ».
+
+## D75 — VRAM par application : « Local Usage », pas « Dedicated Usage » (2026-08-26)
+
+**Constat (utilisateur).** Le détail annonçait `dwm` à 5,65 Go alors que la carte affichait
+**1,8 Go occupés sur 8** : une seule ligne dépassait le total.
+
+**Mesure faite sur la machine.** Somme de `GPU Process Memory\Dedicated Usage` : **6,94 Go**
+pour un adaptateur à **1,70 Go**. `Local Usage` : **1,69 Go**, soit exactement l'occupation
+réelle. Ce compteur-là dit vrai ; l'autre additionne des vues qui **se recouvrent** — le
+compositeur (`dwm`) référence les surfaces de toutes les fenêtres des autres applications.
+
+**Décision.** La VRAM par application vient de `Local Usage` (repli sur `Dedicated Usage`
+si le compteur manque : une valeur imparfaite vaut mieux que pas de valeur). Le total de la
+carte reste `GPU Adapter Memory\Dedicated Usage`. Résultat : 1,6 Go affichés, 1,50 Go de
+somme dans le tableau — cohérent, l'écart étant les processus sous le seuil d'affichage.
+
+**Règle générale** : deux chiffres montrés ensemble doivent être **comparables**. Si un
+détail ne peut pas s'additionner pour retrouver le total, soit on change de mesure, soit on
+le dit — on ne laisse pas l'utilisateur faire une addition fausse.
