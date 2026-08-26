@@ -1872,3 +1872,48 @@ l'auteur c'est moi). Quand je mets un vendor, je mets sowapps. »
   rangement a changé ;
 - métadonnées de la fonte d'icônes : copyright « Sowapps — Vigie, MIT » ;
 - écran **À propos** : Éditeur *Sowapps*, Auteur *Florent HAZARD*, licence MIT.
+
+## D73 — Le multi-comptes, éprouvé sur la machine (2026-08-26)
+
+**Déploiement fait et vérifié.** `C:\Program Files\Sowapps\Vigie` : 133 fichiers, 1 Mo,
+`VERSION 0.1`, **aucun secret** (jeton, `config.local`, sauvegardes), `BUILTIN\Utilisateurs`
+en **lecture/exécution**. Tâche `Vigie - Famille` créée pour `HYPERION\Famille` en niveau
+*Limited*.
+
+**Trois défauts trouvés en le faisant** — chacun invisible sans essai réel :
+1. Le déploiement lancé depuis l'interface ne produisait **rien** : la sortie du processus
+   partait dans un tuyau que personne ne lisait, et le processus se bloquait. Elle va
+   désormais **dans un fichier journal**.
+2. Deuxième tentative : « Archive introuvable : `Files\Sowapps\Vigie` » — l'espace de
+   *Program Files* cassait les arguments. Ils sont maintenant **entre guillemets**.
+3. La tâche d'un compte pointait vers le **dépôt de développement**, illisible par lui :
+   elle aurait échoué en silence à chaque ouverture de session. `Get-SharedInstallPath`
+   désigne l'installation partagée, et c'est elle que la tâche lance.
+
+**Et une leçon de méthode** : une tâche planifiée appartenant à **un autre compte** n'est
+**pas visible** depuis une session non élevée. J'ai conclu « la tâche n'existe pas » alors
+qu'elle existait — le serveur, lui, la voyait. Vérifier ce genre d'état **par le serveur
+élevé**, jamais depuis la session de l'agent.
+
+**Corollaire livré** : `Set-VigieAccountEnabled` **constate** désormais la création
+(relecture immédiate) au lieu de la supposer, et journalise ; une création refusée par
+Windows remonte comme une vraie erreur.
+
+## D74 — Ce qui n'a pas été demandé ne s'invente pas (2026-08-26)
+
+Rappels de l'utilisateur, appliqués : la carte Comptes montre **tous les comptes
+utilisateurs et uniquement eux**, sans réglage inventé (« comptes techniques », « comptes à
+ne pas afficher », « compte dormant » : retirés) ; le déploiement installe **pour tout le
+monde à un endroit connu d'avance**, il ne prend pas de liste de comptes ; les listes de
+paramètres ont leur **section dédiée**, les interrupteurs restent où ils étaient.
+
+**Un compte utilisateur** se reconnaît à ce que **Windows** en dit : les comptes inscrits
+dans `Winlogon\SpecialAccounts\UserList` (valeur 0) sont masqués de l'écran de connexion,
+donc ce ne sont pas des comptes de personne. Tous les autres critères essayés étaient
+faux : présence d'un profil, date d'usage (invisible hors élévation — deux verdicts
+contradictoires entre l'agent et le serveur), contenu du profil, appartenance au groupe
+Utilisateurs.
+
+**Inventaire mémorisé 24 h** (2 091 ms → 13 ms), invalidé dès qu'un compte change, avec un
+bouton **« Actualiser la liste »** — proposition de l'utilisateur : « y'aura pas des
+nouveaux comptes tous les jours ».
