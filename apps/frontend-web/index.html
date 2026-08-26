@@ -1754,10 +1754,10 @@ async function renderTabNotifs(pane){
   // l'interrupteur commande.
   const total=(cfg.catalog||[]).reduce((t,u)=>t+((u.notifications||[]).length),0);
   pane.innerHTML=
-     '<div class="setcard"><div class="setcard-t"><b>Activer les notifications</b>'
-    +'<small>Coupé, plus aucune bulle ne s’affiche. Les réglages fins restent mémorisés.</small></div>'
-    +'<span class="swx"><input type="checkbox" id="ntfGlobal"'+(cfg.enabled?' checked':'')+'><i></i></span></div>'
-    +'<div class="um-sub">Comment ça marche<span class="um-cpt">'+total+' événements suivis</span></div>'
+     UI.carte({ titre:'Activer les notifications',
+                detail:'Coupé, plus aucune bulle ne s’affiche. Les réglages fins restent mémorisés.',
+                droite: UI.interrupteur('id="ntfGlobal"', cfg.enabled) })
+    +UI.bande('Comment ça marche', total+' événements suivis')
     +'<ul class="um-points">'
     +'<li>Une bulle apparaît quand un événement <b>survient</b> ou qu’il est <b>résolu</b> — jamais en rappel.</li>'
     +'<li>Elle <b>nomme</b> l’événement : « Température GPU élevée », « Antivirus inactif »…</li>'
@@ -1798,7 +1798,20 @@ const UI = {
     return '<span class="swx"><input type="checkbox" '+attrs+(actif?' checked':'')+'><i></i></span>';
   },
   etiquette(t){ return ' <span class="um-tag">'+esc(t)+'</span>'; },
-  note(texte){ return '<div class="um-note">'+esc(texte)+'</div>'; }
+  note(texte){ return '<div class="um-note">'+esc(texte)+'</div>'; },
+  // Carte de reglage ISOLEE : un titre, son explication, une commande a droite.
+  // C'est le seul cas ou un cadre arrondi est legitime -- elle n'est dans rien.
+  carte(o){
+    return '<div class="setcard"><div class="setcard-t"><b>'+esc(o.titre)+'</b>'
+      +(o.detail?'<small>'+(o.detailHtml?o.detail:esc(o.detail))+'</small>':'')
+      +'</div>'+(o.droite||'')+'</div>';
+  },
+  // Ligne dont le libelle contient deja du balisage (nom + etiquettes + sous-titre).
+  ligneHtml(gauche, droite, aide){
+    return '<div class="um-card"'+(aide?' title="'+esc(aide)+'"':'')+'>'
+      +'<span>'+gauche+'</span>'
+      +(droite?'<span class="um-param">'+droite+'</span>':'')+'</div>';
+  }
 };
 
 // --- Onglet Modules (D48) : activer / couper, cartes du module en rappel ---
@@ -1838,14 +1851,14 @@ async function renderTabModules(pane){
     return '<details class="um'+(u.enabled?'':' off')+'" id="um-'+esc(u.id)+'"'+(cible?' open':'')+'>'
       +'<summary class="um-head"><div class="um-t"><b>'+esc(u.label)+'</b><small>'+esc(u.description||'')+'</small></div>'
       +'<span class="um-sw"><span>'+(u.enabled?'Actif':'Coupé')+'</span>'
-      +'<span class="swx"><input type="checkbox" data-unit="'+esc(u.id)+'"'+(u.enabled?' checked':'')+'><i></i></span></span></summary>'
+      +UI.interrupteur('data-unit="'+esc(u.id)+'"', u.enabled)+'</span></summary>'
       +(u.enabled ? lignes : '<div class="um-note">Module coupé : ses cartes ne sont ni calculées ni affichées.</div>')
-      +(u.enabled && (paramCat[u.id]||[]).filter(pr=>pr.type!=='list').length ? '<div class="um-sub">Paramètres<span class="um-cpt">'+(paramCat[u.id]||[]).filter(pr=>pr.type!=='list').length+'</span></div><div class="um-list">'+(paramCat[u.id]||[]).filter(pr=>pr.type!=='list').map(pr=>{
+      +(u.enabled && (paramCat[u.id]||[]).filter(pr=>pr.type!=='list').length ? UI.bande('Paramètres', (paramCat[u.id]||[]).filter(pr=>pr.type!=='list').length)+'<div class="um-list">'+(paramCat[u.id]||[]).filter(pr=>pr.type!=='list').map(pr=>{
         const ref=esc(u.id)+'::'+esc(pr.key);
         const btnDef=pr.overridden?'<button class="um-reset" data-preset="'+ref+'" title="Revenir à la valeur par défaut ('+esc(Array.isArray(pr.default)?(pr.default.join(', ')||'vide'):String(pr.default))+(pr.unit?' '+esc(pr.unit):'')+')">défaut</button>':'';
         let ctl='';
         if(pr.type==='bool'){
-          ctl='<span class="swx"><input type="checkbox" data-pval="'+ref+'"'+(pr.value?' checked':'')+'><i></i></span>';
+          ctl=UI.interrupteur('data-pval="'+ref+'"', pr.value);
         } else {
           const curseur=(pr.min!=null&&pr.max!=null)
             ? '<input class="um-range" type="range" data-prange="'+ref+'" min="'+pr.min+'" max="'+pr.max+'" step="'+(pr.step||1)+'" value="'+esc(String(pr.value))+'">'
@@ -1854,8 +1867,9 @@ async function renderTabModules(pane){
             +(pr.min!=null?' min="'+pr.min+'"':'')+(pr.max!=null?' max="'+pr.max+'"':'')
             +' value="'+esc(String(pr.value))+'">'+(pr.unit?'<span>'+esc(pr.unit)+'</span>':'');
         }
-        return '<div class="um-card um-pline" title="'+esc(pr.help||'')+'"><span>'+esc(pr.label)+'</span>'
-          +'<span class="um-param">'+btnDef+ctl+'</span></div>';
+        // um-pline : une ligne de parametre porte des commandes plus larges qu'un
+        // interrupteur ; la classe ne change que cet espacement.
+        return UI.ligneHtml(esc(pr.label), btnDef+ctl, pr.help||'').replace('class="um-card"', 'class="um-card um-pline"');
       }).join('')+'</div>' : '')
       // LISTES : une SECTION dediee par liste (exigence utilisateur). Une ligne de
       // parametre est trop etroite pour lire, ajouter et retirer ; ici la liste prend
@@ -1995,21 +2009,21 @@ async function renderTabUtilisateurs(pane){
     +"<li>Un compte standard n'obtient <b>aucun droit en plus</b> : Vigie lui refuse les actions administrateur, comme Windows.</li>"
     +'</ul>'
     +(inerte?'<div class="um-note">Modifier ces choix demande un Vigie lancé en administrateur.</div>':'')
-    +(partage?'':'<div class="setcard"><div class="setcard-t">'
-      +'<b>Cette installation n’est lisible que par vous</b>'
-      +'<small>'+esc(data.installPath||'')+' — les autres comptes ne pourraient pas la démarrer. '
-      +'Le déploiement l’installe dans C:\Program Files\Sowapps\Vigie, lisible par tous, '
-      +'et conserve les réglages déjà en place.</small></div>'
-      +'<button class="fsolve sev-fix" id="btnDeploy"'+(inerte?' disabled title="Demande un Vigie lancé en administrateur."':'')+'>Déployer pour tous</button></div>')
-    +'<div class="um-list">'+users.map(u=>
-      '<div class="um-card"><span>'+esc(u.name)
-      +(u.current?' <span class="um-tag">vous</span>':'')
-      +(u.admin?' <span class="um-tag">administrateur</span>':'')
-      +((u.fullName&&u.fullName!==u.name)?'<br><span class="um-mut">'+esc(u.fullName)+'</span>':'')
-      +'</span>'
-      +'<span class="um-param"><span class="swx"><input type="checkbox" data-user="'+esc(u.name)+'"'
-      +(u.enabled?' checked':'')+((inerte||(!partage&&!u.current))?' disabled':'')+'><i></i></span></span>'
-      +'</div>').join('')+'</div>';
+    +(partage?'':UI.carte({
+        titre:'Cette installation n’est lisible que par vous',
+        detail: esc(data.installPath||'')+' — les autres comptes ne pourraient pas la démarrer. '
+               +'Le déploiement l’installe dans C:\Program Files\Sowapps\Vigie, lisible par tous, '
+               +'et conserve les réglages déjà en place.',
+        detailHtml:true,
+        droite:'<button class="fsolve sev-fix" id="btnDeploy"'+(inerte?' disabled title="Demande un Vigie lancé en administrateur."':'')+'>Déployer pour tous</button>'
+      }))
+    +UI.liste(users.map(u=>UI.ligneHtml(
+        esc(u.name)
+        +(u.current?UI.etiquette('vous'):'')
+        +(u.admin?UI.etiquette('administrateur'):'')
+        +((u.fullName&&u.fullName!==u.name)?'<br><span class="um-mut">'+esc(u.fullName)+'</span>':''),
+        UI.interrupteur('data-user="'+esc(u.name)+'"'+((inerte||(!partage&&!u.current))?' disabled':''), u.enabled)
+      )));
   const bd=pane.querySelector('#btnDeploy');
   if(bd){ bd.onclick=async()=>{
     bd.disabled=true; bd.textContent='Déploiement…';
