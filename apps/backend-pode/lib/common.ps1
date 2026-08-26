@@ -2164,7 +2164,11 @@ function Get-State {
                     # clobberaient l'un l'autre, et une entree deja corrigee revenait a son
                     # ancienne valeur -- une carte en erreur ressuscitait apres correction.
                     # Ne reecrire QUE la sonde qu'on vient de calculer supprime la course.
-                    try { Update-StateJson -Path $cacheFile -Set @{ $sp.Name = $cache[$sp.Name] } | Out-Null } catch { }
+                    # -Depth 24 : une carte peut porter un ARBRE (analyse du disque).
+                    # A la profondeur par defaut (8), ConvertTo-Json tronque en SILENCE et
+                    # les branches profondes arrivent VIDES a l'interface -- constate le
+                    # 26/08 : des lignes sans nom ni taille sous chaque dossier.
+                    try { Update-StateJson -Path $cacheFile -Set @{ $sp.Name = $cache[$sp.Name] } -Depth 24 | Out-Null } catch { }
                 }
             }
         } finally {
