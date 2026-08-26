@@ -2286,11 +2286,31 @@ function Get-VigieAccounts {
             $_.TaskName -eq (Get-VigieAccountTaskName -Name $nom) -or
             ($_.TaskName -eq 'Vigie' -and (Test-TaskUserIs -UserId "$($_.Principal.UserId)" -Name $nom))
         })[0]
+        # VRAI compte ou compte TECHNIQUE ? On ne juge pas sur le nom (une liste noire
+        # serait fausse le jour ou quelqu'un appelle son compte « Sandbox ») mais sur ce
+        # qu'un compte humain possede : un profil, et dedans un Bureau ou des Documents.
+        # Le contenu du profil n'est lisible qu'en ELEVE : sans elevation on ne conclut
+        # pas, et un compte n'ayant JAMAIS ouvert de session reste technique par defaut.
+        $profil = Join-Path (Join-Path $env:SystemDrive 'Users') $nom
+        $aProfil = Test-Path -LiteralPath $profil
+        $technique = -not $aProfil
+        if ($aProfil -and (Test-IsElevated)) {
+            $humain = $false
+            foreach ($d in @('Desktop', 'Documents', 'Bureau')) {
+                if (Test-Path -LiteralPath (Join-Path $profil $d)) { $humain = $true; break }
+            }
+            $technique = -not $humain
+        }
+        # Le compte qui utilise Vigie en ce moment n'est jamais « technique ».
+        if ($nom -eq "$env:USERNAME") { $technique = $false }
+
         [pscustomobject][ordered]@{
             name        = $nom
             fullName    = "$($c.FullName)"
             description = "$($c.Description)"
             admin       = (Test-LocalAccountIsAdmin -Name $nom)
+            hasProfile  = $aProfil
+            technical   = $technique
             enabled     = [bool]$tache
             task        = if ($tache) { "$($tache.TaskName)" } else { $null }
             # Le compte qui execute le serveur en ce moment : l'interface doit pouvoir dire

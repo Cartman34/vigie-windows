@@ -244,6 +244,9 @@
   .um-card input{accent-color:var(--accent)}
   .um-card small{margin-left:auto;color:var(--muted);font-size:11px}
   .um-note{color:var(--muted);font-size:12.5px;font-style:italic}
+  .um-points{margin:6px 0 12px;padding-left:18px;color:var(--muted);font-size:12.5px;line-height:1.65}
+  .um-points li{margin:2px 0}
+  .um-points b{color:var(--text);font-weight:600}
   .um-tag{font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);
           border:1px solid var(--border);border-radius:999px;padding:1px 6px;margin-left:4px}
   .um-mut{font-size:11.5px;color:var(--muted)}
@@ -1340,6 +1343,11 @@ async function doAction(type,module,confirmNeeded,label,help,btnEl,params,kind,c
     }
     updateNotif(entry, st, msg);
     clearBtnBusy(btnEl);
+    // Une action peut repondre un DETAIL (texte long) : un toast le tronquerait. On
+    // l'ouvre dans une fenetre, comme le guide d'un champ.
+    if(st==='done' && j.result && j.result.detail){
+      HDS.info(name, String(j.result.detail), {variant:'info'});
+    }
     setTimeout(()=>{ if(module){ refreshCard(module); } else { refresh(); } }, 700);
   }catch(e){ updateNotif(entry,'error','Erreur : '+e.message); clearBtnBusy(btnEl); }
 }
@@ -1685,9 +1693,12 @@ async function renderTabUtilisateurs(pane){
   const inerte=!data.canWrite;
   pane.innerHTML=
     '<div class="um-sub">Comptes de cet ordinateur</div>'
-    +'<div class="um-note">Vigie démarre avec les comptes cochés. Chacun garde SES réglages, ses notifications et son historique. '
-    +'Un compte standard ne reçoit aucun pouvoir supplémentaire : les actions qui exigent un administrateur lui sont refusées, comme le ferait Windows.</div>'
-    +(inerte?'<div class="um-note">Pour modifier ces choix, Vigie doit tourner en administrateur.</div>':'')
+    +'<ul class="um-points">'
+    +'<li><b>Cochez</b> un compte pour que Vigie démarre à son ouverture de session.</li>'
+    +'<li>Chacun garde <b>ses</b> réglages, ses notifications et son historique.</li>'
+    +"<li>Un compte standard n'obtient <b>aucun droit en plus</b> : Vigie lui refuse les actions administrateur, comme Windows.</li>"
+    +'</ul>'
+    +(inerte?'<div class="um-note">Modifier ces choix demande un Vigie lancé en administrateur.</div>':'')
     +'<div class="um-list">'+users.map(u=>
       '<div class="um-card"><span>'+esc(u.name)
       +(u.current?' <span class="um-tag">vous</span>':'')
