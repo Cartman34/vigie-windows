@@ -308,7 +308,7 @@
      vertical-align) retombait sur la baseline du libelle : les cinq icones ne
      partageaient donc ni le meme axe vertical, ni la meme colonne -- d'autant que
      celle d'« A propos » est plus grande que les autres. */
-  .set-ic{flex:0 0 18px;height:1.25em;display:flex;align-items:center;justify-content:center}
+  .set-ic{flex:0 0 18px;width:18px;min-width:0;height:1.25em;display:flex;align-items:center;justify-content:center}
   .set-ic .vi{vertical-align:0}
   /* i cercle en POLICE + CSS (regle du projet : icones a partir d'une font). */
   .ic-round{width:15px;height:15px;border:1.5px solid currentColor;border-radius:50%;
@@ -1700,7 +1700,7 @@ function openSettings(tab, unitFocus){
 }
 async function renderSettings(){
   const body=document.getElementById('settingsBody');
-  const TABS=[['notifications','Notifications','<span class="vi vi-fw">&#xE004;</span>'],['modules','Modules','<span class="vi vi-fw">&#xE002;</span>'],['utilisateurs','Utilisateurs','<span class="vi vi-fw">&#xE00D;</span>'],['apparence','Apparence','<span class="vi vi-fw">&#xE005;</span>'],['apropos','\u00c0 propos','<span class="vi vi-fw vi-lg">&#xE007;</span>']];
+  const TABS=[['notifications','Notifications','<span class="vi vi-fw">&#xE004;</span>'],['modules','Modules','<span class="vi vi-fw">&#xE002;</span>'],['utilisateurs','Utilisateurs','<span class="vi vi-fw">&#xE00D;</span>'],['apparence','Apparence','<span class="vi vi-fw">&#xE005;</span>'],['apropos','\u00c0 propos','<span class="vi vi-fw">&#xE007;</span>']];
   body.innerHTML='<div class="set-wrap"><nav class="set-nav">'+TABS.map(t=>
     '<button class="set-item'+(settingsTab===t[0]?' on':'')+'" data-tab="'+t[0]+'">'
     +'<span class="set-ic">'+t[2]+'</span>'+t[1]+'</button>').join('')
