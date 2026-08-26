@@ -120,11 +120,12 @@ système), `DECISIONS-VALIDEES.md` (toutes les règles, D01→D72).
    **refusées et expliquées** (D65), réglages et historique **séparés**
    (`%LOCALAPPDATA%\Sowapps\Vigie`).
 2. **Jeux — détection VÉRIFIÉE en vraie partie le 26/08** : Autonauts reconnu (Game Bar +
-   bibliothèque Steam + `UnityPlayer.dll`), CPU 4,7 % · GPU 22,3 % · VRAM 0,98 Go. **Seul
-   reste un défaut de LATENCE** : la carte a affiché « aucun » pendant que le
-   rafraîchissement de fond tournait (~40 s pour l'ensemble des sondes) alors que la sonde
-   et l'API disaient déjà « Autonauts ». À traiter : rafraîchir la carte Jeux plus vite
-   (TTL 10 s déjà, c'est le cycle du front et du recalcul global qui traîne).
+   bibliothèque Steam + `UnityPlayer.dll`), CPU 4,7 % · GPU 22,3 % · VRAM 0,98 Go. La
+   **latence d'affichage est CORRIGÉE** : le bouton « Rafraîchir » d'une carte appelait
+   `GET /modules/:id` qui servait le CACHE, et rendait donc une valeur périmée pendant
+   qu'un rafraîchissement de fond traînait derrière. Il appelle désormais
+   `?fresh=1`, qui **recalcule les sondes de CETTE carte** et **attend** le résultat
+   (75 s au plus) sans toucher au cache des autres. À constater à la prochaine partie.
 3. **Icônes — à éprouver sur la page Design système** (demande utilisateur) : cloche
    (proportions Font Awesome), puzzle (tenon haut, encoche droite), utilisateurs, point du
    « i ». Planche : `http://127.0.0.1:47610/apps/atelier/design-systeme.html` (Atelier à
@@ -143,7 +144,16 @@ système), `DECISIONS-VALIDEES.md` (toutes les règles, D01→D72).
    à chaque déploiement les 25 et 26/08) ; c'est son auto-guérison qui relance le serveur,
    donc le déploiement aboutit quand même. À analyser : `apps/tray/var/run` (ordres),
    `apps/tray/var/log`, et la boucle qui consomme les ordres dans `apps/tray/tray.ps1`.
-7. Fond ancien : éprouver verrou/VBS élevé après redémarrage ; commentaires en anglais
+7. **Deux exports PDF — demandé « à terme » le 26/08, rien de commencé.** Deux documents
+   distincts, pas un seul :
+   - **Fiche matérielle** : les caractéristiques qui NE BOUGENT PAS (machine, carte mère,
+     processeur, mémoire installée, disques, carte graphique, écran, réseau, batterie).
+   - **État actuel** : ce que Vigie voit à l'instant (les cartes : mises à jour, stockage,
+     sécurité, réseau, alimentation…).
+   Forme voulue : **PDF bien présentés**, thème qui **rappelle celui de l'app mais moins
+   chargé** — « ça doit faire plus document, avec un peu notre patte ». Donc la palette et
+   la typographie du design système, mais sobres : pas de cartes ni de couleurs pleines.
+8. Fond ancien : éprouver verrou/VBS élevé après redémarrage ; commentaires en anglais
    (D41) ; workflow GitHub ; bulle de notification du tray à observer en réel.
 
 ## État de la machine de l'utilisateur — à savoir avant de conclure quoi que ce soit
