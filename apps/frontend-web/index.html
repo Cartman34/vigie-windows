@@ -303,7 +303,13 @@
             border-radius:8px;padding:10px 12px;cursor:pointer;white-space:nowrap}
   .set-item:hover{background:var(--panel-2);color:var(--text)}
   .set-item.on{background:var(--panel-2);color:var(--text);box-shadow:inset 3px 0 0 var(--accent)}
-  .set-ic{width:18px;text-align:center;flex:0 0 auto}
+  /* La boite de l'icone CENTRE son contenu au lieu de le poser sur une ligne de
+     texte. Avec text-align seul, l'icone (inline-flex, avec son propre
+     vertical-align) retombait sur la baseline du libelle : les cinq icones ne
+     partageaient donc ni le meme axe vertical, ni la meme colonne -- d'autant que
+     celle d'« A propos » est plus grande que les autres. */
+  .set-ic{flex:0 0 18px;height:1.25em;display:flex;align-items:center;justify-content:center}
+  .set-ic .vi{vertical-align:0}
   /* i cercle en POLICE + CSS (regle du projet : icones a partir d'une font). */
   .ic-round{width:15px;height:15px;border:1.5px solid currentColor;border-radius:50%;
             display:inline-flex;align-items:center;justify-content:center;
