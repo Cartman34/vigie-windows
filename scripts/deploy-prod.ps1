@@ -115,6 +115,17 @@ if (-not (Test-Path -LiteralPath $outilComptes)) { $outilComptes = Join-Path $PS
 # endroit connu d'avance, pour tout le monde. Les comptes se choisissent apres, et se
 # changent a tout moment.
 Write-Host ""
+# DEPENDANCE : sans un PowerShell 7 installe pour la machine, activer un autre compte
+# poserait une tache qui ne lance rien. Le deploiement est justement le moment ou on
+# prepare les AUTRES comptes : on le dit ici, fort, plutot qu'apres coup.
+if (-not (Get-SharedPwshPath)) {
+    Write-Host ""
+    Write-Host "ATTENTION : PowerShell 7 n'est installe que pour le compte courant." -ForegroundColor Yellow
+    Write-Host "Les autres comptes ne pourront pas demarrer Vigie. A faire une fois, en administrateur :" -ForegroundColor Yellow
+    Write-Host "  winget install --id Microsoft.PowerShell --scope machine"
+    Write-Host ""
+}
+
 & pwsh -NoProfile -File $outilComptes | Write-Host
 Write-Host "Pour changer a tout moment :"
 Write-Host ("  pwsh -File " + $outilComptes + " -Activer <compte>")

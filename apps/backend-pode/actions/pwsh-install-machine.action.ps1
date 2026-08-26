@@ -31,9 +31,8 @@ $erreurs = $journal -replace '\.log$', '.err.log'
 
 $lance = $false
 try {
-    $argv = @('install', '--id', 'Microsoft.PowerShell', '--scope', 'machine',
-              '--source', 'winget', '--accept-package-agreements', '--accept-source-agreements',
-              '--silent', '--disable-interactivity')
+    # Memes arguments que le script d'installation : une seule definition (D15).
+    $argv = Get-SharedPwshInstallArgs
     $proc = Start-Process -FilePath $winget.Source -ArgumentList $argv -WindowStyle Hidden -PassThru `
                           -RedirectStandardOutput $journal -RedirectStandardError $erreurs
     $lance = [bool]$proc

@@ -2451,6 +2451,16 @@ $script:VigieTaskPrefix = 'Vigie - '
 # Seule une installation MACHINE (le MSI, sous Program Files) convient. On la cherche, et
 # si elle manque, on REFUSE d'activer le compte en disant quoi faire -- plutot que de
 # poser une tache qui echouera en silence a chaque ouverture de session.
+# COMMENT on installe PowerShell 7 pour la machine. Definition UNIQUE (D15) : le script
+# d'installation et le bouton de la carte Comptes lancent exactement la meme chose.
+# `--scope machine` est le point essentiel : sans lui, winget pose le paquet MSIX dans le
+# profil de celui qui installe, et les autres comptes ne peuvent pas le lancer.
+function Get-SharedPwshInstallArgs {
+    @('install', '--id', 'Microsoft.PowerShell', '-e', '--scope', 'machine',
+      '--source', 'winget', '--accept-package-agreements', '--accept-source-agreements',
+      '--silent', '--disable-interactivity')
+}
+
 function Get-SharedPwshPath {
     $racines = @($env:ProgramFiles, ${env:ProgramFiles(x86)}) | Where-Object { $_ }
     foreach ($r in $racines) {

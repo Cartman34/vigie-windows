@@ -23,7 +23,12 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
     }
     Write-Host "PowerShell 7 (pwsh) absent. Tentative d'installation via winget..." -ForegroundColor Yellow
     if (Get-Command winget -ErrorAction SilentlyContinue) {
-        winget install --id Microsoft.PowerShell -e --source winget --accept-package-agreements --accept-source-agreements
+        # --scope machine : POUR TOUTE LA MACHINE, jamais pour le seul compte qui installe.
+        # Sans ce drapeau, winget pose le paquet MSIX dans le profil de l'utilisateur ;
+        # les taches de demarrage des AUTRES comptes pointent alors vers un chemin qu'ils
+        # ne peuvent pas lire, se creent sans erreur et ne lancent rien. Vigie ne demarrait
+        # pas chez le compte « Famille », sans le moindre message (26/08, D79).
+        winget install --id Microsoft.PowerShell -e --scope machine --source winget --accept-package-agreements --accept-source-agreements
         Write-Host "Si l'installation a reussi, RELANCE install.ps1 (il basculera en PS7)." -ForegroundColor Green
     } else {
         Write-Host "winget introuvable. Installe PowerShell 7 : https://aka.ms/powershell-release" -ForegroundColor Yellow
@@ -75,6 +80,33 @@ try {
             Install-Module Pode -Scope CurrentUser -Force
             Write-Log -Backend $backend -Name 'install' -Message "Pode installé (CurrentUser)."
         }
+    }
+
+    # --- DEPENDANCE : PowerShell 7 doit etre installe POUR LA MACHINE -----------
+    # Vigie demarre par une tache planifiee, une par compte. Un pwsh installe pour le
+    # seul compte courant (paquet du Store) vit dans SON profil : la tache des autres
+    # comptes pointerait dans un dossier qu'ils ne peuvent pas lire. On le traite ICI,
+    # a l'installation, plutot que de le decouvrir le jour ou un compte ne demarre pas.
+    $pwshMachine = Get-SharedPwshPath
+    if ($pwshMachine) {
+        Write-Log -Backend $backend -Name 'install' -Message ("PowerShell 7 (machine) : présent, " + $pwshMachine)
+    } elseif ($isAdmin -and (Get-Command winget -ErrorAction SilentlyContinue)) {
+        Write-Log -Backend $backend -Name 'install' -Message "PowerShell 7 n'existe que pour ce compte : installation pour la machine..."
+        try {
+            & 'winget.exe' @(Get-SharedPwshInstallArgs) | Write-Host
+            $pwshMachine = Get-SharedPwshPath
+        } catch { }
+        if ($pwshMachine) {
+            Write-Log -Backend $backend -Name 'install' -Message ("PowerShell 7 (machine) installé : " + $pwshMachine)
+        } else {
+            Write-Log -Backend $backend -Name 'install' -Level 'WARN' -Message "PowerShell 7 (machine) : installation sans effet, les autres comptes ne pourront pas démarrer Vigie."
+        }
+    } else {
+        Write-Log -Backend $backend -Name 'install' -Level 'WARN' -Message "PowerShell 7 n'est installé que pour ce compte. Relancez cette installation en administrateur, sinon les autres comptes ne pourront pas démarrer Vigie."
+        Write-Host ""
+        Write-Host "PowerShell 7 n'est installe que pour VOTRE compte." -ForegroundColor Yellow
+        Write-Host "Les autres comptes ne pourront pas demarrer Vigie. A faire une fois, en administrateur :" -ForegroundColor Yellow
+        Write-Host "  winget install --id Microsoft.PowerShell --scope machine"
     }
 
     $null = Get-ApiToken -Backend $backend
