@@ -72,13 +72,13 @@ Add-PodeRoute -Method Get -Path "$base/state" -ScriptBlock {
     $fresh = ("" + $WebEvent.Query['fresh']) -in @('1','true')
     # -WaitSeconds : seule la demande explicite attend son tour derriere un calcul
     # deja lance. 75 s, sous le delai de 90 s du client.
-    Write-PodeJsonResponse -Value (Get-State -Backend $env:VIGIE_BACKEND -Force:$fresh -WaitSeconds $(if ($fresh) { 75 } else { 0 })) -Depth 8
+    Write-PodeJsonResponse -Value (Get-State -Backend $env:VIGIE_BACKEND -Force:$fresh -WaitSeconds $(if ($fresh) { 75 } else { 0 })) -Depth 24
 }
 Add-PodeRoute -Method Get -Path "$base/modules/:id" -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
     $id = $WebEvent.Parameters['id']
     $m  = (Get-State -Backend $env:VIGIE_BACKEND).modules | Where-Object { $_.id -eq $id }
-    if ($m) { Write-PodeJsonResponse -Value $m -Depth 8 }
+    if ($m) { Write-PodeJsonResponse -Value $m -Depth 24 }
     else    { Write-PodeJsonResponse -StatusCode 404 -Value @{ error = "Module inconnu : $id" } }
 }
 # --- Gestion des modules (D48) : lister, activer, desactiver ------------------
@@ -244,8 +244,8 @@ Add-PodeRoute -Method Post -Path "$base/actions" -ScriptBlock {
     $params = @{}
     if ($d.params) { $d.params.GetEnumerator() | ForEach-Object { $params[$_.Key] = $_.Value } }
     $job = Invoke-ActionById -Type $d.type -Module $d.module -Params $params -Backend $env:VIGIE_BACKEND
-    if ($job.status -eq 'error') { Write-PodeJsonResponse -StatusCode 400 -Value $job -Depth 8 }
-    else { Write-PodeJsonResponse -Value $job -Depth 8 }
+    if ($job.status -eq 'error') { Write-PodeJsonResponse -StatusCode 400 -Value $job -Depth 24 }
+    else { Write-PodeJsonResponse -Value $job -Depth 24 }
 }
 
 # --- UI : sert index.html en injectant le jeton (page meme origine) ---
