@@ -131,13 +131,13 @@ système), `DECISIONS-VALIDEES.md` (toutes les règles, D01→D72).
    « i ». Planche : `http://127.0.0.1:47610/apps/atelier/design-systeme.html` (Atelier à
    lancer à la main : `pwsh -File apps/atelier/atelier.ps1`). Reste aussi l'ancien sujet du
    **centrage vu sur SON écran** (frames de sa vidéo au scratchpad, à mesurer, pas à l'œil).
-4. **Edge — feu vert donné, diagnostic en cours** : le binaire est SAIN (151.0.4129.107,
-   lancement headless code 0, aucune erreur au journal Application). Un lancement fenêtré
-   avec un **profil neuf** sort aussi en code 0 sans fenêtre : la piste « profil corrompu »
-   est donc écartée, le profil (500 Mo, `Default` présent, aucun verrou résiduel) n'est pas
-   en cause. Piste suivante : lancement bloqué par une stratégie ou un composant système
-   (`MicrosoftEdgeUpdate`, GameAssist MSIX présent) — reprendre par `msedge --version`,
-   `--enable-logging --v=1`, et l'Observateur d'événements côté Edge.
+4. **Edge — RÉGLÉ, et j'étais parti sur la mauvaise piste.** Le symptôme réel était
+   « Edge ne se met pas à jour », pas « Edge ne s'ouvre pas ». Edge est en fait **déjà**
+   à jour (151.0.4129.107, binaire + registre + canal EdgeUpdate concordants) : c'est
+   Vigie qui proposait une mise à jour accomplie, à partir d'une liste vieille d'un jour
+   (D77, corrigé). À savoir par ailleurs, sans rapport : **MSEdgeRedirect** est branché en
+   *debugger* IFEO sur `msedge.exe`, donc un lancement direct d'Edge sort en code 0 sans
+   fenêtre — voulu par l'utilisateur, rien à réparer.
 5. **S5 — invalidation immédiate de la sonde réseau** sur événement Windows de changement
    d'adresse : **feu vert donné**, à faire.
 6. **Tray — feu vert pour analyse** : il ne prend plus l'ordre `-Restart` en 15 s (constaté

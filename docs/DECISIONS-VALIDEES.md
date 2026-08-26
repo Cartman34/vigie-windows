@@ -1936,3 +1936,35 @@ somme dans le tableau — cohérent, l'écart étant les processus sous le seuil
 **Règle générale** : deux chiffres montrés ensemble doivent être **comparables**. Si un
 détail ne peut pas s'additionner pour retrouver le total, soit on change de mesure, soit on
 le dit — on ne laisse pas l'utilisateur faire une addition fausse.
+
+## D76 — Une fonctionnalité finie se fusionne, sans demander (2026-08-26)
+
+« Quand une feature est terminée, tu peux merger et je la reçois sur le serveur qui
+tourne. » Le serveur de sa session sert le dépôt : fusionner dans `main` **suffit** à lui
+livrer le travail (une carte nouvelle apparaît au rechargement ; une route nouvelle attend
+un redémarrage du serveur).
+
+**Les autres comptes, non** : eux lancent la copie de `C:\Program Files\Sowapps\Vigie`,
+qui ne change que par un **déploiement explicite** (bouton « Déployer » de la carte
+Comptes, ou `scripts/deploy-prod.ps1`). Fusionner ne les touche pas ; déployer reste
+demandé.
+
+## D77 — Une mise à jour déjà faite ne se propose pas, et n'échoue pas (2026-08-26)
+
+Constaté sur Microsoft Edge. Vigie proposait `151.0.4129.101 → 151.0.4129.107` alors que
+la machine portait **déjà** le `.107` : Edge s'était mis à jour par son propre canal
+(`MicrosoftEdgeUpdate`) depuis la dernière vérification, vieille d'un jour. winget refusait
+donc, et Vigie affichait « **ÉCHEC précédent** » avec une explication qui n'était pas la
+bonne (« installée par un autre canal »). Deux erreurs à la suite sur un travail qui
+n'avait rien à faire.
+
+Trois corrections : le motif « aucune version plus récente n'est disponible » est
+**reconnu** et traduit (« c'est déjà fait ») ; un paquet qui l'a renvoyé est **retiré** de
+la liste de choix au lieu d'y figurer en échec ; et il ne compte plus comme un échec dans
+le résultat de la mise à jour. La fenêtre dit désormais l'âge de la liste **en français**
+(« vérifiée le 25/08/2026 à 10:12, il y a 1 j ») et invite à la rafraîchir au-delà de
+douze heures — l'horodatage américain brut ne disait à personne que la liste datait.
+
+**Leçon de méthode** : l'utilisateur avait signalé « Edge ne se met pas à jour ». J'ai
+diagnostiqué pourquoi Edge ne **s'ouvrait** pas — un problème réel (MSEdgeRedirect branché
+en debugger IFEO), mais qui n'était pas le sien. Reformuler le symptôme AVANT de chercher.
