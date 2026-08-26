@@ -72,13 +72,20 @@ try {
     $fc = Get-VarPath -Kind 'cache' -File 'pkgupdates.json'
     if (Test-Path $fc) { $cacheMaj = (Get-Content $fc -Raw | ConvertFrom-Json).$mgr }
     if ($cacheMaj -and $cacheMaj.last -and $cacheMaj.last.failed) {
+        $aRetirer = @()
         foreach ($upd in $updates) {
             if (@($cacheMaj.last.failed) -contains $upd.id) {
                 $r1 = if ($cacheMaj.last.reasons) { $cacheMaj.last.reasons."$($upd.id)" } else { $null }
+                # « Deja a jour » : on RETIRE la ligne au lieu de la presenter en echec.
+                # Proposer une mise a jour accomplie, puis l'accuser d'avoir echoue, c'est
+                # deux erreurs a la suite -- constate avec Edge, qui s'etait mis a jour par
+                # son propre canal entre la verification et le clic.
+                if (Test-PkgFailureIsDone -Reason $r1) { $aRetirer += $upd.id; continue }
                 $avis = Get-PkgFailureAdvice -Reason $r1
                 $upd.detail = ("$($upd.detail) — ÉCHEC précédent" + $(if ($avis) { ". $avis" } elseif ($r1) { " : $r1" } else { "" })).Trim(' —')
             }
         }
+        if ($aRetirer.Count) { $updates = @($updates | Where-Object { $aRetirer -notcontains $_.id }) }
     }
 } catch { }
 
@@ -93,7 +100,26 @@ $intro = if ($selectable) {
 } else {
     "$($mg.label) ne sait pas mettre à jour un paquet en particulier : la liste est fournie pour information et TOUS les paquets seront mis à jour. La mise à jour continue même si vous fermez cette fenêtre."
 }
-if ($verifieLe) { $intro += " Liste vérifiée le $verifieLe." }
+# L'AGE de la liste, en francais et en clair. Elle s'affichait telle que JSON l'avait
+# relue -- « 08/25/2026 10:12:03 », un format americain que personne ne lit ici -- et
+# rien ne disait qu'elle datait de la veille. Or c'est justement ce qui trompe : une
+# liste d'hier propose des mises a jour deja faites depuis.
+if ($verifieLe) {
+    $quand = $null
+    try { $quand = [datetime]::Parse($verifieLe, [Globalization.CultureInfo]::InvariantCulture) } catch { }
+    if ($quand) {
+        $age = (Get-Date) - $quand
+        $ageTxt = if ($age.TotalMinutes -lt 60) { "il y a $([int]$age.TotalMinutes) min" }
+                  elseif ($age.TotalHours -lt 24) { "il y a $([int]$age.TotalHours) h" }
+                  else { "il y a $([int]$age.TotalDays) j" }
+        $intro += " Liste vérifiée le " + $quand.ToString('dd/MM/yyyy à HH:mm') + " ($ageTxt)."
+        if ($age.TotalHours -ge 12) {
+            $intro += " Elle peut être dépassée : lancez « Vérifier les mises à jour » pour la rafraîchir."
+        }
+    } else {
+        $intro += " Liste vérifiée le $verifieLe."
+    }
+}
 
 @{
     message = "$($updates.Count) paquet(s) à mettre à jour pour $($mg.label)."

@@ -957,11 +957,20 @@ function Get-LocalDnsProxyService {
 function Get-PkgFailureAdvice {
     param([string]$Reason)
     if (-not $Reason) { return $null }
+
     if ($Reason -match 'technologie d.installation est diff|install technology is different') {
         return ("En clair : cette application a été installée à l'origine par un autre canal " +
                 "que winget (préinstallée avec Windows, installateur classique, Store...) ; winget refuse de mettre à jour par-dessus. " +
                 "Que faire : réinstaller l'application depuis son installateur officiel — l'installation est " +
                 "remplacée proprement, les données et profils sont conservés.")
+    }
+    # « Deja fait » n'est PAS un echec : winget refuse parce que la version installee est
+    # deja au moins aussi recente. Vu avec Edge, qui s'etait mis a jour tout seul par son
+    # propre canal entre la verification et le clic -- Vigie proposait donc une mise a jour
+    # accomplie, puis l'affichait en ECHEC. Reconnaitre ce motif permet de retirer la ligne
+    # au lieu de l'accuser.
+    if ($Reason -match 'Aucune version de package plus|No newer package versions are available|No applicable (update|upgrade) found|No available upgrade found') {
+        return "En clair : c'est déjà fait — la version installée est au moins aussi récente que celle proposée. La liste datait d'avant. Rien à faire."
     }
     if ($Reason -match '0x80070005|acc.s refus|access is denied') {
         return "En clair : Windows a refusé l'accès. Que faire : réessayer ; si ça persiste, un antivirus ou un verrou de fichier bloque l'écriture."
@@ -970,6 +979,14 @@ function Get-PkgFailureAdvice {
         return "En clair : l'installateur du paquet a échoué (erreur générique MSI). Que faire : redémarrer Windows puis réessayer — c'est la cause la plus fréquente."
     }
     return $null
+}
+
+# L'echec dit-il simplement que LE TRAVAIL EST DEJA FAIT ? Alors la ligne n'a plus rien
+# a faire dans une liste de mises a jour a proposer.
+function Test-PkgFailureIsDone {
+    param([string]$Reason)
+    if (-not $Reason) { return $false }
+    return [bool]($Reason -match 'Aucune version de package plus|No newer package versions are available|No applicable (update|upgrade) found|No available upgrade found')
 }
 
 # Met a jour les paquets d'UN gestionnaire (appel lent, systeme). Herite de l'elevation
@@ -1009,11 +1026,20 @@ function Invoke-PkgUpgrade {
         $rb = ($r.ExitCode -eq 3010 -or $r.ExitCode -eq 1641)
         if ($rb) { $redemarrage = $true }
         if (-not ($r.Ok -or $rb)) {
-            $echecs += $p
             # La RAISON de l'echec : la derniere ligne parlante de la sortie winget --
             # c'est elle qui dit quoi faire (« technologie d'installation differente... »).
             $ligneUtile = @(("$($r.Output)" -split "`r?`n") | Where-Object { $_ -match '\S' } | Select-Object -Last 1)
-            if ($ligneUtile) { $raisons[$p] = "$ligneUtile".Trim() }
+            $motif = if ($ligneUtile) { "$ligneUtile".Trim() } else { '' }
+            # « Rien de plus recent a installer » n'est pas un echec : le paquet est deja
+            # a jour (il s'est mis a jour par son propre canal depuis la verification).
+            # Le compter comme rate faisait rougir toute l'operation et affichait une
+            # erreur sur un travail qui n'avait rien a faire -- constate avec Edge.
+            if (Test-PkgFailureIsDone -Reason $motif) {
+                $sorties += ("=== $p (code $($r.ExitCode)) === deja a jour, ignore")
+                continue
+            }
+            $echecs += $p
+            if ($motif) { $raisons[$p] = $motif }
         }
         $dernier = $r.ExitCode
         $sorties += ("=== $p (code $($r.ExitCode)) ===" + [Environment]::NewLine + "$($r.Output)")
