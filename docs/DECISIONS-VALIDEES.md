@@ -2065,3 +2065,45 @@ Soiree entiere passee dessus, quatre echecs de suite, chacun instructif :
 **La regle** : un installateur ne renvoie pas l'utilisateur vers une page de
 telechargement, et n'annonce jamais un succes qu'il n'a pas constate. Le chemin de
 reference reste `C:\Program Files\PowerShell\7` : c'est lui que lancent les taches de demarrage.
+
+## D86 - Deux exports, imprimables, sobres (2026-08-26)
+
+Demande : « les specs de l'ordi, le materiel, les choses qui ne bougent pas » d'un cote,
+« un etat de l'ordi actuel » de l'autre. Forme : « des PDF bien presentes avec un theme
+qui rappelle celui de l'app mais moins charge, ca doit faire plus document, avec un peu
+notre patte ».
+
+**Une seule page**, `rapport.html`, servie par le serveur comme le tableau de bord
+(jamais en `file://` : sans meme origine, elle ne pourrait rien lire -- D47), et deux
+contenus selon `?type=materiel|etat`. Le PDF sort de l'impression du navigateur : aucune
+dependance a installer, et le rendu suit la feuille `@media print` (A4, marges, pas de
+coupure au milieu d'une ligne).
+
+**La patte, sans le decor** : la palette et la typographie de l'application, mais fond
+blanc, pas de cartes, pas d'aplats. La couleur ne sert plus qu'a signaler un ecart. Les
+titres passent en serif -- c'est ce qui fait « document » plutot qu'« ecran ».
+
+L'etat actuel s'ouvre sur **« Ce qui demande attention »** : c'est la premiere question
+qu'on se pose en ouvrant un rapport, elle ne doit pas se chercher.
+
+La fiche materielle s'appuie sur `Get-HardwareSpecs` (releve memorise sept jours). Deux
+pieges evites en l'ecrivant :
+- **la VRAM ne se lit pas dans `AdapterRAM`** : entier 32 bits, il plafonne a 4 Go et
+  affichait 4 Go pour une RTX 4070 de 8 Go. La vraie valeur est dans le registre du
+  pilote (`qwMemorySize`) -- et l'enumeration de cette cle doit tolerer un refus d'acces,
+  sinon elle s'arrete avant la carte ;
+- **`PhysicalAdapter` ne suffit pas** pour lister les cartes reseau : Bluetooth PAN,
+  VirtualBox et les miniports WAN repondent « oui ». `Get-NetAdapter -Physical` sert de
+  liste blanche.
+
+## D87 - Vigie se met a jour elle-meme (2026-08-26)
+
+Un script enchaine **deploiement puis relance**, en LISANT le code de chaque etape : un
+deploiement rate n'entraine pas de relance (l'ancienne version continue de tourner), et
+une relance ratee le dit au lieu de laisser croire que tout va bien. Le tout sous le
+veilleur (D82), donc le resultat devient une ligne verte ou rouge sur la carte de
+debogage, avec le chemin de son journal.
+
+Ce n'est **pas** une mise a jour depuis Internet : Vigie se met a jour depuis le depot
+qu'elle connait. Aller chercher une version publiee est un autre sujet -- que
+telecharger, de qui, et comment le verifier -- qui demandera sa propre decision.

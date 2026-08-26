@@ -118,49 +118,29 @@ système), `DECISIONS-VALIDEES.md` (toutes les règles, D01→D72).
 
 ### File de travail (dans l'ordre)
 
-> **A SAVOIR AVANT TOUT (fin de soiree du 26/08).** `main` est a jour et pousse.
-> **Le tray et le serveur sont ARRETES** : l'installation de PowerShell 7 a remplace
-> l'interpreteur qui les portait. La tache de demarrage a ete reecrite avec
-> `C:\Program Files\PowerShell\7`, mais **rien ne tourne tant que l'utilisateur n'a pas
-> lance `setup.cmd`** (a la racine, double-clic, elevation demandee). Premier geste a la
-> reprise : verifier que Vigie repond sur <http://127.0.0.1:47600/>, sinon le lui dire.
+> **ETAT A L'INSTANT (nuit du 26 au 27/08).** `main` est a jour et pousse ; Vigie tourne
+> (tray + serveur relances, PowerShell 7 installe pour la MACHINE dans
+> `C:\Program Files\PowerShell\7`). Les huit ameliorations proposees ont ete faites
+> sauf la n°6 (paquet de diagnostic), ecartee faute d'usage reel.
 
-1. **Compte `Famille` : sa tache est a REFAIRE.** Elle pointe encore vers le pwsh du
-   paquet Store, supprime -- c'est pour cela que Vigie ne s'est jamais lance chez lui.
-   Le correctif est en place (une tache d'un autre compte exige un pwsh **machine**,
-   D79), mais la tache existante n'est pas reecrite toute seule : desactiver puis
-   reactiver `Famille` depuis **Parametres > Utilisateurs**, ou par
-   `scripts/vigie-comptes.ps1 -Activer Famille`. **A faire des que Vigie tourne**, puis
-   constater l'ouverture de sa session.
-2. **Alimentation (carte neuve, livree)** -- a constater sur un vrai cas : debrancher le
-   chargeur, ou brancher un chargeur faible sous forte charge. La carte doit passer en
-   avertissement « Le secteur ne suit pas : la batterie se decharge (x W) » et la
-   notification « Machine sous-alimentee » sortir.
-3. **Jeux -- latence d'affichage CORRIGEE** (le bouton d'une carte recalcule et attend,
-   `?fresh=1`), a constater a la prochaine partie.
-4. **Icones -- a eprouver sur la page Design systeme** : cloche (proportions Font
-   Awesome), puzzle (tenon haut, encoche droite), utilisateurs, point du « i ». Planche :
-   <http://127.0.0.1:47610/apps/atelier/design-systeme.html> (Atelier a lancer a la main :
-   `pwsh -File apps/atelier/atelier.ps1`). Reste aussi l'ancien sujet du **centrage vu
-   sur SON ecran** (frames de sa video au scratchpad, a mesurer, pas a l'oeil).
-5. **Deux exports PDF -- demande « a terme », rien de livre.** Deux documents distincts :
-   - **Fiche materielle** : ce qui NE BOUGE PAS (machine, carte mere, processeur,
-     barrettes de memoire, disques, carte graphique, ecrans, reseau, batterie).
-     **Un inventaire complet est deja ecrit** mais **pas encore integre** :
-     `scratchpad/patch-materiel.py` porte `Get-HardwareSpecs` (cache 7 jours, chaque
-     section defensive). A appliquer, eprouver, puis exposer par une route.
-   - **Etat actuel** : ce que Vigie voit a l'instant (mises a jour, stockage, securite,
-     reseau, alimentation...).
-   Forme voulue : **PDF bien presentes**, theme qui **rappelle celui de l'app mais moins
-   charge** -- « ca doit faire plus document, avec un peu notre patte ». Piste de
-   fabrication : page HTML servie + `@media print` + impression du navigateur (aucune
-   dependance externe a installer). Entree dans l'interface : a placer dans
-   **Parametres > A propos** (rien n'a ete decide, ne pas inventer ailleurs).
-6. **Tache de fond visible (D80) : a constater.** Le serveur pose un marqueur pendant un
-   deploiement ou une installation ; la carte doit rester « operation en cours » tant que
-   le processus vit. Eprouve en atelier, pas encore vu en vrai.
-7. Fond ancien : eprouver verrou/VBS eleve apres redemarrage ; commentaires en anglais
-   (D41) ; workflow GitHub ; bulle de notification du tray a observer en reel.
+1. **Redeployer, quand l'utilisateur le voudra.** L'installation partagee date d'avant le
+   suivi des commits : la carte Comptes et la carte Debogage l'annoncent (« deployee avant
+   le suivi des commits »). Un `vigie-update` (bouton « Mettre a jour Vigie ») posera le
+   **premier tag v0.1.1**, gravera la marque dans l'archive et relancera. **A demander
+   avant de le faire** (D76).
+2. **Session `Famille` — a constater.** Sa tache a ete **reparee automatiquement** au
+   demarrage du serveur (journal : « tache Vigie - Famille : interpreteur MSIX, enregistre
+   par compte -> reparee »). Il reste a ouvrir sa session et a voir Vigie demarrer.
+3. **Alimentation** — a constater en vrai : debrancher le chargeur, ou brancher un
+   chargeur faible sous forte charge.
+4. **Icones — a eprouver sur la page Design systeme** (Atelier a lancer a la main :
+   `pwsh -File apps/atelier/atelier.ps1`), plus l'ancien sujet du **centrage vu sur SON
+   ecran** (frames au scratchpad, a mesurer).
+5. **Exports** — livres et vus a l'ecran (fiche materielle et etat actuel). Restent a
+   eprouver **a l'impression reelle** : pagination, sauts de page, marges A4.
+6. **Jeux** — latence corrigee, a constater a la prochaine partie.
+7. Fond ancien : verrou/VBS eleve apres redemarrage ; commentaires en anglais (D41) ;
+   workflow GitHub ; bulle de notification du tray a observer en reel.
 
 ## État de la machine de l'utilisateur — à savoir avant de conclure quoi que ce soit
 
