@@ -2009,7 +2009,7 @@ function renderTabApropos(pane){
     +'<a class="apropos-repo" href="/rapport?type=materiel" target="_blank" rel="noopener">Fiche matérielle</a>'
     +'<a class="apropos-repo" href="/rapport?type=etat" target="_blank" rel="noopener">État actuel</a>'
     +'</p>'
-    +'<p class="um-hint" style="margin:10px 0 0">La fiche matérielle liste ce qui ne bouge pas : machine, processeur, mémoire, disques, écrans. L'état actuel est une photo de ce que Vigie voit à l'instant.</p></div>';
+    +'<p class="um-hint" style="margin:10px 0 0">La fiche matérielle liste ce qui ne bouge pas : machine, processeur, mémoire, disques, écrans. L’état actuel est une photo de ce que Vigie voit à l’instant.</p></div>';
   const rl=pane.querySelector('.apropos-repo-t'); if(rl) rl.textContent=REPO_URL.replace(/^https?:[/][/]/,'');
   wireRepoLinks();
 }
