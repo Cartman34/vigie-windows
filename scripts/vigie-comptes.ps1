@@ -23,7 +23,9 @@ $repoRoot = Split-Path $PSScriptRoot -Parent
 . (Join-Path $repoRoot 'apps/backend-pode/lib/common.ps1')
 
 function Show-Comptes {
-    $lignes = @(Get-VigieAccounts | ForEach-Object {
+    # Uniquement les comptes utilisateurs : un profil qui n'a jamais servi est un
+    # compte d'outil.
+    $lignes = @(Get-VigieAccounts | Where-Object { -not $_.technical } | ForEach-Object {
         '{0} {1,-24} {2,-14} {3}' -f `
             $(if ($_.enabled) { '[x]' } else { '[ ]' }),
             $_.name,
