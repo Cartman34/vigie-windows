@@ -96,6 +96,8 @@ Pode 47600 + front une page + Atelier PHP 47610 (à lancer à la main :
 `C:\Program Files\Sowapps\Vigie` ; données par compte :
 `%LOCALAPPDATA%\Sowapps\Vigie`.
 
+**Livraison (D76)** : quand une fonctionnalite est finie, **je fusionne dans `main`** - le serveur de sa session sert le depot, il la recoit donc directement (une carte nouvelle apparait au rechargement ; une route nouvelle attend un redemarrage du serveur). Les **autres comptes**, eux, lancent `C:\Program Files\Sowapps\Vigie` : ils ne recoivent rien sans un **deploiement explicite**, qui se demande.
+
 Modules : Windows Update (verrouillage natif, MAJ au choix, date de dernière analyse),
 Système (**Stockage** : seuil D57, analyse de la consommation en tâche de fond D60/D61,
 arborescence demandée **niveau par niveau**), **Comptes** (D67), Sécurité, Réseau, WSL,
@@ -112,55 +114,59 @@ système), `DECISIONS-VALIDEES.md` (toutes les règles, D01→D72).
 
 ### File de travail (dans l'ordre)
 
-1. **Session `Famille` — à constater** (en attente de l'utilisateur). Tout est en place et
-   vérifié : version déployée dans `C:\Program Files\Sowapps\Vigie` (133 fichiers, aucun
-   secret, `BUILTIN\Utilisateurs` en lecture/exécution), tâche **`Vigie - Famille`** créée
-   pour `HYPERION\Famille` en niveau *Limited*, pointant sur l'installation partagée. À
-   constater en ouvrant sa session : démarrage **non élevé**, actions administrateur
-   **refusées et expliquées** (D65), réglages et historique **séparés**
-   (`%LOCALAPPDATA%\Sowapps\Vigie`).
-2. **Jeux — détection VÉRIFIÉE en vraie partie le 26/08** : Autonauts reconnu (Game Bar +
-   bibliothèque Steam + `UnityPlayer.dll`), CPU 4,7 % · GPU 22,3 % · VRAM 0,98 Go. La
-   **latence d'affichage est CORRIGÉE** : le bouton « Rafraîchir » d'une carte appelait
-   `GET /modules/:id` qui servait le CACHE, et rendait donc une valeur périmée pendant
-   qu'un rafraîchissement de fond traînait derrière. Il appelle désormais
-   `?fresh=1`, qui **recalcule les sondes de CETTE carte** et **attend** le résultat
-   (75 s au plus) sans toucher au cache des autres. À constater à la prochaine partie.
-3. **Icônes — à éprouver sur la page Design système** (demande utilisateur) : cloche
-   (proportions Font Awesome), puzzle (tenon haut, encoche droite), utilisateurs, point du
-   « i ». Planche : `http://127.0.0.1:47610/apps/atelier/design-systeme.html` (Atelier à
-   lancer à la main : `pwsh -File apps/atelier/atelier.ps1`). Reste aussi l'ancien sujet du
-   **centrage vu sur SON écran** (frames de sa vidéo au scratchpad, à mesurer, pas à l'œil).
-4. **Edge — RÉGLÉ, et j'étais parti sur la mauvaise piste.** Le symptôme réel était
-   « Edge ne se met pas à jour », pas « Edge ne s'ouvre pas ». Edge est en fait **déjà**
-   à jour (151.0.4129.107, binaire + registre + canal EdgeUpdate concordants) : c'est
-   Vigie qui proposait une mise à jour accomplie, à partir d'une liste vieille d'un jour
-   (D77, corrigé). À savoir par ailleurs, sans rapport : **MSEdgeRedirect** est branché en
-   *debugger* IFEO sur `msedge.exe`, donc un lancement direct d'Edge sort en code 0 sans
-   fenêtre — voulu par l'utilisateur, rien à réparer.
-5. **S5 — FAIT, à éprouver en vrai.** Le tray s'abonne à `NetworkChange`
-   (`NetworkAddressChanged` / `NetworkAvailabilityChanged`) : au changement d'adresse, la
-   sonde réseau est périmée dans la seconde au lieu d'attendre son TTL. L'abonnement est
-   **en C#** (le gestionnaire pose un drapeau) et c'est un `Timer` d'interface qui agit —
-   Windows prévient sur un fil du pool, où exécuter du PowerShell n'est pas sûr. Prend
-   effet **au prochain redémarrage du tray**. À constater : débrancher le câble ou changer
-   de Wi-Fi, la carte Réseau doit suivre tout de suite (journal du tray :
-   « adresse reseau changee »).
-6. **Tray — feu vert pour analyse** : il ne prend plus l'ordre `-Restart` en 15 s (constaté
-   à chaque déploiement les 25 et 26/08) ; c'est son auto-guérison qui relance le serveur,
-   donc le déploiement aboutit quand même. À analyser : `apps/tray/var/run` (ordres),
-   `apps/tray/var/log`, et la boucle qui consomme les ordres dans `apps/tray/tray.ps1`.
-7. **Deux exports PDF — demandé « à terme » le 26/08, rien de commencé.** Deux documents
+> **A SAVOIR AVANT TOUT (etat a la fin de la session du 26/08)** : `main` est a jour et
+> pousse. Le **tray** tourne avec le code fusionne jusqu'a S5 (guetteur d'adresse reseau
+> arme, vu au journal). Le **serveur, lui, tourne encore avec du code d'avant** : il n'a
+> pas ete relance, donc la route `GET /modules/:id?fresh=1` n'est PAS encore active. Le
+> correctif qui relance le serveur avec le tray (D78) n'est pas non plus charge - il le
+> sera au prochain redemarrage du tray. **Premier geste a la reprise** :
+> `pwsh -File scripts/tray.ps1 -Restart`, puis verifier au journal du tray
+> « arret du serveur adopte » et « guetteur d'adresse reseau arme ».
+
+1. **Session `Famille` - a constater** (en attente de l'utilisateur). Tout est en place et
+   verifie : installation partagee `C:\Program Files\Sowapps\Vigie` **redeployee le 26/08 a 15:19** (134 fichiers,
+   `power.probe.ps1` inclus, aucun secret, aucune erreur, reglages machine conserves),
+   tache **`Vigie - Famille`** en niveau *Limited*. A constater en ouvrant sa session :
+   demarrage **non eleve**, actions administrateur **refusees et expliquees** (D65),
+   reglages et historique **separes**.
+2. **Alimentation (carte neuve, livree)** - a constater sur un vrai cas : debrancher le
+   chargeur, ou brancher un chargeur faible sous forte charge. La carte doit passer en
+   avertissement « Le secteur ne suit pas : la batterie se decharge (x W) » et la
+   notification « Machine sous-alimentee » sortir. A l'instant du depart : Secteur, 96 %,
+   aucun echange -> carte verte.
+3. **Jeux - latence d'affichage CORRIGEE** (le bouton d'une carte recalcule et attend,
+   `?fresh=1`), **a constater a la prochaine partie**, apres un redemarrage du serveur.
+4. **Icones - a eprouver sur la page Design systeme** : cloche (proportions Font Awesome),
+   puzzle (tenon haut, encoche droite), utilisateurs, point du « i ». Planche :
+   `http://127.0.0.1:47610/apps/atelier/design-systeme.html` (Atelier a lancer a la main :
+   `pwsh -File apps/atelier/atelier.ps1`). Reste aussi l'ancien sujet du **centrage vu sur
+   SON ecran** (frames de sa video au scratchpad, a mesurer, pas a l'oeil).
+5. **Deux exports PDF - demande « a terme » le 26/08, rien de commence.** Deux documents
    distincts, pas un seul :
-   - **Fiche matérielle** : les caractéristiques qui NE BOUGENT PAS (machine, carte mère,
-     processeur, mémoire installée, disques, carte graphique, écran, réseau, batterie).
-   - **État actuel** : ce que Vigie voit à l'instant (les cartes : mises à jour, stockage,
-     sécurité, réseau, alimentation…).
-   Forme voulue : **PDF bien présentés**, thème qui **rappelle celui de l'app mais moins
-   chargé** — « ça doit faire plus document, avec un peu notre patte ». Donc la palette et
-   la typographie du design système, mais sobres : pas de cartes ni de couleurs pleines.
-8. Fond ancien : éprouver verrou/VBS élevé après redémarrage ; commentaires en anglais
-   (D41) ; workflow GitHub ; bulle de notification du tray à observer en réel.
+   - **Fiche materielle** : les caracteristiques qui NE BOUGENT PAS (machine, carte mere,
+     processeur, memoire installee, disques, carte graphique, ecran, reseau, batterie).
+   - **Etat actuel** : ce que Vigie voit a l'instant (mises a jour, stockage, securite,
+     reseau, alimentation...).
+   Forme voulue : **PDF bien presentes**, theme qui **rappelle celui de l'app mais moins
+   charge** - « ca doit faire plus document, avec un peu notre patte ». Donc la palette et
+   la typographie du design systeme, mais sobres : pas de cartes ni de couleurs pleines.
+   A creuser cote fabrication : aucune dependance externe n'est installee ; imprimer depuis
+   le navigateur (HTML + `@media print`) est la piste la plus coherente avec l'app.
+6. **Edge - REGLE**, et j'etais parti sur la mauvaise piste. Le symptome reel etait « Edge
+   ne se met pas a jour », pas « Edge ne s'ouvre pas ». Edge est **deja** a jour
+   (151.0.4129.107) : c'est Vigie qui proposait une mise a jour accomplie a partir d'une
+   liste vieille d'un jour (D77, corrige). Sans rapport, a savoir : **MSEdgeRedirect** est
+   branche en *debugger* IFEO sur `msedge.exe`, donc un lancement direct d'Edge sort en
+   code 0 sans fenetre - voulu par l'utilisateur, rien a reparer.
+7. **S5 - FAIT et ACTIF** : le tray s'abonne a `NetworkChange` (abonnement **en C#**, le
+   gestionnaire pose un drapeau, un `Timer` d'interface agit - Windows previent sur un fil
+   du pool, ou executer du PowerShell n'est pas sur). Journal : « guetteur d'adresse reseau
+   arme ». A constater : debrancher le cable ou changer de Wi-Fi, la carte Reseau suit dans
+   la seconde.
+8. **Tray - FAIT, a charger** (D78) : la relance tue desormais le serveur adopte, l'ordre
+   est accuse, le delai passe a 45 s. Actif au prochain redemarrage du tray.
+9. Fond ancien : eprouver verrou/VBS eleve apres redemarrage ; commentaires en anglais
+   (D41) ; workflow GitHub ; bulle de notification du tray a observer en reel.
 
 ## État de la machine de l'utilisateur — à savoir avant de conclure quoi que ce soit
 
