@@ -1651,6 +1651,10 @@ $script:ProbeTtls = @{
     'os.probe.ps1'      = 3600
     'packages.probe.ps1'= 5
     'gaming.probe.ps1'  = 10
+    # L'alimentation change d'un instant a l'autre (on debranche, une pointe de
+    # charge fait lacher le chargeur) : une valeur vieille d'une minute ne veut
+    # deja plus rien dire.
+    'power.probe.ps1'   = 15
 }
 
 # Ramene une date lue depuis JSON a un [datetime] UTC, quelle que soit sa forme.

@@ -15,6 +15,10 @@
         # et gros ; le cout memoire de l'analyse est en topN^profondeur.
         DiskScanDepth = 3    # niveaux de detail conserves sous la racine
         DiskScanTop   = 10   # elements gardes par niveau (le reste est replie en « autres »)
+        # Alimentation d'un portable : ce qui distingue une charge normale d'un
+        # chargeur qui ne suit pas.
+        ChargeSlowW   = 10   # puissance de charge (W) sous laquelle la charge est jugee trop lente
+        BatteryLowPct = 20   # charge restante (%) sous laquelle la batterie est signalee basse
     }
 
     # PARAMETRES : les cles de Config reglables dans le menu Parametres de l'app.
@@ -25,6 +29,10 @@
            Help = 'Nombre de niveaux de sous-dossiers dont le détail est conservé. Le parcours reste complet : seul le détail affiché est borné.' }
         @{ Key = 'DiskScanTop'; Label = 'Éléments gardés par niveau'; Type = 'int'; Unit = 'éléments'; Min = 3; Max = 30; Step = 1
            Help = 'Nombre de dossiers et de fichiers les plus gros conservés à chaque niveau. Les autres sont regroupés dans une ligne « autres ».' }
+        @{ Key = 'ChargeSlowW'; Label = 'Seuil de charge lente'; Type = 'int'; Unit = 'W'; Min = 5; Max = 60; Step = 5
+           Help = 'Branché au secteur et batterie loin d''être pleine : en dessous de cette puissance de charge, Vigie signale un chargeur sous-dimensionné.' }
+        @{ Key = 'BatteryLowPct'; Label = 'Seuil de batterie basse'; Type = 'int'; Unit = '%'; Min = 5; Max = 50; Step = 5
+           Help = 'Sur batterie, en dessous de cette charge restante, la carte Alimentation passe en avertissement.' }
     )
 
     # NOTIFICATIONS emises par ce module (D54) : un evenement nomme, pas un nom de
@@ -42,5 +50,9 @@
            Card = 'perf'; Field = 'ramUsed'
            Droits = 'tous'; Critique = $false
            Help = 'La mémoire utilisée dépasse le seuil : la machine va ralentir.' }
+        @{ Key = 'power-under'; Label = 'Machine sous-alimentée'
+           Card = 'power'; Field = 'under'
+           Droits = 'tous'; Critique = $false
+           Help = 'Branchée au secteur, la machine se décharge quand même ou charge trop lentement : le chargeur ne couvre pas la consommation.' }
     )
 }
