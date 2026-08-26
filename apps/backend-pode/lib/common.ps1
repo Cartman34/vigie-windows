@@ -2640,8 +2640,23 @@ function Set-VigieAccountEnabled {
     $set     = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
                   -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew `
                   -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
-    Register-ScheduledTask -TaskName (Get-VigieAccountTaskName -Name $Name) `
-        -Action $action -Trigger $trigger -Principal $princ -Settings $set -Force | Out-Null
+    $nomTache = Get-VigieAccountTaskName -Name $Name
+    # On CONSTATE (D43) : une creation qui ne leve pas n'est pas une creation qui a eu
+    # lieu. Le journal garde la trace des deux, et l'appelant recoit une vraie erreur.
+    try {
+        Register-ScheduledTask -TaskName $nomTache -Action $action -Trigger $trigger `
+            -Principal $princ -Settings $set -Force -ErrorAction Stop | Out-Null
+    } catch {
+        Write-Log -Backend $Backend -Name 'comptes' -Level 'ERROR' -Message ("creation de la tache " + $nomTache + " : " + $_.Exception.Message)
+        throw ("Windows a refuse de creer la tache pour " + $Name + " : " + $_.Exception.Message)
+    }
+    $verif = $null
+    try { $verif = Get-ScheduledTask -TaskName $nomTache -ErrorAction Stop } catch { }
+    if (-not $verif) {
+        Write-Log -Backend $Backend -Name 'comptes' -Level 'ERROR' -Message ("tache " + $nomTache + " absente juste apres sa creation")
+        throw ("La tache de " + $Name + " n'existe pas apres creation : Windows l'a refusee sans le dire.")
+    }
+    Write-Log -Backend $Backend -Name 'comptes' -Message ("tache " + $nomTache + " creee (" + $princ.UserId + ", " + $niveau + ")")
     Clear-VigieAccountsCache -Backend $Backend
     return (Get-VigieAccounts -Backend $Backend | Where-Object { $_.name -eq $Name })
 }
