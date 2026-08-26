@@ -2434,6 +2434,24 @@ function Get-VigieAccounts {
         }
     } catch { }
 
+    # QUELS COMPTES SONT DES COMPTES DE PERSONNE ? Windows le dit lui-meme :
+    # Winlogon\SpecialAccounts\UserList liste les comptes MASQUES de l'ecran de connexion
+    # (valeur 0). C'est ainsi que les outils declarent leurs comptes de service.
+    # Tous les criteres essayes avant etaient faux : le profil (les bacs a sable en ont
+    # un), sa date d'usage (invisible hors elevation, d'ou deux verdicts contradictoires
+    # entre l'agent et le serveur), son contenu (Desktop present quand meme),
+    # l'appartenance au groupe Utilisateurs (ils en sont membres).
+    $masquesConnexion = @{}
+    try {
+        $cleMasques = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\UserList'
+        if (Test-Path $cleMasques) {
+            foreach ($pr in (Get-ItemProperty $cleMasques).PSObject.Properties) {
+                if ($pr.Name -like 'PS*') { continue }
+                if ([int]$pr.Value -eq 0) { $masquesConnexion[$pr.Name.ToLower()] = $true }
+            }
+        }
+    } catch { }
+
     $taches = @()
     try { $taches = @(Get-ScheduledTask -ErrorAction Stop | Where-Object { $_.TaskName -eq 'Vigie' -or $_.TaskName -like ($script:VigieTaskPrefix + '*') }) } catch { }
     $comptes = @()
@@ -2460,18 +2478,7 @@ function Get-VigieAccounts {
         # d'outil ecarte cote agent, affiche cote serveur).
         # Quand on est eleve, on tranche sur le CONTENU du profil : un compte de personne
         # a un Bureau ou des Documents ; un compte d'outil n'en a pas.
-        $technique = -not $aProfil
-        if ($aProfil) {
-            if (Test-IsElevated) {
-                $humain = $false
-                foreach ($d in @('Desktop', 'Documents', 'Bureau')) {
-                    if (Test-Path -LiteralPath (Join-Path $profil $d)) { $humain = $true; break }
-                }
-                $technique = -not $humain
-            } else {
-                $technique = -not $dejaServi
-            }
-        }
+        $technique = [bool]$masquesConnexion[$nom.ToLower()]
         # Le compte qui utilise Vigie en ce moment n'est jamais « technique ».
         if ($nom -eq "$env:USERNAME") { $technique = $false; $dejaServi = $true }
 
