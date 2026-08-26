@@ -12,8 +12,9 @@ param([string]$Module, [hashtable]$Params)
 $backend = Split-Path $PSScriptRoot -Parent
 . (Join-Path $backend 'lib/common.ps1')
 
-$dormant = [int](Get-ModuleSetting -Unit 'accounts' -Key 'DormantDays')
-if (-not $dormant) { $dormant = 90 }
+# Seuil de « compte dormant » : une constante, pas un reglage -- personne n'a demande
+# a le regler, et 90 jours sans session est un repere universel.
+$dormant = 90
 
 $lignes = @()
 $dormants = 0

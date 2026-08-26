@@ -92,11 +92,31 @@ def g_gear(pen):
 
 
 def g_puzzle(pen):
-    """Piece de puzzle : carre arrondi + tenon en haut + encoche a droite."""
-    rect_arrondi(pen, 140, 60, 740, 660, 70, horaire=True)
-    cercle(pen, 440, 660 + 60, 130, horaire=True)      # tenon haut (fusionne au carre)
-    rect(pen, 320, 600, 560, 690, horaire=True)         # jonction du tenon
-    cercle(pen, 700, 360, 125, horaire=False)           # encoche droite, mordant net
+    """Piece de puzzle : UN SEUL contour ferme -- corps carre, tenon en haut, encoche a
+    gauche. L'ancienne version superposait un carre, un cercle et un rectangle : les
+    jonctions se voyaient et l'encoche mordait le bord (signale par l'utilisateur).
+    Ici le contour decrit la piece d'un trait, le remplissage ne peut donc pas trahir.
+    """
+    import math
+    r = 115.0
+    pts = []
+    # Bord bas, de gauche a droite.
+    pts += [(170, 170), (830, 170)]
+    # Bord droit.
+    pts += [(830, 830)]
+    # Bord haut : jusqu'au tenon, demi-cercle SORTANT, puis fin du bord.
+    pts += [(500 + r, 830)]
+    for i in range(1, 20):
+        a = math.pi * i / 20.0
+        pts.append((500 + r * math.cos(a), 830 + r * math.sin(a)))
+    pts += [(500 - r, 830), (170, 830)]
+    # Bord gauche : jusqu'a l'encoche, demi-cercle RENTRANT (vers l'interieur), puis bas.
+    pts += [(170, 500 + r)]
+    for i in range(1, 20):
+        a = math.pi / 2 + math.pi * i / 20.0
+        pts.append((170 + r * math.cos(a - math.pi), 500 - r * math.sin(a - math.pi)))
+    pts += [(170, 500 - r)]
+    poly(pen, pts, horaire=True)
 
 
 def g_flag(pen):
@@ -106,17 +126,22 @@ def g_flag(pen):
 
 
 def g_bell(pen):
-    """Cloche : dome + battant."""
-    cx = 500
-    pts = [(240, 220), (240, 300)]
-    n = 14
-    for i in range(n + 1):
-        a = math.pi * i / n
-        pts.append((cx - 240 * math.cos(a), 300 + 320 * math.sin(a) * 0.92))
-    pts += [(760, 300), (760, 220)]
-    poly(pen, pts, horaire=True)
-    rect(pen, 180, 150, 820, 225, horaire=True)
-    cercle(pen, 500, 80, 70, horaire=True)
+    """Cloche : corps haut et evase, base plate, battant. UN SEUL contour pour le corps.
+
+    L'ancienne version empilait un demi-cercle large et un rectangle : elle paraissait
+    ecrasee (signale par l'utilisateur). Ici le corps monte de y=250 a y=790 -- plus haut
+    que large -- et s'evase vers le bas, comme une vraie cloche.
+    """
+    # Corps : cote gauche du bas vers le haut, sommet arrondi, cote droit en miroir.
+    gauche = [(300, 250), (300, 430), (318, 560), (360, 665), (425, 735), (500, 760)]
+    droite = [(x if x == 500 else 1000 - x, y) for (x, y) in reversed(gauche)]
+    poly(pen, gauche + droite, horaire=True)
+    # Base : le rebord sur lequel la cloche repose.
+    rect_arrondi(pen, 215, 195, 785, 265, 34, horaire=True)
+    # Anse au sommet.
+    cercle(pen, 500, 800, 52, horaire=True)
+    # Battant.
+    cercle(pen, 500, 120, 78, horaire=True)
 
 
 def g_sun(pen):
@@ -245,6 +270,37 @@ def g_cross(pen):
                    (B[0] - nx, B[1] - ny), (A[0] - nx, A[1] - ny)], horaire=True)
 
 
+def g_users(pen):
+    """Utilisateurs : deux silhouettes tete + EPAULES, comme les icones du genre.
+
+    Trois essais avant celui-ci, et ce qu'ils ont appris :
+      - silhouettes qui se chevauchent : elles fusionnent en une masse ;
+      - lisere vide pour les separer : en remplissage non-zero, il CREUSE la silhouette
+        de devant la ou le fond est absent ;
+      - buste rond detache de la tete : on lit quatre boules, pas deux personnes.
+    Ce qui marche : un buste en DOME (des epaules), qui touche la tete, et un vrai espace
+    entre les deux personnes. Verifie au rendu jusqu'a 16 px.
+    """
+    import math
+
+    def personne(cx, cy_tete, r_tete, demi_largeur, hauteur_epaules, base):
+        cercle(pen, cx, cy_tete, r_tete, horaire=True)
+        pts = []
+        n = 26
+        for i in range(n + 1):
+            a = math.pi - math.pi * i / n          # de gauche a droite, par le sommet
+            pts.append((cx + demi_largeur * math.cos(a), base + hauteur_epaules * math.sin(a)))
+        pts.append((cx + demi_largeur, base))
+        pts.append((cx - demi_largeur, base))
+        poly(pen, pts, horaire=True)
+
+    # Devant : plus grande, a gauche. Les epaules montent jusqu'a 560, la tete descend a
+    # 545 : elles se recouvrent, la silhouette est d'un seul tenant.
+    personne(cx=350, cy_tete=690, r_tete=148, demi_largeur=205, hauteur_epaules=370, base=190)
+    # A cote : plus petite, un peu plus bas, SANS toucher la premiere (espace de 60).
+    personne(cx=765, cy_tete=628, r_tete=102, demi_largeur=140, hauteur_epaules=270, base=215)
+
+
 ICONS = {
     # nom -> (point de code PUA, dessinateur)
     'gear':    (0xE001, g_gear),
@@ -259,6 +315,7 @@ ICONS = {
     'check':   (0xE00A, g_check),
     'warn':    (0xE00B, g_warn),
     'cross':   (0xE00C, g_cross),
+    'users':   (0xE00D, g_users),
 }
 
 
