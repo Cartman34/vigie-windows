@@ -1779,3 +1779,83 @@ pare-feu, VBS coupée), Réseau (perte de connexion, lien dégradé, coupures r�
 échec), Windows Update (mises à jour à installer, automatiques réactivées), Jeux
 (température GPU, VRAM saturée, applications gourmandes, partie sur batterie), WSL (arrêté),
 Outils & paquets (mises à jour disponibles).
+
+## D69 — Une liste se gère dans sa propre section, et s'alimente là où le besoin naît (2026-08-26)
+
+**Demande (utilisateur).** « Y'a une bonne idée mais faut une section dédiée je pense, avec
+ajout, suppression. Ça suppose aussi que dans le menu de mise à jour, on peut exclure un
+paquet quand il est listé. »
+
+**Décision.**
+- Un paramètre de type `list` **sort de la ligne de réglage** : il devient une **section**
+  à part entière (titre = son libellé, aide en dessous), où chaque élément a sa ligne et sa
+  croix, avec un champ d'ajout permanent et un bouton « Ajouter ». Une ligne de paramètre
+  est trop étroite pour lire, ajouter et retirer. Les autres types (interrupteurs,
+  curseurs, nombres) restent où ils sont.
+- **Exclure là où l'on décide** : la fenêtre qui liste les mises à jour porte, sur chaque
+  ligne, un bouton **« Ignorer »**. Le paquet part dans « Paquets ignorés » du module
+  Outils & paquets et ne sera plus proposé. Auparavant il fallait retenir son identifiant
+  et aller le saisir dans les paramètres.
+- L'enregistrement est **confirmé avant** de retirer la ligne : sinon l'utilisateur croirait
+  avoir exclu un paquet qui reviendrait au passage suivant.
+
+## D70 — On ne dérange pas quelqu'un avec un problème qu'il ne peut pas résoudre (2026-08-26)
+
+**Demande (utilisateur).** « Les notifications d'erreur ne doivent s'afficher que si
+l'utilisateur a les droits. Quand c'est critique ou dans certains cas (MAJ Windows Update),
+ça doit quand même remonter à l'utilisateur connecté pour qu'il pense à faire remonter à
+l'admin. »
+
+**Décision.** Chaque notification déclare `Droits` (`admin` ou `tous`) et `Critique`.
+- `Droits = 'admin'` et compte standard : **pas de bulle**, sauf si `Critique`.
+- `Critique = $true` : la bulle **remonte quand même**, et le tray ajoute
+  « → signalez-le à un administrateur ». Sont critiques : antivirus inactif ou non à jour,
+  les trois profils de pare-feu, résolution DNS en échec, mises à jour à installer.
+- L'écran marque ces notifications d'une étiquette **admin** et **critique** : l'utilisateur
+  voit à quoi il a affaire avant même qu'un événement survienne.
+
+## D71 — Les modules se déplient, ils ne s'empilent pas (2026-08-26)
+
+**Demande (utilisateur).** « Le tiroir peut avoir plus de largeur s'il faut. Les paramètres
+des modules n'ont pas besoin d'être tous visibles ; il faut juste que chaque module soit
+clairement défini, et ils peuvent apparaître séparément (accordéon ? tab ? section
+repliable ?) — propose en cohérence avec l'app. »
+
+**Décision : accordéon.** C'est le geste déjà présent dans l'application (l'arborescence du
+disque, les détails de champ) ; des onglets seraient entrés en concurrence avec la
+navigation latérale des Paramètres, qui en utilise déjà. Chaque module est un bloc replié :
+son en-tête montre en permanence le nom, la description et l'interrupteur Actif/Coupé — le
+clic sur l'interrupteur ne replie pas le bloc. Le module que l'on vient régler depuis une
+carte s'ouvre tout seul. Tiroir des Paramètres élargi (920 px).
+
+## D60 (revu) — L'arborescence se demande UN NIVEAU À LA FOIS (2026-08-26)
+
+**Reproche (utilisateur).** « Je t'ai dit de faire une version optimisée pour le stockage,
+si tu calcules tous les fichiers. Faut que tu puisses faire des calculs partiels et ne
+renvoyer qu'un niveau au front ; le front demande ensuite quand y'a besoin au serveur. »
+
+**Décision.** L'interface ne reçoit **jamais** l'arbre entier.
+- Route `GET /disk/tree?path=…` : rend **les enfants directs** du dossier demandé.
+- Deux sources, dans cet ordre : le **cache de l'analyse** (gratuit, déjà calculé), sinon
+  un **calcul partiel** borné à ce dossier — et mémorisé (`diskscan-levels.json`) pour ne
+  pas le refaire. Mesuré : 103 ms depuis l'analyse, 475 ms pour un calcul partiel profond,
+  15 ms la seconde fois.
+- Chaque mesure à la demande est **bornée dans le temps** ; au-delà elle rend ce qu'elle a
+  en le disant, plutôt que de faire attendre l'interface.
+- **« Explorer l'arborescence » est une ACTION**, pas une ligne de carte (choix
+  utilisateur) : elle ouvre une fenêtre qui charge les niveaux au fur et à mesure.
+- Piège corrigé au passage : le cache d'état et les routes sérialisaient en JSON à
+  profondeur 8 — l'arbre était **tronqué en silence** et les branches profondes arrivaient
+  vides. Profondeur portée à 24.
+
+## D59 (renforcé) — Une carte déjà affichée ne disparaît jamais (2026-08-26)
+
+**Constat (utilisateur).** « J'ai cliqué sur Vérifier les mises à jour et la carte a
+disparu. » Une sonde en cours de recalcul n'a rien dans le cache du serveur : son module
+manque alors dans `/state`, et la carte s'évanouissait le temps du calcul — presque une
+minute.
+
+**Décision.** Le rendu **conserve la dernière version connue** de toute carte absente de
+l'état reçu, marquée « opération en cours ». Et une action de fond met la carte dans cet
+état **dès le clic**, sans attendre la réponse du serveur : on réutilise l'état `busy` du
+contrat, aucun statut nouveau n'est inventé.

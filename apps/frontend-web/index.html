@@ -829,7 +829,16 @@ function renderState(s, mode){
   const app=document.getElementById('app'); app.innerHTML='';
   fieldsByKey={};
   themeLabels={}; (s.themes||[]).forEach(t=>{ themeLabels[t.id]=t.label; });
-  lastModules=(s.modules||[]).slice();
+  // AUCUN ETAT NE FAIT DISPARAITRE UNE CARTE (D59). Une sonde en cours de recalcul n'a
+  // rien dans le cache du serveur : son module manque alors dans /state. On garde donc la
+  // DERNIERE version connue de la carte, marquee « recalcul en cours », au lieu de la
+  // retirer -- signale par l'utilisateur : la carte Windows Update disparaissait pendant
+  // presque une minute apres un clic.
+  const recus = new Set((s.modules||[]).map(m=>m.id));
+  const survivants = (lastModules||[]).filter(m=>m && !recus.has(m.id))
+    .map(m=>Object.assign({}, m, { busy:true, _survivant:true }));
+  if(survivants.length){ s = Object.assign({}, s, { modules: (s.modules||[]).concat(survivants) }); }
+  lastModules=(s.modules||[]).map(m=>{ const c=Object.assign({},m); delete c._survivant; return c; });
   lastUnits=(s.units||[]).slice();
   lastHost=s.host||'';
   let worst='ok';
@@ -1369,6 +1378,20 @@ function itemsDeMaj(j){
   }));
 }
 
+// « Operation en cours » sur une carte, sans attendre le serveur : on reutilise l'etat
+// `busy` que le contrat porte deja (liseré animé, boutons neutralises), on n'invente pas
+// un statut de plus.
+function marquerCarteEnCours(moduleId, quoi){
+  if(!moduleId) return;
+  const sel='.card[data-module="'+((window.CSS&&CSS.escape)?CSS.escape(moduleId):moduleId)+'"]';
+  const card=document.querySelector(sel);
+  if(!card) return;
+  card.classList.add('busy');
+  card.querySelectorAll('.actions button').forEach(b=>{ b.disabled=true; });
+  const m=(lastModules||[]).find(x=>x.id===moduleId);
+  if(m){ m.busy=true; }
+}
+
 async function doAction(type,module,confirmNeeded,label,help,btnEl,params,kind,confirmerDeuxFois){
   const name = label || type;
   // Une action peut viser l'INTERFACE et non la machine : « Gerer les comptes » ouvre
@@ -1454,6 +1477,9 @@ async function doAction(type,module,confirmNeeded,label,help,btnEl,params,kind,c
   }
 
   setBtnBusy(btnEl);
+  // La carte passe en « operation en cours » DES LE CLIC : attendre la reponse du serveur
+  // laissait une seconde ou rien ne bougeait, puis une carte qui semblait figee.
+  if(module) marquerCarteEnCours(module, name);
   const entry=addNotif(name, 'running', 'Envoi de la commande…');
   if(!API_MODE){ updateNotif(entry,'done','(maquette) POST /actions {type:"'+type+'"}'); clearBtnBusy(btnEl); return; }
   try{
@@ -1467,6 +1493,7 @@ async function doAction(type,module,confirmNeeded,label,help,btnEl,params,kind,c
     if(st==='done' && j.result && j.result.async){
       // Action longue non bloquante : la carte passe en "en cours" et s'actualise seule.
       const pollMod = j.result.module || module;
+      marquerCarteEnCours(pollMod, name);
       updateNotif(entry, 'running', j.message || (name+' : en cours…'));
       clearBtnBusy(btnEl);
       if(pollMod){ refreshCard(pollMod); pollCardUntilIdle(pollMod, entry, name); }
