@@ -2437,6 +2437,30 @@ function Test-InstallationPartagee {
     return $false
 }
 
+# OU se trouve l'installation PARTAGEE, celle que tous les comptes peuvent lire ?
+#
+# Sur un poste de developpement, Vigie tourne depuis le depot (illisible par les autres) ;
+# une copie deployee peut exister a cote. La tache de demarrage d'un compte doit pointer
+# vers CELLE-LA, sinon elle echoue en silence a chaque ouverture de session -- c'est
+# exactement le piege releve : le deploiement etait fait, mais la tache aurait vise le
+# depot personnel.
+function Get-SharedInstallPath {
+    $candidats = @(
+        (Join-Path $env:ProgramFiles 'Sowapps\Vigie'),
+        (Join-Path ${env:ProgramFiles(x86)} 'Sowapps\Vigie'),
+        (Join-Path $env:ProgramFiles 'Vigie')
+    )
+    foreach ($c in $candidats) {
+        if (-not $c) { continue }
+        if ((Test-Path -LiteralPath (Join-Path $c 'apps\tray\tray.ps1')) -and (Test-InstallationPartagee -Path $c)) {
+            return $c
+        }
+    }
+    # L'installation courante fait l'affaire si elle est deja lisible par tous.
+    if (Test-InstallationPartagee) { return (Get-RepoRoot) }
+    return $null
+}
+
 function Get-VigieAccountTaskName {
     param([Parameter(Mandatory)][string]$Name)
     $script:VigieTaskPrefix + $Name
@@ -2580,8 +2604,8 @@ function Set-VigieAccountEnabled {
     $compte = @(Get-VigieAccounts -Backend $Backend | Where-Object { $_.name -eq $Name })[0]
     if (-not $compte) { throw "Compte inconnu sur cette machine : $Name" }
     # Un AUTRE compte que le sien exige que l'application lui soit lisible.
-    if ($Enabled -and -not $compte.current -and -not (Test-InstallationPartagee)) {
-        throw "Cette installation n'est lisible que par vous : deployez d'abord Vigie pour tous (scripts/deploy-prod.ps1), sinon la tache de $Name echouerait a chaque ouverture de session."
+    if ($Enabled -and -not $compte.current -and -not (Get-SharedInstallPath)) {
+        throw "Aucune installation lisible par les autres comptes : deployez d'abord Vigie pour tous, sinon la tache de $Name echouerait a chaque ouverture de session."
     }
 
     if (-not $Enabled) {
@@ -2596,7 +2620,10 @@ function Set-VigieAccountEnabled {
 
     $pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
     if (-not $pwsh) { throw "pwsh introuvable : impossible de creer la tache." }
-    $tray = Join-Path (Get-RepoRoot) 'apps/tray/tray.ps1'
+    # Le compte doit pouvoir LIRE ce que sa tache lance.
+    $racineApp = Get-SharedInstallPath
+    if (-not $racineApp) { $racineApp = Get-RepoRoot }
+    $tray = Join-Path $racineApp 'apps/tray/tray.ps1'
     if (-not (Test-Path -LiteralPath $tray)) { throw "Application introuvable : $tray" }
 
     $arg     = '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $tray + '"'

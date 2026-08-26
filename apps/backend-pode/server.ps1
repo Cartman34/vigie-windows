@@ -137,8 +137,10 @@ Add-PodeRoute -Method Get -Path "$base/users" -ScriptBlock {
         users    = @(Get-VigieAccounts -Backend $env:VIGIE_BACKEND | Where-Object { -not $_.technical })
         # Installation lisible par les autres comptes ? Sinon l'interface doit le dire au
         # lieu de proposer une activation qui echouerait.
-        shared      = [bool](Test-InstallationPartagee)
-        installPath = (Get-RepoRoot)
+        # « partagee » = il existe une installation que les autres comptes peuvent lire,
+        # ici ou ailleurs. C'est ce qui conditionne l'activation d'un autre compte.
+        shared      = [bool](Get-SharedInstallPath)
+        installPath = $(if (Get-SharedInstallPath) { Get-SharedInstallPath } else { Get-RepoRoot })
         # L'interface doit pouvoir dire POURQUOI les interrupteurs sont inertes.
         canWrite = [bool](Test-IsElevated)
     } -Depth 6
