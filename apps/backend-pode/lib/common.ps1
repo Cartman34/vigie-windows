@@ -2438,6 +2438,34 @@ function Get-State {
 # ne marcherait pas -- et ne DOIT pas marcher : Vigie ne donne rien de plus que Windows.
 $script:VigieTaskPrefix = 'Vigie - '
 
+# QUEL pwsh un AUTRE compte peut-il lancer ?
+#
+# Piege coute cher, constate le 26/08 : la tache de « Famille » a ete creee avec
+# (Get-Command pwsh).Source, qui vaut ici
+# C:\Users\fhaza\AppData\Local\Microsoft\WindowsApps\pwsh.exe -- un chemin situe dans
+# LE PROFIL DE L'ADMINISTRATEUR. Aucun autre compte ne peut lire ca, et l'alias Store
+# renvoie de toute facon vers un paquet MSIX enregistre pour le seul compte qui l'a
+# installe. La tache s'est donc creee sans erreur... et n'a jamais rien lance chez
+# Famille : Vigie ne demarrait pas, sans le moindre message.
+#
+# Seule une installation MACHINE (le MSI, sous Program Files) convient. On la cherche, et
+# si elle manque, on REFUSE d'activer le compte en disant quoi faire -- plutot que de
+# poser une tache qui echouera en silence a chaque ouverture de session.
+function Get-SharedPwshPath {
+    $racines = @($env:ProgramFiles, ${env:ProgramFiles(x86)}) | Where-Object { $_ }
+    foreach ($r in $racines) {
+        $d = Join-Path $r 'PowerShell'
+        if (-not (Test-Path -LiteralPath $d)) { continue }
+        $trouves = @(Get-ChildItem -LiteralPath $d -Directory -ErrorAction SilentlyContinue |
+                     Sort-Object Name -Descending |
+                     ForEach-Object { Join-Path $_.FullName 'pwsh.exe' } |
+                     Where-Object { Test-Path -LiteralPath $_ })
+        if ($trouves.Count) { return $trouves[0] }
+    }
+    return $null
+}
+
+
 # Le groupe des administrateurs par son SID : le nom depend de la langue de Windows
 # (« Administrateurs » ici, « Administrators » ailleurs) -- le SID, non.
 function Test-LocalAccountIsAdmin {
@@ -2673,8 +2701,18 @@ function Set-VigieAccountEnabled {
         return (Get-VigieAccounts -Backend $Backend | Where-Object { $_.name -eq $Name })
     }
 
-    $pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
-    if (-not $pwsh) { throw "pwsh introuvable : impossible de creer la tache." }
+    # POUR SOI : l'interpreteur courant convient, quel que soit son emplacement.
+    # POUR UN AUTRE COMPTE : il lui faut un pwsh installe pour la MACHINE, sinon la tache
+    # pointerait dans notre profil et ne lancerait rien chez lui (constate avec Famille).
+    $pwsh = if ($compte.current) { (Get-Command pwsh -ErrorAction SilentlyContinue).Source }
+            else                 { Get-SharedPwshPath }
+    if (-not $pwsh -and $compte.current) { throw "pwsh introuvable : impossible de creer la tache." }
+    if (-not $pwsh) {
+        throw ("PowerShell 7 n'est installe que pour votre compte (paquet du Store). La tache de " +
+               $Name + " pointerait vers un chemin de VOTRE profil, illisible pour lui : Vigie ne " +
+               "demarrerait pas, sans message. Installez PowerShell 7 pour toute la machine " +
+               "(winget install --id Microsoft.PowerShell --scope machine), puis reactivez ce compte.")
+    }
     # Le compte doit pouvoir LIRE ce que sa tache lance.
     $racineApp = Get-SharedInstallPath
     if (-not $racineApp) { $racineApp = Get-RepoRoot }

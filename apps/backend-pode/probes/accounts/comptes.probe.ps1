@@ -58,6 +58,23 @@ if ($partagee) {
                 "Le bouton installe cette version dans C:\Program Files\Sowapps\Vigie, lisible par tous les comptes, et conserve les reglages deja en place.")
 }
 
+# Meme obstacle, autre cause : l'application est bien partagee, mais l'INTERPRETEUR qui
+# la lance ne l'est pas. Le dire ici, sinon activer un compte cree une tache qui echoue
+# en silence a chaque ouverture de session (constate le 26/08 avec Famille).
+$pwshPartage = Get-SharedPwshPath
+if (-not $pwshPartage) {
+    $fields += New-Field -Key 'pwsh' -Label 'PowerShell 7' -Value 'installe pour vous seul' -Kind 'text' -Status 'warn' `
+        -Help "Les taches des autres comptes ont besoin d'un PowerShell 7 installe pour la MACHINE. Celui-ci vient du Store et n'existe que dans votre profil : leur tache ne lancerait rien." `
+        -Guide ("Interpreteur actuel : " + ((Get-Command pwsh -ErrorAction SilentlyContinue).Source) + [Environment]::NewLine +
+                "A faire une fois, en administrateur :" + [Environment]::NewLine +
+                "  winget install --id Microsoft.PowerShell --scope machine" + [Environment]::NewLine +
+                "Puis reactivez les comptes concernes.")
+} else {
+    $fields += New-Field -Key 'pwsh' -Label 'PowerShell 7' -Value 'installe pour la machine' -Kind 'text' -Status 'ok' `
+        -Help "Tous les comptes peuvent lancer l'interpreteur : leurs taches de demarrage fonctionnent." `
+        -Guide ("Interpreteur des taches : " + $pwshPartage)
+}
+
 if (-not $eleve) {
     $fields += New-Field -Key 'scope' -Label 'Détail des autres comptes' -Value 'réservé à un administrateur' -Kind 'text' -Status 'neutral' `
         -Help "Windows protège le profil de chaque compte : leur détail n'est lisible que par un Vigie lancé en administrateur. Vigie ne montre rien de plus que ce que Windows laisse voir."
