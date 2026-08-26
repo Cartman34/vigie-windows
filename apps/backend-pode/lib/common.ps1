@@ -1744,6 +1744,8 @@ $script:ThemeCatalog = @(
     [pscustomobject]@{ id = 'network';        label = 'Réseau' }
     [pscustomobject]@{ id = 'tools';          label = 'Outils & paquets' }
     [pscustomobject]@{ id = 'gaming';         label = 'Jeux' }
+    # Dernier de la liste : c'est un outil de depannage, eteint par defaut (D85).
+    [pscustomobject]@{ id = 'debug';          label = 'Débogage' }
 )
 
 # --- Agregation des sondes (journalisee) -----------------------------------
@@ -2341,7 +2343,7 @@ function Get-State {
     $probeFiles = @(Get-ChildItem -Path $probesDir -Recurse -Filter '*.probe.ps1' -ErrorAction SilentlyContinue | Sort-Object FullName)
     # Modules coupes par l'utilisateur (D48) : leurs sondes sortent du calcul ET de
     # l'affichage. Le filtre se fait sur le DOSSIER parent -- un module est un dossier.
-    $unitesCoupees = @(Get-DisabledUnits)
+    $unitesCoupees = @(Get-InactiveUnits -Backend $Backend)
     if ($unitesCoupees.Count -gt 0) {
         $probeFiles = @($probeFiles | Where-Object {
             $unitesCoupees -notcontains (Split-Path (Split-Path $_.FullName -Parent) -Leaf)
@@ -3230,6 +3232,49 @@ function Get-MachineConfigPath { param([Parameter(Mandatory)][string]$File) Join
 # rallumer chez soi un module coupe pour la machine doit rester possible.
 function Get-UnitsLocalPath { Get-UserConfigPath -File 'modules.local.psd1' }
 
+# CE QUE L'UTILISATEUR A EXPLICITEMENT ALLUME. Distinct de « pas eteint » : un module
+# peut naitre ETEINT (module.psd1 : DefautActif = $false), et il faut alors savoir si
+# l'utilisateur l'a allume pour de bon ou s'il n'a simplement jamais eu d'avis.
+function Get-EnabledUnits {
+    foreach ($p in @((Get-UserConfigPath -File 'modules.local.psd1'), (Get-MachineConfigPath -File 'modules.local.psd1'))) {
+        if (Test-Path -LiteralPath $p) {
+            try { return @((Import-PowerShellDataFile -Path $p).Enabled | ForEach-Object { "$_" }) } catch { return @() }
+        }
+    }
+    return @()
+}
+
+# Le module est-il actif, tout compte fait ? Trois cas, dans cet ordre :
+#   1. l'utilisateur l'a eteint          -> non
+#   2. l'utilisateur l'a allume          -> oui
+#   3. personne n'a rien dit             -> ce que declare le module (actif, sauf avis
+#                                           contraire ecrit dans module.psd1)
+function Test-UnitEnabled {
+    param(
+        [Parameter(Mandatory)][string]$UnitId,
+        [string]$Backend = (Get-BackendRoot)
+    )
+    if ((Get-DisabledUnits) -contains $UnitId) { return $false }
+    if ((Get-EnabledUnits)  -contains $UnitId) { return $true }
+    $decl = @{}
+    $f = Join-Path (Join-Path (Join-Path $Backend 'probes') $UnitId) 'module.psd1'
+    if (Test-Path -LiteralPath $f) {
+        try { $decl = Import-PowerShellDataFile -Path $f } catch { }
+    }
+    if ($decl.ContainsKey('DefautActif')) { return [bool]$decl.DefautActif }
+    return $true
+}
+
+# La liste des modules a EXCLURE du calcul, defauts compris. C'est elle que consulte
+# Get-State : un module eteint ne coute rien, ni calcul ni carte.
+function Get-InactiveUnits {
+    param([string]$Backend = (Get-BackendRoot))
+    $probesDir = Join-Path $Backend 'probes'
+    @(foreach ($d in (Get-ChildItem -Path $probesDir -Directory -ErrorAction SilentlyContinue)) {
+        if (-not (Test-UnitEnabled -UnitId $d.Name -Backend $Backend)) { $d.Name }
+    })
+}
+
 function Get-DisabledUnits {
     foreach ($p in @((Get-UserConfigPath -File 'modules.local.psd1'), (Get-MachineConfigPath -File 'modules.local.psd1'))) {
         if (Test-Path -LiteralPath $p) {
@@ -3247,8 +3292,18 @@ function Set-UnitEnabled {
     $off = [System.Collections.Generic.List[string]]::new()
     foreach ($u in (Get-DisabledUnits)) { if ($u -ne $UnitId) { $off.Add($u) } }
     if (-not $Enabled) { $off.Add($UnitId) }
+    # ALLUMER se garde aussi : un module qui naît éteint (debogage) doit rester allume
+    # apres un redemarrage. Sans cette seconde liste, il se serait ré-éteint tout seul.
+    $on = [System.Collections.Generic.List[string]]::new()
+    foreach ($u in (Get-EnabledUnits)) { if ($u -ne $UnitId) { $on.Add($u) } }
+    if ($Enabled) { $on.Add($UnitId) }
+    $listeOn = ($on | ForEach-Object { "'" + ($_ -replace "'", "''") + "'" }) -join ', '
     $liste = ($off | ForEach-Object { "'" + ($_ -replace "'", "''") + "'" }) -join ', '
-    $texte = "@{`n    # Modules DESACTIVES par l'utilisateur (D48). Fichier ecrit par l'application`n    # (vue de gestion des modules), jamais versionne. Vide = tout est actif.`n    Disabled = @($liste)`n}`n"
+    $texte = "@{`n    # Choix de l'utilisateur sur les modules (D48). Fichier ecrit par l'application`n" +
+             "    # (vue de gestion des modules), jamais versionne.`n" +
+             "    #   Disabled : eteints a la main.`n" +
+             "    #   Enabled  : allumes a la main -- utile pour ceux qui naissent eteints (debogage).`n" +
+             "    Disabled = @($liste)`n    Enabled = @($listeOn)`n}`n"
     $p = Get-UnitsLocalPath
     Set-Content -LiteralPath $p -Value $texte -Encoding UTF8
 }
@@ -3268,7 +3323,10 @@ function Get-UnitCatalog {
             id          = $dir.Name
             label       = if ($decl.Label) { "$($decl.Label)" } else { $dir.Name }
             description = if ($decl.Description) { "$($decl.Description)" } else { '' }
-            enabled     = ($off -notcontains $dir.Name)
+            enabled     = (Test-UnitEnabled -UnitId $dir.Name -Backend $Backend)
+            # Un module de DEBOGAGE ne s'impose pas : il naît éteint et l'écran de
+            # gestion doit pouvoir le dire au lieu de laisser croire a une panne.
+            offByDefault = ($decl.ContainsKey('DefautActif') -and -not [bool]$decl.DefautActif)
             probes      = @($probes | ForEach-Object { $_.Name -replace '\.probe\.ps1$', '' })
         }
     })
