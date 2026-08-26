@@ -2504,7 +2504,14 @@ $script:VigieTaskPrefix = 'Vigie - '
 # `--scope machine` est le point essentiel : sans lui, winget pose le paquet MSIX dans le
 # profil de celui qui installe, et les autres comptes ne peuvent pas le lancer.
 function Get-SharedPwshInstallArgs {
+    # --installer-type msi : SANS lui, winget choisit le paquet MSIX et tente de le
+    # « provisionner » pour tous les comptes -- operation qui echoue sur cette machine
+    # avec 0x80070005 (journal winget du 26/08 : ProvisionPackageOperation). Or c'est
+    # justement le MSI qu'on veut : lui pose pwsh.exe dans C:\Program Files\PowerShell,
+    # un vrai chemin que toutes les sessions peuvent lancer, sans enregistrement par
+    # compte. Le MSIX, meme provisionne, reste un paquet par utilisateur.
     @('install', '--id', 'Microsoft.PowerShell', '-e', '--scope', 'machine',
+      '--installer-type', 'msi',
       '--source', 'winget', '--accept-package-agreements', '--accept-source-agreements',
       '--silent', '--disable-interactivity')
 }
