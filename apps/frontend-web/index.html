@@ -1937,7 +1937,7 @@ async function renderTabUtilisateurs(pane){
       +(u.admin?' <span class="um-tag">administrateur</span>':'')
       +((u.fullName&&u.fullName!==u.name)?'<br><span class="um-mut">'+esc(u.fullName)+'</span>':'')
       +'</span>'
-      +'<span class="swx"><input type="checkbox" data-user="'+esc(u.name)+'"'+(u.enabled?' checked':'')+(inerte?' disabled':'')+'><i></i></span>'
+      +'<span class="um-param"><span class="swx"><input type="checkbox" data-user="'+esc(u.name)+'"'+(u.enabled?' checked':'')+(inerte?' disabled':'')+'><i></i></span></span>'
       +'</div>').join('')+'</div>';
   pane.querySelectorAll('[data-user]').forEach(c=>{ c.onchange=async()=>{
     const nom=c.getAttribute('data-user');
