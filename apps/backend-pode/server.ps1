@@ -288,6 +288,26 @@ Add-PodeRoute -Method Post -Path "$base/actions" -ScriptBlock {
     else { Write-PodeJsonResponse -Value $job -Depth 24 }
 }
 
+# --- FICHE MATERIELLE : ce qui ne bouge pas ----------------------------------
+# Releve memorise sept jours (le materiel ne change pas) ; ?fresh=1 pour un neuf.
+Add-PodeRoute -Method Get -Path "$base/hardware" -ScriptBlock {
+    . "$env:VIGIE_BACKEND/lib/common.ps1"
+    $fresh = ("" + $WebEvent.Query['fresh']) -in @('1','true')
+    Write-PodeJsonResponse -Value (Get-HardwareSpecs -Backend $env:VIGIE_BACKEND -Force:$fresh) -Depth 12
+}
+
+# --- RAPPORTS IMPRIMABLES (D86) ---------------------------------------------
+# Meme page pour les deux documents, ?type=materiel|etat. Elle est SERVIE par le
+# serveur, comme le tableau de bord : un fichier ouvert en file:// n'a ni jeton ni
+# meme origine, il ne pourrait rien lire (D47).
+Add-PodeRoute -Method Get -Path '/rapport' -ScriptBlock {
+    . "$env:VIGIE_BACKEND/lib/common.ps1"
+    $front = Get-AppPath -Role 'frontend'
+    $html  = Get-Content -Path (Join-Path $front 'rapport.html') -Raw
+    $html  = $html.Replace('__API_TOKEN__', $env:VIGIE_TOKEN)
+    Write-PodeTextResponse -Value $html -ContentType 'text/html; charset=utf-8'
+}
+
 # --- UI : sert index.html en injectant le jeton (page meme origine) ---
 Add-PodeRoute -Method Get -Path '/' -ScriptBlock {
     # PREMIERE ligne, comme dans toutes les autres routes. Une route Pode s'execute dans
