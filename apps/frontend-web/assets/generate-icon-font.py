@@ -92,30 +92,35 @@ def g_gear(pen):
 
 
 def g_puzzle(pen):
-    """Piece de puzzle : UN SEUL contour ferme -- corps carre, tenon en haut, encoche a
-    gauche. L'ancienne version superposait un carre, un cercle et un rectangle : les
-    jonctions se voyaient et l'encoche mordait le bord (signale par l'utilisateur).
-    Ici le contour decrit la piece d'un trait, le remplissage ne peut donc pas trahir.
+    """Piece de puzzle : tenon en HAUT, encoche a DROITE, les deux bien marques.
+
+    Un seul contour ferme : superposer un carre et des cercles laissait voir les
+    jonctions. Le rayon (170 pour un corps de 660) est celui des icones du genre --
+    en dessous, le relief ne se lit plus a 16 px (essai a 115 : on ne voyait rien).
     """
     import math
-    r = 115.0
-    pts = []
-    # Bord bas, de gauche a droite.
-    pts += [(170, 170), (830, 170)]
-    # Bord droit.
-    pts += [(830, 830)]
-    # Bord haut : jusqu'au tenon, demi-cercle SORTANT, puis fin du bord.
-    pts += [(500 + r, 830)]
-    for i in range(1, 20):
-        a = math.pi * i / 20.0
-        pts.append((500 + r * math.cos(a), 830 + r * math.sin(a)))
-    pts += [(500 - r, 830), (170, 830)]
-    # Bord gauche : jusqu'a l'encoche, demi-cercle RENTRANT (vers l'interieur), puis bas.
-    pts += [(170, 500 + r)]
-    for i in range(1, 20):
-        a = math.pi / 2 + math.pi * i / 20.0
-        pts.append((170 + r * math.cos(a - math.pi), 500 - r * math.sin(a - math.pi)))
-    pts += [(170, 500 - r)]
+    r = 170.0
+    x0, y0, x1, y1 = 170.0, 170.0, 830.0, 830.0
+    cx_tenon, cy_encoche = 470.0, 470.0
+    N = 22
+    pts = [(x0, y0), (x1, y0)]                       # bord bas
+
+    # Bord droit : on monte, et l'ENCOCHE rentre vers l'interieur.
+    pts.append((x1, cy_encoche - r))
+    for i in range(1, N):
+        a = -math.pi / 2 + math.pi * i / N
+        pts.append((x1 - r * math.cos(a), cy_encoche + r * math.sin(a)))
+    pts.append((x1, cy_encoche + r))
+    pts.append((x1, y1))
+
+    # Bord haut : on va vers la gauche, le TENON sort vers le haut.
+    pts.append((cx_tenon + r, y1))
+    for i in range(1, N):
+        a = math.pi * i / N
+        pts.append((cx_tenon + r * math.cos(a), y1 + r * math.sin(a)))
+    pts.append((cx_tenon - r, y1))
+    pts.append((x0, y1))
+
     poly(pen, pts, horaire=True)
 
 
@@ -126,22 +131,42 @@ def g_flag(pen):
 
 
 def g_bell(pen):
-    """Cloche : corps haut et evase, base plate, battant. UN SEUL contour pour le corps.
+    """Cloche, d'apres l'icone « bell » de Font Awesome (solid, viewBox 448 x 512).
 
-    L'ancienne version empilait un demi-cercle large et un rectangle : elle paraissait
-    ecrasee (signale par l'utilisateur). Ici le corps monte de y=250 a y=790 -- plus haut
-    que large -- et s'evase vers le bas, comme une vraie cloche.
+    Proportions relevees sur l'originale et respectees ici :
+      corps 416 x 365 (donc PLUS LARGE QUE HAUT), bouton du haut 64 x 50,
+      battant 128 de large en demi-disque sous la base, total 448 x 512.
+    Deux essais precedents ont rate faute de tenir ce rapport : dome ecrase d'abord,
+    corps etroit et long ensuite.
     """
-    # Corps : cote gauche du bas vers le haut, sommet arrondi, cote droit en miroir.
-    gauche = [(300, 250), (300, 430), (318, 560), (360, 665), (425, 735), (500, 760)]
-    droite = [(x if x == 500 else 1000 - x, y) for (x, y) in reversed(gauche)]
-    poly(pen, gauche + droite, horaire=True)
-    # Base : le rebord sur lequel la cloche repose.
-    rect_arrondi(pen, 215, 195, 785, 265, 34, horaire=True)
-    # Anse au sommet.
-    cercle(pen, 500, 800, 52, horaire=True)
-    # Battant.
-    cercle(pen, 500, 120, 78, horaire=True)
+    import math
+    K = 682 / 448.0          # echelle : la cloche fait 682 unites de large
+    demi   = 208 * K
+    hcorps = 365 * K
+    ybas   = 250.0
+
+    # Corps : cotes presque droits en bas, epaulement arrondi en haut.
+    N = 40
+    pts = []
+    for i in range(N + 1):
+        t = i / float(N)
+        pts.append((500 - demi * ((1 - t ** 3.0) ** 0.42), ybas + hcorps * t))
+    for i in range(N, -1, -1):
+        t = i / float(N)
+        pts.append((500 + demi * ((1 - t ** 3.0) ** 0.42), ybas + hcorps * t))
+    poly(pen, pts, horaire=True)
+
+    # Base : le bord horizontal, un peu plus large que le corps.
+    rect_arrondi(pen, 500 - demi - 22, ybas - 46, 500 + demi + 22, ybas + 8, 24, horaire=True)
+
+    # Bouton du haut.
+    rect_arrondi(pen, 500 - 32 * K, ybas + hcorps - 10, 500 + 32 * K, ybas + hcorps + 50 * K, 22, horaire=True)
+
+    # Battant : demi-disque sous la base.
+    r = 64 * K
+    arcpts = [(500 + r * math.cos(math.pi + math.pi * i / 24.0),
+               ybas - 46 + r * math.sin(math.pi + math.pi * i / 24.0)) for i in range(25)]
+    poly(pen, arcpts, horaire=True)
 
 
 def g_sun(pen):
@@ -194,7 +219,9 @@ def g_info(pen):
     """i cercle, dessine pour rester lisible a 12 px : anneau FIN, i GROS et espace.
     (l'ancienne version - anneau 70, petit i - se fondait en donut a petite taille)."""
     anneau(pen, 500, 400, 385, 52)
-    cercle(pen, 500, 585, 82, horaire=True)
+    # Le point a EXACTEMENT la largeur de la barre (130) : plus gros, il deborde et
+    # desequilibre le i (signale par l'utilisateur).
+    cercle(pen, 500, 578, 65, horaire=True)
     rect_arrondi(pen, 435, 170, 565, 445, 56, horaire=True)
 
 
