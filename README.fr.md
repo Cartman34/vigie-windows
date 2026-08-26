@@ -57,13 +57,13 @@ Le détail carte par carte : [Ce que surveille Vigie](docs/fr/fonctionnalites.md
 
 La voie recommandée est l'**archive publiée dans les Releases GitHub** — ni git, ni clone.
 
-**Un double-clic suffit : `scripts\install.cmd`.** Il fait tout — les prérequis,
+**Un seul fichier, a la racine : `setup.cmd`. Double-cliquez-le.** Il fait tout — les prérequis,
 PowerShell 7 **pour la machine**, le module Pode, le démarrage à chaque ouverture de
 session, et le lancement de Vigie.
 
 | | Fichier | Ce qu'il fait |
 |---|---|---|
-| 1 | **`scripts\install.cmd`** | **L'installation complète.** Demande les droits administrateur (fenêtre Windows à accepter) : PowerShell 7 est installé **pour toute la machine**, pas pour votre seul compte. À faire **une fois**. |
+| 1 | **`setup.cmd`** | **L'installation complète.** Demande les droits administrateur (fenêtre Windows à accepter) : PowerShell 7 est installé **pour toute la machine**, pas pour votre seul compte. À faire **une fois**. |
 | 2 | **`scripts\run.cmd`** | Relance Vigie si vous l'avez fermée. Le navigateur s'ouvre sur <http://127.0.0.1:47600/> dès que le serveur écoute vraiment. |
 
 Avant le premier double-clic : téléchargez `vigie-<version>.zip` depuis la
@@ -76,7 +76,7 @@ passez par git, ci-dessous.*
 > **Pourquoi l'installation demande l'élévation.** Vigie démarre par une tâche planifiée,
 > une par compte, et cette tâche lance `pwsh`. Un PowerShell 7 installé pour un seul
 > compte (paquet du Store) vit dans son profil : les autres comptes ne pourraient pas
-> démarrer Vigie. `install.cmd` l'installe donc **pour la machine**
+> démarrer Vigie. `setup.cmd` l'installe donc **pour la machine**
 > (`C:\Program Files\PowerShell\7`).
 
 En ligne de commande, si vous préférez — l'installation exige un terminal

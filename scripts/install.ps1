@@ -15,11 +15,19 @@ $ErrorActionPreference = 'Stop'
 
 # --- Cible PowerShell 7 : bascule si lance en 5.1 ---
 if ($PSVersionTable.PSVersion.Major -lt 7) {
-    $pwsh = Get-Command pwsh -ErrorAction SilentlyContinue
+    # L'interpreteur de la MACHINE d'abord : c'est celui que lanceront les taches de
+    # demarrage, donc celui avec lequel il faut installer.
+    $pwsh = Join-Path (Join-Path (Join-Path $env:ProgramFiles 'PowerShell') '7') 'pwsh.exe'
+    if (-not (Test-Path -LiteralPath $pwsh)) {
+        $pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
+    }
     if ($pwsh) {
         Write-Host "Bascule en PowerShell 7..."
-        & $pwsh.Source -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath
-        return
+        & $pwsh -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath
+        # LE CODE DE LA PASSE LANCEE EST LE NOTRE. Sans cette ligne, un echec de
+        # l'installation reelle remontait en succes a l'appelant : le lanceur affichait
+        # « Termine » sur une installation ratee (constate le 26/08).
+        exit $LASTEXITCODE
     }
     Write-Host "PowerShell 7 (pwsh) absent. Tentative d'installation via winget..." -ForegroundColor Yellow
     # L'ELEVATION est indispensable ici : une installation en portee machine sans droits
@@ -35,7 +43,7 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
     if (-not $estAdmin) {
         Write-Host "Cette etape doit etre lancee EN ADMINISTRATEUR (installation pour toute la machine)." -ForegroundColor Yellow
         Write-Host "Ouvre un terminal administrateur, puis relance :" -ForegroundColor Yellow
-        Write-Host ("  powershell -ExecutionPolicy Bypass -File " + $PSCommandPath)
+        Write-Host "  Double-clic sur setup.cmd, a la racine du dossier Vigie."
         return
     }
     $cible = Join-Path (Join-Path (Join-Path $env:ProgramFiles 'PowerShell') '7') 'pwsh.exe'
@@ -120,7 +128,7 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
         Write-Host ("PowerShell 7 installe pour la machine : " + $cible) -ForegroundColor Green
         Write-Host "Suite de l'installation avec lui..." -ForegroundColor Green
         & $cible -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath
-        return
+        exit $LASTEXITCODE
     }
     Write-Host ""
     Write-Host "PowerShell 7 n'a PAS pu etre installe." -ForegroundColor Red
@@ -226,7 +234,7 @@ try {
         Write-Host ""
         Write-Host "Prerequis installes." -ForegroundColor Green
         Write-Host "Le demarrage automatique demande les droits administrateur : relance cette" -ForegroundColor Yellow
-        Write-Host "installation en administrateur (ou double-clic sur scripts\install.cmd)." -ForegroundColor Yellow
+        Write-Host "installation en administrateur (ou double-clic sur setup.cmd, a la racine)." -ForegroundColor Yellow
     } elseif (Test-Path -LiteralPath $autostart) {
         Write-Host ""
         Write-Host "Enregistrement du demarrage automatique..." -ForegroundColor Green
@@ -253,6 +261,10 @@ try {
 catch {
     Write-Log -Backend $backend -Name 'install' -Level 'ERROR' -Message ("FATAL: " + $_.Exception.Message)
     Write-Host ($_ | Out-String) -ForegroundColor Red
+    # ON SORT EN ECHEC. Le bloc se contentait d'afficher l'erreur : le script rendait 0,
+    # et le lanceur enchainait comme si tout allait bien.
+    try { Stop-Transcript | Out-Null } catch { }
+    exit 1
 }
 finally {
     try { Stop-Transcript | Out-Null } catch { }
