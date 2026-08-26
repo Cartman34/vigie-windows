@@ -2107,3 +2107,34 @@ debogage, avec le chemin de son journal.
 Ce n'est **pas** une mise a jour depuis Internet : Vigie se met a jour depuis le depot
 qu'elle connait. Aller chercher une version publiee est un autre sujet -- que
 telecharger, de qui, et comment le verifier -- qui demandera sa propre decision.
+
+## D88 - Un seul cadre arrondi, et des composants plutot que des copies (2026-08-26)
+
+Deux remarques de l'utilisateur, la seconde etant un rappel :
+
+**« Un radius dans un radius, ca ne rend pas bien. »** Une sous-section encadree et
+arrondie DANS une section encadree et arrondie donnait une boite flottante, avec un
+surlignement qui s'arretait avant les bords et une marge batarde en dessous -- visible
+des qu'on survolait une ligne.
+
+**La regle** : le cadre (bordure + coins) appartient au bloc PARENT, un seul niveau. Ce
+qui vit dedans ne redessine ni bordure ni coin : une **bande de titre** pleine largeur,
+puis des **lignes pleine largeur** separees d'un simple filet. Le surlignement va donc
+d'un bord a l'autre, et la derniere ligne touche le bas du cadre. Mesure apres
+correction : lignes a 1 px des deux bords (l'epaisseur de la bordure du parent), espace
+sous la derniere ligne : 1 px.
+
+**« Tu dois utiliser des composants reutilisables au maximum, rester DRY et SOLID. »**
+Chaque onglet des Parametres reconstruisait a la main le meme balisage : le seul
+interrupteur s'ecrivait en cinq exemplaires, la meme ligne en trois formes. Corriger un
+alignement obligeait a retrouver toutes les copies -- c'est exactement ce qui a laisse
+passer le defaut ci-dessus.
+
+Il existe desormais un objet `UI` dans le front, et **une seule ecriture** de chaque
+morceau : `UI.bande` (titre de sous-section), `UI.liste`, `UI.ligne` / `UI.ligneHtml`,
+`UI.interrupteur`, `UI.etiquette`, `UI.note`, `UI.carte` (le seul cas ou un cadre
+arrondi est legitime : une carte de reglage isolee, qui n'est dans rien). Les trois
+onglets concernes -- Notifications, Modules, Utilisateurs -- passent par eux.
+
+**A tenir** : tout nouveau morceau d'interface qui se repete devient un composant AVANT
+d'etre copie une seconde fois.

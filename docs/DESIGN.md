@@ -49,6 +49,8 @@ reproductions à maintenir **en miroir** — c'est une discipline du projet : *t
 | Tiroirs | croix de fermeture toujours au bord droit ; Paramètres = tiroir large à navigation latérale | D56 |
 | Paramètres | un seul menu ⚙ (Notifications, Modules, Apparence, À propos) ; aucun bouton épars ajouté à l'en-tête | D56 |
 | Footer | fixe, toujours visible : version, thème rapide, GitHub | — |
+| **Emboîtement** | le cadre (bordure + coins) appartient au bloc **parent**, un seul niveau ; dedans, bande de titre et lignes **pleine largeur**, séparées d'un filet | D88 |
+| **Composants** | `UI.bande`, `UI.liste`, `UI.ligne`, `UI.interrupteur`, `UI.etiquette`, `UI.note`, `UI.carte` — une seule écriture de chaque morceau ; un motif qui se répète devient un composant **avant** d'être copié | D88 |
 
 ## Où vivent les valeurs
 
