@@ -1552,11 +1552,11 @@ async function renderTabNotifs(pane){
   const cfg=await getNotifCfg();
   const on=id=> (id in cfg.modules)? !!cfg.modules[id] : true;
   const mods=(lastModules||[]);
-  pane.innerHTML='<p class="um-hint">Quand une carte change d’état, le tray affiche une notification Windows — uniquement sur un changement, jamais en rappel.</p>'
+  pane.innerHTML='<p class="um-hint">Vigie signale un événement quand il <b>survient</b> ou quand il est <b>résolu</b> — jamais en rappel. La bulle nomme l’événement, par exemple « Température GPU élevée ».</p>'
     +'<div class="um"><div class="um-head"><div class="um-t"><b>Activer les notifications</b>'
     +'<small>Coupé, plus aucune notification — les réglages par carte (onglet Modules) restent mémorisés.</small></div>'
     +'<span class="swx"><input type="checkbox" id="ntfGlobal"'+(cfg.enabled?' checked':'')+'><i></i></span></div></div>'
-    +'<p class="um-hint">Le réglage fin, carte par carte, se fait dans l’onglet <b>Modules</b> — chaque carte y expose ses paramètres.</p>';
+    +'<p class="um-hint">Le réglage fin se fait dans l’onglet <b>Modules</b> : chaque module y liste <b>les événements qu’il sait signaler</b>, avec un interrupteur par notification.</p>';
   pane.querySelector('#ntfGlobal').onchange=async e=>{
     try{ await postNotif({enabled:e.target.checked}); }
     catch(err){ e.target.checked=!e.target.checked; toast('Réglage impossible : '+(err.message||err)); }
@@ -1572,12 +1572,20 @@ async function renderTabModules(pane){
     if(r.ok){ const j=await r.json(); (j.modules||[]).forEach(m=>{ paramCat[m.unit]=m.params||[]; }); }
   }catch(e){}
   const cfg=await getNotifCfg();
+  const notifCat=cfg.catalog||[];
   const on=id=> (id in cfg.modules)? !!cfg.modules[id] : true;
   pane.innerHTML='<p class="um-hint">Couper un module retire ses cartes et ses calculs ; il reste listé ici pour être rallumé. Chaque carte expose ses paramètres — aujourd’hui, sa notification.</p>'+units.map(u=>{
     const cards=(lastModules||[]).filter(m=>m.theme===u.id);
-    const lignes=(cards.length?'<div class="um-sub">Notifications</div>':'')
-      +'<div class="um-list">'+cards.map(m=>'<div class="um-card"><span>'+esc(m.label)+'</span>'
-      +'<span class="um-param"><span class="swx"><input type="checkbox" data-unotif="'+esc(m.id)+'"'+(on(m.id)?' checked':'')+'><i></i></span></span></div>').join('')+'</div>';
+    // NOTIFICATIONS : les evenements que le module sait signaler, avec leur vrai nom
+    // (« Temperature GPU elevee »), pas le nom des cartes -- exigence utilisateur.
+    const decl=((notifCat||[]).find(x=>x.unit===u.id)||{}).notifications||[];
+    const onNotif=(unit,key)=>{ const r=unit+'.'+key; return (cfg.notifs && (r in cfg.notifs)) ? !!cfg.notifs[r] : on(unit); };
+    const lignes=(decl.length
+      ? '<div class="um-sub">Notifications</div><div class="um-list">'
+        +decl.map(nn=>'<div class="um-card" title="'+esc(nn.help||'')+'"><span>'+esc(nn.label)+'</span>'
+        +'<span class="um-param"><span class="swx"><input type="checkbox" data-unotif="'+esc(u.id)+'::'+esc(nn.key)+'"'
+        +(onNotif(u.id,nn.key)?' checked':'')+'><i></i></span></span></div>').join('')+'</div>'
+      : '<div class="um-sub">Notifications</div><div class="um-note">Ce module ne signale aucun événement : il décrit un état.</div>');
     return '<div class="um'+(u.enabled?'':' off')+'" id="um-'+esc(u.id)+'">'
       +'<div class="um-head"><div class="um-t"><b>'+esc(u.label)+'</b><small>'+esc(u.description||'')+'</small></div>'
       +'<span class="um-sw"><span>'+(u.enabled?'Actif':'Coupé')+'</span>'
@@ -1607,9 +1615,13 @@ async function renderTabModules(pane){
       }).join('')+'</div>' : '')
       +'</div>';
   }).join('');
+  // Un interrupteur = UNE notification (« module::cle »). Le reglage part dans `notifs`,
+  // qui l'emporte sur le reglage du module : couper une notification precise ne coupe pas
+  // les autres.
   pane.querySelectorAll('[data-unotif]').forEach(c=>{ c.onchange=async()=>{
-    const modules={}; modules[c.getAttribute('data-unotif')]=c.checked;
-    try{ await postNotif({modules}); }
+    const [unit,key]=c.getAttribute('data-unotif').split('::');
+    const notifs={}; notifs[unit+'.'+key]=c.checked;
+    try{ await postNotif({notifs}); }
     catch(e){ c.checked=!c.checked; toast('Réglage impossible : '+(e.message||e)); }
   }; });
   async function postParam(unit, key, valeur){

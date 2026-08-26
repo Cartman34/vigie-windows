@@ -190,7 +190,14 @@ Add-PodeRoute -Method Get -Path "$base/history/:measureId" -ScriptBlock {
 # --- Reglages des notifications (D54) : lus/ecrits par l'interface -----------
 Add-PodeRoute -Method Get -Path "$base/notifications" -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
-    Write-PodeJsonResponse -Value (Get-NotificationSettings -Backend $env:VIGIE_BACKEND) -Depth 4
+    $cfg = Get-NotificationSettings -Backend $env:VIGIE_BACKEND
+    Write-PodeJsonResponse -Value @{
+        enabled = [bool]$cfg.enabled
+        modules = $cfg.modules
+        notifs  = $cfg.notifs
+        # Le CATALOGUE : ce que chaque module sait notifier, avec de vrais noms.
+        catalog = @(Get-NotificationCatalog -Backend $env:VIGIE_BACKEND)
+    } -Depth 6
 }
 Add-PodeRoute -Method Post -Path "$base/notifications" -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
@@ -208,8 +215,19 @@ Add-PodeRoute -Method Post -Path "$base/notifications" -ScriptBlock {
             foreach ($pr in $d.modules.PSObject.Properties) { $mods["$($pr.Name)"] = [bool]$pr.Value }
         }
     }
+    # Meme traitement pour le reglage FIN, notification par notification (cle
+    # « <module>.<notification> ») : c'est lui qui porte les vrais noms (D54 revu).
+    $nots = $null
+    if ($d -and $d.notifs) {
+        $nots = @{}
+        if ($d.notifs -is [System.Collections.IDictionary]) {
+            foreach ($k in @($d.notifs.Keys)) { $nots["$k"] = [bool]$d.notifs[$k] }
+        } else {
+            foreach ($pr in $d.notifs.PSObject.Properties) { $nots["$($pr.Name)"] = [bool]$pr.Value }
+        }
+    }
     $en = if ($d -and $null -ne $d.enabled) { [bool]$d.enabled } else { $null }
-    Write-PodeJsonResponse -Value (Set-NotificationSettings -Backend $env:VIGIE_BACKEND -Enabled $en -Modules $mods) -Depth 4
+    Write-PodeJsonResponse -Value (Set-NotificationSettings -Backend $env:VIGIE_BACKEND -Enabled $en -Modules $mods -Notifs $nots) -Depth 4
 }
 
 Add-PodeRoute -Method Post -Path "$base/actions" -ScriptBlock {

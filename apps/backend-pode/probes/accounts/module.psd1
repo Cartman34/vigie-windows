@@ -23,4 +23,8 @@
         @{ Key = 'HiddenAccounts'; Label = 'Comptes a ne pas afficher'; Type = 'list'
            Help = "Noms de comptes a masquer sur la carte. Leur nombre reste indique." }
     )
+
+    # Ce module n'emet aucune notification : il decrit un etat, il ne signale pas
+    # d'evenement.
+    Notifications = @()
 }

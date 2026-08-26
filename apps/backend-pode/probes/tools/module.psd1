@@ -18,4 +18,12 @@
         @{ Key = 'PreselectAllUpdates'; Label = 'Tout cocher à l''ouverture'; Type = 'bool'
            Help = 'Dans la fenêtre « Mettre à jour » d''un gestionnaire, toutes les mises à jour sont cochées d''avance.' }
     )
+
+    # NOTIFICATIONS emises par ce module (D54) : un evenement nomme, pas un nom de
+    # carte. C'est la bascule du champ cite qui declenche la bulle.
+    Notifications = @(
+        @{ Key = 'pkg-updates'; Label = 'Mises à jour de logiciels disponibles'
+           Card = ''; Field = 'updates'
+           Help = 'Un gestionnaire de paquets signale des mises à jour.' }
+    )
 }

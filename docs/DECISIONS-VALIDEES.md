@@ -1745,3 +1745,37 @@ tableau des autres comptes : type, Vigie ou non, dernière session, poids et fra
 leurs données. Sans élévation, la ligne dit « détail masqué » et pourquoi : Vigie ne montre
 rien de plus que ce que Windows laisse voir. Le bouton « Gérer les comptes » ouvre
 Paramètres > Utilisateurs, traité par l'interface sans aller-retour serveur.
+
+## D68 — Une notification est un ÉVÉNEMENT NOMMÉ, pas une carte (2026-08-26)
+
+**Reproche (utilisateur).** « J'ai demandé à mettre de vrais noms de notification et tu ne
+l'as pas fait. » L'écran listait **« Session de jeu »** — le nom d'une *carte* — parce que
+le tray notifiait la bascule d'état d'une carte. Un nom de carte ne dit pas ce qui s'est
+passé.
+
+**Décision.** Chaque module **déclare ses notifications** dans son `module.psd1` :
+
+```powershell
+Notifications = @(
+    @{ Key = 'gpu-temp'; Label = 'Température GPU élevée'
+       Card = 'gaming'; Field = 'gpu-temp'
+       Help = 'La carte graphique chauffe au-delà du seuil, ou se bride.' }
+)
+```
+
+- `Key` : identifiant stable du réglage (jamais affiché) ; `Label` : ce que l'utilisateur
+  lit ; `Card`/`Field` : le champ dont la **bascule** déclenche la notification.
+- Le **tray** compare désormais l'état des **champs**, pas des cartes, et ne dérange que
+  sur une **dégradation** ou un **rétablissement**.
+- Le **réglage est par notification** (`notifs`, clé `<module>.<notification>`) et
+  l'emporte sur celui du module : couper « Partie sur batterie » ne coupe pas
+  « Température GPU élevée ».
+- L'écran **Paramètres > Modules** liste ces événements avec leur vrai nom ; un module qui
+  ne signale rien le dit (« il décrit un état »), il n'affiche pas une liste vide.
+
+**Vingt et une notifications déclarées** : Système (espace disque faible, redémarrage en
+attente, mémoire vive saturée), Sécurité (antivirus inactif ou non à jour, trois profils de
+pare-feu, VBS coupée), Réseau (perte de connexion, lien dégradé, coupures répétées, DNS en
+échec), Windows Update (mises à jour à installer, automatiques réactivées), Jeux
+(température GPU, VRAM saturée, applications gourmandes, partie sur batterie), WSL (arrêté),
+Outils & paquets (mises à jour disponibles).
