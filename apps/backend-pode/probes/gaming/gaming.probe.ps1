@@ -8,7 +8,8 @@
      - CPU   : delta de TotalProcessorTime entre deux instantanes (~0,9 s), normalise
                par le nombre de coeurs ;
      - GPU   : compteurs '\GPU Engine(*)' sommes par PID, plafonnes a 100 ;
-     - VRAM  : compteurs '\GPU Process Memory(*)' (dedie) par PID ;
+     - VRAM  : '\GPU Process Memory(*)\Local Usage' par PID -- « Dedicated Usage »
+               additionne des vues qui se recouvrent (6,94 Go annonces pour 1,70 reels) ;
                total reel de la carte : registre pilote (HardwareInformation.qwMemorySize
                -- Win32_VideoController.AdapterRAM MENT au-dela de 4 Go, constate) ;
      - E/S   : delta Read+WriteTransferCount de Win32_Process sur la meme fenetre
@@ -98,14 +99,33 @@ try {
         }
     }
 } catch { }
+# VRAM par processus : « Local Usage », et non « Dedicated Usage ».
+#
+# Mesure du 26/08 sur cette machine : la somme de Dedicated Usage donnait 6,94 Go quand
+# l'adaptateur n'occupait que 1,70 Go -- dwm y pesait a lui seul plus que la VRAM occupee
+# (signale par l'utilisateur : « les chiffres ne semblent pas coherents »). Dedicated
+# Usage additionne des vues qui se recouvrent (le compositeur reference les surfaces des
+# autres applications). Local Usage totalisait 1,69 Go, soit exactement l'occupation reelle
+# de la carte : c'est lui qui dit vrai, application par application.
+$compteurVram = '\GPU Process Memory(*)\Local Usage'
 try {
-    foreach ($s in (Get-Counter '\GPU Process Memory(*)\Dedicated Usage' -ErrorAction Stop).CounterSamples) {
+    foreach ($s in (Get-Counter $compteurVram -ErrorAction Stop).CounterSamples) {
         if ($s.InstanceName -match '^pid_(\d+)_') {
             $gp = [int]$Matches[1]
             $vramParPid[$gp] = [double]($vramParPid[$gp]) + $s.CookedValue
         }
     }
-} catch { }
+} catch {
+    # Repli si ce compteur manque : mieux vaut une valeur imparfaite que pas de valeur.
+    try {
+        foreach ($s in (Get-Counter '\GPU Process Memory(*)\Dedicated Usage' -ErrorAction Stop).CounterSamples) {
+            if ($s.InstanceName -match '^pid_(\d+)_') {
+                $gp = [int]$Matches[1]
+                $vramParPid[$gp] = [double]($vramParPid[$gp]) + $s.CookedValue
+            }
+        }
+    } catch { }
+}
 $vramUtilisee = 0.0
 try {
     $vramUtilisee = ((Get-Counter '\GPU Adapter Memory(*)\Dedicated Usage' -ErrorAction Stop).CounterSamples |
