@@ -85,6 +85,24 @@ $fields += New-Field -Key 'journaux' -Label 'Journaux' `
 $fields += New-Field -Key 'donnees' -Label 'Données locales' -Value (Get-VarRoot -Backend $backend) -Kind 'text' -Status 'neutral' `
     -Help "Cache, historique, jeton et journaux de CE compte. Chaque compte a les siens."
 
+# L'INSTALLATION PARTAGEE est-elle a jour ? (version ET commit, D84)
+$cmp = Compare-SharedInstall -Backend $backend
+if ($cmp) {
+    $etatDeploiement = if ($cmp.same) { 'a jour' }
+                       elseif ($null -ne $cmp.behind -and $cmp.behind -gt 0) { 'en retard de ' + $cmp.behind + ' commit(s)' }
+                       else { 'ecart inconnu' }
+    $fields += New-Field -Key 'deploiement' -Label 'Installation partagée' `
+        -Value ($cmp.there.version + ' · ' + $etatDeploiement) -Kind 'text' `
+        -Status $(if ($cmp.same) { 'ok' } else { 'warn' }) `
+        -FixAction $(if ($cmp.same) { '' } else { 'vigie-update' }) `
+        -Help "La version que lancent les AUTRES comptes. Elle ne change qu'au deploiement." `
+        -Guide ($cmp.path)
+}
+
+# LE SORT DE LA DERNIERE OPERATION lancee depuis cette carte (D82).
+$dernier = New-LastRunField -Module 'vigie-debug' -Backend $backend
+if ($dernier) { $fields += $dernier }
+
 $pire = if (@($fields | Where-Object { "$($_.status)" -eq 'error' }).Count) { 'error' }
         elseif (@($fields | Where-Object { "$($_.status)" -eq 'warn' }).Count) { 'warn' }
         else { 'ok' }
@@ -93,6 +111,9 @@ New-ModuleObject -Id 'vigie-debug' -Theme 'debug' -Label 'Vigie' -Status $pire -
     New-Action -Id 'repair-tasks' -Label 'Réparer le démarrage de Vigie' -Kind 'immediate' -Severity 'fix' `
         -BusyLabel 'Réparation…' `
         -Help "Reecrit les taches de demarrage de Vigie qui ne fonctionnent plus. Ne touche a rien d'autre sur la machine."
+    New-Action -Id 'vigie-update' -Label 'Mettre à jour Vigie' -Kind 'confirm' -Severity 'fix' -Confirm `
+        -BusyLabel 'Mise à jour…' `
+        -Help "Redeploie l'installation partagee depuis ce depot, puis relance Vigie. Les reglages sont conserves."
     New-Action -Id 'open-logs' -Label 'Ouvrir les journaux' -Kind 'manual' -Severity 'info' `
         -Help "Ouvre le dossier des journaux dans l'explorateur."
 )
