@@ -1999,7 +1999,17 @@ function renderTabApropos(pane){
     +'<div class="apropos-l"><span>Éditeur</span><b>Sowapps</b></div>'
     +'<div class="apropos-l"><span>Auteur</span><b>Florent HAZARD</b></div>'
     +'<div class="apropos-l"><span>Licence</span><b>MIT</b></div>'
-    +'<p style="margin:14px 0 0"><a class="apropos-repo" data-repo-link><svg width="16" height="16" aria-hidden="true"><use href="#ghMark"/></svg><span class="apropos-repo-t"></span></a></p></div>';
+    +'<p style="margin:14px 0 0"><a class="apropos-repo" data-repo-link><svg width="16" height="16" aria-hidden="true"><use href="#ghMark"/></svg><span class="apropos-repo-t"></span></a></p></div>'
+    // EXPORTS : deux documents distincts, ouverts dans un onglet et imprimables en PDF
+    // depuis le navigateur (D86). Pas de dependance a installer : la page se sert
+    // elle-meme des donnees que Vigie possede deja.
+    +'<div class="um" style="margin-top:12px"><b>Exports</b>'
+    +'<p class="um-hint" style="margin:2px 0 10px">Deux documents à imprimer ou à enregistrer en PDF.</p>'
+    +'<p style="display:flex;gap:8px;flex-wrap:wrap;margin:0">'
+    +'<a class="apropos-repo" href="/rapport?type=materiel" target="_blank" rel="noopener">Fiche matérielle</a>'
+    +'<a class="apropos-repo" href="/rapport?type=etat" target="_blank" rel="noopener">État actuel</a>'
+    +'</p>'
+    +'<p class="um-hint" style="margin:10px 0 0">La fiche matérielle liste ce qui ne bouge pas : machine, processeur, mémoire, disques, écrans. L'état actuel est une photo de ce que Vigie voit à l'instant.</p></div>';
   const rl=pane.querySelector('.apropos-repo-t'); if(rl) rl.textContent=REPO_URL.replace(/^https?:[/][/]/,'');
   wireRepoLinks();
 }
