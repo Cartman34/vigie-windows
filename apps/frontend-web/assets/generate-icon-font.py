@@ -140,7 +140,9 @@ def g_bell(pen):
     corps etroit et long ensuite.
     """
     import math
-    K = 682 / 448.0          # echelle : la cloche fait 682 unites de large
+    # 0.90 : la cloche paraissait plus grosse que ses voisines. Les autres glyphes font
+    # entre 640 et 740 d'encre ; a 776 de haut, celle-ci depassait.
+    K = 682 / 448.0 * 0.90
     demi   = 208 * K
     hcorps = 365 * K
     ybas   = 250.0
