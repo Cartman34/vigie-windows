@@ -227,12 +227,14 @@
   .um{border:1px solid var(--border);border-radius:10px;padding:0;margin:0 0 10px;overflow:hidden}
   .um > summary{list-style:none;cursor:pointer;padding:12px 14px;display:flex;align-items:center;gap:10px}
   .um > summary::-webkit-details-marker{display:none}
-  .um > summary::after{content:'B8';color:var(--muted);font-size:11px;align-self:center;transition:transform .15s}
-  .um[open] > summary::after{transform:rotate(90deg)}
+  .um > summary::before{content:'';flex:none;width:6px;height:6px;margin-right:2px;
+                        border-right:1.6px solid var(--muted);border-bottom:1.6px solid var(--muted);
+                        transform:rotate(-45deg);transition:transform .15s}
+  .um[open] > summary::before{transform:rotate(45deg)}
   .um > summary:hover{background:var(--panel-2)}
   .um[open] > summary{border-bottom:1px solid var(--border)}
-  .um > *:not(summary){padding-left:14px;padding-right:14px}
-  .um > *:last-child{padding-bottom:12px}
+  .um > *:not(summary){padding-left:16px;padding-right:16px}
+  .um > *:last-child{padding-bottom:14px}
   .um.off{opacity:.65}
   .um.flash{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
   .um-head{display:flex;align-items:center;gap:10px;margin:0;flex:1}
@@ -242,8 +244,11 @@
   .um-sw{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);
          cursor:pointer;white-space:nowrap;padding-top:2px}
   .um-sw input{accent-color:var(--accent)}
+  /* Titre de section DANS un module : discret, souligne d'un filet, aere au-dessus. */
   .um-sub{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;
-          color:var(--muted);margin:12px 0 0}
+          color:var(--muted);margin:15px 0 7px;padding-bottom:5px;
+          border-bottom:1px solid var(--border);display:flex;align-items:baseline;gap:8px}
+  .um-cpt{font-weight:600;letter-spacing:0;text-transform:none;font-size:11px;opacity:.75}
   .um-list{border:1px solid var(--border);border-radius:9px;overflow:hidden;margin-top:6px}
   .um-card{display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:13px;min-height:36px;
            border-bottom:1px solid var(--border);background:var(--panel)}
@@ -251,16 +256,16 @@
   .um-card:hover{background:var(--panel-2)}
   .um-card input{accent-color:var(--accent)}
   .um-card small{margin-left:auto;color:var(--muted);font-size:11px}
-  .um-note{color:var(--muted);font-size:12.5px;font-style:italic}
+  .um-note{color:var(--muted);font-size:12px;line-height:1.5;margin:0 0 8px}
   /* Liste geree en SECTION : lire, ajouter, retirer sans se battre avec une ligne. */
   .um-liste{border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:10px}
   .um-lrow{display:flex;align-items:center;justify-content:space-between;gap:8px;
            padding:7px 10px;font-size:12.5px;border-bottom:1px solid var(--border)}
   .um-lrow:hover{background:var(--panel-2)}
-  .um-lvide{padding:9px 10px;font-size:12.5px;color:var(--muted);font-style:italic;border-bottom:1px solid var(--border)}
+  .um-lvide{padding:10px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--border)}
   .um-ldel{font:inherit;font-size:14px;line-height:1;color:var(--muted);background:none;border:none;cursor:pointer;padding:0 4px}
   .um-ldel:hover{color:var(--err)}
-  .um-ladd{display:flex;gap:8px;padding:8px 10px;background:var(--panel-2)}
+  .um-ladd{display:flex;gap:6px;padding:7px 8px;background:var(--panel-2)}
   .um-ladd .um-chip-add{flex:1 1 auto;width:auto;border-radius:6px;border-style:solid}
   .um-lplus{font:inherit;font-size:12px;color:var(--text);background:none;border:1px solid var(--border);
             border-radius:6px;padding:3px 12px;cursor:pointer}
@@ -426,8 +431,10 @@
   .tree-node>summary{display:flex;align-items:center;gap:8px;padding:4px 2px;cursor:pointer;
                      border-bottom:1px solid var(--border);list-style:none}
   .tree-node>summary::-webkit-details-marker{display:none}
-  .tree-node>summary::before{content:'B8';color:var(--muted);font-size:10px;flex:none;transition:transform .15s}
-  .tree-node[open]>summary::before{transform:rotate(90deg)}
+  .tree-node>summary::before{content:'';flex:none;width:5px;height:5px;margin-right:4px;
+                             border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);
+                             transform:rotate(-45deg);transition:transform .15s}
+  .tree-node[open]>summary::before{transform:rotate(45deg)}
   .tree-kids{margin-left:14px;border-left:1px solid var(--border);padding-left:8px}
   .tree-leaf{display:flex;align-items:center;gap:8px;padding:4px 2px 4px 16px;border-bottom:1px solid var(--border)}
   .tree-n{flex:1 1 auto;word-break:break-word}
@@ -1730,7 +1737,7 @@ async function renderTabModules(pane){
     const decl=((notifCat||[]).find(x=>x.unit===u.id)||{}).notifications||[];
     const onNotif=(unit,key)=>{ const r=unit+'.'+key; return (cfg.notifs && (r in cfg.notifs)) ? !!cfg.notifs[r] : on(unit); };
     const lignes=(decl.length
-      ? '<div class="um-sub">Notifications</div><div class="um-list">'
+      ? '<div class="um-sub">Notifications<span class="um-cpt">'+decl.length+'</span></div><div class="um-list">'
         +decl.map(nn=>'<div class="um-card" title="'+esc(nn.help||'')+'"><span>'+esc(nn.label)
         // Qui peut agir : une notification « admin » ne derange pas un compte standard,
         // sauf si elle est critique -- alors elle remonte quand meme, en invitant a
@@ -1750,7 +1757,7 @@ async function renderTabModules(pane){
       +'<span class="um-sw"><span>'+(u.enabled?'Actif':'Coupé')+'</span>'
       +'<span class="swx"><input type="checkbox" data-unit="'+esc(u.id)+'"'+(u.enabled?' checked':'')+'><i></i></span></span></summary>'
       +(u.enabled ? lignes : '<div class="um-note">Module coupé : ses cartes ne sont ni calculées ni affichées.</div>')
-      +(u.enabled && (paramCat[u.id]||[]).filter(pr=>pr.type!=='list').length ? '<div class="um-sub">Paramètres</div><div class="um-list">'+(paramCat[u.id]||[]).filter(pr=>pr.type!=='list').map(pr=>{
+      +(u.enabled && (paramCat[u.id]||[]).filter(pr=>pr.type!=='list').length ? '<div class="um-sub">Paramètres<span class="um-cpt">'+(paramCat[u.id]||[]).filter(pr=>pr.type!=='list').length+'</span></div><div class="um-list">'+(paramCat[u.id]||[]).filter(pr=>pr.type!=='list').map(pr=>{
         const ref=esc(u.id)+'::'+esc(pr.key);
         const btnDef=pr.overridden?'<button class="um-reset" data-preset="'+ref+'" title="Revenir à la valeur par défaut ('+esc(Array.isArray(pr.default)?(pr.default.join(', ')||'vide'):String(pr.default))+(pr.unit?' '+esc(pr.unit):'')+')">défaut</button>':'';
         let ctl='';
@@ -1773,7 +1780,7 @@ async function renderTabModules(pane){
       +(u.enabled ? (paramCat[u.id]||[]).filter(pr=>pr.type==='list').map(pr=>{
         const ref=esc(u.id)+'::'+esc(pr.key);
         const items=Array.isArray(pr.value)?pr.value:[];
-        return '<div class="um-sub">'+esc(pr.label)+'</div>'
+        return '<div class="um-sub">'+esc(pr.label)+'<span class="um-cpt">'+(items.length?(items.length+' \u00e9l\u00e9ment'+(items.length>1?'s':'')):'vide')+'</span></div>'
           +(pr.help?'<div class="um-note">'+esc(pr.help)+'</div>':'')
           +'<div class="um-liste" data-plist="'+ref+'">'
           +(items.length
