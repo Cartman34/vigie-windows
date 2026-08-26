@@ -94,6 +94,18 @@ if (-not $eleve) {
         -Help "Windows protège le profil de chaque compte : leur détail n'est lisible que par un Vigie lancé en administrateur. Vigie ne montre rien de plus que ce que Windows laisse voir."
 }
 
+# TACHES MALADES : une tache qui vise un interpreteur ou une application disparus se
+# lance et meurt en silence. La sonde ne repare RIEN (lecture seule) : elle constate, et
+# porte le bouton qui repare (D66).
+$malades = @($comptes | Where-Object { $_.taskAilment })
+if ($malades.Count) {
+    $fields += New-Field -Key 'taches' -Label 'Démarrage automatique' `
+        -Value ($malades.Count.ToString() + " tâche(s) hors service") -Kind 'text' -Status 'error' `
+        -FixAction 'repair-tasks' `
+        -Help "Une tâche de démarrage de Vigie ne peut plus lancer l'application : elle démarre et meurt aussitôt, sans message. Vigie ne se lancera pas à l'ouverture de session." `
+        -Guide (($malades | ForEach-Object { $_.name + " : " + $_.taskAilment }) -join [Environment]::NewLine)
+}
+
 # LE SORT DE LA DERNIERE OPERATION lancee depuis cette carte (D82). Une ligne verte
 # quand elle a abouti, ROUGE avec son journal quand elle a echoue -- jamais rien.
 $dernier = New-LastRunField -Module 'accounts'
@@ -112,6 +124,9 @@ New-ModuleObject -Id 'accounts' -Theme 'accounts' -Label 'Comptes' -Status $pire
     New-Action -Id 'deploy-shared' -Label 'Déployer pour tous les comptes' -Kind 'confirm' -Severity 'fix' -Confirm `
         -BusyLabel 'Déploiement…' `
         -Help "Installe cette version dans C:\Program Files\Sowapps\Vigie, lisible par tous les comptes de la machine."
+    New-Action -Id 'repair-tasks' -Label 'Réparer le démarrage de Vigie' -Kind 'immediate' -Severity 'fix' `
+        -BusyLabel 'Réparation…' `
+        -Help "Réécrit les tâches de démarrage de Vigie qui ne fonctionnent plus (interpréteur ou application déplacés). Ne touche à rien d'autre sur la machine."
     New-Action -Id 'accounts-refresh' -Label 'Actualiser la liste' -Kind 'immediate' -Severity 'neutral' `
         -BusyLabel 'Relevé…' `
         -Help "Refait le relevé des comptes. La liste est mémorisée 24 h : elle ne change qu'exceptionnellement."

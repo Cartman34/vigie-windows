@@ -2717,6 +2717,92 @@ function Get-SharedInstallPath {
     return $null
 }
 
+# --- AUTO-REPARATION DES TACHES DE VIGIE -------------------------------------
+#
+# Regle posee par l'utilisateur : « l'app peut auto-corriger le systeme tant que c'est du
+# pur Vigie ». Une tache planifiee nommee « Vigie - <compte> » (ou « Vigie ») est a nous :
+# on a le droit de la remettre d'aplomb sans rien demander. On ne touche a RIEN d'autre.
+#
+# Le cas vecu le 26/08 : les taches pointaient vers
+# C:\Users\<moi>\AppData\Local\Microsoft\WindowsApps\pwsh.exe -- un chemin du profil de
+# l'administrateur, devenu inexistant apres un changement d'installation de PowerShell.
+# Windows n'a rien dit : la tache existait, elle se lancait, et mourait aussitot. Vigie
+# ne demarrait plus, ni pour moi ni pour « Famille », sans le moindre message.
+#
+# Ce qui est verifie, et repare : l'INTERPRETEUR (existe-t-il encore ?) et le CHEMIN DE
+# L'APPLICATION (l'autre compte peut-il le lire ?).
+function Test-VigieTaskHealthy {
+    param([Parameter(Mandatory)]$Task)
+    $a = @($Task.Actions)[0]
+    if (-not $a) { return $false }
+    $exe = "$($a.Execute)".Trim('"')
+    if (-not $exe -or -not (Test-Path -LiteralPath $exe)) { return $false }
+    # Le script lance est cite dans les arguments, entre guillemets.
+    if ("$($a.Arguments)" -match '-File\s+"([^"]+)"') {
+        if (-not (Test-Path -LiteralPath $Matches[1])) { return $false }
+    }
+    return $true
+}
+
+# Ce qui CLOCHE, en clair, pour l'afficher. $null si tout va bien.
+function Get-VigieTaskAilment {
+    param([Parameter(Mandatory)]$Task)
+    $a = @($Task.Actions)[0]
+    if (-not $a) { return "la tache ne lance rien" }
+    $exe = "$($a.Execute)".Trim('"')
+    if (-not $exe) { return "aucun interpreteur" }
+    if (-not (Test-Path -LiteralPath $exe)) { return "l'interpreteur n'existe plus : $exe" }
+    if ("$($a.Arguments)" -match '-File\s+"([^"]+)"') {
+        if (-not (Test-Path -LiteralPath $Matches[1])) { return ("l'application n'est plus la : " + $Matches[1]) }
+    }
+    return $null
+}
+
+# Repare ce qui peut l'etre, et RAPPORTE ce qu'elle a fait. Silencieuse quand tout va
+# bien. Ne cree jamais une tache absente : activer un compte reste une decision.
+function Repair-VigieTasks {
+    param([string]$Backend = (Get-BackendRoot))
+    $faits = @()
+    if (-not (Test-IsElevated)) { return $faits }
+    $taches = @()
+    try {
+        $taches = @(Get-ScheduledTask -ErrorAction Stop |
+                    Where-Object { "$($_.TaskName)" -eq 'Vigie' -or "$($_.TaskName)".StartsWith($script:VigieTaskPrefix) })
+    } catch { return $faits }
+
+    foreach ($t in $taches) {
+        $mal = Get-VigieTaskAilment -Task $t
+        if (-not $mal) { continue }
+        $nom = "$($t.TaskName)"
+        # De QUI est cette tache ? « Vigie » = le compte courant ; « Vigie - X » = X.
+        $compte = if ($nom -eq 'Vigie') { "$env:USERNAME" } else { $nom.Substring($script:VigieTaskPrefix.Length) }
+        try {
+            if ($nom -eq 'Vigie') {
+                # Notre propre tache : on la reecrit avec l'interpreteur de la machine et
+                # le chemin ou l'application se trouve REELLEMENT maintenant.
+                $pwsh = Get-SharedPwshPath
+                if (-not $pwsh) { $pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Source }
+                $tray = Join-Path (Join-Path (Get-RepoRoot) 'apps') (Join-Path 'tray' 'tray.ps1')
+                if (-not $pwsh -or -not (Test-Path -LiteralPath $tray)) { continue }
+                $arg = '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $tray + '"'
+                Set-ScheduledTask -TaskName $nom -Action (New-ScheduledTaskAction -Execute $pwsh -Argument $arg) -ErrorAction Stop | Out-Null
+            } else {
+                # Tache d'un autre compte : Set-VigieAccountEnabled sait la refaire
+                # entierement (interpreteur machine, installation partagee, niveau).
+                $null = Set-VigieAccountEnabled -Name $compte -Enabled $true -Backend $Backend
+            }
+            $faits += [pscustomobject]@{ tache = $nom; mal = $mal; repare = $true }
+            Write-Log -Backend $Backend -Name 'comptes' -Message ("tache " + $nom + " reparee (" + $mal + ")")
+        } catch {
+            $faits += [pscustomobject]@{ tache = $nom; mal = $mal; repare = $false; erreur = "$($_.Exception.Message)" }
+            Write-Log -Backend $Backend -Name 'comptes' -Level 'ERROR' `
+                      -Message ("tache " + $nom + " NON reparee (" + $mal + ") : " + $_.Exception.Message)
+        }
+    }
+    if ($faits.Count) { Clear-VigieAccountsCache -Backend $Backend }
+    return $faits
+}
+
 function Get-VigieAccountTaskName {
     param([Parameter(Mandatory)][string]$Name)
     $script:VigieTaskPrefix + $Name
@@ -2840,6 +2926,11 @@ function Get-VigieAccountsFresh {
             lastUse     = $(if ($up -and $up.LastUseTime) { ([datetime]$up.LastUseTime).ToString('s') } else { $null })
             enabled     = [bool]$tache
             task        = if ($tache) { "$($tache.TaskName)" } else { $null }
+            # La tache existe-t-elle VRAIMENT en etat de marche ? Une tache qui pointe
+            # vers un interpreteur disparu se lance et meurt aussitot, sans un mot :
+            # Vigie ne demarre pas et l'ecran des comptes affiche « activee ». C'est
+            # exactement ce qui est arrive le 26/08 (D83).
+            taskAilment = if ($tache) { Get-VigieTaskAilment -Task $tache } else { $null }
             # Le compte qui execute le serveur en ce moment : l'interface doit pouvoir dire
             # « c'est vous » et empecher de se retirer soi-meme par megarde.
             current     = ($nom -eq "$env:USERNAME")
