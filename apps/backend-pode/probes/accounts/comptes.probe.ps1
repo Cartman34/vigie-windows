@@ -50,6 +50,9 @@ if (-not $eleve) {
 New-ModuleObject -Id 'accounts' -Theme 'accounts' -Label 'Comptes' -Status 'ok' -Fields $fields -Actions @(
     New-Action -Id 'accounts-details' -Label 'Détails des comptes' -Kind 'immediate' -Severity 'info' `
         -Help "Dernière ouverture de session et poids des données Vigie de chacun. Demande un compte administrateur."
+    New-Action -Id 'accounts-refresh' -Label 'Actualiser la liste' -Kind 'immediate' -Severity 'neutral' `
+        -BusyLabel 'Relevé…' `
+        -Help "Refait le relevé des comptes. La liste est mémorisée 24 h : elle ne change qu'exceptionnellement."
     New-Action -Id 'open-users-settings' -Label 'Gérer les comptes' -Kind 'dialog' -Severity 'info' `
         -Help "Ouvre Paramètres > Utilisateurs : choisir les comptes avec lesquels Vigie démarre."
 )
