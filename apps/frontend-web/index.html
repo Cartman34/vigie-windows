@@ -1934,9 +1934,12 @@ async function renderTabUtilisateurs(pane){
     +"<li>Un compte standard n'obtient <b>aucun droit en plus</b> : Vigie lui refuse les actions administrateur, comme Windows.</li>"
     +'</ul>'
     +(inerte?'<div class="um-note">Modifier ces choix demande un Vigie lancé en administrateur.</div>':'')
-    +(partage?'':'<div class="um-note"><b>Cette installation n’est lisible que par vous</b> ('
-      +esc(data.installPath||'')+'). Les autres comptes ne pourraient pas la démarrer : déployez d’abord '
-      +'Vigie pour tout le monde (<code>scripts/deploy-prod.ps1</code>).</div>')
+    +(partage?'':'<div class="setcard"><div class="setcard-t">'
+      +'<b>Cette installation n’est lisible que par vous</b>'
+      +'<small>'+esc(data.installPath||'')+' — les autres comptes ne pourraient pas la démarrer. '
+      +'Le déploiement l’installe dans C:\Program Files\Sowapps\Vigie, lisible par tous, '
+      +'et conserve les réglages déjà en place.</small></div>'
+      +'<button class="fsolve sev-fix" id="btnDeploy"'+(inerte?' disabled title="Demande un Vigie lancé en administrateur."':'')+'>Déployer pour tous</button></div>')
     +'<div class="um-list">'+users.map(u=>
       '<div class="um-card"><span>'+esc(u.name)
       +(u.current?' <span class="um-tag">vous</span>':'')
@@ -1946,6 +1949,17 @@ async function renderTabUtilisateurs(pane){
       +'<span class="um-param"><span class="swx"><input type="checkbox" data-user="'+esc(u.name)+'"'
       +(u.enabled?' checked':'')+((inerte||(!partage&&!u.current))?' disabled':'')+'><i></i></span></span>'
       +'</div>').join('')+'</div>';
+  const bd=pane.querySelector('#btnDeploy');
+  if(bd){ bd.onclick=async()=>{
+    bd.disabled=true; bd.textContent='Déploiement…';
+    try{
+      await doAction('deploy-shared','accounts',true,'Déployer pour tous les comptes',
+        "Installe cette version dans C:\Program Files\Sowapps\Vigie, lisible par tous les comptes.",
+        null,null,'confirm',false);
+      // Le deploiement dure une a deux minutes : on relit l'etat ensuite.
+      setTimeout(()=>{ renderSettings(); }, 90000);
+    }catch(e){ toast('Déploiement impossible : '+(e.message||e)); bd.disabled=false; bd.textContent='Déployer pour tous'; }
+  }; }
   pane.querySelectorAll('[data-user]').forEach(c=>{ c.onchange=async()=>{
     const nom=c.getAttribute('data-user');
     try{
