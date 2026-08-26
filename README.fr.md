@@ -57,31 +57,35 @@ Le détail carte par carte : [Ce que surveille Vigie](docs/fr/fonctionnalites.md
 
 La voie recommandée est l'**archive publiée dans les Releases GitHub** — ni git, ni clone.
 
-1. **Prérequis** : PowerShell 7 (`pwsh`), **installé pour la machine**.
-   `scripts\install.ps1` s'en charge via winget (`--scope machine`) s'il manque ou s'il
-   n'existe que pour votre compte — lancez-le en administrateur. Un PowerShell 7 installé
-   pour un seul compte (paquet du Store) vit dans son profil : les autres comptes ne
-   pourraient pas démarrer Vigie.
-2. Téléchargez `vigie-<version>.zip` depuis la
-   [page des Releases](https://github.com/Cartman34/vigie-windows/releases) et
-   décompressez-la à un endroit durable (ni `Téléchargements`, ni un dossier temporaire :
-   la tâche planifiée pointera sur ce chemin). Elle se déplie en un unique dossier
-   `vigie-<version>/`. *Si cette page est vide, aucune version n'a encore été taguée :
-   passez par git, ci-dessous.*
-3. Ouvrez PowerShell dans ce dossier et installez les prérequis, une seule fois :
-   ```powershell
-   pwsh -ExecutionPolicy Bypass -File .\scripts\install.ps1
-   ```
-4. Lancez (une invite UAC apparaît : Vigie a besoin des droits administrateur) :
-   ```powershell
-   pwsh -ExecutionPolicy Bypass -File .\scripts\run.ps1
-   ```
-   Le navigateur s'ouvre sur <http://127.0.0.1:47600/> dès que le serveur écoute
-   réellement.
-5. Pour la retrouver à chaque ouverture de session, avec l'icône de la barre système :
-   ```powershell
-   pwsh -ExecutionPolicy Bypass -File .\scripts\install-autostart.ps1
-   ```
+**Trois double-clics, dans cet ordre. Tout est dans le dossier `scripts\`.**
+
+| | Fichier | Ce qu'il fait |
+|---|---|---|
+| 1 | **`scripts\install.cmd`** | Installe les prérequis. **Demande les droits administrateur** (fenêtre Windows à accepter) : PowerShell 7 est installé **pour toute la machine**, pas pour votre seul compte. À faire **une fois**. |
+| 2 | **`scripts\run.cmd`** | Lance Vigie. Le navigateur s'ouvre sur <http://127.0.0.1:47600/> dès que le serveur écoute vraiment. |
+| 3 | **`scripts\install-autostart.cmd`** | Facultatif : Vigie revient à chaque ouverture de session, avec son icône dans la barre système. |
+
+Avant le premier double-clic : téléchargez `vigie-<version>.zip` depuis la
+[page des Releases](https://github.com/Cartman34/vigie-windows/releases) et décompressez-la
+**à un endroit durable** — ni `Téléchargements`, ni un dossier temporaire : la tâche
+planifiée pointera sur ce chemin. L'archive se déplie en un unique dossier
+`vigie-<version>/`. *Si cette page est vide, aucune version n'a encore été taguée :
+passez par git, ci-dessous.*
+
+> **Pourquoi l'installation demande l'élévation.** Vigie démarre par une tâche planifiée,
+> une par compte, et cette tâche lance `pwsh`. Un PowerShell 7 installé pour un seul
+> compte (paquet du Store) vit dans son profil : les autres comptes ne pourraient pas
+> démarrer Vigie. `install.cmd` l'installe donc **pour la machine**
+> (`C:\Program Files\PowerShell\7`).
+
+En ligne de commande, si vous préférez — l'installation exige un terminal
+**administrateur**, et Windows PowerShell suffit puisque `pwsh` n'est pas encore là :
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1
+pwsh -ExecutionPolicy Bypass -File .\scripts\run.ps1
+pwsh -ExecutionPolicy Bypass -File .\scripts\install-autostart.ps1
+```
 
 La voie git, le rôle de chaque script et la désinstallation :
 [Installation](docs/fr/installation.md). Premier lancement et lecture du tableau de

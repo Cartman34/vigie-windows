@@ -80,16 +80,28 @@ Tout vit dans `scripts\`. Chaque script est **idempotent** : le relancer ne cass
 
 ### 1. Les prérequis, une fois
 
+**Le plus simple : double-cliquez `scripts\install.cmd`.** Il demande lui-même
+l'élévation (fenêtre Windows à accepter), fait la première passe avec Windows PowerShell —
+`pwsh` n'existe pas encore au moment d'installer — puis la seconde avec PowerShell 7 une
+fois celui-ci posé.
+
+En ligne de commande, dans un terminal **administrateur** :
+
 ```powershell
-pwsh -ExecutionPolicy Bypass -File .\scripts\install.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1
 ```
 
 `install.ps1` bascule tout seul en PowerShell 7 si vous l'avez lancé depuis 5.1, installe
 le provider NuGet, approuve le dépôt PSGallery, installe **Pode**, génère le jeton d'API
 local et vérifie la présence du runtime WebView2. Il écrit un transcript dans
-`apps\backend-pode\var\log\install_*.log`. Il n'a **pas** besoin des droits administrateur
-— mais lancé élevé, il installe Pode pour **tous les utilisateurs**, ce dont la tâche
-planifiée élevée a besoin.
+`apps\backend-pode\var\log\install_*.log`.
+
+**L'élévation n'est pas facultative quand PowerShell 7 manque** : l'installation se fait
+en portée **machine** (`--scope machine`), sans quoi winget pose le paquet dans le profil
+du compte courant et les autres comptes ne peuvent pas démarrer Vigie. Sans droits
+administrateur, `install.ps1` s'arrête et affiche la commande à lancer plutôt que de
+retirer une version qui fonctionnait avant d'échouer. Lancé élevé, il installe aussi Pode
+pour **tous les utilisateurs**, ce dont la tâche planifiée élevée a besoin.
 
 ### 2. Lancer Vigie
 
