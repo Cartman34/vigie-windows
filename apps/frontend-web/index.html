@@ -235,6 +235,10 @@
   .um > summary:hover{background:var(--panel-2)}
   .um[open] > summary{border-bottom:1px solid var(--border)}
   .um > *:not(summary){padding-left:16px;padding-right:16px}
+  /* Un bloc SANS en-tete depliable (« A propos ») n'a pas de summary pour poser sa
+     marge haute : son titre collait au bord du cadre. On le rend bloc pour que la
+     marge compte vraiment -- sur un <b> inline, un padding ne pousse rien. */
+  .um > b:first-child{display:block;padding-top:14px;margin-bottom:2px}
   .um > *:last-child{padding-bottom:16px}
   .um.off{opacity:.65}
   .um.flash{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
