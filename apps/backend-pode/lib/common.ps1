@@ -1482,6 +1482,7 @@ function New-ModuleObject {
 $script:ThemeCatalog = @(
     [pscustomobject]@{ id = 'windows-update'; label = 'Windows Update' }
     [pscustomobject]@{ id = 'system';         label = 'Système' }
+    [pscustomobject]@{ id = 'accounts';       label = 'Comptes' }
     [pscustomobject]@{ id = 'wsl';            label = 'WSL' }
     [pscustomobject]@{ id = 'security';       label = 'Sécurité' }
     [pscustomobject]@{ id = 'network';        label = 'Réseau' }
@@ -1505,6 +1506,7 @@ $script:ProbeTtls = @{
     'vbs.probe.ps1'     = 300
     'lock.probe.ps1'    = 600
     'pending.probe.ps1' = 900
+    'comptes.probe.ps1' = 300
     'os.probe.ps1'      = 3600
     'packages.probe.ps1'= 5
     'gaming.probe.ps1'  = 10
