@@ -112,26 +112,39 @@ système), `DECISIONS-VALIDEES.md` (toutes les règles, D01→D72).
 
 ### File de travail (dans l'ordre)
 
-1. **Multi-utilisateurs — à constater sur la session `Famille`** : tout est en place et
-   VÉRIFIÉ côté machine. Version déployée dans **`C:\Program Files\Sowapps\Vigie`**
-   (133 fichiers, aucun secret embarqué, `BUILTIN\Utilisateurs` en lecture/exécution) ;
-   tâche **`Vigie - Famille`** créée pour `HYPERION\Famille` en niveau *Limited*, pointant
-   sur l'installation partagée. Reste à ouvrir une session avec ce compte et à constater :
-   Vigie démarre **non élevé**, ses actions administrateur s'affichent **refusées et
-   expliquées** (D65), ses réglages et son historique sont **séparés**
+1. **Session `Famille` — à constater** (en attente de l'utilisateur). Tout est en place et
+   vérifié : version déployée dans `C:\Program Files\Sowapps\Vigie` (133 fichiers, aucun
+   secret, `BUILTIN\Utilisateurs` en lecture/exécution), tâche **`Vigie - Famille`** créée
+   pour `HYPERION\Famille` en niveau *Limited*, pointant sur l'installation partagée. À
+   constater en ouvrant sa session : démarrage **non élevé**, actions administrateur
+   **refusées et expliquées** (D65), réglages et historique **séparés**
    (`%LOCALAPPDATA%\Sowapps\Vigie`).
-2. **Jeux — branche « jeu reconnu » à constater en vraie partie** (aucune charge
-   fabriquée : D62).
-3. **Icônes (S8)** : cloche, puzzle, utilisateurs et point du « i » refaits et validés à
-   l'écran. Reste l'ancien sujet du **centrage vu sur SON écran** : frames de la vidéo dans
-   le scratchpad, analyse pixel à reprendre — par mesure, pas à l'œil (piste : échelle
-   d'affichage de sa session).
-4. **Edge cassé** : réparation EN ATTENTE de son feu vert explicite.
-5. **S5 — invalidation immédiate de la sonde réseau** sur changement d'adresse (optionnel).
-6. Fond ancien : éprouver verrou/VBS élevé après redémarrage ; commentaires en anglais
+2. **Jeux — détection VÉRIFIÉE en vraie partie le 26/08** : Autonauts reconnu (Game Bar +
+   bibliothèque Steam + `UnityPlayer.dll`), CPU 4,7 % · GPU 22,3 % · VRAM 0,98 Go. **Seul
+   reste un défaut de LATENCE** : la carte a affiché « aucun » pendant que le
+   rafraîchissement de fond tournait (~40 s pour l'ensemble des sondes) alors que la sonde
+   et l'API disaient déjà « Autonauts ». À traiter : rafraîchir la carte Jeux plus vite
+   (TTL 10 s déjà, c'est le cycle du front et du recalcul global qui traîne).
+3. **Icônes — à éprouver sur la page Design système** (demande utilisateur) : cloche
+   (proportions Font Awesome), puzzle (tenon haut, encoche droite), utilisateurs, point du
+   « i ». Planche : `http://127.0.0.1:47610/apps/atelier/design-systeme.html` (Atelier à
+   lancer à la main : `pwsh -File apps/atelier/atelier.ps1`). Reste aussi l'ancien sujet du
+   **centrage vu sur SON écran** (frames de sa vidéo au scratchpad, à mesurer, pas à l'œil).
+4. **Edge — feu vert donné, diagnostic en cours** : le binaire est SAIN (151.0.4129.107,
+   lancement headless code 0, aucune erreur au journal Application). Un lancement fenêtré
+   avec un **profil neuf** sort aussi en code 0 sans fenêtre : la piste « profil corrompu »
+   est donc écartée, le profil (500 Mo, `Default` présent, aucun verrou résiduel) n'est pas
+   en cause. Piste suivante : lancement bloqué par une stratégie ou un composant système
+   (`MicrosoftEdgeUpdate`, GameAssist MSIX présent) — reprendre par `msedge --version`,
+   `--enable-logging --v=1`, et l'Observateur d'événements côté Edge.
+5. **S5 — invalidation immédiate de la sonde réseau** sur événement Windows de changement
+   d'adresse : **feu vert donné**, à faire.
+6. **Tray — feu vert pour analyse** : il ne prend plus l'ordre `-Restart` en 15 s (constaté
+   à chaque déploiement les 25 et 26/08) ; c'est son auto-guérison qui relance le serveur,
+   donc le déploiement aboutit quand même. À analyser : `apps/tray/var/run` (ordres),
+   `apps/tray/var/log`, et la boucle qui consomme les ordres dans `apps/tray/tray.ps1`.
+7. Fond ancien : éprouver verrou/VBS élevé après redémarrage ; commentaires en anglais
    (D41) ; workflow GitHub ; bulle de notification du tray à observer en réel.
-   **Tray** : il ne prend plus l'ordre `-Restart` en 15 s (constaté de nombreuses fois les
-   25 et 26/08) ; c'est son auto-guérison qui relance le serveur. À regarder.
 
 ## État de la machine de l'utilisateur — à savoir avant de conclure quoi que ce soit
 
