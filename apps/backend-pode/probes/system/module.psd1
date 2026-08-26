@@ -26,4 +26,18 @@
         @{ Key = 'DiskScanTop'; Label = 'Éléments gardés par niveau'; Type = 'int'; Unit = 'éléments'; Min = 3; Max = 30; Step = 1
            Help = 'Nombre de dossiers et de fichiers les plus gros conservés à chaque niveau. Les autres sont regroupés dans une ligne « autres ».' }
     )
+
+    # NOTIFICATIONS emises par ce module (D54) : un evenement nomme, pas un nom de
+    # carte. C'est la bascule du champ cite qui declenche la bulle.
+    Notifications = @(
+        @{ Key = 'disk-low'; Label = 'Espace disque faible'
+           Card = 'storage'; Field = 'free'
+           Help = 'Le disque système passe sous le seuil d''alerte.' }
+        @{ Key = 'reboot'; Label = 'Redémarrage en attente'
+           Card = 'os'; Field = 'rebootPending'
+           Help = 'Windows attend un redémarrage pour finir une installation.' }
+        @{ Key = 'ram-high'; Label = 'Mémoire vive saturée'
+           Card = 'perf'; Field = 'ramUsed'
+           Help = 'La mémoire utilisée dépasse le seuil : la machine va ralentir.' }
+    )
 }

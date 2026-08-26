@@ -25,4 +25,21 @@
         @{ Key = 'GpuTempWarnC'; Label = 'Alerte de température GPU'; Type = 'int'; Unit = '°C'; Min = 60; Max = 95; Step = 1
            Help = 'Au-delà de cette température, la carte graphique va brider ses fréquences.' }
     )
+
+    # NOTIFICATIONS emises par ce module (D54) : un evenement nomme, pas un nom de
+    # carte. C'est la bascule du champ cite qui declenche la bulle.
+    Notifications = @(
+        @{ Key = 'gpu-temp'; Label = 'Température GPU élevée'
+           Card = 'gaming'; Field = 'gpu-temp'
+           Help = 'La carte graphique chauffe au-delà du seuil, ou se bride.' }
+        @{ Key = 'vram-full'; Label = 'Mémoire graphique saturée'
+           Card = 'gaming'; Field = 'vram'
+           Help = 'La VRAM est pleine : saccades à prévoir en jeu.' }
+        @{ Key = 'hogs'; Label = 'Applications gourmandes pendant une partie'
+           Card = 'gaming'; Field = 'hogs'
+           Help = 'Une application consomme beaucoup pendant que le jeu tourne.' }
+        @{ Key = 'battery'; Label = 'Partie sur batterie'
+           Card = 'gaming'; Field = 'power'
+           Help = 'Sur batterie, processeur et carte graphique sont bridés.' }
+    )
 }

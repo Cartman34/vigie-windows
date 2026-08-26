@@ -2686,13 +2686,14 @@ function Get-NotificationSettingsReadPath {
 
 function Get-NotificationSettings {
     param([string]$Backend = (Get-BackendRoot))
-    $s = [ordered]@{ enabled = $true; modules = [ordered]@{} }
+    $s = [ordered]@{ enabled = $true; modules = [ordered]@{}; notifs = [ordered]@{} }
     $p = Get-NotificationSettingsReadPath
     if (Test-Path -LiteralPath $p) {
         try {
             $j = Get-Content -LiteralPath $p -Raw -Encoding UTF8 | ConvertFrom-Json
             if ($null -ne $j.enabled) { $s.enabled = [bool]$j.enabled }
             if ($j.modules) { foreach ($pr in $j.modules.PSObject.Properties) { $s.modules[$pr.Name] = [bool]$pr.Value } }
+            if ($j.notifs)  { foreach ($pr in $j.notifs.PSObject.Properties)  { $s.notifs[$pr.Name]  = [bool]$pr.Value } }
         } catch { }
     }
     [pscustomobject]$s
@@ -2704,13 +2705,17 @@ function Set-NotificationSettings {
         $Enabled,
         # Table module -> $true/$false. FUSIONNEE avec l'existant : ne fournir que ce qui
         # change ; une cle absente garde son reglage (le global ne perd jamais le fin).
-        [hashtable]$Modules
+        [hashtable]$Modules,
+        # Table « <module>.<notification> » -> $true/$false. Fusionnee comme le reste.
+        [hashtable]$Notifs
     )
     $cur = Get-NotificationSettings -Backend $Backend
-    $out = [ordered]@{ enabled = [bool]$cur.enabled; modules = [ordered]@{} }
+    $out = [ordered]@{ enabled = [bool]$cur.enabled; modules = [ordered]@{}; notifs = [ordered]@{} }
     foreach ($k in @($cur.modules.Keys)) { $out.modules["$k"] = [bool]$cur.modules[$k] }
+    foreach ($k in @($cur.notifs.Keys))  { $out.notifs["$k"]  = [bool]$cur.notifs[$k] }
     if ($null -ne $Enabled) { $out.enabled = [bool]$Enabled }
     if ($Modules) { foreach ($k in $Modules.Keys) { $out.modules["$k"] = [bool]$Modules[$k] } }
+    if ($Notifs)  { foreach ($k in $Notifs.Keys)  { $out.notifs["$k"]  = [bool]$Notifs[$k] } }
     $p = Get-NotificationSettingsPath
     $tmp = "$p.tmp"
     ($out | ConvertTo-Json -Depth 4) | Set-Content -LiteralPath $tmp -Encoding UTF8
@@ -2718,12 +2723,65 @@ function Set-NotificationSettings {
     [pscustomobject]$out
 }
 
+# --- CATALOGUE DES NOTIFICATIONS (D54, revu le 26/08) -------------------------
+# Une notification n'est PAS « une carte » : c'est un EVENEMENT nomme, que le module
+# declare. « Session de jeu » ne dit rien a personne ; « Temperature GPU elevee » si.
+# (Signale par l'utilisateur : l'ecran listait les cartes, pas les notifications.)
+#
+# Declaration, dans probes/<module>/module.psd1 :
+#   Notifications = @(
+#       @{ Key = 'gpu-temp'; Label = 'Temperature GPU elevee'
+#          Field = 'gpu-temp'; Card = 'gaming'; Help = '...' }
+#   )
+# Key   : identifiant stable du reglage (jamais affiche) ;
+# Label : ce que l'utilisateur lit ;
+# Card / Field : la carte et le champ dont la BASCULE declenche la notification.
+#
+# Un module sans declaration retombe sur une notification unique par carte : l'ancien
+# comportement, pour ne rien perdre en route.
+function Get-NotificationCatalog {
+    param([string]$Backend = (Get-BackendRoot))
+    @(foreach ($u in (Get-UnitCatalog -Backend $Backend)) {
+        $declPath = Join-Path (Join-Path (Join-Path $Backend 'probes') $u.id) 'module.psd1'
+        $decl = @{}
+        if (Test-Path -LiteralPath $declPath) {
+            try { $decl = Import-PowerShellDataFile -Path $declPath } catch { }
+        }
+        $notifs = @(foreach ($nn in @($decl.Notifications)) {
+            if (-not $nn -or -not $nn.Key) { continue }
+            [ordered]@{
+                key   = "$($nn.Key)"
+                label = "$($nn.Label)"
+                help  = if ($nn.Help) { "$($nn.Help)" } else { '' }
+                card  = if ($nn.Card) { "$($nn.Card)" } else { '' }
+                field = if ($nn.Field) { "$($nn.Field)" } else { '' }
+            }
+        })
+        [pscustomobject][ordered]@{ unit = $u.id; label = $u.label; enabled = $u.enabled; notifications = $notifs }
+    })
+}
+
 # Le tray applique la regle SANS refaire la logique : une notification pour ce module
 # passe-t-elle ? (global coupe = rien ; sinon le reglage fin, actif par defaut)
 function Test-NotificationAllowed {
-    param([Parameter(Mandatory)][string]$ModuleId, $Settings)
+    param(
+        [Parameter(Mandatory)][string]$ModuleId,
+        # Cle de la notification declaree par le module. Absente : on juge au niveau du
+        # module, comme avant.
+        [string]$Key,
+        $Settings
+    )
     if (-not $Settings) { $Settings = Get-NotificationSettings }
     if (-not [bool]$Settings.enabled) { return $false }
+    # Reglage FIN (par notification) : il l'emporte sur celui du module.
+    if ($Key -and $Settings.notifs) {
+        $ref = "$ModuleId.$Key"
+        $p = $Settings.notifs.PSObject.Properties | Where-Object { $_.Name -eq $ref } | Select-Object -First 1
+        if (-not $p -and ($Settings.notifs -is [System.Collections.IDictionary]) -and $Settings.notifs.Contains($ref)) {
+            return [bool]$Settings.notifs[$ref]
+        }
+        if ($p) { return [bool]$p.Value }
+    }
     # `modules` est un DICTIONNAIRE (jamais un objet JSON brut : Get-NotificationSettings
     # normalise) -- l'acces passe donc par ContainsKey. La premiere version interrogeait
     # PSObject.Properties, qui sur un dictionnaire decrit le conteneur et pas les cles :

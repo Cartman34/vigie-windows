@@ -605,10 +605,18 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
             try {
                 if (Test-Path -LiteralPath $stateCacheFile) {
                     $j = Get-Content -LiteralPath $stateCacheFile -Raw -Encoding UTF8 | ConvertFrom-Json
+                    # On observe l'etat des CHAMPS, pas seulement des cartes : une
+                    # notification est un evenement NOMME (« Temperature GPU elevee »),
+                    # declare par le module. « Session de jeu » ne disait rien a personne
+                    # -- signale par l'utilisateur le 26/08.
                     $vus = @{}
                     foreach ($pr in $j.PSObject.Properties) {
                         foreach ($m in @($pr.Value.module)) {
-                            if ($m -and $m.id) { $vus["$($m.id)"] = @{ status = "$($m.status)"; label = "$($m.label)" } }
+                            if (-not $m -or -not $m.id) { continue }
+                            $vus["$($m.id)"] = @{ status = "$($m.status)"; label = "$($m.label)" }
+                            foreach ($c in @($m.fields)) {
+                                if ($c -and $c.key) { $vus["$($m.id)/$($c.key)"] = @{ status = "$($c.status)"; label = "$($c.label)" } }
+                            }
                         }
                     }
                     if (-not $state.ModsInit) {
@@ -616,13 +624,26 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                     } else {
                         $reglages = $null
                         $bascules = @()
-                        foreach ($id in $vus.Keys) {
-                            $avant = $state.Mods[$id]
-                            if (-not $avant) { continue }   # nouveau module : reference, pas une bascule
-                            if ($avant.status -eq $vus[$id].status) { continue }
-                            if ($null -eq $reglages) { $reglages = Get-NotificationSettings -Backend $backend }
-                            if (-not (Test-NotificationAllowed -ModuleId $id -Settings $reglages)) { continue }
-                            $bascules += [pscustomobject]@{ id = $id; label = $vus[$id].label; de = $avant.status; vers = $vus[$id].status }
+                        # Le catalogue dit QUOI notifier et sous quel nom. Il est relu a
+                        # chaque passage : un module rallume doit etre pris en compte.
+                        $catalogue = @()
+                        try { $catalogue = @(Get-NotificationCatalog -Backend $backend) } catch { }
+                        foreach ($u in $catalogue) {
+                            foreach ($nn in @($u.notifications)) {
+                                $ref = if ($nn.card -and $nn.field) { "$($nn.card)/$($nn.field)" } else { $null }
+                                if (-not $ref) { continue }
+                                $avant = $state.Mods[$ref]
+                                $apres = $vus[$ref]
+                                if (-not $avant -or -not $apres) { continue }
+                                if ($avant.status -eq $apres.status) { continue }
+                                # On ne derange que pour une DEGRADATION ou un RETABLISSEMENT.
+                                $interessant = ($apres.status -in @('warn','error')) -or
+                                               ($apres.status -eq 'ok' -and $avant.status -in @('warn','error'))
+                                if (-not $interessant) { continue }
+                                if ($null -eq $reglages) { $reglages = Get-NotificationSettings -Backend $backend }
+                                if (-not (Test-NotificationAllowed -ModuleId $u.unit -Key $nn.key -Settings $reglages)) { continue }
+                                $bascules += [pscustomobject]@{ id = "$($u.unit).$($nn.key)"; label = "$($nn.label)"; de = $avant.status; vers = $apres.status }
+                            }
                         }
                         $state.Mods = $vus
                         if ($bascules.Count -gt 0) {

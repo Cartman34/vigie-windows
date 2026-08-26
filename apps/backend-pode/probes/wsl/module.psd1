@@ -5,4 +5,12 @@
     # config/modules.local.psd1 (jamais versionne).
     Label       = 'WSL'
     Description = 'Sous-système Linux : état et distribution.'
+
+    # NOTIFICATIONS emises par ce module (D54) : un evenement nomme, pas un nom de
+    # carte. C'est la bascule du champ cite qui declenche la bulle.
+    Notifications = @(
+        @{ Key = 'wsl-down'; Label = 'WSL arrêté'
+           Card = 'wsl'; Field = 'running'
+           Help = 'La machine virtuelle WSL ne tourne plus.' }
+    )
 }
