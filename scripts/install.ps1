@@ -44,7 +44,10 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
         # les taches de demarrage des AUTRES comptes pointent alors vers un chemin qu'ils
         # ne peuvent pas lire, se creent sans erreur et ne lancent rien. Vigie ne demarrait
         # pas chez le compte « Famille », sans le moindre message (26/08, D79).
-        winget install --id Microsoft.PowerShell -e --scope machine --source winget --accept-package-agreements --accept-source-agreements
+        # --installer-type msi : winget choisit sinon le MSIX et tente de le provisionner
+        # pour tous les comptes -- echec 0x80070005 constate le 26/08. Le MSI, lui, pose
+        # pwsh dans C:\Program Files\PowerShell : un chemin lancable par tous.
+        winget install --id Microsoft.PowerShell -e --scope machine --installer-type msi --source winget --accept-package-agreements --accept-source-agreements
         Write-Host "Si l'installation a reussi, RELANCE install.ps1 (il basculera en PS7)." -ForegroundColor Green
     } else {
         Write-Host "winget introuvable. Installe PowerShell 7 : https://aka.ms/powershell-release" -ForegroundColor Yellow
