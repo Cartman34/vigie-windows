@@ -53,13 +53,13 @@ Full detail, card by card: [What Vigie monitors](docs/en/features.md).
 
 The recommended route is the **archive from GitHub Releases** — no git, no clone.
 
-**One double-click does it all: `scripts\install.cmd`.** Prerequisites,
+**One file, at the root: `setup.cmd`. Double-click it.** Prerequisites,
 PowerShell 7 **machine-wide**, the Pode module, the logon autostart, and Vigie itself,
 started.
 
 | | File | What it does |
 |---|---|---|
-| 1 | **`scripts\install.cmd`** | **The whole install.** Asks for administrator rights (a Windows prompt to accept): PowerShell 7 is installed **machine-wide**, not just for your account. Run it **once**. |
+| 1 | **`setup.cmd`** | **The whole install.** Asks for administrator rights (a Windows prompt to accept): PowerShell 7 is installed **machine-wide**, not just for your account. Run it **once**. |
 | 2 | **`scripts\run.cmd`** | Starts Vigie again if you closed it. The browser opens on <http://127.0.0.1:47600/> once the server is actually listening. |
 
 Before that first double-click: download `vigie-<version>.zip` from the
@@ -71,7 +71,7 @@ empty, no version has been tagged yet: take the git route below.*
 > **Why the install needs elevation.** Vigie starts from a scheduled task, one per
 > account, and that task runs `pwsh`. A PowerShell 7 installed for a single account (the
 > Store package) lives inside that account's profile: no other account could start Vigie.
-> So `install.cmd` installs it **machine-wide**
+> So `setup.cmd` installs it **machine-wide**
 > (`C:\Program Files\PowerShell\7`).
 
 From a terminal instead, if you prefer — the install needs an **administrator** terminal,
@@ -105,7 +105,7 @@ The git route, what each script does, and how to uninstall:
 
 - Windows 10 or 11.
 - **PowerShell 7** (`pwsh`), **machine-wide** (`C:\Program Files\PowerShell\7`) — installed by
-  `scripts\install.cmd` if absent. The scheduled tasks run it: an install limited to one
+  `setup.cmd` if absent. The scheduled tasks run it: an install limited to one
   account would stop the others from starting Vigie.
 - The **Pode** PowerShell module — installed by the same script.
 - Administrator rights, for the Windows Update actions and the autostart task.

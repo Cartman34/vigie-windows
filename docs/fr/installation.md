@@ -80,7 +80,7 @@ Tout vit dans `scripts\`. Chaque script est **idempotent** : le relancer ne cass
 
 ### 1. Les prérequis, une fois
 
-**Le plus simple : double-cliquez `scripts\install.cmd`.** Il demande lui-même
+**Le plus simple : double-cliquez `setup.cmd`.** Il demande lui-même
 l'élévation (fenêtre Windows à accepter), fait la première passe avec Windows PowerShell —
 `pwsh` n'existe pas encore au moment d'installer — puis la seconde avec PowerShell 7 une
 fois celui-ci posé.
