@@ -1988,3 +1988,31 @@ machine occupee - un deploiement en cours, justement - les 15 s ne laissaient au
 marge. Deux corrections : le tray pose un **accuse de reception** des qu'il consomme
 l'ordre (on distingue « tray fige » de « relance lente » : deux depannages differents),
 et le delai passe a **45 s**.
+
+## D79 - PowerShell 7 est une DEPENDANCE, installee pour la machine (2026-08-26)
+
+Regle de la machine, rappelee par l'utilisateur : « on n'est pas cense installer d'outil
+Windows pour un compte sur ce PC, c'est cense installer pour tous les comptes ». Vigie en
+depend directement : elle demarre par une tache planifiee **par compte**, et cette tache
+lance `pwsh`.
+
+Ce qui s'est passe : `install.ps1` appelait `winget install --id Microsoft.PowerShell`
+**sans `--scope machine`**. winget a donc pose le paquet MSIX dans le profil de `fhaza`,
+et l'activation du compte `Famille` a cree une tache pointant vers `C:\Users\fhaza\AppData\Local\Microsoft\WindowsApps\pwsh.exe` -
+illisible pour lui. La tache s'est creee **sans erreur** et n'a jamais rien lance : Vigie
+ne demarrait pas, sans message.
+
+Traite **a chaque chemin d'installation**, pas seulement la ou ca a fait mal :
+- `install.ps1` installe avec `--scope machine`, et **verifie** ensuite la presence d'un
+  pwsh machine ; en administrateur il l'installe, sinon il le dit clairement ;
+- `install-autostart.ps1` prefere l'interpreteur de la machine pour la tache ;
+- `deploy-prod.ps1` avertit avant de proposer les comptes ;
+- la carte **Comptes** porte la ligne « PowerShell 7 : installe pour vous seul » avec son
+  bouton de resolution, et `Set-VigieAccountEnabled` **refuse** d'activer un autre compte
+  tant que la dependance manque ;
+- les arguments d'installation ont **une seule definition** (`Get-SharedPwshInstallArgs`,
+  D15) : le script et le bouton lancent exactement la meme chose.
+
+**Le principe general** : une dependance ne se constate pas au moment ou elle manque, elle
+se traite dans le chemin d'installation - et pour TOUS les comptes, jamais pour le seul
+compte qui installe.

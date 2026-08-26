@@ -43,7 +43,11 @@ if (-not (Test-IsElevated)) {
     exit $code
 }
 
-$pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
+# L'interpreteur de la MACHINE d'abord : c'est le seul que toutes les sessions peuvent
+# lancer, et il ne depend pas de l'enregistrement d'un paquet du Store. A defaut, celui
+# du compte courant -- suffisant pour SA propre tache, mais pas pour celle d'un autre.
+$pwsh = Get-SharedPwshPath
+if (-not $pwsh) { $pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Source }
 if (-not $pwsh) { Write-Host "pwsh introuvable. Lance d'abord install.ps1 (installe PowerShell 7)." -ForegroundColor Yellow; exit 1 }
 
 $arg       = '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $tray + '"'

@@ -57,8 +57,11 @@ Le détail carte par carte : [Ce que surveille Vigie](docs/fr/fonctionnalites.md
 
 La voie recommandée est l'**archive publiée dans les Releases GitHub** — ni git, ni clone.
 
-1. **Prérequis** : PowerShell 7 (`pwsh`). `scripts\install.ps1` l'installe via winget s'il
-   manque.
+1. **Prérequis** : PowerShell 7 (`pwsh`), **installé pour la machine**.
+   `scripts\install.ps1` s'en charge via winget (`--scope machine`) s'il manque ou s'il
+   n'existe que pour votre compte — lancez-le en administrateur. Un PowerShell 7 installé
+   pour un seul compte (paquet du Store) vit dans son profil : les autres comptes ne
+   pourraient pas démarrer Vigie.
 2. Téléchargez `vigie-<version>.zip` depuis la
    [page des Releases](https://github.com/Cartman34/vigie-windows/releases) et
    décompressez-la à un endroit durable (ni `Téléchargements`, ni un dossier temporaire :
@@ -101,7 +104,10 @@ bord : [Prise en main](docs/fr/prise-en-main.md).
 ## Prérequis
 
 - Windows 10 ou 11.
-- **PowerShell 7** (`pwsh`) — installé par `scripts\install.ps1` s'il est absent.
+- **PowerShell 7** (`pwsh`), **pour la machine** (`C:\Program Files\PowerShell`) —
+  installé par `scripts\install.ps1` s'il est absent. C'est lui que lancent les tâches de
+  démarrage : une installation limitée à un compte empêcherait les autres de démarrer
+  Vigie.
 - Le module PowerShell **Pode** — installé par le même script.
 - Les droits administrateur, pour les actions Windows Update et la tâche de démarrage.
 - Un navigateur Chromium (Edge ou Chrome) pour la fenêtre applicative dédiée ; n'importe
