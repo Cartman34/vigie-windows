@@ -69,15 +69,46 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
             $asset = @($rel.assets | Where-Object { $_.name -like '*-win-x64.msi' }) | Select-Object -First 1
             if (-not $asset) { throw "aucun MSI x64 dans la derniere version publiee" }
             $msi = Join-Path $env:TEMP $asset.name
+            # SANS CECI, Windows PowerShell 5.1 s'enlise : le rendu de sa barre de
+            # progression coute plus cher que le telechargement lui-meme, et sur 108 Mo
+            # la commande semble figee de longues minutes APRES que le fichier soit
+            # complet -- constate le 26/08, fichier entier sur disque et script toujours
+            # en attente. C'est un defaut connu de 5.1 ; on eteint la barre.
+            $ProgressPreference = 'SilentlyContinue'
             $mo  = [math]::Round(([double]$asset.size) / 1MB, 1)
-            Write-Host ("Telechargement de " + $asset.name + " (" + $mo + " Mo)...")
-            Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $msi -UseBasicParsing -TimeoutSec 900
+            # Deja telecharge ET complet ? On ne recommence pas : une tentative
+            # precedente peut avoir bute apres coup (voir ci-dessus).
+            $dejaLa = $false
+            if (Test-Path -LiteralPath $msi) {
+                $dejaLa = ((Get-Item -LiteralPath $msi).Length -eq [long]$asset.size)
+                if (-not $dejaLa) { Remove-Item -LiteralPath $msi -Force -ErrorAction SilentlyContinue }
+            }
+            if ($dejaLa) {
+                Write-Host ("Deja telecharge : " + $asset.name + " (" + $mo + " Mo)")
+            } else {
+                Write-Host ("Telechargement de " + $asset.name + " (" + $mo + " Mo)...")
+                Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $msi -UseBasicParsing -TimeoutSec 900
+                Write-Host "Telechargement termine."
+            }
             Write-Host "Installation pour toute la machine..."
             # ALLUSERS=1 : installation MACHINE. /qn : sans interface, on est deja eleve.
+            # /qb et non /qn : une installation de deux minutes doit se VOIR. Une barre
+            # de progression vaut mieux qu'une fenetre muette dont on ne sait pas si elle
+            # travaille ou si elle est bloquee.
             $mi = Start-Process -FilePath 'msiexec.exe' -Wait -PassThru -ArgumentList @(
-                      '/i', ('"' + $msi + '"'), '/qn', 'ALLUSERS=1', 'ADD_PATH=1')
-            Write-Host ("msiexec a rendu le code " + $mi.ExitCode + ".")
-            Remove-Item -LiteralPath $msi -Force -ErrorAction SilentlyContinue
+                      '/i', ('"' + $msi + '"'), '/qb', 'ALLUSERS=1', 'ADD_PATH=1')
+            # LE RESULTAT SE LIT. 0 = installe ; 3010 = installe, redemarrage demande ;
+            # 1618 = un autre installateur travaille deja ; le reste est un echec qu'il
+            # faut nommer, pas passer sous silence.
+            switch ([int]$mi.ExitCode) {
+                0    { Write-Host "Installation reussie." -ForegroundColor Green }
+                3010 { Write-Host "Installee. Windows demande un redemarrage." -ForegroundColor Yellow }
+                1618 { Write-Host "Un autre installateur Windows est en cours : reessaie dans une minute." -ForegroundColor Yellow }
+                default { Write-Host ("msiexec a echoue (code " + $mi.ExitCode + ").") -ForegroundColor Red }
+            }
+            if ([int]$mi.ExitCode -eq 0 -or [int]$mi.ExitCode -eq 3010) {
+                Remove-Item -LiteralPath $msi -Force -ErrorAction SilentlyContinue
+            }
         } catch {
             Write-Host ("Echec du repli MSI : " + $_.Exception.Message) -ForegroundColor Red
         }
