@@ -1196,6 +1196,15 @@ function Get-ApiToken {
 # Le role de jeton de changement revient a Get-AppBuildId, ci-dessous.
 function Get-AppVersion {
     param([string]$Backend = (Get-BackendRoot))
+    # Une installation deployee porte sa marque (fichier BUILD) : c'est elle qui fait foi,
+    # le fichier VERSION du depot ne decrivant que le depot.
+    $marque = Join-Path (Get-RepoRoot) 'BUILD'
+    if (Test-Path -LiteralPath $marque) {
+        try {
+            $j = Get-Content -LiteralPath $marque -Raw | ConvertFrom-Json
+            if ($j -and $j.version) { return "$($j.version)" }
+        } catch { }
+    }
     $f = Join-Path (Get-RepoRoot) 'VERSION'
     if (Test-Path -LiteralPath $f) {
         $v = "$(Get-Content -LiteralPath $f -Raw -ErrorAction SilentlyContinue)".Trim()
@@ -1214,6 +1223,84 @@ function Get-AppBuildId {
     param([string]$Backend = (Get-BackendRoot))
     $idx = Join-Path (Get-AppPath -Role 'frontend') 'index.html'
     if (Test-Path $idx) { "$((Get-Item $idx).LastWriteTimeUtc.Ticks)" } else { '0' }
+}
+
+# --- IDENTITE PRECISE D'UNE VERSION : le numero ET le commit -----------------
+#
+# « Au niveau technique je conseille de prendre la version ET le commit. » Le numero dit
+# ce qu'on a voulu livrer ; le commit dit ce qui a REELLEMENT ete livre. Deux
+# deploiements du meme v0.1 peuvent differer de vingt commits -- et c'est exactement le
+# cas d'un poste de developpement.
+#
+# La marque est POSEE DANS L'ARCHIVE au moment de la fabrication (fichier BUILD, une
+# ligne « version commit date »), parce qu'une installation deployee n'a pas de depot
+# git : elle ne peut pas se decrire elle-meme autrement.
+function Get-GitCommit {
+    param([string]$Path = (Get-RepoRoot), [switch]$Court)
+    try {
+        $git = (Get-Command git -ErrorAction SilentlyContinue)
+        if (-not $git) { return $null }
+        $forme = if ($Court) { '%h' } else { '%H' }
+        $c = (& $git.Source -C $Path log -1 --format=$forme 2>$null | Select-Object -First 1)
+        if ($c) { return "$c".Trim() }
+    } catch { }
+    return $null
+}
+
+# La marque d'une installation : version, commit, date. Lue dans le fichier BUILD s'il
+# existe (installation deployee), sinon calculee depuis git (poste de developpement).
+function Get-BuildStamp {
+    param([string]$Root = (Get-RepoRoot))
+    $f = Join-Path $Root 'BUILD'
+    if (Test-Path -LiteralPath $f) {
+        try {
+            $j = Get-Content -LiteralPath $f -Raw | ConvertFrom-Json
+            if ($j -and $j.version) { return $j }
+        } catch { }
+    }
+    $vf = Join-Path $Root 'VERSION'
+    $v = if (Test-Path -LiteralPath $vf) { "$(Get-Content -LiteralPath $vf -Raw)".Trim() } else { '' }
+    return [pscustomobject][ordered]@{
+        version = $(if ($v) { $(if ($v.StartsWith('v')) { $v } else { "v$v" }) } else { 'inconnue' })
+        commit  = (Get-GitCommit -Path $Root)
+        at      = $null
+        source  = 'depot'
+    }
+}
+
+# Ecrit la marque : appele par la fabrication de l'archive, une seule fois.
+function Write-BuildStamp {
+    param([Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][string]$Version, [string]$Commit)
+    $o = [ordered]@{ version = $Version; commit = $Commit
+                     at = (Get-Date).ToUniversalTime().ToString('o'); source = 'archive' }
+    ($o | ConvertTo-Json -Depth 4) | Out-File -FilePath (Join-Path $Root 'BUILD') -Encoding UTF8
+}
+
+# L'installation partagee est-elle a jour par rapport a ce depot ? Rend un constat
+# lisible, jamais un simple booleen : « pareil », « en retard de 12 commits », « inconnu ».
+function Compare-SharedInstall {
+    param([string]$Backend = (Get-BackendRoot))
+    $partagee = Get-SharedInstallPath
+    if (-not $partagee) { return $null }
+    $ici = Get-BuildStamp -Root (Get-RepoRoot)
+    $la  = Get-BuildStamp -Root $partagee
+    $ecart = $null
+    if ($ici.commit -and $la.commit) {
+        if ($ici.commit -eq $la.commit) { $ecart = 0 }
+        else {
+            try {
+                $git = (Get-Command git -ErrorAction SilentlyContinue)
+                if ($git) {
+                    $c = (& $git.Source -C (Get-RepoRoot) rev-list --count ("$($la.commit)..$($ici.commit)") 2>$null | Select-Object -First 1)
+                    if ($c -match '^\d+$') { $ecart = [int]$c }
+                }
+            } catch { }
+        }
+    }
+    [pscustomobject][ordered]@{
+        path = $partagee; here = $ici; there = $la; behind = $ecart
+        same = ($ici.commit -and $la.commit -and $ici.commit -eq $la.commit)
+    }
 }
 
 # --- Journalisation ---------------------------------------------------------

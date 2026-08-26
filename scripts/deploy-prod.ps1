@@ -34,6 +34,56 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path $PSScriptRoot -Parent
 . (Join-Path $repoRoot 'apps/backend-pode/lib/common.ps1')
 
+# --- 0. LE TAG DE CE DEPLOIEMENT ---------------------------------------------
+#
+# Regle posee par l'utilisateur : on cree des versions v0.X et v0.X.Y, marquees par un
+# TAG, et **uniquement au moment d'un deploiement**, avec un increment fixe. Un tag pose
+# a chaque commit ne voudrait rien dire ; pose au deploiement, il repond exactement a la
+# question « qu'est-ce qui tourne sur cette machine ? ».
+#
+# L'increment est le dernier nombre, +1. Le premier deploiement d'une version part de ce
+# que dit le fichier VERSION (0.1 -> v0.1.1).
+function Get-ProchainTag {
+    param([string]$Racine)
+    $base = '0.1'
+    $vf = Join-Path $Racine 'VERSION'
+    if (Test-Path -LiteralPath $vf) {
+        $v = "$(Get-Content -LiteralPath $vf -Raw)".Trim() -replace '^v', ''
+        if ($v) { $base = $v }
+    }
+    $existants = @()
+    try { $existants = @(& git -C $Racine tag --list ("v" + $base + ".*") 2>$null) } catch { }
+    $max = 0
+    foreach ($t in $existants) {
+        if ("$t" -match ('^v' + [regex]::Escape($base) + '\.(\d+)$')) {
+            $x = [int]$Matches[1]
+            if ($x -gt $max) { $max = $x }
+        }
+    }
+    return ('v' + $base + '.' + ($max + 1))
+}
+
+if (-not $Zip) {
+    $tag = Get-ProchainTag -Racine $repoRoot
+    $commit = (Get-GitCommit -Path $repoRoot -Court)
+    try {
+        # -f absent VOLONTAIREMENT : un tag ne se reecrit pas. S'il existe deja, c'est
+        # que ce deploiement a deja eu lieu -- on le dit et on continue.
+        & git -C $repoRoot tag -a $tag -m ("Deploiement du " + (Get-Date -Format 'dd/MM/yyyy HH:mm')) 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host ("Tag pose : " + $tag + " sur " + $commit)
+            # Le tag ne vaut que s'il est partage. L'echec de pousse n'est PAS fatal :
+            # un deploiement doit aboutir meme sans reseau.
+            & git -C $repoRoot push origin $tag 2>$null | Out-Null
+            if ($LASTEXITCODE -eq 0) { Write-Host "Tag pousse." } else { Write-Host "Tag local (pousse impossible)." -ForegroundColor DarkGray }
+        } else {
+            Write-Host ("Tag " + $tag + " deja present : rien a poser.") -ForegroundColor DarkGray
+        }
+    } catch {
+        Write-Host ("Tag non pose : " + $_.Exception.Message) -ForegroundColor DarkGray
+    }
+}
+
 # --- 1. La version a deployer -------------------------------------------------
 if (-not $Zip) {
     $build = Join-Path $PSScriptRoot 'build-release.ps1'
@@ -42,7 +92,14 @@ if (-not $Zip) {
         exit 1
     }
     Write-Host "Fabrication de l'archive de distribution..."
-    & pwsh -NoProfile -File $build | Write-Host
+    # L'archive porte le numero du tag qu'on vient de poser : le tag, l'archive et
+    # l'installation racontent alors la meme histoire.
+    if ($tag) { & pwsh -NoProfile -File $build -Version $tag | Write-Host }
+    else      { & pwsh -NoProfile -File $build | Write-Host }
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "La fabrication de l'archive a echoue : deploiement abandonne." -ForegroundColor Red
+        exit 1
+    }
     $dist = Join-Path $repoRoot 'dist'
     $Zip = @(Get-ChildItem -Path $dist -Filter 'vigie-*.zip' -File -ErrorAction SilentlyContinue |
              Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName

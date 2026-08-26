@@ -47,9 +47,31 @@ if (-not $comptes.Count) {
 # bouton qui corrige (D66 : une alerte porte toujours sa resolution).
 $partagee = [bool](Get-SharedInstallPath)
 if ($partagee) {
-    $fields += New-Field -Key 'partage' -Label 'Installation' -Value 'accessible a tous les comptes' -Kind 'text' -Status 'ok' `
-        -Help "Emplacement lisible par tous les comptes de la machine : leurs taches de demarrage pointent dessus." `
-        -Guide ("Installation partagee : " + (Get-SharedInstallPath))
+    # A JOUR ? Le numero de version ne suffit pas : deux « v0.1 » peuvent differer de
+    # vingt commits. On compare donc le COMMIT, et on dit l'ecart (D84).
+    $cmp = Compare-SharedInstall -Backend $backend
+    $etat = 'accessible a tous les comptes'
+    $niveau = 'ok'
+    $detail = "Installation partagee : " + (Get-SharedInstallPath)
+    if ($cmp) {
+        $detail += [Environment]::NewLine + "Deployee : " + $cmp.there.version +
+                   $(if ($cmp.there.commit) { " (" + $cmp.there.commit.Substring(0, [Math]::Min(8, $cmp.there.commit.Length)) + ")" } else { " (commit inconnu)" })
+        $detail += [Environment]::NewLine + "Ce depot : " + $cmp.here.version +
+                   $(if ($cmp.here.commit) { " (" + $cmp.here.commit.Substring(0, [Math]::Min(8, $cmp.here.commit.Length)) + ")" } else { "" })
+        if ($cmp.same) {
+            $etat = $cmp.there.version + ' - a jour'
+        } elseif ($null -ne $cmp.behind -and $cmp.behind -gt 0) {
+            $etat = $cmp.there.version + ' - en retard de ' + $cmp.behind + ' commit(s)'
+            $niveau = 'warn'
+        } elseif (-not $cmp.there.commit) {
+            $etat = $cmp.there.version + ' - deployee avant le suivi des commits'
+            $niveau = 'warn'
+        }
+    }
+    $fields += New-Field -Key 'partage' -Label 'Installation' -Value $etat -Kind 'text' -Status $niveau `
+        -FixAction $(if ($niveau -eq 'warn') { 'deploy-shared' } else { '' }) `
+        -Help "Emplacement lisible par tous les comptes de la machine : leurs taches de demarrage pointent dessus. Les autres comptes lancent CETTE version, pas celle du depot." `
+        -Guide $detail
 } else {
     $fields += New-Field -Key 'partage' -Label 'Installation' -Value 'lisible par vous seul' -Kind 'text' -Status 'warn' `
         -FixAction 'deploy-shared' `

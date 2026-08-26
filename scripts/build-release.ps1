@@ -49,6 +49,10 @@
 [CmdletBinding()]
 param(
     [string] $OutDir,
+    # Numero a graver dans l'archive. Absent : celui du fichier VERSION. Le deploiement,
+    # lui, passe le TAG qu'il vient de poser (v0.1.3) : l'archive et le tag disent alors
+    # exactement la meme chose.
+    [string] $Version,
     [switch] $KeepStaging,
     [switch] $ListOnly
 )
@@ -57,6 +61,10 @@ $ErrorActionPreference = 'Stop'
 
 # Les scripts de gestion vivent dans scripts/ : la racine du depot est le dossier parent.
 $repoRoot = Split-Path $PSScriptRoot -Parent
+# La marque de version (numero + commit) a UNE seule definition, dans common.ps1 : la
+# fabrication et la lecture doivent s'accorder, sinon l'archive dit une chose et
+# l'installation en comprend une autre.
+. (Join-Path $repoRoot 'apps/backend-pode/lib/common.ps1')
 
 # ---------------------------------------------------------------------------------------
 # Ce qui est VERSIONNE mais ne part PAS chez l'utilisateur.
@@ -184,7 +192,7 @@ if (-not (Test-Path -LiteralPath $versionFile)) {
 }
 # Le numero ne vit qu'ici (D15). Le prefixe « v » est un habillage d'affichage : il ne
 # rentre pas dans un nom de fichier, sinon il faudrait le retirer partout ailleurs.
-$version = "$(Get-Content -LiteralPath $versionFile -Raw)".Trim()
+$version = if ($Version) { $Version -replace '^v', '' } else { "$(Get-Content -LiteralPath $versionFile -Raw)".Trim() }
 if (-not $version) {
     Write-Host "Le fichier VERSION est vide. Le nom de l'archive en dépend." -ForegroundColor Yellow
     exit 1
@@ -305,6 +313,14 @@ try {
         foreach ($l in $liensMorts) { Write-Host ("    " + $l.Fichier + " -> " + $l.Lien) -ForegroundColor Yellow }
         Write-Host "    Ces cibles sont exclues de l'archive : écris ces liens en URL GitHub absolue." -ForegroundColor Yellow
     }
+
+    # LA MARQUE DE CETTE VERSION, posee dans l'archive : numero ET commit (D84).
+    # Une installation deployee n'a pas de depot git ; sans ce fichier, elle ne peut pas
+    # dire ce qu'elle contient, et on ne peut pas savoir si elle est a jour. Le numero
+    # seul ne suffit pas : deux archives « v0.1 » peuvent differer de vingt commits.
+    $commit = Get-GitCommit -Path $repoRoot
+    Write-BuildStamp -Root $staging -Version $(if ($version.StartsWith('v')) { $version } else { "v$version" }) -Commit $commit
+    Write-Host ("Marque posee : v" + ($version -replace '^v', '') + " / " + $(if ($commit) { $commit.Substring(0, 8) } else { 'commit inconnu' }))
 
     # Le dossier lui-meme est compresse, pas son contenu : l'archive porte donc une racine
     # « vigie-<version>/ ». Sans elle, une decompression deverse tout dans le dossier courant.
