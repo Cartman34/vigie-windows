@@ -64,6 +64,7 @@ if ($partagee) {
 $pwshPartage = Get-SharedPwshPath
 if (-not $pwshPartage) {
     $fields += New-Field -Key 'pwsh' -Label 'PowerShell 7' -Value 'installe pour vous seul' -Kind 'text' -Status 'warn' `
+        -FixAction 'pwsh-install-machine' `
         -Help "Les taches des autres comptes ont besoin d'un PowerShell 7 installe pour la MACHINE. Celui-ci vient du Store et n'existe que dans votre profil : leur tache ne lancerait rien." `
         -Guide ("Interpreteur actuel : " + ((Get-Command pwsh -ErrorAction SilentlyContinue).Source) + [Environment]::NewLine +
                 "A faire une fois, en administrateur :" + [Environment]::NewLine +
