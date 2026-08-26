@@ -138,8 +138,14 @@ système), `DECISIONS-VALIDEES.md` (toutes les règles, D01→D72).
    (D77, corrigé). À savoir par ailleurs, sans rapport : **MSEdgeRedirect** est branché en
    *debugger* IFEO sur `msedge.exe`, donc un lancement direct d'Edge sort en code 0 sans
    fenêtre — voulu par l'utilisateur, rien à réparer.
-5. **S5 — invalidation immédiate de la sonde réseau** sur événement Windows de changement
-   d'adresse : **feu vert donné**, à faire.
+5. **S5 — FAIT, à éprouver en vrai.** Le tray s'abonne à `NetworkChange`
+   (`NetworkAddressChanged` / `NetworkAvailabilityChanged`) : au changement d'adresse, la
+   sonde réseau est périmée dans la seconde au lieu d'attendre son TTL. L'abonnement est
+   **en C#** (le gestionnaire pose un drapeau) et c'est un `Timer` d'interface qui agit —
+   Windows prévient sur un fil du pool, où exécuter du PowerShell n'est pas sûr. Prend
+   effet **au prochain redémarrage du tray**. À constater : débrancher le câble ou changer
+   de Wi-Fi, la carte Réseau doit suivre tout de suite (journal du tray :
+   « adresse reseau changee »).
 6. **Tray — feu vert pour analyse** : il ne prend plus l'ordre `-Restart` en 15 s (constaté
    à chaque déploiement les 25 et 26/08) ; c'est son auto-guérison qui relance le serveur,
    donc le déploiement aboutit quand même. À analyser : `apps/tray/var/run` (ordres),
