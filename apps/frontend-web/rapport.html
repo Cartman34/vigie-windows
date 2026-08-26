@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vigie — rapport</title>
+<style>
+/* =============================================================================
+   RAPPORT IMPRIMABLE. « Ca doit faire plus document, avec un peu notre patte » :
+   on garde la palette et la typographie de l'application, mais on retire tout ce
+   qui fait interface -- pas de cartes, pas d'aplats de couleur, pas d'ombres.
+   Le fond est blanc, le texte noir : c'est ce qui s'imprime, et c'est ce qu'on
+   veut relire dans six mois.
+
+   La couleur ne sert plus qu'a UNE chose : signaler un ecart (un point, un mot).
+   ========================================================================== */
+:root{
+  --encre:#141a22; --gris:#586274; --trait:#c2cbd8; --papier:#ffffff;
+  --accent:#0b64e6; --ok:#0f7a37; --warn:#9a5b00; --err:#d21c2c;
+  --serif: Georgia, 'Times New Roman', serif;
+  --sans: -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#e9edf4;color:var(--encre);font-family:var(--sans);font-size:13px;line-height:1.5}
+
+/* La feuille : une largeur de page, centree, avec de vraies marges. */
+.feuille{max-width:190mm;margin:24px auto;background:var(--papier);padding:18mm 16mm;
+         box-shadow:0 2px 18px rgba(20,26,34,.13)}
+
+/* --- En-tete : la signature du document ---------------------------------- */
+.entete{border-bottom:2px solid var(--encre);padding-bottom:10px;margin-bottom:22px;
+        display:flex;justify-content:space-between;align-items:flex-end;gap:16px}
+.marque{font-family:var(--serif);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--gris)}
+.titre{font-family:var(--serif);font-size:25px;font-weight:700;margin:2px 0 0}
+.sous{color:var(--gris);font-size:12px;margin-top:3px}
+.entete .droite{text-align:right;font-size:11px;color:var(--gris);line-height:1.7;white-space:nowrap}
+
+/* --- Sections ------------------------------------------------------------- */
+h2{font-family:var(--serif);font-size:15px;font-weight:700;margin:24px 0 8px;
+   padding-bottom:4px;border-bottom:1px solid var(--trait);page-break-after:avoid}
+h3{font-size:12px;font-weight:600;color:var(--gris);margin:14px 0 5px;
+   text-transform:uppercase;letter-spacing:.06em;page-break-after:avoid}
+
+/* --- Le corps : des paires « intitule / valeur », pas des cartes ---------- */
+dl{display:grid;grid-template-columns:minmax(150px,34%) 1fr;gap:0;margin:0}
+dt,dd{padding:5px 0;border-bottom:1px solid #eef1f5;margin:0}
+dt{color:var(--gris)}
+dd{font-weight:600;text-align:right}
+dl.plein dd{text-align:left;font-weight:400}
+
+/* Tableaux : pour ce qui se compte (barrettes, disques, ecrans). */
+table{width:100%;border-collapse:collapse;margin:6px 0 2px}
+th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--gris);
+   font-weight:600;padding:5px 8px 5px 0;border-bottom:1px solid var(--trait)}
+td{padding:5px 8px 5px 0;border-bottom:1px solid #eef1f5;vertical-align:top}
+td.num{text-align:right;white-space:nowrap}
+
+/* Le seul usage de la couleur : dire qu'une valeur sort de l'ordinaire. */
+.pt{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:7px;
+    vertical-align:baseline;background:var(--gris)}
+.pt.ok{background:var(--ok)} .pt.warn{background:var(--warn)} .pt.error{background:var(--err)}
+.v-warn{color:var(--warn)} .v-error{color:var(--err)}
+.note{color:var(--gris);font-size:11px;margin-top:3px}
+
+/* --- Barre d'action : a l'ecran seulement -------------------------------- */
+.barre{position:sticky;top:0;z-index:5;background:#e9edf4;padding:10px 0;margin:0 auto;max-width:190mm;
+       display:flex;gap:8px;align-items:center}
+.barre button, .barre a{font:inherit;font-size:12px;padding:7px 13px;border-radius:6px;cursor:pointer;
+       border:1px solid var(--trait);background:#fff;color:var(--encre);text-decoration:none}
+.barre button.primaire{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.barre .info{color:var(--gris);font-size:11px;margin-left:auto}
+
+.vide{color:var(--gris);font-style:italic}
+
+/* --- IMPRESSION ----------------------------------------------------------
+   Ce que le navigateur envoie au PDF. On enleve le decor d'ecran, on garde la
+   grille et on empeche les coupures au mauvais endroit. */
+@media print{
+  @page{size:A4;margin:14mm 12mm}
+  body{background:#fff;font-size:10.5pt}
+  .barre{display:none}
+  .feuille{max-width:none;margin:0;padding:0;box-shadow:none}
+  h2{margin-top:16px}
+  section{page-break-inside:auto}
+  tr,dt,dd{page-break-inside:avoid}
+  .pied{position:fixed;bottom:0;left:0;right:0;font-size:8.5pt;color:var(--gris);
+        border-top:1px solid var(--trait);padding-top:3px}
+}
+.pied{display:none}
+@media print{ .pied{display:block} }
+</style>
+</head>
+<body>
+<div class="barre">
+  <button class="primaire" onclick="window.print()">Imprimer / Enregistrer en PDF</button>
+  <a href="/rapport?type=materiel" id="lienMat">Fiche matérielle</a>
+  <a href="/rapport?type=etat" id="lienEtat">État actuel</a>
+  <span class="info">Dans la fenêtre d'impression, choisissez « Enregistrer au format PDF ».</span>
+</div>
+
+<div class="feuille">
+  <div class="entete">
+    <div>
+      <div class="marque">Sowapps · Vigie</div>
+      <h1 class="titre" id="titre">Rapport</h1>
+      <div class="sous" id="sous">…</div>
+    </div>
+    <div class="droite" id="meta"></div>
+  </div>
+  <div id="corps"><p class="vide">Lecture en cours…</p></div>
+</div>
+<div class="pied" id="pied"></div>
+
+<script>
+const TOKEN = '__API_TOKEN__';
+const API   = '/api/v1';
+const TYPE  = (new URLSearchParams(location.search).get('type') || 'materiel');
+
+const E = (t, a, ...enfants) => {
+  const n = document.createElement(t);
+  if (a) for (const [k, v] of Object.entries(a)) {
+    if (k === 'class') n.className = v; else if (k === 'html') n.innerHTML = v; else n.setAttribute(k, v);
+  }
+  for (const c of enfants) if (c !== null && c !== undefined) n.append(c);
+  return n;
+};
+const txt = v => (v === null || v === undefined || v === '') ? '—' : String(v);
+const jour = d => d ? new Date(d).toLocaleDateString('fr-FR', {day:'2-digit', month:'long', year:'numeric'}) : '—';
+const heure = d => d ? new Date(d).toLocaleString('fr-FR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+
+async function lire(url){
+  const r = await fetch(API + url, { headers: { Authorization: 'Bearer ' + TOKEN } });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+// Une liste de paires : c'est la forme de base du document.
+function paires(entrees, plein){
+  const dl = E('dl', plein ? {class:'plein'} : null);
+  for (const [cle, val] of entrees) {
+    if (val === null || val === undefined || val === '') continue;
+    dl.append(E('dt', null, cle), E('dd', null, val));
+  }
+  return dl;
+}
+
+function tableau(colonnes, lignes){
+  const t = E('table');
+  const trh = E('tr');
+  colonnes.forEach(c => trh.append(E('th', null, c.replace(/^#/, ''))));
+  t.append(E('thead', null, trh));
+  const tb = E('tbody');
+  for (const l of lignes) {
+    const tr = E('tr');
+    l.forEach((v, i) => tr.append(E('td', colonnes[i].startsWith('#') ? {class:'num'} : null, txt(v))));
+    tb.append(tr);
+  }
+  t.append(tb);
+  return t;
+}
+
+function section(titre, ...contenu){
+  const s = E('section');
+  s.append(E('h2', null, titre));
+  contenu.forEach(c => c && s.append(c));
+  return s;
+}
+
+// ---------------------------------------------------------------- MATERIEL
+async function ficheMaterielle(){
+  const h = await lire('/hardware');
+  const m = h.machine, cm = h.carteMere;
+  document.getElementById('titre').textContent = 'Fiche matérielle';
+  document.getElementById('sous').textContent = [m.fabricant, m.modele].filter(Boolean).join(' ') + ' · ' + m.nom;
+  document.getElementById('meta').innerHTML =
+    'Relevé du ' + jour(h.at) + '<br>' + txt(m.forme) + '<br>' + txt(m.os);
+
+  const corps = document.getElementById('corps');
+  corps.textContent = '';
+
+  corps.append(section('La machine', paires([
+    ['Nom sur le réseau', m.nom],
+    ['Fabricant', m.fabricant],
+    ['Modèle', m.modele + (m.famille && m.famille !== m.modele ? ' (' + m.famille + ')' : '')],
+    ['Type', m.forme],
+    ['Numéro de série', m.numeroSerie],
+    ['Système', m.os + (m.osArchi ? ' · ' + m.osArchi : '')],
+    ['Version de Windows', m.osVersion],
+    ['Installé le', m.installeLe ? jour(m.installeLe) : null],
+  ])));
+
+  corps.append(section('Carte mère et BIOS', paires([
+    ['Fabricant', cm.fabricant],
+    ['Modèle', cm.modele],
+    ['BIOS', cm.bios],
+    ['Date du BIOS', cm.biosDate ? jour(cm.biosDate) : null],
+  ])));
+
+  const p = (h.processeurs || [])[0];
+  if (p) corps.append(section('Processeur', paires([
+    ['Modèle', p.nom],
+    ['Cœurs', p.coeurs + ' cœurs · ' + p.fils + ' threads'],
+    ['Fréquence maximale', p.frequence ? (p.frequence / 1000).toFixed(2) + ' GHz' : null],
+    ['Cache L3', p.cacheL3Ko ? Math.round(p.cacheL3Ko / 1024) + ' Mo' : null],
+    ['Socket', p.socket],
+  ])));
+
+  const mem = h.memoire || {};
+  corps.append(section('Mémoire vive',
+    paires([
+      ['Total installé', mem.totalGo + ' Go'],
+      ['Emplacements', (mem.barrettes || []).length + ' occupé(s) sur ' + txt(mem.emplacements)],
+    ]),
+    (mem.barrettes || []).length
+      ? tableau(['Emplacement', 'Type', '#Taille', '#Vitesse', 'Fabricant', 'Référence'],
+          mem.barrettes.map(b => [b.emplacement, b.type, b.tailleGo + ' Go',
+                                  b.vitesse ? b.vitesse + ' MT/s' : '—', b.fabricant, b.reference]))
+      : null));
+
+  if ((h.disques || []).length) corps.append(section('Stockage',
+    tableau(['Modèle', 'Type', '#Capacité', 'Interface', 'État', 'Firmware'],
+      h.disques.map(d => [d.modele, d.type, d.tailleGo + ' Go', d.bus, d.sante, d.firmware]))));
+
+  if ((h.graphiques || []).length) corps.append(section('Affichage',
+    tableau(['Carte graphique', '#Mémoire', 'Pilote', 'Date du pilote'],
+      h.graphiques.map(g => [g.nom, g.vramGo ? g.vramGo + ' Go' : '—', g.pilote,
+                             g.piloteDate ? jour(g.piloteDate) : '—'])),
+    (h.ecrans || []).length
+      ? tableau(['Écran', 'Fabricant', '#Diagonale', '#Année'],
+          h.ecrans.map(e => [e.modele, e.fabricant, e.pouces ? e.pouces + ' pouces' : '—', e.annee || '—']))
+      : null));
+
+  if ((h.reseau || []).length) corps.append(section('Réseau',
+    tableau(['Interface', '#Débit maximal', 'Adresse MAC'],
+      h.reseau.map(r => [r.nom, r.debitMax ? r.debitMax + ' Mb/s' : '—', r.mac]))));
+
+  if (h.batterie) corps.append(section('Batterie', paires([
+    ['Référence', h.batterie.nom],
+    ['Technologie', h.batterie.chimie],
+    ['Capacité à pleine charge', h.batterie.capaciteMwh ? (h.batterie.capaciteMwh / 1000).toFixed(1) + ' Wh' : null],
+    ['Tension nominale', h.batterie.tension ? (h.batterie.tension / 1000).toFixed(1) + ' V' : null],
+  ])));
+
+  return h;
+}
+
+// ------------------------------------------------------------------- ETAT
+function valeurLisible(f){
+  if (f.kind === 'bool') return f.value ? 'Oui' : 'Non';
+  let v = f.value;
+  if (v === null || v === undefined || v === '') return '—';
+  if (f.kind === 'date') return heure(v);
+  if (f.kind === 'number' && f.unit) return v + ' ' + f.unit;
+  return String(v);
+}
+
+async function etatActuel(){
+  const s = await lire('/state');
+  document.getElementById('titre').textContent = 'État de la machine';
+  document.getElementById('sous').textContent = s.host + ' · relevé du ' + heure(s.generatedAt);
+  document.getElementById('meta').innerHTML = 'Vigie ' + txt(s.version) + '<br>' + heure(s.generatedAt);
+
+  const corps = document.getElementById('corps');
+  corps.textContent = '';
+
+  // Ce qui demande attention, en tete : c'est la premiere question qu'on se pose.
+  const alertes = [];
+  for (const m of s.modules) for (const f of (m.fields || [])) {
+    if (f.status === 'warn' || f.status === 'error') alertes.push([m.label, f.label, valeurLisible(f), f.status]);
+  }
+  const resume = E('section');
+  resume.append(E('h2', null, 'Ce qui demande attention'));
+  if (alertes.length) {
+    const t = tableau(['Carte', 'Point', 'Constat'], alertes.map(a => [a[0], a[1], a[2]]));
+    // Le point de couleur va sur la ligne, pas sur toute la cellule.
+    [...t.querySelectorAll('tbody tr')].forEach((tr, i) => {
+      const c = tr.firstElementChild;
+      c.prepend(E('span', {class:'pt ' + alertes[i][3]}));
+      tr.lastElementChild.className = 'v-' + alertes[i][3];
+    });
+    resume.append(t);
+  } else {
+    resume.append(E('p', {class:'vide'}, 'Rien à signaler : tous les points relevés sont conformes.'));
+  }
+  corps.append(resume);
+
+  // Puis le detail, groupe par theme, dans l'ordre de l'application.
+  for (const theme of s.themes) {
+    const mods = s.modules.filter(m => m.theme === theme.id);
+    if (!mods.length) continue;
+    const sec = E('section');
+    sec.append(E('h2', null, theme.label));
+    for (const m of mods) {
+      sec.append(E('h3', null, m.label));
+      const dl = E('dl');
+      for (const f of (m.fields || [])) {
+        if (f.kind === 'tree' || f.table) continue;   // pas de structures profondes dans un document
+        const dd = E('dd', f.status === 'warn' || f.status === 'error' ? {class:'v-' + f.status} : null,
+                     valeurLisible(f));
+        const dt = E('dt', null);
+        dt.append(E('span', {class:'pt ' + (f.status || 'neutral')}), f.label);
+        dl.append(dt, dd);
+      }
+      sec.append(dl);
+    }
+    corps.append(sec);
+  }
+  return s;
+}
+
+(async () => {
+  document.getElementById('lien' + (TYPE === 'etat' ? 'Etat' : 'Mat')).style.fontWeight = '700';
+  try {
+    const d = (TYPE === 'etat') ? await etatActuel() : await ficheMaterielle();
+    document.title = document.getElementById('titre').textContent + ' — Vigie';
+    document.getElementById('pied').textContent =
+      'Vigie · ' + document.getElementById('titre').textContent + ' · ' +
+      document.getElementById('sous').textContent;
+  } catch (e) {
+    document.getElementById('corps').innerHTML =
+      '<p class="vide">Lecture impossible : ' + e.message + '. Vigie est-elle bien démarrée ?</p>';
+  }
+})();
+</script>
+</body>
+</html>

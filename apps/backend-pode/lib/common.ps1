@@ -2515,6 +2515,238 @@ function Get-State {
     }
 }
 
+# --- FICHE MATERIELLE : ce qui ne bouge pas ----------------------------------
+#
+# Deuxieme export demande (l'autre etant l'etat a l'instant) : les caracteristiques
+# PHYSIQUES de la machine. On les releve une fois et on les garde : une barrette de
+# memoire ne change pas d'un rafraichissement a l'autre, et l'inventaire coute plusieurs
+# secondes (CIM sur une dizaine de classes).
+#
+# Chaque section est independante et defensive : une classe CIM absente ou refusee rend
+# une section vide, jamais une erreur -- une fiche partielle vaut mieux que pas de fiche.
+function Get-HardwareSpecs {
+    param(
+        [string]$Backend = (Get-BackendRoot),
+        # Releve neuf : apres un changement de materiel, ou depuis l'export.
+        [switch]$Force
+    )
+    $cacheFile = Get-VarPath -Backend $Backend -Kind 'cache' -File 'hardware.json'
+    if (-not $Force -and (Test-Path -LiteralPath $cacheFile)) {
+        try {
+            $j = Get-Content -LiteralPath $cacheFile -Raw | ConvertFrom-Json
+            $at = ConvertTo-UtcDate $j.at
+            # Sept jours : le materiel ne change pas, mais une fiche eternelle survivrait
+            # a un changement de disque ou de barrette sans qu'on le sache.
+            if ($at -and ([datetime]::UtcNow - $at).TotalDays -lt 7) { return $j }
+        } catch { }
+    }
+
+    function Lire { param([string]$Classe, [string]$Espace = 'root/cimv2')
+        try { return @(Get-CimInstance -Namespace $Espace -ClassName $Classe -ErrorAction Stop) } catch { return @() }
+    }
+    $go = { param($octets) if ($octets) { [math]::Round(([double]$octets) / 1GB, 1) } else { $null } }
+
+    $cs   = @(Lire 'Win32_ComputerSystem')   | Select-Object -First 1
+    $bios = @(Lire 'Win32_BIOS')             | Select-Object -First 1
+    $cb   = @(Lire 'Win32_BaseBoard')        | Select-Object -First 1
+    $os   = @(Lire 'Win32_OperatingSystem')  | Select-Object -First 1
+    $enc  = @(Lire 'Win32_SystemEnclosure')  | Select-Object -First 1
+
+    # Portable ou fixe ? Le type de chassis le dit (8-14 et 30-32 = mobile).
+    $mobile = $false
+    try {
+        foreach ($t in @($enc.ChassisTypes)) {
+            if ((8..14) -contains [int]$t -or (30..32) -contains [int]$t) { $mobile = $true }
+        }
+    } catch { }
+
+    $machine = [ordered]@{
+        nom          = "$env:COMPUTERNAME"
+        fabricant    = "$($cs.Manufacturer)"
+        modele       = "$($cs.Model)"
+        famille      = "$($cs.SystemFamily)"
+        forme        = $(if ($mobile) { 'Portable' } else { 'Poste fixe' })
+        numeroSerie  = "$($bios.SerialNumber)"
+        uuid         = "$((@(Lire 'Win32_ComputerSystemProduct') | Select-Object -First 1).UUID)"
+        os           = "$($os.Caption)"
+        osVersion    = "$($os.Version)"
+        osArchi      = "$($os.OSArchitecture)"
+        installeLe   = $(try { ([datetime]$os.InstallDate).ToString('o') } catch { '' })
+    }
+
+    $carteMere = [ordered]@{
+        fabricant = "$($cb.Manufacturer)"
+        modele    = "$($cb.Product)"
+        version   = "$($cb.Version)"
+        bios      = "$($bios.Manufacturer) $($bios.SMBIOSBIOSVersion)"
+        biosDate  = $(try { ([datetime]$bios.ReleaseDate).ToString('o') } catch { '' })
+    }
+
+    $processeurs = @(foreach ($c in (Lire 'Win32_Processor')) {
+        [ordered]@{
+            nom       = "$($c.Name)".Trim()
+            fabricant = "$($c.Manufacturer)"
+            coeurs    = [int]$c.NumberOfCores
+            fils      = [int]$c.NumberOfLogicalProcessors
+            frequence = [int]$c.MaxClockSpeed          # MHz
+            socket    = "$($c.SocketDesignation)"
+            cacheL3Ko = [int]$c.L3CacheSize
+        }
+    })
+
+    # Type de memoire : le code SMBIOS, traduit. Un numero ne dit rien a personne.
+    $typesMem = @{ 20 = 'DDR'; 21 = 'DDR2'; 24 = 'DDR3'; 26 = 'DDR4'; 34 = 'DDR5'; 35 = 'LPDDR4'; 36 = 'LPDDR5' }
+    $barrettes = @(foreach ($m in (Lire 'Win32_PhysicalMemory')) {
+        $t = $null
+        try { if ($typesMem.ContainsKey([int]$m.SMBIOSMemoryType)) { $t = $typesMem[[int]$m.SMBIOSMemoryType] } } catch { }
+        [ordered]@{
+            emplacement = "$($m.DeviceLocator)"
+            tailleGo    = (& $go $m.Capacity)
+            type        = $(if ($t) { $t } else { '' })
+            vitesse     = [int]$m.Speed                # MT/s
+            fabricant   = "$($m.Manufacturer)".Trim()
+            reference   = "$($m.PartNumber)".Trim()
+        }
+    })
+    $memoire = [ordered]@{
+        totalGo   = (& $go $cs.TotalPhysicalMemory)
+        barrettes = $barrettes
+        # Ce que la carte mere peut accueillir : utile quand on envisage une extension.
+        emplacements = [int]((@(Lire 'Win32_PhysicalMemoryArray') | Select-Object -First 1).MemoryDevices)
+    }
+
+    $disques = @(foreach ($d in (Lire 'MSFT_PhysicalDisk' 'root/microsoft/windows/storage')) {
+        $bus = switch ([int]$d.BusType) { 7 { 'USB' } 8 { 'RAID' } 11 { 'SATA' } 17 { 'NVMe' } default { '' } }
+        $media = switch ([int]$d.MediaType) { 3 { 'Disque dur' } 4 { 'SSD' } 5 { 'SCM' } default { '' } }
+        [ordered]@{
+            modele    = "$($d.FriendlyName)".Trim()
+            tailleGo  = (& $go $d.Size)
+            type      = $media
+            bus       = $bus
+            sante     = $(switch ([int]$d.HealthStatus) { 0 { 'Sain' } 1 { 'A surveiller' } 2 { 'Defaillant' } default { '' } })
+            firmware  = "$($d.FirmwareVersion)"
+            numeroSerie = "$($d.SerialNumber)".Trim()
+        }
+    })
+    # Repli : sur une machine ou l'espace de noms Storage manque, Win32_DiskDrive suffit.
+    if (-not $disques.Count) {
+        $disques = @(foreach ($d in (Lire 'Win32_DiskDrive')) {
+            [ordered]@{ modele = "$($d.Model)".Trim(); tailleGo = (& $go $d.Size)
+                        type = ''; bus = "$($d.InterfaceType)"; sante = ''
+                        firmware = "$($d.FirmwareRevision)".Trim(); numeroSerie = "$($d.SerialNumber)".Trim() }
+        })
+    }
+
+    # LA VRAM NE SE LIT PAS DANS AdapterRAM : ce champ est un entier 32 bits signe, il
+    # plafonne a 4 Go et rend n'importe quoi au-dela (une RTX 4070 de 8 Go y apparait
+    # avec 4 Go, parfois moins). La vraie valeur est dans le registre du pilote,
+    # qwMemorySize, sur 64 bits.
+    $vramParNom = @{}
+    try {
+        $classe = 'HKLM:\SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}'
+        # SilentlyContinue et non Stop : une des sous-cles de cette classe est refusee
+        # meme a un administrateur (« Requested registry access is not allowed »), et
+        # avec Stop l'enumeration s'arretait AVANT la carte NVIDIA -- la VRAM retombait
+        # alors sur AdapterRAM, qui plafonne a 4 Go. Constate ici meme.
+        foreach ($k in (Get-ChildItem -Path $classe -ErrorAction SilentlyContinue | Where-Object { $_.PSChildName -match '^\d{4}$' })) {
+            $pr = Get-ItemProperty -Path $k.PSPath -ErrorAction SilentlyContinue
+            if ($pr -and $pr.DriverDesc -and $pr.'HardwareInformation.qwMemorySize') {
+                $vramParNom["$($pr.DriverDesc)"] = [math]::Round(([double]$pr.'HardwareInformation.qwMemorySize') / 1GB, 1)
+            }
+        }
+    } catch { }
+
+    $graphiques = @(foreach ($g in (Lire 'Win32_VideoController')) {
+        $nomG = "$($g.Name)".Trim()
+        [ordered]@{
+            nom        = $nomG
+            vramGo     = $(if ($vramParNom.ContainsKey($nomG)) { $vramParNom[$nomG] } else { (& $go $g.AdapterRAM) })
+            pilote     = "$($g.DriverVersion)"
+            piloteDate = $(try { ([datetime]$g.DriverDate).ToString('o') } catch { '' })
+            resolution = $(if ($g.CurrentHorizontalResolution) { "$($g.CurrentHorizontalResolution) x $($g.CurrentVerticalResolution)" } else { '' })
+        }
+    })
+
+    # Ecrans : WmiMonitorID rend des tableaux de codes, pas des chaines.
+    $texteWmi = { param($codes) if (-not $codes) { return '' }
+        (-join ($codes | Where-Object { $_ -gt 0 } | ForEach-Object { [char][int]$_ })).Trim() }
+    $ecrans = @(foreach ($e in (Lire 'WmiMonitorID' 'root/wmi')) {
+        $taille = ''
+        [ordered]@{
+            fabricant = (& $texteWmi $e.ManufacturerName)
+            modele    = (& $texteWmi $e.UserFriendlyName)
+            serie     = (& $texteWmi $e.SerialNumberID)
+            annee     = [int]$e.YearOfManufacture
+        }
+    })
+    # Pouces : classe distincte (dimensions physiques en centimetres).
+    $tailles = @(Lire 'WmiMonitorBasicDisplayParams' 'root/wmi')
+    for ($i = 0; $i -lt $ecrans.Count -and $i -lt $tailles.Count; $i++) {
+        try {
+            $l = [double]$tailles[$i].MaxHorizontalImageSize
+            $h = [double]$tailles[$i].MaxVerticalImageSize
+            if ($l -gt 0 -and $h -gt 0) {
+                $ecrans[$i]['pouces'] = [math]::Round([math]::Sqrt($l * $l + $h * $h) / 2.54, 1)
+            }
+        } catch { }
+    }
+
+    # Cartes reseau PHYSIQUES.
+    #
+    # Win32_NetworkAdapter.PhysicalAdapter ne suffit PAS : il repond « oui » pour le
+    # Bluetooth PAN, pour les cartes de VirtualBox ou de VMware, et pour les adaptateurs
+    # WAN Miniport. Get-NetAdapter -Physical, lui, s'appuie sur le type de peripherique
+    # reel -- on s'en sert comme liste blanche quand il est disponible.
+    $reelles = $null
+    try { $reelles = @((Get-NetAdapter -Physical -ErrorAction Stop).InterfaceDescription) } catch { }
+    $reseau = @(foreach ($a in (Lire 'Win32_NetworkAdapter')) {
+        if (-not $a.PhysicalAdapter) { continue }
+        if (-not "$($a.MACAddress)") { continue }
+        if ($reelles -and ($reelles -notcontains "$($a.Description)")) { continue }
+        if (-not $reelles -and "$($a.Name)" -match 'Virtual|Host-Only|Bluetooth|Miniport|Loopback') { continue }
+        [ordered]@{
+            nom       = "$($a.Name)".Trim()
+            fabricant = "$($a.Manufacturer)".Trim()
+            mac       = "$($a.MACAddress)"
+            # Windows rend 0xFFFFFFFFFFFFFFFF quand le lien n'est pas etabli : cela
+            # donnait « 9223372036855 Mb/s » sur la fiche. Au-dela de 100 Gb/s, la
+            # valeur ne veut rien dire : on n'affiche rien plutot qu'une absurdite.
+            debitMax  = $(if ($a.Speed -and ([double]$a.Speed) -lt 1e11) { [math]::Round(([double]$a.Speed) / 1e6) } else { $null })   # Mb/s
+        }
+    })
+
+    $batterie = $null
+    $bat = @(Lire 'Win32_Battery') | Select-Object -First 1
+    if ($bat) {
+        $pleine = @(Lire 'BatteryFullChargedCapacity' 'root/wmi') | Select-Object -First 1
+        $batterie = [ordered]@{
+            nom         = "$($bat.Name)".Trim()
+            chimie      = $(switch ([int]$bat.Chemistry) { 3 { 'Nickel-Cadmium' } 4 { 'Nickel-Hydrure' } 5 { 'Lithium-ion' } 6 { 'Zinc-air' } 7 { 'Lithium-polymere' } default { '' } })
+            capaciteMwh = $(if ($pleine) { [int]$pleine.FullChargedCapacity } else { $null })
+            tension     = $(if ($bat.DesignVoltage) { [int]$bat.DesignVoltage } else { $null })   # mV
+        }
+    }
+
+    $fiche = [pscustomobject][ordered]@{
+        at          = (Get-Date).ToUniversalTime().ToString('o')
+        machine     = $machine
+        carteMere   = $carteMere
+        processeurs = $processeurs
+        memoire     = $memoire
+        disques     = $disques
+        graphiques  = $graphiques
+        ecrans      = $ecrans
+        reseau      = $reseau
+        batterie    = $batterie
+    }
+    try {
+        $d = Split-Path $cacheFile -Parent
+        if (-not (Test-Path -LiteralPath $d)) { New-Item -ItemType Directory -Path $d -Force | Out-Null }
+        ($fiche | ConvertTo-Json -Depth 12) | Out-File -FilePath $cacheFile -Encoding UTF8
+    } catch { }
+    return $fiche
+}
+
 # --- TACHE DE FOND D'UNE CARTE : le dire, et tant que ca dure -----------------
 #
 # Regle de l'utilisateur : « une carte qui lance une action en background devrait passer
