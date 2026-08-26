@@ -22,10 +22,16 @@ $dormant = [int](Get-ModuleSetting -Unit 'accounts' -Key 'DormantDays')
 if (-not $dormant) { $dormant = 90 }
 $montrerTechniques = [bool](Get-ModuleSetting -Unit 'accounts' -Key 'ShowTechnicalAccounts')
 
+# Comptes ecartes a la main par l'utilisateur (Parametres > Modules > Comptes). Le sien
+# ne peut pas etre masque : une carte qui ne vous montre plus vous-meme serait deroutante.
+$ecartes = @(Get-ModuleSetting -Unit 'accounts' -Key 'HiddenAccounts' | Where-Object { "$_" -match '\S' })
+
 $eleve   = [bool](Test-IsElevated)
 $tous    = @(Get-VigieAccounts)
-$masques = @($tous | Where-Object { $_.technical })
-$comptes = if ($montrerTechniques) { $tous } else { @($tous | Where-Object { -not $_.technical }) }
+$masques = @($tous | Where-Object {
+    -not $_.current -and (($_.technical -and -not $montrerTechniques) -or ($ecartes -contains $_.name))
+})
+$comptes = @($tous | Where-Object { $masques -notcontains $_ })
 
 $fields = @()
 
@@ -49,10 +55,12 @@ foreach ($c in ($comptes | Sort-Object @{ Expression = { -not $_.current } }, na
 }
 
 # Ce qui est masque est DIT (jamais silencieux).
-if (-not $montrerTechniques -and $masques.Count -gt 0) {
-    $fields += New-Field -Key 'hidden' -Label 'Comptes techniques masqués' -Value ($masques.Count) -Kind 'number' -Status 'neutral' `
-        -Help "Comptes sans profil humain (bacs à sable, comptes de service). Pour les afficher : Paramètres > Modules > Comptes." `
-        -Guide (($masques | ForEach-Object { "- $($_.name)" }) -join [Environment]::NewLine)
+if ($masques.Count -gt 0) {
+    $fields += New-Field -Key 'hidden' -Label 'Comptes masqués' -Value ($masques.Count) -Kind 'number' -Status 'neutral' `
+        -Help "Comptes écartés de cette carte : comptes techniques (sans profil humain) et comptes que vous avez choisi de ne pas afficher. Réglable dans Paramètres > Modules > Comptes." `
+        -Guide ((@($masques | ForEach-Object {
+            "- $($_.name)" + $(if ($_.technical) { ' (technique : pas de profil humain)' } else { ' (masqué par vous)' })
+        }) + @('', 'Paramètres > Modules > Comptes : « Afficher les comptes techniques », ou la liste « Comptes à ne pas afficher ».')) -join [Environment]::NewLine)
 }
 
 if (-not $eleve) {
