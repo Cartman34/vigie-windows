@@ -77,7 +77,13 @@ Add-PodeRoute -Method Get -Path "$base/state" -ScriptBlock {
 Add-PodeRoute -Method Get -Path "$base/modules/:id" -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
     $id = $WebEvent.Parameters['id']
-    $m  = (Get-State -Backend $env:VIGIE_BACKEND).modules | Where-Object { $_.id -eq $id }
+    # fresh=1 : le bouton « Rafraichir » de CETTE carte. On recalcule ses sondes et on
+    # ATTEND le resultat (75 s au plus, sous le delai du client) ; sans ce drapeau, le
+    # chargement et le suivi d'une tache de fond se contentent du cache.
+    $fresh = ("" + $WebEvent.Query['fresh']) -in @('1','true')
+    $etat = if ($fresh) { Get-State -Backend $env:VIGIE_BACKEND -ForceModule $id -WaitSeconds 75 }
+            else        { Get-State -Backend $env:VIGIE_BACKEND }
+    $m  = $etat.modules | Where-Object { $_.id -eq $id }
     if ($m) { Write-PodeJsonResponse -Value $m -Depth 24 }
     else    { Write-PodeJsonResponse -StatusCode 404 -Value @{ error = "Module inconnu : $id" } }
 }

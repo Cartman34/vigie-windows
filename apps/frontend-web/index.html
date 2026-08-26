@@ -824,7 +824,7 @@ function cardHtml(m, groupLabel){
     <div class="card-head">
       <div class="card-titles"><span class="card-group">${esc(groupLabel||'')}</span><span class="name">${m.label}</span></div>
       ${stTxt?`<span class="badge ${st}"><span class="ic vi vi-fw">${stIc}</span>${stTxt}</span>`:''}
-      <button class="card-refresh" title="Rafraîchir cette carte" onclick="refreshCard('${m.id}',this)"><span class="cr-ic vi vi-fw vi-lg">&#xE008;</span></button>
+      <button class="card-refresh" title="Rafraîchir cette carte" onclick="refreshCard('${m.id}',this,true)"><span class="cr-ic vi vi-fw vi-lg">&#xE008;</span></button>
       <button class="card-refresh card-menu" title="Gérer ce module : activation, notifications" onclick="openSettings('modules','${m.theme}')"><span class="vi vi-fw vi-lg">&#xE009;</span></button>
     </div>
     <div class="fields">${fields}</div>
@@ -917,10 +917,12 @@ function replaceCardDom(m){
   return fresh;
 }
 // Recupere l'etat d'un module (live) ou le dernier connu (maquette).
-async function fetchModule(moduleId){
+async function fetchModule(moduleId, frais){
   if(API_MODE){
     try{
-      const r=await fetch(API+'/modules/'+encodeURIComponent(moduleId),{ headers:{ Authorization:'Bearer '+TOKEN } });
+      // frais : le serveur RECALCULE la carte et attend le resultat. Reserve au bouton
+      // de la carte ; le suivi d'une tache de fond, lui, lit le cache.
+      const r=await fetch(API+'/modules/'+encodeURIComponent(moduleId)+(frais?'?fresh=1':''),{ headers:{ Authorization:'Bearer '+TOKEN } });
       if(r.ok) return await r.json();
     }catch(e){}
     return null;
@@ -928,12 +930,12 @@ async function fetchModule(moduleId){
   return (lastModules||[]).find(x=>x.id===moduleId)||null;
 }
 // Rafraichit UNE seule carte (via GET /modules/:id), sans recharger toute la page.
-async function refreshCard(moduleId, btn){
+async function refreshCard(moduleId, btn, frais){
   const sel='.card[data-module="'+((window.CSS&&CSS.escape)?CSS.escape(moduleId):moduleId)+'"]';
   const card=document.querySelector(sel);
   if(!card) return;
   card.classList.add('card-loading');
-  const m=await fetchModule(moduleId);
+  const m=await fetchModule(moduleId, frais);
   if(m){ replaceCardDom(m); } else { card.classList.remove('card-loading'); }
 }
 // Interroge une carte jusqu'a la fin d'une tache de fond (m.busy faux), sans bloquer.
