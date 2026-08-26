@@ -242,7 +242,15 @@
   .um > *:last-child{padding-bottom:16px}
   /* Ce qui doit toucher les DEUX bords : bandes de titre et listes. Elles portent
      leur propre padding interne, ligne par ligne. */
-  .um > .um-sub, .um > .um-list, .um > .um-liste{padding-left:0;padding-right:0}
+  /* La bande de titre est pleine largeur, mais son TEXTE garde le meme retrait que
+     celui des lignes (16 px) : sinon il se colle au bord, alors que tout ce qui est
+     en dessous commence a 16 px. Constate a l'oeil, puis mesure : 1 px contre 17 px.
+     On redonne donc les quatre cotes -- une regle qui n'annule que la gauche et la
+     droite ecrasait le retrait de la forme courte. */
+  .um > .um-sub{padding:13px 16px 9px}
+  /* Les listes, elles, ne portent aucun retrait : ce sont leurs LIGNES qui le font,
+     pour que le surlignement aille d'un bord a l'autre. */
+  .um > .um-list, .um > .um-liste{padding-left:0;padding-right:0}
   .um > .um-list:last-child, .um > .um-liste:last-child, .um > .um-sub:last-child{padding-bottom:0}
   /* Une bande de titre qui suit immediatement l'en-tete depliable n'a pas besoin de
      son filet : le summary en pose deja un. */
