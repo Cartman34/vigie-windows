@@ -240,6 +240,13 @@
      marge compte vraiment -- sur un <b> inline, un padding ne pousse rien. */
   .um > b:first-child{display:block;padding-top:14px;margin-bottom:2px}
   .um > *:last-child{padding-bottom:16px}
+  /* Ce qui doit toucher les DEUX bords : bandes de titre et listes. Elles portent
+     leur propre padding interne, ligne par ligne. */
+  .um > .um-sub, .um > .um-list, .um > .um-liste{padding-left:0;padding-right:0}
+  .um > .um-list:last-child, .um > .um-liste:last-child, .um > .um-sub:last-child{padding-bottom:0}
+  /* Une bande de titre qui suit immediatement l'en-tete depliable n'a pas besoin de
+     son filet : le summary en pose deja un. */
+  .um > summary + .um-sub{border-top:0}
   .um.off{opacity:.65}
   .um.flash{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
   .um-head{display:flex;align-items:center;gap:10px;margin:0;flex:1}
@@ -250,20 +257,30 @@
          cursor:pointer;white-space:nowrap;padding-top:2px}
   .um-sw input{accent-color:var(--accent)}
   /* Titre de section DANS un module : discret, souligne d'un filet, aere au-dessus. */
-  /* Titre de section : discret, sans filet -- la liste juste dessous porte deja sa
-     bordure, deux traits qui se suivent faisaient brouillon. */
+  /* ---------------------------------------------------------------------------
+     SECTIONS A PLAT (regle posee le 26/08 : « un radius dans un radius, ca ne rend
+     pas bien »). Le cadre arrondi appartient au bloc PARENT, un seul niveau. Ce qui
+     est dedans ne redessine ni bordure ni coin : une bande de titre, puis des lignes
+     pleine largeur separees par un simple filet.
+
+     Consequence directe et voulue : le surlignement d'une ligne va d'un bord a
+     l'autre du cadre, au lieu de s'arreter avant -- ce qui donnait cette bande
+     flottante, avec une marge batarde en bas.
+     --------------------------------------------------------------------------- */
   .um-sub{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;
-          color:var(--muted);margin:16px 0 6px;display:flex;align-items:baseline;gap:8px}
+          color:var(--muted);margin:0;padding:11px 16px 9px;display:flex;align-items:baseline;gap:8px;
+          border-top:1px solid var(--border);background:var(--panel-2)}
   .um-cpt{margin-left:auto;font-weight:600;letter-spacing:0;text-transform:none;
           font-size:11px;color:var(--muted);opacity:.7}
-  .um-list{border:1px solid var(--border);border-radius:8px;overflow:hidden;margin:0}
-  .um-card{display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:13px;min-height:36px;
-           border-bottom:1px solid var(--border);background:var(--panel)}
+  .um-list{border:0;border-radius:0;margin:0;overflow:visible}
+  .um-card{display:flex;align-items:center;gap:8px;padding:9px 16px;font-size:13px;min-height:38px;
+           border-bottom:1px solid var(--border);background:transparent}
   .um-card:last-child{border-bottom:none}
   .um-card:hover{background:var(--panel-2)}
   .um-card input{accent-color:var(--accent)}
   .um-card small{margin-left:auto;color:var(--muted);font-size:11px}
-  .um-note{color:var(--muted);font-size:12px;line-height:1.5;margin:0 0 7px}
+  .um-note{color:var(--muted);font-size:12px;line-height:1.5;margin:0;padding:10px 16px}
+  .um > .um-note{padding-left:16px;padding-right:16px}
   /* Carte de reglage isolee (hors accordeon) : titre + explication a gauche,
      interrupteur a droite, toujours dans le cadre. */
   .setcard{display:flex;align-items:center;gap:14px;border:1px solid var(--border);
@@ -272,14 +289,14 @@
   .setcard-t b{font-size:13.5px}
   .setcard-t small{color:var(--muted);font-size:12px;line-height:1.45}
   /* Liste geree en SECTION : lire, ajouter, retirer sans se battre avec une ligne. */
-  .um-liste{border:1px solid var(--border);border-radius:8px;overflow:hidden;margin:0 0 4px}
+  .um-liste{border:0;border-radius:0;margin:0}
   .um-lrow{display:flex;align-items:center;justify-content:space-between;gap:8px;
-           padding:8px 12px;font-size:13px;min-height:36px;border-bottom:1px solid var(--border)}
+           padding:9px 16px;font-size:13px;min-height:38px;border-bottom:1px solid var(--border)}
   .um-lrow:hover{background:var(--panel-2)}
-  .um-lvide{padding:10px 12px;font-size:12.5px;color:var(--muted);border-bottom:1px solid var(--border)}
+  .um-lvide{padding:10px 16px;font-size:12.5px;color:var(--muted);border-bottom:1px solid var(--border)}
   .um-ldel{font:inherit;font-size:14px;line-height:1;color:var(--muted);background:none;border:none;cursor:pointer;padding:0 4px}
   .um-ldel:hover{color:var(--err)}
-  .um-ladd{display:flex;gap:6px;padding:8px 12px;background:var(--panel-2)}
+  .um-ladd{display:flex;gap:6px;padding:9px 16px;background:var(--panel-2)}
   .um-ladd .um-chip-add{flex:1 1 auto;width:auto;border-radius:6px;border-style:solid}
   .um-lplus{font:inherit;font-size:12px;color:var(--text);background:none;border:1px solid var(--border);
             border-radius:6px;padding:3px 12px;cursor:pointer}
@@ -1752,6 +1769,38 @@ async function renderTabNotifs(pane){
     catch(err){ e.target.checked=!e.target.checked; toast('Réglage impossible : '+(err.message||err)); }
   };
 }
+// ===== COMPOSANTS D'INTERFACE ================================================
+// Un seul endroit dessine une bande de titre, une ligne, un interrupteur ou une
+// etiquette. Avant, chaque onglet des Parametres reconstruisait ces morceaux a la
+// main : la meme chose s'ecrivait de trois facons, et corriger l'alignement d'une
+// ligne demandait de retrouver toutes ses copies.
+//
+// Regle de composition (26/08) : le cadre arrondi appartient au bloc parent. Ces
+// composants ne dessinent donc JAMAIS de bordure ni de coin -- ils remplissent.
+const UI = {
+  // Bande de titre d'une sous-section, avec son compteur eventuel.
+  bande(titre, compteur){
+    return '<div class="um-sub">'+esc(titre)
+      +(compteur!==undefined && compteur!==null && compteur!=='' ? '<span class="um-cpt">'+esc(String(compteur))+'</span>' : '')
+      +'</div>';
+  },
+  // Conteneur de lignes : pleine largeur, sans cadre a lui.
+  liste(lignes){ return '<div class="um-list">'+(Array.isArray(lignes)?lignes.join(''):lignes)+'</div>'; },
+  // UNE ligne : libelle (+ etiquettes) a gauche, commande a droite.
+  ligne(o){
+    return '<div class="um-card"'+(o.aide?' title="'+esc(o.aide)+'"':'')+'>'
+      +'<span>'+esc(o.libelle)+(o.etiquettes||[]).map(t=>UI.etiquette(t)).join('')+'</span>'
+      +(o.droite?'<span class="um-param">'+o.droite+'</span>':'')
+      +'</div>';
+  },
+  // Interrupteur : la seule ecriture de ce balisage dans toute l'application.
+  interrupteur(attrs, actif){
+    return '<span class="swx"><input type="checkbox" '+attrs+(actif?' checked':'')+'><i></i></span>';
+  },
+  etiquette(t){ return ' <span class="um-tag">'+esc(t)+'</span>'; },
+  note(texte){ return '<div class="um-note">'+esc(texte)+'</div>'; }
+};
+
 // --- Onglet Modules (D48) : activer / couper, cartes du module en rappel ---
 async function renderTabModules(pane){
   const units=lastUnits||[];
@@ -1770,17 +1819,17 @@ async function renderTabModules(pane){
     // (« Temperature GPU elevee »), pas le nom des cartes -- exigence utilisateur.
     const decl=((notifCat||[]).find(x=>x.unit===u.id)||{}).notifications||[];
     const onNotif=(unit,key)=>{ const r=unit+'.'+key; return (cfg.notifs && (r in cfg.notifs)) ? !!cfg.notifs[r] : on(unit); };
+    // Qui peut agir : une notification « admin » ne derange pas un compte standard,
+    // sauf si elle est critique -- alors elle remonte quand meme, en invitant a
+    // prevenir un administrateur.
+    const etiquettesNotif=nn=>[].concat(nn.rights==='admin'?['admin']:[], nn.critical?['critique']:[]);
     const lignes=(decl.length
-      ? '<div class="um-sub">Notifications<span class="um-cpt">'+decl.length+'</span></div><div class="um-list">'
-        +decl.map(nn=>'<div class="um-card" title="'+esc(nn.help||'')+'"><span>'+esc(nn.label)
-        // Qui peut agir : une notification « admin » ne derange pas un compte standard,
-        // sauf si elle est critique -- alors elle remonte quand meme, en invitant a
-        // prevenir un administrateur.
-        +(nn.rights==='admin'?' <span class="um-tag">admin</span>':'')
-        +(nn.critical?' <span class="um-tag">critique</span>':'')+'</span>'
-        +'<span class="um-param"><span class="swx"><input type="checkbox" data-unotif="'+esc(u.id)+'::'+esc(nn.key)+'"'
-        +(onNotif(u.id,nn.key)?' checked':'')+'><i></i></span></span></div>').join('')+'</div>'
-      : '<div class="um-sub">Notifications</div><div class="um-note">Ce module ne signale aucun événement : il décrit un état.</div>');
+      ? UI.bande('Notifications', decl.length)
+        + UI.liste(decl.map(nn=>UI.ligne({
+            libelle: nn.label, aide: nn.help||'', etiquettes: etiquettesNotif(nn),
+            droite: UI.interrupteur('data-unotif="'+esc(u.id)+'::'+esc(nn.key)+'"', onNotif(u.id,nn.key))
+          })))
+      : UI.bande('Notifications') + UI.note('Ce module ne signale aucun événement : il décrit un état.'));
     // ACCORDEON, coherent avec le reste de l'app (l'arbre du disque et les details de
     // champ se deplient deja ainsi ; les onglets, eux, sont deja pris par la navigation
     // des Parametres). Tout est replie : la liste des modules se lit d'un coup d'oeil,
