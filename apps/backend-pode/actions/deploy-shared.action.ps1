@@ -36,8 +36,13 @@ if (-not $pwsh) { $pwsh = 'pwsh.exe' }
 
 $lance = $false
 try {
+    # Les chemins contiennent des ESPACES (« C:\Program Files\... ») : sans guillemets,
+    # -Destination ne recoit que « C:\Program » et le reste devient un autre parametre.
+    # Constate : le deploiement a repondu « Archive introuvable : Files\Sowapps\Vigie ».
     $args = @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
-              '-File', $script, '-Destination', $destination, '-Yes')
+              '-File', ('"' + $script + '"'),
+              '-Destination', ('"' + $destination + '"'),
+              '-Yes')
     $proc = Start-Process -FilePath $pwsh -ArgumentList $args -WindowStyle Hidden -PassThru `
                           -RedirectStandardOutput $journal -RedirectStandardError $erreurs `
                           -WorkingDirectory (Get-RepoRoot)
