@@ -53,26 +53,34 @@ Full detail, card by card: [What Vigie monitors](docs/en/features.md).
 
 The recommended route is the **archive from GitHub Releases** — no git, no clone.
 
-1. **Prerequisite**: PowerShell 7 (`pwsh`). `scripts\install.ps1` installs it via winget
-   if it is missing.
-2. Download `vigie-<version>.zip` from the
-   [Releases page](https://github.com/Cartman34/vigie-windows/releases) and unzip it
-   somewhere permanent (not `Downloads`, not a temp folder — the scheduled task will
-   point at this path). It expands into a single `vigie-<version>/` folder.
-   *If that page is empty, no version has been tagged yet: take the git route below.*
-3. Open PowerShell in that folder and run the prerequisites once:
-   ```powershell
-   pwsh -ExecutionPolicy Bypass -File .\scripts\install.ps1
-   ```
-4. Start it (a UAC prompt appears — Vigie needs administrator rights):
-   ```powershell
-   pwsh -ExecutionPolicy Bypass -File .\scripts\run.ps1
-   ```
-   The browser opens on <http://127.0.0.1:47600/> once the server is actually listening.
-5. To get it back at every logon, with a tray icon:
-   ```powershell
-   pwsh -ExecutionPolicy Bypass -File .\scripts\install-autostart.ps1
-   ```
+**Three double-clicks, in this order. Everything lives in the `scripts\` folder.**
+
+| | File | What it does |
+|---|---|---|
+| 1 | **`scripts\install.cmd`** | Installs the prerequisites. **Asks for administrator rights** (a Windows prompt to accept): PowerShell 7 is installed **machine-wide**, not just for your account. Run it **once**. |
+| 2 | **`scripts\run.cmd`** | Starts Vigie. The browser opens on <http://127.0.0.1:47600/> once the server is actually listening. |
+| 3 | **`scripts\install-autostart.cmd`** | Optional: Vigie comes back at every logon, with its tray icon. |
+
+Before that first double-click: download `vigie-<version>.zip` from the
+[Releases page](https://github.com/Cartman34/vigie-windows/releases) and unzip it
+**somewhere permanent** — not `Downloads`, not a temp folder: the scheduled task will
+point at this path. It expands into a single `vigie-<version>/` folder. *If that page is
+empty, no version has been tagged yet: take the git route below.*
+
+> **Why the install needs elevation.** Vigie starts from a scheduled task, one per
+> account, and that task runs `pwsh`. A PowerShell 7 installed for a single account (the
+> Store package) lives inside that account's profile: no other account could start Vigie.
+> So `install.cmd` installs it **machine-wide**
+> (`C:\Program Files\PowerShell\7`).
+
+From a terminal instead, if you prefer — the install needs an **administrator** terminal,
+and Windows PowerShell will do, since `pwsh` is not there yet:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1
+pwsh -ExecutionPolicy Bypass -File .\scripts\run.ps1
+pwsh -ExecutionPolicy Bypass -File .\scripts\install-autostart.ps1
+```
 
 The git route, what each script does, and how to uninstall:
 [Installation](docs/en/install.md). First run and how to read the dashboard:
@@ -95,7 +103,9 @@ The git route, what each script does, and how to uninstall:
 ## Requirements
 
 - Windows 10 or 11.
-- **PowerShell 7** (`pwsh`) — installed by `scripts\install.ps1` if absent.
+- **PowerShell 7** (`pwsh`), **machine-wide** (`C:\Program Files\PowerShell\7`) — installed by
+  `scripts\install.cmd` if absent. The scheduled tasks run it: an install limited to one
+  account would stop the others from starting Vigie.
 - The **Pode** PowerShell module — installed by the same script.
 - Administrator rights, for the Windows Update actions and the autostart task.
 - A Chromium-based browser (Edge or Chrome) for the dedicated app window; any browser
