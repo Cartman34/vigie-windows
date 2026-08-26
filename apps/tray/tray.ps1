@@ -38,6 +38,24 @@ $uiScript = {
         Add-Type -AssemblyName System.Drawing
         Add-Type -Namespace VigieNative -Name Ico -MemberDefinition '[System.Runtime.InteropServices.DllImport("user32.dll")] public static extern bool DestroyIcon(System.IntPtr handle);'
 
+        # S5 -- CHANGEMENT D'ADRESSE RESEAU, tout de suite.
+        #
+        # Sans cela, debrancher le cable ou changer de Wi-Fi laissait la carte Reseau
+        # afficher l'ancienne adresse jusqu'a la peremption de sa sonde. Windows sait
+        # dire l'instant du changement : on s'y abonne.
+        #
+        # L'abonnement est fait EN C#, pas par un bloc PowerShell : Windows previent sur
+        # un fil du pool, ou executer du PowerShell demande un espace d'execution qui
+        # n'est pas forcement disponible. Le gestionnaire natif ne fait qu'une chose,
+        # poser un drapeau ; c'est la boucle d'interface (chaque seconde) qui agit.
+        Add-Type -Namespace VigieNative -Name Net -MemberDefinition @'
+public static volatile bool Changed = false;
+public static void Watch() {
+    System.Net.NetworkInformation.NetworkChange.NetworkAddressChanged += delegate { Changed = true; };
+    System.Net.NetworkInformation.NetworkChange.NetworkAvailabilityChanged += delegate { Changed = true; };
+}
+'@
+
         # Retrouver une fenetre par son titre, et la ramener au premier plan.
         # Sans cela, chaque double-clic ouvrait une fenetre de PLUS : l'application se
         # retrouvait en deux exemplaires dans la barre des taches.
@@ -692,6 +710,25 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
         }
         $cmdTimer = New-Object System.Windows.Forms.Timer
         $cmdTimer.Interval = 1000; $cmdTimer.add_Tick($commandes); $cmdTimer.Start()
+
+        # S5 : on s'abonne, puis on regarde le drapeau a chaque seconde. Un echec ici ne
+        # casse rien -- la sonde reseau se perime de toute facon d'elle-meme.
+        try {
+            [VigieNative.Net]::Watch()
+            $netTimer = New-Object System.Windows.Forms.Timer
+            $netTimer.Interval = 1000
+            $netTimer.add_Tick({
+                try {
+                    if ([VigieNative.Net]::Changed) {
+                        [VigieNative.Net]::Changed = $false
+                        Remove-ProbeCache -Names @('net.probe.ps1') -Backend $backend
+                        TLog "adresse reseau changee : sonde reseau perimee"
+                    }
+                } catch { }
+            })
+            $netTimer.Start()
+            TLog "guetteur d'adresse reseau arme"
+        } catch { TLog ("guetteur d'adresse reseau indisponible : " + $_.Exception.Message) }
 
         try { $icon.ShowBalloonTip(3000, 'Vigie', "Panneau lance en fond. Double-cliquez l'icone pour l'ouvrir.", [System.Windows.Forms.ToolTipIcon]::Info) } catch { }
 
