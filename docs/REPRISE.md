@@ -50,6 +50,15 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
 **Le parseur ne suffit pas** (**D50bis**) : un paramètre passé deux fois le franchit sans un
 mot et fait disparaître une carte à l'exécution. C'est arrivé, livré et annoncé comme fait.
 
+**LES ANTISLASHS DE MES SCRIPTS D'ÉDITION SONT MANGÉS** — piège coûteux, rencontré cinq
+fois le 26/08. `\\` arrive souvent **simple** dans le fichier écrit, et `\t`, `\25`, `\b`
+deviennent des **caractères de contrôle** (tabulation, 0x15, retour arrière). Symptômes
+vécus : une regex `(^|\\)` inopérante qui a fait échouer **en silence** tout l'inventaire
+des comptes ; un chevron CSS affiché « B8 » ; un chemin `apps\tray\tray.ps1` transformé en
+tabulations, donc introuvable. **Remède** : ne pas écrire d'antislash littéral quand on
+peut l'éviter — `Join-Path` imbriqués, `Split([char]92)`, chevron dessiné en CSS — et
+relire le fichier écrit (`cat -A`) au moindre doute.
+
 **Toute écriture scriptée d'un fichier source est ATOMIQUE** : écrire dans `fichier.tmp`,
 vérifier la taille, puis `os.replace`. Un script Python qui plante en plein `write()` sur
 le fichier ouvert en 'w' laisse un fichier TRONQUÉ — c'est arrivé le 24/08 (index.html à
@@ -79,40 +88,50 @@ sort aussitôt puisque le port répond — on sert alors indéfiniment du code p
 
 ## État actuel du produit (résumé — le détail est dans le code et les docs)
 
-Vigie tourne en production sur la machine : tray élevé (auto-démarré par tâche planifiée,
-qu'il répare lui-même : délai MSIX + reprises) + serveur Pode 47600 + front une page +
-Atelier PHP 47610. Modules actifs : Windows Update (verrouillage natif, MAJ au choix),
-Système (**Stockage** : seuil D57 + analyse de la consommation en tâche de fond, D60/D61 ;
-ressources ; OS), Sécurité (antivirus,
-pare-feu, VBS/HVCI natifs), Réseau (Wi-Fi scindé, stabilité), WSL, Outils & paquets
-(une carte par gestionnaire, MAJ au choix, résultat conservé), **Jeux** (détection du
-jeu, applis gourmandes, seuils D57). Menu Paramètres unique (D56) : notifications (D54),
-modules (D48), paramètres (D57), apparence, à propos. Fonte d'icônes maison (D58).
-Historique : étapes 1-2 (échantillonnage + `GET /history/{measureId}`), **aucun
-affichage** (décision Q2). Docs de référence : `MODULES.md` (créer/maintenir un module),
-`DESIGN.md` (design système), `DECISIONS-VALIDEES.md` (toutes les règles).
+Vigie tourne en production : tray élevé (tâche planifiée qu'il répare lui-même) + serveur
+Pode 47600 + front une page + Atelier PHP 47610 (à lancer à la main :
+`pwsh -File apps/atelier/atelier.ps1`).
+
+**Éditeur : Sowapps ; auteur : Florent HAZARD** (D72). Installation partagée :
+`C:\Program Files\Sowapps\Vigie` ; données par compte :
+`%LOCALAPPDATA%\Sowapps\Vigie`.
+
+Modules : Windows Update (verrouillage natif, MAJ au choix, date de dernière analyse),
+Système (**Stockage** : seuil D57, analyse de la consommation en tâche de fond D60/D61,
+arborescence demandée **niveau par niveau**), **Comptes** (D67), Sécurité, Réseau, WSL,
+Outils & paquets, Jeux (détection par faits : Game Bar, bibliothèque Steam, moteur, plein
+écran — D64).
+
+Paramètres (D56) : notifications, modules **en accordéon** (D71), utilisateurs, apparence,
+à propos. **21 notifications nommées** déclarées par les modules (D68), filtrées par les
+droits avec remontée des cas critiques (D70). Icônes : fonte maison (D58), cloche d'après
+Font Awesome, puzzle, utilisateurs — planche dans l'Atelier (`design-systeme.html`).
+
+Docs de référence : `MODULES.md` (créer/maintenir un module), `DESIGN.md` (design
+système), `DECISIONS-VALIDEES.md` (toutes les règles, D01→D72).
 
 ### File de travail (dans l'ordre)
 
-1. **Multi-utilisateurs — à éprouver avec un vrai second compte** : tout est livré
-   (réglages par compte, politique par action, écran Paramètres > Utilisateurs, outil en
-   ligne de commande `scripts/vigie-comptes.ps1`, déploiement `scripts/deploy-prod.ps1`
-   vers `C:\Program Files\Vigie`). **Rien n'a été déployé ni activé en réel** : c'est un
-   test d'intégration, il se demande (D63). À faire ensemble : lancer `deploy-prod.ps1`,
-   activer le compte `Famille`, puis ouvrir une session avec lui et constater — Vigie doit
-   démarrer **non élevé**, ses actions administrateur s'afficher **refusées et
-   expliquées**, et ses réglages être séparés des vôtres.
+1. **Multi-utilisateurs — à constater sur la session `Famille`** : tout est en place et
+   VÉRIFIÉ côté machine. Version déployée dans **`C:\Program Files\Sowapps\Vigie`**
+   (133 fichiers, aucun secret embarqué, `BUILTIN\Utilisateurs` en lecture/exécution) ;
+   tâche **`Vigie - Famille`** créée pour `HYPERION\Famille` en niveau *Limited*, pointant
+   sur l'installation partagée. Reste à ouvrir une session avec ce compte et à constater :
+   Vigie démarre **non élevé**, ses actions administrateur s'affichent **refusées et
+   expliquées** (D65), ses réglages et son historique sont **séparés**
+   (`%LOCALAPPDATA%\Sowapps\Vigie`).
 2. **Jeux — branche « jeu reconnu » à constater en vraie partie** (aucune charge
-   fabriquée, D62).
-3. **Icônes (S8)** : l'utilisateur voit encore un décalage sur SON écran. Frames de sa
-   vidéo dans le scratchpad, analyse pixel à reprendre — par mesure, pas à l'œil.
-   Piste : échelle d'affichage de sa session.
+   fabriquée : D62).
+3. **Icônes (S8)** : cloche, puzzle, utilisateurs et point du « i » refaits et validés à
+   l'écran. Reste l'ancien sujet du **centrage vu sur SON écran** : frames de la vidéo dans
+   le scratchpad, analyse pixel à reprendre — par mesure, pas à l'œil (piste : échelle
+   d'affichage de sa session).
 4. **Edge cassé** : réparation EN ATTENTE de son feu vert explicite.
 5. **S5 — invalidation immédiate de la sonde réseau** sur changement d'adresse (optionnel).
 6. Fond ancien : éprouver verrou/VBS élevé après redémarrage ; commentaires en anglais
    (D41) ; workflow GitHub ; bulle de notification du tray à observer en réel.
-   **Tray** : il ne prend plus l'ordre `-Restart` en 15 s (constaté plusieurs fois le
-   25/08) ; c'est son auto-guérison qui relance le serveur. À regarder.
+   **Tray** : il ne prend plus l'ordre `-Restart` en 15 s (constaté de nombreuses fois les
+   25 et 26/08) ; c'est son auto-guérison qui relance le serveur. À regarder.
 
 ## État de la machine de l'utilisateur — à savoir avant de conclure quoi que ce soit
 
