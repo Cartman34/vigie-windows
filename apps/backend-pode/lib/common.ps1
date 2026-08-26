@@ -2424,6 +2424,54 @@ function Get-State {
     }
 }
 
+# --- TACHE DE FOND D'UNE CARTE : le dire, et tant que ca dure -----------------
+#
+# Regle de l'utilisateur : « une carte qui lance une action en background devrait passer
+# immediatement en statut operation en cours ». L'interface le marque des le clic, mais ce
+# marquage ne survit pas au premier rafraichissement : c'est le SERVEUR qui doit porter la
+# verite, sinon la carte redevient calme alors que le travail continue -- constate le
+# 26/08 pendant l'installation de PowerShell 7 depuis la carte Comptes.
+#
+# Le marqueur porte le PID du processus lance : tant qu'il vit, la carte est occupee ;
+# des qu'il meurt, le marqueur s'efface tout seul. Rien a nettoyer a la main, et un arret
+# brutal ne laisse pas une carte occupee pour toujours.
+function Get-ModuleBusyMarkPath {
+    param([Parameter(Mandatory)][string]$Module, [string]$Backend = (Get-BackendRoot))
+    Get-VarPath -Backend $Backend -Kind 'run' -File ('busy-' + $Module + '.json')
+}
+
+function Set-ModuleBusyMark {
+    param(
+        [Parameter(Mandatory)][string]$Module,
+        [Parameter(Mandatory)][string]$Label,
+        [int]$ProcessId,
+        [string]$Action = '',
+        [string]$Backend = (Get-BackendRoot)
+    )
+    $f = Get-ModuleBusyMarkPath -Module $Module -Backend $Backend
+    $d = Split-Path $f -Parent
+    if (-not (Test-Path -LiteralPath $d)) { New-Item -ItemType Directory -Path $d -Force | Out-Null }
+    $o = [ordered]@{ label = $Label; pid = $ProcessId; action = $Action
+                     at = (Get-Date).ToUniversalTime().ToString('o') }
+    try { ($o | ConvertTo-Json -Depth 4) | Out-File -FilePath $f -Encoding UTF8 } catch { }
+}
+
+function Get-ModuleBusyMark {
+    param([Parameter(Mandatory)][string]$Module, [string]$Backend = (Get-BackendRoot))
+    $f = Get-ModuleBusyMarkPath -Module $Module -Backend $Backend
+    if (-not (Test-Path -LiteralPath $f)) { return $null }
+    $o = $null
+    try { $o = Get-Content -LiteralPath $f -Raw | ConvertFrom-Json } catch { }
+    if (-not $o) { return $null }
+    $vivant = $false
+    try { $vivant = [bool](Get-Process -Id ([int]$o.pid) -ErrorAction Stop) } catch { $vivant = $false }
+    if (-not $vivant) {
+        Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue
+        return $null
+    }
+    return $o
+}
+
 # --- QUELS COMPTES Windows ont Vigie (D65) ------------------------------------
 # L'ordinateur a plusieurs comptes ; l'utilisateur choisit ceux qui ont Vigie, et peut
 # changer d'avis a tout moment (exigence : « un outil doit toujours permettre de changer

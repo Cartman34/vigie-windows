@@ -22,6 +22,22 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
         return
     }
     Write-Host "PowerShell 7 (pwsh) absent. Tentative d'installation via winget..." -ForegroundColor Yellow
+    # L'ELEVATION est indispensable ici : une installation en portee machine sans droits
+    # administrateur echoue sur « 0x80070005 : Access is denied » -- et winget ayant deja
+    # retire l'eventuelle version du compte, la machine se retrouve SANS PowerShell 7
+    # (vecu le 26/08). On le dit AVANT d'essayer, plutot que de laisser ce trou.
+    $estAdmin = $false
+    try {
+        $id = [Security.Principal.WindowsIdentity]::GetCurrent()
+        $estAdmin = (New-Object Security.Principal.WindowsPrincipal($id)).IsInRole(
+                        [Security.Principal.WindowsBuiltInRole]::Administrator)
+    } catch { }
+    if (-not $estAdmin) {
+        Write-Host "Cette etape doit etre lancee EN ADMINISTRATEUR (installation pour toute la machine)." -ForegroundColor Yellow
+        Write-Host "Ouvre un terminal administrateur, puis relance :" -ForegroundColor Yellow
+        Write-Host ("  powershell -ExecutionPolicy Bypass -File " + $PSCommandPath)
+        return
+    }
     if (Get-Command winget -ErrorAction SilentlyContinue) {
         # --scope machine : POUR TOUTE LA MACHINE, jamais pour le seul compte qui installe.
         # Sans ce drapeau, winget pose le paquet MSIX dans le profil de l'utilisateur ;

@@ -47,6 +47,11 @@ try {
                           -RedirectStandardOutput $journal -RedirectStandardError $erreurs `
                           -WorkingDirectory (Get-RepoRoot)
     $lance = [bool]$proc
+    # Meme chose pour le deploiement : il dure une a deux minutes, la carte doit le dire.
+    if ($lance) {
+        Set-ModuleBusyMark -Module 'accounts' -Label 'Deploiement' `
+                           -ProcessId $proc.Id -Action 'deploy-shared' -Backend $backend
+    }
     Write-Log -Backend $backend -Name 'deploy' -Message ("deploiement lance vers " + $destination + " (journal : " + $journal + ")")
 } catch {
     Write-Log -Backend $backend -Name 'deploy' -Level 'ERROR' -Message $_.Exception.Message

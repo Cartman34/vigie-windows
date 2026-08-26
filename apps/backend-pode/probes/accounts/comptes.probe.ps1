@@ -62,11 +62,24 @@ if ($partagee) {
 # la lance ne l'est pas. Le dire ici, sinon activer un compte cree une tache qui echoue
 # en silence a chaque ouverture de session (constate le 26/08 avec Famille).
 $pwshPartage = Get-SharedPwshPath
-if (-not $pwshPartage) {
+$pwshCompte  = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
+if (-not $pwshPartage -and -not $pwshCompte) {
+    # ABSENT, ce n'est pas « installe pour vous seul » : la carte doit dire lequel des
+    # deux, sinon elle raconte une situation qui n'existe pas. Cas vecu le 26/08 : une
+    # installation en portee machine a desinstalle le paquet du compte puis a echoue,
+    # et la machine s'est retrouvee SANS PowerShell 7 -- la carte annoncait toujours
+    # « installe pour vous seul ».
+    $fields += New-Field -Key 'pwsh' -Label 'PowerShell 7' -Value 'absent de la machine' -Kind 'text' -Status 'error' `
+        -FixAction 'pwsh-install-machine' `
+        -Help "PowerShell 7 n'est installe nulle part : Vigie ne redemarrera pas, ni pour vous ni pour les autres comptes. Les processus en cours survivent, mais le prochain demarrage echouera." `
+        -Guide ("A faire tout de suite, dans un terminal ADMINISTRATEUR :" + [Environment]::NewLine +
+                "  winget install --id Microsoft.PowerShell -e --scope machine" + [Environment]::NewLine +
+                "A defaut, le paquet MSI : https://github.com/PowerShell/PowerShell/releases")
+} elseif (-not $pwshPartage) {
     $fields += New-Field -Key 'pwsh' -Label 'PowerShell 7' -Value 'installe pour vous seul' -Kind 'text' -Status 'warn' `
         -FixAction 'pwsh-install-machine' `
         -Help "Les taches des autres comptes ont besoin d'un PowerShell 7 installe pour la MACHINE. Celui-ci vient du Store et n'existe que dans votre profil : leur tache ne lancerait rien." `
-        -Guide ("Interpreteur actuel : " + ((Get-Command pwsh -ErrorAction SilentlyContinue).Source) + [Environment]::NewLine +
+        -Guide ("Interpreteur actuel : " + $pwshCompte + [Environment]::NewLine +
                 "A faire une fois, en administrateur :" + [Environment]::NewLine +
                 "  winget install --id Microsoft.PowerShell --scope machine" + [Environment]::NewLine +
                 "Puis reactivez les comptes concernes.")
@@ -81,8 +94,14 @@ if (-not $eleve) {
         -Help "Windows protège le profil de chaque compte : leur détail n'est lisible que par un Vigie lancé en administrateur. Vigie ne montre rien de plus que ce que Windows laisse voir."
 }
 
-$pire = if (@($fields | Where-Object { "$($_.status)" -eq 'warn' }).Count) { 'warn' } else { 'ok' }
-New-ModuleObject -Id 'accounts' -Theme 'accounts' -Label 'Comptes' -Status $pire -Fields $fields -Actions @(
+$pire = if (@($fields | Where-Object { "$($_.status)" -eq 'error' }).Count) { 'error' }
+        elseif (@($fields | Where-Object { "$($_.status)" -eq 'warn' }).Count) { 'warn' }
+        else { 'ok' }
+# Une tache de fond lancee depuis cette carte (deploiement, installation de PowerShell)
+# la garde en « operation en cours » jusqu'a la fin du processus.
+$travail = Get-ModuleBusyMark -Module 'accounts'
+New-ModuleObject -Id 'accounts' -Theme 'accounts' -Label 'Comptes' -Status $pire -Fields $fields `
+    -Busy:([bool]$travail) -BusyAction $(if ($travail) { "$($travail.action)" } else { '' }) -Actions @(
     New-Action -Id 'accounts-details' -Label 'Détails des comptes' -Kind 'immediate' -Severity 'info' `
         -Help "Dernière ouverture de session et poids des données Vigie de chacun. Demande un compte administrateur."
     New-Action -Id 'deploy-shared' -Label 'Déployer pour tous les comptes' -Kind 'confirm' -Severity 'fix' -Confirm `
