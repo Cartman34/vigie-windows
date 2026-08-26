@@ -41,7 +41,11 @@ param(
     [Parameter(ParameterSetName = 'Status')]  [switch] $Status,
     [Parameter(ParameterSetName = 'Stop')]    [switch] $Stop,
     [Parameter(ParameterSetName = 'Restart')] [switch] $Restart,
-    [int] $TimeoutSec = 15
+    # 15 s etait trop juste. Mesure du 26/08 : un redemarrage complet prend 9 a 11 s
+    # (ordre lu dans la seconde, pwsh + compilations C# ~5 s, premier battement 2 s
+    # apres). Machine occupee -- un deploiement en cours, justement -- et le compte y
+    # est. On declarait donc un echec sur une relance qui aboutissait.
+    [int] $TimeoutSec = 45
 )
 
 $ErrorActionPreference = 'Stop'
@@ -88,8 +92,28 @@ if (-not $avant -or $avant.AgeSec -gt $SEUIL_SEC) {
 }
 
 $ordre = if ($Restart) { 'restart' } else { 'stop' }
+$ack   = Join-Path $runDir ($ordre + '.ack')
+Remove-Item -LiteralPath $ack -Force -ErrorAction SilentlyContinue
 Send-Order $ordre
 Write-Host ("Ordre « {0} » depose (tray PID {1}). Attente de la confirmation..." -f $ordre, $avant.Pid)
+
+# 1) A-T-IL LU L'ORDRE ? Le tray pose un accuse des qu'il le consomme. Sans cette
+#    etape, un echec ne disait pas s'il fallait depanner un tray fige ou une relance
+#    lente : deux causes differentes, deux gestes differents.
+$vuLe = (Get-Date).AddSeconds(10)
+$lu = $false
+while ((Get-Date) -lt $vuLe) {
+    if (Test-Path -LiteralPath $ack) { $lu = $true; break }
+    Start-Sleep -Milliseconds 200
+}
+if ($lu) {
+    Remove-Item -LiteralPath $ack -Force -ErrorAction SilentlyContinue
+    Write-Host "Ordre lu par le tray."
+} else {
+    Write-Host "Le tray n'a PAS lu l'ordre en 10 s : il est probablement fige." -ForegroundColor Yellow
+    Write-Host "Verifie apps/tray/var/log/ et le dossier var/run/."
+    exit 2
+}
 
 # Confirmation : pour un arret, le battement disparait ; pour un redemarrage, un NOUVEAU
 # processus reprend la main -- on attend donc un PID different.
@@ -106,6 +130,7 @@ while ((Get-Date) -lt $fin) {
     }
 }
 
-Write-Host ("L'ordre n'a pas ete pris en compte en {0} s." -f $TimeoutSec) -ForegroundColor Yellow
-Write-Host "Le tray est peut-etre fige. Verifie apps/tray/var/log/ et le dossier var/run/."
+# L'ordre a bien ete lu (accuse recu) : ce qui manque, c'est le RETOUR.
+Write-Host ("Ordre lu, mais rien n'est revenu en {0} s." -f $TimeoutSec) -ForegroundColor Yellow
+Write-Host "La relance a peut-etre echoue : verifie apps/tray/var/log/."
 exit 2

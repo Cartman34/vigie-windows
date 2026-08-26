@@ -160,7 +160,27 @@ public static bool Focus(System.IntPtr h) {
             $state.Starting   = $true
             if ($pwsh) { $state.Proc = & $launchHidden $pwsh @('-NoProfile','-ExecutionPolicy','Bypass','-File', (Join-Path $backend 'start.ps1')) }
         }
-        $stopServer = { try { if ($state.Proc -and -not $state.Proc.HasExited) { $state.Proc.Kill() } } catch { } }
+        # ARRETER LE SERVEUR, meme quand ce n'est pas NOTRE enfant.
+        #
+        # Un tray relance ADOPTE le serveur deja en place : $state.Proc est alors vide, et
+        # l'ancien $stopServer ne tuait rien. Consequence mesuree le 26/08 : « Relancer
+        # l'application » (et donc le redemarrage d'apres deploiement) laissait tourner
+        # l'ANCIEN serveur -- le nouveau tray constatait « serveur ok » et repartait sur
+        # du code perime. Repli : le processus qui ECOUTE le port, et seulement s'il s'agit
+        # d'un interpreteur PowerShell -- on ne tue que ce qu'on aurait pu lancer.
+        $stopServer = {
+            try { if ($state.Proc -and -not $state.Proc.HasExited) { $state.Proc.Kill(); return } } catch { }
+            try {
+                $c = Get-NetTCPConnection -LocalPort $cfg.Port -State Listen -ErrorAction Stop | Select-Object -First 1
+                if ($c -and $c.OwningProcess) {
+                    $p = Get-Process -Id ([int]$c.OwningProcess) -ErrorAction Stop
+                    if (@('pwsh','powershell') -contains $p.ProcessName) {
+                        TLog ("arret du serveur adopte (PID " + $p.Id + ")")
+                        $p.Kill()
+                    }
+                }
+            } catch { }
+        }
 
         # Sortie PROPRE, seul chemin de fin de vie. Libere l'icone : un processus tue
         # laisse son icone en fantome dans la zone de notification, qui ne repond plus
@@ -174,6 +194,9 @@ public static bool Focus(System.IntPtr h) {
             [System.Windows.Forms.Application]::Exit()
         }
         $relaunch = {
+            # Le serveur repart AVEC : relancer l'application sans relancer le serveur,
+            # c'est garder le code d'avant.
+            try { & $stopServer } catch { }
             try { [void](& $launchHidden $pwsh @('-NoProfile','-ExecutionPolicy','Bypass','-File', $trayPath)) } catch { }
             try { $icon.Visible = $false; $icon.Dispose() } catch { }
             [System.Windows.Forms.Application]::Exit()
@@ -697,12 +720,19 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                 $stop = Join-Path $runDir 'stop'
                 if (Test-Path -LiteralPath $stop) {
                     Remove-Item -LiteralPath $stop -Force -ErrorAction SilentlyContinue
+                    try { Set-Content -LiteralPath (Join-Path $runDir 'stop.ack') -Value "$PID" -Encoding ASCII -NoNewline } catch { }
                     & $quitApp 'ordre stop'
                     return
                 }
                 $restart = Join-Path $runDir 'restart'
                 if (Test-Path -LiteralPath $restart) {
                     Remove-Item -LiteralPath $restart -Force -ErrorAction SilentlyContinue
+                    # ACCUSE DE RECEPTION, avant de partir. L'emetteur ne pouvait juger
+                    # que sur le retour d'un NOUVEAU tray (une dizaine de secondes) :
+                    # « ordre non pris en compte » melangeait donc « rien n'a lu l'ordre »
+                    # et « la relance est plus lente que prevu ». Ce n'est pas le meme
+                    # depannage.
+                    try { Set-Content -LiteralPath (Join-Path $runDir 'restart.ack') -Value "$PID" -Encoding ASCII -NoNewline } catch { }
                     TLog "arret demande (ordre restart)"
                     & $relaunch
                 }
