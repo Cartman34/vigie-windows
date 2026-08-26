@@ -81,7 +81,8 @@ if (-not $eleve) {
         -Help "Windows protège le profil de chaque compte : leur détail n'est lisible que par un Vigie lancé en administrateur. Vigie ne montre rien de plus que ce que Windows laisse voir."
 }
 
-New-ModuleObject -Id 'accounts' -Theme 'accounts' -Label 'Comptes' -Status 'ok' -Fields $fields -Actions @(
+$pire = if (@($fields | Where-Object { "$($_.status)" -eq 'warn' }).Count) { 'warn' } else { 'ok' }
+New-ModuleObject -Id 'accounts' -Theme 'accounts' -Label 'Comptes' -Status $pire -Fields $fields -Actions @(
     New-Action -Id 'accounts-details' -Label 'Détails des comptes' -Kind 'immediate' -Severity 'info' `
         -Help "Dernière ouverture de session et poids des données Vigie de chacun. Demande un compte administrateur."
     New-Action -Id 'deploy-shared' -Label 'Déployer pour tous les comptes' -Kind 'confirm' -Severity 'fix' -Confirm `
