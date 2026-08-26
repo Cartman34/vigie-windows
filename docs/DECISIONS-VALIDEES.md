@@ -1712,3 +1712,36 @@ d'**ouvrir le dossier** dans l'explorateur Windows.
   tous). Le chemin venant du client est vérifié deux fois : il doit être un **dossier
   existant** ET se trouver **sous la racine analysée** — sans quoi l'application
   deviendrait un moyen d'ouvrir n'importe quoi. Vigie n'efface rien : elle ouvre.
+
+## D67 — Diagnostiquer un autre compte : par Vigie, jamais par un contournement (2026-08-25)
+
+**Question posée.** En tant qu'agent sur le compte administrateur, comment relire les
+données d'exécution d'un autre compte, maintenant qu'elles vivent dans son profil ?
+
+**Constat mesuré** : depuis une session **non élevée**, `C:\Users\<autre>\AppData\Local`
+est refusé — l'ACL elle-même est illisible. C'est la protection normale des profils
+Windows, pas un défaut de Vigie.
+
+**Deux voies comparées**, et la mise en commun des journaux (`ProgramData\Vigie\log`) a été
+**écartée** : pour que chaque compte y écrive, il faudrait l'ouvrir en écriture à tous — un
+compte standard lirait alors les journaux des autres (chemins analysés, applications,
+réseau) et pourrait les altérer. Cela déferait précisément l'isolation établie par D65.
+
+**Décision (utilisateur).**
+1. Le diagnostic est un **script**, pas une fonction du produit :
+   `scripts/vigie-diag-compte.ps1`. Sans argument il liste les comptes ; avec `-Compte`,
+   il rapatrie les journaux du compte visé.
+2. Le script **ne lit rien lui-même** : il **passe par Vigie**, qui détient déjà
+   l'élévation. Aucune invite UAC de plus, et surtout **le même filtre que les actions
+   sensibles** — l'action `diag-account-logs` est déclarée `@droits: admin`, un compte
+   standard se voit refuser comme pour le verrou Windows Update.
+3. **Lecture seule** chez le compte visé, et le **jeton d'API n'est jamais copié** : un
+   secret ne se recopie pas « pour voir ». Les journaux et un résumé d'état (ce qui
+   existe, quel poids, quelle fraîcheur) suffisent au dépannage.
+
+**Et une carte dédiée** (module `accounts`, « Comptes ») : votre compte, le nombre de
+comptes, ceux qui ont Vigie, et — **seulement si Vigie tourne en administrateur** — le
+tableau des autres comptes : type, Vigie ou non, dernière session, poids et fraîcheur de
+leurs données. Sans élévation, la ligne dit « détail masqué » et pourquoi : Vigie ne montre
+rien de plus que ce que Windows laisse voir. Le bouton « Gérer les comptes » ouvre
+Paramètres > Utilisateurs, traité par l'interface sans aller-retour serveur.
