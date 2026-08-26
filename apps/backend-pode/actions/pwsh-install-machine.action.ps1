@@ -36,6 +36,11 @@ try {
     $proc = Start-Process -FilePath $winget.Source -ArgumentList $argv -WindowStyle Hidden -PassThru `
                           -RedirectStandardOutput $journal -RedirectStandardError $erreurs
     $lance = [bool]$proc
+    # La carte le DIT tant que le processus vit (D80).
+    if ($lance) {
+        Set-ModuleBusyMark -Module 'accounts' -Label 'Installation de PowerShell 7' `
+                           -ProcessId $proc.Id -Action 'pwsh-install-machine' -Backend $backend
+    }
     Write-Log -Backend $backend -Name 'comptes' -Message ("installation de PowerShell 7 (machine) lancee, journal : " + $journal)
 } catch {
     Write-Log -Backend $backend -Name 'comptes' -Level 'ERROR' -Message $_.Exception.Message
