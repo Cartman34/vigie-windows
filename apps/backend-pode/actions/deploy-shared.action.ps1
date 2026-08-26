@@ -22,31 +22,31 @@ if (-not (Test-Path -LiteralPath $script)) {
 }
 $destination = if ($Params -and $Params.destination) { "$($Params.destination)" } else { 'C:\Program Files\Sowapps\Vigie' }
 
-# Start-DetachedAction impose sa propre signature (-Backend/-ArgsB64) : ce script-ci
-# attend -Destination/-Yes. On le lance donc directement, fenetre cachee. Le serveur est
-# deja eleve : aucune invite supplementaire.
+# Lancement en tache de fond, sortie REDIRIGEE DANS UN FICHIER.
+#
+# Premiere version : ProcessStartInfo avec RedirectStandardOutput sans jamais LIRE le
+# flux. Le tampon du tuyau se remplit, le processus se bloque a la premiere ligne un peu
+# longue -- rien ne s'est deploye et aucun journal n'a ete ecrit (constate). Start-Process
+# ecrit directement dans un fichier : pas de tuyau a vider, et une trace a relire.
 $journal = Join-Path (Get-LogDir -Backend $backend) ('deploy_' + (Get-Date -Format 'yyyyMMdd_HHmmss') + '.log')
-$pwsh = (Get-Process -Id $PID).Path
+$erreurs = $journal -replace '\.log$', '.err.log'
+$pwsh = $null
+try { $pwsh = (Get-Process -Id $PID).Path } catch { }
 if (-not $pwsh) { $pwsh = 'pwsh.exe' }
+
 $lance = $false
 try {
-    $psi = [System.Diagnostics.ProcessStartInfo]::new()
-    $psi.FileName = $pwsh
-    $psi.Arguments = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + $script +
-                     '" -Destination "' + $destination + '" -Yes'
-    $psi.UseShellExecute = $false
-    $psi.CreateNoWindow = $true
-    $psi.RedirectStandardOutput = $true
-    $psi.RedirectStandardError = $true
-    $psi.WorkingDirectory = (Get-RepoRoot)
-    $proc = [System.Diagnostics.Process]::Start($psi)
-    # La sortie part au journal : un deploiement qui echoue doit laisser une trace.
-    $null = Register-ObjectEvent -InputObject $proc -EventName Exited -Action {
-        try { $Event.MessageData | Out-Null } catch { }
-    } -MessageData $journal -ErrorAction SilentlyContinue
+    $args = @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+              '-File', $script, '-Destination', $destination, '-Yes')
+    $proc = Start-Process -FilePath $pwsh -ArgumentList $args -WindowStyle Hidden -PassThru `
+                          -RedirectStandardOutput $journal -RedirectStandardError $erreurs `
+                          -WorkingDirectory (Get-RepoRoot)
     $lance = [bool]$proc
-    Write-Log -Backend $backend -Name 'deploy' -Message ("deploiement lance vers " + $destination)
-} catch { Write-Log -Backend $backend -Name 'deploy' -Level 'ERROR' -Message $_.Exception.Message }
+    Write-Log -Backend $backend -Name 'deploy' -Message ("deploiement lance vers " + $destination + " (journal : " + $journal + ")")
+} catch {
+    Write-Log -Backend $backend -Name 'deploy' -Level 'ERROR' -Message $_.Exception.Message
+}
+
 if (-not $lance) { return @{ message = "Impossible de lancer le deploiement."; result = @{ ok = $false } } }
 
 @{
