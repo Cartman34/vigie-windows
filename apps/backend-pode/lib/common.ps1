@@ -1254,7 +1254,9 @@ function Get-VarPath {
         [string]$Backend = (Get-BackendRoot),
         # 'history' : series de mesures (docs/conception/historique-cible.md). Distinct de
         # 'cache' : un cache perdu se recalcule, un historique perdu ne se recalcule pas.
-        [Parameter(Mandatory)][ValidateSet('cache','log','secrets','history')][string]$Kind,
+        # 'run' : etat VIVANT, valable le temps d'un processus (marqueurs de tache de
+        # fond). Il ne se sauvegarde pas et ne se relit pas apres un redemarrage.
+        [Parameter(Mandatory)][ValidateSet('cache','log','secrets','history','run')][string]$Kind,
         [string]$File
     )
     $dir = Join-Path (Get-VarRoot -Backend $Backend) $Kind
@@ -2507,7 +2509,7 @@ function Get-SharedPwshInstallArgs {
     # --installer-type msi : SANS lui, winget choisit le paquet MSIX et tente de le
     # « provisionner » pour tous les comptes -- operation qui echoue sur cette machine
     # avec 0x80070005 (journal winget du 26/08 : ProvisionPackageOperation). Or c'est
-    # justement le MSI qu'on veut : lui pose pwsh.exe dans C:\Program Files\PowerShell,
+    # justement le MSI qu'on veut : lui pose pwsh.exe dans C:\Program Files\PowerShell\7,
     # un vrai chemin que toutes les sessions peuvent lancer, sans enregistrement par
     # compte. Le MSIX, meme provisionne, reste un paquet par utilisateur.
     @('install', '--id', 'Microsoft.PowerShell', '-e', '--scope', 'machine',

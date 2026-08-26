@@ -50,6 +50,8 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
 **Le parseur ne suffit pas** (**D50bis**) : un paramètre passé deux fois le franchit sans un
 mot et fait disparaître une carte à l'exécution. C'est arrivé, livré et annoncé comme fait.
 
+**UN GARDE-FOU EXISTE DESORMAIS** : `scripts/check-probes.ps1` refuse tout caractere de controle dans `apps/`, `scripts/`, `config/` et `docs/`, et nomme le fichier et la ligne. Il a ete eprouve en posant volontairement le piege. Lance-le apres toute ecriture scriptee.
+
 **LES ANTISLASHS DE MES SCRIPTS D'ÉDITION SONT MANGÉS** — piège coûteux, rencontré cinq
 fois le 26/08. `\\` arrive souvent **simple** dans le fichier écrit, et `\t`, `\25`, `\b`
 deviennent des **caractères de contrôle** (tabulation, 0x15, retour arrière). Symptômes
@@ -96,6 +98,8 @@ Pode 47600 + front une page + Atelier PHP 47610 (à lancer à la main :
 `C:\Program Files\Sowapps\Vigie` ; données par compte :
 `%LOCALAPPDATA%\Sowapps\Vigie`.
 
+**Installation (D81)** : un seul point d'entree, **`setup.cmd` a la racine**. Il verifie que le compte est administrateur, s'eleve, installe PowerShell 7 **pour la machine** (`C:\Program Files\PowerShell\7` -- winget n'ayant plus de paquet MSI, le MSI officiel est telecharge en repli), Pode, le jeton, la tache de demarrage de ce compte, et lance Vigie. Chaque code de retour est lu.
+
 **Livraison (D76)** : quand une fonctionnalite est finie, **je fusionne dans `main`** - le serveur de sa session sert le depot, il la recoit donc directement (une carte nouvelle apparait au rechargement ; une route nouvelle attend un redemarrage du serveur). Les **autres comptes**, eux, lancent `C:\Program Files\Sowapps\Vigie` : ils ne recoivent rien sans un **deploiement explicite**, qui se demande.
 
 Modules : Windows Update (verrouillage natif, MAJ au choix, date de dernière analyse),
@@ -114,58 +118,48 @@ système), `DECISIONS-VALIDEES.md` (toutes les règles, D01→D72).
 
 ### File de travail (dans l'ordre)
 
-> **A SAVOIR AVANT TOUT (etat a la fin de la session du 26/08)** : `main` est a jour et
-> pousse. Le **tray** tourne avec le code fusionne jusqu'a S5 (guetteur d'adresse reseau
-> arme, vu au journal). Le **serveur, lui, tourne encore avec du code d'avant** : il n'a
-> pas ete relance, donc la route `GET /modules/:id?fresh=1` n'est PAS encore active. Le
-> correctif qui relance le serveur avec le tray (D78) n'est pas non plus charge - il le
-> sera au prochain redemarrage du tray. **Premier geste a la reprise** :
-> `pwsh -File scripts/tray.ps1 -Restart`, puis verifier au journal du tray
-> « arret du serveur adopte » et « guetteur d'adresse reseau arme ».
+> **A SAVOIR AVANT TOUT (fin de soiree du 26/08).** `main` est a jour et pousse.
+> **Le tray et le serveur sont ARRETES** : l'installation de PowerShell 7 a remplace
+> l'interpreteur qui les portait. La tache de demarrage a ete reecrite avec
+> `C:\Program Files\PowerShell\7`, mais **rien ne tourne tant que l'utilisateur n'a pas
+> lance `setup.cmd`** (a la racine, double-clic, elevation demandee). Premier geste a la
+> reprise : verifier que Vigie repond sur <http://127.0.0.1:47600/>, sinon le lui dire.
 
-1. **Session `Famille` - a constater** (en attente de l'utilisateur). Tout est en place et
-   verifie : installation partagee `C:\Program Files\Sowapps\Vigie` **redeployee le 26/08 a 15:19** (134 fichiers,
-   `power.probe.ps1` inclus, aucun secret, aucune erreur, reglages machine conserves),
-   tache **`Vigie - Famille`** en niveau *Limited*. A constater en ouvrant sa session :
-   demarrage **non eleve**, actions administrateur **refusees et expliquees** (D65),
-   reglages et historique **separes**.
-2. **Alimentation (carte neuve, livree)** - a constater sur un vrai cas : debrancher le
+1. **Compte `Famille` : sa tache est a REFAIRE.** Elle pointe encore vers le pwsh du
+   paquet Store, supprime -- c'est pour cela que Vigie ne s'est jamais lance chez lui.
+   Le correctif est en place (une tache d'un autre compte exige un pwsh **machine**,
+   D79), mais la tache existante n'est pas reecrite toute seule : desactiver puis
+   reactiver `Famille` depuis **Parametres > Utilisateurs**, ou par
+   `scripts/vigie-comptes.ps1 -Activer Famille`. **A faire des que Vigie tourne**, puis
+   constater l'ouverture de sa session.
+2. **Alimentation (carte neuve, livree)** -- a constater sur un vrai cas : debrancher le
    chargeur, ou brancher un chargeur faible sous forte charge. La carte doit passer en
    avertissement « Le secteur ne suit pas : la batterie se decharge (x W) » et la
-   notification « Machine sous-alimentee » sortir. A l'instant du depart : Secteur, 96 %,
-   aucun echange -> carte verte.
-3. **Jeux - latence d'affichage CORRIGEE** (le bouton d'une carte recalcule et attend,
-   `?fresh=1`), **a constater a la prochaine partie**, apres un redemarrage du serveur.
-4. **Icones - a eprouver sur la page Design systeme** : cloche (proportions Font Awesome),
-   puzzle (tenon haut, encoche droite), utilisateurs, point du « i ». Planche :
-   `http://127.0.0.1:47610/apps/atelier/design-systeme.html` (Atelier a lancer a la main :
-   `pwsh -File apps/atelier/atelier.ps1`). Reste aussi l'ancien sujet du **centrage vu sur
-   SON ecran** (frames de sa video au scratchpad, a mesurer, pas a l'oeil).
-5. **Deux exports PDF - demande « a terme » le 26/08, rien de commence.** Deux documents
-   distincts, pas un seul :
-   - **Fiche materielle** : les caracteristiques qui NE BOUGENT PAS (machine, carte mere,
-     processeur, memoire installee, disques, carte graphique, ecran, reseau, batterie).
+   notification « Machine sous-alimentee » sortir.
+3. **Jeux -- latence d'affichage CORRIGEE** (le bouton d'une carte recalcule et attend,
+   `?fresh=1`), a constater a la prochaine partie.
+4. **Icones -- a eprouver sur la page Design systeme** : cloche (proportions Font
+   Awesome), puzzle (tenon haut, encoche droite), utilisateurs, point du « i ». Planche :
+   <http://127.0.0.1:47610/apps/atelier/design-systeme.html> (Atelier a lancer a la main :
+   `pwsh -File apps/atelier/atelier.ps1`). Reste aussi l'ancien sujet du **centrage vu
+   sur SON ecran** (frames de sa video au scratchpad, a mesurer, pas a l'oeil).
+5. **Deux exports PDF -- demande « a terme », rien de livre.** Deux documents distincts :
+   - **Fiche materielle** : ce qui NE BOUGE PAS (machine, carte mere, processeur,
+     barrettes de memoire, disques, carte graphique, ecrans, reseau, batterie).
+     **Un inventaire complet est deja ecrit** mais **pas encore integre** :
+     `scratchpad/patch-materiel.py` porte `Get-HardwareSpecs` (cache 7 jours, chaque
+     section defensive). A appliquer, eprouver, puis exposer par une route.
    - **Etat actuel** : ce que Vigie voit a l'instant (mises a jour, stockage, securite,
      reseau, alimentation...).
    Forme voulue : **PDF bien presentes**, theme qui **rappelle celui de l'app mais moins
-   charge** - « ca doit faire plus document, avec un peu notre patte ». Donc la palette et
-   la typographie du design systeme, mais sobres : pas de cartes ni de couleurs pleines.
-   A creuser cote fabrication : aucune dependance externe n'est installee ; imprimer depuis
-   le navigateur (HTML + `@media print`) est la piste la plus coherente avec l'app.
-6. **Edge - REGLE**, et j'etais parti sur la mauvaise piste. Le symptome reel etait « Edge
-   ne se met pas a jour », pas « Edge ne s'ouvre pas ». Edge est **deja** a jour
-   (151.0.4129.107) : c'est Vigie qui proposait une mise a jour accomplie a partir d'une
-   liste vieille d'un jour (D77, corrige). Sans rapport, a savoir : **MSEdgeRedirect** est
-   branche en *debugger* IFEO sur `msedge.exe`, donc un lancement direct d'Edge sort en
-   code 0 sans fenetre - voulu par l'utilisateur, rien a reparer.
-7. **S5 - FAIT et ACTIF** : le tray s'abonne a `NetworkChange` (abonnement **en C#**, le
-   gestionnaire pose un drapeau, un `Timer` d'interface agit - Windows previent sur un fil
-   du pool, ou executer du PowerShell n'est pas sur). Journal : « guetteur d'adresse reseau
-   arme ». A constater : debrancher le cable ou changer de Wi-Fi, la carte Reseau suit dans
-   la seconde.
-8. **Tray - FAIT, a charger** (D78) : la relance tue desormais le serveur adopte, l'ordre
-   est accuse, le delai passe a 45 s. Actif au prochain redemarrage du tray.
-9. Fond ancien : eprouver verrou/VBS eleve apres redemarrage ; commentaires en anglais
+   charge** -- « ca doit faire plus document, avec un peu notre patte ». Piste de
+   fabrication : page HTML servie + `@media print` + impression du navigateur (aucune
+   dependance externe a installer). Entree dans l'interface : a placer dans
+   **Parametres > A propos** (rien n'a ete decide, ne pas inventer ailleurs).
+6. **Tache de fond visible (D80) : a constater.** Le serveur pose un marqueur pendant un
+   deploiement ou une installation ; la carte doit rester « operation en cours » tant que
+   le processus vit. Eprouve en atelier, pas encore vu en vrai.
+7. Fond ancien : eprouver verrou/VBS eleve apres redemarrage ; commentaires en anglais
    (D41) ; workflow GitHub ; bulle de notification du tray a observer en reel.
 
 ## État de la machine de l'utilisateur — à savoir avant de conclure quoi que ce soit

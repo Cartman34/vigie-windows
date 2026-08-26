@@ -141,7 +141,14 @@ public static bool Focus(System.IntPtr h) {
         }
         # Un arret brutal laisse des ordres non consommes : ils ne doivent pas s'appliquer
         # au demarrage suivant.
+        #
+        # SAUF les accuses de reception : celui que le tray precedent vient de poser est
+        # justement ce que l'emetteur attend, et nous demarrons dans la seconde qui suit.
+        # Les effacer d'entree, c'etait courir avec lui -- et lui faire conclure « ordre
+        # non lu » sur une relance qui marchait. Un accuse perime ne gene personne :
+        # l'emetteur efface le sien AVANT d'envoyer son ordre.
         Get-ChildItem -LiteralPath $runDir -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.Extension -ne '.ack' } |
             Remove-Item -Force -ErrorAction SilentlyContinue
 
         $launchHidden = {

@@ -245,6 +245,45 @@ try {
     Write-Host "Note : l enregistrement des contrats n a pas pu etre ecrit -- la prochaine passe reexecutera tout." -ForegroundColor DarkYellow
 }
 
+# --- Garde-fou : AUCUN CARACTERE DE CONTROLE dans les sources -----------------
+#
+# Le piege le plus couteux de ce projet, rencontre sept fois en une journee : un
+# antislash disparait a l'ecriture et laisse un caractere de controle. « \var » devient
+# 0x0B, « \7 » devient 0x07, « \t » une tabulation. Le fichier reste valide, le parseur
+# ne dit rien, et un chemin ne designe soudain plus rien -- silencieusement. Deux cas
+# vecus : un inventaire de comptes toujours vide, et un diagnostic qui repondait
+# « ce compte n'a jamais ouvert de session » quoi qu'il arrive.
+#
+# On le detecte ici, ou ca coute une seconde, plutot qu'en production ou ca coute une
+# soiree. Seul l'echappement ESC (0x1B) est tolere : il sert a filtrer les codes ANSI.
+$dossiersSources = @('apps', 'scripts', 'config', 'docs')
+$interdits = @()
+foreach ($d in $dossiersSources) {
+    $racineD = Join-Path $repoRoot $d
+    if (-not (Test-Path -LiteralPath $racineD)) { continue }
+    $fichiers = Get-ChildItem -LiteralPath $racineD -Recurse -File -ErrorAction SilentlyContinue |
+                Where-Object { $_.Extension -in @('.ps1', '.psd1', '.psm1', '.html', '.md', '.json', '.cmd') -and
+                               $_.FullName -notmatch '\\var\\' -and $_.FullName -notmatch '\\dist\\' }
+    foreach ($f in $fichiers) {
+        $texte = $null
+        try { $texte = Get-Content -LiteralPath $f.FullName -Raw -ErrorAction Stop } catch { continue }
+        if (-not $texte) { continue }
+        # 0x1B (ESC) exclu : volontaire. 0x09/0x0A/0x0D : tabulation et fins de ligne.
+        if ($texte -match "[\u0000-\u0008\u000B\u000C\u000E-\u001A\u001C-\u001F]") {
+            $ligne = 0
+            foreach ($l in ($texte -split "`r?`n")) {
+                $ligne++
+                if ($l -match "[\u0000-\u0008\u000B\u000C\u000E-\u001A\u001C-\u001F]") {
+                    $interdits += ("{0}:{1}" -f $f.FullName.Substring($repoRoot.Length + 1), $ligne)
+                }
+            }
+        }
+    }
+}
+foreach ($i in $interdits) {
+    $manquements += "caractere de controle dans une source (antislash mange ?) -- $i"
+}
+
 # --- Verdict -----------------------------------------------------------------
 $lignes | ForEach-Object { Write-Host $_ }
 Write-Host ''

@@ -1669,7 +1669,7 @@ On contrôle sur l'exécution réelle des sondes — c'est ce que fait `check-pr
 
 - **Données d'exécution** : `Get-VarRoot` **teste l'écriture** dans `<installation>/var`
   au lieu de deviner d'après le chemin. Installation inscriptible (dépôt de dev) → rien ne
-  change ; installation partagée où le compte n'écrit pas → `%LOCALAPPDATA%\Vigiear`
+  change ; installation partagée où le compte n'écrit pas → `%LOCALAPPDATA%\Vigie\var`
   (cache, journaux, historique, jeton). Chaque compte est chez lui.
 - **Comptes autorisés** : `Get-VigieAccounts` liste les comptes Windows actifs avec, pour
   chacun, s'il est administrateur et si Vigie démarre avec lui ;
@@ -2016,3 +2016,52 @@ Traite **a chaque chemin d'installation**, pas seulement la ou ca a fait mal :
 **Le principe general** : une dependance ne se constate pas au moment ou elle manque, elle
 se traite dans le chemin d'installation - et pour TOUS les comptes, jamais pour le seul
 compte qui installe.
+
+## D80 - Une tache de fond se voit tant qu'elle dure (2026-08-26)
+
+L'interface marquait bien la carte « operation en cours » des le clic, mais ce marquage
+ne survivait pas au premier rafraichissement : le serveur, lui, ne savait rien du travail
+lance. La carte redevenait calme pendant que l'installation continuait -- signale par
+l'utilisateur : « une operation en cours n'est pas visible dans la carte alors qu'elle
+devrait ».
+
+**Le serveur porte desormais la verite.** Une action qui lance un processus detache pose
+un marqueur (`var/run/busy-<carte>.json`) contenant le PID. La sonde le lit et rend la
+carte occupee ; des que le processus meurt, le marqueur s'efface de lui-meme a la
+lecture suivante. Rien a nettoyer, et un arret brutal ne laisse pas une carte occupee
+pour l'eternite. Pose par le deploiement et par l'installation de PowerShell 7.
+
+## D81 - Un installateur aboutit, ou dit pourquoi (2026-08-26)
+
+Soiree entiere passee dessus, quatre echecs de suite, chacun instructif :
+
+1. `winget install --scope machine` **sans** `--installer-type msi` : winget prend le
+   MSIXBUNDLE, tente de le provisionner pour tous les comptes, echoue en `0x80070005` --
+   et il avait DEJA desinstalle la version du compte. La machine s'est retrouvee **sans
+   aucun PowerShell 7**, alors qu'elle en avait un qui marchait.
+2. Avec `--installer-type msi` : la source winget n'a **aucun** paquet MSI pour
+   `Microsoft.PowerShell` (verifie : le manifeste ne publie que le msixbundle, en 7.6.5
+   comme en 7.5.10). Elle balaie toutes les versions puis renonce (`0x8a150010`).
+3. Repli sur le MSI officiel : le telechargement de 108 Mo **paraissait fige** alors que
+   le fichier etait complet -- la barre de progression de Windows PowerShell 5.1 coute
+   plus cher que le telechargement lui-meme. `$ProgressPreference = 'SilentlyContinue'`.
+4. Et pendant tout ce temps, le lanceur affichait **« Termine »** apres chaque echec :
+   personne ne lisait les codes de retour.
+
+**Ce qui en sort :**
+- **Un seul point d'entree**, `setup.cmd`, a la RACINE. Il verifie que le compte est
+  administrateur **avant** d'elever (sinon Windows demanderait les identifiants d'un
+  autre compte, et Vigie s'installerait pour celui-la), puis lance l'installation.
+- **L'installation fait tout** : PowerShell 7 pour la machine (winget, puis le MSI
+  officiel en repli), Pode, le jeton, la tache de demarrage de ce compte, le lancement.
+  Plus de « relancez install.ps1 ».
+- **Les processus s'enchainent seuls et chaque code de retour est lu.** Trois fuites
+  bouchees dans `install.ps1` : la bascule vers PowerShell 7, la reprise apres
+  installation, et le bloc `catch` qui affichait l'erreur puis sortait en succes.
+  `msiexec` passe en `/qb` (le travail se voit) et son code est interprete : `0`, `3010`
+  (redemarrage demande), `1618` (installateur occupe), le reste est nomme.
+- Un MSI deja telecharge et **complet** est reutilise plutot que retelecharge.
+
+**La regle** : un installateur ne renvoie pas l'utilisateur vers une page de
+telechargement, et n'annonce jamais un succes qu'il n'a pas constate. Le chemin de
+reference reste `C:\Program Files\PowerShell\7` : c'est lui que lancent les taches de demarrage.

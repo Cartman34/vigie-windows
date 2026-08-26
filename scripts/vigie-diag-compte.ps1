@@ -11,8 +11,8 @@
     LECTURE SEULE chez le compte vise. Le jeton d'API de ce compte n'est jamais copie.
 
     Usage :
-      pwsh -File .\scriptsigie-diag-compte.ps1                    # liste les comptes
-      pwsh -File .\scriptsigie-diag-compte.ps1 -Compte Famille
+      pwsh -File .\scripts\vigie-diag-compte.ps1                    # liste les comptes
+      pwsh -File .\scripts\vigie-diag-compte.ps1 -Compte Famille
 
     Codes de retour : 0 = fait ; 1 = compte ou donnees introuvables ; 2 = Vigie injoignable ;
     3 = refuse (compte non administrateur).
@@ -32,7 +32,7 @@ if (-not $Compte) {
     }
     Write-Host ""
     Write-Host "Pour rapatrier les journaux de l'un d'eux :"
-    Write-Host "  pwsh -File .\scriptsigie-diag-compte.ps1 -Compte <nom>"
+    Write-Host "  pwsh -File .\scripts\vigie-diag-compte.ps1 -Compte <nom>"
     exit 0
 }
 
