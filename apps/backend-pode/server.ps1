@@ -105,6 +105,26 @@ Add-PodeRoute -Method Post -Path "$base/units/:id" -ScriptBlock {
     Write-PodeJsonResponse -Value @{ units = @(Get-UnitCatalog -Backend $env:VIGIE_BACKEND) } -Depth 6
 }
 
+# --- Arborescence du disque, UN NIVEAU a la fois (D60 revu) -------------------
+# L'interface n'embarque jamais l'arbre entier : elle demande le niveau qu'elle affiche.
+# Sans `path`, c'est la racine de la derniere analyse.
+Add-PodeRoute -Method Get -Path "$base/disk/tree" -ScriptBlock {
+    . "$env:VIGIE_BACKEND/lib/common.ps1"
+    $chemin = "$($WebEvent.Query['path'])"
+    try {
+        if (-not $chemin) {
+            $f = Get-VarPath -Backend $env:VIGIE_BACKEND -Kind 'cache' -File 'diskscan.json'
+            if (-not (Test-Path -LiteralPath $f)) { throw "Aucune analyse disponible." }
+            $j = Get-Content -LiteralPath $f -Raw | ConvertFrom-Json
+            $chemin = if ($j.result -and $j.result.root) { "$($j.result.root)" } else { "$($j.scan.root)" }
+        }
+        $niveau = Get-DiskTreeLevel -Path $chemin -Backend $env:VIGIE_BACKEND
+        Write-PodeJsonResponse -Value $niveau -Depth 6
+    } catch {
+        Write-PodeJsonResponse -StatusCode 400 -Value @{ error = "$($_.Exception.Message)" }
+    }
+}
+
 # --- Comptes Windows autorises (D65) -----------------------------------------
 # Lecture ouverte (savoir QUI a Vigie n'est pas un secret) ; ecriture reservee a un
 # serveur eleve -- creer une tache pour autrui est une operation d'administration.

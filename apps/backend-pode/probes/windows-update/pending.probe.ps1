@@ -69,10 +69,29 @@ if ($null -eq $count) {
         $champs += New-Field -Key 'scan' -Label 'Analyse en ligne' -Value 'en cours…' -Kind 'text' -Status 'neutral' `
             -Help "Interrogation des serveurs Microsoft. Elle continue même si vous fermez la fenêtre."
     } elseif ($scan -and $null -ne $scan.trouvees) {
-        $champs += New-Field -Key 'scan' -Label 'Dernière analyse en ligne' -Value "$([int]$scan.trouvees) trouvée(s)" -Kind 'text' `
-            -Status $(if ($scan.error) {'error'} else {'ok'}) `
-            -Help "Résultat de la dernière recherche lancée depuis Vigie." `
-            -Guide $(if ($scan.error) { "Erreur : $($scan.error)" } else { '' })
+        # QUAND, pas seulement COMBIEN : « 2 trouvee(s) » sans date ne dit pas si le
+        # renseignement remonte a ce matin ou au mois dernier (signale par l'utilisateur).
+        $quandScan = $null
+        try { if ($scan.at) { $quandScan = (ConvertTo-UtcDate $scan.at).ToLocalTime() } } catch { }
+        $ageScan = if ($quandScan) { [int]((Get-Date) - $quandScan).TotalDays } else { -1 }
+        $valeurScan = "$([int]$scan.trouvees) trouvée(s)"
+        if ($quandScan) { $valeurScan += " le " + $quandScan.ToString('dd/MM/yyyy HH:mm') }
+        # Un renseignement vieux de plus d'une semaine se signale : il ne prouve plus rien
+        # sur l'etat actuel de la machine. Il porte alors son bouton (D66).
+        $statutScan = if ($scan.error) { 'error' } elseif ($ageScan -ge 7) { 'warn' } else { 'ok' }
+        $guideScan = @()
+        if ($scan.error) { $guideScan += "Erreur : $($scan.error)" }
+        if ($quandScan) {
+            $guideScan += $(if ($ageScan -le 0) { "Analyse faite aujourd'hui." }
+                            elseif ($ageScan -eq 1) { "Analyse faite hier." }
+                            else { "Analyse faite il y a $ageScan jours." })
+        }
+        if ($ageScan -ge 7) { $guideScan += "Au-delà d'une semaine, ce résultat ne dit plus rien de l'état actuel : relancez une vérification." }
+        $champs += New-Field -Key 'scan' -Label 'Dernière analyse en ligne' -Value $valeurScan -Kind 'text' `
+            -Status $statutScan `
+            -FixAction $(if ($statutScan -eq 'ok') { $null } else { 'wu-scan' }) `
+            -Help "Résultat de la dernière recherche lancée depuis Vigie, et sa date." `
+            -Guide $(if ($guideScan.Count) { $guideScan -join [Environment]::NewLine } else { '' })
     }
     if ($enCours) {
         # Les phases sont des identifiants techniques : elles se traduisent avant d'etre

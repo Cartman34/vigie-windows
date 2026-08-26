@@ -1357,6 +1357,147 @@ function Get-AppInfoTip {
     $lignes -join "`n"
 }
 
+# --- ARBORESCENCE DU DISQUE, NIVEAU PAR NIVEAU (D60, revu le 26/08) ------------
+# L'interface ne recoit JAMAIS l'arbre entier : elle demande UN niveau, et redemande
+# quand l'utilisateur deplie. Exigence utilisateur -- un arbre complet, c'est un JSON
+# qui grossit sans limite et une carte qui transporte ce que personne ne regardera.
+#
+# Deux sources, dans cet ordre :
+#   1. le CACHE de la derniere analyse (var/cache/diskscan.json) : deja calcule, gratuit ;
+#   2. un CALCUL PARTIEL a la demande, quand le niveau demande est au-dela de ce que
+#      l'analyse a conserve. On ne parcourt alors QUE le sous-arbre demande.
+# Ce qui est calcule a la demande est memorise (diskscan-levels.json) : deplier deux fois
+# le meme dossier ne le reparcourt pas.
+$script:SEP = [string][char]92
+
+# Taille totale d'un dossier, en un seul passage .NET. Bornee dans le temps : au-dela on
+# rend ce qu'on a en le DISANT (partiel), plutot que de faire attendre l'interface.
+function Measure-FolderQuick {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [int]$TimeoutMs = 8000
+    )
+    $opts = [System.IO.EnumerationOptions]::new()
+    $opts.IgnoreInaccessible    = $true
+    $opts.RecurseSubdirectories = $true
+    $opts.AttributesToSkip      = [System.IO.FileAttributes]::ReparsePoint
+    $taille = [long]0; $nb = 0; $partiel = $false
+    $chrono = [Diagnostics.Stopwatch]::StartNew()
+    try {
+        $di = [System.IO.DirectoryInfo]::new($Path)
+        foreach ($f in $di.EnumerateFiles('*', $opts)) {
+            $taille += [long]$f.Length
+            $nb++
+            if (($nb % 4096) -eq 0 -and $chrono.ElapsedMilliseconds -gt $TimeoutMs) { $partiel = $true; break }
+        }
+    } catch { }
+    [pscustomobject]@{ Size = $taille; Files = $nb; Partial = $partiel }
+}
+
+# Les enfants DIRECTS de $Path, du plus gros au plus petit.
+function Get-DiskTreeLevel {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [string]$Backend = (Get-BackendRoot),
+        [int]$Top = 0
+    )
+    $etatFile = Get-VarPath -Backend $Backend -Kind 'cache' -File 'diskscan.json'
+    $etat = $null
+    if (Test-Path -LiteralPath $etatFile) {
+        try { $etat = Get-Content -LiteralPath $etatFile -Raw | ConvertFrom-Json } catch { }
+    }
+    if (-not $etat -or -not $etat.tree) { throw "Aucune analyse disponible : lancez d'abord l'analyse de l'espace." }
+
+    $racine = if ($etat.result -and $etat.result.root) { "$($etat.result.root)" } else { "$($etat.scan.root)" }
+    $total  = [long]$etat.tree.s
+    if ($Top -le 0) {
+        $Top = [int](Get-ModuleSetting -Unit 'system' -Key 'DiskScanTop' -Backend $Backend)
+        if ($Top -le 0) { $Top = 10 }
+    }
+
+    # Le chemin demande doit appartenir a l'analyse : on n'explore pas le disque sur
+    # demande d'un client, on explore l'arbre deja analyse.
+    $plein = $Path
+    try { $plein = (Resolve-Path -LiteralPath $Path -ErrorAction Stop).Path } catch { }
+    if (-not $plein.ToLower().StartsWith($racine.ToLower())) { throw "Hors de l'analyse en cours : $Path" }
+
+    $pct = { param($o) if ($total -gt 0) { ('{0:N1}' -f ([double]$o / $total * 100)) } else { '0,0' } }
+
+    # 1) Le cache de l'analyse contient-il deja ce niveau ?
+    $noeud = $etat.tree
+    $coupe = $racine.TrimEnd([char]92).Length
+    $reste = $plein.Substring([Math]::Min($coupe, $plein.Length)).Trim([char]92)
+    $trouve = $true
+    if ($reste) {
+        foreach ($pas in ($reste.Split([char]92))) {
+            if (-not $pas) { continue }
+            $suivant = @($noeud.k | Where-Object { "$($_.n)" -eq $pas })[0]
+            if (-not $suivant) { $trouve = $false; break }
+            $noeud = $suivant
+        }
+    }
+    if ($trouve -and $noeud -and $noeud.k -and @($noeud.k).Count) {
+        $enfants = @($noeud.k | Sort-Object -Property @{ Expression = { [long]$_.s } } -Descending | ForEach-Object {
+            [ordered]@{
+                n = "$($_.n)"; path = (Join-Path $plein "$($_.n)")
+                s = [long]$_.s; size = (Format-ByteSize ([long]$_.s))
+                pct = (& $pct ([long]$_.s)); f = [int]$_.f; more = $true
+            }
+        })
+        $fichiers = @($noeud.t | Sort-Object -Property @{ Expression = { [long]$_.s } } -Descending | ForEach-Object {
+            [ordered]@{ n = "$($_.n)"; size = (Format-ByteSize ([long]$_.s)) }
+        })
+        $autres = $null
+        if ($noeud.o) { $autres = [ordered]@{ c = [int]$noeud.o.c; size = (Format-ByteSize ([long]$noeud.o.s)) } }
+        return [pscustomobject]@{ path = $plein; source = 'analyse'; children = $enfants; files = $fichiers; others = $autres }
+    }
+
+    # 2) Niveau non conserve par l'analyse : CALCUL PARTIEL, borne a ce dossier.
+    $memo = Get-VarPath -Backend $Backend -Kind 'cache' -File 'diskscan-levels.json'
+    $cle  = $plein.ToLower()
+    try {
+        if (Test-Path -LiteralPath $memo) {
+            $m = Get-Content -LiteralPath $memo -Raw | ConvertFrom-Json
+            $e = $m.PSObject.Properties | Where-Object { $_.Name -eq $cle } | Select-Object -First 1
+            if ($e -and $e.Value) {
+                return [pscustomobject]@{ path = $plein; source = 'memoire'; children = @($e.Value.children); files = @($e.Value.files); others = $null }
+            }
+        }
+    } catch { }
+
+    $opts = [System.IO.EnumerationOptions]::new()
+    $opts.IgnoreInaccessible    = $true
+    $opts.RecurseSubdirectories = $false
+    $opts.AttributesToSkip      = [System.IO.FileAttributes]::ReparsePoint
+    $di = $null
+    try { $di = [System.IO.DirectoryInfo]::new($plein) } catch { }
+    if (-not $di -or -not $di.Exists) { throw "Dossier introuvable : $plein" }
+
+    $sous = @()
+    try { $sous = @($di.EnumerateDirectories('*', $opts)) } catch { }
+    $calcules = @(foreach ($d in $sous) {
+        $mes = Measure-FolderQuick -Path $d.FullName
+        [ordered]@{
+            n = $d.Name; path = $d.FullName; s = [long]$mes.Size
+            size = (Format-ByteSize ([long]$mes.Size)); pct = (& $pct ([long]$mes.Size))
+            f = [int]$mes.Files; more = $true; partial = [bool]$mes.Partial
+        }
+    })
+    $calcules = @($calcules | Sort-Object -Property @{ Expression = { [long]$_.s } } -Descending | Select-Object -First $Top)
+
+    $fic = @()
+    try {
+        $fic = @($di.EnumerateFiles('*', $opts) | Sort-Object Length -Descending | Select-Object -First $Top | ForEach-Object {
+            [ordered]@{ n = $_.Name; size = (Format-ByteSize ([long]$_.Length)) }
+        })
+    } catch { }
+
+    try {
+        Update-StateJson -Path $memo -Depth 12 -Set @{ $cle = @{ children = $calcules; files = $fic; at = (Get-Date).ToUniversalTime().ToString('s') } } | Out-Null
+    } catch { }
+    return [pscustomobject]@{ path = $plein; source = 'calcul'; children = $calcules; files = $fic; others = $null }
+}
+
 # Taille en octets -> texte lisible (une seule decimale : « 12,4 Go »). Point unique de
 # mise en forme des tailles : une carte qui affiche des octets bruts n'apprend rien.
 function Format-ByteSize {
