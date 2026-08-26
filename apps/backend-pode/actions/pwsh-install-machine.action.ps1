@@ -27,20 +27,16 @@ if (-not $winget) {
 }
 
 $journal = Join-Path (Get-LogDir -Backend $backend) ('pwsh-install_' + (Get-Date -Format 'yyyyMMdd_HHmmss') + '.log')
-$erreurs = $journal -replace '\.log$', '.err.log'
 
 $lance = $false
 try {
-    # Memes arguments que le script d'installation : une seule definition (D15).
-    $argv = Get-SharedPwshInstallArgs
-    $proc = Start-Process -FilePath $winget.Source -ArgumentList $argv -WindowStyle Hidden -PassThru `
-                          -RedirectStandardOutput $journal -RedirectStandardError $erreurs
-    $lance = [bool]$proc
-    # La carte le DIT tant que le processus vit (D80).
-    if ($lance) {
-        Set-ModuleBusyMark -Module 'accounts' -Label 'Installation de PowerShell 7' `
-                           -ProcessId $proc.Id -Action 'pwsh-install-machine' -Backend $backend
-    }
+    # Le veilleur attend la fin et RAPPORTE le code de sortie (D82). L'ancienne version
+    # lancait winget et l'oubliait : l'echec du 26/08 (0x80070005, qui avait au passage
+    # desinstalle le PowerShell existant) n'a produit ni ligne rouge ni notification.
+    $lance = [bool](Start-WatchedAction -Module 'accounts' -Probe 'comptes.probe.ps1' `
+                        -Label 'Installation de PowerShell 7' -Action 'pwsh-install-machine' `
+                        -File $winget.Source -Arguments (Get-SharedPwshInstallArgs) `
+                        -Log $journal -Backend $backend)
     Write-Log -Backend $backend -Name 'comptes' -Message ("installation de PowerShell 7 (machine) lancee, journal : " + $journal)
 } catch {
     Write-Log -Backend $backend -Name 'comptes' -Level 'ERROR' -Message $_.Exception.Message

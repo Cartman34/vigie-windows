@@ -94,6 +94,11 @@ if (-not $eleve) {
         -Help "Windows protège le profil de chaque compte : leur détail n'est lisible que par un Vigie lancé en administrateur. Vigie ne montre rien de plus que ce que Windows laisse voir."
 }
 
+# LE SORT DE LA DERNIERE OPERATION lancee depuis cette carte (D82). Une ligne verte
+# quand elle a abouti, ROUGE avec son journal quand elle a echoue -- jamais rien.
+$dernier = New-LastRunField -Module 'accounts'
+if ($dernier) { $fields += $dernier }
+
 $pire = if (@($fields | Where-Object { "$($_.status)" -eq 'error' }).Count) { 'error' }
         elseif (@($fields | Where-Object { "$($_.status)" -eq 'warn' }).Count) { 'warn' }
         else { 'ok' }

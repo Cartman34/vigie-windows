@@ -39,19 +39,15 @@ try {
     # Les chemins contiennent des ESPACES (« C:\Program Files\... ») : sans guillemets,
     # -Destination ne recoit que « C:\Program » et le reste devient un autre parametre.
     # Constate : le deploiement a repondu « Archive introuvable : Files\Sowapps\Vigie ».
-    $args = @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+    $argv = @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
               '-File', ('"' + $script + '"'),
               '-Destination', ('"' + $destination + '"'),
               '-Yes')
-    $proc = Start-Process -FilePath $pwsh -ArgumentList $args -WindowStyle Hidden -PassThru `
-                          -RedirectStandardOutput $journal -RedirectStandardError $erreurs `
-                          -WorkingDirectory (Get-RepoRoot)
-    $lance = [bool]$proc
-    # Meme chose pour le deploiement : il dure une a deux minutes, la carte doit le dire.
-    if ($lance) {
-        Set-ModuleBusyMark -Module 'accounts' -Label 'Deploiement' `
-                           -ProcessId $proc.Id -Action 'deploy-shared' -Backend $backend
-    }
+    # Le veilleur attend la fin et rapporte le code de sortie (D82) : un deploiement
+    # rate doit se voir sur la carte, pas seulement dans un journal.
+    $lance = [bool](Start-WatchedAction -Module 'accounts' -Probe 'comptes.probe.ps1' `
+                        -Label 'Deploiement' -Action 'deploy-shared' `
+                        -File $pwsh -Arguments $argv -Log $journal -Backend $backend)
     Write-Log -Backend $backend -Name 'deploy' -Message ("deploiement lance vers " + $destination + " (journal : " + $journal + ")")
 } catch {
     Write-Log -Backend $backend -Name 'deploy' -Level 'ERROR' -Message $_.Exception.Message

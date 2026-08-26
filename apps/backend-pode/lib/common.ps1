@@ -2474,6 +2474,112 @@ function Get-ModuleBusyMark {
     return $o
 }
 
+# --- LE SORT D'UNE TACHE DE FOND : garde, puis dit ---------------------------
+#
+# « Le suivi des erreurs est primordial » : une action longue ne peut pas echouer en
+# silence. Le veilleur (workers/watched-action.worker.ps1) ecrit ici ce qu'il a constate ;
+# la sonde de la carte le relit et en fait une ligne, verte ou rouge.
+function Get-ModuleLastRunPath {
+    param([Parameter(Mandatory)][string]$Module, [string]$Backend = (Get-BackendRoot))
+    Get-VarPath -Backend $Backend -Kind 'cache' -File ('lastrun-' + $Module + '.json')
+}
+
+function Set-ModuleLastRun {
+    param(
+        [Parameter(Mandatory)][string]$Module,
+        [string]$Action = '', [string]$Label = '',
+        [Parameter(Mandatory)][int]$Code,
+        [int]$Seconds = 0, [string]$Log = '', [string]$Error = '',
+        [string]$Backend = (Get-BackendRoot)
+    )
+    $f = Get-ModuleLastRunPath -Module $Module -Backend $Backend
+    $d = Split-Path $f -Parent
+    if (-not (Test-Path -LiteralPath $d)) { New-Item -ItemType Directory -Path $d -Force | Out-Null }
+    $o = [ordered]@{ action = $Action; label = $Label; code = $Code; seconds = $Seconds
+                     log = $Log; error = $Error; at = (Get-Date).ToUniversalTime().ToString('o') }
+    try { ($o | ConvertTo-Json -Depth 4) | Out-File -FilePath $f -Encoding UTF8 } catch { }
+}
+
+function Get-ModuleLastRun {
+    param([Parameter(Mandatory)][string]$Module, [string]$Backend = (Get-BackendRoot))
+    $f = Get-ModuleLastRunPath -Module $Module -Backend $Backend
+    if (-not (Test-Path -LiteralPath $f)) { return $null }
+    try { return (Get-Content -LiteralPath $f -Raw | ConvertFrom-Json) } catch { return $null }
+}
+
+function Clear-ModuleLastRun {
+    param([Parameter(Mandatory)][string]$Module, [string]$Backend = (Get-BackendRoot))
+    Remove-Item -LiteralPath (Get-ModuleLastRunPath -Module $Module -Backend $Backend) `
+                -Force -ErrorAction SilentlyContinue
+}
+
+function Clear-ModuleBusyMark {
+    param([Parameter(Mandatory)][string]$Module, [string]$Backend = (Get-BackendRoot))
+    Remove-Item -LiteralPath (Get-ModuleBusyMarkPath -Module $Module -Backend $Backend) `
+                -Force -ErrorAction SilentlyContinue
+}
+
+# LA facon de lancer un travail long. Une action ne lance plus rien elle-meme : elle
+# passe par ici, et le sort du travail est garanti d'etre constate.
+function Start-WatchedAction {
+    param(
+        [Parameter(Mandatory)][string]$Module,     # carte concernee (id du module)
+        [Parameter(Mandatory)][string]$Probe,      # sonde a invalider a la fin
+        [Parameter(Mandatory)][string]$Label,      # « Deploiement », « Installation de... »
+        [Parameter(Mandatory)][string]$File,       # programme a lancer
+        [string[]]$Arguments = @(),
+        [string]$Action = '',                      # id de l'action, pour l'interface
+        [string]$Log = '',
+        [string]$Backend = (Get-BackendRoot)
+    )
+    $charge = @{ module = $Module; probe = $Probe; label = $Label; action = $Action
+                 file = $File; arguments = @($Arguments); log = $Log }
+    $json = ($charge | ConvertTo-Json -Compress -Depth 6)
+    $b64  = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($json))
+    $exe = $null
+    try { $exe = (Get-Process -Id $PID).Path } catch { }
+    if (-not $exe) { $exe = 'pwsh.exe' }
+    $veilleur = Join-Path (Join-Path $Backend 'workers') 'watched-action.worker.ps1'
+    if (-not (Test-Path -LiteralPath $veilleur)) { throw "Veilleur introuvable : $veilleur" }
+    # Le resultat precedent disparait DES LE LANCEMENT : sinon la carte afficherait
+    # l'echec d'hier pendant le travail d'aujourd'hui.
+    Clear-ModuleLastRun -Module $Module -Backend $Backend
+    $psi = [System.Diagnostics.ProcessStartInfo]::new()
+    $psi.FileName  = $exe
+    $psi.Arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$veilleur`" -Backend `"$Backend`" -ArgsB64 $b64"
+    $psi.UseShellExecute  = $false
+    $psi.CreateNoWindow   = $true
+    $psi.WindowStyle      = [System.Diagnostics.ProcessWindowStyle]::Hidden
+    $psi.WorkingDirectory = $Backend
+    $p = [System.Diagnostics.Process]::Start($psi)
+    if ($p) { return $p.Id }
+    return $null
+}
+
+# La ligne que la carte affiche apres coup : rien tant qu'aucun travail n'a eu lieu,
+# une ligne verte s'il a reussi, une ligne ROUGE avec le journal s'il a echoue.
+function New-LastRunField {
+    param(
+        [Parameter(Mandatory)][string]$Module,
+        [string]$Key = 'lastrun',
+        [string]$Backend = (Get-BackendRoot)
+    )
+    $r = Get-ModuleLastRun -Module $Module -Backend $Backend
+    if (-not $r) { return $null }
+    $quand = ''
+    try { $quand = (ConvertTo-UtcDate $r.at).ToLocalTime().ToString('dd/MM/yyyy HH:mm') } catch { }
+    $duree = if ([int]$r.seconds -ge 60) { [string][int]([int]$r.seconds / 60) + ' min' } else { "$([int]$r.seconds) s" }
+    if ([int]$r.code -eq 0) {
+        return (New-Field -Key $Key -Label "$($r.label)" -Value ("réussi le " + $quand + " (" + $duree + ")") `
+                          -Kind 'text' -Status 'ok' -Help "Dernière opération lancée depuis cette carte.")
+    }
+    $detail = if ($r.error) { "$($r.error)" } else { "code de sortie " + [int]$r.code }
+    return (New-Field -Key $Key -Label "$($r.label)" -Value ("ÉCHEC le " + $quand + " — " + $detail) `
+                      -Kind 'text' -Status 'error' `
+                      -Help "La dernière opération lancée depuis cette carte a échoué. Elle n'a pas abouti : rien ne s'est fait à moitié sans le dire." `
+                      -Guide $(if ($r.log) { "Journal complet : " + $r.log } else { '' }))
+}
+
 # --- QUELS COMPTES Windows ont Vigie (D65) ------------------------------------
 # L'ordinateur a plusieurs comptes ; l'utilisateur choisit ceux qui ont Vigie, et peut
 # changer d'avis a tout moment (exigence : « un outil doit toujours permettre de changer
