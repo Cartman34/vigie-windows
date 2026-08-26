@@ -2452,9 +2452,12 @@ function Get-SharedInstallPath {
     # depuis le serveur alors que le deploiement etait fait -- diagnostic difficile.
     $bases = @($env:ProgramFiles, ${env:ProgramFiles(x86)}) | Where-Object { $_ }
     foreach ($b in $bases) {
-        foreach ($nom in @('Sowapps\Vigie', 'Vigie')) {
+        foreach ($nom in @((Join-Path 'Sowapps' 'Vigie'), 'Vigie')) {
             $c = Join-Path $b $nom
-            if (Test-Path -LiteralPath (Join-Path $c 'apps	ray	ray.ps1')) { return $c }
+            # Chemin construit par Join-Path : un antislash litteral a deja ete mange par
+            # mes outils d ecriture et transforme en tabulations (constate ici meme).
+            $marqueur = Join-Path (Join-Path (Join-Path $c 'apps') 'tray') 'tray.ps1'
+            if (Test-Path -LiteralPath $marqueur) { return $c }
         }
     }
     # Installation hors Program Files : c'est l'ACL qui tranche.
