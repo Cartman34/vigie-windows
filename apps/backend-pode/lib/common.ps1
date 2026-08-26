@@ -2420,7 +2420,48 @@ function Get-VigieAccountTaskName {
 # avec lui, et par quelle tache. La tache historique s'appelle « Vigie » tout court : elle
 # compte comme active pour le compte qu'elle vise, sinon l'ecran dirait faussement
 # « inactif » a l'utilisateur qui s'en sert depuis le debut.
+# L'inventaire coute environ deux secondes (comptes, groupes, profils, taches) et ne
+# change qu'exceptionnellement : on le MEMORISE. Un jour de validite, un bouton pour
+# forcer le releve, et toute activation de compte l'invalide d'elle-meme.
+$script:ComptesTTLHeures = 24
+
+function Get-VigieAccountsCachePath {
+    param([string]$Backend = (Get-BackendRoot))
+    Get-VarPath -Backend $Backend -Kind 'cache' -File 'accounts.json'
+}
+
+function Clear-VigieAccountsCache {
+    param([string]$Backend = (Get-BackendRoot))
+    $f = Get-VigieAccountsCachePath -Backend $Backend
+    if (Test-Path -LiteralPath $f) { Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue }
+}
+
 function Get-VigieAccounts {
+    param(
+        [switch]$Force,                       # bouton « Actualiser la liste »
+        [string]$Backend = (Get-BackendRoot)
+    )
+    $cache = Get-VigieAccountsCachePath -Backend $Backend
+    if (-not $Force -and (Test-Path -LiteralPath $cache)) {
+        try {
+            $j = Get-Content -LiteralPath $cache -Raw | ConvertFrom-Json
+            $age = ((Get-Date).ToUniversalTime() - (ConvertTo-UtcDate $j.at)).TotalHours
+            if ($age -lt $script:ComptesTTLHeures -and $j.users) { return @($j.users) }
+        } catch { }
+    }
+    $liste = @(Get-VigieAccountsFresh -Backend $Backend)
+    try {
+        $tmp = "$cache.tmp"
+        (@{ at = (Get-Date).ToUniversalTime().ToString('s'); users = $liste } | ConvertTo-Json -Depth 6) |
+            Set-Content -LiteralPath $tmp -Encoding UTF8
+        Move-Item -LiteralPath $tmp -Destination $cache -Force
+    } catch { }
+    return $liste
+}
+
+# Le releve REEL, sans cache.
+function Get-VigieAccountsFresh {
+    param([string]$Backend = (Get-BackendRoot))
     # PROFILS REELLEMENT UTILISES : c'est LE discriminant entre un compte de personne et un
     # compte d'outil. Win32_UserProfile.LastUseTime dit quand le profil a servi pour de bon
     # (ouverture de session). Le LastLogon du COMPTE, lui, ment : un compte de bac a sable
@@ -2519,7 +2560,8 @@ function Set-VigieAccountEnabled {
         # propre script (uninstall-autostart) -- supprimer sans le dire serait pire.
         $t = Get-VigieAccountTaskName -Name $Name
         try { Unregister-ScheduledTask -TaskName $t -Confirm:$false -ErrorAction Stop } catch { }
-        return (Get-VigieAccounts | Where-Object { $_.name -eq $Name })
+        Clear-VigieAccountsCache -Backend $Backend
+        return (Get-VigieAccounts -Backend $Backend | Where-Object { $_.name -eq $Name })
     }
 
     $pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
@@ -2539,7 +2581,8 @@ function Set-VigieAccountEnabled {
                   -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
     Register-ScheduledTask -TaskName (Get-VigieAccountTaskName -Name $Name) `
         -Action $action -Trigger $trigger -Principal $princ -Settings $set -Force | Out-Null
-    return (Get-VigieAccounts | Where-Object { $_.name -eq $Name })
+    Clear-VigieAccountsCache -Backend $Backend
+    return (Get-VigieAccounts -Backend $Backend | Where-Object { $_.name -eq $Name })
 }
 
 # --- QUI a le droit de lancer une action (D65) ---------------------------------

@@ -28,7 +28,6 @@
 param(
     [string]   $Zip,
     [string]   $Destination = 'C:\Program Files\Vigie',
-    [string[]] $Comptes = @(),
     [switch]   $Yes
 )
 $ErrorActionPreference = 'Stop'
@@ -65,7 +64,6 @@ if (-not (Test-IsElevated)) {
         )
     if (-not $ok) { Write-Host "Deploiement annule. Rien n'a ete modifie."; exit 3 }
     $passe = @('-Zip', $Zip, '-Destination', $Destination, '-Yes')
-    if ($Comptes.Count) { $passe += @('-Comptes', ($Comptes -join ',')) }
     exit (Invoke-ElevatedSelf -ScriptPath $PSCommandPath -Arguments $passe -LogDir (Get-LogDir))
 }
 
@@ -113,20 +111,9 @@ Write-Host ("Vigie deploye : " + $Destination) -ForegroundColor Green
 $outilComptes = Join-Path $Destination 'scriptsigie-comptes.ps1'
 if (-not (Test-Path -LiteralPath $outilComptes)) { $outilComptes = Join-Path $PSScriptRoot 'vigie-comptes.ps1' }
 
-$demandes = @($Comptes | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
-if ($demandes.Count) {
-    foreach ($c in $demandes) {
-        try {
-            Set-VigieAccountEnabled -Name $c -Enabled $true | Out-Null
-            Write-Host ("Vigie demarrera avec le compte " + $c + ".")
-        } catch {
-            Write-Host ("Compte " + $c + " : " + $_.Exception.Message) -ForegroundColor Yellow
-        }
-    }
-} else {
-    Write-Host ""
-    Write-Host "Aucun compte n'a ete active : rien ne s'active sans votre choix."
-}
+# QUI a Vigie est un autre geste, volontairement : deployer installe l'application a un
+# endroit connu d'avance, pour tout le monde. Les comptes se choisissent apres, et se
+# changent a tout moment.
 Write-Host ""
 & pwsh -NoProfile -File $outilComptes | Write-Host
 Write-Host "Pour changer a tout moment :"
