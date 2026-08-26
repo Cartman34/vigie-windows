@@ -717,9 +717,18 @@ function cardHtml(m, groupLabel){
     // dans la carte, il la fait exploser en hauteur et noie le reste du tableau de bord
     // -- constate sur la liste des interfaces reseau, plusieurs dizaines de lignes.
     const aTable  = !!(f.table && f.table.rows && f.table.rows.length);
-    const detLong = aTable || (!!detTxt && (detTxt.length > 400 || detTxt.split(String.fromCharCode(10)).length > 8));
-    const clicDetail = (detTxt||aTable) ? (detLong ? `ouvrirDetail('${key}')` : 'toggleDetail(this)') : '';
-    const info=(f.help||f.guide)?`<button class="fhelp ${stt}" title="${help}" onclick="${clicDetail||'toggleDetail(this)'}"><span class="vi vi-fw vi-lg">&#xE007;</span></button>`:'';
+    const aTree   = !!f.tree;
+    const detLong = aTable || aTree || (!!detTxt && (detTxt.length > 400 || detTxt.split(String.fromCharCode(10)).length > 8));
+    // UN CLIC DOIT TOUJOURS FAIRE QUELQUE CHOSE (signale par l'utilisateur : le (i) et le
+    // libelle restaient inertes). Trois cas :
+    //   - detail court   -> il se deplie sous la ligne ;
+    //   - detail long, tableau, arbre -> fenetre dediee ;
+    //   - AIDE SEULE (ni guide ni tableau) -> fenetre aussi, au lieu d'un dépliant vide.
+    // Avant, ce dernier cas appelait un depliant qui n'existait pas : rien ne se passait.
+    const aQuoiVoir  = !!(detTxt || aTable || aTree || f.help);
+    const clicDetail = !aQuoiVoir ? ''
+      : ((detLong || !detTxt) ? `ouvrirDetail('${key}')` : 'toggleDetail(this)');
+    const info=aQuoiVoir?`<button class="fhelp ${stt}" title="${help}" onclick="${clicDetail}"><span class="vi vi-fw vi-lg">&#xE007;</span></button>`:'';
     // BOUTON DE RESOLUTION (D66) : un champ orange ou rouge qui cite une action porte
     // TOUJOURS son bouton, juste sous la ligne. Il etait neutralise en dur ici (`const
     // solve=''`) : aucune carte n'en affichait, quelle que soit la sonde -- c'est le
@@ -736,7 +745,7 @@ function cardHtml(m, groupLabel){
       : '';
     const det = (detTxt && !detLong) ? `<div class="field-detail ${stt}${open}" data-k="${key}">${esc(detTxt)}</div>` : '';
     return `<div class="frow">
-      <div class="field"><span class="k"><span class="fdot ${stt}"></span><span class="fk-label${(detTxt||aTable)?' clickable':''}"${help?` title="${help}"`:''}${clicDetail?` onclick="${clicDetail}"`:''}>${f.label}</span>${info}</span><span class="v v-${stt}">${fmt(f)}</span></div>
+      <div class="field"><span class="k"><span class="fdot ${stt}"></span><span class="fk-label${aQuoiVoir?' clickable':''}"${help?` title="${help}"`:''}${clicDetail?` onclick="${clicDetail}"`:''}>${f.label}</span>${info}</span><span class="v v-${stt}">${fmt(f)}</span></div>
       ${det}
       ${solve?`<div class="frow-actions">${solve}</div>`:''}
     </div>`;
