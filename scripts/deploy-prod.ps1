@@ -19,7 +19,7 @@
 
     Usage :
       pwsh -File .\scripts\deploy-prod.ps1
-      pwsh -File .\scripts\deploy-prod.ps1 -Zip .\distigie-0.1.zip
+      pwsh -File .\scripts\deploy-prod.ps1 -Zip .\dist\vigie-0.1.zip
       pwsh -File .\scripts\deploy-prod.ps1 -Comptes fhaza,Famille
       pwsh -File .\scripts\deploy-prod.ps1 -Destination 'D:\Vigie'
 
@@ -108,7 +108,10 @@ try {
 Write-Host ("Vigie deploye : " + $Destination) -ForegroundColor Green
 
 # --- 4. Les comptes : proposes ici, modifiables a tout moment -----------------
-$outilComptes = Join-Path $Destination 'scriptsigie-comptes.ps1'
+# Deux Join-Path imbriques : l'antislash de 'scripts\vigie-comptes.ps1' avait ete
+# mange a l'ecriture (il en restait un caractere de controle), et le chemin ne
+# designait rien.
+$outilComptes = Join-Path (Join-Path $Destination 'scripts') 'vigie-comptes.ps1'
 if (-not (Test-Path -LiteralPath $outilComptes)) { $outilComptes = Join-Path $PSScriptRoot 'vigie-comptes.ps1' }
 
 # QUI a Vigie est un autre geste, volontairement : deployer installe l'application a un

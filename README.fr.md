@@ -109,7 +109,7 @@ bord : [Prise en main](docs/fr/prise-en-main.md).
 ## Prérequis
 
 - Windows 10 ou 11.
-- **PowerShell 7** (`pwsh`), **pour la machine** (`C:\Program Files\PowerShell`) —
+- **PowerShell 7** (`pwsh`), **pour la machine** (`C:\Program Files\PowerShell\7`) —
   installé par `scripts\install.ps1` s'il est absent. C'est lui que lancent les tâches de
   démarrage : une installation limitée à un compte empêcherait les autres de démarrer
   Vigie.
