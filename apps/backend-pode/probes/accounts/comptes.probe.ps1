@@ -42,6 +42,18 @@ if (-not $comptes.Count) {
         -Help "Aucun compte de cet ordinateur n'a encore ouvert de session."
 }
 
+# Installation lisible par les autres comptes ? Sinon, aucun autre compte ne peut demarrer
+# Vigie -- et c'est le cas sur un poste de developpement. On le DIT sur la carte, avec le
+# bouton qui corrige (D66 : une alerte porte toujours sa resolution).
+$partagee = Test-InstallationPartagee
+if (-not $partagee) {
+    $fields += New-Field -Key 'partage' -Label 'Installation' -Value 'lisible par vous seul' -Kind 'text' -Status 'warn' `
+        -FixAction 'deploy-shared' `
+        -Help "Les autres comptes ne peuvent pas lire cette installation : Vigie ne demarrerait pas chez eux." `
+        -Guide ("Emplacement actuel : " + (Get-RepoRoot) + [Environment]::NewLine +
+                "Le bouton installe cette version dans C:\Program Files\Sowapps\Vigie, lisible par tous les comptes, et conserve les reglages deja en place.")
+}
+
 if (-not $eleve) {
     $fields += New-Field -Key 'scope' -Label 'Détail des autres comptes' -Value 'réservé à un administrateur' -Kind 'text' -Status 'neutral' `
         -Help "Windows protège le profil de chaque compte : leur détail n'est lisible que par un Vigie lancé en administrateur. Vigie ne montre rien de plus que ce que Windows laisse voir."
@@ -50,6 +62,9 @@ if (-not $eleve) {
 New-ModuleObject -Id 'accounts' -Theme 'accounts' -Label 'Comptes' -Status 'ok' -Fields $fields -Actions @(
     New-Action -Id 'accounts-details' -Label 'Détails des comptes' -Kind 'immediate' -Severity 'info' `
         -Help "Dernière ouverture de session et poids des données Vigie de chacun. Demande un compte administrateur."
+    New-Action -Id 'deploy-shared' -Label 'Déployer pour tous les comptes' -Kind 'confirm' -Severity 'fix' -Confirm `
+        -BusyLabel 'Déploiement…' `
+        -Help "Installe cette version dans C:\Program Files\Sowapps\Vigie, lisible par tous les comptes de la machine."
     New-Action -Id 'accounts-refresh' -Label 'Actualiser la liste' -Kind 'immediate' -Severity 'neutral' `
         -BusyLabel 'Relevé…' `
         -Help "Refait le relevé des comptes. La liste est mémorisée 24 h : elle ne change qu'exceptionnellement."

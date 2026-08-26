@@ -1923,6 +1923,9 @@ async function renderTabUtilisateurs(pane){
   }catch(e){}
   const users=data.users||[];
   const inerte=!data.canWrite;
+  // Installation PERSONNELLE (poste de developpement, depot clone) : les autres comptes
+  // ne peuvent pas lire l'application. On ne propose alors pas ce qui echouerait.
+  const partage=(data.shared!==false);
   pane.innerHTML=
     '<div class="um-sub">Comptes de cet ordinateur</div>'
     +'<ul class="um-points">'
