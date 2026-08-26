@@ -11,11 +11,16 @@
         # masques par defaut, car ils encombrent une carte qui parle de personnes. Leur
         # nombre reste dit -- rien ne disparait en silence.
         ShowTechnicalAccounts = $false
+        # Comptes que l'utilisateur ne veut pas voir sur la carte (comptes d'outils, de
+        # service...). Meme principe que les paquets ignores : masques, jamais silencieux.
+        HiddenAccounts        = @()
     }
     Parameters = @(
         @{ Key = 'DormantDays'; Label = 'Compte dormant apres'; Type = 'int'; Unit = 'jours'; Min = 30; Max = 365; Step = 30
            Help = "Au-dela de cette duree sans ouverture de session, le compte est signale comme dormant." }
         @{ Key = 'ShowTechnicalAccounts'; Label = 'Afficher les comptes techniques'; Type = 'bool'
            Help = "Les comptes sans profil humain (bacs a sable, comptes de service) sont masques par defaut." }
+        @{ Key = 'HiddenAccounts'; Label = 'Comptes a ne pas afficher'; Type = 'list'
+           Help = "Noms de comptes a masquer sur la carte. Leur nombre reste indique." }
     )
 }
