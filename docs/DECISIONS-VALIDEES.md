@@ -1968,3 +1968,23 @@ douze heures — l'horodatage américain brut ne disait à personne que la liste
 **Leçon de méthode** : l'utilisateur avait signalé « Edge ne se met pas à jour ». J'ai
 diagnostiqué pourquoi Edge ne **s'ouvrait** pas — un problème réel (MSEdgeRedirect branché
 en debugger IFEO), mais qui n'était pas le sien. Reformuler le symptôme AVANT de chercher.
+
+## D78 - Relancer l'application, c'est relancer le serveur aussi (2026-08-26)
+
+Le tray annoncait un redemarrage reussi en 9 s... **sans avoir relance le serveur**. Un
+tray relance **adopte** le serveur deja en place : il n'en est pas le parent,
+`$state.Proc` est vide, et l'ancien `$stopServer` ne tuait donc rien. Apres un
+deploiement, le nouveau tray constatait « serveur ok » et repartait sur **le code
+d'avant** - ce qui explique pourquoi un deploiement semblait sans effet tant qu'on ne
+tuait pas le serveur a la main.
+
+Repli ajoute : le processus qui **ecoute le port**, et seulement s'il s'agit d'un
+interpreteur PowerShell - on ne tue que ce qu'on aurait pu lancer.
+
+**Et le faux diagnostic qu'on trainait** : « le tray ne prend plus l'ordre `-Restart` en
+15 s ». Mesure : l'ordre est lu **dans la seconde** ; c'est le RETOUR d'un nouveau tray
+qui prend 9 a 11 s (pwsh + compilations C# ~5 s, premier battement 2 s apres). Sur une
+machine occupee - un deploiement en cours, justement - les 15 s ne laissaient aucune
+marge. Deux corrections : le tray pose un **accuse de reception** des qu'il consomme
+l'ordre (on distingue « tray fige » de « relance lente » : deux depannages differents),
+et le delai passe a **45 s**.
