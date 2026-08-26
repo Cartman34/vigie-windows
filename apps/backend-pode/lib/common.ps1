@@ -2454,7 +2454,24 @@ function Get-VigieAccounts {
         $aProfil = Test-Path -LiteralPath $profil
         $up = $profils["$($c.SID)"]
         $dejaServi = [bool]($up -and ($up.LastUseTime -or $up.Loaded))
-        $technique = -not ($aProfil -and $dejaServi)
+        # ATTENTION : LastUseTime n'est visible QUE d'un processus eleve. Depuis une
+        # session ordinaire, tous les profils paraissent « jamais utilises » -- le critere
+        # seul se contredisait donc d'un contexte a l'autre (constate le 26/08 : un compte
+        # d'outil ecarte cote agent, affiche cote serveur).
+        # Quand on est eleve, on tranche sur le CONTENU du profil : un compte de personne
+        # a un Bureau ou des Documents ; un compte d'outil n'en a pas.
+        $technique = -not $aProfil
+        if ($aProfil) {
+            if (Test-IsElevated) {
+                $humain = $false
+                foreach ($d in @('Desktop', 'Documents', 'Bureau')) {
+                    if (Test-Path -LiteralPath (Join-Path $profil $d)) { $humain = $true; break }
+                }
+                $technique = -not $humain
+            } else {
+                $technique = -not $dejaServi
+            }
+        }
         # Le compte qui utilise Vigie en ce moment n'est jamais « technique ».
         if ($nom -eq "$env:USERNAME") { $technique = $false; $dejaServi = $true }
 
