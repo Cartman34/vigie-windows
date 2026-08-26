@@ -2820,17 +2820,12 @@ function Get-SharedInstallPath {
 #
 # Ce qui est verifie, et repare : l'INTERPRETEUR (existe-t-il encore ?) et le CHEMIN DE
 # L'APPLICATION (l'autre compte peut-il le lire ?).
+# Un seul juge : Get-VigieTaskAilment. Deux listes de criteres auraient fini par
+# diverger -- et c'est justement une divergence de ce genre qui a laisse passer le cas
+# du paquet MSIX.
 function Test-VigieTaskHealthy {
     param([Parameter(Mandatory)]$Task)
-    $a = @($Task.Actions)[0]
-    if (-not $a) { return $false }
-    $exe = "$($a.Execute)".Trim('"')
-    if (-not $exe -or -not (Test-Path -LiteralPath $exe)) { return $false }
-    # Le script lance est cite dans les arguments, entre guillemets.
-    if ("$($a.Arguments)" -match '-File\s+"([^"]+)"') {
-        if (-not (Test-Path -LiteralPath $Matches[1])) { return $false }
-    }
-    return $true
+    return (-not (Get-VigieTaskAilment -Task $Task))
 }
 
 # Ce qui CLOCHE, en clair, pour l'afficher. $null si tout va bien.
@@ -2841,6 +2836,21 @@ function Get-VigieTaskAilment {
     $exe = "$($a.Execute)".Trim('"')
     if (-not $exe) { return "aucun interpreteur" }
     if (-not (Test-Path -LiteralPath $exe)) { return "l'interpreteur n'existe plus : $exe" }
+    # EXISTER NE SUFFIT PAS. Deux chemins sont valides a l'oeil et pourtant inutilisables :
+    #   - un paquet MSIX (C:\Program Files\WindowsApps\...) n'est lancable que par les comptes
+    #     pour lesquels il est ENREGISTRE, et son dossier reste sur le disque apres
+    #     desinscription : Test-Path repond oui, le lancement echoue ;
+    #   - un chemin dans le profil d'un compte (C:\Users\quelqu-un\...) est illisible
+    #     par les autres.
+    # C'est exactement ce qui a empeche Vigie de demarrer chez « Famille » (D79, D83).
+    $dossierProfils = Join-Path $env:SystemDrive 'Users'
+    $dossierMsix    = Join-Path $env:ProgramFiles 'WindowsApps'
+    if ($exe.StartsWith($dossierMsix, [StringComparison]::OrdinalIgnoreCase)) {
+        return "interpreteur MSIX, enregistre par compte : $exe"
+    }
+    if ($exe.StartsWith($dossierProfils, [StringComparison]::OrdinalIgnoreCase)) {
+        return "interpreteur dans un profil, illisible par les autres comptes : $exe"
+    }
     if ("$($a.Arguments)" -match '-File\s+"([^"]+)"') {
         if (-not (Test-Path -LiteralPath $Matches[1])) { return ("l'application n'est plus la : " + $Matches[1]) }
     }
