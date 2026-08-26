@@ -2276,6 +2276,19 @@ function Get-VigieAccountTaskName {
 # compte comme active pour le compte qu'elle vise, sinon l'ecran dirait faussement
 # « inactif » a l'utilisateur qui s'en sert depuis le debut.
 function Get-VigieAccounts {
+    # PROFILS REELLEMENT UTILISES : c'est LE discriminant entre un compte de personne et un
+    # compte d'outil. Win32_UserProfile.LastUseTime dit quand le profil a servi pour de bon
+    # (ouverture de session). Le LastLogon du COMPTE, lui, ment : un compte de bac a sable
+    # affichait « connecte aujourd'hui » sans avoir jamais ouvert de session -- signale par
+    # l'utilisateur, verifie le 26/08 (LastUseTime vide, profil jamais charge).
+    $profils = @{}
+    try {
+        foreach ($up in (Get-CimInstance Win32_UserProfile -ErrorAction Stop | Where-Object { -not $_.Special })) {
+            $cle = "$($up.SID)"
+            if ($cle) { $profils[$cle] = $up }
+        }
+    } catch { }
+
     $taches = @()
     try { $taches = @(Get-ScheduledTask -ErrorAction Stop | Where-Object { $_.TaskName -eq 'Vigie' -or $_.TaskName -like ($script:VigieTaskPrefix + '*') }) } catch { }
     $comptes = @()
@@ -2286,23 +2299,19 @@ function Get-VigieAccounts {
             $_.TaskName -eq (Get-VigieAccountTaskName -Name $nom) -or
             ($_.TaskName -eq 'Vigie' -and (Test-TaskUserIs -UserId "$($_.Principal.UserId)" -Name $nom))
         })[0]
-        # VRAI compte ou compte TECHNIQUE ? On ne juge pas sur le nom (une liste noire
-        # serait fausse le jour ou quelqu'un appelle son compte « Sandbox ») mais sur ce
-        # qu'un compte humain possede : un profil, et dedans un Bureau ou des Documents.
-        # Le contenu du profil n'est lisible qu'en ELEVE : sans elevation on ne conclut
-        # pas, et un compte n'ayant JAMAIS ouvert de session reste technique par defaut.
-        $profil = Join-Path (Join-Path $env:SystemDrive 'Users') $nom
+        # VRAI compte ou compte TECHNIQUE ? On ne juge pas sur le NOM (une liste noire
+        # serait fausse le jour ou quelqu'un appelle son compte « Sandbox ») mais sur un
+        # FAIT : ce profil a-t-il deja servi a ouvrir une session ? Un compte d'outil est
+        # cree, parfois authentifie, mais son profil n'est jamais charge.
+        # Ce critere ne demande AUCUNE elevation, contrairement a l'inspection du contenu
+        # du profil qui avait ete essayee d'abord -- et qui laissait passer les bacs a sable.
+        $profil  = Join-Path (Join-Path $env:SystemDrive 'Users') $nom
         $aProfil = Test-Path -LiteralPath $profil
-        $technique = -not $aProfil
-        if ($aProfil -and (Test-IsElevated)) {
-            $humain = $false
-            foreach ($d in @('Desktop', 'Documents', 'Bureau')) {
-                if (Test-Path -LiteralPath (Join-Path $profil $d)) { $humain = $true; break }
-            }
-            $technique = -not $humain
-        }
+        $up = $profils["$($c.SID)"]
+        $dejaServi = [bool]($up -and ($up.LastUseTime -or $up.Loaded))
+        $technique = -not ($aProfil -and $dejaServi)
         # Le compte qui utilise Vigie en ce moment n'est jamais « technique ».
-        if ($nom -eq "$env:USERNAME") { $technique = $false }
+        if ($nom -eq "$env:USERNAME") { $technique = $false; $dejaServi = $true }
 
         [pscustomobject][ordered]@{
             name        = $nom
@@ -2311,6 +2320,8 @@ function Get-VigieAccounts {
             admin       = (Test-LocalAccountIsAdmin -Name $nom)
             hasProfile  = $aProfil
             technical   = $technique
+            # Date de derniere UTILISATION du profil (plus fiable que LastLogon).
+            lastUse     = $(if ($up -and $up.LastUseTime) { ([datetime]$up.LastUseTime).ToString('s') } else { $null })
             enabled     = [bool]$tache
             task        = if ($tache) { "$($tache.TaskName)" } else { $null }
             # Le compte qui execute le serveur en ce moment : l'interface doit pouvoir dire
