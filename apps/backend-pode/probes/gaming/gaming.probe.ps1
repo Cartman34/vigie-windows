@@ -363,12 +363,24 @@ if ($vramTotale -gt 0) {
         -Help "Mémoire dédiée de la carte graphique. Pleine, le jeu compense par la RAM : saccades." `
         -Guide "Au-delà de $vramWarn % (réglable), baissez la qualité des textures ou fermez les applis 3D en fond." `
         -Table $(
-            $vramApps = @(Group-ByApp ($procs.Values | Where-Object { $_.VramGb -gt 0 }) |
-                          Sort-Object VramGb -Descending | Select-Object -First 6)
+            $vramToutes = @(Group-ByApp ($procs.Values | Where-Object { $_.VramGb -gt 0 }) |
+                            Sort-Object VramGb -Descending)
+            $vramApps = @($vramToutes | Select-Object -First 6)
+            # CE QUI N'EST PAS LISTE EST AGREGE (demande utilisateur) : sans cette ligne,
+            # l'utilisateur additionne le tableau, ne retrouve pas le total, et a raison
+            # de trouver ca incoherent.
+            $vramReste  = @($vramToutes | Select-Object -Skip 6)
+            $lignesVram = @($vramApps | ForEach-Object { ,@($_.Label, $_.VramGb) })
+            $tipsVram   = @($vramApps | ForEach-Object { $_.Tip })
+            if ($vramReste.Count) {
+                $sommeReste = [math]::Round((($vramReste | Measure-Object VramGb -Sum).Sum), 2)
+                $lignesVram += ,@(("Autres (" + $vramReste.Count + " applications)"), $sommeReste)
+                $tipsVram   += (($vramReste | ForEach-Object { $_.Label + " : " + $_.VramGb + " Go" }) -join [Environment]::NewLine)
+            }
             @{ columns = @('Application', 'VRAM (Go)')
-               rows = @($vramApps | ForEach-Object { ,@($_.Label, $_.VramGb) })
+               rows = $lignesVram
                # Une infobulle par ligne : chemin absolu, editeur, PID (demande utilisateur).
-               tips = @($vramApps | ForEach-Object { $_.Tip }) })
+               tips = $tipsVram })
 }
 if (-not $gpuDispo) {
     $fields += New-Field -Key 'gpu' -Label 'Compteurs GPU' -Value 'indisponibles' -Kind 'text' -Status 'warn' `
@@ -527,18 +539,30 @@ $horsBruit = @(Group-ByApp ($procs.Values | Where-Object { $bruit -notcontains $
 # Un TABLEAU unique : chaque application avec toutes ses dimensions -- c'est la vue
 # « qui prend quoi » demandee, bien plus lisible qu'une liste par dimension.
 $meneur = @($horsBruit | Sort-Object { $_.Cpu * 1.5 + $_.Gpu } -Descending)[0]
-$repApps = @($horsBruit |
-    Sort-Object { $_.Cpu * 1.5 + $_.Gpu + $_.VramGb * 10 } -Descending |
-    Select-Object -First 8)
+$repTrie = @($horsBruit | Sort-Object { $_.Cpu * 1.5 + $_.Gpu + $_.VramGb * 10 } -Descending)
+$repApps = @($repTrie | Select-Object -First 8)
 $lignesRep = @($repApps |
     ForEach-Object { ,@(($_.Label + $(if ($servicesWindows -contains $_.Name) { ' (Windows)' } else { '' })), $_.Cpu, $_.Gpu, $_.VramGb, $_.RamGb, $_.IoMbs) })
+$tipsRep = @($repApps | ForEach-Object { $_.Tip })
+# Tout le reste de la machine, en UNE ligne : le tableau redevient additionnable.
+$repReste = @($repTrie | Select-Object -Skip 8)
+if ($repReste.Count) {
+    $lignesRep += ,@(("Autres (" + $repReste.Count + " applications)"),
+                     [math]::Round((($repReste | Measure-Object Cpu -Sum).Sum), 1),
+                     [math]::Round((($repReste | Measure-Object Gpu -Sum).Sum), 1),
+                     [math]::Round((($repReste | Measure-Object VramGb -Sum).Sum), 2),
+                     [math]::Round((($repReste | Measure-Object RamGb -Sum).Sum), 2),
+                     [math]::Round((($repReste | Measure-Object IoMbs -Sum).Sum), 1))
+    $tipsRep += (($repReste | Sort-Object { $_.Cpu + $_.Gpu } -Descending | Select-Object -First 12 |
+                  ForEach-Object { $_.Label }) -join [Environment]::NewLine)
+}
 $fields += New-Field -Key 'top' -Label 'Répartition des ressources' `
     -Value $(if ($meneur) { $meneur.Label } else { '—' }) -Kind 'text' -Status 'neutral' `
     -Help "Les applications les plus consommatrices, toutes dimensions confondues — pour voir qui prend quoi." `
     -Guide "Triées par poids global. E/S = disque et réseau confondus (Windows ne les sépare pas par processus)." `
     -Table @{ columns = @('Application', 'CPU %', 'GPU %', 'VRAM Go', 'RAM Go', 'E/S Mo/s')
               rows = $lignesRep
-              tips = @($repApps | ForEach-Object { $_.Tip }) }
+              tips = $tipsRep }
 
 $statut = if (($fields | Where-Object { $_.status -eq 'warn' })) { 'warn' } else { 'ok' }
 New-ModuleObject -Id 'gaming' -Theme 'gaming' -Label 'Session de jeu' -Status $statut -Fields $fields
