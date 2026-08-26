@@ -2445,18 +2445,19 @@ function Test-InstallationPartagee {
 # exactement le piege releve : le deploiement etait fait, mais la tache aurait vise le
 # depot personnel.
 function Get-SharedInstallPath {
-    $candidats = @(
-        (Join-Path $env:ProgramFiles 'Sowapps\Vigie'),
-        (Join-Path ${env:ProgramFiles(x86)} 'Sowapps\Vigie'),
-        (Join-Path $env:ProgramFiles 'Vigie')
-    )
-    foreach ($c in $candidats) {
-        if (-not $c) { continue }
-        if ((Test-Path -LiteralPath (Join-Path $c 'apps\tray\tray.ps1')) -and (Test-InstallationPartagee -Path $c)) {
-            return $c
+    # Program Files est lisible par tous les comptes PAR CONSTRUCTION : une installation
+    # qui s'y trouve est partagee, sans qu'on ait besoin d'interroger les ACL. On garde la
+    # lecture des droits pour les emplacements hors Program Files (choix de l'utilisateur).
+    # La version precedente s'appuyait uniquement sur Get-Acl et repondait « non partagee »
+    # depuis le serveur alors que le deploiement etait fait -- diagnostic difficile.
+    $bases = @($env:ProgramFiles, ${env:ProgramFiles(x86)}) | Where-Object { $_ }
+    foreach ($b in $bases) {
+        foreach ($nom in @('Sowapps\Vigie', 'Vigie')) {
+            $c = Join-Path $b $nom
+            if (Test-Path -LiteralPath (Join-Path $c 'apps	ray	ray.ps1')) { return $c }
         }
     }
-    # L'installation courante fait l'affaire si elle est deja lisible par tous.
+    # Installation hors Program Files : c'est l'ACL qui tranche.
     if (Test-InstallationPartagee) { return (Get-RepoRoot) }
     return $null
 }
