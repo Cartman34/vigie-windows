@@ -96,7 +96,7 @@ Pode 47600 + front une page + Atelier PHP 47610 (à lancer à la main :
 `C:\Program Files\Sowapps\Vigie` ; données par compte :
 `%LOCALAPPDATA%\Sowapps\Vigie`.
 
-**Livraison (D76)** : quand une fonctionnalite est finie, **je fusionne dans `main`** - le serveur de sa session sert le depot, il la recoit donc directement (une carte nouvelle apparait au rechargement ; une route nouvelle attend un redemarrage du serveur). Les **autres comptes**, eux, lancent `C:\\Program Files\\Sowapps\\Vigie` : ils ne recoivent rien sans un **deploiement explicite**, qui se demande.
+**Livraison (D76)** : quand une fonctionnalite est finie, **je fusionne dans `main`** - le serveur de sa session sert le depot, il la recoit donc directement (une carte nouvelle apparait au rechargement ; une route nouvelle attend un redemarrage du serveur). Les **autres comptes**, eux, lancent `C:\Program Files\Sowapps\Vigie` : ils ne recoivent rien sans un **deploiement explicite**, qui se demande.
 
 Modules : Windows Update (verrouillage natif, MAJ au choix, date de dernière analyse),
 Système (**Stockage** : seuil D57, analyse de la consommation en tâche de fond D60/D61,
@@ -124,7 +124,7 @@ système), `DECISIONS-VALIDEES.md` (toutes les règles, D01→D72).
 > « arret du serveur adopte » et « guetteur d'adresse reseau arme ».
 
 1. **Session `Famille` - a constater** (en attente de l'utilisateur). Tout est en place et
-   verifie : installation partagee `C:\\Program Files\\Sowapps\\Vigie` **redeployee le 26/08 a 15:19** (134 fichiers,
+   verifie : installation partagee `C:\Program Files\Sowapps\Vigie` **redeployee le 26/08 a 15:19** (134 fichiers,
    `power.probe.ps1` inclus, aucun secret, aucune erreur, reglages machine conserves),
    tache **`Vigie - Famille`** en niveau *Limited*. A constater en ouvrant sa session :
    demarrage **non eleve**, actions administrateur **refusees et expliquees** (D65),
