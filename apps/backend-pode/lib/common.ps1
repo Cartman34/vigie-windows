@@ -2755,6 +2755,9 @@ function Get-NotificationCatalog {
                 help  = if ($nn.Help) { "$($nn.Help)" } else { '' }
                 card  = if ($nn.Card) { "$($nn.Card)" } else { '' }
                 field = if ($nn.Field) { "$($nn.Field)" } else { '' }
+                # QUI peut y faire quelque chose, et faut-il quand meme prevenir ?
+                rights   = if ($nn.Droits) { "$($nn.Droits)" } else { 'tous' }
+                critical = [bool]$nn.Critique
             }
         })
         [pscustomobject][ordered]@{ unit = $u.id; label = $u.label; enabled = $u.enabled; notifications = $notifs }
@@ -2773,6 +2776,21 @@ function Test-NotificationAllowed {
     )
     if (-not $Settings) { $Settings = Get-NotificationSettings }
     if (-not [bool]$Settings.enabled) { return $false }
+    # DROITS (regle utilisateur, 26/08) : on ne derange pas quelqu'un avec un probleme
+    # qu'il ne peut pas resoudre. Une notification dont la resolution exige un
+    # administrateur ne s'affiche donc pas pour un compte standard...
+    # ...SAUF si elle est declaree CRITIQUE : antivirus coupe, pare-feu ouvert, mises a
+    # jour en attente. Dans ce cas l'utilisateur doit savoir, ne serait-ce que pour le
+    # signaler a un administrateur -- le tray le lui dit explicitement.
+    if ($Key -and -not (Test-IsElevated)) {
+        $decl = $null
+        foreach ($u in (Get-NotificationCatalog)) {
+            if ($u.unit -ne $ModuleId) { continue }
+            $decl = @($u.notifications | Where-Object { $_.key -eq $Key })[0]
+            break
+        }
+        if ($decl -and "$($decl.rights)" -eq 'admin' -and -not $decl.critical) { return $false }
+    }
     # Reglage FIN (par notification) : il l'emporte sur celui du module.
     if ($Key -and $Settings.notifs) {
         $ref = "$ModuleId.$Key"

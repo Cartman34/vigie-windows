@@ -31,15 +31,19 @@
     Notifications = @(
         @{ Key = 'gpu-temp'; Label = 'Température GPU élevée'
            Card = 'gaming'; Field = 'gpu-temp'
+           Droits = 'tous'; Critique = $false
            Help = 'La carte graphique chauffe au-delà du seuil, ou se bride.' }
         @{ Key = 'vram-full'; Label = 'Mémoire graphique saturée'
            Card = 'gaming'; Field = 'vram'
+           Droits = 'tous'; Critique = $false
            Help = 'La VRAM est pleine : saccades à prévoir en jeu.' }
         @{ Key = 'hogs'; Label = 'Applications gourmandes pendant une partie'
            Card = 'gaming'; Field = 'hogs'
+           Droits = 'tous'; Critique = $false
            Help = 'Une application consomme beaucoup pendant que le jeu tourne.' }
         @{ Key = 'battery'; Label = 'Partie sur batterie'
            Card = 'gaming'; Field = 'power'
+           Droits = 'tous'; Critique = $false
            Help = 'Sur batterie, processeur et carte graphique sont bridés.' }
     )
 }

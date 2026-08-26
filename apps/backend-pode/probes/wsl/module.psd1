@@ -11,6 +11,7 @@
     Notifications = @(
         @{ Key = 'wsl-down'; Label = 'WSL arrêté'
            Card = 'wsl'; Field = 'running'
+           Droits = 'tous'; Critique = $false
            Help = 'La machine virtuelle WSL ne tourne plus.' }
     )
 }

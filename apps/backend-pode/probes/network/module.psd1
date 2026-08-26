@@ -24,15 +24,19 @@
     Notifications = @(
         @{ Key = 'offline'; Label = 'Perte de connexion Internet'
            Card = 'net'; Field = 'connected'
+           Droits = 'tous'; Critique = $false
            Help = 'Vigie ne joint plus Internet.' }
         @{ Key = 'wifi-weak'; Label = 'Lien Wi-Fi dégradé'
            Card = 'net'; Field = 'wifi'
+           Droits = 'tous'; Critique = $false
            Help = 'La qualité du lien radio baisse.' }
         @{ Key = 'wifi-drops'; Label = 'Coupures Wi-Fi répétées'
            Card = 'net'; Field = 'wifiStability'
+           Droits = 'tous'; Critique = $false
            Help = 'L''association Wi-Fi décroche.' }
         @{ Key = 'dns-ko'; Label = 'Résolution DNS en échec'
            Card = 'net'; Field = 'dns'
+           Droits = 'admin'; Critique = $true
            Help = 'Les noms de domaine ne se résolvent plus.' }
     )
 }
