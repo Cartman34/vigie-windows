@@ -45,8 +45,12 @@ if (-not $comptes.Count) {
 # Installation lisible par les autres comptes ? Sinon, aucun autre compte ne peut demarrer
 # Vigie -- et c'est le cas sur un poste de developpement. On le DIT sur la carte, avec le
 # bouton qui corrige (D66 : une alerte porte toujours sa resolution).
-$partagee = Test-InstallationPartagee
-if (-not $partagee) {
+$partagee = [bool](Get-SharedInstallPath)
+if ($partagee) {
+    $fields += New-Field -Key 'partage' -Label 'Installation' -Value 'accessible a tous les comptes' -Kind 'text' -Status 'ok' `
+        -Help "Emplacement lisible par tous les comptes de la machine : leurs taches de demarrage pointent dessus." `
+        -Guide ("Installation partagee : " + (Get-SharedInstallPath))
+} else {
     $fields += New-Field -Key 'partage' -Label 'Installation' -Value 'lisible par vous seul' -Kind 'text' -Status 'warn' `
         -FixAction 'deploy-shared' `
         -Help "Les autres comptes ne peuvent pas lire cette installation : Vigie ne demarrerait pas chez eux." `
