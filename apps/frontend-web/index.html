@@ -1257,6 +1257,10 @@ function itemsDeMaj(j){
 
 async function doAction(type,module,confirmNeeded,label,help,btnEl,params,kind,confirmerDeuxFois){
   const name = label || type;
+  // Une action peut viser l'INTERFACE et non la machine : « Gerer les comptes » ouvre
+  // simplement le panneau Parametres > Utilisateurs. Rien a envoyer au serveur -- lui
+  // faire un aller-retour pour ouvrir un ecran serait un detour sans objet.
+  if(type==='open-users-settings'){ openSettings('utilisateurs'); return; }
   // ACTION CRITIQUE = double confirmation. C'est le standard du projet pour tout geste
   // qui ferme le travail en cours ou touche la machine entiere.
   //
