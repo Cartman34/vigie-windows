@@ -74,20 +74,23 @@ if ($null -eq $count) {
         $quandScan = $null
         try { if ($scan.at) { $quandScan = (ConvertTo-UtcDate $scan.at).ToLocalTime() } } catch { }
         $ageScan = if ($quandScan) { [int]((Get-Date) - $quandScan).TotalDays } else { -1 }
-        $valeurScan = "$([int]$scan.trouvees) trouvée(s)"
-        if ($quandScan) { $valeurScan += " le " + $quandScan.ToString('dd/MM/yyyy HH:mm') }
+        # La ligne au-dessus dit deja COMBIEN de mises a jour attendent : celle-ci dit
+        # QUAND on a regarde. Repeter le nombre n'apprend rien (signale par l'utilisateur).
+        $valeurScan = if ($quandScan) { $quandScan.ToString('s') } else { 'jamais' }
         # Un renseignement vieux de plus d'une semaine se signale : il ne prouve plus rien
         # sur l'etat actuel de la machine. Il porte alors son bouton (D66).
         $statutScan = if ($scan.error) { 'error' } elseif ($ageScan -ge 7) { 'warn' } else { 'ok' }
         $guideScan = @()
         if ($scan.error) { $guideScan += "Erreur : $($scan.error)" }
+        $guideScan += "$([int]$scan.trouvees) mise(s) à jour trouvée(s) lors de cette analyse."
         if ($quandScan) {
             $guideScan += $(if ($ageScan -le 0) { "Analyse faite aujourd'hui." }
                             elseif ($ageScan -eq 1) { "Analyse faite hier." }
                             else { "Analyse faite il y a $ageScan jours." })
         }
         if ($ageScan -ge 7) { $guideScan += "Au-delà d'une semaine, ce résultat ne dit plus rien de l'état actuel : relancez une vérification." }
-        $champs += New-Field -Key 'scan' -Label 'Dernière analyse en ligne' -Value $valeurScan -Kind 'text' `
+        $champs += New-Field -Key 'scan' -Label 'Dernière analyse en ligne' -Value $valeurScan `
+            -Kind $(if ($quandScan) { 'date' } else { 'text' }) `
             -Status $statutScan `
             -FixAction $(if ($statutScan -eq 'ok') { $null } else { 'wu-scan' }) `
             -Help "Résultat de la dernière recherche lancée depuis Vigie, et sa date." `
