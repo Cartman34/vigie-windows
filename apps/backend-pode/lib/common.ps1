@@ -2411,6 +2411,32 @@ function Test-TaskUserIs {
     return ($court -eq $Name)
 }
 
+# L'INSTALLATION EST-ELLE PARTAGEE ? Autrement dit : un autre compte de la machine
+# peut-il seulement LIRE l'application ?
+#
+# La question n'est pas theorique : sur un poste de developpement (ou un clone du depot),
+# Vigie vit dans l'espace personnel de quelqu'un, et proposer de l'activer pour un autre
+# compte serait proposer une tache qui echouerait en silence a chaque ouverture de session
+# (releve par l'utilisateur). On regarde donc les droits REELS, on ne suppose rien.
+#
+# Groupes qui, s'ils ont la lecture, rendent l'installation accessible a tous :
+#   S-1-5-32-545 Utilisateurs | S-1-1-0 Tout le monde | S-1-5-11 Utilisateurs authentifies
+function Test-InstallationPartagee {
+    param([string]$Path = (Get-RepoRoot))
+    $sids = @('S-1-5-32-545', 'S-1-1-0', 'S-1-5-11')
+    try {
+        $acl = Get-Acl -LiteralPath $Path -ErrorAction Stop
+        foreach ($ace in $acl.Access) {
+            if ("$($ace.AccessControlType)" -ne 'Allow') { continue }
+            $sid = $null
+            try { $sid = "$($ace.IdentityReference.Translate([Security.Principal.SecurityIdentifier]).Value)" } catch { }
+            if (-not $sid -or $sids -notcontains $sid) { continue }
+            if (("$($ace.FileSystemRights)" -match 'Read|ReadAndExecute|Modify|FullControl')) { return $true }
+        }
+    } catch { }
+    return $false
+}
+
 function Get-VigieAccountTaskName {
     param([Parameter(Mandatory)][string]$Name)
     $script:VigieTaskPrefix + $Name
@@ -2551,8 +2577,12 @@ function Set-VigieAccountEnabled {
         [string]$Backend = (Get-BackendRoot)
     )
     if (-not (Test-IsElevated)) { throw "Modifier les comptes autorises demande un compte administrateur." }
-    $compte = @(Get-VigieAccounts | Where-Object { $_.name -eq $Name })[0]
+    $compte = @(Get-VigieAccounts -Backend $Backend | Where-Object { $_.name -eq $Name })[0]
     if (-not $compte) { throw "Compte inconnu sur cette machine : $Name" }
+    # Un AUTRE compte que le sien exige que l'application lui soit lisible.
+    if ($Enabled -and -not $compte.current -and -not (Test-InstallationPartagee)) {
+        throw "Cette installation n'est lisible que par vous : deployez d'abord Vigie pour tous (scripts/deploy-prod.ps1), sinon la tache de $Name echouerait a chaque ouverture de session."
+    }
 
     if (-not $Enabled) {
         # On retire la tache DEDIEE. La tache historique « Vigie » n'est pas supprimee
@@ -2674,18 +2704,31 @@ function Test-ActionAllowed {
 #   1. les defauts VERSIONNES        (probes/<module>/module.psd1, Config)
 #   2. la couche MACHINE             (config/*.local.* dans l'installation) -- ce qui
 #      etait deja regle avant le multi-utilisateur reste donc en place pour tout le monde
-#   3. la couche UTILISATEUR         (%LOCALAPPDATA%\Vigie) -- ce que CE compte a choisi
+#   3. la couche UTILISATEUR         (%LOCALAPPDATA%\Sowapps\Vigie) -- ce compte-ci
 # On LIT les trois (la plus personnelle gagne) ; on ECRIT toujours dans la couche
 # utilisateur : un compte ne modifie jamais les reglages d'un autre.
 #
 # Un processus eleve du meme compte partage son LOCALAPPDATA : le serveur eleve et le
 # tray ecrivent donc bien au meme endroit que l'utilisateur connecte.
 function Get-UserConfigDir {
+    # Vigie est une application de SOWAPPS : ses donnees vivent sous le nom de l'editeur,
+    # comme celles de n'importe quel logiciel installe (Editeur\Produit).
     $base = $env:LOCALAPPDATA
     if (-not $base) { $base = Join-Path $env:USERPROFILE 'AppData\Local' }
-    $d = Join-Path $base 'Vigie'
+    $d = Join-Path (Join-Path $base 'Sowapps') 'Vigie'
     if (-not (Test-Path -LiteralPath $d)) {
         try { New-Item -ItemType Directory -Path $d -Force -WhatIf:$false | Out-Null } catch { }
+        # Reprise de l'emplacement precedent (sans editeur) : personne ne doit perdre ses
+        # reglages parce que le rangement a change.
+        $ancien = Join-Path $base 'Vigie'
+        if ((Test-Path -LiteralPath $ancien) -and (Test-Path -LiteralPath $d)) {
+            try {
+                foreach ($x in (Get-ChildItem -LiteralPath $ancien -Force -ErrorAction SilentlyContinue)) {
+                    $cible = Join-Path $d $x.Name
+                    if (-not (Test-Path -LiteralPath $cible)) { Move-Item -LiteralPath $x.FullName -Destination $cible -Force }
+                }
+            } catch { }
+        }
     }
     $d
 }

@@ -30,7 +30,7 @@ foreach ($c in (Get-VigieAccounts | Sort-Object name)) {
 
     $donnees = 'aucune donnée Vigie'
     try {
-        $var = Join-Path (Join-Path (Join-Path (Join-Path $env:SystemDrive 'Users') $c.name) 'AppData\Local\Vigie') 'var'
+        $var = Join-Path (Join-Path (Join-Path (Join-Path $env:SystemDrive 'Users') $c.name) 'AppData\Local\Sowapps\Vigie') 'var'
         if (Test-Path -LiteralPath $var) {
             $f = @(Get-ChildItem -LiteralPath $var -File -Recurse -ErrorAction SilentlyContinue)
             $taille = ($f | Measure-Object Length -Sum).Sum
