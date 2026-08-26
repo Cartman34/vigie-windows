@@ -131,7 +131,10 @@ Add-PodeRoute -Method Get -Path "$base/disk/tree" -ScriptBlock {
 Add-PodeRoute -Method Get -Path "$base/users" -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
     Write-PodeJsonResponse -Value @{
-        users    = @(Get-VigieAccounts)
+        # UNIQUEMENT les comptes utilisateurs (regle utilisateur) : un compte dont le
+        # profil n'a jamais servi est un compte d'outil, on ne propose pas de lui donner
+        # Vigie. Meme critere que la carte Comptes -- une seule definition.
+        users    = @(Get-VigieAccounts | Where-Object { -not $_.technical })
         # L'interface doit pouvoir dire POURQUOI les interrupteurs sont inertes.
         canWrite = [bool](Test-IsElevated)
     } -Depth 6
@@ -145,8 +148,13 @@ Add-PodeRoute -Method Post -Path "$base/users/:name" -ScriptBlock {
         return
     }
     try {
+        $cible = @(Get-VigieAccounts | Where-Object { $_.name -eq $nom })[0]
+        if ($cible -and $cible.technical) {
+            Write-PodeJsonResponse -StatusCode 400 -Value @{ error = "$nom n'est pas un compte utilisateur : son profil n'a jamais servi." }
+            return
+        }
         Set-VigieAccountEnabled -Name $nom -Enabled ([bool]$d.enabled) -Backend $env:VIGIE_BACKEND | Out-Null
-        Write-PodeJsonResponse -Value @{ users = @(Get-VigieAccounts); canWrite = [bool](Test-IsElevated) } -Depth 6
+        Write-PodeJsonResponse -Value @{ users = @(Get-VigieAccounts | Where-Object { -not $_.technical }); canWrite = [bool](Test-IsElevated) } -Depth 6
     } catch {
         Write-PodeJsonResponse -StatusCode 403 -Value @{ error = "$($_.Exception.Message)" }
     }
