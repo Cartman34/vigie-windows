@@ -1859,3 +1859,16 @@ minute.
 l'état reçu, marquée « opération en cours ». Et une action de fond met la carte dans cet
 état **dès le clic**, sans attendre la réponse du serveur : on réutilise l'état `busy` du
 contrat, aucun statut nouveau n'est inventé.
+
+## D72 — Éditeur : Sowapps ; auteur : Florent HAZARD (2026-08-26)
+
+**Information donnée par l'utilisateur.** « Vigie est une application de Sowapps (mais
+l'auteur c'est moi). Quand je mets un vendor, je mets sowapps. »
+
+**Conséquences appliquées** — partout où un logiciel nomme son éditeur :
+- installation : `C:\Program Files\Sowapps\Vigie` (schéma *Éditeur\Produit*) ;
+- données par compte : `%LOCALAPPDATA%\Sowapps\Vigie`, **avec reprise automatique** de
+  l'ancien emplacement `%LOCALAPPDATA%\Vigie` — personne ne perd ses réglages parce que le
+  rangement a changé ;
+- métadonnées de la fonte d'icônes : copyright « Sowapps — Vigie, MIT » ;
+- écran **À propos** : Éditeur *Sowapps*, Auteur *Florent HAZARD*, licence MIT.

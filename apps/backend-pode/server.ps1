@@ -134,7 +134,11 @@ Add-PodeRoute -Method Get -Path "$base/users" -ScriptBlock {
         # UNIQUEMENT les comptes utilisateurs (regle utilisateur) : un compte dont le
         # profil n'a jamais servi est un compte d'outil, on ne propose pas de lui donner
         # Vigie. Meme critere que la carte Comptes -- une seule definition.
-        users    = @(Get-VigieAccounts | Where-Object { -not $_.technical })
+        users    = @(Get-VigieAccounts -Backend $env:VIGIE_BACKEND | Where-Object { -not $_.technical })
+        # Installation lisible par les autres comptes ? Sinon l'interface doit le dire au
+        # lieu de proposer une activation qui echouerait.
+        shared      = [bool](Test-InstallationPartagee)
+        installPath = (Get-RepoRoot)
         # L'interface doit pouvoir dire POURQUOI les interrupteurs sont inertes.
         canWrite = [bool](Test-IsElevated)
     } -Depth 6

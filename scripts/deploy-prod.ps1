@@ -9,7 +9,7 @@
       - la version deployee vient d'une ARCHIVE (build-release.ps1 la fabrique depuis git,
         avec ses garde-fous) : ce qui part en prod est une version CHOISIE, jamais l'etat de
         travail du moment ;
-      - la destination par defaut est C:\Program Files\Vigie : lisible par tous les comptes,
+      - la destination par defaut est C:\Program Files\Sowapps\Vigie (Editeur\Produit) : lisible par tous les comptes,
         modifiable seulement par un administrateur. L'espace de travail personnel du
         developpeur n'est pas ouvert aux autres comptes ;
       - les REGLAGES de la machine deja presents a destination (config/*.local.*,
@@ -27,7 +27,7 @@
 #>
 param(
     [string]   $Zip,
-    [string]   $Destination = 'C:\Program Files\Vigie',
+    [string]   $Destination = 'C:\Program Files\Sowapps\Vigie',
     [switch]   $Yes
 )
 $ErrorActionPreference = 'Stop'

@@ -388,7 +388,7 @@ def main():
     fb.setupOS2(sTypoAscender=800, sTypoDescender=-200, usWinAscent=800, usWinDescent=200)
     fb.setupNameTable({'familyName': 'Vigie Icons', 'styleName': 'Regular',
                        'fullName': 'Vigie Icons', 'psName': 'VigieIcons-Regular',
-                       'copyright': 'Vigie project, MIT'})
+                       'copyright': 'Sowapps - Vigie, MIT'})
     fb.setupPost()
     out = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'vigie-icons.ttf')
     fb.save(out)
