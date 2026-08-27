@@ -909,7 +909,7 @@ function cardHtml(m, groupLabel){
     const bulle = interdite ? (a.deniedReason||'Action réservée à un compte administrateur.')
                 : (busy&&!cetteAction ? 'Opération en cours sur cette carte — patientez' : (h||a.label));
     const att = t => esc(t||'').replace(/"/g,'&quot;');
-    return `<button class="act k-${kind} sev-${sev}${bcls}"${dis} data-a="${a.id}" data-m="${m.id}" data-c="${a.confirm?1:0}" data-c2="${a.confirmTwice?1:0}" data-k="${kind}" data-h="${h}" data-imp="${att(a.impact)}" data-usg="${att(a.usage)}" data-rev="${att(a.reversible)}" title="${esc(bulle).replace(/"/g,'&quot;')}">${inner}</button>`;
+    return `<button class="act k-${kind} sev-${sev}${bcls}"${dis} data-a="${a.id}" data-m="${m.id}" data-c="${a.confirm?1:0}" data-c2="${a.confirmTwice?1:0}" data-k="${kind}" data-h="${h}" data-imp="${att(a.impact)}" data-usg="${att(a.usage)}" data-rev="${att(a.reversible)}" data-res="${att(JSON.stringify(a.resources||[]))}" title="${esc(bulle).replace(/"/g,'&quot;')}">${inner}</button>`;
   }).join('');
   return `<div class="card st-${st}${m.busy?' busy':''}" data-module="${m.id}" data-theme="${m.theme}">
     <div class="card-head">
@@ -1716,15 +1716,28 @@ function operationEnCours(){
   const c = document.querySelector('.card.busy');
   if(!c) return null;
   const t = c.querySelector('.card-titles .name');
-  return { module: c.dataset.module, titre: (t ? t.textContent : c.dataset.module) };
+  const m = (lastModules || []).find(x => x.id === c.dataset.module);
+  return { module: c.dataset.module, titre: (t ? t.textContent : c.dataset.module),
+           ressources: (m && m.busyResources) || [] };
 }
 function appliquerVerrouOperations(){
   const op = operationEnCours();
   const raison = op
     ? 'Une opération est en cours sur « ' + op.titre + ' ». Les autres actions reprendront à la fin.'
     : '';
+  // CE QUI CROISE, et seulement cela (D93). « machine » croise tout. Une action sans
+  // ressource declaree est inoffensive : elle reste disponible.
+  const tenues = op ? (op.ressources || []) : [];
+  const croise = b => {
+    if(!op) return false;
+    let r = [];
+    try{ r = JSON.parse(b.dataset.res || '[]'); }catch(e){ r = []; }
+    if(!r.length) return false;
+    if(tenues.indexOf('machine') >= 0 || r.indexOf('machine') >= 0) return true;
+    return r.some(x => tenues.indexOf(x) >= 0);
+  };
   document.querySelectorAll('.act, .fsolve').forEach(b => {
-    if(op){
+    if(op && croise(b)){
       // On garde en memoire ce qui etait DEJA desactive pour une autre raison (droits
       // refuses, par exemple) : le verrou ne doit pas reactiver un bouton interdit.
       if(!b.dataset.verrou){
