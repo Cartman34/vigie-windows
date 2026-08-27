@@ -1318,9 +1318,8 @@ function dismissToast(id){
 }
 // UNE OPERATION EN COURS NE S'EFFACE PAS (D94). Effacer sa notification ne l'arrete
 // pas : le travail continue en fond, et on vient de supprimer le seul endroit qui en
-// disait quelque chose -- l'utilisateur se retrouve devant une machine qui fait quelque
-// chose sans plus rien pour le lui dire. Elle se verrouille donc jusqu'a sa fin, et son
-// resultat (reussi ou echoue) redevient effacable.
+// disait quelque chose. A la fin, cette notification n'est pas effacee : elle est
+// REMPLACEE par son resultat (reussi ou echoue), qui s'efface, lui.
 function notifVerrouillee(n){ return n && n.status === 'running'; }
 
 function deleteNotif(id){
@@ -1351,8 +1350,8 @@ function renderDrawer(){
   const enCours = notifs.filter(notifVerrouillee).length;
   const entete = enCours
     ? '<div class="dn-note">' + (enCours === 1
-        ? 'Une opération est en cours : sa notification s’effacera à la fin.'
-        : enCours + ' opérations sont en cours : leurs notifications s’effaceront à la fin.')
+        ? 'Une opération est en cours : sa notification ne peut pas être effacée.'
+        : enCours + ' opérations sont en cours : leurs notifications ne peuvent pas être effacées.')
       + '</div>'
     : '';
   body.innerHTML = entete + notifs.map(n=>{
@@ -1363,7 +1362,7 @@ function renderDrawer(){
             // La fonte maison n'a pas de cadenas, et on n'invente pas un glyphe pour
             // ca : le SABLIER de l'application dit deja « en cours », c'est exactement
             // la raison du verrou.
-            ? '<span class="dn-lock" title="Opération en cours : sa notification s’effacera à la fin."><span class="spin"></span></span>'
+            ? '<span class="dn-lock" title="Opération en cours : sa notification ne peut pas être effacée."><span class="spin"></span></span>'
             : `<button class="dn-del" title="Supprimer" onclick="deleteNotif(${n.id})">×</button>`}</div>
       <div class="dn-msg">${esc(n.message||'')}</div>
       <div class="dn-time">${chip} — ${heure(n.ts)}</div>
