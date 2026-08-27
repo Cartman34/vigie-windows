@@ -108,9 +108,33 @@ function Get-Accord {
     try {
         Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
         $texte = $Question + $(if ($Detail) { [Environment]::NewLine + [Environment]::NewLine + $Detail } else { '' })
-        $r = [System.Windows.Forms.MessageBox]::Show($texte, $Titre,
-                [System.Windows.Forms.MessageBoxButtons]::YesNo,
-                [System.Windows.Forms.MessageBoxIcon]::Question)
+
+        # ON PREVIENT AVANT D'OUVRIR. Une modale peut s'ouvrir derriere le terminal :
+        # le script semble alors bloque « sans raison », et il attend en fait une reponse
+        # que personne ne voit (constate le 27/08, plusieurs minutes perdues).
+        Dire ""
+        Dire ("Une fenetre vient de s'ouvrir : « " + $Titre + " ».") 'Cyan'
+        Dire "Si vous ne la voyez pas, elle est derriere : Alt+Tab." 'DarkGray'
+
+        # Un PROPRIETAIRE invisible et TopMost force la boite au premier plan. Sans lui,
+        # MessageBox n'a pas de fenetre parente et Windows la range ou il veut.
+        $porteur = New-Object System.Windows.Forms.Form
+        $porteur.TopMost        = $true
+        $porteur.ShowInTaskbar  = $false
+        $porteur.FormBorderStyle = 'None'
+        $porteur.Size           = New-Object System.Drawing.Size(1, 1)
+        $porteur.StartPosition  = 'CenterScreen'
+        $porteur.Opacity        = 0
+        try {
+            $porteur.Show()
+            $porteur.Activate()
+            $r = [System.Windows.Forms.MessageBox]::Show($porteur, $texte, $Titre,
+                    [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                    [System.Windows.Forms.MessageBoxIcon]::Question)
+        } finally {
+            $porteur.Close()
+            $porteur.Dispose()
+        }
         return ($r -eq [System.Windows.Forms.DialogResult]::Yes)
     } catch {
         Dire ""
