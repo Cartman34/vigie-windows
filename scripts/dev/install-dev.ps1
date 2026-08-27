@@ -125,13 +125,13 @@ $aTraiter = $DEPENDANCES
 if ($Nom) {
     $aTraiter = @($DEPENDANCES | Where-Object { $_.Nom -eq $Nom })
     if (-not $aTraiter.Count) {
-        Dire ("Dependance inconnue : " + $Nom + ". Connues : " + (($DEPENDANCES | ForEach-Object { $_.Nom }) -join ', ')) 'Red'
+        Dire ("Dépendance inconnue : " + $Nom + ". Connues : " + (($DEPENDANCES | ForEach-Object { $_.Nom }) -join ', ')) 'Red'
         exit 1
     }
 }
 
 Dire ""
-Dire "=== Dependances de developpement ===" 'Cyan'
+Dire "=== Dépendances de développement ===" 'Cyan'
 Dire ""
 $manquantes = @()
 foreach ($d in $aTraiter) {
@@ -158,15 +158,15 @@ function Invoke-SessionGitHub {
         return
     }
     Dire ""
-    Dire "GitHub CLI est installe, mais aucune session n'est ouverte." 'Yellow'
+    Dire "GitHub CLI est installé, mais aucune session n'est ouverte." 'Yellow'
     $ok = Get-Accord -Titre 'Vigie - session GitHub' `
                      -Question "Ouvrir la session GitHub maintenant ?" `
-                     -Detail ("Une fenetre va s'ouvrir avec un code a huit caracteres, puis votre navigateur." +
+                     -Detail ("Une fenêtre va s'ouvrir avec un code à huit caractères, puis votre navigateur." +
                               [Environment]::NewLine +
                               "Vous collez le code sur github.com et vous validez : c'est vous qui vous authentifiez, " +
                               "ce script ne voit ni votre mot de passe ni votre jeton.")
     if (-not $ok) {
-        Dire "A faire quand vous voudrez :  gh auth login --web" 'DarkGray'
+        Dire "À faire quand vous voudrez :  gh auth login --web" 'DarkGray'
         return
     }
     # Fenetre VISIBLE et interactive : la procedure affiche un code a recopier, il faut
@@ -178,11 +178,11 @@ function Invoke-SessionGitHub {
         if (Test-SessionGitHub) {
             Dire "Session GitHub ouverte." 'Green'
         } else {
-            Dire ("La session n'a pas ete ouverte (gh a rendu " + $p.ExitCode + "). Reessayez :  gh auth login --web") 'Yellow'
+            Dire ("La session n'a pas été ouverte (gh a rendu " + $p.ExitCode + "). Réessayez :  gh auth login --web") 'Yellow'
         }
     } catch {
         Dire ("Impossible de lancer gh : " + $_.Exception.Message) 'Red'
-        Dire "A faire a la main :  gh auth login --web" 'Yellow'
+        Dire "À faire à la main :  gh auth login --web" 'Yellow'
     }
 }
 
@@ -193,7 +193,7 @@ if (-not $manquantes.Count) {
 }
 
 if ($Lister) {
-    Dire ("" + $manquantes.Count + " dependance(s) manquante(s). Pour les installer :") 'Yellow'
+    Dire ("" + $manquantes.Count + " dépendance(s) manquante(s). Pour les installer :") 'Yellow'
     Dire "  pwsh -File .\scripts\dev\install-dev.ps1"
     exit 0
 }
@@ -209,21 +209,20 @@ if (-not (Test-Admin)) {
     $ok = $true
     if ($avecFenetre) {
         $ok = Show-ElevationRationale -AssumeYes:$Yes `
-                -Title "Installer les dependances de developpement" `
-                -Summary ("Ces outils s'installent POUR TOUTE LA MACHINE, jamais pour votre seul compte : " +
-                          "un outil pose dans un profil est invisible des autres comptes et des taches planifiees. " +
-                          "Windows va demander votre accord.") `
+                -Title "Installer les dépendances de développement" `
+                -Summary ("Ces outils s'installent pour TOUTE LA MACHINE, jamais pour votre seul compte : un outil posé " +
+                          "dans un profil est invisible des autres comptes et des tâches planifiées.") `
                 -Changes (@($quoi | ForEach-Object { "Installation de " + $_ }) +
-                          @("Aucune version deja installee n'est remplacee",
+                          @("Aucune version déjà installée n'est remplacée",
                             "Aucune session GitHub n'est ouverte sans votre geste",
-                            "Rien n'est supprime ailleurs sur la machine"))
+                            "Rien n'est supprimé ailleurs sur la machine"))
     } else {
         $ok = Get-Accord -Titre 'Vigie - dependances de developpement' `
                          -Question "Installer ces outils pour toute la machine ?" `
                          -Detail ($quoi -join [Environment]::NewLine)
     }
     if (-not $ok) {
-        Dire "Installation annulee. Rien n'a ete touche." 'Yellow'
+        Dire "Installation annulée. Rien n'a été touché." 'Yellow'
         exit 3
     }
 
@@ -240,8 +239,15 @@ if (-not (Test-Admin)) {
                      Sort-Object LastWriteTime -Descending | Select-Object -First 1)
         if ($dernier.Count) {
             Dire ""
-            Get-Content -LiteralPath $dernier[0].FullName -ErrorAction SilentlyContinue | ForEach-Object { Write-Host $_ }
+            Get-Content -LiteralPath $dernier[0].FullName -Encoding UTF8 -ErrorAction SilentlyContinue |
+                ForEach-Object { Write-Host $_ }
         }
+        # LE PATH SE RELIT AVANT DE CHERCHER gh. La passe elevee vient de l'installer,
+        # mais CETTE session a garde l'ancien PATH : sans ce rafraichissement,
+        # Get-Command gh echoue, la proposition de session est sautee sans un mot, et
+        # l'utilisateur voit l'installation se terminer sur un silence (constate le 27/08).
+        $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' +
+                    [Environment]::GetEnvironmentVariable('Path', 'User')
         # La session GitHub se propose depuis la session NON elevee : c'est le compte de
         # l'utilisateur qui doit porter le jeton, pas l'administrateur.
         if ($code -eq 0) { Invoke-SessionGitHub }
@@ -261,7 +267,7 @@ if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
 
 $echecs = 0
 foreach ($d in $manquantes) {
-    Dire ("Installation de " + $d.Titre + " (" + $d.Winget + ") pour la machine...") 'Cyan'
+    Dire ("Installation de " + $d.Titre + " (" + $d.Winget + ") pour la machine…") 'Cyan'
     $code = -1
     try {
         # --scope machine : jamais dans le profil d'un compte (D79).
@@ -269,7 +275,7 @@ foreach ($d in $manquantes) {
                   --accept-package-agreements --accept-source-agreements | Write-Host
         $code = $LASTEXITCODE
     } catch {
-        Dire ("  winget a leve une erreur : " + $_.Exception.Message) 'Red'
+        Dire ("  winget a levé une erreur : " + $_.Exception.Message) 'Red'
     }
 
     # LE RESULTAT SE CONSTATE (D43) : winget rend parfois 0 sans avoir rien pose, et
@@ -281,18 +287,18 @@ foreach ($d in $manquantes) {
         Dire ("  " + $d.Titre + " est en place : " + $(if ($e.Version) { $e.Version } else { $e.Ou })) 'Green'
     } else {
         $echecs++
-        Dire ("  " + $d.Titre + " n'est TOUJOURS pas la (winget a rendu " + $code + ").") 'Red'
-        Dire ("  A faire a la main : winget install --id " + $d.Winget + " --scope machine") 'Yellow'
-        Dire "  Un terminal deja ouvert peut aussi ne pas voir le nouveau PATH : rouvrez-le avant de conclure." 'DarkGray'
+        Dire ("  " + $d.Titre + " n'est TOUJOURS pas là (winget a rendu " + $code + ").") 'Red'
+        Dire ("  À faire à la main : winget install --id " + $d.Winget + " --scope machine") 'Yellow'
+        Dire "  Un terminal déjà ouvert peut aussi ne pas voir le nouveau PATH : rouvrez-le avant de conclure." 'DarkGray'
     }
 }
 
 Dire ""
 if ($echecs) {
-    Dire ("" + $echecs + " installation(s) en echec.") 'Red'
+    Dire ("" + $echecs + " installation(s) en échec.") 'Red'
     exit 2
 }
-Dire "Toutes les dependances de developpement sont en place." 'Green'
+Dire "Toutes les dépendances de développement sont en place." 'Green'
 # Sous elevation, on ne propose PAS la session : elle appartiendrait a l'administrateur.
 if (-not $Yes) { Invoke-SessionGitHub }
 exit 0

@@ -4332,8 +4332,6 @@ function Show-ElevationRationale {
     if ($AssumeYes) { return $true }
 
     $nl = [Environment]::NewLine
-    # Decalage vertical si un bandeau d'origine doit etre affiche.
-    $off = if ($InitiatedBy) { 40 } else { 0 }
     $bullets = if ($Changes.Count) { ($Changes | ForEach-Object { "   - $_" }) -join $nl } else { '' }
 
     try {
@@ -4354,7 +4352,8 @@ function Show-ElevationRationale {
         $form.TopMost         = $true
         $form.BackColor       = $bg
         $form.ForeColor       = $fg
-        $form.ClientSize      = New-Object System.Drawing.Size(580, (306 + $off))
+        # La hauteur definitive est calculee plus bas, une fois le contenu mesure.
+        $form.ClientSize      = New-Object System.Drawing.Size(580, 306)
         # Icone de Vigie plutot que celle de PowerShell : la fenetre doit s'annoncer
         # comme venant de l'application, pas de l'interpreteur qui l'execute.
         try {
@@ -4372,37 +4371,72 @@ function Show-ElevationRationale {
             $lblOrigin.ForeColor = [System.Drawing.Color]::FromArgb(210, 153, 34)
             $lblOrigin.BackColor = [System.Drawing.Color]::FromArgb(38, 34, 22)
             $lblOrigin.Padding   = New-Object System.Windows.Forms.Padding(10, 6, 10, 6)
-            $lblOrigin.Location  = New-Object System.Drawing.Point(24, 16)
-            $lblOrigin.Size      = New-Object System.Drawing.Size(532, 44)
         }
+
+        # --- MISE EN PAGE MESUREE -------------------------------------------------
+        #
+        # Les hauteurs etaient fixes : 44 px pour le resume, 110 pour la liste. Un resume
+        # de trois lignes passait donc SOUS la liste (constate le 27/08). On mesure chaque
+        # bloc, on l'empile sous le precedent, et la fenetre prend la hauteur qu'il faut.
+        $marge   = 24
+        $largeur = 532
+        function Mesurer {
+            param([string]$Texte, $Fonte)
+            if (-not $Texte) { return 0 }
+            $t = [System.Windows.Forms.TextRenderer]::MeasureText(
+                    $Texte, $Fonte,
+                    (New-Object System.Drawing.Size($largeur, 0)),
+                    ([System.Windows.Forms.TextFormatFlags]::WordBreak))
+            return [int]$t.Height + 2
+        }
+
+        $y = 20
+        if ($lblOrigin) {
+            $hOrigin = (Mesurer -Texte $lblOrigin.Text -Fonte $lblOrigin.Font) + 12
+            $lblOrigin.Location = New-Object System.Drawing.Point($marge, $y)
+            $lblOrigin.Size     = New-Object System.Drawing.Size($largeur, $hOrigin)
+            $y += $hOrigin + 16
+        }
+
+        $fTitre = New-Object System.Drawing.Font('Segoe UI', 13, [System.Drawing.FontStyle]::Bold)
+        $fTexte = New-Object System.Drawing.Font('Segoe UI', 9.5)
+        $fNote  = New-Object System.Drawing.Font('Segoe UI', 9)
 
         $lblTitle           = New-Object System.Windows.Forms.Label
         $lblTitle.Text      = $Title
-        $lblTitle.Font      = New-Object System.Drawing.Font('Segoe UI', 13, [System.Drawing.FontStyle]::Bold)
+        $lblTitle.Font      = $fTitre
         $lblTitle.ForeColor = $fg
-        $lblTitle.Location  = New-Object System.Drawing.Point(24, (20 + $off))
-        $lblTitle.Size      = New-Object System.Drawing.Size(532, 30)
+        $hTitre             = Mesurer -Texte $Title -Fonte $fTitre
+        $lblTitle.Location  = New-Object System.Drawing.Point($marge, $y)
+        $lblTitle.Size      = New-Object System.Drawing.Size($largeur, $hTitre)
+        $y += $hTitre + 12
 
         $lblBody           = New-Object System.Windows.Forms.Label
         $lblBody.Text      = $Summary
-        $lblBody.Font      = New-Object System.Drawing.Font('Segoe UI', 9.5)
+        $lblBody.Font      = $fTexte
         $lblBody.ForeColor = $fg
-        $lblBody.Location  = New-Object System.Drawing.Point(24, (56 + $off))
-        $lblBody.Size      = New-Object System.Drawing.Size(532, 44)
+        $hBody             = Mesurer -Texte $Summary -Fonte $fTexte
+        $lblBody.Location  = New-Object System.Drawing.Point($marge, $y)
+        $lblBody.Size      = New-Object System.Drawing.Size($largeur, $hBody)
+        $y += $hBody + 14
 
         $lblChanges           = New-Object System.Windows.Forms.Label
         $lblChanges.Text      = $bullets
-        $lblChanges.Font      = New-Object System.Drawing.Font('Segoe UI', 9.5)
+        $lblChanges.Font      = $fTexte
         $lblChanges.ForeColor = $fg
-        $lblChanges.Location  = New-Object System.Drawing.Point(24, (104 + $off))
-        $lblChanges.Size      = New-Object System.Drawing.Size(532, 110)
+        $hChanges             = Mesurer -Texte $bullets -Fonte $fTexte
+        $lblChanges.Location  = New-Object System.Drawing.Point($marge, $y)
+        $lblChanges.Size      = New-Object System.Drawing.Size($largeur, [Math]::Max($hChanges, 1))
+        if ($bullets) { $y += $hChanges + 18 }
 
         $lblUac           = New-Object System.Windows.Forms.Label
         $lblUac.Text      = "Si tu continues, Windows demandera ensuite l'autorisation administrateur." + $nl + "Rien n'est modifié avant cette étape, et tu peux encore refuser."
-        $lblUac.Font      = New-Object System.Drawing.Font('Segoe UI', 9)
+        $lblUac.Font      = $fNote
         $lblUac.ForeColor = $mut
-        $lblUac.Location  = New-Object System.Drawing.Point(24, (218 + $off))
-        $lblUac.Size      = New-Object System.Drawing.Size(532, 36)
+        $hUac             = Mesurer -Texte $lblUac.Text -Fonte $fNote
+        $lblUac.Location  = New-Object System.Drawing.Point($marge, $y)
+        $lblUac.Size      = New-Object System.Drawing.Size($largeur, $hUac)
+        $y += $hUac + 18
 
         $btnOk              = New-Object System.Windows.Forms.Button
         $btnOk.Text         = 'Continuer'
@@ -4412,7 +4446,7 @@ function Show-ElevationRationale {
         $btnOk.FlatStyle    = 'Flat'
         $btnOk.FlatAppearance.BorderSize = 0
         $btnOk.Size         = New-Object System.Drawing.Size(124, 32)
-        $btnOk.Location     = New-Object System.Drawing.Point(432, (260 + $off))
+        $btnOk.Location     = New-Object System.Drawing.Point(432, $y)
 
         $btnNo              = New-Object System.Windows.Forms.Button
         $btnNo.Text         = 'Annuler'
@@ -4422,7 +4456,10 @@ function Show-ElevationRationale {
         $btnNo.FlatStyle    = 'Flat'
         $btnNo.FlatAppearance.BorderColor = [System.Drawing.Color]::FromArgb(68, 76, 86)
         $btnNo.Size         = New-Object System.Drawing.Size(104, 32)
-        $btnNo.Location     = New-Object System.Drawing.Point(318, (260 + $off))
+        $btnNo.Location     = New-Object System.Drawing.Point(318, $y)
+
+        # La fenetre s'ajuste a son contenu, jamais l'inverse.
+        $form.ClientSize = New-Object System.Drawing.Size(580, ($y + 32 + 20))
 
         $controls = @($lblTitle, $lblBody, $lblChanges, $lblUac, $btnOk, $btnNo)
         if ($lblOrigin) { $controls += $lblOrigin }
@@ -4471,7 +4508,13 @@ function Invoke-ElevatedSelf {
     $name  = [IO.Path]::GetFileNameWithoutExtension($ScriptPath)
     $log   = Join-Path $LogDir ('elevated_' + $name + '_' + $stamp + '.log')
 
-    $parts = @('&', (ConvertTo-PSLiteral $ScriptPath))
+    # UTF-8 IMPOSE DES LES DEUX BOUTS. Sans cela, la session elevee ecrit son journal
+    # dans la page de code de la console (850 ou 1252 selon la machine) et le parent le
+    # relit en UTF-8 : « Trouve » revenait « Trouv├® » (constate le 27/08). Les accents
+    # ne sont pas negociables (D41).
+    $parts = @('$OutputEncoding=[Text.Encoding]::UTF8;',
+               '[Console]::OutputEncoding=[Text.Encoding]::UTF8;',
+               '&', (ConvertTo-PSLiteral $ScriptPath))
     foreach ($a in $Arguments) {
         if ($a -like '-*') { $parts += $a } else { $parts += (ConvertTo-PSLiteral ([string]$a)) }
     }
