@@ -85,9 +85,9 @@ Full detail, card by card: [What Vigie monitors](doc/en/using/features.md).
 
 ## Documentation
 
-| | |
+| Page | Answers |
 |---|---|
-| [Documentation index](doc/en/README.md) | everything, in one page |
+| [Documentation index](doc/en/README.md) | where to start, and what each page holds |
 | [Installation](doc/en/operating/install.md) | archive or git clone, autostart, uninstall |
 | [Getting started](doc/en/using/getting-started.md) | first launch, tray icon, reading a card |
 | [What Vigie monitors](doc/en/using/features.md) | every card and every action |

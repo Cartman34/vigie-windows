@@ -32,7 +32,7 @@ console and **refuse by default**.
 | Port | `47600` |
 | API | under `/api/v1`: `GET /health`, `GET /state`, `GET /modules/{id}`, `POST /actions` |
 | Authentication | a **bearer token**, required on everything except `/health` |
-| Token storage | `apps/backend-pode/var/secrets/api.token`, generated on first run, never committed |
+| Token storage | `var/secrets/api.token` — in your profile for an installed Vigie, in place from a git clone. Generated on first run, never committed. **One token per account.** |
 
 ## The four defences
 
@@ -44,8 +44,8 @@ console and **refuse by default**.
    a malicious web page you happen to have open from POSTing to your own machine.
 3. **No shell injection.** Actions never build a command from client input. `params` are
    never handed to a shell. Each action is a fixed script on disk.
-4. **Nothing sensitive is versioned.** `apps/backend-pode/var/secrets/` (the token),
-   `apps/backend-pode/var/cache/` (state) and `apps/*/var/log/` are all covered by
+4. **Nothing sensitive is versioned.** `var/secrets/` (the token),
+   `var/cache/` (state) and `var/log/` are all covered by
    `.gitignore`.
 
 ## The residual risk, stated plainly
@@ -61,7 +61,7 @@ whitelist. What would harden it further, if you need more:
 - run the server **unelevated** and elevate only the action at the moment it runs (a UAC
   prompt per action);
 - rotate the token periodically;
-- restrict the ACL on `apps/backend-pode/var/secrets/api.token`.
+- restrict the ACL on `var/secrets/api.token`.
 
 None of these are implemented in v0.1.
 

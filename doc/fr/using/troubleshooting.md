@@ -10,7 +10,7 @@
 |---|---|
 | Le serveur est-il vivant ? | ouvrez <http://127.0.0.1:47600/api/v1/health> — aucune authentification requise |
 | Le tray est-il vivant ? | `pwsh -File .\scripts\tray.ps1 -Status` |
-| Où sont les journaux ? | menu du tray → **Ouvrir les journaux**, ou `apps\backend-pode\var\log\` |
+| Où sont les journaux ? | menu du tray → **Ouvrir les journaux** — c'est le plus sûr, le dossier dépend de l'installation |
 
 ## Situations courantes
 
@@ -123,14 +123,18 @@ donc `install-autostart.ps1` ensuite.
 
 ## Les fichiers de journal
 
+Le dossier dépend de l'installation : **Vigie installée** écrit dans votre profil,
+`%LOCALAPPDATA%\Sowapps\Vigie\var\log\` ; **lancée depuis un clone git**, elle écrit sur place, sous le `var/`
+de chaque app. Le menu du tray → *Ouvrir les journaux* ouvre le bon dossier sans avoir à le chercher.
+
 | Fichier | Écrit par |
 |---|---|
-| `apps\backend-pode\var\log\install_*.log` | `scripts\install.ps1` (transcript complet) |
-| `apps\backend-pode\var\log\run_*.log` | `scripts\run.ps1` — ce qu'il a décidé, et pourquoi |
-| `apps\backend-pode\var\log\start_*.log` | le serveur lui-même |
-| `apps\backend-pode\var\log\pode-error_*.log`, `pode-request_*.log` | le runtime Pode |
-| `apps\backend-pode\var\log\action-*.log` | certaines actions, quand elles journalisent |
-| `apps\tray\var\log\tray_*.log` | l'app de la barre système |
+| `install_*.log` | `scripts\install.ps1` (transcript complet) |
+| `run_*.log` | `scripts\run.ps1` — ce qu'il a décidé, et pourquoi |
+| `start_*.log` | le serveur lui-même |
+| `pode-error_*.log`, `pode-request_*.log` | le runtime Pode |
+| `action-*.log` | certaines actions, quand elles journalisent |
+| `tray_*.log` | l'app de la barre système |
 
 Les scripts élevés écrivent leur sortie dans un fichier que le processus appelant relit : le
 compte rendu d'une exécution élevée n'est jamais perdu.

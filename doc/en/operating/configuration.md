@@ -48,7 +48,7 @@ Copy-Item apps/backend-pode/config/config.local.sample.psd1 apps/backend-pode/co
 
 Put in it **only** what cannot be generic. Any key present overrides `config.psd1`; any
 key absent keeps the default. **Never put a secret in it** — the API token lives in
-`apps/backend-pode/var/secrets/`, on its own.
+`var/secrets/`, on its own (see *Where Vigie writes*, below).
 
 ```powershell
 @{
@@ -84,21 +84,29 @@ if there is a folder to open. With no path configured — or one pointing nowher
 
 ## Where Vigie writes
 
-Each app keeps its own files under its own `var/`. None of this is versioned.
+**The folder depends on the installation**, and that is deliberate:
+
+- **An installed Vigie** (`C:\Program Files\Sowapps\Vigie`) writes into **your profile**, under
+  `%LOCALAPPDATA%\Sowapps\Vigie\var\`. Every account therefore has its own: its token, its cache, its logs. Nothing is
+  written next to the program, even though the elevated server would be allowed to — otherwise every account would
+  share one set of settings.
+- **Vigie run from a git clone** writes in place, under each app's own `var/`.
+
+The paths below are relative to that root. None of this is versioned.
 
 | Path | Contents |
 |---|---|
-| `apps/backend-pode/var/secrets/api.token` | the API token, generated on first run |
-| `apps/backend-pode/var/cache/` | aggregated state and background-job results |
-| `apps/backend-pode/var/log/` | `install_*`, `run_*`, `start_*`, Pode error and request logs |
-| `apps/tray/var/log/` | `tray_*` logs |
-| `apps/tray/var/run/` | the tray's heartbeat and command files |
+| `var/secrets/api.token` | the API token, generated on first run |
+| `var/cache/` | aggregated state and background-job results |
+| `var/run/` | running-job markers, the tray's heartbeat and command files |
+| `var/log/` | `install_*`, `run_*`, `start_*`, `tray_*`, Pode error and request logs |
 
 ## The version number
 
-The product version lives in the file **`VERSION`** at the repository root, and nowhere
-else. It holds the bare number (`0.1`); the `v` prefix is added once, when displaying.
-It changes only on a deliberate decision, not with every commit.
+There is **one**, and it is not maintained by hand: an installed Vigie carries the mark stamped into its archive at
+build time, a git clone answers with its **last tag**. Tags are set at deployment time, never on every commit: the
+number then answers exactly the question "what is running on this machine?". The commit is shown next to it, because
+two builds of the same tag can differ.
 
 ## Next
 
