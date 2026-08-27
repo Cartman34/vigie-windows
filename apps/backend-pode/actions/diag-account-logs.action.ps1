@@ -39,7 +39,7 @@ foreach ($candidat in @((Join-Path (Join-Path (Join-Path $local 'Sowapps') 'Vigi
 }
 if (-not $source) { $source = Join-Path (Join-Path (Join-Path $local 'Sowapps') 'Vigie') 'var' }
 if (-not (Test-Path -LiteralPath $source)) {
-    return @{ message = "Le compte $compte n'a pas encore de donnees Vigie : il n'a jamais ouvert de session avec Vigie active."
+    return @{ message = "Le compte $compte n'a pas encore de données Vigie : il n'a jamais ouvert de session avec Vigie active."
               result = @{ ok = $false } }
 }
 

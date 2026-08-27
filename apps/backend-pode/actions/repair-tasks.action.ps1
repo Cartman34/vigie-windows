@@ -16,16 +16,16 @@ $backend = Split-Path $PSScriptRoot -Parent
 
 $faits = @(Repair-VigieTasks -Backend $backend)
 if (-not $faits.Count) {
-    return @{ message = "Rien a reparer : les taches de demarrage de Vigie sont saines."
+    return @{ message = "Rien à réparer : les tâches de démarrage de Vigie sont saines."
               result  = @{ ok = $true; invalidate = @('comptes.probe.ps1') } }
 }
 $ok = @($faits | Where-Object { $_.repare })
 $ko = @($faits | Where-Object { -not $_.repare })
 $detail = (($faits | ForEach-Object {
-    "{0} : {1} -> {2}" -f $_.tache, $_.mal, $(if ($_.repare) { 'reparee' } else { 'ECHEC : ' + $_.erreur })
+    "{0} : {1} -> {2}" -f $_.tache, $_.mal, $(if ($_.repare) { 'réparée' } else { 'ÉCHEC : ' + $_.erreur })
 }) -join [Environment]::NewLine)
 
 @{
-    message = ("{0} tache(s) reparee(s)" -f $ok.Count) + $(if ($ko.Count) { ", {0} en echec" -f $ko.Count } else { '' }) + "."
+    message = ("{0} tâche(s) réparée(s)" -f $ok.Count) + $(if ($ko.Count) { ", {0} en échec" -f $ko.Count } else { '' }) + "."
     result  = @{ ok = ($ko.Count -eq 0); detail = $detail; invalidate = @('comptes.probe.ps1') }
 }

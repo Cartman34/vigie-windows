@@ -50,27 +50,27 @@ if ($partagee) {
     # A JOUR ? Le numero de version ne suffit pas : deux « v0.1 » peuvent differer de
     # vingt commits. On compare donc le COMMIT, et on dit l'ecart (D84).
     $cmp = Compare-SharedInstall -Backend $backend
-    $etat = 'accessible a tous les comptes'
+    $etat = 'accessible à tous les comptes'
     $niveau = 'ok'
-    $detail = "Installation partagee : " + (Get-SharedInstallPath)
+    $detail = "Installation partagée : " + (Get-SharedInstallPath)
     if ($cmp) {
-        $detail += [Environment]::NewLine + "Deployee : " + $cmp.there.version +
+        $detail += [Environment]::NewLine + "Déployée : " + $cmp.there.version +
                    $(if ($cmp.there.commit) { " (" + $cmp.there.commit.Substring(0, [Math]::Min(8, $cmp.there.commit.Length)) + ")" } else { " (commit inconnu)" })
-        $detail += [Environment]::NewLine + "Ce depot : " + $cmp.here.version +
+        $detail += [Environment]::NewLine + "Ce dépôt : " + $cmp.here.version +
                    $(if ($cmp.here.commit) { " (" + $cmp.here.commit.Substring(0, [Math]::Min(8, $cmp.here.commit.Length)) + ")" } else { "" })
         if ($cmp.same) {
-            $etat = $cmp.there.version + ' - a jour'
+            $etat = $cmp.there.version + ' · à jour'
         } elseif ($null -ne $cmp.behind -and $cmp.behind -gt 0) {
-            $etat = $cmp.there.version + ' - en retard de ' + $cmp.behind + ' commit(s)'
+            $etat = $cmp.there.version + ' · en retard de ' + $cmp.behind + ' commit(s)'
             $niveau = 'warn'
         } elseif (-not $cmp.there.commit) {
-            $etat = $cmp.there.version + ' - deployee avant le suivi des commits'
+            $etat = $cmp.there.version + ' · déployée avant le suivi des commits'
             $niveau = 'warn'
         }
     }
     $fields += New-Field -Key 'partage' -Label 'Installation' -Value $etat -Kind 'text' -Status $niveau `
         -FixAction $(if ($niveau -eq 'warn') { 'deploy-shared' } else { '' }) `
-        -Help "Emplacement lisible par tous les comptes de la machine : leurs taches de demarrage pointent dessus. Les autres comptes lancent CETTE version, pas celle du depot." `
+        -Help "Emplacement lisible par tous les comptes de la machine : leurs tâches de démarrage pointent dessus. Les autres comptes lancent CETTE version, pas celle du dépôt." `
         -Guide $detail
 } else {
     $fields += New-Field -Key 'partage' -Label 'Installation' -Value 'lisible par vous seul' -Kind 'text' -Status 'warn' `
@@ -93,22 +93,22 @@ if (-not $pwshPartage -and -not $pwshCompte) {
     # « installe pour vous seul ».
     $fields += New-Field -Key 'pwsh' -Label 'PowerShell 7' -Value 'absent de la machine' -Kind 'text' -Status 'error' `
         -FixAction 'pwsh-install-machine' `
-        -Help "PowerShell 7 n'est installe nulle part : Vigie ne redemarrera pas, ni pour vous ni pour les autres comptes. Les processus en cours survivent, mais le prochain demarrage echouera." `
-        -Guide ("A faire tout de suite, dans un terminal ADMINISTRATEUR :" + [Environment]::NewLine +
+        -Help "PowerShell 7 n'est installé nulle part : Vigie ne redémarrera pas, ni pour vous ni pour les autres comptes. Les processus en cours survivent, mais le prochain démarrage échouera." `
+        -Guide ("À faire tout de suite, dans un terminal ADMINISTRATEUR :" + [Environment]::NewLine +
                 "  winget install --id Microsoft.PowerShell -e --scope machine" + [Environment]::NewLine +
-                "A defaut, le paquet MSI : https://github.com/PowerShell/PowerShell/releases")
+                "À défaut, le paquet MSI : https://github.com/PowerShell/PowerShell/releases")
 } elseif (-not $pwshPartage) {
-    $fields += New-Field -Key 'pwsh' -Label 'PowerShell 7' -Value 'installe pour vous seul' -Kind 'text' -Status 'warn' `
+    $fields += New-Field -Key 'pwsh' -Label 'PowerShell 7' -Value 'installé pour vous seul' -Kind 'text' -Status 'warn' `
         -FixAction 'pwsh-install-machine' `
-        -Help "Les taches des autres comptes ont besoin d'un PowerShell 7 installe pour la MACHINE. Celui-ci vient du Store et n'existe que dans votre profil : leur tache ne lancerait rien." `
-        -Guide ("Interpreteur actuel : " + $pwshCompte + [Environment]::NewLine +
-                "A faire une fois, en administrateur :" + [Environment]::NewLine +
+        -Help "Les tâches des autres comptes ont besoin d'un PowerShell 7 installé pour la MACHINE. Celui-ci vient du Store et n'existe que dans votre profil : leur tâche ne lancerait rien." `
+        -Guide ("Interpréteur actuel : " + $pwshCompte + [Environment]::NewLine +
+                "À faire une fois, en administrateur :" + [Environment]::NewLine +
                 "  winget install --id Microsoft.PowerShell --scope machine" + [Environment]::NewLine +
-                "Puis reactivez les comptes concernes.")
+                "Puis réactivez les comptes concernés.")
 } else {
-    $fields += New-Field -Key 'pwsh' -Label 'PowerShell 7' -Value 'installe pour la machine' -Kind 'text' -Status 'ok' `
-        -Help "Tous les comptes peuvent lancer l'interpreteur : leurs taches de demarrage fonctionnent." `
-        -Guide ("Interpreteur des taches : " + $pwshPartage)
+    $fields += New-Field -Key 'pwsh' -Label 'PowerShell 7' -Value 'Installé' -Kind 'text' -Status 'ok' `
+        -Help "Tous les comptes peuvent lancer l'interpréteur : leurs tâches de démarrage fonctionnent." `
+        -Guide ("Interpréteur des tâches : " + $pwshPartage)
 }
 
 if (-not $eleve) {

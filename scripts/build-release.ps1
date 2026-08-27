@@ -288,6 +288,10 @@ if ($ListOnly) {
 # --- Preparation et compression ---------------------------------------------------------
 if (-not $OutDir) { $OutDir = Join-Path $repoRoot 'dist' }
 $nom     = 'vigie-' + $version
+# Fichiers AJOUTES par la fabrication (donc absents de git) : le controle final les
+# attend en plus de la liste retenue.
+$genereParLaFabrication = @()
+
 $staging = Join-Path $OutDir $nom
 $zip     = Join-Path $OutDir ($nom + '.zip')
 
@@ -320,7 +324,13 @@ try {
     # seul ne suffit pas : deux archives « v0.1 » peuvent differer de vingt commits.
     $commit = Get-GitCommit -Path $repoRoot
     Write-BuildStamp -Root $staging -Version $(if ($version.StartsWith('v')) { $version } else { "v$version" }) -Commit $commit
-    Write-Host ("Marque posee : v" + ($version -replace '^v', '') + " / " + $(if ($commit) { $commit.Substring(0, 8) } else { 'commit inconnu' }))
+    # CE FICHIER N'EST PAS SUIVI PAR GIT : il est fabrique ici. Le controle final compte
+    # les fichiers de l'archive et les compare a la liste retenue -- il faut donc lui
+    # dire. Sans cette ligne, la fabrication s'arretait sur « 146 fichiers pour 145
+    # attendus » et le deploiement etait abandonne (constate le 27/08 : le garde-fou
+    # avait raison, c'est le decompte qui avait tort).
+    $genereParLaFabrication += 'BUILD'
+    Write-Host ("Marque posée : v" + ($version -replace '^v', '') + " / " + $(if ($commit) { $commit.Substring(0, 8) } else { 'commit inconnu' }))
 
     # Le dossier lui-meme est compresse, pas son contenu : l'archive porte donc une racine
     # « vigie-<version>/ ». Sans elle, une decompression deverse tout dans le dossier courant.
@@ -356,8 +366,11 @@ if ($interditsZip.Count -gt 0) {
 
 # Les entrees de dossier n'ont pas de nom de fichier : on ne compte que les vrais fichiers.
 $nbFichiersZip = @($entrees | Where-Object { -not $_.EndsWith('/') }).Count
-if ($nbFichiersZip -ne $retenus.Count) {
-    Write-Host ("ARRÊT : " + $nbFichiersZip + " fichier(s) dans l'archive pour " + $retenus.Count + " attendu(s).") -ForegroundColor Red
+# Attendu = ce que git suit ET ce que la fabrication a ajoute (la marque de version).
+$attendu = $retenus.Count + $genereParLaFabrication.Count
+if ($nbFichiersZip -ne $attendu) {
+    Write-Host ("ARRÊT : " + $nbFichiersZip + " fichier(s) dans l'archive pour " + $attendu + " attendu(s)" +
+                $(if ($genereParLaFabrication.Count) { " (" + $retenus.Count + " suivis par git + " + ($genereParLaFabrication -join ', ') + ")" }) + ".") -ForegroundColor Red
     exit 3
 }
 

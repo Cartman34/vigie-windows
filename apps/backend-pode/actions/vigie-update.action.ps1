@@ -20,7 +20,7 @@ $backend = Split-Path $PSScriptRoot -Parent
 
 $script = Join-Path (Get-RepoRoot) 'scripts/vigie-update.ps1'
 if (-not (Test-Path -LiteralPath $script)) {
-    return @{ message = "Script de mise a jour introuvable : $script"; result = @{ ok = $false } }
+    return @{ message = "Script de mise à jour introuvable : $script"; result = @{ ok = $false } }
 }
 
 $journal = Join-Path (Get-LogDir -Backend $backend) ('update_' + (Get-Date -Format 'yyyyMMdd_HHmmss') + '.log')
@@ -34,16 +34,16 @@ try {
     $argv = @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
               '-File', ('"' + $script + '"'))
     $lance = [bool](Start-WatchedAction -Module 'vigie-debug' -Probe 'vigie.probe.ps1' `
-                        -Label 'Mise a jour de Vigie' -Action 'vigie-update' `
+                        -Label 'Mise à jour de Vigie' -Action 'vigie-update' `
                         -File $pwsh -Arguments $argv -Log $journal -Backend $backend)
     Write-Log -Backend $backend -Name 'update' -Message ("mise a jour lancee, journal : " + $journal)
 } catch {
     Write-Log -Backend $backend -Name 'update' -Level 'ERROR' -Message $_.Exception.Message
 }
 
-if (-not $lance) { return @{ message = "Impossible de lancer la mise a jour."; result = @{ ok = $false } } }
+if (-not $lance) { return @{ message = "Impossible de lancer la mise à jour."; result = @{ ok = $false } } }
 
 @{
-    message = "Mise a jour lancee. Elle dure une a deux minutes, puis Vigie redemarre toute seule."
+    message = "Mise à jour lancée. Elle dure une à deux minutes, puis Vigie redémarre toute seule."
     result  = @{ ok = $true; async = $true; module = 'vigie-debug'; invalidate = @('vigie.probe.ps1') }
 }
