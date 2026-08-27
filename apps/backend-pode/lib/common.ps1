@@ -1716,6 +1716,10 @@ function New-Action {
     # Defaut : le libelle suivi de points de suspension. Correct grammaticalement dans la
     # plupart des cas ; on precise quand la forme nominale est meilleure.
     $a['busyLabel'] = if ($BusyLabel) { $BusyLabel } else { "$Label…" }
+    # CE QUE L'ACTION MOBILISE (D93). L'interface s'en sert pour griser juste ce qu'il
+    # faut ; le serveur, lui, arbitre pour de bon.
+    $res = @(Get-ActionResources -Type $Id)
+    if ($res.Count) { $a['resources'] = @($res) }
     [pscustomobject]$a
 }
 function New-ModuleObject {
@@ -1729,7 +1733,10 @@ function New-ModuleObject {
         [switch]$Busy,
         # Identifiant de l'action REELLEMENT en cours. Sans lui, l'interface anime tous les
         # boutons de la carte : on ne sait plus lequel travaille.
-        [string]$BusyAction
+        [string]$BusyAction,
+        # Ce que l'operation en cours mobilise : sans cela, l'interface ne peut que tout
+        # bloquer ou ne rien bloquer.
+        [string[]]$BusyResources = @()
     )
     # INVARIANT : une carte n'est jamais PLUS GRAVE que le pire de ses champs. Une carte
     # « Problème » (rouge) dont aucune ligne n'est rouge est une contradiction que
@@ -1753,6 +1760,10 @@ function New-ModuleObject {
     }
     if ($Busy) { $o['busy'] = $true }
     if ($Busy -and $BusyAction) { $o['busyAction'] = $BusyAction }
+    if ($Busy) {
+        $br = if ($BusyResources.Count) { @($BusyResources) } elseif ($BusyAction) { @(Get-ActionResources -Type $BusyAction) } else { @() }
+        if ($br.Count) { $o['busyResources'] = @($br) }
+    }
     [pscustomobject]$o
 }
 
@@ -2790,12 +2801,17 @@ function Set-ModuleBusyMark {
         [Parameter(Mandatory)][string]$Label,
         [int]$ProcessId,
         [string]$Action = '',
+        # Ce que ce travail MOBILISE : c'est ce qui permettra de refuser ce qui le
+        # generait, et seulement cela (D93).
+        [string[]]$Resources = @(),
         [string]$Backend = (Get-BackendRoot)
     )
     $f = Get-ModuleBusyMarkPath -Module $Module -Backend $Backend
     $d = Split-Path $f -Parent
     if (-not (Test-Path -LiteralPath $d)) { New-Item -ItemType Directory -Path $d -Force | Out-Null }
+    if (-not $Resources -or -not $Resources.Count) { $Resources = @(Get-ActionResources -Type $Action) }
     $o = [ordered]@{ label = $Label; pid = $ProcessId; action = $Action
+                     resources = @($Resources)
                      at = (Get-Date).ToUniversalTime().ToString('o') }
     try { ($o | ConvertTo-Json -Depth 4) | Out-File -FilePath $f -Encoding UTF8 } catch { }
 }
@@ -2901,6 +2917,97 @@ function Get-VigieFootprint {
     }
 }
 
+# --- QUI TIENT QUOI : le verrou par RESSOURCE (D93) ---------------------------
+#
+# Bloquer TOUTES les actions des qu'une operation tourne etait grossier -- et surtout
+# ca ne protegeait rien : l'interface grisait des boutons, mais une page restee ouverte
+# pouvait toujours envoyer l'action au serveur. C'est le SERVEUR qui doit arbitrer.
+#
+# Une action declare donc ce qu'elle MOBILISE. Deux actions qui ne partagent aucune
+# ressource peuvent tourner ensemble ; vérifier les mises a jour d'un gestionnaire
+# pendant qu'une analyse de disque tourne n'a aucune raison d'etre interdit.
+#
+# La ressource 'machine' est particuliere : elle croise TOUT. C'est celle des gestes qui
+# touchent l'installation entiere ou relancent l'application.
+$script:RessourcesParAction = @{
+    # Ce qui touche l'installation ou relance Vigie : rien d'autre pendant ce temps.
+    'vigie-update'         = @('machine')
+    'deploy-shared'        = @('machine')
+    'pwsh-install-machine' = @('machine')
+    'system-restart'       = @('machine')
+    'repair-tasks'         = @('taches')
+    # Windows Update : le verrou, l'analyse et l'installation se marchent dessus.
+    'update-mode-on'       = @('windows-update')
+    'update-mode-off'      = @('windows-update')
+    'wu-scan'              = @('windows-update')
+    'wu-install'           = @('windows-update')
+    'wu-list-pending'      = @('windows-update')
+    'run-audit'            = @('windows-update')
+    # Gestionnaires de paquets : un seul a la fois, ils partagent le meme installeur.
+    'pkg-upgrade'          = @('paquets')
+    'pkg-check-updates'    = @('paquets')
+    'pkg-list-updates'     = @()               # lecture d'un cache : rien a reserver
+    # Disque, reseau, WSL, comptes.
+    'disk-analyze'         = @('disque')
+    'disk-analyze-stop'    = @()               # ARRETER doit rester possible pendant
+    'disk-tree'            = @()               # lecture d'un cache
+    'net-speedtest'        = @('reseau')
+    'net-dns-flush'        = @('reseau')
+    'net-publicip'         = @()
+    'wsl-start'            = @('wsl')
+    'wsl-restart'          = @('wsl')
+    'wsl-shutdown'         = @('wsl')
+    'toggle-vbs'           = @('securite')
+    'toggle-hvci'          = @('securite')
+    'accounts-refresh'     = @('comptes')
+    'diag-account-logs'    = @('comptes')
+}
+
+# Ce qu'une action mobilise. Par defaut : RIEN -- une action non declaree est supposee
+# inoffensive (ouvrir un dossier, lire un cache). On declare ce qui gene, pas l'inverse :
+# une liste par defaut trop large finirait par tout bloquer sans qu'on sache pourquoi.
+function Get-ActionResources {
+    param([Parameter(Mandatory)][string]$Type)
+    if ($script:RessourcesParAction.ContainsKey($Type)) { return @($script:RessourcesParAction[$Type]) }
+    return @()
+}
+
+# Les ressources actuellement TENUES, et par quoi. On relit les marqueurs vivants : un
+# marqueur dont le processus est mort ne tient plus rien (il s'efface a la lecture).
+function Get-HeldResources {
+    param([string]$Backend = (Get-BackendRoot))
+    $tenues = @()
+    $dossier = Split-Path (Get-ModuleBusyMarkPath -Module 'x' -Backend $Backend) -Parent
+    if (-not (Test-Path -LiteralPath $dossier)) { return $tenues }
+    foreach ($f in @(Get-ChildItem -LiteralPath $dossier -Filter 'busy-*.json' -File -ErrorAction SilentlyContinue)) {
+        $module = ($f.BaseName -replace '^busy-', '')
+        $m = Get-ModuleBusyMark -Module $module -Backend $Backend
+        if (-not $m) { continue }
+        foreach ($r in @($m.resources)) {
+            if ("$r") { $tenues += [pscustomobject]@{ resource = "$r"; label = "$($m.label)"; module = $module } }
+        }
+    }
+    return $tenues
+}
+
+# Peut-on lancer CETTE action maintenant ? Rend $null si oui, sinon la raison, en clair.
+function Test-ActionResourcesFree {
+    param([Parameter(Mandatory)][string]$Type, [string]$Backend = (Get-BackendRoot))
+    $veut = @(Get-ActionResources -Type $Type)
+    if (-not $veut.Count) { return $null }
+    $tenues = @(Get-HeldResources -Backend $Backend)
+    if (-not $tenues.Count) { return $null }
+    foreach ($t in $tenues) {
+        # 'machine' croise tout, dans les deux sens.
+        if ($t.resource -eq 'machine' -or $veut -contains 'machine' -or $veut -contains $t.resource) {
+            return ("« " + $t.label + " » est en cours et utilise déjà " +
+                    $(if ($t.resource -eq 'machine') { "toute la machine" } else { "la même ressource (" + $t.resource + ")" }) +
+                    ". Réessayez quand cette opération sera terminée.")
+        }
+    }
+    return $null
+}
+
 # --- LE SORT D'UNE TACHE DE FOND : garde, puis dit ---------------------------
 #
 # « Le suivi des erreurs est primordial » : une action longue ne peut pas echouer en
@@ -2960,6 +3067,7 @@ function Start-WatchedAction {
         [string]$Backend = (Get-BackendRoot)
     )
     $charge = @{ module = $Module; probe = $Probe; label = $Label; action = $Action
+                 resources = @(Get-ActionResources -Type $Action)
                  file = $File; arguments = @($Arguments); log = $Log }
     $json = ($charge | ConvertTo-Json -Compress -Depth 6)
     $b64  = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($json))
@@ -3986,6 +4094,13 @@ function Invoke-ActionById {
     $actionsDir = (Resolve-Path -LiteralPath (Join-Path $Backend 'actions')).Path
     if (-not $full -or -not $full.StartsWith($actionsDir)) {
         return [pscustomobject]@{ jobId = (New-JobId); status = 'error'; message = "Action inconnue : $Type" }
+    }
+    # LE VERROU EST ICI, pas dans l'interface (D93). Une page restee ouverte peut
+    # toujours envoyer une action : c'est le serveur qui doit dire non.
+    $conflit = Test-ActionResourcesFree -Type $Type -Backend $Backend
+    if ($conflit) {
+        Write-Log -Backend $Backend -Name 'actions' -Message ("refus (ressource occupee) : " + $Type + " -- " + $conflit)
+        return [pscustomobject]@{ jobId = (New-JobId); status = 'error'; message = $conflit }
     }
     try {
         $res = & $file -Module $Module -Params $Params

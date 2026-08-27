@@ -33,7 +33,9 @@ try {
     # Guillemets : les chemins contiennent des espaces (« C:\Program Files\... »).
     $argv = @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
               '-File', ('"' + $script + '"'))
-    $lance = [bool](Start-WatchedAction -Module 'vigie-debug' -Probe 'vigie.probe.ps1' `
+    # La carte DEPLOIEMENT gere les deploiements -- et elle est toujours la. La carte de
+    # debogage, elle, peut etre eteinte : le suivi de l'operation y aurait ete invisible.
+    $lance = [bool](Start-WatchedAction -Module 'deployment' -Probe 'comptes.probe.ps1' `
                         -Label 'Mise à jour de Vigie' -Action 'vigie-update' `
                         -File $pwsh -Arguments $argv -Log $journal -Backend $backend)
     Write-Log -Backend $backend -Name 'update' -Message ("mise a jour lancee, journal : " + $journal)
@@ -45,5 +47,5 @@ if (-not $lance) { return @{ message = "Impossible de lancer la mise à jour."; 
 
 @{
     message = "Mise à jour lancée. Elle dure une à deux minutes, puis Vigie redémarre toute seule."
-    result  = @{ ok = $true; async = $true; module = 'vigie-debug'; invalidate = @('vigie.probe.ps1') }
+    result  = @{ ok = $true; async = $true; module = 'deployment'; invalidate = @('comptes.probe.ps1') }
 }

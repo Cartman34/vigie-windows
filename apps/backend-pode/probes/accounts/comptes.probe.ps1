@@ -208,16 +208,6 @@ $carteDepl = New-ModuleObject -Id 'deployment' -Theme 'accounts' -Label 'Déploi
                     "version plus ancienne que la vôtre. C'est aussi le premier déploiement, si l'installation n'existe pas encore.") `
             -Reversible ("Le déploiement se défait en déployant une version antérieure. Si la copie échoue, la relance " +
                          "N'A PAS LIEU : l'ancienne version continue de tourner.")
-        New-Action -Id 'deploy-shared' -Label 'Déployer sans relancer' -Kind 'confirm' -Severity 'neutral' -Confirm `
-            -BusyLabel 'Déploiement…' `
-            -Help "Copie la version actuelle de Vigie à un emplacement que tous les comptes de la machine peuvent lire." `
-            -Impact ("Fabrique une archive de la version en cours, puis remplace le contenu de C:\Program Files\Sowapps\Vigie. " +
-                     "Vos réglages et votre historique ne sont pas touchés : ils vivent dans votre profil, pas là. " +
-                     "Un tag de version est posé au passage (git), et les comptes déjà activés pointeront sur cette nouvelle copie.") `
-            -Usage ("Après avoir modifié Vigie, pour que les autres comptes en profitent — et avant d'activer Vigie " +
-                    "pour un nouveau compte, sans quoi sa tâche de démarrage viserait un dossier qu'il ne peut pas lire.") `
-            -Reversible ("Oui : redéployer une version antérieure remet l'installation dans son état précédent. " +
-                         "L'opération dure une à deux minutes ; Vigie continue de tourner pendant ce temps.")
         New-Action -Id 'repair-tasks' -Label 'Réparer le démarrage de Vigie' -Kind 'immediate' -Severity 'fix' `
             -BusyLabel 'Réparation…' `
             -Help "Réécrit les tâches de démarrage de Vigie qui ne fonctionnent plus (interpréteur ou application déplacés). Ne touche à rien d'autre sur la machine."

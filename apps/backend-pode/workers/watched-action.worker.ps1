@@ -32,7 +32,9 @@ $log    = "$($a.log)"
 $t0 = Get-Date
 # Le marqueur porte NOTRE pid : tant que ce veilleur vit, le travail est en cours.
 # Il vit exactement aussi longtemps que l'enfant, puisqu'il l'attend.
-Set-ModuleBusyMark -Module $module -Label $label -ProcessId $PID -Action $action -Backend $Backend
+$ressources = @($a.resources)
+Set-ModuleBusyMark -Module $module -Label $label -ProcessId $PID -Action $action `
+                   -Resources $ressources -Backend $Backend
 
 $code = -1
 $erreur = ''
