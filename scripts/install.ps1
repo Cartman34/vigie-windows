@@ -142,6 +142,77 @@ $repoRoot = Split-Path $PSScriptRoot -Parent
 $backend  = Join-Path $repoRoot 'apps/backend-pode'   # BOOTSTRAP, cf. common.ps1
 . (Join-Path $backend 'lib/common.ps1')
 
+# --- VIGIE S'INSTALLE DANS PROGRAM FILES ------------------------------------
+#
+# Une application Windows vit dans Program Files, pas dans le dossier ou l'archive a
+# ete decompressee. Sans cette copie, la tache de demarrage pointait sur ce dossier :
+# l'utilisateur devait le garder a vie, et le vider par megarde cassait Vigie.
+#
+# Trois cas OU L'ON NE BOUGE PAS :
+#   - un DEPOT git : c'est un poste de developpement, Vigie tourne depuis les sources ;
+#   - on y est deja : la copie relancerait le script indefiniment ;
+#   - sans elevation : ecrire dans Program Files est refuse. On le dit, et on continue
+#     sur place plutot que d'echouer -- Vigie reste utilisable.
+$destPartagee = Join-Path $env:ProgramFiles (Join-Path 'Sowapps' 'Vigie')
+$ici          = (Resolve-Path -LiteralPath $repoRoot).Path
+$estDepot     = Test-Path -LiteralPath (Join-Path $repoRoot '.git')
+$dejaLa       = ($ici.TrimEnd([char]92) -ieq $destPartagee.TrimEnd([char]92))
+
+if (-not $estDepot -and -not $dejaLa) {
+    if (-not (Test-Elevated)) {
+        Write-Host ""
+        Write-Host "Sans droits administrateur, Vigie ne peut pas s'installer dans Program Files." -ForegroundColor Yellow
+        Write-Host "Elle va fonctionner depuis ce dossier : ne le deplacez pas, ne le supprimez pas." -ForegroundColor Yellow
+    } else {
+        Write-Host ""
+        Write-Host ("Installation de Vigie dans " + $destPartagee + " ...") -ForegroundColor Green
+        $copieFaite = $false
+        try {
+            # Les REGLAGES de la machine deja poses survivent : les ecraser serait une
+            # regression a chaque mise a jour (meme regle que deploy-prod.ps1).
+            $cfgDest = Join-Path $destPartagee 'config'
+            $garde   = $null
+            if (Test-Path -LiteralPath $cfgDest) {
+                $garde = Join-Path $env:TEMP ('vigie-cfg-' + [guid]::NewGuid().ToString('N').Substring(0,8))
+                New-Item -ItemType Directory -Path $garde -Force | Out-Null
+                foreach ($motif in @('*.local.*', 'actions.policy.json')) {
+                    Get-ChildItem -Path $cfgDest -File -Filter $motif -ErrorAction SilentlyContinue |
+                        ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $garde -Force }
+                }
+            }
+
+            New-Item -ItemType Directory -Path $destPartagee -Force | Out-Null
+            # var/ ne se copie pas : jeton, journaux et caches appartiennent a l'endroit
+            # ou Vigie tourne, pas a la version qu'on installe.
+            Get-ChildItem -LiteralPath $repoRoot -Force |
+                Where-Object { $_.Name -ne 'var' -and $_.Name -ne '.git' } |
+                ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $destPartagee -Recurse -Force }
+
+            if ($garde) {
+                New-Item -ItemType Directory -Path $cfgDest -Force | Out-Null
+                Get-ChildItem -Path $garde -File | ForEach-Object {
+                    Copy-Item -LiteralPath $_.FullName -Destination $cfgDest -Force
+                }
+                Remove-Item -LiteralPath $garde -Recurse -Force -ErrorAction SilentlyContinue
+                Write-Host "Reglages de la machine conserves." -ForegroundColor Green
+            }
+            $copieFaite = Test-Path -LiteralPath (Join-Path $destPartagee 'setup.cmd')
+        } catch {
+            Write-Host ("La copie a echoue : " + $_.Exception.Message) -ForegroundColor Red
+        }
+
+        if ($copieFaite) {
+            # LA SUITE SE FAIT LA-BAS. C'est la copie installee qui pose la tache de
+            # demarrage : sinon la tache pointerait encore sur le dossier telecharge.
+            Write-Host "Suite de l'installation depuis l'emplacement installe..." -ForegroundColor Green
+            $suite = Join-Path (Join-Path $destPartagee 'scripts') 'install.ps1'
+            & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $suite
+            exit $LASTEXITCODE
+        }
+        Write-Host "Vigie va fonctionner depuis ce dossier : ne le deplacez pas." -ForegroundColor Yellow
+    }
+}
+
 $logDir = Get-LogDir -Backend $backend
 $log    = Join-Path $logDir ('install_' + (Get-Date -Format 'yyyyMMdd_HHmmss') + '.log')
 try { Start-Transcript -Path $log -Force | Out-Null } catch { }

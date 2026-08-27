@@ -30,9 +30,9 @@ There is no Node, no npm, no build step: the front end is one static HTML file.
 1. Go to the [latest release](https://github.com/Cartman34/vigie-windows/releases/latest) — that link always points at the most recent one, without your
    having to know its number — and download `vigie-<version>.zip`. The [full list](https://github.com/Cartman34/vigie-windows/releases) stays available if
    you are after an earlier version.
-2. Unzip it **somewhere permanent**. It expands into a single `vigie-<version>/` folder.
-   The autostart task will store this exact path, so avoid `Downloads`, avoid temporary
-   folders, and do not move the folder afterwards without re-running the autostart script.
+2. Unzip it wherever you like. It expands into a single `vigie-<version>/` folder, which is only a stepping stone:
+   `setup.cmd` **copies Vigie into `C:\Program Files\Sowapps\Vigie`** and it is that copy which runs from then
+   on. The unzipped folder can be deleted once the installation is done.
 3. Windows marks downloaded files as blocked. Either unblock the folder once:
    ```powershell
    Get-ChildItem -Recurse | Unblock-File
@@ -78,16 +78,32 @@ harm.
 
 ### 1. Prerequisites, once
 
+**The simplest way: double-click `setup.cmd`.** It asks for elevation itself (a Windows prompt to accept), makes the
+first pass with Windows PowerShell — `pwsh` may not exist yet at install time — then the second one with PowerShell 7
+once that is in place.
+
+From a command line, in an **administrator** terminal:
+
 ```powershell
-pwsh -ExecutionPolicy Bypass -File .\scripts\install.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1
 ```
 
-`install.ps1` switches itself to PowerShell 7 if you started it from 5.1, registers the
-NuGet provider, trusts the PSGallery repository, installs **Pode**, generates the local
-API token, and checks for the WebView2 runtime. It writes a transcript to
-`apps\backend-pode\var\log\install_*.log`. It does **not** need administrator rights —
-but if you run it elevated, Pode is installed for **all users**, which is what the
-elevated scheduled task needs.
+`install.ps1` switches itself to PowerShell 7 if you started it from 5.1, registers the NuGet provider, trusts the
+PSGallery repository, installs **Pode**, generates the local API token, and checks for the WebView2 runtime. It writes
+a transcript to `var\log\install_*.log`.
+
+**It starts by copying itself into `C:\Program Files\Sowapps\Vigie`**, then carries on from that copy: that is
+the one the startup task will launch. Two exceptions, where Vigie stays where it is — a **git clone** (a development
+machine, where Vigie runs from the sources) and an installation **already** at that location. Machine settings already
+present at the destination (`config/*.local.*`, `actions.policy.json`) are preserved: updating does not reset your
+choices.
+
+**Your data never lives next to the program.** Token, logs, caches and one account's settings go to
+`%LOCALAPPDATA%\Sowapps\Vigie`. The server runs elevated, so it *could* write into Program Files — and that is
+exactly the trap: every account would then share one token and one set of settings, when each must have its own.
+
+**Elevation is not optional when PowerShell 7 is missing**: the install runs machine-wide (`--scope machine`), or
+winget drops the package into the current account's profile and the other accounts cannot start Vigie.
 
 ### 2. Start Vigie
 
@@ -142,8 +158,14 @@ refused at the explanation window.
 
 ### Remove Vigie entirely
 
-After the step above, delete the folder. Nothing else of Vigie lives outside it — apart
-from what you asked it to change on the system:
+After the step above, delete two folders:
+
+- the program, `C:\Program Files\Sowapps\Vigie` (or wherever you launched it from, if you work from a git
+  clone);
+- your data, `%LOCALAPPDATA%\Sowapps\Vigie` — settings, logs and caches. **Each account has its own**: an
+  account that has used Vigie keeps its own until you erase them from that account.
+
+Nothing else of Vigie lives outside those — apart from what you asked it to change on the system:
 
 > **Important:** uninstalling Vigie does **not** unlock Windows Update. If you locked it,
 > unlock it *before* removing Vigie, otherwise your machine stays with automatic updates

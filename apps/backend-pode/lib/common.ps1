@@ -1329,6 +1329,22 @@ $script:VarRacineCache = $null
 function Get-VarRoot {
     param([string]$Backend = (Get-BackendRoot))
     if ($script:VarRacineCache) { return $script:VarRacineCache }
+
+    # INSTALLEE DANS PROGRAM FILES : les donnees vont dans le profil du compte, JAMAIS
+    # a cote du programme. Le serveur tourne eleve, il POURRAIT ecrire la -- et c'est
+    # precisement le piege : tous les comptes partageraient alors le meme jeton, le meme
+    # cache et les memes reglages, alors que chacun doit avoir les siens (D65). Le test
+    # d'ecriture ci-dessous ne verrait rien, puisqu'il reussirait.
+    $programmes = @($env:ProgramFiles, ${env:ProgramFiles(x86)}) | Where-Object { $_ }
+    foreach ($p in $programmes) {
+        if ("$Backend".StartsWith("$p", [StringComparison]::OrdinalIgnoreCase)) {
+            $script:VarRacineCache = Join-Path (Get-UserConfigDir) 'var'
+            return $script:VarRacineCache
+        }
+    }
+
+    # Ailleurs (depot de developpement, dossier personnel) : sur place si on peut y
+    # ecrire, sinon dans le profil.
     $surPlace = Join-Path $Backend 'var'
     $ok = $false
     try {

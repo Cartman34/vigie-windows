@@ -2271,3 +2271,28 @@ déploiement, il répond exactement à la question. Le commit s'affiche à côt�
 ne distingue pas deux fabrications du même tag (**D84**).
 
 Numéros jamais attribués, à ne pas réutiliser : D82, D83, D85, D94.
+
+## D97 — Vigie s'installe dans Program Files (2026-08-27)
+
+« Il est pas censé s'installer dans Program Files ? »
+
+`setup.cmd` installait sur place : Vigie vivait dans le dossier où l'archive avait été décompressée, et la tâche de
+démarrage retenait ce chemin. La documentation devait donc prévenir « décompressez à un endroit durable, ne le
+déplacez pas » — une contrainte qu'un utilisateur Windows n'a nulle part ailleurs, et qu'il suffisait d'oublier une
+fois, en vidant `Téléchargements`, pour casser Vigie sans savoir pourquoi.
+
+`install.ps1` **commence désormais par se copier dans `C:\Program Files\Sowapps\Vigie`**, puis reprend depuis cette
+copie : c'est elle que la tâche de démarrage lance, et le dossier téléchargé redevient jetable. Deux cas ne bougent
+pas — un **clone git**, où Vigie tourne depuis les sources d'un poste de développement, et une installation **déjà**
+à cet emplacement, qui bouclerait sinon indéfiniment. Sans élévation, la copie est impossible : on le **dit** et on
+continue sur place, plutôt que d'échouer.
+
+Ce déplacement ouvrait un piège qu'il fallait fermer en même temps. `Get-VarRoot` choisissait le `var/` posé à côté du
+programme dès qu'il pouvait y écrire — et le serveur tourne élevé, donc il *pouvait*. Tous les comptes auraient
+partagé un seul jeton, un seul cache et un seul jeu de réglages, exactement ce que **D65** interdit. Un programme situé
+sous Program Files renvoie maintenant **toujours** vers `%LOCALAPPDATA%\Sowapps\Vigie`, sans test d'écriture : le test
+aurait réussi, et c'est bien pour ça qu'il ne fallait pas s'y fier.
+
+Les réglages de la machine déjà présents à destination sont conservés, comme dans `deploy-prod.ps1` : mettre à jour ne
+remet pas les choix à zéro. `var/` n'est jamais copié — jeton, journaux et caches appartiennent à l'endroit où Vigie
+tourne, pas à la version qu'on installe.

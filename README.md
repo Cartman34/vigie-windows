@@ -29,13 +29,15 @@ Repository: <https://github.com/Cartman34/vigie-windows>
 **Three moves, no command line.**
 
 1. Download `vigie-<version>.zip` from the [latest release](https://github.com/Cartman34/vigie-windows/releases/latest).
-2. Unzip it **somewhere permanent** — not `Downloads`, not a temporary folder: Vigie will start from that path every
-   time you log in.
+2. Unzip it wherever you like — `Downloads` will do.
 3. Open the folder you get and double-click **`setup.cmd`**. Windows asks for your consent to elevate: accept.
 
-Vigie installs itself, adds itself to your session start, and opens. There is nothing else to do and nothing to
-reinstall afterwards: `setup.cmd` takes care of whatever the machine is missing. If you ever close Vigie,
-`scripts\run.cmd` brings it back.
+Vigie installs itself into `C:\Program Files\Sowapps\Vigie`, adds itself to your session start, and opens. The folder
+you just unzipped is of no further use: you may delete it. There is nothing else to do and nothing to
+reinstall afterwards: `setup.cmd` takes care of whatever the machine is missing. If you quit Vigie,
+it comes back at your next logon.
+
+Your settings and logs stay in your own profile: every account on the machine has its own.
 
 *If the Releases page is empty, no version has been published yet: see the git route below.*
 
