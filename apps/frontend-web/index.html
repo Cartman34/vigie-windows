@@ -1369,6 +1369,63 @@ function renderDrawer(){
     </div>`;
   }).join('');
 }
+// ===== LES OPERATIONS SONT PARTAGEES (D95) ===================================
+//
+// Les notifications vivaient dans la PAGE : une seconde fenetre ne savait rien d'une
+// operation lancee depuis la premiere, et une page ouverte APRES le depart d'un
+// deploiement n'en voyait aucune trace. Le serveur, lui, sait -- il tient les marqueurs
+// d'operation et leurs resultats. Chaque page s'y accorde donc, a intervalle court.
+//
+// Une notification portee par le serveur est reconnue a sa CLE (module + action) : la
+// page qui a lance l'operation garde la sienne, les autres en creent une identique, et
+// personne ne se retrouve avec un doublon.
+let opsConnues = {};      // cle -> id de notification locale
+const OPS_MS = 4000;
+
+function cleOperation(o){ return (o.module || '') + '|' + (o.action || ''); }
+
+async function synchroniserOperations(){
+  if(!API_MODE) return;
+  let etat = null;
+  try{
+    const r = await fetch(API + '/operations', { headers:{ Authorization:'Bearer ' + TOKEN } });
+    if(!r.ok) return;
+    etat = await r.json();
+  }catch(e){ return; }
+
+  const enCours = new Set();
+  for(const op of (etat.running || [])){
+    const cle = cleOperation(op);
+    enCours.add(cle);
+    const connue = opsConnues[cle];
+    if(connue && notifs.some(x => x.id === connue)) continue;
+    // Nouvelle a NOS yeux : on la montre, toast compris -- c'est le but, toutes les
+    // pages sont prevenues.
+    const n = addNotif(op.label || 'Opération', 'running', (op.label || 'Opération') + ' : en cours…');
+    n.op = cle;
+    opsConnues[cle] = n.id;
+  }
+
+  // Ce qui a disparu de la liste des operations en cours s'est termine : on lui donne
+  // son resultat, s'il est connu.
+  for(const cle of Object.keys(opsConnues)){
+    if(enCours.has(cle)) continue;
+    const id = opsConnues[cle];
+    const n = notifs.find(x => x.id === id);
+    delete opsConnues[cle];
+    if(!n) continue;
+    const res = (etat.results || []).find(r => cleOperation(r) === cle);
+    if(res){
+      const ok = Number(res.code) === 0;
+      updateNotif(n, ok ? 'done' : 'error',
+        ok ? (res.label || 'Opération') + ' : terminée' + (res.seconds ? ' en ' + res.seconds + ' s.' : '.')
+           : (res.label || 'Opération') + ' : ÉCHEC (code ' + res.code + ')' + (res.log ? ' — journal : ' + res.log : ''));
+    } else {
+      updateNotif(n, 'done', (n.label || 'Opération') + ' : terminée.');
+    }
+  }
+}
+
 function updateBell(){ const b=document.getElementById('bellCount'); if(!b) return; b.textContent=notifs.length; b.style.display=notifs.length?'inline-flex':'none'; }
 function toggleDrawer(){ const d=document.getElementById('drawer'); const bk=document.getElementById('drawerBack'); const open=d.classList.toggle('open'); if(bk) bk.classList.toggle('show', open); }
 
@@ -1933,6 +1990,10 @@ async function doAction(type,module,confirmNeeded,label,help,btnEl,params,kind,c
     if(st==='done' && j.result && j.result.async){
       // Action longue non bloquante : la carte passe en "en cours" et s'actualise seule.
       const pollMod = j.result.module || module;
+      // Meme cle que celle du serveur : la synchronisation reconnaitra CETTE
+      // notification au lieu d'en creer une seconde.
+      entry.op = (pollMod || '') + '|' + type;
+      opsConnues[entry.op] = entry.id;
       marquerCarteEnCours(pollMod, name);
       updateNotif(entry, 'running', j.message || (name+' : en cours…'));
       clearBtnBusy(btnEl);
@@ -2517,6 +2578,10 @@ setFootVersion();
 setTimeout(hideSplash, SPLASH_MAX_MS);   // garde-fou si /state ne repond jamais
 refresh();
 setInterval(refresh, REFRESH_MS);
+// Les operations, elles, se relevent souvent et SANS condition : une page occupee
+// (tiroir ouvert, rangement en cours) doit quand meme savoir ce qui tourne ailleurs.
+setInterval(synchroniserOperations, OPS_MS);
+synchroniserOperations();
 checkVersion();
 setInterval(checkVersion, VERSION_POLL_MS);
 </script>

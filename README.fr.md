@@ -24,7 +24,7 @@ Dépôt : <https://github.com/Cartman34/vigie-windows>
 
 ---
 
-## Démarrer
+## Installation
 
 > Vigie touche à Windows Update et tourne en administrateur : les trois points de
 > [À lire avant d'installer](#à-lire-avant-dinstaller) valent la minute qu'ils prennent.
@@ -64,7 +64,7 @@ pwsh -ExecutionPolicy Bypass -File .\scripts\install-autostart.ps1
 
 La voie git, le rôle de chaque script et la désinstallation :
 [Installation](docs/fr/installation.md). Premier lancement et lecture du tableau de
-bord : [Prise en main](docs/fr/prise-en-main.md).
+bord : [Premiers pas](docs/fr/prise-en-main.md).
 
 ## À lire avant d'installer
 
@@ -108,7 +108,7 @@ Le détail carte par carte : [Ce que surveille Vigie](docs/fr/fonctionnalites.md
 |---|---|
 | [Sommaire de la documentation](docs/fr/README.md) | tout, sur une page |
 | [Installation](docs/fr/installation.md) | archive ou clone git, démarrage automatique, désinstallation |
-| [Prise en main](docs/fr/prise-en-main.md) | premier lancement, icône, lecture d'une carte |
+| [Premiers pas](docs/fr/prise-en-main.md) | premier lancement, icône, lecture d'une carte |
 | [Ce que surveille Vigie](docs/fr/fonctionnalites.md) | chaque carte et chaque action |
 | [Windows Update](docs/fr/windows-update.md) | le verrou, le mode MAJ, installer les mises à jour |
 | [Sécurité](docs/fr/securite.md) | élévation, écoute locale, jeton, risque résiduel |

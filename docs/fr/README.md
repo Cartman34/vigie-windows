@@ -9,7 +9,7 @@ Tout est à un clic d'ici, et chaque page est à un clic de n'importe quelle aut
 | Page | Répond à |
 |---|---|
 | [Installation](installation.md) | Comment l'installer ? Archive ou git ? Comment l'enlever ? |
-| [Prise en main](prise-en-main.md) | C'est installé — et maintenant ? À quoi sert cette icône ? Comment lire une carte ? |
+| [Premiers pas](prise-en-main.md) | C'est installé — et maintenant ? À quoi sert cette icône ? Comment lire une carte ? |
 | [Ce que surveille Vigie](fonctionnalites.md) | Quelles cartes existent, ce que dit chaque champ, ce que fait chaque bouton |
 | [Windows Update](windows-update.md) | Que change vraiment le verrou ? Comment installer les mises à jour ? |
 | [Sécurité](securite.md) | Pourquoi administrateur ? Qu'est-ce qui est exposé ? Quel risque subsiste ? |

@@ -184,6 +184,6 @@ volontaire. Codes de retour : `0` terminé, `2` au moins une étape en échec, `
 
 ## Ensuite
 
-- [Prise en main](prise-en-main.md) — l'icône, le tableau de bord, votre première action
+- [Premiers pas](prise-en-main.md) — l'icône, le tableau de bord, votre première action
 - [Configuration](configuration.md) — port, outillage externe, surcharges locales
 - [Dépannage](depannage.md) — quand une de ces étapes ne se passe pas comme écrit
