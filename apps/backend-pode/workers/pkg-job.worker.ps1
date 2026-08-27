@@ -32,8 +32,36 @@ try {
             "$($up.output)" | Out-File -FilePath $logf -Encoding UTF8
         } catch { }
     }
+    # LAISSER LE GESTIONNAIRE REPRENDRE SON SOUFFLE.
+    #
+    # Le controle qui suit une mise a jour tournait dans la SECONDE : winget n'avait pas
+    # encore rafraichi son inventaire et re-listait le paquet qu'il venait d'installer.
+    # Vecu le 27/08 : Insomnia mis a jour avec succes (« Installe correctement », code 0)
+    # et propose a nouveau deux secondes plus tard -- « j'ai demande a l'installer et en
+    # retour, ce n'est pas installe ».
+    if ($op -eq 'upgrade') { Start-Sleep -Seconds 12 }
+
     # Dans les deux cas on rafraichit le compte de MAJ (l'absence de "checking" = fin).
     $u = Get-PkgUpdates -Id $mgr
+
+    # ET ON SAIT CE QU'ON VIENT DE FAIRE : un paquet dont la mise a jour a REUSSI ne se
+    # repropose pas, meme si le gestionnaire l'annonce encore. Le journal fait foi --
+    # code de sortie 0 et absent de la liste des echecs.
+    if ($op -eq 'upgrade' -and $up -and @($pkgs).Count) {
+        $reussis = @($pkgs | Where-Object { @($up.failed) -notcontains "$_" })
+        if ($reussis.Count) {
+            $restants = @(@($u.pkgs) | Where-Object { $reussis -notcontains "$($_.id)" })
+            if (@($restants).Count -ne @($u.pkgs).Count) {
+                $u = @{ count      = @($restants).Count
+                        items      = @($restants | ForEach-Object { "$($_.titre)" })
+                        pkgs       = @($restants)
+                        supported  = $u.supported
+                        selectable = $u.selectable }
+                Write-Log -Backend $Backend -Name 'pkgupgrade' `
+                          -Message ("$mgr : " + $reussis.Count + " paquet(s) retire(s) de la liste (mise a jour reussie)")
+            }
+        }
+    }
     # `pkgs` (identifiants ciblables) est conserve avec le reste : la fenetre de choix le
     # relit tel quel, sans relancer une verification lente au moment du clic.
     $etat = @{ count = [int]$u.count; items = @($u.items); pkgs = @($u.pkgs); at = (Get-Date).ToString('s') }
