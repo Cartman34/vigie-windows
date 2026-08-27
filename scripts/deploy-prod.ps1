@@ -45,12 +45,13 @@ $repoRoot = Split-Path $PSScriptRoot -Parent
 # que dit le fichier VERSION (0.1 -> v0.1.1).
 function Get-ProchainTag {
     param([string]$Racine)
+    # La base vient du DERNIER TAG : c'est le seul numero que le projet maintient (D96).
+    # « 0.1 » n'est que la graine du tout premier tag, quand aucun n'existe encore.
     $base = '0.1'
-    $vf = Join-Path $Racine 'VERSION'
-    if (Test-Path -LiteralPath $vf) {
-        $v = "$(Get-Content -LiteralPath $vf -Raw)".Trim() -replace '^v', ''
-        if ($v) { $base = $v }
-    }
+    try {
+        $dernier = (& git -C $Racine describe --tags --abbrev=0 2>$null | Select-Object -First 1)
+        if ($dernier -match '^v?(\d+\.\d+)\.\d+$') { $base = $Matches[1] }
+    } catch { }
     $existants = @()
     try { $existants = @(& git -C $Racine tag --list ("v" + $base + ".*") 2>$null) } catch { }
     $max = 0
