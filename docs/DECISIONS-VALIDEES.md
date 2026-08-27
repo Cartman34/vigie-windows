@@ -2138,3 +2138,53 @@ onglets concernes -- Notifications, Modules, Utilisateurs -- passent par eux.
 
 **A tenir** : tout nouveau morceau d'interface qui se repete devient un composant AVANT
 d'etre copie une seconde fois.
+
+## D89 - Une ligne de carte se lit d'un coup d'oeil (2026-08-27)
+
+Quatre remarques du meme matin, qui disent toutes la meme chose : **la valeur repond, la
+couleur alerte, le detail explique.**
+
+- **Reussite : la DATE suffit.** « Deploiement — reussi le 27/08/2026 06:11 (13 s) »
+  devient « Deploiement — 27/08/2026 06:11 ». La duree et le journal vivent dans le
+  detail de la ligne. Un travail qui a abouti n'a rien a raconter.
+- **Probleme : la VALEUR reste courte, c'est la COULEUR qui alerte.**
+  « v0.1.4 · en retard de 2 commit(s) » devient « v0.1.4 » en orange ; la phrase entiere
+  (« elle est en retard de 2 commits sur le depot : les autres comptes n'ont pas vos
+  dernieres corrections ») passe dans l'infobulle.
+- **Un CHEMIN n'est pas une valeur.** Il tenait sur trois lignes et n'apprenait rien au
+  premier coup d'oeil : la carte annonce desormais un POIDS, le chemin est dans le
+  detail.
+- **Majuscule initiale, toujours.** « À jour », pas « à jour ». Passe faite sur toutes
+  les sondes.
+
+**Deux invariants nouveaux** dans `scripts/check-probes.ps1` : les libelles visibles
+portent leurs accents, et une valeur affichee commence par une majuscule -- sauf si c'est
+une DONNEE (numero de version, nom de fichier, chemin).
+
+**Ce que l'ecriture de ces garde-fous a appris** (les trois valent d'etre retenues) :
+1. `check-probes` ne conservait ni la valeur ni le genre des champs dans sa forme
+   normalisee : le controle regardait du vide. **Un piege pose expres n'a pas ete
+   attrape** -- c'est en le posant qu'on l'a su. Eprouver un garde-fou fait partie de
+   l'ecrire.
+2. L'exemption « ce qui n'a ni espace ni majuscule est un identifiant » avalait le mot
+   « aucun ». Un identifiant porte un chiffre ou un separateur ; un mot francais, non.
+3. Le garde-fou des caracteres de controle a attrape **mon propre** antislash mange
+   (`\b` devenu 0x08) dans la regle que j'ecrivais a l'instant.
+
+## D90 - Vigie dit ce qu'elle occupe (2026-08-27)
+
+« Ce serait bien de mettre le stockage Vigie (pour tous les utilisateurs) et ainsi faire
+le suivi de la conso de notre app. » Une application qui surveille l'espace disque des
+autres se doit d'annoncer le sien.
+
+`Get-VigieFootprint` compte **trois postes distincts**, parce qu'ils ne se ressemblent
+pas : le **programme** partage (Program Files, le meme pour tous), les **donnees de
+chaque compte** (`%LOCALAPPDATA%\Sowapps\Vigie`, un jeu par compte), et le **depot**
+quand on developpe. La ligne « Stockage occupe » vit sur la carte Deploiement, le detail
+par compte dans l'item.
+
+Deux pieges evites : le compte courant sait ou sont SES donnees (`Get-VarRoot`) -- sur un
+poste de developpement elles vivent dans le depot, pas dans `%LOCALAPPDATA%` --, et ce
+`var/` est retire du depot pour ne pas etre compte deux fois. Sans elevation, les donnees
+des autres comptes ne sont pas lisibles : le total s'annonce alors « (au moins) » et le
+releve se dit partiel, plutot que de mentir.
