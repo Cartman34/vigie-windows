@@ -61,6 +61,9 @@ Reference unique des conventions. Toute nouvelle convention se note ICI.
   l'utilisateur* (demande ou arbitrage explicite -- ne se rediscute pas sans lui) ou *Prise par l'agent* (choix
   technique assume seul -- une remarque suffit a le remettre en cause). Les deux n'ont pas le meme poids : les
   confondre revient a se prevaloir d'un accord qui n'a jamais ete donne.
+- *Origine non tracee* : seize anciennes entrees dont le texte ne dit pas d'ou elles viennent. On peut s'en servir --
+  mais **au moment de s'en prevaloir, si le doute compte, on redemande confirmation** plutot que de supposer un accord.
+  Une fois confirmee, l'entree est requalifiee sur-le-champ : la question ne se repose pas deux fois.
 - Le **point de reprise** est `../agent-working/briefing.md` : tenu a jour a chaque session, il n'y en a qu'un.
 
 ## Device bridge
