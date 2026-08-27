@@ -18,7 +18,7 @@
    update scans, WSL — runs as a detached background job. The UI stays responsive and each
    card updates itself.
 5. **Security.** Strictly local API, bearer token, anti-CSRF, action whitelist. Never a
-   back door. See [Security](../security.md).
+   back door. See [Security](../operating/security.md).
 
 ## Four apps, one repository
 

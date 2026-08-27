@@ -1,6 +1,6 @@
 # Installation
 
-[Sommaire](README.md) · [English](../en/install.md)
+[Sommaire](../README.md) · [English](../../en/operating/install.md)
 
 Deux voies. L'**archive** est celle qu'on recommande : ni git, ni outillage de
 développement. Le **clone git** s'adresse à qui compte lire ou modifier le code.
@@ -70,7 +70,7 @@ cd vigie-windows
 ```
 
 Même arborescence, mêmes scripts. À choisir pour suivre `main`, lire le code ou
-contribuer — voir [Développement](../en/developing/README.md).
+contribuer — voir [Développement](../../en/developing/README.md).
 
 ---
 
@@ -162,7 +162,7 @@ sauf ce que vous lui avez demandé de changer sur le système :
 > **Important :** désinstaller Vigie ne **déverrouille pas** Windows Update. Si vous
 > l'aviez verrouillé, déverrouillez-le *avant* de retirer Vigie, sinon la machine reste
 > avec ses mises à jour automatiques coupées. Voir
-> [Windows Update](windows-update.md#déverrouiller-pour-de-bon).
+> [Windows Update](../using/windows-update.md#déverrouiller-pour-de-bon).
 
 ### Vestiges d'une installation antérieure au renommage
 
@@ -184,6 +184,6 @@ volontaire. Codes de retour : `0` terminé, `2` au moins une étape en échec, `
 
 ## Ensuite
 
-- [Premiers pas](getting-started.md) — l'icône, le tableau de bord, votre première action
+- [Premiers pas](../using/getting-started.md) — l'icône, le tableau de bord, votre première action
 - [Configuration](configuration.md) — port, outillage externe, surcharges locales
-- [Dépannage](troubleshooting.md) — quand une de ces étapes ne se passe pas comme écrit
+- [Dépannage](../using/troubleshooting.md) — quand une de ces étapes ne se passe pas comme écrit

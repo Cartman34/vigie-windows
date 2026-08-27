@@ -8,13 +8,13 @@ Tout est à un clic d'ici, et chaque page est à un clic de n'importe quelle aut
 
 | Page | Répond à |
 |---|---|
-| [Installation](install.md) | Comment l'installer ? Archive ou git ? Comment l'enlever ? |
-| [Premiers pas](getting-started.md) | C'est installé — et maintenant ? À quoi sert cette icône ? Comment lire une carte ? |
-| [Ce que surveille Vigie](features.md) | Quelles cartes existent, ce que dit chaque champ, ce que fait chaque bouton |
-| [Windows Update](windows-update.md) | Que change vraiment le verrou ? Comment installer les mises à jour ? |
-| [Sécurité](security.md) | Pourquoi administrateur ? Qu'est-ce qui est exposé ? Quel risque subsiste ? |
-| [Configuration](configuration.md) | Changer le port, pointer l'outillage externe, surcharges propres à la machine |
-| [Dépannage](troubleshooting.md) | Rien ne s'ouvre, le serveur est à terre, où sont les journaux |
+| [Installation](operating/install.md) | Comment l'installer ? Archive ou git ? Comment l'enlever ? |
+| [Premiers pas](using/getting-started.md) | C'est installé — et maintenant ? À quoi sert cette icône ? Comment lire une carte ? |
+| [Ce que surveille Vigie](using/features.md) | Quelles cartes existent, ce que dit chaque champ, ce que fait chaque bouton |
+| [Windows Update](using/windows-update.md) | Que change vraiment le verrou ? Comment installer les mises à jour ? |
+| [Sécurité](operating/security.md) | Pourquoi administrateur ? Qu'est-ce qui est exposé ? Quel risque subsiste ? |
+| [Configuration](operating/configuration.md) | Changer le port, pointer l'outillage externe, surcharges propres à la machine |
+| [Dépannage](using/troubleshooting.md) | Rien ne s'ouvre, le serveur est à terre, où sont les journaux |
 
 ## Pour le développeur
 

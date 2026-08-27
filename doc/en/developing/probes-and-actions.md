@@ -117,7 +117,7 @@ $backend = Split-Path $PSScriptRoot -Parent
 6. **Check elevation before acting, not after.** `icacls` and `takeown` fail silently
    without administrator rights, so you would report a false state in good faith. Both lock
    actions test `Test-Elevated` first and touch nothing otherwise.
-7. **Review it in [Security](../security.md)** if it touches system security.
+7. **Review it in [Security](../operating/security.md)** if it touches system security.
 
 ### Long actions
 
@@ -152,4 +152,4 @@ package cards give up after 45 minutes for exactly that reason.
 
 - [Architecture](architecture.md) — where all this sits
 - [`apps/backend-pode/api/openapi.yaml`](../../../apps/backend-pode/api/openapi.yaml) — the contract
-- [Security](../security.md) — the rules an action must respect
+- [Security](../operating/security.md) — the rules an action must respect

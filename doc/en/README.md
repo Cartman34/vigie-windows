@@ -8,13 +8,13 @@ Everything is one click from here, and every page is one click from any other.
 
 | Page | Answers |
 |---|---|
-| [Installation](install.md) | How do I get it on my machine? Archive or git? How do I remove it? |
-| [Getting started](getting-started.md) | It's installed — now what? What is that tray icon? How do I read a card? |
-| [What Vigie monitors](features.md) | Which cards exist, what each field means, what each button does |
-| [Windows Update](windows-update.md) | What does the lock actually change? How do I install updates? |
-| [Security](security.md) | Why administrator? What is exposed? What is the residual risk? |
-| [Configuration](configuration.md) | Change the port, point at external tooling, machine-local overrides |
-| [Troubleshooting](troubleshooting.md) | Nothing opens, the server is down, where are the logs |
+| [Installation](operating/install.md) | How do I get it on my machine? Archive or git? How do I remove it? |
+| [Getting started](using/getting-started.md) | It's installed — now what? What is that tray icon? How do I read a card? |
+| [What Vigie monitors](using/features.md) | Which cards exist, what each field means, what each button does |
+| [Windows Update](using/windows-update.md) | What does the lock actually change? How do I install updates? |
+| [Security](operating/security.md) | Why administrator? What is exposed? What is the residual risk? |
+| [Configuration](operating/configuration.md) | Change the port, point at external tooling, machine-local overrides |
+| [Troubleshooting](using/troubleshooting.md) | Nothing opens, the server is down, where are the logs |
 
 ## For developers
 

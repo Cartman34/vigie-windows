@@ -1,8 +1,8 @@
 # Premiers pas
 
-[Sommaire](README.md) · [English](../en/getting-started.md)
+[Sommaire](../README.md) · [English](../../en/using/getting-started.md)
 
-Vous avez suivi [l'installation](install.md). Voici ce que vous avez sous les yeux.
+Vous avez suivi [l'installation](../operating/install.md). Voici ce que vous avez sous les yeux.
 
 ---
 

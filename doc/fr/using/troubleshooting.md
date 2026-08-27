@@ -1,6 +1,6 @@
 # Dépannage
 
-[Sommaire](README.md) · [English](../en/troubleshooting.md)
+[Sommaire](../README.md) · [English](../../en/using/troubleshooting.md)
 
 ---
 
@@ -65,7 +65,7 @@ Ce message ne concerne **plus aucune fonction** : le verrouillage de Windows Upd
 audit et les bascules VBS / intégrité mémoire sont natifs. Seule *Ouvrir le dossier* peut
 encore le rendre, et uniquement si le dossier disparaît entre l'affichage de la carte et le
 clic — sans chemin configuré, le bouton n'est pas proposé.
-Voir [Configuration](configuration.md#outillage-externe).
+Voir [Configuration](../operating/configuration.md#outillage-externe).
 
 ### « Le serveur de Vigie n'est pas administrateur »
 
@@ -116,7 +116,7 @@ relancer. Sans winget : <https://aka.ms/powershell-release>.
 ### Le port 47600 est déjà pris
 
 Choisissez un autre port dans `apps/backend-pode/config/config.local.psd1` — voir
-[Configuration](configuration.md). Tout en dérive, y compris le raccourci bureau : relancez
+[Configuration](../operating/configuration.md). Tout en dérive, y compris le raccourci bureau : relancez
 donc `install-autostart.ps1` ensuite.
 
 ---

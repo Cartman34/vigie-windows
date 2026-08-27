@@ -13,13 +13,18 @@ Les README du dépôt : [`README.md`](../README.md) (EN) · [`README.fr.md`](../
 
 | Dossier | Public | Répond à |
 |---|---|---|
-| `fr/`, `en/` | **utilisateur** | Comment je l'installe, m'en sers, le dépanne ? |
+| `fr/using/`, `en/using/` | **utilisateur** | Comment je m'en sers ? premiers pas, cartes, Windows Update, dépannage |
+| `fr/operating/`, `en/operating/` | **utilisateur** | Comment je la mets en service ? installation, configuration, sécurité |
 | `en/developing/` | **développeur** | Comment c'est fait, comment j'ajoute une carte ? |
 | `en/agent-working/` | **l'agent** | Ce qu'il faut savoir avant de toucher au projet, et les règles à tenir |
 | `progress/` | **conception** | Ce qu'on vise, ce qui est fait, ce qu'on a décidé |
-| `archives/` | trace | Ce qui est révolu : historiques, migration terminée, maquettes validées |
 
-Trois choix expliquent cette forme :
+Quatre choix expliquent cette forme :
+
+- **Deux moments, deux dossiers** — `operating/` répond à « je la mets en service »
+  (installer, configurer, sécuriser), `using/` à « je m'en sers » (premiers pas, cartes,
+  Windows Update, dépannage). Un fichier de l'un peut renvoyer vers l'autre : ce sont deux
+  vues du même produit, pas deux mondes.
 
 - **Les noms de fichiers sont techniques, donc en anglais** — même pour un contenu
   français. `fr/install.md` et `en/install.md` portent le même nom : on retrouve
@@ -36,7 +41,7 @@ l'état réel — on ne réécrit jamais l'énoncé dans le second.
 
 ## Ce qui ne part pas dans l'archive publiée
 
-`progress/`, `archives/`, `en/agent-working/`, `en/developing/security-review.md` et ce
+`progress/`, `en/agent-working/`, `en/developing/security-review.md` et ce
 fichier même : ce sont des documents de projet, sans objet pour qui installe Vigie. Le
 script de fabrication les écarte nommément, chacun avec sa raison
 ([`scripts/build-release.ps1`](../scripts/build-release.ps1)).

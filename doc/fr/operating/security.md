@@ -1,6 +1,6 @@
 # Sécurité
 
-[Sommaire](README.md) · [English](../en/security.md)
+[Sommaire](../README.md) · [English](../../en/operating/security.md)
 
 Vigie expose une API REST locale capable de modifier Windows, depuis un processus qui
 tourne élevé. Cela mérite un exposé franc de ce qui est protégé et de ce qui ne l'est pas.
@@ -73,7 +73,7 @@ Aucune de ces pistes n'est implémentée en v0.1.
 - Ne jamais interpoler d'entrée client dans une commande.
 - Si elle touche à la sécurité du système, la faire relire ici avant de l'intégrer.
 
-Voir [Sondes et actions](../en/developing/probes-and-actions.md) pour la mécanique, et
+Voir [Sondes et actions](../../en/developing/probes-and-actions.md) pour la mécanique, et
 [`doc/en/developing/security-review.md`](https://github.com/Cartman34/vigie-windows/blob/main/doc/en/developing/security-review.md) pour la revue de sécurité interne
 du projet.
 
