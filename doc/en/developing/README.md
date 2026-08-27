@@ -31,6 +31,29 @@ doc/                      This documentation + the project's internal working do
 dist/                      Build output (git-ignored)
 ```
 
+## Development dependencies
+
+Anything the work needs is a **dependency**, and a dependency is declared and installed by a script — never by hand on
+one machine, which teaches the next machine nothing. `scripts/dev/install-dev.ps1` holds the list, each entry with the
+reason it is there.
+
+```powershell
+pwsh -File .\scripts\dev\install-dev.ps1 -Lister   # what is here, what is missing — changes nothing
+pwsh -File .\scripts\dev\install-dev.ps1           # install what is missing (administrator terminal)
+```
+
+| Tool | What it is for here |
+|---|---|
+| **Git** | `build-release.ps1` lists files with `git ls-files`, which is what keeps ignored files out of the archive; also backs the update's `clone` route |
+| **GitHub CLI** (`gh`) | publishing a release and attaching the archive to it |
+| **PHP** | serving the Atelier (`apps/atelier`), the visual-validation tool — deliberately confined to tooling, never part of the app |
+
+Installs go **machine-wide**, never into one account's profile (**D79**). The script stops short of `gh auth login`:
+opening a GitHub session uses your own credentials, and that is your gesture, not a script's.
+
+These are development dependencies only. None of them is needed to *use* Vigie, and none of them ships in the
+distribution archive. What the application itself needs is handled by `scripts/install.ps1`.
+
 ## Running from source
 
 ```powershell
@@ -104,11 +127,18 @@ pwsh -File .\scripts\build-release.ps1 -ListOnly   # see exactly what would ship
 pwsh -File .\scripts\build-release.ps1             # produce dist/vigie-<version>.zip
 ```
 
-The archive name comes from the `VERSION` file and from nowhere else. To release: bump
-`VERSION`, commit, then push a matching tag (`v0.1` for `0.1`), run the script, and attach
-`dist/vigie-<version>.zip` to the GitHub Release. The
-[workflow below](#automating-it-the-release-workflow) does all of that on its own once it
-is installed.
+The version number comes from the **last git tag**, and from nowhere else (**D96**). Releasing therefore reads:
+
+```powershell
+git tag -a v0.1.9 -m "..."   # tags are posted at release time, never on every commit
+git push origin v0.1.9
+pwsh -File .\scripts\build-release.ps1
+gh release create v0.1.9 --title "Vigie v0.1.9" --notes "..." dist/vigie-0.1.9.zip
+```
+
+Add `--prerelease` for a version that is published but not yet recommended — GitHub then keeps it out of
+`releases/latest`, which is exactly what Vigie's own update route reads. The
+[workflow below](#automating-it-the-release-workflow) does all of this on its own once it is installed.
 
 **How the archive stays clean.** The file list comes from `git ls-files`, never from
 walking the disk. Anything `.gitignore` ignores — the API token, `var/`, logs,

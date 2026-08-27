@@ -30,7 +30,7 @@ ligne — `scripts/dev/check-doc.ps1` refuse une décision absente d'ici.
 - **Sécurité, droits et multi-comptes** — D34 · D65 · D67 · D73
 - **Sondes, actions et tâches de fond** — D50bis · D53 · D54 · D60 · D61 · D80 · D82 · D83 · D85
 - **Outillage** — D06 · D21 · D24 · D40 · D44 · D47 · D52 · D64 · D75 · D86 · D90
-- **Méthode de travail** — D10 · D12 · D13 · D14 · D16 · D17 · D31 · D36 · D39 · D43 · D51 · D62 · D63 · D74 · D76
+- **Méthode de travail** — D10 · D12 · D13 · D14 · D16 · D17 · D31 · D36 · D39 · D43 · D51 · D62 · D63 · D74 · D76 · D100
 ---
 
 ## D01 — Icône du tray : « v1 — jauge à graduations »
@@ -2597,3 +2597,29 @@ n'est **pas** une erreur (**D77**) : il ne redémarre rien et le dit en vert. Gi
 reste déclenché par un geste, jamais automatique, et ça vient du dépôt officiel en HTTPS. Il n'y a **pas** de
 signature à vérifier, et la documentation ne prétend pas le contraire : ce qui est vérifié, c'est la forme de
 l'archive et le fait qu'elle ne soit pas plus ancienne que ce qui tourne.
+
+## D100 — Un outil dont on a besoin est une dépendance, et une dépendance s'installe par un script (2026-08-27)
+
+*Demandée par l'utilisateur.*
+
+« Faut que j'évite d'installer des trucs directement, c'est une mauvaise pratique. Si tu as besoin de quelque chose,
+c'est que c'est une dépendance. Ici une dépendance dev. Donc il faut un process propre pour l'installer. »
+
+J'avais demandé une commande `winget` à taper à la main pour obtenir `gh`. Ça marche une fois, sur une machine, et ça
+ne laisse rien derrière : le poste suivant retombe sur la même absence, sans savoir quoi installer ni pourquoi. Le
+savoir vivait dans une conversation au lieu de vivre dans le dépôt.
+
+`scripts/dev/install-dev.ps1` déclare les dépendances de développement — Git, GitHub CLI, PHP — **chacune avec la
+raison écrite de sa présence** : sans cette raison, une liste de dépendances finit par contenir des outils installés
+« au cas où » que personne n'ose retirer. `-Lister` fait l'état des lieux sans rien toucher.
+
+Trois règles reprises de l'installateur de l'application, parce que les mêmes pièges attendaient : portée **machine**
+et jamais compte (**D79**) ; l'élévation est annoncée **avant** d'essayer, faute de quoi winget échoue sur un
+`0x80070005` illisible après avoir parfois désinstallé l'existant ; et le résultat se **constate** — winget rend
+parfois `0` sans avoir rien posé, seule la présence de la commande fait foi (**D43**).
+
+Ce que le script ne fait pas : `gh auth login`. Ouvrir une session GitHub engage les identifiants de quelqu'un ; c'est
+son geste, pas celui d'un script, et le script se contente de le rappeler quand la session manque.
+
+Ces dépendances sont **de développement** : rien n'est nécessaire pour se servir de Vigie, rien ne part dans l'archive.
+Ce dont l'application a besoin reste l'affaire de `scripts/install.ps1`.
