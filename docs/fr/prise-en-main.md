@@ -1,4 +1,4 @@
-# Prise en main
+# Premiers pas
 
 [Sommaire](README.md) · [English](../en/getting-started.md)
 

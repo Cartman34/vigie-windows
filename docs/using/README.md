@@ -2,7 +2,7 @@
 
 Ce volet a été refondu et vit désormais dans la documentation publique, en deux langues :
 
-- **[Prise en main](../fr/prise-en-main.md)** — premier lancement, icône de la barre système, lecture d'une carte
+- **[Premiers pas](../fr/prise-en-main.md)** — premier lancement, icône de la barre système, lecture d'une carte
 - **[Ce que surveille Vigie](../fr/fonctionnalites.md)** — chaque carte, chaque champ, chaque action
 - **[Windows Update](../fr/windows-update.md)** — le verrou, le mode MAJ, installer les mises à jour
 - **[Dépannage](../fr/depannage.md)**
