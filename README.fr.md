@@ -31,7 +31,7 @@ Dépôt : <https://github.com/Cartman34/vigie-windows>
 
 **Trois gestes, pas de ligne de commande.**
 
-1. Téléchargez `vigie-<version>.zip` depuis la [page des Releases](https://github.com/Cartman34/vigie-windows/releases).
+1. Téléchargez `vigie-<version>.zip` depuis la [dernière version publiée](https://github.com/Cartman34/vigie-windows/releases/latest).
 2. Décompressez-la **à un endroit durable** — ni `Téléchargements`, ni un dossier temporaire : Vigie se lancera depuis
    ce chemin à chaque ouverture de session.
 3. Ouvrez le dossier obtenu et double-cliquez **`setup.cmd`**. Windows demande votre accord pour l'élévation :
