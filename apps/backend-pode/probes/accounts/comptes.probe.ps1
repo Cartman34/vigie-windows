@@ -156,6 +156,22 @@ if ($malades.Count) {
 $dernier = New-LastRunField -Module 'deployment'
 if ($dernier) { $depl += $dernier }
 
+# CE QUE VIGIE OCCUPE, tous comptes confondus (demande du 27/08). Une application qui
+# surveille l'espace disque des autres doit dire ce qu'elle prend elle-meme.
+$emp = Get-VigieFootprint -Backend $backend
+$detailEmp = @()
+if ($emp.programme) { $detailEmp += "Programme (partagé) : " + (Format-ByteSize -Bytes $emp.programme) + "  —  " + $emp.programmePath }
+foreach ($x in @($emp.parCompte)) {
+    $detailEmp += "Données de " + $x.name + $(if ($x.current) { " (vous)" } else { "" }) + " : " + (Format-ByteSize -Bytes $x.bytes)
+}
+if ($emp.sources) { $detailEmp += "Dépôt de développement : " + (Format-ByteSize -Bytes $emp.sources) + "  —  " + $emp.sourcesPath }
+if (-not $emp.complet) { $detailEmp += "" ; $detailEmp += "Relevé partiel : les données des autres comptes ne sont lisibles que par un Vigie lancé en administrateur." }
+$depl += New-Field -Key 'empreinte' -Label 'Stockage occupé' `
+    -Value ((Format-ByteSize -Bytes $emp.total) + $(if (-not $emp.complet) { ' (au moins)' } else { '' })) `
+    -Kind 'text' -Status 'neutral' `
+    -Help "Tout ce que Vigie occupe sur cette machine : le programme partagé, les données de chaque compte, et le dépôt si vous développez." `
+    -Guide ($detailEmp -join [Environment]::NewLine)
+
 # --- Carte 1 : les COMPTES ---------------------------------------------------
 $carteComptes = New-ModuleObject -Id 'accounts' -Theme 'accounts' -Label 'Comptes' `
     -Status $(if (@($fields | Where-Object { "$($_.status)" -eq 'error' }).Count) { 'error' }
