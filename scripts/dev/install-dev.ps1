@@ -1,40 +1,56 @@
 <#
     install-dev.ps1 - Installe les DEPENDANCES DE DEVELOPPEMENT. IDEMPOTENT.
 
-    Pourquoi ce script existe : « si tu as besoin de quelque chose, c'est que c'est une
-    dependance ». Installer un outil a la main, une fois, sur une machine, c'est un savoir
-    qui ne survit pas a la session ou il a ete acquis : le poste suivant retombe sur la
-    meme absence, sans savoir quoi installer ni pourquoi. Une dependance se DECLARE et
-    s'installe par un script -- exactement ce que `scripts/install.ps1` fait deja pour
+    Pourquoi ce script existe (D100) : « si tu as besoin de quelque chose, c'est que c'est
+    une dependance ». Installer un outil a la main, une fois, sur une machine, c'est un
+    savoir qui ne survit pas a la session ou il a ete acquis : le poste suivant retombe sur
+    la meme absence, sans savoir quoi installer ni pourquoi. Une dependance se DECLARE et
+    s'installe par un script -- exactement ce que `scripts/install.ps1` fait pour
     l'application. Celui-ci fait la meme chose pour l'outillage du developpeur.
 
     Ce sont des dependances de DEVELOPPEMENT : elles ne servent qu'a qui travaille sur le
     depot. Rien ici n'est necessaire pour se servir de Vigie, et rien ici ne part dans
     l'archive de distribution.
 
-    PORTEE MACHINE, jamais compte. Comme pour PowerShell 7 (D79) : un outil installe dans
-    le profil d'un compte est invisible des autres, et des taches planifiees.
+    IL DEMANDE L'ELEVATION LUI-MEME. Une fenetre explique ce qui va etre installe et
+    pourquoi, AVANT que Windows ne demande son accord (D66 : on n'envoie personne taper une
+    commande a notre place). Portee MACHINE, jamais compte, comme pour PowerShell 7 (D79).
 
-    CE QUE CE SCRIPT NE FAIT PAS : s'authentifier a votre place. `gh auth login` ouvre une
-    session GitHub avec VOS identifiants -- c'est votre geste, pas celui d'un script. Le
-    script le rappelle a la fin si la session manque.
+    CE QU'IL NE FAIT PAS : s'authentifier a votre place. `gh auth login` engage VOS
+    identifiants -- il propose de lancer la procedure, dans une vraie fenetre, et vous
+    laisse la conduire.
 
     Usage :
       pwsh -File .\scripts\dev\install-dev.ps1 -Lister    # etat des lieux, ne change rien
       pwsh -File .\scripts\dev\install-dev.ps1            # installe ce qui manque
       pwsh -File .\scripts\dev\install-dev.ps1 -Nom gh    # une seule dependance
 
-    Codes de retour : 0 = tout est en place ; 1 = prerequis manquant (winget, droits) ;
-                      2 = au moins une installation a echoue.
+    Codes de retour : 0 = tout est en place ; 1 = prerequis manquant (winget, elevation
+                      refusee) ; 2 = au moins une installation a echoue ; 3 = elevation
+                      refusee par l'utilisateur, rien n'a ete touche.
 #>
 param(
     # Ne rien installer : dire ce qui est la et ce qui manque.
     [switch] $Lister,
 
     # N'agir que sur cette dependance (son nom court, ex. « gh »).
-    [string] $Nom
+    [string] $Nom,
+
+    # Ne pas proposer d'ouvrir la session GitHub a la fin.
+    [switch] $SansSession,
+
+    # Deja eleve et deja consenti : ne pas redemander (usage interne a la relance).
+    [switch] $Yes
 )
 $ErrorActionPreference = 'Stop'
+
+$repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+$commun   = Join-Path $repoRoot 'apps/backend-pode/lib/common.ps1'
+$avecFenetre = $false
+if (Test-Path -LiteralPath $commun) {
+    . $commun
+    $avecFenetre = $true
+}
 
 # --- LES DEPENDANCES, DECLAREES ------------------------------------------------------
 #
@@ -62,7 +78,7 @@ $DEPENDANCES = @(
 
 function Dire { param([string]$T, [string]$C = 'Gray') Write-Host $T -ForegroundColor $C }
 
-function Test-Elevation {
+function Test-Admin {
     try {
         $id = [Security.Principal.WindowsIdentity]::GetCurrent()
         return (New-Object Security.Principal.WindowsPrincipal($id)).IsInRole(
@@ -77,6 +93,31 @@ function Get-Etat {
     $v = $null
     try { $v = (& $D.Commande --version 2>$null | Select-Object -First 1) } catch { }
     return @{ Present = $true; Ou = $c.Source; Version = "$v".Trim() }
+}
+
+function Test-SessionGitHub {
+    if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { return $false }
+    & gh auth status 2>&1 | Out-Null
+    return ($LASTEXITCODE -eq 0)
+}
+
+# Une question, dans une vraie fenetre quand c'est possible. En console sinon : ce script
+# tourne aussi dans un terminal sans bureau (session distante, tache planifiee).
+function Get-Accord {
+    param([string]$Titre, [string]$Question, [string]$Detail = '')
+    try {
+        Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
+        $texte = $Question + $(if ($Detail) { [Environment]::NewLine + [Environment]::NewLine + $Detail } else { '' })
+        $r = [System.Windows.Forms.MessageBox]::Show($texte, $Titre,
+                [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                [System.Windows.Forms.MessageBoxIcon]::Question)
+        return ($r -eq [System.Windows.Forms.DialogResult]::Yes)
+    } catch {
+        Dire ""
+        Dire ($Question + " [o/N]") 'Yellow'
+        $rep = Read-Host
+        return ("$rep".Trim().ToLower() -in @('o', 'oui', 'y', 'yes'))
+    }
 }
 
 # --- Le tri ---------------------------------------------------------------------------
@@ -105,60 +146,134 @@ foreach ($d in $aTraiter) {
 }
 Dire ""
 
+# --- La session GitHub, proposee a la fin -----------------------------------------------
+#
+# gh peut etre installe SANS session ouverte : c'est le cas le plus trompeur, la commande
+# existe et toute publication echoue quand meme.
+function Invoke-SessionGitHub {
+    if ($SansSession) { return }
+    if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { return }
+    if (Test-SessionGitHub) {
+        Dire "Session GitHub : ouverte." 'Green'
+        return
+    }
+    Dire ""
+    Dire "GitHub CLI est installe, mais aucune session n'est ouverte." 'Yellow'
+    $ok = Get-Accord -Titre 'Vigie - session GitHub' `
+                     -Question "Ouvrir la session GitHub maintenant ?" `
+                     -Detail ("Une fenetre va s'ouvrir avec un code a huit caracteres, puis votre navigateur." +
+                              [Environment]::NewLine +
+                              "Vous collez le code sur github.com et vous validez : c'est vous qui vous authentifiez, " +
+                              "ce script ne voit ni votre mot de passe ni votre jeton.")
+    if (-not $ok) {
+        Dire "A faire quand vous voudrez :  gh auth login --web" 'DarkGray'
+        return
+    }
+    # Fenetre VISIBLE et interactive : la procedure affiche un code a recopier, il faut
+    # pouvoir le lire. -Wait pour constater le resultat plutot que de le supposer (D43).
+    try {
+        $p = Start-Process -FilePath 'gh.exe' `
+                           -ArgumentList @('auth', 'login', '--web', '--git-protocol', 'https', '--hostname', 'github.com') `
+                           -Wait -PassThru
+        if (Test-SessionGitHub) {
+            Dire "Session GitHub ouverte." 'Green'
+        } else {
+            Dire ("La session n'a pas ete ouverte (gh a rendu " + $p.ExitCode + "). Reessayez :  gh auth login --web") 'Yellow'
+        }
+    } catch {
+        Dire ("Impossible de lancer gh : " + $_.Exception.Message) 'Red'
+        Dire "A faire a la main :  gh auth login --web" 'Yellow'
+    }
+}
+
 if (-not $manquantes.Count) {
     Dire "Tout est en place." 'Green'
-    # gh peut etre installe SANS session ouverte : c'est le cas le plus trompeur, la
-    # commande existe mais toute publication echouera.
-    $gh = $aTraiter | Where-Object { $_.Nom -eq 'gh' }
-    if ($gh -and (Get-Command gh -ErrorAction SilentlyContinue)) {
-        & gh auth status 2>&1 | Out-Null
-        if ($LASTEXITCODE -ne 0) {
-            Dire ""
-            Dire "GitHub CLI est installe, mais aucune session n'est ouverte." 'Yellow'
-            Dire "A faire vous-meme, une fois (un script n'a pas a manipuler vos identifiants) :" 'Yellow'
-            Dire "  gh auth login"
-        }
-    }
+    Invoke-SessionGitHub
     exit 0
 }
 
 if ($Lister) {
     Dire ("" + $manquantes.Count + " dependance(s) manquante(s). Pour les installer :") 'Yellow'
-    Dire "  pwsh -File .\scripts\dev\install-dev.ps1        (terminal administrateur)"
+    Dire "  pwsh -File .\scripts\dev\install-dev.ps1"
     exit 0
 }
 
-# --- Installation ----------------------------------------------------------------------
-if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-    Dire "winget est introuvable : impossible d'installer quoi que ce soit automatiquement." 'Red'
-    Dire "Installez « App Installer » depuis le Microsoft Store, puis relancez." 'Yellow'
+# --- Elevation : demandee ICI, expliquee AVANT ------------------------------------------
+if (-not (Test-Admin)) {
+    if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+        Dire "winget est introuvable : impossible d'installer automatiquement." 'Red'
+        Dire "Installez « App Installer » depuis le Microsoft Store, puis relancez." 'Yellow'
+        exit 1
+    }
+    $quoi = @($manquantes | ForEach-Object { $_.Titre + " (" + $_.Winget + ")" })
+    $ok = $true
+    if ($avecFenetre) {
+        $ok = Show-ElevationRationale -AssumeYes:$Yes `
+                -Title "Installer les dependances de developpement" `
+                -Summary ("Ces outils s'installent POUR TOUTE LA MACHINE, jamais pour votre seul compte : " +
+                          "un outil pose dans un profil est invisible des autres comptes et des taches planifiees. " +
+                          "Windows va demander votre accord.") `
+                -Changes (@($quoi | ForEach-Object { "Installation de " + $_ }) +
+                          @("Aucune version deja installee n'est remplacee",
+                            "Aucune session GitHub n'est ouverte sans votre geste",
+                            "Rien n'est supprime ailleurs sur la machine"))
+    } else {
+        $ok = Get-Accord -Titre 'Vigie - dependances de developpement' `
+                         -Question "Installer ces outils pour toute la machine ?" `
+                         -Detail ($quoi -join [Environment]::NewLine)
+    }
+    if (-not $ok) {
+        Dire "Installation annulee. Rien n'a ete touche." 'Yellow'
+        exit 3
+    }
+
+    $argv = @('-Yes')
+    if ($Nom)         { $argv += @('-Nom', $Nom) }
+    if ($SansSession) { $argv += '-SansSession' }
+
+    if ($avecFenetre) {
+        # La relance eleve, attend, et RAPPORTE : son journal est relu ici, sinon
+        # l'utilisateur ne verrait qu'une fenetre disparaitre.
+        $journal = Join-Path $env:TEMP 'vigie-dev'
+        $code = Invoke-ElevatedSelf -ScriptPath $PSCommandPath -Arguments $argv -LogDir $journal
+        $dernier = @(Get-ChildItem -Path $journal -Filter 'elevated_install-dev_*.log' -File -ErrorAction SilentlyContinue |
+                     Sort-Object LastWriteTime -Descending | Select-Object -First 1)
+        if ($dernier.Count) {
+            Dire ""
+            Get-Content -LiteralPath $dernier[0].FullName -ErrorAction SilentlyContinue | ForEach-Object { Write-Host $_ }
+        }
+        # La session GitHub se propose depuis la session NON elevee : c'est le compte de
+        # l'utilisateur qui doit porter le jeton, pas l'administrateur.
+        if ($code -eq 0) { Invoke-SessionGitHub }
+        exit $code
+    }
+
+    Dire "Relancez ce script depuis un terminal administrateur." 'Yellow'
     exit 1
 }
-if (-not (Test-Elevation)) {
-    # On le dit AVANT d'essayer : winget en portee machine sans droits echoue sur un
-    # 0x80070005 illisible, apres avoir parfois deja desinstalle l'existant (vecu le 26/08).
-    Dire "Ces installations se font pour TOUTE LA MACHINE : il faut un terminal administrateur." 'Yellow'
-    Dire "Rien n'a ete touche. Relancez ainsi :" 'Yellow'
-    Dire "  pwsh -File .\scripts\dev\install-dev.ps1"
+
+# --- Installation ------------------------------------------------------------------------
+if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+    Dire "winget est introuvable : impossible d'installer automatiquement." 'Red'
+    Dire "Installez « App Installer » depuis le Microsoft Store, puis relancez." 'Yellow'
     exit 1
 }
 
 $echecs = 0
 foreach ($d in $manquantes) {
     Dire ("Installation de " + $d.Titre + " (" + $d.Winget + ") pour la machine...") 'Cyan'
+    $code = -1
     try {
         # --scope machine : jamais dans le profil d'un compte (D79).
-        # Les accords de licence sont acceptes ici parce que c'est une installation
-        # d'outillage demandee explicitement ; rien n'est installe sans ce script.
-        & winget install --id $d.Winget --scope machine --silent --accept-package-agreements --accept-source-agreements | Write-Host
+        & winget install --id $d.Winget --scope machine --silent `
+                  --accept-package-agreements --accept-source-agreements | Write-Host
         $code = $LASTEXITCODE
     } catch {
         Dire ("  winget a leve une erreur : " + $_.Exception.Message) 'Red'
-        $code = -1
     }
 
     # LE RESULTAT SE CONSTATE (D43) : winget rend parfois 0 sans avoir rien pose, et
-    # parfois un code non nul pour un paquet deja installe. Seule la commande fait foi.
+    # parfois un code non nul pour un paquet deja present. Seule la commande fait foi.
     $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' +
                 [Environment]::GetEnvironmentVariable('Path', 'User')
     $e = Get-Etat -D $d
@@ -178,13 +293,6 @@ if ($echecs) {
     exit 2
 }
 Dire "Toutes les dependances de developpement sont en place." 'Green'
-if (Get-Command gh -ErrorAction SilentlyContinue) {
-    & gh auth status 2>&1 | Out-Null
-    if ($LASTEXITCODE -ne 0) {
-        Dire ""
-        Dire "Derniere etape, la votre : ouvrir une session GitHub." 'Yellow'
-        Dire "  gh auth login"
-        Dire "Un script ne manipule pas vos identifiants." 'DarkGray'
-    }
-}
+# Sous elevation, on ne propose PAS la session : elle appartiendrait a l'administrateur.
+if (-not $Yes) { Invoke-SessionGitHub }
 exit 0
