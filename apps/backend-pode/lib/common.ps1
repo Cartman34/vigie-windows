@@ -1749,7 +1749,7 @@ $script:ThemeCatalog = @(
     [pscustomobject]@{ id = 'security';       label = 'Sécurité' }
     [pscustomobject]@{ id = 'network';        label = 'Réseau' }
     [pscustomobject]@{ id = 'tools';          label = 'Outils & paquets' }
-    [pscustomobject]@{ id = 'gaming';         label = 'Jeux' }
+    [pscustomobject]@{ id = 'gaming';         label = 'Gaming' }
     # Dernier de la liste : c'est un outil de depannage, eteint par defaut (D85).
     [pscustomobject]@{ id = 'debug';          label = 'Débogage' }
 )
