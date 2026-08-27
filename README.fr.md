@@ -64,8 +64,8 @@ pwsh -ExecutionPolicy Bypass -File .\scripts\install-autostart.ps1
 ```
 
 La voie git, le rôle de chaque script et la désinstallation :
-[Installation](docs/fr/installation.md). Premier lancement et lecture du tableau de
-bord : [Premiers pas](docs/fr/prise-en-main.md).
+[Installation](docs/fr/install.md). Premier lancement et lecture du tableau de
+bord : [Premiers pas](docs/fr/getting-started.md).
 
 ## À lire avant d'installer
 
@@ -86,7 +86,7 @@ Vigie n'est pas un moniteur passif. Trois choses à savoir :
 3. **Elle n'écoute que sur 127.0.0.1** — jamais sur une interface réseau. L'API exige un
    jeton Bearer, contrôle l'origine des requêtes et n'exécute que des actions d'une liste
    blanche figée. Il subsiste un risque résiduel connu (le jeton est injecté dans la page
-   servie), décrit honnêtement dans [Sécurité](docs/fr/securite.md).
+   servie), décrit honnêtement dans [Sécurité](docs/fr/security.md).
 
 ---
 
@@ -101,21 +101,21 @@ Vigie n'est pas un moniteur passif. Trois choses à savoir :
 | **WSL** | installé, distribution par défaut, actif / inactif, démarrer / redémarrer / arrêter |
 | **Gestionnaires de paquets** | une carte par gestionnaire trouvé dans le `PATH` (winget, Chocolatey, Scoop, npm, pnpm, Yarn, pip, pipx, Cargo, RubyGems, .NET SDK) — version, mises à jour disponibles, mise à jour en tâche de fond |
 
-Le détail carte par carte : [Ce que surveille Vigie](docs/fr/fonctionnalites.md).
+Le détail carte par carte : [Ce que surveille Vigie](docs/fr/features.md).
 
 ## Documentation
 
 | | |
 |---|---|
 | [Sommaire de la documentation](docs/fr/README.md) | tout, sur une page |
-| [Installation](docs/fr/installation.md) | archive ou clone git, démarrage automatique, désinstallation |
-| [Premiers pas](docs/fr/prise-en-main.md) | premier lancement, icône, lecture d'une carte |
-| [Ce que surveille Vigie](docs/fr/fonctionnalites.md) | chaque carte et chaque action |
+| [Installation](docs/fr/install.md) | archive ou clone git, démarrage automatique, désinstallation |
+| [Premiers pas](docs/fr/getting-started.md) | premier lancement, icône, lecture d'une carte |
+| [Ce que surveille Vigie](docs/fr/features.md) | chaque carte et chaque action |
 | [Windows Update](docs/fr/windows-update.md) | le verrou, le mode MAJ, installer les mises à jour |
-| [Sécurité](docs/fr/securite.md) | élévation, écoute locale, jeton, risque résiduel |
+| [Sécurité](docs/fr/security.md) | élévation, écoute locale, jeton, risque résiduel |
 | [Configuration](docs/fr/configuration.md) | port, outillage externe, surcharges locales |
-| [Dépannage](docs/fr/depannage.md) | journaux, commandes du tray, pannes courantes |
-| **[Développement](docs/fr/developpement/README.md)** | architecture, sondes et actions, contribution |
+| [Dépannage](docs/fr/troubleshooting.md) | journaux, commandes du tray, pannes courantes |
+| **[Développement](docs/en/developing/README.md)** | architecture, sondes et actions, contribution |
 
 ## Prérequis
 

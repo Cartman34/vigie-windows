@@ -177,7 +177,7 @@ un chemin de machine n'a rien à faire dans le code.
 Une fois tous les postes migrés, ce fichier peut être supprimé : les anciens noms
 disparaissent alors avec lui.
 
-## D12 — `docs/REPRISE.md` décrit l'environnement réel
+## D12 — `docs/en/agent-working/briefing.md` décrit l'environnement réel
 
 La section « Contraintes environnement » décrivait une VM Linux éphémère (Cowork/`device_bash`,
 « pas de pwsh », « git ne peut pas s'initialiser »). Elle est réécrite pour la machine réelle :
@@ -510,7 +510,7 @@ mesurées, pas des préférences :
    sonde ferait **~4,2 s** de pur démarrage par rafraîchissement complet ; aujourd'hui
    `/health` répond en **65 ms** dans un runtime déjà chaud.
 
-Documenté dans `README.md`, `docs/REPRISE.md` et `apps/atelier/README.md`.
+Documenté dans `README.md`, `docs/en/agent-working/briefing.md` et `apps/atelier/README.md`.
 
 **Règle de travail associée** : en cas de doute sur l'appartenance d'un composant à l'une ou
 l'autre brique, **demander à l'utilisateur avec une suggestion** plutôt que de trancher seul.
@@ -623,7 +623,7 @@ commit**, pas « plus tard ».
 
 **Ce qui a déclenché cette règle** (manquements réels, à ne pas reproduire) :
 
-- `docs/MIGRATION-APPS.md` a porté un avertissement « ⛔ ne pas fusionner » **après** que la
+- `docs/archives/migration-apps.md` a porté un avertissement « ⛔ ne pas fusionner » **après** que la
   fusion ait eu lieu. Lu tel quel, il aurait fait renoncer à une action déjà faite.
 - **D29** et la note de migration ont gardé une section « question laissée ouverte » sur
   l'emplacement du contrat alors que **D30** l'avait tranchée.
@@ -890,7 +890,7 @@ premier. Pas de récit de l'enquête, pas de justification de la méthode, pas d
 qui a déjà été dit.
 
 Le détail — cause, mesure, raisonnement — va dans le **dépôt** : décision, commentaire de
-code, ou entrée de `docs/REPRISE.md`. C'est là qu'il survit et qu'on le retrouve ; dans un
+code, ou entrée de `docs/en/agent-working/briefing.md`. C'est là qu'il survit et qu'on le retrouve ; dans un
 message, il se lit une fois puis se perd.
 
 Une phrase de plus n'est justifiée que si elle change une décision de l'utilisateur : un
@@ -906,7 +906,7 @@ passerait. Allonger la liste de motifs ne corrige rien : le défaut est dans le 
 règle, pas dans la liste.
 
 La règle retenue est **au niveau de l'outil** — `"Bash"`, `"PowerShell"`, sans parenthèses —
-dans [`.claude/settings.json`](../.claude/settings.json), **versionné**. Elle couvre toutes
+dans [`.claude/settings.json`](../../.claude/settings.json), **versionné**. Elle couvre toutes
 les commandes, analysables ou non. Rien à maintenir.
 
 ### Tentative abandonnée : un hook qui juge le texte de la commande
@@ -970,7 +970,7 @@ portent le raisonnement derrière chaque choix — les traduire est une passe à
 - **erreur : `0.17`** (au lieu de `0.14`).
 
 La fraction n'est écrite qu'à **un seul** endroit,
-[`apps/tray/assets/generate-icons.py`](../apps/tray/assets/generate-icons.py) — le repli GDI+
+[`apps/tray/assets/generate-icons.py`](../../apps/tray/assets/generate-icons.py) — le repli GDI+
 qui la dupliquait a été supprimé (**D38**). Les `.ico` ont été régénérés : `ok.ico` et
 `warn.ico` sont ressortis **identiques à l'octet près**, ce qui confirme au passage que le
 générateur est déterministe et que seul l'état erreur a bougé.
@@ -1127,7 +1127,7 @@ Pistes essayées pour désactiver l'aperçu, **sans succès à ce jour** :
 Contrepartie assumée : une couche de script a déjà cassé des chaînes JavaScript
 (apostrophes, `\n`). Elle impose donc son garde-fou — recherche des chaînes monoquotes
 non terminées — **et** un rechargement de la page servie avant d'annoncer quoi que ce soit.
-`docs/DECISIONS-VALIDEES.md` garde la règle inverse (**D36**) : lui s'écrit avec l'outil
+`docs/progress/decisions.md` garde la règle inverse (**D36**) : lui s'écrit avec l'outil
 d'édition, car une couche shell l'avait corrompu.
 
 ## D48 — Gestion des modules : un panneau latéral, deux portes d'entrée
@@ -1257,7 +1257,7 @@ puis fait échouer la sonde à l'exécution. La **carte Réseau a disparu du tab
 et le travail a été annoncé comme fait — la validation avait été respectée à la lettre et
 ne prouvait rien.
 
-[`scripts/check-probes.ps1`](../scripts/check-probes.ps1) exécute donc **toutes** les sondes
+[`scripts/check-probes.ps1`](../../scripts/check-probes.ps1) exécute donc **toutes** les sondes
 et vérifie les invariants de **D49** et **D50** : chaque sonde rend un module, aucun statut
 ne dépasse celui de son pire champ, tout champ en défaut propose une résolution ou un guide,
 tout champ porte une aide, toute action citée existe, aucun libellé au repos ne porte de

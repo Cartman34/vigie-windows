@@ -1,6 +1,6 @@
 # Security
 
-[Documentation index](README.md) · [Français](../fr/securite.md)
+[Documentation index](README.md) · [Français](../fr/security.md)
 
 Vigie exposes a local REST API that can change Windows settings, from a process that runs
 elevated. That deserves a straight account of what is protected and what is not.
@@ -71,8 +71,8 @@ None of these are implemented in v0.1.
 - Never interpolate client input into a command.
 - If it touches system security, review it here before merging.
 
-See [Probes and actions](development/probes-and-actions.md) for the mechanics, and
-[`docs/operating/SECURITY.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/operating/SECURITY.md) for the project's internal
+See [Probes and actions](developing/probes-and-actions.md) for the mechanics, and
+[`docs/en/developing/security-review.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/en/developing/security-review.md) for the project's internal
 security review (French).
 
 ## What Vigie does not do

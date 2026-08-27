@@ -104,5 +104,5 @@ l'affichage. Il ne change que sur décision explicite, pas au fil des commits.
 
 ## Ensuite
 
-- [Dépannage](depannage.md) — lire ces journaux
-- [Développement](developpement/README.md) — le raisonnement derrière cette organisation
+- [Dépannage](troubleshooting.md) — lire ces journaux
+- [Développement](../en/developing/README.md) — le raisonnement derrière cette organisation

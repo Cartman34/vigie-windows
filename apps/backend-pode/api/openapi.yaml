@@ -154,7 +154,7 @@ paths:
       summary: Serie historisee d'une mesure (etape 2 du plan historique)
       description: >
         Lecture seule des points echantillonnes dans var/history/ (voir
-        docs/conception/historique-cible.md). La reponse est DECIMEE cote serveur
+        docs/archives/conception/historique-cible.md). La reponse est DECIMEE cote serveur
         (~200 points au plus) pour une mesure de nature `gauge` ; le bloc `summary`
         est calcule AVANT decimation, sur tous les points de la fenetre. Un fichier
         absent ou vide n'est pas une erreur : l'historique est jeune, `points` est

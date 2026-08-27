@@ -108,7 +108,7 @@ Full detail, card by card: [What Vigie monitors](docs/en/features.md).
 | [Security](docs/en/security.md) | elevation, local binding, token, residual risk |
 | [Configuration](docs/en/configuration.md) | port, external tooling, local overrides |
 | [Troubleshooting](docs/en/troubleshooting.md) | logs, tray commands, common failures |
-| **[Development](docs/en/development/README.md)** | architecture, probes and actions, contributing |
+| **[Development](docs/en/developing/README.md)** | architecture, probes and actions, contributing |
 
 ## Requirements
 

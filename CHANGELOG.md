@@ -20,7 +20,7 @@
 - Sondes Windows Update : `wu-lock`, `wu-history` (lecture directe).
 - Actions : `update-mode-on`, `update-mode-off`, `run-audit`, `open-folder`.
 - Front v2 : consomme le contrat (API en direct + repli mock).
-- Documentation : `docs/conventions.md`, `docs/technologies.md`, mise a jour des
+- Documentation : `docs/en/developing/conventions.md`, `docs/en/developing/technologies.md`, mise a jour des
   4 volets ; fichier de suivi `SUIVI.md` ; fichier d'init renomme
   `PRISE-EN-MAIN.md` (nom non-standard).
 
@@ -33,14 +33,14 @@
 ### Modifie
 - `start.ps1`/`run.ps1` : garde "deja en cours" (via `Test-ServerUp`), plus de
   double demarrage.
-- `docs/conventions.md` : regle "tous les scripts idempotents".
+- `docs/en/developing/conventions.md` : regle "tous les scripts idempotents".
 
 ## 2026-08-19 (d) — Organisation des ports
 ### Modifie
 - Port par defaut 8787 -> 47600 ; documente comme configurable.
 ### Ajoute
 - `LocalWork/PORTS.md` : registre des ports (plage 47600-47699).
-- `docs/conventions.md` : convention d'allocation des ports.
+- `docs/en/developing/conventions.md` : convention d'allocation des ports.
 
 ## 2026-08-19 (e) — Fix encodage PowerShell 5.1
 ### Corrige
@@ -51,7 +51,7 @@
 ### Modifie
 - `install/start/run.ps1` : bascule auto en pwsh (PS7), UTF-8 natif ; install.ps1
   installe PS7 via winget si absent. Lanceurs conserves en ASCII pour la bascule.
-- `docs/conventions.md` : PS7 + UTF-8 remplace la contrainte ASCII generale.
+- `docs/en/developing/conventions.md` : PS7 + UTF-8 remplace la contrainte ASCII generale.
 
 ## 2026-08-19 (g) - Journalisation fichier
 ### Ajoute
@@ -100,7 +100,7 @@
   rafraichissement auto 60 s.
 
 ## 2026-08-19 (n) - Securite + remediation + UI tuiles
-### Securite (revue : docs/operating/SECURITY.md)
+### Securite (revue : docs/en/developing/security-review.md)
 - CRITIQUE : POST /actions permettait une traversee de chemin via `type`
   (execution de script arbitraire sur serveur eleve). Corrige : liste blanche +
   confinement du chemin (route + Invoke-ActionById).
@@ -119,7 +119,7 @@
   des tuiles ; contenu en pleine largeur.
 ### Modifie
 - start.ps1 / run.ps1 : auto-elevation (demande UAC si besoin) pour que le
-  serveur tourne avec les droits. Protections maintenues (voir SECURITY.md).
+  serveur tourne avec les droits. Protections maintenues (voir security-review.md).
 
 ## 2026-08-19 (p) - antivirus reel, reseau, pare-feu, version, UX refresh
 ### Corrige
@@ -475,7 +475,7 @@
 - `New-ToolsMissingResult` : message en français **accentué** (il ne concerne plus qu'une
   seule action), et il tutoyait l'utilisateur.
 - Documentation alignée : `docs/fr` et `docs/en` (configuration, fonctionnalités,
-  dépannage), `docs/REPRISE.md`, note de mise à jour sous **D18**.
+  dépannage), `docs/en/agent-working/briefing.md`, note de mise à jour sous **D18**.
 ### Verifie
 - Parser PowerShell OK sur **tous** les `.ps1` / `.psd1` du dépôt ; les **12 sondes**
   s'exécutent sans erreur.

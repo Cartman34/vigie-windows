@@ -1,6 +1,6 @@
 # Development
 
-[Documentation index](../README.md) · [Français](../../fr/developpement/README.md)
+[Documentation index](../README.md) · [Français](../../fr/README.md)
 
 This section is for people who read or change the code. If you only want to *use* Vigie,
 everything you need is in the [user documentation](../README.md#for-users).
@@ -85,8 +85,8 @@ PHP is deliberately confined to tooling. See [`apps/atelier/README.md`](https://
 - **Check the result, do not trust the return code.** After a change, re-read the system
   and report what you actually obtained.
 
-Full detail: [`docs/conventions.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/conventions.md) and
-[`docs/technologies.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/technologies.md) (French).
+Full detail: [`docs/en/developing/conventions.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/en/developing/conventions.md) and
+[`docs/en/developing/technologies.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/en/developing/technologies.md) (French).
 
 ## How to validate a change
 
@@ -234,8 +234,8 @@ version is `0.x`, the Release is marked pre-release.
 Working memory, not user documentation — read them before proposing a change that
 reverses a settled decision.
 
-- [`docs/DECISIONS-VALIDEES.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/DECISIONS-VALIDEES.md) — every settled decision, numbered `D01`…, with the reasoning and the discarded alternatives
-- [`docs/REPRISE.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/REPRISE.md) — where the project stands, and the backlog
+- [`docs/progress/decisions.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/progress/decisions.md) — every settled decision, numbered `D01`…, with the reasoning and the discarded alternatives
+- [`docs/en/agent-working/briefing.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/en/agent-working/briefing.md) — where the project stands, and the backlog
 - [`SUIVI.md`](https://github.com/Cartman34/vigie-windows/blob/main/SUIVI.md), [`CHANGELOG.md`](../../../CHANGELOG.md)
-- [`docs/targeting/features.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/targeting/features.md) — target features by ID · [`docs/implemented/status.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/implemented/status.md) — what is really implemented, by the same IDs
-- [`docs/operating/SECURITY.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/operating/SECURITY.md) — the internal security review
+- [`docs/progress/targeting/features.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/progress/targeting/features.md) — target features by ID · [`docs/progress/implemented/status.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/progress/implemented/status.md) — what is really implemented, by the same IDs
+- [`docs/en/developing/security-review.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/en/developing/security-review.md) — the internal security review

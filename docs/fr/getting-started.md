@@ -2,7 +2,7 @@
 
 [Sommaire](README.md) · [English](../en/getting-started.md)
 
-Vous avez suivi [l'installation](installation.md). Voici ce que vous avez sous les yeux.
+Vous avez suivi [l'installation](install.md). Voici ce que vous avez sous les yeux.
 
 ---
 
@@ -100,6 +100,6 @@ change le comportement de votre machine.
 
 ## Ensuite
 
-- [Ce que surveille Vigie](fonctionnalites.md) — chaque carte, chaque champ, chaque action
+- [Ce que surveille Vigie](features.md) — chaque carte, chaque champ, chaque action
 - [Windows Update](windows-update.md) — le verrou, en détail
-- [Dépannage](depannage.md) — l'icône est rouge, la page affiche la maquette, …
+- [Dépannage](troubleshooting.md) — l'icône est rouge, la page affiche la maquette, …

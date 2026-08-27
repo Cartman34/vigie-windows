@@ -1,6 +1,6 @@
 # Architecture
 
-[Development](README.md) · [Documentation index](../README.md) · [Français](../../fr/developpement/architecture.md)
+[Development](README.md) · [Documentation index](../README.md) · [Français](../../fr/README.md)
 
 ---
 

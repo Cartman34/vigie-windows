@@ -1,6 +1,6 @@
 # What Vigie monitors
 
-[Documentation index](README.md) · [Français](../fr/fonctionnalites.md)
+[Documentation index](README.md) · [Français](../fr/features.md)
 
 Every card below exists in the code today (a *probe* under
 `apps/backend-pode/probes/`); every button is a real *action* under

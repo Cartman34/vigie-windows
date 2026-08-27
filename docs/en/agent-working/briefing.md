@@ -2,9 +2,9 @@
 
 > **Rôle de ce document (consigne utilisateur)** : servir à reprendre le travail en cas de
 > perte de session — **uniquement ce qui est utile à l'instant**. Pas de journal : le
-> passé vit dans `git log` et `CHANGELOG.md`, les règles dans `DECISIONS-VALIDEES.md`.
+> passé vit dans `git log` et `CHANGELOG.md`, les règles dans `decisions.md`.
 
-Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, `PRISE-EN-MAIN.md`.
+Point de reprise. Après ce fichier : `docs/progress/decisions.md`, `SUIVI.md`, `PRISE-EN-MAIN.md`.
 
 ## Le projet
 **Vigie** : tableau de bord **local** pour un PC Windows. Dépôt : `vigie-windows`.
@@ -41,7 +41,7 @@ Point de reprise. Après ce fichier : `docs/DECISIONS-VALIDEES.md`, `SUIVI.md`, 
 
 | Ce qu'on touche | Ce qu'on lance | Ce que ça attrape |
 |---|---|---|
-| un **module** (creation/evolution) | suivre **`docs/MODULES.md`** — LA reference, a citer dans tout brief de SA qui touche aux sondes | l'oubli d'une regle D48/D49/D57 |
+| un **module** (creation/evolution) | suivre **`docs/en/developing/modules.md`** — LA reference, a citer dans tout brief de SA qui touche aux sondes | l'oubli d'une regle D48/D49/D57 |
 | n'importe quel `.ps1` | `[Parser]::ParseFile` sur chaque fichier | la syntaxe, **rien de plus** |
 | une **sonde** | `pwsh -File .\scripts\check-probes.ps1 -Only <sonde|module>` (dev, ciblé — D51) puis `-All` avant livraison | l'exécution réelle + les invariants **D49**/**D50** |
 | `apps/frontend-web/index.html` | recharger la page **servie** (`http://127.0.0.1:47600`) et lire la console | erreurs de syntaxe et d'exécution JS |
@@ -79,7 +79,7 @@ principal, `git push` des deux, puis :
 **Relancer le tray ne relance PAS le serveur** : l'ancien devient orphelin et `$startServer`
 sort aussitôt puisque le port répond — on sert alors indéfiniment du code périmé.
 - **Toucher une sonde ⇒ lancer `scripts/check-probes.ps1`** : le parseur ne voit pas qu'un paramètre est passé deux fois, l'exécution si (**D50bis**).
-- **Toute décision validée est consignée dans `docs/DECISIONS-VALIDEES.md`** + son support copié dans `docs/maquettes-validees/`.
+- **Toute décision validée est consignée dans `docs/progress/decisions.md`** + son support copié dans `docs/maquettes-validees/`.
 
 ## Architecture (contract-first)
 - `apps/backend-pode/api/openapi.yaml` = source de vérité du contrat REST.
@@ -113,8 +113,8 @@ Paramètres (D56) : notifications, modules **en accordéon** (D71), utilisateurs
 droits avec remontée des cas critiques (D70). Icônes : fonte maison (D58), cloche d'après
 Font Awesome, puzzle, utilisateurs — planche dans l'Atelier (`design-systeme.html`).
 
-Docs de référence : `MODULES.md` (créer/maintenir un module), `DESIGN.md` (design
-système), `DECISIONS-VALIDEES.md` (toutes les règles, D01→D72).
+Docs de référence : `modules.md` (créer/maintenir un module), `design.md` (design
+système), `decisions.md` (toutes les règles, D01→D72).
 
 ### File de travail
 
@@ -157,7 +157,7 @@ sondes d'un côté · gestionnaires de paquets et backend de l'autre · document
 
 ### Ce qu'un brief doit contenir, sans exception
 
-1. **Où lire** — `docs/REPRISE.md` puis les décisions précises (`D15`, `D43`, `D47`…), pas
+1. **Où lire** — `docs/en/agent-working/briefing.md` puis les décisions précises (`D15`, `D43`, `D47`…), pas
    « lis la doc ».
 2. **Le sujet, un seul**, avec le modèle existant à copier quand il y en a un (« étudie
    `wu-list-pending.action.ps1` avant d'écrire »).
@@ -195,7 +195,7 @@ trancher, puis lui redonner le sujet corrigé.
 
 
 ## Décisions validées
-Voir `docs/DECISIONS-VALIDEES.md` : icône tray = option B (graduations + talon confirmés) ; nom = dépôt « Vigie Windows » (slug `vigie-windows`), interface « Vigie » à la place de « Control Panel ».
+Voir `docs/progress/decisions.md` : icône tray = option B (graduations + talon confirmés) ; nom = dépôt « Vigie Windows » (slug `vigie-windows`), interface « Vigie » à la place de « Control Panel ».
 
 ## Dépôt GitHub (état à jour)
 

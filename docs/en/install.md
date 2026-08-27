@@ -1,6 +1,6 @@
 # Installation
 
-[Documentation index](README.md) · [Français](../fr/installation.md)
+[Documentation index](README.md) · [Français](../fr/install.md)
 
 Two routes. The **archive** is the recommended one: it needs no git and no developer
 tooling. The **git clone** is for people who intend to read or change the code.
@@ -66,7 +66,7 @@ cd vigie-windows
 ```
 
 Same folder layout, same scripts. Choose this if you want to follow `main`, read the
-code, or contribute — see [Development](development/README.md).
+code, or contribute — see [Development](developing/README.md).
 
 ---
 

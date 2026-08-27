@@ -103,4 +103,4 @@ It changes only on a deliberate decision, not with every commit.
 ## Next
 
 - [Troubleshooting](troubleshooting.md) — reading those logs
-- [Development](development/README.md) — the reasoning behind this layout
+- [Development](developing/README.md) — the reasoning behind this layout
