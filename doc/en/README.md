@@ -42,6 +42,6 @@ distribution archive, so the links below point at GitHub.
 
 ## Status
 
-Product version **v0.1** (file [`VERSION`](../../VERSION) at the repository root; the
-`v` prefix is added when displaying). **Nothing is published yet** — no release, no
-installer, no compatibility guarantee.
+The version number comes from the **last git tag**, set at deployment time, and from no other source: an installed
+archive carries its own, a repository answers with its own. **Nothing is published yet** — no release, no installer,
+no compatibility guarantee.

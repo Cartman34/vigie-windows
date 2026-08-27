@@ -3,7 +3,7 @@
     Fabrique l'archive de distribution de Vigie, celle qui est attachee a une Release GitHub.
 
 .DESCRIPTION
-    Produit dist/vigie-<version>.zip. La version vient du fichier VERSION a la racine et
+    Produit dist/vigie-<version>.zip. La version vient du dernier TAG git (ou de -Version) et
     de NULLE PART ailleurs (D15) ; le fichier ne porte que le numero nu, le prefixe « v »
     reste un detail d'affichage et n'entre pas dans le nom de l'archive.
 
@@ -42,14 +42,14 @@
 .NOTES
     Codes de retour :
       0 = archive produite (ou liste affichee avec -ListOnly)
-      1 = prerequis manquant (git absent, fichier VERSION absent ou vide, hors depot git)
+      1 = prerequis manquant (git absent, hors depot git)
       2 = GARDE-FOU : un chemin interdit a ete detecte, aucune archive n'est laissee
       3 = echec de fabrication (copie, compression, ou decompte incoherent)
 #>
 [CmdletBinding()]
 param(
     [string] $OutDir,
-    # Numero a graver dans l'archive. Absent : celui du fichier VERSION. Le deploiement,
+    # Numero a graver dans l'archive. Absent : celui du dernier TAG. Le deploiement,
     # lui, passe le TAG qu'il vient de poser (v0.1.3) : l'archive et le tag disent alors
     # exactement la meme chose.
     [string] $Version,
@@ -185,12 +185,7 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     exit 1
 }
 
-$versionFile = Join-Path $repoRoot 'VERSION'
-if ($false) {
-    Write-Host "Fichier VERSION introuvable à la racine du dépôt : $versionFile" -ForegroundColor Yellow
-    exit 1
-}
-# Le numero ne vit qu'ici (D15). Le prefixe « v » est un habillage d'affichage : il ne
+# Le prefixe « v » est un habillage d'affichage : il ne
 # rentre pas dans un nom de fichier, sinon il faudrait le retirer partout ailleurs.
 # Le numero vient du TAG (via Get-BuildStamp), ou de -Version quand le deploiement
 # vient d'en poser un. Plus de fichier VERSION a tenir a jour (D96).
@@ -199,10 +194,6 @@ if (-not $version -or $version -eq 'sans version') { $version = '0.1' }
 # Un « + » dans un nom de fichier est legal mais desagreable : v0.1.6+6 devient
 # 0.1.6-dev6 dans le nom de l'archive.
 $version = $version -replace '\+', '-dev'
-if (-not $version) {
-    Write-Host "Le fichier VERSION est vide. Le nom de l'archive en dépend." -ForegroundColor Yellow
-    exit 1
-}
 
 # --- Inventaire : ce que git suit ------------------------------------------------------
 Push-Location $repoRoot

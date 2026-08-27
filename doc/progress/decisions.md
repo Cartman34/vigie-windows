@@ -2066,6 +2066,18 @@ Soiree entiere passee dessus, quatre echecs de suite, chacun instructif :
 telechargement, et n'annonce jamais un succes qu'il n'a pas constate. Le chemin de
 reference reste `C:\Program Files\PowerShell\7` : c'est lui que lancent les taches de demarrage.
 
+## D84 — Une archive porte sa propre identité (2026-08-26)
+
+Un dossier installé ne dit pas d'où il vient. Le dépôt, lui, sait répondre : `git describe` donne le dernier tag et ce
+qui a été commité depuis. L'archive n'a ni tags, ni `.git`.
+
+`build-release.ps1` grave donc une **marque de fabrication** dans l'archive au moment de la produire : le numéro **et**
+le commit. Le numéro seul ne suffit pas — deux archives peuvent porter `v0.1.7` et ne pas contenir le même code si
+l'une a été fabriquée avant un correctif. Le commit tranche.
+
+`Get-BuildStamp` lit cette marque ; à défaut, il interroge git. Une installation répond donc toujours, et toujours la
+même chose que ce qu'elle contient.
+
 ## D86 - Deux exports, imprimables, sobres (2026-08-26)
 
 Demande : « les specs de l'ordi, le materiel, les choses qui ne bougent pas » d'un cote,
@@ -2233,3 +2245,29 @@ règle de travail.
 
 Un seul fichier porte un suffixe de langue à la racine, `README.fr.md` : c'est une convention GitHub, pas une entorse
 à la règle des noms techniques.
+
+## D95 — Ce qui tourne se voit depuis toutes les pages (2026-08-26)
+
+« Idéalement, quand y'a plusieurs pages ouvertes, toutes devraient voir dans le drawer notifications qu'une opération
+est en cours et tous recevoir le toast. »
+
+Une opération longue appartenait à l'onglet qui l'avait lancée. Un second onglet ne la voyait pas, proposait le même
+bouton, et deux exécutions concurrentes pouvaient se marcher dessus.
+
+L'état des opérations vit désormais côté serveur — marqueurs d'occupation par module, résultats du dernier lancement —
+et les pages l'interrogent. Toutes affichent la même opération en cours, toutes reçoivent le résultat, et le verrou de
+ressources vaut pour toutes. Le serveur est la seule source : une page n'est qu'une vue.
+
+## D96 — Un seul numéro de version, et il ne se tient pas à la main (2026-08-26)
+
+« Y'a pas la version précise ici. On ne devrait pas maintenir 2 numéros de version. »
+
+Un fichier `VERSION` à la racine portait `0.1` pendant que les tags git avançaient. Deux réponses possibles à « quelle
+version tourne ici ? », dont une fausse dès le premier commit suivant.
+
+Le numéro vient du **dernier tag**, posé au moment d'un déploiement (voir `deploy-prod.ps1`), et lui seul. Le fichier
+`VERSION` est supprimé, sa fonction de lecture avec. Un tag posé à chaque commit ne voudrait rien dire ; posé au
+déploiement, il répond exactement à la question. Le commit s'affiche à côté du numéro, parce qu'un numéro sans commit
+ne distingue pas deux fabrications du même tag (**D84**).
+
+Numéros jamais attribués, à ne pas réutiliser : D82, D83, D85, D94.
