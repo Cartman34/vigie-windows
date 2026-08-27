@@ -59,8 +59,8 @@ pwsh -ExecutionPolicy Bypass -File .\scripts\install-autostart.ps1
 ```
 
 The git route, what each script does, and how to uninstall:
-[Installation](docs/en/install.md). First run and how to read the dashboard:
-[Getting started](docs/en/getting-started.md).
+[Installation](doc/en/install.md). First run and how to read the dashboard:
+[Getting started](doc/en/getting-started.md).
 
 ## Read this before you install
 
@@ -71,7 +71,7 @@ Vigie is not a passive monitor. Three things you must know:
    (`NoAutoUpdate`) and an ACL lock prevents Windows from re-enabling its update tasks.
    No update installs itself, and **no reboot is ever forced** — but nothing installs
    itself either. Keeping a machine patched becomes *your* deliberate act, from Vigie's
-   "Update mode" or from Windows Settings. See [Windows Update](docs/en/windows-update.md).
+   "Update mode" or from Windows Settings. See [Windows Update](doc/en/windows-update.md).
 2. **It runs as administrator.** Reading and applying that lock means registry writes
    under `HKLM`, scheduled-task changes and ACL changes. The scheduled task that starts
    Vigie is registered with the highest privileges, and starting it by hand triggers a
@@ -79,7 +79,7 @@ Vigie is not a passive monitor. Three things you must know:
 3. **It listens on 127.0.0.1 only** — never on a network interface. The API requires a
    bearer token, checks the request origin, and only runs actions from a fixed
    whitelist. There is one known residual risk (the token is injected into the served
-   page), described honestly in [Security](docs/en/security.md).
+   page), described honestly in [Security](doc/en/security.md).
 
 ---
 
@@ -94,21 +94,21 @@ Vigie is not a passive monitor. Three things you must know:
 | **WSL** | installed, default distribution, running/stopped, start / restart / shut down |
 | **Package managers** | one card per manager found in `PATH` (winget, Chocolatey, Scoop, npm, pnpm, Yarn, pip, pipx, Cargo, RubyGems, .NET SDK) — version, available updates, background upgrade |
 
-Full detail, card by card: [What Vigie monitors](docs/en/features.md).
+Full detail, card by card: [What Vigie monitors](doc/en/features.md).
 
 ## Documentation
 
 | | |
 |---|---|
-| [Documentation index](docs/en/README.md) | everything, in one page |
-| [Installation](docs/en/install.md) | archive or git clone, autostart, uninstall |
-| [Getting started](docs/en/getting-started.md) | first launch, tray icon, reading a card |
-| [What Vigie monitors](docs/en/features.md) | every card and every action |
-| [Windows Update](docs/en/windows-update.md) | the lock, update mode, installing updates |
-| [Security](docs/en/security.md) | elevation, local binding, token, residual risk |
-| [Configuration](docs/en/configuration.md) | port, external tooling, local overrides |
-| [Troubleshooting](docs/en/troubleshooting.md) | logs, tray commands, common failures |
-| **[Development](docs/en/developing/README.md)** | architecture, probes and actions, contributing |
+| [Documentation index](doc/en/README.md) | everything, in one page |
+| [Installation](doc/en/install.md) | archive or git clone, autostart, uninstall |
+| [Getting started](doc/en/getting-started.md) | first launch, tray icon, reading a card |
+| [What Vigie monitors](doc/en/features.md) | every card and every action |
+| [Windows Update](doc/en/windows-update.md) | the lock, update mode, installing updates |
+| [Security](doc/en/security.md) | elevation, local binding, token, residual risk |
+| [Configuration](doc/en/configuration.md) | port, external tooling, local overrides |
+| [Troubleshooting](doc/en/troubleshooting.md) | logs, tray commands, common failures |
+| **[Development](doc/en/developing/README.md)** | architecture, probes and actions, contributing |
 
 ## Requirements
 

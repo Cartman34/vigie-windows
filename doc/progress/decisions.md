@@ -1,7 +1,7 @@
 # Décisions validées — à ne JAMAIS perdre
 
 > Règle : toute décision validée par l'utilisateur est consignée ici **et** son
-> support (maquette HTML, paramètres exacts) est copié dans `docs/maquettes-validees/`.
+> support (maquette HTML, paramètres exacts) est copié dans `doc/maquettes-validees/`.
 > Ces fichiers vivent dans le dépôt, sur la machine — jamais uniquement dans une
 > discussion ou un environnement éphémère.
 >
@@ -32,7 +32,7 @@ Ajouter une décision = ajouter son numéro à une ligne.
 
 **Nom de référence : `icône tray v1 — jauge à graduations`.**
 Provenance historique : proposée comme « option B — Teinte 0,72 » dans la maquette
-`docs/maquettes-validees/icone-tray_needle-liseres2.html`. Ce libellé d'option n'a plus
+`doc/maquettes-validees/icone-tray_needle-liseres2.html`. Ce libellé d'option n'a plus
 cours (voir **D04**) ; il n'est conservé ici que pour retrouver la maquette d'origine.
 
 Caractéristiques (en fractions de la taille `s`) :
@@ -105,7 +105,7 @@ Renommages retenus :
 | Titre `apps/backend-pode/api/openapi.yaml` « HYPERION Control Panel API » | « Vigie API » |
 | `backend/demarrer-hyperion.vbs` | `scripts/start-vigie.vbs` |
 
-**Exception** : `docs/maquettes-validees/` n'est pas retouché — c'est l'archive des supports
+**Exception** : `doc/maquettes-validees/` n'est pas retouché — c'est l'archive des supports
 de décision, on n'y réécrit pas l'histoire.
 
 ## D06 — Validation du JS du front : navigateur, pas Node
@@ -177,7 +177,7 @@ un chemin de machine n'a rien à faire dans le code.
 Une fois tous les postes migrés, ce fichier peut être supprimé : les anciens noms
 disparaissent alors avec lui.
 
-## D12 — `docs/en/agent-working/briefing.md` décrit l'environnement réel
+## D12 — `doc/en/agent-working/briefing.md` décrit l'environnement réel
 
 La section « Contraintes environnement » décrivait une VM Linux éphémère (Cowork/`device_bash`,
 « pas de pwsh », « git ne peut pas s'initialiser »). Elle est réécrite pour la machine réelle :
@@ -510,14 +510,14 @@ mesurées, pas des préférences :
    sonde ferait **~4,2 s** de pur démarrage par rafraîchissement complet ; aujourd'hui
    `/health` répond en **65 ms** dans un runtime déjà chaud.
 
-Documenté dans `README.md`, `docs/en/agent-working/briefing.md` et `apps/atelier/README.md`.
+Documenté dans `README.md`, `doc/en/agent-working/briefing.md` et `apps/atelier/README.md`.
 
 **Règle de travail associée** : en cas de doute sur l'appartenance d'un composant à l'une ou
 l'autre brique, **demander à l'utilisateur avec une suggestion** plutôt que de trancher seul.
 
 ## D29 — Le dépôt contient plusieurs apps : `apps/` + `scripts/`
 
-L'Atelier n'est pas un « outil » rangé dans `docs/` : c'est **une app du projet**, même si
+L'Atelier n'est pas un « outil » rangé dans `doc/` : c'est **une app du projet**, même si
 elle ne sert qu'au développement. Le tray non plus n'est pas un morceau du backend : il a
 son interface, ses icônes et son cycle de vie propres.
 
@@ -529,7 +529,7 @@ apps/
   tray/              app barre système : tray.ps1 + assets/ (icônes + générateur)
   atelier/           app de développement : serveur php, page, sa config
 scripts/             install, désinstall, run, migration
-docs/                documentation transverse
+doc/                documentation transverse
 logs/                journaux communs à toutes les apps
 ```
 
@@ -623,7 +623,7 @@ commit**, pas « plus tard ».
 
 **Ce qui a déclenché cette règle** (manquements réels, à ne pas reproduire) :
 
-- `docs/archives/migration-apps.md` a porté un avertissement « ⛔ ne pas fusionner » **après** que la
+- `doc/archives/migration-apps.md` a porté un avertissement « ⛔ ne pas fusionner » **après** que la
   fusion ait eu lieu. Lu tel quel, il aurait fait renoncer à une action déjà faite.
 - **D29** et la note de migration ont gardé une section « question laissée ouverte » sur
   l'emplacement du contrat alors que **D30** l'avait tranchée.
@@ -890,7 +890,7 @@ premier. Pas de récit de l'enquête, pas de justification de la méthode, pas d
 qui a déjà été dit.
 
 Le détail — cause, mesure, raisonnement — va dans le **dépôt** : décision, commentaire de
-code, ou entrée de `docs/en/agent-working/briefing.md`. C'est là qu'il survit et qu'on le retrouve ; dans un
+code, ou entrée de `doc/en/agent-working/briefing.md`. C'est là qu'il survit et qu'on le retrouve ; dans un
 message, il se lit une fois puis se perd.
 
 Une phrase de plus n'est justifiée que si elle change une décision de l'utilisateur : un
@@ -940,7 +940,7 @@ poste) et `.claude/worktrees/` (arbres de travail), tous deux ignorés.
 
 | En anglais | En français |
 |---|---|
-| noms de fichiers de code, identifiants, fonctions, paramètres | documentation (`docs/`, `README.md`, `CHANGELOG.md`, `SUIVI.md`) |
+| noms de fichiers de code, identifiants, fonctions, paramètres | documentation (`doc/`, `README.md`, `CHANGELOG.md`, `SUIVI.md`) |
 | valeurs techniques, clés de configuration | échanges avec l'utilisateur |
 | | libellés affichés à l'utilisateur (interface, messages) |
 
@@ -956,7 +956,7 @@ Renommages appliqués :
 | `apps/tray/assets/generer-icones.py` | `apps/tray/assets/generate-icons.py` |
 
 **Exceptions** : `vigie` et `atelier` sont des **noms propres** — un nom de produit ne se
-traduit pas. `docs/maquettes-validees/` reste intact (**D05** : on ne réécrit pas l'archive
+traduit pas. `doc/maquettes-validees/` reste intact (**D05** : on ne réécrit pas l'archive
 des supports de décision), de même que les entrées historiques de `CHANGELOG.md` et
 `SUIVI.md`, qui consignent des faits datés.
 
@@ -1127,7 +1127,7 @@ Pistes essayées pour désactiver l'aperçu, **sans succès à ce jour** :
 Contrepartie assumée : une couche de script a déjà cassé des chaînes JavaScript
 (apostrophes, `\n`). Elle impose donc son garde-fou — recherche des chaînes monoquotes
 non terminées — **et** un rechargement de la page servie avant d'annoncer quoi que ce soit.
-`docs/progress/decisions.md` garde la règle inverse (**D36**) : lui s'écrit avec l'outil
+`doc/progress/decisions.md` garde la règle inverse (**D36**) : lui s'écrit avec l'outil
 d'édition, car une couche shell l'avait corrompu.
 
 ## D48 — Gestion des modules : un panneau latéral, deux portes d'entrée

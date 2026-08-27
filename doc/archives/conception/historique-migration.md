@@ -160,7 +160,7 @@ D52 (journal, fait) ──► 1 (socle + pilotes) ──► 2 (contrat) ──�
 Seul enchaînement contraint : 1 avant 2, 2 avant 3, 1 avant 4, 4 avant 5d. Les étapes 4 à
 6 peuvent s'intercaler selon l'envie et le temps ; chaque livraison suit le rite habituel
 (commit sur branche, fusion, redéploiement complet — y compris `Stop-Process` du port
-47600, cf. `docs/en/agent-working/briefing.md`).
+47600, cf. `doc/en/agent-working/briefing.md`).
 
 ## Risques identifiés et parades
 

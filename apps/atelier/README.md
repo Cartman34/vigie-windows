@@ -133,7 +133,7 @@ Les géométries de la page sont une **reproduction** du code, pas sa source.
 Toute valeur retenue doit être reportée **en miroir** :
 
 1. dans le code (`generate-icons.py`, `tray.ps1`, …) ;
-2. dans [`docs/progress/decisions.md`](../../docs/progress/decisions.md).
+2. dans [`doc/progress/decisions.md`](../../doc/progress/decisions.md).
 
 Sans cela l'atelier devient trompeur — c'est précisément ce qu'il sert à éviter.
 

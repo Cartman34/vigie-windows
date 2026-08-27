@@ -30,13 +30,13 @@ Ce sont la mémoire du projet, pas de la documentation d'usage. Ils restent tels
 Ils sont livrés avec le dépôt, **pas** avec l'archive de distribution : les liens
 ci-dessous mènent donc à GitHub.
 
-- [`docs/progress/decisions.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/progress/decisions.md) — chaque décision tranchée, numérotée `D01`…
-- [`docs/en/agent-working/briefing.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/en/agent-working/briefing.md) — où en est le projet, et la suite
+- [`doc/progress/decisions.md`](https://github.com/Cartman34/vigie-windows/blob/main/doc/progress/decisions.md) — chaque décision tranchée, numérotée `D01`…
+- [`doc/en/agent-working/briefing.md`](https://github.com/Cartman34/vigie-windows/blob/main/doc/en/agent-working/briefing.md) — où en est le projet, et la suite
 - [`SUIVI.md`](https://github.com/Cartman34/vigie-windows/blob/main/SUIVI.md) — journal courant
 - [`CHANGELOG.md`](../../CHANGELOG.md) — historique des changements
-- [`docs/progress/targeting/features.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/progress/targeting/features.md) — fonctionnalités cibles, par ID
-- [`docs/progress/implemented/status.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/progress/implemented/status.md) — ce qui est réellement fait, par ID
-- [`docs/en/developing/conventions.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/en/developing/conventions.md), [`docs/en/developing/technologies.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/en/developing/technologies.md)
+- [`doc/progress/targeting/features.md`](https://github.com/Cartman34/vigie-windows/blob/main/doc/progress/targeting/features.md) — fonctionnalités cibles, par ID
+- [`doc/progress/implemented/status.md`](https://github.com/Cartman34/vigie-windows/blob/main/doc/progress/implemented/status.md) — ce qui est réellement fait, par ID
+- [`doc/en/developing/conventions.md`](https://github.com/Cartman34/vigie-windows/blob/main/doc/en/developing/conventions.md), [`doc/en/developing/technologies.md`](https://github.com/Cartman34/vigie-windows/blob/main/doc/en/developing/technologies.md)
 
 ## État
 

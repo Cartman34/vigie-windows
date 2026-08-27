@@ -3,7 +3,7 @@
 > Ce document est **la** marche à suivre : toute création ou modification de module s'y
 > conforme, et tout brief de sous-agent qui touche aux sondes pointe ici. Ce qui suit est
 > issu des décisions (D41, D43, D44, D48, D49, D50, D57) — le détail de chaque règle est
-> dans `docs/progress/decisions.md`.
+> dans `doc/progress/decisions.md`.
 
 ## Le modèle en une phrase
 
@@ -99,7 +99,7 @@ Le parseur ne suffit pas (D50bis) ; le code de retour ne suffit pas non plus : o
 - Un seuil ou réglage nouveau → une clé `Config` + une entrée `Parameters`, jamais un
   nombre en dur ajouté dans la sonde.
 - Une évolution visible à l'écran → répercuter la page « Design système » de l'Atelier
-  dans la même livraison (`docs/en/developing/design.md`).
+  dans la même livraison (`doc/en/developing/design.md`).
 - Un nouveau module → il apparaît automatiquement dans Paramètres > Modules (catalogue) ;
   vérifier que couper/rallumer fonctionne.
 - Après toute modification servie : recharger la page **servie** (jamais `file://`, D47).

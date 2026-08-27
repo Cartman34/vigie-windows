@@ -20,7 +20,7 @@
 - Sondes Windows Update : `wu-lock`, `wu-history` (lecture directe).
 - Actions : `update-mode-on`, `update-mode-off`, `run-audit`, `open-folder`.
 - Front v2 : consomme le contrat (API en direct + repli mock).
-- Documentation : `docs/en/developing/conventions.md`, `docs/en/developing/technologies.md`, mise a jour des
+- Documentation : `doc/en/developing/conventions.md`, `doc/en/developing/technologies.md`, mise a jour des
   4 volets ; fichier de suivi `SUIVI.md` ; fichier d'init renomme
   `PRISE-EN-MAIN.md` (nom non-standard).
 
@@ -33,14 +33,14 @@
 ### Modifie
 - `start.ps1`/`run.ps1` : garde "deja en cours" (via `Test-ServerUp`), plus de
   double demarrage.
-- `docs/en/developing/conventions.md` : regle "tous les scripts idempotents".
+- `doc/en/developing/conventions.md` : regle "tous les scripts idempotents".
 
 ## 2026-08-19 (d) — Organisation des ports
 ### Modifie
 - Port par defaut 8787 -> 47600 ; documente comme configurable.
 ### Ajoute
 - `LocalWork/PORTS.md` : registre des ports (plage 47600-47699).
-- `docs/en/developing/conventions.md` : convention d'allocation des ports.
+- `doc/en/developing/conventions.md` : convention d'allocation des ports.
 
 ## 2026-08-19 (e) — Fix encodage PowerShell 5.1
 ### Corrige
@@ -51,7 +51,7 @@
 ### Modifie
 - `install/start/run.ps1` : bascule auto en pwsh (PS7), UTF-8 natif ; install.ps1
   installe PS7 via winget si absent. Lanceurs conserves en ASCII pour la bascule.
-- `docs/en/developing/conventions.md` : PS7 + UTF-8 remplace la contrainte ASCII generale.
+- `doc/en/developing/conventions.md` : PS7 + UTF-8 remplace la contrainte ASCII generale.
 
 ## 2026-08-19 (g) - Journalisation fichier
 ### Ajoute
@@ -100,7 +100,7 @@
   rafraichissement auto 60 s.
 
 ## 2026-08-19 (n) - Securite + remediation + UI tuiles
-### Securite (revue : docs/en/developing/security-review.md)
+### Securite (revue : doc/en/developing/security-review.md)
 - CRITIQUE : POST /actions permettait une traversee de chemin via `type`
   (execution de script arbitraire sur serveur eleve). Corrige : liste blanche +
   confinement du chemin (route + Invoke-ActionById).
@@ -270,7 +270,7 @@
   .NET `VigieNative` / `VigieDarkColors`, variables d'environnement
   `VIGIE_BACKEND` / `VIGIE_TOKEN` / `VIGIE_PORT` (ex-`HCP_*`), titre
   `api/openapi.yaml` « Vigie API », lanceur `backend/demarrer-vigie.vbs`.
-  Archive `docs/maquettes-validees/` volontairement non retouchée.
+  Archive `doc/maquettes-validees/` volontairement non retouchée.
 - **DRY** : l'URL du dépôt devient une constante unique par langage — `REPO_URL`
   (front) et `$RepoUrl` (tray) ; le libellé affiché est dérivé de l'URL. Nombres
   magiques du front hissés en constantes (`REFRESH_MS`, `VERSION_POLL_MS`,
@@ -401,7 +401,7 @@
 - `run-audit` rapporte un résumé (verrou, tâches désactivées/actives) et le chemin du
   rapport, au lieu de « Audit lancé » sans savoir si quoi que ce soit avait été écrit.
 - `ToolsPath` documenté comme **facultatif** : `config.psd1`, `config.local.sample.psd1`,
-  `docs/fr` et `docs/en` (configuration, windows-update, dépannage, sondes-et-actions).
+  `doc/fr` et `doc/en` (configuration, windows-update, dépannage, sondes-et-actions).
   Restent tributaires de l'outillage : `toggle-vbs`, `toggle-hvci`, `open-folder`.
 ### Corrige
 - **Clé de stratégie absente** : l'écriture de `NoAutoUpdate` échouait silencieusement
@@ -474,8 +474,8 @@
 - `lock.probe.ps1` consomme `Test-RestartCountdown` au lieu de sa copie locale.
 - `New-ToolsMissingResult` : message en français **accentué** (il ne concerne plus qu'une
   seule action), et il tutoyait l'utilisateur.
-- Documentation alignée : `docs/fr` et `docs/en` (configuration, fonctionnalités,
-  dépannage), `docs/en/agent-working/briefing.md`, note de mise à jour sous **D18**.
+- Documentation alignée : `doc/fr` et `doc/en` (configuration, fonctionnalités,
+  dépannage), `doc/en/agent-working/briefing.md`, note de mise à jour sous **D18**.
 ### Verifie
 - Parser PowerShell OK sur **tous** les `.ps1` / `.psd1` du dépôt ; les **12 sondes**
   s'exécutent sans erreur.

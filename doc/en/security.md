@@ -72,7 +72,7 @@ None of these are implemented in v0.1.
 - If it touches system security, review it here before merging.
 
 See [Probes and actions](developing/probes-and-actions.md) for the mechanics, and
-[`docs/en/developing/security-review.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/en/developing/security-review.md) for the project's internal
+[`doc/en/developing/security-review.md`](https://github.com/Cartman34/vigie-windows/blob/main/doc/en/developing/security-review.md) for the project's internal
 security review (French).
 
 ## What Vigie does not do

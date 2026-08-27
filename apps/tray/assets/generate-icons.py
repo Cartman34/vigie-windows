@@ -17,7 +17,7 @@ la pratique normale quand une meme marque doit tenir de 16 a 256 px.
 Chaque taille est tracee en supersampling (x8) puis reduite : les bords sont propres sans
 dependre du filtre de reduction de Pillow sur un dessin trop charge.
 
-Geometrie : voir docs/DECISIONS-VALIDEES.md (D01 pour les proportions, D23 pour les
+Geometrie : voir doc/DECISIONS-VALIDEES.md (D01 pour les proportions, D23 pour les
 fractions de niveau, D27 pour les graduations sous l'arc, D37 pour les niveaux de detail).
 Toute valeur modifiee ici doit l'etre en miroir dans le repli GDI+ de apps/tray/tray.ps1
 et dans l'atelier de validation (apps/atelier/index.html).
