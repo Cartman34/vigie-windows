@@ -27,7 +27,7 @@ apps/
   atelier/                 Internal visual-validation tool (PHP) — not part of the product
 scripts/                   install, run, autostart, uninstall, tray control, git hooks
   build-release.ps1          Builds the distribution archive
-docs/                      This documentation + the project's internal working documents
+doc/                      This documentation + the project's internal working documents
 dist/                      Build output (git-ignored)
 ```
 
@@ -85,8 +85,8 @@ PHP is deliberately confined to tooling. See [`apps/atelier/README.md`](https://
 - **Check the result, do not trust the return code.** After a change, re-read the system
   and report what you actually obtained.
 
-Full detail: [`docs/en/developing/conventions.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/en/developing/conventions.md) and
-[`docs/en/developing/technologies.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/en/developing/technologies.md) (French).
+Full detail: [`doc/en/developing/conventions.md`](https://github.com/Cartman34/vigie-windows/blob/main/doc/en/developing/conventions.md) and
+[`doc/en/developing/technologies.md`](https://github.com/Cartman34/vigie-windows/blob/main/doc/en/developing/technologies.md) (French).
 
 ## How to validate a change
 
@@ -234,8 +234,8 @@ version is `0.x`, the Release is marked pre-release.
 Working memory, not user documentation — read them before proposing a change that
 reverses a settled decision.
 
-- [`docs/progress/decisions.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/progress/decisions.md) — every settled decision, numbered `D01`…, with the reasoning and the discarded alternatives
-- [`docs/en/agent-working/briefing.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/en/agent-working/briefing.md) — where the project stands, and the backlog
+- [`doc/progress/decisions.md`](https://github.com/Cartman34/vigie-windows/blob/main/doc/progress/decisions.md) — every settled decision, numbered `D01`…, with the reasoning and the discarded alternatives
+- [`doc/en/agent-working/briefing.md`](https://github.com/Cartman34/vigie-windows/blob/main/doc/en/agent-working/briefing.md) — where the project stands, and the backlog
 - [`SUIVI.md`](https://github.com/Cartman34/vigie-windows/blob/main/SUIVI.md), [`CHANGELOG.md`](../../../CHANGELOG.md)
-- [`docs/progress/targeting/features.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/progress/targeting/features.md) — target features by ID · [`docs/progress/implemented/status.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/progress/implemented/status.md) — what is really implemented, by the same IDs
-- [`docs/en/developing/security-review.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/en/developing/security-review.md) — the internal security review
+- [`doc/progress/targeting/features.md`](https://github.com/Cartman34/vigie-windows/blob/main/doc/progress/targeting/features.md) — target features by ID · [`doc/progress/implemented/status.md`](https://github.com/Cartman34/vigie-windows/blob/main/doc/progress/implemented/status.md) — what is really implemented, by the same IDs
+- [`doc/en/developing/security-review.md`](https://github.com/Cartman34/vigie-windows/blob/main/doc/en/developing/security-review.md) — the internal security review

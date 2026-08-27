@@ -30,13 +30,13 @@ These are the project's own memory, not user documentation. They are French-only
 they are deliberately left as they are. They ship with the repository, **not** with the
 distribution archive, so the links below point at GitHub.
 
-- [`docs/progress/decisions.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/progress/decisions.md) — every settled decision, numbered `D01`…
-- [`docs/en/agent-working/briefing.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/en/agent-working/briefing.md) — where the project stands and what comes next
+- [`doc/progress/decisions.md`](https://github.com/Cartman34/vigie-windows/blob/main/doc/progress/decisions.md) — every settled decision, numbered `D01`…
+- [`doc/en/agent-working/briefing.md`](https://github.com/Cartman34/vigie-windows/blob/main/doc/en/agent-working/briefing.md) — where the project stands and what comes next
 - [`SUIVI.md`](https://github.com/Cartman34/vigie-windows/blob/main/SUIVI.md) — running log
 - [`CHANGELOG.md`](../../CHANGELOG.md) — change history
-- [`docs/progress/targeting/features.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/progress/targeting/features.md) — target features, by ID
-- [`docs/progress/implemented/status.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/progress/implemented/status.md) — what is really implemented, by ID
-- [`docs/en/developing/conventions.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/en/developing/conventions.md), [`docs/en/developing/technologies.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/en/developing/technologies.md)
+- [`doc/progress/targeting/features.md`](https://github.com/Cartman34/vigie-windows/blob/main/doc/progress/targeting/features.md) — target features, by ID
+- [`doc/progress/implemented/status.md`](https://github.com/Cartman34/vigie-windows/blob/main/doc/progress/implemented/status.md) — what is really implemented, by ID
+- [`doc/en/developing/conventions.md`](https://github.com/Cartman34/vigie-windows/blob/main/doc/en/developing/conventions.md), [`doc/en/developing/technologies.md`](https://github.com/Cartman34/vigie-windows/blob/main/doc/en/developing/technologies.md)
 
 ## Status
 

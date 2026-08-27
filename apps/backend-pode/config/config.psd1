@@ -28,7 +28,7 @@
     # Un chemin absolu est propre a une machine : renseigne-le dans config.local.psd1.
     ToolsPath   = ''
 
-    # --- Historique des mesures (docs/archives/conception/historique-cible.md, section 5) ------
+    # --- Historique des mesures (doc/archives/conception/historique-cible.md, section 5) ------
     # Series echantillonnees au passage des sondes, stockees dans var/history/ (un
     # fichier JSONL par mesure). Resolution en couches par Get-HistoryConfig
     # (lib/common.ps1) : ces valeurs globales, puis le reglage par mesure ci-dessous.

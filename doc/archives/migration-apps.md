@@ -45,7 +45,7 @@ apps/
   tray/              app barre système : tray.ps1 + assets/ (icônes + générateur)
   atelier/           app de développement : serveur php, page, sa config
 scripts/             install, désinstall, run, migration
-docs/                documentation transverse
+doc/                documentation transverse
 logs/                journaux communs à toutes les apps
 ```
 

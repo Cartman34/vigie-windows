@@ -104,20 +104,20 @@ $EXCLUSIONS = @(
     @{ Motif = '^(SUIVI|PRISE-EN-MAIN)\.md$'
        Raison = "Documents de travail : journal courant et fiche d'amorçage pour un agent qui reprend le projet." }
 
-    @{ Motif = '^docs/progress/'
+    @{ Motif = '^doc/progress/'
        Raison = "Suivi du projet : ce qu'on vise, ce qui est fait, les décisions prises. Utile à qui code, pas à qui utilise." }
 
-    @{ Motif = '^docs/archives/'
+    @{ Motif = '^doc/archives/'
        Raison = "Ce qui est révolu, gardé pour la trace : historiques de conception, migration terminée, maquettes validées." }
 
-    @{ Motif = '^docs/en/agent-working/'
+    @{ Motif = '^doc/en/agent-working/'
        Raison = "Briefing et disciplines de l'agent qui travaille sur le dépôt. Sans objet pour qui utilise Vigie." }
 
-    @{ Motif = '^docs/en/developing/security-review\.md$'
-       Raison = "Revue de sécurité INTERNE, à relire à chaque ajout d'action. La page publique équivalente est docs/*/security.md." }
+    @{ Motif = '^doc/en/developing/security-review\.md$'
+       Raison = "Revue de sécurité INTERNE, à relire à chaque ajout d'action. La page publique équivalente est doc/*/security.md." }
 
-    @{ Motif = '^docs/README\.md$'
-       Raison = "Aiguillage du dépôt : il ne pointe QUE vers les documents internes ci-dessus. Dans l'archive, README.md mène directement à docs/en/ et docs/fr/." }
+    @{ Motif = '^doc/README\.md$'
+       Raison = "Aiguillage du dépôt : il ne pointe QUE vers les documents internes ci-dessus. Dans l'archive, README.md mène directement à doc/en/ et doc/fr/." }
 )
 
 # ---------------------------------------------------------------------------------------

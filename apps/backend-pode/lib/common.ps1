@@ -8,7 +8,7 @@ function Get-BackendRoot { Split-Path $PSScriptRoot -Parent }
 
 # --- Reperes de l'arborescence ------------------------------------------------
 # Le depot contient PLUSIEURS apps (apps/backend, apps/frontend, apps/tray,
-# apps/atelier) plus scripts/ et docs/. Ces reperes sont calcules ICI et nulle
+# apps/atelier) plus scripts/ et doc/. Ces reperes sont calcules ICI et nulle
 # part ailleurs : aucun script ne doit recomposer un chemin inter-apps a la main.
 function Get-RepoRoot { Split-Path (Split-Path (Get-BackendRoot) -Parent) -Parent }
 function Get-AppsRoot { Split-Path (Get-BackendRoot) -Parent }
@@ -1363,7 +1363,7 @@ function Get-VarRoot {
 function Get-VarPath {
     param(
         [string]$Backend = (Get-BackendRoot),
-        # 'history' : series de mesures (docs/archives/conception/historique-cible.md). Distinct de
+        # 'history' : series de mesures (doc/archives/conception/historique-cible.md). Distinct de
         # 'cache' : un cache perdu se recalcule, un historique perdu ne se recalcule pas.
         # 'run' : etat VIVANT, valable le temps d'un processus (marqueurs de tache de
         # fond). Il ne se sauvegarde pas et ne se relit pas apres un redemarrage.
@@ -1936,7 +1936,7 @@ function Get-ProbeRuns {
 }
 
 # --- Historique des mesures (series) ------------------------------------------
-# Etape 1 du plan docs/archives/conception/historique-migration.md. On note AU PASSAGE des
+# Etape 1 du plan doc/archives/conception/historique-migration.md. On note AU PASSAGE des
 # valeurs deja calculees par les sondes : le seul point d'accroche est le recalcul
 # reussi d'une sonde dans Get-State -- aucune sonde n'ecrit elle-meme, aucune cadence
 # propre a l'historique. Stockage : un fichier JSONL par mesure dans var/history/
@@ -2251,7 +2251,7 @@ function ConvertTo-HistoryWindow {
 }
 
 # Lit la serie d'UNE mesure pour GET /history/{measureId} (etape 2 du plan
-# docs/archives/conception/historique-migration.md). Lecture seule, sous le MEME mutex que
+# doc/archives/conception/historique-migration.md). Lecture seule, sous le MEME mutex que
 # l'ecriture (Local\VigieHistory_<leaf>) : un append peut etre en cours pendant la
 # lecture. Les lignes illisibles (ecriture interrompue) sont ignorees sans echouer.
 # Rend $null si la mesure n'est pas au catalogue (la route repond 404) ; sinon un

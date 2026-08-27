@@ -1,7 +1,7 @@
 # Revue de securite
 
 > Document **interne** : la revue, a relire a chaque ajout d'action. La page destinee aux
-> utilisateurs est [`docs/fr/security.md`](../../fr/security.md)
+> utilisateurs est [`doc/fr/security.md`](../../fr/security.md)
 > ([English](../security.md)) — elle dit la meme chose sans le detail d'implementation.
 
 L'outil expose une API REST **locale** qui peut piloter Windows, potentiellement

@@ -13,11 +13,11 @@ l'execution (`$env:COMPUTERNAME`), jamais code en dur.
 
 ## A lire, dans l'ordre
 1. `README.md` — vue d'ensemble + arborescence.
-2. `docs/en/developing/conventions.md` — **toutes** les conventions.
-3. `docs/en/developing/technologies.md` — **toutes** les technos et leurs raisons.
+2. `doc/en/developing/conventions.md` — **toutes** les conventions.
+3. `doc/en/developing/technologies.md` — **toutes** les technos et leurs raisons.
 4. `apps/backend-pode/api/openapi.yaml` — **le contrat REST (source de verite)**.
-5. `docs/progress/targeting/features.md` — ce que le produit DOIT faire (IDs).
-6. `docs/progress/implemented/status.md` — ce qui est REELLEMENT fait.
+5. `doc/progress/targeting/features.md` — ce que le produit DOIT faire (IDs).
+6. `doc/progress/implemented/status.md` — ce qui est REELLEMENT fait.
 7. `SUIVI.md` — **fichier de suivi** : etat courant + prochaine action + journal.
 
 ## Architecture (resume)
@@ -43,7 +43,7 @@ Historique/lecons : `LocalAgentAdmin/AGENTS.md`.
 
 ## Regle de fin de session (obligatoire)
 Avant de t'arreter, mets a jour : `SUIVI.md` (journal + prochaine action),
-`docs/progress/implemented/status.md` (matrice), `CHANGELOG.md`, et toute doc de
+`doc/progress/implemented/status.md` (matrice), `CHANGELOG.md`, et toute doc de
 convention/techno/fonctionnalite impactee. **Tout doit rester documente.**
 
 ## Installation & lancement (scripts dedies)

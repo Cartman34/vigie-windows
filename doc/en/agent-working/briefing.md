@@ -4,7 +4,7 @@
 > perte de session — **uniquement ce qui est utile à l'instant**. Pas de journal : le
 > passé vit dans `git log` et `CHANGELOG.md`, les règles dans `decisions.md`.
 
-Point de reprise. Après ce fichier : `docs/progress/decisions.md`, `SUIVI.md`, `PRISE-EN-MAIN.md`.
+Point de reprise. Après ce fichier : `doc/progress/decisions.md`, `SUIVI.md`, `PRISE-EN-MAIN.md`.
 
 ## Le projet
 **Vigie** : tableau de bord **local** pour un PC Windows. Dépôt : `vigie-windows`.
@@ -41,7 +41,7 @@ Point de reprise. Après ce fichier : `docs/progress/decisions.md`, `SUIVI.md`, 
 
 | Ce qu'on touche | Ce qu'on lance | Ce que ça attrape |
 |---|---|---|
-| un **module** (creation/evolution) | suivre **`docs/en/developing/modules.md`** — LA reference, a citer dans tout brief de SA qui touche aux sondes | l'oubli d'une regle D48/D49/D57 |
+| un **module** (creation/evolution) | suivre **`doc/en/developing/modules.md`** — LA reference, a citer dans tout brief de SA qui touche aux sondes | l'oubli d'une regle D48/D49/D57 |
 | n'importe quel `.ps1` | `[Parser]::ParseFile` sur chaque fichier | la syntaxe, **rien de plus** |
 | une **sonde** | `pwsh -File .\scripts\check-probes.ps1 -Only <sonde|module>` (dev, ciblé — D51) puis `-All` avant livraison | l'exécution réelle + les invariants **D49**/**D50** |
 | `apps/frontend-web/index.html` | recharger la page **servie** (`http://127.0.0.1:47600`) et lire la console | erreurs de syntaxe et d'exécution JS |
@@ -50,7 +50,7 @@ Point de reprise. Après ce fichier : `docs/progress/decisions.md`, `SUIVI.md`, 
 **Le parseur ne suffit pas** (**D50bis**) : un paramètre passé deux fois le franchit sans un
 mot et fait disparaître une carte à l'exécution. C'est arrivé, livré et annoncé comme fait.
 
-**UN GARDE-FOU EXISTE DESORMAIS** : `scripts/check-probes.ps1` refuse tout caractere de controle dans `apps/`, `scripts/`, `config/` et `docs/`, et nomme le fichier et la ligne. Il a ete eprouve en posant volontairement le piege. Lance-le apres toute ecriture scriptee.
+**UN GARDE-FOU EXISTE DESORMAIS** : `scripts/check-probes.ps1` refuse tout caractere de controle dans `apps/`, `scripts/`, `config/` et `doc/`, et nomme le fichier et la ligne. Il a ete eprouve en posant volontairement le piege. Lance-le apres toute ecriture scriptee.
 
 **LES ANTISLASHS DE MES SCRIPTS D'ÉDITION SONT MANGÉS** — piège coûteux, rencontré cinq
 fois le 26/08. `\\` arrive souvent **simple** dans le fichier écrit, et `\t`, `\25`, `\b`
@@ -79,7 +79,7 @@ principal, `git push` des deux, puis :
 **Relancer le tray ne relance PAS le serveur** : l'ancien devient orphelin et `$startServer`
 sort aussitôt puisque le port répond — on sert alors indéfiniment du code périmé.
 - **Toucher une sonde ⇒ lancer `scripts/check-probes.ps1`** : le parseur ne voit pas qu'un paramètre est passé deux fois, l'exécution si (**D50bis**).
-- **Toute décision validée est consignée dans `docs/progress/decisions.md`** + son support copié dans `docs/maquettes-validees/`.
+- **Toute décision validée est consignée dans `doc/progress/decisions.md`** + son support copié dans `doc/maquettes-validees/`.
 
 ## Architecture (contract-first)
 - `apps/backend-pode/api/openapi.yaml` = source de vérité du contrat REST.
@@ -118,7 +118,7 @@ système), `decisions.md` (toutes les règles, D01→D72).
 
 ### File de travail
 
-Elle vit dans **`local/docs/reprise.md`**, qui n'est **jamais commité** : l'état à
+Elle vit dans **`local/doc/reprise.md`**, qui n'est **jamais commité** : l'état à
 l'instant et la liste de ce qui reste à faire changent à chaque session et n'appartiennent
 qu'à cette machine. Ce document-ci ne porte que ce qui vaut durablement.
 
@@ -157,7 +157,7 @@ sondes d'un côté · gestionnaires de paquets et backend de l'autre · document
 
 ### Ce qu'un brief doit contenir, sans exception
 
-1. **Où lire** — `docs/en/agent-working/briefing.md` puis les décisions précises (`D15`, `D43`, `D47`…), pas
+1. **Où lire** — `doc/en/agent-working/briefing.md` puis les décisions précises (`D15`, `D43`, `D47`…), pas
    « lis la doc ».
 2. **Le sujet, un seul**, avec le modèle existant à copier quand il y en a un (« étudie
    `wu-list-pending.action.ps1` avant d'écrire »).
@@ -195,7 +195,7 @@ trancher, puis lui redonner le sujet corrigé.
 
 
 ## Décisions validées
-Voir `docs/progress/decisions.md` : icône tray = option B (graduations + talon confirmés) ; nom = dépôt « Vigie Windows » (slug `vigie-windows`), interface « Vigie » à la place de « Control Panel ».
+Voir `doc/progress/decisions.md` : icône tray = option B (graduations + talon confirmés) ; nom = dépôt « Vigie Windows » (slug `vigie-windows`), interface « Vigie » à la place de « Control Panel ».
 
 ## Dépôt GitHub (état à jour)
 
