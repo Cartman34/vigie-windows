@@ -2,7 +2,7 @@
 
 [Documentation index](../README.md) · [Français](../../fr/using/windows-update.md)
 
-This is Vigie's headline feature and the one that changes how your machine behaves. Read
+Of all Vigie's cards, this is the one that changes how your machine behaves. Read
 it before you press anything on the *Update lock* card.
 
 ---

@@ -1,9 +1,12 @@
-# Décisions validées — à ne JAMAIS perdre
+# Décisions — à ne JAMAIS perdre
 
-> Règle : toute décision validée par l'utilisateur est consignée ici **et** son
-> support (maquette HTML, paramètres exacts) est copié dans `doc/maquettes-validees/`.
-> Ces fichiers vivent dans le dépôt, sur la machine — jamais uniquement dans une
-> discussion ou un environnement éphémère.
+> Règle : toute décision est consignée ici, avec son support éventuel (maquette, paramètres exacts) dans le dépôt.
+> Ces fichiers vivent sur la machine — jamais uniquement dans une discussion ou un environnement éphémère.
+>
+> **D'où vient la décision.** Chaque entrée le dit sous son titre, parce que les deux n'ont pas le même poids :
+> *Demandée par l'utilisateur* — elle vient d'une demande ou d'un arbitrage explicite, et ne se rediscute pas sans lui ;
+> *Prise par l'agent* — choix technique assumé seul, qui peut être remis en cause par une simple remarque ;
+> *Origine non tracée* — ancienne entrée dont le texte ne permet pas de trancher. À relire avant de s'en prévaloir.
 >
 > **Numérotation** : les décisions sont numérotées `Dnn`, définitivement. Un numéro
 > n'est jamais réattribué, même si la décision est plus tard remplacée (on ajoute
@@ -29,6 +32,8 @@ Ajouter une décision = ajouter son numéro à une ligne.
 ---
 
 ## D01 — Icône du tray : « v1 — jauge à graduations »
+
+*Demandée par l'utilisateur.*
 
 **Nom de référence : `icône tray v1 — jauge à graduations`.**
 Provenance historique : proposée comme « option B — Teinte 0,72 » dans la maquette
@@ -63,6 +68,8 @@ démarrage (orange) / erreur ou arrêt (rouge). Jamais l'état des composants.
 
 ## D02 — Reproduction de l'icône en `.ico` (déployée)
 
+*Origine non tracée — relire avant de s'en prévaloir.*
+
 - Générée à l'identique de **D01** par `apps/tray/assets/generate-icons.py` (PIL)
   → `ok.ico` / `warn.ico` / `error.ico` (multi-résolutions 16→256).
 - Chargées par `tray.ps1` (fonction `setIcon`). *Mis à jour :* le repli GDI+ décrit ici a été
@@ -70,6 +77,8 @@ démarrage (orange) / erreur ou arrêt (rouge). Jamais l'état des composants.
   est dessiné et l'échec est journalisé.
 
 ## D03 — Nom du projet
+
+*Demandée par l'utilisateur.*
 
 - **Dépôt GitHub** : « Vigie Windows » (slug `vigie-windows`), https://github.com/Cartman34/vigie-windows
 - **Interface** : nom court **« Vigie »**, affiché **à la place de « Control Panel »** (discret,
@@ -79,12 +88,16 @@ démarrage (orange) / erreur ou arrêt (rouge). Jamais l'état des composants.
 
 ## D04 — Nommage des options validées : « vX — nom descriptif »
 
+*Demandée par l'utilisateur.*
+
 Une option retenue **perd son numéro d'option** (A/B/C…), qui n'a de sens que pendant
 l'arbitrage. Elle est renommée « **vX — nom descriptif** » : la version tranche l'antériorité,
 le nom dit de quoi il s'agit. Exemple : « icône tray v1 — jauge à graduations » (**D01**).
 Le libellé d'origine peut rester mentionné comme simple provenance vers la maquette.
 
 ## D05 — « HYPERION » est le nom de la machine, pas celui du projet
+
+*Demandée par l'utilisateur.*
 
 Le projet s'appelle **Vigie**, le dépôt **vigie-windows**. « HYPERION » est le nom de la
 machine de l'utilisateur : sa présence dans le code est un **nom de machine codé en dur**,
@@ -110,6 +123,8 @@ de décision, on n'y réécrit pas l'histoire.
 
 ## D06 — Validation du JS du front : navigateur, pas Node
 
+*Demandée par l'utilisateur.*
+
 **Node n'est pas installé** sur la machine et **n'est pas ajouté** : le projet n'a aucune
 dépendance JS (pas de `package.json`, pas de build, un seul fichier HTML servi tel quel) ;
 installer un runtime permanent pour une seule vérification syntaxique n'est pas justifié.
@@ -122,6 +137,8 @@ rendu réel, et le repli sur la maquette `mock/state.json` qui est précisément
 Le PowerShell reste validé par le Parser : `[System.Management.Automation.Language.Parser]::ParseFile(...)`.
 
 ## D07 — L'installation bascule sur le dépôt
+
+*Origine non tracée — relire avant de s'en prévaloir.*
 
 L'app installée (tâche planifiée) pointait encore sur l'ancien espace de travail
 `C:\EspaceRestreint\Workspaces\AiTeam\LocalWork\hyperion-control-panel`, alors que les
@@ -142,11 +159,15 @@ session de l'agent. Ce qui suit décrit la **cible**, pas l'existant.
 
 ## D08 — Écran de chargement (splash)
 
+*Demandée par l'utilisateur.*
+
 Un écran de chargement soigné affiche **« Vigie » en gros** au démarrage, **à chaque ouverture
 de la fenêtre**, et s'efface dès le premier chargement réussi. Comportement régulier et
 prévisible, plutôt qu'un affichage conditionnel au démarrage à froid du serveur.
 
 ## D09 — Lien GitHub retrouvable dans l'app
+
+*Demandée par l'utilisateur.*
 
 https://github.com/Cartman34/vigie-windows est accessible depuis **quatre** endroits :
 le **splash**, une icône discrète dans la **topbar**, un **pied de page**, et l'entrée
@@ -157,10 +178,14 @@ Les liens externes s'ouvrent dans une autre page ou un vrai navigateur (`target=
 
 ## D10 — Branche de travail
 
+*Demandée par l'utilisateur.*
+
 Le travail se fait sur une branche dédiée (`claude/vigie-project-resume-*`), relue puis
 fusionnée dans `main` par l'utilisateur. **La branche n'est pas supprimée à la fusion.**
 
 ## D11 — Un script de désinstallation dédié pour les vestiges
+
+*Origine non tracée — relire avant de s'en prévaloir.*
 
 Les installations antérieures au renommage laissent une tâche planifiée et un raccourci
 **orphelins**. Les nettoyer suppose de connaître les anciens noms — ce que **D05** demande
@@ -179,6 +204,8 @@ disparaissent alors avec lui.
 
 ## D12 — `doc/en/agent-working/briefing.md` décrit l'environnement réel
 
+*Demandée par l'utilisateur.*
+
 La section « Contraintes environnement » décrivait une VM Linux éphémère (Cowork/`device_bash`,
 « pas de pwsh », « git ne peut pas s'initialiser »). Elle est réécrite pour la machine réelle :
 outils présents, outils volontairement absents (Node, cf. **D06**), méthode de validation de
@@ -186,12 +213,16 @@ chaque langage, privilèges (session non élevée), et ce qu'on ne committe jama
 
 ## D13 — `CHANGELOG.md` est tenu à jour
 
+*Demandée par l'utilisateur.*
+
 Le CHANGELOG s'était arrêté au 2026-08-19 alors que `SUIVI.md` journalisait les sessions
 suivantes. Il est complété. Les deux fichiers ont des rôles distincts et sont conservés :
 `SUIVI.md` = journal de travail détaillé (état courant, TODO, décisions techniques) ;
 `CHANGELOG.md` = ce qui change **pour l'utilisateur de l'app**, par date.
 
 ## D14 — Rythme de commit et push (REMPLACE la version initiale)
+
+*Demandée par l'utilisateur.*
 
 Un commit unique par lot de travail terminé, sur la branche dédiée (**D10**),
 **puis push immédiat sans demander**.
@@ -202,6 +233,8 @@ interruption inutile. La règle initiale « pas de push sans accord explicite »
 **annulée** par l'utilisateur.
 
 ## D15 — Une valeur unique n'est définie qu'à UN SEUL endroit
+
+*Demandée par l'utilisateur.*
 
 Règle générale, pas un cas particulier : toute valeur unique du produit (port,
 adresse d'écoute, URL, chemin, nom, délai…) a **une seule** définition, dont tout
@@ -216,6 +249,8 @@ Corollaire déjà appliqué : l'URL du dépôt est une constante unique par lang
 
 ## D16 — Traiter tout le backlog, dans l'ordre reçu
 
+*Demandée par l'utilisateur.*
+
 Les sujets du backlog se traitent **tous**, **dans l'ordre**, l'un après l'autre.
 Ne pas demander à l'utilisateur lequel prendre ensuite : l'ordre est déjà donné.
 Un sujet réellement bloqué (droits, décision manquante) est signalé et **sauté**,
@@ -223,12 +258,16 @@ le suivant est traité — on ne s'arrête pas au blocage.
 
 ## D17 — Ne se charger que d'informations utiles
 
+*Origine non tracée — relire avant de s'en prévaloir.*
+
 Ne pas aller lire d'anciennes entrées, d'anciens fichiers ou d'anciennes sections
 quand ce n'est pas nécessaire à la tâche en cours. Le contexte est une ressource :
 le remplir d'informations inutiles dégrade le travail. Corollaire : ne pas soulever
 de questions cosmétiques sur du contenu ancien qu'on n'avait aucune raison d'ouvrir.
 
 ## D18 — Configuration : un socle versionné générique + une surcharge locale
+
+*Demandée par l'utilisateur.*
 
 `apps/backend-pode/config/config.psd1` est **versionné et générique** : il porte LA définition de chaque
 valeur et ne contient plus rien de propre à une machine. `ToolsPath` y vaut `''`.
@@ -268,6 +307,8 @@ origine locale doit être acceptée. Le port, lui, dérive bien de la config.
 
 ## D19 — Menu du tray : style Windows 11
 
+*Demandée par l'utilisateur.*
+
 Le menu contextuel de la barre système suit la référence « menu sombre arrondi type Win11 » :
 
 - **Coins arrondis natifs** via DWM (`DwmSetWindowAttribute`, `DWMWA_WINDOW_CORNER_PREFERENCE`
@@ -290,6 +331,8 @@ utilisable. Sur une version antérieure à Windows 11, l'appel DWM échoue sans 
 `Add-Type` qui ne référence que le premier échoue sur `Drawing2D`.
 
 ## D20 — WSL inactif est signalé : champ ET carte en rouge
+
+*Demandée par l'utilisateur.*
 
 « WSL inactif » est un **état à signaler**, pas un état normal : le champ « Statut » **et**
 la carte passent en rouge. La carte reçoit un lisere gauche rouge de 4 px et le badge
@@ -317,11 +360,15 @@ pas une valeur propre à une machine (**D18**).
 
 ## D21 — Le contrat accepte `neutral` comme statut de module
 
+*Origine non tracée — relire avant de s'en prévaloir.*
+
 `apps/backend-pode/api/openapi.yaml` déclarait `enum: [ok, warn, error]` pour le statut d'un module, alors que
 `New-ModuleObject` accepte `neutral` et que les sondes en émettent (ex. WSL non installé).
 Le contrat était faux : `neutral` y est ajouté et documenté. L'implémentation était juste.
 
 ## D22 — Jamais d'invite UAC « nue » : expliquer avant de demander
+
+*Demandée par l'utilisateur.*
 
 Quand un script de Vigie a besoin des droits administrateur, il affiche **d'abord** une
 fenêtre qui dit ce qui va être modifié et pourquoi, **puis seulement** déclenche l'invite UAC.
@@ -358,6 +405,8 @@ coins arrondis de son menu (**D19**) ; il utilise désormais le helper partagé.
 
 ## D23 — Icône tray « v2 — jauge pleine à l'état conforme » (REMPLACE D01 sur ce point)
 
+*Demandée par l'utilisateur.*
+
 À l'état **conforme**, la jauge est **pleine** : fraction `1.00` au lieu de `0.88`.
 Une jauge arrêtée avant la fin se lit comme « presque bon », ce qui n'est pas le message
 voulu quand tout va bien.
@@ -378,6 +427,8 @@ Le générateur est renommé `generer-icones_B.py` → **`generate-icons.py`** :
 d'option ne survit pas à la validation (**D04**).
 
 ## D24 — Un atelier de validation visuelle, **servi** et outillé
+
+*Origine non tracée — relire avant de s'en prévaloir.*
 
 `apps/atelier/index.html` — page de validation visuelle, **servie par un petit serveur
 local** (`apps/atelier/atelier.ps1`, serveur intégré de PHP), pas ouverte en double-clic.
@@ -435,6 +486,8 @@ précisément ce qu'il sert à éviter.
 
 ## D25 — Un redémarrage demandé n'est pas une panne
 
+*Demandée par l'utilisateur.*
+
 Le tray affichait **rouge** dès que le serveur devenait injoignable, y compris pendant un
 redémarrage que l'utilisateur venait lui-même de demander. L'orange « démarrage » ne
 s'appliquait qu'au tout premier lancement : une fois `EverUp` vrai, il ne revenait jamais.
@@ -452,6 +505,8 @@ reste réservé à un vrai problème.
 
 ## D26 — Coins du menu : découpe de région, pas DWM
 
+*Origine non tracée — relire avant de s'en prévaloir.*
+
 **D19** arrondissait les coins du menu par DWM. Constaté à l'écran : ça ne fonctionne pas.
 DWM n'arrondit pas les fenêtres **sans cadre standard**, ce qu'est un menu contextuel — le
 menu restait à coins carrés alors que l'appel renvoyait pourtant `HRESULT 0`.
@@ -468,6 +523,8 @@ effet. Ce n'était donc pas une validation suffisante.
 
 ## D27 — Jauge pleine : surface unie, sans graduations
 
+*Demandée par l'utilisateur.*
+
 À l'état **conforme**, l'arc plein recouvre les graduations : la jauge est une **surface
 unie**. C'est **volontaire et validé**. Les graduations réapparaissent dès que la jauge
 n'est plus pleine, c'est-à-dire dès qu'il y a quelque chose à regarder.
@@ -483,6 +540,8 @@ Ceci **précise D01** sans l'annuler : les graduations restent au dessin (7 trai
 paramètres), simplement invisibles quand la jauge est pleine.
 
 ## D28 — Deux briques, deux noms : **Vigie** et **Atelier**
+
+*Demandée par l'utilisateur.*
 
 L'application et l'outil de développement ne doivent **jamais** être confondus, ni dans le
 code, ni dans la documentation, ni dans les conversations.
@@ -516,6 +575,8 @@ Documenté dans `README.md`, `doc/en/agent-working/briefing.md` et `apps/atelier
 l'autre brique, **demander à l'utilisateur avec une suggestion** plutôt que de trancher seul.
 
 ## D29 — Le dépôt contient plusieurs apps : `apps/` + `scripts/`
+
+*Demandée par l'utilisateur.*
 
 L'Atelier n'est pas un « outil » rangé dans `doc/` : c'est **une app du projet**, même si
 elle ne sert qu'au développement. Le tray non plus n'est pas un morceau du backend : il a
@@ -575,6 +636,8 @@ démarre plus à l'ouverture de session.
 
 ## D30 — Les apps portent leur techno ; le contrat appartient au backend
 
+*Demandée par l'utilisateur.*
+
 ### Nommage
 
 | Dossier | Techno | Pourquoi ce suffixe |
@@ -615,6 +678,8 @@ restent conformes. Ce n'est pas un problème aujourd'hui : il n'y a qu'un backen
 
 ## D31 — La documentation est maintenue **en toute circonstance**
 
+*Demandée par l'utilisateur.*
+
 Une doc qui ment est pire qu'une doc absente : on la croit.
 
 **Règle** : aucun état intermédiaire ne doit laisser un document affirmer le contraire de
@@ -645,6 +710,8 @@ commit**, pas « plus tard ».
 
 ## D32 — Pas de dossier `_to_delete/` dans le projet
 
+*Demandée par l'utilisateur.*
+
 **Aucun dossier `_to_delete/` ne doit exister dans le projet versionné.** Ce qui est mort se
 supprime ; git conserve l'historique, c'est son rôle. Une « corbeille » dans le dépôt est
 du bruit qui survit toujours plus longtemps que prévu.
@@ -660,6 +727,8 @@ revenait à tolérer la pratique en silence. Sans cette règle, un tel dossier a
 déplaçait dans cette corbeille. Cette contrainte n'existe plus.)*
 
 ## D33 — `var/` par app, `config/` par app, `config/` commun à la racine
+
+*Demandée par l'utilisateur.*
 
 Convention **Symfony**, appliquée telle quelle.
 
@@ -715,6 +784,8 @@ d'énumérer. `apps/*/config/config.local.psd1` reste ignoré, son `.sample` ver
 
 ## D34 — L'Atelier filtre ce qu'il sert
 
+*Origine non tracée — relire avant de s'en prévaloir.*
+
 **Défaut trouvé en testant** : l'Atelier sert la **racine du dépôt** — il lui faut des
 fichiers de plusieurs apps (icônes du tray, frontend, contrat). Sans filtre, il exposait
 donc aussi `apps/backend-pode/var/secrets/api.token`, **le jeton de l'API de Vigie**,
@@ -750,6 +821,8 @@ lire le fichier sur disque. Ce n'en était pas moins une fuite gratuite, et corr
 
 ## D35 — Les réglages d'IDE ne sont pas versionnés
 
+*Origine non tracée — relire avant de s'en prévaloir.*
+
 `.idea/`, `.vscode/` et `*.code-workspace` sont ignorés **en entier**.
 
 PhpStorm dépose lui-même un `.idea/.gitignore` qui exclut le volatil et le sensible
@@ -768,6 +841,8 @@ Si un jour la config IDE doit être partagée, le sous-ensemble à versionner se
 dépôt et non versionné. C'est voulu : c'est de l'outillage propre à cette machine.)*
 
 ## D36 — Le contenu de fichier s'écrit avec l'outil d'édition, pas à travers un shell
+
+*Demandée par l'utilisateur.*
 
 **Défaut réel** : D34 et D35 ont été écrites en faisant passer du texte français dans une
 here-string PowerShell. PowerShell y traite l'accent grave comme caractère d'échappement :
@@ -795,6 +870,8 @@ backticks manquants autour des chemins. Voir **D31** — une doc fausse est pire
 absente, et celle-ci l'était.
 
 ## D37 — Chaque taille d'icône est dessinée à sa résolution
+
+*Origine non tracée — relire avant de s'en prévaloir.*
 
 **Défaut** : le générateur dessinait **une seule fois à 256 px** et laissait Pillow réduire
 vers chaque taille. À 16 px, l'anneau fin et l'arc épais fusionnaient en une pastille
@@ -837,6 +914,8 @@ l'Atelier montre autre chose que ce que Windows affiche, et il ne sert plus à r
 
 ## D38 — Le mode dégradé de l'icône est un disque, pas une imitation
 
+*Origine non tracée — relire avant de s'en prévaloir.*
+
 `setIcon` charge le `.ico` livré. En cas d'échec, l'ancien repli **redessinait la jauge en
 GDI+** : un second dessin de la même marque, qui avait fini par **diverger** — aiguille
 partant du centre au lieu du talon, aucune graduation, épaisseurs et couleur de piste
@@ -857,6 +936,8 @@ Corollaire **D15** : il n'existe plus qu'**une seule** représentation de la mar
 avait déjà divergé.
 
 ## D39 — Les détails techniques se tranchent, ils ne se demandent pas
+
+*Demandée par l'utilisateur.*
 
 **Le silence de l'utilisateur vaut accord.** Sur un détail technique, s'il ne dit rien,
 c'est qu'il n'a rien à dire : on décide et on avance. S'il a une décision technique à
@@ -898,6 +979,8 @@ défaut encore ouvert, une vérification qui n'a pas pu être faite, une action 
 
 ## D40 — Les droits de l'agent sont un fichier du dépôt, pas un réglage de session
 
+*Origine non tracée — relire avant de s'en prévaloir.*
+
 Les demandes de permission incessantes venaient de règles **par motif de commande**
 (`Bash(git *)`) : elles ne couvrent que les commandes **analysables statiquement**. Dès
 qu'une commande contient une boucle, une substitution `$(...)` ou un test `[ ]`, l'analyse
@@ -936,6 +1019,8 @@ poste) et `.claude/worktrees/` (arbres de travail), tous deux ignorés.
 
 ## D41 — Le code est en anglais ; le français est la langue de l'écrit
 
+*Demandée par l'utilisateur.*
+
 **Deux registres, une frontière nette :**
 
 | En anglais | En français |
@@ -966,6 +1051,8 @@ portent le raisonnement derrière chaque choix — les traduire est une passe à
 
 ## D42 — Fraction de la jauge à l'état erreur : `0.17` (remplace **D23** sur ce point)
 
+*Origine non tracée — relire avant de s'en prévaloir.*
+
 - conforme : `1.00` — inchangé (**D23**) ; démarrage : `0.50` — inchangé ;
 - **erreur : `0.17`** (au lieu de `0.14`).
 
@@ -976,6 +1063,8 @@ qui la dupliquait a été supprimé (**D38**). Les `.ico` ont été régénéré
 générateur est déterministe et que seul l'état erreur a bougé.
 
 ## D43 — On constate le résultat, on ne fait pas confiance au code de retour
+
+*Demandée par l'utilisateur.*
 
 **L'application ne s'ouvrait pas depuis le tray** — signalé **quatre fois** avant d'être
 diagnostiqué. Pendant tout ce temps le journal affichait `openApp ok (fenetre dediee)`.
@@ -1014,6 +1103,8 @@ ce qui a fait croire, ce jour-là, que le correctif du 500 n'avait rien changé.
 
 ## D44 — Le cache d'état comparait des heures de fuseaux différents
 
+*Origine non tracée — relire avant de s'en prévaloir.*
+
 Les dates du cache sont écrites en **UTC** (`ToUniversalTime().ToString('o')`) mais étaient
 comparées à `Get-Date`, qui rend l'heure **locale**. Sur un poste à UTC+2, toute entrée
 paraissait donc vieille de deux heures : **aucune n'a jamais été jugée fraîche**.
@@ -1045,6 +1136,8 @@ réaffichant les mêmes valeurs, donc il ne rafraîchissait rien. `Get-State` ac
 `-Force` ; la route ne le passait simplement jamais.
 
 ## D45 — Installer les mises à jour Windows depuis Vigie, au choix
+
+*Demandée par l'utilisateur.*
 
 L'application ne savait qu'**ouvrir** Windows Update. Elle peut désormais **installer**, mais
 jamais en bloc : l'utilisateur coche ce qu'il veut dans une fenêtre de choix.
@@ -1086,6 +1179,8 @@ priorité — c'est la plus urgente.
 
 ## D46 — Les deux liserés ne disent pas la même chose
 
+*Demandée par l'utilisateur.*
+
 Ils ont été confondus, puis intervertis. Ils sont distincts et le restent :
 
 | Élément | Emplacement | Ce qu'il porte |
@@ -1102,6 +1197,8 @@ même chose, et un halo se lit comme une alerte. Une carte a un seul endroit où
 état. *(Validé à l'œil par l'utilisateur.)*
 
 ## D47 — Ne jamais ouvrir le front en `file://`
+
+*Origine non tracée — relire avant de s'en prévaloir.*
 
 Éditer `apps/frontend-web/index.html` avec l'outil d'édition de l'agent déclenche l'aperçu
 automatique du panneau navigateur : il charge le fichier en `file://`, **vole le focus** et
@@ -1131,6 +1228,8 @@ non terminées — **et** un rechargement de la page servie avant d'annoncer quo
 d'édition, car une couche shell l'avait corrompu.
 
 ## D48 — Gestion des modules : un panneau latéral, deux portes d'entrée
+
+*Demandée par l'utilisateur.*
 
 **Forme retenue** : un **panneau latéral large** (~520 px), même mécanique que le tiroir des
 notifications. Il présente la **liste des modules** ; en choisir un ouvre sa **configuration
@@ -1211,6 +1310,8 @@ exposer par module. C'est le seul point qui ne se déduit pas du code.
 
 ## D49 — Ce qu'une carte doit dire, et comment elle le dit
 
+*Demandée par l'utilisateur.*
+
 Cinq règles nées des retours de l'utilisateur au fil de la session. Elles valent pour
 **toute** sonde, présente ou future — elles ne sont pas des correctifs ponctuels.
 
@@ -1248,6 +1349,8 @@ bouton qui le résout doit être là (**D48** : un problème signalé a toujours
 
 ## D50bis — Le parseur ne suffit pas : les sondes s'exécutent
 
+*Demandée par l'utilisateur.*
+
 Le PowerShell est validé par `[Parser]::ParseFile` avant toute livraison (**D06**). Ce
 contrôle vérifie la **syntaxe**, pas l'exécution.
 
@@ -1267,6 +1370,8 @@ points de suspension.
 reproduisant le défaut d'origine dans une sonde jetable : il le signale et sort en code 1.
 
 ## D50 — Le vocabulaire des actions
+
+*Demandée par l'utilisateur.*
 
 Trois dimensions indépendantes, longtemps confondues :
 
@@ -1308,6 +1413,8 @@ l'expiration du délai.
 
 ## D51 — Valider ciblé pendant le dev, valider tout avant de livrer (2026-08-24)
 
+*Demandée par l'utilisateur.*
+
 **Décision.** Pendant un développement, on valide **la fonctionnalité touchée et ses
 régressions proches** — jamais toute l'application. `check-probes.ps1 -Only <sonde|module>`
 exécute exactement cela. La passe par défaut n'exécute que les sondes rapides ou modifiées :
@@ -1321,6 +1428,8 @@ liste tenue à la main : c'est la durée **mesurée** au dernier passage réel.
 
 ## D52 — Chaque exécution réelle d'une sonde est journalisée (2026-08-24)
 
+*Demandée par l'utilisateur.*
+
 **Décision.** Toute exécution réelle d'une sonde est **systématiquement conservée** avec sa
 durée : `var/cache/probe-runs.jsonl`, une ligne JSON par passage (`at`, `probe`, `ms`,
 `origin` = forced/background/check, `outcome`, `modules`). Écrit par `Write-ProbeRun` sous
@@ -1333,6 +1442,8 @@ une erreur d'écriture ne fait jamais échouer une sonde.
 
 ## D53 — Historique des mesures : oui, par un sous-agent, conception d'abord (2026-08-24)
 
+*Demandée par l'utilisateur.*
+
 **Décision.** L'historique (proposition P2) est retenu, avec une **durée de rétention
 configurable au global et par mesure**. Il sera ajouté **petit à petit par un sous-agent**,
 qui doit produire **d'abord** deux documents : la **conception finale** (cible) et la
@@ -1340,6 +1451,8 @@ qui doit produire **d'abord** deux documents : la **conception finale** (cible) 
 avant validation de ces deux conceptions.
 
 ## D54 — Notifications du tray : sur résultat de sonde, réglables finement (2026-08-24)
+
+*Demandée par l'utilisateur.*
 
 **Décision.** La proposition P3 est retenue avec une distinction ferme : **la couleur de
 l'icône du tray reflète le statut de l'application** (chargement, joignabilité) — elle ne
@@ -1350,12 +1463,16 @@ fins** (le global masque, il n'écrase pas).
 
 ## D55 — L'Atelier s'organise par sujets, le validé s'archive (2026-08-24)
 
+*Demandée par l'utilisateur.*
+
 **Décision.** L'Atelier sépare **chaque sujet** ; ce qui est **déjà validé est archivé**
 (consultable, hors de la vue courante). Un sujet permanent porte les **propositions en
 cours** ; une proposition qui grossit (demande de développement, ou nécessité) devient un
 **sujet entier** — rien n'est bridé, mais tout a une place.
 
 ## D56 — Un menu Paramètres unique (2026-08-24)
+
+*Demandée par l'utilisateur.*
 
 **Décision.** Tous les réglages de l'application vivent dans **un seul menu Paramètres**
 (tiroir, bouton ⚙ de l'en-tête), en quatre onglets : **Notifications** (D54),
@@ -1373,6 +1490,8 @@ une icône d'interface — seule la marque (jauge, logo GitHub) reste en SVG.
 
 ## D57 — Config et paramètres : le défaut vient de la config (2026-08-24)
 
+*Demandée par l'utilisateur.*
+
 **Décision (formulée par l'utilisateur).** L'app a une **config** ; les modules peuvent
 avoir des **paramètres** et des configs. Un **paramètre** est ce qui est réglable dans
 l'app via le menu Paramètres. Chaque paramètre a pour **défaut une valeur de config**
@@ -1388,6 +1507,8 @@ seuil d'alerte du disque. **Q2 (même arbitrage)** : l'historique enregistre les
 événements, **aucun affichage pour l'instant**.
 
 ## D58 — Fonte d'icônes maison (2026-08-24)
+
+*Demandée par l'utilisateur.*
 
 **Décision.** Les icônes de l'interface viennent d'une **fonte fabriquée par le projet** :
 `apps/frontend-web/assets/vigie-icons.ttf`, générée par
@@ -1407,6 +1528,8 @@ anti-horaires = trous.
 
 ## D59 — Aucun état ne masque une carte (2026-08-25)
 
+*Demandée par l'utilisateur.*
+
 **Décision (utilisateur).** Seuls deux mécanismes peuvent retirer une carte de l'écran :
 les **filtres de groupe** (choix d'affichage, persisté) et la **désactivation du module**
 (D48). Aucun état — erreur de sonde, erreur de rendu, opération en cours, données
@@ -1420,6 +1543,8 @@ avaient disparu à l'écran le 25/08 au matin). Les filtres de groupe sont persi
 
 
 ## D60 — Analyse de la consommation du disque : mesurer tout, ne garder que l'utile (2026-08-25)
+
+*Demandée par l'utilisateur.*
 
 **Demande (utilisateur).** « Un outil d'analyse optimisé pour afficher la consommation du
 disque. L'arborescence, le nom des dossiers et des fichiers peut être énorme, donc il faut
@@ -1455,6 +1580,8 @@ effectif en moins de 3 s.
 
 ## D61 — Une seule carte pour le stockage, l'analyse est une ACTION (2026-08-25)
 
+*Demandée par l'utilisateur.*
+
 **Correction (utilisateur).** « Je n'ai pas demandé une carte, j'avais demandé une action.
 L'analyse peut mener à des mises à jour des données connues mais globalement tout se fait
 dans la carte existante. Tu l'as appelée par erreur “ Disque C: ”, cette carte DOIT
@@ -1472,6 +1599,8 @@ représenter le stockage sur le PC. »
   sujet déjà porté par une carte vient l'enrichir ; il ne crée pas une carte voisine.
 
 ## D62 — Aucune charge sur la machine sans autorisation, à chaque fois (2026-08-25)
+
+*Demandée par l'utilisateur.*
 
 **Consigne (utilisateur, 25/08).** « Tu n'as pas à faire de test GPU sans me demander, tu
 n'as pas à consommer des ressources. Aucun test ne doit le permettre sans ma permission !
@@ -1492,6 +1621,8 @@ charge **naturelle** (une vraie partie). La charge fabriquée n'est pas un outil
 validation ordinaire : c'est une exception à demander.
 
 ## D63 — Tests courants = tests de CONTRAT uniquement (2026-08-25)
+
+*Demandée par l'utilisateur.*
 
 **Consigne (utilisateur, 25/08).** « Tes tests courants ne doivent être que des tests de
 contrat, aucune automatisation des tests d'intégration ; c'est seulement quand tu remontes
@@ -1524,6 +1655,8 @@ le faire — ou laisser l'utilisateur le faire lui-même.
 
 ## D64 — De vrais noms, et une infobulle qui dit d'où vient le processus (2026-08-25)
 
+*Demandée par l'utilisateur.*
+
 **Demande (utilisateur, 25/08).** « csrss, ça ne me parle pas, y'a pas moyen d'avoir de
 vrais noms ? » puis « quand tu affiches un nom de processus, tu dois afficher une tooltip
 au survol qui donne plus d'infos (genre au moins son chemin absolu, si possible plus).
@@ -1550,6 +1683,8 @@ Attention aux conflits. »
   point unique, toute sonde qui montre un processus les utilise.
 
 ## D65 — Multi-utilisateurs : chacun ses réglages, aucun pouvoir en plus (2026-08-25)
+
+*Demandée par l'utilisateur.*
 
 **Demande (utilisateur, 25/08).** « J'aimerais que l'app soit disponible pour tous les
 utilisateurs de mon ordi mais avec chacun ses paramètres. » Précisions données : « il ne
@@ -1613,6 +1748,8 @@ elle ne disparaît pas de la carte (**D59**).
   `/state` ; un état ancien sans ce champ se lit comme autorisé.
 
 ## D66 — Une résolution est TOUJOURS un bouton (2026-08-25)
+
+*Demandée par l'utilisateur.*
 
 **Consigne (utilisateur, 25/08).** « Y'a pas de piste dans les détails de l'item. Une
 résolution, c'est toujours un bouton de résolution, TOUJOURS. Après, ce qu'il fait, ça
@@ -1715,6 +1852,8 @@ d'**ouvrir le dossier** dans l'explorateur Windows.
 
 ## D67 — Diagnostiquer un autre compte : par Vigie, jamais par un contournement (2026-08-25)
 
+*Demandée par l'utilisateur.*
+
 **Question posée.** En tant qu'agent sur le compte administrateur, comment relire les
 données d'exécution d'un autre compte, maintenant qu'elles vivent dans son profil ?
 
@@ -1747,6 +1886,8 @@ rien de plus que ce que Windows laisse voir. Le bouton « Gérer les comptes » 
 Paramètres > Utilisateurs, traité par l'interface sans aller-retour serveur.
 
 ## D68 — Une notification est un ÉVÉNEMENT NOMMÉ, pas une carte (2026-08-26)
+
+*Demandée par l'utilisateur.*
 
 **Reproche (utilisateur).** « J'ai demandé à mettre de vrais noms de notification et tu ne
 l'as pas fait. » L'écran listait **« Session de jeu »** — le nom d'une *carte* — parce que
@@ -1782,6 +1923,8 @@ Outils & paquets (mises à jour disponibles).
 
 ## D69 — Une liste se gère dans sa propre section, et s'alimente là où le besoin naît (2026-08-26)
 
+*Demandée par l'utilisateur.*
+
 **Demande (utilisateur).** « Y'a une bonne idée mais faut une section dédiée je pense, avec
 ajout, suppression. Ça suppose aussi que dans le menu de mise à jour, on peut exclure un
 paquet quand il est listé. »
@@ -1801,6 +1944,8 @@ paquet quand il est listé. »
 
 ## D70 — On ne dérange pas quelqu'un avec un problème qu'il ne peut pas résoudre (2026-08-26)
 
+*Demandée par l'utilisateur.*
+
 **Demande (utilisateur).** « Les notifications d'erreur ne doivent s'afficher que si
 l'utilisateur a les droits. Quand c'est critique ou dans certains cas (MAJ Windows Update),
 ça doit quand même remonter à l'utilisateur connecté pour qu'il pense à faire remonter à
@@ -1816,6 +1961,8 @@ l'admin. »
 
 ## D71 — Les modules se déplient, ils ne s'empilent pas (2026-08-26)
 
+*Demandée par l'utilisateur.*
+
 **Demande (utilisateur).** « Le tiroir peut avoir plus de largeur s'il faut. Les paramètres
 des modules n'ont pas besoin d'être tous visibles ; il faut juste que chaque module soit
 clairement défini, et ils peuvent apparaître séparément (accordéon ? tab ? section
@@ -1829,6 +1976,8 @@ clic sur l'interrupteur ne replie pas le bloc. Le module que l'on vient régler 
 carte s'ouvre tout seul. Tiroir des Paramètres élargi (920 px).
 
 ## D60 (revu) — L'arborescence se demande UN NIVEAU À LA FOIS (2026-08-26)
+
+*Demandée par l'utilisateur.*
 
 **Reproche (utilisateur).** « Je t'ai dit de faire une version optimisée pour le stockage,
 si tu calcules tous les fichiers. Faut que tu puisses faire des calculs partiels et ne
@@ -1850,6 +1999,8 @@ renvoyer qu'un niveau au front ; le front demande ensuite quand y'a besoin au se
 
 ## D59 (renforcé) — Une carte déjà affichée ne disparaît jamais (2026-08-26)
 
+*Demandée par l'utilisateur.*
+
 **Constat (utilisateur).** « J'ai cliqué sur Vérifier les mises à jour et la carte a
 disparu. » Une sonde en cours de recalcul n'a rien dans le cache du serveur : son module
 manque alors dans `/state`, et la carte s'évanouissait le temps du calcul — presque une
@@ -1861,6 +2012,8 @@ l'état reçu, marquée « opération en cours ». Et une action de fond met la 
 contrat, aucun statut nouveau n'est inventé.
 
 ## D72 — Éditeur : Sowapps ; auteur : Florent HAZARD (2026-08-26)
+
+*Demandée par l'utilisateur.*
 
 **Information donnée par l'utilisateur.** « Vigie est une application de Sowapps (mais
 l'auteur c'est moi). Quand je mets un vendor, je mets sowapps. »
@@ -1874,6 +2027,8 @@ l'auteur c'est moi). Quand je mets un vendor, je mets sowapps. »
 - écran **À propos** : Éditeur *Sowapps*, Auteur *Florent HAZARD*, licence MIT.
 
 ## D73 — Le multi-comptes, éprouvé sur la machine (2026-08-26)
+
+*Demandée par l'utilisateur.*
 
 **Déploiement fait et vérifié.** `C:\Program Files\Sowapps\Vigie` : 133 fichiers, 1 Mo,
 `VERSION 0.1`, **aucun secret** (jeton, `config.local`, sauvegardes), `BUILTIN\Utilisateurs`
@@ -1901,6 +2056,8 @@ Windows remonte comme une vraie erreur.
 
 ## D74 — Ce qui n'a pas été demandé ne s'invente pas (2026-08-26)
 
+*Demandée par l'utilisateur.*
+
 Rappels de l'utilisateur, appliqués : la carte Comptes montre **tous les comptes
 utilisateurs et uniquement eux**, sans réglage inventé (« comptes techniques », « comptes à
 ne pas afficher », « compte dormant » : retirés) ; le déploiement installe **pour tout le
@@ -1919,6 +2076,8 @@ bouton **« Actualiser la liste »** — proposition de l'utilisateur : « y'aur
 nouveaux comptes tous les jours ».
 
 ## D75 — VRAM par application : « Local Usage », pas « Dedicated Usage » (2026-08-26)
+
+*Demandée par l'utilisateur.*
 
 **Constat (utilisateur).** Le détail annonçait `dwm` à 5,65 Go alors que la carte affichait
 **1,8 Go occupés sur 8** : une seule ligne dépassait le total.
@@ -1939,6 +2098,8 @@ le dit — on ne laisse pas l'utilisateur faire une addition fausse.
 
 ## D76 — Une fonctionnalité finie se fusionne, sans demander (2026-08-26)
 
+*Demandée par l'utilisateur.*
+
 « Quand une feature est terminée, tu peux merger et je la reçois sur le serveur qui
 tourne. » Le serveur de sa session sert le dépôt : fusionner dans `main` **suffit** à lui
 livrer le travail (une carte nouvelle apparaît au rechargement ; une route nouvelle attend
@@ -1950,6 +2111,8 @@ Comptes, ou `scripts/deploy-prod.ps1`). Fusionner ne les touche pas ; déployer 
 demandé.
 
 ## D77 — Une mise à jour déjà faite ne se propose pas, et n'échoue pas (2026-08-26)
+
+*Demandée par l'utilisateur.*
 
 Constaté sur Microsoft Edge. Vigie proposait `151.0.4129.101 → 151.0.4129.107` alors que
 la machine portait **déjà** le `.107` : Edge s'était mis à jour par son propre canal
@@ -1971,6 +2134,8 @@ en debugger IFEO), mais qui n'était pas le sien. Reformuler le symptôme AVANT 
 
 ## D78 - Relancer l'application, c'est relancer le serveur aussi (2026-08-26)
 
+*Demandée par l'utilisateur.*
+
 Le tray annoncait un redemarrage reussi en 9 s... **sans avoir relance le serveur**. Un
 tray relance **adopte** le serveur deja en place : il n'en est pas le parent,
 `$state.Proc` est vide, et l'ancien `$stopServer` ne tuait donc rien. Apres un
@@ -1990,6 +2155,8 @@ l'ordre (on distingue « tray fige » de « relance lente » : deux depannages d
 et le delai passe a **45 s**.
 
 ## D79 - PowerShell 7 est une DEPENDANCE, installee pour la machine (2026-08-26)
+
+*Demandée par l'utilisateur.*
 
 Regle de la machine, rappelee par l'utilisateur : « on n'est pas cense installer d'outil
 Windows pour un compte sur ce PC, c'est cense installer pour tous les comptes ». Vigie en
@@ -2019,6 +2186,8 @@ compte qui installe.
 
 ## D80 - Une tache de fond se voit tant qu'elle dure (2026-08-26)
 
+*Demandée par l'utilisateur.*
+
 L'interface marquait bien la carte « operation en cours » des le clic, mais ce marquage
 ne survivait pas au premier rafraichissement : le serveur, lui, ne savait rien du travail
 lance. La carte redevenait calme pendant que l'installation continuait -- signale par
@@ -2032,6 +2201,8 @@ lecture suivante. Rien a nettoyer, et un arret brutal ne laisse pas une carte oc
 pour l'eternite. Pose par le deploiement et par l'installation de PowerShell 7.
 
 ## D81 - Un installateur aboutit, ou dit pourquoi (2026-08-26)
+
+*Demandée par l'utilisateur.*
 
 Soiree entiere passee dessus, quatre echecs de suite, chacun instructif :
 
@@ -2068,6 +2239,8 @@ reference reste `C:\Program Files\PowerShell\7` : c'est lui que lancent les tach
 
 ## D84 — Une archive porte sa propre identité (2026-08-26)
 
+*Prise par l'agent.*
+
 Un dossier installé ne dit pas d'où il vient. Le dépôt, lui, sait répondre : `git describe` donne le dernier tag et ce
 qui a été commité depuis. L'archive n'a ni tags, ni `.git`.
 
@@ -2079,6 +2252,8 @@ l'une a été fabriquée avant un correctif. Le commit tranche.
 même chose que ce qu'elle contient.
 
 ## D86 - Deux exports, imprimables, sobres (2026-08-26)
+
+*Demandée par l'utilisateur.*
 
 Demande : « les specs de l'ordi, le materiel, les choses qui ne bougent pas » d'un cote,
 « un etat de l'ordi actuel » de l'autre. Forme : « des PDF bien presentes avec un theme
@@ -2110,6 +2285,8 @@ pieges evites en l'ecrivant :
 
 ## D87 - Vigie se met a jour elle-meme (2026-08-26)
 
+*Demandée par l'utilisateur.*
+
 Un script enchaine **deploiement puis relance**, en LISANT le code de chaque etape : un
 deploiement rate n'entraine pas de relance (l'ancienne version continue de tourner), et
 une relance ratee le dit au lieu de laisser croire que tout va bien. Le tout sous le
@@ -2121,6 +2298,8 @@ qu'elle connait. Aller chercher une version publiee est un autre sujet -- que
 telecharger, de qui, et comment le verifier -- qui demandera sa propre decision.
 
 ## D88 - Un seul cadre arrondi, et des composants plutot que des copies (2026-08-26)
+
+*Demandée par l'utilisateur.*
 
 Deux remarques de l'utilisateur, la seconde etant un rappel :
 
@@ -2152,6 +2331,8 @@ onglets concernes -- Notifications, Modules, Utilisateurs -- passent par eux.
 d'etre copie une seconde fois.
 
 ## D89 - Une ligne de carte se lit d'un coup d'oeil (2026-08-27)
+
+*Demandée par l'utilisateur.*
 
 Quatre remarques du meme matin, qui disent toutes la meme chose : **la valeur repond, la
 couleur alerte, le detail explique.**
@@ -2185,6 +2366,8 @@ une DONNEE (numero de version, nom de fichier, chemin).
 
 ## D90 - Vigie dit ce qu'elle occupe (2026-08-27)
 
+*Demandée par l'utilisateur.*
+
 « Ce serait bien de mettre le stockage Vigie (pour tous les utilisateurs) et ainsi faire
 le suivi de la conso de notre app. » Une application qui surveille l'espace disque des
 autres se doit d'annoncer le sien.
@@ -2203,6 +2386,8 @@ releve se dit partiel, plutot que de mentir.
 
 ## D91 — Les lignes vont jusqu'à 200 caractères, et se corrigent au fil de l'eau (2026-08-27)
 
+*Demandée par l'utilisateur.*
+
 « Dans les docs et le code, la longueur des lignes standards doit être 200. À corriger au fur et à mesure mais pas d'un
 coup. »
 
@@ -2217,6 +2402,8 @@ qu'on ouvre déjà pour une autre raison.
 
 ## D92 — Un seul point de reprise, pas trois (2026-08-27)
 
+*Demandée par l'utilisateur.*
+
 `SUIVI.md` et `PRISE-EN-MAIN.md` vivaient à la racine. Le premier ne contenait plus qu'une phrase disant qu'il n'était
 plus tenu à jour et renvoyant ailleurs. Le second dupliquait le rôle de `doc/en/agent-working/briefing.md` avec un
 contenu périmé : `backend/start.ps1` qui n'existe plus, l'ouverture du front en `file://` que **D47** interdit, un
@@ -2228,6 +2415,8 @@ Les deux sont supprimés, leurs six renvois nettoyés, et l'exclusion devenue vi
 c'est de l'histoire, elle ne se réécrit pas.
 
 ## D93 — Le français est la langue maîtresse de la documentation (2026-08-27)
+
+*Demandée par l'utilisateur.*
 
 « Il faut que tu détermines une langue maîtresse que tu modifies toujours en premier dans la doc et qui fait foi. »
 
@@ -2248,6 +2437,8 @@ Un seul fichier porte un suffixe de langue à la racine, `README.fr.md` : c'est 
 
 ## D95 — Ce qui tourne se voit depuis toutes les pages (2026-08-26)
 
+*Demandée par l'utilisateur.*
+
 « Idéalement, quand y'a plusieurs pages ouvertes, toutes devraient voir dans le drawer notifications qu'une opération
 est en cours et tous recevoir le toast. »
 
@@ -2259,6 +2450,8 @@ et les pages l'interrogent. Toutes affichent la même opération en cours, toute
 ressources vaut pour toutes. Le serveur est la seule source : une page n'est qu'une vue.
 
 ## D96 — Un seul numéro de version, et il ne se tient pas à la main (2026-08-26)
+
+*Demandée par l'utilisateur.*
 
 « Y'a pas la version précise ici. On ne devrait pas maintenir 2 numéros de version. »
 
@@ -2273,6 +2466,8 @@ ne distingue pas deux fabrications du même tag (**D84**).
 Numéros jamais attribués, à ne pas réutiliser : D82, D83, D85, D94.
 
 ## D97 — Vigie s'installe dans Program Files (2026-08-27)
+
+*Demandée par l'utilisateur.*
 
 « Il est pas censé s'installer dans Program Files ? »
 
@@ -2296,3 +2491,22 @@ aurait réussi, et c'est bien pour ça qu'il ne fallait pas s'y fier.
 Les réglages de la machine déjà présents à destination sont conservés, comme dans `deploy-prod.ps1` : mettre à jour ne
 remet pas les choix à zéro. `var/` n'est jamais copié — jeton, journaux et caches appartiennent à l'endroit où Vigie
 tourne, pas à la version qu'on installe.
+
+## D98 — Une décision dit d'où elle vient (2026-08-27)
+
+*Demandée par l'utilisateur.*
+
+« Dans les décisions, j'ai l'impression que tu mixes les décisions que tu prends et les décisions que je valide, il
+faudrait l'indiquer dessus. »
+
+C'était exact, et le titre du fichier — « Décisions validées » — entretenait la confusion : tout y était présenté comme
+validé, y compris des choix techniques que l'agent avait faits seul. Un agent qui relit peut alors se prévaloir d'un
+accord qui n'a jamais été donné.
+
+Chaque entrée porte désormais sa provenance sous son titre : *Demandée par l'utilisateur* quand elle vient d'une
+demande ou d'un arbitrage explicite, *Prise par l'agent* pour un choix technique assumé seul. La différence est
+pratique, pas décorative : la première ne se rediscute pas sans lui, la seconde tombe sur une simple remarque.
+
+Le classement rétroactif s'est fait **sur pièces**, jamais de mémoire : une citation de l'utilisateur, une proposition
+retenue, une question qu'il a tranchée. Seize anciennes entrées ne portent aucune de ces traces ; elles sont marquées
+*Origine non tracée* plutôt que rangées au jugé — se tromper de camp serait pire que de l'admettre.

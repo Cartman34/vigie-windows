@@ -2,12 +2,13 @@
 
 [English](README.md) · **Français**
 
-**Un tableau de bord local pour un PC Windows.** Vigie surveille Windows Update, le
-disque, la mémoire, le réseau, WSL, la sécurité et vos gestionnaires de paquets, et
-présente le tout sous forme de cartes dans une fenêtre de navigateur. Sa fonction
-phare : elle **permet de verrouiller Windows Update** — verrou que vous activez ou
-relâchez quand vous voulez — pour que Windows ne puisse pas redémarrer la machine tout
-seul, tout en vous laissant installer les mises à jour quand *vous* l'avez décidé.
+**Un tableau de bord local pour un PC Windows.** Vigie surveille le disque, la mémoire, le réseau, l'alimentation,
+la sécurité, WSL, Windows Update et vos gestionnaires de paquets, et présente le tout sous forme de cartes dans une
+fenêtre de navigateur. Chaque carte dit ce qu'elle mesure, ce qui cloche, et propose le geste qui règle le problème —
+plutôt que de vous renvoyer vers cinq écrans de réglages Windows.
+
+Elle sait aussi **verrouiller Windows Update** quand vous le lui demandez, pour que la machine ne redémarre pas
+d'elle-même ; c'est une carte parmi les autres, et le verrou reste toujours entre vos mains.
 
 > **Rien ne sort de votre machine.** Vigie ne transmet aucune donnée sur Internet : elle
 > lit l'état de votre PC, l'affiche localement, et c'est tout. Aucun compte, aucune
@@ -76,10 +77,10 @@ Vigie n'est pas un moniteur passif. Trois choses à savoir :
 
 | Thème | Cartes |
 |---|---|
-| **Windows Update** | verrouillage (MAJ automatiques, verrou ACL, tâches désactivées vs actives, redémarrage en attente), mises à jour détectées (analyse en ligne, installation au choix), historique (dernier redémarrage, WaaSMedic) |
 | **Système** | édition / activation / version de Windows, espace libre de C: face à un seuil, RAM / CPU / uptime |
 | **Réseau** | connexion, type de connexion, Wi-Fi, IP locale, IP publique, IPv6, MAC, VPN, mesure de latence et de débit à la demande |
 | **Sécurité** | antivirus (nom, actif, à jour), profils du pare-feu, VBS et intégrité mémoire (HVCI) |
+| **Windows Update** | verrouillage (MAJ automatiques, verrou ACL, tâches désactivées vs actives, redémarrage en attente), mises à jour détectées (analyse en ligne, installation au choix), historique (dernier redémarrage, WaaSMedic) |
 | **WSL** | installé, distribution par défaut, actif / inactif, démarrer / redémarrer / arrêter |
 | **Gestionnaires de paquets** | une carte par gestionnaire trouvé dans le `PATH` (winget, Chocolatey, Scoop, npm, pnpm, Yarn, pip, pipx, Cargo, RubyGems, .NET SDK) — version, mises à jour disponibles, mise à jour en tâche de fond |
 

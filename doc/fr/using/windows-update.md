@@ -2,8 +2,8 @@
 
 [Sommaire](../README.md) · [English](../../en/using/windows-update.md)
 
-C'est la fonction phare de Vigie, et celle qui change le comportement de votre machine.
-Lisez-la avant d'appuyer sur quoi que ce soit dans la carte *Verrouillage des mises à jour*.
+De toutes les cartes de Vigie, c'est celle qui change le comportement de votre machine. Lisez cette page avant
+d'appuyer sur quoi que ce soit dans *Verrouillage des mises à jour*.
 
 ---
 

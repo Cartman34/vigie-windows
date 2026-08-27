@@ -2,11 +2,13 @@
 
 **English** · [Français](README.fr.md)
 
-**A local control panel for one Windows PC.** Vigie watches Windows Update, disk, memory,
-network, WSL, security and your package managers, and shows the whole thing as a set of
-cards in a browser window. Its headline feature: it **can hold Windows Update shut** —
-a lock you switch on and off as you please — so Windows cannot reboot your machine on its
-own, while still letting you install updates whenever *you* decide to.
+**A local control panel for one Windows PC.** Vigie watches disk, memory, network, power, security, WSL, Windows
+Update and your package managers, and shows the whole thing as a set of cards in a browser window. Each card says what
+it measures, what is wrong, and offers the one gesture that fixes it — rather than sending you off to five different
+Windows settings screens.
+
+It can also **hold Windows Update shut** when you ask it to, so the machine does not reboot on its own; that is one
+card among the others, and the lock stays in your hands throughout.
 
 > **Nothing leaves your machine.** Vigie sends no data over the Internet: it reads your
 > PC's state, shows it locally, and that is all. No account, no telemetry, no remote
@@ -70,10 +72,12 @@ Vigie is not a passive monitor. Three things you must know:
 
 | Theme | Cards |
 |---|---|
-| **Windows Update** | update lock (auto-updates, ACL lock, disabled vs. active tasks, pending reboot), pending updates (online scan, selective install), history (last reboot, WaaSMedic) |
 | **System** | Windows edition/activation/build, C: free space against a threshold, RAM/CPU/uptime |
+| **Power** | source, battery level, which way the current flows, and the alert that matters: plugged in but discharging means the charger is not keeping up (battery machines only) |
+| **Gaming** | graphics card, VRAM actually used, GPU temperature, detected game and what it draws, greedy applications during play |
 | **Network** | connectivity, connection type, Wi-Fi, local IP, public IP, IPv6, MAC, VPN, on-demand latency and throughput measurement |
 | **Security** | antivirus (name, active, up to date), firewall profiles, VBS and memory integrity (HVCI) |
+| **Windows Update** | update lock (auto-updates, ACL lock, disabled vs. active tasks, pending reboot), pending updates (online scan, selective install), history (last reboot, WaaSMedic) |
 | **WSL** | installed, default distribution, running/stopped, start / restart / shut down |
 | **Package managers** | one card per manager found in `PATH` (winget, Chocolatey, Scoop, npm, pnpm, Yarn, pip, pipx, Cargo, RubyGems, .NET SDK) — version, available updates, background upgrade |
 

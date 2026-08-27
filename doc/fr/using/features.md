@@ -80,6 +80,27 @@ d'une installation réussie, pas une panne. Vigie ne redémarre jamais votre mac
 | **Disque C:** | espace libre, seuil d'alerte, taux d'occupation, taille totale. Passe en orange sous le seuil. | *Nettoyage de disque…* (ouvre `cleanmgr` de Windows) |
 | **Ressources** | RAM utilisée (%), RAM libre, CPU (%), uptime. Orange au-delà de 90 % de RAM ou de CPU. | — |
 
+## Alimentation
+
+| Carte | Ce qu'elle montre | Boutons |
+|---|---|---|
+| **Alimentation** | source (secteur ou batterie), niveau de la batterie, sens du courant, et surtout : **le chargeur suit-il ?** | *Options d'alimentation* (ouvre les Paramètres Windows) |
+
+Cette carte n'existe **que sur une machine à batterie** : un poste fixe n'a rien à en dire. Son intérêt est le cas
+qu'on ne voit pas autrement : branché au secteur **et** batterie en décharge. C'est que le chargeur ne couvre pas la
+consommation — le processeur et le GPU vont être bridés, et la batterie se videra malgré le branchement. La carte
+passe alors en orange et le dit en toutes lettres.
+
+## Gaming
+
+| Carte | Ce qu'elle montre | Boutons |
+|---|---|---|
+| **Gaming** | carte graphique, VRAM utilisée sur le total réel, température GPU, jeu détecté et ce qu'il consomme, autres applications gourmandes pendant la partie, alimentation | *Gestionnaire des tâches*, *Gestionnaire de périphériques* |
+
+C'est un **outil de diagnostic** : quand le jeu rame, la carte montre qui prend quoi — processeur, GPU, VRAM, mémoire,
+entrées/sorties — et désigne l'application qui pompe pendant la partie. Elle ne règle rien toute seule et ne modifie
+aucun réglage : elle regarde.
+
 ## Réseau
 
 | Carte | Ce qu'elle montre | Boutons |
