@@ -215,8 +215,17 @@
   /* Chaque carte porte le nom de son groupe, et reste insecable (break-inside:avoid). */
   .loading-note{display:flex;flex-direction:column;align-items:center;gap:12px;justify-content:center;color:var(--muted);font-size:13.5px;padding:64px 0}
   .loading-note .spin{width:22px;height:22px;border-width:3px}
-  .masonry{columns:280px;column-gap:16px}
-  .masonry .card{width:100%;margin:0 0 16px;break-inside:avoid;-webkit-column-break-inside:avoid}
+  /* COLONNES REELLES, pas des colonnes CSS.
+     `columns: 280px` reflue TOUT ce qui suit des qu'une carte grandit : une carte qui
+     passe en « operation en cours » ou une section qu'on deplie faisaient sauter les
+     cartes suivantes d'une colonne a l'autre, sous les yeux. Signale le 27/08 :
+     « c'est tres destabilisant ».
+     Ici, chaque colonne est un vrai element et chaque carte lui appartient : une carte
+     qui grandit ne pousse que ce qui est SOUS ELLE, dans SA colonne. Rien d'autre ne
+     bouge. */
+  .masonry{display:flex;align-items:flex-start;gap:16px}
+  .mcol{flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:16px}
+  .masonry .card{width:100%;margin:0}
   .card-titles{display:flex;flex-direction:column;min-width:0;flex:1}
   .card-group{font-size:10.5px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);font-weight:700;line-height:1.3}
   .card-refresh{background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;width:26px;height:26px;line-height:1;cursor:pointer;flex:0 0 auto;font-size:14px;padding:0}
@@ -917,6 +926,7 @@ function renderState(s, mode){
   }
   const masonry=document.createElement('div'); masonry.className='masonry';
   masonry.innerHTML=html;
+  repartirEnColonnes(masonry);
   app.appendChild(masonry);
   wireCardActions(masonry);
   applyFilter();
@@ -937,13 +947,70 @@ function renderState(s, mode){
   const mb=document.getElementById('modebar'); const occupe=mb.classList.contains('busy'); mb.className='modebar '+(mode==='live'?'ok':'warn')+(occupe?' busy':''); mb.title=(mode==='live'?'Connecté à l\'API locale (données réelles)':'Maquette — back non lancé'); mb.textContent='';
 }
 
+// Repartit les cartes en COLONNES REELLES, une fois, dans un ordre stable.
+//
+// La largeur d'une colonne (280 px + gouttiere) reprend celle de l'ancienne mise en
+// page : le nombre de colonnes ne change donc qu'au redimensionnement de la fenetre.
+//
+// L'equilibrage se fait sur une hauteur ESTIMEE (nombre de lignes et de boutons), et
+// surtout PAS sur la hauteur mesuree : une carte qui passe en « operation en cours »
+// grandit, et rebalancer a ce moment-la ferait exactement le saut qu'on veut supprimer.
+// L'estimation, elle, ne depend que de ce que la carte CONTIENT.
+const COL_LARGEUR = 296;
+function hauteurEstimee(carte){
+  const lignes  = carte.querySelectorAll('.field').length;
+  const boutons = carte.querySelectorAll('.actions button').length;
+  return 92 + lignes * 30 + Math.ceil(boutons / 2) * 34;
+}
+function repartirEnColonnes(masonry){
+  const cartes = [...masonry.children].filter(e => e.classList && e.classList.contains('card'));
+  if(!cartes.length) return;
+  const dispo = masonry.clientWidth || document.body.clientWidth || 1200;
+  const nb = Math.max(1, Math.min(cartes.length, Math.floor(dispo / COL_LARGEUR)));
+  const colonnes = [], hauteurs = [];
+  for(let i = 0; i < nb; i++){
+    const c = document.createElement('div'); c.className = 'mcol';
+    colonnes.push(c); hauteurs.push(0);
+  }
+  // Ordre conserve : on pose chaque carte dans la colonne la moins remplie a cet
+  // instant, ce qui donne toujours le meme resultat pour un meme jeu de cartes.
+  for(const carte of cartes){
+    let cible = 0;
+    for(let i = 1; i < nb; i++){ if(hauteurs[i] < hauteurs[cible]) cible = i; }
+    colonnes[cible].appendChild(carte);
+    hauteurs[cible] += hauteurEstimee(carte);
+  }
+  masonry.textContent = '';
+  colonnes.forEach(c => masonry.appendChild(c));
+}
+// Le nombre de colonnes suit la largeur de la fenetre. On ne refait le partage QUE si
+// ce nombre change : redistribuer a chaque pixel ferait danser la page.
+let colonnesActuelles = 0;
+window.addEventListener('resize', () => {
+  const masonry = document.querySelector('.masonry');
+  if(!masonry) return;
+  const nb = Math.max(1, Math.floor((masonry.clientWidth || 1200) / COL_LARGEUR));
+  if(nb === colonnesActuelles) return;
+  colonnesActuelles = nb;
+  // On remet les cartes a plat, puis on repartage.
+  const cartes = [...masonry.querySelectorAll('.card')];
+  masonry.textContent = '';
+  cartes.forEach(c => masonry.appendChild(c));
+  repartirEnColonnes(masonry);
+});
+
 // Remplace le DOM d'une carte par son rendu a jour. Renvoie l'element cree (ou null).
 function replaceCardDom(m){
   const sel='.card[data-module="'+((window.CSS&&CSS.escape)?CSS.escape(m.id):m.id)+'"]';
   const card=document.querySelector(sel);
   if(!card) return null;
   const tmp=document.createElement('div');
-  tmp.innerHTML=cardHtmlSafe(m, themeLabels[m.theme]||m.theme||'');
+  // Le libelle du GROUPE vient du catalogue des themes. S'il manque -- la carte a ete
+  // rafraichie avant le premier /state --, on garde CELUI QUI EST DEJA AFFICHE plutot
+  // que de retomber sur l'identifiant technique : la carte Comptes s'est retrouvee
+  // titree « ACCOUNTS » (constate le 27/08).
+  const dejaAffiche=(card.querySelector('.card-group')||{}).textContent;
+  tmp.innerHTML=cardHtmlSafe(m, themeLabels[m.theme]||dejaAffiche||m.theme||'');
   const fresh=tmp.firstElementChild;
   card.replaceWith(fresh);
   wireCardActions(fresh);
