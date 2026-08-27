@@ -4,9 +4,14 @@
 
 **A local control panel for one Windows PC.** Vigie watches Windows Update, disk, memory,
 network, WSL, security and your package managers, and shows the whole thing as a set of
-cards in a browser window. Its headline feature: it **holds Windows Update shut** so
-Windows can never reboot your machine on its own — while still letting you install
-updates whenever *you* decide to.
+cards in a browser window. Its headline feature: it **can hold Windows Update shut** —
+a lock you switch on and off as you please — so Windows cannot reboot your machine on its
+own, while still letting you install updates whenever *you* decide to.
+
+> **Nothing leaves your machine.** Vigie sends no data over the Internet: it reads your
+> PC's state, shows it locally, and that is all. No account, no telemetry, no remote
+> server. The only network access it makes is the one you trigger yourself: measuring
+> throughput, reading your public IP, or asking a package manager whether updates exist.
 
 Repository: <https://github.com/Cartman34/vigie-windows>
 
@@ -16,40 +21,10 @@ Repository: <https://github.com/Cartman34/vigie-windows>
 
 ---
 
-## Read this before you install
+## Get started
 
-Vigie is not a passive monitor. Three things you must know:
-
-1. **It locks Windows Update.** When the lock is on, automatic updates are switched off
-   (`NoAutoUpdate`) and an ACL lock prevents Windows from re-enabling its update tasks.
-   No update installs itself, and **no reboot is ever forced** — but nothing installs
-   itself either. Keeping a machine patched becomes *your* deliberate act, from Vigie's
-   "Update mode" or from Windows Settings. See [Windows Update](docs/en/windows-update.md).
-2. **It runs as administrator.** Reading and applying that lock means registry writes
-   under `HKLM`, scheduled-task changes and ACL changes. The scheduled task that starts
-   Vigie is registered with the highest privileges, and starting it by hand triggers a
-   UAC prompt. Every elevation is explained in a window *before* the UAC prompt appears.
-3. **It listens on 127.0.0.1 only** — never on a network interface. The API requires a
-   bearer token, checks the request origin, and only runs actions from a fixed
-   whitelist. There is one known residual risk (the token is injected into the served
-   page), described honestly in [Security](docs/en/security.md).
-
----
-
-## What it actually does
-
-| Theme | Cards |
-|---|---|
-| **Windows Update** | update lock (auto-updates, ACL lock, disabled vs. active tasks, pending reboot), pending updates (online scan, selective install), history (last reboot, WaaSMedic) |
-| **System** | Windows edition/activation/build, C: free space against a threshold, RAM/CPU/uptime |
-| **Network** | connectivity, connection type, Wi-Fi, local IP, public IP, IPv6, MAC, VPN, on-demand latency and throughput measurement |
-| **Security** | antivirus (name, active, up to date), firewall profiles, VBS and memory integrity (HVCI) |
-| **WSL** | installed, default distribution, running/stopped, start / restart / shut down |
-| **Package managers** | one card per manager found in `PATH` (winget, Chocolatey, Scoop, npm, pnpm, Yarn, pip, pipx, Cargo, RubyGems, .NET SDK) — version, available updates, background upgrade |
-
-Full detail, card by card: [What Vigie monitors](docs/en/features.md).
-
-## Quick start
+> Vigie touches Windows Update and runs as administrator: the three points in
+> [Read this before you install](#read-this-before-you-install) are worth the minute.
 
 The recommended route is the **archive from GitHub Releases** — no git, no clone.
 
@@ -86,6 +61,40 @@ pwsh -ExecutionPolicy Bypass -File .\scripts\install-autostart.ps1
 The git route, what each script does, and how to uninstall:
 [Installation](docs/en/install.md). First run and how to read the dashboard:
 [Getting started](docs/en/getting-started.md).
+
+## Read this before you install
+
+Vigie is not a passive monitor. Three things you must know:
+
+1. **It can lock Windows Update.** It is a feature you switch on and off from the
+   application, not a state imposed on you. When the lock is on, automatic updates are switched off
+   (`NoAutoUpdate`) and an ACL lock prevents Windows from re-enabling its update tasks.
+   No update installs itself, and **no reboot is ever forced** — but nothing installs
+   itself either. Keeping a machine patched becomes *your* deliberate act, from Vigie's
+   "Update mode" or from Windows Settings. See [Windows Update](docs/en/windows-update.md).
+2. **It runs as administrator.** Reading and applying that lock means registry writes
+   under `HKLM`, scheduled-task changes and ACL changes. The scheduled task that starts
+   Vigie is registered with the highest privileges, and starting it by hand triggers a
+   UAC prompt. Every elevation is explained in a window *before* the UAC prompt appears.
+3. **It listens on 127.0.0.1 only** — never on a network interface. The API requires a
+   bearer token, checks the request origin, and only runs actions from a fixed
+   whitelist. There is one known residual risk (the token is injected into the served
+   page), described honestly in [Security](docs/en/security.md).
+
+---
+
+## What it actually does
+
+| Theme | Cards |
+|---|---|
+| **Windows Update** | update lock (auto-updates, ACL lock, disabled vs. active tasks, pending reboot), pending updates (online scan, selective install), history (last reboot, WaaSMedic) |
+| **System** | Windows edition/activation/build, C: free space against a threshold, RAM/CPU/uptime |
+| **Network** | connectivity, connection type, Wi-Fi, local IP, public IP, IPv6, MAC, VPN, on-demand latency and throughput measurement |
+| **Security** | antivirus (name, active, up to date), firewall profiles, VBS and memory integrity (HVCI) |
+| **WSL** | installed, default distribution, running/stopped, start / restart / shut down |
+| **Package managers** | one card per manager found in `PATH` (winget, Chocolatey, Scoop, npm, pnpm, Yarn, pip, pipx, Cargo, RubyGems, .NET SDK) — version, available updates, background upgrade |
+
+Full detail, card by card: [What Vigie monitors](docs/en/features.md).
 
 ## Documentation
 

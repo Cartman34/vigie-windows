@@ -137,11 +137,14 @@ if ($null -eq $count) {
             $d0 = ConvertTo-UtcDate $inst.at
             if ($d0) { $quand = $d0.ToLocalTime().ToString('dd/MM/yyyy HH:mm') }
         } catch { }
-        $val = if ($inst.error)          { 'échec' }
+        # QUAND TOUT S'EST BIEN PASSE, la DATE suffit (D89) : « 2 le 25/08/2026 07:58 »
+        # se lisait mal -- ce « 2 » nu ne disait pas de quoi il parlait. Le nombre de
+        # mises a jour est dans le detail de la ligne, avec le tableau qui les nomme.
+        $val = if ($inst.error)          { 'Échec' }
                elseif ($echecs -gt 0)    { "$echecs sur $($inst.total) en échec" }
-               elseif ($inst.redemarrage -and -not $redemarrageFait) { 'installée, redémarrage requis' }
-               elseif ($quand)           { "$($inst.total) le $quand" }
-               else                      { 'terminée' }
+               elseif ($inst.redemarrage -and -not $redemarrageFait) { 'Installée, redémarrage requis' }
+               elseif ($quand)           { $quand }
+               else                      { 'Terminée' }
         $st  = if ($inst.error -or $echecs -gt 0) { 'error' }
                elseif ($inst.redemarrage -and -not $redemarrageFait) { 'warn' }
                else                               { 'neutral' }

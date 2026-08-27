@@ -288,6 +288,17 @@ Add-PodeRoute -Method Post -Path "$base/actions" -ScriptBlock {
     else { Write-PodeJsonResponse -Value $job -Depth 24 }
 }
 
+# --- CE QUI TOURNE, POUR TOUTES LES PAGES (D95) ------------------------------
+# Toute page ouverte -- meme ouverte APRES le depart de l'operation -- s'accorde sur
+# cet etat : les notifications ne vivent plus dans une seule fenetre.
+Add-PodeRoute -Method Get -Path "$base/operations" -ScriptBlock {
+    . "$env:VIGIE_BACKEND/lib/common.ps1"
+    Write-PodeJsonResponse -Value @{
+        running = @(Get-RunningOperations -Backend $env:VIGIE_BACKEND)
+        results = @(Get-RecentOperationResults -Backend $env:VIGIE_BACKEND)
+    } -Depth 8
+}
+
 # --- FICHE MATERIELLE : ce qui ne bouge pas ----------------------------------
 # Releve memorise sept jours (le materiel ne change pas) ; ?fresh=1 pour un neuf.
 Add-PodeRoute -Method Get -Path "$base/hardware" -ScriptBlock {

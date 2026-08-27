@@ -1196,15 +1196,16 @@ function Get-ApiToken {
 # Le role de jeton de changement revient a Get-AppBuildId, ci-dessous.
 function Get-AppVersion {
     param([string]$Backend = (Get-BackendRoot))
-    # Une installation deployee porte sa marque (fichier BUILD) : c'est elle qui fait foi,
-    # le fichier VERSION du depot ne decrivant que le depot.
-    $marque = Join-Path (Get-RepoRoot) 'BUILD'
-    if (Test-Path -LiteralPath $marque) {
-        try {
-            $j = Get-Content -LiteralPath $marque -Raw | ConvertFrom-Json
-            if ($j -and $j.version) { return "$($j.version)" }
-        } catch { }
-    }
+    # UNE SEULE definition : la marque de l'installation si elle en a une (archive
+    # deployee), sinon ce que git dit du depot. Plus de fichier VERSION (D96).
+    $m = Get-BuildStamp -Root (Get-RepoRoot)
+    if ($m -and $m.version -and $m.version -ne 'sans version') { return "$($m.version)" }
+    return 'inconnue'
+}
+
+# Ancien chemin, conserve le temps de verifier qu'aucun appelant ne le cherche encore.
+function Get-AppVersionFichier {
+    param([string]$Backend = (Get-BackendRoot))
     $f = Join-Path (Get-RepoRoot) 'VERSION'
     if (Test-Path -LiteralPath $f) {
         $v = "$(Get-Content -LiteralPath $f -Raw -ErrorAction SilentlyContinue)".Trim()
@@ -1235,6 +1236,29 @@ function Get-AppBuildId {
 # La marque est POSEE DANS L'ARCHIVE au moment de la fabrication (fichier BUILD, une
 # ligne « version commit date »), parce qu'une installation deployee n'a pas de depot
 # git : elle ne peut pas se decrire elle-meme autrement.
+# LA VERSION D'UN DEPOT : le dernier TAG, et ce qui a ete commit depuis.
+#
+# Il n'y a plus qu'UN SEUL numero (D96). Un fichier VERSION tenu a la main a cote des
+# tags, c'etait deux numeros a maintenir -- et ils divergeaient : la carte de debogage
+# affichait « v0.1 » quand l'installation deployee affichait « v0.1.6 ».
+#
+# `git describe` dit tout : « v0.1.6 » si on est pile sur le tag, « v0.1.6+6 » s'il y a
+# eu six commits depuis. C'est la version PRECISE, et elle ne se maintient pas.
+function Get-GitVersion {
+    param([string]$Path = (Get-RepoRoot))
+    try {
+        $git = (Get-Command git -ErrorAction SilentlyContinue)
+        if (-not $git) { return $null }
+        $d = (& $git.Source -C $Path describe --tags 2>$null | Select-Object -First 1)
+        if (-not $d) { return $null }
+        $d = "$d".Trim()
+        # git rend « v0.1.6-6-g813205f » : on garde « v0.1.6+6 », plus court a lire, et
+        # le commit est deja affiche a cote.
+        if ($d -match '^(.*)-(\d+)-g[0-9a-f]+$') { return ($Matches[1] + '+' + $Matches[2]) }
+        return $d
+    } catch { return $null }
+}
+
 function Get-GitCommit {
     param([string]$Path = (Get-RepoRoot), [switch]$Court)
     try {
@@ -1258,10 +1282,10 @@ function Get-BuildStamp {
             if ($j -and $j.version) { return $j }
         } catch { }
     }
-    $vf = Join-Path $Root 'VERSION'
-    $v = if (Test-Path -LiteralPath $vf) { "$(Get-Content -LiteralPath $vf -Raw)".Trim() } else { '' }
+    # Hors archive, la version est celle que git connait : le dernier tag (+ commits).
+    $v = Get-GitVersion -Path $Root
     return [pscustomobject][ordered]@{
-        version = $(if ($v) { $(if ($v.StartsWith('v')) { $v } else { "v$v" }) } else { 'inconnue' })
+        version = $(if ($v) { $v } else { 'sans version' })
         commit  = (Get-GitCommit -Path $Root)
         at      = $null
         source  = 'depot'
@@ -2915,6 +2939,65 @@ function Get-VigieFootprint {
         complet       = (Test-IsElevated) -and ($inaccessibles -eq 0)
         inaccessibles = $inaccessibles
     }
+}
+
+# --- CE QUI TOURNE, POUR TOUT LE MONDE (D95) ---------------------------------
+#
+# Les notifications vivaient dans la PAGE : une seconde fenetre ouverte ne savait rien
+# d'une operation lancee depuis la premiere, et une page ouverte APRES le depart d'un
+# deploiement n'en voyait pas la moindre trace. Or le serveur, lui, sait : il tient les
+# marqueurs d'operation et leurs resultats.
+#
+# On rend donc l'etat complet -- ce qui tourne, et ce qui vient de se terminer -- et
+# chaque page s'y accorde. Le serveur est la source, les pages sont des reflets.
+function Get-RunningOperations {
+    param([string]$Backend = (Get-BackendRoot))
+    $ops = @()
+    $dossier = Split-Path (Get-ModuleBusyMarkPath -Module 'x' -Backend $Backend) -Parent
+    if (Test-Path -LiteralPath $dossier) {
+        foreach ($f in @(Get-ChildItem -LiteralPath $dossier -Filter 'busy-*.json' -File -ErrorAction SilentlyContinue)) {
+            $module = ($f.BaseName -replace '^busy-', '')
+            $m = Get-ModuleBusyMark -Module $module -Backend $Backend
+            if (-not $m) { continue }
+            $ops += [pscustomobject][ordered]@{
+                module    = $module
+                label     = "$($m.label)"
+                action    = "$($m.action)"
+                resources = @($m.resources)
+                at        = "$($m.at)"
+            }
+        }
+    }
+    return $ops
+}
+
+# Les resultats RECENTS : ce qui s'est termine assez recemment pour qu'une page ouverte
+# entre-temps ait encore interet a le montrer. Au-dela, c'est de l'histoire : elle vit
+# sur la carte concernee, pas dans les notifications.
+function Get-RecentOperationResults {
+    param([int]$Minutes = 15, [string]$Backend = (Get-BackendRoot))
+    $res = @()
+    $dossier = Split-Path (Get-ModuleLastRunPath -Module 'x' -Backend $Backend) -Parent
+    if (-not (Test-Path -LiteralPath $dossier)) { return $res }
+    $limite = [datetime]::UtcNow.AddMinutes(-$Minutes)
+    foreach ($f in @(Get-ChildItem -LiteralPath $dossier -Filter 'lastrun-*.json' -File -ErrorAction SilentlyContinue)) {
+        $module = ($f.BaseName -replace '^lastrun-', '')
+        $r = Get-ModuleLastRun -Module $module -Backend $Backend
+        if (-not $r) { continue }
+        $quand = ConvertTo-UtcDate $r.at
+        if (-not $quand -or $quand -lt $limite) { continue }
+        $res += [pscustomobject][ordered]@{
+            module  = $module
+            label   = "$($r.label)"
+            action  = "$($r.action)"
+            code    = [int]$r.code
+            seconds = [int]$r.seconds
+            log     = "$($r.log)"
+            error   = "$($r.error)"
+            at      = "$($r.at)"
+        }
+    }
+    return $res
 }
 
 # --- QUI TIENT QUOI : le verrou par RESSOURCE (D93) ---------------------------

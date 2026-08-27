@@ -186,13 +186,19 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
 }
 
 $versionFile = Join-Path $repoRoot 'VERSION'
-if (-not (Test-Path -LiteralPath $versionFile)) {
+if ($false) {
     Write-Host "Fichier VERSION introuvable à la racine du dépôt : $versionFile" -ForegroundColor Yellow
     exit 1
 }
 # Le numero ne vit qu'ici (D15). Le prefixe « v » est un habillage d'affichage : il ne
 # rentre pas dans un nom de fichier, sinon il faudrait le retirer partout ailleurs.
-$version = if ($Version) { $Version -replace '^v', '' } else { "$(Get-Content -LiteralPath $versionFile -Raw)".Trim() }
+# Le numero vient du TAG (via Get-BuildStamp), ou de -Version quand le deploiement
+# vient d'en poser un. Plus de fichier VERSION a tenir a jour (D96).
+$version = if ($Version) { $Version -replace '^v', '' } else { (Get-BuildStamp -Root $repoRoot).version -replace '^v', '' }
+if (-not $version -or $version -eq 'sans version') { $version = '0.1' }
+# Un « + » dans un nom de fichier est legal mais desagreable : v0.1.6+6 devient
+# 0.1.6-dev6 dans le nom de l'archive.
+$version = $version -replace '\+', '-dev'
 if (-not $version) {
     Write-Host "Le fichier VERSION est vide. Le nom de l'archive en dépend." -ForegroundColor Yellow
     exit 1
