@@ -4,6 +4,9 @@
 
 Everything is one click from here, and every page is one click from any other.
 
+> These pages are translated from the French, which is the master version: where the two disagree,
+> [the French page](../fr/README.md) prevails.
+
 ## For users
 
 | Page | Answers |

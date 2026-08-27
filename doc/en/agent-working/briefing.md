@@ -22,6 +22,8 @@ Point de reprise. Après ce fichier : `doc/progress/decisions.md`, puis `discipl
 
 ## Règles de conception (permanentes)
 - **On parle français, le code est en anglais.**
+- **La doc utilisateur s'écrit en français d'abord** (**D93**) : `fr/` mène, `en/` suit dans la foulée. En cas de
+  divergence, `fr/` fait foi.
 - Pas de duplication (helpers partagés dans `apps/backend-pode/lib/common.ps1`).
 - **Toujours** traiter erreurs + sortie + code retour (`Invoke-Native`).
 - Scripts **idempotents**. **PS7 + UTF-8 avec accents** (les lanceurs restent ASCII).
