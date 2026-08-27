@@ -26,7 +26,7 @@ ligne — `scripts/dev/check-doc.ps1` refuse une décision absente d'ici.
 - **Documentation** — D91 · D92 · D93 · D98
 - **Configuration** — D15 · D18 · D56 · D57
 - **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46 · D48 · D49 · D50 · D58 · D59 · D66 · D68 · D69 · D70 · D71 · D88 · D89 · D94 · D95
-- **Installation, déploiement et mise à jour** — D07 · D11 · D22 · D77 · D78 · D79 · D81 · D84 · D87 · D96 · D97
+- **Installation, déploiement et mise à jour** — D07 · D11 · D22 · D77 · D78 · D79 · D81 · D84 · D87 · D96 · D97 · D99
 - **Sécurité, droits et multi-comptes** — D34 · D65 · D67 · D73
 - **Sondes, actions et tâches de fond** — D50bis · D53 · D54 · D60 · D61 · D80 · D82 · D83 · D85
 - **Outillage** — D06 · D21 · D24 · D40 · D44 · D47 · D52 · D64 · D75 · D86 · D90
@@ -2563,3 +2563,37 @@ pratique, pas décorative : la première ne se rediscute pas sans lui, la second
 Le classement rétroactif s'est fait **sur pièces**, jamais de mémoire : une citation de l'utilisateur, une proposition
 retenue, une question qu'il a tranchée. Seize anciennes entrées ne portent aucune de ces traces ; elles sont marquées
 *Origine non tracée* plutôt que rangées au jugé — se tromper de camp serait pire que de l'admettre.
+
+## D99 — Vigie va chercher son code dehors, mais jamais d'elle-même (2026-08-27)
+
+*Demandée par l'utilisateur.*
+
+« Elle pourrait télécharger la dernière release ? Ou cloner le repos quelque part (et n'utiliser que les tags ou une
+branche/commit si paramètre qui force) ? »
+
+Jusqu'ici « Mettre à jour Vigie » redéployait le dépôt local : sur le poste de développement c'était exactement ce
+qu'il fallait, sur une machine installée ça ne pouvait pas fonctionner du tout — pas de dépôt, pas de git, échec en
+code 1. Le bouton existait sans pouvoir tenir sa promesse.
+
+**Trois voies, choisies toutes seules** (`vigie-fetch.ps1`) : le dépôt est là → on fabrique depuis lui et
+`deploy-prod` pose le tag ; pas de dépôt → on télécharge la dernière version **publiée** ; une référence est forcée
+(`-Ref`) → on passe par un clone à nous. Les deux premières couvrent l'usage réel, la troisième existe pour tester une
+branche ou un commit qui n'a pas de release.
+
+**Sans référence, on ne prend que des tags.** Une branche bouge à chaque commit ; un tag désigne une version qu'on a
+décidé de publier. Suivre `main` reviendrait à installer du travail en cours sur la machine de quelqu'un.
+
+**L'ordre est le garde-fou principal.** On rapporte, on ouvre l'archive, on vérifie qu'elle contient bien `setup.cmd`
+et le serveur, et **seulement ensuite** on touche à l'installation. Une récupération qui échoue laisse la version en
+place intacte et en marche : au pire, rien n'a bougé. Le téléchargement passe par un fichier `.partiel` renommé à la
+fin, pour qu'une coupure ne laisse jamais une archive à moitié écrite sous le bon nom.
+
+Les cas particuliers sont nommés un par un, chacun avec son propre code de retour : pas de réseau, quota GitHub
+atteint, aucune version publiée, release sans archive, référence inconnue, archive tronquée, déjà à jour. Ce dernier
+n'est **pas** une erreur (**D77**) : il ne redémarre rien et le dit en vert. GitHub exclut les pré-versions de
+« latest » — c'est le comportement voulu, et `-PreVersions` sert à passer outre en connaissance de cause.
+
+**Ce que ça change au disclaimer.** Vigie fait maintenant *entrer* du code, et pas seulement sortir des requêtes. Ça
+reste déclenché par un geste, jamais automatique, et ça vient du dépôt officiel en HTTPS. Il n'y a **pas** de
+signature à vérifier, et la documentation ne prétend pas le contraire : ce qui est vérifié, c'est la forme de
+l'archive et le fait qu'elle ne soit pas plus ancienne que ce qui tourne.

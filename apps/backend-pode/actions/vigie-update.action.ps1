@@ -1,18 +1,20 @@
 # @droits: admin   -- redeploie hors du profil et relance l'application (D65)
 # @libelle: Mettre a jour Vigie | confirm | fix   -- affiche quand un champ cite cette action (D66)
-<# Action : met a jour l'installation partagee depuis CE depot, puis relance Vigie.
+<# Action : met a jour Vigie, puis la relance.
+
+   D'ou vient le code depend de la machine, et vigie-update.ps1 tranche tout seul (D99) :
+   un poste de DEVELOPPEMENT deploie son depot local (et pose le tag au passage), une
+   machine INSTALLEE telecharge la derniere version publiee sur GitHub.
 
    Ce que ca fait, dans l'ordre :
-     1. fabrique l'archive de la version courante et la deploie (deploy-prod.ps1, qui
-        pose au passage le tag de ce deploiement -- D84) ;
-     2. depose l'ordre « restart » au tray, qui relance le serveur avec le nouveau code.
+     1. rapporte une archive et la VERIFIE (vigie-fetch.ps1) -- tant qu'elle n'est pas
+        exploitable, l'installation en place n'est pas touchee ;
+     2. la deploie (deploy-prod.ps1), en conservant les reglages de la machine ;
+     3. depose l'ordre « restart » au tray, qui relance le serveur avec le nouveau code.
 
    Le tout sous le VEILLEUR (D82) : le code de sortie est constate et rapporte, une
-   mise a jour ratee devient une ligne rouge sur la carte au lieu d'un silence.
-
-   Ce n'est pas une mise a jour depuis Internet : Vigie se met a jour depuis le depot
-   qu'elle connait. Aller chercher une version publiee est un autre sujet, qui demandera
-   sa propre decision (que telecharger, de qui, et comment le verifier). #>
+   mise a jour ratee devient une ligne rouge sur la carte au lieu d'un silence. Le code
+   3 -- deja a jour -- n'est PAS un echec (D77). #>
 param([string]$Module, [hashtable]$Params)
 
 $backend = Split-Path $PSScriptRoot -Parent

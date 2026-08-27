@@ -10,10 +10,12 @@ Windows settings screens.
 It can also **hold Windows Update shut** when you ask it to, so the machine does not reboot on its own; that is one
 card among the others, and the lock stays in your hands throughout.
 
-> **Nothing leaves your machine.** Vigie sends no data over the Internet: it reads your
-> PC's state, shows it locally, and that is all. No account, no telemetry, no remote
-> server. The only network access it makes is the one you trigger yourself: measuring
-> throughput, reading your public IP, or asking a package manager whether updates exist.
+> **Nothing leaves your machine.** Vigie sends no data over the Internet: it reads your PC's state, shows it
+> locally, and that is all. No account, no telemetry, no remote server.
+>
+> The only network access is the kind **you trigger**: measuring throughput, reading your public IP, asking a package
+> manager whether updates exist — and downloading a new version of Vigie when you press "Update". That last one
+> brings code in: it comes from the official repository over HTTPS, and none of these requests happen on their own.
 
 Repository: <https://github.com/Cartman34/vigie-windows>
 

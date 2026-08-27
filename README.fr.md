@@ -10,11 +10,13 @@ plutôt que de vous renvoyer vers cinq écrans de réglages Windows.
 Elle sait aussi **verrouiller Windows Update** quand vous le lui demandez, pour que la machine ne redémarre pas
 d'elle-même ; c'est une carte parmi les autres, et le verrou reste toujours entre vos mains.
 
-> **Rien ne sort de votre machine.** Vigie ne transmet aucune donnée sur Internet : elle
-> lit l'état de votre PC, l'affiche localement, et c'est tout. Aucun compte, aucune
-> télémétrie, aucun serveur distant. Le seul accès réseau qu'elle fait est celui que vous
-> déclenchez vous-même : mesurer le débit, relever l'adresse IP publique, ou demander à
-> un gestionnaire de paquets s'il a des mises à jour.
+> **Rien ne sort de votre machine.** Vigie ne transmet aucune donnée sur Internet : elle lit l'état de votre PC,
+> l'affiche localement, et c'est tout. Aucun compte, aucune télémétrie, aucun serveur distant.
+>
+> Les seuls accès réseau sont ceux **que vous déclenchez** : mesurer le débit, relever l'adresse IP publique,
+> demander à un gestionnaire de paquets s'il a des mises à jour — et télécharger une nouvelle version de Vigie quand
+> vous appuyez sur « Mettre à jour ». Ce dernier cas fait entrer du code : il vient du dépôt officiel en HTTPS, et
+> aucune de ces requêtes ne part d'elle-même.
 
 Dépôt : <https://github.com/Cartman34/vigie-windows>
 
