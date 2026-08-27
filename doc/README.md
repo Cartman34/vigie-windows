@@ -1,47 +1,42 @@
 # Documentation — Vigie
 
-Deux points d'entrée pour **utiliser** Vigie, selon la langue :
+Two ways in to **use** Vigie, one per language:
 
 - **[Documentation française](fr/README.md)**
 - **[English documentation](en/README.md)**
 
-Les README du dépôt : [`README.md`](../README.md) (EN) · [`README.fr.md`](../README.fr.md) (FR).
+The repository READMEs: [`README.md`](../README.md) (EN) · [`README.fr.md`](../README.fr.md) (FR).
 
 ---
 
-## Comment cette documentation est organisée
+## How this documentation is laid out
 
-| Dossier | Public | Répond à |
+| Folder | Audience | Answers |
 |---|---|---|
-| `fr/using/`, `en/using/` | **utilisateur** | Comment je m'en sers ? premiers pas, cartes, Windows Update, dépannage |
-| `fr/operating/`, `en/operating/` | **utilisateur** | Comment je la mets en service ? installation, configuration, sécurité |
-| `en/developing/` | **développeur** | Comment c'est fait, comment j'ajoute une carte ? |
-| `en/agent-working/` | **l'agent** | Ce qu'il faut savoir avant de toucher au projet, et les règles à tenir |
-| `progress/` | **conception** | Ce qu'on vise, ce qui est fait, ce qu'on a décidé |
+| `fr/using/`, `en/using/` | **user** | How do I use it? getting started, cards, Windows Update, troubleshooting |
+| `fr/operating/`, `en/operating/` | **user** | How do I put it into service? install, configuration, security |
+| `en/developing/` | **developer** | How is it built, how do I add a card? |
+| `en/agent-working/` | **the agent** | What to know before touching the project, and the rules to hold |
+| `progress/` | **design** | What we aim for, what is done, what has been settled |
 
-Quatre choix expliquent cette forme :
+Four choices explain that shape:
 
-- **Deux moments, deux dossiers** — `operating/` répond à « je la mets en service »
-  (installer, configurer, sécuriser), `using/` à « je m'en sers » (premiers pas, cartes,
-  Windows Update, dépannage). Un fichier de l'un peut renvoyer vers l'autre : ce sont deux
-  vues du même produit, pas deux mondes.
+- **Two moments, two folders** — `operating/` answers "I am putting it into service" (install, configure, secure),
+  `using/` answers "I am using it" (getting started, cards, Windows Update, troubleshooting). A file in one may link
+  freely into the other: they are two views of the same product, not two worlds.
+- **File names are technical, therefore English** — even for French content. `fr/install.md` and `en/install.md` carry
+  the same name, so the counterpart is found without translating anything. The *content* is in the folder's language.
+- **The development documentation exists in English only**, and therefore lives outside the language folders. Nothing
+  requires `fr/` and `en/` to hold the same files.
+- **The work queue is never committed.** Where things stand right now and what is left to do live in `local/`, ignored
+  by git: it changes every session and belongs to one machine.
 
-- **Les noms de fichiers sont techniques, donc en anglais** — même pour un contenu
-  français. `fr/install.md` et `en/install.md` portent le même nom : on retrouve
-  l'équivalent sans traduire. Le *contenu*, lui, est dans la langue du dossier.
-- **La doc de développement n'existe qu'en anglais**, et vit donc hors des dossiers de
-  langue. Rien n'oblige `fr/` et `en/` à contenir les mêmes fichiers.
-- **La file de travail n'est jamais commitée.** L'état à l'instant et ce qui reste à
-  faire vivent dans `local/`, ignoré par git : cela change à chaque session et
-  n'appartient qu'à une machine.
+**One place per fact.** Each piece of information lives in ONE place and the others link to it. The one deliberate
+exception is `progress/`: `targeting/` states the need, `implemented/` states what is really built, and a card may well
+be described on both sides. Losing information hurts more than repeating it.
 
-**Règle d'or : pas de doublon.** Chaque information vit dans UN seul endroit ; les autres
-y renvoient. `progress/targeting/` détient l'énoncé du besoin, `progress/implemented/`
-l'état réel — on ne réécrit jamais l'énoncé dans le second.
+## What does not ship in the published archive
 
-## Ce qui ne part pas dans l'archive publiée
-
-`progress/`, `en/agent-working/`, `en/developing/security-review.md` et ce
-fichier même : ce sont des documents de projet, sans objet pour qui installe Vigie. Le
-script de fabrication les écarte nommément, chacun avec sa raison
+`progress/`, `en/agent-working/`, `en/developing/security-review.md` and this very file: project documents, of no use
+to someone installing Vigie. The build script leaves them out by name, each with its reason
 ([`scripts/build-release.ps1`](../scripts/build-release.ps1)).
