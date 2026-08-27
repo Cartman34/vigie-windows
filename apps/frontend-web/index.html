@@ -233,7 +233,12 @@
   body.reorg .card-refresh, body.reorg .card-menu{pointer-events:none; opacity:.35}
   body.reorg .card{outline:1px dashed var(--border); outline-offset:3px}
   body.reorg .card.drag{opacity:.45; outline-color:var(--accent)}
-  body.reorg .mcol{min-height:80px}
+  /* Les colonnes s'etirent sur toute la hauteur : sans cela, une colonne ne mesure que
+     ses cartes et le vide en dessous n'appartient a personne -- on ne pouvait pas y
+     deposer (signale le 27/08). En mode rangement, la zone de depot EST la colonne. */
+  body.reorg .masonry{align-items:stretch; min-height:60vh}
+  body.reorg .mcol{min-height:220px}
+  body.reorg .mcol::after{content:'';display:block;flex:1 1 auto;min-height:60px}
   body.reorg .mcol.cible{outline:2px dashed var(--accent); outline-offset:4px; border-radius:10px}
   .reorg-bar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:12px;
              padding:10px 14px;margin:0 0 14px;border:1px solid var(--accent);
@@ -973,6 +978,9 @@ function renderState(s, mode){
   app.appendChild(masonry);
   wireCardActions(masonry);
   appliquerVerrouOperations();
+  // Si le rangement est en cours, les cartes fraichement rendues redeviennent
+  // saisissables : le mode et l'affichage restent d'accord.
+  if(modeReorg) armerGlisser();
   applyFilter();
   const g=document.getElementById('global'), gt=document.getElementById('globalTxt');
   // Le badge de l'en-tete et le liseré disent la MEME chose : l'etat de l'application
@@ -1130,14 +1138,18 @@ function entrerReorg(){
   if(modeReorg) return;
   modeReorg = true;
   document.body.classList.add('reorg');
-  const app = document.getElementById('app') || document.querySelector('.masonry').parentElement;
+  // Le bandeau est pose A COTE de #app, pas dedans : #app est entierement redessine a
+  // chaque rendu, et le bandeau disparaissait en laissant les cartes en pointilles --
+  // le mode etait actif sans plus rien pour le dire ni pour en sortir (signale le
+  // 27/08 : « fais en sorte que tout vienne et parte ensemble »).
+  const app = document.getElementById('app');
   const bar = document.createElement('div');
   bar.className = 'reorg-bar'; bar.id = 'reorgBar';
   bar.innerHTML = '<div><b>Réorganisation</b><br><small>Faites glisser les cartes. '
                 + 'Les actions sont suspendues le temps du rangement.</small></div>'
                 + '<div class="sp"><button id="reorgDefaut">Rétablir l’ordre par défaut</button>'
                 + '<button class="primaire" id="reorgFin">Terminer</button></div>';
-  app.insertBefore(bar, app.firstChild);
+  app.parentElement.insertBefore(bar, app);
   document.getElementById('reorgFin').onclick = () => quitterReorg(true);
   document.getElementById('reorgDefaut').onclick = () => { oublierOrdre(); quitterReorg(false); refresh(); };
   armerGlisser();
@@ -1963,7 +1975,26 @@ function setLoading(on){
     app.innerHTML='<div class="loading-note"><span class="spin"></span> Chargement du panneau…</div>';
   }
 }
+// La page est-elle EN TRAIN DE SERVIR ? On ne redessine pas sous les doigts de
+// quelqu'un : rangement en cours, fenetre de dialogue ouverte, panneau des reglages
+// deploye, ou tiroir des notifications ouvert. Le rafraichissement automatique
+// attendra le tour suivant ; une demande EXPLICITE (bouton Actualiser), elle, passe.
+function pageOccupee(){
+  if(modeReorg) return 'rangement';
+  const modale = document.getElementById('hdsBack');
+  if(modale && modale.classList.contains('show')) return 'fenêtre ouverte';
+  if(typeof unitsOpen !== 'undefined' && unitsOpen) return 'réglages ouverts';
+  const tiroir = document.getElementById('drawer');
+  if(tiroir && tiroir.classList.contains('open')) return 'tiroir ouvert';
+  return null;
+}
+
 async function refresh(force){
+  // Rafraichissement AUTOMATIQUE seulement : une demande explicite n'est jamais differee.
+  if(!force){
+    const raison = pageOccupee();
+    if(raison) return;
+  }
   setLoading(true);
   progresSplash(0.2);             // requete partie
   try{
