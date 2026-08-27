@@ -172,6 +172,8 @@ If no manager is found, a single neutral card says so.
 - It never installs a Windows update you did not select — an empty selection is refused
   rather than read as "all of them".
 - It never listens outside `127.0.0.1`.
+- It never fetches code on its own: downloading a new version takes your gesture, and a version older than the one
+  installed is refused.
 - It never builds a shell command out of anything the browser sent it.
 
 See [Security](../operating/security.md) for the whole picture.

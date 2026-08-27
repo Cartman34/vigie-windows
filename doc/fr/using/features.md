@@ -176,6 +176,8 @@ Si aucun gestionnaire n'est trouvé, une carte neutre le dit.
 - Elle n'installe jamais une mise à jour Windows que vous n'avez pas sélectionnée : une
   liste vide est refusée plutôt qu'interprétée comme « tout ».
 - Elle n'écoute jamais en dehors de `127.0.0.1`.
+- Elle ne va jamais chercher du code toute seule : télécharger une nouvelle version demande votre geste, et une
+  version plus ancienne que celle installée est refusée.
 - Elle ne construit jamais une commande shell à partir de ce que le navigateur lui a
   envoyé.
 
