@@ -101,6 +101,9 @@ $EXCLUSIONS = @(
     @{ Motif = '^scripts/uninstall-legacy\.ps1$'
        Raison = "Nettoyage DATÉ et JETABLE des postes antérieurs au renommage Vigie (D11). Il ne concerne que des machines déjà installées, jamais une installation neuve." }
 
+    @{ Motif = '^scripts/dev/'
+       Raison = "Outillage du developpeur : controle de la documentation, installation des dependances de dev, page de charge GPU. Sans objet pour qui utilise Vigie, et ces scripts s'appuient sur des documents internes qui ne partent pas non plus." }
+
     @{ Motif = '^doc/progress/'
        Raison = "Suivi du projet : ce qu'on vise, ce qui est fait, les décisions prises. Utile à qui code, pas à qui utilise." }
 
