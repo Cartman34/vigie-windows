@@ -18,6 +18,11 @@ config/*.local.psd1
 # a l'identique depuis les sources : les versionner ferait grossir le depot pour rien.
 dist/
 
+# TOUT ce qui est local vit ici, et rien n'en sort : file de travail, notes, essais.
+# Cela change a chaque session et n'appartient qu'a cette machine -- ca n'a rien a
+# faire dans l'historique.
+/local/
+
 # --- Sauvegardes locales creees pendant l'edition ---
 *.bak-*
 **/.bak-*/

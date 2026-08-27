@@ -1236,7 +1236,7 @@ async function fetchModule(moduleId, frais){
       // frais : le serveur RECALCULE la carte et attend le resultat. Reserve au bouton
       // de la carte ; le suivi d'une tache de fond, lui, lit le cache.
       const r=await fetch(API+'/modules/'+encodeURIComponent(moduleId)+(frais?'?fresh=1':''),{ headers:{ Authorization:'Bearer '+TOKEN } });
-      if(r.ok) return await r.json();
+      if(r.ok){ marquerEnLigne(); return await r.json(); }
     }catch(e){}
     return null;
   }
@@ -1391,6 +1391,7 @@ async function synchroniserOperations(){
     const r = await fetch(API + '/operations', { headers:{ Authorization:'Bearer ' + TOKEN } });
     if(!r.ok) return;
     etat = await r.json();
+    marquerEnLigne();   // le serveur a repondu : la page n'est plus hors ligne
   }catch(e){ return; }
 
   const enCours = new Set();
@@ -1424,6 +1425,24 @@ async function synchroniserOperations(){
       updateNotif(n, 'done', (n.label || 'Opération') + ' : terminée.');
     }
   }
+}
+
+// RETOUR EN LIGNE : le constater des qu'un echange reussit, quel qu'il soit.
+//
+// L'etat « Hors ligne » n'etait leve que par un rafraichissement COMPLET. Or celui-ci
+// attend maintenant que la page soit libre (tiroir ferme, rangement termine) : avec le
+// tiroir ouvert, les cartes se mettaient a jour et le bandeau restait rouge -- signale
+// le 27/08. Le moindre appel qui aboutit prouve pourtant que le serveur repond.
+function marquerEnLigne(){
+  const gt = document.getElementById('globalTxt');
+  if(!gt || gt.textContent !== 'Hors ligne') return;
+  gt.textContent = 'Connecté';
+  gt.style.color = 'var(--ok)';
+  if(gt.parentElement) gt.parentElement.title = "Connecté à l'API locale : les données affichées sont réelles.";
+  const gdot = document.querySelector('#global .dot');
+  if(gdot) gdot.style.cssText = 'width:9px;height:9px;border-radius:50%;background:var(--ok)';
+  const mb = document.getElementById('modebar');
+  if(mb){ const occupe = mb.classList.contains('busy'); mb.className = 'modebar ok' + (occupe ? ' busy' : ''); mb.title = ''; }
 }
 
 function updateBell(){ const b=document.getElementById('bellCount'); if(!b) return; b.textContent=notifs.length; b.style.display=notifs.length?'inline-flex':'none'; }
@@ -1835,6 +1854,12 @@ function appliquerVerrouOperations(){
   const tenues = op ? (op.ressources || []) : [];
   const croise = b => {
     if(!op) return false;
+    // ON NE SAIT PAS CE QU'ELLE TIENT -> on bloque tout. Seules les operations passees
+    // par le veilleur declarent leurs ressources ; une verification de paquets ou une
+    // analyse de disque, elles, marquent seulement leur carte « occupee ». Sans ce
+    // repli, elles ne bloquaient plus rien du tout (constate le 27/08 : « je peux
+    // toujours faire des actions alors qu'une operation est en cours »).
+    if(!tenues.length) return true;
     let r = [];
     try{ r = JSON.parse(b.dataset.res || '[]'); }catch(e){ r = []; }
     if(!r.length) return false;
