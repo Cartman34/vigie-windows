@@ -32,14 +32,16 @@ Dépôt : <https://github.com/Cartman34/vigie-windows>
 **Trois gestes, pas de ligne de commande.**
 
 1. Téléchargez `vigie-<version>.zip` depuis la [dernière version publiée](https://github.com/Cartman34/vigie-windows/releases/latest).
-2. Décompressez-la **à un endroit durable** — ni `Téléchargements`, ni un dossier temporaire : Vigie se lancera depuis
-   ce chemin à chaque ouverture de session.
+2. Décompressez-la où vous voulez — `Téléchargements` fait l'affaire.
 3. Ouvrez le dossier obtenu et double-cliquez **`setup.cmd`**. Windows demande votre accord pour l'élévation :
    acceptez.
 
-Vigie s'installe, s'ajoute au démarrage de votre session et s'ouvre. Il n'y a rien d'autre à faire, et rien à
-réinstaller ensuite : `setup.cmd` se charge lui-même de ce qui manque sur la machine. Si vous fermez Vigie un jour,
-`scripts\run.cmd` la relance.
+Vigie s'installe dans `C:\Program Files\Sowapps\Vigie`, s'ajoute au démarrage de votre session et s'ouvre. Le dossier
+que vous venez de décompresser ne sert plus à rien : vous pouvez le supprimer. Il n'y a rien d'autre à faire, et rien à
+réinstaller ensuite : `setup.cmd` se charge lui-même de ce qui manque sur la machine. Si vous quittez Vigie,
+elle revient à votre prochaine ouverture de session.
+
+Vos réglages et vos journaux, eux, restent dans votre profil : chaque compte de la machine a les siens.
 
 *Si la page des Releases est vide, aucune version n'a encore été publiée : voir la voie git ci-dessous.*
 

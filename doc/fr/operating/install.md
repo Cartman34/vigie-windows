@@ -30,10 +30,9 @@ Ni Node, ni npm, ni étape de construction : le front est un unique fichier HTML
 1. Rendez-vous sur la [dernière version publiée](https://github.com/Cartman34/vigie-windows/releases/latest) — ce lien pointe toujours sur la plus récente,
    sans avoir à connaître son numéro — et téléchargez `vigie-<version>.zip`. La
    [liste complète](https://github.com/Cartman34/vigie-windows/releases) reste accessible si vous cherchez une version antérieure.
-2. Décompressez-la **à un endroit durable**. Elle se déplie en un unique dossier
-   `vigie-<version>/`. La tâche de démarrage automatique retiendra ce chemin exact :
-   évitez `Téléchargements`, évitez les dossiers temporaires, et ne déplacez pas le
-   dossier ensuite sans relancer le script de démarrage automatique.
+2. Décompressez-la où vous voulez. Elle se déplie en un unique dossier `vigie-<version>/`, qui n'est qu'un
+   intermédiaire : `setup.cmd` **copie Vigie dans `C:\Program Files\Sowapps\Vigie`** et c'est cette copie qui
+   sera lancée ensuite. Le dossier décompressé peut être supprimé après l'installation.
 3. Windows marque les fichiers téléchargés comme bloqués. Soit vous débloquez le dossier
    une fois :
    ```powershell
@@ -94,7 +93,18 @@ powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1
 `install.ps1` bascule tout seul en PowerShell 7 si vous l'avez lancé depuis 5.1, installe
 le provider NuGet, approuve le dépôt PSGallery, installe **Pode**, génère le jeton d'API
 local et vérifie la présence du runtime WebView2. Il écrit un transcript dans
-`apps\backend-pode\var\log\install_*.log`.
+`var\log\install_*.log`.
+
+**Il commence par se copier dans `C:\Program Files\Sowapps\Vigie`**, puis reprend depuis cette copie : c'est elle
+que la tâche de démarrage lancera. Deux exceptions, où Vigie reste où elle est — un **clone git** (poste de
+développement, Vigie tourne depuis les sources) et une installation **déjà** faite à cet emplacement. Les réglages de
+la machine déjà présents à destination (`config/*.local.*`, `actions.policy.json`) sont conservés : mettre à jour ne
+remet pas les choix à zéro.
+
+**Vos données ne vivent jamais à côté du programme.** Jeton, journaux, caches et réglages d'un compte vont dans
+`%LOCALAPPDATA%\Sowapps\Vigie`. Le serveur tourne élevé, il *pourrait* écrire dans Program Files — et c'est
+justement le piège : tous les comptes partageraient alors le même jeton et les mêmes réglages, alors que chacun doit
+avoir les siens.
 
 **L'élévation n'est pas facultative quand PowerShell 7 manque** : l'installation se fait
 en portée **machine** (`--scope machine`), sans quoi winget pose le paquet dans le profil
@@ -156,8 +166,14 @@ retour `3` signifie que vous avez refusé à la fenêtre d'explication.
 
 ### Retirer Vigie entièrement
 
-Après l'étape précédente, supprimez le dossier. Rien d'autre de Vigie ne vit en dehors —
-sauf ce que vous lui avez demandé de changer sur le système :
+Après l'étape précédente, supprimez deux dossiers :
+
+- le programme, `C:\Program Files\Sowapps\Vigie` (ou celui d'où vous la lanciez, si vous
+  travaillez depuis un clone git) ;
+- vos données, `%LOCALAPPDATA%\Sowapps\Vigie` — réglages, journaux et caches. **Chaque compte a les
+  siennes** : un compte qui a utilisé Vigie garde les siennes tant que vous ne les effacez pas depuis ce compte.
+
+Rien d'autre de Vigie ne vit en dehors — sauf ce que vous lui avez demandé de changer sur le système :
 
 > **Important :** désinstaller Vigie ne **déverrouille pas** Windows Update. Si vous
 > l'aviez verrouillé, déverrouillez-le *avant* de retirer Vigie, sinon la machine reste
