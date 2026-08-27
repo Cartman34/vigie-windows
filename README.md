@@ -44,9 +44,9 @@ point at this path. It expands into a single `vigie-<version>/` folder. *If that
 empty, no version has been tagged yet: take the git route below.*
 
 > **Why the install needs elevation.** Vigie starts from a scheduled task, one per
-> account, and that task runs `pwsh`. A PowerShell 7 installed for a single account (the
-> Store package) lives inside that account's profile: no other account could start Vigie.
-> So `setup.cmd` installs it **machine-wide**
+> account, and that task runs `pwsh`. **If** PowerShell 7 were installed for a single
+> account only (the Store package), it would live inside that account's profile: no other
+> account could start Vigie. So `setup.cmd` installs it **machine-wide**
 > (`C:\Program Files\PowerShell\7`).
 
 From a terminal instead, if you prefer — the install needs an **administrator** terminal,

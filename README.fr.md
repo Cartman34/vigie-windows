@@ -48,9 +48,10 @@ planifiée pointera sur ce chemin. L'archive se déplie en un unique dossier
 passez par git, ci-dessous.*
 
 > **Pourquoi l'installation demande l'élévation.** Vigie démarre par une tâche planifiée,
-> une par compte, et cette tâche lance `pwsh`. Un PowerShell 7 installé pour un seul
-> compte (paquet du Store) vit dans son profil : les autres comptes ne pourraient pas
-> démarrer Vigie. `setup.cmd` l'installe donc **pour la machine**
+> une par compte, et cette tâche lance `pwsh`. **Si** PowerShell 7 n'était installé que
+> pour un seul compte (le paquet du Store), il vivrait dans le profil de ce compte : les
+> autres comptes ne pourraient pas démarrer Vigie. `setup.cmd` l'installe donc **pour la
+> machine**
 > (`C:\Program Files\PowerShell\7`).
 
 En ligne de commande, si vous préférez — l'installation exige un terminal
