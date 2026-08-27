@@ -122,10 +122,21 @@ $pire = if (@($fields | Where-Object { "$($_.status)" -eq 'error' }).Count) { 'e
 New-ModuleObject -Id 'vigie-debug' -Theme 'debug' -Label 'Vigie' -Status $pire -Fields $fields -Actions @(
     New-Action -Id 'repair-tasks' -Label 'Réparer le démarrage de Vigie' -Kind 'immediate' -Severity 'fix' `
         -BusyLabel 'Réparation…' `
-        -Help "Réécrit les tâches de démarrage de Vigie qui ne fonctionnent plus. Ne touche à rien d'autre sur la machine."
+        -Help "Réécrit les tâches planifiées de Vigie qui ne peuvent plus lancer l'application." `
+        -Impact ("Réécrit UNIQUEMENT les tâches nommées « Vigie » et « Vigie - <compte> » : leur interpréteur " +
+                 "devient celui installé pour la machine, et leur chemin celui de l'installation en service. " +
+                 "Aucune autre tâche planifiée n'est touchée, aucune tâche n'est créée ni supprimée.") `
+        -Usage "Quand Vigie ne démarre plus à l'ouverture de session, ou après un changement d'installation de PowerShell." `
+        -Reversible "Sans objet : la tâche est simplement remise dans un état où elle fonctionne."
     New-Action -Id 'vigie-update' -Label 'Mettre à jour Vigie' -Kind 'confirm' -Severity 'fix' -Confirm `
         -BusyLabel 'Mise à jour…' `
-        -Help "Redéploie l'installation partagée depuis ce dépôt, puis relance Vigie. Les réglages sont conservés."
+        -Help "Déploie la version de ce dépôt vers l'installation partagée, puis relance l'application avec." `
+        -Impact ("Deux étapes enchaînées : déploiement vers C:\Program Files\Sowapps\Vigie (tag de version posé), puis relance du tray " +
+                 "ET du serveur. L'interface se coupe quelques secondes et la page se reconnecte seule. " +
+                 "Réglages, historique et journaux sont conservés.") `
+        -Usage "Quand l'installation partagée est en retard sur le dépôt : les autres comptes lancent alors une version plus ancienne que la vôtre." `
+        -Reversible ("La relance, oui : Vigie repart de toute façon. Le déploiement se défait en redéployant une " +
+                     "version antérieure. Si le déploiement échoue, la relance N'A PAS LIEU — l'ancienne version continue de tourner.")
     New-Action -Id 'open-logs' -Label 'Ouvrir les journaux' -Kind 'manual' -Severity 'info' `
         -Help "Ouvre le dossier des journaux dans l'explorateur."
 )

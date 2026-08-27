@@ -33,9 +33,20 @@ if ($attente.Count) { $statutMod = 'warn' }
 # reclamerait alors un redemarrage pour toujours. L'action et son annulation sont celles
 # qui existent deja (system-restart / system-restart-cancel) : rien n'est duplique.
 $actionsVbs = @(
-    New-Action -Id 'toggle-vbs' -Severity 'fix'  -Label 'Basculer VBS' -Confirm -Kind 'confirm' `
+    New-Action -Id 'toggle-vbs' -Severity 'fix'  -Label 'Basculer VBS' -Confirm `
+        -Impact ("Écrit la valeur EnableVirtualizationBasedSecurity dans le registre. Rien ne change avant le " +
+                 "REDÉMARRAGE de Windows. Activée, la sécurité basée sur la virtualisation isole une partie du " +
+                 "système dans un hyperviseur : c'est plus sûr, mais cela coûte des performances — surtout aux " +
+                 "machines virtuelles et aux jeux.") `
+        -Usage "L'activer pour durcir la machine ; la couper quand on a besoin de toute la puissance ou d'un hyperviseur tiers (VirtualBox, VMware)." `
+        -Reversible "Oui : rebasculer et redémarrer. Aucune donnée n'est touchée." -Kind 'confirm' `
         -Help "Active ou désactive la sécurité basée sur la virtualisation (VBS). La valeur est écrite dans le registre et prend effet au prochain redémarrage. Impacte les performances de virtualisation (WSL/VM)."
-    New-Action -Id 'toggle-hvci' -Severity 'fix' -Label 'Basculer intégrité mémoire' -Confirm -Kind 'confirm' `
+    New-Action -Id 'toggle-hvci' -Severity 'fix' -Label 'Basculer intégrité mémoire' -Confirm `
+        -Impact ("Écrit la valeur HypervisorEnforcedCodeIntegrity dans le registre ; effet au REDÉMARRAGE. " +
+                 "Activée, Windows vérifie les pilotes dans l'hyperviseur : un pilote ancien ou non signé peut " +
+                 "alors refuser de se charger.") `
+        -Usage "L'activer pour bloquer les pilotes douteux ; la couper si un matériel cesse de fonctionner après l'avoir activée." `
+        -Reversible "Oui : rebasculer et redémarrer." -Kind 'confirm' `
         -Help "Active ou désactive l'intégrité mémoire (HVCI). La valeur est écrite dans le registre et prend effet au prochain redémarrage. Peut dégrader les performances de virtualisation."
 )
 if (Test-RestartCountdown -Backend $backend) {

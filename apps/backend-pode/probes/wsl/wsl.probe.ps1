@@ -34,8 +34,16 @@ $st = if (-not $installed) { 'neutral' } elseif ($running) { 'ok' } else { $inac
 $wslActions = @()
 if ($installed) {
     if ($running) {
-        $wslActions += New-Action -Id 'wsl-restart' -Severity 'fix'  -Label 'Redémarrer' -Confirm -Kind 'confirm' -Help "Arrête puis relance WSL. Les programmes WSL non sauvegardés seront fermés."
-        $wslActions += New-Action -Id 'wsl-shutdown' -Label 'Arrêter'    -Confirm -Kind 'confirm' -Help "Arrête proprement toutes les distributions WSL en cours."
+        $wslActions += New-Action -Id 'wsl-restart' -Severity 'fix'  -Label 'Redémarrer' -Confirm `
+        -Impact "Arrêt complet de WSL puis relance : mêmes conséquences qu'un arrêt, suivies d'un démarrage propre." `
+        -Usage "Quand une distribution ne répond plus, ou après avoir changé sa configuration (.wslconfig)." `
+        -Reversible "Sans objet : c'est un redémarrage." -Kind 'confirm' -Help "Arrête puis relance WSL. Les programmes WSL non sauvegardés seront fermés."
+        $wslActions += New-Action -Id 'wsl-shutdown' -Label 'Arrêter'    -Confirm `
+        -Impact ("Arrête toutes les distributions Linux et la machine virtuelle qui les héberge. Les programmes " +
+                 "qui y tournent sont coupés : ce qui n'est pas enregistré est perdu. Docker Desktop, s'il " +
+                 "s'appuie sur WSL, s'arrête aussi.") `
+        -Usage "Pour libérer la mémoire prise par WSL, ou avant de sauvegarder son disque virtuel." `
+        -Reversible "Oui : WSL repart tout seul à la prochaine commande Linux." -Kind 'confirm' -Help "Arrête proprement toutes les distributions WSL en cours."
     } else {
         $wslActions += New-Action -Id 'wsl-start' -Severity 'fix'    -Label 'Démarrer'   -Kind 'immediate' -Help "Démarre WSL (boot de la distribution par défaut)."
     }

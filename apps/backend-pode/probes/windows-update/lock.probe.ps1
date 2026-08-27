@@ -28,8 +28,16 @@ $status = if (-not $locked) { 'warn' } else { 'ok' }
 
 $fullyLocked = $etat.locked   # verrou complet = MAJ auto coupees ET verrou ACL applique (defini dans Get-UpdateLockState)
 $actions = @()
-if ($fullyLocked) { $actions += New-Action -Id 'update-mode-on'  -Label 'Mode MAJ (déverrouiller)' -Confirm -Help "Déverrouille Windows Update pour installer des mises à jour manuellement. Pensez à re-verrouiller ensuite. Aucun redémarrage forcé." }
-else         { $actions += New-Action -Id 'update-mode-off' -Severity 'fix' -Label 'Verrouiller maintenant'      -Confirm -Help "Applique le verrouillage complet : coupe les mises à jour automatiques ET pose le verrou ACL qui empêche Windows de réactiver les tâches de mise à jour. Aucun redémarrage forcé." }
+if ($fullyLocked) { $actions += New-Action -Id 'update-mode-on'  -Label 'Mode MAJ (déverrouiller)' -Confirm `
+        -Impact ("Rend à Windows Update ses tâches planifiées et remet les mises à jour automatiques. " +
+                 "À partir de là, Windows peut télécharger, installer ET REDÉMARRER la machine de lui-même.") `
+        -Usage "Le temps d'installer les mises à jour en attente. On reverrouille juste après." `
+        -Reversible "Oui, avec « Verrouiller maintenant » — c'est l'action inverse, et elle est immédiate." -Help "Déverrouille Windows Update pour installer des mises à jour manuellement. Pensez à re-verrouiller ensuite. Aucun redémarrage forcé." }
+else         { $actions += New-Action -Id 'update-mode-off' -Severity 'fix' -Label 'Verrouiller maintenant'      -Confirm `
+        -Impact ("Désactive les tâches planifiées de Windows Update et pose un verrou sur leurs fichiers (ACL), " +
+                 "puis coupe les mises à jour automatiques. Windows ne redémarrera plus la machine de lui-même.") `
+        -Usage "C'est l'état normal de cette machine : les mises à jour se font quand VOUS le décidez." `
+        -Reversible "Oui, avec « Mode MAJ (déverrouiller) »." -Help "Applique le verrouillage complet : coupe les mises à jour automatiques ET pose le verrou ACL qui empêche Windows de réactiver les tâches de mise à jour. Aucun redémarrage forcé." }
 $actions += New-Action -Id 'run-audit' -Label "Lancer l'audit" -Help "Génère un rapport détaillé de l'état de Windows Update (stratégies, tâches, services) dans les journaux de Vigie. Lecture seule : ne modifie rien."
 
 if ($elevated) {
