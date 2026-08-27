@@ -2227,12 +2227,9 @@ que le besoin est énoncé, que le texte est relu et que les nuances sont tranch
 valider une traduction — on n'approuve pas un texte dont l'original est ailleurs. **D41** disait déjà que le code est
 en anglais et que le français est la langue de l'écrit ; ceci n'en est que la conséquence.
 
-En pratique : une page de `fr/` s'écrit ou se corrige d'abord, son équivalent de `en/` suit dans la foulée, jamais
-l'inverse. En cas de divergence, `fr/` fait foi. `README.fr.md` mène, `README.md` suit. Les pages anglaises portent la
-mention de leur statut de traduction, pour qu'un lecteur sache où trancher.
-
-N'entrent pas dans cette règle les documents sans jumeau : `en/developing/` et `en/agent-working/` n'existent qu'en
-anglais, `progress/` qu'en français. Sans traduction, pas de maître à désigner.
+L'énoncé opératoire, et ses exceptions, vivent à un seul endroit : `doc/en/developing/conventions.md`, section Langue.
+Les pages anglaises portent en plus la mention de leur statut de traduction — c'est une information de lecteur, pas la
+règle de travail.
 
 Un seul fichier porte un suffixe de langue à la racine, `README.fr.md` : c'est une convention GitHub, pas une entorse
 à la règle des noms techniques.

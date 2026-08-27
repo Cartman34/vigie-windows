@@ -19,16 +19,13 @@ The repository READMEs: [`README.md`](../README.md) (EN) · [`README.fr.md`](../
 | `en/agent-working/` | **the agent** | What to know before touching the project, and the rules to hold |
 | `progress/` | **design** | What we aim for, what is done, what has been settled |
 
-Five choices explain that shape:
+Four choices explain that shape:
 
 - **Two moments, two folders** — `operating/` answers "I am putting it into service" (install, configure, secure),
   `using/` answers "I am using it" (getting started, cards, Windows Update, troubleshooting). A file in one may link
   freely into the other: they are two views of the same product, not two worlds.
 - **File names are technical, therefore English** — even for French content. `fr/install.md` and `en/install.md` carry
   the same name, so the counterpart is found without translating anything. The *content* is in the folder's language.
-- **French is the master language.** A page in `fr/` is written or fixed FIRST, and its `en/` counterpart follows in
-  the same breath -- never the other way round. Where the two disagree, `fr/` prevails. Same for the two root READMEs:
-  `README.fr.md` leads, `README.md` follows.
 - **The development documentation exists in English only**, and therefore lives outside the language folders. Nothing
   requires `fr/` and `en/` to hold the same files.
 - **The work queue is never committed.** Where things stand right now and what is left to do live in `local/`, ignored
