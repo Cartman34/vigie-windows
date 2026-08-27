@@ -1,5 +1,13 @@
 <#
-    vigie-update.ps1 - Met a jour l'installation partagee, puis relance Vigie.
+    vigie-update.ps1 - Met a jour l'installation partagee DEPUIS CE DEPOT, puis relance Vigie.
+
+    CE QUE CE SCRIPT NE FAIT PAS : aller chercher du code sur Internet. Il ne fait ni
+    fetch, ni pull, ni telechargement d'archive publiee. Il prend l'etat du depot LOCAL
+    tel qu'il est, en fabrique une archive et la deploie. Sur une machine sans le depot
+    -- une Vigie installee depuis une archive -- il ne peut pas fonctionner : la
+    fabrication exige git et un depot utilisable, et s'arrete en disant pourquoi.
+    Recuperer une version publiee est un autre sujet (que telecharger, de qui, et
+    comment le verifier), qui demandera sa propre decision.
 
     Enchainement, sans intervention (D81 : les processus s'enchainent seuls, et le
     resultat de chaque sous-processus est LU) :
