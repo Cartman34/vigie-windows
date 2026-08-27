@@ -2214,3 +2214,25 @@ est pire qu'une doc absente : elle est suivie.
 Les deux sont supprimés, leurs six renvois nettoyés, et l'exclusion devenue vide retirée de `build-release.ps1`.
 `briefing.md` reste le point de reprise unique. `CHANGELOG.md` et les décisions antérieures gardent leurs mentions :
 c'est de l'histoire, elle ne se réécrit pas.
+
+## D93 — Le français est la langue maîtresse de la documentation (2026-08-27)
+
+« Il faut que tu détermines une langue maîtresse que tu modifies toujours en premier dans la doc et qui fait foi. »
+
+Deux jeux de pages disent la même chose dans deux langues. Sans ordre établi, ils divergent : une correction atterrit
+d'un côté, une reformulation de l'autre, et plus rien ne dit laquelle des deux versions est la bonne.
+
+**C'est le français.** Non par préférence, mais parce que la validation se fait en français : c'est dans cette langue
+que le besoin est énoncé, que le texte est relu et que les nuances sont tranchées. Faire mener l'anglais reviendrait à
+valider une traduction — on n'approuve pas un texte dont l'original est ailleurs. **D41** disait déjà que le code est
+en anglais et que le français est la langue de l'écrit ; ceci n'en est que la conséquence.
+
+En pratique : une page de `fr/` s'écrit ou se corrige d'abord, son équivalent de `en/` suit dans la foulée, jamais
+l'inverse. En cas de divergence, `fr/` fait foi. `README.fr.md` mène, `README.md` suit. Les pages anglaises portent la
+mention de leur statut de traduction, pour qu'un lecteur sache où trancher.
+
+N'entrent pas dans cette règle les documents sans jumeau : `en/developing/` et `en/agent-working/` n'existent qu'en
+anglais, `progress/` qu'en français. Sans traduction, pas de maître à désigner.
+
+Un seul fichier porte un suffixe de langue à la racine, `README.fr.md` : c'est une convention GitHub, pas une entorse
+à la règle des noms techniques.
