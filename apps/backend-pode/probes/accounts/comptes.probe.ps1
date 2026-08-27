@@ -42,6 +42,21 @@ if (-not $comptes.Count) {
         -Help "Aucun compte de cet ordinateur n'a encore ouvert de session."
 }
 
+# =============================================================================
+# DEUXIEME CARTE : LE DEPLOIEMENT
+#
+# Cette sonde rendait UNE carte qui parlait de deux choses : qui a Vigie sur cette
+# machine, et comment Vigie y est installee. L'utilisateur l'a vu (27/08) -- la carte
+# affichait la liste des comptes, la version deployee, l'interpreteur, et le sort du
+# dernier deploiement. Deux sujets, deux cartes.
+#
+#   « Comptes »      : qui a Vigie, et avec quels droits.
+#   « Deploiement »  : ce que lancent les AUTRES comptes -- emplacement partage,
+#                      interpreteur, taches de demarrage, dernier deploiement.
+#
+# Les deux restent dans le meme groupe : elles se lisent ensemble.
+$depl = @()
+
 # Installation lisible par les autres comptes ? Sinon, aucun autre compte ne peut demarrer
 # Vigie -- et c'est le cas sur un poste de developpement. On le DIT sur la carte, avec le
 # bouton qui corrige (D66 : une alerte porte toujours sa resolution).
@@ -58,22 +73,30 @@ if ($partagee) {
                    $(if ($cmp.there.commit) { " (" + $cmp.there.commit.Substring(0, [Math]::Min(8, $cmp.there.commit.Length)) + ")" } else { " (commit inconnu)" })
         $detail += [Environment]::NewLine + "Ce dépôt : " + $cmp.here.version +
                    $(if ($cmp.here.commit) { " (" + $cmp.here.commit.Substring(0, [Math]::Min(8, $cmp.here.commit.Length)) + ")" } else { "" })
+        # LA VALEUR DIT CE QUE C'EST, la COULEUR dit que ca ne va pas, le DETAIL
+        # explique (regle utilisateur du 27/08 : « juste la version en orange, ca
+        # suffit a savoir qu'il y a un souci »). Une ligne de carte se lit d'un coup
+        # d'oeil ; la phrase entiere tient dans l'infobulle.
+        $etat = $cmp.there.version
         if ($cmp.same) {
-            $etat = $cmp.there.version + ' · à jour'
+            $pourquoi = "Elle correspond exactement au dépôt : les autres comptes lancent la même version que vous."
         } elseif ($null -ne $cmp.behind -and $cmp.behind -gt 0) {
-            $etat = $cmp.there.version + ' · en retard de ' + $cmp.behind + ' commit(s)'
             $niveau = 'warn'
+            $pourquoi = "Elle est en retard de $($cmp.behind) commit(s) sur le dépôt : les autres comptes n'ont pas vos dernières corrections."
         } elseif (-not $cmp.there.commit) {
-            $etat = $cmp.there.version + ' · déployée avant le suivi des commits'
             $niveau = 'warn'
+            $pourquoi = "Elle a été déployée avant que Vigie ne marque ses archives : impossible de dire à quel commit elle correspond."
+        } else {
+            $pourquoi = "Elle diffère du dépôt."
         }
+        $detail = $pourquoi + [Environment]::NewLine + [Environment]::NewLine + $detail
     }
-    $fields += New-Field -Key 'partage' -Label 'Installation' -Value $etat -Kind 'text' -Status $niveau `
+    $depl += New-Field -Key 'partage' -Label 'Installation' -Value $etat -Kind 'text' -Status $niveau `
         -FixAction $(if ($niveau -eq 'warn') { 'deploy-shared' } else { '' }) `
         -Help "Emplacement lisible par tous les comptes de la machine : leurs tâches de démarrage pointent dessus. Les autres comptes lancent CETTE version, pas celle du dépôt." `
         -Guide $detail
 } else {
-    $fields += New-Field -Key 'partage' -Label 'Installation' -Value 'lisible par vous seul' -Kind 'text' -Status 'warn' `
+    $depl += New-Field -Key 'partage' -Label 'Installation' -Value 'lisible par vous seul' -Kind 'text' -Status 'warn' `
         -FixAction 'deploy-shared' `
         -Help "Les autres comptes ne peuvent pas lire cette installation : Vigie ne demarrerait pas chez eux." `
         -Guide ("Emplacement actuel : " + (Get-RepoRoot) + [Environment]::NewLine +
@@ -91,14 +114,14 @@ if (-not $pwshPartage -and -not $pwshCompte) {
     # installation en portee machine a desinstalle le paquet du compte puis a echoue,
     # et la machine s'est retrouvee SANS PowerShell 7 -- la carte annoncait toujours
     # « installe pour vous seul ».
-    $fields += New-Field -Key 'pwsh' -Label 'PowerShell 7' -Value 'absent de la machine' -Kind 'text' -Status 'error' `
+    $depl += New-Field -Key 'pwsh' -Label 'PowerShell 7' -Value 'absent de la machine' -Kind 'text' -Status 'error' `
         -FixAction 'pwsh-install-machine' `
         -Help "PowerShell 7 n'est installé nulle part : Vigie ne redémarrera pas, ni pour vous ni pour les autres comptes. Les processus en cours survivent, mais le prochain démarrage échouera." `
         -Guide ("À faire tout de suite, dans un terminal ADMINISTRATEUR :" + [Environment]::NewLine +
                 "  winget install --id Microsoft.PowerShell -e --scope machine" + [Environment]::NewLine +
                 "À défaut, le paquet MSI : https://github.com/PowerShell/PowerShell/releases")
 } elseif (-not $pwshPartage) {
-    $fields += New-Field -Key 'pwsh' -Label 'PowerShell 7' -Value 'installé pour vous seul' -Kind 'text' -Status 'warn' `
+    $depl += New-Field -Key 'pwsh' -Label 'PowerShell 7' -Value 'installé pour vous seul' -Kind 'text' -Status 'warn' `
         -FixAction 'pwsh-install-machine' `
         -Help "Les tâches des autres comptes ont besoin d'un PowerShell 7 installé pour la MACHINE. Celui-ci vient du Store et n'existe que dans votre profil : leur tâche ne lancerait rien." `
         -Guide ("Interpréteur actuel : " + $pwshCompte + [Environment]::NewLine +
@@ -106,7 +129,7 @@ if (-not $pwshPartage -and -not $pwshCompte) {
                 "  winget install --id Microsoft.PowerShell --scope machine" + [Environment]::NewLine +
                 "Puis réactivez les comptes concernés.")
 } else {
-    $fields += New-Field -Key 'pwsh' -Label 'PowerShell 7' -Value 'Installé' -Kind 'text' -Status 'ok' `
+    $depl += New-Field -Key 'pwsh' -Label 'PowerShell 7' -Value 'Installé' -Kind 'text' -Status 'ok' `
         -Help "Tous les comptes peuvent lancer l'interpréteur : leurs tâches de démarrage fonctionnent." `
         -Guide ("Interpréteur des tâches : " + $pwshPartage)
 }
@@ -121,7 +144,7 @@ if (-not $eleve) {
 # porte le bouton qui repare (D66).
 $malades = @($comptes | Where-Object { $_.taskAilment })
 if ($malades.Count) {
-    $fields += New-Field -Key 'taches' -Label 'Démarrage automatique' `
+    $depl += New-Field -Key 'taches' -Label 'Démarrage automatique' `
         -Value ($malades.Count.ToString() + " tâche(s) hors service") -Kind 'text' -Status 'error' `
         -FixAction 'repair-tasks' `
         -Help "Une tâche de démarrage de Vigie ne peut plus lancer l'application : elle démarre et meurt aussitôt, sans message. Vigie ne se lancera pas à l'ouverture de session." `
@@ -130,28 +153,41 @@ if ($malades.Count) {
 
 # LE SORT DE LA DERNIERE OPERATION lancee depuis cette carte (D82). Une ligne verte
 # quand elle a abouti, ROUGE avec son journal quand elle a echoue -- jamais rien.
-$dernier = New-LastRunField -Module 'accounts'
-if ($dernier) { $fields += $dernier }
+$dernier = New-LastRunField -Module 'deployment'
+if ($dernier) { $depl += $dernier }
 
-$pire = if (@($fields | Where-Object { "$($_.status)" -eq 'error' }).Count) { 'error' }
-        elseif (@($fields | Where-Object { "$($_.status)" -eq 'warn' }).Count) { 'warn' }
-        else { 'ok' }
+# --- Carte 1 : les COMPTES ---------------------------------------------------
+$carteComptes = New-ModuleObject -Id 'accounts' -Theme 'accounts' -Label 'Comptes' `
+    -Status $(if (@($fields | Where-Object { "$($_.status)" -eq 'error' }).Count) { 'error' }
+              elseif (@($fields | Where-Object { "$($_.status)" -eq 'warn' }).Count) { 'warn' }
+              else { 'ok' }) `
+    -Fields $fields -Actions @(
+        New-Action -Id 'accounts-details' -Label 'Détails des comptes' -Kind 'immediate' -Severity 'info' `
+            -Help "Dernière ouverture de session et poids des données Vigie de chacun. Demande un compte administrateur."
+        New-Action -Id 'accounts-refresh' -Label 'Actualiser la liste' -Kind 'immediate' -Severity 'neutral' `
+            -BusyLabel 'Relevé…' `
+            -Help "Refait le relevé des comptes. La liste est mémorisée 24 h : elle ne change qu'exceptionnellement."
+        New-Action -Id 'open-users-settings' -Label 'Gérer les comptes' -Kind 'dialog' -Severity 'info' `
+            -Help "Ouvre Paramètres > Utilisateurs : c'est là que l'on choisit les comptes avec lesquels Vigie démarre."
+    )
+
+# --- Carte 2 : le DEPLOIEMENT ------------------------------------------------
 # Une tache de fond lancee depuis cette carte (deploiement, installation de PowerShell)
 # la garde en « operation en cours » jusqu'a la fin du processus.
-$travail = Get-ModuleBusyMark -Module 'accounts'
-New-ModuleObject -Id 'accounts' -Theme 'accounts' -Label 'Comptes' -Status $pire -Fields $fields `
-    -Busy:([bool]$travail) -BusyAction $(if ($travail) { "$($travail.action)" } else { '' }) -Actions @(
-    New-Action -Id 'accounts-details' -Label 'Détails des comptes' -Kind 'immediate' -Severity 'info' `
-        -Help "Dernière ouverture de session et poids des données Vigie de chacun. Demande un compte administrateur."
-    New-Action -Id 'deploy-shared' -Label 'Déployer pour tous les comptes' -Kind 'confirm' -Severity 'fix' -Confirm `
-        -BusyLabel 'Déploiement…' `
-        -Help "Installe cette version dans C:\Program Files\Sowapps\Vigie, lisible par tous les comptes de la machine."
-    New-Action -Id 'repair-tasks' -Label 'Réparer le démarrage de Vigie' -Kind 'immediate' -Severity 'fix' `
-        -BusyLabel 'Réparation…' `
-        -Help "Réécrit les tâches de démarrage de Vigie qui ne fonctionnent plus (interpréteur ou application déplacés). Ne touche à rien d'autre sur la machine."
-    New-Action -Id 'accounts-refresh' -Label 'Actualiser la liste' -Kind 'immediate' -Severity 'neutral' `
-        -BusyLabel 'Relevé…' `
-        -Help "Refait le relevé des comptes. La liste est mémorisée 24 h : elle ne change qu'exceptionnellement."
-    New-Action -Id 'open-users-settings' -Label 'Gérer les comptes' -Kind 'dialog' -Severity 'info' `
-        -Help "Ouvre Paramètres > Utilisateurs : choisir les comptes avec lesquels Vigie démarre."
-)
+$travail = Get-ModuleBusyMark -Module 'deployment'
+$carteDepl = New-ModuleObject -Id 'deployment' -Theme 'accounts' -Label 'Déploiement' `
+    -Status $(if (@($depl | Where-Object { "$($_.status)" -eq 'error' }).Count) { 'error' }
+              elseif (@($depl | Where-Object { "$($_.status)" -eq 'warn' }).Count) { 'warn' }
+              else { 'ok' }) `
+    -Fields $depl `
+    -Busy:([bool]$travail) -BusyAction $(if ($travail) { "$($travail.action)" } else { '' }) `
+    -Actions @(
+        New-Action -Id 'deploy-shared' -Label 'Déployer pour tous les comptes' -Kind 'confirm' -Severity 'fix' -Confirm `
+            -BusyLabel 'Déploiement…' `
+            -Help "Installe cette version dans C:\Program Files\Sowapps\Vigie, lisible par tous les comptes de la machine."
+        New-Action -Id 'repair-tasks' -Label 'Réparer le démarrage de Vigie' -Kind 'immediate' -Severity 'fix' `
+            -BusyLabel 'Réparation…' `
+            -Help "Réécrit les tâches de démarrage de Vigie qui ne fonctionnent plus (interpréteur ou application déplacés). Ne touche à rien d'autre sur la machine."
+    )
+
+@($carteComptes, $carteDepl)

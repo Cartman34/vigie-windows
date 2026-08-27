@@ -45,7 +45,7 @@ try {
               '-Yes')
     # Le veilleur attend la fin et rapporte le code de sortie (D82) : un deploiement
     # rate doit se voir sur la carte, pas seulement dans un journal.
-    $lance = [bool](Start-WatchedAction -Module 'accounts' -Probe 'comptes.probe.ps1' `
+    $lance = [bool](Start-WatchedAction -Module 'deployment' -Probe 'comptes.probe.ps1' `
                         -Label 'Déploiement' -Action 'deploy-shared' `
                         -File $pwsh -Arguments $argv -Log $journal -Backend $backend)
     Write-Log -Backend $backend -Name 'deploy' -Message ("deploiement lance vers " + $destination + " (journal : " + $journal + ")")
@@ -57,5 +57,5 @@ if (-not $lance) { return @{ message = "Impossible de lancer le déploiement."; 
 
 @{
     message = "Déploiement lancé vers $destination. Il dure une à deux minutes ; les comptes pourront ensuite être activés."
-    result  = @{ ok = $true; async = $true; module = 'accounts'; invalidate = @('comptes.probe.ps1') }
+    result  = @{ ok = $true; async = $true; module = 'deployment'; invalidate = @('comptes.probe.ps1') }
 }

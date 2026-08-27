@@ -2891,8 +2891,14 @@ function New-LastRunField {
     try { $quand = (ConvertTo-UtcDate $r.at).ToLocalTime().ToString('dd/MM/yyyy HH:mm') } catch { }
     $duree = if ([int]$r.seconds -ge 60) { [string][int]([int]$r.seconds / 60) + ' min' } else { "$([int]$r.seconds) s" }
     if ([int]$r.code -eq 0) {
-        return (New-Field -Key $Key -Label "$($r.label)" -Value ("réussi le " + $quand + " (" + $duree + ")") `
-                          -Kind 'text' -Status 'ok' -Help "Dernière opération lancée depuis cette carte.")
+        # REUSSI : la DATE suffit (regle utilisateur du 27/08). Une operation qui a
+        # abouti n'a rien a raconter sur la carte ; la duree et le journal restent
+        # disponibles dans le detail de la ligne, pour qui les cherche.
+        return (New-Field -Key $Key -Label "$($r.label)" -Value $quand `
+                          -Kind 'text' -Status 'ok' `
+                          -Help "Dernière opération lancée depuis cette carte : elle a abouti." `
+                          -Guide ("Durée : " + $duree +
+                                  $(if ($r.log) { [Environment]::NewLine + "Journal : " + $r.log } else { '' })))
     }
     $detail = if ($r.error) { "$($r.error)" } else { "code de sortie " + [int]$r.code }
     return (New-Field -Key $Key -Label "$($r.label)" -Value ("ÉCHEC le " + $quand + " — " + $detail) `
