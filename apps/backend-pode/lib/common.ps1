@@ -4331,163 +4331,46 @@ function Show-ElevationRationale {
     )
     if ($AssumeYes) { return $true }
 
-    $nl = [Environment]::NewLine
-    $bullets = if ($Changes.Count) { ($Changes | ForEach-Object { "   - $_" }) -join $nl } else { '' }
+    # LA FENETRE VIT DANS scripts/lib/show-confirm.ps1, et nulle part ailleurs.
+    #
+    # Elle doit pouvoir s'afficher AVANT la premiere elevation, quand PowerShell 7 n'est
+    # pas encore installe : elle est donc ecrite pour tourner aussi sous Windows
+    # PowerShell 5.1, et vit hors de cette bibliotheque qui, elle, vise PS7. La dessiner
+    # une seconde fois ici aurait garanti que les deux divergent des la premiere retouche.
+    $script = $null
+    try { $script = Join-Path (Get-RepoRoot) 'scripts/lib/show-confirm.ps1' } catch { }
 
-    try {
-        Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
-        Add-Type -AssemblyName System.Drawing -ErrorAction Stop
-
-        $bg  = [System.Drawing.Color]::FromArgb(22, 27, 34)
-        $fg  = [System.Drawing.Color]::FromArgb(230, 237, 243)
-        $mut = [System.Drawing.Color]::FromArgb(139, 148, 158)
-        $acc = [System.Drawing.Color]::FromArgb(56, 139, 253)
-
-        $form                 = New-Object System.Windows.Forms.Form
-        $form.Text            = 'Vigie — autorisation requise'
-        $form.StartPosition   = 'CenterScreen'
-        $form.FormBorderStyle = 'FixedDialog'
-        $form.MaximizeBox     = $false
-        $form.MinimizeBox     = $false
-        $form.TopMost         = $true
-        $form.BackColor       = $bg
-        $form.ForeColor       = $fg
-        # La hauteur definitive est calculee plus bas, une fois le contenu mesure.
-        $form.ClientSize      = New-Object System.Drawing.Size(580, 306)
-        # Icone de Vigie plutot que celle de PowerShell : la fenetre doit s'annoncer
-        # comme venant de l'application, pas de l'interpreteur qui l'execute.
+    if ($script -and (Test-Path -LiteralPath $script)) {
+        $exe = $null
+        try { $exe = (Get-Process -Id $PID).Path } catch { }
+        if (-not $exe) { $exe = 'powershell.exe' }
+        $argv = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $script,
+                  '-Title', $Title, '-Summary', $Summary)
+        if ($Changes.Count) { $argv += @('-Changes', ($Changes -join '|')) }
+        if ($InitiatedBy)   { $argv += @('-InitiatedBy', $InitiatedBy) }
         try {
-            $ico = Join-Path (Get-BackendRoot) 'assets/tray/ok.ico'
-            if (Test-Path -LiteralPath $ico) { $form.Icon = New-Object System.Drawing.Icon($ico) }
-        } catch { }
-
-        # Bandeau d'origine : visible AVANT tout le reste, car c'est l'information la
-        # plus importante si ce n'est pas l'utilisateur qui a declenche l'action.
-        $lblOrigin = $null
-        if ($InitiatedBy) {
-            $lblOrigin           = New-Object System.Windows.Forms.Label
-            $lblOrigin.Text      = "Demandé par un agent automatisé : $InitiatedBy" + $nl + "Ce n'est pas toi qui as lancé cette action."
-            $lblOrigin.Font      = New-Object System.Drawing.Font('Segoe UI', 9, [System.Drawing.FontStyle]::Bold)
-            $lblOrigin.ForeColor = [System.Drawing.Color]::FromArgb(210, 153, 34)
-            $lblOrigin.BackColor = [System.Drawing.Color]::FromArgb(38, 34, 22)
-            $lblOrigin.Padding   = New-Object System.Windows.Forms.Padding(10, 6, 10, 6)
+            & $exe @argv
+            # 0 = continuer ; 3 = refus ; 1 = pas d'interface, et le script l'a dit en
+            # console. Tout ce qui n'est pas 0 REFUSE : rien ne s'eleve sans consentement.
+            return ($LASTEXITCODE -eq 0)
+        } catch {
+            Write-Host ("Impossible d'afficher la fenetre de confirmation : " + $_.Exception.Message) -ForegroundColor Yellow
         }
-
-        # --- MISE EN PAGE MESUREE -------------------------------------------------
-        #
-        # Les hauteurs etaient fixes : 44 px pour le resume, 110 pour la liste. Un resume
-        # de trois lignes passait donc SOUS la liste (constate le 27/08). On mesure chaque
-        # bloc, on l'empile sous le precedent, et la fenetre prend la hauteur qu'il faut.
-        $marge   = 24
-        $largeur = 532
-        function Mesurer {
-            param([string]$Texte, $Fonte)
-            if (-not $Texte) { return 0 }
-            $t = [System.Windows.Forms.TextRenderer]::MeasureText(
-                    $Texte, $Fonte,
-                    (New-Object System.Drawing.Size($largeur, 0)),
-                    ([System.Windows.Forms.TextFormatFlags]::WordBreak))
-            return [int]$t.Height + 2
-        }
-
-        $y = 20
-        if ($lblOrigin) {
-            $hOrigin = (Mesurer -Texte $lblOrigin.Text -Fonte $lblOrigin.Font) + 12
-            $lblOrigin.Location = New-Object System.Drawing.Point($marge, $y)
-            $lblOrigin.Size     = New-Object System.Drawing.Size($largeur, $hOrigin)
-            $y += $hOrigin + 16
-        }
-
-        $fTitre = New-Object System.Drawing.Font('Segoe UI', 13, [System.Drawing.FontStyle]::Bold)
-        $fTexte = New-Object System.Drawing.Font('Segoe UI', 9.5)
-        $fNote  = New-Object System.Drawing.Font('Segoe UI', 9)
-
-        $lblTitle           = New-Object System.Windows.Forms.Label
-        $lblTitle.Text      = $Title
-        $lblTitle.Font      = $fTitre
-        $lblTitle.ForeColor = $fg
-        $hTitre             = Mesurer -Texte $Title -Fonte $fTitre
-        $lblTitle.Location  = New-Object System.Drawing.Point($marge, $y)
-        $lblTitle.Size      = New-Object System.Drawing.Size($largeur, $hTitre)
-        $y += $hTitre + 12
-
-        $lblBody           = New-Object System.Windows.Forms.Label
-        $lblBody.Text      = $Summary
-        $lblBody.Font      = $fTexte
-        $lblBody.ForeColor = $fg
-        $hBody             = Mesurer -Texte $Summary -Fonte $fTexte
-        $lblBody.Location  = New-Object System.Drawing.Point($marge, $y)
-        $lblBody.Size      = New-Object System.Drawing.Size($largeur, $hBody)
-        $y += $hBody + 14
-
-        $lblChanges           = New-Object System.Windows.Forms.Label
-        $lblChanges.Text      = $bullets
-        $lblChanges.Font      = $fTexte
-        $lblChanges.ForeColor = $fg
-        $hChanges             = Mesurer -Texte $bullets -Fonte $fTexte
-        $lblChanges.Location  = New-Object System.Drawing.Point($marge, $y)
-        $lblChanges.Size      = New-Object System.Drawing.Size($largeur, [Math]::Max($hChanges, 1))
-        if ($bullets) { $y += $hChanges + 18 }
-
-        $lblUac           = New-Object System.Windows.Forms.Label
-        $lblUac.Text      = "Si tu continues, Windows demandera ensuite l'autorisation administrateur." + $nl + "Rien n'est modifié avant cette étape, et tu peux encore refuser."
-        $lblUac.Font      = $fNote
-        $lblUac.ForeColor = $mut
-        $hUac             = Mesurer -Texte $lblUac.Text -Fonte $fNote
-        $lblUac.Location  = New-Object System.Drawing.Point($marge, $y)
-        $lblUac.Size      = New-Object System.Drawing.Size($largeur, $hUac)
-        $y += $hUac + 18
-
-        $btnOk              = New-Object System.Windows.Forms.Button
-        $btnOk.Text         = 'Continuer'
-        $btnOk.DialogResult = [System.Windows.Forms.DialogResult]::OK
-        $btnOk.BackColor    = $acc
-        $btnOk.ForeColor    = [System.Drawing.Color]::White
-        $btnOk.FlatStyle    = 'Flat'
-        $btnOk.FlatAppearance.BorderSize = 0
-        $btnOk.Size         = New-Object System.Drawing.Size(124, 32)
-        $btnOk.Location     = New-Object System.Drawing.Point(432, $y)
-
-        $btnNo              = New-Object System.Windows.Forms.Button
-        $btnNo.Text         = 'Annuler'
-        $btnNo.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
-        $btnNo.BackColor    = [System.Drawing.Color]::FromArgb(33, 38, 45)
-        $btnNo.ForeColor    = $fg
-        $btnNo.FlatStyle    = 'Flat'
-        $btnNo.FlatAppearance.BorderColor = [System.Drawing.Color]::FromArgb(68, 76, 86)
-        $btnNo.Size         = New-Object System.Drawing.Size(104, 32)
-        $btnNo.Location     = New-Object System.Drawing.Point(318, $y)
-
-        # La fenetre s'ajuste a son contenu, jamais l'inverse.
-        $form.ClientSize = New-Object System.Drawing.Size(580, ($y + 32 + 20))
-
-        $controls = @($lblTitle, $lblBody, $lblChanges, $lblUac, $btnOk, $btnNo)
-        if ($lblOrigin) { $controls += $lblOrigin }
-        $form.Controls.AddRange($controls)
-        $form.AcceptButton = $btnOk
-        $form.CancelButton = $btnNo          # Echap et la croix ferment en REFUSANT
-
-        # Barre de titre sombre + coins arrondis : coherent avec le reste de Vigie.
-        Set-WindowChrome -Handle $form.Handle -DarkTitleBar -RoundedCorners
-
-        $res = $form.ShowDialog()
-        $form.Dispose()
-        return ($res -eq [System.Windows.Forms.DialogResult]::OK)
-    } catch {
-        # Pas d'interface graphique (session sans bureau, execution automatisee) :
-        # on explique en console et on REFUSE par defaut. Rien ne doit s'elever sans
-        # consentement ; utiliser -Yes pour un lancement volontairement automatise.
-        Write-Host ""
-        if ($InitiatedBy) {
-            Write-Host ("Demandé par un agent automatisé : " + $InitiatedBy) -ForegroundColor Yellow
-            Write-Host "Ce n'est pas toi qui as lancé cette action." -ForegroundColor Yellow
-        }
-        Write-Host $Title -ForegroundColor Cyan
-        Write-Host $Summary
-        if ($bullets) { Write-Host $bullets }
-        Write-Host "Interface graphique indisponible : relance avec -Yes pour confirmer." -ForegroundColor Yellow
-        return $false
     }
+
+    # Repli : le script est introuvable (installation abimee). On explique en console et
+    # on REFUSE -- utiliser -Yes pour un lancement volontairement automatise.
+    $nl = [Environment]::NewLine
+    Write-Host ""
+    if ($InitiatedBy) {
+        Write-Host ("Demandé par un agent automatisé : " + $InitiatedBy) -ForegroundColor Yellow
+        Write-Host "Ce n'est pas toi qui as lancé cette action." -ForegroundColor Yellow
+    }
+    Write-Host $Title -ForegroundColor Cyan
+    Write-Host $Summary
+    if ($Changes.Count) { Write-Host (($Changes | ForEach-Object { "   - $_" }) -join $nl) }
+    Write-Host "Fenêtre de confirmation introuvable : relance avec -Yes pour confirmer." -ForegroundColor Yellow
+    return $false
 }
 
 # Relance LE MEME script en session elevee en conservant ses parametres, puis

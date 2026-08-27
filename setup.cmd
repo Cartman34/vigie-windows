@@ -21,10 +21,30 @@ if errorlevel 1 goto :pasadmin
 
 net session >nul 2>&1
 if not errorlevel 1 goto :installe
+
+REM ON DIT CE QU ON VA FAIRE, AVANT que Windows ne demande l elevation. La fenetre est
+REM portee par Windows PowerShell 5.1, present partout : a cet instant, pwsh n est pas
+REM forcement installe -- c est justement une des choses qu on s apprete a poser.
+REM
+REM Le TEXTE n est pas ici : un .cmd se lit dans la page de code OEM, ou les accents
+REM deviennent des symboles. Ce fichier nomme un scenario, le script ecrit les phrases.
+REM Code 0 = l utilisateur continue ; tout le reste = il refuse, ou l affichage a echoue.
+echo.
+echo Une fenetre d explication va s ouvrir.
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\lib\show-confirm.ps1" -Scenario installation
+if errorlevel 1 goto :refus
+
 echo Vigie a besoin des droits administrateur.
 echo Une fenetre de confirmation Windows va s ouvrir.
 powershell -NoProfile -Command "Start-Process -FilePath '%~f0' -Verb RunAs"
 exit /b
+
+:refus
+echo.
+echo Installation annulee. Rien n a ete modifie sur cette machine.
+echo.
+pause
+exit /b 3
 
 :installe
 echo.
