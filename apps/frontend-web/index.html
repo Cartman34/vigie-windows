@@ -982,13 +982,24 @@ function repartirEnColonnes(masonry){
     const c = document.createElement('div'); c.className = 'mcol';
     colonnes.push(c); hauteurs.push(0);
   }
-  // Ordre conserve : on pose chaque carte dans la colonne la moins remplie a cet
-  // instant, ce qui donne toujours le meme resultat pour un meme jeu de cartes.
+  // PAR GROUPE, et non carte par carte : les trois cartes d'« Outils & paquets » se
+  // retrouvaient dans trois colonnes differentes, alors qu'elles se lisent ensemble
+  // (signale le 27/08). On pose donc un GROUPE ENTIER dans la colonne la moins
+  // remplie ; ses cartes restent contigues, et l'equilibre se fait entre groupes.
+  const groupes = [];
+  const parTheme = new Map();
   for(const carte of cartes){
+    const g = carte.dataset.theme || carte.dataset.module || '';
+    if(!parTheme.has(g)){ parTheme.set(g, []); groupes.push(g); }
+    parTheme.get(g).push(carte);
+  }
+  for(const g of groupes){
     let cible = 0;
     for(let i = 1; i < nb; i++){ if(hauteurs[i] < hauteurs[cible]) cible = i; }
-    colonnes[cible].appendChild(carte);
-    hauteurs[cible] += hauteurEstimee(carte);
+    for(const carte of parTheme.get(g)){
+      colonnes[cible].appendChild(carte);
+      hauteurs[cible] += hauteurEstimee(carte);
+    }
   }
   masonry.textContent = '';
   colonnes.forEach(c => masonry.appendChild(c));
