@@ -32,7 +32,7 @@ expliquent en console et **refusent par défaut**.
 | Port | `47600` |
 | API | sous `/api/v1` : `GET /health`, `GET /state`, `GET /modules/{id}`, `POST /actions` |
 | Authentification | un **jeton Bearer**, exigé partout sauf sur `/health` |
-| Stockage du jeton | `apps/backend-pode/var/secrets/api.token`, généré au premier lancement, jamais versionné |
+| Stockage du jeton | `var/secrets/api.token` — dans votre profil pour une Vigie installée, sur place depuis un clone git. Généré au premier lancement, jamais versionné. **Un jeton par compte.** |
 
 ## Les quatre défenses
 
@@ -46,8 +46,8 @@ expliquent en console et **refusent par défaut**.
 3. **Aucune injection de commande.** Les actions ne construisent jamais une commande à
    partir de l'entrée client. Les `params` ne sont jamais passés à un shell. Chaque action
    est un script fixe sur le disque.
-4. **Rien de sensible n'est versionné.** `apps/backend-pode/var/secrets/` (le jeton),
-   `apps/backend-pode/var/cache/` (l'état) et `apps/*/var/log/` sont couverts par
+4. **Rien de sensible n'est versionné.** `var/secrets/` (le jeton),
+   `var/cache/` (l'état) et `var/log/` sont couverts par
    `.gitignore`.
 
 ## Le risque résiduel, dit franchement
@@ -63,7 +63,7 @@ liste blanche d'actions. Ce qui durcirait davantage, si le besoin s'en fait sent
 - lancer le serveur **non élevé** et n'élever **que l'action** au moment où elle s'exécute
   (une invite UAC par action) ;
 - faire tourner le jeton périodiquement ;
-- restreindre l'ACL du fichier `apps/backend-pode/var/secrets/api.token`.
+- restreindre l'ACL du fichier `var/secrets/api.token`.
 
 Aucune de ces pistes n'est implémentée en v0.1.
 

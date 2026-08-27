@@ -10,7 +10,7 @@
 |---|---|
 | Is the server alive? | open <http://127.0.0.1:47600/api/v1/health> — it needs no token |
 | Is the tray alive? | `pwsh -File .\scripts\tray.ps1 -Status` |
-| Where are the logs? | tray menu → **Open the logs**, or `apps\backend-pode\var\log\` |
+| Where are the logs? | tray menu → **Open the logs** — the safest route, since the folder depends on the installation |
 
 ## Common situations
 
@@ -123,11 +123,11 @@ shortcut, so re-run `install-autostart.ps1` afterwards.
 
 | File | Written by |
 |---|---|
-| `apps\backend-pode\var\log\install_*.log` | `scripts\install.ps1` (full transcript) |
-| `apps\backend-pode\var\log\run_*.log` | `scripts\run.ps1` — what it decided and why |
-| `apps\backend-pode\var\log\start_*.log` | the server itself |
-| `apps\backend-pode\var\log\pode-error_*.log`, `pode-request_*.log` | the Pode runtime |
-| `apps\backend-pode\var\log\action-*.log` | individual actions, when they log |
+| `install_*.log` | `scripts\install.ps1` (full transcript) |
+| `run_*.log` | `scripts\run.ps1` — what it decided and why |
+| `start_*.log` | the server itself |
+| `pode-error_*.log`, `pode-request_*.log` | the Pode runtime |
+| `action-*.log` | individual actions, when they log |
 | `apps\tray\var\log\tray_*.log` | the tray app |
 
 Elevated scripts write their output to a log file and the calling process reads it back —

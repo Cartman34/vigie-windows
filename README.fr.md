@@ -78,6 +78,8 @@ Vigie n'est pas un moniteur passif. Trois choses à savoir :
 | Thème | Cartes |
 |---|---|
 | **Système** | édition / activation / version de Windows, espace libre de C: face à un seuil, RAM / CPU / uptime |
+| **Alimentation** | source, niveau de batterie, sens du courant, et l'alerte qui compte : sur secteur mais en décharge, le chargeur ne suit pas (machines à batterie uniquement) |
+| **Gaming** | carte graphique, VRAM réellement utilisée, température GPU, jeu détecté et sa consommation, applications gourmandes pendant la partie |
 | **Réseau** | connexion, type de connexion, Wi-Fi, IP locale, IP publique, IPv6, MAC, VPN, mesure de latence et de débit à la demande |
 | **Sécurité** | antivirus (nom, actif, à jour), profils du pare-feu, VBS et intégrité mémoire (HVCI) |
 | **Windows Update** | verrouillage (MAJ automatiques, verrou ACL, tâches désactivées vs actives, redémarrage en attente), mises à jour détectées (analyse en ligne, installation au choix), historique (dernier redémarrage, WaaSMedic) |
@@ -88,9 +90,9 @@ Le détail carte par carte : [Ce que surveille Vigie](doc/fr/using/features.md).
 
 ## Documentation
 
-| | |
+| Page | Répond à |
 |---|---|
-| [Sommaire de la documentation](doc/fr/README.md) | tout, sur une page |
+| [Sommaire de la documentation](doc/fr/README.md) | par où commencer, et ce que contient chaque page |
 | [Installation](doc/fr/operating/install.md) | archive ou clone git, démarrage automatique, désinstallation |
 | [Premiers pas](doc/fr/using/getting-started.md) | premier lancement, icône, lecture d'une carte |
 | [Ce que surveille Vigie](doc/fr/using/features.md) | chaque carte et chaque action |

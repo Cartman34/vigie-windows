@@ -48,7 +48,7 @@ Copy-Item apps/backend-pode/config/config.local.sample.psd1 apps/backend-pode/co
 
 N'y mettez **que** ce qui ne peut pas être générique. Toute clé présente écrase
 `config.psd1` ; toute clé absente garde la valeur par défaut. **N'y mettez jamais de
-secret** : le jeton d'API vit à part, dans `apps/backend-pode/var/secrets/`.
+secret** : le jeton d'API vit à part, dans `var/secrets/` (voir *Où Vigie écrit*, plus bas).
 
 ```powershell
 @{
@@ -86,21 +86,29 @@ carte **ne propose pas le bouton du tout**, plutôt que d'afficher un bouton mor
 
 ## Où Vigie écrit
 
-Chaque app garde ses fichiers sous son propre `var/`. Rien de tout cela n'est versionné.
+**Le dossier dépend de l'installation**, et c'est voulu :
+
+- **Vigie installée** (`C:\Program Files\Sowapps\Vigie`) écrit dans **votre profil**, sous
+  `%LOCALAPPDATA%\Sowapps\Vigie\var\`. Chaque compte a donc les siens : son jeton, son cache, ses journaux.
+  Rien n'est écrit à côté du programme, même si le serveur élevé en aurait le droit — sans quoi tous les comptes
+  partageraient un seul jeu de réglages.
+- **Vigie lancée depuis un clone git** écrit sur place, sous le `var/` de chaque app.
+
+Les chemins ci-dessous sont donnés relativement à cette racine. Rien de tout cela n'est versionné.
 
 | Chemin | Contenu |
 |---|---|
-| `apps/backend-pode/var/secrets/api.token` | le jeton d'API, généré au premier lancement |
-| `apps/backend-pode/var/cache/` | état agrégé et résultats des tâches de fond |
-| `apps/backend-pode/var/log/` | `install_*`, `run_*`, `start_*`, journaux d'erreur et de requêtes Pode |
-| `apps/tray/var/log/` | journaux `tray_*` |
-| `apps/tray/var/run/` | battement de cœur et fichiers d'ordre du tray |
+| `var/secrets/api.token` | le jeton d'API, généré au premier lancement |
+| `var/cache/` | état agrégé et résultats des tâches de fond |
+| `var/run/` | marqueurs des tâches en cours, battement de cœur et ordres du tray |
+| `var/log/` | `install_*`, `run_*`, `start_*`, `tray_*`, journaux d'erreur et de requêtes Pode |
 
 ## Le numéro de version
 
-La version du produit vit dans le fichier **`VERSION`** à la racine du dépôt, et nulle part
-ailleurs. Il ne porte que le numéro nu (`0.1`) ; le préfixe `v` est ajouté une fois, à
-l'affichage. Il ne change que sur décision explicite, pas au fil des commits.
+Il n'y en a **qu'un**, et il ne se tient pas à la main : une Vigie installée porte la marque gravée dans son archive
+au moment de la fabrication, un clone git répond par son **dernier tag**. Les tags sont posés au moment d'un
+déploiement, jamais à chaque commit : le numéro répond alors exactement à la question « qu'est-ce qui tourne sur
+cette machine ? ». Le commit s'affiche à côté, parce que deux fabrications d'un même tag peuvent différer.
 
 ## Ensuite
 
