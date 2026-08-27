@@ -88,15 +88,16 @@ $fields += New-Field -Key 'donnees' -Label 'Données locales' -Value (Get-VarRoo
 # L'INSTALLATION PARTAGEE est-elle a jour ? (version ET commit, D84)
 $cmp = Compare-SharedInstall -Backend $backend
 if ($cmp) {
-    $etatDeploiement = if ($cmp.same) { 'à jour' }
-                       elseif ($null -ne $cmp.behind -and $cmp.behind -gt 0) { 'en retard de ' + $cmp.behind + ' commit(s)' }
-                       else { 'écart inconnu' }
+    # La VALEUR dit la version, la COULEUR dit si elle est a jour, le DETAIL explique.
+    $etatDeploiement = if ($cmp.same) { "Elle correspond exactement à ce dépôt." }
+                       elseif ($null -ne $cmp.behind -and $cmp.behind -gt 0) { "Elle est en retard de $($cmp.behind) commit(s) sur ce dépôt." }
+                       else { "L'écart avec ce dépôt n'est pas mesurable : elle a été déployée avant que Vigie ne marque ses archives." }
     $fields += New-Field -Key 'deploiement' -Label 'Installation partagée' `
-        -Value ($cmp.there.version + ' · ' + $etatDeploiement) -Kind 'text' `
+        -Value $cmp.there.version -Kind 'text' `
         -Status $(if ($cmp.same) { 'ok' } else { 'warn' }) `
         -FixAction $(if ($cmp.same) { '' } else { 'vigie-update' }) `
         -Help "La version que lancent les AUTRES comptes. Elle ne change qu'au déploiement." `
-        -Guide ($cmp.path)
+        -Guide ($etatDeploiement + [Environment]::NewLine + $cmp.path)
 }
 
 # LE SORT DE LA DERNIERE OPERATION lancee depuis cette carte (D82).

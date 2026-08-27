@@ -33,7 +33,7 @@ try {
     # Le veilleur attend la fin et RAPPORTE le code de sortie (D82). L'ancienne version
     # lancait winget et l'oubliait : l'echec du 26/08 (0x80070005, qui avait au passage
     # desinstalle le PowerShell existant) n'a produit ni ligne rouge ni notification.
-    $lance = [bool](Start-WatchedAction -Module 'accounts' -Probe 'comptes.probe.ps1' `
+    $lance = [bool](Start-WatchedAction -Module 'deployment' -Probe 'comptes.probe.ps1' `
                         -Label 'Installation de PowerShell 7' -Action 'pwsh-install-machine' `
                         -File $winget.Source -Arguments (Get-SharedPwshInstallArgs) `
                         -Log $journal -Backend $backend)
@@ -46,5 +46,5 @@ if (-not $lance) { return @{ message = "Impossible de lancer l'installation."; r
 
 @{
     message = "Installation de PowerShell 7 pour la machine lancée. Elle dure une à deux minutes ; réactivez ensuite les comptes concernés."
-    result  = @{ ok = $true; async = $true; module = 'accounts'; invalidate = @('comptes.probe.ps1') }
+    result  = @{ ok = $true; async = $true; module = 'deployment'; invalidate = @('comptes.probe.ps1') }
 }
