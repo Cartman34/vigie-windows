@@ -110,7 +110,9 @@
   .pill.yes{color:var(--ok);background:var(--ok-bg)} .pill.no{color:var(--muted);background:var(--panel-2)}
   .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto}
   .actions button{font-size:13px;padding:6px 11px}
-  .toast-stack{position:fixed;right:18px;bottom:52px;display:flex;flex-direction:column;gap:8px;z-index:45;max-width:min(380px,92vw)}
+  /* z-index au-dessus du tiroir (50) et de son voile (49) : un message qui s'affiche
+     DERRIERE ce qu'on regarde n'existe pas. */
+  .toast-stack{position:fixed;right:18px;bottom:52px;display:flex;flex-direction:column;gap:8px;z-index:60;max-width:min(380px,92vw)}
   .toast{display:flex;align-items:flex-start;gap:9px;background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--muted);border-radius:10px;padding:10px 12px;box-shadow:0 10px 30px rgba(0,0,0,.4);font-size:13px;opacity:0;transform:translateX(14px);transition:.2s;pointer-events:auto}
   .toast.show{opacity:1;transform:none}
   .toast.done{border-left-color:var(--ok)} .toast.error{border-left-color:var(--err)} .toast.running{border-left-color:var(--accent)}
@@ -149,6 +151,11 @@
   /* Verrou d'une notification d'operation en cours : on montre POURQUOI on ne peut pas
      l'effacer, au lieu de retirer le bouton sans explication. */
   .dn-lock{margin-left:auto;color:var(--accent);opacity:.75;cursor:help;font-size:13px;line-height:1}
+  .dn-note{font-size:12px;line-height:1.5;color:var(--accent);background:var(--panel-2);
+           border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin:0 0 10px}
+  /* Refus de suppression : la ligne cligne LA OU on a clique, une seule fois. */
+  @keyframes dnrefus{0%,100%{box-shadow:none}30%{box-shadow:0 0 0 2px var(--accent)}}
+  .dn.refus{animation:dnrefus .5s ease}
   .dn-del:hover{color:var(--err)}
   .dn-msg{color:var(--muted);margin-top:4px;word-break:break-word}
   .dn-time{color:var(--muted);opacity:.75;font-size:11px;margin-top:3px;display:flex;align-items:center;gap:5px}
@@ -1318,27 +1325,39 @@ function notifVerrouillee(n){ return n && n.status === 'running'; }
 
 function deleteNotif(id){
   const n = notifs.find(x => x.id === id);
-  if(notifVerrouillee(n)){ toast('Cette opération est en cours : sa notification s’effacera à la fin.'); return; }
+  if(notifVerrouillee(n)){
+    // PAS de message fugace : il s'affichait DERRIERE le tiroir, une seconde et demie
+    // -- autant ne rien dire (signale le 27/08). La raison est ecrite en tete du
+    // tiroir, en permanence tant qu'elle est vraie ; ici on fait juste clignoter la
+    // ligne concernee, la ou le clic a eu lieu.
+    const el = document.querySelector('.dn[data-id="' + id + '"]');
+    if(el){ el.classList.remove('refus'); void el.offsetWidth; el.classList.add('refus'); }
+    return;
+  }
   notifs=notifs.filter(n=>n.id!==id); dismissToast(id); renderDrawer(); updateBell();
 }
 function clearNotifs(){
-  // « Tout effacer » respecte le verrou : ce qui tourne reste, le reste part.
-  const restent = notifs.filter(notifVerrouillee);
+  // « Tout effacer » respecte le verrou : ce qui tourne reste, le reste part. Rien a
+  // annoncer -- le tiroir montre lui-meme ce qui reste, et pourquoi.
   notifs.filter(n => !notifVerrouillee(n)).forEach(n => dismissToast(n.id));
-  const efface = notifs.length - restent.length;
-  notifs = restent;
+  notifs = notifs.filter(notifVerrouillee);
   renderDrawer(); updateBell();
-  if(restent.length && efface >= 0){
-    toast(restent.length === 1 ? 'Une opération est en cours : sa notification reste.'
-                               : restent.length + ' opérations en cours : leurs notifications restent.');
-  }
 }
 function renderDrawer(){
   const body=document.getElementById('drawerBody'); if(!body) return;
   if(!notifs.length){ body.innerHTML='<div class="drawer-empty">Aucune notification.</div>'; return; }
-  body.innerHTML=notifs.map(n=>{
+  // EN TETE DU TIROIR : ce qui tourne, et pourquoi ces notifications ne s'effacent
+  // pas. Permanent tant que c'est vrai, a l'endroit meme ou l'on clique.
+  const enCours = notifs.filter(notifVerrouillee).length;
+  const entete = enCours
+    ? '<div class="dn-note">' + (enCours === 1
+        ? 'Une opération est en cours : sa notification s’effacera à la fin.'
+        : enCours + ' opérations sont en cours : leurs notifications s’effaceront à la fin.')
+      + '</div>'
+    : '';
+  body.innerHTML = entete + notifs.map(n=>{
     const chip=n.status==='running'?'<span class="spin"></span>En cours':n.status==='done'?'✓ Réussi':'✕ Échec';
-    return `<div class="dn ${n.status}">
+    return `<div class="dn ${n.status}" data-id="${n.id}">
       <div class="dn-head"><span class="t-dot ${n.status}"></span><span class="dn-label">${esc(n.label)}</span>
         ${notifVerrouillee(n)
             // La fonte maison n'a pas de cadenas, et on n'invente pas un glyphe pour
