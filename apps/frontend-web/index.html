@@ -519,6 +519,13 @@
   .hds-table tr[title]:hover td{background:var(--panel-2)}
   .hds-table td:nth-child(n+3){font-variant-numeric:tabular-nums;white-space:nowrap}
   .hds-loading{display:flex;align-items:center;gap:9px;color:var(--muted);padding:14px 2px}
+  /* Confirmation EXPLICITE (D91) : des blocs titres plutot qu'un paragraphe. On lit
+     « ce que ca change » avant de dire oui, pas apres. */
+  .cf-bloc{margin:0 0 10px}
+  .cf-bloc:last-child{margin-bottom:0}
+  .cf-t{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;
+        color:var(--muted);margin-bottom:2px}
+  .cf-c{font-size:13px;line-height:1.5}
   .hds-choices{display:flex;flex-direction:column;gap:2px}
   .hds-choice{display:grid;grid-template-columns:auto 1fr;gap:4px 9px;align-items:start;
               padding:7px 8px;border-radius:8px;cursor:pointer}
@@ -862,7 +869,8 @@ function cardHtml(m, groupLabel){
       : `${ICONS[kind]||''}<span>${esc(a.label)}</span>`;
     const bulle = interdite ? (a.deniedReason||'Action réservée à un compte administrateur.')
                 : (busy&&!cetteAction ? 'Opération en cours sur cette carte — patientez' : (h||a.label));
-    return `<button class="act k-${kind} sev-${sev}${bcls}"${dis} data-a="${a.id}" data-m="${m.id}" data-c="${a.confirm?1:0}" data-c2="${a.confirmTwice?1:0}" data-k="${kind}" data-h="${h}" title="${esc(bulle).replace(/"/g,'&quot;')}">${inner}</button>`;
+    const att = t => esc(t||'').replace(/"/g,'&quot;');
+    return `<button class="act k-${kind} sev-${sev}${bcls}"${dis} data-a="${a.id}" data-m="${m.id}" data-c="${a.confirm?1:0}" data-c2="${a.confirmTwice?1:0}" data-k="${kind}" data-h="${h}" data-imp="${att(a.impact)}" data-usg="${att(a.usage)}" data-rev="${att(a.reversible)}" title="${esc(bulle).replace(/"/g,'&quot;')}">${inner}</button>`;
   }).join('');
   return `<div class="card st-${st}${m.busy?' busy':''}" data-module="${m.id}" data-theme="${m.theme}">
     <div class="card-head">
@@ -882,7 +890,8 @@ function wireCardActions(root){
   // pareil des deux endroits.
   (root||document).querySelectorAll('.actions button, .frow-actions button.fsolve').forEach(b=>{
     if (b.disabled) return;
-    b.onclick=()=>doAction(b.dataset.a,b.dataset.m,b.dataset.c==='1',b.textContent,b.dataset.h,b,null,b.dataset.k,b.dataset.c2==='1');
+    b.onclick=()=>doAction(b.dataset.a,b.dataset.m,b.dataset.c==='1',b.textContent,b.dataset.h,b,null,b.dataset.k,b.dataset.c2==='1',
+                           { impact:b.dataset.imp, usage:b.dataset.usg, reversible:b.dataset.rev });
   });
 }
 
@@ -929,6 +938,7 @@ function renderState(s, mode){
   repartirEnColonnes(masonry);
   app.appendChild(masonry);
   wireCardActions(masonry);
+  appliquerVerrouOperations();
   applyFilter();
   const g=document.getElementById('global'), gt=document.getElementById('globalTxt');
   // Le badge de l'en-tete et le liseré disent la MEME chose : l'etat de l'application
@@ -1014,6 +1024,8 @@ function replaceCardDom(m){
   const fresh=tmp.firstElementChild;
   card.replaceWith(fresh);
   wireCardActions(fresh);
+  // Le serveur fait foi : si la carte n'est plus occupee, le verrou tombe.
+  appliquerVerrouOperations();
   const i=(lastModules||[]).findIndex(x=>x.id===m.id);
   if(i>=0) lastModules[i]=m; else lastModules.push(m);
   return fresh;
@@ -1311,7 +1323,7 @@ const HDS = (function(){
   function confirm(opts){
     opts=opts||{};
     const danger=!!opts.danger;
-    return open({ title:opts.title||'Confirmer', body:opts.body||'',
+    return open({ title:opts.title||'Confirmer', body:opts.body||'', html:opts.html,
       variant:danger?'danger':'warn', cancelValue:false,
       placement:opts.placement, alerte:opts.alerte, alerteNiveau:opts.alerteNiveau,
       actions:[
@@ -1499,6 +1511,47 @@ function itemsDeMaj(j){
   }));
 }
 
+// ===== VERROU PENDANT UNE OPERATION =========================================
+//
+// Regle posee le 27/08 : « quand une operation est en cours, les autres ne doivent pas
+// etre disponibles ». Y compris les lectures : selon ce qui tourne, relire pendant
+// qu'on ecrit donne un resultat qui ne veut rien dire -- une carte qui interroge
+// l'installation partagee au milieu d'un deploiement, par exemple.
+//
+// Ce qui reste permis : RAFRAICHIR une carte. C'est ainsi qu'on regarde l'operation
+// avancer, et cela ne fait que relire. Tout le reste -- actions de la barre, boutons de
+// resolution des lignes -- est suspendu, sur TOUTES les cartes : les operations de Vigie
+// (deploiement, mise a jour, installation d'une dependance) touchent la machine entiere,
+// pas seulement la carte d'ou elles partent.
+function operationEnCours(){
+  const c = document.querySelector('.card.busy');
+  if(!c) return null;
+  const t = c.querySelector('.card-titles .name');
+  return { module: c.dataset.module, titre: (t ? t.textContent : c.dataset.module) };
+}
+function appliquerVerrouOperations(){
+  const op = operationEnCours();
+  const raison = op
+    ? 'Une opération est en cours sur « ' + op.titre + ' ». Les autres actions reprendront à la fin.'
+    : '';
+  document.querySelectorAll('.act, .fsolve').forEach(b => {
+    if(op){
+      // On garde en memoire ce qui etait DEJA desactive pour une autre raison (droits
+      // refuses, par exemple) : le verrou ne doit pas reactiver un bouton interdit.
+      if(!b.dataset.verrou){
+        b.dataset.verrou = b.disabled ? 'deja' : 'oui';
+        b.dataset.titreAvant = b.title || '';
+      }
+      b.disabled = true;
+      if(b.dataset.verrou === 'oui') b.title = raison;
+    } else if(b.dataset.verrou){
+      if(b.dataset.verrou === 'oui'){ b.disabled = false; b.title = b.dataset.titreAvant || ''; }
+      delete b.dataset.verrou;
+      delete b.dataset.titreAvant;
+    }
+  });
+}
+
 // « Operation en cours » sur une carte, sans attendre le serveur : on reutilise l'etat
 // `busy` que le contrat porte deja (liseré animé, boutons neutralises), on n'invente pas
 // un statut de plus.
@@ -1511,9 +1564,25 @@ function marquerCarteEnCours(moduleId, quoi){
   card.querySelectorAll('.actions button').forEach(b=>{ b.disabled=true; });
   const m=(lastModules||[]).find(x=>x.id===moduleId);
   if(m){ m.busy=true; }
+  appliquerVerrouOperations();
 }
 
-async function doAction(type,module,confirmNeeded,label,help,btnEl,params,kind,confirmerDeuxFois){
+// Le corps d'une confirmation : ce que ca FAIT, ce que ca CHANGE, QUAND s'en servir,
+// et comment REVENIR EN ARRIERE. Chaque partie ne s'affiche que si l'action l'a
+// declaree -- une confirmation a rallonge de generalites ne vaut pas mieux qu'une
+// phrase vague (D91).
+function corpsConfirmation(help, ex){
+  ex = ex || {};
+  const bloc = (titre, texte) => texte
+    ? '<div class="cf-bloc"><div class="cf-t">'+esc(titre)+'</div><div class="cf-c">'+esc(texte)+'</div></div>'
+    : '';
+  return bloc('Ce que ça fait', help)
+       + bloc('Ce que ça change sur la machine', ex.impact)
+       + bloc('Quand s’en servir', ex.usage)
+       + bloc('Revenir en arrière', ex.reversible);
+}
+
+async function doAction(type,module,confirmNeeded,label,help,btnEl,params,kind,confirmerDeuxFois,explications){
   const name = label || type;
   // Une action peut viser l'INTERFACE et non la machine : « Gerer les comptes » ouvre
   // simplement le panneau Parametres > Utilisateurs. Rien a envoyer au serveur -- lui
@@ -1531,7 +1600,7 @@ async function doAction(type,module,confirmNeeded,label,help,btnEl,params,kind,c
   if(confirmNeeded){
     const ok = await HDS.confirm({
       title: name,
-      body: help || '',
+      html: corpsConfirmation(help, explications),
       alerte: confirmerDeuxFois
         ? "Action critique : elle affecte l'ensemble de la machine."
         : "Cette action modifie votre système.",

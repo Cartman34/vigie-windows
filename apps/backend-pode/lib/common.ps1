@@ -1684,12 +1684,27 @@ function New-Action {
         # DEUX confirmations distinctes avant execution. Reserve aux gestes qui ferment le
         # travail en cours de l'utilisateur ou touchent la machine entiere : un seul clic
         # de trop ne doit pas suffire.
-        [switch]$ConfirmTwice
+        [switch]$ConfirmTwice,
+        # --- CE QU'UNE CONFIRMATION DOIT DIRE (D91) ------------------------------
+        # « Cette action modifie votre systeme » ne renseigne personne. Avant de dire
+        # oui, on veut savoir CE QUI CHANGE sur la machine, POURQUOI on ferait ca, et
+        # SI on peut revenir en arriere. Les details techniques de surface sont les
+        # bienvenus : un nom de service, une cle de registre, un redemarrage requis.
+        #
+        #   -Impact     : ce qui change concretement, ici et maintenant.
+        #   -Usage      : dans quel cas on s'en sert (l'intention).
+        #   -Reversible : comment revenir en arriere -- ou pourquoi on ne peut pas.
+        [string]$Impact,
+        [string]$Usage,
+        [string]$Reversible
     )
     $a = [ordered]@{ id = $Id; label = $Label }
     if ($Confirm -or $ConfirmTwice) { $a['confirm'] = $true }
     if ($ConfirmTwice) { $a['confirmTwice'] = $true }
     if ($Help)    { $a['help']    = $Help }
+    if ($Impact)     { $a['impact']     = $Impact }
+    if ($Usage)      { $a['usage']      = $Usage }
+    if ($Reversible) { $a['reversible'] = $Reversible }
     $a['kind'] = if ($Kind) { $Kind } elseif ($Confirm) { 'confirm' } else { 'immediate' }
     # Defaut raisonnable : ouvrir quelque chose informe, le reste est neutre. Une action
     # corrective doit se declarer -- on ne devine pas qu'elle repare.
