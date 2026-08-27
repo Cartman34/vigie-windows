@@ -61,4 +61,4 @@ Module `debug` (carte Vigie : version, serveur, journaux, données locales) en p
 - Actions longues asynchrones au sens du contrat (202 + jobId) : le suivi passe aujourd'hui par les marqueurs
   d'occupation et `/operations`, pas par le contrat.
 - Audit Windows Update non remonté dans l'interface.
-- Numéros de décision jamais attribués, à ne pas réutiliser : D82, D83, D85, D94.
+

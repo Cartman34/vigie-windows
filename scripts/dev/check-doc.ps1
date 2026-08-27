@@ -102,4 +102,28 @@ if ($ecarts) {
     Ecrire ("{0} paire(s) desynchronisee(s). Le francais fait foi (D93)." -f $ecarts) 'Yellow'
 } else { Ecrire "Les deux langues ont la meme charpente." 'Green' }
 
+# --- 3. Le sommaire des decisions est complet -------------------------------
+#
+# Il s'etait arrete a D50 et personne ne l'a vu : 48 decisions manquaient a l'appel,
+# dans un fichier qui annonce « ajouter une decision = ajouter son numero a une ligne ».
+# Un sommaire incomplet est pire qu'absent -- il donne l'illusion d'avoir tout lu.
+$dec = Join-Path $doc 'progress/decisions.md'
+if (Test-Path -LiteralPath $dec) {
+    $texte  = Get-Content -LiteralPath $dec -Raw -Encoding UTF8
+    $iSomm  = $texte.IndexOf('## Sommaire')
+    $iPrem  = $texte.IndexOf("`n## D01")
+    if ($iSomm -ge 0 -and $iPrem -gt $iSomm) {
+        $sommaire = $texte.Substring($iSomm, $iPrem - $iSomm)
+        $cites  = @([regex]::Matches($sommaire, '\bD\d+(?:bis)?\b') | ForEach-Object { $_.Value })
+        $titres = @([regex]::Matches($texte, '(?m)^## (D\d+(?:bis)?)') | ForEach-Object { $_.Groups[1].Value }) | Select-Object -Unique
+        $absents = @($titres | Where-Object { $cites -notcontains $_ })
+        if ($absents.Count) {
+            if ($souci -eq 0) { $souci = 2 }
+            Ecrire ("{0} decision(s) absente(s) du sommaire : {1}" -f $absents.Count, ($absents -join ' ')) 'Yellow'
+        } else {
+            Ecrire ("Sommaire des decisions complet ({0} entrees)." -f $titres.Count) 'Green'
+        }
+    }
+}
+
 exit $souci

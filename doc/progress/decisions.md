@@ -18,17 +18,19 @@
 
 ## Sommaire
 
-Uniquement des renvois : les titres vivent plus bas, une seule fois.
-Ajouter une décision = ajouter son numéro à une ligne.
+Uniquement des renvois : les titres vivent plus bas, une seule fois. Ajouter une décision = ajouter son numéro à une
+ligne — `scripts/dev/check-doc.ps1` refuse une décision absente d'ici.
 
-- **Identité et nommage** — D03 · D04 · D05 · D28 · D30 · D41
-- **Structure du dépôt** — D29 · D32 · D33 · D35
-- **Configuration** — D15 · D18
-- **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46 · D48 · D49 · D50
-- **Sécurité et installation** — D07 · D11 · D22 · D34
-- **Outillage** — D06 · D21 · D24 · D40 · D44 · D47
-- **Méthode de travail** — D10 · D12 · D13 · D14 · D16 · D17 · D31 · D36 · D39 · D43
-
+- **Identité et nommage** — D03 · D04 · D05 · D28 · D30 · D41 · D72
+- **Structure du dépôt** — D29 · D32 · D33 · D35 · D55
+- **Documentation** — D91 · D92 · D93 · D98
+- **Configuration** — D15 · D18 · D56 · D57
+- **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46 · D48 · D49 · D50 · D58 · D59 · D66 · D68 · D69 · D70 · D71 · D88 · D89 · D94 · D95
+- **Installation, déploiement et mise à jour** — D07 · D11 · D22 · D77 · D78 · D79 · D81 · D84 · D87 · D96 · D97
+- **Sécurité, droits et multi-comptes** — D34 · D65 · D67 · D73
+- **Sondes, actions et tâches de fond** — D50bis · D53 · D54 · D60 · D61 · D80 · D82 · D83 · D85
+- **Outillage** — D06 · D21 · D24 · D40 · D44 · D47 · D52 · D64 · D75 · D86 · D90
+- **Méthode de travail** — D10 · D12 · D13 · D14 · D16 · D17 · D31 · D36 · D39 · D43 · D51 · D62 · D63 · D74 · D76
 ---
 
 ## D01 — Icône du tray : « v1 — jauge à graduations »
@@ -2237,6 +2239,33 @@ Soiree entiere passee dessus, quatre echecs de suite, chacun instructif :
 telechargement, et n'annonce jamais un succes qu'il n'a pas constate. Le chemin de
 reference reste `C:\Program Files\PowerShell\7` : c'est lui que lancent les taches de demarrage.
 
+## D82 — Aucune tâche de fond ne peut échouer en silence (2026-08-26)
+
+*Demandée par l'utilisateur.*
+
+Une action longue était lancée « détachée », puis oubliée : le processus partait, personne n'attendait sa fin, et son
+code de sortie tombait dans le vide. Une mise à jour ratée ressemblait exactement à une mise à jour réussie.
+
+Un **veilleur** (`workers/watched-action.worker.ps1`) accompagne désormais chaque action longue : il attend la fin,
+lit le code de sortie, et l'écrit dans un fichier de résultat que la carte relit. Un échec devient une **ligne rouge**
+sur la carte qui a lancé l'action, plus une notification — jamais un silence.
+
+Le résultat est déposé sur une carte **qui existe toujours**, pas sur celle du module concerné : la carte de débogage
+peut être éteinte (**D85**), et le suivi y serait invisible.
+
+## D83 — Vigie répare ses propres tâches planifiées (2026-08-26)
+
+*Demandée par l'utilisateur.*
+
+« J'ai testé Famille mais Vigie ne s'est pas lancé. » La tâche planifiée du compte pointait vers le `pwsh` du paquet
+Store, supprimé entre-temps par une réinstallation en portée machine (**D79**). La tâche existait, elle était activée,
+elle ne démarrait rien — et rien ne le disait.
+
+Vigie **diagnostique et répare ses propres tâches** : au démarrage (`start.ps1`), et à la demande par l'action
+*Réparer le démarrage de Vigie*. Une tâche qui pointe vers un interpréteur disparu, ou vers un chemin de profil, est
+une **anomalie nommée**, réécrite avec l'interpréteur de la machine. Réparer sa propre plomberie fait partie du travail
+d'un outil de surveillance : constater sans corriger n'aurait servi à personne.
+
 ## D84 — Une archive porte sa propre identité (2026-08-26)
 
 *Prise par l'agent.*
@@ -2250,6 +2279,18 @@ l'une a été fabriquée avant un correctif. Le commit tranche.
 
 `Get-BuildStamp` lit cette marque ; à défaut, il interroge git. Une installation répond donc toujours, et toujours la
 même chose que ce qu'elle contient.
+
+## D85 — Un module peut naître éteint (2026-08-26)
+
+*Demandée par l'utilisateur.*
+
+« Faut le mettre dans les détails quelque part, là, c'est trop gros pour si peu utile au premier abord. » La carte de
+débogage — version, serveur, journaux, données locales — est précieuse le jour où quelque chose cloche, et encombrante
+tous les autres jours.
+
+Un module peut donc déclarer `DefautActif = $false` : il existe, il est listé dans les paramètres, il s'allume d'un
+clic — mais il n'occupe pas l'écran de quelqu'un qui n'en a pas besoin. C'est un défaut, pas une interdiction : le
+choix reste à l'utilisateur, et il est conservé.
 
 ## D86 - Deux exports, imprimables, sobres (2026-08-26)
 
@@ -2434,6 +2475,18 @@ règle de travail.
 
 Un seul fichier porte un suffixe de langue à la racine, `README.fr.md` : c'est une convention GitHub, pas une entorse
 à la règle des noms techniques.
+
+## D94 — Une opération en cours ne s'efface pas (2026-08-27)
+
+*Demandée par l'utilisateur.*
+
+« Il devrait être impossible d'effacer une opération en cours. » Le tiroir de notifications laissait fermer n'importe
+quelle ligne, y compris celle d'un déploiement en train de tourner. Effacer la notification n'arrêtait rien : elle
+faisait juste disparaître la seule trace visible d'un processus toujours vivant.
+
+Une notification d'opération en cours est **verrouillée** : pas de croix, pas de fermeture. Elle ne s'efface pas, elle
+est **remplacée** par la notification de résultat quand l'opération se termine. La règle est plus générale qu'un détail
+d'interface : on ne laisse pas quelqu'un supprimer l'affichage d'une chose qu'il ne peut pas arrêter.
 
 ## D95 — Ce qui tourne se voit depuis toutes les pages (2026-08-26)
 
