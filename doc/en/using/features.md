@@ -11,6 +11,53 @@ card per manager actually found in your `PATH`.
 
 ---
 
+## The interface, in detail
+
+### The tray menu
+
+Right-clicking the icon opens this menu. The tray polls the server every 8 seconds: the gauge colour is never more than
+a few seconds behind.
+
+| Entry | Effect |
+|---|---|
+| **Show the application** | opens the dashboard in a dedicated window (Edge or Chrome in `--app` mode: no address bar, no tabs) |
+| Open in the browser | opens the dashboard in an ordinary tab |
+| *Status: …* | not clickable — the current state, spelled out |
+| Restart the application | restarts the tray app, and the server with it |
+| Restart the server | stops then restarts the Pode server |
+| Open the logs | opens the server's log folder in Explorer |
+| About Vigie | opens the GitHub repository |
+| Quit | closes Vigie (the server stops with it) |
+
+The dedicated window needs a Chromium browser. Failing that, use "Open in the browser".
+
+### The anatomy of a card
+
+The **stripe under the page header** is the API connection: green = live data, amber = mock (the server is unreachable
+and the page fell back to a sample set), red = error. Do not confuse it with the **stripe on a card's left edge**,
+which carries the status of THAT module:
+
+| Status | Meaning |
+|---|---|
+| Green | compliant, nothing to do |
+| Amber | worth watching |
+| Red | a problem |
+| Neutral | informational, or not measurable right now |
+
+A left stripe that **blinks** means a background task is running on that card: package upgrade, disk analysis, network
+measurement. The page polls that card on its own, and you may close the browser: the task carries on.
+
+### The button icons
+
+| Icon | Meaning |
+|---|---|
+| Triangle | runs immediately |
+| Amber warning triangle | asks for confirmation first |
+| Checklist | opens a window where you choose what gets applied |
+| Outgoing arrow | hands over to external software (Windows Settings, disk cleanup, Explorer) |
+
+---
+
 ## Windows Update
 
 Detailed on its own page: **[Windows Update](windows-update.md)**. Summary:

@@ -39,15 +39,20 @@ Reference unique des conventions. Toute nouvelle convention se note ICI.
 - Scripts de tache planifiee : **idempotents** (`Register-ScheduledTask -Force`).
 - Toujours **verifier les prerequis en amont** (droits, modules, runtime).
 
+## Longueur des lignes
+- **200 caracteres**, code et documentation. Une ligne se coupe parce qu'elle change d'idee, pas parce qu'un compteur
+  arbitraire a sonne : couper a 80 ou 100 hache les chemins Windows, les tableaux et les chaines, et rend les diffs
+  illisibles.
+- **Exception** : une ligne de tableau markdown ne se coupe pas -- la couper casse le tableau. Elle depasse, tant pis.
+- **Correction au fil de l'eau** : on remet aux 200 les fichiers qu'on touche deja pour une autre raison. Pas de passe
+  globale de reformatage, qui noierait l'historique sous du bruit.
+
 ## Documentation (regle absolue)
 - **Tout se documente** : chaque convention (ici), chaque techno
   (`technologies.md`), chaque fonctionnalite + son usage
   (`targeting/` + `implemented/` + `using/`).
 - Doc en 4 volets, **zero doublon**, references par **ID** (voir `README.md`).
-- Le **fichier de suivi** `../SUIVI.md` est tenu a jour a chaque session pour
-  reprendre a tout moment.
-- Le **fichier d'initialisation** porte un **nom non-standard**
-  (`../PRISE-EN-MAIN.md`) pour ne pas etre charge automatiquement par les agents.
+- Le **point de reprise** est `../agent-working/briefing.md` : tenu a jour a chaque session, il n'y en a qu'un.
 
 ## Device bridge
 - Fichiers manipules via le pont (dossier monte). **Suppression interdite** :

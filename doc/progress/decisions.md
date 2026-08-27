@@ -2188,3 +2188,29 @@ poste de developpement elles vivent dans le depot, pas dans `%LOCALAPPDATA%` --,
 `var/` est retire du depot pour ne pas etre compte deux fois. Sans elevation, les donnees
 des autres comptes ne sont pas lisibles : le total s'annonce alors « (au moins) » et le
 releve se dit partiel, plutot que de mentir.
+
+## D91 — Les lignes vont jusqu'à 200 caractères, et se corrigent au fil de l'eau (2026-08-27)
+
+« Dans les docs et le code, la longueur des lignes standards doit être 200. À corriger au fur et à mesure mais pas d'un
+coup. »
+
+Le projet coupait ses lignes vers 80-100, un héritage de terminaux qui n'existent plus. Sur ce dépôt en particulier, ça
+coûte cher : les chemins Windows sont longs, les tableaux de `status.md` ont cinq colonnes, et un paramètre PowerShell
+nommé tient rarement dans 80 signes. Une ligne se coupe désormais parce qu'elle change d'idée, pas parce qu'un compteur
+a sonné.
+
+La seconde moitié compte autant que la première : **pas de passe globale de reformatage.** Un `git blame` a de la
+valeur ; le noyer sous des milliers de lignes rewrappées le détruirait pour un gain nul. On remet aux 200 les fichiers
+qu'on ouvre déjà pour une autre raison.
+
+## D92 — Un seul point de reprise, pas trois (2026-08-27)
+
+`SUIVI.md` et `PRISE-EN-MAIN.md` vivaient à la racine. Le premier ne contenait plus qu'une phrase disant qu'il n'était
+plus tenu à jour et renvoyant ailleurs. Le second dupliquait le rôle de `doc/en/agent-working/briefing.md` avec un
+contenu périmé : `backend/start.ps1` qui n'existe plus, l'ouverture du front en `file://` que **D47** interdit, un
+`Install-Module Pode -Scope CurrentUser` que **D79** contredit, et une dépendance à `LocalAgentAdmin`. Une doc fausse
+est pire qu'une doc absente : elle est suivie.
+
+Les deux sont supprimés, leurs six renvois nettoyés, et l'exclusion devenue vide retirée de `build-release.ps1`.
+`briefing.md` reste le point de reprise unique. `CHANGELOG.md` et les décisions antérieures gardent leurs mentions :
+c'est de l'histoire, elle ne se réécrit pas.

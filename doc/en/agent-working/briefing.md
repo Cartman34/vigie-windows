@@ -4,7 +4,7 @@
 > perte de session — **uniquement ce qui est utile à l'instant**. Pas de journal : le
 > passé vit dans `git log` et `CHANGELOG.md`, les règles dans `decisions.md`.
 
-Point de reprise. Après ce fichier : `doc/progress/decisions.md`, `SUIVI.md`, `PRISE-EN-MAIN.md`.
+Point de reprise. Après ce fichier : `doc/progress/decisions.md`, puis `disciplines.md`.
 
 ## Le projet
 **Vigie** : tableau de bord **local** pour un PC Windows. Dépôt : `vigie-windows`.

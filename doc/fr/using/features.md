@@ -11,6 +11,54 @@ carte par gestionnaire de paquets réellement trouvé dans votre `PATH`.
 
 ---
 
+## L'interface, en détail
+
+### Le menu du tray
+
+Un clic droit sur l'icône ouvre ce menu. Le tray interroge le serveur toutes les 8 secondes : la couleur de la jauge
+n'a jamais plus de quelques secondes de retard.
+
+| Entrée | Effet |
+|---|---|
+| **Afficher l'application** | ouvre le tableau de bord dans une fenêtre dédiée (Edge ou Chrome en mode `--app` : ni barre d'adresse, ni onglets) |
+| Ouvrir dans le navigateur | ouvre le tableau de bord dans un onglet ordinaire |
+| *État : …* | non cliquable — l'état courant, en toutes lettres |
+| Relancer l'application | redémarre l'app de la barre système, et le serveur avec |
+| Redémarrer le serveur | arrête puis relance le serveur Pode |
+| Ouvrir les journaux | ouvre le dossier de journaux du serveur dans l'explorateur |
+| À propos de Vigie | ouvre le dépôt GitHub |
+| Quitter | ferme Vigie (le serveur s'arrête avec) |
+
+La fenêtre dédiée exige un navigateur Chromium. À défaut, utilisez « Ouvrir dans le navigateur ».
+
+### L'anatomie d'une carte
+
+Le **liseré sous l'en-tête de page** est la connexion à l'API : vert = données en direct, orange = maquette (le serveur
+est injoignable, la page s'est repliée sur un jeu d'exemple), rouge = erreur. À ne pas confondre avec le **liseré du
+bord gauche d'une carte**, qui porte le statut de CE module :
+
+| Statut | Signification |
+|---|---|
+| Vert | conforme, rien à faire |
+| Orange | à surveiller |
+| Rouge | un problème |
+| Neutre | informatif, ou non mesurable pour l'instant |
+
+Un liseré gauche **qui clignote** signale une tâche de fond en cours sur cette carte : mise à jour de paquets, analyse
+du disque, mesure réseau. La page interroge cette carte toute seule, et vous pouvez fermer le navigateur : la tâche
+continue.
+
+### Les icônes des boutons
+
+| Icône | Signification |
+|---|---|
+| Triangle | s'exécute immédiatement |
+| Triangle d'avertissement orange | demande d'abord confirmation |
+| Liste cochée | ouvre une fenêtre où vous choisissez ce qui sera appliqué |
+| Flèche sortante | passe la main à un logiciel externe (Paramètres Windows, nettoyage de disque, explorateur) |
+
+---
+
 ## Windows Update
 
 Détaillé sur sa propre page : **[Windows Update](windows-update.md)**. En résumé :
