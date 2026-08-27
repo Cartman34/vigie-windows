@@ -91,8 +91,10 @@ if ($partagee) {
         }
         $detail = $pourquoi + [Environment]::NewLine + [Environment]::NewLine + $detail
     }
+    # DEJA DEPLOYEE : ce qu'on propose est une MISE A JOUR, pas un deploiement --
+    # « Deployer pour tous les comptes » ne veut plus rien dire une fois que c'est fait.
     $depl += New-Field -Key 'partage' -Label 'Installation partagée' -Value $etat -Kind 'text' -Status $niveau `
-        -FixAction $(if ($niveau -eq 'warn') { 'deploy-shared' } else { '' }) `
+        -FixAction $(if ($niveau -eq 'warn') { 'vigie-update' } else { '' }) `
         -Help "Emplacement lisible par tous les comptes de la machine : leurs tâches de démarrage pointent dessus. Les autres comptes lancent CETTE version, pas celle du dépôt." `
         -Guide $detail
 } else {
