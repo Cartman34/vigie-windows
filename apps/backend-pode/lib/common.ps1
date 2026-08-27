@@ -1093,7 +1093,7 @@ function Start-PkgJob {
     $worker  = Join-Path $Backend 'workers/pkg-job.worker.ps1'
     $started = $false
     try { $null = Start-DetachedAction -Script $worker -ArgsMap @{ mgr = $Mgr; op = $Op; pkgs = $choisis } -Backend $Backend; $started = $true } catch { }
-    if (-not $started) { return @{ message = "Impossible de lancer l'operation sur $($known.label)."; result = @{ ok = $false } } }
+    if (-not $started) { return @{ message = "Impossible de lancer l'opération sur $($known.label)."; result = @{ ok = $false } } }
     $verb = if ($Op -eq 'upgrade') { 'Mise à jour' } else { 'Vérification' }
     $portee = if ($Op -eq 'upgrade' -and $unParUn) { " ($($choisis.Count) paquet(s) sélectionné(s))" } else { "" }
     @{

@@ -18,7 +18,7 @@ $backend = Split-Path $PSScriptRoot -Parent
 
 $script = Join-Path (Get-RepoRoot) 'scripts/deploy-prod.ps1'
 if (-not (Test-Path -LiteralPath $script)) {
-    return @{ message = "Script de deploiement introuvable : $script"; result = @{ ok = $false } }
+    return @{ message = "Script de déploiement introuvable : $script"; result = @{ ok = $false } }
 }
 $destination = if ($Params -and $Params.destination) { "$($Params.destination)" } else { 'C:\Program Files\Sowapps\Vigie' }
 
@@ -46,16 +46,16 @@ try {
     # Le veilleur attend la fin et rapporte le code de sortie (D82) : un deploiement
     # rate doit se voir sur la carte, pas seulement dans un journal.
     $lance = [bool](Start-WatchedAction -Module 'accounts' -Probe 'comptes.probe.ps1' `
-                        -Label 'Deploiement' -Action 'deploy-shared' `
+                        -Label 'Déploiement' -Action 'deploy-shared' `
                         -File $pwsh -Arguments $argv -Log $journal -Backend $backend)
     Write-Log -Backend $backend -Name 'deploy' -Message ("deploiement lance vers " + $destination + " (journal : " + $journal + ")")
 } catch {
     Write-Log -Backend $backend -Name 'deploy' -Level 'ERROR' -Message $_.Exception.Message
 }
 
-if (-not $lance) { return @{ message = "Impossible de lancer le deploiement."; result = @{ ok = $false } } }
+if (-not $lance) { return @{ message = "Impossible de lancer le déploiement."; result = @{ ok = $false } } }
 
 @{
-    message = "Deploiement lance vers $destination. Il dure une a deux minutes ; les comptes pourront ensuite etre actives."
+    message = "Déploiement lancé vers $destination. Il dure une à deux minutes ; les comptes pourront ensuite être activés."
     result  = @{ ok = $true; async = $true; module = 'accounts'; invalidate = @('comptes.probe.ps1') }
 }

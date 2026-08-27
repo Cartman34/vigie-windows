@@ -245,6 +245,60 @@ try {
     Write-Host "Note : l enregistrement des contrats n a pas pu etre ecrit -- la prochaine passe reexecutera tout." -ForegroundColor DarkYellow
 }
 
+# --- Garde-fou : LES LIBELLES VISIBLES PORTENT LEURS ACCENTS ------------------
+#
+# Regle du projet (DISCIPLINES.md), rappelee le 27/08 : « il ne devrait jamais manquer
+# les accents, tout doit etre en UTF-8 ». Les commentaires du code sont ecrits sans
+# accents -- c'est assume et sans consequence -- mais TOUT ce qui s'affiche doit etre
+# ecrit en francais correct. La carte annoncait « deployee avant le suivi des commits »
+# et « ecart inconnu ».
+#
+# On ne verifie que les chaines DESTINEES A L'ECRAN : celles qui suivent -Value, -Label,
+# -Help, -Guide, -BusyLabel, ou un « message = ». Le reste (chemins, identifiants, noms
+# de fichiers) n'est pas concerne.
+#
+# La liste est volontairement COURTE : uniquement des mots qui, dans cette application,
+# ne s'ecrivent jamais sans accent. Un garde-fou qui crie a tort finit ignore.
+# Mots ECARTES apres essai, parce qu'ils s'ecrivent AUSSI sans accent en francais :
+#   « active » (la protection est active), « termine » (il termine), « apres » quand il
+#   s'agit d'un nom de variable. Un garde-fou qui crie a tort finit ignore -- on prefere
+#   en attraper un peu moins et etre cru.
+$motsAccentues = @(
+    'deploiement', 'deployee', 'deploye', 'redeploie',
+    'echec', 'echoue', 'ecart', 'elevee',
+    'reparee', 'terminee', 'activee',
+    'releve', 'depot', 'parametre', 'parametres', 'verifiee',
+    'demarrage', 'demarre', 'tache', 'taches', 'interpreteur',
+    'reglage', 'reglages', 'systeme', 'securite', 'memoire', 'donnees',
+    'operation', 'derniere', 'deja', 'privilege', 'numero'
+)
+$motifAccents = '(?i)\b(' + ($motsAccentues -join '|') + ')\b'
+$sansAccent = @()
+foreach ($d in @('probes', 'actions', 'lib', 'workers')) {
+    $racineD = Join-Path $backendRoot $d
+    if (-not (Test-Path -LiteralPath $racineD)) { continue }
+    foreach ($f in (Get-ChildItem -LiteralPath $racineD -Recurse -File -Filter '*.ps1' -ErrorAction SilentlyContinue)) {
+        $ligne = 0
+        foreach ($l in (Get-Content -LiteralPath $f.FullName -Encoding UTF8)) {
+            $ligne++
+            # Un commentaire n'est pas affiche : on le laisse tranquille.
+            if ($l -match '^\s*#') { continue }
+            foreach ($m in [regex]::Matches($l, '(?:-Value|-Label|-Help|-Guide|-BusyLabel|message\s*=)\s*("[^"]*"|''[^'']*'')')) {
+                # Les VARIABLES interpolees ne sont pas du texte affiche tel quel :
+                # « $($apres.noAutoUpdate) » n'est pas le mot « apres ». On les retire
+                # avant de juger.
+                $texte = [regex]::Replace($m.Groups[1].Value, '\$\([^)]*\)|\$[A-Za-z_][A-Za-z0-9_.]*', ' ')
+                if ($texte -match $motifAccents) {
+                    $sansAccent += ("{0}:{1} -- « {2} »" -f $f.Name, $ligne, $Matches[1])
+                }
+            }
+        }
+    }
+}
+foreach ($x in $sansAccent) {
+    $manquements += "libelle visible sans accent -- $x"
+}
+
 # --- Garde-fou : AUCUN CARACTERE DE CONTROLE dans les sources -----------------
 #
 # Le piege le plus couteux de ce projet, rencontre sept fois en une journee : un
