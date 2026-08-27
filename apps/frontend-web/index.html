@@ -223,6 +223,29 @@
      Ici, chaque colonne est un vrai element et chaque carte lui appartient : une carte
      qui grandit ne pousse que ce qui est SOUS ELLE, dans SA colonne. Rien d'autre ne
      bouge. */
+  /* MODE REORGANISATION (D92). Hors de ce mode, aucune carte n'est saisissable :
+     l'accident est structurellement impossible, ce n'est pas une question de vigilance.
+     Dedans, tout ce qui agit sur la machine est neutralise -- on range, on n'exploite
+     pas. */
+  body.reorg .card{cursor:grab; user-select:none}
+  body.reorg .card:active{cursor:grabbing}
+  body.reorg .card .actions, body.reorg .card .fsolve,
+  body.reorg .card-refresh, body.reorg .card-menu{pointer-events:none; opacity:.35}
+  body.reorg .card{outline:1px dashed var(--border); outline-offset:3px}
+  body.reorg .card.drag{opacity:.45; outline-color:var(--accent)}
+  body.reorg .mcol{min-height:80px}
+  body.reorg .mcol.cible{outline:2px dashed var(--accent); outline-offset:4px; border-radius:10px}
+  .reorg-bar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:12px;
+             padding:10px 14px;margin:0 0 14px;border:1px solid var(--accent);
+             border-radius:10px;background:var(--panel);box-shadow:0 6px 20px rgba(0,0,0,.25)}
+  .reorg-bar b{font-size:13.5px}
+  .reorg-bar small{color:var(--muted);font-size:12px}
+  .reorg-bar .sp{margin-left:auto;display:flex;gap:8px}
+  .reorg-bar button{font:inherit;font-size:12.5px;padding:6px 12px;border-radius:7px;cursor:pointer;
+                    border:1px solid var(--border);background:none;color:var(--text)}
+  .reorg-bar button.primaire{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  .reorg-bar button:hover{border-color:var(--accent)}
+
   .masonry{display:flex;align-items:flex-start;gap:16px}
   .mcol{flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:16px}
   .masonry .card{width:100%;margin:0}
@@ -967,6 +990,55 @@ function renderState(s, mode){
 // grandit, et rebalancer a ce moment-la ferait exactement le saut qu'on veut supprimer.
 // L'estimation, elle, ne depend que de ce que la carte CONTIENT.
 const COL_LARGEUR = 296;
+
+// ===== ORDRE DES CARTES, CHOISI PAR L'UTILISATEUR (D92) ======================
+//
+// Un ordre est une PREFERENCE : il vit dans le navigateur de ce compte, pas dans la
+// configuration de la machine. Un module inconnu (nouveau, ou rallume) n'est pas une
+// erreur : il se range simplement a la fin.
+const ORDRE_CLE = 'vigie.ordreCartes';
+let ordreCartes = null;
+function chargerOrdre(){
+  if(ordreCartes) return ordreCartes;
+  try{ ordreCartes = JSON.parse(localStorage.getItem(ORDRE_CLE) || 'null'); }catch(e){ ordreCartes = null; }
+  return ordreCartes;
+}
+function enregistrerOrdre(liste){
+  ordreCartes = liste;
+  try{ localStorage.setItem(ORDRE_CLE, JSON.stringify(liste)); }catch(e){}
+}
+function oublierOrdre(){
+  ordreCartes = null;
+  try{ localStorage.removeItem(ORDRE_CLE); }catch(e){}
+}
+// L'ordre enregistre est une liste de colonnes, chacune listant des identifiants de
+// carte. On ne fait confiance a rien : ce qui n'existe plus est ignore, ce qui est
+// nouveau est ajoute a la fin.
+function appliquerOrdreMemorise(cartes, nb){
+  const memo = chargerOrdre();
+  if(!memo || !Array.isArray(memo)) return null;
+  const parId = new Map(cartes.map(c => [c.dataset.module, c]));
+  const colonnes = [];
+  const places = new Set();
+  for(let i = 0; i < nb; i++) colonnes.push([]);
+  memo.forEach((ids, i) => {
+    const cible = Math.min(i, nb - 1);
+    (ids || []).forEach(id => {
+      const c = parId.get(id);
+      if(c && !places.has(id)){ colonnes[cible].push(c); places.add(id); }
+    });
+  });
+  const restants = cartes.filter(c => !places.has(c.dataset.module));
+  if(restants.length){
+    // Les nouvelles cartes vont dans la colonne la moins chargee, sans deranger le reste.
+    restants.forEach(c => {
+      let k = 0;
+      for(let i = 1; i < nb; i++){ if(colonnes[i].length < colonnes[k].length) k = i; }
+      colonnes[k].push(c);
+    });
+  }
+  return colonnes;
+}
 function hauteurEstimee(carte){
   const lignes  = carte.querySelectorAll('.field').length;
   const boutons = carte.querySelectorAll('.actions button').length;
@@ -982,6 +1054,15 @@ function repartirEnColonnes(masonry){
     const c = document.createElement('div'); c.className = 'mcol';
     colonnes.push(c); hauteurs.push(0);
   }
+  // UN ORDRE CHOISI PAR L'UTILISATEUR l'emporte sur tout le reste.
+  const memo = appliquerOrdreMemorise(cartes, nb);
+  if(memo){
+    memo.forEach((liste, i) => liste.forEach(c => colonnes[i].appendChild(c)));
+    masonry.textContent = '';
+    colonnes.forEach(c => masonry.appendChild(c));
+    return;
+  }
+
   // PAR GROUPE, et non carte par carte : les trois cartes d'« Outils & paquets » se
   // retrouvaient dans trois colonnes differentes, alors qu'elles se lisent ensemble
   // (signale le 27/08). On pose donc un GROUPE ENTIER dans la colonne la moins
@@ -1019,6 +1100,80 @@ window.addEventListener('resize', () => {
   cartes.forEach(c => masonry.appendChild(c));
   repartirEnColonnes(masonry);
 });
+
+// ===== MODE REORGANISATION ===================================================
+//
+// Pourquoi un MODE, et pas une poignee de deplacement : « pas que ca puisse arriver par
+// erreur ». Une poignee, meme discrete, se saisit un jour sans le vouloir. Ici, tant
+// qu'on n'est pas entre dans le mode, rien n'est saisissable -- et une fois dedans, les
+// actions des cartes sont neutralisees : on range, on n'exploite pas.
+let modeReorg = false;
+let carteSaisie = null;
+
+function ordreActuel(){
+  return [...document.querySelectorAll('.mcol')].map(col =>
+    [...col.querySelectorAll('.card')].map(c => c.dataset.module));
+}
+
+function entrerReorg(){
+  if(modeReorg) return;
+  modeReorg = true;
+  document.body.classList.add('reorg');
+  const app = document.getElementById('app') || document.querySelector('.masonry').parentElement;
+  const bar = document.createElement('div');
+  bar.className = 'reorg-bar'; bar.id = 'reorgBar';
+  bar.innerHTML = '<div><b>Réorganisation</b><br><small>Faites glisser les cartes. '
+                + 'Les actions sont suspendues le temps du rangement.</small></div>'
+                + '<div class="sp"><button id="reorgDefaut">Rétablir l’ordre par défaut</button>'
+                + '<button class="primaire" id="reorgFin">Terminer</button></div>';
+  app.insertBefore(bar, app.firstChild);
+  document.getElementById('reorgFin').onclick = () => quitterReorg(true);
+  document.getElementById('reorgDefaut').onclick = () => { oublierOrdre(); quitterReorg(false); refresh(); };
+  armerGlisser();
+}
+
+function quitterReorg(garder){
+  if(!modeReorg) return;
+  if(garder) enregistrerOrdre(ordreActuel());
+  modeReorg = false;
+  document.body.classList.remove('reorg');
+  const bar = document.getElementById('reorgBar'); if(bar) bar.remove();
+  document.querySelectorAll('.card[draggable]').forEach(c => { c.removeAttribute('draggable'); });
+  document.querySelectorAll('.mcol.cible').forEach(c => c.classList.remove('cible'));
+  if(garder) toast('Disposition enregistrée.');
+}
+
+// Glisser-deposer natif : pas de bibliotheque, et le clavier reste possible via les
+// boutons de la barre. On depose DANS une colonne, avant la carte survolee.
+function armerGlisser(){
+  document.querySelectorAll('.masonry .card').forEach(carte => {
+    carte.setAttribute('draggable', 'true');
+    carte.ondragstart = e => {
+      if(!modeReorg) return false;
+      carteSaisie = carte; carte.classList.add('drag');
+      try{ e.dataTransfer.setData('text/plain', carte.dataset.module); }catch(err){}
+      e.dataTransfer.effectAllowed = 'move';
+    };
+    carte.ondragend = () => { carte.classList.remove('drag'); carteSaisie = null;
+                              document.querySelectorAll('.mcol.cible').forEach(c => c.classList.remove('cible')); };
+  });
+  document.querySelectorAll('.mcol').forEach(col => {
+    col.ondragover = e => {
+      if(!modeReorg || !carteSaisie) return;
+      e.preventDefault();
+      col.classList.add('cible');
+      // Insertion AVANT la carte dont on survole la moitie haute : le repere suit le
+      // curseur, on voit ou la carte va tomber.
+      const apres = [...col.querySelectorAll('.card:not(.drag)')].find(c => {
+        const r = c.getBoundingClientRect();
+        return e.clientY < r.top + r.height / 2;
+      });
+      if(apres) col.insertBefore(carteSaisie, apres); else col.appendChild(carteSaisie);
+    };
+    col.ondragleave = () => col.classList.remove('cible');
+    col.ondrop = e => { e.preventDefault(); col.classList.remove('cible'); };
+  });
+}
 
 // Remplace le DOM d'une carte par son rendu a jour. Renvoie l'element cree (ou null).
 function replaceCardDom(m){
@@ -2211,7 +2366,17 @@ function renderTabApparence(pane){
       +'<span class="theme-prev" style="background:'+t.fond+'">'
       +'<span class="theme-prev-card" style="background:'+t.panneau+';color:'+t.texte+'">Aa</span></span>'
       +'<span class="theme-nom">'+t.nom+'</span></label>').join('')
-    +'</div>';
+    +'</div>'
+    // ENTREE DU MODE REORGANISATION (D92). Elle vit ici, dans les Parametres, et non
+    // dans l'en-tete : un bouton de plus en haut de page se clique par megarde, et
+    // l'en-tete n'accueille aucun bouton epars (D56).
+    +UI.carte({
+        titre:'Disposition des cartes',
+        detail:'Ranger les cartes comme vous voulez. Le mode suspend les actions le temps du rangement, et rien ne bouge tant que vous n’y êtes pas entré.',
+        droite:'<button class="fsolve sev-info" id="btnReorg">Réorganiser</button>'
+      });
+  const br = pane.querySelector('#btnReorg');
+  if(br) br.onclick = () => { if(unitsOpen) toggleSettings(); entrerReorg(); };
   pane.querySelectorAll('[name="setTheme"]').forEach(r=>{ r.onchange=()=>{
     const versSombre = (r.value==='dark');
     if(versSombre!==dark) toggleTheme();
