@@ -1,6 +1,6 @@
 # Configuration
 
-[Documentation index](README.md) · [Français](../fr/configuration.md)
+[Documentation index](../README.md) · [Français](../../fr/operating/configuration.md)
 
 Vigie ships with a **generic, versioned** configuration that works on any machine, and
 takes machine-specific values from a **local file that git ignores**. You never edit the
@@ -102,5 +102,5 @@ It changes only on a deliberate decision, not with every commit.
 
 ## Next
 
-- [Troubleshooting](troubleshooting.md) — reading those logs
-- [Development](developing/README.md) — the reasoning behind this layout
+- [Troubleshooting](../using/troubleshooting.md) — reading those logs
+- [Development](../developing/README.md) — the reasoning behind this layout

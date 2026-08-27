@@ -1,6 +1,6 @@
 # Ce que surveille Vigie
 
-[Sommaire](README.md) · [English](../en/features.md)
+[Sommaire](../README.md) · [English](../../en/using/features.md)
 
 Chaque carte ci-dessous existe dans le code aujourd'hui (une *sonde* sous
 `apps/backend-pode/probes/`) ; chaque bouton est une *action* réelle sous
@@ -110,4 +110,4 @@ Si aucun gestionnaire n'est trouvé, une carte neutre le dit.
 - Elle ne construit jamais une commande shell à partir de ce que le navigateur lui a
   envoyé.
 
-Le tableau complet : [Sécurité](security.md).
+Le tableau complet : [Sécurité](../operating/security.md).

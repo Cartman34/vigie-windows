@@ -1,6 +1,6 @@
 # Troubleshooting
 
-[Documentation index](README.md) · [Français](../fr/troubleshooting.md)
+[Documentation index](../README.md) · [Français](../../fr/using/troubleshooting.md)
 
 ---
 
@@ -65,7 +65,7 @@ This message no longer concerns **any feature**: the Windows Update lock, its au
 VBS / memory-integrity toggles are all native. Only *Open the folder* can still return it,
 and only if the folder disappears between the card being drawn and the click — with no path
 configured, the button is not offered at all.
-See [Configuration](configuration.md#external-tooling).
+See [Configuration](../operating/configuration.md#external-tooling).
 
 ### "The Vigie server is not running as administrator"
 
@@ -114,7 +114,7 @@ run it again. Without winget: <https://aka.ms/powershell-release>.
 ### Port 47600 is already in use
 
 Set another port in `apps/backend-pode/config/config.local.psd1` — see
-[Configuration](configuration.md). Everything else derives from it, including the desktop
+[Configuration](../operating/configuration.md). Everything else derives from it, including the desktop
 shortcut, so re-run `install-autostart.ps1` afterwards.
 
 ---

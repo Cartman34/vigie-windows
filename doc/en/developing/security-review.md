@@ -1,8 +1,8 @@
 # Revue de securite
 
 > Document **interne** : la revue, a relire a chaque ajout d'action. La page destinee aux
-> utilisateurs est [`doc/fr/security.md`](../../fr/security.md)
-> ([English](../security.md)) — elle dit la meme chose sans le detail d'implementation.
+> utilisateurs est [`doc/fr/operating/security.md`](../../fr/operating/security.md)
+> ([English](../operating/security.md)) — elle dit la meme chose sans le detail d'implementation.
 
 L'outil expose une API REST **locale** qui peut piloter Windows, potentiellement
 depuis un serveur **eleve** (demarrage automatique). Cette page recense les

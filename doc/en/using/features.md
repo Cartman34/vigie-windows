@@ -1,6 +1,6 @@
 # What Vigie monitors
 
-[Documentation index](README.md) · [Français](../fr/features.md)
+[Documentation index](../README.md) · [Français](../../fr/using/features.md)
 
 Every card below exists in the code today (a *probe* under
 `apps/backend-pode/probes/`); every button is a real *action* under
@@ -107,4 +107,4 @@ If no manager is found, a single neutral card says so.
 - It never listens outside `127.0.0.1`.
 - It never builds a shell command out of anything the browser sent it.
 
-See [Security](security.md) for the whole picture.
+See [Security](../operating/security.md) for the whole picture.

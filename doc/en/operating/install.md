@@ -1,6 +1,6 @@
 # Installation
 
-[Documentation index](README.md) · [Français](../fr/install.md)
+[Documentation index](../README.md) · [Français](../../fr/operating/install.md)
 
 Two routes. The **archive** is the recommended one: it needs no git and no developer
 tooling. The **git clone** is for people who intend to read or change the code.
@@ -66,7 +66,7 @@ cd vigie-windows
 ```
 
 Same folder layout, same scripts. Choose this if you want to follow `main`, read the
-code, or contribute — see [Development](developing/README.md).
+code, or contribute — see [Development](../developing/README.md).
 
 ---
 
@@ -146,7 +146,7 @@ from what you asked it to change on the system:
 
 > **Important:** uninstalling Vigie does **not** unlock Windows Update. If you locked it,
 > unlock it *before* removing Vigie, otherwise your machine stays with automatic updates
-> disabled. See [Windows Update](windows-update.md#unlocking-for-good).
+> disabled. See [Windows Update](../using/windows-update.md#unlocking-for-good).
 
 ### Leftovers from a pre-rename installation
 
@@ -167,6 +167,6 @@ with a `.old` suffix, never deleted — removing it stays your deliberate act. E
 
 ## Next
 
-- [Getting started](getting-started.md) — the tray icon, the dashboard, your first action
+- [Getting started](../using/getting-started.md) — the tray icon, the dashboard, your first action
 - [Configuration](configuration.md) — port, external tooling, machine-local overrides
-- [Troubleshooting](troubleshooting.md) — when one of these steps does not go as written
+- [Troubleshooting](../using/troubleshooting.md) — when one of these steps does not go as written

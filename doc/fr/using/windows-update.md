@@ -1,6 +1,6 @@
 # Windows Update
 
-[Sommaire](README.md) · [English](../en/windows-update.md)
+[Sommaire](../README.md) · [English](../../en/using/windows-update.md)
 
 C'est la fonction phare de Vigie, et celle qui change le comportement de votre machine.
 Lisez-la avant d'appuyer sur quoi que ce soit dans la carte *Verrouillage des mises à jour*.
@@ -97,7 +97,7 @@ disent en une phrase et ne touchent à rien — plutôt que d'échouer à moiti�
 `ToolsPath` reste **facultatif** : s'il désigne un dossier contenant `update-mode.ps1`,
 Vigie le préfère (installations historiques) ; sinon elle applique sa propre
 implémentation. Son absence ne bloque plus rien.
-Voir [Configuration](configuration.md#outillage-externe).
+Voir [Configuration](../operating/configuration.md#outillage-externe).
 
 ## Vigie constate le résultat, elle ne croit pas le code de retour
 
@@ -123,4 +123,4 @@ plus rien à l'écran pour vous dire pourquoi.
 ## Ensuite
 
 - [Ce que surveille Vigie](features.md) — les autres thèmes
-- [Sécurité](security.md) — pourquoi tout ceci exige les droits administrateur
+- [Sécurité](../operating/security.md) — pourquoi tout ceci exige les droits administrateur

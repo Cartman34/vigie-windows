@@ -1,6 +1,6 @@
 # Windows Update
 
-[Documentation index](README.md) · [Français](../fr/windows-update.md)
+[Documentation index](../README.md) · [Français](../../fr/using/windows-update.md)
 
 This is Vigie's headline feature and the one that changes how your machine behaves. Read
 it before you press anything on the *Update lock* card.
@@ -92,7 +92,7 @@ in one sentence and touch nothing — rather than half-failing in silence.
 
 `ToolsPath` stays **optional**: if it points at a folder holding `update-mode.ps1`, Vigie
 prefers it (existing installs); otherwise it uses its own implementation. Its absence no
-longer blocks anything. See [Configuration](configuration.md#external-tooling).
+longer blocks anything. See [Configuration](../operating/configuration.md#external-tooling).
 
 ## Vigie checks the result, it does not trust the return code
 
@@ -118,4 +118,4 @@ to tell you why.
 ## Next
 
 - [What Vigie monitors](features.md) — the other themes
-- [Security](security.md) — why all this needs administrator rights
+- [Security](../operating/security.md) — why all this needs administrator rights

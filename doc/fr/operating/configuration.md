@@ -1,6 +1,6 @@
 # Configuration
 
-[Sommaire](README.md) · [English](../en/configuration.md)
+[Sommaire](../README.md) · [English](../../en/operating/configuration.md)
 
 Vigie est livrée avec une configuration **générique et versionnée**, valable sur n'importe
 quelle machine, et prend ce qui est propre à un poste dans un **fichier local ignoré par
@@ -104,5 +104,5 @@ l'affichage. Il ne change que sur décision explicite, pas au fil des commits.
 
 ## Ensuite
 
-- [Dépannage](troubleshooting.md) — lire ces journaux
-- [Développement](../en/developing/README.md) — le raisonnement derrière cette organisation
+- [Dépannage](../using/troubleshooting.md) — lire ces journaux
+- [Développement](../../en/developing/README.md) — le raisonnement derrière cette organisation
