@@ -20,6 +20,12 @@ Format : `ID` — Titre, puis le besoin et ses critères. On n'écrit **pas** ic
 - **CORE-UPDATE** — Vigie se met à jour elle-même depuis le dépôt, sans réinstallation manuelle.
 - **CORE-DEPLOY** — Installation partagée pour tous les comptes de la machine, jamais par compte. Les dépendances
   (PowerShell 7) en font partie. Un installateur aboutit, ou dit pourquoi il a échoué.
+- **CORE-UPDATE-TRUST** — La chaîne de mise à jour ne doit pas pouvoir être détournée. Ce qui s'installe doit être
+  **vérifiable** — empreinte publiée, et à terme signature — et pas seulement « téléchargé en HTTPS depuis la bonne
+  URL ». Une intrusion dans le dépôt, un jeton de publication volé ou une release remplacée ne doivent pas suffire à
+  faire installer du code sur les machines : c'est par là que des projets bien plus gros se sont fait avoir. Vont avec :
+  protection de la branche et des tags, second facteur sur le compte qui publie, et de quoi **revenir en arrière** quand
+  une version se révèle mauvaise.
 - **CORE-ACCOUNTS** — Plusieurs comptes Windows utilisent Vigie : chacun ses réglages, aucun pouvoir supplémentaire ;
   diagnostiquer un autre compte passe par Vigie, jamais par un contournement.
 - **CORE-OPERATIONS** — Une opération longue se voit tant qu'elle dure, verrouille les ressources qu'elle occupe, et

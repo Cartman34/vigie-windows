@@ -16,6 +16,7 @@ Mise à jour : 2026-08-27.
 | CORE-SECURITY | Fait | Écoute 127.0.0.1, jeton porteur injecté dans la page | À auditer avant toute exposition |
 | CORE-VERSION | Fait | `Get-GitVersion` / `Get-GitCommit`, empreinte BUILD dans l'archive | — |
 | CORE-UPDATE | Fait | Action `vigie-update`, `scripts/vigie-update.ps1` | — |
+| CORE-UPDATE-TRUST | À faire | — | Rien ne vérifie aujourd'hui que l'archive téléchargée est bien celle publiée : ni empreinte, ni signature. On s'en remet à HTTPS et à GitHub. |
 | CORE-DEPLOY | Fait | Carte Déploiement, `deploy-shared`, `pwsh-install-machine`, `setup.cmd` | Éprouvé sur cette machine seulement |
 | CORE-ACCOUNTS | Fait | Carte Comptes, `accounts-details`, `diag-account-logs` | Éprouvé sur le compte Famille |
 | CORE-OPERATIONS | Fait | Marqueurs d'occupation, verrou de ressources, `/operations` interrogé par toutes les pages | — |
