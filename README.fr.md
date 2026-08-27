@@ -29,43 +29,23 @@ Dépôt : <https://github.com/Cartman34/vigie-windows>
 > Vigie touche à Windows Update et tourne en administrateur : les trois points de
 > [À lire avant d'installer](#à-lire-avant-dinstaller) valent la minute qu'ils prennent.
 
-La voie recommandée est l'**archive publiée dans les Releases GitHub** — ni git, ni clone.
+**Trois gestes, pas de ligne de commande.**
 
-**Un seul fichier, à la racine : `setup.cmd`. Double-cliquez-le.** Il fait tout — les prérequis,
-PowerShell 7 **pour la machine**, le module Pode, le démarrage à chaque ouverture de
-session, et le lancement de Vigie.
+1. Téléchargez `vigie-<version>.zip` depuis la [page des Releases](https://github.com/Cartman34/vigie-windows/releases).
+2. Décompressez-la **à un endroit durable** — ni `Téléchargements`, ni un dossier temporaire : Vigie se lancera depuis
+   ce chemin à chaque ouverture de session.
+3. Ouvrez le dossier obtenu et double-cliquez **`setup.cmd`**. Windows demande votre accord pour l'élévation :
+   acceptez.
 
-| | Fichier | Ce qu'il fait |
-|---|---|---|
-| 1 | **`setup.cmd`** | **L'installation complète.** Demande les droits administrateur (fenêtre Windows à accepter) : PowerShell 7 est installé **pour toute la machine**, pas pour votre seul compte. À faire **une fois**. |
-| 2 | **`scripts\run.cmd`** | Relance Vigie si vous l'avez fermée. Le navigateur s'ouvre sur <http://127.0.0.1:47600/> dès que le serveur écoute vraiment. |
+Vigie s'installe, s'ajoute au démarrage de votre session et s'ouvre. Il n'y a rien d'autre à faire, et rien à
+réinstaller ensuite : `setup.cmd` se charge lui-même de ce qui manque sur la machine. Si vous fermez Vigie un jour,
+`scripts\run.cmd` la relance.
 
-Avant le premier double-clic : téléchargez `vigie-<version>.zip` depuis la
-[page des Releases](https://github.com/Cartman34/vigie-windows/releases) et décompressez-la
-**à un endroit durable** — ni `Téléchargements`, ni un dossier temporaire : la tâche
-planifiée pointera sur ce chemin. L'archive se déplie en un unique dossier
-`vigie-<version>/`. *Si cette page est vide, aucune version n'a encore été taguée :
-passez par git, ci-dessous.*
+*Si la page des Releases est vide, aucune version n'a encore été publiée : voir la voie git ci-dessous.*
 
-> **Pourquoi l'installation demande l'élévation.** Vigie démarre par une tâche planifiée,
-> une par compte, et cette tâche lance `pwsh`. **Si** PowerShell 7 n'était installé que
-> pour un seul compte (le paquet du Store), il vivrait dans le profil de ce compte : les
-> autres comptes ne pourraient pas démarrer Vigie. `setup.cmd` l'installe donc **pour la
-> machine**
-> (`C:\Program Files\PowerShell\7`).
-
-En ligne de commande, si vous préférez — l'installation exige un terminal
-**administrateur**, et Windows PowerShell suffit puisque `pwsh` n'est pas encore là :
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1
-pwsh -ExecutionPolicy Bypass -File .\scripts\run.ps1
-pwsh -ExecutionPolicy Bypass -File .\scripts\install-autostart.ps1
-```
-
-La voie git, le rôle de chaque script et la désinstallation :
-[Installation](doc/fr/operating/install.md). Premier lancement et lecture du tableau de
-bord : [Premiers pas](doc/fr/using/getting-started.md).
+**Les autres voies** — clone git, ligne de commande, rôle de chaque script, désinstallation — sont dans
+[Installation](doc/fr/operating/install.md). Ce que vous avez sous les yeux au premier lancement :
+[Premiers pas](doc/fr/using/getting-started.md).
 
 ## À lire avant d'installer
 
@@ -119,18 +99,13 @@ Le détail carte par carte : [Ce que surveille Vigie](doc/fr/using/features.md).
 
 ## Prérequis
 
-- Windows 10 ou 11.
-- **PowerShell 7** (`pwsh`), **pour la machine** (`C:\Program Files\PowerShell\7`) —
-  installé par `scripts\install.ps1` s'il est absent. C'est lui que lancent les tâches de
-  démarrage : une installation limitée à un compte empêcherait les autres de démarrer
-  Vigie.
-- Le module PowerShell **Pode** — installé par le même script.
-- Les droits administrateur, pour les actions Windows Update et la tâche de démarrage.
-- Un navigateur Chromium (Edge ou Chrome) pour la fenêtre applicative dédiée ; n'importe
-  quel navigateur suffit pour la page simple.
+- **Windows 10 ou 11.**
+- **Un compte administrateur** : Vigie modifie des réglages de Windows Update et enregistre une tâche de démarrage.
+- **Un navigateur.** Edge ou Chrome pour la fenêtre dédiée, sans barre d'adresse ; n'importe lequel pour la page
+  ordinaire.
 
-Ni Node, ni étape de construction, ni gestionnaire de paquets : le front est un unique
-fichier HTML statique.
+Le reste est de la plomberie que `setup.cmd` pose lui-même — vous n'avez ni à l'installer, ni à savoir ce que c'est.
+Le détail est dans [Installation](doc/fr/operating/install.md) pour qui veut le lire.
 
 ## Licence
 

@@ -26,40 +26,21 @@ Repository: <https://github.com/Cartman34/vigie-windows>
 > Vigie touches Windows Update and runs as administrator: the three points in
 > [Read this before you install](#read-this-before-you-install) are worth the minute.
 
-The recommended route is the **archive from GitHub Releases** — no git, no clone.
+**Three moves, no command line.**
 
-**One file, at the root: `setup.cmd`. Double-click it.** Prerequisites,
-PowerShell 7 **machine-wide**, the Pode module, the logon autostart, and Vigie itself,
-started.
+1. Download `vigie-<version>.zip` from the [Releases page](https://github.com/Cartman34/vigie-windows/releases).
+2. Unzip it **somewhere permanent** — not `Downloads`, not a temporary folder: Vigie will start from that path every
+   time you log in.
+3. Open the folder you get and double-click **`setup.cmd`**. Windows asks for your consent to elevate: accept.
 
-| | File | What it does |
-|---|---|---|
-| 1 | **`setup.cmd`** | **The whole install.** Asks for administrator rights (a Windows prompt to accept): PowerShell 7 is installed **machine-wide**, not just for your account. Run it **once**. |
-| 2 | **`scripts\run.cmd`** | Starts Vigie again if you closed it. The browser opens on <http://127.0.0.1:47600/> once the server is actually listening. |
+Vigie installs itself, adds itself to your session start, and opens. There is nothing else to do and nothing to
+reinstall afterwards: `setup.cmd` takes care of whatever the machine is missing. If you ever close Vigie,
+`scripts\run.cmd` brings it back.
 
-Before that first double-click: download `vigie-<version>.zip` from the
-[Releases page](https://github.com/Cartman34/vigie-windows/releases) and unzip it
-**somewhere permanent** — not `Downloads`, not a temp folder: the scheduled task will
-point at this path. It expands into a single `vigie-<version>/` folder. *If that page is
-empty, no version has been tagged yet: take the git route below.*
+*If the Releases page is empty, no version has been published yet: see the git route below.*
 
-> **Why the install needs elevation.** Vigie starts from a scheduled task, one per
-> account, and that task runs `pwsh`. **If** PowerShell 7 were installed for a single
-> account only (the Store package), it would live inside that account's profile: no other
-> account could start Vigie. So `setup.cmd` installs it **machine-wide**
-> (`C:\Program Files\PowerShell\7`).
-
-From a terminal instead, if you prefer — the install needs an **administrator** terminal,
-and Windows PowerShell will do, since `pwsh` is not there yet:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1
-pwsh -ExecutionPolicy Bypass -File .\scripts\run.ps1
-pwsh -ExecutionPolicy Bypass -File .\scripts\install-autostart.ps1
-```
-
-The git route, what each script does, and how to uninstall:
-[Installation](doc/en/operating/install.md). First run and how to read the dashboard:
+**The other routes** — git clone, command line, what each script does, uninstalling — live in
+[Install](doc/en/operating/install.md). What you are looking at on first launch:
 [Getting started](doc/en/using/getting-started.md).
 
 ## Read this before you install
@@ -112,16 +93,12 @@ Full detail, card by card: [What Vigie monitors](doc/en/using/features.md).
 
 ## Requirements
 
-- Windows 10 or 11.
-- **PowerShell 7** (`pwsh`), **machine-wide** (`C:\Program Files\PowerShell\7`) — installed by
-  `setup.cmd` if absent. The scheduled tasks run it: an install limited to one
-  account would stop the others from starting Vigie.
-- The **Pode** PowerShell module — installed by the same script.
-- Administrator rights, for the Windows Update actions and the autostart task.
-- A Chromium-based browser (Edge or Chrome) for the dedicated app window; any browser
-  works for the plain page.
+- **Windows 10 or 11.**
+- **An administrator account**: Vigie changes Windows Update settings and registers a startup task.
+- **A browser.** Edge or Chrome for the dedicated window, with no address bar; any browser for the ordinary page.
 
-No Node, no build step, no package manager: the front end is a single static HTML file.
+The rest is plumbing that `setup.cmd` puts in place itself — you neither install it nor need to know what it is. The
+detail is in [Install](doc/en/operating/install.md) for whoever wants to read it.
 
 ## Licence
 
