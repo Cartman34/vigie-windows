@@ -371,7 +371,18 @@
   .ic-round{width:15px;height:15px;border:1.5px solid currentColor;border-radius:50%;
             display:inline-flex;align-items:center;justify-content:center;
             font-size:10px;font-weight:700;line-height:1}
+  /* ---------------------------------------------------------------------------
+     RYTHME VERTICAL : c'est le CONTENEUR qui espace, pas les composants.
+     Chaque fois qu'un bloc etait ajoute dans un panneau, il fallait penser a sa marge
+     -- et on l'oubliait (constate deux fois le 27/08 : titre colle au cadre, puis
+     bloc « Disposition des cartes » colle a la grille des themes). Une regle de flux
+     ici, et tout element ajoute demain est espace sans qu'on ait a y penser.
+     --------------------------------------------------------------------------- */
   .set-pane{flex:1;min-width:0;overflow-y:auto;padding:16px 18px}
+  .set-pane > * + *{margin-top:14px}
+  /* Les composants n'apportent plus leur propre marge basse dans ce flux : deux
+     sources d'espacement donnaient des ecarts inegaux d'un panneau a l'autre. */
+  .set-pane > *{margin-bottom:0}
   @media (max-width:560px){
     .set-wrap{flex-direction:column}
     .set-nav{flex:0 0 auto;flex-direction:row;border-right:none;border-bottom:1px solid var(--border);overflow-x:auto}
