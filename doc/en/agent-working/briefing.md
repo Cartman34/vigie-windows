@@ -14,7 +14,7 @@ Point de reprise. Après ce fichier : `doc/progress/decisions.md`, puis `discipl
 - Backend **PowerShell + Pode** (`backend/`), écoute **127.0.0.1:47600**, jeton Bearer + anti-CSRF + liste blanche d'actions.
 - Frontend **HTML/JS pur** (`apps/frontend-web/index.html`), sert la maquette `apps/frontend-web/mock/state.json` si le back est absent.
 - **App tray WinForms** (`apps/tray/tray.ps1`) : lance le serveur en fond, icône = statut de l'app (jauge), menu, fenêtre dédiée (Edge/Chrome `--app`).
-- Fonction phare : **verrouiller Windows Update** (ACL deny SYSTEM sur les dossiers de tâches) pour bloquer les redémarrages forcés, sans masquer les vraies MAJ.
+- Capacité la plus intrusive, à traiter avec soin : **verrouiller Windows Update** (ACL deny SYSTEM sur les dossiers de tâches) pour bloquer les redémarrages forcés, sans masquer les vraies MAJ.
 
 > **Ne pas confondre avec l'Atelier.** « Vigie » = l'application (PowerShell + Pode, port
 > 47600, élevée). « **Atelier** » = l'outil de développement (PHP, port 47610, jamais
@@ -124,8 +124,7 @@ qu'à cette machine. Ce document-ci ne porte que ce qui vaut durablement.
 
 ## État de la machine de l'utilisateur — à savoir avant de conclure quoi que ce soit
 
-- **Windows Update est VERROUILLÉ** (`NoAutoUpdate=1`, verrou ACL posé) : c'est voulu, c'est
-  la fonction phare. Les actions de Vigie lèvent le verrou le temps d'agir puis le reposent.
+- **Windows Update est VERROUILLÉ** (`NoAutoUpdate=1`, verrou ACL posé) : c'est voulu et demandé. Les actions de Vigie lèvent le verrou le temps d'agir puis le reposent.
 - **Un redémarrage est en attente** depuis l'installation de mises à jour.
 - **Écart permanent registre/actif sur VBS** : le registre dit 0, VBS tourne pourtant. Ne
   jamais en déduire une bascule en attente — la proposition de redémarrage ne doit
@@ -194,8 +193,8 @@ trancher, puis lui redonner le sujet corrigé.
   la page **servie** (jamais `file://`).
 
 
-## Décisions validées
-Voir `doc/progress/decisions.md` : icône tray = option B (graduations + talon confirmés) ; nom = dépôt « Vigie Windows » (slug `vigie-windows`), interface « Vigie » à la place de « Control Panel ».
+## Décisions
+Voir `doc/progress/decisions.md` — chaque entrée dit si elle a été demandée par l utilisateur ou prise par l agent : icône tray = option B (graduations + talon confirmés) ; nom = dépôt « Vigie Windows » (slug `vigie-windows`), interface « Vigie » à la place de « Control Panel ».
 
 ## Dépôt GitHub (état à jour)
 

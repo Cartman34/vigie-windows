@@ -79,6 +79,26 @@ installation, not a failure. Vigie never reboots your machine.
 | **Disk C:** | free space, the alert threshold, used percentage, total size. Turns amber below the threshold. | *Disk Cleanup…* (opens Windows' `cleanmgr`) |
 | **Resources** | RAM used (%), RAM free, CPU (%), uptime. Amber above 90 % on RAM or CPU. | — |
 
+## Power
+
+| Card | Shows | Buttons |
+|---|---|---|
+| **Power** | source (mains or battery), battery level, which way the current flows, and above all: **is the charger keeping up?** | *Power options* (opens Windows Settings) |
+
+This card exists **only on a machine with a battery**: a desktop has nothing to say about it. Its point is the case you
+cannot see otherwise: plugged in **and** discharging. That means the charger does not cover what the machine draws —
+the CPU and GPU will be throttled, and the battery will drain despite being plugged in. The card turns amber and says
+so in plain words.
+
+## Gaming
+
+| Card | Shows | Buttons |
+|---|---|---|
+| **Gaming** | graphics card, VRAM used against the real total, GPU temperature, detected game and what it consumes, other greedy applications during play, power | *Task Manager*, *Device Manager* |
+
+This is a **diagnostic tool**: when the game stutters, the card shows who takes what — CPU, GPU, VRAM, memory, I/O —
+and names the application draining resources mid-game. It fixes nothing by itself and changes no setting: it looks.
+
 ## Network
 
 | Card | Shows | Buttons |

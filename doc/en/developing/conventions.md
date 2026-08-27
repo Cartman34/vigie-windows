@@ -57,6 +57,10 @@ Reference unique des conventions. Toute nouvelle convention se note ICI.
   (`technologies.md`), chaque fonctionnalite + son usage
   (`targeting/` + `implemented/` + `using/`).
 - Doc en 4 volets, **zero doublon**, references par **ID** (voir `README.md`).
+- Toute decision ecrite dans `progress/decisions.md` porte, sous son titre, **d'ou elle vient** : *Demandee par
+  l'utilisateur* (demande ou arbitrage explicite -- ne se rediscute pas sans lui) ou *Prise par l'agent* (choix
+  technique assume seul -- une remarque suffit a le remettre en cause). Les deux n'ont pas le meme poids : les
+  confondre revient a se prevaloir d'un accord qui n'a jamais ete donne.
 - Le **point de reprise** est `../agent-working/briefing.md` : tenu a jour a chaque session, il n'y en a qu'un.
 
 ## Device bridge
