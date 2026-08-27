@@ -1414,7 +1414,13 @@ function Get-AppDisplayName {
         $script:AppNameCache[$cle] = $desc
     }
     $lisible = $script:AppNameCache[$cle]
-    if (-not $lisible) { return $ProcessName }          # rien a dire de mieux
+    if (-not $lisible) {
+        # Faute de mieux, on affiche le nom du processus -- mais avec une MAJUSCULE :
+        # c'est un nom propre a l'ecran (« Claude », pas « claude »), et une valeur de
+        # carte commence toujours par une majuscule.
+        if ($ProcessName.Length -gt 1) { return $ProcessName.Substring(0,1).ToUpper() + $ProcessName.Substring(1) }
+        return $ProcessName.ToUpper()
+    }
     if ($Complet) { return "$lisible ($ProcessName)" }
     return $lisible
 }
@@ -2793,6 +2799,91 @@ function Get-ModuleBusyMark {
         return $null
     }
     return $o
+}
+
+# --- CE QUE VIGIE OCCUPE SUR LA MACHINE --------------------------------------
+#
+# Demande du 27/08 : « ce serait bien de mettre le stockage Vigie (pour tous les
+# utilisateurs) et ainsi faire le suivi de la conso de notre app ». Une application qui
+# surveille l'espace disque des autres se doit de dire ce qu'elle prend elle-meme.
+#
+# Trois postes, et ils ne se ressemblent pas :
+#   - le PROGRAMME       : l'installation partagee (Program Files), la meme pour tous ;
+#   - les DONNEES        : cache, historique, journaux -- UN JEU PAR COMPTE ;
+#   - le DEPOT           : sur un poste de developpement, les sources et dist/.
+#
+# Les donnees des AUTRES comptes ne sont lisibles qu'en etant eleve : sans elevation on
+# rend ce qu'on voit, et on le DIT plutot que d'annoncer un total faux.
+function Get-VigieFootprint {
+    param([string]$Backend = (Get-BackendRoot))
+
+    function Poids {
+        param([string]$Chemin)
+        if (-not $Chemin -or -not (Test-Path -LiteralPath $Chemin)) { return 0 }
+        try {
+            return [long]((Get-ChildItem -LiteralPath $Chemin -Recurse -File -Force -ErrorAction SilentlyContinue |
+                           Measure-Object -Property Length -Sum).Sum)
+        } catch { return 0 }
+    }
+
+    $partagee = Get-SharedInstallPath
+    $programme = Poids $partagee
+
+    # Les donnees de CHAQUE compte : %LOCALAPPDATA%\Sowapps\Vigie, et l'ancien
+    # emplacement sans editeur pour les installations d'avant D72.
+    $parCompte = @()
+    $inaccessibles = 0
+    $varDuCompteCourant = $null
+    foreach ($c in @(Get-VigieAccounts -Backend $Backend | Where-Object { -not $_.technical })) {
+        $local = Join-Path (Join-Path (Join-Path $env:SystemDrive 'Users') $c.name) 'AppData\Local'
+        $total = 0
+        $vu = $false
+        foreach ($d in @((Join-Path (Join-Path $local 'Sowapps') 'Vigie'), (Join-Path $local 'Vigie'))) {
+            if (Test-Path -LiteralPath $d) { $vu = $true; $total += (Poids $d) }
+        }
+        # Un dossier present mais illisible rend 0 : on ne peut pas le distinguer d'un
+        # dossier vide sans elevation. On compte donc l'incertitude a part.
+        if ($vu -and $total -eq 0 -and -not $c.current) { $inaccessibles++ }
+        # LE COMPTE COURANT sait ou sont SES donnees : Get-VarRoot fait foi. Sur un poste
+        # de developpement elles vivent dans le depot (var/), pas dans %LOCALAPPDATA% --
+        # sans cela on annoncait 320 o pour un compte qui en occupe des megaoctets.
+        if ($c.current) {
+            $sien = Get-VarRoot -Backend $Backend
+            if ($sien -and (Test-Path -LiteralPath $sien)) {
+                $total = Poids $sien
+                $vu = $true
+                $varDuCompteCourant = $sien
+            }
+        }
+        if ($vu) { $parCompte += [pscustomobject]@{ name = $c.name; bytes = $total; current = $c.current } }
+    }
+
+    # Le depot de developpement, s'il est distinct de l'installation partagee.
+    $depot = Get-RepoRoot
+    $sources = 0
+    if ($depot -and (-not $partagee -or $depot -ne $partagee)) {
+        $sources = Poids $depot
+        # Le var/ du compte courant est DEJA compte dans les donnees : on le retire du
+        # depot, sinon le total le compte deux fois.
+        if ($varDuCompteCourant -and $varDuCompteCourant.StartsWith($depot, [StringComparison]::OrdinalIgnoreCase)) {
+            $sources = [Math]::Max(0, $sources - (Poids $varDuCompteCourant))
+        }
+    }
+
+    $donnees = 0
+    foreach ($x in $parCompte) { $donnees += $x.bytes }
+
+    [pscustomobject][ordered]@{
+        programme     = $programme          # installation partagee
+        programmePath = $partagee
+        donnees       = $donnees            # somme des donnees par compte
+        parCompte     = $parCompte
+        sources       = $sources            # depot de developpement (0 en usage normal)
+        sourcesPath   = $(if ($sources) { $depot } else { $null })
+        total         = ($programme + $donnees + $sources)
+        complet       = (Test-IsElevated) -and ($inaccessibles -eq 0)
+        inaccessibles = $inaccessibles
+    }
 }
 
 # --- LE SORT D'UNE TACHE DE FOND : garde, puis dit ---------------------------

@@ -37,7 +37,7 @@ if ($elevated) {
         -Help "Verrou de permissions empêchant Windows de recréer/réactiver les tâches de mise à jour. « Non » = verrou non appliqué (fréquent après une grosse MAJ ou un passage en Mode MAJ)." `
         -FixAction 'update-mode-off' -Guide "Cliquez Résoudre pour appliquer le verrou (re-verrouillage)."
 } else {
-    $aclField = New-Field -Key 'aclLock' -Label 'Verrou ACL des tâches' -Value 'serveur non élevé' -Kind 'text' -Status 'neutral' `
+    $aclField = New-Field -Key 'aclLock' -Label 'Verrou ACL des tâches' -Value 'Serveur non élevé' -Kind 'text' -Status 'neutral' `
         -Help "Ce verrou de permissions nécessite un serveur en administrateur pour être lu et appliqué de façon fiable." `
         -Guide "Redémarrez le serveur (il demandera l'UAC) : ce verrou pourra alors être vérifié et appliqué."
 }

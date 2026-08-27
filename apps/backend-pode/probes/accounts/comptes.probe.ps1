@@ -38,7 +38,7 @@ foreach ($c in ($comptes | Sort-Object @{ Expression = { -not $_.current } }, na
 }
 
 if (-not $comptes.Count) {
-    $fields += New-Field -Key 'aucun' -Label 'Comptes' -Value 'aucun compte utilisateur' -Kind 'text' -Status 'neutral' `
+    $fields += New-Field -Key 'aucun' -Label 'Comptes' -Value 'Aucun compte utilisateur' -Kind 'text' -Status 'neutral' `
         -Help "Aucun compte de cet ordinateur n'a encore ouvert de session."
 }
 
@@ -96,7 +96,7 @@ if ($partagee) {
         -Help "Emplacement lisible par tous les comptes de la machine : leurs tâches de démarrage pointent dessus. Les autres comptes lancent CETTE version, pas celle du dépôt." `
         -Guide $detail
 } else {
-    $depl += New-Field -Key 'partage' -Label 'Installation' -Value 'lisible par vous seul' -Kind 'text' -Status 'warn' `
+    $depl += New-Field -Key 'partage' -Label 'Installation' -Value 'Lisible par vous seul' -Kind 'text' -Status 'warn' `
         -FixAction 'deploy-shared' `
         -Help "Les autres comptes ne peuvent pas lire cette installation : Vigie ne demarrerait pas chez eux." `
         -Guide ("Emplacement actuel : " + (Get-RepoRoot) + [Environment]::NewLine +
@@ -114,14 +114,14 @@ if (-not $pwshPartage -and -not $pwshCompte) {
     # installation en portee machine a desinstalle le paquet du compte puis a echoue,
     # et la machine s'est retrouvee SANS PowerShell 7 -- la carte annoncait toujours
     # « installe pour vous seul ».
-    $depl += New-Field -Key 'pwsh' -Label 'PowerShell 7' -Value 'absent de la machine' -Kind 'text' -Status 'error' `
+    $depl += New-Field -Key 'pwsh' -Label 'PowerShell 7' -Value 'Absent de la machine' -Kind 'text' -Status 'error' `
         -FixAction 'pwsh-install-machine' `
         -Help "PowerShell 7 n'est installé nulle part : Vigie ne redémarrera pas, ni pour vous ni pour les autres comptes. Les processus en cours survivent, mais le prochain démarrage échouera." `
         -Guide ("À faire tout de suite, dans un terminal ADMINISTRATEUR :" + [Environment]::NewLine +
                 "  winget install --id Microsoft.PowerShell -e --scope machine" + [Environment]::NewLine +
                 "À défaut, le paquet MSI : https://github.com/PowerShell/PowerShell/releases")
 } elseif (-not $pwshPartage) {
-    $depl += New-Field -Key 'pwsh' -Label 'PowerShell 7' -Value 'installé pour vous seul' -Kind 'text' -Status 'warn' `
+    $depl += New-Field -Key 'pwsh' -Label 'PowerShell 7' -Value 'Installé pour vous seul' -Kind 'text' -Status 'warn' `
         -FixAction 'pwsh-install-machine' `
         -Help "Les tâches des autres comptes ont besoin d'un PowerShell 7 installé pour la MACHINE. Celui-ci vient du Store et n'existe que dans votre profil : leur tâche ne lancerait rien." `
         -Guide ("Interpréteur actuel : " + $pwshCompte + [Environment]::NewLine +
@@ -135,7 +135,7 @@ if (-not $pwshPartage -and -not $pwshCompte) {
 }
 
 if (-not $eleve) {
-    $fields += New-Field -Key 'scope' -Label 'Détail des autres comptes' -Value 'réservé à un administrateur' -Kind 'text' -Status 'neutral' `
+    $fields += New-Field -Key 'scope' -Label 'Détail des autres comptes' -Value 'Réservé à un administrateur' -Kind 'text' -Status 'neutral' `
         -Help "Windows protège le profil de chaque compte : leur détail n'est lisible que par un Vigie lancé en administrateur. Vigie ne montre rien de plus que ce que Windows laisse voir."
 }
 
@@ -155,6 +155,22 @@ if ($malades.Count) {
 # quand elle a abouti, ROUGE avec son journal quand elle a echoue -- jamais rien.
 $dernier = New-LastRunField -Module 'deployment'
 if ($dernier) { $depl += $dernier }
+
+# CE QUE VIGIE OCCUPE, tous comptes confondus (demande du 27/08). Une application qui
+# surveille l'espace disque des autres doit dire ce qu'elle prend elle-meme.
+$emp = Get-VigieFootprint -Backend $backend
+$detailEmp = @()
+if ($emp.programme) { $detailEmp += "Programme (partagé) : " + (Format-ByteSize -Bytes $emp.programme) + "  —  " + $emp.programmePath }
+foreach ($x in @($emp.parCompte)) {
+    $detailEmp += "Données de " + $x.name + $(if ($x.current) { " (vous)" } else { "" }) + " : " + (Format-ByteSize -Bytes $x.bytes)
+}
+if ($emp.sources) { $detailEmp += "Dépôt de développement : " + (Format-ByteSize -Bytes $emp.sources) + "  —  " + $emp.sourcesPath }
+if (-not $emp.complet) { $detailEmp += "" ; $detailEmp += "Relevé partiel : les données des autres comptes ne sont lisibles que par un Vigie lancé en administrateur." }
+$depl += New-Field -Key 'empreinte' -Label 'Stockage occupé' `
+    -Value ((Format-ByteSize -Bytes $emp.total) + $(if (-not $emp.complet) { ' (au moins)' } else { '' })) `
+    -Kind 'text' -Status 'neutral' `
+    -Help "Tout ce que Vigie occupe sur cette machine : le programme partagé, les données de chaque compte, et le dépôt si vous développez." `
+    -Guide ($detailEmp -join [Environment]::NewLine)
 
 # --- Carte 1 : les COMPTES ---------------------------------------------------
 $carteComptes = New-ModuleObject -Id 'accounts' -Theme 'accounts' -Label 'Comptes' `

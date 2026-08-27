@@ -100,6 +100,12 @@ function ConvertTo-Contract {
                 [ordered]@{
                     key       = "$($c.key)"
                     status    = "$($c.status)"
+                    # La VALEUR et le GENRE sont retenus : sans eux, un controle sur ce
+                    # qui s'affiche regarde du vide. Le controle des majuscules est passe
+                    # au travers pour cette raison, et un piege pose expres n'a pas ete
+                    # attrape -- c'est en le posant qu'on l'a su.
+                    value     = "$($c.value)"
+                    kind      = "$($c.kind)"
                     hasHelp   = [bool]$c.help
                     fixAction = if ($c.fixAction) { "$($c.fixAction)" } else { $null }
                     hasGuide  = [bool]$c.guide
@@ -132,6 +138,23 @@ function Test-Contract {
             # convient. Ce qui ne se resout pas ne s'alerte pas : c'est neutre.
             if (($st -eq 'warn' -or $st -eq 'error') -and -not $champ.fixAction) {
                 $trouves += "{0} -- {1} / {2} : en '{3}' sans BOUTON de resolution (D66)" -f $Source, $m.id, $champ.key, $st
+            }
+            # MAJUSCULE INITIALE (regle utilisateur, 27/08 : « tu oublies souvent ces
+            # majuscules »). Une valeur affichee est une reponse, pas un fragment de
+            # phrase : « À jour », pas « à jour ». Les DONNEES en sont exemptees --
+            # un numero de version (v0.1.4), un nom de fichier (ext4.vhdx), un chemin
+            # ou un nom de processus s'ecrivent comme ils sont.
+            #
+            # ATTENTION a l'exemption : « tout ce qui n'a ni espace ni majuscule » etait
+            # trop large -- le mot « aucun » y entrait, et le garde-fou laissait passer
+            # exactement ce qu'il devait attraper (essaye, et pris en flagrant delit).
+            # Un identifiant porte un chiffre ou un separateur ; un mot francais, non.
+            $val = "$($champ.value)"
+            $ressembleAUneDonnee = ($val -match '^v?[0-9]') -or ($val -match '[\/]') -or
+                                   ($val -match '^[a-z0-9._-]*[0-9._-][a-z0-9._-]*$') -or
+                                   ($val -match '^[a-z0-9_-]+\.[a-z0-9]{2,5}\s')
+            if ($champ.kind -eq 'text' -and $val -cmatch '^[a-zàâäéèêëîïôöùûüç]' -and -not $ressembleAUneDonnee) {
+                $trouves += "{0} -- {1} / {2} : valeur affichee sans majuscule initiale (« {3} »)" -f $Source, $m.id, $champ.key, $val
             }
             if ($champ.fixAction -and $actionsConnues -notcontains "$($champ.fixAction)") {
                 $trouves += "{0} -- {1} / {2} : renvoie a l'action inconnue '{3}'" -f $Source, $m.id, $champ.key, $champ.fixAction
