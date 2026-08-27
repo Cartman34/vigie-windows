@@ -1,6 +1,6 @@
 # Getting started
 
-[Documentation index](README.md) · [Français](../fr/prise-en-main.md)
+[Documentation index](README.md) · [Français](../fr/getting-started.md)
 
 You have run [the installation](install.md). Here is what you are looking at.
 

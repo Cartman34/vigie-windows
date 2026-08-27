@@ -1,9 +1,9 @@
 # Documentation — Vigie
 
-Deux points d'entrée, selon la langue :
+Deux points d'entrée pour **utiliser** Vigie, selon la langue :
 
-- **[Documentation française](fr/README.md)** — utilisateur et développement
-- **[English documentation](en/README.md)** — user and development
+- **[Documentation française](fr/README.md)**
+- **[English documentation](en/README.md)**
 
 Les README du dépôt : [`README.md`](../README.md) (EN) · [`README.fr.md`](../README.fr.md) (FR).
 
@@ -13,23 +13,30 @@ Les README du dépôt : [`README.md`](../README.md) (EN) · [`README.fr.md`](../
 
 | Dossier | Public | Répond à |
 |---|---|---|
-| `en/`, `fr/` | **utilisateur** | Comment je l'installe, m'en sers, le dépanne ? |
-| `en/development/`, `fr/developpement/` | **développeur** | Comment c'est fait, comment j'ajoute une carte ? |
-| `targeting/` | concepteur | Que **doit** faire le produit (par ID de fonctionnalité) ? |
-| `implemented/` | concepteur | Que fait-il **réellement** aujourd'hui (mêmes ID) ? |
-| `operating/SECURITY.md` | concepteur | La revue de sécurité interne, relue à chaque nouvelle action |
+| `fr/`, `en/` | **utilisateur** | Comment je l'installe, m'en sers, le dépanne ? |
+| `en/developing/` | **développeur** | Comment c'est fait, comment j'ajoute une carte ? |
+| `en/agent-working/` | **l'agent** | Ce qu'il faut savoir avant de toucher au projet, et les règles à tenir |
+| `progress/` | **conception** | Ce qu'on vise, ce qui est fait, ce qu'on a décidé |
+| `archives/` | trace | Ce qui est révolu : historiques, migration terminée, maquettes validées |
 
-**Règle d'or : pas de doublon.** Chaque information vit dans UN seul endroit ; les autres y
-renvoient. `targeting/` détient l'énoncé du besoin, `implemented/` l'état réel — on ne
-réécrit jamais l'énoncé dans le second.
+Trois choix expliquent cette forme :
 
-## Documents de travail internes
+- **Les noms de fichiers sont techniques, donc en anglais** — même pour un contenu
+  français. `fr/install.md` et `en/install.md` portent le même nom : on retrouve
+  l'équivalent sans traduire. Le *contenu*, lui, est dans la langue du dossier.
+- **La doc de développement n'existe qu'en anglais**, et vit donc hors des dossiers de
+  langue. Rien n'oblige `fr/` et `en/` à contenir les mêmes fichiers.
+- **La file de travail n'est jamais commitée.** L'état à l'instant et ce qui reste à
+  faire vivent dans `local/`, ignoré par git : cela change à chaque session et
+  n'appartient qu'à une machine.
 
-Ce sont la mémoire du projet. Ils ne s'adressent ni à l'utilisateur, ni au visiteur de
-GitHub, et ils restent tels quels.
+**Règle d'or : pas de doublon.** Chaque information vit dans UN seul endroit ; les autres
+y renvoient. `progress/targeting/` détient l'énoncé du besoin, `progress/implemented/`
+l'état réel — on ne réécrit jamais l'énoncé dans le second.
 
-- [`DECISIONS-VALIDEES.md`](DECISIONS-VALIDEES.md) — chaque décision tranchée, numérotée `D01`…, avec son raisonnement et les pistes écartées
-- [`REPRISE.md`](REPRISE.md) — où en est le projet, et le backlog
-- [`conventions.md`](conventions.md), [`technologies.md`](technologies.md), [`DISCIPLINES.md`](DISCIPLINES.md), [`MIGRATION-APPS.md`](MIGRATION-APPS.md)
-- [`maquettes-validees/`](maquettes-validees/) — les supports des décisions visuelles
-- À la racine : [`SUIVI.md`](../SUIVI.md), [`CHANGELOG.md`](../CHANGELOG.md), [`PRISE-EN-MAIN.md`](../PRISE-EN-MAIN.md)
+## Ce qui ne part pas dans l'archive publiée
+
+`progress/`, `archives/`, `en/agent-working/`, `en/developing/security-review.md` et ce
+fichier même : ce sont des documents de projet, sans objet pour qui installe Vigie. Le
+script de fabrication les écarte nommément, chacun avec sa raison
+([`scripts/build-release.ps1`](../scripts/build-release.ps1)).

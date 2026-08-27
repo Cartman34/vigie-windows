@@ -4,7 +4,7 @@
 
     Perimetre : tout poste installe AVANT le renommage, quand la tache planifiee,
     le raccourci bureau et l'espace de travail portaient encore le nom de la machine
-    de l'auteur. Voir docs/DECISIONS-VALIDEES.md (D05, D07, D11).
+    de l'auteur. Voir docs/progress/decisions.md (D05, D07, D11).
 
     Ce script est DATE et JETABLE. Il est volontairement SEPARE de
     uninstall-autostart.ps1, qui ne doit connaitre que les noms courants : les

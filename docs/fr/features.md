@@ -110,4 +110,4 @@ Si aucun gestionnaire n'est trouvé, une carte neutre le dit.
 - Elle ne construit jamais une commande shell à partir de ce que le navigateur lui a
   envoyé.
 
-Le tableau complet : [Sécurité](securite.md).
+Le tableau complet : [Sécurité](security.md).

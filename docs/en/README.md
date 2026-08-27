@@ -20,9 +20,9 @@ Everything is one click from here, and every page is one click from any other.
 
 | Page | Answers |
 |---|---|
-| [Development — start here](development/README.md) | Repository layout, how to run from source, conventions |
-| [Architecture](development/architecture.md) | Contract-first design, the four apps, the request path |
-| [Probes and actions](development/probes-and-actions.md) | Add a card or a button without touching the contract or the front end |
+| [Development — start here](developing/README.md) | Repository layout, how to run from source, conventions |
+| [Architecture](developing/architecture.md) | Contract-first design, the four apps, the request path |
+| [Probes and actions](developing/probes-and-actions.md) | Add a card or a button without touching the contract or the front end |
 
 ## Internal working documents
 
@@ -30,13 +30,13 @@ These are the project's own memory, not user documentation. They are French-only
 they are deliberately left as they are. They ship with the repository, **not** with the
 distribution archive, so the links below point at GitHub.
 
-- [`docs/DECISIONS-VALIDEES.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/DECISIONS-VALIDEES.md) — every settled decision, numbered `D01`…
-- [`docs/REPRISE.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/REPRISE.md) — where the project stands and what comes next
+- [`docs/progress/decisions.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/progress/decisions.md) — every settled decision, numbered `D01`…
+- [`docs/en/agent-working/briefing.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/en/agent-working/briefing.md) — where the project stands and what comes next
 - [`SUIVI.md`](https://github.com/Cartman34/vigie-windows/blob/main/SUIVI.md) — running log
 - [`CHANGELOG.md`](../../CHANGELOG.md) — change history
-- [`docs/targeting/features.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/targeting/features.md) — target features, by ID
-- [`docs/implemented/status.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/implemented/status.md) — what is really implemented, by ID
-- [`docs/conventions.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/conventions.md), [`docs/technologies.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/technologies.md)
+- [`docs/progress/targeting/features.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/progress/targeting/features.md) — target features, by ID
+- [`docs/progress/implemented/status.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/progress/implemented/status.md) — what is really implemented, by ID
+- [`docs/en/developing/conventions.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/en/developing/conventions.md), [`docs/en/developing/technologies.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/en/developing/technologies.md)
 
 ## Status
 

@@ -73,8 +73,8 @@ Aucune de ces pistes n'est implémentée en v0.1.
 - Ne jamais interpoler d'entrée client dans une commande.
 - Si elle touche à la sécurité du système, la faire relire ici avant de l'intégrer.
 
-Voir [Sondes et actions](developpement/sondes-et-actions.md) pour la mécanique, et
-[`docs/operating/SECURITY.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/operating/SECURITY.md) pour la revue de sécurité interne
+Voir [Sondes et actions](../en/developing/probes-and-actions.md) pour la mécanique, et
+[`docs/en/developing/security-review.md`](https://github.com/Cartman34/vigie-windows/blob/main/docs/en/developing/security-review.md) pour la revue de sécurité interne
 du projet.
 
 ## Ce que Vigie ne fait pas

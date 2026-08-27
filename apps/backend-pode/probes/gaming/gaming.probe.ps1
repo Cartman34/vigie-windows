@@ -17,9 +17,9 @@
                ETW ; le libelle le dit honnetement) ;
      - RAM   : WorkingSet64.
 
-   TEST SANS JEU (docs/MODULES.md) : VIGIE_FAKE_GAME=<nom> force ce processus a etre
+   TEST SANS JEU (docs/en/developing/modules.md) : VIGIE_FAKE_GAME=<nom> force ce processus a etre
    traite comme le jeu ; les valeurs restent reelles. Charge GPU reelle :
-   scripts/dev/gpu-load.html (voir la recette dans MODULES.md).
+   scripts/dev/gpu-load.html (voir la recette dans modules.md).
 #>
 $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $backend 'lib/common.ps1')

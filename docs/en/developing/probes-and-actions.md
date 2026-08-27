@@ -1,6 +1,6 @@
 # Probes and actions
 
-[Development](README.md) · [Documentation index](../README.md) · [Français](../../fr/developpement/sondes-et-actions.md)
+[Development](README.md) · [Documentation index](../README.md) · [Français](../../fr/README.md)
 
 The back end is a **generic engine**. It does not hard-code a single card: it discovers
 probes on disk. Adding a card, or a button, means dropping a file. The contract does not

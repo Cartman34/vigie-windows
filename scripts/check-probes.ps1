@@ -270,7 +270,7 @@ try {
 
 # --- Garde-fou : LES LIBELLES VISIBLES PORTENT LEURS ACCENTS ------------------
 #
-# Regle du projet (DISCIPLINES.md), rappelee le 27/08 : « il ne devrait jamais manquer
+# Regle du projet (disciplines.md), rappelee le 27/08 : « il ne devrait jamais manquer
 # les accents, tout doit etre en UTF-8 ». Les commentaires du code sont ecrits sans
 # accents -- c'est assume et sans consequence -- mais TOUT ce qui s'affiche doit etre
 # ecrit en francais correct. La carte annoncait « deployee avant le suivi des commits »

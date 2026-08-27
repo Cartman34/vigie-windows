@@ -70,7 +70,7 @@ cd vigie-windows
 ```
 
 Même arborescence, mêmes scripts. À choisir pour suivre `main`, lire le code ou
-contribuer — voir [Développement](developpement/README.md).
+contribuer — voir [Développement](../en/developing/README.md).
 
 ---
 
@@ -184,6 +184,6 @@ volontaire. Codes de retour : `0` terminé, `2` au moins une étape en échec, `
 
 ## Ensuite
 
-- [Premiers pas](prise-en-main.md) — l'icône, le tableau de bord, votre première action
+- [Premiers pas](getting-started.md) — l'icône, le tableau de bord, votre première action
 - [Configuration](configuration.md) — port, outillage externe, surcharges locales
-- [Dépannage](depannage.md) — quand une de ces étapes ne se passe pas comme écrit
+- [Dépannage](troubleshooting.md) — quand une de ces étapes ne se passe pas comme écrit

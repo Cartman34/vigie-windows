@@ -1,6 +1,6 @@
 # Troubleshooting
 
-[Documentation index](README.md) · [Français](../fr/depannage.md)
+[Documentation index](README.md) · [Français](../fr/troubleshooting.md)
 
 ---
 

@@ -122,5 +122,5 @@ plus rien à l'écran pour vous dire pourquoi.
 
 ## Ensuite
 
-- [Ce que surveille Vigie](fonctionnalites.md) — les autres thèmes
-- [Sécurité](securite.md) — pourquoi tout ceci exige les droits administrateur
+- [Ce que surveille Vigie](features.md) — les autres thèmes
+- [Sécurité](security.md) — pourquoi tout ceci exige les droits administrateur
