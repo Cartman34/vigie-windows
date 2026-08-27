@@ -1414,7 +1414,13 @@ function Get-AppDisplayName {
         $script:AppNameCache[$cle] = $desc
     }
     $lisible = $script:AppNameCache[$cle]
-    if (-not $lisible) { return $ProcessName }          # rien a dire de mieux
+    if (-not $lisible) {
+        # Faute de mieux, on affiche le nom du processus -- mais avec une MAJUSCULE :
+        # c'est un nom propre a l'ecran (« Claude », pas « claude »), et une valeur de
+        # carte commence toujours par une majuscule.
+        if ($ProcessName.Length -gt 1) { return $ProcessName.Substring(0,1).ToUpper() + $ProcessName.Substring(1) }
+        return $ProcessName.ToUpper()
+    }
     if ($Complet) { return "$lisible ($ProcessName)" }
     return $lisible
 }

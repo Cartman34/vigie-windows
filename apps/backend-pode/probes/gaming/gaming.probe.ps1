@@ -526,7 +526,7 @@ if ($jeu) {
                        @($rejete.Raisons | ForEach-Object { "- $_" }) +
                        @('', 'Son activité reste visible dans « Répartition des ressources ».')) -join "`n"
     }
-    $fields += New-Field -Key 'game' -Label 'Jeu détecté' -Value 'aucun' -Kind 'text' -Status 'neutral' `
+    $fields += New-Field -Key 'game' -Label 'Jeu détecté' -Value 'Aucun' -Kind 'text' -Status 'neutral' `
         -Help $(if ($rejete) { "Aucune application de jeu en cours. Le plus gros consommateur GPU est $(Get-AppDisplayName -ProcessName $rejete.Proc.Name -Path $rejete.Proc.Path -Complet), qui n'en est pas un." }
                 else { "Aucun processus n'utilise le GPU au-dessus du seuil de détection (réglable dans Paramètres)." }) `
         -Guide $guideAucun

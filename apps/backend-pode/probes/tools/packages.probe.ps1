@@ -124,7 +124,7 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
             $majStatus = 'warn'; $majValue = "$cnt disponible(s)"
             foreach ($it in $itemsAff) { $mg2 += ("- " + $it) }
         } else {
-            $majStatus = 'ok'; $majValue = 'à jour'
+            $majStatus = 'ok'; $majValue = 'À jour'
             $mg2 += "Aucune mise à jour disponible."
         }
         if ($nbIgnores -gt 0) { $mg2 += ("($nbIgnores mise(s) à jour masquée(s) par la liste des paquets ignorés.)") }
@@ -158,7 +158,7 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
         if ($u.reboot) { $mg2 += "Un REDÉMARRAGE est nécessaire pour terminer la dernière mise à jour." }
         if ($u.error) { $mg2 += ("Erreur lors de la vérification : " + $u.error) }
     } else {
-        $majValue = 'non vérifiées'
+        $majValue = 'Non vérifiées'
         $mg2 += "Cliquez « Vérifier les mises à jour » : la vérification s'exécute en tâche de fond."
     }
     # Le champ MAJ pointe vers l'action d'upgrade (bouton "Mettre a jour") quand

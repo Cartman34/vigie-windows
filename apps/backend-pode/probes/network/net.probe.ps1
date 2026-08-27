@@ -480,7 +480,7 @@ if ($hasWifi) {
 }
 $fields += @(
     New-Field -Key 'ip'  -Label 'IP locale (LAN)' -Value $ip  -Kind 'text' -Status 'neutral' -Help "Adresse IPv4 privée de l'interface portant la route par défaut (réseau local)."
-    New-Field -Key 'publicIp' -Label 'IP publique' -Value $(if ($pubIp -eq '-') {'non récupérée'} else {$pubIp}) -Kind 'text' `
+    New-Field -Key 'publicIp' -Label 'IP publique' -Value $(if ($pubIp -eq '-') {'Non récupérée'} else {$pubIp}) -Kind 'text' `
         -Status $(if ($pubIp -eq '-') {'warn'} else {'neutral'}) `
         -Help "Adresse IP publique vue depuis Internet (récupérée à la demande)." -Guide $pubGuide `
         -FixAction $(if ($pubIp -eq '-') {'net-publicip'} else {$null})
@@ -492,13 +492,13 @@ $fields += @(
         -FixAction $(if ($dnsStatut -ne 'ok') { 'net-dns-flush' } else { $null }) `
         -Help "Le serveur qui traduit les noms de sites en adresses. Testé par une résolution réelle à chaque passage." -Guide $dnsGuide
     New-Field -Key 'vpn' -Label 'VPN actif'    -Value $vpn -Kind 'bool' -Status 'neutral' -Help "Présence d'un adaptateur de tunnel VPN actif sur ce PC." -Guide $vpnGuide
-    New-Field -Key 'latency' -Label 'Latence'  -Value $(if ($lat -eq '-') {'non mesurée'} else {"$lat ms"}) -Kind 'text' `
+    New-Field -Key 'latency' -Label 'Latence'  -Value $(if ($lat -eq '-') {'Non mesurée'} else {"$lat ms"}) -Kind 'text' `
         -Status $(if ($lat -eq '-') {'warn'} else {$latSt}) -FixAction $(if ($lat -eq '-') {'net-speedtest'} else {$null}) `
         -Help "Délai d'aller-retour vers un serveur public. Cliquez « Mesurer débit/latence » pour l'actualiser." -Guide $latGuide
-    New-Field -Key 'down'    -Label 'Débit descendant' -Value $(if ($down -eq '-') {'non mesuré'} else {"$down Mbps"}) -Kind 'text' `
+    New-Field -Key 'down'    -Label 'Débit descendant' -Value $(if ($down -eq '-') {'Non mesuré'} else {"$down Mbps"}) -Kind 'text' `
         -Status $(if ($down -eq '-') {'warn'} else {'neutral'}) -FixAction $(if ($down -eq '-') {'net-speedtest'} else {$null}) `
         -Help "Débit obtenu en réception lors de la dernière mesure." -Guide $speedGuide
-    New-Field -Key 'up'      -Label 'Débit montant' -Value $(if ($up -eq '-') {'non mesuré'} else {"$up Mbps"}) -Kind 'text' `
+    New-Field -Key 'up'      -Label 'Débit montant' -Value $(if ($up -eq '-') {'Non mesuré'} else {"$up Mbps"}) -Kind 'text' `
         -Status $(if ($up -eq '-') {'warn'} else {'neutral'}) -FixAction $(if ($up -eq '-') {'net-speedtest'} else {$null}) `
         -Help "Débit obtenu en émission lors de la dernière mesure (envoi d'environ 5 Mo)." -Guide $speedGuide
 )

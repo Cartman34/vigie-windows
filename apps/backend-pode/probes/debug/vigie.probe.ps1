@@ -33,15 +33,15 @@ $fields += New-Field -Key 'serveur' -Label 'Serveur' `
 $pwshMachine = Get-SharedPwshPath
 $pwshCompte  = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
 $fields += New-Field -Key 'pwsh' -Label 'PowerShell 7' `
-    -Value $(if ($pwshMachine) { 'Installé' } elseif ($pwshCompte) { 'ce compte seulement' } else { 'absent' }) `
+    -Value $(if ($pwshMachine) { 'Installé' } elseif ($pwshCompte) { 'Ce compte seulement' } else { 'Absent' }) `
     -Kind 'text' -Status $(if ($pwshMachine) { 'ok' } elseif ($pwshCompte) { 'warn' } else { 'error' }) `
     -FixAction $(if ($pwshMachine) { '' } else { 'pwsh-install-machine' }) `
     -Help "Les tâches de démarrage lancent cet interpréteur. Installé pour un seul compte, il vit dans son profil : les autres comptes ne peuvent pas le lancer." `
-    -Guide $(if ($pwshMachine) { $pwshMachine } elseif ($pwshCompte) { $pwshCompte } else { 'aucun interpréteur trouvé' })
+    -Guide $(if ($pwshMachine) { $pwshMachine } elseif ($pwshCompte) { $pwshCompte } else { 'Aucun interpréteur trouvé' })
 
 $pode = @(Get-Module -ListAvailable -Name Pode | Sort-Object Version -Descending | Select-Object -First 1)
 $fields += New-Field -Key 'pode' -Label 'Module Pode' `
-    -Value $(if ($pode.Count) { 'v' + $pode[0].Version } else { 'absent' }) -Kind 'text' `
+    -Value $(if ($pode.Count) { 'v' + $pode[0].Version } else { 'Absent' }) -Kind 'text' `
     -Status $(if ($pode.Count) { 'ok' } else { 'error' }) `
     -Help "Le serveur web de Vigie, installé par setup.cmd." `
     -Guide $(if ($pode.Count) { "$($pode[0].Path)" } else { 'Relancez setup.cmd.' })
@@ -65,7 +65,7 @@ $fields += New-Field -Key 'taches' -Label 'Tâches de démarrage' `
             }) -join [Environment]::NewLine))
 
 if (-not $eleve) {
-    $fields += New-Field -Key 'portee' -Label 'Portée de ce relevé' -Value 'session non élevée' -Kind 'text' -Status 'neutral' `
+    $fields += New-Field -Key 'portee' -Label 'Portée de ce relevé' -Value 'Session non élevée' -Kind 'text' -Status 'neutral' `
         -Help "Les tâches des AUTRES comptes ne sont pas visibles d'une session ordinaire : ce relevé peut être incomplet."
 }
 
@@ -82,8 +82,19 @@ $fields += New-Field -Key 'journaux' -Label 'Journaux' `
             (@($journaux | Sort-Object LastWriteTime -Descending | Select-Object -First 8 |
                ForEach-Object { "  " + $_.Name + "  (" + (Format-ByteSize -Bytes $_.Length) + ")" }) -join [Environment]::NewLine))
 
-$fields += New-Field -Key 'donnees' -Label 'Données locales' -Value (Get-VarRoot -Backend $backend) -Kind 'text' -Status 'neutral' `
-    -Help "Cache, historique, jeton et journaux de CE compte. Chaque compte a les siens."
+# UN CHEMIN N'EST PAS UNE VALEUR DE CARTE : il tient sur trois lignes, se lit mal, et
+# n'apprend rien au premier coup d'oeil. La carte dit CE QUE C'EST et son poids ; le
+# chemin complet vit dans le detail de la ligne (regle utilisateur, 27/08).
+$racineVar = Get-VarRoot -Backend $backend
+$poidsVar = 0
+try {
+    $poidsVar = (Get-ChildItem -LiteralPath $racineVar -Recurse -File -ErrorAction SilentlyContinue |
+                 Measure-Object -Property Length -Sum).Sum
+} catch { }
+$fields += New-Field -Key 'donnees' -Label 'Données locales' `
+    -Value $(if ($poidsVar) { Format-ByteSize -Bytes $poidsVar } else { 'Aucune' }) -Kind 'text' -Status 'neutral' `
+    -Help "Cache, historique, jeton et journaux de CE compte. Chaque compte a les siens." `
+    -Guide $racineVar
 
 # L'INSTALLATION PARTAGEE est-elle a jour ? (version ET commit, D84)
 $cmp = Compare-SharedInstall -Backend $backend
