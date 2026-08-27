@@ -146,6 +146,9 @@
   .dn.done{border-left-color:var(--ok)} .dn.error{border-left-color:var(--err)} .dn.running{border-left-color:var(--accent)}
   .dn-head{display:flex;align-items:center;gap:8px;font-weight:600}
   .dn-del{margin-left:auto;background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;line-height:1}
+  /* Verrou d'une notification d'operation en cours : on montre POURQUOI on ne peut pas
+     l'effacer, au lieu de retirer le bouton sans explication. */
+  .dn-lock{margin-left:auto;color:var(--accent);opacity:.75;cursor:help;font-size:13px;line-height:1}
   .dn-del:hover{color:var(--err)}
   .dn-msg{color:var(--muted);margin-top:4px;word-break:break-word}
   .dn-time{color:var(--muted);opacity:.75;font-size:11px;margin-top:3px;display:flex;align-items:center;gap:5px}
@@ -1306,8 +1309,30 @@ function dismissToast(id){
   setTimeout(()=>{ if(rec.el&&rec.el.parentNode) rec.el.remove(); }, 220);
   delete toastEls[id];
 }
-function deleteNotif(id){ notifs=notifs.filter(n=>n.id!==id); dismissToast(id); renderDrawer(); updateBell(); }
-function clearNotifs(){ notifs.slice().forEach(n=>dismissToast(n.id)); notifs=[]; renderDrawer(); updateBell(); }
+// UNE OPERATION EN COURS NE S'EFFACE PAS (D94). Effacer sa notification ne l'arrete
+// pas : le travail continue en fond, et on vient de supprimer le seul endroit qui en
+// disait quelque chose -- l'utilisateur se retrouve devant une machine qui fait quelque
+// chose sans plus rien pour le lui dire. Elle se verrouille donc jusqu'a sa fin, et son
+// resultat (reussi ou echoue) redevient effacable.
+function notifVerrouillee(n){ return n && n.status === 'running'; }
+
+function deleteNotif(id){
+  const n = notifs.find(x => x.id === id);
+  if(notifVerrouillee(n)){ toast('Cette opération est en cours : sa notification s’effacera à la fin.'); return; }
+  notifs=notifs.filter(n=>n.id!==id); dismissToast(id); renderDrawer(); updateBell();
+}
+function clearNotifs(){
+  // « Tout effacer » respecte le verrou : ce qui tourne reste, le reste part.
+  const restent = notifs.filter(notifVerrouillee);
+  notifs.filter(n => !notifVerrouillee(n)).forEach(n => dismissToast(n.id));
+  const efface = notifs.length - restent.length;
+  notifs = restent;
+  renderDrawer(); updateBell();
+  if(restent.length && efface >= 0){
+    toast(restent.length === 1 ? 'Une opération est en cours : sa notification reste.'
+                               : restent.length + ' opérations en cours : leurs notifications restent.');
+  }
+}
 function renderDrawer(){
   const body=document.getElementById('drawerBody'); if(!body) return;
   if(!notifs.length){ body.innerHTML='<div class="drawer-empty">Aucune notification.</div>'; return; }
@@ -1315,7 +1340,12 @@ function renderDrawer(){
     const chip=n.status==='running'?'<span class="spin"></span>En cours':n.status==='done'?'✓ Réussi':'✕ Échec';
     return `<div class="dn ${n.status}">
       <div class="dn-head"><span class="t-dot ${n.status}"></span><span class="dn-label">${esc(n.label)}</span>
-        <button class="dn-del" title="Supprimer" onclick="deleteNotif(${n.id})">×</button></div>
+        ${notifVerrouillee(n)
+            // La fonte maison n'a pas de cadenas, et on n'invente pas un glyphe pour
+            // ca : le SABLIER de l'application dit deja « en cours », c'est exactement
+            // la raison du verrou.
+            ? '<span class="dn-lock" title="Opération en cours : sa notification s’effacera à la fin."><span class="spin"></span></span>'
+            : `<button class="dn-del" title="Supprimer" onclick="deleteNotif(${n.id})">×</button>`}</div>
       <div class="dn-msg">${esc(n.message||'')}</div>
       <div class="dn-time">${chip} — ${heure(n.ts)}</div>
     </div>`;
