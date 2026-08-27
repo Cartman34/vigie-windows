@@ -91,12 +91,12 @@ if ($partagee) {
         }
         $detail = $pourquoi + [Environment]::NewLine + [Environment]::NewLine + $detail
     }
-    $depl += New-Field -Key 'partage' -Label 'Installation' -Value $etat -Kind 'text' -Status $niveau `
+    $depl += New-Field -Key 'partage' -Label 'Installation partagée' -Value $etat -Kind 'text' -Status $niveau `
         -FixAction $(if ($niveau -eq 'warn') { 'deploy-shared' } else { '' }) `
         -Help "Emplacement lisible par tous les comptes de la machine : leurs tâches de démarrage pointent dessus. Les autres comptes lancent CETTE version, pas celle du dépôt." `
         -Guide $detail
 } else {
-    $depl += New-Field -Key 'partage' -Label 'Installation' -Value 'Lisible par vous seul' -Kind 'text' -Status 'warn' `
+    $depl += New-Field -Key 'partage' -Label 'Installation partagée' -Value 'Lisible par vous seul' -Kind 'text' -Status 'warn' `
         -FixAction 'deploy-shared' `
         -Help "Les autres comptes ne peuvent pas lire cette installation : Vigie ne demarrerait pas chez eux." `
         -Guide ("Emplacement actuel : " + (Get-RepoRoot) + [Environment]::NewLine +
@@ -198,7 +198,17 @@ $carteDepl = New-ModuleObject -Id 'deployment' -Theme 'accounts' -Label 'Déploi
     -Fields $depl `
     -Busy:([bool]$travail) -BusyAction $(if ($travail) { "$($travail.action)" } else { '' }) `
     -Actions @(
-        New-Action -Id 'deploy-shared' -Label 'Déployer pour tous les comptes' -Kind 'confirm' -Severity 'fix' -Confirm `
+        New-Action -Id 'vigie-update' -Label 'Mettre à jour l''installation' -Kind 'confirm' -Severity 'fix' -Confirm `
+            -BusyLabel 'Mise à jour…' `
+            -Help "Déploie la version actuelle vers l'installation partagée, puis relance Vigie avec." `
+            -Impact ("Deux étapes enchaînées : copie vers l'emplacement partagé (avec pose d'un tag de version), " +
+                     "puis relance du tray ET du serveur. L'interface se coupe quelques secondes et se reconnecte seule. " +
+                     "Réglages, historique et journaux sont conservés — ils vivent dans votre profil, pas dans l'installation.") `
+            -Usage ("Quand l'installation partagée est en retard sur ce dépôt : les autres comptes lancent alors une " +
+                    "version plus ancienne que la vôtre. C'est aussi le premier déploiement, si l'installation n'existe pas encore.") `
+            -Reversible ("Le déploiement se défait en déployant une version antérieure. Si la copie échoue, la relance " +
+                         "N'A PAS LIEU : l'ancienne version continue de tourner.")
+        New-Action -Id 'deploy-shared' -Label 'Déployer sans relancer' -Kind 'confirm' -Severity 'neutral' -Confirm `
             -BusyLabel 'Déploiement…' `
             -Help "Copie la version actuelle de Vigie à un emplacement que tous les comptes de la machine peuvent lire." `
             -Impact ("Fabrique une archive de la version en cours, puis remplace le contenu de C:\Program Files\Sowapps\Vigie. " +
