@@ -32,7 +32,6 @@ distribution archive, so the links below point at GitHub.
 
 - [`doc/progress/decisions.md`](https://github.com/Cartman34/vigie-windows/blob/main/doc/progress/decisions.md) — every settled decision, numbered `D01`…
 - [`doc/en/agent-working/briefing.md`](https://github.com/Cartman34/vigie-windows/blob/main/doc/en/agent-working/briefing.md) — where the project stands and what comes next
-- [`SUIVI.md`](https://github.com/Cartman34/vigie-windows/blob/main/SUIVI.md) — running log
 - [`CHANGELOG.md`](../../CHANGELOG.md) — change history
 - [`doc/progress/targeting/features.md`](https://github.com/Cartman34/vigie-windows/blob/main/doc/progress/targeting/features.md) — target features, by ID
 - [`doc/progress/implemented/status.md`](https://github.com/Cartman34/vigie-windows/blob/main/doc/progress/implemented/status.md) — what is really implemented, by ID

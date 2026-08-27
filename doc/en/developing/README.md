@@ -236,6 +236,6 @@ reverses a settled decision.
 
 - [`doc/progress/decisions.md`](https://github.com/Cartman34/vigie-windows/blob/main/doc/progress/decisions.md) — every settled decision, numbered `D01`…, with the reasoning and the discarded alternatives
 - [`doc/en/agent-working/briefing.md`](https://github.com/Cartman34/vigie-windows/blob/main/doc/en/agent-working/briefing.md) — where the project stands, and the backlog
-- [`SUIVI.md`](https://github.com/Cartman34/vigie-windows/blob/main/SUIVI.md), [`CHANGELOG.md`](../../../CHANGELOG.md)
+- [`CHANGELOG.md`](../../../CHANGELOG.md)
 - [`doc/progress/targeting/features.md`](https://github.com/Cartman34/vigie-windows/blob/main/doc/progress/targeting/features.md) — target features by ID · [`doc/progress/implemented/status.md`](https://github.com/Cartman34/vigie-windows/blob/main/doc/progress/implemented/status.md) — what is really implemented, by the same IDs
 - [`doc/en/developing/security-review.md`](https://github.com/Cartman34/vigie-windows/blob/main/doc/en/developing/security-review.md) — the internal security review

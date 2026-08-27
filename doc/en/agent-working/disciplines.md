@@ -49,5 +49,4 @@
 - `apps/frontend-web/index.html` → auto-reload via version.
 
 ## Documentation (toujours à jour)
-- `SUIVI.md` (reprise à tout moment), `CHANGELOG.md`, `doc/en/developing/conventions.md`, `doc/progress/targeting/features.md`.
-- Fichier d'initialisation à **nom non standard** : `PRISE-EN-MAIN.md` (pour ne pas être auto-chargé par des agents).
+- `briefing.md` (reprise à tout moment), `CHANGELOG.md`, `doc/en/developing/conventions.md`, `doc/progress/targeting/features.md`.

@@ -1,36 +1,64 @@
-# Etat d'implementation
+# État d'implémentation
 
-Legende : DONE (fait) / PARTIAL (partiel) / TODO (a faire).
-Reference les IDs de `../targeting/features.md`. Maj : 2026-08-19.
+Légende : **Fait** / **Partiel** / **À faire**. Les ID renvoient à `../targeting/features.md`.
+Mise à jour : 2026-08-27.
 
-| ID              | Etat    | Ou / Comment | Ecarts vs cible |
-|-----------------|---------|--------------|-----------------|
-| CORE-CONTRACT   | DONE    | `apps/backend-pode/api/openapi.yaml` v1.0.0 | — |
-| CORE-BACKEND    | DONE*   | `apps/backend-pode/start.ps1` + `apps/backend-pode/server.ps1` (Pode) ; routes `/health`, `/state`, `/modules/{id}`, `/actions` ; `apps/backend-pode/lib/common.ps1` | *Necessite `Install-Module Pode` ; actions reelles necessitent une execution ELEVEE |
-| CORE-FRONTEND   | DONE    | `apps/frontend-web/index.html` v2 : consomme le contrat, mode API en direct + repli `apps/frontend-web/mock/state.json` / mock inline | Themes system/wsl/security pas encore alimentes |
-| CORE-PROBES     | DONE    | Modele auto-decouvert (`apps/backend-pode/lib/common.ps1` -> `Get-State`) ; sondes `apps/backend-pode/probes/windows-update/lock.probe.ps1`, `history.probe.ps1` | Sondes des autres themes a ecrire |
-| CORE-SECURITY   | DONE    | Ecoute 127.0.0.1 ; jeton Bearer (`apps/backend-pode/var/secrets/api.token`) ; injecte dans la page servie | Middleware simple ; a auditer avant exposition eventuelle |
-| CORE-TRAY       | TODO    | — | Icone barre systeme a faire |
-| CORE-WINDOW     | TODO    | — | Fenetre WebView2 a faire |
-| CORE-AUTOSTART  | PARTIAL | — | Tache planifiee d'ouverture de session (elevee) a faire |
-| WU-LOCK         | DONE    | Sonde `wu-lock` (etat) + scripts `LocalAgentAdmin/tools/lockdown-updates*.ps1` | 12 taches TrustedInstaller restent Ready (inoffensives sous NoAutoUpdate=1) |
-| WU-UPDATEMODE   | DONE    | Actions `update-mode-on/off` -> `LocalAgentAdmin/tools/update-mode.ps1` | — |
-| WU-AUDIT        | DONE    | Action `run-audit` -> `LocalAgentAdmin/tools/audit-update-tasks.ps1` | Rapport ecrit cote LocalAgentAdmin (pas encore remonte dans l'UI) |
-| SYS-DISK        | DONE    | Script `LocalAgentAdmin/tools/disk-guard.ps1` | Sonde `system` + action nettoyage a ecrire |
-| WSL-STATE       | DONE    | Scripts WSL dans `LocalAgentAdmin/` | Sonde `wsl` + actions a ecrire |
-| SEC-VBS         | DONE    | `LocalAgentAdmin/toggle-vbs.ps1`, `toggle-memory-integrity.ps1` | Sonde `security` + actions a ecrire |
+## Socle
 
-| UI-STATUS       | DONE    | `apps/frontend-web/index.html` : accent couleur carte + icone de statut | - |
-| UI-ACTION-TRACK | PARTIAL | `apps/frontend-web/index.html` : panneau de suivi (en cours/reussi/echec + message) | Actions encore SYNCHRONES cote back ; async (jobId/polling) a faire |
+| ID | État | Où | Écarts vs cible |
+|----|------|-----|-----------------|
+| CORE-CONTRACT | Fait | `apps/backend-pode/api/openapi.yaml` | — |
+| CORE-BACKEND | Fait | `apps/backend-pode/server.ps1`, `lib/common.ps1` | Exécution élevée requise pour les actions réelles |
+| CORE-FRONTEND | Fait | `apps/frontend-web/index.html`, page unique servie par le serveur | — |
+| CORE-PROBES | Fait | 16 sondes auto-découvertes, 41 actions, contrôlées par `scripts/check-probes.ps1` | — |
+| CORE-TRAY | Fait | `apps/tray/tray.ps1` — auto-réparant, relance le serveur avec l'application | — |
+| CORE-AUTOSTART | Fait | `scripts/install-autostart.ps1` ; tâches `Vigie` / `Vigie - <compte>`, réparation par `repair-tasks` | — |
+| CORE-SECURITY | Fait | Écoute 127.0.0.1, jeton porteur injecté dans la page | À auditer avant toute exposition |
+| CORE-VERSION | Fait | `Get-GitVersion` / `Get-GitCommit`, empreinte BUILD dans l'archive | — |
+| CORE-UPDATE | Fait | Action `vigie-update`, `scripts/vigie-update.ps1` | — |
+| CORE-DEPLOY | Fait | Carte Déploiement, `deploy-shared`, `pwsh-install-machine`, `setup.cmd` | Éprouvé sur cette machine seulement |
+| CORE-ACCOUNTS | Fait | Carte Comptes, `accounts-details`, `diag-account-logs` | Éprouvé sur le compte Famille |
+| CORE-OPERATIONS | Fait | Marqueurs d'occupation, verrou de ressources, `/operations` interrogé par toutes les pages | — |
+| CORE-EXPORT | Fait | `apps/frontend-web/rapport.html`, route `/rapport` | Jamais vérifié à l'impression réelle |
 
-## Prochaines etapes
-Voir `../../SUIVI.md` (prochaine action immediate).
+## Modules
 
-## Maj 2026-08-19 (j)
-- Sondes ajoutees : `system/disk.probe.ps1`, `wsl/wsl.probe.ps1`,
-  `security/vbs.probe.ps1` (+ actions disk-cleanup, wsl-shutdown, toggle-vbs,
-  toggle-hvci). Le dashboard affiche desormais 4 themes.
-- Aide par parametre : `Field.help` (contrat) + infobulle front.
-- CORE-AUTOSTART : `install-autostart.ps1` (tache au logon + raccourci bureau) et
-  `uninstall-autostart.ps1`. RESTE : icone barre systeme (CORE-TRAY) et fenetre
-  WebView2 (CORE-WINDOW).
+| ID | État | Où | Écarts vs cible |
+|----|------|-----|-----------------|
+| WU-LOCK | Fait | `probes/windows-update/lock.probe.ps1` | 12 tâches TrustedInstaller restent prêtes, inoffensives sous `NoAutoUpdate=1` |
+| WU-UPDATEMODE | Fait | `update-mode-on` / `update-mode-off` | — |
+| WU-PENDING | Fait | `pending.probe.ps1`, `wu-scan`, `wu-list-pending`, `wu-install` | — |
+| WU-AUDIT | Fait | `run-audit` | Rapport écrit sur disque, pas remonté dans l'interface |
+| SYS-DISK | Fait | `disk.probe.ps1`, `disk-cleanup`, `disk-analyze`, `disk-tree` | — |
+| SYS-OS | Fait | `os.probe.ps1` | — |
+| SYS-PERF | Fait | `perf.probe.ps1`, `perf-counters-rebuild` | — |
+| SYS-POWER | Fait | `power.probe.ps1` | Jamais observé en situation réelle de sous-alimentation |
+| NET-STATE | Fait | `net.probe.ps1`, `net-publicip`, `net-speedtest`, `net-dns-flush` | — |
+| SEC-VBS | Fait | `vbs.probe.ps1`, `toggle-vbs`, `toggle-hvci` | — |
+| SEC-DEFENDER | Fait | `defender.probe.ps1` | — |
+| SEC-FIREWALL | Fait | `firewall.probe.ps1` | — |
+| WSL-STATE | Fait | `wsl.probe.ps1`, `wsl-start`, `wsl-restart`, `wsl-shutdown` | — |
+| TOOLS-PACKAGES | Fait | `packages.probe.ps1`, `pkg-check-updates`, `pkg-list-updates`, `pkg-upgrade` | — |
+| GAMING | Fait | `gaming.probe.ps1` | — |
+
+Module `debug` (carte Vigie : version, serveur, journaux, données locales) en plus de la cible : inactif par défaut.
+
+## Interface
+
+| ID | État | Où | Écarts vs cible |
+|----|------|-----|-----------------|
+| UI-STATUS | Fait | Accent de couleur et icône par carte | — |
+| UI-ACTION-TRACK | Fait | Suivi d'action, ligne rouge en cas d'échec, notification | — |
+| UI-NOTIF | Fait | Tiroir de notifications, notification verrouillée pendant une opération | — |
+| UI-COMPONENTS | Fait | Objet `UI`, un seul cadre arrondi | — |
+| UI-LAYOUT | Fait | Colonnes réelles, regroupement par module | — |
+| UI-REORG | Fait | Mode réorganisation, dépôt dans une colonne vide | — |
+| UI-SETTINGS | Fait | Panneau latéral unique, défauts issus de la configuration | — |
+
+## Ce qui reste ouvert
+
+- Historique des mesures (D53) : décidé, non conçu.
+- Actions longues asynchrones au sens du contrat (202 + jobId) : le suivi passe aujourd'hui par les marqueurs
+  d'occupation et `/operations`, pas par le contrat.
+- Audit Windows Update non remonté dans l'interface.
+- Numérotation des décisions : D82 à D85 n'existent pas.
