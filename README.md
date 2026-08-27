@@ -28,7 +28,7 @@ Repository: <https://github.com/Cartman34/vigie-windows>
 
 **Three moves, no command line.**
 
-1. Download `vigie-<version>.zip` from the [Releases page](https://github.com/Cartman34/vigie-windows/releases).
+1. Download `vigie-<version>.zip` from the [latest release](https://github.com/Cartman34/vigie-windows/releases/latest).
 2. Unzip it **somewhere permanent** — not `Downloads`, not a temporary folder: Vigie will start from that path every
    time you log in.
 3. Open the folder you get and double-click **`setup.cmd`**. Windows asks for your consent to elevate: accept.

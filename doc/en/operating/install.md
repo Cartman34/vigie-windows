@@ -27,8 +27,9 @@ There is no Node, no npm, no build step: the front end is one static HTML file.
 
 ## Route 1 — the published archive (recommended)
 
-1. Go to the [Releases page](https://github.com/Cartman34/vigie-windows/releases) and
-   download `vigie-<version>.zip`.
+1. Go to the [latest release](https://github.com/Cartman34/vigie-windows/releases/latest) — that link always points at the most recent one, without your
+   having to know its number — and download `vigie-<version>.zip`. The [full list](https://github.com/Cartman34/vigie-windows/releases) stays available if
+   you are after an earlier version.
 2. Unzip it **somewhere permanent**. It expands into a single `vigie-<version>/` folder.
    The autostart task will store this exact path, so avoid `Downloads`, avoid temporary
    folders, and do not move the folder afterwards without re-running the autostart script.

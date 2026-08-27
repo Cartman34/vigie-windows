@@ -27,9 +27,9 @@ Ni Node, ni npm, ni étape de construction : le front est un unique fichier HTML
 
 ## Voie 1 — l'archive publiée (recommandée)
 
-1. Rendez-vous sur la
-   [page des Releases](https://github.com/Cartman34/vigie-windows/releases) et
-   téléchargez `vigie-<version>.zip`.
+1. Rendez-vous sur la [dernière version publiée](https://github.com/Cartman34/vigie-windows/releases/latest) — ce lien pointe toujours sur la plus récente,
+   sans avoir à connaître son numéro — et téléchargez `vigie-<version>.zip`. La
+   [liste complète](https://github.com/Cartman34/vigie-windows/releases) reste accessible si vous cherchez une version antérieure.
 2. Décompressez-la **à un endroit durable**. Elle se déplie en un unique dossier
    `vigie-<version>/`. La tâche de démarrage automatique retiendra ce chemin exact :
    évitez `Téléchargements`, évitez les dossiers temporaires, et ne déplacez pas le

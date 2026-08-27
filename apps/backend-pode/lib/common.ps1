@@ -1183,37 +1183,21 @@ function Get-ApiToken {
 }
 
 # --- Version applicative (change quand index.html change) -------------------
-# Numero de VERSION du produit, lu dans le fichier VERSION a la racine du depot.
+# Numero de VERSION du produit : celui de l'installation, ou celui du depot.
 #
-# UN SEUL endroit le porte (D15). Le projet n'est pas publie : il est en 0.1, et ce numero
-# ne change que sur decision explicite de l'utilisateur -- pas au fil des commits.
+# UN SEUL numero (D96), et il n'est plus tenu a la main : une archive porte sa marque de
+# fabrication, un depot repond par son dernier TAG. Un fichier VERSION a cote des tags
+# donnait deux reponses possibles a « quelle version tourne ici ? ».
 #
-# Deux tentatives ont ete ecartees avant celle-ci :
-#   - les TICKS de la date du fichier (« version 639231069781032063 ») : un jeton de
-#     changement deguise en version, illisible et incomparable ;
-#   - `git describe` : varie a chaque commit, depend de git et du PATH, et faisait
-#     apparaitre des etiquettes de travail internes dans l'interface.
-# Le role de jeton de changement revient a Get-AppBuildId, ci-dessous.
+# Une tentative a ete ecartee avant celle-ci : les TICKS de la date du fichier
+# (« version 639231069781032063 »), un jeton de changement deguise en version, illisible
+# et incomparable. Ce role de jeton revient a Get-AppBuildId, ci-dessous.
 function Get-AppVersion {
     param([string]$Backend = (Get-BackendRoot))
     # UNE SEULE definition : la marque de l'installation si elle en a une (archive
     # deployee), sinon ce que git dit du depot. Plus de fichier VERSION (D96).
     $m = Get-BuildStamp -Root (Get-RepoRoot)
     if ($m -and $m.version -and $m.version -ne 'sans version') { return "$($m.version)" }
-    return 'inconnue'
-}
-
-# Ancien chemin, conserve le temps de verifier qu'aucun appelant ne le cherche encore.
-function Get-AppVersionFichier {
-    param([string]$Backend = (Get-BackendRoot))
-    $f = Join-Path (Get-RepoRoot) 'VERSION'
-    if (Test-Path -LiteralPath $f) {
-        $v = "$(Get-Content -LiteralPath $f -Raw -ErrorAction SilentlyContinue)".Trim()
-        # Convention du projet : un numero de version s'affiche prefixe de « v ». Le
-        # fichier VERSION ne porte QUE le numero ; le prefixe est ajoute ici, une fois,
-        # pour qu'il ne se recopie pas dans chaque endroit qui affiche la version.
-        if ($v) { return $(if ($v.StartsWith('v')) { $v } else { "v$v" }) }
-    }
     return 'inconnue'
 }
 
