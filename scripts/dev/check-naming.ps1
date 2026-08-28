@@ -42,7 +42,7 @@ $FRENCH_WORDS = @(
 
 $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $repoRoot 'scripts/lib/console-ui.ps1')   # le meme affichage que partout
-$skipped   = @('.git', 'dist', 'node_modules', 'local')
+$skipped   = @('.claude', '.git', 'dist', 'node_modules', 'local')   # .claude : les worktrees y vivent, et un worktree est une copie du depot
 $pattern    = 'function\s+([A-Za-z][\w-]*)|\$([a-zA-Z][\w]*)\s*=|(?:let|const|var|function)\s+([a-zA-Z][\w]*)'
 
 $total = 0

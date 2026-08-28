@@ -56,7 +56,7 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $repoRoot 'scripts/lib/console-ui.ps1')
 
-$SKIPPED = @('.git', 'dist', 'node_modules', 'local', 'var')
+$SKIPPED = @('.claude', '.git', 'dist', 'node_modules', 'local', 'var')   # .claude : les worktrees y vivent, et un worktree est une copie du depot
 
 # Mots TOUJOURS accentues : aucun d'eux n'existe sans accent en francais.
 # Ecrits en minuscules ; la casse initiale du texte trouve est conservee.
@@ -181,9 +181,10 @@ function Repair-Elisions {
 function Repair-Accents {
     param([string]$Text)
     foreach ($k in $ACCENTED.Keys) {
-        # « $Etat » n'est pas le mot « etat » : ce qui suit un $ est un NOM DE VARIABLE,
-        # et l'accentuer casserait le code au lieu de corriger un libelle.
-        $Text = [regex]::Replace($Text, ('(?<![\p{L}$])' + $k + 's?(?![\p{L}])'), {
+        # « $Etat » n'est pas le mot « etat », « -Detail » n'est pas « détail » : ce qui
+        # suit un $ est un NOM DE VARIABLE, ce qui suit un tiret est un NOM DE PARAMETRE.
+        # Les accentuer casse le code, ou pire : documente une option qui n'existe pas.
+        $Text = [regex]::Replace($Text, ('(?<![\p{L}$-])' + $k + 's?(?![\p{L}])'), {
             param($m)
             # Le « s » du pluriel est rendu tel qu'il a ete trouve.
             $good = $ACCENTED[$k]

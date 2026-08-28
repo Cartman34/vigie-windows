@@ -38,7 +38,7 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $repoRoot 'scripts/lib/console-ui.ps1')
 
-$SKIPPED = @('.git', 'dist', 'node_modules', 'local', 'var')
+$SKIPPED = @('.claude', '.git', 'dist', 'node_modules', 'local', 'var')   # .claude : les worktrees y vivent, et un worktree est une copie du depot
 $REFERENCE_LANGUAGE = 'fr'
 
 # --- Les libellés déclarés --------------------------------------------------------------
