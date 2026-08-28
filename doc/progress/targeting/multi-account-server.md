@@ -300,3 +300,28 @@ action privilégiée qu'on ne peut pas rattacher à un demandeur est un trou dan
 Il n'y a pas d'« agent » séparé : c'est **le tray du compte**, et son absence est déjà une information que Vigie
 affiche. L'action est donc refusée sur-le-champ, avec sa raison — « cette action a besoin de votre session : ouvrez
 Vigie sur ce compte ». Rien ne reste en suspens, rien ne s'exécutera plus tard à un moment inattendu.
+---
+
+## Questions ouvertes
+
+### Q1 — Comment le serveur reconnaît-il le compte demandeur quand il sert la page HTML ?
+
+Aujourd'hui le serveur injecte l'unique jeton dans le HTML qu'il sert. Avec un jeton par compte, il doit injecter celui
+du demandeur — mais la première requête d'un navigateur ne porte aucun en-tête d'autorisation.
+
+- **A. Le tray ouvre la page avec un ticket à usage unique** — *avantage : sûr et simple à raisonner.* Le tray lit son
+  jeton (qu'il est seul à pouvoir lire), demande au serveur un ticket valable une fois et quelques secondes, et ouvre
+  `http://127.0.0.1:47600/?t=…`. Le serveur échange le ticket contre la session du compte. Rien d'identifiant ne
+  traîne dans l'historique du navigateur au-delà de son usage.
+- **B. Identifier par le propriétaire du processus derrière la connexion TCP** — *avantage : aucun jeton à faire
+  circuler.* Le serveur remonte du port source au PID, puis au compte propriétaire. Mais l'association est fragile
+  (connexions courtes, keep-alive, navigateur partagé) et coûte un appel système par requête.
+
+### Q2 — Quelle copie de Vigie la tâche machine lance-t-elle ?
+
+Sur un poste de développement, le dépôt et l'installation partagée coexistent — c'est le cas de cette machine.
+
+- **A. Le dépôt s'il est présent, sinon l'installation partagée** — *avantage : cohérent avec ce qui existe déjà.*
+  C'est exactement la règle de `UpdateSource: auto` : on développe sur le dépôt, on livre depuis Program Files.
+- **B. Toujours l'installation partagée** — *avantage : une seule vérité.* Ce qui tourne est ce qui a été déployé,
+  sans exception — mais tester une modification imposerait alors un déploiement à chaque fois.
