@@ -39,6 +39,17 @@ pwsh -File .\scripts\dev\check-naming.ps1 -Detail    # ou ils sont
   verifie.
 - Quand on ouvre un fichier pour une autre raison, on renomme ce qu'on touche, et on
   **descend le plafond** d'autant dans le script. Il ne remonte jamais.
+
+**Et si le code neuf APPELLE une fonction francaise qui existe deja ?** Le cliquet ne le
+verra pas -- il compte les declarations, pas les appels. La regle est donc explicite :
+
+| Situation | Ce qu'on fait |
+|---|---|
+| Tous les appels sont dans les fichiers qu'on modifie deja | **On renomme.** C'est le rattrapage progressif, et il ne coute rien de plus que la relecture qu'on fait de toute facon. |
+| Les appels debordent largement du changement en cours | **On appelle tel quel**, et on le DIT dans le compte rendu. Faire exploser un diff pour un renommage transforme une correction lisible en revue impossible. |
+
+Ce qui n'est jamais acceptable : **declarer** un nouveau nom francais. Un appel se corrige
+plus tard sans rien casser ; une declaration, elle, cree la dette.
 - **Le francais est la langue MAITRESSE de la documentation utilisateur.** Une page de `fr/` s'ecrit ou se corrige
   D'ABORD ; son equivalent de `en/` est mis a jour dans la foulee, jamais l'inverse. En cas de divergence, `fr/` fait
   foi. Idem pour les deux README de racine : `README.fr.md` mene, `README.md` suit.

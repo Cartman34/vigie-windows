@@ -3457,11 +3457,21 @@ function Repair-VigieTasks {
                 # entierement (interpreteur machine, installation partagee, niveau).
                 $null = Set-VigieAccountEnabled -Name $compte -Enabled $true -Backend $Backend
             }
+            # UNE TACHE DESACTIVEE SE REACTIVE. Vigie savait le DIRE depuis ce matin, et
+            # s'arretait la : elle reecrivait l'action puis reannoncait « desactivee »,
+            # ce qui n'aide personne. Enable-ScheduledTask est le geste qui manquait.
+            # Idempotent : une tache deja active ne bouge pas.
+            try { Enable-ScheduledTask -TaskName $nom -ErrorAction Stop | Out-Null } catch { }
+
             # ON CONSTATE (D43). Reecrire la tache ne guerit pas tout : un ECHEC PASSE
             # reste inscrit dans son historique tant qu'elle n'a pas retourne au travail,
             # c'est-a-dire tant que ce compte n'a pas rouvert de session. Annoncer
             # « reparee » dans ce cas serait un faux succes -- et l'ecran continuerait a
             # afficher « hors service » juste a cote, en se contredisant (vu le 28/08).
+            # ON RELIT APRES COUP, pas dans la foulee : Windows rend l'ancien etat pendant
+            # un court instant apres une reecriture, et la tache paraissait encore
+            # desactivee alors qu'elle ne l'etait deja plus (constate le 28/08).
+            Start-Sleep -Milliseconds 400
             $apres = $null
             try { $apres = Get-VigieTaskAilment -Task (Get-ScheduledTask -TaskName $nom -ErrorAction Stop) } catch { }
             if ($apres) {

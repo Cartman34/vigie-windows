@@ -897,13 +897,13 @@ function cardHtml(m, groupLabel){
     // de resolution de la carte se mettaient a tourner alors qu'un seul travaillait
     // (signale le 28/08). Quand le serveur ne dit pas quelle action tourne, aucun ne
     // tourne : le verrou les desactivera, ce qui est l'information juste.
-    const solveEnCours = !!m.busy && !!m.busyAction && m.busyAction===f.fixAction;
+    const solveRunning = !!m.busy && !!m.busyAction && m.busyAction===f.fixAction;
     const solve = (f.fixAction && isProblem)
-      ? `<button class="fsolve sev-${fa?(fa.severity||'fix'):'fix'}${interditeF?' denied':''}${solveEnCours?' busy':''}"${(interditeF||solveEnCours)?' disabled':''}`
+      ? `<button class="fsolve sev-${fa?(fa.severity||'fix'):'fix'}${interditeF?' denied':''}${solveRunning?' busy':''}"${(interditeF||solveRunning)?' disabled':''}`
         + ` data-a="${f.fixAction}" data-m="${m.id}" data-k="${fkind}" data-c="${fconfirm?1:0}"`
         + ` data-c2="${fa&&fa.confirmTwice?1:0}" data-h="${((fa&&fa.help)||'').replace(/"/g,'&quot;')}"`
         + ` title="${esc(interditeF?(fa.deniedReason||'Action réservée à un compte administrateur.'):((fa&&fa.help)||'Résoudre ce point')).replace(/"/g,'&quot;')}">`
-        + (solveEnCours
+        + (solveRunning
              ? `<span class="spin"></span><span>${esc((fa&&fa.label)||'Résoudre')}…</span></button>`
              : `${ICONS[fkind]||''}<span>${esc((fa&&fa.label)||'Résoudre')}</span></button>`)
       : '';
@@ -1005,10 +1005,10 @@ function renderState(s, mode){
   }
   const masonry=document.createElement('div'); masonry.className='masonry';
   masonry.innerHTML=html;
-  repartirEnColonnes(masonry);
+  layoutColumns(masonry);
   app.appendChild(masonry);
   wireCardActions(masonry);
-  appliquerVerrouOperations();
+  applyOperationLock();
   // Si le rangement est en cours, les cartes fraichement rendues redeviennent
   // saisissables : le mode et l'affichage restent d'accord.
   if(modeReorg) armerGlisser();
@@ -1089,7 +1089,7 @@ function appliquerOrdreMemorise(cartes, nb){
   }
   return colonnes;
 }
-function hauteurEstimee(carte){
+function estimatedHeight(carte){
   const lignes  = carte.querySelectorAll('.field').length;
   const boutons = carte.querySelectorAll('.actions button').length;
   return 92 + lignes * 30 + Math.ceil(boutons / 2) * 34;
@@ -1097,8 +1097,8 @@ function hauteurEstimee(carte){
 // Placement retenu des groupes : { nb: nombre de colonnes, col: Map(groupe -> colonne) }.
 // Remis a zero quand le nombre de colonnes change (redimensionnement) ou quand
 // l'utilisateur reorganise lui-meme ses cartes.
-let placementGroupes = null;
-function repartirEnColonnes(masonry){
+let groupPlacement = null;
+function layoutColumns(masonry){
   const cartes = [...masonry.children].filter(e => e.classList && e.classList.contains('card'));
   if(!cartes.length) return;
   const dispo = masonry.clientWidth || document.body.clientWidth || 1200;
@@ -1136,20 +1136,20 @@ function repartirEnColonnes(masonry){
   // On garde donc le placement precedent tant que la fenetre garde le meme nombre de
   // colonnes et que les memes groupes sont la. Un groupe nouveau, lui, prend la colonne
   // la moins remplie -- et y reste.
-  const memePlacement = placementGroupes && placementGroupes.nb === nb;
-  if(!memePlacement) placementGroupes = { nb: nb, col: new Map() };
+  const memePlacement = groupPlacement && groupPlacement.nb === nb;
+  if(!memePlacement) groupPlacement = { nb: nb, col: new Map() };
   for(const g of groupes){
     let cible;
-    if(placementGroupes.col.has(g)){
-      cible = Math.min(placementGroupes.col.get(g), nb - 1);
+    if(groupPlacement.col.has(g)){
+      cible = Math.min(groupPlacement.col.get(g), nb - 1);
     } else {
       cible = 0;
       for(let i = 1; i < nb; i++){ if(hauteurs[i] < hauteurs[cible]) cible = i; }
-      placementGroupes.col.set(g, cible);
+      groupPlacement.col.set(g, cible);
     }
     for(const carte of parTheme.get(g)){
       colonnes[cible].appendChild(carte);
-      hauteurs[cible] += hauteurEstimee(carte);
+      hauteurs[cible] += estimatedHeight(carte);
     }
   }
   masonry.textContent = '';
@@ -1168,7 +1168,7 @@ window.addEventListener('resize', () => {
   const cartes = [...masonry.querySelectorAll('.card')];
   masonry.textContent = '';
   cartes.forEach(c => masonry.appendChild(c));
-  repartirEnColonnes(masonry);
+  layoutColumns(masonry);
 });
 
 // ===== MODE REORGANISATION ===================================================
@@ -1265,7 +1265,7 @@ function replaceCardDom(m){
   card.replaceWith(fresh);
   wireCardActions(fresh);
   // Le serveur fait foi : si la carte n'est plus occupee, le verrou tombe.
-  appliquerVerrouOperations();
+  applyOperationLock();
   const i=(lastModules||[]).findIndex(x=>x.id===m.id);
   if(i>=0) lastModules[i]=m; else lastModules.push(m);
   return fresh;
@@ -1423,9 +1423,9 @@ function renderDrawer(){
 let opsConnues = {};      // cle -> id de notification locale
 const OPS_MS = 4000;
 
-function cleOperation(o){ return (o.module || '') + '|' + (o.action || ''); }
+function operationKey(o){ return (o.module || '') + '|' + (o.action || ''); }
 
-async function synchroniserOperations(){
+async function syncOperations(){
   if(!API_MODE) return;
   let etat = null;
   try{
@@ -1437,7 +1437,7 @@ async function synchroniserOperations(){
 
   const enCours = new Set();
   for(const op of (etat.running || [])){
-    const cle = cleOperation(op);
+    const cle = operationKey(op);
     enCours.add(cle);
     const connue = opsConnues[cle];
     if(connue && notifs.some(x => x.id === connue)) continue;
@@ -1457,9 +1457,9 @@ async function synchroniserOperations(){
     delete opsConnues[cle];
     // La carte cesse d'etre occupee MEME si sa notification a ete perdue entre-temps :
     // le lisere ne doit pas dependre d'un objet d'interface.
-    demarquerCarteEnCours(cle.split('|')[0]);
+    clearCardBusy(cle.split('|')[0]);
     if(!n) continue;
-    const res = (etat.results || []).find(r => cleOperation(r) === cle);
+    const res = (etat.results || []).find(r => operationKey(r) === cle);
     if(res){
       const ok = Number(res.code) === 0;
       updateNotif(n, ok ? 'done' : 'error',
@@ -1880,7 +1880,7 @@ function itemsDeMaj(j){
 // resolution des lignes -- est suspendu, sur TOUTES les cartes : les operations de Vigie
 // (deploiement, mise a jour, installation d'une dependance) touchent la machine entiere,
 // pas seulement la carte d'ou elles partent.
-function operationEnCours(){
+function runningOperation(){
   const c = document.querySelector('.card.busy');
   if(!c) return null;
   const t = c.querySelector('.card-titles .name');
@@ -1888,12 +1888,12 @@ function operationEnCours(){
   return { module: c.dataset.module, titre: (t ? t.textContent : c.dataset.module),
            ressources: (m && m.busyResources) || [] };
 }
-// FIN D'OPERATION : on eteint ce que marquerCarteEnCours avait allume.
+// FIN D'OPERATION : on eteint ce que markCardBusy avait allume.
 //
 // Le lisere bleu « operation en cours » restait allume apres la fin, alors que plus rien
 // ne tournait ; seul un rafraichissement complet le rendait a sa vraie couleur (signale
 // le 28/08). La liste des operations dit pourtant exactement quand ca s'arrete.
-function demarquerCarteEnCours(moduleId){
+function clearCardBusy(moduleId){
   if(!moduleId) return;
   const sel='.card[data-module="'+((window.CSS&&CSS.escape)?CSS.escape(moduleId):moduleId)+'"]';
   const card=document.querySelector(sel);
@@ -1910,11 +1910,11 @@ function demarquerCarteEnCours(moduleId){
       b.classList.remove('busy');
     });
   }
-  appliquerVerrouOperations();
+  applyOperationLock();
 }
 
-function appliquerVerrouOperations(){
-  const op = operationEnCours();
+function applyOperationLock(){
+  const op = runningOperation();
   const raison = op
     ? 'Une opération est en cours sur « ' + op.titre + ' ». Les autres actions reprendront à la fin.'
     : '';
@@ -1956,7 +1956,7 @@ function appliquerVerrouOperations(){
 // « Operation en cours » sur une carte, sans attendre le serveur : on reutilise l'etat
 // `busy` que le contrat porte deja (liseré animé, boutons neutralises), on n'invente pas
 // un statut de plus.
-function marquerCarteEnCours(moduleId, quoi){
+function markCardBusy(moduleId, quoi){
   if(!moduleId) return;
   const sel='.card[data-module="'+((window.CSS&&CSS.escape)?CSS.escape(moduleId):moduleId)+'"]';
   const card=document.querySelector(sel);
@@ -1965,7 +1965,7 @@ function marquerCarteEnCours(moduleId, quoi){
   card.querySelectorAll('.actions button').forEach(b=>{ b.disabled=true; });
   const m=(lastModules||[]).find(x=>x.id===moduleId);
   if(m){ m.busy=true; }
-  appliquerVerrouOperations();
+  applyOperationLock();
 }
 
 // Le corps d'une confirmation : ce que ca FAIT, ce que ca CHANGE, QUAND s'en servir,
@@ -2070,7 +2070,7 @@ async function doAction(type,module,confirmNeeded,label,help,btnEl,params,kind,c
   setBtnBusy(btnEl);
   // La carte passe en « operation en cours » DES LE CLIC : attendre la reponse du serveur
   // laissait une seconde ou rien ne bougeait, puis une carte qui semblait figee.
-  if(module) marquerCarteEnCours(module, name);
+  if(module) markCardBusy(module, name);
   const entry=addNotif(name, 'running', 'Envoi de la commande…');
   if(!API_MODE){ updateNotif(entry,'done','(maquette) POST /actions {type:"'+type+'"}'); clearBtnBusy(btnEl); return; }
   try{
@@ -2088,7 +2088,7 @@ async function doAction(type,module,confirmNeeded,label,help,btnEl,params,kind,c
       // notification au lieu d'en creer une seconde.
       entry.op = (pollMod || '') + '|' + type;
       opsConnues[entry.op] = entry.id;
-      marquerCarteEnCours(pollMod, name);
+      markCardBusy(pollMod, name);
       updateNotif(entry, 'running', j.message || (name+' : en cours…'));
       clearBtnBusy(btnEl);
       if(pollMod){ refreshCard(pollMod); pollCardUntilIdle(pollMod, entry, name); }
@@ -2242,7 +2242,7 @@ async function checkVersion(){
       // declenchee. Au retour, le front ne savait plus qu'elle tournait -- boutons
       // reactives, sablier disparu, cartes redistribuees. On attend la fin, et le
       // prochain passage (toutes les 15 s) rechargera.
-      if(operationEnCours()){ return; }
+      if(runningOperation()){ return; }
       location.reload();
     }
   }catch(e){}
@@ -2682,8 +2682,8 @@ refresh();
 setInterval(refresh, REFRESH_MS);
 // Les operations, elles, se relevent souvent et SANS condition : une page occupee
 // (tiroir ouvert, rangement en cours) doit quand meme savoir ce qui tourne ailleurs.
-setInterval(synchroniserOperations, OPS_MS);
-synchroniserOperations();
+setInterval(syncOperations, OPS_MS);
+syncOperations();
 checkVersion();
 setInterval(checkVersion, VERSION_POLL_MS);
 </script>
