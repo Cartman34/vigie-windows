@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Installe les hooks git du depot (dossier scripts/hooks) dans .git/hooks.
 
@@ -29,6 +29,10 @@
 param([switch] $Verifier)
 
 $ErrorActionPreference = 'Stop'
+# Ce fichier est isole : il charge lui-meme l'affichage commun, qui apporte aussi
+# les libelles (console-ui.ps1 et i18n.ps1 sont voisins).
+. (Join-Path (Join-Path $PSScriptRoot 'lib') 'console-ui.ps1')
+
 $repoRoot = Split-Path $PSScriptRoot -Parent
 $source   = Join-Path $PSScriptRoot 'hooks'
 
@@ -37,11 +41,11 @@ $source   = Join-Path $PSScriptRoot 'hooks'
 Push-Location $repoRoot
 try { $gitDir = (& git rev-parse --git-common-dir 2>$null) } catch { $gitDir = $null }
 Pop-Location
-if (-not $gitDir) { Write-Host "Depot git introuvable depuis $repoRoot" -ForegroundColor Red; exit 2 }
+if (-not $gitDir) { Write-Fail (Get-Label 'install-hooks.depot-git-introuvable-depuis' $repoRoot); exit 2 }
 if (-not [IO.Path]::IsPathRooted($gitDir)) { $gitDir = Join-Path $repoRoot $gitDir }
 $cible = Join-Path $gitDir 'hooks'
 
-if (-not (Test-Path -LiteralPath $source)) { Write-Host "Aucun hook a installer ($source)"; exit 0 }
+if (-not (Test-Path -LiteralPath $source)) { Write-Host (Get-Label 'install-hooks.aucun-hook-installer' $source); exit 0 }
 if (-not (Test-Path -LiteralPath $cible)) { New-Item -ItemType Directory -Path $cible -Force | Out-Null }
 
 $ecarts = 0
@@ -49,16 +53,16 @@ foreach ($h in Get-ChildItem -LiteralPath $source -File) {
     $dst = Join-Path $cible $h.Name
     $identique = (Test-Path -LiteralPath $dst) -and
                  ((Get-FileHash $h.FullName).Hash -eq (Get-FileHash $dst).Hash)
-    if ($identique) { Write-Host ("  a jour    {0}" -f $h.Name); continue }
+    if ($identique) { Write-Host (Get-Label 'install-hooks.jour' $h.Name); continue }
     $ecarts++
-    if ($Verifier) { Write-Host ("  A INSTALLER {0}" -f $h.Name) -ForegroundColor Yellow; continue }
+    if ($Verifier) { Write-Warn (Get-Label 'install-hooks.installer' $h.Name); continue }
     Copy-Item -LiteralPath $h.FullName -Destination $dst -Force
-    Write-Host ("  installe  {0}" -f $h.Name) -ForegroundColor Green
+    Write-Ok (Get-Label 'install-hooks.installe' $h.Name)
 }
 
 if ($Verifier -and $ecarts -gt 0) {
-    Write-Host "$ecarts hook(s) manquant(s) ou differents. Lance ce script sans -Verifier."
+    Write-Info (Get-Label 'install-hooks.hook-manquant-ou-differents' $ecarts)
     exit 1
 }
-Write-Host ("Hooks : {0} -> {1}" -f $source, $cible)
+Write-Info (Get-Label 'install-hooks.hooks' $source $cible)
 exit 0

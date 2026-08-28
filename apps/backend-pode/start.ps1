@@ -11,7 +11,7 @@ $ErrorActionPreference = 'Stop'
 $isAdmin = Test-Elevated
 if (($PSVersionTable.PSVersion.Major -lt 7) -or (-not $isAdmin)) {
     $pwsh = Get-Command pwsh -ErrorAction SilentlyContinue
-    if (-not $pwsh) { Write-Host "PowerShell 7 requis. Lance d'abord install.ps1." -ForegroundColor Yellow; return }
+    if (-not $pwsh) { Write-Warn (Get-Label 'start.powershell-requis-lance-abord'); return }
     $relArgs = @('-NoExit','-NoProfile','-ExecutionPolicy','Bypass','-File', $PSCommandPath)
     if (-not $isAdmin) { Start-Process $pwsh.Source -Verb RunAs -ArgumentList $relArgs }
     else               { Start-Process $pwsh.Source -ArgumentList $relArgs }
@@ -31,23 +31,23 @@ $startLog = Join-Path $logDir ('start_' + (Get-Date -Format 'yyyyMMdd_HHmmss') +
 try { Start-Transcript -Path $startLog -Force | Out-Null } catch { }
 
 try {
-    Write-Log -Backend $backend -Name 'start' -Message ("PowerShell " + $PSVersionTable.PSVersion)
+    Write-Log -Backend $backend -Name 'start' -Message (Get-Label 'start.powershell' $PSVersionTable.PSVersion)
 
     $pode = Get-Module -ListAvailable -Name Pode | Select-Object -First 1
     if (-not $pode) {
-        Write-Log -Backend $backend -Name 'start' -Level 'WARN' -Message "Module Pode absent - installation automatique..."
+        Write-Log -Backend $backend -Name 'start' -Level 'WARN' -Message (Get-Label 'start.module-pode-absent-installation')
         & (Join-Path $backend 'install.ps1')
         $pode = Get-Module -ListAvailable -Name Pode | Select-Object -First 1
         if (-not $pode) {
-            Write-Log -Backend $backend -Name 'start' -Level 'ERROR' -Message "Pode toujours absent après install.ps1. Vérifie la connexion PSGallery."
+            Write-Log -Backend $backend -Name 'start' -Level 'ERROR' -Message (Get-Label 'start.pode-toujours-absent-apres')
             return
         }
     }
-    Write-Log -Backend $backend -Name 'start' -Message ("Pode " + $pode.Version)
+    Write-Log -Backend $backend -Name 'start' -Message (Get-Label 'start.pode' $pode.Version)
 
     $cfg = Get-Config -Backend $backend
     if (Test-ServerUp -Address $cfg.BindAddress -Port $cfg.Port) {
-        Write-Log -Backend $backend -Name 'start' -Message ("Déjà en cours sur " + (Get-AppUrl -Config $cfg) + " - abandon.")
+        Write-Log -Backend $backend -Name 'start' -Message (Get-Label 'start.deja-en-cours-sur' (Get-AppUrl -Config $cfg))
         return
     }
 
@@ -64,23 +64,22 @@ try {
         $repares = @(Repair-VigieTasks -Backend $backend)
         foreach ($r in $repares) {
             Write-Log -Backend $backend -Name 'start' -Level $(if ($r.repare) { 'INFO' } else { 'ERROR' }) `
-                      -Message ("tache " + $r.tache + " : " + $r.mal + " -> " + $(if ($r.repare) { 'reparee' } else { 'ECHEC' }))
+                      -Message (Get-Label 'start.tache' $r.tache $r.mal $(if ($r.repare) { 'reparee' } else { 'ECHEC' }))
         }
     } catch {
-        Write-Log -Backend $backend -Name 'start' -Level 'ERROR' -Message ("auto-reparation : " + $_.Exception.Message)
+        Write-Log -Backend $backend -Name 'start' -Level 'ERROR' -Message (Get-Label 'start.auto-reparation' $_.Exception.Message)
     }
 
     Import-Module Pode
-    Write-Log -Backend $backend -Name 'start' -Message ("Démarrage : " + (Get-ApiUrl -Config $cfg))
-    Write-Host ("UI  : " + (Get-AppUrl -Config $cfg))
-
+    Write-Log -Backend $backend -Name 'start' -Message (Get-Label 'start.demarrage' (Get-ApiUrl -Config $cfg))
+    Write-Info (Get-Label 'start.ui' (Get-AppUrl -Config $cfg))
     Start-PodeServer -Threads 3 {
         . "$env:VIGIE_BACKEND/server.ps1"
     }
 }
 catch {
-    Write-Log -Backend $backend -Name 'start' -Level 'ERROR' -Message ("FATAL: " + $_.Exception.Message)
-    Write-Host ($_ | Out-String) -ForegroundColor Red
+    Write-Log -Backend $backend -Name 'start' -Level 'ERROR' -Message (Get-Label 'start.fatal' $_.Exception.Message)
+    Write-Fail ($_ | Out-String)
 }
 finally {
     try { Stop-Transcript | Out-Null } catch { }

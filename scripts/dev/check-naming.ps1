@@ -72,24 +72,24 @@ foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.
     if ($n) { $perFile[$rel] = $n }
 }
 
-Write-Info ("Identifiants francais : {0}  (plafond {1})" -f $total, $CEILING)
+Write-Info (Get-Label 'check-naming.identifiants-francais-plafond' $total $CEILING)
 
 if ($Detail) {
     foreach ($e in ($perFile.GetEnumerator() | Sort-Object Value -Descending)) {
         Write-Info ("{0,5}  {1}" -f $e.Value, $e.Key)
     }
-    Write-Host ("Noms : " + (($names.GetEnumerator() | Sort-Object Value -Descending |
-                              Select-Object -First 20 | ForEach-Object { $_.Key }) -join ', ')) -ForegroundColor DarkGray
+    Write-Host (Get-Label 'check-naming.noms' ($names.GetEnumerator() | Sort-Object Value -Descending |
+                              Select-Object -First 20 | ForEach-Object { $_.Key }) -join ', ') -ForegroundColor DarkGray
 }
 
 if ($total -gt $CEILING) {
-    Write-Fail ("Le plafond est depasse de {0} : du code francais a ete AJOUTE." -f ($total - $CEILING))
-    Write-Warn "Les nouveaux noms s'ecrivent en anglais (D41). Relancez avec -Détail pour voir ou."
+    Write-Fail (Get-Label 'check-naming.le-plafond-est-depasse' ($total - $CEILING))
+    Write-Warn (Get-Label 'check-naming.les-nouveaux-noms-ecrivent')
     exit 2
 }
 if ($total -lt $CEILING) {
-    Write-Ok ("{0} de moins que le plafond : descendez CEILING a {1} dans ce script." -f ($CEILING - $total), $total)
+    Write-Ok (Get-Label 'check-naming.de-moins-que-le' ($CEILING - $total) $total)
     exit 0
 }
-Write-Ok "Plafond tenu : aucun identifiant francais de plus."
+Write-Ok (Get-Label 'check-naming.plafond-tenu-aucun-identifiant')
 exit 0

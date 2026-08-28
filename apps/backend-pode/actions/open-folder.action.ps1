@@ -1,4 +1,4 @@
-# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+﻿# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 <# Action open-folder : ouvre l'explorateur sur le dossier LocalAgentAdmin. #>
 param([string]$Module, [hashtable]$Params)
 $backend = Split-Path $PSScriptRoot -Parent

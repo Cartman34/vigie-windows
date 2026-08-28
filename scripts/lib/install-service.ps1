@@ -45,6 +45,7 @@ $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $repoRoot 'apps/backend-pode/lib/common.ps1')
 $backend = Join-Path $repoRoot 'apps/backend-pode'
 . (Join-Path $repoRoot 'scripts/lib/console-ui.ps1')   # le meme affichage que tous les autres scripts
+. (Join-Path $repoRoot 'scripts/lib/i18n.ps1')
 
 $SERVICE_ACCOUNT = 'VigieService'
 $SERVICE_TASK    = 'Vigie - Serveur'
@@ -61,13 +62,13 @@ function Get-ServiceTask {
 function Show-State {
     $account = Get-ServiceAccount
     $task    = Get-ServiceTask
-    Write-Title "Service de machine"
-    Write-Info ("Compte dédié     : " + $(if ($account) { $SERVICE_ACCOUNT + " (actif=" + $account.Enabled + ")" } else { "absent" }))
-    Write-Info ("Tâche machine    : " + $(if ($task) { $SERVICE_TASK + " (" + $task.State + ")" } else { "absente" }))
-    Write-Info ("Environnement    : " + (Get-EnvironmentLabel -Environment (Get-DeclaredEnvironment -Backend $backend)))
+    Write-Title (Get-Label 'install-service.service-de-machine')
+    Write-Info (Get-Label 'install-service.compte-dedie' $(if ($account) { $SERVICE_ACCOUNT + " (actif=" + $account.Enabled + ")" } else { "absent" }))
+    Write-Info (Get-Label 'install-service.tache-machine' $(if ($task) { $SERVICE_TASK + " (" + $task.State + ")" } else { "absente" }))
+    Write-Info (Get-Label 'install-service.environnement' (Get-EnvironmentLabel -Environment (Get-DeclaredEnvironment -Backend $backend)))
     $listening = $null
     try { $listening = Get-NetTCPConnection -LocalPort ([int](Get-Config -Backend $backend).Port) -State Listen -ErrorAction Stop } catch { }
-    Write-Info ("Serveur en ligne : " + $(if ($listening) { "oui (PID " + $listening[0].OwningProcess + ")" } else { "non" }))
+    Write-Info (Get-Label 'install-service.serveur-en-ligne' $(if ($listening) { "oui (PID " + $listening[0].OwningProcess + ")" } else { "non" }))
 }
 
 # --- Le compte dedie ------------------------------------------------------------------
@@ -89,7 +90,7 @@ function Set-ServiceAccountReady {
     $password = New-ServicePassword
     $secure = ConvertTo-SecureString $password -AsPlainText -Force
     if (-not $account) {
-        Write-Step ("Création du compte " + $SERVICE_ACCOUNT)
+        Write-Step (Get-Label 'install-service.creation-du-compte' $SERVICE_ACCOUNT)
         # 48 CARACTERES, PAS UN DE PLUS : c'est la limite que Windows impose a la
         # description d'un compte local. Une phrase de 66 signes a fait echouer la
         # premiere installation (28/08) -- et l'echec, lui, etait bien signale.
@@ -97,7 +98,7 @@ function Set-ServiceAccountReady {
                       -Description 'Service local de Vigie (pas de session)' `
                       -PasswordNeverExpires -UserMayNotChangePassword -ErrorAction Stop | Out-Null
     } else {
-        Write-Detail ("Le compte " + $SERVICE_ACCOUNT + " existe : mot de passe renouvelé.")
+        Write-Detail (Get-Label 'install-service.le-compte-existe-mot' $SERVICE_ACCOUNT)
         Set-LocalUser -Name $SERVICE_ACCOUNT -Password $secure -ErrorAction Stop
     }
 
@@ -108,9 +109,9 @@ function Set-ServiceAccountReady {
                     Where-Object { "$($_.Name)" -like ('*\' + $SERVICE_ACCOUNT) })
         if (-not $member.Count) {
             Add-LocalGroupMember -Group $admins -Member $SERVICE_ACCOUNT -ErrorAction Stop
-            Write-Detail "ajouté aux administrateurs."
+            Write-Detail (Get-Label 'install-service.ajoute-aux-administrateurs')
         }
-    } catch { Write-Warn ("groupe administrateurs : " + $_.Exception.Message) }
+    } catch { Write-Warn (Get-Label 'install-service.groupe-administrateurs' $_.Exception.Message) }
 
     # MASQUE DE L'ECRAN DE CONNEXION. Ce compte n'est pas une personne : il n'a rien a
     # faire dans la liste des utilisateurs. C'est la meme cle que Vigie lit deja pour
@@ -119,8 +120,8 @@ function Set-ServiceAccountReady {
         $key = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\UserList'
         if (-not (Test-Path -LiteralPath $key)) { New-Item -Path $key -Force | Out-Null }
         New-ItemProperty -Path $key -Name $SERVICE_ACCOUNT -Value 0 -PropertyType DWord -Force | Out-Null
-        Write-Detail "masqué de l'écran de connexion."
-    } catch { Write-Warn ("masquage impossible : " + $_.Exception.Message) }
+        Write-Detail (Get-Label 'install-service.masque-de-ecran-de')
+    } catch { Write-Warn (Get-Label 'install-service.masquage-impossible' $_.Exception.Message) }
 
     return $password
 }
@@ -141,12 +142,12 @@ function Grant-BatchLogonRight {
     try {
         $out = & secedit.exe /export /areas USER_RIGHTS /cfg $exportFile 2>&1
         if (-not (Test-Path -LiteralPath $exportFile)) {
-            Write-Warn ("Droits de session : export impossible (" + ($out -join ' ') + ")")
+            Write-Warn (Get-Label 'install-service.droits-de-session-export' $out -join ' ')
             return $false
         }
         $line = (Get-Content -LiteralPath $exportFile | Where-Object { $_ -match '^SeBatchLogonRight' } | Select-Object -First 1)
         if ($line -and $line.Contains($Sid)) {
-            Write-Detail "droit « ouvrir une session en tant que tâche » : déjà accordé."
+            Write-Detail (Get-Label 'install-service.droit-ouvrir-une-session')
             return $true
         }
         $current = if ($line) { ($line -split '=', 2)[1].Trim() } else { '' }
@@ -163,13 +164,13 @@ function Grant-BatchLogonRight {
         $db = Join-Path $env:TEMP ('vigie-secpol-' + [guid]::NewGuid().ToString('N').Substring(0,8) + '.sdb')
         $out = & secedit.exe /configure /db $db /cfg $importFile /areas USER_RIGHTS 2>&1
         if ($LASTEXITCODE -ne 0) {
-            Write-Warn ("Droits de session : refus de secedit (" + ($out -join ' ') + ")")
+            Write-Warn (Get-Label 'install-service.droits-de-session-refus' $out -join ' ')
             return $false
         }
-        Write-Detail "droit « ouvrir une session en tant que tâche » accordé."
+        Write-Detail (Get-Label 'install-service.droit-ouvrir-une-session-2')
         return $true
     } catch {
-        Write-Warn ("Droits de session : " + $_.Exception.Message)
+        Write-Warn (Get-Label 'install-service.droits-de-session' $_.Exception.Message)
         return $false
     } finally {
         foreach ($f in @($exportFile, $importFile)) { Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue }
@@ -182,7 +183,7 @@ function Register-ServiceTask {
 
     $pwsh = Get-SharedPwshPath
     if (-not $pwsh) { $pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Source }
-    if (-not $pwsh) { Write-Fail "PowerShell 7 introuvable pour la machine."; return $false }
+    if (-not $pwsh) { Write-Fail (Get-Label 'install-service.powershell-introuvable-pour-la'); return $false }
 
     # LE SERVEUR VIT TOUJOURS DANS L'INSTALLATION PARTAGEE, quel que soit l'environnement.
     #
@@ -196,12 +197,12 @@ function Register-ServiceTask {
     # qu'on y deploie : le depot local en dev, une version publiee en prod.
     $appRoot = Get-SharedInstallPath
     if (-not $appRoot) {
-        Write-Fail "Aucune installation partagée : déployez Vigie pour tous les comptes d'abord."
-        Write-Detail "Le service de machine ne peut pas tourner depuis un dépôt personnel."
+        Write-Fail (Get-Label 'install-service.aucune-installation-partagee-deployez')
+        Write-Detail (Get-Label 'install-service.le-service-de-machine')
         return $false
     }
     $start = Join-Path (Join-Path $appRoot 'apps/backend-pode') 'start.ps1'
-    if (-not (Test-Path -LiteralPath $start)) { Write-Fail ("Serveur introuvable : " + $start); return $false }
+    if (-not (Test-Path -LiteralPath $start)) { Write-Fail (Get-Label 'install-service.serveur-introuvable' $start); return $false }
 
     $action  = New-ScheduledTaskAction -Execute $pwsh `
                    -Argument ('-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $start + '"')
@@ -234,16 +235,16 @@ function Register-ServiceTask {
         # 28/08, et il a fallu deviner ce qu'il disait : il va desormais aussi dans le
         # journal de Vigie, qui se relit.
         $why = $_.Exception.Message
-        Write-Fail ("Windows a refusé d'enregistrer la tâche : " + $why)
+        Write-Fail (Get-Label 'install-service.windows-refuse-enregistrer-la' $why)
         try { Write-Log -Backend $backend -Name 'install' -Level 'ERROR' `
-                        -Message ("Service de machine : Windows a refuse la tache -- " + $why) } catch { }
+                        -Message (Get-Label 'install-service.service-de-machine-windows' $why) } catch { }
         return $false
     }
 
     # DESACTIVEE A LA CREATION. Deux serveurs sur le meme port se marcheraient dessus :
     # la bascule est un geste separe, et volontaire (-Activer).
     try { Disable-ScheduledTask -TaskName $SERVICE_TASK -ErrorAction Stop | Out-Null } catch { }
-    Write-Ok ("Tâche « " + $SERVICE_TASK + " » enregistrée, DÉSACTIVÉE.")
+    Write-Ok (Get-Label 'install-service.tache-enregistree-desactivee' $SERVICE_TASK)
     return $true
 }
 
@@ -260,11 +261,11 @@ function Grant-TaskControl {
         $folder.Connect()
         $task = $folder.GetFolder('\').GetTask($SERVICE_TASK)
         $task.SetSecurityDescriptor($sddl, 0)
-        Write-Detail "Les comptes de la machine peuvent démarrer et arrêter le service."
+        Write-Detail (Get-Label 'install-service.les-comptes-de-la')
         return $true
     } catch {
-        Write-Warn ("Droits sur la tâche non posés : " + $_.Exception.Message)
-        Write-Detail "Le tray d'un compte standard ne pourra pas relancer le serveur."
+        Write-Warn (Get-Label 'install-service.droits-sur-la-tache' $_.Exception.Message)
+        Write-Detail (Get-Label 'install-service.le-tray-un-compte')
         return $false
     }
 }
@@ -273,12 +274,12 @@ function Grant-TaskControl {
 function Remove-Service {
     $done = $true
     if (Get-ServiceTask) {
-        try { Unregister-ScheduledTask -TaskName $SERVICE_TASK -Confirm:$false -ErrorAction Stop; Write-Ok "Tâche retirée." }
-        catch { Write-Fail ("Tâche non retirée : " + $_.Exception.Message); $done = $false }
+        try { Unregister-ScheduledTask -TaskName $SERVICE_TASK -Confirm:$false -ErrorAction Stop; Write-Ok (Get-Label 'install-service.tache-retiree') }
+        catch { Write-Fail (Get-Label 'install-service.tache-non-retiree' $_.Exception.Message); $done = $false }
     }
     if (Get-ServiceAccount) {
-        try { Remove-LocalUser -Name $SERVICE_ACCOUNT -ErrorAction Stop; Write-Ok "Compte retiré." }
-        catch { Write-Fail ("Compte non retiré : " + $_.Exception.Message); $done = $false }
+        try { Remove-LocalUser -Name $SERVICE_ACCOUNT -ErrorAction Stop; Write-Ok (Get-Label 'install-service.compte-retire') }
+        catch { Write-Fail (Get-Label 'install-service.compte-non-retire' $_.Exception.Message); $done = $false }
     }
     try {
         $key = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\UserList'
@@ -291,8 +292,8 @@ function Remove-Service {
 if ($Lister) { Show-State; exit 0 }
 
 if (-not (Test-IsElevated)) {
-    Write-Fail "Cette opération crée un compte et une tâche machine : elle demande l'élévation."
-    Write-Detail "Rien n'a été touché."
+    Write-Fail (Get-Label 'install-service.cette-operation-cree-un')
+    Write-Detail (Get-Label 'install-service.rien-ete-touche')
     exit 1
 }
 
@@ -309,7 +310,7 @@ Show-State
 try {
     $password = Set-ServiceAccountReady
 } catch {
-    Write-Fail ("Le compte de service n'a pas pu être préparé : " + $_.Exception.Message)
+    Write-Fail (Get-Label 'install-service.le-compte-de-service' $_.Exception.Message)
     exit 2
 }
 if (-not (Register-ServiceTask -Password $password)) { exit 2 }
@@ -318,7 +319,7 @@ $null = Grant-TaskControl
 $password = $null
 [System.GC]::Collect()
 
-Write-Ok "Service prêt, mais DÉSACTIVÉ : rien ne change au démarrage tant qu'on ne bascule pas."
-Write-Detail "Pour basculer : pwsh -File .\scripts\lib\install-service.ps1 -Activer"
+Write-Ok (Get-Label 'install-service.service-pret-mais-desactive')
+Write-Detail (Get-Label 'install-service.pour-basculer-pwsh-file')
 Show-State
 exit 0

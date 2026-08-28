@@ -184,7 +184,7 @@ function Find-CheminInterdit {
 
 # --- Prerequis -------------------------------------------------------------------------
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
-    Write-Host "git est introuvable. Ce script en a besoin : c'est git qui dit quels fichiers sont suivis, donc lesquels peuvent partir dans l'archive." -ForegroundColor Yellow
+    Write-Warn (Get-Label 'build-release.git-est-introuvable-ce')
     exit 1
 }
 
@@ -205,7 +205,7 @@ try {
     # que git applique aux caracteres non-ASCII avec la sortie par lignes.
     $brut = (& git ls-files -z) -join ''
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "git ls-files a échoué : ce dossier n'est pas un dépôt git utilisable." -ForegroundColor Yellow
+        Write-Warn (Get-Label 'build-release.git-ls-files-echoue')
         exit 1
     }
 } finally {
@@ -214,7 +214,7 @@ try {
 
 $suivis = @($brut -split "`0" | Where-Object { $_ })
 if ($suivis.Count -eq 0) {
-    Write-Host "git ne suit aucun fichier ici. Rien à empaqueter." -ForegroundColor Yellow
+    Write-Warn (Get-Label 'build-release.git-ne-suit-aucun')
     exit 1
 }
 
@@ -231,7 +231,7 @@ foreach ($f in $suivis) {
     # Un fichier suivi mais supprime du disque (suppression non encore committee) ne doit
     # pas faire echouer la fabrication : on le signale et on continue.
     if (-not (Test-Path -LiteralPath (Join-Path $repoRoot $f))) {
-        Write-Host ("ABSENT du disque, ignoré : " + $f) -ForegroundColor Yellow
+        Write-Warn (Get-Label 'build-release.absent-du-disque-ignore' $f)
         continue
     }
     $retenus += $f
@@ -240,10 +240,9 @@ foreach ($f in $suivis) {
 # --- GARDE-FOU, avant toute ecriture ---------------------------------------------------
 $interdits = Find-CheminInterdit -Chemins $retenus
 if ($interdits.Count -gt 0) {
-    Write-Host ""
-    Write-Host "ARRÊT : des fichiers interdits sont sur le point d'être empaquetés." -ForegroundColor Red
-    foreach ($i in $interdits) { Write-Host ("  " + $i.Chemin + "   <- " + $i.Quoi) -ForegroundColor Red }
-    Write-Host "Rien n'a été écrit. Corrige le versionnement (.gitignore) avant de recommencer." -ForegroundColor Red
+    Write-Fail (Get-Label 'build-release.arret-des-fichiers-interdits')
+    foreach ($i in $interdits) { Write-Fail ("  " + $i.Chemin + "   <- " + $i.Quoi) }
+    Write-Fail (Get-Label 'build-release.rien-ete-ecrit-corrige')
     exit 2
 }
 
@@ -259,29 +258,24 @@ foreach ($f in $retenus) {
     $parRacine[$racine].Taille += $taille
 }
 
-Write-Host ""
-Write-Host ("Vigie " + $version + " — contenu de l'archive") -ForegroundColor Cyan
-Write-Host ("  " + $retenus.Count + " fichier(s), " + (Format-Taille $tailleTotale) + " avant compression")
+Write-Step (Get-Label 'build-release.vigie-contenu-de-archive' $version)
+Write-Info (Get-Label 'build-release.fichier-avant-compression' $retenus.Count (Format-Taille $tailleTotale))
 foreach ($k in ($parRacine.Keys | Sort-Object)) {
-    Write-Host ("    {0,-18} {1,4} fichier(s)  {2}" -f $k, $parRacine[$k].N, (Format-Taille $parRacine[$k].Taille))
+    Write-Info (Get-Label 'build-release.18-fichier' $k $parRacine[$k].N (Format-Taille $parRacine[$k].Taille))
 }
 
 $nbEcartes = ($ecartes.Values | Measure-Object -Sum).Sum
-Write-Host ""
-Write-Host ("Écarté volontairement : " + [int]$nbEcartes + " fichier(s) suivi(s) par git") -ForegroundColor DarkGray
+Write-Detail (Get-Label 'build-release.ecarte-volontairement-fichier-suivi' [int]$nbEcartes)
 foreach ($regle in $EXCLUSIONS) {
     if ($ecartes.ContainsKey($regle.Motif)) {
-        Write-Host ("    {0,4} x  {1}" -f $ecartes[$regle.Motif], $regle.Raison) -ForegroundColor DarkGray
+        Write-Detail (Get-Label 'build-release.texte' $ecartes[$regle.Motif] $regle.Raison)
     }
 }
-Write-Host ""
-Write-Host "Jamais proposé : tout ce que .gitignore ignore — jeton d'API, cache, journaux, config.local.psd1, sauvegardes .bak-*." -ForegroundColor DarkGray
+Write-Detail (Get-Label 'build-release.jamais-propose-tout-ce')
 
 if ($ListOnly) {
-    Write-Host ""
     foreach ($f in ($retenus | Sort-Object)) { Write-Host ("  " + $f) }
-    Write-Host ""
-    Write-Host "-ListOnly : rien n'a été écrit." -ForegroundColor Cyan
+    Write-Step (Get-Label 'build-release.listonly-rien-ete-ecrit')
     exit 0
 }
 
@@ -312,10 +306,9 @@ try {
     # l'arborescence de l'archive existe reellement sur le disque.
     $liensMorts = Find-LienMort -Racine $staging
     if ($liensMorts.Count -gt 0) {
-        Write-Host ""
-        Write-Host ("ATTENTION : " + $liensMorts.Count + " lien(s) de la documentation ne résolvent pas dans l'archive.") -ForegroundColor Yellow
-        foreach ($l in $liensMorts) { Write-Host ("    " + $l.Fichier + " -> " + $l.Lien) -ForegroundColor Yellow }
-        Write-Host "    Ces cibles sont exclues de l'archive : écris ces liens en URL GitHub absolue." -ForegroundColor Yellow
+        Write-Warn (Get-Label 'build-release.attention-lien-de-la' $liensMorts.Count)
+        foreach ($l in $liensMorts) { Write-Warn ("    " + $l.Fichier + " -> " + $l.Lien) }
+        Write-Warn (Get-Label 'build-release.ces-cibles-sont-exclues')
     }
 
     # LA MARQUE DE CETTE VERSION, posee dans l'archive : numero ET commit (D84).
@@ -330,17 +323,16 @@ try {
     # attendus » et le deploiement etait abandonne (constate le 27/08 : le garde-fou
     # avait raison, c'est le decompte qui avait tort).
     $genereParLaFabrication += 'BUILD'
-    Write-Host ("Marque posée : v" + ($version -replace '^v', '') + " / " + $(if ($commit) { $commit.Substring(0, 8) } else { 'commit inconnu' }))
-
+    Write-Info (Get-Label 'build-release.marque-posee' $version -replace '^v', '' $(if ($commit) { $commit.Substring(0, 8) } else { 'commit inconnu' }))
     # Le dossier lui-meme est compresse, pas son contenu : l'archive porte donc une racine
     # « vigie-<version>/ ». Sans elle, une decompression deverse tout dans le dossier courant.
     if (Test-Path -LiteralPath $zip) {
         Remove-Item -LiteralPath $zip -Force
-        Write-Host ("Archive précédente remplacée : " + $zip) -ForegroundColor DarkGray
+        Write-Detail (Get-Label 'build-release.archive-precedente-remplacee' $zip)
     }
     Compress-Archive -Path $staging -DestinationPath $zip -CompressionLevel Optimal
 } catch {
-    Write-Host ("Échec de la fabrication : " + $_.Exception.Message) -ForegroundColor Red
+    Write-Fail (Get-Label 'build-release.echec-de-la-fabrication' $_.Exception.Message)
     exit 3
 }
 
@@ -356,11 +348,10 @@ try {
 
 $interditsZip = Find-CheminInterdit -Chemins $entrees
 if ($interditsZip.Count -gt 0) {
-    Write-Host ""
-    Write-Host "ARRÊT : l'archive produite contient des fichiers interdits." -ForegroundColor Red
-    foreach ($i in $interditsZip) { Write-Host ("  " + $i.Chemin + "   <- " + $i.Quoi) -ForegroundColor Red }
+    Write-Fail (Get-Label 'build-release.arret-archive-produite-contient')
+    foreach ($i in $interditsZip) { Write-Fail ("  " + $i.Chemin + "   <- " + $i.Quoi) }
     Remove-Item -LiteralPath $zip -Force
-    Write-Host "Archive supprimée : rien de douteux n'est laissé derrière." -ForegroundColor Red
+    Write-Fail (Get-Label 'build-release.archive-supprimee-rien-de')
     exit 2
 }
 
@@ -369,17 +360,15 @@ $nbFichiersZip = @($entrees | Where-Object { -not $_.EndsWith('/') }).Count
 # Attendu = ce que git suit ET ce que la fabrication a ajoute (la marque de version).
 $attendu = $retenus.Count + $genereParLaFabrication.Count
 if ($nbFichiersZip -ne $attendu) {
-    Write-Host ("ARRÊT : " + $nbFichiersZip + " fichier(s) dans l'archive pour " + $attendu + " attendu(s)" +
-                $(if ($genereParLaFabrication.Count) { " (" + $retenus.Count + " suivis par git + " + ($genereParLaFabrication -join ', ') + ")" }) + ".") -ForegroundColor Red
+    Write-Fail (Get-Label 'build-release.arret-fichier-dans-archive' $nbFichiersZip $attendu $(if ($genereParLaFabrication.Count) { " (" + $retenus.Count + " suivis par git + " + ($genereParLaFabrication -join ', ') + ")" }))
     exit 3
 }
 
 if (-not $KeepStaging) { Remove-Item -LiteralPath $staging -Recurse -Force }
 
 $tailleZip = (Get-Item -LiteralPath $zip).Length
-Write-Host ""
-Write-Host ("Archive prête : " + $zip) -ForegroundColor Green
-Write-Host ("  " + $nbFichiersZip + " fichier(s), " + (Format-Taille $tailleZip) + " compressés, racine « " + $nom + "/ »")
-Write-Host "  Vérifié dans l'archive elle-même : aucun var/, aucun secret, aucun config.local.psd1, aucun journal." -ForegroundColor Green
-if ($KeepStaging) { Write-Host ("  Préparation conservée : " + $staging) -ForegroundColor DarkGray }
+Write-Ok (Get-Label 'build-release.archive-prete' $zip)
+Write-Info (Get-Label 'build-release.fichier-compresses-racine' $nbFichiersZip (Format-Taille $tailleZip) $nom)
+Write-Ok (Get-Label 'build-release.verifie-dans-archive-elle')
+if ($KeepStaging) { Write-Detail (Get-Label 'build-release.preparation-conservee' $staging) }
 exit 0

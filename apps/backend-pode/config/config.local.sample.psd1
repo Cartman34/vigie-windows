@@ -1,4 +1,4 @@
-@{
+﻿@{
     # ---------------------------------------------------------------------------
     # MODELE de configuration LOCALE. Copie ce fichier en 'config.local.psd1'
     # (meme dossier) et adapte-le : il est ignore par git et ne quitte pas ta machine.

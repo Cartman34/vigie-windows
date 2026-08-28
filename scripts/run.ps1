@@ -27,25 +27,25 @@ $needElev = (-not $isAdmin)   # le serveur doit tourner avec les droits (UAC si 
 
 $runLog = Join-Path (Get-LogDir -Backend $backend) ('run_' + (Get-Date -Format 'yyyyMMdd_HHmmss') + '.log')
 try { Start-Transcript -Path $runLog -Force | Out-Null } catch { }
-Write-Log -Backend $backend -Name 'run' -Message ("run.ps1 : PS=" + $PSVersionTable.PSVersion + " élevé=" + $isAdmin)
+Write-Log -Backend $backend -Name 'run' -Message (Get-Label 'run.run-ps1-ps-eleve' $PSVersionTable.PSVersion $isAdmin)
 
 # --- Relance sous pwsh et/ou eleve si necessaire (fenetre maintenue) ---
 if ($needPwsh -or $needElev) {
     $pwsh = Get-Command pwsh -ErrorAction SilentlyContinue
     if (-not $pwsh) {
-        Write-Log -Backend $backend -Name 'run' -Level 'ERROR' -Message "PowerShell 7 requis. Lance install.ps1."
+        Write-Log -Backend $backend -Name 'run' -Level 'ERROR' -Message (Get-Label 'run.powershell-requis-lance-install')
         try { Stop-Transcript | Out-Null } catch { }
         return
     }
     $argList = @('-NoExit','-NoProfile','-ExecutionPolicy','Bypass','-File', $PSCommandPath)
     if ($NoBrowser) { $argList += '-NoBrowser' }
-    Write-Log -Backend $backend -Name 'run' -Message ("Relance pwsh (élevé=" + $needElev + ")")
+    Write-Log -Backend $backend -Name 'run' -Message (Get-Label 'run.relance-pwsh-eleve' $needElev)
     try {
         if ($needElev) { Start-Process $pwsh.Source -Verb RunAs -ArgumentList $argList }
         else           { Start-Process $pwsh.Source -ArgumentList $argList }
     } catch {
-        Write-Log -Backend $backend -Name 'run' -Level 'ERROR' -Message ("Relance échouée : " + $_.Exception.Message)
-        Write-Host "Relance impossible. Ouvre un terminal pwsh (admin) et lance start.ps1." -ForegroundColor Yellow
+        Write-Log -Backend $backend -Name 'run' -Level 'ERROR' -Message (Get-Label 'run.relance-echouee' $_.Exception.Message)
+        Write-Warn (Get-Label 'run.relance-impossible-ouvre-un')
     }
     try { Stop-Transcript | Out-Null } catch { }
     return
@@ -53,10 +53,10 @@ if ($needPwsh -or $needElev) {
 
 # --- Prerequis Pode : auto-installation si absent (idempotent) ---
 if (-not (Get-Module -ListAvailable -Name Pode)) {
-    Write-Log -Backend $backend -Name 'run' -Level 'WARN' -Message "Pode manquant - installation automatique..."
+    Write-Log -Backend $backend -Name 'run' -Level 'WARN' -Message (Get-Label 'run.pode-manquant-installation-automatique')
     & (Join-Path $backend 'install.ps1')
     if (-not (Get-Module -ListAvailable -Name Pode)) {
-        Write-Log -Backend $backend -Name 'run' -Level 'ERROR' -Message "Pode toujours absent après install.ps1."
+        Write-Log -Backend $backend -Name 'run' -Level 'ERROR' -Message (Get-Label 'run.pode-toujours-absent-apres')
         try { Stop-Transcript | Out-Null } catch { }
         return
     }
@@ -66,7 +66,7 @@ $cfg = Get-Config -Backend $backend
 $url = Get-AppUrl -Config $cfg
 
 if (Test-ServerUp -Address $cfg.BindAddress -Port $cfg.Port) {
-    Write-Log -Backend $backend -Name 'run' -Message ("Déjà en cours : " + $url + " - ouverture UI.")
+    Write-Log -Backend $backend -Name 'run' -Message (Get-Label 'run.deja-en-cours-ouverture' $url)
     if (-not $NoBrowser) { Start-Process $url }
     try { Stop-Transcript | Out-Null } catch { }
     return
@@ -86,7 +86,7 @@ if (-not $NoBrowser) {
         }
         Start-Process $u
     } -ArgumentList $url, $cfg.BindAddress, $cfg.Port | Out-Null
-    Write-Log -Backend $backend -Name 'run' -Message ("Navigateur planifié (attente écoute) : " + $url)
+    Write-Log -Backend $backend -Name 'run' -Message (Get-Label 'run.navigateur-planifie-attente-ecoute' $url)
 }
 
 try { Stop-Transcript | Out-Null } catch { }   # start.ps1 a son propre transcript

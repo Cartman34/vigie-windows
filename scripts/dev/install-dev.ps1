@@ -111,8 +111,8 @@ function Get-Accord {
         # ON PREVIENT AVANT D'OUVRIR. Une modale peut s'ouvrir derriere le terminal :
         # le script semble alors bloque « sans raison », et il attend en fait une reponse
         # que personne ne voit (constate le 27/08, plusieurs minutes perdues).
-        Write-Step ("Une fenetre vient de s'ouvrir : « " + $Titre + " ».")
-        Write-Detail "Si vous ne la voyez pas, elle est derriere : Alt+Tab."
+        Write-Step (Get-Label 'install-dev.une-fenetre-vient-de' $Titre)
+        Write-Detail (Get-Label 'install-dev.si-vous-ne-la')
 
         # Un PROPRIETAIRE invisible et TopMost force la boite au premier plan. Sans lui,
         # MessageBox n'a pas de fenetre parente et Windows la range ou il veut.
@@ -135,7 +135,7 @@ function Get-Accord {
         }
         return ($r -eq [System.Windows.Forms.DialogResult]::Yes)
     } catch {
-        Write-Warn ($Question + " [o/N]")
+        Write-Warn (Get-Label 'install-dev.texte' $Question)
         $rep = Read-Host
         return ("$rep".Trim().ToLower() -in @('o', 'oui', 'y', 'yes'))
     }
@@ -146,19 +146,19 @@ $aTraiter = $DEPENDANCES
 if ($Nom) {
     $aTraiter = @($DEPENDANCES | Where-Object { $_.Nom -eq $Nom })
     if (-not $aTraiter.Count) {
-        Write-Fail ("Dépendance inconnue : " + $Nom + ". Connues : " + (($DEPENDANCES | ForEach-Object { $_.Nom }) -join ', '))
+        Write-Fail (Get-Label 'install-dev.dependance-inconnue-connues' $Nom ($DEPENDANCES | ForEach-Object { $_.Nom }) -join ', ')
         exit 1
     }
 }
 
-Write-Step "=== Dépendances de développement ==="
+Write-Step (Get-Label 'install-dev.dependances-de-developpement')
 $manquantes = @()
 foreach ($d in $aTraiter) {
     $e = Get-Etat -D $d
     if ($e.Present) {
-        Write-Ok ("  [OK]      " + $d.Titre + "  -  " + $(if ($e.Version) { $e.Version } else { $e.Ou }))
+        Write-Ok (Get-Label 'install-dev.ok' $d.Titre $(if ($e.Version) { $e.Version } else { $e.Ou }))
     } else {
-        Write-Warn ("  [ABSENT]  " + $d.Titre)
+        Write-Warn (Get-Label 'install-dev.absent' $d.Titre)
         Write-Detail ("            " + $d.Pourquoi)
         $manquantes += $d
     }
@@ -171,10 +171,10 @@ function Invoke-SessionGitHub {
     if ($SansSession) { return }
     if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { return }
     if (Test-SessionGitHub) {
-        Write-Ok "Session GitHub : ouverte."
+        Write-Ok (Get-Label 'install-dev.session-github-ouverte')
         return
     }
-    Write-Warn "GitHub CLI est installé, mais aucune session n'est ouverte."
+    Write-Warn (Get-Label 'install-dev.github-cli-est-installe')
     $ok = Get-Accord -Titre 'Vigie - session GitHub' `
                      -Question "Ouvrir la session GitHub maintenant ?" `
                      -Detail ("Une fenêtre va s'ouvrir avec un code à huit caractères, puis votre navigateur." +
@@ -182,7 +182,7 @@ function Invoke-SessionGitHub {
                               "Vous collez le code sur github.com et vous validez : c'est vous qui vous authentifiez, " +
                               "ce script ne voit ni votre mot de passe ni votre jeton.")
     if (-not $ok) {
-        Write-Detail "À faire quand vous voudrez :  gh auth login --web"
+        Write-Detail (Get-Label 'install-dev.faire-quand-vous-voudrez')
         return
     }
     # Fenetre VISIBLE et interactive : la procedure affiche un code a recopier, il faut
@@ -192,33 +192,33 @@ function Invoke-SessionGitHub {
                            -ArgumentList @('auth', 'login', '--web', '--git-protocol', 'https', '--hostname', 'github.com') `
                            -Wait -PassThru
         if (Test-SessionGitHub) {
-            Write-Ok "Session GitHub ouverte."
+            Write-Ok (Get-Label 'install-dev.session-github-ouverte-2')
         } else {
-            Write-Warn ("La session n'a pas été ouverte (gh a rendu " + $p.ExitCode + "). Réessayez :  gh auth login --web")
+            Write-Warn (Get-Label 'install-dev.la-session-pas-ete' $p.ExitCode)
         }
     } catch {
-        Write-Fail ("Impossible de lancer gh : " + $_.Exception.Message)
-        Write-Warn "À faire à la main :  gh auth login --web"
+        Write-Fail (Get-Label 'install-dev.impossible-de-lancer-gh' $_.Exception.Message)
+        Write-Warn (Get-Label 'install-dev.faire-la-main-gh')
     }
 }
 
 if (-not $manquantes.Count) {
-    Write-Ok "Tout est en place."
+    Write-Ok (Get-Label 'install-dev.tout-est-en-place')
     Invoke-SessionGitHub
     exit 0
 }
 
 if ($Lister) {
-    Write-Warn ("" + $manquantes.Count + " dépendance(s) manquante(s). Pour les installer :")
-    Write-Info "  pwsh -File .\scripts\dev\install-dev.ps1"
+    Write-Warn (Get-Label 'install-dev.dependance-manquante-pour-les' $manquantes.Count)
+    Write-Info (Get-Label 'install-dev.pwsh-file-scripts-dev')
     exit 0
 }
 
 # --- Elevation : demandee ICI, expliquee AVANT ------------------------------------------
 if (-not (Test-Admin)) {
     if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-        Write-Fail "winget est introuvable : impossible d'installer automatiquement."
-        Write-Warn "Installez « App Installer » depuis le Microsoft Store, puis relancez."
+        Write-Fail (Get-Label 'install-dev.winget-est-introuvable-impossible')
+        Write-Warn (Get-Label 'install-dev.installez-app-installer-depuis')
         exit 1
     }
     $quoi = @($manquantes | ForEach-Object { $_.Titre + " (" + $_.Winget + ")" })
@@ -238,7 +238,7 @@ if (-not (Test-Admin)) {
                          -Detail ($quoi -join [Environment]::NewLine)
     }
     if (-not $ok) {
-        Write-Warn "Installation annulée. Rien n'a été touché."
+        Write-Warn (Get-Label 'install-dev.installation-annulee-rien-ete')
         exit 3
     }
 
@@ -269,20 +269,20 @@ if (-not (Test-Admin)) {
         exit $code
     }
 
-    Write-Warn "Relancez ce script depuis un terminal administrateur."
+    Write-Warn (Get-Label 'install-dev.relancez-ce-script-depuis')
     exit 1
 }
 
 # --- Installation ------------------------------------------------------------------------
 if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-    Write-Fail "winget est introuvable : impossible d'installer automatiquement."
-    Write-Warn "Installez « App Installer » depuis le Microsoft Store, puis relancez."
+    Write-Fail (Get-Label 'install-dev.winget-est-introuvable-impossible')
+    Write-Warn (Get-Label 'install-dev.installez-app-installer-depuis')
     exit 1
 }
 
 $echecs = 0
 foreach ($d in $manquantes) {
-    Write-Step ("Installation de " + $d.Titre + " (" + $d.Winget + ") pour la machine…")
+    Write-Step (Get-Label 'install-dev.installation-de-pour-la' $d.Titre $d.Winget)
     $code = -1
     try {
         # --scope machine : jamais dans le profil d'un compte (D79).
@@ -290,7 +290,7 @@ foreach ($d in $manquantes) {
                   --accept-package-agreements --accept-source-agreements | Write-Host
         $code = $LASTEXITCODE
     } catch {
-        Write-Fail ("  winget a levé une erreur : " + $_.Exception.Message)
+        Write-Fail (Get-Label 'install-dev.winget-leve-une-erreur' $_.Exception.Message)
     }
 
     # LE RESULTAT SE CONSTATE (D43) : winget rend parfois 0 sans avoir rien pose, et
@@ -299,20 +299,20 @@ foreach ($d in $manquantes) {
                 [Environment]::GetEnvironmentVariable('Path', 'User')
     $e = Get-Etat -D $d
     if ($e.Present) {
-        Write-Ok ("  " + $d.Titre + " est en place : " + $(if ($e.Version) { $e.Version } else { $e.Ou }))
+        Write-Ok (Get-Label 'install-dev.est-en-place' $d.Titre $(if ($e.Version) { $e.Version } else { $e.Ou }))
     } else {
         $echecs++
-        Write-Fail ("  " + $d.Titre + " n'est TOUJOURS pas là (winget a rendu " + $code + ").")
-        Write-Warn ("  À faire à la main : winget install --id " + $d.Winget + " --scope machine")
-        Write-Detail "  Un terminal déjà ouvert peut aussi ne pas voir le nouveau PATH : rouvrez-le avant de conclure."
+        Write-Fail (Get-Label 'install-dev.est-toujours-pas-la' $d.Titre $code)
+        Write-Warn (Get-Label 'install-dev.faire-la-main-winget' $d.Winget)
+        Write-Detail (Get-Label 'install-dev.un-terminal-deja-ouvert')
     }
 }
 
 if ($echecs) {
-    Write-Fail ("" + $echecs + " installation(s) en échec.")
+    Write-Fail (Get-Label 'install-dev.installation-en-echec' $echecs)
     exit 2
 }
-Write-Ok "Toutes les dépendances de développement sont en place."
+Write-Ok (Get-Label 'install-dev.toutes-les-dependances-de')
 # Sous elevation, on ne propose PAS la session : elle appartiendrait a l'administrateur.
 if (-not $Yes) { Invoke-SessionGitHub }
 exit 0

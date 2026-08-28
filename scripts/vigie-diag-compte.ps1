@@ -24,15 +24,13 @@ $backend  = Join-Path $repoRoot 'apps/backend-pode'
 . (Join-Path $backend 'lib/common.ps1')
 
 if (-not $Compte) {
-    Write-Host ""
-    Write-Host "Comptes de cette machine :"
+    Write-Info (Get-Label 'vigie-diag-compte.comptes-de-cette-machine')
     Get-VigieAccounts | ForEach-Object {
         Write-Host ("  {0} {1,-24} {2}" -f $(if ($_.enabled) { '[x]' } else { '[ ]' }), $_.name,
                     $(if ($_.admin) { 'administrateur' } else { 'standard' }))
     }
-    Write-Host ""
-    Write-Host "Pour rapatrier les journaux de l'un d'eux :"
-    Write-Host "  pwsh -File .\scripts\vigie-diag-compte.ps1 -Compte <nom>"
+    Write-Info (Get-Label 'vigie-diag-compte.pour-rapatrier-les-journaux')
+    Write-Info (Get-Label 'vigie-diag-compte.pwsh-file-scripts-vigie')
     exit 0
 }
 
@@ -40,7 +38,7 @@ if (-not $Compte) {
 $url   = (Get-AppUrl -Backend $backend).TrimEnd('/')
 $cfg   = Get-Config -Backend $backend
 $token = Get-ApiToken -Backend $backend
-if (-not $token) { Write-Host "Jeton d'API introuvable : Vigie a-t-il deja demarre ?" -ForegroundColor Yellow; exit 2 }
+if (-not $token) { Write-Warn (Get-Label 'vigie-diag-compte.jeton-api-introuvable-vigie'); exit 2 }
 
 $corps = @{ type = 'diag-account-logs'; module = 'accounts'; params = @{ account = $Compte } } | ConvertTo-Json -Depth 4
 try {
@@ -52,18 +50,18 @@ try {
 } catch {
     $msg = "$($_.Exception.Message)"
     if ($msg -match '400|403') {
-        Write-Host "Vigie a refuse : cette operation demande un compte administrateur." -ForegroundColor Yellow
+        Write-Warn (Get-Label 'vigie-diag-compte.vigie-refuse-cette-operation')
         exit 3
     }
-    Write-Host ("Vigie injoignable : " + $msg) -ForegroundColor Yellow
-    Write-Host "Verifiez que l'application tourne (icone dans la zone de notification)."
+    Write-Warn (Get-Label 'vigie-diag-compte.vigie-injoignable' $msg)
+    Write-Info (Get-Label 'vigie-diag-compte.verifiez-que-application-tourne')
     exit 2
 }
 
 Write-Host $rep.message
 if ($rep.result -and $rep.result.ok) {
-    Write-Host ("  -> " + $rep.result.path)
-    Write-Host "Ces fichiers se lisent maintenant sans elevation."
+    Write-Info ("  -> " + $rep.result.path)
+    Write-Info (Get-Label 'vigie-diag-compte.ces-fichiers-se-lisent')
     exit 0
 }
 exit 1

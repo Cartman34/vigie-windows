@@ -35,7 +35,7 @@ if (-not (Test-IsElevated)) {
             "Aucun fichier de l'application n'est supprimé",
             "Réinstallable à tout moment avec install-autostart.ps1"
         )
-    if (-not $ok) { Write-Host "Désinstallation annulée. Rien n'a été modifié."; exit 3 }
+    if (-not $ok) { Write-Host (Get-Label 'uninstall-autostart.desinstallation-annulee-rien-ete'); exit 3 }
 
     $code = Invoke-ElevatedSelf -ScriptPath $PSCommandPath -Arguments @('-Yes') -LogDir (Get-LogDir -Backend $backend)
     exit $code
@@ -44,17 +44,17 @@ if (-not (Test-IsElevated)) {
 $task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
 if ($task) {
     Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
-    Write-Info ("Tache '" + $taskName + "' retiree.")
+    Write-Info (Get-Label 'uninstall-autostart.tache-retiree' $taskName)
 } else {
-    Write-Info ("Tache '" + $taskName + "' absente (rien a faire).")
+    Write-Info (Get-Label 'uninstall-autostart.tache-absente-rien-faire' $taskName)
 }
 
 if (Test-Path -LiteralPath $lnk) {
     Remove-Item -LiteralPath $lnk -Force
-    Write-Info ("Raccourci retire : " + $lnk)
+    Write-Info (Get-Label 'uninstall-autostart.raccourci-retire' $lnk)
 } else {
-    Write-Info "Raccourci bureau absent (rien a faire)."
+    Write-Info (Get-Label 'uninstall-autostart.raccourci-bureau-absent-rien')
 }
 
-Write-Info "Accès permanent retire."
+Write-Info (Get-Label 'uninstall-autostart.acces-permanent-retire')
 exit 0

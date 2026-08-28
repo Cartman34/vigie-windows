@@ -1,4 +1,4 @@
-<# Worker DETACHE : recherche EN LIGNE des mises a jour Windows.
+﻿<# Worker DETACHE : recherche EN LIGNE des mises a jour Windows.
 
    La sonde `pending` ne fait qu'une recherche LOCALE (cache de Windows Update) : elle est
    instantanee mais ne voit que ce que Windows a deja decouvert. Cette analyse-ci interroge
@@ -26,7 +26,7 @@ $verrouLeve = $false
 try {
     if ($reposerVerrou) {
         $verrouLeve = Set-UpdateLock -Etat 'leve' -Backend $Backend
-        Write-Log -Backend $Backend -Name 'wuscan' -Message ("verrou leve : " + $verrouLeve)
+        Write-Log -Backend $Backend -Name 'wuscan' -Message (Get-Label 'wu-scan.verrou-leve' $verrouLeve)
     }
     Set-Etat @{ scanning = $true; at = (Get-Date).ToUniversalTime().ToString('o') }
 
@@ -37,7 +37,7 @@ try {
 
     Set-Etat @{ scanning = $false; ok = $true; trouvees = $n; error = $null
                 at = (Get-Date).ToUniversalTime().ToString('o') }
-    Write-Log -Backend $Backend -Name 'wuscan' -Message ("analyse en ligne : $n mise(s) a jour")
+    Write-Log -Backend $Backend -Name 'wuscan' -Message (Get-Label 'wu-scan.analyse-en-ligne-mise' $n)
 } catch {
     Set-Etat @{ scanning = $false; ok = $false; error = $_.Exception.Message
                 at = (Get-Date).ToUniversalTime().ToString('o') }
@@ -45,10 +45,10 @@ try {
 } finally {
     if ($verrouLeve) {
         $repose = Set-UpdateLock -Etat 'pose' -Backend $Backend
-        Write-Log -Backend $Backend -Name 'wuscan' -Message ("verrou repose : " + $repose)
+        Write-Log -Backend $Backend -Name 'wuscan' -Message (Get-Label 'wu-scan.verrou-repose' $repose)
         if (-not $repose) {
             Set-Etat @{ verrouNonRepose = $true }
-            Write-Log -Backend $Backend -Name 'wuscan' -Level 'ERROR' -Message 'VERROU NON REPOSE'
+            Write-Log -Backend $Backend -Name 'wuscan' -Level 'ERROR' -Message (Get-Label 'wu-scan.verrou-non-repose')
         }
     }
     try { Remove-ProbeCache -Names @('pending.probe.ps1','lock.probe.ps1') -Backend $Backend } catch { }

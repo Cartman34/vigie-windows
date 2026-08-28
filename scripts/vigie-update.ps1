@@ -53,9 +53,7 @@ $pwsh    = (Get-Process -Id $PID).Path
 
 $avant = $null
 try { $avant = Get-BuildStamp -Root $repoRoot } catch { }
-Write-Host ("Version de depart : " +
-            $(if ($avant -and $avant.version) { $avant.version } else { 'inconnue' }) +
-            $(if ($avant -and $avant.commit) { " (" + $avant.commit.Substring(0, 8) + ")" } else { "" }))
+Write-Host (Get-Label 'vigie-update.version-de-depart' $(if ($avant -and $avant.version) { $avant.version } else { 'inconnue' }) $(if ($avant -and $avant.commit) { " (" + $avant.commit.Substring(0, 8) + ")" } else { "" }))
 
 # --- 0. Quelle voie ? ----------------------------------------------------------------
 #
@@ -79,7 +77,7 @@ if (-not $PSBoundParameters.ContainsKey('Source')) {
             $Source = $choix
             # On n'annonce que ce qui CHANGE quelque chose : « auto » est le defaut, il
             # n'impose rien, et l'annoncer laisse croire a un reglage particulier.
-            if ($choix -ne 'auto') { Write-Host ("Source imposee par la configuration : " + $choix) }
+            if ($choix -ne 'auto') { Write-Host (Get-Label 'vigie-update.source-imposee-par-la' $choix) }
         }
         if (-not $Ref -and "$($cfg.UpdateRef)".Trim()) { $Ref = "$($cfg.UpdateRef)".Trim() }
     } catch { }
@@ -97,7 +95,7 @@ $archive = $null
 if ($voie -ne 'local') {
     $fetch = Join-Path $PSScriptRoot 'vigie-fetch.ps1'
     if (-not (Test-Path -LiteralPath $fetch)) {
-        Write-Fail "vigie-fetch.ps1 introuvable : impossible d'aller chercher une version."
+        Write-Fail (Get-Label 'vigie-update.vigie-fetch-ps1-introuvable')
         exit 1
     }
     $argv = @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', $fetch, '-Source', $voie)
@@ -105,7 +103,7 @@ if ($voie -ne 'local') {
     if ($PreVersions) { $argv += '-PreVersions' }
     if ($Force)       { $argv += '-Force' }
 
-    Write-Info "Récupération..."
+    Write-Info (Get-Label 'vigie-update.recuperation')
     # La sortie est LUE : la derniere ligne porte le chemin de l'archive. Tout le reste
     # est du recit, qu'on repete a l'ecran pour que le journal en garde la trace.
     $lignes = & $pwsh @argv 2>&1
@@ -113,18 +111,18 @@ if ($voie -ne 'local') {
     foreach ($l in $lignes) { Write-Host $l }
 
     if ($codeFetch -eq 3) {
-        Write-Ok "Rien a faire : Vigie est déjà a jour. Elle n'a pas été redemarrée."
+        Write-Ok (Get-Label 'vigie-update.rien-faire-vigie-est')
         exit 3
     }
     if ($codeFetch -ne 0) {
-        Write-Fail ("La recuperation a echoue (code " + $codeFetch + "). RIEN n'a ete deploye : la version en place continue de tourner.")
+        Write-Fail (Get-Label 'vigie-update.la-recuperation-echoue-code' $codeFetch)
         exit 1
     }
     $archive = @($lignes | Where-Object { "$_".Trim() } | Select-Object -Last 1)
     $archive = "$archive".Trim()
     if (-not $archive -or -not (Test-Path -LiteralPath $archive)) {
-        Write-Fail ("La recuperation dit avoir reussi, mais l'archive annoncee est introuvable : " + $archive)
-        Write-Fail "RIEN n'a été deploye."
+        Write-Fail (Get-Label 'vigie-update.la-recuperation-dit-avoir' $archive)
+        Write-Fail (Get-Label 'vigie-update.rien-ete-deploye')
         exit 1
     }
 }
@@ -132,18 +130,18 @@ if ($voie -ne 'local') {
 # --- 2. Deploiement ------------------------------------------------------------------
 $deploy = Join-Path $PSScriptRoot 'deploy-prod.ps1'
 if (-not (Test-Path -LiteralPath $deploy)) {
-    Write-Fail "deploy-prod.ps1 introuvable."
+    Write-Fail (Get-Label 'vigie-update.deploy-prod-ps1-introuvable')
     exit 1
 }
 $argv = @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $deploy + '"'), '-Yes')
 if ($archive)     { $argv += @('-Zip', ('"' + $archive + '"')) }
 if ($Destination) { $argv += @('-Destination', ('"' + $Destination + '"')) }
 
-Write-Info "Déploiement..."
+Write-Info (Get-Label 'vigie-update.deploiement')
 $p = Start-Process -FilePath $pwsh -ArgumentList $argv -Wait -PassThru -WindowStyle Hidden
-Write-Info ("deploy-prod a rendu le code " + $p.ExitCode + ".")
+Write-Info (Get-Label 'vigie-update.deploy-prod-rendu-le' $p.ExitCode)
 if ($p.ExitCode -ne 0) {
-    Write-Fail "Le déploiement a échoué : Vigie n'est PAS relancée, l'ancienne version continue de tourner."
+    Write-Fail (Get-Label 'vigie-update.le-deploiement-echoue-vigie')
     exit 1
 }
 
@@ -151,22 +149,20 @@ if ($p.ExitCode -ne 0) {
 # Le tray relance le serveur AVEC lui (D78) : c'est ce qui charge le nouveau code.
 $tray = Join-Path $PSScriptRoot 'tray.ps1'
 if (-not (Test-Path -LiteralPath $tray)) {
-    Write-Warn "Le déploiement est fait, mais tray.ps1 est introuvable : relancez Vigie a la main."
+    Write-Warn (Get-Label 'vigie-update.le-deploiement-est-fait')
     exit 2
 }
-Write-Info "Relance de Vigie..."
+Write-Info (Get-Label 'vigie-update.relance-de-vigie')
 $r = Start-Process -FilePath $pwsh -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass',
                                                    '-File', ('"' + $tray + '"'), '-Restart') `
                    -Wait -PassThru -WindowStyle Hidden
-Write-Info ("La relance a rendu le code " + $r.ExitCode + ".")
+Write-Info (Get-Label 'vigie-update.la-relance-rendu-le' $r.ExitCode)
 if ($r.ExitCode -ne 0) {
-    Write-Warn "Le déploiement est fait, mais la relance n'a pas abouti : relancez Vigie a la main."
+    Write-Warn (Get-Label 'vigie-update.le-deploiement-est-fait-2')
     exit 2
 }
 
 $apres = $null
 try { $apres = Get-BuildStamp -Root $repoRoot } catch { }
-Write-Host ("Vigie est a jour : " +
-            $(if ($apres -and $apres.version) { $apres.version } else { 'version inconnue' }) +
-            $(if ($apres -and $apres.commit) { " (" + $apres.commit.Substring(0, 8) + ")" } else { "" })) -ForegroundColor Green
+Write-Host (Get-Label 'vigie-update.vigie-est-jour' $(if ($apres -and $apres.version) { $apres.version } else { 'version inconnue' }) $(if ($apres -and $apres.commit) { " (" + $apres.commit.Substring(0, 8) + ")" } else { "" })) -ForegroundColor Green
 exit 0

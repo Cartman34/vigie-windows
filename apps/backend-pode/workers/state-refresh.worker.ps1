@@ -1,4 +1,4 @@
-<# Worker DETACHE : recalcule les sondes perimees, hors de toute requete HTTP.
+﻿<# Worker DETACHE : recalcule les sondes perimees, hors de toute requete HTTP.
 
    Appele par Get-State quand des sondes ont expire mais possedent deja une valeur : la
    requete rend immediatement ce qu'elle sait, ce worker rafraichit derriere. L'affichage
@@ -14,9 +14,7 @@ if (-not $Backend) { return }
 try {
     $t0 = Get-Date
     $null = Get-State -Backend $Backend -Force
-    Write-Log -Backend $Backend -Name 'state' -Message (
-        "rafraichissement de fond termine (" + [int]((Get-Date) - $t0).TotalMilliseconds + " ms)")
+    Write-Log -Backend $Backend -Name 'state' -Message (Get-Label 'state-refresh.rafraichissement-de-fond-termine' [int]((Get-Date) - $t0).TotalMilliseconds)
 } catch {
-    Write-Log -Backend $Backend -Name 'state' -Level 'ERROR' -Message (
-        "rafraichissement de fond : " + $_.Exception.Message)
+    Write-Log -Backend $Backend -Name 'state' -Level 'ERROR' -Message (Get-Label 'state-refresh.rafraichissement-de-fond' $_.Exception.Message)
 }

@@ -12,7 +12,7 @@
 
     1. L'ENCODAGE DE CHAQUE FICHIER, selon ce que son lecteur exige :
 
-         .ps1 .psd1   UTF-8 AVEC BOM      ... DES QU'IL CONTIENT UN ACCENT. Windows
+         .ps1 .psd1   UTF-8 AVEC BOM      TOUS, sans exception. Windows
                                           PowerShell 5.1 lit un fichier sans BOM dans la
                                           page ANSI : « installé » devient « installÃ© ».
                                           PowerShell 7 accepte les deux. Un fichier
@@ -212,8 +212,11 @@ foreach ($f in $files) {
     $text  = $text0
     # LE BOM NE SE JUSTIFIE QUE PAR UN ACCENT A PROTEGER. Sans caractere non-ASCII, un
     # .ps1 se lit pareil partout, avec ou sans.
-    $hasNonAscii = $text0 -cmatch '[^\x00-\x7F]'
-    $wantBom = (($ext -in '.ps1', '.psd1', '.psm1') -and $hasNonAscii)
+    # TOUS LES .ps1 PORTENT LE BOM, accentues ou non. La regle precedente ne l'exigeait
+    # que des fichiers deja accentues : plus juste techniquement, pire en pratique. Le
+    # jour ou l'on ajoute un accent dans un fichier jusque-la ASCII, il devient
+    # silencieusement non conforme. Une regle uniforme n'a pas de bord ou tomber.
+    $wantBom = ($ext -in '.ps1', '.psd1', '.psm1')
     $hasBom  = Test-HasBom $bytes
 
     if (-not (Test-IsValidUtf8 $bytes)) {
@@ -285,8 +288,46 @@ foreach ($f in $files) {
     }
 }
 
+# --- 5. Le fichier de libelles ----------------------------------------------------------
+#
+# LE TEXTE A DEMENAGE, LA VERIFICATION SUIT. Depuis que les libelles vivent dans lang/,
+# c'est LA que les accents manquent ou reviennent : les verifier dans les .ps1 ne dirait
+# plus rien. Le JSON se corrige aussi avec -Fix.
+$langDir = Join-Path $repoRoot 'lang'
+if (Test-Path -LiteralPath $langDir) {
+    foreach ($lf in (Get-ChildItem -LiteralPath $langDir -File -Filter '*.json')) {
+        $rel = 'lang/' + $lf.Name
+        $raw = [System.IO.File]::ReadAllText($lf.FullName, [System.Text.UTF8Encoding]::new($false))
+        if (Test-HasBom (Get-FileBytes $lf.FullName)) {
+            $issues += @{ File = $rel; Kind = 'BOM'; Message = 'BOM en tete : la norme JSON ne le veut pas, et fetch() le rend en clair' }
+        }
+        $obj = $null
+        try { $obj = $raw | ConvertFrom-Json } catch {
+            $issues += @{ File = $rel; Kind = 'encodage'; Message = 'JSON illisible : ' + $_.Exception.Message }
+        }
+        if ($obj) {
+            $changed = $false
+            $out = [ordered]@{}
+            foreach ($prop in ($obj.PSObject.Properties | Sort-Object Name)) {
+                $v = [string]$prop.Value
+                $good = Repair-Elisions (Repair-FemininePast (Repair-Accents $v))
+                if ($good -cne $v) {
+                    $issues += @{ File = $rel; Kind = 'accents'; Message = ('« ' + $v + ' »') }
+                    $changed = $true
+                }
+                $out[$prop.Name] = $good
+            }
+            if ($Fix -and $changed) {
+                [System.IO.File]::WriteAllText($lf.FullName, ($out | ConvertTo-Json -Depth 3),
+                                               (New-Object System.Text.UTF8Encoding($false)))
+                $fixed++
+            }
+        }
+    }
+}
+
 # --- Verdict ---------------------------------------------------------------------------
-Write-Title 'Encodage et accents'
+Write-Title (Get-Label 'check-encoding.encodage-et-accents')
 
 $byKind = $issues | Group-Object { $_.Kind } | Sort-Object Name
 foreach ($g in $byKind) {
@@ -301,16 +342,16 @@ if ($Detail) {
 }
 
 if ($Fix) {
-    if ($fixed) { Write-Ok ("$fixed fichier(s) réécrits. Relancez sans -Fix pour vérifier.") }
-    else        { Write-Info 'Rien à corriger automatiquement.' }
+    if ($fixed) { Write-Ok (Get-Label 'check-encoding.fichier-reecrits-relancez-sans' $fixed) }
+    else        { Write-Info (Get-Label 'check-encoding.rien-corriger-automatiquement') }
     exit 0
 }
 
 if ($issues.Count) {
-    Write-Fail ("{0} manquement(s). « -Detail » pour les voir, « -Fix » pour ce qui est mécanique." -f $issues.Count)
+    Write-Fail (Get-Label 'check-encoding.manquement-detail-pour-les' $issues.Count)
     Write-Outcome -Failures 1
     exit 2
 }
-Write-Ok 'UTF-8 partout, accents en place.'
+Write-Ok (Get-Label 'check-encoding.utf-partout-accents-en')
 Write-Outcome -Failures 0
 exit 0

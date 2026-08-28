@@ -32,10 +32,8 @@ function Show-Comptes {
             $(if ($_.admin) { 'administrateur' } else { 'standard' }),
             $(if ($_.current) { '(compte en cours)' } else { '' })
     })
-    Write-Host ""
-    Write-Host "Comptes de cette machine ([x] = Vigie demarre avec ce compte) :"
+    Write-Info (Get-Label 'vigie-comptes.comptes-de-cette-machine')
     $lignes | ForEach-Object { Write-Host "  $_" }
-    Write-Host ""
 }
 
 if (-not $Activer -and -not $Retirer) { Show-Comptes; exit 0 }
@@ -43,12 +41,12 @@ if (-not $Activer -and -not $Retirer) { Show-Comptes; exit 0 }
 $cible = if ($Activer) { $Activer } else { $Retirer }
 $connu = @(Get-VigieAccounts | Where-Object { $_.name -eq $cible })
 if (-not $connu) {
-    Write-Host "Compte inconnu sur cette machine : $cible" -ForegroundColor Yellow
+    Write-Warn (Get-Label 'vigie-comptes.compte-inconnu-sur-cette' $cible)
     Show-Comptes
     exit 1
 }
 if (-not (Test-IsElevated)) {
-    Write-Host "Cette operation demande un PowerShell administrateur (creer ou retirer une tache planifiee)." -ForegroundColor Yellow
+    Write-Warn (Get-Label 'vigie-comptes.cette-operation-demande-un')
     exit 3
 }
 try {
@@ -57,6 +55,6 @@ try {
     Show-Comptes
     exit 0
 } catch {
-    Write-Host "Echec : $($_.Exception.Message)" -ForegroundColor Red
+    Write-Fail (Get-Label 'vigie-comptes.echec' $($_.Exception.Message))
     exit 3
 }

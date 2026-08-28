@@ -6,6 +6,17 @@
 
 function Get-BackendRoot { Split-Path $PSScriptRoot -Parent }
 
+# LES LIBELLES SONT DISPONIBLES PARTOUT OU common.ps1 L'EST -- c'est-a-dire dans le
+# serveur, les sondes, les actions et les travailleurs. Sans ce chargement ici, chaque
+# fichier devrait penser a charger i18n.ps1, et celui qui l'oublierait ne casserait
+# qu'a l'execution, sur la ligne qui affiche : le pire endroit pour l'apprendre.
+# console-ui.ps1 apporte le vocabulaire d'affichage ET, par ricochet, les libelles :
+# les deux fichiers sont voisins et l'un charge l'autre. Charger common.ps1 suffit donc
+# a tout avoir. Sans cela, un fichier du backend converti a Write-Ok mourait sur
+# « terme non reconnu » -- a l'execution, sur sa ligne d'affichage.
+$script:_uiLib = Join-Path (Split-Path (Split-Path (Get-BackendRoot) -Parent) -Parent) 'scripts/lib/console-ui.ps1'
+if (Test-Path -LiteralPath $script:_uiLib) { . $script:_uiLib }
+
 # --- Reperes de l'arborescence ------------------------------------------------
 # Le depot contient PLUSIEURS apps (apps/backend, apps/frontend, apps/tray,
 # apps/atelier) plus scripts/ et doc/. Ces reperes sont calcules ICI et nulle
@@ -319,7 +330,7 @@ function Set-UpdateLock {
     # Sans elevation, icacls et takeown echouent en silence et on croirait avoir verrouille.
     # On refuse AVANT d'agir : l'appelant a un etat faux a annoncer, pas une demi-mesure.
     if (-not (Test-Elevated)) {
-        try { Write-Log -Backend $Backend -Name 'updatelock' -Level 'WARN' -Message "$Etat : refuse, le serveur n'est pas administrateur." } catch { }
+        try { Write-Log -Backend $Backend -Name 'updatelock' -Level 'WARN' -Message (Get-Label 'common.refuse-le-serveur-est' $Etat) } catch { }
         return $false
     }
     $voie = 'native'
@@ -344,8 +355,7 @@ function Set-UpdateLock {
     $obtenu = if ($Etat -eq 'pose') { $etatReel.aclLock } else { -not $etatReel.aclLock }
     try {
         foreach ($t in $trace) { Write-Log -Backend $Backend -Name 'updatelock' -Message "  $t" }
-        Write-Log -Backend $Backend -Name 'updatelock' -Message (
-            "$Etat ($voie) : obtenu=$obtenu verrouACL=$($etatReel.aclLock) NoAutoUpdate=$($etatReel.noAutoUpdate) tachesDesactivees=$($etatReel.tasksDisabled)")
+        Write-Log -Backend $Backend -Name 'updatelock' -Message (Get-Label 'common.obtenu-verrouacl-noautoupdate-tachesdesactivees' $Etat $voie $obtenu $($etatReel.aclLock) $($etatReel.noAutoUpdate) $($etatReel.tasksDisabled))
     } catch { }
     return [bool]$obtenu
 }
@@ -467,7 +477,7 @@ function Set-DeviceGuardFeature {
     )
     $cat = Get-DeviceGuardCatalog
     if (-not (Test-Elevated)) {
-        try { Write-Log -Backend $Backend -Name 'deviceguard' -Level 'WARN' -Message "$Feature : refuse, le serveur n'est pas administrateur." } catch { }
+        try { Write-Log -Backend $Backend -Name 'deviceguard' -Level 'WARN' -Message (Get-Label 'common.refuse-le-serveur-est' $Feature) } catch { }
         return @{ ok = $false; elevated = $false }
     }
     $cible = [int][bool]$Enable
@@ -513,10 +523,7 @@ function Set-DeviceGuardFeature {
     $apres = Get-DeviceGuardState -Backend $Backend
     $ecrit = ($apres[$Feature].configured -eq $cible)
     try {
-        Write-Log -Backend $Backend -Name 'deviceguard' -Message (
-            "$Feature -> $cible : ecrit=$ecrit configAvant=$($avant[$Feature].configured) configApres=$($apres[$Feature].configured) " +
-            "actif=$($apres[$Feature].running) hvciCoupeAussi=$hvciCoupeAussi sauvegarde=$sauvegarde" +
-            $(if ($erreurs.Count) { ' erreurs=' + ($erreurs -join ' | ') } else { '' }))
+        Write-Log -Backend $Backend -Name 'deviceguard' -Message (Get-Label 'common.ecrit-configavant-configapres-actif' $Feature $cible $ecrit $($avant[$Feature].configured) $($apres[$Feature].configured) $($apres[$Feature].running) $hvciCoupeAussi $sauvegarde $(if ($erreurs.Count) { ' erreurs=' + ($erreurs -join ' | ') } else { '' }))
     } catch { }
 
     @{
@@ -2194,7 +2201,7 @@ function Write-MeasureSamples {
         }
     } catch {
         # L'historique OBSERVE, il n'arbitre pas : jamais d'echec remonte a Get-State.
-        try { Write-Log -Backend $Backend -Name 'state' -Level 'WARN' -Message ("historique : echantillonnage ignore (" + $Probe + ") : " + $_.Exception.Message) } catch { }
+        try { Write-Log -Backend $Backend -Name 'state' -Level 'WARN' -Message (Get-Label 'common.historique-echantillonnage-ignore' $Probe $_.Exception.Message) } catch { }
     }
 }
 
@@ -2250,7 +2257,7 @@ function Invoke-HistoryPurge {
                     $ok = (Test-Path -LiteralPath $tmp) -and ($keep.Count -eq 0 -or (Get-Item -LiteralPath $tmp).Length -gt 0)
                     if ($ok) { Move-Item -Path $tmp -Destination $fi.FullName -Force }
                     else { try { Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue } catch { } }
-                    Write-Log -Backend $Backend -Name 'state' -Message ("historique : purge de " + $fi.Name + " : " + $dropped + " ligne(s) retiree(s), " + $keep.Count + " gardee(s)")
+                    Write-Log -Backend $Backend -Name 'state' -Message (Get-Label 'common.historique-purge-de-ligne' $fi.Name $dropped $keep.Count)
                 }
             } finally {
                 if ($got) { try { $mx.ReleaseMutex() } catch { } }
@@ -2258,7 +2265,7 @@ function Invoke-HistoryPurge {
             }
         }
     } catch {
-        try { Write-Log -Backend $Backend -Name 'state' -Level 'WARN' -Message ("historique : purge en echec : " + $_.Exception.Message) } catch { }
+        try { Write-Log -Backend $Backend -Name 'state' -Level 'WARN' -Message (Get-Label 'common.historique-purge-en-echec' $_.Exception.Message) } catch { }
     }
 }
 
@@ -2512,13 +2519,13 @@ function Get-State {
                         $duree = [int]((Get-Date) - $t0).TotalMilliseconds
                         if ($m) { $cache[$sp.Name] = [ordered]@{ module = $m; at = (Get-Date).ToUniversalTime().ToString('o'); codeStamp = $sp.Stamp } }
                         Write-ProbeRun -Backend $Backend -Probe $sp.Name -Ms $duree -Origin $origine -Outcome ($(if ($m) { 'ok' } else { 'empty' })) -Modules @($m).Count
-                        Write-Log -Backend $Backend -Name 'state' -Message ("sonde " + $sp.Name + " recalculee (" + $duree + " ms)")
+                        Write-Log -Backend $Backend -Name 'state' -Message (Get-Label 'common.sonde-recalculee-ms' $sp.Name $duree)
                         # Historique : echantillonne les mesures du catalogue APRES un
                         # recalcul reussi. Best-effort (la fonction n'echoue jamais).
                         if ($m) { Write-MeasureSamples -Backend $Backend -Probe $sp.Name -Modules @($m) }
                     } catch {
                         Write-ProbeRun -Backend $Backend -Probe $sp.Name -Ms ([int]((Get-Date) - $t0).TotalMilliseconds) -Origin $origine -Outcome 'error' -Detail $_.Exception.Message
-                        Write-Log -Backend $Backend -Name 'state' -Level 'ERROR' -Message ("sonde erreur : " + $sp.Name + " : " + $_.Exception.Message)
+                        Write-Log -Backend $Backend -Name 'state' -Level 'ERROR' -Message (Get-Label 'common.sonde-erreur' $sp.Name $_.Exception.Message)
                         $errMod = New-ModuleObject -Id $sp.Name -Theme 'system' -Label $sp.Name -Status 'error' -Fields @(New-Field -Key 'error' -Label 'Erreur de sonde' -Value $_.Exception.Message -Kind 'text')
                         $cache[$sp.Name] = [ordered]@{ module = $errMod; at = (Get-Date).ToUniversalTime().ToString('o'); codeStamp = $sp.Stamp }
                     }
@@ -3635,15 +3642,15 @@ function Repair-VigieTasks {
             try { $apres = Get-VigieTaskAilment -Task (Get-ScheduledTask -TaskName $nom -ErrorAction Stop) } catch { }
             if ($apres) {
                 $faits += [pscustomobject]@{ tache = $nom; mal = $mal; repare = $false; reste = $apres }
-                Write-Log -Backend $Backend -Name 'comptes' -Message ("tache " + $nom + " reecrite, mais : " + $apres)
+                Write-Log -Backend $Backend -Name 'comptes' -Message (Get-Label 'common.tache-reecrite-mais' $nom $apres)
             } else {
                 $faits += [pscustomobject]@{ tache = $nom; mal = $mal; repare = $true }
-                Write-Log -Backend $Backend -Name 'comptes' -Message ("tache " + $nom + " reparee (" + $mal + ")")
+                Write-Log -Backend $Backend -Name 'comptes' -Message (Get-Label 'common.tache-reparee' $nom $mal)
             }
         } catch {
             $faits += [pscustomobject]@{ tache = $nom; mal = $mal; repare = $false; erreur = "$($_.Exception.Message)" }
             Write-Log -Backend $Backend -Name 'comptes' -Level 'ERROR' `
-                      -Message ("tache " + $nom + " NON reparee (" + $mal + ") : " + $_.Exception.Message)
+                      -Message (Get-Label 'common.tache-non-reparee' $nom $mal $_.Exception.Message)
         }
     }
     if ($faits.Count) { Clear-VigieAccountsCache -Backend $Backend }
@@ -3923,16 +3930,16 @@ function Set-VigieAccountEnabled {
         Register-ScheduledTask -TaskName $nomTache -Action $action -Trigger $trigger `
             -Principal $princ -Settings $set -Force -ErrorAction Stop | Out-Null
     } catch {
-        Write-Log -Backend $Backend -Name 'comptes' -Level 'ERROR' -Message ("creation de la tache " + $nomTache + " : " + $_.Exception.Message)
+        Write-Log -Backend $Backend -Name 'comptes' -Level 'ERROR' -Message (Get-Label 'common.creation-de-la-tache' $nomTache $_.Exception.Message)
         throw ("Windows a refuse de creer la tache pour " + $Name + " : " + $_.Exception.Message)
     }
     $verif = $null
     try { $verif = Get-ScheduledTask -TaskName $nomTache -ErrorAction Stop } catch { }
     if (-not $verif) {
-        Write-Log -Backend $Backend -Name 'comptes' -Level 'ERROR' -Message ("tache " + $nomTache + " absente juste apres sa creation")
+        Write-Log -Backend $Backend -Name 'comptes' -Level 'ERROR' -Message (Get-Label 'common.tache-absente-juste-apres' $nomTache)
         throw ("La tache de " + $Name + " n'existe pas apres creation : Windows l'a refusee sans le dire.")
     }
-    Write-Log -Backend $Backend -Name 'comptes' -Message ("tache " + $nomTache + " creee (" + $princ.UserId + ", " + $niveau + ")")
+    Write-Log -Backend $Backend -Name 'comptes' -Message (Get-Label 'common.tache-creee' $nomTache $princ.UserId $niveau)
     Clear-VigieAccountsCache -Backend $Backend
     return (Get-VigieAccounts -Backend $Backend | Where-Object { $_.name -eq $Name })
 }
@@ -4510,15 +4517,15 @@ function Register-VigieEventSource {
         if ([System.Diagnostics.EventLog]::SourceExists($script:VigieEventSource)) { return $true }
     } catch {
         # Sans elevation, meme la LECTURE est refusee : on ne sait pas, donc on n'affirme rien.
-        if (-not $Quiet) { Write-Host "Journal des evenements : etat de la source illisible sans elevation." -ForegroundColor DarkGray }
+        if (-not $Quiet) { Write-Host (Get-Label 'common.journal-des-evenements-etat') -ForegroundColor DarkGray }
         return $false
     }
     try {
         [System.Diagnostics.EventLog]::CreateEventSource($script:VigieEventSource, $script:VigieEventLog)
-        if (-not $Quiet) { Write-Host ("Journal des evenements : source « " + $script:VigieEventSource + " » creee.") -ForegroundColor Green }
+        if (-not $Quiet) { Write-Host (Get-Label 'common.journal-des-evenements-source' $script:VigieEventSource) -ForegroundColor Green }
         return $true
     } catch {
-        if (-not $Quiet) { Write-Host ("Journal des evenements : source non creee (" + $_.Exception.Message + ")") -ForegroundColor Yellow }
+        if (-not $Quiet) { Write-Host (Get-Label 'common.journal-des-evenements-source-2' $_.Exception.Message) -ForegroundColor Yellow }
         return $false
     }
 }
@@ -4575,7 +4582,7 @@ function Write-VigieAudit {
         }
     } catch {
         try { Write-Log -Backend $Backend -Name 'audit' -Level 'WARN' `
-                        -Message ("journal des evenements Windows indisponible : " + $_.Exception.Message) } catch { }
+                        -Message (Get-Label 'common.journal-des-evenements-windows' $_.Exception.Message) } catch { }
     }
 }
 
@@ -4797,7 +4804,7 @@ function Show-ElevationRationale {
             # console. Tout ce qui n'est pas 0 REFUSE : rien ne s'eleve sans consentement.
             return ($LASTEXITCODE -eq 0)
         } catch {
-            Write-Host ("Impossible d'afficher la fenetre de confirmation : " + $_.Exception.Message) -ForegroundColor Yellow
+            Write-Host (Get-Label 'common.impossible-afficher-la-fenetre' $_.Exception.Message) -ForegroundColor Yellow
         }
     }
 
@@ -4806,13 +4813,13 @@ function Show-ElevationRationale {
     $nl = [Environment]::NewLine
     Write-Host ""
     if ($InitiatedBy) {
-        Write-Host ("Demandé par un agent automatisé : " + $InitiatedBy) -ForegroundColor Yellow
-        Write-Host "Ce n'est pas toi qui as lancé cette action." -ForegroundColor Yellow
+        Write-Host (Get-Label 'common.demande-par-un-agent' $InitiatedBy) -ForegroundColor Yellow
+        Write-Host (Get-Label 'common.ce-est-pas-toi') -ForegroundColor Yellow
     }
     Write-Host $Title -ForegroundColor Cyan
     Write-Host $Summary
     if ($Changes.Count) { Write-Host (($Changes | ForEach-Object { "   - $_" }) -join $nl) }
-    Write-Host "Fenêtre de confirmation introuvable : relance avec -Yes pour confirmer." -ForegroundColor Yellow
+    Write-Host (Get-Label 'common.fenetre-de-confirmation-introuvable') -ForegroundColor Yellow
     return $false
 }
 
@@ -4847,21 +4854,21 @@ function Invoke-ElevatedSelf {
     $cmd = ($parts -join ' ') + ' *> ' + (ConvertTo-PSLiteral $log)
 
     $pwshPath = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
-    if (-not $pwshPath) { Write-Host "pwsh introuvable." -ForegroundColor Red; return 1 }
+    if (-not $pwshPath) { Write-Host (Get-Label 'common.pwsh-introuvable') -ForegroundColor Red; return 1 }
 
     try {
         $proc = Start-Process $pwshPath -Verb RunAs -Wait -PassThru -WindowStyle Hidden -WhatIf:$false -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $cmd)
     } catch {
-        Write-Host ("Elevation refusee ou impossible : " + $_.Exception.Message) -ForegroundColor Yellow
+        Write-Host (Get-Label 'common.elevation-refusee-ou-impossible' $_.Exception.Message) -ForegroundColor Yellow
         return 1
     }
 
     if (Test-Path -LiteralPath $log) {
-        Write-Host "----- compte rendu de la session elevee -----"
+        Write-Host (Get-Label 'common.compte-rendu-de-la')
         Get-Content -LiteralPath $log | ForEach-Object { Write-Host $_ }
-        Write-Host ("----- journal : " + $log)
+        Write-Host (Get-Label 'common.journal' $log)
     } else {
-        Write-Host "Aucune sortie produite par la session elevee." -ForegroundColor Yellow
+        Write-Host (Get-Label 'common.aucune-sortie-produite-par') -ForegroundColor Yellow
     }
     return $proc.ExitCode
 }

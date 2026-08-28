@@ -48,7 +48,7 @@ try {
     $lance = [bool](Start-WatchedAction -Module 'deployment' -Probe 'comptes.probe.ps1' `
                         -Label 'Déploiement' -Action 'deploy-shared' `
                         -File $pwsh -Arguments $argv -Log $journal -Backend $backend)
-    Write-Log -Backend $backend -Name 'deploy' -Message ("deploiement lance vers " + $destination + " (journal : " + $journal + ")")
+    Write-Log -Backend $backend -Name 'deploy' -Message (Get-Label 'deploy-shared.deploiement-lance-vers-journal' $destination $journal)
 } catch {
     Write-Log -Backend $backend -Name 'deploy' -Level 'ERROR' -Message $_.Exception.Message
 }

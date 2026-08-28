@@ -73,16 +73,16 @@ if (-not $Zip) {
         # que ce deploiement a deja eu lieu -- on le dit et on continue.
         & git -C $repoRoot tag -a $tag -m ("Deploiement du " + (Get-Date -Format 'dd/MM/yyyy HH:mm')) 2>$null
         if ($LASTEXITCODE -eq 0) {
-            Write-Info ("Tag pose : " + $tag + " sur " + $commit)
+            Write-Info (Get-Label 'deploy-prod.tag-pose-sur' $tag $commit)
             # Le tag ne vaut que s'il est partage. L'echec de pousse n'est PAS fatal :
             # un deploiement doit aboutir meme sans reseau.
             & git -C $repoRoot push origin $tag 2>$null | Out-Null
-            if ($LASTEXITCODE -eq 0) { Write-Host "Tag pousse." } else { Write-Detail "Tag local (pousse impossible)." }
+            if ($LASTEXITCODE -eq 0) { Write-Host (Get-Label 'deploy-prod.tag-pousse') } else { Write-Detail (Get-Label 'deploy-prod.tag-local-pousse-impossible') }
         } else {
-            Write-Detail ("Tag " + $tag + " deja present : rien a poser.")
+            Write-Detail (Get-Label 'deploy-prod.tag-deja-present-rien' $tag)
         }
     } catch {
-        Write-Detail ("Tag non pose : " + $_.Exception.Message)
+        Write-Detail (Get-Label 'deploy-prod.tag-non-pose' $_.Exception.Message)
     }
 }
 
@@ -90,16 +90,16 @@ if (-not $Zip) {
 if (-not $Zip) {
     $build = Join-Path $PSScriptRoot 'build-release.ps1'
     if (-not (Test-Path -LiteralPath $build)) {
-        Write-Warn "Aucune archive fournie et build-release.ps1 est absent : precisez -Zip."
+        Write-Warn (Get-Label 'deploy-prod.aucune-archive-fournie-et')
         exit 1
     }
-    Write-Info "Fabrication de l'archive de distribution..."
+    Write-Info (Get-Label 'deploy-prod.fabrication-de-archive-de')
     # L'archive porte le numero du tag qu'on vient de poser : le tag, l'archive et
     # l'installation racontent alors la meme histoire.
     if ($tag) { & pwsh -NoProfile -File $build -Version $tag | Write-Host }
     else      { & pwsh -NoProfile -File $build | Write-Host }
     if ($LASTEXITCODE -ne 0) {
-        Write-Fail "La fabrication de l'archive a échoué : déploiement abandonne."
+        Write-Fail (Get-Label 'deploy-prod.la-fabrication-de-archive')
         exit 1
     }
     $dist = Join-Path $repoRoot 'dist'
@@ -107,11 +107,11 @@ if (-not $Zip) {
              Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName
 }
 if (-not $Zip -or -not (Test-Path -LiteralPath $Zip)) {
-    Write-Warn "Archive introuvable : $Zip"
+    Write-Warn (Get-Label 'deploy-prod.archive-introuvable' $Zip)
     exit 1
 }
 $Zip = (Resolve-Path -LiteralPath $Zip).Path
-Write-Info ("Version a deployer : " + (Split-Path $Zip -Leaf))
+Write-Info (Get-Label 'deploy-prod.version-deployer' (Split-Path $Zip -Leaf))
 # --- 2. Elevation : ecrire hors du profil et poser des taches -----------------
 if (-not (Test-IsElevated)) {
     $ok = Show-ElevationRationale -AssumeYes:$Yes -Title "Deployer Vigie pour tous les comptes" -Summary "Vigie va etre installe dans un emplacement lisible par tous les comptes de cet ordinateur. Chaque compte gardera ses propres reglages." -Changes @(
@@ -120,7 +120,7 @@ if (-not (Test-IsElevated)) {
             "Aucun compte n'est active sans votre choix explicite",
             "Rien n'est supprime ailleurs sur la machine"
         )
-    if (-not $ok) { Write-Host "Deploiement annule. Rien n'a ete modifie."; exit 3 }
+    if (-not $ok) { Write-Host (Get-Label 'deploy-prod.deploiement-annule-rien-ete'); exit 3 }
     $passe = @('-Zip', $Zip, '-Destination', $Destination, '-Yes')
     exit (Invoke-ElevatedSelf -ScriptPath $PSCommandPath -Arguments $passe -LogDir (Get-LogDir))
 }
@@ -150,7 +150,7 @@ try {
         }
     }
 
-    Write-Info ("Copie vers " + $Destination + " ...")
+    Write-Info (Get-Label 'deploy-prod.copie-vers' $Destination)
     Copy-Item -Path (Join-Path $source '*') -Destination $Destination -Recurse -Force
 
     if (Test-Path -LiteralPath $garde) {
@@ -158,12 +158,12 @@ try {
         Get-ChildItem -Path $garde -File | ForEach-Object {
             Copy-Item -LiteralPath $_.FullName -Destination $cfgDest -Force
         }
-        Write-Info "Réglages de la machine conserves."
+        Write-Info (Get-Label 'deploy-prod.reglages-de-la-machine')
     }
 } finally {
     Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue
 }
-Write-Ok ("Vigie deploye : " + $Destination)
+Write-Ok (Get-Label 'deploy-prod.vigie-deploye' $Destination)
 
 # --- 4. Les comptes : proposes ici, modifiables a tout moment -----------------
 # Deux Join-Path imbriques : l'antislash de 'scripts\vigie-comptes.ps1' avait ete
@@ -179,14 +179,14 @@ if (-not (Test-Path -LiteralPath $outilComptes)) { $outilComptes = Join-Path $PS
 # poserait une tache qui ne lance rien. Le deploiement est justement le moment ou on
 # prepare les AUTRES comptes : on le dit ici, fort, plutot qu'apres coup.
 if (-not (Get-SharedPwshPath)) {
-    Write-Warn "ATTENTION : PowerShell 7 n'est installe que pour le compte courant."
-    Write-Warn "Les autres comptes ne pourront pas démarrer Vigie. A faire une fois, en administrateur :"
-    Write-Info "  winget install --id Microsoft.PowerShell --scope machine"
+    Write-Warn (Get-Label 'deploy-prod.attention-powershell-est-installe')
+    Write-Warn (Get-Label 'deploy-prod.les-autres-comptes-ne')
+    Write-Info (Get-Label 'deploy-prod.winget-install-id-microsoft')
 }
 
 & pwsh -NoProfile -File $outilComptes | Write-Host
-Write-Info "Pour changer a tout moment :"
-Write-Info ("  pwsh -File " + $outilComptes + " -Activer <compte>")
-Write-Info ("  pwsh -File " + $outilComptes + " -Retirer <compte>")
-Write-Info "Ou dans l'application : Paramètres > Utilisateurs."
+Write-Info (Get-Label 'deploy-prod.pour-changer-tout-moment')
+Write-Info (Get-Label 'deploy-prod.pwsh-file-activer-compte' $outilComptes)
+Write-Info (Get-Label 'deploy-prod.pwsh-file-retirer-compte' $outilComptes)
+Write-Info (Get-Label 'deploy-prod.ou-dans-application-parametres')
 exit 0
