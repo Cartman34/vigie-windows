@@ -3374,7 +3374,15 @@ function Test-VigieTaskHealthy {
 }
 
 # Ce qui CLOCHE, en clair, pour l'afficher. $null si tout va bien.
-function Get-VigieTaskAilment {
+# DEUX NATURES DE DEFAUT, et une seule se repare.
+#
+#   STRUCTURE : l'interpreteur, le chemin, l'activation. Ca se corrige tout de suite.
+#   HISTOIRE  : la tache n'a jamais tourne, ou son dernier lancement a echoue. Aucune
+#               reecriture n'efface ca -- seule sa prochaine execution le dira.
+#
+# Les confondre menait a reecrire une tache parfaitement saine, puis a reannoncer le meme
+# defaut : « reecrite, mais : <exactement ce qu'on venait de lire> » (constate le 28/08).
+function Get-VigieTaskStructureAilment {
     param([Parameter(Mandatory)]$Task)
     $a = @($Task.Actions)[0]
     if (-not $a) { return "la tâche ne lance rien" }
@@ -3400,6 +3408,12 @@ function Get-VigieTaskAilment {
         if (-not (Test-Path -LiteralPath $Matches[1])) { return ("l'application n'est plus là : " + $Matches[1]) }
     }
 
+    return $null
+}
+
+# L'etat COMPLET : la structure, puis l'histoire.
+function Get-VigieTaskHistoryAilment {
+    param([Parameter(Mandatory)]$Task)
     # UNE TACHE SAINE SUR LE PAPIER PEUT N'AVOIR JAMAIS TOURNE.
     #
     # Tout ce qui precede examine la DEFINITION : l'interpreteur existe, le script existe.
@@ -3424,6 +3438,13 @@ function Get-VigieTaskAilment {
     return $null
 }
 
+function Get-VigieTaskAilment {
+    param([Parameter(Mandatory)]$Task)
+    $mal = Get-VigieTaskStructureAilment -Task $Task
+    if ($mal) { return $mal }
+    return (Get-VigieTaskHistoryAilment -Task $Task)
+}
+
 # Repare ce qui peut l'etre, et RAPPORTE ce qu'elle a fait. Silencieuse quand tout va
 # bien. Ne cree jamais une tache absente : activer un compte reste une decision.
 function Repair-VigieTasks {
@@ -3437,9 +3458,19 @@ function Repair-VigieTasks {
     } catch { return $faits }
 
     foreach ($t in $taches) {
-        $mal = Get-VigieTaskAilment -Task $t
-        if (-not $mal) { continue }
         $nom = "$($t.TaskName)"
+        # ON NE REECRIT PAS UNE TACHE SAINE. Un defaut d'HISTOIRE -- jamais lancee, ou
+        # dernier lancement en echec -- ne se corrige par aucune ecriture : il se
+        # confirmera au prochain demarrage du compte, et pas avant. Le signaler, oui ;
+        # pretendre le reparer, non.
+        $mal = Get-VigieTaskStructureAilment -Task $t
+        if (-not $mal) {
+            $histoire = Get-VigieTaskHistoryAilment -Task $t
+            if ($histoire) {
+                $faits += [pscustomobject]@{ tache = $nom; mal = $histoire; repare = $false; attente = $true }
+            }
+            continue
+        }
         # De QUI est cette tache ? « Vigie » = le compte courant ; « Vigie - X » = X.
         $compte = if ($nom -eq 'Vigie') { "$env:USERNAME" } else { $nom.Substring($script:VigieTaskPrefix.Length) }
         try {

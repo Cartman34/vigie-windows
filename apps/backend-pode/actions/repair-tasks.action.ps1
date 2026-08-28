@@ -24,18 +24,26 @@ if (-not $faits.Count) {
 # c'est-a-dire a la prochaine ouverture de session du compte. Le dire, plutot que
 # d'annoncer « réparée » pendant que l'ecran affiche « hors service » juste a cote.
 $ok      = @($faits | Where-Object { $_.repare })
-$restant = @($faits | Where-Object { -not $_.repare -and $_.reste })
-$ko      = @($faits | Where-Object { -not $_.repare -and -not $_.reste })
+$attente = @($faits | Where-Object { $_.attente })
+$restant = @($faits | Where-Object { -not $_.repare -and -not $_.attente -and $_.reste })
+$ko      = @($faits | Where-Object { -not $_.repare -and -not $_.attente -and -not $_.reste })
 
 $detail = (($faits | ForEach-Object {
-    $sort = if ($_.repare)  { 'réparée' }
-            elseif ($_.reste) { "réécrite, mais : " + $_.reste }
-            else            { 'ÉCHEC : ' + $_.erreur }
-    "{0} : {1} -> {2}" -f $_.tache, $_.mal, $sort
+    if ($_.attente) {
+        # Rien n'a ete touche : la tache est saine, c'est son dernier passage qui ne
+        # l'etait pas. On le dit tel quel, sans repeter la meme phrase deux fois.
+        "{0} : structure saine. {1} — se confirmera à la prochaine ouverture de session." -f $_.tache, $_.mal
+    } else {
+        $sort = if ($_.repare)   { 'réparée' }
+                elseif ($_.reste) { "réécrite, mais : " + $_.reste }
+                else             { 'ÉCHEC : ' + $_.erreur }
+        "{0} : {1} -> {2}" -f $_.tache, $_.mal, $sort
+    }
 }) -join [Environment]::NewLine)
 
 $morceaux = @()
 if ($ok.Count)      { $morceaux += ("{0} tâche(s) réparée(s)" -f $ok.Count) }
+if ($attente.Count) { $morceaux += ("{0} saine(s), en attente de leur prochain démarrage" -f $attente.Count) }
 if ($restant.Count) { $morceaux += ("{0} réécrite(s), à confirmer à la prochaine ouverture de session" -f $restant.Count) }
 if ($ko.Count)      { $morceaux += ("{0} en échec" -f $ko.Count) }
 if (-not $morceaux.Count) { $morceaux += "rien à signaler" }
