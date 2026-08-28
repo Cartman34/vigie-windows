@@ -25,7 +25,7 @@ ligne — `scripts/dev/check-doc.ps1` refuse une décision absente d'ici.
 - **Structure du dépôt** — D29 · D32 · D33 · D35 · D55
 - **Documentation** — D91 · D92 · D93 · D98
 - **Configuration** — D15 · D18 · D56 · D57
-- **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46 · D48 · D49 · D50 · D58 · D59 · D66 · D68 · D69 · D70 · D71 · D88 · D89 · D94 · D95
+- **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46 · D48 · D49 · D50 · D58 · D59 · D66 · D68 · D69 · D70 · D71 · D88 · D89 · D94 · D95 · D102
 - **Installation, déploiement et mise à jour** — D07 · D11 · D22 · D77 · D78 · D79 · D81 · D84 · D87 · D96 · D97 · D99 · D101
 - **Sécurité, droits et multi-comptes** — D34 · D65 · D67 · D73
 - **Sondes, actions et tâches de fond** — D50bis · D53 · D54 · D60 · D61 · D80 · D82 · D83 · D85
@@ -2646,3 +2646,26 @@ l'écrivait dans le profil. Sur une installation partagée, les deux ne se serai
 Tous passent désormais par `Get-VarPath`, et **un garde-fou de `check-probes.ps1` refuse tout chemin de données
 assemblé à la main** hors de `common.ps1` — vérifié en lui tendant un piège, qu'il attrape. Une règle qui ne se
 contrôle pas se re-brise : celle-ci avait déjà été posée une fois.
+
+## D102 — Une opération en cours fige l'écran qui la montre (2026-08-28)
+
+*Demandée par l'utilisateur.*
+
+Pendant une mise à jour de l'installation : le bouton qui l'avait lancée restait intact et cliquable, « Réparer le
+démarrage » restait accessible, et la carte changeait de colonne. Trois symptômes, une cause commune et deux défauts
+propres.
+
+**La cause commune : la page se rechargeait au milieu de l'opération.** Une mise à jour sert forcément une nouvelle
+version, et le front recharge quand il en détecte une. Au retour, il ne savait plus qu'une opération tournait — boutons
+réactivés, sablier disparu, colonnes recalculées. Le rechargement **attend désormais la fin de l'opération**.
+
+**Le bouton de résolution ne tournait pas.** La rangée d'actions savait le faire depuis `busyAction` ; le bouton posé
+sur une ligne de champ, non. Même règle, même rendu : sablier et bouton grisé tant que son opération dure.
+
+**Une carte ne change plus de colonne.** L'équilibrage se faisait sur des hauteurs estimées : un champ de plus, et tout
+se redistribuait sous les yeux du lecteur. Le placement d'un groupe est retenu tant que la fenêtre garde le même nombre
+de colonnes ; un groupe nouveau prend la colonne la moins remplie, et y reste.
+
+Sur le fond, la règle de l'utilisateur : **pendant qu'on remplace l'installation, aucune opération n'est disponible,
+pas même une lecture** — « sinon on ne sait pas ce qui sera fait ». Le serveur l'appliquait déjà (`machine` croise
+tout) ; c'est l'écran qui ne suivait pas.

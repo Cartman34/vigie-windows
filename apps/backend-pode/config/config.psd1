@@ -18,6 +18,25 @@
     # Prefixe des routes de l'API REST (voir apps/backend-pode/api/openapi.yaml).
     ApiBase     = '/api/v1'
 
+    # D'OU VIGIE SE MET A JOUR quand on appuie sur « Mettre a jour Vigie ».
+    #
+    #   'auto'    : le depot est la -> on deploie ce depot (poste de developpement) ;
+    #               sinon -> on telecharge la derniere version publiee. C'est le defaut,
+    #               et il fait ce qu'on attend dans les deux cas.
+    #   'local'   : TOUJOURS le depot local, meme si une version publiee est plus recente.
+    #   'release' : TOUJOURS la derniere version publiee, meme sur un poste de
+    #               developpement -- utile sur un serveur de dev qui doit se comporter
+    #               comme une machine d'utilisateur.
+    #   'clone'   : un clone a part, sur la reference indiquee par UpdateRef.
+    #
+    # A poser dans config.local.psd1 : c'est un choix de MACHINE, pas du produit.
+    UpdateSource = 'auto'
+
+    # Branche, tag ou commit a deployer quand UpdateSource vaut 'clone'. Vide = le dernier
+    # tag, jamais une branche : suivre une branche reviendrait a installer du travail en
+    # cours (D99).
+    UpdateRef    = ''
+
     # Outillage externe OPTIONNEL (scripts d'administration vivant hors du depot).
     # Le verrouillage de Windows Update et son audit sont NATIFS depuis lib/common.ps1
     # (Set-UpdateLock, Invoke-UpdateAudit) : ils n'ont plus besoin de ce chemin. S'il est
