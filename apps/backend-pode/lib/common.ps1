@@ -3574,7 +3574,11 @@ function Update-VigieAccountTasks {
         })[0]
         $c.enabled     = [bool]$tache
         $c.task        = if ($tache) { "$($tache.TaskName)" } else { $null }
-        $c.taskAilment = if ($tache) { Get-VigieTaskAilment -Task $tache } else { $null }
+        # DEUX CHAMPS, deux natures : « taskAilment » est ce qui empeche la tache de
+        # fonctionner ; « taskPending » est ce qui ne se saura qu'a son prochain
+        # demarrage. Les confondre faisait annoncer « hors service » une tache saine.
+        $c.taskAilment = if ($tache) { Get-VigieTaskStructureAilment -Task $tache } else { $null }
+        $c.taskPending = if ($tache -and -not $c.taskAilment) { Get-VigieTaskHistoryAilment -Task $tache } else { $null }
     }
     return @($Comptes)
 }
@@ -3683,7 +3687,9 @@ function Get-VigieAccountsFresh {
             # vers un interpreteur disparu se lance et meurt aussitot, sans un mot :
             # Vigie ne demarre pas et l'ecran des comptes affiche « activee ». C'est
             # exactement ce qui est arrive le 26/08 (D83).
-            taskAilment = if ($tache) { Get-VigieTaskAilment -Task $tache } else { $null }
+            taskAilment = if ($tache) { Get-VigieTaskStructureAilment -Task $tache } else { $null }
+            # Ce qui attend son prochain demarrage : signale, mais pas « hors service ».
+            taskPending = if ($tache -and -not (Get-VigieTaskStructureAilment -Task $tache)) { Get-VigieTaskHistoryAilment -Task $tache } else { $null }
             # Le compte qui execute le serveur en ce moment : l'interface doit pouvoir dire
             # « c'est vous » et empecher de se retirer soi-meme par megarde.
             current     = ($nom -eq "$env:USERNAME")
