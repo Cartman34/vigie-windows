@@ -130,6 +130,57 @@ function Set-ServiceAccountReady {
     return $password
 }
 
+# LE DROIT « OUVRIR UNE SESSION EN TANT QUE TACHE » (SeBatchLogonRight).
+#
+# Une tache enregistree avec un mot de passe (LogonType Password) ne demarre que si son
+# compte possede ce droit. L'interface graphique du Planificateur l'accorde toute seule ;
+# Register-ScheduledTask, non -- d'ou un enregistrement refuse sans que rien n'explique
+# quoi (code 2 a l'installation du 28/08).
+#
+# On l'accorde par secedit, qui exige l'elevation -- le script l'a deja. Idempotent : un
+# compte qui l'a deja n'est pas retouche.
+function Grant-BatchLogonRight {
+    param([Parameter(Mandatory)][string]$Sid)
+    $exportFile = Join-Path $env:TEMP ('vigie-secpol-' + [guid]::NewGuid().ToString('N').Substring(0,8) + '.inf')
+    $importFile = $exportFile -replace '\.inf$', '-import.inf'
+    try {
+        $out = & secedit.exe /export /areas USER_RIGHTS /cfg $exportFile 2>&1
+        if (-not (Test-Path -LiteralPath $exportFile)) {
+            Say ("Droits de session : export impossible (" + ($out -join ' ') + ")") 'Yellow'
+            return $false
+        }
+        $line = (Get-Content -LiteralPath $exportFile | Where-Object { $_ -match '^SeBatchLogonRight' } | Select-Object -First 1)
+        if ($line -and $line.Contains($Sid)) {
+            Say "  droit « ouvrir une session en tant que tache » : deja accorde." 'DarkGray'
+            return $true
+        }
+        $current = if ($line) { ($line -split '=', 2)[1].Trim() } else { '' }
+        $updated = if ($current) { 'SeBatchLogonRight = ' + $current + ',*' + $Sid } else { 'SeBatchLogonRight = *' + $Sid }
+
+        # Un fichier de STRATEGIE minimal : on ne reecrit que la ligne qui nous concerne.
+        $content = @(
+            '[Unicode]', 'Unicode=yes',
+            '[Version]', 'signature="$CHICAGO$"', 'Revision=1',
+            '[Privilege Rights]', $updated
+        ) -join [Environment]::NewLine
+        [System.IO.File]::WriteAllText($importFile, $content, [System.Text.Encoding]::Unicode)
+
+        $db = Join-Path $env:TEMP ('vigie-secpol-' + [guid]::NewGuid().ToString('N').Substring(0,8) + '.sdb')
+        $out = & secedit.exe /configure /db $db /cfg $importFile /areas USER_RIGHTS 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Say ("Droits de session : refus de secedit (" + ($out -join ' ') + ")") 'Yellow'
+            return $false
+        }
+        Say "  droit « ouvrir une session en tant que tache » accorde." 'DarkGray'
+        return $true
+    } catch {
+        Say ("Droits de session : " + $_.Exception.Message) 'Yellow'
+        return $false
+    } finally {
+        foreach ($f in @($exportFile, $importFile)) { Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue }
+    }
+}
+
 # --- La tache machine -----------------------------------------------------------------
 function Register-ServiceTask {
     param([Parameter(Mandatory)][string]$Password)
@@ -167,11 +218,23 @@ function Register-ServiceTask {
                     -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew `
                     -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
 
+    # LE DROIT AVANT L'ENREGISTREMENT : sans lui, Windows refuse une tache lancee par mot
+    # de passe -- et son message ne dit pas lequel manque.
+    $sid = $null
+    try { $sid = (Get-LocalUser -Name $SERVICE_ACCOUNT -ErrorAction Stop).SID.Value } catch { }
+    if ($sid) { $null = Grant-BatchLogonRight -Sid $sid }
+
     try {
         Register-ScheduledTask -TaskName $SERVICE_TASK -Action $action -Trigger $trigger `
             -Principal $principal -Settings $settings -Password $Password -Force -ErrorAction Stop | Out-Null
     } catch {
-        Say ("Windows a refusé d'enregistrer la tâche : " + $_.Exception.Message) 'Red'
+        # LA TRACE SURVIT A LA CONSOLE. Ce message est parti dans un terminal refermé le
+        # 28/08, et il a fallu deviner ce qu'il disait : il va desormais aussi dans le
+        # journal de Vigie, qui se relit.
+        $why = $_.Exception.Message
+        Say ("Windows a refusé d'enregistrer la tâche : " + $why) 'Red'
+        try { Write-Log -Backend $backend -Name 'install' -Level 'ERROR' `
+                        -Message ("Service de machine : Windows a refuse la tache -- " + $why) } catch { }
         return $false
     }
 
