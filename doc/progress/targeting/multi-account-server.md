@@ -6,7 +6,7 @@
 > En cherchant les contraintes de Windows plutôt qu'en les supposant, il apparaît qu'un serveur unique en session 0
 > **casserait** la carte WSL, les cartes de gestionnaires de paquets, une partie de la carte Gaming et les neuf actions
 > qui ouvrent une fenêtre. La porte d'entrée unique est conservée — c'est ce qui règle le port — mais le travail
-> *propre à un utilisateur* est délégué à son propre agent.
+> *propre à un utilisateur* est délégué au tray de ce compte.
 
 ---
 
@@ -142,21 +142,21 @@ tâche via son SDDL (C2), ou passer par une action `admin` du serveur. La premi�
 ```
    session fhaza                 ┌─────────────────────────────────┐
    ┌───────────────┐             │  SERVEUR — tâche machine        │
-   │ tray + agent  │◀───ordres───│  SYSTEM, session 0, élevé       │
+   │     tray      │◀───ordres───│  SYSTEM, session 0, élevé       │
    │  (sa session) │────────────▶│  127.0.0.1:47600                │
    └───────────────┘   résultats │                                 │
                                  │  • sert l'interface             │
    session Famille               │  • identifie le demandeur       │
    ┌───────────────┐             │  • travail MACHINE et PRIVILÉGIÉ│
-   │ tray + agent  │◀───ordres───│  • délègue le travail PAR       │
-   │  (sa session) │────────────▶│    UTILISATEUR à son agent      │
+   │     tray      │◀───ordres───│  • délègue le travail PAR       │
+   │  (sa session) │────────────▶│    UTILISATEUR à son tray       │
    └───────────────┘   résultats └─────────────────────────────────┘
 ```
 
 **Le serveur** fait ce qui relève de la machine et ce qui exige l'élévation : verrou Windows Update, VBS, tâches
 planifiées, disque, déploiement, mise à jour. Il est la seule porte HTTP — donc un seul port, pour tout le monde.
 
-**L'agent** est le tray, qui gagne un rôle : exécuter, **dans la session de son compte et avec ses droits**, ce qui n'a
+**Le tray de chaque compte** gagne un rôle : exécuter, **dans la session de son compte et avec ses droits**, ce qui n'a
 de sens que là — WSL, gestionnaires de paquets, lectures `HKCU`, et les neuf actions qui ouvrent une fenêtre. Il ne
 gagne aucun privilège : il fait ce que l'utilisateur pourrait faire lui-même.
 
@@ -166,7 +166,7 @@ dans le profil du compte, `%LOCALAPPDATA%\Sowapps\Vigie\var\run\`,
 **sous la même règle d'ACL que les jetons** (C7).
 
 > **Le canal d'ordres est une surface d'attaque, au même titre que les jetons.** Un dossier d'ordres inscriptible
-> par tous permettrait à un compte de faire exécuter quelque chose par l'agent d'un **autre** compte, dans SA
+> par tous permettrait à un compte de faire exécuter quelque chose par le tray d'un **autre** compte, dans SA
 > session. Il obéit donc aux mêmes trois règles : héritage coupé, ACL explicite — le compte, `SYSTEM`,
 > `Administrateurs`, personne d'autre — et vérification à la lecture. **Un ordre trouvé dans un dossier dont les
 > droits sont trop larges n'est pas exécuté : il est détruit et journalisé.**
@@ -190,10 +190,10 @@ compte standard ne peut pas les mener à bien aujourd'hui faute d'élévation. L
 | `# @session:` | Où | Lesquelles |
 |---|---|---|
 | *(absent)* | serveur, session 0 | tout ce qui touche la machine : verrou Windows Update, disque, tâches, déploiement |
-| `utilisateur` | **agent du demandeur** | les 9 `open-*`, les `wsl-*`, les `pkg-*` — elles n'ont de sens que dans sa session (C3, C4) |
+| `utilisateur` | **tray du demandeur** | les 9 `open-*`, les `wsl-*`, les `pkg-*` — elles n'ont de sens que dans sa session (C3, C4) |
 
-**Refus par défaut sur les deux axes** : sans `@droits`, c'est `admin` ; une action `@session: utilisateur` sans agent
-connecté est refusée avec sa raison, jamais mise en attente indéfiniment.
+**Refus par défaut sur les deux axes** : sans `@droits`, c'est `admin` ; une action `@session: utilisateur` sans tray
+en ligne est refusée avec sa raison, jamais mise en attente indéfiniment.
 
 ---
 
@@ -204,7 +204,10 @@ négociables :
 
 1. **Refus par défaut** — action non déclarée = `admin` ; jeton inconnu = rejet sans explication.
 2. **La liste blanche vit dans le code**, jamais dans une configuration qu'un compte standard pourrait modifier.
-3. **Journal nominatif** : qui a demandé quoi, et ce qui s'est passé.
+3. **Traçabilité double** : chaque action privilégiée est écrite dans le journal de Vigie **et** dans le journal
+   des événements Windows, avec le compte demandeur. « On doit toujours pouvoir retrouver et justifier une action
+   de Vigie » — une trace qu'un fichier supprimé fait disparaître n'est pas une trace.
+4. **Le serveur ne tourne pas en `SYSTEM`** mais sous un compte dédié, aux privilèges bornés.
 
 S'y ajoute le coût de C6 : **un audit ligne à ligne de `Test-IsElevated`**. Une régression y serait invisible et
 donnerait les droits d'administrateur à tout le monde. Cette étape ne se livre pas sans relecture dédiée.
@@ -229,14 +232,17 @@ cette machine, comptes `fhaza` **et** `Famille`.
    testable seule — et la seule dont une erreur ruinerait tout le reste.
 2. **Le serveur devient une tâche machine** démarrée au boot ; le tray s'y connecte au lieu de le lancer, et reçoit le
    droit de la redémarrer (SDDL). *Les droits ne changent pas encore.*
-3. **L'agent** : le tray sait exécuter un ordre d'action dans sa session et rendre son résultat. On y bascule d'abord
+3. **Le tray exécutant** : il sait exécuter un ordre d'action dans sa session et rendre son résultat. On y bascule d'abord
    les neuf `open-*`, les plus simples et les plus visibles.
 4. **Le reste du travail par utilisateur** : WSL, gestionnaires de paquets, lectures `HKCU`.
-5. **Les droits** : faire respecter le `@droits:` **déjà déclaré** contre le DEMANDEUR et non contre le processus —
+5. **La traçabilité** : source `Vigie` dans le journal des événements Windows, posée à l'installation ; chaque
+   action privilégiée y écrit avec son demandeur. *Se livre avant les droits : on veut la trace AVANT d'ouvrir des
+   opérations à des comptes standard.*
+6. **Les droits** : faire respecter le `@droits:` **déjà déclaré** contre le DEMANDEUR et non contre le processus —
    remplacement de `Test-IsElevated` par « le demandeur a-t-il ce droit », refus
    par défaut, journal nominatif. **Relecture dédiée.**
-6. **Les données par compte** : réglages, modules actifs, notifications.
-7. **La migration** des installations existantes, idempotente et réversible.
+7. **Les données par compte** : réglages, modules actifs, notifications.
+8. **La migration** des installations existantes, idempotente et réversible.
 
 ---
 
@@ -255,27 +261,42 @@ D'où la règle : **on vérifie au moment de s'en servir**, et un écart vaut co
 
 ---
 
-## Questions ouvertes
+## Ce qui a été tranché
 
-Numérotées pour que les réponses s'y accrochent (« Q1A »). Elles restent stables tant que l'une d'elles est ouverte.
+### Sous quelle identité tourne le serveur — **un compte administrateur dédié**
 
-### Q1 — Le serveur tourne-t-il sous `SYSTEM` ou sous un compte administrateur dédié ?
+Pas `SYSTEM`. C'est la bonne pratique, et elle borne ce qu'un serveur compromis pourrait faire : le compte reçoit ce
+dont Vigie a besoin, et rien de plus.
 
-Le serveur devient une tâche machine lancée au démarrage. Sous quelle identité s'exécute-t-il ?
+**Le mot de passe n'est pas un secret à faire vivre**, contrairement à ce que je craignais. Il est généré à
+l'installation, passé une seule fois à `Register-ScheduledTask`, et **Windows le conserve lui-même** dans son coffre
+pour lancer la tâche. Vigie ne le garde nulle part. S'il faut réenregistrer la tâche plus tard, on en génère un
+nouveau et on réinitialise le compte — opération d'administrateur, comme le reste.
 
-- **A. `SYSTEM`** — *avantage : aucun secret à faire vivre.* Le compte existe sur toute machine Windows, n'a pas de mot
-  de passe, ne se périme pas et ne peut pas être verrouillé. En contrepartie il a les pleins pouvoirs : rien ne borne
-  ce que le serveur pourrait faire si son code était compromis.
-- **B. Un compte administrateur dédié, créé à l'installation** — *avantage : privilèges bornés.* On peut lui retirer ce
-  dont Vigie n'a pas besoin, et tracer ses actions séparément. Mais il faut créer le compte, générer et **conserver**
-  son mot de passe quelque part sur la machine — un secret de plus, avec sa rotation et son risque propre.
+Le compte est **masqué de l'écran de connexion** (`Winlogon\SpecialAccounts\UserList` à `0` — la clé que Vigie lit déjà
+pour reconnaître un compte technique) et **l'ouverture de session interactive lui est refusée** : il n'existe que pour
+faire tourner le service.
 
-### Q2 — Que fait Vigie quand une action `@session: utilisateur` est demandée alors qu'aucun agent n'est connecté ?
+### Toute action privilégiée est traçable — **deux fois**
 
-Le cas se produit dès qu'un compte est activé mais que sa session n'est pas ouverte — ou que son tray a été fermé.
+> « On doit toujours pouvoir retrouver et justifier une action de Vigie. »
 
-- **A. Refuser en le disant** — *avantage : honnête et immédiat.* « Cette action a besoin de votre session : ouvrez
-  Vigie sur ce compte. » Rien ne reste en suspens, rien ne s'exécutera plus tard à un moment inattendu.
-- **B. Mettre en attente jusqu'au retour de l'agent** — *avantage : le geste n'est pas perdu.* Mais une action qui
-  s'exécute une heure après le clic, dans un contexte qui a changé, est une surprise — et il faudrait alors une durée
-  de péremption, une file, et un moyen d'annuler.
+Chaque action `admin` écrit **deux traces**, et l'action n'est pas considérée comme faite tant que la première n'est
+pas écrite :
+
+1. **Le journal de Vigie** — le détail : qui a demandé, quoi, avec quels paramètres, ce que le système a répondu.
+2. **Le journal des événements Windows**, source `Vigie` — la trace opposable, hors de portée d'une simple suppression
+   de fichier, et lisible par l'Observateur d'événements comme n'importe quel autre logiciel de la machine.
+
+Vérifié sur cette machine : `Write-EventLog` et `New-EventLog` sont disponibles en **PowerShell 7.6.5**, et l'API .NET
+`System.Diagnostics.EventLog` aussi. L'enregistrement de la source exige l'élévation — le serveur l'a, et la source se
+pose à l'installation, une fois.
+
+Ce que chaque entrée doit porter, sans exception : **le compte demandeur**, l'action, l'horodatage, le résultat. Une
+action privilégiée qu'on ne peut pas rattacher à un demandeur est un trou dans la chaîne, pas un détail de journal.
+
+### Quand une action de session est demandée sans tray en ligne — **on refuse et on le dit**
+
+Il n'y a pas d'« agent » séparé : c'est **le tray du compte**, et son absence est déjà une information que Vigie
+affiche. L'action est donc refusée sur-le-champ, avec sa raison — « cette action a besoin de votre session : ouvrez
+Vigie sur ce compte ». Rien ne reste en suspens, rien ne s'exécutera plus tard à un moment inattendu.
