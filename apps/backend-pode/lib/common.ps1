@@ -1,4 +1,4 @@
-<#
+﻿<#
     common.ps1 - Bibliotheque partagee du backend. Aucune dependance a Pode.
     Fabriques d'objets (contrat), config, jeton, agregation des sondes (avec
     journalisation par sonde), execution des actions, utilitaires.
@@ -1407,7 +1407,23 @@ function Write-Log {
     $file = Join-Path $dir ($Name + '_' + (Get-Date -Format 'yyyyMMdd') + '.log')
     $line = '{0} [{1}] {2}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Level, $Message
     try { Add-Content -Path $file -Value $line -Encoding UTF8 } catch { }
-    Write-Host $line
+
+    # L'ECRAN ET LE FICHIER NE DISENT PAS LA MEME CHOSE, et c'est voulu. Le fichier garde
+    # l'horodatage et le niveau : c'est lui qu'on relit des semaines apres. L'ecran, lui,
+    # parle la langue de tous les autres scripts (scripts/lib/console-ui.ps1).
+    #
+    # POURQUOI : le 28/08, une etape d'installation a echoue ; son ERROR est sorti en gris
+    # au milieu de vingt lignes grises, et l'utilisateur ne pouvait pas le voir. Un niveau
+    # de journal qui ne se distingue pas a l'ecran ne sert a rien.
+    #
+    # Le repli existe parce que common.ps1 est charge par des scripts qui n'ont pas besoin
+    # de l'affichage (le serveur, les sondes) : on ne leur impose pas la dependance.
+    $hasUi = [bool](Get-Command Write-Fail -ErrorAction SilentlyContinue)
+    switch ($Level) {
+        'ERROR' { if ($hasUi) { Write-Fail $Message } else { Write-Host $line -ForegroundColor Red } }
+        'WARN'  { if ($hasUi) { Write-Warn $Message } else { Write-Host $line -ForegroundColor Yellow } }
+        default { if ($hasUi) { Write-Info $Message } else { Write-Host $line } }
+    }
 }
 
 # --- Fabriques d'objets du contrat -----------------------------------------

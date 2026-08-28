@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Verifie le contrat des sondes -- en n'executant que ce qui doit l'etre.
 
@@ -67,6 +67,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path $PSScriptRoot -Parent
+. (Join-Path $repoRoot 'scripts/lib/console-ui.ps1')   # le meme affichage que partout
 . (Join-Path $repoRoot 'apps/backend-pode/lib/common.ps1')
 
 $backendRoot = Join-Path $repoRoot 'apps/backend-pode'
@@ -193,8 +194,8 @@ if ($Only) {
         @($motifs | Where-Object { $base -like $_ -or $nom -like $_ -or $module -like $_ }).Count -gt 0
     })
     if ($retenues.Count -eq 0) {
-        Write-Host ("Aucune sonde ne correspond a : {0}" -f ($motifs -join ', ')) -ForegroundColor Red
-        Write-Host ("Sondes disponibles : {0}" -f (($sondes | ForEach-Object { $_.Name -replace '\.probe\.ps1$','' }) -join ', '))
+        Write-Fail ("Aucune sonde ne correspond a : {0}" -f ($motifs -join ', '))
+        Write-Info ("Sondes disponibles : {0}" -f (($sondes | ForEach-Object { $_.Name -replace '\.probe\.ps1$','' }) -join ', '))
         exit 1
     }
     $sondes = $retenues
@@ -265,7 +266,7 @@ foreach ($f in $sondes) {
 try {
     ($record | ConvertTo-Json -Depth 12) | Set-Content -LiteralPath $recordFile -Encoding UTF8
 } catch {
-    Write-Host "Note : l enregistrement des contrats n a pas pu etre ecrit -- la prochaine passe reexecutera tout." -ForegroundColor DarkYellow
+    Write-Info "Note : l enregistrement des contrats n a pas pu etre ecrit -- la prochaine passe reexecutera tout."
 }
 
 # --- Garde-fou : LES LIBELLES VISIBLES PORTENT LEURS ACCENTS ------------------
@@ -398,16 +399,16 @@ foreach ($x in $horsRegle) {
 # --- Verdict -----------------------------------------------------------------
 $lignes | ForEach-Object { Write-Host $_ }
 Write-Host ''
-Write-Host ("{0} sonde(s) executee(s), {1} verifiee(s) sur enregistrement, {2} module(s) au total." -f $executees, $surEnregistrement, $modules)
+Write-Info ("{0} sonde(s) executee(s), {1} verifiee(s) sur enregistrement, {2} module(s) au total." -f $executees, $surEnregistrement, $modules)
 if ($surEnregistrement -gt 0) {
-    Write-Host "Une sonde verifiee sur enregistrement n a PAS ete reexecutee : son fichier est inchange depuis." -ForegroundColor DarkGray
-    Write-Host "Passe complete avant livraison : -All" -ForegroundColor DarkGray
+    Write-Detail "Une sonde verifiee sur enregistrement n a PAS ete reexecutee : son fichier est inchange depuis."
+    Write-Detail "Passe complete avant livraison : -All"
 }
 
 if ($manquements.Count -eq 0) {
-    Write-Host "Tous les invariants sont respectes." -ForegroundColor Green
+    Write-Ok "Tous les invariants sont respectes."
     exit 0
 }
-Write-Host ("{0} manquement(s) :" -f $manquements.Count) -ForegroundColor Red
+Write-Fail ("{0} manquement(s) :" -f $manquements.Count)
 $manquements | ForEach-Object { Write-Host "  - $_" }
 exit 1

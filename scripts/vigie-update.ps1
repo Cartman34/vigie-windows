@@ -1,4 +1,4 @@
-<#
+﻿<#
     vigie-update.ps1 - Met a jour Vigie, puis la relance.
 
     D'OU VIENT LE CODE. Trois voies, decrites dans `vigie-fetch.ps1`, qui fait tout le
@@ -46,6 +46,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path $PSScriptRoot -Parent
+. (Join-Path $repoRoot 'scripts/lib/console-ui.ps1')   # le meme affichage que partout
 . (Join-Path $repoRoot 'apps/backend-pode/lib/common.ps1')
 $backend = Join-Path $repoRoot 'apps/backend-pode'
 $pwsh    = (Get-Process -Id $PID).Path
@@ -96,7 +97,7 @@ $archive = $null
 if ($voie -ne 'local') {
     $fetch = Join-Path $PSScriptRoot 'vigie-fetch.ps1'
     if (-not (Test-Path -LiteralPath $fetch)) {
-        Write-Host "vigie-fetch.ps1 introuvable : impossible d'aller chercher une version." -ForegroundColor Red
+        Write-Fail "vigie-fetch.ps1 introuvable : impossible d'aller chercher une version."
         exit 1
     }
     $argv = @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', $fetch, '-Source', $voie)
@@ -104,7 +105,7 @@ if ($voie -ne 'local') {
     if ($PreVersions) { $argv += '-PreVersions' }
     if ($Force)       { $argv += '-Force' }
 
-    Write-Host "Recuperation..."
+    Write-Info "Recuperation..."
     # La sortie est LUE : la derniere ligne porte le chemin de l'archive. Tout le reste
     # est du recit, qu'on repete a l'ecran pour que le journal en garde la trace.
     $lignes = & $pwsh @argv 2>&1
@@ -112,18 +113,18 @@ if ($voie -ne 'local') {
     foreach ($l in $lignes) { Write-Host $l }
 
     if ($codeFetch -eq 3) {
-        Write-Host "Rien a faire : Vigie est deja a jour. Elle n'a pas ete redemarree." -ForegroundColor Green
+        Write-Ok "Rien a faire : Vigie est deja a jour. Elle n'a pas ete redemarree."
         exit 3
     }
     if ($codeFetch -ne 0) {
-        Write-Host ("La recuperation a echoue (code " + $codeFetch + "). RIEN n'a ete deploye : la version en place continue de tourner.") -ForegroundColor Red
+        Write-Fail ("La recuperation a echoue (code " + $codeFetch + "). RIEN n'a ete deploye : la version en place continue de tourner.")
         exit 1
     }
     $archive = @($lignes | Where-Object { "$_".Trim() } | Select-Object -Last 1)
     $archive = "$archive".Trim()
     if (-not $archive -or -not (Test-Path -LiteralPath $archive)) {
-        Write-Host ("La recuperation dit avoir reussi, mais l'archive annoncee est introuvable : " + $archive) -ForegroundColor Red
-        Write-Host "RIEN n'a ete deploye." -ForegroundColor Red
+        Write-Fail ("La recuperation dit avoir reussi, mais l'archive annoncee est introuvable : " + $archive)
+        Write-Fail "RIEN n'a ete deploye."
         exit 1
     }
 }
@@ -131,18 +132,18 @@ if ($voie -ne 'local') {
 # --- 2. Deploiement ------------------------------------------------------------------
 $deploy = Join-Path $PSScriptRoot 'deploy-prod.ps1'
 if (-not (Test-Path -LiteralPath $deploy)) {
-    Write-Host "deploy-prod.ps1 introuvable." -ForegroundColor Red
+    Write-Fail "deploy-prod.ps1 introuvable."
     exit 1
 }
 $argv = @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $deploy + '"'), '-Yes')
 if ($archive)     { $argv += @('-Zip', ('"' + $archive + '"')) }
 if ($Destination) { $argv += @('-Destination', ('"' + $Destination + '"')) }
 
-Write-Host "Deploiement..."
+Write-Info "Deploiement..."
 $p = Start-Process -FilePath $pwsh -ArgumentList $argv -Wait -PassThru -WindowStyle Hidden
-Write-Host ("deploy-prod a rendu le code " + $p.ExitCode + ".")
+Write-Info ("deploy-prod a rendu le code " + $p.ExitCode + ".")
 if ($p.ExitCode -ne 0) {
-    Write-Host "Le deploiement a echoue : Vigie n'est PAS relancee, l'ancienne version continue de tourner." -ForegroundColor Red
+    Write-Fail "Le deploiement a echoue : Vigie n'est PAS relancee, l'ancienne version continue de tourner."
     exit 1
 }
 
@@ -150,16 +151,16 @@ if ($p.ExitCode -ne 0) {
 # Le tray relance le serveur AVEC lui (D78) : c'est ce qui charge le nouveau code.
 $tray = Join-Path $PSScriptRoot 'tray.ps1'
 if (-not (Test-Path -LiteralPath $tray)) {
-    Write-Host "Le deploiement est fait, mais tray.ps1 est introuvable : relancez Vigie a la main." -ForegroundColor Yellow
+    Write-Warn "Le deploiement est fait, mais tray.ps1 est introuvable : relancez Vigie a la main."
     exit 2
 }
-Write-Host "Relance de Vigie..."
+Write-Info "Relance de Vigie..."
 $r = Start-Process -FilePath $pwsh -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass',
                                                    '-File', ('"' + $tray + '"'), '-Restart') `
                    -Wait -PassThru -WindowStyle Hidden
-Write-Host ("La relance a rendu le code " + $r.ExitCode + ".")
+Write-Info ("La relance a rendu le code " + $r.ExitCode + ".")
 if ($r.ExitCode -ne 0) {
-    Write-Host "Le deploiement est fait, mais la relance n'a pas abouti : relancez Vigie a la main." -ForegroundColor Yellow
+    Write-Warn "Le deploiement est fait, mais la relance n'a pas abouti : relancez Vigie a la main."
     exit 2
 }
 

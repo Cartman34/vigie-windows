@@ -1,4 +1,4 @@
-<#
+﻿<#
     install-dev.ps1 - Installe les DEPENDANCES DE DEVELOPPEMENT. IDEMPOTENT.
 
     Pourquoi ce script existe (D100) : « si tu as besoin de quelque chose, c'est que c'est
@@ -45,6 +45,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+. (Join-Path $repoRoot 'scripts/lib/console-ui.ps1')   # le meme affichage que partout
 $commun   = Join-Path $repoRoot 'apps/backend-pode/lib/common.ps1'
 $avecFenetre = $false
 if (Test-Path -LiteralPath $commun) {
@@ -75,8 +76,6 @@ $DEPENDANCES = @(
        Commande = 'php'
        Pourquoi = "Servir l'Atelier (apps/atelier), l'outil de validation visuelle : il tourne sur le serveur integre de PHP. Volontairement cantonne a l'outillage -- PHP n'entre jamais dans l'application. N'importe quel PHP 8.x recent convient : l'identifiant winget ci-dessus ne sert qu'a l'installation automatique." }
 )
-
-function Dire { param([string]$T, [string]$C = 'Gray') Write-Host $T -ForegroundColor $C }
 
 function Test-Admin {
     try {
@@ -112,9 +111,8 @@ function Get-Accord {
         # ON PREVIENT AVANT D'OUVRIR. Une modale peut s'ouvrir derriere le terminal :
         # le script semble alors bloque « sans raison », et il attend en fait une reponse
         # que personne ne voit (constate le 27/08, plusieurs minutes perdues).
-        Dire ""
-        Dire ("Une fenetre vient de s'ouvrir : « " + $Titre + " ».") 'Cyan'
-        Dire "Si vous ne la voyez pas, elle est derriere : Alt+Tab." 'DarkGray'
+        Write-Step ("Une fenetre vient de s'ouvrir : « " + $Titre + " ».")
+        Write-Detail "Si vous ne la voyez pas, elle est derriere : Alt+Tab."
 
         # Un PROPRIETAIRE invisible et TopMost force la boite au premier plan. Sans lui,
         # MessageBox n'a pas de fenetre parente et Windows la range ou il veut.
@@ -137,8 +135,7 @@ function Get-Accord {
         }
         return ($r -eq [System.Windows.Forms.DialogResult]::Yes)
     } catch {
-        Dire ""
-        Dire ($Question + " [o/N]") 'Yellow'
+        Write-Warn ($Question + " [o/N]")
         $rep = Read-Host
         return ("$rep".Trim().ToLower() -in @('o', 'oui', 'y', 'yes'))
     }
@@ -149,27 +146,23 @@ $aTraiter = $DEPENDANCES
 if ($Nom) {
     $aTraiter = @($DEPENDANCES | Where-Object { $_.Nom -eq $Nom })
     if (-not $aTraiter.Count) {
-        Dire ("Dépendance inconnue : " + $Nom + ". Connues : " + (($DEPENDANCES | ForEach-Object { $_.Nom }) -join ', ')) 'Red'
+        Write-Fail ("Dépendance inconnue : " + $Nom + ". Connues : " + (($DEPENDANCES | ForEach-Object { $_.Nom }) -join ', '))
         exit 1
     }
 }
 
-Dire ""
-Dire "=== Dépendances de développement ===" 'Cyan'
-Dire ""
+Write-Step "=== Dépendances de développement ==="
 $manquantes = @()
 foreach ($d in $aTraiter) {
     $e = Get-Etat -D $d
     if ($e.Present) {
-        Dire ("  [OK]      " + $d.Titre + "  -  " + $(if ($e.Version) { $e.Version } else { $e.Ou })) 'Green'
+        Write-Ok ("  [OK]      " + $d.Titre + "  -  " + $(if ($e.Version) { $e.Version } else { $e.Ou }))
     } else {
-        Dire ("  [ABSENT]  " + $d.Titre) 'Yellow'
-        Dire ("            " + $d.Pourquoi) 'DarkGray'
+        Write-Warn ("  [ABSENT]  " + $d.Titre)
+        Write-Detail ("            " + $d.Pourquoi)
         $manquantes += $d
     }
 }
-Dire ""
-
 # --- La session GitHub, proposee a la fin -----------------------------------------------
 #
 # gh peut etre installe SANS session ouverte : c'est le cas le plus trompeur, la commande
@@ -178,11 +171,10 @@ function Invoke-SessionGitHub {
     if ($SansSession) { return }
     if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { return }
     if (Test-SessionGitHub) {
-        Dire "Session GitHub : ouverte." 'Green'
+        Write-Ok "Session GitHub : ouverte."
         return
     }
-    Dire ""
-    Dire "GitHub CLI est installé, mais aucune session n'est ouverte." 'Yellow'
+    Write-Warn "GitHub CLI est installé, mais aucune session n'est ouverte."
     $ok = Get-Accord -Titre 'Vigie - session GitHub' `
                      -Question "Ouvrir la session GitHub maintenant ?" `
                      -Detail ("Une fenêtre va s'ouvrir avec un code à huit caractères, puis votre navigateur." +
@@ -190,7 +182,7 @@ function Invoke-SessionGitHub {
                               "Vous collez le code sur github.com et vous validez : c'est vous qui vous authentifiez, " +
                               "ce script ne voit ni votre mot de passe ni votre jeton.")
     if (-not $ok) {
-        Dire "À faire quand vous voudrez :  gh auth login --web" 'DarkGray'
+        Write-Detail "À faire quand vous voudrez :  gh auth login --web"
         return
     }
     # Fenetre VISIBLE et interactive : la procedure affiche un code a recopier, il faut
@@ -200,33 +192,33 @@ function Invoke-SessionGitHub {
                            -ArgumentList @('auth', 'login', '--web', '--git-protocol', 'https', '--hostname', 'github.com') `
                            -Wait -PassThru
         if (Test-SessionGitHub) {
-            Dire "Session GitHub ouverte." 'Green'
+            Write-Ok "Session GitHub ouverte."
         } else {
-            Dire ("La session n'a pas été ouverte (gh a rendu " + $p.ExitCode + "). Réessayez :  gh auth login --web") 'Yellow'
+            Write-Warn ("La session n'a pas été ouverte (gh a rendu " + $p.ExitCode + "). Réessayez :  gh auth login --web")
         }
     } catch {
-        Dire ("Impossible de lancer gh : " + $_.Exception.Message) 'Red'
-        Dire "À faire à la main :  gh auth login --web" 'Yellow'
+        Write-Fail ("Impossible de lancer gh : " + $_.Exception.Message)
+        Write-Warn "À faire à la main :  gh auth login --web"
     }
 }
 
 if (-not $manquantes.Count) {
-    Dire "Tout est en place." 'Green'
+    Write-Ok "Tout est en place."
     Invoke-SessionGitHub
     exit 0
 }
 
 if ($Lister) {
-    Dire ("" + $manquantes.Count + " dépendance(s) manquante(s). Pour les installer :") 'Yellow'
-    Dire "  pwsh -File .\scripts\dev\install-dev.ps1"
+    Write-Warn ("" + $manquantes.Count + " dépendance(s) manquante(s). Pour les installer :")
+    Write-Info "  pwsh -File .\scripts\dev\install-dev.ps1"
     exit 0
 }
 
 # --- Elevation : demandee ICI, expliquee AVANT ------------------------------------------
 if (-not (Test-Admin)) {
     if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-        Dire "winget est introuvable : impossible d'installer automatiquement." 'Red'
-        Dire "Installez « App Installer » depuis le Microsoft Store, puis relancez." 'Yellow'
+        Write-Fail "winget est introuvable : impossible d'installer automatiquement."
+        Write-Warn "Installez « App Installer » depuis le Microsoft Store, puis relancez."
         exit 1
     }
     $quoi = @($manquantes | ForEach-Object { $_.Titre + " (" + $_.Winget + ")" })
@@ -246,7 +238,7 @@ if (-not (Test-Admin)) {
                          -Detail ($quoi -join [Environment]::NewLine)
     }
     if (-not $ok) {
-        Dire "Installation annulée. Rien n'a été touché." 'Yellow'
+        Write-Warn "Installation annulée. Rien n'a été touché."
         exit 3
     }
 
@@ -262,7 +254,6 @@ if (-not (Test-Admin)) {
         $dernier = @(Get-ChildItem -Path $journal -Filter 'elevated_install-dev_*.log' -File -ErrorAction SilentlyContinue |
                      Sort-Object LastWriteTime -Descending | Select-Object -First 1)
         if ($dernier.Count) {
-            Dire ""
             Get-Content -LiteralPath $dernier[0].FullName -Encoding UTF8 -ErrorAction SilentlyContinue |
                 ForEach-Object { Write-Host $_ }
         }
@@ -278,20 +269,20 @@ if (-not (Test-Admin)) {
         exit $code
     }
 
-    Dire "Relancez ce script depuis un terminal administrateur." 'Yellow'
+    Write-Warn "Relancez ce script depuis un terminal administrateur."
     exit 1
 }
 
 # --- Installation ------------------------------------------------------------------------
 if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-    Dire "winget est introuvable : impossible d'installer automatiquement." 'Red'
-    Dire "Installez « App Installer » depuis le Microsoft Store, puis relancez." 'Yellow'
+    Write-Fail "winget est introuvable : impossible d'installer automatiquement."
+    Write-Warn "Installez « App Installer » depuis le Microsoft Store, puis relancez."
     exit 1
 }
 
 $echecs = 0
 foreach ($d in $manquantes) {
-    Dire ("Installation de " + $d.Titre + " (" + $d.Winget + ") pour la machine…") 'Cyan'
+    Write-Step ("Installation de " + $d.Titre + " (" + $d.Winget + ") pour la machine…")
     $code = -1
     try {
         # --scope machine : jamais dans le profil d'un compte (D79).
@@ -299,7 +290,7 @@ foreach ($d in $manquantes) {
                   --accept-package-agreements --accept-source-agreements | Write-Host
         $code = $LASTEXITCODE
     } catch {
-        Dire ("  winget a levé une erreur : " + $_.Exception.Message) 'Red'
+        Write-Fail ("  winget a levé une erreur : " + $_.Exception.Message)
     }
 
     # LE RESULTAT SE CONSTATE (D43) : winget rend parfois 0 sans avoir rien pose, et
@@ -308,21 +299,20 @@ foreach ($d in $manquantes) {
                 [Environment]::GetEnvironmentVariable('Path', 'User')
     $e = Get-Etat -D $d
     if ($e.Present) {
-        Dire ("  " + $d.Titre + " est en place : " + $(if ($e.Version) { $e.Version } else { $e.Ou })) 'Green'
+        Write-Ok ("  " + $d.Titre + " est en place : " + $(if ($e.Version) { $e.Version } else { $e.Ou }))
     } else {
         $echecs++
-        Dire ("  " + $d.Titre + " n'est TOUJOURS pas là (winget a rendu " + $code + ").") 'Red'
-        Dire ("  À faire à la main : winget install --id " + $d.Winget + " --scope machine") 'Yellow'
-        Dire "  Un terminal déjà ouvert peut aussi ne pas voir le nouveau PATH : rouvrez-le avant de conclure." 'DarkGray'
+        Write-Fail ("  " + $d.Titre + " n'est TOUJOURS pas là (winget a rendu " + $code + ").")
+        Write-Warn ("  À faire à la main : winget install --id " + $d.Winget + " --scope machine")
+        Write-Detail "  Un terminal déjà ouvert peut aussi ne pas voir le nouveau PATH : rouvrez-le avant de conclure."
     }
 }
 
-Dire ""
 if ($echecs) {
-    Dire ("" + $echecs + " installation(s) en échec.") 'Red'
+    Write-Fail ("" + $echecs + " installation(s) en échec.")
     exit 2
 }
-Dire "Toutes les dépendances de développement sont en place." 'Green'
+Write-Ok "Toutes les dépendances de développement sont en place."
 # Sous elevation, on ne propose PAS la session : elle appartiendrait a l'administrateur.
 if (-not $Yes) { Invoke-SessionGitHub }
 exit 0

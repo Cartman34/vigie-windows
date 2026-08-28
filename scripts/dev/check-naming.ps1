@@ -1,4 +1,4 @@
-<#
+﻿<#
     check-naming.ps1 - Le code est en anglais. CLIQUET, pas grand nettoyage. LECTURE SEULE.
 
     La regle est ancienne (D41) : on parle francais, le code s'ecrit en anglais. Elle a
@@ -41,6 +41,7 @@ $FRENCH_WORDS = @(
 )
 
 $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+. (Join-Path $repoRoot 'scripts/lib/console-ui.ps1')   # le meme affichage que partout
 $skipped   = @('.git', 'dist', 'node_modules', 'local')
 $pattern    = 'function\s+([A-Za-z][\w-]*)|\$([a-zA-Z][\w]*)\s*=|(?:let|const|var|function)\s+([a-zA-Z][\w]*)'
 
@@ -71,28 +72,24 @@ foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.
     if ($n) { $perFile[$rel] = $n }
 }
 
-Write-Host ""
-Write-Host ("Identifiants francais : {0}  (plafond {1})" -f $total, $CEILING) -ForegroundColor Cyan
+Write-Info ("Identifiants francais : {0}  (plafond {1})" -f $total, $CEILING)
 
 if ($Detail) {
-    Write-Host ""
     foreach ($e in ($perFile.GetEnumerator() | Sort-Object Value -Descending)) {
-        Write-Host ("{0,5}  {1}" -f $e.Value, $e.Key)
+        Write-Info ("{0,5}  {1}" -f $e.Value, $e.Key)
     }
-    Write-Host ""
     Write-Host ("Noms : " + (($names.GetEnumerator() | Sort-Object Value -Descending |
                               Select-Object -First 20 | ForEach-Object { $_.Key }) -join ', ')) -ForegroundColor DarkGray
 }
 
-Write-Host ""
 if ($total -gt $CEILING) {
-    Write-Host ("Le plafond est depasse de {0} : du code francais a ete AJOUTE." -f ($total - $CEILING)) -ForegroundColor Red
-    Write-Host "Les nouveaux noms s'ecrivent en anglais (D41). Relancez avec -Detail pour voir ou." -ForegroundColor Yellow
+    Write-Fail ("Le plafond est depasse de {0} : du code francais a ete AJOUTE." -f ($total - $CEILING))
+    Write-Warn "Les nouveaux noms s'ecrivent en anglais (D41). Relancez avec -Detail pour voir ou."
     exit 2
 }
 if ($total -lt $CEILING) {
-    Write-Host ("{0} de moins que le plafond : descendez CEILING a {1} dans ce script." -f ($CEILING - $total), $total) -ForegroundColor Green
+    Write-Ok ("{0} de moins que le plafond : descendez CEILING a {1} dans ce script." -f ($CEILING - $total), $total)
     exit 0
 }
-Write-Host "Plafond tenu : aucun identifiant francais de plus." -ForegroundColor Green
+Write-Ok "Plafond tenu : aucun identifiant francais de plus."
 exit 0

@@ -1,4 +1,4 @@
-<#
+﻿<#
     install.ps1 - Installe les prerequis. IDEMPOTENT. Cible PowerShell 7.
     Journalise dans backend/logs/install_*.log (transcript). Fichier en ASCII
     pour rester lisible par PowerShell 5.1 au moment de basculer en pwsh.
@@ -13,6 +13,10 @@
 #>
 $ErrorActionPreference = 'Stop'
 
+# LE MEME AFFICHAGE QUE PARTOUT. Charge des le debut, avant meme la bascule en
+# PowerShell 7 : cette premiere passe tourne sous 5.1, et elle affiche deja.
+. (Join-Path $PSScriptRoot 'lib/console-ui.ps1')
+
 # --- Cible PowerShell 7 : bascule si lance en 5.1 ---
 if ($PSVersionTable.PSVersion.Major -lt 7) {
     # L'interpreteur de la MACHINE d'abord : c'est celui que lanceront les taches de
@@ -22,14 +26,14 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
         $pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
     }
     if ($pwsh) {
-        Write-Host "Bascule en PowerShell 7..."
+        Write-Info "Bascule en PowerShell 7..."
         & $pwsh -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath
         # LE CODE DE LA PASSE LANCEE EST LE NOTRE. Sans cette ligne, un echec de
         # l'installation reelle remontait en succes a l'appelant : le lanceur affichait
         # « Termine » sur une installation ratee (constate le 26/08).
         exit $LASTEXITCODE
     }
-    Write-Host "PowerShell 7 (pwsh) absent. Tentative d'installation via winget..." -ForegroundColor Yellow
+    Write-Step "PowerShell 7 est absent : installation par winget"
     # L'ELEVATION est indispensable ici : une installation en portee machine sans droits
     # administrateur echoue sur « 0x80070005 : Access is denied » -- et winget ayant deja
     # retire l'eventuelle version du compte, la machine se retrouve SANS PowerShell 7
@@ -41,10 +45,9 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
                         [Security.Principal.WindowsBuiltInRole]::Administrator)
     } catch { }
     if (-not $estAdmin) {
-        Write-Host "Cette etape doit etre lancee EN ADMINISTRATEUR (installation pour toute la machine)." -ForegroundColor Yellow
-        Write-Host "Ouvre un terminal administrateur, puis relance :" -ForegroundColor Yellow
-        Write-Host "  Double-clic sur setup.cmd, a la racine du dossier Vigie."
-        return
+        Write-Fail "Cette étape doit être lancée EN ADMINISTRATEUR (installation pour toute la machine)."
+        Write-Detail "Double-cliquez sur setup.cmd, à la racine du dossier Vigie."
+                return
     }
     $cible = Join-Path (Join-Path (Join-Path $env:ProgramFiles 'PowerShell') '7') 'pwsh.exe'
 
@@ -65,8 +68,7 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
 
     # 2) Repli : le MSI publie par l'equipe PowerShell, installe pour TOUTE la machine.
     if (-not (Test-Path -LiteralPath $cible)) {
-        Write-Host ""
-        Write-Host "winget n'a pas de paquet MSI : passage par le MSI officiel de PowerShell." -ForegroundColor Yellow
+        Write-Warn "winget n'a pas de paquet MSI : passage par le MSI officiel de PowerShell."
         try {
             # TLS 1.2 : Windows PowerShell 5.1 ne l'active pas toujours, et GitHub refuse
             # tout le reste. Sans cette ligne, le telechargement echoue sur une erreur de
@@ -92,13 +94,13 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
                 if (-not $dejaLa) { Remove-Item -LiteralPath $msi -Force -ErrorAction SilentlyContinue }
             }
             if ($dejaLa) {
-                Write-Host ("Deja telecharge : " + $asset.name + " (" + $mo + " Mo)")
+                Write-Detail ("Déjà téléchargé : " + $asset.name + " (" + $mo + " Mo)")
             } else {
-                Write-Host ("Telechargement de " + $asset.name + " (" + $mo + " Mo)...")
+                Write-Info ("Téléchargement de " + $asset.name + " (" + $mo + " Mo)...")
                 Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $msi -UseBasicParsing -TimeoutSec 900
-                Write-Host "Telechargement termine."
+                Write-Detail "Téléchargement terminé."
             }
-            Write-Host "Installation pour toute la machine..."
+            Write-Info "Installation pour toute la machine..."
             # ALLUSERS=1 : installation MACHINE. /qn : sans interface, on est deja eleve.
             # /qb et non /qn : une installation de deux minutes doit se VOIR. Une barre
             # de progression vaut mieux qu'une fenetre muette dont on ne sait pas si elle
@@ -109,31 +111,29 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
             # 1618 = un autre installateur travaille deja ; le reste est un echec qu'il
             # faut nommer, pas passer sous silence.
             switch ([int]$mi.ExitCode) {
-                0    { Write-Host "Installation reussie." -ForegroundColor Green }
-                3010 { Write-Host "Installee. Windows demande un redemarrage." -ForegroundColor Yellow }
-                1618 { Write-Host "Un autre installateur Windows est en cours : reessaie dans une minute." -ForegroundColor Yellow }
-                default { Write-Host ("msiexec a echoue (code " + $mi.ExitCode + ").") -ForegroundColor Red }
+                0    { Write-Ok "Installation réussie." }
+                3010 { Write-Warn "Installée. Windows demande un redémarrage." }
+                1618 { Write-Warn "Un autre installateur Windows est en cours : réessayez dans une minute." }
+                default { Write-Fail ("msiexec a échoué (code " + $mi.ExitCode + ").") }
             }
             if ([int]$mi.ExitCode -eq 0 -or [int]$mi.ExitCode -eq 3010) {
                 Remove-Item -LiteralPath $msi -Force -ErrorAction SilentlyContinue
             }
         } catch {
-            Write-Host ("Echec du repli MSI : " + $_.Exception.Message) -ForegroundColor Red
+            Write-Fail ("Échec du repli MSI : " + $_.Exception.Message)
         }
     }
 
     # 3) On CONSTATE, et on enchaine tout seul : l'utilisateur n'a pas a relancer.
     if (Test-Path -LiteralPath $cible) {
-        Write-Host ""
-        Write-Host ("PowerShell 7 installe pour la machine : " + $cible) -ForegroundColor Green
-        Write-Host "Suite de l'installation avec lui..." -ForegroundColor Green
+        Write-Ok ("PowerShell 7 installé pour la machine : " + $cible)
+        Write-Detail "L'installation se poursuit avec lui."
         & $cible -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath
         exit $LASTEXITCODE
     }
-    Write-Host ""
-    Write-Host "PowerShell 7 n'a PAS pu etre installe." -ForegroundColor Red
-    Write-Host "Telecharge le MSI a la main : https://github.com/PowerShell/PowerShell/releases" -ForegroundColor Yellow
-    Write-Host "(fichier PowerShell-<version>-win-x64.msi), puis relance cette installation."
+    Write-Fail "PowerShell 7 n'a PAS pu être installé."
+    Write-Detail "Téléchargez le MSI à la main : https://github.com/PowerShell/PowerShell/releases"
+    Write-Detail "(fichier PowerShell-<version>-win-x64.msi), puis relancez cette installation."
     exit 1
 }
 
@@ -160,12 +160,10 @@ $dejaLa       = ($ici.TrimEnd([char]92) -ieq $destPartagee.TrimEnd([char]92))
 
 if (-not $estDepot -and -not $dejaLa) {
     if (-not (Test-Elevated)) {
-        Write-Host ""
-        Write-Host "Sans droits administrateur, Vigie ne peut pas s'installer dans Program Files." -ForegroundColor Yellow
-        Write-Host "Elle va fonctionner depuis ce dossier : ne le deplacez pas, ne le supprimez pas." -ForegroundColor Yellow
+        Write-Warn "Sans droits administrateur, Vigie ne peut pas s'installer dans Program Files."
+        Write-Detail "Elle fonctionnera depuis ce dossier : ne le déplacez pas, ne le supprimez pas."
     } else {
-        Write-Host ""
-        Write-Host ("Installation de Vigie dans " + $destPartagee + " ...") -ForegroundColor Green
+        Write-Step ("Installation de Vigie dans " + $destPartagee)
         $copieFaite = $false
         try {
             # Les REGLAGES de la machine deja poses survivent : les ecraser serait une
@@ -194,22 +192,22 @@ if (-not $estDepot -and -not $dejaLa) {
                     Copy-Item -LiteralPath $_.FullName -Destination $cfgDest -Force
                 }
                 Remove-Item -LiteralPath $garde -Recurse -Force -ErrorAction SilentlyContinue
-                Write-Host "Reglages de la machine conserves." -ForegroundColor Green
+                Write-Detail "Réglages de la machine conservés."
             }
             $copieFaite = Test-Path -LiteralPath (Join-Path $destPartagee 'setup.cmd')
         } catch {
-            Write-Host ("La copie a echoue : " + $_.Exception.Message) -ForegroundColor Red
+            Write-Fail ("La copie a échoué : " + $_.Exception.Message)
         }
 
         if ($copieFaite) {
             # LA SUITE SE FAIT LA-BAS. C'est la copie installee qui pose la tache de
             # demarrage : sinon la tache pointerait encore sur le dossier telecharge.
-            Write-Host "Suite de l'installation depuis l'emplacement installe..." -ForegroundColor Green
+            Write-Detail "L'installation se poursuit depuis l'emplacement installé."
             $suite = Join-Path (Join-Path $destPartagee 'scripts') 'install.ps1'
             & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $suite
             exit $LASTEXITCODE
         }
-        Write-Host "Vigie va fonctionner depuis ce dossier : ne le deplacez pas." -ForegroundColor Yellow
+        Write-Warn "Vigie fonctionnera depuis ce dossier : ne le déplacez pas."
     }
 }
 
@@ -275,10 +273,8 @@ try {
         }
     } else {
         Write-Log -Backend $backend -Name 'install' -Level 'WARN' -Message "PowerShell 7 n'est installé que pour ce compte. Relancez cette installation en administrateur, sinon les autres comptes ne pourront pas démarrer Vigie."
-        Write-Host ""
-        Write-Host "PowerShell 7 n'est installe que pour VOTRE compte." -ForegroundColor Yellow
-        Write-Host "Les autres comptes ne pourront pas demarrer Vigie. A faire une fois, en administrateur :" -ForegroundColor Yellow
-        Write-Host "  winget install --id Microsoft.PowerShell --scope machine"
+        Write-Detail "À faire une fois, en administrateur :"
+        Write-Detail "  winget install --id Microsoft.PowerShell --scope machine"
     }
 
     # LA TRACE AVANT LES DROITS. Poser la source du journal des evenements exige
@@ -319,7 +315,16 @@ try {
     if ($isAdmin -and (Test-Path -LiteralPath $service)) {
         try {
             & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $service | Write-Host
-            Write-Log -Backend $backend -Name 'install' -Message ("Service de machine : etape passee (code " + $LASTEXITCODE + ").")
+            # ON LIT LE CODE DE RETOUR. Il etait journalise sans etre teste : le 28/08,
+            # l'enregistrement de la tache a echoue et l'installation a fini en vert.
+            # Un code non nul est un ECHEC -- Write-Log ERROR le compte, et le verdict
+            # final ne peut plus l'ignorer.
+            if ($LASTEXITCODE -eq 0) {
+                Write-Log -Backend $backend -Name 'install' -Message "Service de machine : pret (desactive)."
+            } else {
+                Write-Log -Backend $backend -Name 'install' -Level 'ERROR' `
+                          -Message ("Service de machine : ECHEC (code " + $LASTEXITCODE + ").")
+            }
         } catch {
             Write-Log -Backend $backend -Name 'install' -Level 'WARN' -Message ("Service de machine : " + $_.Exception.Message)
         }
@@ -327,13 +332,11 @@ try {
 
     $autostart = Join-Path $PSScriptRoot 'install-autostart.ps1'
     if (-not $isAdmin) {
-        Write-Host ""
-        Write-Host "Prerequis installes." -ForegroundColor Green
-        Write-Host "Le demarrage automatique demande les droits administrateur : relance cette" -ForegroundColor Yellow
-        Write-Host "installation en administrateur (ou double-clic sur setup.cmd, a la racine)." -ForegroundColor Yellow
+        Write-Ok "Prérequis installés."
+        Write-Warn "Le démarrage automatique demande les droits administrateur."
+        Write-Detail "Relancez cette installation en administrateur : double-clic sur setup.cmd, à la racine."
     } elseif (Test-Path -LiteralPath $autostart) {
-        Write-Host ""
-        Write-Host "Enregistrement du demarrage automatique..." -ForegroundColor Green
+        Write-Step "Démarrage automatique"
         # -Yes : on est deja eleve et l'utilisateur a deja consenti en lancant
         # l'installation ; une seconde fenetre d'explication serait du bruit.
         # LE RESULTAT SE LIT : 0 = fait, 3 = refuse, le reste est un echec.
@@ -341,22 +344,24 @@ try {
         $codeAuto = $LASTEXITCODE
         Write-Log -Backend $backend -Name 'install' -Message ("Demarrage automatique : code " + $codeAuto)
         switch ([int]$codeAuto) {
-            0 { Write-Host "Vigie demarre a chaque ouverture de session, et vient d'etre lancee." -ForegroundColor Green }
-            3 { Write-Host "Demarrage automatique refuse. Vigie s'installe quand meme, a lancer a la main." -ForegroundColor Yellow }
+            0 { Write-Ok "Vigie démarre à chaque ouverture de session, et vient d'être lancée." }
+            3 { Write-Warn "Démarrage automatique refusé. Vigie s'installe quand même, à lancer à la main." }
             default {
-                Write-Host ("Le demarrage automatique a echoue (code " + $codeAuto + ").") -ForegroundColor Red
-                Write-Host "Vigie reste lancable a la main : double-clic sur scripts\run.cmd"
+                Write-Fail ("Le démarrage automatique a échoué (code " + $codeAuto + ").")
+                Write-Detail "Vigie reste lançable à la main : double-clic sur scripts\run.cmd"
             }
         }
     }
 
-    Write-Host ""
-    Write-Host "Termine." -ForegroundColor Green
-    Write-Host "Panneau : http://127.0.0.1:47600/   (double-clic sur scripts\run.cmd si besoin)"
+    # LE VERDICT SE CALCULE. Write-Outcome compte ce que Write-Fail et Write-Warn ont
+    # affiche : aucune installation ne peut plus finir en vert avec un echec derriere elle.
+    Write-Outcome -What "Vigie est installée" `
+                  -NextStep "Panneau : http://127.0.0.1:47600/   (double-clic sur scripts\run.cmd si besoin)"
+    if ((Get-UiFailureCount) -gt 0) { try { Stop-Transcript | Out-Null } catch { }; exit 1 }
 }
 catch {
     Write-Log -Backend $backend -Name 'install' -Level 'ERROR' -Message ("FATAL: " + $_.Exception.Message)
-    Write-Host ($_ | Out-String) -ForegroundColor Red
+    Write-Fail ($_ | Out-String)
     # ON SORT EN ECHEC. Le bloc se contentait d'afficher l'erreur : le script rendait 0,
     # et le lanceur enchainait comme si tout allait bien.
     try { Stop-Transcript | Out-Null } catch { }
