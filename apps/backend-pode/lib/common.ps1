@@ -3407,6 +3407,10 @@ function Get-VigieTaskStructureAilment {
     if ("$($a.Arguments)" -match '-File\s+"([^"]+)"') {
         if (-not (Test-Path -LiteralPath $Matches[1])) { return ("l'application n'est plus là : " + $Matches[1]) }
     }
+    # DESACTIVEE, c'est structurel : la tache est la, bien formee, et Windows refuse de
+    # la lancer. Ca se repare d'un geste (Enable-ScheduledTask), donc ca appartient ici
+    # et pas a l'histoire.
+    if ("$($Task.State)" -eq 'Disabled') { return "la tâche est désactivée dans Windows" }
 
     return $null
 }
@@ -3422,7 +3426,6 @@ function Get-VigieTaskHistoryAilment {
     # 28/08 : tache presente, session ouverte, aucun journal nulle part.
     $info = $null
     try { $info = $Task | Get-ScheduledTaskInfo -ErrorAction Stop } catch { }
-    if ($Task.State -eq 'Disabled') { return "la tâche est désactivée dans Windows" }
     if ($info) {
         $code = [int]$info.LastTaskResult
         # Les codes qui ne sont PAS des echecs : 0 succes ; 0x00041301 en cours ;
@@ -3572,6 +3575,15 @@ function Update-VigieAccountTasks {
             $_.TaskName -eq (Get-VigieAccountTaskName -Name $nom) -or
             ($_.TaskName -eq 'Vigie' -and (Test-TaskUserIs -UserId "$($_.Principal.UserId)" -Name $nom))
         })[0]
+        # UN CACHE PEUT VENIR D'UNE VERSION PLUS ANCIENNE, et ses objets n'ont alors pas
+        # les proprietes qu'on veut ecrire. Assigner une propriete absente LEVE, et la
+        # valeur d'origine -- perimee -- restait affichee (constate le 28/08 : « 1 tache
+        # hors service » pour une tache saine). On les cree si elles manquent.
+        foreach ($prop in @('enabled', 'task', 'taskAilment', 'taskPending')) {
+            if (-not $c.PSObject.Properties[$prop]) {
+                $c | Add-Member -NotePropertyName $prop -NotePropertyValue $null -Force
+            }
+        }
         $c.enabled     = [bool]$tache
         $c.task        = if ($tache) { "$($tache.TaskName)" } else { $null }
         # DEUX CHAMPS, deux natures : « taskAilment » est ce qui empeche la tache de
