@@ -64,9 +64,9 @@ function Show-State {
     Say ""
     Say "=== Service de machine ===" 'Cyan'
     Say ""
-    Say ("  Compte dedie   : " + $(if ($account) { $SERVICE_ACCOUNT + " (actif=" + $account.Enabled + ")" } else { "absent" })) `
+    Say ("  Compte dédié    : " + $(if ($account) { $SERVICE_ACCOUNT + " (actif=" + $account.Enabled + ")" } else { "absent" })) `
         $(if ($account) { 'Green' } else { 'Yellow' })
-    Say ("  Tache machine  : " + $(if ($task) { $SERVICE_TASK + " (" + $task.State + ")" } else { "absente" })) `
+    Say ("  Tâche machine  : " + $(if ($task) { $SERVICE_TASK + " (" + $task.State + ")" } else { "absente" })) `
         $(if ($task) { 'Green' } else { 'Yellow' })
     Say ("  Environnement  : " + (Get-EnvironmentLabel -Environment (Get-DeclaredEnvironment -Backend $backend)))
     $listening = $null
@@ -94,12 +94,15 @@ function Set-ServiceAccountReady {
     $password = New-ServicePassword
     $secure = ConvertTo-SecureString $password -AsPlainText -Force
     if (-not $account) {
-        Say ("Creation du compte " + $SERVICE_ACCOUNT + "...") 'Cyan'
+        Say ("Création du compte " + $SERVICE_ACCOUNT + "...") 'Cyan'
+        # 48 CARACTERES, PAS UN DE PLUS : c'est la limite que Windows impose a la
+        # description d'un compte local. Une phrase de 66 signes a fait echouer la
+        # premiere installation (28/08) -- et l'echec, lui, etait bien signale.
         New-LocalUser -Name $SERVICE_ACCOUNT -Password $secure -FullName 'Vigie - service local' `
-                      -Description "Compte dedie au serveur de Vigie. Ne sert pas a ouvrir de session." `
+                      -Description 'Service local de Vigie (pas de session)' `
                       -PasswordNeverExpires -UserMayNotChangePassword -ErrorAction Stop | Out-Null
     } else {
-        Say ("Le compte " + $SERVICE_ACCOUNT + " existe : mot de passe renouvele.") 'DarkGray'
+        Say ("Le compte " + $SERVICE_ACCOUNT + " existe : mot de passe renouvelé.") 'DarkGray'
         Set-LocalUser -Name $SERVICE_ACCOUNT -Password $secure -ErrorAction Stop
     }
 
@@ -110,7 +113,7 @@ function Set-ServiceAccountReady {
                     Where-Object { "$($_.Name)" -like ('*\' + $SERVICE_ACCOUNT) })
         if (-not $member.Count) {
             Add-LocalGroupMember -Group $admins -Member $SERVICE_ACCOUNT -ErrorAction Stop
-            Say "  ajoute aux administrateurs." 'DarkGray'
+            Say "  ajouté aux administrateurs." 'DarkGray'
         }
     } catch { Say ("  groupe administrateurs : " + $_.Exception.Message) 'Yellow' }
 
@@ -121,7 +124,7 @@ function Set-ServiceAccountReady {
         $key = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\UserList'
         if (-not (Test-Path -LiteralPath $key)) { New-Item -Path $key -Force | Out-Null }
         New-ItemProperty -Path $key -Name $SERVICE_ACCOUNT -Value 0 -PropertyType DWord -Force | Out-Null
-        Say "  masque de l'ecran de connexion." 'DarkGray'
+        Say "  masqué de l'écran de connexion." 'DarkGray'
     } catch { Say ("  masquage impossible : " + $_.Exception.Message) 'Yellow' }
 
     return $password
@@ -156,14 +159,14 @@ function Register-ServiceTask {
         Register-ScheduledTask -TaskName $SERVICE_TASK -Action $action -Trigger $trigger `
             -Principal $principal -Settings $settings -Password $Password -Force -ErrorAction Stop | Out-Null
     } catch {
-        Say ("Windows a refuse d'enregistrer la tache : " + $_.Exception.Message) 'Red'
+        Say ("Windows a refusé d'enregistrer la tâche : " + $_.Exception.Message) 'Red'
         return $false
     }
 
     # DESACTIVEE A LA CREATION. Deux serveurs sur le meme port se marcheraient dessus :
     # la bascule est un geste separe, et volontaire (-Activer).
     try { Disable-ScheduledTask -TaskName $SERVICE_TASK -ErrorAction Stop | Out-Null } catch { }
-    Say ("Tache « " + $SERVICE_TASK + " » enregistree, DESACTIVEE.") 'Green'
+    Say ("Tâche « " + $SERVICE_TASK + " » enregistrée, DÉSACTIVÉE.") 'Green'
     return $true
 }
 
@@ -180,10 +183,10 @@ function Grant-TaskControl {
         $folder.Connect()
         $task = $folder.GetFolder('\').GetTask($SERVICE_TASK)
         $task.SetSecurityDescriptor($sddl, 0)
-        Say "Les comptes de la machine peuvent demarrer et arreter le service." 'DarkGray'
+        Say "Les comptes de la machine peuvent démarrer et arrêter le service." 'DarkGray'
         return $true
     } catch {
-        Say ("Droits sur la tache non poses : " + $_.Exception.Message) 'Yellow'
+        Say ("Droits sur la tâche non posés : " + $_.Exception.Message) 'Yellow'
         Say "Le tray d'un compte standard ne pourra pas relancer le serveur." 'Yellow'
         return $false
     }
@@ -193,12 +196,12 @@ function Grant-TaskControl {
 function Remove-Service {
     $done = $true
     if (Get-ServiceTask) {
-        try { Unregister-ScheduledTask -TaskName $SERVICE_TASK -Confirm:$false -ErrorAction Stop; Say "Tache retiree." 'Green' }
-        catch { Say ("Tache non retiree : " + $_.Exception.Message) 'Red'; $done = $false }
+        try { Unregister-ScheduledTask -TaskName $SERVICE_TASK -Confirm:$false -ErrorAction Stop; Say "Tâche retirée." 'Green' }
+        catch { Say ("Tâche non retirée : " + $_.Exception.Message) 'Red'; $done = $false }
     }
     if (Get-ServiceAccount) {
-        try { Remove-LocalUser -Name $SERVICE_ACCOUNT -ErrorAction Stop; Say "Compte retire." 'Green' }
-        catch { Say ("Compte non retire : " + $_.Exception.Message) 'Red'; $done = $false }
+        try { Remove-LocalUser -Name $SERVICE_ACCOUNT -ErrorAction Stop; Say "Compte retiré." 'Green' }
+        catch { Say ("Compte non retiré : " + $_.Exception.Message) 'Red'; $done = $false }
     }
     try {
         $key = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\UserList'
@@ -211,8 +214,8 @@ function Remove-Service {
 if ($Lister) { Show-State; exit 0 }
 
 if (-not (Test-IsElevated)) {
-    Say "Cette operation cree un compte et une tache machine : elle demande l'elevation." 'Yellow'
-    Say "Rien n'a ete touche." 'Yellow'
+    Say "Cette opération crée un compte et une tâche machine : elle demande l'élévation." 'Yellow'
+    Say "Rien n'a été touché." 'Yellow'
     exit 1
 }
 
@@ -224,7 +227,14 @@ if ($Retirer) {
 
 Show-State
 
-$password = Set-ServiceAccountReady
+# UNE ETAPE QUI ECHOUE LE DIT, elle ne plante pas. Sans ce filet, l'erreur remontait
+# brute et le script rendait 1 sans expliquer ce qui n'allait pas.
+try {
+    $password = Set-ServiceAccountReady
+} catch {
+    Say ("Le compte de service n'a pas pu être préparé : " + $_.Exception.Message) 'Red'
+    exit 2
+}
 if (-not (Register-ServiceTask -Password $password)) { exit 2 }
 $null = Grant-TaskControl
 # Le mot de passe ne sert plus a rien : Windows le detient. On l'efface de la memoire.
@@ -232,7 +242,7 @@ $password = $null
 [System.GC]::Collect()
 
 Say ""
-Say "Service pret, mais DESACTIVE : rien ne change au demarrage tant qu'on ne bascule pas." 'Cyan'
+Say "Service prêt, mais DÉSACTIVÉ : rien ne change au démarrage tant qu'on ne bascule pas." 'Cyan'
 Say "Pour basculer : pwsh -File .\scripts\install-service.ps1 -Activer" 'DarkGray'
 Show-State
 exit 0
