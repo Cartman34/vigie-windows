@@ -19,13 +19,28 @@ if (-not $faits.Count) {
     return @{ message = "Rien à réparer : les tâches de démarrage de Vigie sont saines."
               result  = @{ ok = $true; invalidate = @('comptes.probe.ps1') } }
 }
-$ok = @($faits | Where-Object { $_.repare })
-$ko = @($faits | Where-Object { -not $_.repare })
+# TROIS SORTS, pas deux. Une tache peut etre reecrite sans que le defaut disparaisse :
+# un echec deja inscrit dans son historique ne s'efface qu'a sa prochaine execution,
+# c'est-a-dire a la prochaine ouverture de session du compte. Le dire, plutot que
+# d'annoncer « réparée » pendant que l'ecran affiche « hors service » juste a cote.
+$ok      = @($faits | Where-Object { $_.repare })
+$restant = @($faits | Where-Object { -not $_.repare -and $_.reste })
+$ko      = @($faits | Where-Object { -not $_.repare -and -not $_.reste })
+
 $detail = (($faits | ForEach-Object {
-    "{0} : {1} -> {2}" -f $_.tache, $_.mal, $(if ($_.repare) { 'réparée' } else { 'ÉCHEC : ' + $_.erreur })
+    $sort = if ($_.repare)  { 'réparée' }
+            elseif ($_.reste) { "réécrite, mais : " + $_.reste }
+            else            { 'ÉCHEC : ' + $_.erreur }
+    "{0} : {1} -> {2}" -f $_.tache, $_.mal, $sort
 }) -join [Environment]::NewLine)
 
+$morceaux = @()
+if ($ok.Count)      { $morceaux += ("{0} tâche(s) réparée(s)" -f $ok.Count) }
+if ($restant.Count) { $morceaux += ("{0} réécrite(s), à confirmer à la prochaine ouverture de session" -f $restant.Count) }
+if ($ko.Count)      { $morceaux += ("{0} en échec" -f $ko.Count) }
+if (-not $morceaux.Count) { $morceaux += "rien à signaler" }
+
 @{
-    message = ("{0} tâche(s) réparée(s)" -f $ok.Count) + $(if ($ko.Count) { ", {0} en échec" -f $ko.Count } else { '' }) + "."
+    message = (($morceaux -join ', ') + '.')
     result  = @{ ok = ($ko.Count -eq 0); detail = $detail; invalidate = @('comptes.probe.ps1') }
 }

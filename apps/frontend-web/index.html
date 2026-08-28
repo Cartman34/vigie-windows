@@ -1455,6 +1455,9 @@ async function synchroniserOperations(){
     const id = opsConnues[cle];
     const n = notifs.find(x => x.id === id);
     delete opsConnues[cle];
+    // La carte cesse d'etre occupee MEME si sa notification a ete perdue entre-temps :
+    // le lisere ne doit pas dependre d'un objet d'interface.
+    demarquerCarteEnCours(cle.split('|')[0]);
     if(!n) continue;
     const res = (etat.results || []).find(r => cleOperation(r) === cle);
     if(res){
@@ -1885,6 +1888,31 @@ function operationEnCours(){
   return { module: c.dataset.module, titre: (t ? t.textContent : c.dataset.module),
            ressources: (m && m.busyResources) || [] };
 }
+// FIN D'OPERATION : on eteint ce que marquerCarteEnCours avait allume.
+//
+// Le lisere bleu « operation en cours » restait allume apres la fin, alors que plus rien
+// ne tournait ; seul un rafraichissement complet le rendait a sa vraie couleur (signale
+// le 28/08). La liste des operations dit pourtant exactement quand ca s'arrete.
+function demarquerCarteEnCours(moduleId){
+  if(!moduleId) return;
+  const sel='.card[data-module="'+((window.CSS&&CSS.escape)?CSS.escape(moduleId):moduleId)+'"]';
+  const card=document.querySelector(sel);
+  const m=(lastModules||[]).find(x=>x.id===moduleId);
+  if(m){ m.busy=false; delete m.busyAction; delete m.busyResources; }
+  if(card){
+    card.classList.remove('busy');
+    // Les boutons de la carte redeviennent ce que le rendu dit d'eux : c'est le verrou,
+    // juste apres, qui tranche s'ils restent bloques par une AUTRE operation.
+    card.querySelectorAll('.act, .fsolve').forEach(b=>{
+      if(b.dataset.verrou) return;          // bloque par le verrou : il s'en occupe
+      if(b.classList.contains('denied')) return;   // interdit par les droits (D65)
+      b.disabled=false;
+      b.classList.remove('busy');
+    });
+  }
+  appliquerVerrouOperations();
+}
+
 function appliquerVerrouOperations(){
   const op = operationEnCours();
   const raison = op
