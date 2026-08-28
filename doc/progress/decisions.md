@@ -26,7 +26,7 @@ ligne — `scripts/dev/check-doc.ps1` refuse une décision absente d'ici.
 - **Documentation** — D91 · D92 · D93 · D98
 - **Configuration** — D15 · D18 · D56 · D57
 - **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46 · D48 · D49 · D50 · D58 · D59 · D66 · D68 · D69 · D70 · D71 · D88 · D89 · D94 · D95 · D102 · D105
-- **Installation, déploiement et mise à jour** — D07 · D11 · D22 · D77 · D78 · D79 · D81 · D84 · D87 · D96 · D97 · D99 · D101
+- **Installation, déploiement et mise à jour** — D07 · D11 · D22 · D77 · D78 · D79 · D81 · D84 · D87 · D96 · D97 · D99 · D101 · D106 · D107
 - **Sécurité, droits et multi-comptes** — D34 · D65 · D67 · D73 · D104
 - **Sondes, actions et tâches de fond** — D50bis · D53 · D54 · D60 · D61 · D80 · D82 · D83 · D85
 - **Outillage** — D06 · D21 · D24 · D40 · D44 · D47 · D52 · D64 · D75 · D86 · D90
@@ -2745,3 +2745,48 @@ faux, et c'est pourtant l'état normal : le bouton reste là même quand tout va
 **Trois états, trois traitements**, et c'est la vraie règle derrière tout ça : *hors service* (rouge, avec le bouton),
 *à confirmer* (ambre, **sans** bouton, parce qu'il n'y a rien à faire), *opérationnel* (vert). Proposer une action pour
 un problème qu'aucune action ne résout est une promesse qu'on ne tient pas.
+
+## D106 — Une action privilégiée laisse une trace que Vigie ne peut pas effacer (2026-08-28)
+
+*Demandée par l'utilisateur.*
+
+« Il ne peut pas faire une action admin sans qu'elle ne soit loguée de notre côté et si possible dans le journal
+système. On doit toujours pouvoir retrouver et justifier une action de Vigie. »
+
+Vigie écrivait déjà dans ses propres journaux — des fichiers, que Vigie peut supprimer. Ça suffit pour dépanner, pas
+pour rendre des comptes.
+
+Chaque action écrit désormais **deux fois** : dans le journal de Vigie pour le détail, et dans le **journal des
+événements Windows** (source `Vigie`, log `Application`) pour la trace opposable — là où un administrateur va déjà
+chercher, et d'où Vigie ne peut rien retirer. Chaque entrée porte le **compte demandeur**, l'action, ses droits, la
+durée et le résultat.
+
+**Trois issues sont tracées, pas une** : réussie (1000), refusée (1001), échec (1002). Le refus compte autant que la
+réussite — c'est même lui qu'on relit après un incident. Et un échec **poli** (`ok = false` sans exception) est tracé
+comme un échec : se fier au seul `try/catch` les laisserait tous passer.
+
+Deux garde-fous : le journal ne peut **jamais** faire échouer une action — un journal indisponible est un problème de
+journal, et il se dit dans celui de Vigie ; et `Get-ActionRequester` est isolée dès maintenant, pour que le jour où le
+serveur servira plusieurs comptes, **cette seule fonction** change.
+
+## D107 — La machine déclare son environnement, Vigie signale les écarts (2026-08-28)
+
+*Demandée par l'utilisateur.*
+
+« Pour moi, y'a un environnement de dev et une prod en local. Par défaut, c'est la prod mais moi comme toi, on peut
+changer ça. Attention aux tâches prod qui seraient encore lancées alors que le serveur est en env dev. »
+
+Le dépôt et l'installation partagée coexistent sur un poste de développement. Ne pas savoir laquelle répond fait perdre
+une heure sur un correctif déployé au mauvais endroit — et le cas existait déjà ici : `fhaza` lançait le dépôt pendant
+que `Famille` lançait l'installation partagée. Personne ne le voyait.
+
+Deux notions, jamais confondues : l'environnement **déclaré** (réglage `Environment`, `prod` par défaut — une machine
+est en production tant qu'on n'a pas dit l'inverse) et l'environnement **observé** (d'où vient le code qui tourne, lu
+sur le chemin). La carte Déploiement affiche le second et signale tout écart.
+
+**L'écart se mesure contre la déclaration**, pas contre ce qui tourne : sinon un serveur lancé au mauvais endroit
+rendrait toutes les tâches fautives, et déclarer une intention ne servirait à rien.
+
+Et il se **répare** : c'est un défaut structurel au sens de **D105**, donc `Set-VigieAccountEnabled` écrit le chemin qui
+suit l'environnement déclaré. Sans ça, activer un compte en mode `dev` aurait posé une tâche vers la production — et
+Vigie aurait signalé l'écart qu'elle venait de créer elle-même.
