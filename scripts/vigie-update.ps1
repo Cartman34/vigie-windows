@@ -76,7 +76,9 @@ if (-not $PSBoundParameters.ContainsKey('Source')) {
         $choix = "$($cfg.UpdateSource)".Trim()
         if ($choix -and @('auto','local','release','clone') -contains $choix) {
             $Source = $choix
-            Write-Host ("Source imposee par la configuration : " + $choix)
+            # On n'annonce que ce qui CHANGE quelque chose : « auto » est le defaut, il
+            # n'impose rien, et l'annoncer laisse croire a un reglage particulier.
+            if ($choix -ne 'auto') { Write-Host ("Source imposee par la configuration : " + $choix) }
         }
         if (-not $Ref -and "$($cfg.UpdateRef)".Trim()) { $Ref = "$($cfg.UpdateRef)".Trim() }
     } catch { }

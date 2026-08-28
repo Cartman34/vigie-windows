@@ -157,13 +157,29 @@ if (-not $eleve) {
 # TACHES MALADES : une tache qui vise un interpreteur ou une application disparus se
 # lance et meurt en silence. La sonde ne repare RIEN (lecture seule) : elle constate, et
 # porte le bouton qui repare (D66).
-$malades = @($comptes | Where-Object { $_.taskAilment })
+# HORS SERVICE et EN ATTENTE ne se disent pas de la meme facon. Une tache dont la
+# structure est saine mais dont le dernier lancement a echoue n'est pas cassee : elle se
+# confirmera au prochain demarrage du compte. L'annoncer en rouge etait excessif, et
+# poussait a « reparer » ce qui n'avait rien a reparer.
+$malades  = @($comptes | Where-Object { $_.taskAilment })
+$enAttente = @($comptes | Where-Object { -not $_.taskAilment -and $_.taskPending })
 if ($malades.Count) {
     $depl += New-Field -Key 'taches' -Label 'Démarrage automatique' `
         -Value ($malades.Count.ToString() + " tâche(s) hors service") -Kind 'text' -Status 'error' `
         -FixAction 'repair-tasks' `
         -Help "Une tâche de démarrage de Vigie ne peut plus lancer l'application : elle démarre et meurt aussitôt, sans message. Vigie ne se lancera pas à l'ouverture de session." `
         -Guide (($malades | ForEach-Object { $_.name + " : " + $_.taskAilment }) -join [Environment]::NewLine)
+} elseif ($enAttente.Count) {
+    # Pas de bouton : il n'y a rien a reparer. Seule la prochaine ouverture de session
+    # du compte dira si le probleme est derriere nous.
+    $depl += New-Field -Key 'taches' -Label 'Démarrage automatique' `
+        -Value ($enAttente.Count.ToString() + " tâche(s) à confirmer") -Kind 'text' -Status 'warn' `
+        -Help "La tâche est correctement installée, mais son dernier lancement s'est mal passé — ou elle n'a jamais tourné. Rien à réparer : c'est la prochaine ouverture de session de ce compte qui le dira." `
+        -Guide (($enAttente | ForEach-Object { $_.name + " : " + $_.taskPending }) -join [Environment]::NewLine)
+} else {
+    $depl += New-Field -Key 'taches' -Label 'Démarrage automatique' `
+        -Value 'Opérationnel' -Kind 'text' -Status 'ok' `
+        -Help "Chaque compte qui a Vigie porte une tâche de démarrage saine."
 }
 
 # LE SORT DE LA DERNIERE OPERATION lancee depuis cette carte (D82). Une ligne verte
