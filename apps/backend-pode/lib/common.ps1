@@ -3377,10 +3377,10 @@ function Test-VigieTaskHealthy {
 function Get-VigieTaskAilment {
     param([Parameter(Mandatory)]$Task)
     $a = @($Task.Actions)[0]
-    if (-not $a) { return "la tache ne lance rien" }
+    if (-not $a) { return "la tâche ne lance rien" }
     $exe = "$($a.Execute)".Trim('"')
-    if (-not $exe) { return "aucun interpreteur" }
-    if (-not (Test-Path -LiteralPath $exe)) { return "l'interpreteur n'existe plus : $exe" }
+    if (-not $exe) { return "aucun interpréteur" }
+    if (-not (Test-Path -LiteralPath $exe)) { return "l'interpréteur n'existe plus : $exe" }
     # EXISTER NE SUFFIT PAS. Deux chemins sont valides a l'oeil et pourtant inutilisables :
     #   - un paquet MSIX (C:\Program Files\WindowsApps\...) n'est lancable que par les comptes
     #     pour lesquels il est ENREGISTRE, et son dossier reste sur le disque apres
@@ -3391,13 +3391,13 @@ function Get-VigieTaskAilment {
     $dossierProfils = Join-Path $env:SystemDrive 'Users'
     $dossierMsix    = Join-Path $env:ProgramFiles 'WindowsApps'
     if ($exe.StartsWith($dossierMsix, [StringComparison]::OrdinalIgnoreCase)) {
-        return "interpreteur MSIX, enregistre par compte : $exe"
+        return "interpréteur MSIX, enregistré par compte : $exe"
     }
     if ($exe.StartsWith($dossierProfils, [StringComparison]::OrdinalIgnoreCase)) {
-        return "interpreteur dans un profil, illisible par les autres comptes : $exe"
+        return "interpréteur dans un profil, illisible par les autres comptes : $exe"
     }
     if ("$($a.Arguments)" -match '-File\s+"([^"]+)"') {
-        if (-not (Test-Path -LiteralPath $Matches[1])) { return ("l'application n'est plus la : " + $Matches[1]) }
+        if (-not (Test-Path -LiteralPath $Matches[1])) { return ("l'application n'est plus là : " + $Matches[1]) }
     }
 
     # UNE TACHE SAINE SUR LE PAPIER PEUT N'AVOIR JAMAIS TOURNE.
@@ -3408,16 +3408,16 @@ function Get-VigieTaskAilment {
     # 28/08 : tache presente, session ouverte, aucun journal nulle part.
     $info = $null
     try { $info = $Task | Get-ScheduledTaskInfo -ErrorAction Stop } catch { }
-    if ($Task.State -eq 'Disabled') { return "la tache est desactivee dans Windows" }
+    if ($Task.State -eq 'Disabled') { return "la tâche est désactivée dans Windows" }
     if ($info) {
         $code = [int]$info.LastTaskResult
         # Les codes qui ne sont PAS des echecs : 0 succes ; 0x00041301 en cours ;
         # 0x00041302 terminaison demandee ; 0x00041303 jamais lancee (traite juste apres).
         $benins = @(0, 267009, 267010, 267011)
         $jamais = (-not $info.LastRunTime) -or ($info.LastRunTime.Year -lt 2000) -or ($code -eq 267011)
-        if ($jamais) { return "la tache n'a jamais ete executee" }
+        if ($jamais) { return "la tâche n'a jamais été exécutée" }
         if ($benins -notcontains $code) {
-            return ("la derniere execution a echoue (code 0x" + $code.ToString('X8') + ", le " +
+            return ("la dernière exécution a échoué (code 0x" + $code.ToString('X8') + ", le " +
                     $info.LastRunTime.ToString('dd/MM/yyyy HH:mm') + ")")
         }
     }
@@ -3457,8 +3457,20 @@ function Repair-VigieTasks {
                 # entierement (interpreteur machine, installation partagee, niveau).
                 $null = Set-VigieAccountEnabled -Name $compte -Enabled $true -Backend $Backend
             }
-            $faits += [pscustomobject]@{ tache = $nom; mal = $mal; repare = $true }
-            Write-Log -Backend $Backend -Name 'comptes' -Message ("tache " + $nom + " reparee (" + $mal + ")")
+            # ON CONSTATE (D43). Reecrire la tache ne guerit pas tout : un ECHEC PASSE
+            # reste inscrit dans son historique tant qu'elle n'a pas retourne au travail,
+            # c'est-a-dire tant que ce compte n'a pas rouvert de session. Annoncer
+            # « reparee » dans ce cas serait un faux succes -- et l'ecran continuerait a
+            # afficher « hors service » juste a cote, en se contredisant (vu le 28/08).
+            $apres = $null
+            try { $apres = Get-VigieTaskAilment -Task (Get-ScheduledTask -TaskName $nom -ErrorAction Stop) } catch { }
+            if ($apres) {
+                $faits += [pscustomobject]@{ tache = $nom; mal = $mal; repare = $false; reste = $apres }
+                Write-Log -Backend $Backend -Name 'comptes' -Message ("tache " + $nom + " reecrite, mais : " + $apres)
+            } else {
+                $faits += [pscustomobject]@{ tache = $nom; mal = $mal; repare = $true }
+                Write-Log -Backend $Backend -Name 'comptes' -Message ("tache " + $nom + " reparee (" + $mal + ")")
+            }
         } catch {
             $faits += [pscustomobject]@{ tache = $nom; mal = $mal; repare = $false; erreur = "$($_.Exception.Message)" }
             Write-Log -Backend $Backend -Name 'comptes' -Level 'ERROR' `
