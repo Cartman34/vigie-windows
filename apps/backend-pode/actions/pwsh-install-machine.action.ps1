@@ -1,4 +1,4 @@
-# @droits: admin   -- installe un logiciel pour toute la machine : Windows exige l'elevation (D65)
+﻿# @droits: admin   -- installe un logiciel pour toute la machine : Windows exige l'elevation (D65)
 # @libelle: Installer PowerShell 7 pour la machine | confirm | fix   -- affiche quand un champ cite cette action (D66)
 <# Action : installe PowerShell 7 pour TOUTE LA MACHINE (winget, portee machine).
 

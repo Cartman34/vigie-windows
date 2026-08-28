@@ -266,7 +266,7 @@ foreach ($f in $sondes) {
 try {
     ($record | ConvertTo-Json -Depth 12) | Set-Content -LiteralPath $recordFile -Encoding UTF8
 } catch {
-    Write-Info "Note : l enregistrement des contrats n a pas pu etre ecrit -- la prochaine passe reexecutera tout."
+    Write-Info "Note : l'enregistrement des contrats n'a pas pu être écrit -- la prochaine passe réexécutera tout."
 }
 
 # --- Garde-fou : LES LIBELLES VISIBLES PORTENT LEURS ACCENTS ------------------
@@ -401,8 +401,8 @@ $lignes | ForEach-Object { Write-Host $_ }
 Write-Host ''
 Write-Info ("{0} sonde(s) executee(s), {1} verifiee(s) sur enregistrement, {2} module(s) au total." -f $executees, $surEnregistrement, $modules)
 if ($surEnregistrement -gt 0) {
-    Write-Detail "Une sonde verifiee sur enregistrement n a PAS ete reexecutee : son fichier est inchange depuis."
-    Write-Detail "Passe complete avant livraison : -All"
+    Write-Detail "Une sonde vérifiée sur enregistrement n'a PAS été reexecutée : son fichier est inchangé depuis."
+    Write-Detail "Passe complète avant livraison : -All"
 }
 
 if ($manquements.Count -eq 0) {

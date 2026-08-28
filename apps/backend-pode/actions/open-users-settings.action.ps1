@@ -1,4 +1,4 @@
-# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+﻿# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 # @libelle: Gerer les comptes | dialog | info   -- affiche quand un champ cite cette action (D66)
 <# Action : ouvre Parametres > Utilisateurs.
 

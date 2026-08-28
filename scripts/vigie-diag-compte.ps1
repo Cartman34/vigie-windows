@@ -1,4 +1,4 @@
-<#
+﻿<#
     vigie-diag-compte.ps1 - Relit les journaux de Vigie d'un AUTRE compte, pour depannage.
 
     Il ne lit rien lui-meme : il demande a VIGIE de le faire (le serveur tourne deja eleve

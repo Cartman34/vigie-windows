@@ -1,4 +1,4 @@
-<#
+﻿<#
     Sonde : Antivirus. LECTURE SEULE. Lit le Centre de sécurité Windows
     (root/SecurityCenter2) pour refleter l'antivirus REELLEMENT actif
     (Avast, Defender, etc.), pas seulement Defender.

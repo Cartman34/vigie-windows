@@ -1,4 +1,4 @@
-# @droits: admin   -- modifie le systeme : Windows exige l'elevation (D65)
+﻿# @droits: admin   -- modifie le systeme : Windows exige l'elevation (D65)
 # @libelle: Verrouiller maintenant | immediate | fix   -- affiche quand un champ cite cette action (D66)
 <# Action update-mode-off : RE-VERROUILLE (coupe les MAJ auto + pose le verrou ACL).
 

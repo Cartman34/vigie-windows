@@ -1,4 +1,4 @@
-# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+﻿# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 <# Action run-audit : audit complet de la machinerie Windows Update. LECTURE SEULE.
 
    Capacite NATIVE du produit (Invoke-UpdateAudit, lib/common.ps1) : un outil de

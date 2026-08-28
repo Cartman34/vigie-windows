@@ -1,4 +1,4 @@
-# @droits: admin   -- lit dans le profil des autres comptes : Windows exige l'elevation (D65)
+﻿# @droits: admin   -- lit dans le profil des autres comptes : Windows exige l'elevation (D65)
 # @libelle: Details des comptes | immediate | info   -- affiche quand un champ cite cette action (D66)
 <# Action : le detail des comptes de la machine.
 

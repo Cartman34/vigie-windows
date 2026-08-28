@@ -1,4 +1,4 @@
-<# Sonde : pare-feu Windows (profils actifs). LECTURE SEULE, rapide. #>
+﻿<# Sonde : pare-feu Windows (profils actifs). LECTURE SEULE, rapide. #>
 $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $backend 'lib/common.ps1')
 

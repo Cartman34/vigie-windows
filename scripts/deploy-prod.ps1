@@ -99,7 +99,7 @@ if (-not $Zip) {
     if ($tag) { & pwsh -NoProfile -File $build -Version $tag | Write-Host }
     else      { & pwsh -NoProfile -File $build | Write-Host }
     if ($LASTEXITCODE -ne 0) {
-        Write-Fail "La fabrication de l'archive a echoue : deploiement abandonne."
+        Write-Fail "La fabrication de l'archive a échoué : déploiement abandonne."
         exit 1
     }
     $dist = Join-Path $repoRoot 'dist'
@@ -158,7 +158,7 @@ try {
         Get-ChildItem -Path $garde -File | ForEach-Object {
             Copy-Item -LiteralPath $_.FullName -Destination $cfgDest -Force
         }
-        Write-Info "Reglages de la machine conserves."
+        Write-Info "Réglages de la machine conserves."
     }
 } finally {
     Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue
@@ -180,7 +180,7 @@ if (-not (Test-Path -LiteralPath $outilComptes)) { $outilComptes = Join-Path $PS
 # prepare les AUTRES comptes : on le dit ici, fort, plutot qu'apres coup.
 if (-not (Get-SharedPwshPath)) {
     Write-Warn "ATTENTION : PowerShell 7 n'est installe que pour le compte courant."
-    Write-Warn "Les autres comptes ne pourront pas demarrer Vigie. A faire une fois, en administrateur :"
+    Write-Warn "Les autres comptes ne pourront pas démarrer Vigie. A faire une fois, en administrateur :"
     Write-Info "  winget install --id Microsoft.PowerShell --scope machine"
 }
 
@@ -188,5 +188,5 @@ if (-not (Get-SharedPwshPath)) {
 Write-Info "Pour changer a tout moment :"
 Write-Info ("  pwsh -File " + $outilComptes + " -Activer <compte>")
 Write-Info ("  pwsh -File " + $outilComptes + " -Retirer <compte>")
-Write-Info "Ou dans l'application : Parametres > Utilisateurs."
+Write-Info "Ou dans l'application : Paramètres > Utilisateurs."
 exit 0

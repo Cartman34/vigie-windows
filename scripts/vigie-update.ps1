@@ -105,7 +105,7 @@ if ($voie -ne 'local') {
     if ($PreVersions) { $argv += '-PreVersions' }
     if ($Force)       { $argv += '-Force' }
 
-    Write-Info "Recuperation..."
+    Write-Info "Récupération..."
     # La sortie est LUE : la derniere ligne porte le chemin de l'archive. Tout le reste
     # est du recit, qu'on repete a l'ecran pour que le journal en garde la trace.
     $lignes = & $pwsh @argv 2>&1
@@ -113,7 +113,7 @@ if ($voie -ne 'local') {
     foreach ($l in $lignes) { Write-Host $l }
 
     if ($codeFetch -eq 3) {
-        Write-Ok "Rien a faire : Vigie est deja a jour. Elle n'a pas ete redemarree."
+        Write-Ok "Rien a faire : Vigie est déjà a jour. Elle n'a pas été redemarrée."
         exit 3
     }
     if ($codeFetch -ne 0) {
@@ -124,7 +124,7 @@ if ($voie -ne 'local') {
     $archive = "$archive".Trim()
     if (-not $archive -or -not (Test-Path -LiteralPath $archive)) {
         Write-Fail ("La recuperation dit avoir reussi, mais l'archive annoncee est introuvable : " + $archive)
-        Write-Fail "RIEN n'a ete deploye."
+        Write-Fail "RIEN n'a été deploye."
         exit 1
     }
 }
@@ -139,11 +139,11 @@ $argv = @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File'
 if ($archive)     { $argv += @('-Zip', ('"' + $archive + '"')) }
 if ($Destination) { $argv += @('-Destination', ('"' + $Destination + '"')) }
 
-Write-Info "Deploiement..."
+Write-Info "Déploiement..."
 $p = Start-Process -FilePath $pwsh -ArgumentList $argv -Wait -PassThru -WindowStyle Hidden
 Write-Info ("deploy-prod a rendu le code " + $p.ExitCode + ".")
 if ($p.ExitCode -ne 0) {
-    Write-Fail "Le deploiement a echoue : Vigie n'est PAS relancee, l'ancienne version continue de tourner."
+    Write-Fail "Le déploiement a échoué : Vigie n'est PAS relancée, l'ancienne version continue de tourner."
     exit 1
 }
 
@@ -151,7 +151,7 @@ if ($p.ExitCode -ne 0) {
 # Le tray relance le serveur AVEC lui (D78) : c'est ce qui charge le nouveau code.
 $tray = Join-Path $PSScriptRoot 'tray.ps1'
 if (-not (Test-Path -LiteralPath $tray)) {
-    Write-Warn "Le deploiement est fait, mais tray.ps1 est introuvable : relancez Vigie a la main."
+    Write-Warn "Le déploiement est fait, mais tray.ps1 est introuvable : relancez Vigie a la main."
     exit 2
 }
 Write-Info "Relance de Vigie..."
@@ -160,7 +160,7 @@ $r = Start-Process -FilePath $pwsh -ArgumentList @('-NoProfile', '-ExecutionPoli
                    -Wait -PassThru -WindowStyle Hidden
 Write-Info ("La relance a rendu le code " + $r.ExitCode + ".")
 if ($r.ExitCode -ne 0) {
-    Write-Warn "Le deploiement est fait, mais la relance n'a pas abouti : relancez Vigie a la main."
+    Write-Warn "Le déploiement est fait, mais la relance n'a pas abouti : relancez Vigie a la main."
     exit 2
 }
 

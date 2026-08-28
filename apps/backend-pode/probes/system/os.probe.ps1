@@ -1,4 +1,4 @@
-<# Sonde : Windows (edition / activation / build / redemarrage en attente). LECTURE SEULE, rapide. #>
+﻿<# Sonde : Windows (edition / activation / build / redemarrage en attente). LECTURE SEULE, rapide. #>
 $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $backend 'lib/common.ps1')
 $os = Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue
