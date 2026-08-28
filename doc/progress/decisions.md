@@ -26,7 +26,7 @@ ligne — `scripts/dev/check-doc.ps1` refuse une décision absente d'ici.
 - **Documentation** — D91 · D92 · D93 · D98
 - **Configuration** — D15 · D18 · D56 · D57
 - **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46 · D48 · D49 · D50 · D58 · D59 · D66 · D68 · D69 · D70 · D71 · D88 · D89 · D94 · D95
-- **Installation, déploiement et mise à jour** — D07 · D11 · D22 · D77 · D78 · D79 · D81 · D84 · D87 · D96 · D97 · D99
+- **Installation, déploiement et mise à jour** — D07 · D11 · D22 · D77 · D78 · D79 · D81 · D84 · D87 · D96 · D97 · D99 · D101
 - **Sécurité, droits et multi-comptes** — D34 · D65 · D67 · D73
 - **Sondes, actions et tâches de fond** — D50bis · D53 · D54 · D60 · D61 · D80 · D82 · D83 · D85
 - **Outillage** — D06 · D21 · D24 · D40 · D44 · D47 · D52 · D64 · D75 · D86 · D90
@@ -2623,3 +2623,26 @@ son geste, pas celui d'un script, et le script se contente de le rappeler quand 
 
 Ces dépendances sont **de développement** : rien n'est nécessaire pour se servir de Vigie, rien ne part dans l'archive.
 Ce dont l'application a besoin reste l'affaire de `scripts/install.ps1`.
+
+## D101 — Program Files est en lecture seule ; chaque compte écrit chez lui (2026-08-28)
+
+*Demandée par l'utilisateur.*
+
+« Rien ne doit être écrit dans Program Files, on doit considérer ce dossier comme read only, on a défini que chaque
+compte écrivait dans son dossier. »
+
+**D97** avait posé la règle pour le serveur — `Get-VarRoot` renvoie toujours `%LOCALAPPDATA%\Sowapps\Vigie` quand le
+programme vit sous Program Files. Le tray, lui, ne passait pas par là : il calculait `$PSScriptRoot/var/log` à la main.
+
+Sur le compte administrateur, la tâche tourne élevée, le dossier se crée dans Program Files, tout marche. Sur un compte
+**standard**, Windows refuse l'écriture, `New-Item` lève, `$ErrorActionPreference` vaut `Stop` — et le script meurt à sa
+deuxième ligne utile, **avant que la fonction de journal n'existe**. Code de retour 1, aucune trace nulle part. C'est
+la panne exacte de « Famille » : tâche présente et bien formée, session ouverte, et rien.
+
+Trois chemins étaient dans ce cas (journal, cache d'état, dossier d'ordres du tray), plus un quatrième, plus sournois :
+`scripts/tray.ps1`, qui **émet** les ordres, cherchait le battement de cœur à côté du programme pendant que le tray
+l'écrivait dans le profil. Sur une installation partagée, les deux ne se seraient jamais rencontrés.
+
+Tous passent désormais par `Get-VarPath`, et **un garde-fou de `check-probes.ps1` refuse tout chemin de données
+assemblé à la main** hors de `common.ps1` — vérifié en lui tendant un piège, qu'il attrape. Une règle qui ne se
+contrôle pas se re-brise : celle-ci avait déjà été posée une fois.
