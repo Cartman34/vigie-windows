@@ -332,6 +332,16 @@ Add-PodeRoute -Method Get -Path '/' -ScriptBlock {
     $html  = $html.Replace('__API_TOKEN__', $env:VIGIE_TOKEN)
     $html  = $html.Replace('__APP_VERSION__', (Get-AppVersion -Backend $env:VIGIE_BACKEND))
     $html  = $html.Replace('__APP_BUILD__',   (Get-AppBuildId -Backend $env:VIGIE_BACKEND))
+
+    # LES LIBELLES VOYAGENT AVEC LA PAGE, comme le jeton. L'autre solution -- un fetch au
+    # demarrage -- ajoute un aller-retour ET une course : le premier rendu peut arriver
+    # avant les libelles, et l'ecran clignote en « [?...] ». Injectes ici, ils sont la
+    # avant la premiere ligne de script.
+    $labelFile = Join-Path (Split-Path (Split-Path $front -Parent) -Parent) 'lang/fr.json'
+    $labelJson = if (Test-Path -LiteralPath $labelFile) {
+        [System.IO.File]::ReadAllText($labelFile, (New-Object System.Text.UTF8Encoding($false)))
+    } else { '{}' }
+    $html  = $html.Replace('__LABELS_JSON__', $labelJson)
     Write-PodeTextResponse -Value $html -ContentType 'text/html; charset=utf-8'
 }
 Add-PodeStaticRoute -Path '/mock' -Source (Join-Path $front 'mock')
