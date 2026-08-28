@@ -252,6 +252,19 @@ Aucune étape ne commence avant que la précédente ait tourné sur cette machin
 
 ## Ce qui a été tranché
 
+### Où vit le serveur — **toujours dans l'installation partagée**
+
+> « dev ou prod, c'est juste la source qui change mais le serveur est dans Program Files. »
+
+`C:\Program Files\Sowapps\Vigie`, quel que soit l'environnement déclaré. C'est la seule position tenable pour un
+service de machine : un serveur qui vivrait dans l'espace de travail d'un utilisateur serait **illisible par les autres
+comptes** — exactement le piège où « Famille » est tombée le 28/08, avec un code de retour `0x40` et aucun journal —
+et il disparaîtrait le jour où ce dossier bouge.
+
+**L'environnement déclaré ne dit donc pas OÙ le serveur tourne, mais D'OÙ vient ce qu'on y déploie** : le dépôt local
+en `dev`, une version publiée en `prod`. La distinction paraît mince ; elle change tout. Elle supprime la question de
+la lisibilité par compte : tout le monde lit la même copie, celle que Windows rend lisible à tous par défaut.
+
 ### Sous quelle identité tourne le serveur — **un compte administrateur dédié**
 
 Pas `SYSTEM`. C'est la bonne pratique, et elle borne ce qu'un serveur compromis pourrait faire : le compte reçoit ce
