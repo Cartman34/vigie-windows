@@ -25,7 +25,7 @@ ligne — `scripts/dev/check-doc.ps1` refuse une décision absente d'ici.
 - **Structure du dépôt** — D29 · D32 · D33 · D35 · D55
 - **Documentation** — D91 · D92 · D93 · D98
 - **Configuration** — D15 · D18 · D56 · D57
-- **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46 · D48 · D49 · D50 · D58 · D59 · D66 · D68 · D69 · D70 · D71 · D88 · D89 · D94 · D95 · D102
+- **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46 · D48 · D49 · D50 · D58 · D59 · D66 · D68 · D69 · D70 · D71 · D88 · D89 · D94 · D95 · D102 · D105
 - **Installation, déploiement et mise à jour** — D07 · D11 · D22 · D77 · D78 · D79 · D81 · D84 · D87 · D96 · D97 · D99 · D101
 - **Sécurité, droits et multi-comptes** — D34 · D65 · D67 · D73 · D104
 - **Sondes, actions et tâches de fond** — D50bis · D53 · D54 · D60 · D61 · D80 · D82 · D83 · D85
@@ -2722,3 +2722,26 @@ expliquait tout.
 **Ce n'est pas seulement une discipline de travail** : ce que l'agent ne peut pas voir depuis sa session, l'utilisateur
 ne le voit pas non plus depuis la sienne. Chaque fois que le diagnostic s'enrichit pour l'un, il s'enrichit pour
 l'autre.
+
+## D105 — Un défaut se dit selon ce qu'on peut y faire (2026-08-28)
+
+*Demandée par l'utilisateur.*
+
+« Je ne comprends pas pourquoi y'a une tâche à confirmer alors que l'install se fait tout seul. Le libellé "Réparer"
+quand rien ne semble cassé est étrange. Tu n'es pas allé jusqu'au bout ? »
+
+Il n'était pas allé au bout, en effet. Le diagnostic distinguait bien la **structure** (réparable tout de suite) de
+l'**histoire** (qui ne se confirme qu'au prochain démarrage), mais il s'arrêtait là — et demandait à l'utilisateur de
+confirmer l'échec d'un programme **qui n'existe plus**, remplacé par un déploiement fait entre-temps.
+
+**Un échec plus vieux que le code installé ne se signale plus.** On compare la date de l'échec à celle du fichier que
+la tâche lance : si l'application a changé depuis, le déploiement a déjà répondu, et il n'y a rien à confirmer. La
+carte affiche « Opérationnel » — ce qui est vrai.
+
+**Le libellé dit ce que le bouton fait à coup sûr, pas ce qu'il fait parfois.** « Réparer » sur une carte saine sonne
+faux, et c'est pourtant l'état normal : le bouton reste là même quand tout va bien (**D59**, **D66**). Il s'appelle
+« Vérifier le démarrage de Vigie » : il vérifie, puis répare ce qui doit l'être.
+
+**Trois états, trois traitements**, et c'est la vraie règle derrière tout ça : *hors service* (rouge, avec le bouton),
+*à confirmer* (ambre, **sans** bouton, parce qu'il n'y a rien à faire), *opérationnel* (vert). Proposer une action pour
+un problème qu'aucune action ne résout est une promesse qu'on ne tient pas.

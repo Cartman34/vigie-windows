@@ -97,6 +97,23 @@ plus tard sans rien casser ; une declaration, elle, cree la dette.
 - **Correction au fil de l'eau** : on remet aux 200 les fichiers qu'on touche deja pour une autre raison. Pas de passe
   globale de reformatage, qui noierait l'historique sous du bruit.
 
+## Trois pieges verifies, et leur parade
+
+Chacun a coute une demi-journee. Ils ne se voient pas a la relecture : ils se voient en
+production, tard.
+
+- **Un cache ne porte JAMAIS un etat qui doit etre lu maintenant.** La liste des comptes
+  est chere a etablir : elle se met en cache. L'etat de leur tache de demarrage est bon
+  marche a lire, et il change : il se relit a chaque appel. Un cache qui ment ne ment
+  jamais sur ce qui est sans consequence.
+- **Ecrire une propriete absente LEVE.** Un objet rendu par `ConvertFrom-Json` a une forme
+  figee ; lui ajouter un champ echoue, et la valeur perimee reste. Quand ce JSON vient
+  d'un cache ecrit par une version anterieure, tout ajout de champ casse en silence.
+  Parade : `Set-ObjectProperty` (`lib/common.ps1`), qui cree la propriete si elle manque.
+- **On constate APRES, pas dans la foulee.** Windows rend l'ancien etat d'une tache
+  pendant un court instant apres sa reecriture. Une verification immediate declarait donc
+  l'echec d'une reparation reussie. Laisser passer un souffle avant de croire ce qu'on lit.
+
 ## Documentation (regle absolue)
 - **Tout se documente** : chaque convention (ici), chaque techno
   (`technologies.md`), chaque fonctionnalite + son usage
