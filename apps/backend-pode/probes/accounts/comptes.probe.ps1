@@ -177,10 +177,14 @@ foreach ($c in $comptes) {
         $t = Get-ScheduledTask -TaskName $c.task -ErrorAction Stop
         $args = "$(@($t.Actions)[0].Arguments)"
         if ($args -match '-File\s+"([^"]+)"') {
+            # Comparee a l'environnement DECLARE, pas a celui qui tourne : la declaration
+            # est l'intention, et c'est elle qui fait autorite. Sinon, un serveur lance au
+            # mauvais endroit rendrait toutes les taches « fautives ».
             $taskEnv = Get-PathEnvironment -Path $Matches[1]
-            if ($taskEnv -ne $running) {
+            if ($taskEnv -ne $declared) {
                 $envIssues += ($c.name + " démarre depuis « " + (Get-EnvironmentLabel -Environment $taskEnv) +
-                               " » alors que Vigie tourne depuis l'autre")
+                               " » alors que la machine se déclare en « " +
+                               (Get-EnvironmentLabel -Environment $declared) + " »")
             }
         }
     } catch { }
