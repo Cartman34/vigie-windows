@@ -292,6 +292,8 @@
   "start.ui": "UI  : {0}",
   "state-refresh.rafraichissement-de-fond": "rafraichissement de fond : {0}",
   "state-refresh.rafraichissement-de-fond-termine": "rafraichissement de fond termine ({0} ms)",
+  "tray.infobulle": "Vigie ({0})",
+  "tray.infobulle-etat": "Vigie ({0}) - {1}",
   "tray.la-relance-peut-etre": "La relance a peut-être échoué : vérifie apps/tray/var/log/.",
   "tray.la-tache-de-demarrage": "La tâche de démarrage n'a pas pu être lancée : {0}",
   "tray.le-tray-pas-donne": "Le tray n'a pas donne signe de vie dans le délai imparti.",

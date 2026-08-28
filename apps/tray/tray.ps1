@@ -304,8 +304,13 @@ public static bool Focus(System.IntPtr h) {
         $openBrowser = { & $openUrl $url }
         $openRepo    = { & $openUrl $repoUrl }
 
+        # LE COMPTE EST DANS L'INFOBULLE. Il y a une icone par compte ouvert, et elles
+        # disaient toutes « Vigie - <etat> » : impossible de savoir laquelle appartient a
+        # qui. Sur une machine familiale, c'est la premiere question qu'on se pose, et
+        # c'est indispensable pour deboguer un compte depuis la session d'un autre.
+        $trayAccount = $env:USERNAME
         $icon = New-Object System.Windows.Forms.NotifyIcon
-        $icon.Text = 'Vigie'
+        $icon.Text = (Get-Label 'tray.infobulle' $trayAccount)
 
         $setIcon = {
             param($status)
@@ -563,7 +568,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
             # Retour visuel immediat : sans cela l'icone garde son etat jusqu'au prochain
             # sondage (8 s) et l'utilisateur voit un rouge qui n'a pas lieu d'etre.
             & $setIcon 'warn'; $state.Drawn = 'warn'
-            $icon.Text = 'Vigie - Démarrage…'; $miInfo.Text = 'État : Démarrage…'
+            $icon.Text = (Get-Label 'tray.infobulle-etat' $trayAccount 'Démarrage…'); $miInfo.Text = 'État : Démarrage…'
         })
         # Les journaux du SERVEUR : c'est ce qu'on veut voir pour diagnostiquer.
         [void]$menu.Items.Add('Ouvrir les journaux', $null, [System.EventHandler]{ Start-Process (Get-LogDir -Backend $backend) })
@@ -641,7 +646,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                 }
             }
             $miInfo.Text = "État : $lbl"
-            if ($app -ne $state.Drawn) { & $setIcon $app; $state.Drawn = $app; $icon.Text = "Vigie - $lbl"; TLog "app=$app" }
+            if ($app -ne $state.Drawn) { & $setIcon $app; $state.Drawn = $app; $icon.Text = (Get-Label 'tray.infobulle-etat' $trayAccount $lbl); TLog "app=$app" }
             # Battement de coeur : c'est lui qui permet a un script de savoir si le tray
             # est vivant, sans avoir a inspecter un processus eleve.
             try {
