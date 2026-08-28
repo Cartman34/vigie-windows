@@ -1328,7 +1328,17 @@ function Compare-SharedInstall {
 $script:VarRacineCache = $null
 function Get-VarRoot {
     param([string]$Backend = (Get-BackendRoot))
-    if ($script:VarRacineCache) { return $script:VarRacineCache }
+    # LE CACHE EST PAR APPLICATION, pas global.
+    #
+    # Il ne tenait aucun compte de son argument : le premier appel figeait LA racine, et
+    # tous les suivants recevaient celle-la quel que soit le -Backend demande. Le tray
+    # ecrivait donc son battement de coeur dans le var/ du serveur, ou l'emetteur d'ordres
+    # ne le cherchait pas -- « relance impossible, tray deja arrete » alors qu'il tournait
+    # (constate le 28/08). Chaque app garde ses fichiers sous SON var/ (D33) : le cache
+    # doit donc etre indexe par application.
+    if ($null -eq $script:VarRacineCache) { $script:VarRacineCache = @{} }
+    $cle = "$Backend".TrimEnd([char]92, [char]47).ToLowerInvariant()
+    if ($script:VarRacineCache.ContainsKey($cle)) { return $script:VarRacineCache[$cle] }
 
     # INSTALLEE DANS PROGRAM FILES : les donnees vont dans le profil du compte, JAMAIS
     # a cote du programme. Le serveur tourne eleve, il POURRAIT ecrire la -- et c'est
@@ -1338,8 +1348,8 @@ function Get-VarRoot {
     $programmes = @($env:ProgramFiles, ${env:ProgramFiles(x86)}) | Where-Object { $_ }
     foreach ($p in $programmes) {
         if ("$Backend".StartsWith("$p", [StringComparison]::OrdinalIgnoreCase)) {
-            $script:VarRacineCache = Join-Path (Get-UserConfigDir) 'var'
-            return $script:VarRacineCache
+            $script:VarRacineCache[$cle] = Join-Path (Get-UserConfigDir) 'var'
+            return $script:VarRacineCache[$cle]
         }
     }
 
@@ -1356,8 +1366,8 @@ function Get-VarRoot {
         Remove-Item -LiteralPath $temoin -Force -ErrorAction SilentlyContinue
         $ok = $true
     } catch { $ok = $false }
-    $script:VarRacineCache = if ($ok) { $surPlace } else { Join-Path (Get-UserConfigDir) 'var' }
-    return $script:VarRacineCache
+    $script:VarRacineCache[$cle] = if ($ok) { $surPlace } else { Join-Path (Get-UserConfigDir) 'var' }
+    return $script:VarRacineCache[$cle]
 }
 
 function Get-VarPath {
