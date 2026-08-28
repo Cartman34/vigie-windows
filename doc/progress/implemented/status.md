@@ -18,7 +18,7 @@ Mise à jour : 2026-08-27.
 | CORE-UPDATE | Fait | Action `vigie-update`, `scripts/vigie-update.ps1` | — |
 | CORE-UPDATE-TRUST | À faire | — | Rien ne vérifie aujourd'hui que l'archive téléchargée est bien celle publiée : ni empreinte, ni signature. On s'en remet à HTTPS et à GitHub. |
 | CORE-DEPLOY | Fait | Carte Déploiement, `deploy-shared`, `pwsh-install-machine`, `setup.cmd` | Éprouvé sur cette machine seulement |
-| CORE-ACCOUNTS | Fait | Carte Comptes, `accounts-details`, `diag-account-logs` | Éprouvé sur le compte Famille |
+| CORE-ACCOUNTS | Partiel | Carte Comptes, `accounts-details`, `diag-account-logs` | Un compte **standard** ne peut pas démarrer Vigie : le serveur exige l'élévation et lui réclamerait un mot de passe administrateur. Conception validée, non codée : `targeting/multi-account-server.md`. |
 | CORE-OPERATIONS | Fait | Marqueurs d'occupation, verrou de ressources, `/operations` interrogé par toutes les pages | — |
 | CORE-EXPORT | Fait | `apps/frontend-web/rapport.html`, route `/rapport` | Jamais vérifié à l'impression réelle |
 

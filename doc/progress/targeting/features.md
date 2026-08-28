@@ -27,7 +27,9 @@ Format : `ID` — Titre, puis le besoin et ses critères. On n'écrit **pas** ic
   protection de la branche et des tags, second facteur sur le compte qui publie, et de quoi **revenir en arrière** quand
   une version se révèle mauvaise.
 - **CORE-ACCOUNTS** — Plusieurs comptes Windows utilisent Vigie : chacun ses réglages, aucun pouvoir supplémentaire ;
-  diagnostiquer un autre compte passe par Vigie, jamais par un contournement.
+  diagnostiquer un autre compte passe par Vigie, jamais par un contournement. Un compte **standard** doit pouvoir
+  lancer les opérations qu'on lui ouvre, même lorsqu'elles exigent techniquement l'élévation — sans jamais voir
+  d'identifiants d'administrateur. Conception : **[Un serveur élevé par machine](multi-account-server.md)**.
 - **CORE-OPERATIONS** — Une opération longue se voit tant qu'elle dure, verrouille les ressources qu'elle occupe, et
   reste visible depuis toutes les pages ouvertes.
 - **CORE-EXPORT** — Deux exports imprimables et sobres : les caractéristiques matérielles, et l'état courant.
