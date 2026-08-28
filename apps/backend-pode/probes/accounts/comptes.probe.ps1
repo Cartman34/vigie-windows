@@ -173,6 +173,9 @@ if ($declared -ne $running) {
 }
 foreach ($c in $comptes) {
     if (-not $c.task) { continue }
+    # Un AUTRE compte n'a pas forcement acces au dépôt : l'installation partagée est alors
+    # son seul chemin possible. On ne compte donc l'écart que pour le compte courant.
+    if (-not $c.current) { continue }
     try {
         $t = Get-ScheduledTask -TaskName $c.task -ErrorAction Stop
         $args = "$(@($t.Actions)[0].Arguments)"
