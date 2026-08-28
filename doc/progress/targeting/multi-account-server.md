@@ -301,27 +301,45 @@ Il n'y a pas d'« agent » séparé : c'est **le tray du compte**, et son absenc
 affiche. L'action est donc refusée sur-le-champ, avec sa raison — « cette action a besoin de votre session : ouvrez
 Vigie sur ce compte ». Rien ne reste en suspens, rien ne s'exécutera plus tard à un moment inattendu.
 ---
+---
 
-## Questions ouvertes
+## Réponses aux questions ouvertes
 
-### Q1 — Comment le serveur reconnaît-il le compte demandeur quand il sert la page HTML ?
+### Q1 — Le compte se reconnaît par un ticket, échangé contre un cookie de session
 
-Aujourd'hui le serveur injecte l'unique jeton dans le HTML qu'il sert. Avec un jeton par compte, il doit injecter celui
-du demandeur — mais la première requête d'un navigateur ne porte aucun en-tête d'autorisation.
+Trois objets distincts, qu'il ne faut pas confondre :
 
-- **A. Le tray ouvre la page avec un ticket à usage unique** — *avantage : sûr et simple à raisonner.* Le tray lit son
-  jeton (qu'il est seul à pouvoir lire), demande au serveur un ticket valable une fois et quelques secondes, et ouvre
-  `http://127.0.0.1:47600/?t=…`. Le serveur échange le ticket contre la session du compte. Rien d'identifiant ne
-  traîne dans l'historique du navigateur au-delà de son usage.
-- **B. Identifier par le propriétaire du processus derrière la connexion TCP** — *avantage : aucun jeton à faire
-  circuler.* Le serveur remonte du port source au PID, puis au compte propriétaire. Mais l'association est fragile
-  (connexions courtes, keep-alive, navigateur partagé) et coûte un appel système par requête.
+| | Ce que c'est | Où il vit | Durée |
+|---|---|---|---|
+| **Jeton** | le secret durable du compte | son profil, ACL explicite (C7) | jusqu'à révocation |
+| **Ticket** | preuve à usage unique, pour amorcer la page | passé en URL par le tray | quelques secondes, une seule fois |
+| **Cookie de session** | ce qui identifie la page ensuite | le navigateur, en mémoire | meurt à la fermeture du navigateur |
 
-### Q2 — Quelle copie de Vigie la tâche machine lance-t-elle ?
+Le tray lit **son** jeton — qu'il est seul à pouvoir lire —, demande un ticket au serveur, et ouvre
+`http://127.0.0.1:47600/?t=…`. Le serveur consomme le ticket et pose un cookie `HttpOnly`, `SameSite=Strict`, **sans
+date d'expiration** — donc de session.
 
-Sur un poste de développement, le dépôt et l'installation partagée coexistent — c'est le cas de cette machine.
+**La page ne détient alors aucun secret en JavaScript.** C'est un gain par rapport à l'existant, où le jeton est injecté
+dans le HTML (`window.API_TOKEN`) et reste lisible par tout script de la page.
 
-- **A. Le dépôt s'il est présent, sinon l'installation partagée** — *avantage : cohérent avec ce qui existe déjà.*
-  C'est exactement la règle de `UpdateSource: auto` : on développe sur le dépôt, on livre depuis Program Files.
-- **B. Toujours l'installation partagée** — *avantage : une seule vérité.* Ce qui tourne est ce qui a été déployé,
-  sans exception — mais tester une modification imposerait alors un déploiement à chaque fois.
+**Ce qui survit côté navigateur** : rien de sensible, ni aujourd'hui ni demain. Le `localStorage` ne porte que des
+préférences d'affichage (groupes masqués, ordre des cartes). `HttpOnly` met le cookie hors de portée du JavaScript, et
+l'absence d'expiration le fait mourir avec le navigateur.
+
+### Q2 — L'environnement est un réglage explicite, et Vigie le montre
+
+Deux environnements coexistent sur une même machine : le **dépôt** (développement) et l'**installation partagée**
+(production locale). Le choix ne se devine pas : il se déclare.
+
+- Réglage `Environnement` : `prod` **par défaut**, `dev` sur décision. Il vit dans `config.local.psd1` — c'est un choix
+  de machine, comme `UpdateSource`.
+- **Vigie affiche l'environnement dans lequel elle tourne.** Ne pas savoir lequel des deux répond est la porte ouverte à
+  une heure perdue sur un correctif déployé au mauvais endroit.
+
+**Le piège à traiter, signalé par l'utilisateur** : une tâche qui pointe vers un environnement pendant que le serveur
+tourne dans l'autre. Le cas est réel — sur cette machine, la tâche de `fhaza` lance le dépôt pendant que celle de
+`Famille` lance l'installation partagée.
+
+C'est un **défaut de structure** au sens de D105, donc détecté et nommé comme les autres : *« la tâche de <compte>
+lance l'environnement de production alors que Vigie tourne depuis le dépôt »*. Réparable d'un bouton, puisqu'il suffit
+de réécrire la tâche vers le bon chemin.
