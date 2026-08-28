@@ -1,5 +1,10 @@
 # @droits: admin   -- reecrire une tache planifiee exige l'elevation (D65)
-# @libelle: Reparer le demarrage de Vigie | immediate | fix   -- affiche quand un champ cite cette action (D66)
+# @libelle: Vérifier le démarrage de Vigie | immediate | fix   -- affiche quand un champ cite cette action (D66)
+#
+# « Réparer » quand rien n'est cassé sonne faux, et c'est pourtant l'état normal : le bouton
+# reste sur la carte même quand tout va bien (D59, D66). Il VÉRIFIE d'abord, et ne répare
+# que ce qui doit l'être -- son libellé dit donc ce qu'il fait à coup sûr, pas ce qu'il fait
+# parfois.
 <# Action : remet d'aplomb les taches de demarrage DE VIGIE, et rien d'autre.
 
    Autorise explicitement par l'utilisateur : « l'app peut auto-corriger le systeme tant
@@ -16,7 +21,7 @@ $backend = Split-Path $PSScriptRoot -Parent
 
 $faits = @(Repair-VigieTasks -Backend $backend)
 if (-not $faits.Count) {
-    return @{ message = "Rien à réparer : les tâches de démarrage de Vigie sont saines."
+    return @{ message = "Vérification faite : les tâches de démarrage de Vigie sont saines."
               result  = @{ ok = $true; invalidate = @('comptes.probe.ps1') } }
 }
 # TROIS SORTS, pas deux. Une tache peut etre reecrite sans que le defaut disparaisse :

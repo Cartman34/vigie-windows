@@ -110,6 +110,42 @@ you press the button. The measurement pings `1.1.1.1` and transfers roughly 10 M
 5 MB up against Cloudflare's speed endpoint. That is the one place Vigie talks to the
 outside world on your behalf, and only when you ask.
 
+## Accounts
+
+Two cards, because these are two different questions: *who* has Vigie, and *how* it is installed.
+
+| Card | What it shows | Buttons |
+|---|---|---|
+| **Accounts** | one Windows account per line: administrator or standard, Vigie enabled or not, and its startup task's fault if it has one | *Account details*, *Refresh the list*, *Manage accounts* |
+| **Deployment** | shared installation and its version, PowerShell 7, startup state, last update, storage used | *Update the installation*, *Check Vigie's startup*, *Update Vigie* |
+
+**Enabling an account means giving it a startup task** — at the level Windows grants it and never above: elevated for an
+administrator, limited for a standard account. Vigie hands nobody any extra power.
+
+### The three states of automatic startup
+
+This is the line to read when Vigie does not start on an account. It separates what is broken from what is waiting, and
+the difference is not cosmetic: in one case there is a gesture to make, in the other there is none.
+
+| State | What it means | What you can do |
+|---|---|---|
+| **Operational** | every account that has Vigie carries a healthy task | nothing |
+| **To be confirmed** | the task is correctly installed, but its last run went wrong — or it has never run | nothing: that account's next logon will settle it |
+| **Out of service** | the task cannot launch the application: missing interpreter, unreadable path, task disabled in Windows | *Check Vigie's startup* |
+
+The repair button appears **only** in the third case. It rewrites the task with the machine's interpreter and the
+application's real location, re-enables it if Windows had disabled it, then **checks**. It never claims to have repaired
+a past failure: that one only clears at the next startup.
+
+### Diagnosing an account that will not start
+
+*Account details* is the way in. For each account: its qualities, its last session, its Vigie data, and — this is where
+it is decided — **its task's exact command line, its state, its last run and its return code**. That is what separates
+"the task does not exist" from "it exists and dies immediately".
+
+An ordinary Windows session cannot see any of this: only Vigie's server, which runs elevated, can read it. Hence the
+rule: diagnose through Vigie, never from a command window.
+
 ## Security
 
 | Card | Shows | Buttons |

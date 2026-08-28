@@ -40,7 +40,7 @@ foreach ($c in ($comptes | Sort-Object @{ Expression = { -not $_.current } }, na
         $statutCompte = 'warn'
         $etat += 'ne démarre pas'
         $aide += "Sa tâche de démarrage existe mais " + $c.taskAilment + "."
-        $aide += "Le bouton « Réparer le démarrage de Vigie » remet la tâche d'aplomb quand c'est réparable."
+        $aide += "Le bouton « Vérifier le démarrage de Vigie » l'examine et la remet d'aplomb quand c'est réparable."
     }
 
     $fields += New-Field -Key ('acc-' + ($c.name -replace '[^A-Za-z0-9]', '')) `
@@ -239,7 +239,7 @@ $carteDepl = New-ModuleObject -Id 'deployment' -Theme 'accounts' -Label 'Déploi
                     "version plus ancienne que la vôtre. C'est aussi le premier déploiement, si l'installation n'existe pas encore.") `
             -Reversible ("Le déploiement se défait en déployant une version antérieure. Si la copie échoue, la relance " +
                          "N'A PAS LIEU : l'ancienne version continue de tourner.")
-        New-Action -Id 'repair-tasks' -Label 'Réparer le démarrage de Vigie' -Kind 'immediate' -Severity 'fix' `
+        New-Action -Id 'repair-tasks' -Label 'Vérifier le démarrage de Vigie' -Kind 'immediate' -Severity 'fix' `
             -BusyLabel 'Réparation…' `
             -Help "Réécrit les tâches de démarrage de Vigie qui ne fonctionnent plus (interpréteur ou application déplacés). Ne touche à rien d'autre sur la machine."
     )

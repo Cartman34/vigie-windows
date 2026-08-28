@@ -112,6 +112,42 @@ tant que vous n'avez pas appuyé. La mesure ping `1.1.1.1` et transfère environ
 descente et 5 Mo en montée contre le point de mesure de Cloudflare. C'est le seul endroit
 où Vigie parle au monde extérieur en votre nom, et uniquement à votre demande.
 
+## Comptes
+
+Deux cartes, parce que ce sont deux questions différentes : *qui* a Vigie, et *comment* elle est installée.
+
+| Carte | Ce qu'elle montre | Boutons |
+|---|---|---|
+| **Comptes** | un compte Windows par ligne : administrateur ou standard, Vigie activée ou non, et le défaut de sa tâche de démarrage s'il y en a un | *Détails des comptes*, *Actualiser la liste*, *Gérer les comptes* |
+| **Déploiement** | installation partagée et sa version, PowerShell 7, état du démarrage automatique, dernière mise à jour, stockage occupé | *Mettre à jour l'installation*, *Vérifier le démarrage de Vigie*, *Mise à jour de Vigie* |
+
+**Activer un compte, c'est lui poser sa tâche de démarrage** — au niveau que Windows lui accorde, jamais plus : élevé
+pour un administrateur, limité pour un compte standard. Vigie ne donne aucun pouvoir supplémentaire à personne.
+
+### Les trois états du démarrage automatique
+
+C'est la ligne à lire quand Vigie ne se lance pas sur un compte. Elle distingue ce qui est cassé de ce qui attend, et
+la différence n'est pas cosmétique : dans un cas il y a un geste à faire, dans l'autre il n'y en a aucun.
+
+| État | Ce que ça veut dire | Ce qu'on peut faire |
+|---|---|---|
+| **Opérationnel** | chaque compte qui a Vigie porte une tâche saine | rien |
+| **À confirmer** | la tâche est correctement installée, mais son dernier lancement s'est mal passé — ou elle n'a jamais tourné | rien : c'est la prochaine ouverture de session de ce compte qui tranchera |
+| **Hors service** | la tâche ne peut pas lancer l'application : interpréteur disparu, chemin illisible, tâche désactivée dans Windows | *Vérifier le démarrage de Vigie* |
+
+Le bouton de réparation n'apparaît **que** dans le troisième cas. Il réécrit la tâche avec l'interpréteur de la machine
+et l'emplacement réel de l'application, la réactive si Windows l'avait désactivée, puis **vérifie**. Il ne prétend
+jamais avoir réparé un échec passé : celui-là ne s'efface qu'au prochain démarrage.
+
+### Diagnostiquer un compte qui ne démarre pas
+
+*Détails des comptes* est la porte d'entrée. Pour chaque compte : ses qualités, sa dernière session, ses données Vigie,
+et — c'est là que ça se joue — **la ligne de commande exacte de sa tâche, son état, sa dernière exécution et son code de
+retour**. C'est ce qui permet de distinguer « la tâche n'existe pas » de « elle existe et meurt aussitôt ».
+
+Une session Windows ordinaire ne voit pas ces informations : seul le serveur de Vigie, qui tourne élevé, peut les lire.
+D'où la règle : on diagnostique par Vigie, jamais depuis une fenêtre de commandes.
+
 ## Sécurité
 
 | Carte | Ce qu'elle montre | Boutons |

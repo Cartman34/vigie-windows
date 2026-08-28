@@ -3382,6 +3382,28 @@ function Test-VigieTaskHealthy {
 #
 # Les confondre menait a reecrire une tache parfaitement saine, puis a reannoncer le meme
 # defaut : « reecrite, mais : <exactement ce qu'on venait de lire> » (constate le 28/08).
+# ECRIRE UNE PROPRIETE QUI N'EXISTE PEUT-ETRE PAS ENCORE.
+#
+# Un objet rendu par ConvertFrom-Json a une forme FIGEE : ses proprietes sont celles du
+# JSON, et lui en assigner une autre LEVE une erreur. Quand ce JSON est un cache ecrit par
+# une version anterieure du produit, tout code qui ajoute un champ casse silencieusement
+# -- et la valeur perimee reste affichee. C'est ce qui a fait annoncer « 1 tache hors
+# service » pour une tache saine (28/08) : le cache de la veille avait le dernier mot.
+#
+# A utiliser des qu'on ecrit dans un objet qui PEUT venir d'un cache ou d'une API.
+function Set-ObjectProperty {
+    param(
+        [Parameter(Mandatory)]$Object,
+        [Parameter(Mandatory)][string]$Name,
+        $Value
+    )
+    if (-not $Object) { return }
+    if (-not $Object.PSObject.Properties[$Name]) {
+        $Object | Add-Member -NotePropertyName $Name -NotePropertyValue $null -Force
+    }
+    $Object.$Name = $Value
+}
+
 function Get-VigieTaskStructureAilment {
     param([Parameter(Mandatory)]$Task)
     $a = @($Task.Actions)[0]
@@ -3418,6 +3440,8 @@ function Get-VigieTaskStructureAilment {
 # L'etat COMPLET : la structure, puis l'histoire.
 function Get-VigieTaskHistoryAilment {
     param([Parameter(Mandatory)]$Task)
+    $a = @($Task.Actions)[0]
+    if (-not $a) { return $null }
     # UNE TACHE SAINE SUR LE PAPIER PEUT N'AVOIR JAMAIS TOURNE.
     #
     # Tout ce qui precede examine la DEFINITION : l'interpreteur existe, le script existe.
@@ -3434,6 +3458,18 @@ function Get-VigieTaskHistoryAilment {
         $jamais = (-not $info.LastRunTime) -or ($info.LastRunTime.Year -lt 2000) -or ($code -eq 267011)
         if ($jamais) { return "la tâche n'a jamais été exécutée" }
         if ($benins -notcontains $code) {
+            # UN ECHEC PLUS VIEUX QUE LE CODE INSTALLE NE CONCERNE PLUS PERSONNE.
+            #
+            # La tache de « Famille » avait echoue a 05:55 ; le correctif a ete deploye a
+            # 08:44. Continuer a l'afficher demandait a l'utilisateur de « confirmer »
+            # l'echec d'un programme qui n'existe plus -- alors que le deploiement, lui,
+            # s'etait fait tout seul. On compare donc la date de l'echec a celle du
+            # fichier que la tache lance : si l'application a change depuis, on se tait.
+            $depuis = $null
+            if ("$($a.Arguments)" -match '-File\s+"([^"]+)"') {
+                try { $depuis = (Get-Item -LiteralPath $Matches[1] -ErrorAction Stop).LastWriteTime } catch { }
+            }
+            if ($depuis -and $depuis -gt $info.LastRunTime) { return $null }
             return ("la dernière exécution a échoué (code 0x" + $code.ToString('X8') + ", le " +
                     $info.LastRunTime.ToString('dd/MM/yyyy HH:mm') + ")")
         }
@@ -3579,18 +3615,15 @@ function Update-VigieAccountTasks {
         # les proprietes qu'on veut ecrire. Assigner une propriete absente LEVE, et la
         # valeur d'origine -- perimee -- restait affichee (constate le 28/08 : « 1 tache
         # hors service » pour une tache saine). On les cree si elles manquent.
-        foreach ($prop in @('enabled', 'task', 'taskAilment', 'taskPending')) {
-            if (-not $c.PSObject.Properties[$prop]) {
-                $c | Add-Member -NotePropertyName $prop -NotePropertyValue $null -Force
-            }
-        }
-        $c.enabled     = [bool]$tache
-        $c.task        = if ($tache) { "$($tache.TaskName)" } else { $null }
+        Set-ObjectProperty -Object $c -Name 'enabled' -Value ([bool]$tache)
+        Set-ObjectProperty -Object $c -Name 'task' -Value $(if ($tache) { "$($tache.TaskName)" } else { $null })
         # DEUX CHAMPS, deux natures : « taskAilment » est ce qui empeche la tache de
         # fonctionner ; « taskPending » est ce qui ne se saura qu'a son prochain
         # demarrage. Les confondre faisait annoncer « hors service » une tache saine.
-        $c.taskAilment = if ($tache) { Get-VigieTaskStructureAilment -Task $tache } else { $null }
-        $c.taskPending = if ($tache -and -not $c.taskAilment) { Get-VigieTaskHistoryAilment -Task $tache } else { $null }
+        $mal = if ($tache) { Get-VigieTaskStructureAilment -Task $tache } else { $null }
+        Set-ObjectProperty -Object $c -Name 'taskAilment' -Value $mal
+        Set-ObjectProperty -Object $c -Name 'taskPending' `
+            -Value $(if ($tache -and -not $mal) { Get-VigieTaskHistoryAilment -Task $tache } else { $null })
     }
     return @($Comptes)
 }
