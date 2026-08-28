@@ -138,10 +138,22 @@ function Register-ServiceTask {
     if (-not $pwsh) { $pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Source }
     if (-not $pwsh) { Say "PowerShell 7 introuvable pour la machine." 'Red'; return $false }
 
-    # LE SERVEUR SUIT L'ENVIRONNEMENT DECLARE (D107) : sur un poste de developpement, il
-    # tourne depuis le depot ; en production, depuis l'installation partagee.
-    $appRoot = if ((Get-DeclaredEnvironment -Backend $backend) -eq 'dev') { Get-RepoRoot } else { Get-SharedInstallPath }
-    if (-not $appRoot) { $appRoot = Get-RepoRoot }
+    # LE SERVEUR VIT TOUJOURS DANS L'INSTALLATION PARTAGEE, quel que soit l'environnement.
+    #
+    # « dev ou prod, c'est juste la SOURCE qui change mais le serveur est dans Program
+    # Files. » C'est la seule position tenable pour un service de machine : un serveur qui
+    # vivrait dans l'espace de travail d'un utilisateur serait illisible pour les autres
+    # comptes -- exactement le piege ou « Famille » est tombee -- et disparaitrait le jour
+    # ou ce dossier bouge.
+    #
+    # L'environnement declare ne dit donc pas OU le serveur tourne, mais D'OU vient ce
+    # qu'on y deploie : le depot local en dev, une version publiee en prod.
+    $appRoot = Get-SharedInstallPath
+    if (-not $appRoot) {
+        Say "Aucune installation partagee : deployez Vigie pour tous les comptes d'abord." 'Red'
+        Say "Le service de machine ne peut pas tourner depuis un depot personnel." 'Yellow'
+        return $false
+    }
     $start = Join-Path (Join-Path $appRoot 'apps/backend-pode') 'start.ps1'
     if (-not (Test-Path -LiteralPath $start)) { Say ("Serveur introuvable : " + $start) 'Red'; return $false }
 

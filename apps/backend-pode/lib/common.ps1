@@ -3867,11 +3867,12 @@ function Set-VigieAccountEnabled {
     try { $targetSid = (Get-LocalUser -Name $Name -ErrorAction Stop).SID.Value } catch { }
     if (-not $targetSid) { throw ("Compte introuvable sur cette machine : " + $Name) }
 
-    $candidates = if ((Get-DeclaredEnvironment -Backend $Backend) -eq 'dev') {
-        @((Get-RepoRoot), (Get-SharedInstallPath))
-    } else {
-        @((Get-SharedInstallPath), (Get-RepoRoot))
-    }
+    # L'INSTALLATION PARTAGEE D'ABORD, TOUJOURS. L'environnement declare dit d'ou vient ce
+    # qu'on deploie, pas ou ca tourne : une tache qui lance un depot personnel est
+    # illisible pour les autres comptes et disparait si le dossier bouge. Le depot ne sert
+    # de repli que s'il n'existe aucune installation partagee -- et seulement pour le
+    # compte qui la possede.
+    $candidates = @((Get-SharedInstallPath), (Get-RepoRoot))
     $appRoot = $null
     foreach ($candidate in $candidates) {
         if (-not $candidate) { continue }
