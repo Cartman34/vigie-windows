@@ -56,6 +56,6 @@ try {
 if (-not $lance) { return @{ message = "Impossible de lancer le déploiement."; result = @{ ok = $false } } }
 
 @{
-    message = "Déploiement lancé vers $destination. Il dure une à deux minutes ; les comptes pourront ensuite être activés."
+    message = "Déploiement lancé vers $destination. Il dure une trentaine de secondes ; les comptes pourront ensuite être activés."
     result  = @{ ok = $true; async = $true; module = 'deployment'; invalidate = @('comptes.probe.ps1') }
 }

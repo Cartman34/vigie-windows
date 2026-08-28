@@ -48,6 +48,6 @@ try {
 if (-not $lance) { return @{ message = "Impossible de lancer la mise à jour."; result = @{ ok = $false } } }
 
 @{
-    message = "Mise à jour lancée. Elle dure une à deux minutes, puis Vigie redémarre toute seule."
+    message = "Mise à jour lancée. Elle dure une trentaine de secondes, puis Vigie redémarre toute seule."
     result  = @{ ok = $true; async = $true; module = 'deployment'; invalidate = @('comptes.probe.ps1') }
 }
