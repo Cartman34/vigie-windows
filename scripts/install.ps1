@@ -137,6 +137,8 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
     exit 1
 }
 
+Write-Title (Get-Label 'install.titre')
+
 # Les scripts de gestion vivent dans scripts/ : les apps sont dans apps/.
 $repoRoot = Split-Path $PSScriptRoot -Parent
 $backend  = Join-Path $repoRoot 'apps/backend-pode'   # BOOTSTRAP, cf. common.ps1
@@ -314,7 +316,17 @@ try {
     $service = Join-Path (Join-Path $PSScriptRoot 'lib') 'install-service.ps1'
     if ($isAdmin -and (Test-Path -LiteralPath $service)) {
         try {
-            & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $service | Write-Host
+            # ON GARDE CE QUE L'ETAPE AFFICHE. « | Write-Host » le montrait et le perdait :
+            # le journal du 29/08 s'arretait a « WebView2 runtime », juste avant ce bloc,
+            # alors que l'ecran, lui, montrait toute la suite. Un journal qui s'interrompt
+            # avant la partie interessante ne sert a rien -- et c'est precisement celle
+            # qu'on relit quand l'installation s'est mal passee.
+            & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $service 2>&1 |
+                ForEach-Object {
+                    $ligne = "$_"
+                    Write-Host $ligne
+                    try { Write-Log -Backend $backend -Name 'install' -Message $ligne -NoEcho } catch { }
+                }
             # ON LIT LE CODE DE RETOUR. Il etait journalise sans etre teste : le 28/08,
             # l'enregistrement de la tache a echoue et l'installation a fini en vert.
             # Un code non nul est un ECHEC -- Write-Log ERROR le compte, et le verdict

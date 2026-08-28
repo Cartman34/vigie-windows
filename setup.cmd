@@ -53,9 +53,8 @@ pause
 exit /b 3
 
 :installe
-echo.
-echo === Installation de Vigie ===
-echo.
+REM PAS DE BANDEAU ICI. Le script tient l'affichage de bout en bout ; un titre ecrit
+REM en plus, dans un autre style, donnait deux mises en page sur le meme ecran.
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\install.ps1"
 REM LE RÉSULTAT SE LIT : annoncer « Terminé » après un échec est pire que se taire.
 if errorlevel 1 goto :echec

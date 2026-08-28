@@ -1413,7 +1413,9 @@ function Write-Log {
         [Parameter(Mandatory)][string]$Message,
         [string]$Level = 'INFO',
         [string]$Name  = 'app',
-        [string]$Backend = (Get-BackendRoot)
+        [string]$Backend = (Get-BackendRoot),
+        # Ecrire SANS reafficher : la ligne est deja a l'ecran, on ne veut que la garder.
+        [switch]$NoEcho
     )
     $dir  = Get-LogDir -Backend $Backend
     $file = Join-Path $dir ($Name + '_' + (Get-Date -Format 'yyyyMMdd') + '.log')
@@ -1430,6 +1432,7 @@ function Write-Log {
     #
     # Le repli existe parce que common.ps1 est charge par des scripts qui n'ont pas besoin
     # de l'affichage (le serveur, les sondes) : on ne leur impose pas la dependance.
+    if ($NoEcho) { return }
     $hasUi = [bool](Get-Command Write-Fail -ErrorAction SilentlyContinue)
     switch ($Level) {
         'ERROR' { if ($hasUi) { Write-Fail $Message } else { Write-Host $line -ForegroundColor Red } }
