@@ -3389,6 +3389,28 @@ function Get-VigieTaskAilment {
     if ("$($a.Arguments)" -match '-File\s+"([^"]+)"') {
         if (-not (Test-Path -LiteralPath $Matches[1])) { return ("l'application n'est plus la : " + $Matches[1]) }
     }
+
+    # UNE TACHE SAINE SUR LE PAPIER PEUT N'AVOIR JAMAIS TOURNE.
+    #
+    # Tout ce qui precede examine la DEFINITION : l'interpreteur existe, le script existe.
+    # Ca ne dit rien de ce qui s'est passe. « Vigie activee » s'affichait donc pour un
+    # compte ou Vigie n'avait jamais demarre une seule fois -- constate sur Famille le
+    # 28/08 : tache presente, session ouverte, aucun journal nulle part.
+    $info = $null
+    try { $info = $Task | Get-ScheduledTaskInfo -ErrorAction Stop } catch { }
+    if ($Task.State -eq 'Disabled') { return "la tache est desactivee dans Windows" }
+    if ($info) {
+        $code = [int]$info.LastTaskResult
+        # Les codes qui ne sont PAS des echecs : 0 succes ; 0x00041301 en cours ;
+        # 0x00041302 terminaison demandee ; 0x00041303 jamais lancee (traite juste apres).
+        $benins = @(0, 267009, 267010, 267011)
+        $jamais = (-not $info.LastRunTime) -or ($info.LastRunTime.Year -lt 2000) -or ($code -eq 267011)
+        if ($jamais) { return "la tache n'a jamais ete executee" }
+        if ($benins -notcontains $code) {
+            return ("la derniere execution a echoue (code 0x" + $code.ToString('X8') + ", le " +
+                    $info.LastRunTime.ToString('dd/MM/yyyy HH:mm') + ")")
+        }
+    }
     return $null
 }
 
@@ -3462,6 +3484,38 @@ function Clear-VigieAccountsCache {
     if (Test-Path -LiteralPath $f) { Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue }
 }
 
+# L'ETAT DES TACHES SE RELIT, TOUJOURS.
+#
+# La liste des comptes est chere a etablir (profils, SID, registre) et change rarement :
+# elle se met en cache 24 h. L'etat de leur tache de demarrage, lui, est bon marche a lire
+# et peut changer a tout moment -- et s'il ment, il ment sur la seule chose qui compte.
+# La carte a affiche « Vigie activee » pendant des heures pour un compte dont la tache
+# avait disparu (28/08). Ces trois champs-la ne sont donc jamais servis depuis le cache.
+function Update-VigieAccountTasks {
+    param([object[]]$Comptes)
+    if (-not $Comptes -or -not $Comptes.Count) { return @($Comptes) }
+    $taches = @()
+    try {
+        $taches = @(Get-ScheduledTask -ErrorAction Stop |
+                    Where-Object { $_.TaskName -eq 'Vigie' -or $_.TaskName -like ($script:VigieTaskPrefix + '*') })
+    } catch {
+        # Sans elevation, Windows masque une partie des taches : on ne sait pas, et on ne
+        # PRETEND pas savoir. Les valeurs du cache sont conservees telles quelles.
+        return @($Comptes)
+    }
+    foreach ($c in $Comptes) {
+        $nom = "$($c.name)"
+        $tache = @($taches | Where-Object {
+            $_.TaskName -eq (Get-VigieAccountTaskName -Name $nom) -or
+            ($_.TaskName -eq 'Vigie' -and (Test-TaskUserIs -UserId "$($_.Principal.UserId)" -Name $nom))
+        })[0]
+        $c.enabled     = [bool]$tache
+        $c.task        = if ($tache) { "$($tache.TaskName)" } else { $null }
+        $c.taskAilment = if ($tache) { Get-VigieTaskAilment -Task $tache } else { $null }
+    }
+    return @($Comptes)
+}
+
 function Get-VigieAccounts {
     param(
         [switch]$Force,                       # bouton « Actualiser la liste »
@@ -3472,7 +3526,9 @@ function Get-VigieAccounts {
         try {
             $j = Get-Content -LiteralPath $cache -Raw | ConvertFrom-Json
             $age = ((Get-Date).ToUniversalTime() - (ConvertTo-UtcDate $j.at)).TotalHours
-            if ($age -lt $script:ComptesTTLHeures -and $j.users) { return @($j.users) }
+            if ($age -lt $script:ComptesTTLHeures -and $j.users) {
+                return (Update-VigieAccountTasks -Comptes @($j.users))
+            }
         } catch { }
     }
     $liste = @(Get-VigieAccountsFresh -Backend $Backend)

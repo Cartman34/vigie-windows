@@ -31,9 +31,21 @@ foreach ($c in ($comptes | Sort-Object @{ Expression = { -not $_.current } }, na
                else { 'Compte standard : Vigie lui refuse les actions administrateur, comme le ferait Windows.' })
     if ($c.current) { $aide += "C'est le compte avec lequel vous utilisez Vigie en ce moment." }
 
+    # ACTIVEE NE VEUT PAS DIRE QUE CA MARCHE. Une tache peut exister, etre bien formee, et
+    # n'avoir jamais demarre une seule fois -- c'est ce qui est arrive sur « Famille » le
+    # 28/08, pendant que cette carte affichait un tranquille « Vigie activée ». Le defaut
+    # se dit donc SUR LA LIGNE DU COMPTE, la ou on le cherche.
+    $statutCompte = 'neutral'
+    if ($c.enabled -and $c.taskAilment) {
+        $statutCompte = 'warn'
+        $etat += 'ne démarre pas'
+        $aide += "Sa tâche de démarrage existe mais " + $c.taskAilment + "."
+        $aide += "Le bouton « Réparer le démarrage de Vigie » remet la tâche d'aplomb quand c'est réparable."
+    }
+
     $fields += New-Field -Key ('acc-' + ($c.name -replace '[^A-Za-z0-9]', '')) `
         -Label ($c.name + $(if ($c.current) { ' (vous)' } else { '' })) `
-        -Value ($etat -join ' - ') -Kind 'text' -Status 'neutral' `
+        -Value ($etat -join ' - ') -Kind 'text' -Status $statutCompte `
         -Help ($aide -join ' ')
 }
 
