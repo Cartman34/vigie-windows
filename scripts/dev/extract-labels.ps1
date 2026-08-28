@@ -47,7 +47,7 @@ $SHOW_COMMANDS = @('write-title', 'write-step', 'write-ok', 'write-warn', 'write
 # Ces fichiers PORTENT le mécanisme : ils ne peuvent pas en dépendre.
 $EXCLUDED = @('scripts/lib/i18n.ps1', 'scripts/lib/console-ui.ps1',
               'scripts/dev/extract-labels.ps1', 'scripts/dev/check-labels.ps1')
-$SKIPPED_DIRS = @('.git', 'dist', 'node_modules', 'local', 'var')
+$SKIPPED_DIRS = @('.claude', '.git', 'dist', 'node_modules', 'local', 'var')   # .claude : les worktrees y vivent, et un worktree est une copie du depot
 
 # --- Fabrique de clés -------------------------------------------------------------------
 # « Tâche « Vigie » enregistrée, DÉSACTIVÉE. » -> « tache-vigie-enregistree »
