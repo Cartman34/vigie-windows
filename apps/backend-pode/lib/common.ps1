@@ -17,6 +17,11 @@ function Get-BackendRoot { Split-Path $PSScriptRoot -Parent }
 $script:_uiLib = Join-Path (Split-Path (Split-Path (Get-BackendRoot) -Parent) -Parent) 'scripts/lib/console-ui.ps1'
 if (Test-Path -LiteralPath $script:_uiLib) { . $script:_uiLib }
 
+# Le secret de compte : sa pose, ses droits, sa relecture mefiante. Ce fichier existait
+# depuis le 28/08 sans etre charge nulle part -- du code qu'aucun test ne voyait.
+$script:_secretLib = Join-Path (Split-Path (Split-Path (Get-BackendRoot) -Parent) -Parent) 'scripts/lib/account-secret.ps1'
+if (Test-Path -LiteralPath $script:_secretLib) { . $script:_secretLib }
+
 # --- Reperes de l'arborescence ------------------------------------------------
 # Le depot contient PLUSIEURS apps (apps/backend, apps/frontend, apps/tray,
 # apps/atelier) plus scripts/ et doc/. Ces reperes sont calcules ICI et nulle
@@ -1431,6 +1436,156 @@ function Write-Log {
         'WARN'  { if ($hasUi) { Write-Warn $Message } else { Write-Host $line -ForegroundColor Yellow } }
         default { if ($hasUi) { Write-Info $Message } else { Write-Host $line } }
     }
+}
+
+
+# =============================================================================
+#  QUI PARLE AU SERVEUR ? -- secret de compte, ticket d'ouverture, cookie de session
+# =============================================================================
+#
+# LE PROBLEME. Un seul serveur eleve repond a toute la machine. Sans moyen de savoir
+# QUEL compte est derriere une requete, il ne peut ni refuser une action a un compte
+# standard, ni servir a chacun ses propres reglages : tout le monde herite de ceux du
+# compte qui fait tourner le serveur. C'est ce qui se passe aujourd'hui.
+#
+# TROIS OBJETS, ET ON NE LES CONFOND PAS (conception, section Q1) :
+#
+#   secret du compte   durable   dans SON profil, ACL explicite, lui seul le lit
+#   ticket d'ouverture 30 s      passe en URL par le tray, consomme une seule fois
+#   cookie de session  navigateur  identifie la page ensuite ; HttpOnly, donc hors de
+#                                  portee du JavaScript de la page
+#
+# POURQUOI CE DETOUR plutot que de mettre le secret dans l'URL. Une URL se retrouve dans
+# l'historique du navigateur, dans les journaux, dans un copier-coller. Un ticket qui
+# meurt en 30 secondes et ne sert qu'une fois n'a aucune valeur une minute plus tard.
+#
+# CE QUE LE SERVEUR NE STOCKE PAS : le secret. Il n'en garde rien -- il RELIT le fichier
+# du compte au moment de verifier. Etant eleve, il en a le droit ; et il n'y a donc
+# aucune copie a proteger, a synchroniser, ou a revoquer.
+
+# La racine des donnees d'un AUTRE compte. Le chemin etait recopie a la main dans le
+# diagnostic ; une seule definition vaut mieux qu'un accord entre deux copies.
+function Get-AccountVarRoot {
+    param([Parameter(Mandatory)][string]$Account)
+    $profil = Join-Path $env:SystemDrive (Join-Path 'Users' $Account)
+    if (-not (Test-Path -LiteralPath $profil)) { return $null }
+    return (Join-Path (Join-Path (Join-Path (Join-Path $profil 'AppData') 'Local') 'Sowapps') 'Vigie/var')
+}
+
+# Le SID d'un compte local, par son nom. Rend $null si le compte n'existe pas.
+function Get-AccountSid {
+    param([Parameter(Mandatory)][string]$Account)
+    try { return (New-Object System.Security.Principal.NTAccount($Account)).Translate(
+                    [System.Security.Principal.SecurityIdentifier]).Value } catch { return $null }
+}
+
+<#
+    Le secret presente est-il bien celui de ce compte ?
+
+    On RELIT le fichier du compte, avec sa verification d'ACL : si ses droits ont bouge
+    depuis qu'il a ete pose, Get-AccountSecret leve et on refuse. Un secret qu'un tiers a
+    pu lire ne vaut rien, et le refuser bruyamment vaut mieux que l'accepter en silence.
+#>
+function Test-AccountSecret {
+    param(
+        [Parameter(Mandatory)][string]$Account,
+        [Parameter(Mandatory)][string]$Secret
+    )
+    if (-not $Secret) { return $false }
+    $varRoot = Get-AccountVarRoot -Account $Account
+    if (-not $varRoot) { return $false }
+    $sid = Get-AccountSid -Account $Account
+    if (-not $sid) { return $false }
+    $known = $null
+    try { $known = Get-AccountSecret -VarRoot $varRoot -OwnerSid $sid } catch {
+        try { Write-Log -Level 'ERROR' -Name 'session' -Message ("Secret du compte " + $Account + " refuse : " + $_.Exception.Message) } catch { }
+        return $false
+    }
+    if (-not $known) { return $false }
+    return ($known -ceq $Secret)
+}
+
+# --- Ou vivent tickets et sessions ------------------------------------------------------
+#
+# Dans le var DU SERVEUR, sous une ACL fermee : un identifiant de session est une
+# information d'authentification au meme titre qu'un secret. Le dossier est pose avec la
+# meme fonction que les secrets, donc avec la meme rigueur.
+function Get-SessionStorePath {
+    param([string]$Kind = 'sessions', [string]$Backend = (Get-BackendRoot))
+    $dir = Join-Path (Join-Path (Get-VarRoot -Backend $Backend) 'auth') $Kind
+    if (-not (Test-Path -LiteralPath $dir)) {
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+        try {
+            $me = ([Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
+            Set-SecretFolderAcl -Path (Split-Path $dir -Parent) -OwnerSid $me
+        } catch { }
+    }
+    return $dir
+}
+
+# L'AGE SE COMPTE EN SECONDES, PAS EN DATES. Une date ecrite en JSON revient en objet
+# DateTime, deja convertie dans la culture locale : « 08/28/2026 20:43:31 ». La reparser
+# echouait, l'exception passait inapercue, et l'age restait vide -- autrement dit un
+# ticket n'expirait JAMAIS. Un nombre n'a ni culture ni type surprise.
+function Get-EpochSeconds {
+    return [double]([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() / 1000.0)
+}
+
+function New-RandomId {
+    $bytes = [byte[]]::new(24)
+    [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+    return ([Convert]::ToBase64String($bytes) -replace '[^A-Za-z0-9]', '')
+}
+
+# Un ticket d'ouverture, valable une fois et trente secondes.
+function New-OpenTicket {
+    param([Parameter(Mandatory)][string]$Account, [string]$Backend = (Get-BackendRoot))
+    $id = New-RandomId
+    $file = Join-Path (Get-SessionStorePath -Kind 'tickets' -Backend $Backend) ($id + '.json')
+    (@{ account = $Account; at = (Get-EpochSeconds) } | ConvertTo-Json -Compress) |
+        Out-File -FilePath $file -Encoding UTF8
+    return $id
+}
+
+# Consomme un ticket : rend le compte, ou $null. Le fichier est SUPPRIME dans tous les
+# cas -- un ticket presente une fois, valide ou perime, ne doit pas pouvoir resservir.
+function Use-OpenTicket {
+    param([Parameter(Mandatory)][string]$Ticket, [string]$Backend = (Get-BackendRoot))
+    if ($Ticket -notmatch '^[A-Za-z0-9]{8,64}$') { return $null }
+    $file = Join-Path (Get-SessionStorePath -Kind 'tickets' -Backend $Backend) ($Ticket + '.json')
+    if (-not (Test-Path -LiteralPath $file)) { return $null }
+    $data = $null
+    try { $data = (Get-Content -LiteralPath $file -Raw | ConvertFrom-Json) } catch { }
+    Remove-Item -LiteralPath $file -Force -ErrorAction SilentlyContinue
+    if (-not $data) { return $null }
+    if (((Get-EpochSeconds) - [double]$data.at) -gt 30) { return $null }
+    return "$($data.account)"
+}
+
+# Ouvre une session et rend son identifiant, celui que portera le cookie.
+function New-AccountSession {
+    param([Parameter(Mandatory)][string]$Account, [string]$Backend = (Get-BackendRoot))
+    $id = New-RandomId
+    $file = Join-Path (Get-SessionStorePath -Kind 'sessions' -Backend $Backend) ($id + '.json')
+    (@{ account = $Account; at = (Get-EpochSeconds) } | ConvertTo-Json -Compress) |
+        Out-File -FilePath $file -Encoding UTF8
+    return $id
+}
+
+# Le compte derriere une session, ou $null. Les sessions perimees sont effacees au
+# passage : personne d'autre ne fait le menage.
+function Get-SessionAccount {
+    param([Parameter(Mandatory)][string]$SessionId, [string]$Backend = (Get-BackendRoot))
+    if ($SessionId -notmatch '^[A-Za-z0-9]{8,64}$') { return $null }
+    $file = Join-Path (Get-SessionStorePath -Kind 'sessions' -Backend $Backend) ($SessionId + '.json')
+    if (-not (Test-Path -LiteralPath $file)) { return $null }
+    $data = $null
+    try { $data = (Get-Content -LiteralPath $file -Raw | ConvertFrom-Json) } catch { return $null }
+    if (((Get-EpochSeconds) - [double]$data.at) -gt 86400) {
+        Remove-Item -LiteralPath $file -Force -ErrorAction SilentlyContinue
+        return $null
+    }
+    return "$($data.account)"
 }
 
 # --- Fabriques d'objets du contrat -----------------------------------------

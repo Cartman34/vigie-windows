@@ -44,11 +44,26 @@ function Set-SecretFolderAcl {
         # SID du compte proprietaire du secret.
         [Parameter(Mandatory)][string]$OwnerSid
     )
-    $acl = Get-Acl -LiteralPath $Path
+    # ON N'ECRIT QUE LA SECTION DES DROITS. Un descripteur de securite en porte trois :
+    # les droits, le proprietaire, et l'audit. Set-Acl les ecrit toutes -- et poser
+    # l'audit exige le privilege SeSecurityPrivilege, qu'un processus non eleve n'a pas.
+    # Les droits etaient bien appliques, mais Windows criait a chaque fois ; la ou
+    # ErrorActionPreference vaut « Stop », ce cri devient une erreur fatale sur une
+    # operation qui a pourtant reussi.
+    #
+    # GetAccessControl/SetAccessControl avec la section « Access » ne touchent que les
+    # droits, et ne demandent donc rien de particulier.
+    $item = Get-Item -LiteralPath $Path -Force
+    $acl = [System.IO.FileSystemAclExtensions]::GetAccessControl(
+                $item, [System.Security.AccessControl.AccessControlSections]::Access)
     # L'HERITAGE EST COUPE, et les regles heritees ne sont PAS recopiees : c'est
     # exactement ce qui laissait passer un groupe ajoute par un outil tiers.
     $acl.SetAccessRuleProtection($true, $false)
-    foreach ($rule in @($acl.Access)) { [void]$acl.RemoveAccessRule($rule) }
+    # On enumere par SID : « $acl.Access » rend des entrees nulles sur un descripteur
+    # charge section par section, et RemoveAccessRule refuse alors de travailler.
+    foreach ($rule in @($acl.GetAccessRules($true, $false, [System.Security.Principal.SecurityIdentifier]))) {
+        [void]$acl.RemoveAccessRule($rule)
+    }
 
     # LES DRAPEAUX D'HERITAGE N'EXISTENT QUE SUR UN DOSSIER. Les poser sur un fichier fait
     # rejeter la regle en silence : le fichier se retrouve avec une ACL protegee et VIDE,
@@ -72,7 +87,7 @@ function Set-SecretFolderAcl {
                 $id, $rights, $inherit, $none, $allow)))
         } catch { }
     }
-    Set-Acl -LiteralPath $Path -AclObject $acl
+    [System.IO.FileSystemAclExtensions]::SetAccessControl($item, $acl)
 }
 
 # Les droits sont-ils encore ceux qu'on a poses ? Rend $null si oui, sinon ce qui cloche.

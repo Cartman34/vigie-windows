@@ -25,14 +25,40 @@ try {
     }
 } catch { }
 
-# --- Securite : jeton Bearer + anti-CSRF (origine locale) ---
+# LE DOSSIER DES SESSIONS EST CALCULE UNE FOIS, ici, et passe au middleware par
+# l'environnement. Un middleware Pode tourne dans un runspace separe : il n'a ni les
+# variables ni les fonctions de ce fichier. Y charger common.ps1 a chaque requete
+# couterait un chargement complet par appel d'API.
+$env:VIGIE_AUTH_SESSIONS = Get-SessionStorePath -Kind 'sessions' -Backend $backend
+
+# --- Securite : jeton Bearer OU cookie de session, + anti-CSRF (origine locale) ---
 Add-PodeMiddleware -Name 'security' -ScriptBlock {
     $req = $WebEvent.Request
     $p = $req.Url.AbsolutePath
     if ($p -notlike '/api/*') { return $true }      # UI / statique
     if ($p -like '*/health')  { return $true }
-    # 1) Jeton Bearer obligatoire
-    if ($req.Headers['Authorization'] -ne ("Bearer " + $env:VIGIE_TOKEN)) {
+    # La demande de ticket s'authentifie AUTREMENT : par le secret du compte, qu'elle
+    # porte dans son corps. Le tray n'a pas de jeton d'API -- c'est justement ce qu'on
+    # remplace. La route verifie elle-meme, et refuse si le secret ne correspond pas.
+    if ($p -like '*/session/ticket') { return $true }
+
+    # 1) QUI PARLE ? Deux preuves acceptees, et une seule suffit.
+    #
+    #    - le cookie de session, pose apres consommation d'un ticket : c'est la voie
+    #      normale d'une page ouverte par le tray d'un compte ;
+    #    - le jeton d'API, la voie historique, conservee tant que tous les appelants
+    #      ne sont pas passes au cookie (diagnostics, scripts).
+    $authOk = $false
+    if ($req.Headers['Authorization'] -eq ("Bearer " + $env:VIGIE_TOKEN)) { $authOk = $true }
+    if (-not $authOk) {
+        $sid = $null
+        try { $sid = (Get-PodeCookie -Name 'vigie_session').Value } catch { }
+        if ($sid -and $sid -match '^[A-Za-z0-9]{8,64}$' -and $env:VIGIE_AUTH_SESSIONS) {
+            $f = Join-Path $env:VIGIE_AUTH_SESSIONS ($sid + '.json')
+            if (Test-Path -LiteralPath $f) { $authOk = $true }
+        }
+    }
+    if (-not $authOk) {
         Set-PodeResponseStatus -Code 401
         return $false
     }
@@ -53,16 +79,59 @@ Add-PodeMiddleware -Name 'security' -ScriptBlock {
     return $true
 }
 
+# --- Qui parle : ticket d'ouverture ------------------------------------------------------
+#
+# Le tray d'un compte presente SON secret -- qu'il est seul a pouvoir lire -- et recoit un
+# ticket a usage unique. Il ouvre ensuite la page avec ce ticket dans l'URL. Le secret,
+# lui, ne quitte jamais la machine locale et n'entre jamais dans une URL.
+Add-PodeRoute -Method Post -Path "$base/session/ticket" -ScriptBlock {
+    . "$env:VIGIE_BACKEND/lib/common.ps1"
+    $body = $WebEvent.Data
+    $account = "$($body.account)"
+    $secret  = "$($body.secret)"
+    if (-not $account -or -not $secret) {
+        Set-PodeResponseStatus -Code 400
+        Write-PodeJsonResponse -Value @{ ok = $false; message = 'Compte ou secret absent.' }
+        return
+    }
+    if (-not (Test-AccountSecret -Account $account -Secret $secret)) {
+        # REFUS SANS EXPLICATION. Dire « mauvais secret » plutot que « compte inconnu »
+        # renseigne qui essaie. La trace, elle, est complete cote serveur.
+        try { Write-Log -Backend $env:VIGIE_BACKEND -Name 'session' -Level 'WARN' `
+                        -Message ("Ticket refuse pour le compte " + $account) } catch { }
+        Set-PodeResponseStatus -Code 403
+        Write-PodeJsonResponse -Value @{ ok = $false }
+        return
+    }
+    $ticket = New-OpenTicket -Account $account -Backend $env:VIGIE_BACKEND
+    try { Write-Log -Backend $env:VIGIE_BACKEND -Name 'session' `
+                    -Message ("Ticket delivre au compte " + $account) } catch { }
+    Write-PodeJsonResponse -Value @{ ok = $true; ticket = $ticket }
+}
+
 # --- API REST ---
 Add-PodeRoute -Method Get -Path "$base/health" -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
-    Write-PodeJsonResponse -Value @{ status = 'ok'; version = (Get-AppVersion -Backend $env:VIGIE_BACKEND);
-                                 build = (Get-AppBuildId -Backend $env:VIGIE_BACKEND);
-                                 # URL de l'Atelier si son serveur repond en LOCAL, sinon null.
-                                 # C'est le serveur qui detecte : le front ne peut pas sonder un
-                                 # autre port proprement (cross-origin), et le port de l'Atelier
-                                 # ne doit exister que dans SA config (D15).
-                                 atelier = (Get-AtelierUrl) }
+    # QUI PARLE : expose ici, parce qu'un mecanisme d'identification qu'on ne peut pas
+    # observer ne se debogue pas. « - » signifie « personne de reconnu ».
+    $account = '-'
+    try {
+        $sid = (Get-PodeCookie -Name 'vigie_session').Value
+        if ($sid) {
+            $c = Get-SessionAccount -SessionId $sid -Backend $env:VIGIE_BACKEND
+            if ($c) { $account = $c }
+        }
+    } catch { }
+    Write-PodeJsonResponse -Value @{
+        status  = 'ok'
+        account = $account
+        version = (Get-AppVersion -Backend $env:VIGIE_BACKEND)
+        build   = (Get-AppBuildId -Backend $env:VIGIE_BACKEND)
+        # URL de l'Atelier si son serveur repond en LOCAL, sinon null. C'est le serveur
+        # qui detecte : le front ne peut pas sonder un autre port proprement
+        # (cross-origin), et le port de l'Atelier ne doit exister que dans SA config (D15).
+        atelier = (Get-AtelierUrl)
+    }
 }
 Add-PodeRoute -Method Get -Path "$base/state" -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
@@ -160,8 +229,8 @@ Add-PodeRoute -Method Post -Path "$base/users/:name" -ScriptBlock {
         return
     }
     try {
-        $cible = @(Get-VigieAccounts | Where-Object { $_.name -eq $nom })[0]
-        if ($cible -and $cible.technical) {
+        $target = @(Get-VigieAccounts | Where-Object { $_.name -eq $nom })[0]
+        if ($target -and $target.technical) {
             Write-PodeJsonResponse -StatusCode 400 -Value @{ error = "$nom n'est pas un compte utilisateur : son profil n'a jamais servi." }
             return
         }
@@ -328,6 +397,28 @@ Add-PodeRoute -Method Get -Path '/' -ScriptBlock {
     # s'affichait pas du tout, alors que le serveur repondait.
     . "$env:VIGIE_BACKEND/lib/common.ps1"
     $front = Get-AppPath -Role 'frontend'
+
+    # LE TICKET S'ECHANGE ICI CONTRE UN COOKIE. « ?t=... » est consomme, puis disparait :
+    # il ne sert qu'une fois et n'a plus aucune valeur dans l'historique du navigateur.
+    #
+    # Le cookie est HttpOnly -- donc hors de portee du JavaScript de la page -- et sans
+    # date d'expiration, donc il meurt avec le navigateur. SameSite=Strict interdit qu'un
+    # autre site le fasse voyager.
+    $ticket = $null
+    try { $ticket = $WebEvent.Query['t'] } catch { }
+    if ($ticket) {
+        $account = Use-OpenTicket -Ticket $ticket -Backend $env:VIGIE_BACKEND
+        if ($account) {
+            $sid = New-AccountSession -Account $account -Backend $env:VIGIE_BACKEND
+            Set-PodeCookie -Name 'vigie_session' -Value $sid -HttpOnly -Strict
+            try { Write-Log -Backend $env:VIGIE_BACKEND -Name 'session' `
+                            -Message ("Session ouverte pour le compte " + $account) } catch { }
+        } else {
+            try { Write-Log -Backend $env:VIGIE_BACKEND -Name 'session' -Level 'WARN' `
+                            -Message "Ticket presente invalide ou perime." } catch { }
+        }
+    }
+
     $html  = Get-Content -Path (Join-Path $front 'index.html') -Raw
     $html  = $html.Replace('__API_TOKEN__', $env:VIGIE_TOKEN)
     $html  = $html.Replace('__APP_VERSION__', (Get-AppVersion -Backend $env:VIGIE_BACKEND))
