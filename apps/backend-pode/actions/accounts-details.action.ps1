@@ -46,7 +46,31 @@ foreach ($c in (Get-VigieAccounts | Sort-Object name)) {
     if ($c.technical) { $qualites += 'compte technique (pas de profil humain)' }
     if ($c.current)   { $qualites += 'compte en cours' }
 
-    $lignes += ("{0}`n   {1}`n   {2}`n   {3}" -f $c.name, ($qualites -join ' · '), $depuis, $donnees)
+    # CE QUE LA TACHE LANCE, ET CE QU'ELLE A RENDU. Sans ca, « activee mais rien ne
+    # demarre » reste une enigme : la ligne de commande et le code de retour sont les
+    # deux seules choses qui repondent, et seul un serveur eleve peut les lire (D67).
+    $tache = @()
+    if ($c.task) {
+        try {
+            $t = Get-ScheduledTask -TaskName $c.task -ErrorAction Stop
+            $i = $t | Get-ScheduledTaskInfo -ErrorAction SilentlyContinue
+            $act = @($t.Actions)[0]
+            $cmd = ("$($act.Execute)" + ' ' + "$($act.Arguments)").Trim()
+            if ($cmd.Length -gt 150) { $cmd = $cmd.Substring(0, 147) + '...' }
+            $tache += ("tâche « " + $c.task + " », niveau " + "$($t.Principal.RunLevel)")
+            $tache += ("lance : " + $cmd)
+            if ($i) {
+                $quand = if ($i.LastRunTime -and $i.LastRunTime.Year -gt 2000) { $i.LastRunTime.ToString('dd/MM/yyyy HH:mm') } else { 'jamais' }
+                $tache += ("dernière exécution : " + $quand +
+                           " — code 0x" + ([int]$i.LastTaskResult).ToString('X8'))
+            }
+            if ($c.taskAilment) { $tache += ("PROBLÈME : " + $c.taskAilment) }
+        } catch { $tache += ("tâche illisible : " + $_.Exception.Message) }
+    }
+
+    $bloc = @($c.name, ('   ' + ($qualites -join ' · ')), ('   ' + $depuis), ('   ' + $donnees))
+    foreach ($l in $tache) { $bloc += ('   ' + $l) }
+    $lignes += ($bloc -join "`n")
 }
 
 $entete = "Comptes de cet ordinateur"
