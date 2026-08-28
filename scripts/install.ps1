@@ -281,6 +281,17 @@ try {
         Write-Host "  winget install --id Microsoft.PowerShell --scope machine"
     }
 
+    # LA TRACE AVANT LES DROITS. Poser la source du journal des evenements exige
+    # l'elevation : c'est donc ici, une fois, et pas au premier usage. Sans elle, une
+    # action privilegiee ne laisserait qu'une trace dans un fichier -- effacable.
+    if ($isAdmin) {
+        if (Register-VigieEventSource) {
+            Write-Log -Backend $backend -Name 'install' -Message "Journal des evenements : source Vigie prete."
+        } else {
+            Write-Log -Backend $backend -Name 'install' -Level 'WARN' -Message "Journal des evenements : source Vigie NON posee."
+        }
+    }
+
     $null = Get-ApiToken -Backend $backend
     Write-Log -Backend $backend -Name 'install' -Message "Jeton d'API prêt : backend/.secrets/api.token"
 

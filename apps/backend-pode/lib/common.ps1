@@ -4325,6 +4325,99 @@ function Test-NotificationAllowed {
 # --- Actions ---------------------------------------------------------------
 function New-JobId { [guid]::NewGuid().ToString('N').Substring(0, 12) }
 
+# --- TRACABILITE : toute action laisse une trace, deux fois ------------------
+#
+# « On doit toujours pouvoir retrouver et justifier une action de Vigie. » Une trace
+# qu'un fichier supprime fait disparaitre n'est pas une trace : chaque action ecrit donc
+# AUSSI dans le journal des evenements Windows, la ou un administrateur va deja chercher
+# quand il enquete, et d'ou Vigie ne peut pas l'effacer.
+#
+# Ce qui est trace : les actions REUSSIES, les actions REFUSEES et celles qui ECHOUENT.
+# Le refus compte autant que la reussite -- c'est meme lui qu'on relit apres un incident.
+$script:VigieEventSource = 'Vigie'
+$script:VigieEventLog    = 'Application'
+
+# Identifiants d'evenement, stables : ils servent a filtrer dans l'Observateur.
+$script:VigieEventIds = @{ done = 1000; denied = 1001; failed = 1002 }
+
+# La source doit exister AVANT d'ecrire, et la creer exige l'elevation. On la pose a
+# l'installation ; ici on se contente de la creer si on peut, et de ne jamais faire
+# echouer une action pour un probleme de journal.
+function Register-VigieEventSource {
+    param([switch]$Quiet)
+    try {
+        if ([System.Diagnostics.EventLog]::SourceExists($script:VigieEventSource)) { return $true }
+    } catch {
+        # Sans elevation, meme la LECTURE est refusee : on ne sait pas, donc on n'affirme rien.
+        if (-not $Quiet) { Write-Host "Journal des evenements : etat de la source illisible sans elevation." -ForegroundColor DarkGray }
+        return $false
+    }
+    try {
+        [System.Diagnostics.EventLog]::CreateEventSource($script:VigieEventSource, $script:VigieEventLog)
+        if (-not $Quiet) { Write-Host ("Journal des evenements : source « " + $script:VigieEventSource + " » creee.") -ForegroundColor Green }
+        return $true
+    } catch {
+        if (-not $Quiet) { Write-Host ("Journal des evenements : source non creee (" + $_.Exception.Message + ")") -ForegroundColor Yellow }
+        return $false
+    }
+}
+
+# Le compte qui DEMANDE l'action. Aujourd'hui le serveur tourne dans la session de son
+# utilisateur : c'est donc lui. Quand le serveur deviendra une tache machine servant
+# plusieurs comptes, seule CETTE fonction changera -- tout le reste de la chaine parle
+# deja de « demandeur » et non de « moi ».
+function Get-ActionRequester {
+    try { return ([Security.Principal.WindowsIdentity]::GetCurrent()).Name } catch { return 'inconnu' }
+}
+
+function Write-VigieAudit {
+    param(
+        [Parameter(Mandatory)][ValidateSet('done', 'denied', 'failed')][string]$Outcome,
+        [Parameter(Mandatory)][string]$Action,
+        [string]$Module,
+        [string]$Requester = (Get-ActionRequester),
+        [string]$Rights = 'tous',
+        [string]$Detail,
+        [int]$Milliseconds = 0,
+        [string]$Backend = (Get-BackendRoot)
+    )
+    $outcomeLabel = switch ($Outcome) {
+        'done'   { 'REUSSIE' }
+        'denied' { 'REFUSEE' }
+        'failed' { 'ECHEC' }
+    }
+    $entry = ("{0} | action={1} | module={2} | demandeur={3} | droits={4}" -f
+              $outcomeLabel, $Action, $(if ($Module) { $Module } else { '-' }), $Requester, $Rights)
+    if ($Milliseconds -gt 0) { $entry += (" | duree={0} ms" -f $Milliseconds) }
+    if ($Detail) { $entry += (" | " + $Detail) }
+
+    # 1. Le journal de Vigie : le detail, relu pendant un depannage.
+    try {
+        $level = if ($Outcome -eq 'failed') { 'ERROR' } elseif ($Outcome -eq 'denied') { 'WARN' } else { 'INFO' }
+        Write-Log -Backend $Backend -Name 'audit' -Level $level -Message $entry
+    } catch { }
+
+    # 2. Le journal des evenements Windows : la trace opposable.
+    #
+    # ELLE NE DOIT JAMAIS FAIRE ECHOUER L'ACTION. Un journal indisponible est un probleme
+    # de journal, pas un probleme d'action -- mais il se voit dans celui de Vigie, sinon
+    # on croirait la trace ecrite alors qu'elle ne l'est pas.
+    try {
+        if ([System.Diagnostics.EventLog]::SourceExists($script:VigieEventSource)) {
+            $type = switch ($Outcome) {
+                'done'   { [System.Diagnostics.EventLogEntryType]::Information }
+                'denied' { [System.Diagnostics.EventLogEntryType]::Warning }
+                'failed' { [System.Diagnostics.EventLogEntryType]::Error }
+            }
+            [System.Diagnostics.EventLog]::WriteEntry(
+                $script:VigieEventSource, $entry, $type, $script:VigieEventIds[$Outcome])
+        }
+    } catch {
+        try { Write-Log -Backend $Backend -Name 'audit' -Level 'WARN' `
+                        -Message ("journal des evenements Windows indisponible : " + $_.Exception.Message) } catch { }
+    }
+}
+
 function Invoke-ActionById {
     param(
         [Parameter(Mandatory)][string]$Type,
@@ -4338,8 +4431,17 @@ function Invoke-ActionById {
     }
     # Garde REELLE : le bouton grise n'est qu'un affichage ; c'est ici que le refus
     # compte, une requete pouvant arriver sans passer par l'interface.
+    # TRACE DE BOUT EN BOUT. Ce point est le seul par ou passe une action : c'est donc ici,
+    # et nulle part ailleurs, qu'on ecrit qui a demande quoi et ce qui en est sorti. Un
+    # REFUS se trace autant qu'une reussite -- c'est meme lui qu'on relit apres un incident.
+    $requester = Get-ActionRequester
+    $rights    = try { (Get-ActionRequirement -Type $Type -Backend $Backend) } catch { 'tous' }
+    $timer    = [System.Diagnostics.Stopwatch]::StartNew()
+
     $droit = Test-ActionAllowed -Type $Type -Backend $Backend
     if (-not $droit.allowed) {
+        Write-VigieAudit -Outcome 'denied' -Action $Type -Module $Module -Requester $requester `
+                         -Rights $rights -Detail ("raison=" + $droit.reason) -Backend $Backend
         return [pscustomobject]@{ jobId = (New-JobId); status = 'error'; message = $droit.reason }
     }
     $file = Join-Path $Backend ("actions/$Type.action.ps1")
@@ -4352,7 +4454,8 @@ function Invoke-ActionById {
     # toujours envoyer une action : c'est le serveur qui doit dire non.
     $conflit = Test-ActionResourcesFree -Type $Type -Backend $Backend
     if ($conflit) {
-        Write-Log -Backend $Backend -Name 'actions' -Message ("refus (ressource occupee) : " + $Type + " -- " + $conflit)
+        Write-VigieAudit -Outcome 'denied' -Action $Type -Module $Module -Requester $requester `
+                         -Rights $rights -Detail ("ressource occupee : " + $conflit) -Backend $Backend
         return [pscustomobject]@{ jobId = (New-JobId); status = 'error'; message = $conflit }
     }
     try {
@@ -4362,8 +4465,17 @@ function Invoke-ActionById {
             $inv = if ($res -and $res.result -and $res.result.invalidate) { @($res.result.invalidate) } else { @() }
             if ($inv.Count) { Remove-ProbeCache -Names $inv -Backend $Backend }
         } catch { }
+        # Une action peut rendre « ok = false » sans lever : c'est un echec, et il se trace
+        # comme tel. Se fier au seul try/catch laisserait passer les echecs polis.
+        $succeeded = -not ($res -and $res.result -and $res.result.PSObject.Properties['ok'] -and $res.result.ok -eq $false)
+        Write-VigieAudit -Outcome $(if ($succeeded) { 'done' } else { 'failed' }) -Action $Type -Module $Module `
+                         -Requester $requester -Rights $rights -Detail ("" + $res.message) `
+                         -Milliseconds ([int]$timer.ElapsedMilliseconds) -Backend $Backend
         [pscustomobject]@{ jobId = (New-JobId); status = 'done'; message = $res.message; result = $res.result }
     } catch {
+        Write-VigieAudit -Outcome 'failed' -Action $Type -Module $Module -Requester $requester `
+                         -Rights $rights -Detail ("exception : " + $_.Exception.Message) `
+                         -Milliseconds ([int]$timer.ElapsedMilliseconds) -Backend $Backend
         [pscustomobject]@{ jobId = (New-JobId); status = 'error'; message = $_.Exception.Message }
     }
 }

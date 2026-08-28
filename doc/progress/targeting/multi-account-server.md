@@ -83,14 +83,14 @@ elle répond **toujours oui** — et le contrôle des droits disparaît sans bru
 « **le demandeur** a-t-il ce droit ? ». C'est le point le plus dangereux de la migration : une régression y serait
 silencieuse et donnerait des droits d'administrateur à tout le monde.
 
-### C7. Les jetons : aucun emplacement n'est sûr par héritage
+### C7. Les secrets de compte : aucun emplacement n'est sûr par héritage
 
-**Un jeton que tout le monde peut lire ne sert à rien.** Les deux emplacements envisagés ont été mesurés sur cette
+**Un secret que tout le monde peut lire n'est pas un secret.** Les deux emplacements envisagés ont été mesurés sur cette
 machine, et **aucun des deux** n'est acceptable tel quel :
 
 | Emplacement | Droits hérités constatés | Verdict |
 |---|---|---|
-| `C:\ProgramData` | `BUILTIN\Utilisateurs` : **lecture ET écriture** | inutilisable : n'importe quel compte lirait tous les jetons |
+| `C:\ProgramData` | `BUILTIN\Utilisateurs` : **lecture ET écriture** | inutilisable : n'importe quel compte lirait tous les secrets |
 | `%LOCALAPPDATA%` du compte | le compte, `SYSTEM`, `Administrateurs` — **et** `Hyperion\CodexSandboxUsers` en lecture | insuffisant : un outil tiers y avait ajouté un groupe |
 
 Le second cas est le plus instructif : ce profil est censé être privé, et il ne l'était déjà plus. **On ne se fie donc
@@ -98,17 +98,17 @@ Le second cas est le plus instructif : ce profil est censé être privé, et il 
 
 **Ce qui est retenu :**
 
-1. **Le jeton vit dans le profil du compte**, sous `%LOCALAPPDATA%\Sowapps\Vigie\var\secrets\`. Cela suppose que le
+1. **Le secret du compte vit dans son profil**, sous `%LOCALAPPDATA%\Sowapps\Vigie\var\secrets\`. Cela suppose que le
    profil existe : Vigie **impose** donc qu'un compte ait ouvert une session au moins une fois avant d'être activé, et
    le refuse en le disant sinon. La carte Comptes sait déjà distinguer un profil jamais chargé.
 2. **L'héritage est coupé** sur le dossier `secrets`, et une ACL explicite est posée : le compte (lecture/écriture),
    `SYSTEM`, `Administrateurs`. **Personne d'autre** — aucun groupe, aucune exception.
 3. **L'ACL est vérifiée à chaque lecture**, pas seulement à l'écriture. Si elle accorde quoi que ce soit à un tiers, le
-   jeton est tenu pour **compromis** : révoqué, réémis, et l'incident journalisé. Un secret dont on ne vérifie les
+   secret est tenu pour **compromis** : révoqué, réémis, et l'incident journalisé. Un secret dont on ne vérifie les
    droits qu'une fois est un secret dont on ignore l'état.
-4. **Le serveur ne garde qu'une empreinte**, jamais le jeton en clair, dans un fichier lisible du seul `SYSTEM`. Lire
+4. **Le serveur ne garde qu'une empreinte**, jamais le secret en clair, dans un fichier lisible du seul `SYSTEM`. Lire
    la table du serveur ne donne alors rien d'exploitable.
-5. **Un administrateur peut lire n'importe quel jeton.** C'est irréductible sous Windows, et sans conséquence : il peut
+5. **Un administrateur peut lire n'importe quel secret.** C'est irréductible sous Windows, et sans conséquence : il peut
    déjà tout faire. Ce qui compte, c'est qu'un compte **standard** ne puisse lire que le sien.
 
 ### C7bis. Écrire dans le profil d'un autre compte
@@ -116,7 +116,7 @@ Le second cas est le plus instructif : ce profil est censé être privé, et il 
 Possible pour `SYSTEM`, avec deux précautions : le chemin se résout par le **SID**
 (`HKLM\...\ProfileList\<SID>\ProfileImagePath`) et non par le nom du compte ; et les fichiers créés appartiennent à
 `SYSTEM` — il faut donc poser le propriétaire et l'ACL explicitement, sans quoi le compte ne pourrait pas lire son
-propre jeton.
+propre secret.
 
 ### C8. Le tray ne pourra plus relancer le serveur
 
@@ -163,9 +163,9 @@ gagne aucun privilège : il fait ce que l'utilisateur pourrait faire lui-même.
 **Le canal existe déjà.** Le tray lit des ordres déposés dans un dossier (`var/run`), mécanisme éprouvé pour
 `restart`/`stop` et prévu pour être étendu — *« accepte de nouveaux ordres sans toucher au mécanisme »*. Il déménage
 dans le profil du compte, `%LOCALAPPDATA%\Sowapps\Vigie\var\run\`,
-**sous la même règle d'ACL que les jetons** (C7).
+**sous la même règle d'ACL que les secrets** (C7).
 
-> **Le canal d'ordres est une surface d'attaque, au même titre que les jetons.** Un dossier d'ordres inscriptible
+> **Le canal d'ordres est une surface d'attaque, au même titre que les secrets.** Un dossier d'ordres inscriptible
 > par tous permettrait à un compte de faire exécuter quelque chose par le tray d'un **autre** compte, dans SA
 > session. Il obéit donc aux mêmes trois règles : héritage coupé, ACL explicite — le compte, `SYSTEM`,
 > `Administrateurs`, personne d'autre — et vérification à la lecture. **Un ordre trouvé dans un dossier dont les
@@ -202,7 +202,7 @@ en ligne est refusée avec sa raison, jamais mise en attente indéfiniment.
 **Un service élevé sollicitable par un compte standard est un chemin d'élévation de privilèges.** Trois conditions non
 négociables :
 
-1. **Refus par défaut** — action non déclarée = `admin` ; jeton inconnu = rejet sans explication.
+1. **Refus par défaut** — action non déclarée = `admin` ; secret inconnu = rejet sans explication.
 2. **La liste blanche vit dans le code**, jamais dans une configuration qu'un compte standard pourrait modifier.
 3. **Traçabilité double** : chaque action privilégiée est écrite dans le journal de Vigie **et** dans le journal
    des événements Windows, avec le compte demandeur. « On doit toujours pouvoir retrouver et justifier une action
@@ -224,40 +224,29 @@ donnerait les droits d'administrateur à tout le monde. Cette étape ne se livre
 
 ## Ordre de travail
 
-Chaque étape se livre seule et laisse Vigie fonctionnelle. Aucune ne commence avant que la précédente ait tourné sur
-cette machine, comptes `fhaza` **et** `Famille`.
+Trois critères ont décidé cet ordre : chaque étape doit être **vérifiable seule**, laisser Vigie **en marche**, et ne
+produire **aucun code sans consommateur**. S'y ajoute une règle de l'utilisateur : la trace avant l'ouverture des
+droits.
 
-1. **Les jetons dans le profil de chaque compte**, héritage coupé, ACL explicite, vérifiée à la lecture. Le tray lit
-   le sien ; le serveur n'en garde que l'empreinte. *Le serveur ne bouge pas encore* : c'est la brique d'identité,
-   testable seule — et la seule dont une erreur ruinerait tout le reste.
-2. **Le serveur devient une tâche machine** démarrée au boot ; le tray s'y connecte au lieu de le lancer, et reçoit le
-   droit de la redémarrer (SDDL). *Les droits ne changent pas encore.*
-3. **Le tray exécutant** : il sait exécuter un ordre d'action dans sa session et rendre son résultat. On y bascule d'abord
-   les neuf `open-*`, les plus simples et les plus visibles.
-4. **Le reste du travail par utilisateur** : WSL, gestionnaires de paquets, lectures `HKCU`.
-5. **La traçabilité** : source `Vigie` dans le journal des événements Windows, posée à l'installation ; chaque
-   action privilégiée y écrit avec son demandeur. *Se livre avant les droits : on veut la trace AVANT d'ouvrir des
-   opérations à des comptes standard.*
-6. **Les droits** : faire respecter le `@droits:` **déjà déclaré** contre le DEMANDEUR et non contre le processus —
-   remplacement de `Test-IsElevated` par « le demandeur a-t-il ce droit », refus
-   par défaut, journal nominatif. **Relecture dédiée.**
+1. **La traçabilité.** Source `Vigie` dans le journal des événements Windows, posée à l'installation ; chaque action
+   privilégiée y écrit avec son demandeur. *Indépendante de tout le reste, utile immédiatement, et vérifiable dans
+   l'Observateur d'événements.*
+2. **L'environnement déclaré.** Réglage `dev` / `prod`, affiché par Vigie, et détection d'une tâche qui pointe vers
+   l'autre environnement. *Utile tout de suite — le cas existe déjà sur cette machine — et prérequis de l'étape 3, qui
+   doit savoir quelle copie lancer.*
+3. **Le serveur devient une tâche machine**, sous un compte administrateur dédié, démarré au boot ; le tray s'y
+   connecte au lieu de le lancer, et reçoit le droit de la redémarrer (SDDL). *Le pivot. Les droits ne changent pas
+   encore.*
+4. **Les secrets par compte** : héritage coupé, ACL explicite, vérifiée à la lecture ; ticket d'ouverture et cookie de
+   session. *Placée après l'étape 3, elle a enfin un consommateur : un serveur qui sert plusieurs comptes.*
+5. **Le tray exécutant** : il exécute un ordre d'action dans sa session et rend son résultat. On y bascule les neuf
+   `open-*`, puis les `wsl-*` et les `pkg-*`. *Sans l'étape 3, le serveur est déjà dans la session : rien à déléguer.*
+6. **Les droits contre le demandeur** : `Test-IsElevated` remplacé par « le demandeur a-t-il ce droit », refus par
+   défaut. *Après 1 et 4 : la trace existe, l'identité aussi.* **Relecture dédiée.**
 7. **Les données par compte** : réglages, modules actifs, notifications.
 8. **La migration** des installations existantes, idempotente et réversible.
 
----
-
-## Ce que la vérification des droits a appris
-
-Deux enseignements qui dépassent les jetons, et qui valent pour tout ce que Vigie écrira désormais pour le compte de
-quelqu'un d'autre.
-
-**Un emplacement n'est pas sûr parce qu'il est « privé ».** `%LOCALAPPDATA%` est censé l'être, et sur cette machine un
-outil tiers y avait ajouté un groupe en lecture. Personne ne l'avait remarqué. La seule position tenable est de **poser
-l'ACL soi-même, héritage coupé, et de la revérifier à chaque usage**.
-
-**Vérifier à l'écriture ne suffit pas.** Les droits d'un fichier changent après sa création — un outil, une stratégie
-de groupe, une main humaine. Un secret dont on ne contrôle les droits qu'une fois est un secret dont on ignore l'état.
-D'où la règle : **on vérifie au moment de s'en servir**, et un écart vaut compromission, pas avertissement.
+Aucune étape ne commence avant que la précédente ait tourné sur cette machine, comptes `fhaza` **et** `Famille`.
 
 ---
 

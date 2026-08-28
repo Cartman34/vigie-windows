@@ -21,6 +21,11 @@ if (($PSVersionTable.PSVersion.Major -lt 7) -or (-not $isAdmin)) {
 $backend = $PSScriptRoot
 . (Join-Path $backend 'lib/common.ps1')
 
+# LA SOURCE DU JOURNAL D'EVENEMENTS, si elle manque. Une installation anterieure a la
+# tracabilite ne l'a pas ; le serveur est eleve, il peut la poser. Silencieux : ce n'est
+# pas une raison de ne pas demarrer.
+try { $null = Register-VigieEventSource -Quiet } catch { }
+
 $logDir   = Get-LogDir -Backend $backend
 $startLog = Join-Path $logDir ('start_' + (Get-Date -Format 'yyyyMMdd_HHmmss') + '.log')
 try { Start-Transcript -Path $startLog -Force | Out-Null } catch { }
