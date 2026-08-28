@@ -314,17 +314,18 @@ l'autre ne dit ce que la chose fait : ils ne servent donc à distinguer personne
 
 | Rôle | Nom (doc) | Nom (code) | Où il vit | Durée |
 |---|---|---|---|---|
-| Secret durable du compte | **clé du compte** | `accountKey` | son profil, ACL explicite (C7) | jusqu'à révocation |
+| Secret durable du compte | **secret du compte** | `accountSecret` | son profil, ACL explicite (C7) | jusqu'à révocation |
 | Preuve à usage unique pour ouvrir la page | **ticket d'ouverture** | `openTicket` | passé en URL par le tray | quelques secondes, une fois |
 | Ce qui identifie la page ensuite | **cookie de session** | `sessionCookie` | le navigateur, en mémoire | meurt avec le navigateur |
 
-L'existant `api.token` / `API_TOKEN` devient `accountKey` : c'est la même chose, enfin nommée.
+L'existant `api.token` / `API_TOKEN` devient `accountSecret` : c'est la même chose, enfin nommée. « Clé » a été
+écarté — le mot désigne déjà trois autres choses ici : clé de configuration, clé de registre, clé de table.
 
-Le tray lit **sa clé de compte** — qu'il est seul à pouvoir lire —, demande un ticket d'ouverture au serveur, et ouvre
+Le tray lit **son secret de compte** — qu'il est seul à pouvoir lire —, demande un ticket d'ouverture au serveur, et ouvre
 `http://127.0.0.1:47600/?t=…`. Le serveur consomme le ticket et pose un cookie `HttpOnly`, `SameSite=Strict`, **sans
 date d'expiration** — donc de session.
 
-**La page ne détient alors aucun secret en JavaScript.** C'est un gain par rapport à l'existant, où la clé est injectée
+**La page ne détient alors aucun secret en JavaScript.** C'est un gain par rapport à l'existant, où le secret est injecté
 dans le HTML (`window.API_TOKEN`) et reste lisible par tout script de la page.
 
 **Ce qui survit côté navigateur** : rien de sensible, ni aujourd'hui ni demain. Le `localStorage` ne porte que des
