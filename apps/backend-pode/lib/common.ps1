@@ -3464,7 +3464,11 @@ function Get-VigieTaskHistoryAilment {
     $info = $null
     try { $info = $Task | Get-ScheduledTaskInfo -ErrorAction Stop } catch { }
     if ($info) {
-        $code = [int]$info.LastTaskResult
+        # NON SIGNE, ET C'EST TOUT LE PROBLEME. Windows rend un HRESULT sur 32 bits non
+        # signes : 0x800710E0 vaut 2 147 946 720, au-dela de Int32. Le cast levait, et
+        # l'action entiere echouait sur « Cannot convert value ... to type System.Int32 »
+        # -- au moment precis ou l'on cherchait a lire pourquoi une tache avait echoue.
+        $code = [long]$info.LastTaskResult
         # Les codes qui ne sont PAS des echecs : 0 succes ; 0x00041301 en cours ;
         # 0x00041302 terminaison demandee ; 0x00041303 jamais lancee (traite juste apres).
         $benins = @(0, 267009, 267010, 267011)
@@ -3483,7 +3487,7 @@ function Get-VigieTaskHistoryAilment {
                 try { $depuis = (Get-Item -LiteralPath $Matches[1] -ErrorAction Stop).LastWriteTime } catch { }
             }
             if ($depuis -and $depuis -gt $info.LastRunTime) { return $null }
-            return ("la dernière exécution a échoué (code 0x" + $code.ToString('X8') + ", le " +
+            return ("la dernière exécution a échoué (code 0x" + ([uint32]$code).ToString('X8') + ", le " +
                     $info.LastRunTime.ToString('dd/MM/yyyy HH:mm') + ")")
         }
     }
