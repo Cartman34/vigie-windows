@@ -18,11 +18,16 @@
     change au demarrage de la machine, et le chemin actuel continue de fonctionner. Les
     deux ne doivent JAMAIS tourner ensemble : ils se disputeraient le port.
 
-    Usage :
-      pwsh -File .\scripts\install-service.ps1 -Lister    # etat des lieux, ne change rien
-      pwsh -File .\scripts\install-service.ps1            # cree le compte et la tache (desactivee)
-      pwsh -File .\scripts\install-service.ps1 -Activer   # bascule : arrete l'ancien, active le service
-      pwsh -File .\scripts\install-service.ps1 -Retirer   # revient en arriere : tache et compte retires
+    CE N'EST PAS UN POINT D'ENTREE. L'installation de Vigie n'en a qu'UN -- setup.cmd, qui
+    appelle install.ps1 -- et c'est lui qui appelle cette etape. Un utilisateur n'a pas a
+    savoir qu'elle existe, ni dans quel ordre lancer quoi : l'idempotence fait la
+    difference entre une premiere installation et une mise a jour.
+
+    Il reste lancable a la main pour les gestes qui ne sont PAS l'installation :
+
+      pwsh -File .\scripts\lib\install-service.ps1 -Lister    # etat des lieux, ne change rien
+      pwsh -File .\scripts\lib\install-service.ps1 -Activer   # bascule vers le service
+      pwsh -File .\scripts\lib\install-service.ps1 -Retirer   # revient en arriere
 
     Codes de retour : 0 = fait ; 1 = prerequis manquant ; 2 = une etape a echoue ;
                       3 = refuse par l'utilisateur.
@@ -35,7 +40,8 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 
-$repoRoot = Split-Path $PSScriptRoot -Parent
+# Le script a descendu d un cran (scripts/lib/) : la racine est deux niveaux au-dessus.
+$repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $repoRoot 'apps/backend-pode/lib/common.ps1')
 $backend = Join-Path $repoRoot 'apps/backend-pode'
 

@@ -311,6 +311,20 @@ try {
     # l'interpreteur de la machine. Le 26/08, la tache pointait vers le pwsh du paquet
     # Store, supprime entre-temps -- Vigie ne demarrait plus du tout, et rien ne le
     # disait.
+    # LE SERVICE DE MACHINE, prepare mais pas active. Une seule installation : c'est ici
+    # que les nouvelles pieces arrivent, et l'idempotence fait la difference entre une
+    # premiere pose et une mise a jour. La tache est creee DESACTIVEE -- rien ne change au
+    # demarrage tant que la bascule n'est pas faite.
+    $service = Join-Path (Join-Path $PSScriptRoot 'lib') 'install-service.ps1'
+    if ($isAdmin -and (Test-Path -LiteralPath $service)) {
+        try {
+            & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $service | Write-Host
+            Write-Log -Backend $backend -Name 'install' -Message ("Service de machine : etape passee (code " + $LASTEXITCODE + ").")
+        } catch {
+            Write-Log -Backend $backend -Name 'install' -Level 'WARN' -Message ("Service de machine : " + $_.Exception.Message)
+        }
+    }
+
     $autostart = Join-Path $PSScriptRoot 'install-autostart.ps1'
     if (-not $isAdmin) {
         Write-Host ""
