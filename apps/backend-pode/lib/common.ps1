@@ -3434,6 +3434,19 @@ function Get-VigieTaskStructureAilment {
     # et pas a l'histoire.
     if ("$($Task.State)" -eq 'Disabled') { return "la tâche est désactivée dans Windows" }
 
+    # LE MAUVAIS ENVIRONNEMENT est un defaut structurel lui aussi : la tache lance une
+    # copie valide, mais pas celle que la machine a declaree. Elle se repare en la
+    # reecrivant vers la bonne -- donc elle se dit ici, ou le bouton de reparation la lit.
+    if ("$($a.Arguments)" -match '-File\s+"([^"]+)"') {
+        $declared = Get-DeclaredEnvironment
+        $taskEnv  = Get-PathEnvironment -Path $Matches[1]
+        if ($taskEnv -ne $declared) {
+            return ("elle démarre depuis « " + (Get-EnvironmentLabel -Environment $taskEnv) +
+                    " » alors que la machine se déclare en « " +
+                    (Get-EnvironmentLabel -Environment $declared) + " »")
+        }
+    }
+
     return $null
 }
 
@@ -3782,9 +3795,14 @@ function Set-VigieAccountEnabled {
                "(winget install --id Microsoft.PowerShell --scope machine), puis reactivez ce compte.")
     }
     # Le compte doit pouvoir LIRE ce que sa tache lance.
-    $racineApp = Get-SharedInstallPath
-    if (-not $racineApp) { $racineApp = Get-RepoRoot }
-    $tray = Join-Path $racineApp 'apps/tray/tray.ps1'
+    # LE CHEMIN SUIT L'ENVIRONNEMENT DECLARE. Poser systematiquement l'installation
+    # partagee ferait demarrer un autre compte sur la production alors que la machine se
+    # declare en developpement -- et Vigie signalerait ensuite l'ecart qu'elle vient de
+    # creer elle-meme.
+    $appRoot = if ((Get-DeclaredEnvironment -Backend $Backend) -eq 'dev') { Get-RepoRoot } else { Get-SharedInstallPath }
+    if (-not $appRoot) { $appRoot = Get-SharedInstallPath }
+    if (-not $appRoot) { $appRoot = Get-RepoRoot }
+    $tray = Join-Path $appRoot 'apps/tray/tray.ps1'
     if (-not (Test-Path -LiteralPath $tray)) { throw "Application introuvable : $tray" }
 
     $arg     = '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $tray + '"'

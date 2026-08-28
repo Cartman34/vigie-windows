@@ -29,7 +29,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 # LE PLAFOND. On le baisse a chaque fois qu'on renomme, jamais on ne le monte.
-$CEILING = 304
+$CEILING = 302
 
 $FRENCH_WORDS = @(
     'marquer','appliquer','repartir','verrou','carte','compte','tache','chemin',
