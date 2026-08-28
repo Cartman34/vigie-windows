@@ -361,6 +361,40 @@ foreach ($i in $interdits) {
     $manquements += "caractere de controle dans une source (antislash mange ?) -- $i"
 }
 
+# --- Garde-fou : PERSONNE NE CALCULE UN CHEMIN DE DONNEES A LA MAIN -----------
+#
+# Le programme installe vit dans Program Files, et ce dossier est en LECTURE SEULE
+# (D97) : seules les donnees du compte courant sont ecrites, dans son profil. Un chemin
+# « var/... » assemble a la main court-circuite cette regle et ecrit a cote du programme.
+#
+# Ce n'est pas une precaution theorique : c'est exactement ce qui empechait Vigie de
+# demarrer sur un compte standard. Le tray calculait « $PSScriptRoot/var/log », Windows
+# refusait la creation du dossier, et le script mourait a sa deuxieme ligne -- sans
+# journal, puisque le journal etait justement ce qu'il essayait de creer.
+#
+# Get-VarPath et Get-VarRoot savent ou vont les donnees. Personne d'autre.
+$horsRegle = @()
+foreach ($d in @('apps', 'scripts')) {
+    $racineD = Join-Path $repoRoot $d
+    if (-not (Test-Path -LiteralPath $racineD)) { continue }
+    foreach ($f in (Get-ChildItem -LiteralPath $racineD -Recurse -File -Include '*.ps1' -ErrorAction SilentlyContinue)) {
+        # common.ps1 EST l'implementation de la regle : c'est le seul endroit ou ces
+        # chemins se construisent.
+        if ($f.Name -eq 'common.ps1') { continue }
+        $i = 0
+        foreach ($ligne in (Get-Content -LiteralPath $f.FullName -Encoding UTF8 -ErrorAction SilentlyContinue)) {
+            $i++
+            if ($ligne -match '^\s*#') { continue }
+            if (($ligne -match 'Join-Path') -and ($ligne -match 'var[/\\](log|run|cache|secrets|history)')) {
+                $horsRegle += ("{0}:{1}" -f (Resolve-Path -LiteralPath $f.FullName -Relative), $i)
+            }
+        }
+    }
+}
+foreach ($x in $horsRegle) {
+    $manquements += "chemin de donnees calcule a la main (utiliser Get-VarPath) -- $x"
+}
+
 # --- Verdict -----------------------------------------------------------------
 $lignes | ForEach-Object { Write-Host $_ }
 Write-Host ''

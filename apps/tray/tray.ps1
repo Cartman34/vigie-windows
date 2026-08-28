@@ -18,10 +18,21 @@ $RepoUrl = 'https://github.com/Cartman34/vigie-windows'
 $appsRoot = Split-Path $PSScriptRoot -Parent
 $backend  = Join-Path $appsRoot 'backend-pode'   # BOOTSTRAP : nom en clair, cf. common.ps1
 $repoRoot = Split-Path $appsRoot -Parent
-# Chaque app gere ses fichiers locaux sous SON var/ (D33).
-$logDir  = Join-Path $PSScriptRoot 'var/log'
-if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
-$trayLog = Join-Path $logDir ('tray_' + (Get-Date -Format 'yyyyMMdd') + '.log')
+# Chaque app gere ses fichiers locaux sous SON var/ (D33) -- MAIS JAMAIS a cote du
+# programme quand celui-ci vit dans Program Files (D97).
+#
+# C'est ici que Vigie ne demarrait pas sur un compte standard. Le chemin etait calcule a
+# la main : « $PSScriptRoot/var/log ». Sur le compte administrateur, la tache tourne
+# elevee, le dossier se cree dans Program Files et tout marche. Sur « Famille », niveau
+# Limited, Windows refuse l'ecriture : New-Item leve, $ErrorActionPreference vaut 'Stop',
+# et le script meurt AVANT que TLog n'existe. Code de retour 1, aucun journal nulle part,
+# aucune trace -- exactement ce qui a ete constate le 28/08.
+#
+# Get-VarPath applique la regle une fois pour toutes : sur place quand c'est possible,
+# dans le profil du compte sinon. On la charge donc AVANT d'ecrire quoi que ce soit.
+$appsRootTmp = Split-Path $PSScriptRoot -Parent
+. (Join-Path (Join-Path $appsRootTmp 'backend-pode') 'lib/common.ps1')
+$trayLog = Get-VarPath -Backend $PSScriptRoot -Kind 'log' -File ('tray_' + (Get-Date -Format 'yyyyMMdd') + '.log')
 function TLog($m) { try { ("[" + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + "] " + $m) | Out-File -FilePath $trayLog -Append -Encoding UTF8 } catch { } }
 TLog "demarrage (PS $($PSVersionTable.PSVersion), $([System.Threading.Thread]::CurrentThread.GetApartmentState()))"
 
@@ -103,7 +114,7 @@ public static bool Focus(System.IntPtr h) {
         # Starting : un demarrage a ete demande et le serveur n'a pas encore repondu.
         $state     = [hashtable]::Synchronized(@{ Proc = $null; Drawn = ''; EverUp = $false; Starting = $true; StartTicks = [datetime]::UtcNow.Ticks; Mods = @{}; ModsInit = $false; HealthKo = 0 })
         # Cache d'etat du backend : lu (jamais ecrit) par le guetteur de modules (D54).
-        $stateCacheFile = Join-Path $backend 'var/cache/state-cache.json'
+        $stateCacheFile = Get-VarPath -Backend $backend -Kind 'cache' -File 'state-cache.json'
         $startupGrace = 25    # secondes de tolerance avant de declarer un echec de demarrage
 
         # --- Auto-reparation de la tache de demarrage -------------------------------
@@ -134,11 +145,8 @@ public static bool Focus(System.IntPtr h) {
         # ces deux obstacles, reste inspectable a l'oeil, scriptable depuis n'importe quoi,
         # et accepte de nouveaux ordres sans toucher au mecanisme.
         # Voir scripts/tray.ps1 pour le cote emetteur.
-        $runDir    = Join-Path $trayRoot 'var/run'
+        $runDir    = Get-VarPath -Backend $trayRoot -Kind 'run'
         $heartbeat = Join-Path $runDir 'tray.alive'
-        if (-not (Test-Path -LiteralPath $runDir)) {
-            New-Item -ItemType Directory -Path $runDir -Force | Out-Null
-        }
         # Un arret brutal laisse des ordres non consommes : ils ne doivent pas s'appliquer
         # au demarrage suivant.
         #

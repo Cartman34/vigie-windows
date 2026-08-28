@@ -50,7 +50,13 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $repoRoot  = Split-Path $PSScriptRoot -Parent
-$runDir    = Join-Path $repoRoot 'apps/tray/var/run'
+# LE MEME CALCUL QUE LE TRAY, ET PAR LE MEME CODE. Ce chemin etait ecrit a la main
+# (« apps/tray/var/run ») : sur une installation partagee, l'emetteur cherchait donc le
+# battement dans Program Files pendant que le tray l'ecrivait dans le profil du compte.
+# Program Files est en LECTURE SEULE (D97) ; c'est Get-VarPath qui sait ou vont les
+# donnees, et personne d'autre.
+. (Join-Path $repoRoot 'apps/backend-pode/lib/common.ps1')
+$runDir    = Get-VarPath -Backend (Join-Path $repoRoot 'apps/tray') -Kind 'run'
 $heartbeat = Join-Path $runDir 'tray.alive'
 
 # Le tray ecrit son battement toutes les 8 s : au-dela de 30 s, on le considere mort.
