@@ -121,7 +121,27 @@ public static bool Focus(System.IntPtr h) {
         $state     = [hashtable]::Synchronized(@{ Proc = $null; Drawn = ''; EverUp = $false; Starting = $true; StartTicks = [datetime]::UtcNow.Ticks; Mods = @{}; ModsInit = $false; HealthKo = 0 })
         # Cache d'etat du backend : lu (jamais ecrit) par le guetteur de modules (D54).
         $stateCacheFile = Get-VarPath -Backend $backend -Kind 'cache' -File 'state-cache.json'
-        $startupGrace = 25    # secondes de tolerance avant de declarer un echec de demarrage
+        <#
+            COMBIEN DE TEMPS AVANT DE DECLARER UN ECHEC DE DEMARRAGE ?
+
+            25 secondes, jusqu'au 28/08. Or le serveur met environ SOIXANTE-CINQ secondes
+            a repondre : le journal du tray montre la meme sequence a chaque lancement --
+            orange pendant 22 s, puis ROUGE, puis vert une quarantaine de secondes plus
+            tard. L'utilisateur voyait donc une panne a chaque demarrage, alors que tout
+            se passait bien. Un signal qui crie a tort finit ignore, et le jour ou le
+            serveur echoue vraiment, plus personne ne le regarde.
+
+            ON NE DEVINE PLUS, ON REGARDE LE PROCESSUS. Tant que celui qu'on a lance est
+            VIVANT, le demarrage est en cours : c'est une preuve, pas une estimation.
+            S'il a disparu, c'est un echec -- et on le dit tout de suite, sans attendre
+            la fin d'un delai. Le plafond ne sert plus que de garde-fou contre un serveur
+            qui resterait vivant sans jamais repondre.
+
+            Le cas du tray qui ADOPTE un serveur deja en place ($state.Proc vide) garde
+            un delai, faute de processus a observer : large, parce qu'on ne sait rien.
+        #>
+        $startupGrace   = 120   # plafond quand on observe le processus qu'on a lance
+        $startupBlind   = 90    # delai quand on n'a aucun processus a observer
 
         # --- Auto-reparation de la tache de demarrage -------------------------------
         # Le tray tourne ELEVE : il est le seul a pouvoir corriger sa propre tache
@@ -663,12 +683,29 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                     }
                 }
                 $elapsed = ([datetime]::UtcNow.Ticks - $state.StartTicks) / 1e7
-                if ($state.Starting -and $elapsed -le $startupGrace) {
-                    # Demarrage en cours (premier lancement OU redemarrage demande par
-                    # l'utilisateur) : c'est une attente normale, pas une panne.
-                    $app = 'warn';  $lbl = 'Démarrage…'
-                } elseif ($state.Starting) {
-                    $app = 'error'; $lbl = 'Échec de démarrage'
+                if ($state.Starting) {
+                    # LE PROCESSUS EST-IL ENCORE LA ? C'est la seule preuve qui vaille :
+                    # tant qu'il vit, le demarrage se poursuit, quel que soit le temps
+                    # qu'il y met. On ne connait ce processus que si c'est NOUS qui
+                    # l'avons lance -- un tray qui adopte un serveur en place n'a rien a
+                    # observer, et retombe alors sur un delai, volontairement large.
+                    $known = $false
+                    $alive = $false
+                    try {
+                        if ($state.Proc) { $known = $true; $alive = (-not $state.Proc.HasExited) }
+                    } catch { $known = $false }
+
+                    if ($known -and $alive -and $elapsed -le $startupGrace) {
+                        $app = 'warn';  $lbl = 'Démarrage…'
+                    } elseif ($known -and -not $alive) {
+                        # Il s'est arrete : inutile d'attendre la fin d'un delai pour le
+                        # dire. C'est meme PLUS RAPIDE que l'ancien comportement.
+                        $app = 'error'; $lbl = 'Le serveur s''est arrêté au démarrage'
+                    } elseif (-not $known -and $elapsed -le $startupBlind) {
+                        $app = 'warn';  $lbl = 'Démarrage…'
+                    } else {
+                        $app = 'error'; $lbl = 'Échec de démarrage'
+                    }
                 } else {
                     $app = 'error'; $lbl = 'Arrêtée / injoignable'
                     # Serveur MORT (port ferme) : le tray le relance seul. C'est le
