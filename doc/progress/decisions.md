@@ -27,7 +27,7 @@ ligne — `scripts/dev/check-doc.ps1` refuse une décision absente d'ici.
 - **Configuration** — D15 · D18 · D56 · D57
 - **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46 · D48 · D49 · D50 · D58 · D59 · D66 · D68 · D69 · D70 · D71 · D88 · D89 · D94 · D95 · D102
 - **Installation, déploiement et mise à jour** — D07 · D11 · D22 · D77 · D78 · D79 · D81 · D84 · D87 · D96 · D97 · D99 · D101
-- **Sécurité, droits et multi-comptes** — D34 · D65 · D67 · D73
+- **Sécurité, droits et multi-comptes** — D34 · D65 · D67 · D73 · D104
 - **Sondes, actions et tâches de fond** — D50bis · D53 · D54 · D60 · D61 · D80 · D82 · D83 · D85
 - **Outillage** — D06 · D21 · D24 · D40 · D44 · D47 · D52 · D64 · D75 · D86 · D90
 - **Méthode de travail** — D10 · D12 · D13 · D14 · D16 · D17 · D31 · D36 · D39 · D43 · D51 · D62 · D63 · D74 · D76 · D100 · D103
@@ -2695,3 +2695,30 @@ corrigent quand on ouvre le fichier pour une autre raison, et on descend le plaf
 noierait `git blame` pour un gain nul.
 
 Le premier essai a échoué à 311 : le garde-fou lui-même portait `$parFichier` et `$motif`. Il est écrit en anglais.
+
+## D104 — Windows se diagnostique par Vigie, jamais depuis une session ordinaire (2026-08-28)
+
+*Demandée par l'utilisateur.*
+
+« Tu dois éviter de diagnostiquer Windows avec ton contexte car tu ne vois pas tout, tu dois passer par un diag de
+Vigie. » Puis : « Le diag de Vigie doit te donner tout ce dont tu as besoin et si tu as besoin de plus, tu l'ajoutes
+mais ça doit rester. »
+
+**Ce que ça a coûté, le jour même.** Depuis une session non élevée, `Get-ScheduledTask` ne montrait qu'une tâche sur
+deux : j'ai conclu que le compte « Famille » n'était pas activé, alors que sa tâche existait. Vingt minutes plus tard,
+Vigie — élevée — voyait les deux tâches **désactivées dans Windows**, information que ma session ne pouvait pas voir du
+tout. Une machine à demi visible ne donne pas un demi-diagnostic : elle en donne un faux.
+
+**La règle.** Tout constat sur l'état de la machine passe par Vigie : c'est elle qui tourne élevée, elle qui a le droit
+de regarder, et elle qui appliquera la même lecture demain. Une observation faite depuis une session ordinaire ne vaut
+que pour cette session.
+
+**Le corollaire, qui fait vivre la règle.** Si le diagnostic ne dit pas ce dont on a besoin, on **l'enrichit** — et
+l'ajout reste. Il ne se retire que remplacé par mieux. Sinon la règle se contourne au premier manque, et chacun
+retourne bricoler dans son coin. Ajoutés ce jour-là, dans « Détails des comptes » : la ligne de commande de la tâche,
+sa dernière exécution avec son code de retour, et son **état** — c'est ce dernier qui manquait, et c'est celui qui
+expliquait tout.
+
+**Ce n'est pas seulement une discipline de travail** : ce que l'agent ne peut pas voir depuis sa session, l'utilisateur
+ne le voit pas non plus depuis la sienne. Chaque fois que le diagnostic s'enrichit pour l'un, il s'enrichit pour
+l'autre.

@@ -57,7 +57,13 @@ foreach ($c in (Get-VigieAccounts | Sort-Object name)) {
             $act = @($t.Actions)[0]
             $cmd = ("$($act.Execute)" + ' ' + "$($act.Arguments)").Trim()
             if ($cmd.Length -gt 150) { $cmd = $cmd.Substring(0, 147) + '...' }
-            $tache += ("tâche « " + $c.task + " », niveau " + "$($t.Principal.RunLevel)")
+            # L'ETAT est la premiere chose a savoir, et c'est justement ce qui manquait :
+            # une tache DESACTIVEE se lit « activee » partout ailleurs, et ne demarre
+            # jamais. Une session non elevee ne voit pas cet etat -- le diagnostic doit
+            # donc le porter, sinon il envoie chercher ailleurs (règle du 28/08).
+            $tache += ("tâche « " + $c.task + " » : " + "$($t.State)" +
+                       ", niveau " + "$($t.Principal.RunLevel)" +
+                       ", compte " + "$($t.Principal.UserId)")
             $tache += ("lance : " + $cmd)
             if ($i) {
                 $quand = if ($i.LastRunTime -and $i.LastRunTime.Year -gt 2000) { $i.LastRunTime.ToString('dd/MM/yyyy HH:mm') } else { 'jamais' }
