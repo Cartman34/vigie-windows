@@ -3472,22 +3472,18 @@ function Get-VigieTaskStructureAilment {
     # et pas a l'histoire.
     if ("$($Task.State)" -eq 'Disabled') { return "la tâche est désactivée dans Windows" }
 
-    # ILLISIBLE PAR LE COMPTE QUI LA LANCE : le defaut le plus silencieux de tous. La
-    # tache existe, le fichier existe, et PowerShell rend 64 sans journal parce qu'il ne
-    # peut pas l'ouvrir. Test-Path repond « oui » depuis le serveur, qui lui a le droit :
-    # c'est bien du compte de la TACHE qu'il faut parler.
-    if ("$($a.Arguments)" -match '-File\s+"([^"]+)"') {
-        $scriptPath = $Matches[1]
-        $taskSid = $null
-        try { $taskSid = (New-Object System.Security.Principal.NTAccount("$($Task.Principal.UserId)")).Translate(
-                            [System.Security.Principal.SecurityIdentifier]).Value } catch { }
-        if ($taskSid) {
-            $taskIsAdmin = ("$($Task.Principal.RunLevel)" -eq 'Highest')
-            if (-not (Test-PathReadableByAccount -Path $scriptPath -Sid $taskSid -IsAdmin:$taskIsAdmin)) {
-                return ("l'application n'est pas lisible par ce compte : " + $scriptPath)
-            }
-        }
-    }
+    # PAS DE VERDICT DE LISIBILITE ICI, et c'est un choix.
+    #
+    # Cette meme verification sert a CHOISIR le chemin d'une tache (Set-VigieAccountEnabled)
+    # et elle y fait ses preuves : elle a bien renvoye « Famille » du depot, illisible pour
+    # elle, vers l'installation partagee. Mais quand elle JUGE une tache existante, elle a
+    # declare illisible un fichier que la meme fonction, appelee depuis une session
+    # ordinaire sur le meme fichier et le meme compte, disait lisible.
+    #
+    # Un diagnostic qui se contredit selon l'observateur ne diagnostique rien -- et
+    # afficher « cassé » sur ce qui marche est pire que se taire (D105). Tant que cet
+    # ecart n'est pas compris, la question ne se pose qu'au moment ou l'on ecrit une
+    # tache, la ou une erreur se corrige immediatement.
 
     # LE MAUVAIS ENVIRONNEMENT est un defaut structurel lui aussi : la tache lance une
     # copie valide, mais pas celle que la machine a declaree. Elle se repare en la
