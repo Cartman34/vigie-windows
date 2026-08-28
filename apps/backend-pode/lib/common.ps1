@@ -3404,6 +3404,48 @@ function Set-ObjectProperty {
     $Object.$Name = $Value
 }
 
+# UN COMPTE PEUT-IL LIRE CE CHEMIN ? La question n'est pas theorique : « Famille » a tous
+# les droits sur C:\EspaceRestreint et Workspaces, et AUCUN a partir de Git\. Sa tache
+# lancait donc un script qu'elle ne pouvait pas ouvrir, et PowerShell rendait 64 --
+# « impossible d'ouvrir le fichier » -- sans le moindre journal (constate le 28/08).
+#
+# On remonte le chemin : il suffit qu'UN niveau refuse pour que tout le reste soit
+# inaccessible. Les groupes usuels comptent comme un acces : un compte en fait partie.
+function Test-PathReadableByAccount {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$Sid,
+        # Le compte appartient-il aux administrateurs ? Sans cette precision, on prendrait
+        # un droit accorde aux administrateurs pour un droit accorde a tous.
+        [switch]$IsAdmin
+    )
+    # Groupes qui contiennent n'importe quel compte local ORDINAIRE. « Administrateurs »
+    # et « Systeme » n'en sont pas : les compter faisait dire que Famille pouvait lire un
+    # dossier reserve a fhaza, aux administrateurs et a SYSTEM (constate le 28/08 -- le
+    # garde-fou se trompait exactement comme le code qu'il devait proteger).
+    $universal = @('S-1-1-0', 'S-1-5-32-545', 'S-1-5-11')
+    if ($IsAdmin) { $universal += 'S-1-5-32-544' }
+    $current = $Path
+    while ($current) {
+        if (Test-Path -LiteralPath $current) {
+            $acl = $null
+            try { $acl = Get-Acl -LiteralPath $current -ErrorAction Stop } catch { return $true }  # illisible d'ici : on ne conclut pas
+            $granted = $false
+            foreach ($rule in $acl.Access) {
+                if ($rule.AccessControlType -ne [System.Security.AccessControl.AccessControlType]::Allow) { continue }
+                if (-not ($rule.FileSystemRights -band [System.Security.AccessControl.FileSystemRights]::ReadAndExecute)) { continue }
+                $ruleSid = try { $rule.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value } catch { '' }
+                if ($ruleSid -eq $Sid -or $universal -contains $ruleSid) { $granted = $true; break }
+            }
+            if (-not $granted) { return $false }
+        }
+        $parent = Split-Path $current -Parent
+        if (-not $parent -or $parent -eq $current) { break }
+        $current = $parent
+    }
+    return $true
+}
+
 function Get-VigieTaskStructureAilment {
     param([Parameter(Mandatory)]$Task)
     $a = @($Task.Actions)[0]
@@ -3433,6 +3475,23 @@ function Get-VigieTaskStructureAilment {
     # la lancer. Ca se repare d'un geste (Enable-ScheduledTask), donc ca appartient ici
     # et pas a l'histoire.
     if ("$($Task.State)" -eq 'Disabled') { return "la tâche est désactivée dans Windows" }
+
+    # ILLISIBLE PAR LE COMPTE QUI LA LANCE : le defaut le plus silencieux de tous. La
+    # tache existe, le fichier existe, et PowerShell rend 64 sans journal parce qu'il ne
+    # peut pas l'ouvrir. Test-Path repond « oui » depuis le serveur, qui lui a le droit :
+    # c'est bien du compte de la TACHE qu'il faut parler.
+    if ("$($a.Arguments)" -match '-File\s+"([^"]+)"') {
+        $scriptPath = $Matches[1]
+        $taskSid = $null
+        try { $taskSid = (New-Object System.Security.Principal.NTAccount("$($Task.Principal.UserId)")).Translate(
+                            [System.Security.Principal.SecurityIdentifier]).Value } catch { }
+        if ($taskSid) {
+            $taskIsAdmin = ("$($Task.Principal.RunLevel)" -eq 'Highest')
+            if (-not (Test-PathReadableByAccount -Path $scriptPath -Sid $taskSid -IsAdmin:$taskIsAdmin)) {
+                return ("l'application n'est pas lisible par ce compte : " + $scriptPath)
+            }
+        }
+    }
 
     # LE MAUVAIS ENVIRONNEMENT est un defaut structurel lui aussi : la tache lance une
     # copie valide, mais pas celle que la machine a declaree. Elle se repare en la
@@ -3803,9 +3862,33 @@ function Set-VigieAccountEnabled {
     # partagee ferait demarrer un autre compte sur la production alors que la machine se
     # declare en developpement -- et Vigie signalerait ensuite l'ecart qu'elle vient de
     # creer elle-meme.
-    $appRoot = if ((Get-DeclaredEnvironment -Backend $Backend) -eq 'dev') { Get-RepoRoot } else { Get-SharedInstallPath }
-    if (-not $appRoot) { $appRoot = Get-SharedInstallPath }
-    if (-not $appRoot) { $appRoot = Get-RepoRoot }
+    # LA LISIBILITE PASSE AVANT LA PREFERENCE. L'environnement declare dit ou l'on
+    # VOUDRAIT tourner ; ce que le compte peut LIRE dit ou l'on PEUT tourner. Pointer la
+    # tache de « Famille » vers le depot -- illisible pour elle a partir de Git\ -- a
+    # produit un code 64, « impossible d'ouvrir le fichier », sans le moindre journal.
+    $targetSid = $null
+    try { $targetSid = (Get-LocalUser -Name $Name -ErrorAction Stop).SID.Value } catch { }
+    if (-not $targetSid) { throw ("Compte introuvable sur cette machine : " + $Name) }
+
+    $candidates = if ((Get-DeclaredEnvironment -Backend $Backend) -eq 'dev') {
+        @((Get-RepoRoot), (Get-SharedInstallPath))
+    } else {
+        @((Get-SharedInstallPath), (Get-RepoRoot))
+    }
+    $appRoot = $null
+    foreach ($candidate in $candidates) {
+        if (-not $candidate) { continue }
+        $probe = Join-Path (Join-Path $candidate 'apps') (Join-Path 'tray' 'tray.ps1')
+        if (-not (Test-Path -LiteralPath $probe)) { continue }
+        if (Test-PathReadableByAccount -Path $probe -Sid $targetSid -IsAdmin:([bool]$compte.admin)) {
+            $appRoot = $candidate
+            break
+        }
+    }
+    if (-not $appRoot) {
+        throw ("Aucune copie de Vigie n'est lisible par " + $Name +
+               " : deployez-la pour tous les comptes avant de l'activer.")
+    }
     $tray = Join-Path $appRoot 'apps/tray/tray.ps1'
     if (-not (Test-Path -LiteralPath $tray)) { throw "Application introuvable : $tray" }
 
