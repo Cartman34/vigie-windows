@@ -660,7 +660,44 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
         })
         # Les journaux du SERVEUR : c'est ce qu'on veut voir pour diagnostiquer.
         [void]$menu.Items.Add('Ouvrir les journaux', $null, [System.EventHandler]{ Start-Process (Get-LogDir -Backend $backend) })
-        $miAbout = $menu.Items.Add('À propos de Vigie', $null, [System.EventHandler]{ & $openRepo })
+        <#
+            « A PROPOS » MONTRE, IL NE PART PAS.
+
+            Ce menu ouvrait directement le depot GitHub : on quittait Vigie pour un
+            navigateur sans avoir rien appris d'elle. Or c'est exactement la ou l'on va
+            chercher ce qu'on ne sait pas -- quelle version tourne, sous quel compte,
+            depuis quel dossier. Le lien du depot y a sa place, mais comme UNE des
+            informations, pas comme destination.
+
+            La fenetre repond aux questions qu'on se pose devant un incident : quelle
+            version, quel compte, quel emplacement, quel serveur. Le lien s'ouvre depuis
+            la fenetre, si on le veut.
+        #>
+        $showAbout = {
+            try {
+                $version = try { Get-AppVersion -Backend $backend } catch { 'inconnue' }
+                $srv = if (Test-ServerUp -Address $cfg.BindAddress -Port $cfg.Port) {
+                           (Get-Label 'tray.apropos-serveur-en-ligne' $cfg.Port)
+                       } else { (Get-Label 'tray.apropos-serveur-hors-ligne') }
+                $lignes = @(
+                    (Get-Label 'tray.apropos-version'     $version),
+                    (Get-Label 'tray.apropos-compte'      $trayAccount),
+                    (Get-Label 'tray.apropos-application' (Split-Path $backend -Parent)),
+                    $srv,
+                    '',
+                    (Get-Label 'tray.apropos-depot'       $repoUrl),
+                    '',
+                    (Get-Label 'tray.apropos-ouvrir-depot')
+                )
+                $reponse = [System.Windows.Forms.MessageBox]::Show(
+                    ($lignes -join [Environment]::NewLine),
+                    (Get-Label 'tray.apropos-titre'),
+                    [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                    [System.Windows.Forms.MessageBoxIcon]::Information)
+                if ($reponse -eq [System.Windows.Forms.DialogResult]::Yes) { & $openRepo }
+            } catch { TLog ("a propos KO : " + $_.Exception.Message) }
+        }
+        $miAbout = $menu.Items.Add('À propos de Vigie', $null, [System.EventHandler]$showAbout)
         $miAbout.ToolTipText = $repoUrl
         [void]$menu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator))
         [void]$menu.Items.Add('Quitter', $null, [System.EventHandler]{ & $quitApp 'menu' })

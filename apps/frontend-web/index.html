@@ -505,6 +505,11 @@
      (signale le 28/08). Le sablier, lui, est reserve au bouton de l'operation -- c'est
      la regle « .busy l'emporte », juste en dessous. */
   .act:disabled,.fsolve:disabled{opacity:.4;cursor:not-allowed;filter:grayscale(1)}
+  /* RETENU N'EST PAS INTERDIT. Un bouton bloque le temps d'une operation qui se passe
+     AILLEURS avait exactement l'aspect d'un bouton refuse par les droits : la carte
+     semblait en panne (signale le 28/08, carte Comptes pendant un deploiement). Il
+     reste desactive -- c'est bien le but -- mais il se lit comme une attente. */
+  .act.retenu:disabled,.fsolve.retenu:disabled{opacity:.62;cursor:progress;filter:grayscale(.35)}
   .act:disabled:hover,.fsolve:disabled:hover{background:none}
   /* Etat "action en cours" sur un bouton : il tourne, donc il n'est pas grise. */
   .act.busy,.fsolve.busy{opacity:.9;cursor:progress;filter:none}
@@ -1998,9 +2003,11 @@ function applyOperationLock(){
         b.dataset.titreAvant = b.title || '';
       }
       b.disabled = true;
-      if(b.dataset.verrou === 'oui') b.title = raison;
+      // La marque ne va QUE sur ce que le verrou retient lui-meme : un bouton deja
+      // refuse par les droits reste un bouton refuse, il ne devient pas une attente.
+      if(b.dataset.verrou === 'oui'){ b.title = raison; b.classList.add('retenu'); }
     } else if(b.dataset.verrou){
-      if(b.dataset.verrou === 'oui'){ b.disabled = false; b.title = b.dataset.titreAvant || ''; }
+      if(b.dataset.verrou === 'oui'){ b.disabled = false; b.title = b.dataset.titreAvant || ''; b.classList.remove('retenu'); }
       delete b.dataset.verrou;
       delete b.dataset.titreAvant;
     }
