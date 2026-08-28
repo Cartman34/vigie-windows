@@ -23,7 +23,9 @@
   + confinement de chemin (`Resolve-Path`). Vérifier les failles à **chaque** ajout d'action.
 - Le script lancé par l'utilisateur **demande l'UAC** si besoin ; le serveur tourne **élevé** mais protégé.
 
-## Poser une question
+## Poser une question — FORMAT OBLIGATOIRE
+
+Ce n'est pas une préférence de style : une question posée hors de ce format est à reposer.
 
 **Numérotation.** Toute question, tout problème, toute décision à prendre porte un numéro préfixé `Q` — Q1, Q2… — pour
 qu'une réponse s'y accroche sans ambiguïté (« Q1A »). Les numéros **restent stables** tant qu'une question de la série
