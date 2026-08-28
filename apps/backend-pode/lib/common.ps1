@@ -3404,13 +3404,16 @@ function Set-ObjectProperty {
     $Object.$Name = $Value
 }
 
-# UN COMPTE PEUT-IL LIRE CE CHEMIN ? La question n'est pas theorique : « Famille » a tous
-# les droits sur C:\EspaceRestreint et Workspaces, et AUCUN a partir de Git\. Sa tache
-# lancait donc un script qu'elle ne pouvait pas ouvrir, et PowerShell rendait 64 --
+# UN COMPTE PEUT-IL LIRE CE FICHIER ? La question n'est pas theorique : « Famille » a
+# tous les droits sur C:\EspaceRestreint et Workspaces, et AUCUN a partir de Git\. Sa
+# tache lancait donc un script qu'elle ne pouvait pas ouvrir, et PowerShell rendait 64 --
 # « impossible d'ouvrir le fichier » -- sans le moindre journal (constate le 28/08).
 #
-# On remonte le chemin : il suffit qu'UN niveau refuse pour que tout le reste soit
-# inaccessible. Les groupes usuels comptent comme un acces : un compte en fait partie.
+# ON NE REMONTE PAS LE CHEMIN. Windows accorde par defaut aux utilisateurs le
+# « contournement de verification transversale » : traverser un dossier ne demande aucun
+# droit dessus, seuls comptent ceux du fichier vise. Remonter chaque niveau ajoutait des
+# verdicts qui variaient selon qui posait la question -- une session elevee lisait des ACL
+# qu'une session ordinaire ne lisait pas, et les deux ne repondaient pas pareil.
 function Test-PathReadableByAccount {
     param(
         [Parameter(Mandatory)][string]$Path,
@@ -3419,31 +3422,24 @@ function Test-PathReadableByAccount {
         # un droit accorde aux administrateurs pour un droit accorde a tous.
         [switch]$IsAdmin
     )
+    if (-not (Test-Path -LiteralPath $Path)) { return $false }
+    $acl = $null
+    try { $acl = Get-Acl -LiteralPath $Path -ErrorAction Stop } catch { return $true }   # on ne conclut pas d'une ACL illisible
+
     # Groupes qui contiennent n'importe quel compte local ORDINAIRE. « Administrateurs »
-    # et « Systeme » n'en sont pas : les compter faisait dire que Famille pouvait lire un
-    # dossier reserve a fhaza, aux administrateurs et a SYSTEM (constate le 28/08 -- le
-    # garde-fou se trompait exactement comme le code qu'il devait proteger).
+    # n'en est pas : le compter faisait dire que Famille pouvait lire un dossier reserve a
+    # fhaza, aux administrateurs et a SYSTEM -- le garde-fou se trompait exactement comme
+    # le code qu'il devait proteger.
     $universal = @('S-1-1-0', 'S-1-5-32-545', 'S-1-5-11')
     if ($IsAdmin) { $universal += 'S-1-5-32-544' }
-    $current = $Path
-    while ($current) {
-        if (Test-Path -LiteralPath $current) {
-            $acl = $null
-            try { $acl = Get-Acl -LiteralPath $current -ErrorAction Stop } catch { return $true }  # illisible d'ici : on ne conclut pas
-            $granted = $false
-            foreach ($rule in $acl.Access) {
-                if ($rule.AccessControlType -ne [System.Security.AccessControl.AccessControlType]::Allow) { continue }
-                if (-not ($rule.FileSystemRights -band [System.Security.AccessControl.FileSystemRights]::ReadAndExecute)) { continue }
-                $ruleSid = try { $rule.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value } catch { '' }
-                if ($ruleSid -eq $Sid -or $universal -contains $ruleSid) { $granted = $true; break }
-            }
-            if (-not $granted) { return $false }
-        }
-        $parent = Split-Path $current -Parent
-        if (-not $parent -or $parent -eq $current) { break }
-        $current = $parent
+
+    foreach ($rule in $acl.Access) {
+        if ($rule.AccessControlType -ne [System.Security.AccessControl.AccessControlType]::Allow) { continue }
+        if (-not ($rule.FileSystemRights -band [System.Security.AccessControl.FileSystemRights]::Read)) { continue }
+        $ruleSid = try { $rule.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value } catch { '' }
+        if ($ruleSid -eq $Sid -or $universal -contains $ruleSid) { return $true }
     }
-    return $true
+    return $false
 }
 
 function Get-VigieTaskStructureAilment {
