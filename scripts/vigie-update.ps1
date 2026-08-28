@@ -67,6 +67,21 @@ try {
                 [bool](Get-Command git -ErrorAction SilentlyContinue)
 } catch { }
 
+# LE CHOIX DE LA MACHINE, quand l'appelant n'impose rien. Un serveur de developpement
+# peut vouloir se comporter comme une machine d'utilisateur (UpdateSource = 'release'),
+# ou l'inverse : c'est un reglage de MACHINE, il vit dans config.local.psd1.
+if (-not $PSBoundParameters.ContainsKey('Source')) {
+    try {
+        $cfg = Get-Config -Backend $backend
+        $choix = "$($cfg.UpdateSource)".Trim()
+        if ($choix -and @('auto','local','release','clone') -contains $choix) {
+            $Source = $choix
+            Write-Host ("Source imposee par la configuration : " + $choix)
+        }
+        if (-not $Ref -and "$($cfg.UpdateRef)".Trim()) { $Ref = "$($cfg.UpdateRef)".Trim() }
+    } catch { }
+}
+
 $voie = $Source
 if ($voie -eq 'auto') {
     if ($Ref)          { $voie = 'clone' }

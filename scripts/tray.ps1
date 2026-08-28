@@ -93,8 +93,36 @@ if ($PSCmdlet.ParameterSetName -eq 'Status' -or $Status) {
 # --- Arret / redemarrage -----------------------------------------------------
 $avant = Get-TrayState
 if (-not $avant -or $avant.AgeSec -gt $SEUIL_SEC) {
-    Write-Host "Tray deja arrete (rien a faire)."
-    exit 1
+    # RELANCER CE QUI NE TOURNE PLUS, C'EST LE DEMARRER.
+    #
+    # On rendait 1 en disant « rien a faire » -- et la mise a jour, qui appelle ce script
+    # pour recharger le nouveau code, concluait a un echec alors que le deploiement avait
+    # reussi : « le deploiement est fait, mais la relance n'a pas abouti » (constate le
+    # 28/08). Un arret n'est pas un echec de relance : c'est justement le cas ou il faut
+    # demarrer.
+    if (-not $Restart) {
+        Write-Host "Tray deja arrete (rien a faire)."
+        exit 0
+    }
+    Write-Host "Tray arrete : demarrage."
+    try {
+        Start-ScheduledTask -TaskName 'Vigie' -ErrorAction Stop
+    } catch {
+        Write-Host ("La tache de demarrage n'a pas pu etre lancee : " + $_.Exception.Message) -ForegroundColor Yellow
+        exit 2
+    }
+    # ON CONSTATE (D43) : la tache lancee ne prouve pas le tray vivant.
+    $limite = (Get-Date).AddSeconds($TimeoutSec)
+    while ((Get-Date) -lt $limite) {
+        Start-Sleep -Milliseconds 800
+        $e = Get-TrayState
+        if ($e -and $e.AgeSec -le $SEUIL_SEC) {
+            Write-Host ("Tray demarre (PID " + $e.Pid + ").")
+            exit 0
+        }
+    }
+    Write-Host "Le tray n'a pas donne signe de vie dans le delai imparti." -ForegroundColor Yellow
+    exit 2
 }
 
 $ordre = if ($Restart) { 'restart' } else { 'stop' }

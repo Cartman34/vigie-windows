@@ -882,12 +882,19 @@ function cardHtml(m, groupLabel){
     // Le libelle vient de l'action quand la carte la declare aussi ; sinon le serveur
     // l'a completee depuis la declaration du fichier d'action.
     const interditeF = fa && (fa.allowed===false);
+    // SON OPERATION TOURNE : il tourne aussi. La rangee d'actions savait deja le faire ;
+    // le bouton de resolution, lui, restait intact et cliquable pendant que l'operation
+    // qu'il venait de lancer se deroulait -- « il ne tourne pas, n'est pas grise, et est
+    // toujours present » (constate le 28/08). Meme regle, meme rendu.
+    const solveEnCours = !!m.busy && (!m.busyAction || m.busyAction===f.fixAction);
     const solve = (f.fixAction && isProblem)
-      ? `<button class="fsolve sev-${fa?(fa.severity||'fix'):'fix'}${interditeF?' denied':''}"${interditeF?' disabled':''}`
+      ? `<button class="fsolve sev-${fa?(fa.severity||'fix'):'fix'}${interditeF?' denied':''}${solveEnCours?' busy':''}"${(interditeF||solveEnCours)?' disabled':''}`
         + ` data-a="${f.fixAction}" data-m="${m.id}" data-k="${fkind}" data-c="${fconfirm?1:0}"`
         + ` data-c2="${fa&&fa.confirmTwice?1:0}" data-h="${((fa&&fa.help)||'').replace(/"/g,'&quot;')}"`
         + ` title="${esc(interditeF?(fa.deniedReason||'Action réservée à un compte administrateur.'):((fa&&fa.help)||'Résoudre ce point')).replace(/"/g,'&quot;')}">`
-        + `${ICONS[fkind]||''}<span>${esc((fa&&fa.label)||'Résoudre')}</span></button>`
+        + (solveEnCours
+             ? `<span class="spin"></span><span>${esc((fa&&fa.label)||'Résoudre')}…</span></button>`
+             : `${ICONS[fkind]||''}<span>${esc((fa&&fa.label)||'Résoudre')}</span></button>`)
       : '';
     const det = (detTxt && !detLong) ? `<div class="field-detail ${stt}${open}" data-k="${key}">${esc(detTxt)}</div>` : '';
     return `<div class="frow">
@@ -1073,6 +1080,10 @@ function hauteurEstimee(carte){
   const boutons = carte.querySelectorAll('.actions button').length;
   return 92 + lignes * 30 + Math.ceil(boutons / 2) * 34;
 }
+// Placement retenu des groupes : { nb: nombre de colonnes, col: Map(groupe -> colonne) }.
+// Remis a zero quand le nombre de colonnes change (redimensionnement) ou quand
+// l'utilisateur reorganise lui-meme ses cartes.
+let placementGroupes = null;
 function repartirEnColonnes(masonry){
   const cartes = [...masonry.children].filter(e => e.classList && e.classList.contains('card'));
   if(!cartes.length) return;
@@ -1103,9 +1114,25 @@ function repartirEnColonnes(masonry){
     if(!parTheme.has(g)){ parTheme.set(g, []); groupes.push(g); }
     parTheme.get(g).push(carte);
   }
+  // UNE FOIS POSE, UN GROUPE NE BOUGE PLUS.
+  //
+  // L'equilibrage se fait sur des hauteurs ESTIMEES : dès qu'une carte grandit -- un
+  // champ de plus, un defaut qui s'affiche -- le calcul rendait un autre resultat et les
+  // cartes changeaient de colonne sous les yeux de qui les lisait (signale le 28/08).
+  // On garde donc le placement precedent tant que la fenetre garde le meme nombre de
+  // colonnes et que les memes groupes sont la. Un groupe nouveau, lui, prend la colonne
+  // la moins remplie -- et y reste.
+  const memePlacement = placementGroupes && placementGroupes.nb === nb;
+  if(!memePlacement) placementGroupes = { nb: nb, col: new Map() };
   for(const g of groupes){
-    let cible = 0;
-    for(let i = 1; i < nb; i++){ if(hauteurs[i] < hauteurs[cible]) cible = i; }
+    let cible;
+    if(placementGroupes.col.has(g)){
+      cible = Math.min(placementGroupes.col.get(g), nb - 1);
+    } else {
+      cible = 0;
+      for(let i = 1; i < nb; i++){ if(hauteurs[i] < hauteurs[cible]) cible = i; }
+      placementGroupes.col.set(g, cible);
+    }
     for(const carte of parTheme.get(g)){
       colonnes[cible].appendChild(carte);
       hauteurs[cible] += hauteurEstimee(carte);
@@ -2167,7 +2194,15 @@ async function checkVersion(){
     const ab=document.getElementById('atelierBtn');
     if(ab){ if(j && j.atelier){ ab.href=j.atelier; ab.hidden=false; } else { ab.hidden=true; } }
     if(!window.APP_BUILD || window.APP_BUILD.includes('__')) return;
-    if(j && j.build && j.build!==window.APP_BUILD) location.reload();
+    if(j && j.build && j.build!==window.APP_BUILD){
+      // PAS PENDANT UNE OPERATION. Une mise a jour de Vigie sert forcement une nouvelle
+      // version : la page se rechargeait donc AU MILIEU de l'operation qui l'avait
+      // declenchee. Au retour, le front ne savait plus qu'elle tournait -- boutons
+      // reactives, sablier disparu, cartes redistribuees. On attend la fin, et le
+      // prochain passage (toutes les 15 s) rechargera.
+      if(operationEnCours()){ return; }
+      location.reload();
+    }
   }catch(e){}
 }
 
