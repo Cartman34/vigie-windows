@@ -118,7 +118,7 @@ public static bool Focus(System.IntPtr h) {
         $pwsh      = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
         $trayPath  = Join-Path $trayRoot 'tray.ps1'      # cette app, pas le backend
         # Starting : un demarrage a ete demande et le serveur n'a pas encore repondu.
-        $state     = [hashtable]::Synchronized(@{ Proc = $null; Drawn = ''; EverUp = $false; Starting = $true; StartTicks = [datetime]::UtcNow.Ticks; Mods = @{}; ModsInit = $false; HealthKo = 0 })
+        $state     = [hashtable]::Synchronized(@{ Proc = $null; Drawn = ''; EverUp = $false; Starting = $true; StartTicks = [datetime]::UtcNow.Ticks; Mods = @{}; ModsInit = $false; HealthKo = 0; MachineTask = $null })
         # Cache d'etat du backend : lu (jamais ecrit) par le guetteur de modules (D54).
         $stateCacheFile = Get-VarPath -Backend $backend -Kind 'cache' -File 'state-cache.json'
         <#
@@ -193,8 +193,38 @@ public static bool Focus(System.IntPtr h) {
             foreach ($x in $argv) { [void]$psi.ArgumentList.Add([string]$x) }
             return [System.Diagnostics.Process]::Start($psi)
         }
+        <#
+            LA TACHE SERVEUR TIENT-ELLE DEJA LA MACHINE ?
+
+            C'est LA question de la migration. Tant qu'il y a un serveur par session, le
+            tray de chaque compte lance le sien -- c'est le fonctionnement historique. Des
+            que la tache « Vigie - Serveur » est active, un serveur unique repond a toute
+            la machine : si les trays continuaient a en lancer, ils se disputeraient le
+            port 47600, et le perdant mourrait sans que personne ne sache lequel repond.
+
+            LA REPONSE EST MISE EN CACHE. L'etat d'une tache planifiee ne change pas en
+            cours de session, et l'interroger toutes les huit secondes coute pour rien.
+
+            SI ON NE PEUT PAS LIRE LA TACHE, on repond « non ». Un compte a qui Windows
+            refuse la lecture ne doit pas se retrouver sans serveur du tout : on garde le
+            comportement historique, qui marche.
+        #>
+        $machineServerActive = {
+            if ($null -ne $state.MachineTask) { return $state.MachineTask }
+            $actif = $false
+            try {
+                $t = Get-ScheduledTask -TaskName 'Vigie - Serveur' -ErrorAction Stop
+                $actif = ("$($t.State)" -ne 'Disabled')
+            } catch { $actif = $false }
+            $state.MachineTask = $actif
+            if ($actif) { TLog "tache serveur active : le tray ne lancera pas de serveur" }
+            return $actif
+        }
+
         $startServer = {
             if (Test-ServerUp -Address $cfg.BindAddress -Port $cfg.Port) { return }
+            # LA MACHINE S'EN CHARGE : on n'a rien a lancer, et surtout rien a disputer.
+            if (& $machineServerActive) { return }
             # Un demarrage VOULU rouvre la fenetre de tolerance : pendant $startupGrace
             # secondes, "injoignable" veut dire "demarre" (orange) et non "en panne" (rouge).
             $state.StartTicks = [datetime]::UtcNow.Ticks
