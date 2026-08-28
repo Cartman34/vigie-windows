@@ -309,17 +309,22 @@ Vigie sur ce compte ». Rien ne reste en suspens, rien ne s'exécutera plus tard
 
 Trois objets distincts, qu'il ne faut pas confondre :
 
-| | Ce que c'est | Où il vit | Durée |
-|---|---|---|---|
-| **Jeton** | le secret durable du compte | son profil, ACL explicite (C7) | jusqu'à révocation |
-| **Ticket** | preuve à usage unique, pour amorcer la page | passé en URL par le tray | quelques secondes, une seule fois |
-| **Cookie de session** | ce qui identifie la page ensuite | le navigateur, en mémoire | meurt à la fermeture du navigateur |
+Trois objets, **nommés par leur rôle**. « Jeton » et « token » sont le même mot d'une langue à l'autre, et ni l'un ni
+l'autre ne dit ce que la chose fait : ils ne servent donc à distinguer personne.
 
-Le tray lit **son** jeton — qu'il est seul à pouvoir lire —, demande un ticket au serveur, et ouvre
+| Rôle | Nom (doc) | Nom (code) | Où il vit | Durée |
+|---|---|---|---|---|
+| Secret durable du compte | **clé du compte** | `accountKey` | son profil, ACL explicite (C7) | jusqu'à révocation |
+| Preuve à usage unique pour ouvrir la page | **ticket d'ouverture** | `openTicket` | passé en URL par le tray | quelques secondes, une fois |
+| Ce qui identifie la page ensuite | **cookie de session** | `sessionCookie` | le navigateur, en mémoire | meurt avec le navigateur |
+
+L'existant `api.token` / `API_TOKEN` devient `accountKey` : c'est la même chose, enfin nommée.
+
+Le tray lit **sa clé de compte** — qu'il est seul à pouvoir lire —, demande un ticket d'ouverture au serveur, et ouvre
 `http://127.0.0.1:47600/?t=…`. Le serveur consomme le ticket et pose un cookie `HttpOnly`, `SameSite=Strict`, **sans
 date d'expiration** — donc de session.
 
-**La page ne détient alors aucun secret en JavaScript.** C'est un gain par rapport à l'existant, où le jeton est injecté
+**La page ne détient alors aucun secret en JavaScript.** C'est un gain par rapport à l'existant, où la clé est injectée
 dans le HTML (`window.API_TOKEN`) et reste lisible par tout script de la page.
 
 **Ce qui survit côté navigateur** : rien de sensible, ni aujourd'hui ni demain. Le `localStorage` ne porte que des
