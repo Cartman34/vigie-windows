@@ -1,4 +1,4 @@
-<#
+﻿<#
     install-autostart.ps1 - Acces PERMANENT au panneau. IDEMPOTENT.
     Enregistre une tache planifiee qui lance le serveur a chaque ouverture de
     session (en eleve, cache), et cree un raccourci bureau vers l'UI.
@@ -19,6 +19,7 @@ param(
 $ErrorActionPreference = 'Stop'
 # Les scripts de gestion vivent dans scripts/ : les apps sont dans apps/.
 $repoRoot = Split-Path $PSScriptRoot -Parent
+. (Join-Path $repoRoot 'scripts/lib/console-ui.ps1')   # le meme affichage que partout
 $backend  = Join-Path $repoRoot 'apps/backend-pode'   # BOOTSTRAP, cf. common.ps1
 . (Join-Path $backend 'lib/common.ps1')
 $tray     = Join-Path $repoRoot 'apps/tray/tray.ps1'   # le tray est une app a part
@@ -48,7 +49,7 @@ if (-not (Test-IsElevated)) {
 # du compte courant -- suffisant pour SA propre tache, mais pas pour celle d'un autre.
 $pwsh = Get-SharedPwshPath
 if (-not $pwsh) { $pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Source }
-if (-not $pwsh) { Write-Host "pwsh introuvable. Lance d'abord install.ps1 (installe PowerShell 7)." -ForegroundColor Yellow; exit 1 }
+if (-not $pwsh) { Write-Warn "pwsh introuvable. Lance d'abord install.ps1 (installe PowerShell 7)."; exit 1 }
 
 $arg       = '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $tray + '"'
 $action    = New-ScheduledTaskAction -Execute $pwsh -Argument $arg
@@ -63,13 +64,11 @@ $settings  = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGo
                 -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew `
                 -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
 Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
-Write-Host ("Tache '" + $taskName + "' enregistree (lancement a l'ouverture de session, eleve).")
-
+Write-Info ("Tache '" + $taskName + "' enregistree (lancement a l'ouverture de session, eleve).")
 $desktop = [Environment]::GetFolderPath('Desktop')
 $lnk = Join-Path $desktop 'Vigie.url'
 Set-Content -Path $lnk -Value ("[InternetShortcut]`r`nURL=" + $appUrl + "`r`n") -Encoding ASCII
-Write-Host ("Raccourci bureau cree : " + $lnk)
-
+Write-Info ("Raccourci bureau cree : " + $lnk)
 Start-ScheduledTask -TaskName $taskName
-Write-Host ("App barre systeme lancee (icone dans la zone de notification). Serveur en fond, panneau sur " + $appUrl)
+Write-Info ("App barre systeme lancee (icone dans la zone de notification). Serveur en fond, panneau sur " + $appUrl)
 exit 0

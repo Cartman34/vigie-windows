@@ -1,4 +1,4 @@
-<#
+﻿<#
     install-service.ps1 - Le serveur de Vigie devient un SERVICE DE MACHINE. IDEMPOTENT.
 
     Aujourd'hui, chaque compte lance son propre serveur au moment de sa session. Un compte
@@ -44,11 +44,11 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $repoRoot 'apps/backend-pode/lib/common.ps1')
 $backend = Join-Path $repoRoot 'apps/backend-pode'
+. (Join-Path $repoRoot 'scripts/lib/console-ui.ps1')   # le meme affichage que tous les autres scripts
 
 $SERVICE_ACCOUNT = 'VigieService'
 $SERVICE_TASK    = 'Vigie - Serveur'
 
-function Say { param([string]$Text, [string]$Color = 'Gray') Write-Host $Text -ForegroundColor $Color }
 
 function Get-ServiceAccount {
     try { return (Get-LocalUser -Name $SERVICE_ACCOUNT -ErrorAction Stop) } catch { return $null }
@@ -61,18 +61,13 @@ function Get-ServiceTask {
 function Show-State {
     $account = Get-ServiceAccount
     $task    = Get-ServiceTask
-    Say ""
-    Say "=== Service de machine ===" 'Cyan'
-    Say ""
-    Say ("  Compte dédié    : " + $(if ($account) { $SERVICE_ACCOUNT + " (actif=" + $account.Enabled + ")" } else { "absent" })) `
-        $(if ($account) { 'Green' } else { 'Yellow' })
-    Say ("  Tâche machine  : " + $(if ($task) { $SERVICE_TASK + " (" + $task.State + ")" } else { "absente" })) `
-        $(if ($task) { 'Green' } else { 'Yellow' })
-    Say ("  Environnement  : " + (Get-EnvironmentLabel -Environment (Get-DeclaredEnvironment -Backend $backend)))
+    Write-Title "Service de machine"
+    Write-Info ("Compte dédié     : " + $(if ($account) { $SERVICE_ACCOUNT + " (actif=" + $account.Enabled + ")" } else { "absent" }))
+    Write-Info ("Tâche machine    : " + $(if ($task) { $SERVICE_TASK + " (" + $task.State + ")" } else { "absente" }))
+    Write-Info ("Environnement    : " + (Get-EnvironmentLabel -Environment (Get-DeclaredEnvironment -Backend $backend)))
     $listening = $null
     try { $listening = Get-NetTCPConnection -LocalPort ([int](Get-Config -Backend $backend).Port) -State Listen -ErrorAction Stop } catch { }
-    Say ("  Serveur en ligne : " + $(if ($listening) { "oui (PID " + $listening[0].OwningProcess + ")" } else { "non" }))
-    Say ""
+    Write-Info ("Serveur en ligne : " + $(if ($listening) { "oui (PID " + $listening[0].OwningProcess + ")" } else { "non" }))
 }
 
 # --- Le compte dedie ------------------------------------------------------------------
@@ -94,7 +89,7 @@ function Set-ServiceAccountReady {
     $password = New-ServicePassword
     $secure = ConvertTo-SecureString $password -AsPlainText -Force
     if (-not $account) {
-        Say ("Création du compte " + $SERVICE_ACCOUNT + "...") 'Cyan'
+        Write-Step ("Création du compte " + $SERVICE_ACCOUNT)
         # 48 CARACTERES, PAS UN DE PLUS : c'est la limite que Windows impose a la
         # description d'un compte local. Une phrase de 66 signes a fait echouer la
         # premiere installation (28/08) -- et l'echec, lui, etait bien signale.
@@ -102,7 +97,7 @@ function Set-ServiceAccountReady {
                       -Description 'Service local de Vigie (pas de session)' `
                       -PasswordNeverExpires -UserMayNotChangePassword -ErrorAction Stop | Out-Null
     } else {
-        Say ("Le compte " + $SERVICE_ACCOUNT + " existe : mot de passe renouvelé.") 'DarkGray'
+        Write-Detail ("Le compte " + $SERVICE_ACCOUNT + " existe : mot de passe renouvelé.")
         Set-LocalUser -Name $SERVICE_ACCOUNT -Password $secure -ErrorAction Stop
     }
 
@@ -113,9 +108,9 @@ function Set-ServiceAccountReady {
                     Where-Object { "$($_.Name)" -like ('*\' + $SERVICE_ACCOUNT) })
         if (-not $member.Count) {
             Add-LocalGroupMember -Group $admins -Member $SERVICE_ACCOUNT -ErrorAction Stop
-            Say "  ajouté aux administrateurs." 'DarkGray'
+            Write-Detail "ajouté aux administrateurs."
         }
-    } catch { Say ("  groupe administrateurs : " + $_.Exception.Message) 'Yellow' }
+    } catch { Write-Warn ("groupe administrateurs : " + $_.Exception.Message) }
 
     # MASQUE DE L'ECRAN DE CONNEXION. Ce compte n'est pas une personne : il n'a rien a
     # faire dans la liste des utilisateurs. C'est la meme cle que Vigie lit deja pour
@@ -124,8 +119,8 @@ function Set-ServiceAccountReady {
         $key = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\UserList'
         if (-not (Test-Path -LiteralPath $key)) { New-Item -Path $key -Force | Out-Null }
         New-ItemProperty -Path $key -Name $SERVICE_ACCOUNT -Value 0 -PropertyType DWord -Force | Out-Null
-        Say "  masqué de l'écran de connexion." 'DarkGray'
-    } catch { Say ("  masquage impossible : " + $_.Exception.Message) 'Yellow' }
+        Write-Detail "masqué de l'écran de connexion."
+    } catch { Write-Warn ("masquage impossible : " + $_.Exception.Message) }
 
     return $password
 }
@@ -146,12 +141,12 @@ function Grant-BatchLogonRight {
     try {
         $out = & secedit.exe /export /areas USER_RIGHTS /cfg $exportFile 2>&1
         if (-not (Test-Path -LiteralPath $exportFile)) {
-            Say ("Droits de session : export impossible (" + ($out -join ' ') + ")") 'Yellow'
+            Write-Warn ("Droits de session : export impossible (" + ($out -join ' ') + ")")
             return $false
         }
         $line = (Get-Content -LiteralPath $exportFile | Where-Object { $_ -match '^SeBatchLogonRight' } | Select-Object -First 1)
         if ($line -and $line.Contains($Sid)) {
-            Say "  droit « ouvrir une session en tant que tache » : deja accorde." 'DarkGray'
+            Write-Detail "droit « ouvrir une session en tant que tâche » : déjà accordé."
             return $true
         }
         $current = if ($line) { ($line -split '=', 2)[1].Trim() } else { '' }
@@ -168,13 +163,13 @@ function Grant-BatchLogonRight {
         $db = Join-Path $env:TEMP ('vigie-secpol-' + [guid]::NewGuid().ToString('N').Substring(0,8) + '.sdb')
         $out = & secedit.exe /configure /db $db /cfg $importFile /areas USER_RIGHTS 2>&1
         if ($LASTEXITCODE -ne 0) {
-            Say ("Droits de session : refus de secedit (" + ($out -join ' ') + ")") 'Yellow'
+            Write-Warn ("Droits de session : refus de secedit (" + ($out -join ' ') + ")")
             return $false
         }
-        Say "  droit « ouvrir une session en tant que tache » accorde." 'DarkGray'
+        Write-Detail "droit « ouvrir une session en tant que tâche » accordé."
         return $true
     } catch {
-        Say ("Droits de session : " + $_.Exception.Message) 'Yellow'
+        Write-Warn ("Droits de session : " + $_.Exception.Message)
         return $false
     } finally {
         foreach ($f in @($exportFile, $importFile)) { Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue }
@@ -187,7 +182,7 @@ function Register-ServiceTask {
 
     $pwsh = Get-SharedPwshPath
     if (-not $pwsh) { $pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Source }
-    if (-not $pwsh) { Say "PowerShell 7 introuvable pour la machine." 'Red'; return $false }
+    if (-not $pwsh) { Write-Fail "PowerShell 7 introuvable pour la machine."; return $false }
 
     # LE SERVEUR VIT TOUJOURS DANS L'INSTALLATION PARTAGEE, quel que soit l'environnement.
     #
@@ -201,12 +196,12 @@ function Register-ServiceTask {
     # qu'on y deploie : le depot local en dev, une version publiee en prod.
     $appRoot = Get-SharedInstallPath
     if (-not $appRoot) {
-        Say "Aucune installation partagee : deployez Vigie pour tous les comptes d'abord." 'Red'
-        Say "Le service de machine ne peut pas tourner depuis un depot personnel." 'Yellow'
+        Write-Fail "Aucune installation partagée : déployez Vigie pour tous les comptes d'abord."
+        Write-Detail "Le service de machine ne peut pas tourner depuis un dépôt personnel."
         return $false
     }
     $start = Join-Path (Join-Path $appRoot 'apps/backend-pode') 'start.ps1'
-    if (-not (Test-Path -LiteralPath $start)) { Say ("Serveur introuvable : " + $start) 'Red'; return $false }
+    if (-not (Test-Path -LiteralPath $start)) { Write-Fail ("Serveur introuvable : " + $start); return $false }
 
     $action  = New-ScheduledTaskAction -Execute $pwsh `
                    -Argument ('-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $start + '"')
@@ -224,15 +219,22 @@ function Register-ServiceTask {
     try { $sid = (Get-LocalUser -Name $SERVICE_ACCOUNT -ErrorAction Stop).SID.Value } catch { }
     if ($sid) { $null = Grant-BatchLogonRight -Sid $sid }
 
+    # DEUX APPELS, PAS UN. `Register-ScheduledTask` a des JEUX DE PARAMETRES exclusifs :
+    # -Principal appartient a l'un, -Password a l'autre. Les donner ensemble ne produit pas
+    # une erreur qui nomme le fautif, mais « Parameter set cannot be resolved » -- ce qui a
+    # coute une installation entiere le 28/08. On construit donc la tache d'abord (le
+    # principal y entre, RunLevel Highest compris), on l'enregistre ensuite avec le mot de
+    # passe : ce jeu-la accepte -InputObject et -Password.
     try {
-        Register-ScheduledTask -TaskName $SERVICE_TASK -Action $action -Trigger $trigger `
-            -Principal $principal -Settings $settings -Password $Password -Force -ErrorAction Stop | Out-Null
+        $task = New-ScheduledTask -Action $action -Trigger $trigger -Principal $principal -Settings $settings
+        Register-ScheduledTask -TaskName $SERVICE_TASK -InputObject $task `
+            -User ("$env:COMPUTERNAME\$SERVICE_ACCOUNT") -Password $Password -Force -ErrorAction Stop | Out-Null
     } catch {
         # LA TRACE SURVIT A LA CONSOLE. Ce message est parti dans un terminal refermé le
         # 28/08, et il a fallu deviner ce qu'il disait : il va desormais aussi dans le
         # journal de Vigie, qui se relit.
         $why = $_.Exception.Message
-        Say ("Windows a refusé d'enregistrer la tâche : " + $why) 'Red'
+        Write-Fail ("Windows a refusé d'enregistrer la tâche : " + $why)
         try { Write-Log -Backend $backend -Name 'install' -Level 'ERROR' `
                         -Message ("Service de machine : Windows a refuse la tache -- " + $why) } catch { }
         return $false
@@ -241,7 +243,7 @@ function Register-ServiceTask {
     # DESACTIVEE A LA CREATION. Deux serveurs sur le meme port se marcheraient dessus :
     # la bascule est un geste separe, et volontaire (-Activer).
     try { Disable-ScheduledTask -TaskName $SERVICE_TASK -ErrorAction Stop | Out-Null } catch { }
-    Say ("Tâche « " + $SERVICE_TASK + " » enregistrée, DÉSACTIVÉE.") 'Green'
+    Write-Ok ("Tâche « " + $SERVICE_TASK + " » enregistrée, DÉSACTIVÉE.")
     return $true
 }
 
@@ -258,11 +260,11 @@ function Grant-TaskControl {
         $folder.Connect()
         $task = $folder.GetFolder('\').GetTask($SERVICE_TASK)
         $task.SetSecurityDescriptor($sddl, 0)
-        Say "Les comptes de la machine peuvent démarrer et arrêter le service." 'DarkGray'
+        Write-Detail "Les comptes de la machine peuvent démarrer et arrêter le service."
         return $true
     } catch {
-        Say ("Droits sur la tâche non posés : " + $_.Exception.Message) 'Yellow'
-        Say "Le tray d'un compte standard ne pourra pas relancer le serveur." 'Yellow'
+        Write-Warn ("Droits sur la tâche non posés : " + $_.Exception.Message)
+        Write-Detail "Le tray d'un compte standard ne pourra pas relancer le serveur."
         return $false
     }
 }
@@ -271,12 +273,12 @@ function Grant-TaskControl {
 function Remove-Service {
     $done = $true
     if (Get-ServiceTask) {
-        try { Unregister-ScheduledTask -TaskName $SERVICE_TASK -Confirm:$false -ErrorAction Stop; Say "Tâche retirée." 'Green' }
-        catch { Say ("Tâche non retirée : " + $_.Exception.Message) 'Red'; $done = $false }
+        try { Unregister-ScheduledTask -TaskName $SERVICE_TASK -Confirm:$false -ErrorAction Stop; Write-Ok "Tâche retirée." }
+        catch { Write-Fail ("Tâche non retirée : " + $_.Exception.Message); $done = $false }
     }
     if (Get-ServiceAccount) {
-        try { Remove-LocalUser -Name $SERVICE_ACCOUNT -ErrorAction Stop; Say "Compte retiré." 'Green' }
-        catch { Say ("Compte non retiré : " + $_.Exception.Message) 'Red'; $done = $false }
+        try { Remove-LocalUser -Name $SERVICE_ACCOUNT -ErrorAction Stop; Write-Ok "Compte retiré." }
+        catch { Write-Fail ("Compte non retiré : " + $_.Exception.Message); $done = $false }
     }
     try {
         $key = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\UserList'
@@ -289,8 +291,8 @@ function Remove-Service {
 if ($Lister) { Show-State; exit 0 }
 
 if (-not (Test-IsElevated)) {
-    Say "Cette opération crée un compte et une tâche machine : elle demande l'élévation." 'Yellow'
-    Say "Rien n'a été touché." 'Yellow'
+    Write-Fail "Cette opération crée un compte et une tâche machine : elle demande l'élévation."
+    Write-Detail "Rien n'a été touché."
     exit 1
 }
 
@@ -307,7 +309,7 @@ Show-State
 try {
     $password = Set-ServiceAccountReady
 } catch {
-    Say ("Le compte de service n'a pas pu être préparé : " + $_.Exception.Message) 'Red'
+    Write-Fail ("Le compte de service n'a pas pu être préparé : " + $_.Exception.Message)
     exit 2
 }
 if (-not (Register-ServiceTask -Password $password)) { exit 2 }
@@ -316,8 +318,7 @@ $null = Grant-TaskControl
 $password = $null
 [System.GC]::Collect()
 
-Say ""
-Say "Service prêt, mais DÉSACTIVÉ : rien ne change au démarrage tant qu'on ne bascule pas." 'Cyan'
-Say "Pour basculer : pwsh -File .\scripts\install-service.ps1 -Activer" 'DarkGray'
+Write-Ok "Service prêt, mais DÉSACTIVÉ : rien ne change au démarrage tant qu'on ne bascule pas."
+Write-Detail "Pour basculer : pwsh -File .\scripts\lib\install-service.ps1 -Activer"
 Show-State
 exit 0

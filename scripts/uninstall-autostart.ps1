@@ -1,4 +1,4 @@
-<#
+﻿<#
     uninstall-autostart.ps1 - Retire l'acces permanent. IDEMPOTENT.
 
     Necessite les droits admin. Avant toute invite UAC, une fenetre explique ce
@@ -19,6 +19,7 @@ param(
 $ErrorActionPreference = 'Stop'
 # Les scripts de gestion vivent dans scripts/ : les apps sont dans apps/.
 $repoRoot = Split-Path $PSScriptRoot -Parent
+. (Join-Path $repoRoot 'scripts/lib/console-ui.ps1')   # le meme affichage que partout
 $backend  = Join-Path $repoRoot 'apps/backend-pode'   # BOOTSTRAP, cf. common.ps1
 . (Join-Path $backend 'lib/common.ps1')
 $taskName = 'Vigie'
@@ -43,17 +44,17 @@ if (-not (Test-IsElevated)) {
 $task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
 if ($task) {
     Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
-    Write-Host ("Tache '" + $taskName + "' retiree.")
+    Write-Info ("Tache '" + $taskName + "' retiree.")
 } else {
-    Write-Host ("Tache '" + $taskName + "' absente (rien a faire).")
+    Write-Info ("Tache '" + $taskName + "' absente (rien a faire).")
 }
 
 if (Test-Path -LiteralPath $lnk) {
     Remove-Item -LiteralPath $lnk -Force
-    Write-Host ("Raccourci retire : " + $lnk)
+    Write-Info ("Raccourci retire : " + $lnk)
 } else {
-    Write-Host "Raccourci bureau absent (rien a faire)."
+    Write-Info "Raccourci bureau absent (rien a faire)."
 }
 
-Write-Host "Acces permanent retire."
+Write-Info "Acces permanent retire."
 exit 0

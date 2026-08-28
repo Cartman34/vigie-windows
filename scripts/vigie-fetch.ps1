@@ -1,4 +1,4 @@
-<#
+﻿<#
     vigie-fetch.ps1 - Rapporte une archive de Vigie, prete a etre deployee. NE DEPLOIE RIEN.
 
     Ce script ne fait qu'une chose : obtenir un `.zip` verifie et en ecrire le chemin sur la derniere ligne de sa
@@ -44,17 +44,20 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path $PSScriptRoot -Parent
+. (Join-Path $repoRoot 'scripts/lib/console-ui.ps1')   # le meme affichage que partout
 . (Join-Path $repoRoot 'apps/backend-pode/lib/common.ps1')
 $backend = Join-Path $repoRoot 'apps/backend-pode'
 
-function Dire  { param([string]$T, [string]$C = 'Gray') Write-Host $T -ForegroundColor $C }
 function Noter {
     param([string]$T, [string]$N = 'INFO')
     try { Write-Log -Backend $backend -Name 'update' -Level $N -Message $T } catch { }
 }
+# LE CODE DE RETOUR DECIDE DE LA COULEUR, pas l'appelant. Une couleur choisie a la main
+# finit toujours par mentir : c'est ainsi qu'un echec est deja sorti en vert (28/08).
+# 0 et 3 ne sont pas des echecs -- 3 veut dire « il n'y avait rien a faire ».
 function Sortir {
-    param([int]$Code, [string]$Message, [string]$Couleur = 'Red')
-    Dire $Message $Couleur
+    param([int]$Code, [string]$Message)
+    if ($Code -eq 0 -or $Code -eq 3) { Write-Ok $Message } else { Write-Fail $Message }
     Noter $Message $(if ($Code -eq 0 -or $Code -eq 3) { 'INFO' } else { 'ERROR' })
     exit $Code
 }
@@ -92,8 +95,7 @@ $marque = $null
 try { $marque = Get-BuildStamp -Root $repoRoot } catch { }
 $enPlace = $null
 if ($marque -and $marque.version) { $enPlace = ConvertTo-Reperage -Brut $marque.version }
-Dire ("Version en place : " + $(if ($marque -and $marque.version) { $marque.version } else { 'inconnue' }))
-
+Write-Info ("Version en place : " + $(if ($marque -and $marque.version) { $marque.version } else { 'inconnue' }))
 # --- Quelle voie ? -------------------------------------------------------------------
 $estDepot = $false
 try {
@@ -113,8 +115,7 @@ if ($Ref -and $voie -ne 'clone') {
 if ($voie -eq 'local' -and -not $estDepot) {
     Sortir 1 "Voie « local » demandee, mais ce dossier n'est pas un depot git utilisable. Essayez -Source release."
 }
-Dire ("Voie retenue : " + $voie)
-
+Write-Info ("Voie retenue : " + $voie)
 # --- Un dossier de travail a nous ----------------------------------------------------
 $travail = $null
 try {
@@ -167,7 +168,7 @@ function Get-DepuisLocal {
     if (-not (Test-Path -LiteralPath $build)) {
         Sortir 1 "build-release.ps1 introuvable : impossible de fabriquer depuis ce depot."
     }
-    Dire "Fabrication de l'archive depuis le depot local..."
+    Write-Info "Fabrication de l'archive depuis le depot local..."
     & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $build | Write-Host
     if ($LASTEXITCODE -ne 0) { Sortir 1 ("La fabrication a echoue (code " + $LASTEXITCODE + ").") }
     $zip = Get-DerniereArchive -Dossier (Join-Path $repoRoot 'dist')
@@ -205,10 +206,9 @@ function Get-DepuisRelease {
     $v = $liste[0]
     if (-not $v) { Sortir 4 "GitHub a repondu, mais sans aucune version exploitable." }
     $etiquette = "$($v.tag_name)"
-    Dire ("Derniere version publiee : " + $etiquette + $(if ($v.prerelease) { "  (pre-version)" } else { "" }))
-
+    Write-Info ("Derniere version publiee : " + $etiquette + $(if ($v.prerelease) { "  (pre-version)" } else { "" }))
     if (-not $Force -and -not (Test-PlusRecente -Candidate (ConvertTo-Reperage -Brut $etiquette) -Actuelle $enPlace)) {
-        Sortir 3 ("Deja a jour : la version publiee (" + $etiquette + ") n'est pas plus recente que celle en place. Rien n'a ete touche.") 'Green'
+        Sortir 3 ("Deja a jour : la version publiee (" + $etiquette + ") n'est pas plus recente que celle en place. Rien n'a ete touche.")
     }
 
     $actifs = @($v.assets | Where-Object { "$($_.name)" -like '*.zip' })
@@ -218,7 +218,7 @@ function Get-DepuisRelease {
     $actif = $actifs[0]
     $cible = Join-Path $travail ("$($actif.name)")
     $tmp   = $cible + '.partiel'
-    Dire ("Telechargement de " + $actif.name + " (" + [int]($actif.size / 1KB) + " Ko)...")
+    Write-Info ("Telechargement de " + $actif.name + " (" + [int]($actif.size / 1KB) + " Ko)...")
     try {
         # Fichier temporaire puis renommage : une coupure ne laisse pas une archive a
         # moitie ecrite portant le nom de la bonne.
@@ -247,16 +247,16 @@ function Get-DepuisClone {
         & git -C $clone rev-parse --git-dir 2>$null | Out-Null
         $valide = ($LASTEXITCODE -eq 0)
         if (-not $valide) {
-            Dire "Le clone existant est abime : il est refait de zero." 'Yellow'
+            Write-Warn "Le clone existant est abime : il est refait de zero."
             Remove-Item -LiteralPath $clone -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
     if ($valide) {
-        Dire "Mise a jour du clone..."
+        Write-Info "Mise a jour du clone..."
         & git -C $clone fetch --quiet --tags --prune origin 2>&1 | Write-Host
         if ($LASTEXITCODE -ne 0) { Sortir 2 "La recuperation a echoue : depot injoignable, ou reseau absent." }
     } else {
-        Dire ("Clonage de " + $Depot + " ...")
+        Write-Info ("Clonage de " + $Depot + " ...")
         & git clone --quiet $Depot $clone 2>&1 | Write-Host
         if ($LASTEXITCODE -ne 0) { Sortir 2 "Le clonage a echoue : depot injoignable, ou reseau absent." }
     }
@@ -268,9 +268,9 @@ function Get-DepuisClone {
         $cible = (& git -C $clone describe --tags --abbrev=0 2>$null | Select-Object -First 1)
         if (-not $cible) { Sortir 4 "Aucun tag dans ce depot : rien a deployer. Precisez -Ref pour viser une branche." }
         $cible = "$cible".Trim()
-        Dire ("Dernier tag : " + $cible)
+        Write-Info ("Dernier tag : " + $cible)
         if (-not $Force -and -not (Test-PlusRecente -Candidate (ConvertTo-Reperage -Brut $cible) -Actuelle $enPlace)) {
-            Sortir 3 ("Deja a jour : le dernier tag (" + $cible + ") n'est pas plus recent que la version en place. Rien n'a ete touche.") 'Green'
+            Sortir 3 ("Deja a jour : le dernier tag (" + $cible + ") n'est pas plus recent que la version en place. Rien n'a ete touche.")
         }
     }
 
@@ -283,8 +283,7 @@ function Get-DepuisClone {
     }
     & git -C $clone -c advice.detachedHead=false checkout --quiet --force $cible 2>&1 | Write-Host
     if ($LASTEXITCODE -ne 0) { Sortir 4 ("Impossible de se placer sur " + $cible + ".") }
-    Dire ("Place sur " + $cible + " (" + (& git -C $clone rev-parse --short HEAD) + ")")
-
+    Write-Info ("Place sur " + $cible + " (" + (& git -C $clone rev-parse --short HEAD) + ")")
     $build = Join-Path (Join-Path $clone 'scripts') 'build-release.ps1'
     if (-not (Test-Path -LiteralPath $build)) {
         Sortir 5 "Ce depot ne contient pas scripts/build-release.ps1 : rien a fabriquer."
@@ -307,7 +306,7 @@ $archive = switch ($voie) {
 $souci = Test-Archive -Chemin $archive
 if ($souci) { Sortir 5 ("Archive inexploitable : " + $souci + ". Rien n'a ete deploye.") }
 
-Dire ("Archive prete : " + $archive) 'Green'
+Write-Ok ("Archive prete : " + $archive)
 Noter ("archive prete (" + $voie + ") : " + $archive)
 # DERNIERE LIGNE = le chemin. L'appelant ne lit que celle-la.
 Write-Output $archive

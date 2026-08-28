@@ -1,4 +1,4 @@
-<#
+﻿<#
     deploy-prod.ps1 - Deploie une version STABLE de Vigie pour TOUS les comptes. IDEMPOTENT.
 
     Modele valide par l'utilisateur (D65) : on choisit une version, on la copie en prod, et
@@ -32,6 +32,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path $PSScriptRoot -Parent
+. (Join-Path $repoRoot 'scripts/lib/console-ui.ps1')   # le meme affichage que partout
 . (Join-Path $repoRoot 'apps/backend-pode/lib/common.ps1')
 
 # --- 0. LE TAG DE CE DEPLOIEMENT ---------------------------------------------
@@ -72,16 +73,16 @@ if (-not $Zip) {
         # que ce deploiement a deja eu lieu -- on le dit et on continue.
         & git -C $repoRoot tag -a $tag -m ("Deploiement du " + (Get-Date -Format 'dd/MM/yyyy HH:mm')) 2>$null
         if ($LASTEXITCODE -eq 0) {
-            Write-Host ("Tag pose : " + $tag + " sur " + $commit)
+            Write-Info ("Tag pose : " + $tag + " sur " + $commit)
             # Le tag ne vaut que s'il est partage. L'echec de pousse n'est PAS fatal :
             # un deploiement doit aboutir meme sans reseau.
             & git -C $repoRoot push origin $tag 2>$null | Out-Null
-            if ($LASTEXITCODE -eq 0) { Write-Host "Tag pousse." } else { Write-Host "Tag local (pousse impossible)." -ForegroundColor DarkGray }
+            if ($LASTEXITCODE -eq 0) { Write-Host "Tag pousse." } else { Write-Detail "Tag local (pousse impossible)." }
         } else {
-            Write-Host ("Tag " + $tag + " deja present : rien a poser.") -ForegroundColor DarkGray
+            Write-Detail ("Tag " + $tag + " deja present : rien a poser.")
         }
     } catch {
-        Write-Host ("Tag non pose : " + $_.Exception.Message) -ForegroundColor DarkGray
+        Write-Detail ("Tag non pose : " + $_.Exception.Message)
     }
 }
 
@@ -89,16 +90,16 @@ if (-not $Zip) {
 if (-not $Zip) {
     $build = Join-Path $PSScriptRoot 'build-release.ps1'
     if (-not (Test-Path -LiteralPath $build)) {
-        Write-Host "Aucune archive fournie et build-release.ps1 est absent : precisez -Zip." -ForegroundColor Yellow
+        Write-Warn "Aucune archive fournie et build-release.ps1 est absent : precisez -Zip."
         exit 1
     }
-    Write-Host "Fabrication de l'archive de distribution..."
+    Write-Info "Fabrication de l'archive de distribution..."
     # L'archive porte le numero du tag qu'on vient de poser : le tag, l'archive et
     # l'installation racontent alors la meme histoire.
     if ($tag) { & pwsh -NoProfile -File $build -Version $tag | Write-Host }
     else      { & pwsh -NoProfile -File $build | Write-Host }
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "La fabrication de l'archive a echoue : deploiement abandonne." -ForegroundColor Red
+        Write-Fail "La fabrication de l'archive a echoue : deploiement abandonne."
         exit 1
     }
     $dist = Join-Path $repoRoot 'dist'
@@ -106,12 +107,11 @@ if (-not $Zip) {
              Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName
 }
 if (-not $Zip -or -not (Test-Path -LiteralPath $Zip)) {
-    Write-Host "Archive introuvable : $Zip" -ForegroundColor Yellow
+    Write-Warn "Archive introuvable : $Zip"
     exit 1
 }
 $Zip = (Resolve-Path -LiteralPath $Zip).Path
-Write-Host ("Version a deployer : " + (Split-Path $Zip -Leaf))
-
+Write-Info ("Version a deployer : " + (Split-Path $Zip -Leaf))
 # --- 2. Elevation : ecrire hors du profil et poser des taches -----------------
 if (-not (Test-IsElevated)) {
     $ok = Show-ElevationRationale -AssumeYes:$Yes -Title "Deployer Vigie pour tous les comptes" -Summary "Vigie va etre installe dans un emplacement lisible par tous les comptes de cet ordinateur. Chaque compte gardera ses propres reglages." -Changes @(
@@ -150,7 +150,7 @@ try {
         }
     }
 
-    Write-Host ("Copie vers " + $Destination + " ...")
+    Write-Info ("Copie vers " + $Destination + " ...")
     Copy-Item -Path (Join-Path $source '*') -Destination $Destination -Recurse -Force
 
     if (Test-Path -LiteralPath $garde) {
@@ -158,12 +158,12 @@ try {
         Get-ChildItem -Path $garde -File | ForEach-Object {
             Copy-Item -LiteralPath $_.FullName -Destination $cfgDest -Force
         }
-        Write-Host "Reglages de la machine conserves."
+        Write-Info "Reglages de la machine conserves."
     }
 } finally {
     Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue
 }
-Write-Host ("Vigie deploye : " + $Destination) -ForegroundColor Green
+Write-Ok ("Vigie deploye : " + $Destination)
 
 # --- 4. Les comptes : proposes ici, modifiables a tout moment -----------------
 # Deux Join-Path imbriques : l'antislash de 'scripts\vigie-comptes.ps1' avait ete
@@ -175,21 +175,18 @@ if (-not (Test-Path -LiteralPath $outilComptes)) { $outilComptes = Join-Path $PS
 # QUI a Vigie est un autre geste, volontairement : deployer installe l'application a un
 # endroit connu d'avance, pour tout le monde. Les comptes se choisissent apres, et se
 # changent a tout moment.
-Write-Host ""
 # DEPENDANCE : sans un PowerShell 7 installe pour la machine, activer un autre compte
 # poserait une tache qui ne lance rien. Le deploiement est justement le moment ou on
 # prepare les AUTRES comptes : on le dit ici, fort, plutot qu'apres coup.
 if (-not (Get-SharedPwshPath)) {
-    Write-Host ""
-    Write-Host "ATTENTION : PowerShell 7 n'est installe que pour le compte courant." -ForegroundColor Yellow
-    Write-Host "Les autres comptes ne pourront pas demarrer Vigie. A faire une fois, en administrateur :" -ForegroundColor Yellow
-    Write-Host "  winget install --id Microsoft.PowerShell --scope machine"
-    Write-Host ""
+    Write-Warn "ATTENTION : PowerShell 7 n'est installe que pour le compte courant."
+    Write-Warn "Les autres comptes ne pourront pas demarrer Vigie. A faire une fois, en administrateur :"
+    Write-Info "  winget install --id Microsoft.PowerShell --scope machine"
 }
 
 & pwsh -NoProfile -File $outilComptes | Write-Host
-Write-Host "Pour changer a tout moment :"
-Write-Host ("  pwsh -File " + $outilComptes + " -Activer <compte>")
-Write-Host ("  pwsh -File " + $outilComptes + " -Retirer <compte>")
-Write-Host "Ou dans l'application : Parametres > Utilisateurs."
+Write-Info "Pour changer a tout moment :"
+Write-Info ("  pwsh -File " + $outilComptes + " -Activer <compte>")
+Write-Info ("  pwsh -File " + $outilComptes + " -Retirer <compte>")
+Write-Info "Ou dans l'application : Parametres > Utilisateurs."
 exit 0
