@@ -22,6 +22,45 @@
   // obligeait a afficher un jeton de changement -- « version 639231069781032063 ».
   window.APP_VERSION = "__APP_VERSION__";
   window.APP_BUILD   = "__APP_BUILD__";
+
+  // ---- LES LIBELLES ---------------------------------------------------------------
+  // Le texte francais ne vit plus ici : il est dans lang/fr.json, partage avec les
+  // scripts PowerShell. Le serveur l'injecte a la place de ce jeton, donc les libelles
+  // sont disponibles AVANT la premiere ligne de code qui affiche quoi que ce soit --
+  // un fetch au demarrage ajouterait un aller-retour ET une course, ou le premier
+  // rendu peut arriver avant les libelles.
+  //
+  // Le try/catch couvre le seul cas ou le jeton n'est pas remplace : la page ouverte
+  // directement depuis le disque, sans serveur. On se replie sur les cles plutot que
+  // de casser la page entiere.
+  try { window.__LABELS = __LABELS_JSON__; } catch (e) { window.__LABELS = {}; }
+
+  // L('cle', valeur, ...) : le libelle, ses trous {0} {1} remplis dans l'ordre.
+  // Une cle absente rend « [?cle] » -- visible et cherchable, JAMAIS une chaine vide :
+  // un message qui disparait en silence est pire que le defaut qu'on corrigeait.
+  window.L = function (key) {
+    var text = window.__LABELS && window.__LABELS[key];
+    if (text === undefined) { return '[?' + key + ']'; }
+    var vals = Array.prototype.slice.call(arguments, 1);
+    return text.replace(/\{(\d+)\}/g, function (m, i) {
+      return vals[+i] === undefined ? m : String(vals[+i]);
+    });
+  };
+
+  // Le texte statique du HTML porte « data-i18n="cle" » ; on le remplit au chargement.
+  // « data-i18n-attr="title:cle" » fait la meme chose pour un attribut.
+  window.applyLabels = function (root) {
+    (root || document).querySelectorAll('[data-i18n]').forEach(function (el) {
+      el.textContent = window.L(el.getAttribute('data-i18n'));
+    });
+    (root || document).querySelectorAll('[data-i18n-attr]').forEach(function (el) {
+      el.getAttribute('data-i18n-attr').split(';').forEach(function (pair) {
+        var bits = pair.split(':');
+        if (bits.length === 2) { el.setAttribute(bits[0].trim(), window.L(bits[1].trim())); }
+      });
+    });
+  };
+  document.addEventListener('DOMContentLoaded', function () { window.applyLabels(); });
 </script>
 <style>
   :root {
@@ -665,7 +704,7 @@
 <!-- ================= Ecran de chargement (D08) =================
      Marque "icone tray v1 - jauge a graduations" (D01), etat "demarrage" (orange, fraction 0,50).
      Geometrie identique a apps/tray/assets/generate-icons.py, en fractions d'une taille de 100. -->
-<div id="splash" role="status" aria-live="polite" aria-label="Chargement de Vigie">
+<div id="splash" role="status" aria-live="polite" aria-label="Chargement de Vigie" data-i18n-attr="aria-label:ui.chargement-de-vigie">
   <svg class="splash-mark" viewBox="0 0 100 100" aria-hidden="true">
     <defs>
       <!-- Piste et arc de valeur partagent exactement le meme trace. -->
@@ -692,23 +731,23 @@
   </svg>
   <div class="splash-id">
     <p class="splash-name">Vigie</p>
-    <p class="splash-sub" id="splashSub">Tableau de bord local</p>
+    <p class="splash-sub" id="splashSub" data-i18n="ui.tableau-de-bord-local">Tableau de bord local</p>
   </div>
   <div class="splash-bar"><i></i></div>
-  <p class="splash-foot"><a class="repo-ic" data-repo-link aria-label="Depot du projet sur GitHub"><svg width="16" height="16" aria-hidden="true"><use href="#ghMark"/></svg></a></p>
+  <p class="splash-foot"><a class="repo-ic" data-repo-link aria-label="Depot du projet sur GitHub" data-i18n-attr="aria-label:ui.depot-du-projet-sur"><svg width="16" height="16" aria-hidden="true"><use href="#ghMark"/></svg></a></p>
 </div>
 <header>
   <div class="title"><span id="appTitle">…</span> <small>Vigie</small></div>
   <div class="global" id="global"><span class="dot"></span><span id="globalTxt">—</span></div>
   <div class="spacer"></div>
   <div class="meta" id="lastRefresh">—</div>
-  <button id="btnRefresh" class="ic-btn" onclick="refresh(true)" aria-label="Actualiser" title="Actualiser : recalcule toutes les sondes sans utiliser le cache (peut prendre plusieurs minutes)"><span class="vi vi-fw">&#xE008;</span></button>
+  <button id="btnRefresh" class="ic-btn" onclick="refresh(true)" aria-label="Actualiser" title="Actualiser : recalcule toutes les sondes sans utiliser le cache (peut prendre plusieurs minutes)" data-i18n-attr="title:ui.actualiser-recalcule-toutes-les"><span class="vi vi-fw">&#xE008;</span></button>
   <button class="bell" id="bellBtn" onclick="toggleDrawer()" title="Notifications">
     <span class="vi vi-fw vi-lg">&#xE004;</span>
     <span id="bellCount" class="bell-count"></span>
   </button>
-  <a class="ic-btn" id="atelierBtn" target="_blank" rel="noopener" hidden title="Ouvrir l’atelier de validation (détecté en local)">⚒</a>
-  <button class="ic-btn" id="settingsBtn" onclick="openSettings()" aria-label="Paramètres" title="Paramètres : notifications, modules, apparence, à propos"><span class="vi vi-fw">&#xE001;</span></button>
+  <a class="ic-btn" id="atelierBtn" target="_blank" rel="noopener" hidden title="Ouvrir l’atelier de validation (détecté en local)" data-i18n-attr="title:ui.ouvrir-atelier-de-validation">⚒</a>
+  <button class="ic-btn" id="settingsBtn" onclick="openSettings()" aria-label="Paramètres" title="Paramètres : notifications, modules, apparence, à propos" data-i18n-attr="title:ui.parametres-notifications-modules-apparence;aria-label:ui.parametres"><span class="vi vi-fw">&#xE001;</span></button>
 </header>
 <div class="modebar neutral" id="modebar"></div>
 <main id="app"></main>
@@ -716,20 +755,20 @@
   <span>Vigie</span><span class="sep">·</span>
   <span id="footVersion"></span>
   <span class="spacer"></span>
-  <button onclick="toggleTheme()" id="themeBtn" class="ic-btn" title="Basculer entre le thème sombre et le thème clair"><span class="vi vi-fw" id="themeIc">&#xE005;</span></button>
-  <a class="repo-ic" data-repo-link aria-label="Depot du projet sur GitHub"><svg width="16" height="16" aria-hidden="true"><use href="#ghMark"/></svg></a>
+  <button onclick="toggleTheme()" id="themeBtn" class="ic-btn" title="Basculer entre le thème sombre et le thème clair" data-i18n-attr="title:ui.basculer-entre-le-theme"><span class="vi vi-fw" id="themeIc">&#xE005;</span></button>
+  <a class="repo-ic" data-repo-link aria-label="Depot du projet sur GitHub" data-i18n-attr="aria-label:ui.depot-du-projet-sur"><svg width="16" height="16" aria-hidden="true"><use href="#ghMark"/></svg></a>
 </footer>
 <div class="toast-stack" id="toastStack"></div>
 <div class="drawer-back" id="drawerBack" onclick="toggleDrawer()"></div>
 <aside class="drawer" id="drawer" aria-label="Notifications">
   <div class="drawer-head"><span>Notifications</span>
-    <button class="drawer-clear" onclick="clearNotifs()" title="Tout effacer">Tout effacer</button>
+    <button class="drawer-clear" onclick="clearNotifs()" title="Tout effacer" data-i18n="ui.tout-effacer" data-i18n-attr="title:ui.tout-effacer">Tout effacer</button>
     <button class="drawer-x" onclick="toggleDrawer()" title="Fermer" aria-label="Fermer">×</button></div>
   <div class="drawer-body" id="drawerBody"></div>
 </aside>
 <div class="drawer-back" id="settingsBack" onclick="toggleSettings()"></div>
 <aside class="drawer" id="settingsDrawer" aria-label="Paramètres">
-  <div class="drawer-head"><span>Paramètres</span>
+  <div class="drawer-head"><span data-i18n="ui.parametres">Paramètres</span>
     <button class="drawer-x" onclick="toggleSettings()" title="Fermer" aria-label="Fermer">×</button></div>
   <div class="drawer-body" id="settingsBody"></div>
 </aside>
@@ -769,15 +808,15 @@ const ICONS = {
   // = simple oui/non). Les trois etaient trop proches a l'ecran.
   dialog:'<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M3 5h8v2H3V5zm0 6h8v2H3v-2zm0 6h8v2H3v-2zm16.3-9.3l-4.6 4.6-2-2L11.3 12l3.4 3.4 6-6-1.4-1.7z"/></svg>'
 };
-const KIND_LABEL = { immediate:'Action immédiate', confirm:'Ouvre une fenêtre de confirmation',
-                     dialog:'Ouvre une fenêtre de choix', manual:'Ouvre un logiciel externe' };
+const KIND_LABEL = { immediate:L('ui.action-immediate'), confirm:L('ui.ouvre-une-fenetre-de'),
+                     dialog:L('ui.ouvre-une-fenetre-de-2'), manual:L('ui.ouvre-un-logiciel-externe') };
 
 // Mock inline = ultime repli si ni API ni fichier mock accessibles (file://).
 const INLINE_MOCK = {
   generatedAt: new Date().toISOString(),
   themes: [{id:"windows-update",label:"Windows Update"}],
-  modules: [{ id:"wu-lock", theme:"windows-update", label:"Verrouillage des mises à jour", status:"warn",
-    fields:[{key:"info",label:"Mode",value:"maquette (aucune donnée réelle)",kind:"text"}],
+  modules: [{ id:"wu-lock", theme:"windows-update", label:L('ui.verrouillage-des-mises-jour'), status:"warn",
+    fields:[{key:"info",label:"Mode",value:L('ui.maquette-aucune-donnee-reelle'),kind:"text"}],
     actions:[] }]
 };
 
@@ -839,7 +878,7 @@ function toggleGroup(id){
 function cardHtmlSafe(m, groupLabel){
   try{ return cardHtml(m, groupLabel); }
   catch(e){
-    console.error('rendu de carte en erreur', m && m.id, e);
+    console.error(L('ui.rendu-de-carte-en'), m && m.id, e);
     return '<div class="card st-error" data-module="'+esc((m&&m.id)||'?')+'" data-theme="'+esc((m&&m.theme)||'')+'">'
       +'<div class="card-head"><div class="card-titles"><span class="card-group">'+esc(groupLabel||'')+'</span>'
       +'<span class="name">'+esc((m&&m.label)||'Carte')+'</span></div>'
@@ -849,7 +888,7 @@ function cardHtmlSafe(m, groupLabel){
 }
 function cardHtml(m, groupLabel){
   const st=['ok','warn','error','neutral'].includes(m.status)?m.status:'neutral';
-  const stTxt={ok:'Conforme',warn:'À voir',error:'Problème'}[st];
+  const stTxt={ok:'Conforme',warn:L('ui.voir'),error:L('ui.probleme')}[st];
   const stIc={ok:'&#xE00A;',warn:'&#xE00B;',error:'&#xE00C;'}[st];
   const actById={}; (m.actions||[]).forEach(a=>{ actById[a.id]=a; });
   const fields=(m.fields||[]).map(f=>{
@@ -902,10 +941,10 @@ function cardHtml(m, groupLabel){
       ? `<button class="fsolve sev-${fa?(fa.severity||'fix'):'fix'}${interditeF?' denied':''}${solveRunning?' busy':''}"${(interditeF||solveRunning)?' disabled':''}`
         + ` data-a="${f.fixAction}" data-m="${m.id}" data-k="${fkind}" data-c="${fconfirm?1:0}"`
         + ` data-c2="${fa&&fa.confirmTwice?1:0}" data-h="${((fa&&fa.help)||'').replace(/"/g,'&quot;')}"`
-        + ` title="${esc(interditeF?(fa.deniedReason||'Action réservée à un compte administrateur.'):((fa&&fa.help)||'Résoudre ce point')).replace(/"/g,'&quot;')}">`
+        + ` title="${esc(interditeF?(fa.deniedReason||L('ui.action-reservee-un-compte')):((fa&&fa.help)||L('ui.resoudre-ce-point'))).replace(/"/g,'&quot;')}">`
         + (solveRunning
-             ? `<span class="spin"></span><span>${esc((fa&&fa.label)||'Résoudre')}…</span></button>`
-             : `${ICONS[fkind]||''}<span>${esc((fa&&fa.label)||'Résoudre')}</span></button>`)
+             ? `<span class="spin"></span><span>${esc((fa&&fa.label)||L('ui.resoudre'))}…</span></button>`
+             : `${ICONS[fkind]||''}<span>${esc((fa&&fa.label)||L('ui.resoudre'))}</span></button>`)
       : '';
     const det = (detTxt && !detLong) ? `<div class="field-detail ${stt}${open}" data-k="${key}">${esc(detTxt)}</div>` : '';
     return `<div class="frow">
@@ -937,8 +976,8 @@ function cardHtml(m, groupLabel){
     const inner = cetteAction
       ? `<span class="spin"></span><span>${esc(a.busyLabel || (a.label+'…'))}</span>`
       : `${ICONS[kind]||''}<span>${esc(a.label)}</span>`;
-    const bulle = interdite ? (a.deniedReason||'Action réservée à un compte administrateur.')
-                : (busy&&!cetteAction ? 'Opération en cours sur cette carte — patientez' : (h||a.label));
+    const bulle = interdite ? (a.deniedReason||L('ui.action-reservee-un-compte'))
+                : (busy&&!cetteAction ? L('ui.operation-en-cours-sur') : (h||a.label));
     const att = t => esc(t||'').replace(/"/g,'&quot;');
     return `<button class="act k-${kind} sev-${sev}${bcls}"${dis} data-a="${a.id}" data-m="${m.id}" data-c="${a.confirm?1:0}" data-c2="${a.confirmTwice?1:0}" data-k="${kind}" data-h="${h}" data-imp="${att(a.impact)}" data-usg="${att(a.usage)}" data-rev="${att(a.reversible)}" data-res="${att(JSON.stringify(a.resources||[]))}" title="${esc(bulle).replace(/"/g,'&quot;')}">${inner}</button>`;
   }).join('');
@@ -946,8 +985,8 @@ function cardHtml(m, groupLabel){
     <div class="card-head">
       <div class="card-titles"><span class="card-group">${esc(groupLabel||'')}</span><span class="name">${m.label}</span></div>
       ${stTxt?`<span class="badge ${st}"><span class="ic vi vi-fw">${stIc}</span>${stTxt}</span>`:''}
-      <button class="card-refresh" title="Rafraîchir cette carte" onclick="refreshCard('${m.id}',this,true)"><span class="cr-ic vi vi-fw vi-lg">&#xE008;</span></button>
-      <button class="card-refresh card-menu" title="Gérer ce module : activation, notifications" onclick="openSettings('modules','${m.theme}')"><span class="vi vi-fw vi-lg">&#xE009;</span></button>
+      <button class="card-refresh" title="${L('ui.rafraichir-cette-carte')}" onclick="refreshCard('${m.id}',this,true)"><span class="cr-ic vi vi-fw vi-lg">&#xE008;</span></button>
+      <button class="card-refresh card-menu" title="${L('ui.gerer-ce-module-activation')}" onclick="openSettings('modules','${m.theme}')"><span class="vi vi-fw vi-lg">&#xE009;</span></button>
     </div>
     <div class="fields">${fields}</div>
     ${actions?`<div class="actions">${actions}</div>`:''}
@@ -999,7 +1038,7 @@ function renderState(s, mode){
     const fbar=document.createElement('div'); fbar.className='filterbar';
     fbar.innerHTML='<span class="flabel">Groupes</span>'+themesWithMods.map(t=>{
       const active=!hiddenThemes.has(t.id);
-      return `<button class="fchip${active?' active':''}" data-theme="${t.id}" onclick="toggleGroup('${t.id}')" title="${active?'Masquer':'Afficher'} le groupe « ${esc(t.label)} »">${esc(t.label)}</button>`;
+      return `<button class="fchip${active?' active':''}" data-theme="${t.id}" onclick="toggleGroup('${t.id}')" title="${active?'Masquer':'Afficher'} ${L('ui.le-groupe')} ${esc(t.label)} »">${esc(t.label)}</button>`;
     }).join('');
     app.appendChild(fbar);
   }
@@ -1019,15 +1058,15 @@ function renderState(s, mode){
   // informations differentes -- badge rouge « Action requise » au-dessus d'un liseré vert
   // -- et se contredisaient a l'oeil. La sante des cartes se lit sur les cartes.
   const etat = mode==='live'
-    ? { col:'var(--ok)',   txt:'Connecté',  aide:"Connecté à l'API locale : les données affichées sont réelles." }
-    : { col:'var(--warn)', txt:'Maquette',  aide:"Le service n'est pas joignable : les données affichées sont une maquette." };
+    ? { col:'var(--ok)',   txt:L('ui.connecte'),  aide:L('ui.connecte-api-locale-les') }
+    : { col:'var(--warn)', txt:'Maquette',  aide:L('ui.le-service-est-pas') };
   g.querySelector('.dot').style.cssText=`width:9px;height:9px;border-radius:50%;background:${etat.col}`;
   gt.textContent=etat.txt;
   gt.style.color=etat.col;
   g.title=etat.aide;
-  document.getElementById('lastRefresh').textContent='Mis à jour à '+new Date().toLocaleTimeString('fr-FR');
+  document.getElementById('lastRefresh').textContent=L('ui.mis-jour')+new Date().toLocaleTimeString('fr-FR');
   setMachineName(s.host);
-  const mb=document.getElementById('modebar'); const occupe=mb.classList.contains('busy'); mb.className='modebar '+(mode==='live'?'ok':'warn')+(occupe?' busy':''); mb.title=(mode==='live'?'Connecté à l\'API locale (données réelles)':'Maquette — back non lancé'); mb.textContent='';
+  const mb=document.getElementById('modebar'); const occupe=mb.classList.contains('busy'); mb.className='modebar '+(mode==='live'?'ok':'warn')+(occupe?' busy':''); mb.title=(mode==='live'?L('ui.connecte-api-locale-donnees'):L('ui.maquette-back-non-lance')); mb.textContent='';
 }
 
 // Repartit les cartes en COLONNES REELLES, une fois, dans un ordre stable.
@@ -1214,7 +1253,7 @@ function quitterReorg(garder){
   const bar = document.getElementById('reorgBar'); if(bar) bar.remove();
   document.querySelectorAll('.card[draggable]').forEach(c => { c.removeAttribute('draggable'); });
   document.querySelectorAll('.mcol.cible').forEach(c => c.classList.remove('cible'));
-  if(garder) toast('Disposition enregistrée.');
+  if(garder) toast(L('ui.disposition-enregistree'));
 }
 
 // Glisser-deposer natif : pas de bibliotheque, et le clavier reste possible via les
@@ -1319,9 +1358,9 @@ async function pollCardUntilIdle(moduleId, entry, name){
     } else if(stillBusy){
       // On rend la carte a un etat lisible au lieu de la laisser tourner indefiniment.
       refreshCard(moduleId);
-      if(entry) updateNotif(entry,'error', name+' : toujours en cours après '+ecoule()+', suivi abandonné.');
+      if(entry) updateNotif(entry,'error', name+L('ui.toujours-en-cours-apres')+ecoule()+L('ui.suivi-abandonne'));
     } else {
-      if(entry) updateNotif(entry,'done', name+' : terminé en '+ecoule()+'.');
+      if(entry) updateNotif(entry,'done', name+L('ui.termine-en')+ecoule()+'.');
     }
   }
   setTimeout(tick, 900);
@@ -1391,12 +1430,12 @@ function renderDrawer(){
   const enCours = notifs.filter(notifVerrouillee).length;
   const entete = enCours
     ? '<div class="dn-note">' + (enCours === 1
-        ? 'Une opération est en cours : sa notification ne peut pas être effacée.'
-        : enCours + ' opérations sont en cours : leurs notifications ne peuvent pas être effacées.')
+        ? L('ui.une-operation-est-en')
+        : enCours + L('ui.operations-sont-en-cours'))
       + '</div>'
     : '';
   body.innerHTML = entete + notifs.map(n=>{
-    const chip=n.status==='running'?'<span class="spin"></span>En cours':n.status==='done'?'✓ Réussi':'✕ Échec';
+    const chip=n.status==='running'?'<span class="spin"></span>En cours':n.status==='done'?L('ui.reussi'):L('ui.echec');
     return `<div class="dn ${n.status}" data-id="${n.id}">
       <div class="dn-head"><span class="t-dot ${n.status}"></span><span class="dn-label">${esc(n.label)}</span>
         ${notifVerrouillee(n)
@@ -1443,7 +1482,7 @@ async function syncOperations(){
     if(connue && notifs.some(x => x.id === connue)) continue;
     // Nouvelle a NOS yeux : on la montre, toast compris -- c'est le but, toutes les
     // pages sont prevenues.
-    const n = addNotif(op.label || 'Opération', 'running', (op.label || 'Opération') + ' : en cours…');
+    const n = addNotif(op.label || L('ui.operation'), 'running', (op.label || L('ui.operation')) + L('ui.en-cours'));
     n.op = cle;
     opsConnues[cle] = n.id;
   }
@@ -1463,10 +1502,10 @@ async function syncOperations(){
     if(res){
       const ok = Number(res.code) === 0;
       updateNotif(n, ok ? 'done' : 'error',
-        ok ? (res.label || 'Opération') + ' : terminée' + (res.seconds ? ' en ' + res.seconds + ' s.' : '.')
-           : (res.label || 'Opération') + ' : ÉCHEC (code ' + res.code + ')' + (res.log ? ' — journal : ' + res.log : ''));
+        ok ? (res.label || L('ui.operation')) + L('ui.terminee') + (res.seconds ? ' en ' + res.seconds + ' s.' : '.')
+           : (res.label || L('ui.operation')) + L('ui.echec-code') + res.code + ')' + (res.log ? ' — journal : ' + res.log : ''));
     } else {
-      updateNotif(n, 'done', (n.label || 'Opération') + ' : terminée.');
+      updateNotif(n, 'done', (n.label || L('ui.operation')) + L('ui.terminee-2'));
     }
   }
 }
@@ -1480,9 +1519,9 @@ async function syncOperations(){
 function marquerEnLigne(){
   const gt = document.getElementById('globalTxt');
   if(!gt || gt.textContent !== 'Hors ligne') return;
-  gt.textContent = 'Connecté';
+  gt.textContent = L('ui.connecte');
   gt.style.color = 'var(--ok)';
-  if(gt.parentElement) gt.parentElement.title = "Connecté à l'API locale : les données affichées sont réelles.";
+  if(gt.parentElement) gt.parentElement.title = L('ui.connecte-api-locale-les');
   const gdot = document.querySelector('#global .dot');
   if(gdot) gdot.style.cssText = 'width:9px;height:9px;border-radius:50%;background:var(--ok)';
   const mb = document.getElementById('modebar');
@@ -1562,18 +1601,18 @@ function treeBrancherOuvrir(zone){
     b.dataset.pret = '1';
     b.onclick = async ev=>{
       ev.preventDefault(); ev.stopPropagation();
-      try{ await doAction('open-scan-folder', 'storage', false, 'Ouvrir le dossier', '', b, { path: b.dataset.path }, 'manual', false); }
-      catch(e){ toast("Ouverture impossible : "+(e.message||e)); }
+      try{ await doAction('open-scan-folder', 'storage', false, L('ui.ouvrir-le-dossier'), '', b, { path: b.dataset.path }, 'manual', false); }
+      catch(e){ toast(L('ui.ouverture-impossible')+(e.message||e)); }
     };
   });
 }
 async function ouvrirArborescence(){
-  HDS.open({ title:'Arborescence du disque', variant:'info',
+  HDS.open({ title:L('ui.arborescence-du-disque'), variant:'info',
              html:'<div class="hds-loading"><span class="spin"></span> Lecture du premier niveau\u2026</div>' });
   try{
     const niveau = await treeNiveau('');
     const el = document.querySelector('.hds-body') || document.getElementById('hdsBody');
-    const html = '<p class="hds-intro">'+esc(niveau.path)+' \u2014 d\u00e9pliez un dossier pour le d\u00e9tailler. '
+    const html = '<p class="hds-intro">'+esc(niveau.path)+L('ui.u2014-u00e9pliez-un-dossier')
       + 'Chaque niveau est demand\u00e9 au serveur au moment o\u00f9 vous l\u2019ouvrez.</p>'
       + '<div class="tree-root">'+treeCorpsHtml(niveau)+'</div>';
     if(el){ el.innerHTML = html; treeBrancher(el); treeBrancherOuvrir(el); }
@@ -1601,7 +1640,7 @@ function ouvrirDetail(key){
     HDS.open({ title:f.label, html, variant:'info' });
     return;
   }
-  HDS.info(f.label, f.guide || f.help || 'Aucun détail disponible.', {variant:'info'});
+  HDS.info(f.label, f.guide || f.help || L('ui.aucun-detail-disponible'), {variant:'info'});
 }
 // ===== Design system : Dialog reutilisable (modales in-app) =====
 // HDS.open(opts) -> Promise(valeur du bouton clique)
@@ -1753,7 +1792,7 @@ const HDS = (function(){
       if(verrou) boites().forEach(b=>{ b.checked = true; });
       retenus = boites().filter(b=>b.checked).map(b=>b.value);
       const c=elBody.querySelector('#hdsCount');
-      if(c) c.textContent = items.length ? (retenus.length+' / '+items.length+' sélectionnée(s)') : '';
+      if(c) c.textContent = items.length ? (retenus.length+' / '+items.length+L('ui.selectionnee')) : '';
       const v=valider(); if(v) v.disabled = (retenus.length===0);
     };
     const brancher=()=>{
@@ -1779,7 +1818,7 @@ const HDS = (function(){
           maj();
         }catch(e){
           b.disabled=false; b.textContent='Ignorer';
-          toast('Impossible d’ignorer : '+(e.message||e));
+          toast(L('ui.impossible-ignorer')+(e.message||e));
         }
       }; });
       maj();
@@ -1801,7 +1840,7 @@ const HDS = (function(){
         const lib = res && res.confirmLabel;
         if(lib){ const b=valider(); if(b) b.textContent = lib; }
         if(!items.length){
-          elBody.innerHTML = '<p class="hds-intro">'+esc((res && res.vide) || 'Rien à afficher.')+'</p>';
+          elBody.innerHTML = '<p class="hds-intro">'+esc((res && res.vide) || L('ui.rien-afficher'))+'</p>';
           return;
         }
         elBody.innerHTML = corps(intro, items.map(ligne).join(''));
@@ -1864,7 +1903,7 @@ function itemsDeMaj(j){
     id:u.id, titre:u.titre,
     // Detail deja compose par le serveur (paquets), sinon assemble ici (Windows Update).
     detail: u.detail || [u.modele, u.kb, u.pilote?'pilote':null, u.dateP, u.octets?octets(u.octets):null,
-            u.telecharge?'déjà téléchargée':null].filter(Boolean).join(' · ')
+            u.telecharge?L('ui.deja-telechargee'):null].filter(Boolean).join(' · ')
   }));
 }
 
@@ -1916,7 +1955,7 @@ function clearCardBusy(moduleId){
 function applyOperationLock(){
   const op = runningOperation();
   const raison = op
-    ? 'Une opération est en cours sur « ' + op.titre + ' ». Les autres actions reprendront à la fin.'
+    ? L('ui.une-operation-est-en-2') + op.titre + L('ui.les-autres-actions-reprendront')
     : '';
   // CE QUI CROISE, et seulement cela (D93). « machine » croise tout. Une action sans
   // ressource declaree est inoffensive : elle reste disponible.
@@ -1977,10 +2016,10 @@ function corpsConfirmation(help, ex){
   const bloc = (titre, texte) => texte
     ? '<div class="cf-bloc"><div class="cf-t">'+esc(titre)+'</div><div class="cf-c">'+esc(texte)+'</div></div>'
     : '';
-  return bloc('Ce que ça fait', help)
-       + bloc('Ce que ça change sur la machine', ex.impact)
-       + bloc('Quand s’en servir', ex.usage)
-       + bloc('Revenir en arrière', ex.reversible);
+  return bloc(L('ui.ce-que-ca-fait'), help)
+       + bloc(L('ui.ce-que-ca-change'), ex.impact)
+       + bloc(L('ui.quand-en-servir'), ex.usage)
+       + bloc(L('ui.revenir-en-arriere'), ex.reversible);
 }
 
 async function doAction(type,module,confirmNeeded,label,help,btnEl,params,kind,confirmerDeuxFois,explications){
@@ -2003,8 +2042,8 @@ async function doAction(type,module,confirmNeeded,label,help,btnEl,params,kind,c
       title: name,
       html: corpsConfirmation(help, explications),
       alerte: confirmerDeuxFois
-        ? "Action critique : elle affecte l'ensemble de la machine."
-        : "Cette action modifie votre système.",
+        ? L('ui.action-critique-elle-affecte')
+        : L('ui.cette-action-modifie-votre'),
       alerteNiveau: 'warn',
       confirmLabel: 'Continuer', cancelLabel: 'Annuler'
     });
@@ -2012,8 +2051,8 @@ async function doAction(type,module,confirmNeeded,label,help,btnEl,params,kind,c
     if(confirmerDeuxFois){
       const sur = await HDS.confirm({
         title: name,
-        body: "Cette confirmation est la dernière.",
-        alerte: "Toutes vos applications vont être fermées. Enregistrez votre travail maintenant.",
+        body: L('ui.cette-confirmation-est-la'),
+        alerte: L('ui.toutes-vos-applications-vont'),
         alerteNiveau: 'danger',
         placement: 'haut',
         confirmLabel: 'Oui, je confirme', cancelLabel: 'Non, annuler', danger: true
@@ -2042,27 +2081,27 @@ async function doAction(type,module,confirmNeeded,label,help,btnEl,params,kind,c
           headers:{ Authorization:'Bearer '+TOKEN, 'Content-Type':'application/json' },
           body: JSON.stringify({values:{IgnoredPackages:liste}}) });
         if(!w.ok) throw new Error('HTTP '+w.status);
-        toast(id+" : ne sera plus proposé");
+        toast(id+L('ui.ne-sera-plus-propose'));
       },
       title: name, variant: 'warn', tousCoches: false, confirmLabel: 'Installer',
       charger: async () => {
         charge = await listeDeChoix(type, module);
         const r = charge.result || {};
         const avis = r.verrou
-          ? " Le verrou du Mode MAJ sera levé le temps de l'opération, puis reposé." : "";
+          ? L('ui.le-verrou-du-mode') : "";
         // Le serveur peut imposer ses textes et INTERDIRE la selection (`selection:false`).
         // Sans cela, tous les gestionnaires auraient l'air de savoir cibler un paquet.
         return { items: itemsDeMaj(charge),
                  tousCoches: (r.preselect === true),
                  verrouille: (r.selection === false),
                  confirmLabel: r.confirmLabel,
-                 intro: r.intro || ("Cochez les mises à jour à installer. L'installation continue même si vous fermez cette fenêtre."+avis),
-                 vide: r.vide || "Aucune mise à jour à installer." };
+                 intro: r.intro || (L('ui.cochez-les-mises-jour')+avis),
+                 vide: r.vide || L('ui.aucune-mise-jour-installer') };
       }
     });
     if(!choisis || !choisis.length) return;
     const suite = (charge && charge.result && charge.result.action) || null;
-    if(!suite){ addNotif(name,'error','Réponse du serveur inattendue : action de suite absente.'); return; }
+    if(!suite){ addNotif(name,'error',L('ui.reponse-du-serveur-inattendue')); return; }
     delete CHOIX_CACHE[type+'|'+module];   // la liste va changer : ne pas la resservir
     return doAction(suite, module, false, name, help, btnEl, { ids: choisis });
   }
@@ -2071,7 +2110,7 @@ async function doAction(type,module,confirmNeeded,label,help,btnEl,params,kind,c
   // La carte passe en « operation en cours » DES LE CLIC : attendre la reponse du serveur
   // laissait une seconde ou rien ne bougeait, puis une carte qui semblait figee.
   if(module) markCardBusy(module, name);
-  const entry=addNotif(name, 'running', 'Envoi de la commande…');
+  const entry=addNotif(name, 'running', L('ui.envoi-de-la-commande'));
   if(!API_MODE){ updateNotif(entry,'done','(maquette) POST /actions {type:"'+type+'"}'); clearBtnBusy(btnEl); return; }
   try{
     const r=await fetch(API+"/actions",{ method:"POST",
@@ -2089,7 +2128,7 @@ async function doAction(type,module,confirmNeeded,label,help,btnEl,params,kind,c
       entry.op = (pollMod || '') + '|' + type;
       opsConnues[entry.op] = entry.id;
       markCardBusy(pollMod, name);
-      updateNotif(entry, 'running', j.message || (name+' : en cours…'));
+      updateNotif(entry, 'running', j.message || (name+L('ui.en-cours')));
       clearBtnBusy(btnEl);
       if(pollMod){ refreshCard(pollMod); pollCardUntilIdle(pollMod, entry, name); }
       return;
@@ -2114,7 +2153,7 @@ function wireRepoLinks(){
     a.target = '_blank';          // jamais dans la fenetre --app, qui n'a pas de barre d'adresse
     a.rel = 'noopener';
     if(a.dataset.repoLink === 'label') a.textContent = label;
-    if(!a.title) a.title = 'Ouvrir le depot du projet (' + label + ')';
+    if(!a.title) a.title = L('ui.ouvrir-le-depot-du') + label + ')';
   });
 }
 
@@ -2175,10 +2214,10 @@ function setLoading(on){
     meta.classList.toggle('busy', !!on);
     if(on){
       if(meta.dataset.avant === undefined) meta.dataset.avant = meta.textContent;
-      meta.textContent = 'Actualisation en cours…';
+      meta.textContent = L('ui.actualisation-en-cours');
     } else {
       // Si le rendu n'a pas eu lieu (erreur reseau), le texte serait reste sur « en cours ».
-      if(meta.textContent === 'Actualisation en cours…' && meta.dataset.avant !== undefined) {
+      if(meta.textContent === L('ui.actualisation-en-cours') && meta.dataset.avant !== undefined) {
         meta.textContent = meta.dataset.avant;
       }
       delete meta.dataset.avant;
@@ -2198,8 +2237,8 @@ function setLoading(on){
 function pageOccupee(){
   if(modeReorg) return 'rangement';
   const modale = document.getElementById('hdsBack');
-  if(modale && modale.classList.contains('show')) return 'fenêtre ouverte';
-  if(typeof unitsOpen !== 'undefined' && unitsOpen) return 'réglages ouverts';
+  if(modale && modale.classList.contains('show')) return L('ui.fenetre-ouverte');
+  if(typeof unitsOpen !== 'undefined' && unitsOpen) return L('ui.reglages-ouverts');
   const tiroir = document.getElementById('drawer');
   if(tiroir && tiroir.classList.contains('open')) return 'tiroir ouvert';
   return null;
@@ -2221,9 +2260,9 @@ async function refresh(force){
     progresSplash(1);             // panneau affiche
   }
   catch(e){
-    const mb=document.getElementById('modebar'); const occupeErr=mb.classList.contains('busy'); mb.className='modebar err'+(occupeErr?' busy':''); mb.title='Connexion à l\'API impossible'; mb.textContent='';
-    const msg = (e && e.name==='AbortError') ? 'délai dépassé — le premier calcul peut être long (sondes système). Réessayez dans un instant.' : (e && e.message ? e.message : e);
-    const gt=document.getElementById('globalTxt'); if(gt){ gt.textContent='Hors ligne'; gt.style.color='var(--err)'; gt.parentElement.title='Connexion impossible : '+msg; }
+    const mb=document.getElementById('modebar'); const occupeErr=mb.classList.contains('busy'); mb.className='modebar err'+(occupeErr?' busy':''); mb.title=L('ui.connexion-api-impossible'); mb.textContent='';
+    const msg = (e && e.name==='AbortError') ? L('ui.delai-depasse-le-premier') : (e && e.message ? e.message : e);
+    const gt=document.getElementById('globalTxt'); if(gt){ gt.textContent='Hors ligne'; gt.style.color='var(--err)'; gt.parentElement.title=L('ui.connexion-impossible')+msg; }
     const gdot=document.querySelector('#global .dot'); if(gdot){ gdot.style.cssText='width:9px;height:9px;border-radius:50%;background:var(--err)'; }
   }
   finally{ setLoading(false); hideSplash(); }
@@ -2255,7 +2294,7 @@ function toggleTheme(){
   document.documentElement.setAttribute('data-theme',dark?'':'light');
   const tb=document.getElementById('themeBtn');
   tb.textContent = dark ? '☀' : '☾';
-  tb.title = dark ? 'Passer au thème clair' : 'Passer au thème sombre'; }
+  tb.title = dark ? L('ui.passer-au-theme-clair') : L('ui.passer-au-theme-sombre'); }
 // Message bref et autonome, dans la MEME pile que les toasts d’actions (#toastStack).
 // L’ancienne version visait un #toast qui n’existe plus : tout appel levait une erreur.
 function toast(msg){
@@ -2330,10 +2369,10 @@ async function renderTabNotifs(pane){
   // l'interrupteur commande.
   const total=(cfg.catalog||[]).reduce((t,u)=>t+((u.notifications||[]).length),0);
   pane.innerHTML=
-     UI.carte({ titre:'Activer les notifications',
-                detail:'Coupé, plus aucune bulle ne s’affiche. Les réglages fins restent mémorisés.',
+     UI.carte({ titre:L('ui.activer-les-notifications'),
+                detail:L('ui.coupe-plus-aucune-bulle'),
                 droite: UI.interrupteur('id="ntfGlobal"', cfg.enabled) })
-    +UI.bande('Comment ça marche', total+' événements suivis')
+    +UI.bande(L('ui.comment-ca-marche'), total+L('ui.evenements-suivis'))
     +'<ul class="um-points">'
     +'<li>Une bulle apparaît quand un événement <b>survient</b> ou qu’il est <b>résolu</b> — jamais en rappel.</li>'
     +'<li>Elle <b>nomme</b> l’événement : « Température GPU élevée », « Antivirus inactif »…</li>'
@@ -2342,7 +2381,7 @@ async function renderTabNotifs(pane){
     +'</ul>';
   pane.querySelector('#ntfGlobal').onchange=async e=>{
     try{ await postNotif({enabled:e.target.checked}); }
-    catch(err){ e.target.checked=!e.target.checked; toast('Réglage impossible : '+(err.message||err)); }
+    catch(err){ e.target.checked=!e.target.checked; toast(L('ui.reglage-impossible')+(err.message||err)); }
   };
 }
 // ===== COMPOSANTS D'INTERFACE ================================================
@@ -2418,7 +2457,7 @@ async function renderTabModules(pane){
             libelle: nn.label, aide: nn.help||'', etiquettes: etiquettesNotif(nn),
             droite: UI.interrupteur('data-unotif="'+esc(u.id)+'::'+esc(nn.key)+'"', onNotif(u.id,nn.key))
           })))
-      : UI.bande('Notifications') + UI.note('Ce module ne signale aucun événement : il décrit un état.'));
+      : UI.bande('Notifications') + UI.note(L('ui.ce-module-ne-signale')));
     // ACCORDEON, coherent avec le reste de l'app (l'arbre du disque et les details de
     // champ se deplient deja ainsi ; les onglets, eux, sont deja pris par la navigation
     // des Parametres). Tout est replie : la liste des modules se lit d'un coup d'oeil,
@@ -2426,12 +2465,12 @@ async function renderTabModules(pane){
     const cible=(pendingUnitFocus===u.id);
     return '<details class="um'+(u.enabled?'':' off')+'" id="um-'+esc(u.id)+'"'+(cible?' open':'')+'>'
       +'<summary class="um-head"><div class="um-t"><b>'+esc(u.label)+'</b><small>'+esc(u.description||'')+'</small></div>'
-      +'<span class="um-sw"><span>'+(u.enabled?'Actif':'Coupé')+'</span>'
+      +'<span class="um-sw"><span>'+(u.enabled?'Actif':L('ui.coupe'))+'</span>'
       +UI.interrupteur('data-unit="'+esc(u.id)+'"', u.enabled)+'</span></summary>'
       +(u.enabled ? lignes : '<div class="um-note">Module coupé : ses cartes ne sont ni calculées ni affichées.</div>')
-      +(u.enabled && (paramCat[u.id]||[]).filter(pr=>pr.type!=='list').length ? UI.bande('Paramètres', (paramCat[u.id]||[]).filter(pr=>pr.type!=='list').length)+'<div class="um-list">'+(paramCat[u.id]||[]).filter(pr=>pr.type!=='list').map(pr=>{
+      +(u.enabled && (paramCat[u.id]||[]).filter(pr=>pr.type!=='list').length ? UI.bande(L('ui.parametres'), (paramCat[u.id]||[]).filter(pr=>pr.type!=='list').length)+'<div class="um-list">'+(paramCat[u.id]||[]).filter(pr=>pr.type!=='list').map(pr=>{
         const ref=esc(u.id)+'::'+esc(pr.key);
-        const btnDef=pr.overridden?'<button class="um-reset" data-preset="'+ref+'" title="Revenir à la valeur par défaut ('+esc(Array.isArray(pr.default)?(pr.default.join(', ')||'vide'):String(pr.default))+(pr.unit?' '+esc(pr.unit):'')+')">défaut</button>':'';
+        const btnDef=pr.overridden?'<button class="um-reset" data-preset="'+ref+L('ui.title-revenir-la-valeur')+esc(Array.isArray(pr.default)?(pr.default.join(', ')||'vide'):String(pr.default))+(pr.unit?' '+esc(pr.unit):'')+')">défaut</button>':'';
         let ctl='';
         if(pr.type==='bool'){
           ctl=UI.interrupteur('data-pval="'+ref+'"', pr.value);
@@ -2476,7 +2515,7 @@ async function renderTabModules(pane){
     const [unit,key]=c.getAttribute('data-unotif').split('::');
     const notifs={}; notifs[unit+'.'+key]=c.checked;
     try{ await postNotif({notifs}); }
-    catch(e){ c.checked=!c.checked; toast('Réglage impossible : '+(e.message||e)); }
+    catch(e){ c.checked=!c.checked; toast(L('ui.reglage-impossible')+(e.message||e)); }
   }; });
   async function postParam(unit, key, valeur){
     const values={}; values[key]=valeur;
@@ -2496,8 +2535,8 @@ async function renderTabModules(pane){
   pane.querySelectorAll('[data-pval]').forEach(c=>{ c.onchange=async()=>{
     const [unit,key]=c.getAttribute('data-pval').split('::');
     const valeur=(c.type==='checkbox')?c.checked:Number(c.value);
-    try{ await postParam(unit,key,valeur); toast('Paramètre enregistré'); await apresParam(unit); }
-    catch(e){ toast('Réglage impossible : '+(e.message||e)); }
+    try{ await postParam(unit,key,valeur); toast(L('ui.parametre-enregistre')); await apresParam(unit); }
+    catch(e){ toast(L('ui.reglage-impossible')+(e.message||e)); }
   }; });
   // Curseur : il suit le champ nombre et reciproquement ; seul le relachement enregistre.
   pane.querySelectorAll('[data-prange]').forEach(r=>{
@@ -2511,8 +2550,8 @@ async function renderTabModules(pane){
     const [unit,key]=bloc.getAttribute('data-plist').split('::');
     const envoyer=async()=>{
       const items=[...bloc.querySelectorAll('.um-lrow > span')].map(sp=>sp.textContent);
-      try{ await postParam(unit,key,items); toast('Liste enregistrée'); await apresParam(unit); }
-      catch(e){ toast('Réglage impossible : '+(e.message||e)); }
+      try{ await postParam(unit,key,items); toast(L('ui.liste-enregistree')); await apresParam(unit); }
+      catch(e){ toast(L('ui.reglage-impossible')+(e.message||e)); }
     };
     bloc.querySelectorAll('[data-pdel]').forEach(b2=>{ b2.onclick=()=>{ b2.closest('.um-lrow').remove(); envoyer(); }; });
     const champ=bloc.querySelector('.um-chip-add');
@@ -2523,7 +2562,7 @@ async function renderTabModules(pane){
       const ligne=document.createElement('div'); ligne.className='um-lrow';
       const txt=document.createElement('span'); txt.textContent=v; ligne.appendChild(txt);
       const x=document.createElement('button'); x.className='um-ldel'; x.textContent='×';
-      x.title='Retirer de la liste';
+      x.title=L('ui.retirer-de-la-liste');
       x.onclick=()=>{ ligne.remove(); envoyer(); };
       ligne.appendChild(x);
       bloc.insertBefore(ligne, bloc.querySelector('.um-ladd'));
@@ -2534,8 +2573,8 @@ async function renderTabModules(pane){
   });
   pane.querySelectorAll('.um-reset').forEach(b=>{ b.onclick=async()=>{
     const [unit,key]=b.getAttribute('data-preset').split('::');
-    try{ await postParam(unit,key,null); toast('Retour à la valeur par défaut'); await apresParam(unit); }
-    catch(e){ toast('Réglage impossible : '+(e.message||e)); }
+    try{ await postParam(unit,key,null); toast(L('ui.retour-la-valeur-par')); await apresParam(unit); }
+    catch(e){ toast(L('ui.reglage-impossible')+(e.message||e)); }
   }; });
   pane.querySelectorAll('[data-unit]').forEach(c=>{ c.onchange=async()=>{
     const id=c.getAttribute('data-unit');
@@ -2545,10 +2584,10 @@ async function renderTabModules(pane){
         headers:{ Authorization:'Bearer '+TOKEN, 'Content-Type':'application/json' },
         body: JSON.stringify({ enabled: c.checked }) });
       if(!r.ok) throw new Error('HTTP '+r.status);
-      toast(c.checked ? 'Module activé — recalcul en cours' : 'Module désactivé');
+      toast(c.checked ? L('ui.module-active-recalcul-en') : L('ui.module-desactive'));
       await refresh();
       renderSettings();
-    }catch(e){ c.checked=!c.checked; c.disabled=false; toast('Changement impossible : '+(e.message||e)); }
+    }catch(e){ c.checked=!c.checked; c.disabled=false; toast(L('ui.changement-impossible')+(e.message||e)); }
   }; });
   if(pendingUnitFocus){
     const el=document.getElementById('um-'+pendingUnitFocus);
@@ -2559,8 +2598,8 @@ async function renderTabModules(pane){
 }
 // --- Onglet Apparence : cartes-radio, pretes a accueillir d autres themes ---
 const THEMES=[
-  {id:'dark',  nom:'Thème sombre', fond:'#0d1117', panneau:'#161b22', texte:'#e6edf3'},
-  {id:'light', nom:'Thème clair',  fond:'#e9edf4', panneau:'#ffffff', texte:'#1c2230'}
+  {id:'dark',  nom:L('ui.theme-sombre'), fond:'#0d1117', panneau:'#161b22', texte:'#e6edf3'},
+  {id:'light', nom:L('ui.theme-clair'),  fond:'#e9edf4', panneau:'#ffffff', texte:'#1c2230'}
 ];
 // --- Onglet Utilisateurs (D65) : qui, sur cette machine, a Vigie au demarrage ---
 // L'ecriture demande un serveur eleve : sinon les interrupteurs restent VISIBLES mais
@@ -2586,12 +2625,12 @@ async function renderTabUtilisateurs(pane){
     +'</ul>'
     +(inerte?'<div class="um-note">Modifier ces choix demande un Vigie lancé en administrateur.</div>':'')
     +(partage?'':UI.carte({
-        titre:'Cette installation n’est lisible que par vous',
-        detail: esc(data.installPath||'')+' — les autres comptes ne pourraient pas la démarrer. '
-               +'Le déploiement l’installe dans C:\Program Files\Sowapps\Vigie, lisible par tous, '
-               +'et conserve les réglages déjà en place.',
+        titre:L('ui.cette-installation-est-lisible'),
+        detail: esc(data.installPath||'')+L('ui.les-autres-comptes-ne')
+               +L('ui.le-deploiement-installe-dans')
+               +L('ui.et-conserve-les-reglages'),
         detailHtml:true,
-        droite:'<button class="fsolve sev-fix" id="btnDeploy"'+(inerte?' disabled title="Demande un Vigie lancé en administrateur."':'')+'>Déployer pour tous</button>'
+        droite:'<button class="fsolve sev-fix" id="btnDeploy"'+(inerte?L('ui.disabled-title-demande-un'):'')+'>Déployer pour tous</button>'
       }))
     +UI.liste(users.map(u=>UI.ligneHtml(
         esc(u.name)
@@ -2602,14 +2641,14 @@ async function renderTabUtilisateurs(pane){
       )));
   const bd=pane.querySelector('#btnDeploy');
   if(bd){ bd.onclick=async()=>{
-    bd.disabled=true; bd.textContent='Déploiement…';
+    bd.disabled=true; bd.textContent=L('ui.deploiement');
     try{
-      await doAction('deploy-shared','accounts',true,'Déployer pour tous les comptes',
-        "Installe cette version dans C:\Program Files\Sowapps\Vigie, lisible par tous les comptes.",
+      await doAction('deploy-shared','accounts',true,L('ui.deployer-pour-tous-les'),
+        L('ui.installe-cette-version-dans'),
         null,null,'confirm',false);
       // Le deploiement dure une a deux minutes : on relit l'etat ensuite.
       setTimeout(()=>{ renderSettings(); }, 90000);
-    }catch(e){ toast('Déploiement impossible : '+(e.message||e)); bd.disabled=false; bd.textContent='Déployer pour tous'; }
+    }catch(e){ toast(L('ui.deploiement-impossible')+(e.message||e)); bd.disabled=false; bd.textContent=L('ui.deployer-pour-tous'); }
   }; }
   pane.querySelectorAll('[data-user]').forEach(c=>{ c.onchange=async()=>{
     const nom=c.getAttribute('data-user');
@@ -2618,8 +2657,8 @@ async function renderTabUtilisateurs(pane){
         headers:{ Authorization:'Bearer '+TOKEN, 'Content-Type':'application/json' },
         body: JSON.stringify({enabled:c.checked}) });
       if(!r.ok){ const j=await r.json().catch(()=>({})); throw new Error(j.error||('HTTP '+r.status)); }
-      toast(c.checked?('Vigie démarrera avec '+nom):('Vigie ne démarrera plus avec '+nom));
-    }catch(e){ toast('Impossible : '+(e.message||e)); c.checked=!c.checked; }
+      toast(c.checked?(L('ui.vigie-demarrera-avec')+nom):(L('ui.vigie-ne-demarrera-plus')+nom));
+    }catch(e){ toast(L('ui.impossible')+(e.message||e)); c.checked=!c.checked; }
   }; });
 }
 
@@ -2637,8 +2676,8 @@ function renderTabApparence(pane){
     // dans l'en-tete : un bouton de plus en haut de page se clique par megarde, et
     // l'en-tete n'accueille aucun bouton epars (D56).
     +UI.carte({
-        titre:'Disposition des cartes',
-        detail:'Ranger les cartes comme vous voulez. Le mode suspend les actions le temps du rangement, et rien ne bouge tant que vous n’y êtes pas entré.',
+        titre:L('ui.disposition-des-cartes'),
+        detail:L('ui.ranger-les-cartes-comme'),
         droite:'<button class="fsolve sev-info" id="btnReorg">Réorganiser</button>'
       });
   const br = pane.querySelector('#btnReorg');
