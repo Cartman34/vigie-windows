@@ -4325,6 +4325,48 @@ function Test-NotificationAllowed {
 # --- Actions ---------------------------------------------------------------
 function New-JobId { [guid]::NewGuid().ToString('N').Substring(0, 12) }
 
+# --- DEUX ENVIRONNEMENTS SUR UNE MEME MACHINE -------------------------------
+#
+# Le depot (developpement) et l'installation partagee (production locale) coexistent sur
+# un poste de developpeur. Savoir LEQUEL repond n'est pas un detail : un correctif
+# deploye au mauvais endroit coute une heure a comprendre.
+#
+# Deux notions, a ne pas confondre :
+#   - l'environnement DECLARE : ce que la machine dit vouloir etre (reglage, defaut prod) ;
+#   - l'environnement OBSERVE : d'ou le code qui tourne vient REELLEMENT.
+# Quand les deux different, c'est un defaut nomme, pas un mystere.
+function Get-DeclaredEnvironment {
+    param([string]$Backend = (Get-BackendRoot))
+    try {
+        $value = "$((Get-Config -Backend $Backend).Environment)".Trim().ToLowerInvariant()
+        if ($value -in @('dev', 'prod')) { return $value }
+    } catch { }
+    return 'prod'      # defaut : une machine est en production tant qu'on n'a pas dit l'inverse
+}
+
+# D'ou vient le code qui tourne : sous Program Files, c'est l'installation partagee ;
+# ailleurs, c'est un depot de travail. On lit le CHEMIN, pas une intention.
+function Get-PathEnvironment {
+    param([Parameter(Mandatory)][string]$Path)
+    foreach ($root in @($env:ProgramFiles, ${env:ProgramFiles(x86)})) {
+        if (-not $root) { continue }
+        if ("$Path".StartsWith("$root", [StringComparison]::OrdinalIgnoreCase)) { return 'prod' }
+    }
+    return 'dev'
+}
+
+function Get-RunningEnvironment {
+    param([string]$Backend = (Get-BackendRoot))
+    Get-PathEnvironment -Path $Backend
+}
+
+# Le libelle affiche, en clair : « Production » ne dit pas d'ou vient le code.
+function Get-EnvironmentLabel {
+    param([Parameter(Mandatory)][ValidateSet('dev', 'prod')][string]$Environment)
+    if ($Environment -eq 'dev') { return 'Développement (dépôt)' }
+    return 'Production (installation partagée)'
+}
+
 # --- TRACABILITE : toute action laisse une trace, deux fois ------------------
 #
 # « On doit toujours pouvoir retrouver et justifier une action de Vigie. » Une trace

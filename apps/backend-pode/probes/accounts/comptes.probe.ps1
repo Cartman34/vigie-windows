@@ -157,6 +157,47 @@ if (-not $eleve) {
 # TACHES MALADES : une tache qui vise un interpreteur ou une application disparus se
 # lance et meurt en silence. La sonde ne repare RIEN (lecture seule) : elle constate, et
 # porte le bouton qui repare (D66).
+# --- QUEL ENVIRONNEMENT REPOND ----------------------------------------------
+#
+# Deux copies de Vigie coexistent sur un poste de developpement : le depot et
+# l'installation partagee. Ne pas savoir laquelle repond fait perdre une heure sur un
+# correctif deploye au mauvais endroit. La carte le dit, et signale deux ecarts :
+# la machine ne tourne pas dans l'environnement qu'elle declare, ou une tache de compte
+# lance l'autre environnement.
+$declared = Get-DeclaredEnvironment -Backend $backend
+$running  = Get-RunningEnvironment -Backend $backend
+$envIssues = @()
+if ($declared -ne $running) {
+    $envIssues += ("la machine se déclare en « " + (Get-EnvironmentLabel -Environment $declared) +
+                   " » mais Vigie tourne depuis « " + (Get-EnvironmentLabel -Environment $running) + " »")
+}
+foreach ($c in $comptes) {
+    if (-not $c.task) { continue }
+    try {
+        $t = Get-ScheduledTask -TaskName $c.task -ErrorAction Stop
+        $args = "$(@($t.Actions)[0].Arguments)"
+        if ($args -match '-File\s+"([^"]+)"') {
+            $taskEnv = Get-PathEnvironment -Path $Matches[1]
+            if ($taskEnv -ne $running) {
+                $envIssues += ($c.name + " démarre depuis « " + (Get-EnvironmentLabel -Environment $taskEnv) +
+                               " » alors que Vigie tourne depuis l'autre")
+            }
+        }
+    } catch { }
+}
+
+if ($envIssues.Count) {
+    $depl += New-Field -Key 'env' -Label 'Environnement' `
+        -Value ((Get-EnvironmentLabel -Environment $running) + " — " + $envIssues.Count.ToString() + " écart(s)") `
+        -Kind 'text' -Status 'warn' -FixAction 'repair-tasks' `
+        -Help "Le dépôt et l'installation partagée peuvent tourner sur la même machine. Vigie compare ce que la machine déclare, ce qui tourne réellement, et ce que lancent les tâches de démarrage : un écart signifie qu'un correctif peut atterrir là où personne ne le lit." `
+        -Guide ($envIssues -join [Environment]::NewLine)
+} else {
+    $depl += New-Field -Key 'env' -Label 'Environnement' `
+        -Value (Get-EnvironmentLabel -Environment $running) -Kind 'text' -Status 'ok' `
+        -Help "Ce que la machine déclare, ce qui tourne et ce que lancent les tâches de démarrage concordent."
+}
+
 # HORS SERVICE et EN ATTENTE ne se disent pas de la meme facon. Une tache dont la
 # structure est saine mais dont le dernier lancement a echoue n'est pas cassee : elle se
 # confirmera au prochain demarrage du compte. L'annoncer en rouge etait excessif, et

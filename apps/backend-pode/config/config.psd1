@@ -18,6 +18,18 @@
     # Prefixe des routes de l'API REST (voir apps/backend-pode/api/openapi.yaml).
     ApiBase     = '/api/v1'
 
+    # QUEL ENVIRONNEMENT tourne sur cette machine.
+    #
+    #   'prod' : Vigie tourne depuis l'installation partagee (C:\Program Files\Sowapps\Vigie).
+    #            C'est le defaut : une machine est en production tant qu'on n'a pas dit
+    #            l'inverse.
+    #   'dev'  : Vigie tourne depuis le depot. Poste de developpement.
+    #
+    # Ce reglage DECLARE une intention ; Vigie compare ensuite avec ce qui tourne
+    # reellement et signale l'ecart. A poser dans config.local.psd1 : c'est un choix de
+    # machine, comme UpdateSource.
+    Environment  = 'prod'
+
     # D'OU VIGIE SE MET A JOUR quand on appuie sur « Mettre a jour Vigie ».
     #
     #   'auto'    : le depot est la -> on deploie ce depot (poste de developpement) ;
