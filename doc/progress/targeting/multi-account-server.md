@@ -171,23 +171,29 @@ dans le profil du compte, `%LOCALAPPDATA%\Sowapps\Vigie\var\run\`,
 > `Administrateurs`, personne d'autre — et vérification à la lecture. **Un ordre trouvé dans un dossier dont les
 > droits sont trop larges n'est pas exécuté : il est détruit et journalisé.**
 
-### Ce qu'une action doit désormais déclarer
+### Ce qu'une action doit déclarer
 
-L'en-tête `# @droits:` gagne un niveau, et un second axe apparaît — **où** l'action s'exécute.
+**Rien de nouveau du côté des droits : ils sont déjà déclarés.** Chaque action porte son `# @droits:` depuis le début —
+**15 `admin`, 26 `tous`** au 28/08/2026. Il n'y a pas de taxonomie à réinventer, seulement une sémantique à faire
+tenir.
 
-| `# @droits:` | Qui peut lancer | Exécuté par |
+| `# @droits:` | Qui peut lancer | Ce qui change |
 |---|---|---|
-| `lecture` | tout compte activé | le serveur |
-| `standard` | tout compte activé | **le serveur, au nom du demandeur** |
-| `admin` | comptes administrateurs | le serveur |
+| `tous` | tout compte activé | Aujourd'hui l'action s'exécute avec les droits du compte. Demain elle s'exécute **dans le serveur élevé, au nom du demandeur** — c'est exactement ce qui manquait à un compte standard. |
+| `admin` | comptes administrateurs uniquement | inchangé |
 
-| `# @session:` | Où | Exemples |
+C'est là que se joue le besoin : `disk-cleanup`, `net-speedtest`, `wsl-shutdown` sont déjà marquées `tous`, mais un
+compte standard ne peut pas les mener à bien aujourd'hui faute d'élévation. Le serveur les fera pour lui.
+
+**Le seul axe vraiment nouveau est le lieu d'exécution**, et il découle de la nature de l'action, pas d'un arbitrage :
+
+| `# @session:` | Où | Lesquelles |
 |---|---|---|
-| *(absent)* | serveur, session 0 | verrou Windows Update, nettoyage disque |
-| `utilisateur` | **agent du demandeur** | `wsl-*`, `pkg-*`, `open-*` |
+| *(absent)* | serveur, session 0 | tout ce qui touche la machine : verrou Windows Update, disque, tâches, déploiement |
+| `utilisateur` | **agent du demandeur** | les 9 `open-*`, les `wsl-*`, les `pkg-*` — elles n'ont de sens que dans sa session (C3, C4) |
 
-**Refus par défaut** dans les deux axes : sans `@droits`, c'est `admin` ; une action `@session: utilisateur` sans agent
-connecté est refusée avec une raison claire, pas mise en attente indéfiniment.
+**Refus par défaut sur les deux axes** : sans `@droits`, c'est `admin` ; une action `@session: utilisateur` sans agent
+connecté est refusée avec sa raison, jamais mise en attente indéfiniment.
 
 ---
 
@@ -226,7 +232,8 @@ cette machine, comptes `fhaza` **et** `Famille`.
 3. **L'agent** : le tray sait exécuter un ordre d'action dans sa session et rendre son résultat. On y bascule d'abord
    les neuf `open-*`, les plus simples et les plus visibles.
 4. **Le reste du travail par utilisateur** : WSL, gestionnaires de paquets, lectures `HKCU`.
-5. **Les droits** : `@droits: standard`, remplacement de `Test-IsElevated` par « le demandeur a-t-il ce droit », refus
+5. **Les droits** : faire respecter le `@droits:` **déjà déclaré** contre le DEMANDEUR et non contre le processus —
+   remplacement de `Test-IsElevated` par « le demandeur a-t-il ce droit », refus
    par défaut, journal nominatif. **Relecture dédiée.**
 6. **Les données par compte** : réglages, modules actifs, notifications.
 7. **La migration** des installations existantes, idempotente et réversible.
@@ -248,11 +255,27 @@ D'où la règle : **on vérifie au moment de s'en servir**, et un écart vaut co
 
 ---
 
-## Ce qui reste à trancher — et qui ne m'appartient pas
+## Questions ouvertes
 
-- **Quelles actions passent en `standard`** ? Redémarrer WSL, vider le cache DNS, mesurer le débit se discutent une par
-  une. Le verrou Windows Update, la mise à jour de l'installation et la gestion des comptes restent `admin`.
-- **Que fait Vigie quand un compte standard demande une action `@session: utilisateur` alors qu'aucun agent n'est
-  connecté** — refuser en le disant, ou proposer de réessayer ?
-- **Le serveur tourne-t-il sous `SYSTEM` ou sous un compte administrateur dédié** ? `SYSTEM` est plus simple (aucun mot
-  de passe à gérer) mais donne les pleins pouvoirs ; un compte dédié se restreint, au prix d'un secret à faire vivre.
+Numérotées pour que les réponses s'y accrochent (« Q1A »). Elles restent stables tant que l'une d'elles est ouverte.
+
+### Q1 — Le serveur tourne-t-il sous `SYSTEM` ou sous un compte administrateur dédié ?
+
+Le serveur devient une tâche machine lancée au démarrage. Sous quelle identité s'exécute-t-il ?
+
+- **A. `SYSTEM`** — *avantage : aucun secret à faire vivre.* Le compte existe sur toute machine Windows, n'a pas de mot
+  de passe, ne se périme pas et ne peut pas être verrouillé. En contrepartie il a les pleins pouvoirs : rien ne borne
+  ce que le serveur pourrait faire si son code était compromis.
+- **B. Un compte administrateur dédié, créé à l'installation** — *avantage : privilèges bornés.* On peut lui retirer ce
+  dont Vigie n'a pas besoin, et tracer ses actions séparément. Mais il faut créer le compte, générer et **conserver**
+  son mot de passe quelque part sur la machine — un secret de plus, avec sa rotation et son risque propre.
+
+### Q2 — Que fait Vigie quand une action `@session: utilisateur` est demandée alors qu'aucun agent n'est connecté ?
+
+Le cas se produit dès qu'un compte est activé mais que sa session n'est pas ouverte — ou que son tray a été fermé.
+
+- **A. Refuser en le disant** — *avantage : honnête et immédiat.* « Cette action a besoin de votre session : ouvrez
+  Vigie sur ce compte. » Rien ne reste en suspens, rien ne s'exécutera plus tard à un moment inattendu.
+- **B. Mettre en attente jusqu'au retour de l'agent** — *avantage : le geste n'est pas perdu.* Mais une action qui
+  s'exécute une heure après le clic, dans un contexte qui a changé, est une surprise — et il faudrait alors une durée
+  de péremption, une file, et un moyen d'annuler.

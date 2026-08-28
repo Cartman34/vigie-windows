@@ -23,6 +23,23 @@
   + confinement de chemin (`Resolve-Path`). Vérifier les failles à **chaque** ajout d'action.
 - Le script lancé par l'utilisateur **demande l'UAC** si besoin ; le serveur tourne **élevé** mais protégé.
 
+## Poser une question
+
+**Numérotation.** Toute question, tout problème, toute décision à prendre porte un numéro préfixé `Q` — Q1, Q2… — pour
+qu'une réponse s'y accroche sans ambiguïté (« Q1A »). Les numéros **restent stables** tant qu'une question de la série
+est ouverte ; quand toutes sont répondues, la série repart à Q1.
+
+**Questions autonomes.** Chaque question est énoncée **en entier**, avec ses options, **à chaque fois qu'elle est
+posée** — jamais réduite à un thème ou à une étiquette. Une question qu'il faut aller rechercher plus haut est une
+question mal posée.
+
+**Options.** Une question fermée reçoit des options lettrées — A, B, C… — **la recommandée en premier**. Une question
+ouverte reste libre. Chaque option annonce son **avantage principal** en quelques mots (plus rapide à construire, plus
+sûr, plus maintenable…), pour que l'arbitrage soit explicite plutôt que deviné.
+
+**Dans une conversation**, les questions passent par l'outil de question interactif, pas par une liste en texte. Le
+format ci-dessus vaut pour les questions **écrites** : documents de conception, comptes rendus, fichiers de suivi.
+
 ## Validation avant de dire « prêt »
 - Chaque `.ps1` / `.psd1` : **parser** via `[System.Management.Automation.Language.Parser]::ParseFile`
   (`pwsh` de la machine), et on rapporte la **sortie réelle**.
