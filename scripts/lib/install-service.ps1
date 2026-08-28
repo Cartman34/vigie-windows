@@ -36,6 +36,10 @@ param(
     [switch] $Lister,
     [switch] $Activer,
     [switch] $Retirer,
+    # -Activer refuse si un serveur tient deja le port : deux serveurs sur le meme port,
+    # c'est le second qui meurt, et on ne sait plus lequel repond. Ce commutateur dit
+    # explicitement « arrete celui qui tourne et prends sa place ».
+    [switch] $ReplaceRunningServer,
     [switch] $Yes
 )
 $ErrorActionPreference = 'Stop'
@@ -295,6 +299,99 @@ if (-not (Test-IsElevated)) {
     Write-Fail (Get-Label 'install-service.cette-operation-cree-un')
     Write-Detail (Get-Label 'install-service.rien-ete-touche')
     exit 1
+}
+
+<#
+    LA BASCULE. -Activer etait declare dans les parametres et decrit dans l'aide, mais
+    AUCUN code ne le traitait : la commande affichait l'etat et sortait, sans rien faire
+    et sans rien dire. Un commutateur documente qui ne fait rien est pire qu'un
+    commutateur absent -- celui-la, au moins, provoque une erreur.
+
+    CE QU'ELLE FAIT, dans cet ordre, et pourquoi :
+
+      1. La tache doit EXISTER. Sinon il n'y a rien a activer, et c'est l'installation
+         qui la pose.
+      2. LE PORT DOIT ETRE LIBRE. Deux serveurs sur 47600, c'est le second qui meurt --
+         et on ne sait plus lequel repond aux ordres. Sans -ReplaceRunningServer, on
+         refuse et on nomme le processus en place.
+      3. On ACTIVE, puis on DEMARRE A LA DEMANDE. Windows refuse de demarrer une tache
+         desactivee, meme a la main : les deux gestes sont necessaires, dans cet ordre.
+         Le declencheur « au demarrage » reste pour la suite ; il n'est pas attendu ici.
+      4. ON VERIFIE QU'ELLE ECOUTE. Une tache « demarree » ne prouve rien : le processus
+         peut mourir a la seconde suivante. On attend le port, pas le code de retour.
+      5. SI ELLE N'ECOUTE PAS, ON DESACTIVE. Laisser une tache activee qui ne sert pas
+         signifie qu'au prochain demarrage de la machine, elle reprendra la main sans
+         que personne ne l'ait decide.
+
+    LES DROITS SONT CEUX DE LA TACHE, PAS CEUX DU DEMANDEUR. C'est le principe meme du
+    montage : la tache declare son principal (VigieService, RunLevel Highest), et
+    Grant-TaskControl accorde aux utilisateurs integres le droit de l'EXECUTER. Un compte
+    standard la demarre donc, et elle tourne elevee -- avec les droits qu'elle definit.
+#>
+if ($Activer) {
+    Show-State
+    $task = Get-ServiceTask
+    if (-not $task) {
+        Write-Fail (Get-Label 'install-service.activer-tache-absente')
+        Write-Detail (Get-Label 'install-service.activer-lancez-installation')
+        exit 2
+    }
+
+    # --- Le port ---
+    $port = [int](Get-Config -Backend $backend).Port
+    $held = $null
+    try { $held = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction Stop } catch { }
+    if ($held) {
+        $pidHeld = $held[0].OwningProcess
+        if (-not $ReplaceRunningServer) {
+            Write-Fail (Get-Label 'install-service.activer-port-occupe' $port $pidHeld)
+            Write-Detail (Get-Label 'install-service.activer-port-occupe-quoi-faire')
+            exit 2
+        }
+        Write-Step (Get-Label 'install-service.activer-arret-du-serveur' $pidHeld)
+        try {
+            Stop-Process -Id $pidHeld -Force -ErrorAction Stop
+            Start-Sleep -Seconds 2
+        } catch {
+            Write-Fail (Get-Label 'install-service.activer-arret-impossible' $_.Exception.Message)
+            exit 2
+        }
+    }
+
+    # --- Activer, puis demarrer ---
+    Write-Step (Get-Label 'install-service.activer-bascule')
+    try {
+        Enable-ScheduledTask -TaskName $SERVICE_TASK -ErrorAction Stop | Out-Null
+        Start-ScheduledTask -TaskName $SERVICE_TASK -ErrorAction Stop
+    } catch {
+        Write-Fail (Get-Label 'install-service.activer-windows-refuse' $_.Exception.Message)
+        try { Disable-ScheduledTask -TaskName $SERVICE_TASK -ErrorAction SilentlyContinue | Out-Null } catch { }
+        exit 2
+    }
+
+    # --- La preuve : le port ecoute ---
+    $listening = $null
+    foreach ($n in 1..20) {
+        Start-Sleep -Milliseconds 750
+        try { $listening = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction Stop } catch { }
+        if ($listening) { break }
+    }
+    if (-not $listening) {
+        Write-Fail (Get-Label 'install-service.activer-pas-ecoute' $port)
+        Write-Detail (Get-Label 'install-service.activer-desactivee-de-nouveau')
+        try { Disable-ScheduledTask -TaskName $SERVICE_TASK -ErrorAction SilentlyContinue | Out-Null } catch { }
+        try { Write-Log -Backend $backend -Name 'install' -Level 'ERROR' `
+                        -Message ("Service de machine : active puis desactive, le port " + $port + " n'ecoute pas.") } catch { }
+        Show-State
+        exit 2
+    }
+
+    Write-Ok (Get-Label 'install-service.activer-en-ligne' $listening[0].OwningProcess $port)
+    Write-Detail (Get-Label 'install-service.activer-au-prochain-demarrage')
+    try { Write-Log -Backend $backend -Name 'install' `
+                    -Message ("Service de machine : actif, PID " + $listening[0].OwningProcess + ".") } catch { }
+    Show-State
+    exit 0
 }
 
 if ($Retirer) {
