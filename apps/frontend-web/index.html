@@ -461,8 +461,15 @@
   .fsolve svg{color:currentColor}
 
   .fsolve:hover{background:rgba(127,127,127,.14)}
-  /* Etat "action en cours" sur un bouton */
-  .act.busy,.fsolve.busy{opacity:.9;cursor:progress}
+  /* DESACTIVE : ca se VOIT, et ca ne reagit plus. Un bouton bloque par une operation en
+     cours gardait son survol et sa couleur pleine : rien ne disait qu'il etait mort
+     (signale le 28/08). Le sablier, lui, est reserve au bouton de l'operation -- c'est
+     la regle « .busy l'emporte », juste en dessous. */
+  .act:disabled,.fsolve:disabled{opacity:.4;cursor:not-allowed;filter:grayscale(1)}
+  .act:disabled:hover,.fsolve:disabled:hover{background:none}
+  /* Etat "action en cours" sur un bouton : il tourne, donc il n'est pas grise. */
+  .act.busy,.fsolve.busy{opacity:.9;cursor:progress;filter:none}
+  .act.busy:disabled,.fsolve.busy:disabled{opacity:.9;cursor:progress;filter:none}
   /* « En cours » est un ETAT de la carte : il s'exprime donc dans le MEME liséré que le
      statut, et non dans un halo separe. Un halo autour de la carte dissociait deux
      informations qui parlent de la meme chose, et se lisait comme une alerte. */
@@ -886,7 +893,11 @@ function cardHtml(m, groupLabel){
     // le bouton de resolution, lui, restait intact et cliquable pendant que l'operation
     // qu'il venait de lancer se deroulait -- « il ne tourne pas, n'est pas grise, et est
     // toujours present » (constate le 28/08). Meme regle, meme rendu.
-    const solveEnCours = !!m.busy && (!m.busyAction || m.busyAction===f.fixAction);
+    // STRICTEMENT l'action qui tourne. Avec « ou busyAction inconnu », TOUS les boutons
+    // de resolution de la carte se mettaient a tourner alors qu'un seul travaillait
+    // (signale le 28/08). Quand le serveur ne dit pas quelle action tourne, aucun ne
+    // tourne : le verrou les desactivera, ce qui est l'information juste.
+    const solveEnCours = !!m.busy && !!m.busyAction && m.busyAction===f.fixAction;
     const solve = (f.fixAction && isProblem)
       ? `<button class="fsolve sev-${fa?(fa.severity||'fix'):'fix'}${interditeF?' denied':''}${solveEnCours?' busy':''}"${(interditeF||solveEnCours)?' disabled':''}`
         + ` data-a="${f.fixAction}" data-m="${m.id}" data-k="${fkind}" data-c="${fconfirm?1:0}"`
@@ -913,7 +924,10 @@ function cardHtml(m, groupLabel){
     // SEULE l'action reellement en cours s'anime. Toutes les autres restent lisibles, mais
     // desactivees : lancer une seconde operation pendant la premiere n'aurait pas de sens.
     // Animer les trois boutons faisait perdre lequel travaillait.
-    const cetteAction = busy && (!m.busyAction || m.busyAction===a.id);
+    // STRICTEMENT celle-la : sans busyAction, plus AUCUNE ne s'anime. Le repli
+    // « ou busyAction inconnu » les faisait toutes tourner -- ce que ce commentaire
+    // dit vouloir eviter, et que le code faisait quand meme.
+    const cetteAction = busy && !!m.busyAction && m.busyAction===a.id;
     // Droits (D65) : une action que ce compte Windows n'a pas le droit de lancer reste
     // VISIBLE et dit pourquoi -- rien ne disparait d'une carte (D59). `allowed` n'est
     // absent que d'un etat servi par une version anterieure : on le lit alors comme oui.
