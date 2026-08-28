@@ -84,7 +84,7 @@ if ($Detail) {
 
 if ($total -gt $CEILING) {
     Write-Fail ("Le plafond est depasse de {0} : du code francais a ete AJOUTE." -f ($total - $CEILING))
-    Write-Warn "Les nouveaux noms s'ecrivent en anglais (D41). Relancez avec -Detail pour voir ou."
+    Write-Warn "Les nouveaux noms s'ecrivent en anglais (D41). Relancez avec -Détail pour voir ou."
     exit 2
 }
 if ($total -lt $CEILING) {

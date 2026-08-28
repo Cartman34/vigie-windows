@@ -1,4 +1,4 @@
-# @droits: admin   -- modifie le systeme : Windows exige l'elevation (D65)
+﻿# @droits: admin   -- modifie le systeme : Windows exige l'elevation (D65)
 <# Action : lance une recherche EN LIGNE des mises a jour Windows.
 
    A ne pas confondre avec ce qu'affiche la carte : celle-ci lit le cache LOCAL de Windows

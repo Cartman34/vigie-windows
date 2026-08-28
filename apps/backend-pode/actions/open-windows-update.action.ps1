@@ -1,4 +1,4 @@
-# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+﻿# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 <# Action open-windows-update : ouvre les Parametres Windows Update (installation manuelle).
    N'installe rien : respecte le principe "rien sans consentement". #>
 param([string]$Module, [hashtable]$Params)

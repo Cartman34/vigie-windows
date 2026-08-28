@@ -1,4 +1,4 @@
-@{
+﻿@{
     # Declaration du MODULE (D48) : la sante de VIGIE ELLE-MEME.
     Label       = 'Débogage'
     Description = 'L''état de Vigie elle-même : tâches de démarrage, dépendances, journaux.'

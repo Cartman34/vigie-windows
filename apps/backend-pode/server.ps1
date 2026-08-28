@@ -1,4 +1,4 @@
-<#
+﻿<#
     server.ps1 - Endpoints et routes Pode (implementation du contrat).
     Dot-source depuis start.ps1 dans le contexte du serveur. Journalise les
     erreurs et requetes dans backend/logs/ via la journalisation Pode.

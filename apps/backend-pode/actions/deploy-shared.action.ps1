@@ -1,4 +1,4 @@
-# @droits: admin   -- installe hors du profil et pose des taches : Windows exige l'elevation (D65)
+﻿# @droits: admin   -- installe hors du profil et pose des taches : Windows exige l'elevation (D65)
 # @libelle: Deployer pour tous les comptes | confirm | fix   -- affiche quand un champ cite cette action (D66)
 <# Action : deploie cette version a un emplacement lisible par TOUS les comptes.
 

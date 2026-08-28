@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Pilote l'app Vigie de la barre systeme : etat, arret, redemarrage.
 

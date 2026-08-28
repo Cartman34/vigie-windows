@@ -1,4 +1,4 @@
-<# Sonde : les COMPTES de cet ordinateur. LECTURE SEULE.
+﻿<# Sonde : les COMPTES de cet ordinateur. LECTURE SEULE.
 
    Une LIGNE PAR COMPTE (choix utilisateur) : le nom a gauche, et en face l'essentiel --
    Vigie active ou non, et le type de compte.

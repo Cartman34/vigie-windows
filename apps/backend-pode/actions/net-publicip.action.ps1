@@ -1,4 +1,4 @@
-# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+﻿# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 # @libelle: Obtenir l'IP publique | immediate | info   -- affiche quand un champ cite cette action (D66)
 <# Action net-publicip : recupere l'IP publique via un service externe (a la demande).
    Fusionne le resultat dans var/cache/netmeasure.json via Update-StateJson (preserve latence/debit). #>

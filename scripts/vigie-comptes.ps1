@@ -1,4 +1,4 @@
-<#
+﻿<#
     vigie-comptes.ps1 - QUELS COMPTES Windows ont Vigie. IDEMPOTENT.
 
     Le meme outil sert pendant l'installation et n'importe quand apres : « un outil doit

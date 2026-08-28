@@ -1,4 +1,4 @@
-<#
+﻿<#
     run.ps1 - Lance le panneau. IDEMPOTENT. Cible PowerShell 7.
     Journalise ses decisions dans backend/logs/run_*.log. Rebascule en pwsh si
     lance en 5.1, et s'eleve (UAC) si necessaire : le serveur doit tourner avec

@@ -1,4 +1,4 @@
-@{
+﻿@{
     # Declaration du MODULE (D48) : la carte des COMPTES de la machine.
     #
     # AUCUN parametre : la carte montre TOUS les comptes utilisateurs et UNIQUEMENT eux

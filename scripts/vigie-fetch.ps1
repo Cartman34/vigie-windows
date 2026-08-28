@@ -168,7 +168,7 @@ function Get-DepuisLocal {
     if (-not (Test-Path -LiteralPath $build)) {
         Sortir 1 "build-release.ps1 introuvable : impossible de fabriquer depuis ce depot."
     }
-    Write-Info "Fabrication de l'archive depuis le depot local..."
+    Write-Info "Fabrication de l'archive depuis le dépôt local..."
     & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $build | Write-Host
     if ($LASTEXITCODE -ne 0) { Sortir 1 ("La fabrication a echoue (code " + $LASTEXITCODE + ").") }
     $zip = Get-DerniereArchive -Dossier (Join-Path $repoRoot 'dist')

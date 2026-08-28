@@ -1,4 +1,4 @@
-<# Sonde : session de jeu et allocation des ressources. LECTURE SEULE.
+﻿<# Sonde : session de jeu et allocation des ressources. LECTURE SEULE.
 
    C'est un OUTIL DE DIAGNOSTIC : quand le jeu rame, la carte doit permettre de voir
    qui prend quoi -- processeur, GPU, VRAM, memoire, entrees/sorties -- et de reperer

@@ -282,9 +282,9 @@ try {
     # action privilegiee ne laisserait qu'une trace dans un fichier -- effacable.
     if ($isAdmin) {
         if (Register-VigieEventSource) {
-            Write-Log -Backend $backend -Name 'install' -Message "Journal des evenements : source Vigie prete."
+            Write-Log -Backend $backend -Name 'install' -Message "Journal des événements : source Vigie prete."
         } else {
-            Write-Log -Backend $backend -Name 'install' -Level 'WARN' -Message "Journal des evenements : source Vigie NON posee."
+            Write-Log -Backend $backend -Name 'install' -Level 'WARN' -Message "Journal des événements : source Vigie NON posée."
         }
     }
 
@@ -320,7 +320,7 @@ try {
             # Un code non nul est un ECHEC -- Write-Log ERROR le compte, et le verdict
             # final ne peut plus l'ignorer.
             if ($LASTEXITCODE -eq 0) {
-                Write-Log -Backend $backend -Name 'install' -Message "Service de machine : pret (desactive)."
+                Write-Log -Backend $backend -Name 'install' -Message "Service de machine : pret (désactive)."
             } else {
                 Write-Log -Backend $backend -Name 'install' -Level 'ERROR' `
                           -Message ("Service de machine : ECHEC (code " + $LASTEXITCODE + ").")

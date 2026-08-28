@@ -1,4 +1,4 @@
-<# Sonde : ALIMENTATION d'un portable. LECTURE SEULE, rapide.
+﻿<# Sonde : ALIMENTATION d'un portable. LECTURE SEULE, rapide.
 
    La question posee : « je peux etre sur secteur mais SOUS-ALIMENTE, j'aimerais le
    voir et etre alerte ». Le fait qui le prouve est mesurable : branche au secteur ET

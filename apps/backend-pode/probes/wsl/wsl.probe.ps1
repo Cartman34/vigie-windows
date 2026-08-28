@@ -1,4 +1,4 @@
-<#
+﻿<#
     Sonde : WSL2. LECTURE SEULE. N'appelle PAS wsl.exe (risque de blocage) :
     lit le registre + les processus. Rapide et sans figeage.
 #>

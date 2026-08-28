@@ -1,4 +1,4 @@
-<#
+﻿<#
     tray.ps1 - App Vigie de la barre systeme (apps/tray).
 
     C'est une app A PART ENTIERE, distincte du backend : elle a son interface

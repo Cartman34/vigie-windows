@@ -1,4 +1,4 @@
-# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+﻿# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 <# Action pkg-open-gui : ouvre l'interface graphique du gestionnaire de paquets.
    Jumelle de open-windows-update : n'installe rien, elle OUVRE un logiciel externe.
 

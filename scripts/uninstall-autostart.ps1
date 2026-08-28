@@ -56,5 +56,5 @@ if (Test-Path -LiteralPath $lnk) {
     Write-Info "Raccourci bureau absent (rien a faire)."
 }
 
-Write-Info "Acces permanent retire."
+Write-Info "Accès permanent retire."
 exit 0

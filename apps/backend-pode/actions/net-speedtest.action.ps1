@@ -1,4 +1,4 @@
-# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+﻿# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 # @libelle: Mesurer débit/latence | immediate | info   -- affiche quand un champ cite cette action (D66)
 <#
     Action : mesure latence (ping) + débit descendant (~10 Mo) + débit montant (~5 Mo).

@@ -1,4 +1,4 @@
-<# check-doc.ps1 - La documentation tient-elle debout ? LECTURE SEULE.
+﻿<# check-doc.ps1 - La documentation tient-elle debout ? LECTURE SEULE.
 
    Deux controles, tous deux mecaniques -- ils ne jugent pas le texte, seulement sa
    charpente :

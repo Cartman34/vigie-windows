@@ -1,4 +1,4 @@
-<#
+﻿<#
     uninstall-legacy.ps1 - Retire les vestiges des installations ANTERIEURES au
     renommage Vigie (2026-08-22). IDEMPOTENT.
 
