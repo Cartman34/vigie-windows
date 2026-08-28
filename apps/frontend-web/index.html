@@ -1496,7 +1496,22 @@ async function syncOperations(){
     delete opsConnues[cle];
     // La carte cesse d'etre occupee MEME si sa notification a ete perdue entre-temps :
     // le lisere ne doit pas dependre d'un objet d'interface.
-    clearCardBusy(cle.split('|')[0]);
+    const moduleFini = cle.split('|')[0];
+    clearCardBusy(moduleFini);
+
+    // ET ELLE SE RECHARGE. La fin d'operation eteignait le lisere et mettait a jour la
+    // notification, mais ne redemandait JAMAIS les donnees : la carte gardait les
+    // chiffres d'avant. Apres un deploiement, elle annoncait encore « 34 commits a
+    // ajouter » et rouvrait son bouton -- signale le 28/08.
+    //
+    // « frais » est indispensable : sans lui la sonde repond depuis son cache, c'est-a-
+    // dire l'etat qu'on vient precisement de changer.
+    //
+    // Le cas qui a masque le defaut : certaines operations RELANCENT LE SERVEUR
+    // (deploiement, mise a jour). Pendant ce temps la page ne recoit plus rien ; elle
+    // apprend la fin au premier echange qui repasse. C'est donc ici, et pas dans la
+    // reponse de l'action, que le rechargement doit se faire.
+    if(moduleFini){ refreshCard(moduleFini, null, true); }
     if(!n) continue;
     const res = (etat.results || []).find(r => operationKey(r) === cle);
     if(res){
