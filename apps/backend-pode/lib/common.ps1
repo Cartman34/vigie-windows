@@ -4099,6 +4099,100 @@ function Set-VigieAccountEnabled {
     return (Get-VigieAccounts -Backend $Backend | Where-Object { $_.name -eq $Name })
 }
 
+
+# --- OU S'EXECUTE UNE ACTION : sur le serveur, ou sur le bureau d'un compte ? ----------
+#
+# LE PROBLEME. Un serveur n'a pas d'ecran. Aujourd'hui il en a un par accident -- c'est le
+# tray de fhaza qui le lance, donc dans une session de bureau. Le jour ou il devient la
+# tache de machine, il tournera en session 0 : « Start-Process explorer.exe » y reussit
+# sans que PERSONNE ne voie jamais la fenetre. L'action se declarerait faite, et rien ne
+# se passerait a l'ecran.
+#
+# Et meme aujourd'hui, le probleme existe deja : si Famille demande d'ouvrir un dossier,
+# c'est sur le bureau de FHAZA qu'il s'ouvre, parce que c'est la que tourne le serveur.
+#
+# LA REGLE. Une action declare ou elle doit s'executer, en tete de son fichier :
+#     # @execution: session    -- elle s'execute dans la session du DEMANDEUR
+#     # @execution: serveur    -- elle n'a besoin de personne (defaut)
+# Le silence vaut « serveur » : c'est le cas courant, et une action qui n'ouvre rien n'a
+# aucune raison de faire un detour.
+function Get-ActionExecutor {
+    param(
+        [Parameter(Mandatory)][string]$Type,
+        [string]$Backend = (Get-BackendRoot)
+    )
+    try {
+        $f = Join-Path $Backend ("actions/$Type.action.ps1")
+        if (Test-Path -LiteralPath $f) {
+            foreach ($ligne in (Get-Content -LiteralPath $f -TotalCount 40)) {
+                if ($ligne -match '^\s*#\s*@execution\s*:\s*(session|serveur)') { return $Matches[1] }
+            }
+        }
+    } catch { }
+    return 'serveur'
+}
+
+# Le dossier d'ordres d'un compte : c'est la que son tray regarde, une fois par seconde.
+function Get-AccountRunDir {
+    param([Parameter(Mandatory)][string]$Account)
+    $varRoot = Get-AccountVarRoot -Account $Account
+    if (-not $varRoot) { return $null }
+    return (Join-Path $varRoot 'run')
+}
+
+<#
+    FAIRE EXECUTER UNE ACTION PAR LE TRAY D'UN COMPTE.
+
+    On depose un ordre dans son dossier, et on attend son compte rendu. Le tray tourne
+    dans SA session, avec SES droits et SON bureau : la fenetre s'ouvre la ou le
+    demandeur la voit, et l'action n'obtient rien que Windows lui refuserait.
+
+    LE CANAL D'ORDRES EST UNE SURFACE D'ATTAQUE (conception, C8). Il vit dans le profil du
+    compte, ou lui seul et les administrateurs ecrivent. Un dossier ou tout le monde
+    pourrait deposer serait un moyen de faire executer n'importe quoi par n'importe qui.
+
+    RIEN N'EST GARANTI DE L'AUTRE COTE : le tray peut etre arrete, la session fermee, le
+    compte deconnecte. On rend alors $null, et l'appelant decide -- ici, il execute
+    lui-meme, comme avant. Une action qui ne s'ouvre pas sur le bon bureau vaut mieux
+    qu'une action qui ne s'ouvre pas du tout.
+#>
+function Invoke-DesktopAction {
+    param(
+        [Parameter(Mandatory)][string]$Account,
+        [Parameter(Mandatory)][string]$Type,
+        [hashtable]$Params,
+        [string]$Module,
+        [int]$TimeoutSec = 12,
+        [string]$Backend = (Get-BackendRoot)
+    )
+    $runDir = Get-AccountRunDir -Account $Account
+    if (-not $runDir) { return $null }
+    if (-not (Test-Path -LiteralPath $runDir)) {
+        try { New-Item -ItemType Directory -Path $runDir -Force | Out-Null } catch { return $null }
+    }
+    $id    = New-RandomId
+    $order = Join-Path $runDir ('desktop-' + $id + '.json')
+    $done  = Join-Path $runDir ('desktop-' + $id + '.done.json')
+    $charge = @{ type = $Type; module = $Module; params = $Params; at = (Get-EpochSeconds) }
+    try { ($charge | ConvertTo-Json -Compress -Depth 6) | Out-File -FilePath $order -Encoding UTF8 }
+    catch { return $null }
+
+    $deadline = (Get-EpochSeconds) + $TimeoutSec
+    while ((Get-EpochSeconds) -lt $deadline) {
+        Start-Sleep -Milliseconds 250
+        if (Test-Path -LiteralPath $done) {
+            $data = $null
+            try { $data = Get-Content -LiteralPath $done -Raw -Encoding UTF8 | ConvertFrom-Json } catch { }
+            Remove-Item -LiteralPath $done -Force -ErrorAction SilentlyContinue
+            return $data
+        }
+    }
+    # PAS DE REPONSE : on retire notre ordre. Sans cela, un tray qui revient dans une
+    # heure ouvrirait une fenetre que plus personne n'attend.
+    Remove-Item -LiteralPath $order -Force -ErrorAction SilentlyContinue
+    return $null
+}
+
 # --- QUI a le droit de lancer une action (D65) ---------------------------------
 # Regle de BASE, choisie par l'utilisateur : Vigie ne permet rien de plus que ce que
 # Windows permet deja a ce compte. Un compte standard ne doit pas obtenir par Vigie ce que
@@ -4689,8 +4783,40 @@ function Register-VigieEventSource {
 # utilisateur : c'est donc lui. Quand le serveur deviendra une tache machine servant
 # plusieurs comptes, seule CETTE fonction changera -- tout le reste de la chaine parle
 # deja de « demandeur » et non de « moi ».
+<#
+    QUI DEMANDE ? Le compte derriere la requete, pas le compte qui fait tourner le serveur.
+
+    Cette fonction rendait l'identite du PROCESSUS -- c'est-a-dire toujours celle du
+    serveur. Tant qu'il y avait un serveur par session, c'etait juste par accident. Avec
+    un serveur unique pour la machine, c est faux pour tout le monde sauf lui : une action
+    demandee par Famille serait journalisee au nom de fhaza, et executee sur SON bureau.
+
+    L'ordre des preuves :
+      1. le cookie de session, quand la demande vient d une page identifiee -- la seule
+         source qui dise vraiment QUI regarde ;
+      2. a defaut, l identite du processus : un script local, une tache planifiee, un
+         diagnostic. C est alors le compte du serveur, et c est exact.
+
+    LE NOM EST RENDU SANS SON DOMAINE. « HYPERION\fhaza » ne se joint pas a un chemin de
+    profil : Get-AccountVarRoot en tirerait « C:\Users\HYPERION\fhaza ».
+#>
 function Get-ActionRequester {
-    try { return ([Security.Principal.WindowsIdentity]::GetCurrent()).Name } catch { return 'inconnu' }
+    try {
+        if ($WebEvent) {
+            $sid = $null
+            try { $sid = $WebEvent.Cookies['vigie_session'].Value } catch { }
+            if ($sid) {
+                $account = Get-SessionAccount -SessionId $sid
+                if ($account) { return $account }
+            }
+        }
+    } catch { }
+    try {
+        $nom = ([Security.Principal.WindowsIdentity]::GetCurrent()).Name
+        $sep = $nom.LastIndexOf([char]92)
+        if ($sep -ge 0) { $nom = $nom.Substring($sep + 1) }
+        return $nom
+    } catch { return 'inconnu' }
 }
 
 function Write-VigieAudit {
@@ -4782,7 +4908,20 @@ function Invoke-ActionById {
         return [pscustomobject]@{ jobId = (New-JobId); status = 'error'; message = $conflit }
     }
     try {
-        $res = & $file -Module $Module -Params $Params
+        # DANS QUELLE SESSION ? Une action declaree « session » doit s'executer chez le DEMANDEUR,
+        # pas la ou tourne le serveur. On la lui fait executer par son tray ; s'il ne
+        # repond pas, on l'execute ici comme avant plutot que de ne rien faire.
+        $res = $null
+        if ((Get-ActionExecutor -Type $Type -Backend $Backend) -eq 'session' -and $requester -and $requester -ne '-') {
+            $relais = Invoke-DesktopAction -Account $requester -Type $Type -Params $Params -Module $Module -Backend $Backend
+            if ($relais) {
+                $res = @{ message = "$($relais.message)"; result = $relais.result }
+            } else {
+                try { Write-Log -Backend $Backend -Name 'actions' -Level 'WARN' `
+                                -Message ("Action " + $Type + " : le tray de " + $requester + " n'a pas repondu, execution locale.") } catch { }
+            }
+        }
+        if (-not $res) { $res = & $file -Module $Module -Params $Params }
         # Invalidation ciblee du cache : les sondes citees seront recalculees au prochain /state
         try {
             $inv = if ($res -and $res.result -and $res.result.invalidate) { @($res.result.invalidate) } else { @() }

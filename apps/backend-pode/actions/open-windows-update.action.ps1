@@ -1,4 +1,5 @@
 ﻿# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+# @execution: session   -- ouvre une fenetre : elle doit s'afficher chez le DEMANDEUR
 <# Action open-windows-update : ouvre les Parametres Windows Update (installation manuelle).
    N'installe rien : respecte le principe "rien sans consentement". #>
 param([string]$Module, [hashtable]$Params)

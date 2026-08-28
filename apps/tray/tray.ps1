@@ -830,6 +830,48 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                     try { Set-Content -LiteralPath (Join-Path $runDir 'restart.ack') -Value "$PID" -Encoding ASCII -NoNewline } catch { }
                     TLog "arret demande (ordre restart)"
                     & $relaunch
+                    return
+                }
+
+                <#
+                    LES ACTIONS QUI ONT BESOIN D'UN ECRAN.
+
+                    Le serveur n'en a pas -- et le jour ou il devient la tache de machine,
+                    il tournera en session 0, ou « Start-Process explorer.exe » reussit
+                    sans que personne ne voie jamais la fenetre. Il depose donc l'ordre
+                    ici, et c'est le tray qui l'execute : dans SA session, avec SES droits,
+                    sur le bureau de celui qui a demande.
+
+                    On rend compte dans un fichier « .done.json » que le serveur attend.
+                    MEME EN CAS D'ECHEC : sans compte rendu, il patiente jusqu'a expiration
+                    puis conclut a tort que le tray est absent.
+                #>
+                foreach ($ordre in @(Get-ChildItem -LiteralPath $runDir -Filter 'desktop-*.json' -File -ErrorAction SilentlyContinue |
+                                     Where-Object { $_.Name -notlike '*.done.json' })) {
+                    $reponse = Join-Path $runDir ($ordre.BaseName + '.done.json')
+                    $sortie = @{ message = ''; result = @{ ok = $false } }
+                    try {
+                        $charge = Get-Content -LiteralPath $ordre.FullName -Raw -Encoding UTF8 | ConvertFrom-Json
+                        Remove-Item -LiteralPath $ordre.FullName -Force -ErrorAction SilentlyContinue
+                        $type = "$($charge.type)"
+                        # Le meme controle que cote serveur : un identifiant simple, et
+                        # rien qui ressemble a un chemin. Un dossier d'ordres est une
+                        # surface d'attaque, meme dans son propre profil.
+                        if ($type -notmatch '^[a-z][a-z0-9-]{1,40}$') { throw "type d'action invalide" }
+                        $script = Join-Path (Join-Path $backend 'actions') ($type + '.action.ps1')
+                        if (-not (Test-Path -LiteralPath $script)) { throw "action inconnue : $type" }
+                        $p = @{}
+                        if ($charge.params) {
+                            foreach ($prop in $charge.params.PSObject.Properties) { $p[$prop.Name] = $prop.Value }
+                        }
+                        TLog "ordre de bureau : $type"
+                        $r = & $script -Module "$($charge.module)" -Params $p
+                        $sortie = @{ message = "$($r.message)"; result = $r.result }
+                    } catch {
+                        TLog ("ordre de bureau KO : " + $_.Exception.Message)
+                        $sortie = @{ message = $_.Exception.Message; result = @{ ok = $false } }
+                    }
+                    try { ($sortie | ConvertTo-Json -Compress -Depth 6) | Out-File -FilePath $reponse -Encoding UTF8 } catch { }
                 }
             } catch { TLog ("lecture des ordres KO : " + $_.Exception.Message) }
         }
