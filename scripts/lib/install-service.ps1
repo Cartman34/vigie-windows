@@ -39,8 +39,7 @@ param(
     # -Activer refuse si un serveur tient deja le port : deux serveurs sur le meme port,
     # c'est le second qui meurt, et on ne sait plus lequel repond. Ce commutateur dit
     # explicitement « arrete celui qui tourne et prends sa place ».
-    [switch] $ReplaceRunningServer,
-    [switch] $Yes
+    [switch] $ReplaceRunningServer
 )
 $ErrorActionPreference = 'Stop'
 

@@ -326,28 +326,6 @@ foreach ($x in $sansAccent) {
     $manquements += "libelle visible sans accent -- $x"
 }
 
-# --- Garde-fou : « admin » ET « session » sont incompatibles ------------------
-#
-# Une action declaree « @execution: session » est executee par le TRAY DU DEMANDEUR,
-# donc avec les droits de ce compte. Si elle est aussi declaree « @droits: admin »,
-# elle reclame une elevation que le tray d'un compte standard n'a pas : elle
-# echouerait chez lui et reussirait chez un administrateur, c'est-a-dire au hasard
-# de qui clique.
-#
-# Les deux mecanismes existants ne peuvent pas se combiner : une action qui aurait
-# besoin des DEUX demanderait un troisieme mecanisme, qui n'existe pas. On refuse
-# donc la declaration plutot que de laisser croire qu'elle marche.
-$incompatibles = @()
-foreach ($f in (Get-ChildItem -LiteralPath (Join-Path $backendRoot 'actions') -File -Filter '*.action.ps1' -ErrorAction SilentlyContinue)) {
-    $entete = Get-Content -LiteralPath $f.FullName -TotalCount 40 -Encoding UTF8
-    $droits = ($entete | Where-Object { $_ -match '^\s*#\s*@droits\s*:\s*(admin|tous)' } | Select-Object -First 1)
-    $exec   = ($entete | Where-Object { $_ -match '^\s*#\s*@execution\s*:\s*(session|serveur)' } | Select-Object -First 1)
-    if ($droits -match 'admin' -and $exec -match 'session') { $incompatibles += $f.Name }
-}
-foreach ($x in $incompatibles) {
-    $manquements += "action a la fois « admin » et « session » (un tray standard n'a pas l'elevation) -- $x"
-}
-
 # --- Garde-fou : AUCUN CARACTERE DE CONTROLE dans les sources -----------------
 #
 # Le piege le plus couteux de ce projet, rencontre sept fois en une journee : un

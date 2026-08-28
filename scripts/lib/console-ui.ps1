@@ -73,7 +73,6 @@ function Write-Fail {
 # Combien d'echecs ce script a-t-il affiches ? Sert a decider d'un code de retour sans
 # tenir un second compteur a la main -- celui qu'on oublie de mettre a jour.
 function Get-UiFailureCount { return $script:UiFailures }
-function Get-UiWarningCount { return $script:UiWarnings }
 
 <#
     LE VERDICT FINAL. On ne lui demande pas « dis que c'est bon », on lui donne les

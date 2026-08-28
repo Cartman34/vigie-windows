@@ -2100,29 +2100,6 @@ function Write-ProbeRun {
         # Le journal ne doit JAMAIS faire echouer une sonde : il observe, il n'arbitre pas.
     }
 }
-
-# Relit le journal des passages. Sert au diagnostic (« quelle sonde coute ? ») et,
-# plus tard, a l'historique.
-function Get-ProbeRuns {
-    param(
-        [string]$Backend = (Get-BackendRoot),
-        [string]$Probe,
-        [int]$Last = 200
-    )
-    $file = Get-VarPath -Backend $Backend -Kind 'cache' -File 'probe-runs.jsonl'
-    if (-not (Test-Path -LiteralPath $file)) { return @() }
-    $lignes = @(Get-Content -LiteralPath $file -Encoding UTF8 -ErrorAction SilentlyContinue)
-    $res = @()
-    foreach ($l in $lignes) {
-        if (-not $l) { continue }
-        try { $o = $l | ConvertFrom-Json } catch { continue }
-        if ($Probe -and "$($o.probe)" -notlike $Probe) { continue }
-        $res += $o
-    }
-    if ($Last -gt 0 -and $res.Count -gt $Last) { $res = $res[($res.Count - $Last)..($res.Count - 1)] }
-    return @($res)
-}
-
 # --- Historique des mesures (series) ------------------------------------------
 # Etape 1 du plan doc/archives/conception/historique-migration.md. On note AU PASSAGE des
 # valeurs deja calculees par les sondes : le seul point d'accroche est le recalcul
@@ -3528,29 +3505,6 @@ function Get-SharedInstallPath {
     if (Test-InstallationPartagee) { return (Get-RepoRoot) }
     return $null
 }
-
-# --- AUTO-REPARATION DES TACHES DE VIGIE -------------------------------------
-#
-# Regle posee par l'utilisateur : « l'app peut auto-corriger le systeme tant que c'est du
-# pur Vigie ». Une tache planifiee nommee « Vigie - <compte> » (ou « Vigie ») est a nous :
-# on a le droit de la remettre d'aplomb sans rien demander. On ne touche a RIEN d'autre.
-#
-# Le cas vecu le 26/08 : les taches pointaient vers
-# C:\Users\<moi>\AppData\Local\Microsoft\WindowsApps\pwsh.exe -- un chemin du profil de
-# l'administrateur, devenu inexistant apres un changement d'installation de PowerShell.
-# Windows n'a rien dit : la tache existait, elle se lancait, et mourait aussitot. Vigie
-# ne demarrait plus, ni pour moi ni pour « Famille », sans le moindre message.
-#
-# Ce qui est verifie, et repare : l'INTERPRETEUR (existe-t-il encore ?) et le CHEMIN DE
-# L'APPLICATION (l'autre compte peut-il le lire ?).
-# Un seul juge : Get-VigieTaskAilment. Deux listes de criteres auraient fini par
-# diverger -- et c'est justement une divergence de ce genre qui a laisse passer le cas
-# du paquet MSIX.
-function Test-VigieTaskHealthy {
-    param([Parameter(Mandatory)]$Task)
-    return (-not (Get-VigieTaskAilment -Task $Task))
-}
-
 # Ce qui CLOCHE, en clair, pour l'afficher. $null si tout va bien.
 # DEUX NATURES DE DEFAUT, et une seule se repare.
 #
@@ -4116,6 +4070,16 @@ function Set-VigieAccountEnabled {
 #     # @execution: serveur    -- elle n'a besoin de personne (defaut)
 # Le silence vaut « serveur » : c'est le cas courant, et une action qui n'ouvre rien n'a
 # aucune raison de faire un detour.
+#
+# « ADMIN » ET « SESSION » VONT TRES BIEN ENSEMBLE, contrairement a ce que j'avais cru.
+# Un compte standard ne voit meme pas les actions admin : Test-ActionAllowed les refuse
+# avant toute execution. Une action admin n'est donc jamais demandee que par un
+# administrateur -- et la tache de tray d'un administrateur tourne en RunLevel Highest,
+# donc elevee. Elle peut faire les deux.
+#
+# Le jour ou l'on voudra qu'un compte standard VOIE ces boutons et declenche une demande
+# d'elevation, ce sera un autre sujet : il faudra qu'un administrateur puisse l'autoriser
+# depuis l'interface, pour toutes les instances de Vigie. Hors perimetre aujourd'hui.
 function Get-ActionExecutor {
     param(
         [Parameter(Mandatory)][string]$Type,
@@ -4288,6 +4252,29 @@ function Test-ActionAllowed {
 #
 # Un processus eleve du meme compte partage son LOCALAPPDATA : le serveur eleve et le
 # tray ecrivent donc bien au meme endroit que l'utilisateur connecte.
+<#
+    LES REGLAGES D'UN COMPTE VIVENT CHEZ LUI, ET ON VA LES Y CHERCHER.
+
+    Jusqu'ici cette fonction rendait toujours le dossier du compte qui EXECUTE -- donc
+    celui du serveur. Consequence constatee le 28/08 : Famille et fhaza voyaient les
+    memes modules, la meme liste de paquets ignores, les memes notifications, parce que
+    c'etait la configuration de fhaza dans les deux cas. Masquer une carte chez l'un la
+    masquait chez l'autre.
+
+    Avec -Account, on lit le dossier de CE compte. Sans, celui du processus : c'est le
+    bon comportement pour un script local ou une tache, qui n'a pas de demandeur.
+
+    On ne CREE rien dans le profil d'un autre : poser un dossier chez quelqu'un qui n'a
+    jamais ouvert Vigie n'a pas de sens, et le serveur n'a aucune raison d'ecrire chez
+    lui avant qu'il ne le demande.
+#>
+function Get-AccountConfigDir {
+    param([Parameter(Mandatory)][string]$Account)
+    $profil = Join-Path $env:SystemDrive (Join-Path 'Users' $Account)
+    if (-not (Test-Path -LiteralPath $profil)) { return $null }
+    return (Join-Path (Join-Path (Join-Path (Join-Path $profil 'AppData') 'Local') 'Sowapps') 'Vigie')
+}
+
 function Get-UserConfigDir {
     # Vigie est une application de SOWAPPS : ses donnees vivent sous le nom de l'editeur,
     # comme celles de n'importe quel logiciel installe (Editeur\Produit).
@@ -4310,7 +4297,18 @@ function Get-UserConfigDir {
     }
     $d
 }
-function Get-UserConfigPath   { param([Parameter(Mandatory)][string]$File) Join-Path (Get-UserConfigDir) $File }
+function Get-UserConfigPath {
+    param(
+        [Parameter(Mandatory)][string]$File,
+        # Le compte dont on veut les reglages. Par defaut : celui qui execute.
+        [string]$Account
+    )
+    if ($Account) {
+        $d = Get-AccountConfigDir -Account $Account
+        if ($d) { return (Join-Path $d $File) }
+    }
+    return (Join-Path (Get-UserConfigDir) $File)
+}
 function Get-MachineConfigPath { param([Parameter(Mandatory)][string]$File) Join-Path (Get-RepoRoot) (Join-Path 'config' $File) }
 
 # --- Gestion des modules (D48) ------------------------------------------------
@@ -4320,13 +4318,16 @@ function Get-MachineConfigPath { param([Parameter(Mandatory)][string]$File) Join
 # cle units[] du contrat -- sinon l'interface ne pourrait plus proposer de le rallumer.
 # Couche utilisateur si elle existe, couche machine sinon (D65). On n'UNIT pas les deux :
 # rallumer chez soi un module coupe pour la machine doit rester possible.
-function Get-UnitsLocalPath { Get-UserConfigPath -File 'modules.local.psd1' }
+# LE DEMANDEUR, PAS L'EXECUTANT. Get-ActionRequester rend le compte de la session quand
+# la demande vient d'une page identifiee, et celui du processus sinon : c'est exactement
+# la regle voulue pour des reglages personnels.
+function Get-UnitsLocalPath { Get-UserConfigPath -File 'modules.local.psd1' -Account (Get-ActionRequester) }
 
 # CE QUE L'UTILISATEUR A EXPLICITEMENT ALLUME. Distinct de « pas eteint » : un module
 # peut naitre ETEINT (module.psd1 : DefautActif = $false), et il faut alors savoir si
 # l'utilisateur l'a allume pour de bon ou s'il n'a simplement jamais eu d'avis.
 function Get-EnabledUnits {
-    foreach ($p in @((Get-UserConfigPath -File 'modules.local.psd1'), (Get-MachineConfigPath -File 'modules.local.psd1'))) {
+    foreach ($p in @((Get-UnitsLocalPath), (Get-MachineConfigPath -File 'modules.local.psd1'))) {
         if (Test-Path -LiteralPath $p) {
             try { return @((Import-PowerShellDataFile -Path $p).Enabled | ForEach-Object { "$_" }) } catch { return @() }
         }
@@ -4366,7 +4367,7 @@ function Get-InactiveUnits {
 }
 
 function Get-DisabledUnits {
-    foreach ($p in @((Get-UserConfigPath -File 'modules.local.psd1'), (Get-MachineConfigPath -File 'modules.local.psd1'))) {
+    foreach ($p in @((Get-UnitsLocalPath), (Get-MachineConfigPath -File 'modules.local.psd1'))) {
         if (Test-Path -LiteralPath $p) {
             try { return @((Import-PowerShellDataFile -Path $p).Disabled | ForEach-Object { "$_" }) } catch { return @() }
         }
@@ -4428,7 +4429,7 @@ function Get-UnitCatalog {
 # Parametres et stockee dans config/parameters.local.json (jamais versionne).
 # Chaque parametre a pour defaut une valeur de config -- c'est la regle, pas l'exception.
 # On ECRIT dans la couche utilisateur (D65).
-function Get-ParametersLocalPath { Get-UserConfigPath -File 'parameters.local.json' }
+function Get-ParametersLocalPath { Get-UserConfigPath -File 'parameters.local.json' -Account (Get-ActionRequester) }
 
 # Lecture d'UNE couche.
 function Get-ParameterOverridesFrom {
@@ -4451,8 +4452,8 @@ function Get-ParameterOverridesFrom {
 function Get-ParameterOverrides {
     param([switch]$UtilisateurSeul)
     $out = @{}
-    $couches = if ($UtilisateurSeul) { @((Get-UserConfigPath -File 'parameters.local.json')) }
-               else { @((Get-MachineConfigPath -File 'parameters.local.json'), (Get-UserConfigPath -File 'parameters.local.json')) }
+    $couches = if ($UtilisateurSeul) { @((Get-ParametersLocalPath)) }
+               else { @((Get-MachineConfigPath -File 'parameters.local.json'), (Get-ParametersLocalPath)) }
     foreach ($c in $couches) {
         $couche = Get-ParameterOverridesFrom -Path $c
         foreach ($u in $couche.Keys) {
@@ -4565,12 +4566,12 @@ function Set-ModuleParameters {
 # tray le RELIT ; JSON se lit et s'ecrit sans peine des deux cotes.
 # Ecriture : couche utilisateur (D65). Lecture : la sienne si elle existe, celle de la
 # machine sinon.
-function Get-NotificationSettingsPath { Get-UserConfigPath -File 'notifications.local.json' }
+function Get-NotificationSettingsPath { Get-UserConfigPath -File 'notifications.local.json' -Account (Get-ActionRequester) }
 function Get-NotificationSettingsReadPath {
-    foreach ($p in @((Get-UserConfigPath -File 'notifications.local.json'), (Get-MachineConfigPath -File 'notifications.local.json'))) {
+    foreach ($p in @((Get-NotificationSettingsPath), (Get-MachineConfigPath -File 'notifications.local.json'))) {
         if (Test-Path -LiteralPath $p) { return $p }
     }
-    return (Get-UserConfigPath -File 'notifications.local.json')
+    return (Get-NotificationSettingsPath)
 }
 
 function Get-NotificationSettings {

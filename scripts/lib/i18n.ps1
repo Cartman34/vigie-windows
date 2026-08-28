@@ -34,7 +34,6 @@
 # variable qui change, et rien d'autre.
 $script:LabelLanguage = 'fr'
 $script:LabelTable    = $null
-$script:LabelMissing  = @{}   # les cles reclamees et absentes, pour le verificateur
 
 function Get-LabelFilePath {
     param([string]$Language = $script:LabelLanguage)
@@ -77,7 +76,6 @@ function Get-Label {
     )
     $table = Import-Labels
     if (-not $table.ContainsKey($Key)) {
-        $script:LabelMissing[$Key] = $true
         return ('[?' + $Key + ']')
     }
     $text = $table[$Key]
@@ -94,4 +92,3 @@ function Get-Label {
 
 # Les cles reclamees pendant cette execution et introuvables. Sert au verificateur, et a
 # un diagnostic quand un message sort en « [?...] ».
-function Get-MissingLabels { return @($script:LabelMissing.Keys) }
