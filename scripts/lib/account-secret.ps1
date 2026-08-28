@@ -29,6 +29,25 @@ $script:SecretAllowedSids = @(
     'S-1-5-32-544'     # Administrateurs (groupe integre)
 )
 
+<#
+    LES REGLES D'UNE ACL, PAR UN SEUL CHEMIN.
+
+    Windows expose ces regles de deux facons, et elles ne disent pas la meme chose :
+    « $acl.Access » rend parfois une collection VIDE sur un descripteur pourtant complet
+    -- constate le 28/08, cote serveur, pendant que la meme lecture depuis une session
+    ordinaire montrait bien les trois regles. Le controle de securite en concluait que le
+    proprietaire ne pouvait plus lire son propre secret, et refusait tout.
+
+    On enveloppe donc l'appel systeme au lieu de le repeter. GetAccessRules demande
+    explicitement les regles, heritees comprises, et les rend traduites en SID. Un seul
+    point d'entree, un seul comportement -- et le jour ou Windows change d'avis, un seul
+    endroit a corriger.
+#>
+function Get-AclAccessRules {
+    param([Parameter(Mandatory)]$Acl)
+    return @($Acl.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier]))
+}
+
 function Get-AccountSecretPath {
     param(
         # Racine des donnees du compte. Par defaut : celles du compte courant.
@@ -61,9 +80,7 @@ function Set-SecretFolderAcl {
     $acl.SetAccessRuleProtection($true, $false)
     # On enumere par SID : « $acl.Access » rend des entrees nulles sur un descripteur
     # charge section par section, et RemoveAccessRule refuse alors de travailler.
-    foreach ($rule in @($acl.GetAccessRules($true, $false, [System.Security.Principal.SecurityIdentifier]))) {
-        [void]$acl.RemoveAccessRule($rule)
-    }
+    foreach ($rule in (Get-AclAccessRules -Acl $acl)) { [void]$acl.RemoveAccessRule($rule) }
 
     # LES DRAPEAUX D'HERITAGE N'EXISTENT QUE SUR UN DOSSIER. Les poser sur un fichier fait
     # rejeter la regle en silence : le fichier se retrouve avec une ACL protegee et VIDE,
@@ -105,28 +122,43 @@ function Test-SecretAcl {
         $acl = Get-Acl -LiteralPath $Path
     } catch { return ("droits illisibles : " + $_.Exception.Message) }
 
-    if (-not $acl.AreAccessRulesProtected) { return "l'heritage n'est pas coupe : des droits peuvent arriver du dossier parent" }
+    if (-not $acl.AreAccessRulesProtected) { return "l'héritage n'est pas coupé : des droits peuvent arriver du dossier parent" }
+
+    # ON ENUMERE PAR SID, JAMAIS PAR « $acl.Access ».
+    #
+    # Selon le contexte, « $acl.Access » rend une collection VIDE alors que le fichier
+    # porte bien ses regles : constate le 28/08, le serveur refusait tout secret en
+    # disant « le proprietaire ne peut plus lire », pendant que la meme verification
+    # passait depuis une session ordinaire sur le meme fichier. Une collection vide
+    # ressemble a « aucun droit » -- le pire des faux positifs pour un controle de
+    # securite, puisqu'il crie a la compromission sur une installation saine.
+    #
+    # GetAccessRules demande explicitement les regles, heritees comprises, et les rend
+    # traduites en SID : plus de collection vide, et plus de traduction a faire nous-memes.
+    $rules = Get-AclAccessRules -Acl $acl
 
     # UNE ACL VIDE N'EST PAS UNE ACL SURE : c'est un fichier que personne ne peut lire.
     # Le premier essai a produit exactement ca, et la verification l'avait laisse passer
     # parce qu'elle ne cherchait que les intrus.
     $ownerCanRead = $false
     $allowed = @($OwnerSid) + $script:SecretAllowedSids
-    foreach ($rule in $acl.Access) {
-        $ruleSid = try { $rule.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value }
-                   catch { '' }
-        if ($ruleSid -eq $OwnerSid -and
+    foreach ($rule in $rules) {
+        if ($rule.IdentityReference.Value -eq $OwnerSid -and
             ($rule.FileSystemRights -band [System.Security.AccessControl.FileSystemRights]::Read)) {
             $ownerCanRead = $true
         }
     }
-    if (-not $ownerCanRead) { return "le compte propriétaire n'a plus le droit de lire son propre secret" }
+    if (-not $ownerCanRead) {
+        # UN REFUS DE SECURITE DOIT DIRE CE QU'IL A VU. Sans l'ACL constatee, il faut
+        # deviner -- et on ne devine pas sur un incident de securite.
+        $vues = @($rules | ForEach-Object { $_.IdentityReference.Value + '=' + $_.FileSystemRights })
+        return ("le compte propriétaire n'a plus le droit de lire son propre secret [attendu " +
+                $OwnerSid + " ; vu " + ($vues -join ' | ') + "]")
+    }
 
-    foreach ($rule in $acl.Access) {
-        $sid = try { $rule.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value }
-               catch { "$($rule.IdentityReference)" }
-        if ($allowed -notcontains $sid) {
-            return ("un tiers y a acces : " + $rule.IdentityReference)
+    foreach ($rule in $rules) {
+        if ($allowed -notcontains $rule.IdentityReference.Value) {
+            return ("un tiers y a accès : " + $rule.IdentityReference.Value)
         }
     }
     return $null
