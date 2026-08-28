@@ -3488,7 +3488,12 @@ function Get-VigieTaskStructureAilment {
     # LE MAUVAIS ENVIRONNEMENT est un defaut structurel lui aussi : la tache lance une
     # copie valide, mais pas celle que la machine a declaree. Elle se repare en la
     # reecrivant vers la bonne -- donc elle se dit ici, ou le bouton de reparation la lit.
-    if ("$($a.Arguments)" -match '-File\s+"([^"]+)"') {
+    # SEULEMENT POUR LE COMPTE COURANT. Un autre compte n'a aucune raison de pouvoir lire
+    # le depot -- « Famille » n'a aucun droit a partir de Git\ -- et l'installation
+    # partagee est alors le SEUL chemin possible pour lui. Lui reprocher de ne pas suivre
+    # l'environnement declare serait lui reprocher de fonctionner.
+    $taskIsMine = ("$($Task.Principal.UserId)" -like ('*' + $env:USERNAME))
+    if ($taskIsMine -and "$($a.Arguments)" -match '-File\s+"([^"]+)"') {
         $declared = Get-DeclaredEnvironment
         $taskEnv  = Get-PathEnvironment -Path $Matches[1]
         if ($taskEnv -ne $declared) {
