@@ -1,152 +1,211 @@
 # Un serveur élevé par machine — conception
 
-> **État : à valider.** Rien n'est codé. Ce document décrit la cible, ses conséquences et ce
-> qui reste à trancher. Il complète `features.md` (CORE-ACCOUNTS, CORE-SECURITY) et sera
-> suivi d'une décision numérotée une fois validé.
+> **État : à valider. Rien n'est codé.**
+>
+> **Cette version corrige la précédente.** La première mouture recommandait « un seul serveur élevé qui fait tout ».
+> En cherchant les contraintes de Windows plutôt qu'en les supposant, il apparaît qu'un serveur unique en session 0
+> **casserait** la carte WSL, les cartes de gestionnaires de paquets, une partie de la carte Gaming et les neuf actions
+> qui ouvrent une fenêtre. La porte d'entrée unique est conservée — c'est ce qui règle le port — mais le travail
+> *propre à un utilisateur* est délégué à son propre agent.
 
 ---
 
 ## Le problème, tel qu'il a été constaté
 
-Le 28/08/2026, Vigie ne démarrait pas sur le compte « Famille ». Deux causes se
-superposaient ; la première est corrigée, la seconde est structurelle.
+Le 28/08/2026, Vigie ne démarrait pas sur le compte « Famille ». Deux causes ; la première est corrigée, la seconde est
+structurelle.
 
-1. **Corrigé (D101).** Le tray calculait son journal à côté du programme. Sur un compte
-   standard, Windows refuse cette écriture : le script mourait avant sa première ligne de
-   journal, sans laisser de trace.
-2. **Structurel.** `apps/backend-pode/start.ps1` exige l'élévation et se relance en
-   `RunAs` s'il ne l'a pas. Sur un compte **standard**, cela déclenche une invite qui
-   réclame le mot de passe d'un administrateur — que ce compte n'a pas, par définition.
-   L'icône apparaîtrait, le serveur ne démarrerait jamais.
+1. **Corrigé (D101).** Le tray calculait son journal à côté du programme. Sur un compte standard, Windows refuse cette
+   écriture : le script mourait avant sa première ligne de journal, sans laisser de trace.
+2. **Structurel.** `apps/backend-pode/start.ps1` exige l'élévation et se relance en `RunAs` s'il ne l'a pas. Sur un
+   compte **standard**, cela réclame le mot de passe d'un administrateur — que ce compte n'a pas, par définition.
 
-S'y ajoute un troisième obstacle, latent : **un seul port**. Deux sessions ouvertes
-simultanément (bascule rapide d'utilisateur) et le second serveur ne peut pas s'attacher à
-`127.0.0.1:47600`. Rien ne traite ce cas aujourd'hui.
+S'y ajoute un obstacle latent : **un seul port**. Deux sessions ouvertes en même temps, et le second serveur ne peut pas
+s'attacher à `127.0.0.1:47600`.
 
-## Ce que Windows autorise, et ce qu'il interdit
+Le besoin, posé par l'utilisateur : *« il y a des opérations qu'un utilisateur standard devrait pouvoir faire qui
+nécessitent une élévation »*.
 
-Deux faits cadrent toute solution :
+---
 
-- **Un compte standard ne peut pas s'élever.** Aucune ruse ne contourne ça : il faut les
-  identifiants d'un administrateur, ou rien.
-- **Une tâche planifiée est un courtier d'élévation légitime.** Elle s'exécute avec les
-  droits fixés à son enregistrement — par un administrateur — et un compte sans privilège
-  peut être autorisé à la déclencher **sans jamais voir d'identifiants**. C'est le
-  mécanisme sanctionné par Windows, et Vigie s'en sert déjà pour démarrer.
+## Les contraintes de Windows, vérifiées
 
-## La cible
+Ce sont elles qui dictent l'architecture. Chacune a été confirmée dans le code de ce dépôt ou tient d'une règle
+Windows non contournable.
 
-**Un seul serveur, élevé, pour la machine entière.** Il démarre avec la machine, pas avec
-une session. Chaque compte s'y connecte depuis son propre tray, avec son propre jeton ; le
-serveur sait **qui** demande et applique les droits de ce compte.
+### C1. Un compte standard ne peut pas s'élever
+
+Aucune ruse ne contourne ça : il faut les identifiants d'un administrateur, ou rien.
+
+### C2. Une tâche planifiée est le courtier d'élévation légitime
+
+Elle s'exécute avec les droits fixés **à son enregistrement**, par un administrateur, et un compte sans privilège peut
+être autorisé à la déclencher sans jamais voir d'identifiants. Le droit de déclenchement se donne par le **descripteur
+de sécurité de la tâche** (SDDL), posé à l'installation.
+
+### C3. La session 0 n'a pas de bureau — et c'est là que vit un service
+
+Un serveur lancé au démarrage par une tâche `SYSTEM` tourne en **session 0**, isolée. Conséquence directe et non
+négociable : **tout ce qui doit s'afficher pour l'utilisateur est invisible depuis là**. Sont concernées, dans le code
+actuel :
+
+- les **neuf actions `open-*`** (dossier, journaux, Gestionnaire des tâches, Gestionnaire de périphériques, Paramètres
+  Windows, Windows Update, options d'alimentation, paramètres utilisateurs, dossier d'analyse) ;
+- les fenêtres d'explication avant élévation (`show-confirm.ps1`) ;
+- les notifications du tray.
+
+### C4. Beaucoup de mesures sont PAR UTILISATEUR, pas par machine
+
+C'est la découverte qui corrige la conception. Relevé dans le dépôt :
+
+| Sujet | Fichiers concernés | Pourquoi c'est par utilisateur |
+|---|---|---|
+| **WSL** | 6 | WSL s'exécute dans la session de l'utilisateur. `wsl --shutdown` lancé par `SYSTEM` ne verrait pas la distribution de Famille. |
+| **winget** | 5 | Les paquets installés en portée utilisateur diffèrent d'un compte à l'autre. |
+| **pip, npm, scoop** | 4 | Idem : installations dans le profil. |
+| **Gaming** | 3 lectures `HKCU` | Réglages graphiques du compte, VRAM par processus de SA session. |
+| **WSL (config)** | 1 lecture `HKCU` | Idem. |
+
+`HKCU` depuis la session 0 ne désigne **pas** la ruche de l'utilisateur : elle désigne celle de `SYSTEM`. Lire celle
+d'un autre compte demande de charger sa ruche (`reg load`), ce qui est lourd, verrouillant, et impossible si le compte
+est déconnecté.
+
+### C5. Les variables d'environnement du serveur ne sont plus celles de personne
+
+Sous `SYSTEM`, `$env:USERNAME` vaut `SYSTEM`, `$env:LOCALAPPDATA` pointe dans `C:\Windows\System32\config\systemprofile`.
+Le code actuel s'appuie dessus à quatre endroits dans `common.ps1`. Chacun devient faux et doit désigner **le compte
+demandeur**, pas le processus.
+
+### C6. `Test-IsElevated` change de sens
+
+Aujourd'hui la question « suis-je élevé ? » sert à décider si une action est permise. Dans un serveur toujours élevé,
+elle répond **toujours oui** — et le contrôle des droits disparaît sans bruit. Elle doit être remplacée partout par
+« **le demandeur** a-t-il ce droit ? ». C'est le point le plus dangereux de la migration : une régression y serait
+silencieuse et donnerait des droits d'administrateur à tout le monde.
+
+### C7. Écrire dans le profil d'un autre compte
+
+Possible pour `SYSTEM`, mais : le chemin se résout par le SID
+(`HKLM\...\ProfileList\<SID>\ProfileImagePath`), les fichiers créés appartiennent à `SYSTEM` et doivent recevoir une ACL
+explicite, et **le profil peut ne pas exister** tant que le compte ne s'est jamais connecté.
+
+**Conséquence pour les jetons** : on ne les met pas dans les profils. Ils vont dans
+`C:\ProgramData\Sowapps\Vigie\tokens\<SID>.token`, un fichier par compte, avec une ACL qui n'autorise **que** ce SID.
+`ProgramData` existe toujours, ne dépend d'aucune session, et supprime le problème de l'œuf et de la poule : le tray
+n'a pas besoin d'un jeton pour obtenir son jeton.
+
+### C8. Le tray ne pourra plus relancer le serveur
+
+Il n'est pas élevé et n'a aucun droit sur une tâche `SYSTEM`. Deux issues : lui donner le droit d'exécution sur cette
+tâche via son SDDL (C2), ou passer par une action `admin` du serveur. La première est plus simple et se pose une fois,
+à l'installation.
+
+### C9. Divers, à ne pas oublier
+
+- **Pas de règle de pare-feu** : l'écoute reste sur `127.0.0.1`.
+- **Réservation d'URL** : inutile pour `SYSTEM`, qui a le droit d'écouter.
+- **Culture** : `SYSTEM` peut avoir une culture différente de l'utilisateur. Tout formatage de date ou de nombre destiné
+  à l'affichage doit être explicite (il l'est déjà : `'dd/MM/yyyy HH:mm'`).
+- **Bascule rapide d'utilisateur** : plusieurs trays connectés en même temps, c'est le cas nominal. Aucun code du
+  serveur ne peut plus supposer « l'utilisateur ».
+
+---
+
+## L'architecture corrigée
+
+**Une porte d'entrée, deux exécutants.**
 
 ```
-                 ┌──────────────────────────────────────────┐
-   session       │  Serveur Vigie — UNE instance, élevée     │
-   fhaza  ──────▶│  tâche machine, démarre au boot           │
-   (tray)        │  127.0.0.1:47600                          │
-                 │                                           │
-   session       │  identifie le compte par SON jeton        │
-   Famille ─────▶│  applique les droits de CE compte         │
-   (tray)        │  journalise qui a demandé quoi            │
-                 └──────────────────────────────────────────┘
+   session fhaza                 ┌─────────────────────────────────┐
+   ┌───────────────┐             │  SERVEUR — tâche machine        │
+   │ tray + agent  │◀───ordres───│  SYSTEM, session 0, élevé       │
+   │  (sa session) │────────────▶│  127.0.0.1:47600                │
+   └───────────────┘   résultats │                                 │
+                                 │  • sert l'interface             │
+   session Famille               │  • identifie le demandeur       │
+   ┌───────────────┐             │  • travail MACHINE et PRIVILÉGIÉ│
+   │ tray + agent  │◀───ordres───│  • délègue le travail PAR       │
+   │  (sa session) │────────────▶│    UTILISATEUR à son agent      │
+   └───────────────┘   résultats └─────────────────────────────────┘
 ```
 
-Ce que ça règle, d'un coup : le compte standard obtient les opérations qu'on décide de lui
-ouvrir, exécutées par le serveur **en son nom** ; et le conflit de port disparaît au lieu
-d'être contourné.
+**Le serveur** fait ce qui relève de la machine et ce qui exige l'élévation : verrou Windows Update, VBS, tâches
+planifiées, disque, déploiement, mise à jour. Il est la seule porte HTTP — donc un seul port, pour tout le monde.
 
-## Les pièces à construire
+**L'agent** est le tray, qui gagne un rôle : exécuter, **dans la session de son compte et avec ses droits**, ce qui n'a
+de sens que là — WSL, gestionnaires de paquets, lectures `HKCU`, et les neuf actions qui ouvrent une fenêtre. Il ne
+gagne aucun privilège : il fait ce que l'utilisateur pourrait faire lui-même.
 
-### 1. Le démarrage
+**Le canal existe déjà.** Le tray lit des ordres déposés dans un dossier (`var/run`), mécanisme éprouvé pour
+`restart`/`stop` et prévu pour être étendu — *« accepte de nouveaux ordres sans toucher au mécanisme »*. Il déménage
+dans `C:\ProgramData\Sowapps\Vigie\run\<SID>\`, lisible par le serveur et par le seul compte concerné.
 
-- **Une tâche machine** (`Vigie`, principal `SYSTEM` ou un administrateur), déclencheur
-  « au démarrage de l'ordinateur », qui lance le serveur. Une seule, pour tous.
-- **Une tâche par compte**, conservée, mais réduite à son vrai rôle : lancer **le tray** de
-  ce compte, sans élévation. Le tray ne démarre plus le serveur ; il s'y connecte.
-- Le tray doit savoir attendre : au logon, le serveur tourne déjà, ou il démarre — l'état
-  « en attente du serveur » existe déjà (icône orange).
+### Ce qu'une action doit désormais déclarer
 
-### 2. L'identité et les jetons
+L'en-tête `# @droits:` gagne un niveau, et un second axe apparaît — **où** l'action s'exécute.
 
-- **Un jeton par compte**, écrit par le serveur (qui est élevé, donc en a le droit) dans
-  `%LOCALAPPDATA%\Sowapps\Vigie\var\secrets\` du compte, avec une **ACL qui n'autorise que
-  ce compte**. Écrit au moment où le compte est activé, et recréé s'il manque.
-- Le serveur tient la correspondance jeton → compte. Une requête sans jeton connu est
-  refusée, sans autre explication.
-- **À vérifier au moment de coder** : recouper le jeton avec le propriétaire réel du
-  processus appelant (via le PID de la connexion TCP locale). Si c'est fiable, un jeton
-  volé ne suffit plus. Sinon, on s'en tient au jeton et on le dit.
-
-### 3. Les droits, par action
-
-L'en-tête `# @droits:` existe déjà. Il gagne un troisième niveau :
-
-| Niveau | Qui peut lancer | Exécuté comment |
+| `# @droits:` | Qui peut lancer | Exécuté par |
 |---|---|---|
-| `lecture` | tout compte activé | sans privilège particulier |
-| `standard` | tout compte activé | **par le serveur élevé, au nom du demandeur** |
-| `admin` | comptes administrateurs uniquement | par le serveur élevé |
+| `lecture` | tout compte activé | le serveur |
+| `standard` | tout compte activé | **le serveur, au nom du demandeur** |
+| `admin` | comptes administrateurs | le serveur |
 
-Le niveau `standard` est le cœur du besoin : une opération qui exige l'élévation *technique*
-mais qu'on juge sans danger pour la machine. **Refus par défaut** : une action sans niveau
-déclaré est `admin`.
-
-> **À trancher — ce n'est pas à moi de le décider.** Quelles actions passent en `standard` ?
-> Redémarrer WSL ? Vider le cache DNS ? Mesurer le débit ? Chacune se justifie une par une.
-> Le verrou Windows Update, la mise à jour de l'installation et la gestion des comptes
-> restent `admin` sans discussion.
-
-### 4. Les données, par compte
-
-Aujourd'hui, un processus = un `var/`. Demain, un serveur sert plusieurs comptes : il faut
-séparer ce qui appartient à la machine de ce qui appartient à quelqu'un.
-
-| Donnée | Où | Pourquoi |
+| `# @session:` | Où | Exemples |
 |---|---|---|
-| État des sondes, cache | machine | c'est la même machine pour tout le monde |
-| Réglages, modules actifs, notifications | **par compte** | chacun ses choix (D65) |
-| Jeton | **par compte** | c'est son identité |
-| Journaux | machine, avec le compte demandeur en clair | un incident se relit d'un seul endroit |
+| *(absent)* | serveur, session 0 | verrou Windows Update, nettoyage disque |
+| `utilisateur` | **agent du demandeur** | `wsl-*`, `pkg-*`, `open-*` |
 
-### 5. La migration
+**Refus par défaut** dans les deux axes : sans `@droits`, c'est `admin` ; une action `@session: utilisateur` sans agent
+connecté est refusée avec une raison claire, pas mise en attente indéfiniment.
 
-Une installation existante a une tâche `Vigie` par compte qui lance le tray **et** le
-serveur. Le passage doit être idempotent et réversible : poser la tâche machine, réécrire
-les tâches de compte pour qu'elles ne lancent plus que le tray, et ne rien supprimer tant
-que la nouvelle chaîne n'a pas démarré une fois.
+---
 
-## Le risque, nommé
+## Ce que ça coûte, honnêtement
 
-**Un service élevé qu'un compte standard peut solliciter est un chemin d'élévation de
-privilèges.** C'est le prix de cette architecture, et il ne se paie qu'à trois conditions,
-non négociables :
+**Un service élevé sollicitable par un compte standard est un chemin d'élévation de privilèges.** Trois conditions non
+négociables :
 
-1. **Refus par défaut.** Une action non déclarée est `admin`. Un jeton inconnu est rejeté.
-2. **La liste blanche est dans le code**, pas dans une configuration modifiable par un
-   compte standard. Sinon la barrière se déplace là où elle ne tient plus.
-3. **Journal nominatif.** Chaque action privilégiée écrit qui l'a demandée, quoi, et le
-   résultat. Sans ça, on ne saura jamais si la barrière a cédé.
+1. **Refus par défaut** — action non déclarée = `admin` ; jeton inconnu = rejet sans explication.
+2. **La liste blanche vit dans le code**, jamais dans une configuration qu'un compte standard pourrait modifier.
+3. **Journal nominatif** : qui a demandé quoi, et ce qui s'est passé.
 
-À quoi s'ajoute ce qui est déjà vrai : écoute strictement locale, et **aucune donnée
-envoyée sur Internet**.
+S'y ajoute le coût de C6 : **un audit ligne à ligne de `Test-IsElevated`**. Une régression y serait invisible et
+donnerait les droits d'administrateur à tout le monde. Cette étape ne se livre pas sans relecture dédiée.
+
+---
 
 ## Ce que ça ne fait pas
 
-- Ça ne donne **aucun pouvoir supplémentaire** à un compte standard hors de la liste
-  blanche : refusé reste refusé, avec la raison affichée (D65, D66).
-- Ça ne fusionne pas les réglages : deux comptes gardent deux configurations.
-- Ça ne change rien pour une machine à un seul compte, sinon que le serveur démarre au boot
-  plutôt qu'au logon.
+- Aucun pouvoir supplémentaire hors liste blanche : refusé reste refusé, avec la raison affichée (D65, D66).
+- Les réglages ne fusionnent pas : deux comptes gardent deux configurations.
+- Pour une machine à un seul compte, rien ne change, sinon que le serveur démarre au boot plutôt qu'au logon.
 
-## Ordre de travail proposé
+---
 
-1. La tâche machine et le démarrage du serveur au boot ; le tray s'y connecte au lieu de le
-   lancer. *Rien ne change encore pour les droits.*
-2. Les jetons par compte et l'identification du demandeur.
-3. Le niveau `standard` dans `# @droits:`, refus par défaut, journal nominatif.
-4. La séparation des données par compte.
-5. La migration des installations existantes.
+## Ordre de travail
 
-Chaque étape se livre seule et laisse Vigie fonctionnelle. Aucune ne se commence avant que
-la précédente ait tourné sur cette machine, comptes `fhaza` **et** `Famille`.
+Chaque étape se livre seule et laisse Vigie fonctionnelle. Aucune ne commence avant que la précédente ait tourné sur
+cette machine, comptes `fhaza` **et** `Famille`.
+
+1. **Les jetons dans `ProgramData`**, un par compte, avec leur ACL. Le tray lit le sien. *Le serveur ne bouge pas
+   encore* : c'est la brique d'identité, testable seule.
+2. **Le serveur devient une tâche machine** démarrée au boot ; le tray s'y connecte au lieu de le lancer, et reçoit le
+   droit de la redémarrer (SDDL). *Les droits ne changent pas encore.*
+3. **L'agent** : le tray sait exécuter un ordre d'action dans sa session et rendre son résultat. On y bascule d'abord
+   les neuf `open-*`, les plus simples et les plus visibles.
+4. **Le reste du travail par utilisateur** : WSL, gestionnaires de paquets, lectures `HKCU`.
+5. **Les droits** : `@droits: standard`, remplacement de `Test-IsElevated` par « le demandeur a-t-il ce droit », refus
+   par défaut, journal nominatif. **Relecture dédiée.**
+6. **Les données par compte** : réglages, modules actifs, notifications.
+7. **La migration** des installations existantes, idempotente et réversible.
+
+---
+
+## Ce qui reste à trancher — et qui ne m'appartient pas
+
+- **Quelles actions passent en `standard`** ? Redémarrer WSL, vider le cache DNS, mesurer le débit se discutent une par
+  une. Le verrou Windows Update, la mise à jour de l'installation et la gestion des comptes restent `admin`.
+- **Que fait Vigie quand un compte standard demande une action `@session: utilisateur` alors qu'aucun agent n'est
+  connecté** — refuser en le disant, ou proposer de réessayer ?
+- **Le serveur tourne-t-il sous `SYSTEM` ou sous un compte administrateur dédié** ? `SYSTEM` est plus simple (aucun mot
+  de passe à gérer) mais donne les pleins pouvoirs ; un compte dédié se restreint, au prix d'un secret à faire vivre.
