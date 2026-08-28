@@ -36,7 +36,13 @@ $trayLog = Get-VarPath -Backend $PSScriptRoot -Kind 'log' -File ('tray_' + (Get-
 function TLog($m) { try { ("[" + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + "] " + $m) | Out-File -FilePath $trayLog -Append -Encoding UTF8 } catch { } }
 TLog "demarrage (PS $($PSVersionTable.PSVersion), $([System.Threading.Thread]::CurrentThread.GetApartmentState()))"
 
-$mutex = New-Object System.Threading.Mutex($false, 'VigieTray')
+# UN VERROU PAR COMPTE, pas par session de bureau. Sans nom d'espace explicite, un
+# mutex vit dans « Local\ », c'est-a-dire dans la session Windows -- et deux comptes
+# peuvent partager une session : c'est le cas quand on lance le tray d'un autre compte
+# avec runas, exactement ce qu'on fait pour deboguer. Le tray de Famille a demarre,
+# vu le verrou de fhaza, et s'est retire (28/08 22:09). Le verrou porte donc desormais
+# le nom du compte : chacun le sien, quelle que soit la session qui l'heberge.
+$mutex = New-Object System.Threading.Mutex($false, ('VigieTray-' + $env:USERNAME))
 if (-not $mutex.WaitOne(4000)) { TLog "deja lance (mutex) - sortie"; return }
 
 $uiScript = {
