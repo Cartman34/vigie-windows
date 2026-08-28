@@ -338,3 +338,24 @@ tourne dans l'autre. Le cas est réel — sur cette machine, la tâche de `fhaza
 C'est un **défaut de structure** au sens de D105, donc détecté et nommé comme les autres : *« la tâche de <compte>
 lance l'environnement de production alors que Vigie tourne depuis le dépôt »*. Réparable d'un bouton, puisqu'il suffit
 de réécrire la tâche vers le bon chemin.
+---
+
+## L'audit de l'étape 6, préparé d'avance
+
+C'est l'étape dangereuse : dans un serveur toujours élevé, « suis-je élevé ? » répond **toujours oui**, et le contrôle
+des droits disparaît sans bruit. L'inventaire est fait maintenant, pendant qu'il est encore facile à lire :
+**29 occurrences dans 16 fichiers**, qui se rangent en trois familles très inégales.
+
+| Famille | Ce que la question veut dire | Ce qu'elle devient | Danger |
+|---|---|---|---|
+| **Le contrôle des droits** — `Test-ActionAllowed`, `Set-VigieAccountEnabled`, `Repair-VigieTasks` | « ai-je le droit de faire ça ? » | « **le demandeur** a-t-il ce droit ? » | **maximal** : une régression ici ouvre tout à tout le monde, en silence |
+| **L'affichage** — carte Comptes, carte Débogage, `/health` | « que puis-je montrer de cette machine ? » | « que puis-je montrer **au demandeur** ? » | moyen : une fuite d'information, pas de pouvoir |
+| **Les scripts lancés à la main** — `install.ps1`, `deploy-prod.ps1`, `vigie-comptes.ps1`, `install-service.ps1`, `run.ps1`, `uninstall-*` | « suis-je élevé, moi, maintenant ? » | **inchangé** — la question reste juste | nul : ces scripts ne servent personne d'autre |
+
+La troisième famille est la plus nombreuse, et c'est une bonne nouvelle : elle ne bouge pas. Le travail réel porte sur
+les deux premières, et surtout sur la première.
+
+**Comment on s'en assure**, plutôt que de relire en espérant : `Test-IsElevated` disparaît du serveur au profit d'une
+fonction qui exige de dire de QUI on parle — impossible à appeler sans demandeur. Un garde-fou de `check-probes.ps1`
+refusera ensuite tout retour de `Test-IsElevated` sous `apps/backend-pode/`, comme celui qui refuse déjà les chemins de
+données calculés à la main.
