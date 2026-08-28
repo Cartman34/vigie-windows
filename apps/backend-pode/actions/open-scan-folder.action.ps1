@@ -1,4 +1,4 @@
-# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+﻿# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 # @libelle: Ouvrir le dossier | manual | info   -- affiche quand un champ cite cette action (D66)
 <# Action : ouvre l'explorateur Windows sur un dossier de l'analyse du disque.
 

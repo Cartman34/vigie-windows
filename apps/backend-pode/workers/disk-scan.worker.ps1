@@ -1,4 +1,4 @@
-<# Worker DETACHE : analyse de la consommation du disque.
+﻿<# Worker DETACHE : analyse de la consommation du disque.
 
    POURQUOI UN WORKER : parcourir un disque prend des dizaines de secondes ; la requete
    HTTP, elle, doit repondre tout de suite. L'action lance ce worker (fenetre cachee), la
@@ -211,7 +211,7 @@ if ($arret) {
                   dirs = $gDirs; files = $gFiles; depth = $profondeur; top = $topN }
     } | Out-Null
     try { Remove-Item -LiteralPath $stopFile -Force -ErrorAction SilentlyContinue } catch { }
-    Write-Log -Backend $Backend -Name 'diskscan' -Message ("$racineChemin : analyse interrompue apres $gDirs dossiers")
+    Write-Log -Backend $Backend -Name 'diskscan' -Message (Get-Label 'disk-scan.analyse-interrompue-apres-dossiers' $racineChemin $gDirs)
 } else {
     $arbre = @{ n = $racineChemin; s = [long]($racine.own + $racine.acc); f = $racine.files
                 k = @($racine.kids); t = @($racine.tops) }
@@ -240,7 +240,7 @@ if ($arret) {
         bigFolders = $topDossiers
         bigFiles   = $topFichiers
     } | Out-Null
-    Write-Log -Backend $Backend -Name 'diskscan' -Message ("$racineChemin : $gDirs dossiers, $gFiles fichiers, $([int]($fin-$debut).TotalSeconds) s")
+    Write-Log -Backend $Backend -Name 'diskscan' -Message (Get-Label 'disk-scan.dossiers-fichiers' $racineChemin $gDirs $gFiles $([int]($fin-$debut).TotalSeconds))
 }
 
 # La carte se rafraichit au prochain acces, sans attendre le TTL.

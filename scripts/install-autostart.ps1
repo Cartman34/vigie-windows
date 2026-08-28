@@ -38,7 +38,7 @@ if (-not (Test-IsElevated)) {
             "L'application est lancée tout de suite après l'installation",
             "Aucun fichier de ton système n'est modifié ou supprimé"
         )
-    if (-not $ok) { Write-Host "Installation annulée. Rien n'a été modifié."; exit 3 }
+    if (-not $ok) { Write-Host (Get-Label 'install-autostart.installation-annulee-rien-ete'); exit 3 }
 
     $code = Invoke-ElevatedSelf -ScriptPath $PSCommandPath -Arguments @('-Yes') -LogDir (Get-LogDir -Backend $backend)
     exit $code
@@ -49,7 +49,7 @@ if (-not (Test-IsElevated)) {
 # du compte courant -- suffisant pour SA propre tache, mais pas pour celle d'un autre.
 $pwsh = Get-SharedPwshPath
 if (-not $pwsh) { $pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Source }
-if (-not $pwsh) { Write-Warn "pwsh introuvable. Lance d'abord install.ps1 (installe PowerShell 7)."; exit 1 }
+if (-not $pwsh) { Write-Warn (Get-Label 'install-autostart.pwsh-introuvable-lance-abord'); exit 1 }
 
 $arg       = '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $tray + '"'
 $action    = New-ScheduledTaskAction -Execute $pwsh -Argument $arg
@@ -64,11 +64,11 @@ $settings  = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGo
                 -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew `
                 -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
 Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
-Write-Info ("Tache '" + $taskName + "' enregistree (lancement a l'ouverture de session, eleve).")
+Write-Info (Get-Label 'install-autostart.tache-enregistree-lancement-ouverture' $taskName)
 $desktop = [Environment]::GetFolderPath('Desktop')
 $lnk = Join-Path $desktop 'Vigie.url'
 Set-Content -Path $lnk -Value ("[InternetShortcut]`r`nURL=" + $appUrl + "`r`n") -Encoding ASCII
-Write-Info ("Raccourci bureau cree : " + $lnk)
+Write-Info (Get-Label 'install-autostart.raccourci-bureau-cree' $lnk)
 Start-ScheduledTask -TaskName $taskName
-Write-Info ("App barre systeme lancee (icone dans la zone de notification). Serveur en fond, panneau sur " + $appUrl)
+Write-Info (Get-Label 'install-autostart.app-barre-systeme-lancee' $appUrl)
 exit 0

@@ -32,6 +32,12 @@
 
 # Compteur d'echecs du script en cours. Write-Fail l'incremente ; Write-Outcome le lit.
 # C'est ce compteur qui empeche un verdict final complaisant.
+# LES LIBELLES VIENNENT AVEC L'AFFICHAGE. Ces deux fichiers sont voisins : charger l'un
+# donne l'autre, et aucun script n'a plus a y penser. C'est la seule dependance de ce
+# fichier, et elle ne sort pas de son dossier.
+$_i18nPath = Join-Path $PSScriptRoot 'i18n.ps1'
+if (Test-Path -LiteralPath $_i18nPath) { . $_i18nPath }
+
 $script:UiFailures = 0
 $script:UiWarnings = 0
 

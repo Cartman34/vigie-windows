@@ -26,7 +26,7 @@ try {
         # a ete demande : un paquet peut echouer seul sans faire echouer les autres.
         $detail = if ($up.count) { " paquets=$($up.count)" } else { " (tout le gestionnaire)" }
         if ($up.failed -and @($up.failed).Count) { $detail += " echecs=" + (@($up.failed) -join ',') }
-        try { Write-Log -Backend $Backend -Name 'pkgupgrade' -Message ("$mgr : exit=$($up.exit) ok=$($up.ok) reboot=$($up.reboot)$detail") } catch { }
+        try { Write-Log -Backend $Backend -Name 'pkgupgrade' -Message (Get-Label 'pkg-job.exit-ok-reboot' $mgr $($up.exit) $($up.ok) $($up.reboot) $detail) } catch { }
         try {
             $logf = Join-Path (Get-LogDir -Backend $Backend) ("pkgupgrade_" + $mgr + "_" + (Get-Date -Format 'yyyyMMdd_HHmmss') + ".log")
             "$($up.output)" | Out-File -FilePath $logf -Encoding UTF8
@@ -58,7 +58,7 @@ try {
                         supported  = $u.supported
                         selectable = $u.selectable }
                 Write-Log -Backend $Backend -Name 'pkgupgrade' `
-                          -Message ("$mgr : " + $reussis.Count + " paquet(s) retire(s) de la liste (mise a jour reussie)")
+                          -Message (Get-Label 'pkg-job.paquet-retire-de-la' $mgr $reussis.Count)
             }
         }
     }
@@ -80,7 +80,7 @@ try {
         }
     }
     Update-StateJson -Path $outFile -Set @{ $mgr = $etat } | Out-Null
-    Write-Log -Backend $Backend -Name 'pkgcheck' -Message ("$mgr ($op) : $([int]$u.count) MAJ disponible(s)")
+    Write-Log -Backend $Backend -Name 'pkgcheck' -Message (Get-Label 'pkg-job.maj-disponible' $mgr $op $([int]$u.count))
 } catch {
     try { Update-StateJson -Path $outFile -Set @{ $mgr = @{ count = 0; items = @(); at = (Get-Date).ToString('s'); error = $_.Exception.Message } } | Out-Null } catch { }
     Write-Log -Backend $Backend -Name 'pkgcheck' -Level 'ERROR' -Message ("$mgr ($op) : " + $_.Exception.Message)

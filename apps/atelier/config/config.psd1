@@ -1,4 +1,4 @@
-@{
+﻿@{
     # ---------------------------------------------------------------------------
     # Configuration de l'app ATELIER (outil de developpement).
     #

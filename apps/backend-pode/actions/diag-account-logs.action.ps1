@@ -72,7 +72,7 @@ $resume += ""
 $resume += "Le jeton d'API n'est pas copie (secrets/), volontairement."
 $resume -join [Environment]::NewLine | Set-Content -LiteralPath (Join-Path $cible 'resume.txt') -Encoding UTF8
 
-Write-Log -Backend $backend -Name 'diag' -Message ("journaux du compte $compte rapatries ($nb fichier(s))")
+Write-Log -Backend $backend -Name 'diag' -Message (Get-Label 'diag-account-logs.journaux-du-compte-rapatries' $compte $nb)
 
 @{
     message = ("Journaux du compte " + $compte + " rapatries : " + $nb + " fichier(s).")

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Atelier : app de developpement de Vigie. Sert le depot en local et ouvre la page.
 
@@ -69,6 +69,10 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+# Ce fichier est isole : il charge lui-meme l'affichage commun, qui apporte aussi
+# les libelles (console-ui.ps1 et i18n.ps1 sont voisins).
+. (Join-Path (Join-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) 'scripts/lib') 'console-ui.ps1')
+
 
 # apps/atelier -> apps -> racine du depot (c'est elle qui est servie).
 $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
@@ -81,15 +85,15 @@ $cfg = @{}
 $commonPath = Join-Path $repoRoot 'config/common.psd1'
 if (Test-Path -LiteralPath $commonPath) {
     try { (Import-PowerShellDataFile -Path $commonPath).GetEnumerator() | ForEach-Object { $cfg[$_.Key] = $_.Value } }
-    catch { Write-Host ("config/common.psd1 illisible : " + $_.Exception.Message) -ForegroundColor Red; exit 1 }
+    catch { Write-Fail (Get-Label 'atelier.config-common-psd1-illisible' $_.Exception.Message); exit 1 }
 }
 $cfgPath = Join-Path $PSScriptRoot 'config/config.psd1'
 if (-not (Test-Path -LiteralPath $cfgPath)) {
-    Write-Host "Configuration introuvable : $cfgPath" -ForegroundColor Red
+    Write-Fail (Get-Label 'atelier.configuration-introuvable' $cfgPath)
     exit 1
 }
 try { (Import-PowerShellDataFile -Path $cfgPath).GetEnumerator() | ForEach-Object { $cfg[$_.Key] = $_.Value } }
-catch { Write-Host ("config.psd1 illisible : " + $_.Exception.Message) -ForegroundColor Red; exit 1 }
+catch { Write-Fail (Get-Label 'atelier.config-psd1-illisible' $_.Exception.Message); exit 1 }
 
 $address = $cfg.BindAddress
 $port    = $cfg.Port
@@ -115,20 +119,20 @@ function Get-AtelierProcess {
 # --- Etat --------------------------------------------------------------------
 if ($Status) {
     $proc = Get-AtelierProcess
-    if ($proc) { Write-Host ("Atelier EN LIGNE  - {0}  (PID {1}, {2})" -f $url, $proc.Id, $proc.ProcessName) }
-    else       { Write-Host ("Atelier ARRETE    - port {0} libre" -f $port) }
+    if ($proc) { Write-Host (Get-Label 'atelier.atelier-en-ligne-pid' $url $proc.Id $proc.ProcessName) }
+    else       { Write-Host (Get-Label 'atelier.atelier-arrete-port-libre' $port) }
     exit 0
 }
 
 # --- Arret -------------------------------------------------------------------
 if ($Stop) {
     $proc = Get-AtelierProcess
-    if (-not $proc) { Write-Host "Atelier deja arrete (rien a faire)."; exit 0 }
+    if (-not $proc) { Write-Host (Get-Label 'atelier.atelier-deja-arrete-rien'); exit 0 }
     try {
         Stop-Process -Id $proc.Id -Force -ErrorAction Stop
-        Write-Host ("Atelier arrete (PID {0})." -f $proc.Id); exit 0
+        Write-Host (Get-Label 'atelier.atelier-arrete-pid' $proc.Id); exit 0
     } catch {
-        Write-Host ("Impossible d'arreter le PID {0} : {1}" -f $proc.Id, $_.Exception.Message) -ForegroundColor Red
+        Write-Fail (Get-Label 'atelier.impossible-arreter-le-pid' $proc.Id $_.Exception.Message)
         exit 2
     }
 }
@@ -136,28 +140,27 @@ if ($Stop) {
 # --- Prerequis ---------------------------------------------------------------
 $php = (Get-Command php -ErrorAction SilentlyContinue).Source
 if (-not $php) {
-    Write-Host "php introuvable dans le PATH : l'Atelier utilise le serveur integre de PHP." -ForegroundColor Yellow
-    Write-Host ("Repli sans serveur : ouvre directement " + (Join-Path $PSScriptRoot 'index.html'))
-    Write-Host "  (les icones livrees et l'ecran de chargement ne s'y afficheront pas)"
+    Write-Warn (Get-Label 'atelier.php-introuvable-dans-le')
+    Write-Info (Get-Label 'atelier.repli-sans-serveur-ouvre' (Join-Path $PSScriptRoot 'index.html'))
+    Write-Info (Get-Label 'atelier.les-icones-livrees-et')
     exit 1
 }
 
 # --- Idempotence : deja en ecoute ? ------------------------------------------
 if (Get-AtelierProcess) {
-    Write-Host ("Atelier deja en ligne : " + $url)
+    Write-Info (Get-Label 'atelier.atelier-deja-en-ligne' $url)
     if (-not $NoBrowser) { Start-Process $url }
     exit 0
 }
 
-Write-Host ("Atelier (app de developpement) : " + $url)
-Write-Host ("Racine servie                  : " + $repoRoot)
-
+Write-Info (Get-Label 'atelier.atelier-app-de-developpement' $url)
+Write-Info (Get-Label 'atelier.racine-servie' $repoRoot)
 # Le routeur FILTRE : l'Atelier sert la racine du depot, il exposerait sinon
 # apps/<app>/var/secrets/api.token, le jeton de l'API de Vigie. Voir router.php.
 $router  = Join-Path $PSScriptRoot 'router.php'
 if (-not (Test-Path -LiteralPath $router)) {
-    Write-Host "router.php introuvable : refus de demarrer sans filtre de securite." -ForegroundColor Red
-    Write-Host "  attendu : $router"
+    Write-Fail (Get-Label 'atelier.router-php-introuvable-refus')
+    Write-Info (Get-Label 'atelier.attendu' $router)
     exit 1
 }
 $phpArgs = @('-S', ("{0}:{1}" -f $address, $port), '-t', $repoRoot, $router)
@@ -177,18 +180,16 @@ if ($Background) {
         Start-Sleep -Milliseconds 250
     }
     if (-not (Test-PortOpen -Address $address -Port $port)) {
-        Write-Host "Le serveur n'a pas repondu dans le delai imparti." -ForegroundColor Red
+        Write-Fail (Get-Label 'atelier.le-serveur-pas-repondu')
         exit 2
     }
-    Write-Host ("Demarre en tache de fond (PID {0}). Arret : atelier.ps1 -Stop" -f $proc.Id)
+    Write-Info (Get-Label 'atelier.demarre-en-tache-de' $proc.Id)
     if (-not $NoBrowser) { Start-Process $url }
     exit 0
 }
 
 # --- Premier plan : la console montre les requetes, Ctrl+C arrete -------------
-Write-Host "Ctrl+C pour arreter."
-Write-Host ""
-
+Write-Info (Get-Label 'atelier.ctrl-pour-arreter')
 if (-not $NoBrowser) {
     # Le navigateur est lance en differe : le serveur doit d'abord ecouter.
     Start-Job -ScriptBlock {

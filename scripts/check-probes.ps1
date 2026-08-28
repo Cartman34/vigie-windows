@@ -194,8 +194,8 @@ if ($Only) {
         @($motifs | Where-Object { $base -like $_ -or $nom -like $_ -or $module -like $_ }).Count -gt 0
     })
     if ($retenues.Count -eq 0) {
-        Write-Fail ("Aucune sonde ne correspond a : {0}" -f ($motifs -join ', '))
-        Write-Info ("Sondes disponibles : {0}" -f (($sondes | ForEach-Object { $_.Name -replace '\.probe\.ps1$','' }) -join ', '))
+        Write-Fail (Get-Label 'check-probes.aucune-sonde-ne-correspond' ($motifs -join ', '))
+        Write-Info (Get-Label 'check-probes.sondes-disponibles' (($sondes | ForEach-Object { $_.Name -replace '\.probe\.ps1$','' }) -join ', '))
         exit 1
     }
     $sondes = $retenues
@@ -266,7 +266,7 @@ foreach ($f in $sondes) {
 try {
     ($record | ConvertTo-Json -Depth 12) | Set-Content -LiteralPath $recordFile -Encoding UTF8
 } catch {
-    Write-Info "Note : l'enregistrement des contrats n'a pas pu être écrit -- la prochaine passe réexécutera tout."
+    Write-Info (Get-Label 'check-probes.note-enregistrement-des-contrats')
 }
 
 # --- Garde-fou : LES LIBELLES VISIBLES PORTENT LEURS ACCENTS ------------------
@@ -307,7 +307,10 @@ foreach ($d in @('probes', 'actions', 'lib', 'workers')) {
             $ligne++
             # Un commentaire n'est pas affiche : on le laisse tranquille.
             if ($l -match '^\s*#') { continue }
-            foreach ($m in [regex]::Matches($l, '(?:-Value|-Label|-Help|-Guide|-BusyLabel|message\s*=)\s*("[^"]*"|''[^'']*'')')) {
+            # LE TIRET DOIT COMMENCER UN PARAMETRE. Sans cette borne, « Get-Label » contient
+            # « -Label » : l'invariant lisait la CLE d'un libelle -- volontairement en ASCII --
+            # et reclamait des accents dessus.
+            foreach ($m in [regex]::Matches($l, '(?:(?<![\w-])(?:-Value|-Label|-Help|-Guide|-BusyLabel)|message\s*=)\s*("[^"]*"|''[^'']*'')')) {
                 # Les VARIABLES interpolees ne sont pas du texte affiche tel quel :
                 # « $($apres.noAutoUpdate) » n'est pas le mot « apres ». On les retire
                 # avant de juger.
@@ -399,16 +402,16 @@ foreach ($x in $horsRegle) {
 # --- Verdict -----------------------------------------------------------------
 $lignes | ForEach-Object { Write-Host $_ }
 Write-Host ''
-Write-Info ("{0} sonde(s) executee(s), {1} verifiee(s) sur enregistrement, {2} module(s) au total." -f $executees, $surEnregistrement, $modules)
+Write-Info (Get-Label 'check-probes.sonde-executee-verifiee-sur' $executees $surEnregistrement $modules)
 if ($surEnregistrement -gt 0) {
-    Write-Detail "Une sonde vérifiée sur enregistrement n'a PAS été reexecutée : son fichier est inchangé depuis."
-    Write-Detail "Passe complète avant livraison : -All"
+    Write-Detail (Get-Label 'check-probes.une-sonde-verifiee-sur')
+    Write-Detail (Get-Label 'check-probes.passe-complete-avant-livraison')
 }
 
 if ($manquements.Count -eq 0) {
-    Write-Ok "Tous les invariants sont respectes."
+    Write-Ok (Get-Label 'check-probes.tous-les-invariants-sont')
     exit 0
 }
-Write-Fail ("{0} manquement(s) :" -f $manquements.Count)
+Write-Fail (Get-Label 'check-probes.manquement' $manquements.Count)
 $manquements | ForEach-Object { Write-Host "  - $_" }
 exit 1

@@ -37,7 +37,7 @@ try {
                         -Label 'Installation de PowerShell 7' -Action 'pwsh-install-machine' `
                         -File $winget.Source -Arguments (Get-SharedPwshInstallArgs) `
                         -Log $journal -Backend $backend)
-    Write-Log -Backend $backend -Name 'comptes' -Message ("installation de PowerShell 7 (machine) lancee, journal : " + $journal)
+    Write-Log -Backend $backend -Name 'comptes' -Message (Get-Label 'pwsh-install-machine.installation-de-powershell-machine' $journal)
 } catch {
     Write-Log -Backend $backend -Name 'comptes' -Level 'ERROR' -Message $_.Exception.Message
 }

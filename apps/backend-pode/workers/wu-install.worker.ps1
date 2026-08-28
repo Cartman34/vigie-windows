@@ -37,16 +37,16 @@ $verrouLeve = $false
 try {
     if ($reposerVerrou) {
         $verrouLeve = Set-UpdateLock -Etat 'leve' -Backend $Backend
-        Write-Log -Backend $Backend -Name 'wuinstall' -Message ("verrou leve : " + $verrouLeve)
+        Write-Log -Backend $Backend -Name 'wuinstall' -Message (Get-Label 'wu-install.verrou-leve' $verrouLeve)
         if (-not $verrouLeve) {
             Set-Etat @{ installing = $false; phase = 'termine'; ok = $false
                         at = (Get-Date).ToUniversalTime().ToString('o')
                         error = "Le verrou des mises à jour n'a pas pu être levé." }
-            Write-Log -Backend $Backend -Name 'wuinstall' -Level 'ERROR' -Message 'verrou non levable'
+            Write-Log -Backend $Backend -Name 'wuinstall' -Level 'ERROR' -Message (Get-Label 'wu-install.verrou-non-levable')
             return
         }
     }
-    Write-Log -Backend $Backend -Name 'wuinstall' -Message ("demande : " + $ids.Count + " mise(s) a jour")
+    Write-Log -Backend $Backend -Name 'wuinstall' -Message (Get-Label 'wu-install.demande-mise-jour' $ids.Count)
     $session  = New-Object -ComObject Microsoft.Update.Session
     $searcher = $session.CreateUpdateSearcher()
     $searcher.Online = $false
@@ -65,7 +65,7 @@ try {
     if ($coll.Count -eq 0) {
         Set-Etat @{ installing = $false; at = (Get-Date).ToUniversalTime().ToString('o')
                     error = "Aucune des mises à jour demandées n'a été retrouvée." }
-        Write-Log -Backend $Backend -Name 'wuinstall' -Level 'ERROR' -Message 'aucune correspondance'
+        Write-Log -Backend $Backend -Name 'wuinstall' -Level 'ERROR' -Message (Get-Label 'wu-install.aucune-correspondance')
         return
     }
 
@@ -74,7 +74,7 @@ try {
     $dl = $session.CreateUpdateDownloader()
     $dl.Updates = $coll
     $rDl = $dl.Download()
-    Write-Log -Backend $Backend -Name 'wuinstall' -Message ("telechargement : code " + $rDl.ResultCode)
+    Write-Log -Backend $Backend -Name 'wuinstall' -Message (Get-Label 'wu-install.telechargement-code' $rDl.ResultCode)
 
     Set-Etat @{ installing = $true; phase = 'installation' }
     $inst = $session.CreateUpdateInstaller()
@@ -102,8 +102,7 @@ try {
         }
         if ($h -ne 0) { $verdict += (" (0x{0:X8})" -f $h) }
         $detail += ,@($retenus[$i], $verdict)
-        Write-Log -Backend $Backend -Name 'wuinstall' -Message (
-            "resultat : " + $retenus[$i] + " -> " + $verdict)
+        Write-Log -Backend $Backend -Name 'wuinstall' -Message (Get-Label 'wu-install.resultat' $retenus[$i] $verdict)
     }
     Set-Etat @{
         installing = $false
@@ -118,8 +117,7 @@ try {
         code       = [int]$rIn.ResultCode
         error      = $(if ($ok -or $partiel) { $null } else { "Installation en échec (code $($rIn.ResultCode))." })
     }
-    Write-Log -Backend $Backend -Name 'wuinstall' -Message (
-        "installation : code " + $rIn.ResultCode + " redemarrage=" + $rIn.RebootRequired)
+    Write-Log -Backend $Backend -Name 'wuinstall' -Message (Get-Label 'wu-install.installation-code-redemarrage' $rIn.ResultCode $rIn.RebootRequired)
 } catch {
     Set-Etat @{ installing = $false; phase = 'termine'; ok = $false
                 at = (Get-Date).ToUniversalTime().ToString('o'); error = $_.Exception.Message }
@@ -127,11 +125,11 @@ try {
 } finally {
     if ($verrouLeve) {
         $repose = Set-UpdateLock -Etat 'pose' -Backend $Backend
-        Write-Log -Backend $Backend -Name 'wuinstall' -Message ("verrou repose : " + $repose)
+        Write-Log -Backend $Backend -Name 'wuinstall' -Message (Get-Label 'wu-install.verrou-repose' $repose)
         if (-not $repose) {
             # Etat anormal : on le SIGNALE au lieu de le taire, la machine reste ouverte.
             Set-Etat @{ verrouNonRepose = $true }
-            Write-Log -Backend $Backend -Name 'wuinstall' -Level 'ERROR' -Message 'VERROU NON REPOSE'
+            Write-Log -Backend $Backend -Name 'wuinstall' -Level 'ERROR' -Message (Get-Label 'wu-install.verrou-non-repose')
         }
     }
     # Les deux cartes doivent refleter le resultat sans attendre le TTL des sondes.

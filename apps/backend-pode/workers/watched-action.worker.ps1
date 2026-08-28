@@ -58,6 +58,6 @@ Clear-ModuleBusyMark -Module $module -Backend $Backend
 
 $niveau = if ($code -eq 0) { 'INFO' } else { 'ERROR' }
 Write-Log -Backend $Backend -Name 'actions' -Level $niveau `
-          -Message ($label + " : code " + $code + " en " + $duree + " s" + $(if ($erreur) { " -- " + $erreur }))
+          -Message (Get-Label 'watched-action.code-en' $label $code $duree $(if ($erreur) { " -- " + $erreur }))
 # Les valeurs de la carte ont change : qu'elle se recalcule au prochain affichage.
 try { Remove-ProbeCache -Names @("$($a.probe)") -Backend $Backend } catch { }

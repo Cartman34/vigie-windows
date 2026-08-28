@@ -54,6 +54,10 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+# Ce fichier est isole : il charge lui-meme l'affichage commun, qui apporte aussi
+# les libelles (console-ui.ps1 et i18n.ps1 sont voisins).
+. (Join-Path $PSScriptRoot 'console-ui.ps1')
+
 $nl = [Environment]::NewLine
 
 if ($Scenario -eq 'installation') {
@@ -67,7 +71,7 @@ if ($Scenario -eq 'installation') {
                "|Rien n'est supprimé ailleurs sur la machine"
 }
 if (-not $Title -or -not $Summary) {
-    Write-Host "Rien a afficher : precisez -Scenario, ou -Title et -Summary." -ForegroundColor Yellow
+    Write-Host (Get-Label 'show-confirm.rien-afficher-precisez-scenario') -ForegroundColor Yellow
     exit 1
 }
 $puces = @()
@@ -79,11 +83,11 @@ try {
     Add-Type -AssemblyName System.Drawing -ErrorAction Stop
 } catch {
     Write-Host ""
-    if ($InitiatedBy) { Write-Host ("Demandé par un agent automatisé : " + $InitiatedBy) -ForegroundColor Yellow }
+    if ($InitiatedBy) { Write-Host (Get-Label 'show-confirm.demande-par-un-agent' $InitiatedBy) -ForegroundColor Yellow }
     Write-Host $Title -ForegroundColor Cyan
     Write-Host $Summary
     if ($listeTexte) { Write-Host $listeTexte }
-    Write-Host "Interface graphique indisponible : rien n'a été demandé." -ForegroundColor Yellow
+    Write-Host (Get-Label 'show-confirm.interface-graphique-indisponible-rien') -ForegroundColor Yellow
     exit 1
 }
 
@@ -242,10 +246,9 @@ if ($FermerApresMs -gt 0) {
     $minuteur.Add_Tick({ $minuteur.Stop(); $form.Close() })
     $minuteur.Start()
     $form.Add_Shown({
-        Write-Host ("Hauteur de fenetre calculee : " + $form.ClientSize.Height + " px")
+        Write-Host (Get-Label 'show-confirm.hauteur-de-fenetre-calculee' $form.ClientSize.Height)
         foreach ($c in $form.Controls) {
-            Write-Host ("  " + $c.GetType().Name.PadRight(7) + " y=" + $c.Top.ToString().PadLeft(4) +
-                        "  h=" + $c.Height.ToString().PadLeft(3) + "  bas=" + ($c.Top + $c.Height))
+            Write-Host (Get-Label 'show-confirm.bas' $c.GetType().Name.PadRight(7) $c.Top.ToString().PadLeft(4) $c.Height.ToString().PadLeft(3) $c.Top $c.Height)
         }
     })
 }

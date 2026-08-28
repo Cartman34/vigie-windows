@@ -1,4 +1,4 @@
-# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+﻿# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 # @libelle: Options d'alimentation | manual | info   -- affiche quand un champ cite cette action (D66)
 <# Action : ouvre les options d'alimentation de Windows.
 

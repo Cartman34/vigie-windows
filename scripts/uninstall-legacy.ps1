@@ -62,7 +62,7 @@ if (-not (Test-IsElevated)) {
         -Title   "Nettoyer les vestiges de l'ancienne installation" `
         -Summary "Une installation antérieure au renommage Vigie a laissé une tâche planifiée et un raccourci orphelins. Ce nettoyage les retire." `
         -Changes $changes
-    if (-not $ok) { Write-Host "Nettoyage annulé. Rien n'a été modifié."; exit 3 }
+    if (-not $ok) { Write-Host (Get-Label 'uninstall-legacy.nettoyage-annule-rien-ete'); exit 3 }
 
     $argv = @()
     if ($LegacyWorkspace) { $argv += @('-LegacyWorkspace', $LegacyWorkspace) }
@@ -75,11 +75,7 @@ if (-not (Test-IsElevated)) {
 # Trace d'entree : un script de migration doit dire ce qu'il a recu, sinon un compte
 # rendu vide est indistinguable d'un "rien a faire".
 $ws = if ($LegacyWorkspace) { $LegacyWorkspace } else { '(aucun)' }
-Write-Host ("Nettoyage des vestiges - taches: " + ($LegacyTaskNames -join ', ') +
-            " | raccourcis: " + ($LegacyShortcutNames -join ', ') +
-            " | espace de travail: " + $ws +
-            " | simulation: " + $WhatIfPreference)
-
+Write-Info (Get-Label 'uninstall-legacy.nettoyage-des-vestiges-taches' $LegacyTaskNames -join ', ' $LegacyShortcutNames -join ', ' $ws $WhatIfPreference)
 $done = 0
 $skipped = 0
 $planned = 0
@@ -93,7 +89,7 @@ $failed = 0
 function Test-ShouldApply {
     param([Parameter(Mandatory)][string] $Operation, [Parameter(Mandatory)][string] $Target)
     if ($WhatIfPreference) {
-        Write-Host ("SIMULATION  " + $Operation + " : " + $Target) -ForegroundColor Cyan
+        Write-Step (Get-Label 'uninstall-legacy.simulation' $Operation $Target)
         $script:planned++
         return $false
     }
@@ -105,7 +101,7 @@ function Invoke-Step {
     try {
         & $Action
     } catch {
-        Write-Host ("ECHEC  " + $Label + " : " + $_.Exception.Message) -ForegroundColor Red
+        Write-Fail (Get-Label 'uninstall-legacy.echec' $Label $_.Exception.Message)
         $script:failed++
     }
 }
@@ -115,13 +111,13 @@ foreach ($name in $LegacyTaskNames) {
     Invoke-Step ("tache '" + $name + "'") {
         $task = Get-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue
         if (-not $task) {
-            Write-Host ("ABSENT tache '" + $name + "' (rien a faire)")
+            Write-Info (Get-Label 'uninstall-legacy.absent-tache-rien-faire' $name)
             $script:skipped++
             return
         }
         if (Test-ShouldApply -Operation "Supprimer la tache planifiee" -Target $name) {
             Unregister-ScheduledTask -TaskName $name -Confirm:$false
-            Write-Host ("RETIRE tache '" + $name + "'") -ForegroundColor Green
+            Write-Ok (Get-Label 'uninstall-legacy.retire-tache' $name)
             $script:done++
         }
     }
@@ -133,13 +129,13 @@ foreach ($shortcut in $LegacyShortcutNames) {
     Invoke-Step ("raccourci '" + $shortcut + "'") {
         $path = Join-Path $desktop $shortcut
         if (-not (Test-Path -LiteralPath $path)) {
-            Write-Host ("ABSENT raccourci '" + $shortcut + "' (rien a faire)")
+            Write-Info (Get-Label 'uninstall-legacy.absent-raccourci-rien-faire' $shortcut)
             $script:skipped++
             return
         }
         if (Test-ShouldApply -Operation "Supprimer le raccourci" -Target $path) {
             Remove-Item -LiteralPath $path -Force
-            Write-Host ("RETIRE raccourci " + $path) -ForegroundColor Green
+            Write-Ok (Get-Label 'uninstall-legacy.retire-raccourci' $path)
             $script:done++
         }
     }
@@ -149,35 +145,34 @@ foreach ($shortcut in $LegacyShortcutNames) {
 if ($LegacyWorkspace) {
     Invoke-Step ("espace de travail '" + $LegacyWorkspace + "'") {
         if (-not (Test-Path -LiteralPath $LegacyWorkspace)) {
-            Write-Host ("ABSENT espace de travail " + $LegacyWorkspace + " (rien a faire)")
+            Write-Info (Get-Label 'uninstall-legacy.absent-espace-de-travail' $LegacyWorkspace)
             $script:skipped++
             return
         }
         $target = $LegacyWorkspace.TrimEnd('\') + '.old'
         if (Test-Path -LiteralPath $target) {
-            Write-Host ("IGNORE " + $target + " existe deja - mise de cote non refaite") -ForegroundColor Yellow
+            Write-Warn (Get-Label 'uninstall-legacy.ignore-existe-deja-mise' $target)
             $script:skipped++
             return
         }
         if (Test-ShouldApply -Operation ("Renommer en " + (Split-Path $target -Leaf)) -Target $LegacyWorkspace) {
             Rename-Item -LiteralPath $LegacyWorkspace -NewName (Split-Path $target -Leaf)
-            Write-Host ("MIS DE COTE " + $LegacyWorkspace + " -> " + $target) -ForegroundColor Green
-            Write-Host "  (dossier conserve : supprime-le toi-meme une fois la migration confirmee)"
+            Write-Ok (Get-Label 'uninstall-legacy.mis-de-cote' $LegacyWorkspace $target)
+            Write-Info (Get-Label 'uninstall-legacy.dossier-conserve-supprime-le')
             $script:done++
         }
     }
 } else {
-    Write-Host "IGNORE espace de travail : aucun -LegacyWorkspace fourni."
+    Write-Info (Get-Label 'uninstall-legacy.ignore-espace-de-travail')
     $skipped++
 }
 
 # --- Compte rendu ---------------------------------------------------------------
-Write-Host ""
 if ($WhatIfPreference) {
-    Write-Host ("SIMULATION terminee : " + $planned + " changement(s) prevu(s), " + $skipped + " sans objet, " + $failed + " echec(s).")
-    Write-Host "Relance la meme commande SANS -WhatIf pour les appliquer."
+    Write-Info (Get-Label 'uninstall-legacy.simulation-terminee-changement-prevu' $planned $skipped $failed)
+    Write-Info (Get-Label 'uninstall-legacy.relance-la-meme-commande')
 } else {
-    Write-Host ("Termine : " + $done + " action(s), " + $skipped + " ignoree(s), " + $failed + " echec(s).")
+    Write-Info (Get-Label 'uninstall-legacy.termine-action-ignoree-echec' $done $skipped $failed)
 }
 if ($failed -gt 0) { exit 2 }
 exit 0

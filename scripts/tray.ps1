@@ -82,11 +82,11 @@ function Send-Order {
 if ($PSCmdlet.ParameterSetName -eq 'Status' -or $Status) {
     $t = Get-TrayState
     if ($t -and $t.AgeSec -le $SEUIL_SEC) {
-        Write-Host ("Tray EN MARCHE  - PID {0}, etat « {1} », vu il y a {2} s" -f $t.Pid, $t.Etat, $t.AgeSec)
+        Write-Info (Get-Label 'tray.tray-en-marche-pid' $t.Pid $t.Etat $t.AgeSec)
         exit 0
     }
-    if ($t) { Write-Host ("Tray ARRETE     - dernier signe de vie il y a {0} s (PID {1})" -f $t.AgeSec, $t.Pid) }
-    else    { Write-Host "Tray ARRETE     - aucun battement de coeur" }
+    if ($t) { Write-Host (Get-Label 'tray.tray-arrete-dernier-signe' $t.AgeSec $t.Pid) }
+    else    { Write-Host (Get-Label 'tray.tray-arrete-aucun-battement') }
     exit 1
 }
 
@@ -101,14 +101,14 @@ if (-not $avant -or $avant.AgeSec -gt $SEUIL_SEC) {
     # 28/08). Un arret n'est pas un echec de relance : c'est justement le cas ou il faut
     # demarrer.
     if (-not $Restart) {
-        Write-Host "Tray deja arrete (rien a faire)."
+        Write-Info (Get-Label 'tray.tray-deja-arrete-rien')
         exit 0
     }
-    Write-Host "Tray arrete : demarrage."
+    Write-Info (Get-Label 'tray.tray-arrete-demarrage')
     try {
         Start-ScheduledTask -TaskName 'Vigie' -ErrorAction Stop
     } catch {
-        Write-Host ("La tache de demarrage n'a pas pu etre lancee : " + $_.Exception.Message) -ForegroundColor Yellow
+        Write-Warn (Get-Label 'tray.la-tache-de-demarrage' $_.Exception.Message)
         exit 2
     }
     # ON CONSTATE (D43) : la tache lancee ne prouve pas le tray vivant.
@@ -117,11 +117,11 @@ if (-not $avant -or $avant.AgeSec -gt $SEUIL_SEC) {
         Start-Sleep -Milliseconds 800
         $e = Get-TrayState
         if ($e -and $e.AgeSec -le $SEUIL_SEC) {
-            Write-Host ("Tray demarre (PID " + $e.Pid + ").")
+            Write-Info (Get-Label 'tray.tray-demarre-pid' $e.Pid)
             exit 0
         }
     }
-    Write-Host "Le tray n'a pas donne signe de vie dans le delai imparti." -ForegroundColor Yellow
+    Write-Warn (Get-Label 'tray.le-tray-pas-donne')
     exit 2
 }
 
@@ -129,8 +129,7 @@ $ordre = if ($Restart) { 'restart' } else { 'stop' }
 $ack   = Join-Path $runDir ($ordre + '.ack')
 Remove-Item -LiteralPath $ack -Force -ErrorAction SilentlyContinue
 Send-Order $ordre
-Write-Host ("Ordre « {0} » depose (tray PID {1}). Attente de la confirmation..." -f $ordre, $avant.Pid)
-
+Write-Info (Get-Label 'tray.ordre-depose-tray-pid' $ordre $avant.Pid)
 # 1) A-T-IL LU L'ORDRE ? Le tray pose un accuse des qu'il le consomme. Sans cette
 #    etape, un echec ne disait pas s'il fallait depanner un tray fige ou une relance
 #    lente : deux causes differentes, deux gestes differents.
@@ -142,10 +141,10 @@ while ((Get-Date) -lt $vuLe) {
 }
 if ($lu) {
     Remove-Item -LiteralPath $ack -Force -ErrorAction SilentlyContinue
-    Write-Host "Ordre lu par le tray."
+    Write-Info (Get-Label 'tray.ordre-lu-par-le')
 } else {
-    Write-Host "Le tray n'a PAS lu l'ordre en 10 s : il est probablement fige." -ForegroundColor Yellow
-    Write-Host "Verifie apps/tray/var/log/ et le dossier var/run/."
+    Write-Warn (Get-Label 'tray.le-tray-pas-lu')
+    Write-Info (Get-Label 'tray.verifie-apps-tray-var')
     exit 2
 }
 
@@ -157,14 +156,14 @@ while ((Get-Date) -lt $fin) {
     $apres = Get-TrayState
     if ($Restart) {
         if ($apres -and $apres.Pid -ne $avant.Pid -and $apres.AgeSec -le $SEUIL_SEC) {
-            Write-Host ("Tray relance (nouveau PID {0})." -f $apres.Pid); exit 0
+            Write-Host (Get-Label 'tray.tray-relance-nouveau-pid' $apres.Pid); exit 0
         }
     } elseif (-not $apres) {
-        Write-Host "Tray arrete proprement (icone liberee)."; exit 0
+        Write-Host (Get-Label 'tray.tray-arrete-proprement-icone'); exit 0
     }
 }
 
 # L'ordre a bien ete lu (accuse recu) : ce qui manque, c'est le RETOUR.
-Write-Host ("Ordre lu, mais rien n'est revenu en {0} s." -f $TimeoutSec) -ForegroundColor Yellow
-Write-Host "La relance a peut-etre echoue : verifie apps/tray/var/log/."
+Write-Warn (Get-Label 'tray.ordre-lu-mais-rien' $TimeoutSec)
+Write-Info (Get-Label 'tray.la-relance-peut-etre')
 exit 2

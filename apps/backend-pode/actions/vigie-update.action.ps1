@@ -40,7 +40,7 @@ try {
     $lance = [bool](Start-WatchedAction -Module 'deployment' -Probe 'comptes.probe.ps1' `
                         -Label 'Mise à jour de Vigie' -Action 'vigie-update' `
                         -File $pwsh -Arguments $argv -Log $journal -Backend $backend)
-    Write-Log -Backend $backend -Name 'update' -Message ("mise a jour lancee, journal : " + $journal)
+    Write-Log -Backend $backend -Name 'update' -Message (Get-Label 'vigie-update.mise-jour-lancee-journal' $journal)
 } catch {
     Write-Log -Backend $backend -Name 'update' -Level 'ERROR' -Message $_.Exception.Message
 }
