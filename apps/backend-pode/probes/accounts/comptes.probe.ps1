@@ -43,9 +43,12 @@ foreach ($c in ($comptes | Sort-Object @{ Expression = { -not $_.current } }, na
         $aide += "Le bouton « Vérifier le démarrage de Vigie » l'examine et la remet d'aplomb quand c'est réparable."
     }
 
+    # Une ligne qui signale un defaut porte le bouton qui le corrige (D66) : un statut
+    # orange sans geste possible laisse le lecteur devant un probleme et rien d'autre.
     $fields += New-Field -Key ('acc-' + ($c.name -replace '[^A-Za-z0-9]', '')) `
         -Label ($c.name + $(if ($c.current) { ' (vous)' } else { '' })) `
         -Value ($etat -join ' - ') -Kind 'text' -Status $statutCompte `
+        -FixAction $(if ($statutCompte -eq 'warn') { 'repair-tasks' } else { $null }) `
         -Help ($aide -join ' ')
 }
 
