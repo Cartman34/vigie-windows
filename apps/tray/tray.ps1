@@ -307,7 +307,39 @@ public static bool Focus(System.IntPtr h) {
             catch { TLog ("openApp ECHEC : " + $_.Exception.Message) }
         }
         $openUrl     = { param($u) try { Start-Process $u } catch { TLog ("ouverture KO (" + $u + ") : " + $_.Exception.Message) } }
-        $openBrowser = { & $openUrl $url }
+
+        <#
+            OUVRIR LE PANNEAU EN DISANT QUI ON EST.
+
+            Le tray est le seul programme a pouvoir lire le secret de SON compte. Il le
+            presente au serveur, recoit un ticket a usage unique, et ouvre la page avec ce
+            ticket. Le serveur l'echange contre un cookie de session : la page sait alors
+            de quel compte elle vient, sans qu'aucun secret n'ait transite par l'URL ni ne
+            reste lisible dans le JavaScript.
+
+            SI QUOI QUE CE SOIT ECHOUE, ON OUVRE QUAND MEME la page sans ticket. Vigie
+            reste utilisable comme avant ; c'est l'identification du compte qui manque, pas
+            l'application. Refuser d'ouvrir le panneau parce que l'identification a echoue
+            serait une regression pour un gain nul.
+        #>
+        $openBrowser = {
+            $target = $url
+            try {
+                $secret = Get-AccountSecret -VarRoot (Get-AccountVarRoot -Account $env:USERNAME) `
+                                            -OwnerSid (Get-AccountSid -Account $env:USERNAME) -Create
+                if ($secret) {
+                    $body = @{ account = $env:USERNAME; secret = $secret } | ConvertTo-Json -Compress
+                    $rep = Invoke-RestMethod -Method Post -Uri ($url.TrimEnd('/') + '/api/v1/session/ticket') `
+                                             -ContentType 'application/json' -Body $body `
+                                             -Headers @{ Origin = $url.TrimEnd('/') } -TimeoutSec 5
+                    if ($rep -and $rep.ok -and $rep.ticket) {
+                        $target = $url.TrimEnd('/') + '/?t=' + $rep.ticket
+                        TLog "ticket obtenu"
+                    }
+                }
+            } catch { TLog ("ticket KO : " + $_.Exception.Message) }
+            & $openUrl $target
+        }
         $openRepo    = { & $openUrl $repoUrl }
 
         # LE COMPTE EST DANS L'INFOBULLE. Il y a une icone par compte ouvert, et elles
