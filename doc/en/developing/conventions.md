@@ -3,8 +3,42 @@
 Reference unique des conventions. Toute nouvelle convention se note ICI.
 
 ## Langue
-- Echanges avec l'utilisateur : francais.
-- **Code et noms de fichiers : anglais**. Commentaires : francais.
+
+Deux langues, une frontiere nette. Elle passe entre ce que la MACHINE lit et ce qu'un
+HUMAIN lit.
+
+### En anglais, sans exception
+- **Les noms** : fonctions, variables, parametres, proprietes, cles de hashtable, classes.
+- **Les noms de fichiers et de dossiers**, y compris pour un contenu francais.
+- **Les identifiants du contrat** : ids de modules, d'actions, de champs, de ressources.
+- **Les cles de configuration** (`UpdateSource`, `ToolsPath`...).
+
+### En francais, tout aussi volontairement
+- **Les commentaires** : ils s'adressent a qui relit, et cette equipe parle francais.
+- **Les libelles affiches** : titres de cartes, valeurs, boutons, messages d'erreur, aide.
+  Avec leurs accents (voir plus bas) -- ce sont eux que voit l'utilisateur.
+- **Les messages de journal** : ils se lisent pendant un depannage, avec le meme lecteur.
+- **La documentation** de `doc/fr/` et de `progress/`.
+
+### La seule exception admise
+Un **terme metier** qui n'a pas d'equivalent anglais etabli. Ce projet est technique : il
+n'y en a quasiment aucun, et l'exception doit se justifier a chaque fois, pas se supposer.
+« Sonde », « carte », « verrou », « lisere » ont tous un mot anglais courant.
+
+### Comment on y va -- sans grand nettoyage
+La regle a ete enfreinte peu a peu : **310 identifiants francais** au 28/08/2026. On ne
+renomme pas tout d'un coup -- ca noierait `git blame` sous du bruit et casserait du code
+qui marche. On applique un **cliquet** :
+
+```powershell
+pwsh -File .\scripts\dev\check-naming.ps1            # le compte ne doit jamais monter
+pwsh -File .\scripts\dev\check-naming.ps1 -Detail    # ou ils sont
+```
+
+- **Tout code NOUVEAU respecte la regle.** Sans discussion : c'est ce que le cliquet
+  verifie.
+- Quand on ouvre un fichier pour une autre raison, on renomme ce qu'on touche, et on
+  **descend le plafond** d'autant dans le script. Il ne remonte jamais.
 - **Le francais est la langue MAITRESSE de la documentation utilisateur.** Une page de `fr/` s'ecrit ou se corrige
   D'ABORD ; son equivalent de `en/` est mis a jour dans la foulee, jamais l'inverse. En cas de divergence, `fr/` fait
   foi. Idem pour les deux README de racine : `README.fr.md` mene, `README.md` suit.

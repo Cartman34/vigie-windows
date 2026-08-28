@@ -30,7 +30,7 @@ ligne — `scripts/dev/check-doc.ps1` refuse une décision absente d'ici.
 - **Sécurité, droits et multi-comptes** — D34 · D65 · D67 · D73
 - **Sondes, actions et tâches de fond** — D50bis · D53 · D54 · D60 · D61 · D80 · D82 · D83 · D85
 - **Outillage** — D06 · D21 · D24 · D40 · D44 · D47 · D52 · D64 · D75 · D86 · D90
-- **Méthode de travail** — D10 · D12 · D13 · D14 · D16 · D17 · D31 · D36 · D39 · D43 · D51 · D62 · D63 · D74 · D76 · D100
+- **Méthode de travail** — D10 · D12 · D13 · D14 · D16 · D17 · D31 · D36 · D39 · D43 · D51 · D62 · D63 · D74 · D76 · D100 · D103
 ---
 
 ## D01 — Icône du tray : « v1 — jauge à graduations »
@@ -2669,3 +2669,29 @@ de colonnes ; un groupe nouveau prend la colonne la moins remplie, et y reste.
 Sur le fond, la règle de l'utilisateur : **pendant qu'on remplace l'installation, aucune opération n'est disponible,
 pas même une lecture** — « sinon on ne sait pas ce qui sera fait ». Le serveur l'appliquait déjà (`machine` croise
 tout) ; c'est l'écran qui ne suivait pas.
+
+## D103 — La règle de langue du code est délimitée, et tenue par un cliquet (2026-08-28)
+
+*Demandée par l'utilisateur.*
+
+« `marquerCarteEnCours` me montre que tu as fait du code en français alors que le code doit être en anglais. […] Pas de
+refacto lourde, tu peux prévoir des remplacements progressifs et surtout ne jamais ajouter de nouveau code qui ne
+respecterait pas cette règle. » Puis : « D41 fige la décision mais la règle doit être écrite dans tes conventions de
+code et délimitée. »
+
+**D41** disait « le code est en anglais » — trop court pour trancher les cas réels : et les commentaires ? les libellés
+affichés ? les clés de configuration ? Faute de frontière écrite, la règle s'est érodée, moi compris : **310
+identifiants français** au moment du constat.
+
+La frontière est désormais écrite dans `conventions.md`, et elle passe entre ce que la **machine** lit et ce qu'un
+**humain** lit. En anglais : noms de fonctions, variables, paramètres, fichiers, identifiants du contrat, clés de
+configuration. En français, tout aussi volontairement : commentaires, libellés affichés, messages de journal,
+documentation. L'exception — un terme métier sans équivalent anglais — doit se justifier à chaque fois ; sur un projet
+technique comme celui-ci, il n'y en a quasiment aucun.
+
+**Le rattrapage se fait par cliquet, pas par grand nettoyage.** `scripts/dev/check-naming.ps1` compte, compare à un
+plafond, et échoue si le compte monte. Tout code nouveau respecte donc la règle, sans discussion ; les anciens noms se
+corrigent quand on ouvre le fichier pour une autre raison, et on descend le plafond d'autant. Une renommade massive
+noierait `git blame` pour un gain nul.
+
+Le premier essai a échoué à 311 : le garde-fou lui-même portait `$parFichier` et `$motif`. Il est écrit en anglais.
