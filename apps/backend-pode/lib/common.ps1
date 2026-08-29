@@ -1466,6 +1466,53 @@ function Write-Log {
 # du compte au moment de verifier. Etant eleve, il en a le droit ; et il n'y a donc
 # aucune copie a proteger, a synchroniser, ou a revoquer.
 
+<#
+    RELANCER LES TRAYS DE TOUS LES COMPTES.
+
+    Apres une mise a jour, seul le tray qui l'a lancee repartait. Les autres continuaient
+    de tourner avec le code d'AVANT, charge en memoire depuis une installation qui vient
+    d'etre remplacee sous leurs pieds -- jusqu'a la prochaine ouverture de session.
+
+    On depose donc un ordre « restart » dans le dossier de chaque compte : leur tray le
+    lit dans la seconde et se relance seul. Aucun droit particulier n'est requis d'eux,
+    et celui qui ne tourne pas n'a rien a faire -- il demarrera avec le nouveau code.
+
+    Le serveur est eleve : il peut ecrire dans le profil des autres. Un tray qui n'a
+    jamais tourne n'a pas de dossier d'ordres, et on ne lui en cree pas : rien a relancer.
+#>
+function Send-TrayRestartToAll {
+    param([string]$Except = $env:USERNAME)
+    $touches = @()
+    $users = Join-Path $env:SystemDrive 'Users'
+    if (-not (Test-Path -LiteralPath $users)) { return $touches }
+    foreach ($profil in @(Get-ChildItem -LiteralPath $users -Directory -ErrorAction SilentlyContinue)) {
+        if ($Except -and $profil.Name -ieq $Except) { continue }
+        # UN PROFIL QU'ON NE PEUT PAS LIRE N'EST PAS UNE ERREUR. Depuis une session sans
+        # droits, le simple test d'existence sur le dossier d'un autre compte LEVE -- et
+        # sous « ErrorActionPreference = Stop », il emporte toute la fonction. Le serveur
+        # est eleve et n'a pas ce souci, mais une fonction ne doit pas dependre de qui
+        # l'appelle : on passe au suivant, en silence.
+        $run = $null
+        try { $run = Get-AccountRunDir -Account $profil.Name } catch { continue }
+        if (-not $run) { continue }
+        $existe = $false
+        try { $existe = Test-Path -LiteralPath $run -ErrorAction Stop } catch { continue }
+        if (-not $existe) { continue }
+        # Un tray VIVANT laisse un battement de coeur. Sans lui, personne ne lira l'ordre
+        # et il resterait la, a s'appliquer au prochain demarrage -- c'est-a-dire au pire
+        # moment, sur un tray qui vient justement de charger le bon code.
+        $alive = Join-Path $run 'tray.alive'
+        $vivant = $false
+        try { $vivant = Test-Path -LiteralPath $alive -ErrorAction Stop } catch { continue }
+        if (-not $vivant) { continue }
+        try {
+            Set-Content -LiteralPath (Join-Path $run 'restart') -Value 'update' -Encoding ASCII -NoNewline
+            $touches += $profil.Name
+        } catch { }
+    }
+    return $touches
+}
+
 # La racine des donnees d'un AUTRE compte. Le chemin etait recopie a la main dans le
 # diagnostic ; une seule definition vaut mieux qu'un accord entre deux copies.
 function Get-AccountVarRoot {

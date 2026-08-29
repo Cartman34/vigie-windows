@@ -314,13 +314,18 @@ $carteDepl = New-ModuleObject -Id 'deployment' -Theme 'accounts' -Label 'Déploi
             -Help "Déploie la version actuelle vers l'installation partagée, puis relance Vigie avec." `
             -From $deVersion -To $versVersion -FromNote $deNote -ToNote $versNote `
             -Steps @('Copie vers Program Files', 'Redémarrage du serveur', 'Vigie à jour') `
-            -Impact ("Deux étapes enchaînées : copie vers l'emplacement partagé (avec pose d'un tag de version), " +
-                     "puis relance du tray ET du serveur. L'interface se coupe quelques secondes et se reconnecte seule. " +
-                     "Réglages, historique et journaux sont conservés — ils vivent dans votre profil, pas dans l'installation.") `
-            -Usage ("Quand l'installation partagée est en retard sur ce dépôt : les autres comptes lancent alors une " +
-                    "version plus ancienne que la vôtre. C'est aussi le premier déploiement, si l'installation n'existe pas encore.") `
-            -Reversible ("Le déploiement se défait en déployant une version antérieure. Si la copie échoue, la relance " +
-                         "N'A PAS LIEU : l'ancienne version continue de tourner.")
+            # LE DEROULE EST DEJA MONTRE AU-DESSUS : ce bloc dit ce que ca CHANGE, pas ce
+            # qui se passe. Et il le dit sans notre vocabulaire interne -- « tag de
+            # version », « tray », « dépôt » ne veulent rien dire pour qui utilise Vigie.
+            -Impact ("Tous les comptes de la machine passeront à cette version, y compris le vôtre. " +
+                     "Vos réglages, votre historique et vos journaux ne bougent pas : ils vivent dans votre " +
+                     "profil, pas dans l'installation. Vigie se coupe quelques secondes et revient seule.") `
+            -Usage ("Quand les autres comptes utilisent encore une version plus ancienne que la vôtre. " +
+                    "C'est aussi ce qui installe Vigie pour tout le monde, la première fois.") `
+            # « Se defait en deployant une version anterieure » tournait en rond. On dit
+            # OUI ou NON, puis comment.
+            -Reversible ("Oui : en déployant une version plus ancienne. Et si la copie échoue, rien n'est " +
+                         "relancé — la version en place continue de tourner.")
         New-Action -Id 'repair-tasks' -Label 'Vérifier le démarrage de Vigie' -Kind 'immediate' -Severity 'fix' `
             -BusyLabel 'Réparation…' `
             -Help "Réécrit les tâches de démarrage de Vigie qui ne fonctionnent plus (interpréteur ou application déplacés). Ne touche à rien d'autre sur la machine."

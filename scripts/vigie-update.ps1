@@ -152,6 +152,13 @@ if (-not (Test-Path -LiteralPath $tray)) {
     Write-Warn (Get-Label 'vigie-update.le-deploiement-est-fait')
     exit 2
 }
+# LES AUTRES COMPTES D'ABORD. Leur tray tourne encore avec le code d'avant ; on le
+# previent avant de relancer le notre, sinon le serveur redemarre pendant qu'ils lisent.
+try {
+    $autres = @(Send-TrayRestartToAll)
+    if ($autres.Count) { Write-Detail (Get-Label 'vigie-update.autres-trays' ($autres -join ', ')) }
+} catch { }
+
 Write-Info (Get-Label 'vigie-update.relance-de-vigie')
 $r = Start-Process -FilePath $pwsh -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass',
                                                    '-File', ('"' + $tray + '"'), '-Restart') `

@@ -506,6 +506,7 @@
   "vigie-fetch.telechargement-de-ko": "Téléchargement de {0} ({1} Ko)...",
   "vigie-fetch.version-en-place": "Version en place : {0}",
   "vigie-fetch.voie-retenue": "Voie retenue : {0}",
+  "vigie-update.autres-trays": "Relance demandée aux autres comptes : {0}",
   "vigie-update.deploiement": "Déploiement...",
   "vigie-update.deploy-prod-ps1-introuvable": "deploy-prod.ps1 introuvable.",
   "vigie-update.deploy-prod-rendu-le": "deploy-prod a rendu le code {0}.",

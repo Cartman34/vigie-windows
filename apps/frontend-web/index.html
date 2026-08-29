@@ -866,6 +866,32 @@ async function fetchState(force){
 
 const STATUS_RANK = { neutral:0, ok:0, warn:1, error:2 };
 function esc(s){ return (''+(s==null?'':s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function att(t){ return esc(t==null?'':t).replace(/"/g,'&quot;'); }
+
+/*
+   UNE ACTION, UNE SEULE FACON DE LA DECLARER.
+
+   La meme action se lance depuis deux endroits : le bas de la carte, et le bouton de
+   resolution d'un champ. C'etaient deux rendus SEPARES, et ils avaient divergé -- celui
+   du champ ne portait ni impact, ni usage, ni reversibilite. Sa confirmation se resumait
+   donc a « ce que ca fait », alors que le meme geste, lance de l'autre endroit,
+   expliquait tout. Et c'est le chemin le plus visible qui en disait le moins.
+
+   Cette fonction est desormais la SEULE a ecrire les attributs d'une action. Les deux
+   boutons different par leur apparence -- classe, libelle, icone -- jamais par ce qu'ils
+   declarent. Ajouter un champ a une action le fait apparaitre aux deux endroits, ou a
+   aucun : plus de divergence possible.
+*/
+function attributsAction(a, moduleId, kind){
+  a = a || {};
+  return ` data-a="${att(a.id)}" data-m="${att(moduleId)}"`
+       + ` data-k="${att(kind)}" data-c="${a.confirm?1:0}" data-c2="${a.confirmTwice?1:0}"`
+       + ` data-h="${att(a.help)}"`
+       + ` data-imp="${att(a.impact)}" data-usg="${att(a.usage)}" data-rev="${att(a.reversible)}"`
+       + ` data-res="${att(JSON.stringify(a.resources||[]))}"`
+       + ` data-trn="${att(a.transition?JSON.stringify(a.transition):'')}"`
+       + ` data-stp="${att(a.steps?JSON.stringify(a.steps):'')}"`;
+}
 function fmt(f){
   if(f.kind==="bool") return f.value?'Oui':'Non';
   if(f.kind==="number") return `${f.value}${f.unit?(' '+f.unit):''}`;
@@ -960,9 +986,10 @@ function cardHtml(m, groupLabel){
     const solveRunning = !!m.busy && !!m.busyAction && m.busyAction===f.fixAction;
     const solve = (f.fixAction && isProblem)
       ? `<button class="fsolve sev-${fa?(fa.severity||'fix'):'fix'}${interditeF?' denied':''}${solveRunning?' busy':''}"${(interditeF||solveRunning)?' disabled':''}`
-        + ` data-a="${f.fixAction}" data-m="${m.id}" data-k="${fkind}" data-c="${fconfirm?1:0}"`
-        + ` data-c2="${fa&&fa.confirmTwice?1:0}" data-h="${((fa&&fa.help)||'').replace(/"/g,'&quot;')}"`
-        + ` title="${esc(interditeF?(fa.deniedReason||L('ui.action-reservee-un-compte')):((fa&&fa.help)||L('ui.resoudre-ce-point'))).replace(/"/g,'&quot;')}">`
+        // MEME SOURCE que le bouton du bas de carte : c'est la meme action, elle ne peut
+        // pas se declarer de deux facons. Seule l'apparence differe.
+        + attributsAction(fa || { id: f.fixAction }, m.id, fkind)
+        + ` title="${att(interditeF?(fa.deniedReason||L('ui.action-reservee-un-compte')):((fa&&fa.help)||L('ui.resoudre-ce-point')))}">`
         + (solveRunning
              ? `<span class="spin"></span><span>${esc((fa&&fa.label)||L('ui.resoudre'))}…</span></button>`
              : `${ICONS[fkind]||''}<span>${esc((fa&&fa.label)||L('ui.resoudre'))}</span></button>`)
@@ -999,8 +1026,7 @@ function cardHtml(m, groupLabel){
       : `${ICONS[kind]||''}<span>${esc(a.label)}</span>`;
     const bulle = interdite ? (a.deniedReason||L('ui.action-reservee-un-compte'))
                 : (busy&&!cetteAction ? L('ui.operation-en-cours-sur') : (h||a.label));
-    const att = t => esc(t||'').replace(/"/g,'&quot;');
-    return `<button class="act k-${kind} sev-${sev}${bcls}"${dis} data-a="${a.id}" data-m="${m.id}" data-c="${a.confirm?1:0}" data-c2="${a.confirmTwice?1:0}" data-k="${kind}" data-h="${h}" data-imp="${att(a.impact)}" data-usg="${att(a.usage)}" data-rev="${att(a.reversible)}" data-res="${att(JSON.stringify(a.resources||[]))}" data-trn="${att(a.transition?JSON.stringify(a.transition):'')}" data-stp="${att(a.steps?JSON.stringify(a.steps):'')}" title="${esc(bulle).replace(/"/g,'&quot;')}">${inner}</button>`;
+    return `<button class="act k-${kind} sev-${sev}${bcls}"${dis}${attributsAction(a, m.id, kind)} title="${att(bulle)}">${inner}</button>`;
   }).join('');
   return `<div class="card st-${st}${m.busy?' busy':''}" data-module="${m.id}" data-theme="${m.theme}">
     <div class="card-head">
