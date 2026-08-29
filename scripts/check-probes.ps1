@@ -346,13 +346,13 @@ foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.
     # et un verificateur qui se denonce apprend a son lecteur a l'ignorer.
     if ($rel -like '.claude/*' -or $rel -like 'dist/*' -or $rel -like 'local/*' -or
         $rel -eq 'scripts/check-probes.ps1') { continue }
-    $ligne = 0
+    $lineNo = 0
     foreach ($l in (Get-Content -LiteralPath $f.FullName -Encoding UTF8 -ErrorAction SilentlyContinue)) {
-        $ligne++
+        $lineNo++
         if ($l -match '^\s*#') { continue }
         # schtasks qui change le compte d'execution SANS fournir le mot de passe.
         if ($l -match 'schtasks' -and $l -match '/RU\b' -and $l -notmatch '/RP\b') {
-            $interactifs += ("{0}:{1} -- schtasks /RU sans /RP : demande le mot de passe et attend" -f $rel, $ligne)
+            $interactifs += ("{0}:{1} -- schtasks /RU sans /RP : demande le mot de passe et attend" -f $rel, $lineNo)
         }
         # Read-Host dans un script qui tourne SANS PERSONNE DEVANT.
         #
@@ -360,10 +360,10 @@ foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.
         # a la main. Sa question graphique peut echouer (pas d'interface disponible) ; le
         # repli en ligne de commande s'adresse alors a quelqu'un qui EST devant. Le lui
         # interdire reviendrait a lui retirer son seul repli.
-        $sansPersonne = ($rel -like 'scripts/*' -or $rel -like 'apps/backend-pode/*') -and
+        $unattended = ($rel -like 'scripts/*' -or $rel -like 'apps/backend-pode/*') -and
                         $rel -ne 'scripts/dev/install-dev.ps1'
-        if ($l -match '\bRead-Host\b' -and $sansPersonne) {
-            $interactifs += ("{0}:{1} -- Read-Host : rien ne repondra si personne n'est devant" -f $rel, $ligne)
+        if ($l -match '\bRead-Host\b' -and $unattended) {
+            $interactifs += ("{0}:{1} -- Read-Host : rien ne repondra si personne n'est devant" -f $rel, $lineNo)
         }
     }
 }

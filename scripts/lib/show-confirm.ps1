@@ -121,7 +121,7 @@ $fNote  = New-Object System.Drawing.Font('Segoe UI', 9)
 $fGras  = New-Object System.Drawing.Font('Segoe UI', 9, [System.Drawing.FontStyle]::Bold)
 
 $marge   = 24
-$largeur = 532
+$width = 532
 
 # MISE EN PAGE MESUREE : chaque bloc prend la hauteur de son texte, et la fenetre s'ajuste.
 # Des hauteurs fixes faisaient passer un resume de trois lignes SOUS la liste (vu le 27/08).
@@ -130,7 +130,7 @@ function Mesurer {
     if (-not $Texte) { return 0 }
     $t = [System.Windows.Forms.TextRenderer]::MeasureText(
             $Texte, $Fonte,
-            (New-Object System.Drawing.Size($largeur, 0)),
+            (New-Object System.Drawing.Size($width, 0)),
             ([System.Windows.Forms.TextFormatFlags]::WordBreak))
     return [int]$t.Height + 2
 }
@@ -147,7 +147,7 @@ if ($InitiatedBy) {
     $lblOrigine.Padding   = New-Object System.Windows.Forms.Padding(10, 6, 10, 6)
     $h                    = (Mesurer -Texte $lblOrigine.Text -Fonte $fGras) + 12
     $lblOrigine.Location  = New-Object System.Drawing.Point($marge, $y)
-    $lblOrigine.Size      = New-Object System.Drawing.Size($largeur, $h)
+    $lblOrigine.Size      = New-Object System.Drawing.Size($width, $h)
     $controles += $lblOrigine
     $y += $h + 16
 }
@@ -158,7 +158,7 @@ $lblTitre.Font      = $fTitre
 $lblTitre.ForeColor = $fg
 $h                  = Mesurer -Texte $Title -Fonte $fTitre
 $lblTitre.Location  = New-Object System.Drawing.Point($marge, $y)
-$lblTitre.Size      = New-Object System.Drawing.Size($largeur, $h)
+$lblTitre.Size      = New-Object System.Drawing.Size($width, $h)
 $controles += $lblTitre
 $y += $h + 12
 
@@ -168,7 +168,7 @@ $lblResume.Font      = $fTexte
 $lblResume.ForeColor = $fg
 $h                   = Mesurer -Texte $Summary -Fonte $fTexte
 $lblResume.Location  = New-Object System.Drawing.Point($marge, $y)
-$lblResume.Size      = New-Object System.Drawing.Size($largeur, $h)
+$lblResume.Size      = New-Object System.Drawing.Size($width, $h)
 $controles += $lblResume
 $y += $h + 14
 
@@ -179,7 +179,7 @@ if ($listeTexte) {
     $lblListe.ForeColor = $fg
     $h                  = Mesurer -Texte $listeTexte -Fonte $fTexte
     $lblListe.Location  = New-Object System.Drawing.Point($marge, $y)
-    $lblListe.Size      = New-Object System.Drawing.Size($largeur, $h)
+    $lblListe.Size      = New-Object System.Drawing.Size($width, $h)
     $controles += $lblListe
     $y += $h + 18
 }
@@ -191,7 +191,7 @@ if ($Note) {
     $lblNote.ForeColor = $mut
     $h                 = Mesurer -Texte $Note -Fonte $fNote
     $lblNote.Location  = New-Object System.Drawing.Point($marge, $y)
-    $lblNote.Size      = New-Object System.Drawing.Size($largeur, $h)
+    $lblNote.Size      = New-Object System.Drawing.Size($width, $h)
     $controles += $lblNote
     $y += $h + 18
 }
@@ -216,11 +216,21 @@ $btnNon.FlatAppearance.BorderColor = [System.Drawing.Color]::FromArgb(68, 76, 86
 $btnNon.Size         = New-Object System.Drawing.Size(104, 32)
 $btnNon.Location     = New-Object System.Drawing.Point(318, $y)
 
+# UNE FENETRE DE RESULTAT N'A RIEN A REFUSER. Quand l'appelant ne donne pas de libelle
+# d'annulation, il ne pose pas de question : il annonce. Le second bouton disparait, et
+# la croix ferme normalement au lieu de valoir « non ».
+$noRefusal = [string]::IsNullOrWhiteSpace($CancelText)
+
 $controles += $btnOk
-$controles += $btnNon
+if (-not $noRefusal) { $controles += $btnNon }
 $form.Controls.AddRange($controles)
 $form.AcceptButton = $btnOk
-$form.CancelButton = $btnNon          # Echap et la croix ferment en REFUSANT
+if ($noRefusal) {
+    $btnOk.Location = New-Object System.Drawing.Point(432, $y)
+    $form.CancelButton = $btnOk
+} else {
+    $form.CancelButton = $btnNon      # Echap et la croix ferment en REFUSANT
+}
 $form.ClientSize   = New-Object System.Drawing.Size(580, ($y + 32 + 20))
 
 # Barre de titre sombre et coins arrondis quand la machine sait le faire. C'est du confort :

@@ -54,7 +54,19 @@ function Write-Step {
     Write-Host (":: " + $Text) -ForegroundColor White
 }
 
-function Write-Ok      { param([Parameter(Mandatory)][string]$Text) Write-Host ("  [ok] " + $Text) -ForegroundColor Green }
+<#
+    UNE ETAPE QUI REUSSIT N'EST PAS UNE CONCLUSION.
+
+    Le vert etait pose sur chaque etape reussie, et le lecteur ne savait plus ou regarder :
+    « il y a des ok en vert et pas tous, on ne sait pas trop » (29/08). Une dizaine de
+    lignes vertes au fil de l'installation, puis une verte de plus a la fin -- rien ne
+    distinguait le resultat du chemin parcouru.
+
+    LE VERT NE SORT PLUS QUE DE Write-Outcome. Une etape reussie garde sa marque, en gris :
+    elle se repere a la lecture sans reclamer l'attention. Le rouge, lui, ne bouge pas --
+    un echec doit sauter aux yeux ou qu'il soit.
+#>
+function Write-Ok      { param([Parameter(Mandatory)][string]$Text) Write-Host ("  [ok] " + $Text) -ForegroundColor Gray }
 function Write-Info    { param([Parameter(Mandatory)][string]$Text) Write-Host ("       " + $Text) -ForegroundColor Gray }
 function Write-Detail  { param([Parameter(Mandatory)][string]$Text) Write-Host ("       " + $Text) -ForegroundColor DarkGray }
 
@@ -95,14 +107,25 @@ function Write-Outcome {
     $f = if ($null -ne $Failures) { $Failures } else { $script:UiFailures }
     $w = if ($null -ne $Warnings) { $Warnings } else { $script:UiWarnings }
 
+    # UN ENCART, PAS UNE LIGNE DE PLUS. Apres trente lignes qui defilent, une conclusion
+    # doit se voir sans etre cherchee -- c'est la seule chose que l'on relit quand on
+    # revient devant l'ecran.
+    $text = if ($f -gt 0)    { "ÉCHEC : " + $f + " étape(s) n'ont pas abouti." }
+             elseif ($w -gt 0) { $What + ", avec " + $w + " réserve(s)." }
+             else              { $What + "." }
+    $color = if ($f -gt 0) { 'Red' } elseif ($w -gt 0) { 'Yellow' } else { 'Green' }
+
+    $width = $text.Length
+    if ($NextStep -and $NextStep.Length -gt $width) { $width = $NextStep.Length }
+    if ($width -gt 76) { $width = 76 }
+    $rule = New-Object string ([char]0x2500), ($width + 2)
+
     Write-Host ""
-    if ($f -gt 0) {
-        Write-Host ("ÉCHEC : " + $f + " étape(s) n'ont pas abouti.") -ForegroundColor Red
-    } elseif ($w -gt 0) {
-        Write-Host ($What + ", avec " + $w + " réserve(s).") -ForegroundColor Yellow
-    } else {
-        Write-Host ($What + ".") -ForegroundColor Green
+    Write-Host ([char]0x250C + $rule + [char]0x2510) -ForegroundColor $color
+    Write-Host ([char]0x2502 + ' ' + $text.PadRight($width) + ' ' + [char]0x2502) -ForegroundColor $color
+    if ($NextStep) {
+        Write-Host ([char]0x2502 + ' ' + $NextStep.PadRight($width) + ' ' + [char]0x2502) -ForegroundColor DarkGray
     }
-    if ($NextStep) { Write-Host $NextStep -ForegroundColor Gray }
+    Write-Host ([char]0x2514 + $rule + [char]0x2518) -ForegroundColor $color
     Write-Host ""
 }

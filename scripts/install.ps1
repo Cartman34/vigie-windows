@@ -368,9 +368,42 @@ try {
 
     # LE VERDICT SE CALCULE. Write-Outcome compte ce que Write-Fail et Write-Warn ont
     # affiche : aucune installation ne peut plus finir en vert avec un echec derriere elle.
-    Write-Outcome -What "Vigie est installée" `
-                  -NextStep "Panneau : http://127.0.0.1:47600/   (double-clic sur scripts\run.cmd si besoin)"
-    if ((Get-UiFailureCount) -gt 0) { try { Stop-Transcript | Out-Null } catch { }; exit 1 }
+    $failures = Get-UiFailureCount
+    $warnings = Get-UiWarningCount
+    Write-Outcome -What (Get-Label 'install.verdict') `
+                  -NextStep (Get-Label 'install.verdict-panneau')
+
+    <#
+        ET UNE FENETRE, PAS UN « APPUYEZ SUR UNE TOUCHE ».
+
+        L'installation se lance par un double-clic : elle doit se conclure comme une
+        application, pas comme un script. La fenetre dit ce qui a ete fait et ce qui
+        reste a savoir ; la console garde le detail pour qui veut le lire.
+
+        SI ELLE NE PEUT PAS S'AFFICHER -- pas d'interface, session sans bureau -- on ne
+        bloque rien : la conclusion est deja a l'ecran, et setup.cmd garde son « pause »
+        pour les cas d'echec.
+    #>
+    try {
+        $window = Join-Path $PSScriptRoot 'lib/show-confirm.ps1'
+        if (Test-Path -LiteralPath $window) {
+            $title = if ($failures -gt 0) { Get-Label 'install.fenetre-titre-echec' }
+                     elseif ($warnings -gt 0) { Get-Label 'install.fenetre-titre-reserve' }
+                     else { Get-Label 'install.fenetre-titre' }
+            $summary = if ($failures -gt 0) { Get-Label 'install.fenetre-resume-echec' }
+                      else { Get-Label 'install.fenetre-resume' }
+            $facts = @(
+                (Get-Label 'install.fenetre-fait-panneau'),
+                (Get-Label 'install.fenetre-fait-session'),
+                (Get-Label 'install.fenetre-fait-journal')
+            ) -join '|'
+            & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $window `
+                -Title $title -Summary $summary -Changes $facts `
+                -OkText (Get-Label 'install.fenetre-fermer') -CancelText '' -Note '' | Out-Null
+        }
+    } catch { }
+
+    if ($failures -gt 0) { try { Stop-Transcript | Out-Null } catch { }; exit 1 }
 }
 catch {
     Write-Log -Backend $backend -Name 'install' -Level 'ERROR' -Message (Get-Label 'install.fatal' $_.Exception.Message)

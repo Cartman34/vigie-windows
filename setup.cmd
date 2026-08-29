@@ -58,13 +58,14 @@ REM en plus, dans un autre style, donnait deux mises en page sur le meme ecran.
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\install.ps1"
 REM LE RÉSULTAT SE LIT : annoncer « Terminé » après un échec est pire que se taire.
 if errorlevel 1 goto :echec
-REM PAS DE CONCLUSION EN DOUBLE. L'installation vient de dire ce qu'elle a fait, et ou
-REM se trouve le panneau : le redire ici donnait deux fins a la meme operation.
+REM PAS DE CONCLUSION EN DOUBLE, ET PAS DE « APPUYEZ SUR UNE TOUCHE ».
 REM
-REM Le « pause » reste, et lui seul : sans lui la fenetre se ferme aussitot apres un
-REM double-clic, et personne ne lit jamais ce qui s'est passe.
-echo.
-pause
+REM L'installation se termine par une FENETRE qui dit ce qui a ete fait : elle attend le
+REM clic, donc la console n'a plus besoin de retenir l'utilisateur. Une installation
+REM lancee au double-clic doit se conclure comme une application, pas comme un script.
+REM
+REM En cas d'echec, en revanche, le « pause » du bloc :echec reste -- c'est justement la
+REM qu'il faut pouvoir lire l'ecran avant qu'il ne disparaisse.
 exit /b 0
 
 :pasadmin
