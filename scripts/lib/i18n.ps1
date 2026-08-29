@@ -79,7 +79,12 @@ function Get-Label {
         return ('[?' + $Key + ']')
     }
     $text = $table[$Key]
-    if ($Values -and $Values.Count) {
+    # ZERO N'EST PAS « RIEN ». « if ($Values -and ...) » convertit un tableau d'UN seul
+    # element en la valeur de cet element : @(0) vaut donc FAUX, comme @('') et @($false).
+    # Consequence constatee le 29/08 : « Demarrage automatique : code {0} » -- le code de
+    # retour valait 0, c'est-a-dire la reussite, et c'est exactement la ligne qu'on perdait.
+    # On teste le NOMBRE d'elements, jamais leur verite.
+    if ($null -ne $Values -and $Values.Count -gt 0) {
         try { return ($text -f $Values) }
         catch {
             # UN TROU MAL COMPTE NE DOIT PAS FAIRE TOMBER LE SCRIPT. On rend le libelle

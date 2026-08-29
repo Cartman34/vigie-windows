@@ -58,10 +58,11 @@ REM en plus, dans un autre style, donnait deux mises en page sur le meme ecran.
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\install.ps1"
 REM LE RÉSULTAT SE LIT : annoncer « Terminé » après un échec est pire que se taire.
 if errorlevel 1 goto :echec
-echo.
-echo Vigie est installée et lancée.
-echo Panneau : http://127.0.0.1:47600/
-echo Elle reviendra à chaque ouverture de session.
+REM PAS DE CONCLUSION EN DOUBLE. L'installation vient de dire ce qu'elle a fait, et ou
+REM se trouve le panneau : le redire ici donnait deux fins a la meme operation.
+REM
+REM Le « pause » reste, et lui seul : sans lui la fenetre se ferme aussitot apres un
+REM double-clic, et personne ne lit jamais ce qui s'est passe.
 echo.
 pause
 exit /b 0
