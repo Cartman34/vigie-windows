@@ -35,11 +35,7 @@
 param(
     [switch] $Lister,
     [switch] $Activer,
-    [switch] $Retirer,
-    # -Activer refuse si un serveur tient deja le port : deux serveurs sur le meme port,
-    # c'est le second qui meurt, et on ne sait plus lequel repond. Ce commutateur dit
-    # explicitement « arrete celui qui tourne et prends sa place ».
-    [switch] $ReplaceRunningServer
+    [switch] $Retirer
 )
 $ErrorActionPreference = 'Stop'
 
@@ -328,8 +324,8 @@ if (-not (Test-IsElevated)) {
       1. La tache doit EXISTER. Sinon il n'y a rien a activer, et c'est l'installation
          qui la pose.
       2. LE PORT DOIT ETRE LIBRE. Deux serveurs sur 47600, c'est le second qui meurt --
-         et on ne sait plus lequel repond aux ordres. Sans -ReplaceRunningServer, on
-         refuse et on nomme le processus en place.
+         et on ne sait plus lequel repond aux ordres. Le precedent s'arrete donc, et le
+         suivant prend sa place -- c'est une installation, pas une negociation.
       3. On ACTIVE, puis on DEMARRE A LA DEMANDE. Windows refuse de demarrer une tache
          desactivee, meme a la main : les deux gestes sont necessaires, dans cet ordre.
          Le declencheur « au demarrage » reste pour la suite ; il n'est pas attendu ici.
@@ -344,33 +340,41 @@ if (-not (Test-IsElevated)) {
     Grant-TaskControl accorde aux utilisateurs integres le droit de l'EXECUTER. Un compte
     standard la demarre donc, et elle tourne elevee -- avec les droits qu'elle definit.
 #>
-if ($Activer) {
-    Show-State
+<#
+    METTRE LA TACHE SERVEUR EN SERVICE. Rend $true si le serveur repond a la fin.
+
+    EXTRAITE POUR ETRE APPELABLE DEUX FOIS : par l'installation, qui doit tout installer,
+    et par -Activer, qui remet en service une tache qu'on avait retiree du jeu. Le corps
+    se terminait par « exit » -- utilisable seulement en fin de script, donc pas comme une
+    etape.
+
+    Verifie avant de brancher : l'installation traite la tache serveur AVANT de lancer le
+    tray, donc le tray ne lancera pas de serveur concurrent -- il constate qu'une tache
+    active s'en charge.
+#>
+function Enable-ServiceTask {
     $task = Get-ServiceTask
     if (-not $task) {
         Write-Fail (Get-Label 'install-service.activer-tache-absente')
         Write-Detail (Get-Label 'install-service.activer-lancez-installation')
-        exit 2
+        return $false
     }
 
     # --- Le port ---
     $port = [int](Get-Config -Backend $backend).Port
     $held = $null
     try { $held = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction Stop } catch { }
+    # LE PRECEDENT S'ARRETE, LE SUIVANT DEMARRE. C'est une installation : on ne demande
+    # pas la permission de remplacer un serveur par sa propre nouvelle version.
     if ($held) {
         $pidHeld = $held[0].OwningProcess
-        if (-not $ReplaceRunningServer) {
-            Write-Fail (Get-Label 'install-service.activer-port-occupe' $port $pidHeld)
-            Write-Detail (Get-Label 'install-service.activer-port-occupe-quoi-faire')
-            exit 2
-        }
         Write-Step (Get-Label 'install-service.activer-arret-du-serveur' $pidHeld)
         try {
             Stop-Process -Id $pidHeld -Force -ErrorAction Stop
             Start-Sleep -Seconds 2
         } catch {
             Write-Fail (Get-Label 'install-service.activer-arret-impossible' $_.Exception.Message)
-            exit 2
+            return $false
         }
     }
 
@@ -382,7 +386,7 @@ if ($Activer) {
     } catch {
         Write-Fail (Get-Label 'install-service.activer-windows-refuse' $_.Exception.Message)
         try { Disable-ScheduledTask -TaskName $SERVICE_TASK -ErrorAction SilentlyContinue | Out-Null } catch { }
-        exit 2
+        return $false
     }
 
     # --- La preuve : le port ecoute ---
@@ -399,14 +403,20 @@ if ($Activer) {
         try { Write-Log -Backend $backend -Name 'install' -Level 'ERROR' `
                         -Message ("Service de machine : active puis desactive, le port " + $port + " n'ecoute pas.") } catch { }
         Show-State
-        exit 2
+        return $false
     }
 
     Write-Ok (Get-Label 'install-service.activer-en-ligne' $listening[0].OwningProcess $port)
     Write-Detail (Get-Label 'install-service.activer-au-prochain-demarrage')
     try { Write-Log -Backend $backend -Name 'install' `
                     -Message ("Service de machine : actif, PID " + $listening[0].OwningProcess + ".") } catch { }
+    return $true
+}
+
+if ($Activer) {
     Show-State
+    if (-not (Enable-ServiceTask)) { Show-State -NoTitle; exit 2 }
+    Show-State -NoTitle
     exit 0
 }
 
@@ -433,7 +443,9 @@ $null = Grant-TaskControl
 $password = $null
 [System.GC]::Collect()
 
-Write-Ok (Get-Label 'install-service.service-pret-mais-desactive')
-Write-Detail (Get-Label 'install-service.pour-basculer-pwsh-file')
+# UNE INSTALLATION INSTALLE : a la fin, l'application marche. La tache etait laissee
+# desactivee, en attendant un second geste que rien ne rendait evident -- relancer
+# l'installation dix fois n'y changeait rien.
+if (-not (Enable-ServiceTask)) { Show-State -NoTitle; exit 2 }
 Show-State -NoTitle
 exit 0

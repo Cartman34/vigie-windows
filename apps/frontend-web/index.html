@@ -2004,6 +2004,20 @@ function itemsDeMaj(j){
 // (deploiement, mise a jour, installation d'une dependance) touchent la machine entiere,
 // pas seulement la carte d'ou elles partent.
 function runningOperation(){
+  // UNE CARTE QUI N'EXISTE PLUS NE TIENT PLUS RIEN.
+  //
+  // Une carte disparue de l'etat -- la carte d'erreur d'une sonde, une fois la sonde
+  // reparee -- restait dans la page avec son marqueur « occupee ». Le verrou s'appuyait
+  // dessus et desactivait TOUS les boutons de l'interface, sans qu'aucune operation ne
+  // tourne (signale le 29/08 : « c'est grise sans raison », 31 boutons bloques).
+  //
+  // On ne nettoie que si l'on a bien recu un etat : quand le serveur ne repond pas,
+  // lastModules est vide et l'occupation en cours reste vraie.
+  if((lastModules||[]).length){
+    document.querySelectorAll('.card.busy').forEach(c => {
+      if(!lastModules.some(x => x.id === c.dataset.module)) c.remove();
+    });
+  }
   const c = document.querySelector('.card.busy');
   if(!c) return null;
   const t = c.querySelector('.card-titles .name');

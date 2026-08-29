@@ -330,7 +330,7 @@ $carteDepl = New-ModuleObject -Id 'deployment' -Theme 'accounts' -Label 'Déploi
                     "C'est aussi ce qui installe Vigie pour tout le monde, la première fois.") `
             -Reversible ("Oui : en déployant une version plus ancienne. Et si la copie échoue, rien n'est " +
                          "relancé — la version en place continue de tourner.")
-        New-Action -Id 'repair-tasks' -Label 'Vérifier le démarrage de Vigie' -Kind 'immediate' -Severity 'fix' `
+        New-Action -Id 'repair-tasks' -Label 'Réparer le démarrage de Vigie' -Kind 'immediate' -Severity 'fix' `
             -BusyLabel 'Réparation…' `
             -Help "Réécrit les tâches de démarrage de Vigie qui ne fonctionnent plus (interpréteur ou application déplacés). Ne touche à rien d'autre sur la machine."
     )
