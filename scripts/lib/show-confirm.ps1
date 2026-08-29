@@ -45,6 +45,18 @@ param(
     [string] $OkText     = 'Continuer',
     [string] $CancelText = 'Annuler',
 
+    <#
+        UNE TROISIEME ISSUE, quand la question n'est pas binaire.
+
+        « Une operation est en cours » n'appelle pas oui/non : on peut ne rien faire,
+        attendre la fin, ou forcer. Proposer deux boutons obligerait a choisir entre
+        renoncer et casser -- et l'attente, qui est souvent la bonne reponse, n'existerait
+        pas.
+
+        Code de retour 4, distinct du 0 (bouton principal) et du 3 (refus).
+    #>
+    [string] $ThirdText = '',
+
     # Note grise sous le contenu. Vide = pas de note.
     [string] $Note = "Si tu continues, Windows demandera ensuite l'autorisation administrateur.`nRien n'est modifié avant cette étape, et tu peux encore refuser.",
 
@@ -360,6 +372,20 @@ $btnNon.Location     = New-Object System.Drawing.Point(318, $y)
 # la croix ferme normalement au lieu de valoir « non ».
 $noRefusal = [string]::IsNullOrWhiteSpace($CancelText)
 
+$btnTiers = $null
+if ($ThirdText) {
+    $btnTiers              = New-Object System.Windows.Forms.Button
+    $btnTiers.Text         = $ThirdText
+    $btnTiers.DialogResult = [System.Windows.Forms.DialogResult]::Retry
+    $btnTiers.BackColor    = [System.Drawing.Color]::FromArgb(33, 38, 45)
+    $btnTiers.ForeColor    = $fg
+    $btnTiers.FlatStyle    = 'Flat'
+    $btnTiers.FlatAppearance.BorderColor = [System.Drawing.Color]::FromArgb(68, 76, 86)
+    $btnTiers.AutoSize     = $true
+    $btnTiers.Location     = New-Object System.Drawing.Point(20, $y)
+    $controles += $btnTiers
+}
+
 $controles += $btnOk
 if (-not $noRefusal) { $controles += $btnNon }
 $form.Controls.AddRange($controles)
@@ -434,4 +460,7 @@ $form.Add_Shown({ $form.Activate() })
 $res = $form.ShowDialog()
 $form.Dispose()
 if ($res -eq [System.Windows.Forms.DialogResult]::OK) { exit 0 }
+# 4 = la troisieme issue. Distincte du refus : « attendre » n'est pas « annuler », et
+# l'appelant doit pouvoir faire la difference.
+if ($res -eq [System.Windows.Forms.DialogResult]::Retry) { exit 4 }
 exit 3

@@ -221,6 +221,57 @@ public static bool Focus(System.IntPtr h) {
             return $actif
         }
 
+        <#
+            DEMANDER AU SERVEUR DE SE RELANCER LUI-MEME.
+
+            Il est deja eleve : il lance son successeur avec SES droits, et personne n'a
+            rien a autoriser -- pas meme un compte standard. C'est la voie normale.
+
+            Rend : 'ok' s'il a accepte, 'busy:<operation>' s'il refuse parce qu'une
+            operation tourne, 'ko' s'il ne repond pas -- et c'est seulement dans ce
+            dernier cas qu'on parlera d'elevation, puisqu'il n'y a plus personne pour
+            se relancer.
+        #>
+        # LA FENETRE DE QUESTION, une seule fois pour tout le tray. Rend 0 (bouton
+        # principal), 4 (troisieme issue) ou 3 (refus).
+        $askWindow = {
+            param($titre, $texte, $okText, $tiersText, $nonText)
+            try {
+                $script = Join-Path (Split-Path (Split-Path $backend -Parent) -Parent) 'scripts/lib/show-confirm.ps1'
+                if (-not (Test-Path -LiteralPath $script)) { return 3 }
+                $payload = Join-Path ([IO.Path]::GetTempPath()) ('vigie-tray-' + [guid]::NewGuid().ToString('N') + '.json')
+                # Le texte passe par un FICHIER : en argument, ses accents seraient abimes
+                # par la page de code du processus appele.
+                [IO.File]::WriteAllText($payload,
+                    (@{ title = "$titre"; summary = "$texte" } | ConvertTo-Json -Compress),
+                    (New-Object Text.UTF8Encoding($false)))
+                $argv = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $script,
+                          '-Caption', 'Vigie', '-PayloadFile', $payload,
+                          '-OkText', $okText, '-CancelText', $nonText, '-Note', '')
+                if ($tiersText) { $argv += @('-ThirdText', $tiersText) }
+                & $pwsh @argv | Out-Null
+                $code = $LASTEXITCODE
+                try { Remove-Item -LiteralPath $payload -Force -ErrorAction SilentlyContinue } catch { }
+                return $code
+            } catch { TLog ("fenetre KO : " + $_.Exception.Message); return 3 }
+        }
+
+        $askServerRestart = {
+            param([bool]$Force, [bool]$Wait)
+            try {
+                $token = Get-ApiToken -Backend $backend
+                $body  = if ($Force)   { '{"type":"server-restart","params":{"force":true}}' }
+                         elseif ($Wait) { '{"type":"server-restart","params":{"wait":true}}' }
+                         else           { '{"type":"server-restart"}' }
+                $rep = Invoke-RestMethod -Method Post -Uri ($url.TrimEnd('/') + '/api/v1/actions') `
+                            -ContentType 'application/json' -Body $body -TimeoutSec 6 `
+                            -Headers @{ Authorization = ('Bearer ' + $token); Origin = $url.TrimEnd('/') }
+                if ($rep.result -and $rep.result.busy) { return ('busy:' + $rep.result.operation) }
+                if ($rep.result -and $rep.result.ok)   { return 'ok' }
+                return 'ko'
+            } catch { return 'ko' }
+        }
+
         $startServer = {
             if (Test-ServerUp -Address $cfg.BindAddress -Port $cfg.Port) { return }
             # LA MACHINE S'EN CHARGE : on n'a rien a lancer, et surtout rien a disputer.
@@ -275,10 +326,21 @@ public static bool Focus(System.IntPtr h) {
         # Sortie PROPRE, seul chemin de fin de vie. Libere l'icone : un processus tue
         # laisse son icone en fantome dans la zone de notification, qui ne repond plus
         # a rien et affiche indefiniment le dernier etat connu.
+        <#
+            QUITTER LE TRAY QUITTE LE TRAY -- PAS LE SERVEUR.
+
+            « Quitter » arretait le serveur. C'etait defendable quand chaque session avait
+            le sien ; avec un serveur commun a la machine, quitter depuis un compte le
+            coupe pour TOUS LES AUTRES. Constate le 29/08 : sortie du tray de Famille,
+            serveur tue, tray de fhaza qui le relance, et une demande d'elevation au
+            passage -- pour quelqu'un qui voulait juste fermer une icone.
+
+            Le serveur est un service : il vit sa vie. Pour l'arreter ou le relancer, il y
+            a « Redemarrer le serveur », qui le dit.
+        #>
         $quitApp = {
             param($origine)
-            TLog ("arret demande (" + $origine + ")")
-            & $stopServer
+            TLog ("arret du tray (" + $origine + ") -- le serveur reste en marche")
             try { $icon.Visible = $false; $icon.Dispose() } catch { }
             try { Remove-Item -LiteralPath $heartbeat -Force -ErrorAction SilentlyContinue } catch { }
             [System.Windows.Forms.Application]::Exit()
@@ -668,13 +730,62 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
         [void]$menu.Items.Add($miInfo)
         [void]$menu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator))
         [void]$menu.Items.Add('Relancer l''application', $null, [System.EventHandler]$relaunch)
-        [void]$menu.Items.Add('Redémarrer le serveur', $null, [System.EventHandler]{
-            # UN GESTE VOLONTAIRE REOUVRE LA DEMANDE D'ELEVATION : c'est ici, et nulle
-            # part ailleurs, qu'on represente la fenetre UAC a un compte standard.
+        <#
+            TROIS ISSUES QUAND UNE OPERATION TOURNE.
+
+            Couper un deploiement en deux laisse une installation a moitie faite. On ne
+            decide pas a la place de la personne : on lui dit ce qui tourne, et on lui
+            laisse le choix -- ne rien faire, attendre la fin, ou forcer.
+
+            « Attendre » ne guette pas indefiniment : au bout de dix minutes on renonce et
+            on le dit. Une attente silencieuse et sans fin est un blocage deguise.
+        #>
+        $restartServer = {
+            $r = & $askServerRestart $false $false
+
+            if ("$r".StartsWith('busy:')) {
+                $operation = "$r".Substring(5)
+                $choix = & $askWindow (Get-Label 'tray.relance-operation-titre') `
+                                      (Get-Label 'tray.relance-operation-texte' $operation) `
+                                      (Get-Label 'tray.relance-forcer') `
+                                      (Get-Label 'tray.relance-attendre') `
+                                      (Get-Label 'tray.relance-rien')
+                if ($choix -eq 0) { $r = & $askServerRestart $true $false }        # forcer
+                elseif ($choix -eq 4) {
+                    # C'EST LE SERVEUR QUI ATTEND. Il sait ce qui tourne, et son relanceur
+                    # est detache : lui faire garder la question evite au tray une boucle
+                    # de sondage et un delai arbitraire.
+                    TLog "relance : le serveur attendra la fin de l'operation"
+                    $r = & $askServerRestart $false $true
+                }
+                else { return }                                            # ne rien faire
+            }
+
+            if ($r -eq 'ok') {
+                TLog "relance demandee au serveur (il s'en charge)"
+                $state.StartTicks = [datetime]::UtcNow.Ticks
+                $state.Starting   = $true
+                & $setIcon 'warn'; $state.Drawn = 'warn'
+                $icon.Text = (Get-Label 'tray.infobulle-etat' $trayAccount 'Démarrage…')
+                $miInfo.Text = 'État : Démarrage…'
+                return
+            }
+
+            # LE SERVEUR NE REPOND PAS : il n'y a plus personne pour se relancer. C'est le
+            # seul cas ou l'on parle d'elevation, et on le DIT avant de la demander.
+            $suite = & $askWindow (Get-Label 'tray.relance-mort-titre') `
+                                  (Get-Label 'tray.relance-mort-texte') `
+                                  (Get-Label 'tray.relance-mort-ok') '' `
+                                  (Get-Label 'tray.relance-rien')
+            if ($suite -ne 0) { return }
             $state.ElevationAsked = $false
             & $stopServer
             Start-Sleep -Milliseconds 600
             & $startServer
+        }
+
+        [void]$menu.Items.Add('Redémarrer le serveur', $null, [System.EventHandler]{
+            & $restartServer
             # Retour visuel immediat : sans cela l'icone garde son etat jusqu'au prochain
             # sondage (8 s) et l'utilisateur voit un rouge qui n'a pas lieu d'etre.
             & $setIcon 'warn'; $state.Drawn = 'warn'
