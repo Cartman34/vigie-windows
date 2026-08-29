@@ -50,57 +50,15 @@ if (-not $force -and -not $wait) {
     }
 }
 
-$cfg   = Get-Config -Backend $backend
-$port  = [int]$cfg.Port
 $start = Join-Path $backend 'start.ps1'
 if (-not (Test-Path -LiteralPath $start)) {
     return @{ message = (Get-Label 'server-restart.introuvable' $start); result = @{ ok = $false } }
 }
 
-$pwsh = $null
-try { $pwsh = (Get-Process -Id $PID).Path } catch { }
-if (-not $pwsh) { $pwsh = 'pwsh.exe' }
-
-# Le relanceur, en une commande : il arrete CE serveur, attend que le port se libere,
-# puis lance le suivant. Il herite des droits du serveur, donc il en a assez.
-# LE RELANCEUR ATTEND, s'il le faut, que plus aucune operation ne tienne la machine.
-# Il n'a pas de limite de temps : une operation qui dure a une raison de durer, et
-# l'interrompre est precisement ce qu'on veut eviter.
-# Le dossier des marques d'occupation vient de Get-VarPath, jamais d'un chemin recompose :
-# une seule definition, et elle vit dans common.ps1.
-$runDir = Get-VarPath -Backend $backend -Kind 'run'
-$attente = if ($wait) { @"
-`$run = '$runDir'
-while (`$true) {
-    `$marques = @(Get-ChildItem -LiteralPath `$run -Filter 'busy-*.json' -File -ErrorAction SilentlyContinue)
-    if (-not `$marques.Count) { break }
-    Start-Sleep -Seconds 3
-}
-"@ } else { '' }
-
-$script = @"
-Start-Sleep -Milliseconds 400
-$attente
-try { Stop-Process -Id $PID -Force -ErrorAction SilentlyContinue } catch { }
-`$fin = (Get-Date).AddSeconds(30)
-while ((Get-Date) -lt `$fin) {
-    `$occupe = `$null
-    try { `$occupe = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction Stop } catch { }
-    if (-not `$occupe) { break }
-    Start-Sleep -Milliseconds 300
-}
-Start-Process -FilePath '$pwsh' -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','$start' -WindowStyle Hidden
-"@
-
+# LE RELANCEUR EST COMMUN (Start-ServerRelauncher) : la mise a jour emprunte exactement le
+# meme chemin. Deux copies du meme geste, c'est une correction sur deux qui se perd.
 try {
-    $psi = New-Object System.Diagnostics.ProcessStartInfo
-    $psi.FileName = $pwsh
-    $psi.UseShellExecute = $false
-    $psi.CreateNoWindow  = $true
-    foreach ($a in @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $script)) {
-        [void]$psi.ArgumentList.Add($a)
-    }
-    [void][System.Diagnostics.Process]::Start($psi)
+    $null = Start-ServerRelauncher -StartScript $start -Wait:$wait -Backend $backend
 } catch {
     return @{ message = (Get-Label 'server-restart.echec' $_.Exception.Message); result = @{ ok = $false } }
 }

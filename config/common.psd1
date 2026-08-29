@@ -18,4 +18,10 @@
     # dans sa propre config : Vigie 47600, Atelier 47610.
     PortRangeStart = 47600
     PortRangeEnd   = 47699
+
+    # Le depot public : d'ou viennent les mises a jour, et a quoi une machine ordinaire se
+    # compare pour savoir si elle est a jour. L'adresse etait ecrite dans vigie-fetch ET
+    # dans le calcul de la carte : une valeur, une definition (D15).
+    Repository    = 'Cartman34/vigie-windows'
+    RepositoryUrl = 'https://github.com/Cartman34/vigie-windows.git'
 }

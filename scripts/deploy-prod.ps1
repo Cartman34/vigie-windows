@@ -160,6 +160,19 @@ try {
         }
         Write-Info (Get-Label 'deploy-prod.reglages-de-la-machine')
     }
+    # D'OU VIENT CETTE COPIE. Une installation deployee n'a pas de depot git : sans cette
+    # trace, elle ne peut pas savoir si le code a avance depuis, et la carte Deploiement se
+    # comparait a elle-meme en se declarant « conforme ». On l'ecrit A LA DESTINATION,
+    # jamais dans l'archive : une release publiee ne doit pas trainer le chemin du poste
+    # qui l'a fabriquee.
+    if (Test-Path -LiteralPath (Join-Path $repoRoot '.git')) {
+        try {
+            Set-BuildOrigin -Root $Destination -Origin $repoRoot
+            Write-Detail (Get-Label 'deploy-prod.provenance-inscrite' $repoRoot)
+        } catch {
+            Write-Warn (Get-Label 'deploy-prod.provenance-non-inscrite' $_.Exception.Message)
+        }
+    }
 } finally {
     Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue
 }

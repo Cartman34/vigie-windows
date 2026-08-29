@@ -84,25 +84,52 @@ if ($partagee) {
     $niveau = 'ok'
     $detail = "Installation partagée : " + (Get-SharedInstallPath)
     if ($cmp) {
-        $detail += [Environment]::NewLine + "Déployée : " + $cmp.there.version +
-                   $(if ($cmp.there.commit) { " (" + $cmp.there.commit.Substring(0, [Math]::Min(8, $cmp.there.commit.Length)) + ")" } else { " (commit inconnu)" })
-        $detail += [Environment]::NewLine + "Ce dépôt : " + $cmp.here.version +
-                   $(if ($cmp.here.commit) { " (" + $cmp.here.commit.Substring(0, [Math]::Min(8, $cmp.here.commit.Length)) + ")" } else { "" })
         # LA VALEUR DIT CE QUE C'EST, la COULEUR dit que ca ne va pas, le DETAIL
         # explique (regle utilisateur du 27/08 : « juste la version en orange, ca
         # suffit a savoir qu'il y a un souci »). Une ligne de carte se lit d'un coup
         # d'oeil ; la phrase entiere tient dans l'infobulle.
         $etat = $cmp.there.version
-        if ($cmp.same) {
-            $pourquoi = "Elle correspond exactement au dépôt : les autres comptes lancent la même version que vous."
-        } elseif ($null -ne $cmp.behind -and $cmp.behind -gt 0) {
-            $niveau = 'warn'
-            $pourquoi = "Elle est en retard de $($cmp.behind) commit(s) sur le dépôt : les autres comptes n'ont pas vos dernières corrections."
-        } elseif (-not $cmp.there.commit) {
-            $niveau = 'warn'
-            $pourquoi = "Elle a été déployée avant que Vigie ne marque ses archives : impossible de dire à quel commit elle correspond."
+        $detail += [Environment]::NewLine + "Déployée : " + $cmp.there.version +
+                   $(if ($cmp.there.commit) { " (" + $cmp.there.commit.Substring(0, [Math]::Min(8, $cmp.there.commit.Length)) + ")" } else { " (commit inconnu)" })
+
+        <#
+            A QUOI COMPARE-T-ON ? La question a une reponse differente selon la machine, et
+            l'ancienne version n'en posait aucune : elle comparait a « ici », qui EST
+            l'installation quand l'app serveur tourne dedans. Elle se declarait donc
+            conforme a elle-meme, quoi qu'il arrive.
+
+            On DIT desormais la reference, et quand il n'y en a pas, on dit ca aussi --
+            plutot que de rassurer sans rien savoir.
+        #>
+        if ($cmp.reference -eq 'depot') {
+            $detail += [Environment]::NewLine + "Dépôt de ce poste : " + $cmp.here.version +
+                       $(if ($cmp.here.commit) { " (" + $cmp.here.commit.Substring(0, [Math]::Min(8, $cmp.here.commit.Length)) + ")" } else { "" })
+            $detail += [Environment]::NewLine + $cmp.repo
+            if ($cmp.same) {
+                $pourquoi = "Elle correspond exactement au dépôt de ce poste : les autres comptes lancent la même version que vous."
+            } elseif ($null -ne $cmp.behind -and $cmp.behind -gt 0) {
+                $niveau = 'warn'
+                $pourquoi = "Elle est en retard de $($cmp.behind) commit(s) sur le dépôt : les autres comptes n'ont pas vos dernières corrections."
+            } elseif (-not $cmp.there.commit) {
+                $niveau = 'warn'
+                $pourquoi = "Elle a été déployée avant que Vigie ne marque ses archives : impossible de dire à quel commit elle correspond."
+            } else {
+                $niveau = 'warn'
+                $pourquoi = "Elle diffère du dépôt de ce poste."
+            }
+        } elseif ($cmp.reference -eq 'publiee') {
+            $detail += [Environment]::NewLine + "Dernière version publiée : " + $cmp.here.version
+            if ($cmp.same) {
+                $pourquoi = "C'est la dernière version publiée : il n'y a rien à mettre à jour."
+            } else {
+                $niveau = 'warn'
+                $pourquoi = "Une version plus récente est publiée ($($cmp.here.version))."
+            }
         } else {
-            $pourquoi = "Elle diffère du dépôt."
+            # NI DEPOT, NI RESEAU. On ne sait pas, et on le dit : « conforme » par defaut
+            # est le pire des verdicts, il rassure sans rien savoir.
+            $niveau = 'neutral'
+            $pourquoi = "Impossible de dire si elle est à jour : aucun dépôt sur ce poste, et la liste des versions publiées n'a pas pu être consultée."
         }
         $detail = $pourquoi + [Environment]::NewLine + [Environment]::NewLine + $detail
     }

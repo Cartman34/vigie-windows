@@ -26,7 +26,7 @@ ligne — `scripts/dev/check-doc.ps1` refuse une décision absente d'ici.
 - **Documentation** — D91 · D92 · D93 · D98
 - **Configuration** — D15 · D18 · D56 · D57
 - **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46 · D48 · D49 · D50 · D58 · D59 · D66 · D68 · D69 · D70 · D71 · D88 · D89 · D94 · D95 · D102 · D105
-- **Installation, déploiement et mise à jour** — D07 · D11 · D22 · D77 · D78 · D79 · D81 · D84 · D87 · D96 · D97 · D99 · D101 · D106 · D107
+- **Installation, déploiement et mise à jour** — D07 · D11 · D22 · D77 · D78 · D79 · D81 · D84 · D87 · D96 · D97 · D99 · D101 · D106 · D107 · D110
 - **Sécurité, droits et multi-comptes** — D34 · D65 · D67 · D73 · D104 · D109
 - **Sondes, actions et tâches de fond** — D50bis · D53 · D54 · D60 · D61 · D80 · D82 · D83 · D85
 - **Outillage** — D06 · D21 · D24 · D40 · D44 · D47 · D52 · D64 · D75 · D86 · D90
@@ -2847,3 +2847,35 @@ pour qui recalculer.
 
 **Deux garde-fous dans `check-probes`** : `$env:USERNAME` en clair est refusé hors de son enveloppe, et une sonde qui lit
 la liste des comptes ou le demandeur doit déclarer `PerAccount`.
+
+---
+
+## D110 — Une installation sait d'où elle vient, et se compare à la bonne référence (2026-08-29)
+
+La carte Déploiement affichait « Conforme » en permanence. Elle comparait l'installation partagée à `Get-RepoRoot` — et
+depuis que l'app serveur tourne depuis `C:\Program Files\Sowapps\Vigie`, `Get-RepoRoot` **rend cette installation**.
+Elle se comparait donc à elle-même. Le bouton « Mettre à jour » avait le même angle mort : sans `.git` autour d'elle,
+il partait chercher la dernière version publiée alors que le poste avait un dépôt en avance de neuf commits.
+
+**Le déploiement inscrit sa provenance.** `Set-BuildOrigin` écrit le chemin du dépôt d'origine dans le `BUILD` de la
+copie posée — **à la destination, jamais dans l'archive** : une release publiée ne doit pas traîner le chemin du poste
+qui l'a fabriquée. `Get-SourceRepoPath` la relit, et vérifie que ce dépôt est encore là avant d'y croire.
+
+**La référence dépend de la machine, et elle est dite :**
+
+| | |
+|---|---|
+| un dépôt existe sur le poste | on compare les **commits** — « en retard de N commits » |
+| aucun dépôt | on compare à la **dernière version publiée**, consultée au plus une fois par demi-journée |
+| ni l'un ni l'autre | on **dit qu'on ne sait pas**. « Conforme » par défaut est le pire des verdicts : il rassure sans rien savoir |
+
+**Et la mise à jour va jusqu'au bout.** Lancée depuis l'installation, elle passe la main au dépôt d'origine quand il est
+lisible. À la fin, **les deux applications** se relancent : l'ordre `restart` va aux app clientes, et l'app serveur se
+relance elle-même avec ses propres droits (**D65**). Elle restait sur l'ancien code après chaque mise à jour — le
+commentaire du code affirmait encore que l'app cliente s'en chargeait, ce qui n'est plus vrai.
+
+Le relanceur est **une seule mise en œuvre** (`Start-ServerRelauncher`), appelée par le bouton « Redémarrer » et par la
+mise à jour. Il attend la fin des opérations en cours : celle qui tourne, c'est justement la mise à jour.
+
+Enfin, l'adresse du dépôt public vit dans `config/common.psd1` (**D15**) : elle était écrite dans `vigie-fetch` et dans
+le calcul de la carte.

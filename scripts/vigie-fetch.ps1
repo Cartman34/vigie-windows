@@ -38,8 +38,10 @@ param(
     # Rapporter meme si la version trouvee n'est pas plus recente que celle en place.
     [switch] $Force,
 
-    [string] $Depot   = 'https://github.com/Cartman34/vigie-windows.git',
-    [string] $ApiRepo = 'Cartman34/vigie-windows'
+    # Vides par defaut : l'adresse vient de la configuration commune (voir plus bas).
+    # Elles restent surchargeables en parametre, pour un fork ou un essai.
+    [string] $Depot,
+    [string] $ApiRepo
 )
 
 $ErrorActionPreference = 'Stop'
@@ -47,6 +49,12 @@ $repoRoot = Split-Path $PSScriptRoot -Parent
 . (Join-Path $repoRoot 'scripts/lib/console-ui.ps1')   # le meme affichage que partout
 . (Join-Path $repoRoot 'apps/backend-pode/lib/common.ps1')
 $backend = Join-Path $repoRoot 'apps/backend-pode'
+# L'ADRESSE DU DEPOT VIENT DE LA CONFIGURATION, jamais d'un litteral recopie ici.
+if (-not $Depot -or -not $ApiRepo) {
+    $cfgRepo = Get-Config -Backend $backend
+    if (-not $ApiRepo) { $ApiRepo = "$($cfgRepo.Repository)" }
+    if (-not $Depot)   { $Depot   = "$($cfgRepo.RepositoryUrl)" }
+}
 
 function Noter {
     param([string]$T, [string]$N = 'INFO')

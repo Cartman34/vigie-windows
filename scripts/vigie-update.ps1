@@ -51,6 +51,39 @@ $repoRoot = Split-Path $PSScriptRoot -Parent
 $backend = Join-Path $repoRoot 'apps/backend-pode'
 $pwsh    = (Get-Process -Id $PID).Path
 
+<#
+    ON MET A JOUR DEPUIS LE DEPOT, QUAND IL Y EN A UN.
+
+    Lancee depuis l'installation partagee, cette mise a jour ne voyait aucun depot autour
+    d'elle : elle partait donc chercher la derniere version PUBLIEE, alors que le poste a
+    un depot local en avance de plusieurs commits. Sur une machine de developpement, ce
+    n'est pas ce qu'on demande.
+
+    L'installation sait d'ou elle vient (Set-BuildOrigin, pose au deploiement). Si ce depot
+    est encore la et lisible, on lui PASSE LA MAIN : c'est lui qui sait fabriquer, poser le
+    tag et deployer. Aucune recursion possible -- vu depuis le depot, la source, c'est
+    lui-meme.
+
+    S'il a disparu, ou si le compte qui execute ne peut pas le lire, Get-SourceRepoPath rend
+    $null et l'on reprend la voie normale : la version publiee.
+#>
+$source = $null
+try { $source = Get-SourceRepoPath } catch { }
+if ($source -and ($source.TrimEnd([char]92, [char]47) -ne $repoRoot.TrimEnd([char]92, [char]47))) {
+    $relayScript = Join-Path (Join-Path $source 'scripts') 'vigie-update.ps1'
+    if (Test-Path -LiteralPath $relayScript) {
+        Write-Info (Get-Label 'vigie-update.depuis-le-depot' $source)
+        $argv = @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $relayScript + '"'))
+        foreach ($p in $PSBoundParameters.GetEnumerator()) {
+            if ($p.Value -is [switch]) { if ($p.Value.IsPresent) { $argv += ('-' + $p.Key) } }
+            else                       { $argv += @(('-' + $p.Key), ('"' + $p.Value + '"')) }
+        }
+        $relayRun = Start-Process -FilePath $pwsh -ArgumentList $argv -Wait -PassThru -WindowStyle Hidden
+        exit $relayRun.ExitCode
+    }
+    Write-Warn (Get-Label 'vigie-update.depot-sans-script' $source)
+}
+
 $avant = $null
 try { $avant = Get-BuildStamp -Root $repoRoot } catch { }
 Write-Host (Get-Label 'vigie-update.version-de-depart' $(if ($avant -and $avant.version) { $avant.version } else { 'inconnue' }) $(if ($avant -and $avant.commit) { " (" + $avant.commit.Substring(0, 8) + ")" } else { "" }))
@@ -146,7 +179,27 @@ if ($p.ExitCode -ne 0) {
 }
 
 # --- 3. Relance ----------------------------------------------------------------------
-# Le tray relance le serveur AVEC lui (D78) : c'est ce qui charge le nouveau code.
+#
+# DEUX APPLICATIONS, DEUX RELANCES. L'app cliente se relance sur ordre ; l'app serveur se
+# relance ELLE-MEME, avec ses propres droits (D65). Le commentaire disait encore que le
+# tray relancait le serveur avec lui : ce n'est plus vrai depuis qu'une relance passe par
+# le serveur, et la mise a jour laissait donc l'app serveur sur l'ANCIEN code.
+#
+# Le relanceur ATTEND la fin des operations en cours : celle qui tourne, c'est justement
+# cette mise a jour. Il redemarre donc quand elle a fini, pas au milieu.
+$installed = Get-SharedInstallPath
+if ($installed) {
+    $startScript = Join-Path (Join-Path (Join-Path $installed 'apps') 'backend-pode') 'start.ps1'
+    try {
+        $previousPid = Start-ServerRelauncher -StartScript $startScript -Wait -Backend $backend
+        Write-Info (Get-Label 'vigie-update.app-serveur-relance' $previousPid)
+    } catch {
+        # Pas d'app serveur en marche : c'est le cas d'une premiere installation, et il n'y
+        # a rien a relancer. On le dit sans en faire un echec.
+        Write-Detail (Get-Label 'vigie-update.app-serveur-pas-relancee' $_.Exception.Message)
+    }
+}
+
 $tray = Join-Path $PSScriptRoot 'tray.ps1'
 if (-not (Test-Path -LiteralPath $tray)) {
     Write-Warn (Get-Label 'vigie-update.le-deploiement-est-fait')

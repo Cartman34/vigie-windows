@@ -1309,6 +1309,56 @@ function Get-BuildStamp {
     }
 }
 
+<#
+    D'OU VIENT CETTE INSTALLATION ?
+
+    Une copie deployee n'a pas de depot git : elle ne peut donc pas savoir si le code a
+    avance depuis. Tant que l'app serveur tournait DANS le depot, la question ne se posait
+    pas -- Get-RepoRoot rendait le depot. Depuis qu'elle tourne depuis Program Files,
+    Get-RepoRoot rend l'installation elle-meme : la carte Deploiement se comparait a
+    elle-meme et se declarait « conforme » quoi qu'il arrive (constate le 29/08).
+
+    Le deploiement INSCRIT donc sa provenance dans le BUILD de la copie posee. Ce n'est
+    pas un reglage a saisir : c'est un fait connu au moment ou l'on copie.
+
+    Ecrit a la DESTINATION, jamais dans l'archive : une release publiee ne doit pas
+    trainer le chemin du poste qui l'a fabriquee.
+#>
+function Set-BuildOrigin {
+    param([Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][string]$Origin)
+    $f = Join-Path $Root 'BUILD'
+    $o = [ordered]@{}
+    if (Test-Path -LiteralPath $f) {
+        try {
+            $j = Get-Content -LiteralPath $f -Raw | ConvertFrom-Json
+            foreach ($pr in $j.PSObject.Properties) { $o[$pr.Name] = $pr.Value }
+        } catch { }
+    }
+    $o['origin'] = $Origin
+    ($o | ConvertTo-Json -Depth 4) | Out-File -FilePath $f -Encoding UTF8
+}
+
+<#
+    LE DEPOT SOURCE DE CETTE MACHINE, ou $null.
+
+    Trois cas, un seul resultat :
+      - on tourne DANS un depot -> c'est lui ;
+      - on tourne depuis une installation qui sait d'ou elle vient, et ce depot est
+        toujours la -> c'est lui ;
+      - machine ordinaire -> $null, et la reference devient la version publiee. C'est la
+        bonne question la-bas : personne n'y a de depot.
+#>
+function Get-SourceRepoPath {
+    $here = Get-RepoRoot
+    if (Test-PathSafe (Join-Path $here '.git')) { return $here }
+    $stamp = Get-BuildStamp -Root $here
+    $origin = "$($stamp.origin)"
+    if (-not $origin) { return $null }
+    # Le depot a pu etre deplace ou supprime depuis : on verifie qu'il en est encore un.
+    if (-not (Test-PathSafe (Join-Path $origin '.git'))) { return $null }
+    return $origin
+}
+
 # Ecrit la marque : appele par la fabrication de l'archive, une seule fois.
 function Write-BuildStamp {
     param([Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][string]$Version, [string]$Commit)
@@ -1319,29 +1369,181 @@ function Write-BuildStamp {
 
 # L'installation partagee est-elle a jour par rapport a ce depot ? Rend un constat
 # lisible, jamais un simple booleen : « pareil », « en retard de 12 commits », « inconnu ».
+<#
+    L'INSTALLATION PARTAGEE EST-ELLE A JOUR -- ET PAR RAPPORT A QUOI ?
+
+    La reference n'est pas la meme partout, et c'etait tout le defaut : on comparait
+    toujours a « Get-RepoRoot », qui EST l'installation quand l'app serveur tourne dedans.
+
+      - un depot existe sur le poste -> reference « depot » : on compare les commits ;
+      - sinon -> reference « publiee » : sur une machine ordinaire, la seule chose qui a
+        du sens est la derniere version publiee.
+
+    Rien n'est devine : quand on ne peut pas trancher, `same` vaut $null et l'appelant le
+    DIT. « Conforme » par defaut est le pire des verdicts -- il rassure sans rien savoir.
+#>
 function Compare-SharedInstall {
     param([string]$Backend = (Get-BackendRoot))
     $partagee = Get-SharedInstallPath
     if (-not $partagee) { return $null }
-    $ici = Get-BuildStamp -Root (Get-RepoRoot)
-    $la  = Get-BuildStamp -Root $partagee
-    $ecart = $null
-    if ($ici.commit -and $la.commit) {
-        if ($ici.commit -eq $la.commit) { $ecart = 0 }
-        else {
-            try {
-                $git = (Get-Command git -ErrorAction SilentlyContinue)
-                if ($git) {
-                    $c = (& $git.Source -C (Get-RepoRoot) rev-list --count ("$($la.commit)..$($ici.commit)") 2>$null | Select-Object -First 1)
-                    if ($c -match '^\d+$') { $ecart = [int]$c }
-                }
-            } catch { }
+    $there     = Get-BuildStamp -Root $partagee
+    $repo  = Get-SourceRepoPath
+    $behind  = $null
+    $here    = $null
+    $same = $null
+    $reference = 'aucune'
+
+    if ($repo -and ($repo.TrimEnd([char]92, [char]47) -ne "$partagee".TrimEnd([char]92, [char]47))) {
+        $reference = 'depot'
+        $here = Get-BuildStamp -Root $repo
+        if ($here.commit -and $there.commit) {
+            if ($here.commit -eq $there.commit) { $behind = 0; $same = $true }
+            else {
+                $same = $false
+                try {
+                    $git = (Get-Command git -ErrorAction SilentlyContinue)
+                    if ($git) {
+                        $c = (& $git.Source -C $repo rev-list --count ("$($there.commit)..$($here.commit)") 2>$null | Select-Object -First 1)
+                        if ($c -match '^\d+$') { $behind = [int]$c }
+                    }
+                } catch { }
+            }
+        }
+    } else {
+        $published = Get-LatestPublishedVersion -Backend $Backend
+        if ($published) {
+            $reference = 'publiee'
+            $here = [pscustomobject][ordered]@{ version = $published; commit = $null; at = $null; source = 'release' }
+            $same = (Test-SameVersion -A $published -B "$($there.version)")
         }
     }
+
     [pscustomobject][ordered]@{
-        path = $partagee; here = $ici; there = $la; behind = $ecart
-        same = ($ici.commit -and $la.commit -and $ici.commit -eq $la.commit)
+        path = $partagee; here = $here; there = $there; behind = $behind
+        reference = $reference; repo = $repo; same = $same
     }
+}
+
+# Deux numeros designent-ils la meme version ? « v0.1.26 » et « 0.1.26 » : oui.
+function Test-SameVersion {
+    param([string]$A, [string]$B)
+    return (("$A".TrimStart('v', 'V').Trim()) -eq ("$B".TrimStart('v', 'V').Trim()))
+}
+
+<#
+    LA DERNIERE VERSION PUBLIEE, ou $null.
+
+    Interrogee au plus une fois par demi-journee : la reponse change rarement, et une carte
+    ne doit pas dependre du reseau pour s'afficher. Hors ligne, quota GitHub atteint,
+    depot prive : on rend $null, et la carte dit « pas encore verifie » plutot que
+    d'inventer un verdict.
+
+    L'ECHEC EST ENREGISTRE LUI AUSSI : sans cela, une machine hors ligne rappellerait
+    GitHub a chaque affichage.
+#>
+function Get-LatestPublishedVersion {
+    param([string]$Backend = (Get-BackendRoot))
+    $f = Get-VarPath -Backend $Backend -Kind 'cache' -File 'published-version.json'
+    if (Test-Path -LiteralPath $f) {
+        try {
+            $j = Get-Content -LiteralPath $f -Raw | ConvertFrom-Json
+            $age = ((Get-Date).ToUniversalTime() - (ConvertTo-UtcDate $j.at)).TotalHours
+            if ($age -lt 12) { return $(if ($j.version) { "$($j.version)" } else { $null }) }
+        } catch { }
+    }
+    $version = $null
+    try {
+        $repo = "$((Get-Config -Backend $Backend).Repository)"
+        if (-not $repo) { $repo = 'Cartman34/vigie-windows' }
+        $rep = Invoke-RestMethod -Uri ('https://api.github.com/repos/' + $repo + '/releases/latest') `
+                                 -Headers @{ 'User-Agent' = 'Vigie'; 'Accept' = 'application/vnd.github+json' } `
+                                 -TimeoutSec 8 -ErrorAction Stop
+        if ($rep -and $rep.tag_name) { $version = "$($rep.tag_name)" }
+    } catch { }
+    try {
+        (@{ at = (Get-Date).ToUniversalTime().ToString('o'); version = $version } | ConvertTo-Json) |
+            Set-Content -LiteralPath $f -Encoding UTF8
+    } catch { }
+    return $version
+}
+
+<#
+    RELANCER L'APP SERVEUR -- UNE SEULE MISE EN OEUVRE.
+
+    Elle vivait dans l'action « server-restart ». La mise a jour en avait besoin aussi, et
+    la recopier aurait fait deux chemins pour un seul geste : le jour ou l'un est corrige,
+    l'autre ment. Elle est donc ici, et les deux appellent la meme.
+
+    ON NE PEUT PAS SE TUER ET SE RELANCER SOI-MEME : le processus qui meurt n'execute plus
+    rien. Un RELANCEUR DETACHE s'en charge -- il arrete le serveur, attend que le port se
+    libere, puis demarre le suivant. Il attend le PORT et non un delai : deux serveurs sur
+    le meme port, c'est le second qui meurt.
+
+    -Wait : attendre que plus aucune operation ne tienne la machine. Sans limite de temps,
+    volontairement -- une operation qui dure a une raison de durer, et l'interrompre est
+    precisement ce qu'on veut eviter. C'est ainsi que la mise a jour se relance : elle
+    demande la relance en commencant, et le relanceur patiente jusqu'a ce qu'elle ait fini.
+
+    LE PID VIENT DU PORT, pas de $PID : l'appelant n'est pas toujours le serveur. Le
+    script de demarrage, lui, est DIT par l'appelant -- c'est celui de l'installation qui
+    tourne, pas forcement celui du depot d'ou l'on parle.
+#>
+function Start-ServerRelauncher {
+    param(
+        [Parameter(Mandatory)][string]$StartScript,
+        [int]$Port = 0,
+        [switch]$Wait,
+        [string]$Backend = (Get-BackendRoot)
+    )
+    if (-not (Test-PathSafe $StartScript)) { throw ("start.ps1 introuvable : " + $StartScript) }
+    if (-not $Port) { $Port = [int](Get-Config -Backend $Backend).Port }
+
+    $target = $null
+    try {
+        $c = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction Stop
+        if ($c) { $target = [int]$c[0].OwningProcess }
+    } catch { }
+    if (-not $target) { throw ("Aucune app serveur n'ecoute sur le port " + $Port + ".") }
+
+    $pwsh = $null
+    try { $pwsh = (Get-Process -Id $PID).Path } catch { }
+    if (-not $pwsh) { $pwsh = 'pwsh.exe' }
+
+    # Le dossier des marques d'occupation vient de Get-VarPath, jamais d'un chemin
+    # recompose : une seule definition, et elle vit ici.
+    $runDir = Get-VarPath -Backend $Backend -Kind 'run'
+    $waitBlock = if ($Wait) { @"
+`$run = '$runDir'
+while (`$true) {
+    `$marques = @(Get-ChildItem -LiteralPath `$run -Filter 'busy-*.json' -File -ErrorAction SilentlyContinue)
+    if (-not `$marques.Count) { break }
+    Start-Sleep -Seconds 3
+}
+"@ } else { '' }
+
+    $script = @"
+Start-Sleep -Milliseconds 400
+$waitBlock
+try { Stop-Process -Id $target -Force -ErrorAction SilentlyContinue } catch { }
+`$fin = (Get-Date).AddSeconds(30)
+while ((Get-Date) -lt `$fin) {
+    `$occupe = `$null
+    try { `$occupe = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction Stop } catch { }
+    if (-not `$occupe) { break }
+    Start-Sleep -Milliseconds 300
+}
+Start-Process -FilePath '$pwsh' -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','$StartScript' -WindowStyle Hidden
+"@
+
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $pwsh
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow  = $true
+    foreach ($a in @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $script)) {
+        [void]$psi.ArgumentList.Add($a)
+    }
+    [void][System.Diagnostics.Process]::Start($psi)
+    return $target
 }
 
 # --- Journalisation ---------------------------------------------------------
