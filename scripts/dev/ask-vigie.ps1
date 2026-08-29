@@ -35,7 +35,12 @@ param(
     [switch] $Modules,
     # -Raw : le JSON brut, pour enchainer avec jq. Sinon, un rendu lisible.
     [switch] $Raw,
-    [int] $Port = 0
+    [int] $Port = 0,
+
+    # -Out : ecrire la reponse dans un fichier, en UTF-8. Rediriger la sortie du terminal
+    # la reencode dans la page de code de la console -- les accents arrivent casses et le
+    # JSON n'est plus lisible par un outil. On ecrit donc nous-memes.
+    [string] $Out
 )
 
 $ErrorActionPreference = 'Stop'
@@ -110,7 +115,11 @@ foreach ($attempt in 1..3) {
                     [System.Net.Http.HttpMethod]::Get, ($url + '/?t=' + $reply.ticket))
         $req.Headers.Add('Origin', $url)
         $req.Headers.ConnectionClose = $true
-        $rep = $client.SendAsync($req).GetAwaiter().GetResult()
+        # ON S ARRETE AUX EN-TETES. Le cookie est dans l'en-tete ; le corps fait 220 Ko
+        # dont on n'a aucun usage, et c'est justement sa copie qui casse (« Error while
+        # copying content to a stream »). Ne pas lire ce qu'on ne veut pas est plus sur
+        # que de reessayer de le lire.
+        $rep = $client.SendAsync($req, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).GetAwaiter().GetResult()
         $brut = $null
         if ($rep.Headers.Contains('Set-Cookie')) { $brut = @($rep.Headers.GetValues('Set-Cookie')) }
         $valeur = $null
@@ -138,7 +147,9 @@ if (-not $session) {
 # --- 3. La question ----------------------------------------------------------------------
 try {
     if ($Modules) {
-        $data = Invoke-RestMethod -Method Get -Uri ($url + '/api/v1/modules') `
+        # « /state » : l'etat complet, cartes comprises. « /modules/:id » ne rend qu'une
+        # carte, et « /modules » n'existe pas -- c'est ce que j'avais ecrit, d'ou un 404.
+        $data = Invoke-RestMethod -Method Get -Uri ($url + '/api/v1/state') `
                                   -WebSession $session -Headers @{ Origin = $url } -TimeoutSec 120
     } else {
         if (-not $Type) { Write-Fail (Get-Label 'ask-vigie.quelle-question'); exit 2 }
@@ -160,6 +171,11 @@ try {
 # profondeur comprise -- un ConvertTo-Json trop court affiche « System.Object[] », et un
 # outil de diagnostic qui cache ce qu'il a trouve ne sert a rien (vu sur check-naming).
 $json = $data | ConvertTo-Json -Depth 12
+if ($Out) {
+    [System.IO.File]::WriteAllText($Out, $json, (New-Object System.Text.UTF8Encoding($false)))
+    Write-Ok (Get-Label 'ask-vigie.reponse-ecrite' $Out)
+    exit 0
+}
 if ($Raw) { $json; exit 0 }
 
 Write-Title (Get-Label 'ask-vigie.titre' $account)

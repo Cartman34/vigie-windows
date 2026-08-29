@@ -1678,7 +1678,11 @@ function Get-LogDir {
 }
 function Write-Log {
     param(
-        [Parameter(Mandatory)][string]$Message,
+        # UNE LIGNE VIDE EST UNE LIGNE. Le journal d'installation relaie ce qu'affiche
+        # chaque sous-script, blancs de mise en page compris : sans cette autorisation,
+        # chaque respiration produisait un « Cannot bind argument to parameter Message »
+        # dans le transcript -- du bruit rouge sur une installation qui se passait bien.
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Message,
         [string]$Level = 'INFO',
         [string]$Name  = 'app',
         [string]$Backend = (Get-BackendRoot),
