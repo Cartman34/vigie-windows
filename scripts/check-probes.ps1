@@ -369,6 +369,37 @@ foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.
 }
 foreach ($x in $interactifs) { $manquements += "appel qui attend une saisie -- $x" }
 
+# --- Garde-fou : PAS DE TEXTE ACCENTUE EN ARGUMENT D'UN AUTRE PROCESSUS -------
+#
+# Un texte accentue passe en argument d'un AUTRE processus traverse la ligne de commande,
+# donc la page de code du moment : « securite » y devient « sIcuritI » (constate le 29/08
+# sur la fenetre de fin d'installation). Aucun encodage de FICHIER n'y peut rien -- le mal
+# se fait ENTRE les deux processus.
+#
+# show-confirm.ps1 sait lire les libelles lui-meme : on lui passe des CLES (-TitleKey,
+# -SummaryKey, -DetailsKey), qui sont de l'ASCII pur. Lui passer -Title, -Summary ou
+# -Details en clair, c'est reprendre le chemin qui abime les accents.
+$plainText = @()
+$plainParams = @('Title', 'Summary', 'Details')
+foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Filter '*.ps1' -ErrorAction SilentlyContinue)) {
+    $rel = $f.FullName.Substring($repoRoot.Length).TrimStart([char]92, [char]47).Replace([char]92, [char]47)
+    if ($rel -like '.claude/*' -or $rel -like 'dist/*' -or $rel -like 'local/*') { continue }
+    # Le porteur du mecanisme et ce verificateur citent forcement ces noms.
+    if ($rel -eq 'scripts/lib/show-confirm.ps1' -or $rel -eq 'scripts/check-probes.ps1') { continue }
+    $body = Get-Content -LiteralPath $f.FullName -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
+    if (-not $body) { continue }
+    if ($body -notmatch 'show-confirm') { continue }
+    foreach ($nom in $plainParams) {
+        # « -Title » suivi d'autre chose que « Key » : c'est la forme en clair.
+        # LE TIRET DOIT COMMENCER UN PARAMETRE : « Write-Title » contient « -Title ».
+        # Le nom doit FINIR la : « -DetailsArg » n'est pas « -Details ».
+        if ($body -match ('(?<![\w])-' + $nom + '(?![\w])')) {
+            $plainText += ("{0} -- « -{1} » en clair : passer « -{1}Key »" -f $rel, $nom)
+        }
+    }
+}
+foreach ($x in $plainText) { $manquements += "texte accentue en argument -- $x" }
+
 # --- Garde-fou : AUCUN CARACTERE DE CONTROLE dans les sources -----------------
 #
 # Le piege le plus couteux de ce projet, rencontre sept fois en une journee : un

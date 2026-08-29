@@ -48,6 +48,64 @@ param(
     # Note grise sous le contenu. Vide = pas de note.
     [string] $Note = "Si tu continues, Windows demandera ensuite l'autorisation administrateur.`nRien n'est modifié avant cette étape, et tu peux encore refuser.",
 
+    # Le texte de la barre de titre. « autorisation requise » convient a une demande,
+    # pas a une fenetre qui annonce un resultat.
+    [string] $Caption = 'Vigie — autorisation requise',
+
+    <#
+        LES DETAILS TECHNIQUES SE DEPLIENT, ILS NE S'IMPOSENT PAS.
+
+        Une fenetre de resultat s'adresse a quelqu'un qui veut savoir si c'est bon. Les
+        chemins de journaux et les noms de taches ne repondent pas a cette question : ils
+        servent APRES, quand quelque chose cloche. Affiches d'entree, ils noient le
+        message (signale le 29/08).
+
+        Ils vivent donc derriere « Détails », replie par defaut. La fenetre grandit quand
+        on l'ouvre, et rien n'est perdu pour qui cherche.
+    #>
+    [string] $Details = '',
+
+    <#
+        UN CHEMIN NE SE RECOPIE PAS A LA MAIN.
+
+        Le journal etait annonce en chemin RELATIF -- « apps\backend-pode\var\log\... » --
+        donc inutilisable : relatif a quoi ? Il est desormais donne en entier, et surtout
+        il s'OUVRE d'un clic. Quelqu'un qui deplie les details cherche a lire ce fichier :
+        lui donner son chemin, c'est lui demander de faire le travail lui-meme.
+    #>
+    [string] $OpenPath = '',
+    [string] $OpenText = 'Ouvrir le journal',
+
+    <#
+        LE TEXTE NE TRAVERSE PAS LA LIGNE DE COMMANDE.
+
+        Un texte accentue passe en argument d'un AUTRE processus, donc par la ligne de
+        commande, donc par la page de code du moment : « sécurité » y devient « sÎcuritÎ »
+        (constate le 29/08). Aucun encodage de fichier n'y peut rien -- le mal est fait
+        entre les deux processus.
+
+        On passe donc des CLES, et la fenetre lit lang/fr.json elle-meme : une cle est de
+        l'ASCII pur, elle traverse n'importe quelle page de code sans dommage. Le texte,
+        lui, ne bouge jamais de son fichier.
+    #>
+    <#
+        POUR LE TEXTE QU'ON NE PEUT PAS NOMMER PAR UNE CLE.
+
+        Les cles conviennent aux textes fixes. La fenetre d'elevation, elle, affiche ce
+        que l'ACTION declare -- son impact, son usage, sa reversibilite : du texte
+        construit, different a chaque fois, qu'aucune cle ne designe.
+
+        Il passe donc par un fichier JSON en UTF-8, dont seul le CHEMIN traverse la ligne
+        de commande. Un chemin est de l'ASCII ; le texte, lui, ne subit aucune conversion.
+    #>
+    [string] $PayloadFile = '',
+
+    [string] $TitleKey   = '',
+    [string] $SummaryKey = '',
+    [string] $DetailsKey = '',
+    # La valeur qui remplit le trou {0} du texte des details : une URL, un chemin. ASCII.
+    [string] $DetailsArg = '',
+
     # Fermeture automatique, en millisecondes. Sert UNIQUEMENT a verifier la mise en page
     # sans bloquer : la fenetre se ferme seule et le script rend 3 (donc « refus »).
     [int] $FermerApresMs = 0
@@ -57,6 +115,22 @@ $ErrorActionPreference = 'Stop'
 # Ce fichier est isole : il charge lui-meme l'affichage commun, qui apporte aussi
 # les libelles (console-ui.ps1 et i18n.ps1 sont voisins).
 . (Join-Path $PSScriptRoot 'console-ui.ps1')
+
+# La charge utile d'abord : c'est elle qui porte le texte construit.
+if ($PayloadFile -and (Test-Path -LiteralPath $PayloadFile)) {
+    try {
+        $charge = [System.IO.File]::ReadAllText($PayloadFile, (New-Object System.Text.UTF8Encoding($false))) | ConvertFrom-Json
+        if ($charge.title)       { $Title       = "$($charge.title)" }
+        if ($charge.summary)     { $Summary     = "$($charge.summary)" }
+        if ($charge.changes)     { $Changes     = "$($charge.changes)" }
+        if ($charge.initiatedBy) { $InitiatedBy = "$($charge.initiatedBy)" }
+    } catch { }
+}
+
+# Les cles l'emportent sur les textes : c'est la voie sure.
+if ($TitleKey)   { $Title   = Get-Label $TitleKey }
+if ($SummaryKey) { $Summary = Get-Label $SummaryKey }
+if ($DetailsKey) { $Details = if ($DetailsArg) { Get-Label $DetailsKey $DetailsArg } else { Get-Label $DetailsKey } }
 
 $nl = [Environment]::NewLine
 
@@ -97,7 +171,7 @@ $mut = [System.Drawing.Color]::FromArgb(139, 148, 158)
 $acc = [System.Drawing.Color]::FromArgb(56, 139, 253)
 
 $form                 = New-Object System.Windows.Forms.Form
-$form.Text            = 'Vigie — autorisation requise'
+$form.Text            = $Caption
 $form.StartPosition   = 'CenterScreen'
 $form.FormBorderStyle = 'FixedDialog'
 $form.MaximizeBox     = $false
@@ -125,14 +199,39 @@ $width = 532
 
 # MISE EN PAGE MESUREE : chaque bloc prend la hauteur de son texte, et la fenetre s'ajuste.
 # Des hauteurs fixes faisaient passer un resume de trois lignes SOUS la liste (vu le 27/08).
+<#
+    UN LIBELLE QUI SE DIMENSIONNE SEUL, et dont on lit la hauteur REELLE.
+
+    Remplace le couple « mesurer puis poser une taille » : sur un ecran a 125 %, Windows
+    agrandit le texte apres la mesure, la hauteur posee devient trop courte, et la
+    derniere ligne est rognee. Un libelle en AutoSize prend ce qu'il lui faut.
+#>
+function Ajouter-Libelle {
+    param([string]$Texte, $Fonte, $Couleur, [int]$Haut)
+    $lbl           = New-Object System.Windows.Forms.Label
+    $lbl.Text      = $Texte
+    $lbl.Font      = $Fonte
+    $lbl.ForeColor = $Couleur
+    $lbl.AutoSize    = $true
+    $lbl.MaximumSize = New-Object System.Drawing.Size($width, 0)
+    $lbl.Location    = New-Object System.Drawing.Point($marge, $Haut)
+    return $lbl
+}
+
 function Mesurer {
     param([string]$Texte, $Fonte)
     if (-not $Texte) { return 0 }
+    # UNE LIGNE VIDE OCCUPE DE LA PLACE, ET MeasureText NE LA COMPTE PAS. Un texte en
+    # paragraphes -- separes par une ligne blanche -- etait donc mesure trop court, et le
+    # libelle rognait sa derniere ligne (constate le 29/08 : « Le déroulé complet de cette
+    # installation est conservé ici : » coupe en deux). On remplace chaque ligne vide par
+    # une espace : elle a alors la hauteur d'une ligne, ce qu'elle occupe reellement.
+    $mesurable = $Texte -replace '(?m)^\s*$', ' '
     $t = [System.Windows.Forms.TextRenderer]::MeasureText(
-            $Texte, $Fonte,
+            $mesurable, $Fonte,
             (New-Object System.Drawing.Size($width, 0)),
             ([System.Windows.Forms.TextFormatFlags]::WordBreak))
-    return [int]$t.Height + 2
+    return [int]$t.Height + 4
 }
 
 $controles = @()
@@ -152,47 +251,87 @@ if ($InitiatedBy) {
     $y += $h + 16
 }
 
-$lblTitre           = New-Object System.Windows.Forms.Label
-$lblTitre.Text      = $Title
-$lblTitre.Font      = $fTitre
-$lblTitre.ForeColor = $fg
-$h                  = Mesurer -Texte $Title -Fonte $fTitre
-$lblTitre.Location  = New-Object System.Drawing.Point($marge, $y)
-$lblTitre.Size      = New-Object System.Drawing.Size($width, $h)
+$lblTitre = Ajouter-Libelle -Texte $Title -Fonte $fTitre -Couleur $fg -Haut $y
+$h = $lblTitre.PreferredSize.Height
 $controles += $lblTitre
 $y += $h + 12
 
-$lblResume           = New-Object System.Windows.Forms.Label
-$lblResume.Text      = $Summary
-$lblResume.Font      = $fTexte
-$lblResume.ForeColor = $fg
-$h                   = Mesurer -Texte $Summary -Fonte $fTexte
-$lblResume.Location  = New-Object System.Drawing.Point($marge, $y)
-$lblResume.Size      = New-Object System.Drawing.Size($width, $h)
+$lblResume = Ajouter-Libelle -Texte $Summary -Fonte $fTexte -Couleur $fg -Haut $y
+$h = $lblResume.PreferredSize.Height
 $controles += $lblResume
 $y += $h + 14
 
 if ($listeTexte) {
-    $lblListe           = New-Object System.Windows.Forms.Label
-    $lblListe.Text      = $listeTexte
-    $lblListe.Font      = $fTexte
-    $lblListe.ForeColor = $fg
-    $h                  = Mesurer -Texte $listeTexte -Fonte $fTexte
-    $lblListe.Location  = New-Object System.Drawing.Point($marge, $y)
-    $lblListe.Size      = New-Object System.Drawing.Size($width, $h)
-    $controles += $lblListe
+    $lblListe = Ajouter-Libelle -Texte $listeTexte -Fonte $fTexte -Couleur $fg -Haut $y
+$h = $lblListe.PreferredSize.Height
+$controles += $lblListe
     $y += $h + 18
 }
 
+# --- Les details, replies ---------------------------------------------------------------
+$lblDetails = $null
+$lnkDetails = $null
+$lnkOuvrir  = $null
+$txtChemin  = $null
+if ($Details) {
+    $detailTexte = ($Details -split '\|') -join [Environment]::NewLine
+
+    $lnkDetails           = New-Object System.Windows.Forms.LinkLabel
+    $lnkDetails.Text      = ([char]0x25B8 + ' Détails')
+    $lnkDetails.Font      = $fNote
+    $lnkDetails.LinkColor = [System.Drawing.Color]::FromArgb(88, 166, 255)
+    $lnkDetails.ActiveLinkColor = [System.Drawing.Color]::FromArgb(121, 192, 255)
+    $lnkDetails.LinkBehavior = 'NeverUnderline'
+    $lnkDetails.Location  = New-Object System.Drawing.Point($marge, $y)
+    $lnkDetails.AutoSize  = $true
+    $controles += $lnkDetails
+    $y += 26
+
+    $lblDetails = Ajouter-Libelle -Texte $detailTexte -Fonte $fNote -Couleur $mut -Haut $y
+    $hDetails   = $lblDetails.PreferredSize.Height
+    $lblDetails.Visible   = $false      # replie par defaut
+    $controles += $lblDetails
+
+    # UN CHEMIN DOIT POUVOIR SE COPIER. Un libelle ne se selectionne pas : le chemin
+    # s'affichait, et il fallait le retaper. Une zone de texte en lecture seule se lit
+    # pareil, et se copie.
+    if ($OpenPath) {
+        $txtChemin = New-Object System.Windows.Forms.TextBox
+        $txtChemin.Text       = $OpenPath
+        $txtChemin.Font       = $fNote
+        $txtChemin.ReadOnly   = $true
+        $txtChemin.BorderStyle = 'FixedSingle'
+        $txtChemin.BackColor  = [System.Drawing.Color]::FromArgb(33, 38, 45)
+        $txtChemin.ForeColor  = $mut
+        $txtChemin.Location   = New-Object System.Drawing.Point($marge, ($y + $hDetails + 8))
+        $txtChemin.Size       = New-Object System.Drawing.Size($width, 24)
+        $txtChemin.Visible    = $false
+        $controles += $txtChemin
+    }
+
+    # LE LIEN VIT AVEC LES DETAILS : il apparait et disparait avec eux.
+    if ($OpenPath) {
+        $lnkOuvrir           = New-Object System.Windows.Forms.LinkLabel
+        $lnkOuvrir.Text      = ($OpenText + '  ' + [char]0x2197)
+        $lnkOuvrir.Font      = $fNote
+        $lnkOuvrir.LinkColor = [System.Drawing.Color]::FromArgb(88, 166, 255)
+        $lnkOuvrir.ActiveLinkColor = [System.Drawing.Color]::FromArgb(121, 192, 255)
+        $lnkOuvrir.LinkBehavior = 'NeverUnderline'
+        $lnkOuvrir.Location  = New-Object System.Drawing.Point($marge, ($y + $hDetails + 38))
+        $lnkOuvrir.AutoSize  = $true
+        $lnkOuvrir.Visible   = $false
+        $lnkOuvrir.Tag       = $OpenPath
+        $lnkOuvrir.Add_LinkClicked({
+            try { Start-Process -FilePath ([string]$this.Tag) } catch { }
+        })
+        $controles += $lnkOuvrir
+    }
+}
+
 if ($Note) {
-    $lblNote           = New-Object System.Windows.Forms.Label
-    $lblNote.Text      = $Note
-    $lblNote.Font      = $fNote
-    $lblNote.ForeColor = $mut
-    $h                 = Mesurer -Texte $Note -Fonte $fNote
-    $lblNote.Location  = New-Object System.Drawing.Point($marge, $y)
-    $lblNote.Size      = New-Object System.Drawing.Size($width, $h)
-    $controles += $lblNote
+    $lblNote = Ajouter-Libelle -Texte $Note -Fonte $fNote -Couleur $mut -Haut $y
+$h = $lblNote.PreferredSize.Height
+$controles += $lblNote
     $y += $h + 18
 }
 
@@ -232,6 +371,34 @@ if ($noRefusal) {
     $form.CancelButton = $btnNon      # Echap et la croix ferment en REFUSANT
 }
 $form.ClientSize   = New-Object System.Drawing.Size(580, ($y + 32 + 20))
+
+# LE PLIAGE DEPLACE TOUT CE QUI SUIT. Montrer le bloc sans bouger le reste le ferait
+# passer SOUS les boutons : la fenetre grandit de la hauteur exacte du bloc, et les
+# controles places apres lui descendent d'autant.
+if ($lnkDetails -and $lblDetails) {
+    $lnkDetails.Add_LinkClicked({
+        $ouvert = -not $lblDetails.Visible
+        $lblDetails.Visible = $ouvert
+        $hLien = 0
+        if ($txtChemin) { $txtChemin.Visible = $ouvert; $hLien += 32 }
+        if ($lnkOuvrir) { $lnkOuvrir.Visible = $ouvert; $hLien += 26 }
+        $bloc   = $lblDetails.Height + 12 + $hLien
+        $delta  = if ($ouvert) { $bloc } else { -$bloc }
+        # « PLUS BAS OU AU MEME NIVEAU ». Les controles poses APRES le bloc replie
+        # commencent exactement a la meme hauteur que lui, puisqu'il ne prend aucune
+        # place tant qu'il est cache. Avec « -gt » ils ne bougeaient pas : le bouton
+        # Fermer se retrouvait SOUS le texte deplie, donc invisible (29/08).
+        foreach ($c in $form.Controls) {
+            if ($c -ne $lblDetails -and $c -ne $lnkOuvrir -and $c -ne $txtChemin -and
+                $c.Top -ge $lblDetails.Top) {
+                $c.Top = $c.Top + $delta
+            }
+        }
+        $form.ClientSize = New-Object System.Drawing.Size($form.ClientSize.Width, ($form.ClientSize.Height + $delta))
+        $lnkDetails.Text = if ($ouvert) { [char]0x25BE + ' Masquer les détails' }
+                           else            { [char]0x25B8 + ' Détails' }
+    })
+}
 
 # Barre de titre sombre et coins arrondis quand la machine sait le faire. C'est du confort :
 # une machine qui ne connait pas ces attributs affiche une fenetre normale, sans erreur.

@@ -387,18 +387,23 @@ try {
     try {
         $window = Join-Path $PSScriptRoot 'lib/show-confirm.ps1'
         if (Test-Path -LiteralPath $window) {
-            $title = if ($failures -gt 0) { Get-Label 'install.fenetre-titre-echec' }
-                     elseif ($warnings -gt 0) { Get-Label 'install.fenetre-titre-reserve' }
-                     else { Get-Label 'install.fenetre-titre' }
-            $summary = if ($failures -gt 0) { Get-Label 'install.fenetre-resume-echec' }
-                      else { Get-Label 'install.fenetre-resume' }
-            $facts = @(
-                (Get-Label 'install.fenetre-fait-panneau'),
-                (Get-Label 'install.fenetre-fait-session'),
-                (Get-Label 'install.fenetre-fait-journal')
-            ) -join '|'
+            # ON PASSE LES CLES, PAS LES TEXTES : voir show-confirm.ps1, les accents ne
+            # survivent pas a une ligne de commande.
+            $titleKey = if ($failures -gt 0) { 'install.fenetre-titre-echec' }
+                        elseif ($warnings -gt 0) { 'install.fenetre-titre-reserve' }
+                        else { 'install.fenetre-titre' }
+            $summaryKey = if ($failures -gt 0) { 'install.fenetre-resume-echec' }
+                          else { 'install.fenetre-resume' }
+            # L'ESSENTIEL SE LIT, LE RESTE SE DEPLIE. Ce qu'on veut savoir tient en une
+            # phrase ; les chemins et les noms de taches servent apres, si ca cloche.
+            # L'URL VIENT DE LA CONFIGURATION, jamais d'une constante recopiee : le port
+            # est un reglage, et un texte qui le repete finit par mentir.
+            $url = try { Get-AppUrl -Config (Get-Config -Backend $backend) } catch { '' }
             & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $window `
-                -Title $title -Summary $summary -Changes $facts `
+                -Caption (Get-Label 'install.fenetre-bandeau') `
+                -TitleKey $titleKey -SummaryKey $summaryKey `
+                -DetailsKey 'install.fenetre-details' -DetailsArg $url `
+                -OpenPath $log -OpenText (Get-Label 'install.fenetre-ouvrir-journal') `
                 -OkText (Get-Label 'install.fenetre-fermer') -CancelText '' -Note '' | Out-Null
         }
     } catch { }

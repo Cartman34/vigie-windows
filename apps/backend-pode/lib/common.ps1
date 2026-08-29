@@ -5092,10 +5092,18 @@ function Show-ElevationRationale {
         $exe = $null
         try { $exe = (Get-Process -Id $PID).Path } catch { }
         if (-not $exe) { $exe = 'powershell.exe' }
+        # LE TEXTE NE TRAVERSE PAS LA LIGNE DE COMMANDE. Passe en argument, il subit la
+        # page de code du processus appele : « securite » y devient « sIcuritI » (constate
+        # le 29/08). Ces textes-la sont CONSTRUITS -- ils viennent de l'action, pas d'un
+        # libelle -- donc aucune cle ne les designe : ils passent par un fichier, et seul
+        # son chemin, en ASCII, franchit la frontiere.
+        $payload = Join-Path ([IO.Path]::GetTempPath()) ('vigie-confirm-' + [guid]::NewGuid().ToString('N') + '.json')
+        $data = @{ title = "$Title"; summary = "$Summary"
+                   changes = ($Changes -join '|'); initiatedBy = "$InitiatedBy" }
+        [System.IO.File]::WriteAllText($payload, ($data | ConvertTo-Json -Compress -Depth 4),
+                                       (New-Object System.Text.UTF8Encoding($false)))
         $argv = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $script,
-                  '-Title', $Title, '-Summary', $Summary)
-        if ($Changes.Count) { $argv += @('-Changes', ($Changes -join '|')) }
-        if ($InitiatedBy)   { $argv += @('-InitiatedBy', $InitiatedBy) }
+                  '-PayloadFile', $payload)
         try {
             & $exe @argv
             # 0 = continuer ; 3 = refus ; 1 = pas d'interface, et le script l'a dit en
@@ -5103,6 +5111,12 @@ function Show-ElevationRationale {
             return ($LASTEXITCODE -eq 0)
         } catch {
             Write-Host (Get-Label 'common.impossible-afficher-la-fenetre' $_.Exception.Message) -ForegroundColor Yellow
+        } finally {
+            # DANS UN « finally », pas apres le return : un nettoyage place apres ne
+            # s'execute jamais, et le fichier -- qui porte le texte de la fenetre --
+            # resterait dans le dossier temporaire a chaque elevation. Et « finally »
+            # vient APRES « catch » : l'ordre inverse ne s'analyse pas.
+            try { Remove-Item -LiteralPath $payload -Force -ErrorAction SilentlyContinue } catch { }
         }
     }
 
