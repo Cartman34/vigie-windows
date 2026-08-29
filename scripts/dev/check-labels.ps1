@@ -190,6 +190,24 @@ foreach ($lang in ($tables.Keys | Where-Object { $_ -ne $REFERENCE_LANGUAGE })) 
     }
 }
 
+# --- Les mots bannis --------------------------------------------------------------------
+#
+# « MACHINE » NE DIT RIEN A QUI LIT. « Le serveur de machine », « les comptes de la
+# machine » : c'est notre vocabulaire de conception, pas celui de quelqu'un devant son
+# ecran. On parle de « l'ordinateur », ou de « tous les comptes » -- selon ce qu'on veut
+# dire, et c'est justement l'interet : le mot banni cachait deux idees differentes.
+#
+# L'exception est litterale : « --scope machine » est un drapeau de winget, on ne traduit
+# pas une commande.
+$bannis = @()
+foreach ($k in ($reference.Keys | Sort-Object)) {
+    $v = $reference[$k]
+    if ($v -notmatch '(?i)machine') { continue }
+    if ($v -match '--scope\s+machine') { continue }
+    $bannis += ("{0} : « {1} »" -f $k, $v)
+}
+foreach ($b in $bannis) { $missing += @{ File = 'lang/fr.json'; Line = 0; Message = ("mot banni « machine » -- " + $b) } }
+
 # --- Verdict ----------------------------------------------------------------------------
 Write-Title 'Libellés'
 Write-Info ("{0} déclaré(s), {1} réclamé(s) par le code" -f $reference.Count, $used.Count)
