@@ -269,6 +269,34 @@ $carteComptes = New-ModuleObject -Id 'accounts' -Theme 'accounts' -Label 'Compte
             -Help "Ouvre Paramètres > Utilisateurs : c'est là que l'on choisit les comptes avec lesquels Vigie démarre."
     )
 
+<#
+    CE QU'ON S'APPRETE A DEPLOYER, EN UNE PHRASE.
+
+    La confirmation disait seulement « Deploie la version actuelle vers l'installation
+    partagee ». Laquelle vers laquelle ? On peut cliquer sans savoir si l'on avance de
+    deux commits ou si l'on ecrase une version plus recente.
+
+    LE COMMIT N'EST MONTRE QU'EN DEVELOPPEMENT. En production, deux versions se
+    distinguent par leur numero -- c'est a cela qu'il sert. En developpement, le numero
+    ne bouge pas entre deux commits : sans lui, « v0.1.21 vers v0.1.21 » ne dit rien.
+#>
+$court = { param($c) if ($c) { $c.Substring(0, [Math]::Min(8, $c.Length)) } else { '' } }
+$estDev = ((Get-DeclaredEnvironment -Backend $backend) -eq 'dev')
+$versions = ''
+if ($cmp) {
+    $de   = "$($cmp.there.version)"
+    $vers = "$($cmp.here.version)"
+    if ($estDev) {
+        $cDe   = & $court $cmp.there.commit
+        $cVers = & $court $cmp.here.commit
+        if ($cDe)   { $de   += " ($cDe)" }
+        if ($cVers) { $vers += " ($cVers)" }
+    }
+    $versions = "De $de vers $vers."
+} else {
+    $versions = "Premier déploiement : rien n'est encore installé pour tous les comptes."
+}
+
 # --- Carte 2 : le DEPLOIEMENT ------------------------------------------------
 # Une tache de fond lancee depuis cette carte (deploiement, installation de PowerShell)
 # la garde en « operation en cours » jusqu'a la fin du processus.
@@ -282,7 +310,7 @@ $carteDepl = New-ModuleObject -Id 'deployment' -Theme 'accounts' -Label 'Déploi
     -Actions @(
         New-Action -Id 'vigie-update' -Label 'Mettre à jour l''installation' -Kind 'confirm' -Severity 'fix' -Confirm `
             -BusyLabel 'Mise à jour…' `
-            -Help "Déploie la version actuelle vers l'installation partagée, puis relance Vigie avec." `
+            -Help ("Déploie la version actuelle vers l'installation partagée, puis relance Vigie avec. " + $versions) `
             -Impact ("Deux étapes enchaînées : copie vers l'emplacement partagé (avec pose d'un tag de version), " +
                      "puis relance du tray ET du serveur. L'interface se coupe quelques secondes et se reconnecte seule. " +
                      "Réglages, historique et journaux sont conservés — ils vivent dans votre profil, pas dans l'installation.") `

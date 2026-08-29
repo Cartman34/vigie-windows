@@ -1469,15 +1469,22 @@ const OPS_MS = 4000;
 
 function operationKey(o){ return (o.module || '') + '|' + (o.action || ''); }
 
-async function syncOperations(){
+// L'ETAT PEUT VENIR D'AILLEURS QUE DU SONDAGE.
+//
+// La reponse d'une action le porte deja : s'en servir tout de suite evite d'attendre le
+// prochain tour (jusqu'a 4 s) et supprime la course qui creait une seconde notification
+// pour la meme operation.
+async function syncOperations(etatFourni){
   if(!API_MODE) return;
-  let etat = null;
-  try{
-    const r = await fetch(API + '/operations', { headers:{ Authorization:'Bearer ' + TOKEN } });
-    if(!r.ok) return;
-    etat = await r.json();
-    marquerEnLigne();   // le serveur a repondu : la page n'est plus hors ligne
-  }catch(e){ return; }
+  let etat = etatFourni || null;
+  if(!etat){
+    try{
+      const r = await fetch(API + '/operations', { headers:{ Authorization:'Bearer ' + TOKEN } });
+      if(!r.ok) return;
+      etat = await r.json();
+      marquerEnLigne();   // le serveur a repondu : la page n'est plus hors ligne
+    }catch(e){ return; }
+  }
 
   const enCours = new Set();
   for(const op of (etat.running || [])){
@@ -2133,6 +2140,20 @@ async function doAction(type,module,confirmNeeded,label,help,btnEl,params,kind,c
   // laissait une seconde ou rien ne bougeait, puis une carte qui semblait figee.
   if(module) markCardBusy(module, name);
   const entry=addNotif(name, 'running', L('ui.envoi-de-la-commande'));
+
+  // ON RESERVE LA CLE AVANT D'ENVOYER, PAS APRES.
+  //
+  // La synchronisation des operations tourne toutes les 4 s. Si le serveur met plus
+  // longtemps a repondre -- et une action qui lance une tache de fond y met souvent
+  // plusieurs secondes --, elle voit l'operation AVANT que nous ayons note sa cle, ne la
+  // reconnait pas, et cree une SECONDE notification pour la meme chose. Constate le
+  // 29/08 : « Mettre a jour l'installation » et « Mise a jour de Vigie » cote a cote.
+  //
+  // Poser la cle des maintenant supprime la course. Si la reponse n'est pas asynchrone,
+  // on la retire : rien ne tourne, il n'y a rien a reconnaitre.
+  const cleAttendue = (module || '') + '|' + type;
+  entry.op = cleAttendue;
+  opsConnues[cleAttendue] = entry.id;
   if(!API_MODE){ updateNotif(entry,'done','(maquette) POST /actions {type:"'+type+'"}'); clearBtnBusy(btnEl); return; }
   try{
     const r=await fetch(API+"/actions",{ method:"POST",
@@ -2145,18 +2166,26 @@ async function doAction(type,module,confirmNeeded,label,help,btnEl,params,kind,c
     if(st==='done' && j.result && j.result.async){
       // Action longue non bloquante : la carte passe en "en cours" et s'actualise seule.
       const pollMod = j.result.module || module;
-      // Meme cle que celle du serveur : la synchronisation reconnaitra CETTE
-      // notification au lieu d'en creer une seconde.
-      entry.op = (pollMod || '') + '|' + type;
-      opsConnues[entry.op] = entry.id;
+      // Le serveur peut viser un AUTRE module que celui du bouton : on corrige alors
+      // la reservation posee avant l'envoi.
+      const cleReelle = (pollMod || '') + '|' + type;
+      if (cleReelle !== cleAttendue) { delete opsConnues[cleAttendue]; }
+      entry.op = cleReelle;
+      opsConnues[cleReelle] = entry.id;
       markCardBusy(pollMod, name);
       updateNotif(entry, 'running', j.message || (name+L('ui.en-cours')));
       clearBtnBusy(btnEl);
+      // La reponse dit ce qui tourne MAINTENANT : on se cale dessus sans attendre le
+      // prochain sondage.
+      if(j.operations){ syncOperations(j.operations); }
       if(pollMod){ refreshCard(pollMod); pollCardUntilIdle(pollMod, entry, name); }
       return;
     }
+    // Rien ne tourne en fond : la reservation n'a plus lieu d'etre.
+    delete opsConnues[cleAttendue];
     updateNotif(entry, st, msg);
     clearBtnBusy(btnEl);
+    if(j.operations){ syncOperations(j.operations); }
     // Une action peut repondre un DETAIL (texte long) : un toast le tronquerait. On
     // l'ouvre dans une fenetre, comme le guide d'un champ.
     if(st==='done' && j.result && j.result.detail){

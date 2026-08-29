@@ -353,6 +353,28 @@ Add-PodeRoute -Method Post -Path "$base/actions" -ScriptBlock {
     $params = @{}
     if ($d.params) { $d.params.GetEnumerator() | ForEach-Object { $params[$_.Key] = $_.Value } }
     $job = Invoke-ActionById -Type $d.type -Module $d.module -Params $params -Backend $env:VIGIE_BACKEND
+
+    <#
+        LA REPONSE PORTE L'ETAT DES OPERATIONS.
+
+        Sans cela, la page apprend qu'une operation tourne au sondage suivant -- jusqu'a
+        quatre secondes plus tard. Elle affichait donc DEUX notifications pour un seul
+        clic : la sienne, puis celle du sondage qui ne reconnaissait pas encore
+        l'operation (constate le 29/08 : « Mettre a jour l'installation » et « Mise a jour
+        de Vigie » cote a cote).
+
+        Le serveur SAIT ce qui tourne au moment ou il repond : le lui faire dire coute une
+        lecture de dossier et supprime la course. La page se cale sur cette verite, sans
+        attendre.
+    #>
+    try {
+        $etat = @{
+            running = @(Get-RunningOperations -Backend $env:VIGIE_BACKEND)
+            results = @(Get-RecentOperationResults -Backend $env:VIGIE_BACKEND)
+        }
+        $job | Add-Member -NotePropertyName 'operations' -NotePropertyValue $etat -Force
+    } catch { }
+
     if ($job.status -eq 'error') { Write-PodeJsonResponse -StatusCode 400 -Value $job -Depth 24 }
     else { Write-PodeJsonResponse -Value $job -Depth 24 }
 }
