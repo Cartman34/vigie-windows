@@ -62,10 +62,20 @@ function Get-ServiceTask {
 }
 
 # --- Etat des lieux -------------------------------------------------------------------
+<#
+    L'ETAT DES LIEUX. Il sert deux fois : avant le travail, pour dire d'ou l'on part, et
+    apres, pour montrer ce qui a change. Le meme titre revenait donc DEUX FOIS sur le
+    meme ecran, ce qui donnait l'impression d'un doublon plutot que d'un avant/apres
+    (signale le 29/08).
+
+    -NoTitle laisse l'appelant tenir le fil : dans une installation, le titre de l'etape
+    est deja au-dessus, et l'etat n'est que sa conclusion.
+#>
 function Show-State {
+    param([switch]$NoTitle)
     $account = Get-ServiceAccount
     $task    = Get-ServiceTask
-    Write-Title (Get-Label 'install-service.service-de-machine')
+    if (-not $NoTitle) { Write-Title (Get-Label 'install-service.service-de-machine') }
     Write-Info (Get-Label 'install-service.compte-dedie' $(if ($account) { $SERVICE_ACCOUNT + " (actif=" + $account.Enabled + ")" } else { "absent" }))
     Write-Info (Get-Label 'install-service.tache-machine' $(if ($task) { $SERVICE_TASK + " (" + $task.State + ")" } else { "absente" }))
     Write-Info (Get-Label 'install-service.environnement' (Get-EnvironmentLabel -Environment (Get-DeclaredEnvironment -Backend $backend)))
@@ -406,7 +416,8 @@ if ($Retirer) {
     exit 2
 }
 
-Show-State
+Write-Step (Get-Label 'install-service.etape')
+Show-State -NoTitle
 
 # UNE ETAPE QUI ECHOUE LE DIT, elle ne plante pas. Sans ce filet, l'erreur remontait
 # brute et le script rendait 1 sans expliquer ce qui n'allait pas.
@@ -424,5 +435,5 @@ $password = $null
 
 Write-Ok (Get-Label 'install-service.service-pret-mais-desactive')
 Write-Detail (Get-Label 'install-service.pour-basculer-pwsh-file')
-Show-State
+Show-State -NoTitle
 exit 0

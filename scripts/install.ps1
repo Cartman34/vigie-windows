@@ -138,6 +138,7 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
 }
 
 Write-Title (Get-Label 'install.titre')
+Write-Step (Get-Label 'install.etape-prerequis')
 
 # Les scripts de gestion vivent dans scripts/ : les apps sont dans apps/.
 $repoRoot = Split-Path $PSScriptRoot -Parent
