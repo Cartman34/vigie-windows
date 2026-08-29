@@ -257,9 +257,16 @@ function Register-ServiceTask {
 # serveur. Windows l'accorde par le descripteur de securite de la tache.
 function Grant-TaskControl {
     try {
+        # PAS DE « schtasks /change /RU » ICI. Il y en avait un, et il BLOQUAIT
+        # l'installation : sans /RP, schtasks demande le mot de passe du compte et attend
+        # sur l'entree standard. L'installation restait figee jusqu'a ce que quelqu'un
+        # appuie sur Entree -- 28 secondes mesurees dans le journal du 29/08, entre deux
+        # lignes qui se suivent -- et cette Entree fournissait un mot de passe VIDE.
+        #
+        # Son erreur etait avalee par « $null = $out » : un blocage sans message, sur un
+        # appel dont personne ne verifiait le resultat. Il etait de surcroit inutile, le
+        # principal etant deja pose a l'enregistrement de la tache.
         $sddl = 'D:(A;;GA;;;BA)(A;;GA;;;SY)(A;;GRGX;;;BU)'   # admins+systeme total, utilisateurs lecture+execution
-        $out = & schtasks.exe /change /TN $SERVICE_TASK /RU ("$env:COMPUTERNAME\$SERVICE_ACCOUNT") 2>&1
-        $null = $out
         $folder = New-Object -ComObject 'Schedule.Service'
         $folder.Connect()
         $task = $folder.GetFolder('\').GetTask($SERVICE_TASK)

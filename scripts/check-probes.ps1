@@ -326,6 +326,49 @@ foreach ($x in $sansAccent) {
     $manquements += "libelle visible sans accent -- $x"
 }
 
+# --- Garde-fou : AUCUN APPEL EXTERNE QUI PEUT DEMANDER UNE SAISIE -------------
+#
+# Une installation tourne sans personne devant. Un outil externe qui pose une question
+# et attend sur l'entree standard la fige INDEFINIMENT, sans message : on croit a un
+# plantage, ou pire on n'y croit pas et on attend.
+#
+# Constate le 29/08 : « schtasks /change /RU <compte> » sans /RP demande le mot de passe
+# du compte. L'installation est restee bloquee 28 secondes -- le temps que quelqu'un
+# appuie sur Entree, ce qui a fourni un mot de passe VIDE. L'erreur qui suivait etait
+# avalee par un « $null = $out ».
+#
+# La liste est volontairement COURTE et precise : on ne devine pas quel outil pose des
+# questions, on ajoute ceux qui nous ont deja coute une soiree.
+$interactifs = @()
+foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.ps1','*.cmd' -ErrorAction SilentlyContinue)) {
+    $rel = $f.FullName.Substring($repoRoot.Length).TrimStart([char]92, [char]47).Replace([char]92, [char]47)
+    # Ce fichier-ci CITE les motifs qu'il traque : se juger soi-meme n'a pas de sens,
+    # et un verificateur qui se denonce apprend a son lecteur a l'ignorer.
+    if ($rel -like '.claude/*' -or $rel -like 'dist/*' -or $rel -like 'local/*' -or
+        $rel -eq 'scripts/check-probes.ps1') { continue }
+    $ligne = 0
+    foreach ($l in (Get-Content -LiteralPath $f.FullName -Encoding UTF8 -ErrorAction SilentlyContinue)) {
+        $ligne++
+        if ($l -match '^\s*#') { continue }
+        # schtasks qui change le compte d'execution SANS fournir le mot de passe.
+        if ($l -match 'schtasks' -and $l -match '/RU\b' -and $l -notmatch '/RP\b') {
+            $interactifs += ("{0}:{1} -- schtasks /RU sans /RP : demande le mot de passe et attend" -f $rel, $ligne)
+        }
+        # Read-Host dans un script qui tourne SANS PERSONNE DEVANT.
+        #
+        # L'exception, et sa raison : install-dev.ps1 est un outil de developpement, lance
+        # a la main. Sa question graphique peut echouer (pas d'interface disponible) ; le
+        # repli en ligne de commande s'adresse alors a quelqu'un qui EST devant. Le lui
+        # interdire reviendrait a lui retirer son seul repli.
+        $sansPersonne = ($rel -like 'scripts/*' -or $rel -like 'apps/backend-pode/*') -and
+                        $rel -ne 'scripts/dev/install-dev.ps1'
+        if ($l -match '\bRead-Host\b' -and $sansPersonne) {
+            $interactifs += ("{0}:{1} -- Read-Host : rien ne repondra si personne n'est devant" -f $rel, $ligne)
+        }
+    }
+}
+foreach ($x in $interactifs) { $manquements += "appel qui attend une saisie -- $x" }
+
 # --- Garde-fou : AUCUN CARACTERE DE CONTROLE dans les sources -----------------
 #
 # Le piege le plus couteux de ce projet, rencontre sept fois en une journee : un
