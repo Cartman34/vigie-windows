@@ -403,22 +403,22 @@ function Enable-ServiceTask {
         aussitot et donne son code. Donc : si la tache TOURNE, c'est installe ; si elle
         s'est arretee, on lit pourquoi. Quelques secondes suffisent a faire la difference.
     #>
-    $etat = 'Unknown'
-    $code = $null
+    $state = 'Unknown'
+    $result = $null
     foreach ($n in 1..12) {
         Start-Sleep -Milliseconds 750
         try {
-            $etat = "$((Get-ScheduledTask -TaskName $SERVICE_TASK -ErrorAction Stop).State)"
-            $code = (Get-ScheduledTaskInfo -TaskName $SERVICE_TASK -ErrorAction Stop).LastTaskResult
+            $state = "$((Get-ScheduledTask -TaskName $SERVICE_TASK -ErrorAction Stop).State)"
+            $result = (Get-ScheduledTaskInfo -TaskName $SERVICE_TASK -ErrorAction Stop).LastTaskResult
         } catch { }
-        if ($etat -eq 'Running') { break }
+        if ($state -eq 'Running') { break }
     }
-    if ($etat -ne 'Running') {
-        Write-Fail (Get-Label 'install-service.activer-tache-arretee' $etat ("0x{0:X}" -f [int]$code))
+    if ($state -ne 'Running') {
+        Write-Fail (Get-Label 'install-service.activer-tache-arretee' $state ("0x{0:X}" -f [int]$result))
         Write-Detail (Get-Label 'install-service.activer-desactivee-de-nouveau')
         try { Disable-ScheduledTask -TaskName $SERVICE_TASK -ErrorAction SilentlyContinue | Out-Null } catch { }
         try { Write-Log -Backend $backend -Name 'install' -Level 'ERROR' `
-                        -Message ("Service : active puis desactive, la tache ne tourne pas (etat " + $etat + ").") } catch { }
+                        -Message ("Service : active puis desactive, la tache ne tourne pas (etat " + $state + ").") } catch { }
         Show-State
         return $false
     }
@@ -427,7 +427,7 @@ function Enable-ServiceTask {
     Write-Detail (Get-Label 'install-service.activer-ouverture-differee' $port)
     Write-Detail (Get-Label 'install-service.activer-au-prochain-demarrage')
     try { Write-Log -Backend $backend -Name 'install' `
-                    -Message "Service : la tache tourne, le serveur demarre." } catch { }
+                    -Message (Get-Label 'install-service.journal-tache-tourne') } catch { }
     return $true
 }
 

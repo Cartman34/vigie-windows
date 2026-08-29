@@ -78,8 +78,12 @@ if ($Detail) {
     foreach ($e in ($perFile.GetEnumerator() | Sort-Object Value -Descending)) {
         Write-Info ("{0,5}  {1}" -f $e.Value, $e.Key)
     }
-    Write-Host (Get-Label 'check-naming.noms' ($names.GetEnumerator() | Sort-Object Value -Descending |
-                              Select-Object -First 20 | ForEach-Object { $_.Key }) -join ', ') -ForegroundColor DarkGray
+    # LE « -join » ETAIT HORS DE LA PARENTHESE : Get-Label recevait le tableau, et
+    # affichait « System.Object[] ». Un verificateur qui compte sans pouvoir dire QUOI
+    # ne sert qu'a rendre le verdict, pas a corriger.
+    $liste = (($names.GetEnumerator() | Sort-Object Value -Descending |
+               Select-Object -First 30 | ForEach-Object { $_.Key }) -join ', ')
+    Write-Host (Get-Label 'check-naming.noms' $liste) -ForegroundColor DarkGray
 }
 
 if ($total -gt $CEILING) {

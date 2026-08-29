@@ -38,18 +38,18 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
     # administrateur echoue sur « 0x80070005 : Access is denied » -- et winget ayant deja
     # retire l'eventuelle version du compte, la machine se retrouve SANS PowerShell 7
     # (vecu le 26/08). On le dit AVANT d'essayer, plutot que de laisser ce trou.
-    $estAdmin = $false
+    $isAdminAccount = $false
     try {
         $id = [Security.Principal.WindowsIdentity]::GetCurrent()
-        $estAdmin = (New-Object Security.Principal.WindowsPrincipal($id)).IsInRole(
+        $isAdminAccount = (New-Object Security.Principal.WindowsPrincipal($id)).IsInRole(
                         [Security.Principal.WindowsBuiltInRole]::Administrator)
     } catch { }
-    if (-not $estAdmin) {
+    if (-not $isAdminAccount) {
         Write-Fail (Get-Label 'install.cette-etape-doit-etre')
         Write-Detail (Get-Label 'install.double-cliquez-sur-setup')
                 return
     }
-    $cible = Join-Path (Join-Path (Join-Path $env:ProgramFiles 'PowerShell') '7') 'pwsh.exe'
+    $target = Join-Path (Join-Path (Join-Path $env:ProgramFiles 'PowerShell') '7') 'pwsh.exe'
 
     # 1) winget, en imposant le MSI.
     #
@@ -67,7 +67,7 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
     }
 
     # 2) Repli : le MSI publie par l'equipe PowerShell, installe pour TOUTE la machine.
-    if (-not (Test-Path -LiteralPath $cible)) {
+    if (-not (Test-Path -LiteralPath $target)) {
         Write-Warn (Get-Label 'install.winget-pas-de-paquet')
         try {
             # TLS 1.2 : Windows PowerShell 5.1 ne l'active pas toujours, et GitHub refuse
@@ -88,12 +88,12 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
             $mo  = [math]::Round(([double]$asset.size) / 1MB, 1)
             # Deja telecharge ET complet ? On ne recommence pas : une tentative
             # precedente peut avoir bute apres coup (voir ci-dessus).
-            $dejaLa = $false
+            $alreadyThere = $false
             if (Test-Path -LiteralPath $msi) {
-                $dejaLa = ((Get-Item -LiteralPath $msi).Length -eq [long]$asset.size)
-                if (-not $dejaLa) { Remove-Item -LiteralPath $msi -Force -ErrorAction SilentlyContinue }
+                $alreadyThere = ((Get-Item -LiteralPath $msi).Length -eq [long]$asset.size)
+                if (-not $alreadyThere) { Remove-Item -LiteralPath $msi -Force -ErrorAction SilentlyContinue }
             }
-            if ($dejaLa) {
+            if ($alreadyThere) {
                 Write-Detail (Get-Label 'install.deja-telecharge-mo' $asset.name $mo)
             } else {
                 Write-Info (Get-Label 'install.telechargement-de-mo' $asset.name $mo)
@@ -125,10 +125,10 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
     }
 
     # 3) On CONSTATE, et on enchaine tout seul : l'utilisateur n'a pas a relancer.
-    if (Test-Path -LiteralPath $cible) {
-        Write-Ok (Get-Label 'install.powershell-installe-pour-la' $cible)
+    if (Test-Path -LiteralPath $target) {
+        Write-Ok (Get-Label 'install.powershell-installe-pour-la' $target)
         Write-Detail (Get-Label 'install.installation-se-poursuit-avec')
-        & $cible -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath
+        & $target -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath
         exit $LASTEXITCODE
     }
     Write-Fail (Get-Label 'install.powershell-pas-pu-etre')
@@ -157,28 +157,28 @@ $backend  = Join-Path $repoRoot 'apps/backend-pode'   # BOOTSTRAP, cf. common.ps
 #   - sans elevation : ecrire dans Program Files est refuse. On le dit, et on continue
 #     sur place plutot que d'echouer -- Vigie reste utilisable.
 $destPartagee = Join-Path $env:ProgramFiles (Join-Path 'Sowapps' 'Vigie')
-$ici          = (Resolve-Path -LiteralPath $repoRoot).Path
-$estDepot     = Test-Path -LiteralPath (Join-Path $repoRoot '.git')
-$dejaLa       = ($ici.TrimEnd([char]92) -ieq $destPartagee.TrimEnd([char]92))
+$here          = (Resolve-Path -LiteralPath $repoRoot).Path
+$isRepo     = Test-Path -LiteralPath (Join-Path $repoRoot '.git')
+$alreadyThere       = ($here.TrimEnd([char]92) -ieq $destPartagee.TrimEnd([char]92))
 
-if (-not $estDepot -and -not $dejaLa) {
+if (-not $isRepo -and -not $alreadyThere) {
     if (-not (Test-Elevated)) {
         Write-Warn (Get-Label 'install.sans-droits-administrateur-vigie')
         Write-Detail (Get-Label 'install.elle-fonctionnera-depuis-ce')
     } else {
         Write-Step (Get-Label 'install.installation-de-vigie-dans' $destPartagee)
-        $copieFaite = $false
+        $copied = $false
         try {
             # Les REGLAGES de la machine deja poses survivent : les ecraser serait une
             # regression a chaque mise a jour (meme regle que deploy-prod.ps1).
             $cfgDest = Join-Path $destPartagee 'config'
-            $garde   = $null
+            $guard   = $null
             if (Test-Path -LiteralPath $cfgDest) {
-                $garde = Join-Path $env:TEMP ('vigie-cfg-' + [guid]::NewGuid().ToString('N').Substring(0,8))
-                New-Item -ItemType Directory -Path $garde -Force | Out-Null
+                $guard = Join-Path $env:TEMP ('vigie-cfg-' + [guid]::NewGuid().ToString('N').Substring(0,8))
+                New-Item -ItemType Directory -Path $guard -Force | Out-Null
                 foreach ($motif in @('*.local.*', 'actions.policy.json')) {
                     Get-ChildItem -Path $cfgDest -File -Filter $motif -ErrorAction SilentlyContinue |
-                        ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $garde -Force }
+                        ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $guard -Force }
                 }
             }
 
@@ -189,25 +189,25 @@ if (-not $estDepot -and -not $dejaLa) {
                 Where-Object { $_.Name -ne 'var' -and $_.Name -ne '.git' } |
                 ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $destPartagee -Recurse -Force }
 
-            if ($garde) {
+            if ($guard) {
                 New-Item -ItemType Directory -Path $cfgDest -Force | Out-Null
-                Get-ChildItem -Path $garde -File | ForEach-Object {
+                Get-ChildItem -Path $guard -File | ForEach-Object {
                     Copy-Item -LiteralPath $_.FullName -Destination $cfgDest -Force
                 }
-                Remove-Item -LiteralPath $garde -Recurse -Force -ErrorAction SilentlyContinue
+                Remove-Item -LiteralPath $guard -Recurse -Force -ErrorAction SilentlyContinue
                 Write-Detail (Get-Label 'install.reglages-de-la-machine')
             }
-            $copieFaite = Test-Path -LiteralPath (Join-Path $destPartagee 'setup.cmd')
+            $copied = Test-Path -LiteralPath (Join-Path $destPartagee 'setup.cmd')
         } catch {
             Write-Fail (Get-Label 'install.la-copie-echoue' $_.Exception.Message)
         }
 
-        if ($copieFaite) {
+        if ($copied) {
             # LA SUITE SE FAIT LA-BAS. C'est la copie installee qui pose la tache de
             # demarrage : sinon la tache pointerait encore sur le dossier telecharge.
             Write-Detail (Get-Label 'install.installation-se-poursuit-depuis')
-            $suite = Join-Path (Join-Path $destPartagee 'scripts') 'install.ps1'
-            & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $suite
+            $rest = Join-Path (Join-Path $destPartagee 'scripts') 'install.ps1'
+            & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $rest
             exit $LASTEXITCODE
         }
         Write-Warn (Get-Label 'install.vigie-fonctionnera-depuis-ce')
@@ -324,9 +324,9 @@ try {
             # qu'on relit quand l'installation s'est mal passee.
             & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $service 2>&1 |
                 ForEach-Object {
-                    $ligne = "$_"
-                    Write-Host $ligne
-                    try { Write-Log -Backend $backend -Name 'install' -Message $ligne -NoEcho } catch { }
+                    $line = "$_"
+                    Write-Host $line
+                    try { Write-Log -Backend $backend -Name 'install' -Message $line -NoEcho } catch { }
                 }
             # ON LIT LE CODE DE RETOUR. Il etait journalise sans etre teste : le 28/08,
             # l'enregistrement de la tache a echoue et l'installation a fini en vert.
@@ -354,13 +354,13 @@ try {
         # l'installation ; une seconde fenetre d'explication serait du bruit.
         # LE RESULTAT SE LIT : 0 = fait, 3 = refuse, le reste est un echec.
         & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $autostart -Yes
-        $codeAuto = $LASTEXITCODE
-        Write-Log -Backend $backend -Name 'install' -Message (Get-Label 'install.demarrage-automatique-code' $codeAuto)
-        switch ([int]$codeAuto) {
+        $autostartCode = $LASTEXITCODE
+        Write-Log -Backend $backend -Name 'install' -Message (Get-Label 'install.demarrage-automatique-code' $autostartCode)
+        switch ([int]$autostartCode) {
             0 { Write-Ok (Get-Label 'install.vigie-demarre-chaque-ouverture') }
             3 { Write-Warn (Get-Label 'install.demarrage-automatique-refuse-vigie') }
             default {
-                Write-Fail (Get-Label 'install.le-demarrage-automatique-echoue' $codeAuto)
+                Write-Fail (Get-Label 'install.le-demarrage-automatique-echoue' $autostartCode)
                 Write-Detail (Get-Label 'install.vigie-reste-lancable-la')
             }
         }

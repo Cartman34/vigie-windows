@@ -199,14 +199,25 @@ foreach ($lang in ($tables.Keys | Where-Object { $_ -ne $REFERENCE_LANGUAGE })) 
 #
 # L'exception est litterale : « --scope machine » est un drapeau de winget, on ne traduit
 # pas une commande.
-$bannis = @()
-foreach ($k in ($reference.Keys | Sort-Object)) {
-    $v = $reference[$k]
-    if ($v -notmatch '(?i)machine') { continue }
-    if ($v -match '--scope\s+machine') { continue }
-    $bannis += ("{0} : « {1} »" -f $k, $v)
+#
+# « TRAY » N'EST PAS UN MOT FRANCAIS, ni un mot de personne. Les deux applications
+# s'appellent « l'app serveur » et « l'app cliente » -- la page web comprise : pour qui
+# l'utilise, l'icone et le panneau viennent ensemble, et c'est l'app cliente qui ouvre le
+# navigateur. Les CHEMINS et les noms de fichiers gardent « tray » : ce sont des
+# identifiants, pas du texte -- d'ou le motif qui n'attrape que le mot isole.
+$regles = @(
+    @{ Mot = 'machine'; Motif = '(?i)machine';                          Sauf = '--scope\s+machine' }
+    @{ Mot = 'tray';    Motif = '(?i)(?<![\w/\.-])tray(?![\w/\.-])'; Sauf = $null }
+)
+foreach ($r in $regles) {
+    foreach ($k in ($reference.Keys | Sort-Object)) {
+        $v = $reference[$k]
+        if ($v -notmatch $r.Motif) { continue }
+        if ($r.Sauf -and $v -match $r.Sauf) { continue }
+        $missing += @{ File = 'lang/fr.json'; Line = 0
+                       Message = ("mot banni « " + $r.Mot + " » -- " + ("{0} : « {1} »" -f $k, $v)) }
+    }
 }
-foreach ($b in $bannis) { $missing += @{ File = 'lang/fr.json'; Line = 0; Message = ("mot banni « machine » -- " + $b) } }
 
 # --- Verdict ----------------------------------------------------------------------------
 Write-Title 'Libellés'

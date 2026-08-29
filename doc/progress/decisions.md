@@ -21,7 +21,7 @@
 Uniquement des renvois : les titres vivent plus bas, une seule fois. Ajouter une décision = ajouter son numéro à une
 ligne — `scripts/dev/check-doc.ps1` refuse une décision absente d'ici.
 
-- **Identité et nommage** — D03 · D04 · D05 · D28 · D30 · D41 · D72
+- **Identité et nommage** — D03 · D04 · D05 · D28 · D30 · D41 · D72 · D108
 - **Structure du dépôt** — D29 · D32 · D33 · D35 · D55
 - **Documentation** — D91 · D92 · D93 · D98
 - **Configuration** — D15 · D18 · D56 · D57
@@ -2790,3 +2790,27 @@ rendrait toutes les tâches fautives, et déclarer une intention ne servirait à
 Et il se **répare** : c'est un défaut structurel au sens de **D105**, donc `Set-VigieAccountEnabled` écrit le chemin qui
 suit l'environnement déclaré. Sans ça, activer un compte en mode `dev` aurait posé une tâche vers la production — et
 Vigie aurait signalé l'écart qu'elle venait de créer elle-même.
+
+---
+
+## D108 — Les deux applications s'appellent « app serveur » et « app cliente » (2026-08-29)
+
+Vigie est faite de deux applications, et on les nommait de trois façons : « le serveur », « le tray », « l'icône ».
+« Tray » n'est ni un mot français ni un mot de quelqu'un devant son écran, et il ne dit pas de quoi il s'agit.
+
+**Le vocabulaire, désormais :**
+
+| | |
+|---|---|
+| **app serveur** | ce qui tourne en fond, sous la tâche planifiée, et répond sur le port |
+| **app cliente** | l'icône près de l'horloge **et la page web** — pour qui l'utilise, ça vient ensemble, et c'est l'app cliente qui ouvre le navigateur |
+
+**Ce qui change tout de suite : le texte affiché.** `check-labels` refuse le mot « tray » dans `lang/fr.json`, comme il
+refuse déjà « machine » (**D107**). Le motif n'attrape que le mot **isolé** : `apps/tray/var/log/` et `tray.ps1` sont des
+chemins, donc des identifiants, et ils passent.
+
+**Ce qui change petit à petit : le code.** Les dossiers, les fichiers et les clés (`apps/tray/`, `tray.ps1`, `tray.*`)
+gardent leur nom pour l'instant. Les renommer d'un coup, c'est un remaniement large pour zéro gain visible, et une
+occasion de casser des chemins écrits dans les tâches planifiées et les raccourcis déjà posés sur les postes. **On le
+fera par étapes, en touchant chaque zone quand on y travaille déjà** — ce n'est pas urgent, mais ce n'est pas abandonné :
+c'est écrit ici pour ça.
