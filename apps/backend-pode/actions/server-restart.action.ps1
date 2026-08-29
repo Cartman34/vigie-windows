@@ -66,8 +66,11 @@ if (-not $pwsh) { $pwsh = 'pwsh.exe' }
 # LE RELANCEUR ATTEND, s'il le faut, que plus aucune operation ne tienne la machine.
 # Il n'a pas de limite de temps : une operation qui dure a une raison de durer, et
 # l'interrompre est precisement ce qu'on veut eviter.
+# Le dossier des marques d'occupation vient de Get-VarPath, jamais d'un chemin recompose :
+# une seule definition, et elle vit dans common.ps1.
+$runDir = Get-VarPath -Backend $backend -Kind 'run'
 $attente = if ($wait) { @"
-`$run = Join-Path '$backend' 'var/run'
+`$run = '$runDir'
 while (`$true) {
     `$marques = @(Get-ChildItem -LiteralPath `$run -Filter 'busy-*.json' -File -ErrorAction SilentlyContinue)
     if (-not `$marques.Count) { break }

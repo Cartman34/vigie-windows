@@ -4,6 +4,27 @@
     journalisation par sonde), execution des actions, utilitaires.
 #>
 
+<#
+    « CE CHEMIN EXISTE-T-IL ? » NE DOIT JAMAIS FAIRE TOMBER UN APPELANT.
+
+    Test-Path LEVE sur un chemin dont les droits sont refuses -- le profil d'un autre
+    compte, typiquement. Sous « ErrorActionPreference = Stop », la question emporte alors
+    tout le script. Constate deux fois le 29/08 : une sonde entiere en erreur, et une
+    relance de trays interrompue, dans les deux cas parce qu'on demandait si un dossier
+    existait.
+
+    Un refus d'acces N'EST PAS une reponse a la question posee : on ne sait pas si le
+    chemin existe, et « je ne sais pas » se traite comme « non » ici -- on ne peut de
+    toute facon rien en faire.
+
+    Regle du depot : un appel systeme qui se repete devient une fonction a nous.
+#>
+function Test-PathSafe {
+    param([string]$Path)
+    if (-not $Path) { return $false }
+    try { return [bool](Test-Path -LiteralPath $Path -ErrorAction Stop) } catch { return $false }
+}
+
 function Get-BackendRoot { Split-Path $PSScriptRoot -Parent }
 
 # LES LIBELLES SONT DISPONIBLES PARTOUT OU common.ps1 L'EST -- c'est-a-dire dans le
@@ -1495,16 +1516,11 @@ function Send-TrayRestartToAll {
         $run = $null
         try { $run = Get-AccountRunDir -Account $profil.Name } catch { continue }
         if (-not $run) { continue }
-        $existe = $false
-        try { $existe = Test-Path -LiteralPath $run -ErrorAction Stop } catch { continue }
-        if (-not $existe) { continue }
-        # Un tray VIVANT laisse un battement de coeur. Sans lui, personne ne lira l'ordre
-        # et il resterait la, a s'appliquer au prochain demarrage -- c'est-a-dire au pire
-        # moment, sur un tray qui vient justement de charger le bon code.
-        $alive = Join-Path $run 'tray.alive'
-        $vivant = $false
-        try { $vivant = Test-Path -LiteralPath $alive -ErrorAction Stop } catch { continue }
-        if (-not $vivant) { continue }
+        if (-not (Test-PathSafe $run)) { continue }
+        # ON N'A PAS A SAVOIR SI LE TRAY TOURNE. Un tray efface les ordres en attente a son
+        # demarrage : un ordre depose pour un tray absent ne survit pas a son retour, et
+        # celui-ci demarre de toute facon avec le nouveau code. Verifier son battement de
+        # coeur ajoutait un acces disque et une condition pour rien.
         try {
             Set-Content -LiteralPath (Join-Path $run 'restart') -Value 'update' -Encoding ASCII -NoNewline
             $touches += $profil.Name
@@ -1518,7 +1534,7 @@ function Send-TrayRestartToAll {
 function Get-AccountVarRoot {
     param([Parameter(Mandatory)][string]$Account)
     $profil = Join-Path $env:SystemDrive (Join-Path 'Users' $Account)
-    if (-not (Test-Path -LiteralPath $profil)) { return $null }
+    if (-not (Test-PathSafe $profil)) { return $null }
     return (Join-Path (Join-Path (Join-Path (Join-Path $profil 'AppData') 'Local') 'Sowapps') 'Vigie/var')
 }
 
@@ -2738,7 +2754,31 @@ function Get-State {
                     } catch {
                         Write-ProbeRun -Backend $Backend -Probe $sp.Name -Ms ([int]((Get-Date) - $t0).TotalMilliseconds) -Origin $origine -Outcome 'error' -Detail $_.Exception.Message
                         Write-Log -Backend $Backend -Name 'state' -Level 'ERROR' -Message (Get-Label 'common.sonde-erreur' $sp.Name $_.Exception.Message)
-                        $errMod = New-ModuleObject -Id $sp.Name -Theme 'system' -Label $sp.Name -Status 'error' -Fields @(New-Field -Key 'error' -Label 'Erreur de sonde' -Value $_.Exception.Message -Kind 'text')
+                        <#
+                            UNE ERREUR SE PRESENTE COMME LE RESTE.
+
+                            La carte d'echec s'appelait « comptes.probe.ps1 » et
+                            atterrissait sous « Systeme » : le nom d'un fichier, dans le
+                            mauvais groupe. Personne ne sait a quelle carte cela
+                            correspond, et c'est justement le moment ou il faut le savoir.
+
+                            Le dossier de la sonde EST son module -- probes/<unite>/ --
+                            et son module.psd1 porte le libelle affiche. On s'en sert :
+                            la carte garde sa place et son nom, et dit ce qui a echoue.
+                        #>
+                        $unite = Split-Path (Split-Path $sp.File -Parent) -Leaf
+                        $libelle = $unite
+                        try {
+                            $decl = Join-Path (Split-Path $sp.File -Parent) 'module.psd1'
+                            if (Test-Path -LiteralPath $decl) {
+                                $d = Import-PowerShellDataFile -LiteralPath $decl -ErrorAction Stop
+                                if ($d.Label) { $libelle = "$($d.Label)" }
+                            }
+                        } catch { }
+                        $errMod = New-ModuleObject -Id $sp.Name -Theme $unite -Label $libelle -Status 'error' -Fields @(
+                            New-Field -Key 'error' -Label 'Erreur' -Value $_.Exception.Message -Kind 'text' -Status 'error'
+                            New-Field -Key 'probe' -Label 'Sonde' -Value $sp.Name -Kind 'text'
+                        )
                         $cache[$sp.Name] = [ordered]@{ module = $errMod; at = (Get-Date).ToUniversalTime().ToString('o'); codeStamp = $sp.Stamp }
                     }
                     # Ecriture FUSIONNEE, entree par entree, sous mutex (Update-StateJson).
@@ -3119,7 +3159,7 @@ function Get-VigieFootprint {
 
     function Poids {
         param([string]$Chemin)
-        if (-not $Chemin -or -not (Test-Path -LiteralPath $Chemin)) { return 0 }
+        if (-not (Test-PathSafe $Chemin)) { return 0 }
         try {
             return [long]((Get-ChildItem -LiteralPath $Chemin -Recurse -File -Force -ErrorAction SilentlyContinue |
                            Measure-Object -Property Length -Sum).Sum)
@@ -3139,7 +3179,7 @@ function Get-VigieFootprint {
         $total = 0
         $vu = $false
         foreach ($d in @((Join-Path (Join-Path $local 'Sowapps') 'Vigie'), (Join-Path $local 'Vigie'))) {
-            if (Test-Path -LiteralPath $d) { $vu = $true; $total += (Poids $d) }
+            if (Test-PathSafe $d) { $vu = $true; $total += (Poids $d) }
         }
         # Un dossier present mais illisible rend 0 : on ne peut pas le distinguer d'un
         # dossier vide sans elevation. On compte donc l'incertitude a part.
@@ -4351,7 +4391,7 @@ function Test-ActionAllowed {
 function Get-AccountConfigDir {
     param([Parameter(Mandatory)][string]$Account)
     $profil = Join-Path $env:SystemDrive (Join-Path 'Users' $Account)
-    if (-not (Test-Path -LiteralPath $profil)) { return $null }
+    if (-not (Test-PathSafe $profil)) { return $null }
     return (Join-Path (Join-Path (Join-Path (Join-Path $profil 'AppData') 'Local') 'Sowapps') 'Vigie')
 }
 

@@ -847,7 +847,7 @@ dépôt et non versionné. C'est voulu : c'est de l'outillage propre à cette ma
 *Demandée par l'utilisateur.*
 
 **Défaut réel** : D34 et D35 ont été écrites en faisant passer du texte français dans une
-here-string PowerShell. PowerShell y traite l'accent grave comme caractère d'échappement :
+here-string PowerShell. PowerShell y traite le backtick (`) comme caractère d'échappement :
 `` `a `` et `` `v `` ont été **avalés**, `` `r `` est devenu un retour chariot. Résultat :
 « `apps/...` » affichait « pps/... », « `var/` » affichait « ar/ », et toutes les
 apostrophes étaient doublées. Le texte était faux **et** illisible — dans le fichier censé
@@ -857,7 +857,7 @@ faire autorité sur les décisions du projet.
 l'**outil d'édition** (écriture / remplacement exact), qui transmet le contenu tel quel.
 Aucune couche shell entre le texte et le fichier.
 
-Un shell ajoute au moins une passe d'interprétation : guillemets, accent grave, `$`, `%`,
+Un shell ajoute au moins une passe d'interprétation : guillemets, backtick, `$`, `%`,
 antislash. Chaque couche est une occasion de corrompre silencieusement. Ici il y en avait
 deux (PowerShell, puis Python), et c'est exactement ce qui est arrivé.
 
