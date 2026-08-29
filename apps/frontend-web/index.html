@@ -494,6 +494,22 @@
   .fk-label.clickable:hover{color:var(--text);text-decoration:underline dotted}
   .v-ok{color:var(--ok)} .v-warn{color:var(--warn)} .v-error{color:var(--err)} .v-neutral{color:var(--text)}
   .frow-actions{padding:3px 0 2px 22px}
+  /* Le passage d'un etat a un autre, dans une confirmation : deux valeurs, une fleche. */
+  .cf-trans{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:2px}
+  .cf-v{background:var(--panel-2);border:1px solid var(--border);border-radius:8px;
+        padding:6px 12px;font-weight:600;font-size:13px;line-height:1.25}
+  .cf-v-to{border-color:var(--accent);color:var(--accent)}
+  .cf-vn{font-weight:400;font-size:11px;color:var(--muted);margin-top:2px}
+  .cf-fl{color:var(--muted);font-size:16px;line-height:1}
+  /* Le deroule : des pastilles numerotees, la derniere marquee comme l'arrivee. */
+  .cf-flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px}
+  .cf-step{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted)}
+  .cf-dot{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;
+          border-radius:50%;border:1px solid var(--border);background:var(--panel-2);
+          font-size:11px;font-weight:600;flex:0 0 auto}
+  .cf-step-fin{color:var(--ok);font-weight:600}
+  .cf-step-fin .cf-dot{border-color:var(--ok);color:var(--ok)}
+  .cf-sep{color:var(--muted);font-size:13px}
   .fsolve{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px;border:1px solid currentColor;background:none;cursor:pointer}
   .fsolve svg{width:11px;height:11px;flex:0 0 auto}
   /* L'icone du bouton Resoudre se fond dans la couleur du texte (le type reste indique par la FORME) */
@@ -984,7 +1000,7 @@ function cardHtml(m, groupLabel){
     const bulle = interdite ? (a.deniedReason||L('ui.action-reservee-un-compte'))
                 : (busy&&!cetteAction ? L('ui.operation-en-cours-sur') : (h||a.label));
     const att = t => esc(t||'').replace(/"/g,'&quot;');
-    return `<button class="act k-${kind} sev-${sev}${bcls}"${dis} data-a="${a.id}" data-m="${m.id}" data-c="${a.confirm?1:0}" data-c2="${a.confirmTwice?1:0}" data-k="${kind}" data-h="${h}" data-imp="${att(a.impact)}" data-usg="${att(a.usage)}" data-rev="${att(a.reversible)}" data-res="${att(JSON.stringify(a.resources||[]))}" title="${esc(bulle).replace(/"/g,'&quot;')}">${inner}</button>`;
+    return `<button class="act k-${kind} sev-${sev}${bcls}"${dis} data-a="${a.id}" data-m="${m.id}" data-c="${a.confirm?1:0}" data-c2="${a.confirmTwice?1:0}" data-k="${kind}" data-h="${h}" data-imp="${att(a.impact)}" data-usg="${att(a.usage)}" data-rev="${att(a.reversible)}" data-res="${att(JSON.stringify(a.resources||[]))}" data-trn="${att(a.transition?JSON.stringify(a.transition):'')}" data-stp="${att(a.steps?JSON.stringify(a.steps):'')}" title="${esc(bulle).replace(/"/g,'&quot;')}">${inner}</button>`;
   }).join('');
   return `<div class="card st-${st}${m.busy?' busy':''}" data-module="${m.id}" data-theme="${m.theme}">
     <div class="card-head">
@@ -1005,7 +1021,10 @@ function wireCardActions(root){
   (root||document).querySelectorAll('.actions button, .frow-actions button.fsolve').forEach(b=>{
     if (b.disabled) return;
     b.onclick=()=>doAction(b.dataset.a,b.dataset.m,b.dataset.c==='1',b.textContent,b.dataset.h,b,null,b.dataset.k,b.dataset.c2==='1',
-                           { impact:b.dataset.imp, usage:b.dataset.usg, reversible:b.dataset.rev });
+                           { impact:b.dataset.imp, usage:b.dataset.usg, reversible:b.dataset.rev,
+                             // Deux objets, donc du JSON : un attribut ne porte que du texte.
+                             transition:(function(){ try{ return JSON.parse(b.dataset.trn||'null'); }catch(e){ return null; } })(),
+                             steps:(function(){ try{ return JSON.parse(b.dataset.stp||'[]'); }catch(e){ return []; } })() });
   });
 }
 
@@ -1490,8 +1509,20 @@ async function syncOperations(etatFourni){
   for(const op of (etat.running || [])){
     const cle = operationKey(op);
     enCours.add(cle);
+    // UNE OPERATION N'A QU'UNE NOTIFICATION, et la suivante REMPLACE la precedente.
+    //
+    // On ne se fie pas au seul registre des cles : il peut avoir ete vide -- page
+    // rechargee, notification effacee a la main -- alors qu'une notification de cette
+    // operation existe encore. On cherche donc aussi par la cle PORTEE par la
+    // notification. Sans cela, deux annonces de la meme chose se retrouvent cote a cote.
     const connue = opsConnues[cle];
     if(connue && notifs.some(x => x.id === connue)) continue;
+    const deja = notifs.find(x => x.op === cle);
+    if(deja){
+      opsConnues[cle] = deja.id;
+      updateNotif(deja, 'running', (op.label || L('ui.operation')) + L('ui.en-cours'));
+      continue;
+    }
     // Nouvelle a NOS yeux : on la montre, toast compris -- c'est le but, toutes les
     // pages sont prevenues.
     const n = addNotif(op.label || L('ui.operation'), 'running', (op.label || L('ui.operation')) + L('ui.en-cours'));
@@ -2045,7 +2076,37 @@ function corpsConfirmation(help, ex){
   const bloc = (titre, texte) => texte
     ? '<div class="cf-bloc"><div class="cf-t">'+esc(titre)+'</div><div class="cf-c">'+esc(texte)+'</div></div>'
     : '';
-  return bloc(L('ui.ce-que-ca-fait'), help)
+  // CE QUI PASSE D'UN ETAT A L'AUTRE SE MONTRE, il ne se raconte pas. Deux valeurs et
+  // une fleche se lisent d'un coup d'oeil ; la meme chose collee au bout d'une phrase se
+  // perd (signale le 29/08 sur « De v0.1.25 vers v0.1.25+1 »).
+  const t = ex.transition;
+  const note = n => n ? '<div class="cf-vn">'+esc(n)+'</div>' : '';
+  const blocTransition = (t && (t.from || t.to))
+    ? '<div class="cf-bloc"><div class="cf-t">'+esc(L('ui.ce-qui-change-de-version'))+'</div>'
+      + '<div class="cf-trans">'
+      + '<div class="cf-v">'+esc(t.from||'—')+note(t.fromNote)+'</div>'
+      + '<div class="cf-fl">\u2192</div>'
+      + '<div class="cf-v cf-v-to">'+esc(t.to||'—')+note(t.toNote)+'</div>'
+      + '</div></div>'
+    : '';
+  // LE DEROULE, EN ETAPES. Combien il y en a, et laquelle finit le travail : c'est ce
+  // qu'on veut savoir avant de lancer quelque chose qui dure. La derniere est l'etat
+  // d'arrivee, pas une phase -- elle se distingue.
+  const etapes = (ex.steps || []);
+  const blocEtapes = etapes.length
+    ? '<div class="cf-bloc"><div class="cf-t">'+esc(L('ui.ce-qui-va-se-passer'))+'</div>'
+      + '<div class="cf-flow">'
+      + etapes.map((e, i) => {
+          const fin = (i === etapes.length - 1);
+          return '<div class="cf-step'+(fin?' cf-step-fin':'')+'">'
+               + '<span class="cf-dot">'+(fin?'\u2713':(i+1))+'</span>'
+               + '<span class="cf-lbl">'+esc(e)+'</span></div>';
+        }).join('<span class="cf-sep">\u2192</span>')
+      + '</div></div>'
+    : '';
+  return blocTransition
+       + blocEtapes
+       + bloc(L('ui.ce-que-ca-fait'), help)
        + bloc(L('ui.ce-que-ca-change'), ex.impact)
        + bloc(L('ui.quand-en-servir'), ex.usage)
        + bloc(L('ui.revenir-en-arriere'), ex.reversible);

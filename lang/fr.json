@@ -362,6 +362,8 @@
   "ui.ce-module-ne-signale": "Ce module ne signale aucun événement : il décrit un état.",
   "ui.ce-que-ca-change": "Ce que ça change sur la machine",
   "ui.ce-que-ca-fait": "Ce que ça fait",
+  "ui.ce-qui-change-de-version": "CE QUI SERA DÉPLOYÉ",
+  "ui.ce-qui-va-se-passer": "CE QUI VA SE PASSER",
   "ui.cette-action-modifie-votre": "Cette action modifie votre système.",
   "ui.cette-confirmation-est-la": "Cette confirmation est la dernière.",
   "ui.cette-installation-est-lisible": "Cette installation n’est lisible que par vous",

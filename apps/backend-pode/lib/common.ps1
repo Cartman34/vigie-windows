@@ -1911,7 +1911,33 @@ function New-Action {
         #   -Reversible : comment revenir en arriere -- ou pourquoi on ne peut pas.
         [string]$Impact,
         [string]$Usage,
-        [string]$Reversible
+        [string]$Reversible,
+
+        <#
+            -From / -To : L'ACTION FAIT PASSER D'UN ETAT A UN AUTRE, et on le MONTRE.
+
+            « De v0.1.25 vers v0.1.25+1 » colle au bout d'une phrase se lit mal et se
+            perd. Deux valeurs et une fleche se lisent d'un coup d'oeil -- c'est ce que
+            l'on veut savoir avant de cliquer.
+
+            -FromNote / -ToNote portent le detail sous chaque valeur : un commit, une
+            date. Facultatifs : en production, le numero de version se suffit.
+        #>
+        [string]$From,
+        [string]$To,
+        [string]$FromNote,
+        [string]$ToNote,
+
+        <#
+            -Steps : CE QUI VA SE PASSER, DANS L'ORDRE.
+
+            Une action longue enchaine plusieurs phases -- deployer, redemarrer, verifier.
+            Les enumerer dans une phrase les noie ; les montrer alignees dit d'un coup
+            d'oeil combien il y en a, et laquelle finit le travail.
+
+            La derniere est l'ETAT D'ARRIVEE, pas une phase : elle se distingue.
+        #>
+        [string[]]$Steps = @()
     )
     $a = [ordered]@{ id = $Id; label = $Label }
     if ($Confirm -or $ConfirmTwice) { $a['confirm'] = $true }
@@ -1919,6 +1945,10 @@ function New-Action {
     if ($Help)    { $a['help']    = $Help }
     if ($Impact)     { $a['impact']     = $Impact }
     if ($Usage)      { $a['usage']      = $Usage }
+    if ($Steps -and $Steps.Count) { $a['steps'] = @($Steps) }
+    if ($From -or $To) {
+        $a['transition'] = @{ from = "$From"; to = "$To"; fromNote = "$FromNote"; toNote = "$ToNote" }
+    }
     if ($Reversible) { $a['reversible'] = $Reversible }
     $a['kind'] = if ($Kind) { $Kind } elseif ($Confirm) { 'confirm' } else { 'immediate' }
     # Defaut raisonnable : ouvrir quelque chose informe, le reste est neutre. Une action

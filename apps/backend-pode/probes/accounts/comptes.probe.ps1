@@ -282,19 +282,20 @@ $carteComptes = New-ModuleObject -Id 'accounts' -Theme 'accounts' -Label 'Compte
 #>
 $court = { param($c) if ($c) { $c.Substring(0, [Math]::Min(8, $c.Length)) } else { '' } }
 $estDev = ((Get-DeclaredEnvironment -Backend $backend) -eq 'dev')
-$versions = ''
+$deVersion = ''; $versVersion = ''; $deNote = ''; $versNote = ''
 if ($cmp) {
-    $de   = "$($cmp.there.version)"
-    $vers = "$($cmp.here.version)"
+    $deVersion   = "$($cmp.there.version)"
+    $versVersion = "$($cmp.here.version)"
+    # Le commit N'APPARAIT QU'EN DEVELOPPEMENT : en production deux versions se
+    # distinguent par leur numero, c'est a cela qu'il sert. En developpement il ne bouge
+    # pas entre deux commits, et « v0.1.25 vers v0.1.25 » ne dirait rien.
     if ($estDev) {
-        $cDe   = & $court $cmp.there.commit
-        $cVers = & $court $cmp.here.commit
-        if ($cDe)   { $de   += " ($cDe)" }
-        if ($cVers) { $vers += " ($cVers)" }
+        $deNote   = & $court $cmp.there.commit
+        $versNote = & $court $cmp.here.commit
     }
-    $versions = "De $de vers $vers."
 } else {
-    $versions = "Premier déploiement : rien n'est encore installé pour tous les comptes."
+    $deVersion   = 'rien'
+    $versVersion = 'première installation'
 }
 
 # --- Carte 2 : le DEPLOIEMENT ------------------------------------------------
@@ -310,7 +311,9 @@ $carteDepl = New-ModuleObject -Id 'deployment' -Theme 'accounts' -Label 'Déploi
     -Actions @(
         New-Action -Id 'vigie-update' -Label 'Mettre à jour l''installation' -Kind 'confirm' -Severity 'fix' -Confirm `
             -BusyLabel 'Mise à jour…' `
-            -Help ("Déploie la version actuelle vers l'installation partagée, puis relance Vigie avec. " + $versions) `
+            -Help "Déploie la version actuelle vers l'installation partagée, puis relance Vigie avec." `
+            -From $deVersion -To $versVersion -FromNote $deNote -ToNote $versNote `
+            -Steps @('Copie vers Program Files', 'Redémarrage du serveur', 'Vigie à jour') `
             -Impact ("Deux étapes enchaînées : copie vers l'emplacement partagé (avec pose d'un tag de version), " +
                      "puis relance du tray ET du serveur. L'interface se coupe quelques secondes et se reconnecte seule. " +
                      "Réglages, historique et journaux sont conservés — ils vivent dans votre profil, pas dans l'installation.") `
