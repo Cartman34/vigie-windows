@@ -389,46 +389,45 @@ function Enable-ServiceTask {
         return $false
     }
 
-    # --- La preuve : le port ecoute ---
-    $listening = $null
     <#
-        ON ATTEND LA TACHE, PAS UNE HORLOGE.
+        LA PREUVE, C'EST QUE LA TACHE DEMARRE -- PAS QUE LE SERVEUR REPONDE.
 
-        J'attendais quinze secondes. Le serveur en met une SOIXANTAINE a ouvrir son port
-        -- c'est mesure, et le tray avait deja bute exactement dessus. Resultat le 29/08 :
-        l'installation a declare l'echec, DESACTIVE la tache par precaution... et le
-        serveur s'est mis a repondre juste apres. Tout marchait, et on avait tout defait.
+        J'attendais le port. Mauvaise question : ce que l'installation installe, c'est une
+        tache qui se lance sous le bon compte. Le temps que l'application mette ENSUITE a
+        ouvrir son port ne la regarde plus -- une minute, deux, selon le disque et le
+        reste. Attendre ce resultat, c'est attendre un delai indetermine, et le 29/08 ca
+        s'est fini par une tache DESACTIVEE alors que le serveur repondait juste apres.
 
-        Tant que la tache TOURNE, le demarrage se poursuit : c'est une preuve, pas une
-        estimation. Si elle s'arrete sans que le port s'ouvre, c'est un echec, et on le
-        sait tout de suite au lieu d'attendre la fin d'un delai.
+        Ce qui peut rater ICI rate TOUT DE SUITE : mot de passe refuse, droit d'ouverture
+        de session en lot manquant, chemin introuvable. Windows arrete alors la tache
+        aussitot et donne son code. Donc : si la tache TOURNE, c'est installe ; si elle
+        s'est arretee, on lit pourquoi. Quelques secondes suffisent a faire la difference.
     #>
-    $limite = (Get-Date).AddMinutes(4)
-    while ((Get-Date) -lt $limite) {
+    $etat = 'Unknown'
+    $code = $null
+    foreach ($n in 1..12) {
         Start-Sleep -Milliseconds 750
-        try { $listening = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction Stop } catch { }
-        if ($listening) { break }
-        $etat = $null
-        try { $etat = (Get-ScheduledTask -TaskName $SERVICE_TASK -ErrorAction Stop).State } catch { }
-        if ($etat -and "$etat" -ne 'Running') {
-            Write-Detail (Get-Label 'install-service.activer-tache-arretee' "$etat")
-            break
-        }
+        try {
+            $etat = "$((Get-ScheduledTask -TaskName $SERVICE_TASK -ErrorAction Stop).State)"
+            $code = (Get-ScheduledTaskInfo -TaskName $SERVICE_TASK -ErrorAction Stop).LastTaskResult
+        } catch { }
+        if ($etat -eq 'Running') { break }
     }
-    if (-not $listening) {
-        Write-Fail (Get-Label 'install-service.activer-pas-ecoute' $port)
+    if ($etat -ne 'Running') {
+        Write-Fail (Get-Label 'install-service.activer-tache-arretee' $etat ("0x{0:X}" -f [int]$code))
         Write-Detail (Get-Label 'install-service.activer-desactivee-de-nouveau')
         try { Disable-ScheduledTask -TaskName $SERVICE_TASK -ErrorAction SilentlyContinue | Out-Null } catch { }
         try { Write-Log -Backend $backend -Name 'install' -Level 'ERROR' `
-                        -Message ("Service de machine : active puis desactive, le port " + $port + " n'ecoute pas.") } catch { }
+                        -Message ("Service : active puis desactive, la tache ne tourne pas (etat " + $etat + ").") } catch { }
         Show-State
         return $false
     }
 
-    Write-Ok (Get-Label 'install-service.activer-en-ligne' $listening[0].OwningProcess $port)
+    Write-Ok (Get-Label 'install-service.activer-en-ligne')
+    Write-Detail (Get-Label 'install-service.activer-ouverture-differee' $port)
     Write-Detail (Get-Label 'install-service.activer-au-prochain-demarrage')
     try { Write-Log -Backend $backend -Name 'install' `
-                    -Message ("Service de machine : actif, PID " + $listening[0].OwningProcess + ".") } catch { }
+                    -Message "Service : la tache tourne, le serveur demarre." } catch { }
     return $true
 }
 
