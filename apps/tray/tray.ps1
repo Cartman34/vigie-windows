@@ -118,7 +118,7 @@ public static bool Focus(System.IntPtr h) {
         $pwsh      = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
         $trayPath  = Join-Path $trayRoot 'tray.ps1'      # cette app, pas le backend
         # Starting : un demarrage a ete demande et le serveur n'a pas encore repondu.
-        $state     = [hashtable]::Synchronized(@{ Proc = $null; Drawn = ''; EverUp = $false; Starting = $true; StartTicks = [datetime]::UtcNow.Ticks; Mods = @{}; ModsInit = $false; HealthKo = 0; MachineTask = $null; SaidNoRights = $false })
+        $state     = [hashtable]::Synchronized(@{ Proc = $null; Drawn = ''; EverUp = $false; Starting = $true; StartTicks = [datetime]::UtcNow.Ticks; Mods = @{}; ModsInit = $false; HealthKo = 0; MachineTask = $null; ElevationAsked = $false })
         # Cache d'etat du backend : lu (jamais ecrit) par le guetteur de modules (D54).
         $stateCacheFile = Get-VarPath -Backend $backend -Kind 'cache' -File 'state-cache.json'
         <#
@@ -227,23 +227,22 @@ public static bool Focus(System.IntPtr h) {
             if (& $machineServerActive) { return }
 
             <#
-                UN COMPTE STANDARD NE PEUT PAS LANCER LE SERVEUR.
+                SANS LES DROITS, ON LES DEMANDE -- MAIS UNE SEULE FOIS.
 
-                start.ps1 exige l'elevation et se relance lui-meme avec « RunAs » : sur un
-                compte sans droits d'administration, Windows ouvre une fenetre UAC qui
-                reclame les identifiants d'un AUTRE compte. La personne n'a rien demande,
-                ne peut rien y repondre, et la fenetre revient a chaque tentative.
+                start.ps1 exige l'elevation et se relance avec « RunAs » : sur un compte
+                standard, Windows ouvre une fenetre UAC qui reclame les identifiants d'un
+                administrateur. C'est le comportement voulu -- quelqu'un peut passer les
+                saisir -- et le tray doit garder cette capacite.
 
-                On ne tente donc pas ce qu'on ne peut pas faire. Le tray le dit une fois
-                dans son journal, affiche l'etat reel, et s'en tient la : c'est au serveur
-                de machine -- ou a un administrateur -- de repartir.
+                Ce qui n'allait pas, c'est la REPETITION : le sondage revient toutes les
+                huit secondes, donc la fenetre revenait toutes les huit secondes. Une
+                demande refusee ne se represente pas d'elle-meme ; elle se represente
+                quand on la demande, par « Redemarrer le serveur » dans le menu.
             #>
             if (-not (Test-IsElevated)) {
-                if (-not $state.SaidNoRights) {
-                    TLog "compte sans droits d'administration : le serveur ne peut pas etre lance d'ici"
-                    $state.SaidNoRights = $true
-                }
-                return
+                if ($state.ElevationAsked) { return }
+                $state.ElevationAsked = $true
+                TLog "serveur arrete : demande d'elevation (une fois)"
             }
             # Un demarrage VOULU rouvre la fenetre de tolerance : pendant $startupGrace
             # secondes, "injoignable" veut dire "demarre" (orange) et non "en panne" (rouge).
@@ -670,6 +669,9 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
         [void]$menu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator))
         [void]$menu.Items.Add('Relancer l''application', $null, [System.EventHandler]$relaunch)
         [void]$menu.Items.Add('Redémarrer le serveur', $null, [System.EventHandler]{
+            # UN GESTE VOLONTAIRE REOUVRE LA DEMANDE D'ELEVATION : c'est ici, et nulle
+            # part ailleurs, qu'on represente la fenetre UAC a un compte standard.
+            $state.ElevationAsked = $false
             & $stopServer
             Start-Sleep -Milliseconds 600
             & $startServer
@@ -793,11 +795,10 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                     } else {
                         $app = 'error'; $lbl = 'Échec de démarrage'
                     }
-                } elseif (-not (Test-IsElevated)) {
-                    # Ni panne ni attente : ce compte n'a pas les droits de relancer le
-                    # serveur. Le dire vaut mieux que « injoignable », qui laisse croire
-                    # a un incident reparable en cliquant.
-                    $app = 'warn'; $lbl = 'Serveur arrêté (relance réservée à un administrateur)'
+                } elseif (-not (Test-IsElevated) -and $state.ElevationAsked) {
+                    # L'elevation a ete demandee et refusee -- ou pas encore accordee. Ni
+                    # panne ni attente : on le dit, et « Redemarrer le serveur » redemande.
+                    $app = 'warn'; $lbl = 'Serveur arrêté : relance à autoriser'
                 } else {
                     $app = 'error'; $lbl = 'Arrêtée / injoignable'
                     # Serveur MORT (port ferme) : le tray le relance seul. C'est le
