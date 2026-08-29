@@ -118,7 +118,7 @@ public static bool Focus(System.IntPtr h) {
         $pwsh      = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
         $trayPath  = Join-Path $trayRoot 'tray.ps1'      # cette app, pas le backend
         # Starting : un demarrage a ete demande et le serveur n'a pas encore repondu.
-        $state     = [hashtable]::Synchronized(@{ Proc = $null; Drawn = ''; EverUp = $false; Starting = $true; StartTicks = [datetime]::UtcNow.Ticks; Mods = @{}; ModsInit = $false; HealthKo = 0; MachineTask = $null; ElevationAsked = $false })
+        $state     = [hashtable]::Synchronized(@{ Proc = $null; Drawn = ''; EverUp = $false; Starting = $true; StartTicks = [datetime]::UtcNow.Ticks; Mods = @{}; ModsInit = $false; HealthKo = 0; MachineTask = $null; ElevationAsked = $false; SaidDead = $false })
         # Cache d'etat du backend : lu (jamais ecrit) par le guetteur de modules (D54).
         $stateCacheFile = Get-VarPath -Backend $backend -Kind 'cache' -File 'state-cache.json'
         <#
@@ -309,6 +309,10 @@ public static bool Focus(System.IntPtr h) {
         # l'ANCIEN serveur -- le nouveau tray constatait « serveur ok » et repartait sur
         # du code perime. Repli : le processus qui ECOUTE le port, et seulement s'il s'agit
         # d'un interpreteur PowerShell -- on ne tue que ce qu'on aurait pu lancer.
+        # ARRETER LE SERVEUR EST UN GESTE RARE ET DEMANDE. Cette fonction n'est plus
+        # appelee que sur decision explicite de quelqu'un, quand le serveur ne repond
+        # plus. Ni « Quitter », ni « Relancer l'application », ni la detection d'un
+        # serveur coince n'y touchent : ils arrivent apres lui, et il sert tout le monde.
         $stopServer = {
             try { if ($state.Proc -and -not $state.Proc.HasExited) { $state.Proc.Kill(); return } } catch { }
             try {
@@ -345,10 +349,19 @@ public static bool Focus(System.IntPtr h) {
             try { Remove-Item -LiteralPath $heartbeat -Force -ErrorAction SilentlyContinue } catch { }
             [System.Windows.Forms.Application]::Exit()
         }
+        <#
+            RELANCER L'APPLICATION RELANCE L'APPLICATION.
+
+            Cette fonction tuait aussi le serveur, « pour qu'il reparte avec le nouveau
+            code ». Mais le serveur PRECEDE le tray : avec la tache de machine, il demarre
+            avant meme qu'une session soit ouverte. Un programme lance apres ne ferme pas
+            celui qui l'attendait -- et le couper depuis un compte le coupe pour tous les
+            autres.
+
+            Le serveur se relance LUI-MEME, avec ses droits, par « Redemarrer le
+            serveur ». Deux gestes distincts pour deux choses distinctes.
+        #>
         $relaunch = {
-            # Le serveur repart AVEC : relancer l'application sans relancer le serveur,
-            # c'est garder le code d'avant.
-            try { & $stopServer } catch { }
             try { [void](& $launchHidden $pwsh @('-NoProfile','-ExecutionPolicy','Bypass','-File', $trayPath)) } catch { }
             try { $icon.Visible = $false; $icon.Dispose() } catch { }
             [System.Windows.Forms.Application]::Exit()
@@ -778,6 +791,15 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                                   (Get-Label 'tray.relance-mort-ok') '' `
                                   (Get-Label 'tray.relance-rien')
             if ($suite -ne 0) { return }
+
+            # LE SEUL ENDROIT OU LE TRAY TOUCHE AU SERVEUR, et ce n'est pas le tray qui
+            # decide : quelqu'un a clique, lu que le serveur ne repond plus, et accorde
+            # l'elevation. Le processus vise est soit mort -- il n'y a rien a arreter --
+            # soit coince, et l'arreter est alors la seule guerison.
+            #
+            # Partout ailleurs, la regle est sans exception : le tray ne ferme jamais le
+            # serveur. Le serveur le PRECEDE -- avec la tache de machine, il demarre avant
+            # qu'une session existe -- et il est commun a tous les comptes.
             $state.ElevationAsked = $false
             & $stopServer
             Start-Sleep -Milliseconds 600
@@ -862,6 +884,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                 $state.EverUp   = $true
                 $state.Starting = $false
                 $state.HealthKo = 0
+                $state.SaidDead = $false
                 $app = 'ok'; $lbl = 'En marche'
             } catch {
                 # Serveur COINCE : le port repond (TCP) mais plus aucune requete n'aboutit
@@ -871,15 +894,18 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                 # consecutifs (~24 s) hors demarrage => on tue l'ecouteur et on repart.
                 if (-not $state.Starting -and (Test-ServerUp -Address $cfg.BindAddress -Port $cfg.Port)) {
                     $state.HealthKo = [int]$state.HealthKo + 1
-                    if ($state.HealthKo -ge 3) {
-                        TLog "serveur coince (port ouvert, health muet x$($state.HealthKo)) : relance forcee"
+                    # SERVEUR COINCE : le port repond, les requetes non. Le tray le
+                    # CONSTATE et le dit -- il ne le tue plus. Tuer le serveur commun
+                    # depuis un tray, c'est le couper pour tous les comptes, et le tray
+                    # arrive apres lui. La guerison appartient a la tache serveur, qui le
+                    # relance, ou a quelqu'un qui clique « Redemarrer le serveur ».
+                    if ($state.HealthKo -eq 3) {
+                        TLog "serveur coince (port ouvert, health muet x3) : signale, pas tue"
                         try {
-                            $conn = Get-NetTCPConnection -LocalPort $cfg.Port -State Listen -ErrorAction SilentlyContinue |
-                                    Select-Object -First 1
-                            if ($conn) { Stop-Process -Id $conn.OwningProcess -Force -ErrorAction SilentlyContinue }
+                            $icon.ShowBalloonTip(8000, (Get-Label 'tray.bulle-coince-titre'),
+                                                 (Get-Label 'tray.bulle-coince-texte'),
+                                                 [System.Windows.Forms.ToolTipIcon]::Warning)
                         } catch { }
-                        $state.HealthKo = 0
-                        & $startServer
                     }
                 }
                 $elapsed = ([datetime]::UtcNow.Ticks - $state.StartTicks) / 1e7
@@ -918,7 +944,19 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                     # repose la fenetre de tolerance, ce qui espace naturellement les
                     # tentatives si le demarrage echoue en boucle.
                     if ($state.EverUp -and -not (Test-ServerUp -Address $cfg.BindAddress -Port $cfg.Port)) {
-                        TLog "serveur mort (port ferme) : relance automatique"
+                        # MORT : il n'y a plus personne pour se relancer. On previent par
+                        # une bulle -- elle disparait seule, sans rien reclamer -- et l'on
+                        # tente la relance. Si les droits manquent, l'icone reste orange et
+                        # « Redemarrer le serveur » reste la, a la demande.
+                        if (-not $state.SaidDead) {
+                            $state.SaidDead = $true
+                            TLog "serveur mort (port ferme)"
+                            try {
+                                $icon.ShowBalloonTip(8000, (Get-Label 'tray.bulle-mort-titre'),
+                                                     (Get-Label 'tray.bulle-mort-texte'),
+                                                     [System.Windows.Forms.ToolTipIcon]::Warning)
+                            } catch { }
+                        }
                         & $startServer
                         $app = 'warn'; $lbl = 'Redémarrage…'
                     }
