@@ -166,6 +166,7 @@
   "install-service.activer-port-occupe": "Le port {0} est déjà tenu par le processus {1} : deux serveurs s'y marcheraient dessus.",
   "install-service.activer-port-occupe-quoi-faire": "Arrêtez ce serveur, ou relancez avec -ReplaceRunningServer pour qu'il soit arrêté ici.",
   "install-service.activer-tache-absente": "La tâche serveur n'existe pas : rien à activer.",
+  "install-service.activer-tache-arretee": "La tâche s'est arrêtée d'elle-même (état : {0}).",
   "install-service.activer-windows-refuse": "Windows a refusé d'activer ou de démarrer la tâche : {0}",
   "install-service.ajoute-aux-administrateurs": "Le compte est ajouté aux administrateurs.",
   "install-service.aucune-installation-partagee-deployez": "Aucune installation partagée : déployez Vigie pour tous les comptes d'abord.",

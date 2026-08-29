@@ -391,10 +391,29 @@ function Enable-ServiceTask {
 
     # --- La preuve : le port ecoute ---
     $listening = $null
-    foreach ($n in 1..20) {
+    <#
+        ON ATTEND LA TACHE, PAS UNE HORLOGE.
+
+        J'attendais quinze secondes. Le serveur en met une SOIXANTAINE a ouvrir son port
+        -- c'est mesure, et le tray avait deja bute exactement dessus. Resultat le 29/08 :
+        l'installation a declare l'echec, DESACTIVE la tache par precaution... et le
+        serveur s'est mis a repondre juste apres. Tout marchait, et on avait tout defait.
+
+        Tant que la tache TOURNE, le demarrage se poursuit : c'est une preuve, pas une
+        estimation. Si elle s'arrete sans que le port s'ouvre, c'est un echec, et on le
+        sait tout de suite au lieu d'attendre la fin d'un delai.
+    #>
+    $limite = (Get-Date).AddMinutes(4)
+    while ((Get-Date) -lt $limite) {
         Start-Sleep -Milliseconds 750
         try { $listening = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction Stop } catch { }
         if ($listening) { break }
+        $etat = $null
+        try { $etat = (Get-ScheduledTask -TaskName $SERVICE_TASK -ErrorAction Stop).State } catch { }
+        if ($etat -and "$etat" -ne 'Running') {
+            Write-Detail (Get-Label 'install-service.activer-tache-arretee' "$etat")
+            break
+        }
     }
     if (-not $listening) {
         Write-Fail (Get-Label 'install-service.activer-pas-ecoute' $port)

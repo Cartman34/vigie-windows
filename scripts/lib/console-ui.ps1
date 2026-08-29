@@ -84,7 +84,15 @@ function Write-Fail {
 
 # Combien d'echecs ce script a-t-il affiches ? Sert a decider d'un code de retour sans
 # tenir un second compteur a la main -- celui qu'on oublie de mettre a jour.
+# Combien d'echecs et de reserves ce script a-t-il affiches ? Sert a decider d'un code de
+# retour, et a titrer la fenetre de fin, sans tenir un second compteur a la main -- celui
+# qu'on oublie de mettre a jour.
+#
+# Get-UiWarningCount avait ete SUPPRIMEE comme code mort, puis reutilisee une heure plus
+# tard par l'installation : « le terme n'est pas reconnu », en toute fin de parcours,
+# apres que tout le reste avait reussi. Supprimer une fonction publique n'est pas gratuit.
 function Get-UiFailureCount { return $script:UiFailures }
+function Get-UiWarningCount { return $script:UiWarnings }
 
 <#
     LE VERDICT FINAL. On ne lui demande pas « dis que c'est bon », on lui donne les
