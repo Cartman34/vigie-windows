@@ -59,7 +59,7 @@ $trigger   = New-ScheduledTaskTrigger -AtLogOn
 # le 24/08, session ouverte a 19:04, Vigie jamais demarre). Trois reprises espacees
 # d'une minute couvrent le cas ou le delai ne suffirait pas.
 $trigger.Delay = 'PT45S'
-$principal = New-ScheduledTaskPrincipal -UserId ("$env:USERDOMAIN\$env:USERNAME") -LogonType Interactive -RunLevel Highest
+$principal = New-ScheduledTaskPrincipal -UserId ("$env:USERDOMAIN\$(Get-ProcessAccount)") -LogonType Interactive -RunLevel Highest
 $settings  = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
                 -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew `
                 -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)

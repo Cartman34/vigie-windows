@@ -7,6 +7,12 @@
     Label       = 'Comptes'
     Description = 'Les comptes Windows de cet ordinateur, et ceux qui ont Vigie.'
 
+    # CETTE CARTE N'EST PAS LA MEME POUR TOUT LE MONDE : elle ecrit « (vous) » a cote d'un
+    # nom, met ce compte en tete et n'affiche ses donnees qu'a lui. Son rendu est donc mis
+    # en cache PAR COMPTE (cle « comptes.probe.ps1@<compte> »), sinon le premier a ouvrir
+    # Vigie laisserait son « vous » a tous les suivants.
+    PerAccount  = $true
+
     # Une operation lancee depuis cette carte (deploiement, installation d'une
     # dependance) peut durer et peut ECHOUER. « Le suivi des erreurs est primordial » :
     # son sort remonte donc comme n'importe quel autre constat (D82).

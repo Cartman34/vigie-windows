@@ -1403,6 +1403,51 @@ function Get-VarRoot {
     return $script:VarRacineCache[$cle]
 }
 
+<#
+    UNE CARTE EST-ELLE LA MEME POUR TOUT LE MONDE ?
+
+    La plupart le sont : l'espace disque, les mises a jour, le pare-feu ne dependent pas de
+    qui regarde. Mais la carte des comptes ecrit « (vous) » a cote d'un nom -- et ce rendu
+    part dans state-cache.json, qui est COMMUN. Le premier a ouvrir Vigie y laissait donc
+    son « vous », servi ensuite a tous les autres.
+
+    Une sonde le declare dans son module.psd1 :  PerAccount = $true.
+
+    La declaration vaut mieux qu'une devinette : on ne peut pas lire dans un rendu s'il
+    depend de la personne, et le supposer pour toutes couterait un recalcul par compte pour
+    rien. check-probes verifie que celles qui parlent du demandeur l'ont declare.
+#>
+$script:ProbePerAccount = @{}
+function Test-ProbeIsPerAccount {
+    param([Parameter(Mandatory)][string]$ProbeFile)
+    $folder = Split-Path $ProbeFile -Parent
+    if ($script:ProbePerAccount.ContainsKey($folder)) { return $script:ProbePerAccount[$folder] }
+    $answer = $false
+    try {
+        $decl = Join-Path $folder 'module.psd1'
+        if (Test-Path -LiteralPath $decl) {
+            $d = Import-PowerShellDataFile -LiteralPath $decl -ErrorAction Stop
+            $answer = [bool]$d.PerAccount
+        }
+    } catch { }
+    $script:ProbePerAccount[$folder] = $answer
+    return $answer
+}
+
+<#
+    LA CLE DU CACHE : le nom de la sonde, et le compte quand le rendu en depend.
+
+    « comptes.probe.ps1@Famille » et « comptes.probe.ps1@fhaza » cohabitent dans le meme
+    fichier sans se marcher dessus. Sans demandeur identifie, la cle est « @? » : une
+    session anonyme a son entree a elle, ou personne n'est « vous ».
+#>
+function Get-ProbeCacheKey {
+    param([Parameter(Mandatory)][string]$ProbeFile, [string]$Account)
+    $leaf = Split-Path $ProbeFile -Leaf
+    if (-not (Test-ProbeIsPerAccount -ProbeFile $ProbeFile)) { return $leaf }
+    return ($leaf + '@' + $(if ($Account) { $Account } else { '?' }))
+}
+
 function Get-VarPath {
     param(
         [string]$Backend = (Get-BackendRoot),
@@ -1502,7 +1547,12 @@ function Write-Log {
     jamais tourne n'a pas de dossier d'ordres, et on ne lui en cree pas : rien a relancer.
 #>
 function Send-TrayRestartToAll {
-    param([string]$Except = $env:USERNAME)
+    # « Sauf moi » veut dire « sauf CELUI QUI DEMANDE » : son app cliente vient de faire la
+    # mise a jour et se relance elle-meme. Le compte du service, lui, n'a pas d'app cliente.
+    # Personne d'identifie : on previent TOUT LE MONDE. C'est le bon defaut -- une app
+    # cliente relancee pour rien redemarre en deux secondes ; une qui garde l'ancien code
+    # ment jusqu'a la prochaine ouverture de session.
+    param([string]$Except = (Get-RequesterAccount))
     $touches = @()
     $users = Join-Path $env:SystemDrive 'Users'
     if (-not (Test-Path -LiteralPath $users)) { return $touches }
@@ -1536,6 +1586,29 @@ function Get-AccountVarRoot {
     $profil = Join-Path $env:SystemDrive (Join-Path 'Users' $Account)
     if (-not (Test-PathSafe $profil)) { return $null }
     return (Join-Path (Join-Path (Join-Path (Join-Path $profil 'AppData') 'Local') 'Sowapps') 'Vigie/var')
+}
+
+<#
+    LE COMPTE QUI EXECUTE CE PROCESSUS. Pas « la personne ».
+
+    La distinction n'avait aucune importance tant que l'app serveur tournait sous le
+    compte de quelqu'un : $env:USERNAME tombait juste PAR ACCIDENT. Depuis qu'elle tourne
+    en service sous « VigieService », chaque endroit qui disait $env:USERNAME pour dire
+    « la personne devant l'ecran » designe le service -- et le 29/08 la carte Comptes a
+    donc affiche « VOUS » sur VigieService, et l'a sorti de la liste des comptes
+    techniques.
+
+    Deux notions, deux fonctions, plus jamais melangees :
+      - Get-ProcessAccount   : QUI EXECUTE. Vrai pour l'app cliente (elle EST la personne)
+                               et pour les scripts lances a la main.
+      - Get-ActionRequester  : QUI DEMANDE, lu dans le cookie de session. C'est la personne,
+                               cote app serveur, et c'est ce qu'il faut presque toujours.
+
+    check-probes refuse desormais $env:USERNAME partout ailleurs : le prochain qui ecrira
+    ce raccourci se le verra dire avant de livrer, pas trois semaines plus tard.
+#>
+function Get-ProcessAccount {
+    return "$env:USERNAME"
 }
 
 # Le SID d'un compte local, par son nom. Rend $null si le compte n'existe pas.
@@ -2666,20 +2739,24 @@ function Get-State {
             $unitesCoupees -notcontains (Split-Path (Split-Path $_.FullName -Parent) -Leaf)
         })
     }
+    # QUI DEMANDE : les cartes qui parlent de « vous » ont leur propre entree par compte.
+    $stateRequester = Get-RequesterAccount
     $stale = @()
     foreach ($pf in $probeFiles) {
         $name = $pf.Name; $stamp = "$($pf.LastWriteTimeUtc.Ticks)"
+        $key = Get-ProbeCacheKey -ProbeFile $pf.FullName -Account $stateRequester
         $ttl = if ($script:ProbeTtls.ContainsKey($name)) { $script:ProbeTtls[$name] } else { $defaultTtl }
-        $entry = $cache[$name]; $fresh = $false
+        $entry = $cache[$key]; $fresh = $false
         # -Force : tout est considere perime, sans rien effacer.
         # Une sonde VISEE est perimee d'office : c'est tout le sens de la demande.
-        if (-not $Force -and ($sondesCiblees -notcontains $name) -and $entry -and $entry.at -and ("$($entry.codeStamp)" -eq $stamp)) {
+        if (-not $Force -and ($sondesCiblees -notcontains $key) -and $entry -and $entry.at -and ("$($entry.codeStamp)" -eq $stamp)) {
             try {
                 $at = ConvertTo-UtcDate $entry.at
                 if ($at -and ($nowUtc - $at).TotalSeconds -lt $ttl) { $fresh = $true }
             } catch { }
         }
-        if (-not $fresh) { $stale += [pscustomobject]@{ File = $pf.FullName; Name = $name; Stamp = $stamp } }
+        if (-not $fresh) { $stale += [pscustomobject]@{ File = $pf.FullName; Name = $name; Key = $key; Stamp = $stamp
+                                                        PerAccount = (Test-ProbeIsPerAccount -ProbeFile $pf.FullName) } }
     }
 
     # Recalcul en SINGLE-FLIGHT : un seul thread recalcule a la fois ; les autres requetes
@@ -2697,8 +2774,11 @@ function Get-State {
     # lui demande explicitement.
     if (-not $Force -and $stale.Count -gt 0) {
         # Une sonde VISEE ne se differe JAMAIS : la reponse doit porter son recalcul.
-        $sansValeur = @($stale | Where-Object { ($sondesCiblees -contains $_.Name) -or -not ($cache[$_.Name] -and $cache[$_.Name].module) })
-        $aDifferer  = @($stale | Where-Object { ($sondesCiblees -notcontains $_.Name) -and $cache[$_.Name] -and $cache[$_.Name].module })
+        # UNE CARTE PAR COMPTE NE SE DIFFERE PAS. Le rafraichissement de fond tourne sans
+        # session : il ne sait pas pour qui recalculer, et ecrirait sous la cle anonyme.
+        # Ces sondes-la sont rapides -- on les calcule dans la requete qui les demande.
+        $sansValeur = @($stale | Where-Object { ($sondesCiblees -contains $_.Key) -or $_.PerAccount -or -not ($cache[$_.Key] -and $cache[$_.Key].module) })
+        $aDifferer  = @($stale | Where-Object { ($sondesCiblees -notcontains $_.Key) -and -not $_.PerAccount -and $cache[$_.Key] -and $cache[$_.Key].module })
         if ($aDifferer.Count -gt 0) {
             $stale = $sansValeur
             # UN SEUL rafraichissement de fond a la fois. On verifie AVANT de lancer :
@@ -2745,7 +2825,7 @@ function Get-State {
                     try {
                         $m = & $sp.File
                         $duree = [int]((Get-Date) - $t0).TotalMilliseconds
-                        if ($m) { $cache[$sp.Name] = [ordered]@{ module = $m; at = (Get-Date).ToUniversalTime().ToString('o'); codeStamp = $sp.Stamp } }
+                        if ($m) { $cache[$sp.Key] = [ordered]@{ module = $m; at = (Get-Date).ToUniversalTime().ToString('o'); codeStamp = $sp.Stamp } }
                         Write-ProbeRun -Backend $Backend -Probe $sp.Name -Ms $duree -Origin $origine -Outcome ($(if ($m) { 'ok' } else { 'empty' })) -Modules @($m).Count
                         Write-Log -Backend $Backend -Name 'state' -Message (Get-Label 'common.sonde-recalculee-ms' $sp.Name $duree)
                         # Historique : echantillonne les mesures du catalogue APRES un
@@ -2779,7 +2859,7 @@ function Get-State {
                             New-Field -Key 'error' -Label 'Erreur' -Value $_.Exception.Message -Kind 'text' -Status 'error'
                             New-Field -Key 'probe' -Label 'Sonde' -Value $sp.Name -Kind 'text'
                         )
-                        $cache[$sp.Name] = [ordered]@{ module = $errMod; at = (Get-Date).ToUniversalTime().ToString('o'); codeStamp = $sp.Stamp }
+                        $cache[$sp.Key] = [ordered]@{ module = $errMod; at = (Get-Date).ToUniversalTime().ToString('o'); codeStamp = $sp.Stamp }
                     }
                     # Ecriture FUSIONNEE, entree par entree, sous mutex (Update-StateJson).
                     #
@@ -2792,7 +2872,7 @@ function Get-State {
                     # A la profondeur par defaut (8), ConvertTo-Json tronque en SILENCE et
                     # les branches profondes arrivent VIDES a l'interface -- constate le
                     # 26/08 : des lignes sans nom ni taille sous chaque dossier.
-                    try { Update-StateJson -Path $cacheFile -Set @{ $sp.Name = $cache[$sp.Name] } -Depth 24 | Out-Null } catch { }
+                    try { Update-StateJson -Path $cacheFile -Set @{ $sp.Key = $cache[$sp.Key] } -Depth 24 | Out-Null } catch { }
                 }
             }
         } finally {
@@ -2804,7 +2884,10 @@ function Get-State {
     # Assemble les modules depuis le cache (dans l'ordre des fichiers de sondes).
     # Une sonde peut renvoyer UN module ou un TABLEAU de modules (aplati ici).
     $modules = @()
-    foreach ($pf in $probeFiles) { $e = $cache[$pf.Name]; if ($e -and $e.module) { $modules += $e.module } }
+    foreach ($pf in $probeFiles) {
+        $e = $cache[(Get-ProbeCacheKey -ProbeFile $pf.FullName -Account $stateRequester)]
+        if ($e -and $e.module) { $modules += $e.module }
+    }
 
     # INVARIANT (D66) : une action CITEE par un champ (fixAction) doit figurer dans les
     # actions de la carte, sinon l'interface n'a ni libelle ni genre a dessiner et le
@@ -3744,7 +3827,10 @@ function Get-VigieTaskStructureAilment {
     # le depot -- « Famille » n'a aucun droit a partir de Git\ -- et l'installation
     # partagee est alors le SEUL chemin possible pour lui. Lui reprocher de ne pas suivre
     # l'environnement declare serait lui reprocher de fonctionner.
-    $taskIsMine = ("$($Task.Principal.UserId)" -like ('*' + $env:USERNAME))
+    # Le nom vide ferait « -like "*" », donc VRAI pour toutes les taches : on exige
+    # d'abord de savoir qui demande.
+    $requester  = Get-RequesterAccount
+    $taskIsMine = [bool]$requester -and ("$($Task.Principal.UserId)" -like ('*' + $requester))
     if ($taskIsMine -and "$($a.Arguments)" -match '-File\s+"([^"]+)"') {
         $declared = Get-DeclaredEnvironment
         $taskEnv  = Get-PathEnvironment -Path $Matches[1]
@@ -3835,8 +3921,11 @@ function Repair-VigieTasks {
             }
             continue
         }
-        # De QUI est cette tache ? « Vigie » = le compte courant ; « Vigie - X » = X.
-        $compte = if ($nom -eq 'Vigie') { "$env:USERNAME" } else { $nom.Substring($script:VigieTaskPrefix.Length) }
+        # De QUI est cette tache ? « Vigie - X » le dit dans son nom ; « Vigie » tout court
+        # le dit dans SON PRINCIPAL -- on le lit, au lieu de supposer que c'est celui qui
+        # regarde. La tache historique appartient a qui l'a posee, pas au demandeur.
+        $compte = if ($nom -eq 'Vigie') { ("$($t.Principal.UserId)" -split [regex]::Escape([string][char]92))[-1] }
+                  else                  { $nom.Substring($script:VigieTaskPrefix.Length) }
         try {
             if ($nom -eq 'Vigie') {
                 # Notre propre tache : on la reecrit avec l'interpreteur de la machine et
@@ -3953,6 +4042,28 @@ function Update-VigieAccountTasks {
     return @($Comptes)
 }
 
+<#
+    CE QUI DEPEND DE QUI DEMANDE.
+
+    « VOUS » et « ce compte n'est pas un compte technique » ne sont pas des faits sur le
+    poste : ce sont des faits sur la RELATION entre le poste et la personne qui regarde.
+    Ils se posent donc au moment de repondre, jamais dans le releve mis en cache -- sinon
+    le premier a demander fixe la reponse de tous les autres.
+#>
+function Add-VigieAccountsPerspective {
+    param($Comptes)
+    # Sans session, PERSONNE n'est « vous » : c'est plus vrai, et c'est plus sur que de
+    # designer le compte du service.
+    $requester = Get-RequesterAccount
+    foreach ($c in @($Comptes)) {
+        $isMe = [bool]$requester -and ("$($c.name)" -eq "$requester")
+        $c | Add-Member -NotePropertyName current -NotePropertyValue $isMe -Force
+        # Celui qui utilise Vigie en ce moment n'est jamais un compte d'outil.
+        if ($isMe) { $c | Add-Member -NotePropertyName technical -NotePropertyValue $false -Force }
+    }
+    return $Comptes
+}
+
 function Get-VigieAccounts {
     param(
         [switch]$Force,                       # bouton « Actualiser la liste »
@@ -3964,7 +4075,7 @@ function Get-VigieAccounts {
             $j = Get-Content -LiteralPath $cache -Raw | ConvertFrom-Json
             $age = ((Get-Date).ToUniversalTime() - (ConvertTo-UtcDate $j.at)).TotalHours
             if ($age -lt $script:ComptesTTLHeures -and $j.users) {
-                return (Update-VigieAccountTasks -Comptes @($j.users))
+                return (Add-VigieAccountsPerspective (Update-VigieAccountTasks -Comptes @($j.users)))
             }
         } catch { }
     }
@@ -3975,7 +4086,9 @@ function Get-VigieAccounts {
             Set-Content -LiteralPath $tmp -Encoding UTF8
         Move-Item -LiteralPath $tmp -Destination $cache -Force
     } catch { }
-    return $liste
+    # LA PERSPECTIVE APRES LE CACHE, jamais avant : ce qu'on ecrit sur le disque doit
+    # rester vrai pour n'importe qui.
+    return (Add-VigieAccountsPerspective $liste)
 }
 
 # Le releve REEL, sans cache.
@@ -4038,9 +4151,11 @@ function Get-VigieAccountsFresh {
         # d'outil ecarte cote agent, affiche cote serveur).
         # Quand on est eleve, on tranche sur le CONTENU du profil : un compte de personne
         # a un Bureau ou des Documents ; un compte d'outil n'en a pas.
+        # CE RELEVE NE SAIT PAS QUI REGARDE, et c'est voulu : il est MIS EN CACHE dans un
+        # fichier commun. Y ecrire quoi que ce soit de relatif au demandeur, c'est servir
+        # a Famille la reponse calculee pour fhaza. Tout ce qui depend de la personne est
+        # pose apres coup, par Add-VigieAccountsPerspective.
         $technique = [bool]$masquesConnexion[$nom.ToLower()]
-        # Le compte qui utilise Vigie en ce moment n'est jamais « technique ».
-        if ($nom -eq "$env:USERNAME") { $technique = $false; $dejaServi = $true }
 
         [pscustomobject][ordered]@{
             name        = $nom
@@ -4062,7 +4177,7 @@ function Get-VigieAccountsFresh {
             taskPending = if ($tache -and -not (Get-VigieTaskStructureAilment -Task $tache)) { Get-VigieTaskHistoryAilment -Task $tache } else { $null }
             # Le compte qui execute le serveur en ce moment : l'interface doit pouvoir dire
             # « c'est vous » et empecher de se retirer soi-meme par megarde.
-            current     = ($nom -eq "$env:USERNAME")
+            current     = $false          # pose par Add-VigieAccountsPerspective, jamais mis en cache
             lastLogon   = if ($c.LastLogon) { $c.LastLogon.ToString('s') } else { $null }
         }
     })
@@ -4921,6 +5036,36 @@ function Register-VigieEventSource {
     LE NOM EST RENDU SANS SON DOMAINE. « HYPERION\fhaza » ne se joint pas a un chemin de
     profil : Get-AccountVarRoot en tirerait « C:\Users\HYPERION\fhaza ».
 #>
+<#
+    QUI DEMANDE -- ou RIEN.
+
+    Get-ActionRequester doit toujours rendre un nom : il signe le journal d'audit, et une
+    trace anonyme ne vaut rien. Il retombe donc sur le compte du processus quand aucune
+    session n'est ouverte.
+
+    C'EST EXACTEMENT CE QUI NE VA PAS pour tout ce qui parle de « vous ». Une page ouverte
+    sans ticket (un signet, un rechargement) n'a pas de cookie : le repli designe alors le
+    compte du service, et la carte Comptes affiche « VOUS » sur VigieService -- constate le
+    29/08.
+
+    Cette fonction-ci ne se rabat sur rien : pas de session, pas de personne. A l'appelant
+    de dire ce que « personne » signifie chez lui -- souvent « aucun compte n'est vous »,
+    parfois « on previent tout le monde ».
+#>
+function Get-RequesterAccount {
+    try {
+        if ($WebEvent) {
+            $sid = $null
+            try { $sid = $WebEvent.Cookies['vigie_session'].Value } catch { }
+            if ($sid) {
+                $account = Get-SessionAccount -SessionId $sid
+                if ($account) { return $account }
+            }
+        }
+    } catch { }
+    return $null
+}
+
 function Get-ActionRequester {
     try {
         if ($WebEvent) {

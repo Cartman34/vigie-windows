@@ -473,6 +473,75 @@ foreach ($x in $horsRegle) {
     $manquements += "chemin de donnees calcule a la main (utiliser Get-VarPath) -- $x"
 }
 
+# --- Garde-fou : « QUI EXECUTE » N'EST PAS « QUI DEMANDE » --------------------
+#
+# $env:USERNAME rend le compte qui EXECUTE le processus. Tant que l'app serveur tournait
+# sous le compte de quelqu'un, il tombait juste PAR ACCIDENT. Depuis qu'elle tourne en
+# service sous « VigieService », tout endroit qui l'employait pour dire « la personne
+# devant l'ecran » designe le service : la carte Comptes a affiche « VOUS » sur
+# VigieService et l'a sorti de la liste des comptes techniques (constate le 29/08).
+#
+# Trois fonctions, trois sens, et le choix devient conscient :
+#   Get-ProcessAccount   -- qui execute (vrai pour l'app cliente et les scripts)
+#   Get-RequesterAccount -- qui demande, ou $null si personne n'est identifie
+#   Get-ActionRequester  -- qui demande, avec un repli, pour SIGNER le journal d'audit
+$rawUserVar = @()
+foreach ($d in @('apps', 'scripts')) {
+    $racineD = Join-Path $repoRoot $d
+    if (-not (Test-Path -LiteralPath $racineD)) { continue }
+    foreach ($f in (Get-ChildItem -LiteralPath $racineD -Recurse -File -Include '*.ps1' -ErrorAction SilentlyContinue)) {
+        # common.ps1 EST l'implementation de la regle : Get-ProcessAccount y vit.
+        if ($f.Name -eq 'common.ps1') { continue }
+        $i = 0
+        foreach ($ligne in (Get-Content -LiteralPath $f.FullName -Encoding UTF8 -ErrorAction SilentlyContinue)) {
+            $i++
+            if ($ligne -match '^\s*#') { continue }
+            # LE MOTIF S'ECRIT EN MORCEAUX, sinon ce fichier se denonce lui-meme -- comme
+            # les motifs de mojibake de check-encoding.
+            if ($ligne -match ('\$env:' + 'USER' + 'NAME')) {
+                $rawUserVar += ("{0}:{1}" -f (Resolve-Path -LiteralPath $f.FullName -Relative), $i)
+            }
+        }
+    }
+}
+foreach ($x in $rawUserVar) {
+    $manquements += (('$env:' + 'USER' + 'NAME') +
+                     " en clair (Get-ProcessAccount, ou Get-RequesterAccount si c'est la personne) -- " + $x)
+}
+
+# --- Garde-fou : UNE CARTE QUI PARLE DE « VOUS » SE DECLARE PerAccount --------
+#
+# Le rendu des sondes est mis en cache dans state-cache.json, qui est COMMUN. Une carte
+# qui ecrit « (vous) », trie sur le compte courant ou n'affiche les donnees que du
+# demandeur y laisse donc la reponse calculee pour UNE personne, servie ensuite a toutes
+# les autres. C'est ce qui est arrive a la carte des comptes.
+#
+# La declaration « PerAccount = $true » dans module.psd1 donne a la sonde une entree de
+# cache par compte. Elle ne se devine pas : on verifie qu'elle est la des que le code de
+# la sonde regarde le demandeur.
+$personalCards = @()
+$probesRoot = Join-Path $repoRoot 'apps/backend-pode/probes'
+foreach ($f in (Get-ChildItem -LiteralPath $probesRoot -Recurse -File -Filter '*.probe.ps1' -ErrorAction SilentlyContinue)) {
+    $text = Get-Content -LiteralPath $f.FullName -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
+    if (-not $text) { continue }
+    # LA MARQUE EST LA SOURCE, PAS LE MOT. Chercher « .current » attrapait
+    # « $scan.current » -- le DOSSIER en cours d'analyse dans la carte du disque, qui
+    # n'a rien de personnel. Ce qui rend une carte personnelle, c'est d'ou viennent
+    # ses donnees : la liste des comptes (elle porte « vous ») ou le demandeur.
+    if ($text -notmatch 'Get-VigieAccounts' -and $text -notmatch 'Get-RequesterAccount') { continue }
+    $declared = $false
+    try {
+        $decl = Join-Path (Split-Path $f.FullName -Parent) 'module.psd1'
+        if (Test-Path -LiteralPath $decl) {
+            $declared = [bool](Import-PowerShellDataFile -LiteralPath $decl -ErrorAction Stop).PerAccount
+        }
+    } catch { }
+    if (-not $declared) { $personalCards += (Resolve-Path -LiteralPath $f.FullName -Relative) }
+}
+foreach ($x in $personalCards) {
+    $manquements += "carte personnelle sans « PerAccount = `$true » dans son module.psd1 -- $x"
+}
+
 # --- Verdict -----------------------------------------------------------------
 $lignes | ForEach-Object { Write-Host $_ }
 Write-Host ''

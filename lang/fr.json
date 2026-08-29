@@ -1,4 +1,13 @@
 {
+  "ask-vigie.pas-de-cookie": "L'app serveur n'a pas posé de cookie de session (code HTTP {0}).",
+  "ask-vigie.personne-n-ecoute": "Aucune app serveur n'écoute sur le port {0}.",
+  "ask-vigie.quelle-question": "Précisez -Type (une action) ou -Modules (l'état des cartes).",
+  "ask-vigie.question-refusee": "L'app serveur n'a pas répondu : {0}",
+  "ask-vigie.secret-illisible": "Le secret de ce compte est illisible : {0}",
+  "ask-vigie.session-refusee": "Impossible d'ouvrir une session : {0}",
+  "ask-vigie.ticket-refuse": "L'app serveur a refusé le ticket : le secret ne correspond pas.",
+  "ask-vigie.ticket-refuse-erreur": "Demande de ticket impossible : {0}",
+  "ask-vigie.titre": "Vigie répond à {0}",
   "atelier.atelier-app-de-developpement": "Atelier (app de développement) : {0}",
   "atelier.atelier-arrete-pid": "Atelier arrete (PID {0}).",
   "atelier.atelier-arrete-port-libre": "Atelier ARRETE    - port {0} libre",

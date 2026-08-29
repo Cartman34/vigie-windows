@@ -42,7 +42,7 @@ TLog "demarrage (PS $($PSVersionTable.PSVersion), $([System.Threading.Thread]::C
 # avec runas, exactement ce qu'on fait pour deboguer. Le tray de Famille a demarre,
 # vu le verrou de fhaza, et s'est retire (28/08 22:09). Le verrou porte donc desormais
 # le nom du compte : chacun le sien, quelle que soit la session qui l'heberge.
-$mutex = New-Object System.Threading.Mutex($false, ('VigieTray-' + $env:USERNAME))
+$mutex = New-Object System.Threading.Mutex($false, ('VigieTray-' + (Get-ProcessAccount)))
 if (-not $mutex.WaitOne(4000)) { TLog "deja lance (mutex) - sortie"; return }
 
 $uiScript = {
@@ -469,10 +469,10 @@ public static bool Focus(System.IntPtr h) {
         $openBrowser = {
             $target = $url
             try {
-                $secret = Get-AccountSecret -VarRoot (Get-AccountVarRoot -Account $env:USERNAME) `
-                                            -OwnerSid (Get-AccountSid -Account $env:USERNAME) -Create
+                $secret = Get-AccountSecret -VarRoot (Get-AccountVarRoot -Account (Get-ProcessAccount)) `
+                                            -OwnerSid (Get-AccountSid -Account (Get-ProcessAccount)) -Create
                 if ($secret) {
-                    $body = @{ account = $env:USERNAME; secret = $secret } | ConvertTo-Json -Compress
+                    $body = @{ account = (Get-ProcessAccount); secret = $secret } | ConvertTo-Json -Compress
                     $rep = Invoke-RestMethod -Method Post -Uri ($url.TrimEnd('/') + '/api/v1/session/ticket') `
                                              -ContentType 'application/json' -Body $body `
                                              -Headers @{ Origin = $url.TrimEnd('/') } -TimeoutSec 5
@@ -490,7 +490,7 @@ public static bool Focus(System.IntPtr h) {
         # disaient toutes « Vigie - <etat> » : impossible de savoir laquelle appartient a
         # qui. Sur une machine familiale, c'est la premiere question qu'on se pose, et
         # c'est indispensable pour deboguer un compte depuis la session d'un autre.
-        $trayAccount = $env:USERNAME
+        $trayAccount = (Get-ProcessAccount)
         $icon = New-Object System.Windows.Forms.NotifyIcon
         $icon.Text = (Get-Label 'tray.infobulle' $trayAccount)
 

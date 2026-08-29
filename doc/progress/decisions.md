@@ -27,7 +27,7 @@ ligne — `scripts/dev/check-doc.ps1` refuse une décision absente d'ici.
 - **Configuration** — D15 · D18 · D56 · D57
 - **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46 · D48 · D49 · D50 · D58 · D59 · D66 · D68 · D69 · D70 · D71 · D88 · D89 · D94 · D95 · D102 · D105
 - **Installation, déploiement et mise à jour** — D07 · D11 · D22 · D77 · D78 · D79 · D81 · D84 · D87 · D96 · D97 · D99 · D101 · D106 · D107
-- **Sécurité, droits et multi-comptes** — D34 · D65 · D67 · D73 · D104
+- **Sécurité, droits et multi-comptes** — D34 · D65 · D67 · D73 · D104 · D109
 - **Sondes, actions et tâches de fond** — D50bis · D53 · D54 · D60 · D61 · D80 · D82 · D83 · D85
 - **Outillage** — D06 · D21 · D24 · D40 · D44 · D47 · D52 · D64 · D75 · D86 · D90
 - **Méthode de travail** — D10 · D12 · D13 · D14 · D16 · D17 · D31 · D36 · D39 · D43 · D51 · D62 · D63 · D74 · D76 · D100 · D103
@@ -2814,3 +2814,36 @@ gardent leur nom pour l'instant. Les renommer d'un coup, c'est un remaniement la
 occasion de casser des chemins écrits dans les tâches planifiées et les raccourcis déjà posés sur les postes. **On le
 fera par étapes, en touchant chaque zone quand on y travaille déjà** — ce n'est pas urgent, mais ce n'est pas abandonné :
 c'est écrit ici pour ça.
+
+---
+
+## D109 — Qui exécute n'est pas qui demande, et le cache le sait (2026-08-29)
+
+`$env:USERNAME` rend le compte qui **exécute** le processus. Tant que l'app serveur tournait sous le compte de
+quelqu'un, il tombait juste **par accident**. Depuis qu'elle tourne en service sous `VigieService`, chaque endroit qui
+l'employait pour dire « la personne devant l'écran » désigne le service : la carte Comptes a affiché « VOUS » sur
+`VigieService`, et l'a sorti de la liste des comptes techniques.
+
+**Trois fonctions, trois sens, plus jamais mélangés :**
+
+| | |
+|---|---|
+| `Get-ProcessAccount` | qui **exécute**. Vrai pour l'app cliente (elle *est* la personne) et pour les scripts lancés à la main |
+| `Get-RequesterAccount` | qui **demande**, lu dans le cookie de session, ou `$null` si personne ne s'est identifié |
+| `Get-ActionRequester` | qui demande, **avec un repli**, pour signer le journal d'audit — une trace anonyme ne vaut rien |
+
+La distinction entre les deux dernières est le cœur du défaut : une page ouverte sans ticket (un signet, un
+rechargement) n'a pas de cookie, et le repli désignait alors le service. Ce qui parle de « vous » exige donc le strict :
+**pas de session, personne n'est vous.**
+
+**Et le cache doit distinguer les rendus communs des rendus par compte.** Le rendu des sondes est mis en cache dans
+`state-cache.json`, qui est **commun**. La carte des comptes y écrivait « (vous) » : le premier à ouvrir Vigie laissait
+sa réponse à tous les suivants. Une sonde dont le rendu dépend de la personne le déclare — `PerAccount = $true` dans son
+`module.psd1` — et son entrée de cache devient `comptes.probe.ps1@<compte>`. Sans demandeur identifié, la clé est `@?` :
+une session anonyme a son entrée à elle, où personne n'est « vous ».
+
+Ces cartes-là ne sont **jamais** différées au rafraîchissement de fond : celui-ci tourne sans session, il ne sait pas
+pour qui recalculer.
+
+**Deux garde-fous dans `check-probes`** : `$env:USERNAME` en clair est refusé hors de son enveloppe, et une sonde qui lit
+la liste des comptes ou le demandeur doit déclarer `PerAccount`.
