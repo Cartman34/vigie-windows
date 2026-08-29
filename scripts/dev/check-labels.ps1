@@ -104,8 +104,14 @@ foreach ($f in $files) {
         $keyAst = $elems[1]
         if (-not ($keyAst -is [System.Management.Automation.Language.StringConstantExpressionAst])) {
             # Une clé calculée ne se vérifie pas ici ; on la signale plutôt que de l'ignorer.
-            $mismatch += @{ File = $rel; Line = $c.Extent.StartLineNumber
-                            Message = 'clé calculée : impossible à vérifier à froid' }
+            #
+            # SAUF DANS LE RESOLVEUR. show-confirm.ps1 reçoit des clés en paramètre et les
+            # résout : c'est sa raison d'être, et l'y signaler reviendrait à reprocher à
+            # un traducteur de traduire.
+            if ($rel -ne 'scripts/lib/show-confirm.ps1') {
+                $mismatch += @{ File = $rel; Line = $c.Extent.StartLineNumber
+                                Message = 'clé calculée : impossible à vérifier à froid' }
+            }
             continue
         }
         $key = $keyAst.Value
@@ -155,6 +161,19 @@ foreach ($h in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Filter '*.h
                 $missing += @{ File = $rel; Line = $line; Message = $key }
             }
         }
+    }
+}
+
+# UNE CLE CITEE EST UNE CLE UTILISEE. Depuis que la fenetre de confirmation les recoit
+# en parametre -- « -TitleKey 'install.fenetre-titre' » --, la cle n'apparait plus dans un
+# appel a Get-Label. Chercher le NOM lui-meme, ou qu'il soit, evite de declarer orphelins
+# des libelles bel et bien affiches.
+foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.ps1','*.html' -ErrorAction SilentlyContinue)) {
+    $rel = $f.FullName.Substring($repoRoot.Length).TrimStart([char]92, [char]47).Replace([char]92, [char]47)
+    if ($SKIPPED | Where-Object { $rel -like ($_ + '/*') -or $rel -like ('*/' + $_ + '/*') }) { continue }
+    $body = [IO.File]::ReadAllText($f.FullName, (New-Object Text.UTF8Encoding($false)))
+    foreach ($k in $reference.Keys) {
+        if (-not $used.ContainsKey($k) -and $body.Contains("'" + $k + "'")) { $used[$k] = $true }
     }
 }
 

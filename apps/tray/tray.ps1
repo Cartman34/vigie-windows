@@ -118,7 +118,7 @@ public static bool Focus(System.IntPtr h) {
         $pwsh      = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
         $trayPath  = Join-Path $trayRoot 'tray.ps1'      # cette app, pas le backend
         # Starting : un demarrage a ete demande et le serveur n'a pas encore repondu.
-        $state     = [hashtable]::Synchronized(@{ Proc = $null; Drawn = ''; EverUp = $false; Starting = $true; StartTicks = [datetime]::UtcNow.Ticks; Mods = @{}; ModsInit = $false; HealthKo = 0; MachineTask = $null })
+        $state     = [hashtable]::Synchronized(@{ Proc = $null; Drawn = ''; EverUp = $false; Starting = $true; StartTicks = [datetime]::UtcNow.Ticks; Mods = @{}; ModsInit = $false; HealthKo = 0; MachineTask = $null; SaidNoRights = $false })
         # Cache d'etat du backend : lu (jamais ecrit) par le guetteur de modules (D54).
         $stateCacheFile = Get-VarPath -Backend $backend -Kind 'cache' -File 'state-cache.json'
         <#
@@ -225,6 +225,26 @@ public static bool Focus(System.IntPtr h) {
             if (Test-ServerUp -Address $cfg.BindAddress -Port $cfg.Port) { return }
             # LA MACHINE S'EN CHARGE : on n'a rien a lancer, et surtout rien a disputer.
             if (& $machineServerActive) { return }
+
+            <#
+                UN COMPTE STANDARD NE PEUT PAS LANCER LE SERVEUR.
+
+                start.ps1 exige l'elevation et se relance lui-meme avec « RunAs » : sur un
+                compte sans droits d'administration, Windows ouvre une fenetre UAC qui
+                reclame les identifiants d'un AUTRE compte. La personne n'a rien demande,
+                ne peut rien y repondre, et la fenetre revient a chaque tentative.
+
+                On ne tente donc pas ce qu'on ne peut pas faire. Le tray le dit une fois
+                dans son journal, affiche l'etat reel, et s'en tient la : c'est au serveur
+                de machine -- ou a un administrateur -- de repartir.
+            #>
+            if (-not (Test-IsElevated)) {
+                if (-not $state.SaidNoRights) {
+                    TLog "compte sans droits d'administration : le serveur ne peut pas etre lance d'ici"
+                    $state.SaidNoRights = $true
+                }
+                return
+            }
             # Un demarrage VOULU rouvre la fenetre de tolerance : pendant $startupGrace
             # secondes, "injoignable" veut dire "demarre" (orange) et non "en panne" (rouge).
             $state.StartTicks = [datetime]::UtcNow.Ticks
@@ -773,6 +793,11 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                     } else {
                         $app = 'error'; $lbl = 'Échec de démarrage'
                     }
+                } elseif (-not (Test-IsElevated)) {
+                    # Ni panne ni attente : ce compte n'a pas les droits de relancer le
+                    # serveur. Le dire vaut mieux que « injoignable », qui laisse croire
+                    # a un incident reparable en cliquant.
+                    $app = 'warn'; $lbl = 'Serveur arrêté (relance réservée à un administrateur)'
                 } else {
                     $app = 'error'; $lbl = 'Arrêtée / injoignable'
                     # Serveur MORT (port ferme) : le tray le relance seul. C'est le
