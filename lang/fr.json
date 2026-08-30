@@ -300,7 +300,6 @@
   "install.provider-nuget-deja-present": "Provider NuGet : déjà présent.",
   "install.recuperation-echouee": "La récupération a échoué (code {0}) : l'installation en place continue de tourner.",
   "install.recuperation-sans-dossier": "La récupération n'a pas rendu de dossier utilisable : {0}",
-  "install.reglages-de-la-machine": "Réglages conservés.",
   "install.relancez-cette-installation-en": "Relancez cette installation en administrateur : double-clic sur setup.cmd, à la racine.",
   "install.restauration-echouee": "La restauration a échoué ({0}). L'installation est dans un état intermédiaire ; la sauvegarde est ici : {1}",
   "install.sans-droits-administrateur-vigie": "Sans droits administrateur, Vigie ne peut pas s'installer dans Program Files.",
