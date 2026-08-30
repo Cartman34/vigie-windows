@@ -147,7 +147,21 @@ function Remove-ProbeCache {
         $ht = @{}
         foreach ($pp in $obj.PSObject.Properties) { $ht[$pp.Name] = $pp.Value }
         $changed = $false
-        foreach ($k in $Names) { if ($ht.ContainsKey($k)) { $ht.Remove($k); $changed = $true } }
+        <#
+            ON RETIRE AUSSI LES ENTREES PAR COMPTE.
+
+            Une action cite la SONDE (« comptes.probe.ps1 ») ; depuis que les cartes
+            personnelles ont une cle par compte, les vraies entrees s'appellent
+            « comptes.probe.ps1@fhaza », « comptes.probe.ps1@Famille »... L'invalidation ne
+            retirait donc plus rien, et la carte gardait son rendu d'avant la mise a jour.
+        #>
+        foreach ($k in $Names) {
+            foreach ($present in @($ht.Keys)) {
+                if ($present -eq $k -or $present -like ($k + '@*')) {
+                    $ht.Remove($present); $changed = $true
+                }
+            }
+        }
         if ($changed) {
             $tmp = "$cacheFile.tmp"
             ($ht | ConvertTo-Json -Depth 25) | Out-File -FilePath $tmp -Encoding UTF8
