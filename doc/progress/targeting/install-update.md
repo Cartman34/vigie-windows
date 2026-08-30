@@ -116,6 +116,32 @@ Un cache perdu se recalcule : c'est sa définition. Aujourd'hui il n'y a rien à
 fichier de sonde, que la mise à jour change, donc ses entrées se périment seules. Le jour où sa **structure** changera,
 sa suppression ira au même endroit que la migration, entre 17 et 19, et pour tous les comptes.
 
+### Une tâche d'app cliente exige une session ouverte
+
+Elle est **interactive** : Windows refuse de la démarrer pour un compte qui n'a aucune session. « Ouverte » ne veut pas
+dire « active » — un compte laissé par « Changer d'utilisateur » garde une session **déconnectée**, et sa tâche y
+démarre très bien. Vérifié le 30/08 : deux sessions coexistaient, l'une active, l'autre déconnectée.
+
+Un compte sans session n'est donc pas une erreur : son app cliente repartira à sa prochaine ouverture, avec le nouveau
+code. La tâche serveur, elle, ouvre une session par mot de passe : elle démarre sans personne de connecté.
+
+### Depuis le bouton, l'installation tourne détachée de l'app serveur
+
+L'étape 13 arrête l'app serveur — or c'est elle qui a lancé l'installation. Si le processus d'installation était son
+enfant direct, il mourrait avec elle et tout ce qui suit n'aurait jamais lieu. Il est donc **détaché**, comme le
+relanceur : l'app serveur le lance et le laisse vivre.
+
+### Un tag sans déploiement derrière n'est pas grave
+
+Le marquage (8) précède la fabrication (9a) parce que l'archive doit porter le numéro. Si la suite échoue, le dépôt
+garde un tag qui ne correspond à rien de déployé : c'est acceptable, on ne le retire pas.
+
+### Quand la restauration elle-même échoue
+
+Il n'y a pas de reprise automatique : l'installation partagée est dans un état intermédiaire, et la fenêtre de fin le
+**dit** — avec le chemin de la sauvegarde, s'il en reste une, et celui du journal. C'est le seul cas où Vigie demande
+une intervention.
+
 ### Correspondances techniques
 
 | Dans le plan | Dans le code |
