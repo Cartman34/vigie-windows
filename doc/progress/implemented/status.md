@@ -1,7 +1,7 @@
 # État d'implémentation
 
 Légende : **Fait** / **Partiel** / **À faire**. Les ID renvoient à `../targeting/features.md`.
-Mise à jour : 2026-08-27.
+Mise à jour : 2026-08-30.
 
 ## Socle
 
@@ -11,8 +11,8 @@ Mise à jour : 2026-08-27.
 | CORE-BACKEND | Fait | `apps/backend-pode/server.ps1`, `lib/common.ps1` | Exécution élevée requise pour les actions réelles |
 | CORE-FRONTEND | Fait | `apps/frontend-web/index.html`, page unique servie par le serveur | — |
 | CORE-PROBES | Fait | 16 sondes auto-découvertes, 41 actions, contrôlées par `scripts/check-probes.ps1` | — |
-| CORE-TRAY | Fait | `apps/tray/tray.ps1` — auto-réparant, relance le serveur avec l'application | — |
-| CORE-AUTOSTART | Fait | `scripts/install-autostart.ps1` ; tâches `Vigie` / `Vigie - <compte>`, réparation par `repair-tasks` | — |
+| CORE-TRAY | Fait | `apps/tray/tray.ps1` — auto-réparant ; ne ferme jamais l'app serveur, lui **demande** de se relancer (action `server-restart`) | — |
+| CORE-AUTOSTART | Fait | app serveur : tâche `Vigie - Serveur` sous `VigieService`, au **démarrage de l'ordinateur**, sans session ouverte (`scripts/lib/install-service.ps1`). App cliente : `scripts/install-autostart.ps1`, tâches `Vigie` / `Vigie - <compte>`, réparation par `repair-tasks` | — |
 | CORE-SECURITY | Fait | Écoute 127.0.0.1, jeton porteur injecté dans la page | À auditer avant toute exposition |
 | CORE-VERSION | Fait | `Get-GitVersion` / `Get-GitCommit`, empreinte BUILD dans l'archive | — |
 | CORE-UPDATE | Fait | Action `vigie-update`, `scripts/vigie-update.ps1` | — |
