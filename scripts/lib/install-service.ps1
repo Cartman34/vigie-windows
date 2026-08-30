@@ -74,7 +74,8 @@ function Show-State {
     if (-not $NoTitle) { Write-Title (Get-Label 'install-service.service-de-machine') }
     Write-Info (Get-Label 'install-service.compte-dedie' $(if ($account) { $SERVICE_ACCOUNT + " (actif=" + $account.Enabled + ")" } else { "absent" }))
     Write-Info (Get-Label 'install-service.tache-machine' $(if ($task) { $SERVICE_TASK + " (" + $task.State + ")" } else { "absente" }))
-    Write-Info (Get-Label 'install-service.environnement' (Get-StageLabel -Stage (Get-DeclaredStage -Backend $backend)))
+    # PROD EST LE DEFAUT, on ne l'annonce pas : seul « developpement » apprend quelque chose.
+    if ((Get-DeclaredStage -Backend $backend) -eq 'dev') { Write-Info (Get-Label 'install-service.stage-dev') }
     $listening = $null
     try { $listening = Get-NetTCPConnection -LocalPort ([int](Get-Config -Backend $backend).Port) -State Listen -ErrorAction Stop } catch { }
     Write-Info (Get-Label 'install-service.serveur-en-ligne' $(if ($listening) { "oui (PID " + $listening[0].OwningProcess + ")" } else { "non" }))

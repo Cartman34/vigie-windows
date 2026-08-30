@@ -28,7 +28,16 @@
     # Ce reglage DECLARE une intention ; Vigie compare ensuite avec ce qui tourne
     # reellement et signale l'ecart. A poser dans config.local.psd1 : c'est un choix de
     # machine, comme UpdateSource.
-    Stage        = 'prod'   # dev | prod. L'ancien nom « Environment » reste lu.
+    # STAGE (dev | prod) : ABSENT VOLONTAIREMENT.
+    #
+    # Le defaut vit dans le code (Get-DeclaredStage rend « prod » quand rien n'est dit).
+    # Le poser ici en ferait une valeur DECLAREE, qui masquerait celle d'une couche plus
+    # specifique : c'est arrive le 30/08, « Stage = prod » livre ici l'emportait sur le
+    # « Environment = dev » de la machine, et l'installation annoncait Production sur un
+    # poste de developpement.
+    #
+    # A poser dans config.local.psd1, ou dans machine.psd1 pour tout l'ordinateur.
+    # L'ancien nom « Environment » reste lu.
 
     # D'OU VIGIE SE MET A JOUR quand on appuie sur « Mettre a jour Vigie ».
     #
