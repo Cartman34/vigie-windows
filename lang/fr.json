@@ -109,6 +109,7 @@
   "deploy-prod.aucune-archive-fournie-et": "Aucune archive fournie et build-release.ps1 est absent : precisez -Zip.",
   "deploy-prod.copie-vers": "Copie vers {0} ...",
   "deploy-prod.deploiement-annule-rien-ete": "Déploiement annule. Rien n'a été modifie.",
+  "deploy-prod.depot-de-confiance": "Dépôt déclaré de confiance pour git : {0}",
   "deploy-prod.fabrication-de-archive-de": "Fabrication de l'archive de distribution...",
   "deploy-prod.la-fabrication-de-archive": "La fabrication de l'archive a échoué : déploiement abandonne.",
   "deploy-prod.les-autres-comptes-ne": "Les autres comptes ne pourront pas démarrer Vigie. A faire une fois, en administrateur :",

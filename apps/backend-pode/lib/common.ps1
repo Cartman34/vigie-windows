@@ -1513,6 +1513,32 @@ function Get-NextDeploymentTag {
     return ('v' + $base + '.' + ($max + 1))
 }
 
+<#
+    DECLARER LE DEPOT DE CONFIANCE POUR GIT, A L'ECHELLE DE L'ORDINATEUR.
+
+    Depuis git 2.35, git refuse d'ouvrir un depot appartenant a quelqu'un d'autre :
+    « detected dubious ownership ». L'app serveur tourne sous un compte de service, le
+    depot appartient a une personne -- mesure le 30/08, meme la LECTURE est refusee, et
+    le clone du service ne pouvait donc pas se creer.
+
+    On leve le refus pour CE chemin, et rien d'autre. Ce n'est pas un droit d'ecriture :
+    les ACL ne bougent pas, et le service n'ecrit jamais dans ce depot -- le tag est pose
+    dans la session du proprietaire (D112).
+
+    Pose a l'echelle machine, la ou l'ordinateur declare deja d'ou vient son code : la
+    declaration et la confiance sont le meme geste.
+#>
+function Set-GitSafeDirectory {
+    param([Parameter(Mandatory)][string]$RepoPath)
+    $wanted = "$RepoPath".Replace([char]92, [char]47).TrimEnd([char]47)
+    foreach ($known in @(Invoke-Git -Path $env:SystemDrive -Arguments @('config', '--system', '--get-all', 'safe.directory'))) {
+        if ("$known".Replace([char]92, [char]47).TrimEnd([char]47) -eq $wanted) { return $false }
+    }
+    $null = Invoke-Git -Path $env:SystemDrive -Arguments @('config', '--system', '--add', 'safe.directory', $wanted)
+    if (Get-GitLastError) { throw (Get-GitLastError) }
+    return $true
+}
+
 function New-DeploymentTag {
     param([Parameter(Mandatory)][string]$RepoPath, [switch]$Push)
     $tag = Get-NextDeploymentTag -RepoPath $RepoPath

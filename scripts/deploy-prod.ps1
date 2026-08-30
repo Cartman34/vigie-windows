@@ -151,6 +151,11 @@ try {
         try {
             $declaredAt = Set-ComputerConfigValue -Values @{ Environment = 'dev'; SourcePath = $repoRoot }
             Write-Detail (Get-Label 'deploy-prod.machine-declaree' $declaredAt)
+            # ET GIT DOIT POUVOIR LE LIRE. Le service tourne sous un autre compte : sans
+            # cette declaration, il ne peut meme pas cloner la source (mesure le 30/08).
+            if (Set-GitSafeDirectory -RepoPath $repoRoot) {
+                Write-Detail (Get-Label 'deploy-prod.depot-de-confiance' $repoRoot)
+            }
         } catch {
             Write-Warn (Get-Label 'deploy-prod.machine-non-declaree' $_.Exception.Message)
         }
