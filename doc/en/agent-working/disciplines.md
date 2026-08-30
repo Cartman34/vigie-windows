@@ -97,6 +97,16 @@ de travail jusqu'à l'épreuve. Si l'épreuve demande un geste que je ne peux pa
 d'un autre compte), je le dis et j'attends — et si la session se termine avant, le commit part quand même, en
 **annonçant dans son message ce qui n'a pas été éprouvé** (fin de session prioritaire).
 
+## Une erreur trouvée se CORRIGE, elle ne se rapporte pas
+
+**Signaler un défaut n'est pas le traiter.** Le 30/08, j'ai constaté le matin que la tâche `Vigie` lançait le dépôt au
+lieu de l'installation partagée — et je me suis contenté de faire **afficher** l'écart par la carte. La cause est restée
+en place toute la journée, jusqu'à ce qu'il me le fasse remarquer.
+
+**Comment l'appliquer :** quand un constat sort d'une vérification, il va au bout — on corrige la cause, ou on dit
+explicitement pourquoi on ne le fait pas maintenant (et ça devient une tâche écrite, pas une phrase dans un message).
+Rendre un défaut visible est utile ; ça ne remplace jamais sa correction.
+
 ## Chercher avant de concevoir
 
 **La source de vérité, c'est `doc/progress/decisions.md`** — les arbitrages, rien d'autre. Avant de concevoir quoi que
