@@ -1651,11 +1651,21 @@ function Sync-ServiceClone {
         }
     }
 
-    try {
-        (@{ at = (Get-Date).ToUniversalTime().ToString('o'); remote = $remoteUrl; ref = $wantedRef
-            version = $tagVersion; commit = $headCommit; error = $failure } | ConvertTo-Json) |
-            Set-Content -LiteralPath $stampFile -Encoding UTF8
-    } catch { }
+    <#
+        ON N'ENREGISTRE PAS UN ECHEC POUR CINQ MINUTES.
+
+        Le repit sert a ne pas refaire un fetch reussi a chaque affichage. Un ECHEC, lui,
+        se repare souvent d'un geste -- declarer le depot de confiance pour git, par
+        exemple : le figer ferait mentir la carte cinq minutes de plus, alors que tout est
+        deja rentre dans l'ordre. On le rend, on ne le gele pas.
+    #>
+    if (-not $failure) {
+        try {
+            (@{ at = (Get-Date).ToUniversalTime().ToString('o'); remote = $remoteUrl; ref = $wantedRef
+                version = $tagVersion; commit = $headCommit; error = $null } | ConvertTo-Json) |
+                Set-Content -LiteralPath $stampFile -Encoding UTF8
+        } catch { }
+    }
 
     return [pscustomobject][ordered]@{ path = $cloneDir; remote = $remoteUrl; ref = $wantedRef
                                        version = $tagVersion; commit = $headCommit; error = $failure }
