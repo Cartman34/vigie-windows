@@ -25,9 +25,21 @@ param([string]$Module, [hashtable]$Params)
 $backend = Split-Path $PSScriptRoot -Parent
 . (Join-Path $backend 'lib/common.ps1')
 
-$script = Join-Path (Get-RepoRoot) 'scripts/vigie-update.ps1'
+<#
+    LE BOUTON APPELLE L'INSTALLATION, PAS UN AUTRE GESTE.
+
+    Il lancait « vigie-update », qui faisait presque la meme chose que l'installation --
+    mais pas tout a fait : deux chemins pour un seul geste, donc deux comportements a
+    tenir et un qui derive. Depuis le 30/08 il n'y en a plus qu'un, decrit dans
+    doc/progress/targeting/install-update.md.
+
+    L'installation est lancee DETACHEE (le veilleur s'en charge) : elle arrete l'app
+    serveur au milieu de sa sequence, or c'est l'app serveur qui l'a lancee. Un processus
+    enfant mourrait avec elle et tout ce qui suit n'aurait jamais lieu.
+#>
+$script = Join-Path (Get-RepoRoot) 'scripts/install.ps1'
 if (-not (Test-Path -LiteralPath $script)) {
-    return @{ message = "Script de mise à jour introuvable : $script"; result = @{ ok = $false } }
+    return @{ message = "Script d'installation introuvable : $script"; result = @{ ok = $false } }
 }
 
 $journal = Join-Path (Get-LogDir -Backend $backend) ('update_' + (Get-Date -Format 'yyyyMMdd_HHmmss') + '.log')
@@ -44,6 +56,8 @@ try {
               '-File', ('"' + $script + '"'))
     $demandeur = Get-RequesterAccount
     if ($demandeur) { $argv += @('-Requester', $demandeur) }
+    # PAS DE FENETRE : le serveur n'a pas de bureau, elle n'irait nulle part.
+    $argv += '-NoWindow'
     # La carte DEPLOIEMENT gere les deploiements -- et elle est toujours la. La carte de
     # debogage, elle, peut etre eteinte : le suivi de l'operation y aurait ete invisible.
     $lance = [bool](Start-WatchedAction -Module 'deployment' -Probe 'comptes.probe.ps1' `

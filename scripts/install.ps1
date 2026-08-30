@@ -11,6 +11,26 @@
 
     Usage :  powershell -File .\install.ps1   (basculera en pwsh)
 #>
+param(
+    <#
+        QUI DEMANDE. Depuis le bouton de la carte, l'installation tourne sous le compte du
+        service : elle n'a pas de session pour le deduire. Le serveur lui passe le compte de
+        la personne qui a clique, car c'est dans SA session que le tag de version sera pose
+        -- dans SON depot, sous SON identite (D112).
+    #>
+    [string] $Requester,
+
+    # Refaire la sequence entiere meme si l'installation est deja a jour.
+    [switch] $Force,
+
+    <#
+        PAS DE FENETRE DE FIN. Le serveur n'a pas de bureau : une fenetre ouverte depuis sa
+        session ne s'afficherait nulle part, et attendrait un clic que personne ne peut
+        donner. Le verdict, lui, part dans le journal comme d'habitude.
+    #>
+    [switch] $NoWindow
+)
+
 $ErrorActionPreference = 'Stop'
 
 # LE MEME AFFICHAGE QUE PARTOUT. Charge des le debut, avant meme la bascule en
@@ -27,7 +47,14 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
     }
     if ($pwsh) {
         Write-Info (Get-Label 'install.bascule-en-powershell')
-        & $pwsh -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath
+        # LES PARAMETRES SUIVENT LA BASCULE. Sans cela, « -Requester » et « -Force » se
+        # perdaient au passage en PowerShell 7, et la seconde passe ne savait plus qui avait
+        # demande.
+        $suite = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $PSCommandPath)
+        if ($Requester) { $suite += @('-Requester', $Requester) }
+        if ($Force)     { $suite += '-Force' }
+        if ($NoWindow)  { $suite += '-NoWindow' }
+        & $pwsh @suite
         # LE CODE DE LA PASSE LANCEE EST LE NOTRE. Sans cette ligne, un echec de
         # l'installation reelle remontait en succes a l'appelant : le lanceur affichait
         # « Termine » sur une installation ratee (constate le 26/08).
@@ -334,7 +361,10 @@ if ($isRepo) {
     if (-not (Test-Path -LiteralPath $updater)) {
         Write-Fail (Get-Label 'install.deploiement-introuvable' $updater)
     } else {
-        $lines = & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $updater -PrepareOnly 2>&1
+        $prep = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $updater, '-PrepareOnly')
+        if ($Requester) { $prep += @('-Requester', $Requester) }
+        if ($Force)     { $prep += '-Force' }
+        $lines = & (Get-Process -Id $PID).Path @prep 2>&1
         $prepCode = $LASTEXITCODE
         foreach ($l in $lines) {
             Write-Host "$l"
@@ -700,7 +730,7 @@ try {
     #>
     try {
         $window = Join-Path $PSScriptRoot 'lib/show-confirm.ps1'
-        if (Test-Path -LiteralPath $window) {
+        if ((Test-Path -LiteralPath $window) -and -not $NoWindow) {
             # ON PASSE LES CLES, PAS LES TEXTES : voir show-confirm.ps1, les accents ne
             # survivent pas a une ligne de commande.
             <#
