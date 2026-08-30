@@ -30,7 +30,7 @@ ligne — `scripts/dev/check-doc.ps1` refuse une décision absente d'ici.
 - **Sécurité, droits et multi-comptes** — D34 · D65 · D67 · D73 · D104 · D109
 - **Sondes, actions et tâches de fond** — D50bis · D53 · D54 · D60 · D61 · D80 · D82 · D83 · D85
 - **Outillage** — D06 · D21 · D24 · D40 · D44 · D47 · D52 · D64 · D75 · D86 · D90
-- **Méthode de travail** — D10 · D12 · D13 · D14 · D16 · D17 · D31 · D36 · D39 · D43 · D51 · D62 · D63 · D74 · D76 · D100 · D103
+- **Méthode de travail** — D10 · D12 · D13 · D14 · D16 · D17 · D31 · D36 · D39 · D43 · D51 · D62 · D63 · D74 · D76 · D100 · D103 · D111
 ---
 
 ## D01 — Icône du tray : « v1 — jauge à graduations »
@@ -2890,3 +2890,34 @@ mise à jour. Il attend la fin des opérations en cours : celle qui tourne, c'es
 
 Enfin, l'adresse du dépôt public vit dans `config/common.psd1` (**D15**) : elle était écrite dans `vigie-fetch` et dans
 le calcul de la carte.
+
+---
+
+## D111 — La source de vérité, c'est ce fichier — et deux outils pour qu'elle serve (2026-08-29)
+
+*Demandée par l'utilisateur.*
+
+> « Tu dois garder les décisions et la conception et être cohérent avec toi-même. Tu oublies plein de choses alors que
+> tu penses que tu vas tout garder en mémoire, du coup tu fais beaucoup d'erreurs que tu peux même répéter. »
+
+Le 29/08, trois fois le même défaut, jamais un oubli de code : **ne pas avoir cherché**. J'ai réinventé « d'où vient le
+code qu'on déploie » alors que `UpdateSource` y répondait. J'ai rangé un réglage d'ordinateur dans chaque copie alors
+que **D33** décrit les couches de configuration. J'ai redéfini une fonction qui existait déjà trois mille lignes plus
+bas — et la dernière définition gagnait **en silence**.
+
+**La règle.** Avant de concevoir quoi que ce soit : chercher ici. Ce fichier fait plus de deux mille lignes, donc
+chercher doit coûter dix secondes :
+
+```powershell
+pwsh -File scripts/dev/decisions.ps1 -About "mise a jour deploiement"   # les titres
+pwsh -File scripts/dev/decisions.ps1 -About "cache" -Full               # + le texte
+pwsh -File scripts/dev/decisions.ps1 -Number D99                        # le texte entier
+```
+
+**Et si une incohérence apparaît sans qu'aucune décision ne tranche : demander.** Ne pas arbitrer seul et poursuivre —
+c'est ainsi qu'on empile deux conceptions contradictoires dont aucune n'est écrite.
+
+**Ce que ma vigilance ne voit pas devient un outil** (**D64**) : `scripts/dev/check-coherence.ps1` refuse une fonction
+définie deux fois dans les bibliothèques partagées — celles que tout le monde charge ensemble, où une redéfinition
+écrase pour de vrai — et un renvoi vers un `Dnn` qui n'existe pas, parce qu'un renvoi mort envoie chercher une règle
+jamais écrite.
