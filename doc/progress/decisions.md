@@ -2934,16 +2934,18 @@ service n'a pas d'auteur.
 possède, et fabrique depuis lui. C'est ce que fait n'importe quel agent d'intégration continue. La voie existait déjà
 sans être branchée : `UpdateSource = 'clone'`, avec `UpdateRef` pour viser une branche ou un tag.
 
-**Ce qui distingue dev et prod, c'est que la source est LOCALE ou DISTANTE** — pas le fait de déployer depuis un
-dépôt. Une production peut parfaitement déployer depuis un dépôt : simplement, il est **toujours distant**.
+**DEUX AXES INDÉPENDANTS, et aucun ne se déduit de l'autre.**
 
-| | source | conséquence |
-|---|---|---|
-| **prod** | un dépôt **distant** (`origin`), ou une version publiée | rien à déclarer : git ne vérifie la propriété que d'un **dossier**, et il n'y en a pas |
-| **dev** | le **dépôt local** de cet ordinateur | on teste ce qu'on vient d'écrire sans pousser — mais git refuse d'ouvrir un dossier appartenant à un autre compte, d'où la déclaration `safe.directory` |
+**1. L'environnement est DÉCLARÉ, jamais deviné.** `Environment` vaut `dev` ou `prod`, l'application le **sait** — elle
+ne le suppose pas à partir de ce qu'elle trouve autour d'elle. Un poste de développement fabrique depuis le dépôt local.
 
-C'est donc **l'adresse de la source** (`UpdateRemote`) qui commande, jamais « est-ce que je tourne dans un dépôt ». Le
-déploiement ne déclare `safe.directory` que si cette adresse est un **chemin local**, et pour ce seul chemin.
+**2. La source est un RÉGLAGE à part.** `UpdateSource` dit d'où vient le code — une version publiée (archive), ou un
+clone — et `UpdateRemote` dit de quelle adresse ce clone se synchronise. Une production peut parfaitement se
+synchroniser depuis un **clone local** : c'est un choix légitime, et il ne fait pas d'elle un poste de développement.
+
+**Ce que `safe.directory` suit, c'est l'adresse — pas l'environnement.** Git ne vérifie la propriété que d'un
+**dossier** : le déploiement déclare donc ce chemin de confiance dès que la source est un chemin local, en dev comme en
+prod, et pour ce seul chemin. Une source distante n'a rien à déclarer.
 
 **Reste à éprouver :** `git fetch <chemin local>` depuis le clone du service lit aussi le dépôt de la personne, côté
 `upload-pack`. Si la protection s'y applique aussi, ce seul cas demandera un `safe.directory` — et on l'écrira ici.

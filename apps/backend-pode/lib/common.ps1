@@ -5573,8 +5573,12 @@ function Get-RunningEnvironment {
 #>
 function Get-EnvironmentLabel {
     param([Parameter(Mandatory)][ValidateSet('dev', 'prod')][string]$Environment)
-    if ($Environment -eq 'dev') { return 'Développement (source : le dépôt)' }
-    return 'Production (source : versions publiées)'
+    # L'ENVIRONNEMENT NE DIT PAS LA SOURCE. Les deux libelles la nommaient (« source : le
+    # depot », « source : versions publiees ») : c'est un REGLAGE A PART (UpdateSource),
+    # et une production peut se synchroniser depuis un clone local sans cesser d'en etre
+    # une. Deux axes, aucun deduit de l'autre.
+    if ($Environment -eq 'dev') { return 'Développement' }
+    return 'Production'
 }
 
 # --- TRACABILITE : toute action laisse une trace, deux fois ------------------

@@ -149,7 +149,11 @@ try {
     #>
     if (Test-Path -LiteralPath (Join-Path $repoRoot '.git')) {
         try {
-            $declaredAt = Set-ComputerConfigValue -Values @{ Environment = 'dev'; SourcePath = $repoRoot }
+            # ON NOTE UN FAIT, PAS UNE INTENTION. Ce deploiement vient de ce dossier :
+            # c'est constate. L'ENVIRONNEMENT, lui, se DECLARE et ne se devine jamais --
+            # une production peut tres bien se synchroniser depuis un clone local, cela
+            # n'en fait pas un poste de developpement.
+            $declaredAt = Set-ComputerConfigValue -Values @{ SourcePath = $repoRoot }
             Write-Detail (Get-Label 'deploy-prod.machine-declaree' $declaredAt)
             <#
                 ET GIT DOIT POUVOIR LIRE LA SOURCE -- MAIS SEULEMENT SI ELLE EST LOCALE.
