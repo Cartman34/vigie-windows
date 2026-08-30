@@ -1847,6 +1847,156 @@ function Get-LatestPublishedVersion {
 
     Rend $true si plus rien n'ecoute a la fin.
 #>
+<#
+    LE VERROU D'INSTALLATION -- UNE SEULE A LA FOIS.
+
+    Deux installations simultanees se marchent dessus : l'une arrete ce que l'autre vient
+    de demarrer, l'une copie pendant que l'autre sauvegarde. C'est imperatif de l'empecher.
+
+    LE VERROU DIT QUI LE TIENT -- numero de processus et heure -- et un verrou dont le
+    processus n'existe plus est IGNORE. Sans cela, une installation interrompue
+    brutalement condamnerait le poste jusqu'a une suppression a la main, ce qu'on
+    s'interdit : ce qui manque manque dans l'installation, jamais dans une commande a
+    taper.
+
+    Il vit avec la declaration de l'ordinateur, hors de l'installation partagee : il doit
+    survivre a une copie et rester lisible par les deux points d'entree.
+#>
+function Get-InstallLockPath {
+    Join-Path (Split-Path (Get-ComputerConfigPath) -Parent) 'install.lock'
+}
+
+function Get-InstallLockHolder {
+    $path = Get-InstallLockPath
+    if (-not (Test-PathSafe $path)) { return $null }
+    $held = $null
+    try { $held = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json } catch { return $null }
+    if (-not $held -or -not $held.pid) { return $null }
+    # LE PROCESSUS EXISTE-T-IL ENCORE ? C'est la seule question qui compte : un verrou
+    # orphelin ne protege rien, il bloque.
+    $alive = $false
+    try { $alive = [bool](Get-Process -Id ([int]$held.pid) -ErrorAction Stop) } catch { }
+    if (-not $alive) { return $null }
+    return $held
+}
+
+function Lock-Install {
+    $held = Get-InstallLockHolder
+    if ($held) { return $null }
+    $path = Get-InstallLockPath
+    $dir = Split-Path $path -Parent
+    if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+    $mine = [ordered]@{ pid = $PID; account = (Get-ProcessAccount); at = (Get-Date).ToUniversalTime().ToString('o') }
+    ($mine | ConvertTo-Json -Compress) | Set-Content -LiteralPath $path -Encoding UTF8
+    return $path
+}
+
+function Unlock-Install {
+    # ON NE RETIRE QUE LE SIEN. Retirer celui d'un autre reviendrait a autoriser ce qu'on
+    # vient d'interdire.
+    $path = Get-InstallLockPath
+    if (-not (Test-PathSafe $path)) { return }
+    try {
+        $held = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+        if ($held -and [int]$held.pid -ne $PID) { return }
+    } catch { }
+    Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+}
+
+<#
+    LE DEPLOIEMENT EST-IL POSSIBLE ? -- des controles rapides, avant d'arreter quoi que
+    ce soit.
+
+    On arretait Vigie, puis on decouvrait que la copie ne passait pas : dossier verrouille,
+    disque plein. Ces deux questions se posent en quelques millisecondes, et evitent
+    d'arreter pour rien.
+
+    On ne cherche pas a prevoir TOUTES les pannes -- seulement celles qui coutent moins a
+    verifier qu'a subir. Rend $null si tout va bien, la raison sinon.
+#>
+function Test-DeploymentPossible {
+    param([Parameter(Mandatory)][string]$Destination, [long]$NeededBytes = 0)
+    $parent = Split-Path $Destination -Parent
+    if (-not (Test-PathSafe $parent)) { return ("dossier d'accueil introuvable : " + $parent) }
+
+    # ECRITURE : on essaie, c'est la seule preuve. Un test de droits mentirait (heritage,
+    # redirections, antivirus qui bloque a l'ecriture reelle).
+    $probe = Join-Path $parent ('.vigie-write-' + [guid]::NewGuid().ToString('N').Substring(0, 8))
+    try {
+        Set-Content -LiteralPath $probe -Value 'x' -Encoding ASCII -ErrorAction Stop
+        Remove-Item -LiteralPath $probe -Force -ErrorAction SilentlyContinue
+    } catch { return ("écriture refusée dans " + $parent + " : " + $_.Exception.Message) }
+
+    # PLACE : on copie, et on garde une sauvegarde -- il faut donc de quoi tenir les deux.
+    if ($NeededBytes -gt 0) {
+        try {
+            $drive = (Get-Item -LiteralPath $parent).PSDrive
+            if ($drive -and $drive.Free -lt ($NeededBytes * 2)) {
+                return ("espace disque insuffisant sur " + $drive.Name + " : " +
+                        (Format-ByteSize -Bytes $drive.Free) + " libres, " +
+                        (Format-ByteSize -Bytes ($NeededBytes * 2)) + " nécessaires")
+            }
+        } catch { }
+    }
+    return $null
+}
+
+<#
+    SAUVEGARDER, VERIFIER, RESTAURER.
+
+    La copie ecrase l'installation en place : si elle echoue a mi-chemin, l'ancienne
+    version est deja detruite et on demarrerait une installation incomplete.
+
+    La sauvegarde vit HORS de l'installation partagee -- sinon elle doublerait le volume et
+    la sauvegarde suivante la sauvegarderait -- et porte la version qu'elle contient, pour
+    qu'on sache ce qu'on restaure. Elle est supprimee des que la copie est verifiee : elle
+    n'existe que le temps du risque.
+#>
+function Get-InstallBackupRoot {
+    param([string]$Backend = (Get-BackendRoot))
+    Join-Path (Get-VarRoot -Backend $Backend) 'backup'
+}
+
+function Backup-Install {
+    param([Parameter(Mandatory)][string]$Source, [string]$Backend = (Get-BackendRoot))
+    if (-not (Test-PathSafe $Source)) { return $null }
+    $stamp = Get-BuildStamp -Root $Source
+    $name = 'installation-' + $(if ($stamp.version) { "$($stamp.version)" -replace '[^\w\.\+-]', '_' } else { 'inconnue' })
+    $root = Get-InstallBackupRoot -Backend $Backend
+    $dest = Join-Path $root $name
+    if (Test-Path -LiteralPath $dest) { Remove-Item -LiteralPath $dest -Recurse -Force -ErrorAction SilentlyContinue }
+    New-Item -ItemType Directory -Path $dest -Force | Out-Null
+    Copy-Item -Path (Join-Path $Source '*') -Destination $dest -Recurse -Force -ErrorAction Stop
+    return $dest
+}
+
+<#
+    LA COPIE EST-ELLE VALIDE ? On ne demande pas si elle « semble » faite : on lit la
+    marque de version qu'on attendait et les fichiers sans lesquels Vigie ne demarre pas.
+#>
+function Test-InstallCopy {
+    param([Parameter(Mandatory)][string]$Destination, [string]$ExpectedVersion)
+    foreach ($needed in @('apps/backend-pode/start.ps1', 'apps/tray/tray.ps1', 'apps/backend-pode/lib/common.ps1')) {
+        if (-not (Test-PathSafe (Join-Path $Destination $needed))) { return ("fichier manquant : " + $needed) }
+    }
+    if ($ExpectedVersion) {
+        $stamp = Get-BuildStamp -Root $Destination
+        if (-not (Test-SameVersion -A "$($stamp.version)" -B $ExpectedVersion)) {
+            return ("version posée « " + "$($stamp.version)" + " » au lieu de « " + $ExpectedVersion + " »")
+        }
+    }
+    return $null
+}
+
+function Restore-Install {
+    param([Parameter(Mandatory)][string]$Backup, [Parameter(Mandatory)][string]$Destination)
+    if (-not (Test-PathSafe $Backup)) { throw "aucune sauvegarde à restaurer" }
+    Get-ChildItem -LiteralPath $Destination -Force -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -ne 'var' } |
+        ForEach-Object { Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction SilentlyContinue }
+    Copy-Item -Path (Join-Path $Backup '*') -Destination $Destination -Recurse -Force -ErrorAction Stop
+}
+
 function Stop-ServerApp {
     param([string]$Backend = (Get-BackendRoot), [int]$Port = 0, [int]$TimeoutSec = 30)
     if (-not $Port) { $Port = [int](Get-Config -Backend $Backend).Port }
