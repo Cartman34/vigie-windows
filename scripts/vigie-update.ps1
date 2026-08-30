@@ -153,9 +153,18 @@ $archive = $null
     depuis la branche, avec un numero « v0.1.29+3 ». Une mise a jour ne doit pas echouer
     parce qu'un tag n'a pas pu etre pose.
 #>
-$remoteLocal = $false
-try { $remoteLocal = (Test-Path -LiteralPath (Join-Path (Get-UpdateRemote -Backend $backend) '.git')) } catch { }
-if ($route -eq 'clone' -and $remoteLocal -and -not $Ref) {
+<#
+    LA CONDITION EST L'ENVIRONNEMENT DECLARE, PAS LA FORME DE LA SOURCE.
+
+    Regle actee : on pose un tag s'il y a des commits d'avance ET qu'on est en DEV.
+    J'avais mis « si la source est un chemin local » -- une condition a moi, qui n'a
+    jamais ete decidee. Une production ne marque pas de version parce qu'elle deploie :
+    elle installe ce qui a deja ete marque.
+
+    « Des commits d'avance » se verifie la ou l'on pose le tag (action tag-version) : si
+    la tete porte deja un tag, il n'y a rien a marquer.
+#>
+if ($route -eq 'clone' -and (Get-DeclaredEnvironment -Backend $backend) -eq 'dev' -and -not $Ref) {
     $poseTag = $null
     if ($Requester) {
         # Lance depuis l'interface : le demandeur a une session, le tag s'y pose.

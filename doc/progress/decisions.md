@@ -2957,5 +2957,6 @@ session du demandeur (`@execution: session`, **D65**) : elle tourne alors sous l
 a un auteur, le `push` a des identifiants, et les fichiers restent à lui. Le serveur ne fait plus que déployer
 l'archive reçue et relancer.
 
-**Le tag se pose quand il y a des commits d'avance** — sinon il n'y a rien à marquer — et l'utilisateur garde la
-liberté de le poser lui-même dans son dépôt.
+**Le tag se pose quand il y a des commits d'avance ET qu'on est en `dev`** — l'environnement déclaré, jamais deviné.
+Une production ne marque pas de version parce qu'elle déploie : elle installe ce qui a déjà été marqué. S'il n'y a rien
+de neuf, il n'y a rien à marquer. Et l'utilisateur garde la liberté de poser le tag lui-même dans son dépôt.
