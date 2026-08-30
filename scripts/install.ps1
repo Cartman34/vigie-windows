@@ -294,12 +294,16 @@ if ($isRepo) {
     estimation, et c'est pour ca qu'on l'attend -- contrairement a un demarrage.
 #>
 if ($isRepo -and (Test-Elevated)) {
+    Write-Step (Get-Label 'install.etape-arret')
     $trayTool = Join-Path $PSScriptRoot 'tray.ps1'
     if (Test-Path -LiteralPath $trayTool) {
-        Write-Step (Get-Label 'install.etape-arret-app-cliente')
         & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $trayTool 2>&1 |
             ForEach-Object { Write-Detail "$_" }
     }
+    # ET L'APP SERVEUR AUSSI. On ecrasait ses fichiers pendant qu'elle tournait, et on ne
+    # l'arretait qu'a l'etape suivante : du code remplace sous un processus vivant.
+    if (Stop-ServerApp -Backend $backend) { Write-Detail (Get-Label 'install.app-serveur-arretee') }
+    else { Write-Warn (Get-Label 'install.app-serveur-toujours-la') }
 
     Write-Step (Get-Label 'install.etape-deploiement')
     $updater = Join-Path $PSScriptRoot 'vigie-update.ps1'

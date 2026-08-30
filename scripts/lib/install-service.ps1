@@ -368,13 +368,12 @@ function Enable-ServiceTask {
     # LE PRECEDENT S'ARRETE, LE SUIVANT DEMARRE. C'est une installation : on ne demande
     # pas la permission de remplacer un serveur par sa propre nouvelle version.
     if ($held) {
-        $pidHeld = $held[0].OwningProcess
-        Write-Step (Get-Label 'install-service.activer-arret-du-serveur' $pidHeld)
-        try {
-            Stop-Process -Id $pidHeld -Force -ErrorAction Stop
-            Start-Sleep -Seconds 2
-        } catch {
-            Write-Fail (Get-Label 'install-service.activer-arret-impossible' $_.Exception.Message)
+        # UNE SEULE MISE EN OEUVRE DE L'ARRET (Stop-ServerApp) : elle arrete la tache
+        # AVANT le processus -- sans quoi Windows le relance sous nos pieds -- et attend
+        # que le port se libere, ce qui est un fait constatable.
+        Write-Step (Get-Label 'install-service.activer-arret-du-serveur' $held[0].OwningProcess)
+        if (-not (Stop-ServerApp -Backend $backend -Port $port)) {
+            Write-Fail (Get-Label 'install-service.activer-arret-impossible' ("le port " + $port + " est toujours occupe"))
             return $false
         }
     }

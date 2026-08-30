@@ -1833,6 +1833,41 @@ function Get-LatestPublishedVersion {
     script de demarrage, lui, est DIT par l'appelant -- c'est celui de l'installation qui
     tourne, pas forcement celui du depot d'ou l'on parle.
 #>
+<#
+    ARRETER L'APP SERVEUR, ET CONSTATER QU'ELLE EST ARRETEE.
+
+    On modifiait ses fichiers pendant qu'elle tournait, et on ne l'arretait qu'apres, au
+    moment de remettre la tache en service. On ecrasait donc du code sous un processus
+    vivant -- il continuait avec l'ancien en memoire, et le moindre fichier relu en cours
+    de route melangeait deux versions.
+
+    UN ARRET SE CONSTATE. Le port se libere, c'est un fait : on l'attend, contrairement a
+    un demarrage qu'on ne guette jamais. Et on arrete la TACHE d'abord -- sinon Windows
+    la considere en cours d'execution et la relance sous nos pieds.
+
+    Rend $true si plus rien n'ecoute a la fin.
+#>
+function Stop-ServerApp {
+    param([string]$Backend = (Get-BackendRoot), [int]$Port = 0, [int]$TimeoutSec = 30)
+    if (-not $Port) { $Port = [int](Get-Config -Backend $Backend).Port }
+
+    try { Stop-ScheduledTask -TaskName (Get-ServiceTaskName) -ErrorAction SilentlyContinue } catch { }
+    $held = $null
+    try { $held = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction Stop } catch { }
+    if ($held) {
+        try { Stop-Process -Id ([int]$held[0].OwningProcess) -Force -ErrorAction Stop } catch { }
+    }
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSec)
+    while ((Get-Date) -lt $deadline) {
+        $busy = $null
+        try { $busy = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction Stop } catch { }
+        if (-not $busy) { return $true }
+        Start-Sleep -Milliseconds 300
+    }
+    return $false
+}
+
 function Start-ServerRelauncher {
     param(
         [Parameter(Mandatory)][string]$StartScript,
