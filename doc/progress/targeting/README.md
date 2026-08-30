@@ -5,4 +5,5 @@ stable et un enonce de besoin. C'est la reference ; `implemented/` en suit la
 realisation sans reecrire l'enonce.
 
 - Liste et specifications : **`features.md`**.
+- Installation et mise a jour, la sequence cible : **`install-update.md`**.
 - Etat d'avancement correspondant : `../implemented/status.md`.

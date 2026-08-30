@@ -22,7 +22,7 @@ Format : `ID` — Titre, puis le besoin et ses critères. On n'écrit **pas** ic
   pourrait pas lire.
 - **CORE-SECURITY** — Écoute sur 127.0.0.1 uniquement, jeton porteur local. **Aucune donnée n'est envoyée sur Internet.**
 - **CORE-VERSION** — Un seul numéro de version, dérivé des étiquettes git, visible dans l'application avec son commit.
-- **CORE-UPDATE** — Vigie se met à jour elle-même, sans réinstallation manuelle. **La source est déclarée**, pas
+- **CORE-UPDATE** — Vigie se met à jour elle-même, sans réinstallation manuelle. Séquence détaillée : [install-update.md](install-update.md). **La source est déclarée**, pas
   devinée : une branche du dépôt de l'ordinateur en développement, une version publiée en production. La carte se
   compare à cette même source — elle répond donc à « ce bouton changerait-il quelque chose ? » — et l'écart se lit dans
   le numéro de version (`v0.1.27+3`). À la fin d'une mise à jour, **les deux applications** repartent sur le nouveau
