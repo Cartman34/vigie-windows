@@ -10,6 +10,15 @@
 - **Accents obligatoires** dans les libellés visibles. **UTF-8 partout**, cible **PowerShell 7**.
 - Exception : les **lanceurs** (`run/start/install/*.cmd`) restent en **ASCII** (compat PS 5.1 avant bascule pwsh).
 
+## Jamais de commande ponctuelle — toujours l'installation
+
+**Une correction se pose par un script idempotent, jamais par une commande à taper une fois.** Le 30/08 j'ai proposé un
+`git config --system --add safe.directory …` « pour débloquer tout de suite » : refusé, et à raison. Une commande
+ponctuelle ne laisse aucune trace, n'existe que sur cette machine, et disparaît au prochain poste.
+
+**Comment l'appliquer :** si un réglage manque, il manque **dans l'installation** — on le pose là, et on relance
+`setup.cmd`, qui est idempotent par construction. Ce qui vaut d'être fait à la main vaut d'être fait par le script.
+
 ## Avant d'agir
 - **Vérifier les prérequis** de l'environnement en amont (pwsh, Pode, droits, chemins).
 - **Idempotence** : tout script doit pouvoir être relancé sans effet de bord.
