@@ -250,6 +250,46 @@ if ($isRepo) {
     }
 }
 
+<#
+    DEPUIS UN DEPOT, L'INSTALLATION DEPLOIE -- ELLE NE FAIT PAS QUE PREPARER.
+
+    « L'installation doit TOUT installer, l'app est prete ensuite. » Or lancee depuis un
+    depot, elle ne copiait RIEN : elle posait les taches, annoncait « De v0.1.31 vers
+    v0.1.31+8 »... et l'installation partagee restait a v0.1.31. Aucune version marquee
+    non plus, puisque c'est le deploiement qui pose le tag.
+
+    On appelle donc la mise a jour, qui est la SEULE mise en oeuvre du geste : elle marque
+    la version, fabrique l'archive depuis la source declaree, deploie, et relance. On
+    tourne ici sous le compte de la personne, dans son depot : le tag a un auteur.
+
+    Code 3 = « deja a jour » : ce n'est pas un echec (D77), on continue.
+#>
+if ($isRepo -and (Test-Elevated)) {
+    Write-Step (Get-Label 'install.etape-deploiement')
+    $updater = Join-Path $PSScriptRoot 'vigie-update.ps1'
+    if (Test-Path -LiteralPath $updater) {
+        & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $updater 2>&1 |
+            ForEach-Object {
+                $line = "$_"
+                Write-Host $line
+                try { Write-Log -Backend $backend -Name 'install' -Message $line -NoEcho } catch { }
+            }
+        $codeMaj = $LASTEXITCODE
+        if ($codeMaj -eq 0)      { Write-Ok   (Get-Label 'install.deploiement-fait') }
+        elseif ($codeMaj -eq 3)  { Write-Info (Get-Label 'install.deploiement-inutile') }
+        else {
+            Write-Fail (Get-Label 'install.deploiement-echoue' $codeMaj)
+            Write-Log -Backend $backend -Name 'install' -Level 'ERROR' -Message ("Deploiement : code " + $codeMaj)
+        }
+    } else {
+        Write-Warn (Get-Label 'install.deploiement-introuvable' $updater)
+    }
+} elseif ($isRepo) {
+    # Sans elevation on ne peut pas ecrire dans Program Files : on le DIT plutot que de
+    # laisser croire que l'installation partagee vient d'etre mise a jour.
+    Write-Warn (Get-Label 'install.deploiement-demande-elevation')
+}
+
 if (-not $isRepo -and -not $alreadyThere) {
     if (-not (Test-Elevated)) {
         Write-Warn (Get-Label 'install.sans-droits-administrateur-vigie')

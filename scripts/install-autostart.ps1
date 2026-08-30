@@ -22,7 +22,23 @@ $repoRoot = Split-Path $PSScriptRoot -Parent
 . (Join-Path $repoRoot 'scripts/lib/console-ui.ps1')   # le meme affichage que partout
 $backend  = Join-Path $repoRoot 'apps/backend-pode'   # BOOTSTRAP, cf. common.ps1
 . (Join-Path $backend 'lib/common.ps1')
-$tray     = Join-Path $repoRoot 'apps/tray/tray.ps1'   # le tray est une app a part
+<#
+    LA TACHE LANCE L'INSTALLATION PARTAGEE, PAS LE DEPOT.
+
+    Elle pointait sur le dossier d'ou l'installation avait ete lancee : sur un poste de
+    developpement, le DEPOT. Trois consequences, toutes constatees le 30/08 : la carte
+    signale un ecart (« fhaza démarre depuis le dépôt de travail »), la tache est comptee
+    hors service, et surtout elle ne demarrera plus le jour ou ce dossier bouge -- ou
+    depuis un compte qui n'a pas le droit de le lire.
+
+    Tout tourne depuis l'installation partagee. Le depot ne sert qu'a la fabriquer.
+#>
+$appRoot  = $repoRoot
+try {
+    $partagee = Get-SharedInstallPath
+    if ($partagee) { $appRoot = $partagee }
+} catch { }
+$tray     = Join-Path $appRoot 'apps/tray/tray.ps1'   # le tray est une app a part
 $taskName = 'Vigie'
 # L'URL derive de config.psd1 : adresse et port n'ont qu'UNE definition (D15).
 $appUrl   = Get-AppUrl -Backend $backend
