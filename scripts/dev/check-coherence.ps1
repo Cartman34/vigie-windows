@@ -105,6 +105,40 @@ foreach ($id in ($cited.Keys | Sort-Object)) {
     $faults += ("décision citée mais inexistante — {0} : {1}" -f $id, $extrait)
 }
 
+# --- 3. Les cercles de comptes ne se refiltrent pas a la main -----------------------------
+#
+# « Where-Object { -not $_.technical } » etait recopie a SEPT endroits. Un filtre recopie
+# est un filtre qu'on oublie quelque part : l'appel qui ne l'avait pas a depose un ordre
+# de relance dans le dossier du compte de SERVICE, que personne ne lira jamais.
+#
+# Les trois cercles ont un nom (common.ps1) : Get-ComputerAccounts, Get-UserAccounts,
+# Get-EnabledAccounts. On passe par eux -- sinon le jour ou la definition d'un cercle
+# change, elle ne change qu'a un endroit sur sept.
+foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.ps1' -ErrorAction SilentlyContinue)) {
+    $rel = Get-Relative $f.FullName
+    if (Test-Skipped $rel) { continue }
+    # common.ps1 EST l'implementation des trois cercles.
+    if ($rel -eq 'apps/backend-pode/lib/common.ps1') { continue }
+    $n = 0
+    foreach ($line in (Get-Content -LiteralPath $f.FullName -Encoding UTF8 -ErrorAction SilentlyContinue)) {
+        $n++
+        if ($line -match '^\s*#') { continue }
+        # LES MOTIFS S'ECRIVENT EN MORCEAUX, sinon ce fichier se denonce lui-meme.
+        #
+        # ET ON NE VISE QUE LES CERCLES. Le premier jet attrapait « Get-ComptesX |
+        # Where-Object { $_.name -eq ... } » -- chercher UN compte par son nom n'est pas
+        # refiltrer un cercle. Seuls « technical » et « enabled » definissent les cercles.
+        $marque = '$_.' + 'technical'
+        $actif  = '$_.' + 'enabled'
+        if ($line.Contains($marque)) {
+            $faults += ("cercle de comptes recopié (utiliser Get-UserAccounts) -- {0}:{1}" -f $rel, $n)
+        }
+        if ($line.Contains($actif) -and ($line -match 'Accounts')) {
+            $faults += ("cercle de comptes recopié (utiliser Get-EnabledAccounts) -- {0}:{1}" -f $rel, $n)
+        }
+    }
+}
+
 # --- Verdict -----------------------------------------------------------------------------
 Write-Title 'Cohérence'
 Write-Info ("{0} bibliothèque(s) partagée(s), {1} décision(s) connue(s)." -f $libs.Count, $known.Count)
