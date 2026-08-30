@@ -15,7 +15,7 @@ Mise à jour : 2026-08-30.
 | CORE-AUTOSTART | Fait | app serveur : tâche `Vigie - Serveur` sous `VigieService`, au **démarrage de l'ordinateur**, sans session ouverte (`scripts/lib/install-service.ps1`). App cliente : `scripts/install-autostart.ps1`, tâches `Vigie` / `Vigie - <compte>`, réparation par `repair-tasks` | — |
 | CORE-SECURITY | Fait | Écoute 127.0.0.1, jeton porteur injecté dans la page | À auditer avant toute exposition |
 | CORE-VERSION | Fait | `Get-GitVersion` / `Get-GitCommit`, empreinte BUILD dans l'archive | — |
-| CORE-UPDATE | Fait | Action `vigie-update`, `scripts/vigie-update.ps1` | — |
+| CORE-UPDATE | Partiel | Action `vigie-update`, `scripts/vigie-update.ps1`, source résolue par `Get-UpdateRoute` | Sur ce poste, le compte de service ne peut pas lire le dépôt (`C:\EspaceRestreint`) : la comparaison de commits et la fabrication depuis la branche ne fonctionnent pas encore — **Q1 ouverte** |
 | CORE-UPDATE-TRUST | À faire | — | Rien ne vérifie aujourd'hui que l'archive téléchargée est bien celle publiée : ni empreinte, ni signature. On s'en remet à HTTPS et à GitHub. |
 | CORE-DEPLOY | Fait | Carte Déploiement, `deploy-shared`, `pwsh-install-machine`, `setup.cmd` | Éprouvé sur cette machine seulement |
 | CORE-ACCOUNTS | Partiel | Carte Comptes, `accounts-details`, `diag-account-logs` | Un compte **standard** ne peut pas démarrer Vigie : le serveur exige l'élévation et lui réclamerait un mot de passe administrateur. Conception validée, non codée : `targeting/multi-account-server.md`. |

@@ -11,13 +11,22 @@ Format : `ID` — Titre, puis le besoin et ses critères. On n'écrit **pas** ic
 - **CORE-FRONTEND** — Dashboard web statique et générique, rendu à partir du seul JSON d'état. Clair et sombre.
 - **CORE-PROBES** — Modèle générique de sondes et d'actions, auto-découvert, regroupé par module. Ajouter une sonde =
   déposer un fichier, sans toucher ni au contrat ni au front.
-- **CORE-TRAY** — Icône de barre système reflétant l'état global, menu d'accès rapide, capable de relancer l'application
-  ET son serveur.
-- **CORE-AUTOSTART** — Lancement à l'ouverture de session avec privilèges élevés, par tâche planifiée idempotente, sans
-  UAC à chaque action. La tâche se répare seule quand elle est cassée.
+- **CORE-TRAY** — Icône de barre système reflétant l'état global, menu d'accès rapide. Elle ne ferme **jamais** l'app
+  serveur : une relance se **demande** au serveur, qui se relance lui-même avec ses propres droits — sans UAC, depuis
+  n'importe quel compte. Si le serveur ne répond plus, alors seulement elle propose de le relancer, en demandant
+  l'élévation.
+- **CORE-AUTOSTART** — Deux démarrages, par tâches planifiées idempotentes et sans UAC à chaque action. L'**app
+  serveur** démarre avec l'ordinateur, sous un compte dédié, **avant** et **sans** qu'aucune session soit ouverte.
+  L'**app cliente** démarre à l'ouverture de session de chaque compte autorisé. Les tâches se réparent seules quand
+  elles sont cassées, et lancent toujours l'installation partagée — jamais un dépôt de travail, qu'un autre compte ne
+  pourrait pas lire.
 - **CORE-SECURITY** — Écoute sur 127.0.0.1 uniquement, jeton porteur local. **Aucune donnée n'est envoyée sur Internet.**
 - **CORE-VERSION** — Un seul numéro de version, dérivé des étiquettes git, visible dans l'application avec son commit.
-- **CORE-UPDATE** — Vigie se met à jour elle-même depuis le dépôt, sans réinstallation manuelle.
+- **CORE-UPDATE** — Vigie se met à jour elle-même, sans réinstallation manuelle. **La source est déclarée**, pas
+  devinée : une branche du dépôt de l'ordinateur en développement, une version publiée en production. La carte se
+  compare à cette même source — elle répond donc à « ce bouton changerait-il quelque chose ? » — et l'écart se lit dans
+  le numéro de version (`v0.1.27+3`). À la fin d'une mise à jour, **les deux applications** repartent sur le nouveau
+  code : les app clientes sur ordre, l'app serveur en se relançant elle-même.
 - **CORE-DEPLOY** — Installation partagée pour tous les comptes de la machine, jamais par compte. Les dépendances
   (PowerShell 7) en font partie. Un installateur aboutit, ou dit pourquoi il a échoué.
 - **CORE-UPDATE-TRUST** — La chaîne de mise à jour ne doit pas pouvoir être détournée. Ce qui s'installe doit être

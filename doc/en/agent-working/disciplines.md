@@ -39,8 +39,13 @@ question mal posée.
 ouverte reste libre. Chaque option annonce son **avantage principal** en quelques mots (plus rapide à construire, plus
 sûr, plus maintenable…), pour que l'arbitrage soit explicite plutôt que deviné.
 
-**Dans une conversation**, les questions passent par l'outil de question interactif, pas par une liste en texte. Le
-format ci-dessus vaut pour les questions **écrites** : documents de conception, comptes rendus, fichiers de suivi.
+**Le format ci-dessus est LE format — partout.** En conversation comme dans un document de conception, un compte rendu
+ou un fichier de suivi : numéro `Qn`, énoncé complet, options lettrées.
+
+**Le canal n'est pas le format.** J'avais écrit ici que les questions « passent par l'outil de question interactif » :
+c'est une confusion, et elle m'a fait présenter un canal comme une règle. L'outil peut porter une question quand le
+choix est vraiment fermé ; il ne remplace jamais le format, et une question posée sans numéro ni options reste hors
+format, quel que soit le moyen employé.
 
 ## Chercher avant de concevoir
 
