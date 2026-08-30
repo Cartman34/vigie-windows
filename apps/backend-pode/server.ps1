@@ -209,7 +209,7 @@ Add-PodeRoute -Method Get -Path "$base/users" -ScriptBlock {
         # UNIQUEMENT les comptes utilisateurs (regle utilisateur) : un compte dont le
         # profil n'a jamais servi est un compte d'outil, on ne propose pas de lui donner
         # Vigie. Meme critere que la carte Comptes -- une seule definition.
-        users    = @(Get-VigieAccounts -Backend $env:VIGIE_BACKEND | Where-Object { -not $_.technical })
+        users    = @(Get-UserAccounts -Backend $env:VIGIE_BACKEND)
         # Installation lisible par les autres comptes ? Sinon l'interface doit le dire au
         # lieu de proposer une activation qui echouerait.
         # « partagee » = il existe une installation que les autres comptes peuvent lire,
@@ -235,7 +235,7 @@ Add-PodeRoute -Method Post -Path "$base/users/:name" -ScriptBlock {
             return
         }
         Set-VigieAccountEnabled -Name $nom -Enabled ([bool]$d.enabled) -Backend $env:VIGIE_BACKEND | Out-Null
-        Write-PodeJsonResponse -Value @{ users = @(Get-VigieAccounts | Where-Object { -not $_.technical }); canWrite = [bool](Test-IsElevated) } -Depth 6
+        Write-PodeJsonResponse -Value @{ users = @(Get-UserAccounts); canWrite = [bool](Test-IsElevated) } -Depth 6
     } catch {
         Write-PodeJsonResponse -StatusCode 403 -Value @{ error = "$($_.Exception.Message)" }
     }

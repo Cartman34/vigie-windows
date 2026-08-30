@@ -16,7 +16,7 @@ $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $backend 'lib/common.ps1')
 
 $eleve   = [bool](Test-IsElevated)
-$comptes = @(Get-VigieAccounts | Where-Object { -not $_.technical })
+$comptes = @(Get-UserAccounts)
 
 $fields = @()
 foreach ($c in ($comptes | Sort-Object @{ Expression = { -not $_.current } }, name)) {

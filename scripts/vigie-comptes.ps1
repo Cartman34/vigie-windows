@@ -25,7 +25,7 @@ $repoRoot = Split-Path $PSScriptRoot -Parent
 function Show-Comptes {
     # Uniquement les comptes utilisateurs : un profil qui n'a jamais servi est un
     # compte d'outil.
-    $lignes = @(Get-VigieAccounts | Where-Object { -not $_.technical } | ForEach-Object {
+    $lignes = @(Get-UserAccounts | ForEach-Object {
         '{0} {1,-24} {2,-14} {3}' -f `
             $(if ($_.enabled) { '[x]' } else { '[ ]' }),
             $_.name,

@@ -1923,7 +1923,7 @@ function Send-TrayRestartToAll {
     $touches = @()
     # Les comptes qui ont une app cliente : ceux dont la tache de demarrage existe.
     $avecAppCliente = @()
-    try { $avecAppCliente = @(Get-VigieAccounts | Where-Object { $_.enabled } | ForEach-Object { "$($_.name)" }) } catch { }
+    try { $avecAppCliente = @(Get-EnabledAccounts | ForEach-Object { "$($_.name)" }) } catch { }
     $users = Join-Path $env:SystemDrive 'Users'
     if (-not (Test-Path -LiteralPath $users)) { return $touches }
     foreach ($profil in @(Get-ChildItem -LiteralPath $users -Directory -ErrorAction SilentlyContinue)) {
@@ -3634,7 +3634,7 @@ function Get-VigieFootprint {
     $parCompte = @()
     $inaccessibles = 0
     $varDuCompteCourant = $null
-    foreach ($c in @(Get-VigieAccounts -Backend $Backend | Where-Object { -not $_.technical })) {
+    foreach ($c in @(Get-UserAccounts -Backend $Backend)) {
         $local = Join-Path (Join-Path (Join-Path $env:SystemDrive 'Users') $c.name) 'AppData\Local'
         $total = 0
         $vu = $false
@@ -4422,6 +4422,33 @@ function Update-VigieAccountTasks {
     Ils se posent donc au moment de repondre, jamais dans le releve mis en cache -- sinon
     le premier a demander fixe la reponse de tous les autres.
 #>
+<#
+    LES QUATRE CERCLES DE COMPTES -- ET CHACUN A SON NOM.
+
+    Chaque appelant refiltrait a sa facon (« Where -not technical » recopie a sept
+    endroits), et le seul qui ne l'a pas fait a depose un ordre de relance dans le dossier
+    du compte de SERVICE : « Relance demandee aux autres comptes : Famille, fhaza,
+    VigieService ». Personne ne devait jamais le lire.
+
+      1. TOUS les comptes Windows          Get-VigieAccounts     -- VigieService en est
+      2. les comptes de PERSONNE           Get-UserAccounts      -- il n'en est pas
+      3. ceux qui ont Vigie ACTIVEE        Get-EnabledAccounts   -- ils ont une app cliente
+      4. ceux qui TOURNENT en ce moment    (tache + app cliente vivante)
+
+    Le cercle 4 n'a pas de fonction : personne n'en a besoin. Une relance s'adresse au
+    cercle 3 -- une app cliente eteinte demarrera de toute facon avec le nouveau code, et
+    verifier son battement de coeur ajouterait un acces disque pour rien.
+#>
+function Get-UserAccounts {
+    param([switch]$Force, [string]$Backend = (Get-BackendRoot))
+    @(Get-VigieAccounts -Force:$Force -Backend $Backend | Where-Object { -not $_.technical })
+}
+
+function Get-EnabledAccounts {
+    param([string]$Backend = (Get-BackendRoot))
+    @(Get-UserAccounts -Backend $Backend | Where-Object { $_.enabled })
+}
+
 function Add-VigieAccountsPerspective {
     param($Comptes)
     # Sans session, PERSONNE n'est « vous » : c'est plus vrai, et c'est plus sur que de

@@ -11,7 +11,7 @@ $backend = Split-Path $PSScriptRoot -Parent
 . (Join-Path $backend 'lib/common.ps1')
 
 Clear-VigieAccountsCache -Backend $backend
-$liste = @(Get-VigieAccounts -Force -Backend $backend | Where-Object { -not $_.technical })
+$liste = @(Get-UserAccounts -Force -Backend $backend)
 
 @{
     message = ("Liste actualisée : " + $liste.Count + " compte(s) utilisateur.")
