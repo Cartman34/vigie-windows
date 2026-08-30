@@ -2923,40 +2923,16 @@ pour le seul compte courant.
 *Demandée par l'utilisateur.*
 
 > « C'est fhaza qui possède le dépôt et doit posséder tous les fichiers. » — « En dev, ce n'est pas ce qu'on veut, on
-> veut tester les devs en local. »
+> veut tester les devs en local. » — « Moi je marque rien, le déploiement actuel en dev marque une version et la
+> pousse. » — « Le type d'environnement est VRAIMENT connu, jamais déduit. »
 
-L'app serveur tourne sous `VigieService` depuis que le démarrage est un service de l'ordinateur. Elle fabriquait la
-version en lançant git **dans le dépôt de travail de `fhaza`** : git l'a refusé (`detected dubious ownership`), et il a
-raison — le dépôt appartient à une personne, tout fichier créé là doit rester à elle, et un tag posé par un compte de
-service n'a pas d'auteur.
+Ce qui est tranché :
 
-**La règle : un service ne travaille jamais dans le dépôt d'une personne.** Il maintient **son propre clone**, qu'il
-possède, et fabrique depuis lui. C'est ce que fait n'importe quel agent d'intégration continue. La voie existait déjà
-sans être branchée : `UpdateSource = 'clone'`, avec `UpdateRef` pour viser une branche ou un tag.
+1. **Un service ne travaille jamais dans le dépôt d'une personne.** Il a son propre clone, qu'il possède.
+2. **L'environnement est déclaré, jamais déduit**, et il ne dit pas d'où vient le code : `UpdateSource` et
+   `UpdateRemote` sont des réglages à part. Un `dev` peut se synchroniser depuis un dépôt distant, une `prod` depuis un
+   clone local — aucune combinaison n'est interdite.
+3. **Le tag de version reste automatique** : posé quand il y a des commits d'avance **et** qu'on est en `dev`, par le
+   compte propriétaire du dépôt. L'utilisateur reste libre de le poser lui-même.
 
-**DEUX AXES INDÉPENDANTS, et aucun ne se déduit de l'autre.**
-
-**1. L'environnement est DÉCLARÉ, jamais deviné.** `Environment` vaut `dev` ou `prod`, l'application le **sait** — elle
-ne le suppose pas à partir de ce qu'elle trouve autour d'elle. Un poste de développement fabrique depuis le dépôt local.
-
-**2. La source est un RÉGLAGE à part.** `UpdateSource` dit d'où vient le code — une version publiée (archive), ou un
-clone — et `UpdateRemote` dit de quelle adresse ce clone se synchronise. Une production peut parfaitement se
-synchroniser depuis un **clone local** : c'est un choix légitime, et il ne fait pas d'elle un poste de développement.
-
-**Ce que `safe.directory` suit, c'est l'adresse — pas l'environnement.** Git ne vérifie la propriété que d'un
-**dossier** : le déploiement déclare donc ce chemin de confiance dès que la source est un chemin local, en dev comme en
-prod, et pour ce seul chemin. Une source distante n'a rien à déclarer.
-
-**Reste à éprouver :** `git fetch <chemin local>` depuis le clone du service lit aussi le dépôt de la personne, côté
-`upload-pack`. Si la protection s'y applique aussi, ce seul cas demandera un `safe.directory` — et on l'écrira ici.
-
-**Le tag de version reste AUTOMATIQUE, et c'est l'app cliente qui le pose.** Le déploiement marque une version et la
-pousse (`deploy-prod`) : ce comportement ne change pas — « moi je marque rien, le déploiement actuel en dev marque une
-version et la pousse ». Ce qui change, c'est **qui** l'exécute. La fabrication — tag, push, archive — passe dans la
-session du demandeur (`@execution: session`, **D65**) : elle tourne alors sous le compte propriétaire du dépôt, le tag
-a un auteur, le `push` a des identifiants, et les fichiers restent à lui. Le serveur ne fait plus que déployer
-l'archive reçue et relancer.
-
-**Le tag se pose quand il y a des commits d'avance ET qu'on est en `dev`** — l'environnement déclaré, jamais deviné.
-Une production ne marque pas de version parce qu'elle déploie : elle installe ce qui a déjà été marqué. S'il n'y a rien
-de neuf, il n'y a rien à marquer. Et l'utilisateur garde la liberté de poser le tag lui-même dans son dépôt.
+Comment c'est réalisé : [état réel — la chaîne de mise à jour](implemented/update-chain.md).
