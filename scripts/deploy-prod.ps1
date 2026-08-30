@@ -151,10 +151,22 @@ try {
         try {
             $declaredAt = Set-ComputerConfigValue -Values @{ Environment = 'dev'; SourcePath = $repoRoot }
             Write-Detail (Get-Label 'deploy-prod.machine-declaree' $declaredAt)
-            # ET GIT DOIT POUVOIR LE LIRE. Le service tourne sous un autre compte : sans
-            # cette declaration, il ne peut meme pas cloner la source (mesure le 30/08).
-            if (Set-GitSafeDirectory -RepoPath $repoRoot) {
-                Write-Detail (Get-Label 'deploy-prod.depot-de-confiance' $repoRoot)
+            <#
+                ET GIT DOIT POUVOIR LIRE LA SOURCE -- MAIS SEULEMENT SI ELLE EST LOCALE.
+
+                Une production peut tres bien deployer depuis un depot, elle : simplement
+                toujours DISTANT. Il n'y a alors aucun chemin a ouvrir, et rien a
+                declarer -- git ne verifie la propriete que d'un dossier.
+
+                C'est donc l'adresse de la SOURCE qui decide, pas le fait de tourner dans
+                un depot. Sans cette declaration, le service -- qui tourne sous un autre
+                compte -- ne peut meme pas CLONER un depot local (mesure le 30/08).
+            #>
+            $localSource = Get-UpdateRemote -Backend (Join-Path $repoRoot 'apps/backend-pode')
+            if ($localSource -and (Test-Path -LiteralPath (Join-Path $localSource '.git'))) {
+                if (Set-GitSafeDirectory -RepoPath $localSource) {
+                    Write-Detail (Get-Label 'deploy-prod.depot-de-confiance' $localSource)
+                }
             }
         } catch {
             Write-Warn (Get-Label 'deploy-prod.machine-non-declaree' $_.Exception.Message)

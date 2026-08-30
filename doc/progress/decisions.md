@@ -2934,12 +2934,16 @@ service n'a pas d'auteur.
 possède, et fabrique depuis lui. C'est ce que fait n'importe quel agent d'intégration continue. La voie existait déjà
 sans être branchée : `UpdateSource = 'clone'`, avec `UpdateRef` pour viser une branche ou un tag.
 
-**D'où le clone se synchronise dépend de l'environnement** — c'est un réglage, pas une seconde conception :
+**Ce qui distingue dev et prod, c'est que la source est LOCALE ou DISTANTE** — pas le fait de déployer depuis un
+dépôt. Une production peut parfaitement déployer depuis un dépôt : simplement, il est **toujours distant**.
 
-| | |
-|---|---|
-| **prod** | `origin` — ce qui tourne est retrouvable par quelqu'un d'autre, sur n'importe quelle machine |
-| **dev** | le **dépôt local** — on teste ce qu'on vient d'écrire, sans avoir à pousser d'abord |
+| | source | conséquence |
+|---|---|---|
+| **prod** | un dépôt **distant** (`origin`), ou une version publiée | rien à déclarer : git ne vérifie la propriété que d'un **dossier**, et il n'y en a pas |
+| **dev** | le **dépôt local** de cet ordinateur | on teste ce qu'on vient d'écrire sans pousser — mais git refuse d'ouvrir un dossier appartenant à un autre compte, d'où la déclaration `safe.directory` |
+
+C'est donc **l'adresse de la source** (`UpdateRemote`) qui commande, jamais « est-ce que je tourne dans un dépôt ». Le
+déploiement ne déclare `safe.directory` que si cette adresse est un **chemin local**, et pour ce seul chemin.
 
 **Reste à éprouver :** `git fetch <chemin local>` depuis le clone du service lit aussi le dépôt de la personne, côté
 `upload-pack`. Si la protection s'y applique aussi, ce seul cas demandera un `safe.directory` — et on l'écrira ici.
