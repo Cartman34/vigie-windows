@@ -61,9 +61,9 @@ une régression, et un message de commit qui raconte au lieu d'expliquer.
 **Ce qui va ensemble dans un commit :** le code, ses libellés, son vérificateur et la doc que ce changement rend
 fausse. Ce sont les faces d'une même correction, pas des sujets différents.
 
-**ON NE COMMITE PAS UN CORRECTIF QU'ON N'A PAS ÉPROUVÉ.** Un commit dit « c'est corrigé » : il se pose quand la
-correction est **finie et observée**, pas quand elle est écrite. Parser le fichier et voir les vérificateurs au vert ne
-prouve que l'absence de faute de frappe.
+**UN COMMIT EST UNE LIVRAISON, PAS UN POINT DE SAUVEGARDE.** On ne commite pas après le moindre bout de code : on
+commite quand la chose est **terminée**, **éprouvée**, et qu'on juge qu'elle doit être livrée. Parser le fichier et voir
+les vérificateurs au vert ne prouve que l'absence de faute de frappe.
 
 *Le 30/08 : six correctifs de la chaîne de mise à jour commités sans qu'un seul ait tourné — dont la relance par la
 tâche planifiée, écrite précisément parce que la précédente avait laissé Vigie morte.* Le travail reste dans la copie
