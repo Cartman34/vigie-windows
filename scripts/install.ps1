@@ -209,6 +209,25 @@ $alreadyThere       = ($here.TrimEnd([char]92) -ieq $destPartagee.TrimEnd([char]
     L'ENVIRONNEMENT N'EST PAS DEDUIT ICI : il se declare (config.local.psd1). Trouver un
     depot ne fait pas d'un poste une machine de developpement.
 #>
+<#
+    LA DECLARATION DE L'ORDINATEUR EXISTE TOUJOURS.
+
+    Elle n'etait ecrite que si l'installation partait d'un depot : ailleurs, le fichier
+    n'existait pas et le stage n'etait « prod » que par defaut, sans que rien ne le dise.
+    Un reglage qu'on ne voit nulle part est un reglage qu'on ne sait pas changer.
+
+    On l'ecrit donc a chaque installation, avec le stage EN CLAIR -- sans jamais toucher
+    a une valeur deja declaree : ce fichier appartient a qui l'a rempli.
+#>
+Write-Step (Get-Label 'install.declaration-ordinateur')
+try {
+    $stageDeclare = Get-DeclaredStage -Backend $backend
+    $noteA = Set-ComputerConfigValue -Values @{ Stage = $stageDeclare }
+    Write-Detail (Get-Label 'install.stage-note' $stageDeclare $noteA)
+} catch {
+    Write-Warn (Get-Label 'install.declaration-impossible' $_.Exception.Message)
+}
+
 if ($isRepo) {
     Write-Step (Get-Label 'install.source-declaree')
     try {
