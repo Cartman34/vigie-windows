@@ -3366,7 +3366,19 @@ function Get-State {
             # requetes ordinaires n'attendent pas et se contentent du cache.
             # Avec WaitOne(0) pour tout le monde, le bouton ne faisait rien des qu'un
             # rafraichissement de fond tenait le verrou : il rendait la main aussitot.
-            $attente = [Math]::Min([Math]::Max($WaitSeconds, 0), 75) * 1000
+            <#
+                UNE CARTE PERSONNELLE DOIT ETRE CALCULEE MAINTENANT, ou elle ne le sera
+                jamais. Le rafraichissement de fond tourne sans session : il ecrit sous la
+                cle anonyme, jamais sous « @<compte> ». Si la requete qui la demande
+                n'attend pas le verrou, son entree reste perimee indefiniment -- constate
+                le 30/08 : la carte annoncait v0.1.29-dev5 alors que l'installation etait
+                en v0.1.30, et deux appels de suite rendaient la meme reponse.
+
+                On attend donc son tour pour ces cartes-la, meme sans demande explicite.
+            #>
+            $personnelles = @($stale | Where-Object { $_.PerAccount }).Count
+            $secondes = [Math]::Max($WaitSeconds, $(if ($personnelles) { 30 } else { 0 }))
+            $attente = [Math]::Min($secondes, 75) * 1000
             try { $got = $mx.WaitOne($attente) }
             catch [System.Threading.AbandonedMutexException] { $got = $true }
             catch { $got = $false }
