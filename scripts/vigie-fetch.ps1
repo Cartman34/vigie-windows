@@ -53,7 +53,8 @@ $backend = Join-Path $repoRoot 'apps/backend-pode'
 if (-not $Depot -or -not $ApiRepo) {
     $cfgRepo = Get-Config -Backend $backend
     if (-not $ApiRepo) { $ApiRepo = "$($cfgRepo.Repository)" }
-    if (-not $Depot)   { $Depot   = "$($cfgRepo.RepositoryUrl)" }
+    # L'adresse du clone : le depot public, ou le depot local sur un poste de dev (D112).
+    if (-not $Depot)   { $Depot   = (Get-UpdateRemote -Backend $backend) }
 }
 
 function Noter {
@@ -224,8 +225,8 @@ function Get-DepuisRelease {
         Sortir 4 ("La version " + $etiquette + " ne contient aucune archive .zip : rien a telecharger.")
     }
     $actif = $actifs[0]
-    $cible = Join-Path $travail ("$($actif.name)")
-    $tmp   = $cible + '.partiel'
+    $target = Join-Path $travail ("$($actif.name)")
+    $tmp   = $target + '.partiel'
     Write-Info (Get-Label 'vigie-fetch.telechargement-de-ko' $actif.name [int]($actif.size / 1KB))
     try {
         # Fichier temporaire puis renommage : une coupure ne laisse pas une archive a
@@ -236,12 +237,12 @@ function Get-DepuisRelease {
             Invoke-WebRequest -Uri $actif.browser_download_url -OutFile $tmp `
                               -Headers @{ 'User-Agent' = 'Vigie' } -TimeoutSec 300 -ErrorAction Stop
         } finally { $ProgressPreference = $avantProgression }
-        Move-Item -LiteralPath $tmp -Destination $cible -Force
+        Move-Item -LiteralPath $tmp -Destination $target -Force
     } catch {
         Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
         Sortir 2 ("Le telechargement a echoue : " + $_.Exception.Message)
     }
-    return $cible
+    return $target
 }
 
 # --- VOIE 3 : un clone a nous --------------------------------------------------------
@@ -249,7 +250,10 @@ function Get-DepuisClone {
     if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
         Sortir 1 "git est introuvable : la voie « clone » en a besoin. Installez-le (winget install --id Git.Git --scope machine), ou passez par -Source release."
     }
-    $clone  = Join-Path $travail 'depot'
+    # Le chemin du clone et l'adresse d'ou il se synchronise vivent dans common.ps1 : le
+    # serveur en a besoin AUSSI, pour comparer l'installation a ce que le bouton
+    # fabriquerait (D112). Deux definitions, et la carte compare a autre chose.
+    $clone  = Get-ServiceClonePath -Backend $backend
     $valide = $false
     if (Test-Path -LiteralPath (Join-Path $clone '.git')) {
         & git -C $clone rev-parse --git-dir 2>$null | Out-Null
@@ -270,28 +274,40 @@ function Get-DepuisClone {
     }
 
     # Sans reference imposee, on ne prend QUE des tags : une branche bouge a chaque
-    # commit, un tag designe une version qu'on a decide de publier.
-    $cible = $Ref
-    if (-not $cible) {
-        $cible = (& git -C $clone describe --tags --abbrev=0 2>$null | Select-Object -First 1)
-        if (-not $cible) { Sortir 4 "Aucun tag dans ce depot : rien a deployer. Precisez -Ref pour viser une branche." }
-        $cible = "$cible".Trim()
-        Write-Info (Get-Label 'vigie-fetch.dernier-tag' $cible)
-        if (-not $Force -and -not (Test-PlusRecente -Candidate (ConvertTo-Reperage -Brut $cible) -Actuelle $enPlace)) {
-            Sortir 3 ("Deja a jour : le dernier tag (" + $cible + ") n'est pas plus recent que la version en place. Rien n'a ete touche.")
+    # commit, un tag designe une version qu'on a decide de publier (D99).
+    #
+    # SAUF DEPUIS UN DEPOT LOCAL. La, c'est justement ce qu'on veut : « en dev, on veut
+    # tester les devs en local » -- et il n'y a pas de tag a chaque correctif. On suit donc
+    # la branche par defaut du remote. Le travail en cours n'est deployable que sur le
+    # poste qui l'ecrit, ce qui est exactement le sens du mode developpement.
+    $localRemote = $false
+    try { $localRemote = (Test-Path -LiteralPath (Join-Path $Depot '.git')) } catch { }
+    $target = $Ref
+    if (-not $target -and $localRemote) {
+        $target = (& git -C $clone rev-parse --abbrev-ref origin/HEAD 2>$null | Select-Object -First 1)
+        if (-not $target) { $target = 'origin/main' }
+        Write-Info (Get-Label 'vigie-fetch.branche-du-depot-local' $target)
+    }
+    if (-not $target) {
+        $target = (& git -C $clone describe --tags --abbrev=0 2>$null | Select-Object -First 1)
+        if (-not $target) { Sortir 4 "Aucun tag dans ce depot : rien a deployer. Precisez -Ref pour viser une branche." }
+        $target = "$target".Trim()
+        Write-Info (Get-Label 'vigie-fetch.dernier-tag' $target)
+        if (-not $Force -and -not (Test-PlusRecente -Candidate (ConvertTo-Reperage -Brut $target) -Actuelle $enPlace)) {
+            Sortir 3 ("Deja a jour : le dernier tag (" + $target + ") n'est pas plus recent que la version en place. Rien n'a ete touche.")
         }
     }
 
-    & git -C $clone rev-parse --verify --quiet ($cible + '^{commit}') 2>$null | Out-Null
+    & git -C $clone rev-parse --verify --quiet ($target + '^{commit}') 2>$null | Out-Null
     if ($LASTEXITCODE -ne 0) {
         # Peut-etre une branche distante jamais sortie en local.
-        & git -C $clone rev-parse --verify --quiet ('origin/' + $cible + '^{commit}') 2>$null | Out-Null
-        if ($LASTEXITCODE -ne 0) { Sortir 4 ("Reference introuvable dans le depot : " + $cible) }
-        $cible = 'origin/' + $cible
+        & git -C $clone rev-parse --verify --quiet ('origin/' + $target + '^{commit}') 2>$null | Out-Null
+        if ($LASTEXITCODE -ne 0) { Sortir 4 ("Reference introuvable dans le depot : " + $target) }
+        $target = 'origin/' + $target
     }
-    & git -C $clone -c advice.detachedHead=false checkout --quiet --force $cible 2>&1 | Write-Host
-    if ($LASTEXITCODE -ne 0) { Sortir 4 ("Impossible de se placer sur " + $cible + ".") }
-    Write-Info (Get-Label 'vigie-fetch.place-sur' $cible (& git -C $clone rev-parse --short HEAD))
+    & git -C $clone -c advice.detachedHead=false checkout --quiet --force $target 2>&1 | Write-Host
+    if ($LASTEXITCODE -ne 0) { Sortir 4 ("Impossible de se placer sur " + $target + ".") }
+    Write-Info (Get-Label 'vigie-fetch.place-sur' $target (& git -C $clone rev-parse --short HEAD))
     $build = Join-Path (Join-Path $clone 'scripts') 'build-release.ps1'
     if (-not (Test-Path -LiteralPath $build)) {
         Sortir 5 "Ce depot ne contient pas scripts/build-release.ps1 : rien a fabriquer."

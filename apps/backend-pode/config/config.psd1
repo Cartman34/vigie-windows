@@ -49,6 +49,12 @@
     # cours (D99).
     UpdateRef    = ''
 
+    # D'OU LE CLONE DU SERVICE SE SYNCHRONISE (D112). Vide = le depot public
+    # (RepositoryUrl). Sur un poste de developpement, on y met le chemin du depot local :
+    # le service fabrique alors ce qui vient d'etre ecrit, sans qu'on ait a le pousser --
+    # et sans jamais travailler DANS le depot, qui appartient a une personne.
+    UpdateRemote = ''
+
     # Outillage externe OPTIONNEL (scripts d'administration vivant hors du depot).
     # Le verrouillage de Windows Update et son audit sont NATIFS depuis lib/common.ps1
     # (Set-UpdateLock, Invoke-UpdateAudit) : ils n'ont plus besoin de ce chemin. S'il est

@@ -1475,6 +1475,104 @@ function Get-LocalRepoPath {
     CE N'EST PAS LA MEME QUESTION QUE « dev ou prod » : un poste de production peut avoir
     un depot local et deployer depuis lui. J'avais confondu les deux.
 #>
+<#
+    LE CLONE DU SERVICE -- son dossier, et d'ou il se synchronise.
+
+    Un service ne travaille JAMAIS dans le depot d'une personne (D112) : il a son propre
+    clone, qu'il possede, et fabrique depuis lui. Le chemin est defini ici et nulle part
+    ailleurs -- vigie-fetch l'utilisait sous le nom « $travail\depot », en le recomposant.
+#>
+function Get-ServiceClonePath {
+    param([string]$Backend = (Get-BackendRoot))
+    Join-Path (Join-Path (Get-VarRoot -Backend $Backend) 'update') 'depot'
+}
+
+<#
+    L'ADRESSE D'OU LE CLONE SE SYNCHRONISE.
+
+    En production : le depot public. Sur un poste de developpement : le depot local, pour
+    fabriquer ce qui vient d'etre ecrit sans avoir a le pousser d'abord. Meme mecanisme,
+    seule l'adresse change -- c'est un reglage, pas une seconde conception.
+#>
+function Get-UpdateRemote {
+    param([string]$Backend = (Get-BackendRoot))
+    $cfg = Get-Config -Backend $Backend
+    $remoteUrl = "$($cfg.UpdateRemote)".Trim()
+    if ($remoteUrl) { return $remoteUrl }
+    $repo = Get-LocalRepoPath -Backend $Backend
+    if ($repo) { return $repo }
+    return "$($cfg.RepositoryUrl)"
+}
+
+<#
+    SYNCHRONISER LE CLONE, ET DIRE CE QU'IL CONTIENT.
+
+    « Si ca ne met pas a jour le depot du service avant, ca ne sert a rien : ca doit voir
+    les commits du depot de dev. » Exact -- comparer a un clone perime ne compare rien.
+    On rafraichit donc AVANT de lire, avec un court repit : depuis un depot local le fetch
+    coute quelques centaines de millisecondes, mais une carte ne doit pas le payer a chaque
+    affichage. Le bouton « Actualiser » (-Force) le force.
+
+    Rend la marque (version, commit) de la reference visee, ou $null avec l'erreur de git.
+#>
+function Sync-ServiceClone {
+    param([string]$Backend = (Get-BackendRoot), [switch]$Force, [int]$TtlSeconds = 300)
+    $cloneDir  = Get-ServiceClonePath -Backend $Backend
+    $remoteUrl = Get-UpdateRemote -Backend $Backend
+    $wantedRef    = "$((Get-Config -Backend $Backend).UpdateRef)".Trim()
+    $stampFile = Get-VarPath -Backend $Backend -Kind 'cache' -File 'clone-sync.json'
+
+    if (-not $Force -and (Test-Path -LiteralPath $stampFile)) {
+        try {
+            $j = Get-Content -LiteralPath $stampFile -Raw | ConvertFrom-Json
+            $age = ((Get-Date).ToUniversalTime() - (ConvertTo-UtcDate $j.at)).TotalSeconds
+            if ($age -lt $TtlSeconds -and "$($j.remote)" -eq $remoteUrl) {
+                return [pscustomobject][ordered]@{ path = $cloneDir; remote = $remoteUrl; ref = "$($j.ref)"
+                                                   version = "$($j.version)"; commit = "$($j.commit)"
+                                                   error = $(if ($j.error) { "$($j.error)" } else { $null }) }
+            }
+        } catch { }
+    }
+
+    $failure = $null
+    if (-not (Test-PathSafe (Join-Path $cloneDir '.git'))) {
+        $parentDir = Split-Path $cloneDir -Parent
+        if (-not (Test-Path -LiteralPath $parentDir)) { New-Item -ItemType Directory -Path $parentDir -Force | Out-Null }
+        $null = Invoke-Git -Path $parentDir -Arguments @('clone', '--quiet', $remoteUrl, $cloneDir)
+        $failure = Get-GitLastError
+    } else {
+        # L'adresse a pu changer (passage dev <-> prod) : on la remet avant de tirer.
+        $null = Invoke-Git -Path $cloneDir -Arguments @('remote', 'set-url', 'origin', $remoteUrl)
+        $null = Invoke-Git -Path $cloneDir -Arguments @('fetch', '--quiet', '--tags', '--prune', 'origin')
+        $failure = Get-GitLastError
+    }
+
+    $tagVersion = $null; $headCommit = $null
+    if (Test-PathSafe (Join-Path $cloneDir '.git')) {
+        # Sans reference imposee, on suit la branche par defaut du remote.
+        $target = $(if ($wantedRef) { $wantedRef } else { 'origin/HEAD' })
+        $headCommit = @(Invoke-Git -Path $cloneDir -Arguments @('rev-parse', $target) | Select-Object -First 1)[0]
+        if (-not $headCommit -and -not $wantedRef) {
+            $headCommit = @(Invoke-Git -Path $cloneDir -Arguments @('rev-parse', 'origin/main') | Select-Object -First 1)[0]
+        }
+        if ($headCommit) {
+            $tagVersion = @(Invoke-Git -Path $cloneDir -Arguments @('describe', '--tags', "$headCommit") | Select-Object -First 1)[0]
+            if ($tagVersion -and $tagVersion -match '^(.*)-(\d+)-g[0-9a-f]+$') { $tagVersion = ($Matches[1] + '+' + $Matches[2]) }
+        } else {
+            $failure = Get-GitLastError
+        }
+    }
+
+    try {
+        (@{ at = (Get-Date).ToUniversalTime().ToString('o'); remote = $remoteUrl; ref = $wantedRef
+            version = $tagVersion; commit = $headCommit; error = $failure } | ConvertTo-Json) |
+            Set-Content -LiteralPath $stampFile -Encoding UTF8
+    } catch { }
+
+    return [pscustomobject][ordered]@{ path = $cloneDir; remote = $remoteUrl; ref = $wantedRef
+                                       version = $tagVersion; commit = $headCommit; error = $failure }
+}
+
 function Get-UpdateRoute {
     param([string]$Backend = (Get-BackendRoot))
     $choice = 'auto'
@@ -1483,9 +1581,11 @@ function Get-UpdateRoute {
         if ($c -in @('auto', 'local', 'release', 'clone')) { $choice = $c }
     } catch { }
     $repo = Get-LocalRepoPath -Backend $Backend
-    if ($choice -eq 'auto') { $choice = $(if ($repo) { 'local' } else { 'release' }) }
-    # « local » sans depot ne mene nulle part : on le dit ici plutot que d'echouer plus loin.
-    if ($choice -eq 'local' -and -not $repo) { $choice = 'release' }
+    # « LOCAL » N'EST PLUS UNE VOIE POUR LE SERVICE (D112) : fabriquer dans le depot d'une
+    # personne, c'est y ecrire des tags sous une identite de service et se faire refuser
+    # par git. Un depot declare devient donc l'ADRESSE du clone, pas le lieu de travail.
+    if ($choice -eq 'local') { $choice = 'clone' }
+    if ($choice -eq 'auto')  { $choice = $(if ($repo) { 'clone' } else { 'release' }) }
     return [pscustomobject][ordered]@{ route = $choice; repo = $repo }
 }
 
@@ -1513,46 +1613,49 @@ function Write-BuildStamp {
     DIT. « Conforme » par defaut est le pire des verdicts -- il rassure sans rien savoir.
 #>
 function Compare-SharedInstall {
-    param([string]$Backend = (Get-BackendRoot))
-    $partagee = Get-SharedInstallPath
-    if (-not $partagee) { return $null }
-    $there     = Get-BuildStamp -Root $partagee
+    param([string]$Backend = (Get-BackendRoot), [switch]$Force)
+    $installed = Get-SharedInstallPath
+    if (-not $installed) { return $null }
+    $there   = Get-BuildStamp -Root $installed
     $route   = Get-UpdateRoute -Backend $Backend
-    $repo   = $route.repo
     $behind  = $null
     $here    = $null
-    $same = $null
+    $same    = $null
     $reference = 'aucune'
+    $remote  = $null
 
     # ON SE COMPARE A CE QUE LE BOUTON IRAIT CHERCHER, jamais a autre chose.
-    if ($route.route -eq 'local' -and $repo -and ($repo.TrimEnd([char]92, [char]47) -ne "$partagee".TrimEnd([char]92, [char]47))) {
-        $reference = 'depot'
-        $here = Get-BuildStamp -Root $repo
-        if ($here.commit -and $there.commit) {
-            if ($here.commit -eq $there.commit) { $behind = 0; $same = $true }
+    if ($route.route -eq 'clone') {
+        # ET ON RAFRAICHIT AVANT DE LIRE : comparer a un clone perime ne compare rien.
+        $sync = Sync-ServiceClone -Backend $Backend -Force:$Force
+        $reference = 'clone'
+        $remote = $sync.remote
+        $here = [pscustomobject][ordered]@{ version = $(if ($sync.version) { $sync.version } else { 'sans version' })
+                                            commit = $sync.commit; at = $null; source = 'clone'
+                                            error = $sync.error }
+        if ($sync.commit -and $there.commit) {
+            if ($sync.commit -eq $there.commit) { $behind = 0; $same = $true }
             else {
                 $same = $false
-                try {
-                    $git = (Get-Command git -ErrorAction SilentlyContinue)
-                    if ($git) {
-                        $c = (& $git.Source -C $repo rev-list --count ("$($there.commit)..$($here.commit)") 2>$null | Select-Object -First 1)
-                        if ($c -match '^\d+$') { $behind = [int]$c }
-                    }
-                } catch { }
+                # Le compte se fait DANS LE CLONE : c'est lui qui a les deux commits.
+                $c = @(Invoke-Git -Path $sync.path -Arguments @('rev-list', '--count', ($there.commit + '..' + $sync.commit)) |
+                       Select-Object -First 1)[0]
+                if ("$c" -match '^\d+$') { $behind = [int]$c }
             }
         }
     } else {
         $published = Get-LatestPublishedVersion -Backend $Backend
         if ($published) {
             $reference = 'publiee'
-            $here = [pscustomobject][ordered]@{ version = $published; commit = $null; at = $null; source = 'release' }
+            $here = [pscustomobject][ordered]@{ version = $published; commit = $null; at = $null
+                                                source = 'release'; error = $null }
             $same = (Test-SameVersion -A $published -B "$($there.version)")
         }
     }
 
     [pscustomobject][ordered]@{
-        path = $partagee; here = $here; there = $there; behind = $behind
-        reference = $reference; repo = $repo; same = $same
+        path = $installed; here = $here; there = $there; behind = $behind
+        reference = $reference; repo = $route.repo; remote = $remote; same = $same
     }
 }
 

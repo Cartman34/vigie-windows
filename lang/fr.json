@@ -511,6 +511,7 @@
   "vigie-diag-compte.vigie-injoignable": "Vigie injoignable : {0}",
   "vigie-diag-compte.vigie-refuse-cette-operation": "Vigie a refuse : cette opération demande un compte administrateur.",
   "vigie-fetch.archive-prete": "Archive prete : {0}",
+  "vigie-fetch.branche-du-depot-local": "Dépôt local : on suit la branche {0}.",
   "vigie-fetch.clonage-de": "Clonage de {0} ...",
   "vigie-fetch.dernier-tag": "Dernier tag : {0}",
   "vigie-fetch.derniere-version-publiee": "Dernière version publiee : {0}{1}",

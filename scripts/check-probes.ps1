@@ -342,6 +342,9 @@ foreach ($x in $sansAccent) {
 $interactifs = @()
 foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.ps1','*.cmd' -ErrorAction SilentlyContinue)) {
     $rel = $f.FullName.Substring($repoRoot.Length).TrimStart([char]92, [char]47).Replace([char]92, [char]47)
+    # « var » contient le CLONE DU SERVICE (D112) : une copie entiere du depot, qu'on
+    # jugerait deux fois -- et dont on ne corrige rien, puisqu'elle se regenere.
+    if ($rel -like '.claude/*' -or $rel -like 'dist/*' -or $rel -like 'local/*' -or $rel -like '*/var/*') { continue }
     # Ce fichier-ci CITE les motifs qu'il traque : se juger soi-meme n'a pas de sens,
     # et un verificateur qui se denonce apprend a son lecteur a l'ignorer.
     if ($rel -like '.claude/*' -or $rel -like 'dist/*' -or $rel -like 'local/*' -or
@@ -383,7 +386,7 @@ $plainText = @()
 $plainParams = @('Title', 'Summary', 'Details')
 foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Filter '*.ps1' -ErrorAction SilentlyContinue)) {
     $rel = $f.FullName.Substring($repoRoot.Length).TrimStart([char]92, [char]47).Replace([char]92, [char]47)
-    if ($rel -like '.claude/*' -or $rel -like 'dist/*' -or $rel -like 'local/*') { continue }
+    if ($rel -like '.claude/*' -or $rel -like 'dist/*' -or $rel -like 'local/*' -or $rel -like '*/var/*') { continue }
     # Le porteur du mecanisme et ce verificateur citent forcement ces noms.
     if ($rel -eq 'scripts/lib/show-confirm.ps1' -or $rel -eq 'scripts/check-probes.ps1') { continue }
     $body = Get-Content -LiteralPath $f.FullName -Raw -Encoding UTF8 -ErrorAction SilentlyContinue

@@ -29,7 +29,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 # LE PLAFOND. On le baisse a chaque fois qu'on renomme, jamais on ne le monte.
-$CEILING = 301
+$CEILING = 296
 
 $FRENCH_WORDS = @(
     'marquer','appliquer','repartir','verrou','carte','compte','tache','chemin',
@@ -42,7 +42,7 @@ $FRENCH_WORDS = @(
 
 $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $repoRoot 'scripts/lib/console-ui.ps1')   # le meme affichage que partout
-$skipped   = @('.claude', '.git', 'dist', 'node_modules', 'local')   # .claude : les worktrees y vivent, et un worktree est une copie du depot
+$skipped   = @('.claude', '.git', 'dist', 'node_modules', 'local', 'var')   # .claude : les worktrees y vivent ; var : le clone du service aussi (D112)
 $pattern    = 'function\s+([A-Za-z][\w-]*)|\$([a-zA-Z][\w]*)\s*=|(?:let|const|var|function)\s+([a-zA-Z][\w]*)'
 
 $total = 0

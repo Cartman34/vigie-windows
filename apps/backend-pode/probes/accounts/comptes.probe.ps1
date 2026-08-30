@@ -101,10 +101,10 @@ if ($partagee) {
             On DIT desormais la reference, et quand il n'y en a pas, on dit ca aussi --
             plutot que de rassurer sans rien savoir.
         #>
-        if ($cmp.reference -eq 'depot') {
-            $detail += [Environment]::NewLine + "Dépôt de ce poste : " + $cmp.here.version +
+        if ($cmp.reference -eq 'clone') {
+            $detail += [Environment]::NewLine + "Source : " + $cmp.here.version +
                        $(if ($cmp.here.commit) { " (" + $cmp.here.commit.Substring(0, [Math]::Min(8, $cmp.here.commit.Length)) + ")" } else { "" })
-            $detail += [Environment]::NewLine + $cmp.repo
+            $detail += [Environment]::NewLine + "Synchronisé depuis : " + $cmp.remote
             # LE DEPOT EST DECLARE, MAIS EST-IL LISIBLE ? Le compte qui fait tourner Vigie
             # n'est pas celui qui developpe : il peut n'avoir aucun droit sur le dossier de
             # travail, ou git peut refuser un dépôt appartenant à quelqu'un d'autre. On le
@@ -112,36 +112,35 @@ if ($partagee) {
             # écart de code alors qu'on n'avait rien pu lire du tout.
             if ($cmp.here.error) {
                 $niveau = 'warn'
-                $pourquoi = "Le dépôt déclaré n'a pas pu être lu par Vigie : " + $cmp.here.error +
-                            " Tant qu'il est illisible, impossible de dire si l'installation est à jour, " +
-                            "et la mise à jour ne pourra pas partir de lui."
+                $why = "La source n'a pas pu être lue : " + $cmp.here.error +
+                            " Tant qu'elle est illisible, impossible de dire si l'installation est à jour."
             } elseif ($cmp.same) {
-                $pourquoi = "Elle correspond exactement au dépôt de ce poste : les autres comptes lancent la même version que vous."
+                $why = "Elle correspond exactement à la source : les autres comptes lancent la même version que vous."
             } elseif ($null -ne $cmp.behind -and $cmp.behind -gt 0) {
                 $niveau = 'warn'
-                $pourquoi = "Elle est en retard de $($cmp.behind) commit(s) sur le dépôt : les autres comptes n'ont pas vos dernières corrections."
+                $why = "Elle est en retard de $($cmp.behind) commit(s) sur la source : les autres comptes n'ont pas vos dernières corrections."
             } elseif (-not $cmp.there.commit) {
                 $niveau = 'warn'
-                $pourquoi = "Elle a été déployée avant que Vigie ne marque ses archives : impossible de dire à quel commit elle correspond."
+                $why = "Elle a été déployée avant que Vigie ne marque ses archives : impossible de dire à quel commit elle correspond."
             } else {
                 $niveau = 'warn'
-                $pourquoi = "Elle diffère du dépôt de ce poste."
+                $why = "Elle diffère de la source."
             }
         } elseif ($cmp.reference -eq 'publiee') {
             $detail += [Environment]::NewLine + "Dernière version publiée : " + $cmp.here.version
             if ($cmp.same) {
-                $pourquoi = "C'est la dernière version publiée : il n'y a rien à mettre à jour."
+                $why = "C'est la dernière version publiée : il n'y a rien à mettre à jour."
             } else {
                 $niveau = 'warn'
-                $pourquoi = "Une version plus récente est publiée ($($cmp.here.version))."
+                $why = "Une version plus récente est publiée ($($cmp.here.version))."
             }
         } else {
             # NI DEPOT, NI RESEAU. On ne sait pas, et on le dit : « conforme » par defaut
             # est le pire des verdicts, il rassure sans rien savoir.
             $niveau = 'neutral'
-            $pourquoi = "Impossible de dire si elle est à jour : aucun dépôt sur ce poste, et la liste des versions publiées n'a pas pu être consultée."
+            $why = "Impossible de dire si elle est à jour : aucun dépôt sur ce poste, et la liste des versions publiées n'a pas pu être consultée."
         }
-        $detail = $pourquoi + [Environment]::NewLine + [Environment]::NewLine + $detail
+        $detail = $why + [Environment]::NewLine + [Environment]::NewLine + $detail
     }
     # DEJA DEPLOYEE : ce qu'on propose est une MISE A JOUR, pas un deploiement --
     # « Deployer pour tous les comptes » ne veut plus rien dire une fois que c'est fait.
