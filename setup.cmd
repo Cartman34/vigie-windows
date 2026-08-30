@@ -36,7 +36,8 @@ REM forcément installé -- c'est justement une des choses qu'on s'apprête à p
 REM
 REM Code 0 = l'utilisateur continue ; tout le reste = il refuse, ou l'affichage a échoué.
 echo.
-echo Une fenêtre d'explication va s'ouvrir.
+echo L'installation de Vigie demande des droits supplémentaires.
+echo Une fenêtre va expliquer ce qui sera fait, avant toute modification.
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\lib\show-confirm.ps1" -Scenario installation
 if errorlevel 1 goto :refus
 
