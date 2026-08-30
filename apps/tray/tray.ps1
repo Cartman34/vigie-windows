@@ -42,8 +42,21 @@ TLog "demarrage (PS $($PSVersionTable.PSVersion), $([System.Threading.Thread]::C
 # avec runas, exactement ce qu'on fait pour deboguer. Le tray de Famille a demarre,
 # vu le verrou de fhaza, et s'est retire (28/08 22:09). Le verrou porte donc desormais
 # le nom du compte : chacun le sien, quelle que soit la session qui l'heberge.
+<#
+    C'EST LE SUCCESSEUR QUI ATTEND, PAS CELUI QUI DEMANDE.
+
+    Quatre secondes ne suffisaient pas : lors d'une relance, l'ancienne instance ferme son
+    icone, rend la main a Windows et libere son verrou -- ce qui prend parfois davantage.
+    La nouvelle sortait alors sur « deja lance », le numero de processus ne changeait
+    jamais, et l'installation comptait deux echecs sur une app cliente qui tournait
+    (constate le 30/08).
+
+    On attend donc ICI, dans le processus qui demarre : personne en amont n'est bloque,
+    et le cas normal -- aucun predecesseur -- passe sans delai. Vingt secondes couvrent
+    largement une fermeture d'icone ; au-dela, c'est qu'une instance tourne vraiment.
+#>
 $mutex = New-Object System.Threading.Mutex($false, ('VigieTray-' + (Get-ProcessAccount)))
-if (-not $mutex.WaitOne(4000)) { TLog "deja lance (mutex) - sortie"; return }
+if (-not $mutex.WaitOne(20000)) { TLog "deja lance (mutex) - sortie"; return }
 
 $uiScript = {
     param($backend, $trayLog, $repoUrl, $trayRoot)

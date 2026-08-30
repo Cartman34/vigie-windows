@@ -377,6 +377,7 @@
   "tray.ordre-lu-mais-rien": "Ordre lu, mais rien n'est revenu en {0} s.",
   "tray.ordre-lu-par-le": "Ordre lu par l'app cliente.",
   "tray.relance-attendre": "Attendre la fin",
+  "tray.relance-demandee": "Relance demandée : l'app cliente a pris l'ordre.",
   "tray.relance-forcer": "Relancer quand même",
   "tray.relance-mort-ok": "Demander l'autorisation",
   "tray.relance-mort-texte": "Il ne peut donc pas se relancer lui-même. Windows va demander l'autorisation d'un administrateur pour le redémarrer.",

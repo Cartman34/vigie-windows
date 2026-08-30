@@ -148,17 +148,31 @@ if ($lu) {
     exit 2
 }
 
-# Confirmation : pour un arret, le battement disparait ; pour un redemarrage, un NOUVEAU
-# processus reprend la main -- on attend donc un PID different.
+<#
+    ON N'ATTEND PAS QU'UNE APPLICATION DEMARRE.
+
+    Regle deja posee pour l'app serveur, et violee ici : on guettait pendant 45 secondes
+    l'apparition d'un NOUVEAU numero de processus. Le 30/08, la relance a rendu « code 2 »
+    -- donc l'installation a annonce deux echecs -- alors que l'app cliente tournait :
+    l'ancienne instance n'avait pas encore rendu son verrou quand la nouvelle a demarre,
+    celle-ci est sortie sur « deja lance », et le numero n'a jamais change.
+
+    L'ACCUSE DE RECEPTION EST LA PREUVE. Il est ecrit par l'app cliente elle-meme, au
+    moment ou elle prend l'ordre : a partir de la, elle s'arrete et repart, et ce qu'elle
+    met a le faire ne regarde pas celui qui a demande.
+
+    Un ARRET, lui, se constate : le battement de coeur disparait, c'est un fait, pas une
+    estimation -- et c'est justement ce qu'on veut verifier avant de rendre la main.
+#>
+if ($Restart) {
+    Write-Host (Get-Label 'tray.relance-demandee')
+    exit 0
+}
+
 $fin = (Get-Date).AddSeconds($TimeoutSec)
 while ((Get-Date) -lt $fin) {
     Start-Sleep -Milliseconds 500
-    $apres = Get-TrayState
-    if ($Restart) {
-        if ($apres -and $apres.Pid -ne $avant.Pid -and $apres.AgeSec -le $SEUIL_SEC) {
-            Write-Host (Get-Label 'tray.tray-relance-nouveau-pid' $apres.Pid); exit 0
-        }
-    } elseif (-not $apres) {
+    if (-not (Get-TrayState)) {
         Write-Host (Get-Label 'tray.tray-arrete-proprement-icone'); exit 0
     }
 }
