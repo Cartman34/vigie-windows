@@ -227,20 +227,21 @@ foreach ($c in $comptes) {
     } catch { }
 }
 
-# LA VALEUR AFFICHEE EST CE QUE L'ORDINATEUR DECLARE -- donc d'ou vient le code qu'on
-# deploie. Elle affichait l'emplacement du code qui tourne : toujours le meme, donc sans
+# LE CHAMP S'APPELLE « STAGE » : « environnement » ne disait pas de quoi on parlait -- ce
+# reglage, le serveur, ou l'ordinateur entier ? Et la valeur est ce que l'ordinateur
+# DECLARE, pas l'emplacement du code qui tourne : celui-ci est toujours le meme, donc sans
 # information, et trompeur des qu'on le comparait a la declaration.
-$aide = "Ce que cet ordinateur déclare : d'où vient le code qu'on déploie ici — une branche du dépôt en " +
-        "développement, une version publiée en production. Vigie tourne toujours depuis l'installation partagée : " +
+$aide = "Le stage déclaré par cet ordinateur : développement ou production. " +
+        "Il conditionne le marquage des versions, pas la provenance du code — celle-ci est un réglage à part. Vigie tourne toujours depuis l'installation partagée : " +
         "une tâche qui lance le dépôt de travail ne démarrera pas chez un compte qui n'y a pas accès."
 if ($envIssues.Count) {
-    $depl += New-Field -Key 'env' -Label 'Environnement' `
+    $depl += New-Field -Key 'env' -Label 'Stage' `
         -Value ((Get-StageLabel -Stage $declared) + " — " + $envIssues.Count.ToString() + " écart(s)") `
         -Kind 'text' -Status 'warn' -FixAction 'repair-tasks' `
         -Help $aide `
         -Guide ($envIssues -join [Environment]::NewLine)
 } else {
-    $depl += New-Field -Key 'env' -Label 'Environnement' `
+    $depl += New-Field -Key 'env' -Label 'Stage' `
         -Value (Get-StageLabel -Stage $declared) -Kind 'text' -Status 'ok' `
         -Help $aide `
         -Guide ("Toutes les tâches de démarrage lancent l'installation partagée." + [Environment]::NewLine +
