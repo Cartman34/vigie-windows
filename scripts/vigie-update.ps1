@@ -67,12 +67,15 @@ $pwsh    = (Get-Process -Id $PID).Path
     S'il a disparu, ou si le compte qui execute ne peut pas le lire, Get-SourceRepoPath rend
     $null et l'on reprend la voie normale : la version publiee.
 #>
-$source = $null
-try { $source = Get-SourceRepoPath } catch { }
-if ($source -and ($source.TrimEnd([char]92, [char]47) -ne $repoRoot.TrimEnd([char]92, [char]47))) {
-    $relayScript = Join-Path (Join-Path $source 'scripts') 'vigie-update.ps1'
+# $sourceRepo, PAS $source : PowerShell ne distingue pas la casse, donc « $source »
+# designait le PARAMETRE $Source -- dont le ValidateSet refuse $null. Le script mourait
+# a cette ligne, avant tout le reste.
+$sourceRepo = $null
+try { $sourceRepo = Get-SourceRepoPath -Backend $backend } catch { }
+if ($sourceRepo -and ($sourceRepo.TrimEnd([char]92, [char]47) -ne $repoRoot.TrimEnd([char]92, [char]47))) {
+    $relayScript = Join-Path (Join-Path $sourceRepo 'scripts') 'vigie-update.ps1'
     if (Test-Path -LiteralPath $relayScript) {
-        Write-Info (Get-Label 'vigie-update.depuis-le-depot' $source)
+        Write-Info (Get-Label 'vigie-update.depuis-le-depot' $sourceRepo)
         $argv = @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $relayScript + '"'))
         foreach ($p in $PSBoundParameters.GetEnumerator()) {
             if ($p.Value -is [switch]) { if ($p.Value.IsPresent) { $argv += ('-' + $p.Key) } }
@@ -81,7 +84,7 @@ if ($source -and ($source.TrimEnd([char]92, [char]47) -ne $repoRoot.TrimEnd([cha
         $relayRun = Start-Process -FilePath $pwsh -ArgumentList $argv -Wait -PassThru -WindowStyle Hidden
         exit $relayRun.ExitCode
     }
-    Write-Warn (Get-Label 'vigie-update.depot-sans-script' $source)
+    Write-Warn (Get-Label 'vigie-update.depot-sans-script' $sourceRepo)
 }
 
 $avant = $null

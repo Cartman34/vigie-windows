@@ -2857,6 +2857,11 @@ depuis que l'app serveur tourne depuis `C:\Program Files\Sowapps\Vigie`, `Get-Re
 Elle se comparait donc à elle-même. Le bouton « Mettre à jour » avait le même angle mort : sans `.git` autour d'elle,
 il partait chercher la dernière version publiée alors que le poste avait un dépôt en avance de neuf commits.
 
+**C'est l'environnement DÉCLARÉ qui dit d'où vient le code**, et cette décision existait déjà (`install-service.ps1` :
+« l'environnement déclaré ne dit pas OÙ le serveur tourne, mais D'OÙ vient ce qu'on y déploie — le dépôt local en dev,
+une version publiée en prod »). Une installation déclarée **production** ne va donc jamais chercher le dépôt de travail
+de quelqu'un : `Get-SourceRepoPath` rend `$null` hors du mode `dev`, quoi qu'elle trouve autour d'elle.
+
 **Le déploiement inscrit sa provenance.** `Set-BuildOrigin` écrit le chemin du dépôt d'origine dans le `BUILD` de la
 copie posée — **à la destination, jamais dans l'archive** : une release publiée ne doit pas traîner le chemin du poste
 qui l'a fabriquée. `Get-SourceRepoPath` la relit, et vérifie que ce dépôt est encore là avant d'y croire.
@@ -2865,8 +2870,8 @@ qui l'a fabriquée. `Get-SourceRepoPath` la relit, et vérifie que ce dépôt es
 
 | | |
 |---|---|
-| un dépôt existe sur le poste | on compare les **commits** — « en retard de N commits » |
-| aucun dépôt | on compare à la **dernière version publiée**, consultée au plus une fois par demi-journée |
+| machine déclarée `dev`, dépôt connu | on compare les **commits** — « en retard de N commits » |
+| machine déclarée `prod` | on compare à la **dernière version publiée**, consultée au plus une fois par demi-journée |
 | ni l'un ni l'autre | on **dit qu'on ne sait pas**. « Conforme » par défaut est le pire des verdicts : il rassure sans rien savoir |
 
 **Et la mise à jour va jusqu'au bout.** Lancée depuis l'installation, elle passe la main au dépôt d'origine quand il est

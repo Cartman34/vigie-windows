@@ -1349,6 +1349,21 @@ function Set-BuildOrigin {
         bonne question la-bas : personne n'y a de depot.
 #>
 function Get-SourceRepoPath {
+    param([string]$Backend = (Get-BackendRoot))
+    <#
+        C'EST LA DECLARATION QUI TRANCHE, PAS LA DECOUVERTE.
+
+        J'avais ecrit l'inverse : chercher un depot, et s'en servir des qu'on en trouvait
+        un. Or la question avait deja sa reponse, ecrite dans install-service :
+        « l'environnement declare ne dit pas OU le serveur tourne, mais D'OU vient ce
+        qu'on y deploie -- le depot local en dev, une version publiee en prod ».
+
+        Une installation declaree PRODUCTION qui irait chercher le depot de travail de
+        quelqu'un pour se mettre a jour, c'est exactement ce que ce reglage interdit. Le
+        chemin du depot reste utile -- il faut bien savoir LEQUEL -- mais il ne decide
+        plus de rien : il repond a « ou », jamais a « faut-il ».
+    #>
+    if ((Get-DeclaredEnvironment -Backend $Backend) -ne 'dev') { return $null }
     $here = Get-RepoRoot
     if (Test-PathSafe (Join-Path $here '.git')) { return $here }
     $stamp = Get-BuildStamp -Root $here
@@ -1387,7 +1402,7 @@ function Compare-SharedInstall {
     $partagee = Get-SharedInstallPath
     if (-not $partagee) { return $null }
     $there     = Get-BuildStamp -Root $partagee
-    $repo  = Get-SourceRepoPath
+    $repo  = Get-SourceRepoPath -Backend $Backend
     $behind  = $null
     $here    = $null
     $same = $null
