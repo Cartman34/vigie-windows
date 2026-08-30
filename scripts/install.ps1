@@ -640,6 +640,27 @@ try {
     }
 
     <#
+        LES TACHES DES AUTRES COMPTES SE REPARENT AUSSI.
+
+        L'etape precedente n'enregistre que celle du compte courant. Les autres pointent
+        peut-etre encore sur un ancien emplacement -- c'est arrive le 30/08, ou la tache
+        lancait le depot au lieu de l'installation partagee -- et personne ne les
+        corrigerait jamais.
+
+        Les reenregistrer est idempotent : c'est le meme geste que les activer.
+    #>
+    $autres = @()
+    try { $autres = @(Get-EnabledAccounts -Backend $backend | Where-Object { "$($_.name)" -ne (Get-ProcessAccount) }) } catch { }
+    foreach ($c in $autres) {
+        try {
+            $null = Set-VigieAccountEnabled -Name "$($c.name)" -Enabled $true -Backend $backend
+            Write-Detail (Get-Label 'install.tache-compte-reparee' "$($c.name)")
+        } catch {
+            Write-Warn (Get-Label 'install.tache-compte-non-reparee' "$($c.name)" $_.Exception.Message)
+        }
+    }
+
+    <#
         ON REDEMARRE CE QU'ON A ARRETE.
 
         Les app clientes des autres comptes ont ete arretees pour ne pas remplacer leurs

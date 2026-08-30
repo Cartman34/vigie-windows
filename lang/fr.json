@@ -314,6 +314,8 @@
   "install.source-notee": "Ce dépôt est noté comme source : {0} (dans {1}).",
   "install.stage-dev": "Stage : développement — les versions sont fabriquées depuis ce dépôt.",
   "install.stage-note": "Stage : {0} (déclaré dans {1}).",
+  "install.tache-compte-non-reparee": "Tâche de {0} non réenregistrée : {1}",
+  "install.tache-compte-reparee": "Tâche de {0} réenregistrée vers l'installation partagée.",
   "install.telechargement-de-mo": "Téléchargement de {0} ({1} Mo)...",
   "install.telechargement-termine": "Téléchargement terminé.",
   "install.telechargez-le-msi-la": "Téléchargez le MSI à la main : https://github.com/PowerShell/PowerShell/releases",
