@@ -1988,6 +1988,62 @@ function Test-InstallCopy {
     return $null
 }
 
+<#
+    EXTRAIRE UNE ARCHIVE, ET RENDRE LE DOSSIER QU'ON DEPLOIERA.
+
+    L'archive porte un dossier racine « vigie-<version> » : c'est SON contenu qu'on
+    installe, pas un dossier de plus dans Program Files.
+#>
+function Expand-InstallArchive {
+    param([Parameter(Mandatory)][string]$Zip)
+    if (-not (Test-PathSafe $Zip)) { throw ("archive introuvable : " + $Zip) }
+    $temp = Join-Path $env:TEMP ('vigie-deploy-' + [guid]::NewGuid().ToString('N').Substring(0, 8))
+    New-Item -ItemType Directory -Path $temp -Force | Out-Null
+    Expand-Archive -LiteralPath $Zip -DestinationPath $temp -Force
+    $roots = @(Get-ChildItem -Path $temp -Directory)
+    if ($roots.Count -eq 1) { return $roots[0].FullName }
+    return $temp
+}
+
+<#
+    COPIER VERS L'INSTALLATION PARTAGEE, SANS PERDRE LES REGLAGES DE L'ORDINATEUR.
+
+    Les reglages poses sur cette machine survivent au deploiement : mis de cote, puis
+    remis. Les ecraser a chaque livraison serait une regression a chaque mise a jour.
+
+    var/ n'existe pas dans l'installation -- les donnees vivent dans les profils (D97) --
+    mais on ne le supprime pas si quelqu'un en a cree un : on ne detruit que ce qu'on sait
+    remplacer.
+#>
+function Copy-InstallFrom {
+    param([Parameter(Mandatory)][string]$Source, [Parameter(Mandatory)][string]$Destination)
+    if (-not (Test-PathSafe $Source)) { throw ("source introuvable : " + $Source) }
+
+    $kept = $null
+    $configDir = Join-Path $Destination 'config'
+    if (Test-PathSafe $configDir) {
+        $kept = Join-Path $env:TEMP ('vigie-cfg-' + [guid]::NewGuid().ToString('N').Substring(0, 8))
+        New-Item -ItemType Directory -Path $kept -Force | Out-Null
+        foreach ($pattern in @('*.local.*', 'actions.policy.json')) {
+            Get-ChildItem -Path $configDir -File -Filter $pattern -ErrorAction SilentlyContinue |
+                ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $kept -Force }
+        }
+    }
+
+    if (-not (Test-Path -LiteralPath $Destination)) {
+        New-Item -ItemType Directory -Path $Destination -Force | Out-Null
+    }
+    Copy-Item -Path (Join-Path $Source '*') -Destination $Destination -Recurse -Force -ErrorAction Stop
+
+    if ($kept) {
+        New-Item -ItemType Directory -Path $configDir -Force | Out-Null
+        Get-ChildItem -Path $kept -File | ForEach-Object {
+            Copy-Item -LiteralPath $_.FullName -Destination $configDir -Force
+        }
+        Remove-Item -LiteralPath $kept -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
 function Restore-Install {
     param([Parameter(Mandatory)][string]$Backup, [Parameter(Mandatory)][string]$Destination)
     if (-not (Test-PathSafe $Backup)) { throw "aucune sauvegarde à restaurer" }
@@ -2311,6 +2367,65 @@ function Write-Log {
     Le serveur est eleve : il peut ecrire dans le profil des autres. Un tray qui n'a
     jamais tourne n'a pas de dossier d'ordres, et on ne lui en cree pas : rien a relancer.
 #>
+<#
+    ARRETER ET DEMARRER LES APP CLIENTES -- PAR LEUR TACHE, TOUJOURS.
+
+    C'est la tache qui sait sous quelle identite lancer, et pour l'app cliente d'un AUTRE
+    compte c'est le seul moyen : la demarrer en direct demanderait ses identifiants.
+
+    UNE TACHE D'APP CLIENTE EST INTERACTIVE : Windows refuse de la demarrer pour un compte
+    sans session. « Ouverte » ne veut pas dire « active » -- un compte laisse par
+    « Changer d'utilisateur » garde une session DECONNECTEE, et sa tache y demarre tres
+    bien (verifie le 30/08, deux sessions coexistaient). Un compte sans session n'est donc
+    pas une erreur : son app cliente repartira a sa prochaine ouverture, avec le nouveau
+    code.
+#>
+function Stop-TrayTasks {
+    param([string]$Backend = (Get-BackendRoot))
+    $stopped = @()
+    foreach ($c in @(Get-EnabledAccounts -Backend $Backend)) {
+        if (-not $c.task) { continue }
+        try { Stop-ScheduledTask -TaskName "$($c.task)" -ErrorAction Stop } catch { }
+        $stopped += [pscustomobject]@{ name = "$($c.name)"; task = "$($c.task)" }
+    }
+    return $stopped
+}
+
+function Start-TrayTasks {
+    param([Parameter(Mandatory)]$Accounts)
+    $started = @()
+    foreach ($a in @($Accounts)) {
+        if (-not $a.task) { continue }
+        try {
+            Start-ScheduledTask -TaskName "$($a.task)" -ErrorAction Stop
+            $started += "$($a.name)"
+        } catch { }
+    }
+    return $started
+}
+
+<#
+    LES APP CLIENTES LANCEES HORS TACHE.
+
+    Arreter la tache ne tue pas ce qu'elle n'a pas lance : une app cliente demarree a la
+    main -- essai de developpement -- continuerait de tourner sur des fichiers qu'on
+    remplace. On balaie donc ce qui reste, en visant ce qui EXECUTE le script de l'app
+    cliente, quel que soit le compte : l'installation est elevee, elle les voit tous.
+
+    Rend le nombre de processus arretes.
+#>
+function Stop-StandaloneTrays {
+    $killed = 0
+    $leaf = 'tray.ps1'
+    foreach ($p in @(Get-CimInstance Win32_Process -Filter "Name='pwsh.exe' OR Name='powershell.exe'" -ErrorAction SilentlyContinue)) {
+        $line = "$($p.CommandLine)"
+        if (-not $line -or $line -notmatch [regex]::Escape($leaf)) { continue }
+        if ([int]$p.ProcessId -eq $PID) { continue }
+        try { Stop-Process -Id ([int]$p.ProcessId) -Force -ErrorAction Stop; $killed++ } catch { }
+    }
+    return $killed
+}
+
 function Send-TrayRestartToAll {
     # « Sauf moi » veut dire « sauf CELUI QUI DEMANDE » : son app cliente vient de faire la
     # mise a jour et se relance elle-meme. Le compte du service, lui, n'a pas d'app cliente.
