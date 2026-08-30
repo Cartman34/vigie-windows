@@ -229,7 +229,7 @@ Add-PodeRoute -Method Post -Path "$base/users/:name" -ScriptBlock {
         return
     }
     try {
-        $target = @(Get-ComputerAccounts | Where-Object { $_.name -eq $nom })[0]
+        $target = Get-AccountByName -Name $nom -Backend $env:VIGIE_BACKEND
         if ($target -and $target.technical) {
             Write-PodeJsonResponse -StatusCode 400 -Value @{ error = "$nom n'est pas un compte utilisateur : son profil n'a jamais servi." }
             return

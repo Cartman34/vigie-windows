@@ -4439,6 +4439,14 @@ function Update-AccountTasks {
     cercle 3 -- une app cliente eteinte demarrera de toute facon avec le nouveau code, et
     verifier son battement de coeur ajouterait un acces disque pour rien.
 #>
+# UN compte, par son nom. Recopie a trois endroits sous la forme « Get-ComputerAccounts |
+# Where-Object { $_.name -eq X } », avec a chaque fois le meme piege : sans @(...) autour,
+# un resultat unique n'est pas un tableau et l'index [0] rend un caractere.
+function Get-AccountByName {
+    param([Parameter(Mandatory)][string]$Name, [string]$Backend = (Get-BackendRoot))
+    @(Get-ComputerAccounts -Backend $Backend | Where-Object { "$($_.name)" -eq $Name })[0]
+}
+
 function Get-UserAccounts {
     param([switch]$Force, [string]$Backend = (Get-BackendRoot))
     @(Get-ComputerAccounts -Force:$Force -Backend $Backend | Where-Object { -not $_.technical })
