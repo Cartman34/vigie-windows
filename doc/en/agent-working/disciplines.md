@@ -5,6 +5,8 @@
 
 ## Langue & encodage
 - Échanges **en français** ; code **entièrement en anglais**.
+- **Messages de commit en anglais** : c'est du technique, au même titre que le code. Ils étaient écrits en français
+  jusqu'au 30/08.
 - **Accents obligatoires** dans les libellés visibles. **UTF-8 partout**, cible **PowerShell 7**.
 - Exception : les **lanceurs** (`run/start/install/*.cmd`) restent en **ASCII** (compat PS 5.1 avant bascule pwsh).
 
