@@ -1544,13 +1544,25 @@ function Get-NextDeploymentTag {
 #>
 function Set-GitSafeDirectory {
     param([Parameter(Mandatory)][string]$RepoPath)
-    $wanted = "$RepoPath".Replace([char]92, [char]47).TrimEnd([char]47)
-    foreach ($known in @(Invoke-Git -Path $env:SystemDrive -Arguments @('config', '--system', '--get-all', 'safe.directory'))) {
-        if ("$known".Replace([char]92, [char]47).TrimEnd([char]47) -eq $wanted) { return $false }
+    <#
+        DEUX CHEMINS, PAS UN.
+
+        Declarer le dossier de travail ne suffit pas : lors d'un CLONE LOCAL, git ouvre
+        « <depot>/.git » et c'est ce chemin-la qu'il verifie -- son refus le nomme
+        d'ailleurs mot pour mot. Avec la seule entree « <depot> », le clone du service
+        restait refuse apres declaration (constate le 30/08, trois deploiements de suite).
+    #>
+    $rootPath = "$RepoPath".Replace([char]92, [char]47).TrimEnd([char]47)
+    $declared = @(Invoke-Git -Path $env:SystemDrive -Arguments @('config', '--system', '--get-all', 'safe.directory')) |
+              ForEach-Object { "$_".Replace([char]92, [char]47).TrimEnd([char]47) }
+    $added = $false
+    foreach ($wanted in @($rootPath, ($rootPath + '/.git'))) {
+        if ($declared -contains $wanted) { continue }
+        $null = Invoke-Git -Path $env:SystemDrive -Arguments @('config', '--system', '--add', 'safe.directory', $wanted)
+        if (Get-GitLastError) { throw (Get-GitLastError) }
+        $added = $true
     }
-    $null = Invoke-Git -Path $env:SystemDrive -Arguments @('config', '--system', '--add', 'safe.directory', $wanted)
-    if (Get-GitLastError) { throw (Get-GitLastError) }
-    return $true
+    return $added
 }
 
 function New-DeploymentTag {
