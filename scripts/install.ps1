@@ -361,7 +361,7 @@ if ($isRepo) {
     if (-not (Test-Path -LiteralPath $updater)) {
         Write-Fail (Get-Label 'install.deploiement-introuvable' $updater)
     } else {
-        $prep = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $updater, '-PrepareOnly')
+        $prep = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $updater)
         if ($Requester) { $prep += @('-Requester', $Requester) }
         if ($Force)     { $prep += '-Force' }
         $lines = & (Get-Process -Id $PID).Path @prep 2>&1

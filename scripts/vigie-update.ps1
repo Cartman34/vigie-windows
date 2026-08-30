@@ -44,34 +44,10 @@ param(
     # Deployer meme si ce qui est trouve n'est pas plus recent que ce qui tourne.
     [switch] $Force,
 
-    <#
-        PREPARER SEULEMENT : marquer, fabriquer, extraire -- et s'arreter la.
-
-        C'est la premiere moitie de la sequence cible (targeting/install-update.md) : la
-        RECUPERATION, qui se fait AVANT d'arreter quoi que ce soit. L'installation appelle
-        ce script ainsi, recupere le dossier a deployer sur la derniere ligne, puis arrete
-        Vigie, sauvegarde, copie, verifie et redemarre -- c'est elle qui orchestre.
-
-        Sans ce commutateur, le script fait tout : c'est le geste autonome d'avant.
-    #>
-    [switch] $PrepareOnly,
-
     # QUI DEMANDE. Ce script tourne detache, sous le compte du service : il n'a pas de
     # session pour le deduire. Le serveur le lui passe, car c'est dans la session de cette
     # personne que le tag de version sera pose -- dans SON depot, sous SON identite (D112).
-    [string] $Requester,
-
-    <#
-        NE RIEN RELANCER : L'APPELANT S'EN CHARGE.
-
-        L'installation deploie (ici), puis pose la tache serveur -- qui demarre le serveur
-        -- puis celle de l'app cliente -- qui la lance. Relancer les deux au passage
-        faisait TROIS demarrages pour une seule installation, dont deux inutiles : c'est
-        du temps, des icones qui clignotent, et autant d'occasions de rater.
-
-        Lancee seule, la mise a jour relance : c'est elle qui termine le geste.
-    #>
-    [switch] $NoRestart
+    [string] $Requester
 )
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path $PSScriptRoot -Parent
@@ -266,91 +242,29 @@ if ($route -ne 'local') {
     }
 }
 
-# --- 2. Deploiement ------------------------------------------------------------------
+# --- 2. On rend le dossier a poser ---------------------------------------------------
 #
-# EN MODE PREPARATION, ON S'ARRETE ICI. On extrait l'archive et on rend son dossier :
-# l'installation prendra la suite, apres avoir arrete Vigie.
-if ($PrepareOnly) {
-    if (-not $archive) {
-        Write-Fail (Get-Label 'vigie-update.aucune-archive-a-preparer')
-        exit 1
-    }
-    $prepared = $null
-    try { $prepared = Expand-InstallArchive -Zip $archive }
-    catch {
-        Write-Fail (Get-Label 'vigie-update.extraction-impossible' $_.Exception.Message)
-        exit 1
-    }
-    Write-Ok (Get-Label 'vigie-update.archive-prete-a-poser')
-    # DERNIERE LIGNE = LE DOSSIER. L'appelant lit la sortie ; tout le reste est du recit.
-    Write-Output $prepared
-    exit 0
-}
-
-$deploy = Join-Path $PSScriptRoot 'deploy-prod.ps1'
-if (-not (Test-Path -LiteralPath $deploy)) {
-    Write-Fail (Get-Label 'vigie-update.deploy-prod-ps1-introuvable')
+# ON S'ARRETE ICI, ET C'EST TOUT CE QUE FAIT CE SCRIPT.
+#
+# Il deployait et relancait lui-meme : deux chemins pour un seul geste, donc deux
+# comportements a tenir et un qui derive -- l'un relancait, l'autre pas, selon un
+# commutateur. Depuis le 30/08 il n'y en a plus qu'un, l'installation, decrit dans
+# doc/progress/targeting/install-update.md.
+#
+# La RECUPERATION se fait avant tout arret : c'est la partie longue, et Vigie n'a aucune
+# raison d'etre coupee pendant. L'installation prend la suite -- arreter, sauvegarder,
+# poser, verifier, redemarrer -- parce que c'est elle qui sait dans quel ordre.
+if (-not $archive) {
+    Write-Fail (Get-Label 'vigie-update.aucune-archive-a-preparer')
     exit 1
 }
-$argv = @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $deploy + '"'), '-Yes')
-if ($archive)     { $argv += @('-Zip', ('"' + $archive + '"')) }
-if ($Destination) { $argv += @('-Destination', ('"' + $Destination + '"')) }
-
-Write-Info (Get-Label 'vigie-update.deploiement')
-$p = Start-Process -FilePath $pwsh -ArgumentList $argv -Wait -PassThru -WindowStyle Hidden
-Write-Info (Get-Label 'vigie-update.deploy-prod-rendu-le' $p.ExitCode)
-if ($p.ExitCode -ne 0) {
-    Write-Fail (Get-Label 'vigie-update.le-deploiement-echoue-vigie')
+$prepared = $null
+try { $prepared = Expand-InstallArchive -Zip $archive }
+catch {
+    Write-Fail (Get-Label 'vigie-update.extraction-impossible' $_.Exception.Message)
     exit 1
 }
-
-# --- 3. Relance ----------------------------------------------------------------------
-#
-# DEUX APPLICATIONS, DEUX RELANCES. L'app cliente se relance sur ordre ; l'app serveur se
-# relance ELLE-MEME, avec ses propres droits (D65). Le commentaire disait encore que le
-# tray relancait le serveur avec lui : ce n'est plus vrai depuis qu'une relance passe par
-# le serveur, et la mise a jour laissait donc l'app serveur sur l'ANCIEN code.
-#
-# Le relanceur ATTEND la fin des operations en cours : celle qui tourne, c'est justement
-# cette mise a jour. Il redemarre donc quand elle a fini, pas au milieu.
-$installed = Get-SharedInstallPath
-if ($installed -and -not $NoRestart) {
-    $startScript = Join-Path (Join-Path (Join-Path $installed 'apps') 'backend-pode') 'start.ps1'
-    try {
-        $previousPid = Start-ServerRelauncher -StartScript $startScript -Wait -Backend $backend
-        Write-Info (Get-Label 'vigie-update.app-serveur-relance' $previousPid)
-    } catch {
-        # Pas d'app serveur en marche : c'est le cas d'une premiere installation, et il n'y
-        # a rien a relancer. On le dit sans en faire un echec.
-        Write-Detail (Get-Label 'vigie-update.app-serveur-pas-relancee' $_.Exception.Message)
-    }
-}
-
-# LES AUTRES COMPTES, TOUJOURS. Leur app cliente tourne encore avec le code d'avant, et
-# personne d'autre ne les previendra -- l'installation ne s'occupe que du compte courant.
-try {
-    $autres = @(Send-TrayRestartToAll)
-    if ($autres.Count) { Write-Detail (Get-Label 'vigie-update.autres-trays' ($autres -join ', ')) }
-} catch { }
-
-if (-not $NoRestart) {
-    $tray = Join-Path $PSScriptRoot 'tray.ps1'
-    if (-not (Test-Path -LiteralPath $tray)) {
-        Write-Warn (Get-Label 'vigie-update.le-deploiement-est-fait')
-        exit 2
-    }
-    Write-Info (Get-Label 'vigie-update.relance-de-vigie')
-    $r = Start-Process -FilePath $pwsh -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass',
-                                                       '-File', ('"' + $tray + '"'), '-Restart') `
-                       -Wait -PassThru -WindowStyle Hidden
-    Write-Info (Get-Label 'vigie-update.la-relance-rendu-le' $r.ExitCode)
-    if ($r.ExitCode -ne 0) {
-        Write-Warn (Get-Label 'vigie-update.le-deploiement-est-fait-2')
-        exit 2
-    }
-}
-
-$apres = $null
-try { $apres = Get-BuildStamp -Root $repoRoot } catch { }
-Write-Host (Get-Label 'vigie-update.vigie-est-jour' $(if ($apres -and $apres.version) { $apres.version } else { 'version inconnue' }) $(if ($apres -and $apres.commit) { " (" + $apres.commit.Substring(0, 8) + ")" } else { "" })) -ForegroundColor Green
+Write-Ok (Get-Label 'vigie-update.archive-prete-a-poser')
+# DERNIERE LIGNE = LE DOSSIER. L'appelant lit la sortie ; tout le reste est du recit.
+Write-Output $prepared
 exit 0
