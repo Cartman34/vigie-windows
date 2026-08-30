@@ -1921,6 +1921,9 @@ function Send-TrayRestartToAll {
     # ment jusqu'a la prochaine ouverture de session.
     param([string]$Except = (Get-RequesterAccount))
     $touches = @()
+    # Les comptes qui ont une app cliente : ceux dont la tache de demarrage existe.
+    $avecAppCliente = @()
+    try { $avecAppCliente = @(Get-VigieAccounts | Where-Object { $_.enabled } | ForEach-Object { "$($_.name)" }) } catch { }
     $users = Join-Path $env:SystemDrive 'Users'
     if (-not (Test-Path -LiteralPath $users)) { return $touches }
     foreach ($profil in @(Get-ChildItem -LiteralPath $users -Directory -ErrorAction SilentlyContinue)) {
@@ -1930,6 +1933,13 @@ function Send-TrayRestartToAll {
         # sous « ErrorActionPreference = Stop », il emporte toute la fonction. Le serveur
         # est eleve et n'a pas ce souci, mais une fonction ne doit pas dependre de qui
         # l'appelle : on passe au suivant, en silence.
+        # AVOIR UN DOSSIER D'ORDRES NE VEUT PAS DIRE AVOIR UNE APP CLIENTE. Le compte du
+        # service en a un -- l'app SERVEUR y depose ses marques d'occupation -- et il a
+        # donc recu un ordre « restart » que personne ne lira jamais : « Relance demandee
+        # aux autres comptes : Famille, fhaza, VigieService » (constate le 30/08).
+        #
+        # Ce qui prouve qu'un compte a une app cliente, c'est SA TACHE DE DEMARRAGE.
+        if ($avecAppCliente -notcontains $profil.Name) { continue }
         $run = $null
         try { $run = Get-AccountRunDir -Account $profil.Name } catch { continue }
         if (-not $run) { continue }
