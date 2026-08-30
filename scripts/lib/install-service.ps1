@@ -47,7 +47,7 @@ $backend = Join-Path $repoRoot 'apps/backend-pode'
 . (Join-Path $repoRoot 'scripts/lib/i18n.ps1')
 
 $SERVICE_ACCOUNT = 'VigieService'
-$SERVICE_TASK    = 'Vigie - Serveur'
+$SERVICE_TASK    = Get-ServiceTaskName   # une seule definition, dans common.ps1
 
 
 function Get-ServiceAccount {

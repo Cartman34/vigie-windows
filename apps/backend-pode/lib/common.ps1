@@ -1155,6 +1155,11 @@ function Start-PkgJob {
     config.local.psd1 garde son role -- ce qui est propre a CETTE COPIE (un port d'essai,
     un chemin d'outillage) -- et reste la couche la plus specifique.
 #>
+# LE NOM DE LA TACHE SERVEUR, une seule fois. Il vivait dans install-service.ps1, que le
+# serveur ne charge pas : la relance ne pouvait donc pas savoir a qui appartient le
+# processus qu'elle arrete.
+function Get-ServiceTaskName { return 'Vigie - Serveur' }
+
 function Get-ComputerConfigPath {
     <#
         NE PAS CONFONDRE avec Get-MachineConfigPath, qui existe deja plus bas et designe
@@ -1334,12 +1339,47 @@ function Get-AppBuildId {
 #
 # `git describe` dit tout : « v0.1.6 » si on est pile sur le tag, « v0.1.6+6 » s'il y a
 # eu six commits depuis. C'est la version PRECISE, et elle ne se maintient pas.
+<#
+    APPELER GIT ET GARDER SON REFUS.
+
+    Get-GitVersion et Get-GitCommit ecrasaient l'erreur (« 2>$null ») et rendaient $null.
+    Le 30/08, la carte annoncait donc « Depot de ce poste : sans version » -- sans dire si
+    le dossier etait illisible, si git manquait, ou s'il refusait de travailler dans un
+    depot appartenant a quelqu'un d'autre. Trois causes, trois gestes differents, et
+    aucune trace pour trancher.
+
+    On garde donc le refus. Il n'interrompt rien -- une version inconnue n'est pas une
+    panne -- mais il devient DISABLE : Get-BuildStamp le rapporte, et la carte le dit.
+#>
+$script:GitLastError = $null
+function Invoke-Git {
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string[]]$Arguments)
+    $script:GitLastError = $null
+    $git = (Get-Command git -ErrorAction SilentlyContinue)
+    if (-not $git) {
+        $script:GitLastError = 'git est introuvable pour ce compte.'
+        return $null
+    }
+    try {
+        $err = @()
+        $out = & $git.Source -C $Path @Arguments 2>&1 | ForEach-Object {
+            if ($_ -is [System.Management.Automation.ErrorRecord]) { $err += "$_"; } else { $_ }
+        }
+        if ($err.Count) { $script:GitLastError = (($err | Select-Object -First 2) -join ' ') }
+        return @($out | Where-Object { "$_".Trim() })
+    } catch {
+        $script:GitLastError = $_.Exception.Message
+        return $null
+    }
+}
+
+# Le dernier refus de git, ou $null. Lu juste apres un appel.
+function Get-GitLastError { return $script:GitLastError }
+
 function Get-GitVersion {
     param([string]$Path = (Get-RepoRoot))
     try {
-        $git = (Get-Command git -ErrorAction SilentlyContinue)
-        if (-not $git) { return $null }
-        $d = (& $git.Source -C $Path describe --tags 2>$null | Select-Object -First 1)
+        $d = @(Invoke-Git -Path $Path -Arguments @('describe', '--tags') | Select-Object -First 1)[0]
         if (-not $d) { return $null }
         $d = "$d".Trim()
         # git rend « v0.1.6-6-g813205f » : on garde « v0.1.6+6 », plus court a lire, et
@@ -1352,10 +1392,8 @@ function Get-GitVersion {
 function Get-GitCommit {
     param([string]$Path = (Get-RepoRoot), [switch]$Court)
     try {
-        $git = (Get-Command git -ErrorAction SilentlyContinue)
-        if (-not $git) { return $null }
         $forme = if ($Court) { '%h' } else { '%H' }
-        $c = (& $git.Source -C $Path log -1 --format=$forme 2>$null | Select-Object -First 1)
+        $c = @(Invoke-Git -Path $Path -Arguments @('log', '-1', "--format=$forme") | Select-Object -First 1)[0]
         if ($c) { return "$c".Trim() }
     } catch { }
     return $null
@@ -1373,12 +1411,16 @@ function Get-BuildStamp {
         } catch { }
     }
     # Hors archive, la version est celle que git connait : le dernier tag (+ commits).
+    # SI GIT REFUSE, ON GARDE SON MOT : « sans version » ne dit pas si le dossier est
+    # illisible, si git manque, ou s'il refuse un depot appartenant a un autre compte.
     $v = Get-GitVersion -Path $Root
+    $c = Get-GitCommit -Path $Root
     return [pscustomobject][ordered]@{
         version = $(if ($v) { $v } else { 'sans version' })
-        commit  = (Get-GitCommit -Path $Root)
+        commit  = $c
         at      = $null
         source  = 'depot'
+        error   = $(if ($v -and $c) { $null } else { Get-GitLastError })
     }
 }
 
@@ -1611,10 +1653,39 @@ while (`$true) {
 }
 "@ } else { '' }
 
+    <#
+        LE SERVEUR APPARTIENT A SA TACHE : ON RELANCE LA TACHE.
+
+        Je lancais start.ps1 moi-meme. Resultat le 30/08 : la mise a jour a tue le serveur
+        et le successeur n'a jamais tenu -- lance depuis une session elevee, il tournait
+        sous LE MAUVAIS COMPTE et mourait avec elle. Vigie est restee morte, tache
+        « Ready », port muet.
+
+        La tache, elle, sait ce qu'elle lance : le bon compte, sans session ouverte, avec
+        ses droits. On l'arrete et on la redemarre. start.ps1 en direct ne reste que pour
+        le cas ou il n'y a pas de tache -- un serveur lance a la main, en developpement.
+    #>
+    $taskName = Get-ServiceTaskName
+    $parTache = $false
+    try { $parTache = [bool](Get-ScheduledTask -TaskName $taskName -ErrorAction Stop) } catch { }
+
+    $arret = if ($parTache) { @"
+try { Stop-ScheduledTask -TaskName '$taskName' -ErrorAction SilentlyContinue } catch { }
+try { Stop-Process -Id $target -Force -ErrorAction SilentlyContinue } catch { }
+"@ } else { @"
+try { Stop-Process -Id $target -Force -ErrorAction SilentlyContinue } catch { }
+"@ }
+
+    $demarrage = if ($parTache) { @"
+Start-ScheduledTask -TaskName '$taskName'
+"@ } else { @"
+Start-Process -FilePath '$pwsh' -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','$StartScript' -WindowStyle Hidden
+"@ }
+
     $script = @"
 Start-Sleep -Milliseconds 400
 $waitBlock
-try { Stop-Process -Id $target -Force -ErrorAction SilentlyContinue } catch { }
+$arret
 `$fin = (Get-Date).AddSeconds(30)
 while ((Get-Date) -lt `$fin) {
     `$occupe = `$null
@@ -1622,7 +1693,7 @@ while ((Get-Date) -lt `$fin) {
     if (-not `$occupe) { break }
     Start-Sleep -Milliseconds 300
 }
-Start-Process -FilePath '$pwsh' -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','$StartScript' -WindowStyle Hidden
+$demarrage
 "@
 
     $psi = New-Object System.Diagnostics.ProcessStartInfo

@@ -105,7 +105,17 @@ if ($partagee) {
             $detail += [Environment]::NewLine + "Dépôt de ce poste : " + $cmp.here.version +
                        $(if ($cmp.here.commit) { " (" + $cmp.here.commit.Substring(0, [Math]::Min(8, $cmp.here.commit.Length)) + ")" } else { "" })
             $detail += [Environment]::NewLine + $cmp.repo
-            if ($cmp.same) {
+            # LE DEPOT EST DECLARE, MAIS EST-IL LISIBLE ? Le compte qui fait tourner Vigie
+            # n'est pas celui qui developpe : il peut n'avoir aucun droit sur le dossier de
+            # travail, ou git peut refuser un dépôt appartenant à quelqu'un d'autre. On le
+            # DIT, avec le mot de git : « Elle diffère du dépôt » laissait croire à un
+            # écart de code alors qu'on n'avait rien pu lire du tout.
+            if ($cmp.here.error) {
+                $niveau = 'warn'
+                $pourquoi = "Le dépôt déclaré n'a pas pu être lu par Vigie : " + $cmp.here.error +
+                            " Tant qu'il est illisible, impossible de dire si l'installation est à jour, " +
+                            "et la mise à jour ne pourra pas partir de lui."
+            } elseif ($cmp.same) {
                 $pourquoi = "Elle correspond exactement au dépôt de ce poste : les autres comptes lancent la même version que vous."
             } elseif ($null -ne $cmp.behind -and $cmp.behind -gt 0) {
                 $niveau = 'warn'
