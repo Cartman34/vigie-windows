@@ -28,6 +28,10 @@
 param(
     [string]   $Zip,
     [string]   $Destination = 'C:\Program Files\Sowapps\Vigie',
+    # Le numero de version a graver, quand le TAG a deja ete pose ailleurs -- par l'action
+    # « tag-version », dans la session du proprietaire du depot (D112). Sans lui, et sans
+    # -Zip, on pose le tag ici : on tourne alors sous le compte de la personne.
+    [string]   $Version,
     [switch]   $Yes
 )
 $ErrorActionPreference = 'Stop'
@@ -37,53 +41,25 @@ $repoRoot = Split-Path $PSScriptRoot -Parent
 
 # --- 0. LE TAG DE CE DEPLOIEMENT ---------------------------------------------
 #
-# Regle posee par l'utilisateur : on cree des versions v0.X et v0.X.Y, marquees par un
-# TAG, et **uniquement au moment d'un deploiement**, avec un increment fixe. Un tag pose
-# a chaque commit ne voudrait rien dire ; pose au deploiement, il repond exactement a la
-# question « qu'est-ce qui tourne sur cette machine ? ».
+# LE TAG SE POSE AILLEURS (D112) : Get-NextDeploymentTag et New-DeploymentTag vivent dans
+# common.ps1, et c'est l'action « tag-version » qui les appelle DANS LA SESSION du
+# proprietaire du depot. Ici, on ne fait que s'en servir quand on nous le passe.
 #
-# L'increment est le dernier nombre, +1. Le premier deploiement d'une version part de ce
-# que dit le fichier VERSION (0.1 -> v0.1.1).
-function Get-ProchainTag {
-    param([string]$Racine)
-    # La base vient du DERNIER TAG : c'est le seul numero que le projet maintient (D96).
-    # « 0.1 » n'est que la graine du tout premier tag, quand aucun n'existe encore.
-    $base = '0.1'
-    try {
-        $dernier = (& git -C $Racine describe --tags --abbrev=0 2>$null | Select-Object -First 1)
-        if ($dernier -match '^v?(\d+\.\d+)\.\d+$') { $base = $Matches[1] }
-    } catch { }
-    $existants = @()
-    try { $existants = @(& git -C $Racine tag --list ("v" + $base + ".*") 2>$null) } catch { }
-    $max = 0
-    foreach ($t in $existants) {
-        if ("$t" -match ('^v' + [regex]::Escape($base) + '\.(\d+)$')) {
-            $x = [int]$Matches[1]
-            if ($x -gt $max) { $max = $x }
-        }
+# En ligne de commande, sans -Zip et sans -Version, on pose le tag nous-memes : on tourne
+# alors sous le compte de la personne, c'est le meme cas de figure.
+if (-not $Zip -and -not $Version) {
+    $pose = New-DeploymentTag -RepoPath $repoRoot -Push
+    if ($pose.posed) {
+        $tag = $pose.tag
+        Write-Info (Get-Label 'deploy-prod.tag-pose-sur' $tag (Get-GitCommit -Path $repoRoot -Court))
+        if ($pose.pushed) { Write-Host (Get-Label 'deploy-prod.tag-pousse') }
+        else              { Write-Detail (Get-Label 'deploy-prod.tag-local-pousse-impossible') }
+    } else {
+        Write-Detail (Get-Label 'deploy-prod.tag-non-pose' "$($pose.error)")
     }
-    return ('v' + $base + '.' + ($max + 1))
-}
-
-if (-not $Zip) {
-    $tag = Get-ProchainTag -Racine $repoRoot
-    $commit = (Get-GitCommit -Path $repoRoot -Court)
-    try {
-        # -f absent VOLONTAIREMENT : un tag ne se reecrit pas. S'il existe deja, c'est
-        # que ce deploiement a deja eu lieu -- on le dit et on continue.
-        & git -C $repoRoot tag -a $tag -m ("Deploiement du " + (Get-Date -Format 'dd/MM/yyyy HH:mm')) 2>$null
-        if ($LASTEXITCODE -eq 0) {
-            Write-Info (Get-Label 'deploy-prod.tag-pose-sur' $tag $commit)
-            # Le tag ne vaut que s'il est partage. L'echec de pousse n'est PAS fatal :
-            # un deploiement doit aboutir meme sans reseau.
-            & git -C $repoRoot push origin $tag 2>$null | Out-Null
-            if ($LASTEXITCODE -eq 0) { Write-Host (Get-Label 'deploy-prod.tag-pousse') } else { Write-Detail (Get-Label 'deploy-prod.tag-local-pousse-impossible') }
-        } else {
-            Write-Detail (Get-Label 'deploy-prod.tag-deja-present-rien' $tag)
-        }
-    } catch {
-        Write-Detail (Get-Label 'deploy-prod.tag-non-pose' $_.Exception.Message)
-    }
+} elseif ($Version) {
+    # Le tag a ete pose par le demandeur, dans sa session : l'archive portera son numero.
+    $tag = $Version
 }
 
 # --- 1. La version a deployer -------------------------------------------------

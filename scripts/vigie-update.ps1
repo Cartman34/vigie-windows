@@ -42,7 +42,12 @@ param(
     [switch] $PreVersions,
 
     # Deployer meme si ce qui est trouve n'est pas plus recent que ce qui tourne.
-    [switch] $Force
+    [switch] $Force,
+
+    # QUI DEMANDE. Ce script tourne detache, sous le compte du service : il n'a pas de
+    # session pour le deduire. Le serveur le lui passe, car c'est dans la session de cette
+    # personne que le tag de version sera pose -- dans SON depot, sous SON identite (D112).
+    [string] $Requester
 )
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path $PSScriptRoot -Parent
@@ -135,6 +140,37 @@ if ($route -eq 'auto') {
 
 # --- 1. Rapporter le code (sauf voie locale, qui fabrique elle-meme) ------------------
 $archive = $null
+<#
+    LE TAG EST POSE PAR LE DEMANDEUR, AVANT DE FABRIQUER.
+
+    Le deploiement marque une version : cette regle ne change pas. Mais ce script tourne
+    sous le compte du service, qui n'a rien a ecrire dans le depot d'une personne -- git
+    le refuse, et un tag sans auteur ne vaut rien. On demande donc a l'app cliente du
+    demandeur de le poser chez elle ; le clone du service le verra au fetch suivant, et
+    l'archive portera ce numero.
+
+    Sans demandeur identifie, ou si sa session ne repond pas, on continue : on fabriquera
+    depuis la branche, avec un numero « v0.1.29+3 ». Une mise a jour ne doit pas echouer
+    parce qu'un tag n'a pas pu etre pose.
+#>
+$remoteLocal = $false
+try { $remoteLocal = (Test-Path -LiteralPath (Join-Path (Get-UpdateRemote -Backend $backend) '.git')) } catch { }
+if ($route -eq 'clone' -and $remoteLocal -and $Requester -and -not $Ref) {
+    Write-Info (Get-Label 'vigie-update.marquage-demande' $Requester)
+    try {
+        $marquage = Invoke-DesktopAction -Account $Requester -Type 'tag-version' -TimeoutSec 45 -Backend $backend
+        $poseTag = "$($marquage.result.tag)"
+        if ($poseTag) {
+            $Ref = $poseTag
+            Write-Ok (Get-Label 'vigie-update.version-marquee' $poseTag)
+        } else {
+            Write-Detail (Get-Label 'vigie-update.marquage-sans-tag' "$($marquage.message)")
+        }
+    } catch {
+        Write-Detail (Get-Label 'vigie-update.marquage-impossible' $_.Exception.Message)
+    }
+}
+
 if ($route -ne 'local') {
     $fetch = Join-Path $PSScriptRoot 'vigie-fetch.ps1'
     if (-not (Test-Path -LiteralPath $fetch)) {

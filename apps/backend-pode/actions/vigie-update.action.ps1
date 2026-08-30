@@ -38,8 +38,12 @@ if (-not $pwsh) { $pwsh = 'pwsh.exe' }
 $lance = $false
 try {
     # Guillemets : les chemins contiennent des espaces (« C:\Program Files\... »).
+    # QUI DEMANDE suit le script : il tourne detache, sous le compte du service, et c'est
+    # dans la session du demandeur que le tag de version sera pose (D112).
     $argv = @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
               '-File', ('"' + $script + '"'))
+    $demandeur = Get-RequesterAccount
+    if ($demandeur) { $argv += @('-Requester', $demandeur) }
     # La carte DEPLOIEMENT gere les deploiements -- et elle est toujours la. La carte de
     # debogage, elle, peut etre eteinte : le suivi de l'operation y aurait ete invisible.
     $lance = [bool](Start-WatchedAction -Module 'deployment' -Probe 'comptes.probe.ps1' `

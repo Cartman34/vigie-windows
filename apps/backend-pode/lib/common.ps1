@@ -1482,6 +1482,54 @@ function Get-LocalRepoPath {
     clone, qu'il possede, et fabrique depuis lui. Le chemin est defini ici et nulle part
     ailleurs -- vigie-fetch l'utilisait sous le nom « $travail\depot », en le recomposant.
 #>
+<#
+    POSER LE TAG DE VERSION -- ET CE N'EST PAS AU SERVICE DE LE FAIRE.
+
+    Regle d'origine : on marque une version par un TAG, uniquement au moment d'un
+    deploiement, increment fixe. Elle ne change pas -- « moi je marque rien, le
+    deploiement actuel en dev marque une version et la pousse ».
+
+    Ce qui change, c'est QUI l'execute. Un tag pose par un compte de service n'a pas
+    d'auteur, son push n'a pas d'identifiants, et git refuse d'ecrire dans le depot d'une
+    personne (D112). L'action « tag-version » appelle donc cette fonction DANS LA SESSION
+    du demandeur, sous son compte, dans son depot.
+
+    Le calcul du prochain numero vit ici plutot que dans deploy-prod : les deux chemins --
+    le bouton et la ligne de commande -- doivent donner le meme.
+#>
+function Get-NextDeploymentTag {
+    param([Parameter(Mandatory)][string]$RepoPath)
+    # La base vient du DERNIER TAG : c'est le seul numero que le projet maintient (D96).
+    $base = '0.1'
+    $last = @(Invoke-Git -Path $RepoPath -Arguments @('describe', '--tags', '--abbrev=0') | Select-Object -First 1)[0]
+    if ("$last" -match '^v?(\d+\.\d+)\.\d+$') { $base = $Matches[1] }
+    $max = 0
+    foreach ($t in @(Invoke-Git -Path $RepoPath -Arguments @('tag', '--list', ("v" + $base + ".*")))) {
+        if ("$t" -match ('^v' + [regex]::Escape($base) + '\.(\d+)$')) {
+            $x = [int]$Matches[1]
+            if ($x -gt $max) { $max = $x }
+        }
+    }
+    return ('v' + $base + '.' + ($max + 1))
+}
+
+function New-DeploymentTag {
+    param([Parameter(Mandatory)][string]$RepoPath, [switch]$Push)
+    $tag = Get-NextDeploymentTag -RepoPath $RepoPath
+    # -f absent VOLONTAIREMENT : un tag ne se reecrit pas. S'il existe deja, c'est que ce
+    # deploiement a deja eu lieu -- on le dit et on continue.
+    $null = Invoke-Git -Path $RepoPath -Arguments @('tag', '-a', $tag, '-m', ("Deploiement du " + (Get-Date -Format 'dd/MM/yyyy HH:mm')))
+    $failure = Get-GitLastError
+    $pushed = $false
+    if (-not $failure -and $Push) {
+        # Le tag ne vaut que s'il est partage. L'echec de pousse n'est PAS fatal : un
+        # deploiement doit aboutir meme sans reseau.
+        $null = Invoke-Git -Path $RepoPath -Arguments @('push', 'origin', $tag)
+        $pushed = -not (Get-GitLastError)
+    }
+    return [pscustomobject][ordered]@{ tag = $tag; posed = (-not $failure); pushed = $pushed; error = $failure }
+}
+
 function Get-ServiceClonePath {
     param([string]$Backend = (Get-BackendRoot))
     Join-Path (Join-Path (Get-VarRoot -Backend $Backend) 'update') 'depot'

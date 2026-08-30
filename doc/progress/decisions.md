@@ -2944,6 +2944,12 @@ sans être branchée : `UpdateSource = 'clone'`, avec `UpdateRef` pour viser une
 **Reste à éprouver :** `git fetch <chemin local>` depuis le clone du service lit aussi le dépôt de la personne, côté
 `upload-pack`. Si la protection s'y applique aussi, ce seul cas demandera un `safe.directory` — et on l'écrira ici.
 
-**Conséquence sur le tag de version.** Le déploiement pose aujourd'hui un tag dans le dépôt de travail (`deploy-prod`).
-Un service n'a pas à écrire dans le dépôt d'une personne : le tag redevient un geste d'auteur. À trancher quand on y
-touchera — **D96** en dépend.
+**Le tag de version reste AUTOMATIQUE, et c'est l'app cliente qui le pose.** Le déploiement marque une version et la
+pousse (`deploy-prod`) : ce comportement ne change pas — « moi je marque rien, le déploiement actuel en dev marque une
+version et la pousse ». Ce qui change, c'est **qui** l'exécute. La fabrication — tag, push, archive — passe dans la
+session du demandeur (`@execution: session`, **D65**) : elle tourne alors sous le compte propriétaire du dépôt, le tag
+a un auteur, le `push` a des identifiants, et les fichiers restent à lui. Le serveur ne fait plus que déployer
+l'archive reçue et relancer.
+
+**Le tag se pose quand il y a des commits d'avance** — sinon il n'y a rien à marquer — et l'utilisateur garde la
+liberté de le poser lui-même dans son dépôt.
