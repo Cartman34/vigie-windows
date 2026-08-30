@@ -189,9 +189,12 @@ if ($route -eq 'clone' -and (Get-DeclaredEnvironment -Backend $backend) -eq 'dev
             (constate le 30/08). Et si on n'est pas le proprietaire, git refuse : on le
             dit, et on continue -- une mise a jour ne rate pas pour un tag.
         #>
-        $source = Get-UpdateRemote -Backend $backend
+        # $sourceRepo, PAS $source : PowerShell ignore la casse, « $source » designe donc
+        # le PARAMETRE $Source et son ValidateSet refuse un chemin. Deuxieme fois
+        # aujourd'hui -- check-coherence le refuse desormais.
+        $sourceRepo = Get-UpdateRemote -Backend $backend
         try {
-            $pose = New-DeploymentTag -RepoPath $source -Push
+            $pose = New-DeploymentTag -RepoPath $sourceRepo -Push
             if ($pose.posed) { $poseTag = $pose.tag }
             else { Write-Detail (Get-Label 'vigie-update.marquage-impossible' "$($pose.error)") }
         } catch {

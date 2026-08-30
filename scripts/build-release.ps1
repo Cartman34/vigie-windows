@@ -192,11 +192,11 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
 # rentre pas dans un nom de fichier, sinon il faudrait le retirer partout ailleurs.
 # Le numero vient du TAG (via Get-BuildStamp), ou de -Version quand le deploiement
 # vient d'en poser un. Plus de fichier VERSION a tenir a jour (D96).
-$version = if ($Version) { $Version -replace '^v', '' } else { (Get-BuildStamp -Root $repoRoot).version -replace '^v', '' }
-if (-not $version -or $version -eq 'sans version') { $version = '0.1' }
+$number = if ($Version) { $Version -replace '^v', '' } else { (Get-BuildStamp -Root $repoRoot).version -replace '^v', '' }
+if (-not $number -or $number -eq 'sans version') { $number = '0.1' }
 # Un « + » dans un nom de fichier est legal mais desagreable : v0.1.6+6 devient
 # 0.1.6-dev6 dans le nom de l'archive.
-$version = $version -replace '\+', '-dev'
+$number = $number -replace '\+', '-dev'
 
 # --- Inventaire : ce que git suit ------------------------------------------------------
 Push-Location $repoRoot
@@ -258,7 +258,7 @@ foreach ($f in $retenus) {
     $parRacine[$racine].Taille += $taille
 }
 
-Write-Step (Get-Label 'build-release.vigie-contenu-de-archive' $version)
+Write-Step (Get-Label 'build-release.vigie-contenu-de-archive' $number)
 Write-Info (Get-Label 'build-release.fichier-avant-compression' $retenus.Count (Format-Taille $tailleTotale))
 foreach ($k in ($parRacine.Keys | Sort-Object)) {
     Write-Info (Get-Label 'build-release.18-fichier' $k $parRacine[$k].N (Format-Taille $parRacine[$k].Taille))
@@ -281,7 +281,7 @@ if ($ListOnly) {
 
 # --- Preparation et compression ---------------------------------------------------------
 if (-not $OutDir) { $OutDir = Join-Path $repoRoot 'dist' }
-$nom     = 'vigie-' + $version
+$nom     = 'vigie-' + $number
 # Fichiers AJOUTES par la fabrication (donc absents de git) : le controle final les
 # attend en plus de la liste retenue.
 $genereParLaFabrication = @()
@@ -316,14 +316,14 @@ try {
     # dire ce qu'elle contient, et on ne peut pas savoir si elle est a jour. Le numero
     # seul ne suffit pas : deux archives « v0.1 » peuvent differer de vingt commits.
     $commit = Get-GitCommit -Path $repoRoot
-    Write-BuildStamp -Root $staging -Version $(if ($version.StartsWith('v')) { $version } else { "v$version" }) -Commit $commit
+    Write-BuildStamp -Root $staging -Version $(if ($number.StartsWith('v')) { $number } else { "v$number" }) -Commit $commit
     # CE FICHIER N'EST PAS SUIVI PAR GIT : il est fabrique ici. Le controle final compte
     # les fichiers de l'archive et les compare a la liste retenue -- il faut donc lui
     # dire. Sans cette ligne, la fabrication s'arretait sur « 146 fichiers pour 145
     # attendus » et le deploiement etait abandonne (constate le 27/08 : le garde-fou
     # avait raison, c'est le decompte qui avait tort).
     $genereParLaFabrication += 'BUILD'
-    Write-Info (Get-Label 'build-release.marque-posee' $version -replace '^v', '' $(if ($commit) { $commit.Substring(0, 8) } else { 'commit inconnu' }))
+    Write-Info (Get-Label 'build-release.marque-posee' $number -replace '^v', '' $(if ($commit) { $commit.Substring(0, 8) } else { 'commit inconnu' }))
     # Le dossier lui-meme est compresse, pas son contenu : l'archive porte donc une racine
     # « vigie-<version>/ ». Sans elle, une decompression deverse tout dans le dossier courant.
     if (Test-Path -LiteralPath $zip) {

@@ -139,6 +139,49 @@ foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.
     }
 }
 
+# --- 4. Une variable ne porte pas le nom d'un parametre -----------------------------------
+#
+# POWERSHELL IGNORE LA CASSE : « $source » et « $Source » sont LA MEME VARIABLE. Ecrire
+# « $source = ... » dans un script qui declare un parametre « $Source » n'est pas une
+# variable locale : c'est une AFFECTATION AU PARAMETRE. Si celui-ci porte un ValidateSet,
+# le script meurt sur place, avec un message qui parle d'autre chose.
+#
+# Deux fois le meme jour, le 30/08, dans le meme fichier : « $source = $null » puis
+# « $source = Get-UpdateRemote ». La deuxieme fois, la mise a jour est morte a la ligne
+# 192 devant l'utilisateur.
+foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.ps1' -ErrorAction SilentlyContinue)) {
+    $rel = Get-Relative $f.FullName
+    if (Test-Skipped $rel) { continue }
+    $text = Get-Content -LiteralPath $f.FullName -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
+    if (-not $text) { continue }
+
+    # Le bloc param() du SCRIPT : ses noms sont ceux qui peuvent etre ecrases.
+    $errors = $null; $tokens = $null
+    $tree = [System.Management.Automation.Language.Parser]::ParseInput($text, [ref]$tokens, [ref]$errors)
+    if ($errors -and $errors.Count) { continue }
+    $block = $tree.ParamBlock
+    if (-not $block) { continue }
+    $names = @($block.Parameters | ForEach-Object { $_.Name.VariablePath.UserPath })
+    if (-not $names.Count) { continue }
+
+    # Toute affectation dont le nom EGALE un parametre a la casse pres, mais s'ecrit
+    # differemment : c'est le signe qu'on croyait creer une variable a soi.
+    foreach ($a in $tree.FindAll({ param($n) $n -is [System.Management.Automation.Language.AssignmentStatementAst] }, $true)) {
+        $left = $a.Left
+        if ($left -isnot [System.Management.Automation.Language.VariableExpressionAst]) { continue }
+        $used = $left.VariablePath.UserPath
+        foreach ($p in $names) {
+            # « -cne » : SENSIBLE A LA CASSE. Avec « -ne », la comparaison ignore la
+            # casse comme le reste de PowerShell -- la regle ne pouvait jamais se
+            # declencher, et je l'ai crue bonne parce qu'elle passait au vert.
+            if ($used -cne $p -and $used -ieq $p) {
+                $faults += ("variable « `${0} » : c'est le paramètre « `${1} » (la casse ne compte pas) -- {2}:{3}" -f
+                            $used, $p, $rel, $left.Extent.StartLineNumber)
+            }
+        }
+    }
+}
+
 # --- Verdict -----------------------------------------------------------------------------
 Write-Title 'Cohérence'
 Write-Info ("{0} bibliothèque(s) partagée(s), {1} décision(s) connue(s)." -f $libs.Count, $known.Count)

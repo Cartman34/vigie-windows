@@ -49,6 +49,21 @@ questions « passent par l'outil de question interactif » : une confusion entre
 présenter un moyen comme une règle. Une question se pose en texte, au format ci-dessus ; sans numéro ni options, elle
 reste hors format quel que soit le moyen employé.
 
+## Conventions de nommage — pour que l'erreur soit impossible, pas rattrapée
+
+**Une variable ne porte JAMAIS le nom d'un paramètre du script.** PowerShell ignore la casse : `$source` **est**
+`$Source`. Écrire `$source = …` dans un script qui déclare `$Source` n'est pas une variable locale, c'est une
+affectation au paramètre — et si celui-ci porte un `ValidateSet`, le script meurt sur place avec un message qui parle
+d'autre chose. Deux fois le 30/08, dans le même fichier ; la seconde a tué la mise à jour devant l'utilisateur.
+
+**La convention :** une variable locale porte un nom **qualifié** — `$sourceRepo`, `$sourcePath`, `$targetPath` — jamais
+le nom nu qui pourrait être un paramètre. `check-coherence` refuse les collisions, en comparaison **sensible à la
+casse** (`-cne` ; avec `-ne`, la règle ne se déclenche jamais — je m'y suis fait prendre en l'écrivant).
+
+**Les autres conventions déjà tenues par un outil :** noms de code en anglais (cliquet `check-naming`), texte affiché
+dans `lang/fr.json` (`check-labels`), pas de mot banni « machine » ni « tray » dans l'affiché, une fonction définie une
+seule fois, un cercle de comptes jamais refiltré à la main.
+
 ## Un correctif, un commit
 
 **Un commit = une correction, ou un ajout, et rien d'autre.** Son titre le dit en entier. S'il faut « et » pour le
