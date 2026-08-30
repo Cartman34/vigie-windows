@@ -42,10 +42,10 @@ sûr, plus maintenable…), pour que l'arbitrage soit explicite plutôt que devi
 **Le format ci-dessus est LE format — partout.** En conversation comme dans un document de conception, un compte rendu
 ou un fichier de suivi : numéro `Qn`, énoncé complet, options lettrées.
 
-**Le canal n'est pas le format.** J'avais écrit ici que les questions « passent par l'outil de question interactif » :
-c'est une confusion, et elle m'a fait présenter un canal comme une règle. L'outil peut porter une question quand le
-choix est vraiment fermé ; il ne remplace jamais le format, et une question posée sans numéro ni options reste hors
-format, quel que soit le moyen employé.
+**Les outils interactifs sont à ÉVITER, et ils ne priment jamais sur les formats définis.** J'avais écrit ici que les
+questions « passent par l'outil de question interactif » : une confusion entre le canal et le format, qui m'a fait
+présenter un moyen comme une règle. Une question se pose en texte, au format ci-dessus ; sans numéro ni options, elle
+reste hors format quel que soit le moyen employé.
 
 ## Chercher avant de concevoir
 
