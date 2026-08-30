@@ -117,6 +117,8 @@ param(
     [string] $DetailsKey = '',
     # La valeur qui remplit le trou {0} du texte des details : une URL, un chemin. ASCII.
     [string] $DetailsArg = '',
+    # Idem pour le resume : « v0.1.31 vers v0.1.32 ». ASCII lui aussi.
+    [string] $SummaryArg = '',
 
     # Fermeture automatique, en millisecondes. Sert UNIQUEMENT a verifier la mise en page
     # sans bloquer : la fenetre se ferme seule et le script rend 3 (donc « refus »).
@@ -141,7 +143,7 @@ if ($PayloadFile -and (Test-Path -LiteralPath $PayloadFile)) {
 
 # Les cles l'emportent sur les textes : c'est la voie sure.
 if ($TitleKey)   { $Title   = Get-Label $TitleKey }
-if ($SummaryKey) { $Summary = Get-Label $SummaryKey }
+if ($SummaryKey) { $Summary = if ($SummaryArg) { Get-Label $SummaryKey $SummaryArg } else { Get-Label $SummaryKey } }
 if ($DetailsKey) { $Details = if ($DetailsArg) { Get-Label $DetailsKey $DetailsArg } else { Get-Label $DetailsKey } }
 
 $nl = [Environment]::NewLine

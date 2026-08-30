@@ -478,19 +478,32 @@ try {
         if (Test-Path -LiteralPath $window) {
             # ON PASSE LES CLES, PAS LES TEXTES : voir show-confirm.ps1, les accents ne
             # survivent pas a une ligne de commande.
+            <#
+                INSTALLATION OU MISE A JOUR : LA FENETRE LE DIT AUSSI.
+
+                Elle annoncait « Vigie est installée » apres une mise a jour, et son texte
+                presentait le produit a quelqu'un qui l'utilise depuis des semaines. Ce
+                qu'on veut savoir dans ce cas, c'est ce qui a CHANGE.
+            #>
             $titleKey = if ($failures -gt 0) { 'install.fenetre-titre-echec' }
                         elseif ($warnings -gt 0) { 'install.fenetre-titre-reserve' }
+                        elseif ($isUpdate) { 'install.fenetre-titre-maj' }
                         else { 'install.fenetre-titre' }
             $summaryKey = if ($failures -gt 0) { 'install.fenetre-resume-echec' }
+                          elseif ($isUpdate) { 'install.fenetre-resume-maj' }
                           else { 'install.fenetre-resume' }
             # L'ESSENTIEL SE LIT, LE RESTE SE DEPLIE. Ce qu'on veut savoir tient en une
             # phrase ; les chemins et les noms de taches servent apres, si ca cloche.
             # L'URL VIENT DE LA CONFIGURATION, jamais d'une constante recopiee : le port
             # est un reglage, et un texte qui le repete finit par mentir.
             $url = try { Get-AppUrl -Config (Get-Config -Backend $backend) } catch { '' }
+            # « De v0.1.31 vers v0.1.32 » : le seul detail qui compte apres une mise a jour.
+            $versions = if ($isUpdate -and $incoming -and $incoming.version) {
+                            $current.version + ' vers ' + $incoming.version
+                        } else { '' }
             & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $window `
                 -Caption (Get-Label 'install.fenetre-bandeau') `
-                -TitleKey $titleKey -SummaryKey $summaryKey `
+                -TitleKey $titleKey -SummaryKey $summaryKey -SummaryArg $versions `
                 -DetailsKey 'install.fenetre-details' -DetailsArg $url `
                 -OpenPath $log -OpenText (Get-Label 'install.fenetre-ouvrir-journal') `
                 -OkText (Get-Label 'install.fenetre-fermer') -CancelText '' -Note '' | Out-Null
