@@ -155,19 +155,43 @@ $archive = $null
 #>
 $remoteLocal = $false
 try { $remoteLocal = (Test-Path -LiteralPath (Join-Path (Get-UpdateRemote -Backend $backend) '.git')) } catch { }
-if ($route -eq 'clone' -and $remoteLocal -and $Requester -and -not $Ref) {
-    Write-Info (Get-Label 'vigie-update.marquage-demande' $Requester)
-    try {
-        $marquage = Invoke-DesktopAction -Account $Requester -Type 'tag-version' -TimeoutSec 45 -Backend $backend
-        $poseTag = "$($marquage.result.tag)"
-        if ($poseTag) {
-            $Ref = $poseTag
-            Write-Ok (Get-Label 'vigie-update.version-marquee' $poseTag)
-        } else {
-            Write-Detail (Get-Label 'vigie-update.marquage-sans-tag' "$($marquage.message)")
+if ($route -eq 'clone' -and $remoteLocal -and -not $Ref) {
+    $poseTag = $null
+    if ($Requester) {
+        # Lance depuis l'interface : le demandeur a une session, le tag s'y pose.
+        Write-Info (Get-Label 'vigie-update.marquage-demande' $Requester)
+        try {
+            $marquage = Invoke-DesktopAction -Account $Requester -Type 'tag-version' -TimeoutSec 45 -Backend $backend
+            $poseTag = "$($marquage.result.tag)"
+            if (-not $poseTag) { Write-Detail (Get-Label 'vigie-update.marquage-sans-tag' "$($marquage.message)") }
+        } catch {
+            Write-Detail (Get-Label 'vigie-update.marquage-impossible' $_.Exception.Message)
         }
-    } catch {
-        Write-Detail (Get-Label 'vigie-update.marquage-impossible' $_.Exception.Message)
+    } else {
+        <#
+            LANCE A LA MAIN : ON EST DEJA DANS LA BONNE SESSION.
+
+            Le tag est pose par le proprietaire du depot. Depuis l'interface, c'est
+            l'action en session qui s'en charge ; depuis un terminal, celui qui tape la
+            commande EST ce proprietaire -- il n'y a personne a qui deleguer.
+
+            Sans ce cas, une mise a jour lancee en ligne de commande ne marquait plus
+            aucune version : « Vigie est a jour, v0.1.29+10, mais aucun tag n'a ete cree »
+            (constate le 30/08). Et si on n'est pas le proprietaire, git refuse : on le
+            dit, et on continue -- une mise a jour ne rate pas pour un tag.
+        #>
+        $source = Get-UpdateRemote -Backend $backend
+        try {
+            $pose = New-DeploymentTag -RepoPath $source -Push
+            if ($pose.posed) { $poseTag = $pose.tag }
+            else { Write-Detail (Get-Label 'vigie-update.marquage-impossible' "$($pose.error)") }
+        } catch {
+            Write-Detail (Get-Label 'vigie-update.marquage-impossible' $_.Exception.Message)
+        }
+    }
+    if ($poseTag) {
+        $Ref = $poseTag
+        Write-Ok (Get-Label 'vigie-update.version-marquee' $poseTag)
     }
 }
 
