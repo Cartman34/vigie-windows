@@ -158,6 +158,42 @@ $log    = Join-Path $logDir ('install_' + (Get-Date -Format 'yyyyMMdd_HHmmss') +
 try { Start-Transcript -Path $log -Force | Out-Null } catch { }
 
 <#
+    UNE SEULE INSTALLATION A LA FOIS.
+
+    Deux installations simultanees se marchent dessus : l'une arrete ce que l'autre vient
+    de demarrer, l'une copie pendant que l'autre sauvegarde. On refuse, et on dit QUI
+    tient le verrou -- sinon « une installation est deja en cours » ressemble a une panne.
+
+    Un verrou dont le processus n'existe plus est ignore : un plantage ne doit pas
+    condamner le poste.
+#>
+$verrou = Lock-Install
+if (-not $verrou) {
+    $qui = Get-InstallLockHolder
+    Write-Title (Get-Label 'install.titre')
+    Write-Fail (Get-Label 'install.deja-en-cours' "$($qui.account)" "$($qui.pid)" "$($qui.at)")
+    try { Stop-Transcript | Out-Null } catch { }
+    exit 4
+}
+
+<#
+    ON N'INTERROMPT PAS UNE OPERATION EN COURS.
+
+    Une analyse de disque, une installation de mises a jour Windows : les arreter au
+    milieu laisse un travail a moitie fait, et c'est exactement ce que les marques
+    d'occupation servent a eviter. On refuse, en NOMMANT ce qui tourne.
+#>
+$enCours = @()
+try { $enCours = @(Get-RunningOperations -Backend $backend) } catch { }
+if ($enCours.Count) {
+    Write-Title (Get-Label 'install.titre')
+    Write-Fail (Get-Label 'install.operation-en-cours' "$($enCours[0].label)")
+    Unlock-Install
+    try { Stop-Transcript | Out-Null } catch { }
+    exit 5
+}
+
+<#
     INSTALLER OU METTRE A JOUR : CE N'EST PAS LA MEME NOUVELLE.
 
     Le meme script fait les deux -- c'est voulu, il est idempotent et c'est le SEUL geste
@@ -678,6 +714,7 @@ try {
         }
     } catch { }
 
+    Unlock-Install
     if ($failures -gt 0) { try { Stop-Transcript | Out-Null } catch { }; exit 1 }
 }
 catch {
@@ -689,5 +726,8 @@ catch {
     exit 1
 }
 finally {
+    # LE VERROU SE LIBERE TOUJOURS, quel que soit le chemin de sortie -- succes, echec, ou
+    # exception. Un verrou oublie bloque toutes les installations suivantes.
+    try { Unlock-Install } catch { }
     try { Stop-Transcript | Out-Null } catch { }
 }
