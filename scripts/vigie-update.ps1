@@ -47,7 +47,19 @@ param(
     # QUI DEMANDE. Ce script tourne detache, sous le compte du service : il n'a pas de
     # session pour le deduire. Le serveur le lui passe, car c'est dans la session de cette
     # personne que le tag de version sera pose -- dans SON depot, sous SON identite (D112).
-    [string] $Requester
+    [string] $Requester,
+
+    <#
+        NE RIEN RELANCER : L'APPELANT S'EN CHARGE.
+
+        L'installation deploie (ici), puis pose la tache serveur -- qui demarre le serveur
+        -- puis celle de l'app cliente -- qui la lance. Relancer les deux au passage
+        faisait TROIS demarrages pour une seule installation, dont deux inutiles : c'est
+        du temps, des icones qui clignotent, et autant d'occasions de rater.
+
+        Lancee seule, la mise a jour relance : c'est elle qui termine le geste.
+    #>
+    [switch] $NoRestart
 )
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path $PSScriptRoot -Parent
@@ -270,7 +282,7 @@ if ($p.ExitCode -ne 0) {
 # Le relanceur ATTEND la fin des operations en cours : celle qui tourne, c'est justement
 # cette mise a jour. Il redemarre donc quand elle a fini, pas au milieu.
 $installed = Get-SharedInstallPath
-if ($installed) {
+if ($installed -and -not $NoRestart) {
     $startScript = Join-Path (Join-Path (Join-Path $installed 'apps') 'backend-pode') 'start.ps1'
     try {
         $previousPid = Start-ServerRelauncher -StartScript $startScript -Wait -Backend $backend
@@ -282,26 +294,28 @@ if ($installed) {
     }
 }
 
-$tray = Join-Path $PSScriptRoot 'tray.ps1'
-if (-not (Test-Path -LiteralPath $tray)) {
-    Write-Warn (Get-Label 'vigie-update.le-deploiement-est-fait')
-    exit 2
-}
-# LES AUTRES COMPTES D'ABORD. Leur tray tourne encore avec le code d'avant ; on le
-# previent avant de relancer le notre, sinon le serveur redemarre pendant qu'ils lisent.
+# LES AUTRES COMPTES, TOUJOURS. Leur app cliente tourne encore avec le code d'avant, et
+# personne d'autre ne les previendra -- l'installation ne s'occupe que du compte courant.
 try {
     $autres = @(Send-TrayRestartToAll)
     if ($autres.Count) { Write-Detail (Get-Label 'vigie-update.autres-trays' ($autres -join ', ')) }
 } catch { }
 
-Write-Info (Get-Label 'vigie-update.relance-de-vigie')
-$r = Start-Process -FilePath $pwsh -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass',
-                                                   '-File', ('"' + $tray + '"'), '-Restart') `
-                   -Wait -PassThru -WindowStyle Hidden
-Write-Info (Get-Label 'vigie-update.la-relance-rendu-le' $r.ExitCode)
-if ($r.ExitCode -ne 0) {
-    Write-Warn (Get-Label 'vigie-update.le-deploiement-est-fait-2')
-    exit 2
+if (-not $NoRestart) {
+    $tray = Join-Path $PSScriptRoot 'tray.ps1'
+    if (-not (Test-Path -LiteralPath $tray)) {
+        Write-Warn (Get-Label 'vigie-update.le-deploiement-est-fait')
+        exit 2
+    }
+    Write-Info (Get-Label 'vigie-update.relance-de-vigie')
+    $r = Start-Process -FilePath $pwsh -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass',
+                                                       '-File', ('"' + $tray + '"'), '-Restart') `
+                       -Wait -PassThru -WindowStyle Hidden
+    Write-Info (Get-Label 'vigie-update.la-relance-rendu-le' $r.ExitCode)
+    if ($r.ExitCode -ne 0) {
+        Write-Warn (Get-Label 'vigie-update.le-deploiement-est-fait-2')
+        exit 2
+    }
 }
 
 $apres = $null

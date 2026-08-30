@@ -279,11 +279,34 @@ if ($isRepo) {
 
     Code 3 = « deja a jour » : ce n'est pas un echec (D77), on continue.
 #>
+<#
+    ON ARRETE, ON MODIFIE, ON RELANCE.
+
+    Trois demarrages se succedaient pour une seule installation : la mise a jour relancait
+    tout, puis la tache serveur remettait le serveur en service, puis celle de l'app
+    cliente la lancait. C'est le desordre, et deux occasions de rater.
+
+    La forme propre : arreter ce qui tourne, poser les modifications, puis demarrer -- une
+    fois. On arrete donc l'app cliente ICI, avant de deployer ; l'app serveur, elle, est
+    arretee par l'etape « tache serveur », qui la remet en service juste apres.
+
+    L'arret SE CONSTATE (le battement de coeur disparait) : c'est un fait, pas une
+    estimation, et c'est pour ca qu'on l'attend -- contrairement a un demarrage.
+#>
 if ($isRepo -and (Test-Elevated)) {
+    $trayTool = Join-Path $PSScriptRoot 'tray.ps1'
+    if (Test-Path -LiteralPath $trayTool) {
+        Write-Step (Get-Label 'install.etape-arret-app-cliente')
+        & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $trayTool 2>&1 |
+            ForEach-Object { Write-Detail "$_" }
+    }
+
     Write-Step (Get-Label 'install.etape-deploiement')
     $updater = Join-Path $PSScriptRoot 'vigie-update.ps1'
     if (Test-Path -LiteralPath $updater) {
-        & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $updater 2>&1 |
+        # -NoRestart : les etapes suivantes mettent la tache serveur en service et lancent
+        # l'app cliente. Relancer ici en ferait TROIS demarrages pour une installation.
+        & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $updater -NoRestart 2>&1 |
             ForEach-Object {
                 $line = "$_"
                 Write-Host $line

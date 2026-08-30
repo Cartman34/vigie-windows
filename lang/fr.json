@@ -240,6 +240,7 @@
   "install.double-cliquez-sur-setup": "Double-cliquez sur setup.cmd, à la racine du dossier Vigie.",
   "install.echec-du-repli-msi": "Échec du repli MSI : {0}",
   "install.elle-fonctionnera-depuis-ce": "Elle fonctionnera depuis ce dossier : ne le déplacez pas, ne le supprimez pas.",
+  "install.etape-arret-app-cliente": "Arrêt de l'app cliente",
   "install.etape-deploiement": "Déploiement de cette version",
   "install.etape-prerequis": "Prérequis",
   "install.faire-une-fois-en": "À faire une fois, en administrateur :",
