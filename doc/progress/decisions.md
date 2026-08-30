@@ -26,7 +26,7 @@ ligne — `scripts/dev/check-doc.ps1` refuse une décision absente d'ici.
 - **Documentation** — D91 · D92 · D93 · D98
 - **Configuration** — D15 · D18 · D56 · D57
 - **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46 · D48 · D49 · D50 · D58 · D59 · D66 · D68 · D69 · D70 · D71 · D88 · D89 · D94 · D95 · D102 · D105
-- **Installation, déploiement et mise à jour** — D07 · D11 · D22 · D77 · D78 · D79 · D81 · D84 · D87 · D96 · D97 · D99 · D101 · D106 · D107 · D110
+- **Installation, déploiement et mise à jour** — D07 · D11 · D22 · D77 · D78 · D79 · D81 · D84 · D87 · D96 · D97 · D99 · D101 · D106 · D107 · D110 (revu)
 - **Sécurité, droits et multi-comptes** — D34 · D65 · D67 · D73 · D104 · D109
 - **Sondes, actions et tâches de fond** — D50bis · D53 · D54 · D60 · D61 · D80 · D82 · D83 · D85
 - **Outillage** — D06 · D21 · D24 · D40 · D44 · D47 · D52 · D64 · D75 · D86 · D90
@@ -2891,3 +2891,27 @@ mise à jour. Il attend la fin des opérations en cours : celle qui tourne, c'es
 Enfin, l'adresse du dépôt public vit dans `config/common.psd1` (**D15**) : elle était écrite dans `vigie-fetch` et dans
 le calcul de la carte.
 
+
+---
+
+## D107 (revu) — L'environnement dit la SOURCE, pas l'emplacement (2026-08-30)
+
+*Demandée par l'utilisateur.*
+
+> « Sur un poste en développement, on a défini que ça tournait quand même dans l'installation partagée, ta question n'a
+> pas de sens. C'est juste la source qui change. En dev, on autorise une branche et pas juste une version. On voit les
+> commits en diff dans le numéro de version. »
+
+**D107** faisait signaler un écart quand « la machine se déclare Développement mais Vigie tourne depuis Production ».
+Sur un poste de développement, cet écart est **permanent et sans objet** : Vigie tourne toujours depuis l'installation
+partagée — c'est ce que pose `install-service.ps1`, et pour de bonnes raisons (lisible par tous les comptes, ne
+disparaît pas si un dossier de travail bouge). La carte passait donc à l'orange pour un fonctionnement normal.
+
+`Environment` dit **d'où vient ce qu'on déploie** : une branche du dépôt en développement, une version publiée en
+production. L'écart, lui, se lit dans le **numéro de version** (`v0.1.27+3` — trois commits d'avance), pas dans un
+emplacement.
+
+**Ce qui reste un écart, et qui se répare** : une tâche de démarrage qui lance le **dépôt de travail**. Ce dossier peut
+être illisible pour le compte qui démarre — `VigieService` n'a aucun droit sur `C:\EspaceRestreint`, `Famille` non plus
+— et il peut bouger. La tâche ne démarre alors rien, sans un mot. La règle vaut pour **tous** les comptes, et non plus
+pour le seul compte courant.

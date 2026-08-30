@@ -199,50 +199,53 @@ if (-not $eleve) {
 # porte le bouton qui repare (D66).
 # --- QUEL ENVIRONNEMENT REPOND ----------------------------------------------
 #
-# Deux copies de Vigie coexistent sur un poste de developpement : le depot et
-# l'installation partagee. Ne pas savoir laquelle repond fait perdre une heure sur un
-# correctif deploye au mauvais endroit. La carte le dit, et signale deux ecarts :
-# la machine ne tourne pas dans l'environnement qu'elle declare, ou une tache de compte
-# lance l'autre environnement.
+# VIGIE TOURNE TOUJOURS DEPUIS L'INSTALLATION PARTAGEE, developpement compris. Seule la
+# SOURCE de ce qu'on y deploie change : une version publiee en production, une branche du
+# depot en developpement -- et l'ecart se lit alors dans le numero de version lui-meme
+# (« v0.1.27+3 »), pas dans un emplacement.
+#
+# Je signalais donc un ecart permanent et sans objet sur un poste de developpement : « la
+# machine se declare Developpement mais Vigie tourne depuis Production ». Il n'y avait
+# rien a reparer, et la carte passait au orange pour un fonctionnement normal.
+#
+# CE QUI RESTE UN ECART : une tache qui lance le DEPOT. Le dossier de travail peut etre
+# illisible pour les autres comptes -- « Famille » n'a aucun droit sur C:\EspaceRestreint,
+# et VigieService non plus -- et il peut bouger. Une tache qui pointe dessus ne demarre
+# rien, un jour ou l'autre.
 $declared = Get-DeclaredEnvironment -Backend $backend
 $running  = Get-RunningEnvironment -Backend $backend
 $envIssues = @()
-if ($declared -ne $running) {
-    $envIssues += ("la machine se déclare en « " + (Get-EnvironmentLabel -Environment $declared) +
-                   " » mais Vigie tourne depuis « " + (Get-EnvironmentLabel -Environment $running) + " »")
-}
 foreach ($c in $comptes) {
     if (-not $c.task) { continue }
-    # Un AUTRE compte n'a pas forcement acces au dépôt : l'installation partagée est alors
-    # son seul chemin possible. On ne compte donc l'écart que pour le compte courant.
-    if (-not $c.current) { continue }
     try {
         $t = Get-ScheduledTask -TaskName $c.task -ErrorAction Stop
         $args = "$(@($t.Actions)[0].Arguments)"
         if ($args -match '-File\s+"([^"]+)"') {
-            # Comparee a l'environnement DECLARE, pas a celui qui tourne : la declaration
-            # est l'intention, et c'est elle qui fait autorite. Sinon, un serveur lance au
-            # mauvais endroit rendrait toutes les taches « fautives ».
-            $taskEnv = Get-PathEnvironment -Path $Matches[1]
-            if ($taskEnv -ne $declared) {
-                $envIssues += ($c.name + " démarre depuis « " + (Get-EnvironmentLabel -Environment $taskEnv) +
-                               " » alors que la machine se déclare en « " +
-                               (Get-EnvironmentLabel -Environment $declared) + " »")
+            if ((Get-PathEnvironment -Path $Matches[1]) -ne 'prod') {
+                $envIssues += ($c.name + " démarre depuis le dépôt de travail, pas depuis l'installation partagée")
             }
         }
     } catch { }
 }
 
+# LA VALEUR AFFICHEE EST CE QUE L'ORDINATEUR DECLARE -- donc d'ou vient le code qu'on
+# deploie. Elle affichait l'emplacement du code qui tourne : toujours le meme, donc sans
+# information, et trompeur des qu'on le comparait a la declaration.
+$aide = "Ce que cet ordinateur déclare : d'où vient le code qu'on déploie ici — une branche du dépôt en " +
+        "développement, une version publiée en production. Vigie tourne toujours depuis l'installation partagée : " +
+        "une tâche qui lance le dépôt de travail ne démarrera pas chez un compte qui n'y a pas accès."
 if ($envIssues.Count) {
     $depl += New-Field -Key 'env' -Label 'Environnement' `
-        -Value ((Get-EnvironmentLabel -Environment $running) + " — " + $envIssues.Count.ToString() + " écart(s)") `
+        -Value ((Get-EnvironmentLabel -Environment $declared) + " — " + $envIssues.Count.ToString() + " écart(s)") `
         -Kind 'text' -Status 'warn' -FixAction 'repair-tasks' `
-        -Help "Le dépôt et l'installation partagée peuvent tourner sur la même machine. Vigie compare ce que la machine déclare, ce qui tourne réellement, et ce que lancent les tâches de démarrage : un écart signifie qu'un correctif peut atterrir là où personne ne le lit." `
+        -Help $aide `
         -Guide ($envIssues -join [Environment]::NewLine)
 } else {
     $depl += New-Field -Key 'env' -Label 'Environnement' `
-        -Value (Get-EnvironmentLabel -Environment $running) -Kind 'text' -Status 'ok' `
-        -Help "Ce que la machine déclare, ce qui tourne et ce que lancent les tâches de démarrage concordent."
+        -Value (Get-EnvironmentLabel -Environment $declared) -Kind 'text' -Status 'ok' `
+        -Help $aide `
+        -Guide ("Toutes les tâches de démarrage lancent l'installation partagée." + [Environment]::NewLine +
+                "Vigie répond depuis : " + (Get-EnvironmentLabel -Environment $running))
 }
 
 # HORS SERVICE et EN ATTENTE ne se disent pas de la meme facon. Une tache dont la

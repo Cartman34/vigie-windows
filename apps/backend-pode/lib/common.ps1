@@ -4187,24 +4187,19 @@ function Get-VigieTaskStructureAilment {
     # ecart n'est pas compris, la question ne se pose qu'au moment ou l'on ecrit une
     # tache, la ou une erreur se corrige immediatement.
 
-    # LE MAUVAIS ENVIRONNEMENT est un defaut structurel lui aussi : la tache lance une
-    # copie valide, mais pas celle que la machine a declaree. Elle se repare en la
-    # reecrivant vers la bonne -- donc elle se dit ici, ou le bouton de reparation la lit.
-    # SEULEMENT POUR LE COMPTE COURANT. Un autre compte n'a aucune raison de pouvoir lire
-    # le depot -- « Famille » n'a aucun droit a partir de Git\ -- et l'installation
-    # partagee est alors le SEUL chemin possible pour lui. Lui reprocher de ne pas suivre
-    # l'environnement declare serait lui reprocher de fonctionner.
-    # Le nom vide ferait « -like "*" », donc VRAI pour toutes les taches : on exige
-    # d'abord de savoir qui demande.
-    $requester  = Get-RequesterAccount
-    $taskIsMine = [bool]$requester -and ("$($Task.Principal.UserId)" -like ('*' + $requester))
-    if ($taskIsMine -and "$($a.Arguments)" -match '-File\s+"([^"]+)"') {
-        $declared = Get-DeclaredEnvironment
-        $taskEnv  = Get-PathEnvironment -Path $Matches[1]
-        if ($taskEnv -ne $declared) {
-            return ("elle démarre depuis « " + (Get-EnvironmentLabel -Environment $taskEnv) +
-                    " » alors que la machine se déclare en « " +
-                    (Get-EnvironmentLabel -Environment $declared) + " »")
+    # UNE TACHE QUI LANCE LE DEPOT est un defaut structurel : le dossier de travail peut
+    # etre illisible pour le compte qui demarre -- « Famille » n'a aucun droit sur
+    # C:\EspaceRestreint, VigieService non plus -- et il peut bouger ou disparaitre. La
+    # tache ne demarre alors rien, sans un mot.
+    #
+    # Ce n'est PAS une question d'environnement declare : Vigie tourne toujours depuis
+    # l'installation partagee, developpement compris. En dev, c'est la SOURCE de ce qu'on
+    # y deploie qui change -- une branche plutot qu'une version publiee -- et cela se lit
+    # dans le numero de version. Comparer l'emplacement a la declaration signalait donc un
+    # ecart permanent qui n'avait rien a reparer (constate le 30/08).
+    if ("$($a.Arguments)" -match '-File\s+"([^"]+)"') {
+        if ((Get-PathEnvironment -Path $Matches[1]) -ne 'prod') {
+            return "elle démarre depuis le dépôt de travail, pas depuis l'installation partagée"
         }
     }
 
@@ -5339,10 +5334,18 @@ function Get-RunningEnvironment {
 }
 
 # Le libelle affiche, en clair : « Production » ne dit pas d'ou vient le code.
+<#
+    L'ENVIRONNEMENT DIT LA SOURCE, PAS L'EMPLACEMENT.
+
+    Les libelles disaient « Developpement (depot) » / « Production (installation
+    partagee) », comme si le code tournait a deux endroits. Il n'en tourne qu'un :
+    l'installation partagee, developpement compris. Ce qui change, c'est CE QU'ON Y
+    DEPLOIE -- une branche du depot, ou une version publiee.
+#>
 function Get-EnvironmentLabel {
     param([Parameter(Mandatory)][ValidateSet('dev', 'prod')][string]$Environment)
-    if ($Environment -eq 'dev') { return 'Développement (dépôt)' }
-    return 'Production (installation partagée)'
+    if ($Environment -eq 'dev') { return 'Développement (source : le dépôt)' }
+    return 'Production (source : versions publiées)'
 }
 
 # --- TRACABILITE : toute action laisse une trace, deux fois ------------------
