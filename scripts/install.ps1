@@ -280,68 +280,126 @@ if ($isRepo) {
     Code 3 = « deja a jour » : ce n'est pas un echec (D77), on continue.
 #>
 <#
-    ON ARRETE, ON MODIFIE, ON RELANCE.
+    RECUPERER, ARRETER, SAUVEGARDER, POSER, VERIFIER -- DANS CET ORDRE.
 
-    Trois demarrages se succedaient pour une seule installation : la mise a jour relancait
-    tout, puis la tache serveur remettait le serveur en service, puis celle de l'app
-    cliente la lancait. C'est le desordre, et deux occasions de rater.
+    C'est la sequence cible (doc/progress/targeting/install-update.md). Elle vaut pour les
+    deux points d'entree, `setup.cmd` et le bouton de la carte : ce qui decide d'une etape,
+    ce sont des FAITS -- y a-t-il une installation en place, un depot, quelle source est
+    declaree -- jamais qui appelle.
 
-    La forme propre : arreter ce qui tourne, poser les modifications, puis demarrer -- une
-    fois. On arrete donc l'app cliente ICI, avant de deployer ; l'app serveur, elle, est
-    arretee par l'etape « tache serveur », qui la remet en service juste apres.
-
-    L'arret SE CONSTATE (le battement de coeur disparait) : c'est un fait, pas une
-    estimation, et c'est pour ca qu'on l'attend -- contrairement a un demarrage.
+    L'ORDRE N'EST PAS ARBITRAIRE. On recupere AVANT d'arreter quoi que ce soit : la
+    fabrication est ce qui prend le plus de temps, et Vigie n'a aucune raison d'etre
+    coupee pendant. On ne s'arrete qu'ensuite, le temps de poser les fichiers.
 #>
-if ($isRepo -and (Test-Elevated)) {
-    Write-Step (Get-Label 'install.etape-arret')
-    $trayTool = Join-Path $PSScriptRoot 'tray.ps1'
-    if (Test-Path -LiteralPath $trayTool) {
-        & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $trayTool 2>&1 |
-            ForEach-Object { Write-Detail "$_" }
-    }
-    # ET L'APP SERVEUR AUSSI. On ecrasait ses fichiers pendant qu'elle tournait, et on ne
-    # l'arretait qu'a l'etape suivante : du code remplace sous un processus vivant.
-    if (Stop-ServerApp -Backend $backend) { Write-Detail (Get-Label 'install.app-serveur-arretee') }
-    else { Write-Warn (Get-Label 'install.app-serveur-toujours-la') }
-
-    Write-Step (Get-Label 'install.etape-deploiement')
+$prepared = $null
+if ($isRepo) {
+    Write-Step (Get-Label 'install.etape-recuperation')
     $updater = Join-Path $PSScriptRoot 'vigie-update.ps1'
-    if (Test-Path -LiteralPath $updater) {
-        # -NoRestart : les etapes suivantes mettent la tache serveur en service et lancent
-        # l'app cliente. Relancer ici en ferait TROIS demarrages pour une installation.
-        & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $updater -NoRestart 2>&1 |
-            ForEach-Object {
-                $line = "$_"
-                Write-Host $line
-                try { Write-Log -Backend $backend -Name 'install' -Message $line -NoEcho } catch { }
-            }
-        $codeMaj = $LASTEXITCODE
-        <#
-            CE QUI COMPTE ICI, C'EST QUE LE CODE SOIT DEPLOYE.
-
-            Code 2 = deploye, mais la relance de l'app cliente n'a pas abouti. Ce n'est pas
-            un echec de l'installation : trois etapes plus loin, elle REENREGISTRE cette
-            tache et la relance elle-meme -- et c'est exactement ce qui s'est passe le
-            30/08, ou le verdict annoncait « ECHEC : 2 etapes » sur une installation qui
-            avait tout fait, app cliente comprise.
-
-            Une reserve, donc, pas un echec : on le dit, et la suite le repare.
-        #>
-        if ($codeMaj -eq 0)      { Write-Ok   (Get-Label 'install.deploiement-fait') }
-        elseif ($codeMaj -eq 3)  { Write-Info (Get-Label 'install.deploiement-inutile') }
-        elseif ($codeMaj -eq 2)  { Write-Warn (Get-Label 'install.deploiement-relance-a-refaire') }
-        else {
-            Write-Fail (Get-Label 'install.deploiement-echoue' $codeMaj)
-            Write-Log -Backend $backend -Name 'install' -Level 'ERROR' -Message ("Deploiement : code " + $codeMaj)
-        }
+    if (-not (Test-Path -LiteralPath $updater)) {
+        Write-Fail (Get-Label 'install.deploiement-introuvable' $updater)
     } else {
-        Write-Warn (Get-Label 'install.deploiement-introuvable' $updater)
+        $lines = & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $updater -PrepareOnly 2>&1
+        $prepCode = $LASTEXITCODE
+        foreach ($l in $lines) {
+            Write-Host "$l"
+            try { Write-Log -Backend $backend -Name 'install' -Message "$l" -NoEcho } catch { }
+        }
+        if ($prepCode -eq 3) {
+            # DEJA A JOUR : c'est un succes, et il n'y a rien a poser.
+            Write-Ok (Get-Label 'install.deploiement-inutile')
+        } elseif ($prepCode -ne 0) {
+            Write-Fail (Get-Label 'install.recuperation-echouee' $prepCode)
+        } else {
+            $prepared = "$(@($lines | Where-Object { "$_".Trim() } | Select-Object -Last 1))".Trim()
+            if (-not (Test-PathSafe $prepared)) {
+                Write-Fail (Get-Label 'install.recuperation-sans-dossier' $prepared)
+                $prepared = $null
+            }
+        }
     }
-} elseif ($isRepo) {
-    # Sans elevation on ne peut pas ecrire dans Program Files : on le DIT plutot que de
-    # laisser croire que l'installation partagee vient d'etre mise a jour.
-    Write-Warn (Get-Label 'install.deploiement-demande-elevation')
+}
+
+<#
+    POSER LE CODE : c'est ici que Vigie s'arrete, et le moins longtemps possible.
+
+    Rien n'est arrete tant qu'on n'a pas verifie qu'on POURRA ecrire : on decouvrait
+    l'echec apres avoir tout coupe.
+#>
+if ($prepared) {
+    $stopped = @()
+    $backup  = $null
+    $go = $true
+
+    Write-Step (Get-Label 'install.etape-controles')
+    $poids = 0
+    try { $poids = (Get-ChildItem -LiteralPath $prepared -Recurse -File -ErrorAction SilentlyContinue |
+                    Measure-Object -Property Length -Sum).Sum } catch { }
+    $refus = Test-DeploymentPossible -Destination $destPartagee -NeededBytes $poids
+    if ($refus) {
+        Write-Fail (Get-Label 'install.deploiement-impossible' $refus)
+        $go = $false
+    }
+
+    if ($go) {
+        Write-Step (Get-Label 'install.etape-arret')
+        # LES APP CLIENTES : un echec est signale, il n'arrete pas le deploiement.
+        try {
+            $stopped = @(Stop-TrayTasks -Backend $backend)
+            if ($stopped.Count) { Write-Detail (Get-Label 'install.app-clientes-arretees' (($stopped | ForEach-Object { $_.name }) -join ', ')) }
+        } catch { Write-Warn (Get-Label 'install.arret-app-clientes-impossible' $_.Exception.Message) }
+        $hors = 0
+        try { $hors = Stop-StandaloneTrays } catch { }
+        if ($hors -gt 0) { Write-Detail (Get-Label 'install.app-clientes-hors-tache' $hors) }
+
+        # L'APP SERVEUR : si elle tient encore le port apres l'arret force, on ne pose
+        # rien -- remplacer ses fichiers sous elle est exactement ce qu'on evite.
+        if (Stop-ServerApp -Backend $backend) {
+            Write-Detail (Get-Label 'install.app-serveur-arretee')
+        } else {
+            Write-Fail (Get-Label 'install.app-serveur-toujours-la')
+            $go = $false
+        }
+    }
+
+    if ($go -and (Test-PathSafe (Join-Path $destPartagee 'apps'))) {
+        Write-Step (Get-Label 'install.etape-sauvegarde')
+        try {
+            $backup = Backup-Install -Source $destPartagee -Backend $backend
+            Write-Detail (Get-Label 'install.sauvegarde-faite' $backup)
+        } catch {
+            Write-Fail (Get-Label 'install.sauvegarde-impossible' $_.Exception.Message)
+            $go = $false
+        }
+    }
+
+    if ($go) {
+        Write-Step (Get-Label 'install.etape-copie')
+        $attendue = $null
+        try { $attendue = (Get-BuildStamp -Root $prepared).version } catch { }
+        $pose = $null
+        try { Copy-InstallFrom -Source $prepared -Destination $destPartagee }
+        catch { $pose = $_.Exception.Message }
+        if (-not $pose) { $pose = Test-InstallCopy -Destination $destPartagee -ExpectedVersion $attendue }
+
+        if (-not $pose) {
+            Write-Ok (Get-Label 'install.deploiement-fait')
+            if ($backup) {
+                # LA SAUVEGARDE N'EXISTE QUE LE TEMPS DU RISQUE.
+                Remove-Item -LiteralPath $backup -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        } else {
+            Write-Fail (Get-Label 'install.copie-invalide' $pose)
+            if ($backup) {
+                try {
+                    Restore-Install -Backup $backup -Destination $destPartagee
+                    Write-Warn (Get-Label 'install.version-restauree')
+                } catch {
+                    # AUCUNE REPRISE AUTOMATIQUE : on dit ou est la sauvegarde.
+                    Write-Fail (Get-Label 'install.restauration-echouee' $_.Exception.Message $backup)
+                }
+            }
+        }
+    }
 }
 
 if (-not $isRepo -and -not $alreadyThere) {
@@ -542,6 +600,26 @@ try {
                 Write-Fail (Get-Label 'install.le-demarrage-automatique-echoue' $autostartCode)
                 Write-Detail (Get-Label 'install.vigie-reste-lancable-la')
             }
+        }
+    }
+
+    <#
+        ON REDEMARRE CE QU'ON A ARRETE.
+
+        Les app clientes des autres comptes ont ete arretees pour ne pas remplacer leurs
+        fichiers sous elles ; celle du compte courant vient d'etre relancee par sa tache.
+        On declenche donc les autres -- ce qu'un administrateur peut faire.
+
+        Une tache d'app cliente est INTERACTIVE : sans session ouverte chez ce compte,
+        Windows refuse. Ce n'est pas une erreur, son app repartira a sa prochaine
+        ouverture, avec le nouveau code.
+    #>
+    if ($stopped -and @($stopped).Count) {
+        $me = Get-ProcessAccount
+        $toStart = @($stopped | Where-Object { "$($_.name)" -ne $me })
+        if ($toStart.Count) {
+            $restarted = @(Start-TrayTasks -Accounts $toStart)
+            if ($restarted.Count) { Write-Detail (Get-Label 'install.app-clientes-relancees' ($restarted -join ', ')) }
         }
     }
 

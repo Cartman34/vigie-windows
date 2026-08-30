@@ -44,6 +44,18 @@ param(
     # Deployer meme si ce qui est trouve n'est pas plus recent que ce qui tourne.
     [switch] $Force,
 
+    <#
+        PREPARER SEULEMENT : marquer, fabriquer, extraire -- et s'arreter la.
+
+        C'est la premiere moitie de la sequence cible (targeting/install-update.md) : la
+        RECUPERATION, qui se fait AVANT d'arreter quoi que ce soit. L'installation appelle
+        ce script ainsi, recupere le dossier a deployer sur la derniere ligne, puis arrete
+        Vigie, sauvegarde, copie, verifie et redemarre -- c'est elle qui orchestre.
+
+        Sans ce commutateur, le script fait tout : c'est le geste autonome d'avant.
+    #>
+    [switch] $PrepareOnly,
+
     # QUI DEMANDE. Ce script tourne detache, sous le compte du service : il n'a pas de
     # session pour le deduire. Le serveur le lui passe, car c'est dans la session de cette
     # personne que le tag de version sera pose -- dans SON depot, sous SON identite (D112).
@@ -255,6 +267,26 @@ if ($route -ne 'local') {
 }
 
 # --- 2. Deploiement ------------------------------------------------------------------
+#
+# EN MODE PREPARATION, ON S'ARRETE ICI. On extrait l'archive et on rend son dossier :
+# l'installation prendra la suite, apres avoir arrete Vigie.
+if ($PrepareOnly) {
+    if (-not $archive) {
+        Write-Fail (Get-Label 'vigie-update.aucune-archive-a-preparer')
+        exit 1
+    }
+    $prepared = $null
+    try { $prepared = Expand-InstallArchive -Zip $archive }
+    catch {
+        Write-Fail (Get-Label 'vigie-update.extraction-impossible' $_.Exception.Message)
+        exit 1
+    }
+    Write-Ok (Get-Label 'vigie-update.archive-prete-a-poser')
+    # DERNIERE LIGNE = LE DOSSIER. L'appelant lit la sortie ; tout le reste est du recit.
+    Write-Output $prepared
+    exit 0
+}
+
 $deploy = Join-Path $PSScriptRoot 'deploy-prod.ps1'
 if (-not (Test-Path -LiteralPath $deploy)) {
     Write-Fail (Get-Label 'vigie-update.deploy-prod-ps1-introuvable')
