@@ -61,6 +61,16 @@ une régression, et un message de commit qui raconte au lieu d'expliquer.
 **Ce qui va ensemble dans un commit :** le code, ses libellés, son vérificateur et la doc que ce changement rend
 fausse. Ce sont les faces d'une même correction, pas des sujets différents.
 
+**ON NE COMMITE PAS UN CORRECTIF QU'ON N'A PAS ÉPROUVÉ.** Un commit dit « c'est corrigé » : il se pose quand la
+correction est **finie et observée**, pas quand elle est écrite. Parser le fichier et voir les vérificateurs au vert ne
+prouve que l'absence de faute de frappe.
+
+*Le 30/08 : six correctifs de la chaîne de mise à jour commités sans qu'un seul ait tourné — dont la relance par la
+tâche planifiée, écrite précisément parce que la précédente avait laissé Vigie morte.* Le travail reste dans la copie
+de travail jusqu'à l'épreuve. Si l'épreuve demande un geste que je ne peux pas faire (élévation, redémarrage, session
+d'un autre compte), je le dis et j'attends — et si la session se termine avant, le commit part quand même, en
+**annonçant dans son message ce qui n'a pas été éprouvé** (fin de session prioritaire).
+
 ## Chercher avant de concevoir
 
 **La source de vérité, c'est `doc/progress/decisions.md`** — les arbitrages, rien d'autre. Avant de concevoir quoi que
