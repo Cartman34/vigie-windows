@@ -69,6 +69,34 @@ cd vigie-windows
 Same folder layout, same scripts. Choose this if you want to follow `main`, read the
 code, or contribute — see [Development](../developing/README.md).
 
+### What the installer declares when it runs from a repository
+
+Run from a git clone, `setup.cmd` records two things **for the whole computer**, in
+`%ProgramData%\Sowapps\Vigie\machine.psd1`:
+
+| | |
+|---|---|
+| `SourcePath` | where this deployment came from — a **fact**, not an intent |
+| `safe.directory` (machine-level git config) | this folder is trusted by git |
+
+**Why the second one.** The server app runs as a service account, and git refuses to open
+a repository owned by someone else ("detected dubious ownership"). Without that
+declaration the service cannot even **clone** your repository: the "Update" button in the
+interface would fail, with nothing explaining why.
+
+It needs elevation. Without it the installer carries on and **says so** — updating from
+the interface will keep failing until this is done:
+
+```powershell
+git config --system --add safe.directory C:/path/to/your/repo
+```
+
+**The environment is never deduced.** Finding a repository does not make a machine a
+development one: `Environment` (`dev` or `prod`) is declared in
+`appsackend-pode\config\config.local.psd1`, and it does not say where the code comes
+from — `UpdateSource` / `UpdateRemote` do. The two are independent: a development
+environment may pull from a remote repository, and a production one from a local clone.
+
 ---
 
 ## First run

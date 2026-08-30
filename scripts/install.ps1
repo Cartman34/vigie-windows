@@ -161,6 +161,43 @@ $here          = (Resolve-Path -LiteralPath $repoRoot).Path
 $isRepo     = Test-Path -LiteralPath (Join-Path $repoRoot '.git')
 $alreadyThere       = ($here.TrimEnd([char]92) -ieq $destPartagee.TrimEnd([char]92))
 
+<#
+    UNE INSTALLATION LANCEE DEPUIS UN DEPOT NOTE D'OU ELLE VIENT.
+
+    C'est le PREMIER geste d'un developpeur sur un poste neuf, et il tourne sous SON
+    compte, dans SON depot. On y note donc le chemin de la source, et on declare ce
+    dossier de confiance pour git.
+
+    Sans cette declaration, l'app serveur -- qui tourne sous un compte de service -- ne
+    peut meme pas CLONER ce depot : git refuse d'ouvrir un dossier appartenant a quelqu'un
+    d'autre. Le bouton « Mettre a jour » echouerait donc avant tout premier deploiement,
+    et le developpeur n'aurait aucun moyen de comprendre pourquoi.
+
+    L'ENVIRONNEMENT N'EST PAS DEDUIT ICI : il se declare (config.local.psd1). Trouver un
+    depot ne fait pas d'un poste une machine de developpement.
+#>
+if ($isRepo) {
+    Write-Step (Get-Label 'install.source-declaree')
+    try {
+        $noteA = Set-ComputerConfigValue -Values @{ SourcePath = $repoRoot }
+        Write-Detail (Get-Label 'install.source-notee' $repoRoot $noteA)
+    } catch {
+        Write-Warn (Get-Label 'install.source-non-notee' $_.Exception.Message)
+    }
+    if (Test-Elevated) {
+        try {
+            if (Set-GitSafeDirectory -RepoPath $repoRoot) { Write-Ok (Get-Label 'install.depot-de-confiance' $repoRoot) }
+            else { Write-Detail (Get-Label 'install.depot-deja-de-confiance') }
+        } catch {
+            Write-Warn (Get-Label 'install.confiance-impossible' $_.Exception.Message)
+        }
+    } else {
+        # Sans elevation on ne peut pas ecrire la configuration git de la machine. On le
+        # DIT : c'est exactement ce qui rendrait le bouton de mise a jour inexplicable.
+        Write-Warn (Get-Label 'install.confiance-demande-elevation')
+    }
+}
+
 if (-not $isRepo -and -not $alreadyThere) {
     if (-not (Test-Elevated)) {
         Write-Warn (Get-Label 'install.sans-droits-administrateur-vigie')

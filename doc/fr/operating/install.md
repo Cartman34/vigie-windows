@@ -71,6 +71,35 @@ cd vigie-windows
 Même arborescence, mêmes scripts. À choisir pour suivre `main`, lire le code ou
 contribuer — voir [Développement](../../en/developing/README.md).
 
+### Ce que l'installation déclare quand elle part d'un dépôt
+
+Lancée depuis un clone git, `setup.cmd` note deux choses **pour tout l'ordinateur**, dans
+`%ProgramData%\Sowapps\Vigie\machine.psd1` :
+
+| | |
+|---|---|
+| `SourcePath` | d'où vient ce déploiement — un **fait**, pas une intention |
+| `safe.directory` (config git machine) | ce dossier est de confiance pour git |
+
+**Pourquoi la seconde.** L'app serveur tourne sous un compte de service, et git refuse
+d'ouvrir un dépôt appartenant à quelqu'un d'autre (« detected dubious ownership »). Sans
+cette déclaration, le service ne peut même pas **cloner** votre dépôt : le bouton « Mettre
+à jour » de l'interface échouerait, sans que rien n'explique pourquoi.
+
+Elle demande l'élévation. Sans elle, l'installation continue et **le dit** — la mise à jour
+depuis l'interface restera en échec tant que ce ne sera pas fait :
+
+```powershell
+git config --system --add safe.directory C:/chemin/vers/votre/depot
+```
+
+**L'environnement, lui, ne se déduit jamais.** Trouver un dépôt ne fait pas d'un poste une
+machine de développement : `Environment` (`dev` ou `prod`) se déclare dans
+`appsackend-pode\config\config.local.psd1`, et il ne dit pas d'où vient le code —
+c'est `UpdateSource` / `UpdateRemote` qui le disent. Les deux sont indépendants : un
+environnement de développement peut se synchroniser depuis un dépôt distant, une
+production depuis un clone local.
+
 ---
 
 ## Premier lancement
