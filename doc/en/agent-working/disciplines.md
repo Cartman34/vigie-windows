@@ -47,6 +47,20 @@ questions « passent par l'outil de question interactif » : une confusion entre
 présenter un moyen comme une règle. Une question se pose en texte, au format ci-dessus ; sans numéro ni options, elle
 reste hors format quel que soit le moyen employé.
 
+## Un correctif, un commit
+
+**Un commit = une correction, ou un ajout, et rien d'autre.** Son titre le dit en entier. S'il faut « et » pour le
+résumer, c'était deux commits.
+
+**Pourquoi :** le 30/08, neuf commits pour la journée alors qu'il y avait bien plus de correctifs. `6d02bf6` en portait
+trois chantiers sans rapport (l'outil de question à Vigie, « qui exécute » ≠ « qui demande », le cache par compte) ;
+`cf824b8` en portait deux (la relance qui passait à côté de la tâche, git qui refusait en silence) ; `5524cc3` deux
+aussi. Conséquences concrètes : impossible d'annuler un seul de ces changements, impossible de dire lequel a introduit
+une régression, et un message de commit qui raconte au lieu d'expliquer.
+
+**Ce qui va ensemble dans un commit :** le code, ses libellés, son vérificateur et la doc que ce changement rend
+fausse. Ce sont les faces d'une même correction, pas des sujets différents.
+
 ## Chercher avant de concevoir
 
 **La source de vérité, c'est `doc/progress/decisions.md`** — les arbitrages, rien d'autre. Avant de concevoir quoi que
