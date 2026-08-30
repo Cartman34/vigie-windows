@@ -42,6 +42,29 @@ sûr, plus maintenable…), pour que l'arbitrage soit explicite plutôt que devi
 **Dans une conversation**, les questions passent par l'outil de question interactif, pas par une liste en texte. Le
 format ci-dessus vaut pour les questions **écrites** : documents de conception, comptes rendus, fichiers de suivi.
 
+## Chercher avant de concevoir
+
+**La source de vérité, c'est `doc/progress/decisions.md`** — les arbitrages, rien d'autre. Avant de concevoir quoi que
+ce soit : y chercher. Le fichier fait près de trois mille lignes, donc chercher doit coûter dix secondes :
+
+```powershell
+pwsh -File scripts/dev/decisions.ps1 -About "mise a jour deploiement"   # les titres
+pwsh -File scripts/dev/decisions.ps1 -About "cache" -Full               # + le texte
+pwsh -File scripts/dev/decisions.ps1 -Number D99                        # le texte entier
+```
+
+**Une incohérence sans décision qui tranche se DEMANDE**, elle ne s'arbitre pas seul : c'est ainsi qu'on empile deux
+conceptions contradictoires dont aucune n'est écrite.
+
+**Chaque chose à sa place.** Un arbitrage va dans `decisions.md`. Une discipline de travail va ICI. Une conception —
+comment ça marche — va dans `doc/en/developing/`. Le 29/08 j'ai écrit une discipline dans `decisions.md`, alors que ce
+fichier-ci existait et le dit dans son en-tête.
+
+*Le 29/08 : trois erreurs le même jour, jamais un oubli de code — trois fois ne pas avoir cherché. Réinventé « d'où
+vient le code déployé » quand `UpdateSource` y répondait ; rangé un réglage d'ordinateur dans chaque copie quand D33
+décrit les couches de configuration ; redéfini une fonction qui existait déjà, la dernière définition écrasant l'autre
+en silence.* `scripts/dev/check-coherence.ps1` attrape désormais ces deux dernières.
+
 ## Validation avant de dire « prêt »
 - Chaque `.ps1` / `.psd1` : **parser** via `[System.Management.Automation.Language.Parser]::ParseFile`
   (`pwsh` de la machine), et on rapporte la **sortie réelle**.
