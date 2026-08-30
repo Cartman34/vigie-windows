@@ -2857,21 +2857,27 @@ depuis que l'app serveur tourne depuis `C:\Program Files\Sowapps\Vigie`, `Get-Re
 Elle se comparait donc à elle-même. Le bouton « Mettre à jour » avait le même angle mort : sans `.git` autour d'elle,
 il partait chercher la dernière version publiée alors que le poste avait un dépôt en avance de neuf commits.
 
-**C'est l'environnement DÉCLARÉ qui dit d'où vient le code**, et cette décision existait déjà (`install-service.ps1` :
-« l'environnement déclaré ne dit pas OÙ le serveur tourne, mais D'OÙ vient ce qu'on y déploie — le dépôt local en dev,
-une version publiée en prod »). Une installation déclarée **production** ne va donc jamais chercher le dépôt de travail
-de quelqu'un : `Get-SourceRepoPath` rend `$null` hors du mode `dev`, quoi qu'elle trouve autour d'elle.
+**Ce qui décrit l'ordinateur se range sur l'ordinateur.** `config.local.psd1` s'annonce comme « les réglages propres à
+CETTE MACHINE »… et vit **dans chaque copie**. Sur ce poste, le dépôt en avait un (`dev`) et l'installation partagée
+n'en avait pas — donc `prod`. Un seul ordinateur, deux réponses contradictoires à « est-ce un poste de développement ? »,
+et la carte annonçait « Production » sur la machine où tout est développé. La déclaration vit désormais à un seul
+endroit, hors de toute copie : `%ProgramData%\Sowapps\Vigie\machine.psd1`, quatrième couche de `Get-Config`, entre la
+configuration de l'app et celle de la copie. Un déploiement ne peut plus l'effacer, et toutes les copies la lisent.
+Le déploiement l'écrit quand il part d'un dépôt : `Environment` et `SourcePath` — un fait constaté, pas un réglage à
+saisir.
 
-**Le déploiement inscrit sa provenance.** `Set-BuildOrigin` écrit le chemin du dépôt d'origine dans le `BUILD` de la
-copie posée — **à la destination, jamais dans l'archive** : une release publiée ne doit pas traîner le chemin du poste
-qui l'a fabriquée. `Get-SourceRepoPath` la relit, et vérifie que ce dépôt est encore là avant d'y croire.
+**« dev / prod » NE DIT PAS d'où vient le code.** Un poste de production peut parfaitement avoir un dépôt local et
+déployer depuis lui, ou préférer les versions publiées. Le réglage qui répond à cette question existait déjà :
+**`UpdateSource`** (`auto` · `local` · `release` · `clone`), déjà lu par `vigie-update`. `Get-UpdateRoute` le résout en
+un seul endroit — et **la carte comme le bouton lisent cette même résolution**, sinon la carte annonce une référence et
+le bouton va chercher ailleurs.
 
 **La référence dépend de la machine, et elle est dite :**
 
 | | |
 |---|---|
-| machine déclarée `dev`, dépôt connu | on compare les **commits** — « en retard de N commits » |
-| machine déclarée `prod` | on compare à la **dernière version publiée**, consultée au plus une fois par demi-journée |
+| la voie résolue est `local` | on compare les **commits** au dépôt — « en retard de N commits » |
+| la voie résolue est `release` ou `clone` | on compare à la **dernière version publiée**, consultée au plus une fois par demi-journée |
 | ni l'un ni l'autre | on **dit qu'on ne sait pas**. « Conforme » par défaut est le pire des verdicts : il rassure sans rien savoir |
 
 **Et la mise à jour va jusqu'au bout.** Lancée depuis l'installation, elle passe la main au dépôt d'origine quand il est

@@ -59,19 +59,19 @@ $pwsh    = (Get-Process -Id $PID).Path
     un depot local en avance de plusieurs commits. Sur une machine de developpement, ce
     n'est pas ce qu'on demande.
 
-    L'installation sait d'ou elle vient (Set-BuildOrigin, pose au deploiement). Si ce depot
-    est encore la et lisible, on lui PASSE LA MAIN : c'est lui qui sait fabriquer, poser le
-    tag et deployer. Aucune recursion possible -- vu depuis le depot, la source, c'est
-    lui-meme.
+    L'ordinateur declare ou est son depot (machine.psd1), et UpdateSource dit s'il faut
+    s'en servir. Si on doit s'en servir et qu'il est lisible, on lui PASSE LA MAIN : c'est
+    lui qui sait fabriquer, poser le tag et deployer. Aucune recursion possible -- vu
+    depuis le depot, la source, c'est lui-meme.
 
-    S'il a disparu, ou si le compte qui execute ne peut pas le lire, Get-SourceRepoPath rend
-    $null et l'on reprend la voie normale : la version publiee.
+    S'il a disparu, ou si le compte qui execute ne peut pas le lire, la voie retombe sur
+    la version publiee.
 #>
 # $sourceRepo, PAS $source : PowerShell ne distingue pas la casse, donc « $source »
 # designait le PARAMETRE $Source -- dont le ValidateSet refuse $null. Le script mourait
 # a cette ligne, avant tout le reste.
 $sourceRepo = $null
-try { $sourceRepo = Get-SourceRepoPath -Backend $backend } catch { }
+try { $sourceRepo = (Get-UpdateRoute -Backend $backend).repo } catch { }
 if ($sourceRepo -and ($sourceRepo.TrimEnd([char]92, [char]47) -ne $repoRoot.TrimEnd([char]92, [char]47))) {
     $relayScript = Join-Path (Join-Path $sourceRepo 'scripts') 'vigie-update.ps1'
     if (Test-Path -LiteralPath $relayScript) {
@@ -119,22 +119,29 @@ if (-not $PSBoundParameters.ContainsKey('Source')) {
     } catch { }
 }
 
-$voie = $Source
-if ($voie -eq 'auto') {
-    if ($Ref)          { $voie = 'clone' }
-    elseif ($estDepot) { $voie = 'local' }
-    else               { $voie = 'release' }
+# LA CARTE ET LE BOUTON LISENT LA MEME RESOLUTION (Get-UpdateRoute) : sans cela, la carte
+# annonce une reference et le bouton va chercher ailleurs.
+$route = $Source
+if ($route -eq 'auto') {
+    if ($Ref) { $route = 'clone' }
+    else {
+        $resolved = $null
+        try { $resolved = Get-UpdateRoute -Backend $backend } catch { }
+        if ($resolved)      { $route = $resolved.route }
+        elseif ($estDepot) { $route = 'local' }
+        else               { $route = 'release' }
+    }
 }
 
 # --- 1. Rapporter le code (sauf voie locale, qui fabrique elle-meme) ------------------
 $archive = $null
-if ($voie -ne 'local') {
+if ($route -ne 'local') {
     $fetch = Join-Path $PSScriptRoot 'vigie-fetch.ps1'
     if (-not (Test-Path -LiteralPath $fetch)) {
         Write-Fail (Get-Label 'vigie-update.vigie-fetch-ps1-introuvable')
         exit 1
     }
-    $argv = @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', $fetch, '-Source', $voie)
+    $argv = @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', $fetch, '-Source', $route)
     if ($Ref)         { $argv += @('-Ref', $Ref) }
     if ($PreVersions) { $argv += '-PreVersions' }
     if ($Force)       { $argv += '-Force' }

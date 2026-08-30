@@ -1139,10 +1139,38 @@ function Start-PkgJob {
 # config.psd1 (versionne) porte LA definition de chaque valeur.
 # config.local.psd1 (ignore par git, optionnel) surcharge les SEULES valeurs qui ne
 # peuvent pas etre generiques : chemins propres a une machine. Voir config.local.sample.psd1.
+<#
+    LE REGLAGE DE LA MACHINE SE RANGE SUR LA MACHINE.
+
+    config.local.psd1 s'annonce comme « les reglages propres A CETTE MACHINE »... et vit
+    DANS CHAQUE COPIE. Sur un poste de developpement, le depot en avait un (« dev ») et
+    l'installation partagee n'en avait pas -- donc « prod ». Une seule machine, deux
+    reponses contradictoires a la question « est-ce un poste de developpement ? », et
+    l'installation qui repondait NON sur la machine ou tout est developpe.
+
+    Ce qui decrit la MACHINE vit desormais a un seul endroit, hors de toute copie :
+    %ProgramData%\Sowapps\Vigie\machine.psd1. Toutes les copies le lisent, aucune ne le
+    possede, et un deploiement ne peut plus l'effacer.
+
+    config.local.psd1 garde son role -- ce qui est propre a CETTE COPIE (un port d'essai,
+    un chemin d'outillage) -- et reste la couche la plus specifique.
+#>
+function Get-ComputerConfigPath {
+    <#
+        NE PAS CONFONDRE avec Get-MachineConfigPath, qui existe deja plus bas et designe
+        les reglages LIVRES dans le depot (config/<fichier>). J'avais repris son nom : ma
+        definition etait ecrasee en silence par la sienne, et l'appel echouait sur un
+        parametre obligatoire qui n'etait pas le mien. Deux notions, deux noms.
+    #>
+    $base = $env:ProgramData
+    if (-not $base) { $base = Join-Path $env:SystemDrive 'ProgramData' }
+    return (Join-Path (Join-Path (Join-Path $base 'Sowapps') 'Vigie') 'machine.psd1')
+}
+
 function Get-Config {
     param([string]$Backend = (Get-BackendRoot))
-    # Fusion en trois couches (D33), de la plus generale a la plus specifique :
-    #   config/common.psd1 (racine)  ->  apps/<app>/config/config.psd1  ->  config.local.psd1
+    # Fusion en QUATRE couches (D33), de la plus generale a la plus specifique :
+    #   config/common.psd1  ->  apps/<app>/config/config.psd1  ->  machine.psd1  ->  config.local.psd1
     $cfg = @{}
     $commonPath = Join-Path (Get-RepoRoot) 'config/common.psd1'
     if (Test-Path -LiteralPath $commonPath) {
@@ -1151,6 +1179,14 @@ function Get-Config {
     }
     $appCfg = Import-PowerShellDataFile -Path (Join-Path $Backend 'config/config.psd1')
     foreach ($k in $appCfg.Keys) { $cfg[$k] = $appCfg[$k] }
+    # LA MACHINE, avant la copie : ce qu'elle declare vaut pour toutes ses installations.
+    $computerPath = Get-ComputerConfigPath
+    if (Test-Path -LiteralPath $computerPath) {
+        try {
+            $computerCfg = Import-PowerShellDataFile -Path $computerPath
+            foreach ($k in $computerCfg.Keys) { $cfg[$k] = $computerCfg[$k] }
+        } catch { throw ("machine.psd1 illisible (" + $computerPath + ") : " + $_.Exception.Message) }
+    }
     $localPath = Join-Path $Backend 'config/config.local.psd1'
     if (Test-Path -LiteralPath $localPath) {
         try { $local = Import-PowerShellDataFile -Path $localPath }
@@ -1158,6 +1194,43 @@ function Get-Config {
         foreach ($k in $local.Keys) { $cfg[$k] = $local[$k] }
     }
     $cfg
+}
+
+<#
+    DECLARER CE QU'EST CETTE MACHINE.
+
+    Ecrit par l'installation et par le deploiement, quand ils partent d'un DEPOT : c'est
+    un fait constate au moment ou l'on agit, pas un reglage a saisir. On n'ecrase que les
+    cles qu'on apporte -- le reste du fichier appartient a qui l'a ecrit.
+#>
+function Set-ComputerConfigValue {
+    param([Parameter(Mandatory)][hashtable]$Values)
+    $path = Get-ComputerConfigPath
+    $dir  = Split-Path $path -Parent
+    if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+    $cfg = [ordered]@{}
+    if (Test-Path -LiteralPath $path) {
+        try {
+            $previous = Import-PowerShellDataFile -Path $path
+            foreach ($k in $previous.Keys) { $cfg[$k] = $previous[$k] }
+        } catch { }
+    }
+    foreach ($k in $Values.Keys) { $cfg[$k] = $Values[$k] }
+
+    $lines = @('@{')
+    $lines += "    # Ce que cette MACHINE est, pour TOUTES ses installations de Vigie."
+    $lines += "    # Ecrit par Vigie au deploiement ; modifiable a la main."
+    foreach ($k in $cfg.Keys) {
+        $v = $cfg[$k]
+        $rendered = if ($v -is [bool]) { if ($v) { '$true' } else { '$false' } }
+                 elseif ($v -is [int] -or $v -is [long]) { "$v" }
+                 else { "'" + ("$v" -replace "'", "''") + "'" }
+        $lines += ("    {0} = {1}" -f $k, $rendered)
+    }
+    $lines += '}'
+    [System.IO.File]::WriteAllText($path, ($lines -join [Environment]::NewLine),
+                                   (New-Object System.Text.UTF8Encoding($true)))
+    return $path
 }
 
 # --- Valeurs derivees de la config : definies ICI et nulle part ailleurs ------
@@ -1310,35 +1383,6 @@ function Get-BuildStamp {
 }
 
 <#
-    D'OU VIENT CETTE INSTALLATION ?
-
-    Une copie deployee n'a pas de depot git : elle ne peut donc pas savoir si le code a
-    avance depuis. Tant que l'app serveur tournait DANS le depot, la question ne se posait
-    pas -- Get-RepoRoot rendait le depot. Depuis qu'elle tourne depuis Program Files,
-    Get-RepoRoot rend l'installation elle-meme : la carte Deploiement se comparait a
-    elle-meme et se declarait « conforme » quoi qu'il arrive (constate le 29/08).
-
-    Le deploiement INSCRIT donc sa provenance dans le BUILD de la copie posee. Ce n'est
-    pas un reglage a saisir : c'est un fait connu au moment ou l'on copie.
-
-    Ecrit a la DESTINATION, jamais dans l'archive : une release publiee ne doit pas
-    trainer le chemin du poste qui l'a fabriquee.
-#>
-function Set-BuildOrigin {
-    param([Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][string]$Origin)
-    $f = Join-Path $Root 'BUILD'
-    $o = [ordered]@{}
-    if (Test-Path -LiteralPath $f) {
-        try {
-            $j = Get-Content -LiteralPath $f -Raw | ConvertFrom-Json
-            foreach ($pr in $j.PSObject.Properties) { $o[$pr.Name] = $pr.Value }
-        } catch { }
-    }
-    $o['origin'] = $Origin
-    ($o | ConvertTo-Json -Depth 4) | Out-File -FilePath $f -Encoding UTF8
-}
-
-<#
     LE DEPOT SOURCE DE CETTE MACHINE, ou $null.
 
     Trois cas, un seul resultat :
@@ -1348,30 +1392,59 @@ function Set-BuildOrigin {
       - machine ordinaire -> $null, et la reference devient la version publiee. C'est la
         bonne question la-bas : personne n'y a de depot.
 #>
-function Get-SourceRepoPath {
+function Get-LocalRepoPath {
     param([string]$Backend = (Get-BackendRoot))
     <#
-        C'EST LA DECLARATION QUI TRANCHE, PAS LA DECOUVERTE.
+        LE DEPOT DE CET ORDINATEUR, ou $null. SANS AUCUN JUGEMENT.
 
-        J'avais ecrit l'inverse : chercher un depot, et s'en servir des qu'on en trouvait
-        un. Or la question avait deja sa reponse, ecrite dans install-service :
-        « l'environnement declare ne dit pas OU le serveur tourne, mais D'OU vient ce
-        qu'on y deploie -- le depot local en dev, une version publiee en prod ».
+        J'avais mis un garde-fou ici : « pas de depot hors du mode dev ». C'etait faux --
+        un poste de PRODUCTION peut tres bien avoir un depot local et deployer depuis lui,
+        ou preferer les versions publiees. « dev » et « prod » ne repondent pas a cette
+        question-la.
 
-        Une installation declaree PRODUCTION qui irait chercher le depot de travail de
-        quelqu'un pour se mettre a jour, c'est exactement ce que ce reglage interdit. Le
-        chemin du depot reste utile -- il faut bien savoir LEQUEL -- mais il ne decide
-        plus de rien : il repond a « ou », jamais a « faut-il ».
+        Celui qui y repond existe deja : UpdateSource. Cette fonction se contente donc de
+        dire OU est le depot, s'il y en a un ; le choix appartient a Get-UpdateRoute.
     #>
-    if ((Get-DeclaredEnvironment -Backend $Backend) -ne 'dev') { return $null }
     $here = Get-RepoRoot
     if (Test-PathSafe (Join-Path $here '.git')) { return $here }
-    $stamp = Get-BuildStamp -Root $here
-    $origin = "$($stamp.origin)"
-    if (-not $origin) { return $null }
+    # LE CHEMIN VIENT DE L'ORDINATEUR, pas du BUILD de la copie : un deploiement reecrit
+    # le BUILD, tandis que la declaration de l'ordinateur, elle, ne bouge pas.
+    $declared = "$((Get-Config -Backend $Backend).SourcePath)"
+    if (-not $declared) { return $null }
     # Le depot a pu etre deplace ou supprime depuis : on verifie qu'il en est encore un.
-    if (-not (Test-PathSafe (Join-Path $origin '.git'))) { return $null }
-    return $origin
+    if (-not (Test-PathSafe (Join-Path $declared '.git'))) { return $null }
+    return $declared
+}
+
+<#
+    D'OU VIENDRAIT LA PROCHAINE VERSION ?
+
+    UNE SEULE RESOLUTION, POUR TOUT LE MONDE : le bouton « Mettre a jour » l'emprunte pour
+    savoir quoi faire, la carte l'emprunte pour savoir a QUOI se comparer. C'est la seule
+    facon que la carte reponde a la vraie question -- « est-ce que ce bouton changerait
+    quelque chose ? » -- au lieu de se comparer a ce qui lui tombe sous la main.
+
+    Le reglage existe deja : UpdateSource, dans la configuration.
+      local   : le depot de cet ordinateur (on fabrique, et on pose le tag)
+      release : la derniere version publiee sur GitHub
+      clone   : une branche ou un tag precis, rapporte depuis GitHub
+      auto    : le depot s'il y en a un, sinon la version publiee -- c'est le defaut
+
+    CE N'EST PAS LA MEME QUESTION QUE « dev ou prod » : un poste de production peut avoir
+    un depot local et deployer depuis lui. J'avais confondu les deux.
+#>
+function Get-UpdateRoute {
+    param([string]$Backend = (Get-BackendRoot))
+    $choice = 'auto'
+    try {
+        $c = "$((Get-Config -Backend $Backend).UpdateSource)".Trim().ToLowerInvariant()
+        if ($c -in @('auto', 'local', 'release', 'clone')) { $choice = $c }
+    } catch { }
+    $repo = Get-LocalRepoPath -Backend $Backend
+    if ($choice -eq 'auto') { $choice = $(if ($repo) { 'local' } else { 'release' }) }
+    # « local » sans depot ne mene nulle part : on le dit ici plutot que d'echouer plus loin.
+    if ($choice -eq 'local' -and -not $repo) { $choice = 'release' }
+    return [pscustomobject][ordered]@{ route = $choice; repo = $repo }
 }
 
 # Ecrit la marque : appele par la fabrication de l'archive, une seule fois.
@@ -1402,13 +1475,15 @@ function Compare-SharedInstall {
     $partagee = Get-SharedInstallPath
     if (-not $partagee) { return $null }
     $there     = Get-BuildStamp -Root $partagee
-    $repo  = Get-SourceRepoPath -Backend $Backend
+    $route   = Get-UpdateRoute -Backend $Backend
+    $repo   = $route.repo
     $behind  = $null
     $here    = $null
     $same = $null
     $reference = 'aucune'
 
-    if ($repo -and ($repo.TrimEnd([char]92, [char]47) -ne "$partagee".TrimEnd([char]92, [char]47))) {
+    # ON SE COMPARE A CE QUE LE BOUTON IRAIT CHERCHER, jamais a autre chose.
+    if ($route.route -eq 'local' -and $repo -and ($repo.TrimEnd([char]92, [char]47) -ne "$partagee".TrimEnd([char]92, [char]47))) {
         $reference = 'depot'
         $here = Get-BuildStamp -Root $repo
         if ($here.commit -and $there.commit) {

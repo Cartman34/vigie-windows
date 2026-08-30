@@ -160,17 +160,23 @@ try {
         }
         Write-Info (Get-Label 'deploy-prod.reglages-de-la-machine')
     }
-    # D'OU VIENT CETTE COPIE. Une installation deployee n'a pas de depot git : sans cette
-    # trace, elle ne peut pas savoir si le code a avance depuis, et la carte Deploiement se
-    # comparait a elle-meme en se declarant « conforme ». On l'ecrit A LA DESTINATION,
-    # jamais dans l'archive : une release publiee ne doit pas trainer le chemin du poste
-    # qui l'a fabriquee.
+    <#
+        CETTE MACHINE EST UN POSTE DE DEVELOPPEMENT, ET ELLE LE DIT UNE FOIS.
+
+        On deploie DEPUIS UN DEPOT : c'est un fait, pas une intention. La machine porte
+        donc sa declaration a un seul endroit, hors de toute copie -- sinon le depot dit
+        « dev », l'installation partagee (qui n'a pas de config locale) dit « prod », et
+        la carte annonce « Production » sur la machine ou tout est developpe.
+
+        On note aussi OU est ce depot : c'est ce qui permet a l'installation, plus tard,
+        de fabriquer une version a partir de lui au lieu d'aller chercher sur Internet.
+    #>
     if (Test-Path -LiteralPath (Join-Path $repoRoot '.git')) {
         try {
-            Set-BuildOrigin -Root $Destination -Origin $repoRoot
-            Write-Detail (Get-Label 'deploy-prod.provenance-inscrite' $repoRoot)
+            $declaredAt = Set-ComputerConfigValue -Values @{ Environment = 'dev'; SourcePath = $repoRoot }
+            Write-Detail (Get-Label 'deploy-prod.machine-declaree' $declaredAt)
         } catch {
-            Write-Warn (Get-Label 'deploy-prod.provenance-non-inscrite' $_.Exception.Message)
+            Write-Warn (Get-Label 'deploy-prod.machine-non-declaree' $_.Exception.Message)
         }
     }
 } finally {
