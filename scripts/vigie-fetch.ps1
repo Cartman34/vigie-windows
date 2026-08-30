@@ -2,7 +2,7 @@
     vigie-fetch.ps1 - Rapporte une archive de Vigie, prete a etre deployee. NE DEPLOIE RIEN.
 
     Ce script ne fait qu'une chose : obtenir un `.zip` verifie et en ecrire le chemin sur la derniere ligne de sa
-    sortie. C'est `vigie-update.ps1` qui le deploie ensuite. Separer les deux evite le pire des cas : une
+    sortie. C'est l'installation qui le pose ensuite. Separer les deux evite le pire des cas : une
     recuperation a moitie faite qui ecrase une installation qui marchait.
 
     TROIS VOIES, et une regle pour choisir quand on ne le dit pas (-Source auto) :

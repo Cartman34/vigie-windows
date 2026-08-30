@@ -2,7 +2,7 @@
 # @libelle: Mettre a jour Vigie | confirm | fix   -- affiche quand un champ cite cette action (D66)
 <# Action : met a jour Vigie, puis la relance.
 
-   D'ou vient le code depend de la machine, et vigie-update.ps1 tranche tout seul (D99) :
+   D'ou vient le code depend de la machine, et la recuperation tranche toute seule (D99) :
    s'il existe un DEPOT sur le poste -- meme quand l'app serveur tourne depuis Program
    Files, car l'installation sait d'ou elle vient -- c'est lui la source, et le tag est
    pose au passage. Sinon, la derniere version publiee sur GitHub.

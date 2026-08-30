@@ -1,32 +1,17 @@
 ﻿<#
-    vigie-update.ps1 - Met a jour Vigie, puis la relance.
+    vigie-update.ps1 - RECUPERE la version a poser. Ne deploie pas, ne relance rien.
 
-    D'OU VIENT LE CODE. Trois voies, decrites dans `vigie-fetch.ps1`, qui fait tout le
-    travail de recuperation :
-      - poste de DEVELOPPEMENT (le depot est la) : on deploie l'etat du depot local, et
-        `deploy-prod.ps1` pose au passage le tag de ce deploiement (D96) ;
-      - machine INSTALLEE (pas de depot) : on telecharge la derniere version publiee sur
-        GitHub, et on la deploie telle quelle -- aucun tag a poser, il existe deja ;
-      - reference forcee (-Ref une branche, un tag, un commit) : on passe par un clone a
-        nous, pour tester une version qui n'est pas publiee.
+    Etape interne de l'installation (doc/progress/targeting/install-update.md) : elle
+    marque la version quand il y a lieu, fabrique ou telecharge l'archive, la verifie,
+    l'extrait, et rend le dossier sur sa DERNIERE LIGNE.
 
-    L'ORDRE COMPTE. On rapporte et on VERIFIE l'archive d'abord ; on ne touche a
-    l'installation qu'ensuite. Une recuperation qui echoue laisse donc la version en
-    place intacte et en marche -- c'est le seul comportement acceptable pour une mise a
-    jour : au pire, rien n'a bouge.
+    Elle tourne AVANT tout arret : fabriquer est la partie longue, et Vigie n'a aucune
+    raison d'etre coupee pendant. L'installation prend la suite -- arreter, sauvegarder,
+    poser, verifier, redemarrer -- parce que c'est elle qui sait dans quel ordre.
 
-    Enchainement, sans intervention (D81 : les processus s'enchainent seuls, et le
-    resultat de chaque sous-processus est LU) :
-      1. vigie-fetch.ps1  -> une archive verifiee (sauf voie locale, qui fabrique et tague)
-      2. deploy-prod.ps1  -> deploiement, reglages de la machine conserves
-      3. scripts/tray.ps1 -Restart -> le tray relance le serveur avec le nouveau code
+    Ne pas l'appeler a la main : le geste, c'est setup.cmd, ou le bouton de la carte.
 
-    Codes de retour : 0 = a jour et relancee ; 1 = rien n'a ete deploye (l'ancienne
-                      version tourne toujours) ; 2 = deploiement fait, mais la relance
-                      n'a pas abouti ; 3 = deja a jour, rien a faire (D77).
-
-    Appele par l'action « Mettre a jour Vigie », sous le veilleur (D82) : ce code de
-    retour finit en ligne verte ou rouge sur la carte Deploiement.
+    Codes de retour : 0 = dossier pret ; 1 = echec ; 3 = deja a jour, rien a poser (D77).
 #>
 param(
     # Emplacement de l'installation partagee. Defaut : celui de deploy-prod.
