@@ -13,7 +13,7 @@ Mise à jour : 2026-08-30.
 | CORE-PROBES | Fait | 16 sondes auto-découvertes, 41 actions, contrôlées par `scripts/check-probes.ps1` | — |
 | CORE-TRAY | Fait | `apps/tray/tray.ps1` — auto-réparant ; ne ferme jamais l'app serveur, lui **demande** de se relancer (action `server-restart`) | — |
 | CORE-AUTOSTART | Fait | app serveur : tâche `Vigie - Serveur` sous `VigieService`, au **démarrage de l'ordinateur**, sans session ouverte (`scripts/lib/install-service.ps1`). App cliente : `scripts/install-autostart.ps1`, tâches `Vigie` / `Vigie - <compte>`, réparation par `repair-tasks` | — |
-| CORE-SECURITY | Fait | Écoute 127.0.0.1, jeton porteur injecté dans la page | À auditer avant toute exposition |
+| CORE-SECURITY | Fait | [identity.md](identity.md) | À auditer avant toute exposition |
 | CORE-VERSION | Fait | `Get-GitVersion` / `Get-GitCommit`, empreinte BUILD dans l'archive | — |
 | CORE-UPDATE | Partiel | [update-chain.md](update-chain.md) | Sur ce poste, le compte de service ne peut pas lire le dépôt (`C:\EspaceRestreint`) : la comparaison de commits et la fabrication depuis la branche ne fonctionnent pas encore — **Q1 ouverte** |
 | CORE-UPDATE-TRUST | À faire | — | Rien ne vérifie aujourd'hui que l'archive téléchargée est bien celle publiée : ni empreinte, ni signature. On s'en remet à HTTPS et à GitHub. |

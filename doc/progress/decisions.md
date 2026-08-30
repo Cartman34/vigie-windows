@@ -2817,80 +2817,39 @@ c'est écrit ici pour ça.
 
 ---
 
-## D109 — Qui exécute n'est pas qui demande, et le cache le sait (2026-08-29)
+## D109 — Qui exécute n'est pas qui demande (2026-08-29)
 
-`$env:USERNAME` rend le compte qui **exécute** le processus. Tant que l'app serveur tournait sous le compte de
-quelqu'un, il tombait juste **par accident**. Depuis qu'elle tourne en service sous `VigieService`, chaque endroit qui
-l'employait pour dire « la personne devant l'écran » désigne le service : la carte Comptes a affiché « VOUS » sur
-`VigieService`, et l'a sorti de la liste des comptes techniques.
+*Prise par l'agent, sur constat.*
 
-**Trois fonctions, trois sens, plus jamais mélangés :**
+`$env:USERNAME` rend le compte qui **exécute**. Tant que l'app serveur tournait sous le compte de quelqu'un, il tombait
+juste **par accident** ; depuis qu'elle est un service, tout endroit qui l'employait pour dire « la personne devant
+l'écran » désigne le service — la carte Comptes a affiché « VOUS » sur `VigieService`.
 
-| | |
-|---|---|
-| `Get-ProcessAccount` | qui **exécute**. Vrai pour l'app cliente (elle *est* la personne) et pour les scripts lancés à la main |
-| `Get-RequesterAccount` | qui **demande**, lu dans le cookie de session, ou `$null` si personne ne s'est identifié |
-| `Get-ActionRequester` | qui demande, **avec un repli**, pour signer le journal d'audit — une trace anonyme ne vaut rien |
+Ce qui est tranché :
 
-La distinction entre les deux dernières est le cœur du défaut : une page ouverte sans ticket (un signet, un
-rechargement) n'a pas de cookie, et le repli désignait alors le service. Ce qui parle de « vous » exige donc le strict :
-**pas de session, personne n'est vous.**
+1. **Trois notions, trois fonctions**, jamais mélangées : qui exécute, qui demande, et qui demande *avec un repli* pour
+   signer l'audit — une trace anonyme ne vaut rien.
+2. **Ce qui parle de « vous » exige le strict** : sans session identifiée, personne n'est « vous ». Désigner le compte
+   du service serait faux, et le désigner par défaut est pire que ne rien dire.
+3. **Un rendu qui dépend de qui regarde ne se met pas dans un cache commun** : il a sa propre clé, par compte.
 
-**Et le cache doit distinguer les rendus communs des rendus par compte.** Le rendu des sondes est mis en cache dans
-`state-cache.json`, qui est **commun**. La carte des comptes y écrivait « (vous) » : le premier à ouvrir Vigie laissait
-sa réponse à tous les suivants. Une sonde dont le rendu dépend de la personne le déclare — `PerAccount = $true` dans son
-`module.psd1` — et son entrée de cache devient `comptes.probe.ps1@<compte>`. Sans demandeur identifié, la clé est `@?` :
-une session anonyme a son entrée à elle, où personne n'est « vous ».
-
-Ces cartes-là ne sont **jamais** différées au rafraîchissement de fond : celui-ci tourne sans session, il ne sait pas
-pour qui recalculer.
-
-**Deux garde-fous dans `check-probes`** : `$env:USERNAME` en clair est refusé hors de son enveloppe, et une sonde qui lit
-la liste des comptes ou le demandeur doit déclarer `PerAccount`.
+Comment c'est réalisé : [état réel — identité et droits](implemented/identity.md).
 
 ---
 
-## D110 — Une installation sait d'où elle vient, et se compare à la bonne référence (2026-08-29)
+## D110 — Une installation se compare à ce que le bouton irait chercher (2026-08-29)
 
-La carte Déploiement affichait « Conforme » en permanence. Elle comparait l'installation partagée à `Get-RepoRoot` — et
-depuis que l'app serveur tourne depuis `C:\Program Files\Sowapps\Vigie`, `Get-RepoRoot` **rend cette installation**.
-Elle se comparait donc à elle-même. Le bouton « Mettre à jour » avait le même angle mort : sans `.git` autour d'elle,
-il partait chercher la dernière version publiée alors que le poste avait un dépôt en avance de neuf commits.
+*Prise par l'agent, sur constat.*
 
-**Ce qui décrit l'ordinateur se range sur l'ordinateur.** `config.local.psd1` s'annonce comme « les réglages propres à
-CETTE MACHINE »… et vit **dans chaque copie**. Sur ce poste, le dépôt en avait un (`dev`) et l'installation partagée
-n'en avait pas — donc `prod`. Un seul ordinateur, deux réponses contradictoires à « est-ce un poste de développement ? »,
-et la carte annonçait « Production » sur la machine où tout est développé. La déclaration vit désormais à un seul
-endroit, hors de toute copie : `%ProgramData%\Sowapps\Vigie\machine.psd1`, quatrième couche de `Get-Config`, entre la
-configuration de l'app et celle de la copie. Un déploiement ne peut plus l'effacer, et toutes les copies la lisent.
-Le déploiement l'écrit quand il part d'un dépôt : `Environment` et `SourcePath` — un fait constaté, pas un réglage à
-saisir.
+La carte Déploiement affichait « Conforme » en permanence : elle comparait l'installation partagée à `Get-RepoRoot`,
+qui **est** cette installation depuis que l'app serveur tourne dans Program Files. Elle se comparait à elle-même.
 
-**« dev / prod » NE DIT PAS d'où vient le code.** Un poste de production peut parfaitement avoir un dépôt local et
-déployer depuis lui, ou préférer les versions publiées. Le réglage qui répond à cette question existait déjà :
-**`UpdateSource`** (`auto` · `local` · `release` · `clone`), déjà lu par `vigie-update`. `Get-UpdateRoute` le résout en
-un seul endroit — et **la carte comme le bouton lisent cette même résolution**, sinon la carte annonce une référence et
-le bouton va chercher ailleurs.
+Ce qui est tranché : **la référence de comparaison est la source que la mise à jour utiliserait**, jamais autre chose —
+sinon la carte ne répond pas à la seule question qui compte, « est-ce que ce bouton changerait quelque chose ? ». Et
+quand on ne peut pas lire cette source, **on le dit** : « conforme » par défaut est le pire des verdicts, il rassure
+sans rien savoir.
 
-**La référence dépend de la machine, et elle est dite :**
-
-| | |
-|---|---|
-| la voie résolue est `local` | on compare les **commits** au dépôt — « en retard de N commits » |
-| la voie résolue est `release` ou `clone` | on compare à la **dernière version publiée**, consultée au plus une fois par demi-journée |
-| ni l'un ni l'autre | on **dit qu'on ne sait pas**. « Conforme » par défaut est le pire des verdicts : il rassure sans rien savoir |
-
-**Et la mise à jour va jusqu'au bout.** Lancée depuis l'installation, elle passe la main au dépôt d'origine quand il est
-lisible. À la fin, **les deux applications** se relancent : l'ordre `restart` va aux app clientes, et l'app serveur se
-relance elle-même avec ses propres droits (**D65**). Elle restait sur l'ancien code après chaque mise à jour — le
-commentaire du code affirmait encore que l'app cliente s'en chargeait, ce qui n'est plus vrai.
-
-Le relanceur est **une seule mise en œuvre** (`Start-ServerRelauncher`), appelée par le bouton « Redémarrer » et par la
-mise à jour. Il attend la fin des opérations en cours : celle qui tourne, c'est justement la mise à jour.
-
-Enfin, l'adresse du dépôt public vit dans `config/common.psd1` (**D15**) : elle était écrite dans `vigie-fetch` et dans
-le calcul de la carte.
-
+Comment c'est réalisé : [état réel — la chaîne de mise à jour](implemented/update-chain.md).
 
 ---
 
