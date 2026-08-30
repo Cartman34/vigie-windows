@@ -203,22 +203,6 @@ if (-not $verrou) {
     exit 4
 }
 
-<#
-    ON N'INTERROMPT PAS UNE OPERATION EN COURS.
-
-    Une analyse de disque, une installation de mises a jour Windows : les arreter au
-    milieu laisse un travail a moitie fait, et c'est exactement ce que les marques
-    d'occupation servent a eviter. On refuse, en NOMMANT ce qui tourne.
-#>
-$enCours = @()
-try { $enCours = @(Get-RunningOperations -Backend $backend) } catch { }
-if ($enCours.Count) {
-    Write-Title (Get-Label 'install.titre')
-    Write-Fail (Get-Label 'install.operation-en-cours' "$($enCours[0].label)")
-    Unlock-Install
-    try { Stop-Transcript | Out-Null } catch { }
-    exit 5
-}
 
 <#
     INSTALLER OU METTRE A JOUR : CE N'EST PAS LA MEME NOUVELLE.
@@ -297,6 +281,23 @@ $alreadyThere       = ($here.TrimEnd([char]92) -ieq $destPartagee.TrimEnd([char]
     On l'ecrit donc a chaque installation, avec le stage EN CLAIR -- sans jamais toucher
     a une valeur deja declaree : ce fichier appartient a qui l'a rempli.
 #>
+<#
+    ON N'INTERROMPT PAS UNE OPERATION EN COURS.
+
+    Une analyse de disque, une installation de mises a jour Windows : les arreter au
+    milieu laisse un travail a moitie fait, et c'est exactement ce que les marques
+    d'occupation servent a eviter. On refuse, en NOMMANT ce qui tourne.
+#>
+$enCours = @()
+try { $enCours = @(Get-RunningOperations -Backend $backend) } catch { }
+if ($enCours.Count) {
+    Write-Title (Get-Label 'install.titre')
+    Write-Fail (Get-Label 'install.operation-en-cours' "$($enCours[0].label)")
+    Unlock-Install
+    try { Stop-Transcript | Out-Null } catch { }
+    exit 5
+}
+
 Write-Step (Get-Label 'install.declaration-ordinateur')
 try {
     $stageDeclare = Get-DeclaredStage -Backend $backend
@@ -473,38 +474,21 @@ if (-not $isRepo -and -not $alreadyThere) {
         Write-Warn (Get-Label 'install.sans-droits-administrateur-vigie')
         Write-Detail (Get-Label 'install.elle-fonctionnera-depuis-ce')
     } else {
+        <#
+            LA MEME COPIE QUE PARTOUT (Copy-InstallFrom).
+
+            Ce bloc avait sa propre mise de cote des reglages, recopiee de deploy-prod :
+            trois implementations d'un seul geste, et le jour ou l'une apprend a preserver
+            un fichier de plus, les deux autres l'oublient.
+
+            Ici, il n'y a pas d'archive a extraire : le dossier courant EST l'archive, que
+            l'utilisateur a extraite lui-meme.
+        #>
         Write-Step (Get-Label 'install.installation-de-vigie-dans' $destPartagee)
         $copied = $false
         try {
-            # Les REGLAGES de la machine deja poses survivent : les ecraser serait une
-            # regression a chaque mise a jour (meme regle que deploy-prod.ps1).
-            $cfgDest = Join-Path $destPartagee 'config'
-            $guard   = $null
-            if (Test-Path -LiteralPath $cfgDest) {
-                $guard = Join-Path $env:TEMP ('vigie-cfg-' + [guid]::NewGuid().ToString('N').Substring(0,8))
-                New-Item -ItemType Directory -Path $guard -Force | Out-Null
-                foreach ($motif in @('*.local.*', 'actions.policy.json')) {
-                    Get-ChildItem -Path $cfgDest -File -Filter $motif -ErrorAction SilentlyContinue |
-                        ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $guard -Force }
-                }
-            }
-
-            New-Item -ItemType Directory -Path $destPartagee -Force | Out-Null
-            # var/ ne se copie pas : jeton, journaux et caches appartiennent a l'endroit
-            # ou Vigie tourne, pas a la version qu'on installe.
-            Get-ChildItem -LiteralPath $repoRoot -Force |
-                Where-Object { $_.Name -ne 'var' -and $_.Name -ne '.git' } |
-                ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $destPartagee -Recurse -Force }
-
-            if ($guard) {
-                New-Item -ItemType Directory -Path $cfgDest -Force | Out-Null
-                Get-ChildItem -Path $guard -File | ForEach-Object {
-                    Copy-Item -LiteralPath $_.FullName -Destination $cfgDest -Force
-                }
-                Remove-Item -LiteralPath $guard -Recurse -Force -ErrorAction SilentlyContinue
-                Write-Detail (Get-Label 'install.reglages-de-la-machine')
-            }
-            $copied = Test-Path -LiteralPath (Join-Path $destPartagee 'setup.cmd')
+            Copy-InstallFrom -Source $repoRoot -Destination $destPartagee
+            $copied = -not (Test-InstallCopy -Destination $destPartagee)
         } catch {
             Write-Fail (Get-Label 'install.la-copie-echoue' $_.Exception.Message)
         }
@@ -514,6 +498,9 @@ if (-not $isRepo -and -not $alreadyThere) {
             # demarrage : sinon la tache pointerait encore sur le dossier telecharge.
             Write-Detail (Get-Label 'install.installation-se-poursuit-depuis')
             $rest = Join-Path (Join-Path $destPartagee 'scripts') 'install.ps1'
+            # LE VERROU SE LIBERE AVANT DE PASSER LA MAIN : la copie installee va en poser
+            # un, et il serait refuse par le notre.
+            Unlock-Install
             & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $rest
             exit $LASTEXITCODE
         }
