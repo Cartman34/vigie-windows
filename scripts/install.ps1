@@ -143,6 +143,21 @@ $backend  = Join-Path $repoRoot 'apps/backend-pode'   # BOOTSTRAP, cf. common.ps
 . (Join-Path $backend 'lib/common.ps1')
 
 <#
+    LE JOURNAL COMMENCE AVANT LA PREMIERE ETAPE.
+
+    Il demarrait au milieu : la declaration de l'ordinateur, la source et le DEPLOIEMENT
+    se produisaient avant, donc hors journal. Le 30/08, l'installation a fini sur
+    « ECHEC : 2 etape(s) » alors que le fichier ne contenait pas une seule ligne d'erreur
+    -- de quoi chercher longtemps ce qui n'y etait pas.
+
+    Un journal qui commence apres le debut ne sert a rien : c'est justement le debut qu'on
+    relit quand ca se passe mal.
+#>
+$logDir = Get-LogDir -Backend $backend
+$log    = Join-Path $logDir ('install_' + (Get-Date -Format 'yyyyMMdd_HHmmss') + '.log')
+try { Start-Transcript -Path $log -Force | Out-Null } catch { }
+
+<#
     INSTALLER OU METTRE A JOUR : CE N'EST PAS LA MEME NOUVELLE.
 
     Le meme script fait les deux -- c'est voulu, il est idempotent et c'est le SEUL geste
@@ -275,8 +290,20 @@ if ($isRepo -and (Test-Elevated)) {
                 try { Write-Log -Backend $backend -Name 'install' -Message $line -NoEcho } catch { }
             }
         $codeMaj = $LASTEXITCODE
+        <#
+            CE QUI COMPTE ICI, C'EST QUE LE CODE SOIT DEPLOYE.
+
+            Code 2 = deploye, mais la relance de l'app cliente n'a pas abouti. Ce n'est pas
+            un echec de l'installation : trois etapes plus loin, elle REENREGISTRE cette
+            tache et la relance elle-meme -- et c'est exactement ce qui s'est passe le
+            30/08, ou le verdict annoncait « ECHEC : 2 etapes » sur une installation qui
+            avait tout fait, app cliente comprise.
+
+            Une reserve, donc, pas un echec : on le dit, et la suite le repare.
+        #>
         if ($codeMaj -eq 0)      { Write-Ok   (Get-Label 'install.deploiement-fait') }
         elseif ($codeMaj -eq 3)  { Write-Info (Get-Label 'install.deploiement-inutile') }
+        elseif ($codeMaj -eq 2)  { Write-Warn (Get-Label 'install.deploiement-relance-a-refaire') }
         else {
             Write-Fail (Get-Label 'install.deploiement-echoue' $codeMaj)
             Write-Log -Backend $backend -Name 'install' -Level 'ERROR' -Message ("Deploiement : code " + $codeMaj)
@@ -342,10 +369,6 @@ if (-not $isRepo -and -not $alreadyThere) {
         Write-Warn (Get-Label 'install.vigie-fonctionnera-depuis-ce')
     }
 }
-
-$logDir = Get-LogDir -Backend $backend
-$log    = Join-Path $logDir ('install_' + (Get-Date -Format 'yyyyMMdd_HHmmss') + '.log')
-try { Start-Transcript -Path $log -Force | Out-Null } catch { }
 
 try {
     $isAdmin = Test-Elevated

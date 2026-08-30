@@ -234,6 +234,7 @@
   "install.deploiement-fait": "L'installation partagée porte maintenant cette version.",
   "install.deploiement-introuvable": "Script de mise à jour introuvable : {0}",
   "install.deploiement-inutile": "L'installation partagée était déjà à cette version.",
+  "install.deploiement-relance-a-refaire": "Version déployée. L'app cliente n'a pas redémarré dans le délai : l'installation la relance elle-même un peu plus loin.",
   "install.depot-de-confiance": "Dépôt déclaré de confiance pour git : {0}",
   "install.depot-deja-de-confiance": "Le dépôt était déjà déclaré de confiance pour git.",
   "install.double-cliquez-sur-setup": "Double-cliquez sur setup.cmd, à la racine du dossier Vigie.",
