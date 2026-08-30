@@ -19,7 +19,7 @@ $compte = if ($Params -and $Params.account) { "$($Params.account)" } else { $nul
 if (-not $compte) { return @{ message = "Aucun compte precise."; result = @{ ok = $false } } }
 
 # Le compte doit exister sur CETTE machine : on ne va pas lire un chemin quelconque.
-$connu = @(Get-VigieAccounts | Where-Object { $_.name -eq $compte })[0]
+$connu = @(Get-ComputerAccounts | Where-Object { $_.name -eq $compte })[0]
 if (-not $connu) { return @{ message = "Compte inconnu sur cette machine : $compte"; result = @{ ok = $false } } }
 
 $profil = Join-Path (Join-Path $env:SystemDrive 'Users') $compte

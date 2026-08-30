@@ -39,7 +39,7 @@ function Show-Comptes {
 if (-not $Activer -and -not $Retirer) { Show-Comptes; exit 0 }
 
 $cible = if ($Activer) { $Activer } else { $Retirer }
-$connu = @(Get-VigieAccounts | Where-Object { $_.name -eq $cible })
+$connu = @(Get-ComputerAccounts | Where-Object { $_.name -eq $cible })
 if (-not $connu) {
     Write-Warn (Get-Label 'vigie-comptes.compte-inconnu-sur-cette' $cible)
     Show-Comptes

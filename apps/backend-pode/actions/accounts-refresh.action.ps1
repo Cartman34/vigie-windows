@@ -10,7 +10,7 @@ param([string]$Module, [hashtable]$Params)
 $backend = Split-Path $PSScriptRoot -Parent
 . (Join-Path $backend 'lib/common.ps1')
 
-Clear-VigieAccountsCache -Backend $backend
+Clear-ComputerAccountsCache -Backend $backend
 $liste = @(Get-UserAccounts -Force -Backend $backend)
 
 @{

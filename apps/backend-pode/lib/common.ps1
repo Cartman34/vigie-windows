@@ -4343,7 +4343,7 @@ function Repair-VigieTasks {
                       -Message (Get-Label 'common.tache-non-reparee' $nom $mal $_.Exception.Message)
         }
     }
-    if ($faits.Count) { Clear-VigieAccountsCache -Backend $Backend }
+    if ($faits.Count) { Clear-ComputerAccountsCache -Backend $Backend }
     return $faits
 }
 
@@ -4361,14 +4361,14 @@ function Get-VigieAccountTaskName {
 # forcer le releve, et toute activation de compte l'invalide d'elle-meme.
 $script:ComptesTTLHeures = 24
 
-function Get-VigieAccountsCachePath {
+function Get-ComputerAccountsCachePath {
     param([string]$Backend = (Get-BackendRoot))
     Get-VarPath -Backend $Backend -Kind 'cache' -File 'accounts.json'
 }
 
-function Clear-VigieAccountsCache {
+function Clear-ComputerAccountsCache {
     param([string]$Backend = (Get-BackendRoot))
-    $f = Get-VigieAccountsCachePath -Backend $Backend
+    $f = Get-ComputerAccountsCachePath -Backend $Backend
     if (Test-Path -LiteralPath $f) { Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue }
 }
 
@@ -4379,7 +4379,7 @@ function Clear-VigieAccountsCache {
 # et peut changer a tout moment -- et s'il ment, il ment sur la seule chose qui compte.
 # La carte a affiche « Vigie activee » pendant des heures pour un compte dont la tache
 # avait disparu (28/08). Ces trois champs-la ne sont donc jamais servis depuis le cache.
-function Update-VigieAccountTasks {
+function Update-AccountTasks {
     param([object[]]$Comptes)
     if (-not $Comptes -or -not $Comptes.Count) { return @($Comptes) }
     $taches = @()
@@ -4430,7 +4430,7 @@ function Update-VigieAccountTasks {
     du compte de SERVICE : « Relance demandee aux autres comptes : Famille, fhaza,
     VigieService ». Personne ne devait jamais le lire.
 
-      1. TOUS les comptes Windows          Get-VigieAccounts     -- VigieService en est
+      1. TOUS les comptes de l'ORDINATEUR  Get-ComputerAccounts  -- VigieService en est
       2. les comptes de PERSONNE           Get-UserAccounts      -- il n'en est pas
       3. ceux qui ont Vigie ACTIVEE        Get-EnabledAccounts   -- ils ont une app cliente
       4. ceux qui TOURNENT en ce moment    (tache + app cliente vivante)
@@ -4441,7 +4441,7 @@ function Update-VigieAccountTasks {
 #>
 function Get-UserAccounts {
     param([switch]$Force, [string]$Backend = (Get-BackendRoot))
-    @(Get-VigieAccounts -Force:$Force -Backend $Backend | Where-Object { -not $_.technical })
+    @(Get-ComputerAccounts -Force:$Force -Backend $Backend | Where-Object { -not $_.technical })
 }
 
 function Get-EnabledAccounts {
@@ -4449,7 +4449,7 @@ function Get-EnabledAccounts {
     @(Get-UserAccounts -Backend $Backend | Where-Object { $_.enabled })
 }
 
-function Add-VigieAccountsPerspective {
+function Add-AccountsPerspective {
     param($Comptes)
     # Sans session, PERSONNE n'est « vous » : c'est plus vrai, et c'est plus sur que de
     # designer le compte du service.
@@ -4463,22 +4463,29 @@ function Add-VigieAccountsPerspective {
     return $Comptes
 }
 
-function Get-VigieAccounts {
+<#
+    LES COMPTES DE CET ORDINATEUR -- pas des « comptes Vigie ».
+
+    La fonction s'appelait Get-VigieAccounts : elle ne rend rien qui appartienne a Vigie,
+    elle rend les comptes que WINDOWS declare, avec pour chacun ce que Vigie en sait.
+    Le nom faisait croire a une liste de comptes autorises, ce qui est le cercle 3.
+#>
+function Get-ComputerAccounts {
     param(
         [switch]$Force,                       # bouton « Actualiser la liste »
         [string]$Backend = (Get-BackendRoot)
     )
-    $cache = Get-VigieAccountsCachePath -Backend $Backend
+    $cache = Get-ComputerAccountsCachePath -Backend $Backend
     if (-not $Force -and (Test-Path -LiteralPath $cache)) {
         try {
             $j = Get-Content -LiteralPath $cache -Raw | ConvertFrom-Json
             $age = ((Get-Date).ToUniversalTime() - (ConvertTo-UtcDate $j.at)).TotalHours
             if ($age -lt $script:ComptesTTLHeures -and $j.users) {
-                return (Add-VigieAccountsPerspective (Update-VigieAccountTasks -Comptes @($j.users)))
+                return (Add-AccountsPerspective (Update-AccountTasks -Comptes @($j.users)))
             }
         } catch { }
     }
-    $liste = @(Get-VigieAccountsFresh -Backend $Backend)
+    $liste = @(Get-ComputerAccountsFresh -Backend $Backend)
     try {
         $tmp = "$cache.tmp"
         (@{ at = (Get-Date).ToUniversalTime().ToString('s'); users = $liste } | ConvertTo-Json -Depth 6) |
@@ -4487,11 +4494,11 @@ function Get-VigieAccounts {
     } catch { }
     # LA PERSPECTIVE APRES LE CACHE, jamais avant : ce qu'on ecrit sur le disque doit
     # rester vrai pour n'importe qui.
-    return (Add-VigieAccountsPerspective $liste)
+    return (Add-AccountsPerspective $liste)
 }
 
 # Le releve REEL, sans cache.
-function Get-VigieAccountsFresh {
+function Get-ComputerAccountsFresh {
     param([string]$Backend = (Get-BackendRoot))
     # PROFILS REELLEMENT UTILISES : c'est LE discriminant entre un compte de personne et un
     # compte d'outil. Win32_UserProfile.LastUseTime dit quand le profil a servi pour de bon
@@ -4553,7 +4560,7 @@ function Get-VigieAccountsFresh {
         # CE RELEVE NE SAIT PAS QUI REGARDE, et c'est voulu : il est MIS EN CACHE dans un
         # fichier commun. Y ecrire quoi que ce soit de relatif au demandeur, c'est servir
         # a Famille la reponse calculee pour fhaza. Tout ce qui depend de la personne est
-        # pose apres coup, par Add-VigieAccountsPerspective.
+        # pose apres coup, par Add-AccountsPerspective.
         $technique = [bool]$masquesConnexion[$nom.ToLower()]
 
         [pscustomobject][ordered]@{
@@ -4576,7 +4583,7 @@ function Get-VigieAccountsFresh {
             taskPending = if ($tache -and -not (Get-VigieTaskStructureAilment -Task $tache)) { Get-VigieTaskHistoryAilment -Task $tache } else { $null }
             # Le compte qui execute le serveur en ce moment : l'interface doit pouvoir dire
             # « c'est vous » et empecher de se retirer soi-meme par megarde.
-            current     = $false          # pose par Add-VigieAccountsPerspective, jamais mis en cache
+            current     = $false          # pose par Add-AccountsPerspective, jamais mis en cache
             lastLogon   = if ($c.LastLogon) { $c.LastLogon.ToString('s') } else { $null }
         }
     })
@@ -4591,7 +4598,7 @@ function Set-VigieAccountEnabled {
         [string]$Backend = (Get-BackendRoot)
     )
     if (-not (Test-IsElevated)) { throw "Modifier les comptes autorises demande un compte administrateur." }
-    $compte = @(Get-VigieAccounts -Backend $Backend | Where-Object { $_.name -eq $Name })[0]
+    $compte = @(Get-ComputerAccounts -Backend $Backend | Where-Object { $_.name -eq $Name })[0]
     if (-not $compte) { throw "Compte inconnu sur cette machine : $Name" }
     # Un AUTRE compte que le sien exige que l'application lui soit lisible.
     if ($Enabled -and -not $compte.current -and -not (Get-SharedInstallPath)) {
@@ -4604,8 +4611,8 @@ function Set-VigieAccountEnabled {
         # propre script (uninstall-autostart) -- supprimer sans le dire serait pire.
         $t = Get-VigieAccountTaskName -Name $Name
         try { Unregister-ScheduledTask -TaskName $t -Confirm:$false -ErrorAction Stop } catch { }
-        Clear-VigieAccountsCache -Backend $Backend
-        return (Get-VigieAccounts -Backend $Backend | Where-Object { $_.name -eq $Name })
+        Clear-ComputerAccountsCache -Backend $Backend
+        return (Get-ComputerAccounts -Backend $Backend | Where-Object { $_.name -eq $Name })
     }
 
     # POUR SOI : l'interpreteur courant convient, quel que soit son emplacement.
@@ -4683,8 +4690,8 @@ function Set-VigieAccountEnabled {
         throw ("La tache de " + $Name + " n'existe pas apres creation : Windows l'a refusee sans le dire.")
     }
     Write-Log -Backend $Backend -Name 'comptes' -Message (Get-Label 'common.tache-creee' $nomTache $princ.UserId $niveau)
-    Clear-VigieAccountsCache -Backend $Backend
-    return (Get-VigieAccounts -Backend $Backend | Where-Object { $_.name -eq $Name })
+    Clear-ComputerAccountsCache -Backend $Backend
+    return (Get-ComputerAccounts -Backend $Backend | Where-Object { $_.name -eq $Name })
 }
 
 

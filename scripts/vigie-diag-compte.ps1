@@ -25,7 +25,7 @@ $backend  = Join-Path $repoRoot 'apps/backend-pode'
 
 if (-not $Compte) {
     Write-Info (Get-Label 'vigie-diag-compte.comptes-de-cette-machine')
-    Get-VigieAccounts | ForEach-Object {
+    Get-ComputerAccounts | ForEach-Object {
         Write-Host ("  {0} {1,-24} {2}" -f $(if ($_.enabled) { '[x]' } else { '[ ]' }), $_.name,
                     $(if ($_.admin) { 'administrateur' } else { 'standard' }))
     }

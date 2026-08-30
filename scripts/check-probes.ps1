@@ -528,7 +528,7 @@ foreach ($f in (Get-ChildItem -LiteralPath $probesRoot -Recurse -File -Filter '*
     # « $scan.current » -- le DOSSIER en cours d'analyse dans la carte du disque, qui
     # n'a rien de personnel. Ce qui rend une carte personnelle, c'est d'ou viennent
     # ses donnees : la liste des comptes (elle porte « vous ») ou le demandeur.
-    if ($text -notmatch 'Get-VigieAccounts' -and $text -notmatch 'Get-RequesterAccount') { continue }
+    if ($text -notmatch 'Get-ComputerAccounts' -and $text -notmatch 'Get-RequesterAccount') { continue }
     $declared = $false
     try {
         $decl = Join-Path (Split-Path $f.FullName -Parent) 'module.psd1'

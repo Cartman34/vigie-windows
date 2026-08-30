@@ -18,7 +18,7 @@ $dormant = 90
 
 $lignes = @()
 $dormants = 0
-foreach ($c in (Get-VigieAccounts | Sort-Object name)) {
+foreach ($c in (Get-ComputerAccounts | Sort-Object name)) {
     $depuis = 'jamais connecté'
     if ($c.lastLogon) {
         try {
@@ -87,6 +87,6 @@ $detail = ($entete, '') + $lignes + ('',
     "Pour choisir qui a Vigie : Paramètres > Utilisateurs.")
 
 @{
-    message = ("Détail de " + (@(Get-VigieAccounts).Count) + " compte(s).")
+    message = ("Détail de " + (@(Get-ComputerAccounts).Count) + " compte(s).")
     result  = @{ ok = $true; detail = ($detail -join [Environment]::NewLine) }
 }
