@@ -26,7 +26,7 @@ ligne — `scripts/dev/check-doc.ps1` refuse une décision absente d'ici.
 - **Documentation** — D91 · D92 · D93 · D98
 - **Configuration** — D15 · D18 · D56 · D57
 - **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46 · D48 · D49 · D50 · D58 · D59 · D66 · D68 · D69 · D70 · D71 · D88 · D89 · D94 · D95 · D102 · D105
-- **Installation, déploiement et mise à jour** — D07 · D11 · D22 · D77 · D78 · D79 · D81 · D84 · D87 · D96 · D97 · D99 · D101 · D106 · D107 · D110 (revu)
+- **Installation, déploiement et mise à jour** — D07 · D11 · D22 · D77 · D78 · D79 · D81 · D84 · D87 · D96 · D97 · D99 · D101 · D106 · D107 (revu) · D110 · D112
 - **Sécurité, droits et multi-comptes** — D34 · D65 · D67 · D73 · D104 · D109
 - **Sondes, actions et tâches de fond** — D50bis · D53 · D54 · D60 · D61 · D80 · D82 · D83 · D85
 - **Outillage** — D06 · D21 · D24 · D40 · D44 · D47 · D52 · D64 · D75 · D86 · D90
@@ -2915,3 +2915,35 @@ emplacement.
 être illisible pour le compte qui démarre — `VigieService` n'a aucun droit sur `C:\EspaceRestreint`, `Famille` non plus
 — et il peut bouger. La tâche ne démarre alors rien, sans un mot. La règle vaut pour **tous** les comptes, et non plus
 pour le seul compte courant.
+
+---
+
+## D112 — Le service a SON clone ; il ne travaille jamais dans le dépôt d'une personne (2026-08-30)
+
+*Demandée par l'utilisateur.*
+
+> « C'est fhaza qui possède le dépôt et doit posséder tous les fichiers. » — « En dev, ce n'est pas ce qu'on veut, on
+> veut tester les devs en local. »
+
+L'app serveur tourne sous `VigieService` depuis que le démarrage est un service de l'ordinateur. Elle fabriquait la
+version en lançant git **dans le dépôt de travail de `fhaza`** : git l'a refusé (`detected dubious ownership`), et il a
+raison — le dépôt appartient à une personne, tout fichier créé là doit rester à elle, et un tag posé par un compte de
+service n'a pas d'auteur.
+
+**La règle : un service ne travaille jamais dans le dépôt d'une personne.** Il maintient **son propre clone**, qu'il
+possède, et fabrique depuis lui. C'est ce que fait n'importe quel agent d'intégration continue. La voie existait déjà
+sans être branchée : `UpdateSource = 'clone'`, avec `UpdateRef` pour viser une branche ou un tag.
+
+**D'où le clone se synchronise dépend de l'environnement** — c'est un réglage, pas une seconde conception :
+
+| | |
+|---|---|
+| **prod** | `origin` — ce qui tourne est retrouvable par quelqu'un d'autre, sur n'importe quelle machine |
+| **dev** | le **dépôt local** — on teste ce qu'on vient d'écrire, sans avoir à pousser d'abord |
+
+**Reste à éprouver :** `git fetch <chemin local>` depuis le clone du service lit aussi le dépôt de la personne, côté
+`upload-pack`. Si la protection s'y applique aussi, ce seul cas demandera un `safe.directory` — et on l'écrira ici.
+
+**Conséquence sur le tag de version.** Le déploiement pose aujourd'hui un tag dans le dépôt de travail (`deploy-prod`).
+Un service n'a pas à écrire dans le dépôt d'une personne : le tag redevient un geste d'auteur. À trancher quand on y
+touchera — **D96** en dépend.
