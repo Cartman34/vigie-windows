@@ -164,7 +164,7 @@ $archive = $null
     « Des commits d'avance » se verifie la ou l'on pose le tag (action tag-version) : si
     la tete porte deja un tag, il n'y a rien a marquer.
 #>
-if ($route -eq 'clone' -and (Get-DeclaredEnvironment -Backend $backend) -eq 'dev' -and -not $Ref) {
+if ($route -eq 'clone' -and (Get-DeclaredStage -Backend $backend) -eq 'dev' -and -not $Ref) {
     $poseTag = $null
     if ($Requester) {
         # Lance depuis l'interface : le demandeur a une session, le tag s'y pose.

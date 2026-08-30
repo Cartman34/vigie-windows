@@ -4433,7 +4433,7 @@ function Get-VigieTaskStructureAilment {
     # dans le numero de version. Comparer l'emplacement a la declaration signalait donc un
     # ecart permanent qui n'avait rien a reparer (constate le 30/08).
     if ("$($a.Arguments)" -match '-File\s+"([^"]+)"') {
-        if ((Get-PathEnvironment -Path $Matches[1]) -ne 'prod') {
+        if ((Get-PathStage -Path $Matches[1]) -ne 'prod') {
             return "elle démarre depuis le dépôt de travail, pas depuis l'installation partagée"
         }
     }
@@ -5585,18 +5585,31 @@ function New-JobId { [guid]::NewGuid().ToString('N').Substring(0, 12) }
 #   - l'environnement DECLARE : ce que la machine dit vouloir etre (reglage, defaut prod) ;
 #   - l'environnement OBSERVE : d'ou le code qui tourne vient REELLEMENT.
 # Quand les deux different, c'est un defaut nomme, pas un mystere.
-function Get-DeclaredEnvironment {
+function Get-DeclaredStage {
     param([string]$Backend = (Get-BackendRoot))
+    <#
+        LE STAGE, PAS « L'ENVIRONNEMENT ».
+
+        « Environnement » ne disait pas de quoi on parlait : ce reglage, le serveur, ou
+        l'ordinateur entier ? C'est un STAGE au sens deploiement -- dev, prod, et la place
+        pour un « staging » plus tard.
+
+        L'ancien nom reste LU : un config.local.psd1 deja pose sur une machine ne doit pas
+        cesser de fonctionner parce qu'on a trouve un meilleur mot.
+    #>
     try {
-        $value = "$((Get-Config -Backend $Backend).Environment)".Trim().ToLowerInvariant()
-        if ($value -in @('dev', 'prod')) { return $value }
+        $cfg = Get-Config -Backend $Backend
+        foreach ($k in @('Stage', 'Environment')) {
+            $value = "$($cfg.$k)".Trim().ToLowerInvariant()
+            if ($value -in @('dev', 'prod')) { return $value }
+        }
     } catch { }
     return 'prod'      # defaut : une machine est en production tant qu'on n'a pas dit l'inverse
 }
 
 # D'ou vient le code qui tourne : sous Program Files, c'est l'installation partagee ;
 # ailleurs, c'est un depot de travail. On lit le CHEMIN, pas une intention.
-function Get-PathEnvironment {
+function Get-PathStage {
     param([Parameter(Mandatory)][string]$Path)
     foreach ($root in @($env:ProgramFiles, ${env:ProgramFiles(x86)})) {
         if (-not $root) { continue }
@@ -5605,9 +5618,9 @@ function Get-PathEnvironment {
     return 'dev'
 }
 
-function Get-RunningEnvironment {
+function Get-RunningStage {
     param([string]$Backend = (Get-BackendRoot))
-    Get-PathEnvironment -Path $Backend
+    Get-PathStage -Path $Backend
 }
 
 # Le libelle affiche, en clair : « Production » ne dit pas d'ou vient le code.
@@ -5619,13 +5632,16 @@ function Get-RunningEnvironment {
     l'installation partagee, developpement compris. Ce qui change, c'est CE QU'ON Y
     DEPLOIE -- une branche du depot, ou une version publiee.
 #>
-function Get-EnvironmentLabel {
-    param([Parameter(Mandatory)][ValidateSet('dev', 'prod')][string]$Environment)
+function Get-StageLabel {
+    param([Parameter(Mandatory)][ValidateSet('dev', 'prod')][string]$Stage)
     # L'ENVIRONNEMENT NE DIT PAS LA SOURCE. Les deux libelles la nommaient (« source : le
     # depot », « source : versions publiees ») : c'est un REGLAGE A PART (UpdateSource),
     # et une production peut se synchroniser depuis un clone local sans cesser d'en etre
     # une. Deux axes, aucun deduit de l'autre.
-    if ($Environment -eq 'dev') { return 'Développement' }
+    # MAJUSCULE INITIALE : c'est une VALEUR affichee dans une carte, pas un mot au milieu
+    # d'une phrase -- check-probes le verifie. Les phrases, elles, ont leurs propres
+    # libelles.
+    if ($Stage -eq 'dev') { return 'Développement' }
     return 'Production'
 }
 

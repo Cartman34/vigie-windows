@@ -211,8 +211,8 @@ if (-not $eleve) {
 # illisible pour les autres comptes -- « Famille » n'a aucun droit sur C:\EspaceRestreint,
 # et VigieService non plus -- et il peut bouger. Une tache qui pointe dessus ne demarre
 # rien, un jour ou l'autre.
-$declared = Get-DeclaredEnvironment -Backend $backend
-$running  = Get-RunningEnvironment -Backend $backend
+$declared = Get-DeclaredStage -Backend $backend
+$running  = Get-RunningStage -Backend $backend
 $envIssues = @()
 foreach ($c in $comptes) {
     if (-not $c.task) { continue }
@@ -220,7 +220,7 @@ foreach ($c in $comptes) {
         $t = Get-ScheduledTask -TaskName $c.task -ErrorAction Stop
         $args = "$(@($t.Actions)[0].Arguments)"
         if ($args -match '-File\s+"([^"]+)"') {
-            if ((Get-PathEnvironment -Path $Matches[1]) -ne 'prod') {
+            if ((Get-PathStage -Path $Matches[1]) -ne 'prod') {
                 $envIssues += ($c.name + " démarre depuis le dépôt de travail, pas depuis l'installation partagée")
             }
         }
@@ -235,16 +235,16 @@ $aide = "Ce que cet ordinateur déclare : d'où vient le code qu'on déploie ici
         "une tâche qui lance le dépôt de travail ne démarrera pas chez un compte qui n'y a pas accès."
 if ($envIssues.Count) {
     $depl += New-Field -Key 'env' -Label 'Environnement' `
-        -Value ((Get-EnvironmentLabel -Environment $declared) + " — " + $envIssues.Count.ToString() + " écart(s)") `
+        -Value ((Get-StageLabel -Stage $declared) + " — " + $envIssues.Count.ToString() + " écart(s)") `
         -Kind 'text' -Status 'warn' -FixAction 'repair-tasks' `
         -Help $aide `
         -Guide ($envIssues -join [Environment]::NewLine)
 } else {
     $depl += New-Field -Key 'env' -Label 'Environnement' `
-        -Value (Get-EnvironmentLabel -Environment $declared) -Kind 'text' -Status 'ok' `
+        -Value (Get-StageLabel -Stage $declared) -Kind 'text' -Status 'ok' `
         -Help $aide `
         -Guide ("Toutes les tâches de démarrage lancent l'installation partagée." + [Environment]::NewLine +
-                "Vigie répond depuis : " + (Get-EnvironmentLabel -Environment $running))
+                "Vigie répond depuis : " + (Get-StageLabel -Stage $running))
 }
 
 # HORS SERVICE et EN ATTENTE ne se disent pas de la meme facon. Une tache dont la
@@ -320,7 +320,7 @@ $carteComptes = New-ModuleObject -Id 'accounts' -Theme 'accounts' -Label 'Compte
     ne bouge pas entre deux commits : sans lui, « v0.1.21 vers v0.1.21 » ne dit rien.
 #>
 $court = { param($c) if ($c) { $c.Substring(0, [Math]::Min(8, $c.Length)) } else { '' } }
-$estDev = ((Get-DeclaredEnvironment -Backend $backend) -eq 'dev')
+$estDev = ((Get-DeclaredStage -Backend $backend) -eq 'dev')
 $deVersion = ''; $versVersion = ''; $deNote = ''; $versNote = ''
 if ($cmp) {
     $deVersion   = "$($cmp.there.version)"

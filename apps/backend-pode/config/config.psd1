@@ -28,7 +28,7 @@
     # Ce reglage DECLARE une intention ; Vigie compare ensuite avec ce qui tourne
     # reellement et signale l'ecart. A poser dans config.local.psd1 : c'est un choix de
     # machine, comme UpdateSource.
-    Environment  = 'prod'
+    Stage        = 'prod'   # dev | prod. L'ancien nom « Environment » reste lu.
 
     # D'OU VIGIE SE MET A JOUR quand on appuie sur « Mettre a jour Vigie ».
     #

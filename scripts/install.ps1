@@ -137,13 +137,46 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
     exit 1
 }
 
-Write-Title (Get-Label 'install.titre')
-Write-Step (Get-Label 'install.etape-prerequis')
-
 # Les scripts de gestion vivent dans scripts/ : les apps sont dans apps/.
 $repoRoot = Split-Path $PSScriptRoot -Parent
 $backend  = Join-Path $repoRoot 'apps/backend-pode'   # BOOTSTRAP, cf. common.ps1
 . (Join-Path $backend 'lib/common.ps1')
+
+<#
+    INSTALLER OU METTRE A JOUR : CE N'EST PAS LA MEME NOUVELLE.
+
+    Le meme script fait les deux -- c'est voulu, il est idempotent et c'est le SEUL geste
+    a connaitre. Mais il annoncait « Installation de Vigie » meme quand une version
+    tournait deja, sans dire laquelle ni vers quoi on allait : on relancait sans savoir
+    si quelque chose changeait.
+
+    On regarde donc ce qui est en place AVANT de commencer, et on le dit : d'ou l'on
+    part, ou l'on va, et dans quel environnement -- « developpement » ou « production »,
+    tel qu'il est DECLARE.
+#>
+$current = $null
+try {
+    $installedPath = Get-SharedInstallPath
+    if ($installedPath) { $current = Get-BuildStamp -Root $installedPath }
+} catch { }
+$incoming = $null
+try { $incoming = Get-BuildStamp -Root $repoRoot } catch { }
+$isUpdate = [bool]($current -and $current.version)
+
+# DEUX APPELS EN CLAIR plutot qu'une cle calculee : un verificateur ne peut pas juger une
+# cle construite a l'execution, et c'est la porte ouverte au « [?...] » en production.
+if ($isUpdate) { Write-Title (Get-Label 'install.titre-maj') }
+else            { Write-Title (Get-Label 'install.titre') }
+if ($isUpdate) {
+    Write-Info (Get-Label 'install.de-vers' $current.version $(if ($incoming -and $incoming.version) { $incoming.version } else { '?' }))
+}
+# PROD EST LE DEFAUT, ON NE L'ANNONCE PAS. L'application est de production d'abord : le
+# dire a chaque fois n'apprend rien. C'est le stage « developpement » qui merite d'etre
+# signale -- avec ce qu'il implique : une source locale, et des versions marquees ici.
+if ((Get-DeclaredStage -Backend $backend) -eq 'dev') {
+    Write-Info (Get-Label 'install.stage-dev')
+}
+Write-Step (Get-Label 'install.etape-prerequis')
 
 # --- VIGIE S'INSTALLE DANS PROGRAM FILES ------------------------------------
 #

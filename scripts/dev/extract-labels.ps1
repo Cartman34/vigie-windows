@@ -82,7 +82,7 @@ function Read-Expression {
         param($node)
         if ($node -is [System.Management.Automation.Language.ParenExpressionAst]) {
             # UNE PARENTHESE PEUT CONTENIR UN APPEL, pas seulement une expression :
-            # « (Get-EnvironmentLabel -Environment $e) » n'a pas de .Expression. Sans ce
+            # « (Get-StageLabel -Stage $e) » n'a pas de .Expression. Sans ce
             # controle, l'argument disparaissait en silence et l'appel produit finissait
             # par « Get-Label 'cle' ) ».
             $inner = $node.Pipeline.PipelineElements[0]
