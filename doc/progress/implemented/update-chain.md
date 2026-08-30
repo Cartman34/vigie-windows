@@ -41,6 +41,25 @@ Elle compare l'installation partagée **à ce que le bouton irait chercher** : l
 dernière version publiée sinon. Quand elle ne peut pas lire la source, elle affiche le message de git plutôt qu'un
 verdict inventé.
 
+## Où en est la séquence cible
+
+La cible est décrite dans [`../targeting/install-update.md`](../targeting/install-update.md). Posé le 30/08 :
+
+| | |
+|---|---|
+| Verrou d'installation | `Lock-Install` / `Unlock-Install`, avec verrou orphelin ignoré — éprouvé |
+| Refus si une opération tourne | l'installation lit les marques d'occupation et nomme ce qui tourne |
+| Récupération avant l'arrêt | `vigie-update.ps1 -PrepareOnly` marque, fabrique, extrait, et rend le dossier |
+| Contrôles avant l'arrêt | `Test-DeploymentPossible` — écriture réelle et espace disque — éprouvé |
+| Arrêts | tâches d'app cliente, balayage des app clientes hors tâche, tâche serveur |
+| Sauvegarde, vérification, restauration | `Backup-Install`, `Test-InstallCopy`, `Restore-Install` — éprouvés sur un arbre jetable |
+| Copie | `Copy-InstallFrom`, réglages de la machine préservés — éprouvé |
+| Réparation des tâches | toutes les tâches d'app cliente, pas seulement celle du compte courant |
+| Le bouton appelle l'installation | plus de second geste ; `-Requester`, `-Force`, `-NoWindow` |
+
+**Ce qui n'est pas éprouvé :** la séquence complète, qui demande l'élévation — donc `setup.cmd` lancé par une personne,
+et le bouton de la carte.
+
 ## Écarts connus
 
 - Le `fetch` depuis un dépôt local **exige** `safe.directory` : mesuré le 30/08, git refuse même la lecture d'un dépôt
