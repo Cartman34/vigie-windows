@@ -206,6 +206,8 @@
   "install.app-serveur-toujours-la": "L'app serveur écoute encore : ses fichiers vont être remplacés pendant qu'elle tourne.",
   "install.arret-app-clientes-impossible": "Arrêt des app clientes impossible : {0}",
   "install.bascule-en-powershell": "Bascule en PowerShell 7...",
+  "install.carte-non-redemandee": "Carte « {0} » non recalculée ({1}) : elle reviendra au premier clic sur son bouton.",
+  "install.carte-redemandee": "Carte « {0} » recalculée : elle est de nouveau affichable.",
   "install.cette-etape-doit-etre": "Cette étape doit être lancée EN ADMINISTRATEUR (installation pour tous les comptes).",
   "install.confiance-demande-elevation": "Sans élévation, le dépôt n'a pas pu être déclaré de confiance pour git : la mise à jour depuis l'interface échouera tant que ce ne sera pas fait.",
   "install.confiance-impossible": "Déclaration de confiance impossible : {0}",

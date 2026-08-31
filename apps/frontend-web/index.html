@@ -308,6 +308,10 @@
   .card-refresh{background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;width:26px;height:26px;line-height:1;cursor:pointer;flex:0 0 auto;font-size:14px;padding:0}
   .card-refresh:hover{border-color:var(--accent);color:var(--text)}
   .card.card-loading{opacity:.55;pointer-events:none}
+  /* EN ATTENTE DE MESURE : on la voit, on la lit, et surtout on peut la demander --
+     « pointer-events:none » aurait rendu son propre bouton d'actualisation inutilisable,
+     donc la carte serait restee vide pour toujours. */
+  .card.card-loading .card-refresh{pointer-events:auto}
   .card-menu{font-weight:700;letter-spacing:1px}
   /* --- Tiroir de gestion des modules (D48) --- */
   .um{border:1px solid var(--border);border-radius:10px;padding:0;margin:0 0 10px;overflow:hidden}
@@ -1038,7 +1042,10 @@ function cardHtml(m, groupLabel){
                 : (busy&&!cetteAction ? L('ui.operation-en-cours-sur') : (h||a.label));
     return `<button class="act k-${kind} sev-${sev}${bcls}"${dis}${attributsAction(a, m.id, kind)} title="${att(bulle)}">${inner}</button>`;
   }).join('');
-  return `<div class="card st-${st}${m.busy?' busy':''}" data-module="${m.id}" data-theme="${m.theme}">
+  // A RECALCULER : la carte existe, sa mesure n'est pas encore faite. Elle s'affiche
+  // avec sa place et son titre, en attente -- une carte qui disparait laisse un trou que
+  // personne ne comprend, alors qu'une carte vide se lit tout de suite.
+  return `<div class="card st-${st}${m.busy?' busy':''}${m.pending?' card-loading':''}" data-module="${m.id}" data-theme="${m.theme}">
     <div class="card-head">
       <div class="card-titles"><span class="card-group">${esc(groupLabel||'')}</span><span class="name">${m.label}</span></div>
       ${stTxt?`<span class="badge ${st}"><span class="ic vi vi-fw">${stIc}</span>${stTxt}</span>`:''}

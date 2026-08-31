@@ -156,10 +156,30 @@ function Remove-ProbeCache {
             « comptes.probe.ps1@fhaza », « comptes.probe.ps1@Famille »... L'invalidation ne
             retirait donc plus rien, et la carte gardait son rendu d'avant la mise a jour.
         #>
+        <#
+            INVALIDER N'EST PAS OUBLIER.
+
+            On supprimait l'entree. Depuis qu'un affichage ne recalcule plus rien, une
+            sonde sans entree n'a plus de carte du tout : apres une installation, Comptes
+            et Deploiement avaient purement DISPARU de la page. Or une carte vide, en
+            chargement, ne pose aucun probleme -- c'est ce qui avait ete convenu.
+
+            On garde donc le rendu connu et on le marque A RECALCULER : la carte s'affiche,
+            avec son titre et sa place, et dit qu'elle attend sa mesure.
+        #>
         foreach ($k in $Names) {
             foreach ($present in @($ht.Keys)) {
                 if ($present -eq $k -or $present -like ($k + '@*')) {
-                    $ht.Remove($present); $changed = $true
+                    $entree = $ht[$present]
+                    if ($entree -and $entree.module) {
+                        # « at » a l'epoque zero : perimee quel que soit le delai.
+                        try { $entree.at = '0001-01-01T00:00:00.0000000Z' } catch { }
+                        try { Add-Member -InputObject $entree -NotePropertyName 'pending' -NotePropertyValue $true -Force } catch { }
+                        $ht[$present] = $entree
+                    } else {
+                        $ht.Remove($present)
+                    }
+                    $changed = $true
                 }
             }
         }
@@ -4013,6 +4033,13 @@ function Get-State {
             foreach ($mm in @($e.module)) {
                 $modules += $mm
                 if ($mm -and $mm.id) { $chrono["$($mm.id)"] = [double]$t.Elapsed.TotalMilliseconds }
+                # A RECALCULER : la carte s'affiche, et dit qu'elle attend sa mesure.
+                if ($mm -and $e.pending) {
+                    try {
+                        if ($mm -is [System.Collections.IDictionary]) { $mm['pending'] = $true }
+                        else { Add-Member -InputObject $mm -NotePropertyName 'pending' -NotePropertyValue $true -Force }
+                    } catch { }
+                }
             }
         }
     }

@@ -847,6 +847,38 @@ try {
             try { Remove-ProbeCache -Names @('comptes.probe.ps1', 'deployment.probe.ps1') -Backend $backend -VarRoot $varRoot } catch { }
             try { Clear-ModuleLastRun -Module 'deployment' -Backend $backend -VarRoot $varRoot } catch { }
         }
+
+        <#
+            ON REDEMANDE CES DEUX CARTES AU SERVEUR, une fois qu'il est revenu.
+
+            Vider leur rendu etait juste -- il decrivait la version d'avant -- mais depuis
+            qu'un affichage ne recalcule plus rien, une carte sans valeur ne s'affiche
+            PLUS DU TOUT : apres l'installation, Comptes et Deploiement avaient disparu de
+            la page (constate le 31/08). Ce n'est pas au chargement de payer, ni a
+            l'utilisateur de cliquer pour retrouver ce que l'installation a efface : c'est
+            a elle de le redemander.
+
+            On passe par la porte normale -- l'adresse que le bouton d'une carte utilise --
+            plutot que d'ecrire dans le cache du service, ou nous n'avons rien a faire :
+            son var vit dans le profil du compte de service, et nous n'y sommes pas.
+
+            Un echec ici ne compte pas : la carte reviendra au premier clic sur son bouton.
+        #>
+        $jeton = $null
+        try { $jeton = Get-ApiToken -Backend (Join-Path $destPartagee 'apps/backend-pode') } catch { }
+        if ($jeton) {
+            $adresse = try { Get-AppUrl -Config (Get-Config -Backend $backend) } catch { 'http://127.0.0.1:47600' }
+            foreach ($carte in @('accounts', 'deployment')) {
+                try {
+                    $null = Invoke-RestMethod -Method Get -TimeoutSec 90 `
+                                -Uri ($adresse.TrimEnd('/') + '/api/v1/modules/' + $carte + '?fresh=1') `
+                                -Headers @{ Authorization = ('Bearer ' + $jeton) }
+                    Write-Detail (Get-Label 'install.carte-redemandee' $carte)
+                } catch {
+                    Write-Detail (Get-Label 'install.carte-non-redemandee' $carte $_.Exception.Message)
+                }
+            }
+        }
     }
 
     # LE VERDICT SE CALCULE. Write-Outcome compte ce que Write-Fail et Write-Warn ont
