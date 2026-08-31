@@ -66,13 +66,29 @@ if ($sourceRepo -and ($sourceRepo.TrimEnd([char]92, [char]47) -ne $repoRoot.Trim
     $relayScript = Join-Path (Join-Path $sourceRepo 'scripts') 'vigie-update.ps1'
     if (Test-Path -LiteralPath $relayScript) {
         Write-Info (Get-Label 'vigie-update.depuis-le-depot' $sourceRepo)
-        $argv = @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $relayScript + '"'))
+        <#
+            LA SORTIE DOIT TRAVERSER LE RELAIS.
+
+            Start-Process lance un processus a cote : sa sortie ne revient PAS dans la
+            notre. Or ce script a un contrat -- sa DERNIERE LIGNE est le dossier a poser --
+            et l'installation lisait donc la derniere ligne du parent, « Un depot existe
+            sur ce poste... », qu'elle prenait pour un chemin. « La recuperation n'a pas
+            rendu de dossier utilisable », code 1, 56 secondes de fabrication jetees
+            (constate le 31/08 depuis le bouton de la carte ; setup.cmd ne passe jamais
+            par ce relais, d'ou son silence).
+
+            L'operateur d'appel, lui, enchaine les flux : ce que dit la copie du depot est
+            ce que nous disons. Les arguments ne portent plus de guillemets -- ils etaient
+            la pour Start-Process, qui recompose une ligne de commande ; ici chaque
+            element est passe tel quel.
+        #>
+        $argv = @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', $relayScript)
         foreach ($p in $PSBoundParameters.GetEnumerator()) {
             if ($p.Value -is [switch]) { if ($p.Value.IsPresent) { $argv += ('-' + $p.Key) } }
-            else                       { $argv += @(('-' + $p.Key), ('"' + $p.Value + '"')) }
+            else                       { $argv += @(('-' + $p.Key), "$($p.Value)") }
         }
-        $relayRun = Start-Process -FilePath $pwsh -ArgumentList $argv -Wait -PassThru -WindowStyle Hidden
-        exit $relayRun.ExitCode
+        & $pwsh @argv
+        exit $LASTEXITCODE
     }
     Write-Warn (Get-Label 'vigie-update.depot-sans-script' $sourceRepo)
 }
