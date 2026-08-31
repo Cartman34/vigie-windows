@@ -393,6 +393,7 @@
   "tray.la-tache-de-demarrage": "La tâche de démarrage n'a pas pu être lancée : {0}",
   "tray.le-tray-pas-donne": "L'app cliente n'a pas donné signe de vie dans le délai imparti.",
   "tray.le-tray-pas-lu": "L'app cliente n'a PAS lu l'ordre en 10 s : elle est probablement figée.",
+  "tray.menu-notifications-windows": "Notifications Windows…",
   "tray.ordre-depose-tray-pid": "Ordre « {0} » déposé (app cliente, PID {1}). Attente de la confirmation...",
   "tray.ordre-lu-mais-rien": "Ordre lu, mais rien n'est revenu en {0} s.",
   "tray.ordre-lu-par-le": "Ordre lu par l'app cliente.",

@@ -839,6 +839,22 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
         # Les journaux du SERVEUR : c'est ce qu'on veut voir pour diagnostiquer.
         [void]$menu.Items.Add('Ouvrir les journaux', $null, [System.EventHandler]{ Start-Process (Get-LogDir -Backend $backend) })
         <#
+            LES NOTIFICATIONS DE WINDOWS, DEPUIS ICI.
+
+            Quand une notification s'emballe, le premier reflexe est de les couper dans
+            Windows -- c'est ce qu'il a fallu faire sur le compte Famille le 31/08. Les
+            rallumer demande ensuite de retrouver « Parametres > Systeme > Notifications »
+            dans la SESSION de ce compte : on cherche, et on n'y pense plus.
+
+            Le raccourci est donc la, a cote de l'etat qu'il conditionne. Il ouvre la page
+            de Windows, il ne change rien lui-meme : ce reglage appartient a la personne,
+            et Vigie n'a pas a decider si elle veut etre derangee.
+        #>
+        [void]$menu.Items.Add((Get-Label 'tray.menu-notifications-windows'), $null, [System.EventHandler]{
+            try { Start-Process 'ms-settings:notifications' }
+            catch { TLog ("ouverture des notifications Windows impossible : " + $_.Exception.Message) }
+        })
+        <#
             « A PROPOS » MONTRE, IL NE PART PAS.
 
             Ce menu ouvrait directement le depot GitHub : on quittait Vigie pour un
