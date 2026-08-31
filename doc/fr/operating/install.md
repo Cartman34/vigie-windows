@@ -95,7 +95,7 @@ git config --system --add safe.directory C:/chemin/vers/votre/depot
 
 **L'environnement, lui, ne se déduit jamais.** Trouver un dépôt ne fait pas d'un poste une
 machine de développement : `Environment` (`dev` ou `prod`) se déclare dans
-`appsackend-pode\config\config.local.psd1`, et il ne dit pas d'où vient le code —
+`apps\backend-pode\config\config.local.psd1`, et il ne dit pas d'où vient le code —
 c'est `UpdateSource` / `UpdateRemote` qui le disent. Les deux sont indépendants : un
 environnement de développement peut se synchroniser depuis un dépôt distant, une
 production depuis un clone local.

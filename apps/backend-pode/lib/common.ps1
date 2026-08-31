@@ -94,8 +94,8 @@ function Invoke-Native {
         try { [Console]::OutputEncoding = $avant } catch { }
     }
     # winget decore sa sortie de sequences ANSI (surlignage) : illisibles une fois
-    # capturees, on les retire. [...lettre = la forme CSI standard.
-    $texte = (($out | Out-String).TrimEnd()) -replace "\[[0-9;]*[A-Za-z]", ''
+    # capturees, on les retire. [...lettre = la forme CSI standard.
+    $texte = (($out | Out-String).TrimEnd()) -replace "\[[0-9;]*[A-Za-z]", ''
     [pscustomobject]@{ Ok = ($code -eq 0); ExitCode = $code; Output = $texte }
 }
 

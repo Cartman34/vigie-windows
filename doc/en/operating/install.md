@@ -93,7 +93,7 @@ git config --system --add safe.directory C:/path/to/your/repo
 
 **The environment is never deduced.** Finding a repository does not make a machine a
 development one: `Environment` (`dev` or `prod`) is declared in
-`appsackend-pode\config\config.local.psd1`, and it does not say where the code comes
+`apps\backend-pode\config\config.local.psd1`, and it does not say where the code comes
 from — `UpdateSource` / `UpdateRemote` do. The two are independent: a development
 environment may pull from a remote repository, and a production one from a local clone.
 

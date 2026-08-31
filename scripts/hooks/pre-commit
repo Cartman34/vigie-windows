@@ -1,0 +1,22 @@
+#!/bin/sh
+# Vigie — aucun caractere de controle ne part dans un commit.
+#
+# POURQUOI. Le 31/08, trois fois dans la journee, une chaine ecrite depuis un script a
+# transforme un antislash suivi d'une lettre en caractere de controle : une expression
+# reguliere qui ne trouvait plus rien, un « System32\find.exe » coupe en deux, une
+# commande cassee en plein milieu. Chaque fois le fichier avait l'air normal, et chaque
+# fois le defaut a ete trouve des heures plus tard, par l'utilisateur.
+#
+# Ce hook lance la verification d'encodage, qui refuse ces caracteres. C'est mecanique :
+# ca ne depend d'aucune attention, ni de la mienne ni de celle de quelqu'un d'autre.
+#
+# Installation : scripts/install-hooks.ps1 (les hooks ne sont pas versionnes par git,
+# ce fichier en est la source de verite).
+racine=$(git rev-parse --show-toplevel)
+pwsh -NoProfile -File "$racine/scripts/dev/check-encoding.ps1" >/dev/null 2>&1
+if [ $? -ne 0 ]; then
+    echo "Commit refuse : caractere de controle ou encodage invalide."
+    echo "Lancez : pwsh -File scripts/dev/check-encoding.ps1 -Detail"
+    exit 1
+fi
+exit 0

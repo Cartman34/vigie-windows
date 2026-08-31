@@ -93,7 +93,7 @@ installé**, et que **Vigie ne le désinstallera jamais**, à aucun moment.
 
 ### La sauvegarde
 
-Elle vit **hors de toute installation**, à l'échelle de la machine : `%ProgramData%\Sowapps\Vigieackup`, là où
+Elle vit **hors de toute installation**, à l'échelle de la machine : `%ProgramData%\Sowapps\Vigieackup`, là où
 vit déjà la déclaration de l'ordinateur. Elle porte la **version** qu'elle contient, pour qu'on sache ce qu'on
 restaure, et elle est **supprimée dès que la copie est vérifiée** : elle n'existe que le temps du risque.
 
@@ -176,6 +176,6 @@ une intervention.
 | déclaration de l'ordinateur | `%ProgramData%\Sowapps\Vigie\machine.psd1` |
 | installation partagée | `C:\Program Files\Sowapps\Vigie` |
 | clone du service | données du compte de service, dossier `update\depot` |
-| sauvegarde | `%ProgramData%\Sowapps\Vigieackup\installation-<version>` (`Get-InstallBackupRoot`) |
+| sauvegarde | `%ProgramData%\Sowapps\Vigieackup\installation-<version>` (`Get-InstallBackupRoot`) |
 | verrou d'installation | `%ProgramData%\Sowapps\Vigie\` (`Get-InstallLockPath`) |
 | dossier de la machine | `Get-ComputerDataRoot` — une seule définition pour les trois lignes ci-dessus |

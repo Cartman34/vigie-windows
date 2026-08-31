@@ -217,6 +217,34 @@ foreach ($f in $files) {
     # que des fichiers deja accentues : plus juste techniquement, pire en pratique. Le
     # jour ou l'on ajoute un accent dans un fichier jusque-la ASCII, il devient
     # silencieusement non conforme. Une regle uniforme n'a pas de bord ou tomber.
+    <#
+        AUCUN CARACTERE DE CONTROLE DANS UNE SOURCE.
+
+        Trois fois le 31/08, une chaine ecrite depuis un script Python a transforme un
+        antislash suivi d'une lettre en caractere de controle : «  » est devenu un
+        RETOUR ARRIERE dans une expression reguliere qui ne trouvait plus rien, «  » un
+        SAUT DE PAGE au milieu de « System32ind.exe », « 
+ » un retour a la ligne qui
+        a coupe une commande en deux. Chaque fois, le fichier avait l'air normal a la
+        lecture et se comportait de travers.
+
+        Tabulation, retour chariot et saut de ligne sont normaux ; tout le reste en dessous
+        de l'espace est une trace d'echappement rate. C'est mecanique, donc c'est ici que
+        ca se verifie -- pas dans mon attention.
+    #>
+    # PAS DE REGEX ICI : on compare des CODES. La premiere version de cette regle
+    # portait une classe « backslash-x-zero-zero... » qui a ete detruite par une
+    # echappee de plus -- la regle est devenue « [--] » et accusait les tirets. Une
+    # verification des echappements ne peut pas dependre d une echappee.
+    for ($i = 0; $i -lt $text0.Length; $i++) {
+        $code = [int]$text0[$i]
+        if ($code -ge 32 -or $code -eq 9 -or $code -eq 10 -or $code -eq 13) { continue }
+        $ligne = ($text0.Substring(0, $i) -split "`n").Count
+        $issues += @{ File = $rel; Kind = 'controle'
+                      Message = ("caractere de controle 0x{0:X2} ligne {1} -- un echappement a mal tourne" -f $code, $ligne) }
+        break   # une par fichier suffit a le signaler
+    }
+
     $wantBom = ($ext -in '.ps1', '.psd1', '.psm1')
     $hasBom  = Test-HasBom $bytes
 

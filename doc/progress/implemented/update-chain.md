@@ -97,6 +97,6 @@ droits particuliers. Tant qu'il est là :
 - La chaîne complète depuis le bouton de l'interface n'a pas encore été éprouvée de bout en bout.
 - Le verrou n'est lu qu'**après** l'élévation : deux `setup.cmd` lancés coup sur coup ouvrent deux fenêtres et deux
   demandes de droits avant que le second ne soit refusé. Le fichier du verrou est pourtant lisible sans droits.
-- La sauvegarde vit désormais dans `%ProgramData%\Sowapps\Vigieackup` (`Get-InstallBackupRoot`) : hors de toute
+- La sauvegarde vit désormais dans `%ProgramData%\Sowapps\Vigieackup` (`Get-InstallBackupRoot`) : hors de toute
   installation, donc lisible par le `setup.cmd` du dossier installé même si le dépôt source a disparu. L'ancien
   emplacement, sous `var/`, est supprimé par l'installation.
