@@ -14,7 +14,7 @@
   Un administrateur peut choisir l'autre comportement dans Paramètres > Utilisateurs.
 -->
 <style>
-  :root{ --bg:#0d1117; --panel:#161b22; --text:#e6edf3; --muted:#8b949e; --ok:#3fb950; --border:#30363d }
+  :root{ --bg:#0d1117; --panel:#161b22; --text:#e6edf3; --muted:#8b949e; --err:#f85149; --border:#30363d }
   *{box-sizing:border-box}
   body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
        background:var(--bg);color:var(--text);
@@ -29,10 +29,29 @@
 </head>
 <body>
   <div class="box">
+    <!-- LA MARQUE, EN ETAT D'ERREUR. Meme geometrie que partout ailleurs (D01) et memes
+         valeurs que l'icone error.ico : couleur #f85149, jauge a 17 % -- soit une aiguille
+         a 0,17 x 270 degres. Une page qui refuse doit se reconnaitre d'un coup d'oeil. -->
     <svg viewBox="0 0 100 100" aria-hidden="true">
-      <circle cx="50" cy="50" r="45" fill="none" stroke="var(--ok)" stroke-opacity=".35" stroke-width="2.4"/>
-      <path d="M 25.251 74.749 A 35 35 0 1 1 74.749 74.749" fill="none" stroke="#30363d" stroke-width="11" stroke-linecap="round"/>
-      <circle cx="50" cy="50" r="9.5" fill="var(--ok)"/>
+      <defs><path id="arc" d="M 25.251 74.749 A 35 35 0 1 1 74.749 74.749"/></defs>
+      <circle cx="50" cy="50" r="45" fill="none" stroke="var(--err)" stroke-opacity=".35" stroke-width="2.4"/>
+      <use href="#arc" fill="none" stroke="#30363d" stroke-width="11" stroke-linecap="round"/>
+      <g stroke="var(--muted)" stroke-opacity=".35" stroke-width="2">
+        <line x1="25.746" y1="74.254" x2="30.201" y2="69.799"/>
+        <line x1="15.700" y1="50.000" x2="22.000" y2="50.000"/>
+        <line x1="25.746" y1="25.746" x2="30.201" y2="30.201"/>
+        <line x1="50.000" y1="15.700" x2="50.000" y2="22.000"/>
+        <line x1="74.254" y1="25.746" x2="69.799" y2="30.201"/>
+        <line x1="84.300" y1="50.000" x2="78.000" y2="50.000"/>
+        <line x1="74.254" y1="74.254" x2="69.799" y2="69.799"/>
+      </g>
+      <use href="#arc" fill="none" stroke="var(--err)" stroke-width="11" stroke-linecap="round"
+           stroke-dasharray="164.93" stroke-dashoffset="136.89"/>
+      <g transform="rotate(45.9 50 50)" stroke-linecap="round">
+        <line x1="54.243" y1="45.757" x2="27.231" y2="72.769" stroke="#8b1f1a" stroke-opacity=".95" stroke-width="9.8"/>
+        <line x1="54.243" y1="45.757" x2="27.231" y2="72.769" stroke="var(--err)" stroke-width="8.2"/>
+      </g>
+      <circle cx="50" cy="50" r="9.5" fill="var(--err)"/>
       <circle cx="50" cy="50" r="4.2" fill="#f0f6fc"/>
     </svg>
     <h1>Vigie</h1>
