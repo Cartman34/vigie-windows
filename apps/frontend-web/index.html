@@ -312,6 +312,7 @@
      « pointer-events:none » aurait rendu son propre bouton d'actualisation inutilisable,
      donc la carte serait restee vide pour toujours. */
   .card.card-loading .card-refresh{pointer-events:auto}
+  .card-attente{font-size:12.5px;color:var(--muted)}
   .card-menu{font-weight:700;letter-spacing:1px}
   /* --- Tiroir de gestion des modules (D48) --- */
   .um{border:1px solid var(--border);border-radius:10px;padding:0;margin:0 0 10px;overflow:hidden}
@@ -1044,7 +1045,8 @@ function cardHtml(m, groupLabel){
   }).join('');
   // A RECALCULER : la carte existe, sa mesure n'est pas encore faite. Elle s'affiche
   // avec sa place et son titre, en attente -- une carte qui disparait laisse un trou que
-  // personne ne comprend, alors qu'une carte vide se lit tout de suite.
+  // personne ne comprend, alors qu'une carte vide se lit tout de suite. Et si elle n'a
+  // AUCUNE ligne a montrer, elle le dit : une carte vide et muette n'apprend rien.
   return `<div class="card st-${st}${m.busy?' busy':''}${m.pending?' card-loading':''}" data-module="${m.id}" data-theme="${m.theme}">
     <div class="card-head">
       <div class="card-titles"><span class="card-group">${esc(groupLabel||'')}</span><span class="name">${m.label}</span></div>
@@ -1052,7 +1054,7 @@ function cardHtml(m, groupLabel){
       <button class="card-refresh" title="${L('ui.rafraichir-cette-carte')}" onclick="refreshCard('${m.id}',this,true)"><span class="cr-ic vi vi-fw vi-lg">&#xE008;</span></button>
       <button class="card-refresh card-menu" title="${L('ui.gerer-ce-module-activation')}" onclick="openSettings('modules','${m.theme}')"><span class="vi vi-fw vi-lg">&#xE009;</span></button>
     </div>
-    <div class="fields">${fields}</div>
+    <div class="fields">${fields || `<div class="frow"><span class="card-attente">${L(m.pending?'ui.carte-en-attente':'ui.carte-sans-ligne')}</span></div>`}</div>
     ${actions?`<div class="actions">${actions}</div>`:''}
   </div>`;
 }

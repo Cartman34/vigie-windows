@@ -35,7 +35,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 # LE PLAFOND. On le baisse a chaque fois qu'on renomme, jamais on ne le monte.
-$CEILING = 294
+$CEILING = 293
 
 # LE PLAFOND DES NOMS DE FICHIERS. Meme cliquet, compte separe : ceux qui restent sont
 # nommes dans des taches planifiees deja posees et dans des raccourcis, donc ils se

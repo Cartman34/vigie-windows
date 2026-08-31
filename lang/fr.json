@@ -429,6 +429,8 @@
   "ui.aucun-detail-disponible": "Aucun détail disponible.",
   "ui.aucune-mise-jour-installer": "Aucune mise à jour à installer.",
   "ui.basculer-entre-le-theme": "Basculer entre le thème sombre et le thème clair",
+  "ui.carte-en-attente": "Pas encore mesurée. Le bouton de cette carte la remplit.",
+  "ui.carte-sans-ligne": "Rien à afficher pour cette carte.",
   "ui.ce-module-ne-signale": "Ce module ne signale aucun événement : il décrit un état.",
   "ui.ce-que-ca-change": "Ce que ça change sur la ordinateur",
   "ui.ce-que-ca-fait": "Ce que ça fait",

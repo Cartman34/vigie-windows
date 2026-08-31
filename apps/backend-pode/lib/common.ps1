@@ -3856,10 +3856,10 @@ function Get-State {
     $probeFiles = @(Get-ChildItem -Path $probesDir -Recurse -Filter '*.probe.ps1' -ErrorAction SilentlyContinue | Sort-Object FullName)
     # Modules coupes par l'utilisateur (D48) : leurs sondes sortent du calcul ET de
     # l'affichage. Le filtre se fait sur le DOSSIER parent -- un module est un dossier.
-    $unitesCoupees = @(Get-InactiveUnits -Backend $Backend)
-    if ($unitesCoupees.Count -gt 0) {
+    $unitsCoupees = @(Get-InactiveUnits -Backend $Backend)
+    if ($unitsCoupees.Count -gt 0) {
         $probeFiles = @($probeFiles | Where-Object {
-            $unitesCoupees -notcontains (Split-Path (Split-Path $_.FullName -Parent) -Leaf)
+            $unitsCoupees -notcontains (Split-Path (Split-Path $_.FullName -Parent) -Leaf)
         })
     }
     # QUI DEMANDE : les cartes qui parlent de « vous » ont leur propre entree par compte.
@@ -3974,8 +3974,8 @@ function Get-State {
                             et son module.psd1 porte le libelle affiche. On s'en sert :
                             la carte garde sa place et son nom, et dit ce qui a echoue.
                         #>
-                        $unite = Split-Path (Split-Path $sp.File -Parent) -Leaf
-                        $libelle = $unite
+                        $unit = Split-Path (Split-Path $sp.File -Parent) -Leaf
+                        $libelle = $unit
                         try {
                             $decl = Join-Path (Split-Path $sp.File -Parent) 'module.psd1'
                             if (Test-Path -LiteralPath $decl) {
@@ -3983,7 +3983,7 @@ function Get-State {
                                 if ($d.Label) { $libelle = "$($d.Label)" }
                             }
                         } catch { }
-                        $errMod = New-ModuleObject -Id $sp.Name -Theme $unite -Label $libelle -Status 'error' -Fields @(
+                        $errMod = New-ModuleObject -Id $sp.Name -Theme $unit -Label $libelle -Status 'error' -Fields @(
                             New-Field -Key 'error' -Label 'Erreur' -Value $_.Exception.Message -Kind 'text' -Status 'error'
                             New-Field -Key 'probe' -Label 'Sonde' -Value $sp.Name -Kind 'text'
                         )
@@ -4042,6 +4042,33 @@ function Get-State {
                 }
             }
         }
+    }
+
+    <#
+        UNE SONDE A TOUJOURS SA CARTE. SANS EXCEPTION.
+
+        Une carte s'affiche pleine, vide, ou en erreur -- jamais elle ne manque. Une sonde
+        qui n'a jamais rien produit n'avait aucune entree en cache, donc aucune carte :
+        un trou dans la page, dont personne ne peut deviner le contenu.
+
+        On rend donc une carte d'attente, batie sur ce qu'on connait sans executer quoi que
+        ce soit : le module.psd1 du dossier donne son titre, le dossier donne son groupe.
+        Elle porte « en attente de mesure » et son bouton, qui suffit a la remplir.
+    #>
+    $known = @($modules | ForEach-Object { "$($_.id)" })
+    foreach ($pf in $probeFiles) {
+        $unit = Split-Path (Split-Path $pf.FullName -Parent) -Leaf
+        if ($known -contains $unit) { continue }
+        $e = $cache[(Get-ProbeCacheKey -ProbeFile $pf.FullName -Account $stateRequester)]
+        if ($e -and $e.module) { continue }
+        $cardLabel = $unit
+        try {
+            $decl = Import-PowerShellDataFile -Path (Join-Path (Split-Path $pf.FullName -Parent) 'module.psd1')
+            if ($decl.Label) { $cardLabel = "$($decl.Label)" }
+        } catch { }
+        $modules += (New-ModuleObject -Id $unit -Theme $unit -Label $cardLabel -Status 'neutral' -Fields @() -Actions @())
+        $chrono[$unit] = 0
+        try { Add-Member -InputObject $modules[-1] -NotePropertyName 'pending' -NotePropertyValue $true -Force } catch { }
     }
 
     <#
