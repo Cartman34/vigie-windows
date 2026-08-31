@@ -14,6 +14,10 @@
 
 ## Langue & encodage
 - Échanges **en français** ; code **entièrement en anglais**.
+- **Un nom de fichier est du code : il s'écrit en anglais.** Scripts, bibliothèques, actions, sondes. Les *documents*
+  restent en français, c'est la langue du projet. `check-naming.ps1` tient un cliquet séparé sur les noms de fichiers
+  — j'ai créé `reprise.ps1` le 31/08, dans le quart d'heure où j'écrivais la discipline qui l'interdit : la règle était
+  écrite et relue, elle n'était vérifiée nulle part.
 - **Messages de commit en anglais** : c'est du technique, au même titre que le code. Ils étaient écrits en français
   jusqu'au 30/08.
 - **Accents obligatoires** dans les libellés visibles. **UTF-8 partout**, cible **PowerShell 7**.
@@ -66,6 +70,67 @@ ou un fichier de suivi : numéro `Qn`, énoncé complet, options lettrées.
 questions « passent par l'outil de question interactif » : une confusion entre le canal et le format, qui m'a fait
 présenter un moyen comme une règle. Une question se pose en texte, au format ci-dessus ; sans numéro ni options, elle
 reste hors format quel que soit le moyen employé.
+
+## Répondre — court, complet, et à la question posée
+
+**Une question appelle une RÉPONSE, pas une action.** Aucune modification de code, de documentation ou de
+configuration ne s'engage sur la foi d'une question : seule est permise l'analyse — lecture, mesure — strictement
+nécessaire pour répondre. Il pose souvent des questions pour éprouver un raisonnement *avant* de décider ; agir à ce
+moment-là court-circuite sa décision. Répondre d'abord, complètement. Si l'action est évidente, la proposer en une
+phrase à la fin plutôt que de l'exécuter.
+
+**Trois lignes.** Une explication tient en trois lignes : l'affirmation elle-même d'abord, puis ce qu'elle coûte, puis
+ce qu'on a déjà. Cinq paragraphes numérotés pour répondre à « c'est quoi la bonne pratique ? » est un échec, pas de la
+rigueur. Développer seulement s'il le demande.
+
+**Court, mais en phrases complètes.** Ce qu'il refuse est le pavé, pas la grammaire : une réponse en fragments
+télégraphiques (« oui sans session, oui à la main ») est un échec au même titre qu'un mur de texte — il a repris les
+deux. Sautent : les récapitulatifs de ce que le commit dit déjà, les tableaux décoratifs, les reformulations de sa
+demande, la liste de tout ce qui a été vérifié quand rien n'a échoué. Restent : ce qui a changé, ce qui a été trouvé
+d'inattendu, ce qui reste ouvert, et ce qu'il doit décider.
+
+*Quand il dit « pavé » ou « trop long », c'est que la réponse contenait ce que j'avais envie de dire plutôt que ce
+qu'il avait besoin de lire.*
+
+## Un outil plutôt que ma vigilance
+
+**À la deuxième occurrence d'un même défaut, on écrit le vérificateur — avant de corriger le défaut.** Quand une
+consigne déjà donnée est de nouveau enfreinte, il ne veut ni excuses ni promesse d'attention : il veut un outil. Ce que
+je vérifie à l'œil, je le rate.
+
+*Trois violations de la consigne d'encodage en une journée — BOM absent, accents retirés, apostrophes retirées « par
+prudence » — toutes de la même cause : aucune vérification mécanique.*
+
+**Comment l'appliquer :** le vérificateur vit dans `scripts/dev/check-*.ps1`, rend un code de retour exploitable, et
+propose `-Fix` quand la correction est mécanique. En place : `check-encoding`, `check-naming` (cliquet), `check-labels`,
+`check-reachable`, `check-doc`, `check-coherence`, `check-probes`.
+
+## Envelopper les appels système
+
+**Un appel externe qui apparaît une deuxième fois s'enveloppe dans une fonction à nous**, qui devient le seul chemin.
+Les retours inattendus et les absences se traitent alors une fois, au même endroit.
+
+*Le 28/08, `$acl.Access` a rendu une collection vide côté serveur là où elle rendait trois règles depuis une session
+ordinaire. L'appel était écrit à deux endroits ; il ne mentait que dans un, et le contrôle de sécurité a conclu à une
+compromission sur une installation saine. Le 31/08, `Get-NetTCPConnection` levait une erreur là où « personne n'écoute »
+est la bonne réponse : deux pavés rouges dans un déploiement réussi.*
+
+**Comment l'appliquer :** la fonction porte le commentaire qui dit ce que l'appel brut fait de travers — sans lui,
+quelqu'un le réécrira en direct. Exemples : `Get-AclAccessRules`, `Get-PortListener`, `Invoke-Git`.
+
+## Pas de montagnes — faire la chose simple
+
+**Ne pas inventer de cas limites, de conflits ou de garde-fous que personne n'a rencontrés**, et ne pas transformer un
+geste évident en procédure.
+
+*Le 29/08 : un « conflit de ports » entre un serveur et son propre remplaçant, une bascule séparée qui laissait
+l'installation à moitié faite, un commutateur pour autoriser ce qui allait de soi, un garde-fou interdisant
+« admin + session » qui était faux, un plafond de dix minutes sur une attente que le serveur gère seul. Chaque fois :
+du code en plus, une décision de plus à prendre pour lui, un comportement moins évident.*
+
+**Comment l'appliquer :** avant d'ajouter une protection, se demander si le cas s'est produit **une seule fois**. Sinon,
+ne rien ajouter. Une installation installe, un remplacement remplace, une relance relance. Les précautions qui valent
+sont celles qui vérifient le RÉSULTAT (« est-ce que ça écoute vraiment ? »), pas celles qui refusent d'agir.
 
 ## Conventions de nommage — pour que l'erreur soit impossible, pas rattrapée
 
@@ -126,14 +191,14 @@ ne l'étaient déjà pas.
 *Le 31/08, au retour d'une compression : annoncé que `deploy-prod.ps1` n'était plus appelé par personne, et supprimé en
 conséquence. Un bouton de l'interface l'appelait toujours. La phrase venait du résumé ; personne n'avait vérifié.*
 
-**Comment l'appliquer :** le point de reprise est `scripts/dev/reprise.ps1`, et le point d'entrée qui y renvoie est
+**Comment l'appliquer :** le point de reprise est `scripts/dev/restore-context.ps1`, et le point d'entrée qui y renvoie est
 `briefing.md` — valable pour n'importe quel agent. Un fichier chargé automatiquement par l'agent (`CLAUDE.md` pour
 Claude Code) survit à la compression et rend le retour plus sûr, mais il reste **facultatif** : il ne porte aucune
 règle, seulement le chemin. Premier geste au retour, avant toute conclusion et avant toute suppression :
 
 ```powershell
-pwsh -File scripts/dev/reprise.ps1          # les disciplines, la carte des documents, l'état du dépôt
-pwsh -File scripts/dev/reprise.ps1 -Court   # sans le texte des disciplines
+pwsh -File scripts/dev/restore-context.ps1          # les disciplines, la carte des documents, l'état du dépôt
+pwsh -File scripts/dev/restore-context.ps1 -Court   # sans le texte des disciplines
 ```
 
 **Trois affirmations ne se font jamais de mémoire**, quelle que soit la confiance qu'on a dans le souvenir :

@@ -26,8 +26,8 @@ conception ont disparu, et ce qu'il croit savoir de l'état du dépôt a vieilli
 geste au retour, avant toute conclusion, toute suppression, toute livraison :
 
 ```powershell
-pwsh -File scripts/dev/reprise.ps1          # les disciplines, la carte des documents, l'état réel
-pwsh -File scripts/dev/reprise.ps1 -Court   # sans le texte des disciplines
+pwsh -File scripts/dev/restore-context.ps1          # les disciplines, la carte des documents, l'état réel
+pwsh -File scripts/dev/restore-context.ps1 -Court   # sans le texte des disciplines
 ```
 
 Voir la discipline « Revenir d'une compression de contexte ».

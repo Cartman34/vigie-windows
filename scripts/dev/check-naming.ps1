@@ -9,8 +9,14 @@
     marche. Ce qu'il fait : empecher que ca EMPIRE. Le compte ne peut plus monter ; chaque
     fois qu'on baisse, on descend le plafond d'autant. C'est un cliquet : ca ne remonte pas.
 
-    Ce qui est compte : les NOMS -- fonctions, variables, parametres. Restent en francais,
-    volontairement : les commentaires, les libelles affiches, les messages de journal.
+    Ce qui est compte : les NOMS -- fonctions, variables, parametres -- ET LES NOMS DE
+    FICHIERS. Restent en francais, volontairement : les commentaires, les libelles
+    affiches, les messages de journal.
+
+    LES NOMS DE FICHIERS ONT LEUR PROPRE CLIQUET. Le 31/08 j'ai cree « reprise.ps1 » --
+    dans le meme quart d'heure ou j'ecrivais la discipline qui l'interdit. La regle etait
+    ecrite, relue, recopiee : elle n'etait vérifiée nulle part, et ce script comptait les
+    identifiants A L'INTERIEUR des fichiers sans jamais regarder leur nom.
 
     Le lexique ne retient que des mots SANS ambiguite. « source », « note », « archive »,
     « placement », « format » existent dans les deux langues : les compter punirait du
@@ -29,7 +35,12 @@ param(
 $ErrorActionPreference = 'Stop'
 
 # LE PLAFOND. On le baisse a chaque fois qu'on renomme, jamais on ne le monte.
-$CEILING = 296
+$CEILING = 294
+
+# LE PLAFOND DES NOMS DE FICHIERS. Meme cliquet, compte separe : ceux qui restent sont
+# nommes dans des taches planifiees deja posees et dans des raccourcis, donc ils se
+# renomment un par un, pas d'un coup.
+$FILE_CEILING = 3
 
 $FRENCH_WORDS = @(
     'marquer','appliquer','repartir','verrou','carte','compte','tache','chemin',
@@ -38,6 +49,22 @@ $FRENCH_WORDS = @(
     'racine','cible','etat','donnee','reglage','recuperation','depot','voie',
     'piege','porteur','minuteur','puce','titre','resume','mesurer','ecrire',
     'creer','rendre','suivre','aucun','deja','avant','apres','faits','morceaux'
+)
+
+<#
+    LE LEXIQUE DES NOMS DE FICHIERS est plus large que celui des identifiants : un nom de
+    fichier porte souvent le GESTE (« reprise », « sauvegarde », « deploiement »), et pas
+    le vocabulaire technique du code. C'est exactement ce qui est passe le 31/08 : aucun
+    des mots de la liste ci-dessus n'apparaissait dans « reprise.ps1 ».
+
+    « atelier » n'y est PAS : c'est le nom propre de l'outil de developpement (D28), pas
+    un mot francais qu'on aurait laisse trainer.
+#>
+$FRENCH_FILE_WORDS = $FRENCH_WORDS + @(
+    'reprise','essai','sauvegarde','deploiement','journal','outil','aide','demarrage',
+    'arret','jour','nettoyage','verification','securite','utilisateur','parametre',
+    'liste','recherche','lancement','preparation','correction','controle',
+    'comptes','installation','mise','relance','affichage','langue','erreur'
 )
 
 $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
@@ -72,7 +99,25 @@ foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.
     if ($n) { $perFile[$rel] = $n }
 }
 
+<#
+    LES NOMS DE FICHIERS. Meme lexique, meme cliquet.
+
+    On ne regarde que ce qu'on ECRIT : scripts et bibliotheques. Les documents restent en
+    francais -- c'est la langue du projet -- et les libelles aussi.
+#>
+$fileTotal = 0
+$frenchFiles = @()
+foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.ps1','*.psm1','*.cmd','*.vbs' -ErrorAction SilentlyContinue)) {
+    $rel = $f.FullName.Substring($repoRoot.Length).TrimStart([char]92, [char]47).Replace([char]92, [char]47)
+    if ($skipped | Where-Object { $rel -like ($_ + '/*') -or $rel -like ('*/' + $_ + '/*') }) { continue }
+    $base = [IO.Path]::GetFileNameWithoutExtension($f.Name).ToLowerInvariant()
+    foreach ($word in $FRENCH_FILE_WORDS) {
+        if ($base -match ('(^|[-_.])' + $word)) { $fileTotal++; $frenchFiles += $rel; break }
+    }
+}
+
 Write-Info (Get-Label 'check-naming.identifiants-francais-plafond' $total $CEILING)
+Write-Info (Get-Label 'check-naming.fichiers-francais-plafond' $fileTotal $FILE_CEILING)
 
 if ($Detail) {
     foreach ($e in ($perFile.GetEnumerator() | Sort-Object Value -Descending)) {
@@ -84,6 +129,16 @@ if ($Detail) {
     $liste = (($names.GetEnumerator() | Sort-Object Value -Descending |
                Select-Object -First 30 | ForEach-Object { $_.Key }) -join ', ')
     Write-Host (Get-Label 'check-naming.noms' $liste) -ForegroundColor DarkGray
+}
+
+if ($fileTotal -gt $FILE_CEILING) {
+    Write-Fail (Get-Label 'check-naming.fichiers-plafond-depasse' ($fileTotal - $FILE_CEILING))
+    foreach ($rel in $frenchFiles) { Write-Detail $rel }
+    Write-Warn (Get-Label 'check-naming.un-fichier-se-nomme-en-anglais')
+    exit 2
+}
+if ($fileTotal -lt $FILE_CEILING) {
+    Write-Ok (Get-Label 'check-naming.fichiers-de-moins' ($FILE_CEILING - $fileTotal) $fileTotal)
 }
 
 if ($total -gt $CEILING) {

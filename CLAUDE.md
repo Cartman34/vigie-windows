@@ -14,7 +14,7 @@ le dépôt, jamais ici.
    et toute livraison :
 
    ```
-   pwsh -File scripts/dev/reprise.ps1
+   pwsh -File scripts/dev/restore-context.ps1
    ```
 
    Un résumé n'est pas une source : il dit ce qui a été fait, pas ce qui est.

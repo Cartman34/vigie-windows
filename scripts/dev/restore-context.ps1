@@ -1,5 +1,5 @@
 ﻿<#
-    REPRISE : REMETTRE LES REGLES EN PLACE APRES UNE COMPRESSION DE CONTEXTE.
+    RESTORE-CONTEXT : REMETTRE LES REGLES EN PLACE APRES UNE COMPRESSION DE CONTEXTE.
 
     LE PROBLEME. Quand le contexte de l'agent est compresse, il ne reste qu'un RESUME.
     Les disciplines, les decisions et les documents de conception, eux, ne sont plus la.
@@ -32,7 +32,7 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $repoRoot 'apps/backend-pode/lib/common.ps1')
 
-Write-Title (Get-Label 'reprise.titre')
+Write-Title (Get-Label 'restore-context.titre')
 
 <#
     LA CARTE DES DOCUMENTS. Le role de chacun est ecrit ici et NULLE PART AILLEURS sous
@@ -44,21 +44,21 @@ Write-Title (Get-Label 'reprise.titre')
     sans etre verifiee -- et c'est exactement la que le libelle manquant se cache.
 #>
 $documents = @(
-    @{ path = 'doc/en/agent-working/briefing.md';     role = (Get-Label 'reprise.role-briefing') }
-    @{ path = 'doc/en/agent-working/disciplines.md';  role = (Get-Label 'reprise.role-disciplines') }
-    @{ path = 'doc/progress/decisions.md';            role = (Get-Label 'reprise.role-decisions') }
-    @{ path = 'doc/progress/targeting';               role = (Get-Label 'reprise.role-targeting') }
-    @{ path = 'doc/progress/implemented';             role = (Get-Label 'reprise.role-implemented') }
+    @{ path = 'doc/en/agent-working/briefing.md';     role = (Get-Label 'restore-context.role-briefing') }
+    @{ path = 'doc/en/agent-working/disciplines.md';  role = (Get-Label 'restore-context.role-disciplines') }
+    @{ path = 'doc/progress/decisions.md';            role = (Get-Label 'restore-context.role-decisions') }
+    @{ path = 'doc/progress/targeting';               role = (Get-Label 'restore-context.role-targeting') }
+    @{ path = 'doc/progress/implemented';             role = (Get-Label 'restore-context.role-implemented') }
 )
 
 $manquants = 0
-Write-Step (Get-Label 'reprise.etape-documents')
+Write-Step (Get-Label 'restore-context.etape-documents')
 foreach ($d in $documents) {
     $complet = Join-Path $repoRoot $d.path
     if (Test-Path -LiteralPath $complet) {
         Write-Detail ($d.path + ' — ' + $d.role)
     } else {
-        Write-Fail (Get-Label 'reprise.document-introuvable' $d.path)
+        Write-Fail (Get-Label 'restore-context.document-introuvable' $d.path)
         $manquants++
     }
 }
@@ -72,7 +72,7 @@ foreach ($d in $documents) {
 if (-not $Court) {
     $disciplines = Join-Path $repoRoot 'doc/en/agent-working/disciplines.md'
     if (Test-Path -LiteralPath $disciplines) {
-        Write-Step (Get-Label 'reprise.etape-disciplines')
+        Write-Step (Get-Label 'restore-context.etape-disciplines')
         Get-Content -LiteralPath $disciplines -Encoding UTF8 | ForEach-Object { Write-Host $_ }
     }
 }
@@ -81,18 +81,18 @@ if (-not $Court) {
     OU EN EST LE DEPOT. Le resume dit ce qui a ete fait ; git dit ce qui EST. Quand les
     deux divergent, c'est git qui a raison.
 #>
-Write-Step (Get-Label 'reprise.etape-depot')
+Write-Step (Get-Label 'restore-context.etape-depot')
 $branche = Invoke-Git -Path $repoRoot -Arguments @('rev-parse', '--abbrev-ref', 'HEAD')
-Write-Detail (Get-Label 'reprise.branche' "$branche".Trim())
+Write-Detail (Get-Label 'restore-context.branche' "$branche".Trim())
 foreach ($ligne in @(Invoke-Git -Path $repoRoot -Arguments @('log', '--oneline', '-5'))) {
     if ("$ligne".Trim()) { Write-Detail "$ligne" }
 }
 $enCours = @(Invoke-Git -Path $repoRoot -Arguments @('status', '--short') | Where-Object { "$_".Trim() })
 if ($enCours.Count) {
-    Write-Warn (Get-Label 'reprise.travail-en-cours' $enCours.Count)
+    Write-Warn (Get-Label 'restore-context.travail-en-cours' $enCours.Count)
     foreach ($ligne in $enCours) { Write-Detail "$ligne" }
 } else {
-    Write-Detail (Get-Label 'reprise.rien-en-cours')
+    Write-Detail (Get-Label 'restore-context.rien-en-cours')
 }
 
 <#
@@ -103,14 +103,14 @@ if ($enCours.Count) {
     corrige », « eprouve »), et ces affirmations vieillissent. Les vérificateurs, eux,
     ne vieillissent pas.
 #>
-Write-Step (Get-Label 'reprise.etape-preuve')
-Write-Detail (Get-Label 'reprise.preuve-reachable')
-Write-Detail (Get-Label 'reprise.preuve-decisions')
-Write-Detail (Get-Label 'reprise.preuve-verificateurs')
+Write-Step (Get-Label 'restore-context.etape-preuve')
+Write-Detail (Get-Label 'restore-context.preuve-reachable')
+Write-Detail (Get-Label 'restore-context.preuve-decisions')
+Write-Detail (Get-Label 'restore-context.preuve-verificateurs')
 
 if ($manquants) {
-    Write-Fail (Get-Label 'reprise.documents-manquants' $manquants)
+    Write-Fail (Get-Label 'restore-context.documents-manquants' $manquants)
     exit 1
 }
-Write-Ok (Get-Label 'reprise.pret')
+Write-Ok (Get-Label 'restore-context.pret')
 exit 0
