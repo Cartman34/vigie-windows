@@ -92,6 +92,23 @@ passer par l'interface. L'affichage des boutons, lui, est calculé au rendu des 
 cache commun ; un bouton peut donc apparaître actif et se faire refuser au clic, avec sa raison. Une action ne
 disparaît jamais (D59) : elle se voit et s'explique.
 
+## Une fenêtre qui ne dit pas qui elle est
+
+Ouvrir l'adresse à la main — navigation privée, signet, autre navigateur — n'associe la fenêtre à aucun compte. Vigie
+servait pourtant le panneau **entier**, jeton d'API compris : n'importe quel programme du poste pouvait lire l'état de
+la machine et agir. *Constaté le 31/08 en navigation privée : tout était visible.*
+
+Le comportement est **réglable par un administrateur**, dans Paramètres > Utilisateurs, et vaut pour tout l'ordinateur
+(`AnonymousAccess`, dans `machine.psd1`) :
+
+| | |
+|---|---|
+| `error` — **le défaut** | `apps/frontend-web/no-session.html`, servie en 403 : ni état, ni jeton, ni liste de cartes. Elle ne dit pas non plus ce qui manque exactement — « ouvrez Vigie depuis son icône » suffit à qui a le droit d'être là. |
+| `cards` | le panneau, avec les droits d'un compte standard : les actions qui touchent la machine restent refusées. |
+
+L'écriture du réglage est vérifiée **côté serveur** — compte administrateur ET serveur élevé — parce qu'un menu grisé
+n'est qu'un affichage.
+
 ## Les cercles de comptes
 
 | | | |

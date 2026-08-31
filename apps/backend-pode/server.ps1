@@ -218,7 +218,42 @@ Add-PodeRoute -Method Get -Path "$base/users" -ScriptBlock {
         installPath = $(if (Get-SharedInstallPath) { Get-SharedInstallPath } else { Get-RepoRoot })
         # L'interface doit pouvoir dire POURQUOI les interrupteurs sont inertes.
         canWrite = [bool](Test-IsElevated)
+        # Ce que voit une fenetre sans session. Meme ecran, meme question : qui a le droit
+        # de voir quoi.
+        anonymousAccess = (Get-AnonymousAccess -Backend $env:VIGIE_BACKEND)
     } -Depth 6
+}
+
+<#
+    CHANGER CE QUE VOIT UNE FENETRE SANS SESSION -- ADMINISTRATEUR SEULEMENT.
+
+    Le reglage vit dans la declaration de l'ordinateur : il vaut pour toutes les
+    installations de la machine. On demande donc les memes droits que pour toute action
+    qui la touche, et on le verifie ICI : un bouton grise n'est qu'un affichage.
+#>
+Add-PodeRoute -Method Post -Path "$base/anonymous-access" -ScriptBlock {
+    . "$env:VIGIE_BACKEND/lib/common.ps1"
+    $wanted = ''
+    try { $wanted = "$($WebEvent.Data.mode)".Trim().ToLowerInvariant() } catch { }
+    if ($wanted -notin @('error', 'cards')) {
+        Write-PodeJsonResponse -StatusCode 400 -Value @{ error = "Valeur attendue : « error » ou « cards »." }
+        return
+    }
+    $who = Get-RequesterAccount
+    $isAdmin = $false
+    if ($who) { try { $isAdmin = [bool](Get-AccountByName -Name $who -Backend $env:VIGIE_BACKEND).admin } catch { } }
+    if (-not $isAdmin -or -not (Test-IsElevated)) {
+        Write-PodeJsonResponse -StatusCode 403 -Value @{ error = "Ce réglage vaut pour tout l'ordinateur : il demande un compte administrateur." }
+        return
+    }
+    try {
+        $written = Set-ComputerConfigValue -Values @{ AnonymousAccess = $wanted }
+        Write-Log -Backend $env:VIGIE_BACKEND -Name 'session' `
+                  -Message ("Fenetre sans session : « " + $wanted + " », decide par " + $who + " (" + $written + ")")
+        Write-PodeJsonResponse -Value @{ anonymousAccess = (Get-AnonymousAccess -Backend $env:VIGIE_BACKEND) }
+    } catch {
+        Write-PodeJsonResponse -StatusCode 500 -Value @{ error = "$($_.Exception.Message)" }
+    }
 }
 Add-PodeRoute -Method Post -Path "$base/users/:name" -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
@@ -478,6 +513,26 @@ Add-PodeRoute -Method Get -Path '/' -ScriptBlock {
         #>
         Move-PodeResponseUrl -Url '/'
         return
+    }
+
+    <#
+        SANS SESSION, ON NE SERT PAS LE PANNEAU -- c'est le defaut, et un administrateur
+        peut en decider autrement (Get-AnonymousAccess).
+
+        Le panneau porte le jeton d'API : le servir a une fenetre qui ne dit pas qui elle
+        est, c'est donner l'etat de la machine et le droit d'agir a n'importe quel
+        programme du poste. Constate le 31/08 en navigation privee : tout etait visible.
+
+        La page rendue a la place ne contient ni etat, ni jeton, ni liste de cartes, et ne
+        dit pas ce qui manque exactement : celui qui a le droit d'etre la ouvre Vigie par
+        son icone, les autres n'apprennent rien.
+    #>
+    if (-not (Get-RequesterAccount) -and (Get-AnonymousAccess -Backend $env:VIGIE_BACKEND) -eq 'error') {
+        $refus = Join-Path $front 'no-session.html'
+        if (Test-Path -LiteralPath $refus) {
+            Write-PodeTextResponse -Value (Get-Content -Path $refus -Raw) -ContentType 'text/html; charset=utf-8' -StatusCode 403
+            return
+        }
     }
 
     $html  = Get-Content -Path (Join-Path $front 'index.html') -Raw

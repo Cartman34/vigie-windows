@@ -6118,6 +6118,31 @@ function New-JobId { [guid]::NewGuid().ToString('N').Substring(0, 12) }
 #   - l'environnement DECLARE : ce que la machine dit vouloir etre (reglage, defaut prod) ;
 #   - l'environnement OBSERVE : d'ou le code qui tourne vient REELLEMENT.
 # Quand les deux different, c'est un defaut nomme, pas un mystere.
+<#
+    CE QUE VOIT UNE FENETRE QUI NE DIT PAS QUI ELLE EST.
+
+    Ouvrir l'adresse a la main -- une navigation privee, un signet, un autre navigateur --
+    ne prouve rien : il n'y a pas de session, donc Vigie ne sait pas qui regarde. Elle
+    servait pourtant le panneau ENTIER, jeton d'API compris. N'importe quel programme du
+    poste pouvait donc lire l'etat de la machine, et agir.
+
+    Deux comportements, et c'est l'ADMINISTRATEUR qui tranche :
+      'error' (defaut) -- une page qui dit qu'on ne sait pas qui vous etes, et rien
+                          d'autre : ni etat, ni jeton, ni liste de cartes ;
+      'cards'          -- le panneau, avec les droits d'un compte standard : les actions
+                          qui touchent la machine restent refusees (Test-ActionAllowed).
+
+    Le reglage vit dans la declaration de l'ORDINATEUR (machine.psd1) : il vaut pour
+    toutes les installations de la machine, et seul un administrateur peut l'ecrire.
+#>
+function Get-AnonymousAccess {
+    param([string]$Backend = (Get-BackendRoot))
+    $value = ''
+    try { $value = "$((Get-Config -Backend $Backend).AnonymousAccess)".Trim().ToLowerInvariant() } catch { }
+    if ($value -in @('error', 'cards')) { return $value }
+    return 'error'
+}
+
 function Get-DeclaredStage {
     param([string]$Backend = (Get-BackendRoot))
     <#

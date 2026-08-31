@@ -510,6 +510,12 @@
   .cf-step-fin{color:var(--ok);font-weight:600}
   .cf-step-fin .cf-dot{border-color:var(--ok);color:var(--ok)}
   .cf-sep{color:var(--muted);font-size:13px}
+  /* PREMIER MENU DEROULANT DE L'INTERFACE : il n'existait aucun style pour un <select>.
+     Il reprend celui des champs voisins plutot que le rendu brut du navigateur, qui
+     ignore le theme sombre sur Windows. */
+  .um-select{font:inherit;font-size:12.5px;color:var(--text);background:var(--panel-2);
+    border:1px solid var(--border);border-radius:8px;padding:5px 8px;cursor:pointer}
+  .um-select:disabled{opacity:.5;cursor:default}
   .fsolve{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px;border:1px solid currentColor;background:none;cursor:pointer}
   .fsolve svg{width:11px;height:11px;flex:0 0 auto}
   /* L'icone du bouton Resoudre se fond dans la couleur du texte (le type reste indique par la FORME) */
@@ -2789,6 +2795,16 @@ async function renderTabUtilisateurs(pane){
     +"<li>Un compte standard n'obtient <b>aucun droit en plus</b> : Vigie lui refuse les actions administrateur, comme Windows.</li>"
     +'</ul>'
     +(inerte?'<div class="um-note">Modifier ces choix demande un Vigie lancé en administrateur.</div>':'')
+    // CE QUE VOIT UNE FENETRE QUI NE DIT PAS QUI ELLE EST. Meme ecran que les comptes :
+    // c'est la meme question -- qui a le droit de voir quoi.
+    +UI.carte({
+        titre:L('ui.fenetre-sans-session'),
+        detail:L('ui.fenetre-sans-session-detail'),
+        droite:'<select id="anonMode" class="um-select"'+(inerte?' disabled':'')+'>'
+              +'<option value="error"'+((data.anonymousAccess!=='cards')?' selected':'')+'>'+L('ui.anon-page-erreur')+'</option>'
+              +'<option value="cards"'+((data.anonymousAccess==='cards')?' selected':'')+'>'+L('ui.anon-cartes')+'</option>'
+              +'</select>'
+      })
     // CET ECRAN CHOISIT DES COMPTES. RIEN D'AUTRE.
     //
     // Il portait aussi un bouton « Deployer pour tous », qui installait Vigie dans
@@ -2808,6 +2824,20 @@ async function renderTabUtilisateurs(pane){
         +((u.fullName&&u.fullName!==u.name)?'<br><span class="um-mut">'+esc(u.fullName)+'</span>':''),
         UI.interrupteur('data-user="'+esc(u.name)+'"'+((inerte||(!partage&&!u.current))?' disabled':''), u.enabled)
       )));
+  const am=pane.querySelector('#anonMode');
+  if(am){ am.onchange=async()=>{
+    const previous = (data.anonymousAccess==='cards') ? 'cards' : 'error';
+    am.disabled=true;
+    try{
+      const r=await fetch(API+'/anonymous-access',{ method:'POST',
+        headers:{ Authorization:'Bearer '+TOKEN, 'Content-Type':'application/json' },
+        body: JSON.stringify({ mode:am.value }) });
+      if(!r.ok){ const j=await r.json().catch(()=>({})); throw new Error(j.error||('HTTP '+r.status)); }
+      const j=await r.json(); data.anonymousAccess=j.anonymousAccess;
+      toast(j.anonymousAccess==='cards' ? L('ui.anon-cartes-confirme') : L('ui.anon-erreur-confirme'));
+    }catch(e){ am.value=previous; toast(L('ui.reglage-impossible')+(e.message||e)); }
+    am.disabled=false;
+  }; }
   pane.querySelectorAll('[data-user]').forEach(c=>{ c.onchange=async()=>{
     const nom=c.getAttribute('data-user');
     try{

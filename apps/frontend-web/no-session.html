@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vigie</title>
+<!--
+  LA PAGE SERVIE QUAND VIGIE NE SAIT PAS QUI REGARDE.
+
+  Elle ne contient AUCUN état, AUCUN jeton, AUCUNE liste de cartes : c'est tout son
+  intérêt. Elle ne dit pas non plus ce qui manque exactement -- « ouvrez Vigie depuis son
+  icône » suffit à celui qui a le droit d'être là, et n'apprend rien aux autres.
+
+  Un administrateur peut choisir l'autre comportement dans Paramètres > Utilisateurs.
+-->
+<style>
+  :root{ --bg:#0d1117; --panel:#161b22; --text:#e6edf3; --muted:#8b949e; --ok:#3fb950; --border:#30363d }
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+       background:var(--bg);color:var(--text);
+       font-family:"Segoe UI",system-ui,-apple-system,sans-serif}
+  .box{max-width:440px;padding:40px 34px;text-align:center}
+  svg{width:84px;height:84px;margin-bottom:22px}
+  h1{font-size:44px;font-weight:700;letter-spacing:-.03em;margin:0 0 6px}
+  p{color:var(--muted);font-size:14.5px;line-height:1.65;margin:0 0 10px}
+  .hint{margin-top:26px;padding:14px 16px;border:1px solid var(--border);border-radius:10px;
+        background:var(--panel);font-size:13.5px}
+</style>
+</head>
+<body>
+  <div class="box">
+    <svg viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="45" fill="none" stroke="var(--ok)" stroke-opacity=".35" stroke-width="2.4"/>
+      <path d="M 25.251 74.749 A 35 35 0 1 1 74.749 74.749" fill="none" stroke="#30363d" stroke-width="11" stroke-linecap="round"/>
+      <circle cx="50" cy="50" r="9.5" fill="var(--ok)"/>
+      <circle cx="50" cy="50" r="4.2" fill="#f0f6fc"/>
+    </svg>
+    <h1>Vigie</h1>
+    <p>Cette fenêtre n'est associée à aucun compte de cet ordinateur.</p>
+    <div class="hint">Ouvrez Vigie depuis son icône, dans la zone de notification.</div>
+  </div>
+</body>
+</html>
