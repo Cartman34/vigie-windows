@@ -15,5 +15,5 @@ $liste = @(Get-UserAccounts -Force -Backend $backend)
 
 @{
     message = ("Liste actualisée : " + $liste.Count + " compte(s) utilisateur.")
-    result  = @{ ok = $true; invalidate = @('comptes.probe.ps1') }
+    result  = @{ ok = $true; invalidate = @('comptes.probe.ps1', 'deployment.probe.ps1') }
 }

@@ -13,17 +13,4 @@
     # Vigie laisserait son « vous » a tous les suivants.
     PerAccount  = $true
 
-    # Une operation lancee depuis cette carte (deploiement, installation d'une
-    # dependance) peut durer et peut ECHOUER. « Le suivi des erreurs est primordial » :
-    # son sort remonte donc comme n'importe quel autre constat (D82).
-    Notifications = @(
-        @{ Key = 'operation'; Label = 'Déploiement terminé ou en échec'
-           Card = 'deployment'; Field = 'lastrun'
-           Droits = 'admin'; Critique = $false
-           Help = 'Le déploiement ou l''installation d''une dépendance vient de se terminer, ou a échoué.' }
-        @{ Key = 'pwsh-manquant'; Label = 'PowerShell 7 absent ou limité à un compte'
-           Card = 'deployment'; Field = 'pwsh'
-           Droits = 'admin'; Critique = $true
-           Help = 'Les tâches de démarrage lancent PowerShell 7 : sans lui, Vigie ne redémarre pas.' }
-    )
 }

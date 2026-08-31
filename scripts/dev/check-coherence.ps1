@@ -203,7 +203,7 @@ if (Test-Path -LiteralPath $actionsDir) {
         # « path = » n'importe ou, mais pas « $path = » : le premier est une cle rendue
         # a l'appelant, le second une variable de travail.
         #
-        # DEUX FOIS LE MEME PIEGE DANS CETTE LIGNE. D'abord un «  » ecrit depuis un
+        # DEUX FOIS LE MEME PIEGE DANS CETTE LIGNE. D'abord une sequence « backslash-b » ecrite depuis un
         # script Python, ou il vaut le caractere RETOUR ARRIERE : la regle cherchait un
         # caractere de controle et ne trouvait jamais rien. Ensuite une ancre de debut de
         # ligne, qui ne voyait rien des que le resultat tenait sur une seule ligne.

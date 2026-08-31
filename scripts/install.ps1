@@ -762,7 +762,7 @@ try {
             if ($serviceVar) { $varRoots += $serviceVar }
         } catch { }
         foreach ($varRoot in $varRoots) {
-            try { Remove-ProbeCache -Names @('comptes.probe.ps1') -Backend $backend -VarRoot $varRoot } catch { }
+            try { Remove-ProbeCache -Names @('comptes.probe.ps1', 'deployment.probe.ps1') -Backend $backend -VarRoot $varRoot } catch { }
             try { Clear-ModuleLastRun -Module 'deployment' -Backend $backend -VarRoot $varRoot } catch { }
         }
     }

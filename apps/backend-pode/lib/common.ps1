@@ -3247,10 +3247,12 @@ $script:ProbeTtls = @{
     'vbs.probe.ps1'     = 300
     'lock.probe.ps1'    = 600
     'pending.probe.ps1' = 900
-    # La carte Deploiement vit dans cette sonde : elle doit voir arriver un commit, pas
-    # l'apprendre cinq minutes plus tard. Le fetch, lui, garde son propre repit -- ce
-    # recalcul-la ne coute que la lecture de deux marques de version.
-    'comptes.probe.ps1' = 60
+    # LES COMPTES CHANGENT RAREMENT, et cette sonde est calculee DANS la requete (elle
+    # parle de « vous »). Son delai reste large : la payer plus souvent ne rend rien.
+    'comptes.probe.ps1' = 300
+    # LE DEPLOIEMENT, LUI, DOIT VOIR ARRIVER UN COMMIT -- et il est differable, donc ce
+    # delai court ne coute rien a la requete : elle part avec la valeur connue.
+    'deployment.probe.ps1' = 60
     'os.probe.ps1'      = 3600
     'packages.probe.ps1'= 5
     'gaming.probe.ps1'  = 10

@@ -58,7 +58,7 @@ try {
     $argv += @('-FromAction', 'vigie-update')
     # La carte DEPLOIEMENT gere les deploiements -- et elle est toujours la. La carte de
     # debogage, elle, peut etre eteinte : le suivi de l'operation y aurait ete invisible.
-    $lance = [bool](Start-WatchedAction -Module 'deployment' -Probe 'comptes.probe.ps1' `
+    $lance = [bool](Start-WatchedAction -Module 'deployment' -Probe 'deployment.probe.ps1' `
                         -Label 'Mise à jour de Vigie' -Action 'vigie-update' `
                         -File $pwsh -Arguments $argv -Log $journal -Backend $backend)
     Write-Log -Backend $backend -Name 'update' -Message (Get-Label 'vigie-update.mise-jour-lancee-journal' $journal)
@@ -70,5 +70,5 @@ if (-not $lance) { return @{ message = "Impossible de lancer la mise à jour."; 
 
 @{
     message = "Mise à jour lancée. Elle dure une trentaine de secondes, puis Vigie redémarre toute seule."
-    result  = @{ ok = $true; async = $true; module = 'deployment'; invalidate = @('comptes.probe.ps1') }
+    result  = @{ ok = $true; async = $true; module = 'deployment'; invalidate = @('deployment.probe.ps1') }
 }
