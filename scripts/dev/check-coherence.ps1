@@ -182,6 +182,45 @@ foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.
     }
 }
 
+# --- 5. Ce qu'une action rend a une personne ne vit pas chez le service --------------------
+#
+# LE DEFAUT. Une action qui rapatriait des journaux les copiait dans le var de l'APP
+# SERVEUR, puis rendait ce chemin a l'utilisateur. C'etait juste le jour ou c'est ete
+# ecrit : le serveur tournait alors sous le compte de la personne. Depuis qu'il tourne
+# sous un compte de service (28/08), ce dossier est illisible pour tout le monde sauf lui
+# -- « 62 fichiers rapatries », vrai et inutile. Le code n'avait pas bouge ; son sol, si.
+#
+# LA REGLE. Une action qui rend un CHEMIN dans son resultat doit l'avoir construit pour
+# quelqu'un : Get-AccountVarRoot, Get-RequesterAccount, un dossier public. Si elle ne cite
+# que Get-VarPath / Get-LogDir / Get-VarRoot, elle rend un chemin de service a une
+# personne, et personne ne s'en apercevra avant d'essayer de l'ouvrir.
+$actionsDir = Join-Path $repoRoot 'apps/backend-pode/actions'
+if (Test-Path -LiteralPath $actionsDir) {
+    foreach ($f in @(Get-ChildItem -LiteralPath $actionsDir -Filter '*.action.ps1' -File -ErrorAction SilentlyContinue)) {
+        $text = Get-Content -LiteralPath $f.FullName -Raw -Encoding UTF8
+        if (-not $text) { continue }
+        # Rend-elle un chemin ? On cherche « path = » dans le resultat.
+        # « path = » n'importe ou, mais pas « $path = » : le premier est une cle rendue
+        # a l'appelant, le second une variable de travail.
+        #
+        # DEUX FOIS LE MEME PIEGE DANS CETTE LIGNE. D'abord un «  » ecrit depuis un
+        # script Python, ou il vaut le caractere RETOUR ARRIERE : la regle cherchait un
+        # caractere de controle et ne trouvait jamais rien. Ensuite une ancre de debut de
+        # ligne, qui ne voyait rien des que le resultat tenait sur une seule ligne.
+        # Les deux fois, le vert m'a suffi. Une regle se prouve en la faisant ECHOUER.
+        # ON NE LIT PAS LES COMMENTAIRES. « GET /disk/tree?path=... », ecrit dans une
+        # explication, faisait accuser une action qui ne rend aucun chemin.
+        $code = [regex]::Replace($text, '(?s)<#.*?#>', '')
+        $code = ($code -split "`n" | Where-Object { $_ -notmatch '^\s*#' }) -join "`n"
+        if ($code -notmatch '(?<![\w$])path\s*=') { continue }
+        $duService  = ($code -match 'Get-VarPath|Get-LogDir|Get-VarRoot')
+        $duDemandeur = ($code -match 'Get-AccountVarRoot|Get-RequesterAccount')
+        if ($duService -and -not $duDemandeur) {
+            $faults += ("action « {0} » : elle rend un chemin construit sur le var du service -- illisible depuis la session de qui la demande" -f $f.Name)
+        }
+    }
+}
+
 # --- Verdict -----------------------------------------------------------------------------
 Write-Title 'Cohérence'
 Write-Info ("{0} bibliothèque(s) partagée(s), {1} décision(s) connue(s)." -f $libs.Count, $known.Count)
