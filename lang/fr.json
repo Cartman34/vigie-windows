@@ -496,6 +496,7 @@
   "ui.rafraichir-cette-carte": "Rafraîchir cette carte",
   "ui.ranger-les-cartes-comme": "Ranger les cartes comme vous voulez. Le mode suspend les actions le temps du rangement, et rien ne bouge tant que vous n’y êtes pas entré.",
   "ui.recalcul-en-cours": "Recalcul complet : toutes les mesures sont refaites…",
+  "ui.recalcul-pendant-operation": "Recalcul impossible pendant une opération qui bloque tout l'ordinateur : ",
   "ui.reglage-impossible": "Réglage impossible : ",
   "ui.reglages-ouverts": "réglages ouverts",
   "ui.rendu-de-carte-en": "rendu de carte en erreur",

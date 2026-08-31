@@ -43,7 +43,27 @@ if (-not (Test-Path -LiteralPath $source)) {
               result = @{ ok = $false } }
 }
 
-$cible = Join-Path (Join-Path (Get-VarPath -Backend $backend -Kind 'log') 'diag') ($compte + '-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
+<#
+    ON RAPATRIE CHEZ CELUI QUI DEMANDE, PAS CHEZ SOI.
+
+    La copie atterrissait dans le var de l'APP SERVEUR -- c'est-a-dire dans le profil du
+    compte de service, ou une session ordinaire n'a meme pas le droit de LIRE. « Journaux
+    rapatries : 62 fichiers » etait donc vrai et inutile : personne d'autre que le service
+    ne pouvait les ouvrir. Constate le 31/08, en cherchant pourquoi une mise a jour avait
+    echoue.
+
+    Ils vont donc chez le demandeur, dans SON dossier de donnees Vigie, qu'il peut ouvrir
+    d'un double-clic. Sans demandeur identifie -- appel hors session -- on retombe sur le
+    var du serveur : c'est mieux que de ne rien copier.
+#>
+$diagRoot = $null
+$asker = Get-RequesterAccount
+if ($asker) {
+    $askerVar = Get-AccountVarRoot -Account $asker
+    if ($askerVar) { $diagRoot = Join-Path $askerVar 'log' }
+}
+if (-not $diagRoot) { $diagRoot = Get-VarPath -Backend $backend -Kind 'log' }
+$cible = Join-Path (Join-Path $diagRoot 'diag') ($compte + '-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
 New-Item -ItemType Directory -Path $cible -Force | Out-Null
 
 $nb = 0
@@ -74,7 +94,23 @@ $resume -join [Environment]::NewLine | Set-Content -LiteralPath (Join-Path $cibl
 
 Write-Log -Backend $backend -Name 'diag' -Message (Get-Label 'diag-account-logs.journaux-du-compte-rapatries' $compte $nb)
 
+<#
+    ET LA FIN DU DERNIER JOURNAL, DANS LA REPONSE.
+
+    Rapatrier des fichiers repond a « je veux tout garder » ; la question courante est
+    « qu'est-ce qui vient d'echouer ? ». On rend donc aussi les dernieres lignes du
+    journal le plus recent : celui qu'on allait ouvrir en premier de toute facon.
+#>
+$dernier = @(Get-ChildItem -LiteralPath $cible -File -ErrorAction SilentlyContinue |
+             Sort-Object LastWriteTime -Descending | Select-Object -First 1)
+$fin = @()
+if ($dernier.Count) {
+    try { $fin = @(Get-Content -LiteralPath $dernier[0].FullName -Encoding UTF8 -Tail 60 -ErrorAction Stop) } catch { }
+}
+
 @{
     message = ("Journaux du compte " + $compte + " rapatries : " + $nb + " fichier(s).")
-    result  = @{ ok = $true; path = $cible; files = $nb }
+    result  = @{ ok = $true; path = $cible; files = $nb
+                 last = $(if ($dernier.Count) { $dernier[0].Name } else { $null })
+                 tail = $fin }
 }
