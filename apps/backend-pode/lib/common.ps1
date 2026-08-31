@@ -4715,11 +4715,25 @@ function New-LastRunField {
                           -Guide ("Durée : " + $duree +
                                   $(if ($r.log) { [Environment]::NewLine + "Journal : " + $r.log } else { '' })))
     }
+    <#
+        LA VALEUR DIT L'ETAT, LE DETAIL DIT L'HISTOIRE.
+
+        Elle portait tout : « ECHEC le 31/08/2026 10:56 -- Une installation est deja en
+        cours (fhaza, processus 44940, depuis 10:49:18) ». Dans la colonne de droite d'une
+        carte, cela tenait sur trois lignes et poussait le reste ; a cote, les lignes
+        voisines repondent par un mot. Une valeur est ce qu'on lit d'un coup d'oeil.
+
+        On garde donc « Echec » a droite -- rouge, il n'y a rien a ajouter pour le voir --
+        et QUAND, POURQUOI, COMBIEN DE TEMPS et OU LIRE vont dans le detail de la ligne,
+        qui existe pour ca.
+    #>
     $detail = if ($r.error) { "$($r.error)" } else { "code de sortie " + [int]$r.code }
-    return (New-Field -Key $Key -Label "$($r.label)" -Value ("ÉCHEC le " + $quand + " — " + $detail) `
+    return (New-Field -Key $Key -Label "$($r.label)" -Value 'Échec' `
                       -Kind 'text' -Status 'error' `
                       -Help "La dernière opération lancée depuis cette carte a échoué. Elle n'a pas abouti : rien ne s'est fait à moitié sans le dire." `
-                      -Guide $(if ($r.log) { "Journal complet : " + $r.log } else { '' }))
+                      -Guide ("Le " + $quand + " — " + $detail + [Environment]::NewLine +
+                              "Durée : " + $duree +
+                              $(if ($r.log) { [Environment]::NewLine + "Journal complet : " + $r.log } else { '' })))
 }
 
 # --- QUELS COMPTES Windows ont Vigie (D65) ------------------------------------
