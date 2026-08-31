@@ -1666,6 +1666,17 @@ function Sync-ServiceClone {
     $wantedRef    = "$((Get-Config -Backend $Backend).UpdateRef)".Trim()
     $stampFile = Get-VarPath -Backend $Backend -Kind 'cache' -File 'clone-sync.json'
 
+    <#
+        LE REPIT SUIT LA DISTANCE, PAS UNE CONSTANTE.
+
+        Cinq minutes se justifient pour un depot distant : un fetch part sur le reseau.
+        Depuis un DEPOT LOCAL -- le cas d'un poste de developpement -- il coute quelques
+        centaines de millisecondes, et cinq minutes signifient surtout que la carte
+        continue d'afficher « Conforme » longtemps apres un commit. Ajoute au repit de la
+        sonde, l'ecart pouvait atteindre dix minutes.
+    #>
+    if ($remoteUrl -and $remoteUrl -notmatch '^[a-z]+://' -and (Test-PathSafe $remoteUrl)) { $TtlSeconds = 30 }
+
     if (-not $Force -and (Test-Path -LiteralPath $stampFile)) {
         try {
             $j = Get-Content -LiteralPath $stampFile -Raw | ConvertFrom-Json
@@ -3236,7 +3247,10 @@ $script:ProbeTtls = @{
     'vbs.probe.ps1'     = 300
     'lock.probe.ps1'    = 600
     'pending.probe.ps1' = 900
-    'comptes.probe.ps1' = 300
+    # La carte Deploiement vit dans cette sonde : elle doit voir arriver un commit, pas
+    # l'apprendre cinq minutes plus tard. Le fetch, lui, garde son propre repit -- ce
+    # recalcul-la ne coute que la lecture de deux marques de version.
+    'comptes.probe.ps1' = 60
     'os.probe.ps1'      = 3600
     'packages.probe.ps1'= 5
     'gaming.probe.ps1'  = 10
