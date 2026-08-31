@@ -23,6 +23,22 @@
 - **Accents obligatoires** dans les libellés visibles. **UTF-8 partout**, cible **PowerShell 7**.
 - Exception : les **lanceurs** (`run/start/install/*.cmd`) restent en **ASCII** (compat PS 5.1 avant bascule pwsh).
 
+## NODO — l'arrêt immédiat, et il n'a qu'un seul interrupteur
+
+**Dès que le propriétaire écrit `NODO`, plus rien ne change tant qu'il ne le lève pas : aucune modification, aucune
+compilation, aucun commit, aucune publication, aucun artefact. Lire pour répondre est permis ; tout le reste attend,
+aussi petit et aussi évident que cela paraisse.**
+
+C'est la règle du dessus : elle prime sur toutes les autres, y compris sur « une erreur trouvée se corrige » et sur
+« un correctif, un commit ». Une correction évidente, une coquille, un fichier temporaire, un `git add` : tout attend.
+
+**Ce qui reste permis :** lire le dépôt, lancer un vérificateur en lecture seule, relire un journal — bref, ce qu'il
+faut pour **répondre**. Rien qui écrive.
+
+**Qui la lève :** lui, et lui seul. Ni le temps, ni la fin d'une tâche, ni le fait que le sujet ait changé, ni ma
+conviction que ce que je m'apprête à faire est sans risque. En cas de doute sur l'intention — a-t-il écrit le mot pour
+l'appliquer, ou pour en parler ? — on considère qu'il l'applique, et on demande.
+
 ## Jamais de commande ponctuelle — toujours l'installation
 
 **Une correction se pose par un script idempotent, jamais par une commande à taper une fois.** Le 30/08 j'ai proposé un
