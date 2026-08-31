@@ -98,10 +98,18 @@ $trigger.Delay = 'PT45S'
 #>
 $pourCompte = $Account
 if (-not $pourCompte) { $pourCompte = Get-ProcessAccount }
-if ($pourCompte -eq (Get-ServiceAccountName)) {
-    # UN COMPTE DE SERVICE N'OUVRE PAS DE SESSION : une tache Interactive posee chez lui
-    # ne se declenchera jamais, et elle vole sa place a quelqu'un.
-    Write-Fail (Get-Label 'install-autostart.compte-de-service' $pourCompte)
+<#
+    LA LISTE FAIT FOI : on ne pose une tache cliente que pour un compte a qui l'interface
+    permet d'activer Vigie.
+
+    J'avais ecrit « si c'est le compte du service, refuse » -- un filtre a la main, sur un
+    NOM, alors que le cercle existe : Get-UserAccounts, les comptes de personnes. Un compte
+    technique n'y figure pas, et c'est cela qui doit trancher. Recopier le nom du service
+    ici, c'est dupliquer une regle qui vit ailleurs et rater tous les autres comptes qui ne
+    doivent pas non plus en recevoir.
+#>
+if (@(Get-UserAccounts -Backend $backend | ForEach-Object { "$($_.name)" }) -notcontains $pourCompte) {
+    Write-Fail (Get-Label 'install-autostart.compte-hors-liste' $pourCompte)
     exit 1
 }
 $niveau = $(if (Test-LocalAccountIsAdmin -Name $pourCompte) { 'Highest' } else { 'Limited' })
