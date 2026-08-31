@@ -3991,10 +3991,30 @@ function Get-State {
 
     # Assemble les modules depuis le cache (dans l'ordre des fichiers de sondes).
     # Une sonde peut renvoyer UN module ou un TABLEAU de modules (aplati ici).
+    <#
+        ON MESURE CE QUE COUTE CHAQUE CARTE. Pas le total : le detail.
+
+        « Je veux voir ce qui prend du temps a charger, par carte. » Sans cela, un /state
+        lent est un chiffre unique dont on ne peut rien deduire -- il a fallu une journee
+        pour trouver que les 28 secondes venaient d'un controle de droits, et non des
+        sondes qu'on soupconnait.
+
+        Le temps est porte par la carte elle-meme (champ « ms ») et recapitule dans le
+        journal « state ». Il compte le SERVICE : lecture du cache, etat des operations,
+        droits des actions -- tout ce qui se passe pendant que la page attend.
+    #>
     $modules = @()
+    $chrono = @{}
     foreach ($pf in $probeFiles) {
+        $t = [Diagnostics.Stopwatch]::StartNew()
         $e = $cache[(Get-ProbeCacheKey -ProbeFile $pf.FullName -Account $stateRequester)]
-        if ($e -and $e.module) { $modules += $e.module }
+        $t.Stop()
+        if ($e -and $e.module) {
+            foreach ($mm in @($e.module)) {
+                $modules += $mm
+                if ($mm -and $mm.id) { $chrono["$($mm.id)"] = [double]$t.Elapsed.TotalMilliseconds }
+            }
+        }
     }
 
     <#
@@ -4048,6 +4068,7 @@ function Get-State {
     # Droits : chaque action dit si elle est lancable par CE compte, et sinon pourquoi
     # (D65). C'est fait ici, une fois pour toutes, plutot que dans chaque sonde.
     foreach ($m in $modules) {
+        $tDroits = [Diagnostics.Stopwatch]::StartNew()
         foreach ($act in @($m.actions)) {
             if (-not $act -or -not $act.id) { continue }
             $droit = Test-ActionAllowed -Type "$($act.id)" -Backend $Backend
@@ -4061,7 +4082,26 @@ function Get-State {
                 }
             } catch { }
         }
+        $tDroits.Stop()
+        if ($m -and $m.id) {
+            $ms = [math]::Round(([double]$chrono["$($m.id)"] + $tDroits.Elapsed.TotalMilliseconds), 1)
+            $chrono["$($m.id)"] = $ms
+            try {
+                if ($m -is [System.Collections.IDictionary]) { $m['ms'] = $ms }
+                else { Add-Member -InputObject $m -NotePropertyName 'ms' -NotePropertyValue $ms -Force }
+            } catch { }
+        }
     }
+
+    # LE DETAIL, DANS LE JOURNAL : une ligne, triee du plus lent au plus rapide.
+    try {
+        $lignesChrono = @($chrono.GetEnumerator() | Sort-Object Value -Descending |
+                          ForEach-Object { "$($_.Key)=$($_.Value)ms" })
+        if ($lignesChrono.Count) {
+            Write-Log -Backend $Backend -Name 'state' -NoEcho `
+                      -Message ("service par carte : " + ($lignesChrono -join ' '))
+        }
+    } catch { }
 
     $present = @($modules | Select-Object -ExpandProperty theme -Unique)
     $themes  = @($script:ThemeCatalog | Where-Object { $present -contains $_.id })
