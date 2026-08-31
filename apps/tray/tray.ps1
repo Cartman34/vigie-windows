@@ -897,6 +897,22 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
             #>
             $installEnCours = $false
             try { $installEnCours = [bool](Get-InstallLockHolder) } catch { }
+            <#
+                LE SILENCE DURE PLUS LONGTEMPS QUE LE VERROU.
+
+                Le verrou tombe des que l'installation a fini de poser les fichiers -- mais
+                le serveur, lui, redemarre APRES, par sa tache, et met une bonne minute a
+                repondre. Entre les deux, le port s'ouvre avant que les requetes
+                n'aboutissent : exactement la signature du « serveur bloque », qui sortait
+                donc sa bulle a la fin de chaque mise a jour (constate le 31/08).
+
+                On garde donc le silence deux minutes apres la derniere fois qu'on a vu le
+                verrou. Ce n'est pas un delai d'attente : le tray continue de surveiller et
+                d'afficher, il ne DERANGE pas.
+            #>
+            if ($installEnCours) { $state.QuietTicks = [datetime]::UtcNow.AddMinutes(2).Ticks }
+            $silence = $installEnCours
+            try { if ($state.QuietTicks -and [datetime]::UtcNow.Ticks -lt [long]$state.QuietTicks) { $silence = $true } } catch { }
 
             try {
                 [void](Invoke-RestMethod -Uri $healthUrl -TimeoutSec 5 -ErrorAction Stop)
@@ -918,7 +934,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                     # depuis un tray, c'est le couper pour tous les comptes, et le tray
                     # arrive apres lui. La guerison appartient a la tache serveur, qui le
                     # relance, ou a quelqu'un qui clique « Redemarrer le serveur ».
-                    if ($state.HealthKo -eq 3 -and -not $installEnCours) {
+                    if ($state.HealthKo -eq 3 -and -not $silence) {
                         TLog "serveur coince (port ouvert, health muet x3) : signale, pas tue"
                         try {
                             $icon.ShowBalloonTip(8000, (Get-Label 'tray.bulle-coince-titre'),
@@ -955,7 +971,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                     # L'elevation a ete demandee et refusee -- ou pas encore accordee. Ni
                     # panne ni attente : on le dit, et « Redemarrer le serveur » redemande.
                     $app = 'warn'; $lbl = 'Serveur arrêté : relance à autoriser'
-                } elseif ($installEnCours) {
+                } elseif ($silence) {
                     # Le serveur est coupe PARCE QU'ON LE MET A JOUR. Ni bulle, ni relance
                     # -- l'installation le redemarrera elle-meme, et deux relances qui se
                     # croisent, c'est exactement ce qu'on evite.
@@ -1023,7 +1039,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                     }
                     if (-not $state.ModsInit) {
                         $state.Mods = $vus; $state.ModsInit = $true
-                    } elseif ($installEnCours) {
+                    } elseif ($silence) {
                         # PENDANT UNE INSTALLATION, un changement d'etat n'est pas un
                         # evenement : c'est le geste en train de se faire. On met la
                         # reference a jour en silence, pour ne pas annoncer a la fin tout
