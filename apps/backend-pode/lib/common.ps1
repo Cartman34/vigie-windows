@@ -4624,9 +4624,29 @@ function Get-ModuleLastRunPath {
 function Get-FailureReasonFromLog {
     param([Parameter(Mandatory)][string]$Log)
     if (-not $Log -or -not (Test-PathSafe $Log)) { return $null }
+    <#
+        ON LIT EN UTF-8, ET ON SE RATTRAPE SI CE N'EN EST PAS.
+
+        Les journaux ecrits avant que l'affichage ne soit force en UTF-8 sont dans la page
+        de code du systeme : lus en UTF-8, leurs accents deviennent des « ? ». On le
+        DETECTE -- le caractere de remplacement U+FFFD -- et on relit dans la page de code
+        par defaut. Un journal existant ne doit pas devenir illisible parce qu'on a
+        corrige l'ecriture.
+    #>
+    $lines = $null
+    try { $lines = @(Get-Content -LiteralPath $Log -Encoding UTF8 -ErrorAction Stop) } catch { return $null }
+    if (($lines -join '') -match [char]0xFFFD) {
+        # « -Encoding Default » NE VEUT PLUS DIRE « la page de code du systeme » : depuis
+        # PowerShell 7 il vaut UTF-8, donc relire ainsi redonnait exactement les memes
+        # « ? ». On nomme la page de code ANSI de la machine, sans rien supposer.
+        try {
+            $ansi = [Text.Encoding]::GetEncoding([Globalization.CultureInfo]::CurrentCulture.TextInfo.ANSICodePage)
+            $lines = @([IO.File]::ReadAllText($Log, $ansi) -split "`r?`n")
+        } catch { }
+    }
     $reason = $null
     try {
-        foreach ($line in (Get-Content -LiteralPath $Log -Encoding UTF8 -ErrorAction Stop)) {
+        foreach ($line in $lines) {
             # « [X] » est la marque d'echec de console-ui, la meme partout.
             if ("$line" -match '\[X\]\s*(.+?)\s*$') { $reason = $Matches[1].Trim() }
         }

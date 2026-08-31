@@ -30,6 +30,23 @@
     la page de code n'a pas ete changee.
 #>
 
+<#
+    CE QU'ON ECRIT SORT EN UTF-8, MEME REDIRIGE DANS UN FICHIER.
+
+    Un script lance par le veilleur voit sa sortie redirigee vers un journal. Ce que
+    Windows y ecrit suit [Console]::OutputEncoding, qui vaut la page de code du systeme
+    (1252 ici) : les accents partaient donc en latin-1, et la carte affichait « La
+    r?cup?ration n'a pas rendu de dossier utilisable » (constate le 31/08). Le journal
+    n'etait pas relisible non plus.
+
+    C'est pose ICI parce que tout ce qui s'affiche dans ce depot passe par ce fichier :
+    une seule ligne, et aucun script n'a plus a y penser.
+#>
+try {
+    [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
+    $OutputEncoding = [Text.UTF8Encoding]::new($false)
+} catch { }
+
 # Compteur d'echecs du script en cours. Write-Fail l'incremente ; Write-Outcome le lit.
 # C'est ce compteur qui empeche un verdict final complaisant.
 # LES LIBELLES VIENNENT AVEC L'AFFICHAGE. Ces deux fichiers sont voisins : charger l'un
