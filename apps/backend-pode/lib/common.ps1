@@ -3247,9 +3247,9 @@ $script:ProbeTtls = @{
     'vbs.probe.ps1'     = 300
     'lock.probe.ps1'    = 600
     'pending.probe.ps1' = 900
-    # LES COMPTES CHANGENT RAREMENT, et cette sonde est calculee DANS la requete (elle
-    # parle de « vous »). Son delai reste large : la payer plus souvent ne rend rien.
-    'comptes.probe.ps1' = 300
+    # LES COMPTES CHANGENT RAREMENT : creer un compte Windows n'arrive pas dans la
+    # journee. Une heure, et le bouton « Actualiser la liste » pour qui vient d'en creer un.
+    'comptes.probe.ps1' = 3600
     # LE DEPLOIEMENT, LUI, DOIT VOIR ARRIVER UN COMMIT -- et il est differable, donc ce
     # delai court ne coute rien a la requete : elle part avec la valeur connue.
     'deployment.probe.ps1' = 60
@@ -3762,6 +3762,17 @@ function Get-State {
         # Plafonne sous le delai du client (90 s) : attendre plus longtemps que lui
         # reviendrait a travailler pour une requete deja abandonnee.
         [int]$WaitSeconds = 0,
+        <#
+            POUR QUI CALCULE-T-ON ? Une carte qui parle de « vous » a une entree de cache
+            par compte. Le rafraichissement de fond tourne sans session : il ne savait pas
+            pour qui garder son resultat, donc ces cartes-la etaient exclues du differe et
+            recalculees DANS chaque requete -- 2 secondes pour les comptes, 5 pour le
+            deploiement, a chaque affichage.
+
+            On lui dit donc pour qui. Le compte voyage jusqu'au worker, qui ecrit sous la
+            bonne cle, et plus rien n'oblige a calculer pendant que quelqu'un attend.
+        #>
+        [string]$Account,
         # RECALCUL CIBLE : identifiant du module dont on veut des valeurs fraiches, et de
         # LUI SEUL. C'est ce que demande le bouton « Rafraichir » d'une carte : rendre le
         # resultat recalcule, et non la derniere valeur connue pendant qu'un
@@ -3815,7 +3826,7 @@ function Get-State {
         })
     }
     # QUI DEMANDE : les cartes qui parlent de « vous » ont leur propre entree par compte.
-    $stateRequester = Get-RequesterAccount
+    $stateRequester = $(if ($PSBoundParameters.ContainsKey('Account')) { $Account } else { Get-RequesterAccount })
     $stale = @()
     foreach ($pf in $probeFiles) {
         $name = $pf.Name; $stamp = "$($pf.LastWriteTimeUtc.Ticks)"
@@ -3848,12 +3859,19 @@ function Get-State {
     # Le bouton « Rafraichir » (-Force) garde, lui, le recalcul synchrone : c'est ce qu'on
     # lui demande explicitement.
     if (-not $Force -and $stale.Count -gt 0) {
-        # Une sonde VISEE ne se differe JAMAIS : la reponse doit porter son recalcul.
-        # UNE CARTE PAR COMPTE NE SE DIFFERE PAS. Le rafraichissement de fond tourne sans
-        # session : il ne sait pas pour qui recalculer, et ecrirait sous la cle anonyme.
-        # Ces sondes-la sont rapides -- on les calcule dans la requete qui les demande.
-        $sansValeur = @($stale | Where-Object { ($sondesCiblees -contains $_.Key) -or $_.PerAccount -or -not ($cache[$_.Key] -and $cache[$_.Key].module) })
-        $aDifferer  = @($stale | Where-Object { ($sondesCiblees -notcontains $_.Key) -and -not $_.PerAccount -and $cache[$_.Key] -and $cache[$_.Key].module })
+        <#
+            UN AFFICHAGE SERT LE CACHE, ET RIEN D'AUTRE.
+
+            Deux exceptions seulement : une sonde VISEE -- le bouton d'une carte demande
+            son recalcul, la reponse doit le porter -- et une sonde qui n'a RIEN en cache,
+            sinon il n'y aurait rien a montrer.
+
+            « Une carte par compte ne se differe pas » etait la troisieme, et c'etait la
+            plus chere : elle mettait les cartes les plus lourdes dans le chemin de chaque
+            requete. Elle n'a plus lieu d'etre, le worker sachant desormais pour qui.
+        #>
+        $sansValeur = @($stale | Where-Object { ($sondesCiblees -contains $_.Key) -or -not ($cache[$_.Key] -and $cache[$_.Key].module) })
+        $aDifferer  = @($stale | Where-Object { ($sondesCiblees -notcontains $_.Key) -and $cache[$_.Key] -and $cache[$_.Key].module })
         if ($aDifferer.Count -gt 0) {
             $stale = $sansValeur
             # UN SEUL rafraichissement de fond a la fois. On verifie AVANT de lancer :
@@ -3871,7 +3889,8 @@ function Get-State {
             if (-not $dejaEnCours) {
                 try {
                     $w = Join-Path $Backend 'workers/state-refresh.worker.ps1'
-                    $null = Start-DetachedAction -Script $w -Backend $Backend
+                    $null = Start-DetachedAction -Script $w -Backend $Backend `
+                                -ArgsMap @{ account = "$stateRequester" }
                 } catch { }
             }
         }

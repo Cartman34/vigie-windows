@@ -127,6 +127,13 @@ Le rendu des sondes est mis en cache dans un fichier **commun**. Une sonde dont 
 déclare `PerAccount = $true` dans son `module.psd1` et obtient une clé par compte (`comptes.probe.ps1@fhaza`). Le relevé
 lui-même reste neutre : ce qu'on écrit sur le disque doit rester vrai pour n'importe qui.
 
-Deux conséquences tenues par le code : ces cartes ne sont **jamais** différées vers le rafraîchissement de fond (qui
-tourne sans session, donc écrirait sous une clé anonyme), et l'invalidation demandée par une action retire aussi les
-entrées par compte.
+L'invalidation demandée par une action retire aussi les entrées par compte.
+
+**Le rafraîchissement de fond sait pour qui il calcule.** Il tournait sans session, donc il aurait écrit ces cartes
+sous une clé anonyme : elles étaient exclues du différé et recalculées **dans chaque requête** — 2 s pour les comptes,
+5,5 s pour le déploiement, à chaque affichage. Le compte lui est maintenant passé, et plus rien n'oblige à calculer
+pendant que quelqu'un attend.
+
+**Un affichage sert le cache, et rien d'autre.** Deux exceptions : une sonde **visée** par le bouton d'une carte, dont
+la réponse doit porter le recalcul, et une sonde qui n'a encore **rien** en cache. Le recalcul complet appartient au
+bouton ↻ ; le reste vieillit au rythme de chaque sonde, une heure pour les comptes, une minute pour le déploiement.
