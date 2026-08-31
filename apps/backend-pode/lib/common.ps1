@@ -2653,6 +2653,48 @@ function Use-OpenTicket {
 }
 
 # Ouvre une session et rend son identifiant, celui que portera le cookie.
+<#
+    L'URL D'OUVERTURE : LE SEUL CHEMIN POUR EN DEMANDER UNE.
+
+    Le geste est toujours le meme -- lire le secret de SON compte, le presenter au
+    serveur, recevoir une adresse a usage unique -- et il s'ecrivait a deux endroits :
+    dans l'app cliente et dans l'outil de questions. Deux exemplaires, donc deux
+    comportements a tenir : ils n'avaient deja pas le meme delai d'attente.
+
+    ON NE PEUT DEMANDER QUE POUR SOI. Le secret vit dans le profil du compte, avec une ACL
+    explicite : personne d'autre ne le lit, et c'est precisement ce qui fait qu'il prouve
+    une identite. Pour ouvrir une session au nom d'un autre compte, il faut etre dans SA
+    session.
+
+    Rend $null si quoi que ce soit echoue -- l'appelant ouvre alors la page sans
+    identification plutot que de refuser d'ouvrir.
+#>
+function Get-OpenUrl {
+    param(
+        [string]$Account = (Get-ProcessAccount),
+        [string]$BaseUrl,
+        [int]$TimeoutSec = 10,
+        [string]$Backend = (Get-BackendRoot)
+    )
+    if (-not $BaseUrl) { $BaseUrl = Get-AppUrl -Backend $Backend }
+    $BaseUrl = $BaseUrl.TrimEnd('/')
+    $secret = $null
+    try {
+        $secret = Get-AccountSecret -VarRoot (Get-AccountVarRoot -Account $Account) `
+                                    -OwnerSid (Get-AccountSid -Account $Account) -Create
+    } catch { return $null }
+    if (-not $secret) { return $null }
+    $body = @{ account = $Account; secret = $secret } | ConvertTo-Json -Compress
+    $reply = $null
+    try {
+        $reply = Invoke-RestMethod -Method Post -Uri ($BaseUrl + '/api/v1/session/ticket') `
+                                   -ContentType 'application/json' -Body $body `
+                                   -Headers @{ Origin = $BaseUrl } -TimeoutSec $TimeoutSec
+    } catch { return $null }
+    if (-not ($reply -and $reply.ok -and $reply.ticket)) { return $null }
+    return ($BaseUrl + '/?t=' + $reply.ticket)
+}
+
 function New-AccountSession {
     param([Parameter(Mandatory)][string]$Account, [string]$Backend = (Get-BackendRoot))
     $id = New-RandomId
@@ -2662,8 +2704,19 @@ function New-AccountSession {
     return $id
 }
 
-# Le compte derriere une session, ou $null. Les sessions perimees sont effacees au
-# passage : personne d'autre ne fait le menage.
+<#
+    LE COMPTE DERRIERE UNE SESSION, ou $null.
+
+    UNE SESSION NE PERIME PAS. Elle expirait au bout de 24 heures : passe ce delai, la
+    fenetre restait ouverte mais n'appartenait plus a personne -- « vous » disparaissait
+    de la carte des comptes et les actions ne savaient plus qui demandait, sans que rien
+    ne l'annonce. Or ce qui est jetable, c'est l'URL D'OUVERTURE : 30 secondes, une seule
+    presentation. Ce qu'elle laisse, l'identite, doit durer, sinon il faut en redemander
+    une a chaque fois pour un poste ou la personne n'a pas change.
+
+    Une session se termine autrement : le fichier est supprime, ou le compte cesse d'etre
+    active.
+#>
 function Get-SessionAccount {
     param([Parameter(Mandatory)][string]$SessionId, [string]$Backend = (Get-BackendRoot))
     if ($SessionId -notmatch '^[A-Za-z0-9]{8,64}$') { return $null }
@@ -2671,10 +2724,6 @@ function Get-SessionAccount {
     if (-not (Test-Path -LiteralPath $file)) { return $null }
     $data = $null
     try { $data = (Get-Content -LiteralPath $file -Raw | ConvertFrom-Json) } catch { return $null }
-    if (((Get-EpochSeconds) - [double]$data.at) -gt 86400) {
-        Remove-Item -LiteralPath $file -Force -ErrorAction SilentlyContinue
-        return $null
-    }
     return "$($data.account)"
 }
 

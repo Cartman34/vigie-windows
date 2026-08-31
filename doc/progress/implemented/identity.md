@@ -16,8 +16,26 @@ Besoin : `../targeting/features.md`, entrées `CORE-SECURITY` et le socle multi-
 ## La chaîne d'identification
 
 1. L'app cliente lit le **secret** de son compte, dans son profil, protégé par une ACL explicite.
-2. Elle l'échange contre un **ticket** à usage unique (30 s), qu'elle met dans l'URL du panneau.
-3. La page consomme le ticket et reçoit un **cookie de session** (`HttpOnly`, `SameSite=Strict`).
+2. Elle l'échange contre une **adresse d'ouverture** à usage unique (30 s) — `Get-OpenUrl`, le seul chemin pour en
+   demander une, et seulement **pour soi** : le secret ne se lit que depuis la session de son compte.
+3. Le panneau ouvert par cette adresse reçoit un **cookie de session** (`HttpOnly`, `SameSite=Strict`, durée un an),
+   puis le serveur **redirige vers l'adresse principale** — l'adresse d'ouverture ne reste ni dans la barre d'adresse,
+   ni dans un signet, et ce qu'on met en favori est la bonne adresse.
+
+**Ce qui circule est jetable, ce qui reste ne l'est pas.** L'adresse ne vaut qu'une fois et 30 secondes ; la session
+qu'elle ouvre **ne périme pas**. Elle expirait au bout de 24 heures : passé ce délai la fenêtre restait ouverte mais
+n'appartenait plus à personne, sans que rien ne l'annonce. Une session se termine autrement — son fichier est
+supprimé, ou le compte cesse d'être activé.
+
+### Regarder Vigie dans un vrai navigateur
+
+```powershell
+pwsh -File scripts/dev/sign-in-url.ps1          # rend l'adresse, à coller
+pwsh -File scripts/dev/sign-in-url.ps1 -Open    # ouvre directement
+```
+
+Une fois, et le navigateur reste identifié : outils de développement, console et réseau, avec « vous » à la bonne
+ligne et des actions qui savent qui les demande.
 
 Une page ouverte sans preuve d'ouverture — un signet, un rechargement — n'a donc pas de cookie : personne n'est
 « vous », et c'est dit ainsi plutôt que d'attribuer la session au compte de service.

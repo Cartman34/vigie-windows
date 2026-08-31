@@ -63,6 +63,7 @@ $ENTRY_POINTS = [ordered]@{
     'apps/tray/tray.ps1'             = 'lance par la tache de demarrage de chaque compte'
     'apps/atelier/atelier.ps1'       = 'atelier de validation, lance a la main'
     'scripts/dev/decisions.ps1'      = 'consultation de la source de verite, lance a la main'
+    'scripts/dev/sign-in-url.ps1'    = 'adresse d''ouverture pour un vrai navigateur, lance a la main'
 }
 
 # --- Qui nomme qui ----------------------------------------------------------------------

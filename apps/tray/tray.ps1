@@ -480,21 +480,12 @@ public static bool Focus(System.IntPtr h) {
             serait une regression pour un gain nul.
         #>
         $openBrowser = {
-            $target = $url
-            try {
-                $secret = Get-AccountSecret -VarRoot (Get-AccountVarRoot -Account (Get-ProcessAccount)) `
-                                            -OwnerSid (Get-AccountSid -Account (Get-ProcessAccount)) -Create
-                if ($secret) {
-                    $body = @{ account = (Get-ProcessAccount); secret = $secret } | ConvertTo-Json -Compress
-                    $rep = Invoke-RestMethod -Method Post -Uri ($url.TrimEnd('/') + '/api/v1/session/ticket') `
-                                             -ContentType 'application/json' -Body $body `
-                                             -Headers @{ Origin = $url.TrimEnd('/') } -TimeoutSec 5
-                    if ($rep -and $rep.ok -and $rep.ticket) {
-                        $target = $url.TrimEnd('/') + '/?t=' + $rep.ticket
-                        TLog "ticket obtenu"
-                    }
-                }
-            } catch { TLog ("ticket KO : " + $_.Exception.Message) }
+            # UN SEUL CHEMIN pour demander une adresse d'ouverture : Get-OpenUrl. Le geste
+            # etait ecrit ici ET dans l'outil de questions, avec deja deux delais
+            # d'attente differents.
+            $target = $null
+            try { $target = Get-OpenUrl -BaseUrl $url -TimeoutSec 5 -Backend $backend } catch { }
+            if ($target) { TLog "adresse d'ouverture obtenue" } else { TLog "ouverture sans identification" ; $target = $url }
             & $openUrl $target
         }
         $openRepo    = { & $openUrl $repoUrl }

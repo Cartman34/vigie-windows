@@ -420,24 +420,39 @@ Add-PodeRoute -Method Get -Path '/' -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
     $front = Get-AppPath -Role 'frontend'
 
-    # LE TICKET S'ECHANGE ICI CONTRE UN COOKIE. « ?t=... » est consomme, puis disparait :
-    # il ne sert qu'une fois et n'a plus aucune valeur dans l'historique du navigateur.
-    #
-    # Le cookie est HttpOnly -- donc hors de portee du JavaScript de la page -- et sans
-    # date d'expiration, donc il meurt avec le navigateur. SameSite=Strict interdit qu'un
-    # autre site le fasse voyager.
+    <#
+        « ?t=... » S'ECHANGE CONTRE UNE SESSION, PUIS L'ADRESSE REDEVIENT PROPRE.
+
+        L'URL d'ouverture ne vaut QU'UNE FOIS -- 30 secondes, consommee a la premiere
+        presentation -- et ce qu'elle laisse derriere elle, la session, DURE. C'est
+        exactement le partage voulu : ce qui circule est jetable, ce qui reste ne l'est
+        pas.
+
+        On REDIRIGE vers l'adresse principale des que la session est posee. Sans cela,
+        « ?t=... » reste dans la barre d'adresse et dans l'historique : rafraichir la page
+        represente un jeton deja consomme, et ce qu'on met en signet ne marche qu'une
+        fois. Apres la redirection, le signet est la bonne adresse, et la session suit.
+
+        Le cookie est HttpOnly -- hors de portee du JavaScript de la page -- et
+        SameSite=Strict, donc aucun autre site ne le fait voyager. Il porte une duree
+        LONGUE, la un an : sans elle il mourait a la fermeture du navigateur, et l'URL
+        d'ouverture, a usage unique, ne pouvait plus le rendre. On aurait perdu son
+        identite en fermant sa fenetre.
+    #>
     $ticket = $null
     try { $ticket = $WebEvent.Query['t'] } catch { }
     if ($ticket) {
         $account = Use-OpenTicket -Ticket $ticket -Backend $env:VIGIE_BACKEND
         if ($account) {
             $sid = New-AccountSession -Account $account -Backend $env:VIGIE_BACKEND
-            Set-PodeCookie -Name 'vigie_session' -Value $sid -HttpOnly -Strict
+            Set-PodeCookie -Name 'vigie_session' -Value $sid -HttpOnly -Strict -Duration 31536000
             try { Write-Log -Backend $env:VIGIE_BACKEND -Name 'session' `
                             -Message ("Session ouverte pour le compte " + $account) } catch { }
+            Move-PodeResponseUrl -Url '/'
+            return
         } else {
             try { Write-Log -Backend $env:VIGIE_BACKEND -Name 'session' -Level 'WARN' `
-                            -Message "Ticket presente invalide ou perime." } catch { }
+                            -Message "URL d'ouverture invalide ou périmée." } catch { }
         }
     }
 
