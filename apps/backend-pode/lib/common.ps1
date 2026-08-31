@@ -139,9 +139,10 @@ function Update-StateJson {
 # recalculees au prochain /state. Code unique (reutilise par Invoke-ActionById
 # ET les workers detaches). Best-effort, ecriture atomique.
 function Remove-ProbeCache {
-    param([Parameter(Mandatory)][string[]]$Names, [string]$Backend = (Get-BackendRoot))
-    $cacheFile = Get-VarPath -Backend $Backend -Kind 'cache' -File 'state-cache.json'
-    if (-not (Test-Path $cacheFile)) { return }
+    param([Parameter(Mandatory)][string[]]$Names, [string]$Backend = (Get-BackendRoot), [string]$VarRoot)
+    $cacheFile = Get-VarPath -Backend $Backend -VarRoot $VarRoot -Kind 'cache' -File 'state-cache.json'
+    # TEST-PATHSAFE : sur le var d'un autre compte, Test-Path LEVE au lieu de dire « non ».
+    if (-not (Test-PathSafe $cacheFile)) { return }
     try {
         $obj = Get-Content $cacheFile -Raw | ConvertFrom-Json
         $ht = @{}
@@ -1539,6 +1540,38 @@ function Get-NextDeploymentTag {
 }
 
 <#
+    LA VERSION QUI SERA POSEE -- pas celle d'ou l'on part.
+
+    « v0.1.33+13 » n'est pas un numero de version : c'est « le tag v0.1.33, plus treize
+    commits ». C'est la bonne facon de decrire un depot en cours de route, et la mauvaise
+    facon d'annoncer un deploiement -- l'utilisateur lisait « De v0.1.33 vers v0.1.33+13 »
+    partout, alors que ce qui allait etre installe est v0.1.34.
+
+    En stage dev, un deploiement POSE un tag (D96) : ces treize commits deviennent une
+    version. On annonce donc celle-la. Ailleurs -- stage prod, ou rien a poser -- on
+    annonce ce qu'on lit, sans rien promettre.
+
+    Une seule definition, parce que la meme phrase est dite a deux endroits : le journal de
+    l'installation et la carte Deploiement.
+#>
+function Get-IncomingVersion {
+    param(
+        [Parameter(Mandatory)][AllowNull()][AllowEmptyString()][string]$Version,
+        [string]$RepoPath,
+        [string]$Backend = (Get-BackendRoot)
+    )
+    if (-not $Version) { return $Version }
+    # « +N » = des commits par-dessus le dernier tag. Sans lui, rien ne sera pose.
+    if ($Version -notmatch '^v?\d+\.\d+\.\d+\+\d+$') { return $Version }
+    if ((Get-DeclaredStage -Backend $Backend) -ne 'dev') { return $Version }
+    if (-not $RepoPath -or -not (Test-PathSafe $RepoPath)) { return $Version }
+    $next = $null
+    try { $next = Get-NextDeploymentTag -RepoPath $RepoPath } catch { }
+    if ($next) { return $next }
+    return $Version
+}
+
+<#
     DECLARER LE DEPOT DE CONFIANCE POUR GIT, A L'ECHELLE DE L'ORDINATEUR.
 
     Depuis git 2.35, git refuse d'ouvrir un depot appartenant a quelqu'un d'autre :
@@ -1751,7 +1784,10 @@ function Compare-SharedInstall {
         $sync = Sync-ServiceClone -Backend $Backend -Force:$Force
         $reference = 'clone'
         $remote = $sync.remote
-        $here = [pscustomobject][ordered]@{ version = $(if ($sync.version) { $sync.version } else { 'sans version' })
+        # CE QUI SERA POSE, pas « le tag plus N commits » : c'est la version qu'on lira
+        # sur l'installation apres le deploiement.
+        $aPoser = Get-IncomingVersion -Version "$($sync.version)" -RepoPath $sync.path -Backend $Backend
+        $here = [pscustomobject][ordered]@{ version = $(if ($aPoser) { $aPoser } else { 'sans version' })
                                             commit = $sync.commit; at = $null; source = 'clone'
                                             error = $sync.error }
         if ($sync.commit -and $there.commit) {
@@ -2329,6 +2365,16 @@ function Get-ProbeCacheKey {
 function Get-VarPath {
     param(
         [string]$Backend = (Get-BackendRoot),
+        <#
+            LA RACINE D'UN AUTRE COMPTE, quand on doit ecrire ailleurs que chez soi.
+
+            Le var d'une installation dans Program Files vit dans le profil du compte qui
+            EXECUTE (D65) : celui du service pour l'app serveur. L'installation, elle,
+            tourne sous la personne qui a clique -- elle nettoyait donc SON cache, pendant
+            que la carte continuait de lire celui du service. Get-AccountVarRoot donne la
+            bonne racine ; elle passe par ici plutot que d'etre recomposee a la main.
+        #>
+        [string]$VarRoot,
         # 'history' : series de mesures (doc/archives/conception/historique-cible.md). Distinct de
         # 'cache' : un cache perdu se recalcule, un historique perdu ne se recalcule pas.
         # 'run' : etat VIVANT, valable le temps d'un processus (marqueurs de tache de
@@ -2336,9 +2382,13 @@ function Get-VarPath {
         [Parameter(Mandatory)][ValidateSet('cache','log','secrets','history','run')][string]$Kind,
         [string]$File
     )
-    $dir = Join-Path (Get-VarRoot -Backend $Backend) $Kind
-    if (-not (Test-Path -LiteralPath $dir)) {
-        New-Item -ItemType Directory -Path $dir -Force -WhatIf:$false | Out-Null
+    $dir = Join-Path $(if ($VarRoot) { $VarRoot } else { Get-VarRoot -Backend $Backend }) $Kind
+    # TEST-PATHSAFE, ET UNE CREATION QUI NE CRIE PAS. Sur le var d'un AUTRE compte,
+    # Test-Path LEVE au lieu de repondre « non » et New-Item ecrit quatre pavés rouges --
+    # alors qu'on venait seulement lire un chemin pour en effacer un fichier. Un appelant
+    # qui n'a pas le droit s'en apercevra en n'y trouvant rien, sans polluer le journal.
+    if (-not (Test-PathSafe $dir)) {
+        New-Item -ItemType Directory -Path $dir -Force -WhatIf:$false -ErrorAction SilentlyContinue | Out-Null
     }
     if ($File) { return (Join-Path $dir $File) }
     return $dir
@@ -2532,6 +2582,15 @@ function Send-TrayRestartToAll {
 
 # La racine des donnees d'un AUTRE compte. Le chemin etait recopie a la main dans le
 # diagnostic ; une seule definition vaut mieux qu'un accord entre deux copies.
+<#
+    LE COMPTE SOUS LEQUEL TOURNE L'APP SERVEUR.
+
+    Il etait ecrit dans install-service.ps1, qui n'est pas la bibliotheque : tout ce qui
+    doit ecrire ou lire CHEZ LUI -- l'installation qui nettoie le cache de la carte, par
+    exemple -- aurait recopie le nom. Une seule definition, comme pour le nom de la tache.
+#>
+function Get-ServiceAccountName { 'VigieService' }
+
 function Get-AccountVarRoot {
     param([Parameter(Mandatory)][string]$Account)
     $profil = Join-Path $env:SystemDrive (Join-Path 'Users' $Account)
@@ -4476,8 +4535,8 @@ function Test-ActionResourcesFree {
 # silence. Le veilleur (workers/watched-action.worker.ps1) ecrit ici ce qu'il a constate ;
 # la sonde de la carte le relit et en fait une ligne, verte ou rouge.
 function Get-ModuleLastRunPath {
-    param([Parameter(Mandatory)][string]$Module, [string]$Backend = (Get-BackendRoot))
-    Get-VarPath -Backend $Backend -Kind 'cache' -File ('lastrun-' + $Module + '.json')
+    param([Parameter(Mandatory)][string]$Module, [string]$Backend = (Get-BackendRoot), [string]$VarRoot)
+    Get-VarPath -Backend $Backend -VarRoot $VarRoot -Kind 'cache' -File ('lastrun-' + $Module + '.json')
 }
 
 function Set-ModuleLastRun {
@@ -4504,8 +4563,8 @@ function Get-ModuleLastRun {
 }
 
 function Clear-ModuleLastRun {
-    param([Parameter(Mandatory)][string]$Module, [string]$Backend = (Get-BackendRoot))
-    Remove-Item -LiteralPath (Get-ModuleLastRunPath -Module $Module -Backend $Backend) `
+    param([Parameter(Mandatory)][string]$Module, [string]$Backend = (Get-BackendRoot), [string]$VarRoot)
+    Remove-Item -LiteralPath (Get-ModuleLastRunPath -Module $Module -Backend $Backend -VarRoot $VarRoot) `
                 -Force -ErrorAction SilentlyContinue
 }
 

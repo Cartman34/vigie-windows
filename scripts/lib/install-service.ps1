@@ -46,7 +46,7 @@ $backend = Join-Path $repoRoot 'apps/backend-pode'
 . (Join-Path $repoRoot 'scripts/lib/console-ui.ps1')   # le meme affichage que tous les autres scripts
 . (Join-Path $repoRoot 'scripts/lib/i18n.ps1')
 
-$SERVICE_ACCOUNT = 'VigieService'
+$SERVICE_ACCOUNT = Get-ServiceAccountName   # une seule definition, dans common.ps1
 $SERVICE_TASK    = Get-ServiceTaskName   # une seule definition, dans common.ps1
 
 

@@ -251,7 +251,13 @@ $isUpdate = [bool]($current -and $current.version)
 if ($isUpdate) { Write-Title (Get-Label 'install.titre-maj') }
 else            { Write-Title (Get-Label 'install.titre') }
 if ($isUpdate) {
-    Write-Info (Get-Label 'install.de-vers' $current.version $(if ($incoming -and $incoming.version) { $incoming.version } else { '?' }))
+    # ON ANNONCE LA VERSION QUI SERA POSEE. « v0.1.33+13 » decrit un depot en cours de
+    # route ; ce qui sera installe, en stage dev, porte le tag suivant.
+    $vers = '?'
+    if ($incoming -and $incoming.version) {
+        $vers = Get-IncomingVersion -Version "$($incoming.version)" -RepoPath $repoRoot -Backend $backend
+    }
+    Write-Info (Get-Label 'install.de-vers' $current.version $vers)
 }
 # PROD EST LE DEFAUT, ON NE L'ANNONCE PAS. L'application est de production d'abord : le
 # dire a chaque fois n'apprend rien. C'est le stage « developpement » qui merite d'etre
@@ -717,6 +723,37 @@ try {
         if ($toStart.Count) {
             $restarted = @(Start-TrayTasks -Accounts $toStart)
             if ($restarted.Count) { Write-Detail (Get-Label 'install.app-clientes-relancees' ($restarted -join ', ')) }
+        }
+    }
+
+    <#
+        LA CARTE NE DOIT PAS RESTER SUR L'ETAT D'AVANT.
+
+        Deux mensonges constates le 31/08, apres un setup.cmd qui s'etait bien passe :
+        la carte annoncait « Installation partagee v0.1.33 » alors que le pied de page
+        disait v0.1.34 -- son rendu venait du cache, calcule avant le deploiement -- et
+        elle affichait encore « ECHEC le 31/08/2026 09:27 -- code de sortie 5 », le
+        resultat d'une tentative precedente, comme s'il decrivait l'etat actuel.
+
+        Une installation qui reussit efface donc le dernier resultat de ce geste et fait
+        recalculer la carte. Lancee depuis le bouton, c'est le veilleur qui inscrira le
+        resultat reel apres nous.
+
+        ON NETTOIE LA OU LA CARTE LIT. Le var d'une installation dans Program Files vit
+        dans le profil du compte qui EXECUTE, donc celui du SERVICE -- pas le notre, alors
+        que l'installation tourne sous la personne qui a clique. On vise donc les deux :
+        le var du service, et celui d'ici pour le cas ou Vigie est lancee depuis le depot.
+    #>
+    $failuresBeforeVerdict = Get-UiFailureCount
+    if ($failuresBeforeVerdict -eq 0) {
+        $varRoots = @($null)   # $null = notre propre var, deduit du backend
+        try {
+            $serviceVar = Get-AccountVarRoot -Account (Get-ServiceAccountName)
+            if ($serviceVar) { $varRoots += $serviceVar }
+        } catch { }
+        foreach ($varRoot in $varRoots) {
+            try { Remove-ProbeCache -Names @('comptes.probe.ps1') -Backend $backend -VarRoot $varRoot } catch { }
+            try { Clear-ModuleLastRun -Module 'deployment' -Backend $backend -VarRoot $varRoot } catch { }
         }
     }
 
