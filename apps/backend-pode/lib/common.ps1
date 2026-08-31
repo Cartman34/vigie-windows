@@ -5729,6 +5729,29 @@ function Get-ActionPresentation {
     est celui qui execute. Sans cela, tout ce qui ne vient pas d'un navigateur se verrait
     refuser ses propres actions.
 #>
+<#
+    CE COMPTE EST-IL ADMINISTRATEUR ? Une reponse, gardee le temps qu'il faut.
+
+    Cette question est posee pour CHAQUE action de CHAQUE carte a chaque construction de
+    l'etat -- des dizaines de fois. Elle passait par Get-AccountByName, donc par l'
+    inventaire des comptes, qui reinterroge les taches planifiees a chaque appel : 2,2
+    secondes la fois. Mesure le 31/08 : onze appels, 25 secondes, et un /state a 28.
+
+    L'appartenance au groupe des administrateurs ne change pas dans la minute. On la garde
+    cinq minutes, par compte. C'est un cache de LECTURE : il ne decide de rien, il evite
+    de redemander la meme chose a Windows quarante fois de suite.
+#>
+$script:AdminMemo = @{}
+function Test-RequesterIsAdmin {
+    param([Parameter(Mandatory)][string]$Account, [string]$Backend = (Get-BackendRoot))
+    $memo = $script:AdminMemo[$Account]
+    if ($memo -and ((Get-Date) - [datetime]$memo.at).TotalMinutes -lt 5) { return [bool]$memo.admin }
+    $verdict = $false
+    try { $verdict = Test-LocalAccountIsAdmin -Name $Account } catch { }
+    $script:AdminMemo[$Account] = @{ admin = $verdict; at = (Get-Date) }
+    return $verdict
+}
+
 function Test-ActionAllowed {
     param(
         [Parameter(Mandatory)][string]$Type,
@@ -5748,12 +5771,7 @@ function Test-ActionAllowed {
             reason  = "Cette action modifie le système, et Vigie ne sait pas qui la demande. Ouvrez le panneau depuis l'icône de Vigie."
         }
     }
-    $isAdmin = $false
-    try {
-        $who = Get-AccountByName -Name $Requester -Backend $Backend
-        if ($who) { $isAdmin = [bool]$who.admin }
-        else      { $isAdmin = Test-LocalAccountIsAdmin -Name $Requester }
-    } catch { $isAdmin = Test-LocalAccountIsAdmin -Name $Requester }
+    $isAdmin = Test-RequesterIsAdmin -Account $Requester -Backend $Backend
 
     if (-not $isAdmin) {
         return [pscustomobject]@{
