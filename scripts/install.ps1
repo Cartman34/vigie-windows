@@ -775,6 +775,20 @@ try {
                   -NextStep (Get-Label 'install.verdict-panneau')
 
     <#
+        LE VERROU SE LIBERE ICI : L'INSTALLATION EST FINIE.
+
+        Il etait rendu apres la fenetre de fin -- qui attend un clic. Tant que personne ne
+        la fermait, le poste se croyait en cours d'installation : le bouton de la carte
+        repondait « une installation est deja en cours » et rendait le code 4, dix minutes
+        apres que tout etait pose (constate le 31/08 : verrou tenu par le pwsh de 10:49,
+        toujours vivant, fenetre ouverte).
+
+        Ce qui suit -- le verdict affiche, une fenetre, un journal referme -- ne modifie
+        plus rien. Ce n'est pas l'installation, c'est son compte rendu.
+    #>
+    Unlock-Install
+
+    <#
         ET UNE FENETRE, PAS UN « APPUYEZ SUR UNE TOUCHE ».
 
         L'installation se lance par un double-clic : elle doit se conclure comme une
@@ -822,7 +836,6 @@ try {
         }
     } catch { }
 
-    Unlock-Install
     if ($failures -gt 0) { try { Stop-Transcript | Out-Null } catch { }; exit 1 }
 }
 catch {

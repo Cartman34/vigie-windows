@@ -74,7 +74,12 @@ identité lancer, et c'est le seul moyen pour l'app cliente d'un autre compte.
 ### Le verrou d'installation
 
 Il porte **qui le tient** — numéro de processus et heure de pose — et un verrou dont le processus n'existe plus est
-**ignoré**. Sans cela, une installation interrompue brutalement condamnerait le poste jusqu'à une suppression manuelle,
+**ignoré**.
+
+**Il se libère quand la dernière modification est faite, pas au dernier clic.** Il était rendu après la fenêtre de fin,
+qui attend qu'on la ferme : tant qu'elle restait ouverte, le poste se croyait en cours d'installation et le bouton de
+la carte répondait « une installation est déjà en cours » (code 4) alors que tout était posé depuis dix minutes. Le
+verdict, la fenêtre et le journal refermé ne modifient plus rien — c'est le compte rendu, pas l'installation. Sans cela, une installation interrompue brutalement condamnerait le poste jusqu'à une suppression manuelle,
 ce qu'on s'interdit : ce qui manque manque dans l'installation, jamais dans une commande à taper.
 
 Il vit hors de l'installation partagée, avec la déclaration de l'ordinateur (`%ProgramData%\Sowapps\Vigie\`), pour
