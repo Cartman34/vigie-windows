@@ -26,18 +26,22 @@ Une page ouverte sans preuve d'ouverture — un signet, un rechargement — n'a 
 > vit que dans le code (`/session/ticket`, `New-OpenTicket`, `Use-OpenTicket`) et dans cette page. À renommer le jour
 > où l'étape reçoit un nom du projet.
 
-### Écart connu — le raccourci du bureau ouvre une page sans identité
+### Ouvrir l'URL à la main : ça marche, et personne n'est « vous »
 
-L'installation pose `Vigie.url` sur le bureau, qui pointe directement sur `http://127.0.0.1:47600/`, **sans** preuve
-d'ouverture. Ouvert par là, le panneau n'a pas de cookie : la carte des utilisateurs n'affiche « vous » sur personne
-(constaté le 31/08), et surtout **aucune action ne sait qui la demande** — le tag de version se poserait sans
-demandeur, et les cartes par compte n'ont personne à qui se rapporter.
+L'installation **ne pose plus de raccourci sur le bureau**, et retire celui qu'elle avait posé. Il pointait droit sur
+`http://127.0.0.1:47600/`, donc sur un panneau sans preuve d'ouverture : pas de cookie, personne n'est « vous »
+(constaté le 31/08), et surtout **aucune action ne sait qui la demande**. Une porte dégradée qu'on installait
+soi-même sur le bureau de chacun.
 
-L'app cliente, elle, emprunte la chaîne complète : `tray.ps1` demande la preuve d'ouverture puis ouvre `/?t=…`.
+Vigie s'ouvre par son **icône dans la barre système**, qui emprunte la chaîne complète.
 
-Approches envisagées, **aucune tranchée** : le raccourci passe par la même chaîne que l'app cliente ; ou le serveur,
-qui est élevé, remonte du port source d'une connexion locale au processus puis au compte ; ou l'installation cesse de
-poser un raccourci qui mène à une page dégradée.
+**Ouvrir l'URL directement reste possible et doit le rester** : c'est ainsi qu'on regarde et qu'on débogue dans un
+vrai navigateur. La page se sert, le jeton d'API l'authentifie, tout fonctionne — mais le serveur ne sait pas qui la
+regarde, donc « vous » n'apparaît sur personne. C'est un geste de développeur, assumé comme tel.
+
+**Question ouverte, non tranchée :** faut-il que le serveur reconnaisse une connexion **locale** en remontant du port
+source au processus, puis au compte qui l'exécute ? Ce serait une seconde voie d'identification à côté de la preuve
+d'ouverture, et donc un arbitrage à consigner.
 
 ## Les cercles de comptes
 

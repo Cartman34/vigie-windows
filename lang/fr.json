@@ -114,7 +114,7 @@
   "install-autostart.app-barre-systeme-lancee": "App barre système lancée (icone dans la zone de notification). Serveur en fond, panneau sur {0}",
   "install-autostart.installation-annulee-rien-ete": "Installation annulée. Rien n'a été modifié.",
   "install-autostart.pwsh-introuvable-lance-abord": "pwsh introuvable. Lance d'abord install.ps1 (installe PowerShell 7).",
-  "install-autostart.raccourci-bureau-cree": "Raccourci bureau crée : {0}",
+  "install-autostart.raccourci-bureau-retire": "Raccourci bureau retiré : {0} — Vigie s'ouvre par son icône.",
   "install-autostart.tache-enregistree-lancement-ouverture": "Tâche '{0}' enregistrée (lancement a l'ouverture de session, élevé).",
   "install-dev.absent": "  [ABSENT]  {0}",
   "install-dev.dependance-inconnue-connues": "Dépendance inconnue : {0}. Connues : {1}",
