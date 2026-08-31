@@ -1174,6 +1174,19 @@ function Start-PkgJob {
 # processus qu'elle arrete.
 function Get-ServiceTaskName { return 'Vigie - Serveur' }
 
+function Get-ComputerDataRoot {
+    <#
+        LE DOSSIER DE CET ORDINATEUR : %ProgramData%\Sowapps\Vigie.
+
+        Il ne depend d'AUCUNE installation. C'est ce qui compte : ce qui doit survivre au
+        remplacement -- voire a la disparition -- du dossier installe se range ici, jamais
+        sous l'installation elle-meme.
+    #>
+    $base = $env:ProgramData
+    if (-not $base) { $base = Join-Path $env:SystemDrive 'ProgramData' }
+    return (Join-Path (Join-Path $base 'Sowapps') 'Vigie')
+}
+
 function Get-ComputerConfigPath {
     <#
         NE PAS CONFONDRE avec Get-MachineConfigPath, qui existe deja plus bas et designe
@@ -1181,9 +1194,7 @@ function Get-ComputerConfigPath {
         definition etait ecrasee en silence par la sienne, et l'appel echouait sur un
         parametre obligatoire qui n'etait pas le mien. Deux notions, deux noms.
     #>
-    $base = $env:ProgramData
-    if (-not $base) { $base = Join-Path $env:SystemDrive 'ProgramData' }
-    return (Join-Path (Join-Path (Join-Path $base 'Sowapps') 'Vigie') 'machine.psd1')
+    return (Join-Path (Get-ComputerDataRoot) 'machine.psd1')
 }
 
 function Get-Config {
@@ -1927,16 +1938,30 @@ function Test-DeploymentPossible {
         Remove-Item -LiteralPath $probe -Force -ErrorAction SilentlyContinue
     } catch { return ("écriture refusée dans " + $parent + " : " + $_.Exception.Message) }
 
-    # PLACE : on copie, et on garde une sauvegarde -- il faut donc de quoi tenir les deux.
+    <#
+        PLACE : DEUX ENDROITS, ET PLUS FORCEMENT LE MEME DISQUE.
+
+        On pose la nouvelle version a destination, et on garde la precedente en
+        sauvegarde -- qui vit desormais a l'echelle de la machine, pas sous
+        l'installation. Compter « deux fois, sur le disque de destination » etait juste
+        tant que les deux etaient au meme endroit ; avec une destination sur un autre
+        disque, cela reservait le double la ou il n'en faut qu'un, et rien la ou la
+        sauvegarde va reellement s'ecrire.
+    #>
     if ($NeededBytes -gt 0) {
-        try {
-            $drive = (Get-Item -LiteralPath $parent).PSDrive
-            if ($drive -and $drive.Free -lt ($NeededBytes * 2)) {
-                return ("espace disque insuffisant sur " + $drive.Name + " : " +
-                        (Format-ByteSize -Bytes $drive.Free) + " libres, " +
-                        (Format-ByteSize -Bytes ($NeededBytes * 2)) + " nécessaires")
-            }
-        } catch { }
+        foreach ($lieu in @($parent, (Get-InstallBackupRoot))) {
+            try {
+                $racine = $lieu
+                while ($racine -and -not (Test-Path -LiteralPath $racine)) { $racine = Split-Path $racine -Parent }
+                if (-not $racine) { continue }
+                $drive = (Get-Item -LiteralPath $racine).PSDrive
+                if ($drive -and $null -ne $drive.Free -and $drive.Free -lt $NeededBytes) {
+                    return ("espace disque insuffisant sur " + $drive.Name + " : " +
+                            (Format-ByteSize -Bytes $drive.Free) + " libres, " +
+                            (Format-ByteSize -Bytes $NeededBytes) + " nécessaires")
+                }
+            } catch { }
+        }
     }
     return $null
 }
@@ -1953,13 +1978,33 @@ function Test-DeploymentPossible {
     n'existe que le temps du risque.
 #>
 function Get-InstallBackupRoot {
-    param([string]$Backend = (Get-BackendRoot))
-    Join-Path (Get-VarRoot -Backend $Backend) 'backup'
+    <#
+        HORS DE L'INSTALLATION, TOUJOURS.
+
+        La sauvegarde vivait sous var/ de l'app serveur, c'est-a-dire DANS le dossier
+        qu'elle sert a restaurer : le filet etait accroche au trapeze. Trois facons d'y
+        perdre : une copie qui ecrase le dossier emporte la sauvegarde avec, une
+        desinstallation aussi, et le setup.cmd du dossier installe ne peut pas restaurer
+        ce que ce meme dossier contenait.
+
+        Elle vit donc a l'echelle de la MACHINE, la ou vit deja machine.psd1 : le dossier
+        source peut disparaitre, l'installation peut etre remplacee, la version
+        precedente reste la.
+    #>
+    Join-Path (Get-ComputerDataRoot) 'backup'
 }
 
 function Backup-Install {
     param([Parameter(Mandatory)][string]$Source, [string]$Backend = (Get-BackendRoot))
     if (-not (Test-PathSafe $Source)) { return $null }
+    # L'ANCIEN EMPLACEMENT NE SURVIT PAS A UNE INSTALLATION. Il etait sous var/ de l'app
+    # serveur ; le laisser la, c'est garder une copie entiere de Vigie que plus rien ne
+    # lit et que personne ne pense a effacer. L'installation nettoie, elle est
+    # idempotente -- pas de commande a passer a la main.
+    $ancien = Join-Path (Get-VarRoot -Backend $Backend) 'backup'
+    if (Test-Path -LiteralPath $ancien) {
+        Remove-Item -LiteralPath $ancien -Recurse -Force -ErrorAction SilentlyContinue
+    }
     $stamp = Get-BuildStamp -Root $Source
     $name = 'installation-' + $(if ($stamp.version) { "$($stamp.version)" -replace '[^\w\.\+-]', '_' } else { 'inconnue' })
     $root = Get-InstallBackupRoot -Backend $Backend
@@ -2062,7 +2107,7 @@ function Get-PortListener {
         reponse parfaitement normale, et meme celle qu'on espere quand on vient d'arreter
         l'app serveur. Les appelants l'entouraient donc d'un try/catch vide ; sous
         transcription, l'erreur est quand meme ecrite dans le journal d'installation, en
-        anglais, au milieu du recit. Constate le 31/08 : deux paves rouges dans un
+        anglais, au milieu du recit. Constate le 31/08 : deux pavés rouges dans un
         deploiement qui s'etait parfaitement passe.
 
         Un appel systeme qui ment sur ce qu'est une erreur s'enveloppe une fois, ici.
