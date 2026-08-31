@@ -5355,10 +5355,10 @@ function Set-VigieAccountEnabled {
 # aucune raison de faire un detour.
 #
 # « ADMIN » ET « SESSION » VONT TRES BIEN ENSEMBLE, contrairement a ce que j'avais cru.
-# Un compte standard ne voit meme pas les actions admin : Test-ActionAllowed les refuse
-# avant toute execution. Une action admin n'est donc jamais demandee que par un
-# administrateur -- et la tache de tray d'un administrateur tourne en RunLevel Highest,
-# donc elevee. Elle peut faire les deux.
+# Test-ActionAllowed refuse une action admin a un compte standard, et a une fenetre qui
+# ne dit pas qui elle est, AVANT toute execution. Une action admin n'est donc demandee que
+# par un administrateur -- et la tache de tray d'un administrateur tourne en RunLevel
+# Highest, donc elevee. Elle peut faire les deux.
 #
 # Le jour ou l'on voudra qu'un compte standard VOIE ces boutons et declenche une demande
 # d'elevation, ce sera un autre sujet : il faudra qu'un administrateur puisse l'autoriser
@@ -5509,18 +5509,69 @@ function Get-ActionPresentation {
     [pscustomobject]@{ label = $label; kind = $kind; severity = $sev }
 }
 
+<#
+    QUI DEMANDE A-T-IL LE DROIT ? -- ET NON : LE SERVEUR EST-IL ELEVE ?
+
+    Cette fonction posait la mauvaise question. Elle repondait « oui » des que
+    Test-IsElevated etait vrai -- or le serveur tourne SOUS UN COMPTE DE SERVICE
+    ADMINISTRATEUR, donc toujours. Une action « @droits: admin » passait pour n'importe
+    qui : un compte standard, et meme un navigateur ouvert sur l'adresse sans aucune
+    identification. Pendant ce temps l'ecran des utilisateurs affichait « un compte
+    standard n'obtient aucun droit en plus : Vigie lui refuse les actions administrateur ».
+    Le texte promettait une garde qui n'existait pas, et le commentaire d'a cote la
+    decrivait comme acquise.
+
+    D65 tranche : par defaut Vigie ne permet rien de plus que ce que Windows permet deja a
+    ce compte. Une action qui touche la machine se juge donc sur LE DEMANDEUR.
+
+    TROIS REFUS, ET ILS NE DISENT PAS LA MEME CHOSE :
+      - on ne sait pas qui demande -- fenetre ouverte sans identification ;
+      - on sait, et ce compte n'est pas administrateur ;
+      - le demandeur en a le droit, mais le serveur n'est pas eleve : il ne PEUT pas.
+
+    HORS CONTEXTE WEB -- rafraichissement de fond, script lance a la main -- le demandeur
+    est celui qui execute. Sans cela, tout ce qui ne vient pas d'un navigateur se verrait
+    refuser ses propres actions.
+#>
 function Test-ActionAllowed {
     param(
         [Parameter(Mandatory)][string]$Type,
-        [string]$Backend = (Get-BackendRoot)
+        [string]$Backend = (Get-BackendRoot),
+        [AllowNull()][AllowEmptyString()][string]$Requester
     )
     $besoin = Get-ActionRequirement -Type $Type -Backend $Backend
     if ($besoin -ne 'admin') { return [pscustomobject]@{ allowed = $true; requirement = $besoin; reason = $null } }
-    if (Test-IsElevated) { return [pscustomobject]@{ allowed = $true; requirement = 'admin'; reason = $null } }
-    [pscustomobject]@{
-        allowed = $false; requirement = 'admin'
-        reason  = "Cette action modifie le système : elle demande un compte administrateur. Windows la refuserait de la même façon."
+
+    if (-not $PSBoundParameters.ContainsKey('Requester')) {
+        $Requester = $(if ($WebEvent) { Get-RequesterAccount } else { Get-ProcessAccount })
     }
+
+    if (-not $Requester) {
+        return [pscustomobject]@{
+            allowed = $false; requirement = 'admin'
+            reason  = "Cette action modifie le système, et Vigie ne sait pas qui la demande. Ouvrez le panneau depuis l'icône de Vigie."
+        }
+    }
+    $isAdmin = $false
+    try {
+        $who = Get-AccountByName -Name $Requester -Backend $Backend
+        if ($who) { $isAdmin = [bool]$who.admin }
+        else      { $isAdmin = Test-LocalAccountIsAdmin -Name $Requester }
+    } catch { $isAdmin = Test-LocalAccountIsAdmin -Name $Requester }
+
+    if (-not $isAdmin) {
+        return [pscustomobject]@{
+            allowed = $false; requirement = 'admin'
+            reason  = "Cette action modifie le système : elle demande un compte administrateur. Windows la refuserait de la même façon."
+        }
+    }
+    if (-not (Test-IsElevated)) {
+        return [pscustomobject]@{
+            allowed = $false; requirement = 'admin'
+            reason  = "Cette action modifie le système, et l'app serveur ne tourne pas avec les droits nécessaires."
+        }
+    }
+    [pscustomobject]@{ allowed = $true; requirement = 'admin'; reason = $null }
 }
 
 # --- OU vivent les reglages : MACHINE puis UTILISATEUR (D65) -------------------

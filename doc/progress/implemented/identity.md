@@ -65,6 +65,33 @@ regarde, donc « vous » n'apparaît sur personne. C'est un geste de développeu
 source au processus, puis au compte qui l'exécute ? Ce serait une seconde voie d'identification à côté de la preuve
 d'ouverture, et donc un arbitrage à consigner.
 
+## Les droits : on juge LE DEMANDEUR
+
+**D65 : par défaut, Vigie ne permet rien de plus que ce que Windows permet déjà à ce compte.** Une action déclare
+`# @droits: admin` ou `# @droits: tous` en tête de son fichier ; `config/actions.policy.json` (couche machine) peut
+ouvrir ou fermer une action nommément — c'est là que l'utilisateur change d'avis sur une action précise. Sans
+déclaration : `admin`. Le silence n'ouvre rien.
+
+`Test-ActionAllowed` juge alors **qui demande**, avec trois refus qui ne disent pas la même chose :
+
+| | |
+|---|---|
+| on ne sait pas qui demande | fenêtre ouverte sans identification — le panneau renvoie vers l'icône de Vigie |
+| on sait, et ce compte n'est pas administrateur | « Windows la refuserait de la même façon » |
+| le demandeur a le droit, mais le serveur n'est pas élevé | il ne **peut** pas, ce n'est pas un refus de droit |
+
+Hors contexte web — rafraîchissement de fond, script lancé à la main — le demandeur est **celui qui exécute**.
+
+*Cette fonction a longtemps posé la mauvaise question : elle demandait si le **serveur** était élevé, or il tourne sous
+un compte de service administrateur, donc toujours. Une action `admin` passait pour n'importe qui, y compris pour un
+navigateur ouvert sur l'adresse sans identification — pendant que l'écran des utilisateurs affichait que Vigie refuse
+les actions administrateur à un compte standard. Corrigé le 31/08.*
+
+La **garde réelle** est dans `Invoke-ActionById`, le seul point par où passe une action : une requête peut arriver sans
+passer par l'interface. L'affichage des boutons, lui, est calculé au rendu des cartes et peut être servi depuis le
+cache commun ; un bouton peut donc apparaître actif et se faire refuser au clic, avec sa raison. Une action ne
+disparaît jamais (D59) : elle se voit et s'explique.
+
 ## Les cercles de comptes
 
 | | | |
