@@ -3778,7 +3778,21 @@ function Get-State {
         # resultat recalcule, et non la derniere valeur connue pendant qu'un
         # rafraichissement de fond traine derriere -- constate sur la carte Jeux, qui
         # annoncait « aucun jeu » alors que la sonde voyait deja la partie en cours.
-        [string]$ForceModule = ''
+        [string]$ForceModule = '',
+        <#
+            LES SONDES A RECALCULER, ET ELLES SEULES.
+
+            Le rafraichissement de fond appelait Get-State -Force : il recalculait les
+            DIX-SEPT sondes, y compris celles qui venaient de l'etre. Une passe complete
+            dure une minute et demie -- lock 11 s, gaming 14 s, deployment 13 s -- et
+            pendant ce temps les delais des autres expirent : la requete suivante deferait
+            de nouveau, relancait une passe complete, et la machine ne s'arretait plus.
+            Mesure le 31/08 dans state_20260831.log : des passes qui s'enchainent sans
+            interruption, et un /state a 27 secondes.
+
+            On lui donne donc la liste exacte de ce qui est perime.
+        #>
+        [string[]]$Only = @()
     )
     $probesDir = Join-Path $Backend 'probes'
     $cacheFile = Get-VarPath -Backend $Backend -Kind 'cache' -File 'state-cache.json'
@@ -3797,7 +3811,10 @@ function Get-State {
 
     # Quelle sonde produit le module vise ? Le cache le dit : chaque entree porte le
     # module rendu par la sonde (ou son tableau de modules).
+    # « -Only » vise des sondes par leur NOM DE FICHIER, comme « -ForceModule » vise une
+    # carte : les deux alimentent la meme liste, il n'y a qu'un mecanisme.
     $sondesCiblees = @()
+    foreach ($n in @($Only)) { if ("$n".Trim()) { $sondesCiblees += "$n".Trim() } }
     if ($ForceModule) {
         foreach ($nomSonde in @($cache.Keys)) {
             $e = $cache[$nomSonde]
@@ -3835,7 +3852,8 @@ function Get-State {
         $entry = $cache[$key]; $fresh = $false
         # -Force : tout est considere perime, sans rien effacer.
         # Une sonde VISEE est perimee d'office : c'est tout le sens de la demande.
-        if (-not $Force -and ($sondesCiblees -notcontains $key) -and $entry -and $entry.at -and ("$($entry.codeStamp)" -eq $stamp)) {
+        if (-not $Force -and ($sondesCiblees -notcontains $key) -and ($sondesCiblees -notcontains $name) -and
+            $entry -and $entry.at -and ("$($entry.codeStamp)" -eq $stamp)) {
             try {
                 $at = ConvertTo-UtcDate $entry.at
                 if ($at -and ($nowUtc - $at).TotalSeconds -lt $ttl) { $fresh = $true }
@@ -3870,8 +3888,9 @@ function Get-State {
             plus chere : elle mettait les cartes les plus lourdes dans le chemin de chaque
             requete. Elle n'a plus lieu d'etre, le worker sachant desormais pour qui.
         #>
-        $sansValeur = @($stale | Where-Object { ($sondesCiblees -contains $_.Key) -or -not ($cache[$_.Key] -and $cache[$_.Key].module) })
-        $aDifferer  = @($stale | Where-Object { ($sondesCiblees -notcontains $_.Key) -and $cache[$_.Key] -and $cache[$_.Key].module })
+        $targeted = { param($e) ($sondesCiblees -contains $e.Key) -or ($sondesCiblees -contains $e.Name) }
+        $sansValeur = @($stale | Where-Object { (& $targeted $_) -or -not ($cache[$_.Key] -and $cache[$_.Key].module) })
+        $aDifferer  = @($stale | Where-Object { -not (& $targeted $_) -and $cache[$_.Key] -and $cache[$_.Key].module })
         if ($aDifferer.Count -gt 0) {
             $stale = $sansValeur
             # UN SEUL rafraichissement de fond a la fois. On verifie AVANT de lancer :
@@ -3890,7 +3909,8 @@ function Get-State {
                 try {
                     $w = Join-Path $Backend 'workers/state-refresh.worker.ps1'
                     $null = Start-DetachedAction -Script $w -Backend $Backend `
-                                -ArgsMap @{ account = "$stateRequester" }
+                                -ArgsMap @{ account = "$stateRequester"
+                                            only = @($aDifferer | ForEach-Object { "$($_.Name)" }) }
                 } catch { }
             }
         }
