@@ -280,7 +280,10 @@ Write-Step (Get-Label 'install.etape-prerequis')
 #     sur place plutot que d'echouer -- Vigie reste utilisable.
 $destPartagee = Join-Path $env:ProgramFiles (Join-Path 'Sowapps' 'Vigie')
 $here          = (Resolve-Path -LiteralPath $repoRoot).Path
-$isRepo     = Test-Path -LiteralPath (Join-Path $repoRoot '.git')
+# LE DEPOT DE CET ORDINATEUR, ou $null. Une seule definition, dans la bibliotheque : la
+# question « suis-je dans un depot ? » ne se repose pas ici, et surtout elle ne decide plus
+# de rien -- elle sert UNIQUEMENT a noter d'ou vient l'installation.
+$repoLocal  = Get-LocalRepoPath -Backend $backend
 $alreadyThere       = ($here.TrimEnd([char]92) -ieq $destPartagee.TrimEnd([char]92))
 
 <#
@@ -336,11 +339,11 @@ try {
     Write-Warn (Get-Label 'install.declaration-impossible' $_.Exception.Message)
 }
 
-if ($isRepo) {
+if ($repoLocal) {
     Write-Step (Get-Label 'install.source-declaree')
     try {
-        $noteA = Set-ComputerConfigValue -Values @{ SourcePath = $repoRoot }
-        Write-Detail (Get-Label 'install.source-notee' $repoRoot $noteA)
+        $noteA = Set-ComputerConfigValue -Values @{ SourcePath = $repoLocal }
+        Write-Detail (Get-Label 'install.source-notee' $repoLocal $noteA)
     } catch {
         Write-Warn (Get-Label 'install.source-non-notee' $_.Exception.Message)
     }
@@ -401,10 +404,8 @@ if ($isRepo) {
     n'y a ni depot, ni source declaree, ni rien a chercher.
 #>
 $prepared = $null
-$aRecuperer = $isRepo
-if (-not $aRecuperer) {
-    try { $aRecuperer = [bool](Get-UpdateRoute -Backend $backend).route } catch { }
-}
+$aRecuperer = $false
+try { $aRecuperer = [bool](Get-UpdateRoute -Backend $backend).route } catch { }
 if ($aRecuperer) {
     Write-Step (Get-Label 'install.etape-recuperation')
     $updater = Join-Path $PSScriptRoot 'vigie-update.ps1'
@@ -440,7 +441,18 @@ if ($aRecuperer) {
 
     Rien n'est arrete tant qu'on n'a pas verifie qu'on POURRA ecrire : on decouvrait
     l'echec apres avoir tout coupe.
+
+    UN SEUL CHEMIN, QUELLE QUE SOIT L'ORIGINE. Il y en avait deux : celui-ci, et un autre
+    plus bas pour « je ne suis pas un depot » -- avec sa propre copie, sans controle
+    d'espace, sans sauvegarde et sans verification. Deux mises en oeuvre du meme geste,
+    donc deux comportements a tenir, et celui qu'on emprunte le moins est celui qui derive.
+
+    La seule question est : QUEL DOSSIER pose-t-on ? Celui qu'on vient de recuperer si la
+    recuperation a donne quelque chose ; sinon celui d'ou l'on vient, qui EST la version a
+    poser -- une archive que quelqu'un a extraite et lancee. Et rien du tout si l'on est
+    deja l'installation partagee : se recopier sur soi-meme n'installe rien.
 #>
+if (-not $prepared -and -not $alreadyThere) { $prepared = $repoRoot }
 if ($prepared) {
     $stopped = @()
     $backup  = $null
@@ -515,45 +527,6 @@ if ($prepared) {
                 }
             }
         }
-    }
-}
-
-if (-not $isRepo -and -not $alreadyThere) {
-    if (-not (Test-Elevated)) {
-        Write-Warn (Get-Label 'install.sans-droits-administrateur-vigie')
-        Write-Detail (Get-Label 'install.elle-fonctionnera-depuis-ce')
-    } else {
-        <#
-            LA MEME COPIE QUE PARTOUT (Copy-InstallFrom).
-
-            Ce bloc avait sa propre mise de cote des reglages, recopiee du deploiement
-            d'alors : trois implementations d'un seul geste, et le jour ou l'une apprend a
-            preserver un fichier de plus, les deux autres l'oublient.
-
-            Ici, il n'y a pas d'archive a extraire : le dossier courant EST l'archive, que
-            l'utilisateur a extraite lui-meme.
-        #>
-        Write-Step (Get-Label 'install.installation-de-vigie-dans' $destPartagee)
-        $copied = $false
-        try {
-            Copy-InstallFrom -Source $repoRoot -Destination $destPartagee
-            $copied = -not (Test-InstallCopy -Destination $destPartagee)
-        } catch {
-            Write-Fail (Get-Label 'install.la-copie-echoue' $_.Exception.Message)
-        }
-
-        if ($copied) {
-            # LA SUITE SE FAIT LA-BAS. C'est la copie installee qui pose la tache de
-            # demarrage : sinon la tache pointerait encore sur le dossier telecharge.
-            Write-Detail (Get-Label 'install.installation-se-poursuit-depuis')
-            $rest = Join-Path (Join-Path $destPartagee 'scripts') 'install.ps1'
-            # LE VERROU SE LIBERE AVANT DE PASSER LA MAIN : la copie installee va en poser
-            # un, et il serait refuse par le notre.
-            Unlock-Install
-            & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $rest
-            exit $LASTEXITCODE
-        }
-        Write-Warn (Get-Label 'install.vigie-fonctionnera-depuis-ce')
     }
 }
 
