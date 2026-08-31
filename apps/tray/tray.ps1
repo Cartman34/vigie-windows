@@ -883,6 +883,21 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
         TLog "serveur ok"
 
         $poll = {
+            <#
+                UNE INSTALLATION EN COURS N'EST PAS UNE PANNE.
+
+                Pendant une mise a jour, le serveur s'arrete, les cartes tombent en erreur
+                puis reviennent : le tray y voyait des CHANGEMENTS D'ETAT et sortait une
+                bulle Windows pour chacun, plus une « le serveur est mort », plus une
+                tentative de relance concurrente de l'installation. Or c'est le
+                deroulement NORMAL du geste que l'utilisateur vient de demander.
+
+                Le verrou d'installation vit dans %ProgramData%, lisible par tous les
+                comptes : c'est le signal, et il n'y en a pas besoin d'un autre.
+            #>
+            $installEnCours = $false
+            try { $installEnCours = [bool](Get-InstallLockHolder) } catch { }
+
             try {
                 [void](Invoke-RestMethod -Uri $healthUrl -TimeoutSec 5 -ErrorAction Stop)
                 $state.EverUp   = $true
@@ -903,7 +918,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                     # depuis un tray, c'est le couper pour tous les comptes, et le tray
                     # arrive apres lui. La guerison appartient a la tache serveur, qui le
                     # relance, ou a quelqu'un qui clique « Redemarrer le serveur ».
-                    if ($state.HealthKo -eq 3) {
+                    if ($state.HealthKo -eq 3 -and -not $installEnCours) {
                         TLog "serveur coince (port ouvert, health muet x3) : signale, pas tue"
                         try {
                             $icon.ShowBalloonTip(8000, (Get-Label 'tray.bulle-coince-titre'),
@@ -940,6 +955,11 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                     # L'elevation a ete demandee et refusee -- ou pas encore accordee. Ni
                     # panne ni attente : on le dit, et « Redemarrer le serveur » redemande.
                     $app = 'warn'; $lbl = 'Serveur arrêté : relance à autoriser'
+                } elseif ($installEnCours) {
+                    # Le serveur est coupe PARCE QU'ON LE MET A JOUR. Ni bulle, ni relance
+                    # -- l'installation le redemarrera elle-meme, et deux relances qui se
+                    # croisent, c'est exactement ce qu'on evite.
+                    $app = 'warn'; $lbl = 'Mise à jour en cours…'
                 } else {
                     $app = 'error'; $lbl = 'Arrêtée / injoignable'
                     # Serveur MORT (port ferme) : le tray le relance seul. C'est le
@@ -1003,6 +1023,12 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                     }
                     if (-not $state.ModsInit) {
                         $state.Mods = $vus; $state.ModsInit = $true
+                    } elseif ($installEnCours) {
+                        # PENDANT UNE INSTALLATION, un changement d'etat n'est pas un
+                        # evenement : c'est le geste en train de se faire. On met la
+                        # reference a jour en silence, pour ne pas annoncer a la fin tout
+                        # ce qui a bouge pendant.
+                        $state.Mods = $vus
                     } else {
                         $reglages = $null
                         $bascules = @()

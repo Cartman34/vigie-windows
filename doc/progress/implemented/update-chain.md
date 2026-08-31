@@ -76,6 +76,20 @@ Trois défauts que ce journal a montrés, et qui sont corrigés :
 | « Écarté volontairement : [int]46 fichier(s) » | le transtypage hors des parenthèses devenait un argument de `Get-Label` | `([int]$nb)` |
 | « une installation en cours depuis 04:54 » à 06:54 | le verrou stocke l'heure en UTC ; elle était affichée telle quelle | conversion en heure locale à l'affichage |
 
+## Pendant la mise à jour, la coupure n'est pas une panne
+
+Le serveur s'arrête, les cartes tombent en erreur puis reviennent : c'est le déroulement **normal** du geste demandé.
+Le tray y voyait des changements d'état et sortait une bulle Windows pour chacun, plus une « le serveur est mort »,
+plus une tentative de relance concurrente de l'installation (signalé le 31/08).
+
+Le **verrou d'installation** (`%ProgramData%\Sowapps\Vigie\`) est le signal, lisible par tous les comptes sans
+droits particuliers. Tant qu'il est là :
+
+| | |
+|---|---|
+| le tray | met sa référence d'états à jour **en silence**, n'émet aucune bulle, ne tente aucune relance, et affiche « Mise à jour en cours… » |
+| le panneau | dit « Mise à jour en cours — Vigie redémarre » en orange, au lieu de « Hors ligne » en rouge |
+
 ## Écarts connus
 
 - Le `fetch` depuis un dépôt local **exige** `safe.directory` : mesuré le 30/08, git refuse même la lecture d'un dépôt

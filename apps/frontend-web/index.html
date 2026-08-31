@@ -2412,10 +2412,15 @@ async function refresh(force){
     progresSplash(1);             // panneau affiche
   }
   catch(e){
-    const mb=document.getElementById('modebar'); const occupeErr=mb.classList.contains('busy'); mb.className='modebar err'+(occupeErr?' busy':''); mb.title=L('ui.connexion-api-impossible'); mb.textContent='';
+    // UNE COUPURE ATTENDUE N'EST PAS UNE PANNE. Pendant une mise a jour, le serveur
+    // s'arrete : c'est le deroulement du geste demande, pas un incident. On le dit
+    // ainsi, en orange, au lieu d'afficher « Hors ligne » en rouge sur ce que
+    // l'utilisateur vient lui-meme de declencher.
+    const attendu = runningOperation();
+    const mb=document.getElementById('modebar'); const occupeErr=mb.classList.contains('busy'); mb.className='modebar err'+(occupeErr?' busy':''); mb.title=attendu?L('ui.mise-a-jour-en-cours'):L('ui.connexion-api-impossible'); mb.textContent='';
     const msg = (e && e.name==='AbortError') ? L('ui.delai-depasse-le-premier') : (e && e.message ? e.message : e);
-    const gt=document.getElementById('globalTxt'); if(gt){ gt.textContent='Hors ligne'; gt.style.color='var(--err)'; gt.parentElement.title=L('ui.connexion-impossible')+msg; }
-    const gdot=document.querySelector('#global .dot'); if(gdot){ gdot.style.cssText='width:9px;height:9px;border-radius:50%;background:var(--err)'; }
+    const gt=document.getElementById('globalTxt'); if(gt){ gt.textContent=attendu?L('ui.mise-a-jour-en-cours'):'Hors ligne'; gt.style.color=attendu?'var(--warn)':'var(--err)'; gt.parentElement.title=attendu?L('ui.mise-a-jour-en-cours'):(L('ui.connexion-impossible')+msg); }
+    const gdot=document.querySelector('#global .dot'); if(gdot){ gdot.style.cssText='width:9px;height:9px;border-radius:50%;background:'+(attendu?'var(--warn)':'var(--err)'); }
   }
   finally{ setLoading(false); hideSplash(); }
 }
