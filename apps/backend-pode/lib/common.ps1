@@ -3974,6 +3974,37 @@ function Get-State {
         if ($e -and $e.module) { $modules += $e.module }
     }
 
+    <#
+        « OPERATION EN COURS » SE LIT MAINTENANT, PAS AU MOMENT DU CALCUL.
+
+        Une sonde pose cet etat quand elle s'execute -- et son rendu est ensuite servi
+        depuis le cache. Une operation lancee APRES ce calcul ne se voyait donc pas : la
+        carte Deploiement restait normale, ses boutons actifs, pendant que la mise a jour
+        tournait (constate le 31/08, la notification annoncait « en cours depuis 26 s »
+        alors que la carte ne montrait rien).
+
+        Ce n'est pas une mesure, c'est un fait present : on le relit a chaque reponse, et
+        on le pose par-dessus le rendu, quel que soit son age. Le champ disparait aussi
+        de lui-meme quand la marque n'est plus la.
+    #>
+    foreach ($m in $modules) {
+        if (-not $m -or -not $m.id) { continue }
+        $mark = Get-ModuleBusyMark -Module "$($m.id)" -Backend $Backend
+        $props = @{ busy = [bool]$mark
+                    busyAction = $(if ($mark) { "$($mark.action)" } else { $null })
+                    busyResources = $(if ($mark -and $mark.resources) { @($mark.resources) } else { @() }) }
+        foreach ($k in @($props.Keys)) {
+            $v = $props[$k]
+            try {
+                if ($m -is [System.Collections.IDictionary]) {
+                    if ($v -or $v -is [array]) { $m[$k] = $v } else { $m.Remove($k) | Out-Null }
+                } else {
+                    Add-Member -InputObject $m -NotePropertyName $k -NotePropertyValue $v -Force
+                }
+            } catch { }
+        }
+    }
+
     # INVARIANT (D66) : une action CITEE par un champ (fixAction) doit figurer dans les
     # actions de la carte, sinon l'interface n'a ni libelle ni genre a dessiner et le
     # bouton de resolution n'apparait pas. On complete ici plutot que d'obliger chaque
