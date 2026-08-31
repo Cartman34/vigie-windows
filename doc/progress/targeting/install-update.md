@@ -88,10 +88,17 @@ installé**, et que **Vigie ne le désinstallera jamais**, à aucun moment.
 
 ### La sauvegarde
 
-Elle vit **hors de l'installation partagée** — sinon elle doublerait le volume et la sauvegarde suivante la
-sauvegarderait — dans les données du compte de service, à côté du clone. Elle porte la **version** qu'elle contient,
-pour qu'on sache ce qu'on restaure, et elle est **supprimée dès que la copie est vérifiée** : elle n'existe que le
-temps du risque.
+Elle vit **hors de toute installation**, à l'échelle de la machine : `%ProgramData%\Sowapps\Vigieackup`, là où
+vit déjà la déclaration de l'ordinateur. Elle porte la **version** qu'elle contient, pour qu'on sache ce qu'on
+restaure, et elle est **supprimée dès que la copie est vérifiée** : elle n'existe que le temps du risque.
+
+*Elle a d'abord vécu sous `var/` de l'app serveur, c'est-à-dire **dans le dossier qu'elle sert à restaurer** — le filet
+accroché au trapèze. Trois façons d'y perdre : une copie qui écrase le dossier emporte la sauvegarde avec, une
+désinstallation aussi, et le `setup.cmd` livré **dans** le dossier installé ne peut pas restaurer ce que ce dossier
+contenait — or c'est le cas qui compte, puisque le dépôt source peut avoir disparu.*
+
+Conséquence sur les contrôles : la destination et la sauvegarde peuvent être sur **deux disques différents**. La place
+se vérifie donc des deux côtés, chacun pour ce qu'il recevra, et non deux fois du même côté.
 
 ### Ce que « déjà à jour » signifie
 
@@ -152,3 +159,6 @@ une intervention.
 | déclaration de l'ordinateur | `%ProgramData%\Sowapps\Vigie\machine.psd1` |
 | installation partagée | `C:\Program Files\Sowapps\Vigie` |
 | clone du service | données du compte de service, dossier `update\depot` |
+| sauvegarde | `%ProgramData%\Sowapps\Vigieackup\installation-<version>` (`Get-InstallBackupRoot`) |
+| verrou d'installation | `%ProgramData%\Sowapps\Vigie\` (`Get-InstallLockPath`) |
+| dossier de la machine | `Get-ComputerDataRoot` — une seule définition pour les trois lignes ci-dessus |

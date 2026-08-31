@@ -19,8 +19,25 @@ Besoin : `../targeting/features.md`, entrées `CORE-SECURITY` et le socle multi-
 2. Elle l'échange contre un **ticket** à usage unique (30 s), qu'elle met dans l'URL du panneau.
 3. La page consomme le ticket et reçoit un **cookie de session** (`HttpOnly`, `SameSite=Strict`).
 
-Une page ouverte sans ticket — un signet, un rechargement — n'a donc pas de cookie : personne n'est « vous », et c'est
-dit ainsi plutôt que d'attribuer la session au compte de service.
+Une page ouverte sans preuve d'ouverture — un signet, un rechargement — n'a donc pas de cookie : personne n'est
+« vous », et c'est dit ainsi plutôt que d'attribuer la session au compte de service.
+
+> **Le mot « ticket » est interne, et il n'a jamais été validé.** Il ne s'affiche nulle part dans l'application ; il ne
+> vit que dans le code (`/session/ticket`, `New-OpenTicket`, `Use-OpenTicket`) et dans cette page. À renommer le jour
+> où l'étape reçoit un nom du projet.
+
+### Écart connu — le raccourci du bureau ouvre une page sans identité
+
+L'installation pose `Vigie.url` sur le bureau, qui pointe directement sur `http://127.0.0.1:47600/`, **sans** preuve
+d'ouverture. Ouvert par là, le panneau n'a pas de cookie : la carte des utilisateurs n'affiche « vous » sur personne
+(constaté le 31/08), et surtout **aucune action ne sait qui la demande** — le tag de version se poserait sans
+demandeur, et les cartes par compte n'ont personne à qui se rapporter.
+
+L'app cliente, elle, emprunte la chaîne complète : `tray.ps1` demande la preuve d'ouverture puis ouvre `/?t=…`.
+
+Approches envisagées, **aucune tranchée** : le raccourci passe par la même chaîne que l'app cliente ; ou le serveur,
+qui est élevé, remonte du port source d'une connexion locale au processus puis au compte ; ou l'installation cesse de
+poser un raccourci qui mène à une page dégradée.
 
 ## Les cercles de comptes
 

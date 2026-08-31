@@ -57,11 +57,30 @@ La cible est décrite dans [`../targeting/install-update.md`](../targeting/insta
 | Réparation des tâches | toutes les tâches d'app cliente, pas seulement celle du compte courant |
 | Le bouton appelle l'installation | plus de second geste ; `-Requester`, `-Force`, `-NoWindow` |
 
-**Ce qui n'est pas éprouvé :** la séquence complète, qui demande l'élévation — donc `setup.cmd` lancé par une personne,
-et le bouton de la carte.
+**Éprouvé le 31/08** : la séquence complète, lancée par `setup.cmd` en administrateur (journal
+`var/log/install_20260831_065430.log`). Vue dans l'ordre : récupération **avant** tout arrêt, fabrication de
+`v0.1.33`, contrôles, arrêt des app clientes et de l'app serveur, sauvegarde de `v0.1.32`, pose, vérification,
+suppression de la sauvegarde, tâches, démarrages, verdict. Le second `setup.cmd` lancé en parallèle a été **refusé**
+par le verrou, en nommant qui le tenait.
+
+**Ce qui n'est toujours pas éprouvé :** la mise à jour lancée depuis le **bouton de la carte** — chemin détaché, sous
+le compte de service, avec `-Requester` et `-NoWindow`.
+
+Trois défauts que ce journal a montrés, et qui sont corrigés :
+
+| Ce qui se lisait | Cause | Correction |
+|---|---|---|
+| deux erreurs PowerShell rouges dans un déploiement réussi | `Get-NetTCPConnection` lève quand le port est libre, ce qui est la réponse attendue après l'arrêt | `Get-PortListener`, qui rend `$null` |
+| « Écarté volontairement : [int]46 fichier(s) » | le transtypage hors des parenthèses devenait un argument de `Get-Label` | `([int]$nb)` |
+| « une installation en cours depuis 04:54 » à 06:54 | le verrou stocke l'heure en UTC ; elle était affichée telle quelle | conversion en heure locale à l'affichage |
 
 ## Écarts connus
 
 - Le `fetch` depuis un dépôt local **exige** `safe.directory` : mesuré le 30/08, git refuse même la lecture d'un dépôt
   appartenant à un autre compte.
 - La chaîne complète depuis le bouton de l'interface n'a pas encore été éprouvée de bout en bout.
+- Le verrou n'est lu qu'**après** l'élévation : deux `setup.cmd` lancés coup sur coup ouvrent deux fenêtres et deux
+  demandes de droits avant que le second ne soit refusé. Le fichier du verrou est pourtant lisible sans droits.
+- La sauvegarde vit désormais dans `%ProgramData%\Sowapps\Vigieackup` (`Get-InstallBackupRoot`) : hors de toute
+  installation, donc lisible par le `setup.cmd` du dossier installé même si le dépôt source a disparu. L'ancien
+  emplacement, sous `var/`, est supprimé par l'installation.
