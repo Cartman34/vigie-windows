@@ -132,6 +132,18 @@ démarre très bien. Vérifié le 30/08 : deux sessions coexistaient, l'une acti
 Un compte sans session n'est donc pas une erreur : son app cliente repartira à sa prochaine ouverture, avec le nouveau
 code. La tâche serveur, elle, ouvre une session par mot de passe : elle démarre sans personne de connecté.
 
+### L'installation ne se compte pas elle-même parmi les opérations en cours
+
+Le refus « une opération tourne » protège ce qu'on ne doit pas interrompre — une analyse de disque, une installation de
+mises à jour Windows. Mais depuis le bouton, l'app serveur pose la marque « une opération tourne » **avant** de lancer
+l'installation, pour que la carte le montre et que rien d'autre ne démarre : l'installation trouvait donc **la sienne**
+et s'interdisait elle-même.
+
+*Constaté le 31/08 : « Mise à jour de Vigie — ÉCHEC le 31/08/2026 09:27 — code de sortie 5 », le code du refus.*
+
+L'action lui dit donc quelle marque est la sienne (`-FromAction`), et cette seule opération est retirée de la liste.
+Le contrôle reste entier pour toutes les autres.
+
 ### Depuis le bouton, l'installation tourne détachée de l'app serveur
 
 L'étape 13 arrête l'app serveur — or c'est elle qui a lancé l'installation. Si le processus d'installation était son

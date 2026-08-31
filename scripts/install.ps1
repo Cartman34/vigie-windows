@@ -28,7 +28,22 @@ param(
         session ne s'afficherait nulle part, et attendrait un clic que personne ne peut
         donner. Le verdict, lui, part dans le journal comme d'habitude.
     #>
-    [switch] $NoWindow
+    [switch] $NoWindow,
+
+    <#
+        L'ACTION QUI M'A LANCE -- DONT LA MARQUE D'OCCUPATION EST LA MIENNE.
+
+        Depuis le bouton de la carte, l'app serveur pose une marque « une operation
+        tourne » AVANT de lancer l'installation, pour que la carte le montre et que rien
+        d'autre ne demarre en meme temps. L'installation, elle, refuse de tourner pendant
+        qu'une operation est en cours -- et trouvait donc la SIENNE. Elle s'interdisait
+        elle-meme, et rendait le code 5 (constate le 31/08 : « ECHEC le 31/08/2026 09:27
+        -- code de sortie 5 »).
+
+        On ne supprime pas le controle : c'est lui qui empeche d'interrompre une analyse
+        de disque. On en retire la seule operation dont on sait qu'elle EST nous.
+    #>
+    [string] $FromAction
 )
 
 $ErrorActionPreference = 'Stop'
@@ -54,6 +69,7 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
         if ($Requester) { $suite += @('-Requester', $Requester) }
         if ($Force)     { $suite += '-Force' }
         if ($NoWindow)  { $suite += '-NoWindow' }
+        if ($FromAction) { $suite += @('-FromAction', $FromAction) }
         & $pwsh @suite
         # LE CODE DE LA PASSE LANCEE EST LE NOTRE. Sans cette ligne, un echec de
         # l'installation reelle remontait en succes a l'appelant : le lanceur affichait
@@ -295,6 +311,8 @@ $alreadyThere       = ($here.TrimEnd([char]92) -ieq $destPartagee.TrimEnd([char]
 #>
 $enCours = @()
 try { $enCours = @(Get-RunningOperations -Backend $backend) } catch { }
+# NOTRE PROPRE MARQUE NE NOUS ARRETE PAS.
+if ($FromAction) { $enCours = @($enCours | Where-Object { "$($_.action)" -ne $FromAction }) }
 if ($enCours.Count) {
     Write-Title (Get-Label 'install.titre')
     Write-Fail (Get-Label 'install.operation-en-cours' "$($enCours[0].label)")

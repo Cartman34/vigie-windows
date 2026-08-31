@@ -53,6 +53,9 @@ try {
     if ($demandeur) { $argv += @('-Requester', $demandeur) }
     # PAS DE FENETRE : le serveur n'a pas de bureau, elle n'irait nulle part.
     $argv += '-NoWindow'
+    # ET ON LUI DIT QUE LA MARQUE « une operation tourne » EST LA SIENNE : le veilleur la
+    # pose avant de la lancer, et l'installation refusait de tourner en la voyant.
+    $argv += @('-FromAction', 'vigie-update')
     # La carte DEPLOIEMENT gere les deploiements -- et elle est toujours la. La carte de
     # debogage, elle, peut etre eteinte : le suivi de l'operation y aurait ete invisible.
     $lance = [bool](Start-WatchedAction -Module 'deployment' -Probe 'comptes.probe.ps1' `

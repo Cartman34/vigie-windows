@@ -63,8 +63,10 @@ La cible est décrite dans [`../targeting/install-update.md`](../targeting/insta
 suppression de la sauvegarde, tâches, démarrages, verdict. Le second `setup.cmd` lancé en parallèle a été **refusé**
 par le verrou, en nommant qui le tenait.
 
-**Ce qui n'est toujours pas éprouvé :** la mise à jour lancée depuis le **bouton de la carte** — chemin détaché, sous
-le compte de service, avec `-Requester` et `-NoWindow`.
+**Le bouton de la carte, éprouvé le 31/08 — et il a échoué**, code de sortie 5 : le refus « une opération tourne ».
+L'app serveur pose la marque d'occupation avant de lancer l'installation, qui trouvait donc la sienne et s'interdisait
+elle-même. Corrigé : l'action lui dit quelle marque est la sienne (`-FromAction`), et elle seule est retirée du
+contrôle. **À re-éprouver après déploiement.**
 
 Trois défauts que ce journal a montrés, et qui sont corrigés :
 
