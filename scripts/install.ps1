@@ -244,6 +244,19 @@ try {
 } catch { }
 $incoming = $null
 try { $incoming = Get-BuildStamp -Root $repoRoot } catch { }
+<#
+    LA VERSION QU'ON POSE : UNE SEULE VALEUR, DU DEBUT A LA FIN.
+
+    Elle etait recalculee a chaque endroit qui en parlait, et chacun tombait sur une
+    reponse differente : le journal annoncait « vers v0.1.37 » -- la version marquee --
+    pendant que la fenetre de fin disait « v0.1.36 vers v0.1.36+8 », lue avant que le tag
+    ne soit pose. Le meme deploiement racontait deux histoires (constate le 31/08).
+
+    On la PREDIT ici, avant de commencer -- c'est le tag qui sera marque -- puis on la
+    CONSTATE apres la copie, sur ce qui est reellement en place. La constatation gagne
+    toujours : c'est la seule qui ne peut pas se tromper.
+#>
+$versionPosee = $null
 $isUpdate = [bool]($current -and $current.version)
 
 # DEUX APPELS EN CLAIR plutot qu'une cle calculee : un verificateur ne peut pas juger une
@@ -253,11 +266,10 @@ else            { Write-Title (Get-Label 'install.titre') }
 if ($isUpdate) {
     # ON ANNONCE LA VERSION QUI SERA POSEE. « v0.1.33+13 » decrit un depot en cours de
     # route ; ce qui sera installe, en stage dev, porte le tag suivant.
-    $vers = '?'
     if ($incoming -and $incoming.version) {
-        $vers = Get-IncomingVersion -Version "$($incoming.version)" -RepoPath $repoRoot -Backend $backend
+        $versionPosee = Get-IncomingVersion -Version "$($incoming.version)" -RepoPath $repoRoot -Backend $backend
     }
-    Write-Info (Get-Label 'install.de-vers' $current.version $vers)
+    Write-Info (Get-Label 'install.de-vers' $current.version $(if ($versionPosee) { $versionPosee } else { '?' }))
 }
 # PROD EST LE DEFAUT, ON NE L'ANNONCE PAS. L'application est de production d'abord : le
 # dire a chaque fois n'apprend rien. C'est le stage « developpement » qui merite d'etre
@@ -511,6 +523,11 @@ if ($prepared) {
 
         if (-not $pose) {
             Write-Ok (Get-Label 'install.deploiement-fait')
+            # CE QUI EST EN PLACE, LU SUR PLACE : la prediction ne sert plus a rien.
+            try {
+                $stampPose = Get-BuildStamp -Root $destPartagee
+                if ($stampPose -and $stampPose.version) { $versionPosee = "$($stampPose.version)" }
+            } catch { }
             if ($backup) {
                 # LA SAUVEGARDE N'EXISTE QUE LE TEMPS DU RISQUE.
                 Remove-Item -LiteralPath $backup -Recurse -Force -ErrorAction SilentlyContinue
@@ -793,8 +810,8 @@ try {
             # est un reglage, et un texte qui le repete finit par mentir.
             $url = try { Get-AppUrl -Config (Get-Config -Backend $backend) } catch { '' }
             # « De v0.1.31 vers v0.1.32 » : le seul detail qui compte apres une mise a jour.
-            $versions = if ($isUpdate -and $incoming -and $incoming.version) {
-                            $current.version + ' vers ' + $incoming.version
+            $versions = if ($isUpdate -and $versionPosee) {
+                            $current.version + ' vers ' + $versionPosee
                         } else { '' }
             & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $window `
                 -Caption (Get-Label 'install.fenetre-bandeau') `
