@@ -4584,6 +4584,36 @@ function Get-ModuleLastRunPath {
     Get-VarPath -Backend $Backend -VarRoot $VarRoot -Kind 'cache' -File ('lastrun-' + $Module + '.json')
 }
 
+<#
+    POURQUOI CA A ECHOUE : ON LE LIT DANS LE JOURNAL, ON NE LE DEVINE PAS.
+
+    Le veilleur ne connait qu'un CODE DE SORTIE. La carte affichait donc « ECHEC le
+    31/08/2026 10:56 -- code de sortie 4 » : un nombre, a une personne qui veut savoir ce
+    qui s'est passe. Or le script, lui, l'a dit -- « Une installation est deja en cours
+    (fhaza, processus 44940...) » -- et cette phrase est dans le journal que le veilleur
+    tient deja par la main.
+
+    On y prend donc la DERNIERE ligne d'echec, celle que la console a marquee « [X] ».
+    C'est general : n'importe quel script du depot qui utilise console-ui devient lisible
+    sur la carte, sans rien declarer.
+
+    Si le journal n'en contient aucune -- un processus tue, un script qui n'a rien dit --
+    on garde le code de sortie : mieux vaut un nombre que rien.
+#>
+function Get-FailureReasonFromLog {
+    param([Parameter(Mandatory)][string]$Log)
+    if (-not $Log -or -not (Test-PathSafe $Log)) { return $null }
+    $reason = $null
+    try {
+        foreach ($line in (Get-Content -LiteralPath $Log -Encoding UTF8 -ErrorAction Stop)) {
+            # « [X] » est la marque d'echec de console-ui, la meme partout.
+            if ("$line" -match '\[X\]\s*(.+?)\s*$') { $reason = $Matches[1].Trim() }
+        }
+    } catch { }
+    if ($reason) { return $reason }
+    return $null
+}
+
 function Set-ModuleLastRun {
     param(
         [Parameter(Mandatory)][string]$Module,
@@ -4592,6 +4622,11 @@ function Set-ModuleLastRun {
         [int]$Seconds = 0, [string]$Log = '', [string]$Error = '',
         [string]$Backend = (Get-BackendRoot)
     )
+    # LA RAISON PLUTOT QUE LE CODE, des qu'on peut la lire.
+    if (-not $Error -and $Code -ne 0 -and $Log) {
+        $lu = Get-FailureReasonFromLog -Log $Log
+        if ($lu) { $Error = $lu }
+    }
     $f = Get-ModuleLastRunPath -Module $Module -Backend $Backend
     $d = Split-Path $f -Parent
     if (-not (Test-Path -LiteralPath $d)) { New-Item -ItemType Directory -Path $d -Force | Out-Null }
