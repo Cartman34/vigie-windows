@@ -107,6 +107,17 @@ foreach ($attempt in 1..3) {
     try {
         $handler = New-Object System.Net.Http.HttpClientHandler
         $handler.UseCookies = $false
+        <#
+            ON NE SUIT PAS LA REDIRECTION.
+
+            Depuis que l'adresse d'ouverture renvoie vers l'adresse principale, le cookie
+            arrive sur la reponse 302 -- et si l'on suit, c'est la reponse SUIVANTE qu'on
+            lit : sans cookie envoye (UseCookies = false), le serveur repond alors par la
+            page « aucun compte », en 403, et le cookie de la premiere reponse est perdu.
+            Constate le 31/08 : « L'app serveur n'a pas pose de cookie (code HTTP 403) »,
+            alors qu'il l'avait bel et bien pose.
+        #>
+        $handler.AllowAutoRedirect = $false
         $client  = New-Object System.Net.Http.HttpClient($handler)
         $client.Timeout = [TimeSpan]::FromSeconds(60)
         # La methode s'ecrit avec son TYPE : passer la chaine « GET » laisse PowerShell
