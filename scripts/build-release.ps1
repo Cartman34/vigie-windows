@@ -265,7 +265,7 @@ foreach ($k in ($parRacine.Keys | Sort-Object)) {
 }
 
 $nbEcartes = ($ecartes.Values | Measure-Object -Sum).Sum
-Write-Detail (Get-Label 'build-release.ecarte-volontairement-fichier-suivi' [int]$nbEcartes)
+Write-Detail (Get-Label 'build-release.ecarte-volontairement-fichier-suivi' ([int]$nbEcartes))
 foreach ($regle in $EXCLUSIONS) {
     if ($ecartes.ContainsKey($regle.Motif)) {
         Write-Detail (Get-Label 'build-release.texte' $ecartes[$regle.Motif] $regle.Raison)

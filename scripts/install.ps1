@@ -198,7 +198,12 @@ $verrou = Lock-Install
 if (-not $verrou) {
     $qui = Get-InstallLockHolder
     Write-Title (Get-Label 'install.titre')
-    Write-Fail (Get-Label 'install.deja-en-cours' "$($qui.account)" "$($qui.pid)" "$($qui.at)")
+    # L'HEURE SE LIT A L'HEURE D'ICI. Le verrou la stocke en UTC (une marque, pas un
+    # affichage) ; telle quelle elle annoncait « depuis 04:54 » a 06:54, soit une
+    # installation commencee deux heures plus tot -- de quoi croire a un verrou oublie.
+    $depuis = "$($qui.at)"
+    try { $depuis = ([datetime]::Parse($qui.at)).ToLocalTime().ToString('dd/MM/yyyy HH:mm:ss') } catch { }
+    Write-Fail (Get-Label 'install.deja-en-cours' "$($qui.account)" "$($qui.pid)" $depuis)
     try { Stop-Transcript | Out-Null } catch { }
     exit 4
 }

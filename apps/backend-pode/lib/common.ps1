@@ -2053,22 +2053,40 @@ function Restore-Install {
     Copy-Item -Path (Join-Path $Backup '*') -Destination $Destination -Recurse -Force -ErrorAction Stop
 }
 
+function Get-PortListener {
+    <#
+        QUI ECOUTE SUR CE PORT ? Rend la connexion, ou $null. NE LEVE JAMAIS.
+
+        Get-NetTCPConnection LEVE quand rien n'ecoute -- « No matching
+        MSFT_NetTCPConnection objects found » -- alors que « personne n'ecoute » est une
+        reponse parfaitement normale, et meme celle qu'on espere quand on vient d'arreter
+        l'app serveur. Les appelants l'entouraient donc d'un try/catch vide ; sous
+        transcription, l'erreur est quand meme ecrite dans le journal d'installation, en
+        anglais, au milieu du recit. Constate le 31/08 : deux paves rouges dans un
+        deploiement qui s'etait parfaitement passe.
+
+        Un appel systeme qui ment sur ce qu'est une erreur s'enveloppe une fois, ici.
+    #>
+    param([Parameter(Mandatory)][int]$Port)
+    $found = $null
+    try { $found = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue } catch { }
+    if (-not $found) { return $null }
+    return @($found)[0]
+}
+
 function Stop-ServerApp {
     param([string]$Backend = (Get-BackendRoot), [int]$Port = 0, [int]$TimeoutSec = 30)
     if (-not $Port) { $Port = [int](Get-Config -Backend $Backend).Port }
 
     try { Stop-ScheduledTask -TaskName (Get-ServiceTaskName) -ErrorAction SilentlyContinue } catch { }
-    $held = $null
-    try { $held = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction Stop } catch { }
+    $held = Get-PortListener -Port $Port
     if ($held) {
-        try { Stop-Process -Id ([int]$held[0].OwningProcess) -Force -ErrorAction Stop } catch { }
+        try { Stop-Process -Id ([int]$held.OwningProcess) -Force -ErrorAction Stop } catch { }
     }
 
     $deadline = (Get-Date).AddSeconds($TimeoutSec)
     while ((Get-Date) -lt $deadline) {
-        $busy = $null
-        try { $busy = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction Stop } catch { }
-        if (-not $busy) { return $true }
+        if (-not (Get-PortListener -Port $Port)) { return $true }
         Start-Sleep -Milliseconds 300
     }
     return $false
@@ -2085,10 +2103,8 @@ function Start-ServerRelauncher {
     if (-not $Port) { $Port = [int](Get-Config -Backend $Backend).Port }
 
     $target = $null
-    try {
-        $c = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction Stop
-        if ($c) { $target = [int]$c[0].OwningProcess }
-    } catch { }
+    $c = Get-PortListener -Port $Port
+    if ($c) { $target = [int]$c.OwningProcess }
     if (-not $target) { throw ("Aucune app serveur n'ecoute sur le port " + $Port + ".") }
 
     $pwsh = $null
