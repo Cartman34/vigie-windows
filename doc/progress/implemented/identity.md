@@ -129,11 +129,10 @@ lui-même reste neutre : ce qu'on écrit sur le disque doit rester vrai pour n'i
 
 L'invalidation demandée par une action retire aussi les entrées par compte.
 
-**Le rafraîchissement de fond sait pour qui il calcule.** Il tournait sans session, donc il aurait écrit ces cartes
-sous une clé anonyme : elles étaient exclues du différé et recalculées **dans chaque requête** — 2 s pour les comptes,
-5,5 s pour le déploiement, à chaque affichage. Le compte lui est maintenant passé, et plus rien n'oblige à calculer
-pendant que quelqu'un attend.
+**Un affichage ne recalcule RIEN.** Ni le chargement de la page, ni le sondage automatique : ils servent le cache tel
+quel et repartent. Une carte qu'on ne connaît pas encore ne s'affiche pas — elle apparaîtra quand quelqu'un l'aura
+demandée. Un recalcul se **demande** : le bouton ↻ en haut de la page pour tout, le bouton d'une carte pour elle seule.
 
-**Un affichage sert le cache, et rien d'autre.** Deux exceptions : une sonde **visée** par le bouton d'une carte, dont
-la réponse doit porter le recalcul, et une sonde qui n'a encore **rien** en cache. Le recalcul complet appartient au
-bouton ↻ ; le reste vieillit au rythme de chaque sonde, une heure pour les comptes, une minute pour le déploiement.
+*Il y avait un rafraîchissement de fond, lancé dès qu'une sonde était périmée. Il recalculait, les délais des autres
+expiraient pendant ce temps, la requête suivante en relançait un : des passes qui s'enchaînaient sans interruption, une
+machine occupée en permanence et un `/state` à 27 secondes (mesuré le 31/08). Supprimé.*

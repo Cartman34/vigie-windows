@@ -3878,42 +3878,24 @@ function Get-State {
     # lui demande explicitement.
     if (-not $Force -and $stale.Count -gt 0) {
         <#
-            UN AFFICHAGE SERT LE CACHE, ET RIEN D'AUTRE.
+            UN AFFICHAGE NE RECALCULE RIEN. AUCUNE SONDE, JAMAIS.
 
-            Deux exceptions seulement : une sonde VISEE -- le bouton d'une carte demande
-            son recalcul, la reponse doit le porter -- et une sonde qui n'a RIEN en cache,
-            sinon il n'y aurait rien a montrer.
+            Ni le chargement de la page, ni le sondage automatique : ils servent ce qui est
+            en cache, tel quel, et repartent. Une carte qu'on ne connait pas encore ne
+            s'affiche pas -- elle apparaitra quand quelqu'un l'aura demandee.
 
-            « Une carte par compte ne se differe pas » etait la troisieme, et c'etait la
-            plus chere : elle mettait les cartes les plus lourdes dans le chemin de chaque
-            requete. Elle n'a plus lieu d'etre, le worker sachant desormais pour qui.
+            La seule exception est la sonde VISEE : le bouton d'une carte, ou le bouton
+            d'actualisation en haut de la page, qui recalculent ce qu'on leur designe. Un
+            recalcul se DEMANDE ; il ne se declenche pas tout seul parce qu'une date a
+            expire.
+
+            Ce qu'il y avait avant, et qui a ete supprime : un rafraichissement de fond
+            lance des qu'une sonde etait perimee. Il recalculait, les delais des autres
+            expiraient pendant ce temps, la requete suivante en relancait un -- une machine
+            occupee en permanence et un /state a 27 secondes (mesure le 31/08).
         #>
         $targeted = { param($e) ($sondesCiblees -contains $e.Key) -or ($sondesCiblees -contains $e.Name) }
-        $sansValeur = @($stale | Where-Object { (& $targeted $_) -or -not ($cache[$_.Key] -and $cache[$_.Key].module) })
-        $aDifferer  = @($stale | Where-Object { -not (& $targeted $_) -and $cache[$_.Key] -and $cache[$_.Key].module })
-        if ($aDifferer.Count -gt 0) {
-            $stale = $sansValeur
-            # UN SEUL rafraichissement de fond a la fois. On verifie AVANT de lancer :
-            # demarrer un processus pour qu'il constate qu'il n'a rien a faire coute une
-            # seconde de pwsh a chaque requete, pour rien.
-            $dejaEnCours = $false
-            try {
-                $tmp = $null
-                if ([System.Threading.Mutex]::TryOpenExisting('Local\VigieStateRecompute', [ref]$tmp)) {
-                    $dejaEnCours = -not $tmp.WaitOne(0)
-                    if (-not $dejaEnCours) { try { $tmp.ReleaseMutex() } catch { } }
-                    try { $tmp.Dispose() } catch { }
-                }
-            } catch { }
-            if (-not $dejaEnCours) {
-                try {
-                    $w = Join-Path $Backend 'workers/state-refresh.worker.ps1'
-                    $null = Start-DetachedAction -Script $w -Backend $Backend `
-                                -ArgsMap @{ account = "$stateRequester"
-                                            only = @($aDifferer | ForEach-Object { "$($_.Name)" }) }
-                } catch { }
-            }
-        }
+        $stale = @($stale | Where-Object { (& $targeted $_) })
     }
 
     if ($stale.Count -gt 0) {

@@ -365,8 +365,6 @@
   "start.powershell-requis-lance-abord": "PowerShell 7 requis. Lance d'abord install.ps1.",
   "start.tache": "tâche {0} : {1} -> {2}",
   "start.ui": "UI  : {0}",
-  "state-refresh.rafraichissement-de-fond": "rafraichissement de fond : {0}",
-  "state-refresh.rafraichissement-de-fond-termine": "rafraichissement de fond termine ({0} ms)",
   "tag-version.aucun-depot": "Aucun dépôt sur cet ordinateur : il n'y a pas de version à marquer.",
   "tag-version.deja-marque": "Rien de neuf depuis la dernière version marquée ({0}).",
   "tag-version.echec": "Le tag n'a pas pu être posé : {0}",
