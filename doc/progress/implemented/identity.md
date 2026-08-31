@@ -34,6 +34,10 @@ pwsh -File scripts/dev/sign-in-url.ps1          # rend l'adresse, à coller
 pwsh -File scripts/dev/sign-in-url.ps1 -Open    # ouvre directement
 ```
 
+**Stage `dev` uniquement**, et depuis le **dépôt** : c'est un outil de développement, il ne part pas dans l'archive
+livrée. En stage `prod`, il refuse — Vigie s'y ouvre par son icône, qui identifie déjà le compte. Ce refus dit une
+intention ; ce qui protège réellement la session reste le secret du compte.
+
 Une fois, et le navigateur reste identifié : outils de développement, console et réseau, avec « vous » à la bonne
 ligne et des actions qui savent qui les demande.
 

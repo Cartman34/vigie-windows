@@ -18,7 +18,17 @@
     compte, avec une ACL explicite. Pour ouvrir une session au nom d'un autre compte, il
     faut lancer ce script DANS SA session.
 
-    Codes de retour : 0 = adresse rendue ; 2 = serveur muet, ou secret illisible.
+    STAGE DEV UNIQUEMENT. Ouvrir le panneau dans un navigateur separe est un geste de
+    developpement : on regarde la console, le reseau, on rafraichit cinquante fois. En
+    stage prod, Vigie s'ouvre par son icone, et une seconde facon d'obtenir une session
+    n'y a rien a faire.
+
+    Ce refus dit une INTENTION, il ne tient pas une frontiere : ce qui protege vraiment la
+    session est le secret du compte, illisible par les autres. Le stage est DECLARE
+    (machine.psd1), jamais deduit.
+
+    Codes de retour : 0 = adresse rendue ; 2 = serveur muet, ou secret illisible ;
+                      3 = stage prod, ce script n'y a pas sa place.
 #>
 [CmdletBinding()]
 param(
@@ -31,6 +41,13 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 $backend  = Join-Path $repoRoot 'apps/backend-pode'
 . (Join-Path $backend 'lib/common.ps1')
+
+$stage = Get-DeclaredStage -Backend $backend
+if ("$stage" -ne 'dev') {
+    Write-Fail (Get-Label 'sign-in-url.stage-prod' (Get-StageLabel -Stage $stage))
+    Write-Detail (Get-Label 'sign-in-url.ouvrir-par-icone')
+    exit 3
+}
 
 if (-not $Port) { $Port = [int](Get-Config -Backend $backend).Port }
 if (-not (Get-PortListener -Port $Port)) {
