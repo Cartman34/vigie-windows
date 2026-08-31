@@ -2359,6 +2359,17 @@ function hideSplash(){
   }, wait);
 }
 
+// LE BOUTON SUIT L'ETAT DE LA MACHINE. Actif alors qu'il refuserait, il ment ; inerte
+// avec sa raison en infobulle, il enseigne.
+function updateRefreshButton(){
+  const btn=document.getElementById('btnRefresh');
+  if(!btn) return;
+  const op = runningOperation();
+  const pris = !!(op && (op.ressources || []).includes('machine'));
+  if(btn.dataset.titre === undefined) btn.dataset.titre = btn.title;
+  btn.classList.toggle('inerte', pris);
+  btn.title = pris ? (L('ui.recalcul-pendant-operation') + (op.titre || '')) : btn.dataset.titre;
+}
 function setLoading(on, complete){
   const btn=document.getElementById('btnRefresh');
   // Bouton a ICONE SEULE : le libelle vit dans l'infobulle, comme pour les autres boutons
@@ -2417,6 +2428,20 @@ async function refresh(force){
     const raison = pageOccupee();
     if(raison) return;
   }
+  // PENDANT UNE OPERATION QUI TIENT LA MACHINE, ON NE RECALCULE PAS.
+  //
+  // Le recalcul complet refait TOUTES les mesures et dure une minute : demande pendant
+  // une mise a jour, il tombe au moment ou le serveur s'arrete. Il ne rend rien, il
+  // ajoute de la charge a un geste deja long, et il finit en erreur -- pour une question
+  // dont la reponse est de toute facon perimee des que la mise a jour aura fini.
+  //
+  // On le dit, on ne le fait pas. La relecture automatique, elle, continue : c'est elle
+  // qui verra la fin de l'operation.
+  const op = runningOperation();
+  if(force && op && (op.ressources || []).includes('machine')){
+    toast(L('ui.recalcul-pendant-operation') + (op.titre || ''));
+    return;
+  }
   setLoading(true, !!force);
   // PAS DE PROGRESSION AU DEPART. Annoncer 20 % des que la requete part FIGEAIT l'ecran
   // d'attente : passer en mode « progression connue » coupe l'animation en boucle, et
@@ -2441,7 +2466,7 @@ async function refresh(force){
     const gt=document.getElementById('globalTxt'); if(gt){ gt.textContent=attendu?L('ui.mise-a-jour-en-cours'):'Hors ligne'; gt.style.color=attendu?'var(--warn)':'var(--err)'; gt.parentElement.title=attendu?L('ui.mise-a-jour-en-cours'):(L('ui.connexion-impossible')+msg); }
     const gdot=document.querySelector('#global .dot'); if(gdot){ gdot.style.cssText='width:9px;height:9px;border-radius:50%;background:'+(attendu?'var(--warn)':'var(--err)'); }
   }
-  finally{ setLoading(false); hideSplash(); }
+  finally{ setLoading(false); updateRefreshButton(); hideSplash(); }
 }
 async function checkVersion(){
   try{
