@@ -177,6 +177,16 @@ une régression, et un message de commit qui raconte au lieu d'expliquer.
 **Ce qui va ensemble dans un commit :** le code, ses libellés, son vérificateur et la doc que ce changement rend
 fausse. Ce sont les faces d'une même correction, pas des sujets différents.
 
+**UNE LIVRAISON VA JUSQU'À `origin/main`.** Un commit qui reste dans un worktree n'est livré à personne : la branche
+se fusionne dans `main` en avance rapide, et `main` se **pousse**. Sans le push, le dépôt de référence ignore la
+journée entière — le 31/08, `origin/main` avait dix-neuf commits de retard, dont toutes les corrections que
+l'utilisateur essayait sur sa machine.
+
+```powershell
+git merge --ff-only <branche>   # depuis le dépôt principal
+git push origin main
+```
+
 **UN COMMIT EST UNE LIVRAISON, PAS UN POINT DE SAUVEGARDE.** On ne commite pas après le moindre bout de code : on
 commite quand la chose est **terminée**, **éprouvée**, et qu'on juge qu'elle doit être livrée. Parser le fichier et voir
 les vérificateurs au vert ne prouve que l'absence de faute de frappe.
