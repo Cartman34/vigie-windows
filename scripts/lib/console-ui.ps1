@@ -13,7 +13,8 @@
 
       Write-Title    "Installation"        un bloc commence      (cyan, souligne)
       Write-Step     "PowerShell 7"        une etape commence    (blanc, prefixe ::)
-      Write-Ok       "installe"            elle a reussi         (vert,   [ok])
+                                             et la precedente conclut, en couleur
+      Write-Ok       "installe"            un fait, reussi       (gris, sans marqueur)
       Write-Warn     "sans les droits"     elle passe, degradee  (jaune,  [!] )
       Write-Fail     "Windows a refuse"    elle a echoue         (rouge,  [X] )
       Write-Info     "version 7.4.6"       un fait, sans verdict (gris)
@@ -65,25 +66,61 @@ function Write-Title {
     Write-Host (New-Object string ([char]0x2500), ([Math]::Min($Text.Length, 78))) -ForegroundColor DarkCyan
 }
 
+<#
+    CHAQUE ETAPE DIT COMMENT ELLE FINIT.
+
+    Une etape s'ouvrait, deroulait ses lignes, et la suivante commencait : pour savoir si
+    elle avait abouti, il fallait relire ses lignes une par une et decider soi-meme. La
+    conclusion n'existait qu'a la toute fin, pour le script entier.
+
+    Desormais toute etape se referme par une DERNIERE LIGNE COLOREE qui dit son sort. Elle
+    n'est pas ecrite par l'appelant : elle se DEDUIT de ce qui s'est passe entre son
+    ouverture et sa fermeture -- rouge s'il y a eu un echec, jaune s'il y a eu une reserve,
+    vert sinon. Un script ne peut donc pas conclure une etape en vert alors qu'elle a
+    echoue, pas plus qu'il ne le pouvait pour le verdict final.
+
+    Une etape se ferme toute seule : quand la suivante s'ouvre, ou quand le verdict tombe.
+#>
+$script:UiStepText = $null
+$script:UiStepFailures = 0
+$script:UiStepWarnings = 0
+
+function Close-UiStep {
+    if ($null -eq $script:UiStepText) { return }
+    $f = $script:UiFailures - $script:UiStepFailures
+    $w = $script:UiWarnings - $script:UiStepWarnings
+    $texte = if ($f -gt 0)    { $script:UiStepText + " : échec." }
+             elseif ($w -gt 0) { $script:UiStepText + " : fait, avec " + $w + " réserve(s)." }
+             else              { $script:UiStepText + " : fait." }
+    $couleur = if ($f -gt 0) { 'Red' } elseif ($w -gt 0) { 'Yellow' } else { 'Green' }
+    Write-Host ("       " + $texte) -ForegroundColor $couleur
+    $script:UiStepText = $null
+}
+
 function Write-Step {
     param([Parameter(Mandatory)][string]$Text)
+    Close-UiStep
     Write-Host ""
     Write-Host (":: " + $Text) -ForegroundColor White
+    $script:UiStepText = $Text
+    $script:UiStepFailures = $script:UiFailures
+    $script:UiStepWarnings = $script:UiWarnings
 }
 
 <#
-    UNE ETAPE QUI REUSSIT N'EST PAS UNE CONCLUSION.
+    UN SUCCES INTERMEDIAIRE N'EST PAS UNE CONCLUSION.
 
-    Le vert etait pose sur chaque etape reussie, et le lecteur ne savait plus ou regarder :
-    « il y a des ok en vert et pas tous, on ne sait pas trop » (29/08). Une dizaine de
-    lignes vertes au fil de l'installation, puis une verte de plus a la fin -- rien ne
-    distinguait le resultat du chemin parcouru.
+    Le vert etait pose sur chaque reussite, et le lecteur ne savait plus ou regarder : « il
+    y a des ok en vert et pas tous, on ne sait pas trop » (29/08). Le marqueur « [ok] » a
+    suivi le meme chemin : il decorait des faits sans jamais dire ou en etait l'etape.
 
-    LE VERT NE SORT PLUS QUE DE Write-Outcome. Une etape reussie garde sa marque, en gris :
-    elle se repere a la lecture sans reclamer l'attention. Le rouge, lui, ne bouge pas --
-    un echec doit sauter aux yeux ou qu'il soit.
+    Il n'y a plus de marqueur. Un succes intermediaire est une ligne grise comme les
+    autres faits ; ce qui conclut, c'est la derniere ligne de l'etape, coloree, et le
+    verdict final. Le rouge et le jaune gardent les leurs -- un echec doit sauter aux yeux
+    ou qu'il soit, et « [X] » est ce que relit le serveur pour dire POURQUOI une operation
+    a echoue.
 #>
-function Write-Ok      { param([Parameter(Mandatory)][string]$Text) Write-Host ("  [ok] " + $Text) -ForegroundColor Gray }
+function Write-Ok      { param([Parameter(Mandatory)][string]$Text) Write-Host ("       " + $Text) -ForegroundColor Gray }
 function Write-Info    { param([Parameter(Mandatory)][string]$Text) Write-Host ("       " + $Text) -ForegroundColor Gray }
 function Write-Detail  { param([Parameter(Mandatory)][string]$Text) Write-Host ("       " + $Text) -ForegroundColor DarkGray }
 
@@ -129,6 +166,9 @@ function Write-Outcome {
         # Ce qu'on conseille de faire ensuite. Une ligne, jamais un paragraphe.
         [string]$NextStep = ''
     )
+    # L'ETAPE EN COURS SE FERME AVANT LE VERDICT : sinon la derniere de toutes n'aurait
+    # jamais dit comment elle finissait.
+    Close-UiStep
     $f = if ($null -ne $Failures) { $Failures } else { $script:UiFailures }
     $w = if ($null -ne $Warnings) { $Warnings } else { $script:UiWarnings }
 
