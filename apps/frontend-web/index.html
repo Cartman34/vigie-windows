@@ -2359,7 +2359,7 @@ function hideSplash(){
   }, wait);
 }
 
-function setLoading(on){
+function setLoading(on, complete){
   const btn=document.getElementById('btnRefresh');
   // Bouton a ICONE SEULE : le libelle vit dans l'infobulle, comme pour les autres boutons
   // d'icone. L'animation de rotation reste, c'est elle qui dit que ca travaille.
@@ -2376,10 +2376,15 @@ function setLoading(on){
     meta.classList.toggle('busy', !!on);
     if(on){
       if(meta.dataset.avant === undefined) meta.dataset.avant = meta.textContent;
-      meta.textContent = L('ui.actualisation-en-cours');
+      // DEUX GESTES, DEUX PHRASES. « Actualisation en cours » disait la meme chose pour
+      // une relecture de l'etat -- quelques dixiemes de seconde, servie depuis le cache --
+      // et pour un recalcul complet, qui refait toutes les mesures et peut durer une
+      // minute. L'attente n'a pas le meme sens, elle ne doit pas avoir le meme texte.
+      meta.textContent = complete ? L('ui.recalcul-en-cours') : L('ui.actualisation-en-cours');
     } else {
       // Si le rendu n'a pas eu lieu (erreur reseau), le texte serait reste sur « en cours ».
-      if(meta.textContent === L('ui.actualisation-en-cours') && meta.dataset.avant !== undefined) {
+      if((meta.textContent === L('ui.actualisation-en-cours') || meta.textContent === L('ui.recalcul-en-cours'))
+         && meta.dataset.avant !== undefined) {
         meta.textContent = meta.dataset.avant;
       }
       delete meta.dataset.avant;
@@ -2412,7 +2417,7 @@ async function refresh(force){
     const raison = pageOccupee();
     if(raison) return;
   }
-  setLoading(true);
+  setLoading(true, !!force);
   // PAS DE PROGRESSION AU DEPART. Annoncer 20 % des que la requete part FIGEAIT l'ecran
   // d'attente : passer en mode « progression connue » coupe l'animation en boucle, et
   // l'aiguille restait plantee tout le temps de la reponse -- une minute entiere quand le
