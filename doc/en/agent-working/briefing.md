@@ -4,7 +4,18 @@
 > perte de session — **uniquement ce qui est utile à l'instant**. Pas de journal : le
 > passé vit dans `git log` et `CHANGELOG.md`, les règles dans `decisions.md`.
 
-Point de reprise. Après ce fichier : `doc/progress/decisions.md`, puis `disciplines.md`.
+**Ce document se lit, et ce qui suit s'applique.** Il ne se suffit pas à lui-même : il
+ouvre une chaîne, et chaque maillon oblige au suivant.
+
+1. `disciplines.md` — **en entier**, à tenir en continu. C'est la manière de travailler,
+   pas une liste de conseils.
+2. `doc/progress/decisions.md` — les arbitrages tranchés. Ils **s'imposent** : on ne
+   reconçoit pas par-dessus, on cherche d'abord (`scripts/dev/decisions.ps1 -About "…"`).
+3. `doc/progress/targeting/` puis `doc/progress/implemented/` — la cible, puis l'état
+   réel. Une demande de l'utilisateur se traduit **d'abord** dans la cible.
+
+Rien de tout cela n'est facultatif parce qu'on croit se souvenir : voir la discipline
+« Revenir d'une compression de contexte ».
 
 ## Le projet
 **Vigie** : tableau de bord **local** pour un PC Windows. Dépôt : `vigie-windows`.

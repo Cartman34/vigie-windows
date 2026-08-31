@@ -64,8 +64,8 @@ foreach ($d in $documents) {
 <#
     LES DISCIPLINES, EN ENTIER.
 
-    159 lignes : les resumer serait en perdre, et le resume est justement ce qui a
-    echoue. On les lit telles qu'elles sont ecrites.
+    Les resumer serait en perdre, et le resume est justement ce qui a echoue. On les
+    lit telles qu'elles sont ecrites.
 #>
 if (-not $Court) {
     $disciplines = Join-Path $repoRoot 'doc/en/agent-working/disciplines.md'

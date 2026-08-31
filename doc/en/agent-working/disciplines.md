@@ -2,6 +2,15 @@
 
 > Règles que Claude doit respecter systématiquement sur ce projet.
 > Toute nouvelle discipline demandée par l'utilisateur est ajoutée ici.
+>
+> **Ce document se LIT en entier et s'APPLIQUE.** Ce n'est pas une référence à consulter
+> quand on hésite : chaque section vient d'un manquement réel, et la relire après coup ne
+> répare rien. Une discipline qu'on n'a pas lue s'applique quand même.
+>
+> Il oblige à son tour : les **arbitrages** vivent dans `../../progress/decisions.md` et
+> s'imposent (voir « Chercher avant de concevoir ») ; la **conception** vit dans
+> `../../progress/targeting/` — ce que le produit doit faire — et
+> `../../progress/implemented/` — ce qui est en place.
 
 ## Langue & encodage
 - Échanges **en français** ; code **entièrement en anglais**.
