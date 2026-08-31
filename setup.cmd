@@ -24,10 +24,18 @@ REM ---------------------------------------------------------------------------
 setlocal
 title Installation de Vigie
 
-whoami /groups | find "S-1-5-32-544" >nul 2>&1
+REM LES OUTILS DE WINDOWS S'APPELLENT PAR LEUR CHEMIN COMPLET.
+REM
+REM « whoami » et « find » existent AUSSI dans Git Bash, MSYS, Cygwin -- et si l'un de
+REM ceux-la est en tete du PATH, c'est lui qui repond. Constate le 31/08 : setup.cmd
+REM lance depuis un terminal Git a repondu « whoami: extra operand '/groups' », puis
+REM « ce compte n'est pas administrateur » a un compte qui l'est. Un controle de droits
+REM qui se trompe de programme est pire que pas de controle.
+"%SystemRoot%\System32\whoami.exe" /groups | "%SystemRoot%\System32ind.exe" "S-1-5-32-544" >nul 2>&1
 if errorlevel 1 goto :pasadmin
 
-net session >nul 2>&1
+"%SystemRoot%\System32
+et.exe" session >nul 2>&1
 if not errorlevel 1 goto :installe
 
 REM ON DIT CE QU'ON VA FAIRE, AVANT que Windows ne demande l'élévation. La fenêtre est
