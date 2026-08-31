@@ -445,15 +445,39 @@ Add-PodeRoute -Method Get -Path '/' -ScriptBlock {
         $account = Use-OpenTicket -Ticket $ticket -Backend $env:VIGIE_BACKEND
         if ($account) {
             $sid = New-AccountSession -Account $account -Backend $env:VIGIE_BACKEND
-            Set-PodeCookie -Name 'vigie_session' -Value $sid -HttpOnly -Strict -Duration 31536000
+            <#
+                LE COOKIE EST ECRIT A LA MAIN, ET C'EST VOULU.
+
+                Set-PodeCookie pose une date d'expiration, que .NET serialise en
+                « Max-Age » avec la CULTURE COURANTE : sur une machine francaise, cela
+                donnait « Max-Age=31535999,9865232 ». Une virgule dans un nombre --
+                l'attribut est alors ignore par le navigateur, le cookie redevient un
+                cookie de session et l'identite se perdait a la fermeture de la fenetre.
+                Mesure le 31/08 dans l'en-tete servi.
+
+                On ecrit donc un entier, nous-memes.
+            #>
+            Add-PodeHeader -Name 'Set-Cookie' -Value (
+                'vigie_session=' + $sid + '; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000')
             try { Write-Log -Backend $env:VIGIE_BACKEND -Name 'session' `
                             -Message ("Session ouverte pour le compte " + $account) } catch { }
-            Move-PodeResponseUrl -Url '/'
-            return
         } else {
             try { Write-Log -Backend $env:VIGIE_BACKEND -Name 'session' -Level 'WARN' `
                             -Message "URL d'ouverture invalide ou périmée." } catch { }
         }
+        <#
+            LE JETON QUITTE L'ADRESSE, QUOI QU'IL ARRIVE.
+
+            La redirection n'etait faite qu'en cas de succes : presentee une seconde fois,
+            ou passe les trente secondes, l'adresse servait la page AVEC « ?t=... » encore
+            dans la barre. Or ce qui doit disparaitre n'est pas « le jeton utile », c'est
+            LE JETON -- reussi ou non, valide ou non, il n'a rien a faire dans l'adresse,
+            dans l'historique ni dans un signet.
+
+            On redirige donc des qu'il y en a un, sans regarder ce qu'il valait.
+        #>
+        Move-PodeResponseUrl -Url '/'
+        return
     }
 
     $html  = Get-Content -Path (Join-Path $front 'index.html') -Raw
