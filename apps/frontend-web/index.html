@@ -683,11 +683,15 @@
   .splash-needle{transform-origin:50px 50px;animation:splash-sweep 2.8s steps(7,end) infinite}
   @keyframes splash-fill{from{stroke-dashoffset:164.93}to{stroke-dashoffset:-27.49}}
   @keyframes splash-sweep{from{transform:rotate(0deg)}to{transform:rotate(315deg)}}
-  /* Progression CONNUE : le JS pose --splash-frac et coupe la boucle. */
+  /* Progression CONNUE : le JS pose --splash-frac et coupe la boucle.
+     ELLE SE PARCOURT, ELLE NE SAUTE PAS. Sans transition, l'aiguille se tele-portait
+     d'une fraction a l'autre : deux images fixes au lieu d'un mouvement. */
   #splash.splash-determine .splash-arc-val{animation:none;
-    stroke-dashoffset:calc(164.93 - 164.93 * var(--splash-frac,0))}
+    stroke-dashoffset:calc(164.93 - 164.93 * var(--splash-frac,0));
+    transition:stroke-dashoffset .45s ease}
   #splash.splash-determine .splash-needle{animation:none;
-    transform:rotate(calc(270deg * var(--splash-frac,0)))}
+    transform:rotate(calc(270deg * var(--splash-frac,0)));
+    transition:transform .45s ease}
   .splash-id{display:flex;flex-direction:column;align-items:center;gap:16px}
   /* line-height 1 coupait la boite au ras de la ligne de base : la jambe du « g » plongeait
      dans la gouttiere de 6 px et le sous-titre paraissait colle. */
@@ -2403,7 +2407,11 @@ async function refresh(force){
     if(raison) return;
   }
   setLoading(true);
-  progresSplash(0.2);             // requete partie
+  // PAS DE PROGRESSION AU DEPART. Annoncer 20 % des que la requete part FIGEAIT l'ecran
+  // d'attente : passer en mode « progression connue » coupe l'animation en boucle, et
+  // l'aiguille restait plantee tout le temps de la reponse -- une minute entiere quand le
+  // serveur redemarre. Tant qu'on ne sait rien, la jauge TOURNE ; elle ne se fige qu'a
+  // partir du moment ou elle a une vraie fraction a montrer.
   try{
     const {data,mode}=await fetchState(force);
     if(mode==='live' && data && data.build && window.APP_BUILD && !window.APP_BUILD.includes('__') && data.build!==window.APP_BUILD){ location.reload(); return; }
