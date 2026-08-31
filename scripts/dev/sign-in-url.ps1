@@ -42,6 +42,15 @@ $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 $backend  = Join-Path $repoRoot 'apps/backend-pode'
 . (Join-Path $backend 'lib/common.ps1')
 
+<#
+    ON DIT OU ON EN EST, A CHAQUE ETAPE.
+
+    Le script ne disait rien avant d'avoir fini : quand il ne rendait pas la main, il n'y
+    avait aucun moyen de savoir OU -- lecture du secret, appel au serveur, ou attente d'une
+    reponse qui ne venait pas. Un outil muet qui tourne longtemps est un outil qu'on ne
+    peut pas deboguer.
+#>
+Write-Step (Get-Label 'sign-in-url.etape-stage')
 $stage = Get-DeclaredStage -Backend $backend
 if ("$stage" -ne 'dev') {
     Write-Fail (Get-Label 'sign-in-url.stage-prod' (Get-StageLabel -Stage $stage))
@@ -49,6 +58,7 @@ if ("$stage" -ne 'dev') {
     exit 3
 }
 
+Write-Step (Get-Label 'sign-in-url.etape-serveur')
 if (-not $Port) { $Port = [int](Get-Config -Backend $backend).Port }
 if (-not (Get-PortListener -Port $Port)) {
     Write-Fail (Get-Label 'sign-in-url.personne-n-ecoute' $Port)
@@ -56,7 +66,11 @@ if (-not (Get-PortListener -Port $Port)) {
 }
 
 $account = Get-ProcessAccount
-$target = Get-OpenUrl -Account $account -BaseUrl ('http://127.0.0.1:' + $Port) -Backend $backend
+Write-Step (Get-Label 'sign-in-url.etape-adresse' $account)
+# LE DELAI EST COURT ET IL EST DIT. Le serveur repond en quelques dixiemes de seconde ou
+# ne repond pas : attendre plus longtemps n'a jamais rien rendu, sinon l'impression que
+# l'outil est bloque.
+$target = Get-OpenUrl -Account $account -BaseUrl ('http://127.0.0.1:' + $Port) -TimeoutSec 10 -Backend $backend
 if (-not $target) {
     Write-Fail (Get-Label 'sign-in-url.adresse-refusee' $account)
     exit 2
