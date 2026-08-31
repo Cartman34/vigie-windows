@@ -363,7 +363,7 @@ des droits disparaît sans bruit. L'inventaire est fait maintenant, pendant qu'i
 |---|---|---|---|
 | **Le contrôle des droits** — `Test-ActionAllowed`, `Set-VigieAccountEnabled`, `Repair-VigieTasks` | « ai-je le droit de faire ça ? » | « **le demandeur** a-t-il ce droit ? » | **maximal** : une régression ici ouvre tout à tout le monde, en silence |
 | **L'affichage** — carte Comptes, carte Débogage, `/health` | « que puis-je montrer de cette machine ? » | « que puis-je montrer **au demandeur** ? » | moyen : une fuite d'information, pas de pouvoir |
-| **Les scripts lancés à la main** — `install.ps1`, `deploy-prod.ps1`, `vigie-comptes.ps1`, `install-service.ps1`, `run.ps1`, `uninstall-*` | « suis-je élevé, moi, maintenant ? » | **inchangé** — la question reste juste | nul : ces scripts ne servent personne d'autre |
+| **Les scripts lancés à la main** — `install.ps1`, `vigie-comptes.ps1`, `install-service.ps1`, `run.ps1`, `uninstall-*` | « suis-je élevé, moi, maintenant ? » | **inchangé** — la question reste juste | nul : ces scripts ne servent personne d'autre |
 
 La troisième famille est la plus nombreuse, et c'est une bonne nouvelle : elle ne bouge pas. Le travail réel porte sur
 les deux premières, et surtout sur la première.

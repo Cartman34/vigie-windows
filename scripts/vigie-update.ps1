@@ -14,7 +14,7 @@
     Codes de retour : 0 = dossier pret ; 1 = echec ; 3 = deja a jour, rien a poser (D77).
 #>
 param(
-    # Emplacement de l'installation partagee. Defaut : celui de deploy-prod.
+    # Emplacement de l'installation partagee. Defaut : Program Files.
     [string] $Destination,
 
     [ValidateSet('auto', 'local', 'release', 'clone')]
@@ -83,9 +83,9 @@ Write-Host (Get-Label 'vigie-update.version-de-depart' $(if ($avant -and $avant.
 
 # --- 0. Quelle voie ? ----------------------------------------------------------------
 #
-# La voie locale garde son chemin d'origine : c'est deploy-prod, SANS -Zip, qui fabrique
-# ET pose le tag. Lui passer une archive toute faite ferait sauter le tag, et le projet
-# n'aurait plus de numero de version (D96).
+# La voie locale FABRIQUE depuis le depot, et pose le tag au passage : recevoir une
+# archive toute faite ferait sauter le tag, et le projet n'aurait plus de numero de
+# version (D96).
 $estDepot = $false
 try {
     $estDepot = (Test-Path -LiteralPath (Join-Path $repoRoot '.git')) -and

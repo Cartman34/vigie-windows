@@ -2776,13 +2776,17 @@ async function renderTabUtilisateurs(pane){
     +"<li>Un compte standard n'obtient <b>aucun droit en plus</b> : Vigie lui refuse les actions administrateur, comme Windows.</li>"
     +'</ul>'
     +(inerte?'<div class="um-note">Modifier ces choix demande un Vigie lancé en administrateur.</div>':'')
+    // CET ECRAN CHOISIT DES COMPTES. RIEN D'AUTRE.
+    //
+    // Il portait aussi un bouton « Deployer pour tous », qui installait Vigie dans
+    // Program Files par un chemin a lui : un second geste d'installation, avec son propre
+    // comportement a tenir, cache dans l'ecran des comptes. On dit ce qui manque, et on
+    // renvoie la ou l'installation se fait -- une seule fois, au meme endroit.
     +(partage?'':UI.carte({
         titre:L('ui.cette-installation-est-lisible'),
         detail: esc(data.installPath||'')+L('ui.les-autres-comptes-ne')
-               +L('ui.le-deploiement-installe-dans')
-               +L('ui.et-conserve-les-reglages'),
-        detailHtml:true,
-        droite:'<button class="fsolve sev-fix" id="btnDeploy"'+(inerte?L('ui.disabled-title-demande-un'):'')+'>Déployer pour tous</button>'
+               +L('ui.installer-depuis-la-carte'),
+        detailHtml:true
       }))
     +UI.liste(users.map(u=>UI.ligneHtml(
         esc(u.name)
@@ -2791,17 +2795,6 @@ async function renderTabUtilisateurs(pane){
         +((u.fullName&&u.fullName!==u.name)?'<br><span class="um-mut">'+esc(u.fullName)+'</span>':''),
         UI.interrupteur('data-user="'+esc(u.name)+'"'+((inerte||(!partage&&!u.current))?' disabled':''), u.enabled)
       )));
-  const bd=pane.querySelector('#btnDeploy');
-  if(bd){ bd.onclick=async()=>{
-    bd.disabled=true; bd.textContent=L('ui.deploiement');
-    try{
-      await doAction('deploy-shared','accounts',true,L('ui.deployer-pour-tous-les'),
-        L('ui.installe-cette-version-dans'),
-        null,null,'confirm',false);
-      // Le deploiement dure une a deux minutes : on relit l'etat ensuite.
-      setTimeout(()=>{ renderSettings(); }, 90000);
-    }catch(e){ toast(L('ui.deploiement-impossible')+(e.message||e)); bd.disabled=false; bd.textContent=L('ui.deployer-pour-tous'); }
-  }; }
   pane.querySelectorAll('[data-user]').forEach(c=>{ c.onchange=async()=>{
     const nom=c.getAttribute('data-user');
     try{

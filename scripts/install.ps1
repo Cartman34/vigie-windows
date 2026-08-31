@@ -482,9 +482,9 @@ if (-not $isRepo -and -not $alreadyThere) {
         <#
             LA MEME COPIE QUE PARTOUT (Copy-InstallFrom).
 
-            Ce bloc avait sa propre mise de cote des reglages, recopiee de deploy-prod :
-            trois implementations d'un seul geste, et le jour ou l'une apprend a preserver
-            un fichier de plus, les deux autres l'oublient.
+            Ce bloc avait sa propre mise de cote des reglages, recopiee du deploiement
+            d'alors : trois implementations d'un seul geste, et le jour ou l'une apprend a
+            preserver un fichier de plus, les deux autres l'oublient.
 
             Ici, il n'y a pas d'archive a extraire : le dossier courant EST l'archive, que
             l'utilisateur a extraite lui-meme.

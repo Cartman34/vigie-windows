@@ -1519,8 +1519,8 @@ function Get-LocalRepoPath {
     personne (D112). L'action « tag-version » appelle donc cette fonction DANS LA SESSION
     du demandeur, sous son compte, dans son depot.
 
-    Le calcul du prochain numero vit ici plutot que dans deploy-prod : les deux chemins --
-    le bouton et la ligne de commande -- doivent donner le meme.
+    Le calcul du prochain numero vit ici, dans la bibliotheque : les deux chemins -- le
+    bouton et la ligne de commande -- doivent donner le meme.
 #>
 function Get-NextDeploymentTag {
     param([Parameter(Mandatory)][string]$RepoPath)
@@ -4346,7 +4346,6 @@ function Get-RecentOperationResults {
 $script:RessourcesParAction = @{
     # Ce qui touche l'installation ou relance Vigie : rien d'autre pendant ce temps.
     'vigie-update'         = @('machine')
-    'deploy-shared'        = @('machine')
     'pwsh-install-machine' = @('machine')
     'system-restart'       = @('machine')
     'repair-tasks'         = @('taches')

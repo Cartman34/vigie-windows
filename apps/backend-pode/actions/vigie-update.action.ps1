@@ -7,15 +7,10 @@
    Files, car l'installation sait d'ou elle vient -- c'est lui la source, et le tag est
    pose au passage. Sinon, la derniere version publiee sur GitHub.
 
-   Ce que ca fait, dans l'ordre :
-     1. rapporte une archive et la VERIFIE (vigie-fetch.ps1) -- tant qu'elle n'est pas
-        exploitable, l'installation en place n'est pas touchee ;
-     2. la deploie (deploy-prod.ps1), en conservant les reglages de la machine ;
-     3. relance les DEUX applications : l'ordre « restart » va aux app clientes, et l'app
-        serveur se relance elle-meme avec ses propres droits -- le relanceur attend la fin
-        de la mise a jour avant d'agir (D65). Le commentaire disait auparavant que le tray
-        relancait le serveur : ce n'est plus vrai, et l'app serveur restait sur l'ancien
-        code apres chaque mise a jour.
+   Ce bouton ne fait rien de particulier : il lance L'INSTALLATION, la meme que
+   setup.cmd, decrite dans doc/progress/targeting/install-update.md. Recuperer avant
+   d'arreter, controler, arreter, sauvegarder, poser, verifier, redemarrer -- c'est elle
+   qui sait dans quel ordre, et il n'y a pas de second exemplaire de cette sequence.
 
    Le tout sous le VEILLEUR (D82) : le code de sortie est constate et rapporte, une
    mise a jour ratee devient une ligne rouge sur la carte au lieu d'un silence. Le code

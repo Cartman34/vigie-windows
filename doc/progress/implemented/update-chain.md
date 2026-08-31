@@ -31,7 +31,7 @@ c'est l'adresse déclarée — d'où la déclaration `safe.directory`, posée pa
    « Actualiser ».
 3. **Fabrication** — `vigie-fetch` produit l'archive depuis le clone, sur le tag visé ; depuis une source locale et
    sans référence imposée, il suit la branche.
-4. **Déploiement** — `deploy-prod -Zip`, qui ne fabrique ni ne tague : il copie et préserve les réglages de la machine.
+4. **Déploiement** — `install.ps1`, qui arrête, sauvegarde, copie en préservant les réglages de la machine, vérifie, et redémarre.
 5. **Relance** — ordre `restart` aux app clientes des comptes qui en ont une ; l'app serveur se relance elle-même via
    sa tâche planifiée, après la fin des opérations en cours.
 
