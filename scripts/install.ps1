@@ -416,54 +416,132 @@ if ($repoLocal) {
     n'y a ni depot, ni source declaree, ni rien a chercher.
 #>
 $prepared = $null
+<#
+    RECUPERER LA VERSION A POSER -- ICI, ET NULLE PART AILLEURS.
+
+    C'etait un script a part, vigie-update.ps1, appele en processus fils et dont on lisait
+    la DERNIERE LIGNE pour connaitre le dossier. Un contrat de sortie entre deux scripts
+    du meme depot, alors qu'ils font un seul geste : le 31/08, ce script s'est relaye vers
+    une autre copie de lui-meme dont la sortie ne revenait pas, l'installation a lu une
+    phrase d'information a la place d'un chemin, et cinquante-six secondes de fabrication
+    sont parties a la poubelle. On avait acte sa disparition ; elle est faite.
+
+    L'etape tourne AVANT tout arret : fabriquer est la partie longue, et Vigie n'a aucune
+    raison d'etre coupee pendant.
+#>
 $aRecuperer = $false
 try { $aRecuperer = [bool](Get-UpdateRoute -Backend $backend).route } catch { }
 if ($aRecuperer) {
     Write-Step (Get-Label 'install.etape-recuperation')
-    $updater = Join-Path $PSScriptRoot 'vigie-update.ps1'
-    if (-not (Test-Path -LiteralPath $updater)) {
-        Write-Fail (Get-Label 'install.deploiement-introuvable' $updater)
+
+    # LE CHOIX DE LA MACHINE. Un poste de developpement peut vouloir se comporter comme
+    # une machine d'utilisateur (UpdateSource = 'release'), ou l'inverse.
+    $updateSource = 'auto'
+    $updateRef = ''
+    try {
+        $cfgMaj = Get-Config -Backend $backend
+        $choix = "$($cfgMaj.UpdateSource)".Trim()
+        if ($choix -and @('auto','release','clone') -contains $choix) {
+            $updateSource = $choix
+            # On n'annonce que ce qui CHANGE quelque chose : « auto » est le defaut.
+            if ($choix -ne 'auto') { Write-Detail (Get-Label 'vigie-update.source-imposee-par-la' $choix) }
+        }
+        if ("$($cfgMaj.UpdateRef)".Trim()) { $updateRef = "$($cfgMaj.UpdateRef)".Trim() }
+    } catch { }
+
+    # LA CARTE ET LE BOUTON LISENT LA MEME RESOLUTION (Get-UpdateRoute) : sans cela, la
+    # carte annonce une reference et le bouton va chercher ailleurs.
+    $route = $updateSource
+    if ($route -eq 'auto') {
+        if ($updateRef) { $route = 'clone' }
+        else {
+            $resolu = $null
+            try { $resolu = Get-UpdateRoute -Backend $backend } catch { }
+            $route = $(if ($resolu -and $resolu.route) { $resolu.route } else { 'release' })
+        }
+    }
+
+    <#
+        LE TAG EST POSE PAR LE DEMANDEUR, AVANT DE FABRIQUER.
+
+        On marque une version s'il y a des commits d'avance ET qu'on est en stage dev.
+        L'installation tourne peut-etre sous le compte du service, qui n'a rien a ecrire
+        dans le depot d'une personne : on demande a l'app cliente du demandeur de poser le
+        tag chez elle, et le clone le verra au fetch suivant.
+
+        Lancee a la main, il n'y a personne a qui deleguer : celui qui tape la commande EST
+        le proprietaire. Et si le tag ne peut pas se poser, on continue -- une mise a jour
+        ne rate pas pour un numero.
+    #>
+    if ($route -eq 'clone' -and (Get-DeclaredStage -Backend $backend) -eq 'dev' -and -not $updateRef) {
+        $tagPose = $null
+        if ($Requester) {
+            Write-Detail (Get-Label 'vigie-update.marquage-demande' $Requester)
+            try {
+                $marquage = Invoke-DesktopAction -Account $Requester -Type 'tag-version' -TimeoutSec 45 -Backend $backend
+                $tagPose = "$($marquage.result.tag)"
+                if (-not $tagPose) { Write-Detail (Get-Label 'vigie-update.marquage-sans-tag' "$($marquage.message)") }
+            } catch { Write-Detail (Get-Label 'vigie-update.marquage-impossible' $_.Exception.Message) }
+        } else {
+            $depotSource = Get-UpdateRemote -Backend $backend
+            try {
+                $pose = New-DeploymentTag -RepoPath $depotSource -Push
+                if ($pose.posed) { $tagPose = $pose.tag }
+                else { Write-Detail (Get-Label 'vigie-update.marquage-impossible' "$($pose.error)") }
+            } catch { Write-Detail (Get-Label 'vigie-update.marquage-impossible' $_.Exception.Message) }
+        }
+        if ($tagPose) {
+            $updateRef = $tagPose
+            Write-Ok (Get-Label 'vigie-update.version-marquee' $tagPose)
+        }
+    }
+
+    # LA FABRICATION reste un script a part : elle a sa propre affaire -- git, archive,
+    # verification du contenu -- et elle sert aussi a fabriquer une release a la main.
+    $archive = $null
+    $fetch = Join-Path $PSScriptRoot 'vigie-fetch.ps1'
+    if (-not (Test-Path -LiteralPath $fetch)) {
+        Write-Fail (Get-Label 'vigie-update.vigie-fetch-ps1-introuvable')
     } else {
-        $prep = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $updater)
-        if ($Requester) { $prep += @('-Requester', $Requester) }
-        if ($Force)     { $prep += '-Force' }
-        $lines = & (Get-Process -Id $PID).Path @prep 2>&1
-        $prepCode = $LASTEXITCODE
-        foreach ($l in $lines) {
+        $argv = @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', $fetch, '-Source', $route)
+        if ($updateRef) { $argv += @('-Ref', $updateRef) }
+        if ($Force)     { $argv += '-Force' }
+
+        Write-Detail (Get-Label 'vigie-update.recuperation')
+        # La sortie est LUE : la derniere ligne porte le chemin de l'archive. Le reste est
+        # du recit, qu'on repete pour que le journal en garde la trace.
+        $lignesFetch = & (Get-Process -Id $PID).Path @argv 2>&1
+        $codeFetch = $LASTEXITCODE
+        foreach ($l in $lignesFetch) {
             Write-Host "$l"
             try { Write-Log -Backend $backend -Name 'install' -Message "$l" -NoEcho } catch { }
         }
-        if ($prepCode -eq 3) {
+
+        if ($codeFetch -eq 3) {
             # DEJA A JOUR : c'est un succes, et il n'y a rien a poser.
             Write-Ok (Get-Label 'install.deploiement-inutile')
-        } elseif ($prepCode -ne 0) {
-            Write-Fail (Get-Label 'install.recuperation-echouee' $prepCode)
+        } elseif ($codeFetch -ne 0) {
+            Write-Fail (Get-Label 'install.recuperation-echouee' $codeFetch)
         } else {
-            $prepared = "$(@($lines | Where-Object { "$_".Trim() } | Select-Object -Last 1))".Trim()
-            if (-not (Test-PathSafe $prepared)) {
-                Write-Fail (Get-Label 'install.recuperation-sans-dossier' $prepared)
-                $prepared = $null
+            $archive = "$(@($lignesFetch | Where-Object { "$_".Trim() } | Select-Object -Last 1))".Trim()
+            if (-not (Test-PathSafe $archive)) {
+                Write-Fail (Get-Label 'vigie-update.la-recuperation-dit-avoir' $archive)
+                $archive = $null
             }
+        }
+    }
+
+    if ($archive) {
+        try {
+            $prepared = Expand-InstallArchive -Zip $archive
+            Write-Ok (Get-Label 'vigie-update.archive-prete-a-poser')
+        } catch {
+            Write-Fail (Get-Label 'vigie-update.extraction-impossible' $_.Exception.Message)
+            $prepared = $null
         }
     }
 }
 
-<#
-    POSER LE CODE : c'est ici que Vigie s'arrete, et le moins longtemps possible.
-
-    Rien n'est arrete tant qu'on n'a pas verifie qu'on POURRA ecrire : on decouvrait
-    l'echec apres avoir tout coupe.
-
-    UN SEUL CHEMIN, QUELLE QUE SOIT L'ORIGINE. Il y en avait deux : celui-ci, et un autre
-    plus bas pour « je ne suis pas un depot » -- avec sa propre copie, sans controle
-    d'espace, sans sauvegarde et sans verification. Deux mises en oeuvre du meme geste,
-    donc deux comportements a tenir, et celui qu'on emprunte le moins est celui qui derive.
-
-    La seule question est : QUEL DOSSIER pose-t-on ? Celui qu'on vient de recuperer si la
-    recuperation a donne quelque chose ; sinon celui d'ou l'on vient, qui EST la version a
-    poser -- une archive que quelqu'un a extraite et lancee. Et rien du tout si l'on est
-    deja l'installation partagee : se recopier sur soi-meme n'installe rien.
-#>
 if (-not $prepared -and -not $alreadyThere) { $prepared = $repoRoot }
 if ($prepared) {
     $stopped = @()

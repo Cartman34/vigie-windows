@@ -49,7 +49,7 @@ La cible est décrite dans [`../targeting/install-update.md`](../targeting/insta
 |---|---|
 | Verrou d'installation | `Lock-Install` / `Unlock-Install`, avec verrou orphelin ignoré — éprouvé |
 | Refus si une opération tourne | l'installation lit les marques d'occupation et nomme ce qui tourne |
-| Récupération avant l'arrêt | `vigie-update.ps1` marque, fabrique, extrait, et rend le dossier — il ne fait plus que cela |
+| Récupération avant l'arrêt | dans `install.ps1` : marque la version, appelle `vigie-fetch`, extrait — `vigie-update.ps1` est supprimé |
 | Contrôles avant l'arrêt | `Test-DeploymentPossible` — écriture réelle et espace disque — éprouvé |
 | Arrêts | tâches d'app cliente, balayage des app clientes hors tâche, tâche serveur |
 | Sauvegarde, vérification, restauration | `Backup-Install`, `Test-InstallCopy`, `Restore-Install` — éprouvés sur un arbre jetable |
