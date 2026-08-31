@@ -131,7 +131,7 @@ public static bool Focus(System.IntPtr h) {
         $pwsh      = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
         $trayPath  = Join-Path $trayRoot 'tray.ps1'      # cette app, pas le backend
         # Starting : un demarrage a ete demande et le serveur n'a pas encore repondu.
-        $state     = [hashtable]::Synchronized(@{ Proc = $null; Drawn = ''; EverUp = $false; Starting = $true; StartTicks = [datetime]::UtcNow.Ticks; Mods = @{}; ModsInit = $false; HealthKo = 0; MachineTask = $null; ElevationAsked = $false; SaidDead = $false })
+        $state     = [hashtable]::Synchronized(@{ Proc = $null; Drawn = ''; EverUp = $false; Starting = $true; StartTicks = [datetime]::UtcNow.Ticks; Mods = @{}; ModsInit = $false; HealthKo = 0; MachineTask = $null; ElevationAsked = $false; SaidDead = $false; Bulles = @{}; DerniereBulle = $null })
         # Cache d'etat du backend : lu (jamais ecrit) par le guetteur de modules (D54).
         $stateCacheFile = Get-VarPath -Backend $backend -Kind 'cache' -File 'state-cache.json'
         <#
@@ -480,12 +480,31 @@ public static bool Focus(System.IntPtr h) {
             serait une regression pour un gain nul.
         #>
         $openBrowser = {
-            # UN SEUL CHEMIN pour demander une adresse d'ouverture : Get-OpenUrl. Le geste
-            # etait ecrit ici ET dans l'outil de questions, avec deja deux delais
-            # d'attente differents.
+            <#
+                SANS IDENTIFICATION, ON N'OUVRE PAS UNE PAGE QUI REFUSE.
+
+                Le panneau servi a une fenetre sans session est desormais une page de
+                refus. Ouvrir l'adresse nue quand l'identification a echoue revenait donc
+                a promener l'utilisateur vers un mur : le 31/08 sur le compte Famille,
+                l'icone etait verte et la page disait « aucun compte ».
+
+                On redemande une fois, avec un delai plus large -- le serveur peut etre
+                occupe a recalculer -- et si l'on n'obtient toujours rien, on le DIT au
+                lieu d'ouvrir. Une seule mise en oeuvre de la demande : Get-OpenUrl.
+            #>
             $target = $null
-            try { $target = Get-OpenUrl -BaseUrl $url -TimeoutSec 5 -Backend $backend } catch { }
-            if ($target) { TLog "adresse d'ouverture obtenue" } else { TLog "ouverture sans identification" ; $target = $url }
+            foreach ($essai in 1..2) {
+                try { $target = Get-OpenUrl -BaseUrl $url -TimeoutSec (5 * $essai) -Backend $backend } catch { }
+                if ($target) { break }
+                Start-Sleep -Milliseconds 700
+            }
+            if (-not $target) {
+                TLog "adresse d'ouverture refusee : on n'ouvre pas"
+                & $dire -Titre (Get-Label 'tray.bulle-identite-titre') `
+                        -Texte (Get-Label 'tray.bulle-identite-texte') -Icone 'Warning' -Duree 8000
+                return
+            }
+            TLog "adresse d'ouverture obtenue"
             & $openUrl $target
         }
         $openRepo    = { & $openUrl $repoUrl }
@@ -882,6 +901,46 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
         & $startServer
         TLog "serveur ok"
 
+        <#
+            TOUTES LES BULLES PASSENT PAR ICI, ET ELLES ONT UN FREIN.
+
+            Sur le compte Famille, le 31/08 : une notification qui se rouvrait des qu'on
+            la fermait, sans fin, jusqu'a masquer les icones de la zone de notification.
+            Il a fallu couper Vigie pour ce compte et interdire les notifications de
+            PowerShell dans Windows.
+
+            La cause n'est pas la bulle, c'est ce qu'elle annonce : quand le serveur
+            alterne entre injoignable et demarre, les cartes basculent a chaque tour de
+            surveillance -- toutes les huit secondes -- et chaque bascule demandait sa
+            bulle. Une notification qui se repete n'informe plus, elle bloque.
+
+            Trois regles, ici et nulle part ailleurs :
+              - JAMAIS DEUX FOIS LE MEME MESSAGE dans le quart d'heure ;
+              - une minute au moins entre deux bulles, quel qu'en soit le sujet ;
+              - si l'affichage echoue, on n'insiste pas -- on le note et on passe.
+        #>
+        $dire = {
+            param([string]$Titre, [string]$Texte, [string]$Icone = 'Info', [int]$Duree = 6000)
+            $maintenant = [datetime]::UtcNow
+            $cle = "$Titre|$Texte"
+            if (-not $state.Bulles) { $state.Bulles = @{} }
+            $vue = $state.Bulles[$cle]
+            if ($vue -and ($maintenant - [datetime]$vue).TotalMinutes -lt 15) { return }
+            if ($state.DerniereBulle -and ($maintenant - [datetime]$state.DerniereBulle).TotalSeconds -lt 60) { return }
+            try {
+                $icon.ShowBalloonTip($Duree, $Titre, $Texte, [System.Windows.Forms.ToolTipIcon]::$Icone)
+                $state.Bulles[$cle] = $maintenant
+                $state.DerniereBulle = $maintenant
+            } catch {
+                # ON N'INSISTE PAS. Une bulle qu'on ne sait pas afficher se note et
+                # s'oublie : reessayer a chaque tour est exactement ce qui a bloque
+                # l'ecran de Famille.
+                $state.Bulles[$cle] = $maintenant
+                $state.DerniereBulle = $maintenant
+                TLog ("bulle refusee par Windows : " + $_.Exception.Message)
+            }
+        }
+
         $poll = {
             <#
                 UNE INSTALLATION EN COURS N'EST PAS UNE PANNE.
@@ -937,9 +996,9 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                     if ($state.HealthKo -eq 3 -and -not $silence) {
                         TLog "serveur coince (port ouvert, health muet x3) : signale, pas tue"
                         try {
-                            $icon.ShowBalloonTip(8000, (Get-Label 'tray.bulle-coince-titre'),
-                                                 (Get-Label 'tray.bulle-coince-texte'),
-                                                 [System.Windows.Forms.ToolTipIcon]::Warning)
+                            & $dire -Titre (Get-Label 'tray.bulle-coince-titre') `
+                                    -Texte (Get-Label 'tray.bulle-coince-texte') `
+                                    -Icone 'Warning' -Duree 8000
                         } catch { }
                     }
                 }
@@ -992,9 +1051,9 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                             $state.SaidDead = $true
                             TLog "serveur mort (port ferme)"
                             try {
-                                $icon.ShowBalloonTip(8000, (Get-Label 'tray.bulle-mort-titre'),
-                                                     (Get-Label 'tray.bulle-mort-texte'),
-                                                     [System.Windows.Forms.ToolTipIcon]::Warning)
+                                & $dire -Titre (Get-Label 'tray.bulle-mort-titre') `
+                                        -Texte (Get-Label 'tray.bulle-mort-texte') `
+                                        -Icone 'Warning' -Duree 8000
                             } catch { }
                         }
                         & $startServer
@@ -1086,7 +1145,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                             }) -join [Environment]::NewLine)
                             $titre = if ($bascules.Count -eq 1) { 'Un module a changé d''état' } else { "$($bascules.Count) modules ont changé d'état" }
                             TLog ("notification : " + (@($bascules | ForEach-Object { "$($_.id) $($_.de)->$($_.vers)" }) -join ', '))
-                            try { $icon.ShowBalloonTip(6000, $titre, $texte, [System.Windows.Forms.ToolTipIcon]::$tipIc) } catch { }
+                            & $dire -Titre $titre -Texte $texte -Icone $tipIc -Duree 6000
                         }
                     }
                 }
