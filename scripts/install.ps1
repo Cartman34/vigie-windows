@@ -465,6 +465,39 @@ if ($aRecuperer) {
     deja l'installation partagee : se recopier sur soi-meme n'installe rien.
 #>
 if (-not $prepared -and -not $alreadyThere) { $prepared = $repoRoot }
+
+<#
+    ON NE REMPLACE PAS LE DOSSIER DEPUIS LEQUEL ON TOURNE.
+
+    Depuis le bouton de la carte, l'installation est lancee depuis l'installation
+    partagee -- et elle s'apprete a ecraser ce dossier, avec ses propres scripts et sa
+    propre bibliotheque dedans. Windows ne laisse pas remplacer sereinement ce qui est
+    ouvert : la copie echoue a mi-chemin, l'installation compte un echec et rend 1.
+    setup.cmd, lui, tourne depuis le depot et n'a jamais rencontre ce cas.
+
+    La version qu'on vient de recuperer contient une installation COMPLETE, scripts
+    compris. On lui passe la main : elle tourne depuis un dossier temporaire, elle peut
+    donc ecraser la destination sans se marcher dessus. On rend le verrou avant, sinon
+    elle se refuserait elle-meme, et son code de sortie devient le notre.
+#>
+if ($prepared -and $alreadyThere) {
+    $handOver = Join-Path (Join-Path $prepared 'scripts') 'install.ps1'
+    if (Test-PathSafe $handOver) {
+        Write-Step (Get-Label 'install.passage-de-main' $prepared)
+        $handArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $handOver)
+        if ($Requester)  { $handArgs += @('-Requester', $Requester) }
+        if ($Force)      { $handArgs += '-Force' }
+        if ($NoWindow)   { $handArgs += '-NoWindow' }
+        if ($FromAction) { $handArgs += @('-FromAction', $FromAction) }
+        Unlock-Install
+        & (Get-Process -Id $PID).Path @suiteArgs
+        $handCode = $LASTEXITCODE
+        try { Stop-Transcript | Out-Null } catch { }
+        exit $handCode
+    }
+    Write-Fail (Get-Label 'install.passage-de-main-impossible' $handOver)
+}
+
 if ($prepared) {
     $stopped = @()
     $backup  = $null
