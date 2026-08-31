@@ -107,6 +107,32 @@ en place toute la journée, jusqu'à ce qu'il me le fasse remarquer.
 explicitement pourquoi on ne le fait pas maintenant (et ça devient une tâche écrite, pas une phrase dans un message).
 Rendre un défaut visible est utile ; ça ne remplace jamais sa correction.
 
+## Revenir d'une compression de contexte
+
+**Un résumé n'est pas une source.** Quand le contexte est compressé, les disciplines, les décisions et les documents de
+conception disparaissent : il ne reste qu'un récit de ce qui a été fait. Ce récit vieillit — il affirme des états du
+dépôt (« plus utilisé », « déjà corrigé », « éprouvé ») qui étaient vrais au moment où ils ont été écrits, et parfois
+ne l'étaient déjà pas.
+
+*Le 31/08, au retour d'une compression : annoncé que `deploy-prod.ps1` n'était plus appelé par personne, et supprimé en
+conséquence. Un bouton de l'interface l'appelait toujours. La phrase venait du résumé ; personne n'avait vérifié.*
+
+**Comment l'appliquer :** `CLAUDE.md` reste en contexte après la compression et renvoie au point de reprise. Premier
+geste au retour, avant toute conclusion et avant toute suppression :
+
+```powershell
+pwsh -File scripts/dev/reprise.ps1          # les disciplines, la carte des documents, l'état du dépôt
+pwsh -File scripts/dev/reprise.ps1 -Court   # sans le texte des disciplines
+```
+
+**Trois affirmations ne se font jamais de mémoire**, quelle que soit la confiance qu'on a dans le souvenir :
+
+| Ce qu'on veut dire | Ce qui le prouve |
+|---|---|
+| « plus rien ne l'appelle » | `check-reachable.ps1`, **puis** une recherche sur le nom — un fichier peut être atteint par une action ou par le front. |
+| « on avait décidé que » | `decisions.ps1 -About`. Une incohérence sans décision se demande. |
+| « c'est éprouvé » | les vérificateurs, relancés **maintenant**. |
+
 ## Chercher avant de concevoir
 
 **La source de vérité, c'est `doc/progress/decisions.md`** — les arbitrages, rien d'autre. Avant de concevoir quoi que
