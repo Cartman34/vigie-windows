@@ -384,8 +384,28 @@ if ($isRepo) {
     fabrication est ce qui prend le plus de temps, et Vigie n'a aucune raison d'etre
     coupee pendant. On ne s'arrete qu'ensuite, le temps de poser les fichiers.
 #>
+<#
+    ON RECUPERE MEME QUAND ON N'EST PAS DANS UN DEPOT.
+
+    Cette etape ne se declenchait que si le dossier courant etait un depot git. Depuis le
+    BOUTON de la carte, l'installation tourne depuis l'installation partagee -- Program
+    Files, aucun .git : elle ne recuperait donc RIEN, ne deployait rien, et se terminait
+    en succes. « L'app est toujours en 0.1.36 au lieu de 0.1.37 » (constate le 31/08) :
+    elle n'avait jamais eu de version a poser.
+
+    D'ou vient le code ne se deduit pas de l'endroit d'ou l'on lance : c'est un REGLAGE
+    DECLARE (D99). vigie-update sait deja le lire -- clone du depot declare, ou derniere
+    version publiee -- et sait dire « deja a jour » (code 3). On lui laisse trancher.
+
+    Seule exception : une premiere installation depuis une archive posee a la main, ou il
+    n'y a ni depot, ni source declaree, ni rien a chercher.
+#>
 $prepared = $null
-if ($isRepo) {
+$aRecuperer = $isRepo
+if (-not $aRecuperer) {
+    try { $aRecuperer = [bool](Get-UpdateRoute -Backend $backend).route } catch { }
+}
+if ($aRecuperer) {
     Write-Step (Get-Label 'install.etape-recuperation')
     $updater = Join-Path $PSScriptRoot 'vigie-update.ps1'
     if (-not (Test-Path -LiteralPath $updater)) {
