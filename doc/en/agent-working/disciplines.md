@@ -126,8 +126,10 @@ ne l'étaient déjà pas.
 *Le 31/08, au retour d'une compression : annoncé que `deploy-prod.ps1` n'était plus appelé par personne, et supprimé en
 conséquence. Un bouton de l'interface l'appelait toujours. La phrase venait du résumé ; personne n'avait vérifié.*
 
-**Comment l'appliquer :** `CLAUDE.md` reste en contexte après la compression et renvoie au point de reprise. Premier
-geste au retour, avant toute conclusion et avant toute suppression :
+**Comment l'appliquer :** le point de reprise est `scripts/dev/reprise.ps1`, et le point d'entrée qui y renvoie est
+`briefing.md` — valable pour n'importe quel agent. Un fichier chargé automatiquement par l'agent (`CLAUDE.md` pour
+Claude Code) survit à la compression et rend le retour plus sûr, mais il reste **facultatif** : il ne porte aucune
+règle, seulement le chemin. Premier geste au retour, avant toute conclusion et avant toute suppression :
 
 ```powershell
 pwsh -File scripts/dev/reprise.ps1          # les disciplines, la carte des documents, l'état du dépôt

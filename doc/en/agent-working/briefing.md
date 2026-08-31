@@ -4,6 +4,12 @@
 > perte de session — **uniquement ce qui est utile à l'instant**. Pas de journal : le
 > passé vit dans `git log` et `CHANGELOG.md`, les règles dans `decisions.md`.
 
+**Ce document est LE point d'entrée, quel que soit l'agent.** Il ne suppose aucun outil
+particulier : un fichier chargé automatiquement par tel ou tel agent (`CLAUDE.md` pour
+Claude Code) n'est qu'un raccourci **facultatif** vers ici, et ne contient jamais de règle
+qu'on ne trouverait pas dans ce dépôt. Si ce raccourci n'existe pas, rien n'est perdu — il
+faut seulement penser à ouvrir ce fichier.
+
 **Ce document se lit, et ce qui suit s'applique.** Il ne se suffit pas à lui-même : il
 ouvre une chaîne, et chaque maillon oblige au suivant.
 
@@ -14,8 +20,17 @@ ouvre une chaîne, et chaque maillon oblige au suivant.
 3. `doc/progress/targeting/` puis `doc/progress/implemented/` — la cible, puis l'état
    réel. Une demande de l'utilisateur se traduit **d'abord** dans la cible.
 
-Rien de tout cela n'est facultatif parce qu'on croit se souvenir : voir la discipline
-« Revenir d'une compression de contexte ».
+Rien de tout cela n'est facultatif parce qu'on croit se souvenir. **Un agent dont le
+contexte a été compressé n'a plus que son résumé** : les règles, les décisions et la
+conception ont disparu, et ce qu'il croit savoir de l'état du dépôt a vieilli. Premier
+geste au retour, avant toute conclusion, toute suppression, toute livraison :
+
+```powershell
+pwsh -File scripts/dev/reprise.ps1          # les disciplines, la carte des documents, l'état réel
+pwsh -File scripts/dev/reprise.ps1 -Court   # sans le texte des disciplines
+```
+
+Voir la discipline « Revenir d'une compression de contexte ».
 
 ## Le projet
 **Vigie** : tableau de bord **local** pour un PC Windows. Dépôt : `vigie-windows`.

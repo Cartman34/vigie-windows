@@ -9,8 +9,10 @@
     l'interface l'appelait toujours. La phrase venait du resume, pas du depot.
 
     LE PRINCIPE. On ne compte pas sur la vigilance de l'agent pour se souvenir de relire :
-    CLAUDE.md, qui reste en contexte apres la compression, le renvoie ICI, et ce script
-    remet tout sous ses yeux en une commande.
+    ce script remet tout sous ses yeux en une commande. Le point d'entree qui y renvoie est
+    doc/en/agent-working/briefing.md, valable pour n'importe quel agent ; un fichier charge
+    automatiquement par l'un d'eux (CLAUDE.md pour Claude Code) n'est qu'un raccourci
+    FACULTATIF vers lui, et ne porte aucune regle qui lui soit propre.
 
     CE QU'IL FAIT. Il n'invente rien et ne recopie rien : il RELIT les documents du depot
     et les affiche. Le jour ou une discipline change, ce script dit la nouvelle, sans

@@ -1,38 +1,24 @@
-# Vigie — à lire avant d'agir
+# Vigie — raccourci pour Claude Code
 
-Ce fichier est court exprès : il reste sous les yeux de l'agent en permanence, y compris
-quand tout le reste du contexte a été compressé. Il ne contient donc **aucune règle** —
-il dit **où sont les règles, qu'il faut les lire, et qu'il faut les appliquer**.
+**Ce fichier est facultatif, et ne contient aucune règle.** Claude Code le charge tout
+seul et le garde en contexte, y compris après une compression : c'est son seul intérêt.
+Tout autre agent l'ignorera — et ne perdra rien, parce que ce qu'il faut savoir vit dans
+le dépôt, jamais ici.
 
-## La consigne, en une phrase
+## À faire, dans cet ordre
 
-**Lire la documentation du dépôt, et l'appliquer.** Elle n'est pas une référence qu'on
-consulte en cas de doute : c'est la manière de travailler sur ce projet, et elle prévaut
-sur toute habitude, tout souvenir et tout résumé. Une règle qu'on n'a pas lue s'applique
-quand même ; c'est pour cela qu'on la lit.
+1. **Lire `doc/en/agent-working/briefing.md`, et appliquer ce qu'il dit.** C'est le point
+   d'entrée du projet, quel que soit l'agent. Il ouvre une chaîne — disciplines,
+   décisions, conception — dont chaque maillon oblige au suivant.
+2. **Au retour d'une compression de contexte**, avant toute conclusion, toute suppression
+   et toute livraison :
 
-## Reprise après compression — obligatoire, avant toute conclusion
+   ```
+   pwsh -File scripts/dev/reprise.ps1
+   ```
 
-Une compression laisse un **résumé**, pas les règles ni les documents. Ce qui y est écrit
-est un souvenir, pas une source : ne rien en conclure sans revérifier. Premier geste au
-retour, avant la moindre réponse de fond :
+   Un résumé n'est pas une source : il dit ce qui a été fait, pas ce qui est.
 
-```
-pwsh -File scripts/dev/reprise.ps1
-```
-
-Il rappelle les disciplines, les documents de vérité et l'état du dépôt. Tant qu'il n'a
-pas été lancé, on ne conclut rien, on ne supprime rien, on ne livre rien.
-
-## Où vit la vérité
-
-Chacun de ces documents dit, en tête, ce qu'il oblige à lire ensuite. On suit la chaîne
-jusqu'au bout.
-
-| | |
-|---|---|
-| `doc/en/agent-working/briefing.md` | **à lire en premier** : le projet et ses règles de conception permanentes. |
-| `doc/en/agent-working/disciplines.md` | **à lire en entier, et à tenir** : comment travailler ici. |
-| `doc/progress/decisions.md` | les arbitrages, qui **s'imposent**. `scripts/dev/decisions.ps1 -About "…"` **avant** de concevoir. |
-| `doc/progress/targeting/` | ce que le produit doit faire. Le premier fichier qu'on modifie quand il demande quelque chose. |
-| `doc/progress/implemented/` | ce qui est en place. |
+La documentation du dépôt n'est pas une référence qu'on consulte en cas de doute : c'est
+la manière de travailler ici, et elle prévaut sur toute habitude, tout souvenir et tout
+résumé.
