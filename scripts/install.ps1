@@ -760,7 +760,11 @@ try {
         # -Yes : on est deja eleve et l'utilisateur a deja consenti en lancant
         # l'installation ; une seconde fenetre d'explication serait du bruit.
         # LE RESULTAT SE LIT : 0 = fait, 3 = refuse, le reste est un echec.
-        & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $autostart -Yes
+        # POUR QUI : depuis le bouton, celui qui execute est le service ; la tache de
+        # demarrage appartient a la personne qui a demande.
+        $argsAuto = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $autostart, '-Yes')
+        if ($Requester) { $argsAuto += @('-Account', $Requester) }
+        & (Get-Process -Id $PID).Path @argsAuto
         $autostartCode = $LASTEXITCODE
         Write-Log -Backend $backend -Name 'install' -Message (Get-Label 'install.demarrage-automatique-code' $autostartCode)
         switch ([int]$autostartCode) {

@@ -112,6 +112,7 @@
   "disk-scan.analyse-interrompue-apres-dossiers": "{0} : analyse interrompue après {1} dossiers",
   "disk-scan.dossiers-fichiers": "{0} : {1} dossiers, {2} fichiers, {3} s",
   "install-autostart.app-barre-systeme-lancee": "App barre système lancée (icone dans la zone de notification). Serveur en fond, panneau sur {0}",
+  "install-autostart.compte-de-service": "{0} est le compte de service : il n'ouvre jamais de session, la tâche de démarrage n'y a pas sa place.",
   "install-autostart.installation-annulee-rien-ete": "Installation annulée. Rien n'a été modifié.",
   "install-autostart.pwsh-introuvable-lance-abord": "pwsh introuvable. Lance d'abord install.ps1 (installe PowerShell 7).",
   "install-autostart.raccourci-bureau-retire": "Raccourci bureau retiré : {0} — Vigie s'ouvre par son icône.",

@@ -13,7 +13,22 @@
 #>
 param(
     # Passe l'explication graphique : execution volontairement automatisee.
-    [switch] $Yes
+    [switch] $Yes,
+
+    <#
+        POUR QUI ON POSE LA TACHE -- pas forcement celui qui execute (D109).
+
+        Lancee depuis le bouton de la carte, l'installation tourne sous le compte du
+        SERVICE. Cette tache-ci etait donc enregistree pour lui : le 31/08, « Vigie » est
+        passee de fhaza a VigieService, fhaza s'est retrouve « Vigie inactive » et son app
+        cliente ne s'est plus lancee a l'ouverture de session -- pendant qu'un compte
+        technique, qui n'ouvre jamais de session, heritait d'une tache Interactive.
+
+        Le serveur passe donc le compte de la personne qui a clique. Sans indication, on
+        retombe sur le compte qui execute : c'est le cas d'un lancement a la main, ou il
+        n'y a personne d'autre.
+    #>
+    [string] $Account
 )
 
 $ErrorActionPreference = 'Stop'
@@ -74,7 +89,23 @@ $trigger   = New-ScheduledTaskTrigger -AtLogOn
 # le 24/08, session ouverte a 19:04, Vigie jamais demarre). Trois reprises espacees
 # d'une minute couvrent le cas ou le delai ne suffirait pas.
 $trigger.Delay = 'PT45S'
-$principal = New-ScheduledTaskPrincipal -UserId ("$env:USERDOMAIN\$(Get-ProcessAccount)") -LogonType Interactive -RunLevel Highest
+<#
+    LE COMPTE DE LA TACHE, ET SON NIVEAU, SUIVENT LA PERSONNE.
+
+    Le niveau se deduit du compte, jamais de notre envie : Highest pour un administrateur,
+    Limited pour un compte standard. Donner Highest a un compte standard ne marcherait pas,
+    et ne DOIT pas marcher -- Vigie ne donne rien de plus que Windows.
+#>
+$pourCompte = $Account
+if (-not $pourCompte) { $pourCompte = Get-ProcessAccount }
+if ($pourCompte -eq (Get-ServiceAccountName)) {
+    # UN COMPTE DE SERVICE N'OUVRE PAS DE SESSION : une tache Interactive posee chez lui
+    # ne se declenchera jamais, et elle vole sa place a quelqu'un.
+    Write-Fail (Get-Label 'install-autostart.compte-de-service' $pourCompte)
+    exit 1
+}
+$niveau = $(if (Test-LocalAccountIsAdmin -Name $pourCompte) { 'Highest' } else { 'Limited' })
+$principal = New-ScheduledTaskPrincipal -UserId ("$env:USERDOMAIN\" + $pourCompte) -LogonType Interactive -RunLevel $niveau
 $settings  = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
                 -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew `
                 -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
