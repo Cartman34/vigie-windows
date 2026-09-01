@@ -314,6 +314,11 @@
   .card.card-loading .card-refresh{pointer-events:auto}
   .card-attente{font-size:12.5px;color:var(--muted)}
   .card-menu{font-weight:700;letter-spacing:1px}
+  .card-menu-pop{position:absolute;z-index:400;min-width:210px;padding:5px;border-radius:10px;
+    border:1px solid var(--border);background:var(--panel-2);box-shadow:0 10px 28px rgba(0,0,0,.45)}
+  .card-menu-pop button{display:block;width:100%;text-align:left;font:inherit;font-size:12.5px;
+    color:var(--text);background:none;border:0;border-radius:7px;padding:7px 10px;cursor:pointer}
+  .card-menu-pop button:hover{background:var(--panel)}
   /* --- Tiroir de gestion des modules (D48) --- */
   .um{border:1px solid var(--border);border-radius:10px;padding:0;margin:0 0 10px;overflow:hidden}
   .um > summary{list-style:none;cursor:pointer;padding:12px 16px;display:flex;
@@ -1051,12 +1056,46 @@ function cardHtml(m, groupLabel){
     <div class="card-head">
       <div class="card-titles"><span class="card-group">${esc(groupLabel||'')}</span><span class="name">${m.label}</span></div>
       ${stTxt?`<span class="badge ${st}"><span class="ic vi vi-fw">${stIc}</span>${stTxt}</span>`:''}
-      <button class="card-refresh" title="${L('ui.rafraichir-cette-carte')}" onclick="refreshCard('${m.id}',this,true)"><span class="cr-ic vi vi-fw vi-lg">&#xE008;</span></button>
-      <button class="card-refresh card-menu" title="${L('ui.gerer-ce-module-activation')}" onclick="openSettings('modules','${m.theme}')"><span class="vi vi-fw vi-lg">&#xE009;</span></button>
+      <button class="card-refresh" title="${L('ui.rafraichir-cette-carte')}${(m.ms!==undefined&&m.ms!==null)?` — ${L('ui.servie-en')}${m.ms} ms`:''}" onclick="refreshCard('${m.id}',this,true)"><span class="cr-ic vi vi-fw vi-lg">&#xE008;</span></button>
+      <button class="card-refresh card-menu" title="${L('ui.menu-de-cette-carte')}" onclick="openCardMenu(event,'${m.id}','${m.theme}')"><span class="vi vi-fw vi-lg">&#xE009;</span></button>
     </div>
     <div class="fields">${fields || `<div class="frow"><span class="card-attente">${L(m.pending?'ui.carte-en-attente':'ui.carte-sans-ligne')}</span></div>`}</div>
     ${actions?`<div class="actions">${actions}</div>`:''}
   </div>`;
+}
+
+/*
+    LE MENU DE LA CARTE -- un bouton a trois points annonce un MENU, pas une destination.
+
+    Il ouvrait directement les parametres du module. C'etait la demande, elle n'avait pas
+    ete respectee : les trois points doivent donner le CHOIX, dont l'acces aux parametres
+    du module fait partie.
+*/
+function closeCardMenu(){
+  const m = document.getElementById('cardMenu');
+  if (m) m.remove();
+  document.removeEventListener('click', closeCardMenu, true);
+}
+function openCardMenu(ev, moduleId, theme){
+  ev.stopPropagation();
+  const already = document.getElementById('cardMenu');
+  closeCardMenu();
+  if (already && already.dataset.module === moduleId) return;   // second clic : on referme
+  const el = document.createElement('div');
+  el.id = 'cardMenu';
+  el.className = 'card-menu-pop';
+  el.dataset.module = moduleId;
+  el.innerHTML =
+      `<button type="button" data-do="settings">${L('ui.menu-parametres-du-module')}</button>`
+    + `<button type="button" data-do="refresh">${L('ui.menu-recalculer-la-carte')}</button>`;
+  document.body.appendChild(el);
+  const r = ev.currentTarget.getBoundingClientRect();
+  el.style.top  = (window.scrollY + r.bottom + 4) + 'px';
+  el.style.left = (window.scrollX + Math.min(r.left, window.innerWidth - el.offsetWidth - 12)) + 'px';
+  el.querySelector('[data-do="settings"]').onclick = () => { closeCardMenu(); openSettings('modules', theme); };
+  el.querySelector('[data-do="refresh"]').onclick  = () => { closeCardMenu(); refreshCard(moduleId, null, true); };
+  // Un clic AILLEURS referme : un menu qui reste ouvert derriere soi est un piege.
+  setTimeout(() => document.addEventListener('click', closeCardMenu, true), 0);
 }
 
 function wireCardActions(root){
@@ -1133,7 +1172,28 @@ function renderState(s, mode){
   gt.textContent=etat.txt;
   gt.style.color=etat.col;
   g.title=etat.aide;
-  document.getElementById('lastRefresh').textContent=L('ui.mis-jour')+new Date().toLocaleTimeString('fr-FR');
+  const meta=document.getElementById('lastRefresh');
+  meta.textContent=L('ui.mis-jour')+new Date().toLocaleTimeString('fr-FR');
+  // CE QUI A PRIS DU TEMPS, dans l'infobulle : le total, puis chaque phase du serveur et
+  // les trois cartes les plus lentes. Un chiffre unique ne dit pas ou regarder.
+  try{
+    const ph = s.timings || {};
+    const rows = Object.keys(ph).map(k=>`${k} : ${ph[k]} ms`);
+    const total = Object.keys(ph).reduce((a,k)=>a+(+ph[k]||0),0);
+    const slowest = (s.modules||[]).filter(m=>m.ms!==undefined&&m.ms!==null)
+                    .sort((a,b)=>b.ms-a.ms).slice(0,3).map(m=>`${m.label} : ${m.ms} ms`);
+    if(rows.length){
+      meta.textContent += ` · ${Math.round(total)} ms`;
+      meta.title = L('ui.temps-de-reponse')+'
+'+rows.join('
+')
+                 + (slowest.length?('
+
+'+L('ui.cartes-les-plus-lentes')+'
+'+slowest.join('
+')):'');
+    }
+  }catch(e){}
   setMachineName(s.host);
   const mb=document.getElementById('modebar'); const occupe=mb.classList.contains('busy'); mb.className='modebar '+(mode==='live'?'ok':'warn')+(occupe?' busy':''); mb.title=(mode==='live'?L('ui.connecte-api-locale-donnees'):L('ui.maquette-back-non-lance')); mb.textContent='';
 }
