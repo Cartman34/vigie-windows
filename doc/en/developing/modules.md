@@ -60,7 +60,10 @@ une panne, un verrou posé) doit offrir un **moyen de forcer cette branche** ave
 vraies données — quitte à ce qu'elles vaillent 0 :
 
 - convention : une variable d'environnement `VIGIE_FAKE_<QUOI>` documentée en tête de la
-  sonde (exemple : `VIGIE_FAKE_GAME='chrome'` fait traiter chrome comme le jeu) ;
+  sonde (exemple : `VIGIE_FAKE_GAME='chrome'` fait traiter chrome comme le jeu,
+  `VIGIE_FAKE_BATTERY='88'` simule une machine sur batterie à 88 %) ;
+- **elles se combinent** : ensemble, ces deux-là rejouent une scène qui, autrement, ne se
+  reproduit qu'en débranchant la machine et en lançant une partie — donc jamais ;
 - la simulation ne fabrique **pas** de fausses valeurs : elle force le **chemin**, les
   mesures restent réelles ;
 - l'épreuve fait partie de la validation avant livraison (voir ci-dessous) ;
@@ -86,6 +89,9 @@ vraies données — quitte à ce qu'elles vaillent 0 :
 pwsh -File .\scripts\check-probes.ps1 -Only <id>
 # 2. Les branches rares, forcées (si la sonde en a)
 $env:VIGIE_FAKE_GAME='chrome'; pwsh -File .\scripts\check-probes.ps1 -Only gaming; Remove-Item Env:VIGIE_FAKE_GAME
+# 2 bis. Une partie qui vide la batterie : les deux simulations ensemble
+$env:VIGIE_FAKE_GAME='chrome'; $env:VIGIE_FAKE_BATTERY='88'; pwsh -File .\scripts\check-probes.ps1 -Only gaming
+Remove-Item Env:VIGIE_FAKE_GAME, Env:VIGIE_FAKE_BATTERY
 # 3. Avant fusion : la passe complète
 pwsh -File .\scripts\check-probes.ps1 -All
 ```

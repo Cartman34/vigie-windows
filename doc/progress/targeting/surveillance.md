@@ -98,6 +98,10 @@ qui distingue une valeur d'une **alerte**. Le tout premier relevé est noté aus
     watch.internet   « oui » → « non » à 03 h 12, carte « net » recalculée
                      « non » → « oui » à 03 h 14, carte « net » recalculée
 
+Une sentinelle peut aussi **compter par paliers** plutôt que basculer : `game-battery` rend `non`, puis `baisse-10`,
+puis `baisse-15`… Chaque palier franchi est un changement, donc un événement, donc une alerte. Sans paliers, une
+batterie qui se vide pendant une partie n'aurait prévenu qu'**une fois**, au premier point de bascule.
+
 Rien de neuf en dessous : même dossier de données, même purge, même route de lecture que les autres mesures. Une
 sentinelle porte l'identifiant de mesure `watch.<clé>`.
 
