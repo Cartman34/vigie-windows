@@ -1347,8 +1347,18 @@ function layoutColumns(masonry){
   // On garde donc le placement precedent tant que la fenetre garde le meme nombre de
   // colonnes et que les memes groupes sont la. Un groupe nouveau, lui, prend la colonne
   // la moins remplie -- et y reste.
-  const memePlacement = groupPlacement && groupPlacement.nb === nb;
-  if(!memePlacement) groupPlacement = { nb: nb, col: new Map() };
+  // LE PLACEMENT MEMORISE VAUT POUR UN JEU DE GROUPES DONNE.
+  //
+  // Il n'etait garde que sur le nombre de colonnes : en decochant un groupe, les autres
+  // restaient epingles a leur colonne d'avant et celle qui se vidait le restait -- un
+  // trou au milieu de la grille (constate le 01/09, apres le premier correctif qui, lui,
+  // ne redistribuait rien du tout).
+  //
+  // On garde donc aussi QUELS groupes sont affiches. Tant qu'ils ne changent pas, rien ne
+  // bouge sous les yeux du lecteur ; des qu'on en masque un, tout se retasse.
+  const signature = groupes.join('|');
+  const memePlacement = groupPlacement && groupPlacement.nb === nb && groupPlacement.signature === signature;
+  if(!memePlacement) groupPlacement = { nb: nb, signature: signature, col: new Map() };
   for(const g of groupes){
     let cible;
     if(groupPlacement.col.has(g)){

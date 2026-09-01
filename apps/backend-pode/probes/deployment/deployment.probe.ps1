@@ -221,16 +221,31 @@ $malades  = @($accounts | Where-Object { $_.taskAilment })
 $enAttente = @($accounts | Where-Object { -not $_.taskAilment -and $_.taskPending })
 if ($malades.Count) {
     $depl += New-Field -Key 'taches' -Label 'Démarrage automatique' `
-        -Value ($malades.Count.ToString() + " tâche(s) hors service") -Kind 'text' -Status 'error' `
+        -Value ($(if ($malades.Count -eq 1) { "Ne démarre pas — " + $malades[0].name }
+                  else { "Ne démarre pas — " + $malades.Count.ToString() + " comptes" })) -Kind 'text' -Status 'error' `
         -FixAction 'repair-tasks' `
         -Help "Une tâche de démarrage de Vigie ne peut plus lancer l'application : elle démarre et meurt aussitôt, sans message. Vigie ne se lancera pas à l'ouverture de session." `
         -Guide (($malades | ForEach-Object { $_.name + " : " + $_.taskAilment }) -join [Environment]::NewLine)
 } elseif ($enAttente.Count) {
     # Pas de bouton : il n'y a rien a reparer. Seule la prochaine ouverture de session
     # du compte dira si le probleme est derriere nous.
+    <#
+        « 1 tache(s) a confirmer » ne dit rien a personne : confirmer par qui, quoi,
+        comment ? Une valeur de carte se comprend SANS ouvrir l'aide. On dit donc ce qui
+        est vrai : Vigie n'a pas encore demarre chez ce compte.
+
+        NEUTRE, PAS « A SURVEILLER » : il n'y a rien a faire et rien a reparer. Un
+        avertissement reclame une action (D66) ; celui-ci n'en avait aucune a proposer, et
+        poussait a « reparer » ce qui va bien.
+
+        LE COMMENTAIRE VIT AU-DESSUS DE L'INSTRUCTION. Glisse entre un accent grave de
+        continuation et le parametre suivant, il COUPE l'appel : la sonde levait
+        « missing mandatory parameters: Value Kind » et ne rendait plus aucune carte.
+    #>
     $depl += New-Field -Key 'taches' -Label 'Démarrage automatique' `
-        -Value ($enAttente.Count.ToString() + " tâche(s) à confirmer") -Kind 'text' -Status 'warn' `
-        -Help "La tâche est correctement installée, mais son dernier lancement s'est mal passé — ou elle n'a jamais tourné. Rien à réparer : c'est la prochaine ouverture de session de ce compte qui le dira." `
+        -Value ($(if ($enAttente.Count -eq 1) { "Jamais démarrée — " + $enAttente[0].name }
+                  else { "Jamais démarrée — " + $enAttente.Count.ToString() + " comptes" })) -Kind 'text' -Status 'neutral' `
+        -Help "Vigie est bien installée pour ce compte, mais elle ne s'y est pas encore lancée — soit il n'a pas ouvert de session depuis, soit son dernier démarrage s'est mal passé. Il n'y a rien à réparer : la prochaine ouverture de session de ce compte le dira." `
         -Guide (($enAttente | ForEach-Object { $_.name + " : " + $_.taskPending }) -join [Environment]::NewLine)
 } else {
     $depl += New-Field -Key 'taches' -Label 'Démarrage automatique' `
