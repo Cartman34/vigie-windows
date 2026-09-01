@@ -5688,6 +5688,34 @@ function Get-EnabledAccounts {
     @(Get-UserAccounts -Backend $Backend | Where-Object { $_.enabled })
 }
 
+function Get-UserRegistryRoots {
+    <# Les ruches de registre des VRAIS utilisateurs connectes, sous la forme
+       'Registry::HKEY_USERS\<SID>'.
+
+       POURQUOI : le serveur tourne sous le compte de service, donc HKCU designe la ruche
+       du service -- celle de personne. Une sonde qui lit un reglage par utilisateur
+       (bibliotheques Steam, jeux reconnus par la Game Bar, preferences d'une appli) ne
+       doit JAMAIS passer par HKCU : elle regarderait a cote et ne verrait rien. Constate
+       le 01/09 : Assassin's Creed Odyssey joue sur le compte Famille n'etait pas reconnu
+       comme jeu, la sonde interrogeant HKCU du service.
+
+       On ecarte .DEFAULT, les vues _Classes et les comptes systeme (S-1-5-18/19/20). Une
+       ruche non chargee (utilisateur deconnecte) n'apparait pas : c'est voulu, on ne
+       monte pas les ruches des absents.
+    #>
+    $roots = @()
+    try {
+        # SilentlyContinue et non Stop : l'enumeration bute sur des ruches protegees
+        # tout en renvoyant les autres ; s'arreter a la premiere les perdrait toutes.
+        foreach ($k in (Get-ChildItem Registry::HKEY_USERS -ErrorAction SilentlyContinue)) {
+            $sid = Split-Path $k.Name -Leaf
+            if ($sid -notmatch '^S-1-5-21-[\d-]+$') { continue }
+            $roots += "Registry::HKEY_USERS\$sid"
+        }
+    } catch { }
+    $roots
+}
+
 function Add-AccountsPerspective {
     param($Comptes)
     # Sans session, PERSONNE n'est « vous » : c'est plus vrai, et c'est plus sur que de

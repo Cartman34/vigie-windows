@@ -28,7 +28,7 @@ ligne — `scripts/dev/check-doc.ps1` refuse une décision absente d'ici.
 - **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46 · D48 · D49 · D50 · D58 · D59 · D66 · D68 · D69 · D70 · D71 · D88 · D89 · D94 · D95 · D102 · D105
 - **Installation, déploiement et mise à jour** — D07 · D11 · D22 · D77 · D78 · D79 · D81 · D84 · D87 · D96 · D97 · D99 · D101 · D106 · D107 (revu) · D110 · D112
 - **Sécurité, droits et multi-comptes** — D34 · D65 · D67 · D73 · D104 · D109
-- **Sondes, actions et tâches de fond** — D50bis · D53 · D54 · D60 · D61 · D80 · D82 · D83 · D85
+- **Sondes, actions et tâches de fond** — D50bis · D53 · D54 · D60 · D61 · D80 · D82 · D83 · D85 · D113
 - **Outillage** — D06 · D21 · D24 · D40 · D44 · D47 · D52 · D64 · D75 · D86 · D90
 - **Méthode de travail** — D10 · D12 · D13 · D14 · D16 · D17 · D31 · D36 · D39 · D43 · D51 · D62 · D63 · D74 · D76 · D100 · D103
 ---
@@ -2895,3 +2895,30 @@ Ce qui est tranché :
    compte propriétaire du dépôt. L'utilisateur reste libre de le poser lui-même.
 
 Comment c'est réalisé : [état réel — la chaîne de mise à jour](implemented/update-chain.md).
+
+---
+
+## D113 — Un réglage par utilisateur ne se lit jamais dans `HKCU` (2026-09-01)
+
+*Constatée par l'utilisateur : « la session de jeu n'est pas reconnue ».*
+
+> « J'ai joué à AC Odyssey, je le voyais bien consommer des ressources mais pas reconnu en tant que session de jeu.
+> Aussi pas de notif pour me dire que je consomme de la batterie en jeu. »
+
+Ce qui a été mesuré : le serveur tourne sous `VigieService`. La sonde des jeux lisait les bibliothèques Steam et les
+jeux reconnus par la Game Bar dans **`HKCU`** — c'est-à-dire la ruche du **compte de service**, où il n'y a ni Steam ni
+Game Bar. Elle regardait à côté et ne voyait rien, quel que soit le compte qui joue.
+
+Ce qui est tranché :
+
+1. **Une sonde ne lit jamais `HKCU`.** Elle regarde la machine ; un réglage rangé par utilisateur se lit **ruche par
+   ruche**, via `Get-UserRegistryRoots` (`HKEY_USERS\<SID>` de chaque utilisateur connecté). La règle vaut pour
+   n'importe quel réglage personnel, pas pour les seuls jeux.
+2. **Reconnaître un jeu ne dépend pas d'une boutique privilégiée.** Les marqueurs posés à côté de l'exécutable couvrent
+   les moteurs, les SDK, **les boutiques** (Ubisoft Connect, GOG, Battle.net) et les middlewares (Bink, FMOD) : Odyssey
+   ne portait aucun des marqueurs Steam/Unity/Unreal connus et passait pour une application ordinaire.
+3. **L'alimentation est un fait sur la machine, pas sur la partie.** Le champ `power` vivait dans la branche « un jeu
+   tourne » : sans jeu détecté, aucune alimentation n'était dite et l'alerte « partie sur batterie » ne pouvait jamais
+   partir. Le champ est toujours présent ; seul son statut dépend du rendu 3D en cours.
+
+Deux symptômes, une seule cause : c'est la détection qui manquait, l'alerte batterie n'en était que la conséquence.

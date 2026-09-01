@@ -239,20 +239,28 @@ function Group-ByApp {
 #
 # On ne juge donc PAS sur le nom (aucune liste noire d'applications a maintenir) mais sur
 # des FAITS verifiables autour de l'executable :
-#   + Windows lui-meme l'a enregistre comme jeu (Game Bar, HKCU\System\GameConfigStore) ;
+#   + Windows lui-meme l'a enregistre comme jeu (Game Bar, System\GameConfigStore de chaque utilisateur) ;
 #   + il est installe dans une bibliotheque Steam REELLE (lue dans la config de Steam) ;
-#   + un moteur ou un SDK de jeu est pose a cote (steam_api*.dll, UnityPlayer.dll,
-#     Content\Paks d'Unreal, EOSSDK...) ;
+#   + un marqueur de jeu est pose a cote : moteur (UnityPlayer.dll, Content\Paks
+#     d'Unreal), SDK (steam_api*.dll, EOSSDK) , boutique (uplay_r1_loader64.dll de
+#     Ubisoft Connect, Galaxy*.dll de GOG) ou middleware (bink2w64.dll, fmod*.dll) ;
 #   + sa fenetre occupe tout l'ecran ;
 #   - des marqueurs Chromium/Electron sont dans son dossier (chrome_*.pak, app.asar...).
 # Au-dessus du seuil, c'est un jeu ; en dessous, la carte dit « aucun » ET pourquoi.
 $SCORE_JEU = 3
 
+# Steam et la Game Bar rangent leurs reglages PAR UTILISATEUR. Le serveur tourne sous le
+# compte de service : HKCU y designe la ruche du service, celle de personne. On interroge
+# donc la ruche de chaque utilisateur connecte (voir Get-UserRegistryRoots).
+$ruches = @(Get-UserRegistryRoots) + @("HKCU:")
+
 # Bibliotheques Steam : lues dans la configuration de Steam, jamais devinees.
 $steamLibs = @()
-try {
-    $sp = (Get-ItemProperty 'HKCU:\Software\Valve\Steam' -Name 'SteamPath' -ErrorAction Stop).SteamPath
-    if ($sp) {
+foreach ($ruche in $ruches) {
+    try {
+        $cle = Join-Path $ruche 'Software\Valve\Steam'
+        $sp = (Get-ItemProperty $cle -Name 'SteamPath' -ErrorAction Stop).SteamPath
+        if (-not $sp) { continue }
         $spw = ($sp -replace '/', '\')
         $steamLibs += $spw.ToLower()
         $vdf = Join-Path $spw 'steamapps\libraryfolders.vdf'
@@ -261,17 +269,22 @@ try {
                 $steamLibs += ($m.Groups[1].Value -replace '\\\\', '\').ToLower()
             }
         }
-    }
-} catch { }
+    } catch { }
+}
+$steamLibs = @($steamLibs | Select-Object -Unique)
 
 # Executables que WINDOWS a lui-meme reconnus comme des jeux (Game Bar).
 $jeuxWindows = @()
-try {
-    foreach ($k in (Get-ChildItem 'HKCU:\System\GameConfigStore\Children' -ErrorAction Stop)) {
-        $v = (Get-ItemProperty $k.PSPath -ErrorAction SilentlyContinue).MatchedExeFullPath
-        if ($v) { $jeuxWindows += "$v".ToLower() }
-    }
-} catch { }
+foreach ($ruche in $ruches) {
+    try {
+        $cle = Join-Path $ruche 'System\GameConfigStore\Children'
+        foreach ($k in (Get-ChildItem $cle -ErrorAction Stop)) {
+            $v = (Get-ItemProperty $k.PSPath -ErrorAction SilentlyContinue).MatchedExeFullPath
+            if ($v) { $jeuxWindows += "$v".ToLower() }
+        }
+    } catch { }
+}
+$jeuxWindows = @($jeuxWindows | Select-Object -Unique)
 
 function Get-GameScore {
     param([string]$Path, [bool]$PleinEcran)
@@ -296,14 +309,21 @@ function Get-GameScore {
     # Moteur ou SDK de jeu, a cote de l'executable ou juste au-dessus (3 niveaux).
     $d = $dossier; $trouve = $null
     for ($i = 0; $i -lt 3 -and $d; $i++) {
+        # Boutiques ET moteurs : un jeu n'est pas toujours Steam/Unity/Unreal. Assassin's
+        # Creed Odyssey (Ubisoft Connect, moteur AnvilNext) ne portait AUCUN de ces
+        # marqueurs et passait pour une application ordinaire -- constate le 01/09.
         foreach ($m in @('steam_api.dll', 'steam_api64.dll', 'steam_appid.txt', 'UnityPlayer.dll',
-                         'EOSSDK-Win64-Shipping.dll', 'Content\Paks', '.egstore')) {
+                         'EOSSDK-Win64-Shipping.dll', 'Content\Paks', '.egstore',
+                         'uplay_r1_loader.dll', 'uplay_r1_loader64.dll', 'UbisoftGameLauncher.dll',
+                         'Galaxy.dll', 'Galaxy64.dll', 'goggame-galaxyFileList.bin', '.build.info',
+                         'bink2w64.dll', 'binkw32.dll', 'GameAssembly.dll',
+                         'fmod.dll', 'fmodstudio.dll', 'fmodstudio64.dll')) {
             if (Test-Path -LiteralPath (Join-Path $d $m)) { $trouve = $m; break }
         }
         if ($trouve) { break }
         $d = Split-Path $d -Parent
     }
-    if ($trouve) { $score += 3; $raisons += "moteur ou SDK de jeu présent ($trouve)" }
+    if ($trouve) { $score += 3; $raisons += "marqueur de jeu présent : moteur, SDK ou boutique ($trouve)" }
     if ($PleinEcran) { $score += 2; $raisons += 'fenêtre en plein écran' }
     if (-not $raisons.Count) { $raisons += 'aucun signe de jeu autour de l''exécutable' }
     @{ Score = $score; Raisons = $raisons }
@@ -506,17 +526,6 @@ if ($jeu) {
         $fields += New-Field -Key 'hogs' -Label 'Autres applis gourmandes' -Value 'aucune' -Kind 'text' -Status 'ok' `
             -Help "Aucune autre application au-dessus des seuils pendant la partie."
     }
-    if (-not $surSecteur) {
-        $fields += New-Field -Key 'power' -Label 'Alimentation' `
-            -Value ("Batterie" + $(if ($null -ne $pctBatterie) { " ($pctBatterie %)" })) -Kind 'text' -Status 'warn' `
-            -FixAction 'open-power-options' `
-            -Help "Sur batterie, processeur et carte graphique sont bridés : performances de jeu réduites." `
-            -Guide ("Branchez le secteur pour la partie." + $(if ($plan) { "`nPlan d'alimentation actif : $plan." }))
-    } else {
-        $fields += New-Field -Key 'power' -Label 'Alimentation' `
-            -Value ("Secteur" + $(if ($plan) { " " + [char]0x00B7 + " $plan" })) -Kind 'text' -Status 'ok' `
-            -Help "Sur secteur, la machine donne toute sa puissance."
-    }
 } else {
     # Quand une application consomme le GPU sans etre un jeu, on ne se tait pas : on dit
     # laquelle et POURQUOI elle n'a pas ete retenue. Sinon « aucun » ressemble a un rate.
@@ -531,6 +540,27 @@ if ($jeu) {
         -Help $(if ($rejete) { "Aucune application de jeu en cours. Le plus gros consommateur GPU est $(Get-AppDisplayName -ProcessName $rejete.Proc.Name -Path $rejete.Proc.Path -Complet), qui n'en est pas un." }
                 else { "Aucun processus n'utilise le GPU au-dessus du seuil de détection (réglable dans Paramètres)." }) `
         -Guide $guideAucun
+}
+
+# --- Alimentation : un fait sur la MACHINE, pas sur la partie ------------------
+# Ce champ vivait dans la branche « un jeu tourne » : sans jeu detecte, aucune
+# alimentation n'etait dite et l'alerte « partie sur batterie » ne pouvait jamais
+# partir -- deux symptomes pour une seule cause (constate le 01/09). Le champ est
+# desormais toujours la ; seul son STATUT depend de ce que la machine est en train de
+# rendre, car c'est le rendu 3D sur batterie qui bride et qui merite l'alerte.
+$rendActif = [bool]$jeu -or ($rejete -and $rejete.Proc.Gpu -ge $gameGpuMin)
+if (-not $surSecteur) {
+    $fields += New-Field -Key 'power' -Label 'Alimentation' `
+        -Value ("Batterie" + $(if ($null -ne $pctBatterie) { " ($pctBatterie %)" })) -Kind 'text' `
+        -Status $(if ($rendActif) { 'warn' } else { 'neutral' }) `
+        -FixAction 'open-power-options' `
+        -Help "Sur batterie, processeur et carte graphique sont bridés : performances de jeu réduites." `
+        -Guide ((@($(if ($rendActif) { "Branchez le secteur pour la partie." } else { "Rien ne rend en 3D pour l'instant : la bride n'a pas d'effet visible." })) +
+                 @($(if ($plan) { "Plan d'alimentation actif : $plan." }))) -join "`n")
+} else {
+    $fields += New-Field -Key 'power' -Label 'Alimentation' `
+        -Value ("Secteur" + $(if ($plan) { " " + [char]0x00B7 + " $plan" })) -Kind 'text' -Status 'ok' `
+        -Help "Sur secteur, la machine donne toute sa puissance."
 }
 
 # --- Repartition : le top par DIMENSION, pour trouver qui prend quoi ----------
