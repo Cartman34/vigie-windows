@@ -129,10 +129,18 @@ lui-même reste neutre : ce qu'on écrit sur le disque doit rester vrai pour n'i
 
 L'invalidation demandée par une action retire aussi les entrées par compte.
 
-**Un affichage ne recalcule RIEN.** Ni le chargement de la page, ni le sondage automatique : ils servent le cache tel
-quel et repartent. Une carte qu'on ne connaît pas encore ne s'affiche pas — elle apparaîtra quand quelqu'un l'aura
-demandée. Un recalcul se **demande** : le bouton ↻ en haut de la page pour tout, le bouton d'une carte pour elle seule.
+**Un affichage ne fait attendre personne.** Ni le chargement de la page, ni le sondage automatique : ils servent le
+cache tel quel et repartent. Un recalcul **dans la réponse** se demande — le bouton ↻ en haut pour tout, le bouton
+d'une carte pour elle seule.
 
-*Il y avait un rafraîchissement de fond, lancé dès qu'une sonde était périmée. Il recalculait, les délais des autres
-expiraient pendant ce temps, la requête suivante en relançait un : des passes qui s'enchaînaient sans interruption, une
-machine occupée en permanence et un `/state` à 27 secondes (mesuré le 31/08). Supprimé.*
+**Derrière, une seule sonde périmée part en tâche de fond**, détachée, pour que sa valeur soit prête la fois suivante.
+C'est ainsi que la carte Déploiement finit par voir un commit sans que le chargement le paie. Une seule par passage, et
+une seule à la fois (verrou `VigieStateRecompute`).
+
+*La version précédente recalculait les dix-sept sondes à chaque passage : les délais des autres expiraient pendant la
+passe, la requête suivante en relançait une, et la machine ne s'arrêtait plus — `/state` à 27 secondes (mesuré le
+31/08). Puis je l'ai supprimée entièrement, et la carte Déploiement ne voyait plus jamais un commit : c'était perdre
+l'autre moitié de la règle.*
+
+**Une carte qu'on ne connaît pas encore s'affiche quand même**, vide et en attente, et la page la demande d'elle-même —
+une par une, chacune son appel.

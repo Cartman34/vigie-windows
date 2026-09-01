@@ -3947,7 +3947,7 @@ function Get-State {
     # lui demande explicitement.
     if (-not $Force -and $stale.Count -gt 0) {
         <#
-            UN AFFICHAGE NE RECALCULE RIEN. AUCUNE SONDE, JAMAIS.
+            UN AFFICHAGE NE FAIT ATTENDRE PERSONNE.
 
             Ni le chargement de la page, ni le sondage automatique : ils servent ce qui est
             en cache, tel quel, et repartent. Une carte qu'on ne connait pas encore ne
@@ -3958,13 +3958,47 @@ function Get-State {
             recalcul se DEMANDE ; il ne se declenche pas tout seul parce qu'une date a
             expire.
 
-            Ce qu'il y avait avant, et qui a ete supprime : un rafraichissement de fond
-            lance des qu'une sonde etait perimee. Il recalculait, les delais des autres
-            expiraient pendant ce temps, la requete suivante en relancait un -- une machine
-            occupee en permanence et un /state a 27 secondes (mesure le 31/08).
+            Ce qui se passe DERRIERE, en revanche : une sonde perimee -- une seule, par
+            passage -- part en tache de fond, detachee, pour que la valeur soit prete la
+            fois suivante. Personne n'attend apres elle.
+
+            L'ancienne version recalculait les dix-sept a chaque fois : les delais des
+            autres expiraient pendant la passe, la requete suivante en relancait une, et
+            la machine ne s'arretait plus -- /state a 27 secondes (mesure le 31/08).
         #>
         $targeted = { param($e) ($sondesCiblees -contains $e.Key) -or ($sondesCiblees -contains $e.Name) }
+        $toRefresh = @($stale | Where-Object { -not (& $targeted $_) })
         $stale = @($stale | Where-Object { (& $targeted $_) })
+
+        <#
+            ET UNE SEULE SONDE PART EN TACHE DE FOND. Non bloquant, rare, par carte.
+
+            La reponse est deja constituee quand on arrive ici : personne n'attend. On
+            confie UNE sonde perimee -- la premiere -- a un processus detache, qui la
+            recalculera et ecrira le resultat pour la fois suivante. C'est ainsi que la
+            carte Deploiement finit par voir un commit sans que le chargement le paie.
+
+            UNE seule, et une seule a la fois : recalculer les dix-sept enchainait des
+            passes d'une minute et demie qui se relancaient l'une l'autre.
+        #>
+        if ($toRefresh.Count -gt 0) {
+            $alreadyRunning = $false
+            try {
+                $tmp = $null
+                if ([System.Threading.Mutex]::TryOpenExisting('Local\VigieStateRecompute', [ref]$tmp)) {
+                    $alreadyRunning = -not $tmp.WaitOne(0)
+                    if (-not $alreadyRunning) { try { $tmp.ReleaseMutex() } catch { } }
+                    try { $tmp.Dispose() } catch { }
+                }
+            } catch { }
+            if (-not $alreadyRunning) {
+                try {
+                    $w = Join-Path $Backend 'workers/state-refresh.worker.ps1'
+                    $null = Start-DetachedAction -Script $w -Backend $Backend `
+                                -ArgsMap @{ account = "$stateRequester"; probe = "$($toRefresh[0].Name)" }
+                } catch { }
+            }
+        }
     }
 
     if ($stale.Count -gt 0) {

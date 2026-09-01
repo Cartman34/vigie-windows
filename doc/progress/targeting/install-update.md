@@ -166,6 +166,21 @@ Il n'y a pas de reprise automatique : l'installation partagée est dans un état
 **dit** — avec le chemin de la sauvegarde, s'il en reste une, et celui du journal. C'est le seul cas où Vigie demande
 une intervention.
 
+### Ce que la carte Déploiement doit voir, et quand
+
+Elle compare l'installation partagée à **ce que le bouton irait chercher**. Sa fraîcheur suit trois règles, et elles
+tiennent ensemble :
+
+| | |
+|---|---|
+| un affichage | sert le cache, ne fait attendre personne |
+| une demande ciblée (bouton de la carte, bouton ↻) | recalcule et **attend** : c'est ce qu'on a demandé |
+| derrière chaque affichage | **une** sonde périmée part en tâche de fond, détachée — jamais plus d'une, jamais deux à la fois |
+
+C'est la troisième qui permet à la carte de **voir un commit** sans que personne ne clique et sans que le chargement le
+paie. La supprimer, c'est condamner la carte à mentir jusqu'au prochain clic ; la rendre gourmande — recalculer toutes
+les sondes — c'est occuper la machine en permanence. Les deux ont été essayés le 31/08.
+
 ### Correspondances techniques
 
 | Dans le plan | Dans le code |
