@@ -27,6 +27,10 @@ Format : `ID` — Titre, puis le besoin et ses critères. On n'écrit **pas** ic
   compare à cette même source — elle répond donc à « ce bouton changerait-il quelque chose ? » — et l'écart se lit dans
   le numéro de version (`v0.1.27+3`). À la fin d'une mise à jour, **les deux applications** repartent sur le nouveau
   code : les app clientes sur ordre, l'app serveur en se relançant elle-même.
+- **CORE-WATCH** — Vigie surveille **en permanence**, y compris quand aucune session n'est ouverte : l'app serveur
+  tourne déjà sous son compte de service, c'est de là qu'on observe. Une sonde à la fois, la plus urgente d'abord,
+  l'urgence étant **déclarée par le module** et non devinée. Sans cela, une notification ne peut pas exister — rien
+  n'est mesuré tant que personne ne regarde. Détail : [surveillance.md](surveillance.md).
 - **CORE-DEPLOY** — Installation partagée pour tous les comptes de la machine, jamais par compte. Les dépendances
   (PowerShell 7) en font partie. Un installateur aboutit, ou dit pourquoi il a échoué.
 - **CORE-UPDATE-TRUST** — La chaîne de mise à jour ne doit pas pouvoir être détournée. Ce qui s'installe doit être
