@@ -5716,6 +5716,22 @@ function Get-UserRegistryRoots {
     $roots
 }
 
+function Get-AccountRegistryRoot {
+    <# La ruche de registre d'UN compte nomme, ou $null si elle n'est pas chargee.
+
+       Une ruche n'est montee que pendant la session de son proprietaire : un compte
+       deconnecte n'a rien a lire, et on ne monte pas la ruche des absents.
+    #>
+    param([Parameter(Mandatory)][string]$Account)
+    try {
+        $sid = (New-Object System.Security.Principal.NTAccount($Account)).Translate(
+                   [System.Security.Principal.SecurityIdentifier]).Value
+    } catch { return $null }
+    $root = "Registry::HKEY_USERS\$sid"
+    if (Test-Path -LiteralPath $root) { return $root }
+    return $null
+}
+
 function Add-AccountsPerspective {
     param($Comptes)
     # Sans session, PERSONNE n'est « vous » : c'est plus vrai, et c'est plus sur que de

@@ -4,6 +4,9 @@
     # Le label et la description servent a la vue de gestion des modules.
     # L'activation ne vit PAS ici : elle est un choix de l'utilisateur, dans
     # config/modules.local.psd1 (jamais versionne).
+    # La distribution par defaut est un reglage PERSONNEL : chaque compte a la sienne.
+    # La carte depend donc de qui regarde, et son cache doit etre par compte (D113).
+    PerAccount  = $true
     Label       = 'WSL'
     Description = 'Sous-système Linux : état et distribution.'
 

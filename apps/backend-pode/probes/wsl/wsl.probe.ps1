@@ -7,11 +7,22 @@ $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $backend 'lib/common.ps1')
 $installed = [bool](Get-Command wsl.exe -ErrorAction SilentlyContinue)
 $default = '(aucune)'
-try {
-    $lxss = 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Lxss'
-    $guid = (Get-ItemProperty $lxss -Name DefaultDistribution -ErrorAction SilentlyContinue).DefaultDistribution
-    if ($guid) { $default = (Get-ItemProperty (Join-Path $lxss $guid) -Name DistributionName -ErrorAction SilentlyContinue).DistributionName }
-} catch { }
+# Les distributions WSL sont installees PAR UTILISATEUR. Le serveur tourne sous le compte
+# de service : la ruche ambiante serait la sienne, et il n'a jamais installe WSL. On lit
+# donc la ruche du DEMANDEUR, et a defaut celles des utilisateurs connectes (D113).
+$wslHives = @()
+$requester = Get-RequesterAccount
+if ($requester) { $wslHives += @(Get-AccountRegistryRoot -Account $requester) }
+$wslHives += @(Get-UserRegistryRoots)
+foreach ($hive in ($wslHives | Where-Object { $_ })) {
+    try {
+        $lxss = Join-Path $hive 'SOFTWARE\Microsoft\Windows\CurrentVersion\Lxss'
+        $guid = (Get-ItemProperty $lxss -Name DefaultDistribution -ErrorAction SilentlyContinue).DefaultDistribution
+        if (-not $guid) { continue }
+        $distName = (Get-ItemProperty (Join-Path $lxss $guid) -Name DistributionName -ErrorAction SilentlyContinue).DistributionName
+        if ($distName) { $default = $distName; break }
+    } catch { }
+}
 $running = [bool](Get-Process -Name 'vmmemWSL','vmmem','wslservice' -ErrorAction SilentlyContinue)
 
 # =============================================================================

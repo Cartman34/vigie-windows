@@ -539,6 +539,42 @@ foreach ($x in $rawUserVar) {
                      " en clair (Get-ProcessAccount, ou Get-RequesterAccount si c'est la personne) -- " + $x)
 }
 
+# --- Garde-fou : LE SERVEUR N'A PAS D'UTILISATEUR AMBIANT --------------------
+#
+# HKCU, %LOCALAPPDATA%, %APPDATA%, %USERPROFILE% designent le compte qui EXECUTE. Cote
+# serveur, c'est VigieService : une ruche et un profil ou personne n'a jamais rien
+# installe ni regle. Le code y regarde et ne voit rien, sans erreur et sans un mot.
+# Constate le 01/09 : les jeux (bibliotheques Steam, Game Bar) et WSL (distribution par
+# defaut) etaient lus dans HKCU, donc jamais trouves, quel que soit le compte qui joue.
+#
+# Ce qui se lit par utilisateur se lit RUCHE PAR RUCHE (Get-UserRegistryRoots,
+# Get-AccountRegistryRoot) ou PROFIL PAR PROFIL (Get-AccountConfigDir, Get-AccountVarRoot).
+# La regle ne vaut que pour le code du serveur : l'app cliente et les scripts, eux,
+# tournent bien dans la session de quelqu'un.
+$ambientUser = @()
+$serverRoot = Join-Path $repoRoot 'apps/backend-pode'
+foreach ($f in (Get-ChildItem -LiteralPath $serverRoot -Recurse -File -Include '*.ps1' -ErrorAction SilentlyContinue)) {
+    # common.ps1 EST l'implementation de la regle ; var/ est une copie de travail.
+    if ($f.Name -eq 'common.ps1') { continue }
+    if ($f.FullName -like ('*' + [IO.Path]::DirectorySeparatorChar + 'var' + [IO.Path]::DirectorySeparatorChar + '*')) { continue }
+    $i = 0
+    foreach ($ligne in (Get-Content -LiteralPath $f.FullName -Encoding UTF8 -ErrorAction SilentlyContinue)) {
+        $i++
+        if ($ligne -match '^\s*#') { continue }
+        # Le motif s'ecrit en morceaux, sinon ce fichier se denonce lui-meme.
+        # CHAQUE morceau entre parentheses : la virgule lie plus fort que le plus, et
+        # sans elles les quatre motifs se recollaient en UN SEUL, qui ne matchait rien.
+        foreach ($pattern in @(('HK' + 'CU:'), ('$env:' + 'LOCALAPPDATA'), ('$env:' + 'APPDATA'), ('$env:' + 'USERPROFILE'))) {
+            if ($ligne -like ('*' + $pattern + '*')) {
+                $ambientUser += ("{0}:{1} -- {2}" -f (Resolve-Path -LiteralPath $f.FullName -Relative), $i, $pattern)
+            }
+        }
+    }
+}
+foreach ($x in $ambientUser) {
+    $manquements += ("utilisateur ambiant cote serveur (lire ruche par ruche ou profil par profil) -- " + $x)
+}
+
 # --- Garde-fou : UNE CARTE QUI PARLE DE « VOUS » SE DECLARE PerAccount --------
 #
 # Le rendu des sondes est mis en cache dans state-cache.json, qui est COMMUN. Une carte
