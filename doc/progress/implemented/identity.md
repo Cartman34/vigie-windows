@@ -144,7 +144,10 @@ L'invalidation demandée par une action retire aussi les entrées par compte.
 cache tel quel et repartent. Un recalcul **dans la réponse** se demande — le bouton ↻ en haut pour tout, le bouton
 d'une carte pour elle seule.
 
-**Derrière, une seule sonde périmée part en tâche de fond**, détachée, pour que sa valeur soit prête la fois suivante.
+**Derrière, une seule sonde périmée part en tâche de fond** — **la plus en retard par rapport à son propre délai** —,
+détachée, pour que sa valeur soit prête la fois suivante. Une carte réseau vaut 15 secondes, une carte système une
+heure : au même instant la première est cinq fois plus en retard, elle passe donc avant. Sans ce classement, une
+coupure de connexion attendait son tour derrière seize autres cartes, soit un quart d'heure.
 C'est ainsi que la carte Déploiement finit par voir un commit sans que le chargement le paie. Une seule par passage, et
 une seule à la fois (verrou `VigieStateRecompute`). Le délai de fraîcheur est plafonné à **24 h** : aucune carte ne
 vieillit plus d'un jour, même si personne ne la regarde.

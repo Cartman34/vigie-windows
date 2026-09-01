@@ -3998,8 +3998,16 @@ function Get-State {
                 if ($at -and ($nowUtc - $at).TotalSeconds -lt $ttl) { $fresh = $true }
             } catch { }
         }
-        if (-not $fresh) { $stale += [pscustomobject]@{ File = $pf.FullName; Name = $name; Key = $key; Stamp = $stamp
-                                                        PerAccount = (Test-ProbeIsPerAccount -ProbeFile $pf.FullName) } }
+        if (-not $fresh) {
+            # DE COMBIEN EST-ELLE EN RETARD, RAPPORTE A SON PROPRE DELAI ? C'est ce qui
+            # decide laquelle passe en premier : une carte reseau, valable 15 s, est cinq
+            # fois plus en retard qu'une carte systeme valable une heure au meme instant.
+            $age = $ttl + 1
+            try { if ($entry -and $entry.at) { $age = ($nowUtc - (ConvertTo-UtcDate $entry.at)).TotalSeconds } } catch { }
+            $stale += [pscustomobject]@{ File = $pf.FullName; Name = $name; Key = $key; Stamp = $stamp
+                                         Overdue = $(if ($ttl -gt 0) { $age / $ttl } else { $age })
+                                         PerAccount = (Test-ProbeIsPerAccount -ProbeFile $pf.FullName) }
+        }
     }
 
     # Recalcul en SINGLE-FLIGHT : un seul thread recalcule a la fois ; les autres requetes
@@ -4043,6 +4051,12 @@ function Get-State {
         <#
             ET UNE SEULE SONDE PART EN TACHE DE FOND. Non bloquant, rare, par carte.
 
+            LAQUELLE ? LA PLUS EN RETARD PAR RAPPORT A SON PROPRE DELAI. Prendre la
+            premiere venue faisait tourner les dix-sept a la queue leu leu : une coupure
+            reseau -- carte valable 15 secondes -- attendait son tour derriere des cartes
+            valables une heure, soit un quart d'heure avant d'etre vue. Le rapport age sur
+            delai remet chacune a sa place : ce qui bouge vite passe vite.
+
             La reponse est deja constituee quand on arrive ici : personne n'attend. On
             confie UNE sonde perimee -- la premiere -- a un processus detache, qui la
             recalculera et ecrira le resultat pour la fois suivante. C'est ainsi que la
@@ -4065,7 +4079,8 @@ function Get-State {
                 try {
                     $w = Join-Path $Backend 'workers/state-refresh.worker.ps1'
                     $null = Start-DetachedAction -Script $w -Backend $Backend `
-                                -ArgsMap @{ account = "$stateRequester"; probe = "$($toRefresh[0].Name)" }
+                                -ArgsMap @{ account = "$stateRequester"
+                                            probe = "$(($toRefresh | Sort-Object Overdue -Descending | Select-Object -First 1).Name)" }
                 } catch { }
             }
         }
