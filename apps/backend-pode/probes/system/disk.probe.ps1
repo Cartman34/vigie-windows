@@ -80,7 +80,11 @@ if ($enCours -and $scan.startedAt) {
 }
 $racine = if ($scan -and $scan.root) { "$($scan.root)" } else { "$sysLettre\" }
 
-$actions = @(New-Action -Id 'disk-cleanup' -Severity 'fix' -Label 'Nettoyage de disque...' -Kind 'manual' `
+# Destination PERMANENTE (D114) : les parametres de stockage de Windows montrent ce qui
+# occupe le disque par categorie, que la carte alerte ou non.
+$actions = @(New-Action -Id 'open-storage-settings' -Label 'Paramètres de stockage' -Kind 'manual' -Severity 'info' `
+                        -Help 'Ouvre les paramètres de stockage de Windows : ce qui occupe le disque, et l''assistant de stockage.'
+             New-Action -Id 'disk-cleanup' -Severity 'fix' -Label 'Nettoyage de disque...' -Kind 'manual' `
     -Help "Ouvre l'outil Windows 'Nettoyage de disque' (cleanmgr). Vous choisissez quoi supprimer ; rien n'est supprimé automatiquement.")
 
 if ($enCours) {

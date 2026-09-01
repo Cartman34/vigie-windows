@@ -10,9 +10,13 @@ $cpuAvg = (Get-CimInstance Win32_Processor -ErrorAction SilentlyContinue | Measu
 $cpu = if ($null -ne $cpuAvg) { [math]::Round($cpuAvg) } else { 0 }
 $up = if ($os) { (Get-Date) - $os.LastBootUpTime } else { [TimeSpan]::Zero }
 $upTxt = "{0}j {1}h {2}m" -f $up.Days, $up.Hours, $up.Minutes
+# Bouton PERMANENT (D114) : voir QUI consomme est la suite naturelle de « combien est
+# consomme », que la machine aille bien ou non.
 New-ModuleObject -Id 'perf' -Theme 'system' -Label 'Ressources' -Status $(if ($ramPct -ge 90 -or $cpu -ge 90) {'warn'} else {'ok'}) -Fields @(
     New-Field -Key 'ramUsed' -Label 'RAM utilisée' -Value $ramPct  -Kind 'number' -Unit '%'  -Status $(if ($ramPct -ge 90) {'warn'} else {'ok'})      -Help 'Pourcentage de mémoire vive utilisée.'
     New-Field -Key 'ramFree' -Label 'RAM libre'    -Value $freeGB  -Kind 'number' -Unit 'Go' -Status 'neutral'                                        -Help 'Mémoire vive disponible.'
     New-Field -Key 'cpu'     -Label 'CPU'          -Value $cpu     -Kind 'number' -Unit '%'  -Status $(if ($cpu -ge 90) {'warn'} else {'neutral'})   -Help 'Charge processeur instantanée.'
     New-Field -Key 'uptime'  -Label 'Uptime'       -Value $upTxt   -Kind 'text'               -Status 'neutral'                                        -Help 'Durée depuis le dernier démarrage de Windows.'
-)
+) `
+    -Actions @(New-Action -Id 'open-task-manager' -Label 'Gestionnaire des tâches' -Kind 'manual' -Severity 'info' `
+                          -Help 'Ouvre le Gestionnaire des tâches : qui consomme la mémoire et le processeur, en détail.')

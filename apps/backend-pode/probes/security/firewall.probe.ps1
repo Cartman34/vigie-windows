@@ -25,8 +25,14 @@ function FwField($key, $label, $val) {
             -Guide "Activez le pare-feu pour ce profil : Sécurité Windows > Pare-feu et protection réseau."
     }
 }
+# UN COMMENTAIRE NE SE GLISSE JAMAIS entre une continuation ( ` ) et le parametre qui
+# suit : PowerShell casse la commande. Deja constate, deja repare -- il vit donc ICI.
+# Bouton PERMANENT (D114) : le pare-feu se regle dans la Securite Windows, qu'il aille
+# bien ou non. On ne decouvre pas la destination le jour de la panne.
 New-ModuleObject -Id 'firewall' -Theme 'security' -Label 'Pare-feu' -Status $modSt -Fields @(
     (FwField 'domain'  'Profil Domaine' $dom)
     (FwField 'private' 'Profil Privé'   $priv)
     (FwField 'public'  'Profil Public'  $pub)
-)
+) `
+    -Actions @(New-Action -Id 'open-security-settings' -Label 'Sécurité Windows' -Kind 'manual' -Severity 'info' `
+                    -Help 'Ouvre la Sécurité Windows : profils du pare-feu et règles.')

@@ -25,7 +25,7 @@ ligne — `scripts/dev/check-doc.ps1` refuse une décision absente d'ici.
 - **Structure du dépôt** — D29 · D32 · D33 · D35 · D55
 - **Documentation** — D91 · D92 · D93 · D98
 - **Configuration** — D15 · D18 · D56 · D57
-- **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46 · D48 · D49 · D50 · D58 · D59 · D66 · D68 · D69 · D70 · D71 · D88 · D89 · D94 · D95 · D102 · D105
+- **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46 · D48 · D49 · D50 · D58 · D59 · D66 · D68 · D69 · D70 · D71 · D88 · D89 · D94 · D95 · D102 · D105 · D114
 - **Installation, déploiement et mise à jour** — D07 · D11 · D22 · D77 · D78 · D79 · D81 · D84 · D87 · D96 · D97 · D99 · D101 · D106 · D107 (revu) · D110 · D112
 - **Sécurité, droits et multi-comptes** — D34 · D65 · D67 · D73 · D104 · D109
 - **Sondes, actions et tâches de fond** — D50bis · D53 · D54 · D60 · D61 · D80 · D82 · D83 · D85 · D113
@@ -2922,3 +2922,28 @@ Ce qui est tranché :
    partir. Le champ est toujours présent ; seul son statut dépend du rendu 3D en cours.
 
 Deux symptômes, une seule cause : c'est la détection qui manquait, l'alerte batterie n'en était que la conséquence.
+
+---
+
+## D114 — Une carte porte en permanence ses destinations utiles (2026-09-01)
+
+*Demandée par l'utilisateur.*
+
+> « De manière générale, toutes les cartes devraient posséder les boutons utiles toujours visibles, notamment accéder
+> aux paramètres. »
+
+**Ce qui n'allait pas.** D66 attache un bouton à une **alerte** : un champ en `warn` porte sa résolution. Conséquence
+non voulue : quand tout va bien, la carte n'offre plus rien. Sept cartes sur dix-huit n'avaient aucune destination, dont
+quatre aucun bouton du tout — et l'on découvrait où aller **le jour de la panne**, jamais avant.
+
+**Décision — complète D66, ne la remplace pas.** Une carte déclare ses **actions permanentes** : les destinations
+utiles de son sujet, visibles quel que soit son état. Le `FixAction` d'un champ garde son rôle — il désigne *la*
+destination qui résout *cette* alerte-là.
+
+Ce qui a été posé : Antivirus et Pare-feu → **Sécurité Windows** ; Ressources → **Gestionnaire des tâches** ; Jeux →
+**paramètres de jeu** et Gestionnaire des tâches ; Réseau → **paramètres réseau** ; Stockage → **paramètres de
+stockage**. Trois actions nouvelles (`open-security-settings`, `open-storage-settings`, `open-gaming-settings`), du
+même genre que celles qui existaient : Vigie n'agit pas à la place de l'utilisateur, elle le **mène au bon endroit**.
+
+**Ce que ça n'est pas** : un bouton par carte pour faire nombre. Une destination qui ne sert à rien n'a pas sa place —
+c'est la même exigence que pour une alerte.
