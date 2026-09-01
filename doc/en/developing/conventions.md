@@ -2,6 +2,9 @@
 
 Reference unique des conventions. Toute nouvelle convention se note ICI.
 
+**Les mots du projet vivent dans [glossary.md](glossary.md)** : une notion, un mot, le meme partout. Un mot qui manque
+s'y ajoute AVANT d'etre employe -- un synonyme qui s'installe finit par designer autre chose.
+
 ## Langue
 
 Deux langues, une frontiere nette. Elle passe entre ce que la MACHINE lit et ce qu'un
