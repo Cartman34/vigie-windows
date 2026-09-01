@@ -132,9 +132,9 @@ public static bool Focus(System.IntPtr h) {
         $pwsh      = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
         $trayPath  = Join-Path $trayRoot 'tray.ps1'      # cette app, pas le backend
         # Starting : un demarrage a ete demande et le serveur n'a pas encore repondu.
-        $state     = [hashtable]::Synchronized(@{ Proc = $null; Drawn = ''; EverUp = $false; Starting = $true; StartTicks = [datetime]::UtcNow.Ticks; Mods = @{}; ModsInit = $false; HealthKo = 0; MachineTask = $null; ElevationAsked = $false; SaidDead = $false; Bulles = @{}; DerniereBulle = $null })
+        $state     = [hashtable]::Synchronized(@{ Proc = $null; Drawn = ''; EverUp = $false; Starting = $true; StartTicks = [datetime]::UtcNow.Ticks; Mods = @{}; ModsInit = $false; HealthKo = 0; MachineTask = $null; ElevationAsked = $false; SaidDead = $false; Bulles = @{}; DerniereBulle = $null; NotifTicks = 0; ApiSession = $null })
         # Cache d'etat du backend : lu (jamais ecrit) par le guetteur de modules (D54).
-        $stateCacheFile = Get-VarPath -Backend $backend -Kind 'cache' -File 'state-cache.json'
+        # (l'etat se demande a l'API : ce fichier n'est plus lu -- voir le bloc des notifications)
         <#
             COMBIEN DE TEMPS AVANT DE DECLARER UN ECHEC DE DEMARRAGE ?
 
@@ -1125,8 +1125,55 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
             # premier passage : au demarrage on prend l'etat comme reference, sinon
             # chaque lancement arroserait l'utilisateur de tout ce qui est deja connu.
             try {
-                if (Test-Path -LiteralPath $stateCacheFile) {
-                    $j = Get-Content -LiteralPath $stateCacheFile -Raw -Encoding UTF8 | ConvertFrom-Json
+                <#
+                    ON DEMANDE L'ETAT A L'APP SERVEUR, ON NE LIT PLUS SON FICHIER.
+
+                    Ce bloc ouvrait state-cache.json « du backend » -- c'est-a-dire, depuis
+                    que le serveur tourne sous un compte de service, un fichier situe dans
+                    LE PROFIL DE CE COMPTE. L'app cliente regardait donc un fichier que
+                    personne n'ecrit chez elle : plus une seule notification depuis le
+                    28/08, sans que rien ne le dise.
+
+                    Elle passe par l'API, avec sa propre session : elle voit ce que le
+                    serveur voit, avec les droits de son compte, sans lire chez autrui. La
+                    reponse est SERVIE DEPUIS LE CACHE -- aucun recalcul n'est provoque.
+
+                    Une fois par minute suffit : l'icone, elle, continue de suivre la sante
+                    du serveur toutes les huit secondes.
+                #>
+                $mustRead = $false
+                if (-not $state.NotifTicks) { $mustRead = $true }
+                elseif (([datetime]::UtcNow.Ticks - [long]$state.NotifTicks) / 1e7 -ge 60) { $mustRead = $true }
+                if ($mustRead) {
+                    $state.NotifTicks = [datetime]::UtcNow.Ticks
+                    if (-not $state.ApiSession) {
+                        $state.ApiSession = Open-VigieSession -BaseUrl $url -Backend $backend
+                    }
+                    $received = $null
+                    if ($state.ApiSession) {
+                        try {
+                            $received = Invoke-RestMethod -Uri ($url.TrimEnd('/') + '/api/v1/state') `
+                                            -WebSession $state.ApiSession -TimeoutSec 30
+                        } catch {
+                            # Session perdue (serveur redemarre) : on en rouvrira une au
+                            # passage suivant plutot que d'insister maintenant.
+                            $state.ApiSession = $null
+                        }
+                    }
+                    $j = $null
+                    if ($received) {
+                        # Meme forme que le fichier de cache : une propriete par sonde,
+                        # portant son ou ses modules.
+                        $j = [pscustomobject]@{}
+                        foreach ($m in @($received.modules)) {
+                            if ($m -and $m.id) {
+                                Add-Member -InputObject $j -NotePropertyName "$($m.id)" `
+                                           -NotePropertyValue ([pscustomobject]@{ module = $m }) -Force
+                            }
+                        }
+                    }
+                }
+                if ($j) {
                     # On observe l'etat des CHAMPS, pas seulement des cartes : une
                     # notification est un evenement NOMME (« Temperature GPU elevee »),
                     # declare par le module. « Session de jeu » ne disait rien a personne

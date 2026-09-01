@@ -109,6 +109,17 @@ Le comportement est **réglable par un administrateur**, dans Paramètres > Util
 L'écriture du réglage est vérifiée **côté serveur** — compte administrateur ET serveur élevé — parce qu'un menu grisé
 n'est qu'un affichage.
 
+## L'app cliente lit l'état par l'API, jamais dans un fichier d'un autre compte
+
+Elle ouvrait `state-cache.json` « du backend » — c'est-à-dire, depuis que le serveur tourne sous un compte de service,
+un fichier situé dans **le profil de ce compte**. Elle regardait donc un fichier que personne n'écrit chez elle :
+**plus une seule notification depuis le 28/08**, sans que rien ne le dise.
+
+Elle passe par l'API avec sa propre session (`Open-VigieSession` : secret du compte → adresse d'ouverture → cookie) :
+elle voit ce que le serveur voit, avec les droits de son compte, sans lire chez autrui. La réponse est **servie depuis
+le cache**, donc aucun recalcul n'est provoqué. Une lecture par minute pour les notifications ; l'icône, elle, suit la
+santé du serveur toutes les huit secondes.
+
 ## Les cercles de comptes
 
 | | | |

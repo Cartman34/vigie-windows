@@ -2794,6 +2794,63 @@ function Get-OpenUrl {
     return ($BaseUrl + '/?t=' + $reply.ticket)
 }
 
+<#
+    OUVRIR UNE SESSION AUPRES DE L'APP SERVEUR, ET RENDRE DE QUOI L'INTERROGER.
+
+    Le chemin complet, celui de l'app cliente : secret du compte -> adresse d'ouverture ->
+    cookie. Il etait ecrit dans l'outil de questions ; l'app cliente en a besoin aussi,
+    pour LIRE L'ETAT.
+
+    POURQUOI ELLE EN A BESOIN. Elle lisait le fichier de cache directement -- et depuis que
+    le serveur tourne sous un compte de service, ce fichier vit dans le profil de CE
+    compte : l'app cliente regardait un fichier que personne n'ecrit, et n'a plus emis une
+    seule notification depuis le 28/08. Passer par l'API resout les deux : elle voit ce que
+    le serveur voit, avec les droits de son propre compte, sans lire chez autrui.
+
+    Rend un objet de session utilisable avec Invoke-RestMethod, ou $null.
+#>
+function Open-VigieSession {
+    param(
+        [string]$Account = (Get-ProcessAccount),
+        [string]$BaseUrl,
+        [int]$TimeoutSec = 10,
+        [string]$Backend = (Get-BackendRoot)
+    )
+    if (-not $BaseUrl) { $BaseUrl = Get-AppUrl -Backend $Backend }
+    $BaseUrl = $BaseUrl.TrimEnd('/')
+    $url = Get-OpenUrl -Account $Account -BaseUrl $BaseUrl -TimeoutSec $TimeoutSec -Backend $Backend
+    if (-not $url) { return $null }
+
+    $handler = $null; $client = $null
+    try {
+        $handler = New-Object System.Net.Http.HttpClientHandler
+        # ON NE SUIT PAS LA REDIRECTION et on ne laisse pas .NET gerer les cookies : le
+        # cookie arrive sur la reponse 302, et la suivante n'en porte plus.
+        $handler.UseCookies = $false
+        $handler.AllowAutoRedirect = $false
+        $client = New-Object System.Net.Http.HttpClient($handler)
+        $client.Timeout = [TimeSpan]::FromSeconds($TimeoutSec)
+        $req = New-Object System.Net.Http.HttpRequestMessage([System.Net.Http.HttpMethod]::Get, $url)
+        $req.Headers.Add('Origin', $BaseUrl)
+        $req.Headers.ConnectionClose = $true
+        $rep = $client.SendAsync($req, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).GetAwaiter().GetResult()
+        $value = $null
+        if ($rep.Headers.Contains('Set-Cookie')) {
+            foreach ($c in @($rep.Headers.GetValues('Set-Cookie'))) {
+                if ("$c" -match 'vigie_session=([^;]+)') { $value = $Matches[1] }
+            }
+        }
+        if (-not $value) { return $null }
+        $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+        $session.Cookies.Add((New-Object System.Net.Cookie('vigie_session', $value, '/', '127.0.0.1')))
+        return $session
+    } catch { return $null }
+    finally {
+        if ($client)  { try { $client.Dispose() } catch { } }
+        if ($handler) { try { $handler.Dispose() } catch { } }
+    }
+}
+
 function New-AccountSession {
     param([Parameter(Mandatory)][string]$Account, [string]$Backend = (Get-BackendRoot))
     $id = New-RandomId
