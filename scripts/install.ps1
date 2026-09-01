@@ -868,6 +868,18 @@ try {
         try { $jeton = Get-ApiToken -Backend (Join-Path $destPartagee 'apps/backend-pode') } catch { }
         if ($jeton) {
             $adresse = try { Get-AppUrl -Config (Get-Config -Backend $backend) } catch { 'http://127.0.0.1:47600' }
+            # ON ATTEND QU'IL REPONDE. La tache serveur vient de le relancer : il met une
+            # minute a ouvrir son port, et sans cette attente les deux demandes partaient
+            # dans le vide -- les cartes restaient « en attente » apres l'installation
+            # (constate le 01/09).
+            $debout = $false
+            foreach ($essai in 1..30) {
+                try {
+                    $null = Invoke-RestMethod -Method Get -TimeoutSec 5 -Uri ($adresse.TrimEnd('/') + '/api/v1/health')
+                    $debout = $true; break
+                } catch { Start-Sleep -Seconds 3 }
+            }
+            if (-not $debout) { Write-Detail (Get-Label 'install.serveur-pas-revenu') }
             foreach ($carte in @('accounts', 'deployment')) {
                 try {
                     $null = Invoke-RestMethod -Method Get -TimeoutSec 90 `

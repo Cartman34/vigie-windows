@@ -281,6 +281,7 @@
   "install.restauration-echouee": "La restauration a échoué ({0}). L'installation est dans un état intermédiaire ; la sauvegarde est ici : {1}",
   "install.sauvegarde-faite": "Version précédente sauvegardée : {0}",
   "install.sauvegarde-impossible": "Sauvegarde impossible : {0}. On ne pose rien sans filet.",
+  "install.serveur-pas-revenu": "L'app serveur n'a pas répondu dans la minute : les cartes se rempliront au premier affichage demandé.",
   "install.service-de-machine": "Tâche serveur : {0}",
   "install.service-de-machine-echec": "Tâche serveur : échec (code {0}).",
   "install.service-de-machine-pret": "Tâche serveur : en service.",

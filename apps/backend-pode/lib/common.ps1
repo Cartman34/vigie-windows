@@ -3542,7 +3542,8 @@ function Write-MeasureSamples {
         if (Test-Path -LiteralPath $indexFile) {
             try { $index = Get-Content -LiteralPath $indexFile -Raw | ConvertFrom-Json } catch { }
         }
-        $nowUtc = [datetime]::UtcNow
+        & $marquer 'ciblage'
+    $nowUtc = [datetime]::UtcNow
         foreach ($id in ($ids | Sort-Object)) {
             $cat = $script:MeasureCatalog[$id]
             $eff = Get-HistoryConfig -Backend $Backend -MeasureId $id -Config $cfg
@@ -3824,10 +3825,29 @@ function Get-State {
     # pas « oublie tout ». Repartir d'un cache vide faisait disparaitre les modules un a un
     # du fichier pendant le recalcul, et un lecteur simultane recevait un etat AMPUTE --
     # une carte s'evanouissait le temps du rafraichissement.
+    <#
+        ON CHRONOMETRE TOUTE LA REPONSE, PAS SEULEMENT LES CARTES.
+
+        Le detail par carte donnait 140 ms pendant que la reponse en prenait plusieurs
+        SECONDES : le temps etait ailleurs -- lecture du cache, parcours des sondes,
+        catalogue des modules -- et ne se voyait nulle part. Un chronometre partiel est
+        pire que pas de chronometre : il innocente ce qu'il ne mesure pas.
+
+        Chaque phase est mesuree, rendue dans « timings » et ecrite dans le journal.
+    #>
+    $tPhase = [Diagnostics.Stopwatch]::StartNew()
+    $phases = [ordered]@{}
+    $marquer = {
+        param([string]$Nom)
+        $phases[$Nom] = [math]::Round($tPhase.Elapsed.TotalMilliseconds, 1)
+        $tPhase.Restart()
+    }
+
     $cache = @{}
     if (Test-Path $cacheFile) {
         try { $j = Get-Content $cacheFile -Raw | ConvertFrom-Json; foreach ($pr in $j.PSObject.Properties) { $cache[$pr.Name] = $pr.Value } } catch { }
     }
+    & $marquer 'lecture-cache'
 
     # Quelle sonde produit le module vise ? Le cache le dit : chaque entree porte le
     # module rendu par la sonde (ou son tableau de modules).
@@ -4023,6 +4043,7 @@ function Get-State {
         journal « state ». Il compte le SERVICE : lecture du cache, etat des operations,
         droits des actions -- tout ce qui se passe pendant que la page attend.
     #>
+    & $marquer 'fraicheur'
     $modules = @()
     $chrono = @{}
     foreach ($pf in $probeFiles) {
@@ -4055,6 +4076,7 @@ function Get-State {
         ce soit : le module.psd1 du dossier donne son titre, le dossier donne son groupe.
         Elle porte « en attente de mesure » et son bouton, qui suffit a la remplir.
     #>
+    & $marquer 'assemblage'
     $known = @($modules | ForEach-Object { "$($_.id)" })
     foreach ($pf in $probeFiles) {
         $unit = Split-Path (Split-Path $pf.FullName -Parent) -Leaf
@@ -4147,6 +4169,7 @@ function Get-State {
         }
     }
 
+    & $marquer 'chronometrage'
     # LE DETAIL, DANS LE JOURNAL : une ligne, triee du plus lent au plus rapide.
     try {
         $lignesChrono = @($chrono.GetEnumerator() | Sort-Object Value -Descending |
@@ -4154,21 +4177,36 @@ function Get-State {
         if ($lignesChrono.Count) {
             Write-Log -Backend $Backend -Name 'state' -NoEcho `
                       -Message ("service par carte : " + ($lignesChrono -join ' '))
+            Write-Log -Backend $Backend -Name 'state' -NoEcho `
+                      -Message ("phases : " + (($phases.GetEnumerator() | ForEach-Object { "$($_.Key)=$($_.Value)ms" }) -join ' '))
         }
     } catch { }
 
+    & $marquer 'droits-et-operations'
     $present = @($modules | Select-Object -ExpandProperty theme -Unique)
     $themes  = @($script:ThemeCatalog | Where-Object { $present -contains $_.id })
+    # LE CATALOGUE DES MODULES est sorti de l'objet pour etre MESURE : tant qu'il etait
+    # ecrit dans la construction finale, son cout se noyait dans « le reste ».
+    $unites = @(Get-UnitCatalog -Backend $Backend)
+    & $marquer 'catalogue-modules'
+    # LE RESTE : version, marque de fabrication, nom de machine. Mesure aussi, sinon
+    # « le reste » redevient l'endroit ou le temps se cache.
+    $version = (Get-AppVersion -Backend $Backend)
+    $build   = (Get-AppBuildId -Backend $Backend)
+    & $marquer 'identite-de-version'
+
     [pscustomobject][ordered]@{
         generatedAt = (Get-Date).ToUniversalTime().ToString('o')
-        version     = (Get-AppVersion -Backend $Backend)
-        build       = (Get-AppBuildId -Backend $Backend)
+        version     = $version
+        build       = $build
         host        = "$env:COMPUTERNAME"
         themes      = $themes
         modules     = @($modules)
+        # LE DETAIL DU TEMPS, dans la reponse : ce qui ne se mesure pas se soupconne.
+        timings     = $phases
         # TOUS les modules-dossiers, y compris desactives (D48) : c'est ce qui permet a
         # la vue de gestion de proposer de rallumer ce qui n'est plus affiche.
-        units       = @(Get-UnitCatalog -Backend $Backend)
+        units       = $unites
     }
 }
 
