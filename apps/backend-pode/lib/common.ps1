@@ -3374,6 +3374,88 @@ function Get-WatchMemoryPath {
     Elle execute les releves DUS, compare, et sur changement fait recalculer les cartes
     declarees PAR LE CHEMIN EXISTANT (Get-State -Only). Aucun second mecanisme.
 #>
+<#
+    LA PARTIE EN COURS : un seul fait, ecrit par la sonde Jeux, relu par sa sentinelle.
+
+    La sonde sait quel jeu tourne -- elle vient de le prouver, deux instantanes de tous
+    les processus a l'appui. La sentinelle, elle, doit rester bon marche : elle tourne
+    toutes les minutes, en permanence. Elle ne refait donc pas le travail, elle lit ce
+    que la sonde a note : le nom, le processus, l'heure de debut et LA CHARGE DE LA
+    BATTERIE AU DEBUT -- sans quoi « la batterie se vide pendant la partie » ne peut pas
+    se dire, seulement « la batterie est basse », qui n'est pas la meme information.
+
+    La session vit dans var/run : elle ne survit pas a un redemarrage, et c'est juste --
+    une partie non plus.
+#>
+<#
+    L'ETAT DE L'ALIMENTATION, en un seul endroit : sur secteur ou non, et la charge.
+
+    La sonde Jeux et sa sentinelle posaient la meme question a deux endroits, avec deux
+    ecritures : deux occasions de diverger. Et surtout, aucune des deux n'etait TESTABLE
+    sans debrancher la machine et lancer un jeu -- c'est-a-dire jamais.
+
+    VIGIE_FAKE_BATTERY=<pourcentage> simule une machine sur batterie a cette charge, comme
+    VIGIE_FAKE_GAME simule une partie (doc/en/developing/modules.md). Les deux ensemble
+    rejouent la scene complete : une partie qui vide la batterie.
+#>
+function Get-BatteryState {
+    if ($env:VIGIE_FAKE_BATTERY) {
+        return @{ OnBattery = $true; Pct = [int]$env:VIGIE_FAKE_BATTERY; Simulated = $true }
+    }
+    $battery = Get-CimInstance Win32_Battery -ErrorAction SilentlyContinue | Select-Object -First 1
+    # Pas de batterie du tout (machine fixe) : sur secteur, et aucune charge a dire.
+    if (-not $battery) { return @{ OnBattery = $false; Pct = $null; Simulated = $false } }
+    # BatteryStatus 1 = en decharge ; toute autre valeur veut dire que le secteur alimente.
+    return @{ OnBattery = ($battery.BatteryStatus -eq 1)
+              Pct       = [int]$battery.EstimatedChargeRemaining
+              Simulated = $false }
+}
+
+function Get-GameSessionPath {
+    param([string]$Backend = (Get-BackendRoot))
+    Get-VarPath -Backend $Backend -Kind 'run' -File 'game-session.json'
+}
+
+function Get-GameSession {
+    param([string]$Backend = (Get-BackendRoot))
+    $path = Get-GameSessionPath -Backend $Backend
+    if (-not (Test-PathSafe $path)) { return $null }
+    $session = $null
+    try { $session = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json } catch { return $null }
+    if (-not $session -or -not $session.processId) { return $null }
+    # LE PROCESSUS FAIT FOI. Un jeu qui s'arrete ne repasse pas par la sonde pour le dire :
+    # sans cette verification, une partie finie resterait ouverte jusqu'au prochain calcul.
+    if (-not (Get-Process -Id ([int]$session.processId) -ErrorAction SilentlyContinue)) { return $null }
+    return $session
+}
+
+function Set-GameSession {
+    param(
+        [string]$Backend = (Get-BackendRoot),
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][int]$ProcessId,
+        [int]$BatteryPct = -1
+    )
+    $path = Get-GameSessionPath -Backend $Backend
+    $known = Get-GameSession -Backend $Backend
+    # MEME PROCESSUS = MEME PARTIE : on ne rebase jamais le debut, sinon la baisse de
+    # batterie repartirait de zero a chaque recalcul et ne franchirait jamais un seuil.
+    if ($known -and [int]$known.processId -eq $ProcessId) { return }
+    $session = [ordered]@{
+        name      = $Name
+        processId = $ProcessId
+        startedAt = ([datetime]::UtcNow).ToString('o')
+        startPct  = $BatteryPct
+    }
+    try { ($session | ConvertTo-Json -Depth 4) | Out-File -FilePath $path -Encoding UTF8 } catch { }
+}
+
+function Clear-GameSession {
+    param([string]$Backend = (Get-BackendRoot))
+    $path = Get-GameSessionPath -Backend $Backend
+    if (Test-PathSafe $path) { try { Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue } catch { } }
+}
+
 # Une ligne d'historique pour une sentinelle : l'etat atteint, celui d'ou l'on vient, et
 # les cartes que le changement a fait recalculer. Best-effort de bout en bout : la veille
 # OBSERVE, elle n'arbitre pas -- une ecriture qui echoue ne doit jamais empecher un

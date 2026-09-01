@@ -11,6 +11,7 @@
         OtherGpuWarnPct = 15   # % GPU d'une AUTRE appli qui declenche l'avertissement
         VramWarnPct     = 90   # % de VRAM occupee au-dela duquel on avertit
         GpuTempWarnC    = 87   # temperature GPU au-dela de laquelle on avertit
+        BatteryDropWarnPct = 10 # points de batterie perdus pendant la partie avant d'alerter
     }
 
     # PARAMETRES : les cles de Config reglables dans le menu Parametres de l'app.
@@ -25,6 +26,16 @@
            Help = 'Au-delà de ce remplissage de la mémoire vidéo, la carte avertit : saccades probables.' }
         @{ Key = 'GpuTempWarnC'; Label = 'Alerte de température GPU'; Type = 'int'; Unit = '°C'; Min = 60; Max = 95; Step = 1
            Help = 'Au-delà de cette température, la carte graphique va brider ses fréquences.' }
+        @{ Key = 'BatteryDropWarnPct'; Label = 'Alerte de décharge en jeu'; Type = 'int'; Unit = '%'; Min = 3; Max = 50; Step = 1
+           Help = 'Pendant une partie sur batterie, alerte dès que la charge a baissé de tant de points depuis le début.' }
+    )
+
+    # SENTINELLES : les releves permanents de ce module. Voir
+    # doc/progress/targeting/surveillance.md.
+    Sentinels = @(
+        # Jouer sur batterie est la seule chose de cette carte qui ne peut pas attendre
+        # qu'on regarde : quand la charge fond, on veut le savoir PENDANT la partie.
+        @{ Key = 'game-battery'; Label = 'Décharge pendant une partie'; Seconds = 60; Cards = @('gaming') }
     )
 
     # NOTIFICATIONS emises par ce module (D54) : un evenement nomme, pas un nom de

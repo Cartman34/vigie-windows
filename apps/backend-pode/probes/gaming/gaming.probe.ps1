@@ -459,18 +459,27 @@ if ($aNvidia) {
 }
 
 # --- Alimentation : jouer sur batterie bride tout -----------------------------
-$surSecteur = $true; $pctBatterie = $null
-try {
-    $bat = Get-CimInstance Win32_Battery -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($bat) {
-        $surSecteur = ($bat.BatteryStatus -ne 1)   # 1 = en decharge
-        $pctBatterie = [int]$bat.EstimatedChargeRemaining
-    }
-} catch { }
+# Meme lecture que la sentinelle de decharge, au meme endroit : les deux ne peuvent pas
+# se contredire, et VIGIE_FAKE_BATTERY les simule toutes les deux.
+$alim = Get-BatteryState
+$surSecteur  = -not $alim.OnBattery
+$pctBatterie = $alim.Pct
 # LE MODE D'ALIMENTATION N'EST PAS DIT ICI. powercfg rend celui du compte qui execute --
 # le service -- et pas celui du joueur : une valeur juste par hasard. La machine et son
 # alimentation sont le sujet de la carte Alimentation ; cette carte-ci ne dit que l'effet
 # sur la partie.
+
+# LA PARTIE EST NOTEE ICI, une fois qu'on sait qu'il y en a une : sa sentinelle a besoin
+# de la charge de batterie DU DEBUT pour dire « elle se vide pendant que vous jouez », et
+# elle ne peut pas la retrouver apres coup.
+if ($jeu) { Set-GameSession -Backend $backend -Name (Get-AppDisplayName -ProcessName $jeu.Name -Path $jeu.Path -Complet) -ProcessId ([int]$jeu.Id) -BatteryPct $(if ($null -ne $pctBatterie) { [int]$pctBatterie } else { -1 }) }
+else { Clear-GameSession -Backend $backend }
+$partie = Get-GameSession -Backend $backend
+$baisse = 0
+if ($partie -and -not $surSecteur -and [int]$partie.startPct -ge 0 -and $null -ne $pctBatterie) {
+    $baisse = [int]$partie.startPct - [int]$pctBatterie
+}
+$baisseSeuil = [int](Get-ModuleSetting -Unit 'gaming' -Key 'BatteryDropWarnPct'); if (-not $baisseSeuil) { $baisseSeuil = 10 }
 
 # --- Le jeu et les pompeurs ---------------------------------------------------
 if ($jeu) {
@@ -552,12 +561,19 @@ if ($jeu) {
 # rendre, car c'est le rendu 3D sur batterie qui bride et qui merite l'alerte.
 $rendering = [bool]$jeu -or ($rejete -and $rejete.Proc.Gpu -ge $gameGpuMin)
 if (-not $surSecteur) {
+    # LA BAISSE FAIT PARTIE DE LA VALEUR, et pas seulement du guide : c'est la bascule du
+    # champ qui declenche la bulle Windows (D54). Une valeur qui ne bouge pas ne previent
+    # personne, meme si la batterie continue de se vider.
+    $vide = ($partie -and $baisse -ge $baisseSeuil)
     $fields += New-Field -Key 'power' -Label 'Alimentation' `
-        -Value ("Batterie" + $(if ($null -ne $pctBatterie) { " ($pctBatterie %)" })) -Kind 'text' `
-        -Status $(if ($rendering) { 'warn' } else { 'neutral' }) `
+        -Value ("Batterie" + $(if ($null -ne $pctBatterie) { " ($pctBatterie %)" }) +
+                $(if ($vide) { " " + [char]0x00B7 + " -$baisse % depuis le début de la partie" })) -Kind 'text' `
+        -Status $(if ($rendering -or $vide) { 'warn' } else { 'neutral' }) `
         -FixAction 'open-power-options' `
         -Help "Sur batterie, processeur et carte graphique sont bridés : performances de jeu réduites." `
-        -Guide $(if ($rendering) { "Branchez le secteur pour la partie." } else { "Rien ne rend en 3D pour l'instant : la bride n'a pas d'effet visible." })
+        -Guide $(if ($vide) { "La partie vide la batterie : $baisse points perdus depuis son début. Branchez le secteur — sur batterie, la machine bride aussi le processeur et la carte graphique." }
+                 elseif ($rendering) { "Branchez le secteur pour la partie." }
+                 else { "Rien ne rend en 3D pour l'instant : la bride n'a pas d'effet visible." })
 } else {
     $fields += New-Field -Key 'power' -Label 'Alimentation' `
         -Value 'Secteur' -Kind 'text' -Status 'ok' `
