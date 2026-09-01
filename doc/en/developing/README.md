@@ -258,6 +258,7 @@ version is `0.x`, the Release is marked pre-release.
 - [Glossary](glossary.md) — the project's words, one notion per word (in French, like the rest of the internal docs)
 - [Architecture](architecture.md) — contract-first, the four apps, the request path
 - [Probes and actions](probes-and-actions.md) — add a card or a button
+- [Debugging](debugging.md) — one procedure, the same every time (`scripts/dev/debug.ps1`)
 - [`apps/backend-pode/api/openapi.yaml`](../../../apps/backend-pode/api/openapi.yaml) — the contract itself
 
 ## The project's internal documents (French)
