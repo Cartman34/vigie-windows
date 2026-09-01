@@ -62,6 +62,10 @@
 [CmdletBinding()]
 param(
     [string[]]$Only,
+
+    # Plafond par sonde, en secondes. Au-dela, elle est declaree bloquee et le controle
+    # continue : un verificateur ne doit jamais etre celui qui fait attendre.
+    [int]$ProbeTimeoutSec = 180,
     [switch]$All,
     [int]$HeavyMs = 1000
 )
@@ -218,7 +222,28 @@ foreach ($f in $sondes) {
     if ($doitExecuter) {
         $sw = [Diagnostics.Stopwatch]::StartNew()
         $rendus = $null
-        try { $rendus = & $f.FullName }
+        $job = $null
+        <#
+            UNE SONDE QUI NE REND PAS LA MAIN EST UN MANQUEMENT, PAS UNE ATTENTE.
+
+            Le 01/09, ce controle est reste bloque VINGT-QUATRE MINUTES : la sonde du
+            deploiement interroge le clone git, et une installation tournait au meme
+            moment. Sans limite, un verificateur devient lui-meme le probleme -- on ne
+            sait plus s'il travaille ou s'il est mort.
+
+            La sonde tourne donc dans un processus a part, avec un plafond. Au-dela, on le
+            dit et on passe a la suivante : le rapport reste complet, et la cause est
+            nommee.
+        #>
+        try {
+            $job = Start-Job -ScriptBlock { param($chemin) & $chemin } -ArgumentList $f.FullName
+            if (Wait-Job -Job $job -Timeout $ProbeTimeoutSec) {
+                $rendus = Receive-Job -Job $job -ErrorAction Stop
+            } else {
+                Stop-Job -Job $job -ErrorAction SilentlyContinue
+                throw ("la sonde n'a pas rendu la main en " + $ProbeTimeoutSec + " s")
+            }
+        }
         catch {
             $sw.Stop()
             Write-ProbeRun -Backend $backendRoot -Probe $f.Name -Ms $sw.ElapsedMilliseconds -Origin 'check' -Outcome 'error' -Detail $_.Exception.Message
@@ -226,6 +251,7 @@ foreach ($f in $sondes) {
             $lignes += '  {0,-20} ECHEC a l execution' -f $f.Name
             continue
         }
+        finally { if ($job) { Remove-Job -Job $job -Force -ErrorAction SilentlyContinue } }
         $sw.Stop()
         if (-not $rendus) {
             Write-ProbeRun -Backend $backendRoot -Probe $f.Name -Ms $sw.ElapsedMilliseconds -Origin 'check' -Outcome 'empty'
