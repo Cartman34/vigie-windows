@@ -15,10 +15,11 @@ Mise à jour : 2026-08-30.
 | CORE-AUTOSTART | Fait | app serveur : tâche `Vigie - Serveur` sous `VigieService`, au **démarrage de l'ordinateur**, sans session ouverte (`scripts/lib/install-service.ps1`). App cliente : `scripts/install-autostart.ps1`, tâches `Vigie` / `Vigie - <compte>`, réparation par `repair-tasks` | — |
 | CORE-SECURITY | Fait | [identity.md](identity.md) | À auditer avant toute exposition |
 | CORE-VERSION | Fait | `Get-GitVersion` / `Get-GitCommit`, empreinte BUILD dans l'archive | — |
-| CORE-UPDATE | Partiel | [update-chain.md](update-chain.md) | Sur ce poste, le compte de service ne peut pas lire le dépôt (`C:\EspaceRestreint`) : la comparaison de commits et la fabrication depuis la branche ne fonctionnent pas encore — **Q1 ouverte** |
+| CORE-UPDATE | Fait | [update-chain.md](update-chain.md) | Éprouvé le 01/09 par le bouton de la carte, de bout en bout, plusieurs fois. Le compte de service lit le dépôt (`safe.directory` sur le dossier **et** son `.git`) et fabrique depuis le clone |
 | CORE-UPDATE-TRUST | À faire | — | Rien ne vérifie aujourd'hui que l'archive téléchargée est bien celle publiée : ni empreinte, ni signature. On s'en remet à HTTPS et à GitHub. |
 | CORE-DEPLOY | Fait | Carte Déploiement, `pwsh-install-machine`, `setup.cmd` | Éprouvé sur cette machine seulement |
 | CORE-ACCOUNTS | Partiel | Carte Comptes, `accounts-details`, `diag-account-logs` | Un compte **standard** ne peut pas démarrer Vigie : le serveur exige l'élévation et lui réclamerait un mot de passe administrateur. Conception validée, non codée : `targeting/multi-account-server.md`. |
+| CORE-WATCH | Partiel | Minuteur d'une minute dans l'app serveur, sentinelles déclarées par module ([surveillance.md](../targeting/surveillance.md)) | Une seule sentinelle posée (`network/internet`) ; jamais éprouvée en fonctionnement réel |
 | CORE-OPERATIONS | Fait | Marqueurs d'occupation, verrou de ressources, `/operations` interrogé par toutes les pages | — |
 | CORE-EXPORT | Fait | `apps/frontend-web/rapport.html`, route `/rapport` | Jamais vérifié à l'impression réelle |
 
