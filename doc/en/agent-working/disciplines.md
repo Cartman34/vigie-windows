@@ -95,6 +95,10 @@ nécessaire pour répondre. Il pose souvent des questions pour éprouver un rais
 moment-là court-circuite sa décision. Répondre d'abord, complètement. Si l'action est évidente, la proposer en une
 phrase à la fin plutôt que de l'exécuter.
 
+**Une installation se DEMANDE, jamais elle ne se lance d'elle-même.** Le message qui la propose porte d'abord les
+correctifs — cause, correction, une phrase chacun — puis la demande de la lancer. Il valide, ensuite on lance. Déployer
+sans avoir dit ce qu'on déploie lui retire le seul moment où il peut dire non.
+
 **Un défaut se rapporte en DEUX PHRASES : la cause, puis la correction.** Pas le récit de l'enquête, pas ce que j'ai
 cru, pas ce qui aurait pu arriver. « La fabrication cassait sur un fichier vide — elle l'ignore désormais. » Le reste
 vit dans le message de commit, pour qui veut y revenir.
