@@ -3542,8 +3542,6 @@ function Write-MeasureSamples {
         if (Test-Path -LiteralPath $indexFile) {
             try { $index = Get-Content -LiteralPath $indexFile -Raw | ConvertFrom-Json } catch { }
         }
-        & $marquer 'ciblage'
-    $nowUtc = [datetime]::UtcNow
         foreach ($id in ($ids | Sort-Object)) {
             $cat = $script:MeasureCatalog[$id]
             $eff = Get-HistoryConfig -Backend $Backend -MeasureId $id -Config $cfg
@@ -3837,7 +3835,7 @@ function Get-State {
     #>
     $tPhase = [Diagnostics.Stopwatch]::StartNew()
     $phases = [ordered]@{}
-    $marquer = {
+    $markPhase = {
         param([string]$Nom)
         $phases[$Nom] = [math]::Round($tPhase.Elapsed.TotalMilliseconds, 1)
         $tPhase.Restart()
@@ -3847,7 +3845,7 @@ function Get-State {
     if (Test-Path $cacheFile) {
         try { $j = Get-Content $cacheFile -Raw | ConvertFrom-Json; foreach ($pr in $j.PSObject.Properties) { $cache[$pr.Name] = $pr.Value } } catch { }
     }
-    & $marquer 'lecture-cache'
+    & $markPhase 'lecture-cache'
 
     # Quelle sonde produit le module vise ? Le cache le dit : chaque entree porte le
     # module rendu par la sonde (ou son tableau de modules).
@@ -3872,6 +3870,7 @@ function Get-State {
     # toute entree paraissait donc vieille de deux heures : aucune n'a jamais ete jugee
     # fraiche, le cache ne servait a rien et chaque appel a /state recalculait les douze
     # sondes -- une vingtaine de secondes, dont dix pour la seule sonde `lock`.
+    & $markPhase 'ciblage'
     $nowUtc = [datetime]::UtcNow
     $probeFiles = @(Get-ChildItem -Path $probesDir -Recurse -Filter '*.probe.ps1' -ErrorAction SilentlyContinue | Sort-Object FullName)
     # Modules coupes par l'utilisateur (D48) : leurs sondes sortent du calcul ET de
@@ -4043,7 +4042,7 @@ function Get-State {
         journal « state ». Il compte le SERVICE : lecture du cache, etat des operations,
         droits des actions -- tout ce qui se passe pendant que la page attend.
     #>
-    & $marquer 'fraicheur'
+    & $markPhase 'fraicheur'
     $modules = @()
     $chrono = @{}
     foreach ($pf in $probeFiles) {
@@ -4076,7 +4075,7 @@ function Get-State {
         ce soit : le module.psd1 du dossier donne son titre, le dossier donne son groupe.
         Elle porte « en attente de mesure » et son bouton, qui suffit a la remplir.
     #>
-    & $marquer 'assemblage'
+    & $markPhase 'assemblage'
     $known = @($modules | ForEach-Object { "$($_.id)" })
     foreach ($pf in $probeFiles) {
         $unit = Split-Path (Split-Path $pf.FullName -Parent) -Leaf
@@ -4169,7 +4168,7 @@ function Get-State {
         }
     }
 
-    & $marquer 'chronometrage'
+    & $markPhase 'chronometrage'
     # LE DETAIL, DANS LE JOURNAL : une ligne, triee du plus lent au plus rapide.
     try {
         $lignesChrono = @($chrono.GetEnumerator() | Sort-Object Value -Descending |
@@ -4182,18 +4181,18 @@ function Get-State {
         }
     } catch { }
 
-    & $marquer 'droits-et-operations'
+    & $markPhase 'droits-et-operations'
     $present = @($modules | Select-Object -ExpandProperty theme -Unique)
     $themes  = @($script:ThemeCatalog | Where-Object { $present -contains $_.id })
     # LE CATALOGUE DES MODULES est sorti de l'objet pour etre MESURE : tant qu'il etait
     # ecrit dans la construction finale, son cout se noyait dans « le reste ».
     $unites = @(Get-UnitCatalog -Backend $Backend)
-    & $marquer 'catalogue-modules'
+    & $markPhase 'catalogue-modules'
     # LE RESTE : version, marque de fabrication, nom de machine. Mesure aussi, sinon
     # « le reste » redevient l'endroit ou le temps se cache.
     $version = (Get-AppVersion -Backend $Backend)
     $build   = (Get-AppBuildId -Backend $Backend)
-    & $marquer 'identite-de-version'
+    & $markPhase 'identite-de-version'
 
     [pscustomobject][ordered]@{
         generatedAt = (Get-Date).ToUniversalTime().ToString('o')
