@@ -15,7 +15,9 @@ ouvre une chaîne, et chaque maillon oblige au suivant.
 
 1. `disciplines.md` — **en entier**, à tenir en continu. C'est la manière de travailler,
    pas une liste de conseils. La première qu'on y trouve, **NODO**, arrête tout : dès que
-   le propriétaire écrit ce mot, plus rien ne change tant qu'il ne le lève pas.
+   le propriétaire écrit ce mot, plus rien ne change tant qu'il ne le lève pas. Et celle
+   qui décide de la qualité du produit : **une demande se juge contre le modèle**, jamais
+   en tordant l'existant pour y faire entrer le nouveau.
 2. `doc/progress/decisions.md` — les arbitrages tranchés. Ils **s'imposent** : on ne
    reconçoit pas par-dessus, on cherche d'abord (`scripts/dev/decisions.ps1 -About "…"`).
 3. `doc/progress/targeting/` puis `doc/progress/implemented/` — la cible, puis l'état

@@ -285,6 +285,35 @@ de rendu à installer, et il reste juste dans un terminal comme dans un navigate
 *Le 01/09 : j'ai décrit une boucle de surveillance en trois paragraphes, et implémenté autre chose que ce qui avait
 été demandé sans que la différence se voie.*
 
+## Une demande se juge contre le MODÈLE, pas contre le code du jour
+
+**Avant d'écrire une ligne pour une nouvelle demande, on répond à une question : le modèle actuel couvre-t-il ce
+besoin, ou faut-il le revoir ?** Trois réponses possibles, et une seule est interdite.
+
+| réponse | ce qu'on fait |
+|---|---|
+| le modèle couvre | on l'emploie tel quel, sans rien ajouter à côté |
+| le modèle s'étend honnêtement | on l'étend, et la cible est mise à jour dans le même geste |
+| **le modèle est faux** | on le dit, on propose la reprise, et on ne code pas avant d'être d'accord |
+
+**Ce qui est interdit : tordre l'existant pour y faire entrer le nouveau.** C'est le geste qui coûte le plus cher, et
+c'est le plus tentant : il donne un résultat tout de suite, il n'oblige à rien reconsidérer, et il laisse une couche
+de plus que le suivant devra comprendre. Au bout de dix demandes, les dix sont incompatibles entre elles et avec ce
+qui existait.
+
+**Les besoins ne se devinent pas.** Ils sont dans `doc/progress/targeting/` : on les lit AVANT de juger. Et s'ils ne
+suffisent pas à trancher, **on demande** — « des besoins qui touchent le modèle sont-ils prévus ? » — plutôt que de
+concevoir pour ce qu'on connaît aujourd'hui.
+
+*Le 01/09, deux fois dans la journée. La veille permanente : je l'ai greffée sur le rafraîchissement de fond existant
+— « recalculer la carte la plus en retard » — au lieu de me demander si ce modèle répondait au besoin ; il ne
+répondait pas, et il a fallu tout reprendre. L'app cliente : elle lisait le fichier de cache du serveur, ce qui était
+juste jusqu'au jour où le serveur est passé sous un compte de service ; ce changement de modèle n'a jamais été
+propagé, et elle n'a plus émis une notification pendant quatre jours sans que rien ne le signale.*
+
+**Ce qu'il faut se demander à chaque fois :** qu'est-ce que cette demande dit du modèle ? Si elle ne rentre qu'en
+forçant, c'est le modèle qu'elle met en cause — pas elle.
+
 ## Chercher avant de concevoir
 
 **La source de vérité, c'est `doc/progress/decisions.md`** — les arbitrages, rien d'autre. Avant de concevoir quoi que
