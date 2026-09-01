@@ -89,9 +89,12 @@ pause
 exit /b 1
 
 :echec
+REM PAS DE « APPUYEZ SUR UNE TOUCHE » : LA FENETRE A DEJA CONCLU.
+REM
+REM Ce « pause » datait du temps ou un echec ne se disait que dans la console. Depuis,
+REM l'installation se termine par une fenetre -- succes COMME echec -- qui nomme la cause
+REM et donne le journal. On fermait donc cette fenetre pour se retrouver devant un
+REM terminal qui attendait encore une touche (constate le 01/09).
 echo.
-echo L'installation a ÉCHOUÉ. Les lignes ci-dessus nomment la cause.
-echo Journal détaillé : apps\backend-pode\var\log\install_*.log
-echo.
-pause
+echo L'installation a ÉCHOUÉ. Journal détaillé : apps\backend-pode\var\log\install_*.log
 exit /b 1

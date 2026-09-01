@@ -84,11 +84,17 @@ function Write-Title {
 $script:UiStepText = $null
 $script:UiStepFailures = 0
 $script:UiStepWarnings = 0
+# Un echec ou une reserve venus d'un SOUS-PROCESSUS : ils colorent la conclusion de
+# l'etape sans toucher aux compteurs du script, qui appartiennent a ses propres constats.
+$script:UiStepRelayFail = $false
+$script:UiStepRelayWarn = $false
 
 function Close-UiStep {
     if ($null -eq $script:UiStepText) { return }
     $f = $script:UiFailures - $script:UiStepFailures
     $w = $script:UiWarnings - $script:UiStepWarnings
+    if ($script:UiStepRelayFail) { $f++ }
+    if ($script:UiStepRelayWarn) { $w++ }
     $texte = if ($f -gt 0)    { $script:UiStepText + " : échec." }
              elseif ($w -gt 0) { $script:UiStepText + " : fait, avec " + $w + " réserve(s)." }
              else              { $script:UiStepText + " : fait." }
@@ -105,6 +111,8 @@ function Write-Step {
     $script:UiStepText = $Text
     $script:UiStepFailures = $script:UiFailures
     $script:UiStepWarnings = $script:UiWarnings
+    $script:UiStepRelayFail = $false
+    $script:UiStepRelayWarn = $false
 }
 
 <#
@@ -123,6 +131,31 @@ function Write-Step {
 function Write-Ok      { param([Parameter(Mandatory)][string]$Text) Write-Host ("       " + $Text) -ForegroundColor Gray }
 function Write-Info    { param([Parameter(Mandatory)][string]$Text) Write-Host ("       " + $Text) -ForegroundColor Gray }
 function Write-Detail  { param([Parameter(Mandatory)][string]$Text) Write-Host ("       " + $Text) -ForegroundColor DarkGray }
+
+<#
+    RELAYER LA SORTIE D'UN SOUS-PROCESSUS SANS LUI FAIRE PERDRE SA COULEUR.
+
+    Un script appele en processus fils ecrit ses marqueurs -- [X], [!] -- mais sa sortie
+    revient en TEXTE : l'appelant la reaffichait telle quelle, en blanc. Trois echecs de
+    fabrication defilaient donc en blanc au milieu du reste (constate le 01/09), alors que
+    ce sont exactement les lignes qu'on cherche des yeux.
+
+    On relit le marqueur et on rend la couleur. Les compteurs, eux, NE BOUGENT PAS : ces
+    echecs appartiennent au fils, et l'appelant decide lui-meme de ce qu'il en fait.
+#>
+function Write-Relayed {
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$Text)
+    $couleur = if ($Text -match '\[X\]') { 'Red' }
+               elseif ($Text -match '\[!\]') { 'Yellow' }
+               else { 'Gray' }
+    # UN ECHEC RELAYE MARQUE L'ETAPE. Les compteurs globaux ne bougent pas -- l'appelant
+    # lira le code de sortie du fils et decidera -- mais conclure « fait » en vert sous
+    # trois lignes rouges est un mensonge : « dire que le deploiement est possible quand
+    # il y a plein d'erreurs, c'est tres optimiste ».
+    if ($Text -match '\[X\]')      { $script:UiStepRelayFail = $true }
+    elseif ($Text -match '\[!\]') { $script:UiStepRelayWarn = $true }
+    Write-Host $Text -ForegroundColor $couleur
+}
 
 function Write-Warn {
     param([Parameter(Mandatory)][string]$Text)

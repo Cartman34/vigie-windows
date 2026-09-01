@@ -153,7 +153,11 @@ function Find-LienMort {
     param([Parameter(Mandatory)][string] $Racine)
     $morts = @()
     foreach ($md in (Get-ChildItem -LiteralPath $Racine -Recurse -Filter *.md -File)) {
+        # UN FICHIER VIDE REND $null, PAS UNE CHAINE VIDE. « Matches » leve alors
+        # « Value cannot be null », et toute la fabrication s'arrete sur un document sans
+        # une ligne (constate le 01/09 : v0.1.44 n'a jamais ete fabriquee).
         $texte = Get-Content -LiteralPath $md.FullName -Raw
+        if (-not $texte) { continue }
         foreach ($m in [regex]::Matches($texte, '\]\(([^)]+)\)')) {
             $lien = $m.Groups[1].Value
             if ($lien -match '^(https?:|mailto:|#)') { continue }

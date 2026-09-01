@@ -513,7 +513,7 @@ if ($aRecuperer) {
         $lignesFetch = & (Get-Process -Id $PID).Path @argv 2>&1
         $codeFetch = $LASTEXITCODE
         foreach ($l in $lignesFetch) {
-            Write-Host "$l"
+            Write-Relayed "$l"
             try { Write-Log -Backend $backend -Name 'install' -Message "$l" -NoEcho } catch { }
         }
 
@@ -542,7 +542,25 @@ if ($aRecuperer) {
     }
 }
 
-if (-not $prepared -and -not $alreadyThere) { $prepared = $repoRoot }
+<#
+    UNE RECUPERATION QUI ECHOUE ARRETE L'INSTALLATION.
+
+    Ce repli existe pour le cas « il n'y avait RIEN a recuperer » : une archive extraite a
+    la main, dont le dossier courant EST la version a poser. Il se declenchait aussi quand
+    la recuperation avait ete TENTEE et RATEE -- l'installation posait alors le dossier
+    d'ou elle tournait, c'est-a-dire le depot de developpement.
+
+    Constate le 01/09 : la fabrication de v0.1.44 echoue, l'installation continue, arrete
+    Vigie, sauvegarde, copie le depot par-dessus l'installation, constate « version posee
+    v0.1.43 au lieu de v0.1.44 » et restaure. Tout ce travail, et ce risque, pour un
+    echec connu vingt lignes plus haut.
+
+    On ne se rabat donc que si l'on n'a RIEN TENTE.
+#>
+if (-not $prepared -and -not $alreadyThere -and -not $aRecuperer) { $prepared = $repoRoot }
+if ($aRecuperer -and -not $prepared) {
+    Write-Fail (Get-Label 'install.recuperation-arrete-tout')
+}
 if ($prepared) {
     $stopped = @()
     $backup  = $null
@@ -613,6 +631,9 @@ if ($prepared) {
         } else {
             Write-Fail (Get-Label 'install.copie-invalide' $pose)
             if ($backup) {
+                # UNE ETAPE A PART : restaurer n'est pas « poser ». C'est le filet qui se
+                # deploie, et ca doit se voir comme tel dans le deroule.
+                Write-Step (Get-Label 'install.etape-restauration')
                 try {
                     Restore-Install -Backup $backup -Destination $destPartagee
                     Write-Warn (Get-Label 'install.version-restauree')
