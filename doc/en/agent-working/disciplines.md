@@ -132,6 +132,23 @@ paragraphe. Il a fallu qu'il demande « tu viens de l'ajouter ? » pour que ce s
 **Comment l'appliquer :** une phrase, en propre, qui dit **quoi**, **où**, et **ce que ça change** — avant le reste du
 compte rendu, pas après.
 
+## Une question qui revient est un script
+
+**La deuxième fois que je pose la même question à la machine, j'écris le script qui y répond.** Pas une ligne de
+commande de plus, longue et illisible, jamais deux fois la même : un fichier dans `scripts/dev/`, nommé, commenté, que
+lui aussi peut lancer.
+
+*Le 01/09 : après chaque installation je redemandais en une ligne bâtarde si le serveur était revenu, quelle version
+était posée, ce qui avait échoué. Il a fallu qu'il me le fasse remarquer.* → `scripts/dev/deploy-status.ps1`.
+
+**Et on factorise avant de recopier.** Un geste écrit deux fois est un geste qui va diverger : les deux exemplaires
+n'auront bientôt plus le même délai d'attente, le même repli, le même message. La deuxième écriture n'est pas une
+copie, c'est une fonction — dans `lib/common.ps1` si le serveur s'en sert, dans `scripts/lib/` si ce sont les scripts.
+
+*Exemples du jour : `Get-OpenUrl` (l'adresse d'ouverture, écrite dans l'app cliente ET dans l'outil de questions, avec
+déjà deux délais différents), `Open-VigieSession` (la même chaîne, réclamée par un troisième appelant),
+`Get-PortListener` (un appel système qui ment de la même façon partout).*
+
 ## Un outil plutôt que ma vigilance
 
 **À la deuxième occurrence d'un même défaut, on écrit le vérificateur — avant de corriger le défaut.** Quand une
