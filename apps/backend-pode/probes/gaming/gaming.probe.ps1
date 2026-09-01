@@ -252,14 +252,14 @@ $SCORE_JEU = 3
 # Steam et la Game Bar rangent leurs reglages PAR UTILISATEUR. Le serveur tourne sous le
 # compte de service : HKCU y designe la ruche du service, celle de personne. On interroge
 # donc la ruche de chaque utilisateur connecte (voir Get-UserRegistryRoots).
-$ruches = @(Get-UserRegistryRoots) + @("HKCU:")
+$hives = @(Get-UserRegistryRoots)
 
 # Bibliotheques Steam : lues dans la configuration de Steam, jamais devinees.
 $steamLibs = @()
-foreach ($ruche in $ruches) {
+foreach ($hive in $hives) {
     try {
-        $cle = Join-Path $ruche 'Software\Valve\Steam'
-        $sp = (Get-ItemProperty $cle -Name 'SteamPath' -ErrorAction Stop).SteamPath
+        $regKey = Join-Path $hive 'Software\Valve\Steam'
+        $sp = (Get-ItemProperty $regKey -Name 'SteamPath' -ErrorAction Stop).SteamPath
         if (-not $sp) { continue }
         $spw = ($sp -replace '/', '\')
         $steamLibs += $spw.ToLower()
@@ -275,10 +275,10 @@ $steamLibs = @($steamLibs | Select-Object -Unique)
 
 # Executables que WINDOWS a lui-meme reconnus comme des jeux (Game Bar).
 $jeuxWindows = @()
-foreach ($ruche in $ruches) {
+foreach ($hive in $hives) {
     try {
-        $cle = Join-Path $ruche 'System\GameConfigStore\Children'
-        foreach ($k in (Get-ChildItem $cle -ErrorAction Stop)) {
+        $regKey = Join-Path $hive 'System\GameConfigStore\Children'
+        foreach ($k in (Get-ChildItem $regKey -ErrorAction Stop)) {
             $v = (Get-ItemProperty $k.PSPath -ErrorAction SilentlyContinue).MatchedExeFullPath
             if ($v) { $jeuxWindows += "$v".ToLower() }
         }
@@ -548,14 +548,14 @@ if ($jeu) {
 # partir -- deux symptomes pour une seule cause (constate le 01/09). Le champ est
 # desormais toujours la ; seul son STATUT depend de ce que la machine est en train de
 # rendre, car c'est le rendu 3D sur batterie qui bride et qui merite l'alerte.
-$rendActif = [bool]$jeu -or ($rejete -and $rejete.Proc.Gpu -ge $gameGpuMin)
+$rendering = [bool]$jeu -or ($rejete -and $rejete.Proc.Gpu -ge $gameGpuMin)
 if (-not $surSecteur) {
     $fields += New-Field -Key 'power' -Label 'Alimentation' `
         -Value ("Batterie" + $(if ($null -ne $pctBatterie) { " ($pctBatterie %)" })) -Kind 'text' `
-        -Status $(if ($rendActif) { 'warn' } else { 'neutral' }) `
+        -Status $(if ($rendering) { 'warn' } else { 'neutral' }) `
         -FixAction 'open-power-options' `
         -Help "Sur batterie, processeur et carte graphique sont bridés : performances de jeu réduites." `
-        -Guide ((@($(if ($rendActif) { "Branchez le secteur pour la partie." } else { "Rien ne rend en 3D pour l'instant : la bride n'a pas d'effet visible." })) +
+        -Guide ((@($(if ($rendering) { "Branchez le secteur pour la partie." } else { "Rien ne rend en 3D pour l'instant : la bride n'a pas d'effet visible." })) +
                  @($(if ($plan) { "Plan d'alimentation actif : $plan." }))) -join "`n")
 } else {
     $fields += New-Field -Key 'power' -Label 'Alimentation' `
