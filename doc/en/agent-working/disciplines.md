@@ -99,6 +99,19 @@ phrase à la fin plutôt que de l'exécuter.
 pendant, puis le résultat. Vingt-quatre minutes sans nouvelle, c'est le laisser deviner si je travaille, si j'ai
 compris, ou si je me suis perdu.
 
+**Une commande longue part en TACHE DE FOND.** Sinon je ne réponds plus : il parle, et je suis muet jusqu'à ce que
+la commande finisse. Une installation, une passe complète de sondes, un déploiement : en fond, puis je rends compte.
+Rester bloqué sur une commande n'apporte rien à personne — surtout pas à lui.
+
+**On ne double JAMAIS un journal existant.** Le programme écrit le sien : y superposer une capture donne deux
+versions du même récit, des lignes en double, et un affichage qui perd ses couleurs et prend un tour de retard —
+ce qui fait passer un programme qui avance pour un programme figé (constaté le 01/09 sur l'installation). Si ce
+journal ne suffit pas, on **améliore celui-là**.
+
+**Déboguer suit une démarche ÉCRITE, pas un souvenir.** Elle vit dans
+[`doc/en/developing/debugging.md`](../developing/debugging.md) et s'exécute avec `scripts/dev/debug.ps1`. La veille,
+je savais faire ; le lendemain, j'improvisais une ligne de commande bâtarde. Une démarche qui revient est un script.
+
 **Une installation se DEMANDE, jamais elle ne se lance d'elle-même.** Le message qui la propose porte d'abord les
 correctifs — cause, correction, une phrase chacun — puis la demande de la lancer. Il valide, ensuite on lance. Déployer
 sans avoir dit ce qu'on déploie lui retire le seul moment où il peut dire non.
