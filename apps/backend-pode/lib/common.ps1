@@ -3883,9 +3883,9 @@ function Get-State {
             pas, on le demande au disque, qui lui sait toujours.
         #>
         if (-not $sondesCiblees.Count) {
-            $dossierSonde = Join-Path $probesDir $ForceModule
-            if (Test-PathSafe $dossierSonde) {
-                foreach ($pf in @(Get-ChildItem -LiteralPath $dossierSonde -Filter '*.probe.ps1' -File -ErrorAction SilentlyContinue)) {
+            $probeDir = Join-Path $probesDir $ForceModule
+            if (Test-PathSafe $probeDir) {
+                foreach ($pf in @(Get-ChildItem -LiteralPath $probeDir -Filter '*.probe.ps1' -File -ErrorAction SilentlyContinue)) {
                     $sondesCiblees += $pf.Name
                 }
             }
