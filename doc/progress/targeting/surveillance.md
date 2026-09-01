@@ -105,6 +105,35 @@ batterie qui se vide pendant une partie n'aurait prévenu qu'**une fois**, au pr
 Rien de neuf en dessous : même dossier de données, même purge, même route de lecture que les autres mesures. Une
 sentinelle porte l'identifiant de mesure `watch.<clé>`.
 
+## Ce que l'historique pèse, et pourquoi il ne dérive pas
+
+Un fichier **par mesure et par jour** : `var/history/<mesure>/<AAAA-MM-JJ>.jsonl`. Ce découpage n'est pas un rangement,
+c'est ce qui rend la **purge gratuite** — supprimer des fichiers dont le nom porte la date, sans rien relire. Avant, la
+purge lisait tout, analysait chaque ligne et réécrivait le fichier entier, sous verrou.
+
+Quatre règles, de la plus efficace à la dernière :
+
+1. **On ne garde que les retournements.** Quand un point arrive, le **précédent** devient jugeable : s'il se situe entre
+   l'avant-dernier et celui qu'on écrit, il est sur la ligne qui les joint — il se déduit, on l'efface. Ne restent que
+   les **extrêmes des fluctuations**, qui portent toute la forme de la courbe et ses records.
+
+   La décision se prend **en regardant en arrière**, à l'écriture : aucun retard, aucune seconde passe, et la journée en
+   cours reste juste à la seconde près. Effacer ne coûte rien — on tronque le fichier à l'offset de sa dernière ligne.
+
+   Deux gardes : la **tolérance** déclarée par la mesure (5 points de GPU, 1 Go d'espace, 5 ms de latence) — un demi-tour
+   plus petit qu'elle n'en est pas un, un GPU qui oscille entre 22 et 25 % ne raconte rien ; et le **battement de cœur**,
+   qui interdit d'effacer si cela creusait un trou de plus de quinze minutes, sinon « stable » ne se distinguerait plus
+   de « plus rien ne mesure ».
+
+   Éprouvé : une série de 14 points (10, 12, 15, 20, 25, 30, 28, 22, 24, 23, 25, 40, 39, 5) se réduit à **5** —
+   10, 28, 25, 39, 5.
+2. **On ne réécrit jamais la même valeur**, et **une cadence minimale** par mesure borne le débit par construction.
+3. **Les événements ne se compactent pas** : une sentinelle n'écrit que des changements d'état, et « entre deux » n'a
+   aucun sens pour un état.
+4. **Un plafond de taille**, en dernier filet : au-delà de 5 Mo pour une journée, la mesure se **bride** à une ligne par
+   minute — elle ne se tait pas, se taire à midi rendrait aveugle sur l'incident de l'après-midi — et le journal le dit.
+   Avec les règles précédentes, ce filet ne devrait jamais servir : s'il se déclenche, c'est un **défaut**.
+
 ## Ce que ça n'est pas
 
 - **Pas un second chemin de recalcul.** Le recalcul passe par `Get-State -Only`, comme le reste.

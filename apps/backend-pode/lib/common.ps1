@@ -3476,8 +3476,9 @@ function Write-SentinelSample {
         $obj = [ordered]@{ at = ([datetime]::UtcNow).ToString('o'); v = $To }
         if ($From) { $obj.from = $From }
         if ($Cards.Count) { $obj.cards = @($Cards) }
-        $file = Get-VarPath -Backend $Backend -Kind 'history' -File ($id + '.jsonl')
-        $null = Add-HistoryLine -Path $file -Line ($obj | ConvertTo-Json -Compress -Depth 4)
+        # Une sentinelle n'ecrit deja QUE sur changement : pas de battement de coeur ici,
+        # une serie d'evenements plate n'est pas un trou, c'est une absence d'evenement.
+        $null = Write-HistoryPoint -Backend $Backend -MeasureId $id -Point $obj
     } catch { }
 }
 
@@ -3506,7 +3507,16 @@ function Invoke-WatchPass {
         catch {
             # UN RELEVE QUI ECHOUE EST UNE VALEUR COMME UNE AUTRE : « on ne sait pas » est
             # un etat, et son apparition merite un evenement autant qu'un autre changement.
-            $value = 'erreur: ' + $_.Exception.Message
+            #
+            # MAIS LA VALEUR RESTE « erreur », SANS LE MESSAGE. Un message porte souvent un
+            # delai, une heure ou un identifiant : il change a chaque passage, chaque
+            # passage passe alors pour un changement, et une panne qui dure ecrit une
+            # ligne d'historique par minute -- des milliers de lignes qui disent toutes la
+            # meme chose. Le detail va au journal, ou il ne coute rien et ou on le cherche
+            # quand on en a besoin.
+            $value = 'erreur'
+            try { Write-Log -Backend $Backend -Name 'state' -Level 'WARN' -NoEcho `
+                            -Message ("veille : " + $w.Key + " a echoue -- " + $_.Exception.Message) } catch { }
         }
 
         $before = $(if ($known) { "$($known.value)" } else { $null })
@@ -3679,7 +3689,8 @@ function Write-ProbeRun {
 # soit le nombre de recalculs de la sonde entre deux mesures de debit/latence.
 $script:MeasureCatalog = @{
     'disk.free' = @{
-        Probe = 'disk.probe.ps1'; Kind = 'gauge'; Unit = 'Go'; IntervalMinutes = 30
+        # Tolerance : un giga-octet. En dessous, l'espace libre n'a pas bouge pour qui le lit.
+        Probe = 'disk.probe.ps1'; Kind = 'gauge'; Unit = 'Go'; IntervalMinutes = 30; Tolerance = 1
         Extract = {
             param($Modules)
             $m = @($Modules) | Where-Object { "$($_.id)" -eq 'storage' } | Select-Object -First 1
@@ -3697,7 +3708,9 @@ $script:MeasureCatalog = @{
     # jeu accompagne chaque point (champ n), pour repondre a « pourquoi ca ramait
     # hier soir ? » sans rien afficher (Q2 : enregistrement seul).
     'game.gpu' = @{
-        Probe = 'gaming.probe.ps1'; Kind = 'gauge'; Unit = '%'; IntervalMinutes = 1
+        # Tolerance : cinq points. Un GPU qui oscille entre 22 et 25 % ne raconte rien --
+        # c'est le bruit d'une mesure instantanee, pas une variation de la partie.
+        Probe = 'gaming.probe.ps1'; Kind = 'gauge'; Unit = '%'; IntervalMinutes = 1; Tolerance = 5
         Extract = {
             param($Modules)
             $m = @($Modules) | Where-Object { "$($_.id)" -eq 'gaming' } | Select-Object -First 1
@@ -3710,7 +3723,8 @@ $script:MeasureCatalog = @{
         }
     }
     'game.vram' = @{
-        Probe = 'gaming.probe.ps1'; Kind = 'gauge'; Unit = 'Go'; IntervalMinutes = 1
+        # Tolerance : deux cents mega-octets, la precision de ce qui est affiche.
+        Probe = 'gaming.probe.ps1'; Kind = 'gauge'; Unit = 'Go'; IntervalMinutes = 1; Tolerance = 0.2
         Extract = {
             param($Modules)
             $m = @($Modules) | Where-Object { "$($_.id)" -eq 'gaming' } | Select-Object -First 1
@@ -3737,7 +3751,8 @@ $script:MeasureCatalog = @{
         }
     }
     'net.latency' = @{
-        Probe = 'net.probe.ps1'; Kind = 'gauge'; Unit = 'ms'; IntervalMinutes = 0
+        # Tolerance : cinq millisecondes. En dessous, c'est la variation normale d'un ping.
+        Probe = 'net.probe.ps1'; Kind = 'gauge'; Unit = 'ms'; IntervalMinutes = 0; Tolerance = 5
         Extract = {
             param($Modules)
             $m = @($Modules) | Where-Object { "$($_.id)" -eq 'net' } | Select-Object -First 1
@@ -3782,11 +3797,16 @@ function Get-HistoryConfig {
         RetentionDays   = $res.RetentionDays
         MaxLines        = $res.MaxLinesPerMeasure
         IntervalMinutes = $(if ($cat -and $cat.ContainsKey('IntervalMinutes')) { [int]$cat.IntervalMinutes } else { 0 })
+        # DE COMBIEN FAUT-IL QUE CA BOUGE POUR QUE CA COMPTE ? En dessous, c'est du bruit :
+        # un GPU qui oscille entre 22 et 25 % dans la meme minute ne raconte rien, et
+        # l'ecrire trois fois ne fait que remplir le disque. 0 = toute variation compte.
+        Tolerance       = $(if ($cat -and $cat.ContainsKey('Tolerance')) { [double]$cat.Tolerance } else { 0 })
     }
     $mo = $res.Measures[$MeasureId]
     if ($mo -is [hashtable]) {
         if ($mo.ContainsKey('RetentionDays'))   { $eff.RetentionDays   = [int]$mo.RetentionDays }
         if ($mo.ContainsKey('IntervalMinutes')) { $eff.IntervalMinutes = [int]$mo.IntervalMinutes }
+        if ($mo.ContainsKey('Tolerance'))       { $eff.Tolerance       = [double]$mo.Tolerance }
     }
     # Retention nulle = mesure coupee. Le fichier existant n'est PAS supprime :
     # detruire une archive reste un geste manuel et volontaire.
@@ -3798,10 +3818,173 @@ function Get-HistoryConfig {
 # (Local\VigieHistory_<leaf>, meme convention que Update-StateJson). Necessaire :
 # deux recalculs simultanes existent reellement (requete forcee + rafraichissement
 # de fond) et leurs ecritures ne doivent pas s'entremeler.
+<#
+    UN FICHIER PAR MESURE ET PAR JOUR : var/history/<mesure>/<AAAA-MM-JJ>.jsonl
+
+    Un seul fichier par mesure grossissait sans fin, et la purge devait le LIRE EN ENTIER,
+    analyser chaque ligne, jeter les vieilles et tout reecrire -- sous verrou, en bloquant
+    les ecritures. Decoupe par jour, purger revient a SUPPRIMER des fichiers : aucune
+    lecture, aucune analyse, aucune reecriture. Lire une fenetre de 24 h n'ouvre plus
+    qu'un fichier ou deux au lieu de parcourir quatre-vingt-dix jours pour en jeter 98 %.
+#>
+function Get-MeasureDayFile {
+    param(
+        [string]$Backend = (Get-BackendRoot),
+        [Parameter(Mandatory)][string]$MeasureId,
+        [datetime]$Day = [datetime]::UtcNow
+    )
+    $dir = Join-Path (Get-VarPath -Backend $Backend -Kind 'history') $MeasureId
+    if (-not (Test-Path -LiteralPath $dir)) {
+        try { New-Item -ItemType Directory -Path $dir -Force -WhatIf:$false | Out-Null } catch { }
+    }
+    Join-Path $dir ($Day.ToUniversalTime().ToString('yyyy-MM-dd') + '.jsonl')
+}
+
+<#
+    LE NOM DU VERROU TIENT COMPTE DE LA MESURE, pas seulement du fichier.
+
+    Depuis la decoupe par jour, tous les fichiers d'un meme jour s'appellent pareil
+    (2026-09-01.jsonl) : un verrou nomme sur le seul nom de fichier ferait attendre la
+    mesure du disque parce que celle du reseau ecrit. Deux mesures n'ont rien a partager.
+#>
+function Get-HistoryMutexName {
+    param([Parameter(Mandatory)][string]$Path)
+    $leaf   = Split-Path $Path -Leaf
+    $parent = Split-Path (Split-Path $Path -Parent) -Leaf
+    return ('Local\VigieHistory_' + (($parent + '_' + $leaf) -replace '[^A-Za-z0-9]', '_'))
+}
+
+<#
+    LE DERNIER FILET, ET RIEN DE PLUS.
+
+    Une mesure ne doit pas pouvoir remplir le disque parce qu'elle s'est mise a changer a
+    chaque passage. Le garde-fou se lit en un appel systeme -- la TAILLE du fichier du
+    jour -- sans rien compter ni analyser. Au-dela, la mesure ne se tait pas : elle se
+    BRIDE a une ligne par minute (la date du fichier dit quand la derniere est tombee).
+    Se taire a midi rendrait aveugle sur le vrai incident de l'apres-midi.
+
+    Avec la regle « on n'ecrit pas deux fois la meme valeur », ce filet ne devrait jamais
+    servir : s'il se declenche, c'est un DEFAUT a corriger, et c'est pourquoi il se dit
+    dans le journal.
+#>
+<#
+    LES DERNIERS POINTS DEJA ECRITS, sans relire le fichier.
+
+    On ne lit que la FIN du fichier (deux kilo-octets suffisent pour quelques lignes) :
+    le cout ne depend pas de la taille du fichier, meme apres des milliers de points.
+    Rend, du plus recent au plus ancien : la valeur, et l'OFFSET ou commence sa ligne --
+    c'est cet offset qui permettra d'effacer la derniere ligne sans tout reecrire.
+#>
+function Get-HistoryTailPoints {
+    param([Parameter(Mandatory)][string]$Path, [int]$Count = 2)
+    $tail = @()
+    try {
+        $fi = Get-Item -LiteralPath $Path -ErrorAction Stop
+        if ($fi.Length -le 0) { return $tail }
+        $size = [int][Math]::Min($fi.Length, 2048)
+        $start  = $fi.Length - $size
+        $buffer = New-Object byte[] $size
+        $fs = [IO.File]::Open($Path, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
+        try {
+            $null = $fs.Seek($start, [IO.SeekOrigin]::Begin)
+            $null = $fs.Read($buffer, 0, $size)
+        } finally { $fs.Dispose() }
+        $text = [Text.Encoding]::UTF8.GetString($buffer)
+        # La premiere ligne du tampon est probablement coupee : on la jette, sauf si on a
+        # lu le fichier depuis son debut.
+        $lines = $text -split "`r?`n"
+        if ($start -gt 0 -and $lines.Count) { $lines = $lines[1..($lines.Count - 1)] }
+        # Offset de chaque ligne conservee, calcule depuis la fin.
+        $offset = $fi.Length
+        for ($i = $lines.Count - 1; $i -ge 0 -and $tail.Count -lt $Count; $i--) {
+            $l = $lines[$i]
+            if ([string]::IsNullOrWhiteSpace($l)) { continue }
+            $offset -= ([Text.Encoding]::UTF8.GetByteCount($l) + [Environment]::NewLine.Length)
+            $o = $null
+            try { $o = $l | ConvertFrom-Json } catch { continue }
+            $v = 0.0
+            if (-not [double]::TryParse("$($o.v)", [Globalization.NumberStyles]::Float,
+                    [Globalization.CultureInfo]::InvariantCulture, [ref]$v)) { return @() }
+            $at = $null
+            try { $at = ConvertTo-UtcDate $o.at } catch { }
+            $tail += [pscustomobject]@{ V = $v; At = $at; Offset = $offset }
+        }
+    } catch { return @() }
+    return $tail
+}
+
+<#
+    UN POINT ENTRE SES DEUX VOISINS NE DIT RIEN : ON L'EFFACE.
+
+    Quand un point arrive, le PRECEDENT devient jugeable : s'il se situe entre
+    l'avant-dernier et celui qu'on ecrit, il est sur la ligne qui les joint -- il se
+    deduit, il ne se garde pas. Ne restent que les points de RETOURNEMENT : les extremes
+    des fluctuations, qui portent toute la forme de la courbe et tous ses records.
+
+    On regarde donc EN ARRIERE, au moment d'ecrire : aucun retard, aucune seconde passe,
+    et la journee en cours reste juste a la seconde pres. Effacer coute un seul appel --
+    on tronque le fichier a l'offset de la derniere ligne, sans le reecrire.
+
+    DEUX GARDES :
+      - la tolerance : un demi-tour plus petit qu'elle n'en est pas un, c'est du bruit ;
+      - le battement de coeur : on n'efface jamais si cela creusait un trou de plus de
+        quinze minutes, sinon « stable » ne se distingue plus de « plus rien ne mesure ».
+#>
+function Remove-RedundantHistoryPoint {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][double]$NewValue,
+        [double]$Tolerance = 0,
+        [int]$HeartbeatMinutes = 15
+    )
+    $tail = @(Get-HistoryTailPoints -Path $Path -Count 2)
+    if ($tail.Count -lt 2) { return $false }
+    $previous = $tail[0]      # N-1, celui qu'on juge
+    $beforeThat   = $tail[1]      # N-2
+    $low  = [Math]::Min($beforeThat.V, $NewValue) - $Tolerance
+    $high = [Math]::Max($beforeThat.V, $NewValue) + $Tolerance
+    if ($previous.V -lt $low -or $previous.V -gt $high) { return $false }
+    if ($beforeThat.At -and ([datetime]::UtcNow - $beforeThat.At).TotalMinutes -ge $HeartbeatMinutes) { return $false }
+    try {
+        $fs = [IO.File]::Open($Path, [IO.FileMode]::Open, [IO.FileAccess]::Write, [IO.FileShare]::None)
+        try { $fs.SetLength($previous.Offset) } finally { $fs.Dispose() }
+        return $true
+    } catch { return $false }
+}
+
+function Write-HistoryPoint {
+    param(
+        [string]$Backend = (Get-BackendRoot),
+        [Parameter(Mandatory)][string]$MeasureId,
+        [Parameter(Mandatory)]$Point,
+        # Les EVENEMENTS ne se compactent jamais : chacun est un fait unique, et
+        # « entre deux » n'a aucun sens pour un etat.
+        [switch]$Compact,
+        [double]$Tolerance = 0,
+        [int]$MaxBytes = 5242880
+    )
+    $file = Get-MeasureDayFile -Backend $Backend -MeasureId $MeasureId
+    $fi = $null
+    try { $fi = Get-Item -LiteralPath $file -ErrorAction SilentlyContinue } catch { }
+    if ($fi -and $fi.Length -ge $MaxBytes) {
+        if (([datetime]::UtcNow - $fi.LastWriteTimeUtc).TotalSeconds -lt 60) { return $false }
+        try { Write-Log -Backend $Backend -Name 'state' -Level 'WARN' -NoEcho `
+                        -Message (Get-Label 'common.historique-bride' $MeasureId) } catch { }
+    }
+    # Le point PRECEDENT devient jugeable maintenant qu'on connait le suivant.
+    if ($Compact) {
+        $v = 0.0
+        if ([double]::TryParse("$($Point.v)", [Globalization.NumberStyles]::Float,
+                [Globalization.CultureInfo]::InvariantCulture, [ref]$v)) {
+            $null = Remove-RedundantHistoryPoint -Path $file -NewValue $v -Tolerance $Tolerance
+        }
+    }
+    return (Add-HistoryLine -Path $file -Line ($Point | ConvertTo-Json -Compress -Depth 4))
+}
+
 function Add-HistoryLine {
     param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$Line)
-    $leaf = (Split-Path $Path -Leaf) -replace '[^A-Za-z0-9]', '_'
-    $mx = New-Object System.Threading.Mutex($false, "Local\VigieHistory_$leaf")
+    $mx = New-Object System.Threading.Mutex($false, (Get-HistoryMutexName -Path $Path))
     $got = $false
     try {
         try { $got = $mx.WaitOne(2000) }
@@ -3864,13 +4047,39 @@ function Write-MeasureSamples {
                     if ($last -and ($nowUtc - $last).TotalMinutes -lt $eff.IntervalMinutes) { continue }
                 } catch { }
             }
-            $file = Get-VarPath -Backend $Backend -Kind 'history' -File ($id + '.jsonl')
+            # ON N'ECRIT PAS DEUX FOIS LA MEME VALEUR.
+            #
+            # La valeur notee n'est pas une mesure brute : c'est celle que la CARTE
+            # affiche, donc deja arrondie a ce qui compte (l'espace en Go, le GPU en %,
+            # la latence en ms). Deux relevés identiques portent donc la meme
+            # information, et la reecrire ne fait que remplir le disque.
+            #
+            # BATTEMENT DE COEUR : au bout de quinze minutes, on ecrit quand meme. Sans
+            # lui, une serie plate devient un trou, et « stable » ne se distingue plus de
+            # « plus rien ne mesure » -- ce qui est une tout autre nouvelle.
+            # LA TOLERANCE NE FILTRE PAS ICI : elle sert au compactage de la journee close,
+            # ou l'on connait le point suivant et ou l'on peut donc distinguer un vrai
+            # retournement d'une fluctuation. A l'ecriture, on ne sait pas encore.
+            # Ne pas reecrire la MEME valeur, en revanche, ne demande rien a savoir.
+            $noise = $false
+            if ($entry -and $null -ne $entry.lastValue) {
+                if ("$($entry.lastValue)" -eq "$($sample.v)") { $noise = $true }
+                # BATTEMENT DE COEUR : au bout de quinze minutes on ecrit quand meme. Sans
+                # lui, une serie plate devient un trou, et « stable » ne se distingue plus
+                # de « plus rien ne mesure » -- ce qui est une tout autre nouvelle.
+                if ($noise -and $entry.lastAt) {
+                    try {
+                        $last = ConvertTo-UtcDate $entry.lastAt
+                        if ($last -and ($nowUtc - $last).TotalMinutes -ge 15) { $noise = $false }
+                    } catch { $noise = $false }
+                }
+            }
+            if ($noise) { continue }
             # Champ optionnel n : un NOM attache au point (ex. le jeu d'une session) --
             # c'est lui qui permettra de repondre « qu'est-ce qui tournait a cette heure ? ».
             $obj = [ordered]@{ at = $nowUtc.ToString('o'); v = $sample.v }
             if ($sample.n) { $obj.n = "$($sample.n)" }
-            $line = ($obj | ConvertTo-Json -Compress -Depth 4)
-            if (Add-HistoryLine -Path $file -Line $line) {
+            if (Write-HistoryPoint -Backend $Backend -MeasureId $id -Point $obj -Compact -Tolerance $eff.Tolerance) {
                 $set = @{ lastAt = $nowUtc.ToString('o'); lastValue = $sample.v }
                 if ($sample.key) { $set.lastKey = "$($sample.key)" }
                 try { Update-StateJson -Path $indexFile -Set @{ $id = $set } | Out-Null } catch { }
@@ -3908,8 +4117,33 @@ function Invoke-HistoryPurge {
     try {
         $cfg = Get-Config -Backend $Backend
         $dir = Get-VarPath -Backend $Backend -Kind 'history'
-        $files = @(Get-ChildItem -Path $dir -Filter '*.jsonl' -File -ErrorAction SilentlyContinue)
         $nowUtc = [datetime]::UtcNow
+
+        # LA PURGE DES FICHIERS PAR JOUR : on SUPPRIME, on ne relit rien. Le nom du
+        # fichier porte sa date -- c'est tout ce qu'il faut savoir pour decider.
+        foreach ($measure in @(Get-ChildItem -Path $dir -Directory -ErrorAction SilentlyContinue)) {
+            $eff = Get-HistoryConfig -Backend $Backend -MeasureId $measure.Name -Config $cfg
+            if ($eff.RetentionDays -le 0) { continue }
+            $limit = $nowUtc.Date.AddDays(-$eff.RetentionDays)
+            foreach ($day in @(Get-ChildItem -Path $measure.FullName -Filter '*.jsonl' -File -ErrorAction SilentlyContinue)) {
+                $date = [datetime]::MinValue
+                if (-not [datetime]::TryParseExact([IO.Path]::GetFileNameWithoutExtension($day.Name), 'yyyy-MM-dd',
+                        [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::None, [ref]$date)) { continue }
+                if ($date -lt $limit) {
+                    try {
+                        Remove-Item -LiteralPath $day.FullName -Force -ErrorAction Stop
+                        Write-Log -Backend $Backend -Name 'state' -NoEcho `
+                                  -Message (Get-Label 'common.historique-jour-supprime' $measure.Name $day.Name)
+                    } catch { }
+                    continue
+                }
+
+            }
+        }
+
+        # LES ANCIENS FICHIERS A PLAT, eux, se purgent encore ligne a ligne : ils ne
+        # portent pas de date dans leur nom. Ce chemin disparaitra avec eux.
+        $files = @(Get-ChildItem -Path $dir -Filter '*.jsonl' -File -ErrorAction SilentlyContinue)
         foreach ($fi in $files) {
             $id  = [IO.Path]::GetFileNameWithoutExtension($fi.Name)
             $eff = Get-HistoryConfig -Backend $Backend -MeasureId $id -Config $cfg
@@ -3917,8 +4151,7 @@ function Invoke-HistoryPurge {
             # jamais une archive existante -- geste manuel uniquement.
             if ($eff.RetentionDays -le 0) { continue }
             $cutoff = $nowUtc.AddDays(-$eff.RetentionDays)
-            $leaf = ($fi.Name) -replace '[^A-Za-z0-9]', '_'
-            $mx = New-Object System.Threading.Mutex($false, "Local\VigieHistory_$leaf")
+            $mx = New-Object System.Threading.Mutex($false, (Get-HistoryMutexName -Path $fi.FullName))
             $got = $false
             try {
                 try { $got = $mx.WaitOne(5000) }
@@ -4023,11 +4256,20 @@ function Get-MeasureHistory {
     )
     $cat = Get-MeasureDefinition -Backend $Backend -MeasureId $MeasureId
     if (-not $cat) { return $null }
-    $file = Get-VarPath -Backend $Backend -Kind 'history' -File ($MeasureId + '.jsonl')
+    # ON N'OUVRE QUE LES JOURS DE LA FENETRE. Un jour de plus de chaque cote : la fenetre
+    # ne commence pas a minuit, et les fichiers sont dates en UTC.
     $lines = @()
-    if (Test-Path -LiteralPath $file) {
-        $leaf = (Split-Path $file -Leaf) -replace '[^A-Za-z0-9]', '_'
-        $mx = New-Object System.Threading.Mutex($false, "Local\VigieHistory_$leaf")
+    $firstDay = ([datetime]::UtcNow - $Window).Date.AddDays(-1)
+    $days = @()
+    for ($j = $firstDay; $j -le ([datetime]::UtcNow.Date); $j = $j.AddDays(1)) {
+        $days += (Get-MeasureDayFile -Backend $Backend -MeasureId $MeasureId -Day $j)
+    }
+    # L'ANCIEN FICHIER A PLAT reste lu tant qu'il existe : personne ne perd son historique
+    # parce que le rangement a change. Plus rien ne s'y ecrit.
+    $days += (Get-VarPath -Backend $Backend -Kind 'history' -File ($MeasureId + '.jsonl'))
+    foreach ($file in $days) {
+        if (-not (Test-Path -LiteralPath $file)) { continue }
+        $mx = New-Object System.Threading.Mutex($false, (Get-HistoryMutexName -Path $file))
         $got = $false
         try {
             try { $got = $mx.WaitOne(2000) }
@@ -4035,7 +4277,7 @@ function Get-MeasureHistory {
             catch { $got = $false }
             # Mutex indisponible : on lit quand meme (pire cas, une ligne finale
             # tronquee, deja geree) plutot que de rendre une erreur au client.
-            $lines = [IO.File]::ReadAllLines($file)
+            $lines += [IO.File]::ReadAllLines($file)
         } finally {
             if ($got) { try { $mx.ReleaseMutex() } catch { } }
             try { $mx.Dispose() } catch { }
@@ -5046,13 +5288,13 @@ function Get-RecentOperationResults {
     $res = @()
     $dossier = Split-Path (Get-ModuleLastRunPath -Module 'x' -Backend $Backend) -Parent
     if (-not (Test-Path -LiteralPath $dossier)) { return $res }
-    $limite = [datetime]::UtcNow.AddMinutes(-$Minutes)
+    $limit = [datetime]::UtcNow.AddMinutes(-$Minutes)
     foreach ($f in @(Get-ChildItem -LiteralPath $dossier -Filter 'lastrun-*.json' -File -ErrorAction SilentlyContinue)) {
         $module = ($f.BaseName -replace '^lastrun-', '')
         $r = Get-ModuleLastRun -Module $module -Backend $Backend
         if (-not $r) { continue }
         $quand = ConvertTo-UtcDate $r.at
-        if (-not $quand -or $quand -lt $limite) { continue }
+        if (-not $quand -or $quand -lt $limit) { continue }
         $res += [pscustomobject][ordered]@{
             module  = $module
             label   = "$($r.label)"
