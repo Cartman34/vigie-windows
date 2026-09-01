@@ -870,56 +870,17 @@ try {
         }
 
         <#
-            ON REDEMANDE CES DEUX CARTES AU SERVEUR, une fois qu'il est revenu.
+            ON NE RECALCULE RIEN ICI.
 
-            Vider leur rendu etait juste -- il decrivait la version d'avant -- mais depuis
-            qu'un affichage ne recalcule plus rien, une carte sans valeur ne s'affiche
-            PLUS DU TOUT : apres l'installation, Comptes et Deploiement avaient disparu de
-            la page (constate le 31/08). Ce n'est pas au chargement de payer, ni a
-            l'utilisateur de cliquer pour retrouver ce que l'installation a efface : c'est
-            a elle de le redemander.
+            L'installation vide le rendu de ces deux cartes -- il decrivait la version
+            d'avant -- et s'arrete la. C'est LA PAGE qui redemande une carte marquee « pas
+            encore mesuree », carte par carte, quand quelqu'un la regarde.
 
-            On passe par la porte normale -- l'adresse que le bouton d'une carte utilise --
-            plutot que d'ecrire dans le cache du service, ou nous n'avons rien a faire :
-            son var vit dans le profil du compte de service, et nous n'y sommes pas.
-
-            Un echec ici ne compte pas : la carte reviendra au premier clic sur son bouton.
+            J'avais fait redemander ces deux cartes par l'installation : personne ne l'avait
+            demande, et c'est un recalcul automatique de plus -- exactement ce qui a ete
+            interdit. Une installation installe ; elle ne mesure pas.
         #>
-        $apiToken = $null
-        # CHEZ LE SERVICE : c'est SON jeton qu'il faut, pas celui du compte qui installe.
-        # Sans cela, le serveur repondait 401 et les deux cartes n'etaient jamais
-        # recalculees (constate le 01/09 dans le journal d'installation).
-        try {
-            $apiToken = Get-ApiToken -Backend (Join-Path $destPartagee 'apps/backend-pode') `
-                                     -VarRoot (Get-AccountVarRoot -Account (Get-ServiceAccountName))
-        } catch { }
-        if ($apiToken) {
-            $adresse = try { Get-AppUrl -Config (Get-Config -Backend $backend) } catch { 'http://127.0.0.1:47600' }
-            # ON ATTEND QU'IL REPONDE. La tache serveur vient de le relancer : il met une
-            # minute a ouvrir son port, et sans cette attente les deux demandes partaient
-            # dans le vide -- les cartes restaient « en attente » apres l'installation
-            # (constate le 01/09).
-            $debout = $false
-            foreach ($essai in 1..30) {
-                try {
-                    $null = Invoke-RestMethod -Method Get -TimeoutSec 5 -Uri ($adresse.TrimEnd('/') + '/api/v1/health')
-                    $debout = $true; break
-                } catch { Start-Sleep -Seconds 3 }
-            }
-            if (-not $debout) { Write-Detail (Get-Label 'install.serveur-pas-revenu') }
-            foreach ($carte in @('accounts', 'deployment')) {
-                try {
-                    $null = Invoke-RestMethod -Method Get -TimeoutSec 90 `
-                                -Uri ($adresse.TrimEnd('/') + '/api/v1/modules/' + $carte + '?fresh=1') `
-                                -Headers @{ Authorization = ('Bearer ' + $apiToken) }
-                    Write-Detail (Get-Label 'install.carte-redemandee' $carte)
-                } catch {
-                    Write-Detail (Get-Label 'install.carte-non-redemandee' $carte $_.Exception.Message)
-                }
-            }
-        }
     }
-
     # LE VERDICT SE CALCULE. Write-Outcome compte ce que Write-Fail et Write-Warn ont
     # affiche : aucune installation ne peut plus finir en vert avec un echec derriere elle.
     $failures = Get-UiFailureCount
