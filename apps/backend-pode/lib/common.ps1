@@ -6723,6 +6723,21 @@ function Invoke-ActionById {
         try {
             $inv = if ($res -and $res.result -and $res.result.invalidate) { @($res.result.invalidate) } else { @() }
             if ($inv.Count) { Remove-ProbeCache -Names $inv -Backend $Backend }
+            <#
+                ET ELLE NE SORT PAS D'ICI.
+
+                « invalidate » est une CONSIGNE INTERNE : quelles sondes recalculer. Elle
+                etait consommee ici puis renvoyee telle quelle au navigateur, qui n'en
+                fait rien -- des noms de fichiers PowerShell dans une reponse JSON, sous
+                les yeux de qui ouvre l'onglet reseau (releve le 01/09). Ce que le client
+                doit connaitre, ce sont des CARTES, pas nos fichiers.
+            #>
+            if ($res -and $res.result -and $res.result.PSObject.Properties['invalidate']) {
+                try {
+                    if ($res.result -is [System.Collections.IDictionary]) { $res.result.Remove('invalidate') }
+                    else { $res.result.PSObject.Properties.Remove('invalidate') }
+                } catch { }
+            }
         } catch { }
         # Une action peut rendre « ok = false » sans lever : c'est un echec, et il se trace
         # comme tel. Se fier au seul try/catch laisserait passer les echecs polis.
