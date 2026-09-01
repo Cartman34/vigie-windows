@@ -33,6 +33,7 @@ d'abord**, puis on l'emploie. Un synonyme qui s'installe finit par désigner aut
 | **sonde** | `<nom>.probe.ps1` : elle mesure et **rend une ou plusieurs cartes**. Lecture seule, jamais d'effet de bord. |
 | **sentinelle** | `<clé>.watch.ps1` : une lecture **bon marché** rendant **une valeur comparable**. L'app serveur l'exécute en permanence, même sans session ; quand la valeur **change**, elle émet un **événement** qui fait recalculer les cartes déclarées. Elle ne calcule jamais de carte elle-même. |
 | **événement** | ce qu'émet une sentinelle quand sa valeur change. Il déclenche un recalcul ciblé — il ne s'affiche pas. |
+| **historique d'une sentinelle** | la suite des états d'une sentinelle, une ligne par **changement** (`watch.<clé>`), avec l'état précédent et les cartes recalculées. La mémoire de veille dit où on en est ; l'historique dit depuis quand, et combien de fois. |
 | **notification** | la bulle Windows. Elle naît de la **bascule d'un champ** de carte, pas d'un événement de sentinelle (D54). |
 
 ## L'identité

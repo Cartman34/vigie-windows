@@ -60,18 +60,18 @@ c'est le *changement* qui déclenche un recalcul — par le chemin que tout le m
 Dans son dossier, un fichier `<clé>.watch.ps1` : il fait UNE lecture bon marché et rend UNE valeur comparable — un
 booléen, un nombre, une chaîne courte. Rien d'autre : pas de carte, pas de champ, pas de mise en forme.
 
-Dans son `module.psd1`, la clé `Veille` dit la cadence et ce que l'événement doit faire recalculer :
+Dans son `module.psd1`, la clé `Sentinels` dit la cadence et ce que l'événement doit faire recalculer :
 
-    Veille = @(
-        @{ Key = 'internet'; Label = 'Connexion Internet'; Secondes = 60; Cartes = @('net') }
+    Sentinels = @(
+        @{ Key = 'internet'; Label = 'Connexion Internet'; Seconds = 60; Cards = @('net') }
     )
 
 | | |
 |---|---|
 | `Key` | le nom du relevé — c'est aussi le nom du fichier `<clé>.watch.ps1` |
 | `Label` | ce qu'on lit dans le journal quand l'événement part |
-| `Secondes` | à quelle cadence relever. Ce qui coupe : 60. Ce qui dérive : 900. |
-| `Cartes` | les cartes à recalculer quand la valeur change — celles du module, personne d'autre |
+| `Seconds` | à quelle cadence relever. Ce qui coupe : 60. Ce qui dérive : 900. |
+| `Cards` | les cartes à recalculer quand la valeur change — celles du module, personne d'autre |
 
 ## Ce que fait la boucle
 
@@ -84,6 +84,22 @@ Une fois par minute, dans l'app serveur — elle tourne déjà sous son compte d
 4. sinon, elle ne fait rien de plus.
 
 Elle se tait pendant une **installation** (le verrou d'installation le dit) : les fichiers changent sous ses pieds.
+
+## L'historique d'une sentinelle
+
+La mémoire de veille ne garde qu'**un** état par sentinelle : elle répond à « où en est-on ? », jamais à « depuis
+quand ? » ni « combien de fois cette nuit ? ». Chaque changement fait donc **une ligne d'historique**, à côté des séries
+des sondes et par le même mécanisme — l'historique prévoyait déjà cette nature-là, l'`event` : une valeur qui ne
+s'écrit **que quand elle change**.
+
+Une ligne porte l'état atteint, celui d'où l'on vient, et **les cartes que le changement a fait recalculer** : c'est ce
+qui distingue une valeur d'une **alerte**. Le tout premier relevé est noté aussi, sinon la série commence dans le vide.
+
+    watch.internet   « oui » → « non » à 03 h 12, carte « net » recalculée
+                     « non » → « oui » à 03 h 14, carte « net » recalculée
+
+Rien de neuf en dessous : même dossier de données, même purge, même route de lecture que les autres mesures. Une
+sentinelle porte l'identifiant de mesure `watch.<clé>`.
 
 ## Ce que ça n'est pas
 
