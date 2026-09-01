@@ -467,8 +467,14 @@ $fields = @(
     New-Field -Key 'netName'  -Label 'Réseau (nom)' -Value $netName -Kind 'text' -Status 'neutral' -Help "Nom du réseau : SSID en Wi-Fi, sinon nom de l'interface."
 )
 if ($hasWifi) {
+    # UNE ALERTE PORTE TOUJOURS SON BOUTON (D66). Les deux cas ou ce champ alerte -- un
+    # lien radio faible, ou un Wi-Fi decroche alors que rien d'autre ne donne Internet --
+    # se resolvent au meme endroit : la liste des reseaux de Windows, ou l'on se
+    # reconnecte ou l'on choisit une autre bande. Vigie n'y agit pas a la place de
+    # l'utilisateur, elle l'y mene -- c'est la seconde famille de boutons de D66.
     $fields += New-Field -Key 'wifi' -Label 'Lien Wi-Fi' -Value $wifiText -Kind 'text' -Status $qualStatus `
         -Help "Qualité du lien radio, jugée sur le meilleur débit négocié de la liaison au cours des 30 dernières minutes." `
+        -FixAction $(if ($qualStatus -in @('warn', 'error')) { 'open-network-settings' } else { $null }) `
         -Guide $wifiGuide
     # La stabilite n'a de sens que si le lien est etabli : un adaptateur eteint ou non
     # associe n'a pas d'association a tenir, la ligne « Lien Wi-Fi » dit deja son etat.
