@@ -932,6 +932,12 @@ function applyFilter(){
   document.querySelectorAll('.masonry .card[data-theme]').forEach(c=>{
     c.style.display = hiddenThemes.has(c.dataset.theme) ? 'none' : '';
   });
+  // ET ON REDISTRIBUE. Masquer une carte la sort de l'affichage, pas de sa colonne : en
+  // decochant un groupe on laissait des colonnes vides et un trou au milieu de la grille
+  // (constate le 01/09). Les cartes visibles se repartissent donc a nouveau, comme apres
+  // un rendu -- c'est la meme operation, elle vit deja dans layoutColumns.
+  const masonry = document.querySelector('.masonry');
+  if (masonry) layoutColumns(masonry);
 }
 function toggleGroup(id){
   if(hiddenThemes.has(id)) hiddenThemes.delete(id); else hiddenThemes.add(id);
@@ -1291,19 +1297,32 @@ function estimatedHeight(carte){
 // l'utilisateur reorganise lui-meme ses cartes.
 let groupPlacement = null;
 function layoutColumns(masonry){
-  const cartes = [...masonry.children].filter(e => e.classList && e.classList.contains('card'));
+  // LES CARTES, OU QU'ELLES SOIENT. Apres une premiere repartition, les enfants directs
+  // sont les COLONNES : ne regarder que ceux-la ne trouvait plus une seule carte, et un
+  // second appel ne faisait rien -- c'est ce qui laissait des colonnes vides quand on
+  // decochait un groupe.
+  const cartes = [...masonry.querySelectorAll('.card')];
   if(!cartes.length) return;
+  // UN GROUPE MASQUE NE COMPTE PLUS. Ses cartes restent dans le document, invisibles,
+  // mais elles ne prennent plus de place dans le calcul.
+  const visibles = cartes.filter(c => c.style.display !== 'none');
   const dispo = masonry.clientWidth || document.body.clientWidth || 1200;
-  const nb = Math.max(1, Math.min(cartes.length, Math.floor(dispo / COL_LARGEUR)));
+  const nb = Math.max(1, Math.min(Math.max(visibles.length, 1), Math.floor(dispo / COL_LARGEUR)));
   const colonnes = [], hauteurs = [];
   for(let i = 0; i < nb; i++){
     const c = document.createElement('div'); c.className = 'mcol';
     colonnes.push(c); hauteurs.push(0);
   }
   // UN ORDRE CHOISI PAR L'UTILISATEUR l'emporte sur tout le reste.
-  const memo = appliquerOrdreMemorise(cartes, nb);
+  const memo = appliquerOrdreMemorise(visibles, nb);
   if(memo){
     memo.forEach((liste, i) => liste.forEach(c => colonnes[i].appendChild(c)));
+  // LES CARTES MASQUEES RESTENT DANS LE DOCUMENT. « masonry.textContent = '' » efface
+  // tout : sans cette ligne, decocher un groupe SUPPRIMAIT ses cartes, et les recocher
+  // ne les ramenait qu'au prochain etat recu. Elles vont dans la premiere colonne, en
+  // display:none -- invisibles, mais la.
+  const caches = cartes.filter(c => c.style.display === 'none');
+  if (caches.length && colonnes.length) caches.forEach(c => colonnes[0].appendChild(c));
     masonry.textContent = '';
     colonnes.forEach(c => masonry.appendChild(c));
     return;
@@ -1315,7 +1334,7 @@ function layoutColumns(masonry){
   // remplie ; ses cartes restent contigues, et l'equilibre se fait entre groupes.
   const groupes = [];
   const parTheme = new Map();
-  for(const carte of cartes){
+  for(const carte of visibles){
     const g = carte.dataset.theme || carte.dataset.module || '';
     if(!parTheme.has(g)){ parTheme.set(g, []); groupes.push(g); }
     parTheme.get(g).push(carte);
@@ -1344,6 +1363,12 @@ function layoutColumns(masonry){
       hauteurs[cible] += estimatedHeight(carte);
     }
   }
+  // LES CARTES MASQUEES RESTENT DANS LE DOCUMENT. « masonry.textContent = '' » efface
+  // tout : sans cette ligne, decocher un groupe SUPPRIMAIT ses cartes, et les recocher
+  // ne les ramenait qu'au prochain etat recu. Elles vont dans la premiere colonne, en
+  // display:none -- invisibles, mais la.
+  const caches = cartes.filter(c => c.style.display === 'none');
+  if (caches.length && colonnes.length) caches.forEach(c => colonnes[0].appendChild(c));
   masonry.textContent = '';
   colonnes.forEach(c => masonry.appendChild(c));
 }
