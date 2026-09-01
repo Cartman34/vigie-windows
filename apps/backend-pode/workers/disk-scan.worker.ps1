@@ -1,4 +1,5 @@
-﻿<# Worker DETACHE : analyse de la consommation du disque.
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<# Worker DETACHE : analyse de la consommation du disque.
 
    POURQUOI UN WORKER : parcourir un disque prend des dizaines de secondes ; la requete
    HTTP, elle, doit repondre tout de suite. L'action lance ce worker (fenetre cachee), la

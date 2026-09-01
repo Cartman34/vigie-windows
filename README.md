@@ -111,3 +111,7 @@ detail is in [Install](doc/en/operating/install.md) for whoever wants to read it
 ## Licence
 
 No licence file is present in the repository yet.
+
+## Author
+
+**Florent HAZARD** — <f.hazard@sowapps.com>

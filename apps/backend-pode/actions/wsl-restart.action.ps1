@@ -1,4 +1,5 @@
-﻿# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 <# Action : redemarre WSL (arret propre puis boot), borne par des delais. #>
 param([string]$Module, [hashtable]$Params)
 # 1) Arret.

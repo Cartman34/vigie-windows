@@ -1,4 +1,5 @@
-﻿# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 <# Action : liste les mises a jour Windows detectees et NON installees.
 
    LECTURE SEULE. Sert a remplir la fenetre de choix de l'interface : on ne peut pas

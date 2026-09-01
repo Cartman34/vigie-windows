@@ -1,4 +1,5 @@
-﻿<# Worker DETACHE : telecharge puis installe les mises a jour Windows choisies.
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<# Worker DETACHE : telecharge puis installe les mises a jour Windows choisies.
 
    DETACHE volontairement : une installation dure des minutes. Si la requete HTTP la
    portait, une fermeture d'onglet ou une coupure reseau l'interromprait en plein

@@ -1,4 +1,5 @@
-﻿# @droits: admin   -- modifie le systeme : Windows exige l'elevation (D65)
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+# @droits: admin   -- modifie le systeme : Windows exige l'elevation (D65)
 <# Action : installe les mises a jour Windows CHOISIES par l'utilisateur.
 
    Recoit params.ids = identifiants renvoyes par wu-list-pending. Rien n'est installe sans

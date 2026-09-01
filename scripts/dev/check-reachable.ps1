@@ -1,4 +1,5 @@
-﻿<#
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<#
     check-reachable.ps1 - AUCUN FICHIER QUE PLUS RIEN N'APPELLE. LECTURE SEULE.
 
     POURQUOI CE FICHIER EXISTE. `scripts/lib/account-secret.ps1` a vécu une journée entière

@@ -1,4 +1,5 @@
-﻿<#
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<#
     vigie-fetch.ps1 - Rapporte une archive de Vigie, prete a etre deployee. NE DEPLOIE RIEN.
 
     Ce script ne fait qu'une chose : obtenir un `.zip` verifie et en ecrire le chemin sur la derniere ligne de sa

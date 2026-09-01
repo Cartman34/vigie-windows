@@ -1,4 +1,5 @@
-﻿<#
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<#
     i18n.ps1 - LES LIBELLÉS VIVENT DANS lang/, PAS DANS LE CODE.
     Aucune dépendance : chargeable sous Windows PowerShell 5.1 comme sous PowerShell 7.
 

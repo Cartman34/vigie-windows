@@ -1,4 +1,5 @@
-﻿# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 <# Action : demande l'arret de l'analyse du disque en cours.
    On ne TUE pas le worker : on pose un drapeau qu'il relit a chaque point de progression
    (environ toutes les 1,5 s). Il s'arrete alors proprement et laisse le dernier resultat

@@ -1,4 +1,5 @@
-﻿<#
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<#
     Sonde : historique Windows Update. LECTURE SEULE, RAPIDE.
 #>
 $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent

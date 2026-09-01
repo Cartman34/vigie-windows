@@ -1,4 +1,5 @@
-﻿# @droits: admin   -- redeploie hors du profil et relance l'application (D65)
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+# @droits: admin   -- redeploie hors du profil et relance l'application (D65)
 # @libelle: Mettre a jour Vigie | confirm | fix   -- affiche quand un champ cite cette action (D66)
 <# Action : met a jour Vigie, puis la relance.
 

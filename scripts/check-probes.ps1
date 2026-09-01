@@ -1,4 +1,5 @@
-﻿<#
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<#
 .SYNOPSIS
     Verifie le contrat des sondes -- en n'executant que ce qui doit l'etre.
 

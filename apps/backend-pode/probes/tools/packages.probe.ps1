@@ -1,4 +1,5 @@
-﻿<# Sonde : UNE carte par gestionnaire de paquets detecte (presence + version + MAJ).
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<# Sonde : UNE carte par gestionnaire de paquets detecte (presence + version + MAJ).
    LECTURE SEULE et RAPIDE. La verification des MAJ (lente/reseau) est faite a la
    demande par l'action pkg-check-updates (worker detache) ; ici on ne fait que
    LIRE var/cache/pkgupdates.json (compte, elements, etat "en cours"). #>

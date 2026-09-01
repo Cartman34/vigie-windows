@@ -1,4 +1,5 @@
-﻿<# check-doc.ps1 - La documentation tient-elle debout ? LECTURE SEULE.
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<# check-doc.ps1 - La documentation tient-elle debout ? LECTURE SEULE.
 
    Deux controles, tous deux mecaniques -- ils ne jugent pas le texte, seulement sa
    charpente :

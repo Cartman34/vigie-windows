@@ -1,4 +1,5 @@
-﻿<#
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<#
 .SYNOPSIS
     Atelier : app de developpement de Vigie. Sert le depot en local et ouvre la page.
 

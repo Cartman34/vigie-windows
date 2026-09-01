@@ -1,4 +1,5 @@
-﻿<#
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<#
     CHERCHER DANS LES DECISIONS AVANT DE CONCEVOIR.
 
     doc/progress/decisions.md est la source de verite du projet -- « a ne JAMAIS perdre ».

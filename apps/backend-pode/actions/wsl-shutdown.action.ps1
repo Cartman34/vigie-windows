@@ -1,4 +1,5 @@
-﻿# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 <# Action : arrete WSL (borne par un delai pour ne pas figer). #>
 param([string]$Module, [hashtable]$Params)
 $job = Start-Job { & wsl.exe --shutdown 2>&1 }

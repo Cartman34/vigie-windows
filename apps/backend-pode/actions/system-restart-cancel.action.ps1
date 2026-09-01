@@ -1,4 +1,5 @@
-﻿# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 <# Action : annuler un redemarrage programme.
 
    Contrepartie indispensable de system-restart : un compte a rebours qu'on ne peut pas

@@ -1,4 +1,5 @@
-﻿<#
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<#
 .SYNOPSIS
     Installe les hooks git du depot (dossier scripts/hooks) dans .git/hooks.
 

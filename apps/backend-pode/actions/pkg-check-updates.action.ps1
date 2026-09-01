@@ -1,4 +1,5 @@
-﻿# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 <# Action : verifie (en tache de fond) les MAJ d'UN gestionnaire.
    Gestionnaire deduit du module clique (pkg-<id>) ou de params.mgr.
    Reponse immediate (async) : la carte passe en "en cours" et s'actualise seule. #>

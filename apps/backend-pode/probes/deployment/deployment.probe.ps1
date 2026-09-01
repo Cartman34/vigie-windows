@@ -1,4 +1,5 @@
-﻿<# Sonde : LE DEPLOIEMENT de Vigie sur cette machine. LECTURE SEULE.
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<# Sonde : LE DEPLOIEMENT de Vigie sur cette machine. LECTURE SEULE.
 
    Ce que lancent les AUTRES comptes : emplacement partage, version en place, interpreteur,
    taches de demarrage, sort du dernier deploiement.

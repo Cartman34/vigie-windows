@@ -1,4 +1,5 @@
-﻿<#
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<#
     install-autostart.ps1 - Acces PERMANENT au panneau. IDEMPOTENT.
     Enregistre une tache planifiee qui lance le serveur a chaque ouverture de
     session (en eleve, cache).

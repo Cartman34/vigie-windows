@@ -1,4 +1,5 @@
-﻿<#
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<#
     install.ps1 - Installe les prerequis. IDEMPOTENT. Cible PowerShell 7.
     Journalise dans backend/logs/install_*.log (transcript). Fichier en ASCII
     pour rester lisible par PowerShell 5.1 au moment de basculer en pwsh.
@@ -750,10 +751,17 @@ try {
             # alors que l'ecran, lui, montrait toute la suite. Un journal qui s'interrompt
             # avant la partie interessante ne sert a rien -- et c'est precisement celle
             # qu'on relit quand l'installation s'est mal passee.
+            # ON REFERME NOTRE ETAPE AVANT DE LUI DONNER LA PAROLE.
+            #
+            # Ce script affiche ses PROPRES etapes, dans son propre processus. Notre
+            # conclusion, elle, n'arrive qu'a l'ouverture de l'etape suivante : elle
+            # tombait donc APRES les siennes, et « Pose de la nouvelle version » restait
+            # sans conclusion visible (constate le 01/09).
+            Close-UiStep
             & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $service 2>&1 |
                 ForEach-Object {
                     $line = "$_"
-                    Write-Host $line
+                    Write-Relayed $line
                     try { Write-Log -Backend $backend -Name 'install' -Message $line -NoEcho } catch { }
                 }
             # ON LIT LE CODE DE RETOUR. Il etait journalise sans etre teste : le 28/08,
@@ -785,6 +793,7 @@ try {
         # demarrage appartient a la personne qui a demande.
         $argsAuto = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $autostart, '-Yes')
         if ($Requester) { $argsAuto += @('-Account', $Requester) }
+        Close-UiStep   # meme raison : il affiche ses propres etapes
         & (Get-Process -Id $PID).Path @argsAuto
         $autostartCode = $LASTEXITCODE
         Write-Log -Backend $backend -Name 'install' -Message (Get-Label 'install.demarrage-automatique-code' $autostartCode)

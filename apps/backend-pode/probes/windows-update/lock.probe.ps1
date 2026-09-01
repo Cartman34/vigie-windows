@@ -1,4 +1,5 @@
-﻿<#
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<#
     Sonde : etat du verrouillage Windows Update. LECTURE SEULE, rapide.
     Le verrou ACL n'est fiable/applicable que si le serveur est administrateur :
     sinon on l'affiche comme neutre plutot qu'un faux avertissement.

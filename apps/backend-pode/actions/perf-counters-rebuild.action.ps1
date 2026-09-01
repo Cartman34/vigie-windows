@@ -1,4 +1,5 @@
-﻿# @droits: admin   -- modifie le systeme : Windows exige l'elevation (D65)
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+# @droits: admin   -- modifie le systeme : Windows exige l'elevation (D65)
 # @libelle: Reconstruire les compteurs | immediate | fix   -- affiche quand un champ cite cette action (D66)
 <# Action : reconstruit les compteurs de performance de Windows.
 

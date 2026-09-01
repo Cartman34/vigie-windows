@@ -1,4 +1,5 @@
-﻿<# Sonde : réseau (connexion / nom (SSID) / qualite du lien Wi-Fi / IP LAN / IP publique /
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<# Sonde : réseau (connexion / nom (SSID) / qualite du lien Wi-Fi / IP LAN / IP publique /
    IPv6 / MAC / VPN + débit).
    Detection via System.Net.NetworkInformation (.NET pur, fiable dans le runspace Pode).
    Etat et qualite du Wi-Fi via l'adaptateur + le profil reseau Windows : lisibles SANS

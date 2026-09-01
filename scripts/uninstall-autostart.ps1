@@ -1,4 +1,5 @@
-﻿<#
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<#
     uninstall-autostart.ps1 - Retire l'acces permanent. IDEMPOTENT.
 
     Necessite les droits admin. Avant toute invite UAC, une fenetre explique ce

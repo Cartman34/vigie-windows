@@ -1,4 +1,5 @@
-﻿<#
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<#
     show-confirm.ps1 - LA fenetre « voici ce qui va se passer, tu continues ? ». Autonome.
 
     POURQUOI UN FICHIER A PART. Cette fenetre doit s'afficher AVANT la toute premiere

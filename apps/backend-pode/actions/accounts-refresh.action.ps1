@@ -1,4 +1,5 @@
-﻿# @droits: tous   -- ne fait que relire l'etat de la machine (D65)
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+# @droits: tous   -- ne fait que relire l'etat de la machine (D65)
 # @libelle: Actualiser la liste | immediate | info   -- affiche quand un champ cite cette action (D66)
 <# Action : refait le releve des comptes de la machine.
 

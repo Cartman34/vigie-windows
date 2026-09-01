@@ -1,4 +1,5 @@
-﻿<# Sonde : LE STOCKAGE DU PC. LECTURE SEULE, rapide.
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<# Sonde : LE STOCKAGE DU PC. LECTURE SEULE, rapide.
 
    UNE SEULE carte pour tout ce qui touche au stockage (choix utilisateur) : l'espace
    libre, les disques fixes de la machine, et le resultat de l'ANALYSE de la consommation

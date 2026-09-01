@@ -1,4 +1,5 @@
-﻿# @droits: admin   -- lit dans le profil d'un autre compte : Windows exige l'elevation (D65)
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+# @droits: admin   -- lit dans le profil d'un autre compte : Windows exige l'elevation (D65)
 <# Action : rapatrie les JOURNAUX de Vigie d'un autre compte, pour diagnostic.
 
    Pourquoi une action et pas une elevation a la demande (choix utilisateur) : le serveur

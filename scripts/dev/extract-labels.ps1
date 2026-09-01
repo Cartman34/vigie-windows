@@ -1,4 +1,5 @@
-﻿<#
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<#
     extract-labels.ps1 - SORT LE TEXTE FRANÇAIS DES SCRIPTS et le range dans lang/fr.json.
     LECTURE SEULE par défaut ; -Apply réécrit les fichiers.
 

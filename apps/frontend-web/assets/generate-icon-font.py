@@ -1,3 +1,4 @@
+# @author Florent HAZARD <f.hazard@sowapps.com>
 # -*- coding: utf-8 -*-
 """Fonte d'icones MAISON de Vigie (vigie-icons.ttf).
 

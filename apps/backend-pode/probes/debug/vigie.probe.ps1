@@ -1,4 +1,5 @@
-﻿<# Sonde : l'etat de VIGIE ELLE-MEME. LECTURE SEULE.
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<# Sonde : l'etat de VIGIE ELLE-MEME. LECTURE SEULE.
 
    Pourquoi cette carte existe (D85) : tout ce qui a fait perdre du temps le 26/08 etait
    invisible depuis l'application. Une tache de demarrage visant un interpreteur disparu,

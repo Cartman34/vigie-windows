@@ -1,3 +1,4 @@
+' @author Florent HAZARD <f.hazard@sowapps.com>
 Set sh = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 base = fso.GetParentFolderName(WScript.ScriptFullName)

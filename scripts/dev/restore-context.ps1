@@ -1,4 +1,5 @@
-﻿<#
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<#
     RESTORE-CONTEXT : REMETTRE LES REGLES EN PLACE APRES UNE COMPRESSION DE CONTEXTE.
 
     LE PROBLEME. Quand le contexte de l'agent est compresse, il ne reste qu'un RESUME.

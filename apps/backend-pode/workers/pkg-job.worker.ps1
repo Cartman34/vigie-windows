@@ -1,4 +1,5 @@
-﻿<# Worker DETACHE unique : execute une operation paquet ('check' ou 'upgrade')
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<# Worker DETACHE unique : execute une operation paquet ('check' ou 'upgrade')
    pour UN gestionnaire, puis rafraichit le compte de MAJ et invalide la sonde.
    Lance par Start-PkgJob via Start-DetachedAction (pwsh cache). N'ecrit QUE dans
    var/cache + var/log. Traite erreurs + sortie via Get-PkgUpdates / Invoke-PkgUpgrade. #>

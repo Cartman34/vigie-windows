@@ -1,4 +1,5 @@
-﻿<#
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<#
     console-ui.ps1 - LE MEME AFFICHAGE PARTOUT. Aucune dependance : chargeable par
     n'importe quel script, sous Windows PowerShell 5.1 comme sous PowerShell 7.
 

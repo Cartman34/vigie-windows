@@ -1,4 +1,5 @@
-﻿<#
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<#
     check-labels.ps1 - AUCUNE CLÉ ABSENTE NE PART EN LIVRAISON. LECTURE SEULE.
 
     POURQUOI CE FICHIER EXISTE. Sortir les libellés du code a supprimé un défaut -- les

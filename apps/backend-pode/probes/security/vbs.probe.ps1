@@ -1,4 +1,5 @@
-﻿<# Sonde : sécurité de la virtualisation (VBS / intégrité mémoire). LECTURE SEULE. #>
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<# Sonde : sécurité de la virtualisation (VBS / intégrité mémoire). LECTURE SEULE. #>
 $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $backend 'lib/common.ps1')
 

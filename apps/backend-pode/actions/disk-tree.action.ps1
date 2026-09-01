@@ -1,4 +1,5 @@
-﻿# @droits: tous   -- lecture seule : n'exige aucun privilege (D65)
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+# @droits: tous   -- lecture seule : n'exige aucun privilege (D65)
 # @libelle: Explorer l'arborescence | dialog | info   -- affiche quand un champ cite cette action (D66)
 <# Action : ouvre l'explorateur d'arborescence du disque.
 

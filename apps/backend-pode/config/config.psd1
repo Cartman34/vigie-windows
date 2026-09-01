@@ -1,4 +1,5 @@
-﻿@{
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+@{
     # ---------------------------------------------------------------------------
     # Configuration VERSIONNEE : generique, valable sur n'importe quelle machine.
     # Chaque valeur n'est definie qu'ICI ; tout le reste en derive (Get-AppUrl,

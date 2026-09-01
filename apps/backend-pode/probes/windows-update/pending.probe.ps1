@@ -1,4 +1,5 @@
-﻿<#
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<#
     Sonde : mises à jour en attente. LECTURE SEULE, recherche LOCALE (cache) :
     ne lance PAS d'analyse en ligne et n'installe rien (Online = $false).
     Distingue les pilotes/optionnels (que l'écran principal de Windows ne compte pas)

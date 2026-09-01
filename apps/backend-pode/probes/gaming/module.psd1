@@ -1,4 +1,5 @@
-﻿@{
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+@{
     # Declaration du MODULE (D48) : un module = ce dossier de sondes.
     Label       = 'Gaming'
     Description = 'Le jeu en cours, sa part de ressources, et les applis qui pompent pendant.'

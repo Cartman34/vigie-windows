@@ -1,4 +1,5 @@
-﻿<#
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<#
     install-service.ps1 - Le serveur de Vigie devient un SERVICE DE MACHINE. IDEMPOTENT.
 
     Aujourd'hui, chaque compte lance son propre serveur au moment de sa session. Un compte

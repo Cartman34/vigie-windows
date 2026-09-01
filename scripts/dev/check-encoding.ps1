@@ -1,4 +1,5 @@
-﻿<#
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<#
     check-encoding.ps1 - UTF-8 PARTOUT, et du francais qui garde ses accents.
     LECTURE SEULE par defaut ; -Fix corrige ce qui est mecanique.
 

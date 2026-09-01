@@ -1,4 +1,5 @@
-﻿<# Worker : lance un programme, ATTEND sa fin, et rapporte son sort.
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<# Worker : lance un programme, ATTEND sa fin, et rapporte son sort.
 
    Pourquoi il existe (D82). Une action longue etait lancee « detachee » et oubliee :
    personne ne lisait son code de sortie. Le 26/08, le bouton « Installer PowerShell 7 »

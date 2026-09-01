@@ -1,4 +1,5 @@
 @echo off
+REM @author Florent HAZARD <f.hazard@sowapps.com>
 REM ---------------------------------------------------------------------------
 REM setup.cmd - LE point d'entrée de Vigie. Double-clic, et c'est tout.
 REM
@@ -23,6 +24,12 @@ REM ---------------------------------------------------------------------------
 @chcp 65001 >nul
 setlocal
 title Installation de Vigie
+REM LA FENETRE S OUVRE ASSEZ GRANDE POUR CE QU ELLE AFFICHE.
+REM
+REM Par defaut cmd.exe ouvre 80 colonnes : les chemins et les lignes d'archive y sont
+REM coupes, et l'installation defile dans un hublot. 120 colonnes sur 45 lignes tiennent
+REM le deroule sans repli, et restent sous la taille d'un ecran ordinaire.
+mode con: cols=120 lines=45 >nul 2>&1
 
 REM LES OUTILS DE WINDOWS S'APPELLENT PAR LEUR CHEMIN COMPLET.
 REM

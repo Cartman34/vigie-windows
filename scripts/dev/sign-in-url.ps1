@@ -1,4 +1,5 @@
-﻿<#
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<#
     SIGN-IN-URL : UNE ADRESSE D'OUVERTURE, A COLLER DANS UN VRAI NAVIGATEUR.
 
     A QUOI CA SERT. Regarder et deboguer Vigie dans son navigateur habituel -- outils de

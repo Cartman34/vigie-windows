@@ -117,3 +117,7 @@ Le détail est dans [Installation](doc/fr/operating/install.md) pour qui veut le
 ## Licence
 
 Le dépôt ne contient pas encore de fichier de licence.
+
+## Auteur
+
+**Florent HAZARD** — <f.hazard@sowapps.com>

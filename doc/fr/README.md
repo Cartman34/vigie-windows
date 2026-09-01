@@ -42,3 +42,7 @@ ci-dessous mènent donc à GitHub.
 Le numéro de version vient du **dernier tag git**, posé au moment d'un déploiement, et d'aucune autre source : une
 archive installée porte le sien, un dépôt répond par le sien. **Rien n'est publié** — aucune release, aucun
 installeur, aucune garantie de compatibilité.
+
+## Auteur
+
+**Florent HAZARD** — <f.hazard@sowapps.com>

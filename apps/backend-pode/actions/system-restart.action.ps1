@@ -1,4 +1,5 @@
-﻿# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 # @libelle: Redémarrer Windows | confirm | fix   -- affiche quand un champ cite cette action (D66)
 <# Action : redemarrer Windows.
 

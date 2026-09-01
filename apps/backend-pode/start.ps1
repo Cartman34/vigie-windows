@@ -1,4 +1,5 @@
-﻿<#
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<#
     start.ps1 - Point d'entree du backend. IDEMPOTENT. Cible PowerShell 7.
     Journalise tout dans backend/logs/ (transcript + Write-Log + logs Pode via
     server.ps1). Bascule en pwsh si lance en 5.1. Ne relance pas si deja en cours.

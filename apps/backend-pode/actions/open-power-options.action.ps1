@@ -1,4 +1,5 @@
-﻿# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 # @execution: session   -- ouvre une fenetre : elle doit s'afficher chez le DEMANDEUR
 # @libelle: Options d'alimentation | manual | info   -- affiche quand un champ cite cette action (D66)
 <# Action : ouvre les options d'alimentation de Windows.

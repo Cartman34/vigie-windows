@@ -1,4 +1,5 @@
-﻿<#
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<#
     LES INCOHERENCES QUE JE NE VOIS PAS TOUT SEUL.
 
     Deux regles, nees le meme jour, du meme defaut : croire que je me souviens.

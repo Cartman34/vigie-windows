@@ -1,4 +1,5 @@
-﻿@{
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+@{
     # Declaration du MODULE (D48) : la carte du DEPLOIEMENT de Vigie.
     #
     # PAS DE « PerAccount » ICI, ET C'EST TOUT L'INTERET. Cette carte ne parle de personne

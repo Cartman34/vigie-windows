@@ -1,4 +1,5 @@
-﻿<#
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<#
 .SYNOPSIS
     Pilote l'app Vigie de la barre systeme : etat, arret, redemarrage.
 

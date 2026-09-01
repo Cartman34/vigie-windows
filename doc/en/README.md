@@ -45,3 +45,7 @@ distribution archive, so the links below point at GitHub.
 The version number comes from the **last git tag**, set at deployment time, and from no other source: an installed
 archive carries its own, a repository answers with its own. **Nothing is published yet** — no release, no installer,
 no compatibility guarantee.
+
+## Author
+
+**Florent HAZARD** — <f.hazard@sowapps.com>

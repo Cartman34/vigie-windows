@@ -1,4 +1,5 @@
-﻿# @droits: admin   -- marque une version du produit : ce n'est pas un geste anodin (D65)
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+# @droits: admin   -- marque une version du produit : ce n'est pas un geste anodin (D65)
 # @execution: session   -- le tag s'ecrit dans le depot du DEMANDEUR, sous SON compte
 <# Action : poser le tag de version, dans le depot de la personne qui demande.
 

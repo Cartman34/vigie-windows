@@ -1,4 +1,5 @@
-﻿<# Sonde : pare-feu Windows (profils actifs). LECTURE SEULE, rapide. #>
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<# Sonde : pare-feu Windows (profils actifs). LECTURE SEULE, rapide. #>
 $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $backend 'lib/common.ps1')
 

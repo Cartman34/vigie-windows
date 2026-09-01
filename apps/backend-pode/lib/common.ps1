@@ -1,4 +1,5 @@
-﻿<#
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<#
     common.ps1 - Bibliotheque partagee du backend. Aucune dependance a Pode.
     Fabriques d'objets (contrat), config, jeton, agregation des sondes (avec
     journalisation par sonde), execution des actions, utilitaires.

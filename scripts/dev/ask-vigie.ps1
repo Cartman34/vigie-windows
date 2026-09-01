@@ -1,4 +1,5 @@
-﻿<#
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<#
     ASK-VIGIE : POSER LA QUESTION A L'APP SERVEUR, PLUTOT QUE FOUILLER WINDOWS.
 
     LE PROBLEME. Depuis une session ordinaire, la moitie de ce qu'on veut savoir est

@@ -1,4 +1,5 @@
-﻿# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 # @execution: session   -- ouvre une fenetre : elle doit s'afficher chez le DEMANDEUR
 <# Action pkg-open-gui : ouvre l'interface graphique du gestionnaire de paquets.
    Jumelle de open-windows-update : n'installe rien, elle OUVRE un logiciel externe.

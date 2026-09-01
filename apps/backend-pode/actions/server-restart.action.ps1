@@ -1,4 +1,5 @@
-﻿# @droits: tous   -- le serveur se relance avec SES droits, il n'en accorde aucun (D65)
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+# @droits: tous   -- le serveur se relance avec SES droits, il n'en accorde aucun (D65)
 # @execution: serveur   -- c'est le serveur lui-meme qui doit agir, pas un tray
 <#
     Action server-restart : LE SERVEUR SE RELANCE LUI-MEME.

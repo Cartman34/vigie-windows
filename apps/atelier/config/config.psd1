@@ -1,4 +1,5 @@
-﻿@{
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+@{
     # ---------------------------------------------------------------------------
     # Configuration de l'app ATELIER (outil de developpement).
     #

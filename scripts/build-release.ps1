@@ -1,4 +1,5 @@
-﻿<#
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<#
 .SYNOPSIS
     Fabrique l'archive de distribution de Vigie, celle qui est attachee a une Release GitHub.
 

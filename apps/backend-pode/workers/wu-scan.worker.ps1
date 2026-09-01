@@ -1,4 +1,5 @@
-﻿<# Worker DETACHE : recherche EN LIGNE des mises a jour Windows.
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<# Worker DETACHE : recherche EN LIGNE des mises a jour Windows.
 
    La sonde `pending` ne fait qu'une recherche LOCALE (cache de Windows Update) : elle est
    instantanee mais ne voit que ce que Windows a deja decouvert. Cette analyse-ci interroge

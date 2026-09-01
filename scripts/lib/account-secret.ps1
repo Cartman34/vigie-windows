@@ -1,4 +1,5 @@
-﻿<#
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+<#
     account-secret.ps1 - Le SECRET DU COMPTE : le poser, le lire, et refuser de s'y fier
     quand ses droits ne tiennent plus. Chargeable seul (aucune dependance a Pode).
 

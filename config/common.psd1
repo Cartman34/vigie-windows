@@ -1,4 +1,5 @@
-﻿@{
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+@{
     # ---------------------------------------------------------------------------
     # Configuration COMMUNE a plusieurs apps du depot.
     #

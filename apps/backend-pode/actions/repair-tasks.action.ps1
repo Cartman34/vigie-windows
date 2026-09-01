@@ -1,4 +1,5 @@
-﻿# @droits: admin   -- reecrire une tache planifiee exige l'elevation (D65)
+﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+# @droits: admin   -- reecrire une tache planifiee exige l'elevation (D65)
 # @libelle: Vérifier le démarrage de Vigie | immediate | fix   -- affiche quand un champ cite cette action (D66)
 #
 # « Réparer » quand rien n'est cassé sonne faux, et c'est pourtant l'état normal : le bouton
