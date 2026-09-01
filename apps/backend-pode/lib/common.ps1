@@ -3869,6 +3869,27 @@ function Get-State {
                 if ("$($mm.id)" -eq $ForceModule) { $sondesCiblees += "$nomSonde" }
             }
         }
+        <#
+            LE CACHE NE SAIT PAS TOUT : IL NE CONNAIT QUE CE QU'IL A DEJA VU.
+
+            Cette correspondance carte -> sonde se lisait UNIQUEMENT dans le cache. Une
+            carte qui n'a jamais ete calculee n'y figure donc pas, et son bouton ne visait
+            RIEN : la reponse revenait en 200, sans champ, toujours « pas encore mesuree ».
+            La carte ne pouvait plus jamais se remplir -- ni par son bouton, ni par la
+            page, ni par l'installation. Mesure le 01/09 :
+            GET /modules/deployment?fresh=1 -> 200, 0 champ, pending encore vrai.
+
+            Le dossier de la sonde porte le nom de sa carte : quand le cache ne repond
+            pas, on le demande au disque, qui lui sait toujours.
+        #>
+        if (-not $sondesCiblees.Count) {
+            $dossierSonde = Join-Path $probesDir $ForceModule
+            if (Test-PathSafe $dossierSonde) {
+                foreach ($pf in @(Get-ChildItem -LiteralPath $dossierSonde -Filter '*.probe.ps1' -File -ErrorAction SilentlyContinue)) {
+                    $sondesCiblees += $pf.Name
+                }
+            }
+        }
     }
 
     # Sondes + fraicheur (invalidation PAR sonde : mtime du fichier + TTL)

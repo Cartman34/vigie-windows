@@ -1098,6 +1098,30 @@ function openCardMenu(ev, moduleId, theme){
   setTimeout(() => document.addEventListener('click', closeCardMenu, true), 0);
 }
 
+/*
+    UNE CARTE SANS MESURE SE DEMANDE, TOUT DE SUITE.
+
+    Une carte « pas encore mesuree » ne se remplit pas toute seule : le serveur ne
+    recalcule rien de lui-meme, et c'est voulu. Mais la page, elle, SAIT qu'il lui manque
+    quelque chose -- et rester devant une carte vide en attendant un clic n'est pas un
+    comportement, c'est un oubli.
+
+    Elle demande donc chaque carte manquante, UNE PAR UNE : chacune a son propre appel,
+    donc une carte lente ne retient pas les autres, et le chargement de la page n'a rien
+    paye. C'est la seule demande automatique de recalcul, et elle ne porte que sur ce qui
+    n'existe pas encore -- jamais sur ce qui est simplement vieux.
+*/
+let pendingAsked = new Set();
+function askMissingCards(s){
+  if(!API_MODE) return;
+  const missing = (s && s.modules || []).filter(m => m && m.pending && m.id);
+  for(const m of missing){
+    if(pendingAsked.has(m.id)) continue;   // une seule fois par carte et par page
+    pendingAsked.add(m.id);
+    refreshCard(m.id, null, true).finally(() => pendingAsked.delete(m.id));
+  }
+}
+
 function wireCardActions(root){
   // Les boutons de la barre ET ceux des lignes (resolution d'un champ, D66) : meme
   // chemin d'execution, pour que l'etat « en cours » et les confirmations se comportent
@@ -1160,6 +1184,7 @@ function renderState(s, mode){
   // saisissables : le mode et l'affichage restent d'accord.
   if(modeReorg) armerGlisser();
   applyFilter();
+  askMissingCards(s);
   const g=document.getElementById('global'), gt=document.getElementById('globalTxt');
   // Le badge de l'en-tete et le liseré disent la MEME chose : l'etat de l'application
   // elle-meme (connectee, en maquette, en erreur). Ils portaient auparavant deux
