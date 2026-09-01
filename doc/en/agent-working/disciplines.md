@@ -95,6 +95,10 @@ nécessaire pour répondre. Il pose souvent des questions pour éprouver un rais
 moment-là court-circuite sa décision. Répondre d'abord, complètement. Si l'action est évidente, la proposer en une
 phrase à la fin plutôt que de l'exécuter.
 
+**Un défaut se rapporte en DEUX PHRASES : la cause, puis la correction.** Pas le récit de l'enquête, pas ce que j'ai
+cru, pas ce qui aurait pu arriver. « La fabrication cassait sur un fichier vide — elle l'ignore désormais. » Le reste
+vit dans le message de commit, pour qui veut y revenir.
+
 **Trois lignes.** Une explication tient en trois lignes : l'affirmation elle-même d'abord, puis ce qu'elle coûte, puis
 ce qu'on a déjà. Cinq paragraphes numérotés pour répondre à « c'est quoi la bonne pratique ? » est un échec, pas de la
 rigueur. Développer seulement s'il le demande.
