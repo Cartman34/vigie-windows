@@ -1,6 +1,9 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 @{
     # Declaration du MODULE (D48) : un module = ce dossier de sondes.
+    # SURVEILLANCE (CORE-WATCH) : a quelle cadence revoir ces sondes quand personne
+    # ne regarde. Ne se mesure que sur demande : la mesure elle-meme consomme la machine.
+    Surveillance = 'aucune'
     Label       = 'Gaming'
     Description = 'Le jeu en cours, sa part de ressources, et les applis qui pompent pendant.'
 

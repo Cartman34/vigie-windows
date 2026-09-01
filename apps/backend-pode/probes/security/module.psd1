@@ -4,6 +4,9 @@
     # Le label et la description servent a la vue de gestion des modules.
     # L'activation ne vit PAS ici : elle est un choix de l'utilisateur, dans
     # config/modules.local.psd1 (jamais versionne).
+    # SURVEILLANCE (CORE-WATCH) : a quelle cadence revoir ces sondes quand personne
+    # ne regarde. Antivirus, pare-feu, virtualisation : ca derive, ca ne coupe pas.
+    Surveillance = 'normale'
     Label       = 'Sécurité'
     Description = 'Antivirus, pare-feu et sécurité de la virtualisation.'
 

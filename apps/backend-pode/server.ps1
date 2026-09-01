@@ -564,3 +564,45 @@ Add-PodeRoute -Method Get -Path '/favicon.ico' -ScriptBlock {
     if (-not (Test-Path -LiteralPath $ico)) { Set-PodeResponseStatus -Code 404; return }
     Write-PodeFileResponse -Path $ico -ContentType 'image/x-icon'
 }
+
+<#
+    LA SURVEILLANCE PERMANENTE (CORE-WATCH).
+
+    Jusqu'ici, un recalcul n'avait lieu que si quelqu'un demandait quelque chose : fermez
+    toutes les sessions et plus rien n'etait mesure, donc aucune notification ne pouvait
+    partir. L'app serveur, elle, tourne sous son compte de service des le demarrage de
+    l'ordinateur -- c'est le seul endroit d'ou l'on peut observer quand personne n'est la.
+
+    UNE SONDE PAR TOUR, LA PLUS EN RETARD PAR RAPPORT A SA PROPRE CADENCE. L'urgence est
+    DECLAREE par le module (Surveillance = haute | normale | basse | aucune), jamais
+    deduite. Le detail : doc/progress/targeting/surveillance.md.
+
+    ELLE SE TAIT PENDANT UNE INSTALLATION : le verrou dit qu'une installation ecrit les
+    fichiers sous nos pieds, ce n'est pas le moment de mesurer.
+
+    Le travail part DETACHE : ce minuteur ne doit jamais retenir le serveur, qui a des
+    requetes a servir pendant ce temps.
+#>
+Add-PodeTimer -Name 'vigie-watch' -Interval 60 -ScriptBlock {
+    . "$env:VIGIE_BACKEND/lib/common.ps1"
+    try {
+        if (Get-InstallLockHolder) { return }
+        $probe = Get-ProbeToWatch -Backend $env:VIGIE_BACKEND
+        if (-not $probe) { return }
+        $busy = $false
+        try {
+            $tmp = $null
+            if ([System.Threading.Mutex]::TryOpenExisting('Local\VigieStateRecompute', [ref]$tmp)) {
+                $busy = -not $tmp.WaitOne(0)
+                if (-not $busy) { try { $tmp.ReleaseMutex() } catch { } }
+                try { $tmp.Dispose() } catch { }
+            }
+        } catch { }
+        if ($busy) { return }
+        $w = Join-Path $env:VIGIE_BACKEND 'workers/state-refresh.worker.ps1'
+        $null = Start-DetachedAction -Script $w -Backend $env:VIGIE_BACKEND -ArgsMap @{ probe = $probe }
+    } catch {
+        try { Write-Log -Backend $env:VIGIE_BACKEND -Name 'state' -Level 'ERROR' `
+                        -Message ("surveillance : " + $_.Exception.Message) } catch { }
+    }
+}

@@ -5,6 +5,9 @@
     # AUCUN parametre : la carte montre TOUS les comptes utilisateurs et UNIQUEMENT eux
     # (regle utilisateur). Un compte utilisateur, c'est un compte dont le profil a deja
     # servi a ouvrir une session -- les comptes d'outils, eux, n'en ouvrent jamais.
+    # SURVEILLANCE (CORE-WATCH) : a quelle cadence revoir ces sondes quand personne
+    # ne regarde. Les comptes Windows changent rarement.
+    Surveillance = 'basse'
     Label       = 'Comptes'
     Description = 'Les comptes Windows de cet ordinateur, et ceux qui ont Vigie.'
 

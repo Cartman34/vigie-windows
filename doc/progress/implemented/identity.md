@@ -120,6 +120,26 @@ elle voit ce que le serveur voit, avec les droits de son compte, sans lire chez 
 le cache**, donc aucun recalcul n'est provoqué. Une lecture par minute pour les notifications ; l'icône, elle, suit la
 santé du serveur toutes les huit secondes.
 
+## La surveillance permanente (CORE-WATCH)
+
+L'app serveur porte un **minuteur d'une minute** : il choisit **une** sonde — la plus en retard par rapport à sa
+cadence déclarée — et la fait recalculer par un processus détaché. Elle tourne sous son compte de service dès le
+démarrage de l'ordinateur : c'est ce qui permet de mesurer, et donc de notifier, **quand aucune session n'est ouverte**.
+
+L'urgence est déclarée dans le `module.psd1` de chaque module, jamais déduite :
+
+| | | |
+|---|---|---|
+| `haute` | ~1 min | `network`, `windows-update`, `debug` — ce qui coupe |
+| `normale` | ~15 min | `system`, `security`, `wsl`, `deployment` — ce qui dérive |
+| `basse` | ~12 h | `tools`, `accounts` — ce qui ne bouge presque jamais |
+| `aucune` | — | `gaming` : la mesure consomme la machine, elle ne se lance que sur demande |
+
+Deux silences : pendant une **installation** (le verrou le dit), et pour les cartes **par compte** — la boucle tourne
+sans session, elle ne saurait pas pour qui calculer.
+
+Cible : [`../targeting/surveillance.md`](../targeting/surveillance.md).
+
 ## Les cercles de comptes
 
 | | | |

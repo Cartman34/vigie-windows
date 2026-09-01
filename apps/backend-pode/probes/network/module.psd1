@@ -4,6 +4,9 @@
     # Le label et la description servent a la vue de gestion des modules.
     # L'activation ne vit PAS ici : elle est un choix de l'utilisateur, dans
     # config/modules.local.psd1 (jamais versionne).
+    # SURVEILLANCE (CORE-WATCH) : a quelle cadence revoir ces sondes quand personne
+    # ne regarde. Une coupure de connexion doit se voir dans la minute.
+    Surveillance = 'haute'
     Label       = 'Réseau'
     Description = 'Connexion, Wi-Fi, adresses et débit.'
 

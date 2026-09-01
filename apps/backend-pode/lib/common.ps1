@@ -3317,6 +3317,68 @@ $script:ThemeCatalog = @(
     [pscustomobject]@{ id = 'debug';          label = 'Débogage' }
 )
 
+<#
+    L'URGENCE D'UNE SONDE : A QUELLE CADENCE LA REVOIR QUAND PERSONNE NE REGARDE.
+
+    Declaree par le module (module.psd1, cle « Surveillance »), jamais devinee. Trois
+    niveaux, pas plus : au-dela on invente des reglages que personne n'ajuste.
+
+      haute   ~1 minute    ce qui coupe : connexion, service, verrou Windows Update
+      normale ~15 minutes  ce qui derive : disque, mises a jour en attente, securite
+      basse   ~12 heures   ce qui ne bouge presque jamais : version de Windows, comptes
+      aucune               ne se lance jamais seule -- une mesure de debit consomme la ligne
+
+    Sans declaration : normale. Le silence ne doit ni reveiller la machine toutes les
+    minutes, ni laisser une carte dormir un jour entier.
+#>
+$script:WatchPaces = @{ haute = 60; normale = 900; basse = 43200 }
+
+function Get-ProbeWatchSeconds {
+    param([Parameter(Mandatory)][string]$ProbeFile)
+    $decl = $null
+    try { $decl = Import-PowerShellDataFile -Path (Join-Path (Split-Path $ProbeFile -Parent) 'module.psd1') } catch { }
+    $niveau = 'normale'
+    if ($decl -and $decl.Surveillance) { $niveau = "$($decl.Surveillance)".Trim().ToLowerInvariant() }
+    if ($niveau -eq 'aucune') { return 0 }
+    if ($script:WatchPaces.ContainsKey($niveau)) { return [int]$script:WatchPaces[$niveau] }
+    return [int]$script:WatchPaces['normale']
+}
+
+<#
+    LA SONDE A REVOIR MAINTENANT, ou $null. C'est la boucle de surveillance qui appelle.
+
+    Le classement est le meme que pour le rafraichissement declenche par une requete : la
+    plus en retard PAR RAPPORT A SA PROPRE CADENCE. Ecrit une fois, il sert aux deux.
+#>
+function Get-ProbeToWatch {
+    param([string]$Backend = (Get-BackendRoot))
+    $probesDir = Join-Path $Backend 'probes'
+    if (-not (Test-PathSafe $probesDir)) { return $null }
+    $cacheFile = Get-VarPath -Backend $Backend -Kind 'cache' -File 'state-cache.json'
+    $cache = @{}
+    if (Test-PathSafe $cacheFile) {
+        try { $j = Get-Content $cacheFile -Raw | ConvertFrom-Json; foreach ($pr in $j.PSObject.Properties) { $cache[$pr.Name] = $pr.Value } } catch { }
+    }
+    $off = @(Get-InactiveUnits -Backend $Backend)
+    $now = [datetime]::UtcNow
+    $best = $null; $bestOverdue = 1.0
+    foreach ($pf in @(Get-ChildItem -Path $probesDir -Recurse -Filter '*.probe.ps1' -File -ErrorAction SilentlyContinue)) {
+        if ($off -contains (Split-Path (Split-Path $pf.FullName -Parent) -Leaf)) { continue }
+        $pace = Get-ProbeWatchSeconds -ProbeFile $pf.FullName
+        if ($pace -le 0) { continue }
+        # UNE CARTE PAR COMPTE NE SE SURVEILLE PAS. La boucle tourne sans session : elle
+        # ne saurait pas pour qui calculer, et ecrirait sous une cle anonyme que personne
+        # ne lit. Ces cartes-la se remplissent quand quelqu'un les regarde.
+        if (Test-ProbeIsPerAccount -ProbeFile $pf.FullName) { continue }
+        $entry = $cache[$pf.Name]
+        $age = $pace * 2
+        if ($entry -and $entry.at) { try { $age = ($now - (ConvertTo-UtcDate $entry.at)).TotalSeconds } catch { } }
+        $overdue = $age / $pace
+        if ($overdue -gt $bestOverdue) { $bestOverdue = $overdue; $best = $pf.Name }
+    }
+    return $best
+}
+
 # --- Agregation des sondes (journalisee) -----------------------------------
 # Duree de validite du cache par sonde (secondes) : court pour ce qui bouge vite,
 # long pour ce qui est stable.

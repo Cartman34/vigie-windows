@@ -4,6 +4,9 @@
     # Le label et la description servent a la vue de gestion des modules.
     # L'activation ne vit PAS ici : elle est un choix de l'utilisateur, dans
     # config/modules.local.psd1 (jamais versionne).
+    # SURVEILLANCE (CORE-WATCH) : a quelle cadence revoir ces sondes quand personne
+    # ne regarde. Le verrou peut sauter : un redemarrage force est ce qu'on cherche a empecher.
+    Surveillance = 'haute'
     Label       = 'Windows Update'
     Description = 'Verrouillage, historique et mises à jour du système.'
 
