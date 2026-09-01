@@ -20,11 +20,12 @@
            Help = 'Au-delà de ce délai, la latence passe en erreur : jeu en ligne et visio pénibles.' }
     )
 
-    # VEILLE (CORE-WATCH) : les releves bon marche que l'app serveur execute en
+    # SENTINELLES (CORE-WATCH) : les releves bon marche que l'app serveur execute en
     # permanence, meme sans session ouverte. Quand la valeur CHANGE, les cartes citees
     # sont recalculees -- et c'est leur bascule qui produit la notification (D54).
-    Veille = @(
-        @{ Key = 'internet'; Label = 'Connexion Internet'; Secondes = 60; Cartes = @('net') }
+    # Le vocabulaire suit les autres cles de ce fichier : anglais, comme Label et Config.
+    Sentinels = @(
+        @{ Key = 'internet'; Label = 'Connexion Internet'; Seconds = 60; Cards = @('net') }
     )
 
     # NOTIFICATIONS emises par ce module (D54) : un evenement nomme, pas un nom de

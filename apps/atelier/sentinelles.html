@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<!-- @author Florent HAZARD <f.hazard@sowapps.com> -->
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vigie — sentinelles</title>
+<!--
+  LES SENTINELLES, LUES DANS LES module.psd1.
+
+  Rien n'est recopie ici : sentinelles.php lit les declarations des modules. Une liste
+  recopiee a la main diverge le jour ou un module en ajoute une, et l'Atelier se fait
+  alors valider sur une liste fausse -- c'est exactement ce qu'il sert a eviter (D24).
+-->
+<link rel="stylesheet" href="atelier.css">
+<style>
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.4px}
+  code{font-size:12px}
+  .cadence{white-space:nowrap}
+  .absent{color:var(--err);font-weight:600}
+  .vide{color:var(--muted);padding:18px 0}
+</style>
+</head>
+<body>
+<header>
+  <h1>Sentinelles</h1>
+  <span class="sub">les relevés que l’app serveur exécute en permanence, déclarés par chaque module</span>
+  <a class="crumb" href="index.html">← atelier</a>
+</header>
+
+<div class="note">
+  Une <b>sentinelle</b> est une lecture <b>bon marché</b> qui rend <b>une valeur comparable</b>. L’app serveur les
+  exécute à leur cadence, même sans session ouverte ; quand une valeur <b>change</b>, elle émet un événement et fait
+  recalculer les cartes déclarées. Elle ne calcule jamais de carte d’elle-même.
+  <br>Conception : <code>doc/progress/targeting/surveillance.md</code> — schéma sur <a href="schemas.html">la page des schémas</a>.
+</div>
+
+<div id="liste" class="vide">Lecture des déclarations…</div>
+
+<div class="note" style="margin-top:26px">
+  <b>Pour en ajouter une :</b> un fichier <code>&lt;clé&gt;.watch.ps1</code> dans le dossier du module — une lecture, une
+  valeur — et une entrée <code>Sentinels</code> dans son <code>module.psd1</code> : <code>Key</code>,
+  <code>Label</code>, <code>Seconds</code>, <code>Cards</code>. Rien à écrire ailleurs.
+</div>
+
+<script>
+fetch('sentinelles.php').then(r => r.json()).then(d => {
+  const target = document.getElementById('liste');
+  if (d.erreur) { target.innerHTML = '<span class="absent">' + d.erreur + '</span>'; return; }
+  const s = d.sentinelles || [];
+  if (!s.length) { target.textContent = 'Aucune sentinelle déclarée.'; return; }
+  target.className = '';
+  target.innerHTML =
+    '<table><thead><tr><th>Module</th><th>Clé</th><th>Ce qu’elle relève</th>'
+    + '<th class="cadence">Cadence</th><th>Cartes recalculées</th><th>Relevé</th></tr></thead><tbody>'
+    + s.map(x =>
+        '<tr><td>' + x.module + '</td>'
+      + '<td><code>' + x.cle + '</code></td>'
+      + '<td>' + x.libelle + '</td>'
+      + '<td class="cadence">' + (x.secondes >= 3600 ? (x.secondes/3600) + ' h'
+                                : x.secondes >= 60 ? (x.secondes/60) + ' min'
+                                : x.secondes + ' s') + '</td>'
+      + '<td>' + (x.cartes.length ? x.cartes.join(', ') : '—') + '</td>'
+      + '<td>' + (x.presente ? '<code>' + x.script + '</code>'
+                             : '<span class="absent">manquant : ' + x.script + '</span>') + '</td></tr>')
+      .join('')
+    + '</tbody></table>';
+}).catch(e => {
+  document.getElementById('liste').innerHTML =
+    '<span class="absent">Lecture impossible : ' + e + '</span>';
+});
+</script>
+</body>
+</html>

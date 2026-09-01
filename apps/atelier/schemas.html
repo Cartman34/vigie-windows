@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<!-- @author Florent HAZARD <f.hazard@sowapps.com> -->
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vigie — schémas de conception</title>
+<!--
+  LES SCHEMAS DES MECANISMES, A UN SEUL ENDROIT.
+
+  Un mecanisme qui met en jeu plusieurs pieces se DESSINE : qui declenche, qui lit, qui
+  ecrit, dans quel ordre, et ou ca s'arrete. Trois paragraphes le decrivent mal -- le
+  01/09, une boucle de surveillance decrite en texte a ete implementee de travers sans que
+  la difference se voie.
+
+  Les schemas vivent AUSSI dans doc/progress/targeting/, en ASCII : c'est la source. Cette
+  page les rassemble pour les regarder ensemble, avec le lien vers la cible correspondante.
+-->
+<link rel="stylesheet" href="atelier.css">
+<style>
+  .schema{border:1px solid var(--border);border-radius:11px;background:var(--panel-2);
+          padding:16px 18px;margin-bottom:20px}
+  .schema h3{margin:0 0 4px;font-size:14px}
+  .schema .src{color:var(--muted);font-size:12px;margin-bottom:12px}
+  .schema pre{margin:0;overflow-x:auto;font-size:12.5px;line-height:1.45;
+              background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:14px}
+  .schema .lecon{margin-top:12px;color:var(--muted);font-size:12.5px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Schémas de conception</h1>
+  <span class="sub">ce qui déclenche quoi, dans quel ordre — la source reste dans doc/progress/targeting/</span>
+  <a class="crumb" href="index.html">← atelier</a>
+</header>
+
+<div class="schema">
+  <h3>Veille permanente (CORE-WATCH)</h3>
+  <p class="src">Cible : <code>doc/progress/targeting/surveillance.md</code></p>
+<pre>
+                    app serveur (compte de service, tourne depuis le démarrage)
+                    ┌──────────────────────────────────────────────────────────┐
+toutes les minutes →│  BOUCLE DE VEILLE                                        │
+                    │    pour chaque relevé DÛ (cadence dépassée) :            │
+                    │      ┌────────────────────────────────────────────┐      │
+                    │      │  &lt;clé&gt;.watch.ps1  → une valeur comparable  │      │
+                    │      └────────────────────────────────────────────┘      │
+                    │                    │                                     │
+                    │        valeur identique ?  ──── oui ──→ rien             │
+                    │                    │                                     │
+                    │                   non                                    │
+                    │                    ↓                                     │
+                    │            ÉVÉNEMENT « &lt;clé&gt; a changé »                  │
+                    │                    ↓                                     │
+                    │      Get-State -ForceModule &lt;cartes déclarées&gt;           │
+                    │            (le chemin existant, pas un autre)            │
+                    └──────────────────────────────────────────────────────────┘
+                                         ↓
+                                cache d'état mis à jour
+                                         ↓
+                    ┌────────────────────┴─────────────────────┐
+                    ↓                                          ↓
+             app cliente                                   panneau
+      (lit l'état chaque minute)                  (sondage régulier /state)
+                    ↓                                          ↓
+      bascule d'un champ → notification            la carte affiche la nouvelle valeur
+                (D54, inchangé)
+</pre>
+  <p class="lecon"><b>Ce qu'il faut retenir :</b> la boucle ne calcule pas de carte. Elle relève, elle compare, et
+  c'est le <i>changement</i> qui déclenche un recalcul — par le chemin que tout le monde emprunte déjà.</p>
+</div>
+
+<div class="schema">
+  <h3>Fraîcheur d'une carte : qui recalcule, et quand</h3>
+  <p class="src">Cible : <code>doc/progress/targeting/install-update.md</code></p>
+<pre>
+  CHARGEMENT DE LA PAGE            BOUTON ↻ (haut)            BOUTON D'UNE CARTE
+  sondage automatique              recalcul complet           recalcul de celle-ci
+          │                              │                            │
+          ↓                              ↓                            ↓
+   sert le CACHE                  recalcule TOUT              recalcule CETTE sonde
+   ne fait attendre personne      et attend                   et attend
+          │
+          ├──→ carte jamais mesurée ? la page la demande, une par une
+          │
+          └──→ derrière : UNE sonde périmée part en tâche de fond
+               (la plus en retard par rapport à son propre délai,
+                plafond de 24 h : personne ne vieillit plus d'un jour)
+</pre>
+  <p class="lecon"><b>Les deux échecs qui encadrent la règle :</b> tout recalculer occupe la machine en permanence
+  (<code>/state</code> à 27 s, mesuré le 31/08) ; ne rien recalculer condamne la carte à mentir jusqu'au prochain clic.</p>
+</div>
+
+<div class="schema">
+  <h3>Qui parle à Vigie</h3>
+  <p class="src">État : <code>doc/progress/implemented/identity.md</code></p>
+<pre>
+  app cliente du compte                          panneau ouvert à la main
+          │                                              │
+          │ secret du compte (profil, ACL)               │ (pas de preuve)
+          ↓                                              ↓
+   adresse d'ouverture ─── 30 s, UNE fois ───→ ┌──────────────────┐
+          │                                    │  app serveur     │
+          ↓                                    │                  │
+   cookie de session (1 an) ─────────────────→ │ qui demande ?    │
+          │                                    └──────────────────┘
+          ↓                                              ↓
+   redirection vers l'adresse propre            aucun compte reconnu
+          ↓                                              ↓
+   « vous » sur la bonne ligne              page de refus (défaut, réglable)
+   les actions savent qui demande           ou les cartes sans droits
+</pre>
+  <p class="lecon"><b>Ce qui circule est jetable, ce qui reste ne l'est pas :</b> l'adresse vaut trente secondes et une
+  seule présentation ; la session qu'elle ouvre ne périme pas.</p>
+</div>
+
+<div class="note" style="margin-top:26px">
+  <b>La source d'un schéma est dans <code>doc/progress/</code></b>, en ASCII, à côté de la conception qu'il illustre.
+  Cette page ne fait que les rassembler : si les deux divergent, c'est le document qui a raison.
+</div>
+</body>
+</html>

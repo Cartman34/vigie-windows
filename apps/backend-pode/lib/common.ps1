@@ -3318,7 +3318,7 @@ $script:ThemeCatalog = @(
 )
 
 <#
-    LA VEILLE : DES RELEVES BON MARCHE, ET UN EVENEMENT QUAND LA VALEUR CHANGE.
+    LES SENTINELLES : DES RELEVES BON MARCHE, ET UN EVENEMENT QUAND LA VALEUR CHANGE.
 
     Ce n'est PAS un recalcul de cartes en boucle. Une carte coute cher -- treize secondes
     pour le deploiement -- et l'essentiel de ce qu'elle contient ne bouge pas dans la
@@ -3329,7 +3329,7 @@ $script:ThemeCatalog = @(
     Un module declare :
       - un fichier « <cle>.watch.ps1 » dans son dossier : UNE lecture, UNE valeur
         comparable (booleen, nombre, chaine courte). Rien d'autre.
-      - une entree « Veille » dans son module.psd1 : cadence et cartes a recalculer.
+      - une entree « Sentinels » dans son module.psd1 : cadence et cartes a recalculer.
 
     Le detail : doc/progress/targeting/surveillance.md.
 #>
@@ -3343,8 +3343,8 @@ function Get-WatchDeclarations {
         if ($off -contains $dir.Name) { continue }
         $decl = $null
         try { $decl = Import-PowerShellDataFile -Path (Join-Path $dir.FullName 'module.psd1') } catch { }
-        if (-not $decl -or -not $decl.Veille) { continue }
-        foreach ($v in @($decl.Veille)) {
+        if (-not $decl -or -not $decl.Sentinels) { continue }
+        foreach ($v in @($decl.Sentinels)) {
             if (-not $v.Key) { continue }
             $script = Join-Path $dir.FullName ("$($v.Key).watch.ps1")
             if (-not (Test-PathSafe $script)) { continue }
@@ -3352,8 +3352,8 @@ function Get-WatchDeclarations {
                 Unit     = $dir.Name
                 Key      = "$($v.Key)"
                 Label    = $(if ($v.Label) { "$($v.Label)" } else { "$($v.Key)" })
-                Seconds  = $(if ($v.Secondes) { [int]$v.Secondes } else { 900 })
-                Cards    = @($v.Cartes)
+                Seconds  = $(if ($v.Seconds) { [int]$v.Seconds } else { 900 })
+                Cards    = @($v.Cards)
                 Script   = $script
             }
         }
