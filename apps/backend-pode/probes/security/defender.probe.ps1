@@ -44,4 +44,9 @@ if ($others.Count -gt 0) {
     $fields += New-Field -Key 'others' -Label 'Autres détectés' -Value (($others | ForEach-Object { $_.name }) -join ', ') -Kind 'text' -Status 'neutral' -Help "Autres antivirus enregistrés (souvent Windows Defender en veille)."
 }
 
-New-ModuleObject -Id 'antivirus' -Theme 'security' -Label 'Antivirus' -Status $modSt -Fields $fields
+# LE BOUTON EST LA MEME QUAND TOUT VA BIEN (D114) : une carte porte en permanence la
+# destination utile de son sujet -- ici la Securite Windows, ou l'on relance une
+# analyse et ou l'on rallume une protection. On ne le decouvre pas le jour de la panne.
+New-ModuleObject -Id 'antivirus' -Theme 'security' -Label 'Antivirus' -Status $modSt -Fields $fields `
+    -Actions @(New-Action -Id 'open-security-settings' -Label 'Sécurité Windows' -Kind 'manual' -Severity 'info' `
+                    -Help 'Ouvre la Sécurité Windows : état de l''antivirus, analyses, protections.')

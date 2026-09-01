@@ -527,4 +527,6 @@ New-ModuleObject -Id 'net' -Theme 'network' -Label 'Réseau' -Status $modStatus 
     New-Action -Id 'net-dns-flush' -Severity 'fix' -Label 'Purger le cache DNS' -BusyLabel 'Purge…' -Kind 'confirm' -Confirm `
         -Help "Vide le cache DNS de Windows et celui du proxy local s’il en existe un (détecté sur le port 53). À utiliser quand quelques sites ne répondent plus alors qu'internet fonctionne. Coupe la résolution une à deux secondes."
     New-Action -Id 'net-speedtest' -Label 'Mesurer débit/latence'  -Kind 'immediate' -Help "Mesure la latence (ping) et le débit descendant en téléchargeant ~10 Mo. Prend quelques secondes et consomme un peu de data."
+    # Destination PERMANENTE (D114) : les paramètres réseau ne servent pas qu'en panne.
+    New-Action -Id 'open-network-settings' -Label 'Paramètres réseau' -Kind 'manual' -Severity 'info' -Help "Ouvre les paramètres réseau de Windows : choix du réseau, reconnexion, état de l'adaptateur."
 )

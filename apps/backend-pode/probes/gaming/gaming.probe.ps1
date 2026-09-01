@@ -613,4 +613,12 @@ $fields += New-Field -Key 'top' -Label 'Répartition des ressources' `
               tips = $tipsRep }
 
 $statut = if (($fields | Where-Object { $_.status -eq 'warn' })) { 'warn' } else { 'ok' }
-New-ModuleObject -Id 'gaming' -Theme 'gaming' -Label 'Session de jeu' -Status $statut -Fields $fields
+# Boutons PERMANENTS (D114) : ce qui entoure une partie se regle chez Windows, et les
+# deux destinations utiles ne dependent pas de l'etat de la carte.
+New-ModuleObject -Id 'gaming' -Theme 'gaming' -Label 'Session de jeu' -Status $statut -Fields $fields `
+    -Actions @(
+        New-Action -Id 'open-gaming-settings' -Label 'Paramètres de jeu' -Kind 'manual' -Severity 'info' `
+                   -Help 'Ouvre les réglages de jeu de Windows : barre de jeu, mode Jeu, captures.'
+        New-Action -Id 'open-task-manager' -Label 'Gestionnaire des tâches' -Kind 'manual' -Severity 'info' `
+                   -Help 'Ouvre le Gestionnaire des tâches pour fermer ce qui pompe pendant la partie.'
+    )
