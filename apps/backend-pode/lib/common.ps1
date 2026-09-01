@@ -3826,6 +3826,18 @@ function Get-State {
     $cacheFile = Get-VarPath -Backend $Backend -Kind 'cache' -File 'state-cache.json'
     $stateDir  = Split-Path $cacheFile -Parent
     if (-not (Test-Path $stateDir)) { New-Item -ItemType Directory -Path $stateDir -Force | Out-Null }
+    <#
+        PERSONNE NE VIEILLIT PLUS D'UN JOUR.
+
+        Regle (utilisateur, 01/09) : chaque carte se recalcule de temps en temps, au moins
+        une fois par jour, et jamais toutes en meme temps. Le « jamais toutes » est tenu
+        par le rafraichissement de fond, qui n'en prend qu'UNE par reponse ; le « au moins
+        une fois par jour » est tenu ici, par ce plafond.
+
+        Sans lui, il suffirait d'un delai genereux -- les comptes sont a une heure -- pour
+        qu'une carte reste des jours sur une mesure fausse si personne ne la regarde.
+    #>
+    $maxTtl = 86400
     $defaultTtl = 30
 
     # Charge le cache existant. TOUJOURS, meme avec -Force : forcer signifie « recalcule »,
@@ -3918,6 +3930,7 @@ function Get-State {
         $name = $pf.Name; $stamp = "$($pf.LastWriteTimeUtc.Ticks)"
         $key = Get-ProbeCacheKey -ProbeFile $pf.FullName -Account $stateRequester
         $ttl = if ($script:ProbeTtls.ContainsKey($name)) { $script:ProbeTtls[$name] } else { $defaultTtl }
+        if ($ttl -gt $maxTtl) { $ttl = $maxTtl }
         $entry = $cache[$key]; $fresh = $false
         # -Force : tout est considere perime, sans rien effacer.
         # Une sonde VISEE est perimee d'office : c'est tout le sens de la demande.

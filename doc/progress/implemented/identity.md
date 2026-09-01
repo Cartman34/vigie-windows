@@ -135,7 +135,11 @@ d'une carte pour elle seule.
 
 **Derrière, une seule sonde périmée part en tâche de fond**, détachée, pour que sa valeur soit prête la fois suivante.
 C'est ainsi que la carte Déploiement finit par voir un commit sans que le chargement le paie. Une seule par passage, et
-une seule à la fois (verrou `VigieStateRecompute`).
+une seule à la fois (verrou `VigieStateRecompute`). Le délai de fraîcheur est plafonné à **24 h** : aucune carte ne
+vieillit plus d'un jour, même si personne ne la regarde.
+
+**La carte reste intacte pendant son recalcul** — elle garde sa valeur connue —, le cache est mis à jour à la fin, et
+le sondage régulier de la page sert la nouvelle au passage suivant.
 
 *La version précédente recalculait les dix-sept sondes à chaque passage : les délais des autres expiraient pendant la
 passe, la requête suivante en relançait une, et la machine ne s'arrêtait plus — `/state` à 27 secondes (mesuré le

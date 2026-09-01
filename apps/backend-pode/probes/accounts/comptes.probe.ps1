@@ -36,9 +36,9 @@ foreach ($c in ($comptes | Sort-Object @{ Expression = { -not $_.current } }, na
     # n'avoir jamais demarre une seule fois -- c'est ce qui est arrive sur « Famille » le
     # 28/08, pendant que cette carte affichait un tranquille « Vigie activée ». Le defaut
     # se dit donc SUR LA LIGNE DU COMPTE, la ou on le cherche.
-    $statutCompte = 'neutral'
+    $lineStatus = 'neutral'
     if ($c.enabled -and $c.taskAilment) {
-        $statutCompte = 'warn'
+        $lineStatus = 'warn'
         $etat += 'ne démarre pas'
         $aide += "Sa tâche de démarrage existe mais " + $c.taskAilment + "."
         $aide += "Le bouton « Vérifier le démarrage de Vigie » l'examine et la remet d'aplomb quand c'est réparable."
@@ -56,26 +56,26 @@ foreach ($c in ($comptes | Sort-Object @{ Expression = { -not $_.current } }, na
         tache a deja tourne. Ces trois faits tiennent dans le detail de la ligne, la ou on
         les cherche.
     #>
-    if ($statutCompte -eq 'neutral' -and $c.enabled) { $statutCompte = 'ok' }
+    if ($lineStatus -eq 'neutral' -and $c.enabled) { $lineStatus = 'ok' }
 
-    $detail = @()
-    $detail += $(if ($c.fullName -and $c.fullName -ne $c.name) { $c.fullName } else { 'Pas de nom complet déclaré' })
-    $detail += $(if ($c.lastUse) { 'Dernière session : ' + $c.lastUse } else { "Jamais ouvert de session" })
+    $lineDetail = @()
+    $lineDetail += $(if ($c.fullName -and $c.fullName -ne $c.name) { $c.fullName } else { 'Pas de nom complet déclaré' })
+    $lineDetail += $(if ($c.lastUse) { 'Dernière session : ' + $c.lastUse } else { "Jamais ouvert de session" })
     if ($c.task) {
-        $detail += 'Tâche de démarrage : ' + $c.task
-        if ($c.taskPending) { $detail += 'Elle ne s''est pas encore lancée : ' + $c.taskPending }
+        $lineDetail += 'Tâche de démarrage : ' + $c.task
+        if ($c.taskPending) { $lineDetail += 'Elle ne s''est pas encore lancée : ' + $c.taskPending }
     } elseif ($c.enabled) {
-        $detail += "Aucune tâche de démarrage posée pour ce compte."
+        $lineDetail += "Aucune tâche de démarrage posée pour ce compte."
     }
 
     # Une ligne qui signale un defaut porte le bouton qui le corrige (D66) : un statut
     # orange sans geste possible laisse le lecteur devant un probleme et rien d'autre.
     $fields += New-Field -Key ('acc-' + ($c.name -replace '[^A-Za-z0-9]', '')) `
         -Label ($c.name + $(if ($c.current) { ' (vous)' } else { '' })) `
-        -Value ($etat -join ' - ') -Kind 'text' -Status $statutCompte `
-        -FixAction $(if ($statutCompte -eq 'warn') { 'repair-tasks' } else { $null }) `
+        -Value ($etat -join ' - ') -Kind 'text' -Status $lineStatus `
+        -FixAction $(if ($lineStatus -eq 'warn') { 'repair-tasks' } else { $null }) `
         -Help ($aide -join ' ') `
-        -Guide ($detail -join [Environment]::NewLine)
+        -Guide ($lineDetail -join [Environment]::NewLine)
 }
 
 if (-not $comptes.Count) {

@@ -181,6 +181,15 @@ C'est la troisième qui permet à la carte de **voir un commit** sans que person
 paie. La supprimer, c'est condamner la carte à mentir jusqu'au prochain clic ; la rendre gourmande — recalculer toutes
 les sondes — c'est occuper la machine en permanence. Les deux ont été essayés le 31/08.
 
+**Chaque carte se recalcule au moins une fois par jour, et jamais toutes en même temps.** Le « jamais toutes » vient de
+la règle ci-dessus — une seule sonde par réponse. Le « au moins une fois par jour » est un plafond de 24 h sur le délai
+de fraîcheur : sans lui, un délai généreux laisserait une carte des jours sur une mesure fausse si personne ne la
+regarde.
+
+**Pendant ce recalcul, la carte ne bouge pas.** Elle garde sa valeur connue ; quand le calcul finit, le cache est mis à
+jour et le prochain `/state` — le sondage régulier de la page — sert la nouvelle. Aucune notification n'est nécessaire :
+la page repasse de toute façon.
+
 ### Correspondances techniques
 
 | Dans le plan | Dans le code |
