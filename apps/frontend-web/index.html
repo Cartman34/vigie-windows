@@ -135,7 +135,10 @@
   .theme-head .count{color:var(--muted);font-size:12px}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
   .card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);display:flex;flex-direction:column}
-  .card-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  /* EN HAUT, PAS AU MILIEU. Un titre sur deux lignes ('Verrouillage des mises a jour')
+     faisait descendre le badge et les boutons a mi-hauteur, decales de toutes les autres
+     cartes. Ils s'alignent sur la premiere ligne du titre, quelle que soit sa longueur. */
+  .card-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:12px}
   .card-head .name{font-weight:600;font-size:15px;flex:1}
   .badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px}
   .badge .dot{width:8px;height:8px;border-radius:50%}
@@ -1078,7 +1081,13 @@ function cardHtml(m, groupLabel){
     ete respectee : les trois points doivent donner le CHOIX, dont l'acces aux parametres
     du module fait partie.
 */
-function closeCardMenu(){
+function closeCardMenu(ev){
+  // LE BOUTON QUI A OUVERT LE MENU N'EST PAS « AILLEURS ».
+  //
+  // Ce gestionnaire ecoute en phase de CAPTURE : il passait donc avant le clic du bouton.
+  // Recliquer sur « ... » fermait puis rouvrait aussitot -- le menu ne se refermait
+  // jamais par la ou on l'avait ouvert. On laisse le bouton decider dans ce cas.
+  if (ev && ev.target && ev.target.closest && ev.target.closest('.card-menu')) return;
   const m = document.getElementById('cardMenu');
   if (m) m.remove();
   document.removeEventListener('click', closeCardMenu, true);

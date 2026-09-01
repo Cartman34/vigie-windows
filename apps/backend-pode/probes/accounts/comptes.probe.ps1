@@ -44,13 +44,38 @@ foreach ($c in ($comptes | Sort-Object @{ Expression = { -not $_.current } }, na
         $aide += "Le bouton « Vérifier le démarrage de Vigie » l'examine et la remet d'aplomb quand c'est réparable."
     }
 
+    <#
+        LA COULEUR DIT L'ETAT DU COMPTE, PAS « RIEN A SIGNALER ».
+
+        Toutes les lignes sortaient en gris : impossible de voir d'un coup d'oeil qui a
+        Vigie et qui ne l'a pas. Un compte qui l'a et dont la tache est saine est VERT ;
+        un compte qui ne l'a pas reste neutre -- ce n'est pas un defaut, c'est un choix.
+
+        LE DETAIL PAR COMPTE VIT SUR LA LIGNE. Il fallait ouvrir « Details des comptes »
+        pour savoir quand ce compte a ouvert une session pour la derniere fois ou si sa
+        tache a deja tourne. Ces trois faits tiennent dans le detail de la ligne, la ou on
+        les cherche.
+    #>
+    if ($statutCompte -eq 'neutral' -and $c.enabled) { $statutCompte = 'ok' }
+
+    $detail = @()
+    $detail += $(if ($c.fullName -and $c.fullName -ne $c.name) { $c.fullName } else { 'Pas de nom complet déclaré' })
+    $detail += $(if ($c.lastUse) { 'Dernière session : ' + $c.lastUse } else { "Jamais ouvert de session" })
+    if ($c.task) {
+        $detail += 'Tâche de démarrage : ' + $c.task
+        if ($c.taskPending) { $detail += 'Elle ne s''est pas encore lancée : ' + $c.taskPending }
+    } elseif ($c.enabled) {
+        $detail += "Aucune tâche de démarrage posée pour ce compte."
+    }
+
     # Une ligne qui signale un defaut porte le bouton qui le corrige (D66) : un statut
     # orange sans geste possible laisse le lecteur devant un probleme et rien d'autre.
     $fields += New-Field -Key ('acc-' + ($c.name -replace '[^A-Za-z0-9]', '')) `
         -Label ($c.name + $(if ($c.current) { ' (vous)' } else { '' })) `
         -Value ($etat -join ' - ') -Kind 'text' -Status $statutCompte `
         -FixAction $(if ($statutCompte -eq 'warn') { 'repair-tasks' } else { $null }) `
-        -Help ($aide -join ' ')
+        -Help ($aide -join ' ') `
+        -Guide ($detail -join [Environment]::NewLine)
 }
 
 if (-not $comptes.Count) {
