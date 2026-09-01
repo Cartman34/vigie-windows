@@ -73,6 +73,59 @@ $fields += New-Field -Key 'donnees' -Label 'Données locales' `
     -Help "Cache, historique, jeton et journaux de CE compte. Chaque compte a les siens." `
     -Guide $racineVar
 
+<#
+    LES SENTINELLES, ET CE QU'ELLES ONT RELEVE EN DERNIER.
+
+    Leur memoire vit dans le var du compte qui EXECUTE l'app serveur : une session
+    ordinaire ne peut meme pas la lire, et mon outil de suivi annoncait « jamais relevee »
+    alors qu'il ne savait tout simplement pas (constate le 01/09). C'est Vigie qui doit le
+    dire -- elle, elle voit.
+
+    C'est aussi la seule preuve qu'on ait que la veille tourne : sans releve, elle est
+    peut-etre arretee depuis des heures sans que rien ne le signale.
+#>
+$sentinels = @()
+try { $sentinels = @(Get-WatchDeclarations -Backend $backend) } catch { }
+if ($sentinels.Count) {
+    $memory = @{}
+    try {
+        $memoryPath = Get-WatchMemoryPath -Backend $backend
+        if (Test-PathSafe $memoryPath) {
+            $j = Get-Content -LiteralPath $memoryPath -Raw -Encoding UTF8 | ConvertFrom-Json
+            foreach ($pr in $j.PSObject.Properties) { $memory[$pr.Name] = $pr.Value }
+        }
+    } catch { }
+
+    $never = @($sentinels | Where-Object { -not $memory[$_.Key] })
+    $lines = @()
+    $oldest = $null
+    foreach ($s in $sentinels) {
+        $seen = $memory[$s.Key]
+        if ($seen) {
+            $when = $null
+            try { $when = (ConvertTo-UtcDate $seen.at).ToLocalTime() } catch { }
+            if ($when -and (-not $oldest -or $when -lt $oldest)) { $oldest = $when }
+            $lines += ("{0} : « {1} » à {2}" -f $s.Key, "$($seen.value)",
+                        $(if ($when) { $when.ToString('HH:mm:ss') } else { '?' }))
+        } else {
+            $lines += ("{0} : jamais relevée" -f $s.Key)
+        }
+    }
+
+    # ELLE TOURNE, OU ELLE NE TOURNE PLUS. Un releve plus vieux que trois fois sa cadence
+    # la plus lente n'est pas un retard, c'est un arret.
+    $staleAfter = ([int](($sentinels | Measure-Object Seconds -Maximum).Maximum)) * 3
+    $stopped = $never.Count -eq $sentinels.Count
+    if (-not $stopped -and $oldest) { $stopped = ((Get-Date) - $oldest).TotalSeconds -gt $staleAfter }
+
+    $fields += New-Field -Key 'veille' -Label 'Veille' `
+        -Value $(if ($stopped) { 'À l''arrêt' } else { "$($sentinels.Count) sentinelle(s)" }) `
+        -Kind 'text' -Status $(if ($stopped) { 'warn' } else { 'ok' }) `
+        -FixAction $(if ($stopped) { 'server-restart' } else { $null }) `
+        -Help "Les relevés que l'app serveur exécute en permanence, même sans session ouverte. Quand l'un d'eux change de valeur, les cartes concernées sont recalculées." `
+        -Guide ($lines -join [Environment]::NewLine)
+}
+
 # LE SORT DE LA DERNIERE OPERATION lancee depuis cette carte (D82).
 $dernier = New-LastRunField -Module 'vigie-debug' -Backend $backend
 if ($dernier) { $fields += $dernier }
