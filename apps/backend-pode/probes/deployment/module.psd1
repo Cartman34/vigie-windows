@@ -5,6 +5,8 @@
     # en particulier : elle compare une installation a sa source. Elle peut donc etre
     # differee vers le rafraichissement de fond, alors qu'une carte par compte est
     # toujours calculee dans la requete -- ce qui faisait durer /state jusqu'a 52 secondes.
+    # LE GROUPE : cette carte se lit avec celle des comptes, pas dans un groupe a elle.
+    Theme       = 'accounts'
     Label       = 'Déploiement'
     Description = 'Ce que lancent les autres comptes : version en place, interpréteur, tâches de démarrage.'
 

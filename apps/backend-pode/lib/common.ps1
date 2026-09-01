@@ -1328,8 +1328,16 @@ function New-ToolsMissingResult {
 }
 
 function Get-ApiToken {
-    param([string]$Backend = (Get-BackendRoot))
-    $dir  = Get-VarPath -Backend $Backend -Kind 'secrets'
+    <#
+        LE JETON DU SERVEUR VIT CHEZ LE SERVEUR.
+
+        Sans « -VarRoot », cette fonction rend le jeton de CELUI QUI EXECUTE : lancee par
+        l'installation, sous le compte de la personne, elle rendait le jeton de fhaza et
+        le serveur repondait 401. Les deux cartes que l'installation redemandait n'ont
+        donc jamais ete recalculees (constate le 01/09).
+    #>
+    param([string]$Backend = (Get-BackendRoot), [string]$VarRoot)
+    $dir  = Get-VarPath -Backend $Backend -VarRoot $VarRoot -Kind 'secrets'
     $file = Join-Path $dir 'api.token'
     if (-not (Test-Path $file)) {
         New-Item -ItemType Directory -Path $dir -Force | Out-Null
@@ -4083,11 +4091,16 @@ function Get-State {
         $e = $cache[(Get-ProbeCacheKey -ProbeFile $pf.FullName -Account $stateRequester)]
         if ($e -and $e.module) { continue }
         $cardLabel = $unit
+        $cardTheme = $unit
         try {
             $decl = Import-PowerShellDataFile -Path (Join-Path (Split-Path $pf.FullName -Parent) 'module.psd1')
             if ($decl.Label) { $cardLabel = "$($decl.Label)" }
+            # LE GROUPE EST DECLARE, sinon le dossier sert de defaut. « deployment » n'est
+            # pas un groupe : sa carte se lit sous « Comptes », et l'en-tete affichait
+            # « DEPLOYMENT » en anglais faute de le savoir.
+            if ($decl.Theme) { $cardTheme = "$($decl.Theme)" }
         } catch { }
-        $modules += (New-ModuleObject -Id $unit -Theme $unit -Label $cardLabel -Status 'neutral' -Fields @() -Actions @())
+        $modules += (New-ModuleObject -Id $unit -Theme $cardTheme -Label $cardLabel -Status 'neutral' -Fields @() -Actions @())
         $chrono[$unit] = 0
         try { Add-Member -InputObject $modules[-1] -NotePropertyName 'pending' -NotePropertyValue $true -Force } catch { }
     }

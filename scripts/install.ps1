@@ -885,9 +885,15 @@ try {
 
             Un echec ici ne compte pas : la carte reviendra au premier clic sur son bouton.
         #>
-        $jeton = $null
-        try { $jeton = Get-ApiToken -Backend (Join-Path $destPartagee 'apps/backend-pode') } catch { }
-        if ($jeton) {
+        $apiToken = $null
+        # CHEZ LE SERVICE : c'est SON jeton qu'il faut, pas celui du compte qui installe.
+        # Sans cela, le serveur repondait 401 et les deux cartes n'etaient jamais
+        # recalculees (constate le 01/09 dans le journal d'installation).
+        try {
+            $apiToken = Get-ApiToken -Backend (Join-Path $destPartagee 'apps/backend-pode') `
+                                     -VarRoot (Get-AccountVarRoot -Account (Get-ServiceAccountName))
+        } catch { }
+        if ($apiToken) {
             $adresse = try { Get-AppUrl -Config (Get-Config -Backend $backend) } catch { 'http://127.0.0.1:47600' }
             # ON ATTEND QU'IL REPONDE. La tache serveur vient de le relancer : il met une
             # minute a ouvrir son port, et sans cette attente les deux demandes partaient
@@ -905,7 +911,7 @@ try {
                 try {
                     $null = Invoke-RestMethod -Method Get -TimeoutSec 90 `
                                 -Uri ($adresse.TrimEnd('/') + '/api/v1/modules/' + $carte + '?fresh=1') `
-                                -Headers @{ Authorization = ('Bearer ' + $jeton) }
+                                -Headers @{ Authorization = ('Bearer ' + $apiToken) }
                     Write-Detail (Get-Label 'install.carte-redemandee' $carte)
                 } catch {
                     Write-Detail (Get-Label 'install.carte-non-redemandee' $carte $_.Exception.Message)
