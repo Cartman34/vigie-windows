@@ -467,8 +467,10 @@ try {
         $pctBatterie = [int]$bat.EstimatedChargeRemaining
     }
 } catch { }
-$plan = ''
-try { if ((powercfg /getactivescheme) -match '\(([^)]+)\)') { $plan = $Matches[1] } } catch { }
+# LE MODE D'ALIMENTATION N'EST PAS DIT ICI. powercfg rend celui du compte qui execute --
+# le service -- et pas celui du joueur : une valeur juste par hasard. La machine et son
+# alimentation sont le sujet de la carte Alimentation ; cette carte-ci ne dit que l'effet
+# sur la partie.
 
 # --- Le jeu et les pompeurs ---------------------------------------------------
 if ($jeu) {
@@ -555,11 +557,10 @@ if (-not $surSecteur) {
         -Status $(if ($rendering) { 'warn' } else { 'neutral' }) `
         -FixAction 'open-power-options' `
         -Help "Sur batterie, processeur et carte graphique sont bridés : performances de jeu réduites." `
-        -Guide ((@($(if ($rendering) { "Branchez le secteur pour la partie." } else { "Rien ne rend en 3D pour l'instant : la bride n'a pas d'effet visible." })) +
-                 @($(if ($plan) { "Plan d'alimentation actif : $plan." }))) -join "`n")
+        -Guide $(if ($rendering) { "Branchez le secteur pour la partie." } else { "Rien ne rend en 3D pour l'instant : la bride n'a pas d'effet visible." })
 } else {
     $fields += New-Field -Key 'power' -Label 'Alimentation' `
-        -Value ("Secteur" + $(if ($plan) { " " + [char]0x00B7 + " $plan" })) -Kind 'text' -Status 'ok' `
+        -Value 'Secteur' -Kind 'text' -Status 'ok' `
         -Help "Sur secteur, la machine donne toute sa puissance."
 }
 
