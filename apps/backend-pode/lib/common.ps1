@@ -3374,6 +3374,31 @@ function Get-WatchMemoryPath {
     Elle execute les releves DUS, compare, et sur changement fait recalculer les cartes
     declarees PAR LE CHEMIN EXISTANT (Get-State -Only). Aucun second mecanisme.
 #>
+# Une ligne d'historique pour une sentinelle : l'etat atteint, celui d'ou l'on vient, et
+# les cartes que le changement a fait recalculer. Best-effort de bout en bout : la veille
+# OBSERVE, elle n'arbitre pas -- une ecriture qui echoue ne doit jamais empecher un
+# recalcul de partir.
+function Write-SentinelSample {
+    param(
+        [string]$Backend = (Get-BackendRoot),
+        [Parameter(Mandatory)][string]$Key,
+        [string]$From,
+        [Parameter(Mandatory)][string]$To,
+        [string[]]$Cards = @()
+    )
+    try {
+        $cfg = Get-Config -Backend $Backend
+        if (-not (Get-HistoryConfig -Backend $Backend -Config $cfg).Enabled) { return }
+        $id = Get-SentinelMeasureId -Key $Key
+        if (-not (Get-HistoryConfig -Backend $Backend -MeasureId $id -Config $cfg).Enabled) { return }
+        $obj = [ordered]@{ at = ([datetime]::UtcNow).ToString('o'); v = $To }
+        if ($From) { $obj.from = $From }
+        if ($Cards.Count) { $obj.cards = @($Cards) }
+        $file = Get-VarPath -Backend $Backend -Kind 'history' -File ($id + '.jsonl')
+        $null = Add-HistoryLine -Path $file -Line ($obj | ConvertTo-Json -Compress -Depth 4)
+    } catch { }
+}
+
 function Invoke-WatchPass {
     param([string]$Backend = (Get-BackendRoot))
     $memoryPath = Get-WatchMemoryPath -Backend $Backend
@@ -3405,6 +3430,14 @@ function Invoke-WatchPass {
         $before = $(if ($known) { "$($known.value)" } else { $null })
         $memory[$w.Key] = @{ value = $value; at = $now.ToString('o') }
         $changed = $true
+        # UN RELEVE QUI CHANGE FAIT UNE LIGNE D'HISTOIRE. La memoire de veille ne garde
+        # que le dernier etat -- elle repond a « ou en est-on ? », jamais a « depuis
+        # quand ? » ni « combien de fois cette nuit ? ». L'historique, lui, garde la
+        # suite des etats ET ce que chacun a declenche : c'est la trace de l'alerte.
+        # Le tout premier releve est note aussi, sinon la serie commence dans le vide.
+        if ($null -eq $before -or $before -ne $value) {
+            Write-SentinelSample -Backend $Backend -Key $w.Key -From $before -To $value -Cards @($w.Cards)
+        }
         if ($null -ne $before -and $before -ne $value) {
             $events += [pscustomobject]@{ Key = $w.Key; Label = $w.Label; From = $before; To = $value; Cards = @($w.Cards) }
             $toRecompute += @($w.Cards)
@@ -3869,6 +3902,35 @@ function ConvertTo-HistoryWindow {
 # une gauge, tels quels pour un event -- ils sont rares) + summary calcule AVANT
 # decimation. Fichier absent ou vide = points vides, summary.count = 0 : un
 # historique jeune n'est pas une erreur.
+# LA DEFINITION D'UNE MESURE, catalogue ou SENTINELLE.
+#
+# Le catalogue est fige dans ce fichier ; les sentinelles, elles, sont declarees par les
+# modules (module.psd1, cle Sentinels) et ne peuvent donc pas y figurer. Leur mesure se
+# resout ici, a la volee : identifiant « watch.<cle> », nature 'event' -- un etat qui ne
+# s'ecrit QUE quand il change, exactement ce que la conception de l'historique appelle un
+# event. Rien n'est duplique : meme dossier var/history/, meme purge, meme route
+# GET /history/{measureId}.
+function Get-MeasureDefinition {
+    param(
+        [string]$Backend = (Get-BackendRoot),
+        [Parameter(Mandatory)][string]$MeasureId
+    )
+    $cat = $script:MeasureCatalog[$MeasureId]
+    if ($cat) { return $cat }
+    if ($MeasureId -notlike 'watch.*') { return $null }
+    $key = $MeasureId.Substring(6)
+    $w = @(Get-WatchDeclarations -Backend $Backend | Where-Object { "$($_.Key)" -eq $key })[0]
+    if (-not $w) { return $null }
+    return @{ Probe = ''; Kind = 'event'; Unit = ''; IntervalMinutes = 0; Label = "$($w.Label)" }
+}
+
+# L'identifiant d'historique d'une sentinelle. UN SEUL endroit le fabrique : la lecture
+# et l'ecriture ne peuvent pas diverger.
+function Get-SentinelMeasureId {
+    param([Parameter(Mandatory)][string]$Key)
+    return ('watch.' + $Key)
+}
+
 function Get-MeasureHistory {
     param(
         [string]$Backend = (Get-BackendRoot),
@@ -3877,7 +3939,7 @@ function Get-MeasureHistory {
         [string]$WindowLabel = '',
         [int]$MaxPoints = 200
     )
-    $cat = $script:MeasureCatalog[$MeasureId]
+    $cat = Get-MeasureDefinition -Backend $Backend -MeasureId $MeasureId
     if (-not $cat) { return $null }
     $file = Get-VarPath -Backend $Backend -Kind 'history' -File ($MeasureId + '.jsonl')
     $lines = @()
@@ -3913,6 +3975,14 @@ function Get-MeasureHistory {
         try { $at = ConvertTo-UtcDate $o.at } catch { continue }
         if (-not $at -or $null -eq $o.v) { continue }
         if ($at -lt $cutoff) { continue }
+        # UN EVENT N'EST PAS UN NOMBRE. Sa valeur est un etat (« oui », « Actif »,
+        # « erreur: ... ») : la passer a TryParse la jetterait purement et simplement.
+        # On garde aussi d'ou l'on vient et ce que le changement a declenche : c'est ce
+        # qui fait la difference entre une valeur et une ALERTE.
+        if ("$($cat.Kind)" -eq 'event') {
+            $pts.Add([pscustomobject]@{ atUtc = $at; v = "$($o.v)"; from = "$($o.from)"; cards = @($o.cards) })
+            continue
+        }
         $v = 0.0
         if (-not [double]::TryParse("$($o.v)", [Globalization.NumberStyles]::Float,
                 [Globalization.CultureInfo]::InvariantCulture, [ref]$v)) { continue }
@@ -3922,7 +3992,11 @@ function Get-MeasureHistory {
     # Summary sur TOUS les points de la fenetre, avant decimation : la decimation
     # peut faire sauter l'extreme, le resume ne doit pas le perdre.
     $summary = [ordered]@{ count = $sorted.Count; min = $null; max = $null; first = $null; last = $null }
-    if ($sorted.Count -gt 0) {
+    if ($sorted.Count -gt 0 -and "$($cat.Kind)" -eq 'event') {
+        $summary.first = $sorted[0].v
+        $summary.last  = $sorted[$sorted.Count - 1].v
+    }
+    elseif ($sorted.Count -gt 0) {
         $mesures = $sorted | Measure-Object -Property v -Minimum -Maximum
         $summary.min   = $mesures.Minimum
         $summary.max   = $mesures.Maximum
@@ -3948,7 +4022,10 @@ function Get-MeasureHistory {
         kind      = "$($cat.Kind)"
         unit      = "$($cat.Unit)"
         window    = $WindowLabel
-        points    = @($kept | ForEach-Object { [ordered]@{ at = $_.atUtc.ToString('o'); v = $_.v } })
+        points    = @($kept | ForEach-Object {
+            $pt = [ordered]@{ at = $_.atUtc.ToString('o'); v = $_.v }
+            if ("$($cat.Kind)" -eq 'event') { $pt.from = $_.from; $pt.cards = @($_.cards) }
+            $pt })
         summary   = $summary
     }
 }

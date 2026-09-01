@@ -34,6 +34,8 @@
   Une <b>sentinelle</b> est une lecture <b>bon marché</b> qui rend <b>une valeur comparable</b>. L’app serveur les
   exécute à leur cadence, même sans session ouverte ; quand une valeur <b>change</b>, elle émet un événement et fait
   recalculer les cartes déclarées. Elle ne calcule jamais de carte d’elle-même.
+  <br>Chaque changement laisse une <b>ligne d’historique</b> (<code>watch.&lt;clé&gt;</code>) : l’état atteint, celui
+  d’où l’on vient, et les cartes recalculées — la mémoire de veille dit où on en est, l’historique dit depuis quand.
   <br>Conception : <code>doc/progress/targeting/surveillance.md</code> — schéma sur <a href="schemas.html">la page des schémas</a>.
 </div>
 
