@@ -95,6 +95,10 @@ nécessaire pour répondre. Il pose souvent des questions pour éprouver un rais
 moment-là court-circuite sa décision. Répondre d'abord, complètement. Si l'action est évidente, la proposer en une
 phrase à la fin plutôt que de l'exécuter.
 
+**On annonce AVANT, on conclut APRES.** Une phrase avant de commencer — ce que je vais faire — puis le silence
+pendant, puis le résultat. Vingt-quatre minutes sans nouvelle, c'est le laisser deviner si je travaille, si j'ai
+compris, ou si je me suis perdu.
+
 **Une installation se DEMANDE, jamais elle ne se lance d'elle-même.** Le message qui la propose porte d'abord les
 correctifs — cause, correction, une phrase chacun — puis la demande de la lancer. Il valide, ensuite on lance. Déployer
 sans avoir dit ce qu'on déploie lui retire le seul moment où il peut dire non.
