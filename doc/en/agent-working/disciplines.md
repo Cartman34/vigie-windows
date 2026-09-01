@@ -295,5 +295,19 @@ en silence.* `scripts/dev/check-coherence.ps1` attrape désormais ces deux derni
 - `server.ps1` / `start.ps1` → **redémarrage serveur** requis.
 - `apps/frontend-web/index.html` → auto-reload via version.
 
+## Où va ce qui est daté — `local/`, `notes/`, `doc/`
+
+**La documentation ne contient rien de temporel.** Un constat daté qui s'y glisse vieillit sur place et finit par
+mentir : `decisions.md` porte les arbitrages, `targeting/` ce que le produit doit faire, `implemented/` ce qui est en
+place, `agent-working/` la manière de travailler. Aucun de ces fichiers ne raconte une journée.
+
+| | | |
+|---|---|---|
+| `local/` | **ignoré par git** | jetable : scripts temporaires, extractions, fichiers de travail, suivi personnel |
+| `notes/` | versionné | daté mais utile : extraits de preuves, mesures, morceaux d'échange gardés en référence |
+| `doc/` | versionné | intemporel |
+
+Un fichier de `notes/` porte sa date dans son nom (`2026-08-31-etat-lent.md`) : on sait sans l'ouvrir s'il sert encore.
+
 ## Documentation (toujours à jour)
 - `briefing.md` (reprise à tout moment), `CHANGELOG.md`, `doc/en/developing/conventions.md`, `doc/progress/targeting/features.md`.
