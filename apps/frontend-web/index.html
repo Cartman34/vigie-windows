@@ -1184,14 +1184,12 @@ function renderState(s, mode){
                     .sort((a,b)=>b.ms-a.ms).slice(0,3).map(m=>`${m.label} : ${m.ms} ms`);
     if(rows.length){
       meta.textContent += ` · ${Math.round(total)} ms`;
-      meta.title = L('ui.temps-de-reponse')+'
-'+rows.join('
-')
-                 + (slowest.length?('
-
-'+L('ui.cartes-les-plus-lentes')+'
-'+slowest.join('
-')):'');
+      // LES SAUTS DE LIGNE SONT CONSTRUITS, PAS ECHAPPES. Ecrits « backslash-n » depuis
+      // un script, ils sont devenus de VRAIS retours a la ligne dans une chaine JS : la
+      // page ne se chargeait plus du tout, bloquee sur son ecran d'attente (01/09).
+      const saut = String.fromCharCode(10);
+      meta.title = L('ui.temps-de-reponse') + saut + rows.join(saut)
+                 + (slowest.length ? (saut + saut + L('ui.cartes-les-plus-lentes') + saut + slowest.join(saut)) : '');
     }
   }catch(e){}
   setMachineName(s.host);
