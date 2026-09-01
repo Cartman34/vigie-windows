@@ -259,6 +259,15 @@ pwsh -File scripts/dev/restore-context.ps1 -Court   # sans le texte des discipli
 | « on avait décidé que » | `decisions.ps1 -About`. Une incohérence sans décision se demande. |
 | « c'est éprouvé » | les vérificateurs, relancés **maintenant**. |
 
+## Une conception porte son schéma
+
+**Un mécanisme qui met en jeu plusieurs pièces se dessine.** Qui déclenche, qui lit, qui écrit, dans quel ordre, et où
+ça s'arrête : un paragraphe le décrit mal, un schéma le montre. Il se lit en ASCII dans le document — pas d'outil, pas
+de rendu à installer, et il reste juste dans un terminal comme dans un navigateur.
+
+*Le 01/09 : j'ai décrit une boucle de surveillance en trois paragraphes, et implémenté autre chose que ce qui avait
+été demandé sans que la différence se voie.*
+
 ## Chercher avant de concevoir
 
 **La source de vérité, c'est `doc/progress/decisions.md`** — les arbitrages, rien d'autre. Avant de concevoir quoi que

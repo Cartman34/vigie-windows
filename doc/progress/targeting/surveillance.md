@@ -1,64 +1,94 @@
-# Surveillance permanente — ce que Vigie mesure quand personne ne regarde
+# Surveillance permanente — des relevés, des événements, puis des cartes
 
-Arbitrages : **D54** (une notification est un événement nommé), **D48** (un module se déclare).
-Besoin : `features.md`, entrée `CORE-WATCH`. État actuel : `../implemented/identity.md`.
+Arbitrages : **D54** (une notification est un événement nommé), **D48** (un module se déclare), **D57** (les réglages
+d'un module vivent dans son `module.psd1`).
+Besoin : `features.md`, entrée `CORE-WATCH`. État : `../implemented/identity.md`.
 
 ## Le manque
 
-Aujourd'hui, **un recalcul n'a lieu que si quelqu'un demande quelque chose**. Le rafraîchissement de fond est déclenché
-par une requête ; l'app cliente en émet une par minute, ce qui l'entretient tant qu'une session est ouverte. Fermez
-toutes les sessions, et plus rien n'est mesuré : aucune notification ne peut partir, et la première page ouverte le
-lendemain sert des mesures de la veille.
+Un recalcul n'a lieu que si quelqu'un demande quelque chose. Fermez toutes les sessions : plus rien n'est mesuré, donc
+aucune notification ne peut partir, et la première page ouverte le lendemain sert les mesures de la veille.
 
-C'est contradictoire avec ce que Vigie promet — surveiller — et avec les notifications, qui n'ont de sens que si
-quelqu'un observe en continu.
+## Ce qu'on veut, et ce qu'on ne veut pas
 
-## Ce qu'on veut
+**On ne veut PAS recalculer des cartes en boucle.** Une carte coûte cher — la carte Déploiement met treize secondes —
+et la plupart de ce qu'elle contient ne bouge pas dans la minute.
 
-**L'app serveur surveille en permanence.** Elle tourne déjà sous son compte de service, sans session, au démarrage de
-l'ordinateur : c'est le seul endroit d'où l'on peut observer quand personne n'est là.
+**On veut RELEVER en permanence quelques faits précis, bon marché**, déclarés par chaque module : « Internet
+répond-il ? », « le verrou des tâches tient-il ? », « le service tourne-t-il ? ». Quand un relevé **change**, il émet un
+**événement**, et c'est cet événement qui fait recalculer **les cartes que le module a désignées**.
+
+Un relevé qui ne change pas ne coûte rien de plus qu'une lecture.
+
+## Le schéma
+
+```
+                        app serveur (compte de service, tourne depuis le démarrage)
+                        ┌──────────────────────────────────────────────────────────┐
+   toutes les minutes → │  BOUCLE DE VEILLE                                        │
+                        │    pour chaque relevé DÛ (cadence dépassée) :            │
+                        │      ┌────────────────────────────────────────────┐      │
+                        │      │  <clé>.watch.ps1   → une valeur comparable │      │
+                        │      └────────────────────────────────────────────┘      │
+                        │                    │                                     │
+                        │        valeur identique ?  ──── oui ──→ rien             │
+                        │                    │                                     │
+                        │                   non                                    │
+                        │                    ↓                                     │
+                        │            ÉVÉNEMENT « <clé> a changé »                  │
+                        │                    ↓                                     │
+                        │      Get-State -Only <sonde des cartes déclarées>        │
+                        │            (le chemin existant, pas un autre)            │
+                        └──────────────────────────────────────────────────────────┘
+                                             ↓
+                                    cache d'état mis à jour
+                                             ↓
+                        ┌────────────────────┴─────────────────────┐
+                        ↓                                          ↓
+                 app cliente                                   panneau
+          (lit l'état chaque minute)                  (sondage régulier /state)
+                        ↓                                          ↓
+          bascule d'un champ → notification            la carte affiche la nouvelle valeur
+                    (D54, inchangé)
+```
+
+Ce que le schéma dit, et qu'il faut retenir : **la boucle ne calcule pas de carte**. Elle relève, elle compare, et
+c'est le *changement* qui déclenche un recalcul — par le chemin que tout le monde emprunte déjà.
+
+## Comment un module déclare un relevé
+
+Dans son dossier, un fichier `<clé>.watch.ps1` : il fait UNE lecture bon marché et rend UNE valeur comparable — un
+booléen, un nombre, une chaîne courte. Rien d'autre : pas de carte, pas de champ, pas de mise en forme.
+
+Dans son `module.psd1`, la clé `Veille` dit la cadence et ce que l'événement doit faire recalculer :
+
+    Veille = @(
+        @{ Key = 'internet'; Label = 'Connexion Internet'; Secondes = 60; Cartes = @('net') }
+    )
 
 | | |
 |---|---|
-| une boucle **dans l'app serveur** | pas un processus de plus, pas une tâche planifiée de plus |
-| elle recalcule **une sonde à la fois** | jamais toutes ensemble — la règle ne change pas |
-| elle choisit **la plus urgente** | urgence déclarée par le module, plus le retard accumulé |
-| elle **ne bloque personne** | les requêtes continuent d'être servies pendant |
-| elle **se tait** pendant une installation | le verrou d'installation la met en pause |
+| `Key` | le nom du relevé — c'est aussi le nom du fichier `<clé>.watch.ps1` |
+| `Label` | ce qu'on lit dans le journal quand l'événement part |
+| `Secondes` | à quelle cadence relever. Ce qui coupe : 60. Ce qui dérive : 900. |
+| `Cartes` | les cartes à recalculer quand la valeur change — celles du module, personne d'autre |
 
-## L'urgence se déclare, elle ne se devine pas
+## Ce que fait la boucle
 
-Chaque module déclare dans son `module.psd1` à quelle cadence ses sondes méritent d'être revues **quand personne ne
-regarde**. Trois niveaux, pas plus : au-delà, on invente des réglages que personne n'ajuste.
+Une fois par minute, dans l'app serveur — elle tourne déjà sous son compte de service, sans session :
 
-| niveau | cadence visée | pour quoi |
-|---|---|---|
-| `haute` | ~1 minute | ce qui coupe : connexion, service, verrou Windows Update |
-| `normale` | ~15 minutes | ce qui dérive : espace disque, mises à jour en attente, sécurité |
-| `basse` | ~12 heures | ce qui ne bouge presque jamais : version de Windows, comptes, matériel |
+1. elle prend les relevés **dus** (dernier relevé plus vieux que leur cadence) ;
+2. elle exécute chacun — c'est bon marché, c'est la condition pour que ce soit permanent ;
+3. **si la valeur a changé**, elle journalise l'événement et fait recalculer les cartes déclarées, **par le chemin
+   existant** : `Get-State -Only <sonde>`, celui qu'utilisent déjà le bouton d'une carte et le rafraîchissement de fond ;
+4. sinon, elle ne fait rien de plus.
 
-**Sans déclaration : `normale`.** Le silence ne doit ni réveiller la machine toutes les minutes, ni laisser une carte
-dormir un jour entier.
+Elle se tait pendant une **installation** (le verrou d'installation le dit) : les fichiers changent sous ses pieds.
 
-**`aucune`** existe aussi, pour une sonde qui n'a de sens que sur demande — une mesure de débit consomme la ligne, elle
-ne se lance pas toute seule.
+## Ce que ça n'est pas
 
-## Comment la boucle choisit
-
-À chaque tour — une fois par minute —, elle prend **la sonde la plus en retard par rapport à sa propre cadence**, et
-elle en prend **une seule**. C'est le même classement que pour le rafraîchissement déclenché par une requête : la
-règle est écrite une fois et sert aux deux.
-
-Une sonde `aucune` n'entre jamais dans le classement.
-
-## Ce que ça change pour les notifications
-
-Elles deviennent **vraies**. Une coupure de connexion, un service arrêté, un verrou qui saute : constatés dans la
-minute, même écran verrouillé. C'est ce que D54 décrit depuis le début et que le déclenchement par requête ne pouvait
-pas tenir.
-
-## Ce que ça ne doit pas devenir
-
-- **Une machine qui chauffe.** Une sonde par minute, jamais deux à la fois : c'est le plafond, et il ne se règle pas.
-- **Un second chemin.** La boucle appelle le même `Get-State -Only` que tout le reste ; elle ne recalcule rien elle-même.
-- **Un bruit de fond.** Une notification reste un événement nommé, déclaré par le module, et ne se répète pas (D54).
+- **Pas un second chemin de recalcul.** Le recalcul passe par `Get-State -Only`, comme le reste.
+- **Pas un doublon des notifications (D54).** L'événement fait recalculer ; la notification, elle, naît de la bascule
+  d'un champ de carte, et ce mécanisme ne change pas. La boucle rend simplement les bascules **possibles** quand
+  personne ne regarde.
+- **Pas un réglage de plus.** La cadence et les cartes sont déclarées avec le module, à côté de ce qu'elles décrivent.
