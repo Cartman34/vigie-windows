@@ -3318,65 +3318,119 @@ $script:ThemeCatalog = @(
 )
 
 <#
-    L'URGENCE D'UNE SONDE : A QUELLE CADENCE LA REVOIR QUAND PERSONNE NE REGARDE.
+    LA VEILLE : DES RELEVES BON MARCHE, ET UN EVENEMENT QUAND LA VALEUR CHANGE.
 
-    Declaree par le module (module.psd1, cle « Surveillance »), jamais devinee. Trois
-    niveaux, pas plus : au-dela on invente des reglages que personne n'ajuste.
+    Ce n'est PAS un recalcul de cartes en boucle. Une carte coute cher -- treize secondes
+    pour le deploiement -- et l'essentiel de ce qu'elle contient ne bouge pas dans la
+    minute. On releve donc quelques FAITS precis et bon marche, declares par chaque
+    module ; quand un releve change, il emet un evenement, et c'est l'evenement qui fait
+    recalculer les cartes que le module a designees.
 
-      haute   ~1 minute    ce qui coupe : connexion, service, verrou Windows Update
-      normale ~15 minutes  ce qui derive : disque, mises a jour en attente, securite
-      basse   ~12 heures   ce qui ne bouge presque jamais : version de Windows, comptes
-      aucune               ne se lance jamais seule -- une mesure de debit consomme la ligne
+    Un module declare :
+      - un fichier « <cle>.watch.ps1 » dans son dossier : UNE lecture, UNE valeur
+        comparable (booleen, nombre, chaine courte). Rien d'autre.
+      - une entree « Veille » dans son module.psd1 : cadence et cartes a recalculer.
 
-    Sans declaration : normale. Le silence ne doit ni reveiller la machine toutes les
-    minutes, ni laisser une carte dormir un jour entier.
+    Le detail : doc/progress/targeting/surveillance.md.
 #>
-$script:WatchPaces = @{ haute = 60; normale = 900; basse = 43200 }
+function Get-WatchDeclarations {
+    param([string]$Backend = (Get-BackendRoot))
+    $probesDir = Join-Path $Backend 'probes'
+    if (-not (Test-PathSafe $probesDir)) { return @() }
+    $off = @(Get-InactiveUnits -Backend $Backend)
+    $out = @()
+    foreach ($dir in @(Get-ChildItem -LiteralPath $probesDir -Directory -ErrorAction SilentlyContinue)) {
+        if ($off -contains $dir.Name) { continue }
+        $decl = $null
+        try { $decl = Import-PowerShellDataFile -Path (Join-Path $dir.FullName 'module.psd1') } catch { }
+        if (-not $decl -or -not $decl.Veille) { continue }
+        foreach ($v in @($decl.Veille)) {
+            if (-not $v.Key) { continue }
+            $script = Join-Path $dir.FullName ("$($v.Key).watch.ps1")
+            if (-not (Test-PathSafe $script)) { continue }
+            $out += [pscustomobject]@{
+                Unit     = $dir.Name
+                Key      = "$($v.Key)"
+                Label    = $(if ($v.Label) { "$($v.Label)" } else { "$($v.Key)" })
+                Seconds  = $(if ($v.Secondes) { [int]$v.Secondes } else { 900 })
+                Cards    = @($v.Cartes)
+                Script   = $script
+            }
+        }
+    }
+    return $out
+}
 
-function Get-ProbeWatchSeconds {
-    param([Parameter(Mandatory)][string]$ProbeFile)
-    $decl = $null
-    try { $decl = Import-PowerShellDataFile -Path (Join-Path (Split-Path $ProbeFile -Parent) 'module.psd1') } catch { }
-    $niveau = 'normale'
-    if ($decl -and $decl.Surveillance) { $niveau = "$($decl.Surveillance)".Trim().ToLowerInvariant() }
-    if ($niveau -eq 'aucune') { return 0 }
-    if ($script:WatchPaces.ContainsKey($niveau)) { return [int]$script:WatchPaces[$niveau] }
-    return [int]$script:WatchPaces['normale']
+# OU L'ON GARDE LA DERNIERE VALEUR RELEVEE. Un fichier, a cote du cache d'etat : ce n'est
+# ni une mesure a exposer, ni un reglage -- c'est le souvenir de la boucle.
+function Get-WatchMemoryPath {
+    param([string]$Backend = (Get-BackendRoot))
+    Get-VarPath -Backend $Backend -Kind 'cache' -File 'watch.json'
 }
 
 <#
-    LA SONDE A REVOIR MAINTENANT, ou $null. C'est la boucle de surveillance qui appelle.
+    UN TOUR DE VEILLE. Rend la liste des evenements emis, ou un tableau vide.
 
-    Le classement est le meme que pour le rafraichissement declenche par une requete : la
-    plus en retard PAR RAPPORT A SA PROPRE CADENCE. Ecrit une fois, il sert aux deux.
+    Elle execute les releves DUS, compare, et sur changement fait recalculer les cartes
+    declarees PAR LE CHEMIN EXISTANT (Get-State -Only). Aucun second mecanisme.
 #>
-function Get-ProbeToWatch {
+function Invoke-WatchPass {
     param([string]$Backend = (Get-BackendRoot))
-    $probesDir = Join-Path $Backend 'probes'
-    if (-not (Test-PathSafe $probesDir)) { return $null }
-    $cacheFile = Get-VarPath -Backend $Backend -Kind 'cache' -File 'state-cache.json'
-    $cache = @{}
-    if (Test-PathSafe $cacheFile) {
-        try { $j = Get-Content $cacheFile -Raw | ConvertFrom-Json; foreach ($pr in $j.PSObject.Properties) { $cache[$pr.Name] = $pr.Value } } catch { }
+    $memoryPath = Get-WatchMemoryPath -Backend $Backend
+    $memory = @{}
+    if (Test-PathSafe $memoryPath) {
+        try { $j = Get-Content $memoryPath -Raw | ConvertFrom-Json; foreach ($p in $j.PSObject.Properties) { $memory[$p.Name] = $p.Value } } catch { }
     }
-    $off = @(Get-InactiveUnits -Backend $Backend)
     $now = [datetime]::UtcNow
-    $best = $null; $bestOverdue = 1.0
-    foreach ($pf in @(Get-ChildItem -Path $probesDir -Recurse -Filter '*.probe.ps1' -File -ErrorAction SilentlyContinue)) {
-        if ($off -contains (Split-Path (Split-Path $pf.FullName -Parent) -Leaf)) { continue }
-        $pace = Get-ProbeWatchSeconds -ProbeFile $pf.FullName
-        if ($pace -le 0) { continue }
-        # UNE CARTE PAR COMPTE NE SE SURVEILLE PAS. La boucle tourne sans session : elle
-        # ne saurait pas pour qui calculer, et ecrirait sous une cle anonyme que personne
-        # ne lit. Ces cartes-la se remplissent quand quelqu'un les regarde.
-        if (Test-ProbeIsPerAccount -ProbeFile $pf.FullName) { continue }
-        $entry = $cache[$pf.Name]
-        $age = $pace * 2
-        if ($entry -and $entry.at) { try { $age = ($now - (ConvertTo-UtcDate $entry.at)).TotalSeconds } catch { } }
-        $overdue = $age / $pace
-        if ($overdue -gt $bestOverdue) { $bestOverdue = $overdue; $best = $pf.Name }
+    $events = @()
+    $toRecompute = @()
+    $changed = $false
+
+    foreach ($w in @(Get-WatchDeclarations -Backend $Backend)) {
+        $known = $memory[$w.Key]
+        $due = $true
+        if ($known -and $known.at) {
+            try { $due = ($now - (ConvertTo-UtcDate $known.at)).TotalSeconds -ge $w.Seconds } catch { }
+        }
+        if (-not $due) { continue }
+
+        $value = $null
+        try { $value = "$(& $w.Script 2>$null | Select-Object -Last 1)".Trim() }
+        catch {
+            # UN RELEVE QUI ECHOUE EST UNE VALEUR COMME UNE AUTRE : « on ne sait pas » est
+            # un etat, et son apparition merite un evenement autant qu'un autre changement.
+            $value = 'erreur: ' + $_.Exception.Message
+        }
+
+        $before = $(if ($known) { "$($known.value)" } else { $null })
+        $memory[$w.Key] = @{ value = $value; at = $now.ToString('o') }
+        $changed = $true
+        if ($null -ne $before -and $before -ne $value) {
+            $events += [pscustomobject]@{ Key = $w.Key; Label = $w.Label; From = $before; To = $value; Cards = @($w.Cards) }
+            $toRecompute += @($w.Cards)
+        }
     }
-    return $best
+
+    if ($changed) {
+        try {
+            $tmp = "$memoryPath.tmp"
+            ($memory | ConvertTo-Json -Depth 6) | Out-File -FilePath $tmp -Encoding UTF8
+            Move-Item -Path $tmp -Destination $memoryPath -Force
+        } catch { }
+    }
+
+    foreach ($e in $events) {
+        Write-Log -Backend $Backend -Name 'state' -NoEcho `
+                  -Message ("veille : " + $e.Label + " passe de « " + $e.From + " » a « " + $e.To + " »")
+    }
+
+    # LES CARTES DESIGNEES, PAR LE CHEMIN EXISTANT. On vise les SONDES du dossier de la
+    # carte : c'est la meme resolution que le bouton d'une carte.
+    $cards = @($toRecompute | Where-Object { $_ } | Select-Object -Unique)
+    foreach ($card in $cards) {
+        try { $null = Get-State -Backend $Backend -ForceModule $card -WaitSeconds 30 } catch { }
+    }
+    return $events
 }
 
 # --- Agregation des sondes (journalisee) -----------------------------------

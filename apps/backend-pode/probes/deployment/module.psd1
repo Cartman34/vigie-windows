@@ -8,9 +8,6 @@
     # toujours calculee dans la requete -- ce qui faisait durer /state jusqu'a 52 secondes.
     # LE GROUPE : cette carte se lit avec celle des comptes, pas dans un groupe a elle.
     Theme       = 'accounts'
-    # SURVEILLANCE (CORE-WATCH) : a quelle cadence revoir ces sondes quand personne
-    # ne regarde. Un commit ou une version publiee : quelques minutes de retard ne genent personne.
-    Surveillance = 'normale'
     Label       = 'Déploiement'
     Description = 'Ce que lancent les autres comptes : version en place, interpréteur, tâches de démarrage.'
 

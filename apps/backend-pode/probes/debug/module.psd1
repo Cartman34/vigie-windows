@@ -1,9 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 @{
     # Declaration du MODULE (D48) : la sante de VIGIE ELLE-MEME.
-    # SURVEILLANCE (CORE-WATCH) : a quelle cadence revoir ces sondes quand personne
-    # ne regarde. L'etat de l'app serveur elle-meme : s'il tombe, tout le reste ment.
-    Surveillance = 'haute'
     Label       = 'Débogage'
     Description = 'L''état de Vigie elle-même : tâches de démarrage, dépendances, journaux.'
 

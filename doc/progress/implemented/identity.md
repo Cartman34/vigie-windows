@@ -120,23 +120,33 @@ elle voit ce que le serveur voit, avec les droits de son compte, sans lire chez 
 le cache**, donc aucun recalcul n'est provoqué. Une lecture par minute pour les notifications ; l'icône, elle, suit la
 santé du serveur toutes les huit secondes.
 
-## La surveillance permanente (CORE-WATCH)
+## La veille permanente (CORE-WATCH)
 
-L'app serveur porte un **minuteur d'une minute** : il choisit **une** sonde — la plus en retard par rapport à sa
-cadence déclarée — et la fait recalculer par un processus détaché. Elle tourne sous son compte de service dès le
-démarrage de l'ordinateur : c'est ce qui permet de mesurer, et donc de notifier, **quand aucune session n'est ouverte**.
+L'app serveur porte un **minuteur d'une minute**. Il n'exécute pas de cartes : il exécute les **relevés** déclarés par
+les modules — une lecture bon marché, une valeur comparable — et **seulement quand une valeur change**, il fait
+recalculer les cartes que le module a désignées, par `Get-State -ForceModule`, le chemin qu'emprunte déjà le bouton
+d'une carte.
 
-L'urgence est déclarée dans le `module.psd1` de chaque module, jamais déduite :
+```
+minuteur (60 s) ──→ relevés dus ──→ valeur identique ? ─oui─→ rien
+                                          │
+                                         non
+                                          ↓
+                                 événement journalisé
+                                          ↓
+                          recalcul des cartes déclarées
+                                          ↓
+                     l'app cliente voit la bascule → notification (D54)
+```
 
-| | | |
-|---|---|---|
-| `haute` | ~1 min | `network`, `windows-update`, `debug` — ce qui coupe |
-| `normale` | ~15 min | `system`, `security`, `wsl`, `deployment` — ce qui dérive |
-| `basse` | ~12 h | `tools`, `accounts` — ce qui ne bouge presque jamais |
-| `aucune` | — | `gaming` : la mesure consomme la machine, elle ne se lance que sur demande |
+Un module déclare un relevé par un fichier `<clé>.watch.ps1` dans son dossier (une lecture, une valeur) et une entrée
+`Veille` dans son `module.psd1` : `Key`, `Label`, `Secondes`, `Cartes`.
 
-Deux silences : pendant une **installation** (le verrou le dit), et pour les cartes **par compte** — la boucle tourne
-sans session, elle ne saurait pas pour qui calculer.
+Posé : `network/internet` — Internet répond-il — toutes les 60 s, qui recalcule la carte `net`. Éprouvé : premier tour
+sans événement (on apprend la valeur), tour immédiat sans rien faire (pas encore dû), et sur changement
+« Connexion Internet : non → oui (cartes net) ».
+
+La boucle se tait pendant une **installation** : le verrou le dit, et les fichiers changent sous ses pieds.
 
 Cible : [`../targeting/surveillance.md`](../targeting/surveillance.md).
 

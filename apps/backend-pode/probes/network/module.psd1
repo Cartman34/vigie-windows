@@ -4,9 +4,6 @@
     # Le label et la description servent a la vue de gestion des modules.
     # L'activation ne vit PAS ici : elle est un choix de l'utilisateur, dans
     # config/modules.local.psd1 (jamais versionne).
-    # SURVEILLANCE (CORE-WATCH) : a quelle cadence revoir ces sondes quand personne
-    # ne regarde. Une coupure de connexion doit se voir dans la minute.
-    Surveillance = 'haute'
     Label       = 'Réseau'
     Description = 'Connexion, Wi-Fi, adresses et débit.'
 
@@ -21,6 +18,13 @@
            Help = 'Au-delà de ce délai d''aller-retour, la latence passe en avertissement.' }
         @{ Key = 'LatencyErrorMs'; Label = 'Latence pénible dès'; Type = 'int'; Unit = 'ms'; Min = 100; Max = 1000; Step = 25
            Help = 'Au-delà de ce délai, la latence passe en erreur : jeu en ligne et visio pénibles.' }
+    )
+
+    # VEILLE (CORE-WATCH) : les releves bon marche que l'app serveur execute en
+    # permanence, meme sans session ouverte. Quand la valeur CHANGE, les cartes citees
+    # sont recalculees -- et c'est leur bascule qui produit la notification (D54).
+    Veille = @(
+        @{ Key = 'internet'; Label = 'Connexion Internet'; Secondes = 60; Cartes = @('net') }
     )
 
     # NOTIFICATIONS emises par ce module (D54) : un evenement nomme, pas un nom de
