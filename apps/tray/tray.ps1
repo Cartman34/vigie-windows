@@ -411,6 +411,7 @@ public static bool Focus(System.IntPtr h) {
         $openApp = {
             TLog "openApp demande"
 
+
             # DEJA OUVERTE ? On la ramene au premier plan au lieu d'en ouvrir une seconde.
             # Le suffixe est celui que pose le front (document.title = "<machine> - Vigie").
             $existante = [VigieNative.Win]::FindBySuffix(' — Vigie')
@@ -421,6 +422,33 @@ public static bool Focus(System.IntPtr h) {
                 }
                 TLog "openApp : fenetre trouvee mais impossible a activer - on en ouvre une"
             }
+
+            <#
+                LA FENETRE DEDIEE PASSE PAR LA MEME PORTE QUE LE NAVIGATEUR.
+
+                Deux chemins ouvraient le panneau : « Ouvrir dans le navigateur », qui
+                demandait une adresse d'ouverture, et le DOUBLE-CLIC, qui ouvrait l'adresse
+                nue. Le second ne s'identifiait donc pas : sur la session Famille, le
+                01/09, la fenetre s'est ouverte sur « cette fenetre n'est associee a aucun
+                compte », le panneau refusant desormais une fenetre sans session.
+
+                C'est ici et pas plus haut : une fenetre deja ouverte se ramene au premier
+                plan, et l'adresse d'ouverture ne sert qu'UNE fois -- la demander pour ne
+                pas s'en servir la gaspille.
+            #>
+            $signInUrl = $null
+            foreach ($attempt in 1..2) {
+                try { $signInUrl = Get-OpenUrl -BaseUrl $url -TimeoutSec (5 * $attempt) -Backend $backend } catch { }
+                if ($signInUrl) { break }
+                Start-Sleep -Milliseconds 700
+            }
+            if (-not $signInUrl) {
+                TLog "openApp : pas d'adresse d'ouverture, on n'ouvre pas"
+                & $dire -Titre (Get-Label 'tray.bulle-identite-titre') `
+                        -Texte (Get-Label 'tray.bulle-identite-texte') -Icone 'Warning' -Duree 8000
+                return
+            }
+            $url = $signInUrl
 
             # Le mode --app n'existe que sur les navigateurs Chromium.
             $chromium = @('chrome', 'msedge', 'brave', 'vivaldi', 'opera')
