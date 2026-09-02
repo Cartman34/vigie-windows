@@ -3344,15 +3344,14 @@ $script:ThemeCatalog = @(
     Le detail : doc/progress/targeting/surveillance.md.
 #>
 <#
-    LES BIBLIOTHEQUES DE JEUX DE LA MACHINE, lues une fois et gardees.
+    THE MACHINE'S GAME LIBRARIES, read once and kept.
 
-    Steam declare ses bibliotheques dans sa configuration, les autres boutiques
-    enregistrent le dossier de chaque jeu installe. Tout cela vit PAR UTILISATEUR pour
-    Steam et dans la base machine pour les autres : on lit donc ruche par ruche, jamais le
-    HKCU du compte de service (D113).
+    Steam declares its libraries in its configuration; other stores register the folder of
+    each installed game. All of it lives PER USER for Steam and in the machine store for the
+    others: we therefore read hive by hive, never the service account's HKCU (D113).
 
-    C est une des methodes d identification, et la plus limitee : elle ne connait que les
-    grosses boutiques. Un jeu independant lance sans plateforme n y sera jamais.
+    This is one identification method, and the most limited: it only knows the big stores.
+    An indie game launched without a platform will never be there.
 #>
 $script:GameLibraries = $null
 $script:GameLibrariesAt = [datetime]::MinValue
@@ -3412,19 +3411,18 @@ function Get-GameLibraryPaths {
 }
 
 <#
-    EST-CE UN JEU ? Plusieurs METHODES, une seule qui parle suffit.
+    IS IT A GAME? Several METHODS, and one that speaks is enough.
 
-    Les methodes vivent dans probes/gaming/identify/, un fichier chacune, rangees par
-    COUT : le nom du fichier porte son rang, et on s arrete a la premiere qui repond.
-    Aucune n est complete -- c est leur reunion qui l est --, et en ajouter une demain
-    coute un fichier, rien d autre.
+    They live in probes/gaming/identify/, one file each, ordered by COST: the file name
+    carries its rank, and we stop at the first that answers. None is complete -- their union
+    is -- and adding one tomorrow costs a file, nothing else.
 
-    ON NE JUGE JAMAIS SUR LE NOM d un executable (D64). Ce qui est ecarte d emblee l est
-    sur son EMPLACEMENT : ce qui vit dans le dossier de Windows n est pas un jeu.
+    WE NEVER JUDGE ON AN EXECUTABLE'S NAME (D64). What is ruled out upfront is ruled out on
+    its LOCATION: what lives in the Windows folder is not a game.
 
-    LES DEUX VERDICTS SE MEMORISENT -- jeu ET non-jeu. Un executable qui demarre cent fois
-    ne s examine qu une. La memoire porte l EMPRENTE DES CRITERES : un critere qui change,
-    une methode qu on ajoute, et tout se reexamine une fois.
+    BOTH VERDICTS ARE REMEMBERED -- game AND not-game. An executable that starts a hundred
+    times is examined once. The memory carries the CRITERIA FINGERPRINT: change a criterion,
+    add a method, and everything is examined again, once.
 #>
 function Get-GameCriteriaFingerprint {
     param([string]$Backend = (Get-BackendRoot))
@@ -3477,7 +3475,7 @@ function Test-ProcessIsGame {
         }
     }
 
-    # On garde la reponse, quelle qu elle soit.
+    # We keep the answer, whatever it is.
     $store = [ordered]@{ fingerprint = $fingerprint; verdicts = [ordered]@{} }
     if ($memory -and $memory.verdicts) {
         foreach ($prop in $memory.verdicts.PSObject.Properties) { $store.verdicts[$prop.Name] = $prop.Value }
@@ -3493,21 +3491,21 @@ function Test-ProcessIsGame {
 }
 
 <#
-    LES RESIDENTS : CE QUI VIT AVEC L APP SERVEUR (cible : targeting/residents.md).
+    RESIDENTS: WHAT LIVES ALONGSIDE THE SERVER APP (target: targeting/residents.md).
 
-    Tout le reste de Vigie se declenche -- une requete, un minuteur, un bouton. Un
-    RESIDENT, lui, reste en vie : il ecoute, il consomme, il tient un etat. Le premier
-    besoin qui l exige est l abonnement aux demarrages de processus, mais la mecanique ne
-    suppose RIEN de ce qu un resident fait.
+    Everything else in Vigie is triggered -- a request, a timer, a button. A RESIDENT stays
+    alive instead: it listens, it consumes, it holds a state. The first need that requires
+    one is the subscription to process starts, but the mechanism assumes NOTHING about what
+    a resident does.
 
-    Un module en declare un dans son module.psd1 :
+    A module declares one in its module.psd1:
 
         Residents = @(
             @{ Key = 'game'; Label = 'Detection des jeux' }
         )
 
-    et pose le script « <cle>.resident.ps1 » a cote. Le serveur l arme a son demarrage,
-    l arrete avec lui, le rearme s il meurt, et son etat se voit.
+    and drops a "<key>.resident.ps1" script next to it. The server arms it at startup, stops
+    it with itself, re-arms it if it dies, and its state is visible.
 #>
 function Get-ResidentDeclarations {
     param([string]$Backend = (Get-BackendRoot))
@@ -3535,9 +3533,9 @@ function Get-ResidentDeclarations {
     return $out
 }
 
-# L ETAT D UN RESIDENT, ecrit par LUI : il dit qu il est vivant en le reecrivant. Le
-# serveur ne fait que le lire -- un resident qui ne bat plus est mort, meme si son
-# processus existe encore.
+# A RESIDENT'S STATE, written by ITSELF: it says it is alive by rewriting it. The server
+# only reads it -- a resident that no longer beats is dead, even if its process still
+# exists.
 function Get-ResidentStatePath {
     param([string]$Backend = (Get-BackendRoot), [Parameter(Mandatory)][string]$Key)
     Get-VarPath -Backend $Backend -Kind 'run' -File ('resident-' + $Key + '.json')
@@ -3570,9 +3568,9 @@ function Set-ResidentState {
 }
 
 <#
-    VIVANT ? Deux conditions, et les deux comptent : son processus existe, et il a battu
-    recemment. Un processus fige repond a la premiere et pas a la seconde -- c est
-    exactement le cas qu on veut voir.
+    ALIVE? Two conditions, and both count: its process exists, and it has beaten recently.
+    A frozen process satisfies the first and not the second -- exactly the case we want to
+    see.
 #>
 function Test-ResidentAlive {
     param(
@@ -3589,16 +3587,16 @@ function Test-ResidentAlive {
 }
 
 <#
-    ARMER. Le resident tourne dans SON processus, pas dans une piste du serveur : Pode
-    recycle ses pistes, et un abonnement pose dans l une d elles disparaitrait sans un mot.
-    Un processus, lui, se voit, se surveille et se tue.
+    ARMING. A resident runs in ITS OWN process, not in one of the server's runspaces: Pode
+    recycles those, and a subscription placed in one would vanish without a word. A process
+    can be seen, watched and killed.
 
-    Il herite des droits du serveur -- c est ce qui permet a l abonnement aux demarrages de
-    processus d exister, refuse a une session ordinaire (constate le 02/09).
+    It inherits the server's rights -- that is what lets the process-start subscription
+    exist at all, since an ordinary session is denied (measured on 02/09).
 
-    LE NUMERO DU SERVEUR LUI EST DONNE : le resident s arrete quand le serveur s arrete.
-    C est la seule facon de tenir « aucun resident ne survit a l app serveur » sans laisser
-    d orphelin qu on ne saurait ni voir ni tuer.
+    THE SERVER'S PROCESS NUMBER IS HANDED OVER: the resident stops when the server stops.
+    That is the only way to hold "no resident outlives the server app" without leaving an
+    orphan nobody can see or kill.
 #>
 function Start-Resident {
     param(
@@ -3633,8 +3631,8 @@ function Stop-Resident {
 }
 
 <#
-    LE PASSAGE : arme ce qui manque, rearme ce qui est mort. Appele par la meme boucle
-    d une minute que les sentinelles -- un seul rythme, un seul endroit.
+    THE PASS: arms what is missing, re-arms what is dead. Called by the same one-minute
+    loop as the sentinels -- one rhythm, one place.
 #>
 function Invoke-ResidentPass {
     param([string]$Backend = (Get-BackendRoot))
@@ -3649,15 +3647,15 @@ function Invoke-ResidentPass {
     return $started
 }
 
-# CE QU ON PEUT DIRE DE CHAQUE RESIDENT, pour une carte ou un diagnostic : une surveillance
-# dont on ne sait pas si elle fonctionne ne vaut rien.
+# WHAT CAN BE SAID OF EACH RESIDENT, for a card or a diagnosis: a watch nobody knows the
+# health of is worth nothing.
 <#
-    VIVANT NE VEUT PAS DIRE OPERATIONNEL.
+    ALIVE DOES NOT MEAN OPERATIONAL.
 
-    Un resident dont le processus tourne et qui bat peut n avoir rien pose : l abonnement
-    lui a ete refuse, et il le dit dans son etat. Croire qu il travaille parce qu il
-    respire, c est exactement l erreur qui ferait annoncer « aucun jeu » alors qu on ne
-    mesure rien. L etat de ce qu il a pose remonte donc TOUJOURS, sans exception.
+    A resident whose process runs and beats may have placed nothing: its subscription was
+    denied, and it says so in its state. Believing it works because it breathes is exactly
+    the mistake that would announce "no game" while measuring nothing. What it placed is
+    therefore reported ALWAYS, without exception.
 #>
 function Test-ResidentOperational {
     param(
@@ -6492,8 +6490,8 @@ function Get-UserRegistryRoots {
     #>
     $roots = @()
     try {
-        # SilentlyContinue et non Stop : l'enumeration bute sur des ruches protegees
-        # tout en renvoyant les autres ; s'arreter a la premiere les perdrait toutes.
+        # SilentlyContinue and not Stop: enumeration trips on protected hives while still
+        # returning the others; stopping at the first would lose them all.
         foreach ($k in (Get-ChildItem Registry::HKEY_USERS -ErrorAction SilentlyContinue)) {
             $sid = Split-Path $k.Name -Leaf
             if ($sid -notmatch '^S-1-5-21-[\d-]+$') { continue }

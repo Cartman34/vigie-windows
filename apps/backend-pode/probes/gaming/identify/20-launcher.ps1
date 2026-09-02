@@ -1,24 +1,24 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-<# METHODE : le processus a ete lance par une boutique de jeux.
+<# METHOD: the process was started by a game store.
 
-   La moins chere : le chemin du parent est deja dans l evenement, il n y a rien a lire.
-   Un jeu passe souvent par un lanceur intermediaire -- Odyssey demarre par upc.exe -- et
-   ce lien de parente est un fait, pas une supposition.
+   The cheapest one: the parent path already comes with the event, nothing to read. A game
+   often starts through an intermediate launcher -- Odyssey starts from upc.exe -- and that
+   parentage is a fact, not a guess.
 
-   ON JUGE LE CHEMIN DU PARENT, jamais son seul nom : un « steam.exe » pose n importe ou
-   ne prouve rien. #>
+   WE JUDGE THE PARENT PATH, never its name alone: a "steam.exe" dropped anywhere proves
+   nothing. #>
 param($Process)
 if (-not $Process.ParentPath) { return }
 $parent = "$($Process.ParentPath)".ToLower()
-$boutiques = @(
-    @{ Marque = 'steam\steam.exe';                        Nom = 'Steam' }
-    @{ Marque = 'ubisoft game launcher\upc.exe';          Nom = 'Ubisoft Connect' }
-    @{ Marque = 'ubisoft connect\upc.exe';                Nom = 'Ubisoft Connect' }
-    @{ Marque = 'epic games\launcher';                    Nom = 'Epic Games' }
-    @{ Marque = 'gog galaxy\galaxyclient.exe';            Nom = 'GOG Galaxy' }
-    @{ Marque = 'battle.net\battle.net.exe';              Nom = 'Battle.net' }
-    @{ Marque = 'electronic arts\eadesktop\eadesktop.exe'; Nom = 'EA' }
+$stores = @(
+    @{ Marker = 'steam\steam.exe';                          Name = 'Steam' }
+    @{ Marker = 'ubisoft game launcher\upc.exe';            Name = 'Ubisoft Connect' }
+    @{ Marker = 'ubisoft connect\upc.exe';                  Name = 'Ubisoft Connect' }
+    @{ Marker = 'epic games\launcher';                      Name = 'Epic Games' }
+    @{ Marker = 'gog galaxy\galaxyclient.exe';              Name = 'GOG Galaxy' }
+    @{ Marker = 'battle.net\battle.net.exe';                Name = 'Battle.net' }
+    @{ Marker = 'electronic arts\eadesktop\eadesktop.exe'; Name = 'EA' }
 )
-foreach ($b in $boutiques) {
-    if ($parent -like ('*' + $b.Marque)) { return ('lance par ' + $b.Nom) }
+foreach ($store in $stores) {
+    if ($parent -like ('*' + $store.Marker)) { return ('lancé par ' + $store.Name) }
 }

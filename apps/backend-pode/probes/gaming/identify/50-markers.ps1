@@ -1,15 +1,15 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-<# METHODE : des marqueurs de jeu entourent l executable.
+<# METHOD: game markers surround the executable.
 
-   La plus chere -- elle touche le disque -- et la plus large : c est elle qui attrape le
-   jeu independant, lance sans boutique, qu aucun inventaire ne connait.
+   The most expensive one -- it touches the disk -- and the broadest: this is the one that
+   catches the indie game, launched without a store, that no inventory knows.
 
-   On cherche a cote de l executable, et jusqu a trois dossiers au-dessus : un moteur
-   (UnityPlayer.dll, les Paks d Unreal), un SDK (steam_api, EOSSDK), une boutique
-   (uplay_r1_loader64.dll d Ubisoft, Galaxy de GOG) ou un middleware (Bink, FMOD).
+   We look next to the executable and up to three folders above: an engine (UnityPlayer.dll,
+   Unreal's Paks), an SDK (steam_api, EOSSDK), a store (Ubisoft's uplay_r1_loader64.dll,
+   GOG's Galaxy) or middleware (Bink, FMOD).
 
-   ANTI-SIGNAL : une coquille Chromium/Electron n est jamais un jeu, meme si elle consomme
-   le GPU -- ChatGPT a ete annonce comme « jeu detecte » le 25/08. #>
+   COUNTER-SIGNAL: a Chromium/Electron shell is never a game, however much GPU it uses --
+   ChatGPT was announced as "game detected" on 25/08. #>
 param($Process)
 if (-not $Process.Path) { return }
 $folder = Split-Path $Process.Path -Parent
@@ -27,7 +27,7 @@ $current = $folder
 for ($level = 0; $level -lt 3 -and $current; $level++) {
     foreach ($marker in $markers) {
         if (Test-Path -LiteralPath (Join-Path $current $marker)) {
-            return ('marqueur de jeu a cote de l''executable (' + $marker + ')')
+            return ('marqueur de jeu à côté de l''exécutable (' + $marker + ')')
         }
     }
     $current = Split-Path $current -Parent

@@ -1,19 +1,17 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-<# RELEVE : la partie en cours vide-t-elle la batterie ?
+<# READING: is the current game draining the battery?
 
-   BON MARCHE, c'est la condition : ce fichier tourne en permanence, meme sans session
-   ouverte. Il ne cherche PAS le jeu -- le retrouver coute deux instantanes de tous les
-   processus. Il lit la session ouverte par la sonde Jeux (var/run/game-session.json),
-   verifie que le processus vit encore, et compare la charge d'aujourd'hui a celle du
-   debut de la partie.
+   CHEAP, and that is the condition: this runs for ever, even with no session open. It does
+   NOT look for the game -- finding it again would cost two snapshots of every process. It
+   reads the session opened by the Gaming card (var/run/game-session.json), checks the
+   process is still alive, and compares today's charge with the one at the start of play.
 
-   La valeur rendue est COMPARABLE, et elle change PAR PALIERS : « baisse-10 », puis
-   « baisse-15 »... Chaque palier franchi est un changement, donc un evenement, donc un
-   recalcul de la carte Jeux -- et c'est la bascule du champ « Alimentation » qui fait
-   partir la bulle Windows (D54). Sans paliers, une decharge continue n'aurait fait
-   qu'un seul evenement au tout debut.
+   The value is COMPARABLE and moves in STEPS: "baisse-10", then "baisse-15"... Every step
+   crossed is a change, hence an event, hence a recomputation of the Gaming card -- and the
+   toggle of its "Alimentation" field is what sends the Windows bubble (D54). Without steps,
+   a continuous drain would have raised a single event, at the very beginning.
 
-   Voir doc/progress/targeting/surveillance.md.
+   See doc/progress/targeting/surveillance.md.
 #>
 $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $backend 'lib/common.ps1')
@@ -21,13 +19,13 @@ $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 $session = Get-GameSession -Backend $backend
 if (-not $session) { 'non'; return }
 
-# Secteur branche, ou machine sans batterie : rien a signaler.
+# Plugged in, or no battery at all: nothing to report.
 $battery = Get-BatteryState
 if (-not $battery.OnBattery -or $null -eq $battery.Pct) { 'non'; return }
 
 $drop = [int]$session.startPct - [int]$battery.Pct
-$seuil = [int](Get-ModuleSetting -Unit 'gaming' -Key 'BatteryDropWarnPct'); if (-not $seuil) { $seuil = 10 }
-if ($drop -lt $seuil) { 'non'; return }
+$threshold = [int](Get-ModuleSetting -Unit 'gaming' -Key 'BatteryDropWarnPct'); if (-not $threshold) { $threshold = 10 }
+if ($drop -lt $threshold) { 'non'; return }
 
-# Palier de 5 points : on alerte a nouveau quand la decharge se creuse, pas a chaque releve.
+# Five-point steps: we warn again when the drain deepens, not at every reading.
 'baisse-' + ([math]::Floor($drop / 5) * 5)
