@@ -232,133 +232,39 @@ function Group-ByApp {
     })
 }
 
-# --- EST-CE UN JEU ? ----------------------------------------------------------
-# Consommer le GPU ne fait pas un jeu : une application Chromium/Electron (ChatGPT,
-# Discord, VS Code, un navigateur) affiche son interface avec le GPU et se retrouvait
-# annoncee comme « jeu detecte » -- signale par l'utilisateur le 25/08.
+# --- LE JEU : CE QUE LE RESIDENT A TROUVE, PAS UNE MESURE ---------------------
 #
-# On ne juge donc PAS sur le nom (aucune liste noire d'applications a maintenir) mais sur
-# des FAITS verifiables autour de l'executable :
-#   + Windows lui-meme l'a enregistre comme jeu (Game Bar, System\GameConfigStore de chaque utilisateur) ;
-#   + il est installe dans une bibliotheque Steam REELLE (lue dans la config de Steam) ;
-#   + un marqueur de jeu est pose a cote : moteur (UnityPlayer.dll, Content\Paks
-#     d'Unreal), SDK (steam_api*.dll, EOSSDK) , boutique (uplay_r1_loader64.dll de
-#     Ubisoft Connect, Galaxy*.dll de GOG) ou middleware (bink2w64.dll, fmod*.dll) ;
-#   + sa fenetre occupe tout l'ecran ;
-#   - des marqueurs Chromium/Electron sont dans son dossier (chrome_*.pak, app.asar...).
-# Au-dessus du seuil, c'est un jeu ; en dessous, la carte dit « aucun » ET pourquoi.
-$SCORE_JEU = 3
-
-# Steam et la Game Bar rangent leurs reglages PAR UTILISATEUR. Le serveur tourne sous le
-# compte de service : HKCU y designe la ruche du service, celle de personne. On interroge
-# donc la ruche de chaque utilisateur connecte (voir Get-UserRegistryRoots).
-$hives = @(Get-UserRegistryRoots)
-
-# Bibliotheques Steam : lues dans la configuration de Steam, jamais devinees.
-$steamLibs = @()
-foreach ($hive in $hives) {
-    try {
-        $regKey = Join-Path $hive 'Software\Valve\Steam'
-        $sp = (Get-ItemProperty $regKey -Name 'SteamPath' -ErrorAction Stop).SteamPath
-        if (-not $sp) { continue }
-        $spw = ($sp -replace '/', '\')
-        $steamLibs += $spw.ToLower()
-        $vdf = Join-Path $spw 'steamapps\libraryfolders.vdf'
-        if (Test-Path -LiteralPath $vdf) {
-            foreach ($m in [regex]::Matches((Get-Content -LiteralPath $vdf -Raw), '"path"\s+"([^"]+)"')) {
-                $steamLibs += ($m.Groups[1].Value -replace '\\\\', '\').ToLower()
-            }
-        }
-    } catch { }
-}
-$steamLibs = @($steamLibs | Select-Object -Unique)
-
-# Executables que WINDOWS a lui-meme reconnus comme des jeux (Game Bar).
-$jeuxWindows = @()
-foreach ($hive in $hives) {
-    try {
-        $regKey = Join-Path $hive 'System\GameConfigStore\Children'
-        foreach ($k in (Get-ChildItem $regKey -ErrorAction Stop)) {
-            $v = (Get-ItemProperty $k.PSPath -ErrorAction SilentlyContinue).MatchedExeFullPath
-            if ($v) { $jeuxWindows += "$v".ToLower() }
-        }
-    } catch { }
-}
-$jeuxWindows = @($jeuxWindows | Select-Object -Unique)
-
-function Get-GameScore {
-    param([string]$Path, [bool]$PleinEcran)
-    $raisons = @()
-    if (-not $Path) { return @{ Score = 0; Raisons = @('exécutable non lisible') } }
-    $score = 0
-    $dossier = Split-Path $Path -Parent
-    # Anti-signal : coquille Chromium/Electron.
-    foreach ($m in @('chrome_100_percent.pak', 'chrome.dll', 'icudtl.dat', 'resources\app.asar')) {
-        if (Test-Path -LiteralPath (Join-Path $dossier $m)) {
-            $score -= 5; $raisons += "application Chromium/Electron (marqueur $m)"; break
-        }
-    }
-    if ($jeuxWindows -contains $Path.ToLower()) { $score += 4; $raisons += 'reconnu comme jeu par Windows (Game Bar)' }
-    foreach ($lib in $steamLibs) {
-        # « steamapps\common » : c'est LA ou Steam installe les jeux. Viser la racine de la
-        # bibliotheque suffirait a faire passer steam.exe lui-meme pour un jeu.
-        if ($lib -and $Path.ToLower().StartsWith($lib) -and $Path.ToLower().Contains('steamapps\common')) {
-            $score += 3; $raisons += 'installé dans une bibliothèque Steam'; break
-        }
-    }
-    # Moteur ou SDK de jeu, a cote de l'executable ou juste au-dessus (3 niveaux).
-    $d = $dossier; $trouve = $null
-    for ($i = 0; $i -lt 3 -and $d; $i++) {
-        # Boutiques ET moteurs : un jeu n'est pas toujours Steam/Unity/Unreal. Assassin's
-        # Creed Odyssey (Ubisoft Connect, moteur AnvilNext) ne portait AUCUN de ces
-        # marqueurs et passait pour une application ordinaire -- constate le 01/09.
-        foreach ($m in @('steam_api.dll', 'steam_api64.dll', 'steam_appid.txt', 'UnityPlayer.dll',
-                         'EOSSDK-Win64-Shipping.dll', 'Content\Paks', '.egstore',
-                         'uplay_r1_loader.dll', 'uplay_r1_loader64.dll', 'UbisoftGameLauncher.dll',
-                         'Galaxy.dll', 'Galaxy64.dll', 'goggame-galaxyFileList.bin', '.build.info',
-                         'bink2w64.dll', 'binkw32.dll', 'GameAssembly.dll',
-                         'fmod.dll', 'fmodstudio.dll', 'fmodstudio64.dll')) {
-            if (Test-Path -LiteralPath (Join-Path $d $m)) { $trouve = $m; break }
-        }
-        if ($trouve) { break }
-        $d = Split-Path $d -Parent
-    }
-    if ($trouve) { $score += 3; $raisons += "marqueur de jeu présent : moteur, SDK ou boutique ($trouve)" }
-    if ($PleinEcran) { $score += 2; $raisons += 'fenêtre en plein écran' }
-    if (-not $raisons.Count) { $raisons += 'aucun signe de jeu autour de l''exécutable' }
-    @{ Score = $score; Raisons = $raisons }
-}
-
-# Le jeu : simulation, sinon le meilleur candidat GPU qui passe l'examen ci-dessus.
+# LA DETECTION NE SE FAIT PLUS ICI. Un resident (game.resident.ps1) est prevenu par Windows
+# quand un processus demarre, et le presente aux methodes d identification rangees dans
+# identify/. Il tient la partie en cours a jour ; cette sonde LIT son resultat.
+#
+# POURQUOI CE RENVERSEMENT. La detection reposait sur l utilisation GPU instantanee, qui
+# servait a la fois de filtre d entree et de preuve d activite : la lecture des compteurs
+# coute deux secondes et demie, revient parfois vide, et la carte annoncait alors « aucun
+# jeu ». Odyssey a ete reconnu a un releve puis ignore au suivant (02/09). Le GPU reste
+# affiche -- il dit si le jeu REND ou s il est en pause -- mais ne decide plus de rien.
+#
+# TROIS ETATS, pas deux : un jeu tourne, aucun ne tourne, ou la surveillance est en panne.
+# Le troisieme etait annonce comme le second, et c est ce qui trompait.
 $jeu = $null
-$jeuRaisons = $null  # ce qui a fait dire « c'est un jeu » -- affiche au guide
-$rejete = $null      # ce qui consommait le plus sans etre un jeu : on le dira
+$jeuRaisons = $null
+$surveillanceMorte = -not (Test-ResidentAlive -Backend $backend -Key 'game')
+$partie = Get-GameSession -Backend $backend
 if ($env:VIGIE_FAKE_GAME) {
+    # Simulation (doc/en/developing/modules.md) : les mesures restent reelles.
     $jeu = $procs.Values | Where-Object { $_.Name -like $env:VIGIE_FAKE_GAME } |
            Sort-Object Gpu -Descending | Select-Object -First 1
+    if ($jeu) { $jeuRaisons = @("Simulation (VIGIE_FAKE_GAME=$($env:VIGIE_FAKE_GAME)) : les mesures restent reelles.") }
 }
-if (-not $jeu) {
-    # On n'examine que les vrais candidats (six au plus) : ouvrir le dossier de chaque
-    # processus de la machine couterait cher pour rien.
-    # Le SEUIL ne filtre plus les candidats : un jeu en pause ou dans un menu retombe sous
-    # les 15 % et disparaissait de la carte (signale par l'utilisateur pendant une partie
-    # d'Autonauts). C'est desormais l'EXAMEN qui fait foi ; le seuil ne sert plus qu'a dire
-    # si le jeu rend activement (voir plus bas). On garde un plancher a 1 % : en dessous, le
-    # processus ne rend rien du tout.
-    $candidats = @($procs.Values |
-        Where-Object { $_.Gpu -ge 1 -and $bruit -notcontains $_.Name -and $servicesWindows -notcontains $_.Name } |
-        Sort-Object Gpu -Descending | Select-Object -First 6)
-    $examen = @(foreach ($c in $candidats) {
-        $sc = Get-GameScore -Path $c.Path -PleinEcran ($c.Id -eq $fgPid -and $fgPleinEcran)
-        # Etre au premier plan departage deux jeux possibles, sans jamais en faire un.
-        [pscustomobject]@{ Proc = $c; Score = $sc.Score; Raisons = $sc.Raisons; Premier = ($c.Id -eq $fgPid) }
-    })
-    $retenu = @($examen | Where-Object { $_.Score -ge $SCORE_JEU } |
-                Sort-Object @{ Expression = { $_.Score } ; Descending = $true },
-                            @{ Expression = { $_.Premier } ; Descending = $true },
-                            @{ Expression = { $_.Proc.Gpu } ; Descending = $true })[0]
-    if ($retenu) { $jeu = $retenu.Proc; $jeuRaisons = $retenu.Raisons }
-    elseif ($examen.Count) { $rejete = @($examen | Sort-Object { $_.Proc.Gpu } -Descending)[0] }
+if (-not $jeu -and $partie) {
+    $jeu = $procs[[int]$partie.processId]
+    if (-not $jeu) {
+        # Le processus vit -- Get-GameSession l a verifie -- mais n est pas dans notre
+        # instantane : on rend quand meme ce que la partie sait de lui.
+        $jeu = [pscustomobject]@{ Id = [int]$partie.processId; Name = "$($partie.name)"; Path = "$($partie.path)"
+                                  Cpu = 0; Gpu = 0; VramGb = 0; RamGb = 0; IoMbs = 0 }
+    }
+    $jeuRaisons = @("$($partie.reason)")
 }
 
 $fields = @()
@@ -537,20 +443,22 @@ if ($jeu) {
         $fields += New-Field -Key 'hogs' -Label 'Autres applis gourmandes' -Value 'aucune' -Kind 'text' -Status 'ok' `
             -Help "Aucune autre application au-dessus des seuils pendant la partie."
     }
+} elseif ($surveillanceMorte) {
+    # UNE MESURE ABSENTE N'EST PAS UNE ABSENCE DE JEU. Dire « aucun » quand on ne sait pas
+    # est ce qui a fait croire, hier, que la detection etait en panne alors qu'elle
+    # n'avait simplement pas tourne. On le dit, et on donne de quoi le reparer.
+    $fields += New-Field -Key 'game' -Label 'Jeu détecté' -Value 'Surveillance indisponible' -Kind 'text' -Status 'warn' `
+        -FixAction 'open-task-manager' `
+        -Help "La détection des jeux ne tourne pas : Vigie ne peut ni confirmer ni infirmer qu'une partie est en cours." `
+        -Guide ("La détection vit à côté de l'app serveur et s'arme avec elle. Si elle reste indisponible, " +
+                "l'app serveur ne tourne pas, ou l'abonnement aux démarrages de processus lui a été refusé — " +
+                "il exige les droits administrateur.")
 } else {
-    # Quand une application consomme le GPU sans etre un jeu, on ne se tait pas : on dit
-    # laquelle et POURQUOI elle n'a pas ete retenue. Sinon « aucun » ressemble a un rate.
-    $guideAucun = $null
-    if ($rejete) {
-        $nomRejete = Get-AppDisplayName -ProcessName $rejete.Proc.Name -Path $rejete.Proc.Path -Complet
-        $guideAucun = (@("$nomRejete utilise le GPU ($($rejete.Proc.Gpu) %) mais n'est pas un jeu :") +
-                       @($rejete.Raisons | ForEach-Object { "- $_" }) +
-                       @('', 'Son activité reste visible dans « Répartition des ressources ».')) -join "`n"
-    }
     $fields += New-Field -Key 'game' -Label 'Jeu détecté' -Value 'Aucun' -Kind 'text' -Status 'neutral' `
-        -Help $(if ($rejete) { "Aucune application de jeu en cours. Le plus gros consommateur GPU est $(Get-AppDisplayName -ProcessName $rejete.Proc.Name -Path $rejete.Proc.Path -Complet), qui n'en est pas un." }
-                else { "Aucun processus n'utilise le GPU au-dessus du seuil de détection (réglable dans Paramètres)." }) `
-        -Guide $guideAucun
+        -Help "Aucune partie en cours. La détection ne mesure pas : elle est prévenue quand un jeu démarre." `
+        -Guide ("Un jeu est reconnu à son lancement, par plusieurs méthodes indépendantes : la boutique qui l'a " +
+                "lancé, son enregistrement par Windows, sa présence dans une bibliothèque de jeux, ou les " +
+                "marqueurs de moteur posés à côté de son exécutable. Une seule qui répond suffit.")
 }
 
 # --- Alimentation : un fait sur la MACHINE, pas sur la partie ------------------

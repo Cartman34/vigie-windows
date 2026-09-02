@@ -30,9 +30,17 @@
            Help = 'Pendant une partie sur batterie, alerte dès que la charge a baissé de tant de points depuis le début.' }
     )
 
+    # RESIDENT : ce qui vit avec l app serveur pour savoir, a la seconde, qu un jeu a
+    # demarre. Il s abonne aux demarrages de processus au lieu de mesurer le GPU.
+    Residents = @(
+        @{ Key = 'game'; Label = 'Détection des jeux' }
+    )
+
     # SENTINELLES : les releves permanents de ce module. Voir
     # doc/progress/targeting/surveillance.md.
     Sentinels = @(
+        # Ce que le resident a trouve : le jeu en cours, ou son absence.
+        @{ Key = 'game'; Label = 'Jeu en cours'; Seconds = 60; Cards = @('gaming') }
         # Jouer sur batterie est la seule chose de cette carte qui ne peut pas attendre
         # qu'on regarde : quand la charge fond, on veut le savoir PENDANT la partie.
         @{ Key = 'game-battery'; Label = 'Décharge pendant une partie'; Seconds = 60; Cards = @('gaming') }
