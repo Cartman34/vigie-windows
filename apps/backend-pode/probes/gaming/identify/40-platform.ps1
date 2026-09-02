@@ -1,19 +1,18 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-<# METHODE : l executable est installe dans une bibliotheque de jeux.
+<# METHOD: the executable sits in a game library.
 
-   Steam range ses jeux dans des bibliotheques declarees ; les autres boutiques ont leur
-   dossier d installation. On compare des CHEMINS, jamais des noms.
+   Steam keeps its games in declared libraries; other stores register an install folder per
+   game. We compare PATHS, never names.
 
-   CETTE METHODE N EST PAS SUFFISANTE, et c est voulu : elle ne connait que les grosses
-   boutiques et ignore le jeu independant lance sans plateforme. C est pourquoi il y en a
-   d autres.
+   THIS METHOD IS NOT ENOUGH, and that is intended: it only knows the big stores and misses
+   the indie game launched without any platform. That is why there are others.
 
-   Les bibliotheques sont lues une fois et gardees en memoire (Get-GameLibraryPaths) :
-   ouvrir la configuration de Steam a chaque processus qui demarre couterait pour rien. #>
+   Libraries are read once and kept in memory (Get-GameLibraryPaths): opening Steam's
+   configuration for every starting process would cost for nothing. #>
 param($Process)
 if (-not $Process.Path) { return }
-$cible = "$($Process.Path)".ToLower()
+$target = "$($Process.Path)".ToLower()
 foreach ($library in @(Get-GameLibraryPaths)) {
     if (-not $library.Path) { continue }
-    if ($cible.StartsWith("$($library.Path)".ToLower())) { return ('installe dans ' + $library.Label) }
+    if ($target.StartsWith("$($library.Path)".ToLower())) { return ('installé dans ' + $library.Label) }
 }

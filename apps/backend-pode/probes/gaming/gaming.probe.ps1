@@ -232,30 +232,30 @@ function Group-ByApp {
     })
 }
 
-# --- LE JEU : CE QUE LE RESIDENT A TROUVE, PAS UNE MESURE ---------------------
+# --- THE GAME: WHAT THE RESIDENT FOUND, NOT A MEASUREMENT ---------------------
 #
-# LA DETECTION NE SE FAIT PLUS ICI. Un resident (game.resident.ps1) est prevenu par Windows
-# quand un processus demarre, et le presente aux methodes d identification rangees dans
-# identify/. Il tient la partie en cours a jour ; cette sonde LIT son resultat.
+# DETECTION NO LONGER HAPPENS HERE. A resident (game.resident.ps1) is told by Windows when a
+# process starts, and hands it to the identification methods kept in identify/. It keeps the
+# current session up to date; this probe READS its result.
 #
-# POURQUOI CE RENVERSEMENT. La detection reposait sur l utilisation GPU instantanee, qui
-# servait a la fois de filtre d entree et de preuve d activite : la lecture des compteurs
-# coute deux secondes et demie, revient parfois vide, et la carte annoncait alors « aucun
-# jeu ». Odyssey a ete reconnu a un releve puis ignore au suivant (02/09). Le GPU reste
-# affiche -- il dit si le jeu REND ou s il est en pause -- mais ne decide plus de rien.
+# WHY THE REVERSAL. Detection relied on instantaneous GPU usage, which served both as the
+# entry filter and as proof of activity: reading the counters costs two and a half seconds,
+# sometimes comes back empty, and the card then announced "no game". Odyssey was recognised
+# at one reading and ignored at the next (02/09). The GPU is still displayed -- it says
+# whether the game RENDERS or is paused -- but decides nothing any more.
 #
-# TROIS ETATS, pas deux : un jeu tourne, aucun ne tourne, ou la surveillance est en panne.
-# Le troisieme etait annonce comme le second, et c est ce qui trompait.
+# THREE STATES, not two: a game runs, none runs, or the watch is down. The third was
+# announced as the second, and that is what misled.
 $jeu = $null
 $jeuRaisons = $null
-# VIVANT NE SUFFIT PAS : un resident qui respire mais dont l'abonnement a ete refuse ne
-# mesure rien. Sans cette distinction, la carte dirait « aucun jeu » alors qu'elle ne
-# sait pas -- l'erreur meme que ce champ doit empecher.
+# ALIVE IS NOT ENOUGH: a resident that breathes but whose subscription was denied measures
+# nothing. Without this distinction the card would say "no game" while it does not know --
+# the very mistake this field exists to prevent.
 $watchDown = -not (Test-ResidentOperational -Backend $backend -Key 'game')
 $watchState = Get-ResidentState -Backend $backend -Key 'game'
 $session = Get-GameSession -Backend $backend
 if ($env:VIGIE_FAKE_GAME) {
-    # Simulation (doc/en/developing/modules.md) : les mesures restent reelles.
+    # Simulation (doc/en/developing/modules.md): the measurements stay real.
     $jeu = $procs.Values | Where-Object { $_.Name -like $env:VIGIE_FAKE_GAME } |
            Sort-Object Gpu -Descending | Select-Object -First 1
     if ($jeu) { $jeuRaisons = @("Simulation (VIGIE_FAKE_GAME=$($env:VIGIE_FAKE_GAME)) : les mesures restent reelles.") }
@@ -263,8 +263,8 @@ if ($env:VIGIE_FAKE_GAME) {
 if (-not $jeu -and $session) {
     $jeu = $procs[[int]$session.processId]
     if (-not $jeu) {
-        # Le processus vit -- Get-GameSession l a verifie -- mais n est pas dans notre
-        # instantane : on rend quand meme ce que la partie sait de lui.
+        # The process is alive -- Get-GameSession checked -- but is not in our snapshot:
+        # we still return what the session knows about it.
         $jeu = [pscustomobject]@{ Id = [int]$session.processId; Name = "$($session.name)"; Path = "$($session.path)"
                                   Cpu = 0; Gpu = 0; VramGb = 0; RamGb = 0; IoMbs = 0 }
     }
@@ -448,9 +448,9 @@ if ($jeu) {
             -Help "Aucune autre application au-dessus des seuils pendant la partie."
     }
 } elseif ($watchDown) {
-    # UNE MESURE ABSENTE N'EST PAS UNE ABSENCE DE JEU. Dire « aucun » quand on ne sait pas
-    # est ce qui a fait croire, hier, que la detection etait en panne alors qu'elle
-    # n'avait simplement pas tourne. On le dit, et on donne de quoi le reparer.
+    # A MISSING MEASUREMENT IS NOT AN ABSENCE OF GAME. Saying "none" when we do not know is
+    # what made the detection look broken yesterday when it simply had not run. We say it,
+    # and we hand over what repairs it.
     $fields += New-Field -Key 'game' -Label 'Jeu détecté' -Value 'Surveillance indisponible' -Kind 'text' -Status 'warn' `
         -FixAction 'open-task-manager' `
         -Help "La détection des jeux ne tourne pas : Vigie ne peut ni confirmer ni infirmer qu'une partie est en cours." `
@@ -528,8 +528,8 @@ $fields += New-Field -Key 'top' -Label 'Répartition des ressources' `
 $statut = if (($fields | Where-Object { $_.status -eq 'warn' })) { 'warn' } else { 'ok' }
 # Boutons PERMANENTS (D114) : ce qui entoure une partie se regle chez Windows, et les
 # deux destinations utiles ne dependent pas de l'etat de la carte.
-# LE MODE SE VOIT : tant qu'une partie dure, la carte n'a pas le meme air que le reste
-# du temps. C'est un contexte, pas une alerte -- son statut, lui, ne change pas.
+# THE MODE SHOWS: while a game lasts, the card does not look like the rest of the time.
+# It is a context, not an alert -- its status does not change.
 New-ModuleObject -Id 'gaming' -Theme 'gaming' -Label 'Session de jeu' -Status $statut -Fields $fields `
     -Mode $(if ($jeu) { 'game' } else { $null }) `
     -Actions @(

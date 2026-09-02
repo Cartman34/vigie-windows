@@ -1,21 +1,21 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    RESIDENT : il sait quand un jeu demarre, a la seconde.
+    RESIDENT: it knows when a game starts, within a second.
 
-    IL NE MESURE RIEN. Il s abonne aux demarrages et aux arrets de processus -- Windows le
-    previent -- et presente chaque nouveau processus a l identification, qui applique ses
-    methodes (probes/gaming/identify). Quand rien ne se lance, il ne coute rien.
+    IT MEASURES NOTHING. It subscribes to process starts and stops -- Windows tells it --
+    and hands every new process to identification, which applies its methods
+    (probes/gaming/identify). When nothing launches, it costs nothing.
 
-    C est ce qui remplace l ancienne detection : elle lisait les compteurs GPU toutes les
-    minutes, coutait deux secondes et demie, revenait parfois vide, et la carte annoncait
-    alors « aucun jeu » -- Odyssey reconnu a un releve, ignore au suivant (02/09).
+    This replaces the former detection: it read GPU counters every minute, cost two and a
+    half seconds, sometimes came back empty, and the card then announced "no game" --
+    Odyssey recognised at one reading, ignored at the next (02/09).
 
-    IL VIT AVEC L APP SERVEUR (targeting/residents.md) : elle l arme, il s arrete des
-    qu elle disparait, elle le rearme s il meurt. En s armant il BALAIE les processus en
-    cours, pour rattraper une partie lancee pendant qu il n etait pas la.
+    IT LIVES WITH THE SERVER APP (targeting/residents.md): the server arms it, it stops as
+    soon as the server is gone, the server re-arms it if it dies. While arming it SWEEPS the
+    running processes, to catch a game started while it was away.
 
-    L ABONNEMENT EXIGE L ELEVATION : refuse depuis une session ordinaire, accorde a l app
-    serveur. Un refus n est pas un silence -- il s ecrit dans l etat du resident.
+    THE SUBSCRIPTION REQUIRES ELEVATION: denied from an ordinary session, granted to the
+    server app. A denial is not silence -- it is written into the resident's state.
 #>
 [CmdletBinding()]
 param(
@@ -27,7 +27,7 @@ $ErrorActionPreference = 'Stop'
 
 $KEY = 'game'
 
-# Le descripteur d un processus, tel que les methodes d identification l attendent.
+# A process descriptor, shaped the way identification methods expect it.
 function Get-ProcessDescriptor {
     param([int]$ProcessId, [int]$ParentId = 0)
     $proc = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
@@ -46,8 +46,8 @@ function Get-ProcessDescriptor {
     }
 }
 
-# Une partie commence. On note qui, ou, pourquoi -- et la charge de la batterie, sans
-# laquelle « elle se vide pendant que vous jouez » ne peut pas se dire.
+# A game session begins. We note who, where, why -- and the battery charge, without which
+# "it is draining while you play" cannot be said.
 function Open-GameSession {
     param($Descriptor, $Verdict, [int]$SessionId = -1, [string]$Sid)
     $known = Get-GameSession -Backend $Backend
@@ -71,7 +71,7 @@ function Open-GameSession {
     } catch { }
 }
 
-# --- Armement -------------------------------------------------------------------
+# --- Arming ---------------------------------------------------------------------
 $subscribed = $false
 try {
     $null = Register-CimIndicationEvent -ClassName Win32_ProcessStartTrace -SourceIdentifier 'vigieGameStart' -ErrorAction Stop
@@ -83,9 +83,8 @@ try {
                                                              error = "$($_.Exception.Message)" }
 }
 
-# --- Balayage initial : ce qui tourne deja ---------------------------------------
-# Sans lui, une partie lancee pendant une mise a jour resterait invisible jusqu a son
-# prochain demarrage.
+# --- Initial sweep: what is already running --------------------------------------
+# Without it, a game started during an update would stay invisible until its next start.
 try {
     foreach ($proc in @(Get-Process -ErrorAction SilentlyContinue)) {
         $descriptor = Get-ProcessDescriptor -ProcessId $proc.Id
@@ -96,10 +95,10 @@ try {
     Set-ResidentState -Backend $Backend -Key $KEY -Fields @{ scannedAt = ([datetime]::UtcNow).ToString('o') }
 } catch { }
 
-# --- La vie du resident ----------------------------------------------------------
+# --- The resident's life ---------------------------------------------------------
 while ($true) {
-    # IL MEURT AVEC LE SERVEUR. Sans cette verification, une mise a jour laisserait un
-    # orphelin abonne que personne ne saurait ni voir ni tuer.
+    # IT DIES WITH THE SERVER. Without this check, an update would leave a subscribed
+    # orphan nobody could see or kill.
     if (-not (Get-Process -Id $ServerPid -ErrorAction SilentlyContinue)) { break }
 
     if ($subscribed) {
@@ -122,8 +121,8 @@ while ($true) {
         }
     }
 
-    # LE BATTEMENT : c est lui qui prouve qu on est vivant. Un processus fige existe
-    # encore mais ne bat plus, et le serveur le rearmera.
+    # THE HEARTBEAT: this is what proves we are alive. A frozen process still exists but
+    # stops beating, and the server will re-arm it.
     Set-ResidentState -Backend $Backend -Key $KEY -Fields @{ processId = $PID }
     Start-Sleep -Seconds 5
 }

@@ -1,14 +1,13 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-<# RELEVE : le courant entre-t-il ou sort-il de la batterie ?
+<# READING: is current flowing into the battery, or out of it?
 
-   CE N'EST PAS LA SOURCE QU'ON SURVEILLE. « Secteur » ou « batterie » ne dit rien a
-   soi seul : branche mais en decharge, c'est un chargeur qui ne suit pas ; debranche,
-   c'est normal. Le fait qui compte est le SENS du courant, et c'est lui qui doit
-   reveiller la carte Alimentation -- brancher ou debrancher se voit alors sans que
-   personne ne regarde, la ou l'affichage seul sert le cache.
+   THE SOURCE IS NOT WHAT WE WATCH. "Mains" or "battery" says little on its own: plugged in
+   yet discharging means the charger cannot keep up; unplugged, it is normal. What matters
+   is the DIRECTION of the current, and that is what must wake the Power card -- plugging in
+   or out then shows without anyone looking, where a display alone serves the cache.
 
-   Rend 'charge', 'decharge', 'stable' ou 'aucune'. Une lecture WMI, rien d'autre.
-   Voir doc/progress/targeting/surveillance.md.
+   Returns 'charge', 'decharge', 'stable' or 'aucune'. One WMI read, nothing else.
+   See doc/progress/targeting/surveillance.md.
 #>
 $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $backend 'lib/common.ps1')

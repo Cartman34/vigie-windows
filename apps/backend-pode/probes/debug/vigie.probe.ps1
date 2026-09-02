@@ -126,9 +126,9 @@ if ($sentinels.Count) {
         -Guide ($lines -join [Environment]::NewLine)
 }
 
-# LES RESIDENTS : CE QUI VIT A COTE DE L'APP SERVEUR (targeting/residents.md).
-# Une surveillance dont on ne sait pas si elle fonctionne ne vaut rien -- c'est le contrat
-# d'un resident d'etre observable, et c'est ici qu'on le voit.
+# RESIDENTS: WHAT LIVES ALONGSIDE THE SERVER APP (targeting/residents.md).
+# A watch nobody knows the health of is worth nothing -- being observable is part of a
+# resident's contract, and this is where it shows.
 $residents = @(Get-ResidentHealth -Backend $backend)
 if ($residents.Count) {
     $down = @($residents | Where-Object { -not $_.Operational })
