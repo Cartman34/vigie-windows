@@ -66,7 +66,14 @@ par le verrou, en nommant qui le tenait.
 **Le bouton de la carte, éprouvé le 31/08 — et il a échoué**, code de sortie 5 : le refus « une opération tourne ».
 L'app serveur pose la marque d'occupation avant de lancer l'installation, qui trouvait donc la sienne et s'interdisait
 elle-même. Corrigé : l'action lui dit quelle marque est la sienne (`-FromAction`), et elle seule est retirée du
-contrôle. **À re-éprouver après déploiement.**
+contrôle. **Re-éprouvé le 02/09** : l'action est acceptée sans refus, l'installation va au bout en 73 s, le serveur
+revient et la version posée est celle attendue.
+
+**Ce que le 02/09 a aussi montré, et qui n'est pas dans le code** : le service se synchronise depuis la branche
+`main` du dépôt local. Un worktree qui livre par `git push origin HEAD:main` pousse vers le dépôt de référence **sans
+avancer `main` en local** — le bouton déploie alors fidèlement une version antérieure, et l'annonce comme une
+réussite. Le geste de livraison est donc `git merge --ff-only <branche>` **depuis le dépôt principal**, puis
+`git push origin main` (voir les disciplines).
 
 Trois défauts que ce journal a montrés, et qui sont corrigés :
 

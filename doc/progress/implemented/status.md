@@ -1,7 +1,7 @@
 # État d'implémentation
 
 Légende : **Fait** / **Partiel** / **À faire**. Les ID renvoient à `../targeting/features.md`.
-Mise à jour : 2026-08-30.
+Mise à jour : 2026-09-02.
 
 ## Socle
 
@@ -10,7 +10,7 @@ Mise à jour : 2026-08-30.
 | CORE-CONTRACT | Fait | `apps/backend-pode/api/openapi.yaml` | — |
 | CORE-BACKEND | Fait | `apps/backend-pode/server.ps1`, `lib/common.ps1` | Exécution élevée requise pour les actions réelles |
 | CORE-FRONTEND | Fait | `apps/frontend-web/index.html`, page unique servie par le serveur | — |
-| CORE-PROBES | Fait | 16 sondes auto-découvertes, 41 actions, contrôlées par `scripts/check-probes.ps1` | — |
+| CORE-PROBES | Fait | 17 sondes auto-découvertes, 45 actions, contrôlées par `scripts/check-probes.ps1` | — |
 | CORE-TRAY | Fait | `apps/tray/tray.ps1` — auto-réparant ; ne ferme jamais l'app serveur, lui **demande** de se relancer (action `server-restart`) | — |
 | CORE-AUTOSTART | Fait | app serveur : tâche `Vigie - Serveur` sous `VigieService`, au **démarrage de l'ordinateur**, sans session ouverte (`scripts/lib/install-service.ps1`). App cliente : `scripts/install-autostart.ps1`, tâches `Vigie` / `Vigie - <compte>`, réparation par `repair-tasks` | — |
 | CORE-SECURITY | Fait | [identity.md](identity.md) | À auditer avant toute exposition |
@@ -19,7 +19,7 @@ Mise à jour : 2026-08-30.
 | CORE-UPDATE-TRUST | À faire | — | Rien ne vérifie aujourd'hui que l'archive téléchargée est bien celle publiée : ni empreinte, ni signature. On s'en remet à HTTPS et à GitHub. |
 | CORE-DEPLOY | Fait | Carte Déploiement, `pwsh-install-machine`, `setup.cmd` | Éprouvé sur cette machine seulement |
 | CORE-ACCOUNTS | Partiel | Carte Comptes, `accounts-details`, `diag-account-logs` | Un compte **standard** ne peut pas démarrer Vigie : le serveur exige l'élévation et lui réclamerait un mot de passe administrateur. Conception validée, non codée : `targeting/multi-account-server.md`. |
-| CORE-WATCH | Partiel | Minuteur d'une minute dans l'app serveur, sentinelles déclarées par module ([surveillance.md](../targeting/surveillance.md)) | Une seule sentinelle posée (`network/internet`) ; jamais éprouvée en fonctionnement réel |
+| CORE-WATCH | Fait | Minuteur d'une minute dans l'app serveur, sentinelles déclarées par module ([surveillance.md](../targeting/surveillance.md)) ; historique par sentinelle (`watch.<clé>`, nature `event`) | **Éprouvée en production le 01/09 à 19 h 54** : la sentinelle `gaming/game-battery` a écrit son premier relevé et fait recalculer la carte Jeux, sans session ouverte. Deux sentinelles posées (`network/internet`, `gaming/game-battery`) — les autres modules n'en déclarent pas encore |
 | CORE-OPERATIONS | Fait | Marqueurs d'occupation, verrou de ressources, `/operations` interrogé par toutes les pages | — |
 | CORE-EXPORT | Fait | `apps/frontend-web/rapport.html`, route `/rapport` | Jamais vérifié à l'impression réelle |
 
@@ -41,7 +41,7 @@ Mise à jour : 2026-08-30.
 | SEC-FIREWALL | Fait | `firewall.probe.ps1` | — |
 | WSL-STATE | Fait | `wsl.probe.ps1`, `wsl-start`, `wsl-restart`, `wsl-shutdown` | — |
 | TOOLS-PACKAGES | Fait | `packages.probe.ps1`, `pkg-check-updates`, `pkg-list-updates`, `pkg-upgrade` | — |
-| GAMING | Fait | `gaming.probe.ps1` | — |
+| GAMING | Fait | `gaming.probe.ps1`, sentinelle `game-battery` | La détection lisait les bibliothèques Steam et la Game Bar dans `HKCU`, donc dans la ruche du compte de service : corrigé le 01/09 (D113), **jamais éprouvé avec un vrai jeu** — seulement en simulation (`VIGIE_FAKE_GAME` + `VIGIE_FAKE_BATTERY`) |
 
 Module `debug` (carte Vigie : version, serveur, journaux, données locales) en plus de la cible : inactif par défaut.
 
@@ -56,10 +56,11 @@ Module `debug` (carte Vigie : version, serveur, journaux, données locales) en p
 | UI-LAYOUT | Fait | Colonnes réelles, regroupement par module | — |
 | UI-REORG | Fait | Mode réorganisation, dépôt dans une colonne vide | — |
 | UI-SETTINGS | Fait | Panneau latéral unique, défauts issus de la configuration | — |
+| UI-ACTIONS | Partiel | Boutons permanents par carte (**D114**) : Antivirus, Pare-feu, Ressources, Jeux, Réseau, Stockage mènent aux réglages Windows de leur sujet | Quatre cartes n'ont encore aucune destination permanente : Déploiement, Débogage, Windows Update, WSL |
 
 ## Ce qui reste ouvert
 
-- Historique des mesures (D53) : décidé, non conçu.
+- Historique des mesures (D53) : **fait**. Un fichier par mesure et par jour (`var/history/<mesure>/<AAAA-MM-JJ>.jsonl`), purge par suppression de fichiers, et seuls les **retournements** sont conservés — un point compris entre ses deux voisins s'efface à l'écriture. Les sentinelles y écrivent leurs changements d'état. Reste : aucune interface ne montre ces séries.
 - Actions longues asynchrones au sens du contrat (202 + jobId) : le suivi passe aujourd'hui par les marqueurs
   d'occupation et `/operations`, pas par le contrat.
 - Audit Windows Update non remonté dans l'interface.
