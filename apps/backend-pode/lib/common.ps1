@@ -2979,8 +2979,8 @@ function Get-AppInfoTip {
     if ($pids.Count -eq 1) { $lignes += "1 processus (PID $($pids[0]))" }
     elseif ($pids.Count -gt 1) {
         $vus = @($pids | Select-Object -First 6) -join ', '
-        $suite = if ($pids.Count -gt 6) { '…' } else { '' }
-        $lignes += "$($pids.Count) processus (PID $vus$suite)"
+        $nextArgs = if ($pids.Count -gt 6) { '…' } else { '' }
+        $lignes += "$($pids.Count) processus (PID $vus$nextArgs)"
     }
     $lignes -join "`n"
 }
@@ -4258,12 +4258,12 @@ function Get-HistoryMutexName {
     dans le journal.
 #>
 <#
-    LES DERNIERS POINTS DEJA ECRITS, sans relire le fichier.
+    THE LAST POINTS ALREADY WRITTEN, without rereading the file.
 
-    On ne lit que la FIN du fichier (deux kilo-octets suffisent pour quelques lignes) :
-    le cout ne depend pas de la taille du fichier, meme apres des milliers de points.
-    Rend, du plus recent au plus ancien : la valeur, et l'OFFSET ou commence sa ligne --
-    c'est cet offset qui permettra d'effacer la derniere ligne sans tout reecrire.
+    We only read the END of the file (two kilobytes are enough for a few lines): the cost
+    does not depend on the file size, even after thousands of points. Returns, newest
+    first: the value, and the OFFSET where its line starts -- that offset is what allows
+    erasing the last line without rewriting everything.
 #>
 function Get-HistoryTailPoints {
     param([Parameter(Mandatory)][string]$Path, [int]$Count = 2)
@@ -4304,21 +4304,21 @@ function Get-HistoryTailPoints {
 }
 
 <#
-    UN POINT ENTRE SES DEUX VOISINS NE DIT RIEN : ON L'EFFACE.
+    A POINT BETWEEN ITS TWO NEIGHBOURS SAYS NOTHING: WE ERASE IT.
 
-    Quand un point arrive, le PRECEDENT devient jugeable : s'il se situe entre
-    l'avant-dernier et celui qu'on ecrit, il est sur la ligne qui les joint -- il se
-    deduit, il ne se garde pas. Ne restent que les points de RETOURNEMENT : les extremes
-    des fluctuations, qui portent toute la forme de la courbe et tous ses records.
+    When a point arrives, the PREVIOUS one becomes judgeable: if it sits between the one
+    before it and the one being written, it lies on the line joining them -- it can be
+    deduced, so it is not kept. Only TURNING POINTS remain: the extremes of the
+    fluctuations, which carry the whole shape of the curve and all its records.
 
-    On regarde donc EN ARRIERE, au moment d'ecrire : aucun retard, aucune seconde passe,
-    et la journee en cours reste juste a la seconde pres. Effacer coute un seul appel --
-    on tronque le fichier a l'offset de la derniere ligne, sans le reecrire.
+    So we look BACKWARDS, at write time: no delay, no second pass, and the current day
+    stays accurate to the second. Erasing costs one call -- the file is truncated at the
+    offset of its last line, never rewritten.
 
-    DEUX GARDES :
-      - la tolerance : un demi-tour plus petit qu'elle n'en est pas un, c'est du bruit ;
-      - le battement de coeur : on n'efface jamais si cela creusait un trou de plus de
-        quinze minutes, sinon « stable » ne se distingue plus de « plus rien ne mesure ».
+    TWO GUARDS:
+      - the tolerance: a turn smaller than it is not a turn, it is noise;
+      - the heartbeat: never erase if that would dig a hole longer than fifteen minutes,
+        or "stable" could no longer be told from "nothing measures any more".
 #>
 function Remove-RedundantHistoryPoint {
     param(
@@ -7981,7 +7981,7 @@ function Show-ElevationRationale {
                    changes = ($Changes -join '|'); initiatedBy = "$InitiatedBy" }
         [System.IO.File]::WriteAllText($payload, ($data | ConvertTo-Json -Compress -Depth 4),
                                        (New-Object System.Text.UTF8Encoding($false)))
-        $argv = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $script,
+        $argv = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $script + '"'),
                   '-PayloadFile', $payload)
         try {
             & $exe @argv
@@ -8048,7 +8048,7 @@ function Invoke-ElevatedSelf {
     if (-not $pwshPath) { Write-Host (Get-Label 'common.pwsh-introuvable') -ForegroundColor Red; return 1 }
 
     try {
-        $proc = Start-Process $pwshPath -Verb RunAs -Wait -PassThru -WindowStyle Hidden -WhatIf:$false -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $cmd)
+        $proc = Start-Process $pwshPath -Verb RunAs -Wait -PassThru -WindowStyle Hidden -WhatIf:$false -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $cmd)   # -Command carries a command block, not a path: quoting it would break it
     } catch {
         Write-Host (Get-Label 'common.elevation-refusee-ou-impossible' $_.Exception.Message) -ForegroundColor Yellow
         return 1

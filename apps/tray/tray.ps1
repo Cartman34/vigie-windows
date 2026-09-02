@@ -259,7 +259,7 @@ public static bool Focus(System.IntPtr h) {
                 [IO.File]::WriteAllText($payload,
                     (@{ title = "$titre"; summary = "$texte" } | ConvertTo-Json -Compress),
                     (New-Object Text.UTF8Encoding($false)))
-                $argv = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $script,
+                $argv = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $script + '"'),
                           '-Caption', 'Vigie', '-PayloadFile', $payload,
                           '-OkText', $okText, '-CancelText', $nonText, '-Note', '')
                 if ($tiersText) { $argv += @('-ThirdText', $tiersText) }
@@ -376,7 +376,7 @@ public static bool Focus(System.IntPtr h) {
             serveur ». Deux gestes distincts pour deux choses distinctes.
         #>
         $relaunch = {
-            try { [void](& $launchHidden $pwsh @('-NoProfile','-ExecutionPolicy','Bypass','-File', $trayPath)) } catch { }
+            try { [void](& $launchHidden $pwsh @('-NoProfile','-ExecutionPolicy','Bypass','-File', ('"' + $trayPath + '"'))) } catch { }
             try { $icon.Visible = $false; $icon.Dispose() } catch { }
             [System.Windows.Forms.Application]::Exit()
         }
