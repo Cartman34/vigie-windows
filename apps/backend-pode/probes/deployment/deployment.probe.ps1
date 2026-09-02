@@ -253,6 +253,37 @@ if ($malades.Count) {
         -Help "Chaque compte qui a Vigie porte une tâche de démarrage saine."
 }
 
+<#
+    LES DEUX VERSIONS DE LA CONFIRMATION : d'ou l'on vient, ou l'on va.
+
+    « Deploie la version actuelle vers l'installation partagee » ne dit pas laquelle vers
+    laquelle : on cliquait sans savoir si l'on avancait de deux commits ou si l'on ecrasait
+    une version plus recente. La fenetre montre donc deux pastilles, ancienne -> nouvelle.
+
+    CE BLOC AVAIT DISPARU quand la carte Deploiement est sortie dans sa propre sonde : il
+    etait reste dans celle des comptes, l'action continuait de citer des variables VIDES,
+    et les deux pastilles ne s'affichaient plus. Rien ne l'avait signale -- une variable
+    absente ne fait pas d'erreur en PowerShell.
+
+    LE COMMIT N'EST MONTRE QU'EN DEVELOPPEMENT : en production, deux versions se
+    distinguent par leur numero, c'est a cela qu'il sert. En developpement le numero ne
+    bouge pas entre deux commits, et « v0.1.57 vers v0.1.57 » ne dirait rien.
+#>
+$court = { param($c) if ($c) { $c.Substring(0, [Math]::Min(8, $c.Length)) } else { '' } }
+$estDev = ((Get-DeclaredStage -Backend $backend) -eq 'dev')
+$deVersion = ''; $versVersion = ''; $deNote = ''; $versNote = ''
+if ($cmp) {
+    $deVersion   = "$($cmp.there.version)"
+    $versVersion = "$($cmp.here.version)"
+    if ($estDev) {
+        $deNote   = & $court $cmp.there.commit
+        $versNote = & $court $cmp.here.commit
+    }
+} else {
+    $deVersion   = 'rien'
+    $versVersion = 'première installation'
+}
+
 # LE SORT DE LA DERNIERE OPERATION lancee depuis cette carte (D82). Une ligne verte
 # quand elle a abouti, ROUGE avec son journal quand elle a echoue -- jamais rien.
 $dernier = New-LastRunField -Module 'deployment'
