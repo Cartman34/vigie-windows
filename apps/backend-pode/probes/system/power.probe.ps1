@@ -96,8 +96,15 @@ if ($null -ne $pct) {
 # « Courant » etait faux : un courant se mesure en amperes, et cette valeur est une
 # PUISSANCE, en watts. Le sens se lit dans les mots (« Charge a », « Decharge de »)
 # plutot que dans un signe a interpreter.
-$fields += New-Field -Key 'rate' -Label 'Puissance' -Value $sens -Kind 'text' -Status 'neutral' `
-    -Help 'Puissance échangée avec la batterie, en watts : ce qui entre en charge, ce qui sort en décharge. Sur secteur avec une batterie pleine, il n''y a plus d''échange — Windows n''expose pas ce que le chargeur fournit à la machine elle-même.'
+# « Puissance » tout court se lisait comme la consommation de la MACHINE. C'est faux :
+# seul le flux de la batterie est mesurable ici -- Windows n'expose ni la consommation
+# totale (aucune interface de comptage sur cette machine) ni ce que le chargeur fournit.
+# Le libelle le dit donc, et le guide donne la seule mesure honnete du total.
+$fields += New-Field -Key 'rate' -Label 'Puissance batterie' -Value $sens -Kind 'text' -Status 'neutral' `
+    -Help 'Puissance échangée avec la batterie, en watts : ce qui y entre en charge, ce qui en sort en décharge. Ce n''est PAS la consommation de la machine.' `
+    -Guide ("Sur secteur avec une batterie pleine, rien ne circule : il n'y a donc pas de watts à afficher." + [Environment]::NewLine +
+            "Windows n'expose pas ce que le chargeur fournit à la machine, et cet ordinateur n'a pas d'interface de comptage d'énergie." + [Environment]::NewLine +
+            "Pour connaître la consommation réelle : débranchez. La décharge affichée ici est alors exactement ce que la machine consomme, tout compris.")
 
 New-ModuleObject -Id 'power' -Theme 'system' -Label 'Alimentation' `
     -Status $(if ($soucis) { 'warn' } else { 'ok' }) `
