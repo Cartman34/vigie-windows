@@ -3267,6 +3267,15 @@ function New-ModuleObject {
         [Parameter(Mandatory)][ValidateSet('ok','warn','error','neutral')][string]$Status,
         [object[]]$Fields = @(),
         [object[]]$Actions = @(),
+        <#
+            -Mode : UN ETAT DURABLE DE LA CARTE, que l'interface donne a voir.
+
+            Ni une alerte ni une occupation : un CONTEXTE. La carte Jeux entre en mode
+            'game' tant qu'une partie dure, et l'interface le montre -- on doit voir d'un
+            coup d'oeil qu'on est en jeu, sans lire un champ.
+        #>
+        [string]$Mode,
+
         [switch]$Busy,
         # Identifiant de l'action REELLEMENT en cours. Sans lui, l'interface anime tous les
         # boutons de la carte : on ne sait plus lequel travaille.
@@ -3297,6 +3306,7 @@ function New-ModuleObject {
     }
     if ($Busy) { $o['busy'] = $true }
     if ($Busy -and $BusyAction) { $o['busyAction'] = $BusyAction }
+    if ($Mode) { $o['mode'] = $Mode }
     if ($Busy) {
         $br = if ($BusyResources.Count) { @($BusyResources) } elseif ($BusyAction) { @(Get-ActionResources -Type $BusyAction) } else { @() }
         if ($br.Count) { $o['busyResources'] = @($br) }

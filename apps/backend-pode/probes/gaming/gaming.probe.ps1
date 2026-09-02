@@ -440,7 +440,7 @@ if ($jeu) {
             -Help "Applications qui consomment beaucoup pendant que le jeu tourne." `
             -Guide (($lignes + '', 'Fermez ce qui n''est pas utile a la partie (JAMAIS les services Windows marqués : leur activité est normale) ; les seuils se reglent dans Parametres > Modules > Jeux.') -join "`n")
     } else {
-        $fields += New-Field -Key 'hogs' -Label 'Autres applis gourmandes' -Value 'aucune' -Kind 'text' -Status 'ok' `
+        $fields += New-Field -Key 'hogs' -Label 'Autres applis gourmandes' -Value 'Aucune' -Kind 'text' -Status 'ok' `
             -Help "Aucune autre application au-dessus des seuils pendant la partie."
     }
 } elseif ($surveillanceMorte) {
@@ -523,7 +523,10 @@ $fields += New-Field -Key 'top' -Label 'Répartition des ressources' `
 $statut = if (($fields | Where-Object { $_.status -eq 'warn' })) { 'warn' } else { 'ok' }
 # Boutons PERMANENTS (D114) : ce qui entoure une partie se regle chez Windows, et les
 # deux destinations utiles ne dependent pas de l'etat de la carte.
+# LE MODE SE VOIT : tant qu'une partie dure, la carte n'a pas le meme air que le reste
+# du temps. C'est un contexte, pas une alerte -- son statut, lui, ne change pas.
 New-ModuleObject -Id 'gaming' -Theme 'gaming' -Label 'Session de jeu' -Status $statut -Fields $fields `
+    -Mode $(if ($jeu) { 'game' } else { $null }) `
     -Actions @(
         New-Action -Id 'open-gaming-settings' -Label 'Paramètres de jeu' -Kind 'manual' -Severity 'info' `
                    -Help 'Ouvre les réglages de jeu de Windows : barre de jeu, mode Jeu, captures.'

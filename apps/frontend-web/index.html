@@ -553,6 +553,12 @@
   /* « En cours » est un ETAT de la carte : il s'exprime donc dans le MEME liséré que le
      statut, et non dans un halo separe. Un halo autour de la carte dissociait deux
      informations qui parlent de la meme chose, et se lisait comme une alerte. */
+  /* UN MODE SE VOIT SANS SE LIRE. La carte Jeux entre en mode 'game' pendant une partie :
+     ce n'est ni une alerte ni une occupation, c'est un contexte -- son statut ne change
+     pas, son air si. Le liseré et le fond suffisent : on doit reconnaitre l'etat d'un coup
+     d'oeil, sans que la carte crie. */
+  .card.mode-game{border-left-color:#7c5cff;background:linear-gradient(180deg,rgba(124,92,255,.10),transparent 60%)}
+  .card.mode-game .card-group::after{content:' — en jeu';color:#7c5cff;font-weight:600}
   .card.busy{border-left-color:var(--accent);animation:cardbusy 1.6s ease-in-out infinite}
   @keyframes cardbusy{0%,100%{border-left-color:var(--accent)}50%{border-left-color:var(--border)}}
   @media (prefers-reduced-motion:reduce){ .card.busy{animation:none} }
@@ -1062,7 +1068,7 @@ function cardHtml(m, groupLabel){
   // avec sa place et son titre, en attente -- une carte qui disparait laisse un trou que
   // personne ne comprend, alors qu'une carte vide se lit tout de suite. Et si elle n'a
   // AUCUNE ligne a montrer, elle le dit : une carte vide et muette n'apprend rien.
-  return `<div class="card st-${st}${m.busy?' busy':''}${m.pending?' card-loading':''}" data-module="${m.id}" data-theme="${m.theme}">
+  return `<div class="card st-${st}${m.busy?' busy':''}${m.pending?' card-loading':''}${m.mode?(' mode-'+m.mode):''}" data-module="${m.id}" data-theme="${m.theme}">
     <div class="card-head">
       <div class="card-titles"><span class="card-group">${esc(groupLabel||'')}</span><span class="name">${m.label}</span></div>
       ${stTxt?`<span class="badge ${st}"><span class="ic vi vi-fw">${stIc}</span>${stTxt}</span>`:''}
