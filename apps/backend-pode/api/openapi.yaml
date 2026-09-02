@@ -1,4 +1,4 @@
-openapi: 3.0.3
+﻿openapi: 3.0.3
 info:
   title: Vigie API
   version: "0.1.0"
@@ -307,6 +307,13 @@ components:
         actions:
           type: array
           items: { $ref: "#/components/schemas/Action" }
+        mode:
+          type: string
+          description: >
+            Un ETAT DURABLE de la carte, que l'interface donne a voir. Ni une alerte ni une
+            occupation : un contexte. La carte Jeux passe en 'game' pendant une partie, et
+            l'interface le montre. Absent le reste du temps.
+          example: game
         busyAction:
           type: string
           description: >
