@@ -16,8 +16,13 @@ HUMAIN lit.
 - **Les identifiants du contrat** : ids de modules, d'actions, de champs, de ressources.
 - **Les cles de configuration** (`UpdateSource`, `ToolsPath`...).
 
+### En anglais aussi : les commentaires
+Ils vivent DANS le code, ils en font partie, et ils se lisent avec lui. Cette page a
+longtemps dit l'inverse -- elle avait ete ecrite a l'encontre de la regle voulue
+(**D115**). Le code deja ecrit porte des commentaires francais : ils se convertissent au
+fil des passages, sans grand nettoyage, et un cliquet interdit d'en ajouter.
+
 ### En francais, tout aussi volontairement
-- **Les commentaires** : ils s'adressent a qui relit, et cette equipe parle francais.
 - **Les libelles affiches** : titres de cartes, valeurs, boutons, messages d'erreur, aide.
   Avec leurs accents (voir plus bas) -- ce sont eux que voit l'utilisateur.
 - **Les messages de journal** : ils se lisent pendant un depannage, avec le meme lecteur.

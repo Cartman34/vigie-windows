@@ -715,11 +715,11 @@ function Invoke-UpdateAudit {
     # Les strategies expliquent la plupart des « le verrou n'a pas tenu » : une valeur
     # ecrite ailleurs (GPO, autre outil) ecrase la notre sans rien dire.
     $vider = {
-        param($chemin, $titre)
+        param($exePath, $titre)
         & $Sec $titre
         $o = [ordered]@{}
-        if (-not (Test-Path -LiteralPath $chemin)) { & $L '   (absente)'; return $o }
-        $p = Get-ItemProperty -LiteralPath $chemin -ErrorAction SilentlyContinue
+        if (-not (Test-Path -LiteralPath $exePath)) { & $L '   (absente)'; return $o }
+        $p = Get-ItemProperty -LiteralPath $exePath -ErrorAction SilentlyContinue
         # Une cle qui EXISTE peut rendre $null (aucune valeur, ou lecture refusee sans
         # elevation). Or $null.PSObject.Properties.Name rend un element $null, qui passe le
         # filtre et sert ensuite d'index -- constate : « the array index evaluated to null ».
@@ -3651,6 +3651,24 @@ function Invoke-ResidentPass {
 
 # CE QU ON PEUT DIRE DE CHAQUE RESIDENT, pour une carte ou un diagnostic : une surveillance
 # dont on ne sait pas si elle fonctionne ne vaut rien.
+<#
+    VIVANT NE VEUT PAS DIRE OPERATIONNEL.
+
+    Un resident dont le processus tourne et qui bat peut n avoir rien pose : l abonnement
+    lui a ete refuse, et il le dit dans son etat. Croire qu il travaille parce qu il
+    respire, c est exactement l erreur qui ferait annoncer « aucun jeu » alors qu on ne
+    mesure rien. L etat de ce qu il a pose remonte donc TOUJOURS, sans exception.
+#>
+function Test-ResidentOperational {
+    param(
+        [string]$Backend = (Get-BackendRoot),
+        [Parameter(Mandatory)][string]$Key
+    )
+    if (-not (Test-ResidentAlive -Backend $Backend -Key $Key)) { return $false }
+    $state = Get-ResidentState -Backend $Backend -Key $Key
+    return ($state -and "$($state.state)" -eq 'arme')
+}
+
 function Get-ResidentHealth {
     param([string]$Backend = (Get-BackendRoot))
     foreach ($declaration in @(Get-ResidentDeclarations -Backend $Backend)) {
@@ -3658,7 +3676,8 @@ function Get-ResidentHealth {
         [pscustomobject]@{
             Key       = $declaration.Key
             Label     = $declaration.Label
-            Alive     = (Test-ResidentAlive -Backend $Backend -Key $declaration.Key)
+            Alive       = (Test-ResidentAlive -Backend $Backend -Key $declaration.Key)
+            Operational = (Test-ResidentOperational -Backend $Backend -Key $declaration.Key)
             State     = $(if ($state) { "$($state.state)" } else { 'jamais arme' })
             ArmedAt   = $(if ($state) { $state.armedAt } else { $null })
             LastBeat  = $(if ($state) { $state.at } else { $null })
@@ -3780,7 +3799,16 @@ function Get-GameSession {
     if (-not $session -or -not $session.processId) { return $null }
     # LE PROCESSUS FAIT FOI. Un jeu qui s'arrete ne repasse pas par la sonde pour le dire :
     # sans cette verification, une partie finie resterait ouverte jusqu'au prochain calcul.
-    if (-not (Get-Process -Id ([int]$session.processId) -ErrorAction SilentlyContinue)) { return $null }
+    $proc = Get-Process -Id ([int]$session.processId) -ErrorAction SilentlyContinue
+    if (-not $proc) { return $null }
+    # ET CE DOIT ETRE LE MEME PROCESSUS. Windows recycle les numeros : un jeu ferme dont le
+    # numero est repris par un navigateur ferait durer la partie indefiniment -- constate
+    # le 02/09 avec une session de simulation qui survivait a sa simulation.
+    if ($session.path) {
+        $exePath = $null
+        try { $exePath = $proc.Path } catch { }
+        if ($exePath -and "$exePath" -ne "$($session.path)") { return $null }
+    }
     return $session
 }
 
@@ -3796,9 +3824,12 @@ function Set-GameSession {
     # MEME PROCESSUS = MEME PARTIE : on ne rebase jamais le debut, sinon la baisse de
     # batterie repartirait de zero a chaque recalcul et ne franchirait jamais un seuil.
     if ($known -and [int]$known.processId -eq $ProcessId) { return }
+    $exePath = $null
+    try { $exePath = (Get-Process -Id $ProcessId -ErrorAction Stop).Path } catch { }
     $session = [ordered]@{
         name      = $Name
         processId = $ProcessId
+        path      = $exePath
         startedAt = ([datetime]::UtcNow).ToString('o')
         startPct  = $BatteryPct
     }

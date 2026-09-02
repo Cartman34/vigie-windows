@@ -248,23 +248,27 @@ function Group-ByApp {
 # Le troisieme etait annonce comme le second, et c est ce qui trompait.
 $jeu = $null
 $jeuRaisons = $null
-$surveillanceMorte = -not (Test-ResidentAlive -Backend $backend -Key 'game')
-$partie = Get-GameSession -Backend $backend
+# VIVANT NE SUFFIT PAS : un resident qui respire mais dont l'abonnement a ete refuse ne
+# mesure rien. Sans cette distinction, la carte dirait « aucun jeu » alors qu'elle ne
+# sait pas -- l'erreur meme que ce champ doit empecher.
+$watchDown = -not (Test-ResidentOperational -Backend $backend -Key 'game')
+$watchState = Get-ResidentState -Backend $backend -Key 'game'
+$session = Get-GameSession -Backend $backend
 if ($env:VIGIE_FAKE_GAME) {
     # Simulation (doc/en/developing/modules.md) : les mesures restent reelles.
     $jeu = $procs.Values | Where-Object { $_.Name -like $env:VIGIE_FAKE_GAME } |
            Sort-Object Gpu -Descending | Select-Object -First 1
     if ($jeu) { $jeuRaisons = @("Simulation (VIGIE_FAKE_GAME=$($env:VIGIE_FAKE_GAME)) : les mesures restent reelles.") }
 }
-if (-not $jeu -and $partie) {
-    $jeu = $procs[[int]$partie.processId]
+if (-not $jeu -and $session) {
+    $jeu = $procs[[int]$session.processId]
     if (-not $jeu) {
         # Le processus vit -- Get-GameSession l a verifie -- mais n est pas dans notre
         # instantane : on rend quand meme ce que la partie sait de lui.
-        $jeu = [pscustomobject]@{ Id = [int]$partie.processId; Name = "$($partie.name)"; Path = "$($partie.path)"
+        $jeu = [pscustomobject]@{ Id = [int]$session.processId; Name = "$($session.name)"; Path = "$($session.path)"
                                   Cpu = 0; Gpu = 0; VramGb = 0; RamGb = 0; IoMbs = 0 }
     }
-    $jeuRaisons = @("$($partie.reason)")
+    $jeuRaisons = @("$($session.reason)")
 }
 
 $fields = @()
@@ -380,10 +384,10 @@ $pctBatterie = $alim.Pct
 # elle ne peut pas la retrouver apres coup.
 if ($jeu) { Set-GameSession -Backend $backend -Name (Get-AppDisplayName -ProcessName $jeu.Name -Path $jeu.Path -Complet) -ProcessId ([int]$jeu.Id) -BatteryPct $(if ($null -ne $pctBatterie) { [int]$pctBatterie } else { -1 }) }
 else { Clear-GameSession -Backend $backend }
-$partie = Get-GameSession -Backend $backend
+$session = Get-GameSession -Backend $backend
 $baisse = 0
-if ($partie -and -not $surSecteur -and [int]$partie.startPct -ge 0 -and $null -ne $pctBatterie) {
-    $baisse = [int]$partie.startPct - [int]$pctBatterie
+if ($session -and -not $surSecteur -and [int]$session.startPct -ge 0 -and $null -ne $pctBatterie) {
+    $baisse = [int]$session.startPct - [int]$pctBatterie
 }
 $baisseSeuil = [int](Get-ModuleSetting -Unit 'gaming' -Key 'BatteryDropWarnPct'); if (-not $baisseSeuil) { $baisseSeuil = 10 }
 
@@ -443,16 +447,17 @@ if ($jeu) {
         $fields += New-Field -Key 'hogs' -Label 'Autres applis gourmandes' -Value 'Aucune' -Kind 'text' -Status 'ok' `
             -Help "Aucune autre application au-dessus des seuils pendant la partie."
     }
-} elseif ($surveillanceMorte) {
+} elseif ($watchDown) {
     # UNE MESURE ABSENTE N'EST PAS UNE ABSENCE DE JEU. Dire « aucun » quand on ne sait pas
     # est ce qui a fait croire, hier, que la detection etait en panne alors qu'elle
     # n'avait simplement pas tourne. On le dit, et on donne de quoi le reparer.
     $fields += New-Field -Key 'game' -Label 'Jeu détecté' -Value 'Surveillance indisponible' -Kind 'text' -Status 'warn' `
         -FixAction 'open-task-manager' `
         -Help "La détection des jeux ne tourne pas : Vigie ne peut ni confirmer ni infirmer qu'une partie est en cours." `
-        -Guide ("La détection vit à côté de l'app serveur et s'arme avec elle. Si elle reste indisponible, " +
-                "l'app serveur ne tourne pas, ou l'abonnement aux démarrages de processus lui a été refusé — " +
-                "il exige les droits administrateur.")
+        -Guide ($(if ($watchState -and $watchState.state) { "État de la détection : $($watchState.state)." + $(if ($watchState.error) { " $($watchState.error)" }) }
+                  else { "La détection n'a jamais été armée." }) + [Environment]::NewLine +
+                "Elle vit à côté de l'app serveur et s'arme avec elle. Si elle reste indisponible, l'app serveur ne " +
+                "tourne pas, ou l'abonnement aux démarrages de processus lui a été refusé — il exige les droits administrateur.")
 } else {
     $fields += New-Field -Key 'game' -Label 'Jeu détecté' -Value 'Aucun' -Kind 'text' -Status 'neutral' `
         -Help "Aucune partie en cours. La détection ne mesure pas : elle est prévenue quand un jeu démarre." `
@@ -472,7 +477,7 @@ if (-not $surSecteur) {
     # LA BAISSE FAIT PARTIE DE LA VALEUR, et pas seulement du guide : c'est la bascule du
     # champ qui declenche la bulle Windows (D54). Une valeur qui ne bouge pas ne previent
     # personne, meme si la batterie continue de se vider.
-    $vide = ($partie -and $baisse -ge $baisseSeuil)
+    $vide = ($session -and $baisse -ge $baisseSeuil)
     $fields += New-Field -Key 'power' -Label 'Alimentation' `
         -Value ("Batterie" + $(if ($null -ne $pctBatterie) { " ($pctBatterie %)" }) +
                 $(if ($vide) { " " + [char]0x00B7 + " -$baisse % depuis le début de la partie" })) -Kind 'text' `

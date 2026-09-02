@@ -131,20 +131,20 @@ if ($sentinels.Count) {
 # d'un resident d'etre observable, et c'est ici qu'on le voit.
 $residents = @(Get-ResidentHealth -Backend $backend)
 if ($residents.Count) {
-    $morts = @($residents | Where-Object { -not $_.Alive })
-    $lignesRes = @($residents | ForEach-Object {
-        $etat = if ($_.Alive) { 'vivant' } else { 'MORT' }
-        $ligne = "- {0} : {1} ({2})" -f $_.Label, $etat, $_.State
+    $down = @($residents | Where-Object { -not $_.Operational })
+    $residentLines = @($residents | ForEach-Object {
+        $health = if ($_.Operational) { 'opérationnel' } elseif ($_.Alive) { 'vivant mais INOPÉRANT' } else { 'MORT' }
+        $ligne = "- {0} : {1} ({2})" -f $_.Label, $health, $_.State
         if ($_.LastEvent) { $ligne += " — dernier événement : $($_.LastEvent)" }
         if ($_.Error)     { $ligne += " — $($_.Error)" }
         $ligne
     })
     $fields += New-Field -Key 'residents' -Label 'Résidents' `
-        -Value $(if ($morts.Count) { "$($morts.Count) à l'arrêt sur $($residents.Count)" } else { "$($residents.Count) en vie" }) `
-        -Kind 'text' -Status $(if ($morts.Count) { 'warn' } else { 'ok' }) `
-        -FixAction $(if ($morts.Count) { 'server-restart' } else { $null }) `
+        -Value $(if ($down.Count) { "$($down.Count) à l'arrêt sur $($residents.Count)" } else { "$($residents.Count) en vie" }) `
+        -Kind 'text' -Status $(if ($down.Count) { 'warn' } else { 'ok' }) `
+        -FixAction $(if ($down.Count) { 'server-restart' } else { $null }) `
         -Help "Ce qui vit en permanence à côté de l'app serveur : elle les arme à son démarrage et les réarme s'ils meurent." `
-        -Guide ($lignesRes -join [Environment]::NewLine)
+        -Guide ($residentLines -join [Environment]::NewLine)
 }
 
 # LE SORT DE LA DERNIERE OPERATION lancee depuis cette carte (D82).
