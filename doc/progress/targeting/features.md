@@ -90,7 +90,9 @@ Format : `ID` — Titre, puis le besoin et ses critères. On n'écrit **pas** ic
 
 ## Gaming (GAMING)
 
-- **GAMING** — Ce qui compte pour jouer : GPU et sa mémoire réellement utilisée par application, mode jeu, pilotes.
+- **GAMING** — Ce qui compte pour jouer, **pendant** qu'on joue : pourquoi ça rame, ce qui va gêner la partie, et ce
+  qui mérite une alerte sans qu'on regarde la carte. Le détail — ce qu'elle doit dire, ce qu'elle ne doit pas faire,
+  et comment la partie doit être détectée — vit dans [gaming.md](gaming.md).
 
 ## Interface (UI)
 

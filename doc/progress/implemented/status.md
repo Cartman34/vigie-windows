@@ -41,7 +41,7 @@ Mise à jour : 2026-09-02.
 | SEC-FIREWALL | Fait | `firewall.probe.ps1` | — |
 | WSL-STATE | Fait | `wsl.probe.ps1`, `wsl-start`, `wsl-restart`, `wsl-shutdown` | — |
 | TOOLS-PACKAGES | Fait | `packages.probe.ps1`, `pkg-check-updates`, `pkg-list-updates`, `pkg-upgrade` | — |
-| GAMING | Fait | `gaming.probe.ps1`, sentinelle `game-battery` | La détection lisait les bibliothèques Steam et la Game Bar dans `HKCU`, donc dans la ruche du compte de service : corrigé le 01/09 (D113), **jamais éprouvé avec un vrai jeu** — seulement en simulation (`VIGIE_FAKE_GAME` + `VIGIE_FAKE_BATTERY`) |
+| GAMING | Partiel | `gaming.probe.ps1`, sentinelle `game-battery` ; cible détaillée dans [gaming.md](../targeting/gaming.md) | La détection lisait les bibliothèques Steam et la Game Bar dans `HKCU`, donc dans la ruche du compte de service : corrigé le 01/09 (D113), éprouvé avec un vrai jeu le 02/09 : Odyssey **reconnu à un relevé, ignoré au suivant**. La détection dépend d'une mesure GPU instantanée qui sert de filtre d'entrée, coûte 2,5 s et revient parfois vide — la carte dit alors « aucun jeu » au lieu de « mesure indisponible ». La cible (démarrage de processus, inventaire des jeux installés, arbre des processus, partie qui dure) est écrite, non codée |
 
 Module `debug` (carte Vigie : version, serveur, journaux, données locales) en plus de la cible : inactif par défaut.
 
