@@ -36,6 +36,14 @@ param(
 $ErrorActionPreference = 'Stop'
 
 # LE PLAFOND. On le baisse a chaque fois qu'on renomme, jamais on ne le monte.
+<#
+    THE FRENCH COMMENT CEILING, measured on 02/09.
+
+    It is the legacy of a conventions page written against the intended rule (D115). We do
+    not rewrite it at once -- thousands of touched lines for no gain, and a drowned git
+    blame. The ratchet forbids adding any; every conversion lowers the ceiling as much.
+#>
+$COMMENT_CEILING = 5993
 $CEILING = 291
 
 # LE PLAFOND DES NOMS DE FICHIERS. Meme cliquet, compte separe : ceux qui restent sont
@@ -66,6 +74,16 @@ $FRENCH_FILE_WORDS = $FRENCH_WORDS + @(
     'arret','jour','nettoyage','verification','securite','utilisateur','parametre',
     'liste','recherche','lancement','preparation','correction','controle',
     'comptes','installation','mise','relance','affichage','langue','erreur'
+)
+
+# The COMMENT lexicon: function words, the ones no French sentence can avoid. Looking for
+# technical vocabulary instead would flag English too.
+$FRENCH_COMMENT_WORDS = @(
+    'le','la','les','un','une','des','du','de','et','ou','qui','que','quoi','dont','pas',
+    'pour','dans','avec','sur','sans','sous','est','sont','etre','ete','fait','faire',
+    'on','il','elle','nous','vous','ils','elles','ce','cette','ces','celui','celle',
+    'mais','donc','car','quand','alors','ainsi','plus','moins','tout','toute','tous',
+    'chaque','meme','autre','deja','encore','jamais','toujours','ici','la-bas','par'
 )
 
 $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
@@ -115,6 +133,50 @@ foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.
     foreach ($word in $FRENCH_FILE_WORDS) {
         if ($base -match ('(^|[-_.])' + $word)) { $fileTotal++; $frenchFiles += $rel; break }
     }
+}
+
+<#
+    COMMENTS FOLLOW THE SAME RULE (D115).
+
+    A comment is part of the code and is read with it, so it is written in English. The
+    conventions page long said the opposite and the whole codebase complied -- hence the
+    same ratchet as for identifiers, rather than a mass rewrite.
+
+    A comment LINE counts as French as soon as it carries one word of the lexicon below.
+    Displayed labels and log messages are not comments: they stay in French, and a line of
+    code holding one is never counted.
+#>
+$commentTotal = 0
+$commentPerFile = @{}
+foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.ps1','*.psd1' -ErrorAction SilentlyContinue)) {
+    $rel = $f.FullName.Substring($repoRoot.Length).TrimStart([char]92, [char]47).Replace([char]92, [char]47)
+    if ($skipped | Where-Object { $rel -like ($_ + '/*') -or $rel -like ('*/' + $_ + '/*') }) { continue }
+    $n = 0
+    $inBlock = $false
+    foreach ($line in (Get-Content -LiteralPath $f.FullName -Encoding UTF8 -ErrorAction SilentlyContinue)) {
+        $trimmed = "$line".Trim()
+        if ($trimmed -like '<#*') { $inBlock = $true }
+        $isComment = $inBlock -or $trimmed.StartsWith('#')
+        if ($trimmed -like '*#>*') { $inBlock = $false }
+        if (-not $isComment) { continue }
+        $lower = $trimmed.ToLowerInvariant()
+        foreach ($word in $FRENCH_COMMENT_WORDS) {
+            if ($lower -match ('(^|[^a-z])' + $word + '([^a-z]|$)')) { $n++; $commentTotal++; break }
+        }
+    }
+    if ($n) { $commentPerFile[$rel] = $n }
+}
+
+Write-Info (Get-Label 'check-naming.commentaires-francais-plafond' $commentTotal $COMMENT_CEILING)
+if ($commentTotal -gt $COMMENT_CEILING) {
+    Write-Fail (Get-Label 'check-naming.commentaires-au-dessus' ($commentTotal - $COMMENT_CEILING))
+    if ($Detail) {
+        foreach ($e in ($commentPerFile.GetEnumerator() | Sort-Object Value -Descending | Select-Object -First 12)) {
+            Write-Detail ("{0,10}  {1}" -f $e.Value, $e.Key)
+        }
+    }
+} elseif ($commentTotal -lt $COMMENT_CEILING) {
+    Write-Ok (Get-Label 'check-naming.commentaires-en-baisse' ($COMMENT_CEILING - $commentTotal))
 }
 
 Write-Info (Get-Label 'check-naming.identifiants-francais-plafond' $total $CEILING)

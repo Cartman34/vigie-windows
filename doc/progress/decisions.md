@@ -21,7 +21,7 @@
 Uniquement des renvois : les titres vivent plus bas, une seule fois. Ajouter une décision = ajouter son numéro à une
 ligne — `scripts/dev/check-doc.ps1` refuse une décision absente d'ici.
 
-- **Identité et nommage** — D03 · D04 · D05 · D28 · D30 · D41 · D72 · D108
+- **Identité et nommage** — D03 · D04 · D05 · D28 · D30 · D41 · D72 · D108 · D115
 - **Structure du dépôt** — D29 · D32 · D33 · D35 · D55
 - **Documentation** — D91 · D92 · D93 · D98
 - **Configuration** — D15 · D18 · D56 · D57
@@ -2947,3 +2947,24 @@ même genre que celles qui existaient : Vigie n'agit pas à la place de l'utilis
 
 **Ce que ça n'est pas** : un bouton par carte pour faire nombre. Une destination qui ne sert à rien n'a pas sa place —
 c'est la même exigence que pour une alerte.
+
+---
+
+## D115 — Les commentaires s'écrivent en anglais (2026-09-02)
+
+*Demandée par l'utilisateur.*
+
+> « Le code et les commentaires dans le code doivent toujours être en anglais. » — « C'est moi qui définis les
+> conventions. Là, elles semblent avoir été écrites en contradiction avec ce que j'ai demandé. »
+
+**Ce qui n'allait pas.** `conventions.md` rangeait les commentaires du côté français, en les justifiant par
+« ils s'adressent à qui relit, et cette équipe parle français ». Cette page a été écrite à l'encontre de la règle
+voulue, et tout le code s'y est conformé — plusieurs milliers de lignes.
+
+**Décision.** Un commentaire fait partie du code : il s'écrit en **anglais**, comme les identifiants (**D41**).
+Restent en français ce que lit un **humain hors du code** : libellés affichés, messages de journal, documentation
+de `doc/fr/` et de `progress/`.
+
+**Comment on y va — sans grand nettoyage.** Comme pour les identifiants : un **cliquet**. `check-naming.ps1` compte
+les commentaires français, refuse toute augmentation, et le plafond baisse au fil des passages. Le code neuf s'écrit
+en anglais dès maintenant ; l'ancien se convertit quand on le touche.
