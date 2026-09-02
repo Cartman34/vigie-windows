@@ -3333,6 +3333,331 @@ $script:ThemeCatalog = @(
 
     Le detail : doc/progress/targeting/surveillance.md.
 #>
+<#
+    LES BIBLIOTHEQUES DE JEUX DE LA MACHINE, lues une fois et gardees.
+
+    Steam declare ses bibliotheques dans sa configuration, les autres boutiques
+    enregistrent le dossier de chaque jeu installe. Tout cela vit PAR UTILISATEUR pour
+    Steam et dans la base machine pour les autres : on lit donc ruche par ruche, jamais le
+    HKCU du compte de service (D113).
+
+    C est une des methodes d identification, et la plus limitee : elle ne connait que les
+    grosses boutiques. Un jeu independant lance sans plateforme n y sera jamais.
+#>
+$script:GameLibraries = $null
+$script:GameLibrariesAt = [datetime]::MinValue
+function Get-GameLibraryPaths {
+    param([int]$TtlMinutes = 10)
+    if ($script:GameLibraries -and (([datetime]::UtcNow - $script:GameLibrariesAt).TotalMinutes -lt $TtlMinutes)) {
+        return $script:GameLibraries
+    }
+    $found = @()
+    # --- Steam : les bibliotheques declarees, chez chaque utilisateur ---------------
+    foreach ($hive in @(Get-UserRegistryRoots)) {
+        try {
+            $steamPath = (Get-ItemProperty (Join-Path $hive 'Software\Valve\Steam') -Name 'SteamPath' -ErrorAction Stop).SteamPath
+            if (-not $steamPath) { continue }
+            $root = ($steamPath -replace '/', '\')
+            $found += @{ Label = 'une bibliotheque Steam'; Path = (Join-Path $root 'steamapps\common') }
+            $vdf = Join-Path $root 'steamapps\libraryfolders.vdf'
+            if (Test-Path -LiteralPath $vdf) {
+                foreach ($m in [regex]::Matches((Get-Content -LiteralPath $vdf -Raw), '"path"\s+"([^"]+)"')) {
+                    $lib = ($m.Groups[1].Value -replace '\\\\', '\')
+                    $found += @{ Label = 'une bibliotheque Steam'; Path = (Join-Path $lib 'steamapps\common') }
+                }
+            }
+        } catch { }
+    }
+    # --- Ubisoft Connect : le dossier de chaque jeu installe ------------------------
+    foreach ($base in @('HKLM:\SOFTWARE\WOW6432Node\Ubisoft\Launcher\Installs',
+                        'HKLM:\SOFTWARE\Ubisoft\Launcher\Installs')) {
+        try {
+            foreach ($key in (Get-ChildItem $base -ErrorAction Stop)) {
+                $dir = (Get-ItemProperty $key.PSPath -ErrorAction SilentlyContinue).InstallDir
+                if ($dir) { $found += @{ Label = 'la bibliotheque Ubisoft Connect'; Path = ($dir -replace '/', '\') } }
+            }
+        } catch { }
+    }
+    # --- GOG Galaxy ----------------------------------------------------------------
+    foreach ($base in @('HKLM:\SOFTWARE\WOW6432Node\GOG.com\Games', 'HKLM:\SOFTWARE\GOG.com\Games')) {
+        try {
+            foreach ($key in (Get-ChildItem $base -ErrorAction Stop)) {
+                $dir = (Get-ItemProperty $key.PSPath -ErrorAction SilentlyContinue).path
+                if ($dir) { $found += @{ Label = 'la bibliotheque GOG'; Path = $dir } }
+            }
+        } catch { }
+    }
+    # --- Epic Games : un manifeste par jeu, dans les donnees de la machine ----------
+    try {
+        $manifests = Join-Path $env:ProgramData 'Epic\EpicGamesLauncher\Data\Manifests'
+        foreach ($file in @(Get-ChildItem -LiteralPath $manifests -Filter '*.item' -File -ErrorAction Stop)) {
+            $item = Get-Content -LiteralPath $file.FullName -Raw | ConvertFrom-Json
+            if ($item.InstallLocation) { $found += @{ Label = 'la bibliotheque Epic Games'; Path = "$($item.InstallLocation)" } }
+        }
+    } catch { }
+
+    $script:GameLibraries = @($found | Where-Object { $_.Path })
+    $script:GameLibrariesAt = [datetime]::UtcNow
+    return $script:GameLibraries
+}
+
+<#
+    EST-CE UN JEU ? Plusieurs METHODES, une seule qui parle suffit.
+
+    Les methodes vivent dans probes/gaming/identify/, un fichier chacune, rangees par
+    COUT : le nom du fichier porte son rang, et on s arrete a la premiere qui repond.
+    Aucune n est complete -- c est leur reunion qui l est --, et en ajouter une demain
+    coute un fichier, rien d autre.
+
+    ON NE JUGE JAMAIS SUR LE NOM d un executable (D64). Ce qui est ecarte d emblee l est
+    sur son EMPLACEMENT : ce qui vit dans le dossier de Windows n est pas un jeu.
+
+    LES DEUX VERDICTS SE MEMORISENT -- jeu ET non-jeu. Un executable qui demarre cent fois
+    ne s examine qu une. La memoire porte l EMPRENTE DES CRITERES : un critere qui change,
+    une methode qu on ajoute, et tout se reexamine une fois.
+#>
+function Get-GameCriteriaFingerprint {
+    param([string]$Backend = (Get-BackendRoot))
+    $dir = Join-Path $Backend 'probes/gaming/identify'
+    $parts = @()
+    foreach ($file in @(Get-ChildItem -LiteralPath $dir -Filter '*.ps1' -File -ErrorAction SilentlyContinue | Sort-Object Name)) {
+        $parts += ($file.Name + '@' + $file.LastWriteTimeUtc.ToString('o'))
+    }
+    return ($parts -join '|')
+}
+
+function Get-GameVerdictPath {
+    param([string]$Backend = (Get-BackendRoot))
+    Get-VarPath -Backend $Backend -Kind 'cache' -File 'game-verdicts.json'
+}
+
+function Test-ProcessIsGame {
+    param(
+        [string]$Backend = (Get-BackendRoot),
+        [Parameter(Mandatory)]$Process
+    )
+    $unknown = [pscustomobject]@{ IsGame = $false; Reason = $null; Method = $null }
+    if (-not $Process -or -not $Process.Path) { return $unknown }
+    $path = "$($Process.Path)"
+    # Ce qui vit dans Windows n est pas un jeu : ecarte sur l emplacement, pas sur le nom.
+    if ($path.ToLower().StartsWith("$env:SystemRoot".ToLower())) { return $unknown }
+
+    $key = $path.ToLower()
+    $file = Get-GameVerdictPath -Backend $Backend
+    $fingerprint = Get-GameCriteriaFingerprint -Backend $Backend
+    $memory = $null
+    if (Test-PathSafe $file) {
+        try { $memory = Get-Content -LiteralPath $file -Raw | ConvertFrom-Json } catch { }
+    }
+    if ($memory -and "$($memory.fingerprint)" -ne $fingerprint) { $memory = $null }
+    if ($memory -and $memory.verdicts -and $memory.verdicts.PSObject.Properties[$key]) {
+        $known = $memory.verdicts.PSObject.Properties[$key].Value
+        return [pscustomobject]@{ IsGame = [bool]$known.game; Reason = "$($known.reason)"; Method = "$($known.method)" }
+    }
+
+    $verdict = $unknown
+    $dir = Join-Path $Backend 'probes/gaming/identify'
+    foreach ($method in @(Get-ChildItem -LiteralPath $dir -Filter '*.ps1' -File -ErrorAction SilentlyContinue | Sort-Object Name)) {
+        $reason = $null
+        try { $reason = & $method.FullName -Process $Process } catch { $reason = $null }
+        $reason = "$($reason | Select-Object -Last 1)".Trim()
+        if ($reason) {
+            $verdict = [pscustomobject]@{ IsGame = $true; Reason = $reason; Method = $method.BaseName }
+            break
+        }
+    }
+
+    # On garde la reponse, quelle qu elle soit.
+    $store = [ordered]@{ fingerprint = $fingerprint; verdicts = [ordered]@{} }
+    if ($memory -and $memory.verdicts) {
+        foreach ($prop in $memory.verdicts.PSObject.Properties) { $store.verdicts[$prop.Name] = $prop.Value }
+    }
+    $store.verdicts[$key] = [ordered]@{ game = $verdict.IsGame; reason = $verdict.Reason
+                                        method = $verdict.Method; at = ([datetime]::UtcNow).ToString('o') }
+    try {
+        $tmp = "$file.tmp"
+        ($store | ConvertTo-Json -Depth 6) | Out-File -FilePath $tmp -Encoding UTF8
+        Move-Item -Path $tmp -Destination $file -Force
+    } catch { }
+    return $verdict
+}
+
+<#
+    LES RESIDENTS : CE QUI VIT AVEC L APP SERVEUR (cible : targeting/residents.md).
+
+    Tout le reste de Vigie se declenche -- une requete, un minuteur, un bouton. Un
+    RESIDENT, lui, reste en vie : il ecoute, il consomme, il tient un etat. Le premier
+    besoin qui l exige est l abonnement aux demarrages de processus, mais la mecanique ne
+    suppose RIEN de ce qu un resident fait.
+
+    Un module en declare un dans son module.psd1 :
+
+        Residents = @(
+            @{ Key = 'game'; Label = 'Detection des jeux' }
+        )
+
+    et pose le script « <cle>.resident.ps1 » a cote. Le serveur l arme a son demarrage,
+    l arrete avec lui, le rearme s il meurt, et son etat se voit.
+#>
+function Get-ResidentDeclarations {
+    param([string]$Backend = (Get-BackendRoot))
+    $probesDir = Join-Path $Backend 'probes'
+    if (-not (Test-PathSafe $probesDir)) { return @() }
+    $off = @(Get-InactiveUnits -Backend $Backend)
+    $out = @()
+    foreach ($dir in @(Get-ChildItem -LiteralPath $probesDir -Directory -ErrorAction SilentlyContinue)) {
+        if ($off -contains $dir.Name) { continue }
+        $decl = $null
+        try { $decl = Import-PowerShellDataFile -Path (Join-Path $dir.FullName 'module.psd1') } catch { }
+        if (-not $decl -or -not $decl.Residents) { continue }
+        foreach ($r in @($decl.Residents)) {
+            if (-not $r.Key) { continue }
+            $script = Join-Path $dir.FullName ("$($r.Key).resident.ps1")
+            if (-not (Test-PathSafe $script)) { continue }
+            $out += [pscustomobject]@{
+                Unit   = $dir.Name
+                Key    = "$($r.Key)"
+                Label  = $(if ($r.Label) { "$($r.Label)" } else { "$($r.Key)" })
+                Script = $script
+            }
+        }
+    }
+    return $out
+}
+
+# L ETAT D UN RESIDENT, ecrit par LUI : il dit qu il est vivant en le reecrivant. Le
+# serveur ne fait que le lire -- un resident qui ne bat plus est mort, meme si son
+# processus existe encore.
+function Get-ResidentStatePath {
+    param([string]$Backend = (Get-BackendRoot), [Parameter(Mandatory)][string]$Key)
+    Get-VarPath -Backend $Backend -Kind 'run' -File ('resident-' + $Key + '.json')
+}
+
+function Get-ResidentState {
+    param([string]$Backend = (Get-BackendRoot), [Parameter(Mandatory)][string]$Key)
+    $path = Get-ResidentStatePath -Backend $Backend -Key $Key
+    if (-not (Test-PathSafe $path)) { return $null }
+    try { return (Get-Content -LiteralPath $path -Raw | ConvertFrom-Json) } catch { return $null }
+}
+
+function Set-ResidentState {
+    param(
+        [string]$Backend = (Get-BackendRoot),
+        [Parameter(Mandatory)][string]$Key,
+        [Parameter(Mandatory)][hashtable]$Fields
+    )
+    $path = Get-ResidentStatePath -Backend $Backend -Key $Key
+    $state = [ordered]@{}
+    $known = Get-ResidentState -Backend $Backend -Key $Key
+    if ($known) { foreach ($prop in $known.PSObject.Properties) { $state[$prop.Name] = $prop.Value } }
+    foreach ($name in $Fields.Keys) { $state[$name] = $Fields[$name] }
+    $state['at'] = ([datetime]::UtcNow).ToString('o')
+    try {
+        $tmp = "$path.tmp"
+        ($state | ConvertTo-Json -Depth 6) | Out-File -FilePath $tmp -Encoding UTF8
+        Move-Item -Path $tmp -Destination $path -Force
+    } catch { }
+}
+
+<#
+    VIVANT ? Deux conditions, et les deux comptent : son processus existe, et il a battu
+    recemment. Un processus fige repond a la premiere et pas a la seconde -- c est
+    exactement le cas qu on veut voir.
+#>
+function Test-ResidentAlive {
+    param(
+        [string]$Backend = (Get-BackendRoot),
+        [Parameter(Mandatory)][string]$Key,
+        [int]$BeatSeconds = 180
+    )
+    $state = Get-ResidentState -Backend $Backend -Key $Key
+    if (-not $state -or -not $state.processId) { return $false }
+    if (-not (Get-Process -Id ([int]$state.processId) -ErrorAction SilentlyContinue)) { return $false }
+    if (-not $state.at) { return $false }
+    try { return ((([datetime]::UtcNow) - (ConvertTo-UtcDate $state.at)).TotalSeconds -lt $BeatSeconds) }
+    catch { return $false }
+}
+
+<#
+    ARMER. Le resident tourne dans SON processus, pas dans une piste du serveur : Pode
+    recycle ses pistes, et un abonnement pose dans l une d elles disparaitrait sans un mot.
+    Un processus, lui, se voit, se surveille et se tue.
+
+    Il herite des droits du serveur -- c est ce qui permet a l abonnement aux demarrages de
+    processus d exister, refuse a une session ordinaire (constate le 02/09).
+
+    LE NUMERO DU SERVEUR LUI EST DONNE : le resident s arrete quand le serveur s arrete.
+    C est la seule facon de tenir « aucun resident ne survit a l app serveur » sans laisser
+    d orphelin qu on ne saurait ni voir ni tuer.
+#>
+function Start-Resident {
+    param(
+        [string]$Backend = (Get-BackendRoot),
+        [Parameter(Mandatory)]$Declaration
+    )
+    Stop-Resident -Backend $Backend -Key $Declaration.Key
+    $pwsh = $null
+    try { $pwsh = (Get-Process -Id $PID).Path } catch { }
+    if (-not $pwsh) { $pwsh = 'pwsh.exe' }
+    try {
+        $child = Start-Process -FilePath $pwsh -PassThru -WindowStyle Hidden -ArgumentList @(
+            '-NoProfile', '-File', $Declaration.Script, '-Backend', $Backend, '-ServerPid', $PID)
+        Set-ResidentState -Backend $Backend -Key $Declaration.Key -Fields @{
+            processId = $child.Id; serverPid = $PID; state = 'arme'
+            armedAt = ([datetime]::UtcNow).ToString('o'); error = $null }
+        return $true
+    } catch {
+        Set-ResidentState -Backend $Backend -Key $Declaration.Key -Fields @{
+            processId = $null; state = 'echec'; error = "$($_.Exception.Message)" }
+        return $false
+    }
+}
+
+function Stop-Resident {
+    param([string]$Backend = (Get-BackendRoot), [Parameter(Mandatory)][string]$Key)
+    $state = Get-ResidentState -Backend $Backend -Key $Key
+    if ($state -and $state.processId) {
+        try { Stop-Process -Id ([int]$state.processId) -Force -ErrorAction SilentlyContinue } catch { }
+    }
+    Set-ResidentState -Backend $Backend -Key $Key -Fields @{ processId = $null; state = 'arrete' }
+}
+
+<#
+    LE PASSAGE : arme ce qui manque, rearme ce qui est mort. Appele par la meme boucle
+    d une minute que les sentinelles -- un seul rythme, un seul endroit.
+#>
+function Invoke-ResidentPass {
+    param([string]$Backend = (Get-BackendRoot))
+    $started = @()
+    foreach ($declaration in @(Get-ResidentDeclarations -Backend $Backend)) {
+        if (Test-ResidentAlive -Backend $Backend -Key $declaration.Key) { continue }
+        if (Start-Resident -Backend $Backend -Declaration $declaration) {
+            $started += $declaration.Key
+            try { Write-Log -Backend $Backend -Name 'state' -NoEcho -Message ("resident arme : " + $declaration.Label) } catch { }
+        }
+    }
+    return $started
+}
+
+# CE QU ON PEUT DIRE DE CHAQUE RESIDENT, pour une carte ou un diagnostic : une surveillance
+# dont on ne sait pas si elle fonctionne ne vaut rien.
+function Get-ResidentHealth {
+    param([string]$Backend = (Get-BackendRoot))
+    foreach ($declaration in @(Get-ResidentDeclarations -Backend $Backend)) {
+        $state = Get-ResidentState -Backend $Backend -Key $declaration.Key
+        [pscustomobject]@{
+            Key       = $declaration.Key
+            Label     = $declaration.Label
+            Alive     = (Test-ResidentAlive -Backend $Backend -Key $declaration.Key)
+            State     = $(if ($state) { "$($state.state)" } else { 'jamais arme' })
+            ArmedAt   = $(if ($state) { $state.armedAt } else { $null })
+            LastBeat  = $(if ($state) { $state.at } else { $null })
+            LastEvent = $(if ($state) { $state.lastEventAt } else { $null })
+            Error     = $(if ($state) { $state.error } else { $null })
+        }
+    }
+}
+
 function Get-WatchDeclarations {
     param([string]$Backend = (Get-BackendRoot))
     $probesDir = Join-Path $Backend 'probes'

@@ -585,6 +585,10 @@ Add-PodeTimer -Name 'vigie-watch' -Interval 60 -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
     try {
         if (Get-InstallLockHolder) { return }
+        # LES RESIDENTS D ABORD : ce qui doit vivre a cote du serveur est arme ici, et
+        # rearme s il est mort (targeting/residents.md). Le premier d entre eux sait
+        # quand un jeu demarre ; la sentinelle qui suit ne fait que lire son resultat.
+        $null = Invoke-ResidentPass -Backend $env:VIGIE_BACKEND
         $null = Invoke-WatchPass -Backend $env:VIGIE_BACKEND
     } catch {
         try { Write-Log -Backend $env:VIGIE_BACKEND -Name 'state' -Level 'ERROR' `
