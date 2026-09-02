@@ -30,8 +30,8 @@ Ce que le mode « en jeu » déclenche :
 | **La mémoire vidéo et la température** | ce sont les deux causes de saccades ; ailleurs, un GPU chaud qui ne rend rien n'intéresse personne |
 | **La carte qui bride ses fréquences** | la vraie cause des chutes d'images par seconde, à dire pendant, pas après |
 
-Le mode a donc trois propriétés : il **commence** à la reconnaissance du jeu, il **dure** tant que ses processus
-vivent, et il **appartient à un compte** — c'est ce compte-là qu'on prévient.
+Le mode a donc deux propriétés : il **commence** à la reconnaissance du jeu, et il **dure** tant que ses processus
+vivent.
 
 ## Ce qu'elle doit dire
 
@@ -84,8 +84,8 @@ Ce que la détection doit devenir :
 - L'app serveur tourne **sous un compte de service, en session 0**. Les inventaires des boutiques vivent par
   utilisateur : ils se lisent ruche par ruche (`HKEY_USERS\<SID>`) et profil par profil, jamais dans le `HKCU` du
   service (**D113**).
-- La session et le SID portés par l'événement disent **qui joue**. La carte doit alors devenir personnelle
-  (`PerAccount`) : chacun voit sa partie, et l'alerte de décharge part chez le joueur.
+- Les événements portent la session et le SID de l'utilisateur : c'est ce qui permet de rattacher un processus à la
+  session qui l'a lancé, depuis un service qui tourne en session 0. Ce que la carte en fait n'est pas défini.
 
 ## Ce qui doit alerter, et à qui
 
