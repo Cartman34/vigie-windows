@@ -38,7 +38,9 @@ if ($needPwsh -or $needElev) {
         try { Stop-Transcript | Out-Null } catch { }
         return
     }
-    $argList = @('-NoExit','-NoProfile','-ExecutionPolicy','Bypass','-File', $PSCommandPath)
+    # PATH QUOTED: this script may live under "C:\Program Files\Sowapps\Vigie", and a
+    # bare path dies on "C:\Program is not a script".
+    $argList = @('-NoExit','-NoProfile','-ExecutionPolicy','Bypass','-File', ('"' + $PSCommandPath + '"'))
     if ($NoBrowser) { $argList += '-NoBrowser' }
     Write-Log -Backend $backend -Name 'run' -Message (Get-Label 'run.relance-pwsh-eleve' $needElev)
     try {

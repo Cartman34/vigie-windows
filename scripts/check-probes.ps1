@@ -236,7 +236,7 @@ foreach ($f in $sondes) {
             nommee.
         #>
         try {
-            $job = Start-Job -ScriptBlock { param($chemin) & $chemin } -ArgumentList $f.FullName
+            $job = Start-Job -ScriptBlock { param($path) & $path } -ArgumentList $f.FullName
             if (Wait-Job -Job $job -Timeout $ProbeTimeoutSec) {
                 $rendus = Receive-Job -Job $job -ErrorAction Stop
             } else {
@@ -537,6 +537,64 @@ foreach ($d in @('apps', 'scripts')) {
 foreach ($x in $rawUserVar) {
     $manquements += (('$env:' + 'USER' + 'NAME') +
                      " en clair (Get-ProcessAccount, ou Get-RequesterAccount si c'est la personne) -- " + $x)
+}
+
+# --- Guard rail: A PATH HANDED TO A PROCESS IS ALWAYS QUOTED ------------------
+#
+# Start-Process joins arguments with spaces and quotes NOTHING. The shared install lives
+# under "C:\Program Files\Sowapps\Vigie": a bare path dies on "C:\Program is not a
+# script", silently, and the caller believes it started something. Measured on 02/09 on the
+# gaming resident, invisible until a health field said so.
+#
+# So we refuse a -File or -WorkingDirectory followed by a bare variable in an argument
+# list. The expected shape is ('"' + $path + '"').
+$barePath = @()
+foreach ($d in @('apps', 'scripts')) {
+    $rootDir = Join-Path $repoRoot $d
+    if (-not (Test-Path -LiteralPath $rootDir)) { continue }
+    foreach ($f in (Get-ChildItem -LiteralPath $rootDir -Recurse -File -Include '*.ps1' -ErrorAction SilentlyContinue)) {
+        if ($f.FullName -like ('*' + [IO.Path]::DirectorySeparatorChar + 'var' + [IO.Path]::DirectorySeparatorChar + '*')) { continue }
+        $i = 0
+        foreach ($line in (Get-Content -LiteralPath $f.FullName -Encoding UTF8 -ErrorAction SilentlyContinue)) {
+            $i++
+            if ($line -match '^\s*#') { continue }
+            # -Command carries a COMMAND BLOCK, not a path: quoting it would break it.
+            # The rule therefore targets paths only.
+            if ($line -notmatch "'-(File|WorkingDirectory)'\s*,\s*\$[A-Za-z]") { continue }
+            $barePath += ("{0}:{1}" -f (Resolve-Path -LiteralPath $f.FullName -Relative), $i)
+        }
+    }
+}
+foreach ($x in $barePath) {
+    $manquements += ("chemin passe nu a un processus : le citer avant de le passer -- " + $x)
+}
+
+# --- Guard rail: NOTHING BETWEEN A CONTINUATION AND ITS PARAMETER -------------
+#
+# A comment slipped after a continuation backtick CUTS the command: the next line becomes a
+# command of its own, and PowerShell answers "the term '-Impact' is not recognized". Fell
+# for it twice -- deployment.probe.ps1 on 29/08, firewall.probe.ps1 on 02/09 -- and both
+# times the probe was broken in production.
+$cutCommand = @()
+foreach ($d in @('apps', 'scripts')) {
+    $rootDir = Join-Path $repoRoot $d
+    if (-not (Test-Path -LiteralPath $rootDir)) { continue }
+    foreach ($f in (Get-ChildItem -LiteralPath $rootDir -Recurse -File -Include '*.ps1' -ErrorAction SilentlyContinue)) {
+        if ($f.FullName -like ('*' + [IO.Path]::DirectorySeparatorChar + 'var' + [IO.Path]::DirectorySeparatorChar + '*')) { continue }
+        $lines = @(Get-Content -LiteralPath $f.FullName -Encoding UTF8 -ErrorAction SilentlyContinue)
+        for ($i = 0; $i -lt $lines.Count - 1; $i++) {
+            $previous = "$($lines[$i])".Trim()
+            # A comment line may end with a backtick ("`running`"): that is not a
+            # continuation, and mistaking it would be a false positive.
+            if ($previous -match '^#') { continue }
+            if ($previous.TrimEnd() -notmatch ([char]96 + '$')) { continue }
+            if ("$($lines[$i + 1])".Trim() -notmatch '^#') { continue }
+            $cutCommand += ("{0}:{1}" -f (Resolve-Path -LiteralPath $f.FullName -Relative), ($i + 2))
+        }
+    }
+}
+foreach ($x in $cutCommand) {
+    $manquements += ("commentaire apres une continuation : la commande est coupee -- " + $x)
 }
 
 # --- Garde-fou : LE SERVEUR N'A PAS D'UTILISATEUR AMBIANT --------------------

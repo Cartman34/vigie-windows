@@ -99,6 +99,17 @@ phrase à la fin plutôt que de l'exécuter.
 pendant, puis le résultat. Vingt-quatre minutes sans nouvelle, c'est le laisser deviner si je travaille, si j'ai
 compris, ou si je me suis perdu.
 
+**UN CHEMIN QUI PART VERS UN PROCESSUS SE CITE, TOUJOURS.** `Start-Process` colle les arguments avec des espaces et
+n'en cite aucun : l'installation partagée vivant sous `C:\Program Files\Sowapps\Vigie`, un chemin passé nu meurt sur
+« `C:\Program` n'est pas un script », **en silence**. Le 02/09, le résident des jeux est mort ainsi à chaque armement,
+et seul son champ de santé l'a révélé. `check-probes` refuse désormais un `-File` suivi d'une variable nue, et un
+commentaire glissé après une continuation — les deux fautes que je refais.
+
+**Les caractères spéciaux se traitent par le contrôle, pas par l'attention.** Antislashs mangés, guillemets imbriqués,
+espaces dans un chemin, échappements avalés par un script d'écriture : ces fautes reviennent parce qu'elles ne se
+voient pas à la relecture. Chacune se règle par un vérificateur qui refuse, jamais par une promesse de vigilance — et
+le vérificateur s'éprouve en posant volontairement le piège.
+
 **Une commande longue part en TACHE DE FOND.** Sinon je ne réponds plus : il parle, et je suis muet jusqu'à ce que
 la commande finisse. Une installation, une passe complète de sondes, un déploiement : en fond, puis je rends compte.
 Rester bloqué sur une commande n'apporte rien à personne — surtout pas à lui.

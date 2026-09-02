@@ -66,11 +66,11 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
         # LES PARAMETRES SUIVENT LA BASCULE. Sans cela, « -Requester » et « -Force » se
         # perdaient au passage en PowerShell 7, et la seconde passe ne savait plus qui avait
         # demande.
-        $suite = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $PSCommandPath)
-        if ($Requester) { $suite += @('-Requester', $Requester) }
-        if ($Force)     { $suite += '-Force' }
-        if ($NoWindow)  { $suite += '-NoWindow' }
-        if ($FromAction) { $suite += @('-FromAction', $FromAction) }
+        $nextArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $PSCommandPath + '"'))
+        if ($Requester) { $nextArgs += @('-Requester', $Requester) }
+        if ($Force)     { $nextArgs += '-Force' }
+        if ($NoWindow)  { $nextArgs += '-NoWindow' }
+        if ($FromAction) { $nextArgs += @('-FromAction', $FromAction) }
         & $pwsh @suite
         # LE CODE DE LA PASSE LANCEE EST LE NOTRE. Sans cette ligne, un echec de
         # l'installation reelle remontait en succes a l'appelant : le lanceur affichait
@@ -504,7 +504,10 @@ if ($aRecuperer) {
     if (-not (Test-Path -LiteralPath $fetch)) {
         Write-Fail (Get-Label 'vigie-update.vigie-fetch-ps1-introuvable')
     } else {
-        $argv = @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', $fetch, '-Source', $route)
+        # PATHS QUOTED: the shared install lives under "C:\Program Files\...", and
+        # Start-Process joins arguments without quoting anything.
+        $argv = @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+                  '-File', ('"' + $fetch + '"'), '-Source', ('"' + $route + '"'))
         if ($updateRef) { $argv += @('-Ref', $updateRef) }
         if ($Force)     { $argv += '-Force' }
 
@@ -791,7 +794,7 @@ try {
         # LE RESULTAT SE LIT : 0 = fait, 3 = refuse, le reste est un echec.
         # POUR QUI : depuis le bouton, celui qui execute est le service ; la tache de
         # demarrage appartient a la personne qui a demande.
-        $argsAuto = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $autostart, '-Yes')
+        $argsAuto = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $autostart + '"'), '-Yes')
         if ($Requester) { $argsAuto += @('-Account', $Requester) }
         Close-UiStep   # meme raison : il affiche ses propres etapes
         & (Get-Process -Id $PID).Path @argsAuto
