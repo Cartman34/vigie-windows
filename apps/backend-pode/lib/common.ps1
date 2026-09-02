@@ -3608,8 +3608,14 @@ function Start-Resident {
     try { $pwsh = (Get-Process -Id $PID).Path } catch { }
     if (-not $pwsh) { $pwsh = 'pwsh.exe' }
     try {
-        $child = Start-Process -FilePath $pwsh -PassThru -WindowStyle Hidden -ArgumentList @(
-            '-NoProfile', '-File', $Declaration.Script, '-Backend', $Backend, '-ServerPid', $PID)
+        # QUOTE EVERY PATH. Start-Process joins the argument list with spaces and quotes
+        # nothing: the shared install lives under "C:\Program Files\Sowapps\Vigie", so the
+        # child died instantly on "The argument 'C:\Program' is not recognized". Measured on
+        # 02/09 -- and only the resident's health field revealed it, since a dead child says
+        # nothing on its own.
+        $quoted = @('-NoProfile', '-File', ('"' + $Declaration.Script + '"'),
+                    '-Backend', ('"' + $Backend + '"'), '-ServerPid', $PID)
+        $child = Start-Process -FilePath $pwsh -PassThru -WindowStyle Hidden -ArgumentList $quoted
         Set-ResidentState -Backend $Backend -Key $Declaration.Key -Fields @{
             processId = $child.Id; serverPid = $PID; state = 'arme'
             armedAt = ([datetime]::UtcNow).ToString('o'); error = $null }
