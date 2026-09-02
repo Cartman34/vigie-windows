@@ -15,6 +15,28 @@ ordre d'importance :
    se bride, la batterie qui se vide.
 3. **Est-ce que ça a changé ?** Ce qui mérite une bulle Windows pendant la partie, sans qu'on regarde la carte.
 
+## Le vrai besoin : un MODE « en jeu »
+
+Détecter la partie n'est pas un champ de plus sur une carte : c'est **faire basculer la machine dans un état**, dont
+découlent des comportements de surveillance qui n'ont de sens que là. Hors partie, ces mêmes surveillances seraient du
+bruit ; en partie, leur absence est une panne.
+
+Ce que le mode « en jeu » déclenche :
+
+| | |
+|---|---|
+| **La décharge de la batterie** | surveillée par paliers, alerte dès que la charge a fondu — sans partie, une décharge est normale et ne dit rien |
+| **Les applications gourmandes** | seuils bas et alerte : une sauvegarde qui démarre pendant une partie se voit, alors qu'elle est banale le reste du temps |
+| **La mémoire vidéo et la température** | ce sont les deux causes de saccades ; ailleurs, un GPU chaud qui ne rend rien n'intéresse personne |
+| **La carte qui bride ses fréquences** | la vraie cause des chutes d'images par seconde, à dire pendant, pas après |
+
+Et la question symétrique, à trancher : **ce que Vigie doit s'interdire pendant une partie** — lancer une analyse
+d'espace disque, installer des mises à jour, sortir une bulle non critique. Une application qui surveille le confort de
+jeu ne peut pas être ce qui le gâche.
+
+Le mode a donc trois propriétés : il **commence** à la reconnaissance du jeu, il **dure** tant que ses processus
+vivent, et il **appartient à un compte** — c'est ce compte-là qu'on prévient.
+
 ## Ce qu'elle doit dire
 
 | | |
