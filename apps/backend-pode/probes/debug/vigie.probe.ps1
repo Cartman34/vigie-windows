@@ -126,6 +126,27 @@ if ($sentinels.Count) {
         -Guide ($lines -join [Environment]::NewLine)
 }
 
+# LES RESIDENTS : CE QUI VIT A COTE DE L'APP SERVEUR (targeting/residents.md).
+# Une surveillance dont on ne sait pas si elle fonctionne ne vaut rien -- c'est le contrat
+# d'un resident d'etre observable, et c'est ici qu'on le voit.
+$residents = @(Get-ResidentHealth -Backend $backend)
+if ($residents.Count) {
+    $morts = @($residents | Where-Object { -not $_.Alive })
+    $lignesRes = @($residents | ForEach-Object {
+        $etat = if ($_.Alive) { 'vivant' } else { 'MORT' }
+        $ligne = "- {0} : {1} ({2})" -f $_.Label, $etat, $_.State
+        if ($_.LastEvent) { $ligne += " — dernier événement : $($_.LastEvent)" }
+        if ($_.Error)     { $ligne += " — $($_.Error)" }
+        $ligne
+    })
+    $fields += New-Field -Key 'residents' -Label 'Résidents' `
+        -Value $(if ($morts.Count) { "$($morts.Count) à l'arrêt sur $($residents.Count)" } else { "$($residents.Count) en vie" }) `
+        -Kind 'text' -Status $(if ($morts.Count) { 'warn' } else { 'ok' }) `
+        -FixAction $(if ($morts.Count) { 'server-restart' } else { $null }) `
+        -Help "Ce qui vit en permanence à côté de l'app serveur : elle les arme à son démarrage et les réarme s'ils meurent." `
+        -Guide ($lignesRes -join [Environment]::NewLine)
+}
+
 # LE SORT DE LA DERNIERE OPERATION lancee depuis cette carte (D82).
 $dernier = New-LastRunField -Module 'vigie-debug' -Backend $backend
 if ($dernier) { $fields += $dernier }
