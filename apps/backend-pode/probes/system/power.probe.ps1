@@ -93,8 +93,11 @@ if ($null -ne $pct) {
         -Status $(if ($batBas) { 'warn' } else { 'neutral' }) `
         -Help 'Charge restante de la batterie.'
 }
-$fields += New-Field -Key 'rate' -Label 'Courant' -Value $sens -Kind 'text' -Status 'neutral' `
-    -Help 'Puissance échangée avec la batterie : ce qui entre en charge, ce qui sort en décharge.'
+# « Courant » etait faux : un courant se mesure en amperes, et cette valeur est une
+# PUISSANCE, en watts. Le sens se lit dans les mots (« Charge a », « Decharge de »)
+# plutot que dans un signe a interpreter.
+$fields += New-Field -Key 'rate' -Label 'Puissance' -Value $sens -Kind 'text' -Status 'neutral' `
+    -Help 'Puissance échangée avec la batterie, en watts : ce qui entre en charge, ce qui sort en décharge. Sur secteur avec une batterie pleine, il n''y a plus d''échange — Windows n''expose pas ce que le chargeur fournit à la machine elle-même.'
 
 New-ModuleObject -Id 'power' -Theme 'system' -Label 'Alimentation' `
     -Status $(if ($soucis) { 'warn' } else { 'ok' }) `
