@@ -31,7 +31,7 @@ Ce que le mode « en jeu » déclenche :
 | **La carte qui bride ses fréquences** | la vraie cause des chutes d'images par seconde, à dire pendant, pas après |
 
 Le mode a donc deux propriétés : il **commence** à la reconnaissance du jeu, et il **dure** tant que ses processus
-vivent.
+vivent. Il **se voit** : tant qu'il est actif, la carte prend un style dédié.
 
 ## Ce qu'elle doit dire
 
@@ -67,17 +67,36 @@ relevé, ignoré au suivant.
 
 Ce que la détection doit devenir :
 
-1. **Elle part du démarrage du processus**, pas d'une mesure périodique. Le service est prévenu quand un processus
-   naît et quand il meurt, avec son PID, son parent, sa **session**, le **SID de l'utilisateur** et le chemin de son
-   exécutable.
-2. **Elle reconnaît le jeu par son chemin**, rapproché d'un **inventaire réel des jeux installés** — manifestes Steam,
-   Ubisoft Connect, Epic, GOG, EA, Battle.net, Xbox. Le nom du fichier n'est jamais une preuve.
-3. **Elle suit l'arbre des processus** : un jeu se lance souvent par un lanceur intermédiaire — `upc.exe` pour
-   Odyssey, `steam.exe` pour Steam — et le processus qui rend n'est pas celui qu'on a lancé.
-4. **La partie a une durée** : elle commence à la reconnaissance et ne finit qu'à la disparition de ses processus.
-   Aucune mesure instantanée ne doit pouvoir l'interrompre.
-5. **Le GPU redevient ce qu'il est** : un indicateur d'activité affiché — le jeu rend, ou il est en pause — jamais un
-   critère de reconnaissance.
+**Le déclencheur** : le **démarrage d'un processus**, pas une mesure périodique. L'app serveur en est prévenue par un
+**résident** ([residents.md](residents.md)) ; l'événement porte le PID, le parent, la session, le SID de l'utilisateur
+et le chemin de l'exécutable. Le résident ne juge pas : il **présente** le processus à l'identification.
+
+**L'identification** : plusieurs **méthodes déclarées, indépendantes**. Chacune reçoit un processus et répond « c'est
+un jeu, parce que… » ou se tait ; **une seule qui parle suffit**. Aucune n'est complète — c'est leur réunion qui l'est,
+et en ajouter une demain doit coûter un fichier, rien d'autre.
+
+| Méthode | Ce qu'elle attrape |
+|---|---|
+| **Marqueurs autour de l'exécutable** — moteur, SDK, boutique, middleware | le jeu indépendant, lancé sans plateforme |
+| **Windows l'a enregistré comme jeu** (Game Bar) | ce que le système sait déjà, lu dans la ruche du bon utilisateur |
+| **Dossier d'installation d'une plateforme** (Steam, Ubisoft, Epic, GOG, EA) | les grosses boutiques — une liste utile, **jamais suffisante** : elle ignore tout ce qui n'y est pas installé |
+| **Le parent est un lanceur connu** | un processus lancé par une boutique de jeux |
+| **Déjà reconnu** | tout ce qui a été confirmé une fois |
+
+**Le coût, qui décide de l'ordre.** Le travail n'a lieu qu'au démarrage d'un processus, jamais en boucle. Les méthodes
+s'exécutent de la moins chère à la plus chère et **on s'arrête à la première qui répond**. Les deux verdicts — jeu et
+non-jeu — sont **mémorisés** : un exécutable qui démarre cent fois ne s'examine qu'une. Ce qui vit dans `C:\Windows`
+est écarté d'emblée, sur son **emplacement** et jamais sur son nom.
+
+**La mémoire se périme sur les critères.** Elle porte l'empreinte des méthodes et de leurs réglages : un critère qui
+change, une méthode qu'on ajoute, et tout se réexamine une fois.
+
+**L'arbre des processus** rattrape les lanceurs intermédiaires : `upc.exe` lance `ACOdyssey.exe`, et le processus qui
+rend n'est pas celui qu'on a lancé.
+
+**La partie dure** : elle commence à la reconnaissance et ne finit qu'à la disparition de ses processus. Aucune mesure
+instantanée ne doit pouvoir l'interrompre. Le **GPU redevient un indicateur d'activité** affiché — le jeu rend, ou il
+est en pause — jamais un critère de reconnaissance.
 
 **Deux contraintes qui nous sont propres**, et qu'aucune documentation extérieure ne portera :
 

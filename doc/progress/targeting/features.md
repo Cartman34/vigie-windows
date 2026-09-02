@@ -31,6 +31,9 @@ Format : `ID` — Titre, puis le besoin et ses critères. On n'écrit **pas** ic
   tourne déjà sous son compte de service, c'est de là qu'on observe. Une sonde à la fois, la plus urgente d'abord,
   l'urgence étant **déclarée par le module** et non devinée. Sans cela, une notification ne peut pas exister — rien
   n'est mesuré tant que personne ne regarde. Détail : [surveillance.md](surveillance.md).
+- **CORE-RESIDENT** — Certaines choses doivent **rester en vie** aux côtés de l'app serveur : un abonnement, un
+  écouteur, un consommateur. Un module en déclare une, le serveur l'arme à son démarrage, l'arrête avec lui, la réarme
+  si elle meurt, et son état se voit. Ce qu'elle fait ne regarde qu'elle. Détail : [residents.md](residents.md).
 - **CORE-DEPLOY** — Installation partagée pour tous les comptes de la machine, jamais par compte. Les dépendances
   (PowerShell 7) en font partie. Un installateur aboutit, ou dit pourquoi il a échoué.
 - **CORE-UPDATE-TRUST** — La chaîne de mise à jour ne doit pas pouvoir être détournée. Ce qui s'installe doit être
