@@ -3398,6 +3398,26 @@ function Get-WatchMemoryPath {
     VIGIE_FAKE_GAME simule une partie (doc/en/developing/modules.md). Les deux ensemble
     rejouent la scene complete : une partie qui vide la batterie.
 #>
+<#
+    CHARGE-T-ELLE OU SE VIDE-T-ELLE ? C'est le fait a surveiller, pas la source.
+
+    Etre « sur secteur » ne dit pas grand-chose : branche mais en decharge, c'est un
+    chargeur qui ne suit pas ; debranche, c'est normal. Ce qui interesse, et ce qui doit
+    reveiller une carte, c'est le SENS du courant.
+
+    Rend 'charge', 'decharge', 'stable' (rien n'entre ni ne sort : batterie pleine sur
+    secteur) ou 'aucune' (machine sans batterie). Une lecture, sans reveil ni calcul.
+#>
+function Get-PowerFlow {
+    if ($env:VIGIE_FAKE_BATTERY) { return 'decharge' }
+    $b = Get-CimInstance -Namespace 'root/wmi' -ClassName 'BatteryStatus' -ErrorAction SilentlyContinue |
+         Select-Object -First 1
+    if (-not $b) { return 'aucune' }
+    if ($b.Discharging) { return 'decharge' }
+    if ($b.Charging)    { return 'charge' }
+    return 'stable'
+}
+
 function Get-BatteryState {
     if ($env:VIGIE_FAKE_BATTERY) {
         return @{ OnBattery = $true; Pct = [int]$env:VIGIE_FAKE_BATTERY; Simulated = $true }

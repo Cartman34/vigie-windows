@@ -38,6 +38,14 @@
 
     # NOTIFICATIONS emises par ce module (D54) : un evenement nomme, pas un nom de
     # carte. C'est la bascule du champ cite qui declenche la bulle.
+    # SENTINELLES : les releves permanents de ce module.
+    # Le sens du courant change quand on branche, quand on debranche, et quand le
+    # chargeur cesse de suivre : trois faits que la carte doit dire SANS attendre
+    # qu'on la rafraichisse. Une lecture WMI toutes les trente secondes.
+    Sentinels = @(
+        @{ Key = 'power'; Label = 'Sens du courant'; Seconds = 30; Cards = @('power') }
+    )
+
     Notifications = @(
         @{ Key = 'disk-low'; Label = 'Espace disque faible'
            Card = 'storage'; Field = 'free'
