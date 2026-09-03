@@ -47,10 +47,12 @@ $LegacyShortcutNames = @('HYPERION Control Panel.url')
 
 # --- Consentement puis elevation (D22) ------------------------------------------
 if (-not (Test-IsElevated)) {
-    $changes = @(
-        "Suppression de la tâche planifiée héritée : " + ($LegacyTaskNames -join ', '),
-        "Suppression du raccourci bureau hérité : " + ($LegacyShortcutNames -join ', ')
-    )
+    # THE COMMA BINDS TIGHTER THAN THE PLUS: written inside the array, these two
+    # concatenations became ONE, and the consent window showed a single mangled line
+    # instead of the two changes it announced.
+    $taskLine     = "Suppression de la tâche planifiée héritée : " + ($LegacyTaskNames -join ', ')
+    $shortcutLine = "Suppression du raccourci bureau hérité : " + ($LegacyShortcutNames -join ', ')
+    $changes = @($taskLine, $shortcutLine)
     if ($LegacyWorkspace) {
         $changes += "Ancien espace de travail MIS DE CÔTÉ (renommé en .old, jamais supprimé) : $LegacyWorkspace"
     } else {

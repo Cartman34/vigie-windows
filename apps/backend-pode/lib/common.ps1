@@ -3500,6 +3500,37 @@ function Get-GameLibraryPaths {
     times is examined once. The memory carries the CRITERIA FINGERPRINT: change a criterion,
     add a method, and everything is examined again, once.
 #>
+<#
+    A STORE'S OWN FOLDER HOLDS THE STORE, NOT A GAME.
+
+    Ubisoft Connect keeps nine UplayWebCore processes alive next to upc.exe, and each one
+    answered two methods at once: started by a store (20) and game markers around the
+    executable (50) -- the launcher's folder does hold uplay_r1_loader64.dll. Each new one
+    took the session over, so on 03/09 the card announced "UplayWebCore" while Odyssey was
+    the process actually consuming the machine.
+
+    The rule judges the LOCATION, like the Windows one: a process sitting DIRECTLY in the
+    store's program folder is the store's machinery. A game never sits there -- Steam puts
+    them under steamapps\common, Ubisoft in its own game folder -- so nothing real is lost.
+#>
+function Test-PathInGameStoreFolder {
+    param([Parameter(Mandatory)][AllowEmptyString()][AllowNull()][string]$Path)
+    if (-not $Path) { return $false }
+    $folder = ''
+    try { $folder = Split-Path $Path -Parent } catch { }
+    if (-not $folder) { return $false }
+    $separator = [string][char]92
+    $folder = "$folder".ToLower().TrimEnd([char]92)
+    # THE CONCATENATION STAYS OUT OF THE ARRAY: inside one, the comma binds tighter than the
+    # plus, and @('a' + 'b', 'c' + 'd') quietly builds something else entirely.
+    $stores = @('steam', 'ubisoft game launcher', 'ubisoft connect', 'gog galaxy',
+                'battle.net', 'eadesktop')
+    foreach ($store in $stores) {
+        if ($folder.EndsWith($separator + $store)) { return $true }
+    }
+    return $false
+}
+
 function Get-GameCriteriaFingerprint {
     param([string]$Backend = (Get-BackendRoot))
     $dir = Join-Path $Backend 'probes/gaming/identify'
@@ -3507,6 +3538,13 @@ function Get-GameCriteriaFingerprint {
     foreach ($file in @(Get-ChildItem -LiteralPath $dir -Filter '*.ps1' -File -ErrorAction SilentlyContinue | Sort-Object Name)) {
         $parts += ($file.Name + '@' + $file.LastWriteTimeUtc.ToString('o'))
     }
+    # THIS LIBRARY IS A CRITERION TOO: what rules a process out before any method runs lives
+    # here. Leaving it out of the fingerprint left the old verdicts standing while the rule
+    # that made them had changed -- and a wrong verdict, once memorised, never comes back up.
+    try {
+        $self = Get-Item -LiteralPath (Join-Path $Backend 'lib/common.ps1') -ErrorAction Stop
+        $parts += ('common.ps1@' + $self.LastWriteTimeUtc.ToString('o'))
+    } catch { }
     return ($parts -join '|')
 }
 
@@ -3523,8 +3561,10 @@ function Test-ProcessIsGame {
     $unknown = [pscustomobject]@{ IsGame = $false; Reason = $null; Method = $null }
     if (-not $Process -or -not $Process.Path) { return $unknown }
     $path = "$($Process.Path)"
-    # Ce qui vit dans Windows n est pas un jeu : ecarte sur l emplacement, pas sur le nom.
+    # What lives in Windows is not a game: ruled out on its LOCATION, never on its name.
     if ($path.ToLower().StartsWith("$env:SystemRoot".ToLower())) { return $unknown }
+    # Neither is what lives in a store's OWN folder (see below).
+    if (Test-PathInGameStoreFolder -Path $path) { return $unknown }
 
     $key = $path.ToLower()
     $file = Get-GameVerdictPath -Backend $Backend

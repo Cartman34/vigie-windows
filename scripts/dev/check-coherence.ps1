@@ -276,6 +276,35 @@ foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.
     }
 }
 
+# --- 7. A CONCATENATION INSIDE A COMMA LIST ------------------------------------------------
+#
+# THE COMMA BINDS TIGHTER THAN THE PLUS. In @('a' + 'b', 'c' + 'd'), PowerShell reads
+# 'a' + ('b','c') + 'd' -- one element instead of two, and no error anywhere. Written on
+# 02/09 in a guard rail, which then never fired; written again on 03/09 in the store filter,
+# which then let every launcher process through. Twice the same day, both times found by
+# testing the result rather than by rereading the line.
+#
+# A single-element array is not concerned: without a comma there is nothing to bind.
+foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.ps1' -ErrorAction SilentlyContinue)) {
+    $rel = Get-Relative $f.FullName
+    if (Test-Skipped $rel) { continue }
+    $errors = $null; $tokens = $null
+    $tree = [System.Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$tokens, [ref]$errors)
+    if ($errors -and $errors.Count) { continue }
+    # WE LOOK FOR THE MIS-PARSE ITSELF, not for what was meant. Once collapsed, the tree
+    # holds an addition whose operand is a BARE comma list -- the very shape that cannot be
+    # written on purpose. An array built with @( ) is another node, and stays untouched.
+    foreach ($sum in $tree.FindAll({ param($n) $n -is [System.Management.Automation.Language.BinaryExpressionAst] }, $true)) {
+        if ($sum.Operator -ne [System.Management.Automation.Language.TokenKind]::Plus) { continue }
+        foreach ($side in @($sum.Left, $sum.Right)) {
+            if ($side -isnot [System.Management.Automation.Language.ArrayLiteralAst]) { continue }
+            if ($side.Elements.Count -lt 2) { continue }
+            $faults += ("concaténation dans une liste à virgules : la virgule lie plus fort que le plus -- {0}:{1}" -f
+                        $rel, $sum.Extent.StartLineNumber)
+        }
+    }
+}
+
 # --- Verdict -----------------------------------------------------------------------------
 Write-Title 'Cohérence'
 Write-Info ("{0} bibliothèque(s) partagée(s), {1} décision(s) connue(s)." -f $libs.Count, $known.Count)
