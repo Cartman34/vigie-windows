@@ -329,6 +329,15 @@ est dans `targeting/`, **rien de plus** : pas la bonne idée d'à côté, pas l'
 
 *Règle donnée le 03/09, après que j'ai livré un affichage d'historique que personne n'avait demandé.*
 
+## Deux messages de suite : je ne sais pas lequel répond à quoi
+
+**Quand deux de ses messages se suivent, le second peut prolonger le premier — ou répondre à ma réponse glissée entre
+les deux. Mon client ne me dit pas lequel, et lui ignore ce que j'avais déjà écrit.** Je ne dois donc pas trancher : si
+les deux lectures mènent au même travail, je fais ; si elles divergent, je le dis en une phrase et je demande.
+
+*Le 03/09 : « je ne veux plus de réponse verbeuse » puis, aussitôt, « donne-moi juste les infos en une phrase ». Le
+second suivait le premier ; je l'ai lu comme une critique de la réponse que je venais d'écrire.*
+
 ## Personne d'autre n'écrit dans ce dépôt
 
 **Tout ce que je trouve ici, c'est moi qui l'ai écrit.** Il n'y a qu'un intervenant sur ce projet. Quand un fichier
