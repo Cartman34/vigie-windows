@@ -43,7 +43,7 @@ $ErrorActionPreference = 'Stop'
     not rewrite it at once -- thousands of touched lines for no gain, and a drowned git
     blame. The ratchet forbids adding any; every conversion lowers the ceiling as much.
 #>
-$COMMENT_CEILING = 5840
+$COMMENT_CEILING = 5792
 $CEILING = 289
 
 # LE PLAFOND DES NOMS DE FICHIERS. Meme cliquet, compte separe : ceux qui restent sont
@@ -78,11 +78,15 @@ $FRENCH_FILE_WORDS = $FRENCH_WORDS + @(
 
 # The COMMENT lexicon: function words, the ones no French sentence can avoid. Looking for
 # technical vocabulary instead would flag English too.
+# WORDS THAT ARE ALSO ENGLISH ARE NOT IN THE LEXICON. "on", "car" and "plus" were, and an
+# English comment saying "on 03/09" counted as French: the ratchet then refuses the very
+# conversion it exists to obtain. A word only belongs here if reading it settles the
+# question.
 $FRENCH_COMMENT_WORDS = @(
     'le','la','les','un','une','des','du','de','et','ou','qui','que','quoi','dont','pas',
-    'pour','dans','avec','sur','sans','sous','est','sont','etre','ete','fait','faire',
-    'on','il','elle','nous','vous','ils','elles','ce','cette','ces','celui','celle',
-    'mais','donc','car','quand','alors','ainsi','plus','moins','tout','toute','tous',
+    'pour','dans','avec','sans','sous','est','sont','etre','ete','fait','faire',
+    'il','elle','nous','vous','ils','elles','ce','cette','ces','celui','celle',
+    'mais','donc','quand','alors','ainsi','moins','tout','toute','tous',
     'chaque','meme','autre','deja','encore','jamais','toujours','ici','la-bas','par'
 )
 
@@ -167,8 +171,14 @@ foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.
     if ($n) { $commentPerFile[$rel] = $n }
 }
 
+# A RATCHET THAT REPORTS WITHOUT REFUSING IS NOT A RATCHET. This one said the ceiling was
+# exceeded and still exited 0: I added twelve French comment lines on 03/09 and the check
+# was green. The verdict waits for the end -- all three counts get said first -- but it now
+# falls.
+$commentExceeded = $false
 Write-Info (Get-Label 'check-naming.commentaires-francais-plafond' $commentTotal $COMMENT_CEILING)
 if ($commentTotal -gt $COMMENT_CEILING) {
+    $commentExceeded = $true
     Write-Fail (Get-Label 'check-naming.commentaires-au-dessus' ($commentTotal - $COMMENT_CEILING))
     if ($Detail) {
         foreach ($e in ($commentPerFile.GetEnumerator() | Sort-Object Value -Descending | Select-Object -First 12)) {
@@ -209,6 +219,7 @@ if ($total -gt $CEILING) {
     Write-Warn (Get-Label 'check-naming.les-nouveaux-noms-ecrivent')
     exit 2
 }
+if ($commentExceeded) { exit 2 }
 if ($total -lt $CEILING) {
     Write-Ok (Get-Label 'check-naming.de-moins-que-le' ($CEILING - $total) $total)
     exit 0
