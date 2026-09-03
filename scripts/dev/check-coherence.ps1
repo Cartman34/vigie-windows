@@ -222,6 +222,60 @@ if (Test-Path -LiteralPath $actionsDir) {
     }
 }
 
+# --- 6. A SPLATTED NAME THAT NOBODY ASSIGNS -----------------------------------------------
+#
+# POWERSHELL SAYS NOTHING ABOUT A VARIABLE THAT DOES NOT EXIST: it reads as empty, and the
+# line runs. Splatted, the whole argument list simply vanishes -- "& $pwsh @suite" launched
+# an interpreter with NO ARGUMENT and returned its exit code as if the work had been done.
+# The name had been renamed to $nextArgs three lines above; the splat kept the old one.
+#
+# Found on 03/09 in install.ps1, on the 5.1 -> 7 switch: every installation started from
+# Windows PowerShell went through this line. Third fault of the same family -- the version
+# pills, then $fields, then this one -- and the first two were only seen from the outside,
+# on a card that had gone empty.
+#
+# The rule stays on SPLATS, where an empty read is always a defect: elsewhere, a variable
+# read before its assignment has honest uses that no scan can tell apart.
+$autoVariables = @('_', 'args', 'PSItem', 'true', 'false', 'null', 'PSScriptRoot', 'PSCommandPath',
+                   'Matches', 'LASTEXITCODE', 'Error', 'PID', 'Host', 'MyInvocation', 'PSVersionTable',
+                   'input', 'PSBoundParameters', 'this', 'PSCmdlet', 'ExecutionContext', 'PSHOME')
+foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.ps1' -ErrorAction SilentlyContinue)) {
+    $rel = Get-Relative $f.FullName
+    if (Test-Skipped $rel) { continue }
+    $errors = $null; $tokens = $null
+    $tree = [System.Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$tokens, [ref]$errors)
+    if ($errors -and $errors.Count) { continue }
+
+    $splats = @($tree.FindAll({ param($n)
+        $n -is [System.Management.Automation.Language.VariableExpressionAst] -and $n.Splatted }, $true))
+    if (-not $splats.Count) { continue }
+
+    # Every name the file gives a value to, in any scope: an assignment, a parameter, a
+    # foreach variable. Scope is not followed on purpose -- naming it once anywhere is
+    # enough to clear it, and what we hunt is a name that exists NOWHERE.
+    $known = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+    foreach ($a in $tree.FindAll({ param($n) $n -is [System.Management.Automation.Language.AssignmentStatementAst] }, $true)) {
+        foreach ($v in $a.Left.FindAll({ param($n) $n -is [System.Management.Automation.Language.VariableExpressionAst] }, $true)) {
+            [void]$known.Add($v.VariablePath.UserPath)
+        }
+    }
+    foreach ($pa in $tree.FindAll({ param($n) $n -is [System.Management.Automation.Language.ParameterAst] }, $true)) {
+        [void]$known.Add($pa.Name.VariablePath.UserPath)
+    }
+    foreach ($fe in $tree.FindAll({ param($n) $n -is [System.Management.Automation.Language.ForEachStatementAst] }, $true)) {
+        [void]$known.Add($fe.Variable.VariablePath.UserPath)
+    }
+
+    foreach ($v in $splats) {
+        $name = $v.VariablePath.UserPath
+        if ($name.Contains([char]58)) { continue }   # $env:, $script:, ... : another scope answers for it
+        if ($autoVariables -contains $name) { continue }
+        if ($known.Contains($name)) { continue }
+        $faults += ("« @{0} » : aucune valeur n'est jamais donnée à `${0} -- les arguments partent vides -- {1}:{2}" -f
+                    $name, $rel, $v.Extent.StartLineNumber)
+    }
+}
+
 # --- Verdict -----------------------------------------------------------------------------
 Write-Title 'Cohérence'
 Write-Info ("{0} bibliothèque(s) partagée(s), {1} décision(s) connue(s)." -f $libs.Count, $known.Count)
