@@ -23,6 +23,8 @@
         pwsh -File scripts/dev/ask-vigie.ps1 -Type accounts-details -Module accounts
         pwsh -File scripts/dev/ask-vigie.ps1 -Type accounts-details -Module accounts -Raw
         pwsh -File scripts/dev/ask-vigie.ps1 -Modules            # l'etat de toutes les cartes
+        pwsh -File scripts/dev/ask-vigie.ps1 -Modules -Fresh     # ... recalculees, sans le cache
+        pwsh -File scripts/dev/ask-vigie.ps1 -Modules -Module vigie-debug -Fresh   # une seule carte
 
     Codes de retour : 0 = reponse obtenue ; 2 = pas de reponse (serveur muet, secret
     refuse). Le message dit lequel.
@@ -34,6 +36,11 @@ param(
     [hashtable] $Params = @{},
     # -Modules : l'etat des cartes, sans passer par une action.
     [switch] $Modules,
+    # -Fresh: RECOMPUTE instead of reading the cache. After an update the cards are still
+    # the ones from before -- I read "v0.1.63" twice on a server already running v0.1.64 and
+    # believed the deployment had changed nothing. WITH -Module, only that card is
+    # recomputed: asking for all of them exceeds the server's own delay and returns 408.
+    [switch] $Fresh,
     # -Raw : le JSON brut, pour enchainer avec jq. Sinon, un rendu lisible.
     [switch] $Raw,
     [int] $Port = 0,
@@ -159,10 +166,12 @@ if (-not $session) {
 # --- 3. La question ----------------------------------------------------------------------
 try {
     if ($Modules) {
-        # « /state » : l'etat complet, cartes comprises. « /modules/:id » ne rend qu'une
-        # carte, et « /modules » n'existe pas -- c'est ce que j'avais ecrit, d'ou un 404.
-        $data = Invoke-RestMethod -Method Get -Uri ($url + '/api/v1/state') `
-                                  -WebSession $session -Headers @{ Origin = $url } -TimeoutSec 120
+        # "/state": the whole state, cards included. "/modules/:id" returns ONE card, and
+        # "/modules" does not exist -- which is what I had written, hence a 404.
+        $route = if ($Module) { $url + '/api/v1/modules/' + $Module } else { $url + '/api/v1/state' }
+        if ($Fresh) { $route += '?fresh=1' }
+        $data = Invoke-RestMethod -Method Get -Uri $route `
+                                  -WebSession $session -Headers @{ Origin = $url } -TimeoutSec 300
     } else {
         if (-not $Type) { Write-Fail (Get-Label 'ask-vigie.quelle-question'); exit 2 }
         $payload = @{ type = $Type }
