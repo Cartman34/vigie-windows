@@ -4011,6 +4011,23 @@ function Write-SentinelSample {
 
 function Invoke-WatchPass {
     param([string]$Backend = (Get-BackendRoot))
+    <#
+        SILENT WHILE AN INSTALLATION RUNS -- the target said so, the code did not.
+
+        An update replaces the files under the watch's feet and restarts the server: the
+        resident is not armed yet, so the game sentinel reads "inconnu", then "aucun" a
+        minute later. Two alerts, on every single deployment, describing nothing but our own
+        work -- measured on 03/09 at 09:39 and 09:40. An alert series that fills up with the
+        deployments teaches its reader to ignore it.
+
+        The lock already exists and already says it: an installation holds the resource
+        'machine'. We ask it, and we say nothing at all -- no reading, no memory write, no
+        event. What the pass would have seen is not lost: it is read at the next pass, once
+        the machine belongs to us again.
+    #>
+    foreach ($held in @(Get-HeldResources -Backend $Backend)) {
+        if ("$($held.resource)" -eq 'machine') { return $null }
+    }
     $memoryPath = Get-WatchMemoryPath -Backend $Backend
     $memory = @{}
     if (Test-PathSafe $memoryPath) {
