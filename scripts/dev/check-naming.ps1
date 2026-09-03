@@ -51,6 +51,14 @@ $CEILING = 289
 # renomment un par un, pas d'un coup.
 $FILE_CEILING = 3
 
+# THE THIRD LANGUAGE (D41). PowerShell answers for the Windows tools -- that is what it is
+# here for; everything else is PHP. Python is not forbidden, but its use must be argued and
+# bounded, so a new .py file is a DECISION, never a habit.
+#
+# Two remain, both mine, written before a context compaction erased the rule from my memory:
+# the icon generators. The ratchet keeps their number from growing and lets it fall.
+$PYTHON_CEILING = 2
+
 $FRENCH_WORDS = @(
     'marquer','appliquer','repartir','verrou','carte','compte','tache','chemin',
     'fichier','dossier','ligne','colonne','hauteur','largeur','bouton','fenetre',
@@ -176,6 +184,15 @@ foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.
 # was green. The verdict waits for the end -- all three counts get said first -- but it now
 # falls.
 $commentExceeded = $false
+$pythonExceeded = $false
+
+# THE REPOSITORY'S PYTHON FILES, counted like the rest: on what git actually tracks.
+$pythonFiles = @()
+foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Filter '*.py' -ErrorAction SilentlyContinue)) {
+    $rel = $f.FullName.Substring($repoRoot.Length).TrimStart([char]92, [char]47).Replace([char]92, [char]47)
+    if ($skipped | Where-Object { $rel -like ($_ + '/*') -or $rel -like ('*/' + $_ + '/*') }) { continue }
+    $pythonFiles += $rel
+}
 Write-Info (Get-Label 'check-naming.commentaires-francais-plafond' $commentTotal $COMMENT_CEILING)
 if ($commentTotal -gt $COMMENT_CEILING) {
     $commentExceeded = $true
@@ -191,6 +208,14 @@ if ($commentTotal -gt $COMMENT_CEILING) {
 
 Write-Info (Get-Label 'check-naming.identifiants-francais-plafond' $total $CEILING)
 Write-Info (Get-Label 'check-naming.fichiers-francais-plafond' $fileTotal $FILE_CEILING)
+Write-Info (Get-Label 'check-naming.fichiers-python-plafond' $pythonFiles.Count $PYTHON_CEILING)
+if ($pythonFiles.Count -gt $PYTHON_CEILING) {
+    $pythonExceeded = $true
+    Write-Fail (Get-Label 'check-naming.python-au-dessus' ($pythonFiles.Count - $PYTHON_CEILING))
+    foreach ($rel in $pythonFiles) { Write-Detail $rel }
+} elseif ($pythonFiles.Count -lt $PYTHON_CEILING) {
+    Write-Ok (Get-Label 'check-naming.python-de-moins' ($PYTHON_CEILING - $pythonFiles.Count))
+}
 
 if ($Detail) {
     foreach ($e in ($perFile.GetEnumerator() | Sort-Object Value -Descending)) {
@@ -219,7 +244,7 @@ if ($total -gt $CEILING) {
     Write-Warn (Get-Label 'check-naming.les-nouveaux-noms-ecrivent')
     exit 2
 }
-if ($commentExceeded) { exit 2 }
+if ($commentExceeded -or $pythonExceeded) { exit 2 }
 if ($total -lt $CEILING) {
     Write-Ok (Get-Label 'check-naming.de-moins-que-le' ($CEILING - $total) $total)
     exit 0

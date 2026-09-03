@@ -1034,6 +1034,11 @@ poste) et `.claude/worktrees/` (arbres de travail), tous deux ignorés.
 **Langages** : PowerShell pour les outils **Windows** — c'est sa raison d'être ici. Pour tout
 le reste, **PHP** (l'Atelier l'utilise déjà). Pas de troisième langage sans argument.
 
+**Précisé le 03/09** : PHP est **l'outil par défaut**. Python n'est pas interdit, mais son usage
+doit être **argumenté et délimité** — un fichier `.py` de plus est une décision, jamais une
+habitude. `check-naming.ps1` tient le compte et refuse toute augmentation ; les deux qui restent
+(les générateurs d'icônes) descendent quand on les convertit.
+
 Renommages appliqués :
 
 | Avant | Après |
