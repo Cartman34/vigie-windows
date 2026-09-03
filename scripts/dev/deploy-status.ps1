@@ -62,6 +62,37 @@ $gap = -not (Test-SameVersion -A "$installed" -B "$here")
 if ($gap) { Write-Warn (Get-Label 'deploy-status.versions-differentes') }
 else        { Write-Ok (Get-Label 'deploy-status.versions-identiques') }
 
+<#
+    ARE THE MARKED VERSIONS PUBLISHED?
+
+    A tag posed and never pushed designates nothing for anyone: the public repository does
+    not know that version, and an installation looking for "the latest published version"
+    cannot see it. Nine had stayed that way, some for weeks, with nothing to say so -- the
+    tag is posed by an action meant to run in the requester's session, and the server takes
+    it over when the client app does not answer; under the service account the push has no
+    credentials and fails.
+
+    The finding lives HERE, in the tool one questions before delivering, rather than in my
+    memory. The repair itself is one line: git push origin <tag>.
+#>
+$localTags = @(Invoke-Git -Path $repoRoot -Arguments @('tag', '--list', 'v*'))
+$remoteRefs = @(Invoke-Git -Path $repoRoot -Arguments @('ls-remote', '--tags', 'origin'))
+if (Get-GitLastError) {
+    Write-Warn (Get-Label 'deploy-status.tags-illisibles' (Get-GitLastError))
+} else {
+    $publishedTags = @()
+    foreach ($line in $remoteRefs) {
+        if ("$line" -match 'refs/tags/(v[^\s^]+)') { $publishedTags += $Matches[1] }
+    }
+    $missingTags = @($localTags | Where-Object { $publishedTags -notcontains "$_" })
+    if ($missingTags.Count) {
+        Write-Warn (Get-Label 'deploy-status.tags-non-publies' $missingTags.Count ($missingTags -join ', '))
+        Write-Detail (Get-Label 'deploy-status.tags-comment-publier' ($missingTags[-1]))
+    } else {
+        Write-Ok (Get-Label 'deploy-status.tags-publies' $localTags.Count)
+    }
+}
+
 # --- 3. La derniere operation --------------------------------------------------------
 #
 # ON DEMANDE A VIGIE PLUTOT QUE DE CHERCHER UN FICHIER. Le journal d'une installation
