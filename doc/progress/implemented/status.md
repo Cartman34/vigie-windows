@@ -23,6 +23,7 @@ Mise à jour : 2026-09-02.
 | CORE-WATCH | Fait | Minuteur d'une minute dans l'app serveur, sentinelles déclarées par module ([surveillance.md](../targeting/surveillance.md)) ; historique par sentinelle (`watch.<clé>`, nature `event`) | **Éprouvée en production le 01/09 à 19 h 54** : la sentinelle `gaming/game-battery` a écrit son premier relevé et fait recalculer la carte Jeux, sans session ouverte. Trois sentinelles posées (`network/internet`, `gaming/game-battery`, `system/power`) — les autres modules n'en déclarent pas encore |
 | CORE-OPERATIONS | Fait | Marqueurs d'occupation, verrou de ressources, `/operations` interrogé par toutes les pages | — |
 | CORE-LAUNCH | Fait | `Start-ChildProcess` / `ConvertTo-ProcessArgument` dans `common.ps1` (**D116**) ; douze lancements y sont revenus, quatorze citations à la main ont disparu, deux lignes de commande écrites en un seul morceau aussi, `check-probes` refuse les trois formes à la main | Éprouvé sur douze valeurs limites — espaces, antislash final, guillemets, chaîne vide — en comparant ce que l’enfant reçoit à ce qu’on lui passe |
+| UI-HISTORY | Fait | Le champ porte l’identifiant de sa mesure (`Add-MeasureLinks`, catalogue) ; l’interface trace la forme des 24 h à côté de la valeur, série lue sur `/history` | Quatre séries reliées : espace disque, latence réseau, GPU du jeu, applis gourmandes. Les séries d’événements (sentinelles) ne sont pas encore montrées |
 | CORE-EXPORT | Fait | `apps/frontend-web/rapport.html`, route `/rapport` | Jamais vérifié à l'impression réelle |
 
 ## Modules

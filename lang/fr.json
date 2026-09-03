@@ -517,6 +517,7 @@
   "ui.fenetre-ouverte": "fenêtre ouverte",
   "ui.fenetre-sans-session": "Une fenêtre qui ne dit pas qui elle est",
   "ui.fenetre-sans-session-detail": "Ouvrir l'adresse à la main — navigation privée, signet, autre navigateur — n'associe la fenêtre à aucun compte. Ce réglage vaut pour tout l'ordinateur.",
+  "ui.forme-des-dernieres-24h": "Forme des dernières 24 h",
   "ui.impossible": "Impossible : ",
   "ui.impossible-ignorer": "Impossible d’ignorer : ",
   "ui.installer-depuis-la-carte": "La carte Déploiement l’installe dans C:\\Program Files\\Sowapps\\Vigie, lisible par tous, et conserve les réglages déjà en place.",
