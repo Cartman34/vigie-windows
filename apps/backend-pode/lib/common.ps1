@@ -1496,7 +1496,23 @@ function Invoke-Git {
         $out = & $git.Source -C $Path @Arguments 2>&1 | ForEach-Object {
             if ($_ -is [System.Management.Automation.ErrorRecord]) { $err += "$_"; } else { $_ }
         }
-        if ($err.Count) { $script:GitLastError = (($err | Select-Object -First 2) -join ' ') }
+        <#
+            THE EXIT CODE JUDGES, NOT THE ERROR STREAM.
+
+            git speaks on stderr when everything is fine: "Everything up-to-date",
+            "To https://...", "* [new tag] v0.1.67 -> v0.1.67", and every progress line of a
+            fetch or a clone. Taking that for a failure made EVERY successful push report
+            itself as failed -- so a deployment announced "tag posed, local only" while the
+            tag had just been published, and nobody could tell a real refusal from a normal
+            one. Measured on 03/09: five versions believed unpublished.
+
+            The stderr text is kept, because a real failure explains itself there; it just
+            no longer decides.
+        #>
+        if ($LASTEXITCODE -ne 0) {
+            $script:GitLastError = if ($err.Count) { ($err | Select-Object -First 2) -join ' ' }
+                                   else { "git a rendu le code $LASTEXITCODE" }
+        }
         return @($out | Where-Object { "$_".Trim() })
     } catch {
         $script:GitLastError = $_.Exception.Message

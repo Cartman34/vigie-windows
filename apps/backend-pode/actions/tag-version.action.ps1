@@ -38,7 +38,12 @@ if (-not $pose.posed) {
     return @{ message = (Get-Label 'tag-version.echec' "$($pose.error)"); result = @{ ok = $false } }
 }
 
-Write-Log -Backend $backend -Name 'app' -Message (Get-Label 'tag-version.journal' $pose.tag (Get-ProcessAccount))
+# THE LOG SAYS WHETHER IT IS PUBLISHED. It wrote "Version v0.1.67 marked by fhaza" and
+# stopped there: five versions stayed local without a word, and the question "is it
+# published?" had no written answer anywhere (03/09).
+$sort = if ($pose.pushed) { Get-Label 'tag-version.publiee' } else { Get-Label 'tag-version.locale' }
+Write-Log -Backend $backend -Name 'app' -Level $(if ($pose.pushed) { 'INFO' } else { 'WARN' }) `
+          -Message (Get-Label 'tag-version.journal' $pose.tag (Get-ProcessAccount) $sort)
 @{
     message = (Get-Label 'tag-version.pose' $pose.tag $(if ($pose.pushed) { (Get-Label 'tag-version.et-pousse') } else { (Get-Label 'tag-version.local-seulement') }))
     result  = @{ ok = $true; tag = $pose.tag; posed = $true; pushed = $pose.pushed }
