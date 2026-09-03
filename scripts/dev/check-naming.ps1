@@ -43,7 +43,7 @@ $ErrorActionPreference = 'Stop'
     not rewrite it at once -- thousands of touched lines for no gain, and a drowned git
     blame. The ratchet forbids adding any; every conversion lowers the ceiling as much.
 #>
-$COMMENT_CEILING = 5788
+$COMMENT_CEILING = 5787
 $CEILING = 289
 
 # LE PLAFOND DES NOMS DE FICHIERS. Meme cliquet, compte separe : ceux qui restent sont
