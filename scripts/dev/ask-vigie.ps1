@@ -25,6 +25,7 @@
         pwsh -File scripts/dev/ask-vigie.ps1 -Modules            # l'etat de toutes les cartes
         pwsh -File scripts/dev/ask-vigie.ps1 -Modules -Fresh     # ... recalculees, sans le cache
         pwsh -File scripts/dev/ask-vigie.ps1 -Modules -Module vigie-debug -Fresh   # une seule carte
+        pwsh -File scripts/dev/ask-vigie.ps1 -Route 'history/net.latency?window=24h'
 
     Codes de retour : 0 = reponse obtenue ; 2 = pas de reponse (serveur muet, secret
     refuse). Le message dit lequel.
@@ -36,6 +37,10 @@ param(
     [hashtable] $Params = @{},
     # -Modules : l'etat des cartes, sans passer par une action.
     [switch] $Modules,
+    # -Route : N'IMPORTE QUELLE ROUTE de lecture, telle qu'elle est ecrite dans le contrat
+    # (ex. « /history/net.latency?window=24h »). Sans elle, verifier une route revient a
+    # rebricoler un ticket et un cookie a la main -- ce que ce script existe pour eviter.
+    [string] $Route,
     # -Fresh: RECOMPUTE instead of reading the cache. After an update the cards are still
     # the ones from before -- I read "v0.1.63" twice on a server already running v0.1.64 and
     # believed the deployment had changed nothing. WITH -Module, only that card is
@@ -165,7 +170,11 @@ if (-not $session) {
 
 # --- 3. La question ----------------------------------------------------------------------
 try {
-    if ($Modules) {
+    if ($Route) {
+        $target = $url + '/api/v1/' + $Route.TrimStart([char]47)
+        $data = Invoke-RestMethod -Method Get -Uri $target `
+                                  -WebSession $session -Headers @{ Origin = $url } -TimeoutSec 120
+    } elseif ($Modules) {
         # "/state": the whole state, cards included. "/modules/:id" returns ONE card, and
         # "/modules" does not exist -- which is what I had written, hence a 404.
         $route = if ($Module) { $url + '/api/v1/modules/' + $Module } else { $url + '/api/v1/state' }
