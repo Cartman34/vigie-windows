@@ -129,6 +129,19 @@ espaces dans un chemin, échappements avalés par un script d'écriture : ces fa
 voient pas à la relecture. Chacune se règle par un vérificateur qui refuse, jamais par une promesse de vigilance — et
 le vérificateur s'éprouve en posant volontairement le piège.
 
+**UN HOOK NE FAIT JAMAIS ATTENDRE : UNE SECONDE EST DÉJÀ BEAUCOUP.** Il se déclenche à chaque commit, sur des
+gestes qu'on fait vingt fois par jour ; ce qui dure se contourne, et un contrôle contourné ne contrôle plus rien.
+
+**Comment le tenir :** un hook ne juge que ce qui est **indexé**, jamais le dépôt entier — `git diff --cached
+--name-only` donne la liste, et le vérificateur la reçoit. S'il n'y a rien à juger, il ne lance même pas
+d'interpréteur. Et si le vérificateur lui-même est lent, c'est LUI qu'on corrige : le prix se paie une fois, pas à
+chaque commit.
+
+*Le 03/09, le hook de pré-commit relançait `check-encoding` sur les 618 fichiers du dépôt : 169 s pendant qu'un jeu
+tournait. Deux causes, aucune fatale — un balayage caractère par caractère là où un seul appel natif suffisait, et
+cent cinquante expressions régulières recompilées pour chaque libellé. La passe complète est passée de 169 s à 3 s,
+et le hook ne voit plus que les fichiers du commit.*
+
 **Une commande longue part en TACHE DE FOND.** Sinon je ne réponds plus : il parle, et je suis muet jusqu'à ce que
 la commande finisse. Une installation, une passe complète de sondes, un déploiement : en fond, puis je rends compte.
 Rester bloqué sur une commande n'apporte rien à personne — surtout pas à lui.

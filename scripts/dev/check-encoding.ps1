@@ -50,7 +50,12 @@ param(
     # Lister chaque manquement, fichier par fichier.
     [switch] $Detail,
     # Corriger : reecrire avec le bon encodage, poser les accents manquants.
-    [switch] $Fix
+    [switch] $Fix,
+    # ONLY THESE FILES, repository-relative. What a hook needs: judging the whole repository
+    # to commit two files is work nobody waits for, and a check nobody waits for is a check
+    # that gets bypassed. Paths that no longer exist are ignored: git also lists what a
+    # commit DELETES.
+    [string[]] $Files
 )
 $ErrorActionPreference = 'Stop'
 
@@ -179,31 +184,63 @@ function Repair-Elisions {
     return $ELISION.Replace($Text, '$1' + [char]0x27)
 }
 
+# PATTERNS ARE COMPILED ONCE, NOT PER PHRASE. Recompiling a hundred and fifty regular
+# expressions for every label of a file took tens of seconds -- for identical work.
+$ACCENT_PATTERNS = [ordered]@{}
+foreach ($word in $ACCENTED.Keys) {
+    # "$Etat" is not the word "etat", "-Detail" is not "détail": what follows a $ is a
+    # VARIABLE NAME, what follows a dash is a PARAMETER NAME. Accenting them breaks the
+    # code, or worse: documents an option that does not exist.
+    $ACCENT_PATTERNS[$word] = [regex]::new(('(?<![\p{L}$-])' + $word + 's?(?![\p{L}])'),
+                                           [Text.RegularExpressions.RegexOptions]::IgnoreCase)
+}
+
 function Repair-Accents {
     param([string]$Text)
     foreach ($k in $ACCENTED.Keys) {
-        # « $Etat » n'est pas le mot « etat », « -Detail » n'est pas « détail » : ce qui
-        # suit un $ est un NOM DE VARIABLE, ce qui suit un tiret est un NOM DE PARAMETRE.
-        # Les accentuer casse le code, ou pire : documente une option qui n'existe pas.
-        $Text = [regex]::Replace($Text, ('(?<![\p{L}$-])' + $k + 's?(?![\p{L}])'), {
+        # NOTHING TO DO SHOWS FAST: without the word, no pass runs at all -- which is the
+        # case for the vast majority of labels.
+        if ($Text.IndexOf($k, [StringComparison]::OrdinalIgnoreCase) -lt 0) { continue }
+        $Text = $ACCENT_PATTERNS[$k].Replace($Text, {
             param($m)
-            # Le « s » du pluriel est rendu tel qu'il a ete trouve.
+            # The plural "s" is returned exactly as it was found.
             $good = $ACCENTED[$k]
             if ($m.Value.EndsWith('s') -and -not $k.EndsWith('s')) { $good = $good + 's' }
             if ($m.Value.Substring(0, 1) -cmatch '[A-Z]') { return $good.Substring(0, 1).ToUpper() + $good.Substring(1) }
             return $good
-        }, 'IgnoreCase')
+        })
     }
     return $Text
 }
 
+# CONTROL CHARACTERS, once and for all: everything below the space except tab, carriage
+# return and line feed.
+$CONTROL_CHARS = @()
+for ($c = 0; $c -lt 32; $c++) {
+    if ($c -eq 9 -or $c -eq 10 -or $c -eq 13) { continue }
+    $CONTROL_CHARS += [char]$c
+}
+$CONTROL_CHARS = [char[]]$CONTROL_CHARS
+
 $issues = @()   # @{ File; Kind; Message }
 $fixed  = 0
 
-$files = Get-ChildItem -LiteralPath $repoRoot -Recurse -File -ErrorAction SilentlyContinue |
-         Where-Object { $_.Extension -in '.ps1', '.psd1', '.psm1', '.cmd', '.bat', '.md', '.html', '.css', '.js', '.json' }
+if ($Files -and $Files.Count) {
+    $chosen = @()
+    foreach ($given in $Files) {
+        $full = $given
+        if (-not [IO.Path]::IsPathRooted($full)) { $full = Join-Path $repoRoot $given }
+        $item = $null
+        try { $item = Get-Item -LiteralPath $full -ErrorAction Stop } catch { $item = $null }
+        if ($item -and -not $item.PSIsContainer) { $chosen += $item }
+    }
+    $scannedFiles = @($chosen)
+} else {
+    $scannedFiles = Get-ChildItem -LiteralPath $repoRoot -Recurse -File -ErrorAction SilentlyContinue
+}
+$scannedFiles = @($scannedFiles | Where-Object { $_.Extension -in '.ps1', '.psd1', '.psm1', '.cmd', '.bat', '.md', '.html', '.css', '.js', '.json' })
 
-foreach ($f in $files) {
+foreach ($f in $scannedFiles) {
     $rel = $f.FullName.Substring($repoRoot.Length).TrimStart([char]92, [char]47).Replace([char]92, [char]47)
     if ($SKIPPED | Where-Object { $rel -like ($_ + '/*') -or $rel -like ('*/' + $_ + '/*') }) { continue }
 
@@ -237,13 +274,16 @@ foreach ($f in $files) {
     # portait une classe « backslash-x-zero-zero... » qui a ete detruite par une
     # echappee de plus -- la regle est devenue « [--] » et accusait les tirets. Une
     # verification des echappements ne peut pas dependre d une echappee.
-    for ($i = 0; $i -lt $text0.Length; $i++) {
-        $code = [int]$text0[$i]
-        if ($code -ge 32 -or $code -eq 9 -or $code -eq 10 -or $code -eq 13) { continue }
-        $ligne = ($text0.Substring(0, $i) -split "`n").Count
+    #
+    # ONE CALL, NOT A LOOP. Walking character by character costs seconds, in interpreted
+    # PowerShell, on a four-hundred-thousand-character file -- and that is what made the
+    # pre-commit hook unusable (03/09). IndexOfAny compares the same codes, natively.
+    $found = $text0.IndexOfAny($CONTROL_CHARS)
+    if ($found -ge 0) {
+        $code = [int]$text0[$found]
+        $ligne = ($text0.Substring(0, $found) -split "`n").Count
         $issues += @{ File = $rel; Kind = 'controle'
                       Message = ("caractere de controle 0x{0:X2} ligne {1} -- un echappement a mal tourne" -f $code, $ligne) }
-        break   # une par fichier suffit a le signaler
     }
 
     $wantBom = ($ext -in '.ps1', '.psd1', '.psm1')

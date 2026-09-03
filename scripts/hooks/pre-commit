@@ -1,19 +1,25 @@
 #!/bin/sh
-# Vigie — aucun caractere de controle ne part dans un commit.
+# Vigie -- aucun caractere de controle ne part dans un commit.
 #
 # POURQUOI. Le 31/08, trois fois dans la journee, une chaine ecrite depuis un script a
 # transforme un antislash suivi d'une lettre en caractere de controle : une expression
-# reguliere qui ne trouvait plus rien, un « System32\find.exe » coupe en deux, une
+# reguliere qui ne trouvait plus rien, un « System32ind.exe » coupe en deux, une
 # commande cassee en plein milieu. Chaque fois le fichier avait l'air normal, et chaque
 # fois le defaut a ete trouve des heures plus tard, par l'utilisateur.
 #
-# Ce hook lance la verification d'encodage, qui refuse ces caracteres. C'est mecanique :
-# ca ne depend d'aucune attention, ni de la mienne ni de celle de quelqu'un d'autre.
+# CE HOOK NE JUGE QUE CE QUI EST INDEXE. Il verifiait tout le depot : 618 fichiers, une
+# dizaine de secondes a vide et 169 secondes pendant qu'un jeu tournait (03/09). Un hook
+# qui fait attendre est un hook qu'on finit par contourner -- et un hook contourne ne
+# verifie plus rien. Rien a commiter d'interessant : il ne lance meme pas PowerShell.
 #
 # Installation : scripts/install-hooks.ps1 (les hooks ne sont pas versionnes par git,
 # ce fichier en est la source de verite).
 racine=$(git rev-parse --show-toplevel)
-pwsh -NoProfile -File "$racine/scripts/dev/check-encoding.ps1" >/dev/null 2>&1
+indexes=$(git diff --cached --name-only --diff-filter=ACM --           '*.ps1' '*.psd1' '*.psm1' '*.cmd' '*.bat' '*.md' '*.html' '*.css' '*.js' '*.json')
+[ -z "$indexes" ] && exit 0
+
+# shellcheck disable=SC2086
+pwsh -NoProfile -File "$racine/scripts/dev/check-encoding.ps1" -Files $indexes >/dev/null 2>&1
 if [ $? -ne 0 ]; then
     echo "Commit refuse : caractere de controle ou encodage invalide."
     echo "Lancez : pwsh -File scripts/dev/check-encoding.ps1 -Detail"
