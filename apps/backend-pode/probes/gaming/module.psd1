@@ -40,10 +40,10 @@
     # doc/progress/targeting/surveillance.md.
     Sentinels = @(
         # Ce que le resident a trouve : le jeu en cours, ou son absence.
-        @{ Key = 'game'; Label = 'Jeu en cours'; Seconds = 60; Cards = @('gaming'); Card = 'gaming'; Field = 'game' }
+        @{ Key = 'game'; Label = 'Jeu en cours'; Seconds = 60; Cards = @('gaming') }
         # Jouer sur batterie est la seule chose de cette carte qui ne peut pas attendre
         # qu'on regarde : quand la charge fond, on veut le savoir PENDANT la partie.
-        @{ Key = 'game-battery'; Label = 'Décharge pendant une partie'; Seconds = 60; Cards = @('gaming'); Card = 'gaming'; Field = 'power' }
+        @{ Key = 'game-battery'; Label = 'Décharge pendant une partie'; Seconds = 60; Cards = @('gaming') }
     )
 
     # NOTIFICATIONS emises par ce module (D54) : un evenement nomme, pas un nom de

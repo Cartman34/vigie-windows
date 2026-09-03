@@ -304,6 +304,25 @@ en place toute la journée, jusqu'à ce qu'il me le fasse remarquer.
 explicitement pourquoi on ne le fait pas maintenant (et ça devient une tâche écrite, pas une phrase dans un message).
 Rendre un défaut visible est utile ; ça ne remplace jamais sa correction.
 
+## Une fonctionnalité ne s'invente JAMAIS
+
+**Ce qui n'a pas été demandé ne se fait pas.** Ni parce que c'est utile, ni parce que « les données étaient déjà là »,
+ni parce que ça complète joliment ce qui existe. Le propriétaire décide de ce que le produit fait ; moi, de comment
+c'est fait. Une idée se **propose en une phrase**, et attend.
+
+*Le 03/09, j'ai décidé seul d'afficher l'historique dans les cartes : une courbe à côté de chaque valeur, puis une
+frise des changements pour les sentinelles. Personne ne l'avait demandé — c'était même volontairement écarté. Deux
+livraisons, deux déploiements, du code dans le serveur, le contrat, l'interface et les libellés : tout à retirer.*
+
+**Le piège exact, pour le reconnaître la prochaine fois :** « avance, ne m'attends pas » autorise à **poursuivre le
+travail en cours**, pas à en choisir un nouveau. Un « vas-y » répond à ce qui vient d'être proposé, rien d'autre. Et
+une liste de « ce qu'on pourrait faire » que j'ai écrite moi-même n'est pas une commande : c'est ma liste, pas la
+sienne.
+
+**Comment l'appliquer :** avant d'écrire une ligne pour une chose nouvelle, retrouver **la phrase de l'utilisateur qui
+la demande**. Si elle n'existe pas, c'est que la fonctionnalité n'existe pas — on la propose, en une phrase, et on
+passe à la suivante de SA liste.
+
 ## Personne d'autre n'écrit dans ce dépôt
 
 **Tout ce que je trouve ici, c'est moi qui l'ai écrit.** Il n'y a qu'un intervenant sur ce projet. Quand un fichier

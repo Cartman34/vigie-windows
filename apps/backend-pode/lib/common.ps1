@@ -3844,11 +3844,6 @@ function Get-WatchDeclarations {
                 Label    = $(if ($v.Label) { "$($v.Label)" } else { "$($v.Key)" })
                 Seconds  = $(if ($v.Seconds) { [int]$v.Seconds } else { 900 })
                 Cards    = @($v.Cards)
-                # WHICH FIELD DOES THIS SENTINEL SPEAK OF? Optional: a sentinel may watch
-                # something no field displays. When declared, its event series is read
-                # beside that field (UI-HISTORY).
-                Card     = $(if ($v.Card) { "$($v.Card)" } else { '' })
-                Field    = $(if ($v.Field) { "$($v.Field)" } else { '' })
                 Script   = $script
             }
         }
@@ -4235,8 +4230,6 @@ $script:MeasureCatalog = @{
     'disk.free' = @{
         # Tolerance : un giga-octet. En dessous, l'espace libre n'a pas bouge pour qui le lit.
         Probe = 'disk.probe.ps1'; Kind = 'gauge'; Unit = 'Go'; IntervalMinutes = 30; Tolerance = 1
-        # Shown by (card, field): the series belongs to what it comes from.
-        Module = 'storage'; Field = 'free'
         Extract = {
             param($Modules)
             $m = @($Modules) | Where-Object { "$($_.id)" -eq 'storage' } | Select-Object -First 1
@@ -4257,7 +4250,6 @@ $script:MeasureCatalog = @{
         # Tolerance : cinq points. Un GPU qui oscille entre 22 et 25 % ne raconte rien --
         # c'est le bruit d'une mesure instantanee, pas une variation de la partie.
         Probe = 'gaming.probe.ps1'; Kind = 'gauge'; Unit = '%'; IntervalMinutes = 1; Tolerance = 5
-        Module = 'gaming'; Field = 'game-res'
         Extract = {
             param($Modules)
             $m = @($Modules) | Where-Object { "$($_.id)" -eq 'gaming' } | Select-Object -First 1
@@ -4285,7 +4277,6 @@ $script:MeasureCatalog = @{
     }
     'game.hogs' = @{
         Probe = 'gaming.probe.ps1'; Kind = 'gauge'; Unit = 'applis'; IntervalMinutes = 1
-        Module = 'gaming'; Field = 'hogs'
         Extract = {
             param($Modules)
             $m = @($Modules) | Where-Object { "$($_.id)" -eq 'gaming' } | Select-Object -First 1
@@ -4301,7 +4292,6 @@ $script:MeasureCatalog = @{
     'net.latency' = @{
         # Tolerance : cinq millisecondes. En dessous, c'est la variation normale d'un ping.
         Probe = 'net.probe.ps1'; Kind = 'gauge'; Unit = 'ms'; IntervalMinutes = 0; Tolerance = 5
-        Module = 'net'; Field = 'latency'
         Extract = {
             param($Modules)
             $m = @($Modules) | Where-Object { "$($_.id)" -eq 'net' } | Select-Object -First 1
@@ -4774,49 +4764,6 @@ function ConvertTo-HistoryWindow {
 # s'ecrit QUE quand il change, exactement ce que la conception de l'historique appelle un
 # event. Rien n'est duplique : meme dossier var/history/, meme purge, meme route
 # GET /history/{measureId}.
-<#
-    A FIELD THAT HAS A PAST SAYS SO (UI-HISTORY).
-
-    The series were written from 24/08 and read nowhere: a value showed alone, without
-    saying whether it climbs, falls, or where it comes from. The catalogue already knew
-    which card and which field each measure comes from -- it was hidden inside the extract
-    closure. Declared, that link becomes usable by the interface.
-
-    Nothing is added to the payload but an identifier: the series itself is fetched by
-    /history/<measure>, when and if a card displays it. A state answer must not grow with
-    the length of a history.
-#>
-function Add-MeasureLinks {
-    param($Modules, [string]$Backend = (Get-BackendRoot))
-    if (-not $Modules) { return $Modules }
-    $links = @()
-    foreach ($measureId in $script:MeasureCatalog.Keys) {
-        $cat = $script:MeasureCatalog[$measureId]
-        if (-not $cat.Module -or -not $cat.Field) { continue }
-        $links += @{ Measure = $measureId; Module = "$($cat.Module)"; Field = "$($cat.Field)" }
-    }
-    # SENTINELS HAVE A SERIES TOO. Theirs carries no numbers but STATE CHANGES -- "oui" to
-    # "non" at 03:12 -- and that is exactly what one wants beside the field concerned:
-    # since when, and how many times tonight.
-    foreach ($watch in @(Get-WatchDeclarations -Backend $Backend)) {
-        if (-not $watch.Card -or -not $watch.Field) { continue }
-        $links += @{ Measure = (Get-SentinelMeasureId -Key $watch.Key); Module = "$($watch.Card)"; Field = "$($watch.Field)" }
-    }
-    foreach ($link in $links) {
-        $measureId = $link.Measure
-        $cat = @{ Module = $link.Module; Field = $link.Field }
-        $card = @($Modules) | Where-Object { "$($_.id)" -eq "$($cat.Module)" } | Select-Object -First 1
-        if (-not $card) { continue }
-        $field = @($card.fields) | Where-Object { "$($_.key)" -eq "$($cat.Field)" } | Select-Object -First 1
-        if (-not $field) { continue }
-        try {
-            if ($field -is [System.Collections.IDictionary]) { $field['measure'] = $measureId }
-            else { Add-Member -InputObject $field -NotePropertyName 'measure' -NotePropertyValue $measureId -Force }
-        } catch { }
-    }
-    return $Modules
-}
-
 function Get-MeasureDefinition {
     param(
         [string]$Backend = (Get-BackendRoot),
@@ -5445,8 +5392,6 @@ function Get-State {
     } catch { }
 
     & $markPhase 'droits-et-operations'
-    # Une mesure qui a un passe le dit a l'interface (UI-HISTORY).
-    $modules = @(Add-MeasureLinks -Modules $modules -Backend $Backend)
     $present = @($modules | Select-Object -ExpandProperty theme -Unique)
     $themes  = @($script:ThemeCatalog | Where-Object { $present -contains $_.id })
     # LE CATALOGUE DES MODULES est sorti de l'objet pour etre MESURE : tant qu'il etait
