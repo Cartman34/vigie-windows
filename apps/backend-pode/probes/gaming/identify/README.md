@@ -20,4 +20,4 @@ ou rien. Elle ne juge jamais sur le **nom** du fichier (D64), et n'écrit rien.
 
 En ajouter une : déposer un fichier ici. Rien d'autre.
 
-Cible : [`doc/progress/targeting/gaming.md`](../../../../../doc/progress/targeting/gaming.md).
+Cible : `doc/progress/targeting/gaming.md`, dans le dépôt (ce document ne part pas dans l'archive).
