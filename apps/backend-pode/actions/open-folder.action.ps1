@@ -7,5 +7,5 @@ $backend = Split-Path $PSScriptRoot -Parent
 . (Join-Path $backend 'lib/common.ps1')
 $adminRoot = Get-AdminRoot -Backend $backend
 if (-not $adminRoot) { return New-ToolsMissingResult }
-Start-Process explorer.exe $adminRoot
+Start-ChildProcess -FilePath 'explorer.exe' -Arguments @($adminRoot)
 @{ message = 'Dossier ouvert dans l''explorateur.'; result = @{ ok = $true } }

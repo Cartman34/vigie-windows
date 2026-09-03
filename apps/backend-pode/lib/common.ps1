@@ -79,6 +79,77 @@ function Test-Elevated {
     } catch { return $false }
 }
 
+<#
+    ONE VALUE, ONE ARGUMENT -- whatever that value contains.
+
+    A Windows command line is a SINGLE STRING; the child splits it again with the rules of
+    CommandLineToArgvW. Start-Process joins -ArgumentList with spaces and quotes NOTHING, so
+    each value handed to it must already be a valid token.
+
+    Wrapping it by hand -- ('"' + $path + '"') -- is the trap that looks like the fix: it
+    holds for "C:\Program Files\Sowapps\Vigie" and breaks on a path that ends with a
+    backslash, because "C:\dir\" escapes its own closing quote and swallows the argument
+    that follows.
+
+    Three rules, and no others:
+      - an empty value is not nothing, it is a pair of quotes;
+      - a backslash only matters in front of a quote (the end of the value counts, since the
+        closing quote comes next): there, it doubles;
+      - a value carrying a space, a tab or a quote is wrapped -- anything else is passed as
+        it stands, because wrapping what needs nothing hides what does.
+
+    The sibling of ConvertTo-PSLiteral, which answers the same question for the OTHER world:
+    a value inserted into PowerShell source. Neither escaping fits the other's world.
+#>
+function ConvertTo-ProcessArgument {
+    param([Parameter(Mandatory)][AllowEmptyString()][AllowNull()][string]$Value)
+    if ($null -eq $Value -or $Value -eq '') { return '""' }
+    if ($Value -notmatch '[\s"]') { return $Value }
+    $out = [Text.StringBuilder]::new('"')
+    $backslashes = 0
+    foreach ($ch in $Value.ToCharArray()) {
+        if ($ch -eq '\') { $backslashes++; continue }
+        if ($ch -eq '"') { [void]$out.Append('\' * (2 * $backslashes + 1)); [void]$out.Append('"'); $backslashes = 0; continue }
+        if ($backslashes -gt 0) { [void]$out.Append('\' * $backslashes); $backslashes = 0 }
+        [void]$out.Append($ch)
+    }
+    # Trailing backslashes sit just before the closing quote: they double, or they escape it.
+    if ($backslashes -gt 0) { [void]$out.Append('\' * (2 * $backslashes)) }
+    [void]$out.Append('"')
+    $out.ToString()
+}
+
+<#
+    STARTING A PROCESS WITH ARGUMENTS GOES THROUGH HERE, ALWAYS (D116).
+
+    Arguments are given RAW, as values; the quoting happens here, once, for everyone. That is
+    the whole point: the fault it prevents cannot be seen when rereading the line, and says
+    nothing at run time -- on 02/09 the game resident died at every arming on "C:\Program is
+    not a script", and only its health field ever revealed it. A rule nobody can check is a
+    rule nobody keeps, so check-probes refuses a bare Start-Process everywhere but here.
+
+    Everything else Start-Process accepts -- Wait, PassThru, Verb, WindowStyle,
+    WorkingDirectory, redirections -- travels untouched through -Options.
+
+    THE CALL OPERATOR IS ANOTHER WORLD: "& $exe @arguments" quotes each value ITSELF, so a
+    value wrapped by hand arrives WITH its quotes. Invoke-Native, which uses it, therefore
+    takes raw values too -- the same discipline, the opposite mechanism.
+#>
+function Start-ChildProcess {
+    param(
+        [Parameter(Mandatory)][string]$FilePath,
+        [string[]]$Arguments = @(),
+        [hashtable]$Options = @{}
+    )
+    $splat = @{}
+    foreach ($k in $Options.Keys) { $splat[$k] = $Options[$k] }
+    $splat['FilePath'] = $FilePath
+    if ($Arguments.Count -gt 0) {
+        $splat['ArgumentList'] = @($Arguments | ForEach-Object { ConvertTo-ProcessArgument ([string]$_) })
+    }
+    Start-Process @splat
+}
+
 # Execute une commande native en traitant sortie ET code de retour (regle :
 # toujours traiter erreurs/affichages/codes de retour). Renvoie un objet uniforme.
 function Invoke-Native {
@@ -822,7 +893,12 @@ function Start-DetachedAction {
     $psi.FileName = $exe
     # NB : pas d'argument -WindowStyle (non implemente hors Windows). L'absence de
     # fenetre est garantie par CreateNoWindow + UseShellExecute=$false ci-dessous.
-    $psi.Arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$Script`" -Backend `"$Backend`" -ArgsB64 $b64"
+    # ArgumentList, NOT Arguments: .NET quotes each value itself, while a command line built
+    # by hand carries the trap a path ending with a backslash sets (D116).
+    foreach ($piece in @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+                         '-File', $Script, '-Backend', $Backend, '-ArgsB64', $b64)) {
+        [void]$psi.ArgumentList.Add([string]$piece)
+    }
     $psi.UseShellExecute = $false
     $psi.CreateNoWindow  = $true
     $psi.WindowStyle     = [System.Diagnostics.ProcessWindowStyle]::Hidden
@@ -2270,7 +2346,7 @@ try { Stop-Process -Id $target -Force -ErrorAction SilentlyContinue } catch { }
     $demarrage = if ($parTache) { @"
 Start-ScheduledTask -TaskName '$taskName'
 "@ } else { @"
-Start-Process -FilePath '$pwsh' -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','$StartScript' -WindowStyle Hidden
+Start-Process -FilePath $(ConvertTo-PSLiteral $pwsh) -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File',$(ConvertTo-PSLiteral (ConvertTo-ProcessArgument $StartScript)) -WindowStyle Hidden
 "@ }
 
     $script = @"
@@ -3608,14 +3684,14 @@ function Start-Resident {
     try { $pwsh = (Get-Process -Id $PID).Path } catch { }
     if (-not $pwsh) { $pwsh = 'pwsh.exe' }
     try {
-        # QUOTE EVERY PATH. Start-Process joins the argument list with spaces and quotes
-        # nothing: the shared install lives under "C:\Program Files\Sowapps\Vigie", so the
-        # child died instantly on "The argument 'C:\Program' is not recognized". Measured on
-        # 02/09 -- and only the resident's health field revealed it, since a dead child says
-        # nothing on its own.
-        $quoted = @('-NoProfile', '-File', ('"' + $Declaration.Script + '"'),
-                    '-Backend', ('"' + $Backend + '"'), '-ServerPid', $PID)
-        $child = Start-Process -FilePath $pwsh -PassThru -WindowStyle Hidden -ArgumentList $quoted
+        # Raw values: Start-ChildProcess quotes them (D116). Passing them bare to
+        # Start-Process is what killed this child at every arming on 02/09 -- the shared
+        # install lives under "C:\Program Files\Sowapps\Vigie", and "C:\Program" is not a
+        # script.
+        $child = Start-ChildProcess -FilePath $pwsh `
+                    -Arguments @('-NoProfile', '-File', $Declaration.Script,
+                                 '-Backend', $Backend, '-ServerPid', $PID) `
+                    -Options @{ PassThru = $true; WindowStyle = 'Hidden' }
         Set-ResidentState -Backend $Backend -Key $Declaration.Key -Fields @{
             processId = $child.Id; serverPid = $PID; state = 'arme'
             armedAt = ([datetime]::UtcNow).ToString('o'); error = $null }
@@ -5917,7 +5993,11 @@ function Start-WatchedAction {
     Clear-ModuleLastRun -Module $Module -Backend $Backend
     $psi = [System.Diagnostics.ProcessStartInfo]::new()
     $psi.FileName  = $exe
-    $psi.Arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$veilleur`" -Backend `"$Backend`" -ArgsB64 $b64"
+    # ArgumentList, NOT Arguments: .NET quotes each value itself (D116).
+    foreach ($piece in @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+                         '-File', $veilleur, '-Backend', $Backend, '-ArgsB64', $b64)) {
+        [void]$psi.ArgumentList.Add([string]$piece)
+    }
     $psi.UseShellExecute  = $false
     $psi.CreateNoWindow   = $true
     $psi.WindowStyle      = [System.Diagnostics.ProcessWindowStyle]::Hidden
@@ -7981,7 +8061,9 @@ function Show-ElevationRationale {
                    changes = ($Changes -join '|'); initiatedBy = "$InitiatedBy" }
         [System.IO.File]::WriteAllText($payload, ($data | ConvertTo-Json -Compress -Depth 4),
                                        (New-Object System.Text.UTF8Encoding($false)))
-        $argv = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $script + '"'),
+        # RAW VALUES: the call operator quotes each argument itself, so a value wrapped by
+        # hand arrives WITH its quotes. The opposite of Start-Process (D116).
+        $argv = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $script,
                   '-PayloadFile', $payload)
         try {
             & $exe @argv
@@ -8048,7 +8130,12 @@ function Invoke-ElevatedSelf {
     if (-not $pwshPath) { Write-Host (Get-Label 'common.pwsh-introuvable') -ForegroundColor Red; return 1 }
 
     try {
-        $proc = Start-Process $pwshPath -Verb RunAs -Wait -PassThru -WindowStyle Hidden -WhatIf:$false -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $cmd)   # -Command carries a command block, not a path: quoting it would break it
+        # The command block travels as ONE argument -- it is full of spaces, and split by
+        # the command line it would only be rejoined by luck.
+        $proc = Start-ChildProcess -FilePath $pwshPath `
+                    -Arguments @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $cmd) `
+                    -Options @{ Verb = 'RunAs'; Wait = $true; PassThru = $true
+                                WindowStyle = 'Hidden'; WhatIf = $false }
     } catch {
         Write-Host (Get-Label 'common.elevation-refusee-ou-impossible' $_.Exception.Message) -ForegroundColor Yellow
         return 1

@@ -29,7 +29,7 @@ ligne — `scripts/dev/check-doc.ps1` refuse une décision absente d'ici.
 - **Installation, déploiement et mise à jour** — D07 · D11 · D22 · D77 · D78 · D79 · D81 · D84 · D87 · D96 · D97 · D99 · D101 · D106 · D107 (revu) · D110 · D112
 - **Sécurité, droits et multi-comptes** — D34 · D65 · D67 · D73 · D104 · D109
 - **Sondes, actions et tâches de fond** — D50bis · D53 · D54 · D60 · D61 · D80 · D82 · D83 · D85 · D113
-- **Outillage** — D06 · D21 · D24 · D40 · D44 · D47 · D52 · D64 · D75 · D86 · D90
+- **Outillage** — D06 · D21 · D24 · D40 · D44 · D47 · D52 · D64 · D75 · D86 · D90 · D116
 - **Méthode de travail** — D10 · D12 · D13 · D14 · D16 · D17 · D31 · D36 · D39 · D43 · D51 · D62 · D63 · D74 · D76 · D100 · D103
 ---
 
@@ -2968,3 +2968,42 @@ de `doc/fr/` et de `progress/`.
 **Comment on y va — sans grand nettoyage.** Comme pour les identifiants : un **cliquet**. `check-naming.ps1` compte
 les commentaires français, refuse toute augmentation, et le plafond baisse au fil des passages. Le code neuf s'écrit
 en anglais dès maintenant ; l'ancien se convertit quand on le touche.
+
+---
+
+## D116 — Une ligne de commande se construit par un outil, jamais à la main (2026-09-03)
+
+*Demandée par l'utilisateur.*
+
+> « Avoir de bons outils qui abstraient un appel bas niveau, ça permet d'éviter des erreurs répétées : tu corriges
+> ainsi l'erreur une fois pour toutes. Ça implique que c'est alors un outil obligatoire. Tu dois aussi toujours
+> supposer qu'une valeur puisse contenir les pires cas possibles. »
+
+**Ce qui n'allait pas.** `Start-Process` joint sa liste d'arguments avec des espaces et **ne cite rien**. Sous
+`C:\Program Files\Sowapps\Vigie`, un chemin passé nu meurt donc sur « `C:\Program` n'est pas un script », sans un
+mot : le 02/09, le résident des jeux mourait ainsi à chaque armement, et seul son champ de santé l'a révélé.
+
+**Et la parade évidente n'en était pas une.** Entourer la valeur à la main — `('"' + $chemin + '"')` — tient pour un
+espace et **casse sur un antislash final** : `"C:\dossier\"` échappe son propre guillemet fermant et avale
+l'argument suivant. Mesuré le 03/09 : deux arguments reçus comme un seul, mutilé. La correction qu'on croyait faite
+depuis la veille était fausse.
+
+**Décision.** `Start-ChildProcess` est le **seul** chemin pour lancer un processus avec des arguments. Les valeurs lui
+arrivent **brutes** ; la citation se fait là, une fois, selon les règles de `CommandLineToArgvW` — valeur vide,
+antislashs devant un guillemet, guillemet interne. `check-probes` refuse tout `Start-Process` porteur d'arguments
+ailleurs que dans l'outil, et toute valeur citée à la main.
+
+**Trois mondes, trois échappements — et c'est pour ça que la vigilance ne suffit pas.**
+
+| ce qu'on alimente | qui cite | ce qu'on passe |
+|---|---|---|
+| `Start-Process` (ligne de commande Windows) | **nous**, par `Start-ChildProcess` | la valeur brute |
+| l'opérateur d'appel `& $exe @argv`, `ArgumentList` de .NET | **eux**, tout seuls | la valeur brute |
+| une commande PowerShell **construite en texte** | **nous**, par `ConvertTo-PSLiteral` | la valeur brute |
+
+Citer à la main est juste dans un monde et faux dans les deux autres : dans le deuxième, les guillemets arrivent
+**pour de vrai** dans la valeur. Trois sites du dépôt étaient dans ce cas.
+
+**Ce que la règle suppose de toute valeur** : des espaces, des antislashs, un antislash **final**, des guillemets, des
+accents, une apostrophe, `&`, `|`, `;`, `%`, une tabulation, et la chaîne vide. Douze cas, éprouvés en comparant ce que
+l'enfant reçoit réellement à ce qu'on a voulu lui passer.

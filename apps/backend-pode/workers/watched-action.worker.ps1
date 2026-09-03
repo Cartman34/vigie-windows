@@ -40,13 +40,14 @@ Set-ModuleBusyMark -Module $module -Label $label -ProcessId $PID -Action $action
 $code = -1
 $erreur = ''
 try {
-    $params = @{ FilePath = "$($a.file)"; Wait = $true; PassThru = $true; WindowStyle = 'Hidden' }
-    if ($argv.Count) { $params['ArgumentList'] = $argv }
+    # Arguments arrive RAW from the caller -- they carry paths, hence spaces: quoting them
+    # is Start-ChildProcess's job, once, for everyone (D116).
+    $options = @{ Wait = $true; PassThru = $true; WindowStyle = 'Hidden' }
     if ($log) {
-        $params['RedirectStandardOutput'] = $log
-        $params['RedirectStandardError']  = ($log -replace '\.log$', '.err.log')
+        $options['RedirectStandardOutput'] = $log
+        $options['RedirectStandardError']  = ($log -replace '\.log$', '.err.log')
     }
-    $p = Start-Process @params
+    $p = Start-ChildProcess -FilePath "$($a.file)" -Arguments $argv -Options $options
     $code = [int]$p.ExitCode
 } catch {
     $erreur = "$($_.Exception.Message)"

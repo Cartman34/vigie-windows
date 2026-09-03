@@ -189,9 +189,9 @@ function Invoke-SessionGitHub {
     # Fenetre VISIBLE et interactive : la procedure affiche un code a recopier, il faut
     # pouvoir le lire. -Wait pour constater le resultat plutot que de le supposer (D43).
     try {
-        $p = Start-Process -FilePath 'gh.exe' `
-                           -ArgumentList @('auth', 'login', '--web', '--git-protocol', 'https', '--hostname', 'github.com') `
-                           -Wait -PassThru
+        $p = Start-ChildProcess -FilePath 'gh.exe' `
+                                -Arguments @('auth', 'login', '--web', '--git-protocol', 'https', '--hostname', 'github.com') `
+                                -Options @{ Wait = $true; PassThru = $true }
         if (Test-SessionGitHub) {
             Write-Ok (Get-Label 'install-dev.session-github-ouverte-2')
         } else {

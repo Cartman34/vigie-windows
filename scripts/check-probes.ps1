@@ -539,35 +539,74 @@ foreach ($x in $rawUserVar) {
                      " en clair (Get-ProcessAccount, ou Get-RequesterAccount si c'est la personne) -- " + $x)
 }
 
-# --- Guard rail: A PATH HANDED TO A PROCESS IS ALWAYS QUOTED ------------------
+# --- Guard rail: A COMMAND LINE IS BUILT BY THE TOOL, NEVER BY HAND -----------
 #
-# Start-Process joins arguments with spaces and quotes NOTHING. The shared install lives
-# under "C:\Program Files\Sowapps\Vigie": a bare path dies on "C:\Program is not a
-# script", silently, and the caller believes it started something. Measured on 02/09 on the
-# gaming resident, invisible until a health field said so.
+# Start-Process joins -ArgumentList with spaces and quotes NOTHING, so a bare path dies on
+# "C:\Program is not a script" -- silently, the caller believing it started something
+# (measured on 02/09 on the gaming resident). Wrapping the value by hand looks like the fix
+# and is not: a path ending with a backslash then escapes its own closing quote and swallows
+# the argument that follows (measured on 03/09).
 #
-# So we refuse a -File or -WorkingDirectory followed by a bare variable in an argument
-# list. The expected shape is ('"' + $path + '"').
-$barePath = @()
+# So neither fault is left to attention: Start-ChildProcess quotes, once, for everyone
+# (D116), and nothing else builds a command line. Two refusals:
+#   - Start-Process carrying arguments anywhere but inside the tool itself;
+#   - a value wrapped by hand, whatever the world -- the call operator and .NET's
+#     ArgumentList quote by themselves, so hand-wrapping there ADDS real quote characters;
+#   - ProcessStartInfo.Arguments, a command line written as ONE string: its ArgumentList
+#     sibling takes the values one by one and quotes them itself.
+#
+# The two patterns are ASSEMBLED rather than written: spelled out, this file would refuse
+# itself, and a checker that flags its own text teaches nothing.
+$handBuilt  = @()
+$quoteChar  = [string][char]34
+$apostrophe = [string][char]39
+$handQuote  = $apostrophe + $quoteChar + $apostrophe + '\s*\+'
+$startVerb  = 'Start' + '-Process'
+$withArgs   = '\b' + $startVerb + '\b\s+(?:-FilePath\s+)?(?!-)[^\s;|}]+\s+(?![-;}|#])[^\s;|}]'
 foreach ($d in @('apps', 'scripts')) {
     $rootDir = Join-Path $repoRoot $d
     if (-not (Test-Path -LiteralPath $rootDir)) { continue }
     foreach ($f in (Get-ChildItem -LiteralPath $rootDir -Recurse -File -Include '*.ps1' -ErrorAction SilentlyContinue)) {
         if ($f.FullName -like ('*' + [IO.Path]::DirectorySeparatorChar + 'var' + [IO.Path]::DirectorySeparatorChar + '*')) { continue }
+        $relative = (Resolve-Path -LiteralPath $f.FullName -Relative)
         $i = 0
+        $currentFunction = ''
+        $inHereString = $false
+        $inBlockComment = $false
         foreach ($line in (Get-Content -LiteralPath $f.FullName -Encoding UTF8 -ErrorAction SilentlyContinue)) {
             $i++
+            # A here-string carries GENERATED source, not code that runs here: what it holds
+            # was quoted at generation time, by the same tool. One line can close one and
+            # open the next, so we test the closing FIRST and the opening after.
+            if ($inHereString) {
+                if ($line -match '^\s*[''"]@') { $inHereString = $false } else { continue }
+            }
+            if ($inBlockComment) {
+                if ($line -match '#>') { $inBlockComment = $false }
+                continue
+            }
+            if ($line -match '<#' -and $line -notmatch '#>') { $inBlockComment = $true; continue }
             if ($line -match '^\s*#') { continue }
-            # -Command carries a COMMAND BLOCK, not a path: quoting it would break it.
-            # The rule therefore targets paths only.
-            if ($line -notmatch "'-(File|WorkingDirectory)'\s*,\s*\$[A-Za-z]") { continue }
-            $barePath += ("{0}:{1}" -f (Resolve-Path -LiteralPath $f.FullName -Relative), $i)
+            if ($line -match '@[''"]\s*$') { $inHereString = $true; continue }
+            if ($line -match '^\s*function\s+([A-Za-z0-9-]+)') { $currentFunction = $Matches[1] }
+
+            if ($line -match '\.Arguments\s*=') {
+                $handBuilt += ("ligne de commande ecrite a la main (ArgumentList.Add, D116) -- {0}:{1}" -f $relative, $i)
+            }
+            if ($line -match $handQuote) {
+                $handBuilt += ("valeur citee a la main (ConvertTo-ProcessArgument, ou rien du tout) -- {0}:{1}" -f $relative, $i)
+            }
+            # The single legitimate call is the one INSIDE the tool.
+            if ($currentFunction -eq 'Start-ChildProcess') { continue }
+            if ($line -notmatch ('\b' + $startVerb + '\b')) { continue }
+            # Opening a URL or a program with NO argument builds no command line: nothing
+            # to get wrong, and forcing the tool there would only add noise.
+            if (($line -notmatch '-ArgumentList') -and ($line -notmatch $withArgs)) { continue }
+            $handBuilt += ("{0} avec des arguments (Start-ChildProcess, D116) -- {1}:{2}" -f $startVerb, $relative, $i)
         }
     }
 }
-foreach ($x in $barePath) {
-    $manquements += ("chemin passe nu a un processus : le citer avant de le passer -- " + $x)
-}
+foreach ($x in $handBuilt) { $manquements += $x }
 
 # --- Guard rail: NOTHING BETWEEN A CONTINUATION AND ITS PARAMETER -------------
 #
@@ -597,29 +636,28 @@ foreach ($x in $cutCommand) {
     $manquements += ("commentaire apres une continuation : la commande est coupee -- " + $x)
 }
 
-# --- Garde-fou : LE SERVEUR N'A PAS D'UTILISATEUR AMBIANT --------------------
+# --- Guard rail: THE SERVER HAS NO AMBIENT USER -------------------------------
 #
-# HKCU, %LOCALAPPDATA%, %APPDATA%, %USERPROFILE% designent le compte qui EXECUTE. Cote
-# serveur, c'est VigieService : une ruche et un profil ou personne n'a jamais rien
-# installe ni regle. Le code y regarde et ne voit rien, sans erreur et sans un mot.
-# Constate le 01/09 : les jeux (bibliotheques Steam, Game Bar) et WSL (distribution par
-# defaut) etaient lus dans HKCU, donc jamais trouves, quel que soit le compte qui joue.
+# HKCU, %LOCALAPPDATA%, %APPDATA%, %USERPROFILE% name the account that RUNS the code. On the
+# server side that is VigieService: a hive and a profile where nobody ever installed or set
+# anything. The code looks there and sees nothing -- no error, not a word.
+# Measured on 01/09: games (Steam libraries, Game Bar) and WSL (default distribution) were
+# read from HKCU, hence never found, whatever account was playing.
 #
-# Ce qui se lit par utilisateur se lit RUCHE PAR RUCHE (Get-UserRegistryRoots,
-# Get-AccountRegistryRoot) ou PROFIL PAR PROFIL (Get-AccountConfigDir, Get-AccountVarRoot).
-# La regle ne vaut que pour le code du serveur : l'app cliente et les scripts, eux,
-# tournent bien dans la session de quelqu'un.
+# What is read PER USER is read HIVE BY HIVE (Get-UserRegistryRoots, Get-AccountRegistryRoot)
+# or PROFILE BY PROFILE (Get-AccountConfigDir, Get-AccountVarRoot). The rule only binds the
+# server's code: the client app and the scripts do run inside somebody's session.
 $ambientUser = @()
 $serverRoot = Join-Path $repoRoot 'apps/backend-pode'
 foreach ($f in (Get-ChildItem -LiteralPath $serverRoot -Recurse -File -Include '*.ps1' -ErrorAction SilentlyContinue)) {
-    # common.ps1 EST l'implementation de la regle ; var/ est une copie de travail.
+    # common.ps1 IS the rule's implementation; var/ is a working copy.
     if ($f.Name -eq 'common.ps1') { continue }
     if ($f.FullName -like ('*' + [IO.Path]::DirectorySeparatorChar + 'var' + [IO.Path]::DirectorySeparatorChar + '*')) { continue }
     $i = 0
     foreach ($ligne in (Get-Content -LiteralPath $f.FullName -Encoding UTF8 -ErrorAction SilentlyContinue)) {
         $i++
         if ($ligne -match '^\s*#') { continue }
-        # Le motif s'ecrit en morceaux, sinon ce fichier se denonce lui-meme.
+        # The pattern is assembled, or this file would report itself.
         # CHAQUE morceau entre parentheses : la virgule lie plus fort que le plus, et
         # sans elles les quatre motifs se recollaient en UN SEUL, qui ne matchait rien.
         foreach ($pattern in @(('HK' + 'CU:'), ('$env:' + 'LOCALAPPDATA'), ('$env:' + 'APPDATA'), ('$env:' + 'USERPROFILE'))) {
