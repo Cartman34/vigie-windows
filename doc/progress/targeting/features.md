@@ -108,6 +108,14 @@ Format : `ID` — Titre, puis le besoin et ses critères. On n'écrit **pas** ic
 - **UI-LAYOUT** — Colonnes stables, cartes d'un même module placées à la suite ou à proximité.
 - **UI-REORG** — Un mode réorganisation explicite où l'utilisateur ordonne ses cartes, y compris vers une colonne vide.
 - **UI-SETTINGS** — Un menu Paramètres unique ; le défaut vient de la configuration.
+- **UI-HISTORY** — **Une mesure qui a un passé le montre.** L'historique est écrit depuis le 24/08 et ne se lit nulle
+  part : une valeur s'affiche seule, sans dire si elle monte, si elle descend, ni d'où elle vient. Un champ dont la
+  série existe porte donc, à côté de sa valeur, la **forme des dernières 24 h** — assez pour voir une tendance et un
+  extrême, pas un graphe à explorer.
+
+  **Ce que ça n'est pas :** pas une page de graphiques, pas un second chemin de données (la route `/history/<mesure>`
+  existe et sert telle quelle), et pas un coût sur `/state` — la série se demande à part, quand la carte s'affiche.
+  Une mesure sans série n'affiche rien : une courbe plate inventée vaut moins que rien.
 
 ## Abandonné
 

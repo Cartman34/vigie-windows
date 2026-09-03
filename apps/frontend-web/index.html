@@ -507,6 +507,12 @@
   .fk-label.clickable{cursor:pointer}
   .fk-label.clickable:hover{color:var(--text);text-decoration:underline dotted}
   .v-ok{color:var(--ok)} .v-warn{color:var(--warn)} .v-error{color:var(--err)} .v-neutral{color:var(--text)}
+  /* THE SHAPE OF THE LAST 24 HOURS, beside the value (UI-HISTORY). Discreet by design:
+     it accompanies a figure, it does not replace it. */
+  .spark{display:inline-block;width:64px;height:16px;margin-right:8px;vertical-align:middle;opacity:.85}
+  .spark svg{display:block;overflow:visible}
+  .spark path{fill:none;stroke:var(--muted);stroke-width:1.5;stroke-linejoin:round;stroke-linecap:round}
+  .spark .spark-hi{fill:var(--muted);opacity:.55}
   .frow-actions{padding:3px 0 2px 22px}
   /* Le passage d'un etat a un autre, dans une confirmation : deux valeurs, une fleche. */
   .cf-trans{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:2px}
@@ -1032,7 +1038,7 @@ function cardHtml(m, groupLabel){
       : '';
     const det = (detTxt && !detLong) ? `<div class="field-detail ${stt}${open}" data-k="${key}">${esc(detTxt)}</div>` : '';
     return `<div class="frow">
-      <div class="field"><span class="k"><span class="fdot ${stt}"></span><span class="fk-label${aQuoiVoir?' clickable':''}"${help?` title="${help}"`:''}${clicDetail?` onclick="${clicDetail}"`:''}>${f.label}</span>${info}</span><span class="v v-${stt}">${fmt(f)}</span></div>
+      <div class="field"><span class="k"><span class="fdot ${stt}"></span><span class="fk-label${aQuoiVoir?' clickable':''}"${help?` title="${help}"`:''}${clicDetail?` onclick="${clicDetail}"`:''}>${f.label}</span>${info}</span><span class="v v-${stt}">${f.measure?`<span class="spark" data-mesure="${att(String(f.measure))}"></span>`:""}${fmt(f)}</span></div>
       ${det}
       ${solve?`<div class="frow-actions">${solve}</div>`:''}
     </div>`;
@@ -1158,6 +1164,65 @@ function wireCardActions(root){
   });
 }
 
+/*
+   THE SHAPE OF THE LAST 24 HOURS (UI-HISTORY).
+
+   The series does NOT travel with /state: a state answer must not grow with the length of
+   a history. A field carries only its measure identifier, and the curve is asked for
+   separately -- once per measure, kept for a minute, and only for the cards on screen.
+
+   Two points are enough to draw; below that, NOTHING is shown. A flat line invented on a
+   single reading would say "it is stable" when we simply do not know yet.
+*/
+const seriesCache = new Map();   // measure -> { at, data }
+async function seriesFor(measure){
+  const cached = seriesCache.get(measure);
+  if(cached && (Date.now() - cached.at) < 60000) return cached.data;
+  try{
+    const r = await fetch(API + '/history/' + encodeURIComponent(measure) + '?window=24h',
+                          { headers:{ Authorization:'Bearer ' + TOKEN } });
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+    seriesCache.set(measure, { at: Date.now(), data });
+    return data;
+  }catch(e){
+    /* NO NOISE: with no server (the file:// mock) or no history yet, the field simply
+       shows no curve. The failure is remembered so it is not retried in a loop. */
+    seriesCache.set(measure, { at: Date.now(), data: null });
+    return null;
+  }
+}
+function sparkSvg(points){
+  const WIDTH = 64, HEIGHT = 16;
+  const vals = points.map(p => Number(p.v)).filter(v => isFinite(v));
+  if(vals.length < 2) return '';
+  const low = Math.min.apply(null, vals), high = Math.max.apply(null, vals);
+  const span = (high - low) || 1;
+  const step = WIDTH / (vals.length - 1);
+  const y = v => HEIGHT - 1 - ((v - low) / span) * (HEIGHT - 2);
+  const d = vals.map((v,i) => (i?'L':'M') + (i*step).toFixed(1) + ' ' + y(v).toFixed(1)).join(' ');
+  /* THE LAST POINT IS MARKED: it is the one the figure beside it states. */
+  const cx = ((vals.length-1)*step).toFixed(1), cy = y(vals[vals.length-1]).toFixed(1);
+  return '<svg viewBox="0 0 ' + WIDTH + ' ' + HEIGHT + '" width="' + WIDTH + '" height="' + HEIGHT + '" aria-hidden="true">'
+       + '<path d="' + d + '"></path>'
+       + '<circle class="spark-hi" cx="' + cx + '" cy="' + cy + '" r="1.6"></circle></svg>';
+}
+async function drawSeries(root){
+  const slots = (root || document).querySelectorAll('.spark[data-mesure]:not([data-fait])');
+  for(const el of slots){
+    el.setAttribute('data-fait', '1');
+    const h = await seriesFor(el.getAttribute('data-mesure'));
+    if(!h || !h.points || h.points.length < 2){ el.style.display = 'none'; continue; }
+    el.innerHTML = sparkSvg(h.points);
+    if(!el.innerHTML){ el.style.display = 'none'; continue; }
+    const summary = h.summary || {};
+    let title = L('ui.forme-des-dernieres-24h');
+    if(summary.min !== null && summary.min !== undefined && summary.max !== null && summary.max !== undefined){
+      title += ' : ' + summary.min + ' … ' + summary.max + (h.unit ? ' ' + h.unit : '');
+    }
+    el.title = title;
+  }
+}
 function renderState(s, mode){
   const app=document.getElementById('app'); app.innerHTML='';
   fieldsByKey={};
@@ -1201,6 +1266,7 @@ function renderState(s, mode){
   layoutColumns(masonry);
   app.appendChild(masonry);
   wireCardActions(masonry);
+  drawSeries(masonry);
   applyOperationLock();
   // Si le rangement est en cours, les cartes fraichement rendues redeviennent
   // saisissables : le mode et l'affichage restent d'accord.
@@ -1506,6 +1572,7 @@ function replaceCardDom(m){
   const fresh=tmp.firstElementChild;
   card.replaceWith(fresh);
   wireCardActions(fresh);
+  drawSeries(fresh);
   // Le serveur fait foi : si la carte n'est plus occupee, le verrou tombe.
   applyOperationLock();
   const i=(lastModules||[]).findIndex(x=>x.id===m.id);

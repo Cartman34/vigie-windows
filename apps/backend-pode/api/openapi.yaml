@@ -339,6 +339,14 @@ components:
           type: string
           enum: [ok, warn, error, neutral]
           description: statut de ce parametre precis (pastille de couleur)
+        measure:
+          type: string
+          example: disk.free
+          description: >
+            Identifiant de catalogue de la mesure dont ce champ est la valeur, quand une
+            serie existe pour lui (UI-HISTORY). La serie elle-meme ne voyage PAS ici :
+            elle se lit sur /history/{measureId}, pour que la reponse d'etat ne grossisse
+            pas avec la longueur d'un historique.
         fixAction:
           type: string
           description: id d'action a executer pour resoudre (si programmable)
