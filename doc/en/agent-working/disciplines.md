@@ -323,6 +323,12 @@ sienne.
 la demande**. Si elle n'existe pas, c'est que la fonctionnalité n'existe pas — on la propose, en une phrase, et on
 passe à la suivante de SA liste.
 
+**`targeting/` PORTE CE QUI EST VALIDÉ — c'est là, et nulle part ailleurs, que je prends mon travail.** Ce que je
+suggère vit ailleurs (`notes/`, `local/`) tant qu'il n'y est pas entré. Et quand il n'est pas là, j'implémente ce qui
+est dans `targeting/`, **rien de plus** : pas la bonne idée d'à côté, pas l'amélioration qui « allait avec ».
+
+*Règle donnée le 03/09, après que j'ai livré un affichage d'historique que personne n'avait demandé.*
+
 ## Personne d'autre n'écrit dans ce dépôt
 
 **Tout ce que je trouve ici, c'est moi qui l'ai écrit.** Il n'y a qu'un intervenant sur ce projet. Quand un fichier
