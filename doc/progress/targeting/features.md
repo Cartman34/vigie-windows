@@ -36,6 +36,25 @@ Format : `ID` — Titre, puis le besoin et ses critères. On n'écrit **pas** ic
   si elle meurt, et son état se voit. Ce qu'elle fait ne regarde qu'elle. Détail : [residents.md](residents.md).
 - **CORE-DEPLOY** — Installation partagée pour tous les comptes de la machine, jamais par compte. Les dépendances
   (PowerShell 7) en font partie. Un installateur aboutit, ou dit pourquoi il a échoué.
+- **CORE-INSTALL-PATH** — **Le dossier d'installation se choisit.** Aujourd'hui il est imposé :
+  `%ProgramFiles%\Sowapps\Vigie`, écrit en dur. L'installateur doit le **proposer** et accepter qu'on en désigne un
+  autre — un autre disque, un dossier d'outils déjà en place. Le choix est **retenu** : une mise à jour réinstalle au
+  même endroit sans qu'on ait à le redire. Une contrainte tient, quel que soit l'emplacement : **tous les comptes de la
+  machine doivent pouvoir lire** ce dossier, sinon l'installation n'est plus partagée (**CORE-DEPLOY**) — hors
+  `Program Files`, cela ne va pas de soi et se vérifie.
+- **CORE-UNINSTALL** — **Vigie doit savoir s'en aller.** Rien ne la désinstalle aujourd'hui : on peut l'installer, pas
+  la retirer. Une désinstallation défait ce que l'installation a posé, et le **dit** :
+
+  - les tâches planifiées — `Vigie - Serveur`, et celle de chaque compte ;
+  - le **compte de service** `VigieService` et ses secrets ;
+  - le dossier d'installation partagé ;
+  - **le verrou posé sur Windows Update** : c'est le point qui ne se néglige pas. Vigie refuse à SYSTEM l'accès aux
+    dossiers de tâches de Windows Update ; partir en le laissant en place rendrait la machine durablement bloquée, sans
+    plus rien pour l'expliquer ni le lever.
+
+  **Ce qui appartient à la personne ne se supprime pas sans son accord** : ses réglages et son historique vivent dans
+  son profil, et la désinstallation demande avant d'y toucher.
+
 - **CORE-UPDATE-TRUST** — La chaîne de mise à jour ne doit pas pouvoir être détournée. Ce qui s'installe doit être
   **vérifiable** — empreinte publiée, et à terme signature — et pas seulement « téléchargé en HTTPS depuis la bonne
   URL ». Une intrusion dans le dépôt, un jeton de publication volé ou une release remplacée ne doivent pas suffire à
