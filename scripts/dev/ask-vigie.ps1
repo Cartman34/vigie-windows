@@ -37,9 +37,9 @@ param(
     [hashtable] $Params = @{},
     # -Modules : l'etat des cartes, sans passer par une action.
     [switch] $Modules,
-    # -Route : N'IMPORTE QUELLE ROUTE de lecture, telle qu'elle est ecrite dans le contrat
-    # (ex. « /history/net.latency?window=24h »). Sans elle, verifier une route revient a
-    # rebricoler un ticket et un cookie a la main -- ce que ce script existe pour eviter.
+    # -Route: ANY read route, written the way the contract writes it (for instance
+    # "/history/net.latency?window=24h"). Without it, checking a route meant rebuilding a
+    # ticket and a cookie by hand -- the very thing this script exists to avoid.
     [string] $Route,
     # -Fresh: RECOMPUTE instead of reading the cache. After an update the cards are still
     # the ones from before -- I read "v0.1.63" twice on a server already running v0.1.64 and
@@ -177,9 +177,9 @@ try {
     } elseif ($Modules) {
         # "/state": the whole state, cards included. "/modules/:id" returns ONE card, and
         # "/modules" does not exist -- which is what I had written, hence a 404.
-        $route = if ($Module) { $url + '/api/v1/modules/' + $Module } else { $url + '/api/v1/state' }
-        if ($Fresh) { $route += '?fresh=1' }
-        $data = Invoke-RestMethod -Method Get -Uri $route `
+        $stateUrl = if ($Module) { $url + '/api/v1/modules/' + $Module } else { $url + '/api/v1/state' }
+        if ($Fresh) { $stateUrl += '?fresh=1' }
+        $data = Invoke-RestMethod -Method Get -Uri $stateUrl `
                                   -WebSession $session -Headers @{ Origin = $url } -TimeoutSec 300
     } else {
         if (-not $Type) { Write-Fail (Get-Label 'ask-vigie.quelle-question'); exit 2 }
