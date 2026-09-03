@@ -117,6 +117,9 @@ $EXCLUSIONS = @(
     @{ Motif = '^doc/en/developing/security-review\.md$'
        Raison = "Revue de sécurité INTERNE, à relire à chaque ajout d'action. La page publique équivalente est doc/*/security.md." }
 
+    @{ Motif = '^doc/en/developing/debugging\.md$'
+       Raison = "Démarche de débogage : elle s'exécute avec scripts/dev/, qui ne part pas. Livrée seule, elle ne renvoie qu'à des fichiers absents." }
+
     @{ Motif = '^doc/README\.md$'
        Raison = "Aiguillage du dépôt : il ne pointe QUE vers les documents internes ci-dessus. Dans l'archive, README.md mène directement à doc/en/ et doc/fr/." }
 )
