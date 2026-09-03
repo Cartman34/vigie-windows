@@ -25,7 +25,7 @@
     # sont recalculees -- et c'est leur bascule qui produit la notification (D54).
     # Le vocabulaire suit les autres cles de ce fichier : anglais, comme Label et Config.
     Sentinels = @(
-        @{ Key = 'internet'; Label = 'Connexion Internet'; Seconds = 60; Cards = @('net') }
+        @{ Key = 'internet'; Label = 'Connexion Internet'; Seconds = 60; Cards = @('net'); Card = 'net'; Field = 'connected' }
     )
 
     # NOTIFICATIONS emises par ce module (D54) : un evenement nomme, pas un nom de

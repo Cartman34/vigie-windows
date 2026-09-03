@@ -43,7 +43,7 @@
     # chargeur cesse de suivre : trois faits que la carte doit dire SANS attendre
     # qu'on la rafraichisse. Une lecture WMI toutes les trente secondes.
     Sentinels = @(
-        @{ Key = 'power'; Label = 'Sens du courant'; Seconds = 30; Cards = @('power') }
+        @{ Key = 'power'; Label = 'Sens du courant'; Seconds = 30; Cards = @('power'); Card = 'power'; Field = 'rate' }
     )
 
     Notifications = @(

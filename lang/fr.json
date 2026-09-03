@@ -526,6 +526,7 @@
   "ui.fenetre-ouverte": "fenêtre ouverte",
   "ui.fenetre-sans-session": "Une fenêtre qui ne dit pas qui elle est",
   "ui.fenetre-sans-session-detail": "Ouvrir l'adresse à la main — navigation privée, signet, autre navigateur — n'associe la fenêtre à aucun compte. Ce réglage vaut pour tout l'ordinateur.",
+  "ui.derniers-changements": "Derniers changements (24 h)",
   "ui.forme-des-dernieres-24h": "Forme des dernières 24 h",
   "ui.impossible": "Impossible : ",
   "ui.impossible-ignorer": "Impossible d’ignorer : ",
