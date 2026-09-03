@@ -513,6 +513,11 @@
   .spark svg{display:block;overflow:visible}
   .spark path{fill:none;stroke:var(--muted);stroke-width:1.5;stroke-linejoin:round;stroke-linecap:round}
   .spark .spark-hi{fill:var(--muted);opacity:.55}
+  /* THE TIMELINE OF CHANGES: a sentinel draws no curve, it marks instants. The line is the
+     window, each tick a change of state. */
+  .spark .spark-axis{stroke:var(--border);stroke-width:1}
+  .spark .spark-tick{stroke:var(--muted);stroke-width:1.5;stroke-linecap:round}
+  .spark .spark-last{stroke:var(--accent);stroke-width:2;stroke-linecap:round}
   .frow-actions{padding:3px 0 2px 22px}
   /* Le passage d'un etat a un autre, dans une confirmation : deux valeurs, une fleche. */
   .cf-trans{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:2px}
@@ -1207,20 +1212,72 @@ function sparkSvg(points){
        + '<path d="' + d + '"></path>'
        + '<circle class="spark-hi" cx="' + cx + '" cy="' + cy + '" r="1.6"></circle></svg>';
 }
+/*
+   A SENTINEL DRAWS NO CURVE: IT MARKS INSTANTS.
+
+   Its series carries state changes -- "oui" to "non" at 03:12 -- and averaging those
+   would mean nothing. What one wants to read beside the field is the same thing the target
+   asks for: since when, and how many times tonight. So: one tick per change, placed at its
+   hour over the last 24 h, the most recent one standing out; the transitions themselves are
+   read in the tooltip.
+*/
+function sparkEvents(points){
+  const WIDTH = 64, HEIGHT = 16, BASE = HEIGHT - 4;
+  const now = Date.now(), span = 24 * 3600 * 1000;
+  const marks = [];
+  for(const p of points){
+    const t = Date.parse(p.at);
+    if(!isFinite(t)) continue;
+    const age = now - t;
+    /* A point older than the window sticks to the left edge instead of vanishing: it says
+       "this was already going on before", which is information. */
+    const x = Math.max(0, Math.min(WIDTH, WIDTH - (age / span) * WIDTH));
+    marks.push(x);
+  }
+  if(!marks.length) return '';
+  const ticks = marks.map((x, i) =>
+    '<line class="' + (i === marks.length - 1 ? 'spark-last' : 'spark-tick') + '" x1="' + x.toFixed(1)
+    + '" y1="' + (i === marks.length - 1 ? 2 : 4) + '" x2="' + x.toFixed(1) + '" y2="' + BASE + '"></line>').join('');
+  return '<svg viewBox="0 0 ' + WIDTH + ' ' + HEIGHT + '" width="' + WIDTH + '" height="' + HEIGHT + '" aria-hidden="true">'
+       + '<line class="spark-axis" x1="0" y1="' + BASE + '" x2="' + WIDTH + '" y2="' + BASE + '"></line>'
+       + ticks + '</svg>';
+}
+function eventsTitle(points){
+  /* THE LAST CHANGES, in plain words: "stable -> charge at 09:42". Four is enough -- beyond
+     that the tooltip becomes a log, and a log is not read on hover. */
+  const latest = points.slice(-4);
+  const lines = [];
+  for(let i = 0; i < latest.length; i++){
+    const p = latest[i];
+    const t = new Date(p.at);
+    const hour = isNaN(t) ? '' : t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const before = (i === 0) ? null : latest[i - 1].v;
+    lines.push((before === null ? '' : (before + ' → ')) + p.v + (hour ? ' à ' + hour : ''));
+  }
+  return lines.join(String.fromCharCode(10));
+}
 async function drawSeries(root){
   const slots = (root || document).querySelectorAll('.spark[data-mesure]:not([data-fait])');
   for(const el of slots){
     el.setAttribute('data-fait', '1');
     const h = await seriesFor(el.getAttribute('data-mesure'));
-    if(!h || !h.points || h.points.length < 2){ el.style.display = 'none'; continue; }
-    el.innerHTML = sparkSvg(h.points);
+    if(!h || !h.points || !h.points.length){ el.style.display = 'none'; continue; }
+    const isEvents = (h.kind === 'event');
+    /* ONE CHANGE IS WORTH SHOWING: it says "since when". A curve needs two points -- a lone
+       value tells no shape at all. */
+    if(!isEvents && h.points.length < 2){ el.style.display = 'none'; continue; }
+    el.innerHTML = isEvents ? sparkEvents(h.points) : sparkSvg(h.points);
     if(!el.innerHTML){ el.style.display = 'none'; continue; }
-    const summary = h.summary || {};
-    let title = L('ui.forme-des-dernieres-24h');
-    if(summary.min !== null && summary.min !== undefined && summary.max !== null && summary.max !== undefined){
-      title += ' : ' + summary.min + ' … ' + summary.max + (h.unit ? ' ' + h.unit : '');
+    if(isEvents){
+      el.title = L('ui.derniers-changements') + String.fromCharCode(10) + eventsTitle(h.points);
+    } else {
+      const summary = h.summary || {};
+      let title = L('ui.forme-des-dernieres-24h');
+      if(summary.min !== null && summary.min !== undefined && summary.max !== null && summary.max !== undefined){
+        title += ' : ' + summary.min + ' … ' + summary.max + (h.unit ? ' ' + h.unit : '');
+      }
+      el.title = title;
     }
-    el.title = title;
   }
 }
 function renderState(s, mode){
