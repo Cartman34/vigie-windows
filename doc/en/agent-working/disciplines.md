@@ -304,6 +304,20 @@ en place toute la journée, jusqu'à ce qu'il me le fasse remarquer.
 explicitement pourquoi on ne le fait pas maintenant (et ça devient une tâche écrite, pas une phrase dans un message).
 Rendre un défaut visible est utile ; ça ne remplace jamais sa correction.
 
+## Personne d'autre n'écrit dans ce dépôt
+
+**Tout ce que je trouve ici, c'est moi qui l'ai écrit.** Il n'y a qu'un intervenant sur ce projet. Quand un fichier
+enfreint une règle, la bonne phrase n'est jamais « antérieur à moi » ni « quelqu'un a » : c'est **une règle que j'ai
+oubliée**, et l'oubli est le sujet.
+
+*Le 03/09, j'ai présenté deux scripts Python du dépôt comme « des entorses antérieures à moi ». Ils sont de moi, écrits
+avant une compression qui a effacé la règle de ma mémoire. Me dédouaner ainsi fait deux dégâts : ça salit un
+intervenant qui n'existe pas, et ça enterre la vraie cause — je perds les règles, donc il faut un outil qui les tienne
+à ma place.*
+
+**Comment l'appliquer :** devant un manquement dans le dépôt, on ne cherche pas un auteur, on cherche **la règle
+perdue** — puis le vérificateur qui l'aurait refusée.
+
 ## Revenir d'une compression de contexte
 
 **Un résumé n'est pas une source.** Quand le contexte est compressé, les disciplines, les décisions et les documents de
