@@ -99,11 +99,30 @@ phrase à la fin plutôt que de l'exécuter.
 pendant, puis le résultat. Vingt-quatre minutes sans nouvelle, c'est le laisser deviner si je travaille, si j'ai
 compris, ou si je me suis perdu.
 
-**UN CHEMIN QUI PART VERS UN PROCESSUS SE CITE, TOUJOURS.** `Start-Process` colle les arguments avec des espaces et
-n'en cite aucun : l'installation partagée vivant sous `C:\Program Files\Sowapps\Vigie`, un chemin passé nu meurt sur
-« `C:\Program` n'est pas un script », **en silence**. Le 02/09, le résident des jeux est mort ainsi à chaque armement,
-et seul son champ de santé l'a révélé. `check-probes` refuse désormais un `-File` suivi d'une variable nue, et un
-commentaire glissé après une continuation — les deux fautes que je refais.
+**UN OUTIL PLUTÔT QU'UNE RÈGLE À RETENIR — et il devient alors OBLIGATOIRE.** Quand un appel bas niveau se trompe de
+la même façon à chaque fois, on ne retient pas la parade : on l'enferme dans une fonction, elle devient le seul chemin,
+et un vérificateur refuse l'appel brut. L'erreur est alors corrigée **une fois pour toutes**, y compris pour le code
+qui n'est pas encore écrit. `Start-ChildProcess` (**D116**) est le premier de la famille — voir « Envelopper les appels
+système », dont c'est la forme aboutie.
+
+*Le 02/09, le résident des jeux mourait à chaque armement sur « `C:\Program` n'est pas un script » : `Start-Process`
+joint ses arguments avec des espaces et n'en cite aucun. J'ai corrigé en entourant le chemin à la main — et c'était
+faux aussi : `"C:\dossier\"` échappe son propre guillemet fermant et avale l'argument suivant (mesuré le 03/09).*
+
+**UNE VALEUR PEUT TOUT CONTENIR — et la liste des pires cas n'existe pas.** Espaces, antislashs, antislash **final**,
+guillemets, apostrophes, accents, `&`, `|`, `;`, `%`, tabulation, chaîne vide : on ne conçoit pas pour la valeur
+d'aujourd'hui, on conçoit pour celle qui cassera. Un échappement s'**éprouve** en comparant ce que le destinataire
+reçoit vraiment à ce qu'on a voulu lui passer, jamais en relisant la ligne.
+
+**ET L'ÉCHAPPEMENT DÉPEND DU MONDE.** Citer à la main est juste pour `Start-Process` et **faux** pour l'opérateur
+d'appel `&` comme pour `ArgumentList` de .NET, qui citent eux-mêmes : la valeur y arrive avec de vrais guillemets
+dedans. Trois sites du dépôt étaient dans ce cas, sans que rien ne le dise. Le monde décide de l'échappement, pas
+l'habitude — et c'est l'outil qui connaît le monde, pas moi.
+
+**MON PROPRE OUTILLAGE D'ÉCRITURE MANGE LES ÉCHAPPEMENTS.** Le 03/09, un `\\` écrit dans un script est arrivé `\` dans
+le fichier, et l'expression régulière refusait de compiler. Ce qui porte des antislashs ou des guillemets s'écrit par
+un chemin qui ne les réinterprète pas, et **on relit la ligne écrite** — ce que j'ai voulu écrire ne prouve rien sur
+ce qui est dans le fichier.
 
 **Les caractères spéciaux se traitent par le contrôle, pas par l'attention.** Antislashs mangés, guillemets imbriqués,
 espaces dans un chemin, échappements avalés par un script d'écriture : ces fautes reviennent parce qu'elles ne se

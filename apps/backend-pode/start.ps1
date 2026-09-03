@@ -13,9 +13,10 @@ $isAdmin = Test-Elevated
 if (($PSVersionTable.PSVersion.Major -lt 7) -or (-not $isAdmin)) {
     $pwsh = Get-Command pwsh -ErrorAction SilentlyContinue
     if (-not $pwsh) { Write-Warn (Get-Label 'start.powershell-requis-lance-abord'); return }
-    $relArgs = @('-NoExit','-NoProfile','-ExecutionPolicy','Bypass','-File', ('"' + $PSCommandPath + '"'))
-    if (-not $isAdmin) { Start-Process $pwsh.Source -Verb RunAs -ArgumentList $relArgs }
-    else               { Start-Process $pwsh.Source -ArgumentList $relArgs }
+    $relArgs = @('-NoExit','-NoProfile','-ExecutionPolicy','Bypass','-File', $PSCommandPath)
+    $opts = @{}
+    if (-not $isAdmin) { $opts['Verb'] = 'RunAs' }
+    Start-ChildProcess -FilePath $pwsh.Source -Arguments $relArgs -Options $opts
     return
 }
 

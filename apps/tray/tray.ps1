@@ -259,7 +259,9 @@ public static bool Focus(System.IntPtr h) {
                 [IO.File]::WriteAllText($payload,
                     (@{ title = "$titre"; summary = "$texte" } | ConvertTo-Json -Compress),
                     (New-Object Text.UTF8Encoding($false)))
-                $argv = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $script + '"'),
+                # RAW VALUES: the call operator quotes each argument itself, and a value
+                # wrapped by hand would arrive WITH its quotes (D116).
+                $argv = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $script,
                           '-Caption', 'Vigie', '-PayloadFile', $payload,
                           '-OkText', $okText, '-CancelText', $nonText, '-Note', '')
                 if ($tiersText) { $argv += @('-ThirdText', $tiersText) }
@@ -376,7 +378,8 @@ public static bool Focus(System.IntPtr h) {
             serveur ». Deux gestes distincts pour deux choses distinctes.
         #>
         $relaunch = {
-            try { [void](& $launchHidden $pwsh @('-NoProfile','-ExecutionPolicy','Bypass','-File', ('"' + $trayPath + '"'))) } catch { }
+            # .NET's ArgumentList quotes each value itself: it gets the bare path (D116).
+            try { [void](& $launchHidden $pwsh @('-NoProfile','-ExecutionPolicy','Bypass','-File', $trayPath)) } catch { }
             try { $icon.Visible = $false; $icon.Dispose() } catch { }
             [System.Windows.Forms.Application]::Exit()
         }
@@ -471,7 +474,8 @@ public static bool Focus(System.IntPtr h) {
                 $nom = [IO.Path]::GetFileNameWithoutExtension($exe)
                 $avant = @(Get-Process -Name $nom -ErrorAction SilentlyContinue).Count
                 try {
-                    $p = Start-Process -FilePath $exe -ArgumentList "--app=$url","--window-size=1240,840" -PassThru
+                    $p = Start-ChildProcess -FilePath $exe -Arguments @("--app=$url", '--window-size=1240,840') `
+                                            -Options @{ PassThru = $true }
                 } catch {
                     TLog ("openApp : " + $exe + " refuse (" + $_.Exception.Message + ")")
                     continue

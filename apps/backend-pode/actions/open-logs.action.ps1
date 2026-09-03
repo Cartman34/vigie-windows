@@ -15,5 +15,5 @@ $dossier = Get-VarPath -Backend $backend -Kind 'log'
 if (-not (Test-Path -LiteralPath $dossier)) {
     return @{ message = "Aucun journal pour l'instant : $dossier"; result = @{ ok = $false } }
 }
-Start-Process -FilePath 'explorer.exe' -ArgumentList ('"' + $dossier + '"') | Out-Null
+Start-ChildProcess -FilePath 'explorer.exe' -Arguments @($dossier) | Out-Null
 @{ message = "Journaux ouverts : $dossier"; result = @{ ok = $true } }

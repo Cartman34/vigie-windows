@@ -190,7 +190,13 @@ Helpers partages en place :
 - `Test-Elevated` : le processus est-il administrateur ? (utilise par run/start/install + sondes)
 - `Test-UpdateTasksAclLock` : le verrou ACL (refus SYSTEM) est-il pose ? Comparaison par **SID**
   (`S-1-5-18`), independante de la langue. Utilise par `lock.probe` ET l'action `update-mode-off`.
-- `Invoke-Native` : execute une commande native et renvoie `{ Ok; ExitCode; Output }`.
+- `Invoke-Native` : execute une commande native et renvoie `{ Ok; ExitCode; Output }`. Ses arguments
+  sont **bruts** : l'operateur d'appel cite lui-meme.
+- `Start-ChildProcess` : le **seul** chemin pour lancer un processus avec des arguments (**D116**).
+  On lui passe les valeurs **brutes** ; il les cite via `ConvertTo-ProcessArgument`, selon les regles
+  de `CommandLineToArgvW`. `Start-Process` en direct est refuse par `check-probes`.
+- `ConvertTo-ProcessArgument` / `ConvertTo-PSLiteral` : deux mondes, deux echappements -- une valeur
+  dans une **ligne de commande** Windows, une valeur dans du **source PowerShell** construit en texte.
 Cote front, le rendu d'une carte est centralise dans `cardHtml(m, groupLabel)` (reutilise par le
 rendu complet ET le rafraichissement par carte).
 

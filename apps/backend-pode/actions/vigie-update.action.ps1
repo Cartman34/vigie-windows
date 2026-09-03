@@ -45,11 +45,11 @@ if (-not $pwsh) { $pwsh = 'pwsh.exe' }
 
 $lance = $false
 try {
-    # Guillemets : les chemins contiennent des espaces (« C:\Program Files\... »).
+    # RAW VALUES: Start-ChildProcess is what quotes them (D116).
     # QUI DEMANDE suit le script : il tourne detache, sous le compte du service, et c'est
     # dans la session du demandeur que le tag de version sera pose (D112).
     $argv = @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
-              '-File', ('"' + $script + '"'))
+              '-File', $script)
     $demandeur = Get-RequesterAccount
     if ($demandeur) { $argv += @('-Requester', $demandeur) }
     # PAS DE FENETRE : le serveur n'a pas de bureau, elle n'irait nulle part.

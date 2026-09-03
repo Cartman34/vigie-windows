@@ -38,5 +38,5 @@ if (-not $plein.ToLower().StartsWith($racine.ToLower())) {
     return @{ message = "Ce dossier n'appartient pas a l'analyse en cours."; result = @{ ok = $false } }
 }
 
-Start-Process explorer.exe $plein
+Start-ChildProcess -FilePath 'explorer.exe' -Arguments @($plein)
 @{ message = ("Dossier ouvert : " + $plein); result = @{ ok = $true } }

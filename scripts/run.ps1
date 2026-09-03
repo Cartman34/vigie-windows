@@ -38,14 +38,16 @@ if ($needPwsh -or $needElev) {
         try { Stop-Transcript | Out-Null } catch { }
         return
     }
-    # PATH QUOTED: this script may live under "C:\Program Files\Sowapps\Vigie", and a
-    # bare path dies on "C:\Program is not a script".
-    $argList = @('-NoExit','-NoProfile','-ExecutionPolicy','Bypass','-File', ('"' + $PSCommandPath + '"'))
+    # RAW VALUES: Start-ChildProcess is what quotes them (D116). This script may live
+    # under "C:\Program Files\Sowapps\Vigie", where a bare path dies on
+    # "C:\Program is not a script".
+    $argList = @('-NoExit','-NoProfile','-ExecutionPolicy','Bypass','-File', $PSCommandPath)
     if ($NoBrowser) { $argList += '-NoBrowser' }
     Write-Log -Backend $backend -Name 'run' -Message (Get-Label 'run.relance-pwsh-eleve' $needElev)
     try {
-        if ($needElev) { Start-Process $pwsh.Source -Verb RunAs -ArgumentList $argList }
-        else           { Start-Process $pwsh.Source -ArgumentList $argList }
+        $opts = @{}
+        if ($needElev) { $opts['Verb'] = 'RunAs' }
+        Start-ChildProcess -FilePath $pwsh.Source -Arguments $argList -Options $opts
     } catch {
         Write-Log -Backend $backend -Name 'run' -Level 'ERROR' -Message (Get-Label 'run.relance-echouee' $_.Exception.Message)
         Write-Warn (Get-Label 'run.relance-impossible-ouvre-un')

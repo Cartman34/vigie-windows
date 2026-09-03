@@ -10,7 +10,7 @@
    lui interdit donc pas ce que Windows lui accorde (D65). #>
 param([string]$Module, [hashtable]$Params)
 try {
-    Start-Process 'mmc.exe' -ArgumentList 'devmgmt.msc'
+    Start-ChildProcess -FilePath 'mmc.exe' -Arguments @('devmgmt.msc')
     @{ message = "Gestionnaire de périphériques ouvert : section « Cartes graphiques »."; result = @{ ok = $true } }
 } catch {
     @{ message = "Impossible d'ouvrir le Gestionnaire de périphériques : $($_.Exception.Message)"; result = @{ ok = $false } }

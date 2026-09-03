@@ -66,12 +66,13 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
         # LES PARAMETRES SUIVENT LA BASCULE. Sans cela, « -Requester » et « -Force » se
         # perdaient au passage en PowerShell 7, et la seconde passe ne savait plus qui avait
         # demande.
-        $nextArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $PSCommandPath + '"'))
+        # RAW VALUES: the call operator quotes each argument itself (D116).
+        $nextArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $PSCommandPath)
         if ($Requester) { $nextArgs += @('-Requester', $Requester) }
         if ($Force)     { $nextArgs += '-Force' }
         if ($NoWindow)  { $nextArgs += '-NoWindow' }
         if ($FromAction) { $nextArgs += @('-FromAction', $FromAction) }
-        & $pwsh @suite
+        & $pwsh @nextArgs
         # LE CODE DE LA PASSE LANCEE EST LE NOTRE. Sans cette ligne, un echec de
         # l'installation reelle remontait en succes a l'appelant : le lanceur affichait
         # « Termine » sur une installation ratee (constate le 26/08).
@@ -149,8 +150,9 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
             # /qb et non /qn : une installation de deux minutes doit se VOIR. Une barre
             # de progression vaut mieux qu'une fenetre muette dont on ne sait pas si elle
             # travaille ou si elle est bloquee.
-            $mi = Start-Process -FilePath 'msiexec.exe' -Wait -PassThru -ArgumentList @(
-                      '/i', ('"' + $msi + '"'), '/qb', 'ALLUSERS=1', 'ADD_PATH=1')
+            $mi = Start-ChildProcess -FilePath 'msiexec.exe' `
+                      -Arguments @('/i', $msi, '/qb', 'ALLUSERS=1', 'ADD_PATH=1') `
+                      -Options @{ Wait = $true; PassThru = $true }
             # LE RESULTAT SE LIT. 0 = installe ; 3010 = installe, redemarrage demande ;
             # 1618 = un autre installateur travaille deja ; le reste est un echec qu'il
             # faut nommer, pas passer sous silence.
@@ -504,10 +506,10 @@ if ($aRecuperer) {
     if (-not (Test-Path -LiteralPath $fetch)) {
         Write-Fail (Get-Label 'vigie-update.vigie-fetch-ps1-introuvable')
     } else {
-        # PATHS QUOTED: the shared install lives under "C:\Program Files\...", and
-        # Start-Process joins arguments without quoting anything.
+        # RAW VALUES: the call operator quotes each argument itself, so a value wrapped by
+        # hand would arrive WITH its quotes (D116).
         $argv = @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
-                  '-File', ('"' + $fetch + '"'), '-Source', ('"' + $route + '"'))
+                  '-File', $fetch, '-Source', $route)
         if ($updateRef) { $argv += @('-Ref', $updateRef) }
         if ($Force)     { $argv += '-Force' }
 
@@ -794,7 +796,7 @@ try {
         # LE RESULTAT SE LIT : 0 = fait, 3 = refuse, le reste est un echec.
         # POUR QUI : depuis le bouton, celui qui execute est le service ; la tache de
         # demarrage appartient a la personne qui a demande.
-        $argsAuto = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $autostart + '"'), '-Yes')
+        $argsAuto = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $autostart, '-Yes')
         if ($Requester) { $argsAuto += @('-Account', $Requester) }
         Close-UiStep   # meme raison : il affiche ses propres etapes
         & (Get-Process -Id $PID).Path @argsAuto
