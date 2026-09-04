@@ -310,6 +310,30 @@ if (-not $shared -or -not (Test-Path -LiteralPath $shared -ErrorAction SilentlyC
         $shared = $null
     }
 }
+<#
+    NOR DO WE TOUCH WHAT WAS USED TO INSTALL.
+
+    The repository or the extracted archive the person kept on their disk belongs to them:
+    uninstalling Vigie must not carry away the means of installing her again. Both are
+    declared by the setup -- SourcePath for a repository, InstallSource for anything else --
+    and either one is enough to spare the folder.
+#>
+if ($shared) {
+    $origins = @()
+    try {
+        $conf = Get-Config -Backend $backend
+        foreach ($candidate in @("$($conf.SourcePath)", "$($conf.InstallSource)")) {
+            if ("$candidate".Trim()) { $origins += "$candidate".TrimEnd([char]92).ToLowerInvariant() }
+        }
+    } catch { }
+    if ($origins -contains "$shared".TrimEnd([char]92).ToLowerInvariant()) {
+        Write-Warn (Get-Label 'uninstall.dossier-est-la-source' $shared)
+        Add-Leftover -What (Get-Label 'uninstall.reste-source' $shared) -How (Get-Label 'uninstall.reste-source-comment')
+        $shared = $null
+    }
+}
+if ($shared) {
+}
 if ($shared) {
     $runningFromShared = $repoRoot.TrimEnd([char]92).ToLowerInvariant() -eq "$shared".TrimEnd([char]92).ToLowerInvariant()
     if (-not $runningFromShared) {
