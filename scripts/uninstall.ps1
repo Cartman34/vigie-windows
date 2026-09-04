@@ -11,8 +11,12 @@
     is dead, or the installation is half undone. So it depends on as little as possible: the
     shared library when it is readable, and nothing but Windows otherwise.
 
-    IDEMPOTENT: something already gone is not a failure. Running it twice must succeed
-    twice.
+    IDEMPOTENT, AND RESUMABLE. Something already gone is not a failure: running it twice
+    must succeed twice. And a run that stopped anywhere -- a locked file, a closed window,
+    a reboot -- is resumed by simply running it again: each step looks at what IS, never at
+    what a previous run believed. Nothing it leaves behind can block a later install: the
+    setup repairs the service account it finds, and a declaration pointing at a deleted
+    folder answers "nothing installed".
 
     WHAT IS NEVER REMOVED: the prerequisites. PowerShell 7 and the Pode module may have been
     installed by the setup, but we cannot know who else on this machine uses them.
@@ -49,10 +53,26 @@ function Add-Leftover {
     $script:leftBehind += [pscustomobject]@{ What = $What; How = $How }
 }
 
-# WHERE IS THE INSTALLATION? Read ONCE, up here: the git step needs it to name our own
-# declarations, and the folder step to remove it. Reading it twice risks two answers.
+<#
+    WHERE IS THE INSTALLATION? Read ONCE, up here: the git step needs it to name our own
+    declarations, and the folder step to remove it. Reading it twice risks two answers.
+
+    AND IT IS FOUND AGAIN ON A SECOND RUN. Get-SharedInstallPath wants its marker file --
+    apps/tray/tray.ps1 -- which a half-finished uninstall may already have taken. The
+    declaration then answers alone: a folder that still exists is still to be removed.
+    Without this, a run interrupted mid-deletion could never be resumed.
+#>
 $shared = $null
 try { $shared = Get-SharedInstallPath } catch { }
+if (-not $shared) {
+    try {
+        $declKey = Get-InstallPathDeclarationKey
+        if (Test-Path -LiteralPath $declKey) {
+            $declaredPath = "$((Get-ItemProperty -LiteralPath $declKey -ErrorAction SilentlyContinue).InstallPath)"
+            if ($declaredPath -and (Test-Path -LiteralPath $declaredPath -ErrorAction SilentlyContinue)) { $shared = $declaredPath }
+        }
+    } catch { }
+}
 
 # --- 0. Stop what is still running ----------------------------------------------------
 #
@@ -185,21 +205,6 @@ if ($serviceProfile -and (Test-Path -LiteralPath $serviceProfile)) {
         Add-Leftover -What (Get-Label 'uninstall.reste-profil' $serviceProfile) `
                      -How (Get-Label 'uninstall.reste-profil-comment')
     }
-}
-
-# --- 7b. The install folder declaration -----------------------------------------------
-#
-# IT IS READ FIRST by Get-SharedInstallPath: left behind, it would point everyone at a
-# folder that has been deleted.
-try {
-    $declKey = Get-InstallPathDeclarationKey
-    if (Test-Path -LiteralPath $declKey) {
-        Remove-Item -LiteralPath $declKey -Recurse -Force -ErrorAction Stop
-        Write-Ok (Get-Label 'uninstall.declaration-retiree')
-    }
-} catch {
-    Write-Warn (Get-Label 'uninstall.declaration-reste' $_.Exception.Message)
-    Add-Leftover -What (Get-Label 'uninstall.reste-declaration') -How (Get-Label 'uninstall.reste-declaration-comment')
 }
 
 # --- 7. This computer's safe.directory declarations ------------------------------------
@@ -418,6 +423,23 @@ Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue
         Write-Ok (Get-Label 'uninstall.dossier-differe' $shared)
         Write-Detail (Get-Label 'uninstall.dossier-differe-rapport' $reportFile)
     }
+}
+
+# --- 7b. The install folder declaration -----------------------------------------------
+#
+# AFTER THE FOLDER, NEVER BEFORE. It is the only thing that can still name a folder whose
+# marker file is already gone: removing it first would leave a half-deleted installation
+# that no second run could ever find. It goes once the folder is gone -- or once its
+# removal has been handed to the process that waits for us.
+try {
+    $declKey = Get-InstallPathDeclarationKey
+    if (Test-Path -LiteralPath $declKey) {
+        Remove-Item -LiteralPath $declKey -Recurse -Force -ErrorAction Stop
+        Write-Ok (Get-Label 'uninstall.declaration-retiree')
+    }
+} catch {
+    Write-Warn (Get-Label 'uninstall.declaration-reste' $_.Exception.Message)
+    Add-Leftover -What (Get-Label 'uninstall.reste-declaration') -How (Get-Label 'uninstall.reste-declaration-comment')
 }
 
 # --- 10. What the computer itself keeps ------------------------------------------------

@@ -45,6 +45,24 @@ mais on ignore qui d'autre s'en sert sur cette machine. On ne retire jamais un o
 
 ---
 
+## Où vivent les données de Vigie
+
+Tout ce que les cartes produisent vit sous un **`var/`**, et il y en a un **par compte** : celui de l'app serveur est
+dans le profil du compte de service, celui de chaque personne dans le sien (**D65**). Rien de tout cela n'est rangé à
+côté du programme.
+
+| Nature | Où | Exemples |
+|---|---|---|
+| `cache` | `…\Sowapps\Vigie\var\cache` | l'état des cartes (`state-cache.json`), la mémoire de veille (`watch.json`), les verdicts d'identification des jeux, le cercle des comptes |
+| `history` | `…\var\history\<mesure>\<AAAA-MM-JJ>.jsonl` | les séries : espace disque, latence, GPU du jeu, et les changements d'état des sentinelles |
+| `run` | `…\var\run` | ce qui décrit l'instant : **la partie en cours** (`game-session.json`), l'état des résidents, les marques « une opération tourne » |
+| `log` | `…\var\log` | les journaux du serveur, de l'app cliente, des installations |
+| `secrets` | `…\var\secrets` | le jeton de l'API locale, le secret de compte — ACL posée et revérifiée à chaque lecture |
+| clone de MAJ | `…\var\update\depot` | la copie du dépôt que Vigie tient pour se mettre à jour |
+
+**Donc « le mode en jeu » n'est pas ailleurs** : c'est `var/run/game-session.json` dans le profil du compte de
+service, et il part avec lui.
+
 ## Ce qui a pu être généré part aussi
 
 Une désinstallation qui ne retire que ce que l'installation a **copié** laisse derrière elle tout ce que l'exécution a
@@ -100,6 +118,26 @@ tranche, avant toute suppression : une installation est une **copie**, un dépô
 **Et rien ne se supprime sous un programme qui tourne** : l\u0027app serveur, ses résidents et les app clientes tiennent des
 fichiers du dossier visé, et une app cliente lancée à la main survit à la tâche qui l\u0027aurait emportée. On arrête
 d\u0027abord — avec les mêmes appels que l\u0027installation, qui fait déjà cela avant de remplacer des fichiers.
+
+## Reprendre après un échec, et ne rien bloquer ensuite
+
+**Une désinstallation interrompue se relance, tout simplement.** Un fichier verrouillé, une fenêtre fermée, un
+redémarrage : on relance `uninstall.cmd` et elle reprend. Cela tient à une seule règle de conception — **chaque étape
+regarde ce qui EST, jamais ce qu'une exécution précédente a cru faire**. Rien n'est mémorisé entre deux passages, donc
+rien ne peut mentir.
+
+**Ce qui la rendait irréprenable, et qui est corrigé :** la déclaration du dossier d'installation partait *avant* le
+dossier qu'elle désigne. Entre les deux, une interruption laissait une installation à moitié effacée que plus rien ne
+savait nommer — son fichier repère ayant déjà disparu, la recherche ordinaire répondait « rien d'installé ». La
+déclaration part donc **après**, et sert de second recours pour retrouver un dossier dont le repère n'est plus là.
+
+**Et rien de ce qui reste ne gêne une réinstallation** :
+
+- un **compte de service** laissé en place est repris par l'installation, qui lui repose son mot de passe ;
+- une **déclaration** qui pointe vers un dossier supprimé répond « rien d'installé » — le repère est vérifié, jamais
+  cru sur parole ;
+- des **tâches** restées là sont réenregistrées, pas dupliquées : elles portent un nom, pas un numéro ;
+- les **déclarations git** et la **ligne de registre** sont posées de façon idempotente.
 
 ## Les règles
 
