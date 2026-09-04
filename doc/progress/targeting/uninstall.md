@@ -32,7 +32,8 @@ compte a été supprimé, et il doit partir aussi.
 | 3 | **Les tâches d'app cliente** `Vigie` et `Vigie - <compte>` | Planificateur de tâches | Idem, à chaque ouverture de session. |
 | 4 | **Le compte local `VigieService`** | Comptes locaux Windows | Un compte de service sans service est une porte de plus, et son mot de passe reste dans le coffre de Windows. |
 | 5 | **La ligne qui masque ce compte** | `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\UserList` | Posée par l'installation pour que le compte n'apparaisse pas à l'écran d'accueil. Elle survivrait au compte lui-même. |
-| 6 | **Le profil du compte de service** | `C:\Users\VigieService` | Supprimer un compte local ne supprime pas son profil : le clone du dépôt, le cache et les secrets y restent. |
+| 6 | **Le profil du compte de service** | `C:\Users\VigieService` | Supprimer un compte local ne supprime pas son profil : le cache et les secrets y restent. |
+| 6bis | **Le clone du dépôt que Vigie tient pour ses mises à jour** | `…\VigieService\AppData\Local\Sowapps\Vigie\var\update\depot` — ou sous le dossier d'installation quand `var/` y vit | C'est **notre** copie de travail, pas une source : elle est refaite au premier déploiement venu. Elle part avec le profil, et le balayage des données par profil la reprend si ce profil a résisté. |
 | 7 | **Les déclarations `safe.directory`** | Configuration git **de la machine** | Posées pour que le compte de service puisse lire le dépôt. Elles désignent ensuite des chemins qui n'ont plus de raison d'être. |
 | 7bis | **La déclaration du dossier d'installation** | `HKLM\SOFTWARE\Sowapps\Vigie` | Écrite par l'installation pour qu'un dossier choisi hors `Program Files` reste trouvable ; lue en premier, elle enverrait sinon tout le monde vers un dossier supprimé. |
 | 8 | **Le dossier d'installation partagé** | Le chemin choisi à l'installation | Avec sa configuration de machine. Il se retire en dernier : il contient ce qui exécute la désinstallation. |
@@ -42,6 +43,17 @@ compte a été supprimé, et il doit partir aussi.
 mais on ignore qui d'autre s'en sert sur cette machine. On ne retire jamais un outil général.
 
 ---
+
+## Ce qui est conservé
+
+| Quoi | Pourquoi |
+|---|---|
+| **PowerShell 7** et le module **Pode** | Posés par l'installation s'ils manquaient, mais ce sont des outils généraux : on ignore qui d'autre s'en sert sur cet ordinateur. |
+| **Le dépôt git** d'où Vigie a été installée | Une installation est une copie ; un dépôt est du travail. La présence de `.git` suffit à l'épargner. |
+| **L'archive extraite** qui a servi à installer | Déclarée par l'installation (`InstallSource`). Désinstaller ne doit pas emporter de quoi réinstaller. |
+| **Les réglages Windows que Vigie n'a pas posés** | Elle ne défait que ce qu'elle a fait. Le verrou de Windows Update est à elle : il se lève. Le reste ne lui appartient pas. |
+| **Le dossier `Sowapps` d'un profil**, s'il contient autre chose | Un autre produit du même éditeur peut y vivre. Il ne part que vide. |
+| **Les journaux d'installation déjà écrits ailleurs** | Rien n'est cherché hors des emplacements listés plus haut : on ne fouille pas la machine. |
 
 ## Ce qui ne se supprime jamais, même quand ça y ressemble
 
