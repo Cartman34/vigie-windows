@@ -43,6 +43,17 @@ mais on ignore qui d'autre s'en sert sur cette machine. On ne retire jamais un o
 
 ---
 
+## Ce qui ne se supprime jamais, même quand ça y ressemble
+
+**Un dépôt git n\u0027est pas une installation.** La recherche du dossier partagé se rabat sur « le dossier courant si tous
+les comptes peuvent le lire » — et tout dossier créé à la racine de `C:` hérite de ce droit. Sur un poste où Vigie
+tourne depuis un clone, cette question rendrait donc un dépôt, que la désinstallation effacerait. La présence de `.git`
+tranche, avant toute suppression : une installation est une **copie**, un dépôt est du **travail**.
+
+**Et rien ne se supprime sous un programme qui tourne** : l\u0027app serveur, ses résidents et les app clientes tiennent des
+fichiers du dossier visé, et une app cliente lancée à la main survit à la tâche qui l\u0027aurait emportée. On arrête
+d\u0027abord — avec les mêmes appels que l\u0027installation, qui fait déjà cela avant de remplacer des fichiers.
+
 ## Les règles
 
 - **On dit ce qu'on fait, et ce qu'on n'a pas pu faire.** Une désinstallation qui échoue à mi-chemin est le pire des

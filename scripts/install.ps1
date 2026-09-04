@@ -310,6 +310,28 @@ try { $destDeclaree = Get-SharedInstallPath } catch { }
 $destPartagee = if ($destDeclaree) { $destDeclaree }
                 elseif ("$InstallPath".Trim()) { "$InstallPath".Trim().TrimEnd([char]92) }
                 else { Join-Path $env:ProgramFiles (Join-Path 'Sowapps' 'Vigie') }
+<#
+    A FOLDER THE OTHER ACCOUNTS CANNOT READ IS NOT AN INSTALLATION.
+
+    Program Files is readable by everyone BY CONSTRUCTION; a chosen folder is not. Installing
+    into a private folder gives a Vigie that works for you and for nobody else -- the startup
+    task of every other account would fail at each session, silently.
+
+    We say so BEFORE copying, and fall back to the default: refusing to install would punish
+    the user for a choice they could not know was wrong, and letting it through would be worse.
+#>
+if ("$InstallPath".Trim() -and -not $destDeclaree) {
+    $parentChoisi = Split-Path $destPartagee -Parent
+    $lisible = $true
+    if ($parentChoisi -and (Test-Path -LiteralPath $parentChoisi -ErrorAction SilentlyContinue)) {
+        $lisible = [bool](Test-InstallationPartagee -Path $parentChoisi)
+    }
+    if (-not $lisible) {
+        Write-Warn (Get-Label 'install.dossier-non-partage' $destPartagee)
+        $destPartagee = Join-Path $env:ProgramFiles (Join-Path 'Sowapps' 'Vigie')
+        Write-Detail (Get-Label 'install.dossier-defaut-retenu' $destPartagee)
+    }
+}
 $here          = (Resolve-Path -LiteralPath $repoRoot).Path
 # LE DEPOT DE CET ORDINATEUR, ou $null. Une seule definition, dans la bibliotheque : la
 # question « suis-je dans un depot ? » ne se repose pas ici, et surtout elle ne decide plus
