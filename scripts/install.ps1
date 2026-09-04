@@ -667,6 +667,24 @@ if ($prepared) {
             # we have not filled would send everyone to an empty place.
             try { Set-InstallPathDeclaration -Path $destPartagee }
             catch { Write-Warn (Get-Label 'install.declaration-chemin-echouee' $_.Exception.Message) }
+            <#
+                AND WHERE WE CAME FROM, so that nothing ever removes it.
+
+                A repository was already declared (SourcePath); an extracted archive was
+                declared nowhere -- and the uninstall, knowing nothing of it, could carry it
+                off the day it sat where the installation was found. What the person kept on
+                their disk to install Vigie is theirs, not ours.
+
+                A TEMPORARY EXTRACTION IS NOT AN ORIGIN: what the update chain unpacks under
+                var/ is ours to delete, and must not be protected.
+            #>
+            try {
+                $origin = "$here"
+                $varRoot = "$(Get-VarRoot -Backend $backend)".TrimEnd([char]92)
+                if ($origin -and -not $origin.ToLowerInvariant().StartsWith($varRoot.ToLowerInvariant())) {
+                    $null = Set-ComputerConfigValue -Values @{ InstallSource = $origin }
+                }
+            } catch { }
             # CE QUI EST EN PLACE, LU SUR PLACE : la prediction ne sert plus a rien.
             try {
                 $stampPose = Get-BuildStamp -Root $destPartagee

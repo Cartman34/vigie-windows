@@ -50,6 +50,8 @@ les comptes peuvent le lire » — et tout dossier créé à la racine de `C:` h
 tourne depuis un clone, cette question rendrait donc un dépôt, que la désinstallation effacerait. La présence de `.git`
 tranche, avant toute suppression : une installation est une **copie**, un dépôt est du **travail**.
 
+**Ce qui a servi à installer ne se supprime pas non plus.** Le dépôt ou l'archive extraite que la personne a gardés sur son disque lui appartiennent : désinstaller Vigie ne doit pas emporter de quoi la réinstaller. L'installation déclare donc son origine — un dépôt l'était déjà, une archive ne l'était nulle part — et la désinstallation épargne ce dossier, en le disant.
+
 **Et rien ne se supprime sous un programme qui tourne** : l\u0027app serveur, ses résidents et les app clientes tiennent des
 fichiers du dossier visé, et une app cliente lancée à la main survit à la tâche qui l\u0027aurait emportée. On arrête
 d\u0027abord — avec les mêmes appels que l\u0027installation, qui fait déjà cela avant de remplacer des fichiers.
