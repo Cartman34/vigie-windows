@@ -335,7 +335,45 @@ if ($shared) {
 if ($shared) {
 }
 if ($shared) {
+    <#
+        INSTALLED ELSEWHERE: WE REMOVE OUR OWN THINGS, NOT THE FOLDER THAT HOLDS THEM.
+
+        Under Program Files the folder is ours alone -- it was created for Vigie -- so it goes
+        whole. A chosen folder is another matter: "D:\Outils" can be passed as the install
+        path and hold a dozen other tools; deleting it whole would carry them away.
+
+        So elsewhere we remove exactly what we put there (Get-InstallOwnEntries), then the
+        folder itself IF it is empty. What remains is not a failure: it is somebody's, and it
+        is said rather than deleted.
+    #>
+    $programFiles = @($env:ProgramFiles, ${env:ProgramFiles(x86)}) | Where-Object { $_ }
+    $underProgramFiles = $false
+    foreach ($base in $programFiles) {
+        if ("$shared".ToLowerInvariant().StartsWith("$base".TrimEnd([char]92).ToLowerInvariant() + [char]92)) { $underProgramFiles = $true }
+    }
     $runningFromShared = $repoRoot.TrimEnd([char]92).ToLowerInvariant() -eq "$shared".TrimEnd([char]92).ToLowerInvariant()
+    if (-not $underProgramFiles -and -not $runningFromShared) {
+        $ours = @(Get-InstallOwnEntries)
+        $foreign = @()
+        foreach ($entry in @(Get-ChildItem -LiteralPath $shared -Force -ErrorAction SilentlyContinue)) {
+            if ($ours -notcontains $entry.Name) { $foreign += $entry.Name; continue }
+            try { Remove-Item -LiteralPath $entry.FullName -Recurse -Force -ErrorAction Stop }
+            catch {
+                $foreign += $entry.Name
+                Add-Leftover -What (Get-Label 'uninstall.reste-element' $entry.FullName) `
+                             -How (Get-Label 'uninstall.reste-element-comment')
+            }
+        }
+        if ($foreign.Count) {
+            Write-Ok (Get-Label 'uninstall.dossier-partiel' $shared ($foreign -join ', '))
+        } else {
+            try { Remove-Item -LiteralPath $shared -Force -ErrorAction Stop; Write-Ok (Get-Label 'uninstall.dossier-retire' $shared) }
+            catch { Write-Ok (Get-Label 'uninstall.dossier-vide-reste' $shared) }
+        }
+        $shared = $null
+    }
+}
+if ($shared) {
     if (-not $runningFromShared) {
         try {
             Remove-Item -LiteralPath $shared -Recurse -Force -ErrorAction Stop
