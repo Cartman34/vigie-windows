@@ -513,8 +513,14 @@ if ($res -eq [System.Windows.Forms.DialogResult]::Retry -and $Scenario -eq 'inst
         $dlg.SelectedPath = $InstallPath
         if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { $choisi = "$($dlg.SelectedPath)" }
     } catch { }
-    # NOTHING CHOSEN = NOTHING DECIDED: we do not take a cancelled dialog for an agreement.
-    if (-not $choisi) { exit 3 }
+    <#
+        CANCELLING THE CHOICE IS NOT CANCELLING THE INSTALLATION.
+
+        Closing the folder picker returned the same code as a refusal, and setup.cmd aborted
+        everything: you meant to keep the default, you quit instead. So we keep the folder we
+        proposed and carry on -- the announcement has been read and accepted already.
+    #>
+    if (-not $choisi) { $choisi = $InstallPath }
     # THE FOLDER IS THE ONE WE ANNOUNCE, not one we guessed: the product name is appended only
     # when the chosen folder does not already carry it.
     if ((Split-Path $choisi -Leaf) -ine 'Vigie') { $choisi = Join-Path $choisi 'Vigie' }

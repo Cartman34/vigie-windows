@@ -54,6 +54,32 @@ function Add-Leftover {
 $shared = $null
 try { $shared = Get-SharedInstallPath } catch { }
 
+# --- 0. Stop what is still running ----------------------------------------------------
+#
+# NOTHING IS REMOVED UNDER A RUNNING PROGRAM. The server app, its residents and the client
+# apps hold files open in the folder we are about to delete; and a client app started by
+# hand outlives the task that would have carried it away. The installation already stops
+# them all before replacing files -- the same three calls, for the same reason.
+#
+# A failure here is not fatal: it is named, and the folder step will say what it could not
+# remove. Stopping is a precaution, not a permission.
+Write-Step (Get-Label 'uninstall.etape-arret')
+try {
+    $stoppedTasks = @(Stop-TrayTasks -Backend $backend)
+    if ($stoppedTasks.Count) { Write-Ok (Get-Label 'uninstall.app-clientes-arretees' (($stoppedTasks | ForEach-Object { $_.name }) -join ', ')) }
+} catch { Write-Warn (Get-Label 'uninstall.arret-partiel' $_.Exception.Message) }
+try {
+    $standalone = Stop-StandaloneTrays
+    if ($standalone -gt 0) { Write-Ok (Get-Label 'uninstall.app-clientes-hors-tache' $standalone) }
+} catch { Write-Warn (Get-Label 'uninstall.arret-partiel' $_.Exception.Message) }
+$serverStopped = $false
+try { $serverStopped = [bool](Stop-ServerApp -Backend $backend) } catch { }
+if ($serverStopped) {
+    Write-Ok (Get-Label 'uninstall.app-serveur-arretee')
+} else {
+    Write-Warn (Get-Label 'uninstall.app-serveur-toujours-la')
+}
+
 # --- 1. The Windows Update lock ------------------------------------------------------
 #
 # FIRST, AND THE ORDER IS NOT A DETAIL. Vigie denies SYSTEM access to the Windows Update
@@ -266,6 +292,25 @@ Write-Step (Get-Label 'uninstall.etape-dossier')
 if (-not $shared -or -not (Test-Path -LiteralPath $shared -ErrorAction SilentlyContinue)) {
     Write-Ok (Get-Label 'uninstall.dossier-absent')
 } else {
+    <#
+        WE NEVER DELETE A REPOSITORY. THIS IS THE GUARD THAT MATTERS MOST.
+
+        Get-SharedInstallPath falls back to "the current folder, if every account can read
+        it" -- and EVERY folder created at the root of C: inherits Users:ReadAndExecute
+        (measured on 03/09). On a machine where Vigie runs from C:\Dev\vigie-windows, that
+        fallback would hand this script a git repository, and it would delete it: recursively,
+        forced, without a word.
+
+        An installation is a COPY. A repository is somebody's work. The presence of .git is
+        the difference, and it settles the question before anything is removed.
+    #>
+    if (Test-Path -LiteralPath (Join-Path $shared '.git') -ErrorAction SilentlyContinue) {
+        Write-Warn (Get-Label 'uninstall.dossier-est-un-depot' $shared)
+        Add-Leftover -What (Get-Label 'uninstall.reste-depot' $shared) -How (Get-Label 'uninstall.reste-depot-comment')
+        $shared = $null
+    }
+}
+if ($shared) {
     $runningFromShared = $repoRoot.TrimEnd([char]92).ToLowerInvariant() -eq "$shared".TrimEnd([char]92).ToLowerInvariant()
     if (-not $runningFromShared) {
         try {
@@ -279,21 +324,34 @@ if (-not $shared -or -not (Test-Path -LiteralPath $shared -ErrorAction SilentlyC
     } else {
         # A DETACHED PROCESS, AND NOTHING MORE: it waits until we have let go, then deletes.
         # Values travel RAW -- Start-ChildProcess is what quotes them (D116).
+        # IT REPORTS BACK. Without a log, a failure of this last removal would exist for
+        # nobody: the script is already over when it happens, and "what stays behind is
+        # named" cannot stop at the door of the last folder.
         $waiter = @'
-param([int]$ParentPid, [string]$Folder)
+param([int]$ParentPid, [string]$Folder, [string]$Report)
 while (Get-Process -Id $ParentPid -ErrorAction SilentlyContinue) { Start-Sleep -Milliseconds 300 }
 Start-Sleep -Seconds 1
-Remove-Item -LiteralPath $Folder -Recurse -Force -ErrorAction SilentlyContinue
+$erreur = $null
+try { Remove-Item -LiteralPath $Folder -Recurse -Force -ErrorAction Stop }
+catch { $erreur = "$($_.Exception.Message)" }
+if (Test-Path -LiteralPath $Folder) {
+    if (-not $erreur) { $erreur = 'le dossier est toujours la' }
+    [IO.File]::WriteAllText($Report, (Get-Date).ToString('s') + ' -- ' + $Folder + ' : ' + $erreur,
+                            (New-Object Text.UTF8Encoding($false)))
+}
 '@
         $waiterFile = Join-Path ([IO.Path]::GetTempPath()) ('vigie-uninstall-' + [guid]::NewGuid().ToString('N') + '.ps1')
         [System.IO.File]::WriteAllText($waiterFile, $waiter, (New-Object System.Text.UTF8Encoding($true)))
         $pwsh = (Get-Process -Id $PID).Path
         if (-not $pwsh) { $pwsh = 'powershell.exe' }
+        $reportFile = Join-Path ([IO.Path]::GetTempPath()) 'vigie-uninstall-reste.txt'
+        Remove-Item -LiteralPath $reportFile -Force -ErrorAction SilentlyContinue
         $null = Start-ChildProcess -FilePath $pwsh `
                     -Arguments @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $waiterFile,
-                                 '-ParentPid', $PID, '-Folder', $shared) `
+                                 '-ParentPid', $PID, '-Folder', $shared, '-Report', $reportFile) `
                     -Options @{ WindowStyle = 'Hidden' }
         Write-Ok (Get-Label 'uninstall.dossier-differe' $shared)
+        Write-Detail (Get-Label 'uninstall.dossier-differe-rapport' $reportFile)
     }
 }
 
