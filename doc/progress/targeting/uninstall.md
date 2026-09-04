@@ -34,6 +34,7 @@ compte a été supprimé, et il doit partir aussi.
 | 5 | **La ligne qui masque ce compte** | `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\UserList` | Posée par l'installation pour que le compte n'apparaisse pas à l'écran d'accueil. Elle survivrait au compte lui-même. |
 | 6 | **Le profil du compte de service** | `C:\Users\VigieService` | Supprimer un compte local ne supprime pas son profil : le clone du dépôt, le cache et les secrets y restent. |
 | 7 | **Les déclarations `safe.directory`** | Configuration git **de la machine** | Posées pour que le compte de service puisse lire le dépôt. Elles désignent ensuite des chemins qui n'ont plus de raison d'être. |
+| 7bis | **La déclaration du dossier d'installation** | `HKLM\SOFTWARE\Sowapps\Vigie` | Écrite par l'installation pour qu'un dossier choisi hors `Program Files` reste trouvable ; lue en premier, elle enverrait sinon tout le monde vers un dossier supprimé. |
 | 8 | **Le dossier d'installation partagé** | Le chemin choisi à l'installation | Avec sa configuration de machine. Il se retire en dernier : il contient ce qui exécute la désinstallation. |
 | 9 | **Les données de chaque compte** | `%LOCALAPPDATA%\Sowapps\Vigie` dans **tous** les profils | Annoncées avant l'élévation (ci-dessus). |
 
