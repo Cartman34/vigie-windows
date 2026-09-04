@@ -45,7 +45,18 @@ pause
 exit /b 3
 
 :desinstalle
+REM POWERSHELL 7 WHEN IT IS THERE. The project targets pwsh (D41): the installation switches
+REM to it by itself, and the uninstall must read the same library the same way. Windows
+REM PowerShell stays the fallback -- one uninstalls precisely on the day things are broken,
+REM and pwsh may already be gone.
+set "VIGIE_PWSH=%ProgramFiles%\PowerShell\7\pwsh.exe"
+if exist "%VIGIE_PWSH%" goto :avecpwsh
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\uninstall.ps1" -Yes
+if errorlevel 1 goto :partiel
+exit /b 0
+
+:avecpwsh
+"%VIGIE_PWSH%" -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\uninstall.ps1" -Yes
 if errorlevel 1 goto :partiel
 exit /b 0
 
