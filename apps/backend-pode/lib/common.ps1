@@ -6240,7 +6240,31 @@ function Test-InstallationPartagee {
 # vers CELLE-LA, sinon elle echoue en silence a chaque ouverture de session -- c'est
 # exactement le piege releve : le deploiement etait fait, mais la tache aurait vise le
 # depot personnel.
+<#
+    WHERE THE SHARED INSTALLATION LIVES.
+
+    THE CHOSEN FOLDER IS DECLARED, because nothing else could find it. Program Files is
+    guessable; "D:\Outils\Vigie" is not -- and an installation nobody can locate cannot be
+    updated, diagnosed, nor uninstalled. So the setup writes the path it used under
+    HKLM\SOFTWARE\Sowapps\Vigie, and this function reads it FIRST.
+
+    The declaration is never believed on its word: the marker file must be there. A folder
+    moved or deleted by hand would otherwise be announced as an installation forever.
+#>
+function Get-InstallPathDeclarationKey { 'HKLM:\SOFTWARE\Sowapps\Vigie' }
+
 function Get-SharedInstallPath {
+    $declared = $null
+    try {
+        $key = Get-InstallPathDeclarationKey
+        if (Test-Path -LiteralPath $key) {
+            $declared = "$((Get-ItemProperty -LiteralPath $key -ErrorAction SilentlyContinue).InstallPath)"
+        }
+    } catch { }
+    if ($declared) {
+        $marqueurDeclare = Join-Path (Join-Path (Join-Path $declared 'apps') 'tray') 'tray.ps1'
+        if (Test-Path -LiteralPath $marqueurDeclare -ErrorAction SilentlyContinue) { return $declared }
+    }
     # Program Files est lisible par tous les comptes PAR CONSTRUCTION : une installation
     # qui s'y trouve est partagee, sans qu'on ait besoin d'interroger les ACL. On garde la
     # lecture des droits pour les emplacements hors Program Files (choix de l'utilisateur).
@@ -6259,6 +6283,19 @@ function Get-SharedInstallPath {
     # Installation hors Program Files : c'est l'ACL qui tranche.
     if (Test-InstallationPartagee) { return (Get-RepoRoot) }
     return $null
+}
+
+<#
+    DECLARING THE INSTALL FOLDER, at the scale of the computer.
+
+    Written by the setup, read by everyone, removed by the uninstall. One value, and it
+    answers one question -- "where is Vigie?". Nothing else lives there.
+#>
+function Set-InstallPathDeclaration {
+    param([Parameter(Mandatory)][string]$Path)
+    $key = Get-InstallPathDeclarationKey
+    if (-not (Test-Path -LiteralPath $key)) { New-Item -Path $key -Force | Out-Null }
+    New-ItemProperty -Path $key -Name 'InstallPath' -Value $Path -PropertyType String -Force | Out-Null
 }
 # Ce qui CLOCHE, en clair, pour l'afficher. $null si tout va bien.
 # DEUX NATURES DE DEFAUT, et une seule se repare.

@@ -25,6 +25,15 @@ param(
     [switch] $Force,
 
     <#
+        WHERE TO INSTALL. Empty = wherever it already is, otherwise the default.
+
+        The choice happens at the FIRST installation only: afterwards the folder in place
+        wins, and asking again would suggest Vigie can move from one update to the next --
+        which would leave two installations on the computer.
+    #>
+    [string] $InstallPath,
+
+    <#
         PAS DE FENETRE DE FIN. Le serveur n'a pas de bureau : une fenetre ouverte depuis sa
         session ne s'afficherait nulle part, et attendrait un clic que personne ne peut
         donner. Le verdict, lui, part dans le journal comme d'habitude.
@@ -293,7 +302,14 @@ Write-Step (Get-Label 'install.etape-prerequis')
 #   - on y est deja : la copie relancerait le script indefiniment ;
 #   - sans elevation : ecrire dans Program Files est refuse. On le dit, et on continue
 #     sur place plutot que d'echouer -- Vigie reste utilisable.
-$destPartagee = Join-Path $env:ProgramFiles (Join-Path 'Sowapps' 'Vigie')
+# WHERE TO INSTALL: what is asked for, else what is already in place, else the default.
+# THE ORDER MATTERS: an existing installation wins over a path passed by mistake -- otherwise
+# an update launched with a wrong argument would create a second one elsewhere.
+$destDeclaree = $null
+try { $destDeclaree = Get-SharedInstallPath } catch { }
+$destPartagee = if ($destDeclaree) { $destDeclaree }
+                elseif ("$InstallPath".Trim()) { "$InstallPath".Trim().TrimEnd([char]92) }
+                else { Join-Path $env:ProgramFiles (Join-Path 'Sowapps' 'Vigie') }
 $here          = (Resolve-Path -LiteralPath $repoRoot).Path
 # LE DEPOT DE CET ORDINATEUR, ou $null. Une seule definition, dans la bibliotheque : la
 # question « suis-je dans un depot ? » ne se repose pas ici, et surtout elle ne decide plus
@@ -625,6 +641,10 @@ if ($prepared) {
 
         if (-not $pose) {
             Write-Ok (Get-Label 'install.deploiement-fait')
+            # WE DECLARE WHERE WE LANDED -- AFTER the copy, never before. Declaring a folder
+            # we have not filled would send everyone to an empty place.
+            try { Set-InstallPathDeclaration -Path $destPartagee }
+            catch { Write-Warn (Get-Label 'install.declaration-chemin-echouee' $_.Exception.Message) }
             # CE QUI EST EN PLACE, LU SUR PLACE : la prediction ne sert plus a rien.
             try {
                 $stampPose = Get-BuildStamp -Root $destPartagee

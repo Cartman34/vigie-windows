@@ -29,11 +29,29 @@ param(
     # code OEM, ou les accents deviennent des symboles. Or les accents ne se negocient pas
     # (D41). L'appelant nomme donc un scenario, et ce script -- en UTF-8 avec BOM -- ecrit
     # les phrases.
-    [ValidateSet('', 'installation')]
+    [ValidateSet('', 'installation', 'desinstallation')]
     [string] $Scenario = '',
 
     [string] $Title,
     [string] $Summary,
+
+    <#
+        WHERE WE PROPOSE TO INSTALL.
+
+        The window does not merely announce it: it lets another folder be chosen, because this
+        is the last moment where the question means anything -- afterwards the elevation has
+        happened and the console is gone.
+    #>
+    [string] $InstallPath = '',
+
+    <#
+        WHERE TO WRITE THE FOLDER THAT WAS RETAINED. An exit code carries no path.
+
+        NOT ON STANDARD OUTPUT: this window already writes its layout checks there, and the
+        caller would have read "Button y= 276" instead of the folder (measured on 03/09). A
+        file is not polluted by whatever crosses the console.
+    #>
+    [string] $OutFile = '',
 
     # Une ligne par changement annonce. Separateur : « | » (un tableau ne traverse pas
     # une ligne de commande sans y laisser des plumes).
@@ -149,11 +167,29 @@ if ($DetailsKey) { $Details = if ($DetailsArg) { Get-Label $DetailsKey $DetailsA
 
 $nl = [Environment]::NewLine
 
+if ($Scenario -eq 'desinstallation') {
+    $Title   = "Retirer Vigie de cet ordinateur"
+    # WE NAME WHAT NOBODY EXPECTS. "Uninstall" suggests a program leaving; here the settings
+    # and history of EVERY account leave with it. Saying so after the elevation would be
+    # saying it too late.
+    $Summary = "Vigie va etre entierement retiree : ses taches de demarrage, son compte de service et son " +
+               "dossier d'installation. Les donnees de Vigie de TOUS les comptes de cet ordinateur seront " +
+               "supprimees. PowerShell 7 et le module Pode, eux, restent en place."
+    $Changes = "Le verrou pose sur Windows Update est leve" +
+               "|Suppression des taches de demarrage de Vigie" +
+               "|Suppression du compte de service et de son profil" +
+               "|Suppression du dossier d'installation" +
+               "|Suppression des donnees de Vigie de TOUS les comptes"
+    $OkText  = 'Desinstaller'
+    $CancelText = 'Quitter'
+}
 if ($Scenario -eq 'installation') {
+    if (-not $InstallPath) { $InstallPath = (Join-Path $env:ProgramFiles 'Sowapps\Vigie') }
     $Title   = "Installer Vigie sur cet ordinateur"
-    $Summary = "Vigie va s'installer dans C:\Program Files\Sowapps\Vigie, s'ajouter au démarrage de VOTRE session, " +
+    $Summary = "Vigie va s'installer dans " + $InstallPath + ", s'ajouter au démarrage de VOTRE session, " +
                "puis se lancer. PowerShell 7 et le module Pode seront installés s'ils manquent."
-    $Changes = "Copie du programme dans C:\Program Files\Sowapps\Vigie" +
+    $ThirdText = 'Choisir un autre dossier…'
+    $Changes = "Copie du programme dans " + $InstallPath +
                "|Tâche de démarrage pour votre compte uniquement" +
                "|Installation de PowerShell 7 pour toute la machine, s'il manque" +
                "|Aucun réglage de Windows Update n'est modifié à l'installation" +
@@ -462,7 +498,33 @@ if ($FermerApresMs -gt 0) {
 $form.Add_Shown({ $form.Activate() })
 $res = $form.ShowDialog()
 $form.Dispose()
-if ($res -eq [System.Windows.Forms.DialogResult]::OK) { exit 0 }
+<#
+    THE CHOSEN FOLDER GOES BACK THROUGH A FILE.
+
+    An exit code says yes or no, never "D:\Outils\Vigie". The caller passes -OutFile and reads
+    it back. Nothing is written outside the installation scenario: elsewhere the window stays
+    as silent as before.
+#>
+if ($res -eq [System.Windows.Forms.DialogResult]::Retry -and $Scenario -eq 'installation') {
+    $choisi = $null
+    try {
+        $dlg = New-Object System.Windows.Forms.FolderBrowserDialog
+        $dlg.Description  = 'Dossier ou installer Vigie'
+        $dlg.SelectedPath = $InstallPath
+        if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { $choisi = "$($dlg.SelectedPath)" }
+    } catch { }
+    # NOTHING CHOSEN = NOTHING DECIDED: we do not take a cancelled dialog for an agreement.
+    if (-not $choisi) { exit 3 }
+    # THE FOLDER IS THE ONE WE ANNOUNCE, not one we guessed: the product name is appended only
+    # when the chosen folder does not already carry it.
+    if ((Split-Path $choisi -Leaf) -ine 'Vigie') { $choisi = Join-Path $choisi 'Vigie' }
+    if ($OutFile) { [IO.File]::WriteAllText($OutFile, $choisi, (New-Object Text.UTF8Encoding($false))) }
+    exit 0
+}
+if ($res -eq [System.Windows.Forms.DialogResult]::OK) {
+    if ($OutFile -and $InstallPath) { [IO.File]::WriteAllText($OutFile, $InstallPath, (New-Object Text.UTF8Encoding($false))) }
+    exit 0
+}
 # 4 = la troisieme issue. Distincte du refus : « attendre » n'est pas « annuler », et
 # l'appelant doit pouvoir faire la difference.
 if ($res -eq [System.Windows.Forms.DialogResult]::Retry) { exit 4 }
