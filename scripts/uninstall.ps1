@@ -401,6 +401,9 @@ if (Test-Path -LiteralPath $Folder) {
     [IO.File]::WriteAllText($Report, (Get-Date).ToString('s') + ' -- ' + $Folder + ' : ' + $erreur,
                             (New-Object Text.UTF8Encoding($false)))
 }
+# IT ERASES ITSELF: otherwise this script stays in the temporary folder forever, carrying
+# Vigie's name -- an uninstall that leaves its own trace misses by a hair.
+Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue
 '@
         $waiterFile = Join-Path ([IO.Path]::GetTempPath()) ('vigie-uninstall-' + [guid]::NewGuid().ToString('N') + '.ps1')
         [System.IO.File]::WriteAllText($waiterFile, $waiter, (New-Object System.Text.UTF8Encoding($true)))
@@ -415,6 +418,40 @@ if (Test-Path -LiteralPath $Folder) {
         Write-Ok (Get-Label 'uninstall.dossier-differe' $shared)
         Write-Detail (Get-Label 'uninstall.dossier-differe-rapport' $reportFile)
     }
+}
+
+# --- 10. What the computer itself keeps ------------------------------------------------
+#
+# THE PLACE THAT SURVIVES EVERYTHING, AND WAS FORGOTTEN. %ProgramData%\Sowapps\Vigie holds
+# the computer's own declaration -- stage, source, trusted repository -- and the BACKUP of
+# the previous installation: a complete copy of Vigie. It depends on no installation, which
+# is exactly why it survives one, and why nothing here had ever removed it.
+#
+# LAST, and after the install folder: the folder step reads the declaration to know which
+# repository or archive to spare.
+Write-Step (Get-Label 'uninstall.etape-ordinateur')
+$computerRoot = $null
+try { $computerRoot = Get-ComputerDataRoot } catch { }
+if (-not $computerRoot -or -not (Test-Path -LiteralPath $computerRoot -ErrorAction SilentlyContinue)) {
+    Write-Ok (Get-Label 'uninstall.ordinateur-aucune')
+} else {
+    try {
+        Remove-Item -LiteralPath $computerRoot -Recurse -Force -ErrorAction Stop
+        Write-Ok (Get-Label 'uninstall.ordinateur-retire' $computerRoot)
+    } catch {
+        Write-Warn (Get-Label 'uninstall.ordinateur-reste' $computerRoot)
+        Add-Leftover -What (Get-Label 'uninstall.reste-ordinateur' $computerRoot) `
+                     -How (Get-Label 'uninstall.reste-ordinateur-comment')
+    }
+    # The publisher's folder goes only when EMPTY: another product may live there -- the same
+    # rule as in the profiles.
+    try {
+        $publisher = Split-Path $computerRoot -Parent
+        if ((Test-Path -LiteralPath $publisher -ErrorAction SilentlyContinue) -and
+            -not @(Get-ChildItem -LiteralPath $publisher -Force -ErrorAction SilentlyContinue).Count) {
+            Remove-Item -LiteralPath $publisher -Force -ErrorAction SilentlyContinue
+        }
+    } catch { }
 }
 
 # --- Verdict ---------------------------------------------------------------------------

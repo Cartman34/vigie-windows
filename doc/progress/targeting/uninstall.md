@@ -38,11 +38,28 @@ compte a été supprimé, et il doit partir aussi.
 | 7bis | **La déclaration du dossier d'installation** | `HKLM\SOFTWARE\Sowapps\Vigie` | Écrite par l'installation pour qu'un dossier choisi hors `Program Files` reste trouvable ; lue en premier, elle enverrait sinon tout le monde vers un dossier supprimé. |
 | 8 | **Le dossier d'installation partagé** | Le chemin choisi à l'installation | Avec sa configuration de machine. Il se retire en dernier : il contient ce qui exécute la désinstallation. **Ailleurs que dans `Program Files`, on ne retire que ce qui est à nous** (voir ci-dessous). |
 | 9 | **Les données de chaque compte** | `%LOCALAPPDATA%\Sowapps\Vigie` dans **tous** les profils | Annoncées avant l'élévation (ci-dessus). |
+| 10 | **Les données de l'ordinateur** | `%ProgramData%\Sowapps\Vigie` | La déclaration de l'ordinateur (stage, source, dépôt de confiance) **et la sauvegarde de l'installation précédente — une copie complète de Vigie**. Ce dossier ne dépend d'aucune installation : c'est précisément pourquoi il leur survit. Retiré en dernier, après le dossier d'installation, qui lit la déclaration pour savoir quelle source épargner. |
 
 **Ce qui ne se supprime PAS : les prérequis.** PowerShell 7 et le module Pode ont pu être posés par l'installation,
 mais on ignore qui d'autre s'en sert sur cette machine. On ne retire jamais un outil général.
 
 ---
+
+## Ce qui a pu être généré part aussi
+
+Une désinstallation qui ne retire que ce que l'installation a **copié** laisse derrière elle tout ce que l'exécution a
+**produit** — et c'est souvent le plus encombrant. Ce qui est généré se range en trois endroits, tous listés plus haut :
+
+- **sous le dossier d'installation** : `var/` (cache, journaux, secrets, historiques), `dist/`, `logs/` ;
+- **dans chaque profil** : les données par compte, dont le clone du dépôt tenu pour les mises à jour ;
+- **à l'échelle de l'ordinateur** : la déclaration et la sauvegarde de l'installation précédente.
+
+**La règle qui vaut pour la suite** : tout emplacement qu'un code de Vigie **écrit** doit apparaître dans le tableau
+ci-dessus. Un nouvel emplacement d'écriture est une ligne de plus ici, le jour où on l'ajoute — pas le jour où
+quelqu'un s'aperçoit qu'il reste.
+
+Ce qui reste hors de portée : les fichiers temporaires (`%TEMP%\vigie-*`), que Windows nettoie, et dont chaque
+producteur efface le sien.
 
 ## Installée ailleurs : on ne retire que son propre dossier
 
