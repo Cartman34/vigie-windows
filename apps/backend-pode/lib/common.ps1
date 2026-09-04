@@ -6286,6 +6286,22 @@ function Get-SharedInstallPath {
 }
 
 <#
+    WHAT THE PRODUCT OWNS AT THE ROOT OF ITS FOLDER.
+
+    Installed in Program Files, Vigie is alone and the folder is hers: it goes whole. Chosen
+    elsewhere -- "D:\Outils\Vigie", or worse "D:\Outils" passed as an argument -- the folder
+    may hold someone else's things, and deleting it whole would carry them away.
+
+    So this list says what is OURS. It is the top level of the published archive, plus what
+    running produces: var/ (data), dist/ and logs/ (working files). Anything else in that
+    folder belongs to somebody, and stays.
+#>
+function Get-InstallOwnEntries {
+    @('apps', 'config', 'doc', 'lang', 'notes', 'scripts', 'var', 'dist', 'logs',
+      'setup.cmd', 'uninstall.cmd', 'CHANGELOG.md', 'CLAUDE.md', 'LICENSE', 'README.md', 'README.fr.md')
+}
+
+<#
     DECLARING THE INSTALL FOLDER, at the scale of the computer.
 
     Written by the setup, read by everyone, removed by the uninstall. One value, and it

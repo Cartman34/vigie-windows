@@ -36,13 +36,29 @@ compte a été supprimé, et il doit partir aussi.
 | 6bis | **Le clone du dépôt que Vigie tient pour ses mises à jour** | `…\VigieService\AppData\Local\Sowapps\Vigie\var\update\depot` — ou sous le dossier d'installation quand `var/` y vit | C'est **notre** copie de travail, pas une source : elle est refaite au premier déploiement venu. Elle part avec le profil, et le balayage des données par profil la reprend si ce profil a résisté. |
 | 7 | **Les déclarations `safe.directory`** | Configuration git **de la machine** | Posées pour que le compte de service puisse lire le dépôt. Elles désignent ensuite des chemins qui n'ont plus de raison d'être. |
 | 7bis | **La déclaration du dossier d'installation** | `HKLM\SOFTWARE\Sowapps\Vigie` | Écrite par l'installation pour qu'un dossier choisi hors `Program Files` reste trouvable ; lue en premier, elle enverrait sinon tout le monde vers un dossier supprimé. |
-| 8 | **Le dossier d'installation partagé** | Le chemin choisi à l'installation | Avec sa configuration de machine. Il se retire en dernier : il contient ce qui exécute la désinstallation. |
+| 8 | **Le dossier d'installation partagé** | Le chemin choisi à l'installation | Avec sa configuration de machine. Il se retire en dernier : il contient ce qui exécute la désinstallation. **Ailleurs que dans `Program Files`, on ne retire que ce qui est à nous** (voir ci-dessous). |
 | 9 | **Les données de chaque compte** | `%LOCALAPPDATA%\Sowapps\Vigie` dans **tous** les profils | Annoncées avant l'élévation (ci-dessus). |
 
 **Ce qui ne se supprime PAS : les prérequis.** PowerShell 7 et le module Pode ont pu être posés par l'installation,
 mais on ignore qui d'autre s'en sert sur cette machine. On ne retire jamais un outil général.
 
 ---
+
+## Installée ailleurs : on ne retire que son propre dossier
+
+Dans `Program Files`, le dossier a été créé pour Vigie : il est à elle seule, et il part **entier**.
+
+**Un dossier choisi, non.** `D:\Outils\Vigie` peut être le nôtre, mais `D:\Outils` peut aussi être passé tel quel en
+paramètre à `setup.cmd` et contenir dix autres outils. Supprimer ce dossier entier emporterait le travail de
+quelqu'un — exactement ce que la désinstallation ne doit jamais faire.
+
+**Donc, hors `Program Files`, on retire nos éléments et eux seuls** : `apps`, `config`, `doc`, `lang`, `notes`,
+`scripts`, `var`, `dist`, `logs`, `setup.cmd`, `uninstall.cmd`, `CHANGELOG.md`, `CLAUDE.md`, `LICENSE`, `README.md`,
+`README.fr.md` — le sommet de l'archive publiée, plus ce que l'exécution produit. Le dossier lui-même n'est retiré
+que s'il **finit vide** ; sinon on le dit, avec ce qui l'occupe. Ce n'est pas un échec : c'est à quelqu'un.
+
+**La liste vit dans la bibliothèque** (`Get-InstallOwnEntries`), pas dans ce document ni dans deux scripts : ce que
+l'installation pose et ce que la désinstallation retire se lisent au même endroit, sinon ils divergeront.
 
 ## Ce qui est conservé
 
