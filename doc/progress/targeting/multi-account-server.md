@@ -1,6 +1,13 @@
 # Un serveur élevé par machine — conception
 
-> **État : à valider. Rien n'est codé.**
+> **État : validée, et codée depuis.** Ce qui suit reste la conception de référence, mais ce n'est plus un projet.
+> L'app serveur tourne sous `VigieService` au démarrage de l'ordinateur, et **quatorze actions** sont déléguées à
+> l'app cliente du compte demandeur (`# @execution: session` en tête du fichier d'action, `Get-ActionExecutor`) : les
+> douze qui ouvrent une fenêtre, le nettoyage de disque et la pose du tag. Le blocage d'origine — un compte standard
+> qui ne peut pas démarrer Vigie — n'existe plus : personne ne démarre rien, l'app serveur est déjà là.
+>
+> **Ce qui reste ouvert** : C4, les mesures **par utilisateur** que la session 0 ne voit pas (WSL, gestionnaires de
+> paquets). Elles répondent aujourd'hui pour le compte de service, pas pour le compte qui regarde.
 >
 > **Cette version corrige la précédente.** La première mouture recommandait « un seul serveur élevé qui fait tout ».
 > En cherchant les contraintes de Windows plutôt qu'en les supposant, il apparaît qu'un serveur unique en session 0

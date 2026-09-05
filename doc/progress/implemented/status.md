@@ -1,7 +1,7 @@
 # État d'implémentation
 
 Légende : **Fait** / **Partiel** / **À faire**. Les ID renvoient à `../targeting/features.md`.
-Mise à jour : 2026-09-02.
+Mise à jour : 2026-09-05.
 
 ## Socle
 
@@ -18,7 +18,7 @@ Mise à jour : 2026-09-02.
 | CORE-UPDATE | Fait | [update-chain.md](update-chain.md) | Éprouvé le 01/09 par le bouton de la carte, de bout en bout, plusieurs fois. Le compte de service lit le dépôt (`safe.directory` sur le dossier **et** son `.git`) et fabrique depuis le clone |
 | CORE-UPDATE-TRUST | À faire | — | Rien ne vérifie aujourd'hui que l'archive téléchargée est bien celle publiée : ni empreinte, ni signature. On s'en remet à HTTPS et à GitHub. |
 | CORE-DEPLOY | Fait | Carte Déploiement, `pwsh-install-machine`, `setup.cmd` | Éprouvé sur cette machine seulement |
-| CORE-ACCOUNTS | Partiel | Carte Comptes, `accounts-details`, `diag-account-logs` | Un compte **standard** ne peut pas démarrer Vigie : le serveur exige l'élévation et lui réclamerait un mot de passe administrateur. Conception validée, non codée : `targeting/multi-account-server.md`. |
+| CORE-ACCOUNTS | Fait | Carte Comptes, `accounts-details`, `diag-account-logs` ; app serveur élevée sous `VigieService` au démarrage de l'ordinateur | **Un compte standard n'a plus rien à élever** : l'app serveur tourne déjà, avant toute session, et son app cliente lui parle. Le blocage du 28/08 — « le serveur exige l'élévation et réclame un mot de passe administrateur » — n'existe plus depuis que l'app serveur démarre avec la machine. Reste ce que la session 0 ne voit pas : les mesures **par utilisateur** (WSL, gestionnaires de paquets), décrites en C4 de `targeting/multi-account-server.md` |
 | CORE-RESIDENT | Fait | `Get-ResidentDeclarations`, `Start-Resident`, `Invoke-ResidentPass`, `Get-ResidentHealth` dans `common.ps1` ; armés par la boucle d'une minute de l'app serveur | Un seul résident déclaré (`gaming/game`). Éprouvé hors élévation : armement, balayage initial, battement, arrêt, et l'état « abonnement refusé » remonté au lieu d'être tu |
 | CORE-WATCH | Fait | Minuteur d'une minute dans l'app serveur, sentinelles déclarées par module ([surveillance.md](../targeting/surveillance.md)) ; historique par sentinelle (`watch.<clé>`, nature `event`) | **Éprouvée en production le 01/09 à 19 h 54** : la sentinelle `gaming/game-battery` a écrit son premier relevé et fait recalculer la carte Jeux, sans session ouverte. Trois sentinelles posées (`network/internet`, `gaming/game-battery`, `system/power`) — les autres modules n'en déclarent pas encore |
 | CORE-OPERATIONS | Fait | Marqueurs d'occupation, verrou de ressources, `/operations` interrogé par toutes les pages | — |
@@ -58,7 +58,7 @@ Module `debug` (carte Vigie : version, serveur, journaux, données locales) en p
 | UI-LAYOUT | Fait | Colonnes réelles, regroupement par module | — |
 | UI-REORG | Fait | Mode réorganisation, dépôt dans une colonne vide | — |
 | UI-SETTINGS | Fait | Panneau latéral unique, défauts issus de la configuration | — |
-| UI-ACTIONS | Partiel | Boutons permanents par carte (**D114**) : Antivirus, Pare-feu, Ressources, Jeux, Réseau, Stockage mènent aux réglages Windows de leur sujet | Quatre cartes n'ont encore aucune destination permanente : Déploiement, Débogage, Windows Update, WSL |
+| UI-ACTIONS | Fait | Boutons permanents par carte (**D114**) : Antivirus, Pare-feu, Ressources, Jeux, Réseau, Stockage mènent aux réglages Windows de leur sujet | Déploiement, Débogage, Windows Update et WSL n'en portent aucun, et c'est **voulu** : D114 refuse « un bouton par carte pour faire nombre ». Leur sujet n'a pas de destination Windows qui serve — pas un manque à combler |
 
 ## Ce qui reste ouvert
 
