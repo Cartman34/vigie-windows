@@ -6382,6 +6382,36 @@ function Test-PathReadableByAccount {
     return $false
 }
 
+<#
+    IS THAT TASK REALLY RUNNING?
+
+    A scheduled task killed by a shutdown can stay in state Running with no process left.
+    Declared MultipleInstances=IgnoreNew, it then IGNORES every logon trigger: the account
+    never gets Vigie again, and rebooting does not clear it. Measured on 04/09 -- « Vigie -
+    Famille » still Running at 22:15, last run 18:38, no process, no icon on that session.
+
+    So we do not believe the state: we look for the process the task launches, owned by the
+    account the task runs as. No process, no run.
+#>
+function Test-VigieTaskProcessAlive {
+    param([Parameter(Mandatory)]$Task)
+    $action = @($Task.Actions)[0]
+    $file = $null
+    if ("$($action.Arguments)" -match '-File\s+"([^"]+)"') { $file = $Matches[1] }
+    if (-not $file) { return $true }   # rien a comparer : on ne conclut pas
+    $wanted = (Split-Path $file -Leaf)
+    $owner = ("$($Task.Principal.UserId)" -split [regex]::Escape([string][char]92))[-1]
+    foreach ($p in @(Get-CimInstance Win32_Process -Filter "Name='pwsh.exe'" -ErrorAction SilentlyContinue)) {
+        if ("$($p.CommandLine)" -notlike ('*' + $wanted + '*')) { continue }
+        $who = $null
+        try { $who = "$((Invoke-CimMethod -InputObject $p -MethodName GetOwner -ErrorAction Stop).User)" } catch { }
+        # NO READABLE OWNER, NO VERDICT: a process we can see without knowing whose it is
+        # remains a reason to stay silent.
+        if (-not $who -or $who -eq $owner) { return $true }
+    }
+    return $false
+}
+
 function Get-VigieTaskStructureAilment {
     param([Parameter(Mandatory)]$Task)
     $a = @($Task.Actions)[0]
@@ -6411,6 +6441,12 @@ function Get-VigieTaskStructureAilment {
     # la lancer. Ca se repare d'un geste (Enable-ScheduledTask), donc ca appartient ici
     # et pas a l'histoire.
     if ("$($Task.State)" -eq 'Disabled') { return "la tâche est désactivée dans Windows" }
+
+    # STUCK IN "RUNNING": structural too, and one gesture repairs it (Stop-ScheduledTask).
+    # While that state lasts, no logon starts anything -- the task is declared IgnoreNew.
+    if ("$($Task.State)" -eq 'Running' -and -not (Test-VigieTaskProcessAlive -Task $Task)) {
+        return "Windows la croit en cours alors que rien ne tourne : elle ne redémarrera plus"
+    }
 
     # PAS DE VERDICT DE LISIBILITE ICI, et c'est un choix.
     #
@@ -6527,6 +6563,11 @@ function Repair-VigieTasks {
         $compte = if ($nom -eq 'Vigie') { ("$($t.Principal.UserId)" -split [regex]::Escape([string][char]92))[-1] }
                   else                  { $nom.Substring($script:VigieTaskPrefix.Length) }
         try {
+            # UNBLOCK FIRST. A task Windows believes running refuses everything: we end it,
+            # which returns its state to the truth, before rewriting it.
+            if ("$($t.State)" -eq 'Running' -and -not (Test-VigieTaskProcessAlive -Task $t)) {
+                try { Stop-ScheduledTask -TaskName $nom -ErrorAction Stop } catch { }
+            }
             if ($nom -eq 'Vigie') {
                 # Notre propre tache : on la reecrit avec l'interpreteur de la machine et
                 # le chemin ou l'application se trouve REELLEMENT maintenant.
@@ -6536,6 +6577,24 @@ function Repair-VigieTasks {
                 if (-not $pwsh -or -not (Test-Path -LiteralPath $tray)) { continue }
                 $arg = '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $tray + '"'
                 Set-ScheduledTask -TaskName $nom -Action (New-ScheduledTaskAction -Execute $pwsh -Argument $arg) -ErrorAction Stop | Out-Null
+                <#
+                    AND WE RENAME IT (D117). "Vigie" alone is the old scheme: the account that
+                    ran the setup kept a name nobody else carried, and the client app looked for
+                    that one on everybody's behalf. Set-VigieAccountEnabled rebuilds the task as
+                    "Vigie - <account>"; the old one goes afterwards, once the new one is in
+                    place -- never before, or a failure would leave the account with no task at
+                    all.
+                #>
+                if ($compte) {
+                    try {
+                        $null = Set-VigieAccountEnabled -Name $compte -Enabled $true -Backend $Backend
+                        $newName = Get-VigieAccountTaskName -Name $compte
+                        if (Get-ScheduledTask -TaskName $newName -ErrorAction SilentlyContinue) {
+                            Unregister-ScheduledTask -TaskName 'Vigie' -Confirm:$false -ErrorAction Stop
+                            $nom = $newName
+                        }
+                    } catch { }
+                }
             } else {
                 # Tache d'un autre compte : Set-VigieAccountEnabled sait la refaire
                 # entierement (interpreteur machine, installation partagee, niveau).

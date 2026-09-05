@@ -163,17 +163,24 @@ public static bool Focus(System.IntPtr h) {
         # intermittence au logon (0xC0070154 : pwsh vient du Store et son paquet MSIX
         # n'est pas toujours pret a la seconde ou la session s'ouvre). Idempotent :
         # ne touche que le delai et les reprises, et seulement s'ils manquent.
+        # ITS OWN TASK, NOT SOMEBODY ELSE'S. It is called "Vigie - <account>" (D117); plain
+        # "Vigie" is the old name, kept as a fallback while machines still carry it. Looking
+        # for another account's name is never repairing anything -- which is what the Famille
+        # log repeated at every start (04/09).
         try {
-            $tache = Get-ScheduledTask -TaskName 'Vigie' -ErrorAction Stop
-            $aCorriger = $false
-            if (-not $tache.Triggers[0].Delay) { $tache.Triggers[0].Delay = 'PT45S'; $aCorriger = $true }
-            if (-not $tache.Settings.RestartCount) {
-                $tache.Settings.RestartCount = 3
-                $tache.Settings.RestartInterval = 'PT1M'
-                $aCorriger = $true
+            $ownTaskName = Get-VigieAccountTaskName -Name (Get-ProcessAccount)
+            $ownTask = $null
+            try { $ownTask = Get-ScheduledTask -TaskName $ownTaskName -ErrorAction Stop } catch { }
+            if (-not $ownTask) { $ownTask = Get-ScheduledTask -TaskName 'Vigie' -ErrorAction Stop }
+            $toFix = $false
+            if (-not $ownTask.Triggers[0].Delay) { $ownTask.Triggers[0].Delay = 'PT45S'; $toFix = $true }
+            if (-not $ownTask.Settings.RestartCount) {
+                $ownTask.Settings.RestartCount = 3
+                $ownTask.Settings.RestartInterval = 'PT1M'
+                $toFix = $true
             }
-            if ($aCorriger) {
-                Set-ScheduledTask -InputObject $tache | Out-Null
+            if ($toFix) {
+                Set-ScheduledTask -InputObject $ownTask | Out-Null
                 TLog "tache planifiee reparee : delai PT45S + 3 reprises (echec MSIX au logon)"
             }
         } catch { TLog ("tache planifiee non reparable ici : " + $_.Exception.Message) }

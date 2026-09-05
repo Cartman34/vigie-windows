@@ -55,7 +55,19 @@ try {
     if ($partagee) { $appRoot = $partagee }
 } catch { }
 $tray     = Join-Path $appRoot 'apps/tray/tray.ps1'   # le tray est une app a part
-$taskName = 'Vigie'
+<#
+    ONE NAMING SCHEME, FOR EVERYBODY: "Vigie - <account>".
+
+    This script used to hard-code "Vigie" while the server named every other account's
+    task "Vigie - <account>". Two schemes for one thing: the client app looked for the
+    first name and therefore never found its own on a secondary account -- it said so in
+    its log at every start, on 04/09, without anyone being able to act on it.
+
+    A legacy "Vigie" task stays recognised everywhere, and the repair renames it.
+#>
+$forAccount = $Account
+if (-not $forAccount) { $forAccount = Get-ProcessAccount }
+$taskName = Get-VigieAccountTaskName -Name $forAccount
 # L'URL derive de config.psd1 : adresse et port n'ont qu'UNE definition (D15).
 $appUrl   = Get-AppUrl -Backend $backend
 
@@ -97,8 +109,7 @@ $trigger.Delay = 'PT45S'
     Limited pour un compte standard. Donner Highest a un compte standard ne marcherait pas,
     et ne DOIT pas marcher -- Vigie ne donne rien de plus que Windows.
 #>
-$pourCompte = $Account
-if (-not $pourCompte) { $pourCompte = Get-ProcessAccount }
+$pourCompte = $forAccount
 <#
     LA LISTE FAIT FOI : on ne pose une tache cliente que pour un compte a qui l'interface
     permet d'activer Vigie.
