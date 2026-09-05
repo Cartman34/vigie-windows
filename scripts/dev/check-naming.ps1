@@ -44,7 +44,7 @@ $ErrorActionPreference = 'Stop'
     blame. The ratchet forbids adding any; every conversion lowers the ceiling as much.
 #>
 $COMMENT_CEILING = 5787
-$CEILING = 289
+$CEILING = 287
 
 # LE PLAFOND DES NOMS DE FICHIERS. Meme cliquet, compte separe : ceux qui restent sont
 # nommes dans des taches planifiees deja posees et dans des raccourcis, donc ils se

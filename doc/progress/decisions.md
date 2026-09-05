@@ -26,7 +26,7 @@ ligne — `scripts/dev/check-doc.ps1` refuse une décision absente d'ici.
 - **Documentation** — D91 · D92 · D93 · D98
 - **Configuration** — D15 · D18 · D56 · D57
 - **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46 · D48 · D49 · D50 · D58 · D59 · D66 · D68 · D69 · D70 · D71 · D88 · D89 · D94 · D95 · D102 · D105 · D114
-- **Installation, déploiement et mise à jour** — D07 · D11 · D22 · D77 · D78 · D79 · D81 · D84 · D87 · D96 · D97 · D99 · D101 · D106 · D107 (revu) · D110 · D112
+- **Installation, déploiement et mise à jour** — D07 · D11 · D22 · D77 · D78 · D79 · D81 · D84 · D87 · D96 · D97 · D99 · D101 · D106 · D107 (revu) · D110 · D112 · D117
 - **Sécurité, droits et multi-comptes** — D34 · D65 · D67 · D73 · D104 · D109
 - **Sondes, actions et tâches de fond** — D50bis · D53 · D54 · D60 · D61 · D80 · D82 · D83 · D85 · D113
 - **Outillage** — D06 · D21 · D24 · D40 · D44 · D47 · D52 · D64 · D75 · D86 · D90 · D116
@@ -3012,3 +3012,24 @@ Citer à la main est juste dans un monde et faux dans les deux autres : dans le 
 **Ce que la règle suppose de toute valeur** : des espaces, des antislashs, un antislash **final**, des guillemets, des
 accents, une apostrophe, `&`, `|`, `;`, `%`, une tabulation, et la chaîne vide. Douze cas, éprouvés en comparant ce que
 l'enfant reçoit réellement à ce qu'on a voulu lui passer.
+
+---
+
+## D117 — Une tâche de démarrage par compte, un seul schéma de nom (2026-09-05)
+
+*Demandée par l'utilisateur : « Pourquoi la tâche de fhaza ne s'appelle pas "Vigie - fhaza" ? Pourquoi n'est-ce pas
+uniforme ? »*
+
+**Ce qui n'allait pas.** Le nom se fabriquait à **deux endroits** : `install-autostart.ps1` écrivait `Vigie` en dur —
+le compte qui lance le setup — pendant que le serveur nommait tous les autres `Vigie - <compte>`. Le code assumait cet
+héritage (« la tâche historique s'appelle "Vigie" tout court ») sans mesurer ce qu'il coûtait : **l'app cliente cherche
+sa tâche par son nom**, et cherchait donc celle du premier compte. Sur tout compte secondaire elle ne trouvait jamais
+la sienne — et l'écrivait dans son journal à chaque démarrage, sans que personne puisse agir.
+
+**Décision.** Un seul schéma : **`Vigie - <compte>`**, pour tout le monde, le premier compte comme les autres.
+`Vigie` reste **reconnu partout** — des postes le portent — et la réparation le **renomme** : elle crée la tâche au
+nouveau nom, vérifie qu'elle existe, et seulement ensuite retire l'ancienne. Jamais l'inverse : un échec entre les deux
+laisserait le compte sans aucune tâche.
+
+**Ce que cela répare aussi.** L'app cliente répare enfin **sa** tâche : le délai de démarrage et les reprises qu'elle
+ajustait pour contourner l'échec MSIX au logon n'étaient posés, jusqu'ici, que sur le compte historique.
