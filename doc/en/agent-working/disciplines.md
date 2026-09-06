@@ -176,6 +176,14 @@ d'inattendu, ce qui reste ouvert, et ce qu'il doit décider.
 *Quand il dit « pavé » ou « trop long », c'est que la réponse contenait ce que j'avais envie de dire plutôt que ce
 qu'il avait besoin de lire.*
 
+**UN SUJET OUVERT SE DÉSIGNE PAR SON NUMÉRO — `S01`, `S02`…** Le registre est
+[`doc/progress/subjects.md`](../../progress/subjects.md). Je lui parlais de `CORE-UPDATE-TRUST` : c'est un identifiant
+de fonctionnalité, écrit pour un fichier de spécification, pas pour une conversation — long, en anglais, et il oblige à
+aller le chercher pour savoir de quoi on parle. Un numéro court se retient, se cite en passant, et sert de titre à un
+message. Un sujet qui n'a pas de numéro en reçoit un **avant** que je lui en parle ; un numéro ne se réutilise jamais,
+pour qu'une phrase d'il y a trois mois désigne encore la même chose. L'identifiant de fonctionnalité reste, lui, dans
+la documentation — c'est là qu'il sert.
+
 ## Ce qui sort du dépôt s'annonce
 
 **Tout ce que je pose hors des fichiers versionnés se dit explicitement, au moment où je le pose.** Un hook git, une

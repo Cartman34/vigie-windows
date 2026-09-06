@@ -56,6 +56,14 @@ Format : `ID` — Titre, puis le besoin et ses critères. On n'écrit **pas** ic
   faire installer du code sur les machines : c'est par là que des projets bien plus gros se sont fait avoir. Vont avec :
   protection de la branche et des tags, second facteur sur le compte qui publie, et de quoi **revenir en arrière** quand
   une version se révèle mauvaise.
+
+  **Pas maintenant — mais rien ne doit fermer la porte** (décidé le 05/09, sujet **S01**). La vérification viendra dans
+  une version future ; d'ici là, la seule obligation qui pèse sur le code d'aujourd'hui est de **rester installable par
+  elle**. Concrètement : une archive ou un dépôt qui porterait en plus une signature ou une empreinte doit s'installer
+  sans que rien ne s'en étrangle — l'installation exige des fichiers **présents**, elle ne refuse jamais un fichier
+  qu'elle ne connaît pas (`Test-InstallCopy`, `Expand-InstallArchive`), et cette tolérance est la contrainte à ne pas
+  perdre. En sens inverse, il est **acquis** que les versions actuelles, non signées, ne seront pas des cibles de mise
+  à jour valides le jour où la vérification existera : elles ne sont pas censées l'être.
 - **CORE-ACCOUNTS** — Plusieurs comptes Windows utilisent Vigie : chacun ses réglages, aucun pouvoir supplémentaire ;
   diagnostiquer un autre compte passe par Vigie, jamais par un contournement. Un compte **standard** doit pouvoir
   lancer les opérations qu'on lui ouvre, même lorsqu'elles exigent techniquement l'élévation — sans jamais voir
