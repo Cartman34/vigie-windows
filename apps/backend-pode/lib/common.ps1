@@ -6412,6 +6412,37 @@ function Test-VigieTaskProcessAlive {
     return $false
 }
 
+<#
+    THE LEGACY NAME IS NORMALISED, AND IT DOES NOT WAIT FOR A BREAKDOWN.
+
+    D117 gave everybody one scheme, "Vigie - <account>". But the rename rode on the repair
+    path, and the repair path skips a healthy task -- so the one machine that carried the
+    old name kept it for ever. Measured on 06/09, right after deploying D117: Famille was
+    correctly named, fhaza's task was still plain "Vigie", because nothing was wrong with
+    it. A convention that only applies to broken things is not a convention.
+
+    THE NEW ONE IS BORN BEFORE THE OLD ONE DIES, always: Set-VigieAccountEnabled rebuilds
+    the task under the new name, we CHECK it exists, and only then does the old one go. A
+    failure in between leaves the account with two tasks -- never with none.
+
+    Returns the new name when the rename happened, $null when it did not (and the caller
+    then keeps working with the task it has).
+#>
+function Rename-VigieLegacyTask {
+    param(
+        [Parameter(Mandatory)][string]$Account,
+        [string]$Backend = (Get-BackendRoot)
+    )
+    $newName = Get-VigieAccountTaskName -Name $Account
+    if ($newName -eq 'Vigie') { return $null }   # ceinture : jamais se renommer en soi-meme
+    try {
+        $null = Set-VigieAccountEnabled -Name $Account -Enabled $true -Backend $Backend
+        if (-not (Get-ScheduledTask -TaskName $newName -ErrorAction SilentlyContinue)) { return $null }
+        Unregister-ScheduledTask -TaskName 'Vigie' -Confirm:$false -ErrorAction Stop
+        return $newName
+    } catch { return $null }
+}
+
 function Get-VigieTaskStructureAilment {
     param([Parameter(Mandatory)]$Task)
     $a = @($Task.Actions)[0]
@@ -6545,6 +6576,24 @@ function Repair-VigieTasks {
 
     foreach ($t in $taches) {
         $nom = "$($t.TaskName)"
+        # WHOSE task is this? "Vigie - X" says it in its name; plain "Vigie" says it in its
+        # PRINCIPAL -- we read that, rather than assume it belongs to whoever is looking.
+        # The legacy task belongs to whoever installed it, not to the requester.
+        $compte = if ($nom -eq 'Vigie') { ("$($t.Principal.UserId)" -split [regex]::Escape([string][char]92))[-1] }
+                  else                  { $nom.Substring($script:VigieTaskPrefix.Length) }
+
+        # THE OLD NAME IS FIXED EVEN WHEN NOTHING IS WRONG, hence BEFORE the diagnosis: a
+        # healthy task leaves this loop untouched, so the machine carrying "Vigie" would
+        # have kept it for ever (measured on 06/09, right after D117 was deployed).
+        if ($nom -eq 'Vigie' -and $compte) {
+            $renomme = Rename-VigieLegacyTask -Account $compte -Backend $Backend
+            if ($renomme) {
+                $faits += [pscustomobject]@{ tache = $nom; mal = "elle portait l'ancien nom"; repare = $true; attente = $false }
+                try { $t = Get-ScheduledTask -TaskName $renomme -ErrorAction Stop } catch { continue }
+                $nom = $renomme
+            }
+        }
+
         # ON NE REECRIT PAS UNE TACHE SAINE. Un defaut d'HISTOIRE -- jamais lancee, ou
         # dernier lancement en echec -- ne se corrige par aucune ecriture : il se
         # confirmera au prochain demarrage du compte, et pas avant. Le signaler, oui ;
@@ -6557,11 +6606,6 @@ function Repair-VigieTasks {
             }
             continue
         }
-        # De QUI est cette tache ? « Vigie - X » le dit dans son nom ; « Vigie » tout court
-        # le dit dans SON PRINCIPAL -- on le lit, au lieu de supposer que c'est celui qui
-        # regarde. La tache historique appartient a qui l'a posee, pas au demandeur.
-        $compte = if ($nom -eq 'Vigie') { ("$($t.Principal.UserId)" -split [regex]::Escape([string][char]92))[-1] }
-                  else                  { $nom.Substring($script:VigieTaskPrefix.Length) }
         try {
             # UNBLOCK FIRST. A task Windows believes running refuses everything: we end it,
             # which returns its state to the truth, before rewriting it.
@@ -6577,23 +6621,12 @@ function Repair-VigieTasks {
                 if (-not $pwsh -or -not (Test-Path -LiteralPath $tray)) { continue }
                 $arg = '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $tray + '"'
                 Set-ScheduledTask -TaskName $nom -Action (New-ScheduledTaskAction -Execute $pwsh -Argument $arg) -ErrorAction Stop | Out-Null
-                <#
-                    AND WE RENAME IT (D117). "Vigie" alone is the old scheme: the account that
-                    ran the setup kept a name nobody else carried, and the client app looked for
-                    that one on everybody's behalf. Set-VigieAccountEnabled rebuilds the task as
-                    "Vigie - <account>"; the old one goes afterwards, once the new one is in
-                    place -- never before, or a failure would leave the account with no task at
-                    all.
-                #>
+                # AND WE TRY THE RENAME AGAIN (D117). Reaching here means the pass at the top
+                # of the loop failed -- the task answers again now that it has been rewritten,
+                # so the attempt is worth making a second time.
                 if ($compte) {
-                    try {
-                        $null = Set-VigieAccountEnabled -Name $compte -Enabled $true -Backend $Backend
-                        $newName = Get-VigieAccountTaskName -Name $compte
-                        if (Get-ScheduledTask -TaskName $newName -ErrorAction SilentlyContinue) {
-                            Unregister-ScheduledTask -TaskName 'Vigie' -Confirm:$false -ErrorAction Stop
-                            $nom = $newName
-                        }
-                    } catch { }
+                    $renomme = Rename-VigieLegacyTask -Account $compte -Backend $Backend
+                    if ($renomme) { $nom = $renomme }
                 }
             } else {
                 # Tache d'un autre compte : Set-VigieAccountEnabled sait la refaire

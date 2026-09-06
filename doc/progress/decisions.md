@@ -3033,3 +3033,10 @@ laisserait le compte sans aucune tâche.
 
 **Ce que cela répare aussi.** L'app cliente répare enfin **sa** tâche : le délai de démarrage et les reprises qu'elle
 ajustait pour contourner l'échec MSIX au logon n'étaient posés, jusqu'ici, que sur le compte historique.
+
+**Corrigé le 06/09, après déploiement.** Le renommage voyageait sur le chemin de **réparation** — et ce chemin
+**passe son tour sur une tâche saine**. Mesuré une heure après la livraison : `Vigie - Famille` portait le bon nom
+parce qu'elle était bloquée, la tâche de `fhaza` s'appelait toujours `Vigie` parce que rien n'allait mal. Une
+convention qui ne s'applique qu'aux choses cassées n'est pas une convention. Le renommage se fait donc **avant le
+diagnostic**, sur la seule foi du nom (`Rename-VigieLegacyTask`), et la réparation le retente si ce premier passage a
+échoué. L'ordre ne bouge pas : la nouvelle naît avant que l'ancienne meure.

@@ -10,6 +10,19 @@ trois mois doit encore désigner la même chose aujourd'hui. Réattribuer `S03` 
 **Un sujet n'est pas une tâche.** C'est une chose qui reste ouverte et sur laquelle on revient — un manque assumé, une
 preuve qui n'a pas eu lieu, une dette. Ce qui se règle dans la journée n'a pas besoin d'un numéro.
 
+## L'ordre, tel qu'il a été donné
+
+Arbitré par l'utilisateur le 06/09, et c'est **cet ordre-là** que je suis quand il n'est pas là :
+
+| Rang | Sujets |
+|------|--------|
+| **D'abord** | **S04** · **S05** · **S06** · **S07** |
+| Ensuite | **S02** |
+| En dernier | **S01** |
+
+**S03** et **S09** ne se classent pas : ce sont des **preuves**, et elles demandent son geste à lui, pas mon travail.
+**S08** descend avec S07, par le même cliquet.
+
 ## Ouverts
 
 | N° | Sujet | Où c'est décrit | Pourquoi c'est ouvert |
