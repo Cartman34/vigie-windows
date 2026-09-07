@@ -87,6 +87,35 @@ public static void Watch() {
 }
 '@
 
+        <#
+            IS ANYBODY LOOKING AT THIS SESSION?
+
+            Every account's client app watches the SAME server, so every account sees every
+            state change -- including the accounts nobody is sitting in front of. Windows
+            does not throw those toasts away: it QUEUES them and hands the whole pile over
+            the moment the session comes back. Measured on 06/09: fhaza's log and Famille's
+            log carry the same ten notifications at the same seconds, and switching accounts
+            delivered the lot at once.
+
+            WE ASK FOR A STATE, NOT AN EVENT. A SessionSwitch subscription only says what
+            CHANGED: a client app started while its session was already in the background
+            would never learn it, and a missed event would be missed for ever. The console
+            session id is the truth at any instant, and it can be read again at every pass.
+
+            WHEN WINDOWS DOES NOT KNOW, WE DO NOT CONCLUDE: 0xFFFFFFFF means no session is
+            attached to the console, and an unreadable answer is not a reason to go silent.
+        #>
+        Add-Type -Namespace VigieNative -Name Wts -MemberDefinition @'
+[System.Runtime.InteropServices.DllImport("kernel32.dll")]
+public static extern uint WTSGetActiveConsoleSessionId();
+
+public static bool SomeoneIsWatching(int mySession) {
+    uint console = WTSGetActiveConsoleSessionId();
+    if (console == 0xFFFFFFFF) { return true; }
+    return console == (uint)mySession;
+}
+'@
+
         # Retrouver une fenetre par son titre, et la ramener au premier plan.
         # Sans cela, chaque double-clic ouvrait une fenetre de PLUS : l'application se
         # retrouvait en deux exemplaires dans la barre des taches.
@@ -132,7 +161,10 @@ public static bool Focus(System.IntPtr h) {
         $pwsh      = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
         $trayPath  = Join-Path $trayRoot 'tray.ps1'      # cette app, pas le backend
         # Starting : un demarrage a ete demande et le serveur n'a pas encore repondu.
-        $state     = [hashtable]::Synchronized(@{ Proc = $null; Drawn = ''; EverUp = $false; Starting = $true; StartTicks = [datetime]::UtcNow.Ticks; Mods = @{}; ModsInit = $false; HealthKo = 0; MachineTask = $null; ElevationAsked = $false; SaidDead = $false; Bulles = @{}; DerniereBulle = $null; NotifTicks = 0; ApiSession = $null })
+        $state     = [hashtable]::Synchronized(@{ Proc = $null; Drawn = ''; EverUp = $false; Starting = $true; StartTicks = [datetime]::UtcNow.Ticks; Mods = @{}; ModsInit = $false; HealthKo = 0; MachineTask = $null; ElevationAsked = $false; SaidDead = $false; Bulles = @{}; DerniereBulle = $null; NotifTicks = 0; ApiSession = $null; Present = $true })
+        # OUR Windows session, read once: it does not change for the life of the process.
+        # The console session is compared against it at every pass.
+        $mySession = [System.Diagnostics.Process]::GetCurrentProcess().SessionId
         # Cache d'etat du backend : lu (jamais ecrit) par le guetteur de modules (D54).
         # (l'etat se demande a l'API : ce fichier n'est plus lu -- voir le bloc des notifications)
         <#
@@ -1028,6 +1060,21 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
             if ($installEnCours) { $state.QuietTicks = [datetime]::UtcNow.AddMinutes(2).Ticks }
             $silence = $installEnCours
             try { if ($state.QuietTicks -and [datetime]::UtcNow.Ticks -lt [long]$state.QuietTicks) { $silence = $true } } catch { }
+            <#
+                AND NOBODY IN FRONT OF THE SCREEN IS THE SAME SILENCE.
+
+                A notification interrupts a person. No person, no interruption: the
+                reference is updated as usual, the balloon does not come out -- so coming
+                back to the session announces NOTHING of what moved while nobody was there.
+                This is exactly the treatment an installation already gets.
+
+                READ AT EVERY PASS, never once and for all: the active account changes
+                without warning, and a flag set at startup would lie from the very first
+                user switch.
+            #>
+            $state.Present = $true
+            try { $state.Present = [VigieNative.Wts]::SomeoneIsWatching($mySession) } catch { }
+            if (-not $state.Present) { $silence = $true }
 
             try {
                 [void](Invoke-RestMethod -Uri $healthUrl -TimeoutSec 5 -ErrorAction Stop)
