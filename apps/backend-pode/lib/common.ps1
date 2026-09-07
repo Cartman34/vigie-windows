@@ -6271,8 +6271,37 @@ function Get-VigieToastIdentityKey {
     'HKLM:\SOFTWARE\Classes\AppUserModelId\' + (Get-VigieToastIdentity)
 }
 
+<#
+    IT IS THE SERVER APP THAT KEEPS IT TRUE, not the installer alone.
+
+    Declaring it only from install.ps1 looked right and was not: an update runs the
+    installer of the version ALREADY in place, so the very first machine to receive this
+    declaration would have run an installer that knew nothing about it -- measured on 07/09,
+    the key was still missing after deploying the code that writes it. Anything that only
+    happens at install time reaches every machine except the ones already running.
+
+    So the elevated server app checks it at every pass. It reads first and writes only when
+    something is missing or has moved: an installation that changed folder re-declares its
+    icon by itself.
+#>
+function Test-VigieToastIdentityDeclared {
+    param([string]$InstallPath)
+    try {
+        $key = Get-VigieToastIdentityKey
+        if (-not (Test-Path -LiteralPath $key)) { return $false }
+        $p = Get-ItemProperty -LiteralPath $key -ErrorAction Stop
+        if ("$($p.DisplayName)" -ne 'Vigie') { return $false }
+        if ($InstallPath) {
+            $ico = Join-Path (Join-Path (Join-Path (Join-Path $InstallPath 'apps') 'tray') 'assets') 'ok.ico'
+            if ((Test-Path -LiteralPath $ico) -and "$($p.IconUri)" -ne $ico) { return $false }
+        }
+        return $true
+    } catch { return $false }
+}
+
 function Set-VigieToastIdentity {
     param([string]$InstallPath)
+    if (Test-VigieToastIdentityDeclared -InstallPath $InstallPath) { return $true }
     $key = Get-VigieToastIdentityKey
     try {
         if (-not (Test-Path -LiteralPath $key)) { New-Item -Path $key -Force | Out-Null }

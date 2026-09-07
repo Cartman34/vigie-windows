@@ -590,6 +590,11 @@ Add-PodeTimer -Name 'vigie-watch' -Interval 60 -ScriptBlock {
         # quand un jeu demarre ; la sentinelle qui suit ne fait que lire son resultat.
         $null = Invoke-ResidentPass -Backend $env:VIGIE_BACKEND
         $null = Invoke-WatchPass -Backend $env:VIGIE_BACKEND
+        # THE NOTIFICATION IDENTITY: read before written, so this pass costs nothing once it
+        # is right. Here rather than at install time alone -- an update runs the installer of
+        # the version ALREADY in place, which necessarily knows nothing of what was just
+        # added (measured on 07/09).
+        try { $null = Set-VigieToastIdentity -InstallPath (Get-RepoRoot) } catch { }
     } catch {
         try { Write-Log -Backend $env:VIGIE_BACKEND -Name 'state' -Level 'ERROR' `
                         -Message ("veille : " + $_.Exception.Message) } catch { }
