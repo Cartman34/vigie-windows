@@ -116,6 +116,12 @@ public static bool SomeoneIsWatching(int mySession) {
 }
 '@
 
+        # Wearing the declared identity. See "the bubbles must say Vigie", further down.
+        Add-Type -Namespace VigieNative -Name Aumid -MemberDefinition @'
+[System.Runtime.InteropServices.DllImport("shell32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+public static extern int SetCurrentProcessExplicitAppUserModelID(string AppID);
+'@
+
         # Retrouver une fenetre par son titre, et la ramener au premier plan.
         # Sans cela, chaque double-clic ouvrait une fenetre de PLUS : l'application se
         # retrouvait en deux exemplaires dans la barre des taches.
@@ -586,6 +592,27 @@ public static bool Focus(System.IntPtr h) {
         # qui. Sur une machine familiale, c'est la premiere question qu'on se pose, et
         # c'est indispensable pour deboguer un compte depuis la session d'un autre.
         $trayAccount = (Get-ProcessAccount)
+        <#
+            THE BUBBLES MUST SAY "VIGIE", NOT "POWERSHELL".
+
+            On Windows 10 and later, a NotifyIcon balloon is turned into a real toast, and
+            the name on it is NOT the balloon's title: it is the identity of the process
+            that raised it. Ours is pwsh.exe, so the user reads "PowerShell" and learns
+            nothing (reported on 07/09).
+
+            An identity is DECLARED, then WORN. Declared once for the whole machine by the
+            installation (HKLM\SOFTWARE\Classes\AppUserModelId\Sowapps.Vigie, carrying the
+            display name and the delivered icon), and worn here by the process -- before
+            the icon exists, because the identity of a notification is fixed when its
+            source is created, not when it is sent.
+
+            MEASURED: SetCurrentProcessExplicitAppUserModelID returns 0 and the identity
+            reads back. What the toast then DISPLAYS is only verifiable by looking at one,
+            and that is the user's eyes -- see subject S11.
+        #>
+        try {
+            $null = [VigieNative.Aumid]::SetCurrentProcessExplicitAppUserModelID((Get-VigieToastIdentity))
+        } catch { TLog ("identite des notifications non posee : " + $_.Exception.Message) }
         $icon = New-Object System.Windows.Forms.NotifyIcon
         $icon.Text = (Get-Label 'tray.infobulle' $trayAccount)
 

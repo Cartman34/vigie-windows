@@ -6253,6 +6253,51 @@ function Test-InstallationPartagee {
 #>
 function Get-InstallPathDeclarationKey { 'HKLM:\SOFTWARE\Sowapps\Vigie' }
 
+<#
+    THE IDENTITY THE NOTIFICATIONS ARE SENT UNDER.
+
+    A toast carries the name of the application that raised it, not the title we wrote.
+    Ours is pwsh.exe, so every bubble said "PowerShell" (reported 07/09, subject S11).
+    Windows reads that name from a declared identity, so we declare one.
+
+    MACHINE-WIDE, AND ON PURPOSE. HKLM\SOFTWARE\Classes shows through HKEY_CLASSES_ROOT
+    for every account, so ONE key serves every session -- and the uninstall has ONE key to
+    remove. Writing it per account would mean going into the registry hive of people who
+    are not logged in, on the very day we are removing Vigie.
+#>
+function Get-VigieToastIdentity { 'Sowapps.Vigie' }
+
+function Get-VigieToastIdentityKey {
+    'HKLM:\SOFTWARE\Classes\AppUserModelId\' + (Get-VigieToastIdentity)
+}
+
+function Set-VigieToastIdentity {
+    param([string]$InstallPath)
+    $key = Get-VigieToastIdentityKey
+    try {
+        if (-not (Test-Path -LiteralPath $key)) { New-Item -Path $key -Force | Out-Null }
+        New-ItemProperty -Path $key -Name 'DisplayName' -Value 'Vigie' -PropertyType String -Force | Out-Null
+        # THE ICON IS THE DELIVERED ONE, and it is only declared when it is actually THERE:
+        # an IconUri pointing at nothing gives a notification with no image, which is worse
+        # than declaring none at all.
+        if ($InstallPath) {
+            $ico = Join-Path (Join-Path (Join-Path (Join-Path $InstallPath 'apps') 'tray') 'assets') 'ok.ico'
+            if (Test-Path -LiteralPath $ico) {
+                New-ItemProperty -Path $key -Name 'IconUri' -Value $ico -PropertyType String -Force | Out-Null
+            }
+        }
+        return $true
+    } catch { return $false }
+}
+
+function Remove-VigieToastIdentity {
+    $key = Get-VigieToastIdentityKey
+    try {
+        if (Test-Path -LiteralPath $key) { Remove-Item -LiteralPath $key -Recurse -Force -ErrorAction Stop }
+        return $true
+    } catch { return $false }
+}
+
 function Get-SharedInstallPath {
     $declared = $null
     try {

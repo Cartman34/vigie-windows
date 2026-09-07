@@ -667,6 +667,10 @@ if ($prepared) {
             # we have not filled would send everyone to an empty place.
             try { Set-InstallPathDeclaration -Path $destPartagee }
             catch { Write-Warn (Get-Label 'install.declaration-chemin-echouee' $_.Exception.Message) }
+            # AND THE IDENTITY THE NOTIFICATIONS ARE SENT UNDER, for the same reason and at
+            # the same moment: it names the delivered icon, which only exists now that the
+            # copy is done. A failure here costs a name on a bubble, never the install.
+            try { $null = Set-VigieToastIdentity -InstallPath $destPartagee } catch { }
             <#
                 AND WHERE WE CAME FROM, so that nothing ever removes it.
 

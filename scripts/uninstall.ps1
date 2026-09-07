@@ -442,6 +442,24 @@ try {
     Add-Leftover -What (Get-Label 'uninstall.reste-declaration') -How (Get-Label 'uninstall.reste-declaration-comment')
 }
 
+# --- 7c. The identity the notifications were sent under --------------------------------
+#
+# IT ONLY NAMES VIGIE, SO IT GOES WITH HER. Left behind, it would point at an icon inside a
+# folder that no longer exists. One key, machine-wide, which is exactly why it was declared
+# there rather than in each account's hive: on the day of an uninstall, most of those hives
+# belong to people who are not logged in.
+try {
+    $identKey = Get-VigieToastIdentityKey
+    if (Test-Path -LiteralPath $identKey) {
+        if (Remove-VigieToastIdentity) {
+            Write-Ok (Get-Label 'uninstall.identite-retiree')
+        } else {
+            Write-Warn (Get-Label 'uninstall.identite-reste')
+            Add-Leftover -What (Get-Label 'uninstall.reste-identite') -How (Get-Label 'uninstall.reste-identite-comment' $identKey)
+        }
+    }
+} catch { }
+
 # --- 10. What the computer itself keeps ------------------------------------------------
 #
 # THE PLACE THAT SURVIVES EVERYTHING, AND WAS FORGOTTEN. %ProgramData%\Sowapps\Vigie holds
