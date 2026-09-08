@@ -38,6 +38,7 @@ Arbitré par l'utilisateur le 06/09, et c'est **cet ordre-là** que je suis quan
 | **S08** | Deux fichiers Python subsistent | **D41** | PHP est l'outil par défaut ; Python n'est toléré qu'argumenté et délimité. Cliquet posé à 2 dans `check-naming`. |
 | **S09** | Preuves qui n'ont jamais eu lieu | — | L'installation sur un **second ordinateur** depuis la v1.0.0, l'alerte de **décharge batterie** pendant une partie, et l'export **imprimé pour de vrai**. Trois choses écrites que rien n'a encore confrontées au réel. |
 | **S10** | Un état qui oscille notifie à chaque oscillation | `apps/tray/tray.ps1` | Mesuré le 06/09 : `gaming.hogs` a basculé `ok`↔`warn` **dix fois en quarante minutes**, soit dix bulles pour une seule situation. **Tranché par l'utilisateur le 07/09** : un même champ ne notifie pas deux fois avant **dix minutes** — le répit est par notification, un autre sujet qui se dégrade pendant ce temps sort quand même. Rejoué sur la séquence réelle du 06/09 : douze bascules, cinq bulles. Ouvert jusqu'à une partie réelle. |
+| **S12** | Le numéro de version ne peut pas se publier sans session | `scripts/install.ps1` → étape du tag | Mesuré le 08/09 : le déploiement de 09 h 55 n'a posé aucun numéro, personne n'étant connecté. Le repli fait poser le tag par l'app serveur, mais **le compte de service n'a pas les identifiants git et ne peut pas les demander** : la session 0 n'a pas de bureau où afficher une invite. Publication à différer jusqu'à la première app cliente. |
 
 ## Clos
 

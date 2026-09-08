@@ -525,20 +525,22 @@ if ($aRecuperer) {
             } catch { Write-Detail (Get-Label 'vigie-update.marquage-impossible' $_.Exception.Message) }
         }
         <#
-            AND IF NOBODY ANSWERED, WE DO IT HERE.
+            NOBODY TO DELEGATE TO: THE PERSON TYPING IS THE OWNER.
 
-            Delegating assumes a LIVING client app in the requester's session. On 08/09 there
-            was none -- nobody was logged in at the hour of the deployment: the order went
-            nowhere, and the version installed itself without a number (v1.0.7-dev2 on code
-            that should have been v1.0.8). The number stopped being generated exactly when
-            nobody was there, which is the worst possible moment.
+            Run by hand, there is no requester to ask -- the account running this script owns
+            the repository, and tags it directly.
 
-            This direct path already existed for the "no requester" case; it now serves as a
-            fallback too. It is only tried AFTER the delegation, never instead of it: when
-            somebody IS there, the tag belongs in their repository, under their account
-            (D112).
+            IT IS NOT A FALLBACK FOR A FAILED DELEGATION, and it was one for a few hours on
+            08/09. When a requester exists but nothing answers, the service CANNOT stand in:
+            git refuses to write in a repository owned by somebody else (D112), and the
+            service account holds none of the credentials a push needs. Posing the tag from
+            here would fail -- and a failure hidden behind a fallback is worse than no try.
+
+            So a deployment with nobody logged in still installs without a number: that gap is
+            S12, and it closes by DEFERRING the publication to the first client app that shows
+            up, never by handing credentials to the service.
         #>
-        if (-not $tagPose) {
+        if (-not $tagPose -and -not $Requester) {
             $depotSource = Get-UpdateRemote -Backend $backend
             try {
                 $pose = New-DeploymentTag -RepoPath $depotSource -Push
