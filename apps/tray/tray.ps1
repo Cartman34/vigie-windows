@@ -167,7 +167,7 @@ public static bool Focus(System.IntPtr h) {
         $pwsh      = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
         $trayPath  = Join-Path $trayRoot 'tray.ps1'      # cette app, pas le backend
         # Starting : un demarrage a ete demande et le serveur n'a pas encore repondu.
-        $state     = [hashtable]::Synchronized(@{ Proc = $null; Drawn = ''; EverUp = $false; Starting = $true; StartTicks = [datetime]::UtcNow.Ticks; Mods = @{}; ModsInit = $false; HealthKo = 0; MachineTask = $null; ElevationAsked = $false; SaidDead = $false; Bulles = @{}; DerniereBulle = $null; NotifTicks = 0; ApiSession = $null; Present = $true })
+        $state     = [hashtable]::Synchronized(@{ Proc = $null; Drawn = ''; EverUp = $false; Starting = $true; StartTicks = [datetime]::UtcNow.Ticks; Mods = @{}; ModsInit = $false; HealthKo = 0; MachineTask = $null; ElevationAsked = $false; SaidDead = $false; Bulles = @{}; DerniereBulle = $null; NotifTicks = 0; ApiSession = $null; Present = $true; NotifPar = @{} })
         # OUR Windows session, read once: it does not change for the life of the process.
         # The console session is compared against it at every pass.
         $mySession = [System.Diagnostics.Process]::GetCurrentProcess().SessionId
@@ -1304,8 +1304,36 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                                 if (-not (Test-NotificationAllowed -ModuleId $u.unit -Key $nn.key -Settings $reglages)) { continue }
                                 # Prevenu SANS pouvoir agir : on le dit, au lieu de laisser
                                 # l'utilisateur devant un probleme qui lui echappe.
+                                <#
+                                    THE SAME FIELD DOES NOT SPEAK TWICE WITHIN TEN MINUTES.
+
+                                    Crossing a threshold is not an event by itself. During a
+                                    game, applications sit right on the CPU/GPU limit and cross
+                                    it back and forth: gaming.hogs flipped ok<->warn TEN times
+                                    in forty minutes on 06/09, so ten bubbles described one
+                                    single situation. There was already a floor of one bubble
+                                    per minute for the whole machine, but nothing stopping one
+                                    field from ringing for ever.
+
+                                    The delay is PER NOTIFICATION, not global: something else
+                                    going wrong during those ten minutes is still announced --
+                                    it is a different subject, and it deserves the interruption.
+
+                                    The reference still follows (further down, unconditionally),
+                                    so what is silenced is the bubble, never the state.
+                                #>
+                                $refNotif = "$($u.unit).$($nn.key)"
+                                $dernier = $null
+                                try { $dernier = $state.NotifPar[$refNotif] } catch { }
+                                if ($dernier -and ([datetime]::UtcNow - [datetime]$dernier).TotalMinutes -lt 10) {
+                                    # LOGGED ANYWAY: without this line, a deliberate silence
+                                    # and a broken watcher look exactly the same in the log.
+                                    TLog ("notification retenue (moins de 10 min) : " + $refNotif + " " + $avant.status + "->" + $apres.status)
+                                    continue
+                                }
+                                $state.NotifPar[$refNotif] = [datetime]::UtcNow
                                 $aPrevenir = ("$($nn.rights)" -eq 'admin' -and -not (Test-IsElevated))
-                                $bascules += [pscustomobject]@{ id = "$($u.unit).$($nn.key)"; label = "$($nn.label)"; de = $avant.status; vers = $apres.status; prevenir = $aPrevenir }
+                                $bascules += [pscustomobject]@{ id = $refNotif; label = "$($nn.label)"; de = $avant.status; vers = $apres.status; prevenir = $aPrevenir }
                             }
                         }
                         $state.Mods = $vus
