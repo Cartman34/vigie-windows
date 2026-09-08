@@ -20,7 +20,7 @@ Arbitré par l'utilisateur le 06/09, et c'est **cet ordre-là** que je suis quan
 | Ensuite | **S02** |
 | En dernier | **S01** |
 
-**S10** et **S11** sont nés le 07/09, d'une gêne signalée par l'utilisateur ; ils attendent leur rang.
+**S10** est né le 07/09, d'une gêne signalée par l'utilisateur ; il attend son rang.
 **S03** et **S09** ne se classent pas : ce sont des **preuves**, et elles demandent son geste à lui, pas mon travail.
 **S08** descend avec S07, par le même cliquet.
 
@@ -38,8 +38,9 @@ Arbitré par l'utilisateur le 06/09, et c'est **cet ordre-là** que je suis quan
 | **S08** | Deux fichiers Python subsistent | **D41** | PHP est l'outil par défaut ; Python n'est toléré qu'argumenté et délimité. Cliquet posé à 2 dans `check-naming`. |
 | **S09** | Preuves qui n'ont jamais eu lieu | — | L'installation sur un **second ordinateur** depuis la v1.0.0, l'alerte de **décharge batterie** pendant une partie, et l'export **imprimé pour de vrai**. Trois choses écrites que rien n'a encore confrontées au réel. |
 | **S10** | Un état qui oscille notifie à chaque oscillation | `probes/gaming/` | Mesuré le 06/09 : `gaming.hogs` a basculé `ok`↔`warn` **dix fois en quarante minutes**, soit dix bulles pour une seule situation. Un seuil franchi dans un sens puis dans l'autre n'est pas un événement ; il n'y a aujourd'hui ni hystérésis ni délai de confirmation. |
-| **S11** | Les bulles s'annoncent « PowerShell » | `apps/tray/tray.ps1`, `uninstall.md` ligne 7ter | `ShowBalloonTip` devient une notification Windows attribuée à l'application hôte : l'utilisateur voit *PowerShell*, pas *Vigie*. Signalé le 07/09. **Traité le 07/09** : une identité est déclarée pour la machine (`AppUserModelId\Sowapps.Vigie`, nom affiché et icône livrée) et portée par le processus avant que l'icône n'existe. Mesuré : la pose de l'identité rend 0 et se relit. **Ce que la bulle affiche ensuite ne se vérifie qu'à l'œil** — tant que personne n'en a regardé une, le sujet reste ouvert. |
 
 ## Clos
 
-*(aucun pour l'instant — un sujet réglé descend ici avec sa date et le commit qui l'a clos)*
+| N° | Sujet | Clos le | Comment |
+|----|-------|---------|---------|
+| **S11** | Les bulles s'annonçaient « PowerShell » | 07/09/2026 | Une identité déclarée pour la machine (`AppUserModelId\Sowapps.Vigie` : nom affiché et icône livrée) et portée par le processus avant que son icône n'existe — `27a2155`, maintenue à chaque passage par l'app serveur `9376ad6`. **Vu à l'écran** : la bulle porte « Vigie » et l'icône verte. |
