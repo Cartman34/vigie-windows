@@ -43,6 +43,7 @@ vivent. Il **se voit** : tant qu'il est actif, la carte prend un style dédié.
 | **Le jeu détecté** | son nom lisible, et **pourquoi** il a été reconnu — un « jeu détecté » sans justification n'est pas vérifiable |
 | **Ses ressources** | ce que la partie prend à elle seule |
 | **Les applications gourmandes** | pendant la partie seulement, avec les services Windows **annotés** comme légitimes plutôt que masqués |
+| **Ce qui appartient au jeu n'est pas une application gourmande** | ni le jeu, ni ce qui vit dans son dossier, ni les composants de la plateforme qui l'a lancée. Le 07/09, Uplay Web Core a été signalé comme intrus pendant une partie d'Odyssey : conseiller de fermer un morceau de son propre jeu est pire que se taire. On compare les **chemins**, comme l'identification, jamais les noms |
 | **L'alimentation** | secteur ou batterie, et la **baisse depuis le début de la partie** |
 | **La répartition** | un tableau unique, toutes dimensions par application, plus une ligne « autres » pour que le total reste additionnable |
 

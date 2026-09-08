@@ -429,10 +429,40 @@ if ($jeu) {
         }
     }
 
-    # Les processus freres du jeu (meme nom : lanceur, anti-triche, rendu) font partie
-    # du jeu, pas des pompeurs.
+    <# WHAT BELONGS TO THE GAME IS NOT A STRANGER.
+
+       Comparing NAMES was not enough. On 07/09, Odyssey was playing and the card reported a
+       greedy application: it was Uplay Web Core, a component of the very launcher that had
+       started the game. Telling somebody to close a piece of their own game is worse than
+       saying nothing.
+
+       So we compare PATHS, as identification does: a process living under the game's folder
+       (renderer, anti-cheat, crash handler) or under the launcher's folder (the platform's
+       own components) is PART of the session. The launcher is the parent the resident noted
+       when it recognised the game -- a fact, not a name to guess.
+
+       A folder too wide would hide everything, so a root that holds more than the game is
+       refused: no C:\, no Program Files, nothing shallower than two levels. #>
+    $family = @()
+    foreach ($chemin in @("$($jeu.Path)", "$($session.launcher)")) {
+        if (-not $chemin) { continue }
+        $folder = $null
+        try { $folder = Split-Path -Parent $chemin } catch { }
+        if (-not $folder) { continue }
+        if (($folder.Split([char]92) | Where-Object { $_ }).Count -lt 3) { continue }
+        $family += $folder.ToLower().TrimEnd('\') + '\'
+    }
+    $family = @($family | Sort-Object -Unique)
+    function Test-BelongsToGame {
+        param($Proc)
+        if ($Proc.Name -eq $jeu.Name) { return $true }
+        if (-not $Proc.Path) { return $false }
+        $target = "$($Proc.Path)".ToLower()
+        foreach ($root in $family) { if ($target.StartsWith($root)) { return $true } }
+        return $false
+    }
     $pompeurs = @(Group-ByApp ($procs.Values | Where-Object {
-        $_.Name -ne $jeu.Name -and $bruit -notcontains $_.Name
+        -not (Test-BelongsToGame -Proc $_) -and $bruit -notcontains $_.Name
     }) | Where-Object { $_.Cpu -ge $otherCpuWarn -or $_.Gpu -ge $otherGpuWarn } |
         Sort-Object { $_.Cpu + $_.Gpu } -Descending | Select-Object -First 5)
     if ($pompeurs.Count -gt 0) {
@@ -441,11 +471,11 @@ if ($jeu) {
             "- {0}{1} : CPU {2} % · GPU {3} % · VRAM {4} Go · E/S {5} Mo/s" -f $_.Label, $note, $_.Cpu, $_.Gpu, $_.VramGb, $_.IoMbs })
         $fields += New-Field -Key 'hogs' -Label 'Autres applis gourmandes' -Value ("{0} détectée(s)" -f $pompeurs.Count) `
             -Kind 'text' -Status 'warn' -FixAction 'open-task-manager' `
-            -Help "Applications qui consomment beaucoup pendant que le jeu tourne." `
+            -Help "Applications qui consomment beaucoup pendant que le jeu tourne. Les composants du jeu et de sa plateforme de lancement n'y figurent pas : ils font partie de la partie." `
             -Guide (($lignes + @('', 'Fermez ce qui n''est pas utile a la partie (JAMAIS les services Windows marqués : leur activité est normale) ; les seuils se reglent dans Parametres > Modules > Jeux.')) -join "`n")
     } else {
         $fields += New-Field -Key 'hogs' -Label 'Autres applis gourmandes' -Value 'Aucune' -Kind 'text' -Status 'ok' `
-            -Help "Aucune autre application au-dessus des seuils pendant la partie."
+            -Help "Aucune autre application au-dessus des seuils pendant la partie. Les composants du jeu et de sa plateforme de lancement ne comptent pas : ils font partie de la partie."
     }
 } elseif ($watchDown) {
     # A MISSING MEASUREMENT IS NOT AN ABSENCE OF GAME. Saying "none" when we do not know is

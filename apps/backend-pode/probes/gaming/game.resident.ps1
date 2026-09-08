@@ -57,6 +57,9 @@ function Open-GameSession {
         name       = (Get-AppDisplayName -ProcessName $Descriptor.Name -Path $Descriptor.Path -Complet)
         processId  = $Descriptor.Id
         path       = $Descriptor.Path
+        # WHO STARTED IT. Identification reads this parent to recognise a game (20-launcher);
+        # the card needs it too, to tell the platform's own components apart from strangers.
+        launcher   = $Descriptor.ParentPath
         reason     = $Verdict.Reason
         method     = $Verdict.Method
         sessionId  = $SessionId
