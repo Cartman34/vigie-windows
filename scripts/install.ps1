@@ -523,7 +523,22 @@ if ($aRecuperer) {
                 $tagPose = "$($marquage.result.tag)"
                 if (-not $tagPose) { Write-Detail (Get-Label 'vigie-update.marquage-sans-tag' "$($marquage.message)") }
             } catch { Write-Detail (Get-Label 'vigie-update.marquage-impossible' $_.Exception.Message) }
-        } else {
+        }
+        <#
+            AND IF NOBODY ANSWERED, WE DO IT HERE.
+
+            Delegating assumes a LIVING client app in the requester's session. On 08/09 there
+            was none -- nobody was logged in at the hour of the deployment: the order went
+            nowhere, and the version installed itself without a number (v1.0.7-dev2 on code
+            that should have been v1.0.8). The number stopped being generated exactly when
+            nobody was there, which is the worst possible moment.
+
+            This direct path already existed for the "no requester" case; it now serves as a
+            fallback too. It is only tried AFTER the delegation, never instead of it: when
+            somebody IS there, the tag belongs in their repository, under their account
+            (D112).
+        #>
+        if (-not $tagPose) {
             $depotSource = Get-UpdateRemote -Backend $backend
             try {
                 $pose = New-DeploymentTag -RepoPath $depotSource -Push
