@@ -1269,7 +1269,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                             if (-not $m -or -not $m.id) { continue }
                             $vus["$($m.id)"] = @{ status = "$($m.status)"; label = "$($m.label)" }
                             foreach ($c in @($m.fields)) {
-                                if ($c -and $c.key) { $vus["$($m.id)/$($c.key)"] = @{ status = "$($c.status)"; label = "$($c.label)" } }
+                                if ($c -and $c.key) { $vus["$($m.id)/$($c.key)"] = @{ status = "$($c.status)"; label = "$($c.label)"; value = "$($c.value)" } }
                             }
                         }
                     }
@@ -1333,7 +1333,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                                 }
                                 $state.NotifPar[$refNotif] = [datetime]::UtcNow
                                 $aPrevenir = ("$($nn.rights)" -eq 'admin' -and -not (Test-IsElevated))
-                                $bascules += [pscustomobject]@{ id = $refNotif; label = "$($nn.label)"; de = $avant.status; vers = $apres.status; prevenir = $aPrevenir }
+                                $bascules += [pscustomobject]@{ id = $refNotif; label = "$($nn.label)"; value = "$($apres.value)"; de = $avant.status; vers = $apres.status; prevenir = $aPrevenir }
                             }
                         }
                         $state.Mods = $vus
@@ -1343,14 +1343,41 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                             $pire  = if (@($bascules | Where-Object { $_.vers -eq 'error' }).Count) { 'error' }
                                      elseif (@($bascules | Where-Object { $_.vers -eq 'warn' }).Count) { 'warn' } else { 'ok' }
                             $tipIc = switch ($pire) { 'error' { 'Error' } 'warn' { 'Warning' } default { 'Info' } }
-                            $mot   = @{ ok = 'rétabli'; warn = 'à surveiller'; error = 'en erreur'; neutral = 'sans objet' }
-                            $texte = (@($bascules | ForEach-Object {
-                                ("{0} : {1}" -f $_.label, $mot[$_.vers]) +
-                                $(if ($_.prevenir -and $_.vers -ne 'ok') { [Environment]::NewLine + "   -> signalez-le a un administrateur" } else { '' })
-                            }) -join [Environment]::NewLine)
-                            $titre = if ($bascules.Count -eq 1) { 'Un module a changé d''état' } else { "$($bascules.Count) modules ont changé d'état" }
+                            <#
+                                THE TITLE NAMES THE SUBJECT, THE BODY SAYS THE STATE.
+
+                                Seen on screen on 09/09: "A module changed state" as the title,
+                                and the name of what changed pushed into the body. A toast is
+                                read title first, and that title was the same for every subject
+                                -- it told nobody anything. They are swapped.
+
+                                The bubble no longer opens with "Vigie" either: the header above
+                                it already carries the name and the icon since S11. Repeating it
+                                cost a third of the only line the reader is sure to see.
+
+                                And it says the MEASUREMENT. "To watch" alone sends the reader
+                                to the panel to learn what the bubble already had in hand.
+                            #>
+                            $mot   = @{ ok = (Get-Label 'tray.etat-retabli'); warn = (Get-Label 'tray.etat-a-surveiller')
+                                        error = (Get-Label 'tray.etat-en-erreur'); neutral = (Get-Label 'tray.etat-sans-objet') }
+                            if ($bascules.Count -eq 1) {
+                                $single = $bascules[0]
+                                $title = "$($single.label)"
+                                # THE MEASUREMENT LEADS when there is one -- "2 detected" says more
+                                # than "to watch" -- and the state alone gets a word to lean on, so
+                                # no line ever starts with a lowercase fragment.
+                                $body = $(if ("$($single.value)".Trim()) { (Get-Label 'tray.bulle-bascule-texte' "$($single.value)" $mot[$single.vers]) }
+                                           else { (Get-Label 'tray.bulle-bascule-etat' $mot[$single.vers]) })
+                                if ($single.prevenir -and $single.vers -ne 'ok') { $body += [Environment]::NewLine + (Get-Label 'tray.bulle-bascule-admin') }
+                            } else {
+                                $title = (Get-Label 'tray.bulle-bascules-titre' $bascules.Count)
+                                $body = (@($bascules | ForEach-Object {
+                                    (Get-Label 'tray.bulle-bascule-ligne' $_.label $mot[$_.vers]) +
+                                    $(if ($_.prevenir -and $_.vers -ne 'ok') { [Environment]::NewLine + (Get-Label 'tray.bulle-bascule-admin') } else { '' })
+                                }) -join [Environment]::NewLine)
+                            }
                             TLog ("notification : " + (@($bascules | ForEach-Object { "$($_.id) $($_.de)->$($_.vers)" }) -join ', '))
-                            & $dire -Titre $titre -Texte $texte -Icone $tipIc -Duree 6000
+                            & $dire -Titre $title -Texte $body -Icone $tipIc -Duree 6000
                         }
                     }
                 }
