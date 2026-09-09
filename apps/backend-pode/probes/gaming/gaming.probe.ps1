@@ -461,15 +461,25 @@ if ($jeu) {
         foreach ($root in $family) { if ($target.StartsWith($root)) { return $true } }
         return $false
     }
-    $pompeurs = @(Group-ByApp ($procs.Values | Where-Object {
+    $greedy = @(Group-ByApp ($procs.Values | Where-Object {
         -not (Test-BelongsToGame -Proc $_) -and $bruit -notcontains $_.Name
     }) | Where-Object { $_.Cpu -ge $otherCpuWarn -or $_.Gpu -ge $otherGpuWarn } |
-        Sort-Object { $_.Cpu + $_.Gpu } -Descending | Select-Object -First 5)
+        Sort-Object { $_.Cpu + $_.Gpu } -Descending)
+    $pompeurs = @($greedy | Select-Object -First 5)
     if ($pompeurs.Count -gt 0) {
         $lignes = @($pompeurs | ForEach-Object {
             $note = if ($servicesWindows -contains $_.Name) { " [service Windows légitime — ne pas fermer]" } else { "" }
             "- {0}{1} : CPU {2} % · GPU {3} % · VRAM {4} Go · E/S {5} Mo/s" -f $_.Label, $note, $_.Cpu, $_.Gpu, $_.VramGb, $_.IoMbs })
-        $fields += New-Field -Key 'hogs' -Label 'Autres applis gourmandes' -Value ("{0} détectée(s)" -f $pompeurs.Count) `
+        <# A COUNT NAMES NOBODY. "2 detected" forced a trip to the panel to learn WHICH two,
+           and a notification is often read without opening anything. The list is already
+           ordered by consumption, so the first name is the one worth acting on; beyond two,
+           the rest become a number rather than a sentence nobody finishes reading. #>
+        $who = switch ($greedy.Count) {
+            1       { "$($greedy[0].Court)" }
+            2       { "{0} et {1}" -f $greedy[0].Court, $greedy[1].Court }
+            default { "{0} et {1} autres" -f $greedy[0].Court, ($greedy.Count - 1) }
+        }
+        $fields += New-Field -Key 'hogs' -Label 'Autres applis gourmandes' -Value $who `
             -Kind 'text' -Status 'warn' -FixAction 'open-task-manager' `
             -Help "Applications qui consomment beaucoup pendant que le jeu tourne. Les composants du jeu et de sa plateforme de lancement n'y figurent pas : ils font partie de la partie." `
             -Guide (($lignes + @('', 'Fermez ce qui n''est pas utile a la partie (JAMAIS les services Windows marqués : leur activité est normale) ; les seuils se reglent dans Parametres > Modules > Jeux.')) -join "`n")
