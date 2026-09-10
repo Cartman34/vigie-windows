@@ -1,7 +1,8 @@
 # Les notifications de bureau — une porte, plusieurs outils
 
 Besoin : `features.md`, entrée `CORE-NOTIFY`. Voisin : [surveillance.md](surveillance.md), qui décrit **ce qui**
-déclenche une notification — cette page ne parle que de la **montrer**.
+déclenche une notification — cette page ne parle que de la **montrer**. Ce qui a été essayé et ce que chaque essai a
+répondu : [`notes/2026-09-10-notifications-quelle-api-est-atteignable.md`](../../../notes/2026-09-10-notifications-quelle-api-est-atteignable.md).
 
 ## Le manque
 
@@ -35,8 +36,8 @@ montrer ceci ?* Le premier qui montre gagne, on s'arrête là.
 
 | Rang | Outil | Ce qu'il donne | Ce qu'il exige |
 |------|-------|----------------|----------------|
-| **20** | `Windows.UI.Notifications`, activée par COM | l'icône de Vigie en 256 pixels, texte long, boutons | rien — l'API est dans Windows ; reste à éprouver que la porte COM s'ouvre depuis PowerShell 7 |
-| **40** | la même API, par un `powershell.exe` | la même chose | un processus fils par notification ; **éprouvé le 09/09** |
+| **20** | `Windows.UI.Notifications`, activée par COM | l'icône de Vigie en 256 pixels, texte long, boutons | rien — l'API est dans Windows. **Porte ouverte le 10/09** : fabrique, notificateur et document obtenus depuis PowerShell 7, en parcourant les tables de méthodes à la main. Jamais encore affichée depuis l'app cliente |
+| **40** | la même API, par un `powershell.exe` | la même chose | un processus fils par notification ; **vu à l'écran le 10/09**, c'est ce rang qui a montré les icônes colorées |
 | **60** | `AppNotificationManager` du Windows App SDK | la même chose, avec l'API que Microsoft recommande | le runtime du SDK, à vérifier **à l'installation** et à faire installer si besoin — jamais à découvrir au moment d'afficher |
 | **90** | `ShowBalloonTip` | deux lignes et un glyphe système | rien, et c'est sa raison d'être |
 

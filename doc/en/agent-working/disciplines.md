@@ -426,6 +426,27 @@ propagé, et elle n'a plus émis une notification pendant quatre jours sans que 
 **Ce qu'il faut se demander à chaque fois :** qu'est-ce que cette demande dit du modèle ? Si elle ne rentre qu'en
 forçant, c'est le modèle qu'elle met en cause — pas elle.
 
+## Une décision tranchée sur des mesures dépose ses mesures
+
+**Reproche de l'utilisateur, le 10/09 : « tu ne remplis pas bien `notes/`, tu n'y mets pas
+les preuves de décisions ».** Fondé. Entre le 01/09 et le 10/09, ce dossier n'a rien reçu
+alors que quatre décisions ont été prises sur des relevés — le plafond des commentaires
+français, le renommage des tâches, la chaîne de notification, le repli des noms de
+constructeurs. Les chiffres vivaient dans des messages de commit et dans un dossier
+temporaire effacé à la fin de la séance.
+
+**Ce qui se dépose dans `notes/`, le jour où c'est mesuré :** le relevé qui a tranché, avec
+ce qui a été essayé, ce que chaque essai a répondu, et **ce qui n'a PAS été vérifié**. Ce
+dernier point est le plus utile des trois : c'est lui qui empêche de croire, six mois plus
+tard, qu'un chemin de repli a été éprouvé alors qu'il n'a jamais été emprunté.
+
+**`decisions.md` porte le quoi et le pourquoi**, et renvoie à la note. Y recopier trois
+tableaux de mesures l'alourdirait sans le rendre plus vrai.
+
+**Ce qui ne va PAS dans `notes/` :** un registre. `subjects.md`, `targeting/`,
+`implemented/` s'**écrasent** quand l'état change, alors qu'une note reste vraie pour sa
+date. La question n'est pas « est-ce daté ? » mais « est-ce que cela s'écrase ou est-ce que
+cela s'empile ? ».
 ## Chercher avant de concevoir
 
 **La source de vérité, c'est `doc/progress/decisions.md`** — les arbitrages, rien d'autre. Avant de concevoir quoi que
