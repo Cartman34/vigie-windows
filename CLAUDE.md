@@ -7,7 +7,7 @@ le dépôt, jamais ici.
 
 ## À faire, dans cet ordre
 
-1. **Lire `doc/en/agent-working/briefing.md`, et appliquer ce qu'il dit.** C'est le point
+1. **Lire `doc/agent-working/briefing.md`, et appliquer ce qu'il dit.** C'est le point
    d'entrée du projet, quel que soit l'agent. Il ouvre une chaîne — disciplines,
    décisions, conception — dont chaque maillon oblige au suivant.
 2. **Au retour d'une compression de contexte**, avant toute conclusion, toute suppression

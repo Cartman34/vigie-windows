@@ -61,7 +61,7 @@ plus tard sans rien casser ; une declaration, elle, cree la dette.
 - **Le francais est la langue MAITRESSE de la documentation utilisateur.** Une page de `fr/` s'ecrit ou se corrige
   D'ABORD ; son equivalent de `en/` est mis a jour dans la foulee, jamais l'inverse. En cas de divergence, `fr/` fait
   foi. Idem pour les deux README de racine : `README.fr.md` mene, `README.md` suit.
-- Ne relevent pas de cette regle les documents qui n'existent qu'en anglais (`en/developing/`, `en/agent-working/`) ni
+- Ne relevent pas de cette regle les documents qui n'existent qu'en anglais (`en/developing/`, `agent-working/`) ni
   ceux qui n'existent qu'en francais (`progress/`) : sans jumeau, pas de maitre.
 
 ## Arborescence et nommage

@@ -7,10 +7,10 @@
 > quand on hésite : chaque section vient d'un manquement réel, et la relire après coup ne
 > répare rien. Une discipline qu'on n'a pas lue s'applique quand même.
 >
-> Il oblige à son tour : les **arbitrages** vivent dans `../../progress/decisions.md` et
+> Il oblige à son tour : les **arbitrages** vivent dans `../progress/decisions.md` et
 > s'imposent (voir « Chercher avant de concevoir ») ; la **conception** vit dans
-> `../../progress/targeting/` — ce que le produit doit faire — et
-> `../../progress/implemented/` — ce qui est en place.
+> `../progress/targeting/` — ce que le produit doit faire — et
+> `../progress/implemented/` — ce qui est en place.
 
 ## Langue & encodage
 - Échanges **en français** ; code **entièrement en anglais**.
@@ -152,7 +152,7 @@ ce qui fait passer un programme qui avance pour un programme figé (constaté le
 journal ne suffit pas, on **améliore celui-là**.
 
 **Déboguer suit une démarche ÉCRITE, pas un souvenir.** Elle vit dans
-[`doc/en/developing/debugging.md`](../developing/debugging.md) et s'exécute avec `scripts/dev/debug.ps1`. La veille,
+[`doc/en/developing/debugging.md`](../en/developing/debugging.md) et s'exécute avec `scripts/dev/debug.ps1`. La veille,
 je savais faire ; le lendemain, j'improvisais une ligne de commande bâtarde. Une démarche qui revient est un script.
 
 **Une installation se DEMANDE, jamais elle ne se lance d'elle-même.** Le message qui la propose porte d'abord les
@@ -177,7 +177,7 @@ d'inattendu, ce qui reste ouvert, et ce qu'il doit décider.
 qu'il avait besoin de lire.*
 
 **UN SUJET OUVERT SE DÉSIGNE PAR SON NUMÉRO — `S01`, `S02`…** Le registre est
-[`notes/subjects.md`](../../../notes/subjects.md). Je lui parlais de `CORE-UPDATE-TRUST` : c'est un identifiant
+[`notes/subjects.md`](../../notes/subjects.md). Je lui parlais de `CORE-UPDATE-TRUST` : c'est un identifiant
 de fonctionnalité, écrit pour un fichier de spécification, pas pour une conversation — long, en anglais, et il oblige à
 aller le chercher pour savoir de quoi on parle. Un numéro court se retient, se cite en passant, et sert de titre à un
 message. Un sujet qui n'a pas de numéro en reçoit un **avant** que je lui en parle ; un numéro ne se réutilise jamais,

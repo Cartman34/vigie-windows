@@ -31,7 +31,7 @@ Ils sont livrés avec le dépôt, **pas** avec l'archive de distribution : les l
 ci-dessous mènent donc à GitHub.
 
 - [`doc/progress/decisions.md`](https://github.com/Cartman34/vigie-windows/blob/main/doc/progress/decisions.md) — chaque décision tranchée, numérotée `D01`…
-- [`doc/en/agent-working/briefing.md`](https://github.com/Cartman34/vigie-windows/blob/main/doc/en/agent-working/briefing.md) — où en est le projet, et la suite
+- [`doc/agent-working/briefing.md`](https://github.com/Cartman34/vigie-windows/blob/main/doc/agent-working/briefing.md) — où en est le projet, et la suite
 - [`CHANGELOG.md`](../../CHANGELOG.md) — historique des changements
 - [`doc/progress/targeting/features.md`](https://github.com/Cartman34/vigie-windows/blob/main/doc/progress/targeting/features.md) — fonctionnalités cibles, par ID
 - [`doc/progress/implemented/status.md`](https://github.com/Cartman34/vigie-windows/blob/main/doc/progress/implemented/status.md) — ce qui est réellement fait, par ID

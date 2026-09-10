@@ -111,7 +111,7 @@ $EXCLUSIONS = @(
     @{ Motif = '^doc/archives/'
        Raison = "Ce qui est révolu, gardé pour la trace : historiques de conception, migration terminée, maquettes validées." }
 
-    @{ Motif = '^doc/en/agent-working/'
+    @{ Motif = '^doc/agent-working/'
        Raison = "Briefing et disciplines de l'agent qui travaille sur le dépôt. Sans objet pour qui utilise Vigie." }
 
     @{ Motif = '^doc/en/developing/security-review\.md$'

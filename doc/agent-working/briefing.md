@@ -185,7 +185,7 @@ sondes d'un côté · gestionnaires de paquets et backend de l'autre · document
 
 ### Ce qu'un brief doit contenir, sans exception
 
-1. **Où lire** — `doc/en/agent-working/briefing.md` puis les décisions précises (`D15`, `D43`, `D47`…), pas
+1. **Où lire** — `doc/agent-working/briefing.md` puis les décisions précises (`D15`, `D43`, `D47`…), pas
    « lis la doc ».
 2. **Le sujet, un seul**, avec le modèle existant à copier quand il y en a un (« étudie
    `wu-list-pending.action.ps1` avant d'écrire »).

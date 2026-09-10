@@ -23,7 +23,7 @@ ligne — `scripts/dev/check-doc.ps1` refuse une décision absente d'ici.
 
 - **Identité et nommage** — D03 · D04 · D05 · D28 · D30 · D41 · D72 · D108 · D115
 - **Structure du dépôt** — D29 · D32 · D33 · D35 · D55
-- **Documentation** — D91 · D92 · D93 · D98
+- **Documentation** — D91 · D92 · D93 · D98 · D119
 - **Configuration** — D15 · D18 · D56 · D57
 - **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46 · D48 · D49 · D50 · D58 · D59 · D66 · D68 · D69 · D70 · D71 · D88 · D89 · D94 · D95 · D102 · D105 · D114
 - **Installation, déploiement et mise à jour** — D07 · D11 · D22 · D77 · D78 · D79 · D81 · D84 · D87 · D96 · D97 · D99 · D101 · D106 · D107 (revu) · D110 · D112 · D117
@@ -204,7 +204,7 @@ un chemin de machine n'a rien à faire dans le code.
 Une fois tous les postes migrés, ce fichier peut être supprimé : les anciens noms
 disparaissent alors avec lui.
 
-## D12 — `doc/en/agent-working/briefing.md` décrit l'environnement réel
+## D12 — `doc/agent-working/briefing.md` décrit l'environnement réel
 
 *Demandée par l'utilisateur.*
 
@@ -571,7 +571,7 @@ mesurées, pas des préférences :
    sonde ferait **~4,2 s** de pur démarrage par rafraîchissement complet ; aujourd'hui
    `/health` répond en **65 ms** dans un runtime déjà chaud.
 
-Documenté dans `README.md`, `doc/en/agent-working/briefing.md` et `apps/atelier/README.md`.
+Documenté dans `README.md`, `doc/agent-working/briefing.md` et `apps/atelier/README.md`.
 
 **Règle de travail associée** : en cas de doute sur l'appartenance d'un composant à l'une ou
 l'autre brique, **demander à l'utilisateur avec une suggestion** plutôt que de trancher seul.
@@ -973,7 +973,7 @@ premier. Pas de récit de l'enquête, pas de justification de la méthode, pas d
 qui a déjà été dit.
 
 Le détail — cause, mesure, raisonnement — va dans le **dépôt** : décision, commentaire de
-code, ou entrée de `doc/en/agent-working/briefing.md`. C'est là qu'il survit et qu'on le retrouve ; dans un
+code, ou entrée de `doc/agent-working/briefing.md`. C'est là qu'il survit et qu'on le retrouve ; dans un
 message, il se lit une fois puis se perd.
 
 Une phrase de plus n'est justifiée que si elle change une décision de l'utilisateur : un
@@ -2451,7 +2451,7 @@ qu'on ouvre déjà pour une autre raison.
 *Demandée par l'utilisateur.*
 
 `SUIVI.md` et `PRISE-EN-MAIN.md` vivaient à la racine. Le premier ne contenait plus qu'une phrase disant qu'il n'était
-plus tenu à jour et renvoyant ailleurs. Le second dupliquait le rôle de `doc/en/agent-working/briefing.md` avec un
+plus tenu à jour et renvoyant ailleurs. Le second dupliquait le rôle de `doc/agent-working/briefing.md` avec un
 contenu périmé : `backend/start.ps1` qui n'existe plus, l'ouverture du front en `file://` que **D47** interdit, un
 `Install-Module Pode -Scope CurrentUser` que **D79** contredit, et une dépendance à `LocalAgentAdmin`. Une doc fausse
 est pire qu'une doc absente : elle est suivie.
@@ -3051,7 +3051,7 @@ on n'a pas le choix que de faire un mapping. Mais pas codé en dur, maintenable 
 comme il veut : le 10/09, sur 49 mises à jour, **seize orthographes pour douze constructeurs** — Intel en trois piles,
 Realtek en deux, Microsoft en deux. Regrouper sur la chaîne brute laissait vingt-et-une mises à jour Intel éclatées.
 Le relevé complet, et ce qui n'a pas été vérifié :
-[`notes/proofs/2026-09-10-fournisseurs-windows-update-16-orthographes.md`](../../notes/proofs/2026-09-10-fournisseurs-windows-update-16-orthographes.md).
+[`notes/proofs/2026-09-10-windows-update-vendor-spellings.md`](../../notes/proofs/2026-09-10-windows-update-vendor-spellings.md).
 
 **Ce que je refusais, et pourquoi j'avais tort.** J'ai opposé **D64** — on juge sur des faits, jamais sur une liste de
 noms à maintenir. D64 interdit de **décider** d'après un nom : reconnaître un jeu, fermer une application. Il ne dit
@@ -3074,3 +3074,45 @@ invention**, et c'est exactement ce que la table pourrait devenir si on la laiss
 
 **Ce qui est affiché n'est jamais fabriqué.** Le nom montré est celui de la table, ou une orthographe réellement vue —
 en préférant une casse mixte au cri, sans quoi le groupe Intel s'annonçait « INTEL ».
+
+## D119 — La documentation se parcourt par ses index, et une décision se prouve (2026-09-10)
+
+*Cinq exigences énoncées par l'utilisateur le 10/09, à la suite de l'arbitrage sur `notes/`.*
+
+**Ce qui a été mesuré avant d'agir** :
+[`notes/proofs/2026-09-10-documentation-audit.md`](../../notes/proofs/2026-09-10-documentation-audit.md).
+Une décision prouvée sur cent vingt-cinq, sept dossiers de documentation sans index, et deux
+documents français logés dans le dossier `en/`.
+
+**Un dossier, un index.** Chaque dossier de documentation porte un `README.md` qui référence
+**tout ce qu'il contient**. C'est lui le point d'entrée du dossier, et c'est par lui qu'on
+parcourt le chemin. Sept en manquaient ; ils sont posés.
+
+**On ne multiplie pas les renvois entre fichiers.** Un renvoi se justifie, il ne se sème pas.
+Un dossier sans index pousse mécaniquement chaque document à citer ses voisins pour combler
+le manque — l'index enlève ce besoin, et les renvois restants doivent être **dosés**.
+
+**Une section se désigne par son nom, jamais par un numéro.** On cite un chemin de noms de
+sections, pas « voir le chapitre 5 » : la numérotation se décale dès qu'on insère quelque
+chose, et le renvoi devient faux sans que rien ne le signale.
+
+**Ce qui ne se traduit pas vit en dehors des dossiers de langue.** `doc/progress/` et
+`doc/agent-working/` sont **en français**, la langue du projet, et ne s'adressent ni à
+l'utilisateur ni au public. `agent-working/` était logé sous `en/` et y écrivait du
+français ; il remonte d'un cran. Chaque `README.md` de ces deux dossiers dit sa langue.
+
+**Un nom de fichier est technique, donc TOUJOURS en anglais** — les documents compris, et
+les preuves datées comprises. La discipline disait « un nom de fichier est du code », puis
+« les documents restent en français » en parlant du contenu ; la seconde phrase se lisait
+comme parlant du nom, et je l'ai lue ainsi le matin même en créant trois preuves aux noms
+français. Elles ont été renommées.
+
+**Tout doit être prouvé — pour une décision, c'est obligatoire.** Un arbitrage tranché sur
+des chiffres dépose ces chiffres dans `notes/proofs/` et y renvoie. `decisions.md` garde le
+**quoi** et le **pourquoi** ; il n'a pas à porter les tableaux de mesures.
+
+`scripts/dev/check-decisions.ps1` le tient, en cliquet : les 124 entrées non prouvées ne
+peuvent que diminuer, ce qui rend toute décision **nouvelle** obligatoirement prouvée — le
+plafond n'a plus de marge. Il refuse aussi une preuve **citée mais absente**, qui donnerait
+l'apparence du sérieux à une affirmation que rien ne soutient. Les anciennes entrées gagnent
+leur preuve quand on passe à côté, jamais en campagne dédiée.
