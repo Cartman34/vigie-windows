@@ -36,6 +36,11 @@ try {
         try { if ($u.DriverClass)  { $classe = "$($u.DriverClass)" } } catch { }
         $dateP = ''
         try { if ($u.DriverVerDate) { $dateP = ([datetime]$u.DriverVerDate).ToString('yyyy-MM-dd') } } catch { }
+        # THE PROVIDER COMES FROM THE DATA, never from the title. Driver titles start with
+        # the maker, a security fix's title does not: reading the name out of the text would
+        # work forty-eight times out of forty-nine, which is the worst possible ratio.
+        $provider = ''
+        try { if ($u.DriverProvider) { $provider = "$($u.DriverProvider)" } } catch { }
         $updates += [ordered]@{
             id        = "$($u.Identity.UpdateID)"
             titre     = "$($u.Title)"
@@ -45,6 +50,8 @@ try {
             modele    = $modele
             classe    = $classe
             dateP     = $dateP
+            provider  = $provider
+            groupe    = ''
             telecharge = [bool]$u.IsDownloaded
         }
     }
@@ -53,6 +60,28 @@ try {
         message = "Impossible de lire la liste : $($_.Exception.Message)"
         result  = @{ ok = $false }
     }
+}
+
+<#
+    THE GROUP IS COMPUTED ONCE THE LIST IS COMPLETE, never line by line: a maker's label
+    depends on ALL the spellings seen for it. Intel writes itself three ways here, and only
+    with all three in hand can "Intel Corporation" be preferred over "INTEL", which shouts.
+
+    What is not a driver has no maker: it is Windows itself, and that forms its own group
+    (D118).
+#>
+$seenByKey = @{}
+foreach ($line in $updates) {
+    if (-not $line.pilote -or -not "$($line.provider)".Trim()) { continue }
+    $key = Get-VendorKey "$($line.provider)"
+    if (-not $seenByKey.ContainsKey($key)) { $seenByKey[$key] = @() }
+    $seenByKey[$key] += "$($line.provider)"
+}
+foreach ($line in $updates) {
+    if (-not $line.pilote) { $line.groupe = 'Windows'; continue }
+    $key = Get-VendorKey "$($line.provider)"
+    $line.groupe = $(if ($key) { Get-VendorName -Key $key -Seen $seenByKey[$key] -Backend $backend }
+                     else { 'Pilotes sans constructeur déclaré' })
 }
 
 # Le verrouillage des taches (Mode MAJ) empeche l'installation : on le DIT ici plutot que

@@ -29,7 +29,7 @@ ligne — `scripts/dev/check-doc.ps1` refuse une décision absente d'ici.
 - **Installation, déploiement et mise à jour** — D07 · D11 · D22 · D77 · D78 · D79 · D81 · D84 · D87 · D96 · D97 · D99 · D101 · D106 · D107 (revu) · D110 · D112 · D117
 - **Sécurité, droits et multi-comptes** — D34 · D65 · D67 · D73 · D104 · D109
 - **Sondes, actions et tâches de fond** — D50bis · D53 · D54 · D60 · D61 · D80 · D82 · D83 · D85 · D113
-- **Outillage** — D06 · D21 · D24 · D40 · D44 · D47 · D52 · D64 · D75 · D86 · D90 · D116
+- **Outillage** — D06 · D21 · D24 · D40 · D44 · D47 · D52 · D64 · D75 · D86 · D90 · D116 · D118
 - **Méthode de travail** — D10 · D12 · D13 · D14 · D16 · D17 · D31 · D36 · D39 · D43 · D51 · D62 · D63 · D74 · D76 · D100 · D103
 ---
 
@@ -3040,3 +3040,35 @@ parce qu'elle était bloquée, la tâche de `fhaza` s'appelait toujours `Vigie` 
 convention qui ne s'applique qu'aux choses cassées n'est pas une convention. Le renommage se fait donc **avant le
 diagnostic**, sur la seule foi du nom (`Rename-VigieLegacyTask`), et la réparation le retente si ce premier passage a
 échoué. L'ordre ne bouge pas : la nouvelle naît avant que l'ancienne meure.
+
+## D118 — Une table de correspondance est permise, à condition qu'elle soit le dernier recours (2026-09-10)
+
+*Demandée par l'utilisateur : « je pense qu'il ne faut pas t'empêcher de faire une liste de correspondance, tu dois
+faire autant que possible sans mais si des logiciels ont déclarés un nom vraiment différent pour le même constructeur,
+on n'a pas le choix que de faire un mapping. Mais pas codé en dur, maintenable sur le repos avec son propre fichier. »*
+
+**Ce qui a amené la question.** Windows Update rend le fournisseur de chaque pilote, et le même constructeur s'y écrit
+comme il veut : le 10/09, sur 49 mises à jour, **seize orthographes pour douze constructeurs** — Intel en trois piles,
+Realtek en deux, Microsoft en deux. Regrouper sur la chaîne brute laissait vingt-et-une mises à jour Intel éclatées.
+
+**Ce que je refusais, et pourquoi j'avais tort.** J'ai opposé **D64** — on juge sur des faits, jamais sur une liste de
+noms à maintenir. D64 interdit de **décider** d'après un nom : reconnaître un jeu, fermer une application. Il ne dit
+rien du cas où l'on ne décide de rien, où l'on se contente de **ranger côte à côte** deux étiquettes qui désignent la
+même chose. Une liste bien tenue est alors la seule réponse possible : aucun traitement de texte ne devinera jamais
+que Nahimic et A-Volute sont un seul constructeur.
+
+**Décision.** Deux étages, et l'ordre est la règle :
+
+1. **Le repli mécanique d'abord**, qui ne sait rien et ne peut donc pas se tromper sur une marque : majuscules,
+   décorations et ponctuation retirées, puis les suffixes de forme juridique **en fin de nom uniquement**. C'est lui
+   qui replie les trois Intel, et rien n'a besoin d'être écrit pour cela.
+2. **La table ensuite, pour ce qui reste** : `config/vendor-names.json`, un fichier du dépôt, jamais du code. Chaque
+   entrée porte **sa raison et sa source**, et se relit. Elle se range par clé mécanique : celui qui la tient y recopie
+   le nom tel qu'il le voit, le code s'occupe du reste.
+
+**Ce qui n'y entre pas.** Une orthographe que l'étage mécanique replie déjà — l'y écrire ferait croire qu'elle est un
+cas difficile. Et une correspondance qu'on croit vraie sans pouvoir la montrer : **une entrée sans source est une
+invention**, et c'est exactement ce que la table pourrait devenir si on la laissait faire.
+
+**Ce qui est affiché n'est jamais fabriqué.** Le nom montré est celui de la table, ou une orthographe réellement vue —
+en préférant une casse mixte au cri, sans quoi le groupe Intel s'annonçait « INTEL ».

@@ -1,0 +1,34 @@
+{
+  "lisez-moi": [
+    "Les noms de constructeurs qu'aucune règle mécanique ne peut rapprocher.",
+    "",
+    "Vigie replie d'abord les orthographes SANS RIEN SAVOIR : majuscules, ponctuation et",
+    "suffixes de forme juridique retirés. « INTEL », « Intel Corporation » et",
+    "« Intel(R) Corporation » tombent ainsi sur la même clé, et rien n'a besoin d'être écrit ici.",
+    "",
+    "Ce fichier ne sert qu'au cas restant : deux noms VRAIMENT différents pour le même",
+    "constructeur, qu'aucun traitement de texte ne rapprochera jamais. Chaque entrée dit",
+    "d'où elle vient, et se relit. Décision : D118.",
+    "",
+    "Une entrée se lit : le nom TEL QU'IL SORT DE WINDOWS, le nom retenu, la raison, la source.",
+    "La casse et la ponctuation n'ont pas d'importance ici : le code replie la clé comme il replie le reste.",
+    "Le nom retenu est celui du constructeur aujourd'hui, pas celui de la marque du produit.",
+    "",
+    "Ce qui n'a PAS sa place ici : une orthographe que la règle mécanique replie déjà, et",
+    "une correspondance qu'on croit vraie sans pouvoir la montrer."
+  ],
+  "noms": {
+    "A-VOLUTE": {
+      "nom": "SteelSeries",
+      "pourquoi": "A-Volute est la société qui a développé le logiciel audio Nahimic ; SteelSeries l'a rachetée en 2020, et Nahimic est depuis une marque de SteelSeries. Les deux noms sortent de Windows Update pour le même constructeur.",
+      "source": "https://www.techpowerup.com/265472/steelseries-acquires-nahimic-maker-audio-software-leader-a-volute",
+      "vu": "2026-09-10"
+    },
+    "NAHIMIC": {
+      "nom": "SteelSeries",
+      "pourquoi": "Nahimic est la marque logicielle d'A-Volute, devenue une marque de SteelSeries après le rachat de 2020. Vue le 10/09 sur trois pilotes, à côté de deux pilotes « A-Volute ».",
+      "source": "https://www.techpowerup.com/265472/steelseries-acquires-nahimic-maker-audio-software-leader-a-volute",
+      "vu": "2026-09-10"
+    }
+  }
+}

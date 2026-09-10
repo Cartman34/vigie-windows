@@ -6328,6 +6328,91 @@ function Remove-VigieToastIdentity {
 }
 
 <#
+    THE MAKER'S NAME, WHEN THE MAKER SPELLS IT SEVERAL WAYS.
+
+    Windows Update hands out the provider of each driver, and the same company writes
+    itself as it pleases: "INTEL", "Intel Corporation" and "Intel(R) Corporation" were
+    three separate piles for twenty-one updates on 10/09, out of sixteen spellings for
+    twelve makers.
+
+    TWO STAGES, AND THE ORDER MATTERS. First a mechanical fold, which knows nothing and
+    cannot be wrong about a brand: upper case, decorations and punctuation dropped, then
+    the legal-form suffixes at the END of the name only -- "Corp" inside a name stays.
+    Only what survives that reaches the second stage, config/vendor-names.json, a written
+    table for the case no text processing will ever solve: two genuinely different names
+    for one maker (D118).
+
+    The label shown is never a manufactured string: either the table's name, or a spelling
+    actually seen -- mixed case preferred over shouting, then the most frequent.
+#>
+$script:VendorSuffixes = @('CORPORATION', 'CORP', 'INCORPORATED', 'INC', 'LIMITED', 'LTD',
+                           'COMPANY', 'CO', 'GMBH', 'AG', 'AB', 'SA', 'BV', 'NV', 'LLC', 'PLC',
+                           'TECHNOLOGY', 'TECHNOLOGIES', 'SEMICONDUCTOR', 'SEMICONDUCTORS',
+                           'SYSTEMS', 'ELECTRONICS', 'SOFTWARE')
+
+function Get-VendorKey {
+    param([string]$Name)
+    if (-not "$Name".Trim()) { return '' }
+    $key = "$Name".ToUpperInvariant()
+    $key = $key -replace '\((R|TM|C)\)', ' '
+    $key = $key -replace '[^A-Z0-9]+', ' '
+    $key = ($key -replace '\s+', ' ').Trim()
+    # SUFFIXES STACK: "Co.,Ltd" carries two. We strip while there are any, and never empty
+    # the name doing so -- "Technology Ltd" must stay TECHNOLOGY.
+    $again = $true
+    while ($again) {
+        $again = $false
+        foreach ($suffix in $script:VendorSuffixes) {
+            $shorter = $key -replace ('\s+' + $suffix + '$'), ''
+            if ($shorter -ne $key -and $shorter.Trim()) { $key = $shorter.Trim(); $again = $true }
+        }
+    }
+    $key
+}
+
+function Get-VendorTable {
+    param([string]$Backend = (Get-BackendRoot))
+    if ($null -ne $script:VendorTable) { return $script:VendorTable }
+    $script:VendorTable = @{}
+    $file = Join-Path (Join-Path (Split-Path (Split-Path $Backend -Parent) -Parent) 'config') 'vendor-names.json'
+    if (Test-PathSafe $file) {
+        try {
+            $read = Get-Content -LiteralPath $file -Raw -Encoding UTF8 | ConvertFrom-Json
+            foreach ($entry in @($read.noms.PSObject.Properties)) {
+                # THE TABLE IS INDEXED BY THE FOLDED KEY, not by what is written. Whoever
+                # keeps this file copies the name AS THEY SEE IT; folding it is the code's
+                # job, exactly as it folds what comes from Windows. Hand-written "A-Volute"
+                # matched nothing, the key being "A VOLUTE" (10/09).
+                if ("$($entry.Value.nom)".Trim()) { $script:VendorTable[(Get-VendorKey $entry.Name)] = "$($entry.Value.nom)" }
+            }
+        } catch { }
+    }
+    $script:VendorTable
+}
+
+function Get-VendorName {
+    param(
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Key,
+        [string[]]$Seen = @(),
+        [string]$Backend = (Get-BackendRoot)
+    )
+    $table = Get-VendorTable -Backend $Backend
+    if ($Key -and $table.ContainsKey($Key)) { return $table[$Key] }
+    $candidates = @($Seen | Where-Object { "$_".Trim() })
+    if (-not $candidates.Count) { return $Key }
+    # A SPELLING ACTUALLY SEEN, never a manufactured string. "INTEL" is the most frequent
+    # one here and it SHOUTS: at equal information, mixed case wins.
+    $best = $candidates | Group-Object | ForEach-Object {
+        [pscustomobject]@{
+            Nom   = $_.Name
+            Crie  = [bool]($_.Name -cmatch '^[^a-z]+$')
+            Vues  = $_.Count
+            Long  = $_.Name.Length
+        }
+    } | Sort-Object Crie, @{ Expression = 'Vues'; Descending = $true }, Long
+    @($best)[0].Nom
+}
+<#
     THE NOTIFICATION DOOR -- conception : doc/progress/targeting/notifications.md.
 
     The client app describes an EVENT and never an display: a subject, a state, a text and

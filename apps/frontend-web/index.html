@@ -669,6 +669,19 @@
         color:var(--muted);margin-bottom:2px}
   .cf-c{font-size:13px;line-height:1.5}
   .hds-choices{display:flex;flex-direction:column;gap:2px}
+  /* Un GROUPE (D118) : un repli par constructeur. L'en-tete porte de quoi decider sans
+     l'ouvrir -- le nom, le nombre, le poids -- et sa case coche tout le groupe. */
+  .hds-grp{border:1px solid var(--border);border-radius:8px;margin-bottom:4px;overflow:hidden}
+  .hds-grp-h{display:flex;align-items:center;gap:9px;padding:7px 10px;cursor:pointer;
+             font-size:13px;list-style:none;user-select:none}
+  .hds-grp-h::-webkit-details-marker{display:none}
+  .hds-grp-h:hover{background:var(--panel-2)}
+  .hds-grp-h input{accent-color:var(--accent)}
+  .hds-grp-fl{flex:none;color:var(--muted);font-size:10px;transition:transform .12s}
+  .hds-grp[open] .hds-grp-fl{transform:rotate(90deg)}
+  .hds-grp-n{flex:1 1 auto;font-weight:600}
+  .hds-grp-c{flex:none;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+  .hds-grp-b{padding:2px 6px 6px}
   .hds-choice{display:grid;grid-template-columns:auto 1fr;gap:4px 9px;align-items:start;
               padding:7px 8px;border-radius:8px;cursor:pointer}
   .hds-choice:hover{background:var(--panel-2)}
@@ -2009,17 +2022,52 @@ const HDS = (function(){
       '<div class="hds-choice-bar"><button type="button" class="hds-lnk" id="hdsAll" title="Sélectionner toutes les lignes de la liste">Tout cocher</button>'
       + '<button type="button" class="hds-lnk" id="hdsNone" title="Désélectionner toutes les lignes de la liste">Tout décocher</button>'
       + '<span class="hds-count" id="hdsCount"></span></div>';
+    const groupWeight = liste => {
+      const sum = liste.reduce((t,x)=>t+(Number(x.octets)||0),0);
+      return sum ? ' · '+octets(sum) : '';
+    };
+    const render = liste => {
+      if(!liste.some(x=>x.groupe)) return liste.map(ligne).join('');
+      const byGroup = new Map();
+      liste.forEach(x=>{ const g = x.groupe || '—'; if(!byGroup.has(g)) byGroup.set(g,[]); byGroup.get(g).push(x); });
+      // Windows d'abord -- c'est la securite -- puis les constructeurs par ordre
+      // alphabetique. Un ordre par volume se reordonnerait a chaque analyse.
+      const names = [...byGroup.keys()].sort((a,b)=>
+        (a==='Windows'?0:1)-(b==='Windows'?0:1) || a.localeCompare(b,'fr'));
+      return names.map(name=>{
+        const inside = byGroup.get(name);
+        return '<details class="hds-grp"><summary class="hds-grp-h">'
+          + '<span class="hds-grp-fl">&#9654;</span>'
+          + '<input type="checkbox" data-groupe="'+esc(name)+'" title="Cocher ou décocher tout ce constructeur">'
+          + '<span class="hds-grp-n">'+esc(name)+'</span>'
+          + '<span class="hds-grp-c">'+inside.length+groupWeight(inside)+'</span>'
+          + '</summary><div class="hds-grp-b">'+inside.map(ligne).join('')+'</div></details>';
+      }).join('');
+    };
     const corps = (intro, dedans) =>
       (intro ? '<p class="hds-intro">'+esc(intro)+'</p>' : '') + barre() + '<div class="hds-choices">'+dedans+'</div>';
     const chargeur = '<div class="hds-loading"><span class="spin"></span> Lecture en cours…</div>';
 
     const p = open({ title:opts.title||'Choisir',
-      html: corps(opts.intro, opts.charger ? chargeur : items.map(ligne).join('')),
+      html: corps(opts.intro, opts.charger ? chargeur : render(items)),
       variant:opts.variant||'info', cancelValue:null,
       actions:[ {label:opts.cancelLabel||'Annuler',kind:'ghost',value:null},
                 {label:opts.confirmLabel||'Valider',kind:'primary',value:'__ok__',default:true} ] });
 
-    const boites=()=>[...elBody.querySelectorAll('input[type=checkbox]')];
+    const boites=()=>[...elBody.querySelectorAll('input[type=checkbox]:not([data-groupe])')];
+    const groupBoxes=()=>[...elBody.querySelectorAll('input[data-groupe]')];
+    // L'ETAT D'UN GROUPE SE DEDUIT DE SES LIGNES, jamais l'inverse : cocher une ligne a la
+    // main doit se voir en haut, et le troisieme etat -- ni tout, ni rien -- est le seul
+    // qui dise la verite sur une selection partielle.
+    const refreshGroups=()=>{
+      groupBoxes().forEach(g=>{
+        const block = g.closest('.hds-grp');
+        const inside = block ? [...block.querySelectorAll('input[type=checkbox]:not([data-groupe])')] : [];
+        const ticked = inside.filter(b=>b.checked).length;
+        g.checked = inside.length>0 && ticked===inside.length;
+        g.indeterminate = ticked>0 && ticked<inside.length;
+      });
+    };
     const valider=()=>elFoot.querySelector('[data-default]');
     let retenus=[];
     const maj=()=>{
@@ -2028,6 +2076,7 @@ const HDS = (function(){
       // le CSS ; ce filet garantit qu'aucune ne peut se retrouver decochee.
       if(verrou) boites().forEach(b=>{ b.checked = true; });
       retenus = boites().filter(b=>b.checked).map(b=>b.value);
+      refreshGroups();
       const c=elBody.querySelector('#hdsCount');
       if(c) c.textContent = items.length ? (retenus.length+' / '+items.length+L('ui.selectionnee')) : '';
       const v=valider(); if(v) v.disabled = (retenus.length===0);
@@ -2037,6 +2086,17 @@ const HDS = (function(){
       if(a) a.onclick=()=>{ boites().forEach(b=>b.checked=true); maj(); };
       if(n) n.onclick=()=>{ boites().forEach(b=>b.checked=false); maj(); };
       boites().forEach(b=>b.addEventListener('change',maj));
+      groupBoxes().forEach(g=>{
+        // Un clic sur la case NE PLIE PAS le groupe : sans cela, cocher un constructeur
+        // refermait ce qu'on venait d'ouvrir pour le regarder.
+        g.addEventListener('click',e=>e.stopPropagation());
+        g.addEventListener('change',()=>{
+          const block = g.closest('.hds-grp');
+          if(block) block.querySelectorAll('input[type=checkbox]:not([data-groupe])')
+                       .forEach(b=>{ b.checked = g.checked; });
+          maj();
+        });
+      });
       // « Ignorer » : l'element sort de la liste ET du perimetre, durablement. On attend
       // que l'enregistrement ait REUSSI avant de retirer la ligne : sinon l'utilisateur
       // croirait avoir exclu un paquet qui reviendrait au prochain passage.
@@ -2080,7 +2140,7 @@ const HDS = (function(){
           elBody.innerHTML = '<p class="hds-intro">'+esc((res && res.vide) || L('ui.rien-afficher'))+'</p>';
           return;
         }
-        elBody.innerHTML = corps(intro, items.map(ligne).join(''));
+        elBody.innerHTML = corps(intro, render(items));
         brancher();
       }).catch(e=>{
         elBody.innerHTML = '<p class="hds-intro">Lecture impossible : '+esc(e.message||String(e))+'</p>';
@@ -2138,6 +2198,9 @@ async function listeDeChoix(type, module){
 function itemsDeMaj(j){
   return (j.result && j.result.updates || []).map(u=>({
     id:u.id, titre:u.titre,
+    // Le GROUPE et le POIDS viennent du serveur : c'est lui qui a vu toutes les
+    // orthographes d'un constructeur, et lui seul pouvait les replier (D118).
+    groupe:u.groupe||'', octets:u.octets||0,
     // Detail deja compose par le serveur (paquets), sinon assemble ici (Windows Update).
     detail: u.detail || [u.modele, u.kb, u.pilote?'pilote':null, u.dateP, u.octets?octets(u.octets):null,
             u.telecharge?L('ui.deja-telechargee'):null].filter(Boolean).join(' · ')
@@ -2893,11 +2956,11 @@ async function renderTabModules(pane){
   pane.querySelectorAll('[data-plist]').forEach(bloc=>{
     const [unit,key]=bloc.getAttribute('data-plist').split('::');
     const envoyer=async()=>{
-      const items=[...bloc.querySelectorAll('.um-lrow > span')].map(sp=>sp.textContent);
+      const items=[...block.querySelectorAll('.um-lrow > span')].map(sp=>sp.textContent);
       try{ await postParam(unit,key,items); toast(L('ui.liste-enregistree')); await apresParam(unit); }
       catch(e){ toast(L('ui.reglage-impossible')+(e.message||e)); }
     };
-    bloc.querySelectorAll('[data-pdel]').forEach(b2=>{ b2.onclick=()=>{ b2.closest('.um-lrow').remove(); envoyer(); }; });
+    block.querySelectorAll('[data-pdel]').forEach(b2=>{ b2.onclick=()=>{ b2.closest('.um-lrow').remove(); envoyer(); }; });
     const champ=bloc.querySelector('.um-chip-add');
     const ajouter=()=>{
       const v=(champ.value||'').trim();
