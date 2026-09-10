@@ -17,19 +17,32 @@ compte n'y vit.
 | | | |
 |---|---|---|
 | `local/` | ignoré par git | jetable : scripts temporaires, extractions, suivi local |
-| `notes/` | versionné | daté mais utile : preuves, mesures, extraits d'échange |
+| `notes/` | versionné | **vraiment temporel** : preuves et mesures dans `proofs/`, sujets ouverts |
 | `doc/` | versionné | intemporel : décisions, disciplines, mode d'emploi |
-| `doc/progress/` | versionné | **l'état, pas une date** : ce qu'on vise, ce qui est fait, ce qui est ouvert |
+| `doc/progress/` | versionné | **un état consistant** : ce que le produit doit être, ce qu'il est |
 
-**`doc/progress/` n'est pas intemporel, et ce n'est pas une entorse.** `targeting/` dit ce
-qu'on vise aujourd'hui, `implemented/` ce qui est en place aujourd'hui, `subjects.md` ce qui
-est ouvert aujourd'hui. Ces fichiers se **réécrivent** quand l'état change : ils ne gardent
-pas la trace du passé, ils la remplacent. C'est exactement ce qui les distingue de `notes/`,
-qui n'écrase jamais rien et dont chaque fichier reste vrai pour sa date.
+## Où passe la frontière avec `doc/progress/`
 
-La question à se poser n'est donc pas « est-ce daté ? » mais **« est-ce que cela s'écrase
-ou est-ce que cela s'empile ? »** Un registre s'écrase, il va dans `progress/`. Une mesure
-s'empile, elle va dans `notes/`.
+**Arbitré par l'utilisateur le 10/09.** Le critère n'est pas « est-ce daté ? » : `progress/`
+l'est un peu aussi, puisqu'il se réécrit. C'est la **constance de ce qui est décrit**.
+
+`targeting/` et `implemented/` portent un état **consistant** — ce que le produit doit être,
+ce qu'il est. On le maintient, on le modifie souvent, et il décrit malgré tout une chose
+durable. Ils restent donc dans `doc/`.
+
+`subjects.md` est **vraiment temporel** : ce dont on parle en ce moment, et rien de plus.
+Il vit ici.
+
+## Ce dossier se range
+
+Les preuves sont **un** rangement parmi d'autres, dans `notes/proofs/`. Rien n'interdit d'en
+ouvrir un autre le jour où un besoin différent se présente ; ce qui est interdit, c'est de
+tout laisser en vrac à la racine sous prétexte que le dossier est encore petit.
+
+| | |
+|---|---|
+| `notes/proofs/` | les relevés qui ont tranché une décision, un fichier par mesure, nommé par sa date |
+| `notes/subjects.md` | le registre des sujets ouverts, `S01`, `S02`… — un numéro ne se réutilise jamais |
 
 **UNE DÉCISION SANS SA MESURE EST UNE OPINION.** Quand un arbitrage est tranché sur des
 chiffres — un relevé, un journal, une sortie de commande — ces chiffres se déposent ici, et

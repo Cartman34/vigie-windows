@@ -177,7 +177,7 @@ d'inattendu, ce qui reste ouvert, et ce qu'il doit décider.
 qu'il avait besoin de lire.*
 
 **UN SUJET OUVERT SE DÉSIGNE PAR SON NUMÉRO — `S01`, `S02`…** Le registre est
-[`doc/progress/subjects.md`](../../progress/subjects.md). Je lui parlais de `CORE-UPDATE-TRUST` : c'est un identifiant
+[`notes/subjects.md`](../../../notes/subjects.md). Je lui parlais de `CORE-UPDATE-TRUST` : c'est un identifiant
 de fonctionnalité, écrit pour un fichier de spécification, pas pour une conversation — long, en anglais, et il oblige à
 aller le chercher pour savoir de quoi on parle. Un numéro court se retient, se cite en passant, et sert de titre à un
 message. Un sujet qui n'a pas de numéro en reçoit un **avant** que je lui en parle ; un numéro ne se réutilise jamais,
@@ -443,10 +443,17 @@ tard, qu'un chemin de repli a été éprouvé alors qu'il n'a jamais été empru
 **`decisions.md` porte le quoi et le pourquoi**, et renvoie à la note. Y recopier trois
 tableaux de mesures l'alourdirait sans le rendre plus vrai.
 
-**Ce qui ne va PAS dans `notes/` :** un registre. `subjects.md`, `targeting/`,
-`implemented/` s'**écrasent** quand l'état change, alors qu'une note reste vraie pour sa
-date. La question n'est pas « est-ce daté ? » mais « est-ce que cela s'écrase ou est-ce que
-cela s'empile ? ».
+**`notes/` se range, comme le reste.** Les preuves sont **un** rangement parmi d'autres et
+vivent dans `notes/proofs/` ; rien n'interdit d'en ouvrir un autre le jour où un besoin
+différent se présente. Ne rien mettre en vrac à la racine sous prétexte que le dossier est
+petit — c'est ainsi qu'un dossier cesse de se lire.
+
+**Ce qui va dans `notes/` et ce qui n'y va pas — arbitré par l'utilisateur le 10/09.** Le
+critère n'est pas « est-ce daté ? », puisque tout `progress/` l'est un peu. C'est la
+**constance** : `targeting/` et `implemented/` portent un état *consistant*, qu'on maintient
+et qui se modifie souvent, mais qui décrit une chose durable — ce que le produit doit être,
+ce qu'il est. `subjects.md`, lui, est **vraiment temporel** : ce dont on parle en ce moment,
+et rien de plus. Il vit donc dans `notes/`, pas dans `progress/`.
 ## Chercher avant de concevoir
 
 **La source de vérité, c'est `doc/progress/decisions.md`** — les arbitrages, rien d'autre. Avant de concevoir quoi que

@@ -3051,7 +3051,7 @@ on n'a pas le choix que de faire un mapping. Mais pas codé en dur, maintenable 
 comme il veut : le 10/09, sur 49 mises à jour, **seize orthographes pour douze constructeurs** — Intel en trois piles,
 Realtek en deux, Microsoft en deux. Regrouper sur la chaîne brute laissait vingt-et-une mises à jour Intel éclatées.
 Le relevé complet, et ce qui n'a pas été vérifié :
-[`notes/2026-09-10-fournisseurs-windows-update-16-orthographes.md`](../../notes/2026-09-10-fournisseurs-windows-update-16-orthographes.md).
+[`notes/proofs/2026-09-10-fournisseurs-windows-update-16-orthographes.md`](../../notes/proofs/2026-09-10-fournisseurs-windows-update-16-orthographes.md).
 
 **Ce que je refusais, et pourquoi j'avais tort.** J'ai opposé **D64** — on juge sur des faits, jamais sur une liste de
 noms à maintenir. D64 interdit de **décider** d'après un nom : reconnaître un jeu, fermer une application. Il ne dit
