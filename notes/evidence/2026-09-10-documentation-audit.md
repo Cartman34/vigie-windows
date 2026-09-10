@@ -22,7 +22,7 @@ Sept dossiers de documentation sur quatorze n'avaient **aucun `README.md`** :
 
 ```
 doc/agent-working    doc/en/operating    doc/en/using
-doc/fr/operating     doc/fr/using        doc/progress        notes/proofs
+doc/fr/operating     doc/fr/using        doc/progress        notes/evidence
 ```
 
 Un dossier sans index se parcourt en devinant. C'est aussi ce qui pousse à multiplier les

@@ -444,7 +444,7 @@ déposées dans le dépôt. `local/` survit à la séance et ne pollue jamais l'
 
 **Ce que cela force à faire, et c'est le bénéfice réel :** au moment de sortir un fichier de
 `local/`, la question « où cela va-t-il vivre ? » se pose forcément. Une mesure part dans
-`notes/proofs/`, une règle dans `doc/`, le reste ne sort pas.
+`notes/evidence/`, une règle dans `doc/`, le reste ne sort pas.
 ## Une décision tranchée sur des mesures dépose ses mesures
 
 **Reproche de l'utilisateur, le 10/09 : « tu ne remplis pas bien `notes/`, tu n'y mets pas
@@ -463,7 +463,7 @@ tard, qu'un chemin de repli a été éprouvé alors qu'il n'a jamais été empru
 tableaux de mesures l'alourdirait sans le rendre plus vrai.
 
 **`notes/` se range, comme le reste.** Les preuves sont **un** rangement parmi d'autres et
-vivent dans `notes/proofs/` ; rien n'interdit d'en ouvrir un autre le jour où un besoin
+vivent dans `notes/evidence/` ; rien n'interdit d'en ouvrir un autre le jour où un besoin
 différent se présente. Ne rien mettre en vrac à la racine sous prétexte que le dossier est
 petit — c'est ainsi qu'un dossier cesse de se lire.
 

@@ -59,7 +59,7 @@
   "check-encoding.utf-partout-accents-en": "UTF-8 partout, accents en place.",
   "check-naming.commentaires-au-dessus": "Le plafond est dépassé de {0} : des commentaires français ont été AJOUTÉS (D115).",
   "check-decisions.au-dessus": "Le plafond est dépassé de {0} : une décision NOUVELLE se prend sur des mesures, et les dépose (D119).",
-  "check-decisions.comment-faire": "       Déposez le relevé dans notes/proofs/ et faites-y renvoyer la décision.",
+  "check-decisions.comment-faire": "       Déposez le relevé dans notes/evidence/ et faites-y renvoyer la décision.",
   "check-decisions.comptees": "{0} décision(s) lue(s), {1} avec leur preuve",
   "check-decisions.de-moins": "{0} décision(s) de plus sont prouvées : le plafond descend d'autant.",
   "check-decisions.echec": "ÉCHEC : une décision doit pouvoir se vérifier.",

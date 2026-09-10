@@ -3051,7 +3051,7 @@ on n'a pas le choix que de faire un mapping. Mais pas codé en dur, maintenable 
 comme il veut : le 10/09, sur 49 mises à jour, **seize orthographes pour douze constructeurs** — Intel en trois piles,
 Realtek en deux, Microsoft en deux. Regrouper sur la chaîne brute laissait vingt-et-une mises à jour Intel éclatées.
 Le relevé complet, et ce qui n'a pas été vérifié :
-[`notes/proofs/2026-09-10-windows-update-vendor-spellings.md`](../../notes/proofs/2026-09-10-windows-update-vendor-spellings.md).
+[`notes/evidence/2026-09-10-windows-update-vendor-spellings.md`](../../notes/evidence/2026-09-10-windows-update-vendor-spellings.md).
 
 **Ce que je refusais, et pourquoi j'avais tort.** J'ai opposé **D64** — on juge sur des faits, jamais sur une liste de
 noms à maintenir. D64 interdit de **décider** d'après un nom : reconnaître un jeu, fermer une application. Il ne dit
@@ -3080,7 +3080,7 @@ en préférant une casse mixte au cri, sans quoi le groupe Intel s'annonçait «
 *Cinq exigences énoncées par l'utilisateur le 10/09, à la suite de l'arbitrage sur `notes/`.*
 
 **Ce qui a été mesuré avant d'agir** :
-[`notes/proofs/2026-09-10-documentation-audit.md`](../../notes/proofs/2026-09-10-documentation-audit.md).
+[`notes/evidence/2026-09-10-documentation-audit.md`](../../notes/evidence/2026-09-10-documentation-audit.md).
 Une décision prouvée sur cent vingt-cinq, sept dossiers de documentation sans index, et deux
 documents français logés dans le dossier `en/`.
 
@@ -3108,7 +3108,7 @@ comme parlant du nom, et je l'ai lue ainsi le matin même en créant trois preuv
 français. Elles ont été renommées.
 
 **Tout doit être prouvé — pour une décision, c'est obligatoire.** Un arbitrage tranché sur
-des chiffres dépose ces chiffres dans `notes/proofs/` et y renvoie. `decisions.md` garde le
+des chiffres dépose ces chiffres dans `notes/evidence/` et y renvoie. `decisions.md` garde le
 **quoi** et le **pourquoi** ; il n'a pas à porter les tableaux de mesures.
 
 `scripts/dev/check-decisions.ps1` le tient, en cliquet : les 124 entrées non prouvées ne

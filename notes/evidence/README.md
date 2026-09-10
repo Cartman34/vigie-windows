@@ -1,4 +1,4 @@
-# `proofs/` — ce qui a tranché
+# `evidence/` — ce qui a tranché
 
 Un fichier par mesure, **nommé par sa date et son sujet**, en anglais comme tout nom de
 fichier. On sait ainsi, sans l'ouvrir, s'il a encore un intérêt.

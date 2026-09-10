@@ -17,7 +17,7 @@ compte n'y vit.
 | | | |
 |---|---|---|
 | `local/` | ignoré par git | jetable : scripts temporaires, extractions, suivi local |
-| `notes/` | versionné | **vraiment temporel** : preuves et mesures dans `proofs/`, sujets ouverts |
+| `notes/` | versionné | **vraiment temporel** : preuves et mesures dans `evidence/`, sujets ouverts |
 | `doc/` | versionné | intemporel : décisions, disciplines, mode d'emploi |
 | `doc/progress/` | versionné | **un état consistant** : ce que le produit doit être, ce qu'il est |
 
@@ -35,13 +35,13 @@ Il vit ici.
 
 ## Ce dossier se range
 
-Les preuves sont **un** rangement parmi d'autres, dans `notes/proofs/`. Rien n'interdit d'en
+Les preuves sont **un** rangement parmi d'autres, dans `notes/evidence/`. Rien n'interdit d'en
 ouvrir un autre le jour où un besoin différent se présente ; ce qui est interdit, c'est de
 tout laisser en vrac à la racine sous prétexte que le dossier est encore petit.
 
 | | |
 |---|---|
-| `notes/proofs/` | les relevés qui ont tranché une décision, un fichier par mesure, nommé par sa date |
+| `notes/evidence/` | les relevés qui ont tranché une décision, un fichier par mesure, nommé par sa date |
 | `notes/subjects.md` | le registre des sujets ouverts, `S01`, `S02`… — un numéro ne se réutilise jamais |
 
 **UNE DÉCISION SANS SA MESURE EST UNE OPINION.** Quand un arbitrage est tranché sur des

@@ -2,7 +2,7 @@
 
 Besoin : `features.md`, entrée `CORE-NOTIFY`. Voisin : [surveillance.md](surveillance.md), qui décrit **ce qui**
 déclenche une notification — cette page ne parle que de la **montrer**. Ce qui a été essayé et ce que chaque essai a
-répondu : [`notes/proofs/2026-09-10-notification-api-reachability.md`](../../../notes/proofs/2026-09-10-notification-api-reachability.md).
+répondu : [`notes/evidence/2026-09-10-notification-api-reachability.md`](../../../notes/evidence/2026-09-10-notification-api-reachability.md).
 
 ## Le manque
 

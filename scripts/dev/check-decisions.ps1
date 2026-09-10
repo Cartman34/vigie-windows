@@ -4,7 +4,7 @@
 
     Asked by the owner on 10/09: "everything must be proven, above all decisions -- for
     those it is mandatory". A decision settled on figures deposits those figures in
-    notes/proofs/ and links to them; decisions.md keeps the what and the why.
+    notes/evidence/ and links to them; decisions.md keeps the what and the why.
 
     A RATCHET, like the ones in check-naming: 124 of the 125 existing entries carry no
     proof, and rewriting history is not on the table -- most of them were settled before
@@ -31,7 +31,7 @@ if (-not (Test-Path -LiteralPath $file)) {
     exit 1
 }
 
-$proofDir = Join-Path $repoRoot 'notes/proofs'
+$proofDir = Join-Path $repoRoot 'notes/evidence'
 
 # --- Every entry, and what it carries -----------------------------------------------------
 $entries = @()
@@ -55,7 +55,7 @@ if ($current) { $entries += [pscustomobject]@{ Id = $current; Body = $body.ToStr
 $unproven = @()
 $broken = @()
 foreach ($entry in $entries) {
-    $names = @([regex]::Matches($entry.Body, 'notes/proofs/([A-Za-z0-9._-]+\.md)') |
+    $names = @([regex]::Matches($entry.Body, 'notes/evidence/([A-Za-z0-9._-]+\.md)') |
                ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
     if (-not $names.Count) { $unproven += $entry.Id; continue }
     foreach ($name in $names) {
