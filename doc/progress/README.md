@@ -1,7 +1,9 @@
 # `progress/` — la conception
 
-**En français**, comme `../agent-working/` : c'est la langue du projet, et ces documents ne
-s'adressent pas au public. Ils vivent donc en dehors des dossiers de langue.
+**En français**, la langue du projet. C'est le **seul dossier de documentation qui ne porte
+pas de dossier de langue** : il décrit la conception d'un produit unique, il n'aura jamais de
+version traduite, et son chemin est cité de partout — `progress/decisions.md` se retient,
+`fr/progress/decisions.md` se recopie.
 
 Ce dossier porte un **état consistant** — ce que le produit doit être, ce qu'il est. Il se
 modifie souvent et décrit malgré tout une chose durable. Ce qui est *vraiment temporel*,

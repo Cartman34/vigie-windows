@@ -11,7 +11,7 @@
 
     LE PRINCIPE. On ne compte pas sur la vigilance de l'agent pour se souvenir de relire :
     ce script remet tout sous ses yeux en une commande. Le point d'entree qui y renvoie est
-    doc/agent-working/briefing.md, valable pour n'importe quel agent ; un fichier charge
+    doc/fr/agent-working/briefing.md, valable pour n'importe quel agent ; un fichier charge
     automatiquement par l'un d'eux (CLAUDE.md pour Claude Code) n'est qu'un raccourci
     FACULTATIF vers lui, et ne porte aucune regle qui lui soit propre.
 
@@ -45,8 +45,8 @@ Write-Title (Get-Label 'restore-context.titre')
     sans etre verifiee -- et c'est exactement la que le libelle manquant se cache.
 #>
 $documents = @(
-    @{ path = 'doc/agent-working/briefing.md';     role = (Get-Label 'restore-context.role-briefing') }
-    @{ path = 'doc/agent-working/disciplines.md';  role = (Get-Label 'restore-context.role-disciplines') }
+    @{ path = 'doc/fr/agent-working/briefing.md';     role = (Get-Label 'restore-context.role-briefing') }
+    @{ path = 'doc/fr/agent-working/disciplines.md';  role = (Get-Label 'restore-context.role-disciplines') }
     @{ path = 'doc/progress/decisions.md';            role = (Get-Label 'restore-context.role-decisions') }
     @{ path = 'doc/progress/targeting';               role = (Get-Label 'restore-context.role-targeting') }
     @{ path = 'doc/progress/implemented';             role = (Get-Label 'restore-context.role-implemented') }
@@ -71,7 +71,7 @@ foreach ($d in $documents) {
     lit telles qu'elles sont ecrites.
 #>
 if (-not $Court) {
-    $disciplines = Join-Path $repoRoot 'doc/agent-working/disciplines.md'
+    $disciplines = Join-Path $repoRoot 'doc/fr/agent-working/disciplines.md'
     if (Test-Path -LiteralPath $disciplines) {
         Write-Step (Get-Label 'restore-context.etape-disciplines')
         Get-Content -LiteralPath $disciplines -Encoding UTF8 | ForEach-Object { Write-Host $_ }

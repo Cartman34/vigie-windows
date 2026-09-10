@@ -26,10 +26,12 @@ Four choices explain that shape:
   freely into the other: they are two views of the same product, not two worlds.
 - **File names are technical, therefore English** — even for French content. `fr/install.md` and `en/install.md` carry
   the same name, so the counterpart is found without translating anything. The *content* is in the folder's language.
-- **What does not get translated lives OUTSIDE the language folders.** `progress/` and `agent-working/` are
-  written in French, the project's language, and address neither the user nor the public; each says so in its own
-  `README.md`. The development documentation exists in English only and sits outside for the same reason.
-  Nothing requires `fr/` and `en/` to hold the same files.
+- **A document carries a language folder, even when it exists in only one language.** `fr/agent-working/` is written
+  in French and will never have an English twin; `en/developing/` exists in English only. What varies is not whether a
+  folder has a language, it is whether the counterpart exists. Nothing requires `fr/` and `en/` to hold the same files.
+- **`progress/` is the one exception**, and it is deliberate: it describes the design of a single product, it will
+  never be translated, and its path is quoted from everywhere — `progress/decisions.md` is remembered,
+  `fr/progress/decisions.md` gets copied wrong.
 - **The work queue is never committed.** Where things stand right now and what is left to do live in `local/`, ignored
   by git: it changes every session and belongs to one machine.
 

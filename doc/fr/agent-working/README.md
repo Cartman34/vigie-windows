@@ -1,8 +1,8 @@
 # `agent-working/` — travailler sur ce projet
 
-**En français**, comme `../progress/` : c'est la langue du projet, et ces documents ne
-s'adressent ni à l'utilisateur ni au public. Ils vivent donc en dehors des dossiers de
-langue, qui ne contiennent que ce qui se traduit.
+**En français, et rangé sous `fr/` pour le dire.** Un document a toujours un dossier de
+langue ; ce qui varie, c'est qu'il n'existe pas forcément dans les deux. Celui-ci n'a pas
+de jumeau anglais et n'en aura pas : il ne s'adresse ni à l'utilisateur ni au public.
 
 | Fichier | Ce qu'il donne |
 |---|---|

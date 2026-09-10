@@ -204,7 +204,7 @@ un chemin de machine n'a rien à faire dans le code.
 Une fois tous les postes migrés, ce fichier peut être supprimé : les anciens noms
 disparaissent alors avec lui.
 
-## D12 — `doc/agent-working/briefing.md` décrit l'environnement réel
+## D12 — `doc/fr/agent-working/briefing.md` décrit l'environnement réel
 
 *Demandée par l'utilisateur.*
 
@@ -571,7 +571,7 @@ mesurées, pas des préférences :
    sonde ferait **~4,2 s** de pur démarrage par rafraîchissement complet ; aujourd'hui
    `/health` répond en **65 ms** dans un runtime déjà chaud.
 
-Documenté dans `README.md`, `doc/agent-working/briefing.md` et `apps/atelier/README.md`.
+Documenté dans `README.md`, `doc/fr/agent-working/briefing.md` et `apps/atelier/README.md`.
 
 **Règle de travail associée** : en cas de doute sur l'appartenance d'un composant à l'une ou
 l'autre brique, **demander à l'utilisateur avec une suggestion** plutôt que de trancher seul.
@@ -973,7 +973,7 @@ premier. Pas de récit de l'enquête, pas de justification de la méthode, pas d
 qui a déjà été dit.
 
 Le détail — cause, mesure, raisonnement — va dans le **dépôt** : décision, commentaire de
-code, ou entrée de `doc/agent-working/briefing.md`. C'est là qu'il survit et qu'on le retrouve ; dans un
+code, ou entrée de `doc/fr/agent-working/briefing.md`. C'est là qu'il survit et qu'on le retrouve ; dans un
 message, il se lit une fois puis se perd.
 
 Une phrase de plus n'est justifiée que si elle change une décision de l'utilisateur : un
@@ -2451,7 +2451,7 @@ qu'on ouvre déjà pour une autre raison.
 *Demandée par l'utilisateur.*
 
 `SUIVI.md` et `PRISE-EN-MAIN.md` vivaient à la racine. Le premier ne contenait plus qu'une phrase disant qu'il n'était
-plus tenu à jour et renvoyant ailleurs. Le second dupliquait le rôle de `doc/agent-working/briefing.md` avec un
+plus tenu à jour et renvoyant ailleurs. Le second dupliquait le rôle de `doc/fr/agent-working/briefing.md` avec un
 contenu périmé : `backend/start.ps1` qui n'existe plus, l'ouverture du front en `file://` que **D47** interdit, un
 `Install-Module Pode -Scope CurrentUser` que **D79** contredit, et une dépendance à `LocalAgentAdmin`. Une doc fausse
 est pire qu'une doc absente : elle est suivie.
@@ -3097,7 +3097,7 @@ sections, pas « voir le chapitre 5 » : la numérotation se décale dès qu'on 
 chose, et le renvoi devient faux sans que rien ne le signale.
 
 **Ce qui ne se traduit pas vit en dehors des dossiers de langue.** `doc/progress/` et
-`doc/agent-working/` sont **en français**, la langue du projet, et ne s'adressent ni à
+`doc/fr/agent-working/` sont **en français**, la langue du projet, et ne s'adressent ni à
 l'utilisateur ni au public. `agent-working/` était logé sous `en/` et y écrivait du
 français ; il remonte d'un cran. Chaque `README.md` de ces deux dossiers dit sa langue.
 
