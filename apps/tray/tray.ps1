@@ -1035,7 +1035,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
               - si l'affichage echoue, on n'insiste pas -- on le note et on passe.
         #>
         $dire = {
-            param([string]$Titre, [string]$Texte, [string]$Icone = 'Info', [int]$Duree = 6000)
+            param([string]$Titre, [string]$Texte, [string]$Icone = 'Info', [int]$Duree = 6000, [string]$Key = '')
             $maintenant = [datetime]::UtcNow
             $cle = "$Titre|$Texte"
             if (-not $state.Bulles) { $state.Bulles = @{} }
@@ -1048,7 +1048,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
             $level = switch ($Icone) { 'Error' { 'error' } 'Warning' { 'warn' } default { 'ok' } }
             try {
                 $outil = Show-VigieNotification `
-                    -Notification @{ Subject = $Titre; Body = $Texte; State = $level; Duration = $Duree } `
+                    -Notification @{ Subject = $Titre; Body = $Texte; State = $level; Duration = $Duree; Key = $Key } `
                     -Context @{ TrayRoot = $trayRoot; Aumid = (Get-VigieToastIdentity); Icon = $icon }
                 if ($outil) { TLog ("notification montree par " + $outil) }
                 else { TLog "aucun outil n'a su montrer la notification" }
@@ -1385,7 +1385,12 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                                 }) -join [Environment]::NewLine)
                             }
                             TLog ("notification : " + (@($bascules | ForEach-Object { "$($_.id) $($_.de)->$($_.vers)" }) -join ', '))
-                            & $dire -Titre $title -Texte $body -Icone $tipIc -Duree 6000
+                            # THE FIELD'S REFERENCE TRAVELS WITH IT: that is what makes a
+                            # recovery replace its own alert instead of sitting next to it.
+                            # Several changes at once have no single field, so they share
+                            # one label.
+                            $fieldKey = $(if ($bascules.Count -eq 1) { "$($bascules[0].id)" } else { 'vigie.modules' })
+                            & $dire -Titre $title -Texte $body -Icone $tipIc -Duree 6000 -Key $fieldKey
                         }
                     }
                 }

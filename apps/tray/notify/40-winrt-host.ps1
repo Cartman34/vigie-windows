@@ -26,12 +26,15 @@ try { [IO.File]::WriteAllText($file, $xml, (New-Object Text.UTF8Encoding $false)
 
 $env:VIGIE_TOAST_XML = $file
 $env:VIGIE_TOAST_AUMID = $Context.Aumid
+$env:VIGIE_TOAST_TAG = (Get-VigieToastTag -Key "$($Notification.Key)")
 $command = '[void][Windows.UI.Notifications.ToastNotificationManager,Windows.UI.Notifications,ContentType=WindowsRuntime];' +
            '[void][Windows.Data.Xml.Dom.XmlDocument,Windows.Data.Xml.Dom,ContentType=WindowsRuntime];' +
            'try{$d=New-Object Windows.Data.Xml.Dom.XmlDocument;' +
            '$d.LoadXml([IO.File]::ReadAllText($env:VIGIE_TOAST_XML));' +
-           '[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($env:VIGIE_TOAST_AUMID).Show(' +
-           '(New-Object Windows.UI.Notifications.ToastNotification $d));exit 0}catch{exit 1}'
+           '$t=New-Object Windows.UI.Notifications.ToastNotification $d;' +
+           'if($env:VIGIE_TOAST_TAG){$t.Tag=$env:VIGIE_TOAST_TAG};' +
+           '[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($env:VIGIE_TOAST_AUMID).Show($t);' +
+           'exit 0}catch{exit 1}'
 try {
     $host2 = Start-Process -FilePath 'powershell.exe' -WindowStyle Hidden -PassThru `
                            -ArgumentList @('-NoProfile', '-STA', '-Command', $command)

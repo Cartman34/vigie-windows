@@ -50,7 +50,7 @@ public static class VigieToastCom
         return h;
     }
 
-    public static void Show(string applicationId, string xml)
+    public static void Show(string applicationId, string xml, string tag)
     {
         IntPtr name = Str("Windows.UI.Notifications.ToastNotificationManager");
         Guid statics = new Guid("50ac103f-d235-4598-bbef-98fe4d1a3ad4");
@@ -92,6 +92,21 @@ public static class VigieToastCom
         hr = Marshal.GetDelegateForFunctionPointer<InOut>(Slot(factory, FIRST))(factory, document, out toast);
         if (hr != 0) { throw new Exception("CreateToastNotification 0x" + hr.ToString("X8")); }
 
+        // THE TAG IS WHAT MAKES THE NEXT ONE REPLACE THIS ONE. IToastNotification2 carries
+        // put_Tag first, right after IInspectable. Verified by asking for the interface:
+        // a wrong IID answers E_NOINTERFACE rather than pretending.
+        if (!String.IsNullOrEmpty(tag))
+        {
+            Guid tagged = new Guid("9dfb9fd1-143a-490e-90bf-b9fba7132de7");
+            IntPtr two;
+            hr = Marshal.QueryInterface(toast, in tagged, out two);
+            if (hr != 0) { throw new Exception("QueryInterface IToastNotification2 0x" + hr.ToString("X8")); }
+            IntPtr label = Str(tag);
+            hr = Marshal.GetDelegateForFunctionPointer<In>(Slot(two, FIRST))(two, label);
+            WindowsDeleteString(label);
+            if (hr != 0) { throw new Exception("put_Tag 0x" + hr.ToString("X8")); }
+        }
+
         hr = Marshal.GetDelegateForFunctionPointer<In>(Slot(notifier, FIRST))(notifier, toast);
         if (hr != 0) { throw new Exception("Show 0x" + hr.ToString("X8")); }
     }
@@ -105,7 +120,7 @@ $xml = Get-VigieToastXml -Subject "$($Notification.Subject)" -Body "$($Notificat
                         -Long:([int]$Notification.Duration -ge 10000)
 if (-not $xml) { return $false }
 try {
-    [VigieToastCom]::Show($Context.Aumid, $xml)
+    [VigieToastCom]::Show($Context.Aumid, $xml, (Get-VigieToastTag -Key "$($Notification.Key)"))
     return $true
 } catch {
     return $false

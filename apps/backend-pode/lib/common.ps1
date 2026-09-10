@@ -6441,6 +6441,29 @@ function Get-VigieToastImage {
     return $null
 }
 
+<#
+    THE LABEL THAT MAKES A NOTIFICATION REPLACE THE PREVIOUS ONE.
+
+    Seen on screen on 10/09: four notifications about the SAME subject stacked up in the
+    action centre instead of superseding one another. Windows only replaces a notification
+    by another carrying the same tag, and mine carried none.
+
+    The tag is the subject's reference -- "gaming.hogs" -- so a field going back to normal
+    replaces its own alert instead of sitting next to it. Two contradictory lines about one
+    subject is worse than no line at all.
+
+    Windows caps a tag at 64 characters and refuses some of them; we keep what is plainly
+    safe and cut. A subject with no reference gets none, and stacks -- which is the old
+    behaviour, not a new defect.
+#>
+function Get-VigieToastTag {
+    param([string]$Key)
+    if (-not "$Key".Trim()) { return '' }
+    $tag = ("$Key" -replace '[^A-Za-z0-9._-]', '-')
+    if ($tag.Length -gt 64) { $tag = $tag.Substring(0, 64) }
+    $tag
+}
+
 function Get-VigieToastXml {
     param(
         # AN EMPTY SUBJECT IS A CASE, NOT AN ERROR. Refused by the binder, it would throw
