@@ -63,3 +63,32 @@ ces trois fichiers.
   par attention.
 - Le plafond de 124 n'a pas été réparti : on ne sait pas combien de ces décisions ont une
   mesure encore retrouvable dans l'historique, et combien sont définitivement sans preuve.
+
+## Suite du même jour — le rangement d'`agent-working/`
+
+**Constat de l'utilisateur, après coup : « tu as mis agent working sous `doc/` au lieu de
+`fr/` ou `en/` ».** Fondé, et voici d'où venait mon erreur.
+
+Le `README.md` de `doc/` disait : « **The development documentation exists in English only**,
+and therefore lives outside the language folders ». J'ai lu « lives outside the language
+folders » comme une règle d'**emplacement**, et j'en ai déduit qu'un document non traduit
+devait sortir des dossiers de langue.
+
+**C'était faux, et le dépôt le montrait déjà** : `en/developing/` est bien **à l'intérieur**
+de `en/`. La phrase parlait de l'**absence de jumeau**, pas de l'emplacement.
+
+| | Avant ce matin | Après mon erreur | Après l'arbitrage |
+|---|---|---|---|
+| `agent-working/` | `doc/en/` — français sous un dossier anglais | `doc/` | `doc/fr/` |
+| `progress/` | `doc/` | `doc/` | `doc/` |
+| `developing/` | `doc/en/` | `doc/en/` | `doc/en/` |
+
+**Arbitré par l'utilisateur** : un document porte **toujours** un dossier de langue ; ce qui
+varie, c'est que le jumeau n'existe pas forcément. `progress/` reste la seule exception, et
+elle est désormais écrite comme telle — son chemin est cité de partout, et
+`progress/decisions.md` se retient là où `fr/progress/decisions.md` se recopie de travers.
+
+**Ce que cet incident dit du dépôt** : une phrase de documentation ambiguë a suffi à
+déplacer trois fichiers et à casser quatorze renvois. Aucun contrôle ne pouvait l'attraper,
+puisque les liens ont été corrigés en même temps — `check-doc` voyait un dépôt cohérent,
+mais cohérent au mauvais endroit.

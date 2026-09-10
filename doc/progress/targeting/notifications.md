@@ -3,6 +3,8 @@
 Besoin : `features.md`, entrée `CORE-NOTIFY`. Voisin : [surveillance.md](surveillance.md), qui décrit **ce qui**
 déclenche une notification — cette page ne parle que de la **montrer**. Ce qui a été essayé et ce que chaque essai a
 répondu : [`notes/evidence/2026-09-10-notification-api-reachability.md`](../../../notes/evidence/2026-09-10-notification-api-reachability.md).
+Ce que les deux rangs ont rendu à l'écran, et pourquoi les notifications s'empilaient :
+[`notes/evidence/2026-09-10-notification-replacement-and-ranks.md`](../../../notes/evidence/2026-09-10-notification-replacement-and-ranks.md).
 
 ## Le manque
 
@@ -24,6 +26,7 @@ L'app cliente décrit un **événement**, jamais un affichage :
 | **État** | rétabli, à surveiller, en erreur |
 | **Mesure** | ce qu'on a relevé, quand il y a quelque chose à relever — « Chrome et 2 autres » |
 | **Urgence** | de quoi choisir une icône et une durée, pas de quoi choisir un outil |
+| **Référence** | le champ d'où vient l'événement, `gaming.hogs` — c'est elle qui fait qu'un rétablissement **remplace** son alerte au lieu de s'ajouter à côté |
 
 Elle ne nomme ni glyphe, ni fichier d'icône, ni API. **Ce vocabulaire est le contrat** : un outil qui ne sait pas
 rendre l'un de ces quatre éléments le laisse tomber, il ne renégocie pas.
