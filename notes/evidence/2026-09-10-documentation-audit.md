@@ -21,7 +21,7 @@ déposées. Le plafond de `check-decisions.ps1` est donc posé à 124.
 Sept dossiers de documentation sur quatorze n'avaient **aucun `README.md`** :
 
 ```
-doc/fr/agent-working    doc/en/operating    doc/en/using
+doc/en/agent-working    doc/en/operating    doc/en/using
 doc/fr/operating     doc/fr/using        doc/progress        notes/evidence
 ```
 

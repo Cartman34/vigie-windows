@@ -6,7 +6,7 @@ en référence, constats bruts qu'on relira une fois et qu'on oubliera ensuite.
 
 **La documentation, elle, n'a rien de temporel.** `doc/progress/decisions.md` porte les
 arbitrages, `doc/progress/targeting/` ce que le produit doit faire,
-`doc/progress/implemented/` ce qui est en place, `doc/fr/agent-working/` la manière de
+`doc/progress/implemented/` ce qui est en place, `doc/en/agent-working/` la manière de
 travailler. Aucun de ces fichiers ne raconte une journée : quand un constat daté s'y
 glisse, il vieillit sur place et finit par mentir.
 

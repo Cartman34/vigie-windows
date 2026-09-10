@@ -13,3 +13,4 @@ des mois plus tard, qu'un chemin a été éprouvé alors qu'il n'a jamais été 
 | [2026-09-10-notification-api-reachability.md](2026-09-10-notification-api-reachability.md) | Quelle API de notification est atteignable, et depuis quel hôte. |
 | [2026-09-10-windows-update-vendor-spellings.md](2026-09-10-windows-update-vendor-spellings.md) | Seize orthographes pour douze constructeurs, d'où **D118**. |
 | [2026-09-10-notification-replacement-and-ranks.md](2026-09-10-notification-replacement-and-ranks.md) | Les deux rangs affichent pareil, et pourquoi les notifications s'empilaient. |
+| [2026-09-10-agent-working-language.md](2026-09-10-agent-working-language.md) | Pourquoi `agent-working/` passe en anglais, d'où **D120**. |

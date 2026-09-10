@@ -475,7 +475,7 @@
 - `New-ToolsMissingResult` : message en français **accentué** (il ne concerne plus qu'une
   seule action), et il tutoyait l'utilisateur.
 - Documentation alignée : `doc/fr` et `doc/en` (configuration, fonctionnalités,
-  dépannage), `doc/fr/agent-working/briefing.md`, note de mise à jour sous **D18**.
+  dépannage), `doc/en/agent-working/briefing.md`, note de mise à jour sous **D18**.
 ### Verifie
 - Parser PowerShell OK sur **tous** les `.ps1` / `.psd1` du dépôt ; les **12 sondes**
   s'exécutent sans erreur.

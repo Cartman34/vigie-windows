@@ -23,7 +23,7 @@ ligne — `scripts/dev/check-doc.ps1` refuse une décision absente d'ici.
 
 - **Identité et nommage** — D03 · D04 · D05 · D28 · D30 · D41 · D72 · D108 · D115
 - **Structure du dépôt** — D29 · D32 · D33 · D35 · D55
-- **Documentation** — D91 · D92 · D93 · D98 · D119
+- **Documentation** — D91 · D92 · D93 (revu) · D98 · D119 · D120
 - **Configuration** — D15 · D18 · D56 · D57
 - **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46 · D48 · D49 · D50 · D58 · D59 · D66 · D68 · D69 · D70 · D71 · D88 · D89 · D94 · D95 · D102 · D105 · D114
 - **Installation, déploiement et mise à jour** — D07 · D11 · D22 · D77 · D78 · D79 · D81 · D84 · D87 · D96 · D97 · D99 · D101 · D106 · D107 (revu) · D110 · D112 · D117
@@ -204,7 +204,7 @@ un chemin de machine n'a rien à faire dans le code.
 Une fois tous les postes migrés, ce fichier peut être supprimé : les anciens noms
 disparaissent alors avec lui.
 
-## D12 — `doc/fr/agent-working/briefing.md` décrit l'environnement réel
+## D12 — `doc/en/agent-working/briefing.md` décrit l'environnement réel
 
 *Demandée par l'utilisateur.*
 
@@ -571,7 +571,7 @@ mesurées, pas des préférences :
    sonde ferait **~4,2 s** de pur démarrage par rafraîchissement complet ; aujourd'hui
    `/health` répond en **65 ms** dans un runtime déjà chaud.
 
-Documenté dans `README.md`, `doc/fr/agent-working/briefing.md` et `apps/atelier/README.md`.
+Documenté dans `README.md`, `doc/en/agent-working/briefing.md` et `apps/atelier/README.md`.
 
 **Règle de travail associée** : en cas de doute sur l'appartenance d'un composant à l'une ou
 l'autre brique, **demander à l'utilisateur avec une suggestion** plutôt que de trancher seul.
@@ -973,7 +973,7 @@ premier. Pas de récit de l'enquête, pas de justification de la méthode, pas d
 qui a déjà été dit.
 
 Le détail — cause, mesure, raisonnement — va dans le **dépôt** : décision, commentaire de
-code, ou entrée de `doc/fr/agent-working/briefing.md`. C'est là qu'il survit et qu'on le retrouve ; dans un
+code, ou entrée de `doc/en/agent-working/briefing.md`. C'est là qu'il survit et qu'on le retrouve ; dans un
 message, il se lit une fois puis se perd.
 
 Une phrase de plus n'est justifiée que si elle change une décision de l'utilisateur : un
@@ -2451,7 +2451,7 @@ qu'on ouvre déjà pour une autre raison.
 *Demandée par l'utilisateur.*
 
 `SUIVI.md` et `PRISE-EN-MAIN.md` vivaient à la racine. Le premier ne contenait plus qu'une phrase disant qu'il n'était
-plus tenu à jour et renvoyant ailleurs. Le second dupliquait le rôle de `doc/fr/agent-working/briefing.md` avec un
+plus tenu à jour et renvoyant ailleurs. Le second dupliquait le rôle de `doc/en/agent-working/briefing.md` avec un
 contenu périmé : `backend/start.ps1` qui n'existe plus, l'ouverture du front en `file://` que **D47** interdit, un
 `Install-Module Pode -Scope CurrentUser` que **D79** contredit, et une dépendance à `LocalAgentAdmin`. Une doc fausse
 est pire qu'une doc absente : elle est suivie.
@@ -2480,6 +2480,12 @@ règle de travail.
 
 Un seul fichier porte un suffixe de langue à la racine, `README.fr.md` : c'est une convention GitHub, pas une entorse
 à la règle des noms techniques.
+
+**Portée précisée le 10/09.** La raison énoncée ci-dessus est **conditionnelle** : le français mène *parce que* c'est
+en français que l'utilisateur relit et tranche. Elle ne porte donc que sur ce qu'il **valide** — la documentation
+d'usage, `using/` et `operating/`. Interrogé sur `agent-working/`, il a répondu : « Je ne valide pas directement ce
+qu'il y a dans agent-working et je ne veux pas valider tout contenu de doc. » Ce dossier est donc passé à l'anglais
+(**D120**). D93 n'est pas annulée : elle dit désormais où elle s'applique.
 
 ## D94 — Une opération en cours ne s'efface pas (2026-08-27)
 
@@ -3097,7 +3103,7 @@ sections, pas « voir le chapitre 5 » : la numérotation se décale dès qu'on 
 chose, et le renvoi devient faux sans que rien ne le signale.
 
 **Ce qui ne se traduit pas vit en dehors des dossiers de langue.** `doc/progress/` et
-`doc/fr/agent-working/` sont **en français**, la langue du projet, et ne s'adressent ni à
+`doc/en/agent-working/` sont **en français**, la langue du projet, et ne s'adressent ni à
 l'utilisateur ni au public. `agent-working/` était logé sous `en/` et y écrivait du
 français ; il remonte d'un cran. Chaque `README.md` de ces deux dossiers dit sa langue.
 
@@ -3116,3 +3122,24 @@ peuvent que diminuer, ce qui rend toute décision **nouvelle** obligatoirement p
 plafond n'a plus de marge. Il refuse aussi une preuve **citée mais absente**, qui donnerait
 l'apparence du sérieux à une affirmation que rien ne soutient. Les anciennes entrées gagnent
 leur preuve quand on passe à côté, jamais en campagne dédiée.
+
+## D120 — `agent-working/` s'écrit en anglais (2026-09-10)
+
+*Demandée par l'utilisateur : « cette doc n'a pas trop d'intérêt à être en FR selon moi », puis « Je ne valide pas
+directement ce qu'il y a dans agent-working et je ne veux pas valider tout contenu de doc ».*
+
+**Ce qui a été mesuré** :
+[`notes/evidence/2026-09-10-agent-working-language.md`](../../notes/evidence/2026-09-10-agent-working-language.md).
+845 lignes de français logées sous `doc/en/` depuis des mois, et deux déplacements avant de trouver le bon endroit.
+
+**Décision.** `agent-working/` s'écrit en **anglais** et vit sous `doc/en/`, à côté de `developing/`. Trois raisons :
+son lecteur est un **agent** et non l'utilisateur ; le **code est déjà en anglais** (**D41**, **D115**) et ces
+documents ne parlent que de code ; un agent d'un autre client le lit sans détour.
+
+**Ce que cela ne dit pas.** Ce n'est pas un revirement sur **D93** : le français reste la langue maîtresse de ce que
+l'utilisateur valide. La règle de D93 était conditionnelle depuis le début — « on n'approuve pas un texte dont
+l'original est ailleurs » ne veut rien dire pour un texte qu'il n'approuve pas. D93 gagne le paragraphe qui le dit.
+
+**Ce qui reste faux et qu'aucun outil n'attrape.** Rien ne compare la langue d'un fichier à celle de son dossier. Le
+défaut d'origine — du français sous `en/` — passerait exactement pareil demain, et il a fallu qu'un humain le
+remarque. C'est écrit comme tel dans la preuve ; ce n'est pas une règle tenue, c'est une règle espérée.
