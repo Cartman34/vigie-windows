@@ -2030,13 +2030,17 @@ const HDS = (function(){
       if(!liste.some(x=>x.groupe)) return liste.map(ligne).join('');
       const byGroup = new Map();
       liste.forEach(x=>{ const g = x.groupe || '—'; if(!byGroup.has(g)) byGroup.set(g,[]); byGroup.get(g).push(x); });
-      // Windows d'abord -- c'est la securite -- puis les constructeurs par ordre
-      // alphabetique. Un ordre par volume se reordonnerait a chaque analyse.
+      // Windows first -- it carries the security fix -- then makers alphabetically. An
+      // order by volume would reshuffle at every scan.
+      //
+      // GROUPS OPEN. Grouping was asked for, folding was not: collapsing them by default
+      // was my decision and it HID the list the owner wanted to read (10/09). The header
+      // carries the count and the weight either way, and a group closes on a click.
       const names = [...byGroup.keys()].sort((a,b)=>
         (a==='Windows'?0:1)-(b==='Windows'?0:1) || a.localeCompare(b,'fr'));
       return names.map(name=>{
         const inside = byGroup.get(name);
-        return '<details class="hds-grp"><summary class="hds-grp-h">'
+        return '<details class="hds-grp" open><summary class="hds-grp-h">'
           + '<span class="hds-grp-fl">&#9654;</span>'
           + '<input type="checkbox" data-groupe="'+esc(name)+'" title="Cocher ou décocher tout ce constructeur">'
           + '<span class="hds-grp-n">'+esc(name)+'</span>'
