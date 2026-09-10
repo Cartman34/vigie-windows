@@ -426,6 +426,25 @@ propagé, et elle n'a plus émis une notification pendant quatre jours sans que 
 **Ce qu'il faut se demander à chaque fois :** qu'est-ce que cette demande dit du modèle ? Si elle ne rentre qu'en
 forçant, c'est le modèle qu'elle met en cause — pas elle.
 
+## Mes fichiers de travail vivent dans `local/`, pas dans un dossier temporaire
+
+**Rappelé par l'utilisateur le 10/09 : « tu dois normalement avoir un dossier `local/` à la
+racine du projet où tu mets tes fichiers qui ne doivent pas être commités ».** Il est là,
+ignoré par git en entier (`/local/` dans le `.gitignore`), et je ne m'en servais pas.
+
+**Ce qui y va :** les scripts jetables — un remplacement de texte, une extraction, un essai
+—, les exports et sorties brutes avant tri, les échanges à relire, les briefs donnés à
+d'autres agents et leurs réponses, la file de travail de la séance. Rien que l'application
+lise : elle ne sait pas que ce dossier existe.
+
+**Pourquoi cela compte.** Mon environnement m'offre un dossier temporaire de session, et il
+est effacé à la fin. Tout ce que j'y laisse disparaît avec lui — c'est exactement ainsi que
+neuf jours de mesures ont été perdues, du 01/09 au 10/09, alors qu'elles auraient dû être
+déposées dans le dépôt. `local/` survit à la séance et ne pollue jamais l'historique.
+
+**Ce que cela force à faire, et c'est le bénéfice réel :** au moment de sortir un fichier de
+`local/`, la question « où cela va-t-il vivre ? » se pose forcément. Une mesure part dans
+`notes/proofs/`, une règle dans `doc/`, le reste ne sort pas.
 ## Une décision tranchée sur des mesures dépose ses mesures
 
 **Reproche de l'utilisateur, le 10/09 : « tu ne remplis pas bien `notes/`, tu n'y mets pas
