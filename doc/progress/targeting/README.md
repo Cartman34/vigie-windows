@@ -6,4 +6,5 @@ realisation sans reecrire l'enonce.
 
 - Liste et specifications : **`features.md`**.
 - Installation et mise a jour, la sequence cible : **`install-update.md`**.
+- Notifications de bureau, la porte et ses outils : **`notifications.md`**.
 - Etat d'avancement correspondant : `../implemented/status.md`.

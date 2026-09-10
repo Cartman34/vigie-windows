@@ -1,7 +1,7 @@
 # @author Florent HAZARD <f.hazard@sowapps.com>
 # -*- coding: utf-8 -*-
 """
-Genere les icones du tray : ok.ico / warn.ico / error.ico.
+Genere les icones du tray : ok / warn / error, en .ico et en .png.
 
     python generate-icons.py <dossier-de-sortie>
 
@@ -149,6 +149,10 @@ def make(color, frac, out_path, sizes=(16, 20, 24, 32, 48, 256)):
     # au lieu d'une reduction de la plus grande.
     largest.save(out_path, format='ICO', sizes=[(s, s) for s in sizes],
                  append_images=frames[:-1])
+    # LE PNG A COTE DU .ICO. Le rendu des notifications pioche une petite image dans un
+    # .ico et l'agrandit : le contour sort en escalier. Les outils modernes veulent un
+    # PNG, et c'est la meme image 256 -- ecrite ici pour qu'elle ne puisse pas diverger.
+    largest.save(os.path.splitext(out_path)[0] + '.png', format='PNG')
 
 
 if __name__ == '__main__':
@@ -164,4 +168,4 @@ if __name__ == '__main__':
     make((63, 185, 80), 1.00, os.path.join(out, 'ok.ico'))
     make((210, 153, 34), 0.50, os.path.join(out, 'warn.ico'))
     make((248, 81, 73), 0.17, os.path.join(out, 'error.ico'))
-    print('OK', sorted(x for x in os.listdir(out) if x.endswith('.ico')))
+    print('OK', sorted(x for x in os.listdir(out) if x.endswith(('.ico', '.png'))))

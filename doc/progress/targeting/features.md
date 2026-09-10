@@ -15,6 +15,10 @@ Format : `ID` — Titre, puis le besoin et ses critères. On n'écrit **pas** ic
   serveur : une relance se **demande** au serveur, qui se relance lui-même avec ses propres droits — sans UAC, depuis
   n'importe quel compte. Si le serveur ne répond plus, alors seulement elle propose de le relancer, en demandant
   l'élévation.
+- **CORE-NOTIFY** — Prévenir sur le bureau quand un état bascule. Le besoin nomme un **sujet, un état, une mesure et
+  une urgence** ; il ne nomme aucun outil d'affichage. Windows en offre plusieurs, aucun n'est disponible partout, et
+  celui qu'on recommande change avec les versions : le choix se fait à l'exécution, derrière une seule porte, et une
+  notification n'est jamais perdue faute d'outil. Conception : [notifications.md](notifications.md).
 - **CORE-AUTOSTART** — Deux démarrages, par tâches planifiées idempotentes et sans UAC à chaque action. L'**app
   serveur** démarre avec l'ordinateur, sous un compte dédié, **avant** et **sans** qu'aucune session soit ouverte.
   L'**app cliente** démarre à l'ouverture de session de chaque compte autorisé. Les tâches se réparent seules quand

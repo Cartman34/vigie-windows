@@ -1042,8 +1042,16 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
             $vue = $state.Bulles[$cle]
             if ($vue -and ($maintenant - [datetime]$vue).TotalMinutes -lt 15) { return }
             if ($state.DerniereBulle -and ($maintenant - [datetime]$state.DerniereBulle).TotalSeconds -lt 60) { return }
+            # WHICH TOOL SHOWS IT IS NOT DECIDED HERE (targeting/notifications.md).
+            # We describe the event; the door picks -- and its last rank, the balloon,
+            # is always available.
+            $level = switch ($Icone) { 'Error' { 'error' } 'Warning' { 'warn' } default { 'ok' } }
             try {
-                $icon.ShowBalloonTip($Duree, $Titre, $Texte, [System.Windows.Forms.ToolTipIcon]::$Icone)
+                $outil = Show-VigieNotification `
+                    -Notification @{ Subject = $Titre; Body = $Texte; State = $level; Duration = $Duree } `
+                    -Context @{ TrayRoot = $trayRoot; Aumid = (Get-VigieToastIdentity); Icon = $icon }
+                if ($outil) { TLog ("notification montree par " + $outil) }
+                else { TLog "aucun outil n'a su montrer la notification" }
                 $state.Bulles[$cle] = $maintenant
                 $state.DerniereBulle = $maintenant
             } catch {

@@ -6327,6 +6327,74 @@ function Remove-VigieToastIdentity {
     } catch { return $false }
 }
 
+<#
+    THE NOTIFICATION DOOR -- conception : doc/progress/targeting/notifications.md.
+
+    The client app describes an EVENT and never an display: a subject, a state, a text and
+    a duration. Which tool shows it is decided here, at the moment of showing, among the
+    files of apps/tray/notify/ -- one per tool, ranked by their name, exactly as the game
+    identification methods are (probes/gaming/identify/).
+
+    Before this, ShowBalloonTip was called at five places. Changing tool meant rewriting
+    five callers, and no tool works on every machine: the real API is unreachable from
+    PowerShell 7 without going round, the recommended one lives in a SDK to install. The
+    defect was not the tool chosen -- it was that there was no PLACE to change it.
+
+    THE LAST RANK IS ALWAYS AVAILABLE, and that is what makes the rest safe: a tool can be
+    added, removed or wrong without a notification ever being lost.
+#>
+function Get-VigieToastImage {
+    param([Parameter(Mandatory)][string]$TrayRoot, [string]$State = 'ok')
+    $name = switch ($State) { 'ok' { 'ok' } 'warn' { 'warn' } 'error' { 'error' } default { 'error' } }
+    # THE PNG FIRST. Notification rendering picks a small frame out of a .ico and blows it
+    # up -- the outline comes out as a staircase, seen on screen on 10/09. The .ico stays
+    # as the answer of last resort: an installation from before the PNG must still notify.
+    foreach ($extension in @('.png', '.ico')) {
+        $path = Join-Path (Join-Path $TrayRoot 'assets') ($name + $extension)
+        if (Test-PathSafe $path) { return $path }
+    }
+    return $null
+}
+
+function Get-VigieToastXml {
+    param(
+        # AN EMPTY SUBJECT IS A CASE, NOT AN ERROR. Refused by the binder, it would throw
+        # inside a tool, the door would read that as a decline and try the next rank -- one
+        # by one, down to the balloon, for something we can answer in one line.
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Subject,
+        [string]$Body = '',
+        [string]$Image,
+        [switch]$Long
+    )
+    if (-not $Subject) { return $null }
+    # ESCAPED, ALWAYS. An application named "AT&T" or a title carrying an angle bracket
+    # would otherwise produce a document that does not parse, and a lost notification.
+    $xml = '<toast'
+    if ($Long) { $xml += ' duration="long"' }
+    $xml += '><visual><binding template="ToastGeneric">'
+    $xml += '<text>' + [System.Security.SecurityElement]::Escape($Subject) + '</text>'
+    if ($Body) { $xml += '<text>' + [System.Security.SecurityElement]::Escape($Body) + '</text>' }
+    if ($Image -and (Test-PathSafe $Image)) {
+        $uri = 'file:///' + "$Image".Replace([char]92, '/')
+        $xml += '<image placement="appLogoOverride" src="' + [System.Security.SecurityElement]::Escape($uri) + '"/>'
+    }
+    $xml + '</binding></visual></toast>'
+}
+
+function Show-VigieNotification {
+    param(
+        [Parameter(Mandatory)]$Notification,
+        [Parameter(Mandatory)]$Context
+    )
+    $folder = Join-Path $Context.TrayRoot 'notify'
+    foreach ($tool in @(Get-ChildItem -LiteralPath $folder -Filter '*.ps1' -File -ErrorAction SilentlyContinue | Sort-Object Name)) {
+        $shown = $false
+        try { $shown = [bool](@(& $tool.FullName -Notification $Notification -Context $Context) | Select-Object -Last 1) } catch { $shown = $false }
+        if ($shown) { return $tool.BaseName }
+    }
+    return $null
+}
+
 function Get-SharedInstallPath {
     $declared = $null
     try {
