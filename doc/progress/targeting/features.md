@@ -83,7 +83,10 @@ Format : `ID` — Titre, puis le besoin et ses critères. On n'écrit **pas** ic
   redémarrage sans consentement.
 - **WU-UPDATEMODE** — Basculer entre « verrouillé » et « mode mise à jour » : déverrouiller pour installer à la demande,
   puis re-verrouiller. L'utilisateur choisit toujours le moment du redémarrage.
-- **WU-PENDING** — Lister les mises à jour en attente, les rechercher et les installer au choix.
+- **WU-PENDING** — Lister les mises à jour en attente, les rechercher et les installer au choix. La liste se **groupe
+  par constructeur** (**D118**), et deux mises à jour du **même modèle de pilote** se présentent **côte à côte, la plus
+  récente d'abord, l'ancienne marquée comme telle**. On la marque, on ne la masque pas : Windows la propose, la cacher
+  reviendrait à décider à la place de l'utilisateur.
 - **WU-AUDIT** — Produire un audit complet de la machinerie Windows Update : stratégies, tâches, services, redémarrage
   en attente.
 

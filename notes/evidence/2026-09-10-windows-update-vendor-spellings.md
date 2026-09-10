@@ -60,8 +60,28 @@ Quatre paires, deux versions du même pilote proposées ensemble :
 - `Lenovo` — Universal Device Client Device
 - `Elevoc` — Elevoc Device Extension
 
-**Non traité à ce stade.** La cible dit qu'on les marque sans les masquer ; ce n'est pas
-codé. Si la question revient, c'est ici que se trouvent les cas réels pour l'éprouver.
+**Traité le soir même**, l'utilisateur ayant vu la paire Elevoc à l'écran et demandé si
+c'était bien deux versions de la même chose. Ce que la mise en œuvre a appris :
+
+- **Grouper sur le modèle seul est faux.** `Intel(R) UHD Graphics` apparaît deux fois à la
+  **même date**, une fois en classe `Display` et une fois en `Extension` : deux composants
+  d'un même appareil, pas deux versions d'un composant. Le premier jet marquait l'un des
+  deux comme ancien, ce qui était simplement faux.
+- **La règle retenue** : même constructeur, même modèle **et même classe**, et les dates
+  doivent réellement différer. Trois paires marquées sur les quatre relevées le matin ; la
+  quatrième, celle d'Intel, n'en était pas une.
+
+**Et un faux doublon qui n'en était pas un du tout.** L'utilisateur a aussi signalé trois
+lignes `Nahimic - MEDIA - 2.0.5.0`, `1.1.4.0` et `2.0.4.0`, qui se lisent comme une même
+chose proposée trois fois. Ce sont **trois appareils distincts** — `Nahimic mirroring
+device`, `Nahimic VAD`, `Nahimic Easy Surround device` — dont le titre Windows porte la
+**version** là où les autres constructeurs mettent le modèle. La ligne porte désormais le
+**modèle** comme titre, et le titre de Windows descend dans le détail, où la version qu'il
+contient reste lisible.
+
+**Ce qui n'a PAS été vérifié** : la règle n'a été éprouvée que sur ces 49 mises à jour. Un
+constructeur qui laisserait `DriverClass` vide ferait tomber deux composants distincts dans
+la même clé, et rien n'a montré ce cas ici.
 
 ## Ce qui n'a pas été vérifié
 

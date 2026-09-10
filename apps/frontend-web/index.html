@@ -2201,13 +2201,19 @@ async function listeDeChoix(type, module){
 }
 function itemsDeMaj(j){
   return (j.result && j.result.updates || []).map(u=>({
-    id:u.id, titre:u.titre,
+    id:u.id,
+    // LE MODELE NOMME LA LIGNE quand le serveur en a un : le titre de Windows porte parfois
+    // la version a la place du modele, et trois appareils differents se lisent alors pareil.
+    titre:u.libelle||u.titre,
     // Le GROUPE et le POIDS viennent du serveur : c'est lui qui a vu toutes les
     // orthographes d'un constructeur, et lui seul pouvait les replier (D118).
-    groupe:u.groupe||'', octets:u.octets||0,
+    groupe:u.groupe||'', octets:u.octets||0, remplacee:!!u.remplacee,
     // Detail deja compose par le serveur (paquets), sinon assemble ici (Windows Update).
-    detail: u.detail || [u.modele, u.kb, u.pilote?'pilote':null, u.dateP, u.octets?octets(u.octets):null,
-            u.telecharge?L('ui.deja-telechargee'):null].filter(Boolean).join(' · ')
+    detail: u.detail || [u.libelle?u.titre:u.modele, u.kb, u.pilote?'pilote':null, u.dateP, u.octets?octets(u.octets):null,
+            u.telecharge?L('ui.deja-telechargee'):null,
+            // Deux lignes du meme modele ne se distinguent que par leur date : on le DIT,
+            // au lieu de laisser l'utilisateur les comparer chiffre par chiffre.
+            u.remplacee?'version plus ancienne':null].filter(Boolean).join(' · ')
   }));
 }
 

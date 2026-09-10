@@ -52,6 +52,8 @@ try {
             dateP     = $dateP
             provider  = $provider
             groupe    = ''
+            libelle   = ''
+            remplacee = $false
             telecharge = [bool]$u.IsDownloaded
         }
     }
@@ -83,6 +85,63 @@ foreach ($line in $updates) {
     $line.groupe = $(if ($key) { Get-VendorName -Key $key -Seen $seenByKey[$key] -Backend $backend }
                      else { 'Pilotes sans constructeur déclaré' })
 }
+
+<#
+    TWO UPDATES FOR ONE DRIVER ARE TWO VERSIONS OF IT.
+
+    Seen by the owner on 10/09: "Elevoc Device Extension" offered twice, 3.0.2.218 dated
+    2024 and 3.0.2.308 dated 2025 -- two lines that look identical until you compare the
+    dates, four such pairs in the list.
+
+    They are put SIDE BY SIDE, newest first, and the older one is marked. It is not hidden:
+    Windows offers it, and hiding it would decide in the owner's place.
+
+    THE CLASS IS PART OF THE PAIR, and the date must actually differ. Measured the same day:
+    "Intel(R) UHD Graphics" appears twice on the SAME date, once as Display and once as
+    Extension -- two components of one device, not two versions of one component. Pairing on
+    the model alone marked one of them old, which was simply false.
+
+    So: same maker, same model AND same class. Equal dates supersede nothing. An update with
+    no model -- a security fix -- pairs with nothing.
+#>
+$byModel = @{}
+foreach ($line in $updates) {
+    if (-not "$($line.modele)".Trim()) { continue }
+    $key = "$($line.groupe)|$($line.modele)|$($line.classe)".ToLowerInvariant()
+    if (-not $byModel.ContainsKey($key)) { $byModel[$key] = @() }
+    $byModel[$key] += $line
+}
+foreach ($key in @($byModel.Keys)) {
+    $family = @($byModel[$key])
+    if ($family.Count -lt 2) { continue }
+    $dates = @($family | ForEach-Object { "$($_.dateP)" } | Sort-Object -Unique)
+    if ($dates.Count -lt 2) { continue }
+    $newest = @($family | Sort-Object { "$($_.dateP)" } -Descending)[0]
+    foreach ($line in $family) { if ("$($line.dateP)" -ne "$($newest.dateP)") { $line.remplacee = $true } }
+}
+
+<#
+    THE MODEL NAMES THE LINE, NOT WINDOWS' TITLE.
+
+    Seen on 10/09: three lines reading "Nahimic - MEDIA - 2.0.5.0", "… 1.1.4.0" and
+    "… 2.0.4.0". They look like one thing offered three times; they are three DEVICES --
+    a mirroring device, a VAD, an Easy Surround device -- and their titles carry the
+    VERSION where other makers put the model.
+
+    Inside a maker's group, repeating the maker in every title says nothing anyway. So the
+    line is named by its model, and Windows' own title moves down into the detail, where
+    the version it carries stays readable.
+#>
+foreach ($line in $updates) {
+    if ($line.pilote -and "$($line.modele)".Trim()) { $line.libelle = "$($line.modele)" }
+}
+
+# THE ORDER PUTS THE TWO VERSIONS SIDE BY SIDE. The front end keeps the array's order inside
+# a group, so adjacency is decided here.
+$updates = @($updates | Sort-Object @{ Expression = { "$($_.groupe)" } },
+                                    @{ Expression = { "$($_.modele)" } },
+                                    @{ Expression = { "$($_.classe)" } },
+                                    @{ Expression = { "$($_.dateP)" }; Descending = $true })
 
 # Le verrouillage des taches (Mode MAJ) empeche l'installation : on le DIT ici plutot que
 # de laisser l'installation echouer sans explication.
