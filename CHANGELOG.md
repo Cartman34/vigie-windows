@@ -505,3 +505,50 @@
   machine de l'utilisateur ne devait pas changer d'état. À éprouver depuis un serveur Vigie
   lancé en administrateur — écriture effective des deux clés, sauvegarde `.reg`, puis
   comportement après un vrai redémarrage.
+
+## 2026-09-11 — **v1.1.0**, première publication depuis la v1.0.0
+
+*Ce journal n'avait plus été tenu depuis le 24/08 : les entrées ci-dessus s'arrêtent avant
+la v1.0.0 elle-même. Cette section couvre donc les 44 commits qui séparent les deux
+versions, du point de vue de qui utilise Vigie.*
+
+### Notifications de bureau
+- Elles portent **le nom et l'icône de Vigie**. Elles s'annonçaient « PowerShell ».
+- Le **titre nomme ce qui a changé** et le corps donne la mesure — « 2 détectée(s) » plutôt
+  qu'un « Un module a changé d'état » identique pour tous les sujets.
+- Un **rétablissement remplace son alerte** au lieu de s'ajouter à côté.
+- Un même champ **ne sonne pas deux fois en dix minutes** : dix bascules en quarante minutes
+  décrivaient une seule situation.
+- **Rien ne sonne quand personne ne regarde l'écran** : revenir d'une autre session ne
+  déverse plus une pile de bulles.
+- Derrière, plusieurs outils d'affichage rangés par préférence, le dernier toujours
+  disponible : une notification n'est jamais perdue faute d'outil.
+
+### Mises à jour Windows
+- La liste des mises à jour en attente est **groupée par constructeur**, en repliant les
+  orthographes d'un même fabricant — Intel s'écrivait de trois façons.
+- Chaque ligne de pilote porte le **nom du modèle** plutôt que le titre de Windows, qui
+  porte parfois la version à sa place.
+- Deux **versions du même pilote** : seule la plus récente est proposée, et l'ancienne
+  revient si la récente échoue à s'installer.
+- Le compteur de la carte et la fenêtre d'installation **disent le même nombre**, et
+  l'écart avec ce que Windows détecte est expliqué.
+- Vigie ne se substitue jamais à Windows Update : la sélection va à son installateur.
+
+### Jeux
+- Ce qui **appartient au jeu ou à sa plateforme** n'est plus signalé comme une application
+  gourmande étrangère.
+- Les applications gourmandes sont **nommées**, plus seulement comptées.
+
+### Installation et désinstallation
+- **On choisit où Vigie s'installe.**
+- La **désinstallation** est écrite : ce qu'elle retire, dans quel ordre, ce qu'elle laisse.
+  Interrompue, elle se reprend en la relançant. Elle n'emporte jamais de quoi réinstaller.
+- **Une tâche de démarrage par compte**, sous un seul schéma de nom, réparée toute seule.
+
+### Retiré
+- L'affichage d'un **historique dans les cartes**, que personne n'avait demandé.
+
+### A faire
+- Les essais d'**installation et de désinstallation réelles** se font à partir de cette
+  publication : rien n'a encore été installé depuis une archive publiée.
