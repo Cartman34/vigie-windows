@@ -1,7 +1,7 @@
 # Les outils de notification
 
 Un fichier par outil. La conception, elle, vit dans
-[`doc/progress/targeting/notifications.md`](../../../doc/progress/targeting/notifications.md) : cette page ne dit que
+[`doc/progress/targeting/notifications.md`](https://github.com/Cartman34/vigie-windows/blob/main/doc/progress/targeting/notifications.md) : cette page ne dit que
 ce qui est là.
 
 `Show-VigieNotification` (`common.ps1`) les parcourt **dans l'ordre de leur nom** et s'arrête au premier qui affiche.
