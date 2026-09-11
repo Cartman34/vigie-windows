@@ -132,3 +132,38 @@ rien.
 **Ce qui n'a PAS été vérifié** : aucune installation n'a été lancée, donc le relevé des
 échecs par identifiant n'a jamais été écrit par le worker en conditions réelles. La lecture
 est éprouvée, l'écriture ne l'est pas.
+## Suite du 11/09 — le compteur trompeur, et sa cause
+
+**Constat de l'utilisateur, captures à l'appui** : la carte annonçait `49`, la fenêtre de
+choix `0 / 48`.
+
+**Cause.** La liste était construite **deux fois**, et chaque copie appliquait sa propre
+soustraction :
+
+| | Ce qu'elle comptait | Ce qu'elle retirait |
+|---|---|---|
+| la sonde (carte) | le résultat de la recherche | les mises à jour déjà installées que Windows repropose |
+| l'action (fenêtre) | le résultat de la même recherche | les versions périmées d'un même pilote |
+
+Aucune des deux ne connaissait la règle de l'autre. Les deux nombres ne pouvaient donc pas
+coïncider, et aucun n'était faux séparément — c'est exactement le cas que la discipline
+« on factorise avant de recopier » décrit.
+
+**Correction.** `Get-PendingUpdateList` fabrique la liste une seule fois, applique les deux
+règles, et rend ce que Windows détecte **et** ce que Vigie propose. La sonde et l'action la
+lisent. Relevé après correction :
+
+| | |
+|---|---|
+| Windows détecte | 51 |
+| Vigie propose | 48 |
+| versions périmées écartées | 3 |
+| déjà installées et reproposées | 0 |
+
+Le libellé suit : `À installer` plutôt que `Détectées (non installées)`, un nombre dont on
+avait retiré trois lignes ne pouvant pas s'appeler « détectées ». Et le guide dit les deux
+nombres, avec la raison de l'écart.
+
+**Ce qui n'a PAS été vérifié** : la branche « déjà installées et reproposées » vaut 0 sur
+cette machine aujourd'hui. Elle vient de l'ancienne sonde et n'a pas été rejouée depuis le
+regroupement — aucune installation n'ayant été lancée.

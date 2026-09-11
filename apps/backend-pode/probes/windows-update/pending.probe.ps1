@@ -7,26 +7,21 @@
 #>
 $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $backend 'lib/common.ps1')
-$count = $null
-$titles = @()
-$drivers = 0
-try {
-    $searcher = (New-Object -ComObject Microsoft.Update.Session).CreateUpdateSearcher()
-    $searcher.Online = $false
-    $res = $searcher.Search("IsInstalled=0 And IsHidden=0")
-    $count = [int]$res.Updates.Count
-    for ($i = 0; $i -lt $res.Updates.Count; $i++) {
-        $u = $res.Updates.Item($i)
-        $titles += $u.Title
-        try { if ($u.Type -eq 2) { $drivers++ } } catch { }   # 2 = ushDriver
-    }
-} catch { }
+# THE LIST IS BUILT ONCE, here as in the choice dialog.
+# This probe used to count it its own way and the dialog its own: the card announced 49
+# where the dialog offered 48, seen on screen on 11/09. Two numbers for one thing.
+$pending = Get-PendingUpdateList -Backend $backend
+$count = $(if ($pending.ok) { @($pending.all).Count } else { $null })
+$titles = @($pending.all | ForEach-Object { "$($_.titre)" })
+$drivers = [int]$pending.drivers
 
 if ($null -eq $count) {
     New-ModuleObject -Id 'wu-pending' -Theme 'windows-update' -Label 'Mise à jour du système' -Status 'neutral' -Fields @(
         New-Field -Key 'pending' -Label 'Détectées' -Value 'indisponible' -Kind 'text' -Status 'neutral' -Help "Recherche locale indisponible (le verrouillage coupe les analyses ; le cache peut être vide)."
     )
 } else {
+    # THE OFFERED COUNT IS COMPUTED BEFORE THE GUIDE, which announces it.
+    $effectif = @($pending.offered).Count
     # Etat d'une installation lancee depuis l'application (worker wu-install).
     $inst = $null
     try {
@@ -34,9 +29,10 @@ if ($null -eq $count) {
         if (Test-Path $f) { $inst = Get-Content $f -Raw | ConvertFrom-Json }
     } catch { }
 
-    $help = "Mises à jour déjà détectées et non installées (recherche LOCALE dans le cache : aucune analyse en ligne, aucune installation)."
+    $help = "Ce que Vigie propose d'installer. Recherche LOCALE dans le cache de Windows : aucune analyse en ligne, aucune installation."
     $note = "Pilotes/MAJ facultatives : non comptés par l'écran principal de Windows. Rien ne s'installe sans vous — pour installer, utilisez « Ouvrir Windows Update » (déverrouillez via Mode MAJ si besoin)."
     $parts = @($help)
+    $parts += "Windows en détecte $count ; Vigie en propose $effectif. Ce qui manque entre les deux est expliqué plus bas."
     if ($drivers -gt 0) { $parts += "Dont $drivers pilote(s)/optionnel(s)." }
     $parts += $note
     if ($count -gt 0 -and $titles.Count) { $parts += "Liste des mises à jour détectées :`n- " + ($titles -join "`n- ") }
@@ -44,18 +40,20 @@ if ($null -eq $count) {
     # jour (boucle classique des pilotes OEM mal cibles -- constate sur deux pilotes
     # Lenovo poses en machine et redetectes). Sans explication, l'utilisateur reessaie
     # en vain et croit Vigie en panne.
-    $dejaFaites = @()
-    if ($count -gt 0 -and $titles.Count -and $inst -and $inst.phase -eq 'termine' -and -not $inst.error) {
-        $titresInst = @()
-        if ($inst.detail) { foreach ($d0 in @($inst.detail)) { if (@($d0).Count -ge 2 -and "$($d0[1])" -match 'Install') { $titresInst += "$($d0[0])" } } }
-        elseif ($inst.titres) { $titresInst = @($inst.titres) }
-        foreach ($t0 in $titles) { if ($titresInst -contains "$t0") { $dejaFaites += "$t0" } }
+    $dejaFaites = @($pending.alreadyDone)
+    if ($true) {
         if ($dejaFaites.Count -gt 0) {
             $parts += ("ATTENTION : " + $dejaFaites.Count + " de ces mises à jour ont déjà été installées AVEC SUCCÈS et Windows les repropose quand même :`n- " + ($dejaFaites -join "`n- ") + "`nC'est une boucle connue des pilotes constructeur mal ciblés : le pilote est bien posé (vérifiable dans le Gestionnaire de périphériques), réinstaller ne change rien. Vous pouvez les laisser ou les masquer avec l'outil Microsoft wushowhide.")
         }
     }
+    # WHAT THE CARD ANNOUNCES IS WHAT THE DIALOG OFFERS, to the number. Everything set
+    # aside is SAID right below: a silent subtraction is what made the counter misleading.
+    if ($pending.setAsideOlder -gt 0) {
+        $parts += ("$($pending.setAsideOlder) mise(s) à jour ne sont pas proposées : ce sont des versions PLUS ANCIENNES " +
+                   "d'un pilote dont une version plus récente est dans la liste. Windows les propose encore ; Vigie " +
+                   "garde la dernière, et ferait revenir l'ancienne si la récente échouait à s'installer.")
+    }
     $guide = ($parts -join "`n`n")
-    $effectif = [Math]::Max(0, $count - $dejaFaites.Count)
     $enCours = [bool]($inst -and $inst.installing)
 
     $scan = $null
@@ -203,7 +201,7 @@ if ($null -eq $count) {
         # plus retiree.
         # Decompte EFFECTIF : les reproposees (deja installees avec succes) ne comptent
         # pas et ne declenchent pas d'avertissement -- reinstaller ne changerait rien.
-        New-Field -Key 'pending' -Label 'Détectées (non installées)' -Value $effectif -Kind 'number' `
+        New-Field -Key 'pending' -Label 'À installer' -Value $effectif -Kind 'number' `
             -Status $(if ($effectif -gt 0) {'warn'} else {'ok'}) -Help $help -Guide $guide `
             -FixAction $(if ($effectif -gt 0) { 'wu-list-pending' } else { $null })
     ) + $champs) -Actions $actions -Busy:($enCours -or $scanEnCours) `

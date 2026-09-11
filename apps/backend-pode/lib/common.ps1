@@ -6328,6 +6328,143 @@ function Remove-VigieToastIdentity {
 }
 
 <#
+    THE PENDING UPDATE LIST, BUILT ONCE FOR EVERYONE.
+
+    It was built TWICE, and the two copies drifted exactly as the discipline warns. The card
+    counted the search's result minus the updates Windows re-offers after installing them;
+    the dialog listed the search's result minus the superseded driver versions. Neither knew
+    about the other, so the card announced 49 while the dialog offered 48 -- seen on screen
+    on 11/09. Two numbers for one thing, and the owner had to work out which to believe.
+
+    So the list is built here, once, and both read it. Whoever adds a third rule tomorrow
+    adds it in one place, and the card cannot disagree with the dialog any more.
+
+    WE DO NOT TOUCH HOW WINDOWS UPDATE WORKS. Everything here is about the list we SHOW; the
+    selection still goes to Windows' own installer, which sequences and resolves what it has
+    to.
+#>
+function Get-PendingUpdateList {
+    param([string]$Backend = (Get-BackendRoot))
+
+    $found = $null
+    $lines = @()
+    try {
+        $searcher = (New-Object -ComObject Microsoft.Update.Session).CreateUpdateSearcher()
+        $searcher.Online = $false
+        $found = $searcher.Search("IsInstalled=0 And IsHidden=0")
+    } catch {
+        return [pscustomobject]@{ ok = $false; all = @(); offered = @(); drivers = 0
+                                  setAsideOlder = 0; alreadyDone = @() }
+    }
+
+    for ($i = 0; $i -lt $found.Updates.Count; $i++) {
+        $u = $found.Updates.Item($i)
+        # MaxDownloadSize is 0 once the update is already downloaded.
+        $size = 0;      try { $size = [int64]$u.MaxDownloadSize } catch { }
+        $driver = $false; try { $driver = ($u.Type -eq 2) } catch { }
+        $kb = @();      try { foreach ($k in $u.KBArticleIDs) { $kb += "KB$k" } } catch { }
+        $model = '';    try { if ($u.DriverModel) { $model = "$($u.DriverModel)" } } catch { }
+        $class = '';    try { if ($u.DriverClass) { $class = "$($u.DriverClass)" } } catch { }
+        $when = '';     try { if ($u.DriverVerDate) { $when = ([datetime]$u.DriverVerDate).ToString('yyyy-MM-dd') } } catch { }
+        $provider = ''; try { if ($u.DriverProvider) { $provider = "$($u.DriverProvider)" } } catch { }
+        $lines += [pscustomobject][ordered]@{
+            id = "$($u.Identity.UpdateID)"; titre = "$($u.Title)"; kb = ($kb -join ', ')
+            octets = $size; pilote = $driver; modele = $model; classe = $class; dateP = $when
+            provider = $provider; telecharge = [bool]$u.IsDownloaded
+            groupe = ''; libelle = ''; remplacee = $false; echec = ''; dejaFaite = $false
+        }
+    }
+
+    # --- The group, once the list is complete (D118) ---------------------------------------
+    $seenByKey = @{}
+    foreach ($line in $lines) {
+        if (-not $line.pilote -or -not "$($line.provider)".Trim()) { continue }
+        $key = Get-VendorKey "$($line.provider)"
+        if (-not $seenByKey.ContainsKey($key)) { $seenByKey[$key] = @() }
+        $seenByKey[$key] += "$($line.provider)"
+    }
+    foreach ($line in $lines) {
+        if (-not $line.pilote) { $line.groupe = 'Windows'; continue }
+        $key = Get-VendorKey "$($line.provider)"
+        $line.groupe = $(if ($key) { Get-VendorName -Key $key -Seen $seenByKey[$key] -Backend $Backend }
+                         else { 'Pilotes sans constructeur déclaré' })
+        if ("$($line.modele)".Trim()) { $line.libelle = "$($line.modele)" }
+    }
+
+    # --- What the last installation failed at, and what it succeeded at ---------------------
+    $failed = @{}
+    $installed = @()
+    try {
+        $file = Get-VarPath -Backend $Backend -Kind 'cache' -File 'wu-install.json'
+        if (Test-PathSafe $file) {
+            $last = Get-Content -LiteralPath $file -Raw -Encoding UTF8 | ConvertFrom-Json
+            foreach ($entry in @($last.echecs.PSObject.Properties)) { $failed[$entry.Name] = "$($entry.Value)" }
+            if ($last.phase -eq 'termine' -and -not $last.error) {
+                if ($last.detail) {
+                    foreach ($d in @($last.detail)) { if (@($d).Count -ge 2 -and "$($d[1])" -match 'Install') { $installed += "$($d[0])" } }
+                } elseif ($last.titres) { $installed = @($last.titres) }
+            }
+        }
+    } catch { }
+    foreach ($line in $lines) {
+        if ($failed.ContainsKey("$($line.id)")) { $line.echec = $failed["$($line.id)"] }
+        # RE-OFFERED: Windows says "installed successfully" then detects the SAME update
+        # again -- the known loop of badly targeted OEM drivers. Reinstalling changes nothing.
+        if ($installed -contains "$($line.titre)") { $line.dejaFaite = $true }
+    }
+
+    # --- Two versions of one driver: the newest is the one we keep -------------------------
+    #
+    # THE CLASS IS PART OF THE PAIR, and the dates must actually differ. "Intel(R) UHD
+    # Graphics" appears twice on the SAME date, once as Display and once as Extension: two
+    # components of one device, not two versions of one component.
+    $byModel = @{}
+    foreach ($line in $lines) {
+        if (-not "$($line.modele)".Trim()) { continue }
+        $key = "$($line.groupe)|$($line.modele)|$($line.classe)".ToLowerInvariant()
+        if (-not $byModel.ContainsKey($key)) { $byModel[$key] = @() }
+        $byModel[$key] += $line
+    }
+    foreach ($key in @($byModel.Keys)) {
+        $family = @($byModel[$key])
+        if ($family.Count -lt 2) { continue }
+        $dates = @($family | ForEach-Object { "$($_.dateP)" } | Sort-Object -Unique)
+        if ($dates.Count -lt 2) { continue }
+        $newest = @($family | Sort-Object { "$($_.dateP)" } -Descending)[0]
+        foreach ($line in $family) { if ("$($line.dateP)" -ne "$($newest.dateP)") { $line.remplacee = $true } }
+    }
+
+    # --- The order puts the two versions side by side inside their group -------------------
+    $lines = @($lines | Sort-Object @{ Expression = { "$($_.groupe)" } },
+                                    @{ Expression = { "$($_.modele)" } },
+                                    @{ Expression = { "$($_.classe)" } },
+                                    @{ Expression = { "$($_.dateP)" }; Descending = $true })
+
+    # --- What we offer ----------------------------------------------------------------------
+    $older = 0
+    $offered = @()
+    foreach ($line in $lines) {
+        if ($line.dejaFaite) { continue }
+        if (-not $line.remplacee) { $offered += $line; continue }
+        $key = "$($line.groupe)|$($line.modele)|$($line.classe)".ToLowerInvariant()
+        # When the newest one failed, the older one is the only way forward left.
+        $newerFailed = @($lines | Where-Object {
+            -not $_.remplacee -and "$($_.groupe)|$($_.modele)|$($_.classe)".ToLowerInvariant() -eq $key -and "$($_.echec)".Trim()
+        }).Count -gt 0
+        if ($newerFailed) { $offered += $line } else { $older++ }
+    }
+
+    [pscustomobject]@{
+        ok = $true
+        all = @($lines)
+        offered = @($offered)
+        drivers = @($lines | Where-Object { $_.pilote }).Count
+        setAsideOlder = $older
+        alreadyDone = @($lines | Where-Object { $_.dejaFaite } | ForEach-Object { "$($_.titre)" })
+    }
+}
+
+<#
     THE MAKER'S NAME, WHEN THE MAKER SPELLS IT SEVERAL WAYS.
 
     Windows Update hands out the provider of each driver, and the same company writes
