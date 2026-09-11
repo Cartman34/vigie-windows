@@ -30,7 +30,7 @@ ligne — `scripts/dev/check-doc.ps1` refuse une décision absente d'ici.
 - **Sécurité, droits et multi-comptes** — D34 · D65 · D67 · D73 · D104 · D109
 - **Sondes, actions et tâches de fond** — D50bis · D53 · D54 · D60 · D61 · D80 · D82 · D83 · D85 · D113
 - **Outillage** — D06 · D21 · D24 · D40 · D44 · D47 · D52 · D64 · D75 · D86 · D90 · D116 · D118
-- **Méthode de travail** — D10 · D12 · D13 · D14 · D16 · D17 · D31 · D36 · D39 · D43 · D51 · D62 · D63 · D74 · D76 · D100 · D103
+- **Méthode de travail** — D10 · D12 · D13 · D14 · D16 · D17 · D31 · D36 · D39 · D43 · D51 · D62 · D63 · D74 · D76 · D100 · D103 · D121
 ---
 
 ## D01 — Icône du tray : « v1 — jauge à graduations »
@@ -3143,3 +3143,25 @@ l'original est ailleurs » ne veut rien dire pour un texte qu'il n'approuve pas.
 **Ce qui reste faux et qu'aucun outil n'attrape.** Rien ne compare la langue d'un fichier à celle de son dossier. Le
 défaut d'origine — du français sous `en/` — passerait exactement pareil demain, et il a fallu qu'un humain le
 remarque. C'est écrit comme tel dans la preuve ; ce n'est pas une règle tenue, c'est une règle espérée.
+
+## D121 — Une opération importante attend un OUI explicite (2026-09-11)
+
+*Demandée par l'utilisateur : « Tu dois impérativement corriger ce comportement. Pour des manip importante, tu dois
+attendre validation explicite. ça s'applique en cas de doute sur le fait que c'est "important". »*
+
+**Ce qui a été mesuré** :
+[`notes/evidence/2026-09-11-acting-without-validation.md`](../../notes/evidence/2026-09-11-acting-without-validation.md).
+Deux départs sans validation à vingt minutes d'écart, le second après une correction explicite.
+
+**Décision.** Une opération importante ne commence qu'après une phrase de l'utilisateur qui autorise **ce geste-là**,
+une fois que je l'ai décrit. Une question sur la méthode n'est pas un feu vert ; la latitude sur le process non plus.
+
+**Et le doute tranche dans le même sens** : si je ne sais pas si c'est important, ça l'est. Demander coûte une phrase ;
+se tromper coûte un dépôt public réécrit, une machine laissée dans un autre état, ou un artefact publié supprimé.
+
+**Ce que cela ne change pas.** Le travail ordinaire ne se demande pas à chaque geste — écrire du code, mesurer,
+documenter, commiter, fusionner ce qui a été demandé. La règle vise ce qui est **difficile à défaire** ou **sort du
+dépôt**.
+
+**Ce qui n'est tenu par aucun outil.** Celle-ci porte sur ma lecture d'une phrase, pas sur un état vérifiable. C'est la
+seule discipline du dépôt sans vérificateur derrière elle, et **D119** impose de le dire plutôt que de faire semblant.
