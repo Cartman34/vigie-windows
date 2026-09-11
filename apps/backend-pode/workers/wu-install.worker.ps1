@@ -55,6 +55,7 @@ try {
 
     $coll = New-Object -ComObject Microsoft.Update.UpdateColl
     $retenus = @()
+    $keptIds = @()
     for ($i = 0; $i -lt $res.Updates.Count; $i++) {
         $u = $res.Updates.Item($i)
         if ($ids -notcontains "$($u.Identity.UpdateID)") { continue }
@@ -62,6 +63,9 @@ try {
         try { if (-not $u.EulaAccepted) { $u.AcceptEula() } } catch { }
         [void]$coll.Add($u)
         $retenus += "$($u.Title)"
+        # THE IDENTIFIER TRAVELS WITH THE TITLE. A verdict filed under a title attaches to
+        # nothing: two drivers often share one, and the identifier is what the list knows.
+        $keptIds += "$($u.Identity.UpdateID)"
     }
     if ($coll.Count -eq 0) {
         Set-Etat @{ installing = $false; at = (Get-Date).ToUniversalTime().ToString('o')
@@ -89,6 +93,7 @@ try {
     # « Termine avec erreurs » sans dire LAQUELLE n'apprend rien. Windows fournit un
     # resultat PAR mise a jour : on le releve et on l'expose.
     $detail = @()
+    $failures = @{}
     for ($i = 0; $i -lt $coll.Count; $i++) {
         $r = $null
         try { $r = $rIn.GetUpdateResult($i) } catch { }
@@ -103,6 +108,10 @@ try {
         }
         if ($h -ne 0) { $verdict += (" (0x{0:X8})" -f $h) }
         $detail += ,@($retenus[$i], $verdict)
+        # WHAT FAILED IS KEPT, filed by identifier. The pending list uses it to say so next
+        # to the line instead of re-offering it as if nothing had happened -- and to stop
+        # hiding the older version when the newest one will not install.
+        if ($c -ne 2 -and $c -ne 3) { $failures["$($keptIds[$i])"] = $verdict }
         Write-Log -Backend $Backend -Name 'wuinstall' -Message (Get-Label 'wu-install.resultat' $retenus[$i] $verdict)
     }
     Set-Etat @{
@@ -112,6 +121,7 @@ try {
         total      = $coll.Count
         titres     = @($retenus)
         detail     = @($detail)
+        echecs     = $failures
         ok         = $ok
         partiel    = $partiel
         redemarrage = [bool]$rIn.RebootRequired

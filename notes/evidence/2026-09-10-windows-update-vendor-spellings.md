@@ -90,3 +90,45 @@ la même clé, et rien n'a montré ce cas ici.
 - Le poids total annoncé par groupe (2,5 Go dont 801 Mo pour NVIDIA) n'a pas été comparé à
   ce que Windows télécharge réellement : `MaxDownloadSize` vaut 0 sur une mise à jour déjà
   téléchargée.
+
+## Suite du 11/09 — ce que Windows Update déclare des dépendances
+
+**Question de l'utilisateur** : « y'en a pas qui dépendent d'autres ? qu'il faut installer
+avant ou après ? » Relevé sur les mêmes 49, hors ligne, en lecture seule :
+
+| Ce qui est déclaré | Sur les 49 |
+|---|---|
+| obligatoires (`IsMandatory`) | 0 |
+| exigeant un redémarrage (`RebootRequired`) | 0 |
+| licence non acceptée (`EulaAccepted` faux) | 0 |
+| contenant un paquet fils (`BundledUpdates`) | 1 |
+| en remplaçant d'autres (`SupersededUpdateIDs`) | 1 |
+| en installation optionnelle (`DeploymentAction` = 4) | 4 |
+
+**L'interface n'expose aucun graphe de prérequis.** Il n'existe pas de champ « installer
+celle-ci d'abord » : l'ordre est l'affaire de l'installateur de Windows, à qui l'on remet la
+collection choisie. La seule qui en remplace d'autres est le correctif Visual C++ 2008, et
+les deux qu'elle remplace ne sont plus dans la liste.
+
+Les quatre en installation optionnelle sont la paire XBOX 360 et deux pilotes Lenovo — rien
+qui recoupe les versions périmées, donc ce champ ne sert pas à les repérer.
+
+## L'exclusion, et sa seule exception
+
+**Arbitré par l'utilisateur le 11/09** : « Notre outil ne doit PAS bypasser la gestion de MAJ
+à ce niveau, on ne doit pas casser la manière dont ça fonctionne. […] Si tu arrives à
+déterminer que c'est deux versions de la même chose, oui, les anciennes sont exclues et on
+prend la dernière. Mais on note si elle a un problème d'installation. »
+
+Ce que ça donne sur la liste du jour : **46 lignes au lieu de 49**, trois versions périmées
+retirées. L'exception : si la plus récente a **échoué à s'installer**, l'ancienne revient,
+parce qu'elle est alors le seul chemin qui reste.
+
+Éprouvé sur données construites, la branche d'échec ne pouvant pas se provoquer sur la
+machine de l'utilisateur : l'ancienne disparaît, elle revient quand la récente a échoué, la
+récente reste proposée malgré son échec, et un échec sur un **autre** modèle ne ressuscite
+rien.
+
+**Ce qui n'a PAS été vérifié** : aucune installation n'a été lancée, donc le relevé des
+échecs par identifiant n'a jamais été écrit par l'ouvrier en conditions réelles. La lecture
+est éprouvée, l'écriture ne l'est pas.

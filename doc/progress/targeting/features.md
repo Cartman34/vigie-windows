@@ -83,10 +83,14 @@ Format : `ID` — Titre, puis le besoin et ses critères. On n'écrit **pas** ic
   redémarrage sans consentement.
 - **WU-UPDATEMODE** — Basculer entre « verrouillé » et « mode mise à jour » : déverrouiller pour installer à la demande,
   puis re-verrouiller. L'utilisateur choisit toujours le moment du redémarrage.
-- **WU-PENDING** — Lister les mises à jour en attente, les rechercher et les installer au choix. La liste se **groupe
-  par constructeur** (**D118**), et deux mises à jour du **même modèle de pilote** se présentent **côte à côte, la plus
-  récente d'abord, l'ancienne marquée comme telle**. On la marque, on ne la masque pas : Windows la propose, la cacher
-  reviendrait à décider à la place de l'utilisateur.
+- **WU-PENDING** — Lister les mises à jour en attente, les rechercher et les installer au choix. **Vigie ne se
+  substitue jamais à Windows Update** : la sélection est remise à son installateur, qui séquence et résout ce qu'il a
+  à résoudre. Rien n'est réordonné, rien n'est installé à sa place. Ce qui suit ne concerne que la **liste montrée**.
+  Elle se **groupe par constructeur** (**D118**), chaque ligne de pilote porte le **nom du modèle** plutôt que le titre
+  de Windows, et quand deux mises à jour sont deux **versions du même pilote**, seule la **plus récente** est
+  proposée — **sauf si elle a échoué à s'installer**, auquel cas l'ancienne revient, parce qu'elle est alors le seul
+  chemin qui reste. Un échec d'installation se **note sur la ligne** : une mise à jour qui vient de rater ne se
+  represente pas comme si elle était neuve.
 - **WU-AUDIT** — Produire un audit complet de la machinerie Windows Update : stratégies, tâches, services, redémarrage
   en attente.
 

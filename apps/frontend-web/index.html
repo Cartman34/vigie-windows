@@ -2207,13 +2207,16 @@ function itemsDeMaj(j){
     titre:u.libelle||u.titre,
     // Le GROUPE et le POIDS viennent du serveur : c'est lui qui a vu toutes les
     // orthographes d'un constructeur, et lui seul pouvait les replier (D118).
-    groupe:u.groupe||'', octets:u.octets||0, remplacee:!!u.remplacee,
+    groupe:u.groupe||'', octets:u.octets||0, remplacee:!!u.remplacee, echec:u.echec||'',
     // Detail deja compose par le serveur (paquets), sinon assemble ici (Windows Update).
     detail: u.detail || [u.libelle?u.titre:u.modele, u.kb, u.pilote?'pilote':null, u.dateP, u.octets?octets(u.octets):null,
             u.telecharge?L('ui.deja-telechargee'):null,
             // Deux lignes du meme modele ne se distinguent que par leur date : on le DIT,
             // au lieu de laisser l'utilisateur les comparer chiffre par chiffre.
-            u.remplacee?'version plus ancienne':null].filter(Boolean).join(' · ')
+            u.remplacee?'version plus ancienne':null,
+            // THE LAST ATTEMPT FAILED: say it, rather than re-offering the line as though
+            // it had never been tried.
+            u.echec?('dernier essai : '+u.echec):null].filter(Boolean).join(' · ')
   }));
 }
 

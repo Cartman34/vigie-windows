@@ -54,6 +54,7 @@ try {
             groupe    = ''
             libelle   = ''
             remplacee = $false
+            echec     = ''
             telecharge = [bool]$u.IsDownloaded
         }
     }
@@ -96,6 +97,10 @@ foreach ($line in $updates) {
     They are put SIDE BY SIDE, newest first, and the older one is marked. It is not hidden:
     Windows offers it, and hiding it would decide in the owner's place.
 
+    WE DO NOT TOUCH HOW WINDOWS UPDATE WORKS. The selection is handed to its installer,
+    which sequences and resolves what it has to; nothing is reordered or installed in its
+    place. What follows is about the LIST we show, never about the install mechanics.
+
     THE CLASS IS PART OF THE PAIR, and the date must actually differ. Measured the same day:
     "Intel(R) UHD Graphics" appears twice on the SAME date, once as Display and once as
     Extension -- two components of one device, not two versions of one component. Pairing on
@@ -119,6 +124,47 @@ foreach ($key in @($byModel.Keys)) {
     $newest = @($family | Sort-Object { "$($_.dateP)" } -Descending)[0]
     foreach ($line in $family) { if ("$($line.dateP)" -ne "$($newest.dateP)") { $line.remplacee = $true } }
 }
+
+<#
+    THE LAST INSTALLATION'S FAILURES, kept by the worker under the update's own identifier.
+
+    Without them, an update that just failed comes back in the list looking brand new, and
+    one ticks it again knowing nothing. With them, the line says what happened -- and an
+    older version stops being hidden when the newest one is the one that will not install.
+#>
+$failed = @{}
+try {
+    $installFile = Get-VarPath -Backend $backend -Kind 'cache' -File 'wu-install.json'
+    if (Test-PathSafe $installFile) {
+        $last = Get-Content -LiteralPath $installFile -Raw -Encoding UTF8 | ConvertFrom-Json
+        foreach ($entry in @($last.echecs.PSObject.Properties)) { $failed[$entry.Name] = "$($entry.Value)" }
+    }
+} catch { }
+foreach ($line in $updates) {
+    if ($failed.ContainsKey("$($line.id)")) { $line.echec = $failed["$($line.id)"] }
+}
+
+<#
+    AN OLDER VERSION IS NOT PROPOSED -- arbitrated by the owner on 11/09: "if you can
+    establish it is two versions of the same thing, then the old ones are excluded and we
+    take the latest. But we note if it has an installation problem."
+
+    So the older one leaves the list, EXCEPT when the newest one failed to install: it is
+    then the only remaining way forward, and hiding it would leave the owner with a device
+    stuck on a version Windows cannot update. Hiding it is a display choice; the update
+    itself is untouched, and Windows still offers it everywhere else.
+#>
+$hidden = 0
+$kept = @()
+foreach ($line in $updates) {
+    if (-not $line.remplacee) { $kept += $line; continue }
+    $key = "$($line.groupe)|$($line.modele)|$($line.classe)".ToLowerInvariant()
+    $newerFailed = @($updates | Where-Object {
+        -not $_.remplacee -and "$($_.groupe)|$($_.modele)|$($_.classe)".ToLowerInvariant() -eq $key -and "$($_.echec)".Trim()
+    }).Count -gt 0
+    if ($newerFailed) { $kept += $line } else { $hidden++ }
+}
+$updates = @($kept)
 
 <#
     THE MODEL NAMES THE LINE, NOT WINDOWS' TITLE.
@@ -148,8 +194,9 @@ $updates = @($updates | Sort-Object @{ Expression = { "$($_.groupe)" } },
 $verrou = $false
 try { $verrou = Test-UpdateTasksAclLock } catch { }
 
+$aside = if ($hidden -gt 0) { " $hidden version(s) plus ancienne(s) du même pilote ne sont pas proposées." } else { '' }
 @{
-    message = "$($updates.Count) mise(s) à jour détectée(s)."
+    message = "$($updates.Count) mise(s) à jour détectée(s).$aside"
     result  = @{
         ok       = $true
         choose   = $true          # l'interface doit ouvrir une fenetre de choix
