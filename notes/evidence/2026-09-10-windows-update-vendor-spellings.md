@@ -130,5 +130,5 @@ récente reste proposée malgré son échec, et un échec sur un **autre** modè
 rien.
 
 **Ce qui n'a PAS été vérifié** : aucune installation n'a été lancée, donc le relevé des
-échecs par identifiant n'a jamais été écrit par l'ouvrier en conditions réelles. La lecture
+échecs par identifiant n'a jamais été écrit par le worker en conditions réelles. La lecture
 est éprouvée, l'écriture ne l'est pas.
