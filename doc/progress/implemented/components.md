@@ -40,7 +40,7 @@ une réponse que le code laisse supposer sans qu'elle ait été constatée.
 
 | Pièce | Création | Mise à jour, dépendance qui change | État cassé | Croissance | Maintenance | Désinstallation |
 |---|---|---|---|---|---|---|
-| clone du service | première synchronisation | récupération forcée ; recloné à côté de l'ancien si git refuse alors que la source répond ; **non éprouvé en production** | illisible : recloné ; source muette : clone intact, texte de git affiché | sans objet | `service-clone-repair`, `service-clone-reset` | retiré avec le profil |
+| clone du service | première synchronisation | récupération forcée ; recloné à côté de l'ancien si git refuse alors que la source répond. **Éprouvé en production le 13/09 à 11 h 57** : les étiquettes déplacées ont été absorbées sans reclonage | illisible : recloné ; source muette : clone intact, texte de git affiché | sans objet | `service-clone-repair`, `service-clone-reset` | retiré avec le profil |
 | déclarations `safe.directory` | installation et déploiement | **aucune réponse** : une par source, jamais retirée quand la source change | sans objet | **aucune réponse** : s'accumulent | **aucune réponse** | retirées |
 | étiquettes de version | déploiement en `dev`, posées et poussées dans le dépôt de la personne | déplacées par une réécriture d'historique, elles bloquent le clone | sans objet | une par déploiement | **aucune réponse** | conservées : le dépôt appartient à la personne |
 

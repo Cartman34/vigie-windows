@@ -49,6 +49,11 @@ Un seul, pour toutes. Il n'en existe pas de variante « légère ».
 8. **Le détail du travail reste libre.** Une opération peut publier sa progression, ses titres, ses échecs par élément.
    Elle le fait en plus du protocole, jamais à sa place.
 
+## À l'écran, toutes pareilles
+
+Toute opération se présente de la même manière, courte ou longue : **lancée, en cours, terminée**, en réussite ou en
+échec. Ce qui diffère derrière, une réponse immédiate ou un travail qui continue, ne se voit pas à l'écran.
+
 ## Les opérations courtes
 
 - **Un échec rend `ok = false`**, jamais une réussite polie, et l'audit le trace comme un échec.
@@ -61,5 +66,9 @@ Les **passes internes** et les **ordres de bureau** figurent dans l'inventaire e
 rejoignent aussi les marques et les résultats de `/operations` n'est pas tranché : un minuteur qui tourne chaque minute
 n'est pas une opération qu'on regarde, et aucune demande ne le couvre encore.
 
-La **relance du serveur** est une opération longue dont le travail tue le processus qui répond aux pages. Comment elle
-tient sa marque et rend son résultat n'est pas tranché non plus. Sujet **S14**.
+Sujet **S14**.
+
+## L'exception arbitrée
+
+**La relance du serveur reste hors du protocole**, sans marque ni résultat : arbitré par l'utilisateur le 13/09. Son
+travail arrête le processus même qui répond aux pages.

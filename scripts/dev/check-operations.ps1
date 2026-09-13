@@ -21,7 +21,7 @@
       7. scripts    -- every scripts/*.ps1, .cmd and .vbs, verifiers excepted;
       8. protocol   -- no detached launch outside Start-Operation, except in the internal pass Get-State;
       9. long rows  -- every long action's row declares the shared protocol, server-restart excepted.
-    The two exceptions are the questions still open in S14.
+    The first exception is a question still open in S14; the second was settled by the owner on 13/09.
 
     What it does NOT see: the client app's timers are anonymous Windows Forms timers that nothing
     names, so their rows are kept by review only. A launch written at the top level of a file,
@@ -41,8 +41,8 @@ $backend         = Join-Path $repoRoot 'apps/backend-pode'
 $launchFunctions = @('Start-Operation', 'Start-DetachedAction', 'Start-PkgJob', 'Start-ServerRelauncher')
 # Verifiers are not operations of the product: they read the repository and run nothing on the machine.
 $scriptsNotOperations = @('check-probes.ps1')
-# THE PROTOCOL, AS FAR AS THE CODE SHOWS IT (doc/progress/targeting/operations.md). Each exception is a
-# question still open in S14, and disappears with its answer.
+# THE PROTOCOL, AS FAR AS THE CODE SHOWS IT (doc/progress/targeting/operations.md). Get-State is a question still
+# open in S14; server-restart is an exception the owner settled on 13/09.
 $detachedAllowedIn  = @('Get-State')
 $pendingArbitration = @('server-restart')
 $newline = [string][char]10
