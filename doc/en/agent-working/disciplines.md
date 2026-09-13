@@ -410,7 +410,9 @@ day, and the target was never updated: four asynchronous operations stayed outsi
 
 **Nothing is found by groping.** What the product is made of and must be found again — its operations first — has an
 inventory in `doc/progress/implemented/`, held by a checker. Memory is not an inventory: an agent forgets faster than a
-person, and never holds everything at once.## A feature is NEVER invented
+person, and never holds everything at once.
+
+## A feature is NEVER invented
 
 **What has not been asked for is not done.** Not because it is useful, not because "the data
 was already there", not because it rounds off what exists nicely. The owner decides what the
