@@ -379,7 +379,9 @@ if (Test-Path -LiteralPath $langDir) {
         if ($obj) {
             $changed = $false
             $out = [ordered]@{}
-            foreach ($prop in ($obj.PSObject.Properties | Sort-Object Name)) {
+            # IN THE ORDER OF THE FILE. Sorting rewrote every key for a single label fixed, and the diff of a one-word
+            # correction ran to two hundred lines (13/09).
+            foreach ($prop in $obj.PSObject.Properties) {
                 $v = [string]$prop.Value
                 $good = Repair-Elisions (Repair-FemininePast (Repair-Accents $v))
                 if ($good -cne $v) {
