@@ -141,43 +141,24 @@ since the port answers — one then serves stale code indefinitely.
 - Aggregation + cache (mtime+TTL, single-flight, serve-stale): `Get-State` in `common.ps1`.
 - **Asynchronous operations**: `../developing/architecture.md`, section "Background jobs".
 
-## Current state of the product (summary — the detail is in the code and the docs)
+## Current state of the product — where it is written
 
-Vigie runs in production: elevated client app (a scheduled task it repairs itself) + Pode
-server on 47600 + single-page front end + PHP Atelier on 47610 (launched by hand:
-`pwsh -File apps/atelier/atelier.ps1`).
+This section restates nothing: each fact lives in one place (`../../README.md`, paragraph "One place per fact, and per
+rule"). Where to read it:
 
-**Publisher: Sowapps; author: Florent HAZARD** (D72). Shared installation:
-`C:\Program Files\Sowapps\Vigie`; per-account data: `%LOCALAPPDATA%\Sowapps\Vigie`.
-
-**Installation (D81)**: a single entry point, **`setup.cmd` at the root**. It checks the
-account is an administrator, elevates, installs PowerShell 7 **for the machine**
-(`C:\Program Files\PowerShell\7` — winget no longer having an MSI package, the official MSI
-is downloaded as a fallback), Pode, the token, this account's startup task, and launches
-Vigie. Every return code is read.
-
-**Delivery (D76)**: when a feature is finished, **I merge into `main`** — the server in his
-session serves the repository, so it receives it directly (a new card appears on reload; a
-new route waits for a server restart). The **other accounts** run
-`C:\Program Files\Sowapps\Vigie`: they receive nothing without an **explicit deployment**,
-which is asked for.
-
-Modules: Windows Update (native lock, updates by choice grouped by maker, date of the last
-scan), System (**Storage**: D57 threshold, background consumption analysis D60/D61, tree
-requested **level by level**), **Accounts** (D67), Security, Network, WSL, Tools & packages,
-Games (detection by facts: Game Bar, Steam library, engine, full screen — D64).
-
-Settings (D56): notifications, modules **in an accordion** (D71), users, appearance, about.
-**21 named notifications** declared by the modules (D68), filtered by rights with critical
-cases surfaced (D70). Icons: in-house font (D58), bell after Font Awesome, puzzle, users —
-board in the Atelier (`design-systeme.html`).
-
-Desktop notifications go through **one door with several tools**
-(`../../progress/targeting/notifications.md`): the client app describes an event, and the
-first tool able to show it wins.
-
-Reference docs: `../developing/modules.md` (create/maintain a module), `../developing/design.md`
-(design system), `../../progress/decisions.md` (all the rules, D01→D120).
+| What | Where |
+|---|---|
+| where each feature stands, gaps named | `../../progress/implemented/status.md` |
+| every operation, where it lives and how it launches | `../../progress/implemented/operations.md` |
+| the protocol of asynchronous operations | `../../progress/targeting/operations.md` |
+| every piece Vigie puts on the computer, and its answer to each situation of its life | `../../progress/implemented/components.md` |
+| installation, update and uninstallation | `../../progress/targeting/install-update.md`, `../../progress/targeting/uninstall.md`, `../../progress/implemented/update-chain.md` |
+| creating or maintaining a module | `../developing/modules.md` |
+| the design system | `../developing/design.md` |
+| the words of the project | `../developing/glossary.md` |
+| the settled arbitrations | `../../progress/decisions.md` |
+| the open subjects | `../../../notes/subjects.md` |
+| the verifiers | `disciplines.md`, section "A tool rather than my vigilance"; all at once: `pwsh -File scripts/dev/check-all.ps1` |
 
 ### Work queue
 
