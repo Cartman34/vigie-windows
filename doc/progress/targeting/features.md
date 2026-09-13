@@ -96,7 +96,9 @@ Format : `ID` — Titre, puis le besoin et ses critères. On n'écrit **pas** ic
   de Windows, et quand deux mises à jour sont deux **versions du même pilote**, seule la **plus récente** est
   proposée — **sauf si elle a échoué à s'installer**, auquel cas l'ancienne revient, parce qu'elle est alors le seul
   chemin qui reste. Un échec d'installation se **note sur la ligne** : une mise à jour qui vient de rater ne se
-  represente pas comme si elle était neuve.
+  represente pas comme si elle était neuve. **Chaque mise à jour demandée reçoit un verdict nommé**, avec son code :
+  installée, en échec, annulée, ou introuvable au moment d'installer. Aucune ne disparaît du compte rendu, et aucune ne
+  reste « inconnue » quand l'historique de Windows Update connaît son sort.
 - **WU-AUDIT** — Produire un audit complet de la machinerie Windows Update : stratégies, tâches, services, redémarrage
   en attente.
 

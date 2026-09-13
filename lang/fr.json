@@ -832,6 +832,8 @@
   "wu-install.echecs": "{0} mise(s) à jour sur {1} n'ont pas pu s'installer.",
   "wu-install.aucun-identifiant": "Aucune mise à jour à installer : la sélection est vide.",
   "wu-install.demande-mise-jour": "demande : {0} mise(s) a jour",
+  "wu-install.introuvable": "introuvable au moment d'installer : {0}",
+  "wu-install.introuvables": "{0} mise(s) à jour demandée(s) introuvable(s) au moment d'installer.",
   "wu-install.installation-code-redemarrage": "installation : code {0} redémarrage={1}",
   "wu-install.resultat": "résultat : {0} -> {1}",
   "wu-install.telechargement-code": "téléchargement : code {0}",

@@ -633,6 +633,10 @@ versions, du point de vue de qui utilise Vigie.*
   tâche qui tournait déjà ; Windows refusait, et ce refus était lu comme un échec. Une tâche en cours au processus
   vivant n'est plus redémarrée ni signalée, et un dernier démarrage en échec ne se dit plus « Jamais démarrée ».
   Prouvé par simulation ; **à constater sur la carte après la prochaine mise à jour.**
+- **Une installation Windows Update rendait « Inconnu »** pour une mise à jour que Windows savait en échec, et
+  **taisait une mise à jour demandée** qu'elle ne retrouvait plus (12/09 : quatre demandées, trois dans le compte
+  rendu). Le verdict manquant est relu dans l'historique de Windows Update, chaque code a un nom, et une mise à jour
+  introuvable compte comme un échec. **Non éprouvé sur une vraie installation.**
 
 ### Ajouté
 - `scripts/dev/check-all.ps1` lance tous les vérificateurs du dépôt en une commande.

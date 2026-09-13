@@ -32,7 +32,7 @@ Mise à jour : 2026-09-13.
 |----|------|-----|-----------------|
 | WU-LOCK | Fait | `probes/windows-update/lock.probe.ps1` | 12 tâches TrustedInstaller restent prêtes, inoffensives sous `NoAutoUpdate=1` |
 | WU-UPDATEMODE | Fait | `update-mode-on` / `update-mode-off` | — |
-| WU-PENDING | Partiel | `pending.probe.ps1`, `wu-scan`, `wu-list-pending`, `wu-install` | `wu-scan` et `wu-install` passent par le protocole commun depuis le 13/09, **non éprouvé en production** (**S14**) |
+| WU-PENDING | Partiel | `pending.probe.ps1`, `wu-scan`, `wu-list-pending`, `wu-install` | `wu-scan` et `wu-install` passent par le protocole commun depuis le 13/09, **non éprouvé en production** (**S14**). Depuis le 13/09, chaque mise à jour demandée reçoit un verdict nommé, relu dans l'historique de Windows Update quand le résultat de l'installation ne le donne pas, et une mise à jour introuvable au moment d'installer est comptée comme un échec : **non éprouvé sur une vraie installation** |
 | WU-AUDIT | Fait | `run-audit` | Rapport écrit sur disque, pas remonté dans l'interface |
 | SYS-DISK | Partiel | `disk.probe.ps1`, `disk-cleanup`, `disk-analyze`, `disk-tree` | `disk-analyze` passe par le protocole commun depuis le 13/09, **non éprouvé en production** (**S14**) |
 | SYS-OS | Fait | `os.probe.ps1` | — |

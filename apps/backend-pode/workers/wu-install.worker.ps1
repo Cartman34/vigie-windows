@@ -25,6 +25,36 @@ if (-not $ids -or $ids.Count -eq 0) { Write-Output ('[X] ' + (Get-Label 'wu-inst
 
 $outFile = Get-VarPath -Backend $Backend -Kind 'cache' -File 'wu-install.json'
 
+# Every OperationResultCode of Windows Update gets a name: 0 not started, 1 in progress, 2 to 5 the final ones.
+# "Install" never appears in a failure's name: the pending list reads it as installed.
+function Get-ResultVerdict {
+    param([int]$Code)
+    switch ($Code) {
+        0       { 'Non commencée' }
+        1       { 'Inachevée' }
+        2       { 'Installée' }
+        3       { 'Installée avec erreurs' }
+        4       { 'Échec' }
+        5       { 'Annulée' }
+        default { 'Résultat illisible' }
+    }
+}
+
+# The latest installation entry of Windows Update's history for one update, most recent first; $null if none.
+function Get-InstallHistoryEntry {
+    param([Parameter(Mandatory)]$Session, [Parameter(Mandatory)][string]$UpdateId)
+    try {
+        $historySearcher = $Session.CreateUpdateSearcher()
+        $count = $historySearcher.GetTotalHistoryCount()
+        if ($count -le 0) { return $null }
+        foreach ($entry in @($historySearcher.QueryHistory(0, [Math]::Min($count, 100)))) {
+            # Operation 1 is an installation, 2 an uninstallation.
+            if ("$($entry.UpdateIdentity.UpdateID)" -eq $UpdateId -and [int]$entry.Operation -eq 1) { return $entry }
+        }
+    } catch { }
+    return $null
+}
+
 function Set-Etat {
     param([hashtable]$Set)
     try { Update-StateJson -Path $outFile -Set $Set | Out-Null } catch { }
@@ -63,6 +93,10 @@ try {
         $keptIds += "$($u.Identity.UpdateID)"
     }
     if ($coll.Count -eq 0) { throw "Aucune des mises à jour demandées n'a été retrouvée." }
+    # A REQUESTED UPDATE THE SEARCH NO LONGER FINDS IS REPORTED, never dropped: on 12/09 four were asked for, three
+    # were installed or refused, and the fourth vanished from the report without a word.
+    $missing = @($ids | Where-Object { $keptIds -notcontains "$_" })
+    foreach ($id in $missing) { Write-Log -Backend $Backend -Name 'wuinstall' -Message (Get-Label 'wu-install.introuvable' $id) }
     Set-Etat @{ phase = 'telechargement'; total = $coll.Count
                 titres = @($retenus); at = (Get-Date).ToUniversalTime().ToString('o') }
     $dl = $session.CreateUpdateDownloader()
@@ -88,13 +122,16 @@ try {
         try { $r = $rIn.GetUpdateResult($i) } catch { }
         $c = if ($r) { [int]$r.ResultCode } else { -1 }
         $h = if ($r) { [int]$r.HResult } else { 0 }
-        $verdict = switch ($c) {
-            2       { 'Installée' }
-            3       { 'Installée avec erreurs' }
-            4       { 'Échec' }
-            5       { 'Annulée' }
-            default { 'Inconnu' }
+        # NO FINAL VERDICT IN THE RESULT: Windows Update's history usually has it. On 12/09 the result gave nothing
+        # for PowerShell 7.6.6, shown "Inconnu", while the history said failed, 0x80242008.
+        if ($c -lt 2 -or $c -gt 5) {
+            $entry = Get-InstallHistoryEntry -Session $session -UpdateId "$($keptIds[$i])"
+            if ($entry -and [int]$entry.ResultCode -ge 2 -and [int]$entry.ResultCode -le 5) {
+                $c = [int]$entry.ResultCode
+                $h = [int]$entry.HResult
+            }
         }
+        $verdict = Get-ResultVerdict -Code $c
         if ($h -ne 0) { $verdict += (" (0x{0:X8})" -f $h) }
         $detail += ,@($retenus[$i], $verdict)
         # WHAT FAILED IS KEPT, filed by identifier. The pending list uses it to say so next
@@ -103,10 +140,14 @@ try {
         if ($c -ne 2 -and $c -ne 3) { $failures["$($keptIds[$i])"] = $verdict }
         Write-Log -Backend $Backend -Name 'wuinstall' -Message (Get-Label 'wu-install.resultat' $retenus[$i] $verdict)
     }
+    foreach ($id in $missing) {
+        $detail += ,@("$id", 'Introuvable')
+        $failures["$id"] = 'Introuvable'
+    }
     Set-Etat @{
         phase      = 'termine'
         at         = (Get-Date).ToUniversalTime().ToString('o')
-        total      = $coll.Count
+        total      = $ids.Count
         titres     = @($retenus)
         detail     = @($detail)
         echecs     = $failures
@@ -120,7 +161,7 @@ try {
     # THE OUTCOME LEAVES BY THE EXIT CODE, which the watcher reads, and its reason by a [X] line of the log.
     if ($failures.Count -gt 0) {
         $exitCode = 1
-        Write-Output ('[X] ' + (Get-Label 'wu-install.echecs' $failures.Count $coll.Count))
+        Write-Output ('[X] ' + (Get-Label 'wu-install.echecs' $failures.Count $ids.Count))
     } elseif (-not ($ok -or $partiel)) {
         $exitCode = 1
         Write-Output ('[X] ' + (Get-Label 'wu-install.code-global' $rIn.ResultCode))
