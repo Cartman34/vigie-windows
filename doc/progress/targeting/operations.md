@@ -18,18 +18,19 @@ Tout ce que Vigie **exécute**, qu'on le lui demande ou qu'elle le fasse d'elle-
 | **ordre de bureau** | l'app serveur, qui confie à l'app cliente ce qui a besoin d'un écran |
 | **installation** | une personne ou le bouton de mise à jour ; séquence dans [install-update.md](install-update.md) et [uninstall.md](uninstall.md) |
 
-Une opération est **courte** quand elle rend son résultat dans la réponse. Elle est **longue** quand le travail
-continue après la réponse.
+Une opération est **synchrone** quand son résultat est dans la réponse. Elle est **asynchrone** quand le travail
+continue après la réponse. Ce n'est pas une affaire de temps : une opération synchrone peut attendre une mesure de
+plusieurs secondes, une asynchrone peut finir en une.
 
 ## L'inventaire
 
 1. **Toute opération figure dans l'inventaire**, `implemented/operations.md`, avec le fichier où elle vit, ce qui la
-   déclenche, sa durée au sens ci-dessus et la manière dont elle se lance.
+   déclenche, son mode au sens ci-dessus et la manière dont elle se lance.
 2. **L'inventaire se tient mécaniquement.** Un vérificateur refuse l'écart dans les deux sens : une action ou un
    lancement présent dans le code et absent de l'inventaire, une ligne d'inventaire qui ne désigne plus rien.
 3. **On cherche une opération dans l'inventaire**, pas dans le code. Le code confirme ; il ne sert pas à découvrir.
 
-## Le protocole des opérations longues
+## Le protocole des opérations asynchrones
 
 Un seul, pour toutes. Il n'en existe pas de variante « légère ».
 
@@ -44,21 +45,21 @@ Un seul, pour toutes. Il n'en existe pas de variante « légère ».
 5. **L'état d'une opération se lit à un seul endroit** : marques et résultats, servis par `/operations`. Aucun fichier
    d'état propre à une opération ne dit « en cours », et aucune opération n'a sa propre règle d'abandon.
 6. **Le verrou de ressources vaut pour toutes**, puisqu'il lit ces mêmes marques.
-7. **« Lancée » n'est pas une réussite.** La réponse d'une opération longue s'affiche comme un départ. La réussite
+7. **« Lancée » n'est pas une réussite.** La réponse d'une opération asynchrone s'affiche comme un départ. La réussite
    vient du résultat, et de lui seul.
 8. **Le détail du travail reste libre.** Une opération peut publier sa progression, ses titres, ses échecs par élément.
    Elle le fait en plus du protocole, jamais à sa place.
 
 ## À l'écran, toutes pareilles
 
-Toute opération se présente de la même manière, courte ou longue : **lancée, en cours, terminée**, en réussite ou en
-échec. Ce qui diffère derrière, une réponse immédiate ou un travail qui continue, ne se voit pas à l'écran.
+Toute opération se présente de la même manière, synchrone ou asynchrone : **lancée, en cours, terminée**, en réussite
+ou en échec. Ce qui diffère derrière, un résultat dans la réponse ou un travail qui continue, ne se voit pas à l'écran.
 
-## Les opérations courtes
+## Les opérations synchrones
 
 - **Un échec rend `ok = false`**, jamais une réussite polie, et l'audit le trace comme un échec.
-- **Une opération courte ne lance rien qui lui survive.** Si le travail continue après la réponse, c'est une opération
-  longue, et le protocole s'applique.
+- **Une opération synchrone ne lance rien qui lui survive.** Si le travail continue après la réponse, l'opération est
+  asynchrone, et le protocole s'applique.
 
 ## Ce qui reste à arbitrer
 

@@ -22,8 +22,8 @@ Le back est un **socle generique**. Il ne code pas les modules en dur : il
 - Emplacement : `apps/backend-pode/actions/<id>.action.ps1`
 - Declaree par une sonde dans `actions[]` (id + label).
 - Invoquee par `POST /actions {type:<id>, module, params}`.
-- Retourne un objet `Job` (jobId, status, message, result). Action longue =
-  repondre 202 puis suivre via `GET /actions/{jobId}`.
+- Retourne un objet `Job` (jobId, status, message, result). Action asynchrone =
+  `result.async`, lancee par `Start-Operation` : voir `doc/progress/targeting/operations.md`.
 - Reutilise l'outillage existant quand il existe (voir ci-dessous).
 
 ## Reutilisation de l'existant

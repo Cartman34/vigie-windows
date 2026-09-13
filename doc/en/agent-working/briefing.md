@@ -139,7 +139,7 @@ since the port answers — one then serves stale code indefinitely.
 - Action = `apps/backend-pode/actions/<id>.action.ps1`, returns `@{ message; result }`.
   `result.invalidate=@('x.probe.ps1')` forces a recompute.
 - Aggregation + cache (mtime+TTL, single-flight, serve-stale): `Get-State` in `common.ps1`.
-- **Long operations**: `../developing/architecture.md`, section "Background jobs".
+- **Asynchronous operations**: `../developing/architecture.md`, section "Background jobs".
 
 ## Current state of the product (summary — the detail is in the code and the docs)
 

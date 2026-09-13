@@ -119,9 +119,9 @@ $backend = Split-Path $PSScriptRoot -Parent
    actions test `Test-Elevated` first and touch nothing otherwise.
 7. **Review it in [Security](../operating/security.md)** if it touches system security.
 
-### Long actions
+### Asynchronous actions
 
-Anything measured in minutes is a long operation, launched by `Start-Operation`:
+An action whose work continues after its answer is an asynchronous operation, launched by `Start-Operation`:
 
 ```powershell
 $launched = Start-Operation -Module 'my-card' -Action 'my-action' -Label 'My operation' `
@@ -142,7 +142,7 @@ What the worker and the probe must do: `architecture.md`, section "Background jo
 | `probes/windows-update/lock.probe.ps1` | rich fields, conditional actions, honest handling of "not elevated" |
 | `probes/tools/packages.probe.ps1` | one probe, several cards, busy state read from the mark |
 | `actions/update-mode-off.action.ps1` | verifying the real outcome instead of the return code |
-| `actions/wu-install.action.ps1` | explicit selection, long operation, lock lifted and put back |
+| `actions/wu-install.action.ps1` | explicit selection, asynchronous operation, lock lifted and put back |
 | `actions/net-speedtest.action.ps1` | merging a result into a shared cache file |
 
 ## Next

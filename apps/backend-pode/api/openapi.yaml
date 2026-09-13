@@ -182,7 +182,7 @@ paths:
         "404": { description: Mesure inconnue (absente du catalogue) }
   /actions:
     post:
-      summary: Declenche une action (synchrone ou longue)
+      summary: Declenche une action (synchrone ou asynchrone)
       requestBody:
         required: true
         content:
@@ -196,11 +196,11 @@ paths:
               schema: { $ref: "#/components/schemas/Job" }
         "400": { description: Requete invalide }
       description: >
-        Une action LONGUE renvoie elle aussi 200, avec result.async = true et
+        Une action ASYNCHRONE renvoie elle aussi 200, avec result.async = true et
         result.module : le client suit alors ce module jusqu'a ce que son champ `busy`
         retombe a faux. Aucun code 202 n'est emis.
   # NOTE : il n'existe PAS de route /actions/{jobId}. Elle a ete decrite ici sans jamais
-  # etre implementee, et retiree du contrat le 2026-08-24. Le suivi d'une action longue se
+  # etre implementee, et retiree du contrat le 2026-08-24. Le suivi d'une action asynchrone se
   # fait en relisant le module concerne (GET /modules/{id}) : son champ `busy` retombe a
   # faux quand la tache de fond se termine.
 components:

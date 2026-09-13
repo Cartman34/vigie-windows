@@ -38,7 +38,7 @@ d'abord**, puis on l'emploie. Un synonyme qui s'installe finit par désigner aut
 | **historique d'une sentinelle** | la suite des états d'une sentinelle, une ligne par **changement** (`watch.<clé>`), avec l'état précédent et les cartes recalculées. La mémoire de veille dit où on en est ; l'historique dit depuis quand, et combien de fois. |
 | **notification** | la bulle Windows. Elle naît de la **bascule d'un champ** de carte, pas d'un événement de sentinelle (D54). |
 | **résident** | un composant que l'app serveur **arme à son démarrage** et qui vit aussi longtemps qu'elle : un abonnement, un écouteur, un état tenu en mémoire. Elle le réarme s'il meurt, et aucun ne lui survit. Conception : `../../progress/targeting/residents.md`. |
-| **worker** | `workers/<nom>.worker.ps1` : un processus **détaché** que l'app serveur lance pour un travail long — installer des mises à jour, interroger les gestionnaires de paquets. L'action rend la main tout de suite (`result.async`), la carte passe « en cours », et le worker écrit son avancement dans un fichier d'état que la carte relit. Il **meurt en ayant fini** ; ce n'est pas un résident. |
+| **worker** | `workers/<nom>.worker.ps1` : le travail d'une **opération asynchrone** — installer des mises à jour, interroger les gestionnaires de paquets. `Start-Operation` le lance sous un veilleur, l'action rend la main tout de suite (`result.async`), la carte passe « en cours », et le worker rend son issue par son code de sortie. Il **meurt en ayant fini** ; ce n'est pas un résident. |
 
 ***Worker* se dit worker en français aussi.** C'est un terme technique, au même titre que *commit* ou *cache* : il ne
 se traduit pas, ni dans le code, ni dans la documentation, ni à l'oral. « Ouvrier » a été écrit une fois le 11/09, et
@@ -47,6 +47,16 @@ désigner autre chose.
 
 *Voisin à ne pas confondre : le **résident** (`residents.md`), qui vit aussi longtemps que l'app serveur. Un worker
 finit, un résident dure.*
+
+## Ce qui s'exécute
+
+| mot | ce que ça désigne |
+|---|---|
+| **opération** | tout ce que Vigie exécute : action, écriture par l'API, passe interne, ordre de bureau, installation. Inventaire : `../../progress/implemented/operations.md`. |
+| **opération synchrone** | son résultat est dans la réponse. |
+| **opération asynchrone** | le travail continue après la réponse, sous une marque d'occupation, lancé par `Start-Operation`. Protocole : `../../progress/targeting/operations.md`. |
+
+*« courte » et « longue » ne se disent plus : le mode ne dépend pas de la durée.*
 
 ## L'identité
 

@@ -18,8 +18,8 @@ Toutes dans `apps/backend-pode/lib/common.ps1`.
 | `Start-DetachedAction` | un worker PowerShell détaché, sans attente ni compte rendu ; réservé au recalcul d'une sonde périmée | **hors protocole**, passe interne non arbitrée (**S14**) |
 | `Start-PkgJob` | `workers/pkg-job.worker.ps1`, par `Start-Operation` | **le protocole commun** |
 | `Start-ServerRelauncher` | un relanceur détaché qui arrête le serveur et le redémarre par sa tâche | **hors protocole** |
-| `Start-ChildProcess` | un processus avec ses arguments cités par l'outil (**D116**) | sans objet : lancement court |
-| `Invoke-Native` | un exécutable attendu, sortie et code relevés | sans objet : lancement court |
+| `Start-ChildProcess` | un processus avec ses arguments cités par l'outil (**D116**) | sans objet : lancement synchrone |
+| `Invoke-Native` | un exécutable attendu, sortie et code relevés | sans objet : lancement synchrone |
 
 ## Les actions
 
@@ -27,65 +27,65 @@ Déclenchées par `POST /actions`, exécutées par `Invoke-ActionById`, qui appl
 puis trace l'audit. Fichiers : `apps/backend-pode/actions/<action>.action.ps1`. Les ressources réservées sont déclarées
 dans `lib/common.ps1`, table `RessourcesParAction`.
 
-Colonnes : **S'exécute** dit où tourne le code, `serveur` ou `session` du demandeur (`# @execution`). **Durée** suit la
+Colonnes : **S'exécute** dit où tourne le code, `serveur` ou `session` du demandeur (`# @execution`). **Mode** suit la
 définition de `../targeting/operations.md`, section « Ce qu'est une opération ».
 
-| Action | Proposée par | Droits | S'exécute | Durée | Lancement | Protocole |
+| Action | Proposée par | Droits | S'exécute | Mode | Lancement | Protocole |
 |---|---|---|---|---|---|---|
-| `accounts-details` | `comptes.probe.ps1`, `scripts/dev/ask-vigie.ps1` | admin | serveur | courte | lecture directe | sans objet |
-| `accounts-refresh` | `comptes.probe.ps1` | tous | serveur | courte | lecture directe | sans objet |
-| `diag-account-logs` | `scripts/vigie-diag-compte.ps1` | admin | serveur | courte | copie de journaux | sans objet |
-| `disk-analyze` | `disk.probe.ps1` | tous | serveur | longue | `Start-Operation`, `workers/disk-scan.worker.ps1` | commun |
-| `disk-analyze-stop` | `disk.probe.ps1` | tous | serveur | courte | drapeau relu par le worker | sans objet |
-| `disk-cleanup` | `disk.probe.ps1` | tous | session | courte | `Start-Process` | sans objet |
-| `disk-tree` | `disk.probe.ps1`, `index.html` | tous | serveur | courte | lecture de cache | sans objet |
-| `net-dns-flush` | `net.probe.ps1` | admin | serveur | courte | `Invoke-Native` | sans objet |
-| `net-publicip` | `net.probe.ps1` | tous | serveur | courte | appel HTTP | sans objet |
-| `net-speedtest` | `net.probe.ps1` | tous | serveur | courte | appels HTTP, la réponse attend la mesure | sans objet |
-| `open-device-manager` | `gaming.probe.ps1` | tous | session | courte | `Start-ChildProcess` | sans objet |
-| `open-folder` | `history.probe.ps1` | tous | session | courte | `Start-ChildProcess` | sans objet |
-| `open-gaming-settings` | `gaming.probe.ps1` | tous | session | courte | `Start-Process` | sans objet |
-| `open-logs` | `vigie.probe.ps1` | tous | session | courte | `Start-ChildProcess` | sans objet |
-| `open-network-settings` | `net.probe.ps1` | tous | session | courte | `Start-Process` | sans objet |
-| `open-power-options` | `gaming.probe.ps1`, `power.probe.ps1` | tous | session | courte | `Start-Process` | sans objet |
-| `open-scan-folder` | `index.html` | tous | session | courte | `Start-ChildProcess` | sans objet |
-| `open-security-settings` | `defender.probe.ps1`, `firewall.probe.ps1` | tous | session | courte | `Start-Process` | sans objet |
-| `open-storage-settings` | `disk.probe.ps1` | tous | session | courte | `Start-Process` | sans objet |
-| `open-task-manager` | `gaming.probe.ps1`, `perf.probe.ps1` | tous | session | courte | `Start-Process` | sans objet |
-| `open-users-settings` | `comptes.probe.ps1` | tous | serveur | courte | aucun : l'interface ouvre elle-même le panneau | sans objet |
-| `open-windows-update` | `pending.probe.ps1` | tous | session | courte | `Start-Process` | sans objet |
-| `perf-counters-rebuild` | `gaming.probe.ps1` | admin | serveur | courte | `Invoke-Native` | sans objet |
-| `pkg-check-updates` | `packages.probe.ps1` | tous | serveur | longue | `Start-PkgJob`, `workers/pkg-job.worker.ps1` | commun |
-| `pkg-list-updates` | `packages.probe.ps1` | tous | serveur | courte | lecture de cache | sans objet |
-| `pkg-open-gui` | `packages.probe.ps1` | tous | session | courte | `Start-Process` | sans objet |
-| `pkg-upgrade` | dialogue ouvert par `pkg-list-updates` | admin | serveur | longue | `Start-PkgJob`, `workers/pkg-job.worker.ps1` | commun |
-| `pwsh-install-machine` | `deployment.probe.ps1` | admin | serveur | longue | `Start-Operation` | commun |
-| `repair-tasks` | `deployment.probe.ps1` | admin | serveur | courte | `Repair-VigieTasks` | sans objet |
-| `run-audit` | `lock.probe.ps1` | tous | serveur | courte | `Invoke-UpdateAudit` | sans objet |
-| `server-restart` | `vigie.probe.ps1`, `apps/tray/tray.ps1`, `scripts/tray.ps1` | tous | serveur | longue | `Start-ServerRelauncher` | **hors protocole**, exception arbitrée le 13/09 |
-| `service-account-repair` | appel direct par l'API, `scripts/dev/ask-vigie.ps1` | admin | serveur | longue | `Start-Operation` | commun |
-| `service-clone-repair` | appel direct par l'API, `scripts/dev/ask-vigie.ps1` | admin | serveur | longue | `Start-Operation`, `workers/service-clone.worker.ps1` | commun |
-| `service-clone-reset` | appel direct par l'API, `scripts/dev/ask-vigie.ps1` | admin | serveur | longue | `Start-Operation`, `workers/service-clone.worker.ps1` | commun |
-| `system-restart` | `os.probe.ps1`, `vbs.probe.ps1`, `pending.probe.ps1` | tous | serveur | courte | `Invoke-Native` sur `shutdown.exe`, redémarrage différé et annulable | sans objet |
-| `system-restart-cancel` | `os.probe.ps1`, `vbs.probe.ps1`, `pending.probe.ps1` | tous | serveur | courte | `Invoke-Native` sur `shutdown.exe` | sans objet |
-| `tag-version` | ordre de bureau envoyé par `scripts/install.ps1` | admin | session | courte | `Invoke-Git` | sans objet |
-| `toggle-hvci` | `vbs.probe.ps1` | admin | serveur | courte | `Invoke-DeviceGuardToggle` | sans objet |
-| `toggle-vbs` | `vbs.probe.ps1` | admin | serveur | courte | `Invoke-DeviceGuardToggle` | sans objet |
-| `update-mode-off` | `lock.probe.ps1` | admin | serveur | courte | `Set-UpdateLock`, puis relecture | sans objet |
-| `update-mode-on` | `lock.probe.ps1` | admin | serveur | courte | `Set-UpdateLock`, puis relecture | sans objet |
-| `vigie-update` | `deployment.probe.ps1`, `scripts/dev/ask-vigie.ps1` | admin | serveur | longue | `Start-Operation` | commun |
-| `wsl-restart` | `wsl.probe.ps1` | tous | serveur | courte | `Start-Job` borné par un délai | sans objet |
-| `wsl-shutdown` | `wsl.probe.ps1` | tous | serveur | courte | `Start-Job` borné par un délai | sans objet |
-| `wsl-start` | `wsl.probe.ps1` | tous | serveur | courte | `Start-Job` borné par un délai | sans objet |
-| `wu-install` | dialogue ouvert par `wu-list-pending` | admin | serveur | longue | `Start-Operation`, `workers/wu-install.worker.ps1` | commun |
-| `wu-list-pending` | `pending.probe.ps1` | tous | serveur | courte | `Get-PendingUpdateList` | sans objet |
-| `wu-scan` | `pending.probe.ps1` | admin | serveur | longue | `Start-Operation`, `workers/wu-scan.worker.ps1` | commun |
+| `accounts-details` | `comptes.probe.ps1`, `scripts/dev/ask-vigie.ps1` | admin | serveur | synchrone | lecture directe | sans objet |
+| `accounts-refresh` | `comptes.probe.ps1` | tous | serveur | synchrone | lecture directe | sans objet |
+| `diag-account-logs` | `scripts/vigie-diag-compte.ps1` | admin | serveur | synchrone | copie de journaux | sans objet |
+| `disk-analyze` | `disk.probe.ps1` | tous | serveur | asynchrone | `Start-Operation`, `workers/disk-scan.worker.ps1` | commun |
+| `disk-analyze-stop` | `disk.probe.ps1` | tous | serveur | synchrone | drapeau relu par le worker | sans objet |
+| `disk-cleanup` | `disk.probe.ps1` | tous | session | synchrone | `Start-Process` | sans objet |
+| `disk-tree` | `disk.probe.ps1`, `index.html` | tous | serveur | synchrone | lecture de cache | sans objet |
+| `net-dns-flush` | `net.probe.ps1` | admin | serveur | synchrone | `Invoke-Native` | sans objet |
+| `net-publicip` | `net.probe.ps1` | tous | serveur | synchrone | appel HTTP | sans objet |
+| `net-speedtest` | `net.probe.ps1` | tous | serveur | synchrone | appels HTTP, la réponse attend la mesure | sans objet |
+| `open-device-manager` | `gaming.probe.ps1` | tous | session | synchrone | `Start-ChildProcess` | sans objet |
+| `open-folder` | `history.probe.ps1` | tous | session | synchrone | `Start-ChildProcess` | sans objet |
+| `open-gaming-settings` | `gaming.probe.ps1` | tous | session | synchrone | `Start-Process` | sans objet |
+| `open-logs` | `vigie.probe.ps1` | tous | session | synchrone | `Start-ChildProcess` | sans objet |
+| `open-network-settings` | `net.probe.ps1` | tous | session | synchrone | `Start-Process` | sans objet |
+| `open-power-options` | `gaming.probe.ps1`, `power.probe.ps1` | tous | session | synchrone | `Start-Process` | sans objet |
+| `open-scan-folder` | `index.html` | tous | session | synchrone | `Start-ChildProcess` | sans objet |
+| `open-security-settings` | `defender.probe.ps1`, `firewall.probe.ps1` | tous | session | synchrone | `Start-Process` | sans objet |
+| `open-storage-settings` | `disk.probe.ps1` | tous | session | synchrone | `Start-Process` | sans objet |
+| `open-task-manager` | `gaming.probe.ps1`, `perf.probe.ps1` | tous | session | synchrone | `Start-Process` | sans objet |
+| `open-users-settings` | `comptes.probe.ps1` | tous | serveur | synchrone | aucun : l'interface ouvre elle-même le panneau | sans objet |
+| `open-windows-update` | `pending.probe.ps1` | tous | session | synchrone | `Start-Process` | sans objet |
+| `perf-counters-rebuild` | `gaming.probe.ps1` | admin | serveur | synchrone | `Invoke-Native` | sans objet |
+| `pkg-check-updates` | `packages.probe.ps1` | tous | serveur | asynchrone | `Start-PkgJob`, `workers/pkg-job.worker.ps1` | commun |
+| `pkg-list-updates` | `packages.probe.ps1` | tous | serveur | synchrone | lecture de cache | sans objet |
+| `pkg-open-gui` | `packages.probe.ps1` | tous | session | synchrone | `Start-Process` | sans objet |
+| `pkg-upgrade` | dialogue ouvert par `pkg-list-updates` | admin | serveur | asynchrone | `Start-PkgJob`, `workers/pkg-job.worker.ps1` | commun |
+| `pwsh-install-machine` | `deployment.probe.ps1` | admin | serveur | asynchrone | `Start-Operation` | commun |
+| `repair-tasks` | `deployment.probe.ps1` | admin | serveur | synchrone | `Repair-VigieTasks` | sans objet |
+| `run-audit` | `lock.probe.ps1` | tous | serveur | synchrone | `Invoke-UpdateAudit` | sans objet |
+| `server-restart` | `vigie.probe.ps1`, `apps/tray/tray.ps1`, `scripts/tray.ps1` | tous | serveur | asynchrone | `Start-ServerRelauncher` | **hors protocole**, exception arbitrée le 13/09 |
+| `service-account-repair` | appel direct par l'API, `scripts/dev/ask-vigie.ps1` | admin | serveur | asynchrone | `Start-Operation` | commun |
+| `service-clone-repair` | appel direct par l'API, `scripts/dev/ask-vigie.ps1` | admin | serveur | asynchrone | `Start-Operation`, `workers/service-clone.worker.ps1` | commun |
+| `service-clone-reset` | appel direct par l'API, `scripts/dev/ask-vigie.ps1` | admin | serveur | asynchrone | `Start-Operation`, `workers/service-clone.worker.ps1` | commun |
+| `system-restart` | `os.probe.ps1`, `vbs.probe.ps1`, `pending.probe.ps1` | tous | serveur | synchrone | `Invoke-Native` sur `shutdown.exe`, redémarrage différé et annulable | sans objet |
+| `system-restart-cancel` | `os.probe.ps1`, `vbs.probe.ps1`, `pending.probe.ps1` | tous | serveur | synchrone | `Invoke-Native` sur `shutdown.exe` | sans objet |
+| `tag-version` | ordre de bureau envoyé par `scripts/install.ps1` | admin | session | synchrone | `Invoke-Git` | sans objet |
+| `toggle-hvci` | `vbs.probe.ps1` | admin | serveur | synchrone | `Invoke-DeviceGuardToggle` | sans objet |
+| `toggle-vbs` | `vbs.probe.ps1` | admin | serveur | synchrone | `Invoke-DeviceGuardToggle` | sans objet |
+| `update-mode-off` | `lock.probe.ps1` | admin | serveur | synchrone | `Set-UpdateLock`, puis relecture | sans objet |
+| `update-mode-on` | `lock.probe.ps1` | admin | serveur | synchrone | `Set-UpdateLock`, puis relecture | sans objet |
+| `vigie-update` | `deployment.probe.ps1`, `scripts/dev/ask-vigie.ps1` | admin | serveur | asynchrone | `Start-Operation` | commun |
+| `wsl-restart` | `wsl.probe.ps1` | tous | serveur | synchrone | `Start-Job` borné par un délai | sans objet |
+| `wsl-shutdown` | `wsl.probe.ps1` | tous | serveur | synchrone | `Start-Job` borné par un délai | sans objet |
+| `wsl-start` | `wsl.probe.ps1` | tous | serveur | synchrone | `Start-Job` borné par un délai | sans objet |
+| `wu-install` | dialogue ouvert par `wu-list-pending` | admin | serveur | asynchrone | `Start-Operation`, `workers/wu-install.worker.ps1` | commun |
+| `wu-list-pending` | `pending.probe.ps1` | tous | serveur | synchrone | `Get-PendingUpdateList` | sans objet |
+| `wu-scan` | `pending.probe.ps1` | admin | serveur | asynchrone | `Start-Operation`, `workers/wu-scan.worker.ps1` | commun |
 
-**Durée** : l'inventaire ne dit pas combien de temps prend une opération courte. Aucune n'a été mesurée.
+L'inventaire ne dit pas combien de temps prend une opération synchrone : aucune n'a été mesurée.
 
 ## Les écritures par l'API
 
-Routes de `apps/backend-pode/server.ps1` qui modifient quelque chose. Toutes courtes.
+Routes de `apps/backend-pode/server.ps1` qui modifient quelque chose. Toutes synchrones.
 
 | Route | Ce qu'elle modifie |
 |---|---|

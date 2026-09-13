@@ -78,8 +78,8 @@ recompute, so a card reflects a change immediately instead of at the next TTL.
 
 ## Background jobs
 
-A long operation is launched by `Start-Operation`, and by nothing else. The rules it follows are the target's:
-`doc/progress/targeting/operations.md`, section "Le protocole des opérations longues". How it is built:
+An asynchronous operation is launched by `Start-Operation`, and by nothing else. The rules it follows are the target's:
+`doc/progress/targeting/operations.md`, section "Le protocole des opérations asynchrones". How it is built:
 
 - `Start-Operation` starts the watcher, `workers/watched-action.worker.ps1`, in a hidden `pwsh`, and writes the
   busy mark with the watcher's process id before the action answers. Parameters travel as base64 JSON.
@@ -93,7 +93,7 @@ A long operation is launched by `Start-Operation`, and by nothing else. The rule
 - `Get-State` lays each module's mark over its cached rendering, so a card is busy from the first answer on, and
   `/operations` serves marks and recent results to every page.
 
-Every operation, long or short, and where it lives: `doc/progress/implemented/operations.md`.
+Every operation, synchronous or asynchronous, and where it lives: `doc/progress/implemented/operations.md`.
 ## The tray, and why it is separate
 
 The tray runs elevated. From an ordinary session you can neither read its command line nor

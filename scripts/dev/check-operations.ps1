@@ -3,7 +3,7 @@
     THE OPERATIONS INVENTORY TELLS THE TRUTH, OR THIS CHECK FAILS. READ ONLY.
 
     Why it exists. On 12/09 a Windows Update installation announced itself finished the moment
-    it started: four long operations had been launched outside the shared protocol for seventeen
+    it started: four asynchronous operations had been launched outside the shared protocol for seventeen
     days, and every search for "where does this operation happen" started from the code, by
     groping. doc/progress/implemented/operations.md lists every operation; this check keeps it
     true in both directions, as doc/progress/targeting/operations.md requires in its section
@@ -20,7 +20,7 @@
                        listed by the inventory;
       7. scripts    -- every scripts/*.ps1, .cmd and .vbs, verifiers excepted;
       8. protocol   -- no detached launch outside Start-Operation, except in the internal pass Get-State;
-      9. long rows  -- every long action's row declares the shared protocol, server-restart excepted.
+      9. async rows -- every asynchronous action's row declares the shared protocol, server-restart excepted.
     The first exception is a question still open in S14; the second was settled by the owner on 13/09.
 
     What it does NOT see: the client app's timers are anonymous Windows Forms timers that nothing
@@ -210,12 +210,12 @@ if ($offProtocol.Count) {
     foreach ($one in $offProtocol) { Write-Detail $one }
     $failures++
 }
-$longOffProtocol = @(foreach ($name in $actionRows.Keys) {
+$asyncOffProtocol = @(foreach ($name in $actionRows.Keys) {
     $cells = $actionRows[$name].Cells
-    if ($cells.Count -ge 7 -and $cells[4] -eq 'longue' -and -not $cells[6].StartsWith('commun') -and $pendingArbitration -notcontains $name) { $name }
+    if ($cells.Count -ge 7 -and $cells[4] -eq 'asynchrone' -and -not $cells[6].StartsWith('commun') -and $pendingArbitration -notcontains $name) { $name }
 })
-if ($longOffProtocol.Count) {
-    Write-Fail (Get-Label 'check-operations.longue-non-conforme' $longOffProtocol.Count (($longOffProtocol | Sort-Object) -join ', '))
+if ($asyncOffProtocol.Count) {
+    Write-Fail (Get-Label 'check-operations.asynchrone-non-conforme' $asyncOffProtocol.Count (($asyncOffProtocol | Sort-Object) -join ', '))
     $failures++
 }
 

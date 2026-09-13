@@ -72,8 +72,8 @@ Format : `ID` — Titre, puis le besoin et ses critères. On n'écrit **pas** ic
   diagnostiquer un autre compte passe par Vigie, jamais par un contournement. Un compte **standard** doit pouvoir
   lancer les opérations qu'on lui ouvre, même lorsqu'elles exigent techniquement l'élévation — sans jamais voir
   d'identifiants d'administrateur. Conception : **[Un serveur élevé par machine](multi-account-server.md)**.
-- **CORE-OPERATIONS** — Toute opération de Vigie, courte ou longue, est **inventoriée** et se retrouve dans le code
-  sans chercher. Une opération longue suit **un seul protocole** : elle se voit tant qu'elle dure, depuis toutes les
+- **CORE-OPERATIONS** — Toute opération de Vigie, synchrone ou asynchrone, est **inventoriée** et se retrouve dans le
+  code sans chercher. Une opération asynchrone suit **un seul protocole** : elle se voit tant qu'elle dure, depuis toutes les
   pages ouvertes, verrouille les ressources qu'elle occupe, et **ne se termine jamais en silence** — un échec, une mort
   au démarrage ou un processus disparu sans résultat s'affichent comme des échecs. Conception : [operations.md](operations.md).
 - **CORE-LIFECYCLE** — Toute pièce que Vigie crée ou modifie sur la machine répond à **chaque situation de sa vie** :

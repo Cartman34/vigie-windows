@@ -1,7 +1,7 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-<# Worker: runs the work of a long operation, WAITS for its end, and reports its outcome.
+<# Worker: runs the work of an asynchronous operation, WAITS for its end, and reports its outcome.
 
-   Why it exists (D82). A long action used to be launched detached and forgotten: nobody read its
+   Why it exists (D82). An asynchronous action used to be launched detached and forgotten: nobody read its
    exit code. On 26/08 the "Install PowerShell 7" button failed with 0x80070005 and the interface
    showed nothing. On 12/09 a Windows Update installation launched outside this watcher announced
    itself finished the moment it started.
@@ -11,7 +11,7 @@
    work -- a PowerShell worker of workers/ or an external program, output redirected to the log --
    waits for its end, writes the result where every page reads it, then clears the mark. If it dies
    before writing, Get-ModuleBusyMark turns the dead mark into a failure.
-   The rules: doc/progress/targeting/operations.md, section "Le protocole des opérations longues". #>
+   The rules: doc/progress/targeting/operations.md, section "Le protocole des opérations asynchrones". #>
 param(
     [Parameter(Mandatory)][string]$Backend,
     [Parameter(Mandatory)][string]$ArgsB64

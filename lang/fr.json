@@ -76,7 +76,7 @@
   "check-decisions.preuve-absente": "{0} décision(s) citent une preuve qui n'existe pas : l'apparence du sérieux sans le sérieux.",
   "check-decisions.sans-preuve-plafond": "       Décisions sans preuve : {0}  (plafond {1})",
   "check-decisions.termine": "Décisions prouvées.",
-  "check-operations.longue-non-conforme": "{0} action(s) longue(s) que l'inventaire ne déclare pas sur le protocole commun : {1}",
+  "check-operations.asynchrone-non-conforme": "{0} action(s) asynchrone(s) que l'inventaire ne déclare pas sur le protocole commun : {1}",
   "check-operations.hors-protocole": "{0} lancement(s) détaché(s) hors du protocole commun :",
   "check-operations.absent-inventaire": "{0} : dans le code, absent(s) de l'inventaire : {1}",
   "check-operations.accord": "L'inventaire et le code disent la même chose.",

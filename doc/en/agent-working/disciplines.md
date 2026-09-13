@@ -404,7 +404,7 @@ evidence + decision if it is one  ->  target plan  ->  development + implemented
 
 *On 12/09, a Windows Update installation announced itself finished the moment it started, then froze its card on
 "Starting…". D82, on 26/08, required that no background task fail silently. It was applied to the two actions of that
-day, and the target was never updated: four long operations stayed outside the protocol for seventeen days, while
+day, and the target was never updated: four asynchronous operations stayed outside the protocol for seventeen days, while
 `status.md` said "done".*
 
 **Nothing is found by groping.** What the product is made of and must be found again — its operations first — has an

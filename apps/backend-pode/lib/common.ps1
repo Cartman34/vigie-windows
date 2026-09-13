@@ -877,7 +877,7 @@ function Invoke-UpdateAudit {
 # du processus courant (generique : aucun chemin d'installation code en dur).
 # Les parametres sont passes en JSON base64 (robuste au quoting). Renvoie le PID.
 # RESERVED FOR THE INTERNAL RECOMPUTE OF A STALE PROBE, whose place in the protocol is not settled (S14). An
-# action never calls it: a long operation goes through Start-Operation, and check-operations refuses the rest.
+# action never calls it: an asynchronous operation goes through Start-Operation, and check-operations refuses the rest.
 function Start-DetachedAction {
     param(
         [Parameter(Mandatory)][string]$Script,
@@ -3427,7 +3427,7 @@ function New-Action {
         <#
             -Steps : CE QUI VA SE PASSER, DANS L'ORDRE.
 
-            Une action longue enchaine plusieurs phases -- deployer, redemarrer, verifier.
+            Une action asynchrone enchaine plusieurs phases -- deployer, redemarrer, verifier.
             Les enumerer dans une phrase les noie ; les montrer alignees dit d'un coup
             d'oeil combien il y en a, et laquelle finit le travail.
 
@@ -6103,7 +6103,7 @@ function Test-ActionResourcesFree {
 
 # --- LE SORT D'UNE TACHE DE FOND : garde, puis dit ---------------------------
 #
-# « Le suivi des erreurs est primordial » : une action longue ne peut pas echouer en
+# « Le suivi des erreurs est primordial » : une action asynchrone ne peut pas echouer en
 # silence. Le veilleur (workers/watched-action.worker.ps1) ecrit ici ce qu'il a constate ;
 # la sonde de la carte le relit et en fait une ligne, verte ou rouge.
 function Get-ModuleLastRunPath {
@@ -6201,8 +6201,8 @@ function Clear-ModuleBusyMark {
                 -Force -ErrorAction SilentlyContinue
 }
 
-# THE ONLY WAY TO LAUNCH A LONG OPERATION. The rules: doc/progress/targeting/operations.md, section
-# "Le protocole des opérations longues". A PowerShell worker and an external program take the same road:
+# THE ONLY WAY TO LAUNCH AN ASYNCHRONOUS OPERATION. The rules: doc/progress/targeting/operations.md, section
+# "Le protocole des opérations asynchrones". A PowerShell worker and an external program take the same road:
 # the watcher runs either one, waits for its end and writes the result. The busy mark is written HERE,
 # with the watcher's process id, before the action answers.
 function Start-Operation {
