@@ -288,6 +288,7 @@ apostrophes stripped "to be safe" — all from the same cause: no mechanical che
 code, and offers `-Fix` when the correction is mechanical. In place: `check-encoding`,
 `check-naming` (ratchet), `check-labels`, `check-reachable`, `check-doc`, `check-coherence`,
 `check-decisions` (ratchet), `check-author`, `check-operations`, `check-components`, plus `scripts/check-probes.ps1`.
+`scripts/dev/check-all.ps1` runs every `check-*.ps1` of `scripts/dev`, found by name, and `-Probes` adds the probes check.
 
 ## Wrapping system calls
 
