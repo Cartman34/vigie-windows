@@ -1,6 +1,6 @@
 # CORE-OPERATIONS — l'inventaire des opérations, tel qu'il est
 
-Cible : [../targeting/operations.md](../targeting/operations.md). Arbitrages : **D82**, **D95**, **D122**. Sujet ouvert :
+Cible : [../targeting/operations.md](../targeting/operations.md). Arbitrages : **D82**, **D95**. Sujet ouvert :
 **S14**.
 
 Toute opération que Vigie exécute figure ici, avec le fichier où elle vit. **On cherche une opération ici**, puis le

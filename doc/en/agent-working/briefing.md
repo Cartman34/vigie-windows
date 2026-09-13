@@ -128,8 +128,8 @@ since the port answers — one then serves stale code indefinitely.
 
 - **Touching a probe ⇒ run `scripts/check-probes.ps1`**: the parser does not see a parameter
   passed twice, execution does (**D50bis**).
-- **Every settled decision is recorded in `../../progress/decisions.md`**, and a decision
-  settled on figures deposits them in `notes/evidence/` (**D119**).
+- **What deserves a decision**: the criteria at the head of `../../progress/decisions.md`. A decision settled on
+  figures deposits them in `notes/evidence/` (**D119**).
 
 ## Architecture (contract-first)
 

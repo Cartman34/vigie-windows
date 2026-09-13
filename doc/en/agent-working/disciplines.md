@@ -389,11 +389,12 @@ sentence in a message). Making a defect visible is useful; it never replaces fix
 the change:**
 
 ```text
-evidence + decision  ->  target plan  ->  development + implemented documentation  ->  target plan
+evidence + decision if it is one  ->  target plan  ->  development + implemented documentation  ->  target plan
 ```
 
-1. **Evidence and decision.** What was measured goes to `notes/evidence/`, the arbitration to
-   `doc/progress/decisions.md`, which cites it.
+1. **Evidence, and a decision only if it is one.** What was measured goes to `notes/evidence/`. What deserves a
+   decision: the criteria at the head of `doc/progress/decisions.md`. Otherwise the evidence feeds the target plan
+   directly.
 2. **The target plan BEFORE any line of code.** `doc/progress/targeting/` says what the product must be. A decision
    carried into the code and not into the target is applied to the cases in front of me, then forgotten.
 3. **Development and implemented documentation, in the same gesture.** `doc/progress/implemented/` says what is really

@@ -22,7 +22,7 @@ $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $repoRoot 'scripts/lib/console-ui.ps1')
 
 # THE CEILING. It goes down, never up.
-$UNPROVEN_CEILING = 124
+$UNPROVEN_CEILING = 123
 
 $file = Join-Path $repoRoot 'doc/progress/decisions.md'
 if (-not (Test-Path -LiteralPath $file)) {

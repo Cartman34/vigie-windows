@@ -2,7 +2,7 @@
 
 Besoin : `features.md`, entrée `CORE-OPERATIONS`. Arbitrages : **D82** (aucune tâche de fond n'échoue en silence),
 **D94** (une opération en cours ne s'efface pas), **D95** (ce qui tourne se voit depuis toutes les pages), **D102**
-(une opération en cours fige l'écran qui la montre), **D122** (un seul protocole, aucune erreur tue).
+(une opération en cours fige l'écran qui la montre). Constat qui a fait écrire ce plan : [2026-09-12-operations-outside-the-protocol.md](../../../notes/evidence/2026-09-12-operations-outside-the-protocol.md).
 
 État réel, opération par opération : [../implemented/operations.md](../implemented/operations.md).
 
