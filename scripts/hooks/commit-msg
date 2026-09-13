@@ -8,7 +8,7 @@
 # laisserait passer l'oubli suivant. Ici, la ligne est retiree silencieusement, donc la
 # regle tient sans discipline a maintenir.
 #
-# Installation : scripts/installer-hooks.ps1 (les hooks ne sont pas versionnes par git,
+# Installation : scripts/install-hooks.ps1 (les hooks ne sont pas versionnes par git,
 # ce fichier en est la source de verite).
 
 msg="$1"
