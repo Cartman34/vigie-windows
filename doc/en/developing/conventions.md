@@ -26,7 +26,12 @@ fil des passages, sans grand nettoyage, et un cliquet interdit d'en ajouter.
 - **Les libelles affiches** : titres de cartes, valeurs, boutons, messages d'erreur, aide.
   Avec leurs accents (voir plus bas) -- ce sont eux que voit l'utilisateur.
 - **Les messages de journal** : ils se lisent pendant un depannage, avec le meme lecteur.
-- **La documentation** de `doc/fr/` et de `progress/`.
+- **La documentation** de `doc/fr/` et de `progress/`, les notes de `notes/`, `CHANGELOG.md` et `README.fr.md`.
+
+### La langue d'un document suit son dossier
+`doc/en/` et `README.md` s'écrivent en anglais ; ce qui est nommé juste au-dessus, en français. `scripts/dev/check-language.ps1`
+le vérifie. Les documents déjà en français sous `doc/en/` y sont listés : la liste ne fait que baisser, à mesure qu'ils
+sont traduits, et aucun ne s'y ajoute.
 
 ### La tournure des libelles
 Un libelle ne s'adresse a personne quand une tournure neutre existe : « Windows demandera ensuite l'autorisation

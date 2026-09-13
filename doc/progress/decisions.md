@@ -3174,6 +3174,9 @@ l'original est ailleurs » ne veut rien dire pour un texte qu'il n'approuve pas.
 défaut d'origine — du français sous `en/` — passerait exactement pareil demain, et il a fallu qu'un humain le
 remarque. C'est écrit comme tel dans la preuve ; ce n'est pas une règle tenue, c'est une règle espérée.
 
+**Constat du 13/09/2026.** `scripts/dev/check-language.ps1` tient désormais la règle, en cliquet. Sept documents de
+`doc/en/developing/` étaient encore écrits en français ; ils y sont listés, et la liste ne peut que baisser.
+
 ## D121 — Une opération importante attend un OUI explicite (2026-09-11)
 
 *Demandée par l'utilisateur : « Tu dois impérativement corriger ce comportement. Pour des manip importante, tu dois

@@ -643,3 +643,5 @@ versions, du point de vue de qui utilise Vigie.*
 
 ### Ajouté
 - `scripts/dev/check-all.ps1` lance tous les vérificateurs du dépôt en une commande.
+- `scripts/dev/check-language.ps1` vérifie que chaque document est écrit dans la langue de son dossier. Sept documents de
+  `doc/en/developing/` sont encore en français : ils sont listés, et la liste ne peut que baisser.

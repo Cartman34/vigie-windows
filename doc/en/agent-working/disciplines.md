@@ -287,7 +287,8 @@ apostrophes stripped "to be safe" — all from the same cause: no mechanical che
 **How to apply it:** the checker lives in `scripts/dev/check-*.ps1`, returns a usable exit
 code, and offers `-Fix` when the correction is mechanical. In place: `check-encoding`,
 `check-naming` (ratchet), `check-labels`, `check-reachable`, `check-doc`, `check-coherence`,
-`check-decisions` (ratchet), `check-author`, `check-operations`, `check-components`, plus `scripts/check-probes.ps1`.
+`check-decisions` (ratchet), `check-author`, `check-operations`, `check-components`, `check-language` (ratchet), plus
+`scripts/check-probes.ps1`.
 `scripts/dev/check-all.ps1` runs every `check-*.ps1` of `scripts/dev`, found by name, and `-Probes` adds the probes check.
 
 ## Wrapping system calls
