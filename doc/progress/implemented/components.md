@@ -22,7 +22,7 @@ une réponse que le code laisse supposer sans qu'elle ait été constatée.
 | Pièce | Création | Mise à jour, dépendance qui change | État cassé | Croissance | Maintenance | Désinstallation |
 |---|---|---|---|---|---|---|
 | tâche `Vigie - Serveur` | installation | réenregistrée | écartée de `Repair-VigieTasks`, qui la prenait pour la tâche d'un compte « Serveur » | sans objet | `service-account-repair` la réenregistre et la réactive ; **non éprouvé** | retirée |
-| tâches `Vigie - <compte>` | activation d'un compte | réenregistrées, ancien nom renommé | réécrites par `Repair-VigieTasks` | sans objet | `repair-tasks` | retirées |
+| tâches `Vigie - <compte>` | activation d'un compte | réenregistrées, ancien nom renommé ; celles qui tournent ne sont pas redémarrées, depuis le 13/09 | réécrites par `Repair-VigieTasks` ; une tâche en cours au processus vivant n'a rien à confirmer, quel que soit son dernier résultat | sans objet | `repair-tasks` | retirées |
 
 ## L'installation et la déclaration de l'ordinateur
 

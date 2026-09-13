@@ -628,5 +628,11 @@ versions, du point de vue de qui utilise Vigie.*
 - Les opérations se nomment **synchrones** (résultat dans la réponse) et **asynchrones** (le travail continue après),
   plus « courtes » et « longues ».
 
+### Corrigé
+- **La carte Déploiement disait « Jamais démarrée » d'une app cliente en marche.** Une mise à jour redémarrait une
+  tâche qui tournait déjà ; Windows refusait, et ce refus était lu comme un échec. Une tâche en cours au processus
+  vivant n'est plus redémarrée ni signalée, et un dernier démarrage en échec ne se dit plus « Jamais démarrée ».
+  Prouvé par simulation ; **à constater sur la carte après la prochaine mise à jour.**
+
 ### Ajouté
 - `scripts/dev/check-all.ps1` lance tous les vérificateurs du dépôt en une commande.

@@ -39,7 +39,7 @@ ID concernés : `CORE-DEPLOY`, `CORE-UPDATE`, `CORE-AUTOSTART`. Arbitrages : **D
 | 20 | **Démarrage de la tâche serveur** | ✓ | ✓ | ✓ | ✓ |
 | 21 | **Enregistrement des tâches d'app cliente**<br>*Création ou réparation pour les comptes avec Vigie activée ; un échec est signalé, le déploiement continue* | ✓ | ✓ | ✓ | ✓ |
 | 22a | **Démarrage de la tâche d'app cliente du compte courant** | ✓ | ✓ | — | — |
-| 22b | **Démarrage des tâches d'app cliente arrêtées** | — | — | ✓ | ✓ |
+| 22b | **Démarrage des tâches d'app cliente arrêtées**<br>*Une tâche qui tourne déjà n'est pas redémarrée* | — | — | ✓ | ✓ |
 | 23 | **Verdict** | ✓ | ✓ | ✓ | ✓ |
 | 24 | **Fenêtre de fin**<br>*Toujours affichée, succès comme échec* | ✓ | ✓ | ✓ | — |
 | 25 | **Libération du verrou d'installation**<br>*Quel que soit le résultat, y compris après un arrêt du déploiement* | ✓ | ✓ | ✓ | ✓ |
@@ -71,6 +71,10 @@ n'a pas conclu.
 
 **Tout démarre et s'arrête par la tâche planifiée**, pour les deux applications. C'est elle qui sait sous quelle
 identité lancer, et c'est le seul moyen pour l'app cliente d'un autre compte.
+
+**Une tâche qui tourne, processus vivant, est en marche**, quel que soit son dernier résultat : un démarrage refusé
+parce qu'elle tournait déjà ne dit rien de son état. La carte Déploiement dit « Jamais démarrée » d'une tâche jamais
+lancée, et « Dernier démarrage en échec » d'une tâche dont le dernier lancement a échoué.
 
 ---
 

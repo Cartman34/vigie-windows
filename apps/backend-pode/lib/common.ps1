@@ -2752,6 +2752,10 @@ function Start-TrayTasks {
     foreach ($a in @($Accounts)) {
         if (-not $a.task) { continue }
         try {
+            # A RUNNING TASK IS NOT STARTED AGAIN: under IgnoreNew Windows refuses, and the refusal becomes the task's
+            # last result, read afterwards as a failed start (13/09).
+            $current = Get-ScheduledTask -TaskName "$($a.task)" -ErrorAction Stop
+            if ("$($current.State)" -eq 'Running' -and (Test-VigieTaskProcessAlive -Task $current)) { continue }
             Start-ScheduledTask -TaskName "$($a.task)" -ErrorAction Stop
             $started += "$($a.name)"
         } catch { }
@@ -7110,11 +7114,18 @@ function Get-VigieTaskStructureAilment {
     return $null
 }
 
+# What Get-VigieTaskHistoryAilment says of a task never launched: the cards tell it apart from a failed launch.
+function Get-VigieTaskNeverRunText { "la tâche n'a jamais été exécutée" }
+
 # L'etat COMPLET : la structure, puis l'histoire.
 function Get-VigieTaskHistoryAilment {
     param([Parameter(Mandatory)]$Task)
     $a = @($Task.Actions)[0]
     if (-not $a) { return $null }
+    # A TASK RUNNING WITH ITS PROCESS ALIVE HAS NOTHING LEFT TO CONFIRM. Its last result can be a start refused
+    # because it was already running (0x800710E0 under IgnoreNew): on 13/09 an update started fhaza's running
+    # task, and the card said "never started" of a client app in front of him.
+    if ("$($Task.State)" -eq 'Running' -and (Test-VigieTaskProcessAlive -Task $Task)) { return $null }
     # UNE TACHE SAINE SUR LE PAPIER PEUT N'AVOIR JAMAIS TOURNE.
     #
     # Tout ce qui precede examine la DEFINITION : l'interpreteur existe, le script existe.
@@ -7133,7 +7144,7 @@ function Get-VigieTaskHistoryAilment {
         # 0x00041302 terminaison demandee ; 0x00041303 jamais lancee (traite juste apres).
         $benins = @(0, 267009, 267010, 267011)
         $jamais = (-not $info.LastRunTime) -or ($info.LastRunTime.Year -lt 2000) -or ($code -eq 267011)
-        if ($jamais) { return "la tâche n'a jamais été exécutée" }
+        if ($jamais) { return (Get-VigieTaskNeverRunText) }
         if ($benins -notcontains $code) {
             # UN ECHEC PLUS VIEUX QUE LE CODE INSTALLE NE CONCERNE PLUS PERSONNE.
             #

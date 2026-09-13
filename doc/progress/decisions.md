@@ -2777,6 +2777,11 @@ faux, et c'est pourtant l'état normal : le bouton reste là même quand tout va
 *à confirmer* (ambre, **sans** bouton, parce qu'il n'y a rien à faire), *opérationnel* (vert). Proposer une action pour
 un problème qu'aucune action ne résout est une promesse qu'on ne tient pas.
 
+**Constat du 13/09/2026.** L'histoire d'une tâche se lisait dans son seul dernier résultat. Une mise à jour a demandé
+le démarrage d'une app cliente qui tournait déjà ; Windows a refusé, et ce refus est devenu le dernier résultat. La
+carte a affiché « Jamais démarrée » pour une app cliente en marche. Une tâche qui tourne, avec son processus vivant,
+n'a plus rien à confirmer. Preuve : [2026-09-13-deployment-card-never-started.md](../../notes/evidence/2026-09-13-deployment-card-never-started.md).
+
 ## D106 — Une action privilégiée laisse une trace que Vigie ne peut pas effacer (2026-08-28)
 
 *Demandée par l'utilisateur.*

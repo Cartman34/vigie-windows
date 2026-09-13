@@ -252,9 +252,12 @@ if ($malades.Count) {
         continuation et le parametre suivant, il COUPE l'appel : la sonde levait
         « missing mandatory parameters: Value Kind » et ne rendait plus aucune carte.
     #>
+    # A launch that never happened and a launch that failed are two facts: the value names the one that holds.
+    $neverRun = Get-VigieTaskNeverRunText
+    $pendingState = if (@($enAttente | Where-Object { $_.taskPending -ne $neverRun }).Count) { 'Dernier démarrage en échec' } else { 'Jamais démarrée' }
     $depl += New-Field -Key 'taches' -Label 'Démarrage automatique' `
-        -Value ($(if ($enAttente.Count -eq 1) { "Jamais démarrée — " + $enAttente[0].name }
-                  else { "Jamais démarrée — " + $enAttente.Count.ToString() + " comptes" })) -Kind 'text' -Status 'neutral' `
+        -Value ($(if ($enAttente.Count -eq 1) { $pendingState + " — " + $enAttente[0].name }
+                  else { $pendingState + " — " + $enAttente.Count.ToString() + " comptes" })) -Kind 'text' -Status 'neutral' `
         -Help "Vigie est bien installée pour ce compte, mais elle ne s'y est pas encore lancée — soit il n'a pas ouvert de session depuis, soit son dernier démarrage s'est mal passé. Il n'y a rien à réparer : la prochaine ouverture de session de ce compte le dira." `
         -Guide (($enAttente | ForEach-Object { $_.name + " : " + $_.taskPending }) -join [Environment]::NewLine)
 } else {

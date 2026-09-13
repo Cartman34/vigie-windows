@@ -16,4 +16,5 @@ des mois plus tard, qu'un chemin a été éprouvé alors qu'il n'a jamais été 
 | [2026-09-10-agent-working-language.md](2026-09-10-agent-working-language.md) | Pourquoi `agent-working/` passe en anglais, d'où **D120**. |
 | [2026-09-11-acting-without-validation.md](2026-09-11-acting-without-validation.md) | Deux départs sans validation, d'où **D121**. |
 | [2026-09-13-service-clone-blocked-by-rewritten-tags.md](2026-09-13-service-clone-blocked-by-rewritten-tags.md) | Le clone du service bloqué par des étiquettes déplacées, et les pièces sans réponse à leur vie. |
+| [2026-09-13-deployment-card-never-started.md](2026-09-13-deployment-card-never-started.md) | Une app cliente qui tourne affichée « Jamais démarrée » : un démarrage refusé lu comme un échec. |
 | [2026-09-12-operations-outside-the-protocol.md](2026-09-12-operations-outside-the-protocol.md) | Quatre opérations longues hors du protocole commun, parce que **D82** n'avait jamais été reportée dans le plan cible. |

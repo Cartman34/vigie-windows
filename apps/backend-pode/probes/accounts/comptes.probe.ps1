@@ -63,7 +63,8 @@ foreach ($c in ($comptes | Sort-Object @{ Expression = { -not $_.current } }, na
     $lineDetail += $(if ($c.lastUse) { 'Dernière session : ' + $c.lastUse } else { "Jamais ouvert de session" })
     if ($c.task) {
         $lineDetail += 'Tâche de démarrage : ' + $c.task
-        if ($c.taskPending) { $lineDetail += 'Elle ne s''est pas encore lancée : ' + $c.taskPending }
+        if ($c.taskPending -eq (Get-VigieTaskNeverRunText)) { $lineDetail += 'Elle ne s''est pas encore lancée.' }
+        elseif ($c.taskPending) { $lineDetail += 'Son dernier démarrage a échoué : ' + $c.taskPending }
     } elseif ($c.enabled) {
         $lineDetail += "Aucune tâche de démarrage posée pour ce compte."
     }
