@@ -552,3 +552,81 @@ versions, du point de vue de qui utilise Vigie.*
 ### A faire
 - Les essais d'**installation et de désinstallation réelles** se font à partir de cette
   publication : rien n'a encore été installé depuis une archive publiée.
+
+## 2026-09-13 — **v1.1.1**, les opérations asynchrones suivent un seul protocole
+
+*Étiquette posée par le déploiement, non publiée sur GitHub.*
+
+### Corrigé
+- **Une installation Windows Update s'annonçait terminée dès son départ**, puis figeait sa carte sur « Démarrage… »
+  (12/09). Quatre opérations lançaient leur worker hors du protocole de D82. `Start-Operation` est désormais le seul
+  lancement : la marque d'occupation existe avant la réponse de l'action, tout arrêt écrit un résultat, et un processus
+  disparu sans résultat s'affiche en échec. Windows Update, l'analyse du disque et les paquets passent par lui.
+- Le correcteur d'accents ne touche plus un segment de chemin, et réécrit `lang/fr.json` en LF.
+
+### Ajouté
+- **L'inventaire de toutes les opérations**, `doc/progress/implemented/operations.md`, tenu par
+  `scripts/dev/check-operations.ps1` dans les deux sens.
+- Dans la documentation : les critères d'une décision, la règle « une règle à un seul endroit », l'ordre de travail
+  (preuve, plan cible, développement, plan cible), et la discipline « une opération importante attend un oui ».
+
+## 2026-09-13 — **v1.1.2**, le clone du service ne se bloque jamais
+
+*Étiquette posée par le déploiement, non publiée sur GitHub.*
+
+### Corrigé
+- **Le déploiement s'arrêtait** en annonçant un dépôt injoignable : le clone du service refusait les étiquettes
+  déplacées par la réécriture d'historique du 11/09. `Update-ServiceClone` récupère avec `--force`, puis reclone à
+  côté de l'ancien si git refuse encore alors que la source répond ; une source muette laisse le clone intact et
+  affiche le texte de git. **Éprouvé en production le 13/09 à 11 h 57.**
+- Le correcteur de libellés garde l'ordre du fichier.
+
+### Ajouté
+- Deux actions d'administration, par le serveur : `service-clone-repair` et `service-clone-reset`.
+- **L'inventaire des pièces**, `doc/progress/implemented/components.md` : chaque pièce que Vigie pose répond à chaque
+  situation de sa vie (création, mise à jour, état cassé, croissance, maintenance, désinstallation).
+
+## 2026-09-13 — **v1.1.3**, la fenêtre d'annonce a une cible
+
+*Étiquette posée par le déploiement, non publiée sur GitHub.*
+
+### Corrigé
+- Un exemple de la documentation se lisait comme un lien, et la fabrication de l'archive le signalait.
+
+### Modifié
+- Cible de la fenêtre affichée avant l'élévation : un seul écran, un mode détecté (installation ou mise à jour), des
+  gestes tirés du plan réel.
+
+## 2026-09-13 — **v1.1.4**, la fenêtre d'annonce montre le plan, et les pièces sans réponse en ont une
+
+*Étiquette posée par le déploiement le 13/09 à 13 h 45, non publiée sur GitHub.*
+
+### Modifié
+- **La fenêtre d'annonce** est calculée par `scripts/lib/install-plan.ps1`, sous Windows PowerShell 5.1 : version en
+  place et version qui arrive, compte de service, tâches, prérequis manquants. Une installation choisit d'abord son
+  dossier ; une mise à jour n'en propose pas. **Pas encore affichée pour de vrai.**
+- **114 textes reformulés** : ni « tu » ni « vous » quand une tournure neutre existe.
+- Toute opération se présente de la même manière à l'écran : lancée, en cours, terminée.
+
+### Corrigé
+- `setup.cmd` garde sa console ouverte quand l'installation échoue avant sa fenêtre de fin, et le dossier choisi
+  traverse la bascule vers PowerShell 7.
+- `Repair-VigieTasks` ne prend plus la tâche `Vigie - Serveur` pour celle d'un compte « Serveur ».
+
+### Ajouté
+- **Les journaux sont purgés après 30 jours**, au démarrage des deux apps puis chaque jour.
+- `service-account-repair` : nouveau mot de passe du compte de service, droit d'ouverture de session, tâche serveur
+  réenregistrée. **Jamais exécuté.**
+- La désinstallation retire aussi le droit « ouvrir une session en tant que tâche » et la source d'événements `Vigie` ;
+  un déploiement retire la confiance git de la source qu'il quitte. **Non éprouvé.**
+- La carte Déploiement signale une source déclarée disparue.
+- `scripts/dev/check-components.ps1` refuse une écriture sur l'ordinateur que l'inventaire des pièces ne nomme pas.
+
+## 2026-09-13 — après la v1.1.4, non publié
+
+### Modifié
+- Les opérations se nomment **synchrones** (résultat dans la réponse) et **asynchrones** (le travail continue après),
+  plus « courtes » et « longues ».
+
+### Ajouté
+- `scripts/dev/check-all.ps1` lance tous les vérificateurs du dépôt en une commande.
