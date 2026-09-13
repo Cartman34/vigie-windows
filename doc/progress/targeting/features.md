@@ -76,6 +76,10 @@ Format : `ID` — Titre, puis le besoin et ses critères. On n'écrit **pas** ic
   sans chercher. Une opération longue suit **un seul protocole** : elle se voit tant qu'elle dure, depuis toutes les
   pages ouvertes, verrouille les ressources qu'elle occupe, et **ne se termine jamais en silence** — un échec, une mort
   au démarrage ou un processus disparu sans résultat s'affichent comme des échecs. Conception : [operations.md](operations.md).
+- **CORE-LIFECYCLE** — Toute pièce que Vigie crée ou modifie sur la machine répond à **chaque situation de sa vie** :
+  création, mise à jour, dépendance qui change, état cassé, croissance, maintenance, suppression, désinstallation. Aucune
+  ne reste **jamais bloquée**. Un administrateur, et l'agent sur le poste de développement, peuvent la maintenir par le
+  serveur, de façon sécurisée. Conception : [components.md](components.md).
 - **CORE-EXPORT** — Deux exports imprimables et sobres : les caractéristiques matérielles, et l'état courant.
 
 ## Windows Update (WU)

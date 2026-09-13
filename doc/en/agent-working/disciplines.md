@@ -436,6 +436,19 @@ idea next door, not the improvement that "went with it".
 
 *Rule given on 03/09, after I delivered a history display nobody had asked for.*
 
+## Every piece answers every situation of its life
+
+**Asked by the owner on 13/09, for every piece, without exception.** Before a piece is delivered -- an account, a task,
+a clone, a data folder, a registry key, a version tag, a Windows setting -- every situation of its life has an answer,
+and none leaves it blocked. The situations, and what each requires: `doc/progress/targeting/components.md`. The piece
+enters `doc/progress/implemented/components.md` in the same commit.
+
+The questions are asked when the piece is designed, never the day it breaks. All of them: a question skipped is a
+situation the product meets without an answer.
+
+*The service clone was created on 30/08 without these questions. On 11/09 a history rewrite moved the version tags; on
+13/09 the clone refused them, and deployment stopped while announcing an unreachable repository.*
+
 ## Two messages in a row: I do not know which answers what
 
 **When two of his messages follow each other, the second may extend the first — or answer my

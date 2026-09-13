@@ -22,6 +22,7 @@ Arbitré par l'utilisateur le 06/09, et c'est **cet ordre-là** que je suis quan
 
 **S10** est né le 07/09, d'une gêne signalée par l'utilisateur ; il attend son rang.
 **S14** est né le 12/09, d'un défaut signalé par l'utilisateur ; il attend son rang.
+**S15** est né le 13/09, d'un déploiement bloqué ; il attend son rang.
 **S03** et **S09** ne se classent pas : ce sont des **preuves**, et elles demandent son geste à lui, pas mon travail.
 **S08** descend avec S07, par le même cliquet.
 
@@ -41,6 +42,7 @@ Arbitré par l'utilisateur le 06/09, et c'est **cet ordre-là** que je suis quan
 | **S10** | Un état qui oscille notifie à chaque oscillation | `apps/tray/tray.ps1` | Mesuré le 06/09 : `gaming.hogs` a basculé `ok`↔`warn` **dix fois en quarante minutes**, soit dix bulles pour une seule situation. **Tranché par l'utilisateur le 07/09** : un même champ ne notifie pas deux fois avant **dix minutes** — le répit est par notification, un autre sujet qui se dégrade pendant ce temps sort quand même. Rejoué sur la séquence réelle du 06/09 : douze bascules, cinq bulles. Ouvert jusqu'à une partie réelle. |
 | **S12** | Le numéro de version ne peut pas se publier sans session | `scripts/install.ps1` → étape du tag | Mesuré le 08/09 : le déploiement de 09 h 55 n'a posé aucun numéro, personne n'étant connecté. Le repli fait poser le tag par l'app serveur, mais **le compte de service n'a pas les identifiants git et ne peut pas les demander** : la session 0 n'a pas de bureau où afficher une invite. Publication à différer jusqu'à la première app cliente. |
 | **S14** | Les opérations ne suivent pas toutes le même protocole | `targeting/operations.md` · `implemented/operations.md` · **D82** | Constaté le 12/09 : une installation Windows Update annoncée terminée dès son départ, puis une carte figée sur « Démarrage… ». Le 13/09, les quatre opérations passent par `Start-Operation` et le protocole ne laisse plus de fin silencieuse : **à éprouver en production**. Reste à trancher si les passes internes et les ordres de bureau rejoignent `/operations`, et comment la relance du serveur tient sa marque. Preuve : `notes/evidence/2026-09-12-operations-outside-the-protocol.md`. |
+| **S15** | Des pièces de Vigie sans réponse à certaines situations de leur vie | `targeting/components.md` · `implemented/components.md` · **D112** | Constaté le 13/09 : le déploiement s'est arrêté parce que le clone du service refusait les étiquettes déplacées par la réécriture d'historique du 11/09. L'inventaire du même jour relève d'autres pièces sans réponse : aucune maintenance du clone par le serveur, source du journal d'événements et droit de session jamais retirés, journaux jamais purgés, déclarations `safe.directory` qui s'accumulent. Preuve : `notes/evidence/2026-09-13-service-clone-blocked-by-rewritten-tags.md`. |
 
 ## Clos
 

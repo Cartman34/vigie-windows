@@ -190,6 +190,22 @@ regarde.
 jour et le prochain `/state` — le sondage régulier de la page — sert la nouvelle. Aucune notification n'est nécessaire :
 la page repasse de toute façon.
 
+### Le clone du service ne se bloque jamais
+
+Le clone est une copie que le service possède seul : il reflète la source déclarée, il ne lui résiste jamais. Ce qu'il
+doit faire dans chaque situation de sa vie, selon `components.md` :
+
+| Situation | Ce que fait le serveur |
+|---|---|
+| synchronisation | branches et étiquettes récupérées en forçant, puis remise sur la référence visée |
+| historique réécrit, étiquettes déplacées | la récupération forcée les absorbe ; si git refuse encore, le clone est supprimé et recloné |
+| clone illisible | supprimé et recloné |
+| source changée | adresse remise à jour, puis même traitement |
+| source injoignable | échec affiché avec le texte de git ; le clone en place reste intact et la tentative suivante reprend |
+| maintenance | des actions du serveur, réservées aux administrateurs et tracées, le resynchronisent ou le réinitialisent |
+
+Constat qui a fait écrire cette section : `notes/evidence/2026-09-13-service-clone-blocked-by-rewritten-tags.md`.
+
 ### Correspondances techniques
 
 | Dans le plan | Dans le code |

@@ -2927,6 +2927,11 @@ Ce qui est tranché :
 
 Comment c'est réalisé : [état réel — la chaîne de mise à jour](implemented/update-chain.md).
 
+**Constat du 13/09/2026.** Le clone a été créé sans réponse aux situations de sa vie. La réécriture d'historique du 11/09
+a déplacé les étiquettes de version : le 13/09, le clone a refusé de les récupérer, et le déploiement s'est arrêté en
+annonçant un dépôt injoignable. Le comportement exigé : `targeting/install-update.md`, section « Le clone du service ne
+se bloque jamais ». La règle pour toute pièce : `targeting/components.md`. Preuve : `notes/evidence/2026-09-13-service-clone-blocked-by-rewritten-tags.md`.
+
 ---
 
 ## D113 — Un réglage par utilisateur ne se lit jamais dans `HKCU` (2026-09-01)

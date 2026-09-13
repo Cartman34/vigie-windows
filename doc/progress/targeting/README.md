@@ -8,6 +8,7 @@ realisation sans reecrire l'enonce.
 - Installation et mise a jour, la sequence cible : **`install-update.md`**.
 - Notifications de bureau, la porte et ses outils : **`notifications.md`**.
 - Opérations, leur inventaire et leur protocole : **`operations.md`**.
+- Pièces de Vigie et leur réponse à chaque situation de leur vie : **`components.md`**.
 - Désinstallation : **`uninstall.md`**.
 - Un serveur élevé par machine, pour plusieurs comptes : **`multi-account-server.md`**.
 - Surveillance permanente : **`surveillance.md`**.
