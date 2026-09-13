@@ -6,8 +6,7 @@ Cible : [../targeting/operations.md](../targeting/operations.md). Arbitrages : *
 Relevé du 13/09/2026, fait dans le code. Ce que l'inventaire doit porter et comment il sert : `../targeting/operations.md`,
 section « L'inventaire ».
 
-**Tenu par : aucun vérificateur à ce jour.** C'est un écart à la cible, porté par **S14**. Tant qu'il n'existe pas, une
-opération ajoutée sans passer par ce fichier le rend faux sans que rien ne le signale.
+**Tenu par `scripts/dev/check-operations.ps1`**, qui dit lui-même ce qu'il compare et ce qu'il ne voit pas.
 
 ## Les fonctions de lancement
 
@@ -128,7 +127,7 @@ La séquence d'installation et de mise à jour est décrite dans [update-chain.m
 |---|---|
 | `scripts/install.ps1` | installe ou met à jour ; arrête et relance les apps clientes (`Stop-TrayTasks`, `Start-TrayTasks`), active les comptes, fait poser le tag par un ordre de bureau |
 | `scripts/uninstall.ps1` | désinstalle ; arrête les apps clientes |
-| `scripts/install-autostart.ps1`, `.cmd`, `.vbs` | enregistre la tâche de démarrage de l'app cliente |
+| `scripts/install-autostart.ps1`, `install-autostart.cmd`, `install-autostart.vbs` | enregistre la tâche de démarrage de l'app cliente |
 | `scripts/uninstall-autostart.ps1` | retire cette tâche |
 | `scripts/uninstall-legacy.ps1` | retire les vestiges d'avant le nom Vigie |
 | `scripts/vigie-comptes.ps1` | active ou désactive Vigie pour un compte |
