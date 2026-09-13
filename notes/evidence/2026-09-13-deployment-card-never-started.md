@@ -36,6 +36,20 @@ Journaux du compte de service copiés par l'action `diag-account-logs` (`install
   lancée : un échec et une absence de lancement portaient le même libellé.
 - `Start-TrayTasks` démarre sans regarder si la tâche tourne.
 
+## Après le déploiement de la v1.1.5, 13/09 à 22 h 39
+
+| Lecture | Valeur |
+|---|---|
+| carte Déploiement | « Démarrage automatique : Opérationnel » : **la lecture de l'historique est corrigée** |
+| app cliente de fhaza | démarrée à 22:38:53, toujours vivante |
+| tâche `Vigie - fhaza` réenregistrée | 22:39:15 (`comptes_20260913.log`) |
+| dernier lancement, dernier résultat | 22:39:20, `0x800710E0` : **le redémarrage refusé a eu lieu quand même** |
+| journal de la mise à jour | « App clientes relancées : Famille, fhaza » |
+
+`Start-TrayTasks` ne sautait une tâche que si elle se lisait `Running`. Réenregistrée cinq secondes plus tôt, elle ne se
+lisait plus ainsi, alors que son instance tournait. Depuis, c'est le processus vivant qui décide, quel que soit l'état.
+**Ce second correctif n'est pas déployé** : il attend la prochaine mise à jour.
+
 ## Ce qui n'a PAS été vérifié
 
 - **Le refus n'a pas été reproduit.** Redémarrer la tâche de fhaza aurait pu mettre une seconde app cliente à l'écran.

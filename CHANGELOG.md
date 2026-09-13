@@ -632,7 +632,9 @@ versions, du point de vue de qui utilise Vigie.*
 - **La carte Déploiement disait « Jamais démarrée » d'une app cliente en marche.** Une mise à jour redémarrait une
   tâche qui tournait déjà ; Windows refusait, et ce refus était lu comme un échec. Une tâche en cours au processus
   vivant n'est plus redémarrée ni signalée, et un dernier démarrage en échec ne se dit plus « Jamais démarrée ».
-  Prouvé par simulation ; **à constater sur la carte après la prochaine mise à jour.**
+  **Constaté sur la carte après la mise à jour de 22 h 39.** Le redémarrage refusé, lui, a encore eu lieu : la tâche
+  venait d'être réenregistrée et ne se lisait plus « en cours ». C'est désormais le processus vivant qui décide ;
+  **ce second correctif n'est pas encore déployé.**
 - **Une installation Windows Update rendait « Inconnu »** pour une mise à jour que Windows savait en échec, et
   **taisait une mise à jour demandée** qu'elle ne retrouvait plus (12/09 : quatre demandées, trois dans le compte
   rendu). Le verdict manquant est relu dans l'historique de Windows Update, chaque code a un nom, et une mise à jour

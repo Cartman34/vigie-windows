@@ -2769,10 +2769,11 @@ function Start-TrayTasks {
     foreach ($a in @($Accounts)) {
         if (-not $a.task) { continue }
         try {
-            # A RUNNING TASK IS NOT STARTED AGAIN: under IgnoreNew Windows refuses, and the refusal becomes the task's
-            # last result, read afterwards as a failed start (13/09).
+            # A CLIENT APP ALREADY RUNNING IS NOT STARTED AGAIN: under IgnoreNew Windows refuses, and the refusal becomes
+            # the task's last result (13/09). The process decides, not the task's state: re-registered a few seconds
+            # earlier, the task no longer reads Running while its instance still runs (22:39 the same day).
             $current = Get-ScheduledTask -TaskName "$($a.task)" -ErrorAction Stop
-            if ("$($current.State)" -eq 'Running' -and (Test-VigieTaskProcessAlive -Task $current)) { continue }
+            if (Test-VigieTaskProcessAlive -Task $current) { continue }
             Start-ScheduledTask -TaskName "$($a.task)" -ErrorAction Stop
             $started += "$($a.name)"
         } catch { }
@@ -7139,10 +7140,11 @@ function Get-VigieTaskHistoryAilment {
     param([Parameter(Mandatory)]$Task)
     $a = @($Task.Actions)[0]
     if (-not $a) { return $null }
-    # A TASK RUNNING WITH ITS PROCESS ALIVE HAS NOTHING LEFT TO CONFIRM. Its last result can be a start refused
-    # because it was already running (0x800710E0 under IgnoreNew): on 13/09 an update started fhaza's running
-    # task, and the card said "never started" of a client app in front of him.
-    if ("$($Task.State)" -eq 'Running' -and (Test-VigieTaskProcessAlive -Task $Task)) { return $null }
+    # A TASK WHOSE CLIENT APP IS ALIVE HAS NOTHING LEFT TO CONFIRM. Its last result can be a start refused because
+    # it was already running (0x800710E0 under IgnoreNew): on 13/09 an update started fhaza's running task, and the
+    # card said "never started" of a client app in front of him. The process decides, not the state, which a
+    # re-registration resets while the instance still runs.
+    if (Test-VigieTaskProcessAlive -Task $Task) { return $null }
     # UNE TACHE SAINE SUR LE PAPIER PEUT N'AVOIR JAMAIS TOURNE.
     #
     # Tout ce qui precede examine la DEFINITION : l'interpreteur existe, le script existe.
