@@ -190,8 +190,9 @@ $ACCENT_PATTERNS = [ordered]@{}
 foreach ($word in $ACCENTED.Keys) {
     # "$Etat" is not the word "etat", "-Detail" is not "détail": what follows a $ is a
     # VARIABLE NAME, what follows a dash is a PARAMETER NAME. Accenting them breaks the
-    # code, or worse: documents an option that does not exist.
-    $ACCENT_PATTERNS[$word] = [regex]::new(('(?<![\p{L}$-])' + $word + 's?(?![\p{L}])'),
+    # code, or worse: documents an option that does not exist. A PATH SEGMENT is not a word either:
+    # "implemented/operations.md" became "opérations.md" in a label on 13/09, and the path no longer existed.
+    $ACCENT_PATTERNS[$word] = [regex]::new(('(?<![\p{L}$/-])' + $word + 's?(?![\p{L}/]|[.][\p{L}])'),
                                            [Text.RegularExpressions.RegexOptions]::IgnoreCase)
 }
 
@@ -388,7 +389,9 @@ if (Test-Path -LiteralPath $langDir) {
                 $out[$prop.Name] = $good
             }
             if ($Fix -and $changed) {
-                [System.IO.File]::WriteAllText($lf.FullName, ($out | ConvertTo-Json -Depth 3),
+                # ConvertTo-Json ends its lines with CRLF on Windows: the repository is LF, and the whole file
+                # showed as rewritten when a single label had changed (13/09).
+                [System.IO.File]::WriteAllText($lf.FullName, (($out | ConvertTo-Json -Depth 3) -replace "`r`n", "`n"),
                                                (New-Object System.Text.UTF8Encoding($false)))
                 $fixed++
             }
