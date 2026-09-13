@@ -60,10 +60,28 @@ REM THE WINDOW WRITES THE RETAINED FOLDER TO A FILE: its standard output already
 REM own layout checks, and we would have read something other than a path there.
 set "VIGIE_REPONSE=%TEMP%\vigie-install-path.txt"
 if exist "%VIGIE_REPONSE%" del /q "%VIGIE_REPONSE%" >nul 2>&1
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\lib\show-confirm.ps1" -Scenario installation -InstallPath "%VIGIE_PATH%" -OutFile "%VIGIE_REPONSE%"
+REM THE ANNOUNCEMENT IS THE PLAN, computed from the machine by install-plan.ps1: installation or update is
+REM detected, never chosen. Exit code 10 = installation, 11 = update, anything else = no plan.
+set "VIGIE_PLAN=%TEMP%\vigie-install-plan.json"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\lib\install-plan.ps1" -InstallPath "%VIGIE_PATH%" -OutFile "%VIGIE_PLAN%"
+if errorlevel 12 goto :planko
+if errorlevel 11 goto :annonce
+if errorlevel 10 goto :dossier
+goto :planko
+
+:dossier
+REM AN INSTALLATION CHOOSES ITS FOLDER FIRST; the gestures are announced afterwards, with that folder.
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\lib\show-confirm.ps1" -Scenario dossier -InstallPath "%VIGIE_PATH%" -OutFile "%VIGIE_REPONSE%"
 if errorlevel 1 goto :refus
 if exist "%VIGIE_REPONSE%" set /p VIGIE_PATH=<"%VIGIE_REPONSE%"
 if exist "%VIGIE_REPONSE%" del /q "%VIGIE_REPONSE%" >nul 2>&1
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\lib\install-plan.ps1" -InstallPath "%VIGIE_PATH%" -OutFile "%VIGIE_PLAN%"
+if errorlevel 12 goto :planko
+if not errorlevel 10 goto :planko
+
+:annonce
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\lib\show-confirm.ps1" -PayloadFile "%VIGIE_PLAN%"
+if errorlevel 1 goto :refus
 
 echo Vigie a besoin des droits administrateur.
 echo Une fenêtre de confirmation Windows va s'ouvrir.
@@ -84,6 +102,7 @@ exit /b 3
 :installe
 REM NO BANNER HERE. The script owns the display end to end; an extra title, in another
 REM style, gave two layouts on the same screen.
+if exist "%TEMP%\vigie-install-concluded.flag" del /q "%TEMP%\vigie-install-concluded.flag" >nul 2>&1
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\install.ps1" -InstallPath "%VIGIE_PATH%"
 REM THE RESULT IS READ: announcing "Done" after a failure is worse than staying silent.
 if errorlevel 1 goto :echec
@@ -96,6 +115,13 @@ REM
 REM On failure, however, the "pause" of the :echec block stays -- that is exactly where
 REM the screen must be readable before it disappears.
 exit /b 0
+
+:planko
+echo.
+echo Le plan d'installation n'a pas pu être établi : rien n'a été modifié sur cette machine.
+echo.
+pause
+exit /b 3
 
 :pasadmin
 echo.
@@ -118,4 +144,6 @@ REM cause and giving the log. One closed that window only to face a terminal sti
 REM waiting for a key (measured on 01/09).
 echo.
 echo L'installation a ÉCHOUÉ. Journal détaillé : apps\backend-pode\var\log\install_*.log
+REM A FAILURE BEFORE THE END WINDOW IS SEEN: without that window, nothing else would ever show it (13/09).
+if not exist "%TEMP%\vigie-install-concluded.flag" pause
 exit /b 1

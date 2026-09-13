@@ -81,6 +81,8 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
         if ($Force)     { $nextArgs += '-Force' }
         if ($NoWindow)  { $nextArgs += '-NoWindow' }
         if ($FromAction) { $nextArgs += @('-FromAction', $FromAction) }
+        # THE CHOSEN FOLDER CROSSES THE SWITCH TOO: it was dropped here, and the second pass installed in the default.
+        if ($InstallPath) { $nextArgs += @('-InstallPath', $InstallPath) }
         & $pwsh @nextArgs
         # LE CODE DE LA PASSE LANCEE EST LE NOTRE. Sans cette ligne, un echec de
         # l'installation reelle remontait en succes a l'appelant : le lanceur affichait
@@ -1033,6 +1035,8 @@ try {
             # est un reglage, et un texte qui le repete finit par mentir.
             $url = try { Get-AppUrl -Config (Get-Config -Backend $backend) } catch { '' }
             # « De v0.1.31 vers v0.1.32 » : le seul detail qui compte apres une mise a jour.
+            # THE END WINDOW CONCLUDES: setup.cmd no longer needs to hold the console open on a failure.
+            try { [IO.File]::WriteAllText((Join-Path $env:TEMP 'vigie-install-concluded.flag'), (Get-Date).ToString('o')) } catch { }
             $versions = if ($isUpdate -and $versionPosee) {
                             $current.version + ' vers ' + $versionPosee
                         } else { '' }

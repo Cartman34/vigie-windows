@@ -64,6 +64,11 @@ qui manquera — et cela ne justifie donc aucune restauration.
 **On n'attend jamais qu'une application démarre ; on attend toujours qu'elle soit arrêtée.** Un arrêt se constate — le
 port se libère, le processus disparaît —, un démarrage se suppose.
 
+**Un échec se voit toujours**, même avant l'ouverture du journal : la console reste ouverte tant que la fenêtre de fin
+n'a pas conclu.
+
+**Le dossier choisi traverse chaque passe** : l'élévation comme le passage en PowerShell 7.
+
 **Tout démarre et s'arrête par la tâche planifiée**, pour les deux applications. C'est elle qui sait sous quelle
 identité lancer, et c'est le seul moyen pour l'app cliente d'un autre compte.
 
@@ -104,7 +109,7 @@ la main. Un geste qui ne se fera pas n'apparaît pas ; un geste qui se fera appa
 | **Titre** | Installer Vigie sur cet ordinateur | Mettre à jour Vigie |
 | **Dossier** | choisi d'abord, `Program Files` proposé ; les gestes s'annoncent ensuite, avec le dossier retenu | aucun choix : c'est l'installation en place |
 | **Versions** | la version qui sera installée | la version en place, la version d'arrivée et leur source |
-| **Gestes** | copie, compte de service, tâche serveur, tâches d'app cliente des comptes activés, prérequis manquants | arrêt de l'app serveur et des apps clientes, sauvegarde puis remplacement, suppression du cache, tâches réenregistrées nommées une à une, compte de service repris, prérequis manquants |
+| **Gestes** | copie, compte de service, tâche serveur, tâches d'app cliente des comptes activés, prérequis manquants | arrêt de l'app serveur et des apps clientes, sauvegarde puis remplacement, tâches réenregistrées nommées une à une, compte de service repris, prérequis manquants |
 | **Note** | l'autorisation administrateur vient ensuite, et rien n'est modifié avant | la même |
 
 La rédaction de ses textes suit `doc/en/developing/conventions.md`, section « La tournure des libelles ».

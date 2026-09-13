@@ -29,7 +29,7 @@ param(
     # code OEM, ou les accents deviennent des symboles. Or les accents ne se negocient pas
     # (D41). L'appelant nomme donc un scenario, et ce script -- en UTF-8 avec BOM -- ecrit
     # les phrases.
-    [ValidateSet('', 'installation', 'desinstallation')]
+    [ValidateSet('', 'installation', 'mise-a-jour', 'dossier', 'desinstallation')]
     [string] $Scenario = '',
 
     [string] $Title,
@@ -157,6 +157,7 @@ if ($PayloadFile -and (Test-Path -LiteralPath $PayloadFile)) {
         if ($charge.summary)     { $Summary     = "$($charge.summary)" }
         if ($charge.changes)     { $Changes     = "$($charge.changes)" }
         if ($charge.initiatedBy) { $InitiatedBy = "$($charge.initiatedBy)" }
+        if ($charge.scenario)    { $Scenario    = "$($charge.scenario)" }
     } catch { }
 }
 
@@ -183,17 +184,18 @@ if ($Scenario -eq 'desinstallation') {
     $OkText  = 'Desinstaller'
     $CancelText = 'Quitter'
 }
-if ($Scenario -eq 'installation') {
-    if (-not $InstallPath) { $InstallPath = (Join-Path $env:ProgramFiles 'Sowapps\Vigie') }
-    $Title   = "Installer Vigie sur cet ordinateur"
-    $Summary = "Vigie va s'installer dans " + $InstallPath + ", s'ajouter au démarrage de VOTRE session, " +
-               "puis se lancer. PowerShell 7 et le module Pode seront installés s'ils manquent."
-    $ThirdText = 'Choisir un autre dossier…'
-    $Changes = "Copie du programme dans " + $InstallPath +
-               "|Tâche de démarrage pour votre compte uniquement" +
-               "|Installation de PowerShell 7 pour toute la machine, s'il manque" +
-               "|Aucun réglage de Windows Update n'est modifié à l'installation" +
-               "|Rien n'est supprimé ailleurs sur la machine"
+if ($Scenario -in @('installation', 'mise-a-jour')) {
+    # THE TEXT IS THE PLAN: scripts/lib/install-plan.ps1 computes it from the machine and passes it by -PayloadFile.
+    # Nothing is written here by hand, so the window cannot announce a gesture the installation will not make.
+    $OkText = if ($Scenario -eq 'mise-a-jour') { Get-Label 'install-plan.bouton-maj' } else { Get-Label 'install-plan.bouton-installer' }
+}
+if ($Scenario -eq 'dossier') {
+    # AN INSTALLATION CHOOSES ITS FOLDER FIRST: the gestures are announced afterwards, naming the folder retained.
+    if (-not $InstallPath) { $InstallPath = Join-Path (Join-Path $env:ProgramFiles 'Sowapps') 'Vigie' }
+    $Title     = Get-Label 'install-plan.dossier-titre'
+    $Summary   = Get-Label 'install-plan.dossier-resume' $InstallPath
+    $ThirdText = Get-Label 'install-plan.dossier-choisir'
+    $Note      = ''
 }
 if (-not $Title -or -not $Summary) {
     Write-Host (Get-Label 'show-confirm.rien-afficher-precisez-scenario') -ForegroundColor Yellow
@@ -505,7 +507,7 @@ $form.Dispose()
     it back. Nothing is written outside the installation scenario: elsewhere the window stays
     as silent as before.
 #>
-if ($res -eq [System.Windows.Forms.DialogResult]::Retry -and $Scenario -eq 'installation') {
+if ($res -eq [System.Windows.Forms.DialogResult]::Retry -and $Scenario -eq 'dossier') {
     $choisi = $null
     try {
         $dlg = New-Object System.Windows.Forms.FolderBrowserDialog
