@@ -22,7 +22,7 @@ chain, and each link obliges the next.
    does not redesign over them, one searches first
    (`scripts/dev/decisions.ps1 -About "…"`).
 3. `../../progress/targeting/` then `../../progress/implemented/` — the target, then the real
-   state. A request from the owner is translated **into the target first**.
+   state. In what order they are touched: `disciplines.md`, section "The order of work".
 
 None of this is optional because one believes one remembers. **An agent whose context has
 been compacted has nothing left but its summary**: the rules, the decisions and the design

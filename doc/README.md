@@ -40,7 +40,9 @@ one walks a path of section NAMES, never a numbered reference, which goes stale 
 An indexed folder also stops documents citing their neighbours to make up for the missing map -- cross-file
 references are then dosed, not sown (**D119**).
 
-**One place per fact.** Each piece of information lives in ONE place and the others link to it. The one deliberate
+**One place per fact, and per rule.** Each piece of information and each rule is written in ONE place. Other places may
+refer to it by its path, and that is all: they never restate it, not even in short. A decision is not a copy of the rule
+it gave rise to, since it says why and when, not what applies. The one deliberate
 exception is `progress/`: `targeting/` states the need, `implemented/` states what is really built, and a card may well
 be described on both sides. Losing information hurts more than repeating it.
 
