@@ -1777,6 +1777,60 @@ function Get-UpdateRemote {
 }
 
 <#
+    THE SERVICE CLONE IS NEVER BLOCKED. The required behaviour: doc/progress/targeting/install-update.md, section
+    "Le clone du service ne se bloque jamais". It is a copy the service owns alone: it mirrors the declared source,
+    it never resists it.
+
+    On 13/09 it refused the version tags a history rewrite had moved, and deployment stopped for good. Fetching is
+    therefore FORCED; if git still refuses while the source answers, the clone is rebuilt beside the old one, which
+    is replaced only once the new one exists. A source that does not answer leaves the clone in place, with git's
+    own words.
+
+    Returns ok, error and recloned.
+#>
+function Update-ServiceClone {
+    param([string]$Backend = (Get-BackendRoot), [string]$RemoteUrl = '', [switch]$Reset)
+    $cloneDir = Get-ServiceClonePath -Backend $Backend
+    if (-not $RemoteUrl) { $RemoteUrl = Get-UpdateRemote -Backend $Backend }
+    $parentDir = Split-Path $cloneDir -Parent
+    if (-not (Test-Path -LiteralPath $parentDir)) { New-Item -ItemType Directory -Path $parentDir -Force | Out-Null }
+
+    if (-not $Reset -and (Test-PathSafe (Join-Path $cloneDir '.git'))) {
+        $null = Invoke-Git -Path $cloneDir -Arguments @('rev-parse', '--git-dir')
+        if (-not (Get-GitLastError)) {
+            # The address may have changed -- dev and prod, another folder: it is set before fetching.
+            $null = Invoke-Git -Path $cloneDir -Arguments @('remote', 'set-url', 'origin', $RemoteUrl)
+            $null = Invoke-Git -Path $cloneDir -Arguments @('fetch', '--quiet', '--force', '--prune', '--prune-tags', '--tags', 'origin')
+            $refused = Get-GitLastError
+            if (-not $refused) {
+                return [pscustomobject][ordered]@{ ok = $true; error = $null; recloned = $false }
+            }
+            # UNREACHABLE, OR REFUSED? Only a source that answers justifies rebuilding the clone.
+            $null = Invoke-Git -Path $cloneDir -Arguments @('ls-remote', '--quiet', $RemoteUrl, 'HEAD')
+            if (Get-GitLastError) {
+                return [pscustomobject][ordered]@{ ok = $false; error = $refused; recloned = $false }
+            }
+        }
+    }
+
+    # A FRESH CLONE BESIDE THE OLD ONE: the old one goes only once the new one exists.
+    $fresh = $cloneDir + '.new'
+    if (Test-Path -LiteralPath $fresh) { Remove-Item -LiteralPath $fresh -Recurse -Force -ErrorAction SilentlyContinue }
+    $null = Invoke-Git -Path $parentDir -Arguments @('clone', '--quiet', $RemoteUrl, $fresh)
+    $cloneError = Get-GitLastError
+    if ($cloneError) {
+        Remove-Item -LiteralPath $fresh -Recurse -Force -ErrorAction SilentlyContinue
+        return [pscustomobject][ordered]@{ ok = $false; error = $cloneError; recloned = $false }
+    }
+    try {
+        if (Test-Path -LiteralPath $cloneDir) { Remove-Item -LiteralPath $cloneDir -Recurse -Force -ErrorAction Stop }
+        Move-Item -LiteralPath $fresh -Destination $cloneDir -ErrorAction Stop
+    } catch {
+        return [pscustomobject][ordered]@{ ok = $false; error = $_.Exception.Message; recloned = $false }
+    }
+    return [pscustomobject][ordered]@{ ok = $true; error = $null; recloned = $true }
+}
+<#
     SYNCHRONISER LE CLONE, ET DIRE CE QU'IL CONTIENT.
 
     « Si ca ne met pas a jour le depot du service avant, ca ne sert a rien : ca doit voir
@@ -1818,18 +1872,9 @@ function Sync-ServiceClone {
     }
 
     $failure = $null
-    if (-not (Test-PathSafe (Join-Path $cloneDir '.git'))) {
-        $parentDir = Split-Path $cloneDir -Parent
-        if (-not (Test-Path -LiteralPath $parentDir)) { New-Item -ItemType Directory -Path $parentDir -Force | Out-Null }
-        $null = Invoke-Git -Path $parentDir -Arguments @('clone', '--quiet', $remoteUrl, $cloneDir)
-        $failure = Get-GitLastError
-    } else {
-        # L'adresse a pu changer (passage dev <-> prod) : on la remet avant de tirer.
-        $null = Invoke-Git -Path $cloneDir -Arguments @('remote', 'set-url', 'origin', $remoteUrl)
-        $null = Invoke-Git -Path $cloneDir -Arguments @('fetch', '--quiet', '--tags', '--prune', 'origin')
-        $failure = Get-GitLastError
-    }
-
+    # THE CLONE IS NEVER BLOCKED: forced, then recloned if git still refuses (Update-ServiceClone).
+    $update = Update-ServiceClone -Backend $Backend -RemoteUrl $remoteUrl
+    if (-not $update.ok) { $failure = $update.error }
     $tagVersion = $null; $headCommit = $null
     if (Test-PathSafe (Join-Path $cloneDir '.git')) {
         # Sans reference imposee, on suit la branche par defaut du remote.
@@ -5895,6 +5940,8 @@ $script:RessourcesParAction = @{
     'pwsh-install-machine' = @('machine')
     'system-restart'       = @('machine')
     'repair-tasks'         = @('taches')
+    'service-clone-repair' = @('clone')
+    'service-clone-reset'  = @('clone')
     # Windows Update : le verrou, l'analyse et l'installation se marchent dessus.
     'update-mode-on'       = @('windows-update')
     'update-mode-off'      = @('windows-update')

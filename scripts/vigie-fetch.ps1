@@ -255,25 +255,12 @@ function Get-DepuisClone {
     # serveur en a besoin AUSSI, pour comparer l'installation a ce que le bouton
     # fabriquerait (D112). Deux definitions, et la carte compare a autre chose.
     $clone  = Get-ServiceClonePath -Backend $backend
-    $valide = $false
-    if (Test-Path -LiteralPath (Join-Path $clone '.git')) {
-        & git -C $clone rev-parse --git-dir 2>$null | Out-Null
-        $valide = ($LASTEXITCODE -eq 0)
-        if (-not $valide) {
-            Write-Warn (Get-Label 'vigie-fetch.le-clone-existant-est')
-            Remove-Item -LiteralPath $clone -Recurse -Force -ErrorAction SilentlyContinue
-        }
-    }
-    if ($valide) {
-        Write-Info (Get-Label 'vigie-fetch.mise-jour-du-clone')
-        & git -C $clone fetch --quiet --tags --prune origin 2>&1 | Write-Host
-        if ($LASTEXITCODE -ne 0) { Sortir 2 "La recuperation a echoue : depot injoignable, ou reseau absent." }
-    } else {
-        Write-Info (Get-Label 'vigie-fetch.clonage-de' $Depot)
-        & git clone --quiet $Depot $clone 2>&1 | Write-Host
-        if ($LASTEXITCODE -ne 0) { Sortir 2 "Le clonage a echoue : depot injoignable, ou reseau absent." }
-    }
-
+    # THE CLONE IS NEVER BLOCKED: forced, then recloned if git still refuses (Update-ServiceClone, common.ps1).
+    Write-Info (Get-Label 'vigie-fetch.mise-jour-du-clone')
+    $update = Update-ServiceClone -Backend $backend -RemoteUrl $Depot
+    if ($update.recloned) { Write-Info (Get-Label 'vigie-fetch.clone-recree') }
+    # git's own words, never a guessed cause: "unreachable repository" hid a refused tag on 13/09.
+    if (-not $update.ok) { Sortir 2 ("La recuperation a echoue : " + $update.error) }
     # Sans reference imposee, on ne prend QUE des tags : une branche bouge a chaque
     # commit, un tag designe une version qu'on a decide de publier (D99).
     #

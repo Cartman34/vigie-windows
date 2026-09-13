@@ -63,6 +63,8 @@ définition de `../targeting/operations.md`, section « Ce qu'est une opération
 | `repair-tasks` | `deployment.probe.ps1` | admin | serveur | courte | `Repair-VigieTasks` | sans objet |
 | `run-audit` | `lock.probe.ps1` | tous | serveur | courte | `Invoke-UpdateAudit` | sans objet |
 | `server-restart` | `vigie.probe.ps1`, `apps/tray/tray.ps1`, `scripts/tray.ps1` | tous | serveur | longue | `Start-ServerRelauncher` | **hors protocole**, cas non arbitré : le serveur qui répond est celui qui s'arrête |
+| `service-clone-repair` | appel direct par l'API, `scripts/dev/ask-vigie.ps1` | admin | serveur | longue | `Start-Operation`, `workers/service-clone.worker.ps1` | commun |
+| `service-clone-reset` | appel direct par l'API, `scripts/dev/ask-vigie.ps1` | admin | serveur | longue | `Start-Operation`, `workers/service-clone.worker.ps1` | commun |
 | `system-restart` | `os.probe.ps1`, `vbs.probe.ps1`, `pending.probe.ps1` | tous | serveur | courte | `Invoke-Native` sur `shutdown.exe`, redémarrage différé et annulable | sans objet |
 | `system-restart-cancel` | `os.probe.ps1`, `vbs.probe.ps1`, `pending.probe.ps1` | tous | serveur | courte | `Invoke-Native` sur `shutdown.exe` | sans objet |
 | `tag-version` | ordre de bureau envoyé par `scripts/install.ps1` | admin | session | courte | `Invoke-Git` | sans objet |

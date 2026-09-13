@@ -27,7 +27,7 @@ c'est l'adresse déclarée — d'où la déclaration `safe.directory`, posée pa
 1. **Tag** — si `Environment = dev` et qu'il y a des commits d'avance. Depuis l'interface, c'est l'app cliente du
    compte qui a cliqué ; depuis un terminal, celui qui tape la commande **est** le propriétaire, il le pose lui-même.
    Un échec n'arrête rien : une mise à jour ne rate pas pour un tag.
-2. **Synchronisation** — `Sync-ServiceClone` : clone à la première fois, `fetch` ensuite. Répit de 5 minutes, forcé par
+2. **Synchronisation** — `Sync-ServiceClone` et `vigie-fetch`, par `Update-ServiceClone` : récupération forcée, puis reclonage si git refuse alors que la source répond. Répit de 5 minutes, forcé par
    « Actualiser ».
 3. **Fabrication** — `vigie-fetch` produit l'archive depuis le clone, sur le tag visé ; depuis une source locale et
    sans référence imposée, il suit la branche.
