@@ -29,19 +29,19 @@ une réponse que le code laisse supposer sans qu'elle ait été constatée.
 | Pièce | Création | Mise à jour, dépendance qui change | État cassé | Croissance | Maintenance | Désinstallation |
 |---|---|---|---|---|---|---|
 | installation partagée | installation | copie vérifiée, restauration si invalide | restauration de la version précédente | sans objet | `vigie-update` | retirée en dernier |
-| `machine.psd1` | installation et déploiement | réécrite à chaque déploiement | `SourcePath` disparu : la mise à jour prend la dernière version publiée, et la carte Déploiement le signale | sans objet | **aucune réponse** | retirée |
-| sauvegarde de l'installation précédente | déploiement | supprimée après une copie valide | sert à la restauration | une seule | **aucune réponse** | retirée |
+| `machine.psd1` | installation et déploiement | réécrite à chaque déploiement | `SourcePath` disparu : la mise à jour prend la dernière version publiée, et la carte Déploiement le signale ; illisible : ses anciennes valeurs sont perdues sans message et la réécriture repart des nouvelles | sans objet | `vigie-update` et `setup.cmd` la réécrivent | retirée |
+| sauvegarde de l'installation précédente, `ProgramData/Sowapps/Vigie/backup/installation-<version>` | déploiement | supprimée après une copie valide | sert à la restauration ; une restauration, réussie ou non, la laisse en place | une par version dont la copie a échoué, jamais purgée | **aucune réponse** | retirée |
 | verrou d'installation | installation | sans objet | verrou orphelin ignoré | sans objet | sans objet | retiré |
-| déclaration du dossier d'installation | installation | vérifiée, jamais crue | ignorée si périmée | sans objet | **aucune réponse** | retirée |
+| déclaration du dossier d'installation | installation | vérifiée, jamais crue | ignorée si périmée | sans objet | `setup.cmd` la réécrit | retirée |
 | identité des notifications | installation | réécrite à chaque passe du minuteur | réécrite | sans objet | sans objet | retirée |
-| source du journal d'événements `Vigie` | premier usage | sans objet | **aucune réponse** | journal de Windows | **aucune réponse** | retirée, depuis le 13/09 ; **non éprouvé** |
+| source du journal d'événements `Vigie` | installation, puis chaque démarrage de l'app serveur s'il manque (`start.ps1`) | sans objet | absente : recréée au démarrage suivant de l'app serveur ; **non éprouvé** | journal de Windows | `server-restart` la recrée si elle manque | retirée, depuis le 13/09 ; **non éprouvé** |
 
 ## Git : le clone, les déclarations, les étiquettes
 
 | Pièce | Création | Mise à jour, dépendance qui change | État cassé | Croissance | Maintenance | Désinstallation |
 |---|---|---|---|---|---|---|
 | clone du service | première synchronisation | récupération forcée ; recloné à côté de l'ancien si git refuse alors que la source répond. **Éprouvé en production le 13/09 à 11 h 57** : les étiquettes déplacées ont été absorbées sans reclonage | illisible : recloné ; source muette : clone intact, texte de git affiché | sans objet | `service-clone-repair`, `service-clone-reset` | retiré avec le profil |
-| déclarations `safe.directory` | installation et déploiement | la source précédente perd les siennes au déploiement suivant, depuis le 13/09 | sans objet | la paire d'un dossier disparu est retirée à chaque installation élevée, par `Remove-StaleGitSafeDirectory`, depuis le 13/09 ; **non éprouvé sur la configuration réelle**. Restent celles de dossiers qui existent encore sans être la source : le worktree de l'agent, l'installation partagée | **aucune réponse** | retirées |
+| déclarations `safe.directory` | installation et déploiement | la source précédente perd les siennes au déploiement suivant, depuis le 13/09 | sans objet | la paire d'un dossier disparu est retirée à chaque installation élevée, par `Remove-StaleGitSafeDirectory`, depuis le 13/09 ; **non éprouvé sur la configuration réelle**. Restent celles de dossiers qui existent encore sans être la source : le worktree de l'agent, l'installation partagée | `setup.cmd` redéclare celle de la source | retirées |
 | étiquettes de version | déploiement en `dev`, posées et poussées dans le dépôt de la personne | déplacées par une réécriture d'historique, elles bloquent le clone | sans objet | une par déploiement | **aucune réponse** | conservées : le dépôt appartient à la personne |
 
 ## Les données sous `var/`
