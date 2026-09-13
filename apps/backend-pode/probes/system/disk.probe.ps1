@@ -37,7 +37,7 @@ $fields = @()
 $fields += New-Field -Key 'free' -Label 'Espace libre' -Value $freeGB -Kind 'number' -Unit 'Go' -Status $st `
     -Help "Espace disponible sur le disque système ($sysLettre). En dessous du seuil, risque de saturation." `
     -FixAction 'disk-cleanup' `
-    -Guide 'Libérez de l''espace : lancez « Analyser l''espace » pour voir ce qui pèse, ouvrez le Nettoyage de disque, videz la corbeille, désinstallez des applications inutiles.'
+    -Guide 'Pour libérer de l''espace : « Analyser l''espace » montre ce qui pèse, puis viennent le Nettoyage de disque, la corbeille à vider et les applications inutiles à désinstaller.'
 $fields += New-Field -Key 'threshold' -Label 'Seuil d''alerte' -Value $threshold -Kind 'number' -Unit 'Go' -Status 'neutral' `
     -Help 'Seuil en dessous duquel on alerte. Reglable : Paramètres > Modules > Système.'
 $fields += New-Field -Key 'used' -Label 'Occupation' -Value $usedPct -Kind 'number' -Unit '%' -Status 'neutral' `
@@ -76,7 +76,7 @@ $racine = if ($scan -and $scan.root) { "$($scan.root)" } else { "$sysLettre\" }
 $actions = @(New-Action -Id 'open-storage-settings' -Label 'Paramètres de stockage' -Kind 'manual' -Severity 'info' `
                         -Help 'Ouvre les paramètres de stockage de Windows : ce qui occupe le disque, et l''assistant de stockage.'
              New-Action -Id 'disk-cleanup' -Severity 'fix' -Label 'Nettoyage de disque...' -Kind 'manual' `
-    -Help "Ouvre l'outil Windows 'Nettoyage de disque' (cleanmgr). Vous choisissez quoi supprimer ; rien n'est supprimé automatiquement.")
+    -Help "Ouvre l'outil Windows 'Nettoyage de disque' (cleanmgr). Rien n'est supprimé sans un choix explicite dans l'outil.")
 
 if ($enCours) {
     # Dire QUOI, sur COMBIEN, DEPUIS QUAND (D50) : un « en cours… » muet n'apprend rien.
@@ -100,8 +100,8 @@ if ($enCours) {
     if (-not $arbre) {
         $quoi = if ($scan -and $scan.canceled) { 'interrompue' } else { 'jamais lancée' }
         $fields += New-Field -Key 'scan-state' -Label 'Analyse de l''espace' -Value $quoi -Kind 'text' -Status 'neutral' `
-            -Help "Lancez « Analyser l'espace » pour savoir ce qui occupe $racine." `
-            -Guide "Le parcours dure de quelques secondes à quelques minutes selon le nombre de fichiers. Il lit uniquement les tailles, il ne modifie rien et vous pouvez l'arrêter à tout moment."
+            -Help "« Analyser l'espace » montre ce qui occupe $racine." `
+            -Guide "Le parcours dure de quelques secondes à quelques minutes selon le nombre de fichiers. Il lit uniquement les tailles, il ne modifie rien et s'arrête à tout moment."
     } else {
         # `result` decrit l'analyse COMPLETE a laquelle l'arbre appartient ; `scan` ne dit
         # que l'etat de la derniere tache. Les confondre ferait dater l'arbre du jour d'une
@@ -110,7 +110,7 @@ if ($enCours) {
         $racine = if ($bilan.root) { "$($bilan.root)" } else { $racine }
         if ($scan -and $scan.canceled) {
             $fields += New-Field -Key 'scan-canceled' -Label 'Dernière analyse' -Value 'interrompue' -Kind 'text' -Status 'neutral' `
-                -Help "Vous avez arrêté la dernière analyse : le résultat affiché est celui du parcours complet précédent." `
+                -Help "La dernière analyse a été arrêtée : le résultat affiché est celui du parcours complet précédent." `
                 -FixAction 'disk-analyze'
         }
         # Date de l'analyse, en heure locale (le fichier est ecrit en UTC -- D44).
@@ -175,7 +175,7 @@ if ($enCours) {
     # ouvre une fenetre qui demande les niveaux au serveur au fur et a mesure.
     if ($arbre) {
         $actions += New-Action -Id 'disk-tree' -Label 'Explorer l''arborescence' -Kind 'dialog' -Severity 'info' `
-            -Help "Parcourt les dossiers du plus gros au plus petit, niveau par niveau. Chaque niveau est demandé au moment où vous le dépliez."
+            -Help "Parcourt les dossiers du plus gros au plus petit, niveau par niveau. Chaque niveau est demandé au moment où il se déplie."
     }
     $actions += New-Action -Id 'disk-analyze' -Label $(if ($arbre) { 'Relancer l''analyse' } else { 'Analyser l''espace' }) `
         -Kind 'immediate' -Severity 'info' -BusyLabel 'Analyse…' `

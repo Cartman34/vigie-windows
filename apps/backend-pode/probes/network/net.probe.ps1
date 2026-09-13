@@ -278,13 +278,13 @@ $wifiGuide = if (-not $wifiUp) {
     $(switch ($qualRank) {
         1 { "Le problème : aucun. Le lien est au niveau de ce que ce réseau sait faire." }
         2 { "Le problème : le lien est nettement en dessous de ce qu'un Wi-Fi moderne permet. La navigation reste correcte, mais les gros téléchargements et la visioconférence en souffrent." }
-        default { "Le problème : le lien est très bas. Attendez-vous à des visioconférences hachées, des téléchargements lents et des pages qui traînent." }
+        default { "Le problème : le lien est très bas. À prévoir : des visioconférences hachées, des téléchargements lents et des pages qui traînent." }
     }) +
     $(if ($qualRank -ge 2) {
         "`n`nLes issues possibles :`n" +
         "- rapprochez-vous du point d'accès, ou retirez ce qui s'interpose (mur porteur, miroir, plancher chauffant) ;`n" +
-        "- passez sur la bande 5 GHz si votre box la propose : plus rapide et moins encombrée que 2,4 GHz ;`n" +
-        "- changez le canal de la box : un voisin sur le même canal se partage le débit avec vous ;`n" +
+        "- passer sur la bande 5 GHz si la box la propose : plus rapide et moins encombrée que 2,4 GHz ;`n" +
+        "- changer le canal de la box : un voisin sur le même canal partage le débit ;`n" +
         "- éloignez les brouilleurs : four à micro-ondes, téléphone DECT, adaptateur CPL ;`n" +
         "- si le besoin est durable, un câble Ethernet règle la question définitivement."
     } else { '' }) + "`n`n" + $noSignalNote
@@ -308,8 +308,8 @@ $stabGuide = if (-not $stabEstablished) {
     "Le problème : le lien a perdu son association avec le point d'accès. C'est ce qui coupe une visioconférence net ou fige un téléchargement, même si le débit est bon entre deux coupures.`n`n" +
     "Les issues possibles :`n" +
     "- rapprochez-vous du point d'accès, ou retirez ce qui s'interpose (mur porteur, miroir, plancher chauffant) ;`n" +
-    "- passez sur la bande 5 GHz si votre box la propose : plus rapide et moins encombrée que 2,4 GHz ;`n" +
-    "- changez le canal de la box : un voisin sur le même canal se partage le débit avec vous ;`n" +
+    "- passer sur la bande 5 GHz si la box la propose : plus rapide et moins encombrée que 2,4 GHz ;`n" +
+    "- changer le canal de la box : un voisin sur le même canal partage le débit ;`n" +
     "- éloignez les brouilleurs : four à micro-ondes, téléphone DECT, adaptateur CPL ;`n" +
     "- mettez à jour le pilote de la carte Wi-Fi (site du fabricant) : certains décrochent en économie d'énergie ;`n" +
     "- si le besoin est durable, un câble Ethernet règle la question définitivement."
@@ -383,13 +383,13 @@ $dnsStatut = if ($dnsOk) { 'ok' } elseif ($connected) { 'error' } else { 'warn' 
 $dnsGuide = if ($dnsOk) {
     "Résolution vérifiée en $dnsMs ms." + $(if ($dnsLocal) { "`nLe trafic DNS passe par un proxy LOCAL" + $(if ($dnsProxyNom) { " (service $dnsProxyNom)" }) + " : s'il tombe, tout semble « sans internet » alors que le réseau va bien — ce champ fera la différence." } else { '' })
 } elseif ($dnsLocal) {
-    "La résolution de noms ÉCHOUE alors que la connexion réseau semble bonne : votre résolveur LOCAL" + $(if ($dnsProxyNom) { " ($dnsProxyNom)" }) + " ne répond plus.`nQue faire : redémarrer le service" + $(if ($dnsProxyNom) { " « $dnsProxyNom »" } else { " du proxy DNS" }) + " (services.msc), ou repasser temporairement le DNS de la carte sur la box/un DNS public."
+    "La résolution de noms ÉCHOUE alors que la connexion réseau semble bonne : le résolveur LOCAL" + $(if ($dnsProxyNom) { " ($dnsProxyNom)" }) + " ne répond plus.`nQue faire : redémarrer le service" + $(if ($dnsProxyNom) { " « $dnsProxyNom »" } else { " du proxy DNS" }) + " (services.msc), ou repasser temporairement le DNS de la carte sur la box/un DNS public."
 } else {
     "La résolution de noms échoue : sans DNS, les sites ne s'ouvrent plus même si la connexion est bonne.`nQue faire : vérifier le serveur DNS de la carte réseau, ou la box."
 }
 
 $latSt = if ($lat -eq '-') { 'neutral' } elseif ([double]($lat) -lt $latWarn) { 'ok' } elseif ([double]($lat) -lt $latErr) { 'warn' } else { 'error' }
-$pubGuide = if ($pubAt) { "Dernière récupération : $pubAt. Cliquez « Obtenir l'IP publique » pour actualiser." } else { "Non récupérée. Cliquez « Obtenir l'IP publique » (appel à un service externe)." }
+$pubGuide = if ($pubAt) { "Dernière récupération : $pubAt. « Obtenir l'IP publique » l'actualise." } else { "Non récupérée : « Obtenir l'IP publique » la récupère, par un appel à un service externe." }
 
 # REGLE GENERALE de cette sonde : jamais de consigne conditionnelle (« si Non, verifiez
 # X ») quand la sonde SAIT dans quel cas on est. Elle connait la reponse, elle la donne :
@@ -421,22 +421,22 @@ $ip6Guide = if ($ip6 -ne '-') {
     "Ce que c'est : l'adresse IPv6 de l'interface principale. Ici : aucune adresse IPv6 attribuée.`n`n" +
     "Le problème : rien de bloquant, IPv4 suffit à tout usage courant. Quelques services récents sont simplement un peu plus lents à joindre.`n`n" +
     "Les issues possibles :`n" +
-    "- votre opérateur ne fournit pas encore IPv6 : rien à faire de votre côté ;`n" +
+    "- l'opérateur ne fournit pas encore IPv6 : rien à faire sur cette machine ;`n" +
     "- IPv6 est décoché sur la carte réseau : réactivez-le dans les propriétés de l'interface ;`n" +
     "- la box est réglée en « IPv4 seul » : l'option se change dans son interface d'administration."
 }
 
 $vpnGuide = if ($vpn) {
     "Ce que c'est : la présence d'un tunnel VPN actif sur ce PC. Ici : oui, un adaptateur de tunnel est actif.`n`n" +
-    "Le problème : aucun en soi. Sachez seulement que votre trafic transite par le VPN : l'IP publique affichée est celle du fournisseur, et les débits mesurés incluent le détour."
+    "Le problème : aucun en soi. Le trafic transite simplement par le VPN : l'IP publique affichée est celle du fournisseur, et les débits mesurés incluent le détour."
 } else {
     "Ce que c'est : la présence d'un tunnel VPN actif sur ce PC. Ici : aucun.`n`n" +
-    "Le problème : aucun. Votre trafic sort directement par votre connexion, sans tunnel."
+    "Le problème : aucun. Le trafic sort directement par la connexion, sans tunnel."
 }
 
 $latGuide = if ($lat -eq '-') {
     "Ce que c'est : le délai d'aller-retour vers un serveur public — ce qui rend une visioconférence fluide ou saccadée, et un jeu en ligne jouable ou non. Ici : pas encore mesuré.`n`n" +
-    "Lancez « Mesurer débit/latence » pour obtenir la valeur."
+    "« Mesurer débit/latence » obtient la valeur."
 } elseif ($latSt -eq 'ok') {
     "Ce que c'est : le délai d'aller-retour vers un serveur public. Ici : $lat ms.`n`n" +
     "Le problème : aucun. En dessous de 80 ms, visioconférence et jeu en ligne sont confortables."
@@ -453,11 +453,11 @@ $latGuide = if ($lat -eq '-') {
 }
 $speedGuide = if ($down -eq '-') {
     "Ce que c'est : le débit réellement obtenu, mesuré en téléchargeant un fichier de test. Ici : pas encore mesuré.`n`n" +
-    "Lancez « Mesurer débit/latence » pour obtenir la valeur. La mesure prend quelques secondes et consomme une dizaine de mégaoctets."
+    "« Mesurer débit/latence » obtient la valeur. La mesure prend quelques secondes et consomme une dizaine de mégaoctets."
 } else {
     "Ce que c'est : le débit réellement obtenu lors de la dernière mesure, à ne pas confondre avec le débit négocié du lien Wi-Fi (qui est un plafond théorique). Ici : $down Mb/s en réception" +
     $(if ($up -ne '-') { ", $up Mb/s en émission." } else { '.' }) + "`n`n" +
-    "Le problème : à juger par rapport à votre abonnement. Un écart important tient le plus souvent au lien Wi-Fi ou à une application qui occupait la ligne pendant la mesure — relancez la mesure au calme pour comparer."
+    "Le problème : à juger par rapport à l'abonnement. Un écart important tient le plus souvent au lien Wi-Fi ou à une application qui occupait la ligne pendant la mesure — relancez la mesure au calme pour comparer."
 }
 
 $fields = @(
@@ -493,7 +493,7 @@ $fields += @(
         -FixAction $(if ($pubIp -eq '-') {'net-publicip'} else {$null})
     New-Field -Key 'ip6' -Label 'Adresse IPv6' -Value $ip6 -Kind 'text' -Status 'neutral' -Help "Adresse IPv6 principale de l'interface par défaut." -Guide $ip6Guide
     New-Field -Key 'mac' -Label 'Adresse MAC'  -Value $mac -Kind 'text' -Status 'neutral' `
-        -Help "Adresse MAC de l'interface principale. Cliquez pour voir toutes les interfaces actives." `
+        -Help "Adresse MAC de l'interface principale. Le détail montre toutes les interfaces actives." `
         -Table @{ columns = @('Interface', 'Type', 'IPv4', 'MAC'); rows = $adapterRows }
     New-Field -Key 'dns' -Label 'DNS' -Value $dnsValeur -Kind 'text' -Status $dnsStatut `
         -FixAction $(if ($dnsStatut -ne 'ok') { 'net-dns-flush' } else { $null }) `
@@ -501,7 +501,7 @@ $fields += @(
     New-Field -Key 'vpn' -Label 'VPN actif'    -Value $vpn -Kind 'bool' -Status 'neutral' -Help "Présence d'un adaptateur de tunnel VPN actif sur ce PC." -Guide $vpnGuide
     New-Field -Key 'latency' -Label 'Latence'  -Value $(if ($lat -eq '-') {'Non mesurée'} else {"$lat ms"}) -Kind 'text' `
         -Status $(if ($lat -eq '-') {'warn'} else {$latSt}) -FixAction $(if ($lat -eq '-') {'net-speedtest'} else {$null}) `
-        -Help "Délai d'aller-retour vers un serveur public. Cliquez « Mesurer débit/latence » pour l'actualiser." -Guide $latGuide
+        -Help "Délai d'aller-retour vers un serveur public. « Mesurer débit/latence » l'actualise." -Guide $latGuide
     New-Field -Key 'down'    -Label 'Débit descendant' -Value $(if ($down -eq '-') {'Non mesuré'} else {"$down Mbps"}) -Kind 'text' `
         -Status $(if ($down -eq '-') {'warn'} else {'neutral'}) -FixAction $(if ($down -eq '-') {'net-speedtest'} else {$null}) `
         -Help "Débit obtenu en réception lors de la dernière mesure." -Guide $speedGuide

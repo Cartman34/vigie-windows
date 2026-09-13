@@ -18,7 +18,7 @@ $inv = @('lock.probe.ps1','pending.probe.ps1')
 # l'utilisateur croirait avoir deverrouille.
 if (-not (Test-Elevated)) {
     return @{
-        message = "Le serveur de Vigie n'est pas administrateur : le verrou ne peut pas être levé. Relancez Vigie en administrateur (l'invite UAC s'affichera)."
+        message = "Le serveur de Vigie n'est pas administrateur : le verrou ne peut pas être levé. Vigie doit être relancée en administrateur (l'invite UAC s'affichera)."
         result  = @{ ok = $false }
     }
 }
@@ -38,7 +38,7 @@ $apres = Get-UpdateLockState
 # n'a pas leve d'erreur ».
 if ($ok -and -not $apres.autoUpdatesOff) {
     @{
-        message = 'Mode mise à jour ACTIVÉ : Windows Update est déverrouillé. Installez vos mises à jour, redémarrez quand vous le souhaitez, puis re-verrouillez.'
+        message = 'Mode mise à jour ACTIVÉ : Windows Update est déverrouillé. Les mises à jour peuvent s'installer ; redémarrer au moment voulu, puis re-verrouiller.'
         result  = @{ ok = $true; invalidate = $inv }
     }
 } elseif ($ok) {

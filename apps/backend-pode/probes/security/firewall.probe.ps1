@@ -22,7 +22,7 @@ function FwField($key, $label, $val) {
     } else {
         New-Field -Key $key -Label $label -Value ([bool]$val) -Kind 'bool' -Status $(if ($val) {'ok'} else {'error'}) `
             -Help "Pare-feu Windows actif sur ce profil réseau." `
-            -Guide "Activez le pare-feu pour ce profil : Sécurité Windows > Pare-feu et protection réseau."
+            -Guide "À faire : activer le pare-feu pour ce profil, dans Sécurité Windows > Pare-feu et protection réseau."
     }
 }
 # UN COMMENTAIRE NE SE GLISSE JAMAIS entre une continuation ( ` ) et le parametre qui

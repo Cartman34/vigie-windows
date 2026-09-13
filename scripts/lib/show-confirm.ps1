@@ -77,7 +77,7 @@ param(
     [string] $ThirdText = '',
 
     # Note grise sous le contenu. Vide = pas de note.
-    [string] $Note = "Si tu continues, Windows demandera ensuite l'autorisation administrateur.`nRien n'est modifié avant cette étape, et tu peux encore refuser.",
+    [string] $Note = "Windows demandera ensuite l'autorisation administrateur.`nRien n'est modifié avant cette étape.",
 
     # Le texte de la barre de titre. « autorisation requise » convient a une demande,
     # pas a une fenetre qui annonce un resultat.
@@ -290,7 +290,7 @@ $y = 20
 
 if ($InitiatedBy) {
     $lblOrigine           = New-Object System.Windows.Forms.Label
-    $lblOrigine.Text      = "Demandé par un agent automatisé : $InitiatedBy" + $nl + "Ce n'est pas toi qui as lancé cette action."
+    $lblOrigine.Text      = "Demandé par un agent automatisé : $InitiatedBy" + $nl + "Cette action n'a pas été lancée par une personne."
     $lblOrigine.Font      = $fGras
     $lblOrigine.ForeColor = [System.Drawing.Color]::FromArgb(210, 153, 34)
     $lblOrigine.BackColor = [System.Drawing.Color]::FromArgb(38, 34, 22)

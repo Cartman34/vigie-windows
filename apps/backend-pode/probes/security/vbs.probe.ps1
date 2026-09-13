@@ -56,7 +56,7 @@ if (Test-RestartCountdown -Backend $backend) {
 } elseif ($attente.Count) {
     $actionsVbs += New-Action -Id 'system-restart' -Label 'Redémarrer Windows' -Severity 'fix' `
         -BusyLabel 'Redémarrage programmé…' -ConfirmTwice -Kind 'confirm' `
-        -Help "Redémarre Windows dans 60 secondes pour appliquer la bascule demandée. Enregistrez votre travail : toutes les applications seront fermées. Le redémarrage reste annulable pendant le délai."
+        -Help "Redémarre Windows dans 60 secondes pour appliquer la bascule demandée. Le travail en cours est à enregistrer : toutes les applications seront fermées. Le redémarrage reste annulable pendant le délai."
 }
 
 $champs = @()
@@ -65,13 +65,13 @@ $champs += New-Field -Key 'vbs'  -Label 'Sécurité par virtualisation (VBS)' -V
         -Guide $(if ($vbsOn) {
             "Ce que c'est : les secrets de Windows (mots de passe en mémoire, contrôles d'intégrité) tournent dans un espace isolé par l'hyperviseur. Un logiciel malveillant qui obtient les droits administrateur ne peut pas y accéder.`n`n" +
             "État actuel : activée. C'est la position recommandée.`n`n" +
-            "Contrepartie à connaître : l'hyperviseur ralentit les autres usages de la virtualisation (WSL, VirtualBox, VMware) — de quelques pourcents à un facteur deux selon les cas. Le bouton « Basculer VBS » permet de la désactiver si ces performances comptent davantage pour vous."
+            "Contrepartie à connaître : l'hyperviseur ralentit les autres usages de la virtualisation (WSL, VirtualBox, VMware) — de quelques pourcents à un facteur deux selon les cas. Le bouton « Basculer VBS » permet de la désactiver si ces performances comptent davantage."
         } else {
             "Ce que c'est : sans VBS, les secrets de Windows résident dans la mémoire ordinaire. Un logiciel malveillant qui obtient les droits administrateur peut les lire.`n`n" +
             "Pourquoi c'est signalé : la protection est disponible sur cette machine mais désactivée.`n`n" +
-            "Ce que vous pouvez faire :`n" +
+            "Ce qui est possible :`n" +
             "- l'activer avec « Basculer VBS » (redémarrage nécessaire) — plus sûr ;`n" +
-            "- la laisser désactivée en connaissance de cause si vous utilisez intensivement WSL ou des machines virtuelles, dont les performances en dépendent."
+            "- la laisser désactivée en connaissance de cause en cas d'usage intensif de WSL ou des machines virtuelles, dont les performances en dépendent."
         })
 $champs += New-Field -Key 'hvci' -Label 'Intégrité mémoire (HVCI)' -Value $hvciOn -Kind 'bool' -Status $statutHvci `
         -Help "Windows vérifie la signature de chaque pilote avant de le charger dans le noyau, et refuse ceux qui ne sont pas signés." `
@@ -82,7 +82,7 @@ $champs += New-Field -Key 'hvci' -Label 'Intégrité mémoire (HVCI)' -Value $hv
         } else {
             "Ce que c'est : sans intégrité mémoire, un pilote non signé — ou un pilote signé mais vulnérable — peut s'exécuter dans le noyau avec tous les droits. C'est la voie d'entrée privilégiée des rançongiciels récents.`n`n" +
             "Pourquoi c'est signalé : la protection existe sur cette machine mais n'est pas active. Windows la désactive parfois tout seul quand il détecte un pilote incompatible.`n`n" +
-            "Ce que vous pouvez faire :`n" +
+            "Ce qui est possible :`n" +
             "- l'activer avec « Basculer intégrité mémoire » (redémarrage nécessaire). Si Windows refuse, il nomme le pilote fautif : mettez-le à jour, puis réessayez ;`n" +
             "- la laisser désactivée si un matériel indispensable en dépend (pilote ancien), en sachant ce que cela coûte ;`n" +
             "- vérifier d'abord que VBS est activée : l'intégrité mémoire s'appuie dessus."
@@ -95,7 +95,7 @@ if ($attente.Count) {
         -FixAction 'system-restart' `
         -Help "Une bascule a été écrite dans le registre. Windows ne la lit qu'au démarrage : elle prendra effet au prochain redémarrage." `
         -Guide ("Ce que c'est : la demande est enregistrée ; l'état affiché au-dessus est encore celui qui tourne.`n`n" +
-                "Ce que vous pouvez faire :`n" +
+                "Ce qui est possible :`n" +
                 "- redémarrer Windows — le bouton « Redémarrer Windows » de cette carte le fait avec un délai de 60 secondes, annulable ;`n" +
                 "- recliquer sur la bascule pour revenir en arrière : tant que le redémarrage n'a pas eu lieu, cela annule simplement la demande.`n`n" +
                 "Si la valeur ne s'applique toujours pas après un redémarrage, elle est imposée par l'UEFI ou par une stratégie d'entreprise, et Vigie ne peut pas passer outre.")

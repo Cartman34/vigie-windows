@@ -97,9 +97,9 @@ if (-not $updates.Count -and -not $selectable -and $upSupported) {
 }
 
 $intro = if ($selectable) {
-    "Cochez les paquets à mettre à jour. La mise à jour continue même si vous fermez cette fenêtre."
+    "Paquets à mettre à jour. La mise à jour continue même si cette fenêtre se ferme."
 } else {
-    "$($mg.label) ne sait pas mettre à jour un paquet en particulier : la liste est fournie pour information et TOUS les paquets seront mis à jour. La mise à jour continue même si vous fermez cette fenêtre."
+    "$($mg.label) ne sait pas mettre à jour un paquet en particulier : la liste est fournie pour information et TOUS les paquets seront mis à jour. La mise à jour continue même si cette fenêtre se ferme."
 }
 # L'AGE de la liste, en francais et en clair. Elle s'affichait telle que JSON l'avait
 # relue -- « 08/25/2026 10:12:03 », un format americain que personne ne lit ici -- et
@@ -133,7 +133,7 @@ if ($verifieLe) {
         preselect    = [bool](Get-ModuleSetting -Unit 'tools' -Key 'PreselectAllUpdates')
         confirmLabel = 'Mettre à jour'
         intro        = $intro
-        vide         = "Aucun paquet à mettre à jour. Lancez « Vérifier les mises à jour » si la liste vous semble ancienne."
+        vide         = "Aucun paquet à mettre à jour. « Vérifier les mises à jour » actualise une liste ancienne."
         updates      = @($updates)
     }
 }

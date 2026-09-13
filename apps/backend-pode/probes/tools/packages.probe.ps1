@@ -146,7 +146,7 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
         if ($u.error) { $mg2 += ("Erreur lors de la vérification : " + $u.error) }
     } else {
         $majValue = 'Non vérifiées'
-        $mg2 += "Cliquez « Vérifier les mises à jour » : la vérification s'exécute en tâche de fond."
+        $mg2 += "« Vérifier les mises à jour » lance la vérification, en tâche de fond."
     }
     # Le champ MAJ pointe vers l'action d'upgrade (bouton "Mettre a jour") quand
     # des MAJ existent ET que le gestionnaire sait se mettre a jour tout seul.

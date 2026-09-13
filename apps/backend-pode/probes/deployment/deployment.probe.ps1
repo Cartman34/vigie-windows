@@ -80,10 +80,10 @@ if ($partagee) {
                 $why = "La source n'a pas pu être lue : " + $cmp.here.error +
                             " Tant qu'elle est illisible, impossible de dire si l'installation est à jour."
             } elseif ($cmp.same) {
-                $why = "Elle correspond exactement à la source : les autres comptes lancent la même version que vous."
+                $why = "Elle correspond exactement à la source : les autres comptes lancent la même version que ce compte."
             } elseif ($null -ne $cmp.behind -and $cmp.behind -gt 0) {
                 $niveau = 'warn'
-                $why = "Elle est en retard de $($cmp.behind) commit(s) sur la source : les autres comptes n'ont pas vos dernières corrections."
+                $why = "Elle est en retard de $($cmp.behind) commit(s) sur la source : les autres comptes n'ont pas les dernières corrections."
             } elseif (-not $cmp.there.commit) {
                 $niveau = 'warn'
                 $why = "Elle a été déployée avant que Vigie ne marque ses archives : impossible de dire à quel commit elle correspond."
@@ -115,7 +115,7 @@ if ($partagee) {
         -Guide $detail
 } else {
     # JAMAIS DEPLOYEE : la, c'est bien un PREMIER deploiement, et le bouton le dit.
-    $depl += New-Field -Key 'partage' -Label 'Installation partagée' -Value 'Lisible par vous seul' -Kind 'text' -Status 'warn' `
+    $depl += New-Field -Key 'partage' -Label 'Installation partagée' -Value 'Lisible par ce seul compte' -Kind 'text' -Status 'warn' `
         -FixAction 'vigie-update' `
         -Help "Les autres comptes ne peuvent pas lire cette installation : Vigie ne demarrerait pas chez eux." `
         -Guide ("Emplacement actuel : " + (Get-RepoRoot) + [Environment]::NewLine +
@@ -135,14 +135,14 @@ if (-not $pwshPartage -and -not $pwshCompte) {
     # « installe pour vous seul ».
     $depl += New-Field -Key 'pwsh' -Label 'PowerShell 7' -Value 'Absent de la machine' -Kind 'text' -Status 'error' `
         -FixAction 'pwsh-install-machine' `
-        -Help "PowerShell 7 n'est installé nulle part : Vigie ne redémarrera pas, ni pour vous ni pour les autres comptes. Les processus en cours survivent, mais le prochain démarrage échouera." `
+        -Help "PowerShell 7 n'est installé nulle part : Vigie ne redémarrera pas, ni pour ce compte ni pour les autres. Les processus en cours survivent, mais le prochain démarrage échouera." `
         -Guide ("À faire tout de suite, dans un terminal ADMINISTRATEUR :" + [Environment]::NewLine +
                 "  winget install --id Microsoft.PowerShell -e --scope machine" + [Environment]::NewLine +
                 "À défaut, le paquet MSI : https://github.com/PowerShell/PowerShell/releases")
 } elseif (-not $pwshPartage) {
-    $depl += New-Field -Key 'pwsh' -Label 'PowerShell 7' -Value 'Installé pour vous seul' -Kind 'text' -Status 'warn' `
+    $depl += New-Field -Key 'pwsh' -Label 'PowerShell 7' -Value 'Installé pour ce seul compte' -Kind 'text' -Status 'warn' `
         -FixAction 'pwsh-install-machine' `
-        -Help "Les tâches des autres comptes ont besoin d'un PowerShell 7 installé pour la MACHINE. Celui-ci vient du Store et n'existe que dans votre profil : leur tâche ne lancerait rien." `
+        -Help "Les tâches des autres comptes ont besoin d'un PowerShell 7 installé pour la MACHINE. Celui-ci vient du Store et n'existe que dans le profil de ce compte : leur tâche ne lancerait rien." `
         -Guide ("Interpréteur actuel : " + $pwshCompte + [Environment]::NewLine +
                 "À faire une fois, en administrateur :" + [Environment]::NewLine +
                 "  winget install --id Microsoft.PowerShell --scope machine" + [Environment]::NewLine +
@@ -302,7 +302,7 @@ if (-not $emp.complet) { $detailEmp += "" ; $detailEmp += "Relevé partiel : les
 $depl += New-Field -Key 'empreinte' -Label 'Stockage occupé' `
     -Value ((Format-ByteSize -Bytes $emp.total) + $(if (-not $emp.complet) { ' (au moins)' } else { '' })) `
     -Kind 'text' -Status 'neutral' `
-    -Help "Tout ce que Vigie occupe sur cette machine : le programme partagé, les données de chaque compte, et le dépôt si vous développez." `
+    -Help "Tout ce que Vigie occupe sur cette machine : le programme partagé, les données de chaque compte, et le dépôt sur un poste de développement." `
     -Guide ($detailEmp -join [Environment]::NewLine)
 
 # --- Carte 2 : le DEPLOIEMENT ------------------------------------------------
@@ -330,10 +330,10 @@ $carteDepl = New-ModuleObject -Id 'deployment' -Theme 'accounts' -Label 'Déploi
             -Help "Déploie la version actuelle vers l'installation partagée, puis relance Vigie avec." `
             -From $deVersion -To $versVersion -FromNote $deNote -ToNote $versNote `
             -Steps @('Copie vers Program Files', 'Redémarrage du serveur', 'Vigie à jour') `
-            -Impact ("Tous les comptes de la machine passeront à cette version, y compris le vôtre. " +
-                     "Vos réglages, votre historique et vos journaux ne bougent pas : ils vivent dans votre " +
-                     "profil, pas dans l'installation. Vigie se coupe quelques secondes et revient seule.") `
-            -Usage ("Quand les autres comptes utilisent encore une version plus ancienne que la vôtre. " +
+            -Impact ("Tous les comptes de la machine passeront à cette version, celui-ci compris. " +
+                     "Réglages, historique et journaux ne bougent pas : ils vivent dans le " +
+                     "profil de chaque compte, pas dans l'installation. Vigie se coupe quelques secondes et revient seule.") `
+            -Usage ("Quand les autres comptes utilisent encore une version plus ancienne que celle de ce compte. " +
                     "C'est aussi ce qui installe Vigie pour tout le monde, la première fois.") `
             -Reversible ("Oui : en déployant une version plus ancienne. Et si la copie échoue, rien n'est " +
                          "relancé — la version en place continue de tourner.")

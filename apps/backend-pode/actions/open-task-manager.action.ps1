@@ -10,7 +10,7 @@
 param([string]$Module, [hashtable]$Params)
 try {
     Start-Process 'taskmgr.exe'
-    @{ message = "Gestionnaire des tâches ouvert. Fermez ce qui n'est pas utile à la partie."; result = @{ ok = $true } }
+    @{ message = "Gestionnaire des tâches ouvert : ce qui n'est pas utile à la partie peut y être fermé."; result = @{ ok = $true } }
 } catch {
     @{ message = "Impossible d'ouvrir le Gestionnaire des tâches : $($_.Exception.Message)"; result = @{ ok = $false } }
 }

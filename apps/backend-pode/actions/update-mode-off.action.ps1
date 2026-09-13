@@ -18,7 +18,7 @@ $inv = @('lock.probe.ps1','pending.probe.ps1')
 
 if (-not (Test-Elevated)) {
     return @{
-        message = "Le serveur de Vigie n'est pas administrateur : le verrou ne peut pas être posé. Relancez Vigie en administrateur (l'invite UAC s'affichera)."
+        message = "Le serveur de Vigie n'est pas administrateur : le verrou ne peut pas être posé. Vigie doit être relancée en administrateur (l'invite UAC s'affichera)."
         result  = @{ ok = $false }
     }
 }

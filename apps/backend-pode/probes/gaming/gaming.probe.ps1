@@ -353,8 +353,8 @@ if ($aNvidia) {
                 $vT = "$temp" + [char]0x00B0 + "C"
                 if ($bridage) { $vT += ' (bridée)' }
                 $gT = @("Consommation : $($c[1]) W " + [char]0x00B7 + " horloge $($c[2]) MHz " + [char]0x00B7 + " utilisation $($c[3]) %")
-                if ($bridage) { $gT += ("La carte BRIDE ses fréquences : " + ($raisons -join ' ; ') + ". Vérifiez la ventilation et les entrées d'air.") }
-                elseif ($temp -ge $tempWarn) { $gT += "Au-delà de $tempWarn degrés (réglable), la carte va se brider : chutes de FPS. Vérifiez la ventilation." }
+                if ($bridage) { $gT += ("La carte BRIDE ses fréquences : " + ($raisons -join ' ; ') + ". À vérifier : la ventilation et les entrées d'air.") }
+                elseif ($temp -ge $tempWarn) { $gT += "Au-delà de $tempWarn degrés (réglable), la carte va se brider : chutes de FPS. À vérifier : la ventilation." }
                 $fields += New-Field -Key 'gpu-temp' -Label 'Température GPU' -Value $vT -Kind 'text' -Status $stT `
                     -Help "Température de la carte dédiée, et son éventuel bridage (la cause première des chutes de FPS sur portable)." `
                     -Guide ($gT -join "`n")
@@ -482,7 +482,7 @@ if ($jeu) {
         $fields += New-Field -Key 'hogs' -Label 'Autres applis gourmandes' -Value $who `
             -Kind 'text' -Status 'warn' -FixAction 'open-task-manager' `
             -Help "Applications qui consomment beaucoup pendant que le jeu tourne. Les composants du jeu et de sa plateforme de lancement n'y figurent pas : ils font partie de la partie." `
-            -Guide (($lignes + @('', 'Fermez ce qui n''est pas utile a la partie (JAMAIS les services Windows marqués : leur activité est normale) ; les seuils se reglent dans Parametres > Modules > Jeux.')) -join "`n")
+            -Guide (($lignes + @('', 'Ce qui n''est pas utile a la partie peut se fermer (JAMAIS les services Windows marqués : leur activité est normale) ; les seuils se reglent dans Parametres > Modules > Jeux.')) -join "`n")
     } else {
         $fields += New-Field -Key 'hogs' -Label 'Autres applis gourmandes' -Value 'Aucune' -Kind 'text' -Status 'ok' `
             -Help "Aucune autre application au-dessus des seuils pendant la partie. Les composants du jeu et de sa plateforme de lancement ne comptent pas : ils font partie de la partie."
@@ -524,8 +524,8 @@ if (-not $surSecteur) {
         -Status $(if ($rendering -or $vide) { 'warn' } else { 'neutral' }) `
         -FixAction 'open-power-options' `
         -Help "Sur batterie, processeur et carte graphique sont bridés : performances de jeu réduites." `
-        -Guide $(if ($vide) { "La partie vide la batterie : $baisse points perdus depuis son début. Branchez le secteur — sur batterie, la machine bride aussi le processeur et la carte graphique." }
-                 elseif ($rendering) { "Branchez le secteur pour la partie." }
+        -Guide $(if ($vide) { "La partie vide la batterie : $baisse points perdus depuis son début. Le secteur est à brancher — sur batterie, la machine bride aussi le processeur et la carte graphique." }
+                 elseif ($rendering) { "Le secteur est à brancher pour la partie." }
                  else { "Rien ne rend en 3D pour l'instant : la bride n'a pas d'effet visible." })
 } else {
     $fields += New-Field -Key 'power' -Label 'Alimentation' `

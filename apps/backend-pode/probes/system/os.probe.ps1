@@ -25,7 +25,7 @@ if ($restartPending) {
 } elseif ($reboot) {
     $actions += New-Action -Id 'system-restart' -Label 'Redémarrer Windows' -Severity 'fix' `
         -BusyLabel 'Redémarrage programmé…' -ConfirmTwice -Kind 'confirm' `
-        -Help "Redémarre Windows dans 60 secondes pour terminer les mises à jour installées. Enregistrez votre travail : toutes les applications seront fermées. Le redémarrage reste annulable pendant le délai."
+        -Help "Redémarre Windows dans 60 secondes pour terminer les mises à jour installées. Le travail en cours est à enregistrer : toutes les applications seront fermées. Le redémarrage reste annulable pendant le délai."
 }
 
 New-ModuleObject -Id 'os' -Theme 'system' -Label 'Windows' -Status $(if ($activated -and -not $reboot) {'ok'} else {'warn'}) -Fields @(
@@ -40,8 +40,8 @@ New-ModuleObject -Id 'os' -Theme 'system' -Label 'Windows' -Status $(if ($activa
         -Guide $(if ($reboot) {
             "Ce que c'est : une mise à jour a été installée ; Windows a besoin de redémarrer pour la terminer. Ce n'est pas une panne.`n`n" +
             "Le risque à ne rien faire : les correctifs installés ne protègent pas encore, et Windows finira par redémarrer de lui-même si le verrouillage est levé.`n`n" +
-            "Ce que vous pouvez faire :`n" +
-            "- redémarrer quand cela vous arrange (le bouton « Redémarrer Windows » ci-dessous, ou menu Démarrer > Redémarrer) — c'est la seule action qui lève cet état ;`n" +
+            "Ce qui est possible :`n" +
+            "- redémarrer au moment voulu (le bouton « Redémarrer Windows » ci-dessous, ou menu Démarrer > Redémarrer) — c'est la seule action qui lève cet état ;`n" +
             "- continuer à travailler : Vigie ne force jamais un redémarrage, et le verrou du Mode MAJ empêche Windows de le faire."
         } else {
             "Aucun redémarrage en attente : toutes les mises à jour installées sont actives."

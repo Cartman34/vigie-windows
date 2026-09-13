@@ -33,28 +33,28 @@ if ($fullyLocked) { $actions += New-Action -Id 'update-mode-on'  -Label 'Mode MA
         -Impact ("Rend à Windows Update ses tâches planifiées et remet les mises à jour automatiques. " +
                  "À partir de là, Windows peut télécharger, installer ET REDÉMARRER la machine de lui-même.") `
         -Usage "Le temps d'installer les mises à jour en attente. On reverrouille juste après." `
-        -Reversible "Oui, avec « Verrouiller maintenant » — c'est l'action inverse, et elle est immédiate." -Help "Déverrouille Windows Update pour installer des mises à jour manuellement. Pensez à re-verrouiller ensuite. Aucun redémarrage forcé." }
+        -Reversible "Oui, avec « Verrouiller maintenant » — c'est l'action inverse, et elle est immédiate." -Help "Déverrouille Windows Update pour installer des mises à jour manuellement. Le re-verrouillage vient ensuite. Aucun redémarrage forcé." }
 else         { $actions += New-Action -Id 'update-mode-off' -Severity 'fix' -Label 'Verrouiller maintenant'      -Confirm `
         -Impact ("Désactive les tâches planifiées de Windows Update et pose un verrou sur leurs fichiers (ACL), " +
                  "puis coupe les mises à jour automatiques. Windows ne redémarrera plus la machine de lui-même.") `
-        -Usage "C'est l'état normal de cette machine : les mises à jour se font quand VOUS le décidez." `
+        -Usage "C'est l'état normal de cette machine : les mises à jour se font sur décision, jamais d'office." `
         -Reversible "Oui, avec « Mode MAJ (déverrouiller) »." -Help "Applique le verrouillage complet : coupe les mises à jour automatiques ET pose le verrou ACL qui empêche Windows de réactiver les tâches de mise à jour. Aucun redémarrage forcé." }
 $actions += New-Action -Id 'run-audit' -Label "Lancer l'audit" -Help "Génère un rapport détaillé de l'état de Windows Update (stratégies, tâches, services) dans les journaux de Vigie. Lecture seule : ne modifie rien."
 
 if ($elevated) {
     $aclField = New-Field -Key 'aclLock' -Label 'Verrou ACL des tâches' -Value ([bool]$aclLock) -Kind 'bool' -Status $(if ($aclLock) {'ok'} else {'warn'}) `
         -Help "Verrou de permissions empêchant Windows de recréer/réactiver les tâches de mise à jour. « Non » = verrou non appliqué (fréquent après une grosse MAJ ou un passage en Mode MAJ)." `
-        -FixAction 'update-mode-off' -Guide "Cliquez Résoudre pour appliquer le verrou (re-verrouillage)."
+        -FixAction 'update-mode-off' -Guide "« Résoudre » applique le verrou (re-verrouillage)."
 } else {
     $aclField = New-Field -Key 'aclLock' -Label 'Verrou ACL des tâches' -Value 'Serveur non élevé' -Kind 'text' -Status 'neutral' `
         -Help "Ce verrou de permissions nécessite un serveur en administrateur pour être lu et appliqué de façon fiable." `
-        -Guide "Redémarrez le serveur (il demandera l'UAC) : ce verrou pourra alors être vérifié et appliqué."
+        -Guide "Une fois le serveur redémarré, avec l'UAC, ce verrou pourra être vérifié et appliqué."
 }
 
 New-ModuleObject -Id 'wu-lock' -Theme 'windows-update' -Label 'Verrouillage des mises à jour' -Status $status -Fields @(
     New-Field -Key 'autoUpdatesEnabled' -Label 'MAJ automatiques' -Value ([bool](-not $locked)) -Kind 'bool' -Status $(if ($locked) {'ok'} else {'warn'}) `
         -Help "Si Oui, Windows installe les mises à jour et peut redémarrer tout seul. Verrouillé = Non." `
-        -FixAction 'update-mode-off' -Guide "Cliquez Résoudre pour re-verrouiller (coupe les MAJ automatiques). Nécessite un serveur en administrateur."
+        -FixAction 'update-mode-off' -Guide "« Résoudre » re-verrouille (coupe les MAJ automatiques). Nécessite un serveur en administrateur."
     $aclField
     New-Field -Key 'tasksDisabled' -Label 'Tâches désactivées' -Value $disabled -Kind 'number' -Status 'neutral' -Help "Nombre de tâches de mise à jour désactivées. Dépliez pour l'état réel de chaque tâche." -Guide $taskDetail
     New-Field -Key 'tasksReady' -Label 'Tâches actives' -Value $ready -Kind 'number' -Status 'neutral' -Help "Tâches de mise à jour encore actives (souvent protégées par Windows ; inoffensives tant que les MAJ auto sont coupées)."

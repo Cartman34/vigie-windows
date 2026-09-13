@@ -29,7 +29,7 @@ $lnk      = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Vigie.url'
 if (-not (Test-IsElevated)) {
     $ok = Show-ElevationRationale -AssumeYes:$Yes `
         -Title   "Retirer le démarrage automatique de Vigie" `
-        -Summary "Vigie ne se lancera plus à l'ouverture de session. L'application et tes données restent en place : seul l'accès permanent est retiré." `
+        -Summary "Vigie ne se lancera plus à l'ouverture de session. L'application et ses données restent en place : seul l'accès permanent est retiré." `
         -Changes @(
             "Suppression de la tâche planifiée '$taskName'",
             "Suppression du raccourci bureau : $lnk",

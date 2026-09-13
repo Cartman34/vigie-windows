@@ -1489,7 +1489,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
             TLog "guetteur d'adresse reseau arme"
         } catch { TLog ("guetteur d'adresse reseau indisponible : " + $_.Exception.Message) }
 
-        try { $icon.ShowBalloonTip(3000, 'Vigie', "Panneau lance en fond. Double-cliquez l'icone pour l'ouvrir.", [System.Windows.Forms.ToolTipIcon]::Info) } catch { }
+        try { $icon.ShowBalloonTip(3000, 'Vigie', "Panneau lance en fond. Un double-clic sur l'icone l'ouvre.", [System.Windows.Forms.ToolTipIcon]::Info) } catch { }
 
         TLog "Application.Run"
         [System.Windows.Forms.Application]::Run()

@@ -30,7 +30,7 @@ foreach ($c in ($comptes | Sort-Object @{ Expression = { -not $_.current } }, na
                else { "Vigie ne démarre pas avec ce compte. Pour l'activer : Paramètres > Utilisateurs." })
     $aide += $(if ($c.admin) { 'Compte administrateur : les actions qui modifient le système lui sont permises.' }
                else { 'Compte standard : Vigie lui refuse les actions administrateur, comme le ferait Windows.' })
-    if ($c.current) { $aide += "C'est le compte avec lequel vous utilisez Vigie en ce moment." }
+    if ($c.current) { $aide += "C'est le compte qui utilise Vigie en ce moment." }
 
     # ACTIVEE NE VEUT PAS DIRE QUE CA MARCHE. Une tache peut exister, etre bien formee, et
     # n'avoir jamais demarre une seule fois -- c'est ce qui est arrive sur « Famille » le

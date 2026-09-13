@@ -36,9 +36,9 @@ $modSt  = if ($primary.enabled -and $primary.upToDate) { 'ok' } elseif ($primary
 $fields = @(
     New-Field -Key 'name'     -Label 'Antivirus'    -Value $primary.name       -Kind 'text' -Status 'ok' -Help "Antivirus enregistré et actif dans le Centre de sécurité Windows."
     New-Field -Key 'enabled'  -Label 'Actif'        -Value ([bool]$primary.enabled)  -Kind 'bool' -Status $(if ($primary.enabled) {'ok'} else {'error'}) `
-        -Help "La protection de l'antivirus est active." -Guide "Ouvrez votre antivirus et activez la protection en temps réel."
+        -Help "La protection de l'antivirus est active." -Guide "À faire : ouvrir l'antivirus et activer la protection en temps réel."
     New-Field -Key 'upToDate' -Label 'À jour'       -Value ([bool]$primary.upToDate) -Kind 'bool' -Status $(if ($primary.upToDate) {'ok'} else {'warn'}) `
-        -Help "Les définitions de l'antivirus sont à jour." -Guide "Ouvrez votre antivirus et lancez la mise à jour des définitions."
+        -Help "Les définitions de l'antivirus sont à jour." -Guide "À faire : ouvrir l'antivirus et lancer la mise à jour des définitions."
 )
 if ($others.Count -gt 0) {
     $fields += New-Field -Key 'others' -Label 'Autres détectés' -Value (($others | ForEach-Object { $_.name }) -join ', ') -Kind 'text' -Status 'neutral' -Help "Autres antivirus enregistrés (souvent Windows Defender en veille)."

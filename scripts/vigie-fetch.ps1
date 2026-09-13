@@ -123,7 +123,7 @@ if ($Ref -and $voie -ne 'clone') {
     Sortir 1 ("-Ref impose la voie « clone » : « " + $voie + " » ne sait pas viser une reference precise.")
 }
 if ($voie -eq 'local' -and -not $estDepot) {
-    Sortir 1 "Voie « local » demandee, mais ce dossier n'est pas un depot git utilisable. Essayez -Source release."
+    Sortir 1 "Voie « local » demandee, mais ce dossier n'est pas un depot git utilisable. La voie -Source release reste possible."
 }
 Write-Info (Get-Label 'vigie-fetch.voie-retenue' $voie)
 # --- Un dossier de travail a nous ----------------------------------------------------
@@ -203,7 +203,7 @@ function Get-DepuisRelease {
             Sortir 4 "Aucune version STABLE n'est publiee. S'il n'existe que des pre-versions, relancez avec -PreVersions."
         }
         if ($code -eq 403 -or $code -eq 429) {
-            Sortir 2 "GitHub refuse de repondre : quota d'appels atteint, ou acces bloque. Reessayez dans une heure."
+            Sortir 2 "GitHub refuse de repondre : quota d'appels atteint, ou acces bloque. Nouvel essai possible dans une heure."
         }
         Sortir 2 ("GitHub n'a pas repondu : " + $_.Exception.Message)
     }
@@ -249,7 +249,7 @@ function Get-DepuisRelease {
 # --- VOIE 3 : un clone a nous --------------------------------------------------------
 function Get-DepuisClone {
     if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
-        Sortir 1 "git est introuvable : la voie « clone » en a besoin. Installez-le (winget install --id Git.Git --scope machine), ou passez par -Source release."
+        Sortir 1 "git est introuvable : la voie « clone » en a besoin. Il s'installe par winget install --id Git.Git --scope machine ; la voie -Source release reste possible."
     }
     # Le chemin du clone et l'adresse d'ou il se synchronise vivent dans common.ps1 : le
     # serveur en a besoin AUSSI, pour comparer l'installation a ce que le bouton
@@ -278,7 +278,7 @@ function Get-DepuisClone {
     }
     if (-not $target) {
         $target = (& git -C $clone describe --tags --abbrev=0 2>$null | Select-Object -First 1)
-        if (-not $target) { Sortir 4 "Aucun tag dans ce depot : rien a deployer. Precisez -Ref pour viser une branche." }
+        if (-not $target) { Sortir 4 "Aucun tag dans ce depot : rien a deployer. -Ref vise une branche." }
         $target = "$target".Trim()
         Write-Info (Get-Label 'vigie-fetch.dernier-tag' $target)
         if (-not $Force -and -not (Test-PlusRecente -Candidate (ConvertTo-Reperage -Brut $target) -Actuelle $enPlace)) {

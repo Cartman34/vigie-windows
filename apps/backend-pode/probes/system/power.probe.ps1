@@ -78,7 +78,7 @@ $fields += $(if ($soucis) {
         New-Field -Key 'under' -Label 'Alimentation' -Value $soucis -Kind 'text' -Status 'warn' `
             -FixAction 'open-power-options' `
             -Help 'Sur secteur, la machine devrait charger. Si elle se décharge quand même, le chargeur ne couvre pas la consommation : le processeur et le GPU vont être bridés, et la batterie se videra malgré le branchement.' `
-            -Guide "Vérifiez que le chargeur est bien celui de la machine et qu'il est branché sur le port d'alimentation (pas un port USB-C secondaire ni un dock peu puissant). Sous forte charge, un chargeur trop faible ne suffit pas."
+            -Guide "À vérifier : le chargeur doit être celui de la machine, branché sur le port d'alimentation (pas un port USB-C secondaire ni un dock peu puissant). Sous forte charge, un chargeur trop faible ne suffit pas."
     } elseif (-not $etat.Secteur) {
         New-Field -Key 'under' -Label 'Alimentation' -Value 'Sans objet : sur batterie' -Kind 'text' -Status 'ok' `
             -Help 'La sous-alimentation ne se juge que branché au secteur.'

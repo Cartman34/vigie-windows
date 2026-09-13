@@ -8,6 +8,6 @@
    droits, et pour qu'un appel direct reponde quelque chose de sense au lieu d'un 404. #>
 param([string]$Module, [hashtable]$Params)
 @{
-    message = "Ouvrez Paramètres > Utilisateurs pour choisir les comptes avec lesquels Vigie démarre."
+    message = "Les comptes avec lesquels Vigie démarre se choisissent dans Paramètres > Utilisateurs."
     result  = @{ ok = $true; ui = 'settings:utilisateurs' }
 }

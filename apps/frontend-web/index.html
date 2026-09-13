@@ -1451,7 +1451,7 @@ function entrerReorg(){
   const app = document.getElementById('app');
   const bar = document.createElement('div');
   bar.className = 'reorg-bar'; bar.id = 'reorgBar';
-  bar.innerHTML = '<div><b>Réorganisation</b><br><small>Faites glisser les cartes. '
+  bar.innerHTML = '<div><b>Réorganisation</b><br><small>Glisser les cartes. '
                 + 'Les actions sont suspendues le temps du rangement.</small></div>'
                 + '<div class="sp"><button id="reorgDefaut">Rétablir l’ordre par défaut</button>'
                 + '<button class="primaire" id="reorgFin">Terminer</button></div>';
@@ -1863,7 +1863,7 @@ async function ouvrirArborescence(){
     const niveau = await treeNiveau('');
     const el = document.querySelector('.hds-body') || document.getElementById('hdsBody');
     const html = '<p class="hds-intro">'+esc(niveau.path)+L('ui.u2014-u00e9pliez-un-dossier')
-      + 'Chaque niveau est demand\u00e9 au serveur au moment o\u00f9 vous l\u2019ouvrez.</p>'
+      + 'Chaque niveau est demand\u00e9 au serveur au moment o\u00f9 il s\u2019ouvre.</p>'
       + '<div class="tree-root">'+treeCorpsHtml(niveau)+'</div>';
     if(el){ el.innerHTML = html; treeBrancher(el); treeBrancherOuvrir(el); }
   }catch(e){
@@ -3039,7 +3039,7 @@ async function renderTabUtilisateurs(pane){
   pane.innerHTML=
     '<div class="um-sub">Comptes de cet ordinateur</div>'
     +'<ul class="um-points">'
-    +'<li><b>Cochez</b> un compte pour que Vigie démarre à son ouverture de session.</li>'
+    +'<li>Un compte <b>coché</b> démarre Vigie à son ouverture de session.</li>'
     +'<li>Chacun garde <b>ses</b> réglages, ses notifications et son historique.</li>'
     +"<li>Un compte standard n'obtient <b>aucun droit en plus</b> : Vigie lui refuse les actions administrateur, comme Windows.</li>"
     +'</ul>'

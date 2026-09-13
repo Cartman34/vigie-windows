@@ -39,7 +39,7 @@ $fields += New-Field -Key 'pode' -Label 'Module Pode' `
     -Value $(if ($pode.Count) { 'v' + $pode[0].Version } else { 'Absent' }) -Kind 'text' `
     -Status $(if ($pode.Count) { 'ok' } else { 'error' }) `
     -Help "Le serveur web de Vigie, installé par setup.cmd." `
-    -Guide $(if ($pode.Count) { "$($pode[0].Path)" } else { 'Relancez setup.cmd.' })
+    -Guide $(if ($pode.Count) { "$($pode[0].Path)" } else { 'setup.cmd est à relancer.' })
 
 if (-not $eleve) {
     $fields += New-Field -Key 'portee' -Label 'Portée de ce relevé' -Value 'Session non élevée' -Kind 'text' -Status 'neutral' `

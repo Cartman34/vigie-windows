@@ -30,7 +30,7 @@ if ($null -eq $count) {
     } catch { }
 
     $help = "Ce que Vigie propose d'installer. Recherche LOCALE dans le cache de Windows : aucune analyse en ligne, aucune installation."
-    $note = "Pilotes/MAJ facultatives : non comptés par l'écran principal de Windows. Rien ne s'installe sans vous — pour installer, utilisez « Ouvrir Windows Update » (déverrouillez via Mode MAJ si besoin)."
+    $note = "Pilotes/MAJ facultatives : non comptés par l'écran principal de Windows. Rien ne s'installe sans un geste explicite : « Ouvrir Windows Update », après déverrouillage par le Mode MAJ si besoin."
     $parts = @($help)
     $parts += "Windows en détecte $count ; Vigie en propose $effectif. Ce qui manque entre les deux est expliqué plus bas."
     if ($drivers -gt 0) { $parts += "Dont $drivers pilote(s)/optionnel(s)." }
@@ -43,7 +43,7 @@ if ($null -eq $count) {
     $dejaFaites = @($pending.alreadyDone)
     if ($true) {
         if ($dejaFaites.Count -gt 0) {
-            $parts += ("ATTENTION : " + $dejaFaites.Count + " de ces mises à jour ont déjà été installées AVEC SUCCÈS et Windows les repropose quand même :`n- " + ($dejaFaites -join "`n- ") + "`nC'est une boucle connue des pilotes constructeur mal ciblés : le pilote est bien posé (vérifiable dans le Gestionnaire de périphériques), réinstaller ne change rien. Vous pouvez les laisser ou les masquer avec l'outil Microsoft wushowhide.")
+            $parts += ("ATTENTION : " + $dejaFaites.Count + " de ces mises à jour ont déjà été installées AVEC SUCCÈS et Windows les repropose quand même :`n- " + ($dejaFaites -join "`n- ") + "`nC'est une boucle connue des pilotes constructeur mal ciblés : le pilote est bien posé (vérifiable dans le Gestionnaire de périphériques), réinstaller ne change rien. Elles peuvent rester, ou être masquées avec l'outil Microsoft wushowhide.")
         }
     }
     # WHAT THE CARD ANNOUNCES IS WHAT THE DIALOG OFFERS, to the number. Everything set
@@ -68,7 +68,7 @@ if ($null -eq $count) {
     $champs = @()
     if ($scanEnCours) {
         $champs += New-Field -Key 'scan' -Label 'Analyse en ligne' -Value 'en cours…' -Kind 'text' -Status 'neutral' `
-            -Help "Interrogation des serveurs Microsoft. Elle continue même si vous fermez la fenêtre."
+            -Help "Interrogation des serveurs Microsoft. Elle continue même si la fenêtre se ferme."
     } elseif ($scan -and $null -ne $scan.trouvees) {
         # QUAND, pas seulement COMBIEN : « 2 trouvee(s) » sans date ne dit pas si le
         # renseignement remonte a ce matin ou au mois dernier (signale par l'utilisateur).
@@ -107,7 +107,7 @@ if ($null -eq $count) {
             default          { 'Démarrage…' }
         }
         $champs += New-Field -Key 'install' -Label 'Installation' -Value $libellePhase -Kind 'text' -Status 'neutral' `
-            -Help "Installation lancée depuis Vigie. Elle continue même si vous fermez la fenêtre." `
+            -Help "Installation lancée depuis Vigie. Elle continue même si la fenêtre se ferme." `
             -Guide $(if ($inst.titres -and "$($inst.phase)" -ne 'termine') { "Mises à jour retenues :`n- " + (@($inst.titres) -join "`n- ") } else { '' })
     } elseif ($inst -and $inst.phase -eq 'termine') {
         # On rapporte le RESULTAT constate, code de retour compris (D43) -- mais le code
@@ -155,11 +155,11 @@ if ($null -eq $count) {
         if ($inst.error) { $g += "Erreur : $($inst.error)" }
         if ($inst.redemarrage -and -not $redemarrageFait) {
             $g += "Ce que c'est : les mises à jour sont installées, mais Windows doit redémarrer pour les activer. Ce n'est pas une panne."
-            $g += "Ce que vous pouvez faire : redémarrer quand cela vous arrange (le bouton « Redémarrer Windows » de cette carte, ou menu Démarrer > Redémarrer). Vigie ne redémarre jamais de lui-même."
+            $g += "Ce qui est possible : redémarrer au moment voulu (le bouton « Redémarrer Windows » de cette carte, ou menu Démarrer > Redémarrer). Vigie ne redémarre jamais de lui-même."
         }
         if ($echecs -gt 0) {
             $g += "Ce qui a échoué : $echecs mise(s) à jour sur $($inst.total). Le détail par mise à jour est dans le tableau ci-dessous, avec le code d'erreur Windows."
-            $g += "Ce que vous pouvez faire : relancer l'installation (une seconde tentative suffit souvent), ou passer par « Ouvrir Windows Update » qui affiche le message d'erreur complet de Windows."
+            $g += "Ce qui est possible : relancer l'installation (une seconde tentative suffit souvent), ou passer par « Ouvrir Windows Update » qui affiche le message d'erreur complet de Windows."
         }
         # Le detail PAR mise a jour, en tableau : « terminé avec erreurs » ne dit pas
         # laquelle a echoue, ce tableau si.
@@ -194,7 +194,7 @@ if ($null -eq $count) {
         } else {
             $actions += New-Action -Id 'system-restart' -Label 'Redémarrer Windows' -Severity 'fix' `
                 -BusyLabel 'Redémarrage programmé…' -ConfirmTwice -Kind 'confirm' `
-                -Help "Redémarre Windows dans 60 secondes pour terminer les mises à jour installées. Enregistrez votre travail : toutes les applications seront fermées. Le redémarrage reste annulable pendant le délai."
+                -Help "Redémarre Windows dans 60 secondes pour terminer les mises à jour installées. Le travail en cours est à enregistrer : toutes les applications seront fermées. Le redémarrage reste annulable pendant le délai."
         }
     }
     # Recherche EN LIGNE : la sonde ne lit que le cache local de Windows, qui peut etre
@@ -203,9 +203,9 @@ if ($null -eq $count) {
         -Help "Interroge les serveurs Microsoft (plusieurs minutes). La valeur affichée provient sinon du cache local de Windows, qui peut être périmé."
     if ($count -gt 0) {
         $actions += New-Action -Id 'wu-list-pending' -Severity 'fix' -Label 'Installer des mises à jour' -BusyLabel 'Installation des mises à jour…' -Kind 'dialog' `
-            -Help "Ouvre la liste des mises à jour détectées pour choisir celles à installer. Rien ne s'installe sans votre sélection."
+            -Help "Ouvre la liste des mises à jour détectées pour choisir celles à installer. Rien ne s'installe sans sélection."
     }
-    $actions += New-Action -Id 'open-windows-update' -Label 'Ouvrir Windows Update' -Kind 'manual' -Help "Ouvre les Paramètres Windows Update pour installer manuellement. Déverrouillez (Mode MAJ) avant si nécessaire, puis re-verrouillez."
+    $actions += New-Action -Id 'open-windows-update' -Label 'Ouvrir Windows Update' -Kind 'manual' -Help "Ouvre les Paramètres Windows Update pour installer manuellement. Déverrouiller (Mode MAJ) avant si nécessaire, puis re-verrouiller."
 
     New-ModuleObject -Id 'wu-pending' -Theme 'windows-update' -Label 'Mise à jour du système' -Status $(if ($enCours -or $scanEnCours) {'neutral'} elseif ($count -gt 0) {'warn'} else {'ok'}) -Fields (@(
         # La resolution est l'INSTALLATION, pas l'ouverture de Windows Update. Elle reste

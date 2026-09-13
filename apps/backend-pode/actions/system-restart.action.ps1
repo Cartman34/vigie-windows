@@ -23,7 +23,7 @@ if ($Params -and $Params.delay) {
 
 # shutdown.exe plutot que Restart-Computer : lui seul sait DIFFERER et se laisser annuler.
 $r = Invoke-Native -File 'shutdown.exe' -Arguments @(
-    '/r', '/t', "$delai", '/c', "Redemarrage demande depuis Vigie. Enregistrez votre travail."
+    '/r', '/t', "$delai", '/c', "Redemarrage demande depuis Vigie : le travail en cours est a enregistrer."
 )
 if (-not $r.Ok) {
     return @{
@@ -39,6 +39,6 @@ Update-StateJson -Path (Get-VarPath -Backend $backend -Kind 'cache' -File 'resta
 } | Out-Null
 
 @{
-    message = "Redémarrage programmé dans $delai secondes. Vous pouvez encore l'annuler."
+    message = "Redémarrage programmé dans $delai secondes. Il reste annulable."
     result  = @{ ok = $true; invalidate = @('lock.probe.ps1','pending.probe.ps1') }
 }

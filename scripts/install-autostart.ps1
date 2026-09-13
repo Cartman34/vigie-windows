@@ -79,7 +79,7 @@ if (-not (Test-IsElevated)) {
             "Tâche planifiée '$taskName' : lance $tray à l'ouverture de session",
             "Elle s'exécute avec les droits administrateur (nécessaire pour le verrou Windows Update)",
             "L'application est lancée tout de suite après l'installation",
-            "Aucun fichier de ton système n'est modifié ou supprimé"
+            "Aucun fichier du système n'est modifié ou supprimé"
         )
     if (-not $ok) { Write-Host (Get-Label 'install-autostart.installation-annulee-rien-ete'); exit 3 }
 

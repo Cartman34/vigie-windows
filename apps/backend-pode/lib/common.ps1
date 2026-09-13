@@ -691,7 +691,7 @@ function Invoke-DeviceGuardToggle {
 
     if (-not $etat.elevated) {
         return @{
-            message = "Le serveur de Vigie n'est pas administrateur : la bascule $nom est impossible. Relancez Vigie en administrateur (l'invite UAC s'affichera)."
+            message = "Le serveur de Vigie n'est pas administrateur : la bascule $nom est impossible. Vigie doit être relancée en administrateur (l'invite UAC s'affichera)."
             result  = @{ ok = $false }
         }
     }
@@ -6008,7 +6008,7 @@ function Test-ActionResourcesFree {
         if ($t.resource -eq 'machine' -or $veut -contains 'machine' -or $veut -contains $t.resource) {
             return ("« " + $t.label + " » est en cours et utilise déjà " +
                     $(if ($t.resource -eq 'machine') { "toute la machine" } else { "la même ressource (" + $t.resource + ")" }) +
-                    ". Réessayez quand cette opération sera terminée.")
+                    ". Nouvel essai possible quand cette opération sera terminée.")
         }
     }
     return $null
@@ -7506,10 +7506,10 @@ function Set-VigieAccountEnabled {
             else                 { Get-SharedPwshPath }
     if (-not $pwsh -and $compte.current) { throw "pwsh introuvable : impossible de creer la tache." }
     if (-not $pwsh) {
-        throw ("PowerShell 7 n'est installe que pour votre compte (paquet du Store). La tache de " +
-               $Name + " pointerait vers un chemin de VOTRE profil, illisible pour lui : Vigie ne " +
-               "demarrerait pas, sans message. Installez PowerShell 7 pour toute la machine " +
-               "(winget install --id Microsoft.PowerShell --scope machine), puis reactivez ce compte.")
+        throw ("PowerShell 7 n'est installe que pour ce compte (paquet du Store). La tache de " +
+               $Name + " pointerait vers un chemin du profil de ce compte, illisible pour lui : Vigie ne " +
+               "demarrerait pas, sans message. PowerShell 7 doit etre installe pour toute la machine " +
+               "(winget install --id Microsoft.PowerShell --scope machine), puis ce compte reactive.")
     }
     # Le compte doit pouvoir LIRE ce que sa tache lance.
     # LE CHEMIN SUIT L'ENVIRONNEMENT DECLARE. Poser systematiquement l'installation
@@ -7814,7 +7814,7 @@ function Test-ActionAllowed {
     if (-not $Requester) {
         return [pscustomobject]@{
             allowed = $false; requirement = 'admin'
-            reason  = "Cette action modifie le système, et Vigie ne sait pas qui la demande. Ouvrez le panneau depuis l'icône de Vigie."
+            reason  = "Cette action modifie le système, et Vigie ne sait pas qui la demande. Le panneau s'ouvre depuis l'icône de Vigie."
         }
     }
     $isAdmin = Test-RequesterIsAdmin -Account $Requester -Backend $Backend
