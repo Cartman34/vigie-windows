@@ -3,8 +3,8 @@
 Cible : [../targeting/operations.md](../targeting/operations.md). Arbitrages : **D82**, **D95**. Sujet ouvert :
 **S14**.
 
-Toute opération que Vigie exécute figure ici, avec le fichier où elle vit. **On cherche une opération ici**, puis le
-code confirme. Relevé du 13/09/2026, fait dans le code.
+Relevé du 13/09/2026, fait dans le code. Ce que l'inventaire doit porter et comment il sert : `../targeting/operations.md`,
+section « L'inventaire ».
 
 **Tenu par : aucun vérificateur à ce jour.** C'est un écart à la cible, porté par **S14**. Tant qu'il n'existe pas, une
 opération ajoutée sans passer par ce fichier le rend faux sans que rien ne le signale.
@@ -28,8 +28,8 @@ Déclenchées par `POST /actions`, exécutées par `Invoke-ActionById`, qui appl
 puis trace l'audit. Fichiers : `apps/backend-pode/actions/<action>.action.ps1`. Les ressources réservées sont déclarées
 dans `lib/common.ps1`, table `RessourcesParAction`.
 
-Colonnes : **S'exécute** dit où tourne le code, `serveur` ou `session` du demandeur (`# @execution`). **Durée** dit si
-le résultat est dans la réponse, `courte`, ou si le travail continue après, `longue`.
+Colonnes : **S'exécute** dit où tourne le code, `serveur` ou `session` du demandeur (`# @execution`). **Durée** suit la
+définition de `../targeting/operations.md`, section « Ce qu'est une opération ».
 
 | Action | Proposée par | Droits | S'exécute | Durée | Lancement | Protocole |
 |---|---|---|---|---|---|---|
