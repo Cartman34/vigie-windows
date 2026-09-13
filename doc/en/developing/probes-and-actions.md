@@ -124,8 +124,8 @@ $backend = Split-Path $PSScriptRoot -Parent
 Anything measured in minutes is a long operation, launched by `Start-Operation`:
 
 ```powershell
-$launched = [bool](Start-Operation -Module 'my-card' -Action 'my-action' -Label 'My operation' `
-                       -Probes @('my.probe.ps1') -Worker 'my.worker.ps1' -ArgsMap @{ foo = 'bar' } -Backend $backend)
+$launched = Start-Operation -Module 'my-card' -Action 'my-action' -Label 'My operation' `
+                -Probes @('my.probe.ps1') -Worker 'my.worker.ps1' -ArgsMap @{ foo = 'bar' } -Backend $backend
 if (-not $launched) { return @{ message = 'Could not start.'; result = @{ ok = $false } } }
 @{ message = 'Started in the background.'
    result  = @{ ok = $true; async = $true; module = 'my-card' } }
