@@ -9,7 +9,7 @@
    l'installation. L'utilisateur n'a rien a defaire a la main.
 #>
 param([string]$Backend, [string]$ArgsB64)
-if (-not $Backend) { return }
+if (-not $Backend) { exit 1 }
 . (Join-Path $Backend 'lib/common.ps1')
 
 $reposerVerrou = $false
@@ -24,25 +24,27 @@ $outFile = Get-VarPath -Backend $Backend -Kind 'cache' -File 'wu-scan.json'
 function Set-Etat { param([hashtable]$Set) try { Update-StateJson -Path $outFile -Set $Set | Out-Null } catch { } }
 
 $verrouLeve = $false
+$exitCode = 0
 try {
     if ($reposerVerrou) {
         $verrouLeve = Set-UpdateLock -Etat 'leve' -Backend $Backend
         Write-Log -Backend $Backend -Name 'wuscan' -Message (Get-Label 'wu-scan.verrou-leve' $verrouLeve)
     }
-    Set-Etat @{ scanning = $true; at = (Get-Date).ToUniversalTime().ToString('o') }
 
     $searcher = (New-Object -ComObject Microsoft.Update.Session).CreateUpdateSearcher()
     $searcher.Online = $true      # <- toute la difference avec la sonde
     $res = $searcher.Search("IsInstalled=0 And IsHidden=0")
     $n = [int]$res.Updates.Count
 
-    Set-Etat @{ scanning = $false; ok = $true; trouvees = $n; error = $null
+    Set-Etat @{ ok = $true; trouvees = $n; error = $null
                 at = (Get-Date).ToUniversalTime().ToString('o') }
     Write-Log -Backend $Backend -Name 'wuscan' -Message (Get-Label 'wu-scan.analyse-en-ligne-mise' $n)
 } catch {
-    Set-Etat @{ scanning = $false; ok = $false; error = $_.Exception.Message
+    Set-Etat @{ ok = $false; error = $_.Exception.Message
                 at = (Get-Date).ToUniversalTime().ToString('o') }
     Write-Log -Backend $Backend -Name 'wuscan' -Level 'ERROR' -Message $_.Exception.Message
+    $exitCode = 1
+    Write-Output ('[X] ' + $_.Exception.Message)
 } finally {
     if ($verrouLeve) {
         $repose = Set-UpdateLock -Etat 'pose' -Backend $Backend
@@ -54,3 +56,4 @@ try {
     }
     try { Remove-ProbeCache -Names @('pending.probe.ps1','lock.probe.ps1') -Backend $Backend } catch { }
 }
+exit $exitCode

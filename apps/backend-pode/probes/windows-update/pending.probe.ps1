@@ -54,14 +54,16 @@ if ($null -eq $count) {
                    "garde la dernière, et ferait revenir l'ancienne si la récente échouait à s'installer.")
     }
     $guide = ($parts -join "`n`n")
-    $enCours = [bool]($inst -and $inst.installing)
+    # WHAT IS RUNNING IS SAID BY THE BUSY MARK, and by nothing else (doc/progress/targeting/operations.md).
+    $operation = Get-ModuleBusyMark -Module 'wu-pending' -Backend $backend
+    $enCours = [bool]($operation -and "$($operation.action)" -eq 'wu-install')
 
     $scan = $null
     try {
         $fs = Get-VarPath -Backend $backend -Kind 'cache' -File 'wu-scan.json'
         if (Test-Path $fs) { $scan = Get-Content $fs -Raw | ConvertFrom-Json }
     } catch { }
-    $scanEnCours = [bool]($scan -and $scan.scanning)
+    $scanEnCours = [bool]($operation -and "$($operation.action)" -eq 'wu-scan')
 
     $champs = @()
     if ($scanEnCours) {
@@ -102,11 +104,11 @@ if ($null -eq $count) {
             'demarrage'      { 'Démarrage…' }
             'telechargement' { 'Téléchargement…' }
             'installation'   { 'Installation…' }
-            default          { 'En cours…' }
+            default          { 'Démarrage…' }
         }
         $champs += New-Field -Key 'install' -Label 'Installation' -Value $libellePhase -Kind 'text' -Status 'neutral' `
             -Help "Installation lancée depuis Vigie. Elle continue même si vous fermez la fenêtre." `
-            -Guide $(if ($inst.titres) { "Mises à jour retenues :`n- " + (@($inst.titres) -join "`n- ") } else { '' })
+            -Guide $(if ($inst.titres -and "$($inst.phase)" -ne 'termine') { "Mises à jour retenues :`n- " + (@($inst.titres) -join "`n- ") } else { '' })
     } elseif ($inst -and $inst.phase -eq 'termine') {
         # On rapporte le RESULTAT constate, code de retour compris (D43) -- mais le code
         # global 3 (« reussi avec erreurs ») ne dit PAS qu'une mise a jour a echoue : il
@@ -169,6 +171,16 @@ if ($null -eq $count) {
             -Help "Résultat de la dernière installation lancée depuis Vigie." -Guide ($g -join "`n`n") `
             -FixAction $(if ($inst.redemarrage -and -not $redemarrageFait -and -not $inst.error -and $echecs -eq 0 -and -not $restartCountdown) { 'system-restart' } else { $null }) `
             -Table @{ columns = @('Mise à jour', 'Résultat'); rows = $lignes }
+    }
+
+    # A FAILURE THE WORKER COULD NOT WRITE ITSELF -- a process gone, a launch refused -- is the protocol's result,
+    # and the card says it; what the worker wrote already says the rest.
+    if (-not $enCours -and -not $scanEnCours) {
+        foreach ($own in @(@{ action = 'wu-install'; state = $inst }, @{ action = 'wu-scan'; state = $scan })) {
+            $failure = New-UnreportedFailureField -Module 'wu-pending' -Action $own.action `
+                           -WrittenAt $(if ($own.state) { $own.state.at } else { $null }) -Backend $backend
+            if ($failure) { $champs += $failure }
+        }
     }
 
     $actions = @()

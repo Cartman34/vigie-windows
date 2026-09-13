@@ -18,7 +18,10 @@
                        enclosing function or its file, which the inventory must name;
       6. processes  -- every raw process creation in the server app sits inside a launch function
                        listed by the inventory;
-      7. scripts    -- every scripts/*.ps1, .cmd and .vbs, verifiers excepted.
+      7. scripts    -- every scripts/*.ps1, .cmd and .vbs, verifiers excepted;
+      8. protocol   -- no detached launch outside Start-Operation, except in the internal pass Get-State;
+      9. long rows  -- every long action's row declares the shared protocol, server-restart excepted.
+    The two exceptions are the questions still open in S14.
 
     What it does NOT see: the client app's timers are anonymous Windows Forms timers that nothing
     names, so their rows are kept by review only. A launch written at the top level of a file,
@@ -35,9 +38,13 @@ $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 
 $inventoryPath   = Join-Path $repoRoot 'doc/progress/implemented/operations.md'
 $backend         = Join-Path $repoRoot 'apps/backend-pode'
-$launchFunctions = @('Start-DetachedAction', 'Start-WatchedAction', 'Start-PkgJob', 'Start-ServerRelauncher')
+$launchFunctions = @('Start-Operation', 'Start-DetachedAction', 'Start-PkgJob', 'Start-ServerRelauncher')
 # Verifiers are not operations of the product: they read the repository and run nothing on the machine.
 $scriptsNotOperations = @('check-probes.ps1')
+# THE PROTOCOL, AS FAR AS THE CODE SHOWS IT (doc/progress/targeting/operations.md). Each exception is a
+# question still open in S14, and disappears with its answer.
+$detachedAllowedIn  = @('Get-State')
+$pendingArbitration = @('server-restart')
 $newline = [string][char]10
 
 Write-Title (Get-Label 'check-operations.titre')
@@ -147,6 +154,7 @@ $launchPattern = '(?<![A-Za-z0-9-])(' + ($launchFunctions -join '|') + ')(?![A-Z
 $rawProcess    = [regex]::Escape('[System.Diagnostics.Process]::Start(')
 $launchesSeen  = 0
 $unattributed  = New-Object System.Collections.Generic.List[string]
+$offProtocol   = New-Object System.Collections.Generic.List[string]
 
 $sourceFiles = @(Get-ChildItem -LiteralPath (Join-Path $repoRoot 'apps') -Recurse -File -Filter '*.ps1' | Where-Object {
     $rel = $_.FullName.Substring($repoRoot.Length + 1).Replace([char]92, [char]47)
@@ -169,6 +177,9 @@ foreach ($file in $sourceFiles) {
         foreach ($m in [regex]::Matches($line, $launchPattern)) {
             $launchesSeen++
             $called = $m.Groups[1].Value
+            if ($called -eq 'Start-DetachedAction' -and -not ($owner -and $detachedAllowedIn -contains $owner)) {
+                $offProtocol.Add(('{0}  {1}' -f $where, $(if ($owner) { $owner } else { $file.Name })))
+            }
             if ($isAction) {
                 $row = $actionRows[$actionName]
                 if (-not $row -or $row.Cells.Count -lt 6 -or $row.Cells[5] -notmatch [regex]::Escape($called)) {
@@ -191,6 +202,20 @@ foreach ($file in $sourceFiles) {
 if ($unattributed.Count) {
     Write-Fail (Get-Label 'check-operations.lancement-non-inventorie' $unattributed.Count)
     foreach ($one in $unattributed) { Write-Detail $one }
+    $failures++
+}
+
+if ($offProtocol.Count) {
+    Write-Fail (Get-Label 'check-operations.hors-protocole' $offProtocol.Count)
+    foreach ($one in $offProtocol) { Write-Detail $one }
+    $failures++
+}
+$longOffProtocol = @(foreach ($name in $actionRows.Keys) {
+    $cells = $actionRows[$name].Cells
+    if ($cells.Count -ge 7 -and $cells[4] -eq 'longue' -and -not $cells[6].StartsWith('commun') -and $pendingArbitration -notcontains $name) { $name }
+})
+if ($longOffProtocol.Count) {
+    Write-Fail (Get-Label 'check-operations.longue-non-conforme' $longOffProtocol.Count (($longOffProtocol | Sort-Object) -join ', '))
     $failures++
 }
 

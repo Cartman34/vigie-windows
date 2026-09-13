@@ -13,17 +13,15 @@ $backend = Split-Path $PSScriptRoot -Parent
 $etaitVerrouille = $false
 try { $etaitVerrouille = Test-UpdateTasksAclLock } catch { }
 
-$outFile = Get-VarPath -Backend $backend -Kind 'cache' -File 'wu-scan.json'
-Update-StateJson -Path $outFile -Set @{ scanning = $true; at = (Get-Date).ToUniversalTime().ToString('o') } | Out-Null
-
-$worker = Join-Path $backend 'workers/wu-scan.worker.ps1'
+$lance = $false
 try {
-    $null = Start-DetachedAction -Script $worker -ArgsMap @{ reposerVerrou = $etaitVerrouille } -Backend $backend
+    $lance = [bool](Start-Operation -Module 'wu-pending' -Action 'wu-scan' -Label 'Recherche en ligne des mises à jour' `
+                        -Probes @('pending.probe.ps1', 'lock.probe.ps1') -Worker 'wu-scan.worker.ps1' `
+                        -ArgsMap @{ reposerVerrou = $etaitVerrouille } -Backend $backend)
 } catch {
-    Update-StateJson -Path $outFile -Set @{ scanning = $false; error = $_.Exception.Message } | Out-Null
     return @{ message = "Impossible de lancer l'analyse : $($_.Exception.Message)"; result = @{ ok = $false } }
 }
-
+if (-not $lance) { return @{ message = "Impossible de lancer l'analyse."; result = @{ ok = $false } } }
 $avis = if ($etaitVerrouille) { " Le verrou du Mode MAJ est levé le temps de l'analyse, puis reposé." } else { "" }
 @{
     message = "Recherche en ligne des mises à jour lancée.$avis"

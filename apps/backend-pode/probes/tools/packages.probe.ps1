@@ -34,20 +34,10 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
     } catch { }
 
     $u           = $upd[$mg.id]
-    # Une tache de fond peut MOURIR sans rien ecrire (processus tue, machine arretee) ou
-    # RESTER BLOQUEE. Sans peremption, son drapeau « en cours » ne retombe jamais et la
-    # carte tourne indefiniment -- constate sur une mise a jour winget restee 22 minutes
-    # a 0 % de CPU. Passe ce delai, on considere qu'elle ne reviendra pas.
-    $DELAI_TACHE_MIN = 45
-    $checking = [bool]($u -and $u.checking)
-    $tacheAbandonnee = $false
-    if ($checking -and $u.startedAt) {
-        try {
-            $depuis = ((Get-Date) - [datetime]$u.startedAt).TotalMinutes
-            if ($depuis -gt $DELAI_TACHE_MIN) { $checking = $false; $tacheAbandonnee = $true }
-        } catch { }
-    }
-    $op          = if ($checking -and $u.op) { "$($u.op)" } else { 'check' }
+    # WHAT IS RUNNING IS SAID BY THE BUSY MARK (doc/progress/targeting/operations.md): no expiry of our own any more.
+    $operation = Get-ModuleBusyMark -Module ("pkg-" + $mg.id) -Backend $backend
+    $checking = [bool]$operation
+    $op = if ($operation -and "$($operation.action)" -eq 'pkg-upgrade') { 'upgrade' } else { 'check' }
     $supported   = ($mg.updMode -ne 'none' -and @($mg.updArgs).Count -gt 0)
     # Deux capacites DISTINCTES : savoir tout mettre a jour, et savoir n'en cibler qu'un.
     # pip ne sait que la seconde ; scoop, npm et gem que la premiere.
@@ -131,10 +121,6 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
         if ($nbIgnores -gt 0) { $mg2 += ("($nbIgnores mise(s) à jour masquée(s) par la liste des paquets ignorés.)") }
         $mg2 += ""
         $mg2 += ("Vérifié le : " + $u.at)
-        if ($tacheAbandonnee) {
-            $majStatus = 'warn'
-            $mg2 += "L'opération précédente ne répond plus depuis plus de $DELAI_TACHE_MIN minutes : elle est considérée comme interrompue. Relancez-la si besoin."
-        }
         # Le resultat de la DERNIERE mise a jour reste visible : une operation qui se
         # termine en silence laisse croire qu'il ne s'est rien passe.
         if ($u.last) {
@@ -170,6 +156,11 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
     }
     if ($cnt -gt 0 -and $upSupported -and -not $checking) { $majFieldArgs.FixAction = 'pkg-list-updates' }
     $fields += New-Field @majFieldArgs
+    # A failure the worker could not write itself is the protocol's result, and the card says it.
+    if (-not $checking) {
+        $failure = New-UnreportedFailureField -Module ("pkg-" + $mg.id) -WrittenAt $(if ($u) { $u.at } else { $null }) -Backend $backend
+        if ($failure) { $fields += $failure }
+    }
 
     # Statut de la carte : neutre pendant l'operation, sinon selon les MAJ.
     $modStatus = if ($checking) { 'neutral' } elseif ($majStatus -eq 'warn') { 'warn' } else { 'ok' }

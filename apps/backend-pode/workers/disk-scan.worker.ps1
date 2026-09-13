@@ -24,7 +24,7 @@
 
    N'ecrit QUE dans var/cache/diskscan.json. Lecture seule sur le disque analyse. #>
 param([string]$Backend, [string]$ArgsB64)
-if (-not $Backend) { return }
+if (-not $Backend) { exit 1 }
 . (Join-Path $Backend 'lib/common.ps1')
 
 # --- Parametres (JSON base64) ------------------------------------------------
@@ -51,7 +51,7 @@ if (Test-Path -LiteralPath $stopFile) { Remove-Item -LiteralPath $stopFile -Forc
 
 $debut = Get-Date
 Update-StateJson -Path $outFile -Set @{
-    scan = @{ running = $true; root = $racineChemin; startedAt = $debut.ToUniversalTime().ToString('s')
+    scan = @{ root = $racineChemin; startedAt = $debut.ToUniversalTime().ToString('s')
               at = $debut.ToUniversalTime().ToString('s'); dirs = 0; files = 0; bytes = 0
               depth = $profondeur; top = $topN; current = $racineChemin }
 } | Out-Null
@@ -148,7 +148,7 @@ try {
                 $dernierEcrit = Get-Date
                 if (Test-Path -LiteralPath $stopFile) { $arret = $true; break }
                 Update-StateJson -Path $outFile -Set @{
-                    scan = @{ running = $true; root = $racineChemin
+                    scan = @{ root = $racineChemin
                               startedAt = $debut.ToUniversalTime().ToString('s')
                               at = (Get-Date).ToUniversalTime().ToString('s')
                               dirs = $gDirs; files = $gFiles; bytes = $gBytes
@@ -206,7 +206,7 @@ if ($arret) {
     # Un arret rend un resultat PARTIEL : on ne l'ecrit pas par-dessus le dernier resultat
     # complet, qui reste utile. On dit seulement que l'analyse a ete interrompue.
     Update-StateJson -Path $outFile -Set @{
-        scan = @{ running = $false; canceled = $true; root = $racineChemin
+        scan = @{ canceled = $true; root = $racineChemin
                   startedAt = $debut.ToUniversalTime().ToString('s')
                   at = $fin.ToUniversalTime().ToString('s')
                   dirs = $gDirs; files = $gFiles; depth = $profondeur; top = $topN }
@@ -229,7 +229,7 @@ if ($arret) {
                 dirs = $gDirs; files = $gFiles; bytes = [long]$arbre.s
                 root = $racineChemin; depth = $profondeur; top = $topN; error = $erreur }
     Update-StateJson -Path $outFile -Depth 24 -Set @{
-        scan = @{ running = $false; canceled = $false; root = $racineChemin
+        scan = @{ canceled = $false; root = $racineChemin
                   startedAt = $debut.ToUniversalTime().ToString('s')
                   at = $fin.ToUniversalTime().ToString('s')
                   seconds = [int]($fin - $debut).TotalSeconds
@@ -246,3 +246,6 @@ if ($arret) {
 
 # La carte se rafraichit au prochain acces, sans attendre le TTL.
 try { Remove-ProbeCache -Names @('disk.probe.ps1') -Backend $Backend } catch { }
+# THE OUTCOME LEAVES BY THE EXIT CODE, read by the watcher. An analysis stopped on request is not a failure.
+if ($erreur) { Write-Output ('[X] ' + $erreur); exit 1 }
+exit 0

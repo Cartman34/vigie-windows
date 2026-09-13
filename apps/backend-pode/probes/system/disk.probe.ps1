@@ -67,17 +67,8 @@ if (Test-Path -LiteralPath $fichier) {
 }
 $scan = if ($etat) { $etat.scan } else { $null }
 
-# Une tache de fond peut mourir sans rien ecrire (machine arretee, processus tue) : passe
-# ce delai, son drapeau « en cours » ne veut plus rien dire et la carte tournerait sinon
-# indefiniment (deja constate sur les paquets).
-$DELAI_TACHE_MIN = 60
-$enCours = [bool]($scan -and $scan.running)
-if ($enCours -and $scan.startedAt) {
-    try {
-        $depuis = ((Get-Date).ToUniversalTime() - (ConvertTo-UtcDate $scan.startedAt)).TotalMinutes
-        if ($depuis -gt $DELAI_TACHE_MIN) { $enCours = $false }
-    } catch { }
-}
+# WHAT IS RUNNING IS SAID BY THE BUSY MARK (doc/progress/targeting/operations.md): no expiry of our own any more.
+$enCours = [bool](Get-ModuleBusyMark -Module 'storage' -Backend $backend)
 $racine = if ($scan -and $scan.root) { "$($scan.root)" } else { "$sysLettre\" }
 
 # Destination PERMANENTE (D114) : les parametres de stockage de Windows montrent ce qui
@@ -189,6 +180,12 @@ if ($enCours) {
     $actions += New-Action -Id 'disk-analyze' -Label $(if ($arbre) { 'Relancer l''analyse' } else { 'Analyser l''espace' }) `
         -Kind 'immediate' -Severity 'info' -BusyLabel 'Analyse…' `
         -Help "Parcourt $racine et classe les dossiers par taille. Lecture seule : rien n'est supprimé."
+}
+
+# A failure the worker could not write itself is the protocol's result, and the card says it.
+if (-not $enCours) {
+    $failure = New-UnreportedFailureField -Module 'storage' -WrittenAt $(if ($scan) { $scan.at } else { $null }) -Backend $backend
+    if ($failure) { $fields += $failure }
 }
 
 New-ModuleObject -Id 'storage' -Theme 'system' -Label 'Stockage' -Status $st -Fields $fields -Actions $actions `

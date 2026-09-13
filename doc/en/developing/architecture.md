@@ -54,7 +54,7 @@ browser ──GET /state──> Pode ──> Get-State ──> probe cache ─�
        <──JSON────────                                    (only the stale ones)
 
 browser ──POST /actions──> whitelist ──> <id>.action.ps1 ──┬─> immediate result
-                                                          └─> Start-DetachedAction ──> worker
+                                                          └─> Start-Operation ──> watcher ──> worker or program
 ```
 
 ## State aggregation and caching
@@ -78,19 +78,22 @@ recompute, so a card reflects a change immediately instead of at the next TTL.
 
 ## Background jobs
 
-`Start-DetachedAction` launches a worker in a hidden, detached `pwsh` — no visible console,
-no terminal-tab restoration. Parameters travel as base64 JSON, which is immune to quoting
-problems, and the `pwsh` used is the current process's own, so no install path is
-hard-coded.
+A long operation is launched by `Start-Operation`, and by nothing else. The rules it follows are the target's:
+`doc/progress/targeting/operations.md`, section "Le protocole des opérations longues". How it is built:
 
-A long action answers immediately with `result.async = $true` plus the `module` to watch.
-The front end marks the card busy and polls it until the job finishes. Closing the browser
-interrupts nothing.
+- `Start-Operation` starts the watcher, `workers/watched-action.worker.ps1`, in a hidden `pwsh`, and writes the
+  busy mark with the watcher's process id before the action answers. Parameters travel as base64 JSON.
+- The watcher runs the work, a PowerShell worker of `workers/` or an external program, output redirected to a log,
+  waits for its end and writes the result: exit code, duration, log, and the reason read from the log.
+- A worker reports its outcome by its exit code, `exit 0` or `exit 1`, and its reason by a `[X]` line on its output.
+  It may write progress and detail into `var/cache/*.json` through `Update-StateJson`, never whether it is running.
+- A probe learns that its operation runs from `Get-ModuleBusyMark`, and shows the failure its worker could not write
+  itself with `New-UnreportedFailureField`.
+- `Get-ModuleBusyMark` turns a mark whose process is gone, with no result written since the launch, into a failure.
+- `Get-State` lays each module's mark over its cached rendering, so a card is busy from the first answer on, and
+  `/operations` serves marks and recent results to every page.
 
-Workers write their progress into `var/cache/*.json` through `Update-StateJson`, which is
-guarded by a cross-process mutex; the matching probe only ever *reads* that file. That is
-what keeps probes fast and side-effect-free.
-
+Every operation, long or short, and where it lives: `doc/progress/implemented/operations.md`.
 ## The tray, and why it is separate
 
 The tray runs elevated. From an ordinary session you can neither read its command line nor

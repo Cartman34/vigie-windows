@@ -34,7 +34,7 @@ try {
     # Le veilleur attend la fin et RAPPORTE le code de sortie (D82). L'ancienne version
     # lancait winget et l'oubliait : l'echec du 26/08 (0x80070005, qui avait au passage
     # desinstalle le PowerShell existant) n'a produit ni ligne rouge ni notification.
-    $lance = [bool](Start-WatchedAction -Module 'deployment' -Probe 'deployment.probe.ps1' `
+    $lance = [bool](Start-Operation -Module 'deployment' -Probes @('deployment.probe.ps1') `
                         -Label 'Installation de PowerShell 7' -Action 'pwsh-install-machine' `
                         -File $winget.Source -Arguments (Get-SharedPwshInstallArgs) `
                         -Log $journal -Backend $backend)

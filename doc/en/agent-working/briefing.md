@@ -139,10 +139,7 @@ since the port answers — one then serves stale code indefinitely.
 - Action = `apps/backend-pode/actions/<id>.action.ps1`, returns `@{ message; result }`.
   `result.invalidate=@('x.probe.ps1')` forces a recompute.
 - Aggregation + cache (mtime+TTL, single-flight, serve-stale): `Get-State` in `common.ps1`.
-- **Background tasks**: `Start-DetachedAction` (hidden pwsh worker); e.g. packages via
-  `Start-PkgJob` + `apps/backend-pode/workers/pkg-job.worker.ps1`. A long action answers
-  `result.async=$true` + `module`; the front end puts the card in "busy" and polls it until
-  it finishes.
+- **Long operations**: `../developing/architecture.md`, section "Background jobs".
 
 ## Current state of the product (summary — the detail is in the code and the docs)
 

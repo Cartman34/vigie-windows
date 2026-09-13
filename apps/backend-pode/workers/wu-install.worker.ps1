@@ -9,7 +9,7 @@
    N'ecrit que dans var/cache (etat lisible par la sonde) et var/log (trace complete).
 #>
 param([string]$Backend, [string]$ArgsB64)
-if (-not $Backend) { return }
+if (-not $Backend) { exit 1 }
 . (Join-Path $Backend 'lib/common.ps1')
 
 $ids = @()
@@ -21,7 +21,7 @@ try {
         $reposerVerrou = [bool]$a.reposerVerrou
     }
 } catch { }
-if (-not $ids -or $ids.Count -eq 0) { return }
+if (-not $ids -or $ids.Count -eq 0) { Write-Output ('[X] ' + (Get-Label 'wu-install.aucun-identifiant')); exit 1 }
 
 $outFile = Get-VarPath -Backend $Backend -Kind 'cache' -File 'wu-install.json'
 
@@ -35,17 +35,12 @@ function Set-Etat {
 # lequel l'utilisateur l'avait laissee. Un verrou de securite qu'on oublie de remettre est
 # pire que pas de verrou du tout.
 $verrouLeve = $false
+$exitCode = 0
 try {
     if ($reposerVerrou) {
         $verrouLeve = Set-UpdateLock -Etat 'leve' -Backend $Backend
         Write-Log -Backend $Backend -Name 'wuinstall' -Message (Get-Label 'wu-install.verrou-leve' $verrouLeve)
-        if (-not $verrouLeve) {
-            Set-Etat @{ installing = $false; phase = 'termine'; ok = $false
-                        at = (Get-Date).ToUniversalTime().ToString('o')
-                        error = "Le verrou des mises à jour n'a pas pu être levé." }
-            Write-Log -Backend $Backend -Name 'wuinstall' -Level 'ERROR' -Message (Get-Label 'wu-install.verrou-non-levable')
-            return
-        }
+        if (-not $verrouLeve) { throw "Le verrou des mises à jour n'a pas pu être levé." }
     }
     Write-Log -Backend $Backend -Name 'wuinstall' -Message (Get-Label 'wu-install.demande-mise-jour' $ids.Count)
     $session  = New-Object -ComObject Microsoft.Update.Session
@@ -67,21 +62,15 @@ try {
         # nothing: two drivers often share one, and the identifier is what the list knows.
         $keptIds += "$($u.Identity.UpdateID)"
     }
-    if ($coll.Count -eq 0) {
-        Set-Etat @{ installing = $false; at = (Get-Date).ToUniversalTime().ToString('o')
-                    error = "Aucune des mises à jour demandées n'a été retrouvée." }
-        Write-Log -Backend $Backend -Name 'wuinstall' -Level 'ERROR' -Message (Get-Label 'wu-install.aucune-correspondance')
-        return
-    }
-
-    Set-Etat @{ installing = $true; phase = 'telechargement'; total = $coll.Count
+    if ($coll.Count -eq 0) { throw "Aucune des mises à jour demandées n'a été retrouvée." }
+    Set-Etat @{ phase = 'telechargement'; total = $coll.Count
                 titres = @($retenus); at = (Get-Date).ToUniversalTime().ToString('o') }
     $dl = $session.CreateUpdateDownloader()
     $dl.Updates = $coll
     $rDl = $dl.Download()
     Write-Log -Backend $Backend -Name 'wuinstall' -Message (Get-Label 'wu-install.telechargement-code' $rDl.ResultCode)
 
-    Set-Etat @{ installing = $true; phase = 'installation' }
+    Set-Etat @{ phase = 'installation' }
     $inst = $session.CreateUpdateInstaller()
     $inst.Updates = $coll
     $rIn = $inst.Install()
@@ -115,7 +104,6 @@ try {
         Write-Log -Backend $Backend -Name 'wuinstall' -Message (Get-Label 'wu-install.resultat' $retenus[$i] $verdict)
     }
     Set-Etat @{
-        installing = $false
         phase      = 'termine'
         at         = (Get-Date).ToUniversalTime().ToString('o')
         total      = $coll.Count
@@ -129,10 +117,20 @@ try {
         error      = $(if ($ok -or $partiel) { $null } else { "Installation en échec (code $($rIn.ResultCode))." })
     }
     Write-Log -Backend $Backend -Name 'wuinstall' -Message (Get-Label 'wu-install.installation-code-redemarrage' $rIn.ResultCode $rIn.RebootRequired)
+    # THE OUTCOME LEAVES BY THE EXIT CODE, which the watcher reads, and its reason by a [X] line of the log.
+    if ($failures.Count -gt 0) {
+        $exitCode = 1
+        Write-Output ('[X] ' + (Get-Label 'wu-install.echecs' $failures.Count $coll.Count))
+    } elseif (-not ($ok -or $partiel)) {
+        $exitCode = 1
+        Write-Output ('[X] ' + (Get-Label 'wu-install.code-global' $rIn.ResultCode))
+    }
 } catch {
-    Set-Etat @{ installing = $false; phase = 'termine'; ok = $false
+    Set-Etat @{ phase = 'termine'; ok = $false
                 at = (Get-Date).ToUniversalTime().ToString('o'); error = $_.Exception.Message }
     Write-Log -Backend $Backend -Name 'wuinstall' -Level 'ERROR' -Message $_.Exception.Message
+    $exitCode = 1
+    Write-Output ('[X] ' + $_.Exception.Message)
 } finally {
     if ($verrouLeve) {
         $repose = Set-UpdateLock -Etat 'pose' -Backend $Backend
@@ -146,3 +144,4 @@ try {
     # Les deux cartes doivent refleter le resultat sans attendre le TTL des sondes.
     try { Remove-ProbeCache -Names @('pending.probe.ps1','lock.probe.ps1') -Backend $Backend } catch { }
 }
+exit $exitCode

@@ -59,7 +59,7 @@ try {
     $argv += @('-FromAction', 'vigie-update')
     # La carte DEPLOIEMENT gere les deploiements -- et elle est toujours la. La carte de
     # debogage, elle, peut etre eteinte : le suivi de l'operation y aurait ete invisible.
-    $lance = [bool](Start-WatchedAction -Module 'deployment' -Probe 'deployment.probe.ps1' `
+    $lance = [bool](Start-Operation -Module 'deployment' -Probes @('deployment.probe.ps1') `
                         -Label 'Mise à jour de Vigie' -Action 'vigie-update' `
                         -File $pwsh -Arguments $argv -Log $journal -Backend $backend)
     Write-Log -Backend $backend -Name 'update' -Message (Get-Label 'vigie-update.mise-jour-lancee-journal' $journal)

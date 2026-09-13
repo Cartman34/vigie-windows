@@ -1,16 +1,17 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-<# Worker : lance un programme, ATTEND sa fin, et rapporte son sort.
+<# Worker: runs the work of a long operation, WAITS for its end, and reports its outcome.
 
-   Pourquoi il existe (D82). Une action longue etait lancee « detachee » et oubliee :
-   personne ne lisait son code de sortie. Le 26/08, le bouton « Installer PowerShell 7 »
-   a echoue en 0x80070005 -- l'interface n'a rien affiche, aucune notification n'est
-   sortie, et la panne n'a ete comprise qu'en ouvrant un journal a la main. Pire : cet
-   echec avait desinstalle le PowerShell existant.
+   Why it exists (D82). A long action used to be launched detached and forgotten: nobody read its
+   exit code. On 26/08 the "Install PowerShell 7" button failed with 0x80070005 and the interface
+   showed nothing. On 12/09 a Windows Update installation launched outside this watcher announced
+   itself finished the moment it started.
 
-   Ce veilleur tient le marqueur « occupe » de la carte pendant le travail, puis ecrit
-   le RESULTAT (code de sortie, duree, journal) la ou la sonde saura le lire. Un echec
-   devient donc une ligne rouge sur la carte et une notification, comme n'importe quel
-   autre constat. #>
+   What it does, and what it does not. Start-Operation launches it and writes the busy mark with
+   its process id BEFORE the action answers: the mark is not written here any more. It runs the
+   work -- a PowerShell worker of workers/ or an external program, output redirected to the log --
+   waits for its end, writes the result where every page reads it, then clears the mark. If it dies
+   before writing, Get-ModuleBusyMark turns the dead mark into a failure.
+   The rules: doc/progress/targeting/operations.md, section "Le protocole des opérations longues". #>
 param(
     [Parameter(Mandatory)][string]$Backend,
     [Parameter(Mandatory)][string]$ArgsB64
@@ -22,44 +23,48 @@ $a = $null
 try {
     $a = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($ArgsB64)) | ConvertFrom-Json
 } catch { }
-if (-not $a -or -not $a.module -or -not $a.file) { return }
+# NO SILENT EXIT. Without a module there is nowhere to write a result: the mark the launcher wrote
+# then names a dead process, and Get-ModuleBusyMark reports the failure.
+if (-not $a -or -not $a.module) {
+    Write-Log -Backend $Backend -Name 'actions' -Level 'ERROR' -Message (Get-Label 'watched-action.charge-illisible')
+    exit 1
+}
 
 $module = "$($a.module)"
 $label  = "$($a.label)"
 $action = "$($a.action)"
 $argv   = @($a.arguments)
 $log    = "$($a.log)"
+$probes = @($a.probes | Where-Object { "$_" })
 
 $t0 = Get-Date
-# Le marqueur porte NOTRE pid : tant que ce veilleur vit, le travail est en cours.
-# Il vit exactement aussi longtemps que l'enfant, puisqu'il l'attend.
-$ressources = @($a.resources)
-Set-ModuleBusyMark -Module $module -Label $label -ProcessId $PID -Action $action `
-                   -Resources $ressources -Backend $Backend
-
 $code = -1
-$erreur = ''
-try {
-    # Arguments arrive RAW from the caller -- they carry paths, hence spaces: quoting them
-    # is Start-ChildProcess's job, once, for everyone (D116).
-    $options = @{ Wait = $true; PassThru = $true; WindowStyle = 'Hidden' }
-    if ($log) {
-        $options['RedirectStandardOutput'] = $log
-        $options['RedirectStandardError']  = ($log -replace '\.log$', '.err.log')
+$failure = ''
+if (-not $a.file) {
+    $failure = Get-Label 'watched-action.rien-a-lancer'
+} else {
+    try {
+        # Arguments arrive RAW from the caller -- they carry paths, hence spaces: quoting them
+        # is Start-ChildProcess's job, once, for everyone (D116).
+        $options = @{ Wait = $true; PassThru = $true; WindowStyle = 'Hidden' }
+        if ($log) {
+            $options['RedirectStandardOutput'] = $log
+            $options['RedirectStandardError']  = ($log -replace '[.]log$', '.err.log')
+        }
+        $p = Start-ChildProcess -FilePath "$($a.file)" -Arguments $argv -Options $options
+        $code = [int]$p.ExitCode
+    } catch {
+        $failure = "$($_.Exception.Message)"
     }
-    $p = Start-ChildProcess -FilePath "$($a.file)" -Arguments $argv -Options $options
-    $code = [int]$p.ExitCode
-} catch {
-    $erreur = "$($_.Exception.Message)"
 }
 
-$duree = [int]((Get-Date) - $t0).TotalSeconds
-Set-ModuleLastRun -Module $module -Action $action -Label $label -Code $code -Seconds $duree `
-                  -Log $log -Error $erreur -Backend $Backend
+$seconds = [int]((Get-Date) - $t0).TotalSeconds
+Set-ModuleLastRun -Module $module -Action $action -Label $label -Code $code -Seconds $seconds `
+                  -Log $log -Error $failure -Backend $Backend
 Clear-ModuleBusyMark -Module $module -Backend $Backend
 
-$niveau = if ($code -eq 0) { 'INFO' } else { 'ERROR' }
-Write-Log -Backend $Backend -Name 'actions' -Level $niveau `
-          -Message (Get-Label 'watched-action.code-en' $label $code $duree $(if ($erreur) { " -- " + $erreur }))
-# Les valeurs de la carte ont change : qu'elle se recalcule au prochain affichage.
-try { Remove-ProbeCache -Names @("$($a.probe)") -Backend $Backend } catch { }
+$level = if ($code -eq 0) { 'INFO' } else { 'ERROR' }
+Write-Log -Backend $Backend -Name 'actions' -Level $level `
+          -Message (Get-Label 'watched-action.code-en' $label $code $seconds $(if ($failure) { " -- " + $failure }))
+# The card's values changed: they are recomputed at the next display.
+try { if ($probes.Count) { Remove-ProbeCache -Names $probes -Backend $Backend } } catch { }

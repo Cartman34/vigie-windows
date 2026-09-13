@@ -121,21 +121,18 @@ $backend = Split-Path $PSScriptRoot -Parent
 
 ### Long actions
 
-Anything measured in minutes goes to a worker:
+Anything measured in minutes is a long operation, launched by `Start-Operation`:
 
 ```powershell
-$null = Start-DetachedAction -Script (Join-Path $backend 'workers/my.worker.ps1') `
-                             -ArgsMap @{ foo = 'bar' } -Backend $backend
+$launched = [bool](Start-Operation -Module 'my-card' -Action 'my-action' -Label 'My operation' `
+                       -Probes @('my.probe.ps1') -Worker 'my.worker.ps1' -ArgsMap @{ foo = 'bar' } -Backend $backend)
+if (-not $launched) { return @{ message = 'Could not start.'; result = @{ ok = $false } } }
 @{ message = 'Started in the background.'
-   result  = @{ ok = $true; async = $true; module = 'my-card'
-                invalidate = @('my.probe.ps1') } }
+   result  = @{ ok = $true; async = $true; module = 'my-card' } }
 ```
 
-The worker writes its progress into `var/cache/<name>.json` via `Update-StateJson` (mutex
-protected), and the probe merely reads that file. Add a **staleness guard**: a job can die
-without writing anything, and without an expiry its "running" flag never clears — the
-package cards give up after 45 minutes for exactly that reason.
-
+What the worker and the probe must do: `architecture.md`, section "Background jobs". The operation gets its row in
+`doc/progress/implemented/operations.md`, in the same commit.
 ---
 
 ## Existing examples worth reading
@@ -143,9 +140,9 @@ package cards give up after 45 minutes for exactly that reason.
 | File | Why |
 |---|---|
 | `probes/windows-update/lock.probe.ps1` | rich fields, conditional actions, honest handling of "not elevated" |
-| `probes/tools/packages.probe.ps1` | one probe, several cards, busy state, stale-job guard |
+| `probes/tools/packages.probe.ps1` | one probe, several cards, busy state read from the mark |
 | `actions/update-mode-off.action.ps1` | verifying the real outcome instead of the return code |
-| `actions/wu-install.action.ps1` | explicit selection, detached worker, lock lifted and put back |
+| `actions/wu-install.action.ps1` | explicit selection, long operation, lock lifted and put back |
 | `actions/net-speedtest.action.ps1` | merging a result into a shared cache file |
 
 ## Next

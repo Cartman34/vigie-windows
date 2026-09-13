@@ -4,7 +4,7 @@
    Lance par Start-PkgJob via Start-DetachedAction (pwsh cache). N'ecrit QUE dans
    var/cache + var/log. Traite erreurs + sortie via Get-PkgUpdates / Invoke-PkgUpgrade. #>
 param([string]$Backend, [string]$ArgsB64)
-if (-not $Backend) { return }
+if (-not $Backend) { exit 1 }
 . (Join-Path $Backend 'lib/common.ps1')
 
 # Parametres (JSON base64) : mgr + op + pkgs (paquets retenus, vide = tout).
@@ -17,9 +17,10 @@ try {
         if ($a.pkgs) { $pkgs = @($a.pkgs | ForEach-Object { "$_" }) }
     }
 } catch { }
-if (-not $mgr) { return }
+if (-not $mgr) { Write-Output ('[X] ' + (Get-Label 'pkg-job.gestionnaire-absent')); exit 1 }
 
 $outFile = Get-VarPath -Backend $Backend -Kind 'cache' -File 'pkgupdates.json'
+$exitCode = 0
 try {
     if ($op -eq 'upgrade') {
         $up = Invoke-PkgUpgrade -Id $mgr -Pkgs $pkgs
@@ -81,11 +82,19 @@ try {
         }
     }
     Update-StateJson -Path $outFile -Set @{ $mgr = $etat } | Out-Null
+    # A failed upgrade leaves by the exit code, so that the card and the notification say it.
+    if ($op -eq 'upgrade' -and $up -and -not $up.ok) {
+        $exitCode = 1
+        Write-Output ('[X] ' + (Get-Label 'pkg-job.mise-a-jour-en-echec' $mgr))
+    }
     Write-Log -Backend $Backend -Name 'pkgcheck' -Message (Get-Label 'pkg-job.maj-disponible' $mgr $op $([int]$u.count))
 } catch {
     try { Update-StateJson -Path $outFile -Set @{ $mgr = @{ count = 0; items = @(); at = (Get-Date).ToString('s'); error = $_.Exception.Message } } | Out-Null } catch { }
     Write-Log -Backend $Backend -Name 'pkgcheck' -Level 'ERROR' -Message ("$mgr ($op) : " + $_.Exception.Message)
+    $exitCode = 1
+    Write-Output ('[X] ' + $_.Exception.Message)
 }
 
 # Rafraichissement immediat de la carte au prochain acces (sans attendre le TTL).
 try { Remove-ProbeCache -Names @('packages.probe.ps1') -Backend $Backend } catch { }
+exit $exitCode
