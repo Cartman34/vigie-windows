@@ -91,6 +91,24 @@ L'étape 3 installe ce qui manque — PowerShell 7, Pode, WebView2 — **avant**
 déploiement. C'est assumé : ces dépendances servent de toute façon. La fenêtre d'annonce dit donc **ce qui sera
 installé**, et que **Vigie ne le désinstallera jamais**, à aucun moment.
 
+### La fenêtre d'annonce, avant l'élévation
+
+**Une seule fenêtre, deux modes, et le mode se détecte.** Sans installation trouvée, c'est une installation. Avec une
+installation trouvée, c'est une mise à jour. Personne ne choisit le mode.
+
+**Elle annonce le plan que l'installation exécutera**, calculé d'après l'état de la machine, jamais une liste écrite à
+la main. Un geste qui ne se fera pas n'apparaît pas ; un geste qui se fera apparaît, une seule fois.
+
+| | Installation | Mise à jour |
+|---|---|---|
+| **Titre** | Installer Vigie sur cet ordinateur | Mettre à jour Vigie |
+| **Dossier** | choisi d'abord, `Program Files` proposé ; les gestes s'annoncent ensuite, avec le dossier retenu | aucun choix : c'est l'installation en place |
+| **Versions** | la version qui sera installée | la version en place, la version d'arrivée et leur source |
+| **Gestes** | copie, compte de service, tâche serveur, tâches d'app cliente des comptes activés, prérequis manquants | arrêt de l'app serveur et des apps clientes, sauvegarde puis remplacement, suppression du cache, tâches réenregistrées nommées une à une, compte de service repris, prérequis manquants |
+| **Note** | l'autorisation administrateur vient ensuite, et rien n'est modifié avant | la même |
+
+La rédaction de ses textes suit `doc/en/developing/conventions.md`, section « La tournure des libelles ».
+
 ### La sauvegarde
 
 Elle vit **hors de toute installation**, à l'échelle de la machine : `%ProgramData%\Sowapps\Vigieackup`, là où

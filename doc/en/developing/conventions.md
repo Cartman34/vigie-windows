@@ -28,6 +28,11 @@ fil des passages, sans grand nettoyage, et un cliquet interdit d'en ajouter.
 - **Les messages de journal** : ils se lisent pendant un depannage, avec le meme lecteur.
 - **La documentation** de `doc/fr/` et de `progress/`.
 
+### La tournure des libelles
+Un libelle ne s'adresse a personne quand une tournure neutre existe : « Windows demandera ensuite l'autorisation
+administrateur » plutot que « Si vous continuez, Windows vous demandera l'autorisation ». Quand l'eviter devient
+bizarre, on vouvoie ; on ne tutoie jamais. Aucune capitale d'insistance : « VOTRE » se lit comme un cri.
+
 ### La seule exception admise
 Un **terme metier** qui n'a pas d'equivalent anglais etabli. Ce projet est technique : il
 n'y en a quasiment aucun, et l'exception doit se justifier a chaque fois, pas se supposer.
