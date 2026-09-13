@@ -65,7 +65,7 @@ qui manquera — et cela ne justifie donc aucune restauration.
 port se libère, le processus disparaît —, un démarrage se suppose.
 
 **Un échec se voit toujours**, même avant l'ouverture du journal : la console reste ouverte tant que la fenêtre de fin
-n'a pas conclu.
+n'a pas conclu. Un refus ou un échec de l'élévation aussi : la console le dit et attend.
 
 **Le dossier choisi traverse chaque passe** : l'élévation comme le passage en PowerShell 7.
 

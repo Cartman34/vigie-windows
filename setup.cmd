@@ -90,7 +90,18 @@ REM console: without passing it on, the chosen folder would be forgotten between
 REM windows. PowerShell quotes the path, reading it from the environment: cmd stays out of it,
 REM its quoting rules being one more trap (D116).
 powershell -NoProfile -Command "$chemin = $env:VIGIE_PATH; $args2 = @(); if ($chemin) { $args2 = @(('\"' + $chemin.TrimEnd('\') + '\"')) }; Start-Process -FilePath $env:VIGIE_SELF -Verb RunAs -ArgumentList $args2"
+REM A REFUSED OR FAILED ELEVATION IS SAID, AND THE CONSOLE WAITS. Without this test the window closed on it with no
+REM log at all: install.ps1 never ran (13/09, 11:21).
+if errorlevel 1 goto :elevko
 exit /b
+
+:elevko
+echo.
+echo L'élévation n'a pas eu lieu : refusée, ou impossible depuis cette session.
+echo Rien n'a été modifié sur cet ordinateur.
+echo.
+pause
+exit /b 4
 
 :refus
 echo.

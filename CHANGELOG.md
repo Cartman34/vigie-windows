@@ -637,6 +637,8 @@ versions, du point de vue de qui utilise Vigie.*
   **taisait une mise à jour demandée** qu'elle ne retrouvait plus (12/09 : quatre demandées, trois dans le compte
   rendu). Le verdict manquant est relu dans l'historique de Windows Update, chaque code a un nom, et une mise à jour
   introuvable compte comme un échec. **Non éprouvé sur une vraie installation.**
+- **`setup.cmd` se fermait sans rien dire quand l'élévation n'avait pas lieu.** Il le dit maintenant et attend. La
+  cause de l'installation silencieuse du 13/09 à 11 h 11 reste **non expliquée**.
 
 ### Ajouté
 - `scripts/dev/check-all.ps1` lance tous les vérificateurs du dépôt en une commande.

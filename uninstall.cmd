@@ -35,7 +35,17 @@ if errorlevel 1 goto :refus
 echo Une fenêtre de confirmation Windows va s'ouvrir.
 set "VIGIE_SELF=%~f0"
 powershell -NoProfile -Command "Start-Process -FilePath $env:VIGIE_SELF -Verb RunAs"
+REM A REFUSED OR FAILED ELEVATION IS SAID, AND THE CONSOLE WAITS: without this test the window closed on it silently.
+if errorlevel 1 goto :elevko
 exit /b
+
+:elevko
+echo.
+echo L'élévation n'a pas eu lieu : refusée, ou impossible depuis cette session.
+echo Rien n'a été modifié sur cet ordinateur.
+echo.
+pause
+exit /b 4
 
 :refus
 echo.

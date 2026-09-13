@@ -18,4 +18,5 @@ des mois plus tard, qu'un chemin a été éprouvé alors qu'il n'a jamais été 
 | [2026-09-13-service-clone-blocked-by-rewritten-tags.md](2026-09-13-service-clone-blocked-by-rewritten-tags.md) | Le clone du service bloqué par des étiquettes déplacées, et les pièces sans réponse à leur vie. |
 | [2026-09-13-deployment-card-never-started.md](2026-09-13-deployment-card-never-started.md) | Une app cliente qui tourne affichée « Jamais démarrée » : un démarrage refusé lu comme un échec. |
 | [2026-09-13-windows-update-unknown-result.md](2026-09-13-windows-update-unknown-result.md) | Un verdict « Inconnu » que Windows connaissait, et une mise à jour demandée disparue du compte rendu. |
+| [2026-09-13-setup-silent-after-announcement.md](2026-09-13-setup-silent-after-announcement.md) | Une installation validée sans aucun journal : cause non expliquée, et une élévation manquée qui fermait la console sans rien dire. |
 | [2026-09-12-operations-outside-the-protocol.md](2026-09-12-operations-outside-the-protocol.md) | Quatre opérations longues hors du protocole commun, parce que **D82** n'avait jamais été reportée dans le plan cible. |
