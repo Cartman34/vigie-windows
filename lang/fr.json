@@ -335,6 +335,7 @@
   "install.bascule-en-powershell": "Bascule en PowerShell 7...",
   "install.cette-etape-doit-etre": "Cette étape doit être lancée EN ADMINISTRATEUR (installation pour tous les comptes).",
   "install.confiance-demande-elevation": "Sans élévation, le dépôt n'a pas pu être déclaré de confiance pour git : la mise à jour depuis l'interface échouera tant que ce ne sera pas fait.",
+  "install.confiance-perimee-retiree": "Confiance git retirée, dossier disparu : {0}",
   "install.confiance-impossible": "Déclaration de confiance impossible : {0}",
   "install.copie-invalide": "La copie n'est pas valide — {0}",
   "install.de-vers": "De {0} vers {1}.",

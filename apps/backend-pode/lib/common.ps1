@@ -1797,6 +1797,23 @@ function Remove-GitSafeDirectory {
     return $removed
 }
 
+<#
+    A TRUST WHOSE FOLDER IS GONE IS TAKEN BACK -- a deleted worktree, a moved repository. Only the pair
+    Set-GitSafeDirectory writes, "<folder>" and "<folder>/.git", on a local path: a single entry belongs to another
+    tool, and a path that is not of this computer cannot be judged from here. Returns the folders taken back.
+#>
+function Remove-StaleGitSafeDirectory {
+    $declared = @(Invoke-Git -Path $env:SystemDrive -Arguments @('config', '--system', '--get-all', 'safe.directory') |
+                  ForEach-Object { "$_".Replace([char]92, [char]47).TrimEnd([char]47) } | Where-Object { $_ })
+    $removed = @()
+    foreach ($entry in $declared) {
+        if ($entry.EndsWith('/.git') -or $declared -notcontains ($entry + '/.git')) { continue }
+        if ($entry -notmatch '^[A-Za-z]:/' -or (Test-Path -LiteralPath $entry)) { continue }
+        if (Remove-GitSafeDirectory -RepoPath $entry) { $removed += $entry }
+    }
+    return $removed
+}
+
 function New-DeploymentTag {
     param([Parameter(Mandatory)][string]$RepoPath, [switch]$Push)
     $tag = Get-NextDeploymentTag -RepoPath $RepoPath
