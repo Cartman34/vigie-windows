@@ -106,7 +106,9 @@ try {
         if (-not $elevated) { $gestures += Get-Label 'install-plan.taches-autres' }
     } else {
         $gestures += Get-Label 'install-plan.tache-serveur' $serverTask
-        $gestures += Get-Label 'install-plan.tache-compte' ('Vigie - ' + $env:USERNAME)
+        # The account that runs this window, read from its identity: the name after the last separator.
+        $account = ([Security.Principal.WindowsIdentity]::GetCurrent().Name -split [regex]::Escape($sep))[-1]
+        $gestures += Get-Label 'install-plan.tache-compte' ('Vigie - ' + $account)
     }
     if ($pwshMissing) { $gestures += Get-Label 'install-plan.pwsh' }
     if ($podeMissing) { $gestures += Get-Label 'install-plan.pode' }

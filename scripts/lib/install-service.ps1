@@ -36,7 +36,9 @@
 param(
     [switch] $Lister,
     [switch] $Activer,
-    [switch] $Retirer
+    [switch] $Retirer,
+    # Repairs the account and the task from the running server, without stopping it (service-account-repair).
+    [switch] $Repair
 )
 $ErrorActionPreference = 'Stop'
 
@@ -148,46 +150,13 @@ function Set-ServiceAccountReady {
 # compte qui l'a deja n'est pas retouche.
 function Grant-BatchLogonRight {
     param([Parameter(Mandatory)][string]$Sid)
-    $exportFile = Join-Path $env:TEMP ('vigie-secpol-' + [guid]::NewGuid().ToString('N').Substring(0,8) + '.inf')
-    $importFile = $exportFile -replace '\.inf$', '-import.inf'
-    try {
-        $out = & secedit.exe /export /areas USER_RIGHTS /cfg $exportFile 2>&1
-        if (-not (Test-Path -LiteralPath $exportFile)) {
-            Write-Warn (Get-Label 'install-service.droits-de-session-export' $out -join ' ')
-            return $false
-        }
-        $line = (Get-Content -LiteralPath $exportFile | Where-Object { $_ -match '^SeBatchLogonRight' } | Select-Object -First 1)
-        if ($line -and $line.Contains($Sid)) {
-            Write-Detail (Get-Label 'install-service.droit-ouvrir-une-session')
-            return $true
-        }
-        $current = if ($line) { ($line -split '=', 2)[1].Trim() } else { '' }
-        $updated = if ($current) { 'SeBatchLogonRight = ' + $current + ',*' + $Sid } else { 'SeBatchLogonRight = *' + $Sid }
-
-        # Un fichier de STRATEGIE minimal : on ne reecrit que la ligne qui nous concerne.
-        $content = @(
-            '[Unicode]', 'Unicode=yes',
-            '[Version]', 'signature="$CHICAGO$"', 'Revision=1',
-            '[Privilege Rights]', $updated
-        ) -join [Environment]::NewLine
-        [System.IO.File]::WriteAllText($importFile, $content, [System.Text.Encoding]::Unicode)
-
-        $db = Join-Path $env:TEMP ('vigie-secpol-' + [guid]::NewGuid().ToString('N').Substring(0,8) + '.sdb')
-        $out = & secedit.exe /configure /db $db /cfg $importFile /areas USER_RIGHTS 2>&1
-        if ($LASTEXITCODE -ne 0) {
-            Write-Warn (Get-Label 'install-service.droits-de-session-refus' $out -join ' ')
-            return $false
-        }
-        Write-Detail (Get-Label 'install-service.droit-ouvrir-une-session-2')
-        return $true
-    } catch {
-        Write-Warn (Get-Label 'install-service.droits-de-session' $_.Exception.Message)
-        return $false
-    } finally {
-        foreach ($f in @($exportFile, $importFile)) { Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue }
-    }
+    # THE secedit WORK LIVES IN common.ps1 (Set-BatchLogonRight): the uninstall revokes what this grants, with one code.
+    $result = Set-BatchLogonRight -Sid $Sid
+    if (-not $result.ok) { Write-Warn (Get-Label 'install-service.droits-de-session' $result.error); return $false }
+    if ($result.changed) { Write-Detail (Get-Label 'install-service.droit-ouvrir-une-session-2') }
+    else { Write-Detail (Get-Label 'install-service.droit-ouvrir-une-session') }
+    return $true
 }
-
 # --- La tache machine -----------------------------------------------------------------
 function Register-ServiceTask {
     param([Parameter(Mandatory)][string]$Password)
@@ -443,6 +412,36 @@ if ($Retirer) {
     Show-State
     if (Remove-Service) { Show-State; exit 0 }
     exit 2
+}
+
+<#
+    REPAIRING FROM THE RUNNING SERVER (action service-account-repair). The account gets a new password, its right and
+    the line that hides it again; the task is re-registered with that password, then enabled again. Nothing is
+    stopped: the running server keeps its token, and the next start uses the new password. If the registration fails
+    once the password has changed, the next start fails too: the failure is displayed with its reason, and
+    setup.cmd repairs it.
+#>
+if ($Repair) {
+    Write-Step (Get-Label 'install-service.reparation')
+    try {
+        $password = Set-ServiceAccountReady
+    } catch {
+        Write-Fail (Get-Label 'install-service.le-compte-de-service' $_.Exception.Message)
+        exit 2
+    }
+    $registered = Register-ServiceTask -Password $password
+    $password = $null
+    [System.GC]::Collect()
+    if (-not $registered) { exit 2 }
+    $null = Grant-TaskControl
+    try {
+        Enable-ScheduledTask -TaskName $SERVICE_TASK -ErrorAction Stop | Out-Null
+    } catch {
+        Write-Fail (Get-Label 'install-service.reactivation-impossible' $_.Exception.Message)
+        exit 2
+    }
+    Write-Ok (Get-Label 'install-service.reparation-faite')
+    exit 0
 }
 
 Write-Step (Get-Label 'install-service.etape')

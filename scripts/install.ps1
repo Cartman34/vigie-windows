@@ -397,6 +397,8 @@ try {
 if ($repoLocal) {
     Write-Step (Get-Label 'install.source-declaree')
     try {
+        $previousSource = ''
+        try { $previousSource = "$((Get-Config -Backend $backend).SourcePath)" } catch { }
         $noteA = Set-ComputerConfigValue -Values @{ SourcePath = $repoLocal }
         Write-Detail (Get-Label 'install.source-notee' $repoLocal $noteA)
     } catch {
@@ -406,6 +408,10 @@ if ($repoLocal) {
         try {
             if (Set-GitSafeDirectory -RepoPath $repoRoot) { Write-Ok (Get-Label 'install.depot-de-confiance' $repoRoot) }
             else { Write-Detail (Get-Label 'install.depot-deja-de-confiance') }
+            # THE PREVIOUS SOURCE LOSES ITS TRUST: declarations piled up, one pair per source ever used (13/09).
+            if ($previousSource -and $previousSource.TrimEnd([char]92, [char]47) -ine $repoRoot.TrimEnd([char]92, [char]47)) {
+                if (Remove-GitSafeDirectory -RepoPath $previousSource) { Write-Detail (Get-Label 'install.ancienne-source-retiree' $previousSource) }
+            }
         } catch {
             Write-Warn (Get-Label 'install.confiance-impossible' $_.Exception.Message)
         }

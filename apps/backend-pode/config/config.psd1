@@ -79,6 +79,10 @@
     # Series echantillonnees au passage des sondes, stockees dans var/history/ (un
     # fichier JSONL par mesure). Resolution en couches par Get-HistoryConfig
     # (lib/common.ps1) : ces valeurs globales, puis le reglage par mesure ci-dessous.
+    # How long the logs are kept, in days: logs, diagnostic copies and .reg backups (Invoke-LogPurge). 30 days,
+    # arbitrated by the owner on 13/09.
+    LogRetentionDays = 30
+
     History = @{
         # Interrupteur general. Desactive = plus aucune ecriture (les fichiers restent).
         Enabled            = $true

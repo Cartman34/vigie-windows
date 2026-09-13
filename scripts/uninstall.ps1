@@ -181,6 +181,14 @@ try {
         if (Test-Path -LiteralPath $key) {
             $serviceProfile = "$((Get-ItemProperty -LiteralPath $key -ErrorAction SilentlyContinue).ProfileImagePath)"
         }
+        # THE RIGHT GOES WITH THE ACCOUNT: once the account is gone, its identifier would stay in the policy for good.
+        $right = Set-BatchLogonRight -Sid $sid -Revoke
+        if (-not $right.ok) {
+            Write-Warn (Get-Label 'uninstall.droit-session-reste' "$($right.error)")
+            Add-Leftover -What (Get-Label 'uninstall.reste-droit-session' $sid) -How (Get-Label 'uninstall.reste-droit-session-comment')
+        } elseif ($right.changed) {
+            Write-Ok (Get-Label 'uninstall.droit-session-retire')
+        }
         Remove-LocalUser -Name $serviceAccount -ErrorAction Stop
         Write-Ok (Get-Label 'uninstall.compte-retire' $serviceAccount)
     } else {
@@ -459,6 +467,21 @@ try {
         }
     }
 } catch { }
+
+# --- 7d. The event log source ------------------------------------------------------------
+#
+# REGISTERED ON FIRST USE, and never taken back until 13/09: the name stayed among the sources of the Application log
+# after Vigie had gone.
+$eventSource = if ($script:VigieEventSource) { $script:VigieEventSource } else { 'Vigie' }
+try {
+    if ([System.Diagnostics.EventLog]::SourceExists($eventSource)) {
+        [System.Diagnostics.EventLog]::DeleteEventSource($eventSource)
+        Write-Ok (Get-Label 'uninstall.source-journal-retiree' $eventSource)
+    }
+} catch {
+    Write-Warn (Get-Label 'uninstall.source-journal-reste' $_.Exception.Message)
+    Add-Leftover -What (Get-Label 'uninstall.reste-source-journal' $eventSource) -How (Get-Label 'uninstall.reste-source-journal-comment' $eventSource)
+}
 
 # --- 10. What the computer itself keeps ------------------------------------------------
 #

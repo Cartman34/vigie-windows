@@ -36,6 +36,8 @@ $appsRootTmp = Split-Path $PSScriptRoot -Parent
 $trayLog = Get-VarPath -Backend $PSScriptRoot -Kind 'log' -File ('tray_' + (Get-Date -Format 'yyyyMMdd') + '.log')
 function TLog($m) { try { ("[" + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + "] " + $m) | Out-File -FilePath $trayLog -Append -Encoding UTF8 } catch { } }
 TLog "demarrage (PS $($PSVersionTable.PSVersion), $([System.Threading.Thread]::CurrentThread.GetApartmentState()))"
+# Its own logs are kept 30 days, like everyone else's (Invoke-LogPurge).
+try { $null = Invoke-LogPurge -Backend $PSScriptRoot } catch { }
 
 # UN VERROU PAR COMPTE, pas par session de bureau. Sans nom d'espace explicite, un
 # mutex vit dans « Local\ », c'est-a-dire dans la session Windows -- et deux comptes

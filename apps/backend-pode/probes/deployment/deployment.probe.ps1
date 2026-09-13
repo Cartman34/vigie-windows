@@ -213,6 +213,16 @@ if ($envIssues.Count) {
                 "Vigie répond depuis : " + (Get-StageLabel -Stage $running))
 }
 
+# THE DECLARED SOURCE MAY HAVE GONE -- a working copy deleted, a repository moved. The update then takes the latest
+# published version (Get-UpdateRoute), and the card says why: arbitrated by the owner on 13/09.
+$declaredSource = ''
+try { $declaredSource = "$((Get-Config -Backend $backend).SourcePath)" } catch { }
+if ($declaredSource -and -not (Test-PathSafe (Join-Path $declaredSource '.git'))) {
+    $depl += New-Field -Key 'source' -Label 'Source déclarée' -Value 'Introuvable' -Kind 'text' -Status 'warn' `
+        -Help "Le dépôt déclaré comme source n'existe plus : les mises à jour viennent de la dernière version publiée." `
+        -Guide ("Source déclarée : " + $declaredSource)
+}
+
 # HORS SERVICE et EN ATTENTE ne se disent pas de la meme facon. Une tache dont la
 # structure est saine mais dont le dernier lancement a echoue n'est pas cassee : elle se
 # confirmera au prochain demarrage du compte. L'annoncer en rouge etait excessif, et

@@ -72,6 +72,9 @@ try {
         Write-Log -Backend $backend -Name 'start' -Level 'ERROR' -Message (Get-Label 'start.auto-reparation' $_.Exception.Message)
     }
 
+    # THE LOGS ARE KEPT 30 DAYS (Invoke-LogPurge): at each start of the server, then daily with the history purge.
+    try { $null = Invoke-LogPurge -Backend $backend } catch { }
+
     Import-Module Pode
     Write-Log -Backend $backend -Name 'start' -Message (Get-Label 'start.demarrage' (Get-ApiUrl -Config $cfg))
     Write-Info (Get-Label 'start.ui' (Get-AppUrl -Config $cfg))

@@ -1737,6 +1737,66 @@ function Set-GitSafeDirectory {
     return $added
 }
 
+<#
+    THE RIGHT "LOG ON AS A BATCH JOB" (SeBatchLogonRight), granted or revoked through secedit. A task registered with
+    a password starts only if its account holds it; the uninstall takes it back, so that no right outlives the
+    account. No display here: the caller says what was done. Returns ok, changed and error.
+#>
+function Set-BatchLogonRight {
+    param([Parameter(Mandatory)][string]$Sid, [switch]$Revoke)
+    $stamp = [guid]::NewGuid().ToString('N').Substring(0, 8)
+    $exportFile = Join-Path $env:TEMP ('vigie-secpol-' + $stamp + '.inf')
+    $importFile = Join-Path $env:TEMP ('vigie-secpol-' + $stamp + '-import.inf')
+    $database   = Join-Path $env:TEMP ('vigie-secpol-' + $stamp + '.sdb')
+    try {
+        $out = & secedit.exe /export /areas USER_RIGHTS /cfg $exportFile 2>&1
+        if (-not (Test-Path -LiteralPath $exportFile)) {
+            return [pscustomobject]@{ ok = $false; changed = $false; error = (@($out) -join ' ') }
+        }
+        $line = Get-Content -LiteralPath $exportFile | Where-Object { $_ -match '^SeBatchLogonRight' } | Select-Object -First 1
+        $holders = @()
+        if ($line) { $holders = @((($line -split '=', 2)[1]).Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ }) }
+        $mine = '*' + $Sid
+        $has = $holders -contains $mine
+        if ($Revoke) {
+            if (-not $has) { return [pscustomobject]@{ ok = $true; changed = $false; error = $null } }
+            $holders = @($holders | Where-Object { $_ -ne $mine })
+        } else {
+            if ($has) { return [pscustomobject]@{ ok = $true; changed = $false; error = $null } }
+            $holders += $mine
+        }
+        # A MINIMAL POLICY FILE: only the line we are about.
+        $content = @('[Unicode]', 'Unicode=yes', '[Version]', 'signature="$CHICAGO$"', 'Revision=1',
+                     '[Privilege Rights]', ('SeBatchLogonRight = ' + ($holders -join ','))) -join [Environment]::NewLine
+        [IO.File]::WriteAllText($importFile, $content, [Text.Encoding]::Unicode)
+        $out = & secedit.exe /configure /db $database /cfg $importFile /areas USER_RIGHTS 2>&1
+        if ($LASTEXITCODE -ne 0) { return [pscustomobject]@{ ok = $false; changed = $false; error = (@($out) -join ' ') } }
+        return [pscustomobject]@{ ok = $true; changed = $true; error = $null }
+    } catch {
+        return [pscustomobject]@{ ok = $false; changed = $false; error = $_.Exception.Message }
+    } finally {
+        foreach ($f in @($exportFile, $importFile, $database)) { Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue }
+    }
+}
+
+<#
+    THE TRUST GIVEN TO A SOURCE IS TAKEN BACK WHEN THE SOURCE CHANGES. Set-GitSafeDirectory adds two entries per
+    repository; they piled up, one pair per source ever used (seen on 13/09). This removes exactly those two.
+#>
+function Remove-GitSafeDirectory {
+    param([Parameter(Mandatory)][string]$RepoPath)
+    $rootPath = "$RepoPath".Replace([char]92, [char]47).TrimEnd([char]47)
+    $declared = @(Invoke-Git -Path $env:SystemDrive -Arguments @('config', '--system', '--get-all', 'safe.directory')) |
+                ForEach-Object { "$_".Replace([char]92, [char]47).TrimEnd([char]47) }
+    $removed = $false
+    foreach ($unwanted in @($rootPath, ($rootPath + '/.git'))) {
+        if ($declared -notcontains $unwanted) { continue }
+        $null = Invoke-Git -Path $env:SystemDrive -Arguments @('config', '--system', '--unset-all', 'safe.directory', ('^' + [regex]::Escape($unwanted) + '$'))
+        if (-not (Get-GitLastError)) { $removed = $true }
+    }
+    return $removed
+}
+
 function New-DeploymentTag {
     param([Parameter(Mandatory)][string]$RepoPath, [switch]$Push)
     $tag = Get-NextDeploymentTag -RepoPath $RepoPath
@@ -4690,11 +4750,37 @@ function Write-MeasureSamples {
         if ($due) {
             try { Update-StateJson -Path $indexFile -Set @{ purgedAt = $nowUtc.ToString('o') } | Out-Null } catch { }
             Invoke-HistoryPurge -Backend $Backend
+            try { $null = Invoke-LogPurge -Backend $Backend } catch { }
         }
     } catch {
         # L'historique OBSERVE, il n'arbitre pas : jamais d'echec remonte a Get-State.
         try { Write-Log -Backend $Backend -Name 'state' -Level 'WARN' -Message (Get-Label 'common.historique-echantillonnage-ignore' $Probe $_.Exception.Message) } catch { }
     }
+}
+
+<#
+    THE LOGS ARE KEPT 30 DAYS, then deleted. The requirement: doc/progress/targeting/components.md, in its section
+    on retention. Everything under var/log counts -- the logs, the diagnostic copies of other
+    accounts, the .reg backups -- and a folder left empty goes too. A log still being written is recent, so it stays.
+#>
+function Invoke-LogPurge {
+    param([string]$Backend = (Get-BackendRoot))
+    $days = 30
+    try { $configured = [int]((Get-Config -Backend $Backend).LogRetentionDays); if ($configured -gt 0) { $days = $configured } } catch { }
+    $dir = Get-VarPath -Backend $Backend -Kind 'log'
+    $limit = (Get-Date).AddDays(-$days)
+    $removed = 0
+    foreach ($file in @(Get-ChildItem -LiteralPath $dir -Recurse -File -Force -ErrorAction SilentlyContinue)) {
+        if ($file.LastWriteTime -ge $limit) { continue }
+        try { Remove-Item -LiteralPath $file.FullName -Force -ErrorAction Stop; $removed++ } catch { }
+    }
+    foreach ($folder in @(Get-ChildItem -LiteralPath $dir -Recurse -Directory -Force -ErrorAction SilentlyContinue |
+                          Sort-Object { $_.FullName.Length } -Descending)) {
+        if (-not @(Get-ChildItem -LiteralPath $folder.FullName -Force -ErrorAction SilentlyContinue).Count) {
+            Remove-Item -LiteralPath $folder.FullName -Force -ErrorAction SilentlyContinue
+        }
+    }
+    return $removed
 }
 
 # Purge des fichiers de var/history/ : retention en jours (globale, surchargee par
@@ -5940,6 +6026,7 @@ $script:RessourcesParAction = @{
     'pwsh-install-machine' = @('machine')
     'system-restart'       = @('machine')
     'repair-tasks'         = @('taches')
+    'service-account-repair' = @('machine')
     'service-clone-repair' = @('clone')
     'service-clone-reset'  = @('clone')
     # Windows Update : le verrou, l'analyse et l'installation se marchent dessus.
@@ -7088,6 +7175,9 @@ function Repair-VigieTasks {
 
     foreach ($t in $taches) {
         $nom = "$($t.TaskName)"
+        # THE SERVER TASK IS NOT AN ACCOUNT'S: taken by its prefix, it was diagnosed as the task of an account named
+        # after its suffix. Its maintenance is service-account-repair.
+        if ($nom -eq (Get-ServiceTaskName)) { continue }
         # WHOSE task is this? "Vigie - X" says it in its name; plain "Vigie" says it in its
         # PRINCIPAL -- we read that, rather than assume it belongs to whoever is looking.
         # The legacy task belongs to whoever installed it, not to the requester.

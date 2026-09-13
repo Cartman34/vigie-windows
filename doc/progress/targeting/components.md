@@ -34,6 +34,13 @@ refuser.
 La maintenance passe par les actions du serveur. Chacune déclare ses droits, laisse une trace d'audit et ne recopie
 aucun secret. L'agent sur le poste de développement emprunte ces mêmes actions : il n'a aucun chemin à lui.
 
+## Les durées de conservation
+
+| Donnée | Durée |
+|---|---|
+| journaux, copies de diagnostic et sauvegardes `.reg`, sous `var/log` | **30 jours**, arbitré par l'utilisateur le 13/09 |
+| historique des mesures, sous `var/history` | celle de `config.psd1`, section `History` |
+
 ## L'inventaire
 
 Toute pièce figure dans `implemented/components.md`, avec sa réponse à chaque situation. Une pièce nouvelle y entre dans
