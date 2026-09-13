@@ -383,7 +383,32 @@ card **display** the discrepancy. The cause stayed in place all day, until he po
 cause, or we say explicitly why we are not doing it now (and it becomes a written task, not a
 sentence in a message). Making a defect visible is useful; it never replaces fixing it.
 
-## A feature is NEVER invented
+## The order of work — evidence, decision, target, development, target
+
+**The process defined with the owner at the start of the project, restated on 13/09. No exception, whatever the size of
+the change:**
+
+```text
+evidence + decision  ->  target plan  ->  development + implemented documentation  ->  target plan
+```
+
+1. **Evidence and decision.** What was measured goes to `notes/evidence/`, the arbitration to
+   `doc/progress/decisions.md`, which cites it.
+2. **The target plan BEFORE any line of code.** `doc/progress/targeting/` says what the product must be. A decision
+   carried into the code and not into the target is applied to the cases in front of me, then forgotten.
+3. **Development and implemented documentation, in the same gesture.** `doc/progress/implemented/` says what is really
+   in place, gaps named.
+4. **The target plan again.** What development taught goes back into it: a gap that stays, a question left open. And
+   `implemented/status.md` says where each feature stands.
+
+*On 12/09, a Windows Update installation announced itself finished the moment it started, then froze its card on
+"Starting…". D82, on 26/08, required that no background task fail silently. It was applied to the two actions of that
+day, and the target was never updated: four long operations stayed outside the protocol for seventeen days, while
+`status.md` said "done".*
+
+**Nothing is found by groping.** What the product is made of and must be found again — its operations first — has an
+inventory in `doc/progress/implemented/`, held by a checker. Memory is not an inventory: an agent forgets faster than a
+person, and never holds everything at once.## A feature is NEVER invented
 
 **What has not been asked for is not done.** Not because it is useful, not because "the data
 was already there", not because it rounds off what exists nicely. The owner decides what the

@@ -28,7 +28,7 @@ ligne — `scripts/dev/check-doc.ps1` refuse une décision absente d'ici.
 - **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46 · D48 · D49 · D50 · D58 · D59 · D66 · D68 · D69 · D70 · D71 · D88 · D89 · D94 · D95 · D102 · D105 · D114
 - **Installation, déploiement et mise à jour** — D07 · D11 · D22 · D77 · D78 · D79 · D81 · D84 · D87 · D96 · D97 · D99 · D101 · D106 · D107 (revu) · D110 · D112 · D117
 - **Sécurité, droits et multi-comptes** — D34 · D65 · D67 · D73 · D104 · D109
-- **Sondes, actions et tâches de fond** — D50bis · D53 · D54 · D60 · D61 · D80 · D82 · D83 · D85 · D113
+- **Sondes, actions et tâches de fond** — D50bis · D53 · D54 · D60 · D61 · D80 · D82 · D83 · D85 · D113 · D122
 - **Outillage** — D06 · D21 · D24 · D40 · D44 · D47 · D52 · D64 · D75 · D86 · D90 · D116 · D118
 - **Méthode de travail** — D10 · D12 · D13 · D14 · D16 · D17 · D31 · D36 · D39 · D43 · D51 · D62 · D63 · D74 · D76 · D100 · D103 · D121
 ---
@@ -3165,3 +3165,28 @@ dépôt**.
 
 **Ce qui n'est tenu par aucun outil.** Celle-ci porte sur ma lecture d'une phrase, pas sur un état vérifiable. C'est la
 seule discipline du dépôt sans vérificateur derrière elle, et **D119** impose de le dire plutôt que de faire semblant.
+
+## D122 — Toutes les opérations suivent un seul protocole, et aucune erreur n'est tue (2026-09-13)
+
+*Demandée par l'utilisateur.*
+
+« Notre protocole doit être le même pour toutes les opérations et on doit gérer toutes les erreurs. » Et, le même jour :
+toutes les opérations, courtes ou longues, doivent être **répertoriées au bon endroit**, de sorte qu'on retrouve où
+elles ont lieu sans chercher à tâtons.
+
+Le 12/09, une installation de mises à jour Windows s'est annoncée terminée dès son départ, puis sa carte est restée
+figée sur « Démarrage… ». Cause : quatre opérations longues lancent leur worker hors du protocole commun, sans marque
+d'occupation, sans résultat commun et sans verrou. **D82** et **D95** exigeaient déjà ce protocole, mais elles ont été
+appliquées aux cas du jour sans que le plan cible le généralise.
+
+**La règle**, détaillée dans `targeting/operations.md` :
+
+- toute opération figure dans l'inventaire `implemented/operations.md`, tenu par un vérificateur ;
+- toute opération longue passe par une seule fonction de lancement, et sa marque existe avant la réponse de l'action ;
+- toute fin écrit un résultat, et un processus disparu sans résultat est un échec affiché ;
+- aucun fichier d'état propre à une opération ne dit « en cours », et aucune n'a sa propre règle d'abandon.
+
+Elle **généralise D82 et D95** sans les remplacer.
+
+Preuve : [2026-09-12-operations-outside-the-protocol.md](../../notes/evidence/2026-09-12-operations-outside-the-protocol.md), soit
+`notes/evidence/2026-09-12-operations-outside-the-protocol.md`.

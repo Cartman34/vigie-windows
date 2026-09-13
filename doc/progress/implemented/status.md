@@ -1,7 +1,7 @@
 # État d'implémentation
 
 Légende : **Fait** / **Partiel** / **À faire**. Les ID renvoient à `../targeting/features.md`.
-Mise à jour : 2026-09-05.
+Mise à jour : 2026-09-13.
 
 ## Socle
 
@@ -21,7 +21,7 @@ Mise à jour : 2026-09-05.
 | CORE-ACCOUNTS | Fait | Carte Comptes, `accounts-details`, `diag-account-logs` ; app serveur élevée sous `VigieService` au démarrage de l'ordinateur | **Un compte standard n'a plus rien à élever** : l'app serveur tourne déjà, avant toute session, et son app cliente lui parle. Le blocage du 28/08 — « le serveur exige l'élévation et réclame un mot de passe administrateur » — n'existe plus depuis que l'app serveur démarre avec la machine. Reste ce que la session 0 ne voit pas : les mesures **par utilisateur** (WSL, gestionnaires de paquets), décrites en C4 de `targeting/multi-account-server.md` |
 | CORE-RESIDENT | Fait | `Get-ResidentDeclarations`, `Start-Resident`, `Invoke-ResidentPass`, `Get-ResidentHealth` dans `common.ps1` ; armés par la boucle d'une minute de l'app serveur | Un seul résident déclaré (`gaming/game`). Éprouvé hors élévation : armement, balayage initial, battement, arrêt, et l'état « abonnement refusé » remonté au lieu d'être tu |
 | CORE-WATCH | Fait | Minuteur d'une minute dans l'app serveur, sentinelles déclarées par module ([surveillance.md](../targeting/surveillance.md)) ; historique par sentinelle (`watch.<clé>`, nature `event`) | **Éprouvée en production le 01/09 à 19 h 54** : la sentinelle `gaming/game-battery` a écrit son premier relevé et fait recalculer la carte Jeux, sans session ouverte. Trois sentinelles posées (`network/internet`, `gaming/game-battery`, `system/power`) — les autres modules n'en déclarent pas encore |
-| CORE-OPERATIONS | Fait | Marqueurs d'occupation, verrou de ressources, `/operations` interrogé par toutes les pages | — |
+| CORE-OPERATIONS | Partiel | Marqueurs d'occupation, verrou de ressources, `/operations` interrogé par toutes les pages ; inventaire : [operations.md](operations.md) | **Quatre opérations longues hors du protocole** : `wu-install`, `wu-scan`, `disk-analyze` et les opérations de paquets n'ont ni marque, ni résultat commun, ni verrou, et la page peut les annoncer terminées dès leur départ. **Le protocole lui-même laisse trois fins silencieuses** : la marque d'un processus mort s'efface sans résultat, un veilleur qui meurt au démarrage ne laisse rien, et la marque arrive après la réponse de l'action. Aucun vérificateur ne tient l'inventaire. **S14**, **D122** |
 | CORE-LAUNCH | Fait | `Start-ChildProcess` / `ConvertTo-ProcessArgument` dans `common.ps1` (**D116**) ; douze lancements y sont revenus, quatorze citations à la main ont disparu, deux lignes de commande écrites en un seul morceau aussi, `check-probes` refuse les trois formes à la main | Éprouvé sur douze valeurs limites — espaces, antislash final, guillemets, chaîne vide — en comparant ce que l’enfant reçoit à ce qu’on lui passe |
 | CORE-EXPORT | Fait | `apps/frontend-web/rapport.html`, route `/rapport` | Jamais vérifié à l'impression réelle |
 
@@ -31,9 +31,9 @@ Mise à jour : 2026-09-05.
 |----|------|-----|-----------------|
 | WU-LOCK | Fait | `probes/windows-update/lock.probe.ps1` | 12 tâches TrustedInstaller restent prêtes, inoffensives sous `NoAutoUpdate=1` |
 | WU-UPDATEMODE | Fait | `update-mode-on` / `update-mode-off` | — |
-| WU-PENDING | Fait | `pending.probe.ps1`, `wu-scan`, `wu-list-pending`, `wu-install` | — |
+| WU-PENDING | Partiel | `pending.probe.ps1`, `wu-scan`, `wu-list-pending`, `wu-install` | `wu-scan` et `wu-install` sont hors du protocole des opérations (**S14**). Le 12/09, une installation s'est annoncée terminée dès son départ, puis la carte est restée figée sur « Démarrage… » |
 | WU-AUDIT | Fait | `run-audit` | Rapport écrit sur disque, pas remonté dans l'interface |
-| SYS-DISK | Fait | `disk.probe.ps1`, `disk-cleanup`, `disk-analyze`, `disk-tree` | — |
+| SYS-DISK | Partiel | `disk.probe.ps1`, `disk-cleanup`, `disk-analyze`, `disk-tree` | `disk-analyze` est hors du protocole des opérations (**S14**) : sa propre règle d'abandon à 60 minutes, et aucun verrou |
 | SYS-OS | Fait | `os.probe.ps1` | — |
 | SYS-PERF | Fait | `perf.probe.ps1`, `perf-counters-rebuild` | — |
 | SYS-POWER | Fait | `power.probe.ps1` | Jamais observé en situation réelle de sous-alimentation |
@@ -42,7 +42,7 @@ Mise à jour : 2026-09-05.
 | SEC-DEFENDER | Fait | `defender.probe.ps1` | — |
 | SEC-FIREWALL | Fait | `firewall.probe.ps1` | — |
 | WSL-STATE | Fait | `wsl.probe.ps1`, `wsl-start`, `wsl-restart`, `wsl-shutdown` | — |
-| TOOLS-PACKAGES | Fait | `packages.probe.ps1`, `pkg-check-updates`, `pkg-list-updates`, `pkg-upgrade` | — |
+| TOOLS-PACKAGES | Partiel | `packages.probe.ps1`, `pkg-check-updates`, `pkg-list-updates`, `pkg-upgrade` | La vérification et la mise à jour sont hors du protocole des opérations (**S14**) : leur propre règle d'abandon à 45 minutes, et aucun verrou |
 | GAMING | Partiel | `gaming.probe.ps1` (lecture seule de la partie), résident `game.resident.ps1`, quatre méthodes d'identification dans `probes/gaming/identify/`, sentinelles `game` et `game-battery` ; cible : [gaming.md](../targeting/gaming.md) | La détection lisait les bibliothèques Steam et la Game Bar dans `HKCU`, donc dans la ruche du compte de service : corrigé le 01/09 (D113), la détection ne mesure plus : elle part du **démarrage des processus** et applique quatre méthodes indépendantes, la première qui répond suffit. Éprouvé le 02/09 : Odyssey reconnu par la Game Bar, Chrome écarté, `explorer` écarté sur son emplacement, verdicts mémorisés. **Non éprouvé** : l'abonnement lui-même, qui exige l'élévation — il sera armé par l'app serveur au prochain déploiement. La carte porte un **mode** (`mode: game` au contrat) et l'interface lui donne un liseré, un fond et une mention « en jeu » |
 
 Module `debug` (carte Vigie : version, serveur, journaux, données locales) en plus de la cible : inactif par défaut.
@@ -52,7 +52,7 @@ Module `debug` (carte Vigie : version, serveur, journaux, données locales) en p
 | ID | État | Où | Écarts vs cible |
 |----|------|-----|-----------------|
 | UI-STATUS | Fait | Accent de couleur et icône par carte | — |
-| UI-ACTION-TRACK | Fait | Suivi d'action, ligne rouge en cas d'échec, notification | — |
+| UI-ACTION-TRACK | Partiel | Suivi d'action, ligne rouge en cas d'échec, notification | Une opération longue sans marque d'occupation est annoncée « terminée » dès la réponse de son action, et un processus mort sans résultat aussi (**S14**) |
 | UI-NOTIF | Fait | Tiroir de notifications, notification verrouillée pendant une opération | — |
 | UI-COMPONENTS | Fait | Objet `UI`, un seul cadre arrondi | — |
 | UI-LAYOUT | Fait | Colonnes réelles, regroupement par module | — |
