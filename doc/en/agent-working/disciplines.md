@@ -90,6 +90,12 @@ for is a badly asked question.
 the question comes up now. One sentence, not a paragraph. *Asked by the owner on 14/09, for every question, always:
 five questions had been asked with nothing saying what each one was about.*
 
+**A question already answered is never asked again.** Before asking, search what was already answered or settled:
+`pwsh -File scripts/dev/answers.ps1 -About "<words>"`. Every answer the owner gives to a `Qn` is written in
+`notes/answers.md` in the same turn, and carried where it applies. It is asked again only on a new fact, named in the
+question. *On 14/09 two of five questions had already been answered, one the day before: the answers lived only in the
+conversation.*
+
 **Options.** A closed question gets lettered options — A, B, C… — **the recommended one
 first**. An open question stays open. Each option announces its **main advantage** in a few
 words (faster to build, safer, more maintainable…), so the arbitration is explicit rather

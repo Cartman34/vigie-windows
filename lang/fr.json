@@ -1,4 +1,7 @@
 {
+  "answers.rien": "Rien de trouvé : la question n'a pas encore de réponse écrite.",
+  "answers.titre": "Déjà répondu ? « {0} »",
+  "answers.trouvees": "{0} ligne(s) trouvée(s) : lire la réponse avant de poser la question.",
   "ask-vigie.pas-de-cookie": "L'app serveur n'a pas posé de cookie de session (code HTTP {0}).",
   "ask-vigie.personne-n-ecoute": "Aucune app serveur n'écoute sur le port {0}.",
   "ask-vigie.quelle-question": "Précisez -Type (une action) ou -Modules (l'état des cartes).",

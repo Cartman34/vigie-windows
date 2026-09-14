@@ -43,6 +43,7 @@ tout laisser en vrac à la racine sous prétexte que le dossier est encore petit
 |---|---|
 | `notes/evidence/` | les relevés qui ont tranché une décision, un fichier par mesure, nommé par sa date |
 | `notes/subjects.md` | le registre des sujets ouverts, `S01`, `S02`… — un numéro ne se réutilise jamais |
+| `notes/answers.md` | les réponses de l'utilisateur aux questions `Qn`, pour ne jamais reposer une question tranchée |
 
 **UNE DÉCISION SANS SA MESURE EST UNE OPINION.** Quand un arbitrage est tranché sur des
 chiffres — un relevé, un journal, une sortie de commande — ces chiffres se déposent ici, et
