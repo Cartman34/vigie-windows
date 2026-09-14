@@ -3,8 +3,9 @@
 # @execution: session   -- le tag s'ecrit dans le depot du DEMANDEUR, sous SON compte
 <# Action : poser le tag de version, dans le depot de la personne qui demande.
 
-   POURQUOI DANS LA SESSION. Le deploiement marque une version et la pousse -- c'est la
-   regle, et elle ne change pas. Mais l'app serveur tourne sous un compte de service :
+   WHEN. For a stable validated version, at its publication -- never at a deployment (D123).
+
+   POURQUOI DANS LA SESSION. Marquer une version la pousse aussi. Mais l'app serveur tourne sous un compte de service :
    un tag pose par lui n'aurait pas d'auteur, son push n'aurait pas d'identifiants, et
    git refuse d'ecrire dans un depot qui appartient a quelqu'un d'autre (D112).
 

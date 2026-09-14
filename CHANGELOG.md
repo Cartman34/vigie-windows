@@ -647,6 +647,8 @@ versions, du point de vue de qui utilise Vigie.*
 - Un secret de compte dont les droits accordent un accès à un tiers est révoqué, réémis et l'incident journalisé.
 - La carte Déploiement signale un profil du compte de service temporaire ou corrompu.
 - Action d'administration `service-data-reset` : vide le cache ou l'historique du service. **Non exécutée.**
+- **Un déploiement ne pose plus d'étiquette de version** (D123) : il affiche le dernier numéro suivi de ses commits,
+  par exemple `v1.1.5+3`. Une étiquette se pose pour une version stable validée, à sa publication.
 
 ### Ajouté
 - `scripts/dev/check-all.ps1` lance tous les vérificateurs du dépôt en une commande.

@@ -1668,38 +1668,6 @@ function Get-NextDeploymentTag {
 }
 
 <#
-    LA VERSION QUI SERA POSEE -- pas celle d'ou l'on part.
-
-    « v0.1.33+13 » n'est pas un numero de version : c'est « le tag v0.1.33, plus treize
-    commits ». C'est la bonne facon de decrire un depot en cours de route, et la mauvaise
-    facon d'annoncer un deploiement -- l'utilisateur lisait « De v0.1.33 vers v0.1.33+13 »
-    partout, alors que ce qui allait etre installe est v0.1.34.
-
-    En stage dev, un deploiement POSE un tag (D96) : ces treize commits deviennent une
-    version. On annonce donc celle-la. Ailleurs -- stage prod, ou rien a poser -- on
-    annonce ce qu'on lit, sans rien promettre.
-
-    Une seule definition, parce que la meme phrase est dite a deux endroits : le journal de
-    l'installation et la carte Deploiement.
-#>
-function Get-IncomingVersion {
-    param(
-        [Parameter(Mandatory)][AllowNull()][AllowEmptyString()][string]$Version,
-        [string]$RepoPath,
-        [string]$Backend = (Get-BackendRoot)
-    )
-    if (-not $Version) { return $Version }
-    # « +N » = des commits par-dessus le dernier tag. Sans lui, rien ne sera pose.
-    if ($Version -notmatch '^v?\d+\.\d+\.\d+\+\d+$') { return $Version }
-    if ((Get-DeclaredStage -Backend $Backend) -ne 'dev') { return $Version }
-    if (-not $RepoPath -or -not (Test-PathSafe $RepoPath)) { return $Version }
-    $next = $null
-    try { $next = Get-NextDeploymentTag -RepoPath $RepoPath } catch { }
-    if ($next) { return $next }
-    return $Version
-}
-
-<#
     DECLARER LE DEPOT DE CONFIANCE POUR GIT, A L'ECHELLE DE L'ORDINATEUR.
 
     Depuis git 2.35, git refuse d'ouvrir un depot appartenant a quelqu'un d'autre :
@@ -2051,10 +2019,8 @@ function Compare-SharedInstall {
         $sync = Sync-ServiceClone -Backend $Backend -Force:$Force
         $reference = 'clone'
         $remote = $sync.remote
-        # CE QUI SERA POSE, pas « le tag plus N commits » : c'est la version qu'on lira
-        # sur l'installation apres le deploiement.
-        $aPoser = Get-IncomingVersion -Version "$($sync.version)" -RepoPath $sync.path -Backend $Backend
-        $here = [pscustomobject][ordered]@{ version = $(if ($aPoser) { $aPoser } else { 'sans version' })
+        # WHAT ARRIVES, as it will read on the installation: "v1.1.5+3" in dev, since a deployment tags nothing (D123).
+        $here = [pscustomobject][ordered]@{ version = $(if ($sync.version) { "$($sync.version)" } else { 'sans version' })
                                             commit = $sync.commit; at = $null; source = 'clone'
                                             error = $sync.error }
         if ($sync.commit -and $there.commit) {

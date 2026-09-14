@@ -41,7 +41,7 @@ ligne — `scripts/dev/check-doc.ps1` refuse une décision absente d'ici.
 - **Documentation** — D91 · D92 · D93 (revu) · D98 · D119 · D120
 - **Configuration** — D15 · D18 · D56 · D57
 - **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46 · D48 · D49 · D50 · D58 · D59 · D66 · D68 · D69 · D70 · D71 · D88 · D89 · D94 · D95 · D102 · D105 · D114
-- **Installation, déploiement et mise à jour** — D07 · D11 · D22 · D77 · D78 · D79 · D81 · D84 · D87 · D96 · D97 · D99 · D101 · D106 · D107 (revu) · D110 · D112 · D117
+- **Installation, déploiement et mise à jour** — D07 · D11 · D22 · D77 · D78 · D79 · D81 · D84 · D87 · D96 · D97 · D99 · D101 · D106 · D107 (revu) · D110 · D112 · D117 · D123
 - **Sécurité, droits et multi-comptes** — D34 · D65 · D67 · D73 · D104 · D109
 - **Sondes, actions et tâches de fond** — D50bis · D53 · D54 · D60 · D61 · D80 · D82 · D83 · D85 · D113
 - **Outillage** — D06 · D21 · D24 · D40 · D44 · D47 · D52 · D64 · D75 · D86 · D90 · D116 · D118
@@ -3198,3 +3198,19 @@ dépôt**.
 
 **Ce qui n'est tenu par aucun outil.** Celle-ci porte sur ma lecture d'une phrase, pas sur un état vérifiable. C'est la
 seule discipline du dépôt sans vérificateur derrière elle, et **D119** impose de le dire plutôt que de faire semblant.
+
+## D123 — Une étiquette de version ne se pose que pour une version stable validée (2026-09-14)
+
+*Demandée par l'utilisateur : « ta solution A me plaît, on peut revenir à ça », après « tu as déployé bien plus souvent
+que demandé ».*
+
+**D96 posait une étiquette à chaque déploiement en stage `dev`.** Le 14/09, le dépôt en comptait 93, dont 70 en `v0.1`
+posées en trois semaines ; l'utilisateur en attend 10 à 20. La règle ne tenait qu'autant que les déploiements restaient
+rares, et ils ne l'étaient pas.
+
+**Décision.** Un déploiement ne pose plus aucune étiquette. Il affiche le dernier numéro suivi du nombre de commits,
+`v1.1.5+3`, et le commit à côté (**D84**). Une étiquette se pose pour une **version stable validée**, celle qu'on
+publie, par l'action `tag-version`. D96 garde son principe : un seul numéro, jamais tenu à la main.
+
+**Ce que cela ferme.** **S12** : un déploiement sans session ne pouvait pas publier son numéro ; il n'en a plus à
+publier. Les 93 étiquettes déjà posées restent : les retirer est un geste public.

@@ -278,11 +278,8 @@ $isUpdate = [bool]($current -and $current.version)
 if ($isUpdate) { Write-Title (Get-Label 'install.titre-maj') }
 else            { Write-Title (Get-Label 'install.titre') }
 if ($isUpdate) {
-    # ON ANNONCE LA VERSION QUI SERA POSEE. « v0.1.33+13 » decrit un depot en cours de
-    # route ; ce qui sera installe, en stage dev, porte le tag suivant.
-    if ($incoming -and $incoming.version) {
-        $versionPosee = Get-IncomingVersion -Version "$($incoming.version)" -RepoPath $repoRoot -Backend $backend
-    }
+    # THE VERSION ANNOUNCED IS THE ONE THAT ARRIVES: "v1.1.5+3" in dev, since a deployment tags nothing (D123).
+    if ($incoming -and $incoming.version) { $versionPosee = "$($incoming.version)" }
     Write-Info (Get-Label 'install.de-vers' $current.version $(if ($versionPosee) { $versionPosee } else { '?' }))
 }
 # PROD EST LE DEFAUT, ON NE L'ANNONCE PAS. L'application est de production d'abord : le
@@ -513,57 +510,8 @@ if ($aRecuperer) {
         }
     }
 
-    <#
-        LE TAG EST POSE PAR LE DEMANDEUR, AVANT DE FABRIQUER.
-
-        On marque une version s'il y a des commits d'avance ET qu'on est en stage dev.
-        L'installation tourne peut-etre sous le compte du service, qui n'a rien a ecrire
-        dans le depot d'une personne : on demande a l'app cliente du demandeur de poser le
-        tag chez elle, et le clone le verra au fetch suivant.
-
-        Lancee a la main, il n'y a personne a qui deleguer : celui qui tape la commande EST
-        le proprietaire. Et si le tag ne peut pas se poser, on continue -- une mise a jour
-        ne rate pas pour un numero.
-    #>
-    if ($route -eq 'clone' -and (Get-DeclaredStage -Backend $backend) -eq 'dev' -and -not $updateRef) {
-        $tagPose = $null
-        if ($Requester) {
-            Write-Detail (Get-Label 'vigie-update.marquage-demande' $Requester)
-            try {
-                $marquage = Invoke-DesktopAction -Account $Requester -Type 'tag-version' -TimeoutSec 45 -Backend $backend
-                $tagPose = "$($marquage.result.tag)"
-                if (-not $tagPose) { Write-Detail (Get-Label 'vigie-update.marquage-sans-tag' "$($marquage.message)") }
-            } catch { Write-Detail (Get-Label 'vigie-update.marquage-impossible' $_.Exception.Message) }
-        }
-        <#
-            NOBODY TO DELEGATE TO: THE PERSON TYPING IS THE OWNER.
-
-            Run by hand, there is no requester to ask -- the account running this script owns
-            the repository, and tags it directly.
-
-            IT IS NOT A FALLBACK FOR A FAILED DELEGATION, and it was one for a few hours on
-            08/09. When a requester exists but nothing answers, the service CANNOT stand in:
-            git refuses to write in a repository owned by somebody else (D112), and the
-            service account holds none of the credentials a push needs. Posing the tag from
-            here would fail -- and a failure hidden behind a fallback is worse than no try.
-
-            So a deployment with nobody logged in still installs without a number: that gap is
-            S12, and it closes by DEFERRING the publication to the first client app that shows
-            up, never by handing credentials to the service.
-        #>
-        if (-not $tagPose -and -not $Requester) {
-            $depotSource = Get-UpdateRemote -Backend $backend
-            try {
-                $pose = New-DeploymentTag -RepoPath $depotSource -Push
-                if ($pose.posed) { $tagPose = $pose.tag }
-                else { Write-Detail (Get-Label 'vigie-update.marquage-impossible' "$($pose.error)") }
-            } catch { Write-Detail (Get-Label 'vigie-update.marquage-impossible' $_.Exception.Message) }
-        }
-        if ($tagPose) {
-            $updateRef = $tagPose
-            Write-Ok (Get-Label 'vigie-update.version-marquee' $tagPose)
-        }
-    }
+    # A DEPLOYMENT TAGS NOTHING (D123): 93 tags in three weeks, one per deployment, where 10 to 20 were expected. A tag
+    # marks a stable validated version, at its publication, through the action tag-version.
 
     # LA FABRICATION reste un script a part : elle a sa propre affaire -- git, archive,
     # verification du contenu -- et elle sert aussi a fabriquer une release a la main.

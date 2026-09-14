@@ -35,4 +35,5 @@ question.
 | 14/09 | Faut-il limiter les étiquettes de version, 92 à ce jour ? | On devrait en avoir 10 à 20 : au-delà, le protocole de marquage n'a pas été respecté. | **D96** et la mise à jour unique par lot ; `doc/progress/implemented/components.md` |
 | 14/09 | Que faire d'un profil du compte de service abîmé ? | Toute erreur se gère et se remonte : c'est déjà défini. | `doc/progress/targeting/components.md`, situation « État cassé » |
 | 14/09 | Une installation retire-t-elle les déclarations `safe.directory` de Vigie qui ne visent pas la source actuelle ? | Oui. | `doc/progress/targeting/install-update.md`, étape 5 |
+| 14/09 | Quand une étiquette de version doit-elle être posée ? | L'agent a déployé bien plus souvent que demandé. Puis : seulement pour une version stable validée, celle qu'on publie ; un déploiement `dev` affiche le dernier numéro et ses commits (`v1.1.5+3`). | **D123** ; `doc/progress/targeting/install-update.md`, étape 8 |
 | 14/09 | Chaque question porte-t-elle son contexte ? | Oui, toujours : une petite phrase qui dit de quoi on parle. | `doc/en/agent-working/disciplines.md`, section « Asking a question » |

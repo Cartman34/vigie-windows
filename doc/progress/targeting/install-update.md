@@ -22,7 +22,7 @@ ID concernés : `CORE-DEPLOY`, `CORE-UPDATE`, `CORE-AUTOSTART`. Arbitrages : **D
 | 6a | **Synchronisation du clone du service**<br>*Si installation depuis un dépôt* | — | ✓ | ✓ | ✓ |
 | 6b | **Lecture de la dernière release publiée**<br>*Si installation depuis une archive de release* | — | — | ✓ | ✓ |
 | 7 | **Déjà à jour ?**<br>*Si oui : succès, et arrêt du déploiement. Forçable* | — | ✓ | ✓ | ✓ |
-| 8 | **Marquage de version**<br>*Seulement si stage `dev` et commits d'avance ; un échec est signalé, le déploiement continue* | — | ✓ | ✓ | ✓ |
+| 8 | **Aucun marquage de version**<br>*Une étiquette ne se pose que pour une version stable validée, à sa publication (**D123**) ; un déploiement affiche le dernier numéro et ses commits* | — | — | — | — |
 | 9a | **Fabrication de l'archive**<br>*Depuis le clone du service* | — | ✓ | ✓ | ✓ |
 | 9b | **Téléchargement de l'archive**<br>*Si installation depuis une archive de release* | — | — | ✓ | ✓ |
 | 10 | **Extraction de l'archive** | — | ✓ | ✓ | ✓ |
@@ -57,7 +57,7 @@ un dépôt existe-t-il, le stage vaut-il `dev`, quelle source est déclarée, un
 **Trois natures d'arrêt anticipé**, et le verdict doit dire laquelle : un **refus** (2, une autre installation tourne),
 un **échec** (4, 11, 13, 18b), un **succès** (7, déjà à jour).
 
-**Un échec non bloquant est signalé et n'interrompt rien** : le marquage (8), l'arrêt d'une app cliente (12, 14),
+**Un échec non bloquant est signalé et n'interrompt rien** : l'arrêt d'une app cliente (12, 14),
 l'enregistrement d'une tâche (19, 21). Dans ce dernier cas le code est bien déployé — c'est son démarrage automatique
 qui manquera — et cela ne justifie donc aucune restauration.
 
@@ -135,7 +135,7 @@ se vérifie donc des deux côtés, chacun pour ce qu'il recevra, et non deux foi
 ### Ce que « déjà à jour » signifie
 
 L'installation partagée porte exactement le commit de la source. En stage `dev`, sans commit d'avance, il n'y a rien à
-marquer ni à déployer : on s'arrête et on le dit. Le forçage refait la séquence entière — il ne saute que ce test.
+déployer : on s'arrête et on le dit. Le forçage refait la séquence entière — il ne saute que ce test.
 
 ### La vérification de l'archive
 
@@ -181,11 +181,6 @@ Le contrôle reste entier pour toutes les autres.
 L'étape 13 arrête l'app serveur — or c'est elle qui a lancé l'installation. Si le processus d'installation était son
 enfant direct, il mourrait avec elle et tout ce qui suit n'aurait jamais lieu. Il est donc **détaché**, comme le
 relanceur : l'app serveur le lance et le laisse vivre.
-
-### Un tag sans déploiement derrière n'est pas grave
-
-Le marquage (8) précède la fabrication (9a) parce que l'archive doit porter le numéro. Si la suite échoue, le dépôt
-garde un tag qui ne correspond à rien de déployé : c'est acceptable, on ne le retire pas.
 
 ### Quand la restauration elle-même échoue
 

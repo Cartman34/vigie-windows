@@ -7,7 +7,7 @@ Besoin : `../targeting/features.md`, entrée `CORE-UPDATE`.
 
 | | |
 |---|---|
-| **App cliente** (compte de la personne) | pose le tag de version dans son dépôt et le pousse — action `tag-version`, `@execution: session` |
+| **App cliente** (compte de la personne) | pose l'étiquette d'une version stable validée, à sa publication — action `tag-version`, `@execution: session` (**D123**) |
 | **App serveur** (compte de service) | synchronise **son** clone, fabrique l'archive, déploie, relance les deux applications |
 
 Le service ne lit ni n'écrit jamais dans le dépôt d'une personne, à une exception près : il **clone** depuis lui quand
@@ -17,16 +17,15 @@ c'est l'adresse déclarée — d'où la déclaration `safe.directory`, posée pa
 
 | clé | rôle |
 |---|---|
-| `Environment` | `dev` ou `prod`. **Déclaré**, jamais déduit. Conditionne la pose du tag, rien d'autre. |
+| `Environment` | `dev` ou `prod`. **Déclaré**, jamais déduit. Depuis **D123**, il ne conditionne plus aucun marquage. |
 | `UpdateSource` | `auto` · `clone` · `release`. `auto` prend le clone si une source est connue, sinon la version publiée. |
 | `UpdateRemote` | l'adresse d'où le clone se synchronise. Vide = le dépôt public. |
 | `SourcePath` | *(machine.psd1)* d'où vient ce déploiement — un fait, noté par l'installation et le déploiement. |
 
 ## Le déroulé
 
-1. **Tag** — si `Environment = dev` et qu'il y a des commits d'avance. Depuis l'interface, c'est l'app cliente du
-   compte qui a cliqué ; depuis un terminal, celui qui tape la commande **est** le propriétaire, il le pose lui-même.
-   Un échec n'arrête rien : une mise à jour ne rate pas pour un tag.
+1. **Aucun marquage** — un déploiement ne pose plus d'étiquette depuis le 14/09 (**D123**) ; il affiche le dernier
+   numéro suivi de ses commits.
 2. **Synchronisation** — `Sync-ServiceClone` et `vigie-fetch`, par `Update-ServiceClone` : récupération forcée, puis reclonage si git refuse alors que la source répond. Répit de 5 minutes, forcé par
    « Actualiser ».
 3. **Fabrication** — `vigie-fetch` produit l'archive depuis le clone, sur le tag visé ; depuis une source locale et

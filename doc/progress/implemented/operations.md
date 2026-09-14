@@ -69,7 +69,7 @@ définition de `../targeting/operations.md`, section « Ce qu'est une opération
 | `service-data-reset` | appel direct par l'API, `scripts/dev/ask-vigie.ps1` | admin | serveur | synchrone | suppression du contenu de `var/cache` ou `var/history` | sans objet |
 | `system-restart` | `os.probe.ps1`, `vbs.probe.ps1`, `pending.probe.ps1` | tous | serveur | synchrone | `Invoke-Native` sur `shutdown.exe`, redémarrage différé et annulable | sans objet |
 | `system-restart-cancel` | `os.probe.ps1`, `vbs.probe.ps1`, `pending.probe.ps1` | tous | serveur | synchrone | `Invoke-Native` sur `shutdown.exe` | sans objet |
-| `tag-version` | ordre de bureau envoyé par `scripts/install.ps1` | admin | session | synchrone | `Invoke-Git` | sans objet |
+| `tag-version` | appel direct par l'API, `scripts/dev/ask-vigie.ps1`, à la publication d'une version stable validée (**D123**) | admin | session | synchrone | `Invoke-Git` | sans objet |
 | `toggle-hvci` | `vbs.probe.ps1` | admin | serveur | synchrone | `Invoke-DeviceGuardToggle` | sans objet |
 | `toggle-vbs` | `vbs.probe.ps1` | admin | serveur | synchrone | `Invoke-DeviceGuardToggle` | sans objet |
 | `update-mode-off` | `lock.probe.ps1` | admin | serveur | synchrone | `Set-UpdateLock`, puis relecture | sans objet |
@@ -108,7 +108,7 @@ Routes de `apps/backend-pode/server.ps1` qui modifient quelque chose. Toutes syn
 | identité des notifications | `Set-VigieToastIdentity` | chaque passe du minuteur | ignorées |
 | recalcul d'une sonde périmée | `Get-State`, puis `Start-DetachedAction` sur `workers/state-refresh.worker.ps1` ; une seule à la fois, par mutex | un affichage qui trouve une sonde périmée | ignorées au lancement, **hors protocole** |
 | réparation des tâches au démarrage | `start.ps1`, `Repair-VigieTasks` | démarrage du serveur | journal |
-| ordre de bureau | `Invoke-DesktopAction` | une action `@execution: session`, ou `scripts/install.ps1` pour `tag-version` | compte rendu `.done.json`, écrit même en cas d'échec |
+| ordre de bureau | `Invoke-DesktopAction` | une action `@execution: session` | compte rendu `.done.json`, écrit même en cas d'échec |
 
 ## Les passes de l'app cliente
 
