@@ -726,6 +726,10 @@ if ($prepared) {
                 # LA SAUVEGARDE N'EXISTE QUE LE TEMPS DU RISQUE.
                 Remove-Item -LiteralPath $backup -Recurse -Force -ErrorAction SilentlyContinue
             }
+            # THE BACKUPS LEFT BY EARLIER FAILED COPIES GO TOO, once a copy is valid: one stayed per version that failed,
+            # a whole Vigie each, and nothing ever purged them (inventory of 13/09).
+            Get-ChildItem -LiteralPath (Get-InstallBackupRoot -Backend $backend) -Directory -Filter 'installation-*' -ErrorAction SilentlyContinue |
+                ForEach-Object { Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction SilentlyContinue }
         } else {
             Write-Fail (Get-Label 'install.copie-invalide' $pose)
             if ($backup) {

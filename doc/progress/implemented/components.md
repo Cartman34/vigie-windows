@@ -30,7 +30,7 @@ une réponse que le code laisse supposer sans qu'elle ait été constatée.
 |---|---|---|---|---|---|---|
 | installation partagée | installation | copie vérifiée, restauration si invalide | restauration de la version précédente | sans objet | `vigie-update` | retirée en dernier |
 | `machine.psd1` | installation et déploiement | réécrite à chaque déploiement | `SourcePath` disparu : la mise à jour prend la dernière version publiée, et la carte Déploiement le signale ; illisible : ses anciennes valeurs sont perdues sans message et la réécriture repart des nouvelles | sans objet | `vigie-update` et `setup.cmd` la réécrivent | retirée |
-| sauvegarde de l'installation précédente, `ProgramData/Sowapps/Vigie/backup/installation-<version>` | déploiement | supprimée après une copie valide | sert à la restauration ; une restauration, réussie ou non, la laisse en place | une par version dont la copie a échoué, jamais purgée | **aucune réponse** | retirée |
+| sauvegarde de l'installation précédente, `ProgramData/Sowapps/Vigie/backup/installation-<version>` | déploiement | supprimée après une copie valide | sert à la restauration ; une restauration, réussie ou non, la laisse en place | une seule : une copie valide retire aussi celles laissées par les copies en échec, depuis le 14/09 ; **non éprouvé** | `vigie-update` et `setup.cmd`, par une copie valide | retirée |
 | verrou d'installation | installation | sans objet | verrou orphelin ignoré | sans objet | sans objet | retiré |
 | déclaration du dossier d'installation | installation | vérifiée, jamais crue | ignorée si périmée | sans objet | `setup.cmd` la réécrit | retirée |
 | identité des notifications | installation | réécrite à chaque passe du minuteur | réécrite | sans objet | sans objet | retirée |
