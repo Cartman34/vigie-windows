@@ -86,6 +86,10 @@ restarts at Q1.
 time it is asked** — never reduced to a theme or a label. A question one has to scroll back
 for is a badly asked question.
 
+**Every question opens with its context, in one short sentence**: what it is about, where that thing lives, and why
+the question comes up now. One sentence, not a paragraph. *Asked by the owner on 14/09, for every question, always:
+five questions had been asked with nothing saying what each one was about.*
+
 **Options.** A closed question gets lettered options — A, B, C… — **the recommended one
 first**. An open question stays open. Each option announces its **main advantage** in a few
 words (faster to build, safer, more maintainable…), so the arbitration is explicit rather
