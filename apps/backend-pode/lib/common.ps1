@@ -1798,17 +1798,23 @@ function Remove-GitSafeDirectory {
 }
 
 <#
-    A TRUST WHOSE FOLDER IS GONE IS TAKEN BACK -- a deleted worktree, a moved repository. Only the pair
-    Set-GitSafeDirectory writes, "<folder>" and "<folder>/.git", on a local path: a single entry belongs to another
-    tool, and a path that is not of this computer cannot be judged from here. Returns the folders taken back.
+    THE ONLY TRUST VIGIE KEEPS IS THE DECLARED SOURCE'S. Every other pair Set-GitSafeDirectory wrote -- "<folder>" and
+    "<folder>/.git", on a local path -- is taken back: a folder gone, a worktree left, a copy that is not a repository
+    (answered by the owner on 14/09). A single entry belongs to another tool, and a path that is not of this computer
+    cannot be judged from here. Without -KeepPath, only the pairs of folders that are gone are removed. Returns the
+    folders taken back.
 #>
 function Remove-StaleGitSafeDirectory {
+    param([string]$KeepPath = '')
+    $keep = "$KeepPath".Replace([char]92, [char]47).TrimEnd([char]47)
     $declared = @(Invoke-Git -Path $env:SystemDrive -Arguments @('config', '--system', '--get-all', 'safe.directory') |
                   ForEach-Object { "$_".Replace([char]92, [char]47).TrimEnd([char]47) } | Where-Object { $_ })
     $removed = @()
     foreach ($entry in $declared) {
         if ($entry.EndsWith('/.git') -or $declared -notcontains ($entry + '/.git')) { continue }
-        if ($entry -notmatch '^[A-Za-z]:/' -or (Test-Path -LiteralPath $entry)) { continue }
+        if ($entry -notmatch '^[A-Za-z]:/') { continue }
+        if ($keep) { if ($entry -ieq $keep) { continue } }
+        elseif (Test-Path -LiteralPath $entry) { continue }
         if (Remove-GitSafeDirectory -RepoPath $entry) { $removed += $entry }
     }
     return $removed

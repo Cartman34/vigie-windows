@@ -412,8 +412,8 @@ if ($repoLocal) {
             if ($previousSource -and $previousSource.TrimEnd([char]92, [char]47) -ine $repoRoot.TrimEnd([char]92, [char]47)) {
                 if (Remove-GitSafeDirectory -RepoPath $previousSource) { Write-Detail (Get-Label 'install.ancienne-source-retiree' $previousSource) }
             }
-            # A TRUST WHOSE FOLDER IS GONE is taken back too: the sources left before 13/09 kept theirs.
-            $stale = @(Remove-StaleGitSafeDirectory)
+            # EVERY OTHER TRUST VIGIE POSED is taken back: only the declared source keeps one (14/09).
+            $stale = @(Remove-StaleGitSafeDirectory -KeepPath $repoLocal)
             if ($stale.Count) { Write-Detail (Get-Label 'install.confiance-perimee-retiree' ($stale -join ', ')) }
         } catch {
             Write-Warn (Get-Label 'install.confiance-impossible' $_.Exception.Message)

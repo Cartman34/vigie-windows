@@ -18,7 +18,7 @@ ID concernés : `CORE-DEPLOY`, `CORE-UPDATE`, `CORE-AUTOSTART`. Arbitrages : **D
 | 2 | **Verrou d'installation**<br>*Une seule installation à la fois ; si une autre tourne : refus, et arrêt du déploiement* | ✓ | ✓ | ✓ | ✓ |
 | 3 | **Prérequis** | ✓ | ✓ | ✓ | ✓ |
 | 4 | **Une opération est en cours ?**<br>*Si oui : échec, et arrêt du déploiement* | — | — | ✓ | ✓ |
-| 5 | **Déclaration de l'ordinateur**<br>*Stage, source, dépôt de confiance ; la paire de confiance d'un dossier qui n'existe plus est retirée* | ✓ | ✓ | ✓ | ✓ |
+| 5 | **Déclaration de l'ordinateur**<br>*Stage, source, dépôt de confiance ; toute paire de confiance posée par Vigie qui ne vise pas la source déclarée est retirée* | ✓ | ✓ | ✓ | ✓ |
 | 6a | **Synchronisation du clone du service**<br>*Si installation depuis un dépôt* | — | ✓ | ✓ | ✓ |
 | 6b | **Lecture de la dernière release publiée**<br>*Si installation depuis une archive de release* | — | — | ✓ | ✓ |
 | 7 | **Déjà à jour ?**<br>*Si oui : succès, et arrêt du déploiement. Forçable* | — | ✓ | ✓ | ✓ |
