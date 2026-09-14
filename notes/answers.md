@@ -29,4 +29,10 @@ question.
 | 14/09 | Quand publier une nouvelle version sur GitHub ? | Quand une version stable est validée, avec tous les changements en cours. | — |
 | 14/09 | Faut-il traiter les pièces de l'inventaire encore « aucune réponse » ? | Oui, c'était déjà défini : toutes. | `doc/progress/targeting/components.md` |
 | 14/09 | Les documents encore en français sous `doc/en/developing/` se traduisent-ils ? | Oui, tous d'un coup, pour la prochaine version. | `doc/en/developing/conventions.md`, section « A document's language follows its folder » |
+| 14/09 | Faut-il une action pour vider le cache du compte de service ? | Question technique, déjà définie : ne pas la poser. | `doc/progress/targeting/components.md`, situation « Maintenance » |
+| 14/09 | L'historique des mesures a-t-il besoin d'une remise à zéro ? | Déjà existant et défini : un trou se complète seul, sans demander. | `doc/progress/targeting/components.md` |
+| 14/09 | Faut-il renouveler les secrets du compte de service ? | La stratégie est définie : l'appliquer. | à retrouver dans `decisions.md` |
+| 14/09 | Faut-il limiter les étiquettes de version, 92 à ce jour ? | On devrait en avoir 10 à 20 : au-delà, le protocole de marquage n'a pas été respecté. | à retrouver dans `decisions.md` |
+| 14/09 | Que faire d'un profil du compte de service abîmé ? | Toute erreur se gère et se remonte : c'est déjà défini. | `doc/progress/targeting/components.md`, situation « État cassé » |
+| 14/09 | Une installation retire-t-elle les déclarations `safe.directory` de Vigie qui ne visent pas la source actuelle ? | Oui. | `doc/progress/targeting/install-update.md`, étape 5 |
 | 14/09 | Chaque question porte-t-elle son contexte ? | Oui, toujours : une petite phrase qui dit de quoi on parle. | `doc/en/agent-working/disciplines.md`, section « Asking a question » |

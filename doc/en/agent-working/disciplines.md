@@ -90,6 +90,20 @@ for is a badly asked question.
 the question comes up now. One sentence, not a paragraph. *Asked by the owner on 14/09, for every question, always:
 five questions had been asked with nothing saying what each one was about.*
 
+**Most questions are not questions: they are work.** Before a question reaches the owner, it passes three gates, in
+order, and it stops at the first one that answers it:
+
+1. **Is it technical?** How something is built, which action, which file, which bound: it is mine to decide, write in
+   the target plan and deliver. It is never asked.
+2. **Does a written rule already cover it?** The situations of `doc/progress/targeting/components.md` (every error
+   handled and surfaced, growth bounded, maintenance by server actions), the decisions, the target plan, a strategy
+   already set: the rule is applied to the case. A gap in something already defined is filled, not asked.
+3. **Has it been answered?** `scripts/dev/answers.ps1`, below.
+
+Only what passes all three -- a need, a product choice nobody has made -- is asked. *On 14/09 eleven questions went to
+the owner in two series; nine were answered by one of these gates. "The subjects are relevant, but they have nothing to
+do in a question when you ALREADY have the answers."*
+
 **A question already answered is never asked again.** Before asking, search what was already answered or settled:
 `pwsh -File scripts/dev/answers.ps1 -About "<words>"`. Every answer the owner gives to a `Qn` is written in
 `notes/answers.md` in the same turn, and carried where it applies. It is asked again only on a new fact, named in the
