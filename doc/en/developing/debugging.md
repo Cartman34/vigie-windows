@@ -1,58 +1,57 @@
-# Déboguer — une seule démarche, la même à chaque fois
+# Debugging — one procedure, the same every time
 
-Auteur : Florent HAZARD <f.hazard@sowapps.com>
+Author: Florent HAZARD <f.hazard@sowapps.com>
 
-Quand quelque chose ne marche pas, la question « comment on regarde, déjà ? » ne doit pas se reposer. Elle a une
-réponse, et c'est un script : [`scripts/dev/debug.ps1`](../../../scripts/dev/debug.ps1).
+When something does not work, the question "how do we look again?" must not come back. It has an answer, and that
+answer is a script: [`scripts/dev/debug.ps1`](../../../scripts/dev/debug.ps1).
 
 ```powershell
-pwsh -File scripts/dev/debug.ps1                     # ce qu'on peut déboguer
-pwsh -File scripts/dev/debug.ps1 probe gaming        # une sonde, exécutée pour de vrai
-pwsh -File scripts/dev/debug.ps1 sentinel            # les sentinelles déclarées
-pwsh -File scripts/dev/debug.ps1 sentinel internet   # sa valeur maintenant + son historique
-pwsh -File scripts/dev/debug.ps1 server              # l'app serveur et son journal
-pwsh -File scripts/dev/debug.ps1 client              # l'app cliente et son journal
-pwsh -File scripts/dev/debug.ps1 install             # la dernière installation
-pwsh -File scripts/dev/debug.ps1 card gaming         # la carte telle que Vigie la rend
+pwsh -File scripts/dev/debug.ps1                     # what can be debugged
+pwsh -File scripts/dev/debug.ps1 probe gaming        # a probe, run for real
+pwsh -File scripts/dev/debug.ps1 sentinel            # the declared sentinels
+pwsh -File scripts/dev/debug.ps1 sentinel internet   # its value now + its history
+pwsh -File scripts/dev/debug.ps1 server              # the server app and its log
+pwsh -File scripts/dev/debug.ps1 client              # the client app and its log
+pwsh -File scripts/dev/debug.ps1 install             # the latest installation
+pwsh -File scripts/dev/debug.ps1 card gaming         # the card as Vigie renders it
 ```
 
-Chaque cible fait la même chose, dans le même ordre : elle **dit ce qu'elle lance**, elle le lance de la manière
-standard, puis elle montre **où est le journal** et ses dernières lignes.
+Every target does the same thing, in the same order: it **says what it runs**, runs it the standard way, then shows
+**where the log is** and its last lines.
 
-## Les quatre règles qui valent pour tout
+## The four rules that hold for everything
 
-**1. Dans une vraie console, sans rediriger la sortie.** Une sortie redirigée perd ses couleurs *et* s'affiche avec un
-tour de retard : le programme paraît figé alors qu'il avance. Pire, une console Windows en **mode sélection** (un clic
-dans la fenêtre) met le programme en pause à sa prochaine écriture — il attend une touche, rien d'autre. Le 01/09,
-l'installation a semblé bloquée vingt minutes pour cette seule raison ; **Échap** ou **Entrée** l'a relancée.
+**1. In a real console, without redirecting the output.** A redirected output loses its colours *and* shows one step
+late: the program looks frozen while it progresses. Worse, a Windows console in **selection mode** (a click in the
+window) pauses the program at its next write — it waits for a key, nothing else. On 01/09 the installation seemed stuck
+for twenty minutes for that reason alone; **Esc** or **Enter** set it going again.
 
-**2. Jamais un second journal.** Le programme écrit déjà le sien. En ajouter un par-dessus donne deux versions du même
-récit, des lignes en double, et une occasion de se tromper de fichier. Si ce journal ne dit pas assez, on **améliore
-celui-là**.
+**2. Never a second log.** The program already writes its own. Adding one on top gives two versions of the same story,
+duplicated lines, and a chance to open the wrong file. If that log does not say enough, **that one is improved**.
 
-**3. Ce qui est illisible ici se demande à Vigie.** Depuis une session ordinaire, le profil du compte de service, ses
-journaux, ses tâches et l'historique sont **refusés** — et un refus ne dit rien du poste, seulement de mes droits.
-L'app serveur, elle, voit tout : [`ask-vigie.ps1`](../../../scripts/dev/ask-vigie.ps1) emprunte le chemin de l'app
-cliente et rend les faits **tels que Vigie les voit**.
+**3. What is unreadable here is asked of Vigie.** From an ordinary session, the service account's profile, its logs,
+its tasks and the history are **refused** — and a refusal says nothing about the computer, only about my rights. The
+server app sees everything: [`ask-vigie.ps1`](../../../scripts/dev/ask-vigie.ps1) takes the client app's road and
+returns the facts **as Vigie sees them**.
 
-**4. Une action ou un worker ne s'exécute pas pour voir.** Les lancer pour de vrai est un test d'**intégration** : il se
-**demande** à l'utilisateur, à chaque fois (**D62**, **D63**).
+**4. An action or a worker is not run to see.** Running them for real is an **integration** test: it is **asked** of
+the user, every time (**D62**, **D63**).
 
-## Ce qui prouve quoi
+## What proves what
 
-| Ce qu'on veut savoir | Ce qui le prouve |
+| What we want to know | What proves it |
 |---|---|
-| Une sonde rend-elle ce qu'on croit ? | `debug.ps1 probe <id>` — elle s'exécute vraiment, on **constate** sa sortie (D43) |
-| Une branche rare marche-t-elle ? | `VIGIE_FAKE_<QUOI>` — voir [modules.md](modules.md) |
-| La veille tourne-t-elle **en production** ? | l'historique d'une sentinelle **neuve** : sa première ligne ne peut avoir été écrite que par la boucle du serveur |
-| Une sentinelle qui n'a pas bougé | ne prouve **rien** : sans changement, rien ne s'écrit — c'est le principe |
-| Le déploiement est-il en place ? | `debug.ps1 install` — versions, serveur, puis le journal de l'installation |
+| Does a probe return what we believe? | `debug.ps1 probe <id>` — it really runs, its output is **observed** (D43) |
+| Does a rare branch work? | `VIGIE_FAKE_<WHAT>` — see [modules.md](modules.md) |
+| Does watching run **in production**? | the history of a **new** sentinel: its first line can only have been written by the server loop |
+| A sentinel that has not moved | proves **nothing**: without a change, nothing is written — that is the principle |
+| Is the deployment in place? | `debug.ps1 install` — versions, server, then the installation log |
 
-## Quand rien ne répond
+## When nothing answers
 
-Dans l'ordre, sans en sauter :
+In order, skipping none:
 
-1. **Le serveur est-il debout ?** `debug.ps1 server` — sinon, plus rien d'autre n'a de sens.
-2. **Est-ce une installation en cours ?** Un verrou d'installation fait taire la veille et les recalculs, exprès.
-3. **La console est-elle en pause ?** Voir la règle 1 : cliquer dans la fenêtre, **Échap**.
-4. **Est-ce un refus de droits ?** Alors ce n'est pas un fait sur le poste : passer par `ask-vigie.ps1`.
+1. **Is the server up?** `debug.ps1 server` — otherwise nothing else makes sense.
+2. **Is an installation running?** An installation lock silences watching and recomputes, on purpose.
+3. **Is the console paused?** See rule 1: click in the window, **Esc**.
+4. **Is it a refusal of rights?** Then it is not a fact about the computer: go through `ask-vigie.ps1`.

@@ -1,51 +1,45 @@
-# Technologies employees
+# Technologies used
 
-Chaque techno : role, pourquoi, alternatives ecartees, installation.
+Each technology: role, why, alternatives set aside, installation.
 
 ## PowerShell (5.1+ / 7)
-- **Role** : moteur natif — pilote Windows (registre, taches, ACL, services).
-- **Pourquoi** : acces natif a l'hote sans couche intermediaire ; tout
-  l'outillage existant (`LocalAgentAdmin/`) est deja en PowerShell.
-- **Installation** : present nativement sur Windows.
+- **Role**: native engine — drives Windows (registry, tasks, ACL, services).
+- **Why**: native access to the host without an intermediate layer; all the existing tooling (`LocalAgentAdmin/`) is
+  already PowerShell.
+- **Installation**: present natively on Windows.
 
-## Pode (module PowerShell)
-- **Role** : serveur web — sert le front ET expose l'API REST, en PowerShell.
-- **Pourquoi** : un seul langage cote back ; il rend l'API tout en pilotant
-  Windows nativement. Evite d'ajouter PHP/Node juste pour deleguer ensuite a
-  PowerShell.
-- **Alternatives ecartees** : PHP/Node (ajout d'un runtime + pont vers
-  PowerShell pour chaque action privilegiee) ; ASP.NET (plus lourd).
-- **Installation** : `Install-Module Pode -Scope CurrentUser` (sans admin).
-- **Point d'attention** : Pode isole les routes en runspaces. On passe le
-  contexte par variables d'environnement (`VIGIE_BACKEND`, `VIGIE_TOKEN`) et on
-  re-source `lib/common.ps1` dans chaque route.
+## Pode (PowerShell module)
+- **Role**: web server — serves the front end AND exposes the REST API, in PowerShell.
+- **Why**: a single language on the back end; it serves the API while driving Windows natively. Avoids adding PHP/Node
+  only to delegate to PowerShell afterwards.
+- **Alternatives set aside**: PHP/Node (an extra runtime + a bridge to PowerShell for every privileged action); ASP.NET
+  (heavier).
+- **Installation**: `Install-Module Pode -Scope CurrentUser` (no admin).
+- **Watch out**: Pode isolates routes in runspaces. Context travels through environment variables (`VIGIE_BACKEND`,
+  `VIGIE_TOKEN`) and `lib/common.ps1` is re-sourced in each route.
 
 ## OpenAPI 3 (apps/backend-pode/api/openapi.yaml)
-- **Role** : contrat REST, source de verite front/back.
-- **Pourquoi** : standard, outillable, permet de changer de back sans toucher
-  au front.
+- **Role**: REST contract, source of truth between front end and back end.
+- **Why**: standard, tool-friendly, lets the back end change without touching the front end.
 
 ## HTML / CSS / JavaScript (vanilla)
-- **Role** : front statique (dashboard).
-- **Pourquoi** : aucune dependance, aucun build ; ne fait que du `fetch()` vers
-  le contrat. Rendu clair/sombre.
-- **Alternatives ecartees** : framework SPA (React/Vue) — inutile a cette
-  echelle, ajouterait un build.
+- **Role**: static front end (dashboard).
+- **Why**: no dependency, no build; it only `fetch()`es the contract. Light/dark rendering.
+- **Alternatives set aside**: SPA framework (React/Vue) — needless at this scale, would add a build.
 
-## WebView2  (a venir — CORE-WINDOW)
-- **Role** : fenetre applicative affichant le dashboard comme une vraie app.
-- **Pourquoi** : moteur Edge deja present sur Win10/11 ; pas d'Electron.
-- **Installation** : « Evergreen WebView2 Runtime » si absent.
+## WebView2 (to come — CORE-WINDOW)
+- **Role**: application window showing the dashboard as a real app.
+- **Why**: Edge engine already present on Win10/11; no Electron.
+- **Installation**: "Evergreen WebView2 Runtime" if absent.
 
-## Tache planifiee Windows  (a venir — CORE-AUTOSTART)
-- **Role** : lancer le back + l'UI a l'ouverture de session, en eleve.
-- **Pourquoi** : demarrage automatique sans invite UAC a chaque action.
+## Windows scheduled task (to come — CORE-AUTOSTART)
+- **Role**: start the back end + the UI at session opening, elevated.
+- **Why**: automatic start without a UAC prompt at every action.
 
-## Jeton Bearer + ecoute locale
-- **Role** : securite de l'API (back eleve).
-- **Pourquoi** : 127.0.0.1 limite l'acces a la machine ; le jeton bloque les
-  autres processus locaux non autorises.
+## Bearer token + local listening
+- **Role**: API security (elevated back end).
+- **Why**: 127.0.0.1 limits access to the computer; the token blocks other unauthorised local processes.
 
-## Mecanismes Windows pilotes (rappel, detail dans LocalAgentAdmin)
-- Registre Windows Update (`NoAutoUpdate`...), taches planifiees Update,
-  ACL/`takeown`/`icacls`, service WaaSMedic. Documentes cote `LocalAgentAdmin`.
+## Windows mechanisms driven (reminder, detail in LocalAgentAdmin)
+- Windows Update registry (`NoAutoUpdate`...), Update scheduled tasks, ACL/`takeown`/`icacls`, WaaSMedic service.
+  Documented on the `LocalAgentAdmin` side.

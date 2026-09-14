@@ -116,7 +116,7 @@ la main. Un geste qui ne se fera pas n'apparaît pas ; un geste qui se fera appa
 | **Gestes** | copie, compte de service, tâche serveur, tâches d'app cliente des comptes activés, prérequis manquants | arrêt de l'app serveur et des apps clientes, sauvegarde puis remplacement, tâches réenregistrées nommées une à une, compte de service repris, prérequis manquants |
 | **Note** | l'autorisation administrateur vient ensuite, et rien n'est modifié avant | la même |
 
-La rédaction de ses textes suit `doc/en/developing/conventions.md`, section « La tournure des libelles ».
+La rédaction de ses textes suit `doc/en/developing/conventions.md`, section « The wording of labels ».
 
 ### La sauvegarde
 

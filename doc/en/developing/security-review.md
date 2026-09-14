@@ -1,53 +1,43 @@
-# Revue de securite
+# Security review
 
-> Document **interne** : la revue, a relire a chaque ajout d'action. La page destinee aux
-> utilisateurs est [`doc/fr/operating/security.md`](../../fr/operating/security.md)
-> ([English](../operating/security.md)) — elle dit la meme chose sans le detail d'implementation.
+> An **internal** document: the review, to be read again at every action added. The page meant for users is
+> [`doc/fr/operating/security.md`](../../fr/operating/security.md) ([English](../operating/security.md)) — it says the
+> same without the implementation detail.
 
-L'outil expose une API REST **locale** qui peut piloter Windows, potentiellement
-depuis un serveur **eleve** (demarrage automatique). Cette page recense les
-risques et les mesures. A relire a chaque ajout d'action.
+The tool exposes a **local** REST API that can drive Windows, potentially from an **elevated** server (automatic
+start). This page lists the risks and the measures. To be read again at every action added.
 
-## Modele de menace
-- Ecoute **strictement 127.0.0.1** (jamais 0.0.0.0). Pas d'acces reseau externe.
-- Menace principale : un autre **processus local** (ou une page web ouverte dans
-  le navigateur) qui tenterait d'appeler l'API pour declencher des actions.
+## Threat model
+- Listens **strictly on 127.0.0.1** (never 0.0.0.0). No external network access.
+- Main threat: another **local process** (or a web page open in the browser) trying to call the API to trigger actions.
 
-## Risques et mesures
-1. **Execution de script arbitraire** via le champ `type` de POST /actions
-   (ex. `type = ../../..`).  -> CORRIGE : liste blanche `^[a-z0-9-]{1,40}$` cote
-   route ET cote `Invoke-ActionById`, + confinement du chemin resolu au dossier
-   `actions/` (Resolve-Path + StartsWith). Toute tentative est rejetee.
-2. **CSRF / drive-by localhost** (une page web malveillante POST vers 127.0.0.1)
-   -> CORRIGE : sur toute requete modifiante, l'entete **Origin/Referer** doit
-   correspondre a http://127.0.0.1:PORT ou http://localhost:PORT, sinon 403.
-3. **Jeton Bearer** exige sur toute l'API sauf `/health`. Ecoute locale.
-4. **Actions** : n'executent PAS de commande construite depuis l'entree client ;
-   les `params` ne sont jamais passes a un shell. Chaque action est un script
-   fixe du dossier `actions/`.
+## Risks and measures
+1. **Arbitrary script execution** through the `type` field of POST /actions (e.g. `type = ../../..`). -> FIXED: whitelist
+   `^[a-z0-9-]{1,40}$` in the route AND in `Invoke-ActionById`, + confinement of the resolved path to the `actions/`
+   folder (Resolve-Path + StartsWith). Every attempt is rejected.
+2. **CSRF / localhost drive-by** (a malicious web page POSTing to 127.0.0.1) -> FIXED: on every modifying request, the
+   **Origin/Referer** header must match http://127.0.0.1:PORT or http://localhost:PORT, otherwise 403.
+3. **Bearer token** required on the whole API except `/health`. Local listening.
+4. **Actions**: do NOT run a command built from client input; `params` are never passed to a shell. Each action is a
+   fixed script of the `actions/` folder.
 
-## Risque residuel (a connaitre)
-- Le **jeton est injecte dans la page** servie par la route `/` (non
-  authentifiee, pour que le navigateur puisse charger l'UI). Un processus local
-  tournant **en tant que l'utilisateur** peut donc lire http://127.0.0.1:PORT/ et
-  recuperer le jeton. Combine a un serveur **eleve**, cela reste une voie
-  d'elevation locale possible.
-  - Attenuation actuelle : ecoute locale + controle d'origine + liste blanche.
-  - Durcissement recommande si besoin de + de surete :
-    - Lancer le serveur **en utilisateur** (non eleve) et n'elever **que
-      l'action** au moment ou elle s'execute (invite UAC par action).
-    - Rotation periodique du jeton.
-    - Restreindre l'ACL du fichier `apps/backend-pode/var/secrets/api.token`.
+## Residual risk (to know)
+- The **token is injected into the page** served by the `/` route (unauthenticated, so the browser can load the UI). A
+  local process running **as the user** can therefore read http://127.0.0.1:PORT/ and recover the token. Combined with
+  an **elevated** server, this remains a possible local elevation path.
+  - Current mitigation: local listening + origin check + whitelist.
+  - Recommended hardening if more safety is needed:
+    - Run the server **as the user** (not elevated) and elevate **only the action** when it runs (a UAC prompt per
+      action).
+    - Periodic token rotation.
+    - Restrict the ACL of the file `apps/backend-pode/var/secrets/api.token`.
 
-## Regle
-Toute nouvelle action doit : porter un `id` simple (`[a-z0-9-]`), ne jamais
-interpoler d'entree client dans une commande, et etre revue ici si elle touche a
-la securite du systeme.
+## Rule
+Every new action must: carry a simple `id` (`[a-z0-9-]`), never interpolate client input into a command, and be
+reviewed here if it touches system security.
 
-## Note : serveur eleve par conception
-Le serveur tourne desormais **en administrateur** (start.ps1 / run.ps1 demandent
-l'UAC si besoin), car il doit pouvoir appliquer les actions systeme. Les
-protections restent en place : ecoute 127.0.0.1, jeton Bearer, anti-CSRF
-(origine locale), liste blanche + confinement des actions. Risque residuel du
-jeton injecte : voir plus haut ; durcissement possible (serveur non eleve +
-elevation par action) si un jour on veut reduire encore la surface.
+## Note: elevated server by design
+The server now runs **as administrator** (start.ps1 / run.ps1 ask for UAC if needed), since it must be able to apply
+system actions. The protections stay in place: listening on 127.0.0.1, Bearer token, anti-CSRF (local origin),
+whitelist + confinement of actions. Residual risk of the injected token: see above; hardening is possible (non-elevated
+server + elevation per action) if the surface is ever to be reduced further.

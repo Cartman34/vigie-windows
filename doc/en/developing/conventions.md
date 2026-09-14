@@ -1,219 +1,194 @@
-# Conventions du projet
+# Project conventions
 
-Reference unique des conventions. Toute nouvelle convention se note ICI.
+The single reference for conventions. Every new convention is written HERE.
 
-**Les mots du projet vivent dans [glossary.md](glossary.md)** : une notion, un mot, le meme partout. Un mot qui manque
-s'y ajoute AVANT d'etre employe -- un synonyme qui s'installe finit par designer autre chose.
+**The project's words live in [glossary.md](glossary.md)**: one notion, one word, the same everywhere. A missing word is
+added there BEFORE it is used -- a synonym that settles in ends up meaning something else.
 
-## Langue
+## Language
 
-Deux langues, une frontiere nette. Elle passe entre ce que la MACHINE lit et ce qu'un
-HUMAIN lit.
+Two languages, a clear border. It runs between what the MACHINE reads and what a HUMAN reads.
 
-### En anglais, sans exception
-- **Les noms** : fonctions, variables, parametres, proprietes, cles de hashtable, classes.
-- **Les noms de fichiers et de dossiers**, y compris pour un contenu francais.
-- **Les identifiants du contrat** : ids de modules, d'actions, de champs, de ressources.
-- **Les cles de configuration** (`UpdateSource`, `ToolsPath`...).
+### In English, without exception
+- **Names**: functions, variables, parameters, properties, hashtable keys, classes.
+- **File and folder names**, including for French content.
+- **Contract identifiers**: ids of modules, actions, fields, resources.
+- **Configuration keys** (`UpdateSource`, `ToolsPath`...).
 
-### En anglais aussi : les commentaires
-Ils vivent DANS le code, ils en font partie, et ils se lisent avec lui. Cette page a
-longtemps dit l'inverse -- elle avait ete ecrite a l'encontre de la regle voulue
-(**D115**). Le code deja ecrit porte des commentaires francais : ils se convertissent au
-fil des passages, sans grand nettoyage, et un cliquet interdit d'en ajouter.
+### In English too: comments
+They live INSIDE the code, they are part of it, and they are read with it. This page long said the opposite -- it had
+been written against the intended rule (**D115**). Code already written carries French comments: they are converted as
+files are touched, without a big clean-up, and a ratchet forbids adding any.
 
-### En francais, tout aussi volontairement
-- **Les libelles affiches** : titres de cartes, valeurs, boutons, messages d'erreur, aide.
-  Avec leurs accents (voir plus bas) -- ce sont eux que voit l'utilisateur.
-- **Les messages de journal** : ils se lisent pendant un depannage, avec le meme lecteur.
-- **La documentation** de `doc/fr/` et de `progress/`, les notes de `notes/`, `CHANGELOG.md` et `README.fr.md`.
+### In French, just as deliberately
+- **Displayed labels**: card titles, values, buttons, error messages, help. With their accents (see below) -- they are
+  what the user sees.
+- **Log messages**: they are read during troubleshooting, by the same reader.
+- **The documentation** of `doc/fr/` and `progress/`, the notes of `notes/`, `CHANGELOG.md` and `README.fr.md`.
 
-### La langue d'un document suit son dossier
-`doc/en/` et `README.md` s'écrivent en anglais ; ce qui est nommé juste au-dessus, en français. `scripts/dev/check-language.ps1`
-le vérifie. Les documents déjà en français sous `doc/en/` y sont listés : la liste ne fait que baisser, à mesure qu'ils
-sont traduits, et aucun ne s'y ajoute.
+### A document's language follows its folder
+`doc/en/` and `README.md` are written in English; what is named just above, in French. `scripts/dev/check-language.ps1`
+checks it. Documents still in French under `doc/en/` would be listed there: the list only goes down as they are
+translated, and none is added.
 
-### La tournure des libelles
-Un libelle ne s'adresse a personne quand une tournure neutre existe : « Windows demandera ensuite l'autorisation
-administrateur » plutot que « Si vous continuez, Windows vous demandera l'autorisation ». Quand l'eviter devient
-bizarre, on vouvoie ; on ne tutoie jamais. Aucune capitale d'insistance : « VOTRE » se lit comme un cri.
+### The wording of labels
+A label addresses nobody when a neutral wording exists: « Windows demandera ensuite l'autorisation administrateur »
+rather than « Si vous continuez, Windows vous demandera l'autorisation ». When avoiding it becomes awkward, use
+« vous »; never « tu ». No capitals for insistence: « VOTRE » reads as a shout.
 
-### La seule exception admise
-Un **terme metier** qui n'a pas d'equivalent anglais etabli. Ce projet est technique : il
-n'y en a quasiment aucun, et l'exception doit se justifier a chaque fois, pas se supposer.
-« Sonde », « carte », « verrou », « lisere » ont tous un mot anglais courant.
+### The only exception allowed
+A **domain term** with no established English equivalent. This project is technical: there are almost none, and the
+exception must be justified each time, not assumed. "Sonde", "carte", "verrou", "liseré" all have a common English word.
 
-### Comment on y va -- sans grand nettoyage
-La regle a ete enfreinte peu a peu : **310 identifiants francais** au 28/08/2026. On ne
-renomme pas tout d'un coup -- ca noierait `git blame` sous du bruit et casserait du code
-qui marche. On applique un **cliquet** :
+### How we get there -- without a big clean-up
+The rule was broken little by little: **310 French identifiers** on 28/08/2026. We do not rename everything at once --
+it would drown `git blame` in noise and break code that works. We apply a **ratchet**:
 
 ```powershell
-pwsh -File .\scripts\dev\check-naming.ps1            # le compte ne doit jamais monter
-pwsh -File .\scripts\dev\check-naming.ps1 -Detail    # ou ils sont
+pwsh -File .\scripts\dev\check-naming.ps1            # the count must never go up
+pwsh -File .\scripts\dev\check-naming.ps1 -Detail    # where they are
 ```
 
-- **Tout code NOUVEAU respecte la regle.** Sans discussion : c'est ce que le cliquet
-  verifie.
-- Quand on ouvre un fichier pour une autre raison, on renomme ce qu'on touche, et on
-  **descend le plafond** d'autant dans le script. Il ne remonte jamais.
+- **All NEW code follows the rule.** No discussion: that is what the ratchet checks.
+- When a file is opened for another reason, what is touched is renamed, and the **ceiling is lowered** by as much in
+  the script. It never goes back up.
 
-**Et si le code neuf APPELLE une fonction francaise qui existe deja ?** Le cliquet ne le
-verra pas -- il compte les declarations, pas les appels. La regle est donc explicite :
+**And if new code CALLS a French function that already exists?** The ratchet will not see it -- it counts declarations,
+not calls. The rule is therefore explicit:
 
-| Situation | Ce qu'on fait |
+| Situation | What we do |
 |---|---|
-| Tous les appels sont dans les fichiers qu'on modifie deja | **On renomme.** C'est le rattrapage progressif, et il ne coute rien de plus que la relecture qu'on fait de toute facon. |
-| Les appels debordent largement du changement en cours | **On appelle tel quel**, et on le DIT dans le compte rendu. Faire exploser un diff pour un renommage transforme une correction lisible en revue impossible. |
+| All the calls are in files already being changed | **Rename.** It is the gradual catch-up, and it costs nothing more than the review done anyway. |
+| The calls spread well beyond the current change | **Call it as is**, and SAY so in the report. Blowing up a diff for a rename turns a readable fix into an impossible review. |
 
-Ce qui n'est jamais acceptable : **declarer** un nouveau nom francais. Un appel se corrige
-plus tard sans rien casser ; une declaration, elle, cree la dette.
-- **Le francais est la langue MAITRESSE de la documentation utilisateur.** Une page de `fr/` s'ecrit ou se corrige
-  D'ABORD ; son equivalent de `en/` est mis a jour dans la foulee, jamais l'inverse. En cas de divergence, `fr/` fait
-  foi. Idem pour les deux README de racine : `README.fr.md` mene, `README.md` suit.
-- Ne relevent pas de cette regle les documents qui n'existent qu'en anglais (`en/developing/`, `agent-working/`) ni
-  ceux qui n'existent qu'en francais (`progress/`) : sans jumeau, pas de maitre.
+What is never acceptable: **declaring** a new French name. A call is fixed later without breaking anything; a
+declaration creates the debt.
+- **French is the MASTER language of the user documentation.** A page of `fr/` is written or fixed FIRST; its `en/`
+  counterpart is updated right after, never the other way round. When they diverge, `fr/` prevails. The same for the
+  two root READMEs: `README.fr.md` leads, `README.md` follows.
+- Documents that exist only in English (`en/developing/`, `agent-working/`) or only in French (`progress/`) fall outside
+  this rule: without a twin, no master.
 
-## Arborescence et nommage
-- Sources : voir `../README.md`.
-- Sonde : `apps/backend-pode/probes/<theme>/<nom>.probe.ps1`.
-- Action : `apps/backend-pode/actions/<id>.action.ps1` (le `<id>` = valeur `type` du contrat).
-- Rapports horodates : `<nom>_AAAAMMJJ_HHMMSS.txt` (+ `.json`).
+## Tree and naming
+- Sources: see `../README.md`.
+- Probe: `apps/backend-pode/probes/<theme>/<name>.probe.ps1`.
+- Action: `apps/backend-pode/actions/<id>.action.ps1` (the `<id>` = the contract's `type` value).
+- Timestamped reports: `<name>_YYYYMMDD_HHMMSS.txt` (+ `.json`).
 
-## Contrat d'abord (contract-first)
-- `apps/backend-pode/api/openapi.yaml` est la **source de verite**. Toute evolution d'API s'y
-  decide AVANT le code. Le front ne depend que du contrat ; le back est
-  interchangeable.
+## Contract first
+- `apps/backend-pode/api/openapi.yaml` is the **source of truth**. Every API change is decided there BEFORE the code.
+  The front end depends only on the contract; the back end is interchangeable.
 
-## Modele sonde / action
-- **Sonde** : LECTURE SEULE, rapide, sans effet de bord. Sort UN objet `Module`
-  (schema OpenAPI). Utiliser les fabriques `New-ModuleObject` / `New-Field` /
-  `New-Action` de `apps/backend-pode/lib/common.ps1`. Appels lents bornes par un delai.
-- **Action** : effet de bord. Signature `param([string]$Module,[hashtable]$Params)`.
-  Retourne `@{ message=...; result=... }`. Reutilise l'outillage existant
-  (`LocalAgentAdmin/tools/`) plutot que de reimplementer.
-- Statuts autorises : `ok` | `warn` | `error`.
-- Types de champ (`kind`) : `bool` | `number` | `text` | `date` (+ `unit` option).
+## Probe / action model
+- **Probe**: READ ONLY, fast, no side effect. Outputs ONE `Module` object (OpenAPI schema). Use the factories
+  `New-ModuleObject` / `New-Field` / `New-Action` of `apps/backend-pode/lib/common.ps1`. Slow calls bounded by a timeout.
+- **Action**: side effect. Signature `param([string]$Module,[hashtable]$Params)`. Returns `@{ message=...; result=... }`.
+  Reuses existing tooling (`LocalAgentAdmin/tools/`) rather than reimplementing.
+- Allowed statuses: `ok` | `warn` | `error`.
+- Field types (`kind`): `bool` | `number` | `text` | `date` (+ optional `unit`).
 
-## Securite
-- API en ecoute **127.0.0.1 uniquement**. Jamais exposee (le back tourne eleve).
-- **Jeton Bearer** genere une fois (`apps/backend-pode/var/secrets/api.token`), exige sur tous
-  les endpoints sauf `/health`. Injecte dans la page servie (meme origine).
+## Security
+- API listening on **127.0.0.1 only**. Never exposed (the back end runs elevated).
+- **Bearer token** generated once (`apps/backend-pode/var/secrets/api.token`), required on every endpoint except
+  `/health`. Injected into the served page (same origin).
 
-## Technique
-- Pode isole les routes en runspaces : le contexte passe par **variables
-  d'environnement** (`VIGIE_BACKEND`, `VIGIE_TOKEN`) ; chaque route re-source
-  `lib/common.ps1`. (Voir `technologies.md`.)
-- Scripts de tache planifiee : **idempotents** (`Register-ScheduledTask -Force`).
-- Toujours **verifier les prerequis en amont** (droits, modules, runtime).
+## Technical
+- Pode isolates routes in runspaces: context travels through **environment variables** (`VIGIE_BACKEND`,
+  `VIGIE_TOKEN`); each route re-sources `lib/common.ps1`. (See `technologies.md`.)
+- Scheduled task scripts: **idempotent** (`Register-ScheduledTask -Force`).
+- Always **check prerequisites up front** (rights, modules, runtime).
 
-## Longueur des lignes
-- **200 caracteres**, code et documentation. Une ligne se coupe parce qu'elle change d'idee, pas parce qu'un compteur
-  arbitraire a sonne : couper a 80 ou 100 hache les chemins Windows, les tableaux et les chaines, et rend les diffs
-  illisibles.
-- **Exception** : une ligne de tableau markdown ne se coupe pas -- la couper casse le tableau. Elle depasse, tant pis.
-- **Correction au fil de l'eau** : on remet aux 200 les fichiers qu'on touche deja pour une autre raison. Pas de passe
-  globale de reformatage, qui noierait l'historique sous du bruit.
+## Line length
+- **200 characters**, code and documentation. A line breaks because it changes idea, not because an arbitrary counter
+  rang: breaking at 80 or 100 chops Windows paths, tables and strings, and makes diffs unreadable.
+- **Exception**: a markdown table line is not broken -- breaking it breaks the table. It runs over, so be it.
+- **Fixed as we go**: files already touched for another reason are brought back to 200. No global reformatting pass,
+  which would drown the history in noise.
 
-## Trois pieges verifies, et leur parade
+## Three verified traps, and their remedy
 
-Chacun a coute une demi-journee. Ils ne se voient pas a la relecture : ils se voient en
-production, tard.
+Each cost half a day. They do not show on review: they show in production, late.
 
-- **Un cache ne porte JAMAIS un etat qui doit etre lu maintenant.** La liste des comptes
-  est chere a etablir : elle se met en cache. L'etat de leur tache de demarrage est bon
-  marche a lire, et il change : il se relit a chaque appel. Un cache qui ment ne ment
-  jamais sur ce qui est sans consequence.
-- **Ecrire une propriete absente LEVE.** Un objet rendu par `ConvertFrom-Json` a une forme
-  figee ; lui ajouter un champ echoue, et la valeur perimee reste. Quand ce JSON vient
-  d'un cache ecrit par une version anterieure, tout ajout de champ casse en silence.
-  Parade : `Set-ObjectProperty` (`lib/common.ps1`), qui cree la propriete si elle manque.
-- **On constate APRES, pas dans la foulee.** Windows rend l'ancien etat d'une tache
-  pendant un court instant apres sa reecriture. Une verification immediate declarait donc
-  l'echec d'une reparation reussie. Laisser passer un souffle avant de croire ce qu'on lit.
+- **A cache NEVER carries a state that must be read now.** The account list is expensive to build: it is cached. The
+  state of their startup task is cheap to read, and it changes: it is read again at every call. A cache that lies never
+  lies about what has consequences.
+- **Writing a missing property THROWS.** An object returned by `ConvertFrom-Json` has a frozen shape; adding a field
+  fails, and the stale value stays. When that JSON comes from a cache written by an earlier version, every added field
+  breaks silently. Remedy: `Set-ObjectProperty` (`lib/common.ps1`), which creates the property when it is missing.
+- **We observe AFTER, not right away.** Windows returns a task's old state for a short moment after it is rewritten. An
+  immediate check therefore declared a successful repair a failure. Let a breath pass before believing what is read.
 
-## Documentation (regle absolue)
-- **Tout se documente** : chaque convention (ici), chaque techno
-  (`technologies.md`), chaque fonctionnalite + son usage
-  (`targeting/` + `implemented/` + `using/`).
-- Doc en 4 volets, **zero doublon**, references par **ID** (voir `README.md`).
-- Toute decision ecrite dans `progress/decisions.md` porte, sous son titre, **d'ou elle vient** : *Demandee par
-  l'utilisateur* (demande ou arbitrage explicite -- ne se rediscute pas sans lui) ou *Prise par l'agent* (choix
-  technique assume seul -- une remarque suffit a le remettre en cause). Les deux n'ont pas le meme poids : les
-  confondre revient a se prevaloir d'un accord qui n'a jamais ete donne.
-- *Origine non tracee* : seize anciennes entrees dont le texte ne dit pas d'ou elles viennent. On peut s'en servir --
-  mais **au moment de s'en prevaloir, si le doute compte, on redemande confirmation** plutot que de supposer un accord.
-  Une fois confirmee, l'entree est requalifiee sur-le-champ : la question ne se repose pas deux fois.
-- Le **point de reprise** est `../agent-working/briefing.md` : tenu a jour a chaque session, il n'y en a qu'un.
+## Documentation (absolute rule)
+- **Everything is documented**: every convention (here), every technology (`technologies.md`), every feature and its
+  use (`targeting/` + `implemented/` + `using/`).
+- Documentation in 4 parts, **zero duplicates**, references by **ID** (see `README.md`).
+- Every decision written in `progress/decisions.md` carries, under its title, **where it comes from**: *Demandée par
+  l'utilisateur* (an explicit request or arbitration -- not reopened without him) or *Prise par l'agent* (a technical
+  choice made alone -- one remark is enough to question it). They do not weigh the same: confusing them amounts to
+  claiming an agreement that was never given.
+- *Untraced origin*: sixteen old entries whose text does not say where they come from. They may be used -- but **when
+  relying on one, if the doubt matters, confirmation is asked again** rather than an agreement assumed. Once confirmed,
+  the entry is requalified on the spot: the question is not asked twice.
+- The **resumption point** is `../agent-working/briefing.md`: kept up to date every session, there is only one.
 
 ## Device bridge
-- Fichiers manipules via le pont (dossier monte). **Suppression interdite** :
-  deplacer (`mv`) au lieu de supprimer.
+- Files handled through the bridge (mounted folder). **Deletion forbidden**: move (`mv`) instead of deleting.
 
-## Idempotence (regle absolue)
-**Tous** les scripts sont idempotents : rejouables sans effet de bord ni erreur.
-Concretement :
-- Verifier l'etat AVANT d'agir ; ne rien refaire d'inutile.
-- Installer seulement si absent (`install.ps1`).
-- Ne pas relancer un service deja demarre (`start.ps1`/`run.ps1` testent le port
-  via `Test-ServerUp`).
-- Taches planifiees : `Register-ScheduledTask -Force`.
-- Modifications de config : positionner la valeur cible (pas de bascule aveugle).
+## Idempotence (absolute rule)
+**All** scripts are idempotent: replayable without side effect or error. In practice:
+- Check the state BEFORE acting; redo nothing needlessly.
+- Install only if absent (`install.ps1`).
+- Do not restart a service already started (`start.ps1`/`run.ps1` test the port through `Test-ServerUp`).
+- Scheduled tasks: `Register-ScheduledTask -Force`.
+- Configuration changes: set the target value (no blind toggle).
 
 ## Ports (organisation)
-- Plage locale reservee : **47600-47699**. Registre central : `LocalWork/PORTS.md`.
-- Chaque projet : **un port fixe**, configurable (ici `apps/backend-pode/config/config.psd1`),
-  inscrit au registre ; verifier le registre avant d'allouer.
-- Defaut de ce projet : **47600**.
+- Reserved local range: **47600-47699**. Central register: `LocalWork/PORTS.md`.
+- Each project: **one fixed port**, configurable (here `apps/backend-pode/config/config.psd1`), written in the register;
+  check the register before allocating.
+- This project's default: **47600**.
 
-## Encodage des scripts (compat PowerShell 5.1)
-Windows PowerShell 5.1 lit les `.ps1`/`.psd1` en ANSI (Windows-1252), pas en
-UTF-8 : tout caractere non-ASCII (accents, tiret cadratin -, guillemets
-courbes) casse l'analyse des chaines. Regle : **scripts PowerShell en ASCII pur**
-(commentaires francais sans accents, `-` simple, guillemets droits). Verif :
-`grep -rlP '[^\x00-\x7F]' --include='*.ps1' --include='*.psd1'` doit etre vide.
+## Script encoding (PowerShell 5.1 compatibility)
+Windows PowerShell 5.1 reads `.ps1`/`.psd1` as ANSI (Windows-1252), not UTF-8: any non-ASCII character (accents, em
+dash, curly quotes) breaks string parsing. Rule: **PowerShell scripts in pure ASCII** (French comments without accents,
+plain `-`, straight quotes). Check: `grep -rlP '[^\x00-\x7F]' --include='*.ps1' --include='*.psd1'` must be empty.
 
-## PowerShell 7 + UTF-8 (mise a jour, remplace la contrainte ASCII)
-- **Cible : PowerShell 7 (pwsh)** ; les lanceurs `install/start/run.ps1`
-  **rebasculent automatiquement en pwsh** s'ils sont appeles depuis la 5.1.
-  `install.ps1` installe PS7 (winget) s'il manque.
-- Sous PS7, les fichiers sont **UTF-8** : les **accents sont autorises** dans les
-  scripts (sondes, actions, lib, server).
-- **Exception** : les 3 lanceurs (`install/start/run.ps1`) restent en **ASCII**,
-  car la 5.1 doit pouvoir les lire le temps de rebasculer en pwsh.
-- Encodage d'ecriture recommande : UTF-8 (avec BOM si edite sous Windows).
+## PowerShell 7 + UTF-8 (update, replaces the ASCII constraint)
+- **Target: PowerShell 7 (pwsh)**; the launchers `install/start/run.ps1` **switch back to pwsh automatically** when
+  called from 5.1. `install.ps1` installs PS7 (winget) when it is missing.
+- Under PS7, files are **UTF-8**: **accents are allowed** in scripts (probes, actions, lib, server).
+- **Exception**: the 3 launchers (`install/start/run.ps1`) stay **ASCII**, since 5.1 must be able to read them long
+  enough to switch to pwsh.
+- Recommended write encoding: UTF-8 (with BOM if edited on Windows).
 
-## Journalisation (logs recuperables)
-- Tout ecrit sous **`apps/*/var/log/`** (recuperable via le pont pour diagnostic).
-- `install.ps1` / `start.ps1` : transcript complet (`install_*.log`,
-  `start_*.log`) + lignes `Write-Log` (helper de `lib/common.ps1`).
-- Serveur Pode : logs d'erreurs et de requetes (`pode-error_*.log`,
-  `pode-request_*.log`) via la journalisation Pode.
-- Regle : un script qui peut echouer **journalise** son erreur sur fichier
-  (pas seulement a l'ecran), pour etre diagnostique sans copier-coller.
+## Logging (recoverable logs)
+- Everything is written under **`apps/*/var/log/`** (recoverable through the bridge for diagnosis).
+- `install.ps1` / `start.ps1`: full transcript (`install_*.log`, `start_*.log`) + `Write-Log` lines (helper of
+  `lib/common.ps1`).
+- Pode server: error and request logs (`pode-error_*.log`, `pode-request_*.log`) through Pode's logging.
+- Rule: a script that can fail **logs** its error to a file (not only on screen), to be diagnosed without copy-paste.
 
-## Regles transverses (2026-08-20)
+## Cross-cutting rules (2026-08-20)
 
-### 1. Pas de duplication : une fonctionnalite = un seul code
-Toute logique partagee vit dans `apps/backend-pode/lib/common.ps1` et est reutilisee, jamais recopiee.
-Helpers partages en place :
-- `Test-Elevated` : le processus est-il administrateur ? (utilise par run/start/install + sondes)
-- `Test-UpdateTasksAclLock` : le verrou ACL (refus SYSTEM) est-il pose ? Comparaison par **SID**
-  (`S-1-5-18`), independante de la langue. Utilise par `lock.probe` ET l'action `update-mode-off`.
-- `Invoke-Native` : execute une commande native et renvoie `{ Ok; ExitCode; Output }`. Ses arguments
-  sont **bruts** : l'operateur d'appel cite lui-meme.
-- `Start-ChildProcess` : le **seul** chemin pour lancer un processus avec des arguments (**D116**).
-  On lui passe les valeurs **brutes** ; il les cite via `ConvertTo-ProcessArgument`, selon les regles
-  de `CommandLineToArgvW`. `Start-Process` en direct est refuse par `check-probes`.
-- `ConvertTo-ProcessArgument` / `ConvertTo-PSLiteral` : deux mondes, deux echappements -- une valeur
-  dans une **ligne de commande** Windows, une valeur dans du **source PowerShell** construit en texte.
-Cote front, le rendu d'une carte est centralise dans `cardHtml(m, groupLabel)` (reutilise par le
-rendu complet ET le rafraichissement par carte).
+### 1. No duplication: one feature = one piece of code
+All shared logic lives in `apps/backend-pode/lib/common.ps1` and is reused, never copied. Shared helpers in place:
+- `Test-Elevated`: is the process an administrator? (used by run/start/install + probes)
+- `Test-UpdateTasksAclLock`: is the ACL lock (SYSTEM denied) in place? Compared by **SID** (`S-1-5-18`), independent of
+  the language. Used by `lock.probe` AND the action `update-mode-off`.
+- `Invoke-Native`: runs a native command and returns `{ Ok; ExitCode; Output }`. Its arguments are **raw**: the call
+  operator quotes them itself.
+- `Start-ChildProcess`: the **only** road to launch a process with arguments (**D116**). It is given **raw** values; it
+  quotes them through `ConvertTo-ProcessArgument`, following the rules of `CommandLineToArgvW`. A direct
+  `Start-Process` is refused by `check-probes`.
+- `ConvertTo-ProcessArgument` / `ConvertTo-PSLiteral`: two worlds, two escapings -- a value in a Windows **command
+  line**, a value in **PowerShell source** built as text.
+On the front end, rendering a card is centralised in `cardHtml(m, groupLabel)` (reused by the full render AND the
+per-card refresh).
 
-### 2. Toujours traiter erreurs, sorties et codes de retour
-Chaque appel a une commande / un service / un script doit :
-- capturer la sortie (stdout + stderr, ex. `2>&1`),
-- verifier le code de retour (`$LASTEXITCODE` pour les .exe, `try/catch` pour les cmdlets),
-- journaliser en cas d'echec, et remonter un resultat honnete (jamais de faux succes).
-Exemples : `update-mode-off` verifie reellement le verrou pose (helper) et journalise `icacls`/`takeown` ;
-les actions renvoient `result.ok` reel ; le front affiche « Reussi » seulement si `result.ok` n'est pas `false`.
+### 2. Always handle errors, output and return codes
+Every call to a command / a service / a script must:
+- capture the output (stdout + stderr, e.g. `2>&1`),
+- check the return code (`$LASTEXITCODE` for .exe, `try/catch` for cmdlets),
+- log on failure, and report an honest result (never a false success).
+Examples: `update-mode-off` really checks the lock is in place (helper) and logs `icacls`/`takeown`; actions return the
+real `result.ok`; the front end shows « Réussi » only if `result.ok` is not `false`.

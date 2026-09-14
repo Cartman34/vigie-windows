@@ -4,13 +4,13 @@
 
     Why it exists. On 10/09, 845 lines of French were found under doc/en/, there for months, and D120 wrote that no tool
     compared a file's language with its folder's: "a rule hoped for, not held". The rule itself lives in
-    doc/en/developing/conventions.md, section "Langue".
+    doc/en/developing/conventions.md, section "Language".
 
     How a language is read. Code blocks and inline code are set aside, then the common short words of each language are
     counted. On 13/09 every document of the repository fell clearly on one side, the smaller count at most a tenth of the
     larger; a document with fewer than twenty such words is not judged.
 
-    The ratchet. The documents still in French under doc/en/ on 13/09 are listed below. A new one is refused; a listed one
+    The ratchet. The documents still in French under doc/en/ are listed below (seven on 13/09, none since 14/09). A new one is refused; a listed one
     that has been translated, moved or removed must leave the list, so the list only goes down.
 
     What it does NOT see: a paragraph in the wrong language inside a document of the right one, and the vocabulary --
@@ -25,16 +25,8 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $repoRoot 'scripts/lib/console-ui.ps1')
 
-# THE DOCUMENTS STILL IN FRENCH UNDER doc/en/, measured on 13/09. This list only goes down.
-$frenchUnderEnglish = @(
-    'doc/en/developing/conventions.md',
-    'doc/en/developing/debugging.md',
-    'doc/en/developing/design.md',
-    'doc/en/developing/glossary.md',
-    'doc/en/developing/modules.md',
-    'doc/en/developing/security-review.md',
-    'doc/en/developing/technologies.md'
-)
+# THE DOCUMENTS STILL IN FRENCH UNDER doc/en/. Seven on 13/09, all translated on 14/09. This list only goes down.
+$frenchUnderEnglish = @()
 # The language each place requires, the first matching prefix winning.
 $places = @(
     @{ Prefix = 'doc/en/';      Language = 'en' },

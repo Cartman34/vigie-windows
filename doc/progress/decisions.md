@@ -2494,7 +2494,7 @@ que le besoin est énoncé, que le texte est relu et que les nuances sont tranch
 valider une traduction — on n'approuve pas un texte dont l'original est ailleurs. **D41** disait déjà que le code est
 en anglais et que le français est la langue de l'écrit ; ceci n'en est que la conséquence.
 
-L'énoncé opératoire, et ses exceptions, vivent à un seul endroit : `doc/en/developing/conventions.md`, section Langue.
+L'énoncé opératoire, et ses exceptions, vivent à un seul endroit : `doc/en/developing/conventions.md`, section « Language ».
 Les pages anglaises portent en plus la mention de leur statut de traduction — c'est une information de lecteur, pas la
 règle de travail.
 
@@ -3175,7 +3175,7 @@ défaut d'origine — du français sous `en/` — passerait exactement pareil de
 remarque. C'est écrit comme tel dans la preuve ; ce n'est pas une règle tenue, c'est une règle espérée.
 
 **Constat du 13/09/2026.** `scripts/dev/check-language.ps1` tient désormais la règle, en cliquet. Sept documents de
-`doc/en/developing/` étaient encore écrits en français ; ils y sont listés, et la liste ne peut que baisser.
+`doc/en/developing/` étaient encore écrits en français ; ils y sont listés, et la liste ne peut que baisser. Traduits le 14/09 : la liste est vide.
 
 ## D121 — Une opération importante attend un OUI explicite (2026-09-11)
 
