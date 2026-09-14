@@ -1423,6 +1423,16 @@ function Get-ApiToken {
     param([string]$Backend = (Get-BackendRoot), [string]$VarRoot)
     $dir  = Get-VarPath -Backend $Backend -VarRoot $VarRoot -Kind 'secrets'
     $file = Join-Path $dir 'api.token'
+    # ITS OWN TOKEN IS HELD UNDER TARGET C7: rights set, checked at each read, reissued if a third party reached it.
+    # Another account's token (-VarRoot) is only read: its rights belong to its owner.
+    if (-not $VarRoot) {
+        $owner = ([Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
+        $token = Get-ProtectedSecretFile -Path $file -OwnerSid $owner -NewValue { [guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N') }
+        if ($script:SecretIncident) {
+            try { Write-Log -Backend $Backend -Level 'ERROR' -Name 'session' -Message ("Jeton de l'API compromis (" + $script:SecretIncident + ") : révoqué et réémis.") } catch { }
+        }
+        return $token
+    }
     if (-not (Test-Path $file)) {
         New-Item -ItemType Directory -Path $dir -Force | Out-Null
         $token = [guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N')

@@ -117,6 +117,10 @@ Le second cas est le plus instructif : ce profil est censé être privé, et il 
    la table du serveur ne donne alors rien d'exploitable.
 5. **Un administrateur peut lire n'importe quel secret.** C'est irréductible sous Windows, et sans conséquence : il peut
    déjà tout faire. Ce qui compte, c'est qu'un compte **standard** ne puisse lire que le sien.
+6. **Le jeton de l'API locale, `api.token`, suit la même règle** que le secret du compte : ACL posée à sa création,
+   vérifiée à chaque lecture par son propriétaire, et réémis avec l'incident journalisé si un tiers y a accès. Des droits
+   seulement hérités, sans tiers, se referment sans réémission : un jeton qui changerait à chaque lecture couperait
+   l'app serveur de ses pages.
 
 ### C7bis. Écrire dans le profil d'un autre compte
 

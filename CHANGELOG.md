@@ -644,7 +644,8 @@ versions, du point de vue de qui utilise Vigie.*
 - Une installation élevée retire la confiance git d'un dossier qui n'existe plus, la paire seulement.
 - Une copie valide de l'installation retire aussi les sauvegardes laissées par des copies en échec, qui s'accumulaient.
 - Une installation depuis un dépôt ne garde que la confiance git de la source déclarée.
-- Un secret de compte dont les droits accordent un accès à un tiers est révoqué, réémis et l'incident journalisé.
+- Un secret de compte dont les droits accordent un accès à un tiers est révoqué, réémis et l'incident journalisé. Le
+  jeton de l'API locale suit la même règle ; ses droits seulement hérités se referment sans le changer.
 - La carte Déploiement signale un profil du compte de service temporaire ou corrompu.
 - Action d'administration `service-data-reset` : vide le cache ou l'historique du service. **Non exécutée.**
 - **Un déploiement ne pose plus d'étiquette de version** (D123) : il affiche le dernier numéro suivi de ses commits,

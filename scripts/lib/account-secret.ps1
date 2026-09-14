@@ -165,6 +165,42 @@ function Test-SecretAcl {
     return $null
 }
 
+<#
+    A SECRET FILE READ BY ITS OWNER, UNDER THE RULE OF TARGET C7 -- used for the local API token.
+
+    Created with its rights when missing. Read after checking them: a third party with access means compromised -- the
+    file is revoked, a new value issued, and $script:SecretIncident says what was seen for the caller to log. Rights
+    that are merely inherited, with no third party, are closed again WITHOUT reissuing: a token files written before
+    14/09 all look like that, and reissuing on every read would cut the server off from its pages.
+    -NewValue builds a fresh value. Returns the value.
+#>
+function Get-ProtectedSecretFile {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$OwnerSid,
+        [Parameter(Mandatory)][scriptblock]$NewValue
+    )
+    $script:SecretIncident = $null
+    $dir = Split-Path $Path -Parent
+    if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+    if (Test-Path -LiteralPath $Path) {
+        $acl = Get-Acl -LiteralPath $Path
+        $allowed = @($OwnerSid) + $script:SecretAllowedSids
+        $third = @(Get-AclAccessRules -Acl $acl | Where-Object { $allowed -notcontains $_.IdentityReference.Value } |
+                   ForEach-Object { $_.IdentityReference.Value } | Select-Object -Unique)
+        if (-not $third.Count) {
+            if (Test-SecretAcl -Path $Path -OwnerSid $OwnerSid) { Set-SecretFolderAcl -Path $Path -OwnerSid $OwnerSid }
+            return ([System.IO.File]::ReadAllText($Path)).Trim()
+        }
+        $script:SecretIncident = ("un tiers y a accès : " + ($third -join ', '))
+        Remove-Item -LiteralPath $Path -Force -ErrorAction Stop
+    }
+    $value = "$(& $NewValue)"
+    [System.IO.File]::WriteAllText($Path, $value, (New-Object System.Text.UTF8Encoding($false)))
+    Set-SecretFolderAcl -Path $Path -OwnerSid $OwnerSid
+    return $value
+}
+
 # Ecrit un secret neuf, avec ses droits. Rend le secret en clair -- a l'appelant de ne pas
 # le journaliser.
 function New-AccountSecret {
