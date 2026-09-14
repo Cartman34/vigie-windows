@@ -223,6 +223,19 @@ if ($declaredSource -and -not (Test-PathSafe (Join-Path $declaredSource '.git'))
         -Guide ("Source déclarée : " + $declaredSource)
 }
 
+# THE SERVICE ACCOUNT'S PROFILE MAY BE BROKEN -- opened as temporary, corrupted: the service then runs without its clone,
+# its cache or its secrets. Surfaced since 14/09; restarting the server logs the account on again, which reloads it.
+$serviceProfileIssue = $null
+try { $serviceProfileIssue = Get-ServiceProfileAilment } catch { $serviceProfileIssue = "lecture impossible : " + $_.Exception.Message }
+if ($serviceProfileIssue) {
+    $depl += New-Field -Key 'profil-service' -Label 'Profil du compte de service' -Value 'Abîmé' -Kind 'text' -Status 'error' `
+        -FixAction 'server-restart' `
+        -Help "Le profil Windows du compte de service ne se charge pas normalement : le service tourne sans son clone, son cache ni ses secrets." `
+        -Guide ("Constat : " + $serviceProfileIssue + [Environment]::NewLine +
+                "Relancer le serveur ouvre à nouveau la session du compte de service, ce qui recharge son profil." + [Environment]::NewLine +
+                "Si le défaut revient après un redémarrage de l'ordinateur, un administrateur retire la clé « .bak » de ce compte sous HKLM, ProfileList, puis redémarre.")
+}
+
 # HORS SERVICE et EN ATTENTE ne se disent pas de la meme facon. Une tache dont la
 # structure est saine mais dont le dernier lancement a echoue n'est pas cassee : elle se
 # confirmera au prochain demarrage du compte. L'annoncer en rouge etait excessif, et

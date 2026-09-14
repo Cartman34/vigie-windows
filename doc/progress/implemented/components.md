@@ -15,7 +15,7 @@ une réponse que le code laisse supposer sans qu'elle ait été constatée.
 | compte `VigieService` | installation | repris, mot de passe renouvelé | réinstallation, ou `service-account-repair` | sans objet | `service-account-repair` : mot de passe, droit, ligne qui le masque, tâche serveur ; **non éprouvé** | retiré |
 | ligne qui masque le compte | installation | idempotente | réinstallation, ou `service-account-repair` | sans objet | `service-account-repair` ; **non éprouvé** | retirée |
 | droit « ouvrir une session en tant que tâche » | installation, par `Set-BatchLogonRight` | idempotent | réinstallation, ou `service-account-repair` | sans objet | `service-account-repair` ; **non éprouvé** | retiré avant le compte, depuis le 13/09 ; **non éprouvé** |
-| profil du compte de service | premier démarrage de la tâche | sans objet | **aucune réponse** | voir les données | lecture des journaux par `diag-account-logs` | retiré |
+| profil du compte de service | premier démarrage de la tâche | sans objet | temporaire, corrompu ou inscription « .bak » : la carte Déploiement l'affiche en erreur, avec `server-restart` et un guide, depuis le 14/09 ; **non éprouvé sur un profil réellement abîmé** | voir les données | lecture des journaux par `diag-account-logs` | retiré |
 
 ## Les tâches planifiées
 
@@ -42,16 +42,16 @@ une réponse que le code laisse supposer sans qu'elle ait été constatée.
 |---|---|---|---|---|---|---|
 | clone du service | première synchronisation | récupération forcée ; recloné à côté de l'ancien si git refuse alors que la source répond. **Éprouvé en production le 13/09 à 11 h 57** : les étiquettes déplacées ont été absorbées sans reclonage | illisible : recloné ; source muette : clone intact, texte de git affiché | sans objet | `service-clone-repair`, `service-clone-reset` | retiré avec le profil |
 | déclarations `safe.directory` | installation et déploiement | la source précédente perd les siennes au déploiement suivant, depuis le 13/09 | sans objet | à chaque installation élevée depuis un dépôt, `Remove-StaleGitSafeDirectory` retire toute paire posée par Vigie qui ne vise pas la source déclarée, depuis le 14/09 ; **non éprouvé sur la configuration réelle** | `setup.cmd` redéclare celle de la source | retirées |
-| étiquettes de version | déploiement en `dev`, posées et poussées dans le dépôt de la personne | déplacées par une réécriture d'historique, elles bloquent le clone | sans objet | une par déploiement | **aucune réponse** | conservées : le dépôt appartient à la personne |
+| étiquettes de version | déploiement en `dev`, posées et poussées dans le dépôt de la personne | déplacées par une réécriture d'historique, elles bloquent le clone | sans objet | une par déploiement : 93 au 14/09, là où l'utilisateur en attend 10 à 20, faute d'avoir tenu une seule mise à jour par lot avant le 13/09 ; celles déjà posées restent | aucune par Vigie : les retirer est un geste public, jamais sans accord | conservées : le dépôt appartient à la personne |
 
 ## Les données sous `var/`
 
 | Pièce | Création | Mise à jour, dépendance qui change | État cassé | Croissance | Maintenance | Désinstallation |
 |---|---|---|---|---|---|---|
-| `var/cache` | exécution | supprimé à la mise à jour, jamais migré | recalculé | borné par les sondes | **aucune réponse** | retiré |
-| `var/history` | sentinelles | sans objet | **non vérifié** | purge à 90 jours | **aucune réponse** | retiré |
+| `var/cache` | exécution | supprimé à la mise à jour, jamais migré | recalculé | borné par les sondes | `service-data-reset` avec `part = cache`, depuis le 14/09 ; **non exécuté** | retiré |
+| `var/history` | sentinelles | sans objet | **non vérifié** | purge à 90 jours | lecture par `diag-account-logs` ; `service-data-reset` avec `part = history`, depuis le 14/09 ; **non exécuté** | retiré |
 | `var/log`, dont les copies de diagnostic et les sauvegardes `.reg` | exécution | sans objet | sans objet | purge à 30 jours, au démarrage de l'app serveur et de l'app cliente, puis chaque jour avec l'historique | lecture par `diag-account-logs` | retiré |
-| `var/secrets` | installation | sans objet | ACL revérifiée à chaque lecture | sans objet | **aucune réponse** | retiré |
+| `var/secrets` | installation | sans objet | ACL revérifiée à chaque lecture ; un secret de compte dont l'ACL accorde un droit à un tiers est révoqué, réémis et l'incident journalisé à la lecture de son compte, depuis le 14/09 (cible `multi-account-server.md`, C7). Le jeton `api.token` n'a pas encore cette vérification | sans objet | réémission automatique ; lecture jamais recopiée, par règle | retiré |
 | `var/run` : marques et état des résidents | exécution | sans objet | marque d'un processus disparu : échec affiché | sans objet | sans objet | retiré |
 
 ## Les réglages de Windows que Vigie pose

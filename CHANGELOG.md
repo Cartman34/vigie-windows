@@ -643,6 +643,10 @@ versions, du point de vue de qui utilise Vigie.*
   cause de l'installation silencieuse du 13/09 à 11 h 11 reste **non expliquée**.
 - Une installation élevée retire la confiance git d'un dossier qui n'existe plus, la paire seulement.
 - Une copie valide de l'installation retire aussi les sauvegardes laissées par des copies en échec, qui s'accumulaient.
+- Une installation depuis un dépôt ne garde que la confiance git de la source déclarée.
+- Un secret de compte dont les droits accordent un accès à un tiers est révoqué, réémis et l'incident journalisé.
+- La carte Déploiement signale un profil du compte de service temporaire ou corrompu.
+- Action d'administration `service-data-reset` : vide le cache ou l'historique du service. **Non exécutée.**
 
 ### Ajouté
 - `scripts/dev/check-all.ps1` lance tous les vérificateurs du dépôt en une commande.

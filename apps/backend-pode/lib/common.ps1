@@ -2863,6 +2863,32 @@ function Send-TrayRestartToAll {
 #>
 function Get-ServiceAccountName { 'VigieService' }
 
+<#
+    WHAT IS WRONG WITH THE SERVICE ACCOUNT'S PROFILE, or $null. Every error is handled and surfaced
+    (doc/progress/targeting/components.md, situation "broken state"): a profile Windows opened as temporary, declared
+    corrupted, or whose registration left a ".bak" copy behind runs the service on data that are not its own -- no
+    clone, no cache, no secrets -- and nothing said so until 14/09.
+#>
+function Get-ServiceProfileAilment {
+    param([string]$Account = (Get-ServiceAccountName))
+    $sid = $null
+    try { $sid = Get-AccountSid -Account $Account } catch { }
+    if (-not $sid) { return $null }
+    $userProfile = $null
+    try { $userProfile = Get-CimInstance Win32_UserProfile -Filter ("SID='" + $sid + "'") -ErrorAction Stop }
+    catch { return ("son profil ne se lit pas : " + $_.Exception.Message) }
+    # No profile yet: the server task has never started; the deployment card says so through its task.
+    if (-not $userProfile) { return $null }
+    # Win32_UserProfile.Status: 1 temporary, 8 corrupted.
+    $status = [int]$userProfile.Status
+    if ($status -band 1) { return "Windows l'a ouvert en profil temporaire : le service ne travaille pas sur ses propres données" }
+    if ($status -band 8) { return "Windows déclare son profil corrompu" }
+    if ((Split-Path "$($userProfile.LocalPath)" -Leaf) -like 'TEMP*') { return ("son profil pointe vers un dossier temporaire : " + $userProfile.LocalPath) }
+    $backupKey = 'HKLM:' + [char]92 + (@('SOFTWARE', 'Microsoft', 'Windows NT', 'CurrentVersion', 'ProfileList', ($sid + '.bak')) -join [char]92)
+    if (Test-Path -LiteralPath $backupKey) { return "l'inscription de son profil a une copie « .bak » : un chargement a échoué" }
+    return $null
+}
+
 function Get-AccountVarRoot {
     param([Parameter(Mandatory)][string]$Account)
     $profil = Join-Path $env:SystemDrive (Join-Path 'Users' $Account)

@@ -66,6 +66,7 @@ définition de `../targeting/operations.md`, section « Ce qu'est une opération
 | `service-account-repair` | appel direct par l'API, `scripts/dev/ask-vigie.ps1` | admin | serveur | asynchrone | `Start-Operation` | commun |
 | `service-clone-repair` | appel direct par l'API, `scripts/dev/ask-vigie.ps1` | admin | serveur | asynchrone | `Start-Operation`, `workers/service-clone.worker.ps1` | commun |
 | `service-clone-reset` | appel direct par l'API, `scripts/dev/ask-vigie.ps1` | admin | serveur | asynchrone | `Start-Operation`, `workers/service-clone.worker.ps1` | commun |
+| `service-data-reset` | appel direct par l'API, `scripts/dev/ask-vigie.ps1` | admin | serveur | synchrone | suppression du contenu de `var/cache` ou `var/history` | sans objet |
 | `system-restart` | `os.probe.ps1`, `vbs.probe.ps1`, `pending.probe.ps1` | tous | serveur | synchrone | `Invoke-Native` sur `shutdown.exe`, redémarrage différé et annulable | sans objet |
 | `system-restart-cancel` | `os.probe.ps1`, `vbs.probe.ps1`, `pending.probe.ps1` | tous | serveur | synchrone | `Invoke-Native` sur `shutdown.exe` | sans objet |
 | `tag-version` | ordre de bureau envoyé par `scripts/install.ps1` | admin | session | synchrone | `Invoke-Git` | sans objet |

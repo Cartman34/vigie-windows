@@ -201,9 +201,16 @@ function Get-AccountSecret {
     }
     $wrong = Test-SecretAcl -Path $file -OwnerSid $OwnerSid
     if ($wrong) {
-        # COMPROMIS : on ne s'en sert pas, on le remplace, et on le dit. Continuer avec un
-        # secret qu'un tiers a pu lire reviendrait a n'avoir aucun secret du tout.
-        throw ("Secret de compte compromis (" + $wrong + ") : il doit être révoqué et réémis.")
+        # COMPROMISED: revoked, reissued, and the incident logged (target C7, point 3). Until 14/09 the read only threw,
+        # and nothing ever reissued: the account stayed without a session. The owner's own read (-Create) now does it;
+        # the server's read of another account still refuses, and that account's next read reissues.
+        $incident = "Secret de compte compromis (" + $wrong + ")"
+        if (-not $Create) { throw ($incident + " : il doit être révoqué et réémis.") }
+        if (Get-Command Write-Log -ErrorAction SilentlyContinue) {
+            try { Write-Log -Level 'ERROR' -Name 'session' -Message ($incident + " : révoqué et réémis.") } catch { }
+        }
+        Remove-Item -LiteralPath $file -Force -ErrorAction Stop
+        return (New-AccountSecret -VarRoot $VarRoot -OwnerSid $OwnerSid)
     }
     return ([System.IO.File]::ReadAllText($file)).Trim()
 }
