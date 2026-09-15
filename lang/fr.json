@@ -843,6 +843,7 @@
   "wu-install.introuvables": "{0} mise(s) à jour demandée(s) introuvable(s) au moment d'installer.",
   "wu-install.installation-code-redemarrage": "installation : code {0} redémarrage={1}",
   "wu-install.resultat": "résultat : {0} -> {1}",
+  "wu-install.suivi-indisponible": "suivi de l'avancement indisponible, travail sans suivi : {0}",
   "wu-install.telechargement-code": "téléchargement : code {0}",
   "wu-install.verrou-leve": "verrou leve : {0}",
   "wu-install.verrou-non-repose": "VERROU NON REPOSE",

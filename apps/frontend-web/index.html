@@ -508,6 +508,16 @@
   .fk-label.clickable:hover{color:var(--text);text-decoration:underline dotted}
   .v-ok{color:var(--ok)} .v-warn{color:var(--warn)} .v-error{color:var(--err)} .v-neutral{color:var(--text)}
   .frow-actions{padding:3px 0 2px 22px}
+  /* LE SUIVI D'UNE OPERATION EN COURS : un bloc a part sous la ligne, qui n'existe que tant qu'elle dure. */
+  .fprog{margin:4px 0 6px 22px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--panel-2);display:flex;flex-direction:column;gap:5px;font-size:12px}
+  .fprog-head{display:flex;justify-content:space-between;gap:10px;color:var(--text);font-weight:600}
+  .fprog-head .fprog-since{color:var(--muted);font-weight:400;white-space:nowrap}
+  .fprog-title{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fprog-bar{height:6px;border-radius:3px;background:var(--border);overflow:hidden}
+  .fprog-bar > span{display:block;height:100%;background:var(--accent);transition:width .6s ease}
+  .fprog-bar.item > span{background:var(--muted)}
+  .fprog-line{display:flex;justify-content:space-between;gap:10px;color:var(--muted);font-variant-numeric:tabular-nums}
+  @media (prefers-reduced-motion: reduce){.fprog-bar > span{transition:none}}
   /* Le passage d'un etat a un autre, dans une confirmation : deux valeurs, une fleche. */
   .cf-trans{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:2px}
   .cf-v{background:var(--panel-2);border:1px solid var(--border);border-radius:8px;
@@ -1047,6 +1057,7 @@ function cardHtml(m, groupLabel){
     return `<div class="frow">
       <div class="field"><span class="k"><span class="fdot ${stt}"></span><span class="fk-label${aQuoiVoir?' clickable':''}"${help?` title="${help}"`:''}${clicDetail?` onclick="${clicDetail}"`:''}>${f.label}</span>${info}</span><span class="v v-${stt}">${fmt(f)}</span></div>
       ${det}
+      ${progressHtml(f)}
       ${solve?`<div class="frow-actions">${solve}</div>`:''}
     </div>`;
   }).join('');
@@ -1870,6 +1881,24 @@ async function ouvrirArborescence(){
     const el = document.querySelector('.hds-body') || document.getElementById('hdsBody');
     if(el) el.innerHTML = '<p class="hds-intro">Lecture impossible : '+esc(e.message||String(e))+'</p>';
   }
+}
+// LE BLOC DE SUIVI (contrat Field.progress) : phase et rang, titre de l'element en cours, avancement global puis celui
+// de l'element, octets pendant un telechargement, temps ecoule. Rien quand le champ n'en porte pas.
+function progressHtml(f){
+  const p=f.progress; if(!p||!p.phase) return '';
+  const pct=v=>(typeof v==='number'&&isFinite(v))?Math.max(0,Math.min(100,Math.round(v))):null;
+  const g=pct(p.percent), it=pct(p.itemPercent);
+  const rang=(p.index&&p.total)?(' · '+p.index+' sur '+p.total):'';
+  let depuis='';
+  if(p.since){ const s=Math.max(0,Math.round((Date.now()-new Date(p.since).getTime())/1000));
+    depuis=s>=60?('depuis '+Math.floor(s/60)+' min '+String(s%60).padStart(2,'0')+' s'):('depuis '+s+' s'); }
+  const octetsTxt=(p.bytesTotal>0)?(octets(p.bytesDone||0)+' sur '+octets(p.bytesTotal)):'';
+  return '<div class="fprog">'
+    + '<div class="fprog-head"><span>'+esc(p.phase)+esc(rang)+'</span><span class="fprog-since">'+esc(depuis)+'</span></div>'
+    + (p.title?'<div class="fprog-title" title="'+att(p.title)+'">'+esc(p.title)+'</div>':'')
+    + (g!==null?'<div class="fprog-line"><span>Ensemble</span><span>'+g+' %</span></div><div class="fprog-bar"><span style="width:'+g+'%"></span></div>':'')
+    + (it!==null?'<div class="fprog-line"><span>'+(octetsTxt?esc(octetsTxt):'Mise à jour en cours')+'</span><span>'+it+' %</span></div><div class="fprog-bar item"><span style="width:'+it+'%"></span></div>':'')
+    + '</div>';
 }
 function ouvrirDetail(key){
   const f=fieldsByKey[key]; if(!f) return;

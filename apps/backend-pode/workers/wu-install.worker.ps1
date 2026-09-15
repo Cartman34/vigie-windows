@@ -55,6 +55,105 @@ function Get-InstallHistoryEntry {
     return $null
 }
 
+<#
+    THE PROGRESS OF A DOWNLOAD OR AN INSTALLATION, written every second for the card (doc/progress/targeting/features.md,
+    entry WU-PENDING). Windows Update only reports progress through its asynchronous calls, and those refuse to start
+    without callback objects -- "Object reference not set" with $null (measured on 15/09). The callbacks below do
+    nothing: the job is polled instead. Their interface ids were read in HKCR\Interface on 15/09.
+#>
+if (-not ('VigieWuDownloadProgress' -as [type])) {
+    Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+
+[ComImport, Guid("8C3F1CDD-6173-4591-AEBD-A56A53CA77C1"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+public interface IVigieDownloadProgressChangedCallback {
+    [PreserveSig] int Invoke([MarshalAs(UnmanagedType.IDispatch)] object job, [MarshalAs(UnmanagedType.IDispatch)] object args);
+}
+[ComImport, Guid("77254866-9F5B-4C8E-B9E2-C77A8530D64B"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+public interface IVigieDownloadCompletedCallback {
+    [PreserveSig] int Invoke([MarshalAs(UnmanagedType.IDispatch)] object job, [MarshalAs(UnmanagedType.IDispatch)] object args);
+}
+[ComImport, Guid("E01402D5-F8DA-43BA-A012-38894BD048F1"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+public interface IVigieInstallationProgressChangedCallback {
+    [PreserveSig] int Invoke([MarshalAs(UnmanagedType.IDispatch)] object job, [MarshalAs(UnmanagedType.IDispatch)] object args);
+}
+[ComImport, Guid("45F4F6F3-D602-4F98-9A8A-3EFA152AD2D3"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+public interface IVigieInstallationCompletedCallback {
+    [PreserveSig] int Invoke([MarshalAs(UnmanagedType.IDispatch)] object job, [MarshalAs(UnmanagedType.IDispatch)] object args);
+}
+
+[ComVisible(true), ClassInterface(ClassInterfaceType.None)]
+public class VigieWuDownloadProgress : IVigieDownloadProgressChangedCallback { public int Invoke(object job, object args) { return 0; } }
+[ComVisible(true), ClassInterface(ClassInterfaceType.None)]
+public class VigieWuDownloadDone : IVigieDownloadCompletedCallback { public int Invoke(object job, object args) { return 0; } }
+[ComVisible(true), ClassInterface(ClassInterfaceType.None)]
+public class VigieWuInstallProgress : IVigieInstallationProgressChangedCallback { public int Invoke(object job, object args) { return 0; } }
+[ComVisible(true), ClassInterface(ClassInterfaceType.None)]
+public class VigieWuInstallDone : IVigieInstallationCompletedCallback { public int Invoke(object job, object args) { return 0; } }
+'@
+}
+
+# One numeric property of a COM progress object, or $null when it does not exist.
+function Get-ComNumber {
+    param($Object, [string]$Name)
+    try { $value = $Object.$Name; if ($null -eq $value) { return $null }; return [long]$value } catch { return $null }
+}
+
+<#
+    RUNS THE DOWNLOAD OR THE INSTALLATION, writing its progress, and returns its result. If the asynchronous call cannot
+    start, the work runs synchronously, without progress, and the log says why: a progress display never costs an
+    installation.
+#>
+function Invoke-UpdateJob {
+    param(
+        [Parameter(Mandatory)][ValidateSet('telechargement', 'installation')][string]$Phase,
+        [Parameter(Mandatory)]$Operator,
+        [Parameter(Mandatory)][string[]]$Titles,
+        [Parameter(Mandatory)][string]$StartedAt
+    )
+    $phaseLabel = if ($Phase -eq 'telechargement') { 'Téléchargement' } else { 'Installation' }
+    $job = $null
+    try {
+        if ($Phase -eq 'telechargement') {
+            $job = $Operator.BeginDownload((New-Object VigieWuDownloadProgress), (New-Object VigieWuDownloadDone), $null)
+        } else {
+            $job = $Operator.BeginInstall((New-Object VigieWuInstallProgress), (New-Object VigieWuInstallDone), $null)
+        }
+    } catch {
+        Write-Log -Backend $Backend -Name 'wuinstall' -Level 'WARN' -Message (Get-Label 'wu-install.suivi-indisponible' $_.Exception.Message)
+        if ($Phase -eq 'telechargement') { return $Operator.Download() }
+        return $Operator.Install()
+    }
+    $lastWrite = [datetime]::MinValue
+    while (-not $job.IsCompleted) {
+        if (((Get-Date) - $lastWrite).TotalMilliseconds -ge 1000) {
+            try {
+                $p = $job.GetProgress()
+                $index = Get-ComNumber $p 'CurrentUpdateIndex'
+                $progress = [ordered]@{
+                    phase       = $phaseLabel
+                    percent     = Get-ComNumber $p 'PercentComplete'
+                    index       = $(if ($null -ne $index) { $index + 1 } else { $null })
+                    total       = $Titles.Count
+                    title       = $(if ($null -ne $index -and $index -lt $Titles.Count) { $Titles[[int]$index] } else { $null })
+                    itemPercent = Get-ComNumber $p 'CurrentUpdatePercentComplete'
+                    since       = $StartedAt
+                }
+                if ($Phase -eq 'telechargement') {
+                    $progress.bytesDone  = Get-ComNumber $p 'CurrentUpdateBytesDownloaded'
+                    $progress.bytesTotal = Get-ComNumber $p 'CurrentUpdateBytesToDownload'
+                }
+                Set-Etat @{ progress = $progress }
+            } catch { }
+            $lastWrite = Get-Date
+        }
+        Start-Sleep -Milliseconds 250
+    }
+    if ($Phase -eq 'telechargement') { return $Operator.EndDownload($job) }
+    return $Operator.EndInstall($job)
+}
+
 function Set-Etat {
     param([hashtable]$Set)
     try { Update-StateJson -Path $outFile -Set $Set | Out-Null } catch { }
@@ -99,15 +198,16 @@ try {
     foreach ($id in $missing) { Write-Log -Backend $Backend -Name 'wuinstall' -Message (Get-Label 'wu-install.introuvable' $id) }
     Set-Etat @{ phase = 'telechargement'; total = $coll.Count
                 titres = @($retenus); at = (Get-Date).ToUniversalTime().ToString('o') }
+    $startedAt = (Get-Date).ToUniversalTime().ToString('o')
     $dl = $session.CreateUpdateDownloader()
     $dl.Updates = $coll
-    $rDl = $dl.Download()
+    $rDl = Invoke-UpdateJob -Phase 'telechargement' -Operator $dl -Titles $retenus -StartedAt $startedAt
     Write-Log -Backend $Backend -Name 'wuinstall' -Message (Get-Label 'wu-install.telechargement-code' $rDl.ResultCode)
 
-    Set-Etat @{ phase = 'installation' }
+    Set-Etat @{ phase = 'installation'; progress = $null }
     $inst = $session.CreateUpdateInstaller()
     $inst.Updates = $coll
-    $rIn = $inst.Install()
+    $rIn = Invoke-UpdateJob -Phase 'installation' -Operator $inst -Titles $retenus -StartedAt $startedAt
 
     # ResultCode : 2 = reussi, 3 = reussi avec erreurs. Tout le reste est un echec.
     $ok = ($rIn.ResultCode -eq 2)
@@ -146,6 +246,7 @@ try {
     }
     Set-Etat @{
         phase      = 'termine'
+        progress   = $null
         at         = (Get-Date).ToUniversalTime().ToString('o')
         total      = $ids.Count
         titres     = @($retenus)
@@ -167,7 +268,7 @@ try {
         Write-Output ('[X] ' + (Get-Label 'wu-install.code-global' $rIn.ResultCode))
     }
 } catch {
-    Set-Etat @{ phase = 'termine'; ok = $false
+    Set-Etat @{ phase = 'termine'; ok = $false; progress = $null
                 at = (Get-Date).ToUniversalTime().ToString('o'); error = $_.Exception.Message }
     Write-Log -Backend $Backend -Name 'wuinstall' -Level 'ERROR' -Message $_.Exception.Message
     $exitCode = 1

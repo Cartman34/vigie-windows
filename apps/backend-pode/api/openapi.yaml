@@ -360,6 +360,21 @@ components:
               items:
                 type: array
                 items: { type: string }
+        progress:
+          type: object
+          description: >
+            Avancement d'une operation en cours, affiche dans un bloc a part sous le champ, et seulement tant qu'elle
+            dure. Tous les membres sont facultatifs sauf phase.
+          properties:
+            phase: { type: string, description: "libelle de la phase, deja traduit (Téléchargement, Installation)" }
+            percent: { type: integer, description: avancement global, 0 a 100 }
+            index: { type: integer, description: rang de l'element en cours, a partir de 1 }
+            total: { type: integer, description: nombre d'elements }
+            title: { type: string, description: nom de l'element en cours }
+            itemPercent: { type: integer, description: avancement de l'element en cours, 0 a 100 }
+            bytesDone: { type: integer, description: octets recus pour l'element en cours }
+            bytesTotal: { type: integer, description: octets attendus pour l'element en cours }
+            since: { type: string, format: date-time, description: debut de l'operation, UTC }
         help: { type: string }
     Action:
       type: object

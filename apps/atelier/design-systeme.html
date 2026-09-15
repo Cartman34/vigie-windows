@@ -22,6 +22,15 @@
   .crumb.vigie:hover{background:var(--accent);color:#fff}
   .badge{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:2px 9px;border-radius:999px}
   .badge.encours{color:var(--accent);background:rgba(56,139,253,.14)}
+  /* --- Suivi d'une operation en cours : miroir de .fprog dans apps/frontend-web/index.html --- */
+  .fprog{margin:4px 0 6px 22px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--panel-2);display:flex;flex-direction:column;gap:5px;font-size:12px}
+  .fprog-head{display:flex;justify-content:space-between;gap:10px;color:var(--text);font-weight:600}
+  .fprog-head .fprog-since{color:var(--muted);font-weight:400;white-space:nowrap}
+  .fprog-title{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fprog-bar{height:6px;border-radius:3px;background:var(--border);overflow:hidden}
+  .fprog-bar > span{display:block;height:100%;background:var(--accent)}
+  .fprog-bar.item > span{background:var(--muted)}
+  .fprog-line{display:flex;justify-content:space-between;gap:10px;color:var(--muted);font-variant-numeric:tabular-nums}
 
   /* --- Palette --- */
   .sw-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
@@ -217,6 +226,25 @@
     <span style="font-size:12px;color:var(--muted)">actif / inactif</span>
     <span style="border:1px dashed var(--border);border-radius:6px;padding:2px 7px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)">défaut</span>
     <span style="font-size:12px;color:var(--muted)">← bouton de retour à la valeur de config</span>
+  </div>
+</section>
+
+<section>
+  <h2>Suivi d'une opération — un bloc à part, le temps qu'elle dure</h2>
+  <p class="lgd">Sous le champ de l'opération, et seulement pendant qu'elle tourne (D50 : quoi, sur combien, depuis quand).
+     La valeur du champ reste courte ; le bloc porte la phase et le rang, le titre de l'élément en cours, l'avancement
+     global puis celui de l'élément, les octets pendant un téléchargement. Il disparaît à la fin : le résultat prend sa place.</p>
+  <div class="demo">
+    <div class="d-card" style="width:360px">
+      <div class="d-head"><span class="d-name">Mise à jour du système</span></div>
+      <div class="d-field"><span class="d-dot"></span>Installation <span class="ic-i">i</span><span class="d-val">Téléchargement · 2/4 · 38 %</span></div>
+      <div class="fprog">
+        <div class="fprog-head"><span>Téléchargement · 2 sur 4</span><span class="fprog-since">depuis 3 min 42 s</span></div>
+        <div class="fprog-title">2026-09 Mise à jour cumulative de .NET Framework 3.5 et 4.8.1</div>
+        <div class="fprog-line"><span>Ensemble</span><span>38 %</span></div><div class="fprog-bar"><span style="width:38%"></span></div>
+        <div class="fprog-line"><span>40.0 Mo sur 65.6 Mo</span><span>61 %</span></div><div class="fprog-bar item"><span style="width:61%"></span></div>
+      </div>
+    </div>
   </div>
 </section>
 

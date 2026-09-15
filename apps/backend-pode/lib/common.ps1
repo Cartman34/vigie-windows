@@ -3377,7 +3377,10 @@ function New-Field {
         # ARBORESCENCE repliable (S13b/D60) : @{ n; path; size; pct; k = @(...) }. Un
         # tableau met a plat ce qui est hierarchique ; un arbre se parcourt de branche en
         # branche, ce qui est justement la question posee (« ou part la place ? »).
-        $Tree
+        $Tree,
+        # THE PROGRESS OF AN OPERATION IN PROGRESS, in a block of its own under the field, only while it runs:
+        # @{ phase; percent; index; total; title; itemPercent; bytesDone; bytesTotal; since } (contract Field.progress).
+        [hashtable]$Progress
     )
     $f = [ordered]@{ key = $Key; label = $Label; value = $Value; kind = $Kind }
     if ($Unit)      { $f['unit']      = $Unit }
@@ -3387,6 +3390,7 @@ function New-Field {
     if ($Guide)     { $f['guide']     = $Guide }
     if ($Table -and $Table.rows -and @($Table.rows).Count) { $f['table'] = $Table }
     if ($Tree) { $f['tree'] = $Tree }
+    if ($Progress -and $Progress.phase) { $f['progress'] = $Progress }
     [pscustomobject]$f
 }
 function New-Action {

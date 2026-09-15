@@ -106,7 +106,19 @@ if ($null -eq $count) {
             'installation'   { 'Installation…' }
             default          { 'Démarrage…' }
         }
+        # THE PROGRESS BLOCK, only while it runs (doc/progress/targeting/features.md, entry WU-PENDING). The value
+        # stays short -- the phase, its rank and its percentage -- and the block under the field carries the rest.
+        $progress = $null
+        if ($inst -and $inst.progress -and "$($inst.phase)" -ne 'termine') {
+            $progress = @{}
+            foreach ($prop in @($inst.progress.PSObject.Properties)) { if ($null -ne $prop.Value) { $progress[$prop.Name] = $prop.Value } }
+            $parts = @("$($progress.phase)")
+            if ($progress.index -and $progress.total) { $parts += "$($progress.index)/$($progress.total)" }
+            if ($null -ne $progress.percent) { $parts += "$($progress.percent) %" }
+            $libellePhase = $parts -join ' · '
+        }
         $champs += New-Field -Key 'install' -Label 'Installation' -Value $libellePhase -Kind 'text' -Status 'neutral' `
+            -Progress $progress `
             -Help "Installation lancée depuis Vigie. Elle continue même si la fenêtre se ferme." `
             -Guide $(if ($inst.titres -and "$($inst.phase)" -ne 'termine') { "Mises à jour retenues :`n- " + (@($inst.titres) -join "`n- ") } else { '' })
     } elseif ($inst -and $inst.phase -eq 'termine') {

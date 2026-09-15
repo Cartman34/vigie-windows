@@ -652,6 +652,8 @@ versions, du point de vue de qui utilise Vigie.*
   l'ordinateur, dont 10 426 tenues par l'hôte réseau de WSL : la mise à jour du 14/09 a duré 225 s au lieu de 98.
   L'appel natif qui ne demande que les ports en écoute répond en quelques millisecondes, et le service d'un processus
   se retrouve de la même façon ; `check-probes` refuse les appels lents.
+- **La carte Windows Update suit une installation en cours** : phase, mise à jour en cours et son rang, avancement
+  global et de la mise à jour, octets téléchargés, temps écoulé, dans un bloc qui n'existe que pendant l'installation.
 - Une version de développement s'écrit d'une seule façon, `v1.1.6+1` : l'installation l'écrivait `v1.1.6-dev1`, et
   l'état du déploiement annonçait un dépôt en avance sur une installation au même commit.
 - **Un déploiement ne pose plus d'étiquette de version** (D123) : il affiche le dernier numéro suivi de ses commits,
