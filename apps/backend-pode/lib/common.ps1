@@ -2063,9 +2063,12 @@ function Compare-SharedInstall {
 }
 
 # Deux numeros designent-ils la meme version ? « v0.1.26 » et « 0.1.26 » : oui.
+# "v1.1.6-dev1" and "v1.1.6+1" too: archives built before 15/09 wrote the commits count as "-devN" into their stamp.
 function Test-SameVersion {
     param([string]$A, [string]$B)
-    return (("$A".TrimStart('v', 'V').Trim()) -eq ("$B".TrimStart('v', 'V').Trim()))
+    $left  = ("$A".TrimStart('v', 'V').Trim()) -replace '-dev(\d+)$', '+$1'
+    $right = ("$B".TrimStart('v', 'V').Trim()) -replace '-dev(\d+)$', '+$1'
+    return ($left -eq $right)
 }
 
 <#

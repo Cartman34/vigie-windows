@@ -202,9 +202,10 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
 # vient d'en poser un. Plus de fichier VERSION a tenir a jour (D96).
 $number = if ($Version) { $Version -replace '^v', '' } else { (Get-BuildStamp -Root $repoRoot).version -replace '^v', '' }
 if (-not $number -or $number -eq 'sans version') { $number = '0.1' }
-# Un « + » dans un nom de fichier est legal mais desagreable : v0.1.6+6 devient
-# 0.1.6-dev6 dans le nom de l'archive.
-$number = $number -replace '\+', '-dev'
+# A "+" in a file name is legal but awkward: v0.1.6+6 becomes 0.1.6-dev6 in the ARCHIVE NAME, and there only. The
+# stamp keeps "+": written "-dev1" into BUILD on 15/09, one version read two ways -- the installation "v1.1.6-dev1",
+# the repository "v1.1.6+1" -- and deploy-status announced a repository ahead of an installation on the same commit.
+$fileNumber = $number -replace '\+', '-dev'
 
 # --- Inventaire : ce que git suit ------------------------------------------------------
 Push-Location $repoRoot
@@ -289,7 +290,7 @@ if ($ListOnly) {
 
 # --- Preparation et compression ---------------------------------------------------------
 if (-not $OutDir) { $OutDir = Join-Path $repoRoot 'dist' }
-$nom     = 'vigie-' + $number
+$nom     = 'vigie-' + $fileNumber
 # Fichiers AJOUTES par la fabrication (donc absents de git) : le controle final les
 # attend en plus de la liste retenue.
 $genereParLaFabrication = @()
