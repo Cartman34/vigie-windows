@@ -648,6 +648,10 @@ versions, du point de vue de qui utilise Vigie.*
   jeton de l'API locale suit la même règle ; ses droits seulement hérités se referment sans le changer.
 - La carte Déploiement signale un profil du compte de service temporaire ou corrompu.
 - Action d'administration `service-data-reset` : vide le cache ou l'historique du service. **Non exécutée.**
+- **Savoir qui écoute sur un port prenait 26 secondes**, parce que l'appel WMI énumérait les 10 775 connexions de
+  l'ordinateur, dont 10 426 tenues par l'hôte réseau de WSL : la mise à jour du 14/09 a duré 225 s au lieu de 98.
+  L'appel natif qui ne demande que les ports en écoute répond en quelques millisecondes, et le service d'un processus
+  se retrouve de la même façon ; `check-probes` refuse les appels lents.
 - **Un déploiement ne pose plus d'étiquette de version** (D123) : il affiche le dernier numéro suivi de ses commits,
   par exemple `v1.1.5+3`. Une étiquette se pose pour une version stable validée, à sa publication.
 

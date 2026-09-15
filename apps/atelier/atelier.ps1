@@ -108,12 +108,12 @@ function Test-PortOpen {
 }
 
 # Quel processus tient le port ? (aucun fichier de PID a gerer)
+# WHO LISTENS IS ASKED OF WINDOWS DIRECTLY (scripts/lib/tcp-ports.ps1, standalone like this script): through WMI it took
+# 26 seconds on 14/09.
+. (Join-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) (Join-Path 'scripts' (Join-Path 'lib' 'tcp-ports.ps1')))
 function Get-AtelierProcess {
-    try {
-        $conn = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
-                Select-Object -First 1
-        if ($conn) { return Get-Process -Id $conn.OwningProcess -ErrorAction SilentlyContinue }
-    } catch { }
+    $conn = Get-PortListener -Port $port
+    if ($conn) { return Get-Process -Id $conn.OwningProcess -ErrorAction SilentlyContinue }
     return $null
 }
 

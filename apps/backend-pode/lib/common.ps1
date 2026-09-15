@@ -44,6 +44,10 @@ if (Test-Path -LiteralPath $script:_uiLib) { . $script:_uiLib }
 $script:_secretLib = Join-Path (Split-Path (Split-Path (Get-BackendRoot) -Parent) -Parent) 'scripts/lib/account-secret.ps1'
 if (Test-Path -LiteralPath $script:_secretLib) { . $script:_secretLib }
 
+# Who listens on a port, asked of Windows directly: Get-PortListener, Get-UdpEndpointOwner (26 s through WMI on 14/09).
+$script:_portLib = Join-Path (Split-Path (Split-Path (Get-BackendRoot) -Parent) -Parent) 'scripts/lib/tcp-ports.ps1'
+if (Test-Path -LiteralPath $script:_portLib) { . $script:_portLib }
+
 # --- Reperes de l'arborescence ------------------------------------------------
 # Le depot contient PLUSIEURS apps (apps/backend, apps/frontend, apps/tray,
 # apps/atelier) plus scripts/ et doc/. Ces reperes sont calcules ICI et nulle
@@ -1089,11 +1093,10 @@ function Get-PkgUpdates {
 # quel autre demain, et null s'il n'y en a pas.
 function Get-LocalDnsProxyService {
     try {
-        $ep = Get-NetUDPEndpoint -LocalPort 53 -ErrorAction Stop | Select-Object -First 1
-        if (-not $ep -or -not $ep.OwningProcess) { return $null }
-        $svc = Get-CimInstance Win32_Service -Filter "ProcessId=$($ep.OwningProcess)" -ErrorAction Stop |
-               Select-Object -First 1
-        if ($svc) { return [pscustomobject]@{ Name = $svc.Name; DisplayName = $svc.DisplayName; Pid = $ep.OwningProcess } }
+        $owner = Get-UdpEndpointOwner -Port 53
+        if (-not $owner) { return $null }
+        $svc = Get-ServiceByProcessId -ProcessId $owner
+        if ($svc) { return [pscustomobject]@{ Name = $svc.Name; DisplayName = $svc.DisplayName; Pid = $owner } }
     } catch { }
     return $null
 }
@@ -2377,26 +2380,7 @@ function Restore-Install {
     Copy-Item -Path (Join-Path $Backup '*') -Destination $Destination -Recurse -Force -ErrorAction Stop
 }
 
-function Get-PortListener {
-    <#
-        QUI ECOUTE SUR CE PORT ? Rend la connexion, ou $null. NE LEVE JAMAIS.
-
-        Get-NetTCPConnection LEVE quand rien n'ecoute -- « No matching
-        MSFT_NetTCPConnection objects found » -- alors que « personne n'ecoute » est une
-        reponse parfaitement normale, et meme celle qu'on espere quand on vient d'arreter
-        l'app serveur. Les appelants l'entouraient donc d'un try/catch vide ; sous
-        transcription, l'erreur est quand meme ecrite dans le journal d'installation, en
-        anglais, au milieu du recit. Constate le 31/08 : deux pavés rouges dans un
-        deploiement qui s'etait parfaitement passe.
-
-        Un appel systeme qui ment sur ce qu'est une erreur s'enveloppe une fois, ici.
-    #>
-    param([Parameter(Mandatory)][int]$Port)
-    $found = $null
-    try { $found = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue } catch { }
-    if (-not $found) { return $null }
-    return @($found)[0]
-}
+# Get-PortListener lives in scripts/lib/tcp-ports.ps1, loaded at the top of this file.
 
 function Stop-ServerApp {
     param([string]$Backend = (Get-BackendRoot), [int]$Port = 0, [int]$TimeoutSec = 30)
@@ -2476,14 +2460,15 @@ Start-ScheduledTask -TaskName '$taskName'
 Start-Process -FilePath $(ConvertTo-PSLiteral $pwsh) -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File',$(ConvertTo-PSLiteral (ConvertTo-ProcessArgument $StartScript)) -WindowStyle Hidden
 "@ }
 
+    $portLib = ConvertTo-PSLiteral (Join-Path (Join-Path (Get-RepoRoot) 'scripts') (Join-Path 'lib' 'tcp-ports.ps1'))
     $script = @"
 Start-Sleep -Milliseconds 400
+. $portLib
 $waitBlock
 $arret
 `$fin = (Get-Date).AddSeconds(30)
 while ((Get-Date) -lt `$fin) {
-    `$occupe = `$null
-    try { `$occupe = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction Stop } catch { }
+    `$occupe = Get-PortListener -Port $Port
     if (-not `$occupe) { break }
     Start-Sleep -Milliseconds 300
 }

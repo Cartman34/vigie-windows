@@ -608,6 +608,32 @@ foreach ($d in @('apps', 'scripts')) {
 }
 foreach ($x in $handBuilt) { $manquements += $x }
 
+# --- Guard rail: WHO LISTENS ON A PORT IS ASKED OF WINDOWS DIRECTLY -----------
+#
+# The WMI cmdlets enumerate every connection of the computer before filtering: with 10 775 open on 14/09, knowing who
+# listened on 47600 took 26 seconds, and the update of Vigie went from 98 to 225 seconds. Get-PortListener and
+# Get-UdpEndpointOwner (scripts/lib/tcp-ports.ps1) ask for listeners only, in under 2 ms. The slow cmdlets are refused
+# everywhere; their names are assembled so that this file does not refuse itself.
+$slowPortCmdlets = '\b(' + 'Get-Net' + 'TCPConnection|' + 'Get-Net' + 'UDPEndpoint)\b'
+foreach ($d in @('apps', 'scripts')) {
+    $rootDir = Join-Path $repoRoot $d
+    if (-not (Test-Path -LiteralPath $rootDir)) { continue }
+    foreach ($f in (Get-ChildItem -LiteralPath $rootDir -Recurse -File -Include '*.ps1' -ErrorAction SilentlyContinue)) {
+        if ($f.FullName -like ('*' + [IO.Path]::DirectorySeparatorChar + 'var' + [IO.Path]::DirectorySeparatorChar + '*')) { continue }
+        $i = 0
+        $inBlockComment = $false
+        foreach ($line in (Get-Content -LiteralPath $f.FullName -Encoding UTF8 -ErrorAction SilentlyContinue)) {
+            $i++
+            if ($inBlockComment) { if ($line -match '#>') { $inBlockComment = $false }; continue }
+            if ($line -match '<#' -and $line -notmatch '#>') { $inBlockComment = $true; continue }
+            if ($line -match '^\s*#') { continue }
+            if ($line -match $slowPortCmdlets) {
+                $manquements += ("appel WMI lent pour un port ({0}) : Get-PortListener ou Get-UdpEndpointOwner -- {1}:{2}" -f $Matches[1], (Resolve-Path -LiteralPath $f.FullName -Relative), $i)
+            }
+        }
+    }
+}
+
 # --- Guard rail: NOTHING BETWEEN A CONTINUATION AND ITS PARAMETER -------------
 #
 # A comment slipped after a continuation backtick CUTS the command: the next line becomes a

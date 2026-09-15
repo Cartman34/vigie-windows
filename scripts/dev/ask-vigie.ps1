@@ -65,8 +65,7 @@ if (-not $Port) { $Port = [int](Get-Config -Backend $backend).Port }
 $url = 'http://127.0.0.1:' + $Port
 
 # --- 1. Le serveur repond-il ? -----------------------------------------------------------
-try { $null = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction Stop }
-catch {
+if (-not (Get-PortListener -Port $Port)) {
     Write-Fail (Get-Label 'ask-vigie.personne-n-ecoute' $Port)
     exit 2
 }

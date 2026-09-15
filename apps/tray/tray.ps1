@@ -379,7 +379,7 @@ public static bool Focus(System.IntPtr h) {
         $stopServer = {
             try { if ($state.Proc -and -not $state.Proc.HasExited) { $state.Proc.Kill(); return } } catch { }
             try {
-                $c = Get-NetTCPConnection -LocalPort $cfg.Port -State Listen -ErrorAction Stop | Select-Object -First 1
+                $c = Get-PortListener -Port $cfg.Port
                 if ($c -and $c.OwningProcess) {
                     $p = Get-Process -Id ([int]$c.OwningProcess) -ErrorAction Stop
                     if (@('pwsh','powershell') -contains $p.ProcessName) {

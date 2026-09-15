@@ -330,6 +330,13 @@ answer: two red walls of text in a successful deployment.*
 without it, someone will rewrite it inline. Examples: `Get-AclAccessRules`, `Get-PortListener`,
 `Invoke-Git`.
 
+**The call wrapped is the optimised one that gives the information needed, never the convenient one.** Asked by the
+owner on 14/09, for every system call: the question is answered by the call that asks Windows exactly that, measured,
+and a checker refuses the slow one. *`Get-NetTCPConnection` enumerates every connection of the computer through WMI
+before filtering: with 10 775 open on 14/09, knowing who listened on 47600 took 26 seconds, and the update of Vigie went
+from 98 to 225 seconds. `GetExtendedTcpTable` asked for listeners only answers in under 2 ms, with the process
+([evidence](../../../notes/evidence/2026-09-14-port-lookup-26-seconds.md)).*
+
 ## No mountains — do the simple thing
 
 **Do not invent edge cases, conflicts or guardrails nobody has encountered**, and do not turn

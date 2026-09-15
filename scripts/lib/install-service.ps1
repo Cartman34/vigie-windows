@@ -79,9 +79,8 @@ function Show-State {
     Write-Info (Get-Label 'install-service.tache-machine' $(if ($task) { $SERVICE_TASK + " (" + $task.State + ")" } else { "absente" }))
     # PROD EST LE DEFAUT, on ne l'annonce pas : seul « developpement » apprend quelque chose.
     if ((Get-DeclaredStage -Backend $backend) -eq 'dev') { Write-Info (Get-Label 'install-service.stage-dev') }
-    $listening = $null
-    try { $listening = Get-NetTCPConnection -LocalPort ([int](Get-Config -Backend $backend).Port) -State Listen -ErrorAction Stop } catch { }
-    Write-Info (Get-Label 'install-service.serveur-en-ligne' $(if ($listening) { "oui (PID " + $listening[0].OwningProcess + ")" } else { "non" }))
+    $listening = Get-PortListener -Port ([int](Get-Config -Backend $backend).Port)
+    Write-Info (Get-Label 'install-service.serveur-en-ligne' $(if ($listening) { "oui (PID " + $listening.OwningProcess + ")" } else { "non" }))
 }
 
 # --- Le compte dedie ------------------------------------------------------------------
@@ -333,15 +332,14 @@ function Enable-ServiceTask {
 
     # --- Le port ---
     $port = [int](Get-Config -Backend $backend).Port
-    $held = $null
-    try { $held = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction Stop } catch { }
+    $held = Get-PortListener -Port $port
     # LE PRECEDENT S'ARRETE, LE SUIVANT DEMARRE. C'est une installation : on ne demande
     # pas la permission de remplacer un serveur par sa propre nouvelle version.
     if ($held) {
         # UNE SEULE MISE EN OEUVRE DE L'ARRET (Stop-ServerApp) : elle arrete la tache
         # AVANT le processus -- sans quoi Windows le relance sous nos pieds -- et attend
         # que le port se libere, ce qui est un fait constatable.
-        Write-Step (Get-Label 'install-service.activer-arret-du-serveur' $held[0].OwningProcess)
+        Write-Step (Get-Label 'install-service.activer-arret-du-serveur' $held.OwningProcess)
         if (-not (Stop-ServerApp -Backend $backend -Port $port)) {
             Write-Fail (Get-Label 'install-service.activer-arret-impossible' ("le port " + $port + " est toujours occupe"))
             return $false
