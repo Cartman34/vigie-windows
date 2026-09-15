@@ -91,7 +91,9 @@ foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.
     $n = 0
     foreach ($line in (Get-Content -LiteralPath $f.FullName -Encoding UTF8 -ErrorAction SilentlyContinue)) {
         $n++
-        foreach ($m in [regex]::Matches($line, '\bD(\d{1,3})\b')) {
+        # A GROUP OF A GUID IS NOT A DECISION: the second group of an interface id of Windows Update was read as a
+        # decision number on 15/09. A number between two hyphens with hexadecimal on both sides is skipped.
+        foreach ($m in [regex]::Matches($line, '(?<![0-9A-Fa-f]-)\bD(\d{1,3})\b(?!-[0-9A-Fa-f])')) {
             $id = 'D' + $m.Groups[1].Value
             if ($known.ContainsKey($id)) { continue }
             $key = $id
