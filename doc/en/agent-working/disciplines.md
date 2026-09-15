@@ -243,6 +243,10 @@ investigation, not what I believed, not what could have happened. "The build bro
 empty file — it now ignores it." The rest lives in the commit message, for whoever wants to
 come back to it.
 
+**A question gets ONE sentence.** "Which solution did you put in place?", "why did it take 225 s?": the answer is one
+sentence, and the detail only if he asks for it. *On 15/09 such a question got a table, four sections and a
+comparison of alternatives: "a question calls for a one-sentence answer, not a lecture -- we already talked about it".*
+
 **Three lines.** An explanation fits in three lines: the claim itself first, then what it
 costs, then what we already have. Five numbered paragraphs to answer "what is the good
 practice?" is a failure, not rigour. Expand only if he asks.
