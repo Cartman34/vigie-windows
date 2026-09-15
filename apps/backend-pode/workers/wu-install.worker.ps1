@@ -126,23 +126,61 @@ function Invoke-UpdateJob {
         return $Operator.Install()
     }
     $lastWrite = [datetime]::MinValue
+    # A STALL IS SAID, NOT GUESSED: the moment the figures last moved is kept, and the page shows how long ago that was.
+    $lastSignature = ''
+    $lastChange = (Get-Date).ToUniversalTime()
     while (-not $job.IsCompleted) {
         if (((Get-Date) - $lastWrite).TotalMilliseconds -ge 1000) {
             try {
                 $p = $job.GetProgress()
                 $index = Get-ComNumber $p 'CurrentUpdateIndex'
+                $percent = Get-ComNumber $p 'PercentComplete'
+                $itemPercent = Get-ComNumber $p 'CurrentUpdatePercentComplete'
+                $bytesDone = $null
+                $bytesTotal = $null
+                $activity = $phaseLabel
+                if ($Phase -eq 'telechargement') {
+                    $bytesDone  = Get-ComNumber $p 'CurrentUpdateBytesDownloaded'
+                    $bytesTotal = Get-ComNumber $p 'CurrentUpdateBytesToDownload'
+                    # CurrentUpdateDownloadPhase: 1 initializing, 2 downloading, 3 verifying.
+                    $activity = switch (Get-ComNumber $p 'CurrentUpdateDownloadPhase') { 1 { 'Préparation' } 3 { 'Vérification' } default { 'Téléchargement' } }
+                }
+                # EVERY UPDATE OF THE SELECTION, with its state so far: several may move at once, and a failure shows
+                # the moment Windows reports it, not at the end.
+                $items = @()
+                for ($i = 0; $i -lt $Titles.Count; $i++) {
+                    $code = $null
+                    $hresult = $null
+                    try { $r = $p.GetUpdateResult($i); $code = [int]$r.ResultCode; $hresult = [int]$r.HResult } catch { }
+                    $state = switch ($code) {
+                        1 { 'en cours' }
+                        2 { if ($Phase -eq 'telechargement') { 'téléchargée' } else { 'installée' } }
+                        3 { 'terminée avec erreurs' }
+                        4 { 'échec' }
+                        5 { 'annulée' }
+                        default { if ($null -ne $index -and $i -eq [int]$index) { 'en cours' } elseif ($null -ne $index -and $i -lt [int]$index) { 'terminée' } else { 'en attente' } }
+                    }
+                    $item = [ordered]@{ title = $Titles[$i]; state = $state }
+                    if ($hresult) { $item.code = ('0x{0:X8}' -f $hresult) }
+                    if ($null -ne $index -and $i -eq [int]$index -and $null -ne $itemPercent) { $item.percent = $itemPercent }
+                    $items += $item
+                }
+                $signature = "$percent|$index|$itemPercent|$bytesDone"
+                $now = (Get-Date).ToUniversalTime()
+                if ($signature -ne $lastSignature) { $lastSignature = $signature; $lastChange = $now }
                 $progress = [ordered]@{
                     phase       = $phaseLabel
-                    percent     = Get-ComNumber $p 'PercentComplete'
+                    activity    = $activity
+                    percent     = $percent
                     index       = $(if ($null -ne $index) { $index + 1 } else { $null })
                     total       = $Titles.Count
                     title       = $(if ($null -ne $index -and $index -lt $Titles.Count) { $Titles[[int]$index] } else { $null })
-                    itemPercent = Get-ComNumber $p 'CurrentUpdatePercentComplete'
+                    itemPercent = $itemPercent
+                    bytesDone   = $bytesDone
+                    bytesTotal  = $bytesTotal
+                    items       = $items
+                    lastChange  = $lastChange.ToString('o')
                     since       = $StartedAt
-                }
-                if ($Phase -eq 'telechargement') {
-                    $progress.bytesDone  = Get-ComNumber $p 'CurrentUpdateBytesDownloaded'
-                    $progress.bytesTotal = Get-ComNumber $p 'CurrentUpdateBytesToDownload'
                 }
                 Set-Etat @{ progress = $progress }
             } catch { }

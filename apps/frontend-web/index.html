@@ -509,14 +509,24 @@
   .v-ok{color:var(--ok)} .v-warn{color:var(--warn)} .v-error{color:var(--err)} .v-neutral{color:var(--text)}
   .frow-actions{padding:3px 0 2px 22px}
   /* LE SUIVI D'UNE OPERATION EN COURS : un bloc a part sous la ligne, qui n'existe que tant qu'elle dure. */
-  .fprog{margin:4px 0 6px 22px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--panel-2);display:flex;flex-direction:column;gap:5px;font-size:12px}
-  .fprog-head{display:flex;justify-content:space-between;gap:10px;color:var(--text);font-weight:600}
-  .fprog-head .fprog-since{color:var(--muted);font-weight:400;white-space:nowrap}
-  .fprog-title{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fprog{margin:4px 0 6px 22px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--panel-2);display:flex;flex-direction:column;gap:7px;font-size:12px}
+  .fprog-current{display:flex;flex-direction:column;gap:4px}
+  .fprog-current .fprog-title{color:var(--text);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fprog-line{display:flex;justify-content:space-between;gap:10px;color:var(--muted);font-variant-numeric:tabular-nums}
   .fprog-bar{height:6px;border-radius:3px;background:var(--border);overflow:hidden}
   .fprog-bar > span{display:block;height:100%;background:var(--accent);transition:width .6s ease}
-  .fprog-bar.item > span{background:var(--muted)}
-  .fprog-line{display:flex;justify-content:space-between;gap:10px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .fprog-bar.total > span{background:var(--muted)}
+  .fprog-alert{padding:5px 8px;border-radius:6px;border:1px solid currentColor;line-height:1.35}
+  .fprog-alert.warn{color:var(--warn)} .fprog-alert.error{color:var(--err)}
+  .fprog-items{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px;border-top:1px dashed var(--border);padding-top:6px}
+  .fprog-items li{display:grid;grid-template-columns:10px minmax(0,1fr) auto;align-items:center;gap:8px;color:var(--muted)}
+  .fprog-dot{width:7px;height:7px;border-radius:50%;background:var(--border)}
+  .fprog-items li.run{color:var(--text)} .fprog-items li.run .fprog-dot{background:var(--accent)}
+  .fprog-items li.done .fprog-dot{background:var(--ok)}
+  .fprog-items li.error{color:var(--err)} .fprog-items li.error .fprog-dot{background:var(--err)}
+  .fprog-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fprog-state{white-space:nowrap;font-variant-numeric:tabular-nums}
+  .fprog-total{display:flex;flex-direction:column;gap:4px;border-top:1px dashed var(--border);padding-top:6px}
   @media (prefers-reduced-motion: reduce){.fprog-bar > span{transition:none}}
   /* Le passage d'un etat a un autre, dans une confirmation : deux valeurs, une fleche. */
   .cf-trans{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:2px}
@@ -1882,25 +1892,46 @@ async function ouvrirArborescence(){
     if(el) el.innerHTML = '<p class="hds-intro">Lecture impossible : '+esc(e.message||String(e))+'</p>';
   }
 }
-// LE BLOC DE SUIVI (contrat Field.progress) : phase et rang, titre de l'element en cours, avancement global puis celui
-// de l'element, octets pendant un telechargement, temps ecoule. Rien quand le champ n'en porte pas.
+// LE BLOC DE SUIVI (contrat Field.progress). En tete, l'element en cours : son titre, ce qu'il fait, sa barre, et en
+// clair s'il ne progresse plus ou s'il a echoue. Dessous, chaque element avec son etat. En bas, l'avancement total.
 function progressHtml(f){
   const p=f.progress; if(!p||!p.phase) return '';
   const pct=v=>(typeof v==='number'&&isFinite(v))?Math.max(0,Math.min(100,Math.round(v))):null;
+  const duration=s=>s>=60?(Math.floor(s/60)+' min '+String(s%60).padStart(2,'0')+' s'):(s+' s');
+  const secondsSince=d=>d?Math.max(0,Math.round((Date.now()-new Date(d).getTime())/1000)):null;
   const g=pct(p.percent), it=pct(p.itemPercent);
-  const rang=(p.index&&p.total)?(' · '+p.index+' sur '+p.total):'';
-  let depuis='';
-  if(p.since){ const s=Math.max(0,Math.round((Date.now()-new Date(p.since).getTime())/1000));
-    depuis=s>=60?('depuis '+Math.floor(s/60)+' min '+String(s%60).padStart(2,'0')+' s'):('depuis '+s+' s'); }
-  const octetsTxt=(p.bytesTotal>0)?(octets(p.bytesDone||0)+' sur '+octets(p.bytesTotal)):'';
-  return '<div class="fprog">'
-    + '<div class="fprog-head"><span>'+esc(p.phase)+esc(rang)+'</span><span class="fprog-since">'+esc(depuis)+'</span></div>'
-    + (p.title?'<div class="fprog-title" title="'+att(p.title)+'">'+esc(p.title)+'</div>':'')
-    + (g!==null?'<div class="fprog-line"><span>Ensemble</span><span>'+g+' %</span></div><div class="fprog-bar"><span style="width:'+g+'%"></span></div>':'')
-    + (it!==null?'<div class="fprog-line"><span>'+(octetsTxt?esc(octetsTxt):'Mise à jour en cours')+'</span><span>'+it+' %</span></div><div class="fprog-bar item"><span style="width:'+it+'%"></span></div>':'')
-    + '</div>';
-}
-function ouvrirDetail(key){
+  const items=Array.isArray(p.items)?p.items:[];
+  const current=items.find(x=>x&&x.state==='en cours')||null;
+  const failures=items.filter(x=>x&&(x.state==='échec'||x.state==='annulée'));
+  const idle=secondsSince(p.lastChange);
+  const stalled=idle!==null&&idle>=120;
+  const bytesText=(p.bytesTotal>0)?(octets(p.bytesDone||0)+' sur '+octets(p.bytesTotal)):'';
+  const currentTitle=(current&&current.title)||p.title||'';
+  let html='<div class="fprog">';
+  // 1. The current item.
+  if(currentTitle){
+    html+='<div class="fprog-current"><div class="fprog-title" title="'+att(currentTitle)+'">'+esc(currentTitle)+'</div>'
+      +'<div class="fprog-line"><span>'+esc(p.activity||p.phase)+(bytesText?' · '+esc(bytesText):'')+'</span><span>'+(it!==null?it+' %':'')+'</span></div>'
+      +(it!==null?'<div class="fprog-bar"><span style="width:'+it+'%"></span></div>':'')+'</div>';
+  }
+  if(stalled) html+='<div class="fprog-alert warn">Aucun progrès depuis '+esc(duration(idle))+' : Windows Update peut attendre une autre installation ou le réseau.</div>';
+  if(failures.length) html+='<div class="fprog-alert error">'+failures.length+' mise(s) à jour en échec : '+esc(failures.map(x=>x.title+(x.code?' ('+x.code+')':'')).join(' ; '))+'</div>';
+  // 2. Every item, with its state.
+  if(items.length){
+    html+='<ul class="fprog-items">'+items.map(x=>{
+      const state=String((x&&x.state)||'');
+      const cls=(state==='échec'||state==='annulée')?'error':(state==='en cours'?'run':((state==='en attente')?'wait':'done'));
+      const stateText=state+(x.percent!=null&&state==='en cours'?' · '+pct(x.percent)+' %':'')+(x.code?' · '+x.code:'');
+      return '<li class="'+cls+'"><span class="fprog-dot"></span><span class="fprog-name" title="'+att(x.title||'')+'">'+esc(x.title||'')+'</span><span class="fprog-state">'+esc(stateText)+'</span></li>';
+    }).join('')+'</ul>';
+  }
+  // 3. The overall progress, at the bottom.
+  const rank=(p.index&&p.total)?(' · '+p.index+' sur '+p.total):'';
+  const elapsed=secondsSince(p.since);
+  html+='<div class="fprog-total"><div class="fprog-line"><span>'+esc(p.phase)+esc(rank)+(elapsed!==null?' · depuis '+esc(duration(elapsed)):'')+'</span><span>'+(g!==null?g+' %':'')+'</span></div>'
+    +(g!==null?'<div class="fprog-bar total"><span style="width:'+g+'%"></span></div>':'')+'</div>';
+  return html+'</div>';
+}function ouvrirDetail(key){
   const f=fieldsByKey[key]; if(!f) return;
   if(f.table && f.table.rows && f.table.rows.length){
     const cols=f.table.columns||[];

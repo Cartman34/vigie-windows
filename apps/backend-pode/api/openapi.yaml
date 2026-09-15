@@ -367,6 +367,18 @@ components:
             dure. Tous les membres sont facultatifs sauf phase.
           properties:
             phase: { type: string, description: "libelle de la phase, deja traduit (Téléchargement, Installation)" }
+            activity: { type: string, description: "ce que fait l'element en cours (Préparation, Téléchargement, Vérification, Installation)" }
+            lastChange: { type: string, format: date-time, description: "dernier mouvement d'un chiffre, UTC : sert a dire qu'elle ne progresse plus" }
+            items:
+              type: array
+              description: chaque element de l'operation, dans l'ordre, avec son etat
+              items:
+                type: object
+                properties:
+                  title: { type: string }
+                  state: { type: string, description: "en attente, en cours, téléchargée, installée, terminée, terminée avec erreurs, échec, annulée" }
+                  percent: { type: integer, description: "avancement, pour l'element en cours" }
+                  code: { type: string, description: "code Windows d'un echec, en hexadecimal" }
             percent: { type: integer, description: avancement global, 0 a 100 }
             index: { type: integer, description: rang de l'element en cours, a partir de 1 }
             total: { type: integer, description: nombre d'elements }

@@ -99,9 +99,11 @@ Format : `ID` — Titre, puis le besoin et ses critères. On n'écrit **pas** ic
   represente pas comme si elle était neuve. **Chaque mise à jour demandée reçoit un verdict nommé**, avec son code :
   installée, en échec, annulée, ou introuvable au moment d'installer. Aucune ne disparaît du compte rendu, et aucune ne
   reste « inconnue » quand l'historique de Windows Update connaît son sort. **Pendant une installation, la carte suit
-  son avancement** dans un bloc qui a sa propre place et n'existe que tant qu'elle dure : la phase (téléchargement ou
-  installation), la mise à jour en cours et son rang sur le total, son titre, l'avancement global et celui de la mise à
-  jour en cours, les octets reçus pendant le téléchargement, et depuis quand l'installation tourne.
+  son avancement** dans un bloc qui a sa propre place et n'existe que tant qu'elle dure. En tête, **la mise à jour en
+  cours** : son titre, ce qu'elle fait (préparation, téléchargement, vérification, installation), son avancement et ses
+  octets, et **si elle ne progresse plus ou échoue**, dit en clair. Dessous, **chaque mise à jour de la sélection** avec
+  son état — en attente, en cours, terminée, en échec avec son code —, pour tout voir quand plusieurs avancent en même
+  temps. **L'avancement total vient en bas**, avec le rang sur le total et depuis quand l'installation tourne.
 - **WU-AUDIT** — Produire un audit complet de la machinerie Windows Update : stratégies, tâches, services, redémarrage
   en attente.
 

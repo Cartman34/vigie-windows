@@ -117,7 +117,18 @@ if ($null -eq $count) {
             if ($null -ne $progress.percent) { $parts += "$($progress.percent) %" }
             $libellePhase = $parts -join ' · '
         }
-        $champs += New-Field -Key 'install' -Label 'Installation' -Value $libellePhase -Kind 'text' -Status 'neutral' `
+        # A FAILED UPDATE OR A STALL COLOURS THE LINE while it runs: waiting for the end to learn it is what the owner
+        # asked not to do (15/09). A stall is two minutes without any figure moving.
+        $installStatus = 'neutral'
+        if ($progress) {
+            if (@($progress.items | Where-Object { "$($_.state)" -in 'échec', 'annulée' }).Count) { $installStatus = 'error' }
+            elseif ($progress.lastChange) {
+                try { if (([datetime]::UtcNow - (ConvertTo-UtcDate $progress.lastChange)).TotalSeconds -ge 120) { $installStatus = 'warn' } } catch { }
+            }
+        }
+        # A coloured line carries its gesture (D66): Windows Update's own screen gives the full message of a failure.
+        $champs += New-Field -Key 'install' -Label 'Installation' -Value $libellePhase -Kind 'text' -Status $installStatus `
+            -FixAction $(if ($installStatus -ne 'neutral') { 'open-windows-update' } else { $null }) `
             -Progress $progress `
             -Help "Installation lancée depuis Vigie. Elle continue même si la fenêtre se ferme." `
             -Guide $(if ($inst.titres -and "$($inst.phase)" -ne 'termine') { "Mises à jour retenues :`n- " + (@($inst.titres) -join "`n- ") } else { '' })
