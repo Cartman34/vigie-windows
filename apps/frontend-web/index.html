@@ -526,6 +526,10 @@
   .fprog-items li.error{color:var(--err)} .fprog-items li.error .fprog-dot{background:var(--err)}
   .fprog-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .fprog-state{white-space:nowrap;font-variant-numeric:tabular-nums}
+  .fprog-items{max-height:11.5em;overflow-y:auto}
+  .fprog-items[hidden]{display:none}
+  .fprog-more{align-self:flex-start;background:none;border:1px dashed var(--border);border-radius:6px;color:var(--muted);font:inherit;padding:3px 8px;cursor:pointer}
+  .fprog-more:hover,.fprog-more:focus-visible{color:var(--text);border-color:var(--accent)}
   .fprog-total{display:flex;flex-direction:column;gap:4px;border-top:1px dashed var(--border);padding-top:6px}
   @media (prefers-reduced-motion: reduce){.fprog-bar > span{transition:none}}
   /* Le passage d'un etat a un autre, dans une confirmation : deux valeurs, une fleche. */
@@ -1916,14 +1920,25 @@ function progressHtml(f){
   }
   if(stalled) html+='<div class="fprog-alert warn">Aucun progrès depuis '+esc(duration(idle))+' : Windows Update peut attendre une autre installation ou le réseau.</div>';
   if(failures.length) html+='<div class="fprog-alert error">'+failures.length+' mise(s) à jour en échec : '+esc(failures.map(x=>x.title+(x.code?' ('+x.code+')':'')).join(' ; '))+'</div>';
-  // 2. Every item, with its state.
+  // 2. Every item, with its state: the current one first, then the failures, then the waiting ones. The successful ones
+  //    fold behind a button, so that forty updates do not stretch the card.
   if(items.length){
-    html+='<ul class="fprog-items">'+items.map(x=>{
+    const rankOf=x=>{ const s=String((x&&x.state)||''); return s==='en cours'?0:((s==='échec'||s==='annulée')?1:(s==='en attente'?2:3)); };
+    const row=x=>{
       const state=String((x&&x.state)||'');
       const cls=(state==='échec'||state==='annulée')?'error':(state==='en cours'?'run':((state==='en attente')?'wait':'done'));
       const stateText=state+(x.percent!=null&&state==='en cours'?' · '+pct(x.percent)+' %':'')+(x.code?' · '+x.code:'');
       return '<li class="'+cls+'"><span class="fprog-dot"></span><span class="fprog-name" title="'+att(x.title||'')+'">'+esc(x.title||'')+'</span><span class="fprog-state">'+esc(stateText)+'</span></li>';
-    }).join('')+'</ul>';
+    };
+    const pending=items.filter(x=>rankOf(x)<3).sort((a,b)=>rankOf(a)-rankOf(b));
+    const succeeded=items.filter(x=>rankOf(x)===3);
+    if(pending.length) html+='<ul class="fprog-items">'+pending.map(row).join('')+'</ul>';
+    if(succeeded.length){
+      const open=progressDoneOpen.has(f.key);
+      html+='<button type="button" class="fprog-more" data-n="'+succeeded.length+'" onclick="toggleProgressDone(this,\''+att(f.key)+'\')">'
+        +(open?'Masquer ':'Afficher ')+succeeded.length+' mise(s) à jour réussie(s)</button>'
+        +'<ul class="fprog-items succeeded"'+(open?'':' hidden')+'>'+succeeded.map(row).join('')+'</ul>';
+    }
   }
   // 3. The overall progress, at the bottom.
   const rank=(p.index&&p.total)?(' · '+p.index+' sur '+p.total):'';
@@ -1931,7 +1946,17 @@ function progressHtml(f){
   html+='<div class="fprog-total"><div class="fprog-line"><span>'+esc(p.phase)+esc(rank)+(elapsed!==null?' · depuis '+esc(duration(elapsed)):'')+'</span><span>'+(g!==null?g+' %':'')+'</span></div>'
     +(g!==null?'<div class="fprog-bar total"><span style="width:'+g+'%"></span></div>':'')+'</div>';
   return html+'</div>';
-}function ouvrirDetail(key){
+}// THE FOLDED SUCCESSFUL UPDATES STAY OPEN ACROSS REFRESHES: the card is redrawn every few seconds, and a list that closes
+// itself under the reader's eyes would have to be reopened each time.
+const progressDoneOpen=new Set();
+function toggleProgressDone(btn,key){
+  const list=btn.nextElementSibling; if(!list) return;
+  const open=list.hidden;
+  list.hidden=!open;
+  if(open) progressDoneOpen.add(key); else progressDoneOpen.delete(key);
+  btn.textContent=(open?'Masquer ':'Afficher ')+btn.dataset.n+' mise(s) à jour réussie(s)';
+}
+function ouvrirDetail(key){
   const f=fieldsByKey[key]; if(!f) return;
   if(f.table && f.table.rows && f.table.rows.length){
     const cols=f.table.columns||[];

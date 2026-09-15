@@ -35,7 +35,7 @@ change of the front end is carried onto that page in the same delivery*.
 | Card badge | same status as the module edge, icon from the font (✓ ! ✕) | D46/D49 |
 | Field | status dot, label, (i), coloured value on the right | D49 |
 | Operation in progress | say **what, out of how many, since when**; « … » reserved for this case | D50 |
-| Progress block | under its field, only while the operation runs. On top, the current item: its title, what it is doing, its bar and bytes, and a stall (two minutes without any figure moving) or a failure said plainly. Below, every item with its state. At the bottom, the overall bar, the rank on the total and the elapsed time. The field's value stays short | D50 |
+| Progress block | under its field, only while the operation runs. On top, the current item: its title, what it is doing, its bar and bytes, and a stall (two minutes without any figure moving) or a failure said plainly. Below, every item with its state -- the current one first, then failures, then waiting ones, in a bounded height that scrolls; the successful ones fold behind a button that keeps its choice across refreshes. At the bottom, the overall bar, the rank on the total and the elapsed time. The field's value stays short | D50 |
 | Operation result | stays visible afterwards (guide: « 1 paquet, réussie ») | D43 |
 | Critical action | **two confirmations**: centre/orange then top/red, different labels; reversible when possible (cancellable delay) | D50 |
 | Drawers | close cross always at the right edge; Settings = wide drawer with side navigation | D56 |

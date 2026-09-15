@@ -654,7 +654,8 @@ versions, du point de vue de qui utilise Vigie.*
   se retrouve de la même façon ; `check-probes` refuse les appels lents.
 - **La carte Windows Update suit une installation en cours**, dans un bloc qui n'existe que pendant l'installation :
   en tête la mise à jour en cours, ce qu'elle fait, son avancement et ses octets, et en clair si elle ne progresse plus
-  depuis deux minutes ou échoue ; dessous chaque mise à jour avec son état ; en bas l'avancement total.
+  depuis deux minutes ou échoue ; dessous chaque mise à jour avec son état, les réussies repliées derrière un bouton ;
+  en bas l'avancement total.
 - Une version de développement s'écrit d'une seule façon, `v1.1.6+1` : l'installation l'écrivait `v1.1.6-dev1`, et
   l'état du déploiement annonçait un dépôt en avance sur une installation au même commit.
 - **Un déploiement ne pose plus d'étiquette de version** (D123) : il affiche le dernier numéro suivi de ses commits,

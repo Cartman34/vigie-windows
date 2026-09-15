@@ -40,6 +40,24 @@
   .fprog-items li.error{color:var(--err)} .fprog-items li.error .fprog-dot{background:var(--err)}
   .fprog-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .fprog-state{white-space:nowrap;font-variant-numeric:tabular-nums}
+  .fprog-items{max-height:11.5em;overflow-y:auto}
+  .fprog-items[hidden]{display:none}
+  .fprog-more{align-self:flex-start;background:none;border:1px dashed var(--border);border-radius:6px;color:var(--muted);font:inherit;padding:3px 8px;cursor:pointer}
+  .fprog-more:hover,.fprog-more:focus-visible{color:var(--text);border-color:var(--accent)}
+  .fprog-total{display:flex;flex-direction:column;gap:4px;border-top:1px dashed var(--border);padding-top:6px}
+  .fprog-bar{height:6px;border-radius:3px;background:var(--border);overflow:hidden}
+  .fprog-bar > span{display:block;height:100%;background:var(--accent);transition:width .6s ease}
+  .fprog-bar.total > span{background:var(--muted)}
+  .fprog-alert{padding:5px 8px;border-radius:6px;border:1px solid currentColor;line-height:1.35}
+  .fprog-alert.warn{color:var(--warn)} .fprog-alert.error{color:var(--err)}
+  .fprog-items{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px;border-top:1px dashed var(--border);padding-top:6px}
+  .fprog-items li{display:grid;grid-template-columns:10px minmax(0,1fr) auto;align-items:center;gap:8px;color:var(--muted)}
+  .fprog-dot{width:7px;height:7px;border-radius:50%;background:var(--border)}
+  .fprog-items li.run{color:var(--text)} .fprog-items li.run .fprog-dot{background:var(--accent)}
+  .fprog-items li.done .fprog-dot{background:var(--ok)}
+  .fprog-items li.error{color:var(--err)} .fprog-items li.error .fprog-dot{background:var(--err)}
+  .fprog-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fprog-state{white-space:nowrap;font-variant-numeric:tabular-nums}
   .fprog-total{display:flex;flex-direction:column;gap:4px;border-top:1px dashed var(--border);padding-top:6px}
 
   /* --- Palette --- */
@@ -255,11 +273,11 @@
         <div class="fprog-alert warn">Aucun progrès depuis 2 min 30 s : Windows Update peut attendre une autre installation ou le réseau.</div>
         <div class="fprog-alert error">1 mise(s) à jour en échec : Intel - Display - 32.0.101.6979 (0x80240022)</div>
         <ul class="fprog-items">
-          <li class="done"><span class="fprog-dot"></span><span class="fprog-name">PowerShell v7.6.6 (x64)</span><span class="fprog-state">téléchargée</span></li>
-          <li class="error"><span class="fprog-dot"></span><span class="fprog-name">Intel - Display - 32.0.101.6979</span><span class="fprog-state">échec · 0x80240022</span></li>
           <li class="run"><span class="fprog-dot"></span><span class="fprog-name">2026-09 Mise à jour cumulative de .NET Framework</span><span class="fprog-state">en cours · 61 %</span></li>
+          <li class="error"><span class="fprog-dot"></span><span class="fprog-name">Intel - Display - 32.0.101.6979</span><span class="fprog-state">échec · 0x80240022</span></li>
           <li class="wait"><span class="fprog-dot"></span><span class="fprog-name">Outil de suppression de logiciels malveillants</span><span class="fprog-state">en attente</span></li>
         </ul>
+        <button type="button" class="fprog-more">Afficher 6 mise(s) à jour réussie(s)</button>
         <div class="fprog-total"><div class="fprog-line"><span>Téléchargement · 3 sur 4 · depuis 3 min 42 s</span><span>52 %</span></div>
           <div class="fprog-bar total"><span style="width:52%"></span></div></div>
       </div>

@@ -103,7 +103,8 @@ Format : `ID` — Titre, puis le besoin et ses critères. On n'écrit **pas** ic
   cours** : son titre, ce qu'elle fait (préparation, téléchargement, vérification, installation), son avancement et ses
   octets, et **si elle ne progresse plus ou échoue**, dit en clair. Dessous, **chaque mise à jour de la sélection** avec
   son état — en attente, en cours, terminée, en échec avec son code —, pour tout voir quand plusieurs avancent en même
-  temps. **L'avancement total vient en bas**, avec le rang sur le total et depuis quand l'installation tourne.
+  temps : celle en cours d'abord, puis les échecs, puis l'attente, dans une hauteur bornée qui défile ; **les réussies se
+  replient** derrière un bouton qui les affiche au besoin. **L'avancement total vient en bas**, avec le rang sur le total et depuis quand l'installation tourne.
 - **WU-AUDIT** — Produire un audit complet de la machinerie Windows Update : stratégies, tâches, services, redémarrage
   en attente.
 
