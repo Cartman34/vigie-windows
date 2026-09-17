@@ -16,6 +16,7 @@ des mois plus tard, qu'un chemin a été éprouvé alors qu'il n'a jamais été 
 | [2026-09-10-agent-working-language.md](2026-09-10-agent-working-language.md) | Pourquoi `agent-working/` passe en anglais, d'où **D120**. |
 | [2026-09-11-acting-without-validation.md](2026-09-11-acting-without-validation.md) | Deux départs sans validation, d'où **D121**. |
 | [2026-09-13-service-clone-blocked-by-rewritten-tags.md](2026-09-13-service-clone-blocked-by-rewritten-tags.md) | Le clone du service bloqué par des étiquettes déplacées, et les pièces sans réponse à leur vie. |
+| [2026-09-17-game-resident-runaway.md](2026-09-17-game-resident-runaway.md) | Le résident des jeux multiplié en 115 copies, 19 Go, ports et mémoire épuisés. |
 | [2026-09-14-port-lookup-26-seconds.md](2026-09-14-port-lookup-26-seconds.md) | Savoir qui écoute sur un port coûtait 26 s par WMI, et moins de 2 ms par l'appel natif. |
 | [2026-09-13-deployment-card-never-started.md](2026-09-13-deployment-card-never-started.md) | Une app cliente qui tourne affichée « Jamais démarrée » : un démarrage refusé lu comme un échec. |
 | [2026-09-13-windows-update-unknown-result.md](2026-09-13-windows-update-unknown-result.md) | Un verdict « Inconnu » que Windows connaissait, et une mise à jour demandée disparue du compte rendu. |

@@ -89,7 +89,13 @@ try {
 # --- Initial sweep: what is already running --------------------------------------
 # Without it, a game started during an update would stay invisible until its next start.
 try {
+    $lastBeat = Get-Date
     foreach ($proc in @(Get-Process -ErrorAction SilentlyContinue)) {
+        # IT BEATS WHILE IT SWEEPS: on a slow computer the sweep alone outlasted the 180 s the server allows (17/09).
+        if (((Get-Date) - $lastBeat).TotalSeconds -ge 20) {
+            Set-ResidentState -Backend $Backend -Key $KEY -Fields @{ sweepingAt = ([datetime]::UtcNow).ToString('o') }
+            $lastBeat = Get-Date
+        }
         $descriptor = Get-ProcessDescriptor -ProcessId $proc.Id
         if (-not $descriptor) { continue }
         $verdict = Test-ProcessIsGame -Backend $Backend -Process $descriptor
@@ -99,10 +105,14 @@ try {
 } catch { }
 
 # --- The resident's life ---------------------------------------------------------
+$superseded = $false
 while ($true) {
     # IT DIES WITH THE SERVER. Without this check, an update would leave a subscribed
     # orphan nobody could see or kill.
     if (-not (Get-Process -Id $ServerPid -ErrorAction SilentlyContinue)) { break }
+    # A REPLACED COPY STOPS: the state names the copy the server armed last, and it is not this one.
+    $own = Get-ResidentState -Backend $Backend -Key $KEY
+    if ($own -and $own.processId -and [int]$own.processId -ne $PID) { $superseded = $true; break }
 
     if ($subscribed) {
         foreach ($event in @(Get-Event -ErrorAction SilentlyContinue)) {
@@ -125,11 +135,13 @@ while ($true) {
     }
 
     # THE HEARTBEAT: this is what proves we are alive. A frozen process still exists but
-    # stops beating, and the server will re-arm it.
-    Set-ResidentState -Backend $Backend -Key $KEY -Fields @{ processId = $PID }
+    # stops beating, and the server will re-arm it. IT NEVER WRITES ITS OWN NUMBER here: every copy doing so on 17/09
+    # hid the older ones from the server, which then killed only one of them.
+    Set-ResidentState -Backend $Backend -Key $KEY -Fields @{ beatAt = ([datetime]::UtcNow).ToString('o') }
     Start-Sleep -Seconds 5
 }
 
 Unregister-Event -SourceIdentifier 'vigieGameStart' -ErrorAction SilentlyContinue
 Unregister-Event -SourceIdentifier 'vigieGameStop'  -ErrorAction SilentlyContinue
-Set-ResidentState -Backend $Backend -Key $KEY -Fields @{ processId = $null; state = 'arrete' }
+# A REPLACED COPY LEAVES THE STATE ALONE: it belongs to the copy that replaced it.
+if (-not $superseded) { Set-ResidentState -Backend $Backend -Key $KEY -Fields @{ processId = $null; state = 'arrete' } }

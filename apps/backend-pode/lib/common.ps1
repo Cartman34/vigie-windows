@@ -3869,6 +3869,20 @@ function Start-Resident {
         [string]$Backend = (Get-BackendRoot),
         [Parameter(Mandatory)]$Declaration
     )
+    # ONE COPY ONLY. Every process running this resident's script is stopped first, orphans of a previous server
+    # included: stopping only the process named in the state let 115 copies live on 17/09, 19 GB, each one rewriting
+    # its own number into that state.
+    $scriptLeaf = Split-Path "$($Declaration.Script)" -Leaf
+    $stopped = 0
+    try {
+        foreach ($copy in @(Get-CimInstance Win32_Process -Filter ("Name='pwsh.exe' AND CommandLine LIKE '%" + $scriptLeaf + "%'") -ErrorAction Stop)) {
+            if ([int]$copy.ProcessId -eq $PID) { continue }
+            try { Stop-Process -Id ([int]$copy.ProcessId) -Force -ErrorAction Stop; $stopped++ } catch { }
+        }
+    } catch { }
+    if ($stopped) {
+        try { Write-Log -Backend $Backend -Name 'state' -Level 'WARN' -Message ("resident " + $Declaration.Label + " : " + $stopped + " copie(s) arretee(s) avant de le rearmer") } catch { }
+    }
     Stop-Resident -Backend $Backend -Key $Declaration.Key
     $pwsh = $null
     try { $pwsh = (Get-Process -Id $PID).Path } catch { }

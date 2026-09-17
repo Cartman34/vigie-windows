@@ -24,6 +24,8 @@ n'a pas à le savoir.
 | **Armé au démarrage** | par l'app serveur, seul processus permanent |
 | **Arrêté avec elle** | aucun résident ne lui survit : un orphelin ne se voit pas et ne se tue pas |
 | **Réarmé s'il meurt** | la boucle de veille qui existe déjà le vérifie à chaque passage |
+| **Un seul exemplaire** | avant d'en armer un, l'app serveur arrête **tout** processus qui exécute le même résident, orphelins compris ; un résident remplacé s'arrête de lui-même dès qu'il ne se lit plus dans son état |
+| **Bat aussi en s'armant** | un armement long, sur une machine lente, ne doit pas passer pour une mort |
 | **Resynchronisé en s'armant** | s'il a un état à reconstruire, il le reconstruit alors — une **faculté**, pas une obligation |
 | **Observable** | armé, mort, en erreur, depuis quand : une surveillance dont on ne sait pas si elle fonctionne ne vaut rien |
 
