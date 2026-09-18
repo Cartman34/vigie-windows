@@ -2389,6 +2389,55 @@ function Restore-Install {
 
 # Get-PortListener lives in scripts/lib/tcp-ports.ps1, loaded at the top of this file.
 
+# WHY THE SERVER DOES NOT ANSWER, as far as a client app can measure it alone (CORE-TRAY): short lines, the likeliest
+# first, empty when nothing measurable explains it. On 17/09 the tray said only "server unreachable" while the memory,
+# the network ports and the desktop heap of the computer were exhausted -- all of it readable from any account.
+# Each reading is a direct call to Windows (a few milliseconds each, the log filtered by the log service); the netsh
+# range reading (0.2 s) is paid only when the ports are counted. Never throws.
+function Get-ServerTroubleReasons {
+    param([int]$Port = 0, [string]$Backend = (Get-BackendRoot))
+    $reasons = @()
+    try {
+        $memory = Get-MemoryStatus
+        if ($memory -and $memory.CommitLimit -gt 0) {
+            $pct = [math]::Round(100 * $memory.CommitUsed / $memory.CommitLimit)
+            if ($pct -ge 90) { $reasons += (Get-Label 'tray.raison-memoire' $pct) }
+        }
+    } catch { }
+    try {
+        foreach ($proto in 'tcp', 'udp') {
+            $range = Get-EphemeralPortRange -Protocol $proto
+            if (-not $range) { continue }
+            $usage = Get-EphemeralPortUsage -Protocol $proto -Start $range.Start -Count $range.Count
+            if ($usage -and $usage.Used -ge 0.8 * $usage.Limit) { $reasons += (Get-Label 'tray.raison-ports' $proto.ToUpper() $usage.Used $usage.Limit) }
+        }
+    } catch { }
+    try {
+        # What Windows logged in the last 30 minutes that stops a server from answering.
+        $events = @(Get-WinEvent -FilterHashtable @{ LogName = 'System'; ProviderName = 'Tcpip', 'Win32k', 'Microsoft-Windows-Resource-Exhaustion-Detector'
+                                                     Id = 4231, 4266, 704, 2004; StartTime = (Get-Date).AddMinutes(-30) } -ErrorAction Stop)
+        foreach ($provider in @($events | Group-Object ProviderName)) {
+            $at = @($provider.Group | Sort-Object TimeCreated -Descending)[0].TimeCreated.ToString('HH:mm')
+            switch ($provider.Name) {
+                'Tcpip'  { $reasons += (Get-Label 'tray.raison-journal-ports' $at) }
+                'Win32k' { $reasons += (Get-Label 'tray.raison-journal-bureau' $at) }
+                default  { $reasons += (Get-Label 'tray.raison-journal-memoire' $at) }
+            }
+        }
+    } catch { }
+    try {
+        if (-not $Port) { $Port = [int](Get-Config -Backend $Backend).Port }
+        $listener = Get-PortListener -Port $Port
+        if ($listener) {
+            $count = 1 + @(Get-ProcessDescendants -ProcessId ([int]$listener.OwningProcess)).Count
+            $limit = 20
+            try { $limit = [int](Get-ModuleSetting -Unit 'debug' -Key 'SelfMaxProcesses' -Backend $Backend) } catch { }
+            if ($count -gt $limit) { $reasons += (Get-Label 'tray.raison-processus' $count) }
+        }
+    } catch { }
+    return $reasons
+}
+
 function Stop-ServerApp {
     param([string]$Backend = (Get-BackendRoot), [int]$Port = 0, [int]$TimeoutSec = 30)
     if (-not $Port) { $Port = [int](Get-Config -Backend $Backend).Port }

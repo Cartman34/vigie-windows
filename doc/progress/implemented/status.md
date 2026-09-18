@@ -11,7 +11,7 @@ Mise à jour : 2026-09-13.
 | CORE-BACKEND | Fait | `apps/backend-pode/server.ps1`, `lib/common.ps1` | Exécution élevée requise pour les actions réelles |
 | CORE-FRONTEND | Fait | `apps/frontend-web/index.html`, page unique servie par le serveur | — |
 | CORE-PROBES | Fait | 19 sondes auto-découvertes, 46 actions, contrôlées par `scripts/check-probes.ps1` | — |
-| CORE-TRAY | Fait | `apps/tray/tray.ps1` — auto-réparant ; ne ferme jamais l'app serveur, lui **demande** de se relancer (action `server-restart`) | — |
+| CORE-TRAY | Fait | `apps/tray/tray.ps1` — auto-réparant ; ne ferme jamais l'app serveur, lui **demande** de se relancer (action `server-restart`) ; ses bulles « Serveur bloqué » et « Serveur arrêté » disent les raisons qu'elle mesure seule (`Get-ServerTroubleReasons` : mémoire engagée, ports réseau, journal Système des 30 dernières minutes, processus de Vigie) | — |
 | CORE-AUTOSTART | Fait | app serveur : tâche `Vigie - Serveur` sous `VigieService`, au **démarrage de l'ordinateur**, sans session ouverte (`scripts/lib/install-service.ps1`). App cliente : `scripts/install-autostart.ps1`, tâches `Vigie` / `Vigie - <compte>`, réparation par `repair-tasks` | — |
 | CORE-SECURITY | Fait | [identity.md](identity.md) | À auditer avant toute exposition |
 | CORE-VERSION | Fait | `Get-GitVersion` / `Get-GitCommit`, empreinte BUILD dans l'archive | — |

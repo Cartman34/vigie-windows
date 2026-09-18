@@ -1113,6 +1113,15 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
             try { $state.Present = [VigieNative.Wts]::SomeoneIsWatching($mySession) } catch { }
             if (-not $state.Present) { $silence = $true }
 
+            # THE MEASURED REASONS, appended to the bubble that says the server does not answer (CORE-TRAY): memory, ports,
+            # what Windows logged, Vigie's own processes. Read only when the bubble goes out, never at every pass.
+            function Format-TroubleReasons {
+                $found = @()
+                try { $found = @(Get-ServerTroubleReasons -Port ([int]$cfg.Port) -Backend $backend) } catch { }
+                if (-not $found.Count) { return '' }
+                TLog ("raisons mesurees : " + ($found -join ' | '))
+                return ([Environment]::NewLine + (Get-Label 'tray.raison-titre') + [Environment]::NewLine + ($found -join [Environment]::NewLine))
+            }
             try {
                 [void](Invoke-RestMethod -Uri $healthUrl -TimeoutSec 5 -ErrorAction Stop)
                 $state.EverUp   = $true
@@ -1137,7 +1146,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                         TLog "serveur coince (port ouvert, health muet x3) : signale, pas tue"
                         try {
                             & $dire -Titre (Get-Label 'tray.bulle-coince-titre') `
-                                    -Texte (Get-Label 'tray.bulle-coince-texte') `
+                                    -Texte ((Get-Label 'tray.bulle-coince-texte') + (Format-TroubleReasons)) `
                                     -Icone 'Warning' -Duree 8000
                         } catch { }
                     }
@@ -1192,7 +1201,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                             TLog "serveur mort (port ferme)"
                             try {
                                 & $dire -Titre (Get-Label 'tray.bulle-mort-titre') `
-                                        -Texte (Get-Label 'tray.bulle-mort-texte') `
+                                        -Texte ((Get-Label 'tray.bulle-mort-texte') + (Format-TroubleReasons)) `
                                         -Icone 'Warning' -Duree 8000
                             } catch { }
                         }

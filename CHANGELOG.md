@@ -675,6 +675,9 @@ versions, du point de vue de qui utilise Vigie.*
   tout ce qu'elle a lancé, avec le rôle et la mémoire de chacun, et signale un résident qui tourne hors de l'app
   serveur ; au-delà de seuils réglables, elle alerte et une notification le dit. Le bouton de relance du serveur porte
   désormais son nom, « Redémarrer le serveur », au lieu de « Résoudre ».
+- **L'app cliente dit pourquoi le serveur ne répond pas** : ses bulles « Serveur bloqué » et « Serveur arrêté » ajoutent
+  ce qu'elle mesure seule, mémoire engagée proche de sa limite, ports réseau presque épuisés, manque de ports ou de
+  mémoire consigné par Windows dans la demi-heure, Vigie emballée.
 - **La notification de saturation mémoire nomme ses raisons** : une notification `commit-high` suit la mémoire engagée,
   celle qui déclenche les alertes de Windows, et la bulle de `ram-high` comme la sienne nomme les trois applications qui
   occupent le plus la mémoire. Un champ en alerte porte désormais sa raison (`reason`), que l'app cliente reprend.
