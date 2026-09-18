@@ -37,6 +37,11 @@ question.
 | 14/09 | Une installation retire-t-elle les déclarations `safe.directory` de Vigie qui ne visent pas la source actuelle ? | Oui. | `doc/progress/targeting/install-update.md`, étape 5 |
 | 14/09 | Quand une étiquette de version doit-elle être posée ? | L'agent a déployé bien plus souvent que demandé. Puis : seulement pour une version stable validée, celle qu'on publie ; un déploiement `dev` affiche le dernier numéro et ses commits (`v1.1.5+3`). | **D123** ; `doc/progress/targeting/install-update.md`, étape 8 |
 | 14/09 | Faut-il remplacer l'appel qui prenait 26 s pour savoir qui écoute sur un port ? | Oui, et toujours utiliser la solution optimisée qui donne les informations nécessaires. | `doc/en/agent-working/disciplines.md`, section « Wrapping system calls » ; `scripts/lib/tcp-ports.ps1` |
+| 18/09 | Où Vigie montre-t-elle ses propres processus ? | Sur la carte du module Débogage : sa visibilité suit le réglage du module, l'agent n'en décide pas. | `doc/progress/targeting/residents.md` |
+| 18/09 | Toute erreur remonte-t-elle à l'utilisateur ? | Oui, par le bon canal, avec ses raisons : c'était déjà demandé. | `doc/en/developing/modules.md`, section « What a card must say » |
+| 18/09 | Comment limiter la mémoire de WSL ? | D'abord en proposant d'éditer `.wslconfig` soi-même. | — |
+| 18/09 | Une optimisation technique se demande-t-elle ? | Non : c'est technique ; elle se mesure, performance et compatibilité, avant d'être livrée. | `doc/en/agent-working/disciplines.md`, section « Asking a question » |
+| 18/09 | La documentation de l'implémenté se met-elle à jour à la fin ? | Non : au fur et à mesure, et l'état cible dès qu'une décision est prise. | `doc/en/agent-working/disciplines.md`, section « The order of work » |
 | 18/09 | L'agent peut-il arrêter un processus ? | Jamais sans une confirmation très explicite, claire et sans ambiguïté. | `doc/en/agent-working/disciplines.md`, section « An important operation waits for an explicit YES » |
 | 15/09 | Quelle longueur pour répondre à une question ? | Une phrase, pas un exposé ; c'était déjà dit. | `doc/en/agent-working/disciplines.md`, section « Answering » |
 | 14/09 | Chaque question porte-t-elle son contexte ? | Oui, toujours : une petite phrase qui dit de quoi on parle. | `doc/en/agent-working/disciplines.md`, section « Asking a question » |
