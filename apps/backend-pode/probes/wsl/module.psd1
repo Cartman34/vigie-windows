@@ -10,6 +10,15 @@
     Label       = 'WSL'
     Description = 'Sous-système Linux : état et distribution.'
 
+    # THE MEMORY OF THE VIRTUAL MACHINE above which the card says how to bound it (WSL-STATE).
+    Config = @{
+        VmMemoryWarnPct = 30
+    }
+    Parameters = @(
+        @{ Key = 'VmMemoryWarnPct'; Label = 'Seuil de mémoire de WSL'; Type = 'int'; Unit = '% de la mémoire vive'; Min = 10; Max = 90; Step = 5
+           Help = 'Au-delà de cette part de la mémoire vive prise par la machine virtuelle de WSL, la carte alerte et dit comment la borner dans .wslconfig.' }
+    )
+
     # NOTIFICATIONS emises par ce module (D54) : un evenement nomme, pas un nom de
     # carte. C'est la bascule du champ cite qui declenche la bulle.
     Notifications = @(
@@ -17,5 +26,9 @@
            Card = 'wsl'; Field = 'running'
            Droits = 'tous'; Critique = $false
            Help = 'La machine virtuelle WSL ne tourne plus.' }
+        @{ Key = 'wsl-memory'; Label = 'WSL occupe beaucoup de mémoire'
+           Card = 'wsl'; Field = 'vmMemory'
+           Droits = 'tous'; Critique = $false
+           Help = 'La machine virtuelle de WSL dépasse le seuil de mémoire. La carte dit comment la borner dans .wslconfig.' }
     )
 }

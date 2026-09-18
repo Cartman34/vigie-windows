@@ -4313,7 +4313,8 @@ function Invoke-WatchPass {
 $script:ProbeTtls = @{
     'perf.probe.ps1'    = 8
     'net.probe.ps1'     = 15
-    'wsl.probe.ps1'     = 600
+    # 60, not 600: the card carries the memory of the virtual machine, which moves by gigabytes; the probe costs 0.1 s.
+    'wsl.probe.ps1'     = 60
     # Court : la carte Stockage porte la progression de l'analyse d'espace (D60), et
     # la sonde ne fait que lire deux JSON -- la recalculer coute quelques dizaines de ms.
     'disk.probe.ps1'    = 5

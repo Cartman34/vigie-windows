@@ -678,6 +678,9 @@ versions, du point de vue de qui utilise Vigie.*
 - **L'app cliente dit pourquoi le serveur ne répond pas** : ses bulles « Serveur bloqué » et « Serveur arrêté » ajoutent
   ce qu'elle mesure seule, mémoire engagée proche de sa limite, ports réseau presque épuisés, manque de ports ou de
   mémoire consigné par Windows dans la demi-heure, Vigie emballée.
+- **La carte WSL montre la mémoire de sa machine virtuelle** et la borne réglée dans `.wslconfig` ; au-delà d'un seuil
+  réglable, elle dit comment la borner soi-même : le fichier, la ligne `memory=` à écrire, et l'arrêt de WSL qui
+  l'applique.
 - **La notification de saturation mémoire nomme ses raisons** : une notification `commit-high` suit la mémoire engagée,
   celle qui déclenche les alertes de Windows, et la bulle de `ram-high` comme la sienne nomme les trois applications qui
   occupent le plus la mémoire. Un champ en alerte porte désormais sa raison (`reason`), que l'app cliente reprend.

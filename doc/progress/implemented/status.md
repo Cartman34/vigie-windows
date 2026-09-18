@@ -44,7 +44,7 @@ Mise à jour : 2026-09-13.
 | SEC-VBS | Fait | `vbs.probe.ps1`, `toggle-vbs`, `toggle-hvci` | — |
 | SEC-DEFENDER | Fait | `defender.probe.ps1` | — |
 | SEC-FIREWALL | Fait | `firewall.probe.ps1` | — |
-| WSL-STATE | Fait | `wsl.probe.ps1`, `wsl-start`, `wsl-restart`, `wsl-shutdown` | — |
+| WSL-STATE | Fait | `wsl.probe.ps1`, `wsl-start`, `wsl-restart`, `wsl-shutdown` ; la mémoire de la machine virtuelle (`vmmemWSL`) et la borne lue dans le `.wslconfig` du demandeur ; au-delà de `VmMemoryWarnPct`, le guide donne le fichier, la ligne `memory=` et l'arrêt qui l'applique ; notification `wsl-memory` | — |
 | TOOLS-PACKAGES | Partiel | `packages.probe.ps1`, `pkg-check-updates`, `pkg-list-updates`, `pkg-upgrade` | La vérification et la mise à jour passent par le protocole commun depuis le 13/09, **non éprouvé en production** (**S14**) |
 | GAMING | Partiel | `gaming.probe.ps1` (lecture seule de la partie), résident `game.resident.ps1`, quatre méthodes d'identification dans `probes/gaming/identify/`, sentinelles `game` et `game-battery` ; cible : [gaming.md](../targeting/gaming.md) | La détection lisait les bibliothèques Steam et la Game Bar dans `HKCU`, donc dans la ruche du compte de service : corrigé le 01/09 (D113), la détection ne mesure plus : elle part du **démarrage des processus** et applique quatre méthodes indépendantes, la première qui répond suffit. Éprouvé le 02/09 : Odyssey reconnu par la Game Bar, Chrome écarté, `explorer` écarté sur son emplacement, verdicts mémorisés. **Non éprouvé** : l'abonnement lui-même, qui exige l'élévation — il sera armé par l'app serveur au prochain déploiement. La carte porte un **mode** (`mode: game` au contrat) et l'interface lui donne un liseré, un fond et une mention « en jeu » |
 
