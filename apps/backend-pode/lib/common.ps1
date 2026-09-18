@@ -4281,6 +4281,8 @@ $script:ProbeTtls = @{
     # delai court ne coute rien a la requete : elle part avec la valeur connue.
     'deployment.probe.ps1' = 60
     'os.probe.ps1'      = 3600
+    # THE SYSTEM LOG: read in 0.08 s, and a serious error must show within the minute.
+    'events.probe.ps1'  = 60
     'packages.probe.ps1'= 5
     'gaming.probe.ps1'  = 10
     # L'alimentation change d'un instant a l'autre (on debranche, une pointe de

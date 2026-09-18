@@ -43,6 +43,7 @@ définition de `../targeting/operations.md`, section « Ce qu'est une opération
 | `net-publicip` | `net.probe.ps1` | tous | serveur | synchrone | appel HTTP | sans objet |
 | `net-speedtest` | `net.probe.ps1` | tous | serveur | synchrone | appels HTTP, la réponse attend la mesure | sans objet |
 | `open-device-manager` | `gaming.probe.ps1` | tous | session | synchrone | `Start-ChildProcess` | sans objet |
+| `open-event-viewer` | `events.probe.ps1` | tous | session | synchrone | `Start-Process` | sans objet |
 | `open-folder` | `history.probe.ps1` | tous | session | synchrone | `Start-ChildProcess` | sans objet |
 | `open-gaming-settings` | `gaming.probe.ps1` | tous | session | synchrone | `Start-Process` | sans objet |
 | `open-logs` | `vigie.probe.ps1` | tous | session | synchrone | `Start-ChildProcess` | sans objet |

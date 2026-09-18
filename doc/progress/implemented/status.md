@@ -36,6 +36,7 @@ Mise à jour : 2026-09-13.
 | WU-AUDIT | Fait | `run-audit` | Rapport écrit sur disque, pas remonté dans l'interface |
 | SYS-DISK | Partiel | `disk.probe.ps1`, `disk-cleanup`, `disk-analyze`, `disk-tree` | `disk-analyze` passe par le protocole commun depuis le 13/09, **non éprouvé en production** (**S14**) |
 | SYS-OS | Fait | `os.probe.ps1` | — |
+| SYS-EVENTS | Fait | `events.probe.ps1` (carte « Journal Windows »), `open-event-viewer`, notification `system-errors` : journal Système sur 24 h, lu en 0,08 s ; neuf sortes d'erreurs nommées avec leur sens et leur geste, les autres erreurs listées par source | Les sortes « disque », « matériel » et « écran bleu » n'ont jamais été vues sur cet ordinateur : leurs sources sont celles que Windows documente |
 | SYS-PERF | Fait | `perf.probe.ps1`, `perf-counters-rebuild` ; mesures lues par `scripts/lib/system-metrics.ps1` (`GlobalMemoryStatusEx`, `GetSystemTimes`), 0,45 s au lieu de 2,9 s ; mémoire engagée face à sa limite ; en alerte, les applications qui consomment le plus, regroupées par nom, depuis le 18/09 ; notifications `ram-high` et `commit-high`, dont la bulle nomme les trois applications les plus lourdes (champ `reason`) | — |
 | SYS-POWER | Fait | `power.probe.ps1` | Jamais observé en situation réelle de sous-alimentation |
 | NET-STATE | Fait | `net.probe.ps1`, `net-publicip`, `net-speedtest`, `net-dns-flush` | — |

@@ -63,6 +63,10 @@
            Card = 'perf'; Field = 'commit'
            Droits = 'tous'; Critique = $false
            Help = 'La mémoire promise aux applications approche de sa limite : Windows va refuser des allocations et alerter de saturation. La bulle nomme les applications qui en occupent le plus.' }
+        @{ Key = 'system-errors'; Label = 'Erreur système'
+           Card = 'events'; Field = 'known'
+           Droits = 'tous'; Critique = $false
+           Help = 'Windows a consigné une erreur grave : ports réseau ou mémoire épuisés, arrêt inattendu, pilote graphique, disque, matériel. La bulle la nomme.' }
         @{ Key = 'power-under'; Label = 'Machine sous-alimentée'
            Card = 'power'; Field = 'under'
            Droits = 'tous'; Critique = $false

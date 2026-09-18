@@ -1348,8 +1348,8 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                         }
                         $state.Mods = $vus
                         if ($bascules.Count -gt 0) {
-                            # Une seule bulle, meme pour plusieurs bascules simultanees :
-                            # trois notifications d'un coup, c'est du bruit.
+                            # ONE BUBBLE, even for several changes at once:
+                            # three notifications in a row are noise.
                             $pire  = if (@($bascules | Where-Object { $_.vers -eq 'error' }).Count) { 'error' }
                                      elseif (@($bascules | Where-Object { $_.vers -eq 'warn' }).Count) { 'warn' } else { 'ok' }
                             $tipIc = switch ($pire) { 'error' { 'Error' } 'warn' { 'Warning' } default { 'Info' } }

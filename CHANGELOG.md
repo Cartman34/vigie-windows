@@ -663,6 +663,11 @@ versions, du point de vue de qui utilise Vigie.*
   en tête la mise à jour en cours, ce qu'elle fait, son avancement et ses octets, et en clair si elle ne progresse plus
   depuis deux minutes ou échoue ; dessous chaque mise à jour avec son état, les réussies repliées derrière un bouton ;
   en bas l'avancement total.
+- **Une carte « Journal Windows » dit les erreurs que Windows consigne** : sur les dernières 24 heures, ports réseau
+  épuisés, mémoire du Bureau épuisée, mémoire virtuelle épuisée, écran bleu, erreur matérielle, erreur de disque, arrêt
+  inattendu, pilote graphique en erreur et service arrêté brutalement sont nommés avec leur sens et leur geste, et une
+  notification les annonce ; les autres erreurs sont listées par source. Le 17/09, ports et mémoire du Bureau épuisés
+  étaient consignés sans qu'aucune carte ne le dise.
 - **La notification de saturation mémoire nomme ses raisons** : une notification `commit-high` suit la mémoire engagée,
   celle qui déclenche les alertes de Windows, et la bulle de `ram-high` comme la sienne nomme les trois applications qui
   occupent le plus la mémoire. Un champ en alerte porte désormais sa raison (`reason`), que l'app cliente reprend.
