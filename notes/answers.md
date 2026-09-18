@@ -48,3 +48,4 @@ question.
 | 18/09 | L'agent peut-il arrêter un processus ? | Jamais sans une confirmation très explicite, claire et sans ambiguïté. | `doc/en/agent-working/disciplines.md`, section « An important operation waits for an explicit YES » |
 | 15/09 | Quelle longueur pour répondre à une question ? | Une phrase, pas un exposé ; c'était déjà dit. | `doc/en/agent-working/disciplines.md`, section « Answering » |
 | 14/09 | Chaque question porte-t-elle son contexte ? | Oui, toujours : une petite phrase qui dit de quoi on parle. | `doc/en/agent-working/disciplines.md`, section « Asking a question » |
+| 18/09 | La carte Ressources montre-t-elle la mémoire vive et le fichier d'échange ? | Oui, séparément : 32 Go de mémoire vive, et « 49 Go » mêlait le fichier d'échange. | `doc/progress/implemented/status.md`, SYS-PERF |

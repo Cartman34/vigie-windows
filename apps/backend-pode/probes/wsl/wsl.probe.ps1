@@ -36,12 +36,14 @@ $warnPct = [int](Get-ModuleSetting -Unit 'wsl' -Key 'VmMemoryWarnPct')
 # THE BOUND THE USER SET, read in the .wslconfig of the one who asks: a personal file, in their own profile.
 $wslConfigPath = if ($requester) { Join-Path $env:SystemDrive (Join-Path 'Users' (Join-Path $requester '.wslconfig')) } else { '%USERPROFILE%\.wslconfig' }
 $bound = $null
+$reclaim = $null
 if ($requester -and (Test-PathSafe $wslConfigPath)) {
     $section = ''
     foreach ($line in @(Get-Content -LiteralPath $wslConfigPath -ErrorAction SilentlyContinue)) {
         $t = "$line".Trim()
         if ($t -match '^\[(.+)\]$') { $section = $Matches[1].Trim().ToLowerInvariant(); continue }
         if ($section -eq 'wsl2' -and $t -match '^memory\s*=\s*(\S+)') { $bound = $Matches[1] }
+        if ($section -eq 'experimental' -and $t -match '^autoMemoryReclaim\s*=\s*(\S+)') { $reclaim = $Matches[1] }
     }
 }
 $vmPct = if ($physicalBytes) { [math]::Round(100 * $vmBytes / $physicalBytes) } else { 0 }
@@ -57,6 +59,9 @@ if ($vmStatus -eq 'warn') {
                $(if ($bound) { "Elle est bornée à $bound dans $wslConfigPath. Pour la réduire, y abaisser la ligne « memory= » de la section [wsl2], par exemple :" }
                  else { "Rien ne la borne : sans réglage, WSL peut prendre jusqu'à la moitié de la mémoire vive. Pour la borner soi-même, ouvrir le fichier $wslConfigPath (le créer s'il n'existe pas) et y écrire :" }) +
                [Environment]::NewLine + "[wsl2]" + [Environment]::NewLine + "memory=$($suggestGb)GB" + [Environment]::NewLine + [Environment]::NewLine +
+               $(if ($reclaim -and $reclaim -notmatch '^(?i)dropcache$') {
+                   "Le même fichier règle, dans la section [experimental], « autoMemoryReclaim=$reclaim » : avec « gradual », Linux rend son cache lentement ; avec « disabled », jamais. « dropCache », la valeur par défaut selon Microsoft, le rend aussitôt." + [Environment]::NewLine + [Environment]::NewLine
+               } else { '' }) +
                "Le réglage s'applique au prochain démarrage de WSL : le bouton « Arrêter » ci-dessous l'arrête, comme « wsl --shutdown » ; ce qui tourne sous Linux est coupé."
 }
 

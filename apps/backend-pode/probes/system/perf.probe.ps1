@@ -17,6 +17,9 @@ $ramPct = if ($totGB) { [math]::Round(($totGB-$freeGB)/$totGB*100) } else { 0 }
 $commitGB = if ($memory) { $memory.CommitUsed/1GB } else { 0 }
 $limitGB  = if ($memory) { $memory.CommitLimit/1GB } else { 0 }
 $commitPct = if ($limitGB) { [math]::Round($commitGB/$limitGB*100) } else { 0 }
+# THE PAGE FILE APART FROM THE RAM: the committed memory's limit is the two added, and on 18/09 a 32 GB computer read
+# "49 GB" without anything saying which part was disk. Read from the kernel in 1 ms (Win32_PageFileUsage: 134 ms).
+$pageFile = Get-PageFileStatus
 $cpuLoad = Get-ProcessorLoad
 $cpu = if ($null -ne $cpuLoad) { $cpuLoad } else { 0 }
 $up = [TimeSpan]::FromMilliseconds([Environment]::TickCount64)
@@ -87,17 +90,33 @@ if ($cpuStatus -ne 'neutral') {
     }
 }
 
-$commitValue = $commitGB.ToString('N1', $fr) + ' Go sur ' + $limitGB.ToString('N1', $fr)
+$usedGB = $totGB - $freeGB
+$ramValue = $usedGB.ToString('N1', $fr) + ' Go sur ' + $totGB.ToString('N1', $fr) + ' (' + $ramPct + ' %)'
+$pageTotalGB = if ($pageFile) { $pageFile.Total / 1GB } else { 0 }
+$commitValue = $commitGB.ToString('N1', $fr) + ' Go sur ' + $limitGB.ToString('N1', $fr) +
+               $(if ($pageFile) { ' : mémoire vive ' + $totGB.ToString('N1', $fr) + ' Go + fichier d''échange ' + $pageTotalGB.ToString('N1', $fr) + ' Go' } else { '' })
+$pageStatus = 'neutral'
+$pageValue = 'Illisible'
+if ($pageFile) {
+    if ($pageFile.Total -le 0) { $pageValue = 'Aucun' }
+    else {
+        $pagePct = [math]::Round(100 * $pageFile.Used / $pageFile.Total)
+        $pageStatus = if ($pagePct -ge 80) { 'warn' } else { 'neutral' }
+        $pageValue = ($pageFile.Used / 1GB).ToString('N1', $fr) + ' Go utilisés sur ' + $pageTotalGB.ToString('N1', $fr) + ' (' + $pagePct + ' %), pic ' + ($pageFile.Peak / 1GB).ToString('N1', $fr) + ' Go'
+    }
+}
 $worst = if ($commitStatus -eq 'error') { 'error' } elseif ($ramStatus -eq 'warn' -or $commitStatus -eq 'warn' -or $cpuStatus -eq 'warn') { 'warn' } else { 'ok' }
 # Bouton PERMANENT (D114) : voir QUI consomme est la suite naturelle de « combien est
 # consomme », que la machine aille bien ou non.
 New-ModuleObject -Id 'perf' -Theme 'system' -Label 'Ressources' -Status $worst -Fields @(
-    New-Field -Key 'ramUsed' -Label 'RAM utilisée' -Value $ramPct  -Kind 'number' -Unit '%'  -Status $ramStatus `
+    New-Field -Key 'ramUsed' -Label 'RAM utilisée' -Value $ramValue -Kind 'text' -Status $ramStatus `
         -FixAction $(if ($ramStatus -ne 'ok') { 'open-task-manager' } else { $null }) -Guide $memoryGuide -Table $memoryTable -Reason $(if ($ramStatus -ne 'ok') { $memoryReason } else { $null }) `
-        -Help 'Pourcentage de mémoire vive utilisée.'
+        -Help 'Mémoire vive utilisée, face à la mémoire vive installée.'
     New-Field -Key 'commit' -Label 'Mémoire engagée' -Value $commitValue -Kind 'text' -Status $commitStatus `
         -FixAction $(if ($commitStatus -ne 'ok') { 'open-task-manager' } else { $null }) -Guide $memoryGuide -Table $memoryTable -Reason $(if ($commitStatus -ne 'ok') { $memoryReason } else { $null }) `
         -Help "Mémoire promise aux applications, face à sa limite (mémoire vive plus fichier d'échange). Quand elle atteint la limite, Windows refuse de nouvelles allocations et alerte de saturation, même s'il reste de la mémoire vive libre."
+    New-Field -Key 'pageFile' -Label "Fichier d'échange" -Value $pageValue -Kind 'text' -Status $pageStatus `
+        -Help "Ce que Windows a écrit sur le disque faute de place en mémoire vive, face à la taille du fichier d'échange. Il s'ajoute à la mémoire vive pour former la limite de la mémoire engagée."
     New-Field -Key 'ramFree' -Label 'RAM libre'    -Value $freeGB  -Kind 'number' -Unit 'Go' -Status 'neutral'                                        -Help 'Mémoire vive disponible.'
     New-Field -Key 'cpu'     -Label 'CPU'          -Value $cpu     -Kind 'number' -Unit '%'  -Status $cpuStatus `
         -FixAction $(if ($cpuStatus -ne 'neutral') { 'open-task-manager' } else { $null }) -Guide $cpuGuide -Table $cpuTable -Reason $cpuReason `

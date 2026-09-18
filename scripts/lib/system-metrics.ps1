@@ -300,3 +300,56 @@ public sealed class VigiePdh : IDisposable {
 }
 '@
 }
+
+# THE PAGE FILES: their size and what is in use, from one call to the kernel (SystemPageFileInformation), in pages.
+# Win32_PageFileUsage gives the same in megabytes, through WMI. The committed memory is bounded by the physical memory
+# PLUS these files: showing it alone let a 32 GB computer read "49 GB", and nobody could tell RAM from page file (18/09).
+if (-not ('VigiePageFiles' -as [type])) {
+    Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+
+public static class VigiePageFiles {
+    [DllImport("ntdll.dll")]
+    static extern int NtQuerySystemInformation(int infoClass, IntPtr buffer, int length, out int returned);
+
+    // [ total pages, pages in use, peak pages ], summed over every page file; null when the kernel refuses.
+    public static long[] Usage() {
+        const int SystemPageFileInformation = 18;
+        int length = 4096;
+        for (int attempt = 0; attempt < 5; attempt++) {
+            IntPtr buffer = Marshal.AllocHGlobal(length);
+            try {
+                int returned;
+                int status = NtQuerySystemInformation(SystemPageFileInformation, buffer, length, out returned);
+                if (status == unchecked((int)0xC0000004)) { length *= 4; continue; }
+                if (status != 0) { return null; }
+                long total = 0, used = 0, peak = 0;
+                if (returned == 0) { return new long[] { 0, 0, 0 }; }
+                int offset = 0;
+                while (true) {
+                    IntPtr entry = IntPtr.Add(buffer, offset);
+                    total += (uint)Marshal.ReadInt32(entry, 4);
+                    used  += (uint)Marshal.ReadInt32(entry, 8);
+                    peak  += (uint)Marshal.ReadInt32(entry, 12);
+                    int next = Marshal.ReadInt32(entry, 0);
+                    if (next == 0) { break; }
+                    offset += next;
+                }
+                return new long[] { total, used, peak };
+            } finally { Marshal.FreeHGlobal(buffer); }
+        }
+        return null;
+    }
+}
+'@
+}
+
+# THE PAGE FILES, in bytes: Total, Used, Peak. $null when the kernel refuses. Never throws.
+function Get-PageFileStatus {
+    $raw = $null
+    try { $raw = [VigiePageFiles]::Usage() } catch { }
+    if (-not $raw) { return $null }
+    $page = [double][Environment]::SystemPageSize
+    return [pscustomobject]@{ Total = $raw[0] * $page; Used = $raw[1] * $page; Peak = $raw[2] * $page }
+}
