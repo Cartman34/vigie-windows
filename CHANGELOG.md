@@ -685,6 +685,10 @@ versions, du point de vue de qui utilise Vigie.*
   (`Get-Counter` prenait 6 s pour les seuls moteurs), et les lectures d'E/S par processus, du parent d'un processus et
   de l'heure de démarrage passent par des appels directs, mesurés à l'identique
   (`notes/evidence/2026-09-18-system-calls-measured.md`). `check-probes` refuse désormais `Get-Counter`.
+- **Les cartes disent ce qui est réellement en mémoire vive** : Ressources, WSL et Processus de Vigie montraient sous le
+  mot « mémoire » la mémoire engagée (`PrivateMemorySize64`), 14,4 Go pour WSL quand 12,4 Go étaient en mémoire vive.
+  Elles montrent désormais, côte à côte, la mémoire vive occupée (l'ensemble de travail privé du Gestionnaire des
+  tâches) et la mémoire engagée ; chaque alerte trie et nomme selon ce qui la déclenche.
 - **La carte Ressources sépare la mémoire vive du fichier d'échange** : la mémoire vive utilisée face à celle installée,
   le fichier d'échange utilisé face à sa taille, et la mémoire engagée dit de quoi sa limite est faite. Un ordinateur de
   32 Go lisait « 49 Go » sans savoir quelle part était sur le disque. La carte WSL cite aussi `autoMemoryReclaim`.

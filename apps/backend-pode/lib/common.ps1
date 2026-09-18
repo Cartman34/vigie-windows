@@ -4025,7 +4025,8 @@ function Get-ResidentHealth {
             LastBeat  = $(if ($state) { $state.at } else { $null })
             BeatAge   = $beatAge
             CpuSeconds = $(if ($process) { try { [int]$process.TotalProcessorTime.TotalSeconds } catch { $null } } else { $null })
-            MemoryMb  = $(if ($process) { [int]($process.PrivateMemorySize64 / 1MB) } else { $null })
+            # IN RAM, not committed (Get-ProcessMemoryUse): the figures say what is really in RAM (18/09).
+            MemoryMb  = $(if ($process) { $use = Get-ProcessMemoryUse; if ($use.ContainsKey($process.Id)) { [int]($use[$process.Id].Ram / 1MB) } else { $null } } else { $null })
             Copies    = $copies
             LastEvent = $(if ($state) { $state.lastEventAt } else { $null })
             Error     = $(if ($state) { $state.error } else { $null })

@@ -26,10 +26,15 @@ foreach ($hive in ($wslHives | Where-Object { $_ })) {
 $running = [bool](Get-Process -Name 'vmmemWSL','vmmem','wslservice' -ErrorAction SilentlyContinue)
 
 # THE MEMORY OF ITS VIRTUAL MACHINE (WSL-STATE). On 18/09 vmmemWSL held 14 to 16 GB and Windows warned of saturation;
-# the card said "Actif", nothing more. The process is read directly (0.02 s), its private memory as on the Resources
-# card, so the two figures agree.
+# the card said "Actif", nothing more. What it holds IN RAM and what it has COMMITTED are read apart, as on the
+# Resources card (Get-ProcessMemoryUse): the committed figure was shown as "memory" until 18/09, 2 GB above the truth.
 $fr = [Globalization.CultureInfo]::GetCultureInfo('fr-FR')
-$vmBytes = [double]((@(Get-Process -Name 'vmmemWSL' -ErrorAction SilentlyContinue) | Measure-Object PrivateMemorySize64 -Sum).Sum)
+$vmBytes = 0.0
+$vmCommitted = 0.0
+$memoryUse = Get-ProcessMemoryUse
+foreach ($vm in @(Get-Process -Name 'vmmemWSL' -ErrorAction SilentlyContinue)) {
+    if ($memoryUse.ContainsKey($vm.Id)) { $vmBytes += $memoryUse[$vm.Id].Ram; $vmCommitted += $memoryUse[$vm.Id].Committed }
+}
 $physical = Get-MemoryStatus
 $physicalBytes = if ($physical) { $physical.TotalPhys } else { 0 }
 $warnPct = [int](Get-ModuleSetting -Unit 'wsl' -Key 'VmMemoryWarnPct')
@@ -48,14 +53,14 @@ if ($requester -and (Test-PathSafe $wslConfigPath)) {
 }
 $vmPct = if ($physicalBytes) { [math]::Round(100 * $vmBytes / $physicalBytes) } else { 0 }
 $vmStatus = if (-not $vmBytes) { 'neutral' } elseif ($vmPct -ge $warnPct) { 'warn' } else { 'ok' }
-$vmValue = if ($vmBytes) { ($vmBytes / 1GB).ToString('N1', $fr) + ' Go (' + $vmPct + ' % de la mémoire vive)' } else { 'Aucune : machine virtuelle arrêtée' }
+$vmValue = if ($vmBytes) { ($vmBytes / 1GB).ToString('N1', $fr) + ' Go en mémoire vive (' + $vmPct + ' %), ' + ($vmCommitted / 1GB).ToString('N1', $fr) + ' Go engagés' } else { 'Aucune : machine virtuelle arrêtée' }
 if ($requester) { $vmValue += if ($bound) { ' · bornée à ' + $bound } else { ' · non bornée' } }
 $vmGuide = $null
 $vmReason = $null
 if ($vmStatus -eq 'warn') {
     $suggestGb = [math]::Max(4, [math]::Round($physicalBytes / 1GB / 4))
-    $vmReason = 'La machine virtuelle de WSL occupe ' + ($vmBytes / 1GB).ToString('N1', $fr) + ' Go, ' + $vmPct + ' % de la mémoire vive'
-    $vmGuide = $vmReason + '. Linux garde en cache ce qu''il a lu, et WSL ne rend cette mémoire à Windows que lentement.' + [Environment]::NewLine + [Environment]::NewLine +
+    $vmReason = 'La machine virtuelle de WSL occupe ' + ($vmBytes / 1GB).ToString('N1', $fr) + ' Go de mémoire vive, ' + $vmPct + ' %'
+    $vmGuide = $vmReason + '. Ce chiffre comprend le cache de fichiers de Linux : dans WSL, « free » le compte comme disponible, mais pour Windows cette mémoire est occupée tant que WSL ne la rend pas.' + [Environment]::NewLine + [Environment]::NewLine +
                $(if ($bound) { "Elle est bornée à $bound dans $wslConfigPath. Pour la réduire, y abaisser la ligne « memory= » de la section [wsl2], par exemple :" }
                  else { "Rien ne la borne : sans réglage, WSL peut prendre jusqu'à la moitié de la mémoire vive. Pour la borner soi-même, ouvrir le fichier $wslConfigPath (le créer s'il n'existe pas) et y écrire :" }) +
                [Environment]::NewLine + "[wsl2]" + [Environment]::NewLine + "memory=$($suggestGb)GB" + [Environment]::NewLine + [Environment]::NewLine +
@@ -107,5 +112,5 @@ New-ModuleObject -Id 'wsl' -Theme 'wsl' -Label 'WSL2' -Status $st -Fields @(
     New-Field -Key 'running'   -Label 'Statut' -Value $statutValue -Kind 'text' -Status $statutStat -Help 'État actuel de WSL (Actif si un processus vmmem/wslservice tourne, sinon Inactif).'
     New-Field -Key 'vmMemory'  -Label 'Mémoire de la machine virtuelle' -Value $vmValue -Kind 'text' -Status $vmStatus -Guide $vmGuide -Reason $vmReason `
         -FixAction $(if ($vmStatus -eq 'warn' -and $running) { 'wsl-shutdown' } else { $null }) `
-        -Help "Mémoire que prend la machine virtuelle qui fait tourner les distributions Linux, et la borne réglée dans .wslconfig."
+        -Help "Mémoire vive réellement occupée par la machine virtuelle qui fait tourner les distributions Linux, cache de fichiers de Linux compris, puis la mémoire qu'elle s'est réservée, et la borne réglée dans .wslconfig."
 ) -Actions $wslActions

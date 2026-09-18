@@ -353,3 +353,58 @@ function Get-PageFileStatus {
     $page = [double][Environment]::SystemPageSize
     return [pscustomobject]@{ Total = $raw[0] * $page; Used = $raw[1] * $page; Peak = $raw[2] * $page }
 }
+
+# WHAT EACH PROCESS REALLY HOLDS IN RAM, apart from what it has committed. PrivateMemorySize64 is the COMMITTED memory:
+# on 18/09 it gave 14.4 GB for the WSL virtual machine while 12.4 GB of it was in RAM, and the owner's rule is that
+# the figures say what is really in RAM. The private working set -- the "Memory" column of the Task Manager -- comes
+# from the same kernel call as the I/O counters (SYSTEM_PROCESS_INFORMATION, WorkingSetPrivateSize at offset 8,
+# PrivatePageCount at offset 200 on 64-bit Windows), checked against the performance counters on 18/09.
+if (-not ('VigieProcessMemory' -as [type])) {
+    Add-Type -TypeDefinition @'
+using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+
+public static class VigieProcessMemory {
+    [DllImport("ntdll.dll")]
+    static extern int NtQuerySystemInformation(int infoClass, IntPtr buffer, int length, out int returned);
+
+    // pid -> [ bytes in RAM (private working set), bytes committed ]; null when the kernel refuses.
+    public static Dictionary<int, long[]> Read() {
+        if (IntPtr.Size != 8) { return null; }
+        int length = 1 << 20;
+        for (int attempt = 0; attempt < 6; attempt++) {
+            IntPtr buffer = Marshal.AllocHGlobal(length);
+            try {
+                int returned;
+                int status = NtQuerySystemInformation(5, buffer, length, out returned);
+                if (status == unchecked((int)0xC0000004)) { length = Math.Max(length * 2, returned + 65536); continue; }
+                if (status != 0) { return null; }
+                var result = new Dictionary<int, long[]>();
+                int offset = 0;
+                while (true) {
+                    IntPtr entry = IntPtr.Add(buffer, offset);
+                    int pid = (int)Marshal.ReadInt64(entry, 80);
+                    result[pid] = new long[] { Marshal.ReadInt64(entry, 8), Marshal.ReadInt64(entry, 200) };
+                    int next = Marshal.ReadInt32(entry, 0);
+                    if (next == 0) { break; }
+                    offset += next;
+                }
+                return result;
+            } finally { Marshal.FreeHGlobal(buffer); }
+        }
+        return null;
+    }
+}
+'@
+}
+
+# RAM AND COMMITTED MEMORY PER PROCESS: a hashtable pid -> @{ Ram; Committed }, in bytes. Empty when the kernel refuses.
+function Get-ProcessMemoryUse {
+    $table = @{}
+    try {
+        $raw = [VigieProcessMemory]::Read()
+        if ($raw) { foreach ($key in $raw.Keys) { $table[[int]$key] = [pscustomobject]@{ Ram = [double]$raw[$key][0]; Committed = [double]$raw[$key][1] } } }
+    } catch { }
+    return $table
+}

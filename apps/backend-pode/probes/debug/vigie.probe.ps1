@@ -141,7 +141,7 @@ if ($residents.Count) {
                   else { 'MORT, réarmé au prochain passage' }
         $ligne = "- {0} : {1} ({2})" -f $_.Label, $health, $_.State
         if ($null -ne $_.BeatAge) { $ligne += " — dernier battement il y a $($_.BeatAge) s" }
-        if ($null -ne $_.MemoryMb) { $ligne += " — processus : $($_.MemoryMb) Mo, $($_.CpuSeconds) s de processeur" }
+        if ($null -ne $_.MemoryMb) { $ligne += " — processus : $($_.MemoryMb) Mo en mémoire vive, $($_.CpuSeconds) s de processeur" }
         if ($copyCount -gt 1) { $ligne += " — copies : " + ((@($_.Copies) | ForEach-Object { "PID $($_.Id)" + $(if ($_.StartedAt) { ' depuis ' + ([datetime]$_.StartedAt).ToString('dd/MM HH:mm') } else { '' }) }) -join ', ') }
         if ($_.LastEvent) { $ligne += " — dernier événement : $($_.LastEvent)" }
         if ($_.Error)     { $ligne += " — $($_.Error)" }

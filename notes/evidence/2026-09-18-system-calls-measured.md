@@ -15,6 +15,8 @@ depuis la session de fhaza, sur 570 à 575 processus ; la seconde passe compte, 
 | Mémoire GPU par processus, `Local Usage` | `Get-Counter` | 1 016 ms | PDH direct | compris ci-dessus | 2 230 Mo contre 2 209 Mo, instants différents |
 | Mémoire de l'adaptateur | `Get-Counter` | 1 013 ms | PDH direct | compris ci-dessus | 1 991 Mo des deux côtés |
 | Parent d'un processus (résident Jeu) | `Win32_Process` | 465 ms | instantané Toolhelp (`Get-ParentProcessId`) | 15 ms | même parent |
+| Mémoire vive privée (ensemble de travail privé) et mémoire engagée par processus | `PrivateMemorySize64`, qui n'est que l'engagée | — | `NtQuerySystemInformation` (`Get-ProcessMemoryUse`) | 23 ms | comparée par PID à `Win32_PerfRawData_PerfProc_Process` : 567 processus, 23,09 Go contre 23,11 Go ; l'engagée égale `PrivateMemorySize64` à 8 Mo près pour 569 sur 571 |
+| Fichier d'échange | `Win32_PageFileUsage` | 134 ms | `NtQuerySystemInformation` (`Get-PageFileStatus`) | 1 ms | 20 609 contre 20 608 Mo, 3 225 Mo utilisés des deux côtés |
 | Démarrage de Windows | `Win32_OperatingSystem` | 573 ms | `Environment.TickCount64` (`Get-BootTime`) | 0 ms | 17/09 13:58:54 contre 13:58:55 ; le journal (Kernel-General 12) dit 13:58:55 |
 | Descendants de l'app serveur | — | — | instantané Toolhelp (`Get-ProcessDescendants`) | 15 ms, 105 ms avec les heures de départ | — |
 | Ports éphémères occupés, par processus | — | — | `GetExtendedTcpTable` classe 5, `GetExtendedUdpTable` classe 1 | 20 ms TCP, 1 ms UDP | — |
@@ -31,3 +33,9 @@ La sonde Jeu est passée de 8,7 s à 1,8 s, dont 0,9 s d'attente voulue entre se
 | `SoftwareLicensingProduct`, activation (`os.probe.ps1`) | 1 107 ms, une fois l'heure | aucun remplaçant éprouvé ici |
 | `Win32_Process` avec `CommandLine LIKE`, copies d'un résident | 490 ms, carte Débogage éteinte par défaut | seule source de la ligne de commande sans lire la mémoire des processus |
 | `Win32_VideoController`, `Win32_LogicalDisk` | 30 ms et 11 ms | déjà rapides |
+
+## Une comparaison à ne pas refaire
+
+Associer les compteurs PDH `\Process(*)` à un processus par leur nom est faux : plusieurs processus du même nom
+(« claude » ×12) sortent sous le même nom d'instance, et l'association mélange leurs valeurs (84 écarts sur 570, tous
+dus à elle). La comparaison se fait par PID.

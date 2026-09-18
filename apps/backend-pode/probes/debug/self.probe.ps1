@@ -50,19 +50,22 @@ foreach ($r in $residentStates) {
     }
 }
 
+# IN RAM AND COMMITTED, apart (Get-ProcessMemoryUse): the thresholds follow what is really in RAM.
+$memoryUse = Get-ProcessMemoryUse
 $totalBytes = 0.0
 $rows = @()
 foreach ($m in $members) {
     $bytes = 0.0
+    $committed = 0.0
     $started = ''
+    if ($memoryUse.ContainsKey($m.ProcessId)) { $bytes = $memoryUse[$m.ProcessId].Ram; $committed = $memoryUse[$m.ProcessId].Committed }
     try {
         $p = Get-Process -Id $m.ProcessId -ErrorAction Stop
-        $bytes = [double]$p.PrivateMemorySize64
         try { if ($p.StartTime) { $started = $p.StartTime.ToString('dd/MM HH:mm') } } catch { }
     } catch { }
     $totalBytes += $bytes
     $m | Add-Member -NotePropertyName Bytes -NotePropertyValue $bytes
-    $rows += ,@($m.Role, $m.Name, "$($m.ProcessId)", (($bytes / 1MB).ToString('N0', $fr) + ' Mo'), $started)
+    $rows += ,@($m.Role, $m.Name, "$($m.ProcessId)", (($bytes / 1MB).ToString('N0', $fr) + ' Mo'), (($committed / 1MB).ToString('N0', $fr) + ' Mo'), $started)
 }
 $totalMb = [math]::Round($totalBytes / 1MB)
 
@@ -85,7 +88,7 @@ if ($reasons.Count) {
     $guide = "Vigie occupe plus que prévu : " + $reason + '.' + [Environment]::NewLine + [Environment]::NewLine +
              "Le tableau nomme chaque processus avec son rôle. « Redémarrer le serveur » les remplace tous proprement ; Vigie n'arrête aucun processus d'elle-même."
 }
-$table = if ($rows.Count) { @{ columns = @('Rôle', 'Processus', 'PID', 'Mémoire privée', 'Démarré'); rows = $rows } } else { $null }
+$table = if ($rows.Count) { @{ columns = @('Rôle', 'Processus', 'PID', 'En mémoire vive', 'Engagée', 'Démarré'); rows = $rows } } else { $null }
 $fix = if ($reasons.Count) { 'server-restart' } else { $null }
 
 $fields = @(
@@ -94,7 +97,7 @@ $fields = @(
         -Help "L'app serveur et tout ce qu'elle a lancé : résidents, tâches de fond, consoles. Au-delà du seuil réglé dans les paramètres du module, la carte alerte."
     New-Field -Key 'memory' -Label 'Mémoire de Vigie' -Value $totalMb -Kind 'number' -Unit 'Mo' -Status $memoryStatus -Reason $(if ($memoryStatus -ne 'ok') { $reason } else { $null }) `
         -FixAction $(if ($memoryStatus -ne 'ok') { 'server-restart' } else { $null }) -Guide $(if ($memoryStatus -ne 'ok') { $guide } else { $null }) `
-        -Help "Mémoire privée de tous les processus de Vigie réunis."
+        -Help "Mémoire vive réellement occupée par tous les processus de Vigie réunis."
 )
 $worst = if ($countStatus -eq 'error' -or $memoryStatus -eq 'error') { 'error' } elseif ($countStatus -eq 'warn') { 'warn' } else { 'ok' }
 New-ModuleObject -Id 'vigie-self' -Theme 'debug' -Label 'Processus de Vigie' -Status $worst -Fields $fields

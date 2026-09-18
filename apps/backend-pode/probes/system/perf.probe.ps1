@@ -31,13 +31,21 @@ $cpuStatus    = if ($cpu -ge 90) { 'warn' } else { 'neutral' }
 
 # WHO CONSUMES, grouped by application: one line per process name, summed. Measured only when something alerts, so
 # that a quiet card costs nothing more. A technical name is shown with its Windows description (D64).
+#
+# TWO FIGURES, NEVER ONE FOR THE OTHER: what is really IN RAM (the private working set, the Task Manager's "Memory"
+# column) and what is COMMITTED (counted against the limit of RAM plus page file). Until 18/09 the table showed the
+# committed memory under the word "memory": 14.4 GB for WSL while 12.4 GB of it was in RAM. Both come from one kernel
+# call (Get-ProcessMemoryUse, 23 ms), checked by process id against Windows's counters: same 23.1 GB in total.
 # Processes Windows gives no description for, named by what they are.
 $script:KnownProcessNames = @{ 'vmmemWSL' = 'Sous-système Linux WSL'; 'vmmem' = 'Mémoire des invités Hyper-V' }
 function Get-TopMemoryApplications {
-    param([int]$Count = 10)
+    param([int]$Count = 10, [ValidateSet('Ram', 'Committed')][string]$SortBy = 'Ram')
+    $use = Get-ProcessMemoryUse
     $groups = @(Get-Process -ErrorAction SilentlyContinue | Group-Object ProcessName | ForEach-Object {
-        [pscustomobject]@{ Name = $_.Name; Description = ''; Count = $_.Count; Bytes = [double](($_.Group | Measure-Object PrivateMemorySize64 -Sum).Sum); Group = $_.Group }
-    } | Sort-Object Bytes -Descending | Select-Object -First $Count)
+        $ram = 0.0; $committed = 0.0
+        foreach ($p in $_.Group) { if ($use.ContainsKey($p.Id)) { $ram += $use[$p.Id].Ram; $committed += $use[$p.Id].Committed } }
+        [pscustomobject]@{ Name = $_.Name; Description = ''; Count = $_.Count; Ram = $ram; Committed = $committed; Group = $_.Group }
+    } | Sort-Object $SortBy -Descending | Select-Object -First $Count)
     # THE DESCRIPTION IS READ FOR THE LINES SHOWN ONLY: reading it for three hundred processes took seconds (18/09).
     foreach ($g in $groups) {
         if ($script:KnownProcessNames.ContainsKey($g.Name)) { $g.Description = $script:KnownProcessNames[$g.Name]; continue }
@@ -50,21 +58,27 @@ function Format-ApplicationName {
     if ($Application.Description -and $Application.Description -ne $Application.Name) { return ($Application.Description + ' (' + $Application.Name + ')') }
     return $Application.Name
 }
+function Format-Gb { param([double]$Bytes) return (($Bytes / 1GB).ToString('N1', $fr) + ' Go') }
 
 $memoryGuide = $null
 $memoryTable = $null
-$memoryReason = $null
+$ramReason = $null
+$commitReason = $null
 if ($ramStatus -ne 'ok' -or $commitStatus -ne 'ok') {
-    $top = @(Get-TopMemoryApplications)
+    # Sorted by what alerts: the RAM when it is full, the committed memory when only the limit is near.
+    $sortBy = if ($ramStatus -ne 'ok') { 'Ram' } else { 'Committed' }
+    $top = @(Get-TopMemoryApplications -SortBy $sortBy)
     if ($top.Count) {
-        $rows = @(foreach ($a in $top) {
-            ,@((Format-ApplicationName $a), "$($a.Count)", (($a.Bytes/1GB).ToString('N1', $fr) + ' Go'))
-        })
-        $memoryTable = @{ columns = @('Application', 'Processus', 'Mémoire privée'); rows = $rows }
-        $firsts = @($top | Select-Object -First 3 | ForEach-Object { (Format-ApplicationName $_) + ' : ' + (($_.Bytes/1GB).ToString('N1', $fr)) + ' Go' })
-        $memoryReason = 'Surtout ' + ((@($top | Select-Object -First 3 | ForEach-Object { $_.Name + ' ' + (($_.Bytes/1GB).ToString('N1', $fr)) + ' Go' })) -join ', ')
-        $memoryGuide = "Ce qui occupe le plus la mémoire : " + ($firsts -join ' ; ') + '.' + [Environment]::NewLine + [Environment]::NewLine +
-                       "Le détail par application est dans le tableau. Fermer ou redémarrer l'application la plus lourde libère sa part ; le Gestionnaire des tâches permet de le faire."
+        $rows = @(foreach ($a in $top) { ,@((Format-ApplicationName $a), "$($a.Count)", (Format-Gb $a.Ram), (Format-Gb $a.Committed)) })
+        $memoryTable = @{ columns = @('Application', 'Processus', 'En mémoire vive', 'Engagée'); rows = $rows }
+        $byRam = @($top | Sort-Object Ram -Descending | Select-Object -First 3)
+        $byCommitted = @($top | Sort-Object Committed -Descending | Select-Object -First 3)
+        $ramReason = 'En mémoire vive, surtout ' + ((@($byRam | ForEach-Object { $_.Name + ' ' + (Format-Gb $_.Ram) })) -join ', ')
+        $commitReason = 'Mémoire engagée, surtout ' + ((@($byCommitted | ForEach-Object { $_.Name + ' ' + (Format-Gb $_.Committed) })) -join ', ')
+        $memoryGuide = "Ce qui occupe le plus la mémoire vive : " + ((@($byRam | ForEach-Object { (Format-ApplicationName $_) + ' : ' + (Format-Gb $_.Ram) })) -join ' ; ') + '.' +
+                       [Environment]::NewLine + [Environment]::NewLine +
+                       "« En mémoire vive » est ce que l'application occupe réellement en mémoire vive ; « Engagée » est ce qu'elle s'est réservé, compté face à la limite de la mémoire vive et du fichier d'échange. " +
+                       "Fermer ou redémarrer l'application la plus lourde libère sa part ; le Gestionnaire des tâches permet de le faire."
     }
 }
 
@@ -110,10 +124,10 @@ $worst = if ($commitStatus -eq 'error') { 'error' } elseif ($ramStatus -eq 'warn
 # consomme », que la machine aille bien ou non.
 New-ModuleObject -Id 'perf' -Theme 'system' -Label 'Ressources' -Status $worst -Fields @(
     New-Field -Key 'ramUsed' -Label 'RAM utilisée' -Value $ramValue -Kind 'text' -Status $ramStatus `
-        -FixAction $(if ($ramStatus -ne 'ok') { 'open-task-manager' } else { $null }) -Guide $memoryGuide -Table $memoryTable -Reason $(if ($ramStatus -ne 'ok') { $memoryReason } else { $null }) `
+        -FixAction $(if ($ramStatus -ne 'ok') { 'open-task-manager' } else { $null }) -Guide $memoryGuide -Table $memoryTable -Reason $(if ($ramStatus -ne 'ok') { $ramReason } else { $null }) `
         -Help 'Mémoire vive utilisée, face à la mémoire vive installée.'
     New-Field -Key 'commit' -Label 'Mémoire engagée' -Value $commitValue -Kind 'text' -Status $commitStatus `
-        -FixAction $(if ($commitStatus -ne 'ok') { 'open-task-manager' } else { $null }) -Guide $memoryGuide -Table $memoryTable -Reason $(if ($commitStatus -ne 'ok') { $memoryReason } else { $null }) `
+        -FixAction $(if ($commitStatus -ne 'ok') { 'open-task-manager' } else { $null }) -Guide $memoryGuide -Table $memoryTable -Reason $(if ($commitStatus -ne 'ok') { $commitReason } else { $null }) `
         -Help "Mémoire promise aux applications, face à sa limite (mémoire vive plus fichier d'échange). Quand elle atteint la limite, Windows refuse de nouvelles allocations et alerte de saturation, même s'il reste de la mémoire vive libre."
     New-Field -Key 'pageFile' -Label "Fichier d'échange" -Value $pageValue -Kind 'text' -Status $pageStatus `
         -Help "Ce que Windows a écrit sur le disque faute de place en mémoire vive, face à la taille du fichier d'échange. Il s'ajoute à la mémoire vive pour former la limite de la mémoire engagée."
