@@ -4283,6 +4283,8 @@ $script:ProbeTtls = @{
     'os.probe.ps1'      = 3600
     # THE SYSTEM LOG: read in 0.08 s, and a serious error must show within the minute.
     'events.probe.ps1'  = 60
+    # VIGIE'S OWN PROCESSES: a runaway must show within the minute, and the reading costs a few milliseconds.
+    'self.probe.ps1'    = 30
     'packages.probe.ps1'= 5
     'gaming.probe.ps1'  = 10
     # L'alimentation change d'un instant a l'autre (on debranche, une pointe de

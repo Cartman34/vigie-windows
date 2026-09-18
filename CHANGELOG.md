@@ -671,6 +671,10 @@ versions, du point de vue de qui utilise Vigie.*
 - **La carte Réseau compte les ports réseau temporaires** face à la limite de Windows, en TCP et en UDP, avec les
   processus qui en tiennent le plus ; une notification prévient à 80 %. À la limite, plus aucune application ne peut
   ouvrir de connexion : c'est arrivé 85 fois du 06/07 au 17/09.
+- **Vigie se surveille elle-même** : une carte « Processus de Vigie », dans le module Débogage, compte l'app serveur et
+  tout ce qu'elle a lancé, avec le rôle et la mémoire de chacun, et signale un résident qui tourne hors de l'app
+  serveur ; au-delà de seuils réglables, elle alerte et une notification le dit. Le bouton de relance du serveur porte
+  désormais son nom, « Redémarrer le serveur », au lieu de « Résoudre ».
 - **La notification de saturation mémoire nomme ses raisons** : une notification `commit-high` suit la mémoire engagée,
   celle qui déclenche les alertes de Windows, et la bulle de `ram-high` comme la sienne nomme les trois applications qui
   occupent le plus la mémoire. Un champ en alerte porte désormais sa raison (`reason`), que l'app cliente reprend.

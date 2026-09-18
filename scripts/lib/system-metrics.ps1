@@ -68,3 +68,87 @@ function Get-ProcessorLoad {
     if ($load -lt 0) { return $null }
     return $load
 }
+
+# THE PROCESS TREE, from one snapshot of Windows (Toolhelp): every process with its parent. Win32_Process gives the same
+# in 0.5 to 1 s; the snapshot takes a few milliseconds, which lets the self-watch card run at every refresh.
+if (-not ('VigieProcessTree' -as [type])) {
+    Add-Type -TypeDefinition @'
+using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+
+public static class VigieProcessTree {
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    struct ProcessEntry32 {
+        public uint Size; public uint Usage; public uint ProcessId; public IntPtr DefaultHeapId; public uint ModuleId;
+        public uint Threads; public uint ParentProcessId; public int PriorityClassBase; public uint Flags;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)] public string ExeFile;
+    }
+    [DllImport("kernel32.dll", SetLastError = true)]
+    static extern IntPtr CreateToolhelp32Snapshot(uint flags, uint processId);
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    static extern bool Process32FirstW(IntPtr snapshot, ref ProcessEntry32 entry);
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    static extern bool Process32NextW(IntPtr snapshot, ref ProcessEntry32 entry);
+    [DllImport("kernel32.dll")]
+    static extern bool CloseHandle(IntPtr handle);
+
+    // "pid|parent pid|executable" for every process, or null when Windows refuses the snapshot.
+    public static string[] Snapshot() {
+        const uint SnapProcess = 0x2;
+        IntPtr snapshot = CreateToolhelp32Snapshot(SnapProcess, 0);
+        if (snapshot == IntPtr.Zero || snapshot == new IntPtr(-1)) { return null; }
+        var rows = new List<string>();
+        try {
+            var entry = new ProcessEntry32();
+            entry.Size = (uint)Marshal.SizeOf(typeof(ProcessEntry32));
+            if (!Process32FirstW(snapshot, ref entry)) { return null; }
+            do { rows.Add(entry.ProcessId + "|" + entry.ParentProcessId + "|" + entry.ExeFile); }
+            while (Process32NextW(snapshot, ref entry));
+        } finally { CloseHandle(snapshot); }
+        return rows.ToArray();
+    }
+}
+'@
+}
+
+# THE DESCENDANTS OF A PROCESS: ProcessId, ParentId, Name, for its children, their children, and so on. A process
+# whose parent id was reused by a newer process is not taken for a child: it must have started after its parent.
+# Empty when Windows refuses the snapshot. Never throws.
+function Get-ProcessDescendants {
+    param([Parameter(Mandatory)][int]$ProcessId)
+    $rows = $null
+    try { $rows = [VigieProcessTree]::Snapshot() } catch { }
+    if (-not $rows) { return @() }
+    $children = @{}
+    foreach ($row in $rows) {
+        $parts = $row.Split('|')
+        $entry = [pscustomobject]@{ ProcessId = [int]$parts[0]; ParentId = [int]$parts[1]; Name = $parts[2] }
+        if ($entry.ProcessId -eq $entry.ParentId) { continue }
+        if (-not $children.ContainsKey($entry.ParentId)) { $children[$entry.ParentId] = [Collections.Generic.List[object]]::new() }
+        $children[$entry.ParentId].Add($entry)
+    }
+    $started = @{}
+    function Get-StartTime([int]$Id) {
+        if (-not $started.ContainsKey($Id)) { $t = $null; try { $t = (Get-Process -Id $Id -ErrorAction Stop).StartTime } catch { }; $started[$Id] = $t }
+        return $started[$Id]
+    }
+    $found = [Collections.Generic.List[object]]::new()
+    $queue = [Collections.Generic.Queue[int]]::new()
+    $queue.Enqueue($ProcessId)
+    $seen = @{ $ProcessId = $true }
+    while ($queue.Count) {
+        $parent = $queue.Dequeue()
+        if (-not $children.ContainsKey($parent)) { continue }
+        $parentStart = Get-StartTime $parent
+        foreach ($child in $children[$parent]) {
+            if ($seen.ContainsKey($child.ProcessId)) { continue }
+            $childStart = Get-StartTime $child.ProcessId
+            if ($parentStart -and $childStart -and $childStart -lt $parentStart) { continue }
+            $seen[$child.ProcessId] = $true
+            $found.Add($child)
+            $queue.Enqueue($child.ProcessId)
+        }
+    }
+    return $found.ToArray()
+}
