@@ -512,12 +512,82 @@ $fields += @(
 if ($measAt) {
     $fields += New-Field -Key 'measAt' -Label 'Mesure du' -Value $measAt -Kind 'date' -Status 'neutral' -Help "Date de la dernière mesure débit/latence."
 }
+# THE EPHEMERAL PORTS, against Windows's limit, per protocol (NET-STATE). When one space is full, every new connection
+# of every application fails: 85 exhaustions were logged from 06/07 to 17/09, the last one while Vigie showed only
+# "server unreachable". The range is read with netsh (0.2 s), so it is kept an hour, and again after each start of
+# Windows; the ports in use are read directly from Windows in about 20 ms (scripts/lib/tcp-ports.ps1).
+$rangeFile = Get-VarPath -Backend $backend -Kind 'cache' -File 'dynamic-ports.json'
+$bootAt = [long][DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - [long]([Environment]::TickCount64 / 1000)
+$ranges = $null
+if (Test-Path $rangeFile) { try { $ranges = Get-Content $rangeFile -Raw | ConvertFrom-Json } catch { } }
+if (-not $ranges -or -not $ranges.tcp -or -not $ranges.udp -or [math]::Abs([long]$ranges.bootAt - $bootAt) -gt 120 -or ($nowT - [long]$ranges.readAt) -gt 3600) {
+    $tcpRange = Get-EphemeralPortRange -Protocol 'tcp'
+    $udpRange = Get-EphemeralPortRange -Protocol 'udp'
+    if ($tcpRange -and $udpRange) {
+        $ranges = [pscustomobject]@{ bootAt = $bootAt; readAt = $nowT; tcp = [pscustomobject]$tcpRange; udp = [pscustomobject]$udpRange }
+        try { Update-StateJson -Path $rangeFile -Set @{ bootAt = $bootAt; readAt = $nowT; tcp = $tcpRange; udp = $udpRange } | Out-Null } catch { }
+    }
+}
+$portsStatus = 'neutral'
+$portsValue = 'Plage inconnue'
+$portsTable = $null
+$portsReason = $null
+$portsGuide = $null
+if ($ranges -and $ranges.tcp -and $ranges.udp) {
+    $usage = @{}
+    foreach ($proto in 'tcp', 'udp') {
+        $usage[$proto] = Get-EphemeralPortUsage -Protocol $proto -Start ([int]$ranges.$proto.Start) -Count ([int]$ranges.$proto.Count)
+    }
+    $parts = @()
+    $worstPct = 0
+    foreach ($proto in 'tcp', 'udp') {
+        $u = $usage[$proto]
+        if (-not $u) { $parts += ($proto.ToUpper() + ' illisible'); continue }
+        $pct = [math]::Round(100 * $u.Used / $u.Limit)
+        if ($pct -gt $worstPct) { $worstPct = $pct }
+        $fr = [Globalization.CultureInfo]::GetCultureInfo('fr-FR')
+        $parts += ($proto.ToUpper() + ' ' + $u.Used.ToString('N0', $fr) + ' sur ' + $u.Limit.ToString('N0', $fr) + ' (' + $pct + ' %)')
+    }
+    $portsValue = $parts -join ' · '
+    $portsStatus = if (-not $usage.tcp -or -not $usage.udp) { 'warn' } elseif ($worstPct -ge 95) { 'error' } elseif ($worstPct -ge 80) { 'warn' } else { 'ok' }
+    # WHO HOLDS THEM: the processes holding the most, per protocol, named by the service they run when they host one.
+    $rows = @()
+    $holders = @()
+    foreach ($proto in 'tcp', 'udp') {
+        if (-not $usage[$proto]) { continue }
+        foreach ($o in @($usage[$proto].ByProcess | Select-Object -First 5)) {
+            $name = if ($o.ProcessId -eq 0) { 'Connexions en fermeture (TIME_WAIT)' } else {
+                $pn = "$((Get-Process -Id $o.ProcessId -ErrorAction SilentlyContinue).ProcessName)"
+                if (-not $pn) { $pn = "processus $($o.ProcessId)" }
+                if ($pn -eq 'svchost') { $svc = Get-ServiceByProcessId -ProcessId $o.ProcessId; if ($svc) { $pn = "svchost ($($svc.DisplayName))" } }
+                $pn
+            }
+            $rows += ,@($proto.ToUpper(), $name, "$($o.ProcessId)", "$($o.Count)")
+            $holders += [pscustomobject]@{ Label = "$name, $($o.Count) $($proto.ToUpper())"; Count = $o.Count }
+        }
+    }
+    if ($rows.Count) { $portsTable = @{ columns = @('Protocole', 'Processus', 'PID', 'Ports'); rows = $rows } }
+    if ($portsStatus -in 'warn', 'error') {
+        $top = @($holders | Sort-Object Count -Descending | Select-Object -First 3)
+        $portsReason = 'Surtout ' + ((@($top | ForEach-Object { $_.Label })) -join ' ; ')
+        $portsGuide = "Les ports réseau temporaires approchent de la limite de Windows. Quand elle est atteinte, toutes les nouvelles connexions échouent, pour toutes les applications." +
+                      [Environment]::NewLine + [Environment]::NewLine +
+                      "Le tableau nomme les processus qui en tiennent le plus. Fermer ou redémarrer celui qui en tient le plus les libère ; les connexions en fermeture se libèrent seules en quelques minutes."
+    }
+}
+$fields += New-Field -Key 'ports' -Label 'Ports réseau temporaires' -Value $portsValue -Kind 'text' -Status $portsStatus `
+    -Table $portsTable -Reason $portsReason -Guide $portsGuide `
+    -FixAction $(if ($portsStatus -in 'warn', 'error') { 'open-task-manager' } else { $null }) `
+    -Help "Ports que Windows prête aux connexions sortantes, face à sa limite, en TCP et en UDP. À la limite, plus aucune application ne peut ouvrir de connexion."
+
 # Statut de la CARTE : la connectivite d'abord, mais un lien Wi-Fi degrade ou instable
 # doit se voir depuis la liste — sinon la carte reste verte alors qu'une de ses lignes
 # est orange, et l'utilisateur ne la deplie jamais. La stabilite « pas encore etablie »
 # ne degrade PAS la carte : c'est une attente normale, comme la latence non mesuree.
-$modStatus = if (-not $connected) { 'warn' }
+$modStatus = if ($portsStatus -eq 'error') { 'error' }
+             elseif (-not $connected) { 'warn' }
              elseif ($hasWifi -and $qualStatus -eq 'error') { 'error' }
+             elseif ($portsStatus -eq 'warn') { 'warn' }
              elseif ($hasWifi -and $qualStatus -eq 'warn') { 'warn' }
              elseif ($hasWifi -and $wifiUp -and $stabEstablished -and $dropCount -gt 0) { 'warn' }
              else { 'ok' }

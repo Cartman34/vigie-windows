@@ -43,6 +43,10 @@
            Card = 'net'; Field = 'wifiStability'
            Droits = 'tous'; Critique = $false
            Help = 'L''association Wi-Fi décroche.' }
+        @{ Key = 'ports-low'; Label = 'Ports réseau bientôt épuisés'
+           Card = 'net'; Field = 'ports'
+           Droits = 'tous'; Critique = $false
+           Help = 'Les ports réseau temporaires approchent de la limite de Windows : à la limite, plus aucune application ne peut ouvrir de connexion. La bulle nomme les processus qui en tiennent le plus.' }
         @{ Key = 'dns-ko'; Label = 'Résolution DNS en échec'
            Card = 'net'; Field = 'dns'
            Droits = 'admin'; Critique = $true

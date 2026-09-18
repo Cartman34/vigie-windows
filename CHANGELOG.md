@@ -668,6 +668,9 @@ versions, du point de vue de qui utilise Vigie.*
   inattendu, pilote graphique en erreur et service arrêté brutalement sont nommés avec leur sens et leur geste, et une
   notification les annonce ; les autres erreurs sont listées par source. Le 17/09, ports et mémoire du Bureau épuisés
   étaient consignés sans qu'aucune carte ne le dise.
+- **La carte Réseau compte les ports réseau temporaires** face à la limite de Windows, en TCP et en UDP, avec les
+  processus qui en tiennent le plus ; une notification prévient à 80 %. À la limite, plus aucune application ne peut
+  ouvrir de connexion : c'est arrivé 85 fois du 06/07 au 17/09.
 - **La notification de saturation mémoire nomme ses raisons** : une notification `commit-high` suit la mémoire engagée,
   celle qui déclenche les alertes de Windows, et la bulle de `ram-high` comme la sienne nomme les trois applications qui
   occupent le plus la mémoire. Un champ en alerte porte désormais sa raison (`reason`), que l'app cliente reprend.
