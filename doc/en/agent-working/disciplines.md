@@ -104,6 +104,13 @@ Only what passes all three -- a need, a product choice nobody has made -- is ask
 the owner in two series; nine were answered by one of these gates. "The subjects are relevant, but they have nothing to
 do in a question when you ALREADY have the answers."*
 
+**His words are taken literally, never interpreted.** "The card belongs to the Debug module and follows its visibility"
+does not say "one card per module": reading more into a sentence than it says is deforming it. When a sentence leaves
+something open, it stays open. *18/09.*
+
+**Optimisations are always measured and done without asking**: the best solution that loses nothing, speed and
+compatibility both checked before delivery. *18/09.*
+
 **A proposal names its verb**: add, complete, modify, optimise, remove -- and what exists today. "An alert for memory
 saturation" when one exists but only watches the RAM hides the real gesture, which is to complete it. *18/09.*
 
