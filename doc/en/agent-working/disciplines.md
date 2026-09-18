@@ -149,6 +149,10 @@ machine left in another state, or a published artifact deleted.
 a tag or a release, uninstalling anything, changing a machine setting, anything that leaves
 the repository, and anything that puts something on the owner's screen.
 
+**Stopping a process is NEVER done without his very explicit confirmation**, clear and unambiguous, for that
+process: not a kill, not a `Stop-Process`, not a command handed to him that does it, not code that does it on its own.
+*Asked by the owner on 18/09, after the runaway resident of 17/09.*
+
 *On 11/09 I started twice without a yes, the second time twenty minutes after he had stopped
 me for exactly that. The rule was already written above — "a question calls for an ANSWER,
 not an action" — and being written was not enough. Measured and recorded:
