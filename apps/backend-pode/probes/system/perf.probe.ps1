@@ -50,6 +50,7 @@ function Format-ApplicationName {
 
 $memoryGuide = $null
 $memoryTable = $null
+$memoryReason = $null
 if ($ramStatus -ne 'ok' -or $commitStatus -ne 'ok') {
     $top = @(Get-TopMemoryApplications)
     if ($top.Count) {
@@ -58,6 +59,7 @@ if ($ramStatus -ne 'ok' -or $commitStatus -ne 'ok') {
         })
         $memoryTable = @{ columns = @('Application', 'Processus', 'Mémoire privée'); rows = $rows }
         $firsts = @($top | Select-Object -First 3 | ForEach-Object { (Format-ApplicationName $_) + ' : ' + (($_.Bytes/1GB).ToString('N1', $fr)) + ' Go' })
+        $memoryReason = 'Surtout ' + ((@($top | Select-Object -First 3 | ForEach-Object { $_.Name + ' ' + (($_.Bytes/1GB).ToString('N1', $fr)) + ' Go' })) -join ', ')
         $memoryGuide = "Ce qui occupe le plus la mémoire : " + ($firsts -join ' ; ') + '.' + [Environment]::NewLine + [Environment]::NewLine +
                        "Le détail par application est dans le tableau. Fermer ou redémarrer l'application la plus lourde libère sa part ; le Gestionnaire des tâches permet de le faire."
     }
@@ -65,6 +67,7 @@ if ($ramStatus -ne 'ok' -or $commitStatus -ne 'ok') {
 
 $cpuGuide = $null
 $cpuTable = $null
+$cpuReason = $null
 if ($cpuStatus -ne 'neutral') {
     # The processor share needs two readings: the processor time used between them, per application.
     $first = @{}
@@ -79,6 +82,7 @@ if ($cpuStatus -ne 'neutral') {
     } | Where-Object Pct -gt 0.5 | Sort-Object Pct -Descending | Select-Object -First 8)
     if ($cpuTop.Count) {
         $cpuTable = @{ columns = @('Application', 'Processus', 'Processeur'); rows = @(foreach ($a in $cpuTop) { ,@($a.Name, "$($a.Count)", ([math]::Round($a.Pct).ToString() + ' %')) }) }
+        $cpuReason = 'Surtout ' + ((@($cpuTop | Select-Object -First 3 | ForEach-Object { $_.Name + ' ' + [math]::Round($_.Pct) + ' %' })) -join ', ')
         $cpuGuide = "Ce qui occupe le plus le processeur : " + ((@($cpuTop | Select-Object -First 3 | ForEach-Object { $_.Name + ' : ' + [math]::Round($_.Pct) + ' %' })) -join ' ; ') + '.'
     }
 }
@@ -89,14 +93,14 @@ $worst = if ($commitStatus -eq 'error') { 'error' } elseif ($ramStatus -eq 'warn
 # consomme », que la machine aille bien ou non.
 New-ModuleObject -Id 'perf' -Theme 'system' -Label 'Ressources' -Status $worst -Fields @(
     New-Field -Key 'ramUsed' -Label 'RAM utilisée' -Value $ramPct  -Kind 'number' -Unit '%'  -Status $ramStatus `
-        -FixAction $(if ($ramStatus -ne 'ok') { 'open-task-manager' } else { $null }) -Guide $memoryGuide -Table $memoryTable `
+        -FixAction $(if ($ramStatus -ne 'ok') { 'open-task-manager' } else { $null }) -Guide $memoryGuide -Table $memoryTable -Reason $(if ($ramStatus -ne 'ok') { $memoryReason } else { $null }) `
         -Help 'Pourcentage de mémoire vive utilisée.'
     New-Field -Key 'commit' -Label 'Mémoire engagée' -Value $commitValue -Kind 'text' -Status $commitStatus `
-        -FixAction $(if ($commitStatus -ne 'ok') { 'open-task-manager' } else { $null }) -Guide $memoryGuide -Table $memoryTable `
+        -FixAction $(if ($commitStatus -ne 'ok') { 'open-task-manager' } else { $null }) -Guide $memoryGuide -Table $memoryTable -Reason $(if ($commitStatus -ne 'ok') { $memoryReason } else { $null }) `
         -Help "Mémoire promise aux applications, face à sa limite (mémoire vive plus fichier d'échange). Quand elle atteint la limite, Windows refuse de nouvelles allocations et alerte de saturation, même s'il reste de la mémoire vive libre."
     New-Field -Key 'ramFree' -Label 'RAM libre'    -Value $freeGB  -Kind 'number' -Unit 'Go' -Status 'neutral'                                        -Help 'Mémoire vive disponible.'
     New-Field -Key 'cpu'     -Label 'CPU'          -Value $cpu     -Kind 'number' -Unit '%'  -Status $cpuStatus `
-        -FixAction $(if ($cpuStatus -ne 'neutral') { 'open-task-manager' } else { $null }) -Guide $cpuGuide -Table $cpuTable `
+        -FixAction $(if ($cpuStatus -ne 'neutral') { 'open-task-manager' } else { $null }) -Guide $cpuGuide -Table $cpuTable -Reason $cpuReason `
         -Help 'Charge processeur instantanée.'
     New-Field -Key 'uptime'  -Label 'Uptime'       -Value $upTxt   -Kind 'text'               -Status 'neutral'                                        -Help 'Durée depuis le dernier démarrage de Windows.'
 ) `

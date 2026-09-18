@@ -1279,7 +1279,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                             if (-not $m -or -not $m.id) { continue }
                             $vus["$($m.id)"] = @{ status = "$($m.status)"; label = "$($m.label)" }
                             foreach ($c in @($m.fields)) {
-                                if ($c -and $c.key) { $vus["$($m.id)/$($c.key)"] = @{ status = "$($c.status)"; label = "$($c.label)"; value = "$($c.value)" } }
+                                if ($c -and $c.key) { $vus["$($m.id)/$($c.key)"] = @{ status = "$($c.status)"; label = "$($c.label)"; value = "$($c.value)"; reason = "$($c.reason)" } }
                             }
                         }
                     }
@@ -1343,7 +1343,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                                 }
                                 $state.NotifPar[$refNotif] = [datetime]::UtcNow
                                 $aPrevenir = ("$($nn.rights)" -eq 'admin' -and -not (Test-IsElevated))
-                                $bascules += [pscustomobject]@{ id = $refNotif; label = "$($nn.label)"; value = "$($apres.value)"; de = $avant.status; vers = $apres.status; prevenir = $aPrevenir }
+                                $bascules += [pscustomobject]@{ id = $refNotif; label = "$($nn.label)"; value = "$($apres.value)"; de = $avant.status; vers = $apres.status; prevenir = $aPrevenir; reason = "$($apres.reason)" }
                             }
                         }
                         $state.Mods = $vus
@@ -1378,6 +1378,9 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                                 # no line ever starts with a lowercase fragment.
                                 $body = $(if ("$($single.value)".Trim()) { (Get-Label 'tray.bulle-bascule-texte' "$($single.value)" $mot[$single.vers]) }
                                            else { (Get-Label 'tray.bulle-bascule-etat' $mot[$single.vers]) })
+                                # THE REASON FOLLOWS THE STATE (CORE-ERRORS): "RAM 93 %" alone sent the reader to the panel on
+                                # 18/09 to learn what the probe already knew -- which applications held the memory.
+                                if ($single.reason -and $single.vers -ne 'ok') { $body += [Environment]::NewLine + $single.reason }
                                 if ($single.prevenir -and $single.vers -ne 'ok') { $body += [Environment]::NewLine + (Get-Label 'tray.bulle-bascule-admin') }
                             } else {
                                 $title = (Get-Label 'tray.bulle-bascules-titre' $bascules.Count)

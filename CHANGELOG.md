@@ -663,6 +663,9 @@ versions, du point de vue de qui utilise Vigie.*
   en tête la mise à jour en cours, ce qu'elle fait, son avancement et ses octets, et en clair si elle ne progresse plus
   depuis deux minutes ou échoue ; dessous chaque mise à jour avec son état, les réussies repliées derrière un bouton ;
   en bas l'avancement total.
+- **La notification de saturation mémoire nomme ses raisons** : une notification `commit-high` suit la mémoire engagée,
+  celle qui déclenche les alertes de Windows, et la bulle de `ram-high` comme la sienne nomme les trois applications qui
+  occupent le plus la mémoire. Un champ en alerte porte désormais sa raison (`reason`), que l'app cliente reprend.
 - Une version de développement s'écrit d'une seule façon, `v1.1.6+1` : l'installation l'écrivait `v1.1.6-dev1`, et
   l'état du déploiement annonçait un dépôt en avance sur une installation au même commit.
 - **Un déploiement ne pose plus d'étiquette de version** (D123) : il affiche le dernier numéro suivi de ses commits,

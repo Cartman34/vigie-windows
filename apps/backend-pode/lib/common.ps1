@@ -3384,9 +3384,12 @@ function New-Field {
         $Tree,
         # THE PROGRESS OF AN OPERATION IN PROGRESS, in a block of its own under the field, only while it runs:
         # @{ phase; percent; index; total; title; itemPercent; bytesDone; bytesTotal; since } (contract Field.progress).
-        [hashtable]$Progress
+        [hashtable]$Progress,
+        # THE REASON OF AN ALERT, one short line, carried as is into the desktop notification (CORE-ERRORS).
+        [string]$Reason
     )
     $f = [ordered]@{ key = $Key; label = $Label; value = $Value; kind = $Kind }
+    if ($Reason) { $f['reason'] = $Reason }
     if ($Unit)      { $f['unit']      = $Unit }
     if ($Status)    { $f['status']    = $Status }
     if ($Help)      { $f['help']      = $Help }

@@ -59,6 +59,10 @@
            Card = 'perf'; Field = 'ramUsed'
            Droits = 'tous'; Critique = $false
            Help = 'La mémoire utilisée dépasse le seuil : la machine va ralentir.' }
+        @{ Key = 'commit-high'; Label = 'Mémoire engagée proche de sa limite'
+           Card = 'perf'; Field = 'commit'
+           Droits = 'tous'; Critique = $false
+           Help = 'La mémoire promise aux applications approche de sa limite : Windows va refuser des allocations et alerter de saturation. La bulle nomme les applications qui en occupent le plus.' }
         @{ Key = 'power-under'; Label = 'Machine sous-alimentée'
            Card = 'power'; Field = 'under'
            Droits = 'tous'; Critique = $false

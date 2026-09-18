@@ -345,6 +345,11 @@ components:
         guide:
           type: string
           description: instructions manuelles (affichees en popin si pas d'action)
+        reason:
+          type: string
+          description: >
+            La raison d'une alerte, en une ligne courte, reprise telle quelle dans la notification de bureau : ce qui
+            cause le probleme, pas son symptome (CORE-ERRORS).
         table:
           type: object
           description: >
