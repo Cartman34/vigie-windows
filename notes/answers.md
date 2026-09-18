@@ -38,6 +38,7 @@ question.
 | 14/09 | Quand une étiquette de version doit-elle être posée ? | L'agent a déployé bien plus souvent que demandé. Puis : seulement pour une version stable validée, celle qu'on publie ; un déploiement `dev` affiche le dernier numéro et ses commits (`v1.1.5+3`). | **D123** ; `doc/progress/targeting/install-update.md`, étape 8 |
 | 14/09 | Faut-il remplacer l'appel qui prenait 26 s pour savoir qui écoute sur un port ? | Oui, et toujours utiliser la solution optimisée qui donne les informations nécessaires. | `doc/en/agent-working/disciplines.md`, section « Wrapping system calls » ; `scripts/lib/tcp-ports.ps1` |
 | 18/09 | Où Vigie montre-t-elle ses propres processus ? | Dans le module Débogage, dont le réglage décide de la visibilité ; rien n'empêche une carte à part dans ce module. | `doc/progress/targeting/residents.md` |
+| 18/09 | Faut-il détecter l'épuisement des ports réseau ? | Il faut détecter toutes les erreurs possibles, surtout au niveau système. | `doc/progress/targeting/features.md`, CORE-ERRORS, SYS-EVENTS, NET-STATE |
 | 18/09 | La notification de saturation mémoire se complète-t-elle ? | Oui : mémoire engagée comme déclencheur, et ses raisons dans son texte. | `doc/progress/implemented/status.md`, SYS-PERF |
 | 18/09 | L'app cliente et la carte WSL donnent-elles leurs raisons ? | Oui, toutes les deux. | — |
 | 18/09 | Toute erreur remonte-t-elle à l'utilisateur ? | Oui, par le bon canal, avec ses raisons : c'était déjà demandé. | `doc/en/developing/modules.md`, section « What a card must say » |

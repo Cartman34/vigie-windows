@@ -14,7 +14,14 @@ Format : `ID` — Titre, puis le besoin et ses critères. On n'écrit **pas** ic
 - **CORE-TRAY** — Icône de barre système reflétant l'état global, menu d'accès rapide. Elle ne ferme **jamais** l'app
   serveur : une relance se **demande** au serveur, qui se relance lui-même avec ses propres droits — sans UAC, depuis
   n'importe quel compte. Si le serveur ne répond plus, alors seulement elle propose de le relancer, en demandant
-  l'élévation.
+  l'élévation. **Elle dit pourquoi il ne répond pas**, par sa notification, autant qu'elle peut le mesurer seule :
+  mémoire saturée, ports réseau épuisés, serveur arrêté ou bloqué.
+- **CORE-ERRORS** — **Toute erreur possible est détectée, surtout au niveau du système**, et remonte à l'utilisateur
+  par le bon canal — carte, notification, app cliente — **avec ses raisons**, autant qu'elles se mesurent. Demandé par
+  l'utilisateur le 18/09.
+- **CORE-SELFWATCH** — Vigie se surveille elle-même, dans le module Débogage : le nombre et la mémoire de ses
+  processus — app serveur, workers, résidents —, un résident lent ou doublé, avec leurs raisons ; une notification
+  quand ils s'emballent. La visibilité suit le réglage du module.
 - **CORE-NOTIFY** — Prévenir sur le bureau quand un état bascule. Le besoin nomme un **sujet, un état, une mesure et
   une urgence** ; il ne nomme aucun outil d'affichage. Windows en offre plusieurs, aucun n'est disponible partout, et
   celui qu'on recommande change avec les versions : le choix se fait à l'exécution, derrière une seule porte, et une
@@ -116,12 +123,20 @@ Format : `ID` — Titre, puis le besoin et ses critères. On n'écrit **pas** ic
 - **SYS-PERF** — Charge courante : processeur, mémoire, avec de vrais noms de processus. **La mémoire engagée**
   s'affiche face à sa limite : c'est elle qui déclenche les alertes de saturation de Windows. **Quand une ressource
   alerte, la carte dit pourquoi** : les applications qui la consomment le plus, regroupées par nom, avec leur part.
+  La notification de saturation se déclenche sur la mémoire vive **et** sur la mémoire engagée, et son texte nomme
+  les applications qui consomment le plus.
+- **SYS-EVENTS** — Les erreurs que Windows consigne dans son journal Système, sur les dernières 24 heures. Celles qu'on
+  sait lire sont nommées avec leur sens et leur geste : ports réseau épuisés, mémoire du Bureau épuisée, ressources
+  épuisées, arrêt inattendu, pilote graphique réinitialisé, erreur de disque, erreur matérielle. Les autres sont
+  listées par source, avec leur nombre et leur dernier message. Une notification quand une erreur connue survient.
 - **SYS-POWER** — Alimentation : batterie, secteur, et alerte quand un portable est sur secteur mais **sous-alimenté**.
 
 ## Réseau (NET)
 
 - **NET-STATE** — Connexion, nom du réseau, qualité et stabilité du lien Wi-Fi, adresses IP, VPN. L'IP publique et le
-  test de débit sont des actions explicites, jamais automatiques.
+  test de débit sont des actions explicites, jamais automatiques. **Les ports réseau éphémères** : occupés face à la
+  limite de Windows, par protocole, avec les processus qui en tiennent le plus ; une notification à l'approche de la
+  limite, qui coupe le réseau de toutes les applications (85 épuisements consignés du 06/07 au 17/09).
 
 ## Sécurité (SEC)
 
@@ -133,7 +148,8 @@ Format : `ID` — Titre, puis le besoin et ses critères. On n'écrit **pas** ic
 ## WSL
 
 - **WSL-STATE** — État de WSL2 : mémoire et swap configurés, santé du démarrage de la distribution. Actions : démarrer,
-  redémarrer, arrêter.
+  redémarrer, arrêter. **La mémoire que prend sa machine virtuelle** ; au-delà d'un seuil, la carte dit comment la
+  borner soi-même dans `.wslconfig` : le fichier, la ligne, et qu'un `wsl --shutdown` l'applique.
 
 ## Outils (TOOLS)
 
