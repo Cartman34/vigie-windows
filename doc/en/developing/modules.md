@@ -41,6 +41,9 @@ A **module** = a **folder of probes** (`apps/backend-pode/probes/<id>/`), declar
 - Every `warn`/`error` field carries **a resolution button** (`-FixAction`) — ALWAYS (**D66**) — and, in addition, a
   `-Guide` that explains. The button repairs, or leads to where the user decides (Task Manager, Device Manager…). What
   cannot be resolved is not alerted: a wait stays **neutral**. `check-probes.ps1` verifies it.
+- **Every problem gives its reasons, as far as they can be measured**: the causes, not only the symptom. A resource
+  that alerts names what consumes it; a failure names what failed and why. *Asked by the owner on 18/09: the Resources
+  card said "RAM 93 %" and nothing else, while the Windows Virtual Machine of WSL held 14 GB.*
 - An **expected but missing piece of information** is a `warn` with a lead to a solution, never a silent row.
 - During an operation: say **what, out of how many, since when**; afterwards: the **result stays visible**. Ellipses
   are reserved for an action in progress (D50).

@@ -48,6 +48,10 @@ if (Test-Path -LiteralPath $script:_secretLib) { . $script:_secretLib }
 $script:_portLib = Join-Path (Split-Path (Split-Path (Get-BackendRoot) -Parent) -Parent) 'scripts/lib/tcp-ports.ps1'
 if (Test-Path -LiteralPath $script:_portLib) { . $script:_portLib }
 
+# Memory and processor load, asked of Windows directly: Get-MemoryStatus, Get-ProcessorLoad (1.7 s through WMI on 18/09).
+$script:_metricsLib = Join-Path (Split-Path (Split-Path (Get-BackendRoot) -Parent) -Parent) 'scripts/lib/system-metrics.ps1'
+if (Test-Path -LiteralPath $script:_metricsLib) { . $script:_metricsLib }
+
 # --- Reperes de l'arborescence ------------------------------------------------
 # Le depot contient PLUSIEURS apps (apps/backend, apps/frontend, apps/tray,
 # apps/atelier) plus scripts/ et doc/. Ces reperes sont calcules ICI et nulle

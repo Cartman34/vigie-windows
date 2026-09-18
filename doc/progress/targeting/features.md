@@ -113,7 +113,9 @@ Format : `ID` — Titre, puis le besoin et ses critères. On n'écrit **pas** ic
 - **SYS-DISK** — Surveiller l'espace du disque système avec seuil d'alerte. Nettoyage et analyse de l'occupation en
   actions, l'arborescence se demandant un niveau à la fois.
 - **SYS-OS** — Identité de la machine : version de Windows, édition, build, durée depuis le démarrage.
-- **SYS-PERF** — Charge courante : processeur, mémoire, avec de vrais noms de processus.
+- **SYS-PERF** — Charge courante : processeur, mémoire, avec de vrais noms de processus. **La mémoire engagée**
+  s'affiche face à sa limite : c'est elle qui déclenche les alertes de saturation de Windows. **Quand une ressource
+  alerte, la carte dit pourquoi** : les applications qui la consomment le plus, regroupées par nom, avec leur part.
 - **SYS-POWER** — Alimentation : batterie, secteur, et alerte quand un portable est sur secteur mais **sous-alimenté**.
 
 ## Réseau (NET)
