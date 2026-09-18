@@ -23,7 +23,7 @@ $residentOf = @{}
 $residentStates = @()
 foreach ($declaration in @(Get-ResidentDeclarations -Backend $backend)) {
     $state = Get-ResidentState -Backend $backend -Key $declaration.Key
-    if ($state -and $state.processId) {
+    if (Get-ResidentProcess -State $state) {
         $residentOf[[int]$state.processId] = $declaration.Label
         $residentStates += [pscustomobject]@{ Label = $declaration.Label; ProcessId = [int]$state.processId }
     }
@@ -40,14 +40,13 @@ if ($serverId) {
         $members += [pscustomobject]@{ ProcessId = $d.ProcessId; ParentId = $d.ParentId; Name = $d.Name; Role = $role }
     }
 }
-# A RESIDENT OUTSIDE THE TREE is an orphan: its server was replaced and it kept running. It is still Vigie's.
+# A RESIDENT OUTSIDE THE TREE is an orphan: its server was replaced and it kept running. It is still Vigie's. Only
+# residents whose process is alive AND still theirs are listed above (Get-ResidentProcess): a reused id is not one.
 $orphans = @()
 foreach ($r in $residentStates) {
     if (@($members | Where-Object ProcessId -eq $r.ProcessId).Count) { continue }
-    if (Get-Process -Id $r.ProcessId -ErrorAction SilentlyContinue) {
-        $orphans += $r
-        $members += [pscustomobject]@{ ProcessId = $r.ProcessId; ParentId = 0; Name = 'pwsh.exe'; Role = 'Résident ' + $r.Label + ', hors de l''app serveur' }
-    }
+    $orphans += $r
+    $members += [pscustomobject]@{ ProcessId = $r.ProcessId; ParentId = 0; Name = 'pwsh.exe'; Role = 'Résident ' + $r.Label + ', hors de l''app serveur' }
 }
 
 # IN RAM AND COMMITTED, apart (Get-ProcessMemoryUse): the thresholds follow what is really in RAM.

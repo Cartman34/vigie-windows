@@ -685,6 +685,11 @@ versions, du point de vue de qui utilise Vigie.*
   (`Get-Counter` prenait 6 s pour les seuls moteurs), et les lectures d'E/S par processus, du parent d'un processus et
   de l'heure de démarrage passent par des appels directs, mesurés à l'identique
   (`notes/evidence/2026-09-18-system-calls-measured.md`). `check-probes` refuse désormais `Get-Counter`.
+- **Un résident n'est plus pris pour un autre processus** : son état ne garde qu'un numéro de processus, que Windows
+  réattribue, et qui survit à un redémarrage. Un programme quelconque héritant de ce numéro passait pour le résident,
+  qui n'était alors plus jamais relancé. Le processus doit désormais être un PowerShell démarré après l'armement.
+- La carte WSL distingue WSL absent, machine virtuelle arrêtée et mémoire illisible ; la carte Journal Windows ne
+  signale en erreur une erreur matérielle que si Windows l'a consignée comme erreur, pas une erreur corrigée.
 - **Les cartes disent ce qui est réellement en mémoire vive** : Ressources, WSL et Processus de Vigie montraient sous le
   mot « mémoire » la mémoire engagée (`PrivateMemorySize64`), 14,4 Go pour WSL quand 12,4 Go étaient en mémoire vive.
   Elles montrent désormais, côte à côte, la mémoire vive occupée (l'ensemble de travail privé du Gestionnaire des

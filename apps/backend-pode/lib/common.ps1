@@ -3902,7 +3902,7 @@ function Test-ResidentAlive {
     )
     $state = Get-ResidentState -Backend $Backend -Key $Key
     if (-not $state -or -not $state.processId) { return $false }
-    if (-not (Get-Process -Id ([int]$state.processId) -ErrorAction SilentlyContinue)) { return $false }
+    if (-not (Get-ResidentProcess -State $state)) { return $false }
     if (-not $state.at) { return $false }
     try { return ((([datetime]::UtcNow) - (ConvertTo-UtcDate $state.at)).TotalSeconds -lt $BeatSeconds) }
     catch { return $false }
@@ -3991,11 +3991,29 @@ function Test-ResidentOperational {
 }
 
 # ITS PROCESS STILL EXISTS, whatever its beat says: the only condition for leaving a resident alone.
+# THE PROCESS A RESIDENT'S STATE NAMES, or $null -- and only if it is still that resident. A process id is reused by
+# Windows once its process is gone, and the state survives a restart of the computer: an id alone let any program
+# pass for the resident, which was then never re-armed. The process must be a PowerShell started after the arming;
+# when its start time cannot be read, the name alone decides.
+function Get-ResidentProcess {
+    param($State)
+    if (-not $State -or -not $State.processId) { return $null }
+    $process = Get-Process -Id ([int]$State.processId) -ErrorAction SilentlyContinue
+    if (-not $process -or $process.ProcessName -notin @('pwsh', 'powershell')) { return $null }
+    if ($State.armedAt) {
+        $armed = $null; $started = $null
+        try { $armed = ConvertTo-UtcDate $State.armedAt } catch { }
+        try { $started = $process.StartTime.ToUniversalTime() } catch { }
+        if ($armed -and $started -and $started -lt $armed.AddSeconds(-30)) { return $null }
+    }
+    return $process
+}
+
 function Test-ResidentProcessPresent {
     param([string]$Backend = (Get-BackendRoot), [Parameter(Mandatory)][string]$Key)
     $state = Get-ResidentState -Backend $Backend -Key $Key
     if (-not $state -or -not $state.processId) { return $false }
-    return [bool](Get-Process -Id ([int]$state.processId) -ErrorAction SilentlyContinue)
+    return [bool](Get-ResidentProcess -State $state)
 }
 
 function Get-ResidentHealth {
@@ -4007,7 +4025,7 @@ function Get-ResidentHealth {
         $beatAge = $null
         try { if ($state -and $state.at) { $beatAge = [int](([datetime]::UtcNow) - (ConvertTo-UtcDate $state.at)).TotalSeconds } } catch { }
         $process = $null
-        try { if ($state -and $state.processId) { $process = Get-Process -Id ([int]$state.processId) -ErrorAction Stop } } catch { }
+        $process = Get-ResidentProcess -State $state
         $copies = @()
         try {
             $leaf = Split-Path "$($declaration.Script)" -Leaf

@@ -53,8 +53,13 @@ if ($requester -and (Test-PathSafe $wslConfigPath)) {
 }
 $vmPct = if ($physicalBytes) { [math]::Round(100 * $vmBytes / $physicalBytes) } else { 0 }
 $vmStatus = if (-not $vmBytes) { 'neutral' } elseif ($vmPct -ge $warnPct) { 'warn' } else { 'ok' }
-$vmValue = if ($vmBytes) { ($vmBytes / 1GB).ToString('N1', $fr) + ' Go en mémoire vive (' + $vmPct + ' %), ' + ($vmCommitted / 1GB).ToString('N1', $fr) + ' Go engagés' } else { 'Aucune : machine virtuelle arrêtée' }
-if ($requester) { $vmValue += if ($bound) { ' · bornée à ' + $bound } else { ' · non bornée' } }
+# THREE CASES WITHOUT A FIGURE, each said as it is: WSL absent, its virtual machine stopped, or a reading refused.
+$vmRunning = [bool](Get-Process -Name 'vmmemWSL' -ErrorAction SilentlyContinue)
+$vmValue = if (-not $installed) { 'Sans objet : WSL absent' }
+           elseif (-not $vmRunning) { 'Aucune : machine virtuelle arrêtée' }
+           elseif (-not $memoryUse.Count) { 'Illisible' }
+           else { ($vmBytes / 1GB).ToString('N1', $fr) + ' Go en mémoire vive (' + $vmPct + ' %), ' + ($vmCommitted / 1GB).ToString('N1', $fr) + ' Go engagés' }
+if ($requester -and $installed) { $vmValue += if ($bound) { ' · bornée à ' + $bound } else { ' · non bornée' } }
 $vmGuide = $null
 $vmReason = $null
 if ($vmStatus -eq 'warn') {

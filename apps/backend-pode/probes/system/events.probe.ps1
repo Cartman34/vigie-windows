@@ -32,7 +32,8 @@ $kinds = @(
        Match = @{ 'Microsoft-Windows-WER-SystemErrorReporting' = @(1001) }
        Meaning = "Windows s'est arrêté sur une erreur fatale et a redémarré."
        Gesture = "Le message donne le code d'arrêt ; il désigne le plus souvent un pilote ou un matériel." }
-    @{ Key = 'hardware'; Status = 'error'; Label = 'Erreur matérielle'
+    # LevelDecides: a corrected hardware error is logged as a warning and changes nothing; only an error level alarms.
+    @{ Key = 'hardware'; Status = 'error'; LevelDecides = $true; Label = 'Erreur matérielle'
        Match = @{ 'Microsoft-Windows-WHEA-Logger' = @() }
        Meaning = "Le processeur, la mémoire ou un bus a signalé une erreur matérielle."
        Gesture = "Une erreur isolée corrigée est sans suite ; répétée, elle annonce une panne : le message nomme le composant." }
@@ -93,8 +94,9 @@ $others = @{}
 foreach ($e in $events) {
     $kind = Get-EventKind $e
     if ($kind) {
-        if (-not $known.ContainsKey($kind.Key)) { $known[$kind.Key] = @{ Kind = $kind; Count = 0; Last = $e } }
+        if (-not $known.ContainsKey($kind.Key)) { $known[$kind.Key] = @{ Kind = $kind; Count = 0; Last = $e; Status = 'warn' } }
         $known[$kind.Key].Count++
+        if (-not $kind.LevelDecides -or $e.Level -le 2) { $known[$kind.Key].Status = $kind.Status }
         if ($e.TimeCreated -gt $known[$kind.Key].Last.TimeCreated) { $known[$kind.Key].Last = $e }
     } elseif ($e.Level -le 2) {
         # A warning of an unknown kind is left out: the log holds hundreds of harmless ones a month (DCOM, the
@@ -109,7 +111,7 @@ foreach ($e in $events) {
 # KNOWN ERRORS: named, with their meaning and their gesture.
 $knownList = @($known.Values | Sort-Object { $_.Last.TimeCreated } -Descending)
 $knownStatus = 'ok'
-if (@($knownList | Where-Object { $_.Kind.Status -eq 'error' }).Count) { $knownStatus = 'error' }
+if (@($knownList | Where-Object { $_.Status -eq 'error' }).Count) { $knownStatus = 'error' }
 elseif ($knownList.Count) { $knownStatus = 'warn' }
 $knownValue = if ($knownList.Count) { (@($knownList | ForEach-Object { $_.Kind.Label }) -join ', ') } else { 'Aucune' }
 $knownTable = $null
