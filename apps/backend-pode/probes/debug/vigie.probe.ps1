@@ -131,16 +131,28 @@ if ($sentinels.Count) {
 # resident's contract, and this is where it shows.
 $residents = @(Get-ResidentHealth -Backend $backend)
 if ($residents.Count) {
-    $down = @($residents | Where-Object { -not $_.Operational })
+    $down = @($residents | Where-Object { -not $_.Operational -or @($_.Copies).Count -gt 1 })
     $residentLines = @($residents | ForEach-Object {
-        $health = if ($_.Operational) { 'opérationnel' } elseif ($_.Alive) { 'vivant mais INOPÉRANT' } else { 'MORT' }
+        $copyCount = @($_.Copies).Count
+        # A SLOW OR DOUBLED RESIDENT IS SAID WITH ITS REASONS (targeting/residents.md): it is never stopped by Vigie.
+        $health = if ($copyCount -gt 1) { "$copyCount COPIES en même temps" }
+                  elseif ($_.Operational) { 'opérationnel' }
+                  elseif ($_.Present) { 'vivant mais LENT : il ne bat plus' }
+                  else { 'MORT, réarmé au prochain passage' }
         $ligne = "- {0} : {1} ({2})" -f $_.Label, $health, $_.State
+        if ($null -ne $_.BeatAge) { $ligne += " — dernier battement il y a $($_.BeatAge) s" }
+        if ($null -ne $_.MemoryMb) { $ligne += " — processus : $($_.MemoryMb) Mo, $($_.CpuSeconds) s de processeur" }
+        if ($copyCount -gt 1) { $ligne += " — copies : " + ((@($_.Copies) | ForEach-Object { "PID $($_.Id)" + $(if ($_.StartedAt) { ' depuis ' + ([datetime]$_.StartedAt).ToString('dd/MM HH:mm') } else { '' }) }) -join ', ') }
         if ($_.LastEvent) { $ligne += " — dernier événement : $($_.LastEvent)" }
         if ($_.Error)     { $ligne += " — $($_.Error)" }
         $ligne
     })
+    if ($down.Count) {
+        $residentLines += ''
+        $residentLines += "Vigie n'arrête aucun processus d'elle-même. « Relancer le serveur » arrête l'app serveur ; chaque résident s'arrête alors avec elle, puis un seul est réarmé."
+    }
     $fields += New-Field -Key 'residents' -Label 'Résidents' `
-        -Value $(if ($down.Count) { "$($down.Count) à l'arrêt sur $($residents.Count)" } else { "$($residents.Count) en vie" }) `
+        -Value $(if ($down.Count) { "$($down.Count) en difficulté sur $($residents.Count)" } else { "$($residents.Count) en vie" }) `
         -Kind 'text' -Status $(if ($down.Count) { 'warn' } else { 'ok' }) `
         -FixAction $(if ($down.Count) { 'server-restart' } else { $null }) `
         -Help "Ce qui vit en permanence à côté de l'app serveur : elle les arme à son démarrage et les réarme s'ils meurent." `

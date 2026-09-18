@@ -656,7 +656,9 @@ versions, du point de vue de qui utilise Vigie.*
   regroupées par nom, et la mémoire engagée face à sa limite, celle qui déclenche les alertes de saturation de Windows.
   Ses mesures sont lues directement auprès de Windows : 0,45 s au lieu de 2,9 s.
 - **Le résident des jeux ne peut plus se multiplier** : le 17/09, 115 copies occupaient 19 Go et ont épuisé la mémoire
-  et les ports réseau de l'ordinateur.
+  et les ports réseau de l'ordinateur. Un résident n'est plus relancé que si son processus a disparu, jamais parce
+  qu'il bat en retard ; un résident lent ou doublé est signalé sur la carte Vigie avec ses raisons, et Vigie n'arrête
+  plus aucun processus d'elle-même.
 - **La carte Windows Update suit une installation en cours**, dans un bloc qui n'existe que pendant l'installation :
   en tête la mise à jour en cours, ce qu'elle fait, son avancement et ses octets, et en clair si elle ne progresse plus
   depuis deux minutes ou échoue ; dessous chaque mise à jour avec son état, les réussies repliées derrière un bouton ;

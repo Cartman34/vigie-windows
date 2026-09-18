@@ -3873,21 +3873,9 @@ function Start-Resident {
         [string]$Backend = (Get-BackendRoot),
         [Parameter(Mandatory)]$Declaration
     )
-    # ONE COPY ONLY. Every process running this resident's script is stopped first, orphans of a previous server
-    # included: stopping only the process named in the state let 115 copies live on 17/09, 19 GB, each one rewriting
-    # its own number into that state.
-    $scriptLeaf = Split-Path "$($Declaration.Script)" -Leaf
-    $stopped = 0
-    try {
-        foreach ($copy in @(Get-CimInstance Win32_Process -Filter ("Name='pwsh.exe' AND CommandLine LIKE '%" + $scriptLeaf + "%'") -ErrorAction Stop)) {
-            if ([int]$copy.ProcessId -eq $PID) { continue }
-            try { Stop-Process -Id ([int]$copy.ProcessId) -Force -ErrorAction Stop; $stopped++ } catch { }
-        }
-    } catch { }
-    if ($stopped) {
-        try { Write-Log -Backend $Backend -Name 'state' -Level 'WARN' -Message ("resident " + $Declaration.Label + " : " + $stopped + " copie(s) arretee(s) avant de le rearmer") } catch { }
-    }
-    Stop-Resident -Backend $Backend -Key $Declaration.Key
+    # ARMED ONLY WHEN ITS PROCESS IS GONE (Invoke-ResidentPass), so nothing is stopped here: Vigie stops no process on
+    # its own (owner, 18/09). The state is only cleared of the vanished number.
+    Set-ResidentState -Backend $Backend -Key $Declaration.Key -Fields @{ processId = $null; state = 'arrete' }
     $pwsh = $null
     try { $pwsh = (Get-Process -Id $PID).Path } catch { }
     if (-not $pwsh) { $pwsh = 'pwsh.exe' }
@@ -3911,15 +3899,6 @@ function Start-Resident {
     }
 }
 
-function Stop-Resident {
-    param([string]$Backend = (Get-BackendRoot), [Parameter(Mandatory)][string]$Key)
-    $state = Get-ResidentState -Backend $Backend -Key $Key
-    if ($state -and $state.processId) {
-        try { Stop-Process -Id ([int]$state.processId) -Force -ErrorAction SilentlyContinue } catch { }
-    }
-    Set-ResidentState -Backend $Backend -Key $Key -Fields @{ processId = $null; state = 'arrete' }
-}
-
 <#
     THE PASS: arms what is missing, re-arms what is dead. Called by the same one-minute
     loop as the sentinels -- one rhythm, one place.
@@ -3928,7 +3907,9 @@ function Invoke-ResidentPass {
     param([string]$Backend = (Get-BackendRoot))
     $started = @()
     foreach ($declaration in @(Get-ResidentDeclarations -Backend $Backend)) {
-        if (Test-ResidentAlive -Backend $Backend -Key $declaration.Key) { continue }
+        # RE-ARMED WHEN ITS PROCESS IS GONE, NEVER BECAUSE IT BEATS LATE. A slow process is not dead: re-arming it on a
+        # late beat started a second one beside it, then a third, 115 on 17/09. A late beat is shown on the card.
+        if (Test-ResidentProcessPresent -Backend $Backend -Key $declaration.Key) { continue }
         if (Start-Resident -Backend $Backend -Declaration $declaration) {
             $started += $declaration.Key
             try { Write-Log -Backend $Backend -Name 'state' -NoEcho -Message ("resident arme : " + $declaration.Label) } catch { }
@@ -3957,18 +3938,43 @@ function Test-ResidentOperational {
     return ($state -and "$($state.state)" -eq 'arme')
 }
 
+# ITS PROCESS STILL EXISTS, whatever its beat says: the only condition for leaving a resident alone.
+function Test-ResidentProcessPresent {
+    param([string]$Backend = (Get-BackendRoot), [Parameter(Mandatory)][string]$Key)
+    $state = Get-ResidentState -Backend $Backend -Key $Key
+    if (-not $state -or -not $state.processId) { return $false }
+    return [bool](Get-Process -Id ([int]$state.processId) -ErrorAction SilentlyContinue)
+}
+
 function Get-ResidentHealth {
     param([string]$Backend = (Get-BackendRoot))
     foreach ($declaration in @(Get-ResidentDeclarations -Backend $Backend)) {
         $state = Get-ResidentState -Backend $Backend -Key $declaration.Key
+        # THE REASONS A SLOW OR DOUBLED RESIDENT IS SHOWN WITH: the age of its beat, what its process uses, and every
+        # process running its script -- counted, never stopped.
+        $beatAge = $null
+        try { if ($state -and $state.at) { $beatAge = [int](([datetime]::UtcNow) - (ConvertTo-UtcDate $state.at)).TotalSeconds } } catch { }
+        $process = $null
+        try { if ($state -and $state.processId) { $process = Get-Process -Id ([int]$state.processId) -ErrorAction Stop } } catch { }
+        $copies = @()
+        try {
+            $leaf = Split-Path "$($declaration.Script)" -Leaf
+            $copies = @(Get-CimInstance Win32_Process -Filter ("Name='pwsh.exe' AND CommandLine LIKE '%" + $leaf + "%'") -ErrorAction Stop |
+                        ForEach-Object { [pscustomobject]@{ Id = [int]$_.ProcessId; StartedAt = $_.CreationDate } })
+        } catch { }
         [pscustomobject]@{
             Key       = $declaration.Key
             Label     = $declaration.Label
+            Present     = [bool]$process
             Alive       = (Test-ResidentAlive -Backend $Backend -Key $declaration.Key)
             Operational = (Test-ResidentOperational -Backend $Backend -Key $declaration.Key)
             State     = $(if ($state) { "$($state.state)" } else { 'jamais arme' })
             ArmedAt   = $(if ($state) { $state.armedAt } else { $null })
             LastBeat  = $(if ($state) { $state.at } else { $null })
+            BeatAge   = $beatAge
+            CpuSeconds = $(if ($process) { try { [int]$process.TotalProcessorTime.TotalSeconds } catch { $null } } else { $null })
+            MemoryMb  = $(if ($process) { [int]($process.PrivateMemorySize64 / 1MB) } else { $null })
+            Copies    = $copies
             LastEvent = $(if ($state) { $state.lastEventAt } else { $null })
             Error     = $(if ($state) { $state.error } else { $null })
         }

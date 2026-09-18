@@ -40,6 +40,13 @@ nouvelle app serveur en a relancé 2 en quatre minutes. Mémoire libre : 0,2 Go.
 - Le balayage initial de tous les processus ne bat pas : sur une machine lente, il dépasse 180 s à lui seul.
 - Une copie ne vérifie la vie de l'app serveur qu'en tête de sa boucle : bloquée plus haut, elle ne s'arrête pas.
 
+## La correction, en deux temps
+
+Le 17/09, l'app serveur a d'abord été corrigée pour arrêter toute copie avant d'en armer une : un correctif de
+symptôme, et un arrêt de processus sans confirmation, ce que l'utilisateur a interdit le 18/09. La cause est le
+réarmement lui-même : **un processus lent était traité comme mort**. Depuis le 18/09, un résident n'est réarmé que si
+son processus a disparu ; lent ou doublé, il est signalé avec ses raisons, et Vigie n'arrête plus aucun processus.
+
 ## Ce qui n'a PAS été vérifié
 
 - La part des ports épuisés tenue par les copies, et celle de l'hôte réseau de WSL, qui en tenait 10 426 le 14/09.
