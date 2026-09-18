@@ -36,7 +36,7 @@ function Get-ProcessDescriptor {
     try { $path = $proc.Path } catch { }
     if (-not $path) { return $null }
     if (-not $ParentId) {
-        try { $ParentId = [int](Get-CimInstance Win32_Process -Filter "ProcessId=$ProcessId" -ErrorAction Stop).ParentProcessId } catch { }
+        $ParentId = Get-ParentProcessId -ProcessId $ProcessId
     }
     $parentPath = $null
     if ($ParentId) { try { $parentPath = (Get-Process -Id $ParentId -ErrorAction Stop).Path } catch { } }

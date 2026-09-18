@@ -112,6 +112,18 @@ public static class VigieProcessTree {
 '@
 }
 
+# THE PARENT OF A PROCESS, from the same snapshot: its id, or 0. Win32_Process took 0.47 s for this one number (18/09).
+function Get-ParentProcessId {
+    param([Parameter(Mandatory)][int]$ProcessId)
+    $rows = $null
+    try { $rows = [VigieProcessTree]::Snapshot() } catch { }
+    foreach ($row in @($rows)) {
+        $parts = "$row".Split('|')
+        if ([int]$parts[0] -eq $ProcessId) { return [int]$parts[1] }
+    }
+    return 0
+}
+
 # THE DESCENDANTS OF A PROCESS: ProcessId, ParentId, Name, for its children, their children, and so on. A process
 # whose parent id was reused by a newer process is not taken for a child: it must have started after its parent.
 # Empty when Windows refuses the snapshot. Never throws.
@@ -151,4 +163,140 @@ function Get-ProcessDescendants {
         }
     }
     return $found.ToArray()
+}
+
+# WHEN WINDOWS STARTED, in UTC, from the milliseconds elapsed since (sleep included, like Win32_OperatingSystem's
+# LastBootUpTime). Measured 18/09: the same instant within a second, in no time instead of 0.57 s through WMI.
+function Get-BootTime {
+    return [datetime]::UtcNow.AddMilliseconds(-[double][Environment]::TickCount64)
+}
+
+# THE BYTES READ AND WRITTEN BY EVERY PROCESS, from one call to the kernel (SystemProcessInformation). Win32_Process
+# gives the same counters in 0.55 s; this call needs no right on the processes it describes, protected ones included.
+# The offsets are those of SYSTEM_PROCESS_INFORMATION on 64-bit Windows, checked against Win32_Process on 18/09.
+if (-not ('VigieProcessIo' -as [type])) {
+    Add-Type -TypeDefinition @'
+using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+
+public static class VigieProcessIo {
+    [DllImport("ntdll.dll")]
+    static extern int NtQuerySystemInformation(int infoClass, IntPtr buffer, int length, out int returned);
+
+    // pid -> bytes read plus bytes written since the process started; null when the kernel refuses.
+    public static Dictionary<int, double> Transfers() {
+        if (IntPtr.Size != 8) { return null; }
+        const int SystemProcessInformation = 5;
+        int length = 1 << 20;
+        for (int attempt = 0; attempt < 6; attempt++) {
+            IntPtr buffer = Marshal.AllocHGlobal(length);
+            try {
+                int returned;
+                int status = NtQuerySystemInformation(SystemProcessInformation, buffer, length, out returned);
+                if (status == unchecked((int)0xC0000004)) { length = Math.Max(length * 2, returned + 65536); continue; }
+                if (status != 0) { return null; }
+                var result = new Dictionary<int, double>();
+                int offset = 0;
+                while (true) {
+                    IntPtr entry = IntPtr.Add(buffer, offset);
+                    int pid = (int)Marshal.ReadInt64(entry, 80);
+                    double read = Marshal.ReadInt64(entry, 232);
+                    double written = Marshal.ReadInt64(entry, 240);
+                    result[pid] = read + written;
+                    int next = Marshal.ReadInt32(entry, 0);
+                    if (next == 0) { break; }
+                    offset += next;
+                }
+                return result;
+            } finally { Marshal.FreeHGlobal(buffer); }
+        }
+        return null;
+    }
+}
+'@
+}
+
+# BYTES READ AND WRITTEN PER PROCESS: a hashtable pid -> bytes, empty when the kernel refuses. Never throws.
+function Get-ProcessTransferBytes {
+    $table = @{}
+    try {
+        $raw = [VigieProcessIo]::Transfers()
+        if ($raw) { foreach ($key in $raw.Keys) { $table[[int]$key] = [double]$raw[$key] } }
+    } catch { }
+    return $table
+}
+
+# PERFORMANCE COUNTERS, ASKED OF PDH DIRECTLY. Get-Counter took 6.3 s for '\GPU Engine(*)\Utilization Percentage' (867
+# instances) and 1 s for each GPU memory counter on 18/09, a second of it an interval it waits on its own. Here the
+# caller chooses when the two readings a rate needs are taken -- the gaming card already waits 900 ms between its
+# two snapshots -- and each reading costs milliseconds. English counter paths: they do not depend on the language.
+if (-not ('VigiePdh' -as [type])) {
+    Add-Type -TypeDefinition @'
+using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+
+public sealed class VigiePdh : IDisposable {
+    [DllImport("pdh.dll", CharSet = CharSet.Unicode)]
+    static extern uint PdhOpenQueryW(string dataSource, IntPtr userData, out IntPtr query);
+    [DllImport("pdh.dll", CharSet = CharSet.Unicode)]
+    static extern uint PdhAddEnglishCounterW(IntPtr query, string path, IntPtr userData, out IntPtr counter);
+    [DllImport("pdh.dll")]
+    static extern uint PdhCollectQueryData(IntPtr query);
+    [DllImport("pdh.dll", CharSet = CharSet.Unicode)]
+    static extern uint PdhGetFormattedCounterArrayW(IntPtr counter, uint format, ref uint bufferSize, out uint itemCount, IntPtr buffer);
+    [DllImport("pdh.dll")]
+    static extern uint PdhCloseQuery(IntPtr query);
+
+    const uint FormatDouble = 0x00000200;
+    const uint FormatNoCap100 = 0x00008000;
+    const uint MoreData = 0x800007D2;
+
+    IntPtr query;
+    readonly List<IntPtr> counters = new List<IntPtr>();
+
+    public VigiePdh() {
+        if (PdhOpenQueryW(null, IntPtr.Zero, out query) != 0) { query = IntPtr.Zero; }
+    }
+
+    // The index of the counter, or -1 when this computer does not have it.
+    public int Add(string path) {
+        if (query == IntPtr.Zero) { return -1; }
+        IntPtr counter;
+        if (PdhAddEnglishCounterW(query, path, IntPtr.Zero, out counter) != 0) { return -1; }
+        counters.Add(counter);
+        return counters.Count - 1;
+    }
+
+    public bool Collect() { return query != IntPtr.Zero && PdhCollectQueryData(query) == 0; }
+
+    // Instance names and values of one counter at the last reading; an instance whose value is not valid is left out.
+    public KeyValuePair<string, double>[] Read(int index) {
+        var result = new List<KeyValuePair<string, double>>();
+        if (index < 0 || index >= counters.Count) { return result.ToArray(); }
+        uint size = 0, count;
+        uint status = PdhGetFormattedCounterArrayW(counters[index], FormatDouble | FormatNoCap100, ref size, out count, IntPtr.Zero);
+        if (status != MoreData || size == 0) { return result.ToArray(); }
+        IntPtr buffer = Marshal.AllocHGlobal((int)size);
+        try {
+            if (PdhGetFormattedCounterArrayW(counters[index], FormatDouble | FormatNoCap100, ref size, out count, buffer) != 0) { return result.ToArray(); }
+            int itemSize = IntPtr.Size + 16;
+            for (int i = 0; i < count; i++) {
+                IntPtr item = IntPtr.Add(buffer, i * itemSize);
+                string name = Marshal.PtrToStringUni(Marshal.ReadIntPtr(item));
+                uint valueStatus = (uint)Marshal.ReadInt32(item, IntPtr.Size);
+                if (valueStatus != 0 && valueStatus != 1) { continue; }
+                double value = BitConverter.Int64BitsToDouble(Marshal.ReadInt64(item, IntPtr.Size + 8));
+                result.Add(new KeyValuePair<string, double>(name, value));
+            }
+        } finally { Marshal.FreeHGlobal(buffer); }
+        return result.ToArray();
+    }
+
+    public void Dispose() {
+        if (query != IntPtr.Zero) { PdhCloseQuery(query); query = IntPtr.Zero; }
+    }
+}
+'@
 }

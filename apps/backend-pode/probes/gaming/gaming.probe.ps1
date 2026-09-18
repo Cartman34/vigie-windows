@@ -74,73 +74,63 @@ $avantCpu = @{}
 foreach ($p in (Get-Process -ErrorAction SilentlyContinue)) {
     try { $avantCpu[$p.Id] = $p.TotalProcessorTime.TotalMilliseconds } catch { }
 }
-$avantIo = @{}
+# READ FROM THE KERNEL IN ONE CALL (Get-ProcessTransferBytes, 14 ms): through Win32_Process each reading took 0.55 s.
+$avantIo = Get-ProcessTransferBytes
+# THE GPU COUNTERS, read from PDH directly (VigiePdh, scripts/lib/system-metrics.ps1): the first reading goes with
+# snapshot 1, the second with snapshot 2, so the engine utilisation -- a rate -- is measured over the same 900 ms as
+# the processor and the disk. Get-Counter took 6.3 s for the engines alone and 1 s for each memory counter (18/09).
+#
+# VRAM PER PROCESS: "Local Usage", not "Dedicated Usage". Measured on 26/08 on this computer: the sum of Dedicated Usage
+# gave 6.94 GB while the adapter held only 1.70 GB -- dwm alone weighed more than the VRAM in use (reported by the user:
+# "the figures do not look consistent"). Dedicated Usage adds up overlapping views (the compositor references the
+# surfaces of the other applications). Local Usage totalled 1.69 GB, exactly what the card held: it tells the truth,
+# application by application. Dedicated Usage stays as a fallback when Local Usage is missing: an imperfect value is
+# better than none.
+$pdh = $null
+$engineCounter = -1; $vramCounter = -1; $adapterCounter = -1
 try {
-    foreach ($w in (Get-CimInstance Win32_Process -Property ProcessId,ReadTransferCount,WriteTransferCount)) {
-        $avantIo[[int]$w.ProcessId] = [double]$w.ReadTransferCount + [double]$w.WriteTransferCount
-    }
-} catch { }
+    $pdh = [VigiePdh]::new()
+    $engineCounter  = $pdh.Add('\GPU Engine(*)\Utilization Percentage')
+    $vramCounter    = $pdh.Add('\GPU Process Memory(*)\Local Usage')
+    if ($vramCounter -lt 0) { $vramCounter = $pdh.Add('\GPU Process Memory(*)\Dedicated Usage') }
+    $adapterCounter = $pdh.Add('\GPU Adapter Memory(*)\Dedicated Usage')
+    [void]$pdh.Collect()
+} catch { $pdh = $null }
+
 $t0 = Get-Date
 Start-Sleep -Milliseconds 900
 
-# --- GPU et VRAM par processus (compteurs non localises, verifies ici) --------
+# --- GPU and VRAM per process ---------------------------------------------------
 $gpuParPid = @{}; $vramParPid = @{}; $luidParPid = @{}; $gpuDispo = $false
-try {
-    $g = Get-Counter '\GPU Engine(*)\Utilization Percentage' -ErrorAction Stop
-    $gpuDispo = $true
-    foreach ($s in $g.CounterSamples) {
-        if ($s.InstanceName -match '^pid_(\d+)_luid_0x[0-9A-Fa-f]+_0x([0-9A-Fa-f]+)_') {
-            $gp = [int]$Matches[1]
-            $lu = [Convert]::ToInt64($Matches[2], 16)
-            $gpuParPid[$gp] = [double]($gpuParPid[$gp]) + $s.CookedValue
-            # Quel ADAPTATEUR travaille pour ce processus : necessaire pour reperer un
-            # jeu rendu par la carte integree (Optimus) au lieu de la dediee.
-            if (-not $luidParPid.ContainsKey($gp)) { $luidParPid[$gp] = @{} }
-            $luidParPid[$gp][$lu] = [double]($luidParPid[$gp][$lu]) + $s.CookedValue
-        }
-    }
-} catch { }
-# VRAM par processus : « Local Usage », et non « Dedicated Usage ».
-#
-# Mesure du 26/08 sur cette machine : la somme de Dedicated Usage donnait 6,94 Go quand
-# l'adaptateur n'occupait que 1,70 Go -- dwm y pesait a lui seul plus que la VRAM occupee
-# (signale par l'utilisateur : « les chiffres ne semblent pas coherents »). Dedicated
-# Usage additionne des vues qui se recouvrent (le compositeur reference les surfaces des
-# autres applications). Local Usage totalisait 1,69 Go, soit exactement l'occupation reelle
-# de la carte : c'est lui qui dit vrai, application par application.
-$compteurVram = '\GPU Process Memory(*)\Local Usage'
-try {
-    foreach ($s in (Get-Counter $compteurVram -ErrorAction Stop).CounterSamples) {
-        if ($s.InstanceName -match '^pid_(\d+)_') {
-            $gp = [int]$Matches[1]
-            $vramParPid[$gp] = [double]($vramParPid[$gp]) + $s.CookedValue
-        }
-    }
-} catch {
-    # Repli si ce compteur manque : mieux vaut une valeur imparfaite que pas de valeur.
-    try {
-        foreach ($s in (Get-Counter '\GPU Process Memory(*)\Dedicated Usage' -ErrorAction Stop).CounterSamples) {
-            if ($s.InstanceName -match '^pid_(\d+)_') {
+$vramUtilisee = 0.0
+if ($pdh -and $pdh.Collect()) {
+    if ($engineCounter -ge 0) {
+        $gpuDispo = $true
+        foreach ($s in $pdh.Read($engineCounter)) {
+            if ($s.Key -match '^pid_(\d+)_luid_0x[0-9A-Fa-f]+_0x([0-9A-Fa-f]+)_') {
                 $gp = [int]$Matches[1]
-                $vramParPid[$gp] = [double]($vramParPid[$gp]) + $s.CookedValue
+                $lu = [Convert]::ToInt64($Matches[2], 16)
+                $gpuParPid[$gp] = [double]($gpuParPid[$gp]) + $s.Value
+                # WHICH ADAPTER works for this process: needed to spot a game rendered by the integrated card (Optimus)
+                # instead of the dedicated one.
+                if (-not $luidParPid.ContainsKey($gp)) { $luidParPid[$gp] = @{} }
+                $luidParPid[$gp][$lu] = [double]($luidParPid[$gp][$lu]) + $s.Value
             }
         }
-    } catch { }
+    }
+    foreach ($s in $pdh.Read($vramCounter)) {
+        if ($s.Key -match '^pid_(\d+)_') {
+            $gp = [int]$Matches[1]
+            $vramParPid[$gp] = [double]($vramParPid[$gp]) + $s.Value
+        }
+    }
+    foreach ($s in $pdh.Read($adapterCounter)) { $vramUtilisee += $s.Value }
 }
-$vramUtilisee = 0.0
-try {
-    $vramUtilisee = ((Get-Counter '\GPU Adapter Memory(*)\Dedicated Usage' -ErrorAction Stop).CounterSamples |
-                     Measure-Object CookedValue -Sum).Sum
-} catch { }
+if ($pdh) { $pdh.Dispose() }
 
 # --- Instantane 2 + assemblage ------------------------------------------------
 $duree = ((Get-Date) - $t0).TotalMilliseconds
-$apresIo = @{}
-try {
-    foreach ($w in (Get-CimInstance Win32_Process -Property ProcessId,ReadTransferCount,WriteTransferCount)) {
-        $apresIo[[int]$w.ProcessId] = [double]$w.ReadTransferCount + [double]$w.WriteTransferCount
-    }
-} catch { }
+$apresIo = Get-ProcessTransferBytes
 
 $procs = @{}
 foreach ($p in (Get-Process -ErrorAction SilentlyContinue)) {

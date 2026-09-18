@@ -614,7 +614,10 @@ foreach ($x in $handBuilt) { $manquements += $x }
 # listened on 47600 took 26 seconds, and the update of Vigie went from 98 to 225 seconds. Get-PortListener and
 # Get-UdpEndpointOwner (scripts/lib/tcp-ports.ps1) ask for listeners only, in under 2 ms. The slow cmdlets are refused
 # everywhere; their names are assembled so that this file does not refuse itself.
+# THE SAME FOR PERFORMANCE COUNTERS: Get-Counter took 6.3 s for the GPU engines on 18/09 and waits a second of its own
+# for every rate; VigiePdh (scripts/lib/system-metrics.ps1) reads them in milliseconds, when the caller chooses.
 $slowPortCmdlets = '\b(' + 'Get-Net' + 'TCPConnection|' + 'Get-Net' + 'UDPEndpoint)\b'
+$slowCounterCmdlet = '\b' + 'Get-' + 'Counter\b'
 foreach ($d in @('apps', 'scripts')) {
     $rootDir = Join-Path $repoRoot $d
     if (-not (Test-Path -LiteralPath $rootDir)) { continue }
@@ -629,6 +632,9 @@ foreach ($d in @('apps', 'scripts')) {
             if ($line -match '^\s*#') { continue }
             if ($line -match $slowPortCmdlets) {
                 $manquements += ("appel WMI lent pour un port ({0}) : Get-PortListener ou Get-UdpEndpointOwner -- {1}:{2}" -f $Matches[1], (Resolve-Path -LiteralPath $f.FullName -Relative), $i)
+            }
+            if ($line -match $slowCounterCmdlet) {
+                $manquements += ("compteur de performance lu sans VigiePdh -- {0}:{1}" -f (Resolve-Path -LiteralPath $f.FullName -Relative), $i)
             }
         }
     }

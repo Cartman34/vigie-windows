@@ -147,7 +147,7 @@ if ($null -eq $count) {
         $redemarrageFait = $false
         if ($inst.redemarrage -and $inst.at) {
             try {
-                $boot = (Get-CimInstance Win32_OperatingSystem).LastBootUpTime.ToUniversalTime()
+                $boot = Get-BootTime
                 $finInst = ConvertTo-UtcDate $inst.at
                 if ($finInst -and $boot -gt $finInst) { $redemarrageFait = $true }
             } catch { }

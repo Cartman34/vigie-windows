@@ -5,8 +5,7 @@
 $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $backend 'lib/common.ps1')
 
-$os       = Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue
-$lastBoot = if ($os) { $os.LastBootUpTime.ToUniversalTime().ToString('o') } else { $null }
+$lastBoot = (Get-BootTime).ToString('o')
 
 $wm    = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Services\WaaSMedicSvc' -Name Start -ErrorAction SilentlyContinue).Start
 $wmTxt = switch ($wm) { 4 {'Désactivé'} 3 {'Manuel'} 2 {'Auto'} default {'inconnu'} }

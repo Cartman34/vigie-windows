@@ -681,6 +681,10 @@ versions, du point de vue de qui utilise Vigie.*
 - **La carte WSL montre la mémoire de sa machine virtuelle** et la borne réglée dans `.wslconfig` ; au-delà d'un seuil
   réglable, elle dit comment la borner soi-même : le fichier, la ligne `memory=` à écrire, et l'arrêt de WSL qui
   l'applique.
+- **La carte Jeu se calcule en 1,8 s au lieu de 8,7 s** : ses compteurs GPU sont lus directement auprès de Windows
+  (`Get-Counter` prenait 6 s pour les seuls moteurs), et les lectures d'E/S par processus, du parent d'un processus et
+  de l'heure de démarrage passent par des appels directs, mesurés à l'identique
+  (`notes/evidence/2026-09-18-system-calls-measured.md`). `check-probes` refuse désormais `Get-Counter`.
 - **La notification de saturation mémoire nomme ses raisons** : une notification `commit-high` suit la mémoire engagée,
   celle qui déclenche les alertes de Windows, et la bulle de `ram-high` comme la sienne nomme les trois applications qui
   occupent le plus la mémoire. Un champ en alerte porte désormais sa raison (`reason`), que l'app cliente reprend.

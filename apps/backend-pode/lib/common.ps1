@@ -854,9 +854,9 @@ function Invoke-UpdateAudit {
 
     & $Sec 'Contexte'
     try {
-        $os = Get-CimInstance Win32_OperatingSystem -ErrorAction Stop
-        & $L ("   Dernier demarrage : " + $os.LastBootUpTime)
-        $rap.lastBoot = "$($os.LastBootUpTime)"
+        $bootLocal = (Get-BootTime).ToLocalTime()
+        & $L ("   Dernier demarrage : " + $bootLocal)
+        $rap.lastBoot = "$bootLocal"
     } catch { }
     $hf = @()
     try {

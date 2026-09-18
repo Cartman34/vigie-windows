@@ -29,10 +29,16 @@ $etapes += $(if ($r2.Ok) { 'WMI resynchronise' } else { "winmgmt /resyncperf : e
 
 # 3) Constat : les compteurs GPU repondent-ils maintenant ?
 $repondent = $false
+# Read through PDH directly (VigiePdh), like the gaming card: a rate needs two readings, a short moment apart.
+$pdh = $null
 try {
-    $c = Get-Counter '\GPU Engine(*)\Utilization Percentage' -ErrorAction Stop
-    $repondent = [bool](@($c.CounterSamples).Count -gt 0)
-} catch { }
+    $pdh = [VigiePdh]::new()
+    $engines = $pdh.Add('\GPU Engine(*)\Utilization Percentage')
+    if ($engines -ge 0 -and $pdh.Collect()) {
+        Start-Sleep -Milliseconds 250
+        if ($pdh.Collect()) { $repondent = [bool](@($pdh.Read($engines)).Count -gt 0) }
+    }
+} catch { } finally { if ($pdh) { $pdh.Dispose() } }
 
 if ($repondent) {
     @{ message = ("Compteurs reconstruits (" + ($etapes -join ' ; ') + "). Les compteurs GPU répondent de nouveau.")
