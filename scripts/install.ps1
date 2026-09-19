@@ -279,8 +279,14 @@ if ($isUpdate) { Write-Title (Get-Label 'install.titre-maj') }
 else            { Write-Title (Get-Label 'install.titre') }
 if ($isUpdate) {
     # THE VERSION ANNOUNCED IS THE ONE THAT ARRIVES: "v1.1.5+3" in dev, since a deployment tags nothing (D123).
-    if ($incoming -and $incoming.version) { $versionPosee = "$($incoming.version)" }
-    Write-Info (Get-Label 'install.de-vers' $current.version $(if ($versionPosee) { $versionPosee } else { '?' }))
+    # RUN FROM THE INSTALLATION ITSELF -- the update the server app starts -- the stamp read here is the one in place,
+    # not the one coming: the log said "from v1.1.6+23 to v1.1.6+23" and installed v1.1.6+25 (18/09). The version
+    # arriving is then known only once built from the repository, and it is stated after the copy.
+    $runFromInstall = $false
+    try { $runFromInstall = ($installedPath -and ((Resolve-Path -LiteralPath $repoRoot).Path.TrimEnd([char]92) -eq (Resolve-Path -LiteralPath $installedPath).Path.TrimEnd([char]92))) } catch { }
+    if ($incoming -and $incoming.version -and -not $runFromInstall) { $versionPosee = "$($incoming.version)" }
+    if ($versionPosee) { Write-Info (Get-Label 'install.de-vers' $current.version $versionPosee) }
+    else               { Write-Info (Get-Label 'install.de-vers-depot' $current.version) }
 }
 # PROD EST LE DEFAUT, ON NE L'ANNONCE PAS. L'application est de production d'abord : le
 # dire a chaque fois n'apprend rien. C'est le stage « developpement » qui merite d'etre
@@ -598,7 +604,12 @@ if ($prepared) {
 
     if ($go) {
         Write-Step (Get-Label 'install.etape-arret')
-        # LES APP CLIENTES : un echec est signale, il n'arrete pas le deploiement.
+        # THE CLIENT APPS ARE ASKED FIRST, and quit on their own with a line in their log; the tasks are ended and what
+        # remains is stopped only for the ones that did not answer. A failure is reported, it does not stop the deployment.
+        try {
+            $quitClean = @(Request-TrayStop -Backend $backend)
+            if ($quitClean.Count) { Write-Detail (Get-Label 'install.app-clientes-parties' ($quitClean -join ', ')) }
+        } catch { }
         try {
             $stopped = @(Stop-TrayTasks -Backend $backend)
             if ($stopped.Count) { Write-Detail (Get-Label 'install.app-clientes-arretees' (($stopped | ForEach-Object { $_.name }) -join ', ')) }

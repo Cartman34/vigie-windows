@@ -77,8 +77,9 @@ function Open-GameSession {
 # --- Arming ---------------------------------------------------------------------
 $subscribed = $false
 try {
+    # STARTS ONLY. The stop events were subscribed too and did nothing but rewrite the state file, each one: twice the
+    # queue for no information (19/09).
     $null = Register-CimIndicationEvent -ClassName Win32_ProcessStartTrace -SourceIdentifier 'vigieGameStart' -ErrorAction Stop
-    $null = Register-CimIndicationEvent -ClassName Win32_ProcessStopTrace  -SourceIdentifier 'vigieGameStop'  -ErrorAction Stop
     $subscribed = $true
     Set-ResidentState -Backend $Backend -Key $KEY -Fields @{ processId = $PID; state = 'arme'; error = $null }
 } catch {
@@ -114,23 +115,44 @@ while ($true) {
     $own = Get-ResidentState -Backend $Backend -Key $KEY
     if ($own -and $own.processId -and [int]$own.processId -ne $PID) { $superseded = $true; break }
 
+    <#
+        THE QUEUE NEVER SILENCES THE HEARTBEAT. The beat used to come only once every queued start had been judged --
+        40 ms each, up to 300 -- and each one also rewrote the state file. On 18/09 the beat stopped from 16:28 to 17:46,
+        twenty minutes after Windows restarted, while the process was alive: the sentinel said "inconnu", no game could be
+        detected, and Vigie looked absent. The beat now goes out every 5 s even in the middle of a queue, the state is
+        written once per batch, and a long queue is logged, with its length and its duration, so that the next one is
+        measured instead of guessed.
+    #>
     if ($subscribed) {
-        foreach ($event in @(Get-Event -ErrorAction SilentlyContinue)) {
-            try {
-                $indication = $event.SourceEventArgs.NewEvent
-                if ($event.SourceIdentifier -eq 'vigieGameStart') {
-                    $descriptor = Get-ProcessDescriptor -ProcessId ([int]$indication.ProcessID) -ParentId ([int]$indication.ParentProcessID)
-                    if ($descriptor) {
-                        $verdict = Test-ProcessIsGame -Backend $Backend -Process $descriptor
-                        if ($verdict.IsGame) {
-                            Open-GameSession -Descriptor $descriptor -Verdict $verdict `
-                                             -SessionId ([int]$indication.SessionID) -Sid "$($indication.Sid)"
+        $batch = @(Get-Event -ErrorAction SilentlyContinue)
+        if ($batch.Count) {
+            $batchWatch = [Diagnostics.Stopwatch]::StartNew()
+            $lastBeat = Get-Date
+            foreach ($event in $batch) {
+                try {
+                    $indication = $event.SourceEventArgs.NewEvent
+                    if ($event.SourceIdentifier -eq 'vigieGameStart') {
+                        $descriptor = Get-ProcessDescriptor -ProcessId ([int]$indication.ProcessID) -ParentId ([int]$indication.ParentProcessID)
+                        if ($descriptor) {
+                            $verdict = Test-ProcessIsGame -Backend $Backend -Process $descriptor
+                            if ($verdict.IsGame) {
+                                Open-GameSession -Descriptor $descriptor -Verdict $verdict `
+                                                 -SessionId ([int]$indication.SessionID) -Sid "$($indication.Sid)"
+                            }
                         }
                     }
+                } catch { }
+                Remove-Event -EventIdentifier $event.EventIdentifier -ErrorAction SilentlyContinue
+                if (((Get-Date) - $lastBeat).TotalSeconds -ge 5) {
+                    Set-ResidentState -Backend $Backend -Key $KEY -Fields @{ beatAt = ([datetime]::UtcNow).ToString('o') }
+                    $lastBeat = Get-Date
                 }
-                Set-ResidentState -Backend $Backend -Key $KEY -Fields @{ lastEventAt = ([datetime]::UtcNow).ToString('o') }
-            } catch { }
-            Remove-Event -EventIdentifier $event.EventIdentifier -ErrorAction SilentlyContinue
+            }
+            Set-ResidentState -Backend $Backend -Key $KEY -Fields @{ lastEventAt = ([datetime]::UtcNow).ToString('o') }
+            if ($batch.Count -ge 100 -or $batchWatch.Elapsed.TotalSeconds -ge 30) {
+                Write-Log -Backend $Backend -Name 'state' -NoEcho -Message ("detection des jeux : " + $batch.Count + " demarrages de processus traites en " +
+                                                                           [math]::Round($batchWatch.Elapsed.TotalSeconds, 1) + " s")
+            }
         }
     }
 
@@ -142,6 +164,5 @@ while ($true) {
 }
 
 Unregister-Event -SourceIdentifier 'vigieGameStart' -ErrorAction SilentlyContinue
-Unregister-Event -SourceIdentifier 'vigieGameStop'  -ErrorAction SilentlyContinue
 # A REPLACED COPY LEAVES THE STATE ALONE: it belongs to the copy that replaced it.
 if (-not $superseded) { Set-ResidentState -Backend $Backend -Key $KEY -Fields @{ processId = $null; state = 'arrete' } }

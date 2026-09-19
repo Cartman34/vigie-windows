@@ -16,7 +16,8 @@
      - E/S   : delta Read+WriteTransferCount de Win32_Process sur la meme fenetre
                (disque ET reseau confondus -- Windows ne ventile pas par processus sans
                ETW ; le libelle le dit honnetement) ;
-     - RAM   : WorkingSet64.
+     - RAM   : private working set (Get-ProcessMemoryUse), what the process alone holds in RAM. WorkingSet64 counted
+               the shared pages once per process: 7.9 GB for Chrome's 48 processes, which held 2.2 GB (19/09).
 
    TEST SANS JEU (doc/en/developing/modules.md) : VIGIE_FAKE_GAME=<nom> force ce processus a etre
    traite comme le jeu ; les valeurs restent reelles. Charge GPU reelle :
@@ -131,6 +132,7 @@ if ($pdh) { $pdh.Dispose() }
 # --- Instantane 2 + assemblage ------------------------------------------------
 $duree = ((Get-Date) - $t0).TotalMilliseconds
 $apresIo = Get-ProcessTransferBytes
+$memoryUse = Get-ProcessMemoryUse
 
 $procs = @{}
 foreach ($p in (Get-Process -ErrorAction SilentlyContinue)) {
@@ -152,7 +154,7 @@ foreach ($p in (Get-Process -ErrorAction SilentlyContinue)) {
             Cpu    = [Math]::Round([Math]::Max(0.0, $cpu), 1)
             Gpu    = [Math]::Round([Math]::Min(100.0, [double]($gpuParPid[$p.Id])), 1)
             VramGb = [Math]::Round([double]($vramParPid[$p.Id]) / 1GB, 2)
-            RamGb  = [Math]::Round($p.WorkingSet64 / 1GB, 2)
+            RamGb  = [Math]::Round($(if ($memoryUse.ContainsKey($p.Id)) { $memoryUse[$p.Id].Ram } else { 0.0 }) / 1GB, 2)
             IoMbs  = [Math]::Round($ioMo, 1)
         }
     } catch { }

@@ -685,6 +685,18 @@ versions, du point de vue de qui utilise Vigie.*
   (`Get-Counter` prenait 6 s pour les seuls moteurs), et les lectures d'E/S par processus, du parent d'un processus et
   de l'heure de démarrage passent par des appels directs, mesurés à l'identique
   (`notes/evidence/2026-09-18-system-calls-measured.md`). `check-probes` refuse désormais `Get-Counter`.
+- **La détection des jeux ne se tait plus pendant une rafale de processus** : le résident ne battait qu'après avoir jugé
+  tous les démarrages en file, et réécrivait son état à chacun. Le 18/09 il n'a plus battu de 16:28 à 17:46, vingt
+  minutes après un redémarrage de Windows : aucune partie ne pouvait être détectée, et Vigie semblait absente. Il bat
+  désormais pendant la file, écrit son état une fois par lot, ne suit plus les arrêts de processus, qui ne servaient à
+  rien, et consigne toute file longue.
+- **Une mise à jour demande aux app clientes de partir d'elles-mêmes** avant d'arrêter leurs tâches : elles le
+  consignent dans leur journal, et seules celles qui ne répondent pas sont arrêtées de force. Le 18/09, celles de
+  Famille ont disparu sept fois sans une ligne pour dire pourquoi.
+- Le journal d'une mise à jour lancée par l'app serveur n'annonce plus « de v1.1.6+23 vers v1.1.6+23 » : la version
+  visée n'est connue qu'une fois fabriquée depuis le dépôt, et elle est dite après la copie.
+- La colonne « RAM » de la carte Jeu compte la mémoire vive propre à chaque application : elle additionnait les pages
+  partagées une fois par processus, 7,9 Go pour Chrome quand il en tenait 2,2.
 - **Un résident n'est plus pris pour un autre processus** : son état ne garde qu'un numéro de processus, que Windows
   réattribue, et qui survit à un redémarrage. Un programme quelconque héritant de ce numéro passait pour le résident,
   qui n'était alors plus jamais relancé. Le processus doit désormais être un PowerShell démarré après l'armement.

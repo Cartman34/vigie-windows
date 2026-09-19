@@ -2775,6 +2775,37 @@ function Write-Log {
     pas une erreur : son app cliente repartira a sa prochaine ouverture, avec le nouveau
     code.
 #>
+# ASKS EVERY CLIENT APP TO QUIT ON ITS OWN, through the order it reads each second in its run folder: it logs
+# "arret du tray (ordre stop)", acknowledges, and leaves. Until 19/09 an update ended the tasks and killed what was
+# left: the client apps of Famille vanished seven times on 18/09 without one line saying why. Returns the accounts
+# whose app acknowledged; the forced stop that follows is left for the ones that did not answer. Never throws.
+function Request-TrayStop {
+    param([string]$Backend = (Get-BackendRoot), [int]$TimeoutSec = 10)
+    $asked = @()
+    foreach ($c in @(Get-EnabledAccounts -Backend $Backend)) {
+        try {
+            $runDir = Get-AccountRunDir -Account "$($c.name)"
+            if (-not $runDir -or -not (Test-PathSafe $runDir)) { continue }
+            Remove-Item -LiteralPath (Join-Path $runDir 'stop.ack') -Force -ErrorAction SilentlyContinue
+            Set-Content -LiteralPath (Join-Path $runDir 'stop') -Value 'install' -Encoding ASCII -NoNewline -ErrorAction Stop
+            $asked += [pscustomobject]@{ name = "$($c.name)"; runDir = $runDir }
+        } catch { }
+    }
+    $acknowledged = @()
+    $deadline = (Get-Date).AddSeconds($TimeoutSec)
+    while ($asked.Count -and (Get-Date) -lt $deadline) {
+        foreach ($a in @($asked)) {
+            if (Test-Path -LiteralPath (Join-Path $a.runDir 'stop.ack')) { $acknowledged += $a.name; $asked = @($asked | Where-Object { $_.name -ne $a.name }) }
+        }
+        if ($asked.Count) { Start-Sleep -Milliseconds 250 }
+    }
+    # AN ORDER NOBODY READ IS WITHDRAWN: a client app started later must not quit on reading it.
+    foreach ($a in @($asked)) { Remove-Item -LiteralPath (Join-Path $a.runDir 'stop') -Force -ErrorAction SilentlyContinue }
+    # The acknowledgement precedes the exit by a moment: leave it that moment before anything is forced.
+    if ($acknowledged.Count) { Start-Sleep -Seconds 2 }
+    return $acknowledged
+}
+
 function Stop-TrayTasks {
     param([string]$Backend = (Get-BackendRoot))
     $stopped = @()
