@@ -113,7 +113,15 @@ while ($true) {
     if (-not (Get-Process -Id $ServerPid -ErrorAction SilentlyContinue)) { break }
     # A REPLACED COPY STOPS: the state names the copy the server armed last, and it is not this one.
     $own = Get-ResidentState -Backend $Backend -Key $KEY
-    if ($own -and $own.processId -and [int]$own.processId -ne $PID) { $superseded = $true; break }
+    if ($own -and $own.processId -and [int]$own.processId -ne $PID) {
+        # A SECOND COPY IS A PROBLEM, and it is said before leaving, with both numbers: in the server's log, and in the
+        # state, where the Vigie card shows it. Leaving in silence hid 115 copies on 17/09 (idea of the owner, 19/09).
+        $conflict = "l'etat designe le PID " + [int]$own.processId + ", pas ce processus (PID " + $PID + ") : ce processus s'arrete"
+        Write-Log -Backend $Backend -Name 'state' -NoEcho -Message ("resident " + $KEY + " : " + $conflict)
+        Set-ResidentState -Backend $Backend -Key $KEY -Fields @{ lastConflict = @{ at = ([datetime]::UtcNow).ToString('o'); statePid = [int]$own.processId; ownPid = $PID } }
+        $superseded = $true
+        break
+    }
 
     <#
         THE QUEUE NEVER SILENCES THE HEARTBEAT. The beat used to come only once every queued start had been judged --

@@ -131,7 +131,13 @@ if ($sentinels.Count) {
 # resident's contract, and this is where it shows.
 $residents = @(Get-ResidentHealth -Backend $backend)
 if ($residents.Count) {
-    $down = @($residents | Where-Object { -not $_.Operational -or @($_.Copies).Count -gt 1 })
+    # A SECOND COPY REPORTED IN THE LAST 24 HOURS counts as a difficulty too: it left, but it should never have existed.
+    function Get-RecentConflict { param($Resident)
+        if (-not $Resident.Conflict -or -not $Resident.Conflict.at) { return $null }
+        try { $at = ConvertTo-UtcDate $Resident.Conflict.at; if (([datetime]::UtcNow - $at).TotalHours -lt 24) { return $at } } catch { }
+        return $null
+    }
+    $down = @($residents | Where-Object { -not $_.Operational -or @($_.Copies).Count -gt 1 -or (Get-RecentConflict $_) })
     $residentLines = @($residents | ForEach-Object {
         $copyCount = @($_.Copies).Count
         # A SLOW OR DOUBLED RESIDENT IS SAID WITH ITS REASONS (targeting/residents.md): it is never stopped by Vigie.
@@ -143,8 +149,18 @@ if ($residents.Count) {
         if ($null -ne $_.BeatAge) { $ligne += " — dernier battement il y a $($_.BeatAge) s" }
         if ($null -ne $_.MemoryMb) { $ligne += " — processus : $($_.MemoryMb) Mo en mémoire vive, $($_.CpuSeconds) s de processeur" }
         if ($copyCount -gt 1) { $ligne += " — copies : " + ((@($_.Copies) | ForEach-Object { "PID $($_.Id)" + $(if ($_.StartedAt) { ' depuis ' + ([datetime]$_.StartedAt).ToString('dd/MM HH:mm') } else { '' }) }) -join ', ') }
-        if ($_.LastEvent) { $ligne += " — dernier événement : $($_.LastEvent)" }
+        # IN LOCAL TIME: the state keeps UTC, and "19:40:29" was read two hours late on 19/09.
+        if ($_.LastEvent) {
+            $when = "$($_.LastEvent)"
+            try { $when = (ConvertTo-UtcDate $_.LastEvent).ToLocalTime().ToString('dd/MM HH:mm:ss') } catch { }
+            $ligne += " — dernier événement : $when"
+        }
         if ($_.Error)     { $ligne += " — $($_.Error)" }
+        $conflictAt = Get-RecentConflict $_
+        if ($conflictAt) {
+            $ligne += " — DEUX COPIES le " + $conflictAt.ToLocalTime().ToString('dd/MM à HH:mm') + " : l'état désignait le PID " + $_.Conflict.statePid +
+                      ", la copie PID " + $_.Conflict.ownPid + " s'est arrêtée"
+        }
         $ligne
     })
     if ($down.Count) {

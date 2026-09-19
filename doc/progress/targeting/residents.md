@@ -25,7 +25,9 @@ n'a pas à le savoir.
 | **Arrêté avec elle** | aucun résident ne lui survit : un orphelin ne se voit pas et ne se tue pas |
 | **Réarmé s'il meurt, et seulement alors** | la boucle de veille le vérifie à chaque passage : un résident est réarmé quand **son processus a disparu**, jamais parce qu'il bat en retard. Un processus lent n'est pas mort : le doubler l'étouffe davantage — le 17/09, 115 copies, 19 Go |
 | **Lent ou doublé, il est signalé** | un résident vivant qui ne bat plus, ou plusieurs processus du même résident, apparaissent sur la carte de Vigie avec leurs raisons : âge du battement, processeur et mémoire du résident, copies et leur date. **Vigie n'arrête aucun processus d'elle-même** : la relance du serveur reste un geste de l'utilisateur |
-| **Un seul auteur par champ d'état** | l'app serveur écrit le numéro du processus qu'elle arme ; le résident n'écrit que son battement et ce qu'il observe. Un résident qui ne se lit plus dans son état s'arrête de lui-même |
+| **Un seul auteur par champ d'état** | l'app serveur écrit le numéro du processus qu'elle arme ; le résident n'écrit que son battement et ce qu'il observe. Un résident qui ne se lit plus dans son état s'arrête de lui-même, **et le dit avant de partir** : les deux numéros de processus, dans le journal du serveur et dans son état, que la carte de Vigie affiche pendant 24 heures |
+| **Bat même sous une rafale** | le battement ne dépend pas de la file des événements à traiter : une rafale de processus ralentit la détection, elle ne la fait pas passer pour morte, et une file longue est consignée avec sa taille et sa durée |
+| **Reconnu par son processus, pas par son numéro** | un numéro de processus se réattribue et l'état survit au redémarrage : le résident est le PowerShell démarré après son armement |
 | **Bat aussi en s'armant** | un armement long, sur une machine lente, ne doit pas passer pour une mort |
 | **Resynchronisé en s'armant** | s'il a un état à reconstruire, il le reconstruit alors — une **faculté**, pas une obligation |
 | **Observable** | armé, mort, en erreur, depuis quand : une surveillance dont on ne sait pas si elle fonctionne ne vaut rien |

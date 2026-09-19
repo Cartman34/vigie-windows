@@ -4078,6 +4078,7 @@ function Get-ResidentHealth {
             MemoryMb  = $(if ($process) { $use = Get-ProcessMemoryUse; if ($use.ContainsKey($process.Id)) { [int]($use[$process.Id].Ram / 1MB) } else { $null } } else { $null })
             Copies    = $copies
             LastEvent = $(if ($state) { $state.lastEventAt } else { $null })
+            Conflict  = $(if ($state) { $state.lastConflict } else { $null })
             Error     = $(if ($state) { $state.error } else { $null })
         }
     }

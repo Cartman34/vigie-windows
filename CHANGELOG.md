@@ -685,6 +685,9 @@ versions, du point de vue de qui utilise Vigie.*
   (`Get-Counter` prenait 6 s pour les seuls moteurs), et les lectures d'E/S par processus, du parent d'un processus et
   de l'heure de démarrage passent par des appels directs, mesurés à l'identique
   (`notes/evidence/2026-09-18-system-calls-measured.md`). `check-probes` refuse désormais `Get-Counter`.
+- **Un résident doublé le dit avant de partir** : quand son état désigne un autre processus, il consigne les deux
+  numéros dans le journal du serveur et dans son état, et la carte Vigie l'affiche pendant 24 heures. Il partait en
+  silence. L'heure du dernier événement d'un résident est donnée en heure locale, et non plus en UTC.
 - **La détection des jeux ne se tait plus pendant une rafale de processus** : le résident ne battait qu'après avoir jugé
   tous les démarrages en file, et réécrivait son état à chacun. Le 18/09 il n'a plus battu de 16:28 à 17:46, vingt
   minutes après un redémarrage de Windows : aucune partie ne pouvait être détectée, et Vigie semblait absente. Il bat
