@@ -692,23 +692,37 @@
   .cf-t{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;
         color:var(--muted);margin-bottom:2px}
   .cf-c{font-size:13px;line-height:1.5}
+  /* L'ACCORDEON, COMPOSANT STANDARD (demande du 20/09). Trois classes et rien d'autre :
+       <details class="acc"><summary class="acc-h"><span class="acc-fl">&#9654;</span> … </summary>
+       <div class="acc-b"> … </div></details>
+     Le pli s'anime tout seul : accordionInit l'attrape a la delegation, sans code par usage. La fleche tourne
+     avec lui. Le CSS seul ne suffisait pas -- ::details-content avec interpolate-size laissait le contenu
+     affiche une fois replie sous Chrome 152 (mesure du 20/09), donc la hauteur s'anime en JavaScript.
+     Ce que ce composant ne decide pas : les bordures, les fonds, les tailles -- chaque usage garde les siennes. */
+  .acc-h{cursor:pointer;list-style:none;user-select:none}
+  .acc-h::-webkit-details-marker{display:none}
+  .acc-fl{flex:0 0 auto;color:var(--muted);font-size:10px;transition:transform .18s ease}
+  .acc[open] .acc-fl{transform:rotate(90deg)}
+  .acc-b{overflow:hidden}
+  .acc--anime > .acc-b{overflow:hidden}
+  @media (prefers-reduced-motion:reduce){ .acc-fl{transition:none} }
   .hds-choices{display:flex;flex-direction:column;gap:2px}
   /* Un GROUPE (D118) : un repli par constructeur. L'en-tete porte de quoi decider sans
      l'ouvrir -- le nom, le nombre, le poids -- et sa case coche tout le groupe. */
   .hds-grp{border:1px solid var(--border);border-radius:8px;margin-bottom:4px;overflow:hidden}
-  .hds-grp-h{display:flex;align-items:center;gap:9px;padding:7px 10px;cursor:pointer;
-             font-size:13px;list-style:none;user-select:none}
-  .hds-grp-h::-webkit-details-marker{display:none}
+  .hds-grp-h{display:flex;align-items:center;gap:9px;padding:7px 10px;font-size:13px}
   .hds-grp-h:hover{background:var(--panel-2)}
   .hds-grp-h input{accent-color:var(--accent)}
-  .hds-grp-fl{flex:none;color:var(--muted);font-size:10px;transition:transform .12s}
-  .hds-grp[open] .hds-grp-fl{transform:rotate(90deg)}
   /* LE LIBELLE COCHE, LE RESTE DE LA LIGNE REPLIE (demande du 20/09). Le nom ne prend que sa largeur : tout
      ce qui reste -- la fleche, le vide apres le nom, le compte -- garde le repli du <summary>. */
   .hds-grp-n{flex:0 0 auto;font-weight:600;cursor:pointer}
   .hds-grp-fill{flex:1 1 auto;align-self:stretch}
   .hds-grp-c{flex:none;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
   .hds-grp-b{padding:2px 6px 6px}
+  /* LE PLI S'ANIME, comme la fleche qui l'annonce (demande du 20/09). La hauteur d'un contenu replie n'est pas
+     animable par defaut : interpolate-size l'autorise vers auto, et allow-discrete garde le contenu affiche le
+     temps de la fermeture. Un navigateur qui l'ignore replie d'un coup, comme avant : rien n'est perdu. */
+
   .hds-choice{display:grid;grid-template-columns:auto 1fr;gap:4px 9px;align-items:start;
               padding:7px 8px;border-radius:8px;cursor:pointer}
   .hds-choice:hover{background:var(--panel-2)}
@@ -1966,13 +1980,57 @@ function toggleProgressDone(btn,key){
    fleche, le vide qui suit le nom et le compte replient. Le pli natif est annule pour ces deux zones seulement,
    et la bascule de la case est alors faite a la main -- annuler le geste par defaut annule aussi son cochage.
    Le clavier ne perd rien : Entree sur l'en-tete replie, Tab puis Espace cochent. */
+/* L'ACCORDEON : UNE SEULE MISE EN OEUVRE POUR TOUTE L'APPLICATION.
+
+   Un <details> ne s'anime pas : il montre ou il cache. La hauteur du corps est donc animee ici, a l'ouverture
+   comme a la fermeture, et l'element ne se referme qu'une fois l'animation finie. Tout <details class="acc">
+   en profite sans une ligne de plus : la delegation attrape le clic sur son en-tete. Qui a besoin d'un
+   accordeon demain pose les trois classes -- acc, acc-h, acc-b -- et n'ecrit rien.
+
+   Le reglage « animations reduites » de Windows est respecte : le pli devient instantane. */
+const ACCORDION_MS = 180;
+function accordionAnimate(details){
+  const body = details.querySelector(':scope > .acc-b');
+  const doux = !window.matchMedia('(prefers-reduced-motion: reduce)').matches && body && body.animate;
+  if(!doux){ details.open = !details.open; return; }
+  if(details.dataset.accBusy === '1') return;
+  const ouvrir = !details.open;
+  details.dataset.accBusy = '1';
+  details.classList.add('acc--anime');
+  if(ouvrir) details.open = true;              // le contenu doit exister pour etre mesure
+  const haut = body.scrollHeight;
+  const de = ouvrir ? 0 : haut, vers = ouvrir ? haut : 0;
+  const anim = body.animate([{ height: de + 'px' }, { height: vers + 'px' }],
+                            { duration: ACCORDION_MS, easing: 'ease' });
+  anim.onfinish = anim.oncancel = () => {
+    details.classList.remove('acc--anime');
+    details.dataset.accBusy = '0';
+    if(!ouvrir) details.open = false;
+  };
+}
+// LA DELEGATION, posee une fois : tout accordeon ajoute plus tard est pris en charge, y compris celui qu'une
+// fenetre vient de construire. Un en-tete qui a son propre gestionnaire (groupe de mises a jour) decide seul.
+function accordionInit(){
+  document.addEventListener('click', ev => {
+    const head = ev.target.closest && ev.target.closest('.acc > .acc-h');
+    if(!head || head.hasAttribute('onclick')) return;
+    ev.preventDefault();
+    accordionAnimate(head.parentElement);
+  });
+}
+accordionInit();
+
 function onGroupHeadClick(ev, head){
   const cb = head.querySelector('input[data-groupe]');
   if(!cb) return;
   const target = ev.target;
   const onCheckbox = (target === cb);
   const onName = target.closest && target.closest('.hds-grp-n');
-  if(!onCheckbox && !onName) return;   // fleche, vide, compte : le repli habituel
+  if(!onCheckbox && !onName){          // fleche, vide, compte : le pli, anime par le composant standard
+    ev.preventDefault();
+    accordionAnimate(head.parentElement);
+    return;
+  }
   ev.preventDefault();
   const flip = () => { cb.checked = !cb.checked; cb.dispatchEvent(new Event('change', { bubbles:true })); };
   // SUR LA CASE, LA BASCULE ATTEND LA FIN DU GESTE. Annuler le pli annule aussi le cochage que le navigateur
@@ -2149,13 +2207,13 @@ const HDS = (function(){
         (a==='Windows'?0:1)-(b==='Windows'?0:1) || a.localeCompare(b,'fr'));
       return names.map(name=>{
         const inside = byGroup.get(name);
-        return '<details class="hds-grp" open><summary class="hds-grp-h" onclick="onGroupHeadClick(event,this)">'
-          + '<span class="hds-grp-fl" title="Replier ou déplier ce groupe">&#9654;</span>'
+        return '<details class="acc hds-grp" open><summary class="acc-h hds-grp-h" onclick="onGroupHeadClick(event,this)">'
+          + '<span class="acc-fl" title="Replier ou déplier ce groupe">&#9654;</span>'
           + '<input type="checkbox" data-groupe="'+esc(name)+'" title="Cocher ou décocher tout ce groupe">'
           + '<span class="hds-grp-n" title="Cocher ou décocher tout ce groupe">'+esc(name)+'</span>'
           + '<span class="hds-grp-fill" title="Replier ou déplier ce groupe"></span>'
           + '<span class="hds-grp-c" title="Replier ou déplier ce groupe">'+inside.length+groupWeight(inside)+'</span>'
-          + '</summary><div class="hds-grp-b">'+inside.map(ligne).join('')+'</div></details>';
+          + '</summary><div class="acc-b hds-grp-b">'+inside.map(ligne).join('')+'</div></details>';
       }).join('');
     };
     const corps = (intro, dedans) =>

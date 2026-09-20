@@ -43,6 +43,7 @@ change of the front end is carried onto that page in the same delivery*.
 | Footer | fixed, always visible: version, quick theme, GitHub | — |
 | **Nesting** | the frame (border + corners) belongs to the **parent** block, one level only; inside, title band and rows **full width**, separated by a hairline | D88 |
 | **Card row** | the **value** answers (short, initial capital, accents), the **colour** alerts, the **detail** explains; a success shows only its date, a path is never a value | D89 |
+| **Accordion** | the standard fold: `details.acc`, `summary.acc-h` with its caret `span.acc-fl`, `div.acc-b` for the body. Nothing to write: `accordionInit` catches the click by delegation and animates the height; an header that does something else of its own calls `accordionAnimate`. It decides the fold and nothing else -- borders, backgrounds and sizes stay with each use. Shown in `apps/atelier/design-systeme.html` | — |
 | **Components** | `UI.bande`, `UI.liste`, `UI.ligne`, `UI.interrupteur`, `UI.etiquette`, `UI.note`, `UI.carte` — each piece written once; a pattern that repeats becomes a component **before** it is copied | D88 |
 
 ## Where the values live

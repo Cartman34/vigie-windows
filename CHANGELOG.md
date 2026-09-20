@@ -685,6 +685,10 @@ versions, du point de vue de qui utilise Vigie.*
   (`Get-Counter` prenait 6 s pour les seuls moteurs), et les lectures d'E/S par processus, du parent d'un processus et
   de l'heure de démarrage passent par des appels directs, mesurés à l'identique
   (`notes/evidence/2026-09-18-system-calls-measured.md`). `check-probes` refuse désormais `Get-Counter`.
+- **Le repli s'anime, et devient un composant standard** : trois classes — `acc`, `acc-h`, `acc-b` — suffisent pour un
+  accordéon animé, sans une ligne de code, et l'atelier du design le montre. Le CSS seul ne tenait pas : sous
+  Chrome 152, `::details-content` avec `interpolate-size` laissait le contenu affiché une fois replié (mesuré le
+  20/09). Le réglage « animations réduites » de Windows rend le pli instantané.
 - **Dans la liste des mises à jour, le nom d'un groupe coche le groupe** au lieu de le replier. Tout le reste de la
   ligne — la flèche, l'espace après le nom, le compte — replie et déplie. L'en-tête se comporte enfin comme les lignes
   en dessous, où cliquer le texte coche la case. Le nom ne prend aucune apparence de bouton au survol.

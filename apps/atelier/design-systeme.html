@@ -22,6 +22,15 @@
   .crumb.vigie:hover{background:var(--accent);color:#fff}
   .badge{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:2px 9px;border-radius:999px}
   .badge.encours{color:var(--accent);background:rgba(56,139,253,.14)}
+  /* --- Accordeon : copie des regles .acc de apps/frontend-web/index.html --- */
+  .acc-h{cursor:pointer;list-style:none;user-select:none}
+  .acc-h::-webkit-details-marker{display:none}
+  .acc-fl{flex:0 0 auto;color:var(--muted);font-size:10px;transition:transform .18s ease}
+  .acc[open] .acc-fl{transform:rotate(90deg)}
+  .acc-b{overflow:hidden}
+  .acc--anime > .acc-b{overflow:hidden}
+  @media (prefers-reduced-motion:reduce){ .acc-fl{transition:none} }
+
   /* --- Suivi d'une operation en cours : copie des regles .fprog de apps/frontend-web/index.html --- */
   .fprog{margin:4px 0 6px 22px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--panel-2);display:flex;flex-direction:column;gap:7px;font-size:12px}
   .fprog-current{display:flex;flex-direction:column;gap:4px}
@@ -286,6 +295,32 @@
 </section>
 
 <section>
+  <h2>Accordéon — trois classes, rien à écrire</h2>
+  <p class="lgd">Le composant standard pour replier une liste. Le balisage suffit : <code>details.acc</code>,
+     <code>summary.acc-h</code> avec sa flèche <code>span.acc-fl</code>, et <code>div.acc-b</code> pour le corps.
+     Le pli s'anime, la flèche tourne avec lui, et le réglage « animations réduites » de Windows le rend instantané.
+     Chaque usage garde ses bordures, ses fonds et ses tailles : le composant ne décide que du pli.</p>
+  <div class="demo">
+    <div style="width:380px;display:flex;flex-direction:column;gap:6px">
+      <details class="acc" style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
+        <summary class="acc-h" style="display:flex;align-items:center;gap:9px;padding:7px 10px;font-size:13px">
+          <span class="acc-fl">&#9654;</span><span style="font-weight:600">Replié au départ</span>
+          <span style="flex:1 1 auto"></span><span style="color:var(--muted);font-size:12px">3 éléments</span></summary>
+        <div class="acc-b" style="padding:2px 10px 8px;font-size:13px;color:var(--muted)">Première ligne.<br>Deuxième ligne.<br>Troisième ligne.</div>
+      </details>
+      <details class="acc" open style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
+        <summary class="acc-h" style="display:flex;align-items:center;gap:9px;padding:7px 10px;font-size:13px">
+          <span class="acc-fl">&#9654;</span><span style="font-weight:600">Déplié au départ</span>
+          <span style="flex:1 1 auto"></span><span style="color:var(--muted);font-size:12px">2 éléments</span></summary>
+        <div class="acc-b" style="padding:2px 10px 8px;font-size:13px;color:var(--muted)">Une ligne.<br>Une autre.</div>
+      </details>
+    </div>
+  </div>
+  <p class="lgd">Là où l'en-tête fait autre chose que replier — la liste des mises à jour, où le nom coche le groupe —,
+     il porte son propre gestionnaire et appelle <code>accordionAnimate</code> pour la part du pli.</p>
+</section>
+
+<section>
   <h2>Règles d'écriture des textes</h2>
   <table class="regles">
     <tr><th>Où</th><th>Règle</th><th>Exemple</th></tr>
@@ -329,6 +364,39 @@
       + '). Servir la page par l’Atelier, pas en file://.';
   }
 })();
+</script>
+<script>
+const ACCORDION_MS = 180;
+function accordionAnimate(details){
+  const body = details.querySelector(':scope > .acc-b');
+  const doux = !window.matchMedia('(prefers-reduced-motion: reduce)').matches && body && body.animate;
+  if(!doux){ details.open = !details.open; return; }
+  if(details.dataset.accBusy === '1') return;
+  const ouvrir = !details.open;
+  details.dataset.accBusy = '1';
+  details.classList.add('acc--anime');
+  if(ouvrir) details.open = true;              // le contenu doit exister pour etre mesure
+  const haut = body.scrollHeight;
+  const de = ouvrir ? 0 : haut, vers = ouvrir ? haut : 0;
+  const anim = body.animate([{ height: de + 'px' }, { height: vers + 'px' }],
+                            { duration: ACCORDION_MS, easing: 'ease' });
+  anim.onfinish = anim.oncancel = () => {
+    details.classList.remove('acc--anime');
+    details.dataset.accBusy = '0';
+    if(!ouvrir) details.open = false;
+  };
+}
+// LA DELEGATION, posee une fois : tout accordeon ajoute plus tard est pris en charge, y compris celui qu'une
+// fenetre vient de construire. Un en-tete qui a son propre gestionnaire (groupe de mises a jour) decide seul.
+function accordionInit(){
+  document.addEventListener('click', ev => {
+    const head = ev.target.closest && ev.target.closest('.acc > .acc-h');
+    if(!head || head.hasAttribute('onclick')) return;
+    ev.preventDefault();
+    accordionAnimate(head.parentElement);
+  });
+}
+accordionInit();
 </script>
 </body>
 </html>

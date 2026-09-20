@@ -53,3 +53,4 @@ question.
 | 19/09 | Que fait un résident qui trouve un autre PID dans son état ? | Il rapporte le problème avec les deux PID et s'arrête ; un signal au serveur peut aider. | `doc/progress/targeting/residents.md`, « Un seul auteur par champ d'état » |
 | 20/09 | La carte Windows Update doit-elle rapporter ses problèmes ? | Oui, tous, d'une manière ou d'une autre. | `doc/progress/implemented/status.md`, WU-PENDING |
 | 20/09 | Que fait un clic sur l'en-tête d'un groupe de mises à jour ? | Le libellé coche ou décoche ; tout le reste de la ligne replie ou déplie. | `apps/frontend-web/index.html`, `onGroupHeadClick` |
+| 20/09 | Le repli d'un groupe doit-il s'animer ? | Oui, et l'accordéon doit être un composant standard, réutilisable tel quel. | `doc/en/developing/design.md`, ligne « Accordion » ; `apps/atelier/design-systeme.html` |
