@@ -222,6 +222,34 @@ if ($null -eq $count) {
     }
     # Recherche EN LIGNE : la sonde ne lit que le cache local de Windows, qui peut etre
     # perime. Ce bouton interroge les serveurs -- c'est long, donc detache.
+    # EVERY PROBLEM IS REPORTED (asked on 20/09), in a line of its own: an update reinstalled in a loop, an installation
+    # in failure, the ones Windows no longer served when installing, a local cache that disagrees with the last online
+    # search, and the errors Windows itself logged. The card said nothing of all this: it showed a number.
+    $ailments = @()
+    try { $ailments = @(Get-WindowsUpdateAilments -Backend $backend -LocalCount $(if ($null -ne $count) { [int]$count } else { -1 }) -Scan $scan -Install $inst) } catch { }
+    $ailmentStatus = if (@($ailments | Where-Object { $_.Status -eq 'error' }).Count) { 'error' }
+                     elseif ($ailments.Count) { 'warn' } else { 'ok' }
+    $champs += New-Field -Key 'problemes' -Label 'Problèmes' `
+        -Value $(if ($ailments.Count) { $ailments.Count } else { 'Aucun' }) -Kind $(if ($ailments.Count) { 'number' } else { 'text' }) `
+        -Status $ailmentStatus `
+        -Table $(if ($ailments.Count) { @{ columns = @('Problème', 'Ce qui a été constaté'); rows = @(foreach ($a in $ailments) { ,@($a.Label, $a.Detail) }) } } else { $null }) `
+        -Reason $(if ($ailments.Count) { (@($ailments | Select-Object -First 2 | ForEach-Object { $_.Label }) -join ' ; ') } else { $null }) `
+        -FixAction $(if ($ailmentStatus -ne 'ok') { 'open-windows-update' } else { $null }) `
+        -Help "Ce qui ne tourne pas rond du côté de Windows Update : mise à jour réinstallée en boucle, installation en échec, mises à jour disparues au moment d'installer, désaccord entre le cache local et la dernière analyse en ligne, erreurs consignées par Windows."
+
+    # THE NUMBER SHOWN LEAVES A TRACE. The card announced 46 to 48 updates a few days before 20/09, an online search
+    # found 4, and nothing recorded either: the jump could not be checked afterwards. Each change is logged now.
+    try {
+        $countFile = Get-VarPath -Backend $backend -Kind 'cache' -File 'wu-count.json'
+        $before = $null
+        if (Test-Path $countFile) { try { $before = Get-Content $countFile -Raw | ConvertFrom-Json } catch { } }
+        if (-not $before -or [int]$before.local -ne [int]$count -or [int]$before.offert -ne [int]$effectif) {
+            Write-Log -Backend $backend -Name 'state' -NoEcho -Message ("mises a jour : cache local " + [int]$count + ", proposees " + [int]$effectif +
+                                                                       ", derniere analyse en ligne " + $(if ($scan -and $null -ne $scan.trouvees) { [int]$scan.trouvees } else { '?' }))
+            Update-StateJson -Path $countFile -Set @{ local = [int]$count; offert = [int]$effectif; at = ([datetime]::UtcNow).ToString('o') } | Out-Null
+        }
+    } catch { }
+
     $actions += New-Action -Id 'wu-scan' -Label 'Vérifier les mises à jour' -BusyLabel 'Recherche en ligne…' -Kind 'immediate' `
         -Help "Interroge les serveurs Microsoft (plusieurs minutes). La valeur affichée provient sinon du cache local de Windows, qui peut être périmé."
     if ($count -gt 0) {
@@ -230,7 +258,7 @@ if ($null -eq $count) {
     }
     $actions += New-Action -Id 'open-windows-update' -Label 'Ouvrir Windows Update' -Kind 'manual' -Help "Ouvre les Paramètres Windows Update pour installer manuellement. Déverrouiller (Mode MAJ) avant si nécessaire, puis re-verrouiller."
 
-    New-ModuleObject -Id 'wu-pending' -Theme 'windows-update' -Label 'Mise à jour du système' -Status $(if ($enCours -or $scanEnCours) {'neutral'} elseif ($count -gt 0) {'warn'} else {'ok'}) -Fields (@(
+    New-ModuleObject -Id 'wu-pending' -Theme 'windows-update' -Label 'Mise à jour du système' -Status $(if ($ailmentStatus -eq 'error') {'error'} elseif ($enCours -or $scanEnCours) {'neutral'} elseif ($count -gt 0 -or $ailmentStatus -eq 'warn') {'warn'} else {'ok'}) -Fields (@(
         # La resolution est l'INSTALLATION, pas l'ouverture de Windows Update. Elle reste
         # visible dans la barre d'actions : une action designee comme correctif n'en est
         # plus retiree.

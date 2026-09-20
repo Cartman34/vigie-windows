@@ -685,6 +685,12 @@ versions, du point de vue de qui utilise Vigie.*
   (`Get-Counter` prenait 6 s pour les seuls moteurs), et les lectures d'E/S par processus, du parent d'un processus et
   de l'heure de démarrage passent par des appels directs, mesurés à l'identique
   (`notes/evidence/2026-09-18-system-calls-measured.md`). `check-probes` refuse désormais `Get-Counter`.
+- **La carte Windows Update rapporte ses problèmes** au lieu d'afficher un seul nombre : une mise à jour réinstallée en
+  boucle (14 fois en sept jours pour un paquet du Store), une installation en échec ou annulée avec son code, les mises
+  à jour que Windows ne servait plus au moment d'installer — 14 sur 15 le 18/09, et la carte disait « réussie » —, un
+  cache local qui contredit la dernière analyse en ligne, et les erreurs que Windows consigne lui-même. Le nombre
+  affiché est désormais consigné à chaque changement : celui de 46 à 48 mises à jour vu quelques jours avant le 20/09
+  n'avait laissé aucune trace vérifiable.
 - **Un résident doublé le dit avant de partir** : quand son état désigne un autre processus, il consigne les deux
   numéros dans le journal du serveur et dans son état, et la carte Vigie l'affiche pendant 24 heures. Il partait en
   silence. L'heure du dernier événement d'un résident est donnée en heure locale, et non plus en UTC.

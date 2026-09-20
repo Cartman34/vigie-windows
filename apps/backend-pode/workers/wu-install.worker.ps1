@@ -288,6 +288,8 @@ try {
         at         = (Get-Date).ToUniversalTime().ToString('o')
         total      = $ids.Count
         titres     = @($retenus)
+        # THE ONES WINDOWS NO LONGER SERVED are kept in the state, not only in the log: the card reports them (20/09).
+        introuvables = @($missing)
         detail     = @($detail)
         echecs     = $failures
         ok         = $ok

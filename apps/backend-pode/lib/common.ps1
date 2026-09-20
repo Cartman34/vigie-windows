@@ -6694,6 +6694,105 @@ function Remove-VigieToastIdentity {
 }
 
 <#
+    EVERYTHING THAT GOES WRONG WITH WINDOWS UPDATE, IN ONE PLACE.
+
+    The card showed a number and nothing else. On 18/09, 15 updates were requested and 14 became "not found at install
+    time": only a Lenovo driver was installed, and the card still read "installation réussie". A few days earlier it
+    announced 46 to 48 updates where an online search found 4, and nothing recorded either figure, so neither could be
+    checked afterwards. The owner asked on 20/09 that the card report every problem, one way or another.
+
+    Every reading here is cheap: the update history is read in 35 ms, the System log through its own filter.
+    Nothing is installed, nothing is hidden, nothing is repaired: the card says, the user decides.
+#>
+function Get-WindowsUpdateAilments {
+    param(
+        [string]$Backend = (Get-BackendRoot),
+        # The local count the card shows, the last online scan, and the last installation run, as the probe knows them.
+        [int]$LocalCount = -1,
+        $Scan,
+        $Install
+    )
+    $found = @()
+
+    # --- What the history says: an update installed again and again, and the failures ---------
+    $history = @()
+    try {
+        $searcher = (New-Object -ComObject Microsoft.Update.Session).CreateUpdateSearcher()
+        $total = $searcher.GetTotalHistoryCount()
+        if ($total -gt 0) { $history = @($searcher.QueryHistory(0, [math]::Min(120, $total))) }
+    } catch { }
+    $recent = @($history | Where-Object { $_.Date -and $_.Date -gt (Get-Date).AddDays(-7) })
+    foreach ($group in @($recent | Where-Object { $_.ResultCode -eq 2 } | Group-Object Title | Where-Object { $_.Count -ge 3 })) {
+        $last = @($group.Group | Sort-Object Date -Descending)[0]
+        $found += [pscustomobject]@{
+            Status = 'warn'
+            Label  = 'Mise à jour réinstallée en boucle'
+            Detail = "$($group.Name) — installée avec succès $($group.Count) fois en sept jours, la dernière le " +
+                     $last.Date.ToLocalTime().ToString('dd/MM à HH:mm') + ". Windows la repropose sans cesse : la réinstaller ne change rien."
+        }
+    }
+    foreach ($entry in @($recent | Where-Object { $_.ResultCode -in 4, 5 })) {
+        $code = ''
+        try { $code = '0x{0:X8}' -f $entry.HResult } catch { }
+        $found += [pscustomobject]@{
+            Status = 'error'
+            Label  = $(if ($entry.ResultCode -eq 5) { 'Installation annulée' } else { 'Installation en échec' })
+            Detail = "$($entry.Title) — le " + $entry.Date.ToLocalTime().ToString('dd/MM à HH:mm') + $(if ($code) { ", code $code" } else { '' }) + '.'
+        }
+    }
+
+    # --- What the last installation run left behind -------------------------------------------
+    if ($Install -and "$($Install.phase)" -eq 'termine') {
+        $missing = @()
+        try { $missing = @($Install.introuvables) } catch { }
+        if ($missing.Count) {
+            $found += [pscustomobject]@{
+                Status = 'error'
+                Label  = "Mises à jour disparues au moment d'installer"
+                Detail = "$($missing.Count) des mises à jour demandées n'étaient plus servies par Windows quand l'installation a commencé : " +
+                         "elles venaient du cache local, qui les gardait alors que Windows ne les propose plus. Une recherche en ligne remet la liste à jour."
+            }
+        }
+    }
+
+    # --- The local cache against the last online search ----------------------------------------
+    if ($Scan -and $null -ne $Scan.trouvees -and $LocalCount -ge 0) {
+        $online = [int]$Scan.trouvees
+        $age = $null
+        try { $age = ([datetime]::UtcNow - (ConvertTo-UtcDate $Scan.at)).TotalDays } catch { }
+        if ([math]::Abs($LocalCount - $online) -ge 2) {
+            $found += [pscustomobject]@{
+                Status = 'warn'
+                Label  = "Le cache local et l'analyse en ligne ne disent pas la même chose"
+                Detail = "Le cache local de Windows en annonce $LocalCount, la dernière analyse en ligne en a trouvé $online" +
+                         $(if ($null -ne $age) { ', il y a ' + [math]::Round($age) + ' jour(s)' } else { '' }) +
+                         ". C'est l'analyse en ligne qui fait foi : « Recherche en ligne » remet le compte au clair."
+            }
+        }
+    }
+
+    # --- What Windows itself logged about its updates -------------------------------------------
+    $logged = @()
+    try {
+        $logged = @(Get-WinEvent -FilterHashtable @{ LogName = 'System'; ProviderName = 'Microsoft-Windows-WindowsUpdateClient'
+                                                     Level = 1, 2; StartTime = (Get-Date).AddDays(-7) } -ErrorAction Stop)
+    } catch { }
+    if ($logged.Count) {
+        $last = @($logged | Sort-Object TimeCreated -Descending)[0]
+        $message = ''
+        try { $message = (("$($last.Message)" -replace '\s+', ' ').Trim()) } catch { }
+        if ($message.Length -gt 180) { $message = $message.Substring(0, 179) + '…' }
+        $found += [pscustomobject]@{
+            Status = 'warn'
+            Label  = 'Erreurs de Windows Update dans le journal Système'
+            Detail = "$($logged.Count) en sept jours. La dernière, le " + $last.TimeCreated.ToString('dd/MM à HH:mm') + " : $message"
+        }
+    }
+
+    return $found
+}
+
+<#
     THE PENDING UPDATE LIST, BUILT ONCE FOR EVERYONE.
 
     It was built TWICE, and the two copies drifted exactly as the discipline warns. The card
