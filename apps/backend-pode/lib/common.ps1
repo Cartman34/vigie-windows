@@ -6743,14 +6743,17 @@ function Get-WindowsUpdateAilments {
 
     # --- What the last installation run left behind -------------------------------------------
     if ($Install -and "$($Install.phase)" -eq 'termine') {
+        # @($null) IS AN ARRAY OF ONE: an installation run from before these identifiers were kept counted one missing
+        # update that never existed, and the card went red for it (20/09).
         $missing = @()
-        try { $missing = @($Install.introuvables) } catch { }
+        try { $missing = @($Install.introuvables | Where-Object { $_ }) } catch { }
         if ($missing.Count) {
             $found += [pscustomobject]@{
                 Status = 'error'
                 Label  = "Mises à jour disparues au moment d'installer"
-                Detail = "$($missing.Count) des mises à jour demandées n'étaient plus servies par Windows quand l'installation a commencé : " +
-                         "elles venaient du cache local, qui les gardait alors que Windows ne les propose plus. Une recherche en ligne remet la liste à jour."
+                Detail = $(if ($missing.Count -eq 1) { "Une mise à jour demandée n'était plus servie" } else { "$($missing.Count) mises à jour demandées n'étaient plus servies" }) +
+                         " par Windows quand l'installation a commencé : elles venaient du cache local, qui les gardait alors que Windows ne les propose plus. " +
+                         "Une recherche en ligne remet la liste à jour."
             }
         }
     }
