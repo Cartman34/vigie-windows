@@ -685,6 +685,9 @@ versions, du point de vue de qui utilise Vigie.*
   (`Get-Counter` prenait 6 s pour les seuls moteurs), et les lectures d'E/S par processus, du parent d'un processus et
   de l'heure de démarrage passent par des appels directs, mesurés à l'identique
   (`notes/evidence/2026-09-18-system-calls-measured.md`). `check-probes` refuse désormais `Get-Counter`.
+- **Dans la liste des mises à jour, le nom d'un groupe coche le groupe** au lieu de le replier. Tout le reste de la
+  ligne — la flèche, l'espace après le nom, le compte — replie et déplie. L'en-tête se comporte enfin comme les lignes
+  en dessous, où cliquer le texte coche la case.
 - **La carte Windows Update rapporte ses problèmes** au lieu d'afficher un seul nombre : une mise à jour réinstallée en
   boucle (14 fois en sept jours pour un paquet du Store), une installation en échec ou annulée avec son code, les mises
   à jour que Windows ne servait plus au moment d'installer — 14 sur 15 le 18/09, et la carte disait « réussie » —, un

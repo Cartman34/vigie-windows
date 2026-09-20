@@ -703,7 +703,11 @@
   .hds-grp-h input{accent-color:var(--accent)}
   .hds-grp-fl{flex:none;color:var(--muted);font-size:10px;transition:transform .12s}
   .hds-grp[open] .hds-grp-fl{transform:rotate(90deg)}
-  .hds-grp-n{flex:1 1 auto;font-weight:600}
+  /* LE LIBELLE COCHE, LE RESTE DE LA LIGNE REPLIE (demande du 20/09). Le nom ne prend que sa largeur : tout
+     ce qui reste -- la fleche, le vide apres le nom, le compte -- garde le repli du <summary>. */
+  .hds-grp-n{flex:0 0 auto;font-weight:600;cursor:pointer;border-radius:6px;padding:1px 5px;margin:-1px -5px}
+  .hds-grp-n:hover{background:var(--panel-2);outline:1px solid var(--border)}
+  .hds-grp-fill{flex:1 1 auto;align-self:stretch}
   .hds-grp-c{flex:none;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
   .hds-grp-b{padding:2px 6px 6px}
   .hds-choice{display:grid;grid-template-columns:auto 1fr;gap:4px 9px;align-items:start;
@@ -1956,6 +1960,27 @@ function toggleProgressDone(btn,key){
   if(open) progressDoneOpen.add(key); else progressDoneOpen.delete(key);
   btn.textContent=(open?'Masquer ':'Afficher ')+btn.dataset.n+' mise(s) à jour réussie(s)';
 }
+/* L'EN-TETE D'UN GROUPE FAIT DEUX CHOSES, ET CHAQUE ZONE DIT LAQUELLE.
+
+   Tout clic sur un <summary> replie : la case et le nom du groupe repliaient donc au lieu de cocher, alors que
+   les lignes en dessous sont des <label> ou le texte coche. Signale le 20/09. Le nom et la case cochent ; la
+   fleche, le vide qui suit le nom et le compte replient. Le pli natif est annule pour ces deux zones seulement,
+   et la bascule de la case est alors faite a la main -- annuler le geste par defaut annule aussi son cochage.
+   Le clavier ne perd rien : Entree sur l'en-tete replie, Tab puis Espace cochent. */
+function onGroupHeadClick(ev, head){
+  const cb = head.querySelector('input[data-groupe]');
+  if(!cb) return;
+  const target = ev.target;
+  const onCheckbox = (target === cb);
+  const onName = target.closest && target.closest('.hds-grp-n');
+  if(!onCheckbox && !onName) return;   // fleche, vide, compte : le repli habituel
+  ev.preventDefault();
+  const flip = () => { cb.checked = !cb.checked; cb.dispatchEvent(new Event('change', { bubbles:true })); };
+  // SUR LA CASE, LA BASCULE ATTEND LA FIN DU GESTE. Annuler le pli annule aussi le cochage que le navigateur
+  // venait d'appliquer, et il le retablit APRES les gestionnaires : basculer tout de suite ne laissait rien.
+  if(onCheckbox) { queueMicrotask(flip); } else { flip(); }
+}
+
 function ouvrirDetail(key){
   const f=fieldsByKey[key]; if(!f) return;
   if(f.table && f.table.rows && f.table.rows.length){
@@ -2125,11 +2150,12 @@ const HDS = (function(){
         (a==='Windows'?0:1)-(b==='Windows'?0:1) || a.localeCompare(b,'fr'));
       return names.map(name=>{
         const inside = byGroup.get(name);
-        return '<details class="hds-grp" open><summary class="hds-grp-h">'
-          + '<span class="hds-grp-fl">&#9654;</span>'
-          + '<input type="checkbox" data-groupe="'+esc(name)+'" title="Cocher ou décocher tout ce constructeur">'
-          + '<span class="hds-grp-n">'+esc(name)+'</span>'
-          + '<span class="hds-grp-c">'+inside.length+groupWeight(inside)+'</span>'
+        return '<details class="hds-grp" open><summary class="hds-grp-h" onclick="onGroupHeadClick(event,this)">'
+          + '<span class="hds-grp-fl" title="Replier ou déplier ce groupe">&#9654;</span>'
+          + '<input type="checkbox" data-groupe="'+esc(name)+'" title="Cocher ou décocher tout ce groupe">'
+          + '<span class="hds-grp-n" title="Cocher ou décocher tout ce groupe">'+esc(name)+'</span>'
+          + '<span class="hds-grp-fill" title="Replier ou déplier ce groupe"></span>'
+          + '<span class="hds-grp-c" title="Replier ou déplier ce groupe">'+inside.length+groupWeight(inside)+'</span>'
           + '</summary><div class="hds-grp-b">'+inside.map(ligne).join('')+'</div></details>';
       }).join('');
     };
