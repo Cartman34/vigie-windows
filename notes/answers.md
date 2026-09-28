@@ -54,3 +54,4 @@ question.
 | 20/09 | La carte Windows Update doit-elle rapporter ses problèmes ? | Oui, tous, d'une manière ou d'une autre. | `doc/progress/implemented/status.md`, WU-PENDING |
 | 20/09 | Que fait un clic sur l'en-tête d'un groupe de mises à jour ? | Le libellé coche ou décoche ; tout le reste de la ligne replie ou déplie. | `apps/frontend-web/index.html`, `onGroupHeadClick` |
 | 20/09 | Le repli d'un groupe doit-il s'animer ? | Oui, et l'accordéon doit être un composant standard, réutilisable tel quel. | `doc/en/developing/design.md`, ligne « Accordion » ; `apps/atelier/design-systeme.html` |
+| 28/09 | Que doit faire Vigie pendant une partie, et que doit dire la carte Stockage ? | Un mode jeu qui allège et espace les autres cartes en rechargeant plus souvent ce qui sert en jeu ; et corriger les quatre points relevés. | `apps/backend-pode/lib/common.ps1` (mode jeu), `disk.probe.ps1` |

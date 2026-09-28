@@ -73,6 +73,109 @@ $racine = if ($scan -and $scan.root) { "$($scan.root)" } else { "$sysLettre\" }
 
 # Destination PERMANENTE (D114) : les parametres de stockage de Windows montrent ce qui
 # occupe le disque par categorie, que la carte alerte ou non.
+<#
+    WHERE THE SPACE WENT, WITHOUT ASKING FOR A SCAN.
+
+    On 28/09 the disk was down to 28 GB of 952 and the card could not say why: it showed the figure of the day, the
+    space analysis had never been run, and nothing compared today with last week. Two readings answer most of it,
+    and both are cheap.
+
+    THE TREND comes from the history Vigie already keeps (disk.free, one point per half-hour): it says how much was
+    lost over seven days, which turns "the disk is full" into "fifty gigabytes went somewhere since Monday".
+
+    THE VIRTUAL DISKS are looked up where they live, never by scanning the disk: WSL, Docker, Hyper-V, VirtualBox.
+    They grow with what they hold and NEVER give the space back on their own -- on 28/09 the WSL disk held 150.7 GB
+    for 93 GB of content. A full answer still comes from the space analysis, which the card offers.
+#>
+$histWindow = [TimeSpan]::FromDays(7)
+$trend = $null
+try { $trend = Get-MeasureHistory -Backend $backend -MeasureId 'disk.free' -Window $histWindow -MaxPoints 400 } catch { }
+$trendPoints = @()
+if ($trend -and $trend.points) { $trendPoints = @($trend.points) }
+if ($trendPoints.Count -ge 2) {
+    $first = [double]$trendPoints[0].v
+    $last  = [double]$trendPoints[-1].v
+    $delta = [math]::Round($last - $first)
+    $depuis = $null
+    try { $depuis = (ConvertTo-UtcDate $trendPoints[0].at).ToLocalTime() } catch { }
+    $mot = if ($delta -lt 0) { "$([math]::Abs($delta)) Go de moins" } elseif ($delta -gt 0) { "$delta Go de plus" } else { 'stable' }
+    $valeur = $mot + $(if ($depuis) { ' depuis le ' + $depuis.ToString('dd/MM') } else { '' })
+    # LOSING MORE THAN WHAT IS LEFT, in a week, is the real signal: at that pace the disk is full before the end of
+    # the next one.
+    $trendStatus = if ($delta -lt 0 -and [math]::Abs($delta) -ge $freeGB) { 'warn' } else { 'neutral' }
+    # ONE ROW PER DAY: the day the space went shows up, and that is what the question asks.
+    $parJour = @{}
+    foreach ($pt in $trendPoints) {
+        $quand = $null
+        try { $quand = (ConvertTo-UtcDate $pt.at).ToLocalTime() } catch { continue }
+        $jour = $quand.ToString('dd/MM')
+        if (-not $parJour.ContainsKey($jour)) { $parJour[$jour] = @{ Premier = [double]$pt.v; Dernier = [double]$pt.v; Ordre = $quand } }
+        $parJour[$jour].Dernier = [double]$pt.v
+    }
+    $rows = @(foreach ($jour in @($parJour.Keys | Sort-Object { $parJour[$_].Ordre })) {
+        $e = $parJour[$jour]
+        $ecart = [math]::Round($e.Dernier - $e.Premier)
+        ,@($jour, "$([math]::Round($e.Dernier)) Go", $(if ($ecart -eq 0) { '—' } elseif ($ecart -gt 0) { "+$ecart Go" } else { "$ecart Go" }))
+    })
+    $fields += New-Field -Key 'trend' -Label 'Évolution' -Value $valeur -Kind 'text' -Status $trendStatus `
+        -Table @{ columns = @('Jour', 'Libre en fin de journée', 'Variation'); rows = $rows } `
+        -Help "Ce que l'espace libre a fait sur sept jours, d'après les relevés que Vigie garde. La variation du jour dit quand la place est partie ; ce qui l'a prise se cherche avec « Analyser l'espace »."
+}
+
+# THE VIRTUAL DISKS, looked up where they live: no walk of the disk. Store packages hold theirs two levels down
+# (Packages\<paquet>\LocalState\ext4.vhdx), and that walk alone took 3.1 s on 28/09 -- far too much for a card
+# recomputed every five seconds. The list is therefore kept half an hour in the cache: a virtual disk does not
+# appear or vanish within the minute.
+$vdisks = @()
+$vdiskFile = Get-VarPath -Backend $backend -Kind 'cache' -File 'virtual-disks.json'
+$vdiskCache = $null
+if (Test-Path $vdiskFile) { try { $vdiskCache = Get-Content $vdiskFile -Raw | ConvertFrom-Json } catch { } }
+$vdiskFresh = $false
+if ($vdiskCache -and $vdiskCache.at) {
+    try { $vdiskFresh = (([datetime]::UtcNow - (ConvertTo-UtcDate $vdiskCache.at)).TotalMinutes -lt 30) } catch { }
+}
+if ($vdiskFresh) {
+    foreach ($v in @($vdiskCache.disks)) {
+        if (-not $v -or -not $v.Chemin) { continue }
+        $vdisks += [pscustomobject]@{ Nom = "$($v.Nom)"; Go = [double]$v.Go; Quand = (ConvertTo-UtcDate $v.Quand).ToLocalTime(); Chemin = "$($v.Chemin)" }
+    }
+} else {
+    $vdiskRoots = @()
+    foreach ($profil in @(Get-ChildItem -Path (Join-Path $env:SystemDrive 'Users') -Directory -ErrorAction SilentlyContinue)) {
+        $local = Join-Path $profil.FullName 'AppData\Local'
+        $vdiskRoots += [pscustomobject]@{ Path = (Join-Path $local 'Packages'); Depth = 2; Ext = @('*.vhdx') }   # WSL and Store distributions
+        $vdiskRoots += [pscustomobject]@{ Path = (Join-Path $local 'Docker\wsl'); Depth = 3; Ext = @('*.vhdx') }
+        $vdiskRoots += [pscustomobject]@{ Path = (Join-Path $profil.FullName 'VirtualBox VMs'); Depth = 3; Ext = @('*.vdi', '*.vmdk', '*.vhd') }
+    }
+    $vdiskRoots += [pscustomobject]@{ Path = (Join-Path $env:ProgramData 'Microsoft\Windows\Virtual Hard Disks'); Depth = 2; Ext = @('*.vhdx', '*.vhd') }
+    foreach ($racine in $vdiskRoots) {
+        if (-not (Test-PathSafe $racine.Path)) { continue }
+        foreach ($ext in $racine.Ext) {
+            foreach ($f in @(Get-ChildItem -LiteralPath $racine.Path -Filter $ext -File -Recurse -Depth $racine.Depth -Force -ErrorAction SilentlyContinue)) {
+                if ($f.Length -lt 5GB) { continue }
+                $vdisks += [pscustomobject]@{ Nom = $f.Name; Go = [math]::Round($f.Length / 1GB, 1); Quand = $f.LastWriteTime; Chemin = $f.FullName }
+            }
+        }
+    }
+    try {
+        Update-StateJson -Path $vdiskFile -Set @{ at = ([datetime]::UtcNow).ToString('o')
+                                                  disks = @($vdisks | ForEach-Object { @{ Nom = $_.Nom; Go = $_.Go; Quand = $_.Quand.ToUniversalTime().ToString('o'); Chemin = $_.Chemin } }) } | Out-Null
+    } catch { }
+}
+if ($vdisks.Count) {
+    $vdisks = @($vdisks | Sort-Object Go -Descending)
+    $sommeGo = [math]::Round((($vdisks | Measure-Object Go -Sum).Sum), 1)
+    # INFORMATION, NOT AN ALERT: a large virtual disk is normal, and no button of Vigie compacts it -- compacting is
+    # the user's gesture, machine stopped. What alerts is the free space and its trend, just above.
+    $vdStatus = 'neutral'
+    $fields += New-Field -Key 'vdisks' -Label 'Disques virtuels' -Value ("$sommeGo Go pour $($vdisks.Count) disque(s)") -Kind 'text' -Status $vdStatus `
+        -Table @{ columns = @('Fichier', 'Taille', 'Écrit le', 'Emplacement')
+                  rows = @(foreach ($v in @($vdisks | Select-Object -First 8)) { ,@($v.Nom, "$($v.Go) Go", $v.Quand.ToString('dd/MM HH:mm'), (Split-Path $v.Chemin -Parent)) }) } `
+        -Help "Les disques des machines virtuelles (WSL, Docker, Hyper-V, VirtualBox). Ils grossissent avec ce qu'ils contiennent et ne rendent jamais la place d'eux-mêmes, même quand on efface à l'intérieur." `
+        -Guide ("Un disque virtuel garde sa taille : effacer des fichiers à l'intérieur libère la place pour la machine virtuelle, pas pour Windows." + [Environment]::NewLine + [Environment]::NewLine +
+                "Pour WSL : « wsl --manage <distribution> --set-sparse true » lui fait rendre la place au fur et à mesure, après « wsl --shutdown ». Pour Hyper-V : « Optimize-VHD ». Dans les deux cas, l'opération se fait machine virtuelle arrêtée, et Vigie ne la lance pas d'elle-même.")
+}
+
 $actions = @(New-Action -Id 'open-storage-settings' -Label 'Paramètres de stockage' -Kind 'manual' -Severity 'info' `
                         -Help 'Ouvre les paramètres de stockage de Windows : ce qui occupe le disque, et l''assistant de stockage.'
              New-Action -Id 'disk-cleanup' -Severity 'fix' -Label 'Nettoyage de disque...' -Kind 'manual' `

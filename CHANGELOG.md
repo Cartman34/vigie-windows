@@ -685,6 +685,12 @@ versions, du point de vue de qui utilise Vigie.*
   (`Get-Counter` prenait 6 s pour les seuls moteurs), et les lectures d'E/S par processus, du parent d'un processus et
   de l'heure de démarrage passent par des appels directs, mesurés à l'identique
   (`notes/evidence/2026-09-18-system-calls-measured.md`). `check-probes` refuse désormais `Get-Counter`.
+- **La carte Stockage dit où va la place, sans analyse manuelle** : l'évolution de l'espace libre sur sept jours, avec
+  la variation de chaque jour, et les disques virtuels (WSL, Docker, Hyper-V, VirtualBox) qui grossissent et ne rendent
+  jamais rien — 150,7 Go pour le disque de WSL le 28/09, quand le disque n'avait plus que 28 Go libres. Leur recherche
+  est bornée aux emplacements connus et gardée une demi-heure : 0,08 s par recalcul au lieu de 3,1 s.
+- L'historique des sentinelles s'affiche en heure locale, et non plus en UTC : deux heures d'écart qui ont d'abord fait
+  croire qu'aucune mesure n'avait été prise pendant une partie.
 - **Vigie se met en retrait pendant une partie** : mesuré le 28/09 sur une session de 77 minutes, elle recalculait
   ses cartes 383 fois, 1 582 secondes de calcul, soit 34 % d'un cœur en continu — dont 400 s pour la seule carte des
   paquets. Pendant une partie, les cartes de la partie gardent leur cadence, les autres passent à un quart d'heure au

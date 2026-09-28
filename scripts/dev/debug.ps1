@@ -116,7 +116,11 @@ switch ("$Target".ToLower()) {
             $h = Invoke-RestMethod -Uri ("http://127.0.0.1:$port/api/v1/history/$id" + '?window=7d') -WebSession $session -TimeoutSec 20
             Write-Ok (Get-Label 'debug.sentinelle-historique' $id @($h.points).Count)
             foreach ($p in @($h.points | Select-Object -Last $Lines)) {
-                Write-Detail (Get-Label 'debug.sentinelle-point' $p.at $p.from $p.v (@($p.cards) -join ', '))
+                # IN LOCAL TIME. The history keeps UTC (D44); printed raw, it read two hours early and sent the
+                # investigation of 28/09 looking for a game session that had never happened at that hour.
+                $quand = "$($p.at)"
+                try { $quand = (ConvertTo-UtcDate $p.at).ToLocalTime().ToString('dd/MM/yyyy HH:mm:ss') } catch { }
+                Write-Detail (Get-Label 'debug.sentinelle-point' $quand $p.from $p.v (@($p.cards) -join ', '))
             }
             $rendu = $true
         } catch {
