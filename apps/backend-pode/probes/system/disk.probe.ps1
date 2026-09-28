@@ -98,8 +98,14 @@ if ($trendPoints.Count -ge 2) {
     $delta = [math]::Round($last - $first)
     $depuis = $null
     try { $depuis = (ConvertTo-UtcDate $trendPoints[0].at).ToLocalTime() } catch { }
-    $mot = if ($delta -lt 0) { "$([math]::Abs($delta)) Go de moins" } elseif ($delta -gt 0) { "$delta Go de plus" } else { 'stable' }
-    $valeur = $mot + $(if ($depuis) { ' depuis le ' + $depuis.ToString('dd/MM') } else { '' })
+    # LA VALEUR REPOND, COURTE (D89) : « -42 Go en 7 j », et la phrase entiere descend dans le detail. Sur deux lignes,
+    # elle debordait de la carte (signale le 28/09).
+    $jourCount = 7
+    try { $jourCount = [int][Math]::Max(1, [Math]::Round(((ConvertTo-UtcDate $trendPoints[-1].at) - (ConvertTo-UtcDate $trendPoints[0].at)).TotalDays)) } catch { }
+    $mot = if ($delta -lt 0) { "-$([math]::Abs($delta)) Go en $jourCount j" } elseif ($delta -gt 0) { "+$delta Go en $jourCount j" } else { 'Stable' }
+    $valeur = $mot
+    $phrase = $(if ($delta -lt 0) { "$([math]::Abs($delta)) Go de moins" } elseif ($delta -gt 0) { "$delta Go de plus" } else { 'Espace libre stable' }) +
+              $(if ($depuis) { ' depuis le ' + $depuis.ToString('dd/MM') } else { '' }) + '.'
     # LOSING MORE THAN WHAT IS LEFT, in a week, is the real signal: at that pace the disk is full before the end of
     # the next one.
     $trendStatus = if ($delta -lt 0 -and [math]::Abs($delta) -ge $freeGB) { 'warn' } else { 'neutral' }
@@ -113,9 +119,11 @@ if ($trendPoints.Count -ge 2) {
         if ($parJourGo -gt 0) { $jours = [int][Math]::Floor($freeGB / $parJourGo) }
     }
     if ($null -ne $jours) {
-        $valeur += $(if ($jours -le 0) { ' — plein au rythme actuel' }
-                     elseif ($jours -eq 1) { ' — plein demain à ce rythme' }
-                     else { " — plein dans $jours jours à ce rythme" })
+        # CE QUI PRESSE PASSE DEVANT : « Plein dans 5 jours » est la reponse ; la baisse, elle, est le detail.
+        $valeur = $(if ($jours -le 0) { 'Plein au rythme actuel' }
+                    elseif ($jours -eq 1) { 'Plein demain à ce rythme' }
+                    else { "Plein dans $jours jours" })
+        $phrase += " Au rythme des $jourCount derniers jours, le disque est plein dans $jours jour(s)."
         if ($jours -le 14) { $trendStatus = 'warn' }
     }
     # ONE ROW PER DAY: the day the space went shows up, and that is what the question asks.
@@ -134,7 +142,9 @@ if ($trendPoints.Count -ge 2) {
     })
     $fields += New-Field -Key 'trend' -Label 'Évolution' -Value $valeur -Kind 'text' -Status $trendStatus `
         -Table @{ columns = @('Jour', 'Libre en fin de journée', 'Variation'); rows = $rows } `
-        -Help "Ce que l'espace libre a fait sur sept jours, d'après les relevés que Vigie garde. La variation du jour dit quand la place est partie ; ce qui l'a prise se cherche avec « Analyser l'espace »."
+        -Guide ($phrase + [Environment]::NewLine + [Environment]::NewLine +
+                "Le tableau donne l'espace libre en fin de journée et la variation de chaque jour : c'est là qu'on voit QUAND la place est partie. Ce qui l'a prise se cherche avec « Analyser l'espace ».") `
+        -Help "Ce que l'espace libre a fait ces derniers jours, d'après les relevés que Vigie garde."
 }
 
 # THE VIRTUAL DISKS, looked up where they live: no walk of the disk. Store packages hold theirs two levels down
@@ -222,8 +232,14 @@ if ($vdisks.Count) {
     # THE NAME SAYS WHAT IT IS: the old wording taught nothing -- one could not even tell it was WSL
     # (reported 28/09). The value names the largest, and the table names each one with the account it belongs to.
     $plusGros = $vdisks[0]
-    $vdValue = "$($plusGros.Machine) : $($plusGros.Go.ToString('N1', $fr)) Go"
-    if ($vdisks.Count -gt 1) { $vdValue += " · $($vdisks.Count) disques, $($sommeGo.ToString('N1', $fr)) Go au total" }
+    # COURT, MEME QUAND LE NOM EST LONG (D89) : « Sous-système Linux WSL (Ubuntu 24.04 LTS) : 150,7 Go » tenait sur
+    # deux lignes. Le nom complet vit dans le tableau, la valeur garde le mot qui suffit à reconnaitre la machine.
+    $nomCourt = "$($plusGros.Machine)"
+    $parenthese = $nomCourt.IndexOf([char]40)
+    if ($parenthese -gt 0) { $nomCourt = $nomCourt.Substring(0, $parenthese).Trim() }
+    if ($nomCourt.StartsWith('Sous-système Linux WSL')) { $nomCourt = 'WSL' }
+    $vdValue = "$nomCourt $($plusGros.Go.ToString('N1', $fr)) Go"
+    if ($vdisks.Count -gt 1) { $vdValue += " · $($vdisks.Count) disques" }
     $fields += New-Field -Key 'vdisks' -Label 'Disques virtuels' -Value $vdValue -Kind 'text' -Status $vdStatus `
         -Table @{ columns = @('Machine virtuelle', 'Compte', 'Place prise', 'Écrit le')
                   rows = @(foreach ($v in @($vdisks | Select-Object -First 8)) { ,@($v.Machine, $v.Compte, ($v.Go.ToString('N1', $fr) + ' Go'), $v.Quand.ToString('dd/MM HH:mm')) })

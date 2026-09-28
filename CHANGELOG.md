@@ -696,6 +696,10 @@ versions, du point de vue de qui utilise Vigie.*
 - **Un bouton envoie une vraie notification d'essai** (module Débogage) et dit quel outil l'a affichée. Les alertes
   ajoutées en septembre — mémoire engagée, ports réseau, erreurs système, emballement de Vigie — n'avaient jamais été
   vues à l'écran : un mécanisme que personne n'a vu fonctionner est une promesse, pas une fonction.
+- **Deux valeurs de la carte Stockage débordaient sur deux lignes** : « 42 Go de moins depuis le 21/09 — plein dans
+  5 jours à ce rythme » et « Sous-système Linux WSL (Ubuntu 24.04 LTS) : 150,7 Go ». La règle du projet veut une
+  valeur qui répond, courte : « Plein dans 5 jours » et « WSL 150,7 Go ». La phrase entière et le nom complet vivent
+  désormais dans le détail et le tableau.
 - **Le panneau ne s'ouvrait plus** : un renommage avait laissé « async async function » dans la page, et une seule
   faute de syntaxe tue tout son script — Vigie restait sur son écran de chargement. Corrigé, et surtout : un
   vérificateur, `check-front`, analyse désormais le script de la page à chaque passe (`node` de WSL quand Windows n'en
