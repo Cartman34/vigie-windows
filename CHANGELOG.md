@@ -696,6 +696,10 @@ versions, du point de vue de qui utilise Vigie.*
 - **Un bouton envoie une vraie notification d'essai** (module Débogage) et dit quel outil l'a affichée. Les alertes
   ajoutées en septembre — mémoire engagée, ports réseau, erreurs système, emballement de Vigie — n'avaient jamais été
   vues à l'écran : un mécanisme que personne n'a vu fonctionner est une promesse, pas une fonction.
+- **Le panneau ne s'ouvrait plus** : un renommage avait laissé « async async function » dans la page, et une seule
+  faute de syntaxe tue tout son script — Vigie restait sur son écran de chargement. Corrigé, et surtout : un
+  vérificateur, `check-front`, analyse désormais le script de la page à chaque passe (`node` de WSL quand Windows n'en
+  a pas), parce qu'aucun des onze autres ne lisait le JavaScript.
 - **Une mise à jour ne laisse plus un compte sans app cliente** : Windows garde l'état « en cours » d'une tâche dont
   le processus est mort, et refuse alors de la démarrer (0x800710E0). Le 28/09, le compte qui avait demandé la mise à
   jour s'est retrouvé sans icône. La tâche fantôme est désormais terminée avant d'être relancée.

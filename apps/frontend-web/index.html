@@ -2125,7 +2125,7 @@ function recapHtml(session){
     `<table class="hds-table"><thead><tr><th>Application</th><th>Présente</th><th>CPU moyen</th><th>GPU moyen</th><th>Pointe CPU</th></tr></thead><tbody>${appRows}</tbody></table>`);
   return intro + blocJams + blocJeu + blocApps;
 }
-async async function runGamingAction(type, params){
+async function runGamingAction(type, params){
   const r = await fetch(API+'/actions', { method:'POST',
       headers:{ Authorization:'Bearer '+TOKEN, 'Content-Type':'application/json' },
       body: JSON.stringify(params ? { type, module:'gaming', params } : { type, module:'gaming' }) });
