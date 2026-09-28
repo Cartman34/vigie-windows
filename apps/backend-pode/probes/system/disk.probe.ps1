@@ -141,6 +141,38 @@ if ($trendPoints.Count -ge 2) {
 # (Packages\<paquet>\LocalState\ext4.vhdx), and that walk alone took 3.1 s on 28/09 -- far too much for a card
 # recomputed every five seconds. The list is therefore kept half an hour in the cache: a virtual disk does not
 # appear or vanish within the minute.
+# WHAT THIS VIRTUAL DISK IS, in words: its file name says nothing ("ext4.vhdx"), its place says everything. The path
+# is read segment by segment -- no regular expression, no backslash to escape, and the intent stays legible.
+function Get-VirtualMachineName {
+    param([string]$Path)
+    $segments = @("$Path".Split([char]92) | Where-Object { $_ })
+    for ($i = 0; $i -lt $segments.Count - 1; $i++) {
+        $segment = $segments[$i]
+        if ($segment -eq 'Packages') {
+            # "CanonicalGroupLimited.Ubuntu24.04LTS_79rhkp1fndgsc": the publisher, the distribution, the signature.
+            $paquet = ($segments[$i + 1] -split '_')[0]
+            # Everything after the publisher: "CanonicalGroupLimited.Ubuntu24.04LTS" gives "Ubuntu24.04LTS", not "04LTS".
+            $point = $paquet.IndexOf([char]46)
+            $court = $(if ($point -ge 0) { $paquet.Substring($point + 1) } else { $paquet })
+            $court = [regex]::Replace($court, '(?<=[A-Za-z])(?=[0-9])', ' ')
+            if ($court.EndsWith('LTS')) { $court = $court.Substring(0, $court.Length - 3).Trim() + ' LTS' }
+            return "Sous-système Linux WSL ($($court.Trim()))"
+        }
+        if ($segment -eq 'Docker') { return 'Docker Desktop' }
+        if ($segment -eq 'VirtualBox VMs') { return "Machine virtuelle $($segments[$i + 1]) (VirtualBox)" }
+        if ($segment -eq 'Virtual Hard Disks') { return "Machine virtuelle Hyper-V ($(Split-Path $Path -Leaf))" }
+    }
+    return (Split-Path $Path -Leaf)
+}
+# WHOSE IS IT? The disk lives in an account's profile, and that account decides its fate.
+function Get-OwningAccountName {
+    param([string]$Path)
+    $segments = @("$Path".Split([char]92) | Where-Object { $_ })
+    for ($i = 0; $i -lt $segments.Count - 1; $i++) {
+        if ($segments[$i] -eq 'Users') { return $segments[$i + 1] }
+    }
+    return 'tous'
+}
 $vdisks = @()
 $vdiskFile = Get-VarPath -Backend $backend -Kind 'cache' -File 'virtual-disks.json'
 $vdiskCache = $null
@@ -152,7 +184,8 @@ if ($vdiskCache -and $vdiskCache.at) {
 if ($vdiskFresh) {
     foreach ($v in @($vdiskCache.disks)) {
         if (-not $v -or -not $v.Chemin) { continue }
-        $vdisks += [pscustomobject]@{ Nom = "$($v.Nom)"; Go = [double]$v.Go; Quand = (ConvertTo-UtcDate $v.Quand).ToLocalTime(); Chemin = "$($v.Chemin)" }
+        $vdisks += [pscustomobject]@{ Nom = "$($v.Nom)"; Machine = "$($v.Machine)"; Compte = "$($v.Compte)"
+                                      Go = [double]$v.Go; Quand = (ConvertTo-UtcDate $v.Quand).ToLocalTime(); Chemin = "$($v.Chemin)" }
     }
 } else {
     $vdiskRoots = @()
@@ -168,13 +201,16 @@ if ($vdiskFresh) {
         foreach ($ext in $racine.Ext) {
             foreach ($f in @(Get-ChildItem -LiteralPath $racine.Path -Filter $ext -File -Recurse -Depth $racine.Depth -Force -ErrorAction SilentlyContinue)) {
                 if ($f.Length -lt 5GB) { continue }
-                $vdisks += [pscustomobject]@{ Nom = $f.Name; Go = [math]::Round($f.Length / 1GB, 1); Quand = $f.LastWriteTime; Chemin = $f.FullName }
+                $vdisks += [pscustomobject]@{ Nom = $f.Name; Machine = (Get-VirtualMachineName -Path $f.FullName)
+                                              Compte = (Get-OwningAccountName -Path $f.FullName)
+                                              Go = [math]::Round($f.Length / 1GB, 1); Quand = $f.LastWriteTime; Chemin = $f.FullName }
             }
         }
     }
     try {
         Update-StateJson -Path $vdiskFile -Set @{ at = ([datetime]::UtcNow).ToString('o')
-                                                  disks = @($vdisks | ForEach-Object { @{ Nom = $_.Nom; Go = $_.Go; Quand = $_.Quand.ToUniversalTime().ToString('o'); Chemin = $_.Chemin } }) } | Out-Null
+                                                  disks = @($vdisks | ForEach-Object { @{ Nom = $_.Nom; Machine = $_.Machine; Compte = $_.Compte
+                                                                                          Go = $_.Go; Quand = $_.Quand.ToUniversalTime().ToString('o'); Chemin = $_.Chemin } }) } | Out-Null
     } catch { }
 }
 if ($vdisks.Count) {
@@ -183,9 +219,15 @@ if ($vdisks.Count) {
     # INFORMATION, NOT AN ALERT: a large virtual disk is normal, and no button of Vigie compacts it -- compacting is
     # the user's gesture, machine stopped. What alerts is the free space and its trend, just above.
     $vdStatus = 'neutral'
-    $fields += New-Field -Key 'vdisks' -Label 'Disques virtuels' -Value ("$sommeGo Go pour $($vdisks.Count) disque(s)") -Kind 'text' -Status $vdStatus `
-        -Table @{ columns = @('Fichier', 'Taille', 'Écrit le', 'Emplacement')
-                  rows = @(foreach ($v in @($vdisks | Select-Object -First 8)) { ,@($v.Nom, "$($v.Go) Go", $v.Quand.ToString('dd/MM HH:mm'), (Split-Path $v.Chemin -Parent)) }) } `
+    # THE NAME SAYS WHAT IT IS: the old wording taught nothing -- one could not even tell it was WSL
+    # (reported 28/09). The value names the largest, and the table names each one with the account it belongs to.
+    $plusGros = $vdisks[0]
+    $vdValue = "$($plusGros.Machine) : $($plusGros.Go.ToString('N1', $fr)) Go"
+    if ($vdisks.Count -gt 1) { $vdValue += " · $($vdisks.Count) disques, $($sommeGo.ToString('N1', $fr)) Go au total" }
+    $fields += New-Field -Key 'vdisks' -Label 'Disques virtuels' -Value $vdValue -Kind 'text' -Status $vdStatus `
+        -Table @{ columns = @('Machine virtuelle', 'Compte', 'Place prise', 'Écrit le')
+                  rows = @(foreach ($v in @($vdisks | Select-Object -First 8)) { ,@($v.Machine, $v.Compte, ($v.Go.ToString('N1', $fr) + ' Go'), $v.Quand.ToString('dd/MM HH:mm')) })
+                  tips = @(foreach ($v in @($vdisks | Select-Object -First 8)) { $v.Chemin }) } `
         -Help "Les disques des machines virtuelles (WSL, Docker, Hyper-V, VirtualBox). Ils grossissent avec ce qu'ils contiennent et ne rendent jamais la place d'eux-mêmes, même quand on efface à l'intérieur." `
         -Guide ("Un disque virtuel garde sa taille : effacer des fichiers à l'intérieur libère la place pour la machine virtuelle, pas pour Windows." + [Environment]::NewLine + [Environment]::NewLine +
                 "Pour WSL : « wsl --manage <distribution> --set-sparse true » lui fait rendre la place au fur et à mesure, après « wsl --shutdown ». Pour Hyper-V : « Optimize-VHD ». Dans les deux cas, l'opération se fait machine virtuelle arrêtée, et Vigie ne la lance pas d'elle-même.")

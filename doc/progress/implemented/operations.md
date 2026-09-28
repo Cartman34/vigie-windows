@@ -44,6 +44,8 @@ définition de `../targeting/operations.md`, section « Ce qu'est une opération
 | `net-speedtest` | `net.probe.ps1` | tous | serveur | synchrone | appels HTTP, la réponse attend la mesure | sans objet |
 | `open-device-manager` | `gaming.probe.ps1` | tous | session | synchrone | `Start-ChildProcess` | sans objet |
 | `open-event-viewer` | `events.probe.ps1` | tous | session | synchrone | `Start-Process` | sans objet |
+| `game-recap` | `gaming.probe.ps1`, `index.html` | tous | serveur | synchrone | lecture de `var/history/game-sessions.jsonl` | sans objet |
+| `game-sessions` | `gaming.probe.ps1`, `index.html` | tous | serveur | synchrone | lecture de `var/history/game-sessions.jsonl` | sans objet |
 | `notify-test` | `vigie.probe.ps1` | tous | session | synchrone | `Show-VigieNotification` | sans objet |
 | `open-folder` | `history.probe.ps1` | tous | session | synchrone | `Start-ChildProcess` | sans objet |
 | `open-gaming-settings` | `gaming.probe.ps1` | tous | session | synchrone | `Start-Process` | sans objet |

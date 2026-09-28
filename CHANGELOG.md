@@ -696,6 +696,12 @@ versions, du point de vue de qui utilise Vigie.*
 - **Un bouton envoie une vraie notification d'essai** (module Débogage) et dit quel outil l'a affichée. Les alertes
   ajoutées en septembre — mémoire engagée, ports réseau, erreurs système, emballement de Vigie — n'avaient jamais été
   vues à l'écran : un mécanisme que personne n'a vu fonctionner est une promesse, pas une fonction.
+- **Le récapitulatif d'une partie s'ouvre dans une fenêtre**, jamais sur la carte : les bouchons d'abord, puis le jeu,
+  puis ce que chaque application a pris. La même fenêtre par toutes les portes — le bouton de la carte, la liste des
+  parties précédentes, et bientôt la fin d'une partie. La carte ne garde qu'une ligne : « ACOdyssey, 1 h 35, terminée
+  à 11:50 — Processeur saturé 14 min ».
+- **La carte Stockage nomme les disques virtuels** : « Sous-système Linux WSL (Ubuntu 24.04 LTS) : 150,7 Go » au lieu
+  de « 150,7 Go pour 1 disque(s) », et le tableau dit à quel compte appartient chacun.
 - **Une partie garde ses bouchons, pas seulement ses gourmands** : un relevé compte comme bouchon quand la machine est
   au plafond **et** qu'une application étrangère au jeu prend une part à elle seule — 85 % de processeur avec un gêneur
   à 10 %, 95 % de carte graphique avec un gêneur à 5 %, ou 90 % de mémoire engagée, où la machine bride seule. Un jeu

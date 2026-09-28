@@ -4404,6 +4404,23 @@ function Close-GameTally {
     } catch { return $null }
 }
 
+# THE SESSIONS KEPT, most recent first. Bounded by -Last: the file holds one line per session, and nobody reads
+# forty of them at once. A line that does not parse is skipped, never fatal.
+function Get-GameSessions {
+    param([string]$Backend = (Get-BackendRoot), [int]$Last = 40)
+    $out = @()
+    try {
+        $path = Get-GameSessionsPath -Backend $Backend
+        if (-not (Test-PathSafe $path)) { return @() }
+        foreach ($line in @(Get-Content -LiteralPath $path -Tail $Last -ErrorAction Stop)) {
+            if (-not "$line".Trim()) { continue }
+            try { $out += ($line | ConvertFrom-Json) } catch { }
+        }
+    } catch { return @() }
+    [array]::Reverse($out)
+    return $out
+}
+
 # THE LAST SESSION KEPT, or $null. Read backwards: the file holds one line per session, the last one is the last game.
 function Get-LastGameSession {
     param([string]$Backend = (Get-BackendRoot))

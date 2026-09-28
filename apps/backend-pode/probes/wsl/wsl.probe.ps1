@@ -92,7 +92,7 @@ $statutStat  = if ($running) { 'ok' } else { $inactiveSeverity }
 # WSL absent reste neutre : on ne reproche pas a la machine de ne pas l'avoir installe.
 $st = if (-not $installed) { 'neutral' } elseif ($running -and $vmStatus -eq 'warn') { 'warn' } elseif ($running) { 'ok' } else { $inactiveSeverity }
 
-# Trio start/restart/stop : uniquement les boutons pertinents selon l'etat.
+# Start, restart, stop: only the buttons the current state makes sense of.
 $wslActions = @()
 if ($installed) {
     if ($running) {

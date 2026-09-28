@@ -626,25 +626,25 @@ if ($lastSession -and $lastSession.seconds -ge 60) {
     $fin = $null
     try { $fin = (ConvertTo-UtcDate $lastSession.endedAt).ToLocalTime() } catch { }
     $quand = if ($fin) { $(if ($fin.Date -eq (Get-Date).Date) { 'terminée à ' + $fin.ToString('HH:mm') } else { 'terminée le ' + $fin.ToString('dd/MM à HH:mm') }) } else { '' }
-    $recapRows = @(foreach ($a in @($lastSession.apps | Select-Object -First 8)) {
-        $part = if ([int]$lastSession.seconds -gt 0) { [int](100 * [int]$a.seconds / [int]$lastSession.seconds) } else { 0 }
-        $seenText = Format-Span -Secondes ([int]$a.seconds)
-        ,@("$($a.label)", "$seenText ($part %)", (Format-Share $a.cpu), (Format-Share $a.gpu), (Format-Share $a.cpuMax))
-    })
-    $tete = @($lastSession.apps | Select-Object -First 1)
-    $recapValue = if ($tete.Count) {
-        "$($lastSession.game), $spanText — surtout $($tete[0].label), $(Format-Share $tete[0].cpu) de processeur en moyenne"
-    } else { "$($lastSession.game), $spanText" }
+    # ONE LINE ON THE CARD: the detail lives in the popin (owner, 28/09). The line says which game and what got in
+    # the way; the button opens the rest.
+    $topJam = @($lastSession.jams) | Select-Object -First 1
+    $recapValue = "$($lastSession.game), $spanText" + $(if ($quand) { ", $quand" } else { '' })
+    if ($topJam) { $recapValue += " — $($topJam.label) " + (Format-Span -Secondes ([int]$topJam.seconds)) }
     $fields += New-Field -Key 'last-session' -Label 'Dernière partie' -Value $recapValue -Kind 'text' -Status 'neutral' `
-        -Table @{ columns = @('Application', 'Présente', 'CPU moyen', 'GPU moyen', 'Pointe CPU'); rows = $recapRows } `
-        -Help "Ce que la dernière partie a coûté, application par application : la part de la partie où chacune était là, sa consommation moyenne pendant ce temps, et sa pointe. Relevé toutes les trente secondes pendant la partie." `
-        -Guide $(if ($quand) { "Partie $quand." } else { $null })
+        -FixAction 'game-recap' `
+        -Help "La dernière partie gardée : sa durée, et le bouchon qui l'a marquée s'il y en a eu un. Le récapitulatif complet — ce qui a gêné, le jeu, et ce que chaque application a pris — s'ouvre dans sa fenêtre."
 }
 
 New-ModuleObject -Id 'gaming' -Theme 'gaming' -Label 'Session de jeu' -Status $statut -Fields $fields `
     -Mode $(if ($jeu) { 'game' } else { $null }) `
     -Actions @(
-        New-Action -Id 'open-gaming-settings' -Label 'Paramètres de jeu' -Kind 'manual' -Severity 'info' `
+        # THE RECAP IS A PERMANENT DESTINATION (D114): it reopens whenever wanted, not only at the end of a session.
+    New-Action -Id 'game-recap' -Label 'Voir le récapitulatif' -Kind 'dialog' -Severity 'info' `
+        -Help "Ouvre le récapitulatif de la dernière partie : ce qui l'a gênée, le jeu, et ce que chaque application a pris."
+    New-Action -Id 'game-sessions' -Label 'Parties précédentes' -Kind 'dialog' -Severity 'info' `
+        -Help "La liste des parties gardées, trente jours, avec le bouchon marquant de chacune."
+    New-Action -Id 'open-gaming-settings' -Label 'Paramètres de jeu' -Kind 'manual' -Severity 'info' `
                    -Help 'Ouvre les réglages de jeu de Windows : barre de jeu, mode Jeu, captures.'
         New-Action -Id 'open-task-manager' -Label 'Gestionnaire des tâches' -Kind 'manual' -Severity 'info' `
                    -Help 'Ouvre le Gestionnaire des tâches pour fermer ce qui pompe pendant la partie.'

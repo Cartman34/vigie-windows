@@ -2082,6 +2082,92 @@ function ouvrirDetail(key){
   }
   HDS.info(f.label, f.guide || f.help || L('ui.aucun-detail-disponible'), {variant:'info'});
 }
+/* THE RECAP OF A GAME SESSION, ALWAYS IN A POPIN.
+
+   There is too much in it for a card (owner, 28/09): the bottlenecks, the game, then every application. And the same
+   window opens through every door -- the card's button, the end of a session, the notification, the list of past
+   games -- so that one fact never gets two layouts.
+
+   THE BOTTLENECKS COME FIRST: what got in the way answers the question asked after a session that stuttered. The
+   rest explains. */
+function shortSpan(secondes){
+  const s = Math.max(0, Number(secondes) || 0);
+  if (s >= 3600) { const h = Math.floor(s / 3600); return `${h} h ${String(Math.floor((s % 3600) / 60)).padStart(2,'0')}`; }
+  if (s >= 60) { return `${Math.floor(s / 60)} min`; }
+  return `${Math.round(s)} s`;
+}
+function asPercent(valeur){ return String(valeur).replace('.', ',') + ' %'; }
+function recapHtml(session){
+  const jams = session.jams || [];
+  const apps = session.apps || [];
+  const quand = session.endedAt ? new Date(session.endedAt) : null;
+  const quandTxt = quand ? (quand.toDateString() === new Date().toDateString()
+      ? `terminée à ${String(quand.getHours()).padStart(2,'0')}:${String(quand.getMinutes()).padStart(2,'0')}`
+      : `terminée le ${String(quand.getDate()).padStart(2,'0')}/${String(quand.getMonth()+1).padStart(2,'0')} à ${String(quand.getHours()).padStart(2,'0')}:${String(quand.getMinutes()).padStart(2,'0')}`) : '';
+  const intro = `<p class="hds-intro">Partie de <b>${esc(shortSpan(session.seconds))}</b>${quandTxt?', '+esc(quandTxt):''}. Relevé toutes les trente secondes.</p>`;
+  const jamRows = jams.map(j=>{
+    const qui = (j.who && j.who.length)
+      ? j.who.map(w=>`${esc(w.label)} ${esc(asPercent(w.share))}`).join(', ')
+      : 'la machine elle-même';
+    return `<tr><td>${esc(j.label)}</td><td>${esc(shortSpan(j.seconds))}</td><td>${qui}</td></tr>`;
+  }).join('');
+  const bloc = (titre, contenu) => `<div class="cf-bloc"><div class="cf-t">${titre}</div><div class="cf-c">${contenu}</div></div>`;
+  const blocJams = jams.length
+    ? bloc('Ce qui a gêné la partie', `<table class="hds-table"><thead><tr><th>Bouchon</th><th>Durée</th><th>Qui était en travers</th></tr></thead><tbody>${jamRows}</tbody></table>`)
+    : bloc('Ce qui a gêné la partie', 'Rien : la machine a suivi du début à la fin.');
+  const jeu = apps.length ? apps[0] : null;
+  const blocJeu = jeu ? bloc('Le jeu', `Processeur ${esc(asPercent(jeu.cpu))} en moyenne (pointe ${esc(asPercent(jeu.cpuMax))}) · Carte graphique ${esc(asPercent(jeu.gpu))} (pointe ${esc(asPercent(jeu.gpuMax))}) · Mémoire vive ${esc(String(jeu.ram).replace('.', ','))} Go`) : '';
+  const appRows = apps.map(a=>{
+    const shareOfSession = session.seconds ? Math.round(100 * (a.seconds||0) / session.seconds) : 0;
+    return `<tr><td>${esc(a.label)}</td><td>${esc(shortSpan(a.seconds))} (${shareOfSession} %)</td><td>${esc(asPercent(a.cpu))}</td><td>${esc(asPercent(a.gpu))}</td><td>${esc(asPercent(a.cpuMax))}</td></tr>`;
+  }).join('');
+  const blocApps = bloc('Ce que chaque application a pris',
+    `<table class="hds-table"><thead><tr><th>Application</th><th>Présente</th><th>CPU moyen</th><th>GPU moyen</th><th>Pointe CPU</th></tr></thead><tbody>${appRows}</tbody></table>`);
+  return intro + blocJams + blocJeu + blocApps;
+}
+async async function runGamingAction(type, params){
+  const r = await fetch(API+'/actions', { method:'POST',
+      headers:{ Authorization:'Bearer '+TOKEN, 'Content-Type':'application/json' },
+      body: JSON.stringify(params ? { type, module:'gaming', params } : { type, module:'gaming' }) });
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  return await r.json();
+}
+async function openSessionRecap(startedAt){
+  let j;
+  try { j = await runGamingAction('game-recap', startedAt ? { session:startedAt } : null); }
+  catch(e){ HDS.info('Récapitulatif', 'Vigie n\'a pas répondu : '+e.message, {variant:'warn'}); return; }
+  const session = j && j.result && j.result.session;
+  if(!session){ HDS.info('Récapitulatif', (j && j.message) || 'Aucune partie gardée.', {variant:'info'}); return; }
+  HDS.open({ title:'Récapitulatif — '+session.game, variant:'info', html:recapHtml(session),
+             actions:[{ label:'Parties précédentes', value:'sessions' }, { label:'Fermer', kind:'primary', value:'close', default:true }] })
+    .then(v=>{ if(v==='sessions') openPastSessions(); });
+}
+async function openPastSessions(){
+  let j;
+  try { j = await runGamingAction('game-sessions'); }
+  catch(e){ HDS.info('Parties précédentes', 'Vigie n\'a pas répondu : '+e.message, {variant:'warn'}); return; }
+  const sessions = (j && j.result && j.result.sessions) || [];
+  if(!sessions.length){ HDS.info('Parties précédentes', (j && j.message) || 'Aucune partie gardée.', {variant:'info'}); return; }
+  const rows = sessions.map(s=>{
+    const d = s.endedAt ? new Date(s.endedAt) : null;
+    const dayLabel = d ? (d.toDateString()===new Date().toDateString() ? "Aujourd'hui" : `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`) : '';
+    const heure = d ? `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}` : '';
+    const bouchon = s.jam ? `${esc(s.jam)} ${esc(shortSpan(s.jamSeconds))}` : 'Aucun bouchon';
+    return `<div class="hds-choice-row"><label class="hds-choice">
+        <span class="hds-choice-t"><b>${esc(dayLabel)} ${esc(heure)}</b> — ${esc(s.game)}</span>
+        <span class="hds-choice-d">${esc(shortSpan(s.seconds))} · ${bouchon}</span></label>
+        <button type="button" class="hds-exclu" data-session="${att(s.startedAt)}">Ouvrir</button></div>`;
+  }).join('');
+  HDS.open({ title:'Parties précédentes', variant:'info',
+             html:`<p class="hds-intro">Les parties gardées, la plus récente en haut. Conservées trente jours.</p><div class="hds-choices">${rows}</div>`,
+             actions:[{ label:'Fermer', kind:'primary', value:'close', default:true }] });
+  // THE ROW BUTTONS are wired AFTER opening: HDS offers no ready callback, and the body of the window exists as
+  // soon as open() has returned.
+  const body = document.querySelector('.hds-dialog-body');
+  if(body){ body.querySelectorAll('button[data-session]').forEach(b=>{
+    b.addEventListener('click', ()=>{ HDS.close(); openSessionRecap(b.dataset.session); }); }); }
+}
+
 // ===== Design system : Dialog reutilisable (modales in-app) =====
 // HDS.open(opts) -> Promise(valeur du bouton clique)
 // HDS.confirm({title,body,confirmLabel,cancelLabel,danger}) -> Promise(bool)
@@ -2581,6 +2667,10 @@ async function doAction(type,module,confirmNeeded,label,help,btnEl,params,kind,c
   // L'exploration de l'arborescence est une ACTION (choix utilisateur) : elle ouvre sa
   // fenetre, qui demandera les niveaux au serveur au fur et a mesure.
   if(type==='disk-tree'){ await ouvrirArborescence(); return; }
+  // THE RECAP AND THE LIST OF SESSIONS open their own window: the action only READS what Vigie kept, and the page
+  // lays it out. A card would not carry that table (owner, 28/09).
+  if(type==='game-recap'){ await openSessionRecap(); return; }
+  if(type==='game-sessions'){ await openPastSessions(); return; }
   // ACTION CRITIQUE = double confirmation. C'est le standard du projet pour tout geste
   // qui ferme le travail en cours ou touche la machine entiere.
   //
