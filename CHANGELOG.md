@@ -691,6 +691,11 @@ versions, du point de vue de qui utilise Vigie.*
   alimentation : 15 s → 1 min ; stockage : 5 s → 1 min, sauf pendant une analyse d'espace, où il reste à 5 s pour
   montrer sa progression. Les actions invalident leurs cartes, le bouton « Actualiser » force, et les sentinelles
   recalculent la leur dès que leur valeur bouge : rien n'attend.
+- **La carte Stockage prévient avant que le disque soit plein** : « 43 Go de moins depuis le 21/09 — plein dans
+  6 jours à ce rythme », dit seulement quand la baisse est franche, et jamais présenté comme une prophétie.
+- **Un bouton envoie une vraie notification d'essai** (module Débogage) et dit quel outil l'a affichée. Les alertes
+  ajoutées en septembre — mémoire engagée, ports réseau, erreurs système, emballement de Vigie — n'avaient jamais été
+  vues à l'écran : un mécanisme que personne n'a vu fonctionner est une promesse, pas une fonction.
 - **Le bilan de la dernière partie** : la carte Jeu relève, toutes les trente secondes, ce que chaque application
   prend pendant une partie, et en garde le résumé. Elle lit ensuite, par exemple : « ACOdyssey, 1 h 35 — surtout
   Assassin's Creed Odyssey, 41,8 % de processeur en moyenne », avec le détail par application : présence, moyennes et

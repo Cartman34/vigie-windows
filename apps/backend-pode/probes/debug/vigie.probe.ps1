@@ -30,10 +30,9 @@ $fields += New-Field -Key 'serveur' -Label 'Serveur' `
     -Kind 'text' -Status 'neutral' `
     -Help "Adresse d'écoute et niveau de privilège du processus qui rend cette page."
 
-# --- Ce dont CE processus depend ---------------------------------------------
-# PowerShell 7, les taches de demarrage et l'installation partagee ne sont PAS ici :
-# elles vivent sur la carte « Deploiement ». Les avoir aux deux endroits, sous deux
-# noms differents, embrouille au lieu d'informer (signale le 27/08).
+# --- WHAT THIS PROCESS DEPENDS ON ---------------------------------------------
+# PowerShell 7, the startup tasks and the shared installation are NOT here: they live on the Deployment card.
+# Holding them in both places, under two different names, confuses instead of informing (reported on 27/08).
 $pode = @(Get-Module -ListAvailable -Name Pode | Sort-Object Version -Descending | Select-Object -First 1)
 $fields += New-Field -Key 'pode' -Label 'Module Pode' `
     -Value $(if ($pode.Count) { 'v' + $pode[0].Version } else { 'Absent' }) -Kind 'text' `
@@ -186,4 +185,8 @@ $pire = if (@($fields | Where-Object { "$($_.status)" -eq 'error' }).Count) { 'e
 New-ModuleObject -Id 'vigie-debug' -Theme 'debug' -Label 'Vigie' -Status $pire -Fields $fields -Actions @(
     New-Action -Id 'open-logs' -Label 'Ouvrir les journaux' -Kind 'manual' -Severity 'info' `
         -Help "Ouvre le dossier des journaux dans l'explorateur."
+    # A NOTIFICATION NOBODY HAS SEEN WORK IS A PROMISE: every alert added in September announces itself this way,
+    # and none has ever appeared on screen. This button sends a real one, by the same door.
+    New-Action -Id 'notify-test' -Label 'Envoyer une notification d''essai' -Kind 'immediate' -Severity 'info' `
+        -Help "Envoie une vraie notification de bureau, par le même chemin que les alertes de Vigie, et dit quel outil l'a affichée."
 )

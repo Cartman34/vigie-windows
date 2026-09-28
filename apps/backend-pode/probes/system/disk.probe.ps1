@@ -103,6 +103,21 @@ if ($trendPoints.Count -ge 2) {
     # LOSING MORE THAN WHAT IS LEFT, in a week, is the real signal: at that pace the disk is full before the end of
     # the next one.
     $trendStatus = if ($delta -lt 0 -and [math]::Abs($delta) -ge $freeGB) { 'warn' } else { 'neutral' }
+    # AT THIS PACE, FULL WHEN? The question a figure alone never answers. Only said when the loss is steady enough to
+    # mean something -- at least 5 GB over the window -- and never presented as a prophecy: it is the current pace.
+    $jours = $null
+    if ($delta -lt -5) {
+        $spanDays = 7.0
+        try { $spanDays = [Math]::Max(1.0, ((ConvertTo-UtcDate $trendPoints[-1].at) - (ConvertTo-UtcDate $trendPoints[0].at)).TotalDays) } catch { }
+        $parJourGo = [Math]::Abs($delta) / $spanDays
+        if ($parJourGo -gt 0) { $jours = [int][Math]::Floor($freeGB / $parJourGo) }
+    }
+    if ($null -ne $jours) {
+        $valeur += $(if ($jours -le 0) { ' — plein au rythme actuel' }
+                     elseif ($jours -eq 1) { ' — plein demain à ce rythme' }
+                     else { " — plein dans $jours jours à ce rythme" })
+        if ($jours -le 14) { $trendStatus = 'warn' }
+    }
     # ONE ROW PER DAY: the day the space went shows up, and that is what the question asks.
     $parJour = @{}
     foreach ($pt in $trendPoints) {
