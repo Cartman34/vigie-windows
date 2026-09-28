@@ -461,7 +461,17 @@ if ($jeu) {
         the fact: "during your session of 1 h 35, the window compositor held 10 % of the processor for 1 h 04".
     #>
     $toutes = @(Group-ByApp ($procs.Values | Where-Object { $bruit -notcontains $_.Name }))
-    Add-GameTallyPass -Backend $backend -Session $session -Apps $toutes
+    # THE STATE OF THE MACHINE goes with the pass: a bottleneck is read from the whole, not from one application.
+    # The totals come from what has just been measured; the memory from Windows directly (a few microseconds).
+    $cpuTotal = [Math]::Round((($procs.Values | Measure-Object Cpu -Sum).Sum), 1)
+    $gpuTotal = [Math]::Round((($procs.Values | Measure-Object Gpu -Sum).Sum), 1)
+    $memPct = -1
+    $memNow = Get-MemoryStatus
+    if ($memNow -and $memNow.CommitLimit -gt 0) { $memPct = [Math]::Round(100 * $memNow.CommitUsed / $memNow.CommitLimit, 1) }
+    # THE GAME'S OWN NAMES never make a bottleneck: the game, its launcher, its components.
+    $nomsDuJeu = @($procs.Values | Where-Object { Test-BelongsToGame -Proc $_ } | ForEach-Object { $_.Name } | Sort-Object -Unique)
+    Add-GameTallyPass -Backend $backend -Session $session -Apps $toutes `
+                      -CpuTotal $cpuTotal -GpuTotal $gpuTotal -MemoryPct $memPct -GameNames $nomsDuJeu
 
     <#
         A GREEDY APPLICATION IS ONE THAT LASTS, AND THAT THE GAME DOES NOT NEED.

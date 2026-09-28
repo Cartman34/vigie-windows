@@ -4210,6 +4210,26 @@ function Get-BatteryState {
     Nothing here measures anything: the gaming card has already measured, this only accumulates.
 #>
 
+<#
+    WHAT A BOTTLENECK IS, AND WHAT IT IS NOT.
+
+    A saturated machine is not a bottleneck: a game alone at 95 % of the processor simply uses the computer it was
+    given. Dust is not one either -- ten processes at one percent are the ordinary life of Windows. A bottleneck is a
+    moment when the machine is at its ceiling AND something OTHER than the game takes a share worth the name, on its
+    own (owner, 28/09).
+
+    Memory is the exception: when the committed memory reaches its limit, the computer brakes whoever is at fault, so
+    no culprit has to be named for the moment to count.
+
+    A single reading is not a bottleneck either: two consecutive ones are needed, one minute, so that a loading screen
+    does not become a verdict.
+#>
+$script:GameJamCpuTotal = 85     # % de charge processeur totale au-dela duquel la machine est au plafond
+$script:GameJamCpuOther = 10     # % qu'une application etrangere doit prendre A ELLE SEULE pour gener
+$script:GameJamGpuTotal = 95     # % de la carte graphique : un GPU plein bride le jeu plus vite que le processeur
+$script:GameJamGpuOther = 5      # % de GPU vole au jeu : plus bas, parce qu'il coute plus cher
+$script:GameJamMemPct   = 90     # % de memoire engagee : au-dela, Windows puise dans le fichier d'echange
+
 function Get-GameTallyPath {
     param([string]$Backend = (Get-BackendRoot))
     Get-VarPath -Backend $Backend -Kind 'run' -File 'game-tally.json'
@@ -4227,6 +4247,13 @@ function Add-GameTallyPass {
         [string]$Backend = (Get-BackendRoot),
         [Parameter(Mandatory)]$Session,
         [Parameter(Mandatory)]$Apps,
+        # THE STATE OF THE MACHINE at this pass, which the card has just measured: total processor load, total
+        # graphics load, committed memory. Without them, a bottleneck cannot be told from a busy game.
+        [double]$CpuTotal = -1,
+        [double]$GpuTotal = -1,
+        [double]$MemoryPct = -1,
+        # The names that belong to the game (the game, its launcher, its components): they never make a bottleneck.
+        [string[]]$GameNames = @(),
         # The time between two passes is counted here, from the tally itself: the caller does not have to know it.
         # Capped at five minutes so that a computer put to sleep in the middle of a game does not count as played.
         [int]$MaxGapSeconds = 300
@@ -4245,7 +4272,10 @@ function Add-GameTallyPass {
         }
         if (-not $memeSession) {
             $tally = [pscustomobject]@{ session = $sessionKey; game = "$($Session.name)"; startedAt = $sessionKey
-                                        lastAt = $null; passes = 0; seconds = 0; apps = [pscustomobject]@{} }
+                                        lastAt = $null; passes = 0; seconds = 0; apps = [pscustomobject]@{}
+                                        jamCpuSeconds = 0; jamGpuSeconds = 0; jamMemSeconds = 0
+                                        jamCpuPasses = 0; jamGpuPasses = 0; jamMemPasses = 0
+                                        satCpuBefore = $false; satGpuBefore = $false; satMemBefore = $false }
         }
         $SecondsSinceLast = 0
         if ($tally.lastAt) {
@@ -4253,6 +4283,21 @@ function Add-GameTallyPass {
         }
         $tally.passes = [int]$tally.passes + 1
         $tally.seconds = [int]$tally.seconds + $SecondsSinceLast
+        # AT ITS CEILING? Told for this pass, and counted only if the previous one said the same.
+        $satCpu = ($CpuTotal -ge 0 -and $CpuTotal -ge $script:GameJamCpuTotal)
+        $satGpu = ($GpuTotal -ge 0 -and $GpuTotal -ge $script:GameJamGpuTotal)
+        $satMem = ($MemoryPct -ge 0 -and $MemoryPct -ge $script:GameJamMemPct)
+        $jamCpu = ($satCpu -and [bool]$tally.satCpuBefore)
+        $jamGpu = ($satGpu -and [bool]$tally.satGpuBefore)
+        $jamMem = ($satMem -and [bool]$tally.satMemBefore)
+        # COUNTED IN PASSES AND IN SECONDS: the seconds say how long it lasted, the passes say that it happened --
+        # two readings a second apart would otherwise weigh nothing at all.
+        if ($jamCpu) { $tally.jamCpuSeconds = [int]$tally.jamCpuSeconds + $SecondsSinceLast; $tally.jamCpuPasses = [int]$tally.jamCpuPasses + 1 }
+        if ($jamGpu) { $tally.jamGpuSeconds = [int]$tally.jamGpuSeconds + $SecondsSinceLast; $tally.jamGpuPasses = [int]$tally.jamGpuPasses + 1 }
+        if ($jamMem) { $tally.jamMemSeconds = [int]$tally.jamMemSeconds + $SecondsSinceLast; $tally.jamMemPasses = [int]$tally.jamMemPasses + 1 }
+        $tally.satCpuBefore = $satCpu
+        $tally.satGpuBefore = $satGpu
+        $tally.satMemBefore = $satMem
         # NOT $apps: PowerShell does not distinguish case, and the local list would silently overwrite the -Apps
         # parameter -- the tally then recorded nobody (caught on the first test, 28/09).
         $tallied = @{}
@@ -4263,7 +4308,20 @@ function Add-GameTallyPass {
             $e = $tallied[$key]
             if (-not $e) {
                 $e = [pscustomobject]@{ label = "$($app.Label)"; passes = 0; seconds = 0
-                                        cpu = 0.0; gpu = 0.0; ram = 0.0; cpuMax = 0.0; gpuMax = 0.0 }
+                                        cpu = 0.0; gpu = 0.0; ram = 0.0; cpuMax = 0.0; gpuMax = 0.0
+                                        jamSeconds = 0; jamCpu = 0.0; jamGpu = 0.0; jamPasses = 0 }
+            }
+            # IN THE WAY? Only while the machine is at its ceiling, only if this application is not the game's, and
+            # only if it takes a share on its own -- dust at one percent never blocks anything.
+            if (($jamCpu -or $jamGpu) -and ($GameNames -notcontains "$($app.Name)")) {
+                $genant = (($jamCpu -and [double]$app.Cpu -ge $script:GameJamCpuOther) -or
+                           ($jamGpu -and [double]$app.Gpu -ge $script:GameJamGpuOther))
+                if ($genant) {
+                    $e.jamPasses = [int]$e.jamPasses + 1
+                    $e.jamSeconds = [int]$e.jamSeconds + $SecondsSinceLast
+                    $e.jamCpu = [double]$e.jamCpu + [double]$app.Cpu
+                    $e.jamGpu = [double]$e.jamGpu + [double]$app.Gpu
+                }
             }
             $e.passes = [int]$e.passes + 1
             $e.seconds = [int]$e.seconds + $SecondsSinceLast
@@ -4281,7 +4339,12 @@ function Add-GameTallyPass {
         foreach ($entry in $garder) { $ordered[$entry.Key] = $entry.Value }
         $tally.apps = [pscustomobject]$ordered
         Update-StateJson -Path $path -Set @{ session = $tally.session; game = $tally.game; startedAt = $tally.startedAt; lastAt = ([datetime]::UtcNow).ToString('o')
-                                             passes = $tally.passes; seconds = $tally.seconds; apps = $tally.apps } | Out-Null
+                                             passes = $tally.passes; seconds = $tally.seconds; apps = $tally.apps
+                                             jamCpuSeconds = $tally.jamCpuSeconds; jamGpuSeconds = $tally.jamGpuSeconds
+                                             jamMemSeconds = $tally.jamMemSeconds; satCpuBefore = $tally.satCpuBefore
+                                             jamCpuPasses = $tally.jamCpuPasses; jamGpuPasses = $tally.jamGpuPasses
+                                             jamMemPasses = $tally.jamMemPasses
+                                             satGpuBefore = $tally.satGpuBefore; satMemBefore = $tally.satMemBefore } | Out-Null
     } catch { }
 }
 
@@ -4301,6 +4364,10 @@ function Close-GameTally {
             $passes = [Math]::Max(1, [int]$e.passes)
             $apps += [pscustomobject]@{
                 name = $prop.Name; label = "$($e.label)"
+                jamSeconds = [int]$e.jamSeconds
+                jamPasses = [int]$e.jamPasses
+                jamCpu = $(if ([int]$e.jamPasses -gt 0) { [Math]::Round([double]$e.jamCpu / [int]$e.jamPasses, 1) } else { 0 })
+                jamGpu = $(if ([int]$e.jamPasses -gt 0) { [Math]::Round([double]$e.jamGpu / [int]$e.jamPasses, 1) } else { 0 })
                 seconds = [int]$e.seconds
                 cpu = [Math]::Round([double]$e.cpu / $passes, 1)
                 gpu = [Math]::Round([double]$e.gpu / $passes, 1)
@@ -4309,9 +4376,27 @@ function Close-GameTally {
                 gpuMax = [Math]::Round([double]$e.gpuMax, 1)
             }
         }
+        # THE BOTTLENECKS OF THE SESSION, each with those who were in the way -- and a bottleneck with nobody in the
+        # way is dropped, except the memory one, where the machine itself is the brake.
+        $jams = @()
+        $genants = @($apps | Where-Object { [int]$_.jamPasses -gt 0 } | Sort-Object { $_.jamCpu + $_.jamGpu } -Descending)
+        if ([int]$tally.jamCpuPasses -gt 0 -and @($genants | Where-Object { $_.jamCpu -gt 0 }).Count) {
+            $jams += [pscustomobject]@{ kind = 'cpu'; label = 'Processeur saturé'; seconds = [int]$tally.jamCpuSeconds
+                                        who = @($genants | Where-Object { $_.jamCpu -gt 0 } | Select-Object -First 3 |
+                                                ForEach-Object { [pscustomobject]@{ label = $_.label; share = $_.jamCpu } }) }
+        }
+        if ([int]$tally.jamGpuPasses -gt 0 -and @($genants | Where-Object { $_.jamGpu -gt 0 }).Count) {
+            $jams += [pscustomobject]@{ kind = 'gpu'; label = 'Carte graphique saturée'; seconds = [int]$tally.jamGpuSeconds
+                                        who = @($genants | Where-Object { $_.jamGpu -gt 0 } | Select-Object -First 3 |
+                                                ForEach-Object { [pscustomobject]@{ label = $_.label; share = $_.jamGpu } }) }
+        }
+        if ([int]$tally.jamMemPasses -gt 0) {
+            $jams += [pscustomobject]@{ kind = 'memory'; label = 'Mémoire à la limite'; seconds = [int]$tally.jamMemSeconds; who = @() }
+        }
         $summary = [ordered]@{
             game = "$($tally.game)"; startedAt = "$($tally.startedAt)"
             endedAt = ([datetime]::UtcNow).ToString('o'); seconds = [int]$tally.seconds; passes = [int]$tally.passes
+            jams = @($jams)
             apps = @($apps | Sort-Object { $_.cpu + $_.gpu } -Descending | Select-Object -First 15)
         }
         Add-HistoryLine -Path (Get-GameSessionsPath -Backend $Backend) -Line ($summary | ConvertTo-Json -Depth 6 -Compress) | Out-Null

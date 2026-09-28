@@ -696,6 +696,11 @@ versions, du point de vue de qui utilise Vigie.*
 - **Un bouton envoie une vraie notification d'essai** (module Débogage) et dit quel outil l'a affichée. Les alertes
   ajoutées en septembre — mémoire engagée, ports réseau, erreurs système, emballement de Vigie — n'avaient jamais été
   vues à l'écran : un mécanisme que personne n'a vu fonctionner est une promesse, pas une fonction.
+- **Une partie garde ses bouchons, pas seulement ses gourmands** : un relevé compte comme bouchon quand la machine est
+  au plafond **et** qu'une application étrangère au jeu prend une part à elle seule — 85 % de processeur avec un gêneur
+  à 10 %, 95 % de carte graphique avec un gêneur à 5 %, ou 90 % de mémoire engagée, où la machine bride seule. Un jeu
+  seul à 96 % n'est pas gêné, et dix poussières à 1 % ne font pas un bouchon. Il faut deux relevés consécutifs, soit
+  une minute, pour qu'un pic isolé ne devienne pas un verdict.
 - **Le bilan de la dernière partie** : la carte Jeu relève, toutes les trente secondes, ce que chaque application
   prend pendant une partie, et en garde le résumé. Elle lit ensuite, par exemple : « ACOdyssey, 1 h 35 — surtout
   Assassin's Creed Odyssey, 41,8 % de processeur en moyenne », avec le détail par application : présence, moyennes et
