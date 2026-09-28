@@ -4381,6 +4381,13 @@ $script:GameModeHeavyTtl = 3600   # the heavy ones: one hour
 function Get-ProbeTtlNow {
     param([Parameter(Mandatory)][string]$Name, [int]$Default = 30, [string]$Backend = (Get-BackendRoot), [switch]$InGame)
     $ttl = $(if ($script:ProbeTtls.ContainsKey($Name)) { [int]$script:ProbeTtls[$Name] } else { $Default })
+    # THE STORAGE CARD FOLLOWS ITS ANALYSIS: while the scan writes its progress, the card must show it moving.
+    if ($Name -eq 'disk.probe.ps1') {
+        try {
+            $scanFile = Get-VarPath -Backend $Backend -Kind 'cache' -File 'diskscan.json'
+            if ((Test-PathSafe $scanFile) -and (([datetime]::UtcNow - (Get-Item -LiteralPath $scanFile).LastWriteTimeUtc).TotalMinutes -lt 2)) { return 5 }
+        } catch { }
+    }
     if (-not $InGame) { return $ttl }
     if ($script:GameModeUseful -contains $Name) { return $ttl }
     if ($script:GameModeHeavy -contains $Name) { return [Math]::Max($ttl, $script:GameModeHeavyTtl) }
@@ -4398,14 +4405,35 @@ function Get-GameModeName {
     return $null
 }
 
+<#
+    WHAT A CARD COSTS DECIDES HOW LONG IT KEEPS.
+
+    Every request from the interface hands ONE stale probe to a background task. With a cache of five seconds, a
+    card is stale at almost every request, and the cheapness of the reading stops mattering: measured over the day
+    of 28/09, the packages card was recomputed 305 times for 1128 s of processing (3.7 s each, winget, choco, pip)
+    and the network card 171 times for 713 s. Nobody asked for winget five times a minute.
+
+    The durations below therefore follow the COST, not the wish: a card that takes seconds keeps for minutes. What
+    keeps the cards honest is elsewhere and untouched -- an action invalidates the cards it changes, the refresh
+    button forces a recomputation, and a sentinel recalculates its cards the moment its value moves (connection,
+    power, game). The storage card is the exception: while an analysis runs, it carries its progress, and a
+    progress shown once a minute is not a progress.
+#>
 $script:ProbeTtls = @{
     'perf.probe.ps1'    = 8
-    'net.probe.ps1'     = 15
+    # 60, not 15: the probe takes 4.2 s (connection test with timeouts), and the 'internet' sentinel recalculates
+    # this card the moment the connection moves.
+    'net.probe.ps1'     = 60
     # 60, not 600: the card carries the memory of the virtual machine, which moves by gigabytes; the probe costs 0.1 s.
     'wsl.probe.ps1'     = 60
-    # Court : la carte Stockage porte la progression de l'analyse d'espace (D60), et
-    # la sonde ne fait que lire deux JSON -- la recalculer coute quelques dizaines de ms.
-    'disk.probe.ps1'    = 5
+    # 60 at rest, 5 while a space analysis runs (Get-ProbeTtlNow): the card carries its progress (D60), and a
+    # progress refreshed once a minute is not a progress.
+    'disk.probe.ps1'    = 60
+    # 300, not 5: winget, choco and pip are questioned each time, 3.7 s per pass. An upgrade invalidates this card
+    # itself (result.invalidate), so nothing waits five minutes to be seen.
+    'packages.probe.ps1' = 300
+    # 60: the 'power' sentinel already recalculates this card whenever the current changes direction.
+    'power.probe.ps1'   = 60
     'history.probe.ps1' = 120
     'firewall.probe.ps1'= 120
     'defender.probe.ps1'= 300
@@ -4423,12 +4451,7 @@ $script:ProbeTtls = @{
     'events.probe.ps1'  = 60
     # VIGIE'S OWN PROCESSES: a runaway must show within the minute, and the reading costs a few milliseconds.
     'self.probe.ps1'    = 30
-    'packages.probe.ps1'= 5
     'gaming.probe.ps1'  = 10
-    # L'alimentation change d'un instant a l'autre (on debranche, une pointe de
-    # charge fait lacher le chargeur) : une valeur vieille d'une minute ne veut
-    # deja plus rien dire.
-    'power.probe.ps1'   = 15
 }
 
 # Ramene une date lue depuis JSON a un [datetime] UTC, quelle que soit sa forme.

@@ -685,6 +685,12 @@ versions, du point de vue de qui utilise Vigie.*
   (`Get-Counter` prenait 6 s pour les seuls moteurs), et les lectures d'E/S par processus, du parent d'un processus et
   de l'heure de démarrage passent par des appels directs, mesurés à l'identique
   (`notes/evidence/2026-09-18-system-calls-measured.md`). `check-probes` refuse désormais `Get-Counter`.
+- **Une carte garde son résultat aussi longtemps qu'elle coûte cher** : chaque requête de l'interface confie une carte
+  périmée à une tâche de fond, et des caches de 5 s rendaient tout périmé en permanence. Le 28/09, la carte des paquets
+  a été recalculée 305 fois pour 1 128 s de calcul, le réseau 171 fois pour 713 s. Paquets : 5 s → 5 min ; réseau et
+  alimentation : 15 s → 1 min ; stockage : 5 s → 1 min, sauf pendant une analyse d'espace, où il reste à 5 s pour
+  montrer sa progression. Les actions invalident leurs cartes, le bouton « Actualiser » force, et les sentinelles
+  recalculent la leur dès que leur valeur bouge : rien n'attend.
 - **La carte Stockage dit où va la place, sans analyse manuelle** : l'évolution de l'espace libre sur sept jours, avec
   la variation de chaque jour, et les disques virtuels (WSL, Docker, Hyper-V, VirtualBox) qui grossissent et ne rendent
   jamais rien — 150,7 Go pour le disque de WSL le 28/09, quand le disque n'avait plus que 28 Go libres. Leur recherche
