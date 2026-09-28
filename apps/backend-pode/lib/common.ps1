@@ -4194,6 +4194,143 @@ function Get-BatteryState {
               Simulated = $false }
 }
 
+<#
+    WHAT EACH APPLICATION TOOK DURING A GAME, AND FOR HOW LONG.
+
+    A card shows an instant. "Chrome at 12 %" says nothing about a session: it may have been a spike between two
+    loading screens, or an hour of theft. On 16/09 the greedy-application alert went out fourteen times, and the
+    owner recognised the window compositor -- a process that cannot be the culprit, since it draws the game itself.
+    The threshold was one percent of the processor, all cores together, read over nine hundred milliseconds.
+
+    So the session keeps a TALLY, not a stream: one entry per application, updated at each pass -- how many passes it
+    was seen, the sum of its shares, its peaks, its first and last sighting. Its weight never grows with the length of
+    the game. When the game ends, the tally becomes a summary, and the card can say: "during your session of 1 h 35,
+    the window compositor held 10 % of the processor for 1 h 04".
+
+    Nothing here measures anything: the gaming card has already measured, this only accumulates.
+#>
+
+function Get-GameTallyPath {
+    param([string]$Backend = (Get-BackendRoot))
+    Get-VarPath -Backend $Backend -Kind 'run' -File 'game-tally.json'
+}
+
+function Get-GameSessionsPath {
+    param([string]$Backend = (Get-BackendRoot))
+    Get-VarPath -Backend $Backend -Kind 'history' -File 'game-sessions.jsonl'
+}
+
+# ADDS ONE PASS TO THE TALLY of the running session. $Apps carries what the card has just measured, grouped by
+# application: Name, Label, Cpu, Gpu, VramGb, RamGb, IoMbs. Never throws.
+function Add-GameTallyPass {
+    param(
+        [string]$Backend = (Get-BackendRoot),
+        [Parameter(Mandatory)]$Session,
+        [Parameter(Mandatory)]$Apps,
+        # The time between two passes is counted here, from the tally itself: the caller does not have to know it.
+        # Capped at five minutes so that a computer put to sleep in the middle of a game does not count as played.
+        [int]$MaxGapSeconds = 300
+    )
+    try {
+        $path = Get-GameTallyPath -Backend $Backend
+        $tally = $null
+        if (Test-PathSafe $path) { try { $tally = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json } catch { } }
+        $sessionKey = "$($Session.startedAt)"
+        # THE SAME SESSION, COMPARED AS A DATE AND NOT AS TEXT: ConvertFrom-Json turns an ISO date into [datetime]
+        # (D44), which prints differently from what was written -- every pass then started a new tally, and the
+        # session stayed at one pass for ever (caught on the second test, 28/09).
+        $memeSession = $false
+        if ($tally -and $tally.session) {
+            try { $memeSession = ((ConvertTo-UtcDate $tally.session) -eq (ConvertTo-UtcDate $sessionKey)) } catch { $memeSession = $false }
+        }
+        if (-not $memeSession) {
+            $tally = [pscustomobject]@{ session = $sessionKey; game = "$($Session.name)"; startedAt = $sessionKey
+                                        lastAt = $null; passes = 0; seconds = 0; apps = [pscustomobject]@{} }
+        }
+        $SecondsSinceLast = 0
+        if ($tally.lastAt) {
+            try { $SecondsSinceLast = [int][Math]::Min($MaxGapSeconds, [Math]::Max(0, ([datetime]::UtcNow - (ConvertTo-UtcDate $tally.lastAt)).TotalSeconds)) } catch { }
+        }
+        $tally.passes = [int]$tally.passes + 1
+        $tally.seconds = [int]$tally.seconds + $SecondsSinceLast
+        # NOT $apps: PowerShell does not distinguish case, and the local list would silently overwrite the -Apps
+        # parameter -- the tally then recorded nobody (caught on the first test, 28/09).
+        $tallied = @{}
+        foreach ($prop in $tally.apps.PSObject.Properties) { $tallied[$prop.Name] = $prop.Value }
+        foreach ($app in @($Apps)) {
+            if (-not $app -or -not $app.Name) { continue }
+            $key = "$($app.Name)"
+            $e = $tallied[$key]
+            if (-not $e) {
+                $e = [pscustomobject]@{ label = "$($app.Label)"; passes = 0; seconds = 0
+                                        cpu = 0.0; gpu = 0.0; ram = 0.0; cpuMax = 0.0; gpuMax = 0.0 }
+            }
+            $e.passes = [int]$e.passes + 1
+            $e.seconds = [int]$e.seconds + $SecondsSinceLast
+            $e.cpu = [double]$e.cpu + [double]$app.Cpu
+            $e.gpu = [double]$e.gpu + [double]$app.Gpu
+            $e.ram = [double]$e.ram + [double]$app.RamGb
+            if ([double]$app.Cpu -gt [double]$e.cpuMax) { $e.cpuMax = [double]$app.Cpu }
+            if ([double]$app.Gpu -gt [double]$e.gpuMax) { $e.gpuMax = [double]$app.Gpu }
+            $tallied[$key] = $e
+        }
+        # BOUNDED: the sixty heaviest applications of the session. A game does not need a census of the computer.
+        $garder = @($tallied.GetEnumerator() | Sort-Object { [double]$_.Value.cpu + [double]$_.Value.gpu } -Descending |
+                    Select-Object -First 60)
+        $ordered = [ordered]@{}
+        foreach ($entry in $garder) { $ordered[$entry.Key] = $entry.Value }
+        $tally.apps = [pscustomobject]$ordered
+        Update-StateJson -Path $path -Set @{ session = $tally.session; game = $tally.game; startedAt = $tally.startedAt; lastAt = ([datetime]::UtcNow).ToString('o')
+                                             passes = $tally.passes; seconds = $tally.seconds; apps = $tally.apps } | Out-Null
+    } catch { }
+}
+
+# CLOSES THE TALLY and keeps the summary of the session. Returns it, or $null when there was nothing to close.
+function Close-GameTally {
+    param([string]$Backend = (Get-BackendRoot))
+    try {
+        $path = Get-GameTallyPath -Backend $Backend
+        if (-not (Test-PathSafe $path)) { return $null }
+        $tally = $null
+        try { $tally = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json } catch { }
+        Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+        if (-not $tally -or [int]$tally.passes -lt 2) { return $null }
+        $apps = @()
+        foreach ($prop in $tally.apps.PSObject.Properties) {
+            $e = $prop.Value
+            $passes = [Math]::Max(1, [int]$e.passes)
+            $apps += [pscustomobject]@{
+                name = $prop.Name; label = "$($e.label)"
+                seconds = [int]$e.seconds
+                cpu = [Math]::Round([double]$e.cpu / $passes, 1)
+                gpu = [Math]::Round([double]$e.gpu / $passes, 1)
+                ram = [Math]::Round([double]$e.ram / $passes, 2)
+                cpuMax = [Math]::Round([double]$e.cpuMax, 1)
+                gpuMax = [Math]::Round([double]$e.gpuMax, 1)
+            }
+        }
+        $summary = [ordered]@{
+            game = "$($tally.game)"; startedAt = "$($tally.startedAt)"
+            endedAt = ([datetime]::UtcNow).ToString('o'); seconds = [int]$tally.seconds; passes = [int]$tally.passes
+            apps = @($apps | Sort-Object { $_.cpu + $_.gpu } -Descending | Select-Object -First 15)
+        }
+        Add-HistoryLine -Path (Get-GameSessionsPath -Backend $Backend) -Line ($summary | ConvertTo-Json -Depth 6 -Compress) | Out-Null
+        return [pscustomobject]$summary
+    } catch { return $null }
+}
+
+# THE LAST SESSION KEPT, or $null. Read backwards: the file holds one line per session, the last one is the last game.
+function Get-LastGameSession {
+    param([string]$Backend = (Get-BackendRoot))
+    try {
+        $path = Get-GameSessionsPath -Backend $Backend
+        if (-not (Test-PathSafe $path)) { return $null }
+        $lines = @(Get-Content -LiteralPath $path -Tail 1 -ErrorAction Stop)
+        if (-not $lines.Count) { return $null }
+        return ($lines[-1] | ConvertFrom-Json)
+    } catch { return $null }
+}
+
 function Get-GameSessionPath {
     param([string]$Backend = (Get-BackendRoot))
     Get-VarPath -Backend $Backend -Kind 'run' -File 'game-session.json'

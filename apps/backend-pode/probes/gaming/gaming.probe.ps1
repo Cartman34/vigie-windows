@@ -453,13 +453,42 @@ if ($jeu) {
         foreach ($root in $family) { if ($target.StartsWith($root)) { return $true } }
         return $false
     }
+    <#
+        WHAT THE SESSION TOOK, PASS AFTER PASS.
+
+        Everything measured is tallied -- the game included -- so that the end of the session can say who held what,
+        and for how long. A card shows an instant; a session is a duration, and that is what the owner asks after
+        the fact: "during your session of 1 h 35, the window compositor held 10 % of the processor for 1 h 04".
+    #>
+    $toutes = @(Group-ByApp ($procs.Values | Where-Object { $bruit -notcontains $_.Name }))
+    Add-GameTallyPass -Backend $backend -Session $session -Apps $toutes
+
+    <#
+        A GREEDY APPLICATION IS ONE THAT LASTS, AND THAT THE GAME DOES NOT NEED.
+
+        The threshold was one percent of the processor, ALL CORES TOGETHER -- a sixth of one core on this computer --
+        read over nine hundred milliseconds. The window compositor crossed it merely by drawing the game, and the
+        alert went out fourteen times on 16/09 for nothing (reported by the owner on 28/09).
+
+        Two rules now: the share must be worth the word 'greedy' (the default threshold follows), and it must LAST --
+        an application seen for less than three minutes of the session is a spike, not a thief. Windows' own
+        components keep their place in the table, where they inform, but they never raise the alert on their own:
+        the compositor and the client-server runtime work FOR the game.
+    #>
+    $heldSeconds = @{}
+    try {
+        $runningTally = Get-Content -LiteralPath (Get-GameTallyPath -Backend $backend) -Raw -ErrorAction Stop | ConvertFrom-Json
+        foreach ($prop in $runningTally.apps.PSObject.Properties) { $heldSeconds[$prop.Name] = [int]$prop.Value.seconds }
+    } catch { }
     $greedy = @(Group-ByApp ($procs.Values | Where-Object {
         -not (Test-BelongsToGame -Proc $_) -and $bruit -notcontains $_.Name
-    }) | Where-Object { $_.Cpu -ge $otherCpuWarn -or $_.Gpu -ge $otherGpuWarn } |
+    }) | Where-Object { ($_.Cpu -ge $otherCpuWarn -or $_.Gpu -ge $otherGpuWarn) -and
+                        ($servicesWindows -notcontains $_.Name) -and
+                        ([int]$heldSeconds[$_.Name] -ge 180) } |
         Sort-Object { $_.Cpu + $_.Gpu } -Descending)
     $pompeurs = @($greedy | Select-Object -First 5)
     if ($pompeurs.Count -gt 0) {
-        $lignes = @($pompeurs | ForEach-Object {
+        $recapRows = @($pompeurs | ForEach-Object {
             $note = if ($servicesWindows -contains $_.Name) { " [service Windows légitime — ne pas fermer]" } else { "" }
             "- {0}{1} : CPU {2} % · GPU {3} % · VRAM {4} Go · E/S {5} Mo/s" -f $_.Label, $note, $_.Cpu, $_.Gpu, $_.VramGb, $_.IoMbs })
         <# A COUNT NAMES NOBODY. "2 detected" forced a trip to the panel to learn WHICH two,
@@ -474,7 +503,7 @@ if ($jeu) {
         $fields += New-Field -Key 'hogs' -Label 'Autres applis gourmandes' -Value $who `
             -Kind 'text' -Status 'warn' -FixAction 'open-task-manager' `
             -Help "Applications qui consomment beaucoup pendant que le jeu tourne. Les composants du jeu et de sa plateforme de lancement n'y figurent pas : ils font partie de la partie." `
-            -Guide (($lignes + @('', 'Ce qui n''est pas utile a la partie peut se fermer (JAMAIS les services Windows marqués : leur activité est normale) ; les seuils se reglent dans Parametres > Modules > Jeux.')) -join "`n")
+            -Guide (($recapRows + @('', 'Ce qui n''est pas utile a la partie peut se fermer (JAMAIS les services Windows marqués : leur activité est normale) ; les seuils se reglent dans Parametres > Modules > Jeux.')) -join "`n")
     } else {
         $fields += New-Field -Key 'hogs' -Label 'Autres applis gourmandes' -Value 'Aucune' -Kind 'text' -Status 'ok' `
             -Help "Aucune autre application au-dessus des seuils pendant la partie. Les composants du jeu et de sa plateforme de lancement ne comptent pas : ils font partie de la partie."
@@ -491,6 +520,8 @@ if ($jeu) {
                 "Elle vit à côté de l'app serveur et s'arme avec elle. Si elle reste indisponible, l'app serveur ne " +
                 "tourne pas, ou l'abonnement aux démarrages de processus lui a été refusé — il exige les droits administrateur.")
 } else {
+    # THE SESSION THAT HAS JUST ENDED IS CLOSED HERE, and kept: this is the only place that sees the game gone.
+    try { $null = Close-GameTally -Backend $backend } catch { }
     $fields += New-Field -Key 'game' -Label 'Jeu détecté' -Value 'Aucun' -Kind 'text' -Status 'neutral' `
         -Help "Aucune partie en cours. La détection ne mesure pas : elle est prévenue quand un jeu démarre." `
         -Guide ("Un jeu est reconnu à son lancement, par plusieurs méthodes indépendantes : la boutique qui l'a " +
@@ -562,6 +593,44 @@ $statut = if (($fields | Where-Object { $_.status -eq 'warn' })) { 'warn' } else
 # deux destinations utiles ne dependent pas de l'etat de la carte.
 # THE MODE SHOWS: while a game lasts, the card does not look like the rest of the time.
 # It is a context, not an alert -- its status does not change.
+<#
+    THE RECAP OF THE LAST SESSION.
+
+    Kept when the game ends, read here: what the session lasted, and who held what, on average and at its peak.
+    A line is worth reading only if the application was there: the share of the session it was seen is given with
+    its averages, because "10 % of the processor" over four minutes and over an hour are two different facts.
+#>
+$lastSession = $null
+try { $lastSession = Get-LastGameSession -Backend $backend } catch { }
+if ($lastSession -and $lastSession.seconds -ge 60) {
+    # [Math]::Floor, JAMAIS [int] : PowerShell ARRONDIT une conversion en entier, et 1 h 35 s'affichait « 2 h 35 ».
+    $fr = [Globalization.CultureInfo]::GetCultureInfo('fr-FR')
+    function Format-Span {
+        param([int]$Secondes)
+        $t = [TimeSpan]::FromSeconds($Secondes)
+        if ($t.TotalHours -ge 1) { return ("{0} h {1:00}" -f [int][Math]::Floor($t.TotalHours), $t.Minutes) }
+        return ("{0} min" -f [int][Math]::Floor($t.TotalMinutes))
+    }
+    function Format-Share { param($Valeur) return ([double]$Valeur).ToString('0.#', $fr) + ' %' }
+    $spanText = Format-Span -Secondes ([int]$lastSession.seconds)
+    $fin = $null
+    try { $fin = (ConvertTo-UtcDate $lastSession.endedAt).ToLocalTime() } catch { }
+    $quand = if ($fin) { $(if ($fin.Date -eq (Get-Date).Date) { 'terminée à ' + $fin.ToString('HH:mm') } else { 'terminée le ' + $fin.ToString('dd/MM à HH:mm') }) } else { '' }
+    $recapRows = @(foreach ($a in @($lastSession.apps | Select-Object -First 8)) {
+        $part = if ([int]$lastSession.seconds -gt 0) { [int](100 * [int]$a.seconds / [int]$lastSession.seconds) } else { 0 }
+        $seenText = Format-Span -Secondes ([int]$a.seconds)
+        ,@("$($a.label)", "$seenText ($part %)", (Format-Share $a.cpu), (Format-Share $a.gpu), (Format-Share $a.cpuMax))
+    })
+    $tete = @($lastSession.apps | Select-Object -First 1)
+    $recapValue = if ($tete.Count) {
+        "$($lastSession.game), $spanText — surtout $($tete[0].label), $(Format-Share $tete[0].cpu) de processeur en moyenne"
+    } else { "$($lastSession.game), $spanText" }
+    $fields += New-Field -Key 'last-session' -Label 'Dernière partie' -Value $recapValue -Kind 'text' -Status 'neutral' `
+        -Table @{ columns = @('Application', 'Présente', 'CPU moyen', 'GPU moyen', 'Pointe CPU'); rows = $recapRows } `
+        -Help "Ce que la dernière partie a coûté, application par application : la part de la partie où chacune était là, sa consommation moyenne pendant ce temps, et sa pointe. Relevé toutes les trente secondes pendant la partie." `
+        -Guide $(if ($quand) { "Partie $quand." } else { $null })
+}
+
 New-ModuleObject -Id 'gaming' -Theme 'gaming' -Label 'Session de jeu' -Status $statut -Fields $fields `
     -Mode $(if ($jeu) { 'game' } else { $null }) `
     -Actions @(

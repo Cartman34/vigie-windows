@@ -691,6 +691,15 @@ versions, du point de vue de qui utilise Vigie.*
   alimentation : 15 s → 1 min ; stockage : 5 s → 1 min, sauf pendant une analyse d'espace, où il reste à 5 s pour
   montrer sa progression. Les actions invalident leurs cartes, le bouton « Actualiser » force, et les sentinelles
   recalculent la leur dès que leur valeur bouge : rien n'attend.
+- **Le bilan de la dernière partie** : la carte Jeu relève, toutes les trente secondes, ce que chaque application
+  prend pendant une partie, et en garde le résumé. Elle lit ensuite, par exemple : « ACOdyssey, 1 h 35 — surtout
+  Assassin's Creed Odyssey, 41,8 % de processeur en moyenne », avec le détail par application : présence, moyennes et
+  pointe. Le relevé est une addition, jamais un journal qui grossit.
+- **L'alerte des applications gourmandes ne se déclenchait pour rien** : son seuil était de 1 % de processeur, tous
+  cœurs confondus — un sixième d'un cœur sur cet ordinateur —, mesuré sur neuf dixièmes de seconde. Le Gestionnaire de
+  fenêtres le franchissait en dessinant le jeu, et l'alerte est sortie quatorze fois le 16/09 pour rien. Le seuil passe
+  à 8 %, l'application doit avoir tenu trois minutes dans la partie, et les composants de Windows restent au tableau
+  sans jamais déclencher l'alerte : ils travaillent pour le jeu.
 - **Chaque carte tenue en retrait le dit elle-même**, dans son en-tête (« en retrait · 20 min »), et seulement celles
   qui le sont vraiment — pas la carte Jeu, qui, elle, garde sa cadence. Sans cette mention, une mesure vieille de vingt
   minutes se lisait comme une mesure de l'instant. Le contrat porte la cadence de la carte (`Module.pace`).

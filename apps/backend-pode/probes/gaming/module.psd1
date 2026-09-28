@@ -7,7 +7,10 @@
     # CONFIG : les valeurs par defaut, versionnees (D57).
     Config = @{
         GameGpuMinPct   = 15   # % GPU minimal pour considerer qu'un jeu tourne
-        OtherCpuWarnPct = 1    # % CPU (normalise TOUS coeurs) : 1 % ici = une vraie charge
+        # 8 %, and no longer 1 %: the share is normalised over ALL cores, so 1 % was a sixth of one core on this
+        # computer -- the window compositor crossed it just by drawing the game, and the alert fired fourteen times
+        # on 16/09 for nothing. 8 % is more than one core busy, which deserves the word (owner, 28/09).
+        OtherCpuWarnPct = 8    # % CPU (normalise TOUS coeurs)
         OtherGpuWarnPct = 15   # % GPU d'une AUTRE appli qui declenche l'avertissement
         VramWarnPct     = 90   # % de VRAM occupee au-dela duquel on avertit
         GpuTempWarnC    = 87   # temperature GPU au-dela de laquelle on avertit
