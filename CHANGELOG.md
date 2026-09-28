@@ -691,6 +691,14 @@ versions, du point de vue de qui utilise Vigie.*
   alimentation : 15 s → 1 min ; stockage : 5 s → 1 min, sauf pendant une analyse d'espace, où il reste à 5 s pour
   montrer sa progression. Les actions invalident leurs cartes, le bouton « Actualiser » force, et les sentinelles
   recalculent la leur dès que leur valeur bouge : rien n'attend.
+- **Chaque carte tenue en retrait le dit elle-même**, dans son en-tête (« en retrait · 20 min »), et seulement celles
+  qui le sont vraiment — pas la carte Jeu, qui, elle, garde sa cadence. Sans cette mention, une mesure vieille de vingt
+  minutes se lisait comme une mesure de l'instant. Le contrat porte la cadence de la carte (`Module.pace`).
+- **Les cadences en jeu sont bornées pour ne pas remplacer un excès par un autre** : Jeu 30 s, Ressources 20 s,
+  Processus de Vigie 2 min, Vigie 5 min ; hors partie, Jeu passe de 10 à 30 s et Ressources de 8 à 15 s. Processeur,
+  mémoire vive et mémoire engagée sont notés toutes les 5 minutes au repos, toutes les minutes pendant une partie.
+- **La carte Jeu coûte 2,4 s au lieu de 5,5 s** : le fichier des verdicts « est-ce un jeu ? » était relu et réanalysé
+  pour chaque processus, 45 ms à chaque fois ; il est lu une fois par passe, et le verdict revient en 3,4 ms.
 - **La carte Stockage dit où va la place, sans analyse manuelle** : l'évolution de l'espace libre sur sept jours, avec
   la variation de chaque jour, et les disques virtuels (WSL, Docker, Hyper-V, VirtualBox) qui grossissent et ne rendent
   jamais rien — 150,7 Go pour le disque de WSL le 28/09, quand le disque n'avait plus que 28 Go libres. Leur recherche
@@ -700,7 +708,7 @@ versions, du point de vue de qui utilise Vigie.*
 - **Vigie se met en retrait pendant une partie** : mesuré le 28/09 sur une session de 77 minutes, elle recalculait
   ses cartes 383 fois, 1 582 secondes de calcul, soit 34 % d'un cœur en continu — dont 400 s pour la seule carte des
   paquets. Pendant une partie, les cartes de la partie gardent leur cadence, les autres passent à un quart d'heure au
-  moins et les lourdes à une heure ; le bouton « Actualiser » passe toujours avant ce retrait, et la carte Jeu le dit.
+  moins et les lourdes à une heure ; le bouton « Actualiser » passe toujours avant ce retrait.
 - **Ce que faisait l'ordinateur pendant une partie est enregistré** : processeur, mémoire vive et mémoire engagée
   suivent désormais la carte Ressources, et chaque point porte le nom du jeu en cours. Le compte des applications
   gourmandes était faux depuis le 06/09 — l'extracteur cherchait un nombre là où la carte donne des noms, et

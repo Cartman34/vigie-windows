@@ -583,6 +583,10 @@
      d'oeil, sans que la carte crie. */
   .card.mode-game{border-left-color:#7c5cff;background:linear-gradient(180deg,rgba(124,92,255,.10),transparent 60%)}
   .card.mode-game .card-group::after{content:' — en jeu';color:#7c5cff;font-weight:600}
+  /* EN RETRAIT : la carte n'est plus recalculee a sa cadence habituelle (contrat Module.pace). Dit dans l'en-tete,
+     pres du nom, parce qu'une valeur vieille de vingt minutes lue comme une valeur de l'instant est un mensonge. */
+  .card-pace{font-size:10.5px;font-weight:600;color:var(--muted);border:1px solid var(--border);border-radius:999px;
+             padding:1px 7px;white-space:nowrap;cursor:help}
   .card.busy{border-left-color:var(--accent);animation:cardbusy 1.6s ease-in-out infinite}
   @keyframes cardbusy{0%,100%{border-left-color:var(--accent)}50%{border-left-color:var(--border)}}
   @media (prefers-reduced-motion:reduce){ .card.busy{animation:none} }
@@ -1023,6 +1027,25 @@ function cardHtmlSafe(m, groupLabel){
       +'<div class="fields"><div class="frow"><span style="font-size:12.5px;color:var(--muted)">Le rendu de cette carte a échoué ('+esc(String(e&&e.message||e))+'). Les données du module sont intactes ; rechargez ou signalez.</span></div></div></div>';
   }
 }
+/* LA CADENCE D'UNE CARTE TENUE EN RETRAIT (contrat Module.pace).
+
+   Pendant une partie, Vigie espace le recalcul des cartes qui ne regardent pas le jeu : jusqu'a vingt minutes,
+   une heure pour les plus lourdes. Sans le dire, la carte donnerait une mesure d'il y a vingt minutes avec
+   l'aplomb d'une mesure de l'instant. Seules les cartes reellement ralenties portent cette mention -- le serveur
+   ne l'envoie pas pour les autres. */
+function paceLabel(seconds){
+  const s = Number(seconds) || 0;
+  if (s >= 3600) { const h = Math.round(s / 3600); return h > 1 ? `${h} h` : '1 h'; }
+  if (s >= 60)   { return `${Math.round(s / 60)} min`; }
+  return `${s} s`;
+}
+function paceHtml(m){
+  if (!m || !m.pace || !m.pace.seconds) return '';
+  const quoi = m.pace.reason === 'jeu' ? 'Une partie est en cours : Vigie se met en retrait pour la laisser tourner.'
+                                       : 'Cette carte est recalculée moins souvent que d\'habitude.';
+  return `<span class="card-pace" title="${esc(quoi)} Recalculée toutes les ${esc(paceLabel(m.pace.seconds))}.">en retrait · ${esc(paceLabel(m.pace.seconds))}</span>`;
+}
+
 function cardHtml(m, groupLabel){
   const st=['ok','warn','error','neutral'].includes(m.status)?m.status:'neutral';
   const stTxt={ok:'Conforme',warn:L('ui.voir'),error:L('ui.probleme')}[st];
@@ -1125,7 +1148,7 @@ function cardHtml(m, groupLabel){
   // AUCUNE ligne a montrer, elle le dit : une carte vide et muette n'apprend rien.
   return `<div class="card st-${st}${m.busy?' busy':''}${m.pending?' card-loading':''}${m.mode?(' mode-'+m.mode):''}" data-module="${m.id}" data-theme="${m.theme}">
     <div class="card-head">
-      <div class="card-titles"><span class="card-group">${esc(groupLabel||'')}</span><span class="name">${m.label}</span></div>
+      <div class="card-titles"><span class="card-group">${esc(groupLabel||'')}</span><span class="name">${m.label}</span>${paceHtml(m)}</div>
       ${stTxt?`<span class="badge ${st}"><span class="ic vi vi-fw">${stIc}</span>${stTxt}</span>`:''}
       <button class="card-refresh" title="${L('ui.rafraichir-cette-carte')}${(m.ms!==undefined&&m.ms!==null)?` — ${L('ui.servie-en')}${m.ms} ms`:''}" onclick="refreshCard('${m.id}',this,true)"><span class="cr-ic vi vi-fw vi-lg">&#xE008;</span></button>
       <button class="card-refresh card-menu" title="${L('ui.menu-de-cette-carte')}" onclick="openCardMenu(event,'${m.id}','${m.theme}')"><span class="vi vi-fw vi-lg">&#xE009;</span></button>

@@ -314,6 +314,20 @@ components:
             occupation : un contexte. La carte Jeux passe en 'game' pendant une partie, et
             l'interface le montre. Absent le reste du temps.
           example: game
+        pace:
+          type: object
+          description: >
+            LA CARTE EST TENUE EN RETRAIT, et le dit. Presente seulement quand le serveur espace nettement son
+            recalcul : pendant une partie, les cartes qui ne regardent pas le jeu passent a vingt minutes ou a
+            l'heure. Sans elle, le lecteur croit lire une mesure de l'instant.
+          properties:
+            seconds:
+              type: integer
+              description: delai entre deux recalculs, en secondes
+            reason:
+              type: string
+              description: ce qui met la carte en retrait ('jeu')
+              example: jeu
         busyAction:
           type: string
           description: >

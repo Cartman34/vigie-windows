@@ -3806,9 +3806,18 @@ function Test-ProcessIsGame {
     $key = $path.ToLower()
     $file = Get-GameVerdictPath -Backend $Backend
     $fingerprint = Get-GameCriteriaFingerprint -Backend $Backend
+    # THE MEMORY IS READ ONCE PER PASS, not once per process. Parsing this file for every running process cost 45 ms
+    # each -- the bulk of the 5.5 s the gaming card took on 28/09, with a hundred processes to judge. It is kept in
+    # memory for as long as the file has not changed.
     $memory = $null
-    if (Test-PathSafe $file) {
+    $written = $null
+    try { if (Test-PathSafe $file) { $written = (Get-Item -LiteralPath $file).LastWriteTimeUtc } } catch { }
+    if ($script:GameVerdictMemory -and $script:GameVerdictWritten -eq $written) {
+        $memory = $script:GameVerdictMemory
+    } elseif ($written) {
         try { $memory = Get-Content -LiteralPath $file -Raw | ConvertFrom-Json } catch { }
+        $script:GameVerdictMemory = $memory
+        $script:GameVerdictWritten = $written
     }
     if ($memory -and "$($memory.fingerprint)" -ne $fingerprint) { $memory = $null }
     if ($memory -and $memory.verdicts -and $memory.verdicts.PSObject.Properties[$key]) {
@@ -3839,6 +3848,9 @@ function Test-ProcessIsGame {
         $tmp = "$file.tmp"
         ($store | ConvertTo-Json -Depth 6) | Out-File -FilePath $tmp -Encoding UTF8
         Move-Item -Path $tmp -Destination $file -Force
+        # The memory follows what has just been written: without this, the next process reads the file again.
+        $script:GameVerdictMemory = ($store | ConvertTo-Json -Depth 6 | ConvertFrom-Json)
+        try { $script:GameVerdictWritten = (Get-Item -LiteralPath $file).LastWriteTimeUtc } catch { $script:GameVerdictWritten = $null }
     } catch { }
     return $verdict
 }
@@ -4371,15 +4383,21 @@ function Invoke-WatchPass {
 # During a game, the cards that speak of the game keep their pace; the others go to a quarter of an hour at least,
 # and the heavy ones to an hour. An explicit request (the card's refresh button) always goes through: the game mode
 # slows the background down, it forbids nothing.
-$script:GameModeUseful = @('gaming.probe.ps1', 'perf.probe.ps1', 'vigie.probe.ps1', 'self.probe.ps1')
+# THE CARDS THAT STILL WATCH THE GAME, each with the pace it keeps while playing. They are the only ones left
+# quick, so they would otherwise run far more often than before -- the opposite of the aim: the gaming card costs
+# 5.5 s per recomputation (244 times on 28/09, 22 minutes of processor for the day alone).
+$script:GameModeUseful = @{ 'gaming.probe.ps1' = 30; 'perf.probe.ps1' = 20; 'self.probe.ps1' = 120; 'vigie.probe.ps1' = 300 }
 $script:GameModeHeavy  = @('packages.probe.ps1', 'deployment.probe.ps1', 'lock.probe.ps1', 'pending.probe.ps1',
                            'comptes.probe.ps1', 'history.probe.ps1', 'wsl.probe.ps1', 'os.probe.ps1')
 $script:GameModeFloor  = 900      # the other cards: a quarter of an hour at least
 $script:GameModeHeavyTtl = 3600   # the heavy ones: one hour
 
 # A probe's cache duration at this instant, game mode included. With no game running, it is the table below.
+# -Base gives the duration OUTSIDE any game: comparing the two says whether a card is held back, and the card then
+# says so itself rather than leaving the reader with a figure quietly twenty minutes old (28/09).
 function Get-ProbeTtlNow {
-    param([Parameter(Mandatory)][string]$Name, [int]$Default = 30, [string]$Backend = (Get-BackendRoot), [switch]$InGame)
+    param([Parameter(Mandatory)][string]$Name, [int]$Default = 30, [string]$Backend = (Get-BackendRoot), [switch]$InGame, [switch]$Base)
+    if ($Base) { return $(if ($script:ProbeTtls.ContainsKey($Name)) { [int]$script:ProbeTtls[$Name] } else { $Default }) }
     $ttl = $(if ($script:ProbeTtls.ContainsKey($Name)) { [int]$script:ProbeTtls[$Name] } else { $Default })
     # THE STORAGE CARD FOLLOWS ITS ANALYSIS: while the scan writes its progress, the card must show it moving.
     if ($Name -eq 'disk.probe.ps1') {
@@ -4389,7 +4407,7 @@ function Get-ProbeTtlNow {
         } catch { }
     }
     if (-not $InGame) { return $ttl }
-    if ($script:GameModeUseful -contains $Name) { return $ttl }
+    if ($script:GameModeUseful.ContainsKey($Name)) { return [Math]::Max($ttl, [int]$script:GameModeUseful[$Name]) }
     if ($script:GameModeHeavy -contains $Name) { return [Math]::Max($ttl, $script:GameModeHeavyTtl) }
     return [Math]::Max($ttl * 20, $script:GameModeFloor)
 }
@@ -4420,7 +4438,8 @@ function Get-GameModeName {
     progress shown once a minute is not a progress.
 #>
 $script:ProbeTtls = @{
-    'perf.probe.ps1'    = 8
+    # 15, not 8: the card costs 1.1 s per recomputation, and nobody reads the processor load eight times a minute.
+    'perf.probe.ps1'    = 15
     # 60, not 15: the probe takes 4.2 s (connection test with timeouts), and the 'internet' sentinel recalculates
     # this card the moment the connection moves.
     'net.probe.ps1'     = 60
@@ -4451,7 +4470,8 @@ $script:ProbeTtls = @{
     'events.probe.ps1'  = 60
     # VIGIE'S OWN PROCESSES: a runaway must show within the minute, and the reading costs a few milliseconds.
     'self.probe.ps1'    = 30
-    'gaming.probe.ps1'  = 10
+    # 30, not 10: 5.5 s per recomputation on 28/09 -- the most expensive card of all, and the one a game keeps quick.
+    'gaming.probe.ps1'  = 30
 }
 
 # Ramene une date lue depuis JSON a un [datetime] UTC, quelle que soit sa forme.
@@ -4632,7 +4652,9 @@ $script:MeasureCatalog = @{
         running when there is one: the series is then read session by session.
     #>
     'perf.cpu' = @{
-        Probe = 'perf.probe.ps1'; Kind = 'gauge'; Unit = '%'; IntervalMinutes = 1; Tolerance = 10
+        # One point every five minutes at rest, every minute while a game runs: these series serve an enquiry,
+        # and nobody needs the processor load of every second (owner, 28/09).
+        Probe = 'perf.probe.ps1'; IntervalMinutesInGame = 1; Kind = 'gauge'; Unit = '%'; IntervalMinutes = 5; Tolerance = 10
         Extract = {
             param($Modules)
             $m = @($Modules) | Where-Object { "$($_.id)" -eq 'perf' } | Select-Object -First 1
@@ -4646,7 +4668,9 @@ $script:MeasureCatalog = @{
         }
     }
     'perf.ram' = @{
-        Probe = 'perf.probe.ps1'; Kind = 'gauge'; Unit = '%'; IntervalMinutes = 1; Tolerance = 2
+        # One point every five minutes at rest, every minute while a game runs: these series serve an enquiry,
+        # and nobody needs the processor load of every second (owner, 28/09).
+        Probe = 'perf.probe.ps1'; IntervalMinutesInGame = 1; Kind = 'gauge'; Unit = '%'; IntervalMinutes = 5; Tolerance = 2
         Extract = {
             param($Modules)
             $m = @($Modules) | Where-Object { "$($_.id)" -eq 'perf' } | Select-Object -First 1
@@ -4661,7 +4685,9 @@ $script:MeasureCatalog = @{
         }
     }
     'perf.commit' = @{
-        Probe = 'perf.probe.ps1'; Kind = 'gauge'; Unit = 'Go'; IntervalMinutes = 1; Tolerance = 1
+        # One point every five minutes at rest, every minute while a game runs: these series serve an enquiry,
+        # and nobody needs the processor load of every second (owner, 28/09).
+        Probe = 'perf.probe.ps1'; IntervalMinutesInGame = 1; Kind = 'gauge'; Unit = 'Go'; IntervalMinutes = 5; Tolerance = 1
         Extract = {
             param($Modules)
             $m = @($Modules) | Where-Object { "$($_.id)" -eq 'perf' } | Select-Object -First 1
@@ -4942,6 +4968,8 @@ function Write-MeasureSamples {
         $cfg = Get-Config -Backend $Backend
         $global = Get-HistoryConfig -Backend $Backend -Config $cfg
         if (-not $global.Enabled) { return }
+        # Read once for the whole pass: a game running changes the pace of some measures.
+        $enJeuMesures = [bool](Get-GameModeName -Backend $Backend)
         $indexFile = Get-VarPath -Backend $Backend -Kind 'history' -File 'history-index.json'
         $index = $null
         if (Test-Path -LiteralPath $indexFile) {
@@ -4966,10 +4994,14 @@ function Write-MeasureSamples {
                 if ($prevKey -eq "$($sample.key)") { continue }
             }
             # Gauge ordinaire : intervalle minimal depuis le dernier point.
-            if ((-not $sample.key) -and $eff.IntervalMinutes -gt 0 -and $entry -and $entry.lastAt) {
+            # WHILE A GAME RUNS, a measure may ask for a closer pace (IntervalMinutesInGame): the enquiry needs the
+            # minute, the rest of the day does not.
+            $interval = [int]$eff.IntervalMinutes
+            if ($enJeuMesures -and $cat.IntervalMinutesInGame) { $interval = [int]$cat.IntervalMinutesInGame }
+            if ((-not $sample.key) -and $interval -gt 0 -and $entry -and $entry.lastAt) {
                 try {
                     $last = ConvertTo-UtcDate $entry.lastAt
-                    if ($last -and ($nowUtc - $last).TotalMinutes -lt $eff.IntervalMinutes) { continue }
+                    if ($last -and ($nowUtc - $last).TotalMinutes -lt $interval) { continue }
                 } catch { }
             }
             # ON N'ECRIT PAS DEUX FOIS LA MEME VALEUR.
@@ -5668,10 +5700,23 @@ function Get-State {
         $t = [Diagnostics.Stopwatch]::StartNew()
         $e = $cache[(Get-ProbeCacheKey -ProbeFile $pf.FullName -Account $stateRequester)]
         $t.Stop()
+        # HELD BACK? The pace travels with the card, computed here so that no probe has to know about it: the
+        # interface says it in the card's header, and only on the cards actually slowed down.
+        $paceNow  = Get-ProbeTtlNow -Name $pf.Name -Default $defaultTtl -Backend $Backend -InGame:$enJeu
+        $paceBase = Get-ProbeTtlNow -Name $pf.Name -Default $defaultTtl -Backend $Backend -Base
         if ($e -and $e.module) {
             foreach ($mm in @($e.module)) {
                 $modules += $mm
                 if ($mm -and $mm.id) { $chrono["$($mm.id)"] = [double]$t.Elapsed.TotalMilliseconds }
+                # MARKED ONLY WHEN IT MATTERS: twice its usual pace AND at least two minutes. Saying "held back" for
+                # twenty seconds instead of fifteen would be noise on every card of a game session.
+                if ($mm -and $paceNow -ge [Math]::Max(120, 2 * $paceBase)) {
+                    $pace = @{ seconds = $paceNow; reason = 'jeu' }
+                    try {
+                        if ($mm -is [System.Collections.IDictionary]) { $mm['pace'] = $pace }
+                        else { Add-Member -InputObject $mm -NotePropertyName 'pace' -NotePropertyValue $pace -Force }
+                    } catch { }
+                }
                 # A RECALCULER : la carte s'affiche, et dit qu'elle attend sa mesure.
                 if ($mm -and $e.pending) {
                     try {
