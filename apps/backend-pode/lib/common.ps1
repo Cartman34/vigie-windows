@@ -2828,6 +2828,13 @@ function Start-TrayTasks {
             # earlier, the task no longer reads Running while its instance still runs (22:39 the same day).
             $current = Get-ScheduledTask -TaskName "$($a.task)" -ErrorAction Stop
             if (Test-VigieTaskProcessAlive -Task $current) { continue }
+            # A TASK THAT READS « Running » WITH NOBODY BEHIND IT REFUSES TO START. Windows keeps the state after the
+            # process is gone, and the start comes back 0x800710E0, « request refused » -- the account is then left
+            # without its client app until the next logon. Seen on 28/09, on the very account that asked for the
+            # update. Ending the ghost costs nothing when there is none.
+            if ("$($current.State)" -eq 'Running') {
+                try { Stop-ScheduledTask -TaskName "$($a.task)" -ErrorAction Stop; Start-Sleep -Milliseconds 700 } catch { }
+            }
             Start-ScheduledTask -TaskName "$($a.task)" -ErrorAction Stop
             $started += "$($a.name)"
         } catch { }

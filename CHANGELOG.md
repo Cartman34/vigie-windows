@@ -696,6 +696,9 @@ versions, du point de vue de qui utilise Vigie.*
 - **Un bouton envoie une vraie notification d'essai** (module Débogage) et dit quel outil l'a affichée. Les alertes
   ajoutées en septembre — mémoire engagée, ports réseau, erreurs système, emballement de Vigie — n'avaient jamais été
   vues à l'écran : un mécanisme que personne n'a vu fonctionner est une promesse, pas une fonction.
+- **Une mise à jour ne laisse plus un compte sans app cliente** : Windows garde l'état « en cours » d'une tâche dont
+  le processus est mort, et refuse alors de la démarrer (0x800710E0). Le 28/09, le compte qui avait demandé la mise à
+  jour s'est retrouvé sans icône. La tâche fantôme est désormais terminée avant d'être relancée.
 - **Une notification cliquée ouvre enfin Vigie** : ni la bulle du démarrage, ni les notifications Windows n'avaient
   de gestionnaire de clic — cliquer ne pouvait que les faire disparaître. La bulle ouvre le panneau, et les
   notifications portent une cible que Windows sait atteindre, le protocole `vigie://`, déclaré par l'app cliente pour

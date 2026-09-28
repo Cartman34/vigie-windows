@@ -178,6 +178,12 @@ public static bool Close(System.IntPtr h) {
 }
 '@
 
+        $cfg       = Get-Config -Backend $backend
+        $url       = Get-AppUrl -Config $cfg
+        $healthUrl = (Get-ApiUrl -Config $cfg) + '/health'
+        $pwsh      = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
+        $trayPath  = Join-Path $trayRoot 'tray.ps1'      # cette app, pas le backend
+
         <#
             THE PROTOCOL VIGIE:// -- DECLARED HERE, FOR THIS ACCOUNT ONLY.
 
@@ -201,11 +207,6 @@ public static bool Close(System.IntPtr h) {
             }
         } catch { TLog ('protocole vigie:// non declare : ' + $_.Exception.Message) }
 
-        $cfg       = Get-Config -Backend $backend
-        $url       = Get-AppUrl -Config $cfg
-        $healthUrl = (Get-ApiUrl -Config $cfg) + '/health'
-        $pwsh      = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
-        $trayPath  = Join-Path $trayRoot 'tray.ps1'      # cette app, pas le backend
         # Starting : un demarrage a ete demande et le serveur n'a pas encore repondu.
         $state     = [hashtable]::Synchronized(@{ Proc = $null; Drawn = ''; EverUp = $false; Starting = $true; StartTicks = [datetime]::UtcNow.Ticks; Mods = @{}; ModsInit = $false; HealthKo = 0; MachineTask = $null; ElevationAsked = $false; SaidDead = $false; Bulles = @{}; DerniereBulle = $null; NotifTicks = 0; ApiSession = $null; Present = $true; NotifPar = @{} })
         # OUR Windows session, read once: it does not change for the life of the process.
