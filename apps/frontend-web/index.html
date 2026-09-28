@@ -2142,6 +2142,24 @@ async function openSessionRecap(startedAt){
              actions:[{ label:'Parties précédentes', value:'sessions' }, { label:'Fermer', kind:'primary', value:'close', default:true }] })
     .then(v=>{ if(v==='sessions') openPastSessions(); });
 }
+/* THE PANEL CAN BE ASKED TO OPEN ON SOMETHING (?show=recap).
+
+   The client app opens this window at the end of a game session: it must land on the recap, not on the dashboard
+   with the recap one click away. The parameter is read once, then dropped from the address so that a reload does
+   not reopen it for ever. */
+function openRequestedView(){
+  try {
+    const params = new URLSearchParams(location.search);
+    const quoi = params.get('show');
+    if(!quoi) return;
+    params.delete('show');
+    const reste = params.toString();
+    history.replaceState(null, '', location.pathname + (reste ? '?'+reste : '') + location.hash);
+    if(quoi === 'recap') setTimeout(()=>openSessionRecap(), 400);
+    if(quoi === 'sessions') setTimeout(()=>openPastSessions(), 400);
+  } catch(e) { }
+}
+
 async function openPastSessions(){
   let j;
   try { j = await runGamingAction('game-sessions'); }
@@ -3433,6 +3451,7 @@ function renderTabApropos(pane){
 // ===== Demarrage =====
 wireRepoLinks();
 ouvrirDepuisHash();
+openRequestedView();   // ?show=recap: the window the client app opens lands on the recap
 setFootVersion();
 setTimeout(hideSplash, SPLASH_MAX_MS);   // garde-fou si /state ne repond jamais
 refresh();

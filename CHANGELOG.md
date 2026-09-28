@@ -696,6 +696,14 @@ versions, du point de vue de qui utilise Vigie.*
 - **Un bouton envoie une vraie notification d'essai** (module Débogage) et dit quel outil l'a affichée. Les alertes
   ajoutées en septembre — mémoire engagée, ports réseau, erreurs système, emballement de Vigie — n'avaient jamais été
   vues à l'écran : un mécanisme que personne n'a vu fonctionner est une promesse, pas une fonction.
+- **Une notification cliquée ouvre enfin Vigie** : ni la bulle du démarrage, ni les notifications Windows n'avaient
+  de gestionnaire de clic — cliquer ne pouvait que les faire disparaître. La bulle ouvre le panneau, et les
+  notifications portent une cible que Windows sait atteindre, le protocole `vigie://`, déclaré par l'app cliente pour
+  son compte.
+- **Le récapitulatif s'ouvre tout seul à la fin d'une partie** (réglage actif par défaut, module Jeux). La fenêtre se
+  ferme d'elle-même quand une nouvelle partie commence, ou après dix minutes sans avoir été une seule fois au premier
+  plan — regardée, elle reste. Réglage éteint, une notification « Partie terminée / Voir le récap » propose de
+  l'ouvrir, et elle obéit aux réglages de notification comme les autres.
 - **Le récapitulatif d'une partie s'ouvre dans une fenêtre**, jamais sur la carte : les bouchons d'abord, puis le jeu,
   puis ce que chaque application a pris. La même fenêtre par toutes les portes — le bouton de la carte, la liste des
   parties précédentes, et bientôt la fin d'une partie. La carte ne garde qu'une ligne : « ACOdyssey, 1 h 35, terminée

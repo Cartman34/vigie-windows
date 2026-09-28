@@ -141,6 +141,10 @@ public static extern bool SetForegroundWindow(System.IntPtr hWnd);
 public static extern bool ShowWindow(System.IntPtr hWnd, int nCmdShow);
 [System.Runtime.InteropServices.DllImport("user32.dll")]
 public static extern bool IsIconic(System.IntPtr hWnd);
+[System.Runtime.InteropServices.DllImport("user32.dll")]
+public static extern System.IntPtr GetForegroundWindow();
+[System.Runtime.InteropServices.DllImport("user32.dll")]
+public static extern bool PostMessage(System.IntPtr hWnd, uint msg, System.IntPtr w, System.IntPtr l);
 
 // Titre EXACT attendu : le front pose « <machine> - Vigie » (document.title).
 public static System.IntPtr FindBySuffix(string suffix) {
@@ -161,7 +165,41 @@ public static bool Focus(System.IntPtr h) {
     if (IsIconic(h)) ShowWindow(h, 9);
     return SetForegroundWindow(h);
 }
+
+// IS IT WATCHED? The foreground window is the only one actually being looked at.
+public static bool IsWatched(System.IntPtr h) {
+    return h != System.IntPtr.Zero && GetForegroundWindow() == h;
+}
+
+// WM_CLOSE = 0x10: the close is ASKED for, nothing is killed. A window that refuses stays open.
+public static bool Close(System.IntPtr h) {
+    if (h == System.IntPtr.Zero) return false;
+    return PostMessage(h, 0x0010, System.IntPtr.Zero, System.IntPtr.Zero);
+}
 '@
+
+        <#
+            THE PROTOCOL VIGIE:// -- DECLARED HERE, FOR THIS ACCOUNT ONLY.
+
+            Windows opens nothing when a notification is clicked unless the notification names a target it knows how
+            to reach, and a script cannot be that target: a protocol can. The declaration lives under HKCU, so it
+            belongs to the account and needs no privilege; it is rewritten whenever the installation moves, because a
+            protocol pointing at a path that no longer exists is worse than none.
+        #>
+        try {
+            $protocolScript = Join-Path $trayRoot 'protocol.ps1'
+            $protocolCommand = '"{0}" -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "{1}" "%1"' -f $pwsh, $protocolScript
+            $protocolKey = 'HKCU:\Software\Classes\vigie'
+            $alreadySet = $null
+            try { $alreadySet = (Get-ItemProperty -Path (Join-Path $protocolKey 'shell\open\command') -ErrorAction Stop).'(default)' } catch { }
+            if ($pwsh -and (Test-Path -LiteralPath $protocolScript) -and "$alreadySet" -ne $protocolCommand) {
+                New-Item -Path (Join-Path $protocolKey 'shell\open\command') -Force | Out-Null
+                Set-ItemProperty -Path $protocolKey -Name '(default)' -Value 'URL:Vigie'
+                Set-ItemProperty -Path $protocolKey -Name 'URL Protocol' -Value ''
+                Set-ItemProperty -Path (Join-Path $protocolKey 'shell\open\command') -Name '(default)' -Value $protocolCommand
+                TLog 'protocole vigie:// declare pour ce compte'
+            }
+        } catch { TLog ('protocole vigie:// non declare : ' + $_.Exception.Message) }
 
         $cfg       = Get-Config -Backend $backend
         $url       = Get-AppUrl -Config $cfg
@@ -459,7 +497,10 @@ public static bool Focus(System.IntPtr h) {
         # on CONSTATE le resultat avant de le declarer. Un candidat qui meurt fait passer
         # au suivant ; si aucun ne tient, on ouvre un onglet normal plutot que rien.
         $openApp = {
-            TLog "openApp demande"
+            # -Sur: what the panel must show on opening ('recap' for the last session's recap). Without it, it opens
+            # as usual: the parameter adds nothing for those who do not pass it.
+            param([string]$Sur)
+            TLog ("openApp demande" + $(if ($Sur) { " (sur $Sur)" } else { '' }))
 
 
             # DEJA OUVERTE ? On la ramene au premier plan au lieu d'en ouvrir une seconde.
@@ -499,6 +540,8 @@ public static bool Focus(System.IntPtr h) {
                 return
             }
             $url = $signInUrl
+            # THE PANEL OPENS ON WHAT IT IS ASKED FOR: the page reads this parameter and opens the right window.
+            if ($Sur) { $url += $(if ($url -like '*`?*') { '&' } else { '?' }) + 'show=' + [uri]::EscapeDataString($Sur) }
 
             # Le mode --app n'existe que sur les navigateurs Chromium.
             $chromium = @('chrome', 'msedge', 'brave', 'vivaldi', 'opera')
@@ -1037,7 +1080,9 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
               - si l'affichage echoue, on n'insiste pas -- on le note et on passe.
         #>
         $dire = {
-            param([string]$Titre, [string]$Texte, [string]$Icone = 'Info', [int]$Duree = 6000, [string]$Key = '')
+            # -Ouvre: what a click on the notification must open (a vigie:// address). Without it, the notification
+            # informs without offering anything -- which most of them still do.
+            param([string]$Titre, [string]$Texte, [string]$Icone = 'Info', [int]$Duree = 6000, [string]$Key = '', [string]$Ouvre = '')
             $maintenant = [datetime]::UtcNow
             $cle = "$Titre|$Texte"
             if (-not $state.Bulles) { $state.Bulles = @{} }
@@ -1050,7 +1095,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
             $level = switch ($Icone) { 'Error' { 'error' } 'Warning' { 'warn' } default { 'ok' } }
             try {
                 $outil = Show-VigieNotification `
-                    -Notification @{ Subject = $Titre; Body = $Texte; State = $level; Duration = $Duree; Key = $Key } `
+                    -Notification @{ Subject = $Titre; Body = $Texte; State = $level; Duration = $Duree; Key = $Key; Launch = $Ouvre } `
                     -Context @{ TrayRoot = $trayRoot; Aumid = (Get-VigieToastIdentity); Icon = $icon }
                 if ($outil) { TLog ("notification montree par " + $outil) }
                 else { TLog "aucun outil n'a su montrer la notification" }
@@ -1293,6 +1338,58 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                         }
                     }
                     if (-not $state.ModsInit) {
+                        <#
+                            THE END OF A SESSION OPENS ITS RECAP.
+
+                            The server app cannot open a window: it runs under the service account, with no screen.
+                            The client app IS the session, so it opens it, and nothing else does.
+
+                            The setting decides (Settings > Modules > Games, on by default): open it, or merely
+                            offer it through a notification that opens it on a click. That notification goes through
+                            the same door as the others, so it obeys the notification settings -- switched off, it
+                            stays quiet.
+                        #>
+                        $recapNow = $null
+                        try { $recapNow = "$($vus['gaming/last-session'].value)" } catch { }
+                        $enPartie = $false
+                        try { $enPartie = ($vus['gaming/game'] -and "$($vus['gaming/game'].value)" -notin @('Aucun', 'Surveillance indisponible')) } catch { }
+                        if ($recapNow -and $state.RecapVu -and $recapNow -ne $state.RecapVu -and -not $silence -and $state.Present) {
+                            $auto = $true
+                            try { $auto = [bool](Get-ModuleSetting -Unit 'gaming' -Key 'OpenRecapAtEnd' -Backend $backend) } catch { }
+                            if ($auto) {
+                                TLog "fin de partie : ouverture du recapitulatif"
+                                & $openApp 'recap'
+                                Start-Sleep -Milliseconds 2500
+                                $state.RecapFenetre = [VigieNative.Win]::FindBySuffix(' — Vigie')
+                                $state.RecapDepuis = [datetime]::UtcNow.Ticks
+                                $state.RecapVuAu = [datetime]::UtcNow.Ticks
+                            } else {
+                                $permis = $true
+                                try { $permis = Test-NotificationAllowed -ModuleId 'gaming' -Key 'game-recap' -Settings (Get-NotificationSettings -Backend $backend) } catch { }
+                                if ($permis) { & $dire -Titre (Get-Label 'tray.bulle-partie-titre') -Texte (Get-Label 'tray.bulle-partie-texte') -Icone 'Info' -Duree 8000 -Key 'gaming.recap' -Ouvre 'vigie://session-recap' }
+                            }
+                        }
+                        if ($recapNow) { $state.RecapVu = $recapNow }
+                        <#
+                            AND IT CLOSES ON ITS OWN.
+
+                            Two reasons, and two only: a new session starts -- the previous recap has no object any
+                            more -- or ten minutes have passed without the window coming to the foreground once.
+                            Watched, it stays: the count restarts at every glance. Vigie closes ONLY the window it
+                            opened itself.
+                        #>
+                        if ($state.RecapFenetre -and $state.RecapFenetre -ne [System.IntPtr]::Zero) {
+                            $ferme = $false
+                            if ($enPartie) { TLog 'recapitulatif : nouvelle partie, fermeture'; $ferme = $true }
+                            elseif ([VigieNative.Win]::IsWatched($state.RecapFenetre)) { $state.RecapVuAu = [datetime]::UtcNow.Ticks }
+                            elseif ($state.RecapVuAu -and ([datetime]::UtcNow - [datetime]$state.RecapVuAu).TotalMinutes -ge 10) {
+                                TLog 'recapitulatif : dix minutes sans etre regarde, fermeture'; $ferme = $true
+                            }
+                            if ($ferme) {
+                                try { [void][VigieNative.Win]::Close($state.RecapFenetre) } catch { }
+                                $state.RecapFenetre = $null
+                            }
+                        }
                         $state.Mods = $vus; $state.ModsInit = $true
                     } elseif ($silence) {
                         # PENDANT UNE INSTALLATION, un changement d'etat n'est pas un
@@ -1425,6 +1522,16 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                     & $quitApp 'ordre stop'
                     return
                 }
+                # THE OPEN ORDERS come from the protocol: a notification is clicked, Windows calls protocol.ps1,
+                # which drops the file read here. The app that owns the screen stays the only one that opens.
+                foreach ($order in @(@{ nom = 'open-recap'; sur = 'recap' }, @{ nom = 'open'; sur = '' })) {
+                    $orderFile = Join-Path $runDir $order.nom
+                    if (Test-Path -LiteralPath $orderFile) {
+                        Remove-Item -LiteralPath $orderFile -Force -ErrorAction SilentlyContinue
+                        TLog ("ordre recu : " + $order.nom)
+                        if ($order.sur) { & $openApp $order.sur } else { & $openApp }
+                    }
+                }
                 $restart = Join-Path $runDir 'restart'
                 if (Test-Path -LiteralPath $restart) {
                     Remove-Item -LiteralPath $restart -Force -ErrorAction SilentlyContinue
@@ -1452,13 +1559,13 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                     MEME EN CAS D'ECHEC : sans compte rendu, il patiente jusqu'a expiration
                     puis conclut a tort que le tray est absent.
                 #>
-                foreach ($ordre in @(Get-ChildItem -LiteralPath $runDir -Filter 'desktop-*.json' -File -ErrorAction SilentlyContinue |
+                foreach ($order in @(Get-ChildItem -LiteralPath $runDir -Filter 'desktop-*.json' -File -ErrorAction SilentlyContinue |
                                      Where-Object { $_.Name -notlike '*.done.json' })) {
-                    $reponse = Join-Path $runDir ($ordre.BaseName + '.done.json')
+                    $reponse = Join-Path $runDir ($order.BaseName + '.done.json')
                     $sortie = @{ message = ''; result = @{ ok = $false } }
                     try {
-                        $charge = Get-Content -LiteralPath $ordre.FullName -Raw -Encoding UTF8 | ConvertFrom-Json
-                        Remove-Item -LiteralPath $ordre.FullName -Force -ErrorAction SilentlyContinue
+                        $charge = Get-Content -LiteralPath $order.FullName -Raw -Encoding UTF8 | ConvertFrom-Json
+                        Remove-Item -LiteralPath $order.FullName -Force -ErrorAction SilentlyContinue
                         $type = "$($charge.type)"
                         # Le meme controle que cote serveur : un identifiant simple, et
                         # rien qui ressemble a un chemin. Un dossier d'ordres est une
@@ -1503,7 +1610,10 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
             TLog "guetteur d'adresse reseau arme"
         } catch { TLog ("guetteur d'adresse reseau indisponible : " + $_.Exception.Message) }
 
-        try { $icon.ShowBalloonTip(3000, 'Vigie', "Panneau lance en fond. Un double-clic sur l'icone l'ouvre.", [System.Windows.Forms.ToolTipIcon]::Info) } catch { }
+        # A BUBBLE THAT IGNORES A CLICK IS A DOOR PAINTED ON A WALL. Clicking it did nothing -- it just vanished
+        # (reported 28/09). It now opens the panel, which is what anyone expects.
+        try { $icon.add_BalloonTipClicked({ TLog "clic sur la bulle : ouverture du panneau"; & $openApp }) } catch { }
+        try { $icon.ShowBalloonTip(3000, 'Vigie', "Panneau lance en fond. Un clic sur cette bulle l'ouvre.", [System.Windows.Forms.ToolTipIcon]::Info) } catch { }
 
         TLog "Application.Run"
         [System.Windows.Forms.Application]::Run()

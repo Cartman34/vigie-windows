@@ -115,7 +115,7 @@ public static class VigieToastCom
     try { Add-Type -TypeDefinition $source -Language CSharp -ErrorAction Stop } catch { return $false }
 }
 
-$xml = Get-VigieToastXml -Subject "$($Notification.Subject)" -Body "$($Notification.Body)" `
+$xml = Get-VigieToastXml -Subject "$($Notification.Subject)" -Body "$($Notification.Body)" -Launch "$($Notification.Launch)" `
                         -Image (Get-VigieToastImage -TrayRoot $Context.TrayRoot -State "$($Notification.State)") `
                         -Long:([int]$Notification.Duration -ge 10000)
 if (-not $xml) { return $false }

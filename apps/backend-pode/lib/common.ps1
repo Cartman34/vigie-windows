@@ -7483,12 +7483,16 @@ function Get-VigieToastXml {
         [Parameter(Mandatory)][AllowEmptyString()][string]$Subject,
         [string]$Body = '',
         [string]$Image,
+        # WHAT A CLICK OPENS. Windows ignores a click on a toast that names no target, and the only target a script
+        # can offer is a protocol -- "vigie://panel", declared by the client app for its account (28/09).
+        [string]$Launch,
         [switch]$Long
     )
     if (-not $Subject) { return $null }
     # ESCAPED, ALWAYS. An application named "AT&T" or a title carrying an angle bracket
     # would otherwise produce a document that does not parse, and a lost notification.
     $xml = '<toast'
+    if ($Launch) { $xml += ' activationType="protocol" launch="' + [System.Security.SecurityElement]::Escape($Launch) + '"' }
     if ($Long) { $xml += ' duration="long"' }
     $xml += '><visual><binding template="ToastGeneric">'
     $xml += '<text>' + [System.Security.SecurityElement]::Escape($Subject) + '</text>'

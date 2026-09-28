@@ -15,10 +15,14 @@
         VramWarnPct     = 90   # % de VRAM occupee au-dela duquel on avertit
         GpuTempWarnC    = 87   # temperature GPU au-dela de laquelle on avertit
         BatteryDropWarnPct = 10 # points de batterie perdus pendant la partie avant d'alerter
+        # THE RECAP OPENS BY ITSELF at the end of a session, unless the owner says otherwise (on by default, 28/09).
+        OpenRecapAtEnd  = $true
     }
 
     # PARAMETRES : les cles de Config reglables dans le menu Parametres de l'app.
     Parameters = @(
+        @{ Key = 'OpenRecapAtEnd'; Label = 'Ouvrir le récapitulatif à la fin d''une partie'; Type = 'bool'
+           Help = 'À la fin d''une partie, Vigie ouvre son récapitulatif. La fenêtre se ferme d''elle-même si une nouvelle partie commence, ou après dix minutes sans être regardée. Éteint, Vigie se contente d''une notification.' }
         @{ Key = 'GameGpuMinPct'; Label = 'Seuil de détection du jeu'; Type = 'int'; Unit = '% GPU'; Min = 5; Max = 80; Step = 5
            Help = 'En dessous de cette utilisation GPU, aucun processus n''est considéré comme un jeu.' }
         @{ Key = 'OtherCpuWarnPct'; Label = 'Alerte CPU des autres applis'; Type = 'int'; Unit = '%'; Min = 1; Max = 50; Step = 1
@@ -52,6 +56,10 @@
     # NOTIFICATIONS emises par ce module (D54) : un evenement nomme, pas un nom de
     # carte. C'est la bascule du champ cite qui declenche la bulle.
     Notifications = @(
+        @{ Key = 'game-recap'; Label = 'Récapitulatif de partie'
+           Card = 'gaming'; Field = 'last-session'
+           Droits = 'tous'; Critique = $false
+           Help = 'À la fin d''une partie, propose d''ouvrir son récapitulatif. Sans effet si l''ouverture automatique est activée.' }
         @{ Key = 'gpu-temp'; Label = 'Température GPU élevée'
            Card = 'gaming'; Field = 'gpu-temp'
            Droits = 'tous'; Critique = $false

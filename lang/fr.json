@@ -539,6 +539,8 @@
   "tray.bulle-identite-titre": "Identification impossible",
   "tray.bulle-mort-texte": "Le serveur ne répond plus. Vigie tente de le relancer ; sinon, « Redémarrer le serveur » dans le menu de l'icône.",
   "tray.bulle-mort-titre": "Serveur arrêté",
+  "tray.bulle-partie-texte": "Voir le récap",
+  "tray.bulle-partie-titre": "Partie terminée",
   "tray.raison-journal-bureau": "Windows a manqué de mémoire du Bureau (journal Système, {0}).",
   "tray.raison-journal-memoire": "Windows a manqué de mémoire virtuelle (journal Système, {0}).",
   "tray.raison-journal-ports": "Windows a manqué de ports réseau (journal Système, {0}).",
