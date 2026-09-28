@@ -397,6 +397,11 @@ if ($jeu) {
         -Value ((Get-AppDisplayName -ProcessName $jeu.Name -Path $jeu.Path -Complet) + $(if ($auRepos) { ' (menu ou pause)' } else { '' })) -Kind 'text' -Status 'ok' `
         -Help "Application qui consomme le GPU ET qui présente des signes de jeu (bibliothèque de jeux, moteur, plein écran)." `
         -Guide $(if ($pourquoi.Count) { $pourquoi -join "`n" } else { $null })
+    # THE GAME MODE SAYS ITSELF (28/09): during a game, Vigie spaces its other cards out. The reader must know that
+    # what the other cards show may be a quarter of an hour old, and why.
+    $fields += New-Field -Key 'retrait' -Label 'Vigie pendant la partie' -Value 'En retrait' -Kind 'text' -Status 'ok' `
+        -Help "Pendant une partie, Vigie se met en retrait : les cartes de la partie gardent leur cadence, les autres ne se recalculent qu'au quart d'heure, et les plus lourdes (paquets, déploiement, mises à jour, comptes) qu'à l'heure. Le bouton « Actualiser » d'une carte passe toujours avant ce retrait." `
+        -Guide "Mesuré le 28/09, sur une partie de 77 minutes sans ce retrait : 383 recalculs de cartes, 1 582 secondes de calcul, soit 34 % d'un cœur en continu, dont 400 s pour la seule carte des paquets."
     $fields += New-Field -Key 'game-res' -Label 'Ressources du jeu' `
         -Value ("CPU {0} % · GPU {1} % · VRAM {2} Go" -f $jeu.Cpu, $jeu.Gpu, $jeu.VramGb) -Kind 'text' -Status 'neutral' `
         -Help "Part de la machine consommée par le jeu à l'instant de la mesure." `

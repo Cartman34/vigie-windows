@@ -4361,6 +4361,43 @@ function Invoke-WatchPass {
 # --- Agregation des sondes (journalisee) -----------------------------------
 # Duree de validite du cache par sonde (secondes) : court pour ce qui bouge vite,
 # long pour ce qui est stable.
+# THE GAME MODE: WHILE A GAME RUNS, VIGIE STEPS BACK.
+#
+# Measured on 28/09, an ACOdyssey session of 77 minutes: 383 card recomputations, 1582 s of processing, 34 % of one
+# core without pause -- 400 s for the packages card alone (winget, choco, pip), 301 s for the gaming card, 213 s for
+# the network. The game stuttered, and Vigie had its share in it. Every request from the interface hands one stale
+# probe to a background task; with caches of five seconds, everything is always stale.
+#
+# During a game, the cards that speak of the game keep their pace; the others go to a quarter of an hour at least,
+# and the heavy ones to an hour. An explicit request (the card's refresh button) always goes through: the game mode
+# slows the background down, it forbids nothing.
+$script:GameModeUseful = @('gaming.probe.ps1', 'perf.probe.ps1', 'vigie.probe.ps1', 'self.probe.ps1')
+$script:GameModeHeavy  = @('packages.probe.ps1', 'deployment.probe.ps1', 'lock.probe.ps1', 'pending.probe.ps1',
+                           'comptes.probe.ps1', 'history.probe.ps1', 'wsl.probe.ps1', 'os.probe.ps1')
+$script:GameModeFloor  = 900      # the other cards: a quarter of an hour at least
+$script:GameModeHeavyTtl = 3600   # the heavy ones: one hour
+
+# A probe's cache duration at this instant, game mode included. With no game running, it is the table below.
+function Get-ProbeTtlNow {
+    param([Parameter(Mandatory)][string]$Name, [int]$Default = 30, [string]$Backend = (Get-BackendRoot), [switch]$InGame)
+    $ttl = $(if ($script:ProbeTtls.ContainsKey($Name)) { [int]$script:ProbeTtls[$Name] } else { $Default })
+    if (-not $InGame) { return $ttl }
+    if ($script:GameModeUseful -contains $Name) { return $ttl }
+    if ($script:GameModeHeavy -contains $Name) { return [Math]::Max($ttl, $script:GameModeHeavyTtl) }
+    return [Math]::Max($ttl * 20, $script:GameModeFloor)
+}
+
+# IS A GAME RUNNING? Its name, or $null. Reads the session state, whose process is checked (Get-GameSession): a
+# closed game does not keep Vigie stepped back. Never throws.
+function Get-GameModeName {
+    param([string]$Backend = (Get-BackendRoot))
+    try {
+        $session = Get-GameSession -Backend $Backend
+        if ($session -and $session.name) { return "$($session.name)" }
+    } catch { }
+    return $null
+}
+
 $script:ProbeTtls = @{
     'perf.probe.ps1'    = 8
     'net.probe.ps1'     = 15
@@ -4550,9 +4587,69 @@ $script:MeasureCatalog = @{
             $g = @($m.fields) | Where-Object { "$($_.key)" -eq 'game' } | Select-Object -First 1
             $h = @($m.fields) | Where-Object { "$($_.key)" -eq 'hogs' } | Select-Object -First 1
             if (-not $g -or "$($g.value)" -eq 'aucun' -or -not $h) { return $null }
+            # THE VALUE NAMES, IT NO LONGER COUNTS: it reads "Chrome and 2 more" in French since 06/09, while the extractor
+            # looked for a leading number -- so the history of 28/09 read zero greedy application for a whole
+            # session. The count is read from the sentence, and the NAMES travel with the point.
+            $texte = "$($h.value)"
             $n = 0
-            if ("$($h.value)" -match '^([0-9]+)') { $n = [int]$Matches[1] }
-            return @{ v = [double]$n; n = "$($g.value)" }
+            if ($texte -match '^([0-9]+)') { $n = [int]$Matches[1] }
+            elseif ($texte -match '^Aucune') { $n = 0 }
+            elseif ($texte -match 'et\s+([0-9]+)\s+autres') { $n = [int]$Matches[1] + 1 }
+            elseif ($texte -match '\set\s') { $n = 2 }
+            elseif ($texte.Trim()) { $n = 1 }
+            return @{ v = [double]$n; n = $(if ($n) { $texte } else { "$($g.value)" }) }
+        }
+    }
+    <#
+        WHAT THE COMPUTER WAS DOING, NOT ONLY THE GAME.
+
+        On 28/09 a game stuttered for 77 minutes and nothing could say why: the game's GPU and VRAM were recorded,
+        the processor, the memory in use and the committed memory were not. These three follow the Resources card,
+        at all times -- they serve any enquiry, not only games -- and every point carries THE NAME OF THE GAME
+        running when there is one: the series is then read session by session.
+    #>
+    'perf.cpu' = @{
+        Probe = 'perf.probe.ps1'; Kind = 'gauge'; Unit = '%'; IntervalMinutes = 1; Tolerance = 10
+        Extract = {
+            param($Modules)
+            $m = @($Modules) | Where-Object { "$($_.id)" -eq 'perf' } | Select-Object -First 1
+            if (-not $m) { return $null }
+            $f = @($m.fields) | Where-Object { "$($_.key)" -eq 'cpu' } | Select-Object -First 1
+            if (-not $f -or $null -eq $f.value) { return $null }
+            $point = @{ v = [double]$f.value }
+            $jeu = Get-GameModeName
+            if ($jeu) { $point.n = $jeu }
+            return $point
+        }
+    }
+    'perf.ram' = @{
+        Probe = 'perf.probe.ps1'; Kind = 'gauge'; Unit = '%'; IntervalMinutes = 1; Tolerance = 2
+        Extract = {
+            param($Modules)
+            $m = @($Modules) | Where-Object { "$($_.id)" -eq 'perf' } | Select-Object -First 1
+            if (-not $m) { return $null }
+            $f = @($m.fields) | Where-Object { "$($_.key)" -eq 'ramUsed' } | Select-Object -First 1
+            if (-not $f) { return $null }
+            if ("$($f.value)" -notmatch '\(([0-9]+)\s*%\)') { return $null }
+            $point = @{ v = [double]$Matches[1] }
+            $jeu = Get-GameModeName
+            if ($jeu) { $point.n = $jeu }
+            return $point
+        }
+    }
+    'perf.commit' = @{
+        Probe = 'perf.probe.ps1'; Kind = 'gauge'; Unit = 'Go'; IntervalMinutes = 1; Tolerance = 1
+        Extract = {
+            param($Modules)
+            $m = @($Modules) | Where-Object { "$($_.id)" -eq 'perf' } | Select-Object -First 1
+            if (-not $m) { return $null }
+            $f = @($m.fields) | Where-Object { "$($_.key)" -eq 'commit' } | Select-Object -First 1
+            if (-not $f) { return $null }
+            if ("$($f.value)" -notmatch '^([0-9]+(?:[.,][0-9]+)?)\s*Go') { return $null }
+            $point = @{ v = [double](($Matches[1]) -replace ',', '.') }
+            $jeu = Get-GameModeName
+            if ($jeu) { $point.n = $jeu }
+            return $point
         }
     }
     'net.latency' = @{
@@ -5330,11 +5427,13 @@ function Get-State {
     }
     # QUI DEMANDE : les cartes qui parlent de « vous » ont leur propre entree par compte.
     $stateRequester = $(if ($PSBoundParameters.ContainsKey('Account')) { $Account } else { Get-RequesterAccount })
+    # THE GAME MODE, read once per pass: during a game, the cards that do not watch it space themselves out.
+    $enJeu = [bool](Get-GameModeName -Backend $Backend)
     $stale = @()
     foreach ($pf in $probeFiles) {
         $name = $pf.Name; $stamp = "$($pf.LastWriteTimeUtc.Ticks)"
         $key = Get-ProbeCacheKey -ProbeFile $pf.FullName -Account $stateRequester
-        $ttl = if ($script:ProbeTtls.ContainsKey($name)) { $script:ProbeTtls[$name] } else { $defaultTtl }
+        $ttl = Get-ProbeTtlNow -Name $name -Default $defaultTtl -Backend $Backend -InGame:$enJeu
         if ($ttl -gt $maxTtl) { $ttl = $maxTtl }
         $entry = $cache[$key]; $fresh = $false
         # -Force : tout est considere perime, sans rien effacer.

@@ -685,6 +685,14 @@ versions, du point de vue de qui utilise Vigie.*
   (`Get-Counter` prenait 6 s pour les seuls moteurs), et les lectures d'E/S par processus, du parent d'un processus et
   de l'heure de démarrage passent par des appels directs, mesurés à l'identique
   (`notes/evidence/2026-09-18-system-calls-measured.md`). `check-probes` refuse désormais `Get-Counter`.
+- **Vigie se met en retrait pendant une partie** : mesuré le 28/09 sur une session de 77 minutes, elle recalculait
+  ses cartes 383 fois, 1 582 secondes de calcul, soit 34 % d'un cœur en continu — dont 400 s pour la seule carte des
+  paquets. Pendant une partie, les cartes de la partie gardent leur cadence, les autres passent à un quart d'heure au
+  moins et les lourdes à une heure ; le bouton « Actualiser » passe toujours avant ce retrait, et la carte Jeu le dit.
+- **Ce que faisait l'ordinateur pendant une partie est enregistré** : processeur, mémoire vive et mémoire engagée
+  suivent désormais la carte Ressources, et chaque point porte le nom du jeu en cours. Le compte des applications
+  gourmandes était faux depuis le 06/09 — l'extracteur cherchait un nombre là où la carte donne des noms, et
+  l'historique affichait zéro pendant toute une partie ; il compte juste et garde les noms.
 - **Le repli s'anime, et devient un composant standard** : trois classes — `acc`, `acc-h`, `acc-b` — suffisent pour un
   accordéon animé, sans une ligne de code, et l'atelier du design le montre. Le CSS seul ne tenait pas : sous
   Chrome 152, `::details-content` avec `interpolate-size` laissait le contenu affiché une fois replié (mesuré le
