@@ -98,8 +98,8 @@ if ($trendPoints.Count -ge 2) {
     $delta = [math]::Round($last - $first)
     $depuis = $null
     try { $depuis = (ConvertTo-UtcDate $trendPoints[0].at).ToLocalTime() } catch { }
-    # LA VALEUR REPOND, COURTE (D89) : « -42 Go en 7 j », et la phrase entiere descend dans le detail. Sur deux lignes,
-    # elle debordait de la carte (signale le 28/09).
+    # THE VALUE ANSWERS, SHORT (D89): "-42 Go en 7 j", and the whole sentence goes down into the detail. On two lines
+    # it spilled out of the card (reported 28/09).
     $jourCount = 7
     try { $jourCount = [int][Math]::Max(1, [Math]::Round(((ConvertTo-UtcDate $trendPoints[-1].at) - (ConvertTo-UtcDate $trendPoints[0].at)).TotalDays)) } catch { }
     $mot = if ($delta -lt 0) { "-$([math]::Abs($delta)) Go en $jourCount j" } elseif ($delta -gt 0) { "+$delta Go en $jourCount j" } else { 'Stable' }
@@ -119,7 +119,7 @@ if ($trendPoints.Count -ge 2) {
         if ($parJourGo -gt 0) { $jours = [int][Math]::Floor($freeGB / $parJourGo) }
     }
     if ($null -ne $jours) {
-        # CE QUI PRESSE PASSE DEVANT : « Plein dans 5 jours » est la reponse ; la baisse, elle, est le detail.
+        # WHAT PRESSES COMES FIRST: how soon the disk is full is the answer; the fall itself is the detail.
         $valeur = $(if ($jours -le 0) { 'Plein au rythme actuel' }
                     elseif ($jours -eq 1) { 'Plein demain à ce rythme' }
                     else { "Plein dans $jours jours" })
@@ -232,8 +232,8 @@ if ($vdisks.Count) {
     # THE NAME SAYS WHAT IT IS: the old wording taught nothing -- one could not even tell it was WSL
     # (reported 28/09). The value names the largest, and the table names each one with the account it belongs to.
     $plusGros = $vdisks[0]
-    # COURT, MEME QUAND LE NOM EST LONG (D89) : « Sous-système Linux WSL (Ubuntu 24.04 LTS) : 150,7 Go » tenait sur
-    # deux lignes. Le nom complet vit dans le tableau, la valeur garde le mot qui suffit à reconnaitre la machine.
+    # SHORT EVEN WHEN THE NAME IS LONG (D89): the full name took two lines on the card. It lives in the table now,
+    # and the value keeps the word that is enough to recognise the machine.
     $nomCourt = "$($plusGros.Machine)"
     $parenthese = $nomCourt.IndexOf([char]40)
     if ($parenthese -gt 0) { $nomCourt = $nomCourt.Substring(0, $parenthese).Trim() }
