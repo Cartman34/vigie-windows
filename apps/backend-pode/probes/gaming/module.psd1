@@ -53,6 +53,20 @@
         @{ Key = 'game-battery'; Label = 'Décharge pendant une partie'; Seconds = 60; Cards = @('gaming') }
     )
 
+    # MODES (D124): the state of the machine the intervals depend on. This one costs nothing:
+    # it reads back the value the "game" sentinel has just recorded.
+    Modes = @(
+        @{ Key = 'game'; Label = 'En jeu'; Sentinel = 'game'; Off = @('aucun', 'inconnu', 'erreur') }
+    )
+
+    # SCHEDULED COMPUTATIONS (D124): what the server app computes on its own, and how often.
+    # Measured 29/09: one pass of this probe costs 3 262 ms, that is 10,9 % of one core at 30 s.
+    # Outside a game ten minutes are plenty -- nobody is playing.
+    Refresh = @(
+        @{ Key = 'gaming'; Probe = 'gaming.probe.ps1'; Cards = @('gaming')
+           Seconds = @{ default = 600; game = 30 }; MaxSeconds = 60 }
+    )
+
     # NOTIFICATIONS emises par ce module (D54) : un evenement nomme, pas un nom de
     # carte. C'est la bascule du champ cite qui declenche la bulle.
     Notifications = @(

@@ -106,10 +106,12 @@ Routes de `apps/backend-pode/server.ps1` qui modifient quelque chose. Toutes syn
 
 | Opération | Où | Déclenchement | Erreurs |
 |---|---|---|---|
-| minuteur `vigie-watch` | `server.ps1` | toutes les 60 s, suspendu pendant une installation | journal `state` |
+| minuteur `vigie-watch` | `server.ps1` | toutes les **30 s**, suspendu pendant une installation | journal `state` |
 | passe des résidents | `Invoke-ResidentPass`, `Start-Resident` ; résident `probes/gaming/game.resident.ps1` | chaque passe du minuteur | état du résident, relu par `Get-ResidentHealth` |
 | passe des sentinelles | `Invoke-WatchPass` ; sentinelles `gaming/game`, `gaming/game-battery`, `network/internet` à 60 s, `system/power` à 30 s | chaque passe du minuteur | journal `state` |
 | identité des notifications | `Set-VigieToastIdentity` | chaque passe du minuteur | ignorées |
+| passe de l'ordonnanceur | `Invoke-RefreshPass` ; calculs déclarés en `Refresh` dans chaque `module.psd1`, intervalle par mode, lancement asynchrone sur `workers/refresh.worker.ps1`, `RefreshMaxParallel` de front (3 par défaut) | chaque passe du minuteur | journal `state`, `var/run/refresh.json`, `var/history/refresh-long.jsonl` |
+| surveillance des app clientes | `Update-TrayWatch` ; relance la tâche d'une app cliente absente, jamais si son processus vit | chaque passe du minuteur | journal `state`, `var/history/tray-vanished.jsonl` |
 | recalcul d'une sonde périmée | `Get-State`, puis `Start-DetachedAction` sur `workers/state-refresh.worker.ps1` ; une seule à la fois, par mutex | un affichage qui trouve une sonde périmée | ignorées au lancement, **hors protocole** |
 | réparation des tâches au démarrage | `start.ps1`, `Repair-VigieTasks` | démarrage du serveur | journal |
 | ordre de bureau | `Invoke-DesktopAction` | une action `@execution: session` | compte rendu `.done.json`, écrit même en cas d'échec |

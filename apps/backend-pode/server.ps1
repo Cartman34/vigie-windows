@@ -581,7 +581,7 @@ Add-PodeRoute -Method Get -Path '/favicon.ico' -ScriptBlock {
     Le travail se fait ICI, dans le minuteur : un releve coute quelques millisecondes, et
     le recalcul qui suit un changement est rare par construction.
 #>
-Add-PodeTimer -Name 'vigie-watch' -Interval 60 -ScriptBlock {
+Add-PodeTimer -Name 'vigie-watch' -Interval 30 -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
     try {
         if (Get-InstallLockHolder) { return }

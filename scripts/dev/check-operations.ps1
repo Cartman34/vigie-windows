@@ -43,7 +43,9 @@ $launchFunctions = @('Start-Operation', 'Start-DetachedAction', 'Start-PkgJob', 
 $scriptsNotOperations = @('check-probes.ps1')
 # THE PROTOCOL, AS FAR AS THE CODE SHOWS IT (doc/progress/targeting/operations.md). Get-State is a question still
 # open in S14; server-restart is an exception the owner settled on 13/09.
-$detachedAllowedIn  = @('Get-State')
+# Invoke-RefreshPass is the scheduler of the permanent watch (D124): it launches the computations the modules
+# declare, asynchronously and without waiting, which is the whole point of it.
+$detachedAllowedIn  = @('Get-State', 'Invoke-RefreshPass')
 $pendingArbitration = @('server-restart')
 $newline = [string][char]10
 

@@ -4748,64 +4748,346 @@ function Write-SentinelSample {
 }
 
 <#
-    WHAT THE WATCH PLAYS BY ITSELF, WHILE A GAME LASTS (D124).
+    THE SCHEDULER -- WHAT THE SERVER COMPUTES BY ITSELF, AND WHEN (D124).
 
     The watch loop reacted to a CHANGE and to nothing else. "A game is running" does not change during the game, so no
-    card was recomputed, so nothing was sampled: of a game of more than two hours on 28/09 the session kept 4 passes and
-    430 seconds, all of them taken while a client app happened to be alive, and it closed nine hours late. Regular
-    sampling was resting on whoever was looking -- exactly what the owner had never asked for.
+    card was recomputed and nothing was sampled: of a game of more than two hours on 28/09 the session kept four passes
+    and 430 seconds, all taken while a client app happened to be alive, and it closed nine hours late. Regular sampling
+    was resting on whoever was looking.
 
-    THE PACE IS PAID FOR, so it is measured and it is written here. On 29/09, on this machine: the game card costs
-    3 262 ms per pass, the resources card 1 385 ms. At sixty seconds that is 5,4 % and 2,3 % of one core, and only while
-    a game is running -- against the 34 % of one core measured on 28/09, when every reading of the interface handed work
-    to a background task. Shortening the pace shortens nothing else: it buys samples with the very slowness we are
-    looking for. Anyone changing these numbers measures them again first.
+    WHAT IS SCHEDULED IS A COMPUTATION, NOT A CARD. A computation feeds the cards it declares -- several cards from one
+    computation, several computations for one card -- and nothing here assumes one of each.
 
-    The bottleneck rule needs two consecutive passes: at this pace, a bottleneck is confirmed in two minutes.
+    EVERYTHING IS DECIDED ON ELAPSED TIME. A computation is due when the seconds since its last start exceed its
+    interval. The loop's thirty-second beat is a beat, never a unit: a skipped beat shifts nothing.
+
+    THE LIMIT IS A SETTING. RefreshMaxParallel launches run at once, three by default, zero meaning no limit. A
+    computation already running is never started again unless it declares Parallel.
+
+    A COMPUTATION THAT FAILS STEPS ASIDE. Its next attempt is pushed back, doubling at each failure up to a cap, so a
+    broken computation stops being the oldest one and stops taking the place of the others.
+
+    A COMPUTATION THAT RUNS TOO LONG IS NAMED. Past its MaxSeconds it is logged, written to the history and shown on
+    the self-watch card, and it stops counting against the limit. It is never stopped: the owner alone decides that.
 #>
-$script:GamePacedCards = @{ 'gaming' = 60; 'perf' = 60 }
+function Get-RefreshConfig {
+    param([string]$Backend = (Get-BackendRoot))
+    $cfg = $null
+    try { $cfg = (Get-Config -Backend $Backend).Refresh } catch { }
+    $out = @{ MaxParallel = 3; DefaultMaxSeconds = 300; FailBackoffSeconds = 60; FailBackoffMaxSeconds = 3600 }
+    if ($cfg) {
+        foreach ($k in @($out.Keys)) {
+            try { if ($null -ne $cfg[$k]) { $out[$k] = [int]$cfg[$k] } } catch { }
+        }
+    }
+    $out
+}
 
 <#
-    THE PACED PASS. Nothing here decides what is interesting: it recomputes the declared cards by the path everyone
-    else uses, and the cards themselves write their measures and their game passes, as they always did.
-
-    It keeps its own last-run time under var/run: a pace is a LIVING state, worth nothing after a restart -- and after a
-    restart, recomputing once immediately is the right thing anyway.
+    ONE DISCOVERY FOR EVERY DECLARATION. Sentinels, modes and computations are all sections of the same module.psd1,
+    read the same way, with inactive modules left out the same way. Written three times, it would drift three ways.
 #>
-function Invoke-PacedPass {
+function Get-UnitDeclarations {
+    param([Parameter(Mandatory)][string]$Section, [string]$Backend = (Get-BackendRoot))
+    $probesDir = Join-Path $Backend 'probes'
+    if (-not (Test-PathSafe $probesDir)) { return @() }
+    $off = @(Get-InactiveUnits -Backend $Backend)
+    $out = @()
+    foreach ($dir in @(Get-ChildItem -LiteralPath $probesDir -Directory -ErrorAction SilentlyContinue)) {
+        if ($off -contains $dir.Name) { continue }
+        $decl = $null
+        try { $decl = Import-PowerShellDataFile -Path (Join-Path $dir.FullName 'module.psd1') } catch { }
+        if (-not $decl -or -not $decl[$Section]) { continue }
+        foreach ($entry in @($decl[$Section])) {
+            if (-not $entry) { continue }
+            $out += [pscustomobject]@{ Unit = $dir.Name; Dir = $dir.FullName; Entry = $entry }
+        }
+    }
+    return $out
+}
+
+<#
+    THE MODES. Today "in a game" and "not in a game"; tomorrow whatever a module declares -- nothing here knows about
+    games. Several modes can be active at once.
+
+    A mode reads a SENTINEL by default, and that is the DRY answer: the watch loop already reads them, their last value
+    is already in memory, and a mode then costs nothing at all. A module needing its own reading declares Script
+    instead, and gets a <key>.mode.ps1 read like a sentinel.
+#>
+$script:ModeOffValues = @('', 'non', 'no', 'aucun', 'inconnu', 'erreur', '0', 'false')
+
+function Get-ModeDeclarations {
     param([string]$Backend = (Get-BackendRoot))
-    # SILENT WHILE AN INSTALLATION RUNS, for the same reason as the rest of the watch: the files move underfoot.
+    $out = @()
+    foreach ($d in @(Get-UnitDeclarations -Section 'Modes' -Backend $Backend)) {
+        $key = "$($d.Entry.Key)"
+        if (-not $key) { continue }
+        $script = $null
+        if ($d.Entry.Script) {
+            $script = Join-Path $d.Dir "$($d.Entry.Script)"
+            if (-not (Test-PathSafe $script)) { continue }
+        }
+        $off = @($script:ModeOffValues)
+        if ($d.Entry.Off) { $off = @(@($d.Entry.Off) | ForEach-Object { "$_".ToLowerInvariant() }) + @('') }
+        $out += [pscustomobject]@{
+            Unit     = $d.Unit
+            Key      = $key
+            Label    = $(if ($d.Entry.Label) { "$($d.Entry.Label)" } else { $key })
+            Sentinel = $(if ($d.Entry.Sentinel) { "$($d.Entry.Sentinel)" } else { $null })
+            Script   = $script
+            Off      = $off
+        }
+    }
+    return $out
+}
+
+function Get-ActiveModes {
+    param([string]$Backend = (Get-BackendRoot))
+    $active = @()
+    $memory = $null
+    foreach ($m in @(Get-ModeDeclarations -Backend $Backend)) {
+        $value = $null
+        if ($m.Sentinel) {
+            if ($null -eq $memory) {
+                $memory = @{}
+                try {
+                    $path = Get-WatchMemoryPath -Backend $Backend
+                    if (Test-PathSafe $path) {
+                        $j = Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json
+                        foreach ($pr in $j.PSObject.Properties) { $memory[$pr.Name] = "$($pr.Value.value)" }
+                    }
+                } catch { }
+            }
+            $value = "$($memory[$m.Sentinel])"
+        } elseif ($m.Script) {
+            try { $value = "$(& $m.Script 2>$null | Select-Object -Last 1)".Trim() } catch { $value = '' }
+        }
+        if ($m.Off -notcontains "$value".Trim().ToLowerInvariant()) { $active += $m.Key }
+    }
+    return $active
+}
+
+<#
+    THE COMPUTATIONS A MODULE DECLARES.
+
+        Refresh = @(
+            @{ Key = 'gaming'; Probe = 'gaming.probe.ps1'; Cards = @('gaming')
+               Seconds = @{ default = 600; game = 30 }; MaxSeconds = 60 }
+        )
+
+    Seconds holds ONE interval per mode, plus "default"; the first active mode that declares one wins. No interval at
+    all means the computation only ever runs when someone asks for it -- which is what every card does today.
+#>
+function Get-RefreshDeclarations {
+    param([string]$Backend = (Get-BackendRoot))
+    $out = @()
+    foreach ($d in @(Get-UnitDeclarations -Section 'Refresh' -Backend $Backend)) {
+        $key = "$($d.Entry.Key)"
+        $probe = "$($d.Entry.Probe)"
+        if (-not $key -or -not $probe) { continue }
+        if (-not (Test-PathSafe (Join-Path $d.Dir $probe))) { continue }
+        $seconds = @{}
+        if ($d.Entry.Seconds -is [hashtable]) {
+            foreach ($k in $d.Entry.Seconds.Keys) { $seconds["$k"] = [int]$d.Entry.Seconds[$k] }
+        } elseif ($d.Entry.Seconds) { $seconds['default'] = [int]$d.Entry.Seconds }
+        $out += [pscustomobject]@{
+            Unit       = $d.Unit
+            Key        = "$($d.Unit)/$key"
+            Probe      = $probe
+            Cards      = @($d.Entry.Cards)
+            Seconds    = $seconds
+            MaxSeconds = $(if ($d.Entry.MaxSeconds) { [int]$d.Entry.MaxSeconds } else { 0 })
+            Parallel   = [bool]$d.Entry.Parallel
+        }
+    }
+    return $out
+}
+
+# THE INTERVAL THAT APPLIES RIGHT NOW: the first active mode that declares one, else "default", else none.
+function Get-RefreshInterval {
+    param([Parameter(Mandatory)]$Declaration, [string[]]$Modes = @())
+    foreach ($m in @($Modes)) {
+        if ($Declaration.Seconds.ContainsKey($m)) { return [int]$Declaration.Seconds[$m] }
+    }
+    if ($Declaration.Seconds.ContainsKey('default')) { return [int]$Declaration.Seconds['default'] }
+    return 0
+}
+
+<#
+    WHEN WAS THIS COMPUTATION'S RESULT LAST WRITTEN? The scheduler needs it to tell a computation that FAILED from one
+    that merely returned a card in error: a card saying "no internet" is a result, an exception is not. Get-State
+    swallows a probe's error to keep serving the others, so the proof of a failure is that the cache did not move.
+#>
+function Get-ProbeCacheStamp {
+    param([string]$Backend = (Get-BackendRoot), [Parameter(Mandatory)][string]$Probe)
+    try {
+        $path = Get-VarPath -Backend $Backend -Kind 'cache' -File 'state-cache.json'
+        if (-not (Test-PathSafe $path)) { return '' }
+        $j = Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json
+        foreach ($pr in $j.PSObject.Properties) {
+            $name = "$($pr.Name)"
+            if ($name -eq $Probe -or $name.StartsWith($Probe + '@')) { return "$($pr.Value.at)" }
+        }
+    } catch { }
+    return ''
+}
+
+function Get-RefreshStatePath {
+    param([string]$Backend = (Get-BackendRoot))
+    # 'run': a LIVING state. What is running dies with the server, and a pace starts again from the restart.
+    Get-VarPath -Backend $Backend -Kind 'run' -File 'refresh.json'
+}
+
+function Get-RefreshState {
+    param([string]$Backend = (Get-BackendRoot))
+    $state = @{}
+    try {
+        $path = Get-RefreshStatePath -Backend $Backend
+        if (Test-PathSafe $path) {
+            $j = Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json
+            foreach ($pr in $j.PSObject.Properties) {
+                $e = $pr.Value
+                $state["$($pr.Name)"] = @{
+                    pid           = [int]$e.pid
+                    startedAt     = [long]$e.startedAt
+                    lastStartedAt = [long]$e.lastStartedAt
+                    lastEndedAt   = [long]$e.lastEndedAt
+                    lastMs        = [int]$e.lastMs
+                    fails         = [int]$e.fails
+                    nextAt        = [long]$e.nextAt
+                    long          = [bool]$e.long
+                    lastError     = "$($e.lastError)"
+                }
+            }
+        }
+    } catch { }
+    return $state
+}
+
+# ONE KEY AT A TIME, through the helper that locks the file: the workers write their own outcome while the pass writes
+# its launches, and neither may lose the other's line.
+function Update-RefreshState {
+    param([string]$Backend = (Get-BackendRoot), [Parameter(Mandatory)][string]$Key, [Parameter(Mandatory)][hashtable]$Entry)
+    try { $null = Update-StateJson -Path (Get-RefreshStatePath -Backend $Backend) -Set @{ $Key = $Entry } -Depth 6 } catch { }
+}
+
+function Invoke-RefreshPass {
+    param([string]$Backend = (Get-BackendRoot))
+    # SILENT WHILE AN INSTALLATION RUNS, like the rest of the watch: the files move underfoot.
     foreach ($held in @(Get-HeldResources -Backend $Backend)) {
         if ("$($held.resource)" -eq 'machine') { return @() }
     }
-    # NO GAME, NO PACE. Outside a game nothing here runs at all: the cost is exactly zero.
-    $game = $null
-    try { $game = Get-GameModeName -Backend $Backend } catch { }
-    if (-not $game) { return @() }
-
-    $file = Get-VarPath -Backend $Backend -Kind 'run' -File 'paced.json'
-    $last = @{}
-    try {
-        if (Test-PathSafe $file) {
-            $raw = Get-Content -LiteralPath $file -Raw -Encoding UTF8 -ErrorAction Stop
-            foreach ($pr in @((ConvertFrom-Json $raw).PSObject.Properties)) { $last["$($pr.Name)"] = [long]$pr.Value }
-        }
-    } catch { }
+    $decls = @(Get-RefreshDeclarations -Backend $Backend)
+    if (-not $decls.Count) { return @() }
+    $cfg = Get-RefreshConfig -Backend $Backend
+    $state = Get-RefreshState -Backend $Backend
+    $modes = @(Get-ActiveModes -Backend $Backend)
     $nowTicks = [datetime]::UtcNow.Ticks
-    $played = @()
-    foreach ($card in @($script:GamePacedCards.Keys)) {
-        $pace = [int]$script:GamePacedCards[$card]
-        # TICKS, NOT AN ISO DATE: read back by ConvertFrom-Json, an ISO date comes back as a [datetime] (D44).
-        $since = 0
-        if ($last.ContainsKey($card)) { $since = ($nowTicks - [long]$last[$card]) / 1e7 }
-        if ($last.ContainsKey($card) -and $since -lt $pace) { continue }
-        $last[$card] = $nowTicks
-        # THE EXISTING PATH, the same one the card's own refresh button takes. The card writes its measures and its
-        # game pass on its own: this pass adds no second way of recording anything.
-        try { $null = Get-State -Backend $Backend -ForceModule $card -WaitSeconds 30; $played += $card } catch { }
+    $running = 0
+
+    # 1. WHAT IS STILL RUNNING, and what only looks like it. A process that is gone leaves its line behind; a process
+    #    that overstays is named once and stops holding a place -- it is not stopped.
+    foreach ($d in $decls) {
+        $entry = $state[$d.Key]
+        if (-not $entry -or -not [int]$entry.pid) { continue }
+        $alive = $false
+        try { $alive = [bool](Get-Process -Id ([int]$entry.pid) -ErrorAction Stop) } catch { }
+        if (-not $alive) {
+            $entry.pid = 0; $entry.long = $false
+            Update-RefreshState -Backend $Backend -Key $d.Key -Entry $entry
+            continue
+        }
+        $elapsed = ($nowTicks - [long]$entry.startedAt) / 1e7
+        $max = $(if ($d.MaxSeconds) { [int]$d.MaxSeconds } else { [int]$cfg.DefaultMaxSeconds })
+        if ($elapsed -ge $max -and -not $entry.long) {
+            $entry.long = $true
+            Update-RefreshState -Backend $Backend -Key $d.Key -Entry $entry
+            try {
+                Write-Log -Backend $Backend -Name 'state' -Level 'WARN' -Message (
+                    "calcul trop long : $($d.Key), PID $($entry.pid), " + [int]$elapsed + " s (limite $max s)")
+                $line = [ordered]@{ at = ([datetime]::UtcNow).ToString('o'); key = $d.Key
+                                    pid = [int]$entry.pid; seconds = [int]$elapsed; max = $max }
+                Add-HistoryLine -Path (Get-VarPath -Backend $Backend -Kind 'history' -File 'refresh-long.jsonl') `
+                                -Line ($line | ConvertTo-Json -Depth 4 -Compress) | Out-Null
+            } catch { }
+        }
+        # A computation past its limit no longer counts against the limit: the others must not wait for it.
+        if (-not $entry.long) { $running++ }
     }
-    try { Set-Content -LiteralPath $file -Value (ConvertTo-Json $last -Depth 3 -Compress) -Encoding UTF8 } catch { }
-    return $played
+
+    # 2. WHAT IS DUE, on elapsed time, and never on a number of passes.
+    $due = @()
+    foreach ($d in $decls) {
+        $entry = $state[$d.Key]
+        if ($entry -and [int]$entry.pid -and -not $d.Parallel) { continue }
+        $interval = Get-RefreshInterval -Declaration $d -Modes $modes
+        if ($interval -le 0) { continue }
+        if ($entry -and [long]$entry.nextAt -gt $nowTicks) { continue }
+        $since = [double]::MaxValue
+        if ($entry -and [long]$entry.lastStartedAt) { $since = ($nowTicks - [long]$entry.lastStartedAt) / 1e7 }
+        if ($since -lt $interval) { continue }
+        $due += [pscustomobject]@{ D = $d; Overdue = $since - $interval }
+    }
+
+    # 3. THE MOST OVERDUE FIRST, up to the limit.
+    $started = @()
+    foreach ($item in @($due | Sort-Object Overdue -Descending)) {
+        if ([int]$cfg.MaxParallel -gt 0 -and $running -ge [int]$cfg.MaxParallel) { break }
+        $d = $item.D
+        # NOT $pid: PowerShell owns that name and refuses to have it written to.
+        $childPid = $null
+        try {
+            $childPid = Start-DetachedAction -Backend $Backend `
+                        -Script (Join-Path $Backend 'workers/refresh.worker.ps1') `
+                        -ArgsMap @{ key = $d.Key; probe = $d.Probe }
+        } catch { }
+        if (-not $childPid) { continue }
+        $entry = $state[$d.Key]
+        if (-not $entry) { $entry = @{ fails = 0 } }
+        $entry.pid = [int]$childPid
+        $entry.startedAt = $nowTicks
+        $entry.lastStartedAt = $nowTicks
+        $entry.long = $false
+        $state[$d.Key] = $entry
+        Update-RefreshState -Backend $Backend -Key $d.Key -Entry $entry
+        $started += $d.Key
+        $running++
+    }
+    return $started
+}
+
+<#
+    WHAT THE SCHEDULER HAS TO SAY, read by the self-watch card -- which only reads, never acts (D14).
+#>
+function Get-RefreshRows {
+    param([string]$Backend = (Get-BackendRoot))
+    $cfg = Get-RefreshConfig -Backend $Backend
+    $state = Get-RefreshState -Backend $Backend
+    $modes = @(Get-ActiveModes -Backend $Backend)
+    $nowTicks = [datetime]::UtcNow.Ticks
+    $rows = @()
+    foreach ($d in @(Get-RefreshDeclarations -Backend $Backend)) {
+        $entry = $state[$d.Key]
+        $interval = Get-RefreshInterval -Declaration $d -Modes $modes
+        $said = $(if ($interval -gt 0) { "toutes les $interval s" } else { 'à la demande' })
+        $status = 'ok'
+        if ($entry -and [int]$entry.pid) {
+            $elapsed = [int](($nowTicks - [long]$entry.startedAt) / 1e7)
+            $said = "en cours depuis $elapsed s"
+            if ($entry.long) { $said = "TROP LONG : $elapsed s"; $status = 'warn' }
+        } elseif ($entry -and [int]$entry.fails) {
+            $said = "$($entry.fails) échec(s) : $($entry.lastError)"
+            $status = 'warn'
+        }
+        $rows += [pscustomobject]@{
+            Key    = $d.Key
+            Said   = $said
+            Status = $status
+            Ms     = $(if ($entry) { [int]$entry.lastMs } else { 0 })
+            At     = $(if ($entry -and [long]$entry.lastEndedAt) { [datetime]([long]$entry.lastEndedAt) } else { $null })
+        }
+    }
+    return $rows
 }
 
 function Invoke-WatchPass {
@@ -4898,9 +5180,9 @@ function Invoke-WatchPass {
     foreach ($card in $cards) {
         try { $null = Get-State -Backend $Backend -ForceModule $card -WaitSeconds 30 } catch { }
     }
-    # AND THE PACES THE WATCH PLAYS BY ITSELF (D124): a change is not the only reason to recompute -- during a game,
-    # what must be sampled is sampled because the server watches, not because someone is looking.
-    try { $null = Invoke-PacedPass -Backend $Backend } catch { }
+    # AND THE SCHEDULER'S PASS (D124): a change is not the only reason to compute. What must be sampled is sampled
+    # because the server watches, not because someone is looking.
+    try { $null = Invoke-RefreshPass -Backend $Backend } catch { }
     return $events
 }
 
@@ -6125,9 +6407,18 @@ function Get-State {
     if ($stale.Count -gt 0) {
         $slow  = @('lock.probe.ps1','pending.probe.ps1','wsl.probe.ps1')   # calculees en dernier
         $stale = @($stale | Sort-Object @{ Expression = { if ($slow -contains $_.Name) { 1 } else { 0 } } }, Name)
+        <#
+            ONE LOCK PER PROBE WHEN ONE PROBE IS COMPUTED (D124). A single global lock made the scheduler's limit a
+            decoration: three launches would simply have queued behind each other. Computing SEVERAL probes still takes
+            the shared lock -- that path is the explicit refresh, and it is the one that must not be run twice at once.
+            A single-probe worker and a multi-probe refresh can therefore overlap on the same probe; it costs one
+            wasted pass, and the cache write is protected file by file (Update-StateJson).
+        #>
+        $lockName = 'Local\VigieStateRecompute'
+        if ($stale.Count -eq 1) { $lockName = 'Local\VigieStateRecompute_' + ($stale[0].Name -replace '[^A-Za-z0-9]', '_') }
         $mx = $null; $got = $false
         try {
-            $mx = New-Object System.Threading.Mutex($false, 'Local\VigieStateRecompute')
+            $mx = New-Object System.Threading.Mutex($false, $lockName)
             # Une demande EXPLICITE (-Force, bouton « Rafraichir ») ATTEND son tour ; les
             # requetes ordinaires n'attendent pas et se contentent du cache.
             # Avec WaitOne(0) pour tout le monde, le bouton ne faisait rien des qu'un

@@ -117,6 +117,21 @@ $clientGuide = if ($missing.Count) {
     "ou tout de suite avec « Réparer les tâches »."
 } else { $null }
 
+<#
+    AND WHAT THE SERVER COMPUTES BY ITSELF (D124): the scheduler's declared computations, their interval in the modes
+    active right now, the one that is running, the one that failed, and the one that overstays its limit. Read only
+    (Get-RefreshRows): the pass that decides and launches belongs to the watch loop, never to a card.
+#>
+$refresh = @(Get-RefreshRows -Backend $backend)
+$refreshBad = @($refresh | Where-Object { $_.Status -ne 'ok' })
+$refreshRows = @()
+foreach ($r in $refresh) {
+    $refreshRows += ,@($r.Key, $r.Said, $(if ($r.Ms) { "$($r.Ms) ms" } else { '—' }),
+                       $(if ($r.At) { $r.At.ToLocalTime().ToString('dd/MM HH:mm:ss') } else { '—' }))
+}
+$refreshTable = if ($refreshRows.Count) { @{ columns = @('Calcul', 'État', 'Dernière durée', 'Dernière fin'); rows = $refreshRows } } else { $null }
+$refreshReason = if ($refreshBad.Count) { (@($refreshBad | ForEach-Object { "$($_.Key) : $($_.Said)" }) -join ' ; ') } else { $null }
+
 $fields = @(
     New-Field -Key 'count' -Label 'Processus de Vigie' -Value $(if ($serverId) { $members.Count } else { 'App serveur introuvable' }) `
         -Kind $(if ($serverId) { 'number' } else { 'text' }) -Status $countStatus -Table $table -Guide $guide -Reason $reason -FixAction $fix `
@@ -124,11 +139,16 @@ $fields = @(
     New-Field -Key 'memory' -Label 'Mémoire de Vigie' -Value $totalMb -Kind 'number' -Unit 'Mo' -Status $memoryStatus -Reason $(if ($memoryStatus -ne 'ok') { $reason } else { $null }) `
         -FixAction $(if ($memoryStatus -ne 'ok') { 'server-restart' } else { $null }) -Guide $(if ($memoryStatus -ne 'ok') { $guide } else { $null }) `
         -Help "Mémoire vive réellement occupée par tous les processus de Vigie réunis."
+    New-Field -Key 'refresh' -Label 'Calculs planifiés' `
+        -Value $(if ($refreshBad.Count) { "$($refreshBad.Count) en défaut" } else { "$($refresh.Count) planifié(s)" }) `
+        -Kind 'text' -Status $(if ($refreshBad.Count) { 'warn' } else { 'ok' }) -Table $refreshTable -Reason $refreshReason `
+        -Help "Ce que l'app serveur calcule d'elle-même, sans que personne ne regarde : son intervalle dépend du mode en cours. Un calcul en échec est mis en attente, un calcul trop long est signalé — jamais arrêté."
     New-Field -Key 'clients' -Label 'Apps clientes' `
         -Value $(if ($missing.Count) { "$($missing.Count) disparue(s)" } else { "$(@($clients | Where-Object { $_.Session }).Count) en marche" }) `
         -Kind 'text' -Status $clientStatus -Table $clientTable -Reason $clientReason -Guide $clientGuide `
         -FixAction $(if ($missing.Count) { 'repair-tasks' } else { $null }) `
         -Help "Une app cliente par compte : son battement de cœur dit qu'elle est là. Un compte sans session ouverte n'en a pas, et ce n'est pas un défaut."
 )
-$worst = if ($countStatus -eq 'error' -or $memoryStatus -eq 'error') { 'error' } elseif ($countStatus -eq 'warn' -or $clientStatus -eq 'warn') { 'warn' } else { 'ok' }
+$worst = if ($countStatus -eq 'error' -or $memoryStatus -eq 'error') { 'error' }
+         elseif ($countStatus -eq 'warn' -or $clientStatus -eq 'warn' -or $refreshBad.Count) { 'warn' } else { 'ok' }
 New-ModuleObject -Id 'vigie-self' -Theme 'debug' -Label 'Processus de Vigie' -Status $worst -Fields $fields

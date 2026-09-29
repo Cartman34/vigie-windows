@@ -83,6 +83,21 @@
     # arbitrated by the owner on 13/09.
     LogRetentionDays = 30
 
+    # --- SCHEDULER (D124): what the server app computes on its own ------------------------------
+    # Each module declares its computations and their intervals in its own module.psd1; these
+    # values bound the whole.
+    Refresh = @{
+        # Computations running at once. 0 = no limit. Three by default (owner, 29/09).
+        MaxParallel           = 3
+        # Past this, a computation is called TOO LONG: logged, shown on the self-watch card, and it
+        # stops holding a place. It is never stopped.
+        DefaultMaxSeconds     = 300
+        # After a failure, how long before trying again. It DOUBLES at each failure, up to the cap:
+        # a broken computation can no longer take the place of the others by being the oldest.
+        FailBackoffSeconds    = 60
+        FailBackoffMaxSeconds = 3600
+    }
+
     History = @{
         # Interrupteur general. Desactive = plus aucune ecriture (les fichiers restent).
         Enabled            = $true

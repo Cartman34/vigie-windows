@@ -43,7 +43,7 @@ ligne — `scripts/dev/check-doc.ps1` refuse une décision absente d'ici.
 - **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46 · D48 · D49 · D50 · D58 · D59 · D66 · D68 · D69 · D70 · D71 · D88 · D89 · D94 · D95 · D102 · D105 · D114
 - **Installation, déploiement et mise à jour** — D07 · D11 · D22 · D77 · D78 · D79 · D81 · D84 · D87 · D96 · D97 · D99 · D101 · D106 · D107 (revu) · D110 · D112 · D117 · D123
 - **Sécurité, droits et multi-comptes** — D34 · D65 · D67 · D73 · D104 · D109
-- **Sondes, actions et tâches de fond** — D50bis · D53 · D54 · D60 · D61 · D80 · D82 · D83 · D85 · D113 · D124
+- **Sondes, actions et tâches de fond** — D50bis · D53 · D54 · D60 · D61 · D80 · D82 · D83 · D85 · D113 · D124 · D125
 - **Outillage** — D06 · D21 · D24 · D40 · D44 · D47 · D52 · D64 · D75 · D86 · D90 · D116 · D118
 - **Méthode de travail** — D10 · D12 · D13 · D14 · D16 · D17 · D31 · D36 · D39 · D43 · D51 · D62 · D63 · D74 · D76 · D100 · D103 · D121
 ---
@@ -3248,3 +3248,39 @@ passages, les trous d'historique, et le coût mesuré d'un passage de chaque son
 
 **Ce que cela ferme.** Le trou du 28/09 : plus d'app cliente, plus une seule mesure. Et la carte n'est plus une
 récompense pour celui qui regarde : ce qui est relevé l'est parce que le serveur surveille.
+
+## D125 — L'ordonnanceur : des calculs, du temps écoulé, et une limite réglable (2026-09-29)
+
+*Demandé par l'utilisateur, en corrigeant le plan que je lui présentais : « elle doit pouvoir lancer un calcul toutes
+les 30 secondes. Le lancement est asynchrone mais ne se relance pas si y'en a un déjà en cours. Sauf si configuration
+spéciale pour ce besoin. » Puis : « elle doit pouvoir être capable d'identifier si une tâche async est trop longue.
+Plusieurs lancements doivent être possibles [...] mais selon les délais de chacun, peu doivent être toutes les 30
+secondes. Une configuration doit pouvoir permettre de mettre une limite ou sans limite. Les calculs sont toujours en
+temps écoulé et jamais en nombre de "ticks" écoulés. Actuellement, y'a un mode jeu et un mode pas jeu mais à terme, il
+pourrait y avoir d'autres modes, on doit pouvoir le gérer. Le même code doit être factorisé, on doit être full DRY. »
+Puis, sur deux limitations que je m'étais données seul : « Si un recalcul est en erreur, ça va devenir le plus vieux et
+possiblement il est encore et encore redemandé quitte à bloquer les autres » et « les calculs ne sont pas forcément
+liés à UNE carte [...] Il peut y avoir plusieurs calculs sur une carte et plusieurs cartes peuvent exploiter un calcul.
+Tu te crées toi-même des limitations que personne ne t'a imposé. »*
+
+**Décision.** La boucle de veille passe toutes les **30 secondes** et porte un ordonnanceur :
+
+1. Ce qui est planifié est un **calcul**, pas une carte ; un calcul déclare les cartes qu'il alimente, et rien
+   n'impose une carte par calcul.
+2. **Tout se décide en temps écoulé**, jamais en nombre de passages : un passage sauté ne décale rien.
+3. Les lancements sont **asynchrones**, **parallèles jusqu'à `RefreshMaxParallel`** (3 par défaut, `0` = sans limite),
+   et un calcul déjà en cours n'est jamais relancé — sauf s'il déclare `Parallel`.
+4. Un calcul **en échec** voit sa prochaine tentative repoussée, le délai doublant jusqu'à un plafond : il cesse d'être
+   le plus vieux et de prendre la place des autres.
+5. Un calcul **trop long** (`MaxSeconds`) est journalisé, historisé, montré sur la carte de surveillance interne, et il
+   cesse de tenir une place. **Il n'est jamais arrêté** (D121, et la règle du 18/09).
+6. Les **modes** sont déclarés par les modules, plusieurs peuvent être actifs, et un intervalle se déclare par mode.
+   Le produit n'en connaît aucun d'avance : « mode jeu » n'est qu'une déclaration comme une autre.
+7. **Une seule écriture pour tout** : une découverte de déclarations pour les sentinelles, les modes et les calculs ;
+   un calcul de « c'est dû » ; une porte de lancement ; un registre.
+
+Conception : [surveillance.md](targeting/surveillance.md). Preuve :
+[2026-09-29-server-paced-sampling.md](../../notes/evidence/2026-09-29-server-paced-sampling.md).
+
+**Ce que cela ferme.** Les limitations que je m'étais données sans qu'on me les demande : une carte par calcul, un seul
+calcul à la fois, un seul mode possible, et un calcul en échec qui repassait devant tout le monde à chaque passage.

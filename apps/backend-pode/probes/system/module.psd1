@@ -42,6 +42,14 @@
     # Le sens du courant change quand on branche, quand on debranche, et quand le
     # chargeur cesse de suivre : trois faits que la carte doit dire SANS attendre
     # qu'on la rafraichisse. Une lecture WMI toutes les trente secondes.
+    # SCHEDULED COMPUTATIONS (D124). Measured 29/09: one pass of this probe costs 1 385 ms.
+    # During a game this card says whether the machine is at its ceiling; outside one, five minutes
+    # are enough to keep the memory and processor history alive with no session open.
+    Refresh = @(
+        @{ Key = 'perf'; Probe = 'perf.probe.ps1'; Cards = @('perf')
+           Seconds = @{ default = 300; game = 30 }; MaxSeconds = 60 }
+    )
+
     Sentinels = @(
         @{ Key = 'power'; Label = 'Sens du courant'; Seconds = 30; Cards = @('power') }
     )

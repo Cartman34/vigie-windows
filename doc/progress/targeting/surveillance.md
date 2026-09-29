@@ -55,27 +55,62 @@ Un relevé qui ne change pas ne coûte rien de plus qu'une lecture.
 Ce que le schéma dit, et qu'il faut retenir : **la boucle ne calcule pas de carte**. Elle relève, elle compare, et
 c'est le *changement* qui déclenche un recalcul — par le chemin que tout le monde emprunte déjà.
 
-## Ce qu'un changement ne suffit pas à obtenir : une cadence (D124)
+## Ce qu'un changement ne suffit pas à obtenir : un calcul régulier (D124, D125)
 
-Réagir au changement ne couvre pas tout. **Certaines choses doivent être ÉCHANTILLONNÉES tant qu'une condition dure**,
+Réagir au changement ne couvre pas tout. **Certaines choses doivent être calculées tant qu'une condition dure**,
 précisément parce que rien ne change : pendant une partie, « un jeu tourne » reste vrai d'un bout à l'autre, et c'est
-justement pendant ce temps-là qu'il faut relever qui prend quelles ressources. Sans cadence jouée par le serveur, une
+justement pendant ce temps-là qu'il faut relever qui prend quelles ressources. Sans intervalle joué par le serveur, une
 partie de deux heures n'a laissé que **quatre passages**, tous pris pendant qu'une app cliente vivait par hasard, et sa
 session s'est fermée neuf heures trop tard
 ([relevé](../../../notes/evidence/2026-09-29-server-paced-sampling.md)).
 
-**La boucle de veille joue donc aussi des cadences** : une carte déclarée y est recalculée tous les *n* secondes **tant
-que la condition dure**, sans attendre le changement d'un relevé et sans que personne ne demande rien. Trois règles :
+**La boucle de veille porte donc un ordonnanceur**, qui passe toutes les 30 secondes. Ce qu'il planifie n'est pas une
+carte : c'est un **calcul**. Un calcul alimente les cartes qu'il déclare — plusieurs cartes pour un calcul, plusieurs
+calculs pour une carte — et rien n'oblige à ce qu'il y en ait un de chaque.
 
-1. **Zéro coût hors condition** : hors partie, ce passage ne lit rien du tout.
-2. **La cadence se mesure avant d'être posée**, et le coût s'écrit à côté d'elle dans le code. Raccourcir une cadence
-   s'achète en lenteur de la machine — la chose même qu'on essaie d'observer.
-3. **Le chemin reste le chemin existant** : `Get-State -ForceModule <carte>`, celui du bouton de rafraîchissement.
-   La carte écrit ses mesures et son passage de partie comme elle l'a toujours fait ; aucun second mécanisme
-   d'enregistrement n'apparaît.
+### Ce qu'un module déclare
 
-Le client, lui, **ne porte plus le relevé régulier** : il lit le cache et peut demander un rafraîchissement ponctuel.
-Ce qui doit être relevé l'est parce que le serveur surveille, session ouverte ou non.
+```powershell
+Modes = @(
+    @{ Key = 'game'; Label = 'En jeu'; Sentinel = 'game'; Off = @('aucun', 'inconnu', 'erreur') }
+)
+
+Refresh = @(
+    @{ Key = 'gaming'; Probe = 'gaming.probe.ps1'; Cards = @('gaming')
+       Seconds = @{ default = 600; game = 30 }; MaxSeconds = 60 }
+)
+```
+
+Un **mode** est un état de la machine dont dépendent les intervalles. Plusieurs peuvent être actifs à la fois, et le
+produit n'en connaît aucun d'avance : il lit ce que les modules déclarent. Par défaut un mode **relit la valeur d'une
+sentinelle** — la boucle vient de la relever, donc il ne coûte rien ; un module qui a besoin de sa propre lecture
+déclare un `Script`, lu comme une sentinelle.
+
+Un **calcul** déclare son intervalle **par mode**, plus un `default`. Le premier mode actif qui en déclare un gagne.
+Aucun intervalle déclaré = calcul à la demande seulement, ce que font toutes les cartes aujourd'hui.
+
+### Les règles de l'ordonnanceur
+
+1. **Tout se décide en temps écoulé** : un calcul est dû quand les secondes écoulées depuis son dernier lancement
+   dépassent son intervalle. Le passage de 30 secondes est un battement, jamais une unité de compte — un passage sauté
+   ne décale rien.
+2. **Les lancements sont asynchrones et parallèles**, du plus en retard au moins en retard, dans la limite de
+   `RefreshMaxParallel` (3 par défaut, `0` = sans limite). Un calcul déjà en cours n'est jamais relancé, sauf s'il
+   déclare `Parallel`.
+3. **Un calcul en échec s'efface** : sa prochaine tentative est repoussée, le délai doublant à chaque échec jusqu'à un
+   plafond. Sans cela, un calcul cassé devient le plus vieux, repasse en premier à chaque passage, et prend la place
+   des autres.
+4. **Un calcul trop long est nommé** : au-delà de son `MaxSeconds` il est journalisé, écrit dans
+   `var/history/refresh-long.jsonl`, montré sur la carte de surveillance interne, et il cesse de tenir une place.
+   **Il n'est jamais arrêté** : arrêter un processus demande l'accord explicite de l'utilisateur.
+5. **Un intervalle se mesure avant d'être posé**, et son coût s'écrit à côté de lui dans le `module.psd1`. Raccourcir
+   un intervalle s'achète en lenteur de la machine — la chose même qu'on essaie d'observer.
+6. **Le chemin reste le chemin existant** : le worker appelle `Get-State` sur la sonde, comme le bouton de
+   rafraîchissement. La carte écrit ses mesures et son passage de partie comme elle l'a toujours fait ; aucun second
+   mécanisme d'enregistrement n'apparaît.
+
+Le client, lui, **ne porte plus le relevé régulier** : il lit le cache, n'attend aucun recalcul, et peut demander un
+rafraîchissement ponctuel. Ce qui doit être calculé l'est parce que le serveur surveille, session ouverte ou non.
 
 ## Comment un module déclare un relevé
 
