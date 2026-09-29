@@ -142,6 +142,22 @@ et demander confirmation explicite." An elevation prompt on his screen with no e
 
 What is announced: what will run elevated, on what, and why nothing lower can do it.
 
+## A proposal states its cost and what it breaks -- or it is not a proposal
+
+**Before anything is offered, its price is worked out: what stops, what is lost, what the person has to do again.**
+Asked on 29/09 after I relayed `wsl --shutdown` as if it were free: "Tu dois forcément réfléchir au coût et aux impacts
+quand tu proposes quelque chose !" I had taken the command as the documentation words it, without once asking what it
+costs HIM -- his sessions, his servers, his containers, all gone for a disk gain he had not asked for that minute.
+
+Three questions, every time, and the answer to each is written in the proposal itself:
+
+1. **What stops or disappears** while it runs, and for how long.
+2. **What it cannot undo**, and what it would take to get back.
+3. **What it really buys**, measured, against those two.
+
+A proposal whose cost is not known is not ready to be made. And a cost that turns out to be higher than the gain is
+said plainly, instead of being offered with the price left out.
+
 ## WSL is never shut down
 
 **`wsl --shutdown` is forbidden, and so is anything that needs it.** Asked on 29/09, in those words: "Tu ne dois
