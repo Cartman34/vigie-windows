@@ -93,6 +93,19 @@ $resume += ""
 $resume += "Le jeton d'API n'est pas copie (secrets/), volontairement."
 $resume -join [Environment]::NewLine | Set-Content -LiteralPath (Join-Path $cible 'resume.txt') -Encoding UTF8
 
+<#
+    AND THE OLD COPIES GO. A diagnosis is read within the minute and never opened again, yet each one weighed 163 MB
+    on 29/09 and twenty of them had piled up: 1,1 GB in a profile, on a machine whose disk was the very thing being
+    watched. Growth has to be bounded wherever it happens, and here the bound is simple -- the three most recent
+    copies of that account, the rest deleted.
+#>
+$garde = 3
+foreach ($vieux in @(Get-ChildItem -LiteralPath (Split-Path $cible -Parent) -Directory -ErrorAction SilentlyContinue |
+                     Where-Object { $_.Name -like ($compte + '-*') } |
+                     Sort-Object Name -Descending | Select-Object -Skip $garde)) {
+    try { Remove-Item -LiteralPath $vieux.FullName -Recurse -Force -ErrorAction Stop } catch { }
+}
+
 Write-Log -Backend $backend -Name 'diag' -Message (Get-Label 'diag-account-logs.journaux-du-compte-rapatries' $compte $nb)
 
 <#
