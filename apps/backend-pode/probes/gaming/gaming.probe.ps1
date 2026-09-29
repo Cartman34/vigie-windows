@@ -478,8 +478,45 @@ if ($game) {
     if ($memNow -and $memNow.CommitLimit -gt 0) { $memPct = [Math]::Round(100 * $memNow.CommitUsed / $memNow.CommitLimit, 1) }
     # THE GAME'S OWN NAMES never make a bottleneck: the game, its launcher, its components.
     $gameNames = @($procs.Values | Where-Object { Test-BelongsToGame -Proc $_ } | ForEach-Object { $_.Name } | Sort-Object -Unique)
-    Add-GameTallyPass -Backend $backend -Session $session -Apps $allApps `
+    $jamNow = Add-GameTallyPass -Backend $backend -Session $session -Apps $allApps `
                       -CpuTotal $cpuTotal -GpuTotal $gpuTotal -MemoryPct $memPct -GameNames $gameNames
+
+    <#
+        WHAT IS IN THE WAY RIGHT NOW -- said during the game, not hours later in the recap.
+
+        On 29/09 the card announced that no other application was greedy while, throughout the jams of a two-hour
+        session, Steam held 12,9 % of every core. The greedy alert answers another question: it looks at the whole
+        session and demands three minutes of presence. A jam is the opposite -- the machine at its ceiling, right
+        now, and whoever takes a share of their own while it lasts.
+
+        The field carries the notification (D54): it turns amber once the jam has lasted the declared minutes, and
+        the bubble follows the notification settings like any other.
+    #>
+    $jamMinutes = [int](Get-ModuleSetting -Unit 'gaming' -Key 'JamNotifyMinutes')
+    if (-not $jamMinutes) { $jamMinutes = 5 }
+    if ($jamNow -and $jamNow.Jam) {
+        $what = switch ("$($jamNow.Jam)") {
+            'cpu'    { 'Processeur saturé' }
+            'gpu'    { 'Carte graphique saturée' }
+            'memory' { 'Mémoire saturée' }
+            default  { 'Machine au plafond' }
+        }
+        $blame = @($jamNow.Offenders | Select-Object -First 2 | ForEach-Object {
+            "{0} {1} %" -f $_.Label, ([Math]::Round([Math]::Max($_.Cpu, $_.Gpu), 1)).ToString('N1', $fr) })
+        $jamValue = $what + $(if ($blame.Count) { ' · ' + ($blame -join ', ') } else { '' })
+        $jamLong = ([int]$jamNow.Seconds -ge ($jamMinutes * 60))
+        $fields += New-Field -Key 'jam' -Label 'Ce qui gêne la partie' -Value $jamValue -Kind 'text' `
+            -Status $(if ($jamLong) { 'warn' } else { 'neutral' }) `
+            -Reason $(if ($jamLong) { ("$what depuis " + $(
+                $span = [TimeSpan]::FromSeconds([int]$jamNow.Seconds)
+                if ($span.TotalHours -ge 1) { "{0} h {1:00}" -f [int][Math]::Floor($span.TotalHours), $span.Minutes }
+                else { "{0} min" -f [int][Math]::Floor($span.TotalMinutes) }) + $(if ($blame.Count) { ' ; en travers : ' + ($blame -join ', ') } else { '' })) } else { $null }) `
+            -FixAction $(if ($jamNow.Offenders.Count) { 'open-task-manager' } else { $null }) `
+            -Help "La machine est à son plafond et une application étrangère au jeu y prend une part à elle seule. Au-delà du délai réglé, Vigie prévient."
+    } else {
+        $fields += New-Field -Key 'jam' -Label 'Ce qui gêne la partie' -Value 'Rien' -Kind 'text' -Status 'ok' `
+            -Help "La machine n'est pas à son plafond, ou personne d'autre que le jeu n'y prend une part notable."
+    }
 
     <#
         A GREEDY APPLICATION IS ONE THAT LASTS, AND THAT THE GAME DOES NOT NEED.

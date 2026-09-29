@@ -4713,6 +4713,32 @@ function Add-GameTallyPass {
                                              jamCpuPasses = $tally.jamCpuPasses; jamGpuPasses = $tally.jamGpuPasses
                                              jamMemPasses = $tally.jamMemPasses
                                              satGpuBefore = $tally.satGpuBefore; satMemBefore = $tally.satMemBefore } | Out-Null
+        <#
+            AND THE PASS SAYS WHAT IS HAPPENING NOW, not only what the recap will say hours later.
+
+            Everything needed is already computed here: whether the machine is at its ceiling on this pass and on the
+            previous one, and which applications take a share of their own while it is. Returning it costs nothing,
+            and it is what lets the card name the offender DURING the game -- on 29/09 the card said no other
+            application was greedy while Steam held 12,9 % throughout the jams.
+        #>
+        $now = @()
+        if ($jamCpu -or $jamGpu -or $jamMem) {
+            foreach ($app in @($Apps)) {
+                if (-not $app -or -not $app.Name) { continue }
+                if ($GameNames -contains "$($app.Name)") { continue }
+                if (($jamCpu -and [double]$app.Cpu -ge $script:GameJamCpuOther) -or
+                    ($jamGpu -and [double]$app.Gpu -ge $script:GameJamGpuOther)) {
+                    $now += [pscustomobject]@{ Name = "$($app.Name)"; Label = "$($app.Label)"
+                                               Cpu = [double]$app.Cpu; Gpu = [double]$app.Gpu }
+                }
+            }
+        }
+        $kind = $null; $held = 0
+        if ($jamCpu) { $kind = 'cpu'; $held = [int]$tally.jamCpuSeconds }
+        elseif ($jamGpu) { $kind = 'gpu'; $held = [int]$tally.jamGpuSeconds }
+        elseif ($jamMem) { $kind = 'memory'; $held = [int]$tally.jamMemSeconds }
+        return [pscustomobject]@{ Jam = $kind; Seconds = $held
+                                  Offenders = @($now | Sort-Object { $_.Cpu + $_.Gpu } -Descending) }
     } catch { }
 }
 

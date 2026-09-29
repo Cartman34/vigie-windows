@@ -17,12 +17,17 @@
         BatteryDropWarnPct = 10 # points de batterie perdus pendant la partie avant d'alerter
         # THE RECAP OPENS BY ITSELF at the end of a session, unless the owner says otherwise (on by default, 28/09).
         OpenRecapAtEnd  = $true
+        # HOW LONG A JAM MUST LAST before Vigie says so on the desktop. A jam of a few seconds is the game loading;
+        # one that lasts is what makes a session unpleasant (owner, 29/09).
+        JamNotifyMinutes = 5
     }
 
     # PARAMETRES : les cles de Config reglables dans le menu Parametres de l'app.
     Parameters = @(
         @{ Key = 'OpenRecapAtEnd'; Label = 'Ouvrir le récapitulatif à la fin d''une partie'; Type = 'bool'
            Help = 'À la fin d''une partie, Vigie ouvre son récapitulatif. La fenêtre se ferme d''elle-même si une nouvelle partie commence, ou après dix minutes sans être regardée. Éteint, Vigie se contente d''une notification.' }
+        @{ Key = 'JamNotifyMinutes'; Label = 'Alerte de bouchon en jeu'; Type = 'int'; Unit = 'min'; Min = 1; Max = 60; Step = 1
+           Help = 'Durée d''un bouchon — machine au plafond et une autre application qui y prend sa part — avant que Vigie ne prévienne.' }
         @{ Key = 'GameGpuMinPct'; Label = 'Seuil de détection du jeu'; Type = 'int'; Unit = '% GPU'; Min = 5; Max = 80; Step = 5
            Help = 'En dessous de cette utilisation GPU, aucun processus n''est considéré comme un jeu.' }
         @{ Key = 'OtherCpuWarnPct'; Label = 'Alerte CPU des autres applis'; Type = 'int'; Unit = '%'; Min = 1; Max = 50; Step = 1
@@ -74,6 +79,10 @@
            Card = 'gaming'; Field = 'last-session'
            Droits = 'tous'; Critique = $false
            Help = 'À la fin d''une partie, propose d''ouvrir son récapitulatif. Sans effet si l''ouverture automatique est activée.' }
+        @{ Key = 'game-jam'; Label = 'Quelque chose gêne la partie'
+           Card = 'gaming'; Field = 'jam'
+           Droits = 'tous'; Critique = $false
+           Help = 'La machine est à son plafond depuis plusieurs minutes et une application étrangère au jeu y prend une part à elle seule.' }
         @{ Key = 'gpu-temp'; Label = 'Température GPU élevée'
            Card = 'gaming'; Field = 'gpu-temp'
            Droits = 'tous'; Critique = $false
