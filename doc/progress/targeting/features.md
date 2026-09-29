@@ -25,7 +25,9 @@ Format : `ID` — Titre, puis le besoin et ses critères. On n'écrit **pas** ic
   **Et ses app clientes** : une app cliente qui cesse de battre alors que la session de son compte est ouverte est
   signalée, et chaque disparition est consignée avec le contexte du moment — le jeu en cours d'abord. Le 28/09 l'une
   d'elles est partie en pleine partie sans une ligne : Vigie n'a plus mesuré jusqu'au lendemain et ne l'a jamais dit.
-  Vigie ne relance rien d'elle-même : la carte le dit, l'utilisateur décide.
+  **Et elle la ramène** : muette deux passages de suite alors que le processus de son dernier battement a réellement
+  disparu, sa tâche est redémarrée, au plus deux fois. Un processus n'est jamais arrêté pour autant : une app cliente
+  dont le processus vit encore est « vivante mais muette », et là Vigie ne touche à rien.
 - **CORE-NOTIFY** — Prévenir sur le bureau quand un état bascule. Le besoin nomme un **sujet, un état, une mesure et
   une urgence** ; il ne nomme aucun outil d'affichage. Windows en offre plusieurs, aucun n'est disponible partout, et
   celui qu'on recommande change avec les versions : le choix se fait à l'exécution, derrière une seule porte, et une

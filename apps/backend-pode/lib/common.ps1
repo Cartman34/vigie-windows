@@ -2815,20 +2815,17 @@ function Get-TrayHeartbeat {
     } catch { return $null }
 }
 
-function Update-TrayWatch {
+<#
+    WHAT THE CARD READS -- and it only reads: a probe never acts (D14).
+
+    Rows: one per account whose session is open and that has already had a client app here. Silent tells how many
+    minutes its heartbeat has been quiet, -1 when it never wrote one.
+#>
+function Get-TrayWatchRows {
     # HOW LONG BEFORE CONCLUDING: the heartbeat is every eight seconds, and a loaded machine can miss a few of them.
     # Three minutes without a single beat is no longer lateness.
     param([string]$Backend = (Get-BackendRoot), [int]$SilentMinutes = 3)
     $rows = @()
-    $vanished = @()
-    $stateFile = Get-VarPath -Backend $Backend -Kind 'cache' -File 'tray-watch.json'
-    $known = @{}
-    try {
-        if (Test-PathSafe $stateFile) {
-            $raw = Get-Content -LiteralPath $stateFile -Raw -Encoding UTF8 -ErrorAction Stop
-            foreach ($pr in @((ConvertFrom-Json $raw).PSObject.Properties)) { $known["$($pr.Name)"] = "$($pr.Value)" }
-        }
-    } catch { }
     $nowUtc = [datetime]::UtcNow
     <#
         NOT FROM THE LIST OF ACCOUNTS: establishing it costs two seconds (measured on 29/09), and this card is
@@ -2844,69 +2841,165 @@ function Update-TrayWatch {
                         [System.Security.Principal.NTAccount]).Value.Split([char]92)[-1]
         } catch { continue }
         if (-not $name) { continue }
-        $hasSession = $true
         $beat = Get-TrayHeartbeat -Account $name
         if (-not $beat) { continue }
-        $silentMin = $(if ($beat) { [Math]::Floor(($nowUtc - $beat.At).TotalMinutes) } else { -1 })
-        $status = 'ok'
-        $said = ''
-        if ($silentMin -ge $SilentMinutes) {
-            $said = "Disparue, muette depuis " + $(if ($silentMin -ge 60) { "$([int][Math]::Floor($silentMin / 60)) h $($silentMin % 60) min" } else { "$silentMin min" })
-            $status = 'warn'
-            <#
-                ONCE PER DISAPPEARANCE, not once per reading: the key is the heartbeat that stopped.
-
-                That key is in TICKS, not in ISO 8601, and it matters: ConvertFrom-Json turns an ISO date into a
-                [datetime] (D44). Read back, it no longer compared to the string that had been written -- the
-                comparison always failed, and three readings in a row wrote the same disappearance three times
-                (measured on 29/09). A number reads back as a number.
-            #>
-            $key = "$($beat.At.Ticks)"
-            if ("$($known[$name])" -ne $key) {
-                $known[$name] = $key
-                $vanished += [pscustomobject]@{ Account = $name; Beat = $beat; Silent = $silentMin }
-            }
-        } else {
-            # The beat's own state is not repeated when it says what we already say: "En marche (En marche)".
-            $said = "En marche" + $(if ($beat.State -and $beat.State -ne 'En marche') { " ($($beat.State))" } else { '' })
-            if ("$($known[$name])") { $known.Remove($name) }
-        }
+        $silentMin = [int][Math]::Floor(($nowUtc - $beat.At).TotalMinutes)
+        $gone = $silentMin -ge $SilentMinutes
+        $said = if ($gone) {
+                    "Disparue, muette depuis " + $(if ($silentMin -ge 60) { "$([int][Math]::Floor($silentMin / 60)) h $($silentMin % 60) min" } else { "$silentMin min" })
+                } else {
+                    # The beat's own state is not repeated when it says what we already say: "En marche (En marche)".
+                    "En marche" + $(if ($beat.State -and $beat.State -ne 'En marche') { " ($($beat.State))" } else { '' })
+                }
         $rows += [pscustomobject]@{
             Account   = $name
-            Session   = $hasSession
+            Session   = $true
             Said      = $said
-            Status    = $status
-            ProcessId = $(if ($beat) { $beat.ProcessId } else { 0 })
-            At        = $(if ($beat) { $beat.At } else { $null })
+            Status    = $(if ($gone) { 'warn' } else { 'ok' })
+            Silent    = $silentMin
+            ProcessId = $beat.ProcessId
+            At        = $beat.At
+            Beat      = $beat
         }
     }
-    foreach ($v in $vanished) {
-        # THE CONTEXT OF THE MOMENT, or the line does not answer "why did it go?". The game being played first: that is
-        # when a disappearance costs the most, and that is when it happened.
-        $game = $null
-        try { $game = Get-GameModeName -Backend $Backend } catch { }
-        $entry = [ordered]@{
-            at      = $nowUtc.ToString('o')
-            account = $v.Account
-            lastAt  = $v.Beat.At.ToString('o')
-            pid     = $v.Beat.ProcessId
-            state   = $v.Beat.State
-            silent  = [int]$v.Silent
-            game    = $game
+    return $rows
+}
+
+<#
+    THE PASS OF THE PERMANENT WATCH: it records a disappearance, and brings the client app back.
+
+    WHY IT ACTS. Until 29/09 nobody brought it back. A client app that dies leaves its task reading "Running" with no
+    process behind it, and Windows then REFUSES every start with 0x800710E0 -- the last result of the Famille task, read
+    on 29/09. So the account stayed without Vigie until its next logon: no icon, no notification, and nothing asking for
+    a recomputation, which is why nothing at all was measured between 20:22 and 21:41 on 28/09, during a game.
+
+    WHAT IT NEVER DOES. It stops no process, and it cannot: what it ends is a task whose process is already gone --
+    Start-TrayTasks returns untouched as soon as the process is alive. Nothing is killed, here or anywhere below.
+
+    HOW IT IS BOUNDED. A disappearance must be seen TWICE IN A ROW, one minute apart, on the same stopped heartbeat.
+    Then at most two attempts for that heartbeat, each one logged with its outcome. A client app that will not come back
+    is said on the card, not retried forever.
+#>
+function Update-TrayWatch {
+    param([string]$Backend = (Get-BackendRoot), [int]$SilentMinutes = 3, [int]$MaxTries = 2)
+    $rows = @(Get-TrayWatchRows -Backend $Backend -SilentMinutes $SilentMinutes)
+    $stateFile = Get-VarPath -Backend $Backend -Kind 'cache' -File 'tray-watch.json'
+    $known = @{}
+    try {
+        if (Test-PathSafe $stateFile) {
+            $raw = Get-Content -LiteralPath $stateFile -Raw -Encoding UTF8 -ErrorAction Stop
+            foreach ($pr in @((ConvertFrom-Json $raw).PSObject.Properties)) {
+                $known["$($pr.Name)"] = @{ key = "$($pr.Value.key)"; seen = [int]$pr.Value.seen; tries = [int]$pr.Value.tries }
+            }
         }
+    } catch { }
+    $nowUtc = [datetime]::UtcNow
+    $toRelaunch = @()
+    foreach ($row in $rows) {
+        $name = "$($row.Account)"
+        if ($row.Status -eq 'ok') { if ($known.ContainsKey($name)) { $known.Remove($name) }; continue }
+        <#
+            ONCE PER DISAPPEARANCE, not once per reading: the key is the heartbeat that stopped.
+
+            That key is in TICKS, not in ISO 8601, and it matters: ConvertFrom-Json turns an ISO date into a
+            [datetime] (D44). Read back, it no longer compared to the string that had been written -- the comparison
+            always failed, and three readings in a row wrote the same disappearance three times (measured on 29/09).
+            A number reads back as a number.
+        #>
+        $key = "$($row.Beat.At.Ticks)"
+        $entry = $known[$name]
+        if (-not $entry -or "$($entry.key)" -ne $key) {
+            $known[$name] = @{ key = $key; seen = 1; tries = 0 }
+            # THE CONTEXT OF THE MOMENT, or the line does not answer "why did it go?". The game being played first:
+            # that is when a disappearance costs the most, and that is when it happened.
+            $game = $null
+            try { $game = Get-GameModeName -Backend $Backend } catch { }
+            $record = [ordered]@{
+                at      = $nowUtc.ToString('o')
+                account = $name
+                lastAt  = $row.Beat.At.ToString('o')
+                pid     = $row.Beat.ProcessId
+                state   = $row.Beat.State
+                silent  = [int]$row.Silent
+                game    = $game
+            }
+            try {
+                $file = Get-VarPath -Backend $Backend -Kind 'history' -File 'tray-vanished.jsonl'
+                Add-HistoryLine -Path $file -Line ($record | ConvertTo-Json -Depth 4 -Compress) | Out-Null
+                # GROWTH IS BOUNDED: a disappearance is rare, two hundred of them tell months.
+                $lines = @(Get-Content -LiteralPath $file -Encoding UTF8 -ErrorAction SilentlyContinue)
+                if ($lines.Count -gt 200) { Set-Content -LiteralPath $file -Value ($lines | Select-Object -Last 200) -Encoding UTF8 }
+                Write-Log -Backend $Backend -Name 'state' -Level 'WARN' -Message (
+                    "app cliente disparue : $name, PID $($row.Beat.ProcessId), dernier battement " +
+                    $row.Beat.At.ToLocalTime().ToString('dd/MM HH:mm:ss') +
+                    $(if ($game) { ", jeu en cours : $game" } else { '' }))
+            } catch { }
+            continue
+        }
+        $entry.seen = [int]$entry.seen + 1
+        if ($entry.seen -ge 2 -and [int]$entry.tries -lt $MaxTries) {
+            $entry.tries = [int]$entry.tries + 1
+            $toRelaunch += [pscustomobject]@{ Account = $name; Try = [int]$entry.tries }
+        }
+        $known[$name] = $entry
+    }
+    foreach ($r in $toRelaunch) {
+        # THE TASK KNOWS WHICH IDENTITY TO START UNDER, and for another account's client app it is the only way. The
+        # list of accounts costs two seconds: it is read HERE only, a relaunch being rare.
+        $account = $null
+        try { $account = @(Get-EnabledAccounts -Backend $Backend | Where-Object { "$($_.name)" -eq "$($r.Account)" })[0] } catch { }
+        if (-not $account -or -not $account.task) {
+            try { Write-Log -Backend $Backend -Name 'state' -Level 'WARN' -Message ("relance impossible : aucune tache pour $($r.Account)") } catch { }
+            continue
+        }
+        <#
+            A CLIENT APP THAT STILL HAS ITS PROCESS IS NOT GONE, IT IS STUCK -- and a stuck process is not ours to end
+            (18/09). Nothing is relaunched then: the card says it is alive and silent, and the decision stays the
+            user's. Only a client app whose process has really gone is brought back.
+        #>
+        <#
+            THE PROCESS ID THAT WROTE THE HEARTBEAT decides, and it decides FIRST.
+
+            Measured on 29/09, and it cost a client app: Test-VigieTaskProcessAlive compares COMMAND LINES, which
+            Windows hides for an elevated process from a session that is not. It answered "no process" about a client
+            app that was running, and Start-TrayTasks then ended the task -- that is, the live process -- before
+            starting it again. A test that can be wrong must never be the last word before an act.
+
+            A process id is readable by everyone, for every process. If the one that wrote the last heartbeat still
+            exists and is still a PowerShell, the client app is alive and silent: nothing is relaunched, nothing is
+            ended, and the card says so. An id could have been reused by another PowerShell, and the consequence of
+            believing it is exactly the right one: we do nothing.
+        #>
+        $alive = $false
         try {
-            $file = Get-VarPath -Backend $Backend -Kind 'history' -File 'tray-vanished.jsonl'
-            Add-HistoryLine -Path $file -Line ($entry | ConvertTo-Json -Depth 4 -Compress) | Out-Null
-            # GROWTH IS BOUNDED: a disappearance is rare, two hundred of them tell months.
-            $lines = @(Get-Content -LiteralPath $file -Encoding UTF8 -ErrorAction SilentlyContinue)
-            if ($lines.Count -gt 200) { Set-Content -LiteralPath $file -Value ($lines | Select-Object -Last 200) -Encoding UTF8 }
-            Write-Log -Backend $Backend -Name 'state' -Level 'WARN' -Message (
-                "app cliente disparue : $($v.Account), PID $($v.Beat.ProcessId), dernier battement " +
-                $v.Beat.At.ToLocalTime().ToString('dd/MM HH:mm:ss') +
-                $(if ($game) { ", jeu en cours : $game" } else { '' }))
+            $held = Get-Process -Id ([int]$row.Beat.ProcessId) -ErrorAction Stop
+            if ($held -and $held.ProcessName -in @('pwsh', 'powershell')) { $alive = $true }
         } catch { }
+        if (-not $alive) {
+            try { $alive = Test-VigieTaskProcessAlive -Task (Get-ScheduledTask -TaskName "$($account.task)" -ErrorAction Stop) } catch { }
+        }
+        if ($alive) {
+            foreach ($row in $rows) {
+                if ("$($row.Account)" -ne "$($r.Account)") { continue }
+                $row.Said = $row.Said + ' — vivante mais muette'
+            }
+            try { Write-Log -Backend $Backend -Name 'state' -Level 'WARN' -Message (
+                    "app cliente de $($r.Account) vivante mais muette : aucune relance, on n'arrete pas un processus") } catch { }
+            continue
+        }
+        $started = @()
+        try { $started = @(Start-TrayTasks -Accounts @($account)) } catch { }
+        try {
+            Write-Log -Backend $Backend -Name 'state' -Level $(if ($started.Count) { 'INFO' } else { 'WARN' }) -Message (
+                "relance de l'app cliente de $($r.Account), tentative $($r.Try) : " +
+                $(if ($started.Count) { 'demandee' } else { 'refusee par Windows' }))
+        } catch { }
+        foreach ($row in $rows) {
+            if ("$($row.Account)" -ne "$($r.Account)") { continue }
+            $row.Said = $row.Said + $(if ($started.Count) { " — relance demandée" } else { " — relance refusée" })
+        }
     }
-    try { Set-Content -LiteralPath $stateFile -Value (ConvertTo-Json $known -Depth 3 -Compress) -Encoding UTF8 } catch { }
+    try { Set-Content -LiteralPath $stateFile -Value (ConvertTo-Json $known -Depth 4 -Compress) -Encoding UTF8 } catch { }
     return $rows
 }
 

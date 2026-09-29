@@ -589,6 +589,10 @@ Add-PodeTimer -Name 'vigie-watch' -Interval 60 -ScriptBlock {
         # rearme s il est mort (targeting/residents.md). Le premier d entre eux sait
         # quand un jeu demarre ; la sentinelle qui suit ne fait que lire son resultat.
         $null = Invoke-ResidentPass -Backend $env:VIGIE_BACKEND
+        # THE CLIENT APPS NEXT, for the same reason as a resident: what must live beside the server is seen here, and
+        # brought back when it is gone. A dead client app leaves its task reading "Running" with no process behind it,
+        # and Windows then refuses every start: the account stayed without Vigie until its next session (28/09).
+        $null = Update-TrayWatch -Backend $env:VIGIE_BACKEND
         $null = Invoke-WatchPass -Backend $env:VIGIE_BACKEND
         # THE NOTIFICATION IDENTITY: read before written, so this pass costs nothing once it
         # is right. Here rather than at install time alone -- an update runs the installer of
