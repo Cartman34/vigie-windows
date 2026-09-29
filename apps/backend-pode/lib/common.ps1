@@ -8666,13 +8666,12 @@ function Get-VigieTaskStructureAilment {
         if (-not (Test-Path -LiteralPath $Matches[1])) { return ("l'application n'est plus là : " + $Matches[1]) }
     }
     <#
-        A WINDOW NOBODY ASKED FOR is a fault of the task, and it is repaired by rewriting it. Without this, the
-        accounts already installed would have kept their empty terminal until someone reinstalled from their session
-        -- that is, never (29/09).
+        A WINDOW NOBODY ASKED FOR IS NOT A BREAKDOWN, and saying it here was a mistake -- measured within the minute
+        on 29/09: this function feeds the deployment card, which then announced, in red, that two accounts had no working
+        client app -- about client apps that were running perfectly. A structural ailment says the task CANNOT work. An old launch
+        line works; it merely shows a window, and that is repaired by rewriting the task at the next installation,
+        not by alarming whoever reads the card.
     #>
-    if ((Get-HeadlessConsolePath) -and (Split-Path "$($a.Execute)".Trim('"') -Leaf) -ine 'conhost.exe') {
-        return "elle ouvre une fenêtre inutile à chaque démarrage"
-    }
     # DESACTIVEE, c'est structurel : la tache est la, bien formee, et Windows refuse de
     # la lancer. Ca se repare d'un geste (Enable-ScheduledTask), donc ca appartient ici
     # et pas a l'histoire.
