@@ -128,6 +128,9 @@ Add-PodeRoute -Method Get -Path "$base/health" -ScriptBlock {
         account = $account
         version = (Get-AppVersion -Backend $env:VIGIE_BACKEND)
         build   = (Get-AppBuildId -Backend $env:VIGIE_BACKEND)
+        # WHEN THE STATE CACHE LAST MOVED: the panel compares it to what it holds and reads again when it
+        # differs, so a computation finished by the server shows up without waiting for the next minute.
+        stateStamp = (Get-StateStamp -Backend $env:VIGIE_BACKEND)
         # URL de l'Atelier si son serveur repond en LOCAL, sinon null. C'est le serveur
         # qui detecte : le front ne peut pas sonder un autre port proprement
         # (cross-origin), et le port de l'Atelier ne doit exister que dans SA config (D15).

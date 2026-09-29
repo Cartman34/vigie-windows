@@ -4972,6 +4972,23 @@ function Get-ProbeCacheStamp {
     return ''
 }
 
+<#
+    THE STAMP OF THE STATE CACHE -- how the panel learns that something was computed (D124).
+
+    The server cannot push: it answers requests. But the panel already asks /health every fifteen seconds to see
+    whether a new version is being served, and that answer costs nothing. It now carries the moment the state cache
+    was last written: when it moves, the panel reads the cache again, instead of waiting for its own minute to pass.
+    No new route, no new transport, and the panel still never waits for a computation -- it reads what is written.
+#>
+function Get-StateStamp {
+    param([string]$Backend = (Get-BackendRoot))
+    try {
+        $path = Get-VarPath -Backend $Backend -Kind 'cache' -File 'state-cache.json'
+        if (-not (Test-PathSafe $path)) { return '' }
+        return "$((Get-Item -LiteralPath $path -ErrorAction Stop).LastWriteTimeUtc.Ticks)"
+    } catch { return '' }
+}
+
 function Get-RefreshStatePath {
     param([string]$Backend = (Get-BackendRoot))
     # 'run': a LIVING state. What is running dies with the server, and a pace starts again from the restart.

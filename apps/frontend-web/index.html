@@ -899,6 +899,7 @@ const SPLASH_MAX_MS   = 90000;   // garde-fou : l'ecran ne reste jamais bloque (
 const SPLASH_FADE_MS  = 450;     // doit rester egal a la transition CSS de #splash (--splash-fade)
 const REFRESH_MS      = 60000;   // rafraichissement automatique de l'etat
 const VERSION_POLL_MS = 15000;   // detection d'une nouvelle version servie
+let lastStateStamp    = '';      // derniere ecriture du cache d'etat vue par cette page
 
 // ===== Detection du mode : API en direct ou mock =====
 const TOKEN = window.API_TOKEN || "";
@@ -2993,6 +2994,15 @@ async function checkVersion(){
     // Bouton Atelier : visible UNIQUEMENT si son serveur repond en local (outil de dev).
     const ab=document.getElementById('atelierBtn');
     if(ab){ if(j && j.atelier){ ab.href=j.atelier; ab.hidden=false; } else { ab.hidden=true; } }
+    // L'APP SERVEUR A CALCULE QUELQUE CHOSE : on relit le cache, sans attendre notre minute.
+    // Elle ne peut pas nous prevenir d'elle-meme -- elle repond, elle n'appelle pas --, mais
+    // cette reponse-ci coute trois fois rien et nous passons deja toutes les 15 s. On ne
+    // recalcule rien : /state sans « fresh » sert ce qui est deja ecrit (D124).
+    if(j && j.stateStamp){
+      if(lastStateStamp && j.stateStamp!==lastStateStamp && !runningOperation()){
+        lastStateStamp=j.stateStamp; refresh();
+      } else { lastStateStamp=j.stateStamp; }
+    }
     if(!window.APP_BUILD || window.APP_BUILD.includes('__')) return;
     if(j && j.build && j.build!==window.APP_BUILD){
       // PAS PENDANT UNE OPERATION. Une mise a jour de Vigie sert forcement une nouvelle

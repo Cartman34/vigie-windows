@@ -112,6 +112,12 @@ Aucun intervalle déclaré = calcul à la demande seulement, ce que font toutes 
 Le client, lui, **ne porte plus le relevé régulier** : il lit le cache, n'attend aucun recalcul, et peut demander un
 rafraîchissement ponctuel. Ce qui doit être calculé l'est parce que le serveur surveille, session ouverte ou non.
 
+**Et il est prévenu quand un calcul a écrit.** L'app serveur ne peut pas appeler le panneau — elle répond, elle
+n'appelle pas —, mais le panneau lui demande déjà `/health` toutes les 15 secondes pour savoir si une nouvelle version
+est servie. Cette réponse porte désormais **l'empreinte du cache d'état** : quand elle change, le panneau relit le
+cache au lieu d'attendre sa minute. Aucune route nouvelle, aucun transport nouveau, et toujours aucun recalcul
+déclenché par une lecture.
+
 ## Comment un module déclare un relevé
 
 Dans son dossier, un fichier `<clé>.watch.ps1` : il fait UNE lecture bon marché et rend UNE valeur comparable — un

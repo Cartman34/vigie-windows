@@ -28,6 +28,7 @@ paths:
                   status:  { type: string, enum: [ok] }
                   version: { type: string, description: "version LISIBLE du produit, prefixee (ex. v0.1)" }
                   build:   { type: string, description: "jeton de changement, jamais affiche : le front recharge la page quand il differe du sien" }
+                  stateStamp: { type: string, description: "moment de la derniere ecriture du cache d'etat ; le front relit /state quand il change" }
   /state:
     get:
       summary: Instantane complet de l'etat (tous les modules)
