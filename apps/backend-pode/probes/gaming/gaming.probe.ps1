@@ -71,13 +71,12 @@ public static extern int GetSystemMetrics(int i);
 
 # --- Instantane 1 : CPU + E/S cumulees ---------------------------------------
 <#
-    LA FENETRE DE MESURE COMMENCE ICI, avant le premier instantane, et pas apres.
+    THE MEASURING WINDOW STARTS HERE, before the first snapshot, and not after it.
 
-    Elle demarrait apres : le temps processeur d'un processus etait donc compte sur
-    (fin du premier instantane + attente + debut du second), mais divise par la seule
-    attente. Tout etait gonfle du temps de parcours des six cents processus -- la carte a
-    annonce le 29/09 une pointe de 121,7 % pour un jeu, ce qu'aucun processus ne peut
-    atteindre : 100 % veut dire « tous les coeurs ».
+    It used to start after: a process's processor time was therefore counted over (end of the first snapshot + the
+    wait + start of the second), but divided by the wait alone. Everything was inflated by the time it takes to walk
+    six hundred processes -- on 29/09 the card reported a peak of 121,7 % for a game, which no process can reach:
+    100 % means every core.
 #>
 $t0 = Get-Date
 $coeurs = [Math]::Max(1, [int]$env:NUMBER_OF_PROCESSORS)
