@@ -500,8 +500,8 @@ public static bool Close(System.IntPtr h) {
         $openApp = {
             # -Sur: what the panel must show on opening ('recap' for the last session's recap). Without it, it opens
             # as usual: the parameter adds nothing for those who do not pass it.
-            param([string]$Sur)
-            TLog ("openApp demande" + $(if ($Sur) { " (sur $Sur)" } else { '' }))
+            param([string]$On)
+            TLog ("openApp demande" + $(if ($On) { " (sur $On)" } else { '' }))
 
 
             # DEJA OUVERTE ? On la ramene au premier plan au lieu d'en ouvrir une seconde.
@@ -542,7 +542,7 @@ public static bool Close(System.IntPtr h) {
             }
             $url = $signInUrl
             # THE PANEL OPENS ON WHAT IT IS ASKED FOR: the page reads this parameter and opens the right window.
-            if ($Sur) { $url += $(if ($url -like '*`?*') { '&' } else { '?' }) + 'show=' + [uri]::EscapeDataString($Sur) }
+            if ($On) { $url += $(if ($url -like '*`?*') { '&' } else { '?' }) + 'show=' + [uri]::EscapeDataString($On) }
 
             # Le mode --app n'existe que sur les navigateurs Chromium.
             $chromium = @('chrome', 'msedge', 'brave', 'vivaldi', 'opera')
@@ -1028,12 +1028,12 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                     '',
                     (Get-Label 'tray.apropos-ouvrir-depot')
                 )
-                $reponse = [System.Windows.Forms.MessageBox]::Show(
+                $response = [System.Windows.Forms.MessageBox]::Show(
                     ($lignes -join [Environment]::NewLine),
                     (Get-Label 'tray.apropos-titre'),
                     [System.Windows.Forms.MessageBoxButtons]::YesNo,
                     [System.Windows.Forms.MessageBoxIcon]::Information)
-                if ($reponse -eq [System.Windows.Forms.DialogResult]::Yes) { & $openRepo }
+                if ($response -eq [System.Windows.Forms.DialogResult]::Yes) { & $openRepo }
             } catch { TLog ("a propos KO : " + $_.Exception.Message) }
         }
         $miAbout = $menu.Items.Add('À propos de Vigie', $null, [System.EventHandler]$showAbout)
@@ -1081,9 +1081,9 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
               - si l'affichage echoue, on n'insiste pas -- on le note et on passe.
         #>
         $dire = {
-            # -Ouvre: what a click on the notification must open (a vigie:// address). Without it, the notification
+            # -Launch: what a click on the notification must open (a vigie:// address). Without it, the notification
             # informs without offering anything -- which most of them still do.
-            param([string]$Titre, [string]$Texte, [string]$Icone = 'Info', [int]$Duree = 6000, [string]$Key = '', [string]$Ouvre = '')
+            param([string]$Titre, [string]$Texte, [string]$Icone = 'Info', [int]$Duree = 6000, [string]$Key = '', [string]$Launch = '')
             $maintenant = [datetime]::UtcNow
             $cle = "$Titre|$Texte"
             if (-not $state.Bulles) { $state.Bulles = @{} }
@@ -1096,7 +1096,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
             $level = switch ($Icone) { 'Error' { 'error' } 'Warning' { 'warn' } default { 'ok' } }
             try {
                 $outil = Show-VigieNotification `
-                    -Notification @{ Subject = $Titre; Body = $Texte; State = $level; Duration = $Duree; Key = $Key; Launch = $Ouvre } `
+                    -Notification @{ Subject = $Titre; Body = $Texte; State = $level; Duration = $Duree; Key = $Key; Launch = $Launch } `
                     -Context @{ TrayRoot = $trayRoot; Aumid = (Get-VigieToastIdentity); Icon = $icon }
                 if ($outil) { TLog ("notification montree par " + $outil) }
                 else { TLog "aucun outil n'a su montrer la notification" }
@@ -1338,59 +1338,63 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                             }
                         }
                     }
+                    <#
+                        THE END OF A SESSION OPENS ITS RECAP.
+
+                        The server app cannot open a window: it runs under the service account, with no screen.
+                        The client app IS the session, so it opens it, and nothing else does.
+
+                        The setting decides (Settings > Modules > Games, on by default): open it, or merely
+                        offer it through a notification that opens it on a click. That notification goes through
+                        the same door as the others, so it obeys the notification settings -- switched off, it
+                        stays quiet.
+
+                        IT BELONGS HERE, IN THE LOOP, and not in the branch of the first pass, where it was written
+                        on 28/09. There, its condition -- a recap seen BEFORE, different from the one now -- could
+                        never hold, since nothing has been seen yet on a first pass; and that branch is never
+                        visited again. The code was delivered, read twice, and could not run once.
+                    #>
+                    $recapNow = $null
+                    try { $recapNow = "$($vus['gaming/last-session'].value)" } catch { }
+                    $inGame = $false
+                    try { $inGame = ($vus['gaming/game'] -and "$($vus['gaming/game'].value)" -notin @('Aucun', 'Surveillance indisponible')) } catch { }
+                    if ($recapNow -and $state.RecapSeen -and $recapNow -ne $state.RecapSeen -and -not $silence -and $state.Present) {
+                        $auto = $true
+                        try { $auto = [bool](Get-ModuleSetting -Unit 'gaming' -Key 'OpenRecapAtEnd' -Backend $backend) } catch { }
+                        if ($auto) {
+                            TLog "fin de partie : ouverture du recapitulatif"
+                            & $openApp 'recap'
+                            Start-Sleep -Milliseconds 2500
+                            $state.RecapWindow = [VigieNative.Win]::FindBySuffix(' — Vigie')
+                            $state.RecapSeenAt = [datetime]::UtcNow.Ticks
+                        } else {
+                            $allowed = $true
+                            try { $allowed = Test-NotificationAllowed -ModuleId 'gaming' -Key 'game-recap' -Settings (Get-NotificationSettings -Backend $backend) } catch { }
+                            if ($allowed) { & $dire -Titre (Get-Label 'tray.bulle-partie-titre') -Texte (Get-Label 'tray.bulle-partie-texte') -Icone 'Info' -Duree 8000 -Key 'gaming.recap' -Launch 'vigie://session-recap' }
+                        }
+                    }
+                    if ($recapNow) { $state.RecapSeen = $recapNow }
+                    <#
+                        AND IT CLOSES ON ITS OWN.
+
+                        Two reasons, and two only: a new session starts -- the previous recap has no object any
+                        more -- or ten minutes have passed without the window coming to the foreground once.
+                        Watched, it stays: the count restarts at every glance. Vigie closes ONLY the window it
+                        opened itself.
+                    #>
+                    if ($state.RecapWindow -and $state.RecapWindow -ne [System.IntPtr]::Zero) {
+                        $mustClose = $false
+                        if ($inGame) { TLog 'recapitulatif : nouvelle partie, fermeture'; $mustClose = $true }
+                        elseif ([VigieNative.Win]::IsWatched($state.RecapWindow)) { $state.RecapSeenAt = [datetime]::UtcNow.Ticks }
+                        elseif ($state.RecapSeenAt -and ([datetime]::UtcNow - [datetime]$state.RecapSeenAt).TotalMinutes -ge 10) {
+                            TLog 'recapitulatif : dix minutes sans etre regarde, fermeture'; $mustClose = $true
+                        }
+                        if ($mustClose) {
+                            try { [void][VigieNative.Win]::Close($state.RecapWindow) } catch { }
+                            $state.RecapWindow = $null
+                        }
+                    }
                     if (-not $state.ModsInit) {
-                        <#
-                            THE END OF A SESSION OPENS ITS RECAP.
-
-                            The server app cannot open a window: it runs under the service account, with no screen.
-                            The client app IS the session, so it opens it, and nothing else does.
-
-                            The setting decides (Settings > Modules > Games, on by default): open it, or merely
-                            offer it through a notification that opens it on a click. That notification goes through
-                            the same door as the others, so it obeys the notification settings -- switched off, it
-                            stays quiet.
-                        #>
-                        $recapNow = $null
-                        try { $recapNow = "$($vus['gaming/last-session'].value)" } catch { }
-                        $enPartie = $false
-                        try { $enPartie = ($vus['gaming/game'] -and "$($vus['gaming/game'].value)" -notin @('Aucun', 'Surveillance indisponible')) } catch { }
-                        if ($recapNow -and $state.RecapVu -and $recapNow -ne $state.RecapVu -and -not $silence -and $state.Present) {
-                            $auto = $true
-                            try { $auto = [bool](Get-ModuleSetting -Unit 'gaming' -Key 'OpenRecapAtEnd' -Backend $backend) } catch { }
-                            if ($auto) {
-                                TLog "fin de partie : ouverture du recapitulatif"
-                                & $openApp 'recap'
-                                Start-Sleep -Milliseconds 2500
-                                $state.RecapFenetre = [VigieNative.Win]::FindBySuffix(' — Vigie')
-                                $state.RecapDepuis = [datetime]::UtcNow.Ticks
-                                $state.RecapVuAu = [datetime]::UtcNow.Ticks
-                            } else {
-                                $permis = $true
-                                try { $permis = Test-NotificationAllowed -ModuleId 'gaming' -Key 'game-recap' -Settings (Get-NotificationSettings -Backend $backend) } catch { }
-                                if ($permis) { & $dire -Titre (Get-Label 'tray.bulle-partie-titre') -Texte (Get-Label 'tray.bulle-partie-texte') -Icone 'Info' -Duree 8000 -Key 'gaming.recap' -Ouvre 'vigie://session-recap' }
-                            }
-                        }
-                        if ($recapNow) { $state.RecapVu = $recapNow }
-                        <#
-                            AND IT CLOSES ON ITS OWN.
-
-                            Two reasons, and two only: a new session starts -- the previous recap has no object any
-                            more -- or ten minutes have passed without the window coming to the foreground once.
-                            Watched, it stays: the count restarts at every glance. Vigie closes ONLY the window it
-                            opened itself.
-                        #>
-                        if ($state.RecapFenetre -and $state.RecapFenetre -ne [System.IntPtr]::Zero) {
-                            $ferme = $false
-                            if ($enPartie) { TLog 'recapitulatif : nouvelle partie, fermeture'; $ferme = $true }
-                            elseif ([VigieNative.Win]::IsWatched($state.RecapFenetre)) { $state.RecapVuAu = [datetime]::UtcNow.Ticks }
-                            elseif ($state.RecapVuAu -and ([datetime]::UtcNow - [datetime]$state.RecapVuAu).TotalMinutes -ge 10) {
-                                TLog 'recapitulatif : dix minutes sans etre regarde, fermeture'; $ferme = $true
-                            }
-                            if ($ferme) {
-                                try { [void][VigieNative.Win]::Close($state.RecapFenetre) } catch { }
-                                $state.RecapFenetre = $null
-                            }
-                        }
                         $state.Mods = $vus; $state.ModsInit = $true
                     } elseif ($silence) {
                         # PENDANT UNE INSTALLATION, un changement d'etat n'est pas un
@@ -1475,7 +1479,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                                 And it says the MEASUREMENT. "To watch" alone sends the reader
                                 to the panel to learn what the bubble already had in hand.
                             #>
-                            $mot   = @{ ok = (Get-Label 'tray.etat-retabli'); warn = (Get-Label 'tray.etat-a-surveiller')
+                            $word   = @{ ok = (Get-Label 'tray.etat-retabli'); warn = (Get-Label 'tray.etat-a-surveiller')
                                         error = (Get-Label 'tray.etat-en-erreur'); neutral = (Get-Label 'tray.etat-sans-objet') }
                             if ($bascules.Count -eq 1) {
                                 $single = $bascules[0]
@@ -1483,8 +1487,8 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                                 # THE MEASUREMENT LEADS when there is one -- "2 detected" says more
                                 # than "to watch" -- and the state alone gets a word to lean on, so
                                 # no line ever starts with a lowercase fragment.
-                                $body = $(if ("$($single.value)".Trim()) { (Get-Label 'tray.bulle-bascule-texte' "$($single.value)" $mot[$single.vers]) }
-                                           else { (Get-Label 'tray.bulle-bascule-etat' $mot[$single.vers]) })
+                                $body = $(if ("$($single.value)".Trim()) { (Get-Label 'tray.bulle-bascule-texte' "$($single.value)" $word[$single.vers]) }
+                                           else { (Get-Label 'tray.bulle-bascule-etat' $word[$single.vers]) })
                                 # THE REASON FOLLOWS THE STATE (CORE-ERRORS): "RAM 93 %" alone sent the reader to the panel on
                                 # 18/09 to learn what the probe already knew -- which applications held the memory.
                                 if ($single.reason -and $single.vers -ne 'ok') { $body += [Environment]::NewLine + $single.reason }
@@ -1492,7 +1496,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                             } else {
                                 $title = (Get-Label 'tray.bulle-bascules-titre' $bascules.Count)
                                 $body = (@($bascules | ForEach-Object {
-                                    (Get-Label 'tray.bulle-bascule-ligne' $_.label $mot[$_.vers]) +
+                                    (Get-Label 'tray.bulle-bascule-ligne' $_.label $word[$_.vers]) +
                                     $(if ($_.prevenir -and $_.vers -ne 'ok') { [Environment]::NewLine + (Get-Label 'tray.bulle-bascule-admin') } else { '' })
                                 }) -join [Environment]::NewLine)
                             }
@@ -1562,7 +1566,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                 #>
                 foreach ($order in @(Get-ChildItem -LiteralPath $runDir -Filter 'desktop-*.json' -File -ErrorAction SilentlyContinue |
                                      Where-Object { $_.Name -notlike '*.done.json' })) {
-                    $reponse = Join-Path $runDir ($order.BaseName + '.done.json')
+                    $response = Join-Path $runDir ($order.BaseName + '.done.json')
                     $sortie = @{ message = ''; result = @{ ok = $false } }
                     try {
                         $charge = Get-Content -LiteralPath $order.FullName -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -1585,7 +1589,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                         TLog ("ordre de bureau KO : " + $_.Exception.Message)
                         $sortie = @{ message = $_.Exception.Message; result = @{ ok = $false } }
                     }
-                    try { ($sortie | ConvertTo-Json -Compress -Depth 6) | Out-File -FilePath $reponse -Encoding UTF8 } catch { }
+                    try { ($sortie | ConvertTo-Json -Compress -Depth 6) | Out-File -FilePath $response -Encoding UTF8 } catch { }
                 }
             } catch { TLog ("lecture des ordres KO : " + $_.Exception.Message) }
         }

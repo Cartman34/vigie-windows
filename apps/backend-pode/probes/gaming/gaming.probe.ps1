@@ -173,16 +173,16 @@ try {
 
 # Table luid -> nom d'adaptateur (base DirectX du registre) : c'est elle qui permet de
 # dire si un processus est rendu par la carte dediee ou par l'integree.
-$nomParLuid = @{}
+$nameByLuid = @{}
 try {
     foreach ($k in (Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\DirectX' -ErrorAction Stop)) {
         $pr = Get-ItemProperty $k.PSPath -ErrorAction SilentlyContinue
         if ($pr -and $null -ne $pr.AdapterLuid -and $pr.Description) {
-            $nomParLuid[[int64]$pr.AdapterLuid] = "$($pr.Description)"
+            $nameByLuid[[int64]$pr.AdapterLuid] = "$($pr.Description)"
         }
     }
 } catch { }
-$aCarteDediee = [bool]($nomParLuid.Values | Where-Object { $_ -notmatch 'Intel|UHD|Iris|Basic Render' })
+$hasDedicatedCard = [bool]($nameByLuid.Values | Where-Object { $_ -notmatch 'Intel|UHD|Iris|Basic Render' })
 
 # Le compteur « Dedicated Usage » MENT parfois (dwm vu a 32 Go sur une carte de 8) :
 # une valeur par processus superieure a la VRAM physique est aberrante, on l'ecarte.
@@ -196,7 +196,7 @@ if ($vramTotale -gt 0) {
 # - bruit de MESURE, jamais montre : le faux processus Idle et Vigie elle-meme ;
 # - services WINDOWS legitimes : montres s'ils consomment, mais ANNOTES comme tels --
 #   les masquer cacherait une information, conseiller de les fermer serait faux.
-$bruit = @('Idle','System','Memory Compression','Registry','conhost','pwsh','powershell')
+$noise = @('Idle','System','Memory Compression','Registry','conhost','pwsh','powershell')
 $servicesWindows = @('lsass','services','wininit','winlogon','smss','csrss','dwm','svchost',
                      'MsMpEng','SearchIndexer','fontdrvhost','WmiPrvSE','RuntimeBroker',
                      'SearchHost','taskhostw')
@@ -238,8 +238,8 @@ function Group-ByApp {
 #
 # THREE STATES, not two: a game runs, none runs, or the watch is down. The third was
 # announced as the second, and that is what misled.
-$jeu = $null
-$jeuRaisons = $null
+$game = $null
+$gameReasons = $null
 # ALIVE IS NOT ENOUGH: a resident that breathes but whose subscription was denied measures
 # nothing. Without this distinction the card would say "no game" while it does not know --
 # the very mistake this field exists to prevent.
@@ -248,19 +248,19 @@ $watchState = Get-ResidentState -Backend $backend -Key 'game'
 $session = Get-GameSession -Backend $backend
 if ($env:VIGIE_FAKE_GAME) {
     # Simulation (doc/en/developing/modules.md): the measurements stay real.
-    $jeu = $procs.Values | Where-Object { $_.Name -like $env:VIGIE_FAKE_GAME } |
+    $game = $procs.Values | Where-Object { $_.Name -like $env:VIGIE_FAKE_GAME } |
            Sort-Object Gpu -Descending | Select-Object -First 1
-    if ($jeu) { $jeuRaisons = @("Simulation (VIGIE_FAKE_GAME=$($env:VIGIE_FAKE_GAME)) : les mesures restent reelles.") }
+    if ($game) { $gameReasons = @("Simulation (VIGIE_FAKE_GAME=$($env:VIGIE_FAKE_GAME)) : les mesures restent reelles.") }
 }
-if (-not $jeu -and $session) {
-    $jeu = $procs[[int]$session.processId]
-    if (-not $jeu) {
+if (-not $game -and $session) {
+    $game = $procs[[int]$session.processId]
+    if (-not $game) {
         # The process is alive -- Get-GameSession checked -- but is not in our snapshot:
         # we still return what the session knows about it.
-        $jeu = [pscustomobject]@{ Id = [int]$session.processId; Name = "$($session.name)"; Path = "$($session.path)"
+        $game = [pscustomobject]@{ Id = [int]$session.processId; Name = "$($session.name)"; Path = "$($session.path)"
                                   Cpu = 0; Gpu = 0; VramGb = 0; RamGb = 0; IoMbs = 0 }
     }
-    $jeuRaisons = @("$($session.reason)")
+    $gameReasons = @("$($session.reason)")
 }
 
 $fields = @()
@@ -286,13 +286,13 @@ if ($vramTotale -gt 0) {
         -Help "Mémoire dédiée de la carte graphique. Pleine, le jeu compense par la RAM : saccades." `
         -Guide "Au-delà de $vramWarn % (réglable), baissez la qualité des textures ou fermez les applis 3D en fond." `
         -Table $(
-            $vramToutes = @(Group-ByApp ($procs.Values | Where-Object { $_.VramGb -gt 0 }) |
+            $vramAll = @(Group-ByApp ($procs.Values | Where-Object { $_.VramGb -gt 0 }) |
                             Sort-Object VramGb -Descending)
-            $vramApps = @($vramToutes | Select-Object -First 6)
+            $vramApps = @($vramAll | Select-Object -First 6)
             # CE QUI N'EST PAS LISTE EST AGREGE (demande utilisateur) : sans cette ligne,
             # l'utilisateur additionne le tableau, ne retrouve pas le total, et a raison
             # de trouver ca incoherent.
-            $vramReste  = @($vramToutes | Select-Object -Skip 6)
+            $vramReste  = @($vramAll | Select-Object -Skip 6)
             $lignesVram = @($vramApps | ForEach-Object { ,@($_.Label, $_.VramGb) })
             $tipsVram   = @($vramApps | ForEach-Object { $_.Tip })
             if ($vramReste.Count) {
@@ -374,42 +374,42 @@ $pctBatterie = $alim.Pct
 # LA PARTIE EST NOTEE ICI, une fois qu'on sait qu'il y en a une : sa sentinelle a besoin
 # de la charge de batterie DU DEBUT pour dire « elle se vide pendant que vous jouez », et
 # elle ne peut pas la retrouver apres coup.
-if ($jeu) { Set-GameSession -Backend $backend -Name (Get-AppDisplayName -ProcessName $jeu.Name -Path $jeu.Path -Complet) -ProcessId ([int]$jeu.Id) -BatteryPct $(if ($null -ne $pctBatterie) { [int]$pctBatterie } else { -1 }) }
+if ($game) { Set-GameSession -Backend $backend -Name (Get-AppDisplayName -ProcessName $game.Name -Path $game.Path -Complet) -ProcessId ([int]$game.Id) -BatteryPct $(if ($null -ne $pctBatterie) { [int]$pctBatterie } else { -1 }) }
 else { Clear-GameSession -Backend $backend }
 $session = Get-GameSession -Backend $backend
 $baisse = 0
 if ($session -and -not $surSecteur -and [int]$session.startPct -ge 0 -and $null -ne $pctBatterie) {
     $baisse = [int]$session.startPct - [int]$pctBatterie
 }
-$baisseSeuil = [int](Get-ModuleSetting -Unit 'gaming' -Key 'BatteryDropWarnPct'); if (-not $baisseSeuil) { $baisseSeuil = 10 }
+$dropThreshold = [int](Get-ModuleSetting -Unit 'gaming' -Key 'BatteryDropWarnPct'); if (-not $dropThreshold) { $dropThreshold = 10 }
 
 # --- Le jeu et les pompeurs ---------------------------------------------------
-if ($jeu) {
+if ($game) {
     # DIRE POURQUOI : « jeu detecte : X » sans justification a deja design ChatGPT.
     $pourquoi = if ($env:VIGIE_FAKE_GAME) { @("Simulation (VIGIE_FAKE_GAME=$($env:VIGIE_FAKE_GAME)) : les mesures restent réelles.") }
-                elseif ($jeuRaisons) { @('Reconnu comme jeu parce que :') + @($jeuRaisons | ForEach-Object { "- $_" }) }
+                elseif ($gameReasons) { @('Reconnu comme jeu parce que :') + @($gameReasons | ForEach-Object { "- $_" }) }
                 else { @() }
-    if ($jeu.Path) { $pourquoi += "Exécutable : $($jeu.Path)" }
+    if ($game.Path) { $pourquoi += "Exécutable : $($game.Path)" }
     # Le jeu reste LE jeu meme quand il ne rend pas : on le dit au lieu de le faire
     # disparaitre (menu, pause, chargement).
-    $auRepos = ($jeu.Gpu -lt $gameGpuMin)
+    $auRepos = ($game.Gpu -lt $gameGpuMin)
     $fields += New-Field -Key 'game' -Label 'Jeu détecté' `
-        -Value ((Get-AppDisplayName -ProcessName $jeu.Name -Path $jeu.Path -Complet) + $(if ($auRepos) { ' (menu ou pause)' } else { '' })) -Kind 'text' -Status 'ok' `
+        -Value ((Get-AppDisplayName -ProcessName $game.Name -Path $game.Path -Complet) + $(if ($auRepos) { ' (menu ou pause)' } else { '' })) -Kind 'text' -Status 'ok' `
         -Help "Application qui consomme le GPU ET qui présente des signes de jeu (bibliothèque de jeux, moteur, plein écran)." `
         -Guide $(if ($pourquoi.Count) { $pourquoi -join "`n" } else { $null })
     $fields += New-Field -Key 'game-res' -Label 'Ressources du jeu' `
-        -Value ("CPU {0} % · GPU {1} % · VRAM {2} Go" -f $jeu.Cpu, $jeu.Gpu, $jeu.VramGb) -Kind 'text' -Status 'neutral' `
+        -Value ("CPU {0} % · GPU {1} % · VRAM {2} Go" -f $game.Cpu, $game.Gpu, $game.VramGb) -Kind 'text' -Status 'neutral' `
         -Help "Part de la machine consommée par le jeu à l'instant de la mesure." `
-        -Guide ("RAM : {0} Go`nE/S (disque+réseau) : {1} Mo/s" -f $jeu.RamGb, $jeu.IoMbs)
+        -Guide ("RAM : {0} Go`nE/S (disque+réseau) : {1} Mo/s" -f $game.RamGb, $game.IoMbs)
 
     # Sur quel adaptateur le jeu est-il rendu ? Le piege Optimus : la carte integree
     # rend le jeu pendant que la dediee dort -- performances divisees sans message.
-    if ($luidParPid.ContainsKey($jeu.Id) -and $nomParLuid.Count -gt 0) {
-        $luDominant = ($luidParPid[$jeu.Id].GetEnumerator() | Sort-Object Value -Descending | Select-Object -First 1).Key
-        $nomAd = $nomParLuid[[int64]$luDominant]
+    if ($luidParPid.ContainsKey($game.Id) -and $nameByLuid.Count -gt 0) {
+        $luDominant = ($luidParPid[$game.Id].GetEnumerator() | Sort-Object Value -Descending | Select-Object -First 1).Key
+        $nomAd = $nameByLuid[[int64]$luDominant]
         if ($nomAd) {
             $surIntegree = ($nomAd -match 'Intel|UHD|Iris|Basic Render')
-            $stAd = if ($surIntegree -and $aCarteDediee) { 'warn' } else { 'ok' }
+            $stAd = if ($surIntegree -and $hasDedicatedCard) { 'warn' } else { 'ok' }
             $argsAd = @{
                 Key = 'game-adapter'; Label = 'Rendu par'; Value = $nomAd; Kind = 'text'; Status = $stAd
                 Help = "L'adaptateur graphique qui rend le jeu. Sur ce portable, la carte dédiée doit s'en charger."
@@ -436,7 +436,7 @@ if ($jeu) {
        A folder too wide would hide everything, so a root that holds more than the game is
        refused: no C:\, no Program Files, nothing shallower than two levels. #>
     $family = @()
-    foreach ($chemin in @("$($jeu.Path)", "$($session.launcher)")) {
+    foreach ($chemin in @("$($game.Path)", "$($session.launcher)")) {
         if (-not $chemin) { continue }
         $folder = $null
         try { $folder = Split-Path -Parent $chemin } catch { }
@@ -447,7 +447,7 @@ if ($jeu) {
     $family = @($family | Sort-Object -Unique)
     function Test-BelongsToGame {
         param($Proc)
-        if ($Proc.Name -eq $jeu.Name) { return $true }
+        if ($Proc.Name -eq $game.Name) { return $true }
         if (-not $Proc.Path) { return $false }
         $target = "$($Proc.Path)".ToLower()
         foreach ($root in $family) { if ($target.StartsWith($root)) { return $true } }
@@ -460,7 +460,7 @@ if ($jeu) {
         and for how long. A card shows an instant; a session is a duration, and that is what the owner asks after
         the fact: "during your session of 1 h 35, the window compositor held 10 % of the processor for 1 h 04".
     #>
-    $toutes = @(Group-ByApp ($procs.Values | Where-Object { $bruit -notcontains $_.Name }))
+    $allApps = @(Group-ByApp ($procs.Values | Where-Object { $noise -notcontains $_.Name }))
     # THE STATE OF THE MACHINE goes with the pass: a bottleneck is read from the whole, not from one application.
     # The totals come from what has just been measured; the memory from Windows directly (a few microseconds).
     $cpuTotal = [Math]::Round((($procs.Values | Measure-Object Cpu -Sum).Sum), 1)
@@ -469,9 +469,9 @@ if ($jeu) {
     $memNow = Get-MemoryStatus
     if ($memNow -and $memNow.CommitLimit -gt 0) { $memPct = [Math]::Round(100 * $memNow.CommitUsed / $memNow.CommitLimit, 1) }
     # THE GAME'S OWN NAMES never make a bottleneck: the game, its launcher, its components.
-    $nomsDuJeu = @($procs.Values | Where-Object { Test-BelongsToGame -Proc $_ } | ForEach-Object { $_.Name } | Sort-Object -Unique)
-    Add-GameTallyPass -Backend $backend -Session $session -Apps $toutes `
-                      -CpuTotal $cpuTotal -GpuTotal $gpuTotal -MemoryPct $memPct -GameNames $nomsDuJeu
+    $gameNames = @($procs.Values | Where-Object { Test-BelongsToGame -Proc $_ } | ForEach-Object { $_.Name } | Sort-Object -Unique)
+    Add-GameTallyPass -Backend $backend -Session $session -Apps $allApps `
+                      -CpuTotal $cpuTotal -GpuTotal $gpuTotal -MemoryPct $memPct -GameNames $gameNames
 
     <#
         A GREEDY APPLICATION IS ONE THAT LASTS, AND THAT THE GAME DOES NOT NEED.
@@ -491,14 +491,14 @@ if ($jeu) {
         foreach ($prop in $runningTally.apps.PSObject.Properties) { $heldSeconds[$prop.Name] = [int]$prop.Value.seconds }
     } catch { }
     $greedy = @(Group-ByApp ($procs.Values | Where-Object {
-        -not (Test-BelongsToGame -Proc $_) -and $bruit -notcontains $_.Name
+        -not (Test-BelongsToGame -Proc $_) -and $noise -notcontains $_.Name
     }) | Where-Object { ($_.Cpu -ge $otherCpuWarn -or $_.Gpu -ge $otherGpuWarn) -and
                         ($servicesWindows -notcontains $_.Name) -and
                         ([int]$heldSeconds[$_.Name] -ge 180) } |
         Sort-Object { $_.Cpu + $_.Gpu } -Descending)
-    $pompeurs = @($greedy | Select-Object -First 5)
-    if ($pompeurs.Count -gt 0) {
-        $recapRows = @($pompeurs | ForEach-Object {
+    $hogs = @($greedy | Select-Object -First 5)
+    if ($hogs.Count -gt 0) {
+        $recapRows = @($hogs | ForEach-Object {
             $note = if ($servicesWindows -contains $_.Name) { " [service Windows légitime — ne pas fermer]" } else { "" }
             "- {0}{1} : CPU {2} % · GPU {3} % · VRAM {4} Go · E/S {5} Mo/s" -f $_.Label, $note, $_.Cpu, $_.Gpu, $_.VramGb, $_.IoMbs })
         <# A COUNT NAMES NOBODY. "2 detected" forced a trip to the panel to learn WHICH two,
@@ -545,12 +545,12 @@ if ($jeu) {
 # partir -- deux symptomes pour une seule cause (constate le 01/09). Le champ est
 # desormais toujours la ; seul son STATUT depend de ce que la machine est en train de
 # rendre, car c'est le rendu 3D sur batterie qui bride et qui merite l'alerte.
-$rendering = [bool]$jeu -or ($rejete -and $rejete.Proc.Gpu -ge $gameGpuMin)
+$rendering = [bool]$game -or ($rejete -and $rejete.Proc.Gpu -ge $gameGpuMin)
 if (-not $surSecteur) {
     # LA BAISSE FAIT PARTIE DE LA VALEUR, et pas seulement du guide : c'est la bascule du
     # champ qui declenche la bulle Windows (D54). Une valeur qui ne bouge pas ne previent
     # personne, meme si la batterie continue de se vider.
-    $vide = ($session -and $baisse -ge $baisseSeuil)
+    $vide = ($session -and $baisse -ge $dropThreshold)
     $fields += New-Field -Key 'power' -Label 'Alimentation' `
         -Value ("Batterie" + $(if ($null -ne $pctBatterie) { " ($pctBatterie %)" }) +
                 $(if ($vide) { " " + [char]0x00B7 + " -$baisse % depuis le début de la partie" })) -Kind 'text' `
@@ -569,7 +569,7 @@ if (-not $surSecteur) {
 # --- Repartition : le top par DIMENSION, pour trouver qui prend quoi ----------
 # svchost agrege (des dizaines de services) dominerait sans rien designer ; dwm reste
 # visible, sa VRAM de compositeur est une vraie information.
-$horsBruit = @(Group-ByApp ($procs.Values | Where-Object { $bruit -notcontains $_.Name }))
+$horsBruit = @(Group-ByApp ($procs.Values | Where-Object { $noise -notcontains $_.Name }))
 # Un TABLEAU unique : chaque application avec toutes ses dimensions -- c'est la vue
 # « qui prend quoi » demandee, bien plus lisible qu'une liste par dimension.
 $meneur = @($horsBruit | Sort-Object { $_.Cpu * 1.5 + $_.Gpu } -Descending)[0]
@@ -625,11 +625,11 @@ if ($lastSession -and $lastSession.seconds -ge 60) {
     $spanText = Format-Span -Secondes ([int]$lastSession.seconds)
     $fin = $null
     try { $fin = (ConvertTo-UtcDate $lastSession.endedAt).ToLocalTime() } catch { }
-    $quand = if ($fin) { $(if ($fin.Date -eq (Get-Date).Date) { 'terminée à ' + $fin.ToString('HH:mm') } else { 'terminée le ' + $fin.ToString('dd/MM à HH:mm') }) } else { '' }
+    $when = if ($fin) { $(if ($fin.Date -eq (Get-Date).Date) { 'terminée à ' + $fin.ToString('HH:mm') } else { 'terminée le ' + $fin.ToString('dd/MM à HH:mm') }) } else { '' }
     # ONE LINE ON THE CARD: the detail lives in the popin (owner, 28/09). The line says which game and what got in
     # the way; the button opens the rest.
     $topJam = @($lastSession.jams) | Select-Object -First 1
-    $recapValue = "$($lastSession.game), $spanText" + $(if ($quand) { ", $quand" } else { '' })
+    $recapValue = "$($lastSession.game), $spanText" + $(if ($when) { ", $when" } else { '' })
     if ($topJam) { $recapValue += " — $($topJam.label) " + (Format-Span -Secondes ([int]$topJam.seconds)) }
     $fields += New-Field -Key 'last-session' -Label 'Dernière partie' -Value $recapValue -Kind 'text' -Status 'neutral' `
         -FixAction 'game-recap' `
@@ -637,7 +637,7 @@ if ($lastSession -and $lastSession.seconds -ge 60) {
 }
 
 New-ModuleObject -Id 'gaming' -Theme 'gaming' -Label 'Session de jeu' -Status $statut -Fields $fields `
-    -Mode $(if ($jeu) { 'game' } else { $null }) `
+    -Mode $(if ($game) { 'game' } else { $null }) `
     -Actions @(
         # THE RECAP IS A PERMANENT DESTINATION (D114): it reopens whenever wanted, not only at the end of a session.
     New-Action -Id 'game-recap' -Label 'Voir le récapitulatif' -Kind 'dialog' -Severity 'info' `

@@ -96,51 +96,51 @@ if ($trendPoints.Count -ge 2) {
     $first = [double]$trendPoints[0].v
     $last  = [double]$trendPoints[-1].v
     $delta = [math]::Round($last - $first)
-    $depuis = $null
-    try { $depuis = (ConvertTo-UtcDate $trendPoints[0].at).ToLocalTime() } catch { }
+    $since = $null
+    try { $since = (ConvertTo-UtcDate $trendPoints[0].at).ToLocalTime() } catch { }
     # THE VALUE ANSWERS, SHORT (D89): "-42 Go en 7 j", and the whole sentence goes down into the detail. On two lines
     # it spilled out of the card (reported 28/09).
-    $jourCount = 7
-    try { $jourCount = [int][Math]::Max(1, [Math]::Round(((ConvertTo-UtcDate $trendPoints[-1].at) - (ConvertTo-UtcDate $trendPoints[0].at)).TotalDays)) } catch { }
-    $mot = if ($delta -lt 0) { "-$([math]::Abs($delta)) Go en $jourCount j" } elseif ($delta -gt 0) { "+$delta Go en $jourCount j" } else { 'Stable' }
-    $valeur = $mot
+    $dayCount = 7
+    try { $dayCount = [int][Math]::Max(1, [Math]::Round(((ConvertTo-UtcDate $trendPoints[-1].at) - (ConvertTo-UtcDate $trendPoints[0].at)).TotalDays)) } catch { }
+    $word = if ($delta -lt 0) { "-$([math]::Abs($delta)) Go en $dayCount j" } elseif ($delta -gt 0) { "+$delta Go en $dayCount j" } else { 'Stable' }
+    $value = $word
     $phrase = $(if ($delta -lt 0) { "$([math]::Abs($delta)) Go de moins" } elseif ($delta -gt 0) { "$delta Go de plus" } else { 'Espace libre stable' }) +
-              $(if ($depuis) { ' depuis le ' + $depuis.ToString('dd/MM') } else { '' }) + '.'
+              $(if ($since) { ' depuis le ' + $since.ToString('dd/MM') } else { '' }) + '.'
     # LOSING MORE THAN WHAT IS LEFT, in a week, is the real signal: at that pace the disk is full before the end of
     # the next one.
     $trendStatus = if ($delta -lt 0 -and [math]::Abs($delta) -ge $freeGB) { 'warn' } else { 'neutral' }
     # AT THIS PACE, FULL WHEN? The question a figure alone never answers. Only said when the loss is steady enough to
     # mean something -- at least 5 GB over the window -- and never presented as a prophecy: it is the current pace.
-    $jours = $null
+    $days = $null
     if ($delta -lt -5) {
         $spanDays = 7.0
         try { $spanDays = [Math]::Max(1.0, ((ConvertTo-UtcDate $trendPoints[-1].at) - (ConvertTo-UtcDate $trendPoints[0].at)).TotalDays) } catch { }
-        $parJourGo = [Math]::Abs($delta) / $spanDays
-        if ($parJourGo -gt 0) { $jours = [int][Math]::Floor($freeGB / $parJourGo) }
+        $perDayGB = [Math]::Abs($delta) / $spanDays
+        if ($perDayGB -gt 0) { $days = [int][Math]::Floor($freeGB / $perDayGB) }
     }
-    if ($null -ne $jours) {
+    if ($null -ne $days) {
         # WHAT PRESSES COMES FIRST: how soon the disk is full is the answer; the fall itself is the detail.
-        $valeur = $(if ($jours -le 0) { 'Plein au rythme actuel' }
-                    elseif ($jours -eq 1) { 'Plein demain à ce rythme' }
-                    else { "Plein dans $jours jours" })
-        $phrase += " Au rythme des $jourCount derniers jours, le disque est plein dans $jours jour(s)."
-        if ($jours -le 14) { $trendStatus = 'warn' }
+        $value = $(if ($days -le 0) { 'Plein au rythme actuel' }
+                    elseif ($days -eq 1) { 'Plein demain à ce rythme' }
+                    else { "Plein dans $days jours" })
+        $phrase += " Au rythme des $dayCount derniers jours, le disque est plein dans $days jour(s)."
+        if ($days -le 14) { $trendStatus = 'warn' }
     }
     # ONE ROW PER DAY: the day the space went shows up, and that is what the question asks.
-    $parJour = @{}
+    $perDay = @{}
     foreach ($pt in $trendPoints) {
-        $quand = $null
-        try { $quand = (ConvertTo-UtcDate $pt.at).ToLocalTime() } catch { continue }
-        $jour = $quand.ToString('dd/MM')
-        if (-not $parJour.ContainsKey($jour)) { $parJour[$jour] = @{ Premier = [double]$pt.v; Dernier = [double]$pt.v; Ordre = $quand } }
-        $parJour[$jour].Dernier = [double]$pt.v
+        $when = $null
+        try { $when = (ConvertTo-UtcDate $pt.at).ToLocalTime() } catch { continue }
+        $jour = $when.ToString('dd/MM')
+        if (-not $perDay.ContainsKey($jour)) { $perDay[$jour] = @{ Premier = [double]$pt.v; Dernier = [double]$pt.v; Ordre = $when } }
+        $perDay[$jour].Dernier = [double]$pt.v
     }
-    $rows = @(foreach ($jour in @($parJour.Keys | Sort-Object { $parJour[$_].Ordre })) {
-        $e = $parJour[$jour]
-        $ecart = [math]::Round($e.Dernier - $e.Premier)
-        ,@($jour, "$([math]::Round($e.Dernier)) Go", $(if ($ecart -eq 0) { '—' } elseif ($ecart -gt 0) { "+$ecart Go" } else { "$ecart Go" }))
+    $rows = @(foreach ($jour in @($perDay.Keys | Sort-Object { $perDay[$_].Ordre })) {
+        $e = $perDay[$jour]
+        $gap = [math]::Round($e.Dernier - $e.Premier)
+        ,@($jour, "$([math]::Round($e.Dernier)) Go", $(if ($gap -eq 0) { '—' } elseif ($gap -gt 0) { "+$gap Go" } else { "$gap Go" }))
     })
-    $fields += New-Field -Key 'trend' -Label 'Évolution' -Value $valeur -Kind 'text' -Status $trendStatus `
+    $fields += New-Field -Key 'trend' -Label 'Évolution' -Value $value -Kind 'text' -Status $trendStatus `
         -Table @{ columns = @('Jour', 'Libre en fin de journée', 'Variation'); rows = $rows } `
         -Guide ($phrase + [Environment]::NewLine + [Environment]::NewLine +
                 "Le tableau donne l'espace libre en fin de journée et la variation de chaque jour : c'est là qu'on voit QUAND la place est partie. Ce qui l'a prise se cherche avec « Analyser l'espace ».") `
@@ -225,20 +225,20 @@ if ($vdiskFresh) {
 }
 if ($vdisks.Count) {
     $vdisks = @($vdisks | Sort-Object Go -Descending)
-    $sommeGo = [math]::Round((($vdisks | Measure-Object Go -Sum).Sum), 1)
+    $totalGB = [math]::Round((($vdisks | Measure-Object Go -Sum).Sum), 1)
     # INFORMATION, NOT AN ALERT: a large virtual disk is normal, and no button of Vigie compacts it -- compacting is
     # the user's gesture, machine stopped. What alerts is the free space and its trend, just above.
     $vdStatus = 'neutral'
     # THE NAME SAYS WHAT IT IS: the old wording taught nothing -- one could not even tell it was WSL
     # (reported 28/09). The value names the largest, and the table names each one with the account it belongs to.
-    $plusGros = $vdisks[0]
+    $biggest = $vdisks[0]
     # SHORT EVEN WHEN THE NAME IS LONG (D89): the full name took two lines on the card. It lives in the table now,
     # and the value keeps the word that is enough to recognise the machine.
-    $nomCourt = "$($plusGros.Machine)"
-    $parenthese = $nomCourt.IndexOf([char]40)
-    if ($parenthese -gt 0) { $nomCourt = $nomCourt.Substring(0, $parenthese).Trim() }
-    if ($nomCourt.StartsWith('Sous-système Linux WSL')) { $nomCourt = 'WSL' }
-    $vdValue = "$nomCourt $($plusGros.Go.ToString('N1', $fr)) Go"
+    $shortName = "$($biggest.Machine)"
+    $parenthesis = $shortName.IndexOf([char]40)
+    if ($parenthesis -gt 0) { $shortName = $shortName.Substring(0, $parenthesis).Trim() }
+    if ($shortName.StartsWith('Sous-système Linux WSL')) { $shortName = 'WSL' }
+    $vdValue = "$shortName $($biggest.Go.ToString('N1', $fr)) Go"
     if ($vdisks.Count -gt 1) { $vdValue += " · $($vdisks.Count) disques" }
     $fields += New-Field -Key 'vdisks' -Label 'Disques virtuels' -Value $vdValue -Kind 'text' -Status $vdStatus `
         -Table @{ columns = @('Machine virtuelle', 'Compte', 'Place prise', 'Écrit le')
@@ -290,12 +290,12 @@ if ($enCours) {
                 -FixAction 'disk-analyze'
         }
         # Date de l'analyse, en heure locale (le fichier est ecrit en UTC -- D44).
-        $quand = $null
-        try { $quand = (ConvertTo-UtcDate $bilan.at).ToLocalTime() } catch { }
-        $ageJours = if ($quand) { [int]((Get-Date) - $quand).TotalDays } else { 0 }
-        if ($quand) {
-            $fields += New-Field -Key 'scan-at' -Label 'Espace analysé le' -Value ($quand.ToString('s')) -Kind 'date' -Status 'neutral' `
-                -Help $(if ($ageJours -ge 7) { "Résultat vieux de $ageJours jours : relancez l'analyse pour une photo à jour." }
+        $when = $null
+        try { $when = (ConvertTo-UtcDate $bilan.at).ToLocalTime() } catch { }
+        $ageDays = if ($when) { [int]((Get-Date) - $when).TotalDays } else { 0 }
+        if ($when) {
+            $fields += New-Field -Key 'scan-at' -Label 'Espace analysé le' -Value ($when.ToString('s')) -Kind 'date' -Status 'neutral' `
+                -Help $(if ($ageDays -ge 7) { "Résultat vieux de $ageDays jours : relancez l'analyse pour une photo à jour." }
                         else { "Date du dernier parcours complet de $racine." }) `
                 -Guide ("$([int]$bilan.dirs) dossiers et $([int]$bilan.files) fichiers parcourus en $([int]$bilan.seconds) s.")
         }
@@ -313,8 +313,8 @@ if ($enCours) {
             $pc = if ($total -gt 0) { [math]::Round(([double]$arbre.o.s / $total) * 100, 1) } else { 0 }
             $lignes += ,@("$([int]$arbre.o.c) autres dossiers", (Format-ByteSize ([long]$arbre.o.s)), "$pc %")
         }
-        $plusGros = if ($enfants.Count) { "$($enfants[0].n) — $(Format-ByteSize ([long]$enfants[0].s))" } else { '—' }
-        $fields += New-Field -Key 'scan-top' -Label 'Premier niveau' -Value $plusGros -Kind 'text' -Status 'neutral' `
+        $biggest = if ($enfants.Count) { "$($enfants[0].n) — $(Format-ByteSize ([long]$enfants[0].s))" } else { '—' }
+        $fields += New-Field -Key 'scan-top' -Label 'Premier niveau' -Value $biggest -Kind 'text' -Status 'neutral' `
             -Help "Répartition de $racine au premier niveau : le plus gros dossier est affiché, le détail complet est dans le tableau." `
             -Table @{ columns = @('Dossier', 'Taille', 'Part'); rows = $lignes }
 

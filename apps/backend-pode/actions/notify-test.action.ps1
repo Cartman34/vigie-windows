@@ -17,12 +17,12 @@ $backend = Split-Path $PSScriptRoot -Parent
 
 $trayRoot = Join-Path (Split-Path $backend -Parent) 'tray'
 $icon = Join-Path $trayRoot 'vigie.ico'
-$quand = (Get-Date).ToString('HH:mm:ss')
+$when = (Get-Date).ToString('HH:mm:ss')
 $tool = $null
 try {
     $tool = Show-VigieNotification `
         -Notification @{ Subject = 'Vigie — notification d''essai'
-                         Body    = "Si vous lisez ceci, les alertes de Vigie savent atteindre cet écran ($quand)."
+                         Body    = "Si vous lisez ceci, les alertes de Vigie savent atteindre cet écran ($when)."
                          State   = 'ok'; Duration = 6000; Key = 'vigie.essai' } `
         -Context @{ TrayRoot = $trayRoot; Aumid = (Get-VigieToastIdentity); Icon = $icon }
 } catch {

@@ -105,8 +105,8 @@ switch ("$Target".ToLower()) {
         $d = @($decls | Where-Object { "$($_.Key)" -eq $Name })[0]
         if (-not $d) { Write-Fail (Get-Label 'debug.sentinelle-inconnue' $Name); break }
         Write-Info (Get-Label 'debug.lance' $d.Script)
-        $valeur = "$(& $d.Script 2>$null | Select-Object -Last 1)".Trim()
-        Write-Ok (Get-Label 'debug.sentinelle-valeur' $Name $valeur)
+        $value = "$(& $d.Script 2>$null | Select-Object -Last 1)".Trim()
+        Write-Ok (Get-Label 'debug.sentinelle-valeur' $Name $value)
         # L'HISTORIQUE SE DEMANDE A VIGIE, pas au disque : il vit chez le compte de
         # service, illisible depuis une session ordinaire.
         $id = Get-SentinelMeasureId -Key $Name
@@ -118,9 +118,9 @@ switch ("$Target".ToLower()) {
             foreach ($p in @($h.points | Select-Object -Last $Lines)) {
                 # IN LOCAL TIME. The history keeps UTC (D44); printed raw, it read two hours early and sent the
                 # investigation of 28/09 looking for a game session that had never happened at that hour.
-                $quand = "$($p.at)"
-                try { $quand = (ConvertTo-UtcDate $p.at).ToLocalTime().ToString('dd/MM/yyyy HH:mm:ss') } catch { }
-                Write-Detail (Get-Label 'debug.sentinelle-point' $quand $p.from $p.v (@($p.cards) -join ', '))
+                $when = "$($p.at)"
+                try { $when = (ConvertTo-UtcDate $p.at).ToLocalTime().ToString('dd/MM/yyyy HH:mm:ss') } catch { }
+                Write-Detail (Get-Label 'debug.sentinelle-point' $when $p.from $p.v (@($p.cards) -join ', '))
             }
             $rendu = $true
         } catch {

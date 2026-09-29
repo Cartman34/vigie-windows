@@ -395,11 +395,11 @@ function Invoke-UpdateLockNative {
     # La cle de strategie n'existe PAS sur une machine neuve : l'ecriture y echouait
     # silencieusement. On la cree -- c'est ce qui fait la difference entre « ca marche
     # chez moi » et « ca marche sur une installation propre ».
-    $valeur = if ($Etat -eq 'pose') { 1 } else { 0 }
+    $value = if ($Etat -eq 'pose') { 1 } else { 0 }
     try {
         if (-not (Test-Path -LiteralPath $cat.RegAu)) { New-Item -Path $cat.RegAu -Force -ErrorAction Stop | Out-Null }
-        New-ItemProperty -Path $cat.RegAu -Name 'NoAutoUpdate' -Value $valeur -PropertyType DWord -Force -ErrorAction Stop | Out-Null
-        & $noter "NoAutoUpdate = $valeur"
+        New-ItemProperty -Path $cat.RegAu -Name 'NoAutoUpdate' -Value $value -PropertyType DWord -Force -ErrorAction Stop | Out-Null
+        & $noter "NoAutoUpdate = $value"
     } catch {
         & $noter "NoAutoUpdate : ECHEC -- $($_.Exception.Message)"
     }
@@ -4273,11 +4273,11 @@ function Add-GameTallyPass {
         # THE SAME SESSION, COMPARED AS A DATE AND NOT AS TEXT: ConvertFrom-Json turns an ISO date into [datetime]
         # (D44), which prints differently from what was written -- every pass then started a new tally, and the
         # session stayed at one pass for ever (caught on the second test, 28/09).
-        $memeSession = $false
+        $sameSession = $false
         if ($tally -and $tally.session) {
-            try { $memeSession = ((ConvertTo-UtcDate $tally.session) -eq (ConvertTo-UtcDate $sessionKey)) } catch { $memeSession = $false }
+            try { $sameSession = ((ConvertTo-UtcDate $tally.session) -eq (ConvertTo-UtcDate $sessionKey)) } catch { $sameSession = $false }
         }
-        if (-not $memeSession) {
+        if (-not $sameSession) {
             $tally = [pscustomobject]@{ session = $sessionKey; game = "$($Session.name)"; startedAt = $sessionKey
                                         lastAt = $null; passes = 0; seconds = 0; apps = [pscustomobject]@{}
                                         jamCpuSeconds = 0; jamGpuSeconds = 0; jamMemSeconds = 0
@@ -4321,9 +4321,9 @@ function Add-GameTallyPass {
             # IN THE WAY? Only while the machine is at its ceiling, only if this application is not the game's, and
             # only if it takes a share on its own -- dust at one percent never blocks anything.
             if (($jamCpu -or $jamGpu) -and ($GameNames -notcontains "$($app.Name)")) {
-                $genant = (($jamCpu -and [double]$app.Cpu -ge $script:GameJamCpuOther) -or
+                $offender = (($jamCpu -and [double]$app.Cpu -ge $script:GameJamCpuOther) -or
                            ($jamGpu -and [double]$app.Gpu -ge $script:GameJamGpuOther))
-                if ($genant) {
+                if ($offender) {
                     $e.jamPasses = [int]$e.jamPasses + 1
                     $e.jamSeconds = [int]$e.jamSeconds + $SecondsSinceLast
                     $e.jamCpu = [double]$e.jamCpu + [double]$app.Cpu
@@ -4340,10 +4340,10 @@ function Add-GameTallyPass {
             $tallied[$key] = $e
         }
         # BOUNDED: the sixty heaviest applications of the session. A game does not need a census of the computer.
-        $garder = @($tallied.GetEnumerator() | Sort-Object { [double]$_.Value.cpu + [double]$_.Value.gpu } -Descending |
+        $keep = @($tallied.GetEnumerator() | Sort-Object { [double]$_.Value.cpu + [double]$_.Value.gpu } -Descending |
                     Select-Object -First 60)
         $ordered = [ordered]@{}
-        foreach ($entry in $garder) { $ordered[$entry.Key] = $entry.Value }
+        foreach ($entry in $keep) { $ordered[$entry.Key] = $entry.Value }
         $tally.apps = [pscustomobject]$ordered
         Update-StateJson -Path $path -Set @{ session = $tally.session; game = $tally.game; startedAt = $tally.startedAt; lastAt = ([datetime]::UtcNow).ToString('o')
                                              passes = $tally.passes; seconds = $tally.seconds; apps = $tally.apps
@@ -4386,15 +4386,15 @@ function Close-GameTally {
         # THE BOTTLENECKS OF THE SESSION, each with those who were in the way -- and a bottleneck with nobody in the
         # way is dropped, except the memory one, where the machine itself is the brake.
         $jams = @()
-        $genants = @($apps | Where-Object { [int]$_.jamPasses -gt 0 } | Sort-Object { $_.jamCpu + $_.jamGpu } -Descending)
-        if ([int]$tally.jamCpuPasses -gt 0 -and @($genants | Where-Object { $_.jamCpu -gt 0 }).Count) {
+        $offenders = @($apps | Where-Object { [int]$_.jamPasses -gt 0 } | Sort-Object { $_.jamCpu + $_.jamGpu } -Descending)
+        if ([int]$tally.jamCpuPasses -gt 0 -and @($offenders | Where-Object { $_.jamCpu -gt 0 }).Count) {
             $jams += [pscustomobject]@{ kind = 'cpu'; label = 'Processeur saturé'; seconds = [int]$tally.jamCpuSeconds
-                                        who = @($genants | Where-Object { $_.jamCpu -gt 0 } | Select-Object -First 3 |
+                                        who = @($offenders | Where-Object { $_.jamCpu -gt 0 } | Select-Object -First 3 |
                                                 ForEach-Object { [pscustomobject]@{ label = $_.label; share = $_.jamCpu } }) }
         }
-        if ([int]$tally.jamGpuPasses -gt 0 -and @($genants | Where-Object { $_.jamGpu -gt 0 }).Count) {
+        if ([int]$tally.jamGpuPasses -gt 0 -and @($offenders | Where-Object { $_.jamGpu -gt 0 }).Count) {
             $jams += [pscustomobject]@{ kind = 'gpu'; label = 'Carte graphique saturée'; seconds = [int]$tally.jamGpuSeconds
-                                        who = @($genants | Where-Object { $_.jamGpu -gt 0 } | Select-Object -First 3 |
+                                        who = @($offenders | Where-Object { $_.jamGpu -gt 0 } | Select-Object -First 3 |
                                                 ForEach-Object { [pscustomobject]@{ label = $_.label; share = $_.jamGpu } }) }
         }
         if ([int]$tally.jamMemPasses -gt 0) {
@@ -4908,8 +4908,8 @@ $script:MeasureCatalog = @{
             $f = @($m.fields) | Where-Object { "$($_.key)" -eq 'cpu' } | Select-Object -First 1
             if (-not $f -or $null -eq $f.value) { return $null }
             $point = @{ v = [double]$f.value }
-            $jeu = Get-GameModeName
-            if ($jeu) { $point.n = $jeu }
+            $game = Get-GameModeName
+            if ($game) { $point.n = $game }
             return $point
         }
     }
@@ -4925,8 +4925,8 @@ $script:MeasureCatalog = @{
             if (-not $f) { return $null }
             if ("$($f.value)" -notmatch '\(([0-9]+)\s*%\)') { return $null }
             $point = @{ v = [double]$Matches[1] }
-            $jeu = Get-GameModeName
-            if ($jeu) { $point.n = $jeu }
+            $game = Get-GameModeName
+            if ($game) { $point.n = $game }
             return $point
         }
     }
@@ -4942,8 +4942,8 @@ $script:MeasureCatalog = @{
             if (-not $f) { return $null }
             if ("$($f.value)" -notmatch '^([0-9]+(?:[.,][0-9]+)?)\s*Go') { return $null }
             $point = @{ v = [double](($Matches[1]) -replace ',', '.') }
-            $jeu = Get-GameModeName
-            if ($jeu) { $point.n = $jeu }
+            $game = Get-GameModeName
+            if ($game) { $point.n = $game }
             return $point
         }
     }
@@ -5215,7 +5215,7 @@ function Write-MeasureSamples {
         $global = Get-HistoryConfig -Backend $Backend -Config $cfg
         if (-not $global.Enabled) { return }
         # Read once for the whole pass: a game running changes the pace of some measures.
-        $enJeuMesures = [bool](Get-GameModeName -Backend $Backend)
+        $inGameMeasures = [bool](Get-GameModeName -Backend $Backend)
         $indexFile = Get-VarPath -Backend $Backend -Kind 'history' -File 'history-index.json'
         $index = $null
         if (Test-Path -LiteralPath $indexFile) {
@@ -5243,7 +5243,7 @@ function Write-MeasureSamples {
             # WHILE A GAME RUNS, a measure may ask for a closer pace (IntervalMinutesInGame): the enquiry needs the
             # minute, the rest of the day does not.
             $interval = [int]$eff.IntervalMinutes
-            if ($enJeuMesures -and $cat.IntervalMinutesInGame) { $interval = [int]$cat.IntervalMinutesInGame }
+            if ($inGameMeasures -and $cat.IntervalMinutesInGame) { $interval = [int]$cat.IntervalMinutesInGame }
             if ((-not $sample.key) -and $interval -gt 0 -and $entry -and $entry.lastAt) {
                 try {
                     $last = ConvertTo-UtcDate $entry.lastAt
@@ -5729,12 +5729,12 @@ function Get-State {
     # QUI DEMANDE : les cartes qui parlent de « vous » ont leur propre entree par compte.
     $stateRequester = $(if ($PSBoundParameters.ContainsKey('Account')) { $Account } else { Get-RequesterAccount })
     # THE GAME MODE, read once per pass: during a game, the cards that do not watch it space themselves out.
-    $enJeu = [bool](Get-GameModeName -Backend $Backend)
+    $inGame = [bool](Get-GameModeName -Backend $Backend)
     $stale = @()
     foreach ($pf in $probeFiles) {
         $name = $pf.Name; $stamp = "$($pf.LastWriteTimeUtc.Ticks)"
         $key = Get-ProbeCacheKey -ProbeFile $pf.FullName -Account $stateRequester
-        $ttl = Get-ProbeTtlNow -Name $name -Default $defaultTtl -Backend $Backend -InGame:$enJeu
+        $ttl = Get-ProbeTtlNow -Name $name -Default $defaultTtl -Backend $Backend -InGame:$inGame
         if ($ttl -gt $maxTtl) { $ttl = $maxTtl }
         $entry = $cache[$key]; $fresh = $false
         # -Force : tout est considere perime, sans rien effacer.
@@ -5948,7 +5948,7 @@ function Get-State {
         $t.Stop()
         # HELD BACK? The pace travels with the card, computed here so that no probe has to know about it: the
         # interface says it in the card's header, and only on the cards actually slowed down.
-        $paceNow  = Get-ProbeTtlNow -Name $pf.Name -Default $defaultTtl -Backend $Backend -InGame:$enJeu
+        $paceNow  = Get-ProbeTtlNow -Name $pf.Name -Default $defaultTtl -Backend $Backend -InGame:$inGame
         $paceBase = Get-ProbeTtlNow -Name $pf.Name -Default $defaultTtl -Backend $Backend -Base
         if ($e -and $e.module) {
             foreach ($mm in @($e.module)) {
@@ -6559,8 +6559,8 @@ function Get-RecentOperationResults {
         $module = ($f.BaseName -replace '^lastrun-', '')
         $r = Get-ModuleLastRun -Module $module -Backend $Backend
         if (-not $r) { continue }
-        $quand = ConvertTo-UtcDate $r.at
-        if (-not $quand -or $quand -lt $limit) { continue }
+        $when = ConvertTo-UtcDate $r.at
+        if (-not $when -or $when -lt $limit) { continue }
         $res += [pscustomobject][ordered]@{
             module  = $module
             label   = "$($r.label)"
@@ -6869,14 +6869,14 @@ function New-LastRunField {
     )
     $r = Get-ModuleLastRun -Module $Module -Backend $Backend
     if (-not $r) { return $null }
-    $quand = ''
-    try { $quand = (ConvertTo-UtcDate $r.at).ToLocalTime().ToString('dd/MM/yyyy HH:mm') } catch { }
+    $when = ''
+    try { $when = (ConvertTo-UtcDate $r.at).ToLocalTime().ToString('dd/MM/yyyy HH:mm') } catch { }
     $duree = if ([int]$r.seconds -ge 60) { [string][int]([int]$r.seconds / 60) + ' min' } else { "$([int]$r.seconds) s" }
     if ([int]$r.code -eq 0) {
         # REUSSI : la DATE suffit (regle utilisateur du 27/08). Une operation qui a
         # abouti n'a rien a raconter sur la carte ; la duree et le journal restent
         # disponibles dans le detail de la ligne, pour qui les cherche.
-        return (New-Field -Key $Key -Label "$($r.label)" -Value $quand `
+        return (New-Field -Key $Key -Label "$($r.label)" -Value $when `
                           -Kind 'text' -Status 'ok' `
                           -Help "Dernière opération lancée depuis cette carte : elle a abouti." `
                           -Guide ("Durée : " + $duree +
@@ -6898,7 +6898,7 @@ function New-LastRunField {
     return (New-Field -Key $Key -Label "$($r.label)" -Value 'Échec' `
                       -Kind 'text' -Status 'error' `
                       -Help "La dernière opération lancée depuis cette carte a échoué. Elle n'a pas abouti : rien ne s'est fait à moitié sans le dire." `
-                      -Guide ("Le " + $quand + " — " + $detail + [Environment]::NewLine +
+                      -Guide ("Le " + $when + " — " + $detail + [Environment]::NewLine +
                               "Durée : " + $duree +
                               $(if ($r.log) { [Environment]::NewLine + "Journal complet : " + $r.log } else { '' })))
 }
@@ -7823,11 +7823,11 @@ function Get-VigieTaskHistoryAilment {
             # l'echec d'un programme qui n'existe plus -- alors que le deploiement, lui,
             # s'etait fait tout seul. On compare donc la date de l'echec a celle du
             # fichier que la tache lance : si l'application a change depuis, on se tait.
-            $depuis = $null
+            $since = $null
             if ("$($a.Arguments)" -match '-File\s+"([^"]+)"') {
-                try { $depuis = (Get-Item -LiteralPath $Matches[1] -ErrorAction Stop).LastWriteTime } catch { }
+                try { $since = (Get-Item -LiteralPath $Matches[1] -ErrorAction Stop).LastWriteTime } catch { }
             }
-            if ($depuis -and $depuis -gt $info.LastRunTime) { return $null }
+            if ($since -and $since -gt $info.LastRunTime) { return $null }
             return ("la dernière exécution a échoué (code 0x" + ([uint32]$code).ToString('X8') + ", le " +
                     $info.LastRunTime.ToString('dd/MM/yyyy HH:mm') + ")")
         }

@@ -804,6 +804,13 @@ versions, du point de vue de qui utilise Vigie.*
   l'état du déploiement annonçait un dépôt en avance sur une installation au même commit.
 - **Un déploiement ne pose plus d'étiquette de version** (D123) : il affiche le dernier numéro suivi de ses commits,
   par exemple `v1.1.5+3`. Une étiquette se pose pour une version stable validée, à sa publication.
+- **Le récapitulatif de fin de partie ne pouvait pas s'ouvrir.** Son bloc avait été écrit dans la branche du PREMIER
+  passage de la boucle de l'app cliente : là, sa condition — un récapitulatif déjà vu, différent de celui du moment —
+  ne peut jamais être vraie, et l'on ne repasse jamais par cette branche. Livré le 28/09, relu deux fois, il n'a pas pu
+  tourner une seule fois, et la fermeture automatique non plus. Les deux vivent désormais dans la boucle.
+- **Les noms écrits en français pendant le lot du 28/09 sont en anglais** (D41) : trente et un identifiants, de
+  `$state.RecapVu` à `$nomsDuJeu`, dans l'app cliente, les sondes Jeu et Stockage, la bibliothèque commune et les
+  outils de débogage. Relevé par le propriétaire, pas par un vérificateur.
 
 ### Ajouté
 - `scripts/dev/check-all.ps1` lance tous les vérificateurs du dépôt en une commande.
@@ -811,3 +818,6 @@ versions, du point de vue de qui utilise Vigie.*
 - Les sept documents de `doc/en/developing/` encore écrits en français sont traduits en anglais : conventions, débogage,
   design, glossaire, modules, revue de sécurité, technologies.
 - `notes/answers.md` garde chaque réponse de l'utilisateur, et `scripts/dev/answers.ps1` la cherche avant toute question.
+- Le cliquet des noms (`check-naming.ps1`) lit enfin les **paramètres**, les **propriétés affectées** et quarante mots
+  de plus : les 277 identifiants français comptés étaient en réalité 481, sans qu'un seul nom ait été ajouté. Après le
+  renommage du lot, le plafond est de 450, et il ne remonte pas.
