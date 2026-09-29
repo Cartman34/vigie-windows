@@ -6231,6 +6231,34 @@ function Invoke-LogPurge {
         if ($file.LastWriteTime -ge $limit) { continue }
         try { Remove-Item -LiteralPath $file.FullName -Force -ErrorAction Stop; $removed++ } catch { }
     }
+    <#
+        AND A CEILING IN MEGABYTES, because an age is not a size.
+
+        Thirty days of logs weighed 166 MB for the service account on 29/09 -- 703 files, several of them 4 MB a day
+        -- on a machine whose disk was down to 31 GB. An age alone bounds nothing: a busy day writes ten times what a
+        quiet one writes. Past the ceiling, the OLDEST files go, one by one, until the total is back under it.
+
+        WHAT IS NEVER TOUCHED: anything written in the last hour. A log being written is the one being read when
+        something goes wrong, and it is never the one to sacrifice.
+    #>
+    $maxMb = 60
+    try { $configured = [int]((Get-Config -Backend $Backend).LogMaxMb); if ($configured -gt 0) { $maxMb = $configured } } catch { }
+    if ($maxMb -gt 0) {
+        $recent = (Get-Date).AddHours(-1)
+        $files = @(Get-ChildItem -LiteralPath $dir -Recurse -File -Force -ErrorAction SilentlyContinue |
+                   Sort-Object LastWriteTime)
+        $total = ($files | Measure-Object Length -Sum).Sum
+        foreach ($f in $files) {
+            if ($total -le ($maxMb * 1MB)) { break }
+            if ($f.LastWriteTime -ge $recent) { continue }
+            try {
+                $size = $f.Length
+                Remove-Item -LiteralPath $f.FullName -Force -ErrorAction Stop
+                $total -= $size
+                $removed++
+            } catch { }
+        }
+    }
     foreach ($folder in @(Get-ChildItem -LiteralPath $dir -Recurse -Directory -Force -ErrorAction SilentlyContinue |
                           Sort-Object { $_.FullName.Length } -Descending)) {
         if (-not @(Get-ChildItem -LiteralPath $folder.FullName -Force -ErrorAction SilentlyContinue).Count) {

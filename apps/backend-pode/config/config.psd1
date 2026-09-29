@@ -82,6 +82,10 @@
     # How long the logs are kept, in days: logs, diagnostic copies and .reg backups (Invoke-LogPurge). 30 days,
     # arbitrated by the owner on 13/09.
     LogRetentionDays = 30
+    # A CEILING IN MEGABYTES for everything under var/log, per account: an age bounds nothing by itself, since a
+    # busy day writes ten times what a quiet one writes (166 MB measured on 29/09 for thirty days). Past this, the
+    # oldest files go, except anything written in the last hour. 0 = no ceiling.
+    LogMaxMb = 60
 
     # --- SCHEDULER (D124): what the server app computes on its own ------------------------------
     # Each module declares its computations and their intervals in its own module.psd1; these
