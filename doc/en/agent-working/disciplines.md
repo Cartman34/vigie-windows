@@ -142,6 +142,16 @@ et demander confirmation explicite." An elevation prompt on his screen with no e
 
 What is announced: what will run elevated, on what, and why nothing lower can do it.
 
+## WSL is never shut down
+
+**`wsl --shutdown` is forbidden, and so is anything that needs it.** Asked on 29/09, in those words: "Tu ne dois
+SURTOUT PAS shutdown WSL, c'est strictement interdit." His distributions carry work in progress -- sessions, servers,
+containers -- and stopping them costs him that work, whatever the gain announced.
+
+It is not a matter of asking first: the answer is no. Neither the product nor a command handed to him may do it, and a
+repair that requires it is simply not proposed. **Reading inside a running distribution stays allowed**, and that is
+what the storage card does: it reads what is already running, and starts nothing.
+
 ## Never leave a problem on his machine
 
 **If something I did breaks the machine, repairing it comes before everything else -- before finishing, before
