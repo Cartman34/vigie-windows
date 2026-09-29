@@ -68,8 +68,13 @@ foreach ($c in (Get-ComputerAccounts | Sort-Object name)) {
             $tache += ("lance : " + $cmd)
             if ($i) {
                 $quand = if ($i.LastRunTime -and $i.LastRunTime.Year -gt 2000) { $i.LastRunTime.ToString('dd/MM/yyyy HH:mm') } else { 'jamais' }
+                # UNSIGNED, AND THAT IS THE WHOLE PROBLEM -- the same trap as in Get-VigieTaskHistoryAilment, fixed
+                # there and left here: Windows returns a 32-bit UNSIGNED HRESULT, and 0x800710E0 is 2 147 946 720,
+                # past Int32. The cast threw, the catch swallowed the whole block, and the account's line read "tâche
+                # illisible" instead of the state, the level, the command and the code -- exactly what was being
+                # looked for. Read on the Famille account on 29/09, whose last result WAS 0x800710E0.
                 $tache += ("dernière exécution : " + $quand +
-                           " — code 0x" + ([int]$i.LastTaskResult).ToString('X8'))
+                           " — code 0x" + ([uint32][long]$i.LastTaskResult).ToString('X8'))
             }
             if ($c.taskAilment) { $tache += ("PROBLÈME : " + $c.taskAilment) }
         } catch { $tache += ("tâche illisible : " + $_.Exception.Message) }
