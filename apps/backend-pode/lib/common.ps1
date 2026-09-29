@@ -5123,6 +5123,89 @@ function Update-RefreshState {
     try { $null = Update-StateJson -Path (Get-RefreshStatePath -Backend $Backend) -Set @{ $Key = $Entry } -Depth 6 } catch { }
 }
 
+<#
+    WHEN THE DISK EMPTIES FAST, VIGIE LOOKS BY ITSELF.
+
+    The storage card can say where the space went, but only if someone presses the button. On 28/09 the disk went from
+    112 GB free to 28 GB without anyone watching, and the answer -- 49,7 GB of debug traces and a virtual disk that
+    never gives anything back -- was found by hand, days later.
+
+    THE TRIGGER IS A FALL, NOT A LEVEL. A disk that has been at 30 GB for a year has nothing to explain; one that has
+    just lost ten of them in a day does. The history of disk.free already holds what is needed, sampled every thirty
+    minutes, and reading it costs a file.
+
+    WHAT HOLDS IT BACK, and each of these was asked for: at most one automatic analysis a day, none while a mode says
+    the machine is busy for its owner -- a game --, and none while anything else is already using the machine. The
+    analysis itself is the one the button launches, with its own protection against running twice.
+#>
+<#
+    HOW MANY GIGABYTES THE DISK HAS LOST over a window: the highest point of the window against the latest one, read
+    from the history that is already sampled every thirty minutes. Separate from the decision that uses it, so the
+    decision can be read -- and the reading tested -- without anything being started.
+
+    $null when the history cannot answer: fewer than two points is not "no fall", it is "we do not know".
+#>
+function Get-DiskFreeFall {
+    param([string]$Backend = (Get-BackendRoot), [int]$Hours = 24)
+    $history = $null
+    try { $history = Get-MeasureHistory -Backend $Backend -MeasureId 'disk.free' -Window ([TimeSpan]::FromHours($Hours)) } catch { }
+    if (-not $history) { return $null }
+    $values = @(@($history.points) | ForEach-Object { [double]$_.v })
+    if ($values.Count -lt 2) { return $null }
+    return (($values | Measure-Object -Maximum).Maximum - $values[-1])
+}
+
+function Invoke-DiskWatch {
+    param([string]$Backend = (Get-BackendRoot))
+    foreach ($held in @(Get-HeldResources -Backend $Backend)) {
+        if ("$($held.resource)" -eq 'machine') { return $null }
+    }
+    # NOT WHILE HE IS PLAYING: an analysis walks the whole disk, and that is felt.
+    if (@(Get-ActiveModes -Backend $Backend).Count) { return $null }
+
+    $dropGb = 10.0
+    $minHours = 24
+    try { $dropGb = [double](Get-ModuleSetting -Unit 'system' -Key 'AutoScanDropGb' -Backend $Backend) } catch { }
+    try { $minHours = [int](Get-ModuleSetting -Unit 'system' -Key 'AutoScanMinHours' -Backend $Backend) } catch { }
+    if ($dropGb -le 0) { return $null }
+
+    $statePath = Get-VarPath -Backend $Backend -Kind 'cache' -File 'disk-watch.json'
+    $lastTicks = 0
+    try {
+        if (Test-PathSafe $statePath) {
+            $j = Get-Content -LiteralPath $statePath -Raw -Encoding UTF8 | ConvertFrom-Json
+            $lastTicks = [long]$j.lastAt
+        }
+    } catch { }
+    $nowUtc = [datetime]::UtcNow
+    if ($lastTicks -and ($nowUtc - [datetime]$lastTicks).TotalHours -lt $minHours) { return $null }
+
+    $fall = Get-DiskFreeFall -Backend $Backend -Hours $minHours
+    if ($null -eq $fall -or $fall -lt $dropGb) { return $null }
+
+    $fr = [Globalization.CultureInfo]::GetCultureInfo('fr-FR')
+    $depth = 3; $top = 10
+    try { $depth = [int](Get-ModuleSetting -Unit 'system' -Key 'DiskScanDepth' -Backend $Backend) } catch { }
+    try { $top = [int](Get-ModuleSetting -Unit 'system' -Key 'DiskScanTop' -Backend $Backend) } catch { }
+    if (-not $depth) { $depth = 3 }
+    if (-not $top) { $top = 10 }
+    $started = $false
+    try {
+        $started = [bool](Start-Operation -Module 'storage' -Action 'disk-analyze' -Label 'Analyse automatique du disque' `
+                              -Probes @('disk.probe.ps1') -Worker 'disk-scan.worker.ps1' `
+                              -ArgsMap @{ root = 'C:\'; depth = $depth; top = $top } -Backend $Backend)
+    } catch { }
+    # THE DATE IS WRITTEN EVEN IF THE START FAILED: otherwise a refusal would be retried every thirty seconds.
+    try { Set-Content -LiteralPath $statePath -Value (@{ lastAt = $nowUtc.Ticks; fall = $fall; started = $started } | ConvertTo-Json -Compress) -Encoding UTF8 } catch { }
+    try {
+        Write-Log -Backend $Backend -Name 'state' -Level $(if ($started) { 'INFO' } else { 'WARN' }) -Message (
+            "chute d'espace : " + $fall.ToString('N1', $fr) + " Go en " + $minHours + " h, seuil " +
+            $dropGb.ToString('N1', $fr) + " Go -- analyse " + $(if ($started) { 'lancee' } else { 'non lancee' }))
+    } catch { }
+    if (-not $started) { return $null }
+    return [pscustomobject]@{ FallGb = $fall; At = $nowUtc }
+}
+
 function Invoke-RefreshPass {
     param([string]$Backend = (Get-BackendRoot))
     # SILENT WHILE AN INSTALLATION RUNS, like the rest of the watch: the files move underfoot.
@@ -5335,6 +5418,8 @@ function Invoke-WatchPass {
     # AND THE SCHEDULER'S PASS (D124): a change is not the only reason to compute. What must be sampled is sampled
     # because the server watches, not because someone is looking.
     try { $null = Invoke-RefreshPass -Backend $Backend } catch { }
+    # AND THE DISK, when it empties faster than anyone would notice.
+    try { $null = Invoke-DiskWatch -Backend $Backend } catch { }
     return $events
 }
 

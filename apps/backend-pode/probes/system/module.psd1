@@ -16,6 +16,10 @@
         # et gros ; le cout memoire de l'analyse est en topN^profondeur.
         DiskScanDepth = 3    # niveaux de detail conserves sous la racine
         DiskScanTop   = 10   # elements gardes par niveau (le reste est replie en « autres »)
+        # THE DISK ANALYSED WITHOUT BEING ASKED, when the free space falls hard. 10 GB in a day is a fall; a disk
+        # that has been low for months is not. Zero switches it off.
+        AutoScanDropGb   = 10   # Go perdus sur la fenetre ci-dessous avant de regarder de soi-meme
+        AutoScanMinHours = 24   # la fenetre, et le temps minimal entre deux analyses automatiques
         # Alimentation d'un portable : ce qui distingue une charge normale d'un
         # chargeur qui ne suit pas.
         ChargeSlowW   = 10   # puissance de charge (W) sous laquelle la charge est jugee trop lente
@@ -30,6 +34,8 @@
            Help = 'Nombre de niveaux de sous-dossiers dont le détail est conservé. Le parcours reste complet : seul le détail affiché est borné.' }
         @{ Key = 'DiskScanTop'; Label = 'Éléments gardés par niveau'; Type = 'int'; Unit = 'éléments'; Min = 3; Max = 30; Step = 1
            Help = 'Nombre de dossiers et de fichiers les plus gros conservés à chaque niveau. Les autres sont regroupés dans une ligne « autres ».' }
+        @{ Key = 'AutoScanDropGb'; Label = 'Analyse automatique du disque'; Type = 'int'; Unit = 'Go perdus'; Min = 0; Max = 200; Step = 5
+           Help = 'Quand l''espace libre a chuté d''autant en 24 heures, Vigie analyse le disque d''elle-même, au plus une fois par jour et jamais pendant une partie. 0 éteint.' }
         @{ Key = 'ChargeSlowW'; Label = 'Seuil de charge lente'; Type = 'int'; Unit = 'W'; Min = 5; Max = 60; Step = 5
            Help = 'Branché au secteur et batterie loin d''être pleine : en dessous de cette puissance de charge, Vigie signale un chargeur sous-dimensionné.' }
         @{ Key = 'BatteryLowPct'; Label = 'Seuil de batterie basse'; Type = 'int'; Unit = '%'; Min = 5; Max = 50; Step = 5
