@@ -33,4 +33,13 @@
            Droits = 'tous'; Critique = $false
            Help = 'Les processus de Vigie réunis dépassent le seuil de mémoire. La bulle nomme les plus lourds.' }
     )
+
+    # SCHEDULED COMPUTATIONS (D124/D125): the server computes this card by itself, so that nothing is ever computed
+    # while someone waits. The interval follows what one pass costs, measured, not what one would wish.
+    Refresh = @(
+        @{ Key = 'self'; Probe = 'self.probe.ps1'; Cards = @('vigie-self')
+           Seconds = @{ default = 120; game = 120 }; MaxSeconds = 60 }
+        @{ Key = 'vigie'; Probe = 'vigie.probe.ps1'; Cards = @('vigie-debug')
+           Seconds = @{ default = 300 }; MaxSeconds = 60 }
+    )
 }

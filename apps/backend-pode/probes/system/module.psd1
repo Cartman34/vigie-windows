@@ -48,12 +48,25 @@
     # Le sens du courant change quand on branche, quand on debranche, et quand le
     # chargeur cesse de suivre : trois faits que la carte doit dire SANS attendre
     # qu'on la rafraichisse. Une lecture WMI toutes les trente secondes.
+    # MODES (D124): this one has its own reading -- 250 ms of processor load -- because no sentinel measures it.
+    Modes = @(
+        @{ Key = 'calm'; Label = 'Machine au calme'; Script = 'calm.mode.ps1'; Off = @('non', 'inconnu') }
+    )
+
     # SCHEDULED COMPUTATIONS (D124). Measured 29/09: one pass of this probe costs 1 385 ms.
     # During a game this card says whether the machine is at its ceiling; outside one, five minutes
     # are enough to keep the memory and processor history alive with no session open.
     Refresh = @(
         @{ Key = 'perf'; Probe = 'perf.probe.ps1'; Cards = @('perf')
-           Seconds = @{ default = 300; game = 30 }; MaxSeconds = 60 }
+           Seconds = @{ default = 60; game = 30 }; MaxSeconds = 60 }
+        @{ Key = 'disk'; Probe = 'disk.probe.ps1'; Cards = @('storage')
+           Seconds = @{ default = 300 }; MaxSeconds = 120 }
+        @{ Key = 'events'; Probe = 'events.probe.ps1'; Cards = @('events')
+           Seconds = @{ default = 300 }; MaxSeconds = 60 }
+        @{ Key = 'os'; Probe = 'os.probe.ps1'; Cards = @('os')
+           Seconds = @{ default = 3600 }; MaxSeconds = 60 }
+        @{ Key = 'power'; Probe = 'power.probe.ps1'; Cards = @('power')
+           Seconds = @{ default = 300 }; MaxSeconds = 60 }
     )
 
     Sentinels = @(

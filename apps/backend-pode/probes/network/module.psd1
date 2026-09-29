@@ -52,4 +52,11 @@
            Droits = 'admin'; Critique = $true
            Help = 'Les noms de domaine ne se résolvent plus.' }
     )
+
+    # SCHEDULED COMPUTATIONS (D124/D125): the server computes this card by itself, so that nothing is ever computed
+    # while someone waits. The interval follows what one pass costs, measured, not what one would wish.
+    Refresh = @(
+        @{ Key = 'net'; Probe = 'net.probe.ps1'; Cards = @('net')
+           Seconds = @{ default = 300 }; MaxSeconds = 60 }
+    )
 }

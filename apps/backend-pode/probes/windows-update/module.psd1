@@ -29,5 +29,7 @@
            Seconds = @{ default = 21600 }; MaxSeconds = 120 }
         @{ Key = 'lock'; Probe = 'lock.probe.ps1'; Cards = @('wu-lock')
            Seconds = @{ default = 1800 }; MaxSeconds = 60 }
+        @{ Key = 'history'; Probe = 'history.probe.ps1'; Cards = @('wu-history')
+           Seconds = @{ default = 1800 }; MaxSeconds = 60 }
     )
 }

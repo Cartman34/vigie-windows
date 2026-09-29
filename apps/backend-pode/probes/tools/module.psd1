@@ -28,4 +28,11 @@
            Droits = 'admin'; Critique = $false
            Help = 'Un gestionnaire de paquets signale des mises à jour.' }
     )
+
+    # SCHEDULED COMPUTATIONS (D124/D125): the server computes this card by itself, so that nothing is ever computed
+    # while someone waits. The interval follows what one pass costs, measured, not what one would wish.
+    Refresh = @(
+        @{ Key = 'packages'; Probe = 'packages.probe.ps1'; Cards = @('pkg-none')
+           Seconds = @{ default = 86400 }; MaxSeconds = 300; OnlyWhen = 'calm' }
+    )
 }

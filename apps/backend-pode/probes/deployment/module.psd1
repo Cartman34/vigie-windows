@@ -24,4 +24,11 @@
            Droits = 'admin'; Critique = $true
            Help = 'Les tâches de démarrage lancent PowerShell 7 : sans lui, Vigie ne redémarre pas.' }
     )
+
+    # SCHEDULED COMPUTATIONS (D124/D125): the server computes this card by itself, so that nothing is ever computed
+    # while someone waits. The interval follows what one pass costs, measured, not what one would wish.
+    Refresh = @(
+        @{ Key = 'deployment'; Probe = 'deployment.probe.ps1'; Cards = @('deployment')
+           Seconds = @{ default = 1800 }; MaxSeconds = 120 }
+    )
 }

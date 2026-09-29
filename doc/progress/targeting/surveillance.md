@@ -109,6 +109,11 @@ Aucun intervalle déclaré = calcul à la demande seulement, ce que font toutes 
    rafraîchissement. La carte écrit ses mesures et son passage de partie comme elle l'a toujours fait ; aucun second
    mécanisme d'enregistrement n'apparaît.
 
+**Aucun calcul ne se fait pendant qu'on attend.** Une requête sert le cache, toujours. Les deux seules exceptions ne
+sont pas des requêtes : le worker de l'ordonnanceur, qui dit quel calcul il exécute, et rien d'autre. Un bouton
+« Rafraîchir » **demande** un recalcul — la carte est marquée due, l'ordonnanceur la prend au passage suivant, trente
+secondes au plus, et le panneau lit le résultat quand il est écrit.
+
 Le client, lui, **ne porte plus le relevé régulier** : il lit le cache, n'attend aucun recalcul, et peut demander un
 rafraîchissement ponctuel. Ce qui doit être calculé l'est parce que le serveur surveille, session ouverte ou non.
 

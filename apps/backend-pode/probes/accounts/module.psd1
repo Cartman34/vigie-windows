@@ -14,4 +14,10 @@
     # Vigie laisserait son « vous » a tous les suivants.
     PerAccount  = $true
 
+    # SCHEDULED COMPUTATIONS (D124/D125): the server computes this card by itself, so that nothing is ever computed
+    # while someone waits. The interval follows what one pass costs, measured, not what one would wish.
+    Refresh = @(
+        @{ Key = 'accounts'; Probe = 'comptes.probe.ps1'; Cards = @('accounts')
+           Seconds = @{ default = 3600 }; MaxSeconds = 60 }
+    )
 }

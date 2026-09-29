@@ -267,6 +267,8 @@ function Remove-ProbeCache {
             $tmp = "$cacheFile.tmp"
             ($ht | ConvertTo-Json -Depth 25) | Out-File -FilePath $tmp -Encoding UTF8
             Move-Item -Path $tmp -Destination $cacheFile -Force
+            # AND THE SCHEDULER LEARNS IT: without this an invalidated card would wait out its whole interval.
+            try { Reset-RefreshDue -Backend $Backend -Probes $Names } catch { }
         }
     } catch { }
 }
@@ -5033,6 +5035,9 @@ function Get-RefreshDeclarations {
             Seconds    = $seconds
             MaxSeconds = $(if ($d.Entry.MaxSeconds) { [int]$d.Entry.MaxSeconds } else { 0 })
             Parallel   = [bool]$d.Entry.Parallel
+            # ONLYWHEN: a computation only worth its cost in a given state. Listing the packages questions three
+            # package managers for 3,7 s: once a day, and never while the machine is busy (owner, 29/09).
+            OnlyWhen   = "$($d.Entry.OnlyWhen)"
         }
     }
     return $out
@@ -5268,6 +5273,24 @@ function Invoke-DiskWatch {
     return [pscustomobject]@{ FallGb = $fall; At = $nowUtc }
 }
 
+<#
+    DUE NOW. An action that changes something invalidates the cards it changed, and those cards must not then wait
+    for their interval -- up to an hour for some. Invalidating therefore also tells the scheduler, which picks them
+    up at its next pass, thirty seconds at most.
+#>
+function Reset-RefreshDue {
+    param([string]$Backend = (Get-BackendRoot), [Parameter(Mandatory)][string[]]$Probes)
+    $state = Get-RefreshState -Backend $Backend
+    foreach ($d in @(Get-RefreshDeclarations -Backend $Backend)) {
+        if ($Probes -notcontains $d.Probe) { continue }
+        $entry = $state[$d.Key]
+        if (-not $entry) { $entry = @{ fails = 0 } }
+        $entry.lastStartedAt = 0
+        $entry.nextAt = 0
+        Update-RefreshState -Backend $Backend -Key $d.Key -Entry $entry
+    }
+}
+
 function Invoke-RefreshPass {
     param([string]$Backend = (Get-BackendRoot))
     # SILENT WHILE AN INSTALLATION RUNS, like the rest of the watch: the files move underfoot.
@@ -5319,6 +5342,7 @@ function Invoke-RefreshPass {
         if ($entry -and [int]$entry.pid -and -not $d.Parallel) { continue }
         $interval = Get-RefreshInterval -Declaration $d -Modes $modes
         if ($interval -le 0) { continue }
+        if ($d.OnlyWhen -and ($modes -notcontains $d.OnlyWhen)) { continue }
         if ($entry -and [long]$entry.nextAt -gt $nowTicks) { continue }
         $since = [double]::MaxValue
         if ($entry -and [long]$entry.lastStartedAt) { $since = ($nowTicks - [long]$entry.lastStartedAt) / 1e7 }
@@ -5473,9 +5497,19 @@ function Invoke-WatchPass {
 
     # LES CARTES DESIGNEES, PAR LE CHEMIN EXISTANT. On vise les SONDES du dossier de la
     # carte : c'est la meme resolution que le bouton d'une carte.
+    <#
+        A SENTINEL THAT CHANGED ASKS, IT DOES NOT COMPUTE. Computing here held the watch loop for as long as the card
+        took -- thirteen seconds for the deployment one -- while the scheduler, one line below, is made for exactly
+        this. The card is marked due and taken at this very pass.
+    #>
     $cards = @($toRecompute | Where-Object { $_ } | Select-Object -Unique)
     foreach ($card in $cards) {
-        try { $null = Get-State -Backend $Backend -ForceModule $card -WaitSeconds 30 } catch { }
+        $probes = @()
+        foreach ($d in @(Get-RefreshDeclarations -Backend $Backend)) {
+            if (@($d.Cards) -contains $card) { $probes += $d.Probe }
+        }
+        if ($probes.Count) { try { Reset-RefreshDue -Backend $Backend -Probes $probes } catch { } }
+        else { try { $null = Get-State -Backend $Backend -ForceModule $card -WaitSeconds 30 } catch { } }
     }
     # AND THE SCHEDULER'S PASS (D124): a change is not the only reason to compute. What must be sampled is sampled
     # because the server watches, not because someone is looking.
@@ -6663,9 +6697,28 @@ function Get-State {
             autres expiraient pendant la passe, la requete suivante en relancait une, et
             la machine ne s'arretait plus -- /state a 27 secondes (mesure le 31/08).
         #>
+        <#
+            NOTHING IS COMPUTED BECAUSE SOMEONE IS LOOKING (D124, and the owner said it again on 29/09: he expects
+            EVERY computation to happen in the background, asynchronously).
+
+            A request serves the cache, always. What has to be computed is computed by the scheduler, at the interval
+            each module declares, whether a session is open or not. Two exceptions, and they are not requests:
+
+              - "-Only", which is the background worker itself saying WHICH computation it is running;
+              - a card asked for explicitly ("-ForceModule", the refresh button), which no longer computes here
+                either: it is marked due, the scheduler takes it within thirty seconds, and the panel reads the
+                result when it is written.
+        #>
         $targeted = { param($e) ($sondesCiblees -contains $e.Key) -or ($sondesCiblees -contains $e.Name) }
-        $toRefresh = @($stale | Where-Object { -not (& $targeted $_) })
-        $stale = @($stale | Where-Object { (& $targeted $_) })
+        $toRefresh = @()
+        if ($Only -and @($Only).Count) {
+            $stale = @($stale | Where-Object { (& $targeted $_) })
+        } else {
+            if ($sondesCiblees.Count) {
+                try { Reset-RefreshDue -Backend $Backend -Probes @($stale | Where-Object { (& $targeted $_) } | ForEach-Object { $_.Name }) } catch { }
+            }
+            $stale = @()
+        }
 
         <#
             ET UNE SEULE SONDE PART EN TACHE DE FOND. Non bloquant, rare, par carte.

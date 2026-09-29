@@ -35,4 +35,15 @@
            Droits = 'admin'; Critique = $false
            Help = 'VBS n''est plus activée.' }
     )
+
+    # SCHEDULED COMPUTATIONS (D124/D125): the server computes this card by itself, so that nothing is ever computed
+    # while someone waits. The interval follows what one pass costs, measured, not what one would wish.
+    Refresh = @(
+        @{ Key = 'defender'; Probe = 'defender.probe.ps1'; Cards = @('antivirus')
+           Seconds = @{ default = 1800 }; MaxSeconds = 60 }
+        @{ Key = 'firewall'; Probe = 'firewall.probe.ps1'; Cards = @('firewall')
+           Seconds = @{ default = 1800 }; MaxSeconds = 60 }
+        @{ Key = 'vbs'; Probe = 'vbs.probe.ps1'; Cards = @('vbs')
+           Seconds = @{ default = 1800 }; MaxSeconds = 60 }
+    )
 }
