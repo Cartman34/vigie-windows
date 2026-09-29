@@ -240,12 +240,38 @@ if ($vdisks.Count) {
     if ($shortName.StartsWith('Sous-système Linux WSL')) { $shortName = 'WSL' }
     $vdValue = "$shortName $($biggest.Go.ToString('N1', $fr)) Go"
     if ($vdisks.Count -gt 1) { $vdValue += " · $($vdisks.Count) disques" }
+    <#
+        AND HOW MUCH OF IT IS NOT GIVEN BACK, when a client app has been able to look inside (Get-WslUsage). The file
+        weighs what it has ever weighed; what lives in it is read from the distribution itself, once an hour, in a
+        session. The difference is the space Windows will never see again until the disk is compacted.
+    #>
+    $wslUsage = $null
+    try { $wslUsage = Get-WslUsage -Backend $backend } catch { }
+    $notReturned = 0.0
+    $insideLines = @()
+    if ($wslUsage) {
+        foreach ($d in @($wslUsage.distributions)) {
+            $usedGo = [math]::Round(([double]$d.usedBytes) / 1GB, 1)
+            $insideLines += ,@("$($d.name)", ($usedGo.ToString('N1', $fr) + ' Go'))
+        }
+        $usedTotal = [math]::Round((@($wslUsage.distributions | ForEach-Object { [double]$_.usedBytes / 1GB }) | Measure-Object -Sum).Sum, 1)
+        $wslDisks = @($vdisks | Where-Object { "$($_.Nom)" -like '*.vhdx' -and "$($_.Machine)" -like '*WSL*' })
+        if (-not $wslDisks.Count) { $wslDisks = @($vdisks | Where-Object { "$($_.Nom)" -like 'ext4.vhdx' }) }
+        if ($wslDisks.Count -and $usedTotal -gt 0) {
+            $filesTotal = [math]::Round((($wslDisks | Measure-Object Go -Sum).Sum), 1)
+            $notReturned = [math]::Round($filesTotal - $usedTotal, 1)
+        }
+    }
+    # SHORT (D89): the card's value stays on one line; the detail goes to the guide, which has room.
+    if ($notReturned -gt 1) { $vdValue += " · $([math]::Round($notReturned)) Go non rendus" }
     $fields += New-Field -Key 'vdisks' -Label 'Disques virtuels' -Value $vdValue -Kind 'text' -Status $vdStatus `
         -Table @{ columns = @('Machine virtuelle', 'Compte', 'Place prise', 'Écrit le')
                   rows = @(foreach ($v in @($vdisks | Select-Object -First 8)) { ,@($v.Machine, $v.Compte, ($v.Go.ToString('N1', $fr) + ' Go'), $v.Quand.ToString('dd/MM HH:mm')) })
                   tips = @(foreach ($v in @($vdisks | Select-Object -First 8)) { $v.Chemin }) } `
         -Help "Les disques des machines virtuelles (WSL, Docker, Hyper-V, VirtualBox). Ils grossissent avec ce qu'ils contiennent et ne rendent jamais la place d'eux-mêmes, même quand on efface à l'intérieur." `
-        -Guide ("Un disque virtuel garde sa taille : effacer des fichiers à l'intérieur libère la place pour la machine virtuelle, pas pour Windows." + [Environment]::NewLine + [Environment]::NewLine +
+        -Guide ($(if ($insideLines.Count) { "Ce que les distributions occupent réellement, lu dans chacune : " +
+                     ((@($insideLines | ForEach-Object { $_[0] + ' ' + $_[1] })) -join ', ') + '.' + [Environment]::NewLine + [Environment]::NewLine } else { '' }) +
+                "Un disque virtuel garde sa taille : effacer des fichiers à l'intérieur libère la place pour la machine virtuelle, pas pour Windows." + [Environment]::NewLine + [Environment]::NewLine +
                 "Pour WSL : « wsl --manage <distribution> --set-sparse true » lui fait rendre la place au fur et à mesure, après « wsl --shutdown ». Pour Hyper-V : « Optimize-VHD ». Dans les deux cas, l'opération se fait machine virtuelle arrêtée, et Vigie ne la lance pas d'elle-même.")
 }
 

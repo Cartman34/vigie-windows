@@ -5155,6 +5155,62 @@ function Get-DiskFreeFall {
     return (($values | Measure-Object -Maximum).Maximum - $values[-1])
 }
 
+<#
+    WHAT WSL REALLY HOLDS, ASKED TO A CLIENT APP (SYS-DISK).
+
+    A virtual disk never gives back what is freed inside it: 150,7 GB on C: on 28/09, for far less content. Only a
+    reading made INSIDE the distribution can tell the difference, and the server app has none -- it runs under a
+    service account, where WSL does not exist.
+
+    So the server asks. It writes an order in the account's run folder and the client app runs it in its session, the
+    mechanism that already serves every action needing a session (Invoke-DesktopAction). The answer is kept for an
+    hour: a virtual disk does not change size in a minute, and nobody is ever made to wait for it -- the card reads
+    what is written, or says nothing about it.
+#>
+function Get-WslUsagePath {
+    param([string]$Backend = (Get-BackendRoot))
+    Get-VarPath -Backend $Backend -Kind 'cache' -File 'wsl-usage.json'
+}
+
+function Get-WslUsage {
+    param([string]$Backend = (Get-BackendRoot))
+    try {
+        $path = Get-WslUsagePath -Backend $Backend
+        if (-not (Test-PathSafe $path)) { return $null }
+        $j = Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json
+        if (-not $j -or -not $j.distributions) { return $null }
+        return $j
+    } catch { return $null }
+}
+
+function Update-WslUsage {
+    param([string]$Backend = (Get-BackendRoot), [int]$EveryMinutes = 60)
+    foreach ($held in @(Get-HeldResources -Backend $Backend)) {
+        if ("$($held.resource)" -eq 'machine') { return $null }
+    }
+    $path = Get-WslUsagePath -Backend $Backend
+    try {
+        if (Test-PathSafe $path) {
+            $j = Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json
+            $at = ConvertTo-UtcDate "$($j.at)"
+            if ($at -and ([datetime]::UtcNow - $at).TotalMinutes -lt $EveryMinutes) { return $null }
+        }
+    } catch { }
+    # A CLIENT APP THAT BEATS, and nothing else: an account with no session has no WSL to look at either.
+    $account = @(Get-TrayWatchRows -Backend $Backend | Where-Object { $_.Status -eq 'ok' } | Select-Object -First 1)
+    if (-not $account.Count) { return $null }
+    $answer = $null
+    try { $answer = Invoke-DesktopAction -Account "$($account[0].Account)" -Type 'wsl-usage' -Module 'wsl' -TimeoutSec 20 -Backend $Backend } catch { }
+    if (-not $answer -or -not $answer.result -or -not $answer.result.ok) { return $null }
+    $entry = [ordered]@{
+        at            = ([datetime]::UtcNow).ToString('o')
+        account       = "$($account[0].Account)"
+        distributions = @($answer.result.distributions)
+    }
+    try { Set-Content -LiteralPath $path -Value ($entry | ConvertTo-Json -Depth 6 -Compress) -Encoding UTF8 } catch { }
+    return $entry
+}
+
 function Invoke-DiskWatch {
     param([string]$Backend = (Get-BackendRoot))
     foreach ($held in @(Get-HeldResources -Backend $Backend)) {
@@ -5420,6 +5476,8 @@ function Invoke-WatchPass {
     try { $null = Invoke-RefreshPass -Backend $Backend } catch { }
     # AND THE DISK, when it empties faster than anyone would notice.
     try { $null = Invoke-DiskWatch -Backend $Backend } catch { }
+    # AND WHAT WSL HOLDS INSIDE, which only a session can see.
+    try { $null = Update-WslUsage -Backend $Backend } catch { }
     return $events
 }
 

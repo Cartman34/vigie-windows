@@ -43,7 +43,7 @@ $ErrorActionPreference = 'Stop'
     not rewrite it at once -- thousands of touched lines for no gain, and a drowned git
     blame. The ratchet forbids adding any; every conversion lowers the ceiling as much.
 #>
-$COMMENT_CEILING = 5698
+$COMMENT_CEILING = 5607
 <#
     THE IDENTIFIER CEILING -- RECOUNTED ON 29/09, BECAUSE THE COUNTER WAS HALF-BLIND.
 
@@ -191,6 +191,13 @@ foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.
         $isComment = $inBlock -or $trimmed.StartsWith('#')
         if ($trimmed -like '*#>*') { $inBlock = $false }
         if (-not $isComment) { continue }
+        <#
+            A HEADER IS A DECLARATION, NOT PROSE. "# @droits: tous", "# @execution: session", "# @libelle: ..." are
+            READ BY THE CODE -- check-operations parses them, the loader obeys them -- and their keywords are French
+            by construction. Counting them meant that adding one action, header included, broke the ratchet while not
+            one sentence of French had been written (29/09).
+        #>
+        if ($trimmed -match '^#\s*@[a-zA-Z]+\s*:') { continue }
         $lower = $trimmed.ToLowerInvariant()
         foreach ($word in $FRENCH_COMMENT_WORDS) {
             if ($lower -match ('(^|[^a-z])' + $word + '([^a-z]|$)')) { $n++; $commentTotal++; break }
