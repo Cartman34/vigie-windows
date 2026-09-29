@@ -181,17 +181,16 @@ of reasoning *before* deciding; acting at that moment short-circuits his decisio
 first, completely. If the action is obvious, propose it in one sentence at the end rather
 than performing it.
 
-**ONE LINE PER ANSWER. That is the default, and it is a maximum, not an average.** Several questions get several
-lines, one each. Only what is relevant is said; everything else goes to the repository, never into the chat. He asks
-for more when he wants more -- and he has two words for it, which are orders, not opinions:
+**ONE ANSWER PER QUESTION, and nothing besides.** Only what is relevant is said; everything else goes to the
+repository, never into the chat. He asks for more when he wants more -- with two words, which are orders:
 
 | He writes | It means |
 |---|---|
 | **S** | simplify: the last answer is too long or carries what he did not ask for. Rewrite it, shorter. |
 | **D** | detail: say more. It stacks -- **DD**, **DDD** -- and each letter asks for one more level. |
 
-**A line is at most twenty-five words.** Past that it is a paragraph wearing a line's clothes, and it is cut or said in
-fewer words. A figure, a file name or a command counts as one word: they are what he is reading for.
+**AN ANSWER IS AT MOST 200 CHARACTERS.** Not lines, not sentences, not words: characters, counted. Calibrated with him
+on 29/09 against samples. Several questions get one answer each, and each one holds to those 200 characters.
 
 **A technical term is written in correct French, or kept in English -- never translated by ear.** "Détachées" for a
 detached process means nothing to a French reader; "asynchrone" does. When the French word is uncertain, the English
