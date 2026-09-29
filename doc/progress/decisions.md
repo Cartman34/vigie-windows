@@ -43,7 +43,7 @@ ligne — `scripts/dev/check-doc.ps1` refuse une décision absente d'ici.
 - **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46 · D48 · D49 · D50 · D58 · D59 · D66 · D68 · D69 · D70 · D71 · D88 · D89 · D94 · D95 · D102 · D105 · D114
 - **Installation, déploiement et mise à jour** — D07 · D11 · D22 · D77 · D78 · D79 · D81 · D84 · D87 · D96 · D97 · D99 · D101 · D106 · D107 (revu) · D110 · D112 · D117 · D123
 - **Sécurité, droits et multi-comptes** — D34 · D65 · D67 · D73 · D104 · D109
-- **Sondes, actions et tâches de fond** — D50bis · D53 · D54 · D60 · D61 · D80 · D82 · D83 · D85 · D113
+- **Sondes, actions et tâches de fond** — D50bis · D53 · D54 · D60 · D61 · D80 · D82 · D83 · D85 · D113 · D124
 - **Outillage** — D06 · D21 · D24 · D40 · D44 · D47 · D52 · D64 · D75 · D86 · D90 · D116 · D118
 - **Méthode de travail** — D10 · D12 · D13 · D14 · D16 · D17 · D31 · D36 · D39 · D43 · D51 · D62 · D63 · D74 · D76 · D100 · D103 · D121
 ---
@@ -3214,3 +3214,37 @@ publie, par l'action `tag-version`. D96 garde son principe : un seul numéro, ja
 
 **Ce que cela ferme.** **S12** : un déploiement sans session ne pouvait pas publier son numéro ; il n'en a plus à
 publier. Les 93 étiquettes déjà posées restent : les retirer est un geste public.
+
+## D124 — C'est le serveur qui relève, et le client vient chercher (2026-09-29)
+
+*Rappelé par l'utilisateur : « J'ai toujours demandé à ce que le serveur surveille régulièrement ce qu'il se passe et
+qu'il alerte le client. Ensuite j'ai dit le client peut demander un rafraîchissement, toi, tu as déformé mon propos en
+notant que c'était le client qui demandait un rafraîchissement régulièrement. Je n'ai pas imposé de solution mais pour
+moi, c'était le serveur qui se mettait à jour et alertait le client qui venait alors récupérer les nouvelles données en
+cache. »*
+
+**Ce qui était écrit, et ce qui a été construit.** `targeting/surveillance.md` dit exactement cela depuis son premier
+paragraphe — « Un recalcul n'a lieu que si quelqu'un demande quelque chose » y est présenté comme **le manque**. La
+boucle de veille a pourtant été construite pour ne réagir qu'au **changement** d'un relevé : elle ne joue aucune
+cadence. Tant qu'une valeur ne bouge pas, rien n'est recalculé, donc rien n'est échantillonné. Le rafraîchissement
+régulier reposait donc sur le client — la déformation, mesurée le 29/09 : pendant une partie de plus de deux heures, la
+session de jeu n'a gardé que **4 passages, 430 secondes**, tous pendant que l'app cliente vivait, et s'est fermée neuf
+heures trop tard, au retour de cette app cliente.
+
+**Décision.** Le relevé régulier est le travail de l'**app serveur**, et de lui seul :
+
+1. La boucle de veille **joue les cadences déclarées** : un module peut demander qu'une de ses cartes soit recalculée à
+   une cadence **tant qu'une condition dure** — pendant une partie, par exemple —, sans attendre le changement d'un
+   relevé ni la demande de personne.
+2. Le client **ne porte plus le relevé régulier**. Il lit le cache, et il peut demander un rafraîchissement
+   **ponctuel** — le bouton « Rafraîchir », une action qui invalide une carte. Sa lecture continue de rafraîchir ce
+   qu'il affiche, et c'est très bien pour qui regarde : ce qui change, c'est que **plus rien d'essentiel ne dépend de
+   sa présence**. Ce qui doit être relevé l'est par le serveur, session ouverte ou non.
+3. Une cadence se **mesure avant d'être posée** : elle est annoncée avec son coût, et ce coût ne doit pas faire ramer
+   l'ordinateur — c'est la contrainte du 28/09, et elle ne se négocie pas contre du confort de mesure.
+
+Preuve : [2026-09-29-server-paced-sampling.md](../../notes/evidence/2026-09-29-server-paced-sampling.md) — les quatre
+passages, les trous d'historique, et le coût mesuré d'un passage de chaque sonde.
+
+**Ce que cela ferme.** Le trou du 28/09 : plus d'app cliente, plus une seule mesure. Et la carte n'est plus une
+récompense pour celui qui regarde : ce qui est relevé l'est parce que le serveur surveille.

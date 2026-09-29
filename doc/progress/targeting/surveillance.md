@@ -55,6 +55,28 @@ Un relevé qui ne change pas ne coûte rien de plus qu'une lecture.
 Ce que le schéma dit, et qu'il faut retenir : **la boucle ne calcule pas de carte**. Elle relève, elle compare, et
 c'est le *changement* qui déclenche un recalcul — par le chemin que tout le monde emprunte déjà.
 
+## Ce qu'un changement ne suffit pas à obtenir : une cadence (D124)
+
+Réagir au changement ne couvre pas tout. **Certaines choses doivent être ÉCHANTILLONNÉES tant qu'une condition dure**,
+précisément parce que rien ne change : pendant une partie, « un jeu tourne » reste vrai d'un bout à l'autre, et c'est
+justement pendant ce temps-là qu'il faut relever qui prend quelles ressources. Sans cadence jouée par le serveur, une
+partie de deux heures n'a laissé que **quatre passages**, tous pris pendant qu'une app cliente vivait par hasard, et sa
+session s'est fermée neuf heures trop tard
+([relevé](../../../notes/evidence/2026-09-29-server-paced-sampling.md)).
+
+**La boucle de veille joue donc aussi des cadences** : une carte déclarée y est recalculée tous les *n* secondes **tant
+que la condition dure**, sans attendre le changement d'un relevé et sans que personne ne demande rien. Trois règles :
+
+1. **Zéro coût hors condition** : hors partie, ce passage ne lit rien du tout.
+2. **La cadence se mesure avant d'être posée**, et le coût s'écrit à côté d'elle dans le code. Raccourcir une cadence
+   s'achète en lenteur de la machine — la chose même qu'on essaie d'observer.
+3. **Le chemin reste le chemin existant** : `Get-State -ForceModule <carte>`, celui du bouton de rafraîchissement.
+   La carte écrit ses mesures et son passage de partie comme elle l'a toujours fait ; aucun second mécanisme
+   d'enregistrement n'apparaît.
+
+Le client, lui, **ne porte plus le relevé régulier** : il lit le cache et peut demander un rafraîchissement ponctuel.
+Ce qui doit être relevé l'est parce que le serveur surveille, session ouverte ou non.
+
 ## Comment un module déclare un relevé
 
 Dans son dossier, un fichier `<clé>.watch.ps1` : il fait UNE lecture bon marché et rend UNE valeur comparable — un

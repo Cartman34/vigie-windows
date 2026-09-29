@@ -4747,6 +4747,67 @@ function Write-SentinelSample {
     } catch { }
 }
 
+<#
+    WHAT THE WATCH PLAYS BY ITSELF, WHILE A GAME LASTS (D124).
+
+    The watch loop reacted to a CHANGE and to nothing else. "A game is running" does not change during the game, so no
+    card was recomputed, so nothing was sampled: of a game of more than two hours on 28/09 the session kept 4 passes and
+    430 seconds, all of them taken while a client app happened to be alive, and it closed nine hours late. Regular
+    sampling was resting on whoever was looking -- exactly what the owner had never asked for.
+
+    THE PACE IS PAID FOR, so it is measured and it is written here. On 29/09, on this machine: the game card costs
+    3 262 ms per pass, the resources card 1 385 ms. At sixty seconds that is 5,4 % and 2,3 % of one core, and only while
+    a game is running -- against the 34 % of one core measured on 28/09, when every reading of the interface handed work
+    to a background task. Shortening the pace shortens nothing else: it buys samples with the very slowness we are
+    looking for. Anyone changing these numbers measures them again first.
+
+    The bottleneck rule needs two consecutive passes: at this pace, a bottleneck is confirmed in two minutes.
+#>
+$script:GamePacedCards = @{ 'gaming' = 60; 'perf' = 60 }
+
+<#
+    THE PACED PASS. Nothing here decides what is interesting: it recomputes the declared cards by the path everyone
+    else uses, and the cards themselves write their measures and their game passes, as they always did.
+
+    It keeps its own last-run time under var/run: a pace is a LIVING state, worth nothing after a restart -- and after a
+    restart, recomputing once immediately is the right thing anyway.
+#>
+function Invoke-PacedPass {
+    param([string]$Backend = (Get-BackendRoot))
+    # SILENT WHILE AN INSTALLATION RUNS, for the same reason as the rest of the watch: the files move underfoot.
+    foreach ($held in @(Get-HeldResources -Backend $Backend)) {
+        if ("$($held.resource)" -eq 'machine') { return @() }
+    }
+    # NO GAME, NO PACE. Outside a game nothing here runs at all: the cost is exactly zero.
+    $game = $null
+    try { $game = Get-GameModeName -Backend $Backend } catch { }
+    if (-not $game) { return @() }
+
+    $file = Get-VarPath -Backend $Backend -Kind 'run' -File 'paced.json'
+    $last = @{}
+    try {
+        if (Test-PathSafe $file) {
+            $raw = Get-Content -LiteralPath $file -Raw -Encoding UTF8 -ErrorAction Stop
+            foreach ($pr in @((ConvertFrom-Json $raw).PSObject.Properties)) { $last["$($pr.Name)"] = [long]$pr.Value }
+        }
+    } catch { }
+    $nowTicks = [datetime]::UtcNow.Ticks
+    $played = @()
+    foreach ($card in @($script:GamePacedCards.Keys)) {
+        $pace = [int]$script:GamePacedCards[$card]
+        # TICKS, NOT AN ISO DATE: read back by ConvertFrom-Json, an ISO date comes back as a [datetime] (D44).
+        $since = 0
+        if ($last.ContainsKey($card)) { $since = ($nowTicks - [long]$last[$card]) / 1e7 }
+        if ($last.ContainsKey($card) -and $since -lt $pace) { continue }
+        $last[$card] = $nowTicks
+        # THE EXISTING PATH, the same one the card's own refresh button takes. The card writes its measures and its
+        # game pass on its own: this pass adds no second way of recording anything.
+        try { $null = Get-State -Backend $Backend -ForceModule $card -WaitSeconds 30; $played += $card } catch { }
+    }
+    try { Set-Content -LiteralPath $file -Value (ConvertTo-Json $last -Depth 3 -Compress) -Encoding UTF8 } catch { }
+    return $played
+}
+
 function Invoke-WatchPass {
     param([string]$Backend = (Get-BackendRoot))
     <#
@@ -4837,6 +4898,9 @@ function Invoke-WatchPass {
     foreach ($card in $cards) {
         try { $null = Get-State -Backend $Backend -ForceModule $card -WaitSeconds 30 } catch { }
     }
+    # AND THE PACES THE WATCH PLAYS BY ITSELF (D124): a change is not the only reason to recompute -- during a game,
+    # what must be sampled is sampled because the server watches, not because someone is looking.
+    try { $null = Invoke-PacedPass -Backend $Backend } catch { }
     return $events
 }
 
