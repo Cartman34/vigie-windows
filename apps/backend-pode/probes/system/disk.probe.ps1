@@ -247,6 +247,9 @@ if ($vdisks.Count) {
     #>
     $wslUsage = $null
     try { $wslUsage = Get-WslUsage -Backend $backend } catch { }
+    # SEVERAL DISTRIBUTIONS CAN BE RUNNING: they are all named, never "the" distribution.
+    $runningNames = @()
+    if ($wslUsage) { $runningNames = @(@($wslUsage.distributions) | ForEach-Object { "$($_.name)" } | Where-Object { $_ }) }
     $notReturned = 0.0
     $insideLines = @()
     if ($wslUsage) {
@@ -272,7 +275,13 @@ if ($vdisks.Count) {
         -Guide ($(if ($insideLines.Count) { "Ce que les distributions occupent réellement, lu dans chacune : " +
                      ((@($insideLines | ForEach-Object { $_[0] + ' ' + $_[1] })) -join ', ') + '.' + [Environment]::NewLine + [Environment]::NewLine } else { '' }) +
                 "Un disque virtuel garde sa taille : effacer des fichiers à l'intérieur libère la place pour la machine virtuelle, pas pour Windows." + [Environment]::NewLine + [Environment]::NewLine +
-                "Pour WSL : « wsl --manage <distribution> --set-sparse true » lui fait rendre la place au fur et à mesure, après « wsl --shutdown ». Pour Hyper-V : « Optimize-VHD ». Dans les deux cas, l'opération se fait machine virtuelle arrêtée, et Vigie ne la lance pas d'elle-même.")
+                $(if ($runningNames.Count) {
+                    "/!\ " + $(if ($runningNames.Count -gt 1) { "Ces distributions tournent en ce moment" } else { "Cette distribution tourne en ce moment" }) +
+                    " : " + ($runningNames -join ', ') + ". Rendre la place exige de " +
+                    $(if ($runningNames.Count -gt 1) { "LES ARRÊTER" } else { "L'ARRÊTER" }) +
+                    " : sessions, serveurs et conteneurs en cours compris." +
+                    [Environment]::NewLine + [Environment]::NewLine } else { '' }) +
+                "Pour WSL : la commande « wsl --manage <distribution> --set-sparse true » se lance distribution ARRÊTÉE ; ensuite seulement la place est rendue au fur et à mesure. Pour Hyper-V : « Optimize-VHD », machine virtuelle arrêtée elle aussi.")
 }
 
 $actions = @(New-Action -Id 'open-storage-settings' -Label 'Paramètres de stockage' -Kind 'manual' -Severity 'info' `
