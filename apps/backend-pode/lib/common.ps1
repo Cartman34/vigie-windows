@@ -893,6 +893,37 @@ function Start-DetachedAction {
         [string]$Backend = (Get-BackendRoot)
     )
     if (-not (Test-Path -LiteralPath $Script)) { throw "Worker introuvable : $Script" }
+    <#
+        THE HARD CEILING ON WHAT VIGIE MAY START -- and it is a REFUSAL, not a warning.
+
+        On 29/09 a bad guard let each background task start another one: 150 elevated processes in two minutes, the
+        machine down to 0,3 GB of free memory, and the server unable to listen on its own port. No count anywhere
+        said stop. A product that watches a computer must never be what brings it down.
+
+        Every process Vigie starts is written down here, with its id; the dead ones are dropped at each pass. Past
+        MaxChildren live ones, the launch is REFUSED -- it returns nothing, it says so in the log, and the caller
+        carries on without its background task. Nothing is ever stopped by this: refusing to start is enough.
+    #>
+    $childFile = $null
+    try {
+        $childFile = Get-VarPath -Backend $Backend -Kind 'run' -File 'children.json'
+        $live = @()
+        if (Test-PathSafe $childFile) {
+            $raw = Get-Content -LiteralPath $childFile -Raw -Encoding UTF8 -ErrorAction Stop
+            foreach ($id in @((ConvertFrom-Json $raw).ids)) {
+                try { if (Get-Process -Id ([int]$id) -ErrorAction Stop) { $live += [int]$id } } catch { }
+            }
+        }
+        $max = 8
+        try { $max = [int](Get-RefreshConfig -Backend $Backend).MaxChildren } catch { }
+        if ($max -le 0) { $max = 8 }
+        if ($live.Count -ge $max) {
+            Write-Log -Backend $Backend -Name 'state' -Level 'ERROR' -Message (
+                "lancement REFUSE : $($live.Count) taches de fond vivantes, plafond $max -- " + (Split-Path $Script -Leaf))
+            return $null
+        }
+        $script:PendingChildren = $live
+    } catch { $script:PendingChildren = @() }
     $exe = $null
     try { $exe = (Get-Process -Id $PID).Path } catch { }
     if (-not $exe) { try { $exe = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName } catch { } }
@@ -917,7 +948,13 @@ function Start-DetachedAction {
     $psi.WindowStyle     = [System.Diagnostics.ProcessWindowStyle]::Hidden
     $psi.WorkingDirectory = $Backend
     $p = [System.Diagnostics.Process]::Start($psi)
-    if ($p) { return $p.Id } else { return $null }
+    if (-not $p) { return $null }
+    # WRITTEN DOWN THE MOMENT IT EXISTS, or the ceiling above counts nothing.
+    try {
+        $ids = @($script:PendingChildren) + @([int]$p.Id)
+        Set-Content -LiteralPath $childFile -Value (@{ ids = @($ids) } | ConvertTo-Json -Compress) -Encoding UTF8
+    } catch { }
+    return $p.Id
 }
 
 # --- Gestionnaires de paquets (source unique : sonde, verif MAJ ET upgrade) --
@@ -4777,7 +4814,7 @@ function Get-RefreshConfig {
     param([string]$Backend = (Get-BackendRoot))
     $cfg = $null
     try { $cfg = (Get-Config -Backend $Backend).Refresh } catch { }
-    $out = @{ MaxParallel = 3; DefaultMaxSeconds = 300; FailBackoffSeconds = 60; FailBackoffMaxSeconds = 3600 }
+    $out = @{ MaxParallel = 3; MaxChildren = 8; DefaultMaxSeconds = 300; FailBackoffSeconds = 60; FailBackoffMaxSeconds = 3600 }
     if ($cfg) {
         foreach ($k in @($out.Keys)) {
             try { if ($null -ne $cfg[$k]) { $out[$k] = [int]$cfg[$k] } } catch { }

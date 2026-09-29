@@ -89,6 +89,9 @@
     Refresh = @{
         # Computations running at once. 0 = no limit. Three by default (owner, 29/09).
         MaxParallel           = 3
+        # THE HARD CEILING on everything Vigie starts in the background, scheduler or not. Past this, a launch is
+        # REFUSED and logged. It exists because nothing counted on 29/09: 150 processes, and a machine on its knees.
+        MaxChildren           = 8
         # Past this, a computation is called TOO LONG: logged, shown on the self-watch card, and it
         # stops holding a place. It is never stopped.
         DefaultMaxSeconds     = 300
