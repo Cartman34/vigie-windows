@@ -909,7 +909,10 @@ function Start-DetachedAction {
                          '-File', $Script, '-Backend', $Backend, '-ArgsB64', $b64)) {
         [void]$psi.ArgumentList.Add([string]$piece)
     }
+    # THE CHILD IS A BACKGROUND TASK, AND IT SAYS SO: Get-State reads this and never hands off in turn (29/09).
     $psi.UseShellExecute = $false
+    [void]$psi.EnvironmentVariables.Remove('VIGIE_NO_BACKGROUND')
+    [void]$psi.EnvironmentVariables.Add('VIGIE_NO_BACKGROUND', '1')
     $psi.CreateNoWindow  = $true
     $psi.WindowStyle     = [System.Diagnostics.ProcessWindowStyle]::Hidden
     $psi.WorkingDirectory = $Backend
@@ -6383,11 +6386,23 @@ function Get-State {
             UNE seule, et une seule a la fois : recalculer les dix-sept enchainait des
             passes d'une minute et demie qui se relancaient l'une l'autre.
         #>
-        if ($toRefresh.Count -gt 0) {
+        <#
+            A BACKGROUND WORKER NEVER SPAWNS A BACKGROUND WORKER (29/09, and it cost 79 processes).
+
+            This hand-off is for a REQUEST that found a stale probe. A worker also calls Get-State, so without this
+            it hands off in turn, and each hand-off hands off again: the machine filled with pwsh processes within
+            two minutes of the deployment. A detached worker carries VIGIE_NO_BACKGROUND and stops the chain here.
+
+            The lock it used to test is per-probe now, so a global test proved nothing: we test the lock of the very
+            probe we are about to hand off, which is the only one that matters.
+        #>
+        $chosen = "$(($toRefresh | Sort-Object Overdue -Descending | Select-Object -First 1).Name)"
+        if ($toRefresh.Count -gt 0 -and -not $env:VIGIE_NO_BACKGROUND -and $chosen) {
             $alreadyRunning = $false
             try {
                 $tmp = $null
-                if ([System.Threading.Mutex]::TryOpenExisting('Local\VigieStateRecompute', [ref]$tmp)) {
+                $lock = 'Local\VigieStateRecompute_' + ($chosen -replace '[^A-Za-z0-9]', '_')
+                if ([System.Threading.Mutex]::TryOpenExisting($lock, [ref]$tmp)) {
                     $alreadyRunning = -not $tmp.WaitOne(0)
                     if (-not $alreadyRunning) { try { $tmp.ReleaseMutex() } catch { } }
                     try { $tmp.Dispose() } catch { }
@@ -6397,8 +6412,7 @@ function Get-State {
                 try {
                     $w = Join-Path $Backend 'workers/state-refresh.worker.ps1'
                     $null = Start-DetachedAction -Script $w -Backend $Backend `
-                                -ArgsMap @{ account = "$stateRequester"
-                                            probe = "$(($toRefresh | Sort-Object Overdue -Descending | Select-Object -First 1).Name)" }
+                                -ArgsMap @{ account = "$stateRequester"; probe = $chosen }
                 } catch { }
             }
         }
