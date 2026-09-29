@@ -134,6 +134,28 @@ the channel and the format, which made me present a means as a rule. A question 
 text, in the format above; without a number and options it stays out of format whatever the
 means used.
 
+## Administrator rights are ANNOUNCED, then confirmed, before anything pops up
+
+**A UAC prompt never appears without him having been told what it is for and having said yes.** On 29/09 I raised one
+twice without a word; he cancelled both, then wrote: "Pour des droits admin, tu dois OBLIGATOIREMENT l'annoncer avant
+et demander confirmation explicite." An elevation prompt on his screen with no explanation is a prompt he must refuse.
+
+What is announced: what will run elevated, on what, and why nothing lower can do it.
+
+## Never leave a problem on his machine
+
+**If something I did breaks the machine, repairing it comes before everything else -- before finishing, before
+explaining, before asking what he thinks of the design.** On 29/09 a guard I had broken let Vigie's background tasks
+start one another: 150 elevated processes, 0,3 GB of free memory, the server unable to listen on its own port. I
+described the situation and asked him how to stop it. His answer: "Comment ça comment tu arrêtes ça ? tu ne DOIS
+JAMAIS LAISSER UN PROBLEME SUR MA MACHINE !! JAMAIS !!"
+
+**And the means is granted, permanently: "tu dois TOUJOURS pouvoir kill l'app et la relancer."** Vigie's own processes
+-- server app, residents, background tasks -- may be stopped and restarted to repair them, without asking each time.
+That permission covers Vigie, and nothing else: every other process keeps the rule above it.
+
+The elevation such a repair needs is still announced, because the prompt lands on his screen.
+
 ## An important operation waits for an explicit YES
 
 **Asked by the owner on 11/09, after I rewrote the repository's history without his

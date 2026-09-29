@@ -43,7 +43,7 @@ ligne — `scripts/dev/check-doc.ps1` refuse une décision absente d'ici.
 - **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46 · D48 · D49 · D50 · D58 · D59 · D66 · D68 · D69 · D70 · D71 · D88 · D89 · D94 · D95 · D102 · D105 · D114
 - **Installation, déploiement et mise à jour** — D07 · D11 · D22 · D77 · D78 · D79 · D81 · D84 · D87 · D96 · D97 · D99 · D101 · D106 · D107 (revu) · D110 · D112 · D117 · D123
 - **Sécurité, droits et multi-comptes** — D34 · D65 · D67 · D73 · D104 · D109
-- **Sondes, actions et tâches de fond** — D50bis · D53 · D54 · D60 · D61 · D80 · D82 · D83 · D85 · D113 · D124 · D125
+- **Sondes, actions et tâches de fond** — D50bis · D53 · D54 · D60 · D61 · D80 · D82 · D83 · D85 · D113 · D124 · D125 · D126
 - **Outillage** — D06 · D21 · D24 · D40 · D44 · D47 · D52 · D64 · D75 · D86 · D90 · D116 · D118
 - **Méthode de travail** — D10 · D12 · D13 · D14 · D16 · D17 · D31 · D36 · D39 · D43 · D51 · D62 · D63 · D74 · D76 · D100 · D103 · D121
 ---
@@ -3284,3 +3284,29 @@ Conception : [surveillance.md](targeting/surveillance.md). Preuve :
 
 **Ce que cela ferme.** Les limitations que je m'étais données sans qu'on me les demande : une carte par calcul, un seul
 calcul à la fois, un seul mode possible, et un calcul en échec qui repassait devant tout le monde à chaque passage.
+
+## D126 — Vigie ne peut pas s'emballer : un plafond dur sur ce qu'elle lance (2026-09-29)
+
+*Demandé par l'utilisateur, après que ma livraison a rempli sa machine de processus : « ça ne doit pas pouvoir
+arriver, l'app ne doit pas pouvoir s'emballer, elle doit avoir des contrôles et bloquer le déploiement de sous
+processus au-delà d'une limite. » Et, sur le moyen de réparer : « tu dois TOUJOURS pouvoir kill l'app et la relancer. »*
+
+**Ce qui s'est passé.** Le verrou de recalcul est devenu par sonde ; le garde-fou qui empêchait une tâche de fond d'en
+lancer une autre testait encore le verrou global, qui n'existait plus. En deux minutes : **161 processus élevés,
+0,3 Go de mémoire libre, une app serveur qui n'arrive plus à écouter son port**. Arrêter le serveur n'a rien changé —
+la chaîne se nourrissait d'elle-même. Relevé :
+[2026-09-29-background-tasks-runaway.md](../../notes/evidence/2026-09-29-background-tasks-runaway.md).
+
+**Décision.** Trois verrous, dont un qui refuse :
+
+1. **Une tâche de fond ne lance jamais une tâche de fond.** Tout processus lancé par Vigie porte une marque, et le
+   code qui délègue ne délègue pas quand elle est là.
+2. **Un plafond dur sur le nombre de processus vivants lancés par Vigie** (`Refresh.MaxChildren`, 8 par défaut) : au-delà,
+   le lancement est **refusé** et journalisé en erreur. C'est un refus de démarrer, jamais un arrêt : rien n'est tué par
+   ce mécanisme.
+3. **Un garde-fou ne teste que ce qui le renseigne** : le verrou de la sonde concernée, pas un verrou global qui
+   n'existe plus.
+
+**Ce que cela ferme.** Un produit qui surveille un ordinateur ne peut pas être ce qui le met à genoux. Et la règle de
+réparation qui va avec : les processus de Vigie peuvent être arrêtés et relancés pour la réparer, sans demander à
+chaque fois — l'élévation nécessaire, elle, s'annonce toujours.
