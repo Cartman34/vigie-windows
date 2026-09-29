@@ -191,7 +191,15 @@ try {
                                   -WebSession $session -Headers @{ Origin = $url } -TimeoutSec 300
     }
 } catch {
-    Write-Fail (Get-Label 'ask-vigie.question-refusee' $_.Exception.Message)
+    # WHAT THE SERVER ANSWERED, not only the code: a bare "400" sends you looking in the wrong
+    # place -- half an hour lost on 29/09 over a disk analysis that was simply still running.
+    $detail = ''
+    try {
+        $stream = $_.Exception.Response.GetResponseStream()
+        if ($stream) { $detail = (New-Object IO.StreamReader($stream)).ReadToEnd() }
+    } catch { }
+    if (-not $detail -and $_.ErrorDetails) { $detail = "$($_.ErrorDetails.Message)" }
+    Write-Fail (Get-Label 'ask-vigie.question-refusee' ($_.Exception.Message + $(if ($detail) { ' -- ' + $detail } else { '' })))
     exit 2
 }
 

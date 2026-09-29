@@ -94,24 +94,9 @@ $pwsh = Get-SharedPwshPath
 if (-not $pwsh) { $pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Source }
 if (-not $pwsh) { Write-Warn (Get-Label 'install-autostart.pwsh-introuvable-lance-abord'); exit 1 }
 
-<#
-    NO WINDOW, AND NOT EVEN A FLASH.
+# ONE launch line for everyone: New-VigieTrayAction, in lib/common.ps1.
+$action    = New-VigieTrayAction -Pwsh $pwsh -Tray $tray
 
-    "-WindowStyle Hidden" hides a window that Windows has ALREADY created: the console exists first, and it is seen.
-    On an administrator account it goes unnoticed; on a standard one -- Famille, run level Limited -- an empty
-    PowerShell terminal stayed on screen at every logon, and every deployment restarting a client app stole the focus
-    of whoever was working (both reported on 29/09).
-
-    conhost --headless creates the console WITHOUT a window, and starts the interpreter inside it. The command line
-    still carries -File "<tray.ps1>", which is what everything else reads to recognise our task.
-#>
-$conhost   = Join-Path $env:SystemRoot 'System32\conhost.exe'
-$arg       = '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $tray + '"'
-if (Test-Path -LiteralPath $conhost) {
-    $action = New-ScheduledTaskAction -Execute $conhost -Argument ('--headless "' + $pwsh + '" ' + $arg)
-} else {
-    $action = New-ScheduledTaskAction -Execute $pwsh -Argument $arg
-}
 $trigger   = New-ScheduledTaskTrigger -AtLogOn
 # 45 s de delai : pwsh vient du Microsoft Store (MSIX) et son paquet peut ne pas etre
 # encore disponible a l'instant du logon -- la tache echouait en 0xC0070154 (constate

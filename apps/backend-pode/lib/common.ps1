@@ -8606,6 +8606,31 @@ function Rename-VigieLegacyTask {
     } catch { return $null }
 }
 
+<#
+    HOW A CLIENT APP IS STARTED -- written ONCE, used by everyone who builds that task.
+
+    It was written in three places: the installer, the repair of the legacy task, and the enabling of an account. On
+    29/09 I changed one of them and the two others kept the old line, so the fault stayed exactly where it had been
+    reported. Three copies of a launch line is three launch lines.
+
+    conhost --headless creates the console WITHOUT a window. "-WindowStyle Hidden" only hides one that Windows has
+    already made: unnoticed on an administrator account, an empty terminal at every logon on a standard one, and a
+    flash that steals the focus whenever a deployment restarts a client app.
+#>
+function Get-HeadlessConsolePath {
+    $conhost = Join-Path $env:SystemRoot 'System32\conhost.exe'
+    if (Test-PathSafe $conhost) { return $conhost }
+    return $null
+}
+
+function New-VigieTrayAction {
+    param([Parameter(Mandatory)][string]$Pwsh, [Parameter(Mandatory)][string]$Tray)
+    $arg = '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $Tray + '"'
+    $conhost = Get-HeadlessConsolePath
+    if ($conhost) { return (New-ScheduledTaskAction -Execute $conhost -Argument ('--headless "' + $Pwsh + '" ' + $arg)) }
+    return (New-ScheduledTaskAction -Execute $Pwsh -Argument $arg)
+}
+
 function Get-VigieTaskStructureAilment {
     param([Parameter(Mandatory)]$Task)
     $a = @($Task.Actions)[0]
@@ -8639,6 +8664,14 @@ function Get-VigieTaskStructureAilment {
     }
     if ("$($a.Arguments)" -match '-File\s+"([^"]+)"') {
         if (-not (Test-Path -LiteralPath $Matches[1])) { return ("l'application n'est plus là : " + $Matches[1]) }
+    }
+    <#
+        A WINDOW NOBODY ASKED FOR is a fault of the task, and it is repaired by rewriting it. Without this, the
+        accounts already installed would have kept their empty terminal until someone reinstalled from their session
+        -- that is, never (29/09).
+    #>
+    if ((Get-HeadlessConsolePath) -and (Split-Path "$($a.Execute)".Trim('"') -Leaf) -ine 'conhost.exe') {
+        return "elle ouvre une fenêtre inutile à chaque démarrage"
     }
     # DESACTIVEE, c'est structurel : la tache est la, bien formee, et Windows refuse de
     # la lancer. Ca se repare d'un geste (Enable-ScheduledTask), donc ca appartient ici
@@ -8802,8 +8835,7 @@ function Repair-VigieTasks {
                 if (-not $pwsh) { $pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Source }
                 $tray = Join-Path (Join-Path (Get-RepoRoot) 'apps') (Join-Path 'tray' 'tray.ps1')
                 if (-not $pwsh -or -not (Test-Path -LiteralPath $tray)) { continue }
-                $arg = '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $tray + '"'
-                Set-ScheduledTask -TaskName $nom -Action (New-ScheduledTaskAction -Execute $pwsh -Argument $arg) -ErrorAction Stop | Out-Null
+                Set-ScheduledTask -TaskName $nom -Action (New-VigieTrayAction -Pwsh $pwsh -Tray $tray) -ErrorAction Stop | Out-Null
                 # AND WE TRY THE RENAME AGAIN (D117). Reaching here means the pass at the top
                 # of the loop failed -- the task answers again now that it has been rewritten,
                 # so the attempt is worth making a second time.
@@ -9218,8 +9250,7 @@ function Set-VigieAccountEnabled {
     $tray = Join-Path $appRoot 'apps/tray/tray.ps1'
     if (-not (Test-Path -LiteralPath $tray)) { throw "Application introuvable : $tray" }
 
-    $arg     = '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $tray + '"'
-    $action  = New-ScheduledTaskAction -Execute $pwsh -Argument $arg
+    $action  = New-VigieTrayAction -Pwsh $pwsh -Tray $tray
     $trigger = New-ScheduledTaskTrigger -AtLogOn
     # 45 s : pwsh vient du Store (MSIX) et n'est pas toujours pret a l'instant du logon.
     $trigger.Delay = 'PT45S'
