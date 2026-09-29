@@ -44,7 +44,22 @@ $ErrorActionPreference = 'Stop'
     blame. The ratchet forbids adding any; every conversion lowers the ceiling as much.
 #>
 $COMMENT_CEILING = 5698
-$CEILING = 277
+<#
+    THE IDENTIFIER CEILING -- RECOUNTED ON 29/09, BECAUSE THE COUNTER WAS HALF-BLIND.
+
+    The owner read "$state.RecapVu" in code I had just delivered and asked the only question that mattered: "you allow
+    yourself a lot of drift, don't you?" He was right, and the ratchet had said nothing. Three blind spots:
+
+      - it only looked at an assignment to a bare variable, at "function Name" and at the JavaScript declarations, so
+        PARAMETERS -- a param block declaring Ouvre -- and TYPED variables were never read;
+      - it never looked at an assigned PROPERTY, so a state object receiving RecapVu was invisible;
+      - its lexicon held sixty words, and none of mine: partie, jeu, valeur, jours, ordre, nom, duree, seuil...
+
+    Widening it moved the count from 277 to 481 without a single name being added: the same debt, finally measured. The
+    thirty-one names of the 28/09 batch were then renamed, which brings it to 450. THAT is the ceiling. It is a
+    RECOUNT, not a permission: it has never been allowed to rise, and it still is not.
+#>
+$CEILING = 450
 
 # LE PLAFOND DES NOMS DE FICHIERS. Meme cliquet, compte separe : ceux qui restent sont
 # nommes dans des taches planifiees deja posees et dans des raccourcis, donc ils se
@@ -65,7 +80,12 @@ $FRENCH_WORDS = @(
     'sonde','lisere','groupe','manquant','manquement','echec','reussi','occupe',
     'racine','cible','etat','donnee','reglage','recuperation','depot','voie',
     'piege','porteur','minuteur','puce','titre','resume','mesurer','ecrire',
-    'creer','rendre','suivre','aucun','deja','avant','apres','faits','morceaux'
+    'creer','rendre','suivre','aucun','deja','avant','apres','faits','morceaux',
+    'partie','parties','jeu','ferme','permis','ouvre','valeur','valeurs','toutes','noms',
+    'jours','duree','attente','sortie','entree','ordre','ordres','libelle','retrait',
+    'demande','demarrage','arret','vus','recue','fermeture','ouverture','plafond',
+    'geneur','moyenne','nombre','taille','seuil','texte','icone','nom','lourde','utile',
+    'cadence','bouchon','silencieux','fenetres','gourmand'
 )
 
 <#
@@ -101,7 +121,7 @@ $FRENCH_COMMENT_WORDS = @(
 $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $repoRoot 'scripts/lib/console-ui.ps1')   # le meme affichage que partout
 $skipped   = @('.claude', '.git', 'dist', 'node_modules', 'local', 'var')   # .claude : les worktrees y vivent ; var : le clone du service aussi (D112)
-$pattern    = 'function\s+([A-Za-z][\w-]*)|\$([a-zA-Z][\w]*)\s*=|(?:let|const|var|function)\s+([a-zA-Z][\w]*)'
+$pattern    = 'function\s+([A-Za-z][\w-]*)|\$([a-zA-Z][\w]*)\s*=|(?:let|const|var|function)\s+([a-zA-Z][\w]*)|\]\s*\$([a-zA-Z][\w]*)|\.([A-Za-z][\w]*)\s*='
 
 $total = 0
 $perFile = @{}
@@ -115,7 +135,7 @@ foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.
     $n = 0
     foreach ($m in [regex]::Matches($text, $pattern)) {
         $name = ''
-        foreach ($g in 1..3) { if ($m.Groups[$g].Success -and $m.Groups[$g].Value) { $name = $m.Groups[$g].Value; break } }
+        foreach ($g in 1..5) { if ($m.Groups[$g].Success -and $m.Groups[$g].Value) { $name = $m.Groups[$g].Value; break } }
         if (-not $name) { continue }
         $lower = $name.ToLowerInvariant()
         foreach ($word in $FRENCH_WORDS) {
