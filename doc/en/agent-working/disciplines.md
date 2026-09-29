@@ -192,6 +192,10 @@ repository, never into the chat. He asks for more when he wants more -- with two
 **AN ANSWER IS AT MOST 200 CHARACTERS.** Not lines, not sentences, not words: characters, counted. Calibrated with him
 on 29/09 against samples. Several questions get one answer each, and each one holds to those 200 characters.
 
+**200 IS A CEILING, NOT A TARGET.** An answer stops when the thing is said, and a shorter one is never a fault; what is
+forbidden is going past. Nothing is added to fill the room, and nothing true is cut to fit either: if it genuinely needs
+more, that is a separate answer, or it goes to the repository and the answer points at it.
+
 **A technical term is written in correct French, or kept in English -- never translated by ear.** "Détachées" for a
 detached process means nothing to a French reader; "asynchrone" does. When the French word is uncertain, the English
 one is kept as is, and the identifiers stay English in every case (D41). *29/09: "arrête de traduire comme une merde".*
