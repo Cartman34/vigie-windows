@@ -22,6 +22,10 @@ Format : `ID` — Titre, puis le besoin et ses critères. On n'écrit **pas** ic
 - **CORE-SELFWATCH** — Vigie se surveille elle-même, dans le module Débogage : le nombre et la mémoire de ses
   processus — app serveur, workers, résidents —, un résident lent ou doublé, avec leurs raisons ; une notification
   quand ils s'emballent. La visibilité suit le réglage du module.
+  **Et ses app clientes** : une app cliente qui cesse de battre alors que la session de son compte est ouverte est
+  signalée, et chaque disparition est consignée avec le contexte du moment — le jeu en cours d'abord. Le 28/09 l'une
+  d'elles est partie en pleine partie sans une ligne : Vigie n'a plus mesuré jusqu'au lendemain et ne l'a jamais dit.
+  Vigie ne relance rien d'elle-même : la carte le dit, l'utilisateur décide.
 - **CORE-NOTIFY** — Prévenir sur le bureau quand un état bascule. Le besoin nomme un **sujet, un état, une mesure et
   une urgence** ; il ne nomme aucun outil d'affichage. Windows en offre plusieurs, aucun n'est disponible partout, et
   celui qu'on recommande change avec les versions : le choix se fait à l'exécution, derrière une seule porte, et une

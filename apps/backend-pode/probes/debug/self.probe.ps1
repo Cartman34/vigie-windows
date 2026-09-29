@@ -90,6 +90,32 @@ if ($reasons.Count) {
 $table = if ($rows.Count) { @{ columns = @('Rôle', 'Processus', 'PID', 'En mémoire vive', 'Engagée', 'Démarré'); rows = $rows } } else { $null }
 $fix = if ($reasons.Count) { 'server-restart' } else { $null }
 
+<#
+    AND THE CLIENT APPS, WHICH NOBODY WAS WATCHING.
+
+    On 28/09 one of them vanished mid-game without a line, and Vigie measured nothing for the rest of the evening
+    without ever saying so. Its heartbeat is the proof (Update-TrayWatch): stopped while the account's session is still
+    open, the client app should be there and is not. Each disappearance is written to var/history/tray-vanished.jsonl
+    with the game of the moment. Vigie restarts nothing by itself -- the card says it, the user decides.
+#>
+$clients = @(Update-TrayWatch -Backend $backend)
+$missing = @($clients | Where-Object { $_.Status -ne 'ok' })
+$clientStatus = if ($missing.Count) { 'warn' } else { 'ok' }
+$clientRows = @()
+foreach ($c in $clients) {
+    $clientRows += ,@($c.Account, $c.Said, $(if ($c.ProcessId) { "$($c.ProcessId)" } else { '—' }),
+                      $(if ($c.At) { $c.At.ToLocalTime().ToString('dd/MM HH:mm:ss') } else { '—' }))
+}
+$clientTable = if ($clientRows.Count) { @{ columns = @('Compte', 'État', 'PID', 'Dernier battement'); rows = $clientRows } } else { $null }
+$clientReason = if ($missing.Count) { (@($missing | ForEach-Object { "$($_.Account) : $($_.Said.ToLower())" }) -join ' ; ') } else { $null }
+$clientGuide = if ($missing.Count) {
+    "Une app cliente devrait battre toutes les huit secondes tant que la session de son compte est ouverte. " +
+    $clientReason + '.' + [Environment]::NewLine + [Environment]::NewLine +
+    "Sans elle, ce compte n'a plus d'icône, plus de notification, et plus rien ne demande de recalcul : Vigie cesse de mesurer. " +
+    "Chaque disparition est consignée avec le jeu en cours, dans l'historique de Vigie. Elle repart à la prochaine ouverture de session, " +
+    "ou tout de suite avec « Réparer les tâches »."
+} else { $null }
+
 $fields = @(
     New-Field -Key 'count' -Label 'Processus de Vigie' -Value $(if ($serverId) { $members.Count } else { 'App serveur introuvable' }) `
         -Kind $(if ($serverId) { 'number' } else { 'text' }) -Status $countStatus -Table $table -Guide $guide -Reason $reason -FixAction $fix `
@@ -97,6 +123,11 @@ $fields = @(
     New-Field -Key 'memory' -Label 'Mémoire de Vigie' -Value $totalMb -Kind 'number' -Unit 'Mo' -Status $memoryStatus -Reason $(if ($memoryStatus -ne 'ok') { $reason } else { $null }) `
         -FixAction $(if ($memoryStatus -ne 'ok') { 'server-restart' } else { $null }) -Guide $(if ($memoryStatus -ne 'ok') { $guide } else { $null }) `
         -Help "Mémoire vive réellement occupée par tous les processus de Vigie réunis."
+    New-Field -Key 'clients' -Label 'Apps clientes' `
+        -Value $(if ($missing.Count) { "$($missing.Count) disparue(s)" } else { "$(@($clients | Where-Object { $_.Session }).Count) en marche" }) `
+        -Kind 'text' -Status $clientStatus -Table $clientTable -Reason $clientReason -Guide $clientGuide `
+        -FixAction $(if ($missing.Count) { 'repair-tasks' } else { $null }) `
+        -Help "Une app cliente par compte : son battement de cœur dit qu'elle est là. Un compte sans session ouverte n'en a pas, et ce n'est pas un défaut."
 )
-$worst = if ($countStatus -eq 'error' -or $memoryStatus -eq 'error') { 'error' } elseif ($countStatus -eq 'warn') { 'warn' } else { 'ok' }
+$worst = if ($countStatus -eq 'error' -or $memoryStatus -eq 'error') { 'error' } elseif ($countStatus -eq 'warn' -or $clientStatus -eq 'warn') { 'warn' } else { 'ok' }
 New-ModuleObject -Id 'vigie-self' -Theme 'debug' -Label 'Processus de Vigie' -Status $worst -Fields $fields

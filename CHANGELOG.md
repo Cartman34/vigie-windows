@@ -818,6 +818,7 @@ versions, du point de vue de qui utilise Vigie.*
 - Les sept documents de `doc/en/developing/` encore écrits en français sont traduits en anglais : conventions, débogage,
   design, glossaire, modules, revue de sécurité, technologies.
 - `notes/answers.md` garde chaque réponse de l'utilisateur, et `scripts/dev/answers.ps1` la cherche avant toute question.
+- **Vigie surveille ses propres app clientes** : le battement de cœur de chaque app cliente dont la session est ouverte est lu à chaque calcul de la carte « Processus de Vigie » (90 ms) ; une qui cesse de battre est signalée avec sa durée de silence, et la disparition est consignée une seule fois dans `var/history/tray-vanished.jsonl` avec le jeu en cours. Le 28/09 l'app cliente d'un compte est partie en pleine partie sans une ligne — ni sortie propre, ni rapport d'erreur, ni vidage mémoire — et Vigie n'a plus rien mesuré jusqu'au lendemain sans le dire.
 - Le cliquet des noms (`check-naming.ps1`) lit enfin les **paramètres**, les **propriétés affectées** et quarante mots
   de plus : les 277 identifiants français comptés étaient en réalité 481, sans qu'un seul nom ait été ajouté. Après le
   renommage du lot, le plafond est de 450, et il ne remonte pas.

@@ -2779,6 +2779,137 @@ function Write-Log {
 # "arret du tray (ordre stop)", acknowledges, and leaves. Until 19/09 an update ended the tasks and killed what was
 # left: the client apps of Famille vanished seven times on 18/09 without one line saying why. Returns the accounts
 # whose app acknowledged; the forced stop that follows is left for the ones that did not answer. Never throws.
+<#
+    THE CLIENT APP THAT VANISHES WITHOUT A WORD -- SEEN, AND KEPT.
+
+    On 28/09 the client app of an account started at 19:50, reported itself well, and was gone around 20:22 without one
+    line: it did not leave through its own loop, which always logs its exit, and Windows kept nothing either, no
+    error, no report, no dump. From then on Vigie measured NOTHING until the next logon, in the middle of a game, and
+    said nothing about it afterwards. What is not watched is not known.
+
+    WHAT PROVES IT. The client app writes its heartbeat every eight seconds (var/run/tray.alive: process id, time,
+    state). A heartbeat that has stopped while the account's registry hive is still loaded -- which only happens during
+    its session -- is a client app that should be there and is not. No session, no expectation: that is not a fault.
+
+    WHAT IS KEPT. One line per disappearance in var/history/tray-vanished.jsonl, with the account, the last heartbeat,
+    the process id that stopped, and THE CONTEXT of the moment -- the game being played, if any. Recorded once per
+    disappearance, not once per reading. Vigie restarts nothing on its own: the card names it, the user decides.
+#>
+function Get-TrayHeartbeat {
+    param([Parameter(Mandatory)][string]$Account)
+    try {
+        $runDir = Get-AccountRunDir -Account $Account
+        if (-not $runDir) { return $null }
+        $file = Join-Path $runDir 'tray.alive'
+        if (-not (Test-PathSafe $file)) { return $null }
+        $raw = Get-Content -LiteralPath $file -Raw -Encoding UTF8 -ErrorAction Stop
+        $parts = "$raw".Trim() -split ';'
+        if ($parts.Count -lt 2) { return $null }
+        $at = ConvertTo-UtcDate $parts[1]
+        if (-not $at) { return $null }
+        return [pscustomobject]@{
+            ProcessId = [int]$parts[0]
+            At        = $at
+            State     = $(if ($parts.Count -ge 3) { "$($parts[2])" } else { '' })
+        }
+    } catch { return $null }
+}
+
+function Update-TrayWatch {
+    # HOW LONG BEFORE CONCLUDING: the heartbeat is every eight seconds, and a loaded machine can miss a few of them.
+    # Three minutes without a single beat is no longer lateness.
+    param([string]$Backend = (Get-BackendRoot), [int]$SilentMinutes = 3)
+    $rows = @()
+    $vanished = @()
+    $stateFile = Get-VarPath -Backend $Backend -Kind 'cache' -File 'tray-watch.json'
+    $known = @{}
+    try {
+        if (Test-PathSafe $stateFile) {
+            $raw = Get-Content -LiteralPath $stateFile -Raw -Encoding UTF8 -ErrorAction Stop
+            foreach ($pr in @((ConvertFrom-Json $raw).PSObject.Properties)) { $known["$($pr.Name)"] = "$($pr.Value)" }
+        }
+    } catch { }
+    $nowUtc = [datetime]::UtcNow
+    <#
+        NOT FROM THE LIST OF ACCOUNTS: establishing it costs two seconds (measured on 29/09), and this card is
+        recomputed often. From the OPEN SESSIONS instead -- a registry hive is only mounted during its owner's session
+        -- and then only the accounts that HAVE ALREADY had a client app here, the ones whose heartbeat file exists. An
+        account that never started Vigie has lost nothing, and neither has the service account.
+    #>
+    foreach ($hive in @(Get-UserRegistryRoots)) {
+        $name = ''
+        try {
+            $sid = $hive.Split([char]92)[-1]
+            $name = (New-Object System.Security.Principal.SecurityIdentifier($sid)).Translate(
+                        [System.Security.Principal.NTAccount]).Value.Split([char]92)[-1]
+        } catch { continue }
+        if (-not $name) { continue }
+        $hasSession = $true
+        $beat = Get-TrayHeartbeat -Account $name
+        if (-not $beat) { continue }
+        $silentMin = $(if ($beat) { [Math]::Floor(($nowUtc - $beat.At).TotalMinutes) } else { -1 })
+        $status = 'ok'
+        $said = ''
+        if ($silentMin -ge $SilentMinutes) {
+            $said = "Disparue, muette depuis " + $(if ($silentMin -ge 60) { "$([int][Math]::Floor($silentMin / 60)) h $($silentMin % 60) min" } else { "$silentMin min" })
+            $status = 'warn'
+            <#
+                ONCE PER DISAPPEARANCE, not once per reading: the key is the heartbeat that stopped.
+
+                That key is in TICKS, not in ISO 8601, and it matters: ConvertFrom-Json turns an ISO date into a
+                [datetime] (D44). Read back, it no longer compared to the string that had been written -- the
+                comparison always failed, and three readings in a row wrote the same disappearance three times
+                (measured on 29/09). A number reads back as a number.
+            #>
+            $key = "$($beat.At.Ticks)"
+            if ("$($known[$name])" -ne $key) {
+                $known[$name] = $key
+                $vanished += [pscustomobject]@{ Account = $name; Beat = $beat; Silent = $silentMin }
+            }
+        } else {
+            # The beat's own state is not repeated when it says what we already say: "En marche (En marche)".
+            $said = "En marche" + $(if ($beat.State -and $beat.State -ne 'En marche') { " ($($beat.State))" } else { '' })
+            if ("$($known[$name])") { $known.Remove($name) }
+        }
+        $rows += [pscustomobject]@{
+            Account   = $name
+            Session   = $hasSession
+            Said      = $said
+            Status    = $status
+            ProcessId = $(if ($beat) { $beat.ProcessId } else { 0 })
+            At        = $(if ($beat) { $beat.At } else { $null })
+        }
+    }
+    foreach ($v in $vanished) {
+        # THE CONTEXT OF THE MOMENT, or the line does not answer "why did it go?". The game being played first: that is
+        # when a disappearance costs the most, and that is when it happened.
+        $game = $null
+        try { $game = Get-GameModeName -Backend $Backend } catch { }
+        $entry = [ordered]@{
+            at      = $nowUtc.ToString('o')
+            account = $v.Account
+            lastAt  = $v.Beat.At.ToString('o')
+            pid     = $v.Beat.ProcessId
+            state   = $v.Beat.State
+            silent  = [int]$v.Silent
+            game    = $game
+        }
+        try {
+            $file = Get-VarPath -Backend $Backend -Kind 'history' -File 'tray-vanished.jsonl'
+            Add-HistoryLine -Path $file -Line ($entry | ConvertTo-Json -Depth 4 -Compress) | Out-Null
+            # GROWTH IS BOUNDED: a disappearance is rare, two hundred of them tell months.
+            $lines = @(Get-Content -LiteralPath $file -Encoding UTF8 -ErrorAction SilentlyContinue)
+            if ($lines.Count -gt 200) { Set-Content -LiteralPath $file -Value ($lines | Select-Object -Last 200) -Encoding UTF8 }
+            Write-Log -Backend $Backend -Name 'state' -Level 'WARN' -Message (
+                "app cliente disparue : $($v.Account), PID $($v.Beat.ProcessId), dernier battement " +
+                $v.Beat.At.ToLocalTime().ToString('dd/MM HH:mm:ss') +
+                $(if ($game) { ", jeu en cours : $game" } else { '' }))
+        } catch { }
+    }
+    try { Set-Content -LiteralPath $stateFile -Value (ConvertTo-Json $known -Depth 3 -Compress) -Encoding UTF8 } catch { }
+    return $rows
+}
+
 function Request-TrayStop {
     param([string]$Backend = (Get-BackendRoot), [int]$TimeoutSec = 10)
     $asked = @()
