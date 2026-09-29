@@ -2478,6 +2478,42 @@ function Get-ServerTroubleReasons {
     return $reasons
 }
 
+<#
+    IS THIS PROCESS OURS? Asked before anything is ever stopped.
+
+    Stopping was decided on ONE clue: whoever holds port 47600. Nothing said it was Vigie. A port is taken by the
+    first comer, so a program that grabbed 47600 before Vigie -- or after it died -- would have been killed by an
+    update, in silence. The owner's rule is absolute: nothing is stopped without his word, and the exception he
+    granted on 29/09 covers VIGIE'S OWN processes, so we must be able to prove it is one.
+
+    The proof is the command line: a PowerShell running a script that lives under our installation. An unreadable
+    command line proves nothing, so it answers NO -- and nothing is stopped.
+#>
+function Test-VigieProcess {
+    param([Parameter(Mandatory)][int]$ProcessId, [string]$Backend = (Get-BackendRoot))
+    if ($ProcessId -le 0) { return $false }
+    try {
+        $p = Get-CimInstance Win32_Process -Filter "ProcessId=$ProcessId" -ErrorAction Stop
+        if (-not $p) { return $false }
+        if ("$($p.Name)" -notin @('pwsh.exe', 'powershell.exe')) { return $false }
+        $line = "$($p.CommandLine)"
+        if (-not $line) { return $false }
+        # BOTH AT ONCE: our installation AND one of our scripts. The path alone is not enough -- it travels as an
+        # argument in command lines that are not ours at all, and a check that says yes too easily is worse than none.
+        $roots = @("$Backend".TrimEnd([char]92, [char]47))
+        try { $roots += (Split-Path $roots[0] -Parent) } catch { }
+        $under = $false
+        foreach ($root in @($roots | Where-Object { $_ })) {
+            if ($line -like ('*' + $root + '*')) { $under = $true; break }
+        }
+        if (-not $under) { return $false }
+        foreach ($ours in @('server.ps1', 'start.ps1', 'tray.ps1', 'protocol.ps1', '.worker.ps1', '.resident.ps1')) {
+            if ($line -like ('*' + $ours + '*')) { return $true }
+        }
+        return $false
+    } catch { return $false }
+}
+
 function Stop-ServerApp {
     param([string]$Backend = (Get-BackendRoot), [int]$Port = 0, [int]$TimeoutSec = 30)
     if (-not $Port) { $Port = [int](Get-Config -Backend $Backend).Port }
@@ -2485,7 +2521,14 @@ function Stop-ServerApp {
     try { Stop-ScheduledTask -TaskName (Get-ServiceTaskName) -ErrorAction SilentlyContinue } catch { }
     $held = Get-PortListener -Port $Port
     if ($held) {
-        try { Stop-Process -Id ([int]$held.OwningProcess) -Force -ErrorAction Stop } catch { }
+        $owner = [int]$held.OwningProcess
+        if (Test-VigieProcess -ProcessId $owner -Backend $Backend) {
+            try { Stop-Process -Id $owner -Force -ErrorAction Stop } catch { }
+        } else {
+            # NOT OURS, NOT OUR CALL. The port is taken by something else: we say it and we leave it alone.
+            try { Write-Log -Backend $Backend -Name 'state' -Level 'WARN' -Message (
+                    "port $Port tenu par le PID $owner, qui n'est pas un processus de Vigie : rien n'est arrete") } catch { }
+        }
     }
 
     $deadline = (Get-Date).AddSeconds($TimeoutSec)
@@ -2510,6 +2553,10 @@ function Start-ServerRelauncher {
     $c = Get-PortListener -Port $Port
     if ($c) { $target = [int]$c.OwningProcess }
     if (-not $target) { throw ("Aucune app serveur n'ecoute sur le port " + $Port + ".") }
+    # THE RELAUNCHER CARRIES THIS ID AND STOPS IT: it must be ours, or there is nothing to relaunch here.
+    if (-not (Test-VigieProcess -ProcessId $target -Backend $Backend)) {
+        throw ("Le port " + $Port + " est tenu par le PID " + $target + ", qui n'est pas un processus de Vigie : rien n'est arrete.")
+    }
 
     $pwsh = $null
     try { $pwsh = (Get-Process -Id $PID).Path } catch { }

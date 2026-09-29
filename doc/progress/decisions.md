@@ -3310,3 +3310,9 @@ la chaîne se nourrissait d'elle-même. Relevé :
 **Ce que cela ferme.** Un produit qui surveille un ordinateur ne peut pas être ce qui le met à genoux. Et la règle de
 réparation qui va avec : les processus de Vigie peuvent être arrêtés et relancés pour la réparer, sans demander à
 chaque fois — l'élévation nécessaire, elle, s'annonce toujours.
+
+**Et ce qui est arrêté doit être PROUVÉ à nous** (29/09, même lot). L'arrêt de l'app serveur visait « celui qui tient le
+port 47600 », sans rien vérifier d'autre : un programme quelconque ayant pris ce port avant Vigie aurait été tué par une
+mise à jour, en silence. `Test-VigieProcess` exige désormais deux choses à la fois — un PowerShell **et** une ligne de
+commande qui cite un de nos scripts sous notre installation. Une ligne de commande illisible ne prouve rien : elle
+répond non, et rien n'est arrêté.
