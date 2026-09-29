@@ -8612,6 +8612,15 @@ function Get-VigieTaskStructureAilment {
     if (-not $a) { return "la tâche ne lance rien" }
     $exe = "$($a.Execute)".Trim('"')
     if (-not $exe) { return "aucun interpréteur" }
+    <#
+        THE INTERPRETER IS NOT ALWAYS WHAT THE TASK EXECUTES. Since 29/09 a client app is started through
+        "conhost --headless <interpreter> ...", which is what keeps an empty terminal off the screen. The checks below
+        are about the INTERPRETER -- a MSIX package, a path inside a profile -- so that is what must be read, wherever
+        it sits. Reading conhost instead would have declared every one of those faults cured.
+    #>
+    if ((Split-Path $exe -Leaf) -ieq 'conhost.exe' -and "$($a.Arguments)" -match '--headless\s+"([^"]+)"') {
+        $exe = $Matches[1]
+    }
     if (-not (Test-Path -LiteralPath $exe)) { return "l'interpréteur n'existe plus : $exe" }
     # EXISTER NE SUFFIT PAS. Deux chemins sont valides a l'oeil et pourtant inutilisables :
     #   - un paquet MSIX (C:\Program Files\WindowsApps\...) n'est lancable que par les comptes

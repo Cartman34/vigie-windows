@@ -856,6 +856,28 @@ try {
         Close-UiStep   # meme raison : il affiche ses propres etapes
         & (Get-Process -Id $PID).Path @argsAuto
         $autostartCode = $LASTEXITCODE
+        <#
+            THE LAUNCH LINE BELONGS TO EVERY ACCOUNT, NOT ONLY TO WHOEVER ASKED.
+
+            A client app's task carries HOW it is started, and that changed on 29/09: it goes through a headless
+            console now, so that no empty terminal shows up at logon and no flash steals the focus during a
+            deployment. Rewriting only the requester's task would have left the other accounts with the old line
+            until someone installed from there -- that is, on Famille, never.
+
+            A task is re-registered, not repaired: Register-ScheduledTask -Force writes the whole definition, and it
+            is idempotent by construction. What it cannot do -- an account that is not allowed a client app -- the
+            script itself refuses, as it always has.
+        #>
+        foreach ($autre in @(Get-EnabledAccounts -Backend $backend | ForEach-Object { "$($_.name)" })) {
+            if (-not $autre -or ($Requester -and $autre -ieq $Requester)) { continue }
+            try {
+                $argsAutre = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $autostart, '-Yes', '-Account', $autre)
+                & (Get-Process -Id $PID).Path @argsAutre | Out-Null
+                Write-Log -Backend $backend -Name 'install' -Message ("demarrage automatique reecrit pour " + $autre + " (code " + $LASTEXITCODE + ")")
+            } catch {
+                Write-Log -Backend $backend -Name 'install' -Level 'WARN' -Message ("demarrage automatique, compte " + $autre + " : " + $_.Exception.Message)
+            }
+        }
         Write-Log -Backend $backend -Name 'install' -Message (Get-Label 'install.demarrage-automatique-code' $autostartCode)
         switch ([int]$autostartCode) {
             0 { Write-Ok (Get-Label 'install.vigie-demarre-chaque-ouverture') }
