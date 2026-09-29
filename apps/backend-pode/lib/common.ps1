@@ -5189,11 +5189,16 @@ function Update-WslUsage {
         if ("$($held.resource)" -eq 'machine') { return $null }
     }
     $path = Get-WslUsagePath -Backend $Backend
+    <#
+        THE GATE IS READ IN TICKS, and it is the third time today that this matters: ConvertFrom-Json turns an ISO
+        date back into a [datetime], whose string form is then local and no longer parses (D44). Read as text, the
+        gate never held and a client app was asked every thirty seconds instead of every hour -- seen in its log.
+    #>
     try {
         if (Test-PathSafe $path) {
             $j = Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json
-            $at = ConvertTo-UtcDate "$($j.at)"
-            if ($at -and ([datetime]::UtcNow - $at).TotalMinutes -lt $EveryMinutes) { return $null }
+            $ticks = [long]$j.atTicks
+            if ($ticks -and ([datetime]::UtcNow - [datetime]$ticks).TotalMinutes -lt $EveryMinutes) { return $null }
         }
     } catch { }
     # A CLIENT APP THAT BEATS, and nothing else: an account with no session has no WSL to look at either.
@@ -5204,6 +5209,7 @@ function Update-WslUsage {
     if (-not $answer -or -not $answer.result -or -not $answer.result.ok) { return $null }
     $entry = [ordered]@{
         at            = ([datetime]::UtcNow).ToString('o')
+        atTicks       = ([datetime]::UtcNow).Ticks
         account       = "$($account[0].Account)"
         distributions = @($answer.result.distributions)
     }
