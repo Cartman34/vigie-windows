@@ -19,4 +19,15 @@
            Droits = 'admin'; Critique = $false
            Help = 'Le verrou de Windows Update n''est plus en place.' }
     )
+
+    # SCHEDULED COMPUTATIONS (D124/D125). Measured 29/09: the pending list costs 10 s, and it is Windows' own offline
+    # search that costs it -- twice in a row, in the same session, it costs the same. So it is never paid inside a
+    # request: the server computes it in the background, four times a day, and everyone reads what is written.
+    # The lock card fell from 8 417 ms to 1 077 ms the same day, so half an hour costs nothing.
+    Refresh = @(
+        @{ Key = 'pending'; Probe = 'pending.probe.ps1'; Cards = @('wu-pending')
+           Seconds = @{ default = 21600 }; MaxSeconds = 120 }
+        @{ Key = 'lock'; Probe = 'lock.probe.ps1'; Cards = @('wu-lock')
+           Seconds = @{ default = 1800 }; MaxSeconds = 60 }
+    )
 }
