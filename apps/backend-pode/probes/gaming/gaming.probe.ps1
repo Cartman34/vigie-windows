@@ -70,6 +70,16 @@ public static extern int GetSystemMetrics(int i);
 } catch { }
 
 # --- Instantane 1 : CPU + E/S cumulees ---------------------------------------
+<#
+    LA FENETRE DE MESURE COMMENCE ICI, avant le premier instantane, et pas apres.
+
+    Elle demarrait apres : le temps processeur d'un processus etait donc compte sur
+    (fin du premier instantane + attente + debut du second), mais divise par la seule
+    attente. Tout etait gonfle du temps de parcours des six cents processus -- la carte a
+    annonce le 29/09 une pointe de 121,7 % pour un jeu, ce qu'aucun processus ne peut
+    atteindre : 100 % veut dire « tous les coeurs ».
+#>
+$t0 = Get-Date
 $coeurs = [Math]::Max(1, [int]$env:NUMBER_OF_PROCESSORS)
 $avantCpu = @{}
 foreach ($p in (Get-Process -ErrorAction SilentlyContinue)) {
@@ -98,7 +108,6 @@ try {
     [void]$pdh.Collect()
 } catch { $pdh = $null }
 
-$t0 = Get-Date
 Start-Sleep -Milliseconds 900
 
 # --- GPU and VRAM per process ---------------------------------------------------
@@ -151,7 +160,7 @@ foreach ($p in (Get-Process -ErrorAction SilentlyContinue)) {
         try { $chemin = $p.Path } catch { }
         $procs[$p.Id] = [pscustomobject]@{
             Id = $p.Id; Name = $p.ProcessName; Path = $chemin
-            Cpu    = [Math]::Round([Math]::Max(0.0, $cpu), 1)
+            Cpu    = [Math]::Round([Math]::Min(100.0, [Math]::Max(0.0, $cpu)), 1)
             Gpu    = [Math]::Round([Math]::Min(100.0, [double]($gpuParPid[$p.Id])), 1)
             VramGb = [Math]::Round([double]($vramParPid[$p.Id]) / 1GB, 2)
             RamGb  = [Math]::Round($(if ($memoryUse.ContainsKey($p.Id)) { $memoryUse[$p.Id].Ram } else { 0.0 }) / 1GB, 2)

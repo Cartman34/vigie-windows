@@ -637,6 +637,10 @@
   .hds-alerte.danger{color:var(--err);background:var(--err-bg);border:1px solid var(--err)}
   @keyframes hds-fade{from{opacity:0}to{opacity:1}}
   .hds-dialog{background:var(--panel);border:1px solid var(--border);border-radius:12px;max-width:520px;width:100%;box-shadow:0 12px 44px rgba(0,0,0,.55);animation:hds-pop .14s ease}
+  /* LARGE : pour ce qui porte un tableau. 520 px serraient le récapitulatif de partie, six colonnes
+     repliées sur deux lignes chacune (signalé le 29/09). On s'arrête à 880 px, jamais plus que l'écran. */
+  .hds-dialog--large{max-width:min(880px, 94vw)}
+  .hds-dialog--large .hds-dialog-body{max-height:70vh}
   @keyframes hds-pop{from{transform:translateY(6px) scale(.98);opacity:.5}to{transform:none;opacity:1}}
   .hds-dialog-head{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);font-weight:700}
   .hds-dialog-ic{width:22px;height:22px;flex:0 0 auto;display:none;align-items:center;justify-content:center;border-radius:50%;font-size:13px;font-weight:800}
@@ -2139,7 +2143,7 @@ async function openSessionRecap(startedAt){
   catch(e){ HDS.info('Récapitulatif', 'Vigie n\'a pas répondu : '+e.message, {variant:'warn'}); return; }
   const session = j && j.result && j.result.session;
   if(!session){ HDS.info('Récapitulatif', (j && j.message) || 'Aucune partie gardée.', {variant:'info'}); return; }
-  HDS.open({ title:'Récapitulatif — '+session.game, variant:'info', html:recapHtml(session),
+  HDS.open({ title:'Récapitulatif — '+session.game, variant:'info', large:true, html:recapHtml(session),
              actions:[{ label:'Parties précédentes', value:'sessions' }, { label:'Fermer', kind:'primary', value:'close', default:true }] })
     .then(v=>{ if(v==='sessions') openPastSessions(); });
 }
@@ -2235,7 +2239,8 @@ const HDS = (function(){
     else if(alerte){ const t=document.createElement('div'); t.textContent=opts.body||'';
                      elBody.innerHTML = alerte; elBody.appendChild(t); }
     else { elBody.textContent = opts.body||''; }
-    dlg.className='hds-dialog hds-dialog--'+variant+(opts.icon===false?'':' has-ic');
+    // `large` : la popin s'élargit pour ce qui porte un tableau, sans changer le reste.
+    dlg.className='hds-dialog hds-dialog--'+variant+(opts.large?' hds-dialog--large':'')+(opts.icon===false?'':' has-ic');
     back.classList.toggle('haut', opts.placement==='haut');
     elIc.textContent=ICON[variant]||'i';
     elX.style.display=(opts.dismissable===false)?'none':'';
