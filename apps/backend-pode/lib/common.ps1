@@ -10160,6 +10160,41 @@ function Get-UnitsLocalPath { Get-UserConfigPath -File 'modules.local.psd1' -Acc
 # peut naitre ETEINT (module.psd1 : DefautActif = $false), et il faut alors savoir si
 # l'utilisateur l'a allume pour de bon ou s'il n'a simplement jamais eu d'avis.
 function Get-EnabledUnits {
+    <#
+        A MODULE ONE ACCOUNT HAS TURNED ON IS COMPUTED, whoever asks -- and that includes nobody.
+
+        This choice lives in the profile of whoever made it. The scheduler, which computes without anyone asking, has
+        no requester: it read the service account's file, found nothing, fell back on the module's default and left
+        the module out. Measured on 30/09: the two computations of the Debogage module -- turned on months earlier --
+        had NEVER been started once, while both their cards were displayed as if they were fresh.
+
+        So the answer is the union: every account's choice is read, and one "yes" is enough. Computing serves whoever
+        looks, and it cannot depend on who happens to be looking.
+    #>
+    <#
+        READ FROM THE PROFILES THEMSELVES, not from the list of accounts: establishing that list costs two seconds
+        (measured 29/09) and this is asked once per module. A file that exists is an account that has an opinion.
+        Kept for thirty seconds, because Get-InactiveUnits asks it ten times in a row.
+    #>
+    $nowTicks = [datetime]::UtcNow.Ticks
+    if ($script:EnabledUnitsAt -and (($nowTicks - [long]$script:EnabledUnitsAt) / 1e7) -lt 30) {
+        return @($script:EnabledUnitsCache)
+    }
+    $found = @()
+    $seen = $false
+    try {
+        $users = Join-Path $env:SystemDrive 'Users'
+        foreach ($dir in @(Get-ChildItem -LiteralPath $users -Directory -ErrorAction SilentlyContinue)) {
+            $p = Join-Path $dir.FullName 'AppData\Local\Sowapps\Vigie\modules.local.psd1'
+            if (-not (Test-PathSafe $p)) { continue }
+            try { $found += @((Import-PowerShellDataFile -Path $p).Enabled | ForEach-Object { "$_" }); $seen = $true } catch { }
+        }
+    } catch { }
+    if ($seen) {
+        $script:EnabledUnitsCache = @($found | Where-Object { $_ } | Select-Object -Unique)
+        $script:EnabledUnitsAt = $nowTicks
+        return @($script:EnabledUnitsCache)
+    }
     foreach ($p in @((Get-UnitsLocalPath), (Get-MachineConfigPath -File 'modules.local.psd1'))) {
         if (Test-Path -LiteralPath $p) {
             try { return @((Import-PowerShellDataFile -Path $p).Enabled | ForEach-Object { "$_" }) } catch { return @() }
