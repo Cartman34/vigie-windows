@@ -5589,9 +5589,21 @@ function Invoke-RefreshPass {
         $due += [pscustomobject]@{ D = $d; Overdue = $since - $interval }
     }
 
-    # 3. THE MOST OVERDUE FIRST, up to the limit.
+    <#
+        3. THE MOST OVERDUE FIRST, up to the limit -- AND A TIE IS BROKEN, NEVER LEFT TO CHANCE.
+
+        A computation that has never run has no last start, so its lateness is infinite. On a fresh state that is
+        true of EVERY declaration at once, and Sort-Object gives no order to equal values: three were picked out of
+        fifteen, arbitrarily, and the same ones kept being picked. Measured on 30/09, on this computer: the two
+        computations of the Debogage module had NEVER been started since the scheduler exists -- no entry, no
+        failure, nothing to see. Their cards had been showing a measure 29 hours and 10 days old, as if fresh.
+
+        The key breaks the tie. It is stable, it is ours, and after one pass every declaration has a real timestamp,
+        so the order goes back to being decided by lateness alone.
+    #>
     $started = @()
-    foreach ($item in @($due | Sort-Object Overdue -Descending)) {
+    foreach ($item in @($due | Sort-Object @{ Expression = { $_.Overdue }; Descending = $true },
+                                            @{ Expression = { $_.D.Key };  Descending = $false })) {
         if ([int]$cfg.MaxParallel -gt 0 -and $running -ge [int]$cfg.MaxParallel) { break }
         $d = $item.D
         # NOT $pid: PowerShell owns that name and refuses to have it written to.
@@ -5601,7 +5613,33 @@ function Invoke-RefreshPass {
                         -Script (Join-Path $Backend 'workers/refresh.worker.ps1') `
                         -ArgsMap @{ key = $d.Key; probe = $d.Probe }
         } catch { }
-        if (-not $childPid) { continue }
+        <#
+            A REFUSED LAUNCH IS A FAILURE OF THE COMPUTATION, and it is counted as one.
+
+            It used to be a bare "continue": nothing written, no entry, no failure, no trace. The card then froze for
+            ever while the state stayed silent -- and, worse, a computation that has never started is the latest of
+            all, so it came back first at every pass and was refused again. A silent refusal that repeats for ever is
+            the shape this very scheduler was written to prevent (D125).
+
+            Counted as a failure, it takes the doubling delay like the others: it stops being the oldest, it stops
+            holding the first place, and the card says it.
+        #>
+        if (-not $childPid) {
+            $entry = $state[$d.Key]
+            if (-not $entry) { $entry = @{ fails = 0 } }
+            $cfgFail = Get-RefreshConfig -Backend $Backend
+            $entry.fails = [int]$entry.fails + 1
+            $wait = [Math]::Min([int]$cfgFail.FailBackoffSeconds * [Math]::Pow(2, [int]$entry.fails - 1), [int]$cfgFail.FailBackoffMaxSeconds)
+            $entry.nextAt = [datetime]::UtcNow.AddSeconds($wait).Ticks
+            $entry.lastError = 'le lancement a été refusé (plafond de tâches de fond, ou démarrage impossible)'
+            $state[$d.Key] = $entry
+            Update-RefreshState -Backend $Backend -Key $d.Key -Entry $entry
+            try {
+                Write-Log -Backend $Backend -Name 'state' -Level 'ERROR' -Message (
+                    "planifie : " + $d.Key + " n'a pas pu demarrer (" + $entry.fails + ") ; prochaine tentative dans " + [int]$wait + " s")
+            } catch { }
+            continue
+        }
         $entry = $state[$d.Key]
         if (-not $entry) { $entry = @{ fails = 0 } }
         $entry.pid = [int]$childPid
