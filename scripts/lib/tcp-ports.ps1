@@ -263,3 +263,34 @@ function Get-EphemeralPortUsage {
     $owners = @(for ($i = 1; $i + 1 -lt $raw.Count; $i += 2) { [pscustomobject]@{ ProcessId = $raw[$i]; Count = $raw[$i + 1] } })
     return [pscustomobject]@{ Used = $raw[0]; Limit = $Count; ByProcess = @($owners | Sort-Object Count -Descending) }
 }
+
+<#
+    EVERY EPHEMERAL PORT REALLY HELD, BOUND SOCKETS INCLUDED -- and it costs 1,5 s, so it is asked rarely.
+
+    Get-EphemeralPortUsage above reads the CONNECTION tables (GetExtendedTcpTable). A socket merely BOUND to a port --
+    bind() called, neither listening nor connected -- holds that port and appears in none of them. Measured on
+    30/09/2026: 128 counted against 381 distinct ephemeral ports really held, 335 of them bound, of which 244 belonged
+    to a single process, WSL's network host. The cheap gauge said 1 % while a third of the visible table was invisible
+    to it.
+
+    Get-NetTCPConnection does see them, through the Network Store Interface, and costs 1,5 s measured -- fifty times
+    the cheap reading. It is THE reason this function exists apart: the caller must choose to pay, knowingly, and only
+    when there is something to learn. check-probes lets the call pass in this file alone, and nowhere else.
+#>
+function Get-HeldEphemeralPorts {
+    param([Parameter(Mandatory)][int]$Start)
+    $rows = $null
+    try { $rows = @(Get-NetTCPConnection -ErrorAction Stop | Where-Object { $_.LocalPort -ge $Start }) } catch { return $null }
+    $byProcess = @()
+    foreach ($g in @($rows | Group-Object OwningProcess | Sort-Object Count -Descending)) {
+        $byProcess += [pscustomobject]@{
+            ProcessId = [int]$g.Name
+            Count     = $g.Count
+            States    = (@($g.Group | Group-Object State | ForEach-Object { "$($_.Name)=$($_.Count)" }) -join ' ')
+        }
+    }
+    return [pscustomobject]@{
+        Held      = @($rows | Select-Object -ExpandProperty LocalPort -Unique).Count
+        ByProcess = $byProcess
+    }
+}

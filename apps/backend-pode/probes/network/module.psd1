@@ -11,6 +11,10 @@
     Config = @{
         LatencyWarnMs  = 80    # au-dela : latence moyenne (warn)
         LatencyErrorMs = 200   # au-dela : latence penible (error)
+        # THE PORT WATCH: reading costs 2,8 ms, so it happens at every pass; WRITING is what is rationed. Nothing is
+        # kept while the reserve is idle -- at 1 % occupancy a line every thirty seconds teaches no one anything.
+        PortWatchPercent = 50   # on ecrit des que l'occupation atteint cette part
+        PortWatchAfterMinutes = 15   # et pendant ce delai apres une plainte de Windows (Tcpip 4231/4266)
     }
 
     Parameters = @(
@@ -18,6 +22,10 @@
            Help = 'Au-delà de ce délai d''aller-retour, la latence passe en avertissement.' }
         @{ Key = 'LatencyErrorMs'; Label = 'Latence pénible dès'; Type = 'int'; Unit = 'ms'; Min = 100; Max = 1000; Step = 25
            Help = 'Au-delà de ce délai, la latence passe en erreur : jeu en ligne et visio pénibles.' }
+        @{ Key = 'PortWatchPercent'; Label = 'Noter les ports dès'; Type = 'int'; Unit = '%'; Min = 10; Max = 100; Step = 5
+           Help = 'Au-delà de cette part des ports réseau temporaires occupés, Vigie note l''occupation et les processus qui en tiennent le plus. 100 ne note plus rien hors incident.' }
+        @{ Key = 'PortWatchAfterMinutes'; Label = 'Noter les ports après une plainte pendant'; Type = 'int'; Unit = 'min'; Min = 0; Max = 120; Step = 5
+           Help = 'Après un événement « Ports réseau épuisés » de Windows, Vigie note l''occupation à chaque passage pendant ce délai, quel que soit le seuil. 0 désactive.' }
     )
 
     # SENTINELLES (CORE-WATCH) : les releves bon marche que l'app serveur execute en

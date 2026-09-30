@@ -516,18 +516,9 @@ if ($measAt) {
 # of every application fails: 85 exhaustions were logged from 06/07 to 17/09, the last one while Vigie showed only
 # "server unreachable". The range is read with netsh (0.2 s), so it is kept an hour, and again after each start of
 # Windows; the ports in use are read directly from Windows in about 20 ms (scripts/lib/tcp-ports.ps1).
-$rangeFile = Get-VarPath -Backend $backend -Kind 'cache' -File 'dynamic-ports.json'
-$bootAt = [long][DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - [long]([Environment]::TickCount64 / 1000)
-$ranges = $null
-if (Test-Path $rangeFile) { try { $ranges = Get-Content $rangeFile -Raw | ConvertFrom-Json } catch { } }
-if (-not $ranges -or -not $ranges.tcp -or -not $ranges.udp -or [math]::Abs([long]$ranges.bootAt - $bootAt) -gt 120 -or ($nowT - [long]$ranges.readAt) -gt 3600) {
-    $tcpRange = Get-EphemeralPortRange -Protocol 'tcp'
-    $udpRange = Get-EphemeralPortRange -Protocol 'udp'
-    if ($tcpRange -and $udpRange) {
-        $ranges = [pscustomobject]@{ bootAt = $bootAt; readAt = $nowT; tcp = [pscustomobject]$tcpRange; udp = [pscustomobject]$udpRange }
-        try { Update-StateJson -Path $rangeFile -Set @{ bootAt = $bootAt; readAt = $nowT; tcp = $tcpRange; udp = $udpRange } | Out-Null } catch { }
-    }
-}
+# The range and its cache live in Get-EphemeralPortRanges: the permanent watch reads it too, and one reading has one
+# definition (D15). It used to be written out here, where only this card could see it.
+$ranges = Get-EphemeralPortRanges -Backend $backend
 $portsStatus = 'neutral'
 $portsValue = 'Plage inconnue'
 $portsTable = $null

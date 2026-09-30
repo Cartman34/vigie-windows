@@ -111,6 +111,33 @@ distribution n'a que cinq écoutes.
 
 Ce qui provoque les paquets de huit n'est donc **pas identifié** : il faudra prendre une rafale sur le fait.
 
+## 7. Et la jauge de Vigie ne voyait pas ces ports-là
+
+Mesuré le 30/09, au même instant : `Get-EphemeralPortUsage` comptait **128** ports pendant que la machine en
+tenait **381 distincts**, dont **335 « Bound »**. La lecture rapide passe par `GetExtendedTcpTable`, qui liste les
+**connexions** ; une prise de port sans connexion — `bind()` appelé, ni écoute ni connexion — n'y figure pas.
+
+C'est exactement la forme de la fuite : les 244 ports de l'hôte réseau de WSL étaient **invisibles à la jauge**.
+La carte annonçait 1 % en ignorant le tiers de ce que la machine tenait vraiment.
+
+`Get-NetTCPConnection` les voit, et coûte **1,5 s** — cinquante fois la lecture rapide. D'où le partage retenu :
+la jauge bon marché à chaque passage, la lecture complète **seulement quand on a décidé d'écrire**.
+
+## Ce qui est en place depuis le 30/09
+
+`Invoke-PortWatch`, dans la boucle de veille :
+
+- **lit** à chaque passage — 15 ms, la plage étant gardée une heure (`Get-EphemeralPortRanges`, partagé avec la carte) ;
+- **n'écrit rien** tant que l'occupation reste sous `PortWatchPercent` (50 % par défaut) et que Windows ne s'est pas plaint ;
+- **écrit** au seuil, ou pendant les `PortWatchAfterMinutes` (15) qui suivent un 4231/4266, un point dans
+  `var/history/net.ports/` : l'occupation, les cinq plus gros porteurs de la jauge, et **la lecture complète** avec
+  les états — c'est elle qui nomme `dllhost` et ses 249 ports liés ;
+- le journal d'événements est relu **au plus toutes les cinq minutes**, la réponse étant gardée : il coûte plus cher
+  que ce qu'il garde.
+
+Coût : **15 ms** par passage ordinaire, **2,1 s** pour un passage qui écrit — au plus une trentaine par jour, et
+seulement les jours où il se passe quelque chose.
+
 ## Ce qui reste à trancher
 
 - **Historiser l'occupation des ports** comme les autres mesures, pour que la carte puisse dire ce qu'elle valait

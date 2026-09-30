@@ -5324,6 +5324,144 @@ function Invoke-DiskWatch {
 }
 
 <#
+    THE EPHEMERAL RANGE OF BOTH PROTOCOLS, READ ONCE AN HOUR AND AFTER EACH START OF WINDOWS.
+
+    Get-EphemeralPortRange runs netsh, which is a process to start: 200 ms per protocol, measured, against 3 ms for
+    reading the ports in use. Asking it at every pass of the watch would make the range cost a hundred times what it
+    guards. It changes at a setting or a restart, so an hour is generous.
+
+    This was written inside net.probe.ps1 and is now shared with the port watch: one reading, one definition (D15).
+#>
+function Get-EphemeralPortRanges {
+    param([string]$Backend = (Get-BackendRoot))
+    $file = Get-VarPath -Backend $Backend -Kind 'cache' -File 'dynamic-ports.json'
+    $nowT = [long][DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+    $bootAt = $nowT - [long]([Environment]::TickCount64 / 1000)
+    $ranges = $null
+    if (Test-PathSafe $file) { try { $ranges = Get-Content -LiteralPath $file -Raw -Encoding UTF8 | ConvertFrom-Json } catch { } }
+    if ($ranges -and $ranges.tcp -and $ranges.udp -and
+        [math]::Abs([long]$ranges.bootAt - $bootAt) -le 120 -and ($nowT - [long]$ranges.readAt) -le 3600) {
+        return $ranges
+    }
+    $tcp = Get-EphemeralPortRange -Protocol 'tcp'
+    $udp = Get-EphemeralPortRange -Protocol 'udp'
+    if (-not $tcp -or -not $udp) { return $ranges }
+    try { $null = Update-StateJson -Path $file -Set @{ bootAt = $bootAt; readAt = $nowT; tcp = $tcp; udp = $udp } } catch { }
+    return [pscustomobject]@{ bootAt = $bootAt; readAt = $nowT; tcp = [pscustomobject]$tcp; udp = [pscustomobject]$udp }
+}
+
+<#
+    THE EPHEMERAL PORTS, WATCHED WHERE THEY EMPTY -- and written only when there is something to read.
+
+    Why: Windows logs "all ephemeral ports are in use" (Tcpip 4231/4266) 75 times since 25/07 on this computer, and
+    two identical events are never closer than six hours -- it suppresses the repeats, so the count is a floor, not a
+    total. By the time anyone reads the card, the reserve is back to 1 % and the table names processes that had
+    nothing to do with it. The card's advice -- close the one holding the most -- was therefore unusable.
+
+    What this does: READS at every pass, which costs 2,8 ms measured for TCP and UDP together, and WRITES only when
+    the occupancy reaches PortWatchPercent, or during the PortWatchAfterMinutes that follow one of those events.
+    While the reserve is idle, not one line is written: a point every thirty seconds saying "1 %" teaches no one
+    anything and fills the disk of the machine whose disk we watch.
+
+    The event log is re-read at most every five minutes, and the answer kept: Get-WinEvent costs far more than the
+    port reading it guards, so asking it thirty times a minute would cost more than the whole watch.
+#>
+function Invoke-PortWatch {
+    param([string]$Backend = (Get-BackendRoot))
+    $percent = 50
+    $afterMin = 15
+    try { $percent = [int](Get-ModuleSetting -Unit 'network' -Key 'PortWatchPercent' -Backend $Backend) } catch { }
+    try { $afterMin = [int](Get-ModuleSetting -Unit 'network' -Key 'PortWatchAfterMinutes' -Backend $Backend) } catch { }
+
+    $ranges = $null
+    try { $ranges = Get-EphemeralPortRanges -Backend $Backend } catch { }
+    if (-not $ranges -or -not $ranges.tcp -or -not $ranges.udp) { return $null }
+    $usage = @{}
+    $worst = 0
+    foreach ($proto in 'tcp', 'udp') {
+        $range = $ranges.$proto
+        $u = $null
+        try { $u = Get-EphemeralPortUsage -Protocol $proto -Start ([int]$range.Start) -Count ([int]$range.Count) } catch { }
+        if (-not $u -or $u.Limit -le 0) { continue }
+        $usage[$proto] = $u
+        $pct = [int][math]::Round(100.0 * $u.Used / $u.Limit)
+        if ($pct -gt $worst) { $worst = $pct }
+    }
+    if (-not $usage.Count) { return $null }
+
+    # THE LAST COMPLAINT OF WINDOWS, asked at most every five minutes and kept in between.
+    $statePath = Get-VarPath -Backend $Backend -Kind 'cache' -File 'port-watch.json'
+    $nowUtc = [datetime]::UtcNow
+    $askedTicks = 0
+    $eventTicks = 0
+    try {
+        if (Test-PathSafe $statePath) {
+            $j = Get-Content -LiteralPath $statePath -Raw -Encoding UTF8 | ConvertFrom-Json
+            $askedTicks = [long]$j.askedAt
+            $eventTicks = [long]$j.eventAt
+        }
+    } catch { }
+    if ($afterMin -gt 0 -and (-not $askedTicks -or ($nowUtc - [datetime]$askedTicks).TotalMinutes -ge 5)) {
+        try {
+            $last = @(Get-WinEvent -FilterHashtable @{ LogName = 'System'; ProviderName = 'Tcpip'; Id = 4231, 4266
+                                                       StartTime = $nowUtc.ToLocalTime().AddMinutes(-($afterMin + 10)) } -ErrorAction Stop |
+                      Sort-Object TimeCreated -Descending | Select-Object -First 1)
+            if ($last.Count) { $eventTicks = $last[0].TimeCreated.ToUniversalTime().Ticks }
+        } catch { }
+        $askedTicks = $nowUtc.Ticks
+        try { $null = Update-StateJson -Path $statePath -Set @{ askedAt = $askedTicks; eventAt = $eventTicks } } catch { }
+    }
+    $afterComplaint = ($afterMin -gt 0 -and $eventTicks -and ($nowUtc - [datetime]$eventTicks).TotalMinutes -le $afterMin)
+
+    # NOTHING TO SAY: the reserve is idle and Windows has not complained. We read, we keep nothing.
+    if (-not $afterComplaint -and ($percent -ge 100 -or $worst -lt $percent)) { return $null }
+
+    <#
+        AND HERE, AND ONLY HERE, THE COMPLETE READING -- the one that costs.
+
+        The cheap gauge above comes from GetExtendedTcpTable, which lists the CONNECTIONS. A socket merely BOUND to a
+        port -- bind() called, neither listening nor connected -- holds that port and appears in none of those tables.
+        Measured on 30/09: 128 counted against 381 distinct ephemeral ports really held, 335 of them bound. The
+        difference is not noise, it is the whole phenomenon: WSL's network host alone held 244 bound ports that Vigie
+        could not see, while the card announced 1 %.
+
+        Get-NetTCPConnection does see them, and costs 1,5 s -- fifty times the cheap reading. It is therefore taken
+        only when we have decided there is something to write: at the threshold, or in the minutes that follow a
+        complaint from Windows. The rest of the time nobody pays for it.
+    #>
+    $boundTop = @()
+    $distinct = 0
+    $held = $null
+    try { $held = Get-HeldEphemeralPorts -Start ([int]$ranges.tcp.Start) } catch { }
+    if ($held) {
+        $distinct = [int]$held.Held
+        foreach ($o in @($held.ByProcess | Select-Object -First 5)) {
+            $pn = "$((Get-Process -Id $o.ProcessId -ErrorAction SilentlyContinue).ProcessName)"
+            if (-not $pn) { $pn = "pid $($o.ProcessId)" }
+            $boundTop += @{ n = $pn; pid = [int]$o.ProcessId; c = [int]$o.Count; s = "$($o.States)" }
+        }
+    }
+
+    $point = [ordered]@{ t = $nowUtc.ToString('o'); v = $worst; why = $(if ($afterComplaint) { 'plainte' } else { 'seuil' }) }
+    if ($distinct) { $point.held = $distinct; $point.holders = $boundTop }
+    foreach ($proto in 'tcp', 'udp') {
+        if (-not $usage[$proto]) { continue }
+        $holders = @()
+        foreach ($o in @($usage[$proto].ByProcess | Select-Object -First 5)) {
+            $name = if ($o.ProcessId -eq 0) { 'TIME_WAIT' } else {
+                $pn = "$((Get-Process -Id $o.ProcessId -ErrorAction SilentlyContinue).ProcessName)"
+                if (-not $pn) { $pn = "pid $($o.ProcessId)" }
+                $pn
+            }
+            $holders += @{ n = $name; pid = [int]$o.ProcessId; c = [int]$o.Count }
+        }
+        $point[$proto] = @{ used = [int]$usage[$proto].Used; limit = [int]$usage[$proto].Limit; top = $holders }
+    }
+    try { $null = Write-HistoryPoint -Backend $Backend -MeasureId 'net.ports' -Point ([pscustomobject]$point) } catch { }
+    return [pscustomobject]@{ Percent = $worst; AfterComplaint = $afterComplaint }
+}
+
+<#
     DUE NOW. An action that changes something invalidates the cards it changed, and those cards must not then wait
     for their interval -- up to an hour for some. Invalidating therefore also tells the scheduler, which picks them
     up at its next pass, thirty seconds at most.
@@ -5568,6 +5706,8 @@ function Invoke-WatchPass {
     try { $null = Invoke-DiskWatch -Backend $Backend } catch { }
     # AND WHAT WSL HOLDS INSIDE, which only a session can see.
     try { $null = Update-WslUsage -Backend $Backend } catch { }
+    # AND THE EPHEMERAL PORTS, read every pass, written only when they fill or right after Windows complains.
+    try { $null = Invoke-PortWatch -Backend $Backend } catch { }
     return $events
 }
 

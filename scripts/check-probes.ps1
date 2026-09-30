@@ -623,6 +623,10 @@ foreach ($d in @('apps', 'scripts')) {
     if (-not (Test-Path -LiteralPath $rootDir)) { continue }
     foreach ($f in (Get-ChildItem -LiteralPath $rootDir -Recurse -File -Include '*.ps1' -ErrorAction SilentlyContinue)) {
         if ($f.FullName -like ('*' + [IO.Path]::DirectorySeparatorChar + 'var' + [IO.Path]::DirectorySeparatorChar + '*')) { continue }
+        # THE ONE DOOR. scripts/lib/tcp-ports.ps1 owns port reading: the cheap gauge AND, in Get-HeldEphemeralPorts,
+        # the complete one that alone sees the BOUND sockets and alone costs 1,5 s. Forbidding the call there would
+        # forbid the reading altogether; letting it pass anywhere else would lose the cost. One door, and it is named.
+        if ($f.Name -eq 'tcp-ports.ps1') { continue }
         $i = 0
         $inBlockComment = $false
         foreach ($line in (Get-Content -LiteralPath $f.FullName -Encoding UTF8 -ErrorAction SilentlyContinue)) {
