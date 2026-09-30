@@ -24,10 +24,16 @@
         # chargeur qui ne suit pas.
         ChargeSlowW   = 10   # puissance de charge (W) sous laquelle la charge est jugee trop lente
         BatteryLowPct = 20   # charge restante (%) sous laquelle la batterie est signalee basse
+        # A FACT FROM THE LOG STOPS BEING HIGHLIGHTED (D127). Past this delay it stays in the detail, findable, but
+        # carries the card's status no longer -- a blue screen included. What is CONFIRMED to be still happening
+        # carries it whatever its age, and what the measure DENIES never carries it. 0 declasses nothing.
+        EventHighlightMinutes = 60
     }
 
     # PARAMETRES : les cles de Config reglables dans le menu Parametres de l'app.
     Parameters = @(
+        @{ Key = 'EventHighlightMinutes'; Label = 'Mettre en avant une erreur du journal pendant'; Type = 'int'; Unit = 'min'; Min = 0; Max = 1440; Step = 15
+           Help = 'Passé ce délai, une erreur du journal Windows reste dans le détail mais ne met plus la carte en défaut. Une erreur dont Vigie vérifie qu''elle dure encore la met en défaut quel que soit son âge ; une erreur démentie par la mesure, jamais.' }
         @{ Key = 'DiskWarnGb'; Label = 'Seuil d''alerte du disque'; Type = 'int'; Unit = 'Go'; Min = 20; Max = 500; Step = 10
            Help = 'En dessous de cet espace libre sur C:, la carte passe en avertissement.' }
         @{ Key = 'DiskScanDepth'; Label = 'Profondeur de l''analyse du disque'; Type = 'int'; Unit = 'niveaux'; Min = 1; Max = 6; Step = 1

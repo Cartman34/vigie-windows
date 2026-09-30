@@ -15,11 +15,46 @@ $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 
 # THE KNOWN KINDS, by source and identifier -- an identifier alone is ambiguous: 153 is a disk timeout for 'disk' and a
 # graphics driver error for 'nvlddmkm'. Each source and identifier was read on this computer before being named here.
+<#
+    A FACT FROM THE LOG IS NOT A STATE OF THE MACHINE (D127, owner, 30/09).
+
+    The log says what HAPPENED. A card says what IS. Confusing the two kept this card red for a whole day over an
+    allocation that failed once, hours earlier, on a machine whose port reserve was back to 1 % -- and since that
+    event is logged about once a day since 25/07, the card was red nearly every day. An alarm that is always on
+    alarms nobody.
+
+    Three states, and it is TODAY'S MEASURE that decides, never the log:
+      - still happening   : the measure confirms it    -> the kind's own level, in front
+      - over              : the measure denies it      -> named in the table, and it weighs on the card no longer
+      - unknown           : nothing can confirm it     -> a warning, and the card says which of the three it is
+
+    And AGE DECLASSES, whatever the kind: past EventHighlightMinutes (one hour), a fact stays in the detail, findable,
+    but carries the card's status no longer -- a blue screen from this morning included.
+
+    `Verify` is how a kind says it can be checked NOW. It returns 'en cours', 'termine' or 'inconnu'. A kind without
+    it is a past fact by nature -- a blue screen, an unexpected shutdown -- and only its age is judged.
+#>
 $kinds = @(
     @{ Key = 'ports'; Status = 'error'; Label = 'Ports réseau épuisés'
        Match = @{ 'Tcpip' = @(4231, 4266) }
        Meaning = "Windows n'avait plus de port réseau libre : les connexions de toutes les applications échouaient, Vigie comprise."
-       Gesture = "Le détail des ports occupés est sur la carte Réseau ; fermer ou redémarrer l'application qui en tient le plus les libère." }
+       Gesture = "Le détail des ports occupés est sur la carte Réseau ; fermer ou redémarrer l'application qui en tient le plus les libère."
+       # WHAT DECIDES: the real occupancy of both spaces, now. Under half, the reserve is free and the exhaustion
+       # of two hours ago is over. The range is kept an hour, so this costs 3 ms.
+       Verify = {
+           $ranges = Get-EphemeralPortRanges -Backend $backend
+           if (-not $ranges -or -not $ranges.tcp -or -not $ranges.udp) { return 'inconnu' }
+           $worst = -1
+           foreach ($proto in 'tcp', 'udp') {
+               $u = Get-EphemeralPortUsage -Protocol $proto -Start ([int]$ranges.$proto.Start) -Count ([int]$ranges.$proto.Count)
+               if (-not $u -or $u.Limit -le 0) { continue }
+               $pct = 100.0 * $u.Used / $u.Limit
+               if ($pct -gt $worst) { $worst = $pct }
+           }
+           if ($worst -lt 0) { return 'inconnu' }
+           if ($worst -ge 50) { return 'en cours' }
+           return 'termine'
+       } }
     @{ Key = 'desktop-heap'; Status = 'error'; Label = 'Mémoire du Bureau épuisée'
        Match = @{ 'Win32k' = @(704) }
        Meaning = "Windows n'a pas pu réserver la mémoire d'une fenêtre : des fenêtres ne s'ouvrent plus ou s'affichent mal."
@@ -110,20 +145,61 @@ foreach ($e in $events) {
 
 # KNOWN ERRORS: named, with their meaning and their gesture.
 $knownList = @($known.Values | Sort-Object { $_.Last.TimeCreated } -Descending)
+
+<#
+    IS IT STILL TRUE, AND IS IT STILL RECENT? (D127) Each entry gets its own verdict here, and the verdict -- not the
+    log -- decides what the card says. Verify is called ONCE per kind, on its latest occurrence.
+#>
+$highlightMinutes = 60
+try { $highlightMinutes = [int](Get-ModuleSetting -Unit 'system' -Key 'EventHighlightMinutes') } catch { }
+foreach ($k in $knownList) {
+    $k.Ageing = [int][math]::Floor(((Get-Date) - $k.Last.TimeCreated).TotalMinutes)
+    $k.Recent = ($highlightMinutes -le 0 -or $k.Ageing -lt $highlightMinutes)
+    $k.Still = 'inconnu'
+    if ($k.Kind.Verify) {
+        # A CHECK THAT THROWS DECIDES NOTHING. It answers unknown, which is exactly what it means.
+        try { $k.Still = "$(& $k.Kind.Verify)" } catch { $k.Still = 'inconnu' }
+        if ($k.Still -notin 'en cours', 'termine', 'inconnu') { $k.Still = 'inconnu' }
+    } elseif ($k.Recent) {
+        # Nothing can confirm a blue screen or an unexpected shutdown: it is a past fact, and while it is recent it
+        # is said as such rather than as a doubt.
+        $k.Still = 'passe'
+    }
+    # WHAT IT WEIGHS ON THE CARD. Still happening: its own level, whatever its age. No longer: nothing. Recent but
+    # unverifiable: the level it declares, until it is declassed by age.
+    $k.Weight = if ($k.Still -eq 'en cours') { $k.Status }
+                elseif ($k.Still -eq 'termine') { 'ok' }
+                elseif ($k.Recent) { $k.Status }
+                else { 'ok' }
+    $k.Said = switch ($k.Still) {
+        'en cours' { 'en cours' }
+        'termine'  { "ce n'est plus le cas" }
+        'passe'    { 'arrivé' }
+        default    { $(if ($k.Recent) { "on ne sait pas si c'est encore le cas" } else { 'arrivé' }) }
+    }
+}
+
 $knownStatus = 'ok'
-if (@($knownList | Where-Object { $_.Status -eq 'error' }).Count) { $knownStatus = 'error' }
-elseif ($knownList.Count) { $knownStatus = 'warn' }
-$knownValue = if ($knownList.Count) { (@($knownList | ForEach-Object { $_.Kind.Label }) -join ', ') } else { 'Aucune' }
+if (@($knownList | Where-Object { $_.Weight -eq 'error' }).Count) { $knownStatus = 'error' }
+elseif (@($knownList | Where-Object { $_.Weight -eq 'warn' }).Count) { $knownStatus = 'warn' }
+# THE VALUE NAMES ONLY WHAT WEIGHS. The rest is found in the table, which carries everything.
+$carrying = @($knownList | Where-Object { $_.Weight -ne 'ok' })
+$knownValue = if ($carrying.Count) { (@($carrying | ForEach-Object { $_.Kind.Label }) -join ', ') }
+              elseif ($knownList.Count) { 'Aucune en cours' }
+              else { 'Aucune' }
 $knownTable = $null
 $knownGuide = $null
 $knownReason = $null
 if ($knownList.Count) {
-    $knownTable = @{ columns = @('Dernière', 'Erreur', 'Fois', 'Dernier message')
-                     rows = @(foreach ($k in $knownList) { ,@((Format-EventTime $k.Last.TimeCreated), $k.Kind.Label, "$($k.Count)", (Format-EventMessage $k.Last)) }) }
+    $knownTable = @{ columns = @('Dernière', 'Erreur', 'Fois', 'État', 'Dernier message')
+                     rows = @(foreach ($k in $knownList) { ,@((Format-EventTime $k.Last.TimeCreated), $k.Kind.Label, "$($k.Count)", $k.Said, (Format-EventMessage $k.Last)) }) }
     $knownGuide = (@(foreach ($k in $knownList) {
-        $k.Kind.Label + ' (' + $k.Count + ' fois, la dernière ' + (Format-EventTime $k.Last.TimeCreated) + ') : ' + $k.Kind.Meaning + ' ' + $k.Kind.Gesture
+        $k.Kind.Label + ' — ' + $k.Said + ' (' + $k.Count + ' fois, la dernière ' + (Format-EventTime $k.Last.TimeCreated) + ') : ' + $k.Kind.Meaning +
+        $(if ($k.Still -eq 'en cours' -or ($k.Recent -and $k.Still -ne 'termine')) { ' ' + $k.Kind.Gesture } else { '' })
     }) -join ([Environment]::NewLine + [Environment]::NewLine))
-    $knownReason = (@($knownList | Select-Object -First 3 | ForEach-Object { $_.Kind.Label + ' (' + (Format-EventTime $_.Last.TimeCreated) + ')' }) -join ', ')
+    $knownReason = if ($carrying.Count) {
+        (@($carrying | Select-Object -First 3 | ForEach-Object { $_.Kind.Label + ' (' + $_.Said + ', ' + (Format-EventTime $_.Last.TimeCreated) + ')' }) -join ', ')
+    } else { $null }
 }
 
 # OTHER ERRORS: listed by source, so that nothing the log says stays invisible.
@@ -139,7 +215,13 @@ $fields = @(
     New-Field -Key 'known' -Label 'Erreurs système' -Value $knownValue -Kind 'text' -Status $knownStatus `
         -Table $knownTable -Guide $knownGuide -Reason $knownReason `
         -FixAction $(if ($knownList.Count) { 'open-event-viewer' } else { $null }) `
-        -Help "Les erreurs graves que Windows a consignées dans son journal Système ces dernières 24 heures : ports réseau ou mémoire épuisés, arrêt inattendu, pilote graphique, disque, matériel, service arrêté brutalement."
+        -Help ("Les erreurs graves que Windows a consignées dans son journal Système ces dernières 24 heures : ports réseau ou mémoire épuisés, " +
+               "arrêt inattendu, pilote graphique, disque, matériel, service arrêté brutalement." + [Environment]::NewLine + [Environment]::NewLine +
+               "Le journal dit ce qui EST ARRIVÉ ; la carte dit ce qui EST. Chaque ligne porte donc son état : « en cours » quand la mesure du moment " +
+               "le confirme, « ce n'est plus le cas » quand elle le dément, « on ne sait pas si c'est encore le cas » quand rien ne peut le vérifier, " +
+               "et « arrivé » pour un fait passé par nature, comme un écran bleu." + [Environment]::NewLine + [Environment]::NewLine +
+               "Seul ce qui est en cours, ou récent et invérifiable, met la carte en défaut. Passé le délai réglé dans les paramètres du module, " +
+               "une erreur reste dans ce tableau mais ne met plus la carte en défaut.")
     New-Field -Key 'others' -Label 'Autres erreurs' -Value $otherCount -Kind 'number' -Status 'neutral' -Table $otherTable `
         -FixAction $(if ($otherCount) { 'open-event-viewer' } else { $null }) `
         -Help "Les autres erreurs du journal Système ces dernières 24 heures, par source. Beaucoup sont sans conséquence ; une source qui revient souvent mérite un coup d'œil."

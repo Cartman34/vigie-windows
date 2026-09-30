@@ -13,8 +13,8 @@
         LatencyErrorMs = 200   # au-dela : latence penible (error)
         # THE PORT WATCH: reading costs 2,8 ms, so it happens at every pass; WRITING is what is rationed. Nothing is
         # kept while the reserve is idle -- at 1 % occupancy a line every thirty seconds teaches no one anything.
-        PortWatchPercent = 50   # on ecrit des que l'occupation atteint cette part
-        PortWatchAfterMinutes = 15   # et pendant ce delai apres une plainte de Windows (Tcpip 4231/4266)
+        PortWatchPercent = 50   # written as soon as the occupancy reaches this share
+        PortWatchAfterMinutes = 15   # and during this delay after a complaint from Windows (Tcpip 4231/4266)
     }
 
     Parameters = @(

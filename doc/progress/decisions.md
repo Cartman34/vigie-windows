@@ -40,7 +40,7 @@ ligne — `scripts/dev/check-doc.ps1` refuse une décision absente d'ici.
 - **Structure du dépôt** — D29 · D32 · D33 · D35 · D55
 - **Documentation** — D91 · D92 · D93 (revu) · D98 · D119 · D120
 - **Configuration** — D15 · D18 · D56 · D57
-- **Interface** — D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46 · D48 · D49 · D50 · D58 · D59 · D66 · D68 · D69 · D70 · D71 · D88 · D89 · D94 · D95 · D102 · D105 · D114
+- **Interface** — D127 · D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46 · D48 · D49 · D50 · D58 · D59 · D66 · D68 · D69 · D70 · D71 · D88 · D89 · D94 · D95 · D102 · D105 · D114
 - **Installation, déploiement et mise à jour** — D07 · D11 · D22 · D77 · D78 · D79 · D81 · D84 · D87 · D96 · D97 · D99 · D101 · D106 · D107 (revu) · D110 · D112 · D117 · D123
 - **Sécurité, droits et multi-comptes** — D34 · D65 · D67 · D73 · D104 · D109
 - **Sondes, actions et tâches de fond** — D50bis · D53 · D54 · D60 · D61 · D80 · D82 · D83 · D85 · D113 · D124 · D125 · D126
@@ -3320,3 +3320,39 @@ port 47600 », sans rien vérifier d'autre : un programme quelconque ayant pris 
 mise à jour, en silence. `Test-VigieProcess` exige désormais deux choses à la fois — un PowerShell **et** une ligne de
 commande qui cite un de nos scripts sous notre installation. Une ligne de commande illisible ne prouve rien : elle
 répond non, et rien n'est arrêté.
+
+---
+
+## D127 — Un fait du journal n'est pas un état de la machine (2026-09-30)
+
+*Demandé par l'utilisateur, devant une carte rouge depuis la veille : « Quand ça vient du journal, si ça vient de
+survenir, c'est une erreur, si c'est vieux, ça devient "déclassé", ça peut être retrouvé mais ce n'est pas mis en avant
+comme là. Surtout si ce n'est plus le cas. On doit pouvoir identifier si une erreur est en cours ou est arrivée
+récemment mais ce n'est plus le cas ou on ne sait pas si c'est encore le cas. »*
+
+Le journal dit ce qui **est arrivé**. Une carte dit ce qui **est**. Les confondre a tenu la carte « Journal Windows »
+en rouge une journée entière pour une allocation de port qui avait échoué **une fois**, des heures plus tôt, sur une
+machine dont la réserve était revenue à 1 %. Et comme cet événement est consigné environ une fois par jour depuis le
+25/07, la carte était rouge presque tous les jours. Une alarme toujours allumée n'alerte plus personne.
+
+**Trois états, et c'est la mesure du moment qui tranche, jamais le journal :**
+
+| État | Ce qui le décide | Ce qu'il pèse |
+|---|---|---|
+| **en cours** | la mesure d'aujourd'hui le confirme | le niveau propre à la sorte, **quel que soit son âge** |
+| **ce n'est plus le cas** | la mesure le dément | **rien** — la ligne reste, citée, dans le tableau |
+| **on ne sait pas si c'est encore le cas** | rien ne peut le vérifier | son niveau, tant qu'il est récent |
+| **arrivé** | un fait passé par nature — écran bleu, arrêt inattendu | son niveau, tant qu'il est récent |
+
+**Et l'âge déclasse, sans distinction de sorte.** Au-delà de `EventHighlightMinutes` — **une heure** par défaut, le
+chiffre est de l'utilisateur — le fait reste dans le tableau, retrouvable, et ne porte plus le statut de la carte.
+**Un écran bleu compris** : il a été demandé explicitement.
+
+**Comment une sorte se vérifie.** Elle déclare un `Verify` qui rend `en cours`, `termine` ou `inconnu`. « Ports
+réseau épuisés » se vérifie par l'occupation réelle des deux espaces éphémères, gardée une heure, donc 3 ms. Une sorte
+sans `Verify` est un fait passé : seul son âge est jugé. Un `Verify` qui lève ne décide rien — il répond
+« on ne sait pas », ce qui est exactement ce que cela veut dire.
+
+Relevé : [« Ports réseau épuisés » : ce que dit vraiment l'événement](../../notes/evidence/2026-09-30-ephemeral-port-exhaustion.md).
+
+Où c'est réalisé : `apps/backend-pode/probes/system/events.probe.ps1`.
