@@ -5117,11 +5117,32 @@ function Get-ProbeCacheStamp {
     try {
         $path = Get-VarPath -Backend $Backend -Kind 'cache' -File 'state-cache.json'
         if (-not (Test-PathSafe $path)) { return '' }
+        <#
+            THE MOST RECENT OF THE MATCHING ENTRIES, never the first one met.
+
+            A probe whose rendering depends on who looks has ONE entry PER ACCOUNT (D109): comptes.probe.ps1@fhaza,
+            comptes.probe.ps1@Famille. The scheduler computes with no requester, so it writes its own entry -- and
+            this function was answering with whichever entry came first in the file. It was therefore comparing the
+            stamp of SOMEONE ELSE'S entry before and after, saw it unchanged, and the worker concluded "the
+            computation wrote nothing". Measured on 30/09: the accounts card had failed eight times in a row that
+            way, while its computation was working perfectly.
+
+            The proof that a computation wrote something is that the NEWEST stamp moved, whoever it belongs to.
+        #>
         $j = Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json
+        $newest = $null
+        $newestAt = $null
         foreach ($pr in $j.PSObject.Properties) {
             $name = "$($pr.Name)"
-            if ($name -eq $Probe -or $name.StartsWith($Probe + '@')) { return "$($pr.Value.at)" }
+            if (-not ($name -eq $Probe -or $name.StartsWith($Probe + '@'))) { continue }
+            $raw = "$($pr.Value.at)"
+            if (-not $raw) { continue }
+            $when = $null
+            try { $when = ConvertTo-UtcDate $raw } catch { }
+            if (-not $when) { if (-not $newest) { $newest = $raw }; continue }
+            if (-not $newestAt -or $when -gt $newestAt) { $newestAt = $when; $newest = $raw }
         }
+        if ($newest) { return $newest }
     } catch { }
     return ''
 }
