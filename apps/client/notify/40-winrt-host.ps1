@@ -17,11 +17,11 @@
 param($Notification, $Context)
 
 $xml = Get-VigieToastXml -Subject "$($Notification.Subject)" -Body "$($Notification.Body)" `
-                        -Image (Get-VigieToastImage -TrayRoot $Context.TrayRoot -State "$($Notification.State)") `
+                        -Image (Get-VigieToastImage -ClientRoot $Context.ClientRoot -State "$($Notification.State)") `
                         -Long:([int]$Notification.Duration -ge 10000)
 if (-not $xml) { return $false }
 
-$file = Get-VarPath -Backend $Context.TrayRoot -Kind 'run' -File 'toast.xml'
+$file = Get-VarPath -Backend $Context.ClientRoot -Kind 'run' -File 'toast.xml'
 try { [IO.File]::WriteAllText($file, $xml, (New-Object Text.UTF8Encoding $false)) } catch { return $false }
 
 $env:VIGIE_TOAST_XML = $file

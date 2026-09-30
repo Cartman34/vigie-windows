@@ -101,7 +101,7 @@ Le détail carte par carte : [Ce que surveille Vigie](doc/fr/using/features.md).
 | [Windows Update](doc/fr/using/windows-update.md) | le verrou, le mode MAJ, installer les mises à jour |
 | [Sécurité](doc/fr/operating/security.md) | élévation, écoute locale, jeton, risque résiduel |
 | [Configuration](doc/fr/operating/configuration.md) | port, outillage externe, surcharges locales |
-| [Dépannage](doc/fr/using/troubleshooting.md) | journaux, commandes du tray, pannes courantes |
+| [Dépannage](doc/fr/using/troubleshooting.md) | journaux, commandes de l'app cliente, pannes courantes |
 | **[Développement](doc/en/developing/README.md)** | architecture, sondes et actions, contribution |
 
 ## Prérequis

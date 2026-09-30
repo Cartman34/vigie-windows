@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    tray.ps1 - App Vigie de la barre systeme (apps/tray).
+    client.ps1 - App Vigie de la barre systeme (apps/client).
 
     C'est une app A PART ENTIERE, distincte du backend : elle a son interface
     WinForms, ses icones (assets/) et son cycle de vie. Elle PILOTE le backend
@@ -8,8 +8,8 @@
     - Serveur Pode EN FOND (cache). Icone = STATUT DE L'APP (pas des composants) via /health :
         vert = en marche, orange = demarrage, rouge = erreur/arret. Poll leger toutes les 8 s.
     - "Afficher l'application" -> fenetre DEDIEE (Edge/Chrome en mode --app). "Ouvrir dans le navigateur" -> onglet.
-    - "Relancer l'application" recharge le tray. Menu sombre. Enfants lances sans fenetre (CreateNoWindow).
-    - Journalise dans logs/tray_*.log. UI en runspace STA. Instance unique.
+    - "Relancer l'application" recharge l'app cliente. Menu sombre. Enfants lances sans fenetre (CreateNoWindow).
+    - Journalise dans logs/client_*.log. UI en runspace STA. Instance unique.
 #>
 $ErrorActionPreference = 'Stop'
 # URL du depot : CONSTANTE volontaire (pas un reglage) - elle ne doit pas changer facilement.
@@ -33,16 +33,16 @@ $repoRoot = Split-Path $appsRoot -Parent
 # dans le profil du compte sinon. On la charge donc AVANT d'ecrire quoi que ce soit.
 $appsRootTmp = Split-Path $PSScriptRoot -Parent
 . (Join-Path (Join-Path $appsRootTmp 'backend-pode') 'lib/common.ps1')
-$trayLog = Get-VarPath -Backend $PSScriptRoot -Kind 'log' -File ('tray_' + (Get-Date -Format 'yyyyMMdd') + '.log')
-function TLog($m) { try { ("[" + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + "] " + $m) | Out-File -FilePath $trayLog -Append -Encoding UTF8 } catch { } }
+$clientLog = Get-VarPath -Backend $PSScriptRoot -Kind 'log' -File ('client_' + (Get-Date -Format 'yyyyMMdd') + '.log')
+function TLog($m) { try { ("[" + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + "] " + $m) | Out-File -FilePath $clientLog -Append -Encoding UTF8 } catch { } }
 TLog "demarrage (PS $($PSVersionTable.PSVersion), $([System.Threading.Thread]::CurrentThread.GetApartmentState()))"
 # Its own logs are kept 30 days, like everyone else's (Invoke-LogPurge).
 try { $null = Invoke-LogPurge -Backend $PSScriptRoot } catch { }
 
 # UN VERROU PAR COMPTE, pas par session de bureau. Sans nom d'espace explicite, un
 # mutex vit dans « Local\ », c'est-a-dire dans la session Windows -- et deux comptes
-# peuvent partager une session : c'est le cas quand on lance le tray d'un autre compte
-# avec runas, exactement ce qu'on fait pour deboguer. Le tray de Famille a demarre,
+# peuvent partager une session : c'est le cas quand on lance l'app cliente d'un autre compte
+# avec runas, exactement ce qu'on fait pour deboguer. L'app cliente de Famille a demarre,
 # vu le verrou de fhaza, et s'est retire (28/08 22:09). Le verrou porte donc desormais
 # le nom du compte : chacun le sien, quelle que soit la session qui l'heberge.
 <#
@@ -58,13 +58,13 @@ try { $null = Invoke-LogPurge -Backend $PSScriptRoot } catch { }
     et le cas normal -- aucun predecesseur -- passe sans delai. Vingt secondes couvrent
     largement une fermeture d'icone ; au-dela, c'est qu'une instance tourne vraiment.
 #>
-$mutex = New-Object System.Threading.Mutex($false, ('VigieTray-' + (Get-ProcessAccount)))
+$mutex = New-Object System.Threading.Mutex($false, ('VigieClient-' + (Get-ProcessAccount)))
 if (-not $mutex.WaitOne(20000)) { TLog "deja lance (mutex) - sortie"; return }
 
 $uiScript = {
-    param($backend, $trayLog, $repoUrl, $trayRoot)
+    param($backend, $clientLog, $repoUrl, $clientRoot)
     $ErrorActionPreference = 'Continue'
-    function TLog($m) { try { ("[" + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + "] " + $m) | Out-File -FilePath $trayLog -Append -Encoding UTF8 } catch { } }
+    function TLog($m) { try { ("[" + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + "] " + $m) | Out-File -FilePath $clientLog -Append -Encoding UTF8 } catch { } }
     try {
         . (Join-Path $backend 'lib/common.ps1')
         Add-Type -AssemblyName System.Windows.Forms
@@ -182,7 +182,7 @@ public static bool Close(System.IntPtr h) {
         $url       = Get-AppUrl -Config $cfg
         $healthUrl = (Get-ApiUrl -Config $cfg) + '/health'
         $pwsh      = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
-        $trayPath  = Join-Path $trayRoot 'tray.ps1'      # cette app, pas le backend
+        $clientPath  = Join-Path $clientRoot 'client.ps1'      # cette app, pas le backend
 
         <#
             THE PROTOCOL VIGIE:// -- DECLARED HERE, FOR THIS ACCOUNT ONLY.
@@ -193,7 +193,7 @@ public static bool Close(System.IntPtr h) {
             protocol pointing at a path that no longer exists is worse than none.
         #>
         try {
-            $protocolScript = Join-Path $trayRoot 'protocol.ps1'
+            $protocolScript = Join-Path $clientRoot 'protocol.ps1'
             $protocolCommand = '"{0}" -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "{1}" "%1"' -f $pwsh, $protocolScript
             $protocolKey = 'HKCU:\Software\Classes\vigie'
             $alreadySet = $null
@@ -218,7 +218,7 @@ public static bool Close(System.IntPtr h) {
             COMBIEN DE TEMPS AVANT DE DECLARER UN ECHEC DE DEMARRAGE ?
 
             25 secondes, jusqu'au 28/08. Or le serveur met environ SOIXANTE-CINQ secondes
-            a repondre : le journal du tray montre la meme sequence a chaque lancement --
+            a repondre : le journal de l'app cliente montre la meme sequence a chaque lancement --
             orange pendant 22 s, puis ROUGE, puis vert une quarantaine de secondes plus
             tard. L'utilisateur voyait donc une panne a chaque demarrage, alors que tout
             se passait bien. Un signal qui crie a tort finit ignore, et le jour ou le
@@ -230,14 +230,14 @@ public static bool Close(System.IntPtr h) {
             la fin d'un delai. Le plafond ne sert plus que de garde-fou contre un serveur
             qui resterait vivant sans jamais repondre.
 
-            Le cas du tray qui ADOPTE un serveur deja en place ($state.Proc vide) garde
+            Le cas de l'app cliente qui ADOPTE un serveur deja en place ($state.Proc vide) garde
             un delai, faute de processus a observer : large, parce qu'on ne sait rien.
         #>
         $startupGrace   = 120   # plafond quand on observe le processus qu'on a lance
         $startupBlind   = 90    # delai quand on n'a aucun processus a observer
 
         # --- Auto-reparation de la tache de demarrage -------------------------------
-        # Le tray tourne ELEVE : il est le seul a pouvoir corriger sa propre tache
+        # L'app cliente tourne ELEVE : il est le seul a pouvoir corriger sa propre tache
         # planifiee sans redemander une elevation a l'utilisateur. La tache echouait par
         # intermittence au logon (0xC0070154 : pwsh vient du Store et son paquet MSIX
         # n'est pas toujours pret a la seconde ou la session s'ouvre). Idempotent :
@@ -266,17 +266,17 @@ public static bool Close(System.IntPtr h) {
         $iconHandle = [System.IntPtr]::Zero
 
         # --- Pilotage par ordres deposes dans var/run ----------------------------------
-        # Le tray tourne ELEVE : depuis une session normale, on ne peut ni lire sa ligne
+        # L'app cliente tourne ELEVE : depuis une session normale, on ne peut ni lire sa ligne
         # de commande ni signaler un objet noyau qu'il a cree. Un dossier d'ordres evite
         # ces deux obstacles, reste inspectable a l'oeil, scriptable depuis n'importe quoi,
         # et accepte de nouveaux ordres sans toucher au mecanisme.
-        # Voir scripts/tray.ps1 pour le cote emetteur.
-        $runDir    = Get-VarPath -Backend $trayRoot -Kind 'run'
-        $heartbeat = Join-Path $runDir 'tray.alive'
+        # Voir scripts/client.ps1 pour le cote emetteur.
+        $runDir    = Get-VarPath -Backend $clientRoot -Kind 'run'
+        $heartbeat = Join-Path $runDir 'client.alive'
         # Un arret brutal laisse des ordres non consommes : ils ne doivent pas s'appliquer
         # au demarrage suivant.
         #
-        # SAUF les accuses de reception : celui que le tray precedent vient de poser est
+        # SAUF les accuses de reception : celui que l'app cliente precedent vient de poser est
         # justement ce que l'emetteur attend, et nous demarrons dans la seconde qui suit.
         # Les effacer d'entree, c'etait courir avec lui -- et lui faire conclure « ordre
         # non lu » sur une relance qui marchait. Un accuse perime ne gene personne :
@@ -297,9 +297,9 @@ public static bool Close(System.IntPtr h) {
             LA TACHE SERVEUR TIENT-ELLE DEJA LA MACHINE ?
 
             C'est LA question de la migration. Tant qu'il y a un serveur par session, le
-            tray de chaque compte lance le sien -- c'est le fonctionnement historique. Des
+            app cliente de chaque compte lance le sien -- c'est le fonctionnement historique. Des
             que la tache « Vigie - Serveur » est active, un serveur unique repond a toute
-            la machine : si les trays continuaient a en lancer, ils se disputeraient le
+            la machine : si les app clientes continuaient a en lancer, elles se disputeraient le
             port 47600, et le perdant mourrait sans que personne ne sache lequel repond.
 
             LA REPONSE EST MISE EN CACHE. L'etat d'une tache planifiee ne change pas en
@@ -317,7 +317,7 @@ public static bool Close(System.IntPtr h) {
                 $actif = ("$($t.State)" -ne 'Disabled')
             } catch { $actif = $false }
             $state.MachineTask = $actif
-            if ($actif) { TLog "tache serveur active : le tray ne lancera pas de serveur" }
+            if ($actif) { TLog "tache serveur active : l'app cliente ne lancera pas de serveur" }
             return $actif
         }
 
@@ -332,14 +332,14 @@ public static bool Close(System.IntPtr h) {
             dernier cas qu'on parlera d'elevation, puisqu'il n'y a plus personne pour
             se relancer.
         #>
-        # LA FENETRE DE QUESTION, une seule fois pour tout le tray. Rend 0 (bouton
+        # LA FENETRE DE QUESTION, une seule fois pour tout l'app cliente. Rend 0 (bouton
         # principal), 4 (troisieme issue) ou 3 (refus).
         $askWindow = {
             param($titre, $texte, $okText, $tiersText, $nonText)
             try {
                 $script = Join-Path (Split-Path (Split-Path $backend -Parent) -Parent) 'scripts/lib/show-confirm.ps1'
                 if (-not (Test-Path -LiteralPath $script)) { return 3 }
-                $payload = Join-Path ([IO.Path]::GetTempPath()) ('vigie-tray-' + [guid]::NewGuid().ToString('N') + '.json')
+                $payload = Join-Path ([IO.Path]::GetTempPath()) ('vigie-client-' + [guid]::NewGuid().ToString('N') + '.json')
                 # Le texte passe par un FICHIER : en argument, ses accents seraient abimes
                 # par la page de code du processus appele.
                 [IO.File]::WriteAllText($payload,
@@ -385,7 +385,7 @@ public static bool Close(System.IntPtr h) {
                 start.ps1 exige l'elevation et se relance avec « RunAs » : sur un compte
                 standard, Windows ouvre une fenetre UAC qui reclame les identifiants d'un
                 administrateur. C'est le comportement voulu -- quelqu'un peut passer les
-                saisir -- et le tray doit garder cette capacite.
+                saisir -- et l'app cliente doit garder cette capacite.
 
                 Ce qui n'allait pas, c'est la REPETITION : le sondage revient toutes les
                 huit secondes, donc la fenetre revenait toutes les huit secondes. Une
@@ -405,10 +405,10 @@ public static bool Close(System.IntPtr h) {
         }
         # ARRETER LE SERVEUR, meme quand ce n'est pas NOTRE enfant.
         #
-        # Un tray relance ADOPTE le serveur deja en place : $state.Proc est alors vide, et
+        # Une app cliente relance ADOPTE le serveur deja en place : $state.Proc est alors vide, et
         # l'ancien $stopServer ne tuait rien. Consequence mesuree le 26/08 : « Relancer
         # l'application » (et donc le redemarrage d'apres deploiement) laissait tourner
-        # l'ANCIEN serveur -- le nouveau tray constatait « serveur ok » et repartait sur
+        # l'ANCIEN serveur -- le nouveà l'app cliente constatait « serveur ok » et repartait sur
         # du code perime. Repli : le processus qui ECOUTE le port, et seulement s'il s'agit
         # d'un interpreteur PowerShell -- on ne tue que ce qu'on aurait pu lancer.
         # ARRETER LE SERVEUR EST UN GESTE RARE ET DEMANDE. Cette fonction n'est plus
@@ -433,12 +433,12 @@ public static bool Close(System.IntPtr h) {
         # laisse son icone en fantome dans la zone de notification, qui ne repond plus
         # a rien et affiche indefiniment le dernier etat connu.
         <#
-            QUITTER LE TRAY QUITTE LE TRAY -- PAS LE SERVEUR.
+            QUITTER L'APP CLIENTE QUITTE L'APP CLIENTE -- PAS LE SERVEUR.
 
             « Quitter » arretait le serveur. C'etait defendable quand chaque session avait
             le sien ; avec un serveur commun a la machine, quitter depuis un compte le
-            coupe pour TOUS LES AUTRES. Constate le 29/08 : sortie du tray de Famille,
-            serveur tue, tray de fhaza qui le relance, et une demande d'elevation au
+            coupe pour TOUS LES AUTRES. Constate le 29/08 : sortie de l'app cliente de Famille,
+            serveur tue, app cliente de fhaza qui le relance, et une demande d'elevation au
             passage -- pour quelqu'un qui voulait juste fermer une icone.
 
             Le serveur est un service : il vit sa vie. Pour l'arreter ou le relancer, il y
@@ -446,7 +446,7 @@ public static bool Close(System.IntPtr h) {
         #>
         $quitApp = {
             param($origine)
-            TLog ("arret du tray (" + $origine + ") -- le serveur reste en marche")
+            TLog ("arret de l'app cliente (" + $origine + ") -- le serveur reste en marche")
             try { $icon.Visible = $false; $icon.Dispose() } catch { }
             try { Remove-Item -LiteralPath $heartbeat -Force -ErrorAction SilentlyContinue } catch { }
             [System.Windows.Forms.Application]::Exit()
@@ -455,7 +455,7 @@ public static bool Close(System.IntPtr h) {
             RELANCER L'APPLICATION RELANCE L'APPLICATION.
 
             Cette fonction tuait aussi le serveur, « pour qu'il reparte avec le nouveau
-            code ». Mais le serveur PRECEDE le tray : avec la tache de machine, il demarre
+            code ». Mais le serveur PRECEDE l'app cliente : avec la tache de machine, il demarre
             avant meme qu'une session soit ouverte. Un programme lance apres ne ferme pas
             celui qui l'attendait -- et le couper depuis un compte le coupe pour tous les
             autres.
@@ -465,7 +465,7 @@ public static bool Close(System.IntPtr h) {
         #>
         $relaunch = {
             # .NET's ArgumentList quotes each value itself: it gets the bare path (D116).
-            try { [void](& $launchHidden $pwsh @('-NoProfile','-ExecutionPolicy','Bypass','-File', $trayPath)) } catch { }
+            try { [void](& $launchHidden $pwsh @('-NoProfile','-ExecutionPolicy','Bypass','-File', $clientPath)) } catch { }
             try { $icon.Visible = $false; $icon.Dispose() } catch { }
             [System.Windows.Forms.Application]::Exit()
         }
@@ -536,8 +536,8 @@ public static bool Close(System.IntPtr h) {
             }
             if (-not $signInUrl) {
                 TLog "openApp : pas d'adresse d'ouverture, on n'ouvre pas"
-                & $dire -Titre (Get-Label 'tray.bulle-identite-titre') `
-                        -Texte (Get-Label 'tray.bulle-identite-texte') -Icone 'Warning' -Duree 8000
+                & $dire -Titre (Get-Label 'client.bulle-identite-titre') `
+                        -Texte (Get-Label 'client.bulle-identite-texte') -Icone 'Warning' -Duree 8000
                 return
             }
             $url = $signInUrl
@@ -592,7 +592,7 @@ public static bool Close(System.IntPtr h) {
         <#
             OUVRIR LE PANNEAU EN DISANT QUI ON EST.
 
-            Le tray est le seul programme a pouvoir lire le secret de SON compte. Il le
+            L'app cliente est le seul programme a pouvoir lire le secret de SON compte. Il le
             presente au serveur, recoit un ticket a usage unique, et ouvre la page avec ce
             ticket. Le serveur l'echange contre un cookie de session : la page sait alors
             de quel compte elle vient, sans qu'aucun secret n'ait transite par l'URL ni ne
@@ -624,8 +624,8 @@ public static bool Close(System.IntPtr h) {
             }
             if (-not $target) {
                 TLog "adresse d'ouverture refusee : on n'ouvre pas"
-                & $dire -Titre (Get-Label 'tray.bulle-identite-titre') `
-                        -Texte (Get-Label 'tray.bulle-identite-texte') -Icone 'Warning' -Duree 8000
+                & $dire -Titre (Get-Label 'client.bulle-identite-titre') `
+                        -Texte (Get-Label 'client.bulle-identite-texte') -Icone 'Warning' -Duree 8000
                 return
             }
             TLog "adresse d'ouverture obtenue"
@@ -637,7 +637,7 @@ public static bool Close(System.IntPtr h) {
         # disaient toutes « Vigie - <etat> » : impossible de savoir laquelle appartient a
         # qui. Sur une machine familiale, c'est la premiere question qu'on se pose, et
         # c'est indispensable pour deboguer un compte depuis la session d'un autre.
-        $trayAccount = (Get-ProcessAccount)
+        $clientAccount = (Get-ProcessAccount)
         <#
             THE BUBBLES MUST SAY "VIGIE", NOT "POWERSHELL".
 
@@ -660,14 +660,14 @@ public static bool Close(System.IntPtr h) {
             $null = [VigieNative.Aumid]::SetCurrentProcessExplicitAppUserModelID((Get-VigieToastIdentity))
         } catch { TLog ("identite des notifications non posee : " + $_.Exception.Message) }
         $icon = New-Object System.Windows.Forms.NotifyIcon
-        $icon.Text = (Get-Label 'tray.infobulle' $trayAccount)
+        $icon.Text = (Get-Label 'client.infobulle' $clientAccount)
 
         $setIcon = {
             param($status)
             # L'icone est TOUJOURS le fichier .ico livre (assets/), genere par
             # assets/generate-icons.py. C'est la SEULE representation de la marque.
             $name = switch ($status) { 'ok' { 'ok' } 'warn' { 'warn' } 'error' { 'error' } default { 'error' } }
-            $icoPath = Join-Path $trayRoot ('assets\' + $name + '.ico')
+            $icoPath = Join-Path $clientRoot ('assets\' + $name + '.ico')
             if (Test-Path $icoPath) {
                 try {
                     $newIco = New-Object System.Drawing.Icon($icoPath)
@@ -689,7 +689,7 @@ public static bool Close(System.IntPtr h) {
             # L'ancien repli redessinait la jauge en GDI+ : deux dessins de la meme
             # marque, qui avaient FINI PAR DIVERGER (aiguille partant du centre, aucune
             # graduation, epaisseurs et couleur de piste differentes). Comme l'echec de
-            # lecture etait avale, le tray pouvait afficher une AUTRE marque sans que
+            # lecture etait avale, l'app cliente pouvait afficher une AUTRE marque sans que
             # personne ne le voie. Un disque uni ne trompe personne : il signale que
             # les assets manquent, tout en gardant l'information de statut (la couleur).
             $c = switch ($status) {
@@ -926,15 +926,15 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
 
             if ("$r".StartsWith('busy:')) {
                 $operation = "$r".Substring(5)
-                $choix = & $askWindow (Get-Label 'tray.relance-operation-titre') `
-                                      (Get-Label 'tray.relance-operation-texte' $operation) `
-                                      (Get-Label 'tray.relance-forcer') `
-                                      (Get-Label 'tray.relance-attendre') `
-                                      (Get-Label 'tray.relance-rien')
+                $choix = & $askWindow (Get-Label 'client.relance-operation-titre') `
+                                      (Get-Label 'client.relance-operation-texte' $operation) `
+                                      (Get-Label 'client.relance-forcer') `
+                                      (Get-Label 'client.relance-attendre') `
+                                      (Get-Label 'client.relance-rien')
                 if ($choix -eq 0) { $r = & $askServerRestart $true $false }        # forcer
                 elseif ($choix -eq 4) {
                     # C'EST LE SERVEUR QUI ATTEND. Il sait ce qui tourne, et son relanceur
-                    # est detache : lui faire garder la question evite au tray une boucle
+                    # est detache : lui faire garder la question evite à l'app cliente une boucle
                     # de sondage et un delai arbitraire.
                     TLog "relance : le serveur attendra la fin de l'operation"
                     $r = & $askServerRestart $false $true
@@ -947,25 +947,25 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                 $state.StartTicks = [datetime]::UtcNow.Ticks
                 $state.Starting   = $true
                 & $setIcon 'warn'; $state.Drawn = 'warn'
-                $icon.Text = (Get-Label 'tray.infobulle-etat' $trayAccount 'Démarrage…')
+                $icon.Text = (Get-Label 'client.infobulle-etat' $clientAccount 'Démarrage…')
                 $miInfo.Text = 'État : Démarrage…'
                 return
             }
 
             # LE SERVEUR NE REPOND PAS : il n'y a plus personne pour se relancer. C'est le
             # seul cas ou l'on parle d'elevation, et on le DIT avant de la demander.
-            $suite = & $askWindow (Get-Label 'tray.relance-mort-titre') `
-                                  (Get-Label 'tray.relance-mort-texte') `
-                                  (Get-Label 'tray.relance-mort-ok') '' `
-                                  (Get-Label 'tray.relance-rien')
+            $suite = & $askWindow (Get-Label 'client.relance-mort-titre') `
+                                  (Get-Label 'client.relance-mort-texte') `
+                                  (Get-Label 'client.relance-mort-ok') '' `
+                                  (Get-Label 'client.relance-rien')
             if ($suite -ne 0) { return }
 
-            # LE SEUL ENDROIT OU LE TRAY TOUCHE AU SERVEUR, et ce n'est pas le tray qui
+            # LE SEUL ENDROIT OU L'APP CLIENTE TOUCHE AU SERVEUR, et ce n'est pas l'app cliente qui
             # decide : quelqu'un a clique, lu que le serveur ne repond plus, et accorde
             # l'elevation. Le processus vise est soit mort -- il n'y a rien a arreter --
             # soit coince, et l'arreter est alors la seule guerison.
             #
-            # Partout ailleurs, la regle est sans exception : le tray ne ferme jamais le
+            # Partout ailleurs, la regle est sans exception : l'app cliente ne ferme jamais le
             # serveur. Le serveur le PRECEDE -- avec la tache de machine, il demarre avant
             # qu'une session existe -- et il est commun a tous les comptes.
             $state.ElevationAsked = $false
@@ -979,7 +979,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
             # Retour visuel immediat : sans cela l'icone garde son etat jusqu'au prochain
             # sondage (8 s) et l'utilisateur voit un rouge qui n'a pas lieu d'etre.
             & $setIcon 'warn'; $state.Drawn = 'warn'
-            $icon.Text = (Get-Label 'tray.infobulle-etat' $trayAccount 'Démarrage…'); $miInfo.Text = 'État : Démarrage…'
+            $icon.Text = (Get-Label 'client.infobulle-etat' $clientAccount 'Démarrage…'); $miInfo.Text = 'État : Démarrage…'
         })
         # Les journaux du SERVEUR : c'est ce qu'on veut voir pour diagnostiquer.
         [void]$menu.Items.Add('Ouvrir les journaux', $null, [System.EventHandler]{ Start-Process (Get-LogDir -Backend $backend) })
@@ -995,7 +995,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
             de Windows, il ne change rien lui-meme : ce reglage appartient a la personne,
             et Vigie n'a pas a decider si elle veut etre derangee.
         #>
-        [void]$menu.Items.Add((Get-Label 'tray.menu-notifications-windows'), $null, [System.EventHandler]{
+        [void]$menu.Items.Add((Get-Label 'client.menu-notifications-windows'), $null, [System.EventHandler]{
             try { Start-Process 'ms-settings:notifications' }
             catch { TLog ("ouverture des notifications Windows impossible : " + $_.Exception.Message) }
         })
@@ -1016,21 +1016,21 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
             try {
                 $version = try { Get-AppVersion -Backend $backend } catch { 'inconnue' }
                 $srv = if (Test-ServerUp -Address $cfg.BindAddress -Port $cfg.Port) {
-                           (Get-Label 'tray.apropos-serveur-en-ligne' $cfg.Port)
-                       } else { (Get-Label 'tray.apropos-serveur-hors-ligne') }
+                           (Get-Label 'client.apropos-serveur-en-ligne' $cfg.Port)
+                       } else { (Get-Label 'client.apropos-serveur-hors-ligne') }
                 $lignes = @(
-                    (Get-Label 'tray.apropos-version'     $version),
-                    (Get-Label 'tray.apropos-compte'      $trayAccount),
-                    (Get-Label 'tray.apropos-application' (Split-Path $backend -Parent)),
+                    (Get-Label 'client.apropos-version'     $version),
+                    (Get-Label 'client.apropos-compte'      $clientAccount),
+                    (Get-Label 'client.apropos-application' (Split-Path $backend -Parent)),
                     $srv,
                     '',
-                    (Get-Label 'tray.apropos-depot'       $repoUrl),
+                    (Get-Label 'client.apropos-depot'       $repoUrl),
                     '',
-                    (Get-Label 'tray.apropos-ouvrir-depot')
+                    (Get-Label 'client.apropos-ouvrir-depot')
                 )
                 $response = [System.Windows.Forms.MessageBox]::Show(
                     ($lignes -join [Environment]::NewLine),
-                    (Get-Label 'tray.apropos-titre'),
+                    (Get-Label 'client.apropos-titre'),
                     [System.Windows.Forms.MessageBoxButtons]::YesNo,
                     [System.Windows.Forms.MessageBoxIcon]::Information)
                 if ($response -eq [System.Windows.Forms.DialogResult]::Yes) { & $openRepo }
@@ -1097,7 +1097,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
             try {
                 $outil = Show-VigieNotification `
                     -Notification @{ Subject = $Titre; Body = $Texte; State = $level; Duration = $Duree; Key = $Key; Launch = $Launch } `
-                    -Context @{ TrayRoot = $trayRoot; Aumid = (Get-VigieToastIdentity); Icon = $icon }
+                    -Context @{ ClientRoot = $clientRoot; Aumid = (Get-VigieToastIdentity); Icon = $icon }
                 if ($outil) { TLog ("notification montree par " + $outil) }
                 else { TLog "aucun outil n'a su montrer la notification" }
                 $state.Bulles[$cle] = $maintenant
@@ -1117,7 +1117,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                 UNE INSTALLATION EN COURS N'EST PAS UNE PANNE.
 
                 Pendant une mise a jour, le serveur s'arrete, les cartes tombent en erreur
-                puis reviennent : le tray y voyait des CHANGEMENTS D'ETAT et sortait une
+                puis reviennent : l'app cliente y voyait des CHANGEMENTS D'ETAT et sortait une
                 bulle Windows pour chacun, plus une « le serveur est mort », plus une
                 tentative de relance concurrente de l'installation. Or c'est le
                 deroulement NORMAL du geste que l'utilisateur vient de demander.
@@ -1137,7 +1137,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                 donc sa bulle a la fin de chaque mise a jour (constate le 31/08).
 
                 On garde donc le silence deux minutes apres la derniere fois qu'on a vu le
-                verrou. Ce n'est pas un delai d'attente : le tray continue de surveiller et
+                verrou. Ce n'est pas un delai d'attente : l'app cliente continue de surveiller et
                 d'afficher, il ne DERANGE pas.
             #>
             if ($installEnCours) { $state.QuietTicks = [datetime]::UtcNow.AddMinutes(2).Ticks }
@@ -1159,14 +1159,14 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
             try { $state.Present = [VigieNative.Wts]::SomeoneIsWatching($mySession) } catch { }
             if (-not $state.Present) { $silence = $true }
 
-            # THE MEASURED REASONS, appended to the bubble that says the server does not answer (CORE-TRAY): memory, ports,
+            # THE MEASURED REASONS, appended to the bubble that says the server does not answer (CORE-CLIENT): memory, ports,
             # what Windows logged, Vigie's own processes. Read only when the bubble goes out, never at every pass.
             function Format-TroubleReasons {
                 $found = @()
                 try { $found = @(Get-ServerTroubleReasons -Port ([int]$cfg.Port) -Backend $backend) } catch { }
                 if (-not $found.Count) { return '' }
                 TLog ("raisons mesurees : " + ($found -join ' | '))
-                return ([Environment]::NewLine + (Get-Label 'tray.raison-titre') + [Environment]::NewLine + ($found -join [Environment]::NewLine))
+                return ([Environment]::NewLine + (Get-Label 'client.raison-titre') + [Environment]::NewLine + ($found -join [Environment]::NewLine))
             }
             try {
                 [void](Invoke-RestMethod -Uri $healthUrl -TimeoutSec 5 -ErrorAction Stop)
@@ -1178,21 +1178,21 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
             } catch {
                 # Serveur COINCE : le port repond (TCP) mais plus aucune requete n'aboutit
                 # (constate le 24/08 : bug du listener Pode, tout finissait en 408). Dans ce
-                # cas, relancer est la seule guerison -- et personne d'autre que le tray ne
+                # cas, relancer est la seule guerison -- et personne d'autre que l'app cliente ne
                 # peut la faire, puisque le port ouvert masque la panne. Trois echecs
                 # consecutifs (~24 s) hors demarrage => on tue l'ecouteur et on repart.
                 if (-not $state.Starting -and (Test-ServerUp -Address $cfg.BindAddress -Port $cfg.Port)) {
                     $state.HealthKo = [int]$state.HealthKo + 1
-                    # SERVEUR COINCE : le port repond, les requetes non. Le tray le
+                    # SERVEUR COINCE : le port repond, les requetes non. L'app cliente le
                     # CONSTATE et le dit -- il ne le tue plus. Tuer le serveur commun
-                    # depuis un tray, c'est le couper pour tous les comptes, et le tray
+                    # depuis une app cliente, c'est le couper pour tous les comptes, et l'app cliente
                     # arrive apres lui. La guerison appartient a la tache serveur, qui le
                     # relance, ou a quelqu'un qui clique « Redemarrer le serveur ».
                     if ($state.HealthKo -eq 3 -and -not $silence) {
                         TLog "serveur coince (port ouvert, health muet x3) : signale, pas tue"
                         try {
-                            & $dire -Titre (Get-Label 'tray.bulle-coince-titre') `
-                                    -Texte ((Get-Label 'tray.bulle-coince-texte') + (Format-TroubleReasons)) `
+                            & $dire -Titre (Get-Label 'client.bulle-coince-titre') `
+                                    -Texte ((Get-Label 'client.bulle-coince-texte') + (Format-TroubleReasons)) `
                                     -Icone 'Warning' -Duree 8000
                         } catch { }
                     }
@@ -1202,7 +1202,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                     # LE PROCESSUS EST-IL ENCORE LA ? C'est la seule preuve qui vaille :
                     # tant qu'il vit, le demarrage se poursuit, quel que soit le temps
                     # qu'il y met. On ne connait ce processus que si c'est NOUS qui
-                    # l'avons lance -- un tray qui adopte un serveur en place n'a rien a
+                    # l'avons lance -- une app cliente qui adopte un serveur en place n'a rien a
                     # observer, et retombe alors sur un delai, volontairement large.
                     $known = $false
                     $alive = $false
@@ -1232,9 +1232,9 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                     $app = 'warn'; $lbl = 'Mise à jour en cours…'
                 } else {
                     $app = 'error'; $lbl = 'Arrêtée / injoignable'
-                    # Serveur MORT (port ferme) : le tray le relance seul. C'est le
+                    # Serveur MORT (port ferme) : l'app cliente le relance seul. C'est le
                     # pendant du cas « coince » ci-dessus -- constate le 25/08 au matin :
-                    # serveur tue, tray vivant, et personne pour redemarrer. startServer
+                    # serveur tue, app cliente vivante, et personne pour redemarrer. startServer
                     # repose la fenetre de tolerance, ce qui espace naturellement les
                     # tentatives si le demarrage echoue en boucle.
                     if ($state.EverUp -and -not (Test-ServerUp -Address $cfg.BindAddress -Port $cfg.Port)) {
@@ -1246,8 +1246,8 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                             $state.SaidDead = $true
                             TLog "serveur mort (port ferme)"
                             try {
-                                & $dire -Titre (Get-Label 'tray.bulle-mort-titre') `
-                                        -Texte ((Get-Label 'tray.bulle-mort-texte') + (Format-TroubleReasons)) `
+                                & $dire -Titre (Get-Label 'client.bulle-mort-titre') `
+                                        -Texte ((Get-Label 'client.bulle-mort-texte') + (Format-TroubleReasons)) `
                                         -Icone 'Warning' -Duree 8000
                             } catch { }
                         }
@@ -1257,8 +1257,8 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                 }
             }
             $miInfo.Text = "État : $lbl"
-            if ($app -ne $state.Drawn) { & $setIcon $app; $state.Drawn = $app; $icon.Text = (Get-Label 'tray.infobulle-etat' $trayAccount $lbl); TLog "app=$app" }
-            # Battement de coeur : c'est lui qui permet a un script de savoir si le tray
+            if ($app -ne $state.Drawn) { & $setIcon $app; $state.Drawn = $app; $icon.Text = (Get-Label 'client.infobulle-etat' $clientAccount $lbl); TLog "app=$app" }
+            # Battement de coeur : c'est lui qui permet a un script de savoir si l'app cliente
             # est vivant, sans avoir a inspecter un processus eleve.
             try {
                 # UTF8 et non ASCII : l'etat contient des accents (« Démarrage… »), que
@@ -1370,7 +1370,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                         } else {
                             $allowed = $true
                             try { $allowed = Test-NotificationAllowed -ModuleId 'gaming' -Key 'game-recap' -Settings (Get-NotificationSettings -Backend $backend) } catch { }
-                            if ($allowed) { & $dire -Titre (Get-Label 'tray.bulle-partie-titre') -Texte (Get-Label 'tray.bulle-partie-texte') -Icone 'Info' -Duree 8000 -Key 'gaming.recap' -Launch 'vigie://session-recap' }
+                            if ($allowed) { & $dire -Titre (Get-Label 'client.bulle-partie-titre') -Texte (Get-Label 'client.bulle-partie-texte') -Icone 'Info' -Duree 8000 -Key 'gaming.recap' -Launch 'vigie://session-recap' }
                         }
                     }
                     if ($recapNow) { $state.RecapSeen = $recapNow }
@@ -1479,25 +1479,25 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                                 And it says the MEASUREMENT. "To watch" alone sends the reader
                                 to the panel to learn what the bubble already had in hand.
                             #>
-                            $word   = @{ ok = (Get-Label 'tray.etat-retabli'); warn = (Get-Label 'tray.etat-a-surveiller')
-                                        error = (Get-Label 'tray.etat-en-erreur'); neutral = (Get-Label 'tray.etat-sans-objet') }
+                            $word   = @{ ok = (Get-Label 'client.etat-retabli'); warn = (Get-Label 'client.etat-a-surveiller')
+                                        error = (Get-Label 'client.etat-en-erreur'); neutral = (Get-Label 'client.etat-sans-objet') }
                             if ($bascules.Count -eq 1) {
                                 $single = $bascules[0]
                                 $title = "$($single.label)"
                                 # THE MEASUREMENT LEADS when there is one -- "2 detected" says more
                                 # than "to watch" -- and the state alone gets a word to lean on, so
                                 # no line ever starts with a lowercase fragment.
-                                $body = $(if ("$($single.value)".Trim()) { (Get-Label 'tray.bulle-bascule-texte' "$($single.value)" $word[$single.vers]) }
-                                           else { (Get-Label 'tray.bulle-bascule-etat' $word[$single.vers]) })
+                                $body = $(if ("$($single.value)".Trim()) { (Get-Label 'client.bulle-bascule-texte' "$($single.value)" $word[$single.vers]) }
+                                           else { (Get-Label 'client.bulle-bascule-etat' $word[$single.vers]) })
                                 # THE REASON FOLLOWS THE STATE (CORE-ERRORS): "RAM 93 %" alone sent the reader to the panel on
                                 # 18/09 to learn what the probe already knew -- which applications held the memory.
                                 if ($single.reason -and $single.vers -ne 'ok') { $body += [Environment]::NewLine + $single.reason }
-                                if ($single.prevenir -and $single.vers -ne 'ok') { $body += [Environment]::NewLine + (Get-Label 'tray.bulle-bascule-admin') }
+                                if ($single.prevenir -and $single.vers -ne 'ok') { $body += [Environment]::NewLine + (Get-Label 'client.bulle-bascule-admin') }
                             } else {
-                                $title = (Get-Label 'tray.bulle-bascules-titre' $bascules.Count)
+                                $title = (Get-Label 'client.bulle-bascules-titre' $bascules.Count)
                                 $body = (@($bascules | ForEach-Object {
-                                    (Get-Label 'tray.bulle-bascule-ligne' $_.label $word[$_.vers]) +
-                                    $(if ($_.prevenir -and $_.vers -ne 'ok') { [Environment]::NewLine + (Get-Label 'tray.bulle-bascule-admin') } else { '' })
+                                    (Get-Label 'client.bulle-bascule-ligne' $_.label $word[$_.vers]) +
+                                    $(if ($_.prevenir -and $_.vers -ne 'ok') { [Environment]::NewLine + (Get-Label 'client.bulle-bascule-admin') } else { '' })
                                 }) -join [Environment]::NewLine)
                             }
                             TLog ("notification : " + (@($bascules | ForEach-Object { "$($_.id) $($_.de)->$($_.vers)" }) -join ', '))
@@ -1541,7 +1541,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                 if (Test-Path -LiteralPath $restart) {
                     Remove-Item -LiteralPath $restart -Force -ErrorAction SilentlyContinue
                     # ACCUSE DE RECEPTION, avant de partir. L'emetteur ne pouvait juger
-                    # que sur le retour d'un NOUVEAU tray (une dizaine de secondes) :
+                    # que sur le retour d'une NOUVELLE app cliente (une dizaine de secondes) :
                     # « ordre non pris en compte » melangeait donc « rien n'a lu l'ordre »
                     # et « la relance est plus lente que prevu ». Ce n'est pas le meme
                     # depannage.
@@ -1557,12 +1557,12 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                     Le serveur n'en a pas -- et le jour ou il devient la tache de machine,
                     il tournera en session 0, ou « Start-Process explorer.exe » reussit
                     sans que personne ne voie jamais la fenetre. Il depose donc l'ordre
-                    ici, et c'est le tray qui l'execute : dans SA session, avec SES droits,
+                    ici, et c'est l'app cliente qui l'execute : dans SA session, avec SES droits,
                     sur le bureau de celui qui a demande.
 
                     On rend compte dans un fichier « .done.json » que le serveur attend.
                     MEME EN CAS D'ECHEC : sans compte rendu, il patiente jusqu'a expiration
-                    puis conclut a tort que le tray est absent.
+                    puis conclut a tort que l'app cliente est absent.
                 #>
                 foreach ($order in @(Get-ChildItem -LiteralPath $runDir -Filter 'desktop-*.json' -File -ErrorAction SilentlyContinue |
                                      Where-Object { $_.Name -notlike '*.done.json' })) {
@@ -1629,7 +1629,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
 
 $rs = [runspacefactory]::CreateRunspace(); $rs.ApartmentState = 'STA'; $rs.ThreadOptions = 'ReuseThread'; $rs.Open()
 $ps = [PowerShell]::Create(); $ps.Runspace = $rs
-[void]$ps.AddScript($uiScript).AddArgument($backend).AddArgument($trayLog).AddArgument($RepoUrl).AddArgument($PSScriptRoot)
+[void]$ps.AddScript($uiScript).AddArgument($backend).AddArgument($clientLog).AddArgument($RepoUrl).AddArgument($PSScriptRoot)
 try { $ps.Invoke() } catch { TLog ("ERREUR Invoke: " + $_.Exception.ToString()) }
 foreach ($er in $ps.Streams.Error) { TLog ("STREAM ERROR: " + $er.ToString()) }
 try { $rs.Close() } catch { }

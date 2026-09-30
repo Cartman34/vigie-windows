@@ -33,7 +33,7 @@ rendre l'un de ces quatre éléments le laisse tomber, il ne renégocie pas.
 
 ## Les outils
 
-Un fichier par outil, dans `apps/tray/notify/`, **rangés par préférence** — le nom porte son rang, comme les méthodes
+Un fichier par outil, dans `apps/client/notify/`, **rangés par préférence** — le nom porte son rang, comme les méthodes
 d'identification des jeux (`probes/gaming/identify/`). Chacun répond à une seule question : *ici, maintenant, sais-tu
 montrer ceci ?* Le premier qui montre gagne, on s'arrête là.
 

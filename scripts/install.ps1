@@ -607,15 +607,15 @@ if ($prepared) {
         # THE CLIENT APPS ARE ASKED FIRST, and quit on their own with a line in their log; the tasks are ended and what
         # remains is stopped only for the ones that did not answer. A failure is reported, it does not stop the deployment.
         try {
-            $quitClean = @(Request-TrayStop -Backend $backend)
+            $quitClean = @(Request-ClientStop -Backend $backend)
             if ($quitClean.Count) { Write-Detail (Get-Label 'install.app-clientes-parties' ($quitClean -join ', ')) }
         } catch { }
         try {
-            $stopped = @(Stop-TrayTasks -Backend $backend)
+            $stopped = @(Stop-ClientTasks -Backend $backend)
             if ($stopped.Count) { Write-Detail (Get-Label 'install.app-clientes-arretees' (($stopped | ForEach-Object { $_.name }) -join ', ')) }
         } catch { Write-Warn (Get-Label 'install.arret-app-clientes-impossible' $_.Exception.Message) }
         $hors = 0
-        try { $hors = Stop-StandaloneTrays } catch { }
+        try { $hors = Stop-StandaloneClients } catch { }
         if ($hors -gt 0) { Write-Detail (Get-Label 'install.app-clientes-hors-tache' $hors) }
 
         # L'APP SERVEUR : si elle tient encore le port apres l'arret force, on ne pose
@@ -925,7 +925,7 @@ try {
         $me = Get-ProcessAccount
         $toStart = @($stopped | Where-Object { "$($_.name)" -ne $me })
         if ($toStart.Count) {
-            $restarted = @(Start-TrayTasks -Accounts $toStart)
+            $restarted = @(Start-ClientTasks -Accounts $toStart)
             if ($restarted.Count) { Write-Detail (Get-Label 'install.app-clientes-relancees' ($restarted -join ', ')) }
         }
     }

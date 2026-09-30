@@ -11,7 +11,7 @@
     Test-Path LEVE sur un chemin dont les droits sont refuses -- le profil d'un autre
     compte, typiquement. Sous « ErrorActionPreference = Stop », la question emporte alors
     tout le script. Constate deux fois le 29/08 : une sonde entiere en erreur, et une
-    relance de trays interrompue, dans les deux cas parce qu'on demandait si un dossier
+    relance d'app clientes interrompue, dans les deux cas parce qu'on demandait si un dossier
     existait.
 
     Un refus d'acces N'EST PAS une reponse a la question posee : on ne sait pas si le
@@ -53,7 +53,7 @@ $script:_metricsLib = Join-Path (Split-Path (Split-Path (Get-BackendRoot) -Paren
 if (Test-Path -LiteralPath $script:_metricsLib) { . $script:_metricsLib }
 
 # --- Reperes de l'arborescence ------------------------------------------------
-# Le depot contient PLUSIEURS apps (apps/backend, apps/frontend, apps/tray,
+# Le depot contient PLUSIEURS apps (apps/backend, apps/frontend, apps/client,
 # apps/atelier) plus scripts/ et doc/. Ces reperes sont calcules ICI et nulle
 # part ailleurs : aucun script ne doit recomposer un chemin inter-apps a la main.
 function Get-RepoRoot { Split-Path (Split-Path (Get-BackendRoot) -Parent) -Parent }
@@ -62,11 +62,11 @@ function Get-AppsRoot { Split-Path (Get-BackendRoot) -Parent }
 # remplacables (principe n.1). Ils ne sont ecrits QU'ICI ; tout le code passe par
 # Get-AppPath. Seul le bootstrap fait exception (voir la note plus bas).
 function Get-AppPath {
-    param([Parameter(Mandatory)][ValidateSet('backend','frontend','tray','atelier')][string]$Role)
+    param([Parameter(Mandatory)][ValidateSet('backend','frontend','client','atelier')][string]$Role)
     $folder = switch ($Role) {
         'backend'  { 'backend-pode' }    # PowerShell + Pode
         'frontend' { 'frontend-web' }    # HTML/CSS/JS, sans framework ni build
-        'tray'     { 'tray' }            # pas de suffixe : n'implemente aucun contrat
+        'client'   { 'client' }          # pas de suffixe : n'implemente aucun contrat
         'atelier'  { 'atelier' }         # idem
     }
     Join-Path (Get-AppsRoot) $folder
@@ -74,7 +74,7 @@ function Get-AppPath {
 
 # NOTE sur le bootstrap : un script qui doit CHARGER cette bibliotheque ne peut pas
 # encore appeler Get-AppPath. Le nom du dossier backend y figure donc en clair
-# (tray.ps1, scripts/*.ps1). C'est inevitable : il faut savoir ou est la bibliotheque
+# (client.ps1, scripts/*.ps1). C'est inevitable : il faut savoir ou est la bibliotheque
 # avant de pouvoir s'en servir. Ces lignes sont signalees par un commentaire.
 
 # --- Helpers partages (regle : une fonctionnalite = un seul code) -----------
@@ -2403,7 +2403,7 @@ function Backup-Install {
 #>
 function Test-InstallCopy {
     param([Parameter(Mandatory)][string]$Destination, [string]$ExpectedVersion)
-    foreach ($needed in @('apps/backend-pode/start.ps1', 'apps/tray/tray.ps1', 'apps/backend-pode/lib/common.ps1')) {
+    foreach ($needed in @('apps/backend-pode/start.ps1', 'apps/client/client.ps1', 'apps/backend-pode/lib/common.ps1')) {
         if (-not (Test-PathSafe (Join-Path $Destination $needed))) { return ("fichier manquant : " + $needed) }
     }
     if ($ExpectedVersion) {
@@ -2482,8 +2482,8 @@ function Restore-Install {
 
 # Get-PortListener lives in scripts/lib/tcp-ports.ps1, loaded at the top of this file.
 
-# WHY THE SERVER DOES NOT ANSWER, as far as a client app can measure it alone (CORE-TRAY): short lines, the likeliest
-# first, empty when nothing measurable explains it. On 17/09 the tray said only "server unreachable" while the memory,
+# WHY THE SERVER DOES NOT ANSWER, as far as a client app can measure it alone (CORE-CLIENT): short lines, the likeliest
+# first, empty when nothing measurable explains it. On 17/09 the client app said only "server unreachable" while the memory,
 # the network ports and the desktop heap of the computer were exhausted -- all of it readable from any account.
 # Each reading is a direct call to Windows (a few milliseconds each, the log filtered by the log service); the netsh
 # range reading (0.2 s) is paid only when the ports are counted. Never throws.
@@ -2494,7 +2494,7 @@ function Get-ServerTroubleReasons {
         $memory = Get-MemoryStatus
         if ($memory -and $memory.CommitLimit -gt 0) {
             $pct = [math]::Round(100 * $memory.CommitUsed / $memory.CommitLimit)
-            if ($pct -ge 90) { $reasons += (Get-Label 'tray.raison-memoire' $pct) }
+            if ($pct -ge 90) { $reasons += (Get-Label 'client.raison-memoire' $pct) }
         }
     } catch { }
     try {
@@ -2502,7 +2502,7 @@ function Get-ServerTroubleReasons {
             $range = Get-EphemeralPortRange -Protocol $proto
             if (-not $range) { continue }
             $usage = Get-EphemeralPortUsage -Protocol $proto -Start $range.Start -Count $range.Count
-            if ($usage -and $usage.Used -ge 0.8 * $usage.Limit) { $reasons += (Get-Label 'tray.raison-ports' $proto.ToUpper() $usage.Used $usage.Limit) }
+            if ($usage -and $usage.Used -ge 0.8 * $usage.Limit) { $reasons += (Get-Label 'client.raison-ports' $proto.ToUpper() $usage.Used $usage.Limit) }
         }
     } catch { }
     try {
@@ -2512,9 +2512,9 @@ function Get-ServerTroubleReasons {
         foreach ($provider in @($events | Group-Object ProviderName)) {
             $at = @($provider.Group | Sort-Object TimeCreated -Descending)[0].TimeCreated.ToString('HH:mm')
             switch ($provider.Name) {
-                'Tcpip'  { $reasons += (Get-Label 'tray.raison-journal-ports' $at) }
-                'Win32k' { $reasons += (Get-Label 'tray.raison-journal-bureau' $at) }
-                default  { $reasons += (Get-Label 'tray.raison-journal-memoire' $at) }
+                'Tcpip'  { $reasons += (Get-Label 'client.raison-journal-ports' $at) }
+                'Win32k' { $reasons += (Get-Label 'client.raison-journal-bureau' $at) }
+                default  { $reasons += (Get-Label 'client.raison-journal-memoire' $at) }
             }
         }
     } catch { }
@@ -2525,7 +2525,7 @@ function Get-ServerTroubleReasons {
             $count = 1 + @(Get-ProcessDescendants -ProcessId ([int]$listener.OwningProcess)).Count
             $limit = 20
             try { $limit = [int](Get-ModuleSetting -Unit 'debug' -Key 'SelfMaxProcesses' -Backend $Backend) } catch { }
-            if ($count -gt $limit) { $reasons += (Get-Label 'tray.raison-processus' $count) }
+            if ($count -gt $limit) { $reasons += (Get-Label 'client.raison-processus' $count) }
         }
     } catch { }
     return $reasons
@@ -2560,7 +2560,7 @@ function Test-VigieProcess {
             if ($line -like ('*' + $root + '*')) { $under = $true; break }
         }
         if (-not $under) { return $false }
-        foreach ($ours in @('server.ps1', 'start.ps1', 'tray.ps1', 'protocol.ps1', '.worker.ps1', '.resident.ps1')) {
+        foreach ($ours in @('server.ps1', 'start.ps1', 'client.ps1', 'protocol.ps1', '.worker.ps1', '.resident.ps1')) {
             if ($line -like ('*' + $ours + '*')) { return $true }
         }
         return $false
@@ -2702,9 +2702,9 @@ function Get-VarRoot {
     # LE CACHE EST PAR APPLICATION, pas global.
     #
     # Il ne tenait aucun compte de son argument : le premier appel figeait LA racine, et
-    # tous les suivants recevaient celle-la quel que soit le -Backend demande. Le tray
+    # tous les suivants recevaient celle-la quel que soit le -Backend demande. L'app cliente
     # ecrivait donc son battement de coeur dans le var/ du serveur, ou l'emetteur d'ordres
-    # ne le cherchait pas -- « relance impossible, tray deja arrete » alors qu'il tournait
+    # ne le cherchait pas -- « relance impossible, app cliente deja arretee » alors qu'elle tournait
     # (constate le 28/08). Chaque app garde ses fichiers sous SON var/ (D33) : le cache
     # doit donc etre indexe par application.
     if ($null -eq $script:VarRacineCache) { $script:VarRacineCache = @{} }
@@ -2876,7 +2876,7 @@ function Write-Log {
 # TROIS OBJETS, ET ON NE LES CONFOND PAS (conception, section Q1) :
 #
 #   secret du compte   durable   dans SON profil, ACL explicite, lui seul le lit
-#   ticket d'ouverture 30 s      passe en URL par le tray, consomme une seule fois
+#   ticket d'ouverture 30 s      passe en URL par l'app cliente, consomme une seule fois
 #   cookie de session  navigateur  identifie la page ensuite ; HttpOnly, donc hors de
 #                                  portee du JavaScript de la page
 #
@@ -2889,17 +2889,17 @@ function Write-Log {
 # aucune copie a proteger, a synchroniser, ou a revoquer.
 
 <#
-    RELANCER LES TRAYS DE TOUS LES COMPTES.
+    RELANCER LES APP CLIENTES DE TOUS LES COMPTES.
 
-    Apres une mise a jour, seul le tray qui l'a lancee repartait. Les autres continuaient
+    Apres une mise a jour, seule l'app cliente qui l'a lancee repartait. Les autres continuaient
     de tourner avec le code d'AVANT, charge en memoire depuis une installation qui vient
     d'etre remplacee sous leurs pieds -- jusqu'a la prochaine ouverture de session.
 
-    On depose donc un ordre « restart » dans le dossier de chaque compte : leur tray le
+    On depose donc un ordre « restart » dans le dossier de chaque compte : leur app cliente le
     lit dans la seconde et se relance seul. Aucun droit particulier n'est requis d'eux,
     et celui qui ne tourne pas n'a rien a faire -- il demarrera avec le nouveau code.
 
-    Le serveur est eleve : il peut ecrire dans le profil des autres. Un tray qui n'a
+    Le serveur est eleve : il peut ecrire dans le profil des autres. Une app cliente qui n'a
     jamais tourne n'a pas de dossier d'ordres, et on ne lui en cree pas : rien a relancer.
 #>
 <#
@@ -2916,7 +2916,7 @@ function Write-Log {
     code.
 #>
 # ASKS EVERY CLIENT APP TO QUIT ON ITS OWN, through the order it reads each second in its run folder: it logs
-# "arret du tray (ordre stop)", acknowledges, and leaves. Until 19/09 an update ended the tasks and killed what was
+# "arret de l'app cliente (ordre stop)", acknowledges, and leaves. Until 19/09 an update ended the tasks and killed what was
 # left: the client apps of Famille vanished seven times on 18/09 without one line saying why. Returns the accounts
 # whose app acknowledged; the forced stop that follows is left for the ones that did not answer. Never throws.
 <#
@@ -2927,20 +2927,20 @@ function Write-Log {
     error, no report, no dump. From then on Vigie measured NOTHING until the next logon, in the middle of a game, and
     said nothing about it afterwards. What is not watched is not known.
 
-    WHAT PROVES IT. The client app writes its heartbeat every eight seconds (var/run/tray.alive: process id, time,
+    WHAT PROVES IT. The client app writes its heartbeat every eight seconds (var/run/client.alive: process id, time,
     state). A heartbeat that has stopped while the account's registry hive is still loaded -- which only happens during
     its session -- is a client app that should be there and is not. No session, no expectation: that is not a fault.
 
-    WHAT IS KEPT. One line per disappearance in var/history/tray-vanished.jsonl, with the account, the last heartbeat,
+    WHAT IS KEPT. One line per disappearance in var/history/client-vanished.jsonl, with the account, the last heartbeat,
     the process id that stopped, and THE CONTEXT of the moment -- the game being played, if any. Recorded once per
     disappearance, not once per reading. Vigie restarts nothing on its own: the card names it, the user decides.
 #>
-function Get-TrayHeartbeat {
+function Get-ClientHeartbeat {
     param([Parameter(Mandatory)][string]$Account)
     try {
         $runDir = Get-AccountRunDir -Account $Account
         if (-not $runDir) { return $null }
-        $file = Join-Path $runDir 'tray.alive'
+        $file = Join-Path $runDir 'client.alive'
         if (-not (Test-PathSafe $file)) { return $null }
         $raw = Get-Content -LiteralPath $file -Raw -Encoding UTF8 -ErrorAction Stop
         $parts = "$raw".Trim() -split ';'
@@ -2961,7 +2961,7 @@ function Get-TrayHeartbeat {
     Rows: one per account whose session is open and that has already had a client app here. Silent tells how many
     minutes its heartbeat has been quiet, -1 when it never wrote one.
 #>
-function Get-TrayWatchRows {
+function Get-ClientWatchRows {
     # HOW LONG BEFORE CONCLUDING: the heartbeat is every eight seconds, and a loaded machine can miss a few of them.
     # Three minutes without a single beat is no longer lateness.
     param([string]$Backend = (Get-BackendRoot), [int]$SilentMinutes = 3)
@@ -2981,7 +2981,7 @@ function Get-TrayWatchRows {
                         [System.Security.Principal.NTAccount]).Value.Split([char]92)[-1]
         } catch { continue }
         if (-not $name) { continue }
-        $beat = Get-TrayHeartbeat -Account $name
+        $beat = Get-ClientHeartbeat -Account $name
         if (-not $beat) { continue }
         $silentMin = [int][Math]::Floor(($nowUtc - $beat.At).TotalMinutes)
         $gone = $silentMin -ge $SilentMinutes
@@ -3014,16 +3014,16 @@ function Get-TrayWatchRows {
     a recomputation, which is why nothing at all was measured between 20:22 and 21:41 on 28/09, during a game.
 
     WHAT IT NEVER DOES. It stops no process, and it cannot: what it ends is a task whose process is already gone --
-    Start-TrayTasks returns untouched as soon as the process is alive. Nothing is killed, here or anywhere below.
+    Start-ClientTasks returns untouched as soon as the process is alive. Nothing is killed, here or anywhere below.
 
     HOW IT IS BOUNDED. A disappearance must be seen TWICE IN A ROW, one minute apart, on the same stopped heartbeat.
     Then at most two attempts for that heartbeat, each one logged with its outcome. A client app that will not come back
     is said on the card, not retried forever.
 #>
-function Update-TrayWatch {
+function Update-ClientWatch {
     param([string]$Backend = (Get-BackendRoot), [int]$SilentMinutes = 3, [int]$MaxTries = 2)
-    $rows = @(Get-TrayWatchRows -Backend $Backend -SilentMinutes $SilentMinutes)
-    $stateFile = Get-VarPath -Backend $Backend -Kind 'cache' -File 'tray-watch.json'
+    $rows = @(Get-ClientWatchRows -Backend $Backend -SilentMinutes $SilentMinutes)
+    $stateFile = Get-VarPath -Backend $Backend -Kind 'cache' -File 'client-watch.json'
     $known = @{}
     try {
         if (Test-PathSafe $stateFile) {
@@ -3064,7 +3064,7 @@ function Update-TrayWatch {
                 game    = $game
             }
             try {
-                $file = Get-VarPath -Backend $Backend -Kind 'history' -File 'tray-vanished.jsonl'
+                $file = Get-VarPath -Backend $Backend -Kind 'history' -File 'client-vanished.jsonl'
                 Add-HistoryLine -Path $file -Line ($record | ConvertTo-Json -Depth 4 -Compress) | Out-Null
                 # GROWTH IS BOUNDED: a disappearance is rare, two hundred of them tell months.
                 $lines = @(Get-Content -LiteralPath $file -Encoding UTF8 -ErrorAction SilentlyContinue)
@@ -3102,7 +3102,7 @@ function Update-TrayWatch {
 
             Measured on 29/09, and it cost a client app: Test-VigieTaskProcessAlive compares COMMAND LINES, which
             Windows hides for an elevated process from a session that is not. It answered "no process" about a client
-            app that was running, and Start-TrayTasks then ended the task -- that is, the live process -- before
+            app that was running, and Start-ClientTasks then ended the task -- that is, the live process -- before
             starting it again. A test that can be wrong must never be the last word before an act.
 
             A process id is readable by everyone, for every process. If the one that wrote the last heartbeat still
@@ -3128,7 +3128,7 @@ function Update-TrayWatch {
             continue
         }
         $started = @()
-        try { $started = @(Start-TrayTasks -Accounts @($account)) } catch { }
+        try { $started = @(Start-ClientTasks -Accounts @($account)) } catch { }
         try {
             Write-Log -Backend $Backend -Name 'state' -Level $(if ($started.Count) { 'INFO' } else { 'WARN' }) -Message (
                 "relance de l'app cliente de $($r.Account), tentative $($r.Try) : " +
@@ -3143,7 +3143,7 @@ function Update-TrayWatch {
     return $rows
 }
 
-function Request-TrayStop {
+function Request-ClientStop {
     param([string]$Backend = (Get-BackendRoot), [int]$TimeoutSec = 10)
     $asked = @()
     foreach ($c in @(Get-EnabledAccounts -Backend $Backend)) {
@@ -3170,7 +3170,7 @@ function Request-TrayStop {
     return $acknowledged
 }
 
-function Stop-TrayTasks {
+function Stop-ClientTasks {
     param([string]$Backend = (Get-BackendRoot))
     $stopped = @()
     foreach ($c in @(Get-EnabledAccounts -Backend $Backend)) {
@@ -3181,7 +3181,7 @@ function Stop-TrayTasks {
     return $stopped
 }
 
-function Start-TrayTasks {
+function Start-ClientTasks {
     param([Parameter(Mandatory)]$Accounts)
     $started = @()
     foreach ($a in @($Accounts)) {
@@ -3216,9 +3216,9 @@ function Start-TrayTasks {
 
     Rend le nombre de processus arretes.
 #>
-function Stop-StandaloneTrays {
+function Stop-StandaloneClients {
     $killed = 0
-    $leaf = 'tray.ps1'
+    $leaf = 'client.ps1'
     foreach ($p in @(Get-CimInstance Win32_Process -Filter "Name='pwsh.exe' OR Name='powershell.exe'" -ErrorAction SilentlyContinue)) {
         $line = "$($p.CommandLine)"
         if (-not $line -or $line -notmatch [regex]::Escape($leaf)) { continue }
@@ -3228,7 +3228,7 @@ function Stop-StandaloneTrays {
     return $killed
 }
 
-function Send-TrayRestartToAll {
+function Send-ClientRestartToAll {
     # « Sauf moi » veut dire « sauf CELUI QUI DEMANDE » : son app cliente vient de faire la
     # mise a jour et se relance elle-meme. Le compte du service, lui, n'a pas d'app cliente.
     # Personne d'identifie : on previent TOUT LE MONDE. C'est le bon defaut -- une app
@@ -3259,8 +3259,8 @@ function Send-TrayRestartToAll {
         try { $run = Get-AccountRunDir -Account $profil.Name } catch { continue }
         if (-not $run) { continue }
         if (-not (Test-PathSafe $run)) { continue }
-        # ON N'A PAS A SAVOIR SI LE TRAY TOURNE. Un tray efface les ordres en attente a son
-        # demarrage : un ordre depose pour un tray absent ne survit pas a son retour, et
+        # ON N'A PAS A SAVOIR SI L'APP CLIENTE TOURNE. Une app cliente efface les ordres en attente a son
+        # demarrage : un ordre depose pour une app cliente absente ne survit pas a son retour, et
         # celui-ci demarre de toute facon avec le nouveau code. Verifier son battement de
         # coeur ajoutait un acces disque et une condition pour rien.
         try {
@@ -5236,7 +5236,7 @@ function Update-WslUsage {
         }
     } catch { }
     # A CLIENT APP THAT BEATS, and nothing else: an account with no session has no WSL to look at either.
-    $account = @(Get-TrayWatchRows -Backend $Backend | Where-Object { $_.Status -eq 'ok' } | Select-Object -First 1)
+    $account = @(Get-ClientWatchRows -Backend $Backend | Where-Object { $_.Status -eq 'ok' } | Select-Object -First 1)
     if (-not $account.Count) { return $null }
     $answer = $null
     try { $answer = Invoke-DesktopAction -Account "$($account[0].Account)" -Type 'wsl-usage' -Module 'wsl' -TimeoutSec 20 -Backend $Backend } catch { }
@@ -8072,7 +8072,7 @@ function Test-VigieToastIdentityDeclared {
         $p = Get-ItemProperty -LiteralPath $key -ErrorAction Stop
         if ("$($p.DisplayName)" -ne 'Vigie') { return $false }
         if ($InstallPath) {
-            $ico = Join-Path (Join-Path (Join-Path (Join-Path $InstallPath 'apps') 'tray') 'assets') 'ok.ico'
+            $ico = Join-Path (Join-Path (Join-Path (Join-Path $InstallPath 'apps') 'client') 'assets') 'ok.ico'
             if ((Test-Path -LiteralPath $ico) -and "$($p.IconUri)" -ne $ico) { return $false }
         }
         return $true
@@ -8090,7 +8090,7 @@ function Set-VigieToastIdentity {
         # an IconUri pointing at nothing gives a notification with no image, which is worse
         # than declaring none at all.
         if ($InstallPath) {
-            $ico = Join-Path (Join-Path (Join-Path (Join-Path $InstallPath 'apps') 'tray') 'assets') 'ok.ico'
+            $ico = Join-Path (Join-Path (Join-Path (Join-Path $InstallPath 'apps') 'client') 'assets') 'ok.ico'
             if (Test-Path -LiteralPath $ico) {
                 New-ItemProperty -Path $key -Name 'IconUri' -Value $ico -PropertyType String -Force | Out-Null
             }
@@ -8436,7 +8436,7 @@ function Get-VendorName {
 
     The client app describes an EVENT and never an display: a subject, a state, a text and
     a duration. Which tool shows it is decided here, at the moment of showing, among the
-    files of apps/tray/notify/ -- one per tool, ranked by their name, exactly as the game
+    files of apps/client/notify/ -- one per tool, ranked by their name, exactly as the game
     identification methods are (probes/gaming/identify/).
 
     Before this, ShowBalloonTip was called at five places. Changing tool meant rewriting
@@ -8448,13 +8448,13 @@ function Get-VendorName {
     added, removed or wrong without a notification ever being lost.
 #>
 function Get-VigieToastImage {
-    param([Parameter(Mandatory)][string]$TrayRoot, [string]$State = 'ok')
+    param([Parameter(Mandatory)][string]$ClientRoot, [string]$State = 'ok')
     $name = switch ($State) { 'ok' { 'ok' } 'warn' { 'warn' } 'error' { 'error' } default { 'error' } }
     # THE PNG FIRST. Notification rendering picks a small frame out of a .ico and blows it
     # up -- the outline comes out as a staircase, seen on screen on 10/09. The .ico stays
     # as the answer of last resort: an installation from before the PNG must still notify.
     foreach ($extension in @('.png', '.ico')) {
-        $path = Join-Path (Join-Path $TrayRoot 'assets') ($name + $extension)
+        $path = Join-Path (Join-Path $ClientRoot 'assets') ($name + $extension)
         if (Test-PathSafe $path) { return $path }
     }
     return $null
@@ -8517,7 +8517,7 @@ function Show-VigieNotification {
         [Parameter(Mandatory)]$Notification,
         [Parameter(Mandatory)]$Context
     )
-    $folder = Join-Path $Context.TrayRoot 'notify'
+    $folder = Join-Path $Context.ClientRoot 'notify'
     foreach ($tool in @(Get-ChildItem -LiteralPath $folder -Filter '*.ps1' -File -ErrorAction SilentlyContinue | Sort-Object Name)) {
         $shown = $false
         try { $shown = [bool](@(& $tool.FullName -Notification $Notification -Context $Context) | Select-Object -Last 1) } catch { $shown = $false }
@@ -8535,7 +8535,7 @@ function Get-SharedInstallPath {
         }
     } catch { }
     if ($declared) {
-        $marqueurDeclare = Join-Path (Join-Path (Join-Path $declared 'apps') 'tray') 'tray.ps1'
+        $marqueurDeclare = Join-Path (Join-Path (Join-Path $declared 'apps') 'client') 'client.ps1'
         if (Test-Path -LiteralPath $marqueurDeclare -ErrorAction SilentlyContinue) { return $declared }
     }
     # Program Files est lisible par tous les comptes PAR CONSTRUCTION : une installation
@@ -8549,7 +8549,7 @@ function Get-SharedInstallPath {
             $c = Join-Path $b $nom
             # Chemin construit par Join-Path : un antislash litteral a deja ete mange par
             # mes outils d ecriture et transforme en tabulations (constate ici meme).
-            $marqueur = Join-Path (Join-Path (Join-Path $c 'apps') 'tray') 'tray.ps1'
+            $marqueur = Join-Path (Join-Path (Join-Path $c 'apps') 'client') 'client.ps1'
             if (Test-Path -LiteralPath $marqueur) { return $c }
         }
     }
@@ -8733,9 +8733,9 @@ function Get-HeadlessConsolePath {
     return $null
 }
 
-function New-VigieTrayAction {
-    param([Parameter(Mandatory)][string]$Pwsh, [Parameter(Mandatory)][string]$Tray)
-    $arg = '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $Tray + '"'
+function New-VigieClientAction {
+    param([Parameter(Mandatory)][string]$Pwsh, [Parameter(Mandatory)][string]$Client)
+    $arg = '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $Client + '"'
     $conhost = Get-HeadlessConsolePath
     if ($conhost) { return (New-ScheduledTaskAction -Execute $conhost -Argument ('--headless "' + $Pwsh + '" ' + $arg)) }
     return (New-ScheduledTaskAction -Execute $Pwsh -Argument $arg)
@@ -8942,9 +8942,9 @@ function Repair-VigieTasks {
                 # le chemin ou l'application se trouve REELLEMENT maintenant.
                 $pwsh = Get-SharedPwshPath
                 if (-not $pwsh) { $pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Source }
-                $tray = Join-Path (Join-Path (Get-RepoRoot) 'apps') (Join-Path 'tray' 'tray.ps1')
-                if (-not $pwsh -or -not (Test-Path -LiteralPath $tray)) { continue }
-                Set-ScheduledTask -TaskName $nom -Action (New-VigieTrayAction -Pwsh $pwsh -Tray $tray) -ErrorAction Stop | Out-Null
+                $client = Join-Path (Join-Path (Get-RepoRoot) 'apps') (Join-Path 'client' 'client.ps1')
+                if (-not $pwsh -or -not (Test-Path -LiteralPath $client)) { continue }
+                Set-ScheduledTask -TaskName $nom -Action (New-VigieClientAction -Pwsh $pwsh -Client $client) -ErrorAction Stop | Out-Null
                 # AND WE TRY THE RENAME AGAIN (D117). Reaching here means the pass at the top
                 # of the loop failed -- the task answers again now that it has been rewritten,
                 # so the attempt is worth making a second time.
@@ -9345,7 +9345,7 @@ function Set-VigieAccountEnabled {
     $appRoot = $null
     foreach ($candidate in $candidates) {
         if (-not $candidate) { continue }
-        $probe = Join-Path (Join-Path $candidate 'apps') (Join-Path 'tray' 'tray.ps1')
+        $probe = Join-Path (Join-Path $candidate 'apps') (Join-Path 'client' 'client.ps1')
         if (-not (Test-Path -LiteralPath $probe)) { continue }
         if (Test-PathReadableByAccount -Path $probe -Sid $targetSid -IsAdmin:([bool]$compte.admin)) {
             $appRoot = $candidate
@@ -9356,10 +9356,10 @@ function Set-VigieAccountEnabled {
         throw ("Aucune copie de Vigie n'est lisible par " + $Name +
                " : deployez-la pour tous les comptes avant de l'activer.")
     }
-    $tray = Join-Path $appRoot 'apps/tray/tray.ps1'
-    if (-not (Test-Path -LiteralPath $tray)) { throw "Application introuvable : $tray" }
+    $client = Join-Path $appRoot 'apps/client/client.ps1'
+    if (-not (Test-Path -LiteralPath $client)) { throw "Application introuvable : $client" }
 
-    $action  = New-VigieTrayAction -Pwsh $pwsh -Tray $tray
+    $action  = New-VigieClientAction -Pwsh $pwsh -Client $client
     $trigger = New-ScheduledTaskTrigger -AtLogOn
     # 45 s : pwsh vient du Store (MSIX) et n'est pas toujours pret a l'instant du logon.
     $trigger.Delay = 'PT45S'
@@ -9393,7 +9393,7 @@ function Set-VigieAccountEnabled {
 # --- OU S'EXECUTE UNE ACTION : sur le serveur, ou sur le bureau d'un compte ? ----------
 #
 # LE PROBLEME. Un serveur n'a pas d'ecran. Aujourd'hui il en a un par accident -- c'est le
-# tray de fhaza qui le lance, donc dans une session de bureau. Le jour ou il devient la
+# app cliente de fhaza qui la lance, donc dans une session de bureau. Le jour ou il devient la
 # tache de machine, il tournera en session 0 : « Start-Process explorer.exe » y reussit
 # sans que PERSONNE ne voie jamais la fenetre. L'action se declarerait faite, et rien ne
 # se passerait a l'ecran.
@@ -9410,7 +9410,7 @@ function Set-VigieAccountEnabled {
 # « ADMIN » ET « SESSION » VONT TRES BIEN ENSEMBLE, contrairement a ce que j'avais cru.
 # Test-ActionAllowed refuse une action admin a un compte standard, et a une fenetre qui
 # ne dit pas qui elle est, AVANT toute execution. Une action admin n'est donc demandee que
-# par un administrateur -- et la tache de tray d'un administrateur tourne en RunLevel
+# par un administrateur -- et la tache d'app cliente d'un administrateur tourne en RunLevel
 # Highest, donc elevee. Elle peut faire les deux.
 #
 # Le jour ou l'on voudra qu'un compte standard VOIE ces boutons et declenche une demande
@@ -9432,7 +9432,7 @@ function Get-ActionExecutor {
     return 'serveur'
 }
 
-# Le dossier d'ordres d'un compte : c'est la que son tray regarde, une fois par seconde.
+# Le dossier d'ordres d'un compte : c'est la que son app cliente regarde, une fois par seconde.
 function Get-AccountRunDir {
     param([Parameter(Mandatory)][string]$Account)
     $varRoot = Get-AccountVarRoot -Account $Account
@@ -9441,9 +9441,9 @@ function Get-AccountRunDir {
 }
 
 <#
-    FAIRE EXECUTER UNE ACTION PAR LE TRAY D'UN COMPTE.
+    FAIRE EXECUTER UNE ACTION PAR L'APP CLIENTE D'UN COMPTE.
 
-    On depose un ordre dans son dossier, et on attend son compte rendu. Le tray tourne
+    On depose un ordre dans son dossier, et on attend son compte rendu. L'app cliente tourne
     dans SA session, avec SES droits et SON bureau : la fenetre s'ouvre la ou le
     demandeur la voit, et l'action n'obtient rien que Windows lui refuserait.
 
@@ -9451,7 +9451,7 @@ function Get-AccountRunDir {
     compte, ou lui seul et les administrateurs ecrivent. Un dossier ou tout le monde
     pourrait deposer serait un moyen de faire executer n'importe quoi par n'importe qui.
 
-    RIEN N'EST GARANTI DE L'AUTRE COTE : le tray peut etre arrete, la session fermee, le
+    RIEN N'EST GARANTI DE L'AUTRE COTE : l'app cliente peut etre arrete, la session fermee, le
     compte deconnecte. On rend alors $null, et l'appelant decide -- ici, il execute
     lui-meme, comme avant. Une action qui ne s'ouvre pas sur le bon bureau vaut mieux
     qu'une action qui ne s'ouvre pas du tout.
@@ -9487,7 +9487,7 @@ function Invoke-DesktopAction {
             return $data
         }
     }
-    # PAS DE REPONSE : on retire notre ordre. Sans cela, un tray qui revient dans une
+    # PAS DE REPONSE : on retire notre ordre. Sans cela, une app cliente qui revient dans une
     # heure ouvrirait une fenetre que plus personne n'attend.
     Remove-Item -LiteralPath $order -Force -ErrorAction SilentlyContinue
     return $null
@@ -9656,7 +9656,7 @@ function Test-ActionAllowed {
 # utilisateur : un compte ne modifie jamais les reglages d'un autre.
 #
 # Un processus eleve du meme compte partage son LOCALAPPDATA : le serveur eleve et le
-# tray ecrivent donc bien au meme endroit que l'utilisateur connecte.
+# app cliente ecrivent donc bien au meme endroit que l'utilisateur connecte.
 <#
     LES REGLAGES D'UN COMPTE VIVENT CHEZ LUI, ET ON VA LES Y CHERCHER.
 
@@ -9959,7 +9959,7 @@ function Set-ModuleParameters {
 }
 
 # --- Reglages des notifications (D54) ----------------------------------------
-# Le TRAY notifie sur bascule d'un MODULE (resultat de sonde) ; la couleur de son icone,
+# L'APP CLIENTE notifie sur bascule d'un MODULE (resultat de sonde) ; la couleur de son icone,
 # elle, reste le statut de l'APPLICATION -- les deux roles ne se melangent pas.
 #
 # Reglages : un interrupteur global + un reglage FIN par module. Le global MASQUE, il
@@ -9968,7 +9968,7 @@ function Set-ModuleParameters {
 #
 # Stockage : config/notifications.local.json a la racine (jamais versionne). JSON et non
 # psd1 : ce fichier est ECRIT par le backend (l'interface le modifie via l'API), et le
-# tray le RELIT ; JSON se lit et s'ecrit sans peine des deux cotes.
+# app cliente le RELIT ; JSON se lit et s'ecrit sans peine des deux cotes.
 # Ecriture : couche utilisateur (D65). Lecture : la sienne si elle existe, celle de la
 # machine sinon.
 function Get-NotificationSettingsPath { Get-UserConfigPath -File 'notifications.local.json' -Account (Get-ActionRequester) }
@@ -10059,7 +10059,7 @@ function Get-NotificationCatalog {
     })
 }
 
-# Le tray applique la regle SANS refaire la logique : une notification pour ce module
+# L'app cliente applique la regle SANS refaire la logique : une notification pour ce module
 # passe-t-elle ? (global coupe = rien ; sinon le reglage fin, actif par defaut)
 function Test-NotificationAllowed {
     param(
@@ -10076,7 +10076,7 @@ function Test-NotificationAllowed {
     # administrateur ne s'affiche donc pas pour un compte standard...
     # ...SAUF si elle est declaree CRITIQUE : antivirus coupe, pare-feu ouvert, mises a
     # jour en attente. Dans ce cas l'utilisateur doit savoir, ne serait-ce que pour le
-    # signaler a un administrateur -- le tray le lui dit explicitement.
+    # signaler a un administrateur -- l'app cliente le lui dit explicitement.
     if ($Key -and -not (Test-IsElevated)) {
         $decl = $null
         foreach ($u in (Get-NotificationCatalog)) {
@@ -10398,7 +10398,7 @@ function Invoke-ActionById {
     }
     try {
         # DANS QUELLE SESSION ? Une action declaree « session » doit s'executer chez le DEMANDEUR,
-        # pas la ou tourne le serveur. On la lui fait executer par son tray ; s'il ne
+        # pas la ou tourne le serveur. On la lui fait executer par son app cliente ; s'il ne
         # repond pas, on l'execute ici comme avant plutot que de ne rien faire.
         $res = $null
         if ((Get-ActionExecutor -Type $Type -Backend $Backend) -eq 'session' -and $requester -and $requester -ne '-') {
@@ -10407,7 +10407,7 @@ function Invoke-ActionById {
                 $res = @{ message = "$($relais.message)"; result = $relais.result }
             } else {
                 try { Write-Log -Backend $Backend -Name 'actions' -Level 'WARN' `
-                                -Message ("Action " + $Type + " : le tray de " + $requester + " n'a pas repondu, execution locale.") } catch { }
+                                -Message ("Action " + $Type + " : l'app cliente de " + $requester + " n'a pas repondu, execution locale.") } catch { }
             }
         }
         if (-not $res) { $res = & $file -Module $Module -Params $Params }
@@ -10503,7 +10503,7 @@ function Test-IsElevated { Test-Elevated }
 
 # --- Habillage des fenetres (DWM) --------------------------------------------
 # Barre de titre sombre et coins arrondis Windows 11. Declare UNE SEULE FOIS ici
-# et utilise partout (fenetre de consentement, menu du tray) : la signature
+# et utilise partout (fenetre de consentement, menu de l'app cliente) : la signature
 # P/Invoke ne doit pas etre recopiee dans chaque script.
 # Sans effet sur les versions de Windows anterieures : l'appel echoue sans dommage.
 function Set-WindowChrome {

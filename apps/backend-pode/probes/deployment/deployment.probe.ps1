@@ -344,7 +344,7 @@ $carteDepl = New-ModuleObject -Id 'deployment' -Theme 'accounts' -Label 'Déploi
     -Actions @(
         # LES TEXTES DE LA CONFIRMATION. « Ce que ca change » dit ce qui CHANGE, pas ce qui
         # se passe -- le deroule est montre juste au-dessus par -Steps. Et sans notre
-        # vocabulaire interne : « tag de version », « tray », « depot » ne veulent rien
+        # vocabulaire interne : « tag de version », « app cliente », « depot » ne veulent rien
         # dire pour qui utilise Vigie. « Revenir en arriere » repond OUI, puis comment.
         #
         # ATTENTION : ces commentaires sont ICI et pas au milieu de l'appel. Un commentaire

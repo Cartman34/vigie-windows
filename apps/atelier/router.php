@@ -3,7 +3,7 @@
  * Routeur de l'Atelier — filtre de sécurité du serveur de développement.
  *
  * L'Atelier sert la RACINE du dépôt, parce qu'il doit lire des fichiers de plusieurs
- * apps (les icônes du tray, le frontend, le contrat). Sans filtre, il exposerait aussi
+ * apps (les icônes de l'app cliente, le frontend, le contrat). Sans filtre, il exposerait aussi
  * tout le reste — dont apps/<app>/var/secrets/api.token, le jeton de l'API de Vigie.
  *
  * Ce routeur refuse explicitement ce qui ne doit jamais sortir. Il rend `false` pour

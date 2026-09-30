@@ -91,12 +91,12 @@ Full detail, card by card: [What Vigie monitors](doc/en/using/features.md).
 |---|---|
 | [Documentation index](doc/en/README.md) | where to start, and what each page holds |
 | [Installation](doc/en/operating/install.md) | archive or git clone, autostart, uninstall |
-| [Getting started](doc/en/using/getting-started.md) | first launch, tray icon, reading a card |
+| [Getting started](doc/en/using/getting-started.md) | first launch, notification-area icon, reading a card |
 | [What Vigie monitors](doc/en/using/features.md) | every card and every action |
 | [Windows Update](doc/en/using/windows-update.md) | the lock, update mode, installing updates |
 | [Security](doc/en/operating/security.md) | elevation, local binding, token, residual risk |
 | [Configuration](doc/en/operating/configuration.md) | port, external tooling, local overrides |
-| [Troubleshooting](doc/en/using/troubleshooting.md) | logs, tray commands, common failures |
+| [Troubleshooting](doc/en/using/troubleshooting.md) | logs, client app commands, common failures |
 | **[Development](doc/en/developing/README.md)** | architecture, probes and actions, contributing |
 
 ## Requirements

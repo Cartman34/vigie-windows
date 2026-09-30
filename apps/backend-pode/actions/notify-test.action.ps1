@@ -15,8 +15,8 @@ param([string]$Module, [hashtable]$Params)
 $backend = Split-Path $PSScriptRoot -Parent
 . (Join-Path $backend 'lib/common.ps1')
 
-$trayRoot = Join-Path (Split-Path $backend -Parent) 'tray'
-$icon = Join-Path $trayRoot 'vigie.ico'
+$clientRoot = Join-Path (Split-Path $backend -Parent) 'client'
+$icon = Join-Path $clientRoot 'vigie.ico'
 $when = (Get-Date).ToString('HH:mm:ss')
 $tool = $null
 try {
@@ -24,7 +24,7 @@ try {
         -Notification @{ Subject = 'Vigie — notification d''essai'
                          Body    = "Si vous lisez ceci, les alertes de Vigie savent atteindre cet écran ($when)."
                          State   = 'ok'; Duration = 6000; Key = 'vigie.essai' } `
-        -Context @{ TrayRoot = $trayRoot; Aumid = (Get-VigieToastIdentity); Icon = $icon }
+        -Context @{ ClientRoot = $clientRoot; Aumid = (Get-VigieToastIdentity); Icon = $icon }
 } catch {
     return @{ message = "L'essai a échoué : $($_.Exception.Message)"; result = @{ ok = $false } }
 }

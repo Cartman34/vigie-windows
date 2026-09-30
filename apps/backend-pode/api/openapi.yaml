@@ -126,7 +126,7 @@ paths:
         "400": { description: Parametre non declare ou requete invalide }
   /notifications:
     get:
-      summary: Reglages des notifications du tray (D54)
+      summary: Reglages des notifications de l'app cliente (D54)
       responses:
         "200":
           description: Reglages courants

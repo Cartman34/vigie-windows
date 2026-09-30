@@ -48,7 +48,7 @@ See the discipline "Coming back from a context compaction".
   Bearer token + anti-CSRF + action whitelist.
 - **Plain HTML/JS** front end (`apps/frontend-web/index.html`), serves the mock
   `apps/frontend-web/mock/state.json` if the back end is absent.
-- **WinForms client app** (`apps/tray/tray.ps1`): tray icon = the app's status (gauge), menu,
+- **WinForms client app** (`apps/client/client.ps1`): notification-area icon = the app's status (gauge), menu,
   dedicated window (Edge/Chrome `--app`).
 - The most intrusive capability, to be handled with care: **locking Windows Update** (ACL
   deny on SYSTEM over the task folders) to block forced restarts, without hiding real
@@ -99,7 +99,7 @@ deliberately laying the trap. Run it after any scripted write.
 26/08. `\\` often arrives **single** in the written file, and `\t`, `\25`, `\b` become
 **control characters** (tab, 0x15, backspace). Symptoms lived through: a `(^|\\)` regex that
 silently did nothing and broke the whole account inventory; a CSS chevron displayed as "B8";
-a path `apps\tray\tray.ps1` turned into tabs, and therefore not found. **Remedy**: do not
+a path `apps\client\client.ps1` turned into tabs, and therefore not found. **Remedy**: do not
 write a literal backslash when it can be avoided — nested `Join-Path`, `Split([char]92)`, a
 chevron drawn in CSS — and read the written file back (`cat -A`) at the slightest doubt.
 
@@ -241,7 +241,7 @@ deciding, then give it the corrected subject.
 ## Decisions
 
 See `../../progress/decisions.md` — each entry says whether it was asked for by the owner or
-taken by the agent: tray icon = option B (graduations + heel confirmed); name = repository
+taken by the agent: notification-area icon = option B (graduations + heel confirmed); name = repository
 "Vigie Windows" (slug `vigie-windows`), interface "Vigie" instead of "Control Panel".
 
 ## GitHub repository (current state)
@@ -294,7 +294,7 @@ history is in **D40**, do not do it again.
 - **PowerShell 7** (`pwsh`): present. It is the validation tool for PowerShell code.
 - **Windows PowerShell 5.1** (`powershell.exe`): present, and it is the only host that sees
   the WinRT projection — see `../../progress/targeting/notifications.md`.
-- **Python 3.11**: present (used by `apps/tray/assets/generate-icons.py`).
+- **Python 3.11**: present (used by `apps/client/assets/generate-icons.py`).
 - **Chocolatey**, **git**, **php**, **composer**, **symfony-cli**: present.
 - **git** works normally: repository, branches and worktrees operational. **HTTPS** to
   GitHub, token remembered by the Credential Manager.

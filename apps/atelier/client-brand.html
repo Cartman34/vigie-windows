@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Marque du tray et icônes livrées — atelier Vigie</title>
+<title>Marque de l'app cliente et icônes livrées — atelier Vigie</title>
 <link rel="stylesheet" href="atelier.css">
 <style>
   .crumb{color:var(--muted);text-decoration:none;font-size:12.5px;border:1px solid var(--border);
@@ -21,7 +21,7 @@
 <body>
 <header>
   <a class="crumb" href="index.html">&larr; Atelier</a>
-  <h1>Marque du tray et icônes livrées</h1>
+  <h1>Marque de l'app cliente et icônes livrées</h1>
   <span class="badge archive">validé — archivé</span>
   <span class="sub">jauge à graduations (D01, D37, D42) — consultation, plus rien à trancher</span>
 <a class="crumb vigie" href="vigie.php" target="_blank" rel="noopener">Ouvrir Vigie ↗</a>
@@ -32,7 +32,7 @@
 </div>
 
 <section>
-  <h2>Marque du tray — réglage de la jauge</h2>
+  <h2>Marque de l'app cliente — réglage de la jauge</h2>
   <p class="hint">
     Reproduction exacte de <code>generate-icons.py</code>. La <b>fraction</b> décide si la
     jauge paraît pleine. Juge à <b>16 px</b> : c'est la taille réelle dans la barre des tâches.
@@ -77,7 +77,7 @@
   <div class="note">
     <b>Livré aujourd'hui</b> — conforme <code>1.00</code> (jauge pleine), démarrage
     <code>0.50</code>, erreur <code>0.17</code>. Une valeur retenue se reporte dans
-    <b>un seul</b> endroit — <code>apps/tray/assets/generate-icons.py</code> — puis on
+    <b>un seul</b> endroit — <code>apps/client/assets/generate-icons.py</code> — puis on
     régénère les <code>.ico</code>. Le repli GDI+ qui redessinait la marque a été supprimé
     (<b>D38</b>) : il avait divergé sans que personne ne le voie.
   </div>
@@ -86,7 +86,7 @@
 <section>
   <h2>Icônes réellement livrées (.ico)</h2>
   <p class="hint">
-    Lues depuis <code>apps/tray/assets/</code>. Sert à vérifier que le générateur a bien été
+    Lues depuis <code>apps/client/assets/</code>. Sert à vérifier que le générateur a bien été
     rejoué : si elles diffèrent de la simulation ci-dessus, les <code>.ico</code> sont périmés.
     <b>Réserve honnête</b> : un navigateur choisit une seule sous-image du <code>.ico</code> et la
     redimensionne — le rendu à 16 px ici n'est donc pas exactement celui de Windows, qui pioche
@@ -98,7 +98,7 @@
 </main>
 <script>
 // =============================================================================
-// 1) MARQUE — reproduction EXACTE de apps/tray/assets/generate-icons.py.
+// 1) MARQUE — reproduction EXACTE de apps/client/assets/generate-icons.py.
 //    Ne modifier qu'en miroir du generateur, sinon l'atelier ment.
 // =============================================================================
 const COLORS = { ok:'#3fb950', warn:'#d29922', err:'#f85149' };
@@ -116,7 +116,7 @@ const ARC = (() => {
 })();
 const ARCLEN = 2 * Math.PI * R * (SPAN / 360);
 
-// Niveaux de detail — MIROIR EXACT de apps/tray/assets/generate-icons.py (D37).
+// Niveaux de detail — MIROIR EXACT de apps/client/assets/generate-icons.py (D37).
 // En dessous d'un certain nombre de pixels, un element cesse d'etre lisible et devient
 // du bruit : on le retire plutot que de le laisser se transformer en tache.
 // Si ces seuils changent d'un cote, ils DOIVENT changer de l'autre, sinon l'atelier
@@ -201,7 +201,7 @@ document.getElementById('icos').innerHTML = [
        + ICO_SIZES.map(px =>
            '<div class="cell' + (px === Math.max.apply(null, ICO_SIZES) ? ' wide' : '')
          + '" data-ico="'+n+'" data-px="'+px+'" data-cap="'+px+' px">'
-         + '<div class="art"><img src="../tray/assets/'+n+'.ico" width="'+px+'" height="'+px+'" alt=""></div>'
+         + '<div class="art"><img src="../client/assets/'+n+'.ico" width="'+px+'" height="'+px+'" alt=""></div>'
          + '<span class="cap">'+px+' px</span></div>').join('')
        + '</div>';
 }).join('');
@@ -220,7 +220,7 @@ const SERVIE = location.protocol.startsWith('http');
 document.getElementById('alertBody').innerHTML = SERVIE
   ? "<b>Des icônes n'ont pas pu être chargées.</b> Le serveur de l'Atelier a probablement "
     + "été relancé pendant que la page était ouverte : clique <b>« Recharger les icônes »</b>. "
-    + "Si elles ne reviennent pas, vérifie que <code>apps/tray/assets/</code> contient bien les "
+    + "Si elles ne reviennent pas, vérifie que <code>apps/client/assets/</code> contient bien les "
     + "trois <code>.ico</code>."
   : "<b>Cette page est ouverte en <code>file://</code>, pas servie par l'Atelier.</b> "
     + "Elle lit les assets par chemin relatif : les sections « icônes livrées » et « écran de "
@@ -268,7 +268,7 @@ document.getElementById('retryIco').addEventListener('click', () => {
     cell.querySelector('.cap').textContent = cell.dataset.cap;
     const px = cell.dataset.px, n = cell.dataset.ico;
     cell.querySelector('.art').innerHTML =
-      '<img src="../tray/assets/' + n + '.ico?r=' + Date.now() + '" width="' + px + '" height="' + px + '" alt="">';
+      '<img src="../client/assets/' + n + '.ico?r=' + Date.now() + '" width="' + px + '" height="' + px + '" alt="">';
     watchIco(cell.querySelector('img'));
   });
   document.getElementById('alertPaths').classList.remove('show');

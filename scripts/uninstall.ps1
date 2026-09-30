@@ -58,7 +58,7 @@ function Add-Leftover {
     declarations, and the folder step to remove it. Reading it twice risks two answers.
 
     AND IT IS FOUND AGAIN ON A SECOND RUN. Get-SharedInstallPath wants its marker file --
-    apps/tray/tray.ps1 -- which a half-finished uninstall may already have taken. The
+    apps/client/client.ps1 -- which a half-finished uninstall may already have taken. The
     declaration then answers alone: a folder that still exists is still to be removed.
     Without this, a run interrupted mid-deletion could never be resumed.
 #>
@@ -85,11 +85,11 @@ if (-not $shared) {
 # remove. Stopping is a precaution, not a permission.
 Write-Step (Get-Label 'uninstall.etape-arret')
 try {
-    $stoppedTasks = @(Stop-TrayTasks -Backend $backend)
+    $stoppedTasks = @(Stop-ClientTasks -Backend $backend)
     if ($stoppedTasks.Count) { Write-Ok (Get-Label 'uninstall.app-clientes-arretees' (($stoppedTasks | ForEach-Object { $_.name }) -join ', ')) }
 } catch { Write-Warn (Get-Label 'uninstall.arret-partiel' $_.Exception.Message) }
 try {
-    $standalone = Stop-StandaloneTrays
+    $standalone = Stop-StandaloneClients
     if ($standalone -gt 0) { Write-Ok (Get-Label 'uninstall.app-clientes-hors-tache' $standalone) }
 } catch { Write-Warn (Get-Label 'uninstall.arret-partiel' $_.Exception.Message) }
 $serverStopped = $false

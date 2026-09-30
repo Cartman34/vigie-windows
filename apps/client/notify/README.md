@@ -8,7 +8,7 @@ ce qui est là.
 Chacun reçoit le même couple :
 
 - `-Notification` : `Subject`, `Body`, `State` (`ok` / `warn` / `error`), `Duration` en millisecondes ;
-- `-Context` : `TrayRoot`, `Aumid`, `Icon` — l'icône de la barre système, pour qui en a besoin.
+- `-Context` : `ClientRoot`, `Aumid`, `Icon` — l'icône de la barre système, pour qui en a besoin.
 
 Chacun rend `$true` s'il a affiché, `$false` s'il décline. **Il ne lève jamais** : un outil qui échoue laisse la place
 au suivant, il n'interrompt rien.

@@ -85,7 +85,7 @@ Trois défauts que ce journal a montrés, et qui sont corrigés :
 ## Pendant la mise à jour, la coupure n'est pas une panne
 
 Le serveur s'arrête, les cartes tombent en erreur puis reviennent : c'est le déroulement **normal** du geste demandé.
-Le tray y voyait des changements d'état et sortait une bulle Windows pour chacun, plus une « le serveur est mort »,
+L'app cliente y voyait des changements d'état et sortait une bulle Windows pour chacun, plus une « le serveur est mort »,
 plus une tentative de relance concurrente de l'installation (signalé le 31/08).
 
 Le **verrou d'installation** (`%ProgramData%\Sowapps\Vigie\`) est le signal, lisible par tous les comptes sans
@@ -93,7 +93,7 @@ droits particuliers. Tant qu'il est là :
 
 | | |
 |---|---|
-| le tray | met sa référence d'états à jour **en silence**, n'émet aucune bulle, ne tente aucune relance, et affiche « Mise à jour en cours… » |
+| l'app cliente | met sa référence d'états à jour **en silence**, n'émet aucune bulle, ne tente aucune relance, et affiche « Mise à jour en cours… » |
 | le panneau | dit « Mise à jour en cours — Vigie redémarre » en orange, au lieu de « Hors ligne » en rouge |
 
 ## Écarts connus

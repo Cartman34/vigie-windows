@@ -74,6 +74,20 @@ $FILE_CEILING = 3
 # the icon generators. The ratchet keeps their number from growing and lets it fall.
 $PYTHON_CEILING = 2
 
+<#
+    AND A FOURTH COUNT: THE WORD « tray », WHICH IS AT ZERO AND STAYS THERE (D108, S06).
+
+    Both applications are named « l'app serveur » and « l'app cliente ». « tray » was banned from displayed text on
+    29/08 and kept living in the folders, the files, the keys and the identifiers -- 37 files still carried it on
+    30/09, so nobody reading the code learned the vocabulary the product uses. Everything was renamed that day:
+    apps/client/, client.ps1, Get-ClientHeartbeat, client.alive, the label keys.
+
+    check-labels refuses the ISOLATED word in what is displayed; this count refuses it EVERYWHERE ELSE -- inside a
+    path, a name, an identifier -- which is exactly what check-labels lets through by design. A ceiling of zero, so
+    the word cannot come back one file at a time.
+#>
+$TRAY_CEILING = 0
+
 $FRENCH_WORDS = @(
     'marquer','appliquer','repartir','verrou','carte','compte','tache','chemin',
     'fichier','dossier','ligne','colonne','hauteur','largeur','bouton','fenetre',
@@ -148,6 +162,24 @@ foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.
         }
     }
     if ($n) { $perFile[$rel] = $n }
+}
+
+# THE WORD « tray », wherever it is written: content and file name alike, over the same files as above.
+$trayTotal = 0
+$trayFiles = @()
+foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.ps1','*.html','*.psd1','*.php','*.py','*.json','*.yaml','*.cmd' -ErrorAction SilentlyContinue)) {
+    $rel = $f.FullName.Substring($repoRoot.Length).TrimStart([char]92, [char]47).Replace([char]92, [char]47)
+    if ($skipped | Where-Object { $rel -like ($_ + '/*') -or $rel -like ('*/' + $_ + '/*') }) { continue }
+    $n = 0
+    if ($rel -match '(?i)tray') { $n++ }
+    $text = Get-Content -LiteralPath $f.FullName -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
+    # THREE FILES STATE THE RULE, and stating it means writing the word. check-labels owns what is DISPLAYED and
+    # already refuses the isolated word in lang/fr.json; this count owns everything else.
+    $statesTheRule = @('scripts/dev/check-labels.ps1', 'scripts/dev/check-naming.ps1', 'lang/fr.json')
+    if ($text -and $statesTheRule -notcontains $rel) {
+        $n += ([regex]::Matches($text, '(?i)tray')).Count
+    }
+    if ($n) { $trayTotal += $n; $trayFiles += $rel }
 }
 
 <#
@@ -236,6 +268,7 @@ if ($commentTotal -gt $COMMENT_CEILING) {
 Write-Info (Get-Label 'check-naming.identifiants-francais-plafond' $total $CEILING)
 Write-Info (Get-Label 'check-naming.fichiers-francais-plafond' $fileTotal $FILE_CEILING)
 Write-Info (Get-Label 'check-naming.fichiers-python-plafond' $pythonFiles.Count $PYTHON_CEILING)
+Write-Info (Get-Label 'check-naming.tray-plafond' $trayTotal $TRAY_CEILING)
 if ($pythonFiles.Count -gt $PYTHON_CEILING) {
     $pythonExceeded = $true
     Write-Fail (Get-Label 'check-naming.python-au-dessus' ($pythonFiles.Count - $PYTHON_CEILING))
@@ -269,6 +302,11 @@ if ($fileTotal -lt $FILE_CEILING) {
 if ($total -gt $CEILING) {
     Write-Fail (Get-Label 'check-naming.le-plafond-est-depasse' ($total - $CEILING))
     Write-Warn (Get-Label 'check-naming.les-nouveaux-noms-ecrivent')
+    exit 2
+}
+if ($trayTotal -gt $TRAY_CEILING) {
+    Write-Fail (Get-Label 'check-naming.tray-au-dessus' $trayTotal)
+    foreach ($rel in $trayFiles) { Write-Detail $rel }
     exit 2
 }
 if ($commentExceeded -or $pythonExceeded) { exit 2 }

@@ -229,7 +229,7 @@ function Register-ServiceTask {
 
 # --- Le droit de la relancer, pour les comptes ordinaires -----------------------------
 #
-# Le tray n'est pas eleve : sans ce droit, il ne pourrait ni arreter ni relancer le
+# L'app cliente n'est pas eleve : sans ce droit, il ne pourrait ni arreter ni relancer le
 # serveur. Windows l'accorde par le descripteur de securite de la tache.
 function Grant-TaskControl {
     try {
@@ -251,7 +251,7 @@ function Grant-TaskControl {
         return $true
     } catch {
         Write-Warn (Get-Label 'install-service.droits-sur-la-tache' $_.Exception.Message)
-        Write-Detail (Get-Label 'install-service.le-tray-un-compte')
+        Write-Detail (Get-Label 'install-service.le-client-un-compte')
         return $false
     }
 }
@@ -319,7 +319,7 @@ if (-not (Test-IsElevated)) {
     etape.
 
     Verifie avant de brancher : l'installation traite la tache serveur AVANT de lancer le
-    tray, donc le tray ne lancera pas de serveur concurrent -- il constate qu'une tache
+    d'app cliente, donc l'app cliente ne lancera pas de serveur concurrent -- il constate qu'une tache
     active s'en charge.
 #>
 function Enable-ServiceTask {

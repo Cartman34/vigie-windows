@@ -41,7 +41,7 @@ machine.
 
 ## Pour aller plus loin
 
-- [Ce que surveille Vigie](features.md) — le menu du tray, l'anatomie d'une carte, les icônes des boutons, puis chaque
+- [Ce que surveille Vigie](features.md) — le menu de l'app cliente, l'anatomie d'une carte, les icônes des boutons, puis chaque
   carte une par une
 - [Windows Update](windows-update.md) — le verrou, en détail
 - [Dépannage](troubleshooting.md) — l'icône est rouge, la page affiche la maquette, où sont les journaux

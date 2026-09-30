@@ -1,11 +1,11 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @droits: tous   -- le serveur se relance avec SES droits, il n'en accorde aucun (D65)
-# @execution: serveur   -- c'est le serveur lui-meme qui doit agir, pas un tray
-# @libelle: Redémarrer le serveur | confirm | fix   -- the words of the tray menu, for the same gesture (D66)
+# @execution: serveur   -- c'est le serveur lui-meme qui doit agir, pas une app cliente
+# @libelle: Redémarrer le serveur | confirm | fix   -- the words of the client app menu, for the same gesture (D66)
 <#
     Action server-restart : LE SERVEUR SE RELANCE LUI-MEME.
 
-    POURQUOI PAS LE TRAY. Jusqu'ici, « Redemarrer le serveur » etait fait par le tray : il
+    POURQUOI PAS L'APP CLIENTE. Jusqu'ici, « Redemarrer le serveur » etait fait par l'app cliente : il
     tuait le processus et en lancait un autre. Or start.ps1 exige l'elevation -- donc,
     depuis un compte standard, une fenetre UAC reclamant les identifiants d'un
     administrateur. Pour un geste aussi banal que relancer l'application.
@@ -15,7 +15,7 @@
     tous les comptes.
 
     Le cas ou le serveur est MORT reste different : il n'y a alors personne pour se
-    relancer, et c'est au tray de demander l'elevation. Mais ce cas n'est jamais arrive.
+    relancer, et c'est à l'app cliente de demander l'elevation. Mais ce cas n'est jamais arrive.
 
     COMMENT. On ne peut pas se tuer et se relancer soi-meme : le processus qui meurt
     n'execute plus rien. Un RELANCEUR detache s'en charge -- il attend que le port se
@@ -39,7 +39,7 @@ $backend = Split-Path $PSScriptRoot -Parent
 #>
 $force = [bool]($Params -and $Params.force)
 # « wait » : ne pas refuser, ATTENDRE la fin de l'operation puis relancer. C'est le
-# serveur qui patiente, pas le tray : il sait ce qui tourne, et son relanceur est detache
+# serveur qui patiente, pas l'app cliente : il sait ce qui tourne, et son relanceur est detache
 # -- il n'a donc ni delai a inventer ni boucle a tenir de l'autre cote.
 $wait  = [bool]($Params -and $Params.wait)
 if (-not $force -and -not $wait) {

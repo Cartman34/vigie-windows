@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Menu du tray — atelier Vigie</title>
+<title>Menu de l'app cliente — atelier Vigie</title>
 <link rel="stylesheet" href="atelier.css">
 <style>
   .crumb{color:var(--muted);text-decoration:none;font-size:12.5px;border:1px solid var(--border);
@@ -21,17 +21,17 @@
 <body>
 <header>
   <a class="crumb" href="index.html">&larr; Atelier</a>
-  <h1>Menu du tray</h1>
+  <h1>Menu de l'app cliente</h1>
   <span class="badge archive">validé — archivé</span>
-  <span class="sub">style du menu, valeurs lues dans tray.ps1 via palette.php — consultation</span>
+  <span class="sub">style du menu, valeurs lues dans client.ps1 via palette.php — consultation</span>
 <a class="crumb vigie" href="vigie.php" target="_blank" rel="noopener">Ouvrir Vigie ↗</a>
 </header>
 <main>
 <section>
-  <h2>Menu du tray — réglage du style</h2>
+  <h2>Menu de l'app cliente — réglage du style</h2>
   <p class="hint">
     Reproduction de ce que dessine <code>VigieMenuRenderer</code>. Les curseurs partent des
-    valeurs <b>réellement livrées</b>, lues dans <code>apps/tray/tray.ps1</code> par
+    valeurs <b>réellement livrées</b>, lues dans <code>apps/client/client.ps1</code> par
     <code>palette.php</code> — plus aucune recopie, donc plus de dérive possible (<b>D24</b>).
     Règle jusqu'à ce que ça te convienne : le bloc à reporter s'écrit en dessous.
   </p>
@@ -80,7 +80,7 @@
 </main>
 <script>
 // =============================================================================
-// 3) MENU DU TRAY — reproduction reglable. Produit les valeurs a reporter.
+// 3) MENU DE L'APP CLIENTE — reproduction reglable. Produit les valeurs a reporter.
 // =============================================================================
 const ITEMS = [
   { t:'Afficher l\u2019application', bold:true },
@@ -129,7 +129,7 @@ async function loadShippedPalette(){
     const cause = location.protocol === 'file:'
       ? 'la page est ouverte en file:// — passe par http://127.0.0.1:47610/apps/atelier/index.html'
       : e.message;
-    warn.textContent = 'Valeurs NON verifiees : lecture de tray.ps1 impossible (' + cause
+    warn.textContent = 'Valeurs NON verifiees : lecture de client.ps1 impossible (' + cause
       + '). Les curseurs affichent un repli ecrit en dur, qui peut avoir derive.';
     warn.hidden = false;
   }
@@ -151,7 +151,7 @@ function renderMenu(){
   el.innerHTML = ITEMS.map(it => it.sep
     ? '<div class="sep" style="background:'+v.cSep+';margin:5px '+(v.inset+3)+'px"></div>'
     // Hauteur = hauteur de ligne + 2 x retrait vertical, exactement comme le fait le
-    // Padding des ToolStripMenuItem dans tray.ps1. Elle n'est donc PAS un reglage.
+    // Padding des ToolStripMenuItem dans client.ps1. Elle n'est donc PAS un reglage.
     : '<div class="mi'+(it.bold?' bold':'')+(it.dim?' dim':'')+'" style="height:'+(20 + v.padY*2)+'px;'
       + 'margin:0 '+v.inset+'px;padding:0 '+v.padX+'px;border-radius:'+v.hovR+'px;'
       + 'background:'+(it.hover ? v.cHover : 'transparent')+'">'+it.t+'</div>').join('');
@@ -160,10 +160,10 @@ function renderMenu(){
     ? Object.keys(SHIPPED).filter(id => String(v[id]) !== SHIPPED[id])
     : null;
   const entete = ecarts === null
-    ? '<span class="c">// apps/tray/tray.ps1 — classe VigieMenuPalette (valeurs NON verifiees)</span>\n'
+    ? '<span class="c">// apps/client/client.ps1 — classe VigieMenuPalette (valeurs NON verifiees)</span>\n'
     : ecarts.length === 0
-      ? '<span class="c">// apps/tray/tray.ps1 — classe VigieMenuPalette (identique au livre)</span>\n'
-      : '<span class="c">// apps/tray/tray.ps1 — classe VigieMenuPalette (' + ecarts.length
+      ? '<span class="c">// apps/client/client.ps1 — classe VigieMenuPalette (identique au livre)</span>\n'
+      : '<span class="c">// apps/client/client.ps1 — classe VigieMenuPalette (' + ecarts.length
         + ' valeur(s) modifiee(s), a reporter)</span>\n';
 
   document.getElementById('menuCode').innerHTML = entete

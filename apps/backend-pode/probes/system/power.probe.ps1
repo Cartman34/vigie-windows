@@ -72,7 +72,7 @@ $fields += New-Field -Key 'source' -Label 'Source' -Value $source -Kind 'text' `
     -Status $(if ($etat.Secteur) { 'ok' } else { 'neutral' }) `
     -Help 'Ce qui alimente la machine en ce moment.'
 
-# CE CHAMP EXISTE TOUJOURS, meme quand tout va bien : le tray notifie sur la BASCULE
+# CE CHAMP EXISTE TOUJOURS, meme quand tout va bien : l'app cliente notifie sur la BASCULE
 # d'un champ, et un champ qui n'apparait qu'en cas de probleme ne bascule jamais.
 $fields += $(if ($soucis) {
         New-Field -Key 'under' -Label 'Alimentation' -Value $soucis -Kind 'text' -Status 'warn' `

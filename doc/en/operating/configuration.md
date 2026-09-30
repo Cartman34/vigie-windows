@@ -57,7 +57,7 @@ key absent keeps the default. **Never put a secret in it** — the API token liv
 }
 ```
 
-Restart the server after changing it (tray menu → *Restart the server*).
+Restart the server after changing it (client app menu → *Restart the server*).
 
 ---
 
@@ -98,8 +98,8 @@ The paths below are relative to that root. None of this is versioned.
 |---|---|
 | `var/secrets/api.token` | the API token, generated on first run |
 | `var/cache/` | aggregated state and background-job results |
-| `var/run/` | running-job markers, the tray's heartbeat and command files |
-| `var/log/` | `install_*`, `run_*`, `start_*`, `tray_*`, Pode error and request logs |
+| `var/run/` | running-job markers, the client app's heartbeat and command files |
+| `var/log/` | `install_*`, `run_*`, `start_*`, `client_*`, Pode error and request logs |
 
 ## The version number
 

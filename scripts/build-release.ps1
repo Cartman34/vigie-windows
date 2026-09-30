@@ -87,7 +87,7 @@ $EXCLUSIONS = @(
     @{ Motif = '^apps/atelier/'
        Raison = "Outil de DÉVELOPPEMENT (PHP, port 47610, D28). Jamais livré à un utilisateur : inutile sans les sources, et ce serait un serveur de plus sur sa machine." }
 
-    @{ Motif = '^apps/tray/assets/generate-icons\.py$'
+    @{ Motif = '^apps/client/assets/generate-icons\.py$'
        Raison = "Générateur des icônes : outil de développement, exige Python. Les .ico qu'il produit sont livrés, lui non." }
 
     @{ Motif = '^scripts/hooks/'

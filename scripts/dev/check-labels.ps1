@@ -204,8 +204,9 @@ foreach ($lang in ($tables.Keys | Where-Object { $_ -ne $REFERENCE_LANGUAGE })) 
 # « TRAY » N'EST PAS UN MOT FRANCAIS, ni un mot de personne. Les deux applications
 # s'appellent « l'app serveur » et « l'app cliente » -- la page web comprise : pour qui
 # l'utilise, l'icone et le panneau viennent ensemble, et c'est l'app cliente qui ouvre le
-# navigateur. Les CHEMINS et les noms de fichiers gardent « tray » : ce sont des
-# identifiants, pas du texte -- d'ou le motif qui n'attrape que le mot isole.
+# navigateur. Les chemins et les noms de fichiers l'ont porte jusqu'au 30/09 ; ils ne le
+# portent plus (apps/client/, client.ps1). Le motif n'attrape que le mot ISOLE : un chemin
+# ou un identifiant qui le contiendrait encore passerait, et c'est check-naming qui compte.
 $regles = @(
     @{ Mot = 'machine'; Motif = '(?i)machine';                          Sauf = '--scope\s+machine' }
     @{ Mot = 'tray';    Motif = '(?i)(?<![\w/\.-])tray(?![\w/\.-])'; Sauf = $null }

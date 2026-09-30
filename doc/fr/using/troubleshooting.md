@@ -9,8 +9,8 @@
 | Question | Réponse |
 |---|---|
 | Le serveur est-il vivant ? | ouvrez <http://127.0.0.1:47600/api/v1/health> — aucune authentification requise |
-| Le tray est-il vivant ? | `pwsh -File .\scripts\tray.ps1 -Status` |
-| Où sont les journaux ? | menu du tray → **Ouvrir les journaux** — c'est le plus sûr, le dossier dépend de l'installation |
+| L'app cliente est-il vivant ? | `pwsh -File .\scripts\client.ps1 -Status` |
+| Où sont les journaux ? | menu de l'app cliente → **Ouvrir les journaux** — c'est le plus sûr, le dossier dépend de l'installation |
 
 ## Situations courantes
 
@@ -18,7 +18,7 @@
 
 Le liseré sous l'en-tête est orange : la page n'a pas pu joindre l'API et s'est repliée sur
 le jeu d'exemple `apps/frontend-web/mock/state.json`. Le serveur ne tourne pas, ou pas sur
-le port attendu. Relancez-le depuis le menu du tray, ou par `scripts\run.ps1`.
+le port attendu. Relancez-le depuis le menu de l'app cliente, ou par `scripts\run.ps1`.
 
 ### Rien ne se lance à l'ouverture de session
 
@@ -33,23 +33,23 @@ déplacé ou renommé le dossier de Vigie, c'est le remède.
 
 ### L'icône est rouge
 
-Le serveur est arrêté ou en erreur. Menu du tray → **Redémarrer le serveur**, puis
+Le serveur est arrêté ou en erreur. Menu de l'app cliente → **Redémarrer le serveur**, puis
 **Ouvrir les journaux** et lisez `pode-error_*.log` et le `start_*.log` le plus récent.
 
 ### L'icône a disparu mais Vigie tourne encore
 
-Le tray tourne élevé : depuis une session normale, on ne peut pas le signaler directement.
-Passez par le pilote dédié, qui dépose un ordre que le tray va lire :
+L'app cliente tourne élevé : depuis une session normale, on ne peut pas le signaler directement.
+Passez par le pilote dédié, qui dépose un ordre que l'app cliente va lire :
 
 ```powershell
-pwsh -File .\scripts\tray.ps1 -Status     # vivant ? depuis quand ? affichant quoi ?
-pwsh -File .\scripts\tray.ps1 -Restart    # le relancer
-pwsh -File .\scripts\tray.ps1 -Stop       # l'arrêter proprement, en libérant l'icône
+pwsh -File .\scripts\client.ps1 -Status     # vivant ? depuis quand ? affichant quoi ?
+pwsh -File .\scripts\client.ps1 -Restart    # le relancer
+pwsh -File .\scripts\client.ps1 -Stop       # l'arrêter proprement, en libérant l'icône
 ```
 
-Codes de retour : `0` succès, `1` tray absent, `2` ordre non pris en compte à temps (15 s
-par défaut, `-TimeoutSec` pour changer). En cas de dépassement, le tray est peut-être
-figé : regardez `apps\tray\var\log\` et `apps\tray\var\run\`.
+Codes de retour : `0` succès, `1` app cliente absente, `2` ordre non pris en compte à temps (15 s
+par défaut, `-TimeoutSec` pour changer). En cas de dépassement, l'app cliente est peut-être
+figée : regardez `apps\client\var\log\` et `apps\client\var\run\`.
 
 Pour le relancer : `Start-ScheduledTask -TaskName Vigie`, ou `scripts\start-vigie.vbs`.
 
@@ -57,7 +57,7 @@ Pour le relancer : `Start-ScheduledTask -TaskName Vigie`, ou `scripts\start-vigi
 
 Une tâche de fond peut mourir sans rien écrire (machine mise en veille, processus tué). Les
 cartes de gestionnaires de paquets abandonnent au bout de **45 minutes** et cessent
-d'afficher « en cours ». Pour les autres, redémarrez le serveur depuis le menu du tray.
+d'afficher « en cours ». Pour les autres, redémarrez le serveur depuis le menu de l'app cliente.
 
 ### « Aucun dossier d'outillage n'est configuré »
 
@@ -72,7 +72,7 @@ Voir [Configuration](../operating/configuration.md#outillage-externe).
 Poser ou lever le verrou modifie les permissions de dossiers système ; basculer VBS ou
 l'intégrité mémoire écrit dans une clé de registre protégée. Sans élévation, la manœuvre
 échouerait à moitié, en silence. Vigie refuse donc **avant** d'agir et ne touche à rien.
-Relancez Vigie en administrateur (menu du tray → *Redémarrer le serveur*, l'invite UAC
+Relancez Vigie en administrateur (menu de l'app cliente → *Redémarrer le serveur*, l'invite UAC
 s'affichera), puis recliquez.
 
 ### La bascule VBS ou intégrité mémoire « ne change rien »
@@ -96,7 +96,7 @@ orange.
 ### La fenêtre dédiée ne s'ouvre pas
 
 Le mode `--app` n'existe que sur les navigateurs Chromium. Sans Edge ni Chrome, utilisez
-**Ouvrir dans le navigateur** depuis le menu du tray.
+**Ouvrir dans le navigateur** depuis le menu de l'app cliente.
 
 ### PowerShell refuse d'exécuter les scripts
 
@@ -125,7 +125,7 @@ donc `install-autostart.ps1` ensuite.
 
 Le dossier dépend de l'installation : **Vigie installée** écrit dans votre profil,
 `%LOCALAPPDATA%\Sowapps\Vigie\var\log\` ; **lancée depuis un clone git**, elle écrit sur place, sous le `var/`
-de chaque app. Le menu du tray → *Ouvrir les journaux* ouvre le bon dossier sans avoir à le chercher.
+de chaque app. Le menu de l'app cliente → *Ouvrir les journaux* ouvre le bon dossier sans avoir à le chercher.
 
 | Fichier | Écrit par |
 |---|---|
@@ -134,7 +134,7 @@ de chaque app. Le menu du tray → *Ouvrir les journaux* ouvre le bon dossier sa
 | `start_*.log` | le serveur lui-même |
 | `pode-error_*.log`, `pode-request_*.log` | le runtime Pode |
 | `action-*.log` | certaines actions, quand elles journalisent |
-| `tray_*.log` | l'app de la barre système |
+| `client_*.log` | l'app de la barre système |
 
 Les scripts élevés écrivent leur sortie dans un fichier que le processus appelant relit : le
 compte rendu d'une exécution élevée n'est jamais perdu.

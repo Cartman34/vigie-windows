@@ -8,7 +8,7 @@
     ouvre apps/atelier/index.html dans le navigateur.
 
     L'ATELIER N'EST PAS VIGIE. C'est une app DISTINCTE, de developpement :
-      - Vigie    : apps/backend-pode + apps/frontend-web + apps/tray, PowerShell + Pode, port 47600,
+      - Vigie    : apps/backend-pode + apps/frontend-web + apps/client, PowerShell + Pode, port 47600,
                    ELEVEE, lancee par la tache planifiee a l'ouverture de session.
       - Atelier  : cette app, PHP, port 47610, JAMAIS elevee, lancee a la main.
     L'Atelier n'expose aucune API, n'execute aucune sonde et n'a acces a aucun secret.

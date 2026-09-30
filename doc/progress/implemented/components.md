@@ -80,7 +80,7 @@ Chaque fonction de `apps/backend-pode/lib/common.ps1`, ou chaque fichier ailleur
 | `Set-InstallPathDeclaration` | déclaration du dossier d'installation |
 | `Set-VigieAccountEnabled` | tâches `Vigie - <compte>` |
 | `Set-VigieToastIdentity` | identité des notifications |
-| `apps/tray/tray.ps1` | tâches `Vigie - <compte>`, quand l'app cliente répare la sienne |
+| `apps/client/client.ps1` | tâches `Vigie - <compte>`, quand l'app cliente répare la sienne |
 | `scripts/install-autostart.ps1` | tâches `Vigie - <compte>` |
 | `scripts/lib/install-service.ps1` | compte `VigieService`, ligne qui masque le compte, tâche `Vigie - Serveur` |
 | `scripts/uninstall-autostart.ps1` | tâches `Vigie - <compte>` |

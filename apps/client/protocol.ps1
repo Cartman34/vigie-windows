@@ -14,8 +14,8 @@
 #>
 param([string]$Uri)
 
-$trayRoot = $PSScriptRoot
-$backend = Join-Path (Split-Path $trayRoot -Parent) 'backend-pode'
+$clientRoot = $PSScriptRoot
+$backend = Join-Path (Split-Path $clientRoot -Parent) 'backend-pode'
 . (Join-Path $backend 'lib/common.ps1')
 
 # WHAT IS ASKED, in one word: everything after the scheme, slashes and query stripped.
@@ -23,14 +23,14 @@ $what = "$Uri" -replace '^(?i)vigie:/*', ''
 $what = ($what -split '[?#]')[0].Trim('/').ToLowerInvariant()
 if (-not $what) { $what = 'panel' }
 
-$runDir = Get-VarPath -Backend $trayRoot -Kind 'run'
+$runDir = Get-VarPath -Backend $clientRoot -Kind 'run'
 $order = switch ($what) {
     'session-recap' { 'open-recap' }
     default         { 'open' }
 }
 try {
     Set-Content -LiteralPath (Join-Path $runDir $order) -Value "$Uri" -Encoding UTF8 -NoNewline
-    Write-Log -Backend $trayRoot -Name 'tray' -NoEcho -Message ("protocole recu : $Uri -> ordre $order")
+    Write-Log -Backend $clientRoot -Name 'client' -NoEcho -Message ("protocole recu : $Uri -> ordre $order")
 } catch {
-    Write-Log -Backend $trayRoot -Name 'tray' -Level 'ERROR' -Message ("protocole refuse ($Uri) : " + $_.Exception.Message)
+    Write-Log -Backend $clientRoot -Name 'client' -Level 'ERROR' -Message ("protocole refuse ($Uri) : " + $_.Exception.Message)
 }

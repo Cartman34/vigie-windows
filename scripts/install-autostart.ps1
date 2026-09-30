@@ -54,7 +54,7 @@ try {
     $partagee = Get-SharedInstallPath
     if ($partagee) { $appRoot = $partagee }
 } catch { }
-$tray     = Join-Path $appRoot 'apps/tray/tray.ps1'   # le tray est une app a part
+$client     = Join-Path $appRoot 'apps/client/client.ps1'   # l'app cliente est une app a part
 <#
     ONE NAMING SCHEME, FOR EVERYBODY: "Vigie - <account>".
 
@@ -76,7 +76,7 @@ if (-not (Test-IsElevated)) {
         -Title   "Installer Vigie au démarrage de session" `
         -Summary "Vigie va s'enregistrer pour démarrer automatiquement à chaque ouverture de session. C'est réversible à tout moment avec uninstall-autostart.ps1." `
         -Changes @(
-            "Tâche planifiée '$taskName' : lance $tray à l'ouverture de session",
+            "Tâche planifiée '$taskName' : lance $client à l'ouverture de session",
             "Elle s'exécute avec les droits administrateur (nécessaire pour le verrou Windows Update)",
             "L'application est lancée tout de suite après l'installation",
             "Aucun fichier du système n'est modifié ou supprimé"
@@ -94,8 +94,8 @@ $pwsh = Get-SharedPwshPath
 if (-not $pwsh) { $pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Source }
 if (-not $pwsh) { Write-Warn (Get-Label 'install-autostart.pwsh-introuvable-lance-abord'); exit 1 }
 
-# ONE launch line for everyone: New-VigieTrayAction, in lib/common.ps1.
-$action    = New-VigieTrayAction -Pwsh $pwsh -Tray $tray
+# ONE launch line for everyone: New-VigieClientAction, in lib/common.ps1.
+$action    = New-VigieClientAction -Pwsh $pwsh -Client $client
 
 $trigger   = New-ScheduledTaskTrigger -AtLogOn
 # 45 s de delai : pwsh vient du Microsoft Store (MSIX) et son paquet peut ne pas etre

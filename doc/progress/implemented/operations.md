@@ -67,7 +67,7 @@ définition de `../targeting/operations.md`, section « Ce qu'est une opération
 | `pwsh-install-machine` | `deployment.probe.ps1` | admin | serveur | asynchrone | `Start-Operation` | commun |
 | `repair-tasks` | `deployment.probe.ps1` | admin | serveur | synchrone | `Repair-VigieTasks` | sans objet |
 | `run-audit` | `lock.probe.ps1` | tous | serveur | synchrone | `Invoke-UpdateAudit` | sans objet |
-| `server-restart` | `vigie.probe.ps1`, `apps/tray/tray.ps1`, `scripts/tray.ps1` | tous | serveur | asynchrone | `Start-ServerRelauncher` | **hors protocole**, exception arbitrée le 13/09 |
+| `server-restart` | `vigie.probe.ps1`, `apps/client/client.ps1`, `scripts/client.ps1` | tous | serveur | asynchrone | `Start-ServerRelauncher` | **hors protocole**, exception arbitrée le 13/09 |
 | `service-account-repair` | appel direct par l'API, `scripts/dev/ask-vigie.ps1` | admin | serveur | asynchrone | `Start-Operation` | commun |
 | `service-clone-repair` | appel direct par l'API, `scripts/dev/ask-vigie.ps1` | admin | serveur | asynchrone | `Start-Operation`, `workers/service-clone.worker.ps1` | commun |
 | `service-clone-reset` | appel direct par l'API, `scripts/dev/ask-vigie.ps1` | admin | serveur | asynchrone | `Start-Operation`, `workers/service-clone.worker.ps1` | commun |
@@ -113,14 +113,14 @@ Routes de `apps/backend-pode/server.ps1` qui modifient quelque chose. Toutes syn
 | identité des notifications | `Set-VigieToastIdentity` | chaque passe du minuteur | ignorées |
 | passe de l'ordonnanceur | `Invoke-RefreshPass` ; calculs déclarés en `Refresh` dans chaque `module.psd1`, intervalle par mode, lancement asynchrone sur `workers/refresh.worker.ps1`, `RefreshMaxParallel` de front (3 par défaut) | chaque passe du minuteur | journal `state`, `var/run/refresh.json`, `var/history/refresh-long.jsonl` |
 | analyse du disque sans qu'on la demande | `Invoke-DiskWatch` ; lance l'opération `disk-analyze` (worker `disk-scan.worker.ps1`) quand l'espace libre a chuté de `AutoScanDropGb` sur `AutoScanMinHours`, au plus une fois par fenêtre, jamais si un mode est actif | chaque passe du minuteur | journal `state`, `var/cache/disk-watch.json` |
-| surveillance des app clientes | `Update-TrayWatch` ; relance la tâche d'une app cliente absente, jamais si son processus vit | chaque passe du minuteur | journal `state`, `var/history/tray-vanished.jsonl` |
+| surveillance des app clientes | `Update-ClientWatch` ; relance la tâche d'une app cliente absente, jamais si son processus vit | chaque passe du minuteur | journal `state`, `var/history/client-vanished.jsonl` |
 | recalcul d'une sonde périmée | `Get-State`, puis `Start-DetachedAction` sur `workers/state-refresh.worker.ps1` ; une seule à la fois, par mutex | un affichage qui trouve une sonde périmée | ignorées au lancement, **hors protocole** |
 | réparation des tâches au démarrage | `start.ps1`, `Repair-VigieTasks` | démarrage du serveur | journal |
 | ordre de bureau | `Invoke-DesktopAction` | une action `@execution: session` | compte rendu `.done.json`, écrit même en cas d'échec |
 
 ## Les passes de l'app cliente
 
-Toutes dans `apps/tray/tray.ps1`.
+Toutes dans `apps/client/client.ps1`.
 
 | Opération | Déclenchement | Ce qu'elle fait |
 |---|---|---|
@@ -137,7 +137,7 @@ La séquence d'installation et de mise à jour est décrite dans [update-chain.m
 
 | Script | Opération |
 |---|---|
-| `scripts/install.ps1` | installe ou met à jour ; arrête et relance les apps clientes (`Stop-TrayTasks`, `Start-TrayTasks`), active les comptes, fait poser le tag par un ordre de bureau |
+| `scripts/install.ps1` | installe ou met à jour ; arrête et relance les apps clientes (`Stop-ClientTasks`, `Start-ClientTasks`), active les comptes, fait poser le tag par un ordre de bureau |
 | `scripts/uninstall.ps1` | désinstalle ; arrête les apps clientes |
 | `scripts/install-autostart.ps1`, `install-autostart.cmd`, `install-autostart.vbs` | enregistre la tâche de démarrage de l'app cliente |
 | `scripts/uninstall-autostart.ps1` | retire cette tâche |
@@ -147,5 +147,5 @@ La séquence d'installation et de mise à jour est décrite dans [update-chain.m
 | `scripts/vigie-fetch.ps1` | rapporte une archive vérifiée, sans rien déployer |
 | `scripts/build-release.ps1` | fabrique l'archive de distribution |
 | `scripts/run.ps1`, `run.cmd` | lance le panneau |
-| `scripts/tray.ps1`, `start-vigie.vbs` | démarre, arrête ou relance l'app cliente par sa tâche |
+| `scripts/client.ps1`, `start-vigie.vbs` | démarre, arrête ou relance l'app cliente par sa tâche |
 | `scripts/install-hooks.ps1` | installe les hooks git du dépôt |

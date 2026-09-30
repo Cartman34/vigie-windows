@@ -57,7 +57,7 @@ secret** : le jeton d'API vit à part, dans `var/secrets/` (voir *Où Vigie écr
 }
 ```
 
-Redémarrez le serveur après modification (menu du tray → *Redémarrer le serveur*).
+Redémarrez le serveur après modification (menu de l'app cliente → *Redémarrer le serveur*).
 
 ---
 
@@ -100,8 +100,8 @@ Les chemins ci-dessous sont donnés relativement à cette racine. Rien de tout c
 |---|---|
 | `var/secrets/api.token` | le jeton d'API, généré au premier lancement |
 | `var/cache/` | état agrégé et résultats des tâches de fond |
-| `var/run/` | marqueurs des tâches en cours, battement de cœur et ordres du tray |
-| `var/log/` | `install_*`, `run_*`, `start_*`, `tray_*`, journaux d'erreur et de requêtes Pode |
+| `var/run/` | marqueurs des tâches en cours, battement de cœur et ordres de l'app cliente |
+| `var/log/` | `install_*`, `run_*`, `start_*`, `client_*`, journaux d'erreur et de requêtes Pode |
 
 ## Le numéro de version
 

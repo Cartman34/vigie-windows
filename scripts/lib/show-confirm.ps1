@@ -238,7 +238,9 @@ $form.ClientSize      = New-Object System.Drawing.Size(580, 306)
 # venant de l'application, pas de ce qui l'execute.
 try {
     $racine = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
-    $ico = Join-Path $racine 'apps/backend-pode/assets/tray/ok.ico'
+    # THE ICON LIVES WITH THE CLIENT APP. This pointed at apps/backend-pode/assets/client/, a folder that has
+    # never existed: the test failed in silence and the window kept the interpreter's icon.
+    $ico = Join-Path $racine 'apps/client/assets/ok.ico'
     if (Test-Path -LiteralPath $ico) { $form.Icon = New-Object System.Drawing.Icon($ico) }
 } catch { }
 

@@ -11,12 +11,13 @@ the French documentation use.
 | word | what it means |
 |---|---|
 | **server app** (*app serveur*) | `apps/backend-pode`: PowerShell + Pode, listens on 127.0.0.1:47600, runs **elevated** under the service account, without a session. It measures, decides rights, runs actions. |
-| **client app** (*app cliente*) | `apps/tray`: the icon in the notification area, one per open account. It starts the server if needed, opens the panel and carries Windows notifications. |
+| **client app** (*app cliente*) | `apps/client`: the icon in the notification area, one per open account. It starts the server if needed, opens the panel and carries Windows notifications. |
 | **panel** (*panneau*) | `apps/frontend-web`: the page served by the server app, the one where cards are read. |
 | **Atelier** | `apps/atelier`: a **development** tool (PHP, port 47610, never elevated). It is not part of what ships. |
 
-*"tray" is no longer written in displayed text: it is **app cliente**. The word survives in paths and identifiers
-(`apps/tray/`), which are renamed area by area.*
+*"tray" is written nowhere any more, neither in displayed text nor in a path, a file name or an identifier: it is
+**app cliente**, `apps/client/`, `client.ps1`. `check-labels` refuses the isolated word, `check-naming` keeps the count
+at zero (**D108**, closed on 30/09).*
 
 ## What Vigie shows
 

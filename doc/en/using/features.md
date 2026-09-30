@@ -13,9 +13,9 @@ card per manager actually found in your `PATH`.
 
 ## The interface, in detail
 
-### The tray menu
+### The client app menu
 
-Right-clicking the icon opens this menu. The tray polls the server every 8 seconds: the gauge colour is never more than
+Right-clicking the icon opens this menu. The client app polls the server every 8 seconds: the gauge colour is never more than
 a few seconds behind.
 
 | Entry | Effect |
@@ -23,7 +23,7 @@ a few seconds behind.
 | **Show the application** | opens the dashboard in a dedicated window (Edge or Chrome in `--app` mode: no address bar, no tabs) |
 | Open in the browser | opens the dashboard in an ordinary tab |
 | *Status: …* | not clickable — the current state, spelled out |
-| Restart the application | restarts the tray app, and the server with it |
+| Restart the application | restarts the client app, and the server with it |
 | Restart the server | stops then restarts the Pode server |
 | Open the logs | opens the server's log folder in Explorer |
 | About Vigie | opens the GitHub repository |

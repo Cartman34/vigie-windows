@@ -23,9 +23,9 @@ apps/
     config/                        config.psd1 + config.local.sample.psd1
   frontend-web/index.html  The whole front end: one static HTML file
     mock/state.json          Sample state, used when the API is unreachable
-  tray/tray.ps1            The system-tray app (WinForms) + assets/
+  client/client.ps1            The client app, in the notification area, (WinForms) + assets/
   atelier/                 Internal visual-validation tool (PHP) — not part of the product
-scripts/                   install, run, autostart, uninstall, tray control, git hooks
+scripts/                   install, run, autostart, uninstall, client app control, git hooks
   build-release.ps1          Builds the distribution archive
 doc/                      This documentation + the project's internal working documents
 dist/                      Build output (git-ignored)

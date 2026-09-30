@@ -1,7 +1,7 @@
 # Atelier de validation
 
 Outil interne pour **juger et régler à l'œil** ce qu'aucun analyseur syntaxique ne peut
-valider : la marque du tray, les icônes réellement livrées, le style du menu, l'écran de
+valider : la marque de l'app cliente, les icônes réellement livrées, le style du menu, l'écran de
 chargement.
 
 > **Pourquoi il existe.** L'agent qui développe ne voit pas l'écran. Sans cette page,
@@ -92,7 +92,7 @@ Les raisons (élévation, concurrence, coût des processus) sont chiffrées dans
 
 Ouverte en `file://`, la page ne peut pas faire son travail :
 
-- les chemins relatifs vers `apps/tray/assets/*.ico` cassent dès que le fichier est
+- les chemins relatifs vers `apps/client/assets/*.ico` cassent dès que le fichier est
   copié ailleurs — d'où des **images cassées** ;
 - le navigateur refuse d'afficher `apps/frontend-web/index.html` dans un cadre — d'où un
   **rectangle noir** à la place de l'écran de chargement.
@@ -104,8 +104,8 @@ Servie en `http`, la page fonctionne entièrement. Elle reste néanmoins ouvrabl
 
 ## Ce que contient la page
 
-### Marque du tray
-Reproduction exacte de [`apps/tray/assets/generate-icons.py`](../tray/assets/generate-icons.py),
+### Marque de l'app cliente
+Reproduction exacte de [`apps/client/assets/generate-icons.py`](../client/assets/generate-icons.py),
 avec un curseur de **fraction**, le choix de l'état, et un rendu de 16 à 128 px — dont
 une bande imitant la barre des tâches pour juger le contraste réel.
 
@@ -117,10 +117,10 @@ rejoué**.
 > redimensionne. Le rendu à 16 px ici n'est donc pas exactement celui de Windows, qui pioche
 > la vraie sous-image 16×16.
 
-### Menu du tray
+### Menu de l'app cliente
 Reproduction réglable de ce que dessine `VigieMenuRenderer` : arrondi du menu, arrondi et
 marge du survol, hauteur d'item, palette complète. Un bloc de code affiche **les valeurs
-exactes à recopier** dans `VigieMenuPalette` ([`apps/tray/tray.ps1`](../tray/tray.ps1)).
+exactes à recopier** dans `VigieMenuPalette` ([`apps/client/client.ps1`](../client/client.ps1)).
 
 ### Écran de chargement
 `apps/frontend-web/index.html` en direct, rechargeable pour revoir le splash.
@@ -132,7 +132,7 @@ exactes à recopier** dans `VigieMenuPalette` ([`apps/tray/tray.ps1`](../tray/tr
 Les géométries de la page sont une **reproduction** du code, pas sa source.
 Toute valeur retenue doit être reportée **en miroir** :
 
-1. dans le code (`generate-icons.py`, `tray.ps1`, …) ;
+1. dans le code (`generate-icons.py`, `client.ps1`, …) ;
 2. dans [`doc/progress/decisions.md`](../../doc/progress/decisions.md).
 
 Sans cela l'atelier devient trompeur — c'est précisément ce qu'il sert à éviter.
@@ -145,7 +145,7 @@ Sans cela l'atelier devient trompeur — c'est précisément ce qu'il sert à é
 |---|---|---|
 | « php introuvable » | PHP absent du `PATH` | l'installer, ou ouvrir la page en `file://` (fonctions réduites) |
 | Bandeau rouge « pas ouverte depuis le dépôt » | page ouverte en `file://` ou copiée ailleurs | passer par `apps\atelier\atelier.cmd` |
-| Icônes en croix rouge | mêmes causes, ou `.ico` absents | vérifier `apps/tray/assets/` |
+| Icônes en croix rouge | mêmes causes, ou `.ico` absents | vérifier `apps/client/assets/` |
 | Port déjà utilisé | un atelier tourne déjà | `.\apps\atelier\atelier.ps1 -Status`, puis `-Stop` |
 | Le serveur ne s'arrête pas | processus détaché | `.\apps\atelier\atelier.ps1 -Stop` (retrouve le PID par le port) |
 | Les icônes ne changent pas | générateur non rejoué | régénérer les `.ico`, puis recharger la page |

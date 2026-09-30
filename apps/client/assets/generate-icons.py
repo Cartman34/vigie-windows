@@ -1,7 +1,7 @@
 # @author Florent HAZARD <f.hazard@sowapps.com>
 # -*- coding: utf-8 -*-
 """
-Genere les icones du tray : ok / warn / error, en .ico et en .png.
+Genere les icones de l'app cliente : ok / warn / error, en .ico et en .png.
 
     python generate-icons.py <dossier-de-sortie>
 
@@ -20,7 +20,7 @@ dependre du filtre de reduction de Pillow sur un dessin trop charge.
 
 Geometrie : voir doc/DECISIONS-VALIDEES.md (D01 pour les proportions, D23 pour les
 fractions de niveau, D27 pour les graduations sous l'arc, D37 pour les niveaux de detail).
-Toute valeur modifiee ici doit l'etre en miroir dans le repli GDI+ de apps/tray/tray.ps1
+Toute valeur modifiee ici doit l'etre en miroir dans le repli GDI+ de apps/client/client.ps1
 et dans l'atelier de validation (apps/atelier/index.html).
 """
 

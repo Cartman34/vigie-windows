@@ -8,7 +8,7 @@
  * Recopier la liste a la main dans une page HTML, c'est la condamner a diverger : le jour
  * ou un module en declare une de plus, l'Atelier montre l'ancienne liste et se fait
  * valider sans qu'on voie le probleme (D24). On lit donc la source, comme palette.php lit
- * tray.ps1.
+ * client.ps1.
  *
  * En cas d'echec, on renvoie une erreur explicite plutot qu'une liste vide : une page qui
  * dit « aucune sentinelle » alors qu'il y en a est pire que pas de page.

@@ -48,7 +48,7 @@ function Find-Installation {
         $candidates += (Join-Path $base 'Vigie')
     }
     foreach ($candidate in $candidates) {
-        if (Test-Path -LiteralPath (Join-Parts @($candidate, 'apps', 'tray', 'tray.ps1'))) { return $candidate }
+        if (Test-Path -LiteralPath (Join-Parts @($candidate, 'apps', 'client', 'client.ps1'))) { return $candidate }
     }
     return $null
 }

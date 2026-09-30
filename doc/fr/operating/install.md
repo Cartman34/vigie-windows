@@ -170,7 +170,7 @@ Avant toute invite UAC, une fenêtre énumère exactement ce qui va être modifi
 laisse refuser **sans qu'aucune invite système n'apparaisse**. Ce qu'elle fait :
 
 - enregistre une tâche planifiée nommée **`Vigie`**, déclenchée à l'ouverture de session,
-  qui lance `apps\tray\tray.ps1` en fenêtre cachée avec les **privilèges les plus élevés** ;
+  qui lance `apps\client\client.ps1` en fenêtre cachée avec les **privilèges les plus élevés** ;
 - crée un raccourci bureau `Vigie.url` vers le tableau de bord ;
 - démarre la tâche tout de suite, l'icône apparaît donc immédiatement.
 

@@ -1,5 +1,5 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-<# TOOL: the tray icon's own balloon.
+<# TOOL: the client app icon's own balloon.
 
    THE LAST RANK IS ALWAYS AVAILABLE, and that is its whole purpose. Every tool above it
    may decline -- a missing runtime, a locked session, an API this Windows does not carry --

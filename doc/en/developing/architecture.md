@@ -26,7 +26,7 @@
 |---|---|---|
 | `apps/backend-pode` | PowerShell 7 + Pode | serves the front end **and** drives Windows natively — registry, tasks, ACLs, services — with no intermediate layer |
 | `apps/frontend-web` | one static HTML file | the dashboard |
-| `apps/tray` | PowerShell + WinForms | a **standalone app** that *drives* the back end (starts it, stops it, polls its health) without being part of it |
+| `apps/client` | PowerShell + WinForms | a **standalone app** that *drives* the back end (starts it, stops it, polls its health) without being part of it |
 | `apps/atelier` | PHP | internal visual-validation tool, never part of the product |
 
 Each app owns its own `config/` and its own `var/`. `config/common.psd1` at the root holds
@@ -94,15 +94,15 @@ An asynchronous operation is launched by `Start-Operation`, and by nothing else.
   `/operations` serves marks and recent results to every page.
 
 Every operation, synchronous or asynchronous, and where it lives: `doc/progress/implemented/operations.md`.
-## The tray, and why it is separate
+## The client app, and why it is separate
 
-The tray runs elevated. From an ordinary session you can neither read its command line nor
+The client app runs elevated. From an ordinary session you can neither read its command line nor
 signal a kernel object it created — it had to be killed blind, which left a ghost icon in
 the notification area.
 
-So it communicates through files: `scripts/tray.ps1` drops an **order** in
-`apps/tray/var/run/`, the tray reads it and exits cleanly, releasing its icon. The same
-folder carries a heartbeat (`tray.alive`, rewritten every 8 s) so its state can be known
+So it communicates through files: `scripts/client.ps1` drops an **order** in
+`apps/client/var/run/`, the client app reads it and exits cleanly, releasing its icon. The same
+folder carries a heartbeat (`client.alive`, rewritten every 8 s) so its state can be known
 without inspecting the process. Inspectable by eye, scriptable from anything, and open to
 extension: a new order is a new file name, with no change to the mechanism.
 

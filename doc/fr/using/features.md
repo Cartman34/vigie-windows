@@ -13,9 +13,9 @@ carte par gestionnaire de paquets réellement trouvé dans votre `PATH`.
 
 ## L'interface, en détail
 
-### Le menu du tray
+### Le menu de l'app cliente
 
-Un clic droit sur l'icône ouvre ce menu. Le tray interroge le serveur toutes les 8 secondes : la couleur de la jauge
+Un clic droit sur l'icône ouvre ce menu. L'app cliente interroge le serveur toutes les 8 secondes : la couleur de la jauge
 n'a jamais plus de quelques secondes de retard.
 
 | Entrée | Effet |

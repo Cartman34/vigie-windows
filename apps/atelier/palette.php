@@ -1,15 +1,15 @@
 <?php
 /**
- * Palette du menu du tray, lue DANS apps/tray/tray.ps1.
+ * Palette du menu de l'app cliente, lue DANS apps/client/client.ps1.
  *
  * POURQUOI CE FICHIER EXISTE
  * L'Atelier affichait des valeurs recopiées à la main. Elles ont divergé de ce qui est
- * livré — fond bleuté #2b3038 dans l'Atelier contre gris neutre #2c2c2c dans le tray —
+ * livré — fond bleuté #2b3038 dans l'Atelier contre gris neutre #2c2c2c dans l'app cliente —
  * et l'Atelier ne servait plus à valider quoi que ce soit (D24). Toute recopie finit
  * par diverger ; la seule correction qui tienne est de supprimer la recopie.
  *
  * L'Atelier reste l'endroit où l'on RÈGLE les valeurs : les curseurs partent d'ici,
- * puis le bloc de code à reporter dans tray.ps1 s'écrit sous l'aperçu. Le point de
+ * puis le bloc de code à reporter dans client.ps1 s'écrit sous l'aperçu. Le point de
  * départ, lui, est toujours ce qui est réellement livré.
  *
  * En cas d'échec (fichier introuvable, constante disparue), on renvoie une erreur
@@ -22,8 +22,8 @@ declare(strict_types=1);
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
-/** Chemin du tray depuis apps/atelier/. */
-$trayPath = dirname(__DIR__) . '/tray/tray.ps1';
+/** Chemin de l'app cliente depuis apps/atelier/. */
+$clientPath = dirname(__DIR__) . '/client/client.ps1';
 
 function fail(string $message, int $code = 500): never
 {
@@ -32,13 +32,13 @@ function fail(string $message, int $code = 500): never
     exit;
 }
 
-if (!is_readable($trayPath)) {
-    fail("tray.ps1 introuvable ou illisible : $trayPath");
+if (!is_readable($clientPath)) {
+    fail("client.ps1 introuvable ou illisible : $clientPath");
 }
 
-$source = file_get_contents($trayPath);
+$source = file_get_contents($clientPath);
 if ($source === false) {
-    fail("Lecture impossible : $trayPath");
+    fail("Lecture impossible : $clientPath");
 }
 
 /**
@@ -83,10 +83,10 @@ foreach ($ints as $name) {
 
 if ($missing !== []) {
     fail('Constantes absentes de VigieMenuPalette : ' . implode(', ', $missing)
-        . '. Le format de tray.ps1 a change, palette.php doit suivre.');
+        . '. Le format de client.ps1 a change, palette.php doit suivre.');
 }
 
 echo json_encode([
-    'source'  => 'apps/tray/tray.ps1',
+    'source'  => 'apps/client/client.ps1',
     'palette' => $palette,
 ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);

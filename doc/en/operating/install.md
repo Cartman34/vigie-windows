@@ -44,7 +44,7 @@ Then follow [First run](#first-run).
 ### What is in the archive — and what is not
 
 The archive is the **product**, not the repository. It carries the server, the front end,
-the tray app, the installation scripts, this documentation, the licence and the version
+the client app, the installation scripts, this documentation, the licence and the version
 file — around 90 files.
 
 Left out on purpose:
@@ -161,9 +161,9 @@ Before any UAC prompt, a window lists exactly what will be changed and lets you 
 without any system prompt appearing at all. What it does:
 
 - registers a scheduled task named **`Vigie`**, triggered at logon, running
-  `apps\tray\tray.ps1` hidden with the **highest privileges**;
+  `apps\client\client.ps1` hidden with the **highest privileges**;
 - creates a desktop shortcut `Vigie.url` pointing at the dashboard;
-- starts the task immediately, so the tray icon appears right away.
+- starts the task immediately, so the client app icon appears right away.
 
 Exit codes: `0` installed, `1` a prerequisite is missing, `3` you refused.
 
@@ -218,6 +218,6 @@ with a `.old` suffix, never deleted — removing it stays your deliberate act. E
 
 ## Next
 
-- [Getting started](../using/getting-started.md) — the tray icon, the dashboard, your first action
+- [Getting started](../using/getting-started.md) — the client app icon, the dashboard, your first action
 - [Configuration](configuration.md) — port, external tooling, machine-local overrides
 - [Troubleshooting](../using/troubleshooting.md) — when one of these steps does not go as written

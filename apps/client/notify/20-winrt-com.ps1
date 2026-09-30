@@ -116,7 +116,7 @@ public static class VigieToastCom
 }
 
 $xml = Get-VigieToastXml -Subject "$($Notification.Subject)" -Body "$($Notification.Body)" -Launch "$($Notification.Launch)" `
-                        -Image (Get-VigieToastImage -TrayRoot $Context.TrayRoot -State "$($Notification.State)") `
+                        -Image (Get-VigieToastImage -ClientRoot $Context.ClientRoot -State "$($Notification.State)") `
                         -Long:([int]$Notification.Duration -ge 10000)
 if (-not $xml) { return $false }
 try {

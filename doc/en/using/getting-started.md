@@ -39,7 +39,7 @@ behaves.
 
 ## Going further
 
-- [What Vigie monitors](features.md) — the tray menu, the anatomy of a card, the button icons, then every card one by
+- [What Vigie monitors](features.md) — the client app menu, the anatomy of a card, the button icons, then every card one by
   one
 - [Windows Update](windows-update.md) — the lock, in detail
 - [Troubleshooting](troubleshooting.md) — the icon is red, the page shows mock data, where the logs are

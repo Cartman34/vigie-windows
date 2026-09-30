@@ -4,7 +4,7 @@
  *
  * La page « Design système » de l'Atelier affiche la palette RÉELLE : si une couleur
  * change dans le front, la maquette change avec elle. Une copie aurait fini par mentir —
- * même principe que palette.php pour le menu du tray (D15, D24).
+ * même principe que palette.php pour le menu de l'app cliente (D15, D24).
  *
  * Rend { dark: {"--bg": "#0d1117", ...}, light: {...} } d'après :
  *   - le bloc :root{...} (thème sombre, défaut) ;

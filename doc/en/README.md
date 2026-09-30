@@ -12,7 +12,7 @@ Everything is one click from here, and every page is one click from any other.
 | Page | Answers |
 |---|---|
 | [Installation](operating/install.md) | How do I get it on my machine? Archive or git? How do I remove it? |
-| [Getting started](using/getting-started.md) | It's installed — now what? What is that tray icon? How do I read a card? |
+| [Getting started](using/getting-started.md) | It's installed — now what? What is that notification-area icon? How do I read a card? |
 | [What Vigie monitors](using/features.md) | Which cards exist, what each field means, what each button does |
 | [Windows Update](using/windows-update.md) | What does the lock actually change? How do I install updates? |
 | [Security](operating/security.md) | Why administrator? What is exposed? What is the residual risk? |

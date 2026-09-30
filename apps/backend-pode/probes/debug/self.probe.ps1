@@ -94,12 +94,12 @@ $fix = if ($reasons.Count) { 'server-restart' } else { $null }
     AND THE CLIENT APPS, WHICH NOBODY WAS WATCHING.
 
     On 28/09 one of them vanished mid-game without a line, and Vigie measured nothing for the rest of the evening
-    without ever saying so. Its heartbeat is the proof (Update-TrayWatch): stopped while the account's session is still
-    open, the client app should be there and is not. Each disappearance is written to var/history/tray-vanished.jsonl
-    with the game of the moment, and the permanent watch brings it back (Update-TrayWatch). This card only READS
-    (Get-TrayWatchRows): a probe never acts.
+    without ever saying so. Its heartbeat is the proof (Update-ClientWatch): stopped while the account's session is still
+    open, the client app should be there and is not. Each disappearance is written to var/history/client-vanished.jsonl
+    with the game of the moment, and the permanent watch brings it back (Update-ClientWatch). This card only READS
+    (Get-ClientWatchRows): a probe never acts.
 #>
-$clients = @(Get-TrayWatchRows -Backend $backend)
+$clients = @(Get-ClientWatchRows -Backend $backend)
 $missing = @($clients | Where-Object { $_.Status -ne 'ok' })
 $clientStatus = if ($missing.Count) { 'warn' } else { 'ok' }
 $clientRows = @()

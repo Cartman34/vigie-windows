@@ -9,8 +9,8 @@
 | Question | Answer |
 |---|---|
 | Is the server alive? | open <http://127.0.0.1:47600/api/v1/health> — it needs no token |
-| Is the tray alive? | `pwsh -File .\scripts\tray.ps1 -Status` |
-| Where are the logs? | tray menu → **Open the logs** — the safest route, since the folder depends on the installation |
+| Is the client app alive? | `pwsh -File .\scripts\client.ps1 -Status` |
+| Where are the logs? | client app menu → **Open the logs** — the safest route, since the folder depends on the installation |
 
 ## Common situations
 
@@ -18,7 +18,7 @@
 
 The strip under the header is amber: the page could not reach the API and fell back to the
 bundled sample `apps/frontend-web/mock/state.json`. The server is not running, or not on
-the expected port. Restart it from the tray menu, or run `scripts\run.ps1`.
+the expected port. Restart it from the client app menu, or run `scripts\run.ps1`.
 
 ### Nothing happens at logon
 
@@ -31,25 +31,25 @@ pwsh -ExecutionPolicy Bypass -File .\scripts\install-autostart.ps1
 It is idempotent, and it re-registers the task on the current folder. If you moved or
 renamed the Vigie folder, this is the fix.
 
-### The tray icon is red
+### The client app icon is red
 
-The server is stopped or failing. Tray menu → **Restart the server**, then **Open the
+The server is stopped or failing. Client app menu → **Restart the server**, then **Open the
 logs** and read `pode-error_*.log` and the most recent `start_*.log`.
 
-### The tray icon is gone but Vigie is still running
+### The client app icon is gone but Vigie is still running
 
-The tray runs elevated, so a normal session cannot signal it directly. Use the dedicated
-controller, which drops an order file the tray picks up:
+The client app runs elevated, so a normal session cannot signal it directly. Use the dedicated
+controller, which drops an order file the client app picks up:
 
 ```powershell
-pwsh -File .\scripts\tray.ps1 -Status     # alive? since when? showing what?
-pwsh -File .\scripts\tray.ps1 -Restart    # relaunch it
-pwsh -File .\scripts\tray.ps1 -Stop       # stop it cleanly, releasing the icon
+pwsh -File .\scripts\client.ps1 -Status     # alive? since when? showing what?
+pwsh -File .\scripts\client.ps1 -Restart    # relaunch it
+pwsh -File .\scripts\client.ps1 -Stop       # stop it cleanly, releasing the icon
 ```
 
-Exit codes: `0` success, `1` tray not running, `2` the order was not acted on in time
-(default 15 s, `-TimeoutSec` to change). If it times out, the tray may be frozen — look in
-`apps\tray\var\log\` and `apps\tray\var\run\`.
+Exit codes: `0` success, `1` client app not running, `2` the order was not acted on in time
+(default 15 s, `-TimeoutSec` to change). If it times out, the client app may be frozen — look in
+`apps\client\var\log\` and `apps\client\var\run\`.
 
 To start it again: `Start-ScheduledTask -TaskName Vigie`, or `scripts\start-vigie.vbs`.
 
@@ -57,7 +57,7 @@ To start it again: `Start-ScheduledTask -TaskName Vigie`, or `scripts\start-vigi
 
 Background jobs can die without writing anything (machine suspended, process killed).
 Package-manager cards give up after **45 minutes** and stop showing as busy. For the
-others, restart the server from the tray menu.
+others, restart the server from the client app menu.
 
 ### "No tooling folder is configured"
 
@@ -72,7 +72,7 @@ See [Configuration](../operating/configuration.md#external-tooling).
 Setting or lifting the lock changes permissions on system folders; toggling VBS or memory
 integrity writes to a protected registry key. Without elevation the operation would
 half-fail in silence. Vigie therefore refuses **before** acting and touches nothing. Restart
-Vigie as administrator (tray menu → *Restart the server*, the UAC prompt will appear), then
+Vigie as administrator (client app menu → *Restart the server*, the UAC prompt will appear), then
 click again.
 
 ### The VBS or memory-integrity toggle "does nothing"
@@ -94,7 +94,7 @@ off, which is the part that matters most — but expect the *ACL lock* field to 
 ### The dedicated window will not open
 
 `--app` mode only exists on Chromium browsers. Without Edge or Chrome, use **Open in the
-browser** from the tray menu.
+browser** from the client app menu.
 
 ### PowerShell refuses to run the scripts
 
@@ -128,7 +128,7 @@ shortcut, so re-run `install-autostart.ps1` afterwards.
 | `start_*.log` | the server itself |
 | `pode-error_*.log`, `pode-request_*.log` | the Pode runtime |
 | `action-*.log` | individual actions, when they log |
-| `apps\tray\var\log\tray_*.log` | the tray app |
+| `apps\client\var\log\client_*.log` | the client app |
 
 Elevated scripts write their output to a log file and the calling process reads it back —
 a report from an elevated run is never lost.

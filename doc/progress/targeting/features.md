@@ -11,7 +11,7 @@ Format : `ID` — Titre, puis le besoin et ses critères. On n'écrit **pas** ic
 - **CORE-FRONTEND** — Dashboard web statique et générique, rendu à partir du seul JSON d'état. Clair et sombre.
 - **CORE-PROBES** — Modèle générique de sondes et d'actions, auto-découvert, regroupé par module. Ajouter une sonde =
   déposer un fichier, sans toucher ni au contrat ni au front.
-- **CORE-TRAY** — Icône de barre système reflétant l'état global, menu d'accès rapide. Elle ne ferme **jamais** l'app
+- **CORE-CLIENT** — Icône de barre système reflétant l'état global, menu d'accès rapide. Elle ne ferme **jamais** l'app
   serveur : une relance se **demande** au serveur, qui se relance lui-même avec ses propres droits — sans UAC, depuis
   n'importe quel compte. Si le serveur ne répond plus, alors seulement elle propose de le relancer, en demandant
   l'élévation. **Elle dit pourquoi il ne répond pas**, par sa notification, autant qu'elle peut le mesurer seule :
@@ -184,4 +184,4 @@ Format : `ID` — Titre, puis le besoin et ses critères. On n'écrit **pas** ic
 ## Abandonné
 
 - **CORE-WINDOW** — Fenêtre applicative WebView2 affichant le dashboard. Abandonné : la page est servie par le serveur
-  et s'ouvre dans le navigateur (D47), le tray assure l'accès rapide. Conservé ici pour que l'ID ne soit pas réattribué.
+  et s'ouvre dans le navigateur (D47), l'app cliente assure l'accès rapide. Conservé ici pour que l'ID ne soit pas réattribué.

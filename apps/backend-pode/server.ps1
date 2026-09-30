@@ -39,14 +39,14 @@ Add-PodeMiddleware -Name 'security' -ScriptBlock {
     if ($p -notlike '/api/*') { return $true }      # UI / statique
     if ($p -like '*/health')  { return $true }
     # La demande de ticket s'authentifie AUTREMENT : par le secret du compte, qu'elle
-    # porte dans son corps. Le tray n'a pas de jeton d'API -- c'est justement ce qu'on
+    # porte dans son corps. L'app cliente n'a pas de jeton d'API -- c'est justement ce qu'on
     # remplace. La route verifie elle-meme, et refuse si le secret ne correspond pas.
     if ($p -like '*/session/ticket') { return $true }
 
     # 1) QUI PARLE ? Deux preuves acceptees, et une seule suffit.
     #
     #    - le cookie de session, pose apres consommation d'un ticket : c'est la voie
-    #      normale d'une page ouverte par le tray d'un compte ;
+    #      normale d'une page ouverte par l'app cliente d'un compte ;
     #    - le jeton d'API, la voie historique, conservee tant que tous les appelants
     #      ne sont pas passes au cookie (diagnostics, scripts).
     $authOk = $false
@@ -82,7 +82,7 @@ Add-PodeMiddleware -Name 'security' -ScriptBlock {
 
 # --- Qui parle : ticket d'ouverture ------------------------------------------------------
 #
-# Le tray d'un compte presente SON secret -- qu'il est seul a pouvoir lire -- et recoit un
+# L'app cliente d'un compte presente SON secret -- qu'il est seul a pouvoir lire -- et recoit un
 # ticket a usage unique. Il ouvre ensuite la page avec ce ticket dans l'URL. Le secret,
 # lui, ne quitte jamais la machine locale et n'entre jamais dans une URL.
 Add-PodeRoute -Method Post -Path "$base/session/ticket" -ScriptBlock {
@@ -557,13 +557,13 @@ Add-PodeRoute -Method Get -Path '/' -ScriptBlock {
 }
 Add-PodeStaticRoute -Path '/mock' -Source (Join-Path $front 'mock')
 
-# Favicon : sert le .ico LIVRE du tray. Sans favicon, la fenetre dediee du navigateur
+# Favicon : sert le .ico LIVRE de l'app cliente. Sans favicon, la fenetre dediee du navigateur
 # (--app) affiche un globe generique dans la barre des taches -- l'application n'avait
 # pas d'icone. On relit le fichier existant plutot que d'ajouter une copie de la marque
 # dans le front : une seule representation (D15, D38).
 Add-PodeRoute -Method Get -Path '/favicon.ico' -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
-    $ico = Join-Path (Get-AppPath -Role 'tray') 'assets/ok.ico'
+    $ico = Join-Path (Get-AppPath -Role 'client') 'assets/ok.ico'
     if (-not (Test-Path -LiteralPath $ico)) { Set-PodeResponseStatus -Code 404; return }
     Write-PodeFileResponse -Path $ico -ContentType 'image/x-icon'
 }
@@ -595,7 +595,7 @@ Add-PodeTimer -Name 'vigie-watch' -Interval 30 -ScriptBlock {
         # THE CLIENT APPS NEXT, for the same reason as a resident: what must live beside the server is seen here, and
         # brought back when it is gone. A dead client app leaves its task reading "Running" with no process behind it,
         # and Windows then refuses every start: the account stayed without Vigie until its next session (28/09).
-        $null = Update-TrayWatch -Backend $env:VIGIE_BACKEND
+        $null = Update-ClientWatch -Backend $env:VIGIE_BACKEND
         $null = Invoke-WatchPass -Backend $env:VIGIE_BACKEND
         # THE NOTIFICATION IDENTITY: read before written, so this pass costs nothing once it
         # is right. Here rather than at install time alone -- an update runs the installer of

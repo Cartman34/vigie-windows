@@ -4,38 +4,38 @@
     Pilote l'app Vigie de la barre systeme : etat, arret, redemarrage.
 
 .DESCRIPTION
-    Le tray tourne ELEVE. Depuis une session normale on ne peut ni lire sa ligne de
+    L'app cliente tourne ELEVE. Depuis une session normale on ne peut ni lire sa ligne de
     commande, ni signaler un objet noyau qu'il a cree : il fallait le tuer a l'aveugle,
     ce qui laissait son icone en fantome dans la zone de notification.
 
-    Ce script depose un ORDRE dans apps/tray/var/run/ ; le tray le lit et sort proprement,
-    en liberant son icone. Le meme dossier porte un battement de coeur (tray.alive) qui
+    Ce script depose un ORDRE dans apps/client/var/run/ ; l'app cliente le lit et sort proprement,
+    en liberant son icone. Le meme dossier porte un battement de coeur (client.alive) qui
     permet de connaitre son etat sans inspecter le processus.
 
     Inspectable a l'oeil, scriptable depuis n'importe quoi, et ouvert aux evolutions :
     un nouvel ordre est un nouveau nom de fichier, sans toucher au mecanisme.
 
 .PARAMETER Status
-    Affiche si le tray est vivant, depuis quand, et l'etat qu'il affiche.
+    Affiche si l'app cliente est vivant, depuis quand, et l'etat qu'il affiche.
 
 .PARAMETER Stop
     Demande l'arret. Attend la confirmation par disparition du battement de coeur.
 
 .PARAMETER Restart
-    Demande au tray de se relancer.
+    Demande à l'app cliente de se relancer.
 
 .PARAMETER TimeoutSec
     Delai d'attente de la confirmation (defaut 15 s).
 
 .EXAMPLE
-    pwsh -File .\scripts\tray.ps1 -Status
+    pwsh -File .\scripts\client.ps1 -Status
 
 .EXAMPLE
-    pwsh -File .\scripts\tray.ps1 -Stop
+    pwsh -File .\scripts\client.ps1 -Stop
 
 .NOTES
-    Codes de retour : 0 = succes ; 1 = tray absent ; 2 = ordre non pris en compte a temps.
-    Demarrer le tray : Start-ScheduledTask -TaskName Vigie
+    Codes de retour : 0 = succes ; 1 = app cliente absente ; 2 = ordre non pris en compte a temps.
+    Demarrer l'app cliente : Start-ScheduledTask -TaskName Vigie
 #>
 [CmdletBinding(DefaultParameterSetName = 'Status')]
 param(
@@ -51,19 +51,19 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $repoRoot  = Split-Path $PSScriptRoot -Parent
-# LE MEME CALCUL QUE LE TRAY, ET PAR LE MEME CODE. Ce chemin etait ecrit a la main
-# (« apps/tray/var/run ») : sur une installation partagee, l'emetteur cherchait donc le
-# battement dans Program Files pendant que le tray l'ecrivait dans le profil du compte.
+# LE MEME CALCUL QUE L'APP CLIENTE, ET PAR LE MEME CODE. Ce chemin etait ecrit a la main
+# (« apps/client/var/run ») : sur une installation partagee, l'emetteur cherchait donc le
+# battement dans Program Files pendant que l'app cliente l'ecrivait dans le profil du compte.
 # Program Files est en LECTURE SEULE (D97) ; c'est Get-VarPath qui sait ou vont les
 # donnees, et personne d'autre.
 . (Join-Path $repoRoot 'apps/backend-pode/lib/common.ps1')
-$runDir    = Get-VarPath -Backend (Join-Path $repoRoot 'apps/tray') -Kind 'run'
-$heartbeat = Join-Path $runDir 'tray.alive'
+$runDir    = Get-VarPath -Backend (Join-Path $repoRoot 'apps/client') -Kind 'run'
+$heartbeat = Join-Path $runDir 'client.alive'
 
-# Le tray ecrit son battement toutes les 8 s : au-dela de 30 s, on le considere mort.
+# L'app cliente ecrit son battement toutes les 8 s : au-dela de 30 s, on le considere mort.
 $SEUIL_SEC = 30
 
-function Get-TrayState {
+function Get-ClientState {
     if (-not (Test-Path -LiteralPath $heartbeat)) { return $null }
     try {
         # UTF8 explicite : l'etat contient des accents (« Démarrage… »).
@@ -81,18 +81,18 @@ function Send-Order {
 
 # --- Etat --------------------------------------------------------------------
 if ($PSCmdlet.ParameterSetName -eq 'Status' -or $Status) {
-    $t = Get-TrayState
+    $t = Get-ClientState
     if ($t -and $t.AgeSec -le $SEUIL_SEC) {
-        Write-Info (Get-Label 'tray.tray-en-marche-pid' $t.Pid $t.Etat $t.AgeSec)
+        Write-Info (Get-Label 'client.en-marche-pid' $t.Pid $t.Etat $t.AgeSec)
         exit 0
     }
-    if ($t) { Write-Host (Get-Label 'tray.tray-arrete-dernier-signe' $t.AgeSec $t.Pid) }
-    else    { Write-Host (Get-Label 'tray.tray-arrete-aucun-battement') }
+    if ($t) { Write-Host (Get-Label 'client.arrete-dernier-signe' $t.AgeSec $t.Pid) }
+    else    { Write-Host (Get-Label 'client.arrete-aucun-battement') }
     exit 1
 }
 
 # --- Arret / redemarrage -----------------------------------------------------
-$avant = Get-TrayState
+$avant = Get-ClientState
 if (-not $avant -or $avant.AgeSec -gt $SEUIL_SEC) {
     # RELANCER CE QUI NE TOURNE PLUS, C'EST LE DEMARRER.
     #
@@ -102,27 +102,27 @@ if (-not $avant -or $avant.AgeSec -gt $SEUIL_SEC) {
     # 28/08). Un arret n'est pas un echec de relance : c'est justement le cas ou il faut
     # demarrer.
     if (-not $Restart) {
-        Write-Info (Get-Label 'tray.tray-deja-arrete-rien')
+        Write-Info (Get-Label 'client.deja-arrete-rien')
         exit 0
     }
-    Write-Info (Get-Label 'tray.tray-arrete-demarrage')
+    Write-Info (Get-Label 'client.arrete-demarrage')
     try {
         Start-ScheduledTask -TaskName 'Vigie' -ErrorAction Stop
     } catch {
-        Write-Warn (Get-Label 'tray.la-tache-de-demarrage' $_.Exception.Message)
+        Write-Warn (Get-Label 'client.la-tache-de-demarrage' $_.Exception.Message)
         exit 2
     }
-    # ON CONSTATE (D43) : la tache lancee ne prouve pas le tray vivant.
+    # ON CONSTATE (D43) : la tache lancee ne prouve pas l'app cliente vivante.
     $limite = (Get-Date).AddSeconds($TimeoutSec)
     while ((Get-Date) -lt $limite) {
         Start-Sleep -Milliseconds 800
-        $e = Get-TrayState
+        $e = Get-ClientState
         if ($e -and $e.AgeSec -le $SEUIL_SEC) {
-            Write-Info (Get-Label 'tray.tray-demarre-pid' $e.Pid)
+            Write-Info (Get-Label 'client.demarre-pid' $e.Pid)
             exit 0
         }
     }
-    Write-Warn (Get-Label 'tray.le-tray-pas-donne')
+    Write-Warn (Get-Label 'client.pas-donne-signe')
     exit 2
 }
 
@@ -130,9 +130,9 @@ $ordre = if ($Restart) { 'restart' } else { 'stop' }
 $ack   = Join-Path $runDir ($ordre + '.ack')
 Remove-Item -LiteralPath $ack -Force -ErrorAction SilentlyContinue
 Send-Order $ordre
-Write-Info (Get-Label 'tray.ordre-depose-tray-pid' $ordre $avant.Pid)
-# 1) A-T-IL LU L'ORDRE ? Le tray pose un accuse des qu'il le consomme. Sans cette
-#    etape, un echec ne disait pas s'il fallait depanner un tray fige ou une relance
+Write-Info (Get-Label 'client.ordre-depose-pid' $ordre $avant.Pid)
+# 1) A-T-IL LU L'ORDRE ? L'app cliente pose un accuse des qu'elle le consomme. Sans cette
+#    etape, un echec ne disait pas s'il fallait depanner une app cliente figee ou une relance
 #    lente : deux causes differentes, deux gestes differents.
 $vuLe = (Get-Date).AddSeconds(10)
 $lu = $false
@@ -142,10 +142,10 @@ while ((Get-Date) -lt $vuLe) {
 }
 if ($lu) {
     Remove-Item -LiteralPath $ack -Force -ErrorAction SilentlyContinue
-    Write-Info (Get-Label 'tray.ordre-lu-par-le')
+    Write-Info (Get-Label 'client.ordre-lu-par-le')
 } else {
-    Write-Warn (Get-Label 'tray.le-tray-pas-lu')
-    Write-Info (Get-Label 'tray.verifie-apps-tray-var')
+    Write-Warn (Get-Label 'client.ordre-pas-lu')
+    Write-Info (Get-Label 'client.verifie-apps-client-var')
     exit 2
 }
 
@@ -166,19 +166,19 @@ if ($lu) {
     estimation -- et c'est justement ce qu'on veut verifier avant de rendre la main.
 #>
 if ($Restart) {
-    Write-Host (Get-Label 'tray.relance-demandee')
+    Write-Host (Get-Label 'client.relance-demandee')
     exit 0
 }
 
 $fin = (Get-Date).AddSeconds($TimeoutSec)
 while ((Get-Date) -lt $fin) {
     Start-Sleep -Milliseconds 500
-    if (-not (Get-TrayState)) {
-        Write-Host (Get-Label 'tray.tray-arrete-proprement-icone'); exit 0
+    if (-not (Get-ClientState)) {
+        Write-Host (Get-Label 'client.arrete-proprement-icone'); exit 0
     }
 }
 
 # L'ordre a bien ete lu (accuse recu) : ce qui manque, c'est le RETOUR.
-Write-Warn (Get-Label 'tray.ordre-lu-mais-rien' $TimeoutSec)
-Write-Info (Get-Label 'tray.la-relance-peut-etre')
+Write-Warn (Get-Label 'client.ordre-lu-mais-rien' $TimeoutSec)
+Write-Info (Get-Label 'client.la-relance-peut-etre')
 exit 2

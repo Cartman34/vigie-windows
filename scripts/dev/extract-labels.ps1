@@ -95,7 +95,7 @@ function Read-Expression {
             }
             return
         }
-        # L'OPERATEUR -f PORTE DEJA SES TROUS. « "Tray PID {0}" -f $id » a exactement la
+        # L'OPERATEUR -f PORTE DEJA SES TROUS. « "Client PID {0}" -f $id » a exactement la
         # forme qu'on veut : le libelle est a gauche, les valeurs a droite. On ne le
         # traite que s'il constitue TOUT l'argument, sinon les numeros de trous de la
         # chaine entreraient en collision avec ceux qu'on a deja poses.

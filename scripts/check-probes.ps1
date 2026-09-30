@@ -476,7 +476,7 @@ foreach ($i in $interdits) {
 # « var/... » assemble a la main court-circuite cette regle et ecrit a cote du programme.
 #
 # Ce n'est pas une precaution theorique : c'est exactement ce qui empechait Vigie de
-# demarrer sur un compte standard. Le tray calculait « $PSScriptRoot/var/log », Windows
+# demarrer sur un compte standard. L'app cliente calculait « $PSScriptRoot/var/log », Windows
 # refusait la creation du dossier, et le script mourait a sa deuxieme ligne -- sans
 # journal, puisque le journal etait justement ce qu'il essayait de creer.
 #

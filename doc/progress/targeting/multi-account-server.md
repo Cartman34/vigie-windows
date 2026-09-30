@@ -13,7 +13,7 @@
 > En cherchant les contraintes de Windows plutôt qu'en les supposant, il apparaît qu'un serveur unique en session 0
 > **casserait** la carte WSL, les cartes de gestionnaires de paquets, une partie de la carte Gaming et les neuf actions
 > qui ouvrent une fenêtre. La porte d'entrée unique est conservée — c'est ce qui règle le port — mais le travail
-> *propre à un utilisateur* est délégué au tray de ce compte.
+> *propre à un utilisateur* est délégué à l'app cliente de ce compte.
 
 ---
 
@@ -22,7 +22,7 @@
 Le 28/08/2026, Vigie ne démarrait pas sur le compte « Famille ». Deux causes ; la première est corrigée, la seconde est
 structurelle.
 
-1. **Corrigé (D101).** Le tray calculait son journal à côté du programme. Sur un compte standard, Windows refuse cette
+1. **Corrigé (D101).** L'app cliente calculait son journal à côté du programme. Sur un compte standard, Windows refuse cette
    écriture : le script mourait avant sa première ligne de journal, sans laisser de trace.
 2. **Structurel.** `apps/backend-pode/start.ps1` exige l'élévation et se relance en `RunAs` s'il ne l'a pas. Sur un
    compte **standard**, cela réclame le mot de passe d'un administrateur — que ce compte n'a pas, par définition.
@@ -59,7 +59,7 @@ actuel :
 - les **neuf actions `open-*`** (dossier, journaux, Gestionnaire des tâches, Gestionnaire de périphériques, Paramètres
   Windows, Windows Update, options d'alimentation, paramètres utilisateurs, dossier d'analyse) ;
 - les fenêtres d'explication avant élévation (`show-confirm.ps1`) ;
-- les notifications du tray.
+- les notifications de l'app cliente.
 
 ### C4. Beaucoup de mesures sont PAR UTILISATEUR, pas par machine
 
@@ -129,7 +129,7 @@ Possible pour `SYSTEM`, avec deux précautions : le chemin se résout par le **S
 `SYSTEM` — il faut donc poser le propriétaire et l'ACL explicitement, sans quoi le compte ne pourrait pas lire son
 propre secret.
 
-### C8. Le tray ne pourra plus relancer le serveur
+### C8. L'app cliente ne pourra plus relancer le serveur
 
 Il n'est pas élevé et n'a aucun droit sur une tâche `SYSTEM`. Deux issues : lui donner le droit d'exécution sur cette
 tâche via son SDDL (C2), ou passer par une action `admin` du serveur. La première est plus simple et se pose une fois,
@@ -141,7 +141,7 @@ tâche via son SDDL (C2), ou passer par une action `admin` du serveur. La premi�
 - **Réservation d'URL** : inutile pour `SYSTEM`, qui a le droit d'écouter.
 - **Culture** : `SYSTEM` peut avoir une culture différente de l'utilisateur. Tout formatage de date ou de nombre destiné
   à l'affichage doit être explicite (il l'est déjà : `'dd/MM/yyyy HH:mm'`).
-- **Bascule rapide d'utilisateur** : plusieurs trays connectés en même temps, c'est le cas nominal. Aucun code du
+- **Bascule rapide d'utilisateur** : plusieurs app clientes connectées en même temps, c'est le cas nominal. Aucun code du
   serveur ne peut plus supposer « l'utilisateur ».
 
 ---
@@ -153,31 +153,31 @@ tâche via son SDDL (C2), ou passer par une action `admin` du serveur. La premi�
 ```
    session fhaza                 ┌─────────────────────────────────┐
    ┌───────────────┐             │  SERVEUR — tâche machine        │
-   │     tray      │◀───ordres───│  SYSTEM, session 0, élevé       │
+   │  app cliente │◀───ordres───│  SYSTEM, session 0, élevé       │
    │  (sa session) │────────────▶│  127.0.0.1:47600                │
    └───────────────┘   résultats │                                 │
                                  │  • sert l'interface             │
    session Famille               │  • identifie le demandeur       │
    ┌───────────────┐             │  • travail MACHINE et PRIVILÉGIÉ│
-   │     tray      │◀───ordres───│  • délègue le travail PAR       │
-   │  (sa session) │────────────▶│    UTILISATEUR à son tray       │
+   │  app cliente │◀───ordres───│  • délègue le travail PAR       │
+   │  (sa session) │────────────▶│    UTILISATEUR à son app cliente       │
    └───────────────┘   résultats └─────────────────────────────────┘
 ```
 
 **Le serveur** fait ce qui relève de la machine et ce qui exige l'élévation : verrou Windows Update, VBS, tâches
 planifiées, disque, déploiement, mise à jour. Il est la seule porte HTTP — donc un seul port, pour tout le monde.
 
-**Le tray de chaque compte** gagne un rôle : exécuter, **dans la session de son compte et avec ses droits**, ce qui n'a
+**L'app cliente de chaque compte** gagne un rôle : exécuter, **dans la session de son compte et avec ses droits**, ce qui n'a
 de sens que là — WSL, gestionnaires de paquets, lectures `HKCU`, et les neuf actions qui ouvrent une fenêtre. Il ne
 gagne aucun privilège : il fait ce que l'utilisateur pourrait faire lui-même.
 
-**Le canal existe déjà.** Le tray lit des ordres déposés dans un dossier (`var/run`), mécanisme éprouvé pour
+**Le canal existe déjà.** L'app cliente lit des ordres déposés dans un dossier (`var/run`), mécanisme éprouvé pour
 `restart`/`stop` et prévu pour être étendu — *« accepte de nouveaux ordres sans toucher au mécanisme »*. Il déménage
 dans le profil du compte, `%LOCALAPPDATA%\Sowapps\Vigie\var\run\`,
 **sous la même règle d'ACL que les secrets** (C7).
 
 > **Le canal d'ordres est une surface d'attaque, au même titre que les secrets.** Un dossier d'ordres inscriptible
-> par tous permettrait à un compte de faire exécuter quelque chose par le tray d'un **autre** compte, dans SA
+> par tous permettrait à un compte de faire exécuter quelque chose par l'app cliente d'un **autre** compte, dans SA
 > session. Il obéit donc aux mêmes trois règles : héritage coupé, ACL explicite — le compte, `SYSTEM`,
 > `Administrateurs`, personne d'autre — et vérification à la lecture. **Un ordre trouvé dans un dossier dont les
 > droits sont trop larges n'est pas exécuté : il est détruit et journalisé.**
@@ -201,9 +201,9 @@ compte standard ne peut pas les mener à bien aujourd'hui faute d'élévation. L
 | `# @session:` | Où | Lesquelles |
 |---|---|---|
 | *(absent)* | serveur, session 0 | tout ce qui touche la machine : verrou Windows Update, disque, tâches, déploiement |
-| `utilisateur` | **tray du demandeur** | les 9 `open-*`, les `wsl-*`, les `pkg-*` — elles n'ont de sens que dans sa session (C3, C4) |
+| `utilisateur` | **app cliente du demandeur** | les 9 `open-*`, les `wsl-*`, les `pkg-*` — elles n'ont de sens que dans sa session (C3, C4) |
 
-**Refus par défaut sur les deux axes** : sans `@droits`, c'est `admin` ; une action `@session: utilisateur` sans tray
+**Refus par défaut sur les deux axes** : sans `@droits`, c'est `admin` ; une action `@session: utilisateur` sans app cliente
 en ligne est refusée avec sa raison, jamais mise en attente indéfiniment.
 
 ---
@@ -245,12 +245,12 @@ droits.
 2. **L'environnement déclaré.** Réglage `dev` / `prod`, affiché par Vigie, et détection d'une tâche qui pointe vers
    l'autre environnement. *Utile tout de suite — le cas existe déjà sur cette machine — et prérequis de l'étape 3, qui
    doit savoir quelle copie lancer.*
-3. **Le serveur devient une tâche machine**, sous un compte administrateur dédié, démarré au boot ; le tray s'y
+3. **Le serveur devient une tâche machine**, sous un compte administrateur dédié, démarré au boot ; l'app cliente s'y
    connecte au lieu de le lancer, et reçoit le droit de la redémarrer (SDDL). *Le pivot. Les droits ne changent pas
    encore.*
 4. **Les secrets par compte** : héritage coupé, ACL explicite, vérifiée à la lecture ; ticket d'ouverture et cookie de
    session. *Placée après l'étape 3, elle a enfin un consommateur : un serveur qui sert plusieurs comptes.*
-5. **Le tray exécutant** : il exécute un ordre d'action dans sa session et rend son résultat. On y bascule les neuf
+5. **L'app cliente exécutant** : il exécute un ordre d'action dans sa session et rend son résultat. On y bascule les neuf
    `open-*`, puis les `wsl-*` et les `pkg-*`. *Sans l'étape 3, le serveur est déjà dans la session : rien à déléguer.*
 6. **Les droits contre le demandeur** : `Test-IsElevated` remplacé par « le demandeur a-t-il ce droit », refus par
    défaut. *Après 1 et 4 : la trace existe, l'identité aussi.* **Relecture dédiée.**
@@ -308,9 +308,9 @@ pose à l'installation, une fois.
 Ce que chaque entrée doit porter, sans exception : **le compte demandeur**, l'action, l'horodatage, le résultat. Une
 action privilégiée qu'on ne peut pas rattacher à un demandeur est un trou dans la chaîne, pas un détail de journal.
 
-### Quand une action de session est demandée sans tray en ligne — **on refuse et on le dit**
+### Quand une action de session est demandée sans app cliente en ligne — **on refuse et on le dit**
 
-Il n'y a pas d'« agent » séparé : c'est **le tray du compte**, et son absence est déjà une information que Vigie
+Il n'y a pas d'« agent » séparé : c'est **l'app cliente du compte**, et son absence est déjà une information que Vigie
 affiche. L'action est donc refusée sur-le-champ, avec sa raison — « cette action a besoin de votre session : ouvrez
 Vigie sur ce compte ». Rien ne reste en suspens, rien ne s'exécutera plus tard à un moment inattendu.
 ---
@@ -328,13 +328,13 @@ l'autre ne dit ce que la chose fait : ils ne servent donc à distinguer personne
 | Rôle | Nom (doc) | Nom (code) | Où il vit | Durée |
 |---|---|---|---|---|
 | Secret durable du compte | **secret du compte** | `accountSecret` | son profil, ACL explicite (C7) | jusqu'à révocation |
-| Preuve à usage unique pour ouvrir la page | **ticket d'ouverture** | `openTicket` | passé en URL par le tray | quelques secondes, une fois |
+| Preuve à usage unique pour ouvrir la page | **ticket d'ouverture** | `openTicket` | passé en URL par l'app cliente | quelques secondes, une fois |
 | Ce qui identifie la page ensuite | **cookie de session** | `sessionCookie` | le navigateur, en mémoire | meurt avec le navigateur |
 
 L'existant `api.token` / `API_TOKEN` devient `accountSecret` : c'est la même chose, enfin nommée. « Clé » a été
 écarté — le mot désigne déjà trois autres choses ici : clé de configuration, clé de registre, clé de table.
 
-Le tray lit **son secret de compte** — qu'il est seul à pouvoir lire —, demande un ticket d'ouverture au serveur, et ouvre
+L'app cliente lit **son secret de compte** — qu'il est seul à pouvoir lire —, demande un ticket d'ouverture au serveur, et ouvre
 `http://127.0.0.1:47600/?t=…`. Le serveur consomme le ticket et pose un cookie `HttpOnly`, `SameSite=Strict`, **sans
 date d'expiration** — donc de session.
 

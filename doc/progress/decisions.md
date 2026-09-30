@@ -87,7 +87,7 @@ démarrage (orange) / erreur ou arrêt (rouge). Jamais l'état des composants.
 
 *Origine non tracée — relire avant de s'en prévaloir.*
 
-- Générée à l'identique de **D01** par `apps/tray/assets/generate-icons.py` (PIL)
+- Générée à l'identique de **D01** par `apps/client/assets/generate-icons.py` (PIL)
   → `ok.ico` / `warn.ico` / `error.ico` (multi-résolutions 16→256).
 - Chargées par `tray.ps1` (fonction `setIcon`). *Mis à jour :* le repli GDI+ décrit ici a été
   **supprimé** (**D38**) ; en cas d'échec de lecture, un simple disque de la couleur du statut
@@ -127,7 +127,7 @@ Renommages retenus :
 |---|---|
 | Tâche planifiée `HyperionControlPanel` | `Vigie` |
 | Raccourci bureau `HYPERION Control Panel.url` | `Vigie.url` |
-| Mutex tray `HyperionControlPanelTray` | `VigieTray` |
+| Mutex de l'app cliente `HyperionControlPanelTray` | `VigieClient` *(renommé le 30/09/2026, D108)* |
 | Mutex `Local\HcpState_<sonde>` | `Local\VigieState_<sonde>` |
 | Mutex `Local\HcpStateRecompute` | `Local\VigieStateRecompute` |
 | Types .NET `HcpNative`, `HcpDarkColors` | `VigieNative`, `VigieDarkColors` |
@@ -471,7 +471,7 @@ bleuté `#2b3038` dans l'Atelier contre gris neutre `#2c2c2c` dans le tray. L'At
 affichait donc autre chose que ce qui est livré — et ne servait plus à valider quoi que ce
 soit, ce que cette décision interdit précisément.
 
-`apps/atelier/palette.php` lit désormais les constantes **dans `apps/tray/tray.ps1`** et la
+`apps/atelier/palette.php` lit désormais les constantes **dans `apps/client/client.ps1`** et la
 page en part au chargement. Le bloc de code sous l'aperçu indique s'il est *identique au
 livré* ou combien de valeurs ont été modifiées. Une recopie finit toujours par diverger ; la
 seule correction qui tienne est de supprimer la recopie.
@@ -570,7 +570,7 @@ code, ni dans la documentation, ni dans les conversations.
 | Port | **47600** | **47610** |
 | Élévation | **oui** (`RunLevel Highest`) | **non**, jamais |
 | Lancement | tâche planifiée `Vigie` à l'ouverture de session | à la main, `apps/atelier/atelier.cmd` |
-| Code | `apps/backend-pode/`, `apps/frontend-web/`, `apps/tray/` | `apps/atelier/` |
+| Code | `apps/backend-pode/`, `apps/frontend-web/`, `apps/client/` | `apps/atelier/` |
 | Sondes, actions, secrets | oui | **aucun accès** |
 | Doit tourner pour l'utilisateur final | oui | non |
 
@@ -604,7 +604,7 @@ api/                 contrat REST partagé
 apps/
   backend/           serveur Pode, sondes, actions, workers, lib, config
   frontend/          interface web
-  tray/              app barre système : tray.ps1 + assets/ (icônes + générateur)
+  client/            app cliente : client.ps1 + assets/ (icônes + générateur)   *renommée le 30/09/2026, D108*
   atelier/           app de développement : serveur php, page, sa config
 scripts/             install, désinstall, run, migration
 doc/                documentation transverse
@@ -661,7 +661,7 @@ démarre plus à l'ouverture de session.
 |---|---|---|
 | `apps/backend-pode` | PowerShell + **Pode** | implémentation **remplaçable** du contrat |
 | `apps/frontend-web` | HTML/CSS/JS, sans framework ni build | idem, côté client |
-| `apps/tray` | WinForms | **pas de suffixe** |
+| `apps/client` | WinForms | **pas de suffixe** |
 | `apps/atelier` | PHP | **pas de suffixe** |
 
 Le suffixe rend visible le principe directeur n°1 : le back et le front ne sont que des
@@ -670,17 +670,17 @@ qu'un autre pourrait exister à côté.
 
 **Le tray et l'Atelier n'en portent pas**, et c'est délibéré : le suffixe signifie
 « implémentation interchangeable d'un contrat ». Ces deux-là n'implémentent aucun contrat
-et n'auront pas d'alternative ; un `tray-winforms` promettrait un échange qui n'arrivera pas.
+et n'auront pas d'alternative ; un `client-winforms` promettrait un échange qui n'arrivera pas.
 
 ### Les noms ne vivent qu'à un seul endroit
 
-`Get-AppPath -Role 'backend'|'frontend'|'tray'|'atelier'` traduit un **rôle** en **dossier**.
+`Get-AppPath -Role 'backend'|'frontend'|'client'|'atelier'` traduit un **rôle** en **dossier**.
 Le code demande un rôle et ne connaît jamais le nom du dossier : renommer une implémentation
 ne touche qu'une ligne de `common.ps1`.
 
 **Exception inévitable : le bootstrap.** Un script qui doit *charger* `common.ps1` ne peut
 pas encore appeler `Get-AppPath` — il faut savoir où est la bibliothèque avant de s'en
-servir. Le nom `backend-pode` figure donc en clair dans `tray.ps1` et `scripts/*.ps1`,
+servir. Le nom `backend-pode` figure donc en clair dans `client.ps1` et `scripts/*.ps1`,
 chaque fois signalé par un commentaire `BOOTSTRAP`.
 
 ### Le contrat
@@ -762,7 +762,7 @@ Pas seulement le cache : **tout** fichier temporaire, téléversé, ou local gé
 Remplace `.state/`, `.secrets/` et le `logs/` commun à la racine.
 
 **Chaque app a son `var/`**, y compris le tray, qui écrit désormais dans
-`apps/tray/var/log/`. L'entrée « Ouvrir les journaux » du menu continue d'ouvrir ceux du
+`apps/client/var/log/`. L'entrée « Ouvrir les journaux » du menu continue d'ouvrir ceux du
 **serveur** : c'est ce qu'on veut voir pour diagnostiquer.
 
 Le jeton d'API est dans `var/secrets/` et non dans `config/` : il est **généré par l'app**,
@@ -925,7 +925,7 @@ les extrémités arrondies, centrés sur `r`, dépassaient en formant des bosses
 
 ### Miroir obligatoire
 
-Les seuils et épaisseurs existent **à deux endroits** : `apps/tray/assets/generate-icons.py`
+Les seuils et épaisseurs existent **à deux endroits** : `apps/client/assets/generate-icons.py`
 et la simulation de `apps/atelier/index.html`. Ils doivent changer ensemble — sinon
 l'Atelier montre autre chose que ce que Windows affiche, et il ne sert plus à rien (**D24**).
 
@@ -1060,7 +1060,7 @@ Renommages appliqués :
 |---|---|
 | `scripts/installer-hooks.ps1` | `scripts/install-hooks.ps1` |
 | `scripts/demarrer-vigie.vbs` | `scripts/start-vigie.vbs` |
-| `apps/tray/assets/generer-icones.py` | `apps/tray/assets/generate-icons.py` |
+| `apps/client/assets/generer-icones.py` | `apps/client/assets/generate-icons.py` |
 
 **Exceptions** : `vigie` et `atelier` sont des **noms propres** — un nom de produit ne se
 traduit pas. `doc/maquettes-validees/` reste intact (**D05** : on ne réécrit pas l'archive
@@ -1079,7 +1079,7 @@ portent le raisonnement derrière chaque choix — les traduire est une passe à
 - **erreur : `0.17`** (au lieu de `0.14`).
 
 La fraction n'est écrite qu'à **un seul** endroit,
-[`apps/tray/assets/generate-icons.py`](../../apps/tray/assets/generate-icons.py) — le repli GDI+
+[`apps/client/assets/generate-icons.py`](../../apps/client/assets/generate-icons.py) — le repli GDI+
 qui la dupliquait a été supprimé (**D38**). Les `.ico` ont été régénérés : `ok.ico` et
 `warn.ico` sont ressortis **identiques à l'octet près**, ce qui confirme au passage que le
 générateur est déterministe et que seul l'état erreur a bougé.
@@ -2841,15 +2841,19 @@ Vigie est faite de deux applications, et on les nommait de trois façons : « le
 | **app serveur** | ce qui tourne en fond, sous la tâche planifiée, et répond sur le port |
 | **app cliente** | l'icône près de l'horloge **et la page web** — pour qui l'utilise, ça vient ensemble, et c'est l'app cliente qui ouvre le navigateur |
 
-**Ce qui change tout de suite : le texte affiché.** `check-labels` refuse le mot « tray » dans `lang/fr.json`, comme il
-refuse déjà « machine » (**D107**). Le motif n'attrape que le mot **isolé** : `apps/tray/var/log/` et `tray.ps1` sont des
-chemins, donc des identifiants, et ils passent.
+**Ce qui a changé tout de suite : le texte affiché.** `check-labels` refuse le mot banni dans `lang/fr.json`, comme il
+refuse déjà « machine » (**D107**). Le motif n'attrape que le mot **isolé** : un chemin ou un nom de fichier passait.
 
-**Ce qui change petit à petit : le code.** Les dossiers, les fichiers et les clés (`apps/tray/`, `tray.ps1`, `tray.*`)
-gardent leur nom pour l'instant. Les renommer d'un coup, c'est un remaniement large pour zéro gain visible, et une
-occasion de casser des chemins écrits dans les tâches planifiées et les raccourcis déjà posés sur les postes. **On le
-fera par étapes, en touchant chaque zone quand on y travaille déjà** — ce n'est pas urgent, mais ce n'est pas abandonné :
-c'est écrit ici pour ça.
+**Ce qui devait changer petit à petit : le code.** Les dossiers, les fichiers et les clés gardaient leur ancien nom,
+pour ne pas casser d'un coup les chemins écrits dans les tâches planifiées et les raccourcis déjà posés sur les postes.
+Par étapes, donc, **en touchant chaque zone quand on y travaille déjà** — et treize mois d'étapes n'ont rien renommé.
+
+**Fait le 30/09/2026, en une fois** (sujet S06) : `apps/client/`, `client.ps1`, `scripts/client.ps1`,
+`Get-ClientHeartbeat`, `client.alive`, `client-vanished.jsonl`, `CORE-CLIENT`, les clés de libellés, les commentaires
+et la documentation. Le risque des chemins déjà posés s'était éteint le 29/09 : `New-VigieClientAction` est le seul
+endroit qui écrit la ligne de lancement d'une app cliente, et l'installation la réécrit pour **tous** les comptes à
+chaque passage. `check-naming` compte désormais ce mot partout ailleurs que dans le texte affiché, avec un plafond de
+**zéro** : il ne peut pas revenir un fichier à la fois.
 
 ---
 

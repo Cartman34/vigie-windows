@@ -38,7 +38,7 @@ $apres = Get-UpdateLockState
 # n'a pas leve d'erreur ».
 if ($ok -and -not $apres.autoUpdatesOff) {
     @{
-        message = 'Mode mise à jour ACTIVÉ : Windows Update est déverrouillé. Les mises à jour peuvent s'installer ; redémarrer au moment voulu, puis re-verrouiller.'
+        message = 'Mode mise à jour ACTIVÉ : Windows Update est déverrouillé. Les mises à jour peuvent s''installer ; redémarrer au moment voulu, puis re-verrouiller.'
         result  = @{ ok = $true; invalidate = $inv }
     }
 } elseif ($ok) {

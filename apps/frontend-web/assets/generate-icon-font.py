@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """Fonte d'icones MAISON de Vigie (vigie-icons.ttf).
 
-Meme philosophie que generate-icons.py pour le tray (D01) : la source de verite est CE
+Meme philosophie que generate-icons.py pour l'app cliente (D01) : la source de verite est CE
 script ; la fonte generee est versionnee a cote et rejouable a l'identique. Les icones
 sont de VRAIS caracteres (zone d'usage privee U+E001...), utilises dans le front par la
 classe CSS .vi + un data-attribut ou l'entite du glyphe.
