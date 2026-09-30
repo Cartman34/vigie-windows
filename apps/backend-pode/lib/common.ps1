@@ -5069,14 +5069,65 @@ function Get-ActiveModes {
     Seconds holds ONE interval per mode, plus "default"; the first active mode that declares one wins. No interval at
     all means the computation only ever runs when someone asks for it -- which is what every card does today.
 #>
+<#
+    THE ACCOUNTS WHOSE SESSION IS OPEN, by name. Their registry hive is mounted only while they are logged in, which
+    is exactly the question -- and it costs nothing, where establishing the list of accounts costs two seconds.
+#>
+function Get-OpenSessionAccounts {
+    $names = @()
+    foreach ($hive in @(Get-UserRegistryRoots)) {
+        try {
+            $sid = "$hive".Split([char]92)[-1]
+            $name = (New-Object System.Security.Principal.SecurityIdentifier($sid)).Translate(
+                        [System.Security.Principal.NTAccount]).Value.Split([char]92)[-1]
+            if ($name -and $names -notcontains $name) { $names += $name }
+        } catch { }
+    }
+    return @($names)
+}
+
 function Get-RefreshDeclarations {
     param([string]$Backend = (Get-BackendRoot))
     $out = @()
+    $openAccounts = $null
     foreach ($d in @(Get-UnitDeclarations -Section 'Refresh' -Backend $Backend)) {
         $key = "$($d.Entry.Key)"
         $probe = "$($d.Entry.Probe)"
         if (-not $key -or -not $probe) { continue }
         if (-not (Test-PathSafe (Join-Path $d.Dir $probe))) { continue }
+        <#
+            A MEASURE THAT DEPENDS ON WHO LOOKS IS COMPUTED PER ACCOUNT (D109). The owner settled the scope on
+            30/09: every account with an open session.
+
+            The cache of such a probe holds one entry per account. The scheduler computes with no requester, so it
+            was writing into its own entry -- one nobody ever reads. Measured on 30/09: the WSL card was recomputed
+            every five minutes all day, and what the owner saw was 31 hours old, because his own entry was never
+            touched. And since a request computes nothing (D124), it would never have been.
+
+            One declaration per open session, then: their hive is mounted, so they are the ones who may be looking.
+            Nobody logged in, nothing to compute -- and nobody to read it either.
+        #>
+        if (Test-ProbeIsPerAccount -ProbeFile (Join-Path $d.Dir $probe)) {
+            if ($null -eq $openAccounts) { $openAccounts = @(Get-OpenSessionAccounts) }
+            foreach ($account in $openAccounts) {
+                $seconds = @{}
+                if ($d.Entry.Seconds -is [hashtable]) {
+                    foreach ($k in $d.Entry.Seconds.Keys) { $seconds["$k"] = [int]$d.Entry.Seconds[$k] }
+                } elseif ($d.Entry.Seconds) { $seconds['default'] = [int]$d.Entry.Seconds }
+                $out += [pscustomobject]@{
+                    Unit       = $d.Unit
+                    Key        = "$($d.Unit)/$key@$account"
+                    Probe      = $probe
+                    Account    = $account
+                    Cards      = @($d.Entry.Cards)
+                    Seconds    = $seconds
+                    MaxSeconds = $(if ($d.Entry.MaxSeconds) { [int]$d.Entry.MaxSeconds } else { 0 })
+                    Parallel   = [bool]$d.Entry.Parallel
+                    OnlyWhen   = "$($d.Entry.OnlyWhen)"
+                }
+            }
+            continue
+        }
         $seconds = @{}
         if ($d.Entry.Seconds -is [hashtable]) {
             foreach ($k in $d.Entry.Seconds.Keys) { $seconds["$k"] = [int]$d.Entry.Seconds[$k] }
@@ -5113,7 +5164,9 @@ function Get-RefreshInterval {
     swallows a probe's error to keep serving the others, so the proof of a failure is that the cache did not move.
 #>
 function Get-ProbeCacheStamp {
-    param([string]$Backend = (Get-BackendRoot), [Parameter(Mandatory)][string]$Probe)
+    # ACCOUNT: the entry of THAT account alone. The scheduler now computes per account for a per-account probe, so
+    # the proof that ITS computation wrote something is its own entry, not the newest of all.
+    param([string]$Backend = (Get-BackendRoot), [Parameter(Mandatory)][string]$Probe, [string]$Account)
     try {
         $path = Get-VarPath -Backend $Backend -Kind 'cache' -File 'state-cache.json'
         if (-not (Test-PathSafe $path)) { return '' }
@@ -5134,7 +5187,9 @@ function Get-ProbeCacheStamp {
         $newestAt = $null
         foreach ($pr in $j.PSObject.Properties) {
             $name = "$($pr.Name)"
-            if (-not ($name -eq $Probe -or $name.StartsWith($Probe + '@'))) { continue }
+            if ($Account) {
+                if ($name -ne ($Probe + '@' + $Account)) { continue }
+            } elseif (-not ($name -eq $Probe -or $name.StartsWith($Probe + '@'))) { continue }
             $raw = "$($pr.Value.at)"
             if (-not $raw) { continue }
             $when = $null
@@ -5632,7 +5687,7 @@ function Invoke-RefreshPass {
         try {
             $childPid = Start-DetachedAction -Backend $Backend `
                         -Script (Join-Path $Backend 'workers/refresh.worker.ps1') `
-                        -ArgsMap @{ key = $d.Key; probe = $d.Probe }
+                        -ArgsMap @{ key = $d.Key; probe = $d.Probe; account = "$($d.Account)" }
         } catch { }
         <#
             A REFUSED LAUNCH IS A FAILURE OF THE COMPUTATION, and it is counted as one.
@@ -7241,6 +7296,8 @@ function Get-State {
                 # a card that stops moving, with no failure counted. So the start is said too.
                 StartedAt = $(if ($entry -and [long]$entry.lastStartedAt) { ([datetime]::new([long]$entry.lastStartedAt, [DateTimeKind]::Utc)).ToString('o') } else { '' })
             }
+            # A per-account card has one declaration per account: the requester's is the one that concerns it.
+            if ($d.Account -and "$($d.Account)" -ne "$stateRequester") { continue }
             foreach ($card in @($d.Cards)) {
                 if (-not $card) { continue }
                 if (-not $refreshByCard.ContainsKey("$card")) { $refreshByCard["$card"] = @() }

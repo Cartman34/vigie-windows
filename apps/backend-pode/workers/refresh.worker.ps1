@@ -15,11 +15,13 @@ if (-not $Backend) { return }
 
 $key = $null
 $probe = $null
+$account = $null
 if ($ArgsB64) {
     try {
         $a = ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($ArgsB64))) | ConvertFrom-Json
         if ($a.key)   { $key   = "$($a.key)" }
         if ($a.probe) { $probe = "$($a.probe)" }
+        if ($a.account) { $account = "$($a.account)" }
     } catch { }
 }
 if (-not $key -or -not $probe) { return }
@@ -31,9 +33,11 @@ $t0 = Get-Date
 try {
     # THE PROOF OF A RESULT is that the cache moved. An exception is not the only way to fail: Get-State catches a
     # probe's error so the other cards still answer, and the computation then returns having written nothing.
-    $before = Get-ProbeCacheStamp -Backend $Backend -Probe $probe
-    $null = Get-State -Backend $Backend -Only @($probe)
-    $after = Get-ProbeCacheStamp -Backend $Backend -Probe $probe
+    # FOR WHOM: a per-account measure is computed for ONE account, and its proof is that account's entry.
+    $before = Get-ProbeCacheStamp -Backend $Backend -Probe $probe -Account $account
+    $null = $(if ($account) { Get-State -Backend $Backend -Only @($probe) -Account $account }
+                else        { Get-State -Backend $Backend -Only @($probe) })
+    $after = Get-ProbeCacheStamp -Backend $Backend -Probe $probe -Account $account
     if ("$after" -eq "$before") { throw "le calcul n'a rien ecrit (sonde en erreur ou introuvable)" }
     $entry.fails = 0
     $entry.nextAt = 0
