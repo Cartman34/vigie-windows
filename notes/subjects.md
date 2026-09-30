@@ -20,11 +20,26 @@ Arbitré par l'utilisateur le 06/09, et c'est **cet ordre-là** que je suis quan
 | Ensuite | **S02** |
 | En dernier | **S01** |
 
-**S10** est né le 07/09, d'une gêne signalée par l'utilisateur ; il attend son rang.
 **S14** est né le 12/09, d'un défaut signalé par l'utilisateur ; il attend son rang.
 **S15** est né le 13/09, d'un déploiement bloqué ; il attend son rang.
 **S03** et **S09** ne se classent pas : ce sont des **preuves**, et elles demandent son geste à lui, pas mon travail.
 **S08** descend avec S07, par le même cliquet.
+
+## Revue du 30/09/2026 — ce qui est encore d'actualité
+
+Chaque sujet ouvert a été **revérifié dans le code**, pas dans le souvenir. Ce que cette revue a changé :
+
+- **S02 a avancé sans être clos.** Le mécanisme qui lui manquait existe depuis le 29/09 : l'app serveur demande à une
+  app cliente de mesurer dans SA session (`Invoke-DesktopAction`, action `wsl-usage`), et la carte Stockage affiche ce
+  que WSL ne rend pas. Reste à faire passer par ce chemin les **gestionnaires de paquets** (winget, pip, npm, scoop) et
+  les lectures `HKCU` du module Jeux, qui répondent encore pour le compte de service.
+- **S10 est clos** : le répit de dix minutes a été éprouvé sur une vraie partie (six bascules, deux bulles).
+- **S14 reste ouvert et s'est élargi** : `Invoke-RefreshPass` a rejoint `Get-State` dans la liste des lancements
+  détachés hors protocole (`check-operations.ps1`). C'est assumé et déclaré, pas réglé.
+- **S04, S05, S06, S07, S08, S01, S03, S09, S15 sont inchangés**, vérifiés un par un le 30/09 : l'audit Windows Update
+  s'écrit toujours sur disque sans remonter (`status.md` → WU-AUDIT), aucun `202 + jobId` n'existe (le contrat le dit
+  noir sur blanc), 37 fichiers portent encore « tray » dans leurs identifiants, et les trois cliquets sont à
+  450 identifiants / 5 607 commentaires / 3 noms de fichiers, plus 2 fichiers Python.
 
 ## Ouverts
 
@@ -39,7 +54,6 @@ Arbitré par l'utilisateur le 06/09, et c'est **cet ordre-là** que je suis quan
 | **S07** | Le français dans le code | `dev/check-naming.ps1` | Trois cliquets qui ne peuvent que descendre : identifiants français, noms de fichiers français, lignes de commentaire françaises (**D115**). Ils baissent quand on passe à côté, jamais en campagne dédiée. |
 | **S08** | Deux fichiers Python subsistent | **D41** | PHP est l'outil par défaut ; Python n'est toléré qu'argumenté et délimité. Cliquet posé à 2 dans `check-naming`. |
 | **S09** | Preuves qui n'ont jamais eu lieu | — | L'installation sur un **second ordinateur** depuis la v1.0.0, l'alerte de **décharge batterie** pendant une partie, et l'export **imprimé pour de vrai**. et une notification née de la **boucle de l'app cliente** plutôt que d'un script. Quatre choses écrites que rien n'a encore confrontées au réel. |
-| **S10** | Un état qui oscille notifie à chaque oscillation | `apps/tray/tray.ps1` | Mesuré le 06/09 : `gaming.hogs` a basculé `ok`↔`warn` **dix fois en quarante minutes**, soit dix bulles pour une seule situation. **Tranché par l'utilisateur le 07/09** : un même champ ne notifie pas deux fois avant **dix minutes** — le répit est par notification, un autre sujet qui se dégrade pendant ce temps sort quand même. Rejoué sur la séquence réelle du 06/09 : douze bascules, cinq bulles. Ouvert jusqu'à une partie réelle. |
 | **S12** | Le numéro de version ne peut pas se publier sans session | **D123** | **Clos le 14/09** : un déploiement ne pose plus de numéro, il n'a donc plus rien à publier. Mesuré le 08/09 : le déploiement de 09 h 55 n'avait posé aucun numéro, personne n'étant connecté. |
 | **S14** | Les opérations ne suivent pas toutes le même protocole | `targeting/operations.md` · `implemented/operations.md` · **D82** | Constaté le 12/09 : une installation Windows Update annoncée terminée dès son départ, puis une carte figée sur « Démarrage… ». Le 13/09, les quatre opérations passent par `Start-Operation`, éprouvé en production sur `vigie-update` seulement. La relance du serveur reste hors protocole, arbitré le 13/09. Reste à éprouver Windows Update, le disque et les paquets, et à trancher si les passes internes rejoignent `/operations`. Preuve : `notes/evidence/2026-09-12-operations-outside-the-protocol.md`. |
 | **S15** | Des pièces de Vigie sans réponse à certaines situations de leur vie | `targeting/components.md` · `implemented/components.md` · **D112** | Constaté le 13/09 : le déploiement s'est arrêté parce que le clone du service refusait les étiquettes déplacées par la réécriture d'historique du 11/09. Le même jour, le clone est corrigé et éprouvé ; journaux, droit de session, source du journal d'événements, confiance git, source disparue et compte de service reçoivent leur réponse, **non éprouvée en réel**. Restent les manques que `implemented/components.md` marque « aucune réponse ». Preuve : `notes/evidence/2026-09-13-service-clone-blocked-by-rewritten-tags.md`. |
@@ -48,5 +62,6 @@ Arbitré par l'utilisateur le 06/09, et c'est **cet ordre-là** que je suis quan
 
 | N° | Sujet | Clos le | Comment |
 |----|-------|---------|---------|
+| **S10** | Un état qui oscille notifie à chaque oscillation | 30/09/2026 | Le répit de dix minutes par notification est **éprouvé en usage réel** : sur le compte Famille le 28/09, `gaming.hogs` a produit **six bascules, deux bulles, quatre retenues** (`tray_20260928.log`). C'est la partie réelle qu'attendait ce sujet. |
 | **S11** | Les bulles s'annonçaient « PowerShell » | 07/09/2026 | Une identité déclarée pour la machine (`AppUserModelId\Sowapps.Vigie` : nom affiché et icône livrée) et portée par le processus avant que son icône n'existe — `a376f76`, maintenue à chaque passage par l'app serveur `21e63d1`. **Vu à l'écran** : la bulle porte « Vigie » et l'icône verte. |
 | **S13** | La grosse icône des bulles était celle de Windows | 11/09/2026 | Une bulle `NotifyIcon` ne choisit son glyphe que parmi `Info`/`Warning`/`Error`. Réglé par une **porte** (`targeting/notifications.md`) : plusieurs outils rangés par préférence, le premier qui sait afficher gagne, et le dernier rang reste toujours disponible. **Vu à l'écran le 10/09**, captures de l'utilisateur : quatre notifications portant les icônes de Vigie, verte et orange, rendues à l'identique par les deux premiers rangs. Je l'ai gardé ouvert un jour de trop contre une condition que j'avais ajoutée moi-même — que la notification vienne de la boucle de l'app cliente — qui ne dit rien sur l'icône et appartient à **S09**. Le rang 60 (Windows App SDK) n'est toujours pas écrit, et n'a pas à l'être : les rangs 20 et 40 affichent. |
