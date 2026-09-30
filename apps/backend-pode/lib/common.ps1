@@ -2460,6 +2460,27 @@ function Copy-InstallFrom {
     if (-not (Test-Path -LiteralPath $Destination)) {
         New-Item -ItemType Directory -Path $Destination -Force | Out-Null
     }
+    <#
+        WHAT THE SOURCE NO LONGER HAS, THE INSTALLATION NO LONGER KEEPS.
+
+        Copy-Item only adds and overwrites: a file dropped upstream stayed on disk for ever. On 30/09 the client app's
+        folder was renamed, the old one survived in the installation, the account's scheduled task went on naming the
+        old script -- it still existed, so nothing was declared broken -- and TWO client apps ran at once on the same
+        account, each with its icon and its heartbeat.
+
+        We therefore drop, at the top level and inside apps/, what the source does not have. var/ is the one thing
+        kept: it is the data, not the code. Nothing outside the destination is ever touched.
+    #>
+    foreach ($scope in @($Destination, (Join-Path $Destination 'apps'))) {
+        if (-not (Test-PathSafe $scope)) { continue }
+        $mirror = if ($scope -eq $Destination) { $Source } else { Join-Path $Source 'apps' }
+        if (-not (Test-PathSafe $mirror)) { continue }
+        foreach ($entry in @(Get-ChildItem -LiteralPath $scope -Force -ErrorAction SilentlyContinue)) {
+            if ($entry.Name -eq 'var') { continue }
+            if (Test-Path -LiteralPath (Join-Path $mirror $entry.Name)) { continue }
+            Remove-Item -LiteralPath $entry.FullName -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
     Copy-Item -Path (Join-Path $Source '*') -Destination $Destination -Recurse -Force -ErrorAction Stop
 
     if ($kept) {
@@ -8773,7 +8794,18 @@ function Get-VigieTaskStructureAilment {
         return "interpréteur dans un profil, illisible par les autres comptes : $exe"
     }
     if ("$($a.Arguments)" -match '-File\s+"([^"]+)"') {
-        if (-not (Test-Path -LiteralPath $Matches[1])) { return ("l'application n'est plus là : " + $Matches[1]) }
+        $launched = $Matches[1]
+        if (-not (Test-Path -LiteralPath $launched)) { return ("l'application n'est plus là : " + $launched) }
+        <#
+            EXISTING IS NOT ENOUGH HERE EITHER: the task must launch THE client app of the current installation. On
+            30/09 the folder was renamed, the old copy stayed behind, and the task went on naming it -- the file was
+            still there, so nothing was declared broken, and the account ran two client apps at once, each with its
+            own icon. A task that starts another application than the one installed cannot do its job.
+        #>
+        $expected = Join-Path (Join-Path (Get-RepoRoot) 'apps') (Join-Path 'client' 'client.ps1')
+        if ((Test-Path -LiteralPath $expected) -and ($launched.Trim() -ine $expected)) {
+            return ("la tâche lance une autre application que celle installée : " + $launched)
+        }
     }
     <#
         A WINDOW NOBODY ASKED FOR IS NOT A BREAKDOWN, and saying it here was a mistake -- measured within the minute
