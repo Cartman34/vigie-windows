@@ -7155,6 +7155,37 @@ function Get-State {
     & $markPhase 'fraicheur'
     $modules = @()
     $chrono = @{}
+    <#
+        WHAT THE SCHEDULER KNOWS ABOUT EACH CARD, read ONCE for all of them (S16).
+
+        A value twenty-two hours old looked exactly like a value from this second: nothing, on the card or in the
+        contract, told them apart. A card now carries what is needed to know -- when the probe produced what it
+        shows, when the scheduler last passed, and the interval that applies -- plus its consecutive failures,
+        without which it serves its last successful value in silence.
+
+        Read per card, this would be twenty readings of the same state file for one page.
+    #>
+    $refreshByCard = @{}
+    try {
+        $refreshState = Get-RefreshState -Backend $Backend
+        $refreshModes = @(Get-ActiveModes -Backend $Backend)
+        foreach ($d in @(Get-RefreshDeclarations -Backend $Backend)) {
+            $entry = $refreshState[$d.Key]
+            $info = [pscustomobject]@{
+                Seconds   = (Get-RefreshInterval -Declaration $d -Modes $refreshModes)
+                # THE TICKS ARE UTC, and a date built on them is born "unspecified": handed over as is, the page
+                # would read it as local time and show a two-hour gap (D44).
+                EndedAt   = $(if ($entry -and [long]$entry.lastEndedAt) { ([datetime]::new([long]$entry.lastEndedAt, [DateTimeKind]::Utc)).ToString('o') } else { '' })
+                Fails     = $(if ($entry) { [int]$entry.fails } else { 0 })
+                LastError = $(if ($entry) { "$($entry.lastError)" } else { '' })
+            }
+            foreach ($card in @($d.Cards)) {
+                if (-not $card) { continue }
+                if (-not $refreshByCard.ContainsKey("$card")) { $refreshByCard["$card"] = @() }
+                $refreshByCard["$card"] += $info
+            }
+        }
+    } catch { }
     foreach ($pf in $probeFiles) {
         $t = [Diagnostics.Stopwatch]::StartNew()
         $e = $cache[(Get-ProbeCacheKey -ProbeFile $pf.FullName -Account $stateRequester)]
@@ -7174,6 +7205,25 @@ function Get-State {
                     try {
                         if ($mm -is [System.Collections.IDictionary]) { $mm['pace'] = $pace }
                         else { Add-Member -InputObject $mm -NotePropertyName 'pace' -NotePropertyValue $pace -Force }
+                    } catch { }
+                }
+                # FRESHNESS TRAVELS WITH THE CARD (S16): three moments, three different questions -- when the probe
+                # produced what is being read, when the scheduler last passed, and how often it is meant to.
+                if ($mm -and $mm.id) {
+                    try {
+                        # ONE DATE FORMAT TOWARDS THE PAGE (D44): the cache keeps "at" in whatever shape
+                        # ConvertFrom-Json gave it, which follows the culture. We answer ISO 8601, always.
+                        $computed = ''
+                        try { $u = ConvertTo-UtcDate $e.at; if ($u) { $computed = $u.ToString('o') } } catch { }
+                        $fresh = @{ computedAt = $computed }
+                        $decl = @($refreshByCard["$($mm.id)"])[0]
+                        if ($decl) {
+                            $fresh.seconds = [int]$decl.Seconds
+                            if ($decl.EndedAt) { $fresh.refreshedAt = "$($decl.EndedAt)" }
+                            if ([int]$decl.Fails -gt 0) { $fresh.fails = [int]$decl.Fails; $fresh.lastError = "$($decl.LastError)" }
+                        }
+                        if ($mm -is [System.Collections.IDictionary]) { $mm['freshness'] = $fresh }
+                        else { Add-Member -InputObject $mm -NotePropertyName 'freshness' -NotePropertyValue $fresh -Force }
                     } catch { }
                 }
                 # A RECALCULER : la carte s'affiche, et dit qu'elle attend sa mesure.

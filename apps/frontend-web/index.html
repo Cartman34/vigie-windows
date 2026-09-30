@@ -311,6 +311,11 @@
   .card-group{font-size:10.5px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);font-weight:700;line-height:1.3}
   .card-refresh{background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;width:26px;height:26px;line-height:1;cursor:pointer;flex:0 0 auto;font-size:14px;padding:0}
   .card-refresh:hover{border-color:var(--accent);color:var(--text)}
+  /* EN RETARD (S16, choix du proprietaire) : le bouton qui remet la carte a jour est celui qui dit qu'elle en a
+     besoin. Aucun texte, aucun element de plus -- la teinte d'alerte sur l'icone qu'on allait cliquer de toute
+     facon. Le detail des trois moments s'ouvre depuis le menu de la carte. */
+  .card-refresh.stale{border-color:var(--warn);color:var(--warn)}
+  .card-refresh.stale:hover{border-color:var(--warn);color:var(--warn)}
   .card.card-loading{opacity:.55;pointer-events:none}
   /* EN ATTENTE DE MESURE : on la voit, on la lit, et surtout on peut la demander --
      « pointer-events:none » aurait rendu son propre bouton d'actualisation inutilisable,
@@ -1007,6 +1012,7 @@ function fmt(f){
 
 let themeLabels={};
 let lastModules=[];
+let lastStateReadAt='';
 let lastUnits=[], unitsOpen=false, pendingUnitFocus=null, lastHost='';
 // Persistes : un rechargement (frequent, l'app se recharge a chaque build) ne doit
 // pas rendre les groupes que l'utilisateur a masques.
@@ -1061,6 +1067,33 @@ function paceHtml(m){
   const quoi = m.pace.reason === 'jeu' ? 'Une partie est en cours : Vigie se met en retrait pour la laisser tourner.'
                                        : 'Cette carte est recalculée moins souvent que d\'habitude.';
   return `<span class="card-pace" title="${esc(quoi)} Recalculée toutes les ${esc(paceLabel(m.pace.seconds))}.">en retrait · ${esc(paceLabel(m.pace.seconds))}</span>`;
+}
+
+/* LA FRAICHEUR D'UNE CARTE (contrat Module.freshness, S16).
+
+   Une valeur vieille de vingt-deux heures s'affichait comme une valeur de la seconde. La carte porte desormais trois
+   moments : quand la sonde a produit ce qu'elle montre, quand l'ordonnanceur est passe, et l'intervalle attendu.
+
+   EN RETARD, ce n'est pas "une seconde de plus que l'intervalle" : un calcul de trente secondes qui arrive a
+   trente-deux est a l'heure. On laisse passer le double de l'intervalle, et au moins deux minutes -- la meme regle
+   que la mise en retrait, pour la meme raison : ne pas alerter sur du bruit.
+
+   Un calcul qui ENCHAINE LES ECHECS est en retard quoi qu'il arrive : il ne reviendra pas tout seul. */
+function cardAgeSeconds(iso){
+  if (!iso) return null;
+  const t = Date.parse(iso);
+  if (isNaN(t)) return null;
+  return Math.max(0, Math.round((Date.now() - t) / 1000));
+}
+function cardIsStale(m){
+  const f = m && m.freshness;
+  if (!f) return false;
+  if (f.fails) return true;
+  const age = cardAgeSeconds(f.computedAt);
+  if (age === null) return false;
+  const expected = Number(f.seconds) || 0;
+  if (!expected) return false;
+  return age > Math.max(120, 2 * expected);
 }
 
 function cardHtml(m, groupLabel){
@@ -1167,7 +1200,7 @@ function cardHtml(m, groupLabel){
     <div class="card-head">
       <div class="card-titles"><span class="card-group">${esc(groupLabel||'')}</span><span class="name">${m.label}</span>${paceHtml(m)}</div>
       ${stTxt?`<span class="badge ${st}"><span class="ic vi vi-fw">${stIc}</span>${stTxt}</span>`:''}
-      <button class="card-refresh" title="${L('ui.rafraichir-cette-carte')}${(m.ms!==undefined&&m.ms!==null)?` — ${L('ui.servie-en')}${m.ms} ms`:''}" onclick="refreshCard('${m.id}',this,true)"><span class="cr-ic vi vi-fw vi-lg">&#xE008;</span></button>
+      <button class="card-refresh${cardIsStale(m)?' stale':''}" title="${L('ui.rafraichir-cette-carte')}${(m.ms!==undefined&&m.ms!==null)?` — ${L('ui.servie-en')}${m.ms} ms`:''}" onclick="refreshCard('${m.id}',this,true)"><span class="cr-ic vi vi-fw vi-lg">&#xE008;</span></button>
       <button class="card-refresh card-menu" title="${L('ui.menu-de-cette-carte')}" onclick="openCardMenu(event,'${m.id}','${m.theme}')"><span class="vi vi-fw vi-lg">&#xE009;</span></button>
     </div>
     <div class="fields">${fields || `<div class="frow"><span class="card-attente">${L(m.pending?'ui.carte-en-attente':'ui.carte-sans-ligne')}</span></div>`}</div>
@@ -1204,13 +1237,15 @@ function openCardMenu(ev, moduleId, theme){
   el.dataset.module = moduleId;
   el.innerHTML =
       `<button type="button" data-do="settings">${L('ui.menu-parametres-du-module')}</button>`
-    + `<button type="button" data-do="refresh">${L('ui.menu-recalculer-la-carte')}</button>`;
+    + `<button type="button" data-do="refresh">${L('ui.menu-recalculer-la-carte')}</button>`
+    + `<button type="button" data-do="freshness">${L('ui.menu-detail-du-rafraichissement')}</button>`;
   document.body.appendChild(el);
   const r = ev.currentTarget.getBoundingClientRect();
   el.style.top  = (window.scrollY + r.bottom + 4) + 'px';
   el.style.left = (window.scrollX + Math.min(r.left, window.innerWidth - el.offsetWidth - 12)) + 'px';
   el.querySelector('[data-do="settings"]').onclick = () => { closeCardMenu(); openSettings('modules', theme); };
   el.querySelector('[data-do="refresh"]').onclick  = () => { closeCardMenu(); refreshCard(moduleId, null, true); };
+  el.querySelector('[data-do="freshness"]').onclick = () => { closeCardMenu(); openFreshness(moduleId); };
   // Un clic AILLEURS referme : un menu qui reste ouvert derriere soi est un piege.
   setTimeout(() => document.addEventListener('click', closeCardMenu, true), 0);
 }
@@ -1267,6 +1302,8 @@ function renderState(s, mode){
     .map(m=>Object.assign({}, m, { busy:true, _survivant:true }));
   if(survivants.length){ s = Object.assign({}, s, { modules: (s.modules||[]).concat(survivants) }); }
   lastModules=(s.modules||[]).map(m=>{ const c=Object.assign({},m); delete c._survivant; return c; });
+  // LE TROISIEME MOMENT (S16) : les deux autres viennent du serveur, celui-ci n'existe que dans la page.
+  lastStateReadAt = new Date().toISOString();
   lastUnits=(s.units||[]).slice();
   lastHost=s.host||'';
   let worst='ok';
@@ -2081,6 +2118,40 @@ function onGroupHeadClick(ev, head){
   // SUR LA CASE, LA BASCULE ATTEND LA FIN DU GESTE. Annuler le pli annule aussi le cochage que le navigateur
   // venait d'appliquer, et il le retablit APRES les gestionnaires : basculer tout de suite ne laissait rien.
   if(onCheckbox) { queueMicrotask(flip); } else { flip(); }
+}
+
+/* LE DETAIL DU RAFRAICHISSEMENT D'UNE CARTE (S16, demande le 30/09).
+
+   Trois moments, trois questions differentes, et il faut les trois pour savoir a quoi on a affaire :
+     - la page a lu le cache a telle heure          -- rien ne prouve que le cache, lui, ait bouge ;
+     - la sonde a produit cette mesure a telle heure -- c'est l'age de ce qui est affiche ;
+     - l'ordonnanceur est passe a telle heure        -- s'il ne passe plus, la carte ne bougera plus.
+
+   Et quand le calcul enchaine les echecs, c'est dit avec sa derniere erreur : sans cela, la carte sert
+   indefiniment sa derniere valeur reussie sans que personne puisse le savoir. */
+function freshnessRow(label, iso, whenNever){
+  if (!iso) return `<tr><td>${esc(label)}</td><td>${esc(whenNever || L('ui.jamais'))}</td></tr>`;
+  const d = new Date(iso);
+  const age = cardAgeSeconds(iso);
+  const shown = isNaN(d.getTime()) ? String(iso) : d.toLocaleString();
+  return `<tr><td>${esc(label)}</td><td>${esc(shown)} — ${esc(paceLabel(age))}</td></tr>`;
+}
+function openFreshness(moduleId){
+  const m = (lastModules||[]).find(x => x && x.id === moduleId);
+  if (!m) return;
+  const f = m.freshness || {};
+  const rows =
+      freshnessRow(L('ui.fraicheur-lue-par-la-page'), lastStateReadAt)
+    + freshnessRow(L('ui.fraicheur-mesure-produite'), f.computedAt, L('ui.fraicheur-jamais-mesuree'))
+    + freshnessRow(L('ui.fraicheur-dernier-passage'), f.refreshedAt, L('ui.fraicheur-aucun-passage'));
+  const expected = f.seconds
+    ? `<tr><td>${esc(L('ui.fraicheur-intervalle'))}</td><td>${esc(paceLabel(f.seconds))}</td></tr>`
+    : `<tr><td>${esc(L('ui.fraicheur-intervalle'))}</td><td>${esc(L('ui.fraicheur-aucun-intervalle'))}</td></tr>`;
+  const failed = f.fails
+    ? `<div class="hds-report-source">${esc(L('ui.fraicheur-echecs', f.fails))} ${esc(f.lastError || '')}</div>`
+    : '';
+  HDS.open({ title: m.label, variant: 'info', large: true,
+             html: `<table class="hds-table"><tbody>${rows}${expected}</tbody></table>${failed}` });
 }
 
 function ouvrirDetail(key){
@@ -2927,9 +2998,15 @@ function setLoading(on, complete){
   // le premier se voit du coin de l'oeil, le second l'ecrit noir sur blanc.
   const mb=document.getElementById('modebar');
   if(mb) mb.classList.toggle('busy', !!on);
-  // Toutes les cartes, pas seulement celle qu'on rafraichit isolement : pendant un
-  // recalcul global, leurs valeurs sont en sursis et leurs boutons ne doivent pas partir.
-  document.querySelectorAll('.card').forEach(c => c.classList.toggle('card-loading', !!on));
+  // SEULEMENT POUR UN VRAI RECALCUL, jamais pour la relecture automatique.
+  //
+  // Pendant un recalcul complet, les valeurs des cartes sont en sursis : les ternir le dit, et leurs boutons restent
+  // cliquables. Mais la page RELIT le cache toutes les minutes, et cette relecture passait par le meme chemin : toute
+  // l'interface se ternissait a chaque fois. Signale par le proprietaire le 30/09 -- « ca grise l'interface, c'est
+  // trop visible, ca ne devrait pas se voir car il arrive tres frequemment ».
+  //
+  // Le lisere de l'en-tete continue de dire que quelque chose se passe : discret, il ne coupe pas la lecture.
+  document.querySelectorAll('.card').forEach(c => c.classList.toggle('card-loading', !!(on && complete)));
   const meta=document.getElementById('lastRefresh');
   if(meta){
     meta.classList.toggle('busy', !!on);
