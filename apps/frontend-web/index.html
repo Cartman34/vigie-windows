@@ -1289,6 +1289,15 @@ function wireCardActions(root){
 }
 
 function renderState(s, mode){
+  // ON NE REMONTE PAS LA PAGE SOUS LES YEUX DE QUI LIT.
+  //
+  // Cette fonction reconstruit tout le tableau, et le navigateur remet alors le defilement a zero. La page relit le
+  // cache toutes les minutes : quiconque lisait une carte en bas se retrouvait en haut, sans avoir rien demande.
+  // Signale par le proprietaire le 30/09 -- « on doit pouvoir lire l'app sans etre gene ».
+  //
+  // On repose donc le defilement ou il etait, tout de suite apres avoir ecrit le DOM, dans le meme tour de boucle :
+  // rien ne s'affiche entre les deux, donc rien ne saute a l'ecran.
+  const scrollAvant = window.scrollY;
   const app=document.getElementById('app'); app.innerHTML='';
   fieldsByKey={};
   themeLabels={}; (s.themes||[]).forEach(t=>{ themeLabels[t.id]=t.label; });
@@ -1333,6 +1342,9 @@ function renderState(s, mode){
   layoutColumns(masonry);
   app.appendChild(masonry);
   wireCardActions(masonry);
+  // Le defilement, remis ou il etait (voir en tete de cette fonction). Apres layoutColumns, donc sur une page qui a
+  // deja sa hauteur definitive : repose avant, il aurait ete borne a la hauteur d'un tableau encore vide.
+  if (scrollAvant) { window.scrollTo(0, scrollAvant); }
   applyOperationLock();
   // Si le rangement est en cours, les cartes fraichement rendues redeviennent
   // saisissables : le mode et l'affichage restent d'accord.
