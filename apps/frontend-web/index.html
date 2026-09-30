@@ -1587,6 +1587,11 @@ function replaceCardDom(m){
   const dejaAffiche=(card.querySelector('.card-group')||{}).textContent;
   tmp.innerHTML=cardHtmlSafe(m, themeLabels[m.theme]||dejaAffiche||m.theme||'');
   const fresh=tmp.firstElementChild;
+  // LE GROUPE MASQUE LE RESTE. Le noeud neuf arrive sans le display:none que le filtre
+  // avait pose sur l'ancien : une carte d'un groupe decoche revenait donc a l'ecran des
+  // qu'elle se rafraichissait seule -- et elles se rafraichissent tout le temps depuis
+  // que le serveur calcule en fond (constate le 30/09 sur le groupe Comptes).
+  if(hiddenThemes.has(fresh.dataset.theme)) fresh.style.display='none';
   card.replaceWith(fresh);
   wireCardActions(fresh);
   // Le serveur fait foi : si la carte n'est plus occupee, le verrou tombe.
