@@ -1297,7 +1297,7 @@ function renderState(s, mode){
   //
   // On repose donc le defilement ou il etait, tout de suite apres avoir ecrit le DOM, dans le meme tour de boucle :
   // rien ne s'affiche entre les deux, donc rien ne saute a l'ecran.
-  const scrollAvant = window.scrollY;
+  const scrollBefore = window.scrollY;
   const app=document.getElementById('app'); app.innerHTML='';
   fieldsByKey={};
   themeLabels={}; (s.themes||[]).forEach(t=>{ themeLabels[t.id]=t.label; });
@@ -1344,7 +1344,7 @@ function renderState(s, mode){
   wireCardActions(masonry);
   // Le defilement, remis ou il etait (voir en tete de cette fonction). Apres layoutColumns, donc sur une page qui a
   // deja sa hauteur definitive : repose avant, il aurait ete borne a la hauteur d'un tableau encore vide.
-  if (scrollAvant) { window.scrollTo(0, scrollAvant); }
+  if (scrollBefore) { window.scrollTo(0, scrollBefore); }
   applyOperationLock();
   // Si le rangement est en cours, les cartes fraichement rendues redeviennent
   // saisissables : le mode et l'affichage restent d'accord.
