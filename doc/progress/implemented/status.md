@@ -71,5 +71,4 @@ ici qu'on dit où en est chaque fonctionnalité.
 - Historique des mesures (D53) : **fait**. Un fichier par mesure et par jour (`var/history/<mesure>/<AAAA-MM-JJ>.jsonl`), purge par suppression de fichiers, et seuls les **retournements** sont conservés — un point compris entre ses deux voisins s'efface à l'écriture. Les sentinelles y écrivent leurs changements d'état. **Aucune interface ne les montre, et c'est voulu** : l'affichage a été écrit puis retiré (`9e62c2b`) parce qu'il n'avait jamais été demandé. L'historique sert à mesurer, pas à être exposé.
 - Actions asynchrones au sens du contrat (202 + jobId) : le suivi passe aujourd'hui par les marqueurs
   d'occupation et `/operations`, pas par le contrat. → **S05**
-- Audit Windows Update non remonté dans l'interface. → **S04**
 
