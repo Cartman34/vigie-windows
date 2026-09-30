@@ -52,6 +52,10 @@ if (Test-Path -LiteralPath $script:_portLib) { . $script:_portLib }
 $script:_metricsLib = Join-Path (Split-Path (Split-Path (Get-BackendRoot) -Parent) -Parent) 'scripts/lib/system-metrics.ps1'
 if (Test-Path -LiteralPath $script:_metricsLib) { . $script:_metricsLib }
 
+# Who holds a file, asked of Windows directly: Get-FileHolders, through the Restart Manager. Names what blocks (D127).
+$script:_lockLib = Join-Path (Split-Path (Split-Path (Get-BackendRoot) -Parent) -Parent) 'scripts/lib/file-locks.ps1'
+if (Test-Path -LiteralPath $script:_lockLib) { . $script:_lockLib }
+
 # --- Reperes de l'arborescence ------------------------------------------------
 # Le depot contient PLUSIEURS apps (apps/backend, apps/frontend, apps/client,
 # apps/atelier) plus scripts/ et doc/. Ces reperes sont calcules ICI et nulle
@@ -8485,15 +8489,45 @@ function Get-WindowsUpdateAilments {
         # spread over those gaps says one attempt every 24 minutes where the last two hours show one every six.
         $lastDay = @($stuck | Where-Object { $_.TimeCreated -gt (Get-Date).AddHours(-24) }).Count
         $verdict = Get-JournalFactVerdict -LastAt $lastStuck.TimeCreated -Count $stuck.Count -WindowDays 7 -Still 'inconnu' -Level 'warn' -HighlightMinutes $highlight
+        <#
+            AND WE GO AND LOOK, since the server app is the one that can. C:\Program Files\WindowsApps is closed to an
+            ordinary session and open to it: naming the files, and whoever holds them, is exactly what Vigie is for
+            here. The owner asked for it on 30/09: a card must offer a way forward, and more information to deal with
+            the thing differently IS a way forward. Read only: the Restart Manager is asked WHO holds, never to act.
+        #>
+        $stuckFiles = @()
+        $stuckHolders = @()
+        $stuckUnreadable = $null
+        try {
+            # NO Test-Path GATE HERE. On this very folder it THROWS for an ordinary session -- the trap Test-PathSafe
+            # exists for -- and under the default preference it answers "false", which reads as "the folder is empty".
+            # The card would then have said the opposite of the truth. We read, and a refusal is said as a refusal.
+            $deletedDir = Join-Path $env:ProgramFiles 'WindowsApps\Deleted'
+            # BOUNDED: a card names what blocks, it does not inventory a folder. Twenty files is already more than
+            # anyone reads, and the count above says how many there are.
+            $stuckFiles = @(Get-ChildItem -LiteralPath $deletedDir -Recurse -File -Force -ErrorAction Stop |
+                            Select-Object -First 20)
+            if ($stuckFiles.Count) {
+                $stuckHolders = Get-FileHolders -Path @($stuckFiles | ForEach-Object { $_.FullName })
+            }
+        } catch { $stuckUnreadable = $_.Exception.Message }
+
+        $names = @($stuckFiles | ForEach-Object { $_.Name } | Select-Object -Unique -First 5)
+        $who = if ($stuckUnreadable) { "Le dossier n'a pas pu être lu : $stuckUnreadable" }
+               elseif (-not $stuckFiles.Count) { "Le dossier est vide : ce que Windows n'arrive pas à supprimer n'y est plus." }
+               elseif ($null -eq $stuckHolders) { "Windows n'a pas voulu dire qui les tient." }
+               elseif (@($stuckHolders).Count) {
+                   'Tenus par : ' + ((@($stuckHolders | ForEach-Object { "$($_.Name) (PID $($_.ProcessId))" } | Select-Object -Unique)) -join ', ') + '.'
+               } else { "Aucun processus ne les tient en ce moment : c'est la suppression elle-même qui échoue, pas un verrou." }
+        $which = if ($names.Count) { ' Fichiers : ' + ($names -join ', ') + $(if ($stuckFiles.Count -ge 20) { ', et d''autres' } else { '' }) + '.' } else { '' }
+
         $found += [pscustomobject]@{
             Status = $verdict.Weight
             Label  = "Windows n'arrive pas à finir de supprimer un ancien paquet"
             Detail = $verdict.Said + ' — ' + $verdict.Recurrence +
                      $(if ($lastDay -ge 2) { ", soit une tentative toutes les " + [math]::Max(1, [int][math]::Round(1440 / $lastDay)) + " minutes depuis un jour" } else { '' }) +
-                     ". Des fichiers d'un paquet " +
-                     "désinstallé restent sous « C:\Program Files\WindowsApps\Deleted » et le service de déploiement " +
-                     "réessaie sans fin. Un redémarrage libère d'ordinaire ces fichiers ; s'il ne suffit pas, ce sont " +
-                     "des fichiers tenus en permanence, et il faut chercher qui les tient."
+                     ". Des fichiers d'un paquet désinstallé restent sous « C:\Program Files\WindowsApps\Deleted » " +
+                     "et le service de déploiement réessaie sans fin." + $which + ' ' + $who
         }
     }
 
