@@ -5324,6 +5324,53 @@ function Invoke-DiskWatch {
 }
 
 <#
+    THE VERDICT ON A FACT THAT COMES FROM A LOG (D127) -- written once, for every card that reads one.
+
+    The log says what HAPPENED; a card says what IS. Three things decide, in this order:
+
+      1. THE MEASURE OF THE MOMENT, when the kind can be checked: it confirms, it denies, or nothing can check it.
+         What is confirmed weighs whatever its age; what is denied never weighs.
+      2. THE AGE, past which the fact is DECLASSED. Declassed does not mean gone (owner, 30/09): the line stays where
+         it was, with its state and its figures, and only stops carrying the card's status.
+      3. THE RECURRENCE, which is itself a fact of today. "Three times in seven days" is not an accident, and a line
+         that says it teaches more than a line that hides it -- so it is said, always, as soon as there is more than
+         one.
+
+    Returns Said (what the line reads), Weight ('ok' when it no longer carries the card) and Recurrence.
+#>
+function Get-JournalFactVerdict {
+    param(
+        [Parameter(Mandatory)][datetime]$LastAt,
+        [int]$Count = 1,
+        [int]$WindowDays = 0,
+        # 'en cours', 'termine', 'passe' (a past fact by nature) or 'inconnu'.
+        [string]$Still = 'inconnu',
+        [string]$Level = 'warn',
+        [int]$HighlightMinutes = 60
+    )
+    $minutes = [int][math]::Floor(((Get-Date) - $LastAt).TotalMinutes)
+    if ($minutes -lt 0) { $minutes = 0 }
+    $recent = ($HighlightMinutes -le 0 -or $minutes -lt $HighlightMinutes)
+    $ago = if ($minutes -lt 60) { "il y a $minutes min" }
+           elseif ($minutes -lt 2880) { 'il y a ' + [int][math]::Floor($minutes / 60) + ' h' }
+           else { 'il y a ' + [int][math]::Floor($minutes / 1440) + ' j' }
+    $recurrence = if ($Count -ge 2 -and $WindowDays -gt 0) {
+                      "$Count fois en " + $WindowDays + $(if ($WindowDays -gt 1) { ' jours' } else { ' jour' }) + ", la dernière $ago"
+                  } elseif ($Count -ge 2) { "$Count fois, la dernière $ago" } else { $ago }
+    $said = switch ($Still) {
+        'en cours' { 'en cours' }
+        'termine'  { "ce n'est plus le cas" }
+        'passe'    { 'arrivé' }
+        default    { $(if ($recent) { "on ne sait pas si c'est encore le cas" } else { 'arrivé' }) }
+    }
+    $weight = if ($Still -eq 'en cours') { $Level }
+              elseif ($Still -eq 'termine') { 'ok' }
+              elseif ($recent) { $Level }
+              else { 'ok' }
+    return [pscustomobject]@{ Said = $said; Weight = $weight; Recurrence = $recurrence; Recent = $recent; Minutes = $minutes }
+}
+
+<#
     THE EPHEMERAL RANGE OF BOTH PROTOCOLS, READ ONCE AN HOUR AND AFTER EACH START OF WINDOWS.
 
     Get-EphemeralPortRange runs netsh, which is a process to start: 200 ms per protocol, measured, against 3 ms for
@@ -8360,10 +8407,17 @@ function Get-WindowsUpdateAilments {
         $message = ''
         try { $message = (("$($last.Message)" -replace '\s+', ' ').Trim()) } catch { }
         if ($message.Length -gt 180) { $message = $message.Substring(0, 179) + '…' }
+        <#
+            THIS ONE COMES FROM THE LOG, so it obeys D127. Nothing here can check whether those failures still stand,
+            so it is judged on its age -- and being declassed does NOT remove it: the line stays, and says how often
+            it came back. Three failures in seven days is a state; one from a week ago is not.
+        #>
+        $verdict = Get-JournalFactVerdict -LastAt $last.TimeCreated -Count $logged.Count -WindowDays 7 -Still 'inconnu' -Level 'warn' `
+                                          -HighlightMinutes $(try { [int](Get-ModuleSetting -Unit 'system' -Key 'EventHighlightMinutes' -Backend $Backend) } catch { 60 })
         $found += [pscustomobject]@{
-            Status = 'warn'
+            Status = $verdict.Weight
             Label  = 'Erreurs de Windows Update dans le journal Système'
-            Detail = "$($logged.Count) en sept jours. La dernière, le " + $last.TimeCreated.ToString('dd/MM à HH:mm') + " : $message"
+            Detail = $verdict.Said + ' — ' + $verdict.Recurrence + ' (' + $last.TimeCreated.ToString('dd/MM à HH:mm') + ") : $message"
         }
     }
 

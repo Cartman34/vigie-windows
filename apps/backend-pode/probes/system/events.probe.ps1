@@ -153,30 +153,24 @@ $knownList = @($known.Values | Sort-Object { $_.Last.TimeCreated } -Descending)
 $highlightMinutes = 60
 try { $highlightMinutes = [int](Get-ModuleSetting -Unit 'system' -Key 'EventHighlightMinutes') } catch { }
 foreach ($k in $knownList) {
-    $k.Ageing = [int][math]::Floor(((Get-Date) - $k.Last.TimeCreated).TotalMinutes)
-    $k.Recent = ($highlightMinutes -le 0 -or $k.Ageing -lt $highlightMinutes)
-    $k.Still = 'inconnu'
+    $still = 'inconnu'
     if ($k.Kind.Verify) {
         # A CHECK THAT THROWS DECIDES NOTHING. It answers unknown, which is exactly what it means.
-        try { $k.Still = "$(& $k.Kind.Verify)" } catch { $k.Still = 'inconnu' }
-        if ($k.Still -notin 'en cours', 'termine', 'inconnu') { $k.Still = 'inconnu' }
-    } elseif ($k.Recent) {
-        # Nothing can confirm a blue screen or an unexpected shutdown: it is a past fact, and while it is recent it
-        # is said as such rather than as a doubt.
-        $k.Still = 'passe'
+        try { $still = "$(& $k.Kind.Verify)" } catch { $still = 'inconnu' }
+        if ($still -notin 'en cours', 'termine', 'inconnu') { $still = 'inconnu' }
+    } else {
+        # Nothing can confirm a blue screen or an unexpected shutdown: it is a past fact, said as such rather than
+        # as a doubt.
+        $still = 'passe'
     }
-    # WHAT IT WEIGHS ON THE CARD. Still happening: its own level, whatever its age. No longer: nothing. Recent but
-    # unverifiable: the level it declares, until it is declassed by age.
-    $k.Weight = if ($k.Still -eq 'en cours') { $k.Status }
-                elseif ($k.Still -eq 'termine') { 'ok' }
-                elseif ($k.Recent) { $k.Status }
-                else { 'ok' }
-    $k.Said = switch ($k.Still) {
-        'en cours' { 'en cours' }
-        'termine'  { "ce n'est plus le cas" }
-        'passe'    { 'arrivé' }
-        default    { $(if ($k.Recent) { "on ne sait pas si c'est encore le cas" } else { 'arrivé' }) }
-    }
+    # The window read above is 24 hours, and the count is what fell in it.
+    $verdict = Get-JournalFactVerdict -LastAt $k.Last.TimeCreated -Count $k.Count -WindowDays 1 `
+                                      -Still $still -Level $k.Status -HighlightMinutes $highlightMinutes
+    $k.Still = $still
+    $k.Recent = $verdict.Recent
+    $k.Weight = $verdict.Weight
+    $k.Said = $verdict.Said
+    $k.Recurrence = $verdict.Recurrence
 }
 
 $knownStatus = 'ok'
@@ -191,10 +185,11 @@ $knownTable = $null
 $knownGuide = $null
 $knownReason = $null
 if ($knownList.Count) {
-    $knownTable = @{ columns = @('Dernière', 'Erreur', 'Fois', 'État', 'Dernier message')
-                     rows = @(foreach ($k in $knownList) { ,@((Format-EventTime $k.Last.TimeCreated), $k.Kind.Label, "$($k.Count)", $k.Said, (Format-EventMessage $k.Last)) }) }
+    # DECLASSED IS NOT GONE (owner, 30/09): every line stays here, with its state and how often it came back.
+    $knownTable = @{ columns = @('Dernière', 'Erreur', 'État', 'Revenue', 'Dernier message')
+                     rows = @(foreach ($k in $knownList) { ,@((Format-EventTime $k.Last.TimeCreated), $k.Kind.Label, $k.Said, $k.Recurrence, (Format-EventMessage $k.Last)) }) }
     $knownGuide = (@(foreach ($k in $knownList) {
-        $k.Kind.Label + ' — ' + $k.Said + ' (' + $k.Count + ' fois, la dernière ' + (Format-EventTime $k.Last.TimeCreated) + ') : ' + $k.Kind.Meaning +
+        $k.Kind.Label + ' — ' + $k.Said + ' (' + $k.Recurrence + ') : ' + $k.Kind.Meaning +
         $(if ($k.Still -eq 'en cours' -or ($k.Recent -and $k.Still -ne 'termine')) { ' ' + $k.Kind.Gesture } else { '' })
     }) -join ([Environment]::NewLine + [Environment]::NewLine))
     $knownReason = if ($carrying.Count) {

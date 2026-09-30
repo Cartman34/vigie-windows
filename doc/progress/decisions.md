@@ -3353,6 +3353,17 @@ réseau épuisés » se vérifie par l'occupation réelle des deux espaces éph�
 sans `Verify` est un fait passé : seul son âge est jugé. Un `Verify` qui lève ne décide rien — il répond
 « on ne sait pas », ce qui est exactement ce que cela veut dire.
 
+**Déclasser n'est pas faire disparaître** (précisé le même jour) : la ligne reste où elle était, avec son état et ses
+chiffres ; elle cesse seulement de porter le statut de la carte. Le compte mis en avant est celui de ce qui **pèse**,
+et le tableau, lui, porte tout.
+
+**Et ce qui revient donne sa statistique de récurrence.** « 3 fois en 7 jours, la dernière il y a 26 h » est un fait
+d'aujourd'hui ; le cacher reviendrait à présenter une répétition comme un accident. La récurrence se dit dès qu'il y a
+plus d'une occurrence, déclassée ou non.
+
+Le verdict est rendu **une seule fois pour tout le dépôt**, par `Get-JournalFactVerdict` : la carte « Journal
+Windows » et les problèmes de « Mise à jour du système » le partagent.
+
 Relevé : [« Ports réseau épuisés » : ce que dit vraiment l'événement](../../notes/evidence/2026-09-30-ephemeral-port-exhaustion.md).
 
 Où c'est réalisé : `apps/backend-pode/probes/system/events.probe.ps1`.

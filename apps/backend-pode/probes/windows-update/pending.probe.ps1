@@ -227,13 +227,20 @@ if ($null -eq $count) {
     # search, and the errors Windows itself logged. The card said nothing of all this: it showed a number.
     $ailments = @()
     try { $ailments = @(Get-WindowsUpdateAilments -Backend $backend -LocalCount $(if ($null -ne $count) { [int]$count } else { -1 }) -Scan $scan -Install $inst) } catch { }
-    $ailmentStatus = if (@($ailments | Where-Object { $_.Status -eq 'error' }).Count) { 'error' }
-                     elseif ($ailments.Count) { 'warn' } else { 'ok' }
+    <#
+        A DECLASSED PROBLEM STILL SHOWS, it simply stops setting the card (D127). An ailment that comes from the log
+        and whose last occurrence is old answers 'ok' for itself: it stays in the table, with how often it came back,
+        and the card no longer turns orange for it. The count shown is what WEIGHS, and the table holds everything.
+    #>
+    $carrying = @($ailments | Where-Object { $_.Status -ne 'ok' })
+    $ailmentStatus = if (@($carrying | Where-Object { $_.Status -eq 'error' }).Count) { 'error' }
+                     elseif ($carrying.Count) { 'warn' } else { 'ok' }
     $champs += New-Field -Key 'problemes' -Label 'Problèmes' `
-        -Value $(if ($ailments.Count) { $ailments.Count } else { 'Aucun' }) -Kind $(if ($ailments.Count) { 'number' } else { 'text' }) `
+        -Value $(if ($carrying.Count) { $carrying.Count } elseif ($ailments.Count) { 'Aucun en cours' } else { 'Aucun' }) `
+        -Kind $(if ($carrying.Count) { 'number' } else { 'text' }) `
         -Status $ailmentStatus `
         -Table $(if ($ailments.Count) { @{ columns = @('Problème', 'Ce qui a été constaté'); rows = @(foreach ($a in $ailments) { ,@($a.Label, $a.Detail) }) } } else { $null }) `
-        -Reason $(if ($ailments.Count) { (@($ailments | Select-Object -First 2 | ForEach-Object { $_.Label }) -join ' ; ') } else { $null }) `
+        -Reason $(if ($carrying.Count) { (@($carrying | Select-Object -First 2 | ForEach-Object { $_.Label }) -join ' ; ') } else { $null }) `
         -FixAction $(if ($ailmentStatus -ne 'ok') { 'open-windows-update' } else { $null }) `
         -Help "Ce qui ne tourne pas rond du côté de Windows Update : mise à jour réinstallée en boucle, installation en échec, mises à jour disparues au moment d'installer, désaccord entre le cache local et la dernière analyse en ligne, erreurs consignées par Windows."
 
