@@ -142,6 +142,21 @@ et demander confirmation explicite." An elevation prompt on his screen with no e
 
 What is announced: what will run elevated, on what, and why nothing lower can do it.
 
+## Deploying goes through Vigie itself, never through an elevation
+
+**The deployment offered by default is the ordinary one: `pwsh -File scripts/dev/ask-vigie.ps1 -Type vigie-update
+-Module deployment`.** It is the panel's own button, over the contract; the server app then runs `scripts/install.ps1`
+under ITS OWN account -- `VigieService`, elevated, as every audit it produces states in its first line. That account is
+the one holding the rights on `C:\Program Files\Sowapps\Vigie`, where only SYSTEM and the administrators may write.
+Measured on 30/09: 131 s, exit code 0, no prompt anywhere.
+
+Running `install.ps1` from my session instead asks for an elevation I do not need: my session is an ordinary account,
+so it would either raise a UAC prompt on his screen or, refused, install beside the shared installation without
+updating it. On 30/09 I offered exactly that and he asked why the ordinary deployment would not do -- it does, and it
+is what I offer.
+
+Nothing here lifts the rule above: a genuine need for administrator rights is still announced and confirmed first.
+
 ## A proposal states its cost and what it breaks -- or it is not a proposal
 
 **Before anything is offered, its price is worked out: what stops, what is lost, what the person has to do again.**
