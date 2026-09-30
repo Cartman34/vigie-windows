@@ -7275,8 +7275,20 @@ function Get-State {
                     try {
                         # ONE DATE FORMAT TOWARDS THE PAGE (D44): the cache keeps "at" in whatever shape
                         # ConvertFrom-Json gave it, which follows the culture. We answer ISO 8601, always.
+                        <#
+                            AND WHEN THE ENTRY CARRIES NO DATE, WE ASK THE PROBE'S NEWEST STAMP rather than send
+                            nothing -- or worse, the year 0001, which is what an unparsable value converts to and
+                            what the accounts card was showing. A card holding a value has been computed; the only
+                            question is when, and the stamp of its probe answers it.
+                        #>
                         $computed = ''
-                        try { $u = ConvertTo-UtcDate $e.at; if ($u) { $computed = $u.ToString('o') } } catch { }
+                        try { $u = ConvertTo-UtcDate $e.at; if ($u -and $u.Year -gt 1) { $computed = $u.ToString('o') } } catch { }
+                        if (-not $computed) {
+                            try {
+                                $u = ConvertTo-UtcDate (Get-ProbeCacheStamp -Backend $Backend -Probe $pf.Name)
+                                if ($u -and $u.Year -gt 1) { $computed = $u.ToString('o') }
+                            } catch { }
+                        }
                         $fresh = @{ computedAt = $computed }
                         $decl = @($refreshByCard["$($mm.id)"])[0]
                         if ($decl) {
