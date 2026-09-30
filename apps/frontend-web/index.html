@@ -691,12 +691,19 @@
                 letter-spacing:.5px;font-size:11px;padding:6px 10px 6px 0;border-bottom:1px solid var(--border);
                 position:sticky;top:0;background:var(--panel)}
   .hds-table td{padding:6px 10px 6px 0;border-bottom:1px solid var(--border);vertical-align:top;
-                word-break:break-word}
+                overflow-wrap:anywhere}
   .hds-table tr:last-child td{border-bottom:none}
   /* Une ligne qui porte une infobulle le dit : sans repere visuel, personne ne survole. */
   .hds-table tr[title]{cursor:help}
   .hds-table tr[title]:hover td{background:var(--panel-2)}
+  /* Figures stay on one line -- except the LAST column, which is where the long text lives in every one of these
+     tables: the last message of a source, what was observed. Forcing it on one line pushed the table sideways behind
+     a scrollbar and squeezed the first column until it broke letter by letter (seen on screen, 30/09). */
   .hds-table td:nth-child(n+3){font-variant-numeric:tabular-nums;white-space:nowrap}
+  .hds-table td:last-child{white-space:normal;font-variant-numeric:normal}
+  .hds-table th:last-child{white-space:normal}
+  /* And a floor under the first column, so a long name never ends up one letter per line. */
+  .hds-table th:first-child, .hds-table td:first-child{min-width:14ch}
   .hds-loading{display:flex;align-items:center;gap:9px;color:var(--muted);padding:14px 2px}
   /* Confirmation EXPLICITE (D91) : des blocs titres plutot qu'un paragraphe. On lit
      « ce que ca change » avant de dire oui, pas apres. */
@@ -2092,7 +2099,9 @@ function ouvrirDetail(key){
           return '<tr'+tip+'>'+(r||[]).map(v=>'<td>'+esc(v===null||v===undefined?'':String(v))+'</td>').join('')+'</tr>';
         }).join('')
       + '</tbody></table>';
-    HDS.open({ title:f.label, html, variant:'info' });
+    // A TABLE NEEDS ROOM. 520 px left four columns fighting over the width, the first breaking letter by letter
+    // and the last behind a scrollbar. The recap already opened wide for the same reason.
+    HDS.open({ title:f.label, html, variant:'info', large:true });
     return;
   }
   HDS.info(f.label, f.guide || f.help || L('ui.aucun-detail-disponible'), {variant:'info'});
