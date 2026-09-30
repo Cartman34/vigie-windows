@@ -638,6 +638,8 @@
   "ui.fenetre-sans-session-detail": "Ouvrir l'adresse à la main — navigation privée, signet, autre navigateur — n'associe la fenêtre à aucun compte. Ce réglage vaut pour tout l'ordinateur.",
   "ui.fraicheur-aucun-intervalle": "Aucun : cette carte n'est pas recalculée d'elle-même",
   "ui.fraicheur-aucun-passage": "Jamais : l'ordonnanceur n'a jamais calculé cette carte",
+  "ui.fraicheur-aucun-depart": "Jamais : l'ordonnanceur n'a jamais lancé ce calcul",
+  "ui.fraicheur-dernier-depart": "Dernier départ du calcul",
   "ui.fraicheur-dernier-passage": "Dernier passage de l'ordonnanceur",
   "ui.fraicheur-echecs": "{0} échec(s) d'affilée. Tant qu'ils durent, la carte garde sa dernière valeur réussie. Dernière erreur :",
   "ui.fraicheur-intervalle": "Intervalle prévu",

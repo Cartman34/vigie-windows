@@ -7178,6 +7178,9 @@ function Get-State {
                 EndedAt   = $(if ($entry -and [long]$entry.lastEndedAt) { ([datetime]::new([long]$entry.lastEndedAt, [DateTimeKind]::Utc)).ToString('o') } else { '' })
                 Fails     = $(if ($entry) { [int]$entry.fails } else { 0 })
                 LastError = $(if ($entry) { "$($entry.lastError)" } else { '' })
+                # STARTED BUT NEVER FINISHED is not the same breakdown as NEVER STARTED, and both looked alike:
+                # a card that stops moving, with no failure counted. So the start is said too.
+                StartedAt = $(if ($entry -and [long]$entry.lastStartedAt) { ([datetime]::new([long]$entry.lastStartedAt, [DateTimeKind]::Utc)).ToString('o') } else { '' })
             }
             foreach ($card in @($d.Cards)) {
                 if (-not $card) { continue }
@@ -7220,6 +7223,7 @@ function Get-State {
                         if ($decl) {
                             $fresh.seconds = [int]$decl.Seconds
                             if ($decl.EndedAt) { $fresh.refreshedAt = "$($decl.EndedAt)" }
+                            if ($decl.StartedAt) { $fresh.startedAt = "$($decl.StartedAt)" }
                             if ([int]$decl.Fails -gt 0) { $fresh.fails = [int]$decl.Fails; $fresh.lastError = "$($decl.LastError)" }
                         }
                         if ($mm -is [System.Collections.IDictionary]) { $mm['freshness'] = $fresh }

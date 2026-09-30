@@ -2155,6 +2155,7 @@ function openFreshness(moduleId){
   const rows =
       freshnessRow(L('ui.fraicheur-lue-par-la-page'), lastStateReadAt)
     + freshnessRow(L('ui.fraicheur-mesure-produite'), f.computedAt, L('ui.fraicheur-jamais-mesuree'))
+    + freshnessRow(L('ui.fraicheur-dernier-depart'), f.startedAt, L('ui.fraicheur-aucun-depart'))
     + freshnessRow(L('ui.fraicheur-dernier-passage'), f.refreshedAt, L('ui.fraicheur-aucun-passage'));
   const expected = f.seconds
     ? `<tr><td>${esc(L('ui.fraicheur-intervalle'))}</td><td>${esc(paceLabel(f.seconds))}</td></tr>`
