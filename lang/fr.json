@@ -666,6 +666,7 @@
   "ui.quand-en-servir": "Quand s’en servir",
   "ui.rafraichir-cette-carte": "Rafraîchir cette carte",
   "ui.ranger-les-cartes-comme": "Ranger les cartes librement. Le mode suspend les actions le temps du rangement, et rien ne bouge tant qu’il n’est pas activé.",
+  "ui.rapport-garde-dans": "Rapport gardé dans ",
   "ui.recalcul-en-cours": "Recalcul complet : toutes les mesures sont refaites…",
   "ui.recalcul-pendant-operation": "Recalcul impossible pendant une opération qui bloque tout l'ordinateur : ",
   "ui.reglage-impossible": "Réglage impossible : ",

@@ -809,6 +809,9 @@ function Test-RestartCountdown {
 #
 # Le rapport va dans var/log/ (convention du projet : tout ce que l'app genere vit sous
 # var/), en texte pour etre lu et en JSON pour etre repris.
+#
+# ITS LINES ARE SHOWN IN THE PANEL (S04, 30/09): the action hands them back and the page lays them out preformatted.
+# They are therefore INTERFACE, and carry their accents -- the report used to be written for a file, read by nobody.
 function Invoke-UpdateAudit {
     param([string]$Backend = (Get-BackendRoot))
     $cat    = Get-UpdateTaskCatalog
@@ -825,16 +828,16 @@ function Invoke-UpdateAudit {
     $rap.at       = (Get-Date).ToString('o')
     $rap.elevated = $etat.elevated
     & $L ("Audit Windows Update du " + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + "  (administrateur = " + $etat.elevated + ")")
-    if (-not $etat.elevated) { & $L "ATTENTION : serveur non administrateur -- une partie de l'etat n'est pas lisible." }
+    if (-not $etat.elevated) { & $L "ATTENTION : serveur non administrateur — une partie de l'état n'est pas lisible." }
 
     & $Sec 'Verrouillage'
-    & $L ("   Mises a jour automatiques coupees : " + $etat.autoUpdatesOff + "   (NoAutoUpdate=" + $etat.noAutoUpdate + ")")
+    & $L ("   Mises à jour automatiques coupées : " + $etat.autoUpdatesOff + "   (NoAutoUpdate=" + $etat.noAutoUpdate + ")")
     & $L ("   Verrou de permissions (ACL)       : " + $etat.aclLock)
     & $L ("   Verrou complet                    : " + $etat.locked)
     $rap.lock = @{ autoUpdatesOff = $etat.autoUpdatesOff; noAutoUpdate = $etat.noAutoUpdate
                    aclLock = $etat.aclLock; locked = $etat.locked }
 
-    & $Sec 'Edition et licence'
+    & $Sec 'Édition et licence'
     try {
         $cv = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -ErrorAction Stop
         & $L ("   " + $cv.ProductName + "  (EditionID=" + $cv.EditionID + ")  build " + $cv.CurrentBuild + "." + $cv.UBR)
@@ -859,11 +862,11 @@ function Invoke-UpdateAudit {
         if (-not $noms.Count) { & $L '   (vide)' }
         return $o
     }
-    $rap.policyWindowsUpdate = & $vider $cat.RegWu 'Strategie WindowsUpdate'
-    $rap.policyAu            = & $vider $cat.RegAu 'Strategie WindowsUpdate\AU'
-    $rap.ux                  = & $vider $cat.RegUx 'Reglages UX (heures actives, notifications)'
+    $rap.policyWindowsUpdate = & $vider $cat.RegWu 'Stratégie WindowsUpdate'
+    $rap.policyAu            = & $vider $cat.RegAu 'Stratégie WindowsUpdate\AU'
+    $rap.ux                  = & $vider $cat.RegUx 'Réglages UX (heures actives, notifications)'
 
-    & $Sec 'Redemarrage en attente'
+    & $Sec 'Redémarrage en attente'
     $enAttente = [ordered]@{}
     $enAttente.CBS_RebootPending = Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending'
     $enAttente.WU_RebootRequired = Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired'
@@ -871,41 +874,41 @@ function Invoke-UpdateAudit {
     foreach ($k in $enAttente.Keys) { & $L ("   {0,-22} = {1}" -f $k, $enAttente[$k]) }
     $rap.pendingReboot = $enAttente
 
-    & $Sec 'Taches planifiees de mise a jour'
-    if (-not @($etat.tasks).Count) { & $L '   (aucune lisible -- acces refuse ?)' }
+    & $Sec 'Tâches planifiées de mise à jour'
+    if (-not @($etat.tasks).Count) { & $L '   (aucune lisible — accès refusé ?)' }
     foreach ($p in $cat.TaskPaths) {
         $lot = @($etat.tasks | Where-Object { $_.path -eq $p })
         & $L ''
         & $L ("[" + $p + "]")
-        if (-not $lot.Count) { & $L '   (aucune / acces refuse)'; continue }
+        if (-not $lot.Count) { & $L '   (aucune / accès refusé)'; continue }
         foreach ($t in $lot) { & $L ("   {0,-34} {1}" -f $t.name, $t.state) }
     }
     $rap.tasks = @($etat.tasks)
     $rap.tasksDisabled = $etat.tasksDisabled
     $rap.tasksReady    = $etat.tasksReady
 
-    & $Sec 'Services de mise a jour'
+    & $Sec 'Services de mise à jour'
     $svc = @()
     foreach ($n in $cat.Services) {
         $s = Get-Service -Name $n -ErrorAction SilentlyContinue
         if (-not $s) { & $L ("   {0,-16} (absent)" -f $n); continue }
         $dem = ''
         try { $dem = "$((Get-CimInstance Win32_Service -Filter "Name='$n'" -ErrorAction SilentlyContinue).StartMode)" } catch { }
-        & $L ("   {0,-16} statut={1,-10} demarrage={2}" -f $n, $s.Status, $dem)
+        & $L ("   {0,-16} statut={1,-10} démarrage={2}" -f $n, $s.Status, $dem)
         $svc += @{ name = $n; status = "$($s.Status)"; start = $dem }
     }
     # WaaSMedicSvc remet volontiers la machinerie en marche : son mode de demarrage lu
     # dans le registre est plus fiable que celui rapporte par le gestionnaire de services.
     try {
         $wm = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Services\WaaSMedicSvc' -Name Start -ErrorAction SilentlyContinue).Start
-        if ($null -ne $wm) { & $L ("   WaaSMedicSvc Start (registre) = " + $wm + "  (2=automatique, 3=manuel, 4=desactive)"); $rap.waasMedicStart = $wm }
+        if ($null -ne $wm) { & $L ("   WaaSMedicSvc Start (registre) = " + $wm + "  (2=automatique, 3=manuel, 4=désactivé)"); $rap.waasMedicStart = $wm }
     } catch { }
     $rap.services = $svc
 
     & $Sec 'Contexte'
     try {
         $bootLocal = (Get-BootTime).ToLocalTime()
-        & $L ("   Dernier demarrage : " + $bootLocal)
+        & $L ("   Dernier démarrage : " + $bootLocal)
         $rap.lastBoot = "$bootLocal"
     } catch { }
     $hf = @()

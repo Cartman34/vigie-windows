@@ -85,6 +85,8 @@ UI animates every button on the card and you cannot tell which one is working.
 | `ok` | success or failure, as actually observed |
 | `invalidate` | `@('lock.probe.ps1')` — force these probes to recompute now |
 | `async` | `$true` when the work continues in a worker |
+| `detail` | a REPORT: text the panel opens preformatted in a wide window — runs of spaces kept, so columns hold, long lines fold. Its content is interface, therefore accented |
+| `source` | the file where that report is also kept, named under it |
 | `module` | the card the front end should poll while `async` |
 
 ```powershell

@@ -39,7 +39,7 @@ else         { $actions += New-Action -Id 'update-mode-off' -Severity 'fix' -Lab
                  "puis coupe les mises à jour automatiques. Windows ne redémarrera plus la machine de lui-même.") `
         -Usage "C'est l'état normal de cette machine : les mises à jour se font sur décision, jamais d'office." `
         -Reversible "Oui, avec « Mode MAJ (déverrouiller) »." -Help "Applique le verrouillage complet : coupe les mises à jour automatiques ET pose le verrou ACL qui empêche Windows de réactiver les tâches de mise à jour. Aucun redémarrage forcé." }
-$actions += New-Action -Id 'run-audit' -Label "Lancer l'audit" -Help "Génère un rapport détaillé de l'état de Windows Update (stratégies, tâches, services) dans les journaux de Vigie. Lecture seule : ne modifie rien."
+$actions += New-Action -Id 'run-audit' -Label "Lancer l'audit" -Help "Ouvre un rapport détaillé de l'état de Windows Update : verrouillage, stratégies, redémarrage en attente, tâches planifiées, services. Il est aussi gardé dans les journaux de Vigie. Lecture seule : ne modifie rien."
 
 if ($elevated) {
     $aclField = New-Field -Key 'aclLock' -Label 'Verrou ACL des tâches' -Value ([bool]$aclLock) -Kind 'bool' -Status $(if ($aclLock) {'ok'} else {'warn'}) `

@@ -119,7 +119,8 @@ Format : `ID` — Titre, puis le besoin et ses critères. On n'écrit **pas** ic
   temps : celle en cours d'abord, puis les échecs, puis l'attente, dans une hauteur bornée qui défile ; **les réussies se
   replient** derrière un bouton qui les affiche au besoin. **L'avancement total vient en bas**, avec le rang sur le total et depuis quand l'installation tourne.
 - **WU-AUDIT** — Produire un audit complet de la machinerie Windows Update : stratégies, tâches, services, redémarrage
-  en attente.
+  en attente. **Il s'affiche dans Vigie** : un audit qu'il faut aller chercher dans un fichier n'informe personne.
+  Le rapport garde son alignement à l'écran, et le fichier reste, nommé, pour être gardé ou envoyé.
 
 ## Système (SYS)
 

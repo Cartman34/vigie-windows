@@ -650,6 +650,11 @@
   .hds-dialog--info .hds-dialog-ic{color:var(--accent);background:rgba(56,139,253,.14)}
   .hds-x{margin-left:auto;background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1}
   .hds-dialog-body{padding:16px;white-space:pre-line;line-height:1.55;max-height:60vh;overflow:auto}
+  /* A REPORT: the text exactly as it was produced, columns included. The dialog's ordinary body folds runs of spaces
+     (white-space:pre-line), which destroys every alignment -- an aligned report read crooked in it. pre-WRAP, not
+     pre: the columns are kept AND a long line still folds, so nothing forces the window to scroll sideways. */
+  .hds-report{margin:0;white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Consolas,'Liberation Mono',monospace;font-size:12px;line-height:1.5;overflow:auto}
+  .hds-report-source{margin-top:12px;padding-top:10px;border-top:1px dashed var(--border);color:var(--muted);font-size:12px;overflow-wrap:anywhere}
   .hds-intro{margin:0 0 10px;color:var(--muted)}
   .hds-choice-bar{display:flex;align-items:center;gap:12px;margin-bottom:8px;font-size:12.5px}
   .hds-lnk{background:none;border:none;color:var(--accent);cursor:pointer;padding:0;font:inherit;text-decoration:underline}
@@ -2826,10 +2831,15 @@ async function doAction(type,module,confirmNeeded,label,help,btnEl,params,kind,c
     updateNotif(entry, st, msg);
     clearBtnBusy(btnEl);
     if(j.operations){ syncOperations(j.operations); }
-    // Une action peut repondre un DETAIL (texte long) : un toast le tronquerait. On
-    // l'ouvre dans une fenetre, comme le guide d'un champ.
+    // AN ACTION MAY ANSWER A REPORT (result.detail): a long text, aligned in columns, that a toast would truncate and
+    // that the dialog's ordinary body would fold -- it collapses runs of spaces, so every audit and every account
+    // listing read crooked. It opens preformatted, in a wide window, and names the file where the report is kept when
+    // the action gives one (result.source). Generic on purpose: no action has its own code here.
     if(st==='done' && j.result && j.result.detail){
-      HDS.info(name, String(j.result.detail), {variant:'info'});
+      const source = j.result.source
+        ? '<div class="hds-report-source">' + L('ui.rapport-garde-dans') + esc(String(j.result.source)) + '</div>' : '';
+      HDS.open({ title:name, variant:'info', large:true,
+                 html:'<pre class="hds-report">' + esc(String(j.result.detail)) + '</pre>' + source });
     }
     setTimeout(()=>{ if(module){ refreshCard(module); } else { refresh(); } }, 700);
   }catch(e){ updateNotif(entry,'error','Erreur : '+e.message); clearBtnBusy(btnEl); }

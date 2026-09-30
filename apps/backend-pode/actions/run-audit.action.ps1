@@ -27,7 +27,16 @@ $resume = if ($e.locked) { 'verrou complet en place' }
           else { 'aucun verrouillage' }
 $reserve = if ($audit.elevated) { '' } else { " Serveur non administrateur : une partie de l'état n'a pas pu être lue." }
 
+# THE REPORT IS READ IN VIGIE, not only on disk (S04). Until 30/09 the action named the file and stopped there: the
+# audit existed and nobody ever saw it -- opening a text file in the logs is not using the product. The lines go back
+# as the standard report of an action (result.detail), which the page shows preformatted, columns included; the file
+# stays, named underneath, for whoever wants to keep it or send it.
 @{
-    message = "Audit terminé : $resume ; $($e.tasksDisabled) tâche(s) désactivée(s), $($e.tasksReady) active(s). Rapport : $($audit.txt)$reserve"
-    result  = @{ ok = $true; invalidate = @('lock.probe.ps1') }
+    message = "Audit terminé : $resume ; $($e.tasksDisabled) tâche(s) désactivée(s), $($e.tasksReady) active(s).$reserve"
+    result  = @{
+        ok         = $true
+        detail     = (@($audit.lines) -join [Environment]::NewLine)
+        source     = "$($audit.txt)"
+        invalidate = @('lock.probe.ps1')
+    }
 }

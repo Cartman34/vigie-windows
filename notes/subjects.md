@@ -16,7 +16,7 @@ Arbitré par l'utilisateur le 06/09, et c'est **cet ordre-là** que je suis quan
 
 | Rang | Sujets |
 |------|--------|
-| **D'abord** | **S04** · **S05** · **S06** · **S07** |
+| **D'abord** | ~~S04~~ (clos le 30/09) · **S05** · **S06** · **S07** |
 | Ensuite | **S02** |
 | En dernier | **S01** |
 
@@ -36,10 +36,11 @@ Chaque sujet ouvert a été **revérifié dans le code**, pas dans le souvenir. 
 - **S10 est clos** : le répit de dix minutes a été éprouvé sur une vraie partie (six bascules, deux bulles).
 - **S14 reste ouvert et s'est élargi** : `Invoke-RefreshPass` a rejoint `Get-State` dans la liste des lancements
   détachés hors protocole (`check-operations.ps1`). C'est assumé et déclaré, pas réglé.
-- **S04, S05, S06, S07, S08, S01, S03, S09, S15 sont inchangés**, vérifiés un par un le 30/09 : l'audit Windows Update
-  s'écrit toujours sur disque sans remonter (`status.md` → WU-AUDIT), aucun `202 + jobId` n'existe (le contrat le dit
-  noir sur blanc), 37 fichiers portent encore « tray » dans leurs identifiants, et les trois cliquets sont à
-  450 identifiants / 5 607 commentaires / 3 noms de fichiers, plus 2 fichiers Python.
+- **S04 était bien d'actualité, et il est clos le jour même** : l'audit s'écrivait sur disque sans remonter
+  (`status.md` → WU-AUDIT) ; il s'affiche maintenant dans le panneau.
+- **S05, S06, S07, S08, S01, S03, S09, S15 sont inchangés**, vérifiés un par un le 30/09 : aucun `202 + jobId`
+  n'existe (le contrat le dit noir sur blanc), 37 fichiers portent encore « tray » dans leurs identifiants, et les
+  trois cliquets sont à 450 identifiants / 5 607 commentaires / 3 noms de fichiers, plus 2 fichiers Python.
 
 ## Ouverts
 
@@ -48,7 +49,6 @@ Chaque sujet ouvert a été **revérifié dans le code**, pas dans le souvenir. 
 | **S01** | Confiance de la chaîne de mise à jour | `targeting/features.md` → `CORE-UPDATE-TRUST` | Rien ne vérifie que ce qui s'installe est bien ce qui a été publié. **Décidé le 05/09 : dans la cible, pas maintenant** — mais la chaîne d'aujourd'hui ne doit rien faire qui empêche une version future de vérifier. |
 | **S02** | Les mesures par utilisateur, invisibles depuis la session 0 | `targeting/multi-account-server.md` → C4 | WSL et les gestionnaires de paquets répondent pour le compte de service, pas pour le compte qui regarde. |
 | **S03** | La désinstallation n'a jamais été éprouvée en vrai | `targeting/uninstall.md` | Elle est écrite et relue, jamais exécutée : **c'est un geste de l'utilisateur, jamais le mien**. Tant qu'elle n'a pas eu lieu, on sait qu'elle est cohérente, pas qu'elle marche. |
-| **S04** | L'audit Windows Update ne remonte pas dans l'interface | `implemented/status.md` → `WU-AUDIT` | Le rapport s'écrit sur disque et personne ne le voit depuis Vigie. |
 | **S05** | Les actions asynchrones ne suivent pas le contrat | `implemented/status.md` | Le suivi passe par les marqueurs d'occupation et `/operations`, pas par le `202 + jobId` que décrit le contrat. |
 | **S06** | « tray » dans les identifiants | **D108** | Le vocabulaire affiché est réglé ; les dossiers, fichiers et clés gardent leur ancien nom. Par étapes, en touchant chaque zone quand on y travaille déjà. |
 | **S07** | Le français dans le code | `dev/check-naming.ps1` | Trois cliquets qui ne peuvent que descendre : identifiants français, noms de fichiers français, lignes de commentaire françaises (**D115**). Ils baissent quand on passe à côté, jamais en campagne dédiée. |
@@ -62,6 +62,7 @@ Chaque sujet ouvert a été **revérifié dans le code**, pas dans le souvenir. 
 
 | N° | Sujet | Clos le | Comment |
 |----|-------|---------|---------|
+| **S04** | L'audit Windows Update ne remonte pas dans l'interface | 30/09/2026 | Le rapport revient par le canal ordinaire d'une action (`result.detail`) et la page l'ouvre dans une fenêtre large, préformatée : colonnes tenues, lignes longues repliées. Générique, donc `accounts-details` et `repair-tasks` se lisent droit du même coup. Le fichier reste sous `var/log/`, nommé sous le rapport. Ses lignes sont devenues de l'interface, donc elles portent leurs accents. |
 | **S10** | Un état qui oscille notifie à chaque oscillation | 30/09/2026 | Le répit de dix minutes par notification est **éprouvé en usage réel** : sur le compte Famille le 28/09, `gaming.hogs` a produit **six bascules, deux bulles, quatre retenues** (`tray_20260928.log`). C'est la partie réelle qu'attendait ce sujet. |
 | **S11** | Les bulles s'annonçaient « PowerShell » | 07/09/2026 | Une identité déclarée pour la machine (`AppUserModelId\Sowapps.Vigie` : nom affiché et icône livrée) et portée par le processus avant que son icône n'existe — `a376f76`, maintenue à chaque passage par l'app serveur `21e63d1`. **Vu à l'écran** : la bulle porte « Vigie » et l'icône verte. |
 | **S13** | La grosse icône des bulles était celle de Windows | 11/09/2026 | Une bulle `NotifyIcon` ne choisit son glyphe que parmi `Info`/`Warning`/`Error`. Réglé par une **porte** (`targeting/notifications.md`) : plusieurs outils rangés par préférence, le premier qui sait afficher gagne, et le dernier rang reste toujours disponible. **Vu à l'écran le 10/09**, captures de l'utilisateur : quatre notifications portant les icônes de Vigie, verte et orange, rendues à l'identique par les deux premiers rangs. Je l'ai gardé ouvert un jour de trop contre une condition que j'avais ajoutée moi-même — que la notification vienne de la boucle de l'app cliente — qui ne dit rien sur l'icône et appartient à **S09**. Le rang 60 (Windows App SDK) n'est toujours pas écrit, et n'a pas à l'être : les rangs 20 et 40 affichent. |
