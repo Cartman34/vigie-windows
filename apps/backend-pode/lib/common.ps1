@@ -8436,10 +8436,23 @@ function Get-WindowsUpdateAilments {
         The whole reading is one targeted query, 255 ms measured, and this card is computed every six hours.
     #>
     $deployment = @()
+    $deploymentUnreadable = $null
     try {
         $deployment = @(Get-WinEvent -FilterHashtable @{ LogName = 'Microsoft-Windows-AppXDeploymentServer/Operational'
                                                          Id = 419, 493; StartTime = (Get-Date).AddDays(-7) } -ErrorAction Stop)
-    } catch { }
+    } catch {
+        # "NO EVENT FOUND" IS NOT A FAILURE; anything else is -- and what cannot look says so. Silence here would
+        # have read as "nothing is blocking", when in truth nobody had been able to look.
+        if ($_.FullyQualifiedErrorId -notlike 'NoMatchingEventsFound*') { $deploymentUnreadable = $_.Exception.Message }
+    }
+    if ($deploymentUnreadable) {
+        $found += [pscustomobject]@{
+            Status = 'warn'
+            Label  = "Journal de déploiement des paquets illisible"
+            Detail = "Vigie n'a pas pu lire « Microsoft-Windows-AppXDeploymentServer/Operational », qui nomme " +
+                     "l'application à fermer quand une mise à jour est bloquée : $deploymentUnreadable"
+        }
+    }
     $highlight = try { [int](Get-ModuleSetting -Unit 'system' -Key 'EventHighlightMinutes' -Backend $Backend) } catch { 60 }
 
     $blocked = @($deployment | Where-Object { $_.Id -eq 419 })
