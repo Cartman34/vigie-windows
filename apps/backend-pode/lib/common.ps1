@@ -8421,6 +8421,69 @@ function Get-WindowsUpdateAilments {
         }
     }
 
+    <#
+        AND WHAT BLOCKS IT, NAMED -- asked for on 30/09, and asked for once before that.
+
+        "Installation en échec, 0x80073D02" tells nobody anything. Windows itself knows the answer and writes it in
+        its own deployment log: the update of a Store package cannot be applied while a process is holding it, and
+        event 419 NAMES the package that must be closed. Read on this computer on 29/09: Phone Link was being updated
+        from 1.26072.255.0 while that very version was running.
+
+        Event 493 is the other half: the deployment service still cannot delete some files of an old package, and it
+        retries -- 376 times in seven days here, every six minutes, restarts included. That one does not resolve
+        itself, so it is said too, with its rate, rather than left as background noise in a log nobody opens.
+
+        The whole reading is one targeted query, 255 ms measured, and this card is computed every six hours.
+    #>
+    $deployment = @()
+    try {
+        $deployment = @(Get-WinEvent -FilterHashtable @{ LogName = 'Microsoft-Windows-AppXDeploymentServer/Operational'
+                                                         Id = 419, 493; StartTime = (Get-Date).AddDays(-7) } -ErrorAction Stop)
+    } catch { }
+    $highlight = try { [int](Get-ModuleSetting -Unit 'system' -Key 'EventHighlightMinutes' -Backend $Backend) } catch { 60 }
+
+    $blocked = @($deployment | Where-Object { $_.Id -eq 419 })
+    if ($blocked.Count) {
+        $lastBlock = @($blocked | Sort-Object TimeCreated -Descending)[0]
+        # THE PACKAGE FULL NAME IS IN THE MESSAGE. We keep the readable part: the name, without the version and the
+        # publisher hash, which say nothing to whoever reads the card.
+        $apps = @()
+        foreach ($b in $blocked) {
+            foreach ($m in [regex]::Matches("$($b.Message)", '([A-Za-z0-9\.]+)_[0-9\.]+_[a-z0-9]+__[a-z0-9]+')) {
+                $name = $m.Groups[1].Value
+                if ($apps -notcontains $name) { $apps += $name }
+            }
+        }
+        $verdict = Get-JournalFactVerdict -LastAt $lastBlock.TimeCreated -Count $blocked.Count -WindowDays 7 -Still 'inconnu' -Level 'warn' -HighlightMinutes $highlight
+        $found += [pscustomobject]@{
+            Status = $verdict.Weight
+            Label  = 'Mise à jour bloquée par une application ouverte'
+            Detail = $verdict.Said + ' — ' + $verdict.Recurrence + '. ' +
+                     $(if ($apps.Count) { 'Windows nomme ce qu''il faut fermer : ' + ($apps -join ', ') + '. ' } else { '' }) +
+                     "Un paquet en cours d'utilisation ne peut pas être remplacé : la mise à jour s'applique à la " +
+                     "fermeture de session ou au redémarrage, quand plus rien ne le tient."
+        }
+    }
+
+    $stuck = @($deployment | Where-Object { $_.Id -eq 493 })
+    if ($stuck.Count -ge 5) {
+        $lastStuck = @($stuck | Sort-Object TimeCreated -Descending)[0]
+        # THE RATE IS TAKEN OVER THE LAST DAY, not over the seven: the machine is off part of the week, and an average
+        # spread over those gaps says one attempt every 24 minutes where the last two hours show one every six.
+        $lastDay = @($stuck | Where-Object { $_.TimeCreated -gt (Get-Date).AddHours(-24) }).Count
+        $verdict = Get-JournalFactVerdict -LastAt $lastStuck.TimeCreated -Count $stuck.Count -WindowDays 7 -Still 'inconnu' -Level 'warn' -HighlightMinutes $highlight
+        $found += [pscustomobject]@{
+            Status = $verdict.Weight
+            Label  = "Windows n'arrive pas à finir de supprimer un ancien paquet"
+            Detail = $verdict.Said + ' — ' + $verdict.Recurrence +
+                     $(if ($lastDay -ge 2) { ", soit une tentative toutes les " + [math]::Max(1, [int][math]::Round(1440 / $lastDay)) + " minutes depuis un jour" } else { '' }) +
+                     ". Des fichiers d'un paquet " +
+                     "désinstallé restent sous « C:\Program Files\WindowsApps\Deleted » et le service de déploiement " +
+                     "réessaie sans fin. Un redémarrage libère d'ordinaire ces fichiers ; s'il ne suffit pas, ce sont " +
+                     "des fichiers tenus en permanence, et il faut chercher qui les tient."
+        }
+    }
+
     return $found
 }
 
