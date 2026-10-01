@@ -259,6 +259,11 @@ on 29/09 against samples. Several questions get one answer each, and each one ho
 forbidden is going past. Nothing is added to fill the room, and nothing true is cut to fit either: if it genuinely needs
 more, that is a separate answer, or it goes to the repository and the answer points at it.
 
+**AND THE CEILING IS PER SUBJECT, NOT PER MESSAGE.** Listing six things at 200 characters each is a wall all the same.
+On 30/09 I answered "anything else to fix?" with five paragraphs he had not asked for: *"Tu ne dois jamais envoyer de
+message aussi long pour rien, tu n'avais rien à dire."* One question, one subject, one answer. What he did not ask for
+goes to the repository, and he is told where in the same 200 characters, or not at all.
+
 **A technical term is written in correct French, or kept in English -- never translated by ear.** "Détachées" for a
 detached process means nothing to a French reader; "asynchrone" does. When the French word is uncertain, the English
 one is kept as is, and the identifiers stay English in every case (D41). *29/09: "arrête de traduire comme une merde".*
