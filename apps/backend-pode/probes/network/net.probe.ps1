@@ -558,7 +558,50 @@ if ($ranges -and $ranges.tcp -and $ranges.udp) {
         }
     }
     if ($rows.Count) { $portsTable = @{ columns = @('Protocole', 'Processus', 'PID', 'Ports'); rows = $rows } }
-    if ($portsStatus -in 'warn', 'error') {
+
+    <#
+        ONE PROCESS HOARDING PORTS, named before the reserve is full.
+
+        The gauge above reads the CONNECTION tables: a port taken without a connection -- bind() called, neither
+        listening nor connected -- does not appear there. That is exactly the shape of the costliest leak seen on
+        this computer: WSL's network host held 244 ephemeral ports on the morning of 30/09 and 841 that evening,
+        never giving one back. On 14/09 it held 10 426: every port lookup went from 2 ms to 26 seconds, and an
+        update of Vigie from 98 to 225 seconds. The card, meanwhile, read 1 %.
+
+        The complete reading costs 1,5 s, fifty times the gauge. It is taken HERE, on a card recomputed every five
+        minutes, and only to answer the one question the gauge cannot ask: is a single process holding a heap?
+    #>
+    $hogFloor = 500
+    try { $hogFloor = [int](Get-ModuleSetting -Unit 'network' -Key 'PortHogPorts' -Backend $backend) } catch { }
+    $hog = $null
+    if ($hogFloor -gt 0) {
+        try {
+            $held = Get-HeldEphemeralPorts -Start ([int]$ranges.tcp.Start)
+            if ($held) {
+                foreach ($o in @($held.ByProcess | Select-Object -First 1)) {
+                    if ([int]$o.Count -lt $hogFloor) { break }
+                    $hogName = "$((Get-Process -Id ([int]$o.ProcessId) -ErrorAction SilentlyContinue).ProcessName)"
+                    if (-not $hogName) { $hogName = "processus $($o.ProcessId)" }
+                    $hog = [pscustomobject]@{ Name = $hogName; ProcessId = [int]$o.ProcessId; Count = [int]$o.Count
+                                              Held = [int]$held.Held; States = "$($o.States)" }
+                }
+            }
+        } catch { }
+    }
+    if ($hog) {
+        $hogCulture = [Globalization.CultureInfo]::GetCultureInfo('fr-FR')
+        $portsValue = $portsValue + ' · ' + $hog.Name + ' en tient ' + $hog.Count.ToString('N0', $hogCulture)
+        if ($portsStatus -eq 'ok') { $portsStatus = 'warn' }
+        $portsReason = $hog.Name + ' (PID ' + $hog.ProcessId + ') tient ' + $hog.Count.ToString('N0', $hogCulture) +
+                       ' ports temporaires sur les ' + $hog.Held.ToString('N0', $hogCulture) + ' occupés — ' + $hog.States
+        $portsGuide = "Un seul processus tient $($hog.Count.ToString('N0', $hogCulture)) ports réseau temporaires. Un processus ordinaire en tient dix à soixante." +
+                      [Environment]::NewLine + [Environment]::NewLine +
+                      "Ces prises-là n'apparaissent pas dans le compte ci-dessus, qui ne voit que les connexions : un port pris sans connexion est invisible à cette mesure, et c'est la forme que prend une fuite." +
+                      [Environment]::NewLine + [Environment]::NewLine +
+                      "Tant que la réserve n'est pas pleine, rien ne casse. En s'accumulant, elles ralentissent toutes les connexions de l'ordinateur, puis les font échouer. Elles sont rendues quand le processus se termine."
+    }
+
+    if ($portsStatus -in 'warn', 'error' -and -not $hog) {
         $top = @($holders | Sort-Object Count -Descending | Select-Object -First 3)
         $portsReason = 'Surtout ' + ((@($top | ForEach-Object { $_.Label })) -join ' ; ')
         $portsGuide = "Les ports réseau temporaires approchent de la limite de Windows. Quand elle est atteinte, toutes les nouvelles connexions échouent, pour toutes les applications." +

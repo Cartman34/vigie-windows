@@ -15,6 +15,11 @@
         # kept while the reserve is idle -- at 1 % occupancy a line every thirty seconds teaches no one anything.
         PortWatchPercent = 50   # written as soon as the occupancy reaches this share
         PortWatchAfterMinutes = 15   # and during this delay after a complaint from Windows (Tcpip 4231/4266)
+        # ONE PROCESS HOLDING A HEAP OF PORTS. Measured on this computer: WSL's network host held 244 ephemeral ports
+        # in the morning and 841 in the evening, never giving one back; on 14/09 it held 10 426, which took every port
+        # lookup from 2 ms to 26 seconds and stretched an update of Vigie from 98 to 225 seconds. A normal process
+        # holds ten to sixty. Below this count, nothing is said.
+        PortHogPorts = 500
     }
 
     Parameters = @(
@@ -24,6 +29,8 @@
            Help = 'Au-delà de ce délai, la latence passe en erreur : jeu en ligne et visio pénibles.' }
         @{ Key = 'PortWatchPercent'; Label = 'Noter les ports dès'; Type = 'int'; Unit = '%'; Min = 10; Max = 100; Step = 5
            Help = 'Au-delà de cette part des ports réseau temporaires occupés, Vigie note l''occupation et les processus qui en tiennent le plus. 100 ne note plus rien hors incident.' }
+        @{ Key = 'PortHogPorts'; Label = 'Signaler un processus dès'; Type = 'int'; Unit = 'ports'; Min = 100; Max = 8000; Step = 100
+           Help = 'Au-delà de ce nombre de ports réseau temporaires tenus par un seul processus, la carte Réseau le nomme. Un processus ordinaire en tient dix à soixante ; au-delà de quelques milliers, toutes les connexions de l''ordinateur ralentissent.' }
         @{ Key = 'PortWatchAfterMinutes'; Label = 'Noter les ports après une plainte pendant'; Type = 'int'; Unit = 'min'; Min = 0; Max = 120; Step = 5
            Help = 'Après un événement « Ports réseau épuisés » de Windows, Vigie note l''occupation à chaque passage pendant ce délai, quel que soit le seuil. 0 désactive.' }
     )
