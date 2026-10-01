@@ -32,7 +32,12 @@
     # SCHEDULED COMPUTATIONS (D124/D125): the server computes this card by itself, so that nothing is ever computed
     # while someone waits. The interval follows what one pass costs, measured, not what one would wish.
     Refresh = @(
-        @{ Key = 'packages'; Probe = 'packages.probe.ps1'; Cards = @('pkg-none')
+        # THE CARDS THIS PROBE REALLY PRODUCES: one per package manager present, and "pkg-none" only when there is
+        # none at all. Only "pkg-none" was declared, so the cards actually shown had neither interval nor freshness:
+        # they could not say their age, nor report being late (seen on 30/09).
+        @{ Key = 'packages'; Probe = 'packages.probe.ps1'
+           Cards = @('pkg-winget', 'pkg-choco', 'pkg-scoop', 'pkg-npm', 'pkg-pnpm', 'pkg-yarn',
+                     'pkg-pip', 'pkg-pipx', 'pkg-cargo', 'pkg-gem', 'pkg-dotnet', 'pkg-none')
            Seconds = @{ default = 86400 }; MaxSeconds = 300; OnlyWhen = 'calm' }
     )
 }
