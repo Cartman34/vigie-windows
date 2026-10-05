@@ -44,6 +44,37 @@ Chaque sujet ouvert a été **revérifié dans le code**, pas dans le souvenir. 
   (le contrat le dit noir sur blanc), et les trois cliquets sont à 450 identifiants / 5 607 commentaires /
   3 noms de fichiers, plus 2 fichiers Python.
 
+## Revue du 05/10/2026 — ce que la vérification dans le code a changé
+
+Chaque sujet ouvert relu **dans le code**, pas dans la revue précédente. Quatre ont rétréci, un est périmé, deux sont
+inchangés.
+
+- **S05 est périmé tel qu'il est écrit.** Il mesure le code contre un contrat « 202 + jobId » qui **n'existe plus
+  nulle part** : ni dans le besoin (`features.md` → `CORE-OPERATIONS`), ni dans la conception
+  (`targeting/operations.md`), qui définit le protocole comme les **marques d'occupation servies par `/operations`** —
+  exactement ce que fait le code. Le contrat cité a été remplacé les 12 et 13/09 par D82, D94, D95 et D102. Ce qui
+  reste de vrai dans S05 — toutes les opérations ne suivent pas ce protocole — est **déjà S14**. À requalifier ou à
+  clore ; ce n'est pas à moi d'en décider, c'est toi qui l'as classé premier.
+- **S02 a rétréci à un seul manque : les gestionnaires de paquets.** Les lectures `HKCU` du module Jeux et de la
+  carte WSL sont faites : `Get-UserRegistryRoots` lit la ruche de **chaque** compte connecté (D113), et
+  `30-gamebar.ps1` comme `wsl.probe.ps1` passent par là. Restent `winget`, `pip`, `npm` et `scoop`, qui répondent
+  encore pour le compte de service (`packages.probe.ps1`, `Invoke-Native` direct).
+- **S09 a perdu une de ses quatre preuves, et c'est la bonne.** Une notification née de la **boucle de l'app
+  cliente** a eu lieu : `[2026-10-05 15:02:53] notification : network.ports-low ok->warn`, puis
+  `notification montree par 20-winrt-com` (`client_20261004.log`). La ligne est écrite dans la boucle elle-même
+  (`client.ps1`), pas par un script d'essai. Restent trois preuves : second ordinateur, décharge batterie en partie,
+  export imprimé.
+- **S15 a rétréci.** Plus aucune pièce n'est marquée « aucune réponse » dans `implemented/components.md`. Restent
+  **deux réponses jamais vérifiées** — l'état cassé de `var/history` et celui des bascules VBS/HVCI — et une purge
+  jamais exécutée (`service-data-reset` avec `part = history`).
+- **S14 est inchangé, et vérifié.** `check-operations.ps1` déclare toujours deux lancements détachés hors protocole
+  (`Get-State`, `Invoke-RefreshPass`), et `vigie-update` reste la **seule** opération éprouvée en production — deux
+  fois aujourd'hui, code 0 en 124 s. Windows Update, le disque et les paquets n'ont toujours pas tourné sous
+  protocole.
+- **S07, S08, S01, S03 sont inchangés.** Les cliquets sont à **450** identifiants, **5 607** commentaires, **3** noms
+  de fichiers, **2** fichiers Python — mesurés aujourd'hui. S01 est reporté par ta décision du 05/09, S03 attend ton
+  geste.
+
 ## Ouverts
 
 | N° | Sujet | Où c'est décrit | Pourquoi c'est ouvert |
@@ -52,7 +83,6 @@ Chaque sujet ouvert a été **revérifié dans le code**, pas dans le souvenir. 
 | **S02** | Les mesures par utilisateur, invisibles depuis la session 0 | `targeting/multi-account-server.md` → C4 | WSL et les gestionnaires de paquets répondent pour le compte de service, pas pour le compte qui regarde. |
 | **S03** | La désinstallation n'a jamais été éprouvée en vrai | `targeting/uninstall.md` | Elle est écrite et relue, jamais exécutée : **c'est un geste de l'utilisateur, jamais le mien**. Tant qu'elle n'a pas eu lieu, on sait qu'elle est cohérente, pas qu'elle marche. |
 | **S05** | Les actions asynchrones ne suivent pas le contrat | `implemented/status.md` | Le suivi passe par les marqueurs d'occupation et `/operations`, pas par le `202 + jobId` que décrit le contrat. |
-+
 | **S07** | Le français dans le code | `dev/check-naming.ps1` | Trois cliquets qui ne peuvent que descendre : identifiants français, noms de fichiers français, lignes de commentaire françaises (**D115**). Ils baissent quand on passe à côté, jamais en campagne dédiée. |
 | **S08** | Deux fichiers Python subsistent | **D41** | PHP est l'outil par défaut ; Python n'est toléré qu'argumenté et délimité. Cliquet posé à 2 dans `check-naming`. |
 | **S09** | Preuves qui n'ont jamais eu lieu | — | L'installation sur un **second ordinateur** depuis la v1.0.0, l'alerte de **décharge batterie** pendant une partie, et l'export **imprimé pour de vrai**. et une notification née de la **boucle de l'app cliente** plutôt que d'un script. Quatre choses écrites que rien n'a encore confrontées au réel. |
