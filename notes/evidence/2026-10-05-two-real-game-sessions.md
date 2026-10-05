@@ -41,17 +41,21 @@ Ce n'était donc pas « à la reprise » : c'était **au passage de minuit**, au
 « Dernière partie » porte la fin de la partie. L'app cliente compare l'identité, plus le libellé. Tout champ dont
 la valeur porte une date ou une durée relative doit porter une identité : son libellé dérive avec le temps.
 
-### 2. L'app cliente a encore disparu, pendant la partie
+### 2. L'app cliente n'a pas disparu : l'ordinateur a redémarré
 
-Le journal de l'app cliente s'arrête net à **15:02:54**, en pleine partie. Le fichier suivant commence à **17:20:07**.
-Entre les deux, plus rien : ni ligne d'arrêt, ni erreur, ni reprise.
+Le journal de l'app cliente s'arrête net à **15:02:54**, en pleine partie, sans ligne d'arrêt. J'en avais conclu
+qu'elle avait disparu toute seule. **C'est faux**, et le journal Windows le dit :
 
-La partie s'est terminée à 15:19, **sans app cliente** : donc pas de récapitulatif automatique, pas de notification de
-fin, pas d'icône. C'est la deuxième fois — la première était le 28/09 au soir, et avait déjà coûté une soirée de
-mesures.
+| | Dernière ligne de l'app | Redémarrage demandé | Arrêt |
+|---|---|---|---|
+| 05/10 | 15:02:54 | **15:05:20** (menu Démarrer, User32 1074) | non propre (Kernel-Power 41, EventLog 6008) |
+| 28/09 | 18:25:58 | **19:41:05** (menu Démarrer, User32 1074) | non propre (Kernel-Power 41, EventLog 6008) |
 
-Ce qui change depuis : la veille permanente ramène une app cliente absente (depuis le 29/09), et elle l'a ramenée.
-Mais la disparition elle-même n'est toujours pas expliquée.
+Les deux fois, l'app a été fermée **avec l'ordinateur**. C'est normal. Ce qui ne l'était pas, c'est qu'elle ne
+l'écrive nulle part : son silence s'est lu comme une panne, et a coûté deux enquêtes sur un défaut qui n'existe pas.
+
+**Correctif.** L'app cliente s'abonne à `SystemEvents.SessionEnding` et écrit « Windows ferme la session » avec le
+motif, avant que Windows ne la referme. Un silence dans le journal redevient ce qu'il doit être : un vrai problème.
 
 ### 3. Vingt-cinq minutes manquent à la partie 2
 
@@ -73,6 +77,7 @@ une partie.
 
 - ~~Ouvrir le récapitulatif à la fin de la partie~~ — **fait** : il ne s'ouvrait pas à la reprise, il s'ouvrait au
   passage de minuit, parce qu'on comparait un libellé au lieu d'un fait.
-- **Expliquer la disparition de l'app cliente** : deux fois en une semaine, toujours sans trace.
+- ~~Expliquer la disparition de l'app cliente~~ — **fait** : elle n'a jamais disparu, l'ordinateur a redémarré les
+  deux fois. Elle écrit désormais la fin de session Windows.
 - **Garder les passages d'une partie**, au moins leur horodatage, pour que « vingt-cinq minutes manquent » soit une
   question à laquelle on puisse répondre.

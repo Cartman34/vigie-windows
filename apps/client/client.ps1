@@ -1627,6 +1627,26 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
             TLog "guetteur d'adresse reseau arme"
         } catch { TLog ("guetteur d'adresse reseau indisponible : " + $_.Exception.Message) }
 
+        <#
+            WINDOWS CLOSING THE SESSION IS WRITTEN DOWN.
+
+            Twice -- 28/09 and 05/10, both in the middle of a game -- the client app's log stopped dead with no
+            closing line, and the conclusion drawn was that the app had vanished on its own. It had not: the Windows
+            event log holds a restart asked from the Start menu each time (User32 1074), followed by an unclean stop
+            (Kernel-Power 41, EventLog 6008). The app was closed WITH the computer, which is normal; what was missing
+            was the line saying so, and its absence cost two investigations into a defect that does not exist.
+
+            SystemEvents.SessionEnding fires before Windows tears the session down, and it says WHY -- a sign-out or
+            a shutdown. Nothing here tries to delay it: the line is written, and that is all it is for.
+        #>
+        try {
+            [Microsoft.Win32.SystemEvents]::add_SessionEnding({
+                param($sender, $e)
+                try { TLog ("Windows ferme la session (" + $e.Reason + ") : arret avec l'ordinateur") } catch { }
+            })
+            TLog "fin de session Windows surveillee"
+        } catch { TLog ("fin de session Windows non surveillee : " + $_.Exception.Message) }
+
         # A BUBBLE THAT IGNORES A CLICK IS A DOOR PAINTED ON A WALL. Clicking it did nothing -- it just vanished
         # (reported 28/09). It now opens the panel, which is what anyone expects.
         try { $icon.add_BalloonTipClicked({ TLog "clic sur la bulle : ouverture du panneau"; & $openApp }) } catch { }
