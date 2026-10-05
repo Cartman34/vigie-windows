@@ -69,15 +69,15 @@ l'événement **après coup**. Entre les deux, rien :
 
 | Processus | Ports éphémères TCP | Détail |
 |---|---|---|
-| ** **250** | **244 « Bound » sur 0.0.0.0**, 5 établis, 1 écoute — plus **19 en UDP** |
+| **`dllhost.exe` PID 14656** | **250** | **244 « Bound » sur 0.0.0.0**, 5 établis, 1 écoute — plus **19 en UDP** |
 | (sans propriétaire) | 134 | connexions en fermeture, TIME_WAIT |
-|  44 | 22 établis, 16 liés, 5 en cours de connexion |
-|  26 | 13 établis, 13 liés |
-|  20, 19, 16 | |
+| `seaf-daemon` | 44 | 22 établis, 16 liés, 5 en cours de connexion |
+| `chrome` | 26 | 13 établis, 13 liés |
+| `codex`, `ChatGPT`, `claude` | 20, 19, 16 | |
 
-Total des ports éphémères TCP de la machine : **588**. Ce seul  **43 %**.
+Total des ports éphémères TCP de la machine : **588**. Ce seul `dllhost` en tient **43 %**.
 
-### Ce que ce 
+### Ce que ce `dllhost` héberge
 
 `C:\WINDOWS\system32\DllHost.exe /Processid:{17696EAC-9568-4CF5-BB8C-82515AAD6C09}`, sous le compte `fhaza`. Cet
 AppID est celui de **`WslDeviceHost_Net`**, `C:\Program Files\WSL\wsldevicehost.dll` — **l'hôte réseau de WSL**.

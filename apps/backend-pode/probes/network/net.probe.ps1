@@ -578,12 +578,26 @@ if ($ranges -and $ranges.tcp -and $ranges.udp) {
         try {
             $held = Get-HeldEphemeralPorts -Start ([int]$ranges.tcp.Start)
             if ($held) {
-                foreach ($o in @($held.ByProcess | Select-Object -First 1)) {
+                # PID 0 IS NOT A HOARDER: those are the closing connections (TIME_WAIT), owned by nobody, which
+                # free themselves within minutes. Naming it would send someone hunting a culprit that does not exist.
+                foreach ($o in @($held.ByProcess | Where-Object { [int]$_.ProcessId -ne 0 } | Select-Object -First 1)) {
                     if ([int]$o.Count -lt $hogFloor) { break }
                     $hogName = "$((Get-Process -Id ([int]$o.ProcessId) -ErrorAction SilentlyContinue).ProcessName)"
                     if (-not $hogName) { $hogName = "processus $($o.ProcessId)" }
-                    $hog = [pscustomobject]@{ Name = $hogName; ProcessId = [int]$o.ProcessId; Count = [int]$o.Count
-                                              Held = [int]$held.Held; States = "$($o.States)" }
+                    <#
+                        IS IT WSL? Its network host runs inside a generic dllhost, so the name says nothing: the
+                        command line carries the AppID, and the modules say which DLL is loaded. Knowing it changes
+                        what we can OFFER -- restarting WSL hands those ports back, and nothing else does.
+                    #>
+                    $isWsl = $false
+                    try {
+                        $cmd = "$((Get-CimInstance Win32_Process -Filter ("ProcessId=" + [int]$o.ProcessId) -ErrorAction Stop).CommandLine)"
+                        if ($cmd -match '(?i)\{17696EAC-9568-4CF5-BB8C-82515AAD6C09\}') { $isWsl = $true }
+                    } catch { }
+                    if (-not $isWsl -and $hogName -match '(?i)wsl|vmmem') { $isWsl = $true }
+                    $hog = [pscustomobject]@{ Name = $(if ($isWsl) { 'WSL (hôte réseau)' } else { $hogName })
+                                              ProcessId = [int]$o.ProcessId; Count = [int]$o.Count
+                                              Held = [int]$held.Held; States = "$($o.States)"; IsWsl = $isWsl }
                 }
             }
         } catch { }
@@ -609,9 +623,14 @@ if ($ranges -and $ranges.tcp -and $ranges.udp) {
                       "Le tableau nomme les processus qui en tiennent le plus. Fermer ou redémarrer celui qui en tient le plus les libère ; les connexions en fermeture se libèrent seules en quelques minutes."
     }
 }
+# AND THE REMEDY FOLLOWS WHAT WAS FOUND. When WSL is the one hoarding, the task manager brings nothing: those takes
+# are only given back by restarting WSL. So the offered gesture is the one that acts, and the window it opens leaves
+# the choice between restarting, stopping, or doing nothing.
 $fields += New-Field -Key 'ports' -Label 'Ports réseau temporaires' -Value $portsValue -Kind 'text' -Status $portsStatus `
     -Table $portsTable -Reason $portsReason -Guide $portsGuide `
-    -FixAction $(if ($portsStatus -in 'warn', 'error') { 'open-task-manager' } else { $null }) `
+    -FixAction $(if ($hog -and $hog.IsWsl) { 'wsl-restart' }
+                 elseif ($portsStatus -in 'warn', 'error') { 'open-task-manager' }
+                 else { $null }) `
     -Help "Ports que Windows prête aux connexions sortantes, face à sa limite, en TCP et en UDP. À la limite, plus aucune application ne peut ouvrir de connexion."
 
 # Statut de la CARTE : la connectivite d'abord, mais un lien Wi-Fi degrade ou instable

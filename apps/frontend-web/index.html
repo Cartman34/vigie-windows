@@ -2798,6 +2798,26 @@ async function doAction(type,module,confirmNeeded,label,help,btnEl,params,kind,c
   // lays it out. A card would not carry that table (owner, 28/09).
   if(type==='game-recap'){ await openSessionRecap(); return; }
   if(type==='game-sessions'){ await openPastSessions(); return; }
+  /* WSL QUI ACCAPARE LES PORTS : UNE FENETRE, TROIS ISSUES.
+
+     La carte Reseau propose « Redemarrer WSL » quand c'est son hote reseau qui tient le tas de ports -- lui seul les
+     rend. Mais arreter WSL suffit parfois, et ne rien faire est un choix aussi : tant que la reserve n'est pas
+     pleine, rien ne casse. La fenetre dit ce que ca coute et laisse les trois, plutot que de poser une question
+     fermee a laquelle la bonne reponse depend de ce qu'on a ouvert dans Linux. */
+  if(type==='wsl-restart' && !params){
+    const choix = await HDS.open({
+      title: L('ui.wsl-fenetre-titre'), variant:'warn', cancelValue:null,
+      html: '<p>' + esc(L('ui.wsl-fenetre-texte')) + '</p><p>' + esc(L('ui.wsl-fenetre-perte')) + '</p>',
+      actions: [
+        { label: 'Annuler',                kind:'ghost',  value:null },
+        { label: L('ui.wsl-arreter'),    kind:'danger', value:'wsl-shutdown' },
+        { label: L('ui.wsl-redemarrer'), kind:'primary', value:'wsl-restart', default:true }
+      ]
+    });
+    if(!choix) return;
+    // Le choix est DEJA confirme par cette fenetre : on ne redemande pas derriere.
+    return doAction(choix, module, false, null, null, btnEl, { confirme:true }, 'confirm');
+  }
   // ACTION CRITIQUE = double confirmation. C'est le standard du projet pour tout geste
   // qui ferme le travail en cours ou touche la machine entiere.
   //
