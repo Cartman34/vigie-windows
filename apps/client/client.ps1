@@ -1334,7 +1334,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                             if (-not $m -or -not $m.id) { continue }
                             $vus["$($m.id)"] = @{ status = "$($m.status)"; label = "$($m.label)" }
                             foreach ($c in @($m.fields)) {
-                                if ($c -and $c.key) { $vus["$($m.id)/$($c.key)"] = @{ status = "$($c.status)"; label = "$($c.label)"; value = "$($c.value)"; reason = "$($c.reason)" } }
+                                if ($c -and $c.key) { $vus["$($m.id)/$($c.key)"] = @{ status = "$($c.status)"; label = "$($c.label)"; value = "$($c.value)"; reason = "$($c.reason)"; identity = "$($c.identity)" } }
                             }
                         }
                     }
@@ -1354,8 +1354,20 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                         never hold, since nothing has been seen yet on a first pass; and that branch is never
                         visited again. The code was delivered, read twice, and could not run once.
                     #>
+                    <#
+                        WHAT IS COMPARED IS THE IDENTITY OF THE SESSION, never the line that states it.
+
+                        The line carries a wording that drifts: it names the end time one way on the day it happened
+                        and another way afterwards. Comparing the lines, the first computation past midnight reads a
+                        change where nothing happened -- on 05/10 the recap of a session ended the day before at 18:28
+                        opened at 06:45, half a day late, at the next sign-in. The field now carries `identity` (the
+                        end of the session); the value remains the fallback for a field that declares none.
+                    #>
                     $recapNow = $null
-                    try { $recapNow = "$($vus['gaming/last-session'].value)" } catch { }
+                    try {
+                        $f = $vus['gaming/last-session']
+                        $recapNow = if ($f.identity) { "$($f.identity)" } else { "$($f.value)" }
+                    } catch { }
                     $inGame = $false
                     try { $inGame = ($vus['gaming/game'] -and "$($vus['gaming/game'].value)" -notin @('Aucun', 'Surveillance indisponible')) } catch { }
                     if ($recapNow -and $state.RecapSeen -and $recapNow -ne $state.RecapSeen -and -not $silence -and $state.Present) {

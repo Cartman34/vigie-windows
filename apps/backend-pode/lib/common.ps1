@@ -3862,10 +3862,19 @@ function New-Field {
         # @{ phase; percent; index; total; title; itemPercent; bytesDone; bytesTotal; since } (contract Field.progress).
         [hashtable]$Progress,
         # THE REASON OF AN ALERT, one short line, carried as is into the desktop notification (CORE-ERRORS).
-        [string]$Reason
+        [string]$Reason,
+        # THE IDENTITY OF THE FACT STATED, when the displayed value is a rendering of it and not the fact itself.
+        # Never displayed. It exists for whoever WATCHES the field: a watcher that compares values alone cannot tell
+        # "the same fact, worded differently" from "a new fact". Measured on 05/10: the last session's line reads
+        # the last session's line names its end time one way on the day and another way afterwards, so at the first
+        # computation past midnight the client app took a twelve-hour-old session for a session that had just ended,
+        # and opened its recap at 06:45. Every field whose value carries a date, a duration or any wording that
+        # drifts with time owes an identity.
+        [string]$Identity
     )
     $f = [ordered]@{ key = $Key; label = $Label; value = $Value; kind = $Kind }
     if ($Reason) { $f['reason'] = $Reason }
+    if ($Identity) { $f['identity'] = $Identity }
     if ($Unit)      { $f['unit']      = $Unit }
     if ($Status)    { $f['status']    = $Status }
     if ($Help)      { $f['help']      = $Help }

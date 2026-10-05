@@ -28,11 +28,18 @@ parties. Si ça a ramé, ce n'est pas la saturation de la machine.
 
 ### 1. Le récapitulatif s'ouvre douze heures trop tard
 
-La partie 1 s'est terminée le **04/10 à 18:28**. L'app cliente a démarré à **18:31**, trois minutes après. Le
-récapitulatif ne s'est ouvert que le lendemain **à 06:45**, à l'ouverture de session suivante.
+La partie 1 s'est terminée le **04/10 à 18:28**. Le récapitulatif ne s'est ouvert que le lendemain **à 06:45**.
 
-Il s'ouvre donc « à la reprise », pas « à la fin de la partie ». Un récapitulatif qui arrive douze heures après
-n'éclaire plus rien, et il surprend : on ouvre sa session et une fenêtre parle d'hier soir.
+**Cause, trouvée dans le code et non supposée.** L'app cliente ouvre le récapitulatif quand la ligne « Dernière
+partie » **change**. Or cette ligne dit « terminée à 18:28 » le jour même et « terminée le 04/10 à 18:28 » ensuite :
+au premier calcul passé minuit, la ligne change sans que rien ne se soit passé. Les lignes de 06:43 le montrent —
+l'adresse réseau change, la carte est recalculée, et deux minutes plus tard le récapitulatif s'ouvre.
+
+Ce n'était donc pas « à la reprise » : c'était **au passage de minuit**, au premier recalcul.
+
+**Correctif.** Un champ peut désormais porter une `identity` — l'identité du fait énoncé, jamais affichée — et
+« Dernière partie » porte la fin de la partie. L'app cliente compare l'identité, plus le libellé. Tout champ dont
+la valeur porte une date ou une durée relative doit porter une identité : son libellé dérive avec le temps.
 
 ### 2. L'app cliente a encore disparu, pendant la partie
 
@@ -64,7 +71,8 @@ une partie.
 
 ## Ce qu'il faut en tirer
 
-- **Ouvrir le récapitulatif à la fin de la partie, pas à la reprise** — et ne pas l'ouvrir du tout s'il est périmé.
+- ~~Ouvrir le récapitulatif à la fin de la partie~~ — **fait** : il ne s'ouvrait pas à la reprise, il s'ouvrait au
+  passage de minuit, parce qu'on comparait un libellé au lieu d'un fait.
 - **Expliquer la disparition de l'app cliente** : deux fois en une semaine, toujours sans trace.
 - **Garder les passages d'une partie**, au moins leur horodatage, pour que « vingt-cinq minutes manquent » soit une
   question à laquelle on puisse répondre.

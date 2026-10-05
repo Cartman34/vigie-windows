@@ -676,7 +676,11 @@ if ($lastSession -and $lastSession.seconds -ge 60) {
     $topJam = @($lastSession.jams) | Select-Object -First 1
     $recapValue = "$($lastSession.game), $spanText" + $(if ($when) { ", $when" } else { '' })
     if ($topJam) { $recapValue += " — $($topJam.label) " + (Format-Span -Secondes ([int]$topJam.seconds)) }
+    # THE IDENTITY IS THE END OF THE SESSION, not the line that states it: the line words that end time one way on
+    # the day and another way afterwards, and the client app, which watches this field to open the recap, took that
+    # wording change for a new session (05/10, recap opened at 06:45 for a session ended the day before at 18:28).
     $fields += New-Field -Key 'last-session' -Label 'Dernière partie' -Value $recapValue -Kind 'text' -Status 'neutral' `
+        -Identity "$($lastSession.endedAt)" `
         -FixAction 'game-recap' `
         -Help "La dernière partie gardée : sa durée, et le bouchon qui l'a marquée s'il y en a eu un. Le récapitulatif complet — ce qui a gêné, le jeu, et ce que chaque application a pris — s'ouvre dans sa fenêtre."
 }
