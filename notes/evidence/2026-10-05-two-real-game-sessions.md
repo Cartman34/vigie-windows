@@ -63,8 +63,13 @@ motif, avant que Windows ne la referme. Un silence dans le journal redevient ce 
 passage, ce qui est normal.
 
 Le temps est accumulé d'un passage à l'autre, **plafonné à cinq minutes par écart** pour qu'un ordinateur mis en
-veille ne compte pas comme du jeu. Une interruption de vingt-cinq minutes ne compterait donc que pour cinq. C'est
-l'explication la plus probable, et elle n'est pas vérifiable après coup : rien ne garde les passages un par un.
+veille ne compte pas comme du jeu. Le plafond est juste — et l'ordinateur a bien redémarré en pleine partie, à 15:05
+(voir ci-dessus). Mais rien dans le relevé ne permettait de le vérifier.
+
+**Correctif.** Le relevé garde désormais `lostSeconds` — le temps écarté par le plafond — et les **dix plus longues
+interruptions**, avec leur heure et leur durée. Le récapitulatif l'affiche : « Non compté : 25 min — 2 interruptions
+de plus de cinq minutes (9 min à 15:02, …) ». Un comptage qu'on ne peut pas vérifier est un comptage auquel on ne
+peut pas croire ; la croissance reste bornée à dix lignes par partie.
 
 ### 4. Les ports réseau se remplissaient pendant la partie
 
@@ -79,5 +84,5 @@ une partie.
   passage de minuit, parce qu'on comparait un libellé au lieu d'un fait.
 - ~~Expliquer la disparition de l'app cliente~~ — **fait** : elle n'a jamais disparu, l'ordinateur a redémarré les
   deux fois. Elle écrit désormais la fin de session Windows.
-- **Garder les passages d'une partie**, au moins leur horodatage, pour que « vingt-cinq minutes manquent » soit une
-  question à laquelle on puisse répondre.
+- ~~Garder les passages d'une partie~~ — **fait** autrement : garder les passages coûte 138 lignes par partie pour
+  répondre à une seule question. Ce sont les **interruptions** qui sont gardées, et le récapitulatif les nomme.

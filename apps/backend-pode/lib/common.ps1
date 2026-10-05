@@ -4680,11 +4680,30 @@ function Add-GameTallyPass {
                                         lastAt = $null; passes = 0; seconds = 0; apps = [pscustomobject]@{}
                                         jamCpuSeconds = 0; jamGpuSeconds = 0; jamMemSeconds = 0
                                         jamCpuPasses = 0; jamGpuPasses = 0; jamMemPasses = 0
+                                        lostSeconds = 0; breaks = @()
                                         satCpuBefore = $false; satGpuBefore = $false; satMemBefore = $false }
         }
+        <#
+            WHAT THE CAP DROPS IS WRITTEN DOWN, otherwise the count cannot be questioned.
+
+            On 05/10 a session lasting 2 h 06 was counted as 1 h 41, and nothing in the record could say where the
+            twenty-five minutes had gone. The cap is right -- a computer asleep in the middle of a game is not played
+            time -- but a count one cannot audit is a count one cannot believe. Each interruption longer than the cap
+            is now kept: when it started, how long it lasted. Bounded to the ten longest, so a session stays one line.
+        #>
         $SecondsSinceLast = 0
+        $gapSeconds = 0
         if ($tally.lastAt) {
-            try { $SecondsSinceLast = [int][Math]::Min($MaxGapSeconds, [Math]::Max(0, ([datetime]::UtcNow - (ConvertTo-UtcDate $tally.lastAt)).TotalSeconds)) } catch { }
+            try {
+                $gapSeconds = [int][Math]::Max(0, ([datetime]::UtcNow - (ConvertTo-UtcDate $tally.lastAt)).TotalSeconds)
+                $SecondsSinceLast = [int][Math]::Min($MaxGapSeconds, $gapSeconds)
+            } catch { }
+        }
+        if ($gapSeconds -gt $MaxGapSeconds) {
+            $tally.lostSeconds = [int]$tally.lostSeconds + ($gapSeconds - $MaxGapSeconds)
+            $breaks = @($tally.breaks) | Where-Object { $_ }
+            $breaks += [pscustomobject]@{ at = "$($tally.lastAt)"; seconds = $gapSeconds }
+            $tally.breaks = @($breaks | Sort-Object { [int]$_.seconds } -Descending | Select-Object -First 10)
         }
         $tally.passes = [int]$tally.passes + 1
         $tally.seconds = [int]$tally.seconds + $SecondsSinceLast
@@ -4749,6 +4768,7 @@ function Add-GameTallyPass {
                                              jamMemSeconds = $tally.jamMemSeconds; satCpuBefore = $tally.satCpuBefore
                                              jamCpuPasses = $tally.jamCpuPasses; jamGpuPasses = $tally.jamGpuPasses
                                              jamMemPasses = $tally.jamMemPasses
+                                             lostSeconds = $tally.lostSeconds; breaks = @($tally.breaks)
                                              satGpuBefore = $tally.satGpuBefore; satMemBefore = $tally.satMemBefore } | Out-Null
         <#
             AND THE PASS SAYS WHAT IS HAPPENING NOW, not only what the recap will say hours later.
@@ -4827,6 +4847,8 @@ function Close-GameTally {
         $summary = [ordered]@{
             game = "$($tally.game)"; startedAt = "$($tally.startedAt)"
             endedAt = ([datetime]::UtcNow).ToString('o'); seconds = [int]$tally.seconds; passes = [int]$tally.passes
+            lostSeconds = [int]$tally.lostSeconds
+            breaks = @(@($tally.breaks) | Where-Object { $_ } | Sort-Object { [int]$_.seconds } -Descending)
             jams = @($jams)
             apps = @($apps | Sort-Object { $_.cpu + $_.gpu } -Descending | Select-Object -First 15)
         }

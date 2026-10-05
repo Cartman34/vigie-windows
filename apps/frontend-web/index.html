@@ -2212,7 +2212,17 @@ function recapHtml(session){
   const quandTxt = quand ? (quand.toDateString() === new Date().toDateString()
       ? `terminée à ${String(quand.getHours()).padStart(2,'0')}:${String(quand.getMinutes()).padStart(2,'0')}`
       : `terminée le ${String(quand.getDate()).padStart(2,'0')}/${String(quand.getMonth()+1).padStart(2,'0')} à ${String(quand.getHours()).padStart(2,'0')}:${String(quand.getMinutes()).padStart(2,'0')}`) : '';
-  const intro = `<p class="hds-intro">Partie de <b>${esc(shortSpan(session.seconds))}</b>${quandTxt?', '+esc(quandTxt):''}. Relevé toutes les trente secondes.</p>`;
+  // WHAT WAS NOT COUNTED IS SAID HERE. Time between two readings counts, but never more than five minutes at a
+  // time, so that a computer asleep or restarted in the middle of a game is not counted as played. Without this
+  // line the count looked wrong: on 05/10 a game of 2 h 06 showed 1 h 41 and nothing explained the difference.
+  const coupures = session.breaks || [];
+  const perdu = session.lostSeconds || 0;
+  const quandCoupure = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
+  const coupureTxt = !perdu ? '' :
+    `<p class="hds-intro">Non compté : <b>${esc(shortSpan(perdu))}</b> — ${coupures.length} interruption${coupures.length>1?'s':''} de plus de cinq minutes`
+    + (coupures.length ? ' (' + coupures.slice(0,3).map(c=>`${esc(shortSpan(c.seconds))} à ${esc(quandCoupure(c.at))}`).join(', ') + ')' : '')
+    + '. Un ordinateur en veille ou redémarré ne compte pas comme du jeu.</p>';
+  const intro = `<p class="hds-intro">Partie de <b>${esc(shortSpan(session.seconds))}</b>${quandTxt?', '+esc(quandTxt):''}. Relevé toutes les trente secondes.</p>` + coupureTxt;
   const jamRows = jams.map(j=>{
     const qui = (j.who && j.who.length)
       ? j.who.map(w=>`${esc(w.label)} ${esc(asPercent(w.share))}`).join(', ')
