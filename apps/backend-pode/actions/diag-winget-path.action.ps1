@@ -32,12 +32,30 @@ $exe = @($exe) | Select-Object -First 1
 if ($exe) { $exe = "$exe" }
 if (-not $exe) { $lines += 'aucun winget.exe atteignable' }
 else {
-    $lines += "essai : $exe"
-    $v = Invoke-Native -File $exe -Arguments @('--version')
-    $lines += "--version : ok=" + $v.Ok + " code=" + $v.Code + " sortie=" + (("$($v.Output)" -split "`r?`n" | Where-Object { $_ -match '\S' } | Select-Object -First 1))
-    $u = Invoke-Native -File $exe -Arguments @('upgrade', '--include-unknown', '--disable-interactivity', '--accept-source-agreements')
-    $premieres = @("$($u.Output)" -split "`r?`n" | Where-Object { $_ -match '\S' } | Select-Object -First 3)
-    $lines += "upgrade : ok=" + $u.Ok + " code=" + $u.Code + " lignes=" + @("$($u.Output)" -split "`r?`n").Count
-    $lines += "debut : " + ($premieres -join ' / ')
+    $lines += "essai : " + (Split-Path $exe -Leaf)
+    # THREE QUESTIONS, NOT ONE. Does the one door work here at all (choco answers through it every day)? Does it
+    # fail on winget alone? And does a redirected process succeed where the door fails -- which is what the error
+    # itself suggests, since the encoding is only honoured on a redirected stream.
+    try {
+        $c = Invoke-Native -File 'choco' -Arguments @('--version')
+        $lines += "porte/choco : ok=" + $c.Ok + " code=" + $c.ExitCode
+    } catch { $lines += "porte/choco LEVE : " + $_.Exception.Message }
+    try {
+        $v = Invoke-Native -File $exe -Arguments @('--version')
+        $lines += "porte/winget : ok=" + $v.Ok + " code=" + $v.ExitCode + " sortie=" + "$($v.Output)".Trim()
+    } catch { $lines += "porte/winget LEVE : " + $_.Exception.Message }
+    try {
+        $psi = [Diagnostics.ProcessStartInfo]::new()
+        $psi.FileName = $exe
+        foreach ($a in @('--version')) { $psi.ArgumentList.Add($a) }
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError = $true
+        $psi.StandardOutputEncoding = [Text.UTF8Encoding]::new($false)
+        $psi.UseShellExecute = $false
+        $pr = [Diagnostics.Process]::Start($psi)
+        $sortie = $pr.StandardOutput.ReadToEnd()
+        $pr.WaitForExit(20000) | Out-Null
+        $lines += "redirige/winget : code=" + $pr.ExitCode + " sortie=" + "$sortie".Trim()
+    } catch { $lines += "redirige/winget LEVE : " + $_.Exception.Message }
 }
 @{ message = ($lines -join ' | '); result = @{ ok = $true } }
