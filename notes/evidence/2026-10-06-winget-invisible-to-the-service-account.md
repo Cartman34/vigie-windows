@@ -44,7 +44,22 @@ winget — Version 1.29.380
 ```
 
 C'est le compte **Famille** qui a répondu, et non `fhaza` : il était le plus en retard des deux sessions ouvertes.
-Le mécanisme ne privilégie pas celui qui regarde, il interroge celui qui attend depuis le plus longtemps.
+
+## Et le premier jet montrait le winget d'un autre
+
+Relevé ci-dessus : la carte affichait un chemin sous `C:\Users\Famille\` à une session ouverte sous `fhaza`. La
+première version repliait sur **l'union des comptes** quand le demandeur n'avait pas encore été lu.
+
+Le propriétaire l'a vu le jour même, et sa question tranche la conception : **le compte de service n'a pas winget, et
+il n'y a rien au niveau de la machine**. Donc rien ici n'appartient à la machine. Une carte winget construite depuis
+la lecture d'un autre compte montre son chemin, sa version, et à l'étape suivante **ses mises à jour** — qui ne sont
+pas celles du lecteur.
+
+Le repli est retiré : chaque compte voit le sien, ou rien. Et « pas encore lu dans votre session » est **écrit sur la
+carte** plutôt que laissé en trou — la passe de veille lit un compte par passe, une session qui vient de s'ouvrir
+attend son tour.
+
+**Une mesure par compte empruntée à un autre compte est fausse, même quand elle est exacte.**
 
 ## Ce qui reste de S02
 
