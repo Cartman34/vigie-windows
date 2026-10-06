@@ -40,7 +40,7 @@ ligne — `scripts/dev/check-doc.ps1` refuse une décision absente d'ici.
 - **Structure du dépôt** — D29 · D32 · D33 · D35 · D55
 - **Documentation** — D91 · D92 · D93 (revu) · D98 · D119 · D120
 - **Configuration** — D15 · D18 · D56 · D57
-- **Interface** — D127 · D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46 · D48 · D49 · D50 · D58 · D59 · D66 · D68 · D69 · D70 · D71 · D88 · D89 · D94 · D95 · D102 · D105 · D114
+- **Interface** — **D130** · D127 · D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46 · D48 · D49 · D50 · D58 · D59 · D66 · D68 · D69 · D70 · D71 · D88 · D89 · D94 · D95 · D102 · D105 · D114
 - **Installation, déploiement et mise à jour** — D07 · D11 · D22 · D77 · D78 · D79 · D81 · D84 · D87 · D96 · D97 · D99 · D101 · D106 · D107 (revu) · D110 · D112 · D117 · D123
 - **Sécurité, droits et multi-comptes** — **D128** · D34 · D65 · D67 · D73 · D104 · D109
 - **Sondes, actions et tâches de fond** — D50bis · D53 · D54 · D60 · D61 · D80 · D82 · D83 · D85 · D113 · D124 · D125 · D126
@@ -3440,3 +3440,34 @@ Relevé : [Un mot que j'ai inventé, écrit partout, jamais validé](../../notes
 
 Où c'est réalisé : `doc/en/developing/glossary.md`, `scripts/dev/check-naming.ps1`, et le renommage de la fonction
 qui porte une tâche cliente (sujet **S17**).
+
+## D130 — Le déplacement d'une carte n'est bloqué par rien, et une carte occupée dit par quoi (2026-10-06)
+
+*Demandé par l'utilisateur, capture à l'appui, pendant une analyse de disque : « Je ne peux pas la déplacer. » Puis :
+« Pour le déplacement de carte, aucune opération ne doit bloquer le déplacement, tu as inventé ce comportement non
+demandé et tu dois le corriger. » Et : « Pendant le mode de ré-agencement, aucune action ne doit être possible sur
+aucune carte, elles peuvent avoir une teinte spécifique mais par contre, le déplacement ne peut pas être bloqué. »*
+
+**Le déplacement est inconditionnel.** Ni une opération en cours, ni une mesure en attente, ni un mode ne l'empêchent.
+Réorganiser son tableau de bord ne touche à rien de ce que Vigie fait : l'interdire pendant une analyse de disque
+revient à prendre en otage un geste sans conséquence.
+
+**Ce qui s'éteint, et quand :**
+
+| Situation | Ce qui est éteint | Ce qui reste |
+|---|---|---|
+| **Opération en cours sur la carte** | ses actions, et seulement celles que l'opération **croise** (D93) | déplacement, menu, rafraîchissement |
+| **Mode de ré-agencement** | **toute** action sur **toutes** les cartes : boutons, résolutions, aides, dépliants, menu, rafraîchissement | le déplacement, et lui seul |
+
+**Une carte occupée dit par quoi.** Une ligne sous l'en-tête, de la couleur de l'occupation : le libellé de
+l'opération et depuis combien de temps. Elle se grisait sans rien dire — on voyait qu'elle était prise, pas par quoi
+ni depuis quand.
+
+**Et ce qu'elle bloque se lit sur la marque du serveur**, pas sur la carte. La page décidait à partir de
+`busyResources`, que presque aucune sonde ne déclare : les ressources arrivaient vides et le repli « on ne sait pas
+ce qu'elle tient, on bloque tout » s'appliquait toujours. Une analyse de disque éteignait le bouton de Chocolatey.
+`/operations` porte le libellé, l'action, les ressources et l'heure de départ : c'est elle qui fait foi.
+
+Relevé : [Une carte occupée ne disait pas par quoi, et ne se déplaçait plus](../../notes/evidence/2026-10-06-a-busy-card-said-nothing-and-could-not-be-moved.md).
+
+Où c'est réalisé : `apps/frontend-web/index.html`.
