@@ -53,9 +53,9 @@ else {
         $psi.StandardOutputEncoding = [Text.UTF8Encoding]::new($false)
         $psi.UseShellExecute = $false
         $pr = [Diagnostics.Process]::Start($psi)
-        $sortie = $pr.StandardOutput.ReadToEnd()
+        $read = $pr.StandardOutput.ReadToEnd()
         $pr.WaitForExit(20000) | Out-Null
-        $lines += "redirige/winget : code=" + $pr.ExitCode + " sortie=" + "$sortie".Trim()
+        $lines += "redirige/winget : code=" + $pr.ExitCode + " sortie=" + "$read".Trim()
     } catch { $lines += "redirige/winget LEVE : " + $_.Exception.Message }
 }
 @{ message = ($lines -join ' | '); result = @{ ok = $true } }
