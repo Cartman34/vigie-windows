@@ -17,7 +17,10 @@ Rockstar Launcher · Ubisoft Connect · Python Launcher · **Tabby** · Insomnia
 - **Tabby a été fermé**, avec le travail qui tournait dedans. La mise à jour désinstalle puis réinstalle : son
   épingle de la barre des tâches a disparu avec l'ancienne installation. Le logiciel était toujours là, en 1.0.237,
   et son raccourci du menu Démarrer aussi.
-- **WSL a été mis à jour**, alors que le propriétaire se l'était explicitement réservé.
+- **WSL n'a finalement PAS été mis à jour.** Il figurait dans la liste des seize — `(16/16)` dans le journal — mais
+  l'installation ne s'est pas appliquée : `winget upgrade` le liste toujours en **2.7.12.0 → 2.7.13** après coup.
+  Douze des seize paquets se sont installés, pas tous. J'avais annoncé l'inverse au propriétaire ; c'était faux, et
+  ça comptait, puisqu'il s'était réservé ce geste.
 
 ## La cause, en deux temps
 
@@ -58,3 +61,14 @@ l'action, sans aucun paquet          -> refus : « cochez ce qui doit être mis 
 la tâche cliente, sans paquet        -> refus : « aucun paquet désigné »
 le drapeau -All existe               -> oui, et c'est le seul moyen de dire « la totalité »
 ```
+
+## Éprouvé après correctif : un seul paquet, et rien d'autre
+
+Même chemin, même carte, un paquet visé — `7zip.7zip`, déjà à jour, pour ne rien installer de plus sur la machine.
+
+```
+=== 7zip.7zip (code -1978335189) === deja a jour, ignore
+```
+
+Une ligne, contre seize blocs `(n/16)` la fois précédente. L'opération rend code 0 en 17 s, et le décompte reste à
+cinq mises à jour disponibles : **aucune autre n'a bougé**.
