@@ -17,4 +17,24 @@ try {
         $lines += "  " + $d.Name + " -> winget.exe " + $(if (Test-Path -LiteralPath $exe) { 'present' } else { 'absent' })
     }
 } catch { $lines += "lecture de WindowsApps refusee : " + $_.Exception.Message }
+
+# AND READABLE IS NOT WORKING. winget run outside its per-user alias, under a service account with no session, is
+# not something to assume: it is asked to say its version, then to list what is pending. Read only, both of them.
+. (Join-Path $backend 'lib/common.ps1')
+$exe = $null
+try {
+    $exe = @(Get-ChildItem -LiteralPath $dir -Filter 'Microsoft.DesktopAppInstaller_*_x64__*' -Directory -ErrorAction Stop |
+             ForEach-Object { Join-Path $_.FullName 'winget.exe' } |
+             Where-Object { Test-Path -LiteralPath $_ } | Select-Object -Last 1)
+} catch { }
+if (-not $exe) { $lines += 'aucun winget.exe atteignable' }
+else {
+    $lines += "essai : $exe"
+    $v = Invoke-Native -File $exe -Arguments @('--version')
+    $lines += "--version : ok=" + $v.Ok + " code=" + $v.Code + " sortie=" + (("$($v.Output)" -split "`r?`n" | Where-Object { $_ -match '\S' } | Select-Object -First 1))
+    $u = Invoke-Native -File $exe -Arguments @('upgrade', '--include-unknown', '--disable-interactivity', '--accept-source-agreements')
+    $premieres = @("$($u.Output)" -split "`r?`n" | Where-Object { $_ -match '\S' } | Select-Object -First 3)
+    $lines += "upgrade : ok=" + $u.Ok + " code=" + $u.Code + " lignes=" + @("$($u.Output)" -split "`r?`n").Count
+    $lines += "debut : " + ($premieres -join ' / ')
+}
 @{ message = ($lines -join ' | '); result = @{ ok = $true } }
