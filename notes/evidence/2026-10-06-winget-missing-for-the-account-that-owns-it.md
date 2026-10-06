@@ -36,7 +36,29 @@ donc là, lisible, et la sonde ne l'a pas utilisée. Chaque maillon marche isol�
 2. **La carte dit pour quel compte elle a été calculée**, et combien de gestionnaires ont été lus dans sa session.
    Une carte à laquelle on ne peut pas poser de question ne peut pas être crue.
 
-## Ce qui reste à trancher
+## La cause : une sonde ré-importe la bibliothèque, et remet la porte à zéro
 
-Pourquoi `$requester` ou `$inventory` est vide **dans la sonde**, alors que la porte et le fichier répondent tous
-deux correctement hors de ce contexte. La ligne ajoutée sur la carte doit le dire au prochain calcul.
+**Chaque sonde commence par `. (Join-Path $backend 'lib/common.ps1')`.** Cette ligne réexécute la bibliothèque dans
+le contexte de la sonde : elle y redéfinit `Get-StateAccount` **et** y réinitialise sa variable à `$null`.
+
+La porte était une variable de portée `script`. `Get-State` l'écrivait dans *son* contexte ; la sonde lisait *le
+sien*, qui venait d'être remis à zéro une ligne plus tôt. Chaque maillon fonctionnait seul, et c'est pour ça que
+chaque test isolé réussissait :
+
+| Test | Résultat | Pourquoi ça ne prouvait rien |
+|---|---|---|
+| `Get-StateAccount` après `Get-State -Account 'fhaza'` | rend `fhaza` | testé **hors** de la sonde, dans le contexte où la variable était écrite |
+| `Get-PkgInventory -Account 'fhaza'` | 3 lignes | testé **hors** de la sonde, sans ré-import |
+
+**Correctif.** Le compte voyagé dans la portée **globale**, posé juste avant chaque sonde et reprise juste après,
+dans la fenêtre que le verrou de recalcul protège déjà. Ce n'est pas un raccourci : une variable de portée `script`
+ne peut pas, par construction, franchir un ré-import.
+
+## Ce que cette enquête a coûté, et ce qui le rend moins probable
+
+Une demi-heure sans rien dire, à déduire au lieu de mesurer, sur une chaîne dont chaque maillon répondait juste. Deux
+choses en sortent, toutes deux permanentes :
+
+- **`diag-account-logs` ramène l'état** (`cache/`, `run/`), pas seulement les journaux. C'est l'état qui dit ce qu'un
+  calcul a **lu** ; sans lui le fichier qui portait la réponse était à une copie de distance et illisible.
+- **La carte dit pour quel compte elle a été calculée**, et combien de gestionnaires ont été lus dans sa session.

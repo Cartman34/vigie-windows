@@ -7163,9 +7163,8 @@ function Get-State {
     }
     # QUI DEMANDE : les cartes qui parlent de « vous » ont leur propre entree par compte.
     $stateRequester = $(if ($PSBoundParameters.ContainsKey('Account')) { $Account } else { Get-RequesterAccount })
-    # AND THE PROBES ARE TOLD, because they run with no argument (`& $sp.File`) and the scheduler has no cookie to
-    # read. Without this, a per-account probe computed by the scheduler saw nobody (D128).
-    $script:StateAccount = $stateRequester
+    # THE PROBES ARE TOLD who this computation is for, just before each one runs (see Get-StateAccount): they take no
+    # argument, and the scheduler has no cookie to read.
     # THE GAME MODE, read once per pass: during a game, the cards that do not watch it space themselves out.
     $inGame = [bool](Get-GameModeName -Backend $Backend)
     $stale = @()
@@ -7344,6 +7343,9 @@ function Get-State {
                 foreach ($sp in $stale) {
                     $t0 = Get-Date
                     try {
+                        # FOR WHOM, said just before the probe runs and taken back just after: a probe dot-sources
+                        # this library itself, so nothing else reaches it (D128).
+                        $global:VigieStateAccount = $stateRequester
                         $m = & $sp.File
                         $duree = [int]((Get-Date) - $t0).TotalMilliseconds
                         if ($m) { $cache[$sp.Key] = [ordered]@{ module = $m; at = (Get-Date).ToUniversalTime().ToString('o'); codeStamp = $sp.Stamp } }
@@ -7399,6 +7401,9 @@ function Get-State {
                 }
             }
         } finally {
+            # AND IT IS TAKEN BACK. A global left behind would answer for the next computation, which may be for
+            # somebody else or for nobody.
+            $global:VigieStateAccount = $null
             if ($got -and $mx) { try { $mx.ReleaseMutex() } catch { } }
             if ($mx) { try { $mx.Dispose() } catch { } }
         }
@@ -11009,9 +11014,23 @@ function Register-VigieEventSource {
     `Get-State` says who it computes for, here, before running the probes; the cookie remains the fallback for code
     that runs inside a request without going through Get-State.
 #>
-$script:StateAccount = $null
+<#
+    AND IT IS A GLOBAL, WHICH IS NOT A SHORTCUT: a script variable cannot cross into a probe.
+
+    Every probe begins by dot-sourcing this library into ITS OWN script scope. That re-runs the line below and
+    redefines this function there, so a `$script:` variable set by Get-State was invisible to the probe -- the probe
+    read its own copy, freshly reset to $null. Measured on 06/10: the scheduler computed the packages card for
+    `fhaza`, the account's inventory held winget, and the card came out without it. Each link worked alone; the chain
+    did not.
+
+    Get-State therefore sets it in the global scope, right before running each probe, and clears it after. The window
+    is inside the single-flight mutex that already serialises recomputation.
+#>
+if (-not (Get-Variable -Name 'VigieStateAccount' -Scope Global -ErrorAction SilentlyContinue)) {
+    $global:VigieStateAccount = $null
+}
 function Get-StateAccount {
-    if ($script:StateAccount) { return $script:StateAccount }
+    if ($global:VigieStateAccount) { return $global:VigieStateAccount }
     return (Get-RequesterAccount)
 }
 
