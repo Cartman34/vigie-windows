@@ -32,8 +32,13 @@ $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $repoRoot 'scripts/lib/console-ui.ps1')
 Write-Title (Get-Label 'check-scope.titre')
 
+# NOT ONLY THE PROBES. Two cards are built by the library itself -- the one that replaces a probe that threw, and
+# the one that says a measurement has not happened yet. The first version of this verifier looked at the probes
+# only; the parameter became mandatory, those two calls stayed without it, and `/modules` answered 500 while
+# `/health` kept answering fine. A rule checked on part of the code is not checked.
 $probeDir = Join-Path $repoRoot 'apps/backend-pode/probes'
 $files = @(Get-ChildItem -LiteralPath $probeDir -Recurse -File -Filter '*.probe.ps1' -ErrorAction SilentlyContinue)
+$files += @(Get-Item -LiteralPath (Join-Path $repoRoot 'apps/backend-pode/lib/common.ps1') -ErrorAction SilentlyContinue)
 
 # THE SCOPE OF A COMMAND CALL, read from the syntax tree rather than from a regular expression: `-Scope` can be
 # written on any line of a call spread over twenty, and a regular expression over lines finds the wrong call.

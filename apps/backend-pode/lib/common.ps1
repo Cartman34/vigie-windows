@@ -7376,7 +7376,9 @@ function Get-State {
                                 if ($d.Label) { $libelle = "$($d.Label)" }
                             }
                         } catch { }
-                        $errMod = New-ModuleObject -Id $sp.Name -Theme $unit -Label $libelle -Status 'error' -Fields @(
+                        # SCOPE 'machine': a probe that threw says so to everyone. The failure is the computer's,
+                        # not an account's -- and the card it replaces may have had either scope.
+                        $errMod = New-ModuleObject -Id $sp.Name -Theme $unit -Label $libelle -Scope 'machine' -Status 'error' -Fields @(
                             New-Field -Key 'error' -Label 'Erreur' -Value $_.Exception.Message -Kind 'text' -Status 'error'
                             New-Field -Key 'probe' -Label 'Sonde' -Value $sp.Name -Kind 'text'
                         )
@@ -7547,7 +7549,8 @@ function Get-State {
             # « DEPLOYMENT » en anglais faute de le savoir.
             if ($decl.Theme) { $cardTheme = "$($decl.Theme)" }
         } catch { }
-        $modules += (New-ModuleObject -Id $unit -Theme $cardTheme -Label $cardLabel -Status 'neutral' -Fields @() -Actions @())
+        # SCOPE 'machine': this card says only that a measurement has not happened yet, which is true for everyone.
+        $modules += (New-ModuleObject -Id $unit -Theme $cardTheme -Label $cardLabel -Scope 'machine' -Status 'neutral' -Fields @() -Actions @())
         $chrono[$unit] = 0
         try { Add-Member -InputObject $modules[-1] -NotePropertyName 'pending' -NotePropertyValue $true -Force } catch { }
     }
