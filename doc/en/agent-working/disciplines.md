@@ -264,6 +264,21 @@ On 30/09 I answered "anything else to fix?" with five paragraphs he had not aske
 message aussi long pour rien, tu n'avais rien à dire."* One question, one subject, one answer. What he did not ask for
 goes to the repository, and he is told where in the same 200 characters, or not at all.
 
+## What he asks is kept in writing, and a screenshot is kept as a description
+
+**Every decision quotes him, dated.** `decisions.md` carries his own words between quotation marks; each discipline
+names the reproach that made it; each record in `notes/evidence/` carries its date and the raw measurement. A rule
+whose origin is lost becomes an opinion.
+
+**A screenshot he sends is never committed as a file.** *06/10: "Evite de garder les fichiers images, ca va alourdir
+le repos pour pas grand chose, par contre, tu peux garder l'image sous forme de description."* The repository holds
+no image today, and a deposit of them would weigh on every clone for something a few lines say as well.
+
+**It is kept as a DESCRIPTION, in the record that cites it**: what is on screen, what is wrong, and the words the
+screen shows. "The Storage card is greyed, its three buttons are off, it says 'Analyse — dossiers parcourus : 0',
+and nothing names the operation in progress." That outlives the image, it is searchable, and it is what the fix is
+measured against.
+
 ## A PLAN BEFORE THE CODE, AND IT IS MANDATORY
 
 **Nothing is written until the plan has been presented and accepted.** Not a probe, not a verifier, not a one-line
