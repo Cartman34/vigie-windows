@@ -39,6 +39,7 @@ définition de `../targeting/operations.md`, section « Ce qu'est une opération
 | `disk-analyze-stop` | `disk.probe.ps1` | tous | serveur | synchrone | drapeau relu par le worker | sans objet |
 | `disk-cleanup` | `disk.probe.ps1` | tous | session | synchrone | `Start-Process` | sans objet |
 | `wsl-usage` | `disk.probe.ps1` (par le cache) | tous | session | synchrone | `wsl.exe df` sur les distributions DEJA en marche | sans objet |
+| `probe-refresh` | aucune carte (outil de maintenance) | admin | serveur | synchrone | marque le cache d'une sonde à recalculer (`Remove-ProbeCache`), entrées par compte comprises, et prévient l'ordonnanceur ; ne calcule rien | sans objet |
 | `pkg-inventory` | `packages.probe.ps1` (par le cache) | tous | session | synchrone | résout chaque gestionnaire du catalogue dans la session du compte et lit sa version ; un gestionnaire installé dans un profil est invisible depuis le compte de service | sans objet |
 | `disk-tree` | `disk.probe.ps1`, `index.html` | tous | serveur | synchrone | lecture de cache | sans objet |
 | `net-dns-flush` | `net.probe.ps1` | admin | serveur | synchrone | `Invoke-Native` | sans objet |
