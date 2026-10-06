@@ -104,6 +104,12 @@ Only what passes all three -- a need, a product choice nobody has made -- is ask
 the owner in two series; nine were answered by one of these gates. "The subjects are relevant, but they have nothing to
 do in a question when you ALREADY have the answers."*
 
+**A DECISION THAT IS HIS IS ASKED, NEVER ANNOUNCED AS PENDING.** Writing "three things are waiting for your
+decision" is not asking: it hands him the work of extracting the question, the options and what each one costs.
+Whatever is his to settle leaves as a numbered question, stated in full, in the format above -- in the same message
+that found it. *06/10: "Quand je dois prendre une decision, tu dois poser une question. C'est une regle deja definie
+normalement mais apparemment oubliee."*
+
 **His words are taken literally, never interpreted.** "The card belongs to the Debug module and follows its visibility"
 does not say "one card per module": reading more into a sentence than it says is deforming it. When a sentence leaves
 something open, it stays open. *18/09.*
