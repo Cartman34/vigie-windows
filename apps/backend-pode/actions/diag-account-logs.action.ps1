@@ -90,13 +90,13 @@ if (Test-Path -LiteralPath $logs) {
 #>
 $heavy = @()
 foreach ($sous in @('cache', 'run')) {
-    $dossier = Join-Path $source $sous
-    if (-not (Test-Path -LiteralPath $dossier)) { continue }
-    $vers = Join-Path $cible $sous
-    New-Item -ItemType Directory -Path $vers -Force | Out-Null
-    foreach ($f in @(Get-ChildItem -LiteralPath $dossier -File -Recurse -ErrorAction SilentlyContinue)) {
+    $folder = Join-Path $source $sous
+    if (-not (Test-Path -LiteralPath $folder)) { continue }
+    $into = Join-Path $cible $sous
+    New-Item -ItemType Directory -Path $into -Force | Out-Null
+    foreach ($f in @(Get-ChildItem -LiteralPath $folder -File -Recurse -ErrorAction SilentlyContinue)) {
         if ($f.Length -gt 16MB) { $heavy += ("{0}/{1} ({2})" -f $sous, $f.Name, (Format-ByteSize ([long]$f.Length))); continue }
-        Copy-Item -LiteralPath $f.FullName -Destination $vers -Force -ErrorAction SilentlyContinue
+        Copy-Item -LiteralPath $f.FullName -Destination $into -Force -ErrorAction SilentlyContinue
         $nb++
     }
 }
