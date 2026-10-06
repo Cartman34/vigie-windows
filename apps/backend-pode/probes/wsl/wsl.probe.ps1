@@ -11,7 +11,7 @@ $default = '(aucune)'
 # de service : la ruche ambiante serait la sienne, et il n'a jamais installe WSL. On lit
 # donc la ruche du DEMANDEUR, et a defaut celles des utilisateurs connectes (D113).
 $wslHives = @()
-$requester = Get-RequesterAccount
+$requester = Get-StateAccount
 if ($requester) { $wslHives += @(Get-AccountRegistryRoot -Account $requester) }
 $wslHives += @(Get-UserRegistryRoots)
 foreach ($hive in ($wslHives | Where-Object { $_ })) {

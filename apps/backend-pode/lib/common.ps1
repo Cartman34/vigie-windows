@@ -7163,6 +7163,9 @@ function Get-State {
     }
     # QUI DEMANDE : les cartes qui parlent de « vous » ont leur propre entree par compte.
     $stateRequester = $(if ($PSBoundParameters.ContainsKey('Account')) { $Account } else { Get-RequesterAccount })
+    # AND THE PROBES ARE TOLD, because they run with no argument (`& $sp.File`) and the scheduler has no cookie to
+    # read. Without this, a per-account probe computed by the scheduler saw nobody (D128).
+    $script:StateAccount = $stateRequester
     # THE GAME MODE, read once per pass: during a game, the cards that do not watch it space themselves out.
     $inGame = [bool](Get-GameModeName -Backend $Backend)
     $stale = @()
@@ -10992,6 +10995,23 @@ function Register-VigieEventSource {
     de dire ce que « personne » signifie chez lui -- souvent « aucun compte n'est vous »,
     parfois « on previent tout le monde ».
 #>
+<#
+    THE ACCOUNT THE CURRENT COMPUTATION IS FOR -- one door, and probes know no other.
+
+    `Get-RequesterAccount` reads the session cookie of a WEB REQUEST. It therefore answers nothing at all when the
+    SCHEDULER computes (D124), which has no requester: the refresh worker runs outside any request. A per-account
+    probe that asked it directly saw $null half the time, and silently dropped what belongs to an account -- measured
+    on 06/10, the winget card vanished from the panel for the very account that owns winget.
+
+    `Get-State` says who it computes for, here, before running the probes; the cookie remains the fallback for code
+    that runs inside a request without going through Get-State.
+#>
+$script:StateAccount = $null
+function Get-StateAccount {
+    if ($script:StateAccount) { return $script:StateAccount }
+    return (Get-RequesterAccount)
+}
+
 function Get-RequesterAccount {
     try {
         if ($WebEvent) {

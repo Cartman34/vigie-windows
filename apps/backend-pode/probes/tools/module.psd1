@@ -7,6 +7,12 @@
     Label       = 'Outils & paquets'
     Description = 'Gestionnaires de paquets : winget, Chocolatey, pip.'
 
+    # ONE CARD PER ACCOUNT (D109, D128): a manager installed in a profile belongs to that account. winget lives in
+    # `AppData\Local\Microsoft\WindowsApps`, so what this card shows differs from one account to the next -- and
+    # the rendering goes into state-cache.json, which is SHARED. Without this declaration, the first account to look
+    # left its answer there for everyone, and the scheduler computed a single card for nobody in particular.
+    PerAccount = $true
+
     # CONFIG : les valeurs par defaut, versionnees (D57).
     Config = @{
         IgnoredPackages = @()   # motifs (joker * accepte) exclus du decompte des MAJ

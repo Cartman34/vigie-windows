@@ -16,7 +16,12 @@
       1. every `New-ModuleObject` declares `-Scope` ('machine', 'user' or 'mixed') ;
       2. a card declared 'mixed' gives every one of its `New-Field` calls its own `-Scope` ;
       3. a card declared 'machine' or 'user' does not repeat that same scope on a field -- a field only speaks when
-         it departs from its card, otherwise the declaration becomes noise nobody reads.
+         it departs from its card, otherwise the declaration becomes noise nobody reads ;
+      4. a probe that speaks of an account -- a card scoped 'user' or 'mixed', a scope computed at run time, or any
+         call to `Get-StateAccount` -- declares `PerAccount = $true` in its module.psd1. Without it the rendering
+         goes into state-cache.json, which is SHARED: the first account to look leaves its answer there for all the
+         others. Measured on 06/10: the packages card read the requester with no such declaration, and the winget
+         card disappeared for the only account that owns winget.
 
     WHAT IT CANNOT DO. It does not know whether the answer is TRUE: a card declaring 'machine' while reading a
     profile is beyond a parser. What it guarantees is that someone decided, in the code, and said so.
@@ -53,6 +58,7 @@ function Get-ScopeArgument {
 $cardsWithoutScope = @()
 $mixedFieldsWithoutScope = @()
 $redundantFields = @()
+$personalWithoutPerAccount = @()
 $cardCount = 0
 $fieldCount = 0
 
@@ -81,6 +87,20 @@ foreach ($file in $files) {
     }
     if (-not $scopes.Count) { continue }
 
+    # DOES THIS PROBE SPEAK OF AN ACCOUNT? Three signs, and any one of them is enough.
+    $readsAccount = @($commands | Where-Object { "$($_.GetCommandName())" -eq 'Get-StateAccount' }).Count -gt 0
+    $personal = $readsAccount -or ($scopes | Where-Object { $_ -in @('user', 'mixed', '(calculé)') }).Count -gt 0
+    if ($personal) {
+        $perAccount = $false
+        try {
+            $declaration = Join-Path (Split-Path $file.FullName -Parent) 'module.psd1'
+            if (Test-Path -LiteralPath $declaration) {
+                $perAccount = [bool](Import-PowerShellDataFile -LiteralPath $declaration -ErrorAction Stop).PerAccount
+            }
+        } catch { }
+        if (-not $perAccount) { $personalWithoutPerAccount += [pscustomobject]@{ File = $rel } }
+    }
+
     foreach ($field in $fields) {
         $fieldScope = Get-ScopeArgument -Command $field
         if ($scopes -contains 'mixed' -and -not $fieldScope) {
@@ -104,6 +124,11 @@ if ($mixedFieldsWithoutScope.Count) {
     $failed = $true
     Write-Fail (Get-Label 'check-scope.champs-sans-portee' $mixedFieldsWithoutScope.Count)
     foreach ($row in $mixedFieldsWithoutScope) { Write-Detail (Get-Label 'check-scope.ligne' $row.File $row.Line) }
+}
+if ($personalWithoutPerAccount.Count) {
+    $failed = $true
+    Write-Fail (Get-Label 'check-scope.sans-per-account' $personalWithoutPerAccount.Count)
+    foreach ($row in $personalWithoutPerAccount) { Write-Detail (Get-Label 'check-scope.fichier' $row.File) }
 }
 if ($redundantFields.Count) {
     $failed = $true

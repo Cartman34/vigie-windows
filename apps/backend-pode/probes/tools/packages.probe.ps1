@@ -31,7 +31,7 @@ if (Test-Path $updFile) {
     What this process sees itself still counts, and is borrowed from nobody: a manager installed machine-wide needs
     nobody signed in to be true.
 #>
-$requester = Get-RequesterAccount
+$requester = Get-StateAccount
 $inventory = @{}
 $inventoryAt = @{}
 if ($requester) {
