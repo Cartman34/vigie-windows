@@ -7,8 +7,8 @@ param([string]$Backend, [string]$ArgsB64)
 if (-not $Backend) { exit 1 }
 . (Join-Path $Backend 'lib/common.ps1')
 
-# Parametres (JSON base64) : mgr + op + pkgs (paquets retenus, vide = tout) + account.
-$mgr = $null; $op = 'check'; $pkgs = @(); $account = $null
+# Parameters (base64 JSON): mgr + op + pkgs (the packages kept; empty does NOT mean all, D131) + account + all.
+$mgr = $null; $op = 'check'; $pkgs = @(); $account = $null; $all = $false
 try {
     if ($ArgsB64) {
         $a = ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($ArgsB64))) | ConvertFrom-Json
@@ -16,6 +16,7 @@ try {
         if ($a.op) { $op = "$($a.op)" }
         if ($a.pkgs) { $pkgs = @($a.pkgs | ForEach-Object { "$_" }) }
         if ($a.account) { $account = "$($a.account)" }
+        if ($null -ne $a.all) { $all = [bool]$a.all }
     }
 } catch { }
 if (-not $mgr) { Write-Output ('[X] ' + (Get-Label 'pkg-job.gestionnaire-absent')); exit 1 }
@@ -38,7 +39,7 @@ function Invoke-PkgInSession {
     param([Parameter(Mandatory)][string]$Operation, [string[]]$Packages = @())
     $timeout = if ($Operation -eq 'upgrade') { 3600 } else { 180 }
     $answer = Invoke-ClientTask -Account $account -Type 'pkg-updates' -Module ('pkg-' + $mgr) -TimeoutSec $timeout `
-                                -Params @{ mgr = $mgr; op = $Operation; pkgs = @($Packages) } -Backend $Backend
+                                -Params @{ mgr = $mgr; op = $Operation; pkgs = @($Packages); all = $all } -Backend $Backend
     if (-not $answer) { throw "l'app cliente de $account n'a pas repondu" }
     if (-not $answer.result -or -not $answer.result.ok) { throw "$($answer.message)" }
     return $answer.result

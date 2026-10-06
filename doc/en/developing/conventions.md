@@ -134,6 +134,29 @@ Each cost half a day. They do not show on review: they show in production, late.
 ## Device bridge
 - Files handled through the bridge (mounted folder). **Deletion forbidden**: move (`mv`) instead of deleting.
 
+## "All" is asked for, never assumed (absolute rule)
+
+**Nothing specified never means everything.** A command, an action or a function that acts on a SET takes an explicit
+`-All` to act on the whole of it. An empty list, an absent parameter, a name that did not reach its destination: all
+of these mean *nothing was designated*, and the answer is to refuse and say so -- never to take the widest possible
+reading.
+
+`scripts/check-probes.ps1 -All` has worked that way from the start. The rule was in the habit and nowhere in writing,
+which is exactly why it was broken.
+
+**What it cost, on 06/10.** A call passed a package list under a parameter name the action did not read -- `pkgs`
+where it expected `ids`. The list arrived empty, empty meant "the whole manager", and winget received `upgrade
+--all`: **sixteen programs installed instead of one**, among them the owner's terminal, closed with the work running
+in it, and WSL, which he had kept for himself. Nothing failed. Every link did what it was asked.
+
+**How to apply it:**
+
+- the switch is named `-All`, and it is the ONLY way to mean the whole set ;
+- without it and without a designated subject, the call **returns a refusal that names what is missing** ;
+- a parameter name is not a safety device: accept the names actually used, and protect downstream, where the gesture
+  happens ;
+- `scripts/dev/check-sets.ps1` refuses a launch that would act on everything without having been asked to.
+
 ## Idempotence (absolute rule)
 **All** scripts are idempotent: replayable without side effect or error. In practice:
 - Check the state BEFORE acting; redo nothing needlessly.

@@ -17,10 +17,25 @@ if ($Params -and $Params.mgr) { $mgr = "$($Params.mgr)" }
 elseif ($Module) { $mgr = ($Module -replace '^pkg-', '') }
 if (-not $mgr) { return @{ message = "Gestionnaire non précisé."; result = @{ ok = $false } } }
 
-$ids = @()
-if ($Params -and $Params.ids) { $ids = @($Params.ids | Where-Object { "$_" -match '\S' } | ForEach-Object { "$_" }) }
-# '*' est la ligne unique proposee quand le gestionnaire ne sait pas cibler un paquet :
-# elle vaut « tout », pas un nom de paquet.
-if ($ids.Count -eq 1 -and $ids[0] -eq '*') { $ids = @() }
+<#
+    THE PACKAGES KEPT, UNDER BOTH NAMES THEY ARE GIVEN (D131).
 
-Start-PkgJob -Mgr $mgr -Op 'upgrade' -Pkgs $ids -Backend $backend
+    This action read `ids` and nothing else. On 06/10 a call passed the list under `pkgs`: it arrived empty, and an
+    empty list meant "the whole manager". Sixteen programs were installed instead of one. Both names are therefore
+    accepted -- a parameter name is not a safety device -- and it is the refusal downstream that protects: with no
+    package AND no explicit "all", nothing leaves.
+#>
+$ids = @()
+foreach ($champ in @('ids', 'pkgs')) {
+    if ($Params -and $Params.$champ) { $ids += @($Params.$champ | Where-Object { "$_" -match '\S' } | ForEach-Object { "$_" }) }
+}
+$ids = @($ids | Select-Object -Unique)
+# '*' is the single line offered when a manager cannot target one package: it means "all", not a package name --
+# and "all" is now asked for in so many words.
+$tout = ($ids.Count -eq 1 -and $ids[0] -eq '*')
+if ($tout) { $ids = @() }
+
+if (-not $ids.Count -and -not $tout) {
+    return @{ message = "Aucun paquet désigné : cochez ce qui doit être mis à jour."; result = @{ ok = $false } }
+}
+Start-PkgJob -Mgr $mgr -Op 'upgrade' -Pkgs $ids -All:$tout -Backend $backend

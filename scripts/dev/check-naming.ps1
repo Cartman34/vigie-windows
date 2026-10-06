@@ -43,7 +43,7 @@ $ErrorActionPreference = 'Stop'
     not rewrite it at once -- thousands of touched lines for no gain, and a drowned git
     blame. The ratchet forbids adding any; every conversion lowers the ceiling as much.
 #>
-$COMMENT_CEILING = 5607
+$COMMENT_CEILING = 5603
 <#
     THE IDENTIFIER CEILING -- RECOUNTED ON 29/09, BECAUSE THE COUNTER WAS HALF-BLIND.
 

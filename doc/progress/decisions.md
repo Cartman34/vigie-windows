@@ -42,7 +42,7 @@ ligne — `scripts/dev/check-doc.ps1` refuse une décision absente d'ici.
 - **Configuration** — D15 · D18 · D56 · D57
 - **Interface** — **D130** · D127 · D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46 · D48 · D49 · D50 · D58 · D59 · D66 · D68 · D69 · D70 · D71 · D88 · D89 · D94 · D95 · D102 · D105 · D114
 - **Installation, déploiement et mise à jour** — D07 · D11 · D22 · D77 · D78 · D79 · D81 · D84 · D87 · D96 · D97 · D99 · D101 · D106 · D107 (revu) · D110 · D112 · D117 · D123
-- **Sécurité, droits et multi-comptes** — **D128** · D34 · D65 · D67 · D73 · D104 · D109
+- **Sécurité, droits et multi-comptes** — **D131** · **D128** · D34 · D65 · D67 · D73 · D104 · D109
 - **Sondes, actions et tâches de fond** — D50bis · D53 · D54 · D60 · D61 · D80 · D82 · D83 · D85 · D113 · D124 · D125 · D126
 - **Outillage** — D06 · D21 · D24 · D40 · D44 · D47 · D52 · D64 · D75 · D86 · D90 · D116 · D118
 - **Méthode de travail** — D10 · D12 · D13 · D14 · D16 · D17 · D31 · D36 · D39 · D43 · D51 · D62 · D63 · D74 · D76 · D100 · D103 · D121
@@ -3481,3 +3481,30 @@ donc vérifier et mettre à jour **le même** gestionnaire s'excluent, et deux g
 Relevé : [Une carte occupée ne disait pas par quoi, et ne se déplaçait plus](../../notes/evidence/2026-10-06-a-busy-card-said-nothing-and-could-not-be-moved.md).
 
 Où c'est réalisé : `apps/frontend-web/index.html`.
+
+## D131 — « Tout » se demande, il ne se déduit jamais d'une absence (2026-10-06)
+
+*Constaté par l'utilisateur, après que seize logiciels ont été installés sur sa machine au lieu d'un : « Chez nous,
+"Tout" doit être un paramètre explicite, pour toutes les situations pour tous les scripts, c'est dans nos
+conventions, pour éviter ce genre d'erreur justement. »*
+
+**La convention existait dans l'usage et nulle part dans l'écrit.** `scripts/check-probes.ps1 -All` fonctionne ainsi
+depuis le début ; aucun document ne le disait. C'est précisément pour ça qu'elle a été enfreinte.
+
+**Ce qui s'est passé.** L'action `pkg-upgrade` lit `Params.ids` ; l'appel a passé la liste sous `Params.pkgs`. Elle
+est arrivée vide, une liste vide valait « tout le gestionnaire », et winget a reçu `upgrade --all` : **seize
+logiciels installés**, dont le terminal du propriétaire — fermé avec le travail qui tournait dedans — et WSL, qu'il
+s'était réservé. **Rien n'a levé.** Chaque maillon a fait ce qu'on lui demandait ; c'est le défaut de conception qui
+a transformé une faute d'appel en seize installations.
+
+**La règle.** Une commande, une action ou une fonction qui agit sur un **ensemble** prend un `-All` explicite pour
+agir sur sa totalité. Une liste vide, un paramètre absent, un nom qui n'est pas arrivé : tout cela veut dire
+**« rien n'a été désigné »**, et la réponse est un refus qui nomme ce qui manque — jamais la lecture la plus large.
+
+**Et un nom de paramètre n'est pas une sécurité.** Celui qui appelle peut se tromper de nom : on accepte les noms
+réellement employés, et c'est **en aval**, là où le geste a lieu, que le refus protège.
+
+Relevé : [Seize logiciels installés au lieu d'un](../../notes/evidence/2026-10-06-sixteen-programs-installed-instead-of-one.md).
+
+Où c'est réalisé : `doc/en/developing/conventions.md` (« "All" is asked for, never assumed »), `Start-PkgJob`,
+`actions/pkg-upgrade.action.ps1`, `scripts/dev/check-sets.ps1`.

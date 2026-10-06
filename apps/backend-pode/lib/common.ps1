@@ -1264,11 +1264,23 @@ function Test-PkgFailureIsDone {
 #   gestionnaire ne sait pas cibler un paquet, la selection est ignoree et on retombe sur
 #   la mise a jour globale : c'est ce que la fenetre de choix a annonce a l'utilisateur.
 function Invoke-PkgUpgrade {
-    param([Parameter(Mandatory)][string]$Id, [string[]]$Pkgs)
+    param(
+        [Parameter(Mandatory)][string]$Id,
+        [string[]]$Pkgs,
+        # THE WHOLE MANAGER, AND IT HAS TO BE SAID (D131). This is where "upgrade --all" leaves from: an empty
+        # list meant all of it, and that installed sixteen programs instead of one on 06/10. The gate sits here, as
+        # close to the gesture as possible, because a mistyped parameter name upstream must never be able to open it.
+        [switch]$All
+    )
     $mg = Get-PackageManagerCatalog | Where-Object { $_.id -eq $Id } | Select-Object -First 1
     if (-not $mg) { return @{ ok = $false; supported = $false; output = '' } }
     $liste = @($Pkgs | Where-Object { "$_" -match '\S' } | ForEach-Object { "$_" })
     $unParUn = ($liste.Count -gt 0 -and $null -ne $mg.upgOne -and @($mg.upgOne).Count -gt 0)
+    # NOTHING DESIGNATED IS NOT EVERYTHING (D131): with no package and no -All, nothing runs, and it says so.
+    if (-not $liste.Count -and -not $All) {
+        return @{ ok = $false; supported = $true; output = ''; count = 0; failed = @()
+                  reason = "aucun paquet désigné : précisez les paquets, ou demandez explicitement tout le gestionnaire" }
+    }
     if (-not $unParUn -and (-not $mg.upgArgs -or @($mg.upgArgs).Count -eq 0)) { return @{ ok = $false; supported = $false; output = '' } }
     $cmd = Get-Command $Id -ErrorAction SilentlyContinue
     if (-not $cmd -or -not $cmd.Source) { return @{ ok = $false; supported = $false; output = '' } }
@@ -1323,9 +1335,20 @@ function Start-PkgJob {
     param(
         [Parameter(Mandatory)][string]$Mgr,
         [ValidateSet('check','upgrade')][string]$Op = 'check',
-        # Paquets RETENUS par l'utilisateur. Vide = tout le gestionnaire (comportement
-        # historique). Voir Invoke-PkgUpgrade.
+        # THE PACKAGES KEPT. An empty list no longer means "all": that takes -All (D131). See Invoke-PkgUpgrade.
         [string[]]$Pkgs,
+        <#
+            -All: THE WHOLE MANAGER, AND IT HAS TO BE SAID (D131).
+
+            An empty list used to mean "all of it". On 06/10 a call passed the list under a parameter name that did
+            not exist, it arrived empty, and winget received `upgrade --all`: SIXTEEN programs installed instead of
+            one, among them the owner's terminal, closed with the work running inside it, and WSL, which he had kept
+            for himself.
+
+            None of it threw: every link did what it was asked. The DEFECT is the design -- an absence read as the
+            widest permission. From now on, "all" is asked for.
+        #>
+        [switch]$All,
         # POUR QUEL COMPTE (D128). A manager installed in a profile answers only in that profile's session, and the
         # service account has no winget at all. Without an account there is nobody to ask, and the job is refused
         # rather than answering for the wrong person.
@@ -1335,6 +1358,11 @@ function Start-PkgJob {
     $known = Get-PackageManagerCatalog | Where-Object { $_.id -eq $Mgr } | Select-Object -First 1
     if (-not $known) { return @{ message = "Gestionnaire inconnu : $Mgr"; result = @{ ok = $false } } }
     $choisis = @($Pkgs | Where-Object { "$_" -match '\S' } | ForEach-Object { "$_" })
+    # NOTHING NAMED IS NOT EVERYTHING (D131): with no package AND no -All, nothing starts.
+    if ($Op -eq 'upgrade' -and -not $choisis.Count -and -not $All) {
+        return @{ message = "Aucun paquet désigné : précisez les paquets, ou demandez explicitement tout le gestionnaire."
+                  result = @{ ok = $false } }
+    }
     $unParUn = ($choisis.Count -gt 0 -and $null -ne $known.upgOne -and @($known.upgOne).Count -gt 0)
     if ($Op -eq 'check'   -and ($known.updMode -eq 'none' -or @($known.updArgs).Count -eq 0)) {
         return @{ message = "Verification non prise en charge pour $($known.label)."; result = @{ ok = $false } }
@@ -1374,7 +1402,7 @@ function Start-PkgJob {
         $started = [bool](Start-Operation -Module ("pkg-" + $Mgr) `
                               -Action $(if ($Op -eq 'upgrade') { 'pkg-upgrade' } else { 'pkg-check-updates' }) `
                               -Label ("$verb de " + $known.label) -Probes @('packages.probe.ps1') `
-                              -Worker 'pkg-job.worker.ps1' -ArgsMap @{ mgr = $Mgr; op = $Op; pkgs = $choisis; account = $Account } `
+                              -Worker 'pkg-job.worker.ps1' -ArgsMap @{ mgr = $Mgr; op = $Op; pkgs = $choisis; account = $Account; all = [bool]$All } `
                               -Button $(if ($Op -eq 'upgrade') { 'pkg-list-updates' } else { '' }) -Backend $Backend)
     } catch { }
     if (-not $started) { return @{ message = "Impossible de lancer l'opération sur $($known.label)."; result = @{ ok = $false } } }

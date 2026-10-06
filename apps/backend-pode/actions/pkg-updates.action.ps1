@@ -31,6 +31,11 @@ $op = if ($Params -and $Params.op) { "$($Params.op)" } else { 'check' }
 if ($op -notin @('check', 'upgrade')) { return @{ message = "Opération inconnue : $op"; result = @{ ok = $false } } }
 $pkgs = @()
 if ($Params -and $Params.pkgs) { $pkgs = @($Params.pkgs | ForEach-Object { "$_" } | Where-Object { $_ -match '\S' }) }
+# THE WHOLE MANAGER IS ASKED FOR (D131): with no package and no such flag, the install is refused downstream.
+$all = [bool]($Params -and $Params.all)
+if ($op -eq 'upgrade' -and -not $pkgs.Count -and -not $all) {
+    return @{ message = "Aucun paquet désigné."; result = @{ ok = $false } }
+}
 
 # HERE, OR NOWHERE. The manager must exist IN THIS SESSION: that is the whole point of this action.
 if (-not (Get-Command $mgr -ErrorAction SilentlyContinue)) {
@@ -39,7 +44,7 @@ if (-not (Get-Command $mgr -ErrorAction SilentlyContinue)) {
 
 $upgrade = $null
 if ($op -eq 'upgrade') {
-    try { $upgrade = Invoke-PkgUpgrade -Id $mgr -Pkgs $pkgs } catch {
+    try { $upgrade = Invoke-PkgUpgrade -Id $mgr -Pkgs $pkgs -All:$all } catch {
         return @{ message = "Mise à jour impossible : $($_.Exception.Message)"; result = @{ ok = $false } }
     }
     # LET THE MANAGER CATCH ITS BREATH: the check that follows used to run within the second, and winget listed

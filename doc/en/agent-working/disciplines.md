@@ -546,7 +546,7 @@ code, and offers `-Fix` when the correction is mechanical. In place: `check-enco
 `check-naming` (ratchet), `check-labels`, `check-reachable`, `check-doc`, `check-coherence`,
 `check-decisions` (ratchet), `check-author`, `check-operations`, `check-components`, `check-language` (ratchet),
 `check-powershell` (does every script still parse?), `check-scope` (does every card say whose information it
-carries?), plus `scripts/check-probes.ps1`.
+carries?), `check-sets` (is « all » asked for rather than assumed?), plus `scripts/check-probes.ps1`.
 `scripts/dev/check-all.ps1` runs every `check-*.ps1` of `scripts/dev`, found by name, and `-Probes` adds the probes check.
 
 ## Wrapping system calls
