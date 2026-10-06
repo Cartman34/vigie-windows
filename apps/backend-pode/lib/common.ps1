@@ -5383,6 +5383,91 @@ function Update-WslUsage {
     return $entry
 }
 
+<#
+    WHICH PACKAGE MANAGERS EACH ACCOUNT HAS, asked of that account's own session.
+
+    WHY. Measured on 05/10: the server app saw Chocolatey and pip, both installed machine-wide, and NOT winget,
+    although this account has it. A manager installed in a profile resolves from that profile's PATH, and the service
+    account's PATH never names it -- so the main manager of the machine was missing from the panel (C4 of
+    `targeting/multi-account-server.md`).
+
+    HOW. The same door WSL already uses (D113 and the client app's desktop orders): the server asks every account
+    whose client app beats, through the `pkg-inventory` action, which runs in that session. One entry per account,
+    refreshed at most once an hour -- a manager is not installed twice a day, and the reading costs a process launch
+    per manager.
+#>
+function Get-PkgInventoryPath {
+    param([string]$Backend = (Get-BackendRoot))
+    Get-VarPath -Backend $Backend -Kind 'cache' -File 'pkg-inventory.json'
+}
+
+# THE INVENTORY OF ONE ACCOUNT, or the union of every account kept when none is named. The union is what a card
+# without a requester can honestly show: "this machine has winget somewhere", with the account that proves it.
+function Get-PkgInventory {
+    param([string]$Backend = (Get-BackendRoot), [string]$Account)
+    try {
+        $path = Get-PkgInventoryPath -Backend $Backend
+        if (-not (Test-PathSafe $path)) { return @() }
+        $j = Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json
+        if (-not $j) { return @() }
+        $rows = @()
+        foreach ($prop in $j.PSObject.Properties) {
+            if ($Account -and "$($prop.Name)" -ne "$Account") { continue }
+            foreach ($m in @($prop.Value.managers)) {
+                if (-not $m -or -not $m.id) { continue }
+                $rows += [pscustomobject]@{ Id = "$($m.id)"; Source = "$($m.source)"; Version = "$($m.version)"
+                                            Account = "$($prop.Name)"; At = "$($prop.Value.at)" }
+            }
+        }
+        # ONE LINE PER MANAGER: the first account that has it answers for it, and the order of accounts is stable.
+        $seen = @{}
+        $out = @()
+        foreach ($row in @($rows | Sort-Object Account, Id)) {
+            if ($seen.ContainsKey($row.Id)) { continue }
+            $seen[$row.Id] = $true
+            $out += $row
+        }
+        return @($out)
+    } catch { return @() }
+}
+
+function Update-PkgInventory {
+    param([string]$Backend = (Get-BackendRoot), [int]$EveryMinutes = 60)
+    foreach ($held in @(Get-HeldResources -Backend $Backend)) {
+        if ("$($held.resource)" -eq 'machine') { return $null }
+    }
+    $path = Get-PkgInventoryPath -Backend $Backend
+    # ONE ACCOUNT PER PASS, the most overdue of them. Asking three accounts at once would launch eleven processes in
+    # three sessions in the same second, and the gate below would hide it.
+    $kept = $null
+    try { if (Test-PathSafe $path) { $kept = Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json } } catch { }
+    $candidate = $null
+    $oldest = $null
+    foreach ($row in @(Get-ClientWatchRows -Backend $Backend | Where-Object { $_.Status -eq 'ok' })) {
+        $account = "$($row.Account)"
+        if (-not $account) { continue }
+        # THE GATE IS READ IN TICKS (D44): an ISO date read back from JSON is a [datetime] whose string form is local
+        # and no longer parses, so a gate compared as text never holds -- it cost a client app asked every pass.
+        $ticks = 0
+        try { $ticks = [long]$kept.$account.atTicks } catch { }
+        if ($ticks -and ([datetime]::UtcNow - [datetime]$ticks).TotalMinutes -lt $EveryMinutes) { continue }
+        if ($null -eq $oldest -or $ticks -lt $oldest) { $oldest = $ticks; $candidate = $account }
+    }
+    if (-not $candidate) { return $null }
+    $answer = $null
+    try { $answer = Invoke-DesktopAction -Account $candidate -Type 'pkg-inventory' -Module 'tools' -TimeoutSec 60 -Backend $Backend } catch { }
+    if (-not $answer -or -not $answer.result -or -not $answer.result.ok) { return $null }
+    $entry = [ordered]@{
+        at       = ([datetime]::UtcNow).ToString('o')
+        atTicks  = ([datetime]::UtcNow).Ticks
+        managers = @($answer.result.managers)
+    }
+    try { Update-StateJson -Path $path -Set @{ $candidate = $entry } | Out-Null } catch { }
+    # THE CARDS MUST BE RECOMPUTED: a manager that has just appeared has no card until the probe runs again.
+    try { Remove-ProbeCache -Names @('packages.probe.ps1') -Backend $Backend } catch { }
+    return [pscustomobject]@{ Account = $candidate; Count = @($answer.result.managers).Count }
+}
+
 function Invoke-DiskWatch {
     param([string]$Backend = (Get-BackendRoot))
     foreach ($held in @(Get-HeldResources -Backend $Backend)) {
@@ -5902,6 +5987,9 @@ function Invoke-WatchPass {
     try { $null = Invoke-DiskWatch -Backend $Backend } catch { }
     # AND WHAT WSL HOLDS INSIDE, which only a session can see.
     try { $null = Update-WslUsage -Backend $Backend } catch { }
+    # AND WHICH PACKAGE MANAGERS EACH ACCOUNT HAS, for the same reason: one installed in a profile is invisible from
+    # the service account, and winget was missing from the panel until 05/10 for exactly that.
+    try { $null = Update-PkgInventory -Backend $Backend } catch { }
     # AND THE EPHEMERAL PORTS, read every pass, written only when they fill or right after Windows complains.
     try { $null = Invoke-PortWatch -Backend $Backend } catch { }
     return $events

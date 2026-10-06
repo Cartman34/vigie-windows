@@ -14,16 +14,36 @@ if (Test-Path $updFile) {
     try { $j = Get-Content $updFile -Raw | ConvertFrom-Json; foreach ($p in $j.PSObject.Properties) { $upd[$p.Name] = $p.Value } } catch { }
 }
 
+<#
+    WHAT THIS ACCOUNT HAS, read in its own session.
+
+    A manager installed in a profile resolves only from that profile's PATH. Measured on 05/10: winget lives in
+    `AppData\Local\Microsoft\WindowsApps` on this account, and the server app -- a service account -- did not see
+    it at all; the panel showed Chocolatey and pip and said nothing about the main manager of the machine (C4 of
+    `targeting/multi-account-server.md`). The inventory is taken by the `pkg-inventory` action in each account's
+    session, kept by `Update-PkgInventory`, and read here. What this process sees itself still counts: a manager
+    installed machine-wide needs nobody signed in to be true.
+#>
+$inventory = @{}
+$inventoryAt = @{}
+foreach ($row in @(Get-PkgInventory -Backend $backend -Account (Get-RequesterAccount))) {
+    $inventory["$($row.Id)"] = $row
+}
+if (-not $inventory.Count) {
+    foreach ($row in @(Get-PkgInventory -Backend $backend)) { $inventory["$($row.Id)"] = $row }
+}
+
 $modules = @()
 foreach ($mg in (Get-PackageManagerCatalog)) {
     $cmd = Get-Command $mg.id -ErrorAction SilentlyContinue
-    if (-not $cmd) { continue }
-    $src = if ($cmd.Source) { $cmd.Source } else { $mg.id }
+    $seen = $inventory["$($mg.id)"]
+    if (-not $cmd -and -not $seen) { continue }
+    $src = if ($cmd -and $cmd.Source) { $cmd.Source } elseif ($seen) { "$($seen.Source)" } else { $mg.id }
 
     # Version installee.
     $ver = 'installé'; $raw = ''
     try {
-        if ($mg.verArgs.Count -gt 0 -and $cmd.Source) {
+        if ($cmd -and $mg.verArgs.Count -gt 0 -and $cmd.Source) {
             $r = Invoke-Native -File $cmd.Source -Arguments $mg.verArgs
             if ($r.Ok -and $r.Output) {
                 $raw = (($r.Output -split "`r?`n") | Where-Object { $_ -match '\S' } | Select-Object -First 1).Trim()
@@ -32,6 +52,12 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
             }
         }
     } catch { }
+    # SEEN ONLY BY A SESSION: the version comes from there too, and the account that proves it is kept so the card
+    # can say where the reading comes from instead of implying the server could see it.
+    if (-not $cmd -and $seen) {
+        if ("$($seen.Version)".Trim()) { $ver = "$($seen.Version)" }
+        $inventoryAt["$($mg.id)"] = "$($seen.Account)"
+    }
 
     $u           = $upd[$mg.id]
     # WHAT IS RUNNING IS SAID BY THE BUSY MARK (doc/progress/targeting/operations.md): no expiry of our own any more.
@@ -75,6 +101,9 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
     $vg = @()
     if ($raw) { $vg += $raw }
     $vg += ("Chemin : " + $src)
+    # WHERE THE READING COMES FROM, said rather than implied: a manager installed in a profile is invisible to the
+    # server app, and the card would otherwise look like it had seen it itself.
+    if ($inventoryAt["$($mg.id)"]) { $vg += ("Lu dans la session de " + $inventoryAt["$($mg.id)"] + " : ce gestionnaire est installé dans ce profil, l'app serveur ne le voit pas.") }
     $fields = @()
     $fields += New-Field -Key 'version' -Label 'Version' -Value $ver -Kind 'text' -Status 'ok' `
         -Help "Version installée, détectée dans le PATH." -Guide ($vg -join "`n")
