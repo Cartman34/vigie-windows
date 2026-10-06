@@ -264,6 +264,26 @@ On 30/09 I answered "anything else to fix?" with five paragraphs he had not aske
 message aussi long pour rien, tu n'avais rien à dire."* One question, one subject, one answer. What he did not ask for
 goes to the repository, and he is told where in the same 200 characters, or not at all.
 
+## Whose information is this? (D128)
+
+**Before reading anything, ask whose it is.** The server app runs under a service account: it has no winget, no WSL,
+no Game Bar and nobody's settings, and its `PATH` names no profile. What belongs to an account is read IN THAT
+ACCOUNT'S SESSION, through the client app running there -- never from the service account, and never borrowed from
+another account.
+
+**The trap is that forgetting does not show.** A card that reads the wrong account appears normally, with a plausible
+value that belongs to someone else. On 05/10 it happened twice in one day: the winget card did not exist at all,
+because a profile's folder is not on the service account's `PATH`; and the first fix then showed one account's winget
+to another account's session. *"Le compte de service n'a pas winget, non ? Y'a rien au niveau système, non ?"*
+
+**How to apply it.** Every `New-ModuleObject` declares `-Scope` ('machine', 'user' or 'mixed'), and a field declares
+its own only when it departs from its card. `scripts/dev/check-scope.ps1` refuses what is missing, so the question is
+asked by the build and not by my memory. Writing the scope is the moment the question gets answered: a card one cannot
+label is a card whose reading has not been thought through.
+
+**A per-account measurement borrowed from another account is wrong even when it is exact.** Unread is unread, and the
+card says so rather than borrowing an answer.
+
 **A SUBJECT NUMBER IS NEVER WRITTEN WITHOUT WHAT IT IS.** `S05`, `D124`, `Q1C`: these numbers exist so a thing can be
 pointed at, not so it can be named. He reads the last message only, and a review written in numbers alone says nothing
 to him -- *05/10: "moi, juste par leur code je ne sais pas ce qu'est un sujet"*. Every number carries, right there, the
@@ -437,8 +457,8 @@ apostrophes stripped "to be safe" — all from the same cause: no mechanical che
 code, and offers `-Fix` when the correction is mechanical. In place: `check-encoding`,
 `check-naming` (ratchet), `check-labels`, `check-reachable`, `check-doc`, `check-coherence`,
 `check-decisions` (ratchet), `check-author`, `check-operations`, `check-components`, `check-language` (ratchet),
-`check-powershell` (does every script still parse?), plus
-`scripts/check-probes.ps1`.
+`check-powershell` (does every script still parse?), `check-scope` (does every card say whose information it
+carries?), plus `scripts/check-probes.ps1`.
 `scripts/dev/check-all.ps1` runs every `check-*.ps1` of `scripts/dev`, found by name, and `-Probes` adds the probes check.
 
 ## Wrapping system calls

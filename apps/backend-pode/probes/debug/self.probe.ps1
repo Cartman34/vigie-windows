@@ -151,4 +151,5 @@ $fields = @(
 )
 $worst = if ($countStatus -eq 'error' -or $memoryStatus -eq 'error') { 'error' }
          elseif ($countStatus -eq 'warn' -or $clientStatus -eq 'warn' -or $refreshBad.Count) { 'warn' } else { 'ok' }
-New-ModuleObject -Id 'vigie-self' -Theme 'debug' -Label 'Processus de Vigie' -Status $worst -Fields $fields
+# SCOPE: Vigie's own processes, every session together.
+New-ModuleObject -Id 'vigie-self' -Theme 'debug' -Label 'Processus de Vigie' -Scope 'machine' -Status $worst -Fields $fields

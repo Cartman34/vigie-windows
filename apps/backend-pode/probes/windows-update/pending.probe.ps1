@@ -16,7 +16,7 @@ $titles = @($pending.all | ForEach-Object { "$($_.titre)" })
 $drivers = [int]$pending.drivers
 
 if ($null -eq $count) {
-    New-ModuleObject -Id 'wu-pending' -Theme 'windows-update' -Label 'Mise à jour du système' -Status 'neutral' -Fields @(
+    New-ModuleObject -Id 'wu-pending' -Theme 'windows-update' -Label 'Mise à jour du système' -Scope 'machine' -Status 'neutral' -Fields @(
         New-Field -Key 'pending' -Label 'Détectées' -Value 'indisponible' -Kind 'text' -Status 'neutral' -Help "Recherche locale indisponible (le verrouillage coupe les analyses ; le cache peut être vide)."
     )
 } else {
@@ -265,7 +265,9 @@ if ($null -eq $count) {
     }
     $actions += New-Action -Id 'open-windows-update' -Label 'Ouvrir Windows Update' -Kind 'manual' -Help "Ouvre les Paramètres Windows Update pour installer manuellement. Déverrouiller (Mode MAJ) avant si nécessaire, puis re-verrouiller."
 
-    New-ModuleObject -Id 'wu-pending' -Theme 'windows-update' -Label 'Mise à jour du système' -Status $(if ($ailmentStatus -eq 'error') {'error'} elseif ($enCours -or $scanEnCours) {'neutral'} elseif ($count -gt 0 -or $ailmentStatus -eq 'warn') {'warn'} else {'ok'}) -Fields (@(
+    # SCOPE: the computer's updates. An ailment that belongs to ONE account -- a package held open -- names it in
+    # its own text, because only that account can close the application.
+    New-ModuleObject -Id 'wu-pending' -Theme 'windows-update' -Label 'Mise à jour du système' -Scope 'machine' -Status $(if ($ailmentStatus -eq 'error') {'error'} elseif ($enCours -or $scanEnCours) {'neutral'} elseif ($count -gt 0 -or $ailmentStatus -eq 'warn') {'warn'} else {'ok'}) -Fields (@(
         # La resolution est l'INSTALLATION, pas l'ouverture de Windows Update. Elle reste
         # visible dans la barre d'actions : une action designee comme correctif n'en est
         # plus retiree.

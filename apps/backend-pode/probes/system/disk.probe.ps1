@@ -267,13 +267,17 @@ if ($vdisks.Count) {
     }
     # SHORT (D89): the card's value stays on one line; the detail goes to the guide, which has room.
     if ($notReturned -gt 1) { $vdValue += " · $([math]::Round($notReturned)) Go non rendus" }
-    $fields += New-Field -Key 'vdisks' -Label 'Disques virtuels' -Value $vdValue -Kind 'text' -Status $vdStatus `
+    # SCOPE 'user', the only exception on this card: the size of the files is read from the computer, but what the
+    # distributions occupy INSIDE them is only readable from an account's session, and the guide names which one.
+    $fields += New-Field -Key 'vdisks' -Label 'Disques virtuels' -Scope 'user' -Value $vdValue -Kind 'text' -Status $vdStatus `
         -Table @{ columns = @('Machine virtuelle', 'Compte', 'Place prise', 'Écrit le')
                   rows = @(foreach ($v in @($vdisks | Select-Object -First 8)) { ,@($v.Machine, $v.Compte, ($v.Go.ToString('N1', $fr) + ' Go'), $v.Quand.ToString('dd/MM HH:mm')) })
                   tips = @(foreach ($v in @($vdisks | Select-Object -First 8)) { $v.Chemin }) } `
         -Help "Les disques des machines virtuelles (WSL, Docker, Hyper-V, VirtualBox). Ils grossissent avec ce qu'ils contiennent et ne rendent jamais la place d'eux-mêmes, même quand on efface à l'intérieur." `
         -Guide ($(if ($insideLines.Count) { "Ce que les distributions occupent réellement, lu dans chacune : " +
-                     ((@($insideLines | ForEach-Object { $_[0] + ' ' + $_[1] })) -join ', ') + '.' + [Environment]::NewLine + [Environment]::NewLine } else { '' }) +
+                     ((@($insideLines | ForEach-Object { $_[0] + ' ' + $_[1] })) -join ', ') + '.' +
+                     $(if ($wslUsage.account) { " Lu dans la session de $($wslUsage.account) : l'app serveur ne voit pas l'intérieur d'un disque virtuel." } else { '' }) +
+                     [Environment]::NewLine + [Environment]::NewLine } else { '' }) +
                 "Un disque virtuel garde sa taille : effacer des fichiers à l'intérieur libère la place pour la machine virtuelle, pas pour Windows." + [Environment]::NewLine + [Environment]::NewLine +
                 $(if ($runningNames.Count) {
                     "/!\ " + $(if ($runningNames.Count -gt 1) { "Ces distributions tournent en ce moment" } else { "Cette distribution tourne en ce moment" }) +
@@ -399,5 +403,7 @@ if (-not $enCours) {
     if ($failure) { $fields += $failure }
 }
 
-New-ModuleObject -Id 'storage' -Theme 'system' -Label 'Stockage' -Status $st -Fields $fields -Actions $actions `
+# SCOPE: the computer's volumes. ONE field departs from that and declares it: what WSL holds INSIDE its own disk
+# can only be read from an account's session (Get-WslUsage), and that field names which account answered.
+New-ModuleObject -Id 'storage' -Theme 'system' -Label 'Stockage' -Scope 'machine' -Status $st -Fields $fields -Actions $actions `
     -Busy:$enCours -BusyAction $(if ($enCours) { 'disk-analyze' } else { $null })

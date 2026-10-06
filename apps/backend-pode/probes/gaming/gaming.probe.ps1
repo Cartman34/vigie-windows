@@ -685,7 +685,9 @@ if ($lastSession -and $lastSession.seconds -ge 60) {
         -Help "La dernière partie gardée : sa durée, et le bouchon qui l'a marquée s'il y en a eu un. Le récapitulatif complet — ce qui a gêné, le jeu, et ce que chaque application a pris — s'ouvre dans sa fenêtre."
 }
 
-New-ModuleObject -Id 'gaming' -Theme 'gaming' -Label 'Session de jeu' -Status $statut -Fields $fields `
+# SCOPE: the game being played ON THIS COMPUTER, whoever is playing. Processes and loads are read across every
+# session, and Game Bar is queried in EVERY account's hive, not in one.
+New-ModuleObject -Id 'gaming' -Theme 'gaming' -Label 'Session de jeu' -Scope 'machine' -Status $statut -Fields $fields `
     -Mode $(if ($game) { 'game' } else { $null }) `
     -Actions @(
         # THE RECAP IS A PERMANENT DESTINATION (D114): it reopens whenever wanted, not only at the end of a session.

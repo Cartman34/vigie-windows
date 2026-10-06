@@ -42,7 +42,7 @@ ligne — `scripts/dev/check-doc.ps1` refuse une décision absente d'ici.
 - **Configuration** — D15 · D18 · D56 · D57
 - **Interface** — D127 · D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46 · D48 · D49 · D50 · D58 · D59 · D66 · D68 · D69 · D70 · D71 · D88 · D89 · D94 · D95 · D102 · D105 · D114
 - **Installation, déploiement et mise à jour** — D07 · D11 · D22 · D77 · D78 · D79 · D81 · D84 · D87 · D96 · D97 · D99 · D101 · D106 · D107 (revu) · D110 · D112 · D117 · D123
-- **Sécurité, droits et multi-comptes** — D34 · D65 · D67 · D73 · D104 · D109
+- **Sécurité, droits et multi-comptes** — **D128** · D34 · D65 · D67 · D73 · D104 · D109
 - **Sondes, actions et tâches de fond** — D50bis · D53 · D54 · D60 · D61 · D80 · D82 · D83 · D85 · D113 · D124 · D125 · D126
 - **Outillage** — D06 · D21 · D24 · D40 · D44 · D47 · D52 · D64 · D75 · D86 · D90 · D116 · D118
 - **Méthode de travail** — D10 · D12 · D13 · D14 · D16 · D17 · D31 · D36 · D39 · D43 · D51 · D62 · D63 · D74 · D76 · D100 · D103 · D121
@@ -3367,3 +3367,48 @@ Windows » et les problèmes de « Mise à jour du système » le partagent.
 Relevé : [« Ports réseau épuisés » : ce que dit vraiment l'événement](../../notes/evidence/2026-09-30-ephemeral-port-exhaustion.md).
 
 Où c'est réalisé : `apps/backend-pode/probes/system/events.probe.ps1`.
+## D128 — Une information portée par un compte se lit dans la session de ce compte, et la carte le déclare (2026-10-06)
+
+*Demandé par l'utilisateur, après avoir vu la carte winget montrer le winget d'un autre compte : « C'est la règle et
+elle est définie, les informations portées par un compte utilisateur vont se chercher auprès du compte utilisateur, pas
+du compte du service. Pour chaque carte (ou chaque information s'il y a besoin de détailler), ta documentation et le
+code doivent être en accord pour indiquer clairement que ça va chercher les informations système ou les informations de
+l'utilisateur actuel. Tu dois ancrer ça dans tes process, dans ta doc, ce qu'il faut et tu dois arrêter de faire ce
+genre d'erreur et pouvoir les identifier immédiatement. »*
+
+L'app serveur tourne sous un compte de service. Elle n'a **ni winget, ni WSL, ni Game Bar, ni les réglages de
+personne** — et son `PATH` ne nomme aucun profil. Ce qui appartient à un compte se lit donc **dans la session de ce
+compte**, par l'app cliente qui y tourne, jamais depuis le compte de service et jamais emprunté à un autre compte.
+
+**Ce qui a fait écrire cette décision, le même jour, deux fois :**
+
+| | Ce qui s'est passé |
+|---|---|
+| **Avant** | La carte winget **n'existait pas**. L'exécutable vit dans un profil ; le compte de service ne le voyait pas. Le gestionnaire de paquets principal de Windows était absent du panneau, sans erreur à lire. |
+| **Premier correctif** | La carte repliait sur **l'union des comptes** : elle montrait le chemin et la version du winget de « Famille » à une session ouverte sous « fhaza ». À l'étape suivante, elle aurait montré **ses mises à jour**. |
+
+**Une mesure par compte empruntée à un autre compte est fausse, même quand elle est exacte.** Non lu est non lu, et la
+carte le dit plutôt que d'emprunter une réponse.
+
+**La portée se déclare, parce que l'oubli ne se voit pas.** Une carte qui se trompe de compte s'affiche normalement,
+avec une valeur plausible — celle de quelqu'un d'autre. Elle est donc déclarée dans le code, obligatoirement :
+
+| Portée | Ce que ça veut dire |
+|---|---|
+| **`machine`** | des faits de l'ordinateur, vrais sans personne de connecté |
+| **`user`** | des faits du compte qui regarde, lus **dans sa session** |
+| **`mixed`** | les deux sur la même carte ; **chaque champ** déclare alors la sienne |
+
+`New-ModuleObject -Scope` est **obligatoire** et `New-Field -Scope` dit l'exception — un champ ne parle que lorsqu'il
+s'écarte de sa carte. Une portée **calculée** est légitime : la carte d'un gestionnaire de paquets est un fait de
+l'ordinateur quand il est installé pour tous, un fait du compte quand il vit dans un profil.
+
+**Et c'est tenu mécaniquement, pas par vigilance.** `scripts/dev/check-scope.ps1` refuse une carte sans portée, une
+carte `mixed` dont un champ n'en déclare pas, et une portée de champ qui ne fait que répéter celle de sa carte. Ce
+qu'il ne sait pas faire : dire si la réponse est **vraie**. Il garantit que quelqu'un a tranché, dans le code, et l'a
+écrit.
+
+Relevé : [winget était invisible pour Vigie](../../notes/evidence/2026-10-06-winget-invisible-to-the-service-account.md).
+
+Où c'est réalisé : `apps/backend-pode/lib/common.ps1` (`New-ModuleObject`, `New-Field`), les 19 sondes de
+`apps/backend-pode/probes/`, et `scripts/dev/check-scope.ps1`.

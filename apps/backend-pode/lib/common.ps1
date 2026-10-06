@@ -3863,6 +3863,13 @@ function New-Field {
         [hashtable]$Progress,
         # THE REASON OF AN ALERT, one short line, carried as is into the desktop notification (CORE-ERRORS).
         [string]$Reason,
+        <#
+            -Scope: WHOSE INFORMATION THIS FIELD CARRIES, when it is not its card's (D128).
+
+            'machine' or 'user'. A 'mixed' card requires one on EVERY field; on a 'machine' or
+            'user' card it is written only for the exception.
+        #>
+        [ValidateSet('machine','user')][string]$Scope,
         # THE IDENTITY OF THE FACT STATED, when the displayed value is a rendering of it and not the fact itself.
         # Never displayed. It exists for whoever WATCHES the field: a watcher that compares values alone cannot tell
         # "the same fact, worded differently" from "a new fact". Measured on 05/10: the last session's line reads
@@ -3875,6 +3882,7 @@ function New-Field {
     $f = [ordered]@{ key = $Key; label = $Label; value = $Value; kind = $Kind }
     if ($Reason) { $f['reason'] = $Reason }
     if ($Identity) { $f['identity'] = $Identity }
+    if ($Scope) { $f['scope'] = $Scope }
     if ($Unit)      { $f['unit']      = $Unit }
     if ($Status)    { $f['status']    = $Status }
     if ($Help)      { $f['help']      = $Help }
@@ -3983,6 +3991,26 @@ function New-ModuleObject {
         [Parameter(Mandatory)][string]$Theme,
         [Parameter(Mandatory)][string]$Label,
         [Parameter(Mandatory)][ValidateSet('ok','warn','error','neutral')][string]$Status,
+        <#
+            -Scope: WHOSE INFORMATION THIS CARD CARRIES, and it is mandatory (D128).
+
+              'machine' -- facts about the computer, true with nobody signed in.
+              'user'    -- facts about the account looking, which are read IN ITS OWN SESSION.
+              'mixed'   -- both on one card; every field then declares its own.
+
+            WHAT IT IS FOR. Information carried by a user account is fetched from that account,
+            never from the service account: the server app has no winget, no WSL, no Game Bar
+            and nobody's settings. Measured on 05/10: the winget card was missing from the
+            panel entirely, and its first fix then showed one account's winget to another
+            account's session. A per-account measurement borrowed from another account is
+            wrong even when it is exact.
+
+            WHY DECLARE IT RATHER THAN KNOW IT. Because forgetting does not show: the card
+            appears, the value reads plausibly, and it belongs to someone else. Declared, the
+            gap becomes mechanical -- `check-scope.ps1` refuses a card without a scope, and a
+            'mixed' card one of whose fields does not declare one.
+        #>
+        [Parameter(Mandatory)][ValidateSet('machine','user','mixed')][string]$Scope,
         [object[]]$Fields = @(),
         [object[]]$Actions = @(),
         <#
@@ -4019,7 +4047,7 @@ function New-ModuleObject {
         $effective = ($rank.GetEnumerator() | Where-Object { $_.Value -eq $cap }).Name
     }
     $o = [ordered]@{
-        id = $Id; theme = $Theme; label = $Label; status = $effective
+        id = $Id; theme = $Theme; label = $Label; status = $effective; scope = $Scope
         fields = @($Fields); actions = @($Actions)
     }
     if ($Busy) { $o['busy'] = $true }

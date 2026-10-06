@@ -111,11 +111,13 @@ if ($installed) {
     }
 }
 
-New-ModuleObject -Id 'wsl' -Theme 'wsl' -Label 'WSL2' -Status $st -Fields @(
-    New-Field -Key 'installed' -Label 'WSL installé'      -Value $installed -Kind 'bool' -Status $(if ($installed) {'ok'} else {'neutral'}) -Help 'Sous-système Windows pour Linux présent sur la machine.'
-    New-Field -Key 'default'   -Label 'Distribution défaut' -Value $default -Kind 'text' -Status 'neutral' -Help 'Distribution WSL par défaut (lue dans le registre).'
-    New-Field -Key 'running'   -Label 'Statut' -Value $statutValue -Kind 'text' -Status $statutStat -Help 'État actuel de WSL (Actif si un processus vmmem/wslservice tourne, sinon Inactif).'
-    New-Field -Key 'vmMemory'  -Label 'Mémoire de la machine virtuelle' -Value $vmValue -Kind 'text' -Status $vmStatus -Guide $vmGuide -Reason $vmReason `
+# A MIXED SCOPE, and this card is what 'mixed' exists for: WSL is installed for the computer, while the default
+# distribution is each account's own choice, read in the requester's hive. Every field says which one it speaks of.
+New-ModuleObject -Id 'wsl' -Theme 'wsl' -Label 'WSL2' -Scope 'mixed' -Status $st -Fields @(
+    New-Field -Key 'installed' -Label 'WSL installé'      -Scope 'machine' -Value $installed -Kind 'bool' -Status $(if ($installed) {'ok'} else {'neutral'}) -Help 'Sous-système Windows pour Linux présent sur la machine.'
+    New-Field -Key 'default'   -Label 'Distribution défaut' -Scope 'user' -Value $default -Kind 'text' -Status 'neutral' -Help 'Distribution WSL par défaut, lue dans le registre du compte qui regarde : chaque compte a la sienne.'
+    New-Field -Key 'running'   -Label 'Statut' -Scope 'machine' -Value $statutValue -Kind 'text' -Status $statutStat -Help 'État actuel de WSL (Actif si un processus vmmem/wslservice tourne, sinon Inactif).'
+    New-Field -Key 'vmMemory'  -Label 'Mémoire de la machine virtuelle' -Scope 'machine' -Value $vmValue -Kind 'text' -Status $vmStatus -Guide $vmGuide -Reason $vmReason `
         -FixAction $(if ($vmStatus -eq 'warn' -and $running) { 'wsl-shutdown' } else { $null }) `
         -Help "Mémoire vive réellement occupée par la machine virtuelle qui fait tourner les distributions Linux, cache de fichiers de Linux compris, puis la mémoire qu'elle s'est réservée, et la borne réglée dans .wslconfig."
 ) -Actions $wslActions

@@ -29,7 +29,8 @@ function FwField($key, $label, $val) {
 # suit : PowerShell casse la commande. Deja constate, deja repare -- il vit donc ICI.
 # Bouton PERMANENT (D114) : le pare-feu se regle dans la Securite Windows, qu'il aille
 # bien ou non. On ne decouvre pas la destination le jour de la panne.
-New-ModuleObject -Id 'firewall' -Theme 'security' -Label 'Pare-feu' -Status $modSt -Fields @(
+# SCOPE: the computer's firewall profiles.
+New-ModuleObject -Id 'firewall' -Theme 'security' -Label 'Pare-feu' -Scope 'machine' -Status $modSt -Fields @(
     (FwField 'domain'  'Profil Domaine' $dom)
     (FwField 'private' 'Profil Privé'   $priv)
     (FwField 'public'  'Profil Public'  $pub)

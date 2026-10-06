@@ -198,8 +198,8 @@ foreach ($lang in ($tables.Keys | Where-Object { $_ -ne $REFERENCE_LANGUAGE })) 
 # ecran. On parle de « l'ordinateur », ou de « tous les comptes » -- selon ce qu'on veut
 # dire, et c'est justement l'interet : le mot banni cachait deux idees differentes.
 #
-# L'exception est litterale : « --scope machine » est un drapeau de winget, on ne traduit
-# pas une commande.
+# L'exception vaut pour une COMMANDE ou un ARGUMENT, jamais pour une phrase : « --scope machine » est un drapeau de
+# winget, « -Scope machine » la valeur que le code ecrit pour declarer la portee d'une carte (D128). Un identifiant ne se traduit pas.
 #
 # « TRAY » N'EST PAS UN MOT FRANCAIS, ni un mot de personne. Les deux applications
 # s'appellent « l'app serveur » et « l'app cliente » -- la page web comprise : pour qui
@@ -208,7 +208,7 @@ foreach ($lang in ($tables.Keys | Where-Object { $_ -ne $REFERENCE_LANGUAGE })) 
 # portent plus (apps/client/, client.ps1). Le motif n'attrape que le mot ISOLE : un chemin
 # ou un identifiant qui le contiendrait encore passerait, et c'est check-naming qui compte.
 $regles = @(
-    @{ Mot = 'machine'; Motif = '(?i)machine';                          Sauf = '--scope\s+machine' }
+    @{ Mot = 'machine'; Motif = '(?i)machine';                          Sauf = '(--scope|-Scope)\s+.?machine' }
     @{ Mot = 'tray';    Motif = '(?i)(?<![\w/\.-])tray(?![\w/\.-])'; Sauf = $null }
 )
 foreach ($r in $regles) {

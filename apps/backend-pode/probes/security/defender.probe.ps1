@@ -9,7 +9,7 @@ $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 
 $avs = Get-CimInstance -Namespace 'root/SecurityCenter2' -ClassName AntiVirusProduct -ErrorAction SilentlyContinue
 if (-not $avs) {
-    New-ModuleObject -Id 'antivirus' -Theme 'security' -Label 'Antivirus' -Status 'neutral' -Fields @(
+    New-ModuleObject -Id 'antivirus' -Theme 'security' -Label 'Antivirus' -Scope 'machine' -Status 'neutral' -Fields @(
         New-Field -Key 'status' -Label 'État' -Value 'indisponible' -Kind 'text' -Status 'neutral' -Help "Centre de sécurité Windows non interrogeable sur ce système."
     )
     return
@@ -47,6 +47,7 @@ if ($others.Count -gt 0) {
 # LE BOUTON EST LA MEME QUAND TOUT VA BIEN (D114) : une carte porte en permanence la
 # destination utile de son sujet -- ici la Securite Windows, ou l'on relance une
 # analyse et ou l'on rallume une protection. On ne le decouvre pas le jour de la panne.
-New-ModuleObject -Id 'antivirus' -Theme 'security' -Label 'Antivirus' -Status $modSt -Fields $fields `
+# SCOPE: the protection of the whole computer, never of one account.
+New-ModuleObject -Id 'antivirus' -Theme 'security' -Label 'Antivirus' -Scope 'machine' -Status $modSt -Fields $fields `
     -Actions @(New-Action -Id 'open-security-settings' -Label 'Sécurité Windows' -Kind 'manual' -Severity 'info' `
                     -Help 'Ouvre la Sécurité Windows : état de l''antivirus, analyses, protections.')

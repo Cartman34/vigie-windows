@@ -645,7 +645,8 @@ $modStatus = if ($portsStatus -eq 'error') { 'error' }
              elseif ($hasWifi -and $wifiUp -and $stabEstablished -and $dropCount -gt 0) { 'warn' }
              else { 'ok' }
 
-New-ModuleObject -Id 'net' -Theme 'network' -Label 'Réseau' -Status $modStatus -Fields $fields -Actions @(
+# SCOPE: the computer's interfaces and ports; no account has a network of its own.
+New-ModuleObject -Id 'net' -Theme 'network' -Label 'Réseau' -Scope 'machine' -Status $modStatus -Fields $fields -Actions @(
     New-Action -Id 'net-publicip'  -Label "Obtenir l'IP publique" -Kind 'immediate' -Help "Interroge un service externe (api.ipify.org...) pour connaître l'adresse IP publique. Un appel sortant est effectué."
     New-Action -Id 'net-dns-flush' -Severity 'fix' -Label 'Purger le cache DNS' -BusyLabel 'Purge…' -Kind 'confirm' -Confirm `
         -Help "Vide le cache DNS de Windows et celui du proxy local s’il en existe un (détecté sur le port 53). À utiliser quand quelques sites ne répondent plus alors qu'internet fonctionne. Coupe la résolution une à deux secondes."

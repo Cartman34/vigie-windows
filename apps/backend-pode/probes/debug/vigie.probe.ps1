@@ -182,7 +182,8 @@ $pire = if (@($fields | Where-Object { "$($_.status)" -eq 'error' }).Count) { 'e
         elseif (@($fields | Where-Object { "$($_.status)" -eq 'warn' }).Count) { 'warn' }
         else { 'ok' }
 
-New-ModuleObject -Id 'vigie-debug' -Theme 'debug' -Label 'Vigie' -Status $pire -Fields $fields -Actions @(
+# SCOPE: the one installation of Vigie, shared by every account.
+New-ModuleObject -Id 'vigie-debug' -Theme 'debug' -Label 'Vigie' -Scope 'machine' -Status $pire -Fields $fields -Actions @(
     New-Action -Id 'open-logs' -Label 'Ouvrir les journaux' -Kind 'manual' -Severity 'info' `
         -Help "Ouvre le dossier des journaux dans l'explorateur."
     # A NOTIFICATION NOBODY HAS SEEN WORK IS A PROMISE: every alert added in September announces itself this way,

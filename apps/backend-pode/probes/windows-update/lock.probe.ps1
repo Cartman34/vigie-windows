@@ -51,7 +51,8 @@ if ($elevated) {
         -Guide "Une fois le serveur redémarré, avec l'UAC, ce verrou pourra être vérifié et appliqué."
 }
 
-New-ModuleObject -Id 'wu-lock' -Theme 'windows-update' -Label 'Verrouillage des mises à jour' -Status $status -Fields @(
+# SCOPE: the lock applies to the whole computer.
+New-ModuleObject -Id 'wu-lock' -Theme 'windows-update' -Label 'Verrouillage des mises à jour' -Scope 'machine' -Status $status -Fields @(
     New-Field -Key 'autoUpdatesEnabled' -Label 'MAJ automatiques' -Value ([bool](-not $locked)) -Kind 'bool' -Status $(if ($locked) {'ok'} else {'warn'}) `
         -Help "Si Oui, Windows installe les mises à jour et peut redémarrer tout seul. Verrouillé = Non." `
         -FixAction 'update-mode-off' -Guide "« Résoudre » re-verrouille (coupe les MAJ automatiques). Nécessite un serveur en administrateur."

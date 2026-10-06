@@ -226,4 +226,5 @@ if ($readError) {
         -Help "Le journal Système de Windows n'a pas pu être lu : $readError") + $fields
 }
 $worst = if ($readError -or $knownStatus -eq 'error') { 'error' } elseif ($knownStatus -eq 'warn') { 'warn' } else { 'ok' }
-New-ModuleObject -Id 'events' -Theme 'system' -Label 'Journal Windows' -Status $worst -Fields $fields
+# SCOPE: the computer's event log. An event that belongs to an account names it in its own text.
+New-ModuleObject -Id 'events' -Theme 'system' -Label 'Journal Windows' -Scope 'machine' -Status $worst -Fields $fields

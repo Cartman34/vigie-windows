@@ -28,7 +28,8 @@ if ($restartPending) {
         -Help "Redémarre Windows dans 60 secondes pour terminer les mises à jour installées. Le travail en cours est à enregistrer : toutes les applications seront fermées. Le redémarrage reste annulable pendant le délai."
 }
 
-New-ModuleObject -Id 'os' -Theme 'system' -Label 'Windows' -Status $(if ($activated -and -not $reboot) {'ok'} else {'warn'}) -Fields @(
+# SCOPE: the version and the activation of Windows, one for the whole computer.
+New-ModuleObject -Id 'os' -Theme 'system' -Label 'Windows' -Scope 'machine' -Status $(if ($activated -and -not $reboot) {'ok'} else {'warn'}) -Fields @(
     New-Field -Key 'edition'   -Label 'Édition'    -Value $caption    -Kind 'text' -Status $(if ($isPro) {'ok'} else {'neutral'}) -Help 'Édition de Windows installée (Pro attendu).'
     New-Field -Key 'activated' -Label 'Activation' -Value $activated  -Kind 'bool' -Status $(if ($activated) {'ok'} else {'warn'})    -Help 'Windows est activé (licence valide).'
     New-Field -Key 'build'     -Label 'Version'    -Value $build      -Kind 'text' -Status 'neutral'                                 -Help 'Version et numéro de build de Windows.'

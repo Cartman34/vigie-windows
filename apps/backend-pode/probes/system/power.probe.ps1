@@ -106,7 +106,8 @@ $fields += New-Field -Key 'rate' -Label 'Puissance batterie' -Value $sens -Kind 
             "Windows n'expose pas ce que le chargeur fournit à la machine, et cet ordinateur n'a pas d'interface de comptage d'énergie." + [Environment]::NewLine +
             "Pour connaître la consommation réelle : débranchez. La décharge affichée ici est alors exactement ce que la machine consomme, tout compris.")
 
-New-ModuleObject -Id 'power' -Theme 'system' -Label 'Alimentation' `
+# SCOPE: the battery and the power plan of the computer.
+New-ModuleObject -Id 'power' -Theme 'system' -Label 'Alimentation' -Scope 'machine' `
     -Status $(if ($soucis) { 'warn' } else { 'ok' }) `
     -Fields $fields `
     -Actions @(New-Action -Id 'open-power-options' -Label 'Options d''alimentation' -Kind 'manual' -Severity 'info' `

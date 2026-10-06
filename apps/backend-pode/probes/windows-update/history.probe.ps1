@@ -22,7 +22,8 @@ if ($adminRoot -and (Test-Path -LiteralPath $adminRoot)) {
         -Help ("Ouvre le dossier d'outils d'administration dans l'explorateur Windows : " + $adminRoot)
 }
 
-New-ModuleObject -Id 'wu-history' -Theme 'windows-update' -Label 'Historique' -Status 'ok' -Fields @(
+# SCOPE: the computer's updates. Windows Update is not an account's business.
+New-ModuleObject -Id 'wu-history' -Theme 'windows-update' -Label 'Historique' -Scope 'machine' -Status 'ok' -Fields @(
     New-Field -Key 'lastReboot' -Label 'Dernier redémarrage' -Value $lastBoot -Kind 'date' -Status 'neutral' `
         -Help 'Date et heure du dernier démarrage de Windows.'
     New-Field -Key 'waasMedic' -Label 'WaaSMedic (démarrage)' -Value $wmTxt -Kind 'text' -Status $(if ($wmTxt -eq 'Désactivé') {'ok'} else {'neutral'}) `

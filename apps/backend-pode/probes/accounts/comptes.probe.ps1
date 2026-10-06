@@ -85,7 +85,8 @@ if (-not $comptes.Count) {
 }
 
 # --- Carte 1 : les COMPTES ---------------------------------------------------
-$carteComptes = New-ModuleObject -Id 'accounts' -Theme 'accounts' -Label 'Comptes' `
+# SCOPE: the accounts OF THE COMPUTER. What each of them holds is not read here.
+$carteComptes = New-ModuleObject -Id 'accounts' -Theme 'accounts' -Label 'Comptes' -Scope 'machine' `
     -Status $(if (@($fields | Where-Object { "$($_.status)" -eq 'error' }).Count) { 'error' }
               elseif (@($fields | Where-Object { "$($_.status)" -eq 'warn' }).Count) { 'warn' }
               else { 'ok' }) `

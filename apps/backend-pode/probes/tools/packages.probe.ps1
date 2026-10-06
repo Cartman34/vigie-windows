@@ -228,12 +228,14 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
         $actions += New-Action -Id 'pkg-open-gui' -Severity 'info' -Label $gui.label -Kind 'manual' -Help $gui.help
     }
 
-    $modules += (New-ModuleObject -Id ("pkg-" + $mg.id) -Theme 'tools' -Label $mg.label -Status $modStatus -Fields $fields -Actions $actions -Busy:$checking `
+    # THE SCOPE IS COMPUTED, because it depends on the manager: installed for the whole computer, it is a fact
+    # about the computer; installed in a profile, it is a fact about that account, and it had to be read there.
+    $modules += (New-ModuleObject -Id ("pkg-" + $mg.id) -Theme 'tools' -Label $mg.label -Scope $(if ($inventoryAt["$($mg.id)"]) { 'user' } else { 'machine' }) -Status $modStatus -Fields $fields -Actions $actions -Busy:$checking `
         -BusyAction $(if ($checking) { if ($op -eq 'upgrade') { 'pkg-list-updates' } else { 'pkg-check-updates' } } else { $null }))
 }
 
 if (-not $modules.Count) {
-    $modules += (New-ModuleObject -Id 'pkg-none' -Theme 'tools' -Label 'Gestionnaires de paquets' -Status 'neutral' -Fields @(
+    $modules += (New-ModuleObject -Id 'pkg-none' -Theme 'tools' -Label 'Gestionnaires de paquets' -Scope 'machine' -Status 'neutral' -Fields @(
         New-Field -Key 'none' -Label 'Gestionnaires' -Value 'aucun détecté' -Kind 'text' -Status 'neutral' `
             -Help "Aucun gestionnaire de paquets connu trouvé dans le PATH."
     ))

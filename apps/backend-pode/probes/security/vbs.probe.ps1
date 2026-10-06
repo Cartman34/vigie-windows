@@ -101,5 +101,6 @@ if ($attente.Count) {
                 "Si la valeur ne s'applique toujours pas après un redémarrage, elle est imposée par l'UEFI ou par une stratégie d'entreprise, et Vigie ne peut pas passer outre.")
 }
 
-New-ModuleObject -Id 'vbs' -Theme 'security' -Label 'Sécurité de la virtualisation' -Status $statutMod `
+# SCOPE: a boot setting of the computer.
+New-ModuleObject -Id 'vbs' -Theme 'security' -Label 'Sécurité de la virtualisation' -Scope 'machine' -Status $statutMod `
     -Fields $champs -Actions $actionsVbs

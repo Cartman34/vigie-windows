@@ -335,7 +335,8 @@ $depl += New-Field -Key 'empreinte' -Label 'Stockage occupé' `
 # Une tache de fond lancee depuis cette carte (deploiement, installation de PowerShell)
 # la garde en « operation en cours » jusqu'a la fin du processus.
 $travail = Get-ModuleBusyMark -Module 'deployment'
-$carteDepl = New-ModuleObject -Id 'deployment' -Theme 'accounts' -Label 'Déploiement' `
+# SCOPE: the computer's installation, a single one for every account.
+$carteDepl = New-ModuleObject -Id 'deployment' -Theme 'accounts' -Label 'Déploiement' -Scope 'machine' `
     -Status $(if (@($depl | Where-Object { "$($_.status)" -eq 'error' }).Count) { 'error' }
               elseif (@($depl | Where-Object { "$($_.status)" -eq 'warn' }).Count) { 'warn' }
               else { 'ok' }) `
