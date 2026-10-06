@@ -41,6 +41,11 @@ if ($requester) {
 # waits its turn -- and until then a manager living in its profile is simply absent from the panel, with nothing to
 # explain the hole. A card that cannot see says it cannot see (CORE-ERRORS).
 $inventoryPending = ($requester -and -not $inventory.Count)
+# WHO THIS CARD WAS COMPUTED FOR, said on the card. Without it, a card missing a manager cannot be told apart from a
+# card computed for nobody -- on 06/10 winget was absent and nothing on screen said whether the reading had happened,
+# failed, or been done for another account. A card that cannot be questioned cannot be trusted.
+$inventoryFor = $(if ($requester) { "Carte calculée pour le compte $requester, $($inventory.Count) gestionnaire(s) lu(s) dans sa session." }
+                  else { "Carte calculée sans compte identifié : seuls les gestionnaires installés pour tout l'ordinateur sont vus." })
 
 $modules = @()
 foreach ($mg in (Get-PackageManagerCatalog)) {
@@ -114,6 +119,7 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
     # server app, and the card would otherwise look like it had seen it itself.
     if ($inventoryAt["$($mg.id)"]) { $vg += ("Lu dans la session de " + $inventoryAt["$($mg.id)"] + " : ce gestionnaire est installé dans ce profil, l'app serveur ne le voit pas.") }
     if ($inventoryPending) { $vg += "Les gestionnaires installés dans votre profil ne sont pas encore lus dans votre session : ils apparaîtront d'eux-mêmes." }
+    $vg += $inventoryFor
     $fields = @()
     $fields += New-Field -Key 'version' -Label 'Version' -Value $ver -Kind 'text' -Status 'ok' `
         -Help $(if ($inventoryAt["$($mg.id)"]) { "Version installée, lue dans la session du compte qui l'a installé." } else { "Version installée, détectée dans le PATH." }) `
