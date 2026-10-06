@@ -27,6 +27,9 @@ try {
              ForEach-Object { Join-Path $_.FullName 'winget.exe' } |
              Where-Object { Test-Path -LiteralPath $_ } | Select-Object -Last 1)
 } catch { }
+# ONE PATH, AS A STRING: wrapping the pipeline in @() gave a one-element array, which Invoke-Native refused.
+$exe = @($exe) | Select-Object -First 1
+if ($exe) { $exe = "$exe" }
 if (-not $exe) { $lines += 'aucun winget.exe atteignable' }
 else {
     $lines += "essai : $exe"
