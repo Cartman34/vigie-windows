@@ -8772,11 +8772,28 @@ function Get-WindowsUpdateAilments {
                 if ($apps -notcontains $name) { $apps += $name }
             }
         }
+        <#
+            AND WHOSE SESSION, because the answer differs. A package held open belongs to ONE account: the event
+            carries its SID, and only the person signed in there can close the application. Saying "an open
+            application blocks an update" without saying where sends everyone looking on their own desktop, including
+            the three accounts that have nothing open. S02, the same shape as winget: a per-account fact reported as
+            if it were a fact about the machine.
+        #>
+        $accounts = @()
+        foreach ($b in $blocked) {
+            if (-not $b.UserId) { continue }
+            $who = "$($b.UserId)"
+            try { $who = $b.UserId.Translate([System.Security.Principal.NTAccount]).Value } catch { }
+            if ($who -and $accounts -notcontains $who) { $accounts += $who }
+        }
         $verdict = Get-JournalFactVerdict -LastAt $lastBlock.TimeCreated -Count $blocked.Count -WindowDays 7 -Still 'inconnu' -Level 'warn' -HighlightMinutes $highlight
         $found += [pscustomobject]@{
             Status = $verdict.Weight
             Label  = 'Mise à jour bloquée par une application ouverte'
             Detail = $verdict.Said + ' — ' + $verdict.Recurrence + '. ' +
+                     $(if ($accounts.Count -eq 1) { 'Sur le compte ' + $accounts[0] + '. ' }
+                       elseif ($accounts.Count -gt 1) { 'Sur les comptes ' + ($accounts -join ', ') + '. ' }
+                       else { "Windows n'a pas nommé le compte concerné. " }) +
                      $(if ($apps.Count) { 'Windows nomme ce qu''il faut fermer : ' + ($apps -join ', ') + '. ' } else { '' }) +
                      "Un paquet en cours d'utilisation ne peut pas être remplacé : la mise à jour s'applique à la " +
                      "fermeture de session ou au redémarrage, quand plus rien ne le tient."
