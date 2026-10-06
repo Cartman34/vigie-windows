@@ -120,6 +120,12 @@ compatibility both checked before delivery. *18/09.*
 **A proposal names its verb**: add, complete, modify, optimise, remove -- and what exists today. "An alert for memory
 saturation" when one exists but only watches the RAM hides the real gesture, which is to complete it. *18/09.*
 
+**AN AUTHORISATION ALREADY GIVEN IS NOT ASKED AGAIN.** The rule says a UAC prompt is announced and confirmed before
+it appears -- it does not say the same permission is re-requested every time the same gesture comes up. On 06/10 I
+built a three-option question around avoiding a prompt he had already authorised, and offered to amputate twelve of
+seventeen updates to dodge it: *"J'ai deja autorise ces MAJ a se faire avec UAC donc redemander est debile."* An
+authorisation is a decision; it goes to `notes/answers.md` and it holds until he changes it.
+
 **A question already answered is never asked again.** Before asking, search what was already answered or settled:
 `pwsh -File scripts/dev/answers.ps1 -About "<words>"`. Every answer the owner gives to a `Qn` is written in
 `notes/answers.md` in the same turn, and carried where it applies. It is asked again only on a new fact, named in the
