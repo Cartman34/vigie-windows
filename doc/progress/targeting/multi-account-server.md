@@ -6,8 +6,9 @@
 > douze qui ouvrent une fenêtre, le nettoyage de disque et la pose du tag. Le blocage d'origine — un compte standard
 > qui ne peut pas démarrer Vigie — n'existe plus : personne ne démarre rien, l'app serveur est déjà là.
 >
-> **Ce qui reste ouvert** : C4, les mesures **par utilisateur** que la session 0 ne voit pas (WSL, gestionnaires de
-> paquets). Elles répondent aujourd'hui pour le compte de service, pas pour le compte qui regarde.
+> **Ce qui reste ouvert** : C4, pour une seule mesure — la **recherche de mises à jour** des gestionnaires de paquets,
+> qui répond encore pour le compte de service. WSL, les lectures `HKCU` et la **présence** des gestionnaires passent
+> par la session du compte depuis le 06/10 (`pkg-inventory`, `Update-PkgInventory`).
 >
 > **Cette version corrige la précédente.** La première mouture recommandait « un seul serveur élevé qui fait tout ».
 > En cherchant les contraintes de Windows plutôt qu'en les supposant, il apparaît qu'un serveur unique en session 0

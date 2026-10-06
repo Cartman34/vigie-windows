@@ -55,7 +55,11 @@ inchangés.
   exactement ce que fait le code. Le contrat cité a été remplacé les 12 et 13/09 par D82, D94, D95 et D102. Ce qui
   reste de vrai dans S05 — toutes les opérations ne suivent pas ce protocole — est **déjà S14**. À requalifier ou à
   clore ; ce n'est pas à moi d'en décider, c'est toi qui l'as classé premier.
-- **S02 a rétréci à un seul manque : les gestionnaires de paquets.** Les lectures `HKCU` du module Jeux et de la
+- **S02 a avancé le 06/10, et ne garde qu'un manque : la recherche de mises à jour.** L'action `pkg-inventory`
+  (`@execution: session`) et `Update-PkgInventory` font remonter la **présence et la version** de chaque gestionnaire
+  depuis la session du compte. Constaté : winget, absent du panneau, y est — version 1.29.380, lu dans la session de
+  Famille, et la carte le dit. Relevé : `evidence/2026-10-06-winget-invisible-to-the-service-account.md`.
+- **Ce qui était écrit le 05/10, et qui tient toujours : S02 ne portait plus que les gestionnaires de paquets.** Les lectures `HKCU` du module Jeux et de la
   carte WSL sont faites : `Get-UserRegistryRoots` lit la ruche de **chaque** compte connecté (D113), et
   `30-gamebar.ps1` comme `wsl.probe.ps1` passent par là. Restent `winget`, `pip`, `npm` et `scoop`, qui répondent
   encore pour le compte de service (`packages.probe.ps1`, `Invoke-Native` direct).
@@ -80,7 +84,7 @@ inchangés.
 | N° | Sujet | Où c'est décrit | Pourquoi c'est ouvert |
 |----|-------|-----------------|-----------------------|
 | **S01** | Confiance de la chaîne de mise à jour | `targeting/features.md` → `CORE-UPDATE-TRUST` | Rien ne vérifie que ce qui s'installe est bien ce qui a été publié. **Décidé le 05/09 : dans la cible, pas maintenant** — mais la chaîne d'aujourd'hui ne doit rien faire qui empêche une version future de vérifier. |
-| **S02** | Les mesures par utilisateur, invisibles depuis la session 0 | `targeting/multi-account-server.md` → C4 | WSL et les gestionnaires de paquets répondent pour le compte de service, pas pour le compte qui regarde. |
+| **S02** | Les mesures par utilisateur, invisibles depuis la session 0 | `targeting/multi-account-server.md` → C4 | **Avancé le 06/10** : WSL, les lectures `HKCU` du module Jeux et la **présence des gestionnaires de paquets** passent par la session du compte — winget était invisible, il apparaît ([relevé](evidence/2026-10-06-winget-invisible-to-the-service-account.md)). Reste la **recherche de mises à jour**, qui tourne encore pour le compte de service. |
 | **S03** | La désinstallation n'a jamais été éprouvée en vrai | `targeting/uninstall.md` | Elle est écrite et relue, jamais exécutée : **c'est un geste de l'utilisateur, jamais le mien**. Tant qu'elle n'a pas eu lieu, on sait qu'elle est cohérente, pas qu'elle marche. |
 | **S05** | Les actions asynchrones ne suivent pas le contrat | `implemented/status.md` | Le suivi passe par les marqueurs d'occupation et `/operations`, pas par le `202 + jobId` que décrit le contrat. |
 | **S07** | Le français dans le code | `dev/check-naming.ps1` | Trois cliquets qui ne peuvent que descendre : identifiants français, noms de fichiers français, lignes de commentaire françaises (**D115**). Ils baissent quand on passe à côté, jamais en campagne dédiée. |

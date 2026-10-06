@@ -106,7 +106,8 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
     if ($inventoryAt["$($mg.id)"]) { $vg += ("Lu dans la session de " + $inventoryAt["$($mg.id)"] + " : ce gestionnaire est installé dans ce profil, l'app serveur ne le voit pas.") }
     $fields = @()
     $fields += New-Field -Key 'version' -Label 'Version' -Value $ver -Kind 'text' -Status 'ok' `
-        -Help "Version installée, détectée dans le PATH." -Guide ($vg -join "`n")
+        -Help $(if ($inventoryAt["$($mg.id)"]) { "Version installée, lue dans la session du compte qui l'a installé." } else { "Version installée, détectée dans le PATH." }) `
+        -Guide ($vg -join "`n")
 
     # Champ Mises a jour.
     $majStatus = 'neutral'; $majValue = '—'; $mg2 = @()
