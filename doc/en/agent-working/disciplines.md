@@ -264,6 +264,25 @@ On 30/09 I answered "anything else to fix?" with five paragraphs he had not aske
 message aussi long pour rien, tu n'avais rien à dire."* One question, one subject, one answer. What he did not ask for
 goes to the repository, and he is told where in the same 200 characters, or not at all.
 
+## A PLAN BEFORE THE CODE, AND IT IS MANDATORY
+
+**Nothing is written until the plan has been presented and accepted.** Not a probe, not a verifier, not a one-line
+fix in a library. The plan says what is going to change, where, and what it costs; then he answers; then the code.
+
+*06/10: "tu n'as pas a te lancer dans le code comme un teubé, tu dois présenter un plan avant, c'est OBLIGATOIRE".
+That day I had just asked a question, been told the question made no sense, and gone straight to editing
+`common.ps1` -- changing the scope of a rule he had himself arbitrated on 30/09, without saying a word about it.*
+
+**What a plan contains**, and nothing more: what changes, in which files, what it costs (time, risk, what it touches
+beyond the subject), and what is deliberately left out. It is short -- a plan one cannot read is not a plan.
+
+**Why it is not negotiable.** Code written before the plan has to be undone, and undoing it costs him the reading of
+a change he never asked for. Worse, it silently re-decides things he has already decided: a measurement's scope, a
+card's shape, an interval. Presenting first is what keeps his arbitrations standing.
+
+**What does not need a plan**: reading, measuring, running a verifier -- anything that does not write. And writing
+down what he has just asked for, which IS the execution of his instruction, not new work.
+
 ## Whose information is this? (D128)
 
 **Before reading anything, ask whose it is.** The server app runs under a service account: it has no winget, no WSL,
