@@ -138,6 +138,7 @@
   "check-probes.sondes-disponibles": "Sondes disponibles : {0}",
   "check-probes.tous-les-invariants-sont": "Tous les invariants sont respectes.",
   "check-probes.une-sonde-verifiee-sur": "Une sonde vérifiée sur enregistrement n'a PAS été reexecutée : son fichier est inchangé depuis.",
+  "check-scope.actions-hors-session": "{0} action(s) lancent un gestionnaire de paquets sans se déclarer en session : elles mesureraient le compte de service (D128).",
   "check-scope.cartes-sans-portee": "{0} carte(s) ne disent pas de qui elles parlent : ajoutez -Scope machine, -Scope user ou -Scope mixed.",
   "check-scope.champs-redondants": "{0} champ(s) répètent la portée de leur carte : un champ ne parle que s'il s'en écarte.",
   "check-scope.champs-sans-portee": "{0} champ(s) d'une carte « mixed » ne disent pas de qui ils parlent : ajoutez -Scope sur chacun.",

@@ -7,10 +7,15 @@ param()
 $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $backend 'lib/common.ps1')
 
+# WHO IS LOOKING, read first thing: everything below depends on it (D128).
+$requester = Get-StateAccount
+
 # Etat des MAJ / verification en cours (ecrit par l'action + le worker).
+# ONE STORE PER ACCOUNT (D128): one account's packages are not another's, and a single file served each to the
+# other. With no requester there is nothing to read, and the card says so rather than showing someone else's.
 $upd = @{}
-$updFile = Get-VarPath -Backend $backend -Kind 'cache' -File 'pkgupdates.json'
-if (Test-Path $updFile) {
+$updFile = $(if ($requester) { Get-VarPath -Backend $backend -Kind 'cache' -File ('pkgupdates-' + $requester + '.json') } else { $null })
+if ($updFile -and (Test-Path $updFile)) {
     try { $j = Get-Content $updFile -Raw | ConvertFrom-Json; foreach ($p in $j.PSObject.Properties) { $upd[$p.Name] = $p.Value } } catch { }
 }
 
@@ -31,7 +36,6 @@ if (Test-Path $updFile) {
     What this process sees itself still counts, and is borrowed from nobody: a manager installed machine-wide needs
     nobody signed in to be true.
 #>
-$requester = Get-StateAccount
 $inventory = @{}
 $inventoryAt = @{}
 if ($requester) {

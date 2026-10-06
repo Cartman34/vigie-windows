@@ -1,6 +1,7 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 # @libelle: Mettre à jour | dialog | fix   -- affiche quand un champ cite cette action (D66)
+# @execution: session   -- son repli interroge le gestionnaire, qui appartient a la session (D128)
 <# Action : liste les paquets a mettre a jour d'UN gestionnaire, pour la fenetre de choix.
 
    LECTURE SEULE. Jumelle de wu-list-pending : renvoie result.choose = $true, l'action a
@@ -54,6 +55,8 @@ if (Test-Path -LiteralPath $outFile) {
 }
 
 # 2) Repli : lecture en direct si le cache ne porte aucun identifiant.
+# THAT FALLBACK IS WHY THIS ACTION RUNS IN A SESSION: it questions the manager itself, and one installed in a
+# profile answers only there (D128).
 if (-not $updates.Count) {
     try {
         $u = Get-PkgUpdates -Id $mgr

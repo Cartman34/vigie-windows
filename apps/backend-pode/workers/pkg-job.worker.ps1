@@ -7,23 +7,48 @@ param([string]$Backend, [string]$ArgsB64)
 if (-not $Backend) { exit 1 }
 . (Join-Path $Backend 'lib/common.ps1')
 
-# Parametres (JSON base64) : mgr + op + pkgs (paquets retenus, vide = tout).
-$mgr = $null; $op = 'check'; $pkgs = @()
+# Parametres (JSON base64) : mgr + op + pkgs (paquets retenus, vide = tout) + account.
+$mgr = $null; $op = 'check'; $pkgs = @(); $account = $null
 try {
     if ($ArgsB64) {
         $a = ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($ArgsB64))) | ConvertFrom-Json
         $mgr = "$($a.mgr)"
         if ($a.op) { $op = "$($a.op)" }
         if ($a.pkgs) { $pkgs = @($a.pkgs | ForEach-Object { "$_" }) }
+        if ($a.account) { $account = "$($a.account)" }
     }
 } catch { }
 if (-not $mgr) { Write-Output ('[X] ' + (Get-Label 'pkg-job.gestionnaire-absent')); exit 1 }
 
-$outFile = Get-VarPath -Backend $Backend -Kind 'cache' -File 'pkgupdates.json'
+if (-not $account) { Write-Output ('[X] ' + 'aucun compte : une operation de paquets se fait dans une session'); exit 1 }
+$outFile = Get-VarPath -Backend $Backend -Kind 'cache' -File ('pkgupdates-' + $account + '.json')
 $exitCode = 0
+<#
+    THE WORK HAPPENS IN THE ACCOUNT'S SESSION (D128), not here.
+
+    This worker runs under the service account: it has no winget -- an MSIX package refuses to launch for an account
+    it is not registered for, measured on 06/10 -- and packages installed in a profile are not its own. It keeps what
+    is its: the operation, its result, the card's invalidation. The reading and the installing leave as a CLIENT
+    TASK, to whoever is looking.
+
+    The timeout is wide: updating several packages takes minutes, and nothing waits behind this process -- which is
+    the whole point of an asynchronous operation.
+#>
+function Invoke-PkgInSession {
+    param([Parameter(Mandatory)][string]$Operation, [string[]]$Packages = @())
+    $timeout = if ($Operation -eq 'upgrade') { 3600 } else { 180 }
+    $answer = Invoke-ClientTask -Account $account -Type 'pkg-updates' -Module ('pkg-' + $mgr) -TimeoutSec $timeout `
+                                -Params @{ mgr = $mgr; op = $Operation; pkgs = @($Packages) } -Backend $Backend
+    if (-not $answer) { throw "l'app cliente de $account n'a pas repondu" }
+    if (-not $answer.result -or -not $answer.result.ok) { throw "$($answer.message)" }
+    return $answer.result
+}
+
 try {
+    $answer = Invoke-PkgInSession -Operation $op -Packages $pkgs
+    $u = $answer.updates
     if ($op -eq 'upgrade') {
-        $up = Invoke-PkgUpgrade -Id $mgr -Pkgs $pkgs
+        $up = $answer.upgrade
         # On journalise ce qui a ETE FAIT (nombre de paquets, echecs constates), pas ce qui
         # a ete demande : un paquet peut echouer seul sans faire echouer les autres.
         $detail = if ($up.count) { " paquets=$($up.count)" } else { " (tout le gestionnaire)" }
@@ -41,10 +66,6 @@ try {
     # Vecu le 27/08 : Insomnia mis a jour avec succes (« Installe correctement », code 0)
     # et propose a nouveau deux secondes plus tard -- « j'ai demande a l'installer et en
     # retour, ce n'est pas installe ».
-    if ($op -eq 'upgrade') { Start-Sleep -Seconds 12 }
-
-    # Dans les deux cas on rafraichit le compte de MAJ (l'absence de "checking" = fin).
-    $u = Get-PkgUpdates -Id $mgr
 
     # ET ON SAIT CE QU'ON VIENT DE FAIRE : un paquet dont la mise a jour a REUSSI ne se
     # repropose pas, meme si le gestionnaire l'annonce encore. Le journal fait foi --

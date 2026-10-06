@@ -1326,6 +1326,10 @@ function Start-PkgJob {
         # Paquets RETENUS par l'utilisateur. Vide = tout le gestionnaire (comportement
         # historique). Voir Invoke-PkgUpgrade.
         [string[]]$Pkgs,
+        # POUR QUEL COMPTE (D128). A manager installed in a profile answers only in that profile's session, and the
+        # service account has no winget at all. Without an account there is nobody to ask, and the job is refused
+        # rather than answering for the wrong person.
+        [string]$Account,
         [string]$Backend = (Get-BackendRoot)
     )
     $known = Get-PackageManagerCatalog | Where-Object { $_.id -eq $Mgr } | Select-Object -First 1
@@ -1338,9 +1342,16 @@ function Start-PkgJob {
     if ($Op -eq 'upgrade' -and -not $unParUn -and (-not $known.upgArgs -or @($known.upgArgs).Count -eq 0)) {
         return @{ message = "Mise a jour automatique non prise en charge pour $($known.label)."; result = @{ ok = $false } }
     }
+    if (-not $Account) { $Account = Get-StateAccount }
+    if (-not $Account) {
+        return @{ message = "Aucun compte identifié : une vérification de paquets se fait dans une session."
+                  result = @{ ok = $false } }
+    }
     $stateDir = Get-VarPath -Backend $Backend -Kind 'cache'
     if (-not (Test-Path $stateDir)) { New-Item -ItemType Directory -Path $stateDir -Force | Out-Null }
-    $outFile = Join-Path $stateDir 'pkgupdates.json'
+    # ONE STORE PER ACCOUNT (D128): two accounts do not have the same packages, and a single file had each one
+    # overwriting the other.
+    $outFile = Join-Path $stateDir ('pkgupdates-' + $Account + '.json')
     # WHAT IS RUNNING IS SAID BY THE BUSY MARK (doc/progress/targeting/operations.md). This file keeps the
     # detail only: the last known result, and the packages retained, so the card says "1 package of 3".
     $entry = @{ op = $Op; startedAt = (Get-Date).ToString('s') }
@@ -1363,7 +1374,7 @@ function Start-PkgJob {
         $started = [bool](Start-Operation -Module ("pkg-" + $Mgr) `
                               -Action $(if ($Op -eq 'upgrade') { 'pkg-upgrade' } else { 'pkg-check-updates' }) `
                               -Label ("$verb de " + $known.label) -Probes @('packages.probe.ps1') `
-                              -Worker 'pkg-job.worker.ps1' -ArgsMap @{ mgr = $Mgr; op = $Op; pkgs = $choisis } `
+                              -Worker 'pkg-job.worker.ps1' -ArgsMap @{ mgr = $Mgr; op = $Op; pkgs = $choisis; account = $Account } `
                               -Button $(if ($Op -eq 'upgrade') { 'pkg-list-updates' } else { '' }) -Backend $Backend)
     } catch { }
     if (-not $started) { return @{ message = "Impossible de lancer l'opération sur $($known.label)."; result = @{ ok = $false } } }
@@ -2462,6 +2473,29 @@ function Expand-InstallArchive {
     mais on ne le supprime pas si quelqu'un en a cree un : on ne detruit que ce qu'on sait
     remplacer.
 #>
+<#
+    WHAT THE SOURCE NO LONGER HAS, REMOVED WHEREVER IT IS.
+
+    Walks the installation and the source side by side. A folder the source does not have goes whole; inside a folder
+    both have, each file the source lacks goes. `var/` is never entered: it is the data.
+
+    It is a function of its own so the rule can be read -- and tested -- without running an installation.
+#>
+function Remove-InstallSurplus {
+    param([Parameter(Mandatory)][string]$Source, [Parameter(Mandatory)][string]$Destination)
+    if (-not (Test-PathSafe $Destination) -or -not (Test-PathSafe $Source)) { return }
+    foreach ($entry in @(Get-ChildItem -LiteralPath $Destination -Force -ErrorAction SilentlyContinue)) {
+        if ($entry.Name -eq 'var') { continue }
+        $mirror = Join-Path $Source $entry.Name
+        if (-not (Test-Path -LiteralPath $mirror)) {
+            Remove-Item -LiteralPath $entry.FullName -Recurse -Force -ErrorAction SilentlyContinue
+            continue
+        }
+        # BOTH SIDES HAVE IT: a folder is walked, a file is left to be overwritten by the copy that follows.
+        if ($entry.PSIsContainer) { Remove-InstallSurplus -Source $mirror -Destination $entry.FullName }
+    }
+}
+
 function Copy-InstallFrom {
     param([Parameter(Mandatory)][string]$Source, [Parameter(Mandatory)][string]$Destination)
     if (-not (Test-PathSafe $Source)) { throw ("source introuvable : " + $Source) }
@@ -2488,19 +2522,17 @@ function Copy-InstallFrom {
         old script -- it still existed, so nothing was declared broken -- and TWO client apps ran at once on the same
         account, each with its icon and its heartbeat.
 
-        We therefore drop, at the top level and inside apps/, what the source does not have. var/ is the one thing
-        kept: it is the data, not the code. Nothing outside the destination is ever touched.
+        AT EVERY DEPTH, and that took a second lesson. The first version dropped only at the top level and inside
+        apps/, which left everything below untouched: on 06/10 an action deleted from the source and pushed stayed
+        installed and ANSWERING after a successful deployment. An action is a door with rights of its own, and
+        removing it from the source is the gesture that deletes it; the same goes for a probe, which would keep
+        producing a card, and for a worker, which would stay launchable. "L'installation partagee porte exactement
+        le commit de la source" (targeting/install-update.md) was therefore false below two levels.
+
+        var/ is the one thing kept: it is the data, not the code. The settings of this machine are set aside before
+        and put back after, so they survive this. Nothing outside the destination is ever touched.
     #>
-    foreach ($scope in @($Destination, (Join-Path $Destination 'apps'))) {
-        if (-not (Test-PathSafe $scope)) { continue }
-        $mirror = if ($scope -eq $Destination) { $Source } else { Join-Path $Source 'apps' }
-        if (-not (Test-PathSafe $mirror)) { continue }
-        foreach ($entry in @(Get-ChildItem -LiteralPath $scope -Force -ErrorAction SilentlyContinue)) {
-            if ($entry.Name -eq 'var') { continue }
-            if (Test-Path -LiteralPath (Join-Path $mirror $entry.Name)) { continue }
-            Remove-Item -LiteralPath $entry.FullName -Recurse -Force -ErrorAction SilentlyContinue
-        }
-    }
+    Remove-InstallSurplus -Source $Source -Destination $Destination
     Copy-Item -Path (Join-Path $Source '*') -Destination $Destination -Recurse -Force -ErrorAction Stop
 
     if ($kept) {
@@ -5152,14 +5184,29 @@ function Get-ActiveModes {
     THE ACCOUNTS WHOSE SESSION IS OPEN, by name. Their registry hive is mounted only while they are logged in, which
     is exactly the question -- and it costs nothing, where establishing the list of accounts costs two seconds.
 #>
+<#
+    THE ACCOUNTS WITH AN OPEN SESSION -- AND NEVER THE ONE THE SERVER APP RUNS AS.
+
+    Its hive is loaded like any other, so it was counted among them: the scheduler computed a per-account card FOR
+    THE SERVICE ACCOUNT, which owns nothing a person installed and has no screen to look at one. Measured on 06/10,
+    `packages.probe.ps1@VigieService` sat in the cache beside `@fhaza` and `@Famille`, holding a reading nobody would
+    ever read. The owner put it plainly: the service account has no package manager, therefore no card.
+
+    It is the one entry in this list that cannot be a reader -- the whole client-task mechanism exists because it has
+    no session of its own (D113). Leaving it out is the definition, not an optimisation.
+#>
 function Get-OpenSessionAccounts {
     $names = @()
+    $self = $null
+    try { $self = [Security.Principal.WindowsIdentity]::GetCurrent().Name.Split([char]92)[-1] } catch { }
     foreach ($hive in @(Get-UserRegistryRoots)) {
         try {
             $sid = "$hive".Split([char]92)[-1]
             $name = (New-Object System.Security.Principal.SecurityIdentifier($sid)).Translate(
                         [System.Security.Principal.NTAccount]).Value.Split([char]92)[-1]
-            if ($name -and $names -notcontains $name) { $names += $name }
+            if (-not $name) { continue }
+            if ($self -and $name -eq $self) { continue }
+            if ($names -notcontains $name) { $names += $name }
         } catch { }
     }
     return @($names)
@@ -8107,10 +8154,15 @@ function Get-RunningOperations {
             $module = ($f.BaseName -replace '^busy-', '')
             $m = Get-ModuleBusyMark -Module $module -Backend $Backend
             if (-not $m) { continue }
+            # THE PROCESS NUMBER TRAVELS TOO. The protocol says the mark carries it, and that /operations is the
+            # ONE place where an operation's state is read. The route dropped it, so through the door the protocol
+            # designates nobody could tell a live operation from a dead one -- the check existed, reading the mark
+            # directly, elsewhere. Found on 06/10 while proving the protocol on a 613-second disk analysis.
             $ops += [pscustomobject][ordered]@{
                 module    = $module
                 label     = "$($m.label)"
                 action    = "$($m.action)"
+                pid       = [int]$m.pid
                 resources = @($m.resources)
                 at        = "$($m.at)"
             }

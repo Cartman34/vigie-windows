@@ -60,6 +60,24 @@ function Get-ScopeArgument {
     return $null
 }
 
+<#
+    AND AN ACTION THAT RUNS A PACKAGE MANAGER RUNS IN A SESSION (D128).
+
+    A manager installed in a profile answers only there, and the service account has no winget at all -- an MSIX
+    package refuses to launch for an account it is not registered for. An action that calls one from the server app
+    therefore measures the wrong account, or nothing. The header says where it runs; this checks it says `session`.
+#>
+$sessionCalls = @('Get-PkgUpdates', 'Invoke-PkgUpgrade')
+$actionsOutOfSession = @()
+$actionDir = Join-Path $repoRoot 'apps/backend-pode/actions'
+foreach ($file in @(Get-ChildItem -LiteralPath $actionDir -File -Filter '*.action.ps1' -ErrorAction SilentlyContinue)) {
+    $text = Get-Content -LiteralPath $file.FullName -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
+    if (-not $text) { continue }
+    if (-not @($sessionCalls | Where-Object { $text -match ('(?m)^\s*[^#\r\n]*' + [regex]::Escape($_)) }).Count) { continue }
+    if ($text -match '(?m)^\s*#\s*@execution\s*:\s*session') { continue }
+    $actionsOutOfSession += [pscustomobject]@{ File = 'apps/backend-pode/actions/' + $file.Name }
+}
+
 $cardsWithoutScope = @()
 $mixedFieldsWithoutScope = @()
 $redundantFields = @()
@@ -94,7 +112,10 @@ foreach ($file in $files) {
 
     # DOES THIS PROBE SPEAK OF AN ACCOUNT? Three signs, and any one of them is enough.
     $readsAccount = @($commands | Where-Object { "$($_.GetCommandName())" -eq 'Get-StateAccount' }).Count -gt 0
-    $personal = $readsAccount -or ($scopes | Where-Object { $_ -in @('user', 'mixed', '(calculé)') }).Count -gt 0
+    # THE LIBRARY IS NOT A PROBE: it is read here for the cards it builds, not for a per-account scope, and it has
+    # no module.psd1 in which to declare anything.
+    $isProbe = $rel -like '*/probes/*'
+    $personal = $isProbe -and ($readsAccount -or ($scopes | Where-Object { $_ -in @('user', 'mixed', '(calculé)') }).Count -gt 0)
     if ($personal) {
         $perAccount = $false
         try {
@@ -129,6 +150,11 @@ if ($mixedFieldsWithoutScope.Count) {
     $failed = $true
     Write-Fail (Get-Label 'check-scope.champs-sans-portee' $mixedFieldsWithoutScope.Count)
     foreach ($row in $mixedFieldsWithoutScope) { Write-Detail (Get-Label 'check-scope.ligne' $row.File $row.Line) }
+}
+if ($actionsOutOfSession.Count) {
+    $failed = $true
+    Write-Fail (Get-Label 'check-scope.actions-hors-session' $actionsOutOfSession.Count)
+    foreach ($row in $actionsOutOfSession) { Write-Detail (Get-Label 'check-scope.fichier' $row.File) }
 }
 if ($personalWithoutPerAccount.Count) {
     $failed = $true
