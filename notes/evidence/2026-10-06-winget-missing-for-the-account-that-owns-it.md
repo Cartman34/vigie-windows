@@ -1,8 +1,7 @@
 # winget absent pour le compte qui le possède — enquête en cours
 
 Suite de [winget était invisible pour Vigie](2026-10-06-winget-invisible-to-the-service-account.md), sujet **S02**,
-règle **D128**. **Ce relevé n'est pas conclu** : il consigne ce qui est mesuré, pour que l'enquête ne reparte pas de
-zéro.
+règle **D128**. **Conclu le 06/10 à 09:03.** La cause est trouvée, et le correctif constaté sur la machine.
 
 ## Le symptôme
 
@@ -62,3 +61,28 @@ choses en sortent, toutes deux permanentes :
 - **`diag-account-logs` ramène l'état** (`cache/`, `run/`), pas seulement les journaux. C'est l'état qui dit ce qu'un
   calcul a **lu** ; sans lui le fichier qui portait la réponse était à une copie de distance et illisible.
 - **La carte dit pour quel compte elle a été calculée**, et combien de gestionnaires ont été lus dans sa session.
+
+## Constat final, 06/10 à 09:03
+
+Entrée `packages.probe.ps1@fhaza`, recalculée à 07:03:36 UTC — trois cartes, dont `pkg-winget` :
+
+| | |
+|---|---|
+| portée | **`user`** — donc la carte porte « votre compte » à l'écran |
+| valeur | 1.29.380 |
+| chemin | `C:\Users\fhaza\AppData\Local\Microsoft\WindowsApps\winget.exe` |
+| provenance | « Lu dans la session de fhaza : ce gestionnaire est installé dans ce profil, l'app serveur ne le voit pas. » |
+| calcul | « Carte calculée pour le compte fhaza, 3 gestionnaire(s) lu(s) dans sa session. » |
+
+Le chemin est celui du compte qui regarde, plus celui d'un autre.
+
+## Et une troisième porte, qui manquait
+
+**`probe-refresh`** : marquer une sonde à recalculer. Sans elle, une sonde corrigée restait invisible jusqu'à
+**vingt-quatre heures** — l'intervalle de la carte des paquets — car l'installation n'invalide pas les rendus. Trois
+déploiements de suite ont été lus contre un cache calculé avant le premier : chaque lecture donnait l'impression que
+le correctif ne marchait pas, alors qu'il n'avait jamais tourné.
+
+C'est la troisième chose que cette enquête laisse derrière elle, avec l'état dans le diagnostic et la carte qui dit
+pour quel compte elle a été calculée. Toutes les trois répondent à la même faute : **j'ai déduit au lieu de mesurer,
+parce que mesurer n'était pas outillé.**
