@@ -36,7 +36,7 @@
 Uniquement des renvois : les titres vivent plus bas, une seule fois. Ajouter une décision = ajouter son numéro à une
 ligne — `scripts/dev/check-doc.ps1` refuse une décision absente d'ici.
 
-- **Identité et nommage** — D03 · D04 · D05 · D28 · D30 · D41 · D72 · D108 · D115
+- **Identité et nommage** — **D129** · D03 · D04 · D05 · D28 · D30 · D41 · D72 · D108 · D115
 - **Structure du dépôt** — D29 · D32 · D33 · D35 · D55
 - **Documentation** — D91 · D92 · D93 (revu) · D98 · D119 · D120
 - **Configuration** — D15 · D18 · D56 · D57
@@ -3412,3 +3412,31 @@ Relevé : [winget était invisible pour Vigie](../../notes/evidence/2026-10-06-w
 
 Où c'est réalisé : `apps/backend-pode/lib/common.ps1` (`New-ModuleObject`, `New-Field`), les 19 sondes de
 `apps/backend-pode/probes/`, et `scripts/dev/check-scope.ps1`.
+
+## D129 — Un terme de conception n'entre dans le code qu'après validation (2026-10-06)
+
+*Constaté par l'utilisateur, après avoir lu « ordre de bureau » dans une de mes réponses : « Tu as inventé le terme
+en ton bureau, et après tu le réutilises, mais tu ne me l'as jamais présenté. Et pour moi, il n'est pas dans le
+glossaire, puisque je ne l'ai jamais validé. Puis, ordre de bureau, ça ne veut rien dire. Moi, j'ai défini qu'il y
+avait des tâches synchrones et asynchrones, qu'il y avait des tâches longues et des tâches immédiates. »*
+
+J'avais nommé **« ordre de bureau »** le fait que l'app serveur fait exécuter une tâche dans la session d'un compte,
+puis je l'avais écrit dans le code, dans les journaux, dans la conception et dans l'inventaire des opérations. Le
+glossaire portait 32 termes ; celui-là n'y était pas, et pour cause : il n'avait jamais été présenté.
+
+**Le mot ne dit rien non plus.** Le mécanisme n'a rien d'un bureau : il porte une tâche là où il y a une session.
+Le vocabulaire validé est **« tâche serveur »** et **« tâche cliente »** — une tâche porte le nom de l'application
+qui l'exécute, comme « app serveur » et « app cliente ». C'est d'ailleurs ce que chaque action déclarait déjà, avec
+`@execution: serveur` et `@execution: session`.
+
+**La règle.** Un terme de conception — celui qui nommera un mécanisme, une famille, un état — se **présente** avant
+d'entrer nulle part. Le glossaire, `doc/en/developing/glossary.md`, en est la seule source : un mot qui n'y est pas
+n'est pas un mot du projet, c'est le mien, et il n'a rien à faire dans le code.
+
+**Ce qui n'est pas demandé** : un vérificateur qui refuserait tout mot absent du glossaire. Arbitré le 06/10 :
+« Q2 non ». Le cliquet ne tient que ce terme-là, à zéro, comme D108 tient le sien.
+
+Relevé : [Un mot que j'ai inventé, écrit partout, jamais validé](../../notes/evidence/2026-10-06-a-word-i-invented-and-never-had-validated.md).
+
+Où c'est réalisé : `doc/en/developing/glossary.md`, `scripts/dev/check-naming.ps1`, et le renommage de la fonction
+qui porte une tâche cliente (sujet **S17**).

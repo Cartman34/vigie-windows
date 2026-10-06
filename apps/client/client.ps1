@@ -1576,7 +1576,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                     MEME EN CAS D'ECHEC : sans compte rendu, il patiente jusqu'a expiration
                     puis conclut a tort que l'app cliente est absent.
                 #>
-                foreach ($order in @(Get-ChildItem -LiteralPath $runDir -Filter 'desktop-*.json' -File -ErrorAction SilentlyContinue |
+                foreach ($order in @(Get-ChildItem -LiteralPath $runDir -Filter 'client-task-*.json' -File -ErrorAction SilentlyContinue |
                                      Where-Object { $_.Name -notlike '*.done.json' })) {
                     $response = Join-Path $runDir ($order.BaseName + '.done.json')
                     $sortie = @{ message = ''; result = @{ ok = $false } }
@@ -1594,11 +1594,11 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                         if ($charge.params) {
                             foreach ($prop in $charge.params.PSObject.Properties) { $p[$prop.Name] = $prop.Value }
                         }
-                        TLog "ordre de bureau : $type"
+                        TLog "tache cliente : $type"
                         $r = & $script -Module "$($charge.module)" -Params $p
                         $sortie = @{ message = "$($r.message)"; result = $r.result }
                     } catch {
-                        TLog ("ordre de bureau KO : " + $_.Exception.Message)
+                        TLog ("tache cliente KO : " + $_.Exception.Message)
                         $sortie = @{ message = $_.Exception.Message; result = @{ ok = $false } }
                     }
                     try { ($sortie | ConvertTo-Json -Compress -Depth 6) | Out-File -FilePath $response -Encoding UTF8 } catch { }

@@ -118,7 +118,7 @@ Routes de `apps/backend-pode/server.ps1` qui modifient quelque chose. Toutes syn
 | surveillance des app clientes | `Update-ClientWatch` ; relance la tâche d'une app cliente absente, jamais si son processus vit | chaque passe du minuteur | journal `state`, `var/history/client-vanished.jsonl` |
 | recalcul d'une sonde périmée | `Get-State`, puis `Start-DetachedAction` sur `workers/state-refresh.worker.ps1` ; une seule à la fois, par mutex | un affichage qui trouve une sonde périmée | ignorées au lancement, **hors protocole** |
 | réparation des tâches au démarrage | `start.ps1`, `Repair-VigieTasks` | démarrage du serveur | journal |
-| ordre de bureau | `Invoke-DesktopAction` | une action `@execution: session` | compte rendu `.done.json`, écrit même en cas d'échec |
+| tâche cliente | `Invoke-ClientTask` | une action `@execution: session` | compte rendu `.done.json`, écrit même en cas d'échec |
 
 ## Les passes de l'app cliente
 
@@ -127,7 +127,7 @@ Toutes dans `apps/client/client.ps1`.
 | Opération | Déclenchement | Ce qu'elle fait |
 |---|---|---|
 | sondage de l'état | toutes les 8 s | `/health` puis `/state`, et les notifications de bureau qui en sortent |
-| exécution des ordres de bureau | toutes les secondes | lance `actions/<type>.action.ps1` dans la session et écrit le compte rendu |
+| exécution des tâches clientes | toutes les secondes | lance `actions/<type>.action.ps1` dans la session et écrit le compte rendu |
 | guetteur d'adresse réseau | toutes les secondes | périme la sonde réseau quand l'adresse change |
 | demande de relance du serveur | menu de l'icône | `POST /actions` avec `server-restart` |
 
@@ -139,7 +139,7 @@ La séquence d'installation et de mise à jour est décrite dans [update-chain.m
 
 | Script | Opération |
 |---|---|
-| `scripts/install.ps1` | installe ou met à jour ; arrête et relance les apps clientes (`Stop-ClientTasks`, `Start-ClientTasks`), active les comptes, fait poser le tag par un ordre de bureau |
+| `scripts/install.ps1` | installe ou met à jour ; arrête et relance les apps clientes (`Stop-ClientTasks`, `Start-ClientTasks`), active les comptes, fait poser le tag par une tâche cliente |
 | `scripts/uninstall.ps1` | désinstalle ; arrête les apps clientes |
 | `scripts/install-autostart.ps1`, `install-autostart.cmd`, `install-autostart.vbs` | enregistre la tâche de démarrage de l'app cliente |
 | `scripts/uninstall-autostart.ps1` | retire cette tâche |

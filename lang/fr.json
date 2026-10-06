@@ -103,6 +103,8 @@
   "check-naming.plafond-tenu-aucun-identifiant": "Plafond tenu : aucun identifiant francais de plus.",
   "check-naming.python-au-dessus": "Le plafond est dépassé de {0} : PHP est l'outil par défaut du dépôt, Python doit être argumenté et délimité (D41).",
   "check-naming.python-de-moins": "{0} fichier(s) Python de moins : le plafond descend d'autant.",
+  "check-naming.terme-invente-au-dessus": "{0} occurrence(s) du terme jamais validé : une tâche porte le nom de l'application qui l'exécute (D129).",
+  "check-naming.terme-invente-plafond": "Terme inventé par D129 : {0} (plafond {1})",
   "check-naming.tray-au-dessus": "Le mot interdit par D108 est écrit {0} fois : les deux applications s'appellent l'app serveur et l'app cliente.",
   "check-naming.tray-plafond": "Mot interdit par D108 : {0} (plafond {1})",
   "check-naming.un-fichier-se-nomme-en-anglais": "Un fichier se nomme en anglais (D41). Renommez, ou descendez le plafond si vous en avez retiré.",

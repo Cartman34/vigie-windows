@@ -88,6 +88,20 @@ $PYTHON_CEILING = 2
 #>
 $TRAY_CEILING = 0
 
+<#
+    THE TERM I INVENTED AND NEVER HAD VALIDATED (D129, subject S17).
+
+    I named the mechanism that has a task run in an account's session, then wrote that name into the code, the logs,
+    the design and the operations inventory. The glossary held thirty-two words and not that one, for the plain
+    reason that it had never been presented: the owner could neither read it nor refuse it.
+
+    The validated words say which app runs the task, the way the two apps are already named. The function and the
+    exchange files were renamed with them.
+
+    A ceiling of zero, on the French term and on the identifier alike, so neither comes back one file at a time.
+#>
+$DESKTOP_CEILING = 0
+
 $FRENCH_WORDS = @(
     'marquer','appliquer','repartir','verrou','carte','compte','tache','chemin',
     'fichier','dossier','ligne','colonne','hauteur','largeur','bouton','fenetre',
@@ -182,6 +196,26 @@ foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.
     if ($n) { $trayTotal += $n; $trayFiles += $rel }
 }
 
+# THE INVENTED TERM, wherever it is written (D129): the French words and the identifier that carried the notion.
+# `desktop-heap` is Windows' own "Desktop Heap", named by Windows and not by me, so it is not counted.
+$desktopTotal = 0
+$desktopFiles = @()
+foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.ps1','*.html','*.psd1','*.php','*.py','*.json','*.yaml','*.cmd','*.md' -ErrorAction SilentlyContinue)) {
+    $rel = $f.FullName.Substring($repoRoot.Length).TrimStart([char]92, [char]47).Replace([char]92, [char]47)
+    if ($skipped | Where-Object { $rel -like ($_ + '/*') -or $rel -like ('*/' + $_ + '/*') }) { continue }
+    # THE PLACES THAT STATE THE RULE write the term in order to forbid it: this file, the decision that settles it,
+    # the glossary entry that replaces it, and the dated records that say what was written that day.
+    $statesIt = @('scripts/dev/check-naming.ps1', 'doc/progress/decisions.md',
+                  'doc/en/developing/glossary.md', 'notes/subjects.md')
+    if ($statesIt -contains $rel -or $rel -like 'notes/evidence/*') { continue }
+    $text = Get-Content -LiteralPath $f.FullName -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
+    if (-not $text) { continue }
+    $n = ([regex]::Matches($text, '(?i)ordres? de bureau')).Count
+    $n += ([regex]::Matches($text, 'DesktopAction')).Count
+    $n += ([regex]::Matches($text, "desktop-(?!heap)")).Count
+    if ($n) { $desktopTotal += $n; $desktopFiles += $rel }
+}
+
 <#
     LES NOMS DE FICHIERS. Meme lexique, meme cliquet.
 
@@ -269,6 +303,7 @@ Write-Info (Get-Label 'check-naming.identifiants-francais-plafond' $total $CEILI
 Write-Info (Get-Label 'check-naming.fichiers-francais-plafond' $fileTotal $FILE_CEILING)
 Write-Info (Get-Label 'check-naming.fichiers-python-plafond' $pythonFiles.Count $PYTHON_CEILING)
 Write-Info (Get-Label 'check-naming.tray-plafond' $trayTotal $TRAY_CEILING)
+Write-Info (Get-Label 'check-naming.terme-invente-plafond' $desktopTotal $DESKTOP_CEILING)
 if ($pythonFiles.Count -gt $PYTHON_CEILING) {
     $pythonExceeded = $true
     Write-Fail (Get-Label 'check-naming.python-au-dessus' ($pythonFiles.Count - $PYTHON_CEILING))
@@ -307,6 +342,11 @@ if ($total -gt $CEILING) {
 if ($trayTotal -gt $TRAY_CEILING) {
     Write-Fail (Get-Label 'check-naming.tray-au-dessus' $trayTotal)
     foreach ($rel in $trayFiles) { Write-Detail $rel }
+    exit 2
+}
+if ($desktopTotal -gt $DESKTOP_CEILING) {
+    Write-Fail (Get-Label 'check-naming.terme-invente-au-dessus' $desktopTotal)
+    foreach ($rel in $desktopFiles) { Write-Detail $rel }
     exit 2
 }
 if ($commentExceeded -or $pythonExceeded) { exit 2 }

@@ -12,6 +12,8 @@ the French documentation use.
 |---|---|
 | **server app** (*app serveur*) | `apps/backend-pode`: PowerShell + Pode, listens on 127.0.0.1:47600, runs **elevated** under the service account, without a session. It measures, decides rights, runs actions. |
 | **client app** (*app cliente*) | `apps/client`: the icon in the notification area, one per open account. It starts the server if needed, opens the panel and carries Windows notifications. |
+| **server task** (*tâche serveur*) | a task the **server app** runs itself, elevated and without a session. The default: an action declares it with `@execution: serveur`. |
+| **client task** (*tâche cliente*) | a task the server app hands to the **client app of one account**, to be run IN THAT SESSION, because what it reads or does belongs to that account (D128) and the server app has no session of its own. An action declares it with `@execution: session`; `Invoke-ClientTask` carries it, and the client app answers in a `.done.json` even when it fails. A task is named after the app that runs it — the owner settled this on 06/10, after finding that the mechanism had been called something invented and never validated (**S17**). |
 | **panel** (*panneau*) | `apps/frontend-web`: the page served by the server app, the one where cards are read. |
 | **Atelier** | `apps/atelier`: a **development** tool (PHP, port 47610, never elevated). It is not part of what ships. |
 

@@ -15,7 +15,7 @@ Tout ce que Vigie **exécute**, qu'on le lui demande ou qu'elle le fasse d'elle-
 | **action** | un bouton, un dialogue, l'app cliente ou un script, par `POST /actions` |
 | **écriture par l'API** | une route qui modifie un réglage, un compte ou un accès |
 | **passe interne** | l'app serveur elle-même : minuteur, résidents, recalcul d'une sonde, relance |
-| **ordre de bureau** | l'app serveur, qui confie à l'app cliente ce qui a besoin d'un écran |
+| **tâche cliente** | l'app serveur, qui confie à l'app cliente ce qui a besoin d'une session |
 | **installation** | une personne ou le bouton de mise à jour ; séquence dans [install-update.md](install-update.md) et [uninstall.md](uninstall.md) |
 
 Une opération est **synchrone** quand son résultat est dans la réponse. Elle est **asynchrone** quand le travail
@@ -63,7 +63,7 @@ ou en échec. Ce qui diffère derrière, un résultat dans la réponse ou un tra
 
 ## Ce qui reste à arbitrer
 
-Les **passes internes** et les **ordres de bureau** figurent dans l'inventaire et ne taisent aucune erreur. Qu'ils
+Les **passes internes** et les **tâches clientes** figurent dans l'inventaire et ne taisent aucune erreur. Qu'ils
 rejoignent aussi les marques et les résultats de `/operations` n'est pas tranché : un minuteur qui tourne chaque minute
 n'est pas une opération qu'on regarde, et aucune demande ne le couvre encore.
 

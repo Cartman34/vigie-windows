@@ -5357,7 +5357,7 @@ function Get-DiskFreeFall {
     service account, where WSL does not exist.
 
     So the server asks. It writes an order in the account's run folder and the client app runs it in its session, the
-    mechanism that already serves every action needing a session (Invoke-DesktopAction). The answer is kept for an
+    mechanism that already serves every action needing a session (Invoke-ClientTask). The answer is kept for an
     hour: a virtual disk does not change size in a minute, and nobody is ever made to wait for it -- the card reads
     what is written, or says nothing about it.
 #>
@@ -5399,7 +5399,7 @@ function Update-WslUsage {
     $account = @(Get-ClientWatchRows -Backend $Backend | Where-Object { $_.Status -eq 'ok' } | Select-Object -First 1)
     if (-not $account.Count) { return $null }
     $answer = $null
-    try { $answer = Invoke-DesktopAction -Account "$($account[0].Account)" -Type 'wsl-usage' -Module 'wsl' -TimeoutSec 20 -Backend $Backend } catch { }
+    try { $answer = Invoke-ClientTask -Account "$($account[0].Account)" -Type 'wsl-usage' -Module 'wsl' -TimeoutSec 20 -Backend $Backend } catch { }
     if (-not $answer -or -not $answer.result -or -not $answer.result.ok) { return $null }
     $entry = [ordered]@{
         at            = ([datetime]::UtcNow).ToString('o')
@@ -5483,7 +5483,7 @@ function Update-PkgInventory {
     }
     if (-not $candidate) { return $null }
     $answer = $null
-    try { $answer = Invoke-DesktopAction -Account $candidate -Type 'pkg-inventory' -Module 'tools' -TimeoutSec 60 -Backend $Backend } catch { }
+    try { $answer = Invoke-ClientTask -Account $candidate -Type 'pkg-inventory' -Module 'tools' -TimeoutSec 60 -Backend $Backend } catch { }
     if (-not $answer -or -not $answer.result -or -not $answer.result.ok) { return $null }
     $entry = [ordered]@{
         at       = ([datetime]::UtcNow).ToString('o')
@@ -10149,7 +10149,7 @@ function Get-AccountRunDir {
     lui-meme, comme avant. Une action qui ne s'ouvre pas sur le bon bureau vaut mieux
     qu'une action qui ne s'ouvre pas du tout.
 #>
-function Invoke-DesktopAction {
+function Invoke-ClientTask {
     param(
         [Parameter(Mandatory)][string]$Account,
         [Parameter(Mandatory)][string]$Type,
@@ -10164,8 +10164,12 @@ function Invoke-DesktopAction {
         try { New-Item -ItemType Directory -Path $runDir -Force | Out-Null } catch { return $null }
     }
     $id    = New-RandomId
-    $order = Join-Path $runDir ('desktop-' + $id + '.json')
-    $done  = Join-Path $runDir ('desktop-' + $id + '.done.json')
+    # THE FILE NAME SAYS WHAT THE TASK IS (S17, D129): a client task, named after the app that runs it. The former
+    # name carried a notion nobody had validated. No reading of both names: an installation stops and restarts every
+    # client app, so a task written in the seconds before it would be lost either way -- and the caller says so,
+    # since every client task reports back even when it fails.
+    $order = Join-Path $runDir ('client-task-' + $id + '.json')
+    $done  = Join-Path $runDir ('client-task-' + $id + '.done.json')
     $charge = @{ type = $Type; module = $Module; params = $Params; at = (Get-EpochSeconds) }
     try { ($charge | ConvertTo-Json -Compress -Depth 6) | Out-File -FilePath $order -Encoding UTF8 }
     catch { return $null }
@@ -11161,7 +11165,7 @@ function Invoke-ActionById {
         # repond pas, on l'execute ici comme avant plutot que de ne rien faire.
         $res = $null
         if ((Get-ActionExecutor -Type $Type -Backend $Backend) -eq 'session' -and $requester -and $requester -ne '-') {
-            $relais = Invoke-DesktopAction -Account $requester -Type $Type -Params $Params -Module $Module -Backend $Backend
+            $relais = Invoke-ClientTask -Account $requester -Type $Type -Params $Params -Module $Module -Backend $Backend
             if ($relais) {
                 $res = @{ message = "$($relais.message)"; result = $relais.result }
             } else {
