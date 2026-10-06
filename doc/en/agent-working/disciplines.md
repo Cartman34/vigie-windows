@@ -315,6 +315,24 @@ screen shows. "The Storage card is greyed, its three buttons are off, it says 'A
 and nothing names the operation in progress." That outlives the image, it is searchable, and it is what the fix is
 measured against.
 
+## Deploying is not a way to test
+
+**What is deployed has already been tested.** A deployment puts code on his machine, restarts the server app and
+every client app, and takes two minutes; using it to find out whether something works turns his computer into my
+workbench. *06/10: "Le deploiement n'est pas une maniere de tester."*
+
+**What is tested first, and how:** a probe with `scripts/check-probes.ps1`, which runs them all; an action by calling
+its file directly with its parameters; a library function by dot-sourcing `common.ps1` and calling it; the page by
+reading it. All of that runs in my session, costs seconds, and can be repeated.
+
+**What my session genuinely cannot see** -- what the service account sees, with its own `PATH`, its own profile and
+no console -- is measured through the door Vigie already has: an action asked of the server app, or
+`diag-account-logs`, which brings back its logs AND its state. On 06/10 that gap cost four deployments in a row to
+answer one question, each one a two-minute wait, because the measurement had no door. The lesson is to open the
+door, not to deploy again.
+
+**Deploying is the last step**, once it works: it delivers, it does not check.
+
 ## A PLAN BEFORE THE CODE, AND IT IS MANDATORY
 
 **Nothing is written until the plan has been presented and accepted.** Not a probe, not a verifier, not a one-line
