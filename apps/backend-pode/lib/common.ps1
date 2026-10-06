@@ -259,6 +259,22 @@ function Remove-ProbeCache {
                         # « at » a l'epoque zero : perimee quel que soit le delai.
                         try { $entree.at = '0001-01-01T00:00:00.0000000Z' } catch { }
                         try { Add-Member -InputObject $entree -NotePropertyName 'pending' -NotePropertyValue $true -Force } catch { }
+                        <#
+                            AND THE OCCUPANCY DOES NOT SURVIVE IN A KEPT RENDERING (D130).
+
+                            A card computed WHILE an operation ran carries `busy` in its rendering. We keep that
+                            rendering so the card does not vanish -- but `busy` is not a value, it is a state, and it
+                            was over by the time this ran: this function is called at the END of the operation.
+                            Served again, the stale flag greyed the card out of its buttons until the probe
+                            recomputed, which for the packages card can be a day. Seen on 06/10: the owner had to
+                            press F5. A kept rendering keeps what was measured, never what was happening.
+                        #>
+                        foreach ($mod in @($entree.module)) {
+                            if (-not $mod) { continue }
+                            foreach ($champ in @('busy', 'busyAction', 'busyResources')) {
+                                try { if ($mod.PSObject.Properties[$champ]) { $mod.PSObject.Properties.Remove($champ) } } catch { }
+                            }
+                        }
                         $ht[$present] = $entree
                     } else {
                         $ht.Remove($present)
@@ -3897,6 +3913,10 @@ function New-Action {
     param(
         [Parameter(Mandatory)][string]$Id,
         [Parameter(Mandatory)][string]$Label,
+        # THE CARD THAT CARRIES THIS ACTION, when the resource it takes depends on it: "pkg-choco" turns "paquets"
+        # into "paquets-choco", so checking pip during an upgrade of Chocolatey stays possible. Optional: an action
+        # whose resource does not depend on its card has nothing to say here.
+        [string]$Module,
         [switch]$Confirm,
         [string]$Help,
         # 'dialog' : ouvre une fenetre de CHOIX dans l'application (liste a cocher).
@@ -3981,7 +4001,7 @@ function New-Action {
     $a['busyLabel'] = if ($BusyLabel) { $BusyLabel } else { "$Label…" }
     # CE QUE L'ACTION MOBILISE (D93). L'interface s'en sert pour griser juste ce qu'il
     # faut ; le serveur, lui, arbitre pour de bon.
-    $res = @(Get-ActionResources -Type $Id)
+    $res = @(Get-ActionResources -Type $Id -Module $Module)
     if ($res.Count) { $a['resources'] = @($res) }
     [pscustomobject]$a
 }
@@ -4054,7 +4074,7 @@ function New-ModuleObject {
     if ($Busy -and $BusyAction) { $o['busyAction'] = $BusyAction }
     if ($Mode) { $o['mode'] = $Mode }
     if ($Busy) {
-        $br = if ($BusyResources.Count) { @($BusyResources) } elseif ($BusyAction) { @(Get-ActionResources -Type $BusyAction) } else { @() }
+        $br = if ($BusyResources.Count) { @($BusyResources) } elseif ($BusyAction) { @(Get-ActionResources -Type $BusyAction -Module $Id) } else { @() }
         if ($br.Count) { $o['busyResources'] = @($br) }
     }
     [pscustomobject]$o
@@ -7943,7 +7963,7 @@ function Set-ModuleBusyMark {
     $f = Get-ModuleBusyMarkPath -Module $Module -Backend $Backend
     $d = Split-Path $f -Parent
     if (-not (Test-Path -LiteralPath $d)) { New-Item -ItemType Directory -Path $d -Force | Out-Null }
-    if (-not $Resources -or -not $Resources.Count) { $Resources = @(Get-ActionResources -Type $Action) }
+    if (-not $Resources -or -not $Resources.Count) { $Resources = @(Get-ActionResources -Type $Action -Module $Module) }
     $o = [ordered]@{ label = $Label; pid = $ProcessId; action = $Action
                      resources = @($Resources)
                      button = $Button; log = $Log
@@ -8156,7 +8176,16 @@ $script:RessourcesParAction = @{
     'wu-install'           = @('windows-update')
     'wu-list-pending'      = @('windows-update')
     'run-audit'            = @('windows-update')
-    # Gestionnaires de paquets : un seul a la fois, ils partagent le meme installeur.
+    <#
+        PACKAGE MANAGERS: THE RESERVATION NAMES THE MANAGER, NOT THE FAMILY.
+
+        It read 'paquets' for all of them, on the grounds that they shared one installer. They do not: pip has
+        nothing to do with Chocolatey, and it showed on screen -- an upgrade of Chocolatey switched off pip's own
+        "check for updates" button. Seen by the owner on 06/10.
+
+        What stays true, and what he asked to keep: checking and upgrading THE SAME manager exclude each other. So
+        the resource becomes "paquets-<manager>", returned by Get-ActionResources once it is told which card.
+    #>
     'pkg-upgrade'          = @('paquets')
     'pkg-check-updates'    = @('paquets')
     'pkg-list-updates'     = @()               # lecture d'un cache : rien a reserver
@@ -8180,9 +8209,18 @@ $script:RessourcesParAction = @{
 # inoffensive (ouvrir un dossier, lire un cache). On declare ce qui gene, pas l'inverse :
 # une liste par defaut trop large finirait par tout bloquer sans qu'on sache pourquoi.
 function Get-ActionResources {
-    param([Parameter(Mandatory)][string]$Type)
-    if ($script:RessourcesParAction.ContainsKey($Type)) { return @($script:RessourcesParAction[$Type]) }
-    return @()
+    param([Parameter(Mandatory)][string]$Type, [string]$Module)
+    if (-not $script:RessourcesParAction.ContainsKey($Type)) { return @() }
+    $res = @($script:RessourcesParAction[$Type])
+    # THE MANAGER AS A SUFFIX when the card names it: "pkg-choco" gives "paquets-choco". With no module -- a
+    # declaration read out of context -- the family resource is kept, which is wider and never wrong.
+    if ($Module -and $Module -like 'pkg-*') {
+        $manager = $Module -replace '^pkg-', ''
+        if ($manager -and $manager -ne 'none') {
+            $res = @($res | ForEach-Object { if ("$_" -eq 'paquets') { 'paquets-' + $manager } else { "$_" } })
+        }
+    }
+    return @($res)
 }
 
 # Les ressources actuellement TENUES, et par quoi. On relit les marqueurs vivants : un
@@ -8205,8 +8243,8 @@ function Get-HeldResources {
 
 # Peut-on lancer CETTE action maintenant ? Rend $null si oui, sinon la raison, en clair.
 function Test-ActionResourcesFree {
-    param([Parameter(Mandatory)][string]$Type, [string]$Backend = (Get-BackendRoot))
-    $veut = @(Get-ActionResources -Type $Type)
+    param([Parameter(Mandatory)][string]$Type, [string]$Module, [string]$Backend = (Get-BackendRoot))
+    $veut = @(Get-ActionResources -Type $Type -Module $Module)
     if (-not $veut.Count) { return $null }
     $tenues = @(Get-HeldResources -Backend $Backend)
     if (-not $tenues.Count) { return $null }
@@ -11153,7 +11191,9 @@ function Invoke-ActionById {
     }
     # LE VERROU EST ICI, pas dans l'interface (D93). Une page restee ouverte peut
     # toujours envoyer une action : c'est le serveur qui doit dire non.
-    $conflit = Test-ActionResourcesFree -Type $Type -Backend $Backend
+    # THE MODULE COUNTS: "paquets" becomes "paquets-choco" according to the card, so two different managers no
+    # longer block one another (D130).
+    $conflit = Test-ActionResourcesFree -Type $Type -Module $Module -Backend $Backend
     if ($conflit) {
         Write-VigieAudit -Outcome 'denied' -Action $Type -Module $Module -Requester $requester `
                          -Rights $rights -Detail ("ressource occupee : " + $conflit) -Backend $Backend

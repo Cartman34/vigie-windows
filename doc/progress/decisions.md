@@ -3468,6 +3468,16 @@ ni depuis quand.
 ce qu'elle tient, on bloque tout » s'appliquait toujours. Une analyse de disque éteignait le bouton de Chocolatey.
 `/operations` porte le libellé, l'action, les ressources et l'heure de départ : c'est elle qui fait foi.
 
+**Et une occupation ne survit pas dans un rendu gardé.** Une carte calculée PENDANT une opération porte `busy` dans
+son rendu ; ce rendu est conservé à la fin pour que la carte ne disparaisse pas, et il était resservi tel quel —
+grisé — jusqu'au recalcul suivant, soit un jour pour la carte des paquets. Il a fallu recharger la page. Un rendu
+gardé garde ce qui a été **mesuré**, jamais ce qui était **en train de se passer** ; et la page lit l'occupation sur
+`/operations`, qui dit le présent.
+
+**La réservation nomme ce qu'elle retient.** « Un gestionnaire de paquets » n'est pas une ressource : une mise à
+jour de Chocolatey éteignait le bouton de pip. La ressource porte le gestionnaire — `paquets-choco`, `paquets-pip` —
+donc vérifier et mettre à jour **le même** gestionnaire s'excluent, et deux gestionnaires différents jamais.
+
 Relevé : [Une carte occupée ne disait pas par quoi, et ne se déplaçait plus](../../notes/evidence/2026-10-06-a-busy-card-said-nothing-and-could-not-be-moved.md).
 
 Où c'est réalisé : `apps/frontend-web/index.html`.

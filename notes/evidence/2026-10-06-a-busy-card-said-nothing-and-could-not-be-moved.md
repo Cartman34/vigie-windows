@@ -51,3 +51,33 @@ lisait pas pour ça.
 | Ressources | lues sur `/operations`, la marque du serveur, au lieu d'être devinées sur la carte. |
 
 Arbitrage : **D130**.
+
+## Deux autres défauts, vus sur les captures suivantes
+
+### 4. Un gestionnaire bloquait les autres
+
+Capture : *carte winget « votre compte », version 1.29.380 ; carte pip, bouton « Vérifier les mises à jour »
+**éteint** ; carte Chocolatey « À voir », 4 mises à jour disponibles, « Mettre à jour » en cours.*
+
+`pkg-check-updates` et `pkg-upgrade` retenaient tous deux la ressource `paquets`, déclarée « un seul à la fois, ils
+partagent le même installeur ». C'est faux : pip n'a rien à voir avec Chocolatey.
+
+> « Je veux bien que la vérification empêche sa propre installation, ça serait illogique de faire les deux en même
+> temps, même avec 2 fenêtres ouvertes, mais par contre, qu'elles se bloquent mutuellement et en vérif, c'est
+> n'importe quoi. »
+
+La ressource porte désormais le gestionnaire : `paquets-choco`, `paquets-pip`, `paquets-winget`.
+
+### 5. La carte restait grise après la fin
+
+Capture : *mêmes cartes, opération terminée — winget « À jour », Chocolatey « 4 disponibles » — et les boutons
+toujours éteints.* Il a fallu recharger la page.
+
+> « C'est resté grisé, il a fallu que je fasse F5 pour que ça refonctionne, ça n'est pas normal. »
+
+La carte avait été **calculée pendant** l'opération : son rendu portait `busy`. À la fin, `Remove-ProbeCache` garde
+ce rendu — pour que la carte ne disparaisse pas — et le marque à recalculer. Mais il était resservi **tel quel**,
+drapeau compris, jusqu'au recalcul : un jour pour la carte des paquets.
+
+Deux corrections, et la règle qu'elles portent : **un rendu gardé garde ce qui a été mesuré, pas ce qui était en
+train de se passer.** Le drapeau est retiré du rendu conservé, et la page lit l'occupation sur `/operations`.

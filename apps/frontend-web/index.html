@@ -1872,7 +1872,18 @@ async function syncOperations(etatFourni){
   for(const op of (etat.running || [])){
     if(op && op.module) opsByCard[op.module] = op;
   }
+  // CE QUI EST OCCUPE SE LIT SUR LE VIVANT, JAMAIS SUR UN RENDU (D130). Une carte calculee pendant une operation
+  // porte `busy` dans son rendu, et ce rendu est servi jusqu'au recalcul suivant -- un jour pour la carte des
+  // paquets. La carte restait grise apres la fin, et il fallait recharger la page. La liste des operations, elle,
+  // dit ce qui tourne a l'instant : c'est elle qui pose et retire la classe.
+  document.querySelectorAll('.card').forEach(card => {
+    card.classList.toggle('busy', !!opsByCard[card.dataset.module]);
+  });
+  for(const m of (lastModules || [])){
+    if(!opsByCard[m.id]){ m.busy = false; delete m.busyAction; delete m.busyResources; }
+  }
   paintOperationNotes();
+  applyOperationLock();
   const enCours = new Set();
   for(const op of (etat.running || [])){
     const cle = operationKey(op);

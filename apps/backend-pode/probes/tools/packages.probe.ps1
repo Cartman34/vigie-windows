@@ -213,7 +213,7 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
 
     $actions = @()
     if ($supported) {
-        $actions += New-Action -Id 'pkg-check-updates' -Label 'Vérifier les mises à jour' -BusyLabel 'Vérification…' -Kind 'immediate' `
+        $actions += New-Action -Id 'pkg-check-updates' -Module ("pkg-" + $mg.id) -Label 'Vérifier les mises à jour' -BusyLabel 'Vérification…' -Kind 'immediate' `
             -Help ("Interroge " + $mg.label + " pour lister les MAJ disponibles. S'exécute en tâche de fond ; la carte s'actualise seule.")
     }
     # Le bouton ouvre la fenetre de CHOIX (comme Windows Update), il ne lance plus la mise
@@ -224,7 +224,7 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
         } else {
             $mg.label + " ne sait pas cibler un paquet : la liste est affichée pour information et TOUS les paquets seront mis à jour."
         }
-        $actions += New-Action -Id 'pkg-list-updates' -Severity 'fix' -Label 'Mettre à jour' -BusyLabel 'Mise à jour…' -Kind 'dialog' -Help $aide
+        $actions += New-Action -Id 'pkg-list-updates' -Module ("pkg-" + $mg.id) -Severity 'fix' -Label 'Mettre à jour' -BusyLabel 'Mise à jour…' -Kind 'dialog' -Help $aide
     }
     # Interface graphique du gestionnaire, UNIQUEMENT si elle est installee (Get-PkgGui le
     # verifie). Meme role que « Ouvrir Windows Update » sur la carte Windows Update.
