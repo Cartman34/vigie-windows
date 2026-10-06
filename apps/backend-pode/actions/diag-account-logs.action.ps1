@@ -76,6 +76,31 @@ if (Test-Path -LiteralPath $logs) {
     }
 }
 
+<#
+    AND THE STATE VIGIE WROTE ITSELF, not only its logs.
+
+    A log says what happened; the state says what IS. On 06/10 a card was missing from the panel and the log proved
+    the computation had run -- what it could not say was what the computation had READ. The answer sat in
+    `cache/pkg-inventory.json`, in the service account's profile, which an ordinary session cannot even open: half an
+    hour went into guessing at a file that was one copy away. The door existed and brought back the wrong half.
+
+    So the bookkeeping comes too: `cache/` and `run/`, the JSON files Vigie writes to remember -- probe renderings,
+    per-account readings, what is due, what is running. `secrets/` is still never copied, and a file over sixteen
+    megabytes is named rather than copied, because a diagnosis is read in a minute and must not fill a disk.
+#>
+$heavy = @()
+foreach ($sous in @('cache', 'run')) {
+    $dossier = Join-Path $source $sous
+    if (-not (Test-Path -LiteralPath $dossier)) { continue }
+    $vers = Join-Path $cible $sous
+    New-Item -ItemType Directory -Path $vers -Force | Out-Null
+    foreach ($f in @(Get-ChildItem -LiteralPath $dossier -File -Recurse -ErrorAction SilentlyContinue)) {
+        if ($f.Length -gt 16MB) { $heavy += ("{0}/{1} ({2})" -f $sous, $f.Name, (Format-ByteSize ([long]$f.Length))); continue }
+        Copy-Item -LiteralPath $f.FullName -Destination $vers -Force -ErrorAction SilentlyContinue
+        $nb++
+    }
+}
+
 # Un resume de l'etat : ce qui existe, quel poids, quelle fraicheur. C'est ce qui repond a
 # « son Vigie tourne-t-il, et depuis quand ? » sans rien devoiler du contenu.
 $resume = @("Compte    : $compte", "Profil    : $profil", "Donnees   : $source",
@@ -91,6 +116,8 @@ foreach ($sous in @('cache','log','history','secrets')) {
 }
 $resume += ""
 $resume += "Le jeton d'API n'est pas copie (secrets/), volontairement."
+$resume += "cache/ et run/ sont copies : c'est l'etat que Vigie ecrit pour se souvenir, et c'est lui qui dit ce qu'une carte a LU."
+if ($heavy.Count) { $resume += ("Trop gros, non copie(s) : " + ($heavy -join ', ')) }
 $resume -join [Environment]::NewLine | Set-Content -LiteralPath (Join-Path $cible 'resume.txt') -Encoding UTF8
 
 <#
