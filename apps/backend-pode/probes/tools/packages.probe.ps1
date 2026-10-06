@@ -21,17 +21,26 @@ if (Test-Path $updFile) {
     `AppData\Local\Microsoft\WindowsApps` on this account, and the server app -- a service account -- did not see
     it at all; the panel showed Chocolatey and pip and said nothing about the main manager of the machine (C4 of
     `targeting/multi-account-server.md`). The inventory is taken by the `pkg-inventory` action in each account's
-    session, kept by `Update-PkgInventory`, and read here. What this process sees itself still counts: a manager
-    installed machine-wide needs nobody signed in to be true.
+    session, kept per account by `Update-PkgInventory`, and read here FOR THE REQUESTER AND NOBODY ELSE.
+
+    NO FALLING BACK ON ANOTHER ACCOUNT. The first version read the union of every account kept when the requester
+    had none, and the card then showed another person's winget -- their path, their version, and, at the next step,
+    their updates. The owner caught it the same day: the service account has no winget, so nothing here belongs to
+    the machine. Unread is unread, and the card says so rather than borrowing an answer.
+
+    What this process sees itself still counts, and is borrowed from nobody: a manager installed machine-wide needs
+    nobody signed in to be true.
 #>
+$requester = Get-RequesterAccount
 $inventory = @{}
 $inventoryAt = @{}
-foreach ($row in @(Get-PkgInventory -Backend $backend -Account (Get-RequesterAccount))) {
-    $inventory["$($row.Id)"] = $row
+if ($requester) {
+    foreach ($row in @(Get-PkgInventory -Backend $backend -Account $requester)) { $inventory["$($row.Id)"] = $row }
 }
-if (-not $inventory.Count) {
-    foreach ($row in @(Get-PkgInventory -Backend $backend)) { $inventory["$($row.Id)"] = $row }
-}
+# NOT YET READ IS SAID, NOT HIDDEN. The watch pass reads one account per pass, so a session that has just opened
+# waits its turn -- and until then a manager living in its profile is simply absent from the panel, with nothing to
+# explain the hole. A card that cannot see says it cannot see (CORE-ERRORS).
+$inventoryPending = ($requester -and -not $inventory.Count)
 
 $modules = @()
 foreach ($mg in (Get-PackageManagerCatalog)) {
@@ -104,6 +113,7 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
     # WHERE THE READING COMES FROM, said rather than implied: a manager installed in a profile is invisible to the
     # server app, and the card would otherwise look like it had seen it itself.
     if ($inventoryAt["$($mg.id)"]) { $vg += ("Lu dans la session de " + $inventoryAt["$($mg.id)"] + " : ce gestionnaire est installé dans ce profil, l'app serveur ne le voit pas.") }
+    if ($inventoryPending) { $vg += "Les gestionnaires installés dans votre profil ne sont pas encore lus dans votre session : ils apparaîtront d'eux-mêmes." }
     $fields = @()
     $fields += New-Field -Key 'version' -Label 'Version' -Value $ver -Kind 'text' -Status 'ok' `
         -Help $(if ($inventoryAt["$($mg.id)"]) { "Version installée, lue dans la session du compte qui l'a installé." } else { "Version installée, détectée dans le PATH." }) `
