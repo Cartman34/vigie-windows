@@ -126,10 +126,34 @@ saturation" when one exists but only watches the RAM hides the real gesture, whi
 question. *On 14/09 two of five questions had already been answered, one the day before: the answers lived only in the
 conversation.*
 
-**Options.** A closed question gets lettered options — A, B, C… — **the recommended one
+**Options.** A closed question gets lettered options — **A**, **B**, **C**… — **the recommended one
 first**. An open question stays open. Each option announces its **main advantage** in a few
 words (faster to build, safer, more maintainable…), so the arbitration is explicit rather
 than guessed.
+
+**THE SHAPE, EXACTLY, AND THERE IS NO OTHER.** Written out on 06/10 after four attempts in a row came back out of
+format, each time for a different reason -- the context after the title, three sentences instead of one, options
+labelled `Q1A` instead of `A`, the recommended one buried last:
+
+```
+**Q1** — <context: what it is about, where that thing lives, why it comes up now — ONE sentence>. **<The question?>**
+
+**A** — <the option, stated in full>. *Avantage : <its main advantage, a few words>.*
+**B** — <the option, stated in full>. *Avantage : <its main advantage, a few words>.*
+**C** — <the option, stated in full>. *Avantage : <its main advantage, a few words>.*
+```
+
+Point by point, because each one was got wrong at least once:
+
+- **The number opens the line**, and the CONTEXT comes straight after it: a question OPENS with its context, it is
+  not preceded by a title. One sentence, then the question itself, in the same paragraph.
+- **The options are lettered `A`, `B`, `C`** — the bare letter, never `Q1A`. `Q1A` is how HE answers; it is not how
+  the option is written. Repeating the number on every option is noise.
+- **The first option is the recommended one**, by position. No "that is the one I recommend" afterwards: the order
+  says it.
+- **Nothing else in the message.** No commentary on my mistake, no explanation of the format, no summary of what
+  came before. He asked a question: he gets the question. *06/10: "Je t'ai demande une interpretation de ton erreur ?
+  non ! Je t'ai pose une question !!"*
 
 **The format above is THE format — everywhere.** In conversation as in a design document, a
 report or a tracking file: number `Qn`, full statement, lettered options.
