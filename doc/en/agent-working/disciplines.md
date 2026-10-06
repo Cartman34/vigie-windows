@@ -264,6 +264,11 @@ On 30/09 I answered "anything else to fix?" with five paragraphs he had not aske
 message aussi long pour rien, tu n'avais rien à dire."* One question, one subject, one answer. What he did not ask for
 goes to the repository, and he is told where in the same 200 characters, or not at all.
 
+**A SUBJECT NUMBER IS NEVER WRITTEN WITHOUT WHAT IT IS.** `S05`, `D124`, `Q1C`: these numbers exist so a thing can be
+pointed at, not so it can be named. He reads the last message only, and a review written in numbers alone says nothing
+to him -- *05/10: "moi, juste par leur code je ne sais pas ce qu'est un sujet"*. Every number carries, right there, the
+few words that say what it is: "S05, les actions asynchrones". The number alone is for the repository, never for him.
+
 **A technical term is written in correct French, or kept in English -- never translated by ear.** "Détachées" for a
 detached process means nothing to a French reader; "asynchrone" does. When the French word is uncertain, the English
 one is kept as is, and the identifiers stay English in every case (D41). *29/09: "arrête de traduire comme une merde".*
