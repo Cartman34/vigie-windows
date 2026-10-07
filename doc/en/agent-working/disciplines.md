@@ -333,6 +333,24 @@ door, not to deploy again.
 
 **Deploying is the last step**, once it works: it delivers, it does not check.
 
+## The tracking is mine, and it is kept as the work happens
+
+**A subject is closed in the same commit that finishes it**, not in a tidying pass afterwards. The same goes for one
+that opens, advances, shrinks or turns out to be stale: `notes/subjects.md` says where things stand, and it is only
+true if it is written at the moment it becomes true.
+
+*07/10: "Je ne suis pas cense te dire d'actualiser ton suivi, c'est toi qui le geres, tu dois le faire
+systematiquement en continu !" -- I had finished three subjects and announced them as housekeeping still to do,
+handing him the job of remembering them.*
+
+**Why it cannot wait.** The tracking is what survives the conversation. A subject finished but left open reappears
+in the next review as work to do; one that advanced without being written loses the measurement that justified it.
+And offering him the tidying as a choice makes him carry what is mine.
+
+**What it covers**: `notes/subjects.md` (open, advanced, closed), `notes/answers.md` (every answer he gives, in the
+same turn), the records in `notes/evidence/`, and the state documents under `doc/progress/implemented/`. None of
+them is ever a separate step at the end.
+
 ## A PLAN BEFORE THE CODE, AND IT IS MANDATORY
 
 **Nothing is written until the plan has been presented and accepted.** Not a probe, not a verifier, not a one-line

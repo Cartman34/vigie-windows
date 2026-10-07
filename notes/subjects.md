@@ -17,13 +17,15 @@ Arbitré par l'utilisateur le 06/09, et c'est **cet ordre-là** que je suis quan
 | Rang | Sujets |
 |------|--------|
 | **D'abord** | ~~S04~~ · ~~S06~~ (clos le 30/09) · **S05** · **S07** |
-| Ensuite | **S02** |
+| Ensuite | ~~S02~~ (clos le 06/10) |
 | En dernier | **S01** |
 
 **S14** est né le 12/09, d'un défaut signalé par l'utilisateur ; il attend son rang.
 **S15** est né le 13/09, d'un déploiement bloqué ; il attend son rang.
 **S03** et **S09** ne se classent pas : ce sont des **preuves**, et elles demandent son geste à lui, pas mon travail.
 **S08** descend avec S07, par le même cliquet.
+**S17** et **S18** sont nés le 06/10 et clos le jour même : l'un d'un mot que j'avais inventé, l'autre d'une action
+supprimée qui restait installée. Aucun n'a eu besoin d'un rang.
 
 ## Revue du 30/09/2026 — ce qui est encore d'actualité
 
@@ -79,12 +81,30 @@ inchangés.
   de fichiers, **2** fichiers Python — mesurés aujourd'hui. S01 est reporté par ta décision du 05/09, S03 attend ton
   geste.
 
+## Revue du 07/10/2026 — après une journée de travail
+
+- **S02 est clos.** Son dernier manque — les gestionnaires de paquets — est traité : présence, version, recherche de
+  mises à jour et installation passent par la session du compte. Trouvé en chemin, et mesuré : **l'app serveur ne
+  peut pas exécuter winget**, un paquet MSIX refusant de se lancer pour un compte où il n'est pas enregistré.
+- **S14 a avancé sans être clos.** `disk-analyze` (613 s) et `pkg-check-updates` sont éprouvées sous protocole, et
+  `/operations` donne enfin le **numéro de processus** que la marque portait. Restent : l'installation Windows
+  Update, geste du propriétaire ; et un **défaut**, non une question ouverte : ce que Vigie fait d'elle-même
+  sur minuterie n'apparaît nulle part, alors que `CORE-OPERATIONS` demande que **toute** opération asynchrone se
+  voie tant qu'elle dure. La conception écrivait « n'est pas tranché, aucune demande ne le couvre » ; c'était faux,
+  et c'est corrigé le 07/10.
+- **S15 a avancé sans être clos.** L'état cassé de `var/history` est vérifié **et corrigé** : le verrou passe de la
+  session à la machine (`Global\`), l'écriture devient entière ou rien, et la lecture **compte les lignes
+  écartées**. Restent la purge jamais exécutée et les bascules VBS/HVCI, hors de ma portée.
+- **S05 est périmé**, inchangé depuis la revue du 05/10 : il mesure le code contre un contrat « 202 + jobId » qui
+  n'existe plus nulle part. À requalifier ou à clore — c'est un arbitrage, pas un travail.
+- **S07, S08, S01, S03, S09 sont inchangés.** Les cliquets sont à **450** identifiants, **5 603** commentaires
+  (en baisse de 4 aujourd'hui), **3** noms de fichiers, **2** fichiers Python, et **zéro** pour les deux mots bannis.
+
 ## Ouverts
 
 | N° | Sujet | Où c'est décrit | Pourquoi c'est ouvert |
 |----|-------|-----------------|-----------------------|
 | **S01** | Confiance de la chaîne de mise à jour | `targeting/features.md` → `CORE-UPDATE-TRUST` | Rien ne vérifie que ce qui s'installe est bien ce qui a été publié. **Décidé le 05/09 : dans la cible, pas maintenant** — mais la chaîne d'aujourd'hui ne doit rien faire qui empêche une version future de vérifier. |
-| **S02** | Les mesures par utilisateur, invisibles depuis la session 0 | `targeting/multi-account-server.md` → C4 | **Avancé le 06/10** : WSL, les lectures `HKCU` du module Jeux et la **présence des gestionnaires de paquets** passent par la session du compte — winget était invisible, il apparaît ([relevé](evidence/2026-10-06-winget-invisible-to-the-service-account.md)). Reste la **recherche de mises à jour**, qui tourne encore pour le compte de service. Même jour : la gêne « mise à jour bloquée par une application ouverte » **nomme le compte** (l'événement AppX 419 porte son SID) — elle était dite comme un fait de la machine. Constaté le 06/10 : la carte winget porte le chemin du compte qui regarde et la portée `user` ([relevé](evidence/2026-10-06-winget-missing-for-the-account-that-owns-it.md)). **Bloqué le 06/10** : l'app serveur **ne peut pas exécuter winget** — paquet MSIX, « Accès refusé », quel que soit son privilège ([relevé](evidence/2026-10-06-the-server-cannot-run-winget.md)). Les 17 mises à jour doivent donc passer par la session du compte, dont 12 avec élévation : décision du propriétaire. |
 | **S03** | La désinstallation n'a jamais été éprouvée en vrai | `targeting/uninstall.md` | Elle est écrite et relue, jamais exécutée : **c'est un geste de l'utilisateur, jamais le mien**. Tant qu'elle n'a pas eu lieu, on sait qu'elle est cohérente, pas qu'elle marche. |
 | **S05** | Les actions asynchrones ne suivent pas le contrat | `implemented/status.md` | Le suivi passe par les marqueurs d'occupation et `/operations`, pas par le `202 + jobId` que décrit le contrat. |
 | **S07** | Le français dans le code | `dev/check-naming.ps1` | Trois cliquets qui ne peuvent que descendre : identifiants français, noms de fichiers français, lignes de commentaire françaises (**D115**). Ils baissent quand on passe à côté, jamais en campagne dédiée. |
@@ -92,14 +112,15 @@ inchangés.
 | **S09** | Preuves qui n'ont jamais eu lieu | — | L'installation sur un **second ordinateur** depuis la v1.0.0, l'alerte de **décharge batterie** pendant une partie, et l'export **imprimé pour de vrai**. et une notification née de la **boucle de l'app cliente** plutôt que d'un script. Quatre choses écrites que rien n'a encore confrontées au réel. |
 | **S12** | Le numéro de version ne peut pas se publier sans session | **D123** | **Clos le 14/09** : un déploiement ne pose plus de numéro, il n'a donc plus rien à publier. Mesuré le 08/09 : le déploiement de 09 h 55 n'avait posé aucun numéro, personne n'étant connecté. |
 | **S14** | Les opérations ne suivent pas toutes le même protocole | `targeting/operations.md` · `implemented/operations.md` · **D82** | Constaté le 12/09 : une installation Windows Update annoncée terminée dès son départ, puis une carte figée sur « Démarrage… ». Le 13/09, les quatre opérations passent par `Start-Operation`, éprouvé en production sur `vigie-update` seulement. La relance du serveur reste hors protocole, arbitré le 13/09. Reste à éprouver Windows Update, le disque et les paquets, et à trancher si les passes internes rejoignent `/operations`. Preuve : `notes/evidence/2026-09-12-operations-outside-the-protocol.md`. **Avancé le 06/10** : `disk-analyze` (613 s, 374 316 dossiers) et `pkg-check-updates` (Chocolatey et pip) éprouvées sous protocole, marque et résultat constatés. Trouvé au passage : `/operations` ne recopie pas le **numéro de processus** que la marque porte, alors que le protocole en fait la seule porte de lecture ([relevé](evidence/2026-10-06-three-operations-run-under-the-protocol.md)). |
-| **S18** | Une pièce retirée de la source survit dans l'installation | `Copy-InstallFrom` dans `common.ps1` | Né le 06/10 : une action supprimée de la source et poussée sur `main` est **restée installée et appelable** après un déploiement réussi. `Copy-InstallFrom` ne supprime ce que la source n'a pas qu'à **deux niveaux** — la racine et `apps/` — donc `actions/`, `probes/`, `workers/` et `lib/` ne sont qu'écrasés. Une action porte des droits : la retirer est le geste qui la supprime. Relevé : `evidence/2026-10-06-a-deleted-action-survives-in-the-installation.md`. |
-| **S17** | Un terme de conception inventé, jamais validé, posé dans le code | `doc/en/developing/glossary.md` · `targeting/operations.md` | Né le 06/10 : j'ai nommé « ordre de bureau » le fait que l'app serveur fait exécuter une tâche dans la session d'un compte, puis je l'ai écrit dans le code, les journaux et la conception — **sans jamais le présenter**. Le glossaire porte 32 termes et pas celui-là. Le propriétaire a tranché le mot : **« tâche serveur » et « tâche cliente »**, une tâche portant le nom de l'application qui l'exécute. Reste à le remplacer partout (11 occurrences françaises, `Invoke-DesktopAction` et ses 12 usages, les fichiers d'échange `desktop-*.json`), à poser un cliquet à zéro, et à acter la règle : un terme n'entre dans le code qu'après validation. |
 | **S15** | Des pièces de Vigie sans réponse à certaines situations de leur vie | `targeting/components.md` · `implemented/components.md` · **D112** | Constaté le 13/09 : le déploiement s'est arrêté parce que le clone du service refusait les étiquettes déplacées par la réécriture d'historique du 11/09. Le même jour, le clone est corrigé et éprouvé ; journaux, droit de session, source du journal d'événements, confiance git, source disparue et compte de service reçoivent leur réponse, **non éprouvée en réel**. Restent les manques que `implemented/components.md` marque « aucune réponse ». Preuve : `notes/evidence/2026-09-13-service-clone-blocked-by-rewritten-tags.md`. **Avancé le 06/10** : l'état cassé de `var/history` est **vérifié** — rien ne casse, une ligne illisible est écartée, mais un fichier entièrement corrompu rend zéro point **sans un mot**, indiscernable d'une mesure jamais relevée ([relevé](evidence/2026-10-06-what-vigie-answers-when-its-history-is-broken.md)). Restent la purge jamais exécutée et les bascules VBS/HVCI, hors de ma portée. |
 
 ## Clos
 
 | N° | Sujet | Clos le | Comment |
 |----|-------|---------|---------|
+| **S02** | Les mesures par utilisateur, invisibles depuis la session 0 | 06/10/2026 | Tout ce qui appartient à un compte se lit dans sa session. WSL et les lectures de registre l'étaient déjà ; les **gestionnaires de paquets** ont suivi le 06/10 — présence et version (`pkg-inventory`), recherche de mises à jour et **installation** (`pkg-updates`, en tâche cliente). L'app serveur **ne peut pas exécuter winget** : paquet MSIX, « Accès refusé », quel que soit son privilège. Constaté sur la machine : carte winget 1.29.380, portée `user`, chemin du compte qui regarde, 17 mises à jour listées, et une mise à jour d'un seul paquet qui ne touche que lui. Arbitré par **D128**. |
+| **S17** | Un terme de conception inventé, jamais validé, posé dans le code | 06/10/2026 | « tâche serveur » et « tâche cliente » entrent au glossaire — une tâche porte le nom de l'application qui l'exécute, comme « app serveur » et « app cliente ». Le terme inventé disparaît du code, des journaux et de la conception ; `Invoke-DesktopAction` devient `Invoke-ClientTask`, les fichiers d'échange suivent. Cinquième cliquet à zéro dans `check-naming`. Éprouvé : une tâche cliente a traversé le canal renommé. Arbitré par **D129**. |
+| **S18** | Une pièce retirée de la source survit dans l'installation | 06/10/2026 | `Copy-InstallFrom` ne supprimait qu'à deux niveaux : une action supprimée de la source restait **installée et appelable**, avec ses droits. La suppression couvre désormais toute l'arborescence, `var/` excepté, par `Remove-InstallSurplus`. Éprouvé sur dossiers jetables (action retirée à trois niveaux supprimée, action gardée intacte, `var/` intact), puis **constaté en vrai** : l'action de mesure temporaire a disparu de l'installation au déploiement suivant. |
 | **S06** | Le mot banni dans les identifiants | 30/09/2026 | Renommé en une fois, et non par zones : `apps/client/`, `client.ps1`, `scripts/client.ps1`, `Get-ClientHeartbeat`, `client.alive`, `CORE-CLIENT`, les clés de libellés, les commentaires, la documentation. Le risque des chemins déjà posés était éteint depuis le 29/09 (`New-VigieClientAction`). `check-naming` tient un plafond de **zéro**. Trouvé au passage : `update-mode-on.action.ps1` n'analysait plus depuis `d1f7a64`, d'où le nouveau `check-powershell`. |
 | **S16** | Un module éteint n'est plus jamais recalculé, et sa carte sert ce qu'elle avait | 30/09/2026 | Quatre défauts distincts, tous mesurés sur la machine avant et après. Un module allumé par un compte était **éteint pour l'ordonnanceur**, qui calcule sans demandeur. À retard égal, le tri en prenait trois au hasard : **deux calculs n'avaient jamais tourné** depuis le premier jour. Un **lancement refusé** ne laissait aucune trace et se répétait indéfiniment. Et une **mesure par compte** était calculée dans une entrée que personne ne lit — la carte WSL était recalculée toutes les cinq minutes et affichait 31 h. Chaque carte porte désormais sa date, son dernier départ, son dernier passage et ses échecs, lisibles depuis son menu, avec la teinte sur le bouton quand elle sort de son intervalle. |
 | **S04** | L'audit Windows Update ne remonte pas dans l'interface | 30/09/2026 | Le rapport revient par le canal ordinaire d'une action (`result.detail`) et la page l'ouvre dans une fenêtre large, préformatée : colonnes tenues, lignes longues repliées. Générique, donc `accounts-details` et `repair-tasks` se lisent droit du même coup. Le fichier reste sous `var/log/`, nommé sous le rapport. Ses lignes sont devenues de l'interface, donc elles portent leurs accents. |
