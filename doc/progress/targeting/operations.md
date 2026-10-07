@@ -80,6 +80,93 @@ depuis une session ordinaire, pour savoir pourquoi une carte restait grise.
 
 Sujet **S14**.
 
+## La conception retenue
+
+Écrite le 07/10, avant le code, à la demande du propriétaire : *« Ta conception doit être solide… prévois tous les
+cas… pense code maintenable, architecture hexagonale, SOLID, DRY. La sécurité, les performances et l'optimisation
+sont importantes aussi. »*
+
+### Le principe : une passe interne EST une opération, pas une nouveauté
+
+Il existe déjà un mécanisme complet pour « ce qui tourne » : une **marque** posée avant, un **résultat** écrit
+après, `/operations` qui sert les deux, et une page qui les affiche. Une passe interne n'a besoin d'**aucun** de ces
+éléments en double. Elle entre dans le mécanisme existant par un espace de noms réservé : `pass:<nom>`.
+
+Rien de neuf n'est donc créé : pas de fichier, pas de route, pas de lecteur, pas de code d'interface.
+
+### Une seule porte : `Invoke-WatchedPass`
+
+```
+Invoke-WatchedPass -Name 'sentinels' -Label 'Relevé des sentinelles' -MaxSeconds 30 -Body { ... }
+```
+
+Le corps de la passe **ne sait rien** de la marque : il mesure, il calcule, il rend. C'est l'enveloppe qui pose,
+efface et juge. Ajouter une passe demain, c'est l'entourer de cette fonction — et rien d'autre. Une seule
+responsabilité, un seul endroit à corriger, et le jour où la détection change, elle change une fois.
+
+### Ce qui s'écrit, et ce que ça coûte
+
+| Quand | Ce qui est écrit |
+|---|---|
+| au départ du tour de veille | **une** marque, ~150 octets, réécrite sur place |
+| à chaque étape qui dépasse **1 s** | le nom de l'étape dans cette même marque |
+| à la fin du tour | la marque est effacée |
+| quand une passe dépasse son plafond | **un** résultat, une seule fois par occurrence |
+
+Soit **deux écritures par tour de trente secondes** en régime normal — 5 760 par jour, d'un fichier de 150 octets.
+Une passe rapide n'écrit rien de plus. C'est le prix minimal pour qu'un blocage soit visible : sans marque, il n'y a
+rien à regarder.
+
+### Le blocage est constaté par le LECTEUR, pas par l'écrivain
+
+C'est le point qui fait tenir le reste. Si une passe se bloque, la minuterie est bloquée avec elle : **rien dans ce
+processus ne peut plus rien signaler**. La détection ne peut donc pas y vivre.
+
+`Get-RunningOperations` tourne dans la requête HTTP, qui est un autre fil d'exécution. Elle lit la marque, compare
+son heure de départ au plafond déclaré, et conclut. Une passe bloquée se voit même quand tout le reste est figé.
+
+### Les marques orphelines s'effacent seules
+
+La marque porte le numéro de processus du serveur. `Get-ModuleBusyMark` efface déjà, à la lecture, une marque dont
+le processus a disparu. Un serveur qui redémarre après un arrêt brutal a un numéro neuf : l'ancienne marque s'en va
+au premier regard. Aucun nettoyage à écrire, aucun orphelin possible.
+
+### Une passe interne ne bloque aucun bouton
+
+Elle ne mobilise rien : sa liste de ressources est vide. **Mais la page doit cesser de croire qu'une liste vide veut
+dire « on ne sait pas »** — elle appliquait alors le repli « on bloque tout ». Ce repli datait d'un temps où les
+marques ne déclaraient pas leurs ressources ; elles le font depuis le 06/10. Il est retiré : **une opération qui ne
+déclare rien ne retient rien**.
+
+Sans cette correction, chaque tour de veille gèlerait l'interface pendant qu'il dure.
+
+### Les plafonds, déclarés par passe
+
+Chacun vient de ce que la passe fait, pas d'un chiffre rond : la mesure des paquets attend une tâche cliente avec un
+délai de 60 s, elle ne peut pas tenir en 10.
+
+| Passe | Plafond | Pourquoi |
+|---|---|---|
+| résidents | 10 s | lit des processus, ne calcule rien |
+| app clientes | 10 s | lit des tâches planifiées |
+| sentinelles | 30 s | peut forcer le calcul d'une carte (30 s d'attente) |
+| ordonnanceur | 10 s | ne fait que lancer des workers |
+| disque | 5 s | lit l'espace libre et un historique |
+| WSL | 25 s | tâche cliente, délai de 20 s |
+| paquets | 65 s | tâche cliente, délai de 60 s |
+| ports | 5 s | une lecture de 15 ms, plus un journal au plus toutes les 5 min |
+
+### Sécurité
+
+La marque est écrite par l'app serveur dans son propre `var/run`, et lue par `/operations`, déjà authentifiée. Le
+nom d'une passe est une **constante déclarée dans le code**, jamais une entrée : aucun chemin ne se compose à partir
+de ce que quelqu'un envoie. Ce qui est exposé en plus : un nom de passe et une heure de départ.
+
+### Ce qui reste à trancher avec le propriétaire
+
+Deux choix d'interface, posés en questions `Q1` et `Q2` le 07/10 : ce qui s'affiche d'une passe normale, et si une
+passe bloquée mérite une bulle.
+
 ## L'exception arbitrée
 
 **La relance du serveur reste hors du protocole**, sans marque ni résultat : arbitré par l'utilisateur le 13/09. Son
