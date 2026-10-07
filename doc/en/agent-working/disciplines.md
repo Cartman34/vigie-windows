@@ -340,6 +340,18 @@ door, not to deploy again.
 
 **Deploying is the last step**, once it works: it delivers, it does not check.
 
+## Every answer opens on its subject, in one line
+
+**The first line says what this is about.** Not a preamble, not a result: the subject, named, so he knows in one
+glance what he is reading before reading it. He sees the last message only, often on a phone, often minutes or hours
+after the previous one -- an answer that starts in the middle of a thought costs him the work of rebuilding it.
+
+*Asked on 30/09 ("Mais tu n'as pas presente le sujet"), and again on 07/10: "Tu dois toujours presenter ton sujet.
+Une ligne avec ton sujet, c'est obligatoire." Twice, for the same omission.*
+
+**It pairs with the closing rule below**: the first line says what this is, the last says what comes next. Between
+the two, the content. A message without them is a fragment.
+
 ## Every answer ends on what comes next
 
 **An answer that closes on "done" closes the conversation.** Whatever was just finished, the last lines say what
