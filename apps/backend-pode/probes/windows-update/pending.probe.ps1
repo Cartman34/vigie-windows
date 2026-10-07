@@ -40,10 +40,10 @@ if ($null -eq $count) {
     # jour (boucle classique des pilotes OEM mal cibles -- constate sur deux pilotes
     # Lenovo poses en machine et redetectes). Sans explication, l'utilisateur reessaie
     # en vain et croit Vigie en panne.
-    $dejaFaites = @($pending.alreadyDone)
+    $alreadyDone = @($pending.alreadyDone)
     if ($true) {
-        if ($dejaFaites.Count -gt 0) {
-            $parts += ("ATTENTION : " + $dejaFaites.Count + " de ces mises à jour ont déjà été installées AVEC SUCCÈS et Windows les repropose quand même :`n- " + ($dejaFaites -join "`n- ") + "`nC'est une boucle connue des pilotes constructeur mal ciblés : le pilote est bien posé (vérifiable dans le Gestionnaire de périphériques), réinstaller ne change rien. Elles peuvent rester, ou être masquées avec l'outil Microsoft wushowhide.")
+        if ($alreadyDone.Count -gt 0) {
+            $parts += ("ATTENTION : " + $alreadyDone.Count + " de ces mises à jour ont déjà été installées AVEC SUCCÈS et Windows les repropose quand même :`n- " + ($alreadyDone -join "`n- ") + "`nC'est une boucle connue des pilotes constructeur mal ciblés : le pilote est bien posé (vérifiable dans le Gestionnaire de périphériques), réinstaller ne change rien. Elles peuvent rester, ou être masquées avec l'outil Microsoft wushowhide.")
         }
     }
     # WHAT THE CARD ANNOUNCES IS WHAT THE DIALOG OFFERS, to the number. Everything set
@@ -77,7 +77,7 @@ if ($null -eq $count) {
         $ageScan = if ($quandScan) { [int]((Get-Date) - $quandScan).TotalDays } else { -1 }
         # La ligne au-dessus dit deja COMBIEN de mises a jour attendent : celle-ci dit
         # QUAND on a regarde. Repeter le nombre n'apprend rien (signale par l'utilisateur).
-        $valeurScan = if ($quandScan) { $quandScan.ToString('s') } else { 'jamais' }
+        $scanValue = if ($quandScan) { $quandScan.ToString('s') } else { 'jamais' }
         # Un renseignement vieux de plus d'une semaine se signale : il ne prouve plus rien
         # sur l'etat actuel de la machine. Il porte alors son bouton (D66).
         $statutScan = if ($scan.error) { 'error' } elseif ($ageScan -ge 7) { 'warn' } else { 'ok' }
@@ -90,7 +90,7 @@ if ($null -eq $count) {
                             else { "Analyse faite il y a $ageScan jours." })
         }
         if ($ageScan -ge 7) { $guideScan += "Au-delà d'une semaine, ce résultat ne dit plus rien de l'état actuel : relancez une vérification." }
-        $champs += New-Field -Key 'scan' -Label 'Dernière analyse en ligne' -Value $valeurScan `
+        $champs += New-Field -Key 'scan' -Label 'Dernière analyse en ligne' -Value $scanValue `
             -Kind $(if ($quandScan) { 'date' } else { 'text' }) `
             -Status $statutScan `
             -FixAction $(if ($statutScan -eq 'ok') { $null } else { 'wu-scan' }) `
@@ -100,7 +100,7 @@ if ($null -eq $count) {
     if ($enCours) {
         # Les phases sont des identifiants techniques : elles se traduisent avant d'etre
         # montrees. « demarrage… » s'affichait tel quel, sans accent ni majuscule.
-        $libellePhase = switch ("$($inst.phase)") {
+        $phaseLabel = switch ("$($inst.phase)") {
             'demarrage'      { 'Démarrage…' }
             'telechargement' { 'Téléchargement…' }
             'installation'   { 'Installation…' }
@@ -115,7 +115,7 @@ if ($null -eq $count) {
             $parts = @("$($progress.phase)")
             if ($progress.index -and $progress.total) { $parts += "$($progress.index)/$($progress.total)" }
             if ($null -ne $progress.percent) { $parts += "$($progress.percent) %" }
-            $libellePhase = $parts -join ' · '
+            $phaseLabel = $parts -join ' · '
         }
         # A FAILED UPDATE OR A STALL COLOURS THE LINE while it runs: waiting for the end to learn it is what the owner
         # asked not to do (15/09). A stall is two minutes without any figure moving.
@@ -127,7 +127,7 @@ if ($null -eq $count) {
             }
         }
         # A coloured line carries its gesture (D66): Windows Update's own screen gives the full message of a failure.
-        $champs += New-Field -Key 'install' -Label 'Installation' -Value $libellePhase -Kind 'text' -Status $installStatus `
+        $champs += New-Field -Key 'install' -Label 'Installation' -Value $phaseLabel -Kind 'text' -Status $installStatus `
             -FixAction $(if ($installStatus -ne 'neutral') { 'open-windows-update' } else { $null }) `
             -Progress $progress `
             -Help "Installation lancée depuis Vigie. Elle continue même si la fenêtre se ferme." `
@@ -144,16 +144,16 @@ if ($null -eq $count) {
         # Un redemarrage SURVENU APRES l'installation solde le « redemarrage requis » :
         # sans cette comparaison, la mention survivait indefiniment au redemarrage
         # (constate). On compare en UTC (D44).
-        $redemarrageFait = $false
+        $rebootDone = $false
         if ($inst.redemarrage -and $inst.at) {
             try {
                 $boot = Get-BootTime
                 $finInst = ConvertTo-UtcDate $inst.at
-                if ($finInst -and $boot -gt $finInst) { $redemarrageFait = $true }
+                if ($finInst -and $boot -gt $finInst) { $rebootDone = $true }
             } catch { }
         }
-        $echecs = 0
-        foreach ($d in $detailInst) { if ("$($d[1])" -match '^(Échec|Annulée)') { $echecs++ } }
+        $failures = 0
+        foreach ($d in $detailInst) { if ("$($d[1])" -match '^(Échec|Annulée)') { $failures++ } }
         # La date de l'installation, en heure locale : c'est ELLE l'information une fois
         # l'operation soldee -- « terminee » sans date ne disait plus rien d'utile.
         $quand = ''
@@ -165,35 +165,35 @@ if ($null -eq $count) {
         # se lisait mal -- ce « 2 » nu ne disait pas de quoi il parlait. Le nombre de
         # mises a jour est dans le detail de la ligne, avec le tableau qui les nomme.
         $val = if ($inst.error)          { 'Échec' }
-               elseif ($echecs -gt 0)    { "$echecs sur $($inst.total) en échec" }
-               elseif ($inst.redemarrage -and -not $redemarrageFait) { 'Installée, redémarrage requis' }
+               elseif ($failures -gt 0)    { "$failures sur $($inst.total) en échec" }
+               elseif ($inst.redemarrage -and -not $rebootDone) { 'Installée, redémarrage requis' }
                elseif ($quand)           { $quand }
                else                      { 'Terminée' }
-        $st  = if ($inst.error -or $echecs -gt 0) { 'error' }
-               elseif ($inst.redemarrage -and -not $redemarrageFait) { 'warn' }
+        $st  = if ($inst.error -or $failures -gt 0) { 'error' }
+               elseif ($inst.redemarrage -and -not $rebootDone) { 'warn' }
                else                               { 'neutral' }
         $g = @()
         if ($quand) { $g += "Installation lancée depuis Vigie, terminée le $quand ($($inst.total) mise(s) à jour)." }
-        if ($redemarrageFait) { $g += "Le redémarrage demandé a été effectué depuis : rien à faire." }
+        if ($rebootDone) { $g += "Le redémarrage demandé a été effectué depuis : rien à faire." }
         if ($inst.error) { $g += "Erreur : $($inst.error)" }
-        if ($inst.redemarrage -and -not $redemarrageFait) {
+        if ($inst.redemarrage -and -not $rebootDone) {
             $g += "Ce que c'est : les mises à jour sont installées, mais Windows doit redémarrer pour les activer. Ce n'est pas une panne."
             $g += "Ce qui est possible : redémarrer au moment voulu (le bouton « Redémarrer Windows » de cette carte, ou menu Démarrer > Redémarrer). Vigie ne redémarre jamais de lui-même."
         }
-        if ($echecs -gt 0) {
-            $g += "Ce qui a échoué : $echecs mise(s) à jour sur $($inst.total). Le détail par mise à jour est dans le tableau ci-dessous, avec le code d'erreur Windows."
+        if ($failures -gt 0) {
+            $g += "Ce qui a échoué : $failures mise(s) à jour sur $($inst.total). Le détail par mise à jour est dans le tableau ci-dessous, avec le code d'erreur Windows."
             $g += "Ce qui est possible : relancer l'installation (une seconde tentative suffit souvent), ou passer par « Ouvrir Windows Update » qui affiche le message d'erreur complet de Windows."
         }
         # Le detail PAR mise a jour, en tableau : « terminé avec erreurs » ne dit pas
         # laquelle a echoue, ce tableau si.
-        $lignes = @()
-        if ($detailInst.Count) { foreach ($d in $detailInst) { $lignes += ,@("$($d[0])", "$($d[1])") } }
-        elseif ($inst.titres)   { foreach ($t in @($inst.titres)) { $lignes += ,@("$t", '—') } }
+        $lines = @()
+        if ($detailInst.Count) { foreach ($d in $detailInst) { $lines += ,@("$($d[0])", "$($d[1])") } }
+        elseif ($inst.titres)   { foreach ($t in @($inst.titres)) { $lines += ,@("$t", '—') } }
         $restartCountdown = Test-RestartCountdown -Backend $backend
         $champs += New-Field -Key 'install' -Label 'Dernière installation' -Value $val -Kind 'text' -Status $st `
             -Help "Résultat de la dernière installation lancée depuis Vigie." -Guide ($g -join "`n`n") `
-            -FixAction $(if ($inst.redemarrage -and -not $redemarrageFait -and -not $inst.error -and $echecs -eq 0 -and -not $restartCountdown) { 'system-restart' } else { $null }) `
-            -Table @{ columns = @('Mise à jour', 'Résultat'); rows = $lignes }
+            -FixAction $(if ($inst.redemarrage -and -not $rebootDone -and -not $inst.error -and $failures -eq 0 -and -not $restartCountdown) { 'system-restart' } else { $null }) `
+            -Table @{ columns = @('Mise à jour', 'Résultat'); rows = $lines }
     }
 
     # A FAILURE THE WORKER COULD NOT WRITE ITSELF -- a process gone, a launch refused -- is the protocol's result,

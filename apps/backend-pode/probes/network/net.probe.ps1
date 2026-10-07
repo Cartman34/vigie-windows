@@ -372,18 +372,18 @@ try {
     $sw.Stop(); $dnsMs = [int]$sw.ElapsedMilliseconds
 } catch { }
 # Le nom du proxy local, si un service connu tourne (Acrylic ici) : nommer aide a agir.
-$dnsProxyNom = ''
+$dnsProxyName = ''
 if ($dnsLocal) {
     $proxy = Get-LocalDnsProxyService
-    if ($proxy) { $dnsProxyNom = "$($proxy.Name)" }
+    if ($proxy) { $dnsProxyName = "$($proxy.Name)" }
 }
-$dnsValeur = if ($dnsLocal) { '127.0.0.1 (résolveur local)' } else { ($dnsServeurs | Select-Object -First 2) -join ', ' }
-if (-not $dnsServeurs.Count) { $dnsValeur = 'aucun serveur' }
+$dnsValue = if ($dnsLocal) { '127.0.0.1 (résolveur local)' } else { ($dnsServeurs | Select-Object -First 2) -join ', ' }
+if (-not $dnsServeurs.Count) { $dnsValue = 'aucun serveur' }
 $dnsStatut = if ($dnsOk) { 'ok' } elseif ($connected) { 'error' } else { 'warn' }
 $dnsGuide = if ($dnsOk) {
-    "Résolution vérifiée en $dnsMs ms." + $(if ($dnsLocal) { "`nLe trafic DNS passe par un proxy LOCAL" + $(if ($dnsProxyNom) { " (service $dnsProxyNom)" }) + " : s'il tombe, tout semble « sans internet » alors que le réseau va bien — ce champ fera la différence." } else { '' })
+    "Résolution vérifiée en $dnsMs ms." + $(if ($dnsLocal) { "`nLe trafic DNS passe par un proxy LOCAL" + $(if ($dnsProxyName) { " (service $dnsProxyName)" }) + " : s'il tombe, tout semble « sans internet » alors que le réseau va bien — ce champ fera la différence." } else { '' })
 } elseif ($dnsLocal) {
-    "La résolution de noms ÉCHOUE alors que la connexion réseau semble bonne : le résolveur LOCAL" + $(if ($dnsProxyNom) { " ($dnsProxyNom)" }) + " ne répond plus.`nQue faire : redémarrer le service" + $(if ($dnsProxyNom) { " « $dnsProxyNom »" } else { " du proxy DNS" }) + " (services.msc), ou repasser temporairement le DNS de la carte sur la box/un DNS public."
+    "La résolution de noms ÉCHOUE alors que la connexion réseau semble bonne : le résolveur LOCAL" + $(if ($dnsProxyName) { " ($dnsProxyName)" }) + " ne répond plus.`nQue faire : redémarrer le service" + $(if ($dnsProxyName) { " « $dnsProxyName »" } else { " du proxy DNS" }) + " (services.msc), ou repasser temporairement le DNS de la carte sur la box/un DNS public."
 } else {
     "La résolution de noms échoue : sans DNS, les sites ne s'ouvrent plus même si la connexion est bonne.`nQue faire : vérifier le serveur DNS de la carte réseau, ou la box."
 }
@@ -495,7 +495,7 @@ $fields += @(
     New-Field -Key 'mac' -Label 'Adresse MAC'  -Value $mac -Kind 'text' -Status 'neutral' `
         -Help "Adresse MAC de l'interface principale. Le détail montre toutes les interfaces actives." `
         -Table @{ columns = @('Interface', 'Type', 'IPv4', 'MAC'); rows = $adapterRows }
-    New-Field -Key 'dns' -Label 'DNS' -Value $dnsValeur -Kind 'text' -Status $dnsStatut `
+    New-Field -Key 'dns' -Label 'DNS' -Value $dnsValue -Kind 'text' -Status $dnsStatut `
         -FixAction $(if ($dnsStatut -ne 'ok') { 'net-dns-flush' } else { $null }) `
         -Help "Le serveur qui traduit les noms de sites en adresses. Testé par une résolution réelle à chaque passage." -Guide $dnsGuide
     New-Field -Key 'vpn' -Label 'VPN actif'    -Value $vpn -Kind 'bool' -Status 'neutral' -Help "Présence d'un adaptateur de tunnel VPN actif sur ce PC." -Guide $vpnGuide

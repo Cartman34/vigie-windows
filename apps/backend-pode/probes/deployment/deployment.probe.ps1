@@ -45,7 +45,7 @@ if ($partagee) {
     # A JOUR ? Le numero de version ne suffit pas : deux « v0.1 » peuvent differer de
     # vingt commits. On compare donc le COMMIT, et on dit l'ecart (D84).
     $cmp = Compare-SharedInstall -Backend $backend
-    $etat = 'accessible à tous les comptes'
+    $state = 'accessible à tous les comptes'
     $niveau = 'ok'
     $detail = "Installation partagée : " + (Get-SharedInstallPath)
     if ($cmp) {
@@ -53,7 +53,7 @@ if ($partagee) {
         # explique (regle utilisateur du 27/08 : « juste la version en orange, ca
         # suffit a savoir qu'il y a un souci »). Une ligne de carte se lit d'un coup
         # d'oeil ; la phrase entiere tient dans l'infobulle.
-        $etat = $cmp.there.version
+        $state = $cmp.there.version
         $detail += [Environment]::NewLine + "Déployée : " + $cmp.there.version +
                    $(if ($cmp.there.commit) { " (" + $cmp.there.commit.Substring(0, [Math]::Min(8, $cmp.there.commit.Length)) + ")" } else { " (commit inconnu)" })
 
@@ -109,7 +109,7 @@ if ($partagee) {
     }
     # DEJA DEPLOYEE : ce qu'on propose est une MISE A JOUR, pas un deploiement --
     # « Deployer pour tous les comptes » ne veut plus rien dire une fois que c'est fait.
-    $depl += New-Field -Key 'partage' -Label 'Installation partagée' -Value $etat -Kind 'text' -Status $niveau `
+    $depl += New-Field -Key 'partage' -Label 'Installation partagée' -Value $state -Kind 'text' -Status $niveau `
         -FixAction $(if ($niveau -eq 'warn') { 'vigie-update' } else { '' }) `
         -Help "Emplacement lisible par tous les comptes de la machine : leurs tâches de démarrage pointent dessus. Les autres comptes lancent CETTE version, pas celle du dépôt." `
         -Guide $detail
@@ -126,8 +126,8 @@ if ($partagee) {
 # la lance ne l'est pas. Le dire ici, sinon activer un compte cree une tache qui echoue
 # en silence a chaque ouverture de session (constate le 26/08 avec Famille).
 $pwshPartage = Get-SharedPwshPath
-$pwshCompte  = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
-if (-not $pwshPartage -and -not $pwshCompte) {
+$pwshAccount  = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
+if (-not $pwshPartage -and -not $pwshAccount) {
     # ABSENT, ce n'est pas « installe pour vous seul » : la carte doit dire lequel des
     # deux, sinon elle raconte une situation qui n'existe pas. Cas vecu le 26/08 : une
     # installation en portee machine a desinstalle le paquet du compte puis a echoue,
@@ -143,7 +143,7 @@ if (-not $pwshPartage -and -not $pwshCompte) {
     $depl += New-Field -Key 'pwsh' -Label 'PowerShell 7' -Value 'Installé pour ce seul compte' -Kind 'text' -Status 'warn' `
         -FixAction 'pwsh-install-machine' `
         -Help "Les tâches des autres comptes ont besoin d'un PowerShell 7 installé pour la MACHINE. Celui-ci vient du Store et n'existe que dans le profil de ce compte : leur tâche ne lancerait rien." `
-        -Guide ("Interpréteur actuel : " + $pwshCompte + [Environment]::NewLine +
+        -Guide ("Interpréteur actuel : " + $pwshAccount + [Environment]::NewLine +
                 "À faire une fois, en administrateur :" + [Environment]::NewLine +
                 "  winget install --id Microsoft.PowerShell --scope machine" + [Environment]::NewLine +
                 "Puis réactivez les comptes concernés.")
@@ -241,7 +241,7 @@ if ($serviceProfileIssue) {
 # confirmera au prochain demarrage du compte. L'annoncer en rouge etait excessif, et
 # poussait a « reparer » ce qui n'avait rien a reparer.
 $malades  = @($accounts | Where-Object { $_.taskAilment })
-$enAttente = @($accounts | Where-Object { -not $_.taskAilment -and $_.taskPending })
+$pending = @($accounts | Where-Object { -not $_.taskAilment -and $_.taskPending })
 if ($malades.Count) {
     $depl += New-Field -Key 'taches' -Label 'Démarrage automatique' `
         -Value ($(if ($malades.Count -eq 1) { "Ne démarre pas — " + $malades[0].name }
@@ -249,7 +249,7 @@ if ($malades.Count) {
         -FixAction 'repair-tasks' `
         -Help "Une tâche de démarrage de Vigie ne peut plus lancer l'application : elle démarre et meurt aussitôt, sans message. Vigie ne se lancera pas à l'ouverture de session." `
         -Guide (($malades | ForEach-Object { $_.name + " : " + $_.taskAilment }) -join [Environment]::NewLine)
-} elseif ($enAttente.Count) {
+} elseif ($pending.Count) {
     # Pas de bouton : il n'y a rien a reparer. Seule la prochaine ouverture de session
     # du compte dira si le probleme est derriere nous.
     <#
@@ -267,12 +267,12 @@ if ($malades.Count) {
     #>
     # A launch that never happened and a launch that failed are two facts: the value names the one that holds.
     $neverRun = Get-VigieTaskNeverRunText
-    $pendingState = if (@($enAttente | Where-Object { $_.taskPending -ne $neverRun }).Count) { 'Dernier démarrage en échec' } else { 'Jamais démarrée' }
+    $pendingState = if (@($pending | Where-Object { $_.taskPending -ne $neverRun }).Count) { 'Dernier démarrage en échec' } else { 'Jamais démarrée' }
     $depl += New-Field -Key 'taches' -Label 'Démarrage automatique' `
-        -Value ($(if ($enAttente.Count -eq 1) { $pendingState + " — " + $enAttente[0].name }
-                  else { $pendingState + " — " + $enAttente.Count.ToString() + " comptes" })) -Kind 'text' -Status 'neutral' `
+        -Value ($(if ($pending.Count -eq 1) { $pendingState + " — " + $pending[0].name }
+                  else { $pendingState + " — " + $pending.Count.ToString() + " comptes" })) -Kind 'text' -Status 'neutral' `
         -Help "Vigie est bien installée pour ce compte, mais elle ne s'y est pas encore lancée — soit il n'a pas ouvert de session depuis, soit son dernier démarrage s'est mal passé. Il n'y a rien à réparer : la prochaine ouverture de session de ce compte le dira." `
-        -Guide (($enAttente | ForEach-Object { $_.name + " : " + $_.taskPending }) -join [Environment]::NewLine)
+        -Guide (($pending | ForEach-Object { $_.name + " : " + $_.taskPending }) -join [Environment]::NewLine)
 } else {
     $depl += New-Field -Key 'taches' -Label 'Démarrage automatique' `
         -Value 'Opérationnel' -Kind 'text' -Status 'ok' `
@@ -336,7 +336,7 @@ $depl += New-Field -Key 'empreinte' -Label 'Stockage occupé' `
 # la garde en « operation en cours » jusqu'a la fin du processus.
 $travail = Get-ModuleBusyMark -Module 'deployment'
 # SCOPE: the computer's installation, a single one for every account.
-$carteDepl = New-ModuleObject -Id 'deployment' -Theme 'accounts' -Label 'Déploiement' -Scope 'machine' `
+$deployCard = New-ModuleObject -Id 'deployment' -Theme 'accounts' -Label 'Déploiement' -Scope 'machine' `
     -Status $(if (@($depl | Where-Object { "$($_.status)" -eq 'error' }).Count) { 'error' }
               elseif (@($depl | Where-Object { "$($_.status)" -eq 'warn' }).Count) { 'warn' }
               else { 'ok' }) `
@@ -369,4 +369,4 @@ $carteDepl = New-ModuleObject -Id 'deployment' -Theme 'accounts' -Label 'Déploi
             -Help "Réécrit les tâches de démarrage de Vigie qui ne fonctionnent plus (interpréteur ou application déplacés). Ne touche à rien d'autre sur la machine."
     )
 
-@($carteDepl)
+@($deployCard)

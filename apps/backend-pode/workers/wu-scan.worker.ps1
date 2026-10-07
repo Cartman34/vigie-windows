@@ -12,23 +12,23 @@ param([string]$Backend, [string]$ArgsB64)
 if (-not $Backend) { exit 1 }
 . (Join-Path $Backend 'lib/common.ps1')
 
-$reposerVerrou = $false
+$restoreLock = $false
 try {
     if ($ArgsB64) {
         $a = ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($ArgsB64))) | ConvertFrom-Json
-        $reposerVerrou = [bool]$a.reposerVerrou
+        $restoreLock = [bool]$a.reposerVerrou
     }
 } catch { }
 
 $outFile = Get-VarPath -Backend $Backend -Kind 'cache' -File 'wu-scan.json'
 function Set-Etat { param([hashtable]$Set) try { Update-StateJson -Path $outFile -Set $Set | Out-Null } catch { } }
 
-$verrouLeve = $false
+$lockLifted = $false
 $exitCode = 0
 try {
-    if ($reposerVerrou) {
-        $verrouLeve = Set-UpdateLock -State 'leve' -Backend $Backend
-        Write-Log -Backend $Backend -Name 'wuscan' -Message (Get-Label 'wu-scan.verrou-leve' $verrouLeve)
+    if ($restoreLock) {
+        $lockLifted = Set-UpdateLock -State 'leve' -Backend $Backend
+        Write-Log -Backend $Backend -Name 'wuscan' -Message (Get-Label 'wu-scan.verrou-leve' $lockLifted)
     }
 
     $searcher = (New-Object -ComObject Microsoft.Update.Session).CreateUpdateSearcher()
@@ -46,7 +46,7 @@ try {
     $exitCode = 1
     Write-Output ('[X] ' + $_.Exception.Message)
 } finally {
-    if ($verrouLeve) {
+    if ($lockLifted) {
         $repose = Set-UpdateLock -State 'pose' -Backend $Backend
         Write-Log -Backend $Backend -Name 'wuscan' -Message (Get-Label 'wu-scan.verrou-repose' $repose)
         if (-not $repose) {

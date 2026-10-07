@@ -16,14 +16,14 @@ param([string]$Module, [hashtable]$Params)
 $backend = Split-Path $PSScriptRoot -Parent
 . (Join-Path $backend 'lib/common.ps1')
 
-$compte = if ($Params -and $Params.account) { "$($Params.account)" } else { $null }
-if (-not $compte) { return @{ message = "Aucun compte precise."; result = @{ ok = $false } } }
+$account = if ($Params -and $Params.account) { "$($Params.account)" } else { $null }
+if (-not $account) { return @{ message = "Aucun compte precise."; result = @{ ok = $false } } }
 
 # Le compte doit exister sur CETTE machine : on ne va pas lire un chemin quelconque.
-$connu = Get-AccountByName -Name $compte
-if (-not $connu) { return @{ message = "Compte inconnu sur cette machine : $compte"; result = @{ ok = $false } } }
+$connu = Get-AccountByName -Name $account
+if (-not $connu) { return @{ message = "Compte inconnu sur cette machine : $account"; result = @{ ok = $false } } }
 
-$profil = Join-Path (Join-Path $env:SystemDrive 'Users') $compte
+$profil = Join-Path (Join-Path $env:SystemDrive 'Users') $account
 # CHEMIN CONSTRUIT PAR Join-Path, jamais ecrit en toutes lettres : cette ligne
 # portait 'AppData\Local\Vigie\var' et l'antislash de « \var » a ete mange a
 # l'ecriture -- il en restait un caractere de controle, donc un dossier qui n'existe
@@ -40,7 +40,7 @@ foreach ($candidat in @((Join-Path (Join-Path (Join-Path $local 'Sowapps') 'Vigi
 }
 if (-not $source) { $source = Join-Path (Join-Path (Join-Path $local 'Sowapps') 'Vigie') 'var' }
 if (-not (Test-Path -LiteralPath $source)) {
-    return @{ message = "Le compte $compte n'a pas encore de données Vigie : il n'a jamais ouvert de session avec Vigie active."
+    return @{ message = "Le compte $account n'a pas encore de données Vigie : il n'a jamais ouvert de session avec Vigie active."
               result = @{ ok = $false } }
 }
 
@@ -64,14 +64,14 @@ if ($asker) {
     if ($askerVar) { $diagRoot = Join-Path $askerVar 'log' }
 }
 if (-not $diagRoot) { $diagRoot = Get-VarPath -Backend $backend -Kind 'log' }
-$cible = Join-Path (Join-Path $diagRoot 'diag') ($compte + '-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
-New-Item -ItemType Directory -Path $cible -Force | Out-Null
+$target = Join-Path (Join-Path $diagRoot 'diag') ($account + '-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
+New-Item -ItemType Directory -Path $target -Force | Out-Null
 
 $nb = 0
 $logs = Join-Path $source 'log'
 if (Test-Path -LiteralPath $logs) {
     foreach ($f in @(Get-ChildItem -LiteralPath $logs -File -ErrorAction SilentlyContinue)) {
-        Copy-Item -LiteralPath $f.FullName -Destination $cible -Force
+        Copy-Item -LiteralPath $f.FullName -Destination $target -Force
         $nb++
     }
 }
@@ -92,7 +92,7 @@ $heavy = @()
 foreach ($sous in @('cache', 'run')) {
     $folder = Join-Path $source $sous
     if (-not (Test-Path -LiteralPath $folder)) { continue }
-    $into = Join-Path $cible $sous
+    $into = Join-Path $target $sous
     New-Item -ItemType Directory -Path $into -Force | Out-Null
     foreach ($f in @(Get-ChildItem -LiteralPath $folder -File -Recurse -ErrorAction SilentlyContinue)) {
         if ($f.Length -gt 16MB) { $heavy += ("{0}/{1} ({2})" -f $sous, $f.Name, (Format-ByteSize ([long]$f.Length))); continue }
@@ -103,22 +103,22 @@ foreach ($sous in @('cache', 'run')) {
 
 # Un resume de l'etat : ce qui existe, quel poids, quelle fraicheur. C'est ce qui repond a
 # « son Vigie tourne-t-il, et depuis quand ? » sans rien devoiler du contenu.
-$resume = @("Compte    : $compte", "Profil    : $profil", "Donnees   : $source",
+$summary = @("Compte    : $account", "Profil    : $profil", "Donnees   : $source",
             "Releve le : $(Get-Date -Format 's')", "")
 foreach ($sous in @('cache','log','history','secrets')) {
     $d = Join-Path $source $sous
-    if (-not (Test-Path -LiteralPath $d)) { $resume += ("{0,-9} : absent" -f $sous); continue }
+    if (-not (Test-Path -LiteralPath $d)) { $summary += ("{0,-9} : absent" -f $sous); continue }
     $f = @(Get-ChildItem -LiteralPath $d -File -Recurse -ErrorAction SilentlyContinue)
-    $taille = ($f | Measure-Object Length -Sum).Sum
+    $size = ($f | Measure-Object Length -Sum).Sum
     $recent = ($f | Sort-Object LastWriteTime -Descending | Select-Object -First 1).LastWriteTime
-    $resume += ("{0,-9} : {1} fichier(s), {2}, dernier ecrit {3}" -f $sous, $f.Count,
-                (Format-ByteSize ([long]$taille)), $(if ($recent) { $recent.ToString('s') } else { '-' }))
+    $summary += ("{0,-9} : {1} fichier(s), {2}, dernier ecrit {3}" -f $sous, $f.Count,
+                (Format-ByteSize ([long]$size)), $(if ($recent) { $recent.ToString('s') } else { '-' }))
 }
-$resume += ""
-$resume += "Le jeton d'API n'est pas copie (secrets/), volontairement."
-$resume += "cache/ et run/ sont copies : c'est l'etat que Vigie ecrit pour se souvenir, et c'est lui qui dit ce qu'une carte a LU."
-if ($heavy.Count) { $resume += ("Trop gros, non copie(s) : " + ($heavy -join ', ')) }
-$resume -join [Environment]::NewLine | Set-Content -LiteralPath (Join-Path $cible 'resume.txt') -Encoding UTF8
+$summary += ""
+$summary += "Le jeton d'API n'est pas copie (secrets/), volontairement."
+$summary += "cache/ et run/ sont copies : c'est l'etat que Vigie ecrit pour se souvenir, et c'est lui qui dit ce qu'une carte a LU."
+if ($heavy.Count) { $summary += ("Trop gros, non copie(s) : " + ($heavy -join ', ')) }
+$summary -join [Environment]::NewLine | Set-Content -LiteralPath (Join-Path $target 'resume.txt') -Encoding UTF8
 
 <#
     AND THE OLD COPIES GO. A diagnosis is read within the minute and never opened again, yet each one weighed 163 MB
@@ -127,13 +127,13 @@ $resume -join [Environment]::NewLine | Set-Content -LiteralPath (Join-Path $cibl
     copies of that account, the rest deleted.
 #>
 $garde = 3
-foreach ($vieux in @(Get-ChildItem -LiteralPath (Split-Path $cible -Parent) -Directory -ErrorAction SilentlyContinue |
-                     Where-Object { $_.Name -like ($compte + '-*') } |
+foreach ($vieux in @(Get-ChildItem -LiteralPath (Split-Path $target -Parent) -Directory -ErrorAction SilentlyContinue |
+                     Where-Object { $_.Name -like ($account + '-*') } |
                      Sort-Object Name -Descending | Select-Object -Skip $garde)) {
     try { Remove-Item -LiteralPath $vieux.FullName -Recurse -Force -ErrorAction Stop } catch { }
 }
 
-Write-Log -Backend $backend -Name 'diag' -Message (Get-Label 'diag-account-logs.journaux-du-compte-rapatries' $compte $nb)
+Write-Log -Backend $backend -Name 'diag' -Message (Get-Label 'diag-account-logs.journaux-du-compte-rapatries' $account $nb)
 
 <#
     ET LA FIN DU DERNIER JOURNAL, DANS LA REPONSE.
@@ -142,7 +142,7 @@ Write-Log -Backend $backend -Name 'diag' -Message (Get-Label 'diag-account-logs.
     « qu'est-ce qui vient d'echouer ? ». On rend donc aussi les dernieres lignes du
     journal le plus recent : celui qu'on allait ouvrir en premier de toute facon.
 #>
-$dernier = @(Get-ChildItem -LiteralPath $cible -File -ErrorAction SilentlyContinue |
+$dernier = @(Get-ChildItem -LiteralPath $target -File -ErrorAction SilentlyContinue |
              Sort-Object LastWriteTime -Descending | Select-Object -First 1)
 $fin = @()
 if ($dernier.Count) {
@@ -150,8 +150,8 @@ if ($dernier.Count) {
 }
 
 @{
-    message = ("Journaux du compte " + $compte + " rapatries : " + $nb + " fichier(s).")
-    result  = @{ ok = $true; path = $cible; files = $nb
+    message = ("Journaux du compte " + $account + " rapatries : " + $nb + " fichier(s).")
+    result  = @{ ok = $true; path = $target; files = $nb
                  last = $(if ($dernier.Count) { $dernier[0].Name } else { $null })
                  tail = $fin }
 }

@@ -13,12 +13,12 @@ if (-not $Backend) { exit 1 }
 . (Join-Path $Backend 'lib/common.ps1')
 
 $ids = @()
-$reposerVerrou = $false
+$restoreLock = $false
 try {
     if ($ArgsB64) {
         $a = ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($ArgsB64))) | ConvertFrom-Json
         $ids = @($a.ids)
-        $reposerVerrou = [bool]$a.reposerVerrou
+        $restoreLock = [bool]$a.reposerVerrou
     }
 } catch { }
 if (-not $ids -or $ids.Count -eq 0) { Write-Output ('[X] ' + (Get-Label 'wu-install.aucun-identifiant')); exit 1 }
@@ -201,13 +201,13 @@ function Set-Etat {
 # finally : quoi qu'il arrive -- succes, echec, exception -- la machine retrouve l'etat dans
 # lequel l'utilisateur l'avait laissee. Un verrou de securite qu'on oublie de remettre est
 # pire que pas de verrou du tout.
-$verrouLeve = $false
+$lockLifted = $false
 $exitCode = 0
 try {
-    if ($reposerVerrou) {
-        $verrouLeve = Set-UpdateLock -State 'leve' -Backend $Backend
-        Write-Log -Backend $Backend -Name 'wuinstall' -Message (Get-Label 'wu-install.verrou-leve' $verrouLeve)
-        if (-not $verrouLeve) { throw "Le verrou des mises à jour n'a pas pu être levé." }
+    if ($restoreLock) {
+        $lockLifted = Set-UpdateLock -State 'leve' -Backend $Backend
+        Write-Log -Backend $Backend -Name 'wuinstall' -Message (Get-Label 'wu-install.verrou-leve' $lockLifted)
+        if (-not $lockLifted) { throw "Le verrou des mises à jour n'a pas pu être levé." }
     }
     Write-Log -Backend $Backend -Name 'wuinstall' -Message (Get-Label 'wu-install.demande-mise-jour' $ids.Count)
     $session  = New-Object -ComObject Microsoft.Update.Session
@@ -249,7 +249,7 @@ try {
 
     # ResultCode : 2 = reussi, 3 = reussi avec erreurs. Tout le reste est un echec.
     $ok = ($rIn.ResultCode -eq 2)
-    $partiel = ($rIn.ResultCode -eq 3)
+    $partial = ($rIn.ResultCode -eq 3)
 
     # « Termine avec erreurs » sans dire LAQUELLE n'apprend rien. Windows fournit un
     # resultat PAR mise a jour : on le releve et on l'expose.
@@ -293,17 +293,17 @@ try {
         detail     = @($detail)
         echecs     = $failures
         ok         = $ok
-        partiel    = $partiel
+        partiel    = $partial
         redemarrage = [bool]$rIn.RebootRequired
         code       = [int]$rIn.ResultCode
-        error      = $(if ($ok -or $partiel) { $null } else { "Installation en échec (code $($rIn.ResultCode))." })
+        error      = $(if ($ok -or $partial) { $null } else { "Installation en échec (code $($rIn.ResultCode))." })
     }
     Write-Log -Backend $Backend -Name 'wuinstall' -Message (Get-Label 'wu-install.installation-code-redemarrage' $rIn.ResultCode $rIn.RebootRequired)
     # THE OUTCOME LEAVES BY THE EXIT CODE, which the watcher reads, and its reason by a [X] line of the log.
     if ($failures.Count -gt 0) {
         $exitCode = 1
         Write-Output ('[X] ' + (Get-Label 'wu-install.echecs' $failures.Count $ids.Count))
-    } elseif (-not ($ok -or $partiel)) {
+    } elseif (-not ($ok -or $partial)) {
         $exitCode = 1
         Write-Output ('[X] ' + (Get-Label 'wu-install.code-global' $rIn.ResultCode))
     }
@@ -314,7 +314,7 @@ try {
     $exitCode = 1
     Write-Output ('[X] ' + $_.Exception.Message)
 } finally {
-    if ($verrouLeve) {
+    if ($lockLifted) {
         $repose = Set-UpdateLock -State 'pose' -Backend $Backend
         Write-Log -Backend $Backend -Name 'wuinstall' -Message (Get-Label 'wu-install.verrou-repose' $repose)
         if (-not $repose) {

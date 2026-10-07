@@ -15,26 +15,26 @@ param([string]$Module, [hashtable]$Params)
 $backend = Split-Path $PSScriptRoot -Parent
 . (Join-Path $backend 'lib/common.ps1')
 
-$chemin = if ($Params -and $Params.path) { "$($Params.path)" } else { $null }
-if (-not $chemin) { return @{ message = "Aucun dossier precise."; result = @{ ok = $false } } }
+$path = if ($Params -and $Params.path) { "$($Params.path)" } else { $null }
+if (-not $path) { return @{ message = "Aucun dossier precise."; result = @{ ok = $false } } }
 
 # La racine autorisee est celle de la derniere analyse.
-$racine = 'C:' + [char]92
+$rootPath = 'C:' + [char]92
 try {
     $f = Get-VarPath -Backend $backend -Kind 'cache' -File 'diskscan.json'
     if (Test-Path -LiteralPath $f) {
         $j = Get-Content -LiteralPath $f -Raw | ConvertFrom-Json
-        if ($j.result -and $j.result.root) { $racine = "$($j.result.root)" }
-        elseif ($j.scan -and $j.scan.root) { $racine = "$($j.scan.root)" }
+        if ($j.result -and $j.result.root) { $rootPath = "$($j.result.root)" }
+        elseif ($j.scan -and $j.scan.root) { $rootPath = "$($j.scan.root)" }
     }
 } catch { }
 
 $plein = $null
-try { $plein = (Resolve-Path -LiteralPath $chemin -ErrorAction Stop).Path } catch { }
+try { $plein = (Resolve-Path -LiteralPath $path -ErrorAction Stop).Path } catch { }
 if (-not $plein -or -not (Test-Path -LiteralPath $plein -PathType Container)) {
-    return @{ message = "Dossier introuvable : $chemin"; result = @{ ok = $false } }
+    return @{ message = "Dossier introuvable : $path"; result = @{ ok = $false } }
 }
-if (-not $plein.ToLower().StartsWith($racine.ToLower())) {
+if (-not $plein.ToLower().StartsWith($rootPath.ToLower())) {
     return @{ message = "Ce dossier n'appartient pas a l'analyse en cours."; result = @{ ok = $false } }
 }
 

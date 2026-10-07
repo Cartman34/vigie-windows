@@ -94,9 +94,14 @@ $COMMENT_CEILING = 5603
     WHAT STAYS, AND WHY, SO NOBODY LOOKS FOR IT AGAIN: show-confirm.ps1 (17) and apps/client/client.ps1 (16) open a
     window. Neither can be run before and after without putting something on the owner's screen, and a rename here is
     proven by running the file -- not by the fact that it parses. They will go the day their proof does not cost him
-    a window, and not before: 33 of the 174 are there.
+    a window, and not before: 33 of the 121 are there.
+
+    Same day again -- the probes, the actions, the workers and the command-line tool: 174 -> 121, each one run before
+    and after on the same input, with the same 19 probes, the same 21 modules and the same Get-State. server.ps1
+    keeps its five: it only ever runs as the installed server app, so its proof would be a deployment, and a
+    deployment delivers, it does not check.
 #>
-$CEILING = 174
+$CEILING = 121
 
 # LE PLAFOND DES NOMS DE FICHIERS. Meme cliquet, compte separe : ceux qui restent sont
 # nommes dans des taches planifiees deja posees et dans des raccourcis, donc ils se

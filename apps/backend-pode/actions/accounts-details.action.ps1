@@ -17,7 +17,7 @@ $backend = Split-Path $PSScriptRoot -Parent
 # a le regler, et 90 jours sans session est un repere universel.
 $dormant = 90
 
-$lignes = @()
+$lines = @()
 $dormants = 0
 foreach ($c in (Get-ComputerAccounts | Sort-Object name)) {
     $depuis = 'jamais connecté'
@@ -29,17 +29,17 @@ foreach ($c in (Get-ComputerAccounts | Sort-Object name)) {
         } catch { }
     }
 
-    $donnees = 'aucune donnée Vigie'
+    $data = 'aucune donnée Vigie'
     try {
         $var = Join-Path (Join-Path (Join-Path (Join-Path $env:SystemDrive 'Users') $c.name) 'AppData\Local\Sowapps\Vigie') 'var'
         if (Test-Path -LiteralPath $var) {
             $f = @(Get-ChildItem -LiteralPath $var -File -Recurse -ErrorAction SilentlyContinue)
-            $taille = ($f | Measure-Object Length -Sum).Sum
+            $size = ($f | Measure-Object Length -Sum).Sum
             $recent = ($f | Sort-Object LastWriteTime -Descending | Select-Object -First 1).LastWriteTime
-            $donnees = "{0} de données Vigie, dernière activité {1}" -f (Format-ByteSize ([long]$taille)),
+            $data = "{0} de données Vigie, dernière activité {1}" -f (Format-ByteSize ([long]$size)),
                        $(if ($recent) { $recent.ToString('dd/MM/yyyy HH:mm') } else { 'inconnue' })
         }
-    } catch { $donnees = 'données illisibles' }
+    } catch { $data = 'données illisibles' }
 
     $qualites = @()
     $qualites += $(if ($c.admin) { 'administrateur' } else { 'standard' })
@@ -50,7 +50,7 @@ foreach ($c in (Get-ComputerAccounts | Sort-Object name)) {
     # CE QUE LA TACHE LANCE, ET CE QU'ELLE A RENDU. Sans ca, « activee mais rien ne
     # demarre » reste une enigme : la ligne de commande et le code de retour sont les
     # deux seules choses qui repondent, et seul un serveur eleve peut les lire (D67).
-    $tache = @()
+    $task = @()
     if ($c.task) {
         try {
             $t = Get-ScheduledTask -TaskName $c.task -ErrorAction Stop
@@ -62,10 +62,10 @@ foreach ($c in (Get-ComputerAccounts | Sort-Object name)) {
             # une tache DESACTIVEE se lit « activee » partout ailleurs, et ne demarre
             # jamais. Une session non elevee ne voit pas cet etat -- le diagnostic doit
             # donc le porter, sinon il envoie chercher ailleurs (règle du 28/08).
-            $tache += ("tâche « " + $c.task + " » : " + "$($t.State)" +
+            $task += ("tâche « " + $c.task + " » : " + "$($t.State)" +
                        ", niveau " + "$($t.Principal.RunLevel)" +
                        ", compte " + "$($t.Principal.UserId)")
-            $tache += ("lance : " + $cmd)
+            $task += ("lance : " + $cmd)
             if ($i) {
                 $quand = if ($i.LastRunTime -and $i.LastRunTime.Year -gt 2000) { $i.LastRunTime.ToString('dd/MM/yyyy HH:mm') } else { 'jamais' }
                 # UNSIGNED, AND THAT IS THE WHOLE PROBLEM -- the same trap as in Get-VigieTaskHistoryAilment, fixed
@@ -73,22 +73,22 @@ foreach ($c in (Get-ComputerAccounts | Sort-Object name)) {
                 # past Int32. The cast threw, the catch swallowed the whole block, and the account's line read "tâche
                 # illisible" instead of the state, the level, the command and the code -- exactly what was being
                 # looked for. Read on the Famille account on 29/09, whose last result WAS 0x800710E0.
-                $tache += ("dernière exécution : " + $quand +
+                $task += ("dernière exécution : " + $quand +
                            " — code 0x" + ([uint32][long]$i.LastTaskResult).ToString('X8'))
             }
-            if ($c.taskAilment) { $tache += ("PROBLÈME : " + $c.taskAilment) }
-        } catch { $tache += ("tâche illisible : " + $_.Exception.Message) }
+            if ($c.taskAilment) { $task += ("PROBLÈME : " + $c.taskAilment) }
+        } catch { $task += ("tâche illisible : " + $_.Exception.Message) }
     }
 
-    $bloc = @($c.name, ('   ' + ($qualites -join ' · ')), ('   ' + $depuis), ('   ' + $donnees))
-    foreach ($l in $tache) { $bloc += ('   ' + $l) }
-    $lignes += ($bloc -join "`n")
+    $bloc = @($c.name, ('   ' + ($qualites -join ' · ')), ('   ' + $depuis), ('   ' + $data))
+    foreach ($l in $task) { $bloc += ('   ' + $l) }
+    $lines += ($bloc -join "`n")
 }
 
 $entete = "Comptes de cet ordinateur"
 if ($dormants -gt 0) { $entete += " ($dormants dormant(s) depuis plus de $dormant jours)" }
 
-$detail = ($entete, '') + $lignes + ('',
+$detail = ($entete, '') + $lines + ('',
     "Pour relire les journaux de l'un d'eux : scripts/vigie-diag-compte.ps1 -Compte <nom>",
     "Pour choisir qui a Vigie : Paramètres > Utilisateurs.")
 

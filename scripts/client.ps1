@@ -61,7 +61,7 @@ $runDir    = Get-VarPath -Backend (Join-Path $repoRoot 'apps/client') -Kind 'run
 $heartbeat = Join-Path $runDir 'client.alive'
 
 # L'app cliente ecrit son battement toutes les 8 s : au-dela de 30 s, on le considere mort.
-$SEUIL_SEC = 30
+$THRESHOLD_SEC = 30
 
 function Get-ClientState {
     if (-not (Test-Path -LiteralPath $heartbeat)) { return $null }
@@ -74,15 +74,15 @@ function Get-ClientState {
 }
 
 function Send-Order {
-    param([string] $Nom)
+    param([string] $Name)
     if (-not (Test-Path -LiteralPath $runDir)) { New-Item -ItemType Directory -Path $runDir -Force | Out-Null }
-    Set-Content -LiteralPath (Join-Path $runDir $Nom) -Value '' -Encoding ASCII -NoNewline
+    Set-Content -LiteralPath (Join-Path $runDir $Name) -Value '' -Encoding ASCII -NoNewline
 }
 
 # --- Etat --------------------------------------------------------------------
 if ($PSCmdlet.ParameterSetName -eq 'Status' -or $Status) {
     $t = Get-ClientState
-    if ($t -and $t.AgeSec -le $SEUIL_SEC) {
+    if ($t -and $t.AgeSec -le $THRESHOLD_SEC) {
         Write-Info (Get-Label 'client.en-marche-pid' $t.Pid $t.Etat $t.AgeSec)
         exit 0
     }
@@ -92,8 +92,8 @@ if ($PSCmdlet.ParameterSetName -eq 'Status' -or $Status) {
 }
 
 # --- Arret / redemarrage -----------------------------------------------------
-$avant = Get-ClientState
-if (-not $avant -or $avant.AgeSec -gt $SEUIL_SEC) {
+$before = Get-ClientState
+if (-not $before -or $before.AgeSec -gt $THRESHOLD_SEC) {
     # RELANCER CE QUI NE TOURNE PLUS, C'EST LE DEMARRER.
     #
     # On rendait 1 en disant « rien a faire » -- et la mise a jour, qui appelle ce script
@@ -117,7 +117,7 @@ if (-not $avant -or $avant.AgeSec -gt $SEUIL_SEC) {
     while ((Get-Date) -lt $limite) {
         Start-Sleep -Milliseconds 800
         $e = Get-ClientState
-        if ($e -and $e.AgeSec -le $SEUIL_SEC) {
+        if ($e -and $e.AgeSec -le $THRESHOLD_SEC) {
             Write-Info (Get-Label 'client.demarre-pid' $e.Pid)
             exit 0
         }
@@ -126,11 +126,11 @@ if (-not $avant -or $avant.AgeSec -gt $SEUIL_SEC) {
     exit 2
 }
 
-$ordre = if ($Restart) { 'restart' } else { 'stop' }
-$ack   = Join-Path $runDir ($ordre + '.ack')
+$order = if ($Restart) { 'restart' } else { 'stop' }
+$ack   = Join-Path $runDir ($order + '.ack')
 Remove-Item -LiteralPath $ack -Force -ErrorAction SilentlyContinue
-Send-Order $ordre
-Write-Info (Get-Label 'client.ordre-depose-pid' $ordre $avant.Pid)
+Send-Order $order
+Write-Info (Get-Label 'client.ordre-depose-pid' $order $before.Pid)
 # 1) A-T-IL LU L'ORDRE ? L'app cliente pose un accuse des qu'elle le consomme. Sans cette
 #    etape, un echec ne disait pas s'il fallait depanner une app cliente figee ou une relance
 #    lente : deux causes differentes, deux gestes differents.

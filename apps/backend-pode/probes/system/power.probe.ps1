@@ -27,14 +27,14 @@ function Get-EtatAlim {
     }
 }
 
-$etat = Get-EtatAlim
-if (-not $etat) { return }   # pas de batterie : rien a dire
+$state = Get-EtatAlim
+if (-not $state) { return }   # pas de batterie : rien a dire
 
 $bat = Get-CimInstance Win32_Battery -ErrorAction SilentlyContinue | Select-Object -First 1
 $pct = if ($bat -and $null -ne $bat.EstimatedChargeRemaining) { [int]$bat.EstimatedChargeRemaining } else { $null }
 
-$seuilChargeW = [int](Get-ModuleSetting -Unit 'system' -Key 'ChargeSlowW')
-$seuilBatPct  = [int](Get-ModuleSetting -Unit 'system' -Key 'BatteryLowPct')
+$loadWattsThreshold = [int](Get-ModuleSetting -Unit 'system' -Key 'ChargeSlowW')
+$batteryPctThreshold  = [int](Get-ModuleSetting -Unit 'system' -Key 'BatteryLowPct')
 
 # --- Sous-alimentation ---------------------------------------------------------
 # Une pointe de consommation peut faire basculer la batterie en decharge une seconde
@@ -42,34 +42,34 @@ $seuilBatPct  = [int](Get-ModuleSetting -Unit 'system' -Key 'BatteryLowPct')
 # plus tard -- et seulement quand la premiere a vu un probleme : le cas normal ne
 # paie pas cette attente.
 $soucis = $null
-if ($etat.Secteur -and $etat.Decharge) {
+if ($state.Secteur -and $state.Decharge) {
     Start-Sleep -Milliseconds 800
     $e2 = Get-EtatAlim
     if ($e2 -and $e2.Secteur -and $e2.Decharge) {
-        $w = [math]::Round((([math]::Max($etat.DechMw, $e2.DechMw)) / 1000.0), 1)
+        $w = [math]::Round((([math]::Max($state.DechMw, $e2.DechMw)) / 1000.0), 1)
         $soucis = "Le secteur ne suit pas : la batterie se décharge" + $(if ($w -gt 0) { " ($w W)" })
     }
-} elseif ($etat.Secteur -and $etat.Charge -and $null -ne $pct -and $pct -lt 80) {
-    $wc = [math]::Round(($etat.ChargeMw / 1000.0), 1)
-    if ($wc -gt 0 -and $wc -lt $seuilChargeW) {
+} elseif ($state.Secteur -and $state.Charge -and $null -ne $pct -and $pct -lt 80) {
+    $wc = [math]::Round(($state.ChargeMw / 1000.0), 1)
+    if ($wc -gt 0 -and $wc -lt $loadWattsThreshold) {
         Start-Sleep -Milliseconds 800
         $e2 = Get-EtatAlim
-        if ($e2 -and $e2.Secteur -and $e2.Charge -and (($e2.ChargeMw / 1000.0) -lt $seuilChargeW)) {
+        if ($e2 -and $e2.Secteur -and $e2.Charge -and (($e2.ChargeMw / 1000.0) -lt $loadWattsThreshold)) {
             $soucis = "Charge très lente ($wc W) : chargeur sous-dimensionné ou port peu puissant"
         }
     }
 }
 
 # --- Ce qui se passe, en clair -------------------------------------------------
-$source = if ($etat.Secteur) { 'Secteur' } else { 'Batterie' }
+$source = if ($state.Secteur) { 'Secteur' } else { 'Batterie' }
 $sens =
-    if ($etat.Decharge)  { $w = [math]::Round(($etat.DechMw / 1000.0), 1);   "Décharge de $w W" }
-    elseif ($etat.Charge) { $w = [math]::Round(($etat.ChargeMw / 1000.0), 1); "Charge à $w W" }
+    if ($state.Decharge)  { $w = [math]::Round(($state.DechMw / 1000.0), 1);   "Décharge de $w W" }
+    elseif ($state.Charge) { $w = [math]::Round(($state.ChargeMw / 1000.0), 1); "Charge à $w W" }
     else { 'Aucun échange : batterie stable' }
 
 $fields = @()
 $fields += New-Field -Key 'source' -Label 'Source' -Value $source -Kind 'text' `
-    -Status $(if ($etat.Secteur) { 'ok' } else { 'neutral' }) `
+    -Status $(if ($state.Secteur) { 'ok' } else { 'neutral' }) `
     -Help 'Ce qui alimente la machine en ce moment.'
 
 # CE CHAMP EXISTE TOUJOURS, meme quand tout va bien : l'app cliente notifie sur la BASCULE
@@ -79,7 +79,7 @@ $fields += $(if ($soucis) {
             -FixAction 'open-power-options' `
             -Help 'Sur secteur, la machine devrait charger. Si elle se décharge quand même, le chargeur ne couvre pas la consommation : le processeur et le GPU vont être bridés, et la batterie se videra malgré le branchement.' `
             -Guide "À vérifier : le chargeur doit être celui de la machine, branché sur le port d'alimentation (pas un port USB-C secondaire ni un dock peu puissant). Sous forte charge, un chargeur trop faible ne suffit pas."
-    } elseif (-not $etat.Secteur) {
+    } elseif (-not $state.Secteur) {
         New-Field -Key 'under' -Label 'Alimentation' -Value 'Sans objet : sur batterie' -Kind 'text' -Status 'ok' `
             -Help 'La sous-alimentation ne se juge que branché au secteur.'
     } else {
@@ -88,7 +88,7 @@ $fields += $(if ($soucis) {
     })
 
 if ($null -ne $pct) {
-    $batBas = ((-not $etat.Secteur) -and $pct -lt $seuilBatPct)
+    $batBas = ((-not $state.Secteur) -and $pct -lt $batteryPctThreshold)
     $fields += New-Field -Key 'charge' -Label 'Batterie' -Value $pct -Kind 'number' -Unit '%' `
         -Status $(if ($batBas) { 'warn' } else { 'neutral' }) `
         -Help 'Charge restante de la batterie.'

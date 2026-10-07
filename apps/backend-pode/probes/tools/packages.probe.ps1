@@ -102,11 +102,11 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
         $pkgsIds = @($u.pkgs)
         $garde = @()
         for ($i = 0; $i -lt $itemsAff.Count; $i++) {
-            $ligne = "$($itemsAff[$i])"
+            $line = "$($itemsAff[$i])"
             # pkgs est une liste d'OBJETS { id, titre, detail } : c'est l'id qu'on vise.
             $idPkg = if ($i -lt $pkgsIds.Count) { "$($pkgsIds[$i].id)" } else { '' }
             $vise = @($ignores | Where-Object {
-                $ligne -like ('*' + $_ + '*') -or ($idPkg -and $idPkg -like $_)
+                $line -like ('*' + $_ + '*') -or ($idPkg -and $idPkg -like $_)
             }).Count -gt 0
             if (-not $vise) { $garde += $itemsAff[$i] }
         }
@@ -137,11 +137,11 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
     } elseif ($checking) {
         # La carte dit EXACTEMENT ce qui tourne : quoi, sur combien, depuis quand.
         # « Mise à jour en cours... » seul laissait l'utilisateur sans reponse (constate).
-        $duree = ''
+        $elapsed = ''
         if ($u.startedAt) {
             try {
                 $min = [int]((Get-Date) - [datetime]$u.startedAt).TotalMinutes
-                $duree = if ($min -lt 1) { " (depuis moins d'une minute)" } else { " (depuis $min min)" }
+                $elapsed = if ($min -lt 1) { " (depuis moins d'une minute)" } else { " (depuis $min min)" }
             } catch { }
         }
         if ($op -eq 'upgrade') {
@@ -154,10 +154,10 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
                 $mg2 += "Paquets en cours de mise à jour :"
                 foreach ($p0 in $sel) { $mg2 += ("- " + $p0) }
             } else { $mg2 += "Mise à jour de TOUT le gestionnaire." }
-            $mg2 += ("Lancée" + $(if ($u.startedAt) { " le $($u.startedAt)" } else { "" }) + $duree + ".")
+            $mg2 += ("Lancée" + $(if ($u.startedAt) { " le $($u.startedAt)" } else { "" }) + $elapsed + ".")
         } else {
             $majValue = "Vérification en cours…"
-            $mg2 += ("Vérification lancée" + $(if ($u.startedAt) { " le $($u.startedAt)" } else { "" }) + $duree + ".")
+            $mg2 += ("Vérification lancée" + $(if ($u.startedAt) { " le $($u.startedAt)" } else { "" }) + $elapsed + ".")
             if ($null -ne $u.count) { $mg2 += ("Dernier résultat connu : $([int]$u.count) MAJ.") }
         }
     } elseif ($u -and $u.at) {
@@ -175,11 +175,11 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
         # termine en silence laisse croire qu'il ne s'est rien passe.
         if ($u.last) {
             $quoi = if ([int]$u.last.count -gt 0) { "$([int]$u.last.count) paquet(s)" } else { "tout le gestionnaire" }
-            $echecs = @($u.last.failed)
-            if ($echecs.Count -gt 0) {
+            $failures = @($u.last.failed)
+            if ($failures.Count -gt 0) {
                 $majStatus = 'warn'
-                $mg2 += ("Dernière mise à jour ($($u.last.at)) : $quoi, $($echecs.Count) ÉCHEC(S) :")
-                foreach ($e0 in $echecs) {
+                $mg2 += ("Dernière mise à jour ($($u.last.at)) : $quoi, $($failures.Count) ÉCHEC(S) :")
+                foreach ($e0 in $failures) {
                     $r0 = if ($u.last.reasons) { $u.last.reasons."$e0" } else { $null }
                     $mg2 += ("- " + $e0 + $(if ($r0) { " : " + $r0 } else { "" }))
                     $avis = Get-PkgFailureAdvice -Reason $r0
