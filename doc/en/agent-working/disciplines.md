@@ -333,6 +333,21 @@ door, not to deploy again.
 
 **Deploying is the last step**, once it works: it delivers, it does not check.
 
+## Every answer ends on what comes next
+
+**An answer that closes on "done" closes the conversation.** Whatever was just finished, the last lines say what
+follows: the rest of the task in hand, or the next subject, or what is waiting on him. There is always an opening.
+
+*07/10: "Tu dois toujours proposer la suite. Soit la suite de la tache en cours, soit le ou les prochains projets.
+Il doit toujours y avoir une ouverture, tu comprends ?"*
+
+**Why.** He reads the last message only. Without an opening, carrying on costs him a message to say "and now?", and
+the burden of remembering where things stood. The tracking holds the state; the answer hands him the next step.
+
+**What an opening is**: one short proposal, named, that he can accept or redirect in a word -- not a list of
+options, not a summary of everything open. If what comes next is his to decide, that is the opening, asked in the
+question format.
+
 ## The tracking is mine, and it is kept as the work happens
 
 **A subject is closed in the same commit that finishes it**, not in a tidying pass afterwards. The same goes for one
