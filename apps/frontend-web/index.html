@@ -1385,13 +1385,13 @@ function renderState(s, mode){
   // elle-meme (connectee, en maquette, en erreur). Ils portaient auparavant deux
   // informations differentes -- badge rouge « Action requise » au-dessus d'un liseré vert
   // -- et se contredisaient a l'oeil. La sante des cartes se lit sur les cartes.
-  const etat = mode==='live'
+  const uiState = mode==='live'
     ? { col:'var(--ok)',   txt:L('ui.connecte'),  aide:L('ui.connecte-api-locale-les') }
     : { col:'var(--warn)', txt:'Maquette',  aide:L('ui.le-service-est-pas') };
-  g.querySelector('.dot').style.cssText=`width:9px;height:9px;border-radius:50%;background:${etat.col}`;
-  gt.textContent=etat.txt;
-  gt.style.color=etat.col;
-  g.title=etat.aide;
+  g.querySelector('.dot').style.cssText=`width:9px;height:9px;border-radius:50%;background:${uiState.col}`;
+  gt.textContent=uiState.txt;
+  gt.style.color=uiState.col;
+  g.title=uiState.aide;
   const meta=document.getElementById('lastRefresh');
   meta.textContent=L('ui.mis-jour')+new Date().toLocaleTimeString('fr-FR');
   // CE QUI A PRIS DU TEMPS, dans l'infobulle : le total, puis chaque phase du serveur et
@@ -1413,7 +1413,7 @@ function renderState(s, mode){
     }
   }catch(e){}
   setMachineName(s.host);
-  const mb=document.getElementById('modebar'); const occupe=mb.classList.contains('busy'); mb.className='modebar '+(mode==='live'?'ok':'warn')+(occupe?' busy':''); mb.title=(mode==='live'?L('ui.connecte-api-locale-donnees'):L('ui.maquette-back-non-lance')); mb.textContent='';
+  const mb=document.getElementById('modebar'); const isBusy=mb.classList.contains('busy'); mb.className='modebar '+(mode==='live'?'ok':'warn')+(isBusy?' busy':''); mb.title=(mode==='live'?L('ui.connecte-api-locale-donnees'):L('ui.maquette-back-non-lance')); mb.textContent='';
 }
 
 // Repartit les cartes en COLONNES REELLES, une fois, dans un ordre stable.
@@ -1425,60 +1425,60 @@ function renderState(s, mode){
 // surtout PAS sur la hauteur mesuree : une carte qui passe en « operation en cours »
 // grandit, et rebalancer a ce moment-la ferait exactement le saut qu'on veut supprimer.
 // L'estimation, elle, ne depend que de ce que la carte CONTIENT.
-const COL_LARGEUR = 296;
+const COL_WIDTH = 296;
 
 // ===== ORDRE DES CARTES, CHOISI PAR L'UTILISATEUR (D92) ======================
 //
 // Un ordre est une PREFERENCE : il vit dans le navigateur de ce compte, pas dans la
 // configuration de la machine. Un module inconnu (nouveau, ou rallume) n'est pas une
 // erreur : il se range simplement a la fin.
-const ORDRE_CLE = 'vigie.ordreCartes';
-let ordreCartes = null;
-function chargerOrdre(){
-  if(ordreCartes) return ordreCartes;
-  try{ ordreCartes = JSON.parse(localStorage.getItem(ORDRE_CLE) || 'null'); }catch(e){ ordreCartes = null; }
-  return ordreCartes;
+const ORDER_KEY = 'vigie.ordreCartes';
+let cardOrder = null;
+function loadOrder(){
+  if(cardOrder) return cardOrder;
+  try{ cardOrder = JSON.parse(localStorage.getItem(ORDER_KEY) || 'null'); }catch(e){ cardOrder = null; }
+  return cardOrder;
 }
-function enregistrerOrdre(liste){
-  ordreCartes = liste;
-  try{ localStorage.setItem(ORDRE_CLE, JSON.stringify(liste)); }catch(e){}
+function saveOrder(liste){
+  cardOrder = liste;
+  try{ localStorage.setItem(ORDER_KEY, JSON.stringify(liste)); }catch(e){}
 }
-function oublierOrdre(){
-  ordreCartes = null;
-  try{ localStorage.removeItem(ORDRE_CLE); }catch(e){}
+function forgetOrder(){
+  cardOrder = null;
+  try{ localStorage.removeItem(ORDER_KEY); }catch(e){}
 }
 // L'ordre enregistre est une liste de colonnes, chacune listant des identifiants de
 // carte. On ne fait confiance a rien : ce qui n'existe plus est ignore, ce qui est
 // nouveau est ajoute a la fin.
-function appliquerOrdreMemorise(cartes, nb){
-  const memo = chargerOrdre();
+function applyStoredOrder(cardEls, nb){
+  const memo = loadOrder();
   if(!memo || !Array.isArray(memo)) return null;
-  const parId = new Map(cartes.map(c => [c.dataset.module, c]));
-  const colonnes = [];
+  const parId = new Map(cardEls.map(c => [c.dataset.module, c]));
+  const columnList = [];
   const places = new Set();
-  for(let i = 0; i < nb; i++) colonnes.push([]);
+  for(let i = 0; i < nb; i++) columnList.push([]);
   memo.forEach((ids, i) => {
-    const cible = Math.min(i, nb - 1);
+    const targetIndex = Math.min(i, nb - 1);
     (ids || []).forEach(id => {
       const c = parId.get(id);
-      if(c && !places.has(id)){ colonnes[cible].push(c); places.add(id); }
+      if(c && !places.has(id)){ columnList[targetIndex].push(c); places.add(id); }
     });
   });
-  const restants = cartes.filter(c => !places.has(c.dataset.module));
+  const restants = cardEls.filter(c => !places.has(c.dataset.module));
   if(restants.length){
     // Les nouvelles cartes vont dans la colonne la moins chargee, sans deranger le reste.
     restants.forEach(c => {
       let k = 0;
-      for(let i = 1; i < nb; i++){ if(colonnes[i].length < colonnes[k].length) k = i; }
-      colonnes[k].push(c);
+      for(let i = 1; i < nb; i++){ if(columnList[i].length < columnList[k].length) k = i; }
+      columnList[k].push(c);
     });
   }
-  return colonnes;
+  return columnList;
 }
-function estimatedHeight(carte){
-  const lignes  = carte.querySelectorAll('.field').length;
-  const boutons = carte.querySelectorAll('.actions button').length;
-  return 92 + lignes * 30 + Math.ceil(boutons / 2) * 34;
+function estimatedHeight(cardEl){
+  const fieldCount  = cardEl.querySelectorAll('.field').length;
+  const buttons = cardEl.querySelectorAll('.actions button').length;
+  return 92 + fieldCount * 30 + Math.ceil(buttons / 2) * 34;
 }
 // Placement retenu des groupes : { nb: nombre de colonnes, col: Map(groupe -> colonne) }.
 // Remis a zero quand le nombre de colonnes change (redimensionnement) ou quand
@@ -1489,30 +1489,30 @@ function layoutColumns(masonry){
   // sont les COLONNES : ne regarder que ceux-la ne trouvait plus une seule carte, et un
   // second appel ne faisait rien -- c'est ce qui laissait des colonnes vides quand on
   // decochait un groupe.
-  const cartes = [...masonry.querySelectorAll('.card')];
-  if(!cartes.length) return;
+  const cardEls = [...masonry.querySelectorAll('.card')];
+  if(!cardEls.length) return;
   // UN GROUPE MASQUE NE COMPTE PLUS. Ses cartes restent dans le document, invisibles,
   // mais elles ne prennent plus de place dans le calcul.
-  const visibles = cartes.filter(c => c.style.display !== 'none');
+  const visibles = cardEls.filter(c => c.style.display !== 'none');
   const dispo = masonry.clientWidth || document.body.clientWidth || 1200;
-  const nb = Math.max(1, Math.min(Math.max(visibles.length, 1), Math.floor(dispo / COL_LARGEUR)));
-  const colonnes = [], hauteurs = [];
+  const nb = Math.max(1, Math.min(Math.max(visibles.length, 1), Math.floor(dispo / COL_WIDTH)));
+  const columnList = [], hauteurs = [];
   for(let i = 0; i < nb; i++){
     const c = document.createElement('div'); c.className = 'mcol';
-    colonnes.push(c); hauteurs.push(0);
+    columnList.push(c); hauteurs.push(0);
   }
   // UN ORDRE CHOISI PAR L'UTILISATEUR l'emporte sur tout le reste.
-  const memo = appliquerOrdreMemorise(visibles, nb);
+  const memo = applyStoredOrder(visibles, nb);
   if(memo){
-    memo.forEach((liste, i) => liste.forEach(c => colonnes[i].appendChild(c)));
+    memo.forEach((liste, i) => liste.forEach(c => columnList[i].appendChild(c)));
   // LES CARTES MASQUEES RESTENT DANS LE DOCUMENT. « masonry.textContent = '' » efface
   // tout : sans cette ligne, decocher un groupe SUPPRIMAIT ses cartes, et les recocher
   // ne les ramenait qu'au prochain etat recu. Elles vont dans la premiere colonne, en
   // display:none -- invisibles, mais la.
-  const caches = cartes.filter(c => c.style.display === 'none');
-  if (caches.length && colonnes.length) caches.forEach(c => colonnes[0].appendChild(c));
+  const caches = cardEls.filter(c => c.style.display === 'none');
+  if (caches.length && columnList.length) caches.forEach(c => columnList[0].appendChild(c));
     masonry.textContent = '';
-    colonnes.forEach(c => masonry.appendChild(c));
+    columnList.forEach(c => masonry.appendChild(c));
     return;
   }
 
@@ -1520,12 +1520,12 @@ function layoutColumns(masonry){
   // retrouvaient dans trois colonnes differentes, alors qu'elles se lisent ensemble
   // (signale le 27/08). On pose donc un GROUPE ENTIER dans la colonne la moins
   // remplie ; ses cartes restent contigues, et l'equilibre se fait entre groupes.
-  const groupes = [];
+  const groups = [];
   const parTheme = new Map();
-  for(const carte of visibles){
-    const g = carte.dataset.theme || carte.dataset.module || '';
-    if(!parTheme.has(g)){ parTheme.set(g, []); groupes.push(g); }
-    parTheme.get(g).push(carte);
+  for(const cardEl of visibles){
+    const g = cardEl.dataset.theme || cardEl.dataset.module || '';
+    if(!parTheme.has(g)){ parTheme.set(g, []); groups.push(g); }
+    parTheme.get(g).push(cardEl);
   }
   // UNE FOIS POSE, UN GROUPE NE BOUGE PLUS.
   //
@@ -1544,45 +1544,45 @@ function layoutColumns(masonry){
   //
   // On garde donc aussi QUELS groupes sont affiches. Tant qu'ils ne changent pas, rien ne
   // bouge sous les yeux du lecteur ; des qu'on en masque un, tout se retasse.
-  const signature = groupes.join('|');
+  const signature = groups.join('|');
   const memePlacement = groupPlacement && groupPlacement.nb === nb && groupPlacement.signature === signature;
   if(!memePlacement) groupPlacement = { nb: nb, signature: signature, col: new Map() };
-  for(const g of groupes){
-    let cible;
+  for(const g of groups){
+    let targetIndex;
     if(groupPlacement.col.has(g)){
-      cible = Math.min(groupPlacement.col.get(g), nb - 1);
+      targetIndex = Math.min(groupPlacement.col.get(g), nb - 1);
     } else {
-      cible = 0;
-      for(let i = 1; i < nb; i++){ if(hauteurs[i] < hauteurs[cible]) cible = i; }
-      groupPlacement.col.set(g, cible);
+      targetIndex = 0;
+      for(let i = 1; i < nb; i++){ if(hauteurs[i] < hauteurs[targetIndex]) targetIndex = i; }
+      groupPlacement.col.set(g, targetIndex);
     }
-    for(const carte of parTheme.get(g)){
-      colonnes[cible].appendChild(carte);
-      hauteurs[cible] += estimatedHeight(carte);
+    for(const cardEl of parTheme.get(g)){
+      columnList[targetIndex].appendChild(cardEl);
+      hauteurs[targetIndex] += estimatedHeight(cardEl);
     }
   }
   // LES CARTES MASQUEES RESTENT DANS LE DOCUMENT. « masonry.textContent = '' » efface
   // tout : sans cette ligne, decocher un groupe SUPPRIMAIT ses cartes, et les recocher
   // ne les ramenait qu'au prochain etat recu. Elles vont dans la premiere colonne, en
   // display:none -- invisibles, mais la.
-  const caches = cartes.filter(c => c.style.display === 'none');
-  if (caches.length && colonnes.length) caches.forEach(c => colonnes[0].appendChild(c));
+  const caches = cardEls.filter(c => c.style.display === 'none');
+  if (caches.length && columnList.length) caches.forEach(c => columnList[0].appendChild(c));
   masonry.textContent = '';
-  colonnes.forEach(c => masonry.appendChild(c));
+  columnList.forEach(c => masonry.appendChild(c));
 }
 // Le nombre de colonnes suit la largeur de la fenetre. On ne refait le partage QUE si
 // ce nombre change : redistribuer a chaque pixel ferait danser la page.
-let colonnesActuelles = 0;
+let currentColumns = 0;
 window.addEventListener('resize', () => {
   const masonry = document.querySelector('.masonry');
   if(!masonry) return;
-  const nb = Math.max(1, Math.floor((masonry.clientWidth || 1200) / COL_LARGEUR));
-  if(nb === colonnesActuelles) return;
-  colonnesActuelles = nb;
+  const nb = Math.max(1, Math.floor((masonry.clientWidth || 1200) / COL_WIDTH));
+  if(nb === currentColumns) return;
+  currentColumns = nb;
   // On remet les cartes a plat, puis on repartage.
-  const cartes = [...masonry.querySelectorAll('.card')];
+  const cardEls = [...masonry.querySelectorAll('.card')];
   masonry.textContent = '';
-  cartes.forEach(c => masonry.appendChild(c));
+  cardEls.forEach(c => masonry.appendChild(c));
   layoutColumns(masonry);
 });
 
@@ -1593,9 +1593,9 @@ window.addEventListener('resize', () => {
 // qu'on n'est pas entre dans le mode, rien n'est saisissable -- et une fois dedans, les
 // actions des cartes sont neutralisees : on range, on n'exploite pas.
 let modeReorg = false;
-let carteSaisie = null;
+let inputCard = null;
 
-function ordreActuel(){
+function currentOrder(){
   return [...document.querySelectorAll('.mcol')].map(col =>
     [...col.querySelectorAll('.card')].map(c => c.dataset.module));
 }
@@ -1617,13 +1617,13 @@ function entrerReorg(){
                 + '<button class="primaire" id="reorgFin">Terminer</button></div>';
   app.parentElement.insertBefore(bar, app);
   document.getElementById('reorgFin').onclick = () => quitterReorg(true);
-  document.getElementById('reorgDefaut').onclick = () => { oublierOrdre(); quitterReorg(false); refresh(); };
+  document.getElementById('reorgDefaut').onclick = () => { forgetOrder(); quitterReorg(false); refresh(); };
   armerGlisser();
 }
 
 function quitterReorg(garder){
   if(!modeReorg) return;
-  if(garder) enregistrerOrdre(ordreActuel());
+  if(garder) saveOrder(currentOrder());
   modeReorg = false;
   document.body.classList.remove('reorg');
   const bar = document.getElementById('reorgBar'); if(bar) bar.remove();
@@ -1635,29 +1635,29 @@ function quitterReorg(garder){
 // Glisser-deposer natif : pas de bibliotheque, et le clavier reste possible via les
 // boutons de la barre. On depose DANS une colonne, avant la carte survolee.
 function armerGlisser(){
-  document.querySelectorAll('.masonry .card').forEach(carte => {
-    carte.setAttribute('draggable', 'true');
-    carte.ondragstart = e => {
+  document.querySelectorAll('.masonry .card').forEach(cardEl => {
+    cardEl.setAttribute('draggable', 'true');
+    cardEl.ondragstart = e => {
       if(!modeReorg) return false;
-      carteSaisie = carte; carte.classList.add('drag');
-      try{ e.dataTransfer.setData('text/plain', carte.dataset.module); }catch(err){}
+      inputCard = cardEl; cardEl.classList.add('drag');
+      try{ e.dataTransfer.setData('text/plain', cardEl.dataset.module); }catch(err){}
       e.dataTransfer.effectAllowed = 'move';
     };
-    carte.ondragend = () => { carte.classList.remove('drag'); carteSaisie = null;
+    cardEl.ondragend = () => { cardEl.classList.remove('drag'); inputCard = null;
                               document.querySelectorAll('.mcol.cible').forEach(c => c.classList.remove('cible')); };
   });
   document.querySelectorAll('.mcol').forEach(col => {
     col.ondragover = e => {
-      if(!modeReorg || !carteSaisie) return;
+      if(!modeReorg || !inputCard) return;
       e.preventDefault();
       col.classList.add('cible');
       // Insertion AVANT la carte dont on survole la moitie haute : le repere suit le
       // curseur, on voit ou la carte va tomber.
-      const apres = [...col.querySelectorAll('.card:not(.drag)')].find(c => {
+      const after = [...col.querySelectorAll('.card:not(.drag)')].find(c => {
         const r = c.getBoundingClientRect();
         return e.clientY < r.top + r.height / 2;
       });
-      if(apres) col.insertBefore(carteSaisie, apres); else col.appendChild(carteSaisie);
+      if(after) col.insertBefore(inputCard, after); else col.appendChild(inputCard);
     };
     col.ondragleave = () => col.classList.remove('cible');
     col.ondrop = e => { e.preventDefault(); col.classList.remove('cible'); };
@@ -1674,8 +1674,8 @@ function replaceCardDom(m){
   // rafraichie avant le premier /state --, on garde CELUI QUI EST DEJA AFFICHE plutot
   // que de retomber sur l'identifiant technique : la carte Comptes s'est retrouvee
   // titree « ACCOUNTS » (constate le 27/08).
-  const dejaAffiche=(card.querySelector('.card-group')||{}).textContent;
-  tmp.innerHTML=cardHtmlSafe(m, themeLabels[m.theme]||dejaAffiche||m.theme||'');
+  const alreadyShown=(card.querySelector('.card-group')||{}).textContent;
+  tmp.innerHTML=cardHtmlSafe(m, themeLabels[m.theme]||alreadyShown||m.theme||'');
   const fresh=tmp.firstElementChild;
   // LE GROUPE MASQUE LE RESTE. Le noeud neuf arrive sans le display:none que le filtre
   // avait pose sur l'ancien : une carte d'un groupe decoche revenait donc a l'ecran des
@@ -1697,7 +1697,7 @@ async function fetchModule(moduleId, frais){
       // frais : le serveur RECALCULE la carte et attend le resultat. Reserve au bouton
       // de la carte ; le suivi d'une tache de fond, lui, lit le cache.
       const r=await fetch(API+'/modules/'+encodeURIComponent(moduleId)+(frais?'?fresh=1':''),{ headers:{ Authorization:'Bearer '+TOKEN } });
-      if(r.ok){ marquerEnLigne(); return await r.json(); }
+      if(r.ok){ markOnline(); return await r.json(); }
     }catch(e){}
     return null;
   }
@@ -1781,11 +1781,11 @@ function dismissToast(id){
 // pas : le travail continue en fond, et on vient de supprimer le seul endroit qui en
 // disait quelque chose. A la fin, cette notification n'est pas effacee : elle est
 // REMPLACEE par son resultat (reussi ou echoue), qui s'efface, lui.
-function notifVerrouillee(n){ return n && n.status === 'running'; }
+function notifLocked(n){ return n && n.status === 'running'; }
 
 function deleteNotif(id){
   const n = notifs.find(x => x.id === id);
-  if(notifVerrouillee(n)){
+  if(notifLocked(n)){
     // PAS de message fugace : il s'affichait DERRIERE le tiroir, une seconde et demie
     // -- autant ne rien dire (signale le 27/08). La raison est ecrite en tete du
     // tiroir, en permanence tant qu'elle est vraie ; ici on fait juste clignoter la
@@ -1799,8 +1799,8 @@ function deleteNotif(id){
 function clearNotifs(){
   // « Tout effacer » respecte le verrou : ce qui tourne reste, le reste part. Rien a
   // annoncer -- le tiroir montre lui-meme ce qui reste, et pourquoi.
-  notifs.filter(n => !notifVerrouillee(n)).forEach(n => dismissToast(n.id));
-  notifs = notifs.filter(notifVerrouillee);
+  notifs.filter(n => !notifLocked(n)).forEach(n => dismissToast(n.id));
+  notifs = notifs.filter(notifLocked);
   renderDrawer(); updateBell();
 }
 function renderDrawer(){
@@ -1808,7 +1808,7 @@ function renderDrawer(){
   if(!notifs.length){ body.innerHTML='<div class="drawer-empty">Aucune notification.</div>'; return; }
   // EN TETE DU TIROIR : ce qui tourne, et pourquoi ces notifications ne s'effacent
   // pas. Permanent tant que c'est vrai, a l'endroit meme ou l'on clique.
-  const enCours = notifs.filter(notifVerrouillee).length;
+  const enCours = notifs.filter(notifLocked).length;
   const entete = enCours
     ? '<div class="dn-note">' + (enCours === 1
         ? L('ui.une-operation-est-en')
@@ -1819,7 +1819,7 @@ function renderDrawer(){
     const chip=n.status==='running'?'<span class="spin"></span>En cours':n.status==='done'?L('ui.reussi'):L('ui.echec');
     return `<div class="dn ${n.status}" data-id="${n.id}">
       <div class="dn-head"><span class="t-dot ${n.status}"></span><span class="dn-label">${esc(n.label)}</span>
-        ${notifVerrouillee(n)
+        ${notifLocked(n)
             // La fonte maison n'a pas de cadenas, et on n'invente pas un glyphe pour
             // ca : le SABLIER de l'application dit deja « en cours », c'est exactement
             // la raison du verrou.
@@ -1852,13 +1852,13 @@ function operationKey(o){ return (o.module || '') + '|' + (o.action || ''); }
 // pour la meme operation.
 async function syncOperations(etatFourni){
   if(!API_MODE) return;
-  let etat = etatFourni || null;
-  if(!etat){
+  let uiState = etatFourni || null;
+  if(!uiState){
     try{
       const r = await fetch(API + '/operations', { headers:{ Authorization:'Bearer ' + TOKEN } });
       if(!r.ok) return;
-      etat = await r.json();
-      marquerEnLigne();   // le serveur a repondu : la page n'est plus hors ligne
+      uiState = await r.json();
+      markOnline();   // le serveur a repondu : la page n'est plus hors ligne
     }catch(e){ return; }
   }
 
@@ -1869,7 +1869,7 @@ async function syncOperations(etatFourni){
   // tout » s'appliquait : le 06/10, une analyse de disque qui ne retient que le disque eteignait aussi le bouton de
   // Chocolatey. La route /operations, elle, porte le libelle, l'action, les ressources et l'heure de depart.
   opsByCard = {};
-  for(const op of (etat.running || [])){
+  for(const op of (uiState.running || [])){
     if(op && op.module) opsByCard[op.module] = op;
   }
   // CE QUI EST OCCUPE SE LIT SUR LE VIVANT, JAMAIS SUR UN RENDU (D130). Une carte calculee pendant une operation
@@ -1885,7 +1885,7 @@ async function syncOperations(etatFourni){
   paintOperationNotes();
   applyOperationLock();
   const enCours = new Set();
-  for(const op of (etat.running || [])){
+  for(const op of (uiState.running || [])){
     const cle = operationKey(op);
     enCours.add(cle);
     // UNE OPERATION N'A QU'UNE NOTIFICATION, et la suivante REMPLACE la precedente.
@@ -1896,10 +1896,10 @@ async function syncOperations(etatFourni){
     // notification. Sans cela, deux annonces de la meme chose se retrouvent cote a cote.
     const connue = opsConnues[cle];
     if(connue && notifs.some(x => x.id === connue)) continue;
-    const deja = notifs.find(x => x.op === cle);
-    if(deja){
-      opsConnues[cle] = deja.id;
-      updateNotif(deja, 'running', (op.label || L('ui.operation')) + L('ui.en-cours'));
+    const alreadyNotified = notifs.find(x => x.op === cle);
+    if(alreadyNotified){
+      opsConnues[cle] = alreadyNotified.id;
+      updateNotif(alreadyNotified, 'running', (op.label || L('ui.operation')) + L('ui.en-cours'));
       continue;
     }
     // Nouvelle a NOS yeux : on la montre, toast compris -- c'est le but, toutes les
@@ -1935,7 +1935,7 @@ async function syncOperations(etatFourni){
     // reponse de l'action, que le rechargement doit se faire.
     if(moduleFini){ refreshCard(moduleFini, null, true); }
     if(!n) continue;
-    const res = (etat.results || []).find(r => operationKey(r) === cle);
+    const res = (uiState.results || []).find(r => operationKey(r) === cle);
     if(res){
       const ok = Number(res.code) === 0;
       updateNotif(n, ok ? 'done' : 'error',
@@ -1953,7 +1953,7 @@ async function syncOperations(etatFourni){
 // attend maintenant que la page soit libre (tiroir ferme, rangement termine) : avec le
 // tiroir ouvert, les cartes se mettaient a jour et le bandeau restait rouge -- signale
 // le 27/08. Le moindre appel qui aboutit prouve pourtant que le serveur repond.
-function marquerEnLigne(){
+function markOnline(){
   const gt = document.getElementById('globalTxt');
   if(!gt || gt.textContent !== 'Hors ligne') return;
   gt.textContent = L('ui.connecte');
@@ -1962,7 +1962,7 @@ function marquerEnLigne(){
   const gdot = document.querySelector('#global .dot');
   if(gdot) gdot.style.cssText = 'width:9px;height:9px;border-radius:50%;background:var(--ok)';
   const mb = document.getElementById('modebar');
-  if(mb){ const occupe = mb.classList.contains('busy'); mb.className = 'modebar ok' + (occupe ? ' busy' : ''); mb.title = ''; }
+  if(mb){ const isBusy = mb.classList.contains('busy'); mb.className = 'modebar ok' + (isBusy ? ' busy' : ''); mb.title = ''; }
 }
 
 function updateBell(){ const b=document.getElementById('bellCount'); if(!b) return; b.textContent=notifs.length; b.style.display=notifs.length?'inline-flex':'none'; }
@@ -1990,24 +1990,24 @@ async function treeNiveau(chemin){
   TREE_CACHE[chemin||''] = j;
   return j;
 }
-function treeLigneHtml(e){
-  const bouton = '<button class="tree-open" data-path="'+esc(e.path).replace(/"/g,'&quot;')+'" title="Ouvrir ce dossier dans l\u2019explorateur Windows">\u2197</button>';
+function treeRowHtml(e){
+  const button = '<button class="tree-open" data-path="'+esc(e.path).replace(/"/g,'&quot;')+'" title="Ouvrir ce dossier dans l\u2019explorateur Windows">\u2197</button>';
   const entete = '<span class="tree-n">'+esc(e.n)+'</span>'
     + '<span class="tree-s">'+esc(e.size||'')+'</span>'
     + '<span class="tree-p">'+esc(String(e.pct==null?'':e.pct))+' %</span>'
-    + bouton;
+    + button;
   return '<details class="tree-node" data-path="'+esc(e.path).replace(/"/g,'&quot;')+'">'
     + '<summary>'+entete+'</summary>'
     + '<div class="tree-kids"><div class="tree-attente">\u2026</div></div></details>';
 }
 function treeCorpsHtml(niveau){
   const enfants = (niveau.children||[]);
-  const fichiers = (niveau.files||[]);
-  let html = enfants.map(treeLigneHtml).join('');
+  const fileList = (niveau.files||[]);
+  let html = enfants.map(treeRowHtml).join('');
   if(niveau.others && niveau.others.c){
     html += '<div class="tree-leaf tree-mut">'+niveau.others.c+' autres dossiers<span class="tree-s">'+esc(niveau.others.size)+'</span></div>';
   }
-  html += fichiers.map(f=>'<div class="tree-leaf tree-file">'+esc(f.n)+'<span class="tree-s">'+esc(f.size||'')+'</span></div>').join('');
+  html += fileList.map(f=>'<div class="tree-leaf tree-file">'+esc(f.n)+'<span class="tree-s">'+esc(f.size||'')+'</span></div>').join('');
   if(!html) html = '<div class="tree-leaf tree-mut">Ce dossier ne contient rien de mesurable.</div>';
   return html;
 }
@@ -2255,7 +2255,7 @@ function shortSpan(secondes){
   if (s >= 60) { return `${Math.floor(s / 60)} min`; }
   return `${Math.round(s)} s`;
 }
-function asPercent(valeur){ return String(valeur).replace('.', ',') + ' %'; }
+function asPercent(inputValue){ return String(inputValue).replace('.', ',') + ' %'; }
 function recapHtml(session){
   const jams = session.jams || [];
   const apps = session.apps || [];
@@ -2280,19 +2280,19 @@ function recapHtml(session){
       : 'la machine elle-même';
     return `<tr><td>${esc(j.label)}</td><td>${esc(shortSpan(j.seconds))}</td><td>${qui}</td></tr>`;
   }).join('');
-  const bloc = (titre, contenu) => `<div class="cf-bloc"><div class="cf-t">${titre}</div><div class="cf-c">${contenu}</div></div>`;
+  const bloc = (headingText, contenu) => `<div class="cf-bloc"><div class="cf-t">${headingText}</div><div class="cf-c">${contenu}</div></div>`;
   const blocJams = jams.length
     ? bloc('Ce qui a gêné la partie', `<table class="hds-table"><thead><tr><th>Bouchon</th><th>Durée</th><th>Qui était en travers</th></tr></thead><tbody>${jamRows}</tbody></table>`)
     : bloc('Ce qui a gêné la partie', 'Rien : la machine a suivi du début à la fin.');
-  const jeu = apps.length ? apps[0] : null;
-  const blocJeu = jeu ? bloc('Le jeu', `Processeur ${esc(asPercent(jeu.cpu))} en moyenne (pointe ${esc(asPercent(jeu.cpuMax))}) · Carte graphique ${esc(asPercent(jeu.gpu))} (pointe ${esc(asPercent(jeu.gpuMax))}) · Mémoire vive ${esc(String(jeu.ram).replace('.', ','))} Go`) : '';
+  const firstGame = apps.length ? apps[0] : null;
+  const gameBlock = firstGame ? bloc('Le jeu', `Processeur ${esc(asPercent(firstGame.cpu))} en moyenne (pointe ${esc(asPercent(firstGame.cpuMax))}) · Carte graphique ${esc(asPercent(firstGame.gpu))} (pointe ${esc(asPercent(firstGame.gpuMax))}) · Mémoire vive ${esc(String(firstGame.ram).replace('.', ','))} Go`) : '';
   const appRows = apps.map(a=>{
     const shareOfSession = session.seconds ? Math.round(100 * (a.seconds||0) / session.seconds) : 0;
     return `<tr><td>${esc(a.label)}</td><td>${esc(shortSpan(a.seconds))} (${shareOfSession} %)</td><td>${esc(asPercent(a.cpu))}</td><td>${esc(asPercent(a.gpu))}</td><td>${esc(asPercent(a.cpuMax))}</td></tr>`;
   }).join('');
   const blocApps = bloc('Ce que chaque application a pris',
     `<table class="hds-table"><thead><tr><th>Application</th><th>Présente</th><th>CPU moyen</th><th>GPU moyen</th><th>Pointe CPU</th></tr></thead><tbody>${appRows}</tbody></table>`);
-  return intro + blocJams + blocJeu + blocApps;
+  return intro + blocJams + gameBlock + blocApps;
 }
 async function runGamingAction(type, params){
   const r = await fetch(API+'/actions', { method:'POST',
@@ -2339,10 +2339,10 @@ async function openPastSessions(){
     const d = s.endedAt ? new Date(s.endedAt) : null;
     const dayLabel = d ? (d.toDateString()===new Date().toDateString() ? "Aujourd'hui" : `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`) : '';
     const heure = d ? `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}` : '';
-    const bouchon = s.jam ? `${esc(s.jam)} ${esc(shortSpan(s.jamSeconds))}` : 'Aucun bouchon';
+    const stub = s.jam ? `${esc(s.jam)} ${esc(shortSpan(s.jamSeconds))}` : 'Aucun bouchon';
     return `<div class="hds-choice-row"><label class="hds-choice">
         <span class="hds-choice-t"><b>${esc(dayLabel)} ${esc(heure)}</b> — ${esc(s.game)}</span>
-        <span class="hds-choice-d">${esc(shortSpan(s.seconds))} · ${bouchon}</span></label>
+        <span class="hds-choice-d">${esc(shortSpan(s.seconds))} · ${stub}</span></label>
         <button type="button" class="hds-exclu" data-session="${att(s.startedAt)}">Ouvrir</button></div>`;
   }).join('');
   HDS.open({ title:'Parties précédentes', variant:'info',
@@ -2470,19 +2470,19 @@ const HDS = (function(){
     // particulier. On montre quand meme la liste -- elle informe -- mais les cases sont
     // cochees et NON decochables, et l'intro dit pourquoi. Laisser decocher un choix qui
     // serait ensuite ignore serait un mensonge d'interface.
-    let verrou = false;
+    let lock = false;
     // EXCLURE un element depuis la liste (`opts.exclure`) : la fenetre qui montre les
     // mises a jour est exactement l'endroit ou l'on decide qu'un paquet ne doit plus
     // etre propose. Sans cela il fallait retenir son identifiant et aller le taper dans
     // les parametres -- exigence utilisateur.
-    const ligne = it =>
-      '<div class="hds-choice-row"><label class="hds-choice'+(verrou?' hds-choice--fige':'')+'"><input type="checkbox" value="'+esc(it.id)+'"'+((verrou||cocheDefaut)?' checked':'')+(verrou?' tabindex="-1"':'')+'>'
+    const rowOf = it =>
+      '<div class="hds-choice-row"><label class="hds-choice'+(lock?' hds-choice--fige':'')+'"><input type="checkbox" value="'+esc(it.id)+'"'+((lock||cocheDefaut)?' checked':'')+(lock?' tabindex="-1"':'')+'>'
       + '<span class="hds-choice-t">'+esc(it.titre)+'</span>'
       + (it.detail?'<span class="hds-choice-d">'+esc(it.detail)+'</span>':'')
       + '</label>'
       + (opts.exclure ? '<button type="button" class="hds-exclu" data-exclu="'+esc(it.id)+'" title="Ne plus proposer cette mise à jour">Ignorer</button>' : '')
       + '</div>';
-    const barre = () => verrou ? '' :
+    const barre = () => lock ? '' :
       '<div class="hds-choice-bar"><button type="button" class="hds-lnk" id="hdsAll" title="Sélectionner toutes les lignes de la liste">Tout cocher</button>'
       + '<button type="button" class="hds-lnk" id="hdsNone" title="Désélectionner toutes les lignes de la liste">Tout décocher</button>'
       + '<span class="hds-count" id="hdsCount"></span></div>';
@@ -2491,7 +2491,7 @@ const HDS = (function(){
       return sum ? ' · '+octets(sum) : '';
     };
     const render = liste => {
-      if(!liste.some(x=>x.groupe)) return liste.map(ligne).join('');
+      if(!liste.some(x=>x.groupe)) return liste.map(rowOf).join('');
       const byGroup = new Map();
       liste.forEach(x=>{ const g = x.groupe || '—'; if(!byGroup.has(g)) byGroup.set(g,[]); byGroup.get(g).push(x); });
       // Windows first -- it carries the security fix -- then makers alphabetically. An
@@ -2510,7 +2510,7 @@ const HDS = (function(){
           + '<span class="hds-grp-n" title="Cocher ou décocher tout ce groupe">'+esc(name)+'</span>'
           + '<span class="hds-grp-fill" title="Replier ou déplier ce groupe"></span>'
           + '<span class="hds-grp-c" title="Replier ou déplier ce groupe">'+inside.length+groupWeight(inside)+'</span>'
-          + '</summary><div class="acc-b hds-grp-b">'+inside.map(ligne).join('')+'</div></details>';
+          + '</summary><div class="acc-b hds-grp-b">'+inside.map(rowOf).join('')+'</div></details>';
       }).join('');
     };
     const corps = (intro, dedans) =>
@@ -2543,7 +2543,7 @@ const HDS = (function(){
       // Liste figee : la case reste ACTIVE (une case `disabled` est grisee par le
       // navigateur, on ne verrait plus qu'elle est cochee). L'interaction est coupee par
       // le CSS ; ce filet garantit qu'aucune ne peut se retrouver decochee.
-      if(verrou) boites().forEach(b=>{ b.checked = true; });
+      if(lock) boites().forEach(b=>{ b.checked = true; });
       retenus = boites().filter(b=>b.checked).map(b=>b.value);
       refreshGroups();
       const c=elBody.querySelector('#hdsCount');
@@ -2596,7 +2596,7 @@ const HDS = (function(){
       const v=valider(); if(v) v.disabled=true;
       opts.charger().then(res=>{
         items = (res && res.items) || [];
-        verrou = !!(res && res.verrouille);
+        lock = !!(res && res.verrouille);
         // Le serveur peut trancher le precochage (reglage utilisateur, D57).
         if(res && res.tousCoches!==undefined) cocheDefaut = !!res.tousCoches;
         const intro = (res && res.intro) || opts.intro;
@@ -2846,8 +2846,8 @@ function markCardBusy(moduleId, quoi){
 // phrase vague (D91).
 function corpsConfirmation(help, ex){
   ex = ex || {};
-  const bloc = (titre, texte) => texte
-    ? '<div class="cf-bloc"><div class="cf-t">'+esc(titre)+'</div><div class="cf-c">'+esc(texte)+'</div></div>'
+  const bloc = (headingText, texte) => texte
+    ? '<div class="cf-bloc"><div class="cf-t">'+esc(headingText)+'</div><div class="cf-c">'+esc(texte)+'</div></div>'
     : '';
   // CE QUI PASSE D'UN ETAT A L'AUTRE SE MONTRE, il ne se raconte pas. Deux valeurs et
   // une fleche se lisent d'un coup d'oeil ; la meme chose collee au bout d'une phrase se
@@ -3170,7 +3170,7 @@ function setLoading(on, complete){
 // quelqu'un : rangement en cours, fenetre de dialogue ouverte, panneau des reglages
 // deploye, ou tiroir des notifications ouvert. Le rafraichissement automatique
 // attendra le tour suivant ; une demande EXPLICITE (bouton Actualiser), elle, passe.
-function pageOccupee(){
+function pageBusy(){
   if(modeReorg) return 'rangement';
   const modale = document.getElementById('hdsBack');
   if(modale && modale.classList.contains('show')) return L('ui.fenetre-ouverte');
@@ -3183,7 +3183,7 @@ function pageOccupee(){
 async function refresh(force){
   // Rafraichissement AUTOMATIQUE seulement : une demande explicite n'est jamais differee.
   if(!force){
-    const raison = pageOccupee();
+    const raison = pageBusy();
     if(raison) return;
   }
   // PENDANT UNE OPERATION QUI TIENT LA MACHINE, ON NE RECALCULE PAS.
@@ -3219,7 +3219,7 @@ async function refresh(force){
     // ainsi, en orange, au lieu d'afficher « Hors ligne » en rouge sur ce que
     // l'utilisateur vient lui-meme de declencher.
     const attendu = runningOperation();
-    const mb=document.getElementById('modebar'); const occupeErr=mb.classList.contains('busy'); mb.className='modebar err'+(occupeErr?' busy':''); mb.title=attendu?L('ui.mise-a-jour-en-cours'):L('ui.connexion-api-impossible'); mb.textContent='';
+    const mb=document.getElementById('modebar'); const busyErr=mb.classList.contains('busy'); mb.className='modebar err'+(busyErr?' busy':''); mb.title=attendu?L('ui.mise-a-jour-en-cours'):L('ui.connexion-api-impossible'); mb.textContent='';
     const msg = (e && e.name==='AbortError') ? L('ui.delai-depasse-le-premier') : (e && e.message ? e.message : e);
     const gt=document.getElementById('globalTxt'); if(gt){ gt.textContent=attendu?L('ui.mise-a-jour-en-cours'):'Hors ligne'; gt.style.color=attendu?'var(--warn)':'var(--err)'; gt.parentElement.title=attendu?L('ui.mise-a-jour-en-cours'):(L('ui.connexion-impossible')+msg); }
     const gdot=document.querySelector('#global .dot'); if(gdot){ gdot.style.cssText='width:9px;height:9px;border-radius:50%;background:'+(attendu?'var(--warn)':'var(--err)'); }
@@ -3288,9 +3288,9 @@ function ouvrirDepuisHash(){
   if(!h.startsWith('parametres')) return;
   const parts=h.split('/');
   const onglet=parts[1]||null;
-  const cible=parts.length>2?parts[2]:null;
+  const targetIndex=parts.length>2?parts[2]:null;
   // #parametres/modules/<module> ouvre le panneau ET deplie ce module.
-  setTimeout(()=>{ openSettings(onglet, cible||null); }, 400);
+  setTimeout(()=>{ openSettings(onglet, targetIndex||null); }, 400);
 }
 window.addEventListener('hashchange', ouvrirDepuisHash);
 function openSettings(tab, unitFocus){
@@ -3362,13 +3362,13 @@ async function renderTabNotifs(pane){
 // composants ne dessinent donc JAMAIS de bordure ni de coin -- ils remplissent.
 const UI = {
   // Bande de titre d'une sous-section, avec son compteur eventuel.
-  bande(titre, compteur){
-    return '<div class="um-sub">'+esc(titre)
+  bande(headingText, compteur){
+    return '<div class="um-sub">'+esc(headingText)
       +(compteur!==undefined && compteur!==null && compteur!=='' ? '<span class="um-cpt">'+esc(String(compteur))+'</span>' : '')
       +'</div>';
   },
   // Conteneur de lignes : pleine largeur, sans cadre a lui.
-  liste(lignes){ return '<div class="um-list">'+(Array.isArray(lignes)?lignes.join(''):lignes)+'</div>'; },
+  liste(fieldCount){ return '<div class="um-list">'+(Array.isArray(fieldCount)?fieldCount.join(''):fieldCount)+'</div>'; },
   // UNE ligne : libelle (+ etiquettes) a gauche, commande a droite.
   ligne(o){
     return '<div class="um-card"'+(o.aide?' title="'+esc(o.aide)+'"':'')+'>'
@@ -3419,7 +3419,7 @@ async function renderTabModules(pane){
     // sauf si elle est critique -- alors elle remonte quand meme, en invitant a
     // prevenir un administrateur.
     const etiquettesNotif=nn=>[].concat(nn.rights==='admin'?['admin']:[], nn.critical?['critique']:[]);
-    const lignes=(decl.length
+    const fieldCount=(decl.length
       ? UI.bande('Notifications', decl.length)
         + UI.liste(decl.map(nn=>UI.ligne({
             libelle: nn.label, aide: nn.help||'', etiquettes: etiquettesNotif(nn),
@@ -3430,12 +3430,12 @@ async function renderTabModules(pane){
     // champ se deplient deja ainsi ; les onglets, eux, sont deja pris par la navigation
     // des Parametres). Tout est replie : la liste des modules se lit d'un coup d'oeil,
     // et on ouvre celui qu'on veut regler.
-    const cible=(pendingUnitFocus===u.id);
-    return '<details class="um'+(u.enabled?'':' off')+'" id="um-'+esc(u.id)+'"'+(cible?' open':'')+'>'
+    const targetIndex=(pendingUnitFocus===u.id);
+    return '<details class="um'+(u.enabled?'':' off')+'" id="um-'+esc(u.id)+'"'+(targetIndex?' open':'')+'>'
       +'<summary class="um-head"><div class="um-t"><b>'+esc(u.label)+'</b><small>'+esc(u.description||'')+'</small></div>'
       +'<span class="um-sw"><span>'+(u.enabled?'Actif':L('ui.coupe'))+'</span>'
       +UI.interrupteur('data-unit="'+esc(u.id)+'"', u.enabled)+'</span></summary>'
-      +(u.enabled ? lignes : '<div class="um-note">Module coupé : ses cartes ne sont ni calculées ni affichées.</div>')
+      +(u.enabled ? fieldCount : '<div class="um-note">Module coupé : ses cartes ne sont ni calculées ni affichées.</div>')
       +(u.enabled && (paramCat[u.id]||[]).filter(pr=>pr.type!=='list').length ? UI.bande(L('ui.parametres'), (paramCat[u.id]||[]).filter(pr=>pr.type!=='list').length)+'<div class="um-list">'+(paramCat[u.id]||[]).filter(pr=>pr.type!=='list').map(pr=>{
         const ref=esc(u.id)+'::'+esc(pr.key);
         const btnDef=pr.overridden?'<button class="um-reset" data-preset="'+ref+L('ui.title-revenir-la-valeur')+esc(Array.isArray(pr.default)?(pr.default.join(', ')||'vide'):String(pr.default))+(pr.unit?' '+esc(pr.unit):'')+')">défaut</button>':'';
@@ -3485,8 +3485,8 @@ async function renderTabModules(pane){
     try{ await postNotif({notifs}); }
     catch(e){ c.checked=!c.checked; toast(L('ui.reglage-impossible')+(e.message||e)); }
   }; });
-  async function postParam(unit, key, valeur){
-    const values={}; values[key]=valeur;
+  async function postParam(unit, key, inputValue){
+    const values={}; values[key]=inputValue;
     const r=await fetch(API+'/parameters/'+encodeURIComponent(unit),{ method:'POST',
       headers:{ Authorization:'Bearer '+TOKEN, 'Content-Type':'application/json' },
       body: JSON.stringify({ values }) });
@@ -3494,7 +3494,7 @@ async function renderTabModules(pane){
   }
   // Un parametre change ne recalcule QUE les cartes de son module : le serveur a deja
   // invalide leurs sondes, chaque carte se recharge fraiche sans payer les autres.
-  async function apresParam(unit){
+  async function afterParam(unit){
     // Le panneau d abord (valeur et bouton defaut a jour tout de suite), les cartes
     // ensuite, sans bloquer : chacune se remplace quand son calcul aboutit.
     await renderSettings();
@@ -3502,8 +3502,8 @@ async function renderTabModules(pane){
   }
   pane.querySelectorAll('[data-pval]').forEach(c=>{ c.onchange=async()=>{
     const [unit,key]=c.getAttribute('data-pval').split('::');
-    const valeur=(c.type==='checkbox')?c.checked:Number(c.value);
-    try{ await postParam(unit,key,valeur); toast(L('ui.parametre-enregistre')); await apresParam(unit); }
+    const inputValue=(c.type==='checkbox')?c.checked:Number(c.value);
+    try{ await postParam(unit,key,inputValue); toast(L('ui.parametre-enregistre')); await afterParam(unit); }
     catch(e){ toast(L('ui.reglage-impossible')+(e.message||e)); }
   }; });
   // Curseur : il suit le champ nombre et reciproquement ; seul le relachement enregistre.
@@ -3518,7 +3518,7 @@ async function renderTabModules(pane){
     const [unit,key]=bloc.getAttribute('data-plist').split('::');
     const envoyer=async()=>{
       const items=[...block.querySelectorAll('.um-lrow > span')].map(sp=>sp.textContent);
-      try{ await postParam(unit,key,items); toast(L('ui.liste-enregistree')); await apresParam(unit); }
+      try{ await postParam(unit,key,items); toast(L('ui.liste-enregistree')); await afterParam(unit); }
       catch(e){ toast(L('ui.reglage-impossible')+(e.message||e)); }
     };
     block.querySelectorAll('[data-pdel]').forEach(b2=>{ b2.onclick=()=>{ b2.closest('.um-lrow').remove(); envoyer(); }; });
@@ -3527,13 +3527,13 @@ async function renderTabModules(pane){
       const v=(champ.value||'').trim();
       if(!v) return;
       const vide=bloc.querySelector('.um-lvide'); if(vide) vide.remove();
-      const ligne=document.createElement('div'); ligne.className='um-lrow';
-      const txt=document.createElement('span'); txt.textContent=v; ligne.appendChild(txt);
+      const rowOf=document.createElement('div'); rowOf.className='um-lrow';
+      const txt=document.createElement('span'); txt.textContent=v; rowOf.appendChild(txt);
       const x=document.createElement('button'); x.className='um-ldel'; x.textContent='×';
       x.title=L('ui.retirer-de-la-liste');
-      x.onclick=()=>{ ligne.remove(); envoyer(); };
-      ligne.appendChild(x);
-      bloc.insertBefore(ligne, bloc.querySelector('.um-ladd'));
+      x.onclick=()=>{ rowOf.remove(); envoyer(); };
+      rowOf.appendChild(x);
+      bloc.insertBefore(rowOf, bloc.querySelector('.um-ladd'));
       champ.value=''; envoyer();
     };
     if(champ){ champ.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); ajouter(); } }; }
@@ -3541,7 +3541,7 @@ async function renderTabModules(pane){
   });
   pane.querySelectorAll('.um-reset').forEach(b=>{ b.onclick=async()=>{
     const [unit,key]=b.getAttribute('data-preset').split('::');
-    try{ await postParam(unit,key,null); toast(L('ui.retour-la-valeur-par')); await apresParam(unit); }
+    try{ await postParam(unit,key,null); toast(L('ui.retour-la-valeur-par')); await afterParam(unit); }
     catch(e){ toast(L('ui.reglage-impossible')+(e.message||e)); }
   }; });
   pane.querySelectorAll('[data-unit]').forEach(c=>{ c.onchange=async()=>{
@@ -3636,13 +3636,13 @@ async function renderTabUtilisateurs(pane){
     am.disabled=false;
   }; }
   pane.querySelectorAll('[data-user]').forEach(c=>{ c.onchange=async()=>{
-    const nom=c.getAttribute('data-user');
+    const accountName=c.getAttribute('data-user');
     try{
-      const r=await fetch(API+'/users/'+encodeURIComponent(nom),{ method:'POST',
+      const r=await fetch(API+'/users/'+encodeURIComponent(accountName),{ method:'POST',
         headers:{ Authorization:'Bearer '+TOKEN, 'Content-Type':'application/json' },
         body: JSON.stringify({enabled:c.checked}) });
       if(!r.ok){ const j=await r.json().catch(()=>({})); throw new Error(j.error||('HTTP '+r.status)); }
-      toast(c.checked?(L('ui.vigie-demarrera-avec')+nom):(L('ui.vigie-ne-demarrera-plus')+nom));
+      toast(c.checked?(L('ui.vigie-demarrera-avec')+accountName):(L('ui.vigie-ne-demarrera-plus')+accountName));
     }catch(e){ toast(L('ui.impossible')+(e.message||e)); c.checked=!c.checked; }
   }; });
 }

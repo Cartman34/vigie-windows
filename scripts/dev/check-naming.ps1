@@ -75,8 +75,17 @@ $COMMENT_CEILING = 5603
     Two mechanical guards were built for it, because 10 000 lines cannot be judged by eye: one refuses to merge a
     name onto an existing one unless NO scope uses both (55 merges checked, 2 refused and renamed otherwise), and
     the renamer now fails closed -- a guard that could throw had silently emptied every variable name in the file.
+
+    07/10, the panel's page: 296 -> 249. index.html holds no AST tool and 4 000 lines where "card" appears 140 times
+    as a CSS class, an attribute and a label -- one of those forms only is code. So the page is CUT UP instead of
+    searched: comments, strings, template literals with their ${}, regular-expression literals, and the rest, which
+    is code. Only an identifier is renamed, never a member (x.titre, a key the back end writes) nor an object key.
+    Without scope analysis the safety is elsewhere: a target name must be ABSENT from the code, so no two things can
+    merge in any scope -- which forced cardEl, uiState, fieldCount rather than card, state, rows, all three taken.
+    One trap found by the cutting: "u.enabled ? lignes : ..." puts a colon after a name that is a VARIABLE, and
+    skipping it would have renamed the declaration and left the use hanging.
 #>
-$CEILING = 296
+$CEILING = 249
 
 # LE PLAFOND DES NOMS DE FICHIERS. Meme cliquet, compte separe : ceux qui restent sont
 # nommes dans des taches planifiees deja posees et dans des raccourcis, donc ils se
