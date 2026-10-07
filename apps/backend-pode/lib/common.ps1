@@ -6546,11 +6546,52 @@ function Get-MeasureDayFile {
     (2026-09-01.jsonl) : un verrou nomme sur le seul nom de fichier ferait attendre la
     mesure du disque parce que celle du reseau ecrit. Deux mesures n'ont rien a partager.
 #>
+<#
+    AND IT COVERS THE WHOLE COMPUTER, not one session.
+
+    It was named "Local\...". A Local lock exists ONLY inside one Windows session: the server app writes from the
+    service's session, a client app from its account's, and each took a DIFFERENT lock bearing the same name. The
+    one that can really hurt is the purge, which REWRITES a file while another session appends to it.
+
+    "Global\" is shared by the whole computer. It needs an explicit access right: created by the elevated service
+    account, its default list would stop an ordinary client app from opening it -- and that app would then write
+    with NO lock at all, which is worse than the disease. Get-HistoryMutex grants the right as it creates it.
+#>
 function Get-HistoryMutexName {
     param([Parameter(Mandatory)][string]$Path)
     $leaf   = Split-Path $Path -Leaf
     $parent = Split-Path (Split-Path $Path -Parent) -Leaf
-    return ('Local\VigieHistory_' + (($parent + '_' + $leaf) -replace '[^A-Za-z0-9]', '_'))
+    return ('Global\VigieHistory_' + (($parent + '_' + $leaf) -replace '[^A-Za-z0-9]', '_'))
+}
+
+<#
+    THE LOCK ITSELF, OPEN TO EVERY ACCOUNT ON THE COMPUTER.
+
+    One door: everything touching the history comes through here, and nobody builds a Mutex by hand. The right is
+    granted as it is created -- anyone may take it and give it back -- otherwise only the service account that
+    created it could use it at all.
+
+    If none of that works, it returns $null and the caller writes anyway: a history with no lock beats no history,
+    and the writing itself is built to hold (see Add-HistoryLine).
+#>
+function Get-HistoryMutex {
+    param([Parameter(Mandatory)][string]$Name)
+    try {
+        $rules = New-Object System.Security.AccessControl.MutexSecurity
+        $everyone = New-Object System.Security.Principal.SecurityIdentifier(
+            [System.Security.Principal.WellKnownSidType]::WorldSid, $null)
+        $rules.AddAccessRule((New-Object System.Security.AccessControl.MutexAccessRule(
+            $everyone,
+            ([System.Security.AccessControl.MutexRights]'Synchronize, Modify'),
+            [System.Security.AccessControl.AccessControlType]::Allow)))
+        $created = $false
+        return [System.Threading.MutexAcl]::Create($false, $Name, [ref]$created, $rules)
+    } catch { }
+    # MutexAcl is not everywhere: fall back on a plain lock, which is enough between processes of one account, and
+    # on the resilient write for the rest.
+    try { return (New-Object System.Threading.Mutex($false, $Name)) } catch { }
+    try { return [System.Threading.Mutex]::OpenExisting($Name) } catch { }
+    return $null
 }
 
 <#
@@ -6681,20 +6722,42 @@ function Write-HistoryPoint {
     return (Add-HistoryLine -Path $file -Line ($Point | ConvertTo-Json -Compress -Depth 4))
 }
 
+<#
+    A LINE GOES IN WHOLE, OR NOT AT ALL.
+
+    The lock comes first, and it now covers the whole computer. But a lock can be missing -- an account without the
+    right to open it, a wait that expires -- and what was written then had no protection at all.
+
+    So the write itself refuses sharing: the file is opened to APPEND, for EXCLUSIVE writing, the line goes in one
+    call, and the file closes. Another process writing at the same instant does not get in -- it retries, and
+    returns $false if it never does. A lost line shows in the count; a half-written one does not.
+#>
 function Add-HistoryLine {
-    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$Line)
-    $mx = New-Object System.Threading.Mutex($false, (Get-HistoryMutexName -Path $Path))
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$Line, [int]$Tries = 5)
+    $mx = Get-HistoryMutex -Name (Get-HistoryMutexName -Path $Path)
     $got = $false
     try {
-        try { $got = $mx.WaitOne(2000) }
-        catch [System.Threading.AbandonedMutexException] { $got = $true }
-        catch { $got = $false }
-        if (-not $got) { return $false }
-        [IO.File]::AppendAllText($Path, $Line + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))
-        return $true
+        if ($mx) {
+            try { $got = $mx.WaitOne(2000) }
+            catch [System.Threading.AbandonedMutexException] { $got = $true }
+            catch { $got = $false }
+        }
+        $bytes = [Text.UTF8Encoding]::new($false).GetBytes($Line + [Environment]::NewLine)
+        for ($i = 0; $i -lt $Tries; $i++) {
+            try {
+                $fs = [IO.File]::Open($Path, [IO.FileMode]::Append, [IO.FileAccess]::Write, [IO.FileShare]::None)
+                try { $fs.Write($bytes, 0, $bytes.Length); $fs.Flush() } finally { $fs.Dispose() }
+                return $true
+            } catch [System.IO.IOException] {
+                # SOMEONE ELSE HOLDS THE FILE: wait a little and try again. That is the normal case when two
+                # processes write within the same second, not a failure.
+                Start-Sleep -Milliseconds (30 * ($i + 1))
+            } catch { return $false }
+        }
+        return $false
     } finally {
         if ($got) { try { $mx.ReleaseMutex() } catch { } }
-        try { $mx.Dispose() } catch { }
+        if ($mx) { try { $mx.Dispose() } catch { } }
     }
 }
 
@@ -6910,7 +6973,7 @@ function Invoke-HistoryPurge {
             # jamais une archive existante -- geste manuel uniquement.
             if ($eff.RetentionDays -le 0) { continue }
             $cutoff = $nowUtc.AddDays(-$eff.RetentionDays)
-            $mx = New-Object System.Threading.Mutex($false, (Get-HistoryMutexName -Path $fi.FullName))
+            $mx = Get-HistoryMutex -Name (Get-HistoryMutexName -Path $fi.FullName)
             $got = $false
             try {
                 try { $got = $mx.WaitOne(5000) }
@@ -7028,7 +7091,7 @@ function Get-MeasureHistory {
     $days += (Get-VarPath -Backend $Backend -Kind 'history' -File ($MeasureId + '.jsonl'))
     foreach ($file in $days) {
         if (-not (Test-Path -LiteralPath $file)) { continue }
-        $mx = New-Object System.Threading.Mutex($false, (Get-HistoryMutexName -Path $file))
+        $mx = Get-HistoryMutex -Name (Get-HistoryMutexName -Path $file)
         $got = $false
         try {
             try { $got = $mx.WaitOne(2000) }
@@ -7048,10 +7111,18 @@ function Get-MeasureHistory {
     # on retrie malgre tout : une purge interrompue ou une ligne forgee ne doit pas
     # rendre une serie desordonnee.
     $pts = New-Object System.Collections.Generic.List[object]
+    <#
+        SKIPPED LINES ARE COUNTED, AND SAID.
+
+        An unreadable line was skipped in silence. A wholly damaged file therefore returned ZERO points -- exactly
+        what a measure never taken returns: the two were indistinguishable on screen (seen on 06/10). Handling an
+        error without reporting it is half the rule (components.md).
+    #>
+    $unreadable = 0
     foreach ($l in $lines) {
         if ([string]::IsNullOrWhiteSpace($l)) { continue }
         $o = $null
-        try { $o = $l | ConvertFrom-Json } catch { continue }
+        try { $o = $l | ConvertFrom-Json } catch { $unreadable++; continue }
         $at = $null
         # ConvertFrom-Json rend la date tantot en chaine, tantot en [datetime] (D44) :
         # ConvertTo-UtcDate normalise, comparer sans lui fausserait la fenetre.
@@ -7110,6 +7181,9 @@ function Get-MeasureHistory {
             if ("$($cat.Kind)" -eq 'event') { $pt.from = $_.from; $pt.cards = @($_.cards) }
             $pt })
         summary   = $summary
+        # WHAT COULD NOT BE READ. Zero points alone did not say whether the measure had never been taken or its
+        # file was damaged: the difference is read here.
+        unreadable = $unreadable
     }
 }
 
