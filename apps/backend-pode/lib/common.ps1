@@ -169,18 +169,18 @@ function Invoke-Native {
     # winget (et d'autres outils modernes) emettent de l'UTF-8 ; PowerShell decodait avec
     # la page de code OEM (850) et chaque accent devenait « ├® » -- jusque dans les
     # messages d'erreur montres a l'utilisateur. On force UTF-8 le temps de la capture.
-    $avant = [Console]::OutputEncoding
+    $before = [Console]::OutputEncoding
     try { [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false) } catch { }
     try {
         $out = & $File @Arguments 2>&1
         $code = $LASTEXITCODE
     } finally {
-        try { [Console]::OutputEncoding = $avant } catch { }
+        try { [Console]::OutputEncoding = $before } catch { }
     }
     # winget decore sa sortie de sequences ANSI (surlignage) : illisibles une fois
     # capturees, on les retire. [...lettre = la forme CSI standard.
-    $texte = (($out | Out-String).TrimEnd()) -replace "\[[0-9;]*[A-Za-z]", ''
-    [pscustomobject]@{ Ok = ($code -eq 0); ExitCode = $code; Output = $texte }
+    $text = (($out | Out-String).TrimEnd()) -replace "\[[0-9;]*[A-Za-z]", ''
+    [pscustomobject]@{ Ok = ($code -eq 0); ExitCode = $code; Output = $text }
 }
 
 # Fusionne des cles dans un fichier JSON d'etat (lecture-fusion-ecriture ATOMIQUE),
@@ -254,11 +254,11 @@ function Remove-ProbeCache {
         foreach ($k in $Names) {
             foreach ($present in @($ht.Keys)) {
                 if ($present -eq $k -or $present -like ($k + '@*')) {
-                    $entree = $ht[$present]
-                    if ($entree -and $entree.module) {
+                    $entry = $ht[$present]
+                    if ($entry -and $entry.module) {
                         # « at » a l'epoque zero : perimee quel que soit le delai.
-                        try { $entree.at = '0001-01-01T00:00:00.0000000Z' } catch { }
-                        try { Add-Member -InputObject $entree -NotePropertyName 'pending' -NotePropertyValue $true -Force } catch { }
+                        try { $entry.at = '0001-01-01T00:00:00.0000000Z' } catch { }
+                        try { Add-Member -InputObject $entry -NotePropertyName 'pending' -NotePropertyValue $true -Force } catch { }
                         <#
                             AND THE OCCUPANCY DOES NOT SURVIVE IN A KEPT RENDERING (D130).
 
@@ -269,13 +269,13 @@ function Remove-ProbeCache {
                             recomputed, which for the packages card can be a day. Seen on 06/10: the owner had to
                             press F5. A kept rendering keeps what was measured, never what was happening.
                         #>
-                        foreach ($mod in @($entree.module)) {
+                        foreach ($mod in @($entry.module)) {
                             if (-not $mod) { continue }
                             foreach ($champ in @('busy', 'busyAction', 'busyResources')) {
                                 try { if ($mod.PSObject.Properties[$champ]) { $mod.PSObject.Properties.Remove($champ) } } catch { }
                             }
                         }
-                        $ht[$present] = $entree
+                        $ht[$present] = $entry
                     } else {
                         $ht.Remove($present)
                     }
@@ -422,13 +422,13 @@ function Get-UpdateLockState {
     $cat = Get-UpdateTaskCatalog
     $noAuto = $null
     try { $noAuto = (Get-ItemProperty -Path $cat.RegAu -Name NoAutoUpdate -ErrorAction SilentlyContinue).NoAutoUpdate } catch { }
-    $taches = @()
+    $tasks = @()
     foreach ($p in $cat.TaskPaths) {
         # -ErrorAction Ignore et non SilentlyContinue : un dossier vide ou dont l'acces est
         # refuse (c'est precisement l'effet du verrou) fait lever une erreur que
         # SilentlyContinue masque a l'ecran mais empile quand meme dans $Error. L'absence
         # est ici une information attendue, rapportee plus bas, pas un incident a collecter.
-        $taches += @(Get-TasksInFolder -Path $p)
+        $tasks += @(Get-TasksInFolder -Path $p)
     }
     $acl = Test-UpdateTasksAclLock
     $autoOff = ($noAuto -eq 1)
@@ -438,9 +438,9 @@ function Get-UpdateLockState {
         autoUpdatesOff = $autoOff
         aclLock        = $acl
         locked         = ($autoOff -and $acl)
-        tasks          = @($taches)
-        tasksDisabled  = @($taches | Where-Object { $_.state -eq 'Disabled' }).Count
-        tasksReady     = @($taches | Where-Object { $_.state -ne 'Disabled' }).Count
+        tasks          = @($tasks)
+        tasksDisabled  = @($tasks | Where-Object { $_.state -eq 'Disabled' }).Count
+        tasksReady     = @($tasks | Where-Object { $_.state -ne 'Disabled' }).Count
     }
 }
 
@@ -503,12 +503,12 @@ function Invoke-UpdateLockNative {
         # refus qui empeche Windows de recreer ses taches et de forcer un redemarrage.
         foreach ($d in $cat.Dirs) {
             if (-not (Test-Path -LiteralPath $d)) { continue }
-            $nom = Split-Path $d -Leaf
+            $name = Split-Path $d -Leaf
             $rt = Invoke-Native -File 'takeown.exe' -Arguments @('/f', $d, '/r', '/a', '/d', 'O')
             $rg = Invoke-Native -File 'icacls.exe'  -Arguments @($d, '/grant', ($adm + ':(OI)(CI)F'), '/t', '/c')
             $rd = Invoke-Native -File 'icacls.exe'  -Arguments @($d, '/deny',  ($sys + ':(OI)(CI)(WD,AD,DC)'), '/t', '/c')
-            & $noter ("verrouillage $nom : takeown=" + $rt.ExitCode + " grant=" + $rg.ExitCode + " deny=" + $rd.ExitCode)
-            if (-not $rd.Ok) { & $noter ("  detail deny $nom : " + (($rd.Output -split "`r?`n" | Select-Object -Last 3) -join ' | ')) }
+            & $noter ("verrouillage $name : takeown=" + $rt.ExitCode + " grant=" + $rg.ExitCode + " deny=" + $rd.ExitCode)
+            if (-not $rd.Ok) { & $noter ("  detail deny $name : " + (($rd.Output -split "`r?`n" | Select-Object -Last 3) -join ' | ')) }
         }
     } else {
         # 4bis) Levee : prevenir Windows que la strategie a change, sinon l'interface de
@@ -544,13 +544,13 @@ function Set-UpdateLock {
         try { Write-Log -Backend $Backend -Name 'updatelock' -Level 'WARN' -Message (Get-Label 'common.refuse-le-serveur-est' $Etat) } catch { }
         return $false
     }
-    $voie = 'native'
+    $route = 'native'
     $trace = @()
     $script = $null
     $tools = Get-ToolsPath -Backend $Backend
     if ($tools) {
         $candidat = Join-Path $tools 'update-mode.ps1'
-        if (Test-Path -LiteralPath $candidat) { $script = $candidat; $voie = 'outillage' }
+        if (Test-Path -LiteralPath $candidat) { $script = $candidat; $route = 'outillage' }
     }
     try {
         if ($script) {
@@ -559,14 +559,14 @@ function Set-UpdateLock {
             $trace = Invoke-UpdateLockNative -Etat $Etat -Backend $Backend
         }
     } catch {
-        try { Write-Log -Backend $Backend -Name 'updatelock' -Level 'ERROR' -Message "$Etat ($voie) : $($_.Exception.Message)" } catch { }
+        try { Write-Log -Backend $Backend -Name 'updatelock' -Level 'ERROR' -Message "$Etat ($route) : $($_.Exception.Message)" } catch { }
     }
     # CONSTAT : on relit l'etat reel, c'est lui qui fait foi.
-    $etatReel = Get-UpdateLockState
-    $obtenu = if ($Etat -eq 'pose') { $etatReel.aclLock } else { -not $etatReel.aclLock }
+    $actualState = Get-UpdateLockState
+    $obtenu = if ($Etat -eq 'pose') { $actualState.aclLock } else { -not $actualState.aclLock }
     try {
         foreach ($t in $trace) { Write-Log -Backend $Backend -Name 'updatelock' -Message "  $t" }
-        Write-Log -Backend $Backend -Name 'updatelock' -Message (Get-Label 'common.obtenu-verrouacl-noautoupdate-tachesdesactivees' $Etat $voie $obtenu $($etatReel.aclLock) $($etatReel.noAutoUpdate) $($etatReel.tasksDisabled))
+        Write-Log -Backend $Backend -Name 'updatelock' -Message (Get-Label 'common.obtenu-verrouacl-noautoupdate-tachesdesactivees' $Etat $route $obtenu $($actualState.aclLock) $($actualState.noAutoUpdate) $($actualState.tasksDisabled))
     } catch { }
     return [bool]$obtenu
 }
@@ -580,17 +580,17 @@ function Set-UpdateLock {
 #   `configured` : ce que demande le registre (ce qu'on ecrit, verifiable tout de suite) ;
 #   `running`    : ce que Windows execute reellement (ne bougera qu'apres un redemarrage).
 function Get-DeviceGuardCatalog {
-    $racine = 'HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard'
+    $rootPath = 'HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard'
     [ordered]@{
-        Root      = $racine
+        Root      = $rootPath
         RootReg   = 'HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard'   # forme attendue par reg.exe
         Features  = [ordered]@{
             vbs  = [pscustomobject]@{
-                Key = $racine; Name = 'EnableVirtualizationBasedSecurity'
+                Key = $rootPath; Name = 'EnableVirtualizationBasedSecurity'
                 Label = 'Sécurité par virtualisation (VBS)'; Court = 'VBS'
             }
             hvci = [pscustomobject]@{
-                Key = "$racine\Scenarios\HypervisorEnforcedCodeIntegrity"; Name = 'Enabled'
+                Key = "$rootPath\Scenarios\HypervisorEnforcedCodeIntegrity"; Name = 'Enabled'
                 Label = 'Intégrité mémoire (HVCI)'; Court = 'intégrité mémoire'
             }
         }
@@ -644,15 +644,15 @@ function Get-DeviceGuardState {
         try { if ($marque[$id] -and $null -ne $marque[$id].requested) { $dem = [int]$marque[$id].requested } } catch { }
         # Une demande qui correspond deja a ce qui tourne n'est plus en attente : le
         # marqueur se perime tout seul au redemarrage, sans delai arbitraire a regler.
-        $enAttente = ($null -ne $dem -and [bool]$dem -ne $running[$id])
+        $pending = ($null -ne $dem -and [bool]$dem -ne $running[$id])
         $etat[$id] = [ordered]@{
             label      = $f.Label
             court      = $f.Court
             configured = $cfg
             running    = $running[$id]
-            requested  = $(if ($enAttente) { $dem } else { $null })
-            pending    = $enAttente
-            effective  = $(if ($enAttente) { [bool]$dem } else { $running[$id] })
+            requested  = $(if ($pending) { $dem } else { $null })
+            pending    = $pending
+            effective  = $(if ($pending) { [bool]$dem } else { $running[$id] })
         }
     }
     $etat['pending'] = ($etat.vbs.pending -or $etat.hvci.pending)
@@ -691,8 +691,8 @@ function Set-DeviceGuardFeature {
         try { Write-Log -Backend $Backend -Name 'deviceguard' -Level 'WARN' -Message (Get-Label 'common.refuse-le-serveur-est' $Feature) } catch { }
         return @{ ok = $false; elevated = $false }
     }
-    $cible = [int][bool]$Enable
-    $avant = Get-DeviceGuardState -Backend $Backend
+    $targetValue = [int][bool]$Enable
+    $before = Get-DeviceGuardState -Backend $Backend
     $sauvegarde = Backup-DeviceGuardKey -Backend $Backend
 
     # Les valeurs a poser. HVCI ne peut PAS tourner sans VBS : desactiver VBS en laissant
@@ -700,15 +700,15 @@ function Set-DeviceGuardFeature {
     # resout parfois en rallumant VBS. On coupe donc les deux -- et on le DIT.
     # L'inverse n'est pas vrai : activer VBS n'active pas l'integrite memoire dans le dos
     # de l'utilisateur, c'est une decision distincte avec ses propres contreparties.
-    $aEcrire = @( [pscustomobject]@{ Id = $Feature; Valeur = $cible } )
+    $toWrite = @( [pscustomobject]@{ Id = $Feature; Valeur = $targetValue } )
     $hvciCoupeAussi = $false
-    if ($Feature -eq 'vbs' -and $cible -eq 0) {
-        $aEcrire += [pscustomobject]@{ Id = 'hvci'; Valeur = 0 }
+    if ($Feature -eq 'vbs' -and $targetValue -eq 0) {
+        $toWrite += [pscustomobject]@{ Id = 'hvci'; Valeur = 0 }
         $hvciCoupeAussi = $true
     }
 
     $erreurs = @()
-    foreach ($e in $aEcrire) {
+    foreach ($e in $toWrite) {
         $f = $cat.Features[$e.Id]
         try {
             # Idempotent : New-Item -Force sur une cle existante ne l'efface pas, et
@@ -724,31 +724,31 @@ function Set-DeviceGuardFeature {
     # quelle valeur rebasculer si l'utilisateur reclique avant d'avoir redemarre.
     try {
         $set = @{}
-        foreach ($e in $aEcrire) { $set[$e.Id] = @{ requested = $e.Valeur; at = (Get-Date).ToUniversalTime().ToString('o') } }
+        foreach ($e in $toWrite) { $set[$e.Id] = @{ requested = $e.Valeur; at = (Get-Date).ToUniversalTime().ToString('o') } }
         Update-StateJson -Path (Get-DeviceGuardMarkerPath -Backend $Backend) -Set $set | Out-Null
     } catch { }
 
     # CONSTAT : on relit le REGISTRE, seul etat qui puisse avoir change maintenant.
     # Relire `running` pour juger serait un faux echec garanti -- il ne bougera qu'au
     # redemarrage. C'est la difference a ne pas rater avec le verrou Windows Update.
-    $apres = Get-DeviceGuardState -Backend $Backend
-    $ecrit = ($apres[$Feature].configured -eq $cible)
+    $after = Get-DeviceGuardState -Backend $Backend
+    $ecrit = ($after[$Feature].configured -eq $targetValue)
     try {
-        Write-Log -Backend $Backend -Name 'deviceguard' -Message (Get-Label 'common.ecrit-configavant-configapres-actif' $Feature $cible $ecrit $($avant[$Feature].configured) $($apres[$Feature].configured) $($apres[$Feature].running) $hvciCoupeAussi $sauvegarde $(if ($erreurs.Count) { ' erreurs=' + ($erreurs -join ' | ') } else { '' }))
+        Write-Log -Backend $Backend -Name 'deviceguard' -Message (Get-Label 'common.ecrit-configavant-configapres-actif' $Feature $targetValue $ecrit $($before[$Feature].configured) $($after[$Feature].configured) $($after[$Feature].running) $hvciCoupeAussi $sauvegarde $(if ($erreurs.Count) { ' erreurs=' + ($erreurs -join ' | ') } else { '' }))
     } catch { }
 
     @{
         ok             = $ecrit
         elevated       = $true
         feature        = $Feature
-        value          = $cible
-        already        = ($avant[$Feature].configured -eq $cible)
-        running        = $apres[$Feature].running
-        rebootNeeded   = ($apres[$Feature].running -ne [bool]$cible)
+        value          = $targetValue
+        already        = ($before[$Feature].configured -eq $targetValue)
+        running        = $after[$Feature].running
+        rebootNeeded   = ($after[$Feature].running -ne [bool]$targetValue)
         hvciCoupeAussi = $hvciCoupeAussi
         backup         = $sauvegarde
         errors         = @($erreurs)
-        state          = $apres
+        state          = $after
     }
 }
 
@@ -765,23 +765,23 @@ function Invoke-DeviceGuardToggle {
     )
     $inv = @('vbs.probe.ps1')
     $etat = Get-DeviceGuardState -Backend $Backend
-    $nom  = $etat[$Feature].court
+    $name  = $etat[$Feature].court
 
     if (-not $etat.elevated) {
         return @{
-            message = "Le serveur de Vigie n'est pas administrateur : la bascule $nom est impossible. Vigie doit être relancée en administrateur (l'invite UAC s'affichera)."
+            message = "Le serveur de Vigie n'est pas administrateur : la bascule $name est impossible. Vigie doit être relancée en administrateur (l'invite UAC s'affichera)."
             result  = @{ ok = $false }
         }
     }
 
-    $cible = -not $etat[$Feature].effective
-    $r = Set-DeviceGuardFeature -Feature $Feature -Enable $cible -Backend $Backend
-    $verbe = if ($cible) { 'activée' } else { 'désactivée' }
+    $targetValue = -not $etat[$Feature].effective
+    $r = Set-DeviceGuardFeature -Feature $Feature -Enable $targetValue -Backend $Backend
+    $verbe = if ($targetValue) { 'activée' } else { 'désactivée' }
 
     if (-not $r.ok) {
         $det = if (@($r.errors).Count) { ' ' + (@($r.errors) -join ' ; ') } else { '' }
         return @{
-            message = "La valeur de $nom n'a pas pu être écrite dans le registre.$det"
+            message = "La valeur de $name n'a pas pu être écrite dans le registre.$det"
             result  = @{ ok = $false; invalidate = $inv }
         }
     }
@@ -792,13 +792,13 @@ function Invoke-DeviceGuardToggle {
     if (-not $r.rebootNeeded) {
         # Valeur ecrite ET deja conforme a ce qui tourne : rien a attendre.
         return @{
-            message = "$nom déjà $verbe : la configuration et l'état actif concordent, aucun redémarrage nécessaire.$bonus"
+            message = "$name déjà $verbe : la configuration et l'état actif concordent, aucun redémarrage nécessaire.$bonus"
             result  = @{ ok = $true; invalidate = $inv }
         }
     }
     $rappel = if ($r.already) { " Cette valeur était déjà demandée : si elle ne s'applique toujours pas après un redémarrage, elle est imposée par l'UEFI ou par une stratégie d'entreprise." } else { '' }
     @{
-        message = "$nom sera $verbe au prochain redémarrage de Windows — la demande est écrite, elle ne prend effet qu'au démarrage.$bonus$rappel$garde"
+        message = "$name sera $verbe au prochain redémarrage de Windows — la demande est écrite, elle ne prend effet qu'au démarrage.$bonus$rappel$garde"
         result  = @{ ok = $true; invalidate = $inv }
     }
 }
@@ -839,9 +839,9 @@ function Invoke-UpdateAudit {
     $dir    = Get-LogDir -Backend $Backend
     $txt    = Join-Path $dir "update-audit_$stamp.txt"
     $json   = Join-Path $dir "update-audit_$stamp.json"
-    $lignes = New-Object System.Collections.Generic.List[string]
+    $lines = New-Object System.Collections.Generic.List[string]
     $rap    = [ordered]@{}
-    $L   = { param($s = '') $lignes.Add([string]$s) }
+    $L   = { param($s = '') $lines.Add([string]$s) }
     $Sec = { param($t) & $L ''; & $L ('===== ' + $t + ' =====') }
 
     $etat = Get-UpdateLockState
@@ -867,8 +867,8 @@ function Invoke-UpdateAudit {
     # Les strategies expliquent la plupart des « le verrou n'a pas tenu » : une valeur
     # ecrite ailleurs (GPO, autre outil) ecrase la notre sans rien dire.
     $vider = {
-        param($exePath, $titre)
-        & $Sec $titre
+        param($exePath, $title)
+        & $Sec $title
         $o = [ordered]@{}
         if (-not (Test-Path -LiteralPath $exePath)) { & $L '   (absente)'; return $o }
         $p = Get-ItemProperty -LiteralPath $exePath -ErrorAction SilentlyContinue
@@ -877,9 +877,9 @@ function Invoke-UpdateAudit {
         # filtre et sert ensuite d'index -- constate : « the array index evaluated to null ».
         # On ecarte donc explicitement le vide, plutot que de supposer une liste de noms.
         if ($null -eq $p) { & $L '   (illisible ou vide)'; return $o }
-        $noms = @($p.PSObject.Properties.Name | Where-Object { $_ -and ("$_" -notlike 'PS*') })
-        foreach ($n in $noms) { & $L ("   {0,-40} = {1}" -f $n, $p.$n); $o[$n] = $p.$n }
-        if (-not $noms.Count) { & $L '   (vide)' }
+        $names = @($p.PSObject.Properties.Name | Where-Object { $_ -and ("$_" -notlike 'PS*') })
+        foreach ($n in $names) { & $L ("   {0,-40} = {1}" -f $n, $p.$n); $o[$n] = $p.$n }
+        if (-not $names.Count) { & $L '   (vide)' }
         return $o
     }
     $rap.policyWindowsUpdate = & $vider $cat.RegWu 'Stratégie WindowsUpdate'
@@ -887,12 +887,12 @@ function Invoke-UpdateAudit {
     $rap.ux                  = & $vider $cat.RegUx 'Réglages UX (heures actives, notifications)'
 
     & $Sec 'Redémarrage en attente'
-    $enAttente = [ordered]@{}
-    $enAttente.CBS_RebootPending = Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending'
-    $enAttente.WU_RebootRequired = Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired'
-    $enAttente.PendingFileRename = [bool]((Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager' -Name PendingFileRenameOperations -ErrorAction SilentlyContinue).PendingFileRenameOperations)
-    foreach ($k in $enAttente.Keys) { & $L ("   {0,-22} = {1}" -f $k, $enAttente[$k]) }
-    $rap.pendingReboot = $enAttente
+    $pending = [ordered]@{}
+    $pending.CBS_RebootPending = Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending'
+    $pending.WU_RebootRequired = Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired'
+    $pending.PendingFileRename = [bool]((Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager' -Name PendingFileRenameOperations -ErrorAction SilentlyContinue).PendingFileRenameOperations)
+    foreach ($k in $pending.Keys) { & $L ("   {0,-22} = {1}" -f $k, $pending[$k]) }
+    $rap.pendingReboot = $pending
 
     & $Sec 'Tâches planifiées de mise à jour'
     if (-not @($etat.tasks).Count) { & $L '   (aucune lisible — accès refusé ?)' }
@@ -942,14 +942,14 @@ function Invoke-UpdateAudit {
 
     $ecrit = $false
     try {
-        ($lignes -join "`r`n") | Out-File -FilePath $txt  -Encoding UTF8
+        ($lines -join "`r`n") | Out-File -FilePath $txt  -Encoding UTF8
         ($rap | ConvertTo-Json -Depth 8) | Out-File -FilePath $json -Encoding UTF8
         # D43 : le rapport est « ecrit » quand le fichier EXISTE, pas quand l'appel est passe.
         $ecrit = (Test-Path -LiteralPath $txt) -and (Test-Path -LiteralPath $json)
     } catch {
         try { Write-Log -Backend $Backend -Name 'updateaudit' -Level 'ERROR' -Message $_.Exception.Message } catch { }
     }
-    return @{ ok = $ecrit; txt = $txt; json = $json; elevated = $etat.elevated; state = $etat; lines = @($lignes) }
+    return @{ ok = $ecrit; txt = $txt; json = $json; elevated = $etat.elevated; state = $etat; lines = @($lines) }
 }
 
 # --- Taches de fond (regle : une action lente ne bloque jamais la requete) ---
@@ -1071,25 +1071,25 @@ function Get-PkgGui {
     param([Parameter(Mandatory)][string]$Id)
     $mg = Get-PackageManagerCatalog | Where-Object { $_.id -eq $Id } | Select-Object -First 1
     if (-not $mg -or -not $mg.guiKind) { return $null }
-    $cible = $null
+    $targetPath = $null
     switch ($mg.guiKind) {
         'uri' {
             # Un protocole non enregistre ouvrirait une boite « application introuvable ».
-            if (Test-Path -LiteralPath ("Registry::HKEY_CLASSES_ROOT\" + $mg.guiProbe)) { $cible = $mg.guiTarget }
+            if (Test-Path -LiteralPath ("Registry::HKEY_CLASSES_ROOT\" + $mg.guiProbe)) { $targetPath = $mg.guiTarget }
         }
         'exe' {
             $c = Get-Command $mg.guiProbe -ErrorAction SilentlyContinue
-            if ($c -and $c.Source) { $cible = $c.Source }
+            if ($c -and $c.Source) { $targetPath = $c.Source }
             else {
-                $racine = if ($env:ChocolateyInstall) { $env:ChocolateyInstall } else { 'C:\ProgramData\chocolatey' }
-                foreach ($p in @((Join-Path $racine ('bin\' + $mg.guiTarget)), (Join-Path $racine ('lib\chocolateygui\tools\' + $mg.guiTarget)))) {
-                    if (Test-Path -LiteralPath $p) { $cible = $p; break }
+                $rootPath = if ($env:ChocolateyInstall) { $env:ChocolateyInstall } else { 'C:\ProgramData\chocolatey' }
+                foreach ($p in @((Join-Path $rootPath ('bin\' + $mg.guiTarget)), (Join-Path $rootPath ('lib\chocolateygui\tools\' + $mg.guiTarget)))) {
+                    if (Test-Path -LiteralPath $p) { $targetPath = $p; break }
                 }
             }
         }
     }
-    if (-not $cible) { return $null }
-    return @{ target = $cible; label = $mg.guiLabel; help = $mg.guiHelp }
+    if (-not $targetPath) { return $null }
+    return @{ target = $targetPath; label = $mg.guiLabel; help = $mg.guiHelp }
 }
 
 # Verifie les MAJ disponibles d'UN gestionnaire (appel lent/reseau). Traite la
@@ -1178,16 +1178,16 @@ function Get-PkgUpdates {
                             $cols = @(($l -split '\s{2,}') | Where-Object { $_ } | ForEach-Object { "$_".Trim() })
                         }
                         if (-not $cols.Count) { continue }
-                        $nom = "$($cols[0])"
-                        if (-not $nom) { continue }
-                        $items += $nom
+                        $name = "$($cols[0])"
+                        if (-not $name) { continue }
+                        $items += $name
                         # PAS de variable nommee $pid : c'est une variable automatique en
                         # lecture seule (identifiant du processus). L'affectation levait une
                         # exception avalee par le catch, et la liste revenait VIDE.
                         $ident = if ($cols.Count -ge 2) { "$($cols[1])" } else { '' }
                         if ($ident) {
                             $det = if ($cols.Count -ge 4 -and $cols[3]) { ("{0} -> {1}" -f "$($cols[2])", "$($cols[3])") } else { $ident }
-                            $pkgs += [ordered]@{ id = $ident; titre = $nom; detail = $det }
+                            $pkgs += [ordered]@{ id = $ident; titre = $name; detail = $det }
                         }
                     }
                     $count = $items.Count
@@ -1291,41 +1291,41 @@ function Invoke-PkgUpgrade {
     # 1641 = redemarrage DEJA declenche, meme famille.
     if (-not $unParUn) {
         $r = Invoke-Native -File $cmd.Source -Arguments $mg.upgArgs
-        $redemarrage = ($r.ExitCode -eq 3010 -or $r.ExitCode -eq 1641)
-        return @{ ok = ($r.Ok -or $redemarrage); supported = $true; exit = $r.ExitCode
-                  reboot = $redemarrage; output = $r.Output; count = 0; failed = @() }
+        $rebootRequired = ($r.ExitCode -eq 3010 -or $r.ExitCode -eq 1641)
+        return @{ ok = ($r.Ok -or $rebootRequired); supported = $true; exit = $r.ExitCode
+                  reboot = $rebootRequired; output = $r.Output; count = 0; failed = @() }
     }
 
-    $sorties = @(); $echecs = @(); $raisons = @{}; $redemarrage = $false; $dernier = 0
+    $outputs = @(); $failures = @(); $raisons = @{}; $rebootRequired = $false; $dernier = 0
     foreach ($p in $liste) {
         # .Replace et non -replace : un identifiant de paquet ('Microsoft.VC++', 'a.b')
         # contient des caracteres que le moteur d'expressions regulieres interpreterait.
         $argv = @($mg.upgOne | ForEach-Object { "$_".Replace('{pkg}', $p) })
         $r = Invoke-Native -File $cmd.Source -Arguments $argv
         $rb = ($r.ExitCode -eq 3010 -or $r.ExitCode -eq 1641)
-        if ($rb) { $redemarrage = $true }
+        if ($rb) { $rebootRequired = $true }
         if (-not ($r.Ok -or $rb)) {
             # La RAISON de l'echec : la derniere ligne parlante de la sortie winget --
             # c'est elle qui dit quoi faire (« technologie d'installation differente... »).
-            $ligneUtile = @(("$($r.Output)" -split "`r?`n") | Where-Object { $_ -match '\S' } | Select-Object -Last 1)
-            $motif = if ($ligneUtile) { "$ligneUtile".Trim() } else { '' }
+            $usefulLine = @(("$($r.Output)" -split "`r?`n") | Where-Object { $_ -match '\S' } | Select-Object -Last 1)
+            $motif = if ($usefulLine) { "$usefulLine".Trim() } else { '' }
             # « Rien de plus recent a installer » n'est pas un echec : le paquet est deja
             # a jour (il s'est mis a jour par son propre canal depuis la verification).
             # Le compter comme rate faisait rougir toute l'operation et affichait une
             # erreur sur un travail qui n'avait rien a faire -- constate avec Edge.
             if (Test-PkgFailureIsDone -Reason $motif) {
-                $sorties += ("=== $p (code $($r.ExitCode)) === deja a jour, ignore")
+                $outputs += ("=== $p (code $($r.ExitCode)) === deja a jour, ignore")
                 continue
             }
-            $echecs += $p
+            $failures += $p
             if ($motif) { $raisons[$p] = $motif }
         }
         $dernier = $r.ExitCode
-        $sorties += ("=== $p (code $($r.ExitCode)) ===" + [Environment]::NewLine + "$($r.Output)")
+        $outputs += ("=== $p (code $($r.ExitCode)) ===" + [Environment]::NewLine + "$($r.Output)")
     }
-    return @{ ok = ($echecs.Count -eq 0); supported = $true; exit = $dernier; reboot = $redemarrage
-              output = ($sorties -join ([Environment]::NewLine + [Environment]::NewLine))
-              count = $liste.Count; failed = @($echecs); reasons = $raisons }
+    return @{ ok = ($failures.Count -eq 0); supported = $true; exit = $dernier; reboot = $rebootRequired
+              output = ($outputs -join ([Environment]::NewLine + [Environment]::NewLine))
+              count = $liste.Count; failed = @($failures); reasons = $raisons }
 }
 
 # Lanceur GENERIQUE (non bloquant) d'une operation paquet : 'check' ou 'upgrade'.
@@ -2392,10 +2392,10 @@ function Test-DeploymentPossible {
     if ($NeededBytes -gt 0) {
         foreach ($lieu in @($parent, (Get-InstallBackupRoot))) {
             try {
-                $racine = $lieu
-                while ($racine -and -not (Test-Path -LiteralPath $racine)) { $racine = Split-Path $racine -Parent }
-                if (-not $racine) { continue }
-                $drive = (Get-Item -LiteralPath $racine).PSDrive
+                $rootPath = $lieu
+                while ($rootPath -and -not (Test-Path -LiteralPath $rootPath)) { $rootPath = Split-Path $rootPath -Parent }
+                if (-not $rootPath) { continue }
+                $drive = (Get-Item -LiteralPath $rootPath).PSDrive
                 if ($drive -and $null -ne $drive.Free -and $drive.Free -lt $NeededBytes) {
                     return ("espace disque insuffisant sur " + $drive.Name + " : " +
                             (Format-ByteSize -Bytes $drive.Free) + " libres, " +
@@ -2741,17 +2741,17 @@ while (`$true) {
         le cas ou il n'y a pas de tache -- un serveur lance a la main, en developpement.
     #>
     $taskName = Get-ServiceTaskName
-    $parTache = $false
-    try { $parTache = [bool](Get-ScheduledTask -TaskName $taskName -ErrorAction Stop) } catch { }
+    $byTask = $false
+    try { $byTask = [bool](Get-ScheduledTask -TaskName $taskName -ErrorAction Stop) } catch { }
 
-    $arret = if ($parTache) { @"
+    $stopSnippet = if ($byTask) { @"
 try { Stop-ScheduledTask -TaskName '$taskName' -ErrorAction SilentlyContinue } catch { }
 try { Stop-Process -Id $target -Force -ErrorAction SilentlyContinue } catch { }
 "@ } else { @"
 try { Stop-Process -Id $target -Force -ErrorAction SilentlyContinue } catch { }
 "@ }
 
-    $demarrage = if ($parTache) { @"
+    $startSnippet = if ($byTask) { @"
 Start-ScheduledTask -TaskName '$taskName'
 "@ } else { @"
 Start-Process -FilePath $(ConvertTo-PSLiteral $pwsh) -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File',$(ConvertTo-PSLiteral (ConvertTo-ProcessArgument $StartScript)) -WindowStyle Hidden
@@ -2762,14 +2762,14 @@ Start-Process -FilePath $(ConvertTo-PSLiteral $pwsh) -ArgumentList '-NoProfile',
 Start-Sleep -Milliseconds 400
 . $portLib
 $waitBlock
-$arret
+$stopSnippet
 `$fin = (Get-Date).AddSeconds(30)
 while ((Get-Date) -lt `$fin) {
     `$occupe = Get-PortListener -Port $Port
     if (-not `$occupe) { break }
     Start-Sleep -Milliseconds 300
 }
-$demarrage
+$startSnippet
 "@
 
     $psi = New-Object System.Diagnostics.ProcessStartInfo
@@ -2797,7 +2797,7 @@ $demarrage
 #   - installation PARTAGEE (Program Files) : un compte standard n'y ecrit pas. Ses
 #     donnees d'execution vont alors dans son profil, ou il est chez lui.
 # On ne DEVINE pas d'apres le chemin : on tente d'ecrire, une fois, et on retient.
-$script:VarRacineCache = $null
+$script:VarRootCache = $null
 function Get-VarRoot {
     param([string]$Backend = (Get-BackendRoot))
     # LE CACHE EST PAR APPLICATION, pas global.
@@ -2808,9 +2808,9 @@ function Get-VarRoot {
     # ne le cherchait pas -- « relance impossible, app cliente deja arretee » alors qu'elle tournait
     # (constate le 28/08). Chaque app garde ses fichiers sous SON var/ (D33) : le cache
     # doit donc etre indexe par application.
-    if ($null -eq $script:VarRacineCache) { $script:VarRacineCache = @{} }
+    if ($null -eq $script:VarRootCache) { $script:VarRootCache = @{} }
     $cle = "$Backend".TrimEnd([char]92, [char]47).ToLowerInvariant()
-    if ($script:VarRacineCache.ContainsKey($cle)) { return $script:VarRacineCache[$cle] }
+    if ($script:VarRootCache.ContainsKey($cle)) { return $script:VarRootCache[$cle] }
 
     # INSTALLEE DANS PROGRAM FILES : les donnees vont dans le profil du compte, JAMAIS
     # a cote du programme. Le serveur tourne eleve, il POURRAIT ecrire la -- et c'est
@@ -2820,8 +2820,8 @@ function Get-VarRoot {
     $programmes = @($env:ProgramFiles, ${env:ProgramFiles(x86)}) | Where-Object { $_ }
     foreach ($p in $programmes) {
         if ("$Backend".StartsWith("$p", [StringComparison]::OrdinalIgnoreCase)) {
-            $script:VarRacineCache[$cle] = Join-Path (Get-UserConfigDir) 'var'
-            return $script:VarRacineCache[$cle]
+            $script:VarRootCache[$cle] = Join-Path (Get-UserConfigDir) 'var'
+            return $script:VarRootCache[$cle]
         }
     }
 
@@ -2838,8 +2838,8 @@ function Get-VarRoot {
         Remove-Item -LiteralPath $temoin -Force -ErrorAction SilentlyContinue
         $ok = $true
     } catch { $ok = $false }
-    $script:VarRacineCache[$cle] = if ($ok) { $surPlace } else { Join-Path (Get-UserConfigDir) 'var' }
-    return $script:VarRacineCache[$cle]
+    $script:VarRootCache[$cle] = if ($ok) { $surPlace } else { Join-Path (Get-UserConfigDir) 'var' }
+    return $script:VarRootCache[$cle]
 }
 
 <#
@@ -3723,44 +3723,44 @@ function Get-AppInfoTip {
         [string[]]$Paths = @(),
         [int[]]$Ids = @()
     )
-    $lignes = @()
-    $chemins = @($Paths | Where-Object { $_ } | Sort-Object -Unique)
-    if ($chemins.Count -eq 0) {
+    $lines = @()
+    $cleanPaths = @($Paths | Where-Object { $_ } | Sort-Object -Unique)
+    if ($cleanPaths.Count -eq 0) {
         # Processus protege (csrss, lsass...) : Windows refuse son chemin. Si un binaire
         # systeme du meme nom EXISTE, on le nomme -- en disant que c'est le binaire attendu
         # et non le chemin lu, la nuance compte pour qui traque un imposteur.
         $sys = Join-Path $env:SystemRoot ("System32\" + $ProcessName + ".exe")
         if (Test-Path -LiteralPath $sys) {
-            $lignes += "Chemin non communiqué (processus protégé par Windows)."
-            $lignes += "Binaire système attendu : $sys"
-            $chemins = @($sys)
+            $lines += "Chemin non communiqué (processus protégé par Windows)."
+            $lines += "Binaire système attendu : $sys"
+            $cleanPaths = @($sys)
         } else {
-            $lignes += "Chemin : non communiqué (processus protégé par Windows)."
+            $lines += "Chemin : non communiqué (processus protégé par Windows)."
         }
-    } elseif ($chemins.Count -eq 1) {
-        $lignes += "$($chemins[0])"
+    } elseif ($cleanPaths.Count -eq 1) {
+        $lines += "$($cleanPaths[0])"
     } else {
-        $lignes += "$($chemins.Count) emplacements différents pour ce nom :"
-        foreach ($c in ($chemins | Select-Object -First 4)) { $lignes += "- $c" }
+        $lines += "$($cleanPaths.Count) emplacements différents pour ce nom :"
+        foreach ($c in ($cleanPaths | Select-Object -First 4)) { $lines += "- $c" }
     }
-    $ref = @($chemins | Select-Object -First 1)[0]
+    $ref = @($cleanPaths | Select-Object -First 1)[0]
     if ($ref -and (Test-Path -LiteralPath $ref)) {
         try {
             $vi = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($ref)
             $editeur = "$($vi.CompanyName)".Trim()
             $version = "$($vi.FileVersion)".Trim()
             $detail = @($editeur, $version | Where-Object { $_ }) -join ' · '
-            if ($detail) { $lignes += $detail }
+            if ($detail) { $lines += $detail }
         } catch { }
     }
     $pids = @($Ids | Where-Object { $_ -gt 0 })
-    if ($pids.Count -eq 1) { $lignes += "1 processus (PID $($pids[0]))" }
+    if ($pids.Count -eq 1) { $lines += "1 processus (PID $($pids[0]))" }
     elseif ($pids.Count -gt 1) {
-        $vus = @($pids | Select-Object -First 6) -join ', '
+        $seen = @($pids | Select-Object -First 6) -join ', '
         $nextArgs = if ($pids.Count -gt 6) { '…' } else { '' }
-        $lignes += "$($pids.Count) processus (PID $vus$nextArgs)"
+        $lines += "$($pids.Count) processus (PID $seen$nextArgs)"
     }
-    $lignes -join "`n"
+    $lines -join "`n"
 }
 
 # --- ARBORESCENCE DU DISQUE, NIVEAU PAR NIVEAU (D60, revu le 26/08) ------------
@@ -3787,17 +3787,17 @@ function Measure-FolderQuick {
     $opts.IgnoreInaccessible    = $true
     $opts.RecurseSubdirectories = $true
     $opts.AttributesToSkip      = [System.IO.FileAttributes]::ReparsePoint
-    $taille = [long]0; $nb = 0; $partiel = $false
+    $size = [long]0; $nb = 0; $partial = $false
     $chrono = [Diagnostics.Stopwatch]::StartNew()
     try {
         $di = [System.IO.DirectoryInfo]::new($Path)
         foreach ($f in $di.EnumerateFiles('*', $opts)) {
-            $taille += [long]$f.Length
+            $size += [long]$f.Length
             $nb++
-            if (($nb % 4096) -eq 0 -and $chrono.ElapsedMilliseconds -gt $TimeoutMs) { $partiel = $true; break }
+            if (($nb % 4096) -eq 0 -and $chrono.ElapsedMilliseconds -gt $TimeoutMs) { $partial = $true; break }
         }
     } catch { }
-    [pscustomobject]@{ Size = $taille; Files = $nb; Partial = $partiel }
+    [pscustomobject]@{ Size = $size; Files = $nb; Partial = $partial }
 }
 
 # Les enfants DIRECTS de $Path, du plus gros au plus petit.
@@ -3807,14 +3807,14 @@ function Get-DiskTreeLevel {
         [string]$Backend = (Get-BackendRoot),
         [int]$Top = 0
     )
-    $etatFile = Get-VarPath -Backend $Backend -Kind 'cache' -File 'diskscan.json'
+    $stateFile = Get-VarPath -Backend $Backend -Kind 'cache' -File 'diskscan.json'
     $etat = $null
-    if (Test-Path -LiteralPath $etatFile) {
-        try { $etat = Get-Content -LiteralPath $etatFile -Raw | ConvertFrom-Json } catch { }
+    if (Test-Path -LiteralPath $stateFile) {
+        try { $etat = Get-Content -LiteralPath $stateFile -Raw | ConvertFrom-Json } catch { }
     }
     if (-not $etat -or -not $etat.tree) { throw "Aucune analyse disponible : lancez d'abord l'analyse de l'espace." }
 
-    $racine = if ($etat.result -and $etat.result.root) { "$($etat.result.root)" } else { "$($etat.scan.root)" }
+    $rootPath = if ($etat.result -and $etat.result.root) { "$($etat.result.root)" } else { "$($etat.scan.root)" }
     $total  = [long]$etat.tree.s
     if ($Top -le 0) {
         $Top = [int](Get-ModuleSetting -Unit 'system' -Key 'DiskScanTop' -Backend $Backend)
@@ -3825,13 +3825,13 @@ function Get-DiskTreeLevel {
     # demande d'un client, on explore l'arbre deja analyse.
     $plein = $Path
     try { $plein = (Resolve-Path -LiteralPath $Path -ErrorAction Stop).Path } catch { }
-    if (-not $plein.ToLower().StartsWith($racine.ToLower())) { throw "Hors de l'analyse en cours : $Path" }
+    if (-not $plein.ToLower().StartsWith($rootPath.ToLower())) { throw "Hors de l'analyse en cours : $Path" }
 
     $pct = { param($o) if ($total -gt 0) { ('{0:N1}' -f ([double]$o / $total * 100)) } else { '0,0' } }
 
     # 1) Le cache de l'analyse contient-il deja ce niveau ?
     $noeud = $etat.tree
-    $coupe = $racine.TrimEnd([char]92).Length
+    $coupe = $rootPath.TrimEnd([char]92).Length
     $reste = $plein.Substring([Math]::Min($coupe, $plein.Length)).Trim([char]92)
     $trouve = $true
     if ($reste) {
@@ -3850,12 +3850,12 @@ function Get-DiskTreeLevel {
                 pct = (& $pct ([long]$_.s)); f = [int]$_.f; more = $true
             }
         })
-        $fichiers = @($noeud.t | Sort-Object -Property @{ Expression = { [long]$_.s } } -Descending | ForEach-Object {
+        $files = @($noeud.t | Sort-Object -Property @{ Expression = { [long]$_.s } } -Descending | ForEach-Object {
             [ordered]@{ n = "$($_.n)"; size = (Format-ByteSize ([long]$_.s)) }
         })
         $autres = $null
         if ($noeud.o) { $autres = [ordered]@{ c = [int]$noeud.o.c; size = (Format-ByteSize ([long]$noeud.o.s)) } }
-        return [pscustomobject]@{ path = $plein; source = 'analyse'; children = $enfants; files = $fichiers; others = $autres }
+        return [pscustomobject]@{ path = $plein; source = 'analyse'; children = $enfants; files = $files; others = $autres }
     }
 
     # 2) Niveau non conserve par l'analyse : CALCUL PARTIEL, borne a ce dossier.
@@ -6350,7 +6350,7 @@ function Write-ProbeRun {
             modules = $Modules
         }
         if ($Detail) { $rec.detail = $Detail }
-        $ligne = ($rec | ConvertTo-Json -Compress -Depth 4)
+        $line = ($rec | ConvertTo-Json -Compress -Depth 4)
 
         $mx = New-Object System.Threading.Mutex($false, 'Local\VigieProbeRuns')
         $got = $false
@@ -6360,14 +6360,14 @@ function Write-ProbeRun {
             catch { $got = $false }
             if (-not $got) { return }
 
-            [IO.File]::AppendAllText($file, $ligne + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))
+            [IO.File]::AppendAllText($file, $line + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))
 
             # Purge paresseuse : on ne lit le fichier que lorsqu'il a vraiment grossi.
             $fi = Get-Item -LiteralPath $file -ErrorAction SilentlyContinue
             if ($fi -and $fi.Length -gt $script:ProbeRunMaxBytes) {
-                $lignes = [IO.File]::ReadAllLines($file)
-                if ($lignes.Count -gt $script:ProbeRunKeepLines) {
-                    $garde = $lignes[($lignes.Count - $script:ProbeRunKeepLines)..($lignes.Count - 1)]
+                $lines = [IO.File]::ReadAllLines($file)
+                if ($lines.Count -gt $script:ProbeRunKeepLines) {
+                    $garde = $lines[($lines.Count - $script:ProbeRunKeepLines)..($lines.Count - 1)]
                     [IO.File]::WriteAllLines($file, $garde, [Text.UTF8Encoding]::new($false))
                 }
             }
@@ -6456,14 +6456,14 @@ $script:MeasureCatalog = @{
             # THE VALUE NAMES, IT NO LONGER COUNTS: it reads "Chrome and 2 more" in French since 06/09, while the extractor
             # looked for a leading number -- so the history of 28/09 read zero greedy application for a whole
             # session. The count is read from the sentence, and the NAMES travel with the point.
-            $texte = "$($h.value)"
+            $text = "$($h.value)"
             $n = 0
-            if ($texte -match '^([0-9]+)') { $n = [int]$Matches[1] }
-            elseif ($texte -match '^Aucune') { $n = 0 }
-            elseif ($texte -match 'et\s+([0-9]+)\s+autres') { $n = [int]$Matches[1] + 1 }
-            elseif ($texte -match '\set\s') { $n = 2 }
-            elseif ($texte.Trim()) { $n = 1 }
-            return @{ v = [double]$n; n = $(if ($n) { $texte } else { "$($g.value)" }) }
+            if ($text -match '^([0-9]+)') { $n = [int]$Matches[1] }
+            elseif ($text -match '^Aucune') { $n = 0 }
+            elseif ($text -match 'et\s+([0-9]+)\s+autres') { $n = [int]$Matches[1] + 1 }
+            elseif ($text -match '\set\s') { $n = 2 }
+            elseif ($text.Trim()) { $n = 1 }
+            return @{ v = [double]$n; n = $(if ($n) { $text } else { "$($g.value)" }) }
         }
     }
     <#
@@ -7339,8 +7339,8 @@ function Get-State {
     $tPhase = [Diagnostics.Stopwatch]::StartNew()
     $phases = [ordered]@{}
     $markPhase = {
-        param([string]$Nom)
-        $phases[$Nom] = [math]::Round($tPhase.Elapsed.TotalMilliseconds, 1)
+        param([string]$phaseName)
+        $phases[$phaseName] = [math]::Round($tPhase.Elapsed.TotalMilliseconds, 1)
         $tPhase.Restart()
     }
 
@@ -7354,14 +7354,14 @@ function Get-State {
     # module rendu par la sonde (ou son tableau de modules).
     # « -Only » vise des sondes par leur NOM DE FICHIER, comme « -ForceModule » vise une
     # carte : les deux alimentent la meme liste, il n'y a qu'un mecanisme.
-    $sondesCiblees = @()
-    foreach ($n in @($Only)) { if ("$n".Trim()) { $sondesCiblees += "$n".Trim() } }
+    $targetedProbes = @()
+    foreach ($n in @($Only)) { if ("$n".Trim()) { $targetedProbes += "$n".Trim() } }
     if ($ForceModule) {
-        foreach ($nomSonde in @($cache.Keys)) {
-            $e = $cache[$nomSonde]
+        foreach ($probeName in @($cache.Keys)) {
+            $e = $cache[$probeName]
             if (-not $e -or -not $e.module) { continue }
             foreach ($mm in @($e.module)) {
-                if ("$($mm.id)" -eq $ForceModule) { $sondesCiblees += "$nomSonde" }
+                if ("$($mm.id)" -eq $ForceModule) { $targetedProbes += "$probeName" }
             }
         }
         <#
@@ -7377,11 +7377,11 @@ function Get-State {
             Le dossier de la sonde porte le nom de sa carte : quand le cache ne repond
             pas, on le demande au disque, qui lui sait toujours.
         #>
-        if (-not $sondesCiblees.Count) {
+        if (-not $targetedProbes.Count) {
             $probeDir = Join-Path $probesDir $ForceModule
             if (Test-PathSafe $probeDir) {
                 foreach ($pf in @(Get-ChildItem -LiteralPath $probeDir -Filter '*.probe.ps1' -File -ErrorAction SilentlyContinue)) {
-                    $sondesCiblees += $pf.Name
+                    $targetedProbes += $pf.Name
                 }
             }
         }
@@ -7420,7 +7420,7 @@ function Get-State {
         $entry = $cache[$key]; $fresh = $false
         # -Force : tout est considere perime, sans rien effacer.
         # Une sonde VISEE est perimee d'office : c'est tout le sens de la demande.
-        if (-not $Force -and ($sondesCiblees -notcontains $key) -and ($sondesCiblees -notcontains $name) -and
+        if (-not $Force -and ($targetedProbes -notcontains $key) -and ($targetedProbes -notcontains $name) -and
             $entry -and $entry.at -and ("$($entry.codeStamp)" -eq $stamp)) {
             try {
                 $at = ConvertTo-UtcDate $entry.at
@@ -7485,12 +7485,12 @@ function Get-State {
                 either: it is marked due, the scheduler takes it within thirty seconds, and the panel reads the
                 result when it is written.
         #>
-        $targeted = { param($e) ($sondesCiblees -contains $e.Key) -or ($sondesCiblees -contains $e.Name) }
+        $targeted = { param($e) ($targetedProbes -contains $e.Key) -or ($targetedProbes -contains $e.Name) }
         $toRefresh = @()
         if ($Only -and @($Only).Count) {
             $stale = @($stale | Where-Object { (& $targeted $_) })
         } else {
-            if ($sondesCiblees.Count) {
+            if ($targetedProbes.Count) {
                 try { Reset-RefreshDue -Backend $Backend -Probes @($stale | Where-Object { (& $targeted $_) } | ForEach-Object { $_.Name }) } catch { }
             }
             $stale = @()
@@ -7576,8 +7576,8 @@ function Get-State {
             #>
             $personnelles = @($stale | Where-Object { $_.PerAccount }).Count
             $secondes = [Math]::Max($WaitSeconds, $(if ($personnelles) { 30 } else { 0 }))
-            $attente = [Math]::Min($secondes, 75) * 1000
-            try { $got = $mx.WaitOne($attente) }
+            $waitMs = [Math]::Min($secondes, 75) * 1000
+            try { $got = $mx.WaitOne($waitMs) }
             catch [System.Threading.AbandonedMutexException] { $got = $true }
             catch { $got = $false }
             if ($got) {
@@ -7591,10 +7591,10 @@ function Get-State {
                         # this library itself, so nothing else reaches it (D128).
                         $global:VigieStateAccount = $stateRequester
                         $m = & $sp.File
-                        $duree = [int]((Get-Date) - $t0).TotalMilliseconds
+                        $elapsedMs = [int]((Get-Date) - $t0).TotalMilliseconds
                         if ($m) { $cache[$sp.Key] = [ordered]@{ module = $m; at = (Get-Date).ToUniversalTime().ToString('o'); codeStamp = $sp.Stamp } }
-                        Write-ProbeRun -Backend $Backend -Probe $sp.Name -Ms $duree -Origin $origine -Outcome ($(if ($m) { 'ok' } else { 'empty' })) -Modules @($m).Count
-                        Write-Log -Backend $Backend -Name 'state' -Message (Get-Label 'common.sonde-recalculee-ms' $sp.Name $duree)
+                        Write-ProbeRun -Backend $Backend -Probe $sp.Name -Ms $elapsedMs -Origin $origine -Outcome ($(if ($m) { 'ok' } else { 'empty' })) -Modules @($m).Count
+                        Write-Log -Backend $Backend -Name 'state' -Message (Get-Label 'common.sonde-recalculee-ms' $sp.Name $elapsedMs)
                         # Historique : echantillonne les mesures du catalogue APRES un
                         # recalcul reussi. Best-effort (la fonction n'echoue jamais).
                         if ($m) { Write-MeasureSamples -Backend $Backend -Probe $sp.Name -Modules @($m) }
@@ -7614,17 +7614,17 @@ function Get-State {
                             la carte garde sa place et son nom, et dit ce qui a echoue.
                         #>
                         $unit = Split-Path (Split-Path $sp.File -Parent) -Leaf
-                        $libelle = $unit
+                        $label = $unit
                         try {
                             $decl = Join-Path (Split-Path $sp.File -Parent) 'module.psd1'
                             if (Test-Path -LiteralPath $decl) {
                                 $d = Import-PowerShellDataFile -LiteralPath $decl -ErrorAction Stop
-                                if ($d.Label) { $libelle = "$($d.Label)" }
+                                if ($d.Label) { $label = "$($d.Label)" }
                             }
                         } catch { }
                         # SCOPE 'machine': a probe that threw says so to everyone. The failure is the computer's,
                         # not an account's -- and the card it replaces may have had either scope.
-                        $errMod = New-ModuleObject -Id $sp.Name -Theme $unit -Label $libelle -Scope 'machine' -Status 'error' -Fields @(
+                        $errMod = New-ModuleObject -Id $sp.Name -Theme $unit -Label $label -Scope 'machine' -Status 'error' -Fields @(
                             New-Field -Key 'error' -Label 'Erreur' -Value $_.Exception.Message -Kind 'text' -Status 'error'
                             New-Field -Key 'probe' -Label 'Sonde' -Value $sp.Name -Kind 'text'
                         )
@@ -7883,11 +7883,11 @@ function Get-State {
     & $markPhase 'chronometrage'
     # LE DETAIL, DANS LE JOURNAL : une ligne, triee du plus lent au plus rapide.
     try {
-        $lignesChrono = @($chrono.GetEnumerator() | Sort-Object Value -Descending |
+        $timingLines = @($chrono.GetEnumerator() | Sort-Object Value -Descending |
                           ForEach-Object { "$($_.Key)=$($_.Value)ms" })
-        if ($lignesChrono.Count) {
+        if ($timingLines.Count) {
             Write-Log -Backend $Backend -Name 'state' -NoEcho `
-                      -Message ("service par carte : " + ($lignesChrono -join ' '))
+                      -Message ("service par carte : " + ($timingLines -join ' '))
             Write-Log -Backend $Backend -Name 'state' -NoEcho `
                       -Message ("phases : " + (($phases.GetEnumerator() | ForEach-Object { "$($_.Key)=$($_.Value)ms" }) -join ' '))
         }
@@ -7980,7 +7980,7 @@ function Get-HardwareSpecs {
         installeLe   = $(try { ([datetime]$os.InstallDate).ToString('o') } catch { '' })
     }
 
-    $carteMere = [ordered]@{
+    $motherboard = [ordered]@{
         fabricant = "$($cb.Manufacturer)"
         modele    = "$($cb.Product)"
         version   = "$($cb.Version)"
@@ -8002,7 +8002,7 @@ function Get-HardwareSpecs {
 
     # Type de memoire : le code SMBIOS, traduit. Un numero ne dit rien a personne.
     $typesMem = @{ 20 = 'DDR'; 21 = 'DDR2'; 24 = 'DDR3'; 26 = 'DDR4'; 34 = 'DDR5'; 35 = 'LPDDR4'; 36 = 'LPDDR5' }
-    $barrettes = @(foreach ($m in (Lire 'Win32_PhysicalMemory')) {
+    $memoryModules = @(foreach ($m in (Lire 'Win32_PhysicalMemory')) {
         $t = $null
         try { if ($typesMem.ContainsKey([int]$m.SMBIOSMemoryType)) { $t = $typesMem[[int]$m.SMBIOSMemoryType] } } catch { }
         [ordered]@{
@@ -8016,7 +8016,7 @@ function Get-HardwareSpecs {
     })
     $memoire = [ordered]@{
         totalGo   = (& $go $cs.TotalPhysicalMemory)
-        barrettes = $barrettes
+        barrettes = $memoryModules
         # Ce que la carte mere peut accueillir : utile quand on envisage une extension.
         emplacements = [int]((@(Lire 'Win32_PhysicalMemoryArray') | Select-Object -First 1).MemoryDevices)
     }
@@ -8047,7 +8047,7 @@ function Get-HardwareSpecs {
     # plafonne a 4 Go et rend n'importe quoi au-dela (une RTX 4070 de 8 Go y apparait
     # avec 4 Go, parfois moins). La vraie valeur est dans le registre du pilote,
     # qwMemorySize, sur 64 bits.
-    $vramParNom = @{}
+    $vramByName = @{}
     try {
         $classe = 'HKLM:\SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}'
         # SilentlyContinue et non Stop : une des sous-cles de cette classe est refusee
@@ -8057,16 +8057,16 @@ function Get-HardwareSpecs {
         foreach ($k in (Get-ChildItem -Path $classe -ErrorAction SilentlyContinue | Where-Object { $_.PSChildName -match '^\d{4}$' })) {
             $pr = Get-ItemProperty -Path $k.PSPath -ErrorAction SilentlyContinue
             if ($pr -and $pr.DriverDesc -and $pr.'HardwareInformation.qwMemorySize') {
-                $vramParNom["$($pr.DriverDesc)"] = [math]::Round(([double]$pr.'HardwareInformation.qwMemorySize') / 1GB, 1)
+                $vramByName["$($pr.DriverDesc)"] = [math]::Round(([double]$pr.'HardwareInformation.qwMemorySize') / 1GB, 1)
             }
         }
     } catch { }
 
     $graphiques = @(foreach ($g in (Lire 'Win32_VideoController')) {
-        $nomG = "$($g.Name)".Trim()
+        $gpuName = "$($g.Name)".Trim()
         [ordered]@{
-            nom        = $nomG
-            vramGo     = $(if ($vramParNom.ContainsKey($nomG)) { $vramParNom[$nomG] } else { (& $go $g.AdapterRAM) })
+            nom        = $gpuName
+            vramGo     = $(if ($vramByName.ContainsKey($gpuName)) { $vramByName[$gpuName] } else { (& $go $g.AdapterRAM) })
             pilote     = "$($g.DriverVersion)"
             piloteDate = $(try { ([datetime]$g.DriverDate).ToString('o') } catch { '' })
             resolution = $(if ($g.CurrentHorizontalResolution) { "$($g.CurrentHorizontalResolution) x $($g.CurrentVerticalResolution)" } else { '' })
@@ -8074,23 +8074,23 @@ function Get-HardwareSpecs {
     })
 
     # Ecrans : WmiMonitorID rend des tableaux de codes, pas des chaines.
-    $texteWmi = { param($codes) if (-not $codes) { return '' }
+    $decodeWmiText = { param($codes) if (-not $codes) { return '' }
         (-join ($codes | Where-Object { $_ -gt 0 } | ForEach-Object { [char][int]$_ })).Trim() }
     $ecrans = @(foreach ($e in (Lire 'WmiMonitorID' 'root/wmi')) {
-        $taille = ''
+        $size = ''
         [ordered]@{
-            fabricant = (& $texteWmi $e.ManufacturerName)
-            modele    = (& $texteWmi $e.UserFriendlyName)
-            serie     = (& $texteWmi $e.SerialNumberID)
+            fabricant = (& $decodeWmiText $e.ManufacturerName)
+            modele    = (& $decodeWmiText $e.UserFriendlyName)
+            serie     = (& $decodeWmiText $e.SerialNumberID)
             annee     = [int]$e.YearOfManufacture
         }
     })
     # Pouces : classe distincte (dimensions physiques en centimetres).
-    $tailles = @(Lire 'WmiMonitorBasicDisplayParams' 'root/wmi')
-    for ($i = 0; $i -lt $ecrans.Count -and $i -lt $tailles.Count; $i++) {
+    $sizes = @(Lire 'WmiMonitorBasicDisplayParams' 'root/wmi')
+    for ($i = 0; $i -lt $ecrans.Count -and $i -lt $sizes.Count; $i++) {
         try {
-            $l = [double]$tailles[$i].MaxHorizontalImageSize
-            $h = [double]$tailles[$i].MaxVerticalImageSize
+            $l = [double]$sizes[$i].MaxHorizontalImageSize
+            $h = [double]$sizes[$i].MaxVerticalImageSize
             if ($l -gt 0 -and $h -gt 0) {
                 $ecrans[$i]['pouces'] = [math]::Round([math]::Sqrt($l * $l + $h * $h) / 2.54, 1)
             }
@@ -8136,7 +8136,7 @@ function Get-HardwareSpecs {
     $fiche = [pscustomobject][ordered]@{
         at          = (Get-Date).ToUniversalTime().ToString('o')
         machine     = $machine
-        carteMere   = $carteMere
+        carteMere   = $motherboard
         processeurs = $processeurs
         memoire     = $memoire
         disques     = $disques
@@ -8261,9 +8261,9 @@ function Get-VigieFootprint {
 
     # Les donnees de CHAQUE compte : %LOCALAPPDATA%\Sowapps\Vigie, et l'ancien
     # emplacement sans editeur pour les installations d'avant D72.
-    $parCompte = @()
+    $perAccount = @()
     $inaccessibles = 0
-    $varDuCompteCourant = $null
+    $currentAccountVar = $null
     foreach ($c in @(Get-UserAccounts -Backend $Backend)) {
         $local = Join-Path (Join-Path (Join-Path $env:SystemDrive 'Users') $c.name) 'AppData\Local'
         $total = 0
@@ -8282,35 +8282,35 @@ function Get-VigieFootprint {
             if ($sien -and (Test-Path -LiteralPath $sien)) {
                 $total = Poids $sien
                 $vu = $true
-                $varDuCompteCourant = $sien
+                $currentAccountVar = $sien
             }
         }
-        if ($vu) { $parCompte += [pscustomobject]@{ name = $c.name; bytes = $total; current = $c.current } }
+        if ($vu) { $perAccount += [pscustomobject]@{ name = $c.name; bytes = $total; current = $c.current } }
     }
 
     # Le depot de developpement, s'il est distinct de l'installation partagee.
-    $depot = Get-RepoRoot
+    $repositoryRoot = Get-RepoRoot
     $sources = 0
-    if ($depot -and (-not $partagee -or $depot -ne $partagee)) {
-        $sources = Poids $depot
+    if ($repositoryRoot -and (-not $partagee -or $repositoryRoot -ne $partagee)) {
+        $sources = Poids $repositoryRoot
         # Le var/ du compte courant est DEJA compte dans les donnees : on le retire du
         # depot, sinon le total le compte deux fois.
-        if ($varDuCompteCourant -and $varDuCompteCourant.StartsWith($depot, [StringComparison]::OrdinalIgnoreCase)) {
-            $sources = [Math]::Max(0, $sources - (Poids $varDuCompteCourant))
+        if ($currentAccountVar -and $currentAccountVar.StartsWith($repositoryRoot, [StringComparison]::OrdinalIgnoreCase)) {
+            $sources = [Math]::Max(0, $sources - (Poids $currentAccountVar))
         }
     }
 
-    $donnees = 0
-    foreach ($x in $parCompte) { $donnees += $x.bytes }
+    $dataBytes = 0
+    foreach ($x in $perAccount) { $dataBytes += $x.bytes }
 
     [pscustomobject][ordered]@{
         programme     = $programme          # installation partagee
         programmePath = $partagee
-        donnees       = $donnees            # somme des donnees par compte
-        parCompte     = $parCompte
+        donnees       = $dataBytes            # somme des donnees par compte
+        parCompte     = $perAccount
         sources       = $sources            # depot de developpement (0 en usage normal)
-        sourcesPath   = $(if ($sources) { $depot } else { $null })
-        total         = ($programme + $donnees + $sources)
+        sourcesPath   = $(if ($sources) { $repositoryRoot } else { $null })
+        total         = ($programme + $dataBytes + $sources)
         complet       = (Test-IsElevated) -and ($inaccessibles -eq 0)
         inaccessibles = $inaccessibles
     }
@@ -8338,9 +8338,9 @@ function Get-VigieFootprint {
 function Get-RunningOperations {
     param([string]$Backend = (Get-BackendRoot), [switch]$IncludeWatch)
     $ops = @()
-    $dossier = Split-Path (Get-ModuleBusyMarkPath -Module 'x' -Backend $Backend) -Parent
-    if (Test-Path -LiteralPath $dossier) {
-        foreach ($f in @(Get-ChildItem -LiteralPath $dossier -Filter 'busy-*.json' -File -ErrorAction SilentlyContinue)) {
+    $folder = Split-Path (Get-ModuleBusyMarkPath -Module 'x' -Backend $Backend) -Parent
+    if (Test-Path -LiteralPath $folder) {
+        foreach ($f in @(Get-ChildItem -LiteralPath $folder -Filter 'busy-*.json' -File -ErrorAction SilentlyContinue)) {
             $module = ($f.BaseName -replace '^busy-', '')
             $m = Get-ModuleBusyMark -Module $module -Backend $Backend
             if (-not $m) { continue }
@@ -8385,10 +8385,10 @@ function Get-RunningOperations {
 function Get-RecentOperationResults {
     param([int]$Minutes = 15, [string]$Backend = (Get-BackendRoot))
     $res = @()
-    $dossier = Split-Path (Get-ModuleLastRunPath -Module 'x' -Backend $Backend) -Parent
-    if (-not (Test-Path -LiteralPath $dossier)) { return $res }
+    $folder = Split-Path (Get-ModuleLastRunPath -Module 'x' -Backend $Backend) -Parent
+    if (-not (Test-Path -LiteralPath $folder)) { return $res }
     $limit = [datetime]::UtcNow.AddMinutes(-$Minutes)
-    foreach ($f in @(Get-ChildItem -LiteralPath $dossier -Filter 'lastrun-*.json' -File -ErrorAction SilentlyContinue)) {
+    foreach ($f in @(Get-ChildItem -LiteralPath $folder -Filter 'lastrun-*.json' -File -ErrorAction SilentlyContinue)) {
         $module = ($f.BaseName -replace '^lastrun-', '')
         $r = Get-ModuleLastRun -Module $module -Backend $Backend
         if (-not $r) { continue }
@@ -8488,9 +8488,9 @@ function Get-ActionResources {
 function Get-HeldResources {
     param([string]$Backend = (Get-BackendRoot))
     $tenues = @()
-    $dossier = Split-Path (Get-ModuleBusyMarkPath -Module 'x' -Backend $Backend) -Parent
-    if (-not (Test-Path -LiteralPath $dossier)) { return $tenues }
-    foreach ($f in @(Get-ChildItem -LiteralPath $dossier -Filter 'busy-*.json' -File -ErrorAction SilentlyContinue)) {
+    $folder = Split-Path (Get-ModuleBusyMarkPath -Module 'x' -Backend $Backend) -Parent
+    if (-not (Test-Path -LiteralPath $folder)) { return $tenues }
+    foreach ($f in @(Get-ChildItem -LiteralPath $folder -Filter 'busy-*.json' -File -ErrorAction SilentlyContinue)) {
         $module = ($f.BaseName -replace '^busy-', '')
         $m = Get-ModuleBusyMark -Module $module -Backend $Backend
         if (-not $m) { continue }
@@ -8722,7 +8722,7 @@ function New-LastRunField {
     if (-not $r) { return $null }
     $when = ''
     try { $when = (ConvertTo-UtcDate $r.at).ToLocalTime().ToString('dd/MM/yyyy HH:mm') } catch { }
-    $duree = if ([int]$r.seconds -ge 60) { [string][int]([int]$r.seconds / 60) + ' min' } else { "$([int]$r.seconds) s" }
+    $elapsedMs = if ([int]$r.seconds -ge 60) { [string][int]([int]$r.seconds / 60) + ' min' } else { "$([int]$r.seconds) s" }
     if ([int]$r.code -eq 0) {
         # REUSSI : la DATE suffit (regle utilisateur du 27/08). Une operation qui a
         # abouti n'a rien a raconter sur la carte ; la duree et le journal restent
@@ -8730,7 +8730,7 @@ function New-LastRunField {
         return (New-Field -Key $Key -Label "$($r.label)" -Value $when `
                           -Kind 'text' -Status 'ok' `
                           -Help "Dernière opération lancée depuis cette carte : elle a abouti." `
-                          -Guide ("Durée : " + $duree +
+                          -Guide ("Durée : " + $elapsedMs +
                                   $(if ($r.log) { [Environment]::NewLine + "Journal : " + $r.log } else { '' })))
     }
     <#
@@ -8750,7 +8750,7 @@ function New-LastRunField {
                       -Kind 'text' -Status 'error' `
                       -Help "La dernière opération lancée depuis cette carte a échoué. Elle n'a pas abouti : rien ne s'est fait à moitié sans le dire." `
                       -Guide ("Le " + $when + " — " + $detail + [Environment]::NewLine +
-                              "Durée : " + $duree +
+                              "Durée : " + $elapsedMs +
                               $(if ($r.log) { [Environment]::NewLine + "Journal complet : " + $r.log } else { '' })))
 }
 
@@ -8799,8 +8799,8 @@ function Get-SharedPwshInstallArgs {
 }
 
 function Get-SharedPwshPath {
-    $racines = @($env:ProgramFiles, ${env:ProgramFiles(x86)}) | Where-Object { $_ }
-    foreach ($r in $racines) {
+    $roots = @($env:ProgramFiles, ${env:ProgramFiles(x86)}) | Where-Object { $_ }
+    foreach ($r in $roots) {
         $d = Join-Path $r 'PowerShell'
         if (-not (Test-Path -LiteralPath $d)) { continue }
         $trouves = @(Get-ChildItem -LiteralPath $d -Directory -ErrorAction SilentlyContinue |
@@ -9525,8 +9525,8 @@ function Get-SharedInstallPath {
     # depuis le serveur alors que le deploiement etait fait -- diagnostic difficile.
     $bases = @($env:ProgramFiles, ${env:ProgramFiles(x86)}) | Where-Object { $_ }
     foreach ($b in $bases) {
-        foreach ($nom in @((Join-Path 'Sowapps' 'Vigie'), 'Vigie')) {
-            $c = Join-Path $b $nom
+        foreach ($name in @((Join-Path 'Sowapps' 'Vigie'), 'Vigie')) {
+            $c = Join-Path $b $name
             # Chemin construit par Join-Path : un antislash litteral a deja ete mange par
             # mes outils d ecriture et transforme en tabulations (constate ici meme).
             $marqueur = Join-Path (Join-Path (Join-Path $c 'apps') 'client') 'client.ps1'
@@ -9744,12 +9744,12 @@ function Get-VigieTaskStructureAilment {
     #   - un chemin dans le profil d'un compte (C:\Users\quelqu-un\...) est illisible
     #     par les autres.
     # C'est exactement ce qui a empeche Vigie de demarrer chez « Famille » (D79, D83).
-    $dossierProfils = Join-Path $env:SystemDrive 'Users'
-    $dossierMsix    = Join-Path $env:ProgramFiles 'WindowsApps'
-    if ($exe.StartsWith($dossierMsix, [StringComparison]::OrdinalIgnoreCase)) {
+    $profilesFolder = Join-Path $env:SystemDrive 'Users'
+    $msixFolder    = Join-Path $env:ProgramFiles 'WindowsApps'
+    if ($exe.StartsWith($msixFolder, [StringComparison]::OrdinalIgnoreCase)) {
         return "interpréteur MSIX, enregistré par compte : $exe"
     }
-    if ($exe.StartsWith($dossierProfils, [StringComparison]::OrdinalIgnoreCase)) {
+    if ($exe.StartsWith($profilesFolder, [StringComparison]::OrdinalIgnoreCase)) {
         return "interpréteur dans un profil, illisible par les autres comptes : $exe"
     }
     if ("$($a.Arguments)" -match '-File\s+"([^"]+)"') {
@@ -9879,34 +9879,34 @@ function Get-VigieTaskAilment {
 # bien. Ne cree jamais une tache absente : activer un compte reste une decision.
 function Repair-VigieTasks {
     param([string]$Backend = (Get-BackendRoot))
-    $faits = @()
-    if (-not (Test-IsElevated)) { return $faits }
-    $taches = @()
+    $repairs = @()
+    if (-not (Test-IsElevated)) { return $repairs }
+    $tasks = @()
     try {
-        $taches = @(Get-ScheduledTask -ErrorAction Stop |
+        $tasks = @(Get-ScheduledTask -ErrorAction Stop |
                     Where-Object { "$($_.TaskName)" -eq 'Vigie' -or "$($_.TaskName)".StartsWith($script:VigieTaskPrefix) })
-    } catch { return $faits }
+    } catch { return $repairs }
 
-    foreach ($t in $taches) {
-        $nom = "$($t.TaskName)"
+    foreach ($t in $tasks) {
+        $name = "$($t.TaskName)"
         # THE SERVER TASK IS NOT AN ACCOUNT'S: taken by its prefix, it was diagnosed as the task of an account named
         # after its suffix. Its maintenance is service-account-repair.
-        if ($nom -eq (Get-ServiceTaskName)) { continue }
+        if ($name -eq (Get-ServiceTaskName)) { continue }
         # WHOSE task is this? "Vigie - X" says it in its name; plain "Vigie" says it in its
         # PRINCIPAL -- we read that, rather than assume it belongs to whoever is looking.
         # The legacy task belongs to whoever installed it, not to the requester.
-        $compte = if ($nom -eq 'Vigie') { ("$($t.Principal.UserId)" -split [regex]::Escape([string][char]92))[-1] }
-                  else                  { $nom.Substring($script:VigieTaskPrefix.Length) }
+        $account = if ($name -eq 'Vigie') { ("$($t.Principal.UserId)" -split [regex]::Escape([string][char]92))[-1] }
+                  else                  { $name.Substring($script:VigieTaskPrefix.Length) }
 
         # THE OLD NAME IS FIXED EVEN WHEN NOTHING IS WRONG, hence BEFORE the diagnosis: a
         # healthy task leaves this loop untouched, so the machine carrying "Vigie" would
         # have kept it for ever (measured on 06/09, right after D117 was deployed).
-        if ($nom -eq 'Vigie' -and $compte) {
-            $renomme = Rename-VigieLegacyTask -Account $compte -Backend $Backend
-            if ($renomme) {
-                $faits += [pscustomobject]@{ tache = $nom; mal = "elle portait l'ancien nom"; repare = $true; attente = $false }
-                try { $t = Get-ScheduledTask -TaskName $renomme -ErrorAction Stop } catch { continue }
-                $nom = $renomme
+        if ($name -eq 'Vigie' -and $account) {
+            $renamed = Rename-VigieLegacyTask -Account $account -Backend $Backend
+            if ($renamed) {
+                $repairs += [pscustomobject]@{ tache = $name; mal = "elle portait l'ancien nom"; repare = $true; attente = $false }
+                try { $t = Get-ScheduledTask -TaskName $renamed -ErrorAction Stop } catch { continue }
+                $name = $renamed
             }
         }
 
@@ -9918,7 +9918,7 @@ function Repair-VigieTasks {
         if (-not $mal) {
             $histoire = Get-VigieTaskHistoryAilment -Task $t
             if ($histoire) {
-                $faits += [pscustomobject]@{ tache = $nom; mal = $histoire; repare = $false; attente = $true }
+                $repairs += [pscustomobject]@{ tache = $name; mal = $histoire; repare = $false; attente = $true }
             }
             continue
         }
@@ -9926,33 +9926,33 @@ function Repair-VigieTasks {
             # UNBLOCK FIRST. A task Windows believes running refuses everything: we end it,
             # which returns its state to the truth, before rewriting it.
             if ("$($t.State)" -eq 'Running' -and -not (Test-VigieTaskProcessAlive -Task $t)) {
-                try { Stop-ScheduledTask -TaskName $nom -ErrorAction Stop } catch { }
+                try { Stop-ScheduledTask -TaskName $name -ErrorAction Stop } catch { }
             }
-            if ($nom -eq 'Vigie') {
+            if ($name -eq 'Vigie') {
                 # Notre propre tache : on la reecrit avec l'interpreteur de la machine et
                 # le chemin ou l'application se trouve REELLEMENT maintenant.
                 $pwsh = Get-SharedPwshPath
                 if (-not $pwsh) { $pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Source }
                 $client = Join-Path (Join-Path (Get-RepoRoot) 'apps') (Join-Path 'client' 'client.ps1')
                 if (-not $pwsh -or -not (Test-Path -LiteralPath $client)) { continue }
-                Set-ScheduledTask -TaskName $nom -Action (New-VigieClientAction -Pwsh $pwsh -Client $client) -ErrorAction Stop | Out-Null
+                Set-ScheduledTask -TaskName $name -Action (New-VigieClientAction -Pwsh $pwsh -Client $client) -ErrorAction Stop | Out-Null
                 # AND WE TRY THE RENAME AGAIN (D117). Reaching here means the pass at the top
                 # of the loop failed -- the task answers again now that it has been rewritten,
                 # so the attempt is worth making a second time.
-                if ($compte) {
-                    $renomme = Rename-VigieLegacyTask -Account $compte -Backend $Backend
-                    if ($renomme) { $nom = $renomme }
+                if ($account) {
+                    $renamed = Rename-VigieLegacyTask -Account $account -Backend $Backend
+                    if ($renamed) { $name = $renamed }
                 }
             } else {
                 # Tache d'un autre compte : Set-VigieAccountEnabled sait la refaire
                 # entierement (interpreteur machine, installation partagee, niveau).
-                $null = Set-VigieAccountEnabled -Name $compte -Enabled $true -Backend $Backend
+                $null = Set-VigieAccountEnabled -Name $account -Enabled $true -Backend $Backend
             }
             # UNE TACHE DESACTIVEE SE REACTIVE. Vigie savait le DIRE depuis ce matin, et
             # s'arretait la : elle reecrivait l'action puis reannoncait « desactivee »,
             # ce qui n'aide personne. Enable-ScheduledTask est le geste qui manquait.
             # Idempotent : une tache deja active ne bouge pas.
-            try { Enable-ScheduledTask -TaskName $nom -ErrorAction Stop | Out-Null } catch { }
+            try { Enable-ScheduledTask -TaskName $name -ErrorAction Stop | Out-Null } catch { }
 
             # ON CONSTATE (D43). Reecrire la tache ne guerit pas tout : un ECHEC PASSE
             # reste inscrit dans son historique tant qu'elle n'a pas retourne au travail,
@@ -9963,23 +9963,23 @@ function Repair-VigieTasks {
             # un court instant apres une reecriture, et la tache paraissait encore
             # desactivee alors qu'elle ne l'etait deja plus (constate le 28/08).
             Start-Sleep -Milliseconds 400
-            $apres = $null
-            try { $apres = Get-VigieTaskAilment -Task (Get-ScheduledTask -TaskName $nom -ErrorAction Stop) } catch { }
-            if ($apres) {
-                $faits += [pscustomobject]@{ tache = $nom; mal = $mal; repare = $false; reste = $apres }
-                Write-Log -Backend $Backend -Name 'comptes' -Message (Get-Label 'common.tache-reecrite-mais' $nom $apres)
+            $after = $null
+            try { $after = Get-VigieTaskAilment -Task (Get-ScheduledTask -TaskName $name -ErrorAction Stop) } catch { }
+            if ($after) {
+                $repairs += [pscustomobject]@{ tache = $name; mal = $mal; repare = $false; reste = $after }
+                Write-Log -Backend $Backend -Name 'comptes' -Message (Get-Label 'common.tache-reecrite-mais' $name $after)
             } else {
-                $faits += [pscustomobject]@{ tache = $nom; mal = $mal; repare = $true }
-                Write-Log -Backend $Backend -Name 'comptes' -Message (Get-Label 'common.tache-reparee' $nom $mal)
+                $repairs += [pscustomobject]@{ tache = $name; mal = $mal; repare = $true }
+                Write-Log -Backend $Backend -Name 'comptes' -Message (Get-Label 'common.tache-reparee' $name $mal)
             }
         } catch {
-            $faits += [pscustomobject]@{ tache = $nom; mal = $mal; repare = $false; erreur = "$($_.Exception.Message)" }
+            $repairs += [pscustomobject]@{ tache = $name; mal = $mal; repare = $false; erreur = "$($_.Exception.Message)" }
             Write-Log -Backend $Backend -Name 'comptes' -Level 'ERROR' `
-                      -Message (Get-Label 'common.tache-non-reparee' $nom $mal $_.Exception.Message)
+                      -Message (Get-Label 'common.tache-non-reparee' $name $mal $_.Exception.Message)
         }
     }
-    if ($faits.Count) { Clear-ComputerAccountsCache -Backend $Backend }
-    return $faits
+    if ($repairs.Count) { Clear-ComputerAccountsCache -Backend $Backend }
+    return $repairs
 }
 
 function Get-VigieAccountTaskName {
@@ -9994,7 +9994,7 @@ function Get-VigieAccountTaskName {
 # L'inventaire coute environ deux secondes (comptes, groupes, profils, taches) et ne
 # change qu'exceptionnellement : on le MEMORISE. Un jour de validite, un bouton pour
 # forcer le releve, et toute activation de compte l'invalide d'elle-meme.
-$script:ComptesTTLHeures = 24
+$script:AccountsTtlHours = 24
 
 function Get-ComputerAccountsCachePath {
     param([string]$Backend = (Get-BackendRoot))
@@ -10017,9 +10017,9 @@ function Clear-ComputerAccountsCache {
 function Update-AccountTasks {
     param([object[]]$Comptes)
     if (-not $Comptes -or -not $Comptes.Count) { return @($Comptes) }
-    $taches = @()
+    $tasks = @()
     try {
-        $taches = @(Get-ScheduledTask -ErrorAction Stop |
+        $tasks = @(Get-ScheduledTask -ErrorAction Stop |
                     Where-Object { $_.TaskName -eq 'Vigie' -or $_.TaskName -like ($script:VigieTaskPrefix + '*') })
     } catch {
         # Sans elevation, Windows masque une partie des taches : on ne sait pas, et on ne
@@ -10027,24 +10027,24 @@ function Update-AccountTasks {
         return @($Comptes)
     }
     foreach ($c in $Comptes) {
-        $nom = "$($c.name)"
-        $tache = @($taches | Where-Object {
-            $_.TaskName -eq (Get-VigieAccountTaskName -Name $nom) -or
-            ($_.TaskName -eq 'Vigie' -and (Test-TaskUserIs -UserId "$($_.Principal.UserId)" -Name $nom))
+        $name = "$($c.name)"
+        $task = @($tasks | Where-Object {
+            $_.TaskName -eq (Get-VigieAccountTaskName -Name $name) -or
+            ($_.TaskName -eq 'Vigie' -and (Test-TaskUserIs -UserId "$($_.Principal.UserId)" -Name $name))
         })[0]
         # UN CACHE PEUT VENIR D'UNE VERSION PLUS ANCIENNE, et ses objets n'ont alors pas
         # les proprietes qu'on veut ecrire. Assigner une propriete absente LEVE, et la
         # valeur d'origine -- perimee -- restait affichee (constate le 28/08 : « 1 tache
         # hors service » pour une tache saine). On les cree si elles manquent.
-        Set-ObjectProperty -Object $c -Name 'enabled' -Value ([bool]$tache)
-        Set-ObjectProperty -Object $c -Name 'task' -Value $(if ($tache) { "$($tache.TaskName)" } else { $null })
+        Set-ObjectProperty -Object $c -Name 'enabled' -Value ([bool]$task)
+        Set-ObjectProperty -Object $c -Name 'task' -Value $(if ($task) { "$($task.TaskName)" } else { $null })
         # DEUX CHAMPS, deux natures : « taskAilment » est ce qui empeche la tache de
         # fonctionner ; « taskPending » est ce qui ne se saura qu'a son prochain
         # demarrage. Les confondre faisait annoncer « hors service » une tache saine.
-        $mal = if ($tache) { Get-VigieTaskStructureAilment -Task $tache } else { $null }
+        $mal = if ($task) { Get-VigieTaskStructureAilment -Task $task } else { $null }
         Set-ObjectProperty -Object $c -Name 'taskAilment' -Value $mal
         Set-ObjectProperty -Object $c -Name 'taskPending' `
-            -Value $(if ($tache -and -not $mal) { Get-VigieTaskHistoryAilment -Task $tache } else { $null })
+            -Value $(if ($task -and -not $mal) { Get-VigieTaskHistoryAilment -Task $task } else { $null })
     }
     return @($Comptes)
 }
@@ -10167,7 +10167,7 @@ function Get-ComputerAccounts {
         try {
             $j = Get-Content -LiteralPath $cache -Raw | ConvertFrom-Json
             $age = ((Get-Date).ToUniversalTime() - (ConvertTo-UtcDate $j.at)).TotalHours
-            if ($age -lt $script:ComptesTTLHeures -and $j.users) {
+            if ($age -lt $script:AccountsTtlHours -and $j.users) {
                 return (Add-AccountsPerspective (Update-AccountTasks -Comptes @($j.users)))
             }
         } catch { }
@@ -10218,15 +10218,15 @@ function Get-ComputerAccountsFresh {
         }
     } catch { }
 
-    $taches = @()
-    try { $taches = @(Get-ScheduledTask -ErrorAction Stop | Where-Object { $_.TaskName -eq 'Vigie' -or $_.TaskName -like ($script:VigieTaskPrefix + '*') }) } catch { }
+    $tasks = @()
+    try { $tasks = @(Get-ScheduledTask -ErrorAction Stop | Where-Object { $_.TaskName -eq 'Vigie' -or $_.TaskName -like ($script:VigieTaskPrefix + '*') }) } catch { }
     $comptes = @()
     try { $comptes = @(Get-LocalUser -ErrorAction Stop | Where-Object { $_.Enabled }) } catch { }
     @(foreach ($c in $comptes) {
-        $nom = "$($c.Name)"
-        $tache = @($taches | Where-Object {
-            $_.TaskName -eq (Get-VigieAccountTaskName -Name $nom) -or
-            ($_.TaskName -eq 'Vigie' -and (Test-TaskUserIs -UserId "$($_.Principal.UserId)" -Name $nom))
+        $name = "$($c.Name)"
+        $task = @($tasks | Where-Object {
+            $_.TaskName -eq (Get-VigieAccountTaskName -Name $name) -or
+            ($_.TaskName -eq 'Vigie' -and (Test-TaskUserIs -UserId "$($_.Principal.UserId)" -Name $name))
         })[0]
         # VRAI compte ou compte TECHNIQUE ? On ne juge pas sur le NOM (une liste noire
         # serait fausse le jour ou quelqu'un appelle son compte « Sandbox ») mais sur un
@@ -10234,10 +10234,10 @@ function Get-ComputerAccountsFresh {
         # cree, parfois authentifie, mais son profil n'est jamais charge.
         # Ce critere ne demande AUCUNE elevation, contrairement a l'inspection du contenu
         # du profil qui avait ete essayee d'abord -- et qui laissait passer les bacs a sable.
-        $profil  = Join-Path (Join-Path $env:SystemDrive 'Users') $nom
+        $profil  = Join-Path (Join-Path $env:SystemDrive 'Users') $name
         $aProfil = Test-Path -LiteralPath $profil
         $up = $profils["$($c.SID)"]
-        $dejaServi = [bool]($up -and ($up.LastUseTime -or $up.Loaded))
+        $alreadyUsed = [bool]($up -and ($up.LastUseTime -or $up.Loaded))
         # ATTENTION : LastUseTime n'est visible QUE d'un processus eleve. Depuis une
         # session ordinaire, tous les profils paraissent « jamais utilises » -- le critere
         # seul se contredisait donc d'un contexte a l'autre (constate le 26/08 : un compte
@@ -10248,26 +10248,26 @@ function Get-ComputerAccountsFresh {
         # fichier commun. Y ecrire quoi que ce soit de relatif au demandeur, c'est servir
         # a Famille la reponse calculee pour fhaza. Tout ce qui depend de la personne est
         # pose apres coup, par Add-AccountsPerspective.
-        $technique = [bool]$masquesConnexion[$nom.ToLower()]
+        $technique = [bool]$masquesConnexion[$name.ToLower()]
 
         [pscustomobject][ordered]@{
-            name        = $nom
+            name        = $name
             fullName    = "$($c.FullName)"
             description = "$($c.Description)"
-            admin       = (Test-LocalAccountIsAdmin -Name $nom)
+            admin       = (Test-LocalAccountIsAdmin -Name $name)
             hasProfile  = $aProfil
             technical   = $technique
             # Date de derniere UTILISATION du profil (plus fiable que LastLogon).
             lastUse     = $(if ($up -and $up.LastUseTime) { ([datetime]$up.LastUseTime).ToString('s') } else { $null })
-            enabled     = [bool]$tache
-            task        = if ($tache) { "$($tache.TaskName)" } else { $null }
+            enabled     = [bool]$task
+            task        = if ($task) { "$($task.TaskName)" } else { $null }
             # La tache existe-t-elle VRAIMENT en etat de marche ? Une tache qui pointe
             # vers un interpreteur disparu se lance et meurt aussitot, sans un mot :
             # Vigie ne demarre pas et l'ecran des comptes affiche « activee ». C'est
             # exactement ce qui est arrive le 26/08 (D83).
-            taskAilment = if ($tache) { Get-VigieTaskStructureAilment -Task $tache } else { $null }
+            taskAilment = if ($task) { Get-VigieTaskStructureAilment -Task $task } else { $null }
             # Ce qui attend son prochain demarrage : signale, mais pas « hors service ».
-            taskPending = if ($tache -and -not (Get-VigieTaskStructureAilment -Task $tache)) { Get-VigieTaskHistoryAilment -Task $tache } else { $null }
+            taskPending = if ($task -and -not (Get-VigieTaskStructureAilment -Task $task)) { Get-VigieTaskHistoryAilment -Task $task } else { $null }
             # Le compte qui execute le serveur en ce moment : l'interface doit pouvoir dire
             # « c'est vous » et empecher de se retirer soi-meme par megarde.
             current     = $false          # pose par Add-AccountsPerspective, jamais mis en cache
@@ -10285,10 +10285,10 @@ function Set-VigieAccountEnabled {
         [string]$Backend = (Get-BackendRoot)
     )
     if (-not (Test-IsElevated)) { throw "Modifier les comptes autorises demande un compte administrateur." }
-    $compte = @(Get-ComputerAccounts -Backend $Backend | Where-Object { $_.name -eq $Name })[0]
-    if (-not $compte) { throw "Compte inconnu sur cette machine : $Name" }
+    $account = @(Get-ComputerAccounts -Backend $Backend | Where-Object { $_.name -eq $Name })[0]
+    if (-not $account) { throw "Compte inconnu sur cette machine : $Name" }
     # Un AUTRE compte que le sien exige que l'application lui soit lisible.
-    if ($Enabled -and -not $compte.current -and -not (Get-SharedInstallPath)) {
+    if ($Enabled -and -not $account.current -and -not (Get-SharedInstallPath)) {
         throw "Aucune installation lisible par les autres comptes : deployez d'abord Vigie pour tous, sinon la tache de $Name echouerait a chaque ouverture de session."
     }
 
@@ -10305,9 +10305,9 @@ function Set-VigieAccountEnabled {
     # POUR SOI : l'interpreteur courant convient, quel que soit son emplacement.
     # POUR UN AUTRE COMPTE : il lui faut un pwsh installe pour la MACHINE, sinon la tache
     # pointerait dans notre profil et ne lancerait rien chez lui (constate avec Famille).
-    $pwsh = if ($compte.current) { (Get-Command pwsh -ErrorAction SilentlyContinue).Source }
+    $pwsh = if ($account.current) { (Get-Command pwsh -ErrorAction SilentlyContinue).Source }
             else                 { Get-SharedPwshPath }
-    if (-not $pwsh -and $compte.current) { throw "pwsh introuvable : impossible de creer la tache." }
+    if (-not $pwsh -and $account.current) { throw "pwsh introuvable : impossible de creer la tache." }
     if (-not $pwsh) {
         throw ("PowerShell 7 n'est installe que pour ce compte (paquet du Store). La tache de " +
                $Name + " pointerait vers un chemin du profil de ce compte, illisible pour lui : Vigie ne " +
@@ -10338,7 +10338,7 @@ function Set-VigieAccountEnabled {
         if (-not $candidate) { continue }
         $probe = Join-Path (Join-Path $candidate 'apps') (Join-Path 'client' 'client.ps1')
         if (-not (Test-Path -LiteralPath $probe)) { continue }
-        if (Test-PathReadableByAccount -Path $probe -Sid $targetSid -IsAdmin:([bool]$compte.admin)) {
+        if (Test-PathReadableByAccount -Path $probe -Sid $targetSid -IsAdmin:([bool]$account.admin)) {
             $appRoot = $candidate
             break
         }
@@ -10354,28 +10354,28 @@ function Set-VigieAccountEnabled {
     $trigger = New-ScheduledTaskTrigger -AtLogOn
     # 45 s : pwsh vient du Store (MSIX) et n'est pas toujours pret a l'instant du logon.
     $trigger.Delay = 'PT45S'
-    $niveau  = if ($compte.admin) { 'Highest' } else { 'Limited' }
+    $niveau  = if ($account.admin) { 'Highest' } else { 'Limited' }
     $princ   = New-ScheduledTaskPrincipal -UserId ("$env:COMPUTERNAME\$Name") -LogonType Interactive -RunLevel $niveau
     $set     = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
                   -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew `
                   -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
-    $nomTache = Get-VigieAccountTaskName -Name $Name
+    $taskName = Get-VigieAccountTaskName -Name $Name
     # On CONSTATE (D43) : une creation qui ne leve pas n'est pas une creation qui a eu
     # lieu. Le journal garde la trace des deux, et l'appelant recoit une vraie erreur.
     try {
-        Register-ScheduledTask -TaskName $nomTache -Action $action -Trigger $trigger `
+        Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger `
             -Principal $princ -Settings $set -Force -ErrorAction Stop | Out-Null
     } catch {
-        Write-Log -Backend $Backend -Name 'comptes' -Level 'ERROR' -Message (Get-Label 'common.creation-de-la-tache' $nomTache $_.Exception.Message)
+        Write-Log -Backend $Backend -Name 'comptes' -Level 'ERROR' -Message (Get-Label 'common.creation-de-la-tache' $taskName $_.Exception.Message)
         throw ("Windows a refuse de creer la tache pour " + $Name + " : " + $_.Exception.Message)
     }
     $verif = $null
-    try { $verif = Get-ScheduledTask -TaskName $nomTache -ErrorAction Stop } catch { }
+    try { $verif = Get-ScheduledTask -TaskName $taskName -ErrorAction Stop } catch { }
     if (-not $verif) {
-        Write-Log -Backend $Backend -Name 'comptes' -Level 'ERROR' -Message (Get-Label 'common.tache-absente-juste-apres' $nomTache)
+        Write-Log -Backend $Backend -Name 'comptes' -Level 'ERROR' -Message (Get-Label 'common.tache-absente-juste-apres' $taskName)
         throw ("La tache de " + $Name + " n'existe pas apres creation : Windows l'a refusee sans le dire.")
     }
-    Write-Log -Backend $Backend -Name 'comptes' -Message (Get-Label 'common.tache-creee' $nomTache $princ.UserId $niveau)
+    Write-Log -Backend $Backend -Name 'comptes' -Message (Get-Label 'common.tache-creee' $taskName $princ.UserId $niveau)
     Clear-ComputerAccountsCache -Backend $Backend
     return (Get-ComputerAccounts -Backend $Backend | Where-Object { $_.name -eq $Name })
 }
@@ -10415,8 +10415,8 @@ function Get-ActionExecutor {
     try {
         $f = Join-Path $Backend ("actions/$Type.action.ps1")
         if (Test-Path -LiteralPath $f) {
-            foreach ($ligne in (Get-Content -LiteralPath $f -TotalCount 40)) {
-                if ($ligne -match '^\s*#\s*@execution\s*:\s*(session|serveur)') { return $Matches[1] }
+            foreach ($line in (Get-Content -LiteralPath $f -TotalCount 40)) {
+                if ($line -match '^\s*#\s*@execution\s*:\s*(session|serveur)') { return $Matches[1] }
             }
         }
     } catch { }
@@ -10518,9 +10518,9 @@ function Get-ActionRequirement {
     try {
         $f = Join-Path $Backend ("actions/$Type.action.ps1")
         if (Test-Path -LiteralPath $f) {
-            foreach ($ligne in (Get-Content -LiteralPath $f -TotalCount 40)) {
+            foreach ($line in (Get-Content -LiteralPath $f -TotalCount 40)) {
                 # La valeur peut etre suivie d'un commentaire : on s'arrete au mot, pas a la ligne.
-                if ($ligne -match '^\s*#\s*@droits\s*:\s*(admin|tous)') { return $Matches[1] }
+                if ($line -match '^\s*#\s*@droits\s*:\s*(admin|tous)') { return $Matches[1] }
             }
         }
     } catch { }
@@ -10542,8 +10542,8 @@ function Get-ActionPresentation {
     try {
         $f = Join-Path $Backend ("actions/$Type.action.ps1")
         if (Test-Path -LiteralPath $f) {
-            foreach ($ligne in (Get-Content -LiteralPath $f -TotalCount 40)) {
-                if ($ligne -match '^\s*#\s*@libelle\s*:\s*(.+)$') {
+            foreach ($line in (Get-Content -LiteralPath $f -TotalCount 40)) {
+                if ($line -match '^\s*#\s*@libelle\s*:\s*(.+)$') {
                     $bouts = @("$($Matches[1])" -split '\|' | ForEach-Object { $_.Trim() })
                     # Le commentaire qui suit « -- » ne fait pas partie de la declaration.
                     if ($bouts.Count -ge 1 -and $bouts[0]) { $label = ($bouts[0] -replace '\s*--.*$', '').Trim() }
@@ -10689,8 +10689,8 @@ function Get-UserConfigDir {
         if ((Test-Path -LiteralPath $ancien) -and (Test-Path -LiteralPath $d)) {
             try {
                 foreach ($x in (Get-ChildItem -LiteralPath $ancien -Force -ErrorAction SilentlyContinue)) {
-                    $cible = Join-Path $d $x.Name
-                    if (-not (Test-Path -LiteralPath $cible)) { Move-Item -LiteralPath $x.FullName -Destination $cible -Force }
+                    $targetPath = Join-Path $d $x.Name
+                    if (-not (Test-Path -LiteralPath $targetPath)) { Move-Item -LiteralPath $x.FullName -Destination $targetPath -Force }
                 }
             } catch { }
         }
@@ -10825,13 +10825,13 @@ function Set-UnitEnabled {
     if ($Enabled) { $on.Add($UnitId) }
     $listeOn = ($on | ForEach-Object { "'" + ($_ -replace "'", "''") + "'" }) -join ', '
     $liste = ($off | ForEach-Object { "'" + ($_ -replace "'", "''") + "'" }) -join ', '
-    $texte = "@{`n    # Choix de l'utilisateur sur les modules (D48). Fichier ecrit par l'application`n" +
+    $text = "@{`n    # Choix de l'utilisateur sur les modules (D48). Fichier ecrit par l'application`n" +
              "    # (vue de gestion des modules), jamais versionne.`n" +
              "    #   Disabled : eteints a la main.`n" +
              "    #   Enabled  : allumes a la main -- utile pour ceux qui naissent eteints (debogage).`n" +
              "    Disabled = @($liste)`n    Enabled = @($listeOn)`n}`n"
     $p = Get-UnitsLocalPath
-    Set-Content -LiteralPath $p -Value $texte -Encoding UTF8
+    Set-Content -LiteralPath $p -Value $text -Encoding UTF8
 }
 
 function Get-UnitCatalog {
@@ -11362,10 +11362,10 @@ function Get-ActionRequester {
         }
     } catch { }
     try {
-        $nom = ([Security.Principal.WindowsIdentity]::GetCurrent()).Name
-        $sep = $nom.LastIndexOf([char]92)
-        if ($sep -ge 0) { $nom = $nom.Substring($sep + 1) }
-        return $nom
+        $name = ([Security.Principal.WindowsIdentity]::GetCurrent()).Name
+        $sep = $name.LastIndexOf([char]92)
+        if ($sep -ge 0) { $name = $name.Substring($sep + 1) }
+        return $name
     } catch { return 'inconnu' }
 }
 

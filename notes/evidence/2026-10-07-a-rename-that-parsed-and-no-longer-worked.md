@@ -57,3 +57,55 @@ Trois fichiers, prouvés un par un sur la même entrée, sortie identique au can
 | `vigie-fetch.ps1` | `-Source local -Force`, fabrication complète | archive de 236 fichiers, code 0 | sortie identique, code 0 |
 
 Compte des identifiants français : **450 → 404**. Cliquet abaissé à 404.
+
+## Le même jour, l'outil a vidé `common.ps1` en entier
+
+En attaquant `common.ps1`, l'outil a remplacé **toutes** les variables du fichier par un `$` nu — dix mille lignes
+vidées de leurs noms, la bibliothèque que tout le dépôt lit.
+
+La cause : j'avais cru lire le nom d'une variable sans sa portée avec `VariablePath.UnqualifiedPath`. Cette
+propriété **rend toujours une chaîne vide**. L'appel de méthode sur la valeur nulle qui en découlait levait une
+erreur *non bloquante* ; la garde « ce nom est-il dans ma table ? » cessait de répondre, et le remplacement
+s'appliquait avec un nom d'arrivée vide.
+
+**Une garde qui peut lever est une garde qui s'ouvre.** C'est le vrai enseignement, et il ne porte pas sur une
+propriété mal lue : un contrôle dont l'échec ressemble à un feu vert ne protège rien.
+
+Rattrapé par le reparsage de l'outil lui-même, puis par `git checkout --`. Le fichier a reparsé aussitôt, et rien
+n'était déployé : le défaut n'est jamais sorti de mon poste.
+
+### Ce qui l'empêche de revenir
+
+- L'outil pose `$ErrorActionPreference = 'Stop'` et `Set-StrictMode -Version Latest`.
+- Il **refuse d'écrire un remplacement vide**, au lieu de se fier à la garde au-dessus.
+- Le nom est dérivé de `UserPath`, découpé à la main ; la portée (`$script:`) et l'éclatement (`@table`) sont
+  conservés tels qu'écrits.
+
+## Fusionner un nom sur un nom existant se décide mécaniquement
+
+Renommer `nom` en `name` dans un fichier qui emploie déjà `$name` ne confond les deux que s'ils vivent dans la
+**même portée**. Dix mille lignes ne se jugent pas à l'œil : un contrôle liste, pour chaque fonction et pour le
+niveau du fichier, les noms employés, et refuse la fusion dès qu'une portée emploie les deux.
+
+Sur `common.ps1` : **55 fusions proposées, 53 sûres, 2 refusées** — `chemins → paths` (les deux dans
+`Get-AppInfoTip`) et `nom → name` (les deux dans `Get-State`). Les deux ont reçu un nom propre à la place :
+`cleanPaths`, et `phaseName` pour le paramètre du bloc de chronométrage.
+
+## Ce que `common.ps1` a donné
+
+**127 → 19 déclarations françaises**, soit 108 noms et 358 occurrences. Compte du dépôt : **404 → 296**.
+
+Ce qui reste et pourquoi : quatre paramètres (`-Chemin`, `-Comptes`, `-Etat`) et quatre clés de contrat (`echec`,
+`groupe`, `libelle`, `dejaFaite`) que `index.html` et `sentinelles.html` lisent. Les renommer change un protocole
+entre deux applications : décision séparée.
+
+| Épreuve | Avant | Après |
+|---|---|---|
+| `check-probes -All` | 19 sondes, 21 modules, tous invariants tenus, code 0 | sortie identique |
+| Les 19 sondes rendues, structure relevée | 500 lignes de forme | identique au canon |
+| `Get-State`, le cœur assembleur | 19 modules, mêmes champs et mêmes actions | identique au canon |
+| Les 15 vérificateurs | verts | verts |
+
+Les deux relevés « avant » ont été repris **à l'instant même** de la comparaison, l'original restauré puis le
+renommé reposé : une première comparaison avait signalé une différence sur le lien Wi-Fi, qui n'était que la mesure
+du réseau ayant bougé entre-temps.

@@ -976,9 +976,25 @@ cannot be compared -- `show-confirm.ps1` opens a window -- stays out of the batc
 is not stable between two runs, so a raw text diff shows differences where there are none -- which is exactly how a
 proof gets abandoned as "noisy".
 
+**A guard that can throw is a guard that fails OPEN.** On 07/10 the renamer read a property that always returns
+empty (`VariablePath.UnqualifiedPath`); the method call on the resulting null raised a non-terminating error, the
+test "is this name in my table?" stopped answering, and **every variable name in `common.ps1` was replaced by a bare
+`$`** -- ten thousand lines emptied by a tool whose job was to be careful. Only the re-parse caught it. So: the tool
+sets `$ErrorActionPreference = 'Stop'` and `Set-StrictMode`, and it **refuses to write an empty replacement** rather
+than trusting the guard above it.
+
+**Merging a name onto an existing one is decided mechanically, never by eye.** Renaming `nom` to `name` in a file
+that already uses `$name` only confuses the two if they live in the SAME scope. A 10 000-line file cannot be judged
+by reading, so a checker lists, per function and for the file level, the names it uses, and refuses the merge when
+one scope uses both. On `common.ps1`: 55 merges proposed, 53 proven safe, 2 refused -- and those two got their own
+precise names instead.
+
 **The tool renames the three faces of a name**: the variable (`$name`), its braced form (`${name}`), and the call
 site of a parameter (`-name`). It works from the AST, relocates by extent offsets, then re-parses and verifies that
-no old name survives either as a variable or as a parameter. Record:
+no old name survives either as a variable or as a parameter. A scope prefix and a splat sigil are kept as written
+(`$script:X` stays script-scoped, `@table` keeps splatting). What it CANNOT see: a splatted hashtable carries
+parameter names in its KEYS, and a key is not a variable -- so renaming a parameter means checking the splats by
+hand. Record:
 [`notes/evidence/2026-10-07-a-rename-that-parsed-and-no-longer-worked.md`](../../../notes/evidence/2026-10-07-a-rename-that-parsed-and-no-longer-worked.md).
 
 ## Cache & performance

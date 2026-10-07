@@ -65,8 +65,18 @@ $COMMENT_CEILING = 5603
     call site left a file that parsed and scanned one folder instead of four. No checker here catches that -- they
     read code, they do not run workers -- so a rename is now paired with an execution comparison, and the slice is
     sized by what can be run, not by what can be edited.
+
+    07/10, same day: common.ps1 cleared of its internal names and the count falls to 296. It held 127 of the 404 --
+    the library every probe and every action reads, and the one whose style every new file copies, so it is what
+    REPRODUCED the debt. 108 names went; what stays is what crosses the repository: four parameters (-Chemin,
+    -Comptes, -Etat) and four contract keys (echec, groupe, libelle, dejaFaite) that index.html and sentinelles.html
+    read. Those change a protocol between two apps, and that is a separate decision.
+
+    Two mechanical guards were built for it, because 10 000 lines cannot be judged by eye: one refuses to merge a
+    name onto an existing one unless NO scope uses both (55 merges checked, 2 refused and renamed otherwise), and
+    the renamer now fails closed -- a guard that could throw had silently emptied every variable name in the file.
 #>
-$CEILING = 404
+$CEILING = 296
 
 # LE PLAFOND DES NOMS DE FICHIERS. Meme cliquet, compte separe : ceux qui restent sont
 # nommes dans des taches planifiees deja posees et dans des raccourcis, donc ils se
