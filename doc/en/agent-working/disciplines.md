@@ -104,6 +104,13 @@ Only what passes all three -- a need, a product choice nobody has made -- is ask
 the owner in two series; nine were answered by one of these gates. "The subjects are relevant, but they have nothing to
 do in a question when you ALREADY have the answers."*
 
+**AND IT IS ASKED AGAIN EVERY TIME IT COMES UP.** Writing "this has been waiting for your decision since
+yesterday" is the same failure one day later: it names the gap and still does not ask. A decision only exists once
+the question is put, in format, in the message that mentions it -- otherwise it is never taken, and it is mentioned
+for ever. *07/10: "Tu comprends que dire 'attend ta decision' ca ne sert a rien et qu'il n'y aura JAMAIS de decision
+prise si tu ne poses pas la question a chaque fois qu'on en parle ?"* Either the question is asked now, or the
+subject is a future one and is not raised at all.
+
 **A DECISION THAT IS HIS IS ASKED, NEVER ANNOUNCED AS PENDING.** Writing "three things are waiting for your
 decision" is not asking: it hands him the work of extracting the question, the options and what each one costs.
 Whatever is his to settle leaves as a numbered question, stated in full, in the format above -- in the same message
