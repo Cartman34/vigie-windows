@@ -105,7 +105,7 @@ Servie en `http`, la page fonctionne entièrement. Elle reste néanmoins ouvrabl
 ## Ce que contient la page
 
 ### Marque de l'app cliente
-Reproduction exacte de [`apps/client/assets/generate-icons.py`](../client/assets/generate-icons.py),
+Reproduction exacte de [`apps/client/assets/generate-icons.ps1`](../client/assets/generate-icons.ps1),
 avec un curseur de **fraction**, le choix de l'état, et un rendu de 16 à 128 px — dont
 une bande imitant la barre des tâches pour juger le contraste réel.
 
@@ -132,7 +132,7 @@ exactes à recopier** dans `VigieMenuPalette` ([`apps/client/client.ps1`](../cli
 Les géométries de la page sont une **reproduction** du code, pas sa source.
 Toute valeur retenue doit être reportée **en miroir** :
 
-1. dans le code (`generate-icons.py`, `client.ps1`, …) ;
+1. dans le code (`generate-icons.ps1`, `client.ps1`, …) ;
 2. dans [`doc/progress/decisions.md`](../../doc/progress/decisions.md).
 
 Sans cela l'atelier devient trompeur — c'est précisément ce qu'il sert à éviter.

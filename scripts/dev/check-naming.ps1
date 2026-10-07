@@ -87,9 +87,17 @@ $FILE_CEILING = 3
 # here for; everything else is PHP. Python is not forbidden, but its use must be argued and
 # bounded, so a new .py file is a DECISION, never a habit.
 #
-# Two remain, both mine, written before a context compaction erased the rule from my memory:
-# the icon generators. The ratchet keeps their number from growing and lets it fall.
-$PYTHON_CEILING = 2
+# Two remained, both mine, written before a context compaction erased the rule from my memory: the icon generators.
+# 07/10: the client app's icons left Python for generate-icons.ps1 and GDI+, which ships with Windows, where Pillow
+# had to be installed on any machine that might redraw the mark -- and D41 says a Windows tool is written in
+# PowerShell. The drawing was compared size by size against what Pillow produced: 2 to 5 of deviation out of 255,
+# the mark identical to the eye on the three states.
+#
+# ONE REMAINS, and it is argued rather than hidden: generate-icon-font.py builds vigie-icons.ttf through fontTools.
+# Converting it means writing a TrueType writer -- glyf, loca, cmap, head, hhea, hmtx, maxp, name, post, OS/2 and
+# their checksums -- because neither .NET nor PHP can write a font. That is a disproportionate rewrite for a
+# generator run when an icon changes, so the ceiling stands at one and the file says why in its own header.
+$PYTHON_CEILING = 1
 
 <#
     AND A FOURTH COUNT: THE WORD « tray », WHICH IS AT ZERO AND STAYS THERE (D108, S06).

@@ -294,7 +294,9 @@ history is in **D40**, do not do it again.
 - **PowerShell 7** (`pwsh`): present. It is the validation tool for PowerShell code.
 - **Windows PowerShell 5.1** (`powershell.exe`): present, and it is the only host that sees
   the WinRT projection — see `../../progress/targeting/notifications.md`.
-- **Python 3.11**: present (used by `apps/client/assets/generate-icons.py`).
+- **Python 3.11**: present. One file still needs it, `apps/frontend-web/assets/generate-icon-font.py`, which builds
+  the icon font through fontTools; the tray icons left Python on 07/10 for `generate-icons.ps1` and GDI+, which
+  ships with Windows.
 - **Chocolatey**, **git**, **php**, **composer**, **symfony-cli**: present.
 - **git** works normally: repository, branches and worktrees operational. **HTTPS** to
   GitHub, token remembered by the Credential Manager.

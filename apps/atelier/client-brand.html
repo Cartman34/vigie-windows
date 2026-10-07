@@ -34,7 +34,7 @@
 <section>
   <h2>Marque de l'app cliente — réglage de la jauge</h2>
   <p class="hint">
-    Reproduction exacte de <code>generate-icons.py</code>. La <b>fraction</b> décide si la
+    Reproduction exacte de <code>generate-icons.ps1</code>. La <b>fraction</b> décide si la
     jauge paraît pleine. Juge à <b>16 px</b> : c'est la taille réelle dans la barre des tâches.
   </p>
 
@@ -77,7 +77,7 @@
   <div class="note">
     <b>Livré aujourd'hui</b> — conforme <code>1.00</code> (jauge pleine), démarrage
     <code>0.50</code>, erreur <code>0.17</code>. Une valeur retenue se reporte dans
-    <b>un seul</b> endroit — <code>apps/client/assets/generate-icons.py</code> — puis on
+    <b>un seul</b> endroit — <code>apps/client/assets/generate-icons.ps1</code> — puis on
     régénère les <code>.ico</code>. Le repli GDI+ qui redessinait la marque a été supprimé
     (<b>D38</b>) : il avait divergé sans que personne ne le voie.
   </div>
@@ -98,7 +98,7 @@
 </main>
 <script>
 // =============================================================================
-// 1) MARQUE — reproduction EXACTE de apps/client/assets/generate-icons.py.
+// 1) MARQUE — reproduction EXACTE de apps/client/assets/generate-icons.ps1.
 //    Ne modifier qu'en miroir du generateur, sinon l'atelier ment.
 // =============================================================================
 const COLORS = { ok:'#3fb950', warn:'#d29922', err:'#f85149' };
@@ -116,7 +116,7 @@ const ARC = (() => {
 })();
 const ARCLEN = 2 * Math.PI * R * (SPAN / 360);
 
-// Niveaux de detail — MIROIR EXACT de apps/client/assets/generate-icons.py (D37).
+// Niveaux de detail — MIROIR EXACT de apps/client/assets/generate-icons.ps1 (D37).
 // En dessous d'un certain nombre de pixels, un element cesse d'etre lisible et devient
 // du bruit : on le retire plutot que de le laisser se transformer en tache.
 // Si ces seuils changent d'un cote, ils DOIVENT changer de l'autre, sinon l'atelier

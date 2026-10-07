@@ -2,6 +2,19 @@
 # -*- coding: utf-8 -*-
 """Fonte d'icones MAISON de Vigie (vigie-icons.ttf).
 
+POURQUOI CE FICHIER EST ENCORE EN PYTHON (D41, sujet S08)
+---------------------------------------------------------
+PHP est l'outil par defaut, PowerShell celui des outils Windows, et un fichier .py est une
+decision argumentee -- jamais une habitude. Voici l'argument, pour qu'il se lise ici et pas
+ailleurs : ce script ECRIT UNE FONTE TrueType. Ni .NET ni PHP ne savent en ecrire une. Le
+convertir voudrait dire ecrire a la main un generateur de fonte -- tables glyf, loca, cmap,
+head, hhea, hmtx, maxp, name, post, OS/2, et leurs sommes de controle -- pour un script qu'on
+relance le jour ou une icone change. Le cout est sans rapport avec le gain.
+
+Le second generateur, celui des icones de l'app cliente, LUI, a ete converti le 07/10 :
+GDI+ est livre avec Windows, la ou Pillow devait etre installe. Il ne reste donc qu'un
+fichier Python dans le depot, et le cliquet de check-naming est descendu a 1.
+
 Meme philosophie que generate-icons.py pour l'app cliente (D01) : la source de verite est CE
 script ; la fonte generee est versionnee a cote et rejouable a l'identique. Les icones
 sont de VRAIS caracteres (zone d'usage privee U+E001...), utilises dans le front par la

@@ -102,15 +102,51 @@ foreach ($rel in $files) {
     if ($occurrences -le 1) { $orphelins += $rel }
 }
 
+<#
+    THE FILES UNDER « assets/ »: SAME RULE, BUT WITH NO WAY OUT.
+
+    A script can be alive without a single line naming it -- a human launches it, Windows launches it. An ASSET
+    cannot: an image, a font, a data file are only of use if something designates them. There is therefore no entry
+    point to declare here, and the control can be strict.
+
+    On 07/10, apps/frontend-web/assets/ carried essai-info.png, specimen-vigie-icons.png and vigie-icons.b64, and
+    apps/client/assets/ three .png nobody ever opened: six files, 60 KB, in every clone, for nothing. Two were
+    images, which the owner had asked not to keep in the repository. Nothing could say so: this verifier read
+    only the .ps1.
+#>
+$ASSET_EXT = @('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.ico', '.webp', '.ttf', '.woff', '.woff2', '.b64', '.svg')
+$assets = @()
+foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -ErrorAction SilentlyContinue |
+                Where-Object { $_.Extension -in $ASSET_EXT })) {
+    $rel = $f.FullName.Substring($repoRoot.Length).TrimStart([char]92, [char]47).Replace([char]92, [char]47)
+    if ($SKIPPED | Where-Object { $rel -like ($_ + '/*') -or $rel -like ('*/' + $_ + '/*') }) { continue }
+    if ($rel -notlike '*assets/*') { continue }
+    $assets += $rel
+}
+$deadAssets = @()
+foreach ($rel in $assets) {
+    $leaf = Split-Path $rel -Leaf
+    # The corpus carries one "### <path>" line per file read; that line is not a designation.
+    # Assets are not in the corpus (they are binary), so any occurrence found is a real reference.
+    if (([regex]::Matches($texte, [regex]::Escape($leaf))).Count -eq 0) { $deadAssets += $rel }
+}
+
 # --- Verdict ----------------------------------------------------------------------------
 Write-Title 'Fichiers atteignables'
-Write-Info ("{0} script(s) examine(s), {1} point(s) d'entree declare(s)" -f $files.Count, $ENTRY_POINTS.Count)
+Write-Info ("{0} script(s) et {1} asset(s) examine(s), {2} point(s) d'entree declare(s)" -f $files.Count, $assets.Count, $ENTRY_POINTS.Count)
 
 if ($Detail) {
     Write-Step "Points d'entrée déclarés"
     foreach ($e in $ENTRY_POINTS.GetEnumerator()) { Write-Detail ("{0,-32} {1}" -f $e.Key, $e.Value) }
 }
 
+if ($deadAssets.Count) {
+    Write-Fail ("{0} fichier(s) d'assets que rien ne désigne :" -f $deadAssets.Count)
+    foreach ($o in $deadAssets) { Write-Detail $o }
+    Write-Info "Un asset que rien ne nomme ne sert à rien : il se supprime. Il n'y a pas de point d'entrée pour un asset."
+    Write-Outcome -Failures 1
+    exit 2
+}
 if ($orphelins.Count) {
     Write-Fail ("{0} fichier(s) que rien ne nomme :" -f $orphelins.Count)
     foreach ($o in $orphelins) { Write-Detail $o }
@@ -118,6 +154,6 @@ if ($orphelins.Count) {
     Write-Outcome -Failures 1
     exit 2
 }
-Write-Ok 'Tout script est nommé quelque part, ou déclaré comme point d''entrée.'
+Write-Ok 'Tout script est nommé quelque part ou déclaré comme point d''entrée, et tout asset est désigné.'
 Write-Outcome -Failures 0
 exit 0

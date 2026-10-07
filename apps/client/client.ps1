@@ -665,7 +665,7 @@ public static bool Close(System.IntPtr h) {
         $setIcon = {
             param($status)
             # L'icone est TOUJOURS le fichier .ico livre (assets/), genere par
-            # assets/generate-icons.py. C'est la SEULE representation de la marque.
+            # assets/generate-icons.ps1. C'est la SEULE representation de la marque.
             $name = switch ($status) { 'ok' { 'ok' } 'warn' { 'warn' } 'error' { 'error' } default { 'error' } }
             $icoPath = Join-Path $clientRoot ('assets\' + $name + '.ico')
             if (Test-Path $icoPath) {

@@ -87,7 +87,8 @@ démarrage (orange) / erreur ou arrêt (rouge). Jamais l'état des composants.
 
 *Origine non tracée — relire avant de s'en prévaloir.*
 
-- Générée à l'identique de **D01** par `apps/client/assets/generate-icons.py` (PIL)
+- Générée à l'identique de **D01** par `apps/client/assets/generate-icons.ps1` (GDI+ ; c'était
+  `generate-icons.py` et Pillow jusqu'au 07/10, où D41 a repris le dessus : un outil Windows s'écrit en PowerShell)
   → `ok.ico` / `warn.ico` / `error.ico` (multi-résolutions 16→256).
 - Chargées par `tray.ps1` (fonction `setIcon`). *Mis à jour :* le repli GDI+ décrit ici a été
   **supprimé** (**D38**) ; en cas d'échec de lecture, un simple disque de la couleur du statut
@@ -925,7 +926,7 @@ les extrémités arrondies, centrés sur `r`, dépassaient en formant des bosses
 
 ### Miroir obligatoire
 
-Les seuils et épaisseurs existent **à deux endroits** : `apps/client/assets/generate-icons.py`
+Les seuils et épaisseurs existent **à deux endroits** : `apps/client/assets/generate-icons.ps1`
 et la simulation de `apps/atelier/index.html`. Ils doivent changer ensemble — sinon
 l'Atelier montre autre chose que ce que Windows affiche, et il ne sert plus à rien (**D24**).
 
@@ -1051,8 +1052,18 @@ le reste, **PHP** (l'Atelier l'utilise déjà). Pas de troisième langage sans a
 
 **Précisé le 03/09** : PHP est **l'outil par défaut**. Python n'est pas interdit, mais son usage
 doit être **argumenté et délimité** — un fichier `.py` de plus est une décision, jamais une
-habitude. `check-naming.ps1` tient le compte et refuse toute augmentation ; les deux qui restent
-(les générateurs d'icônes) descendent quand on les convertit.
+habitude. `check-naming.ps1` tient le compte et refuse toute augmentation.
+
+**Fait le 07/10** : `apps/client/assets/generate-icons.py` devient `generate-icons.ps1`. GDI+ est livré avec Windows,
+là où Pillow devait être installé sur toute machine susceptible de redessiner la marque — et un outil **Windows**
+s'écrit en PowerShell, ce que cette décision dit depuis le début. Le dessin a été comparé taille par taille à ce que
+Pillow rendait : 2 à 5 d'écart sur 255, la marque identique à l'œil sur les trois états.
+
+**Il en reste UN, et il est argumenté plutôt que caché** : `apps/frontend-web/assets/generate-icon-font.py` écrit une
+fonte **TrueType**. Ni .NET ni PHP ne savent en écrire une ; le convertir voudrait dire écrire à la main les tables
+`glyf`, `loca`, `cmap`, `head`, `hhea`, `hmtx`, `maxp`, `name`, `post`, `OS/2` et leurs sommes de contrôle, pour un
+script relancé le jour où une icône change. Le coût est sans rapport avec le gain. **Le cliquet est donc à 1**, et le
+fichier porte cet argument dans son propre en-tête.
 
 Renommages appliqués :
 
@@ -1079,7 +1090,7 @@ portent le raisonnement derrière chaque choix — les traduire est une passe à
 - **erreur : `0.17`** (au lieu de `0.14`).
 
 La fraction n'est écrite qu'à **un seul** endroit,
-[`apps/client/assets/generate-icons.py`](../../apps/client/assets/generate-icons.py) — le repli GDI+
+[`apps/client/assets/generate-icons.ps1`](../../apps/client/assets/generate-icons.ps1) — le repli GDI+
 qui la dupliquait a été supprimé (**D38**). Les `.ico` ont été régénérés : `ok.ico` et
 `warn.ico` sont ressortis **identiques à l'octet près**, ce qui confirme au passage que le
 générateur est déterministe et que seul l'état erreur a bougé.
