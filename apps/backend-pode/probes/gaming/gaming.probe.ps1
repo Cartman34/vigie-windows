@@ -60,10 +60,10 @@ public static extern int GetSystemMetrics(int i);
         if ([VigieProbe.Win]::GetWindowRect($h, [ref]$r)) {
             # Ecran PRINCIPAL : une fenetre sur un second ecran n'est pas vue comme plein
             # ecran. C'est une limite assumee, pas un oubli.
-            $largeur = [VigieProbe.Win]::GetSystemMetrics(0)
-            $hauteur = [VigieProbe.Win]::GetSystemMetrics(1)
-            if ($largeur -gt 0 -and $hauteur -gt 0) {
-                $fgPleinEcran = (($r.Right - $r.Left) -ge ($largeur * 0.98) -and ($r.Bottom - $r.Top) -ge ($hauteur * 0.98))
+            $width = [VigieProbe.Win]::GetSystemMetrics(0)
+            $height = [VigieProbe.Win]::GetSystemMetrics(1)
+            if ($width -gt 0 -and $height -gt 0) {
+                $fgPleinEcran = (($r.Right - $r.Left) -ge ($width * 0.98) -and ($r.Bottom - $r.Top) -ge ($height * 0.98))
             }
         }
     }
@@ -80,12 +80,12 @@ public static extern int GetSystemMetrics(int i);
 #>
 $t0 = Get-Date
 $coeurs = [Math]::Max(1, [int]$env:NUMBER_OF_PROCESSORS)
-$avantCpu = @{}
+$beforeCpu = @{}
 foreach ($p in (Get-Process -ErrorAction SilentlyContinue)) {
-    try { $avantCpu[$p.Id] = $p.TotalProcessorTime.TotalMilliseconds } catch { }
+    try { $beforeCpu[$p.Id] = $p.TotalProcessorTime.TotalMilliseconds } catch { }
 }
 # READ FROM THE KERNEL IN ONE CALL (Get-ProcessTransferBytes, 14 ms): through Win32_Process each reading took 0.55 s.
-$avantIo = Get-ProcessTransferBytes
+$beforeIo = Get-ProcessTransferBytes
 # THE GPU COUNTERS, read from PDH directly (VigiePdh, scripts/lib/system-metrics.ps1): the first reading goes with
 # snapshot 1, the second with snapshot 2, so the engine utilisation -- a rate -- is measured over the same 900 ms as
 # the processor and the disk. Get-Counter took 6.3 s for the engines alone and 1 s for each memory counter (18/09).
@@ -138,27 +138,27 @@ if ($pdh -and $pdh.Collect()) {
 if ($pdh) { $pdh.Dispose() }
 
 # --- Instantane 2 + assemblage ------------------------------------------------
-$duree = ((Get-Date) - $t0).TotalMilliseconds
-$apresIo = Get-ProcessTransferBytes
+$elapsed = ((Get-Date) - $t0).TotalMilliseconds
+$afterIo = Get-ProcessTransferBytes
 $memoryUse = Get-ProcessMemoryUse
 
 $procs = @{}
 foreach ($p in (Get-Process -ErrorAction SilentlyContinue)) {
     try {
         $cpu = 0.0
-        if ($avantCpu.ContainsKey($p.Id)) {
-            $cpu = ($p.TotalProcessorTime.TotalMilliseconds - $avantCpu[$p.Id]) / $duree * 100.0 / $coeurs
+        if ($beforeCpu.ContainsKey($p.Id)) {
+            $cpu = ($p.TotalProcessorTime.TotalMilliseconds - $beforeCpu[$p.Id]) / $elapsed * 100.0 / $coeurs
         }
         $ioMo = 0.0
-        if ($avantIo.ContainsKey($p.Id) -and $apresIo.ContainsKey($p.Id)) {
-            $ioMo = [Math]::Max(0.0, ($apresIo[$p.Id] - $avantIo[$p.Id]) / $duree * 1000.0 / 1MB)
+        if ($beforeIo.ContainsKey($p.Id) -and $afterIo.ContainsKey($p.Id)) {
+            $ioMo = [Math]::Max(0.0, ($afterIo[$p.Id] - $beforeIo[$p.Id]) / $elapsed * 1000.0 / 1MB)
         }
         # Chemin de l'executable : c'est lui qui permet de dire si c'est un JEU (voir plus
         # bas). Inaccessible pour les processus proteges -- on l'accepte, on ne devine pas.
-        $chemin = $null
-        try { $chemin = $p.Path } catch { }
+        $path = $null
+        try { $path = $p.Path } catch { }
         $procs[$p.Id] = [pscustomobject]@{
-            Id = $p.Id; Name = $p.ProcessName; Path = $chemin
+            Id = $p.Id; Name = $p.ProcessName; Path = $path
             Cpu    = [Math]::Round([Math]::Min(100.0, [Math]::Max(0.0, $cpu)), 1)
             Gpu    = [Math]::Round([Math]::Min(100.0, [double]($gpuParPid[$p.Id])), 1)
             VramGb = [Math]::Round([double]($vramParPid[$p.Id]) / 1GB, 2)
@@ -216,13 +216,13 @@ function Group-ByApp {
     @($Liste | Group-Object Name | ForEach-Object {
         # Nom LISIBLE : « csrss » ne parle a personne. Le chemin vient du premier processus
         # du groupe qui accepte de le donner.
-        $chemins = @($_.Group | ForEach-Object { $_.Path } | Where-Object { $_ } | Sort-Object -Unique)
-        $chemin = @($chemins | Select-Object -First 1)[0]
+        $paths = @($_.Group | ForEach-Object { $_.Path } | Where-Object { $_ } | Sort-Object -Unique)
+        $path = @($paths | Select-Object -First 1)[0]
         [pscustomobject]@{
             Name   = $_.Name
-            Label  = (Get-AppDisplayName -ProcessName $_.Name -Path $chemin -Complet)
-            Court  = (Get-AppDisplayName -ProcessName $_.Name -Path $chemin)
-            Tip    = (Get-AppInfoTip -ProcessName $_.Name -Paths $chemins -Ids @($_.Group | ForEach-Object { [int]$_.Id }))
+            Label  = (Get-AppDisplayName -ProcessName $_.Name -Path $path -Complet)
+            Court  = (Get-AppDisplayName -ProcessName $_.Name -Path $path)
+            Tip    = (Get-AppInfoTip -ProcessName $_.Name -Paths $paths -Ids @($_.Group | ForEach-Object { [int]$_.Id }))
             Cpu    = [Math]::Round((($_.Group | Measure-Object Cpu -Sum).Sum), 1)
             Gpu    = [Math]::Round([Math]::Min(100.0, ($_.Group | Measure-Object Gpu -Sum).Sum), 1)
             VramGb = [Math]::Round((($_.Group | Measure-Object VramGb -Sum).Sum), 2)
@@ -276,10 +276,10 @@ $fields = @()
 # --- Carte graphique et VRAM --------------------------------------------------
 if ($gpus.Count -gt 0) {
     $principal = ($gpus | Sort-Object { $_.Name -match 'Intel|UHD|Iris' } | Select-Object -First 1)
-    $gLignes = @($gpus | ForEach-Object { "- {0} (pilote {1})" -f $_.Name, $_.DriverVersion })
+    $gpuLines = @($gpus | ForEach-Object { "- {0} (pilote {1})" -f $_.Name, $_.DriverVersion })
     $fields += New-Field -Key 'gpu-card' -Label 'Carte graphique' -Value $principal.Name -Kind 'text' -Status 'neutral' `
         -Help "La carte qui rend le jeu ; le détail liste tous les adaptateurs et leurs pilotes." `
-        -Guide ($gLignes -join "`n")
+        -Guide ($gpuLines -join "`n")
 } else {
     $fields += New-Field -Key 'gpu-card' -Label 'Carte graphique' -Value 'non détectée' -Kind 'text' -Status 'warn' `
         -Help "Aucun adaptateur graphique remonté par Windows." `
@@ -301,15 +301,15 @@ if ($vramTotale -gt 0) {
             # l'utilisateur additionne le tableau, ne retrouve pas le total, et a raison
             # de trouver ca incoherent.
             $vramReste  = @($vramAll | Select-Object -Skip 6)
-            $lignesVram = @($vramApps | ForEach-Object { ,@($_.Label, $_.VramGb) })
+            $vramLines = @($vramApps | ForEach-Object { ,@($_.Label, $_.VramGb) })
             $tipsVram   = @($vramApps | ForEach-Object { $_.Tip })
             if ($vramReste.Count) {
                 $sommeReste = [math]::Round((($vramReste | Measure-Object VramGb -Sum).Sum), 2)
-                $lignesVram += ,@(("Autres (" + $vramReste.Count + " applications)"), $sommeReste)
+                $vramLines += ,@(("Autres (" + $vramReste.Count + " applications)"), $sommeReste)
                 $tipsVram   += (($vramReste | ForEach-Object { $_.Label + " : " + $_.VramGb + " Go" }) -join [Environment]::NewLine)
             }
             @{ columns = @('Application', 'VRAM (Go)')
-               rows = $lignesVram
+               rows = $vramLines
                # Une infobulle par ligne : chemin absolu, editeur, PID (demande utilisateur).
                tips = $tipsVram })
 }
@@ -414,12 +414,12 @@ if ($game) {
     # rend le jeu pendant que la dediee dort -- performances divisees sans message.
     if ($luidParPid.ContainsKey($game.Id) -and $nameByLuid.Count -gt 0) {
         $luDominant = ($luidParPid[$game.Id].GetEnumerator() | Sort-Object Value -Descending | Select-Object -First 1).Key
-        $nomAd = $nameByLuid[[int64]$luDominant]
-        if ($nomAd) {
-            $surIntegree = ($nomAd -match 'Intel|UHD|Iris|Basic Render')
+        $adapterName = $nameByLuid[[int64]$luDominant]
+        if ($adapterName) {
+            $surIntegree = ($adapterName -match 'Intel|UHD|Iris|Basic Render')
             $stAd = if ($surIntegree -and $hasDedicatedCard) { 'warn' } else { 'ok' }
             $argsAd = @{
-                Key = 'game-adapter'; Label = 'Rendu par'; Value = $nomAd; Kind = 'text'; Status = $stAd
+                Key = 'game-adapter'; Label = 'Rendu par'; Value = $adapterName; Kind = 'text'; Status = $stAd
                 Help = "L'adaptateur graphique qui rend le jeu. Sur ce portable, la carte dédiée doit s'en charger."
             }
             if ($stAd -eq 'warn') {
@@ -444,10 +444,10 @@ if ($game) {
        A folder too wide would hide everything, so a root that holds more than the game is
        refused: no C:\, no Program Files, nothing shallower than two levels. #>
     $family = @()
-    foreach ($chemin in @("$($game.Path)", "$($session.launcher)")) {
-        if (-not $chemin) { continue }
+    foreach ($path in @("$($game.Path)", "$($session.launcher)")) {
+        if (-not $path) { continue }
         $folder = $null
-        try { $folder = Split-Path -Parent $chemin } catch { }
+        try { $folder = Split-Path -Parent $path } catch { }
         if (-not $folder) { continue }
         if (($folder.Split([char]92) | Where-Object { $_ }).Count -lt 3) { continue }
         $family += $folder.ToLower().TrimEnd('\') + '\'
@@ -620,13 +620,13 @@ $horsBruit = @(Group-ByApp ($procs.Values | Where-Object { $noise -notcontains $
 $meneur = @($horsBruit | Sort-Object { $_.Cpu * 1.5 + $_.Gpu } -Descending)[0]
 $repTrie = @($horsBruit | Sort-Object { $_.Cpu * 1.5 + $_.Gpu + $_.VramGb * 10 } -Descending)
 $repApps = @($repTrie | Select-Object -First 8)
-$lignesRep = @($repApps |
+$repLines = @($repApps |
     ForEach-Object { ,@(($_.Label + $(if ($servicesWindows -contains $_.Name) { ' (Windows)' } else { '' })), $_.Cpu, $_.Gpu, $_.VramGb, $_.RamGb, $_.IoMbs) })
 $tipsRep = @($repApps | ForEach-Object { $_.Tip })
 # Tout le reste de la machine, en UNE ligne : le tableau redevient additionnable.
 $repReste = @($repTrie | Select-Object -Skip 8)
 if ($repReste.Count) {
-    $lignesRep += ,@(("Autres (" + $repReste.Count + " applications)"),
+    $repLines += ,@(("Autres (" + $repReste.Count + " applications)"),
                      [math]::Round((($repReste | Measure-Object Cpu -Sum).Sum), 1),
                      [math]::Round((($repReste | Measure-Object Gpu -Sum).Sum), 1),
                      [math]::Round((($repReste | Measure-Object VramGb -Sum).Sum), 2),
@@ -640,7 +640,7 @@ $fields += New-Field -Key 'top' -Label 'Répartition des ressources' `
     -Help "Les applications les plus consommatrices, toutes dimensions confondues — pour voir qui prend quoi." `
     -Guide "Triées par poids global. E/S = disque et réseau confondus (Windows ne les sépare pas par processus)." `
     -Table @{ columns = @('Application', 'CPU %', 'GPU %', 'VRAM Go', 'RAM Go', 'E/S Mo/s')
-              rows = $lignesRep
+              rows = $repLines
               tips = $tipsRep }
 
 $statut = if (($fields | Where-Object { $_.status -eq 'warn' })) { 'warn' } else { 'ok' }
@@ -666,7 +666,7 @@ if ($lastSession -and $lastSession.seconds -ge 60) {
         if ($t.TotalHours -ge 1) { return ("{0} h {1:00}" -f [int][Math]::Floor($t.TotalHours), $t.Minutes) }
         return ("{0} min" -f [int][Math]::Floor($t.TotalMinutes))
     }
-    function Format-Share { param($Valeur) return ([double]$Valeur).ToString('0.#', $fr) + ' %' }
+    function Format-Share { param($Value) return ([double]$Value).ToString('0.#', $fr) + ' %' }
     $spanText = Format-Span -Secondes ([int]$lastSession.seconds)
     $fin = $null
     try { $fin = (ConvertTo-UtcDate $lastSession.endedAt).ToLocalTime() } catch { }

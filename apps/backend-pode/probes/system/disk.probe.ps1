@@ -50,26 +50,26 @@ $fields += New-Field -Key 'total' -Label 'Taille totale' -Value $totGB -Kind 'nu
 foreach ($d in @($disques | Where-Object { $_.DeviceID -ne $sys.DeviceID })) {
     $libre = [math]::Round($d.FreeSpace/1GB)
     $tot   = [math]::Round($d.Size/1GB)
-    $nom   = if ($d.VolumeName) { "$($d.VolumeName) ($($d.DeviceID))" } else { "$($d.DeviceID)" }
+    $name   = if ($d.VolumeName) { "$($d.VolumeName) ($($d.DeviceID))" } else { "$($d.DeviceID)" }
     $stD   = if ($libre -lt 20) { 'warn' } else { 'neutral' }
-    $fields += New-Field -Key ("vol-" + ($d.DeviceID -replace '[^A-Za-z0-9]','')) -Label $nom `
+    $fields += New-Field -Key ("vol-" + ($d.DeviceID -replace '[^A-Za-z0-9]','')) -Label $name `
         -Value ("$libre Go libres sur $tot Go") -Kind 'text' -Status $stD `
         -Help "Autre disque fixe de la machine." `
         -Guide $(if ($stD -eq 'warn') { 'Moins de 20 Go libres sur ce disque.' } else { $null })
 }
 
 # --- L'ANALYSE de la consommation (resultat de l'action « disk-analyze », D60) --
-$fichier = if ($env:VIGIE_FAKE_DISKSCAN) { $env:VIGIE_FAKE_DISKSCAN }
+$file = if ($env:VIGIE_FAKE_DISKSCAN) { $env:VIGIE_FAKE_DISKSCAN }
            else { Get-VarPath -Backend $backend -Kind 'cache' -File 'diskscan.json' }
-$etat = $null
-if (Test-Path -LiteralPath $fichier) {
-    try { $etat = Get-Content -LiteralPath $fichier -Raw | ConvertFrom-Json } catch { }
+$state = $null
+if (Test-Path -LiteralPath $file) {
+    try { $state = Get-Content -LiteralPath $file -Raw | ConvertFrom-Json } catch { }
 }
-$scan = if ($etat) { $etat.scan } else { $null }
+$scan = if ($state) { $state.scan } else { $null }
 
 # WHAT IS RUNNING IS SAID BY THE BUSY MARK (doc/progress/targeting/operations.md): no expiry of our own any more.
 $enCours = [bool](Get-ModuleBusyMark -Module 'storage' -Backend $backend)
-$racine = if ($scan -and $scan.root) { "$($scan.root)" } else { "$sysLettre\" }
+$rootPath = if ($scan -and $scan.root) { "$($scan.root)" } else { "$sysLettre\" }
 
 # Destination PERMANENTE (D114) : les parametres de stockage de Windows montrent ce qui
 # occupe le disque par categorie, que la carte alerte ou non.
@@ -206,10 +206,10 @@ if ($vdiskFresh) {
         $vdiskRoots += [pscustomobject]@{ Path = (Join-Path $profil.FullName 'VirtualBox VMs'); Depth = 3; Ext = @('*.vdi', '*.vmdk', '*.vhd') }
     }
     $vdiskRoots += [pscustomobject]@{ Path = (Join-Path $env:ProgramData 'Microsoft\Windows\Virtual Hard Disks'); Depth = 2; Ext = @('*.vhdx', '*.vhd') }
-    foreach ($racine in $vdiskRoots) {
-        if (-not (Test-PathSafe $racine.Path)) { continue }
-        foreach ($ext in $racine.Ext) {
-            foreach ($f in @(Get-ChildItem -LiteralPath $racine.Path -Filter $ext -File -Recurse -Depth $racine.Depth -Force -ErrorAction SilentlyContinue)) {
+    foreach ($rootPath in $vdiskRoots) {
+        if (-not (Test-PathSafe $rootPath.Path)) { continue }
+        foreach ($ext in $rootPath.Ext) {
+            foreach ($f in @(Get-ChildItem -LiteralPath $rootPath.Path -Filter $ext -File -Recurse -Depth $rootPath.Depth -Force -ErrorAction SilentlyContinue)) {
                 if ($f.Length -lt 5GB) { continue }
                 $vdisks += [pscustomobject]@{ Nom = $f.Name; Machine = (Get-VirtualMachineName -Path $f.FullName)
                                               Compte = (Get-OwningAccountName -Path $f.FullName)
@@ -304,28 +304,28 @@ if ($enCours) {
     }
     $lus = if ($null -ne $scan.bytes) { Format-ByteSize ([long]$scan.bytes) } else { '0 o' }
     $fields += New-Field -Key 'scan-progress' -Label 'Analyse — dossiers parcourus' -Value ([int]$scan.dirs) -Kind 'number' -Status 'neutral' `
-        -Help "Analyse de $racine en cours $depuisTxt." `
+        -Help "Analyse de $rootPath en cours $depuisTxt." `
         -Guide (@("Dossier en cours : $($scan.current)",
                   "$([int]$scan.files) fichiers mesurés, $lus lus.",
                   "Le parcours ne modifie rien : il ne fait que lire les tailles.") -join "`n")
     $actions += New-Action -Id 'disk-analyze-stop' -Label 'Arrêter l''analyse' -Kind 'immediate' -Severity 'neutral' `
         -BusyLabel 'Arrêt…' -Help "Interrompt le parcours. Le dernier résultat complet reste affiché."
 } else {
-    $arbre = if ($etat) { $etat.tree } else { $null }
+    $arbre = if ($state) { $state.tree } else { $null }
     if (-not $arbre) {
         # A displayed value starts with a capital, an invariant check-probes holds. These two are the only
         # values of the card no analysis has filled yet, so the only ones seen with an empty cache -- the
         # state of a fresh clone, which is why they went unnoticed.
         $quoi = if ($scan -and $scan.canceled) { 'Interrompue' } else { 'Jamais lancée' }
         $fields += New-Field -Key 'scan-state' -Label 'Analyse de l''espace' -Value $quoi -Kind 'text' -Status 'neutral' `
-            -Help "« Analyser l'espace » montre ce qui occupe $racine." `
+            -Help "« Analyser l'espace » montre ce qui occupe $rootPath." `
             -Guide "Le parcours dure de quelques secondes à quelques minutes selon le nombre de fichiers. Il lit uniquement les tailles, il ne modifie rien et s'arrête à tout moment."
     } else {
         # `result` decrit l'analyse COMPLETE a laquelle l'arbre appartient ; `scan` ne dit
         # que l'etat de la derniere tache. Les confondre ferait dater l'arbre du jour d'une
         # interruption. (Filet : un cache ecrit avant cette distinction n'a que `scan`.)
-        $bilan = if ($etat.result) { $etat.result } else { $scan }
-        $racine = if ($bilan.root) { "$($bilan.root)" } else { $racine }
+        $bilan = if ($state.result) { $state.result } else { $scan }
+        $rootPath = if ($bilan.root) { "$($bilan.root)" } else { $rootPath }
         if ($scan -and $scan.canceled) {
             $fields += New-Field -Key 'scan-canceled' -Label 'Dernière analyse' -Value 'interrompue' -Kind 'text' -Status 'neutral' `
                 -Help "La dernière analyse a été arrêtée : le résultat affiché est celui du parcours complet précédent." `
@@ -338,7 +338,7 @@ if ($enCours) {
         if ($when) {
             $fields += New-Field -Key 'scan-at' -Label 'Espace analysé le' -Value ($when.ToString('s')) -Kind 'date' -Status 'neutral' `
                 -Help $(if ($ageDays -ge 7) { "Résultat vieux de $ageDays jours : relancez l'analyse pour une photo à jour." }
-                        else { "Date du dernier parcours complet de $racine." }) `
+                        else { "Date du dernier parcours complet de $rootPath." }) `
                 -Guide ("$([int]$bilan.dirs) dossiers et $([int]$bilan.files) fichiers parcourus en $([int]$bilan.seconds) s.")
         }
 
@@ -346,40 +346,40 @@ if ($enCours) {
         $enfants = @($arbre.k | Sort-Object -Property @{ Expression = { [long]$_.s } } -Descending)
 
         # 1) Repartition du premier niveau : ou part la place.
-        $lignes = @()
+        $lines = @()
         foreach ($e in $enfants) {
             $pc = if ($total -gt 0) { [math]::Round(([double]$e.s / $total) * 100, 1) } else { 0 }
-            $lignes += ,@("$($e.n)", (Format-ByteSize ([long]$e.s)), "$pc %")
+            $lines += ,@("$($e.n)", (Format-ByteSize ([long]$e.s)), "$pc %")
         }
         if ($arbre.o -and [long]$arbre.o.s -gt 0) {
             $pc = if ($total -gt 0) { [math]::Round(([double]$arbre.o.s / $total) * 100, 1) } else { 0 }
-            $lignes += ,@("$([int]$arbre.o.c) autres dossiers", (Format-ByteSize ([long]$arbre.o.s)), "$pc %")
+            $lines += ,@("$([int]$arbre.o.c) autres dossiers", (Format-ByteSize ([long]$arbre.o.s)), "$pc %")
         }
         $biggest = if ($enfants.Count) { "$($enfants[0].n) — $(Format-ByteSize ([long]$enfants[0].s))" } else { '—' }
         $fields += New-Field -Key 'scan-top' -Label 'Premier niveau' -Value $biggest -Kind 'text' -Status 'neutral' `
-            -Help "Répartition de $racine au premier niveau : le plus gros dossier est affiché, le détail complet est dans le tableau." `
-            -Table @{ columns = @('Dossier', 'Taille', 'Part'); rows = $lignes }
+            -Help "Répartition de $rootPath au premier niveau : le plus gros dossier est affiché, le détail complet est dans le tableau." `
+            -Table @{ columns = @('Dossier', 'Taille', 'Part'); rows = $lines }
 
         $fields += New-Field -Key 'scan-total' -Label 'Total mesuré' -Value (Format-ByteSize $total) -Kind 'text' -Status 'neutral' `
             -Help "Somme des fichiers réellement lus. Elle peut être inférieure à l'espace occupé du disque : les dossiers protégés (System Volume Information, corbeilles d'autres comptes) ne sont pas lisibles, et les liens de jonction ne sont comptés qu'une fois."
 
         # 2) Les plus gros dossiers, tous niveaux confondus : le coupable est souvent profond.
         $rowsD = @()
-        foreach ($d in @($etat.bigFolders)) { $rowsD += ,@("$($d.n)", (Format-ByteSize ([long]$d.s)), "$([int]$d.f)") }
+        foreach ($d in @($state.bigFolders)) { $rowsD += ,@("$($d.n)", (Format-ByteSize ([long]$d.s)), "$([int]$d.f)") }
         if ($rowsD.Count) {
             # La VALEUR dit le coupable ; le tableau donne le classement complet.
-            $coupable = "$($etat.bigFolders[0].n) — $(Format-ByteSize ([long]$etat.bigFolders[0].s))"
+            $coupable = "$($state.bigFolders[0].n) — $(Format-ByteSize ([long]$state.bigFolders[0].s))"
             $fields += New-Field -Key 'scan-folders' -Label 'Où part la place' -Value $coupable -Kind 'text' -Status 'neutral' `
-                -Help "Le dossier le plus lourd où la place se partage vraiment, tous niveaux confondus (chemins relatifs à $racine). Les dossiers dont un seul enfant explique tout le poids sont écartés : c'est l'enfant qui est montré." `
+                -Help "Le dossier le plus lourd où la place se partage vraiment, tous niveaux confondus (chemins relatifs à $rootPath). Les dossiers dont un seul enfant explique tout le poids sont écartés : c'est l'enfant qui est montré." `
                 -Table @{ columns = @('Dossier', 'Taille', 'Fichiers'); rows = $rowsD }
         }
 
         # 3) Les plus gros fichiers.
         $rowsF = @()
-        foreach ($f in @($etat.bigFiles)) { $rowsF += ,@("$($f.n)", (Format-ByteSize ([long]$f.s))) }
+        foreach ($f in @($state.bigFiles)) { $rowsF += ,@("$($f.n)", (Format-ByteSize ([long]$f.s))) }
         if ($rowsF.Count) {
-            $nomFichier = Split-Path "$($etat.bigFiles[0].n)" -Leaf
-            $fields += New-Field -Key 'scan-files' -Label 'Plus gros fichier' -Value ("$nomFichier — $(Format-ByteSize ([long]$etat.bigFiles[0].s))") -Kind 'text' -Status 'neutral' `
+            $fileName = Split-Path "$($state.bigFiles[0].n)" -Leaf
+            $fields += New-Field -Key 'scan-files' -Label 'Plus gros fichier' -Value ("$fileName — $(Format-ByteSize ([long]$state.bigFiles[0].s))") -Kind 'text' -Status 'neutral' `
                 -Help "Les fichiers les plus lourds rencontrés. Un fichier système (pagefile.sys, hiberfil.sys) est normal : ne le supprimez pas." `
                 -Table @{ columns = @('Fichier', 'Taille'); rows = $rowsF }
         }
@@ -397,7 +397,7 @@ if ($enCours) {
     }
     $actions += New-Action -Id 'disk-analyze' -Label $(if ($arbre) { 'Relancer l''analyse' } else { 'Analyser l''espace' }) `
         -Kind 'immediate' -Severity 'info' -BusyLabel 'Analyse…' `
-        -Help "Parcourt $racine et classe les dossiers par taille. Lecture seule : rien n'est supprimé."
+        -Help "Parcourt $rootPath et classe les dossiers par taille. Lecture seule : rien n'est supprimé."
 }
 
 # A failure the worker could not write itself is the protocol's result, and the card says it.

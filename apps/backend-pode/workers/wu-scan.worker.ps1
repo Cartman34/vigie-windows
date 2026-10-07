@@ -27,7 +27,7 @@ $verrouLeve = $false
 $exitCode = 0
 try {
     if ($reposerVerrou) {
-        $verrouLeve = Set-UpdateLock -Etat 'leve' -Backend $Backend
+        $verrouLeve = Set-UpdateLock -State 'leve' -Backend $Backend
         Write-Log -Backend $Backend -Name 'wuscan' -Message (Get-Label 'wu-scan.verrou-leve' $verrouLeve)
     }
 
@@ -47,7 +47,7 @@ try {
     Write-Output ('[X] ' + $_.Exception.Message)
 } finally {
     if ($verrouLeve) {
-        $repose = Set-UpdateLock -Etat 'pose' -Backend $Backend
+        $repose = Set-UpdateLock -State 'pose' -Backend $Backend
         Write-Log -Backend $Backend -Name 'wuscan' -Message (Get-Label 'wu-scan.verrou-repose' $repose)
         if (-not $repose) {
             Set-Etat @{ verrouNonRepose = $true }

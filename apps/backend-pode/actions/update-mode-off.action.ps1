@@ -33,7 +33,7 @@ if ($avant.locked) {
 
 # La valeur de retour de Set-UpdateLock ne porte que la moitie ACL du verrou ; le compte
 # rendu ci-dessous s'appuie sur l'etat COMPLET relu juste apres.
-$null = Set-UpdateLock -Etat 'pose' -Backend $backend
+$null = Set-UpdateLock -State 'pose' -Backend $backend
 $apres = Get-UpdateLockState
 
 # On rapporte l'etat CONSTATE (D43). Les deux moities du verrou sont distinguees : couper

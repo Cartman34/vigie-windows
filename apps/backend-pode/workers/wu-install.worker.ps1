@@ -205,7 +205,7 @@ $verrouLeve = $false
 $exitCode = 0
 try {
     if ($reposerVerrou) {
-        $verrouLeve = Set-UpdateLock -Etat 'leve' -Backend $Backend
+        $verrouLeve = Set-UpdateLock -State 'leve' -Backend $Backend
         Write-Log -Backend $Backend -Name 'wuinstall' -Message (Get-Label 'wu-install.verrou-leve' $verrouLeve)
         if (-not $verrouLeve) { throw "Le verrou des mises à jour n'a pas pu être levé." }
     }
@@ -315,7 +315,7 @@ try {
     Write-Output ('[X] ' + $_.Exception.Message)
 } finally {
     if ($verrouLeve) {
-        $repose = Set-UpdateLock -Etat 'pose' -Backend $Backend
+        $repose = Set-UpdateLock -State 'pose' -Backend $Backend
         Write-Log -Backend $Backend -Name 'wuinstall' -Message (Get-Label 'wu-install.verrou-repose' $repose)
         if (-not $repose) {
             # Etat anormal : on le SIGNALE au lieu de le taire, la machine reste ouverte.

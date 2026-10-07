@@ -16,33 +16,33 @@
 
    Codes de retour : 0 = rien a signaler ; 2 = au moins un ecart.
 #>
-param([switch]$Silencieux)
+param([switch]$Quiet)
 
 $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 $doc      = Join-Path $repoRoot 'doc'
 $souci    = 0
 
-function Ecrire { param([string]$Texte, [string]$Couleur = 'Gray')
-    if (-not $Silencieux) { Write-Host $Texte -ForegroundColor $Couleur } }
+function Ecrire { param([string]$text, [string]$Couleur = 'Gray')
+    if (-not $Quiet) { Write-Host $text -ForegroundColor $Couleur } }
 
 # --- 1. Liens morts ---------------------------------------------------------
 $exclus = @('.git', 'node_modules', 'dist', 'var', 'local')
-$fichiers = Get-ChildItem -Path $repoRoot -Filter '*.md' -Recurse -File |
+$files = Get-ChildItem -Path $repoRoot -Filter '*.md' -Recurse -File |
     Where-Object { $p = $_.FullName; -not ($exclus | Where-Object { $p -like ('*' + [IO.Path]::DirectorySeparatorChar + $_ + [IO.Path]::DirectorySeparatorChar + '*') }) }
 
 $morts = @()
-foreach ($f in $fichiers) {
-    $texte = Get-Content -LiteralPath $f.FullName -Raw -Encoding UTF8
-    foreach ($m in [regex]::Matches($texte, '\[[^\]]*\]\(([^)#\s]+)(?:#[^)]*)?\)')) {
-        $cible = $m.Groups[1].Value
-        if ($cible -match '^(https?:|mailto:)') { continue }
-        $chemin = Join-Path (Split-Path $f.FullName -Parent) $cible
-        if (-not (Test-Path -LiteralPath $chemin)) {
-            $morts += ((Resolve-Path -LiteralPath $f.FullName -Relative) + '  ->  ' + $cible)
+foreach ($f in $files) {
+    $text = Get-Content -LiteralPath $f.FullName -Raw -Encoding UTF8
+    foreach ($m in [regex]::Matches($text, '\[[^\]]*\]\(([^)#\s]+)(?:#[^)]*)?\)')) {
+        $target = $m.Groups[1].Value
+        if ($target -match '^(https?:|mailto:)') { continue }
+        $Path = Join-Path (Split-Path $f.FullName -Parent) $target
+        if (-not (Test-Path -LiteralPath $Path)) {
+            $morts += ((Resolve-Path -LiteralPath $f.FullName -Relative) + '  ->  ' + $target)
         }
     }
 }
-Ecrire ("{0} fichier(s) markdown lus." -f $fichiers.Count)
+Ecrire ("{0} fichier(s) markdown lus." -f $files.Count)
 if ($morts.Count) {
     $souci = 2
     Ecrire ("{0} lien(s) mort(s) :" -f $morts.Count) 'Red'
@@ -51,18 +51,18 @@ if ($morts.Count) {
 
 # --- 2. Synchronisation fr / en ---------------------------------------------
 function Get-Profil {
-    param([string]$Chemin)
-    $texte  = Get-Content -LiteralPath $Chemin -Raw -Encoding UTF8
-    $lignes = $texte -split "`n"
+    param([string]$Path)
+    $text  = Get-Content -LiteralPath $Path -Raw -Encoding UTF8
+    $lines = $text -split "`n"
     # La mention « traduit du francais » n'existe QUE cote anglais : c'est voulu, elle ne
     # compte pas comme un ecart. Elle tient sur deux lignes, dont la seconde porte le
     # renvoi -- il faut donc ecarter les deux, pas seulement celle qui s'annonce.
-    $utiles = $lignes | Where-Object { $_ -notmatch 'master version' -and $_ -notmatch 'the French page' }
+    $useful = $lines | Where-Object { $_ -notmatch 'master version' -and $_ -notmatch 'the French page' }
     [pscustomobject]@{
-        Titres  = @($utiles | Where-Object { $_ -match '^#{1,4} ' }).Count
-        Tableau = @($utiles | Where-Object { $_ -match '^\|' }).Count
-        Code    = @($utiles | Where-Object { $_ -match '^```' }).Count
-        Renvois = @([regex]::Matches(($utiles -join "`n"), '\]\(([^)\s]+)\)') |
+        Titres  = @($useful | Where-Object { $_ -match '^#{1,4} ' }).Count
+        Tableau = @($useful | Where-Object { $_ -match '^\|' }).Count
+        Code    = @($useful | Where-Object { $_ -match '^```' }).Count
+        Renvois = @([regex]::Matches(($useful -join "`n"), '\]\(([^)\s]+)\)') |
                     Where-Object { $_.Groups[1].Value -notmatch '^(https?:|mailto:|#)' }).Count
     }
 }
@@ -81,12 +81,12 @@ foreach ($sous in @('using', 'operating')) {
 $ecarts = 0
 foreach ($paire in $paires) {
     $fr, $en = $paire[0], $paire[1]
-    $nom = (Resolve-Path -LiteralPath $fr -Relative)
+    $name = (Resolve-Path -LiteralPath $fr -Relative)
     if (-not (Test-Path -LiteralPath $en)) {
-        $ecarts++; Ecrire ("SANS JUMEAU  " + $nom) 'Yellow'; continue
+        $ecarts++; Ecrire ("SANS JUMEAU  " + $name) 'Yellow'; continue
     }
-    $a = Get-Profil -Chemin $fr
-    $b = Get-Profil -Chemin $en
+    $a = Get-Profil -Path $fr
+    $b = Get-Profil -Path $en
     $d = @()
     if ($a.Titres  -ne $b.Titres)  { $d += ("titres {0} vs {1}"            -f $a.Titres,  $b.Titres) }
     if ($a.Tableau -ne $b.Tableau) { $d += ("lignes de tableau {0} vs {1}" -f $a.Tableau, $b.Tableau) }
@@ -94,7 +94,7 @@ foreach ($paire in $paires) {
     if ($a.Renvois -ne $b.Renvois) { $d += ("renvois {0} vs {1}"           -f $a.Renvois, $b.Renvois) }
     if ($d.Count) {
         $ecarts++
-        Ecrire ("{0,-42} {1}" -f $nom, ($d -join ' | ')) 'Yellow'
+        Ecrire ("{0,-42} {1}" -f $name, ($d -join ' | ')) 'Yellow'
     }
 }
 Ecrire ("{0} paire(s) fr/en comparee(s)." -f $paires.Count)
@@ -110,19 +110,19 @@ if ($ecarts) {
 # Un sommaire incomplet est pire qu'absent -- il donne l'illusion d'avoir tout lu.
 $dec = Join-Path $doc 'progress/decisions.md'
 if (Test-Path -LiteralPath $dec) {
-    $texte  = Get-Content -LiteralPath $dec -Raw -Encoding UTF8
-    $iSomm  = $texte.IndexOf('## Sommaire')
-    $iPrem  = $texte.IndexOf("`n## D01")
+    $text  = Get-Content -LiteralPath $dec -Raw -Encoding UTF8
+    $iSomm  = $text.IndexOf('## Sommaire')
+    $iPrem  = $text.IndexOf("`n## D01")
     if ($iSomm -ge 0 -and $iPrem -gt $iSomm) {
-        $sommaire = $texte.Substring($iSomm, $iPrem - $iSomm)
+        $sommaire = $text.Substring($iSomm, $iPrem - $iSomm)
         $cites  = @([regex]::Matches($sommaire, '\bD\d+(?:bis)?\b') | ForEach-Object { $_.Value })
-        $titres = @([regex]::Matches($texte, '(?m)^## (D\d+(?:bis)?)') | ForEach-Object { $_.Groups[1].Value }) | Select-Object -Unique
-        $absents = @($titres | Where-Object { $cites -notcontains $_ })
+        $headings = @([regex]::Matches($text, '(?m)^## (D\d+(?:bis)?)') | ForEach-Object { $_.Groups[1].Value }) | Select-Object -Unique
+        $absents = @($headings | Where-Object { $cites -notcontains $_ })
         if ($absents.Count) {
             if ($souci -eq 0) { $souci = 2 }
             Ecrire ("{0} decision(s) absente(s) du sommaire : {1}" -f $absents.Count, ($absents -join ' ')) 'Yellow'
         } else {
-            Ecrire ("Sommaire des decisions complet ({0} entrees)." -f $titres.Count) 'Green'
+            Ecrire ("Sommaire des decisions complet ({0} entrees)." -f $headings.Count) 'Green'
         }
     }
 }

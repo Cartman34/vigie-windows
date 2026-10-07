@@ -108,7 +108,7 @@ if ($serverStopped) {
 # would have to be done by hand.
 Write-Step (Get-Label 'uninstall.etape-verrou')
 $lockLifted = $false
-try { $lockLifted = [bool](Set-UpdateLock -Etat 'leve' -Backend $backend) } catch { $lockLifted = $false }
+try { $lockLifted = [bool](Set-UpdateLock -State 'leve' -Backend $backend) } catch { $lockLifted = $false }
 if ($lockLifted) {
     Write-Ok (Get-Label 'uninstall.verrou-leve')
 } else {

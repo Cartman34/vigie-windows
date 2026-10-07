@@ -31,7 +31,7 @@ if (-not $avant.aclLock -and -not $avant.autoUpdatesOff) {
     }
 }
 
-$ok = Set-UpdateLock -Etat 'leve' -Backend $backend
+$ok = Set-UpdateLock -State 'leve' -Backend $backend
 $apres = Get-UpdateLockState
 
 # Ce qui est rapporte est ce qui a ete OBSERVE apres coup (D43), jamais « la commande

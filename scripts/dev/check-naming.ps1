@@ -84,8 +84,19 @@ $COMMENT_CEILING = 5603
     merge in any scope -- which forced cardEl, uiState, fieldCount rather than card, state, rows, all three taken.
     One trap found by the cutting: "u.enabled ? lignes : ..." puts a colon after a name that is a VARIABLE, and
     skipping it would have renamed the declaration and left the use hanging.
+
+    07/10, the rest of what can be RUN: 249 -> 174. The three French parameters of the library went across the whole
+    repository at once -- -Chemin, -Comptes and -Etat became -Path, -Accounts and -State in common.ps1 and in the ten
+    files that called them, because a parameter is only renamed on both faces at the same time. Then the two probes,
+    check-doc, install-dev and build-release, each proven by running it: the same 19 probes and 21 modules, the same
+    verifier output to the character, the same 232-file archive.
+
+    WHAT STAYS, AND WHY, SO NOBODY LOOKS FOR IT AGAIN: show-confirm.ps1 (17) and apps/client/client.ps1 (16) open a
+    window. Neither can be run before and after without putting something on the owner's screen, and a rename here is
+    proven by running the file -- not by the fact that it parses. They will go the day their proof does not cost him
+    a window, and not before: 33 of the 174 are there.
 #>
-$CEILING = 249
+$CEILING = 174
 
 # LE PLAFOND DES NOMS DE FICHIERS. Meme cliquet, compte separe : ceux qui restent sont
 # nommes dans des taches planifiees deja posees et dans des raccourcis, donc ils se

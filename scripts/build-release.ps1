@@ -154,22 +154,22 @@ function Format-Taille {
 # liens en URL GitHub absolue (ils marchent alors des deux cotes) ; ce controle est la
 # pour que l'oubli se voie au moment de la fabrication, pas chez l'utilisateur.
 function Find-LienMort {
-    param([Parameter(Mandatory)][string] $Racine)
+    param([Parameter(Mandatory)][string] $Root)
     $morts = @()
-    foreach ($md in (Get-ChildItem -LiteralPath $Racine -Recurse -Filter *.md -File)) {
+    foreach ($md in (Get-ChildItem -LiteralPath $Root -Recurse -Filter *.md -File)) {
         # UN FICHIER VIDE REND $null, PAS UNE CHAINE VIDE. « Matches » leve alors
         # « Value cannot be null », et toute la fabrication s'arrete sur un document sans
         # une ligne (constate le 01/09 : v0.1.44 n'a jamais ete fabriquee).
-        $texte = Get-Content -LiteralPath $md.FullName -Raw
-        if (-not $texte) { continue }
-        foreach ($m in [regex]::Matches($texte, '\]\(([^)]+)\)')) {
+        $text = Get-Content -LiteralPath $md.FullName -Raw
+        if (-not $text) { continue }
+        foreach ($m in [regex]::Matches($text, '\]\(([^)]+)\)')) {
             $lien = $m.Groups[1].Value
             if ($lien -match '^(https?:|mailto:|#)') { continue }
-            $chemin = ($lien -split '#')[0]
-            if (-not $chemin) { continue }
-            if (-not (Test-Path -LiteralPath (Join-Path $md.DirectoryName $chemin))) {
+            $path = ($lien -split '#')[0]
+            if (-not $path) { continue }
+            if (-not (Test-Path -LiteralPath (Join-Path $md.DirectoryName $path))) {
                 $morts += [pscustomobject]@{
-                    Fichier = $md.FullName.Substring($Racine.Length).TrimStart('\', '/')
+                    Fichier = $md.FullName.Substring($Root.Length).TrimStart('\', '/')
                     Lien    = $lien
                 }
             }
@@ -180,9 +180,9 @@ function Find-LienMort {
 
 # Renvoie la liste des correspondances interdites trouvees dans $Chemins.
 function Find-CheminInterdit {
-    param([string[]] $Chemins)
+    param([string[]] $Paths)
     $trouves = @()
-    foreach ($c in $Chemins) {
+    foreach ($c in $Paths) {
         foreach ($i in $INTERDITS) {
             if ($c -match $i.Motif) { $trouves += [pscustomobject]@{ Chemin = $c; Quoi = $i.Quoi } }
         }
@@ -229,12 +229,12 @@ if ($suivis.Count -eq 0) {
 
 # --- Tri : retenus / ecartes -----------------------------------------------------------
 $retenus = @()
-$ecartes = @{}   # motif -> nombre de fichiers ecartes
+$excluded = @{}   # motif -> nombre de fichiers ecartes
 foreach ($f in $suivis) {
     $regle = $EXCLUSIONS | Where-Object { $f -match $_.Motif } | Select-Object -First 1
     if ($regle) {
-        if (-not $ecartes.ContainsKey($regle.Motif)) { $ecartes[$regle.Motif] = 0 }
-        $ecartes[$regle.Motif]++
+        if (-not $excluded.ContainsKey($regle.Motif)) { $excluded[$regle.Motif] = 0 }
+        $excluded[$regle.Motif]++
         continue
     }
     # Un fichier suivi mais supprime du disque (suppression non encore committee) ne doit
@@ -247,7 +247,7 @@ foreach ($f in $suivis) {
 }
 
 # --- GARDE-FOU, avant toute ecriture ---------------------------------------------------
-$interdits = Find-CheminInterdit -Chemins $retenus
+$interdits = Find-CheminInterdit -Paths $retenus
 if ($interdits.Count -gt 0) {
     Write-Fail (Get-Label 'build-release.arret-des-fichiers-interdits')
     foreach ($i in $interdits) { Write-Fail ("  " + $i.Chemin + "   <- " + $i.Quoi) }
@@ -256,28 +256,28 @@ if ($interdits.Count -gt 0) {
 }
 
 # --- Compte rendu de ce qui part --------------------------------------------------------
-$tailleTotale = 0
-$parRacine = @{}
+$totalSize = 0
+$byRoot = @{}
 foreach ($f in $retenus) {
-    $taille = (Get-Item -LiteralPath (Join-Path $repoRoot $f)).Length
-    $tailleTotale += $taille
-    $racine = if ($f -match '/') { ($f -split '/')[0] + '/' } else { '(racine)' }
-    if (-not $parRacine.ContainsKey($racine)) { $parRacine[$racine] = @{ N = 0; Taille = 0 } }
-    $parRacine[$racine].N++
-    $parRacine[$racine].Taille += $taille
+    $size = (Get-Item -LiteralPath (Join-Path $repoRoot $f)).Length
+    $totalSize += $size
+    $Root = if ($f -match '/') { ($f -split '/')[0] + '/' } else { '(racine)' }
+    if (-not $byRoot.ContainsKey($Root)) { $byRoot[$Root] = @{ N = 0; Taille = 0 } }
+    $byRoot[$Root].N++
+    $byRoot[$Root].Taille += $size
 }
 
 Write-Step (Get-Label 'build-release.vigie-contenu-de-archive' $number)
-Write-Info (Get-Label 'build-release.fichier-avant-compression' $retenus.Count (Format-Taille $tailleTotale))
-foreach ($k in ($parRacine.Keys | Sort-Object)) {
-    Write-Info (Get-Label 'build-release.18-fichier' $k $parRacine[$k].N (Format-Taille $parRacine[$k].Taille))
+Write-Info (Get-Label 'build-release.fichier-avant-compression' $retenus.Count (Format-Taille $totalSize))
+foreach ($k in ($byRoot.Keys | Sort-Object)) {
+    Write-Info (Get-Label 'build-release.18-fichier' $k $byRoot[$k].N (Format-Taille $byRoot[$k].Taille))
 }
 
-$nbEcartes = ($ecartes.Values | Measure-Object -Sum).Sum
-Write-Detail (Get-Label 'build-release.ecarte-volontairement-fichier-suivi' ([int]$nbEcartes))
+$excludedCount = ($excluded.Values | Measure-Object -Sum).Sum
+Write-Detail (Get-Label 'build-release.ecarte-volontairement-fichier-suivi' ([int]$excludedCount))
 foreach ($regle in $EXCLUSIONS) {
-    if ($ecartes.ContainsKey($regle.Motif)) {
-        Write-Detail (Get-Label 'build-release.texte' $ecartes[$regle.Motif] $regle.Raison)
+    if ($excluded.ContainsKey($regle.Motif)) {
+        Write-Detail (Get-Label 'build-release.texte' $excluded[$regle.Motif] $regle.Raison)
     }
 }
 Write-Detail (Get-Label 'build-release.jamais-propose-tout-ce')
@@ -290,13 +290,13 @@ if ($ListOnly) {
 
 # --- Preparation et compression ---------------------------------------------------------
 if (-not $OutDir) { $OutDir = Join-Path $repoRoot 'dist' }
-$nom     = 'vigie-' + $fileNumber
+$name     = 'vigie-' + $fileNumber
 # Fichiers AJOUTES par la fabrication (donc absents de git) : le controle final les
 # attend en plus de la liste retenue.
 $genereParLaFabrication = @()
 
-$staging = Join-Path $OutDir $nom
-$zip     = Join-Path $OutDir ($nom + '.zip')
+$staging = Join-Path $OutDir $name
+$zip     = Join-Path $OutDir ($name + '.zip')
 
 try {
     # Idempotence : on repart d'une preparation vide, sinon un fichier retire de la liste
@@ -305,15 +305,15 @@ try {
     New-Item -ItemType Directory -Path $staging -Force | Out-Null
 
     foreach ($f in $retenus) {
-        $cible = Join-Path $staging ($f -replace '/', [IO.Path]::DirectorySeparatorChar)
-        $dossier = Split-Path $cible -Parent
-        if (-not (Test-Path -LiteralPath $dossier)) { New-Item -ItemType Directory -Path $dossier -Force | Out-Null }
-        Copy-Item -LiteralPath (Join-Path $repoRoot $f) -Destination $cible -Force
+        $target = Join-Path $staging ($f -replace '/', [IO.Path]::DirectorySeparatorChar)
+        $folder = Split-Path $target -Parent
+        if (-not (Test-Path -LiteralPath $folder)) { New-Item -ItemType Directory -Path $folder -Force | Out-Null }
+        Copy-Item -LiteralPath (Join-Path $repoRoot $f) -Destination $target -Force
     }
 
     # Controle de la documentation livree, sur la preparation : c'est le seul moment ou
     # l'arborescence de l'archive existe reellement sur le disque.
-    $liensMorts = Find-LienMort -Racine $staging
+    $liensMorts = Find-LienMort -Root $staging
     if ($liensMorts.Count -gt 0) {
         Write-Warn (Get-Label 'build-release.attention-lien-de-la' $liensMorts.Count)
         foreach ($l in $liensMorts) { Write-Warn ("    " + $l.Fichier + " -> " + $l.Lien) }
@@ -350,12 +350,12 @@ try {
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $archive = [System.IO.Compression.ZipFile]::OpenRead($zip)
 try {
-    $entrees = @($archive.Entries | ForEach-Object { $_.FullName })
+    $entries = @($archive.Entries | ForEach-Object { $_.FullName })
 } finally {
     $archive.Dispose()
 }
 
-$interditsZip = Find-CheminInterdit -Chemins $entrees
+$interditsZip = Find-CheminInterdit -Paths $entries
 if ($interditsZip.Count -gt 0) {
     Write-Fail (Get-Label 'build-release.arret-archive-produite-contient')
     foreach ($i in $interditsZip) { Write-Fail ("  " + $i.Chemin + "   <- " + $i.Quoi) }
@@ -365,19 +365,19 @@ if ($interditsZip.Count -gt 0) {
 }
 
 # Les entrees de dossier n'ont pas de nom de fichier : on ne compte que les vrais fichiers.
-$nbFichiersZip = @($entrees | Where-Object { -not $_.EndsWith('/') }).Count
+$zipFileCount = @($entries | Where-Object { -not $_.EndsWith('/') }).Count
 # Attendu = ce que git suit ET ce que la fabrication a ajoute (la marque de version).
 $attendu = $retenus.Count + $genereParLaFabrication.Count
-if ($nbFichiersZip -ne $attendu) {
-    Write-Fail (Get-Label 'build-release.arret-fichier-dans-archive' $nbFichiersZip $attendu $(if ($genereParLaFabrication.Count) { " (" + $retenus.Count + " suivis par git + " + ($genereParLaFabrication -join ', ') + ")" }))
+if ($zipFileCount -ne $attendu) {
+    Write-Fail (Get-Label 'build-release.arret-fichier-dans-archive' $zipFileCount $attendu $(if ($genereParLaFabrication.Count) { " (" + $retenus.Count + " suivis par git + " + ($genereParLaFabrication -join ', ') + ")" }))
     exit 3
 }
 
 if (-not $KeepStaging) { Remove-Item -LiteralPath $staging -Recurse -Force }
 
-$tailleZip = (Get-Item -LiteralPath $zip).Length
+$zipSize = (Get-Item -LiteralPath $zip).Length
 Write-Ok (Get-Label 'build-release.archive-prete' $zip)
-Write-Info (Get-Label 'build-release.fichier-compresses-racine' $nbFichiersZip (Format-Taille $tailleZip) $nom)
+Write-Info (Get-Label 'build-release.fichier-compresses-racine' $zipFileCount (Format-Taille $zipSize) $name)
 Write-Ok (Get-Label 'build-release.verifie-dans-archive-elle')
 if ($KeepStaging) { Write-Detail (Get-Label 'build-release.preparation-conservee' $staging) }
 exit 0

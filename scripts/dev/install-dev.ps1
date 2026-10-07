@@ -35,7 +35,7 @@ param(
     [switch] $Lister,
 
     # N'agir que sur cette dependance (son nom court, ex. « gh »).
-    [string] $Nom,
+    [string] $Name,
 
     # Ne pas proposer d'ouvrir la session GitHub a la fin.
     [switch] $SansSession,
@@ -48,10 +48,10 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $repoRoot 'scripts/lib/console-ui.ps1')   # le meme affichage que partout
 $commun   = Join-Path $repoRoot 'apps/backend-pode/lib/common.ps1'
-$avecFenetre = $false
+$withWindow = $false
 if (Test-Path -LiteralPath $commun) {
     . $commun
-    $avecFenetre = $true
+    $withWindow = $true
 }
 
 # --- LES DEPENDANCES, DECLAREES ------------------------------------------------------
@@ -104,35 +104,35 @@ function Test-SessionGitHub {
 # Une question, dans une vraie fenetre quand c'est possible. En console sinon : ce script
 # tourne aussi dans un terminal sans bureau (session distante, tache planifiee).
 function Get-Accord {
-    param([string]$Titre, [string]$Question, [string]$Detail = '')
+    param([string]$Title, [string]$Question, [string]$Detail = '')
     try {
         Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
-        $texte = $Question + $(if ($Detail) { [Environment]::NewLine + [Environment]::NewLine + $Detail } else { '' })
+        $text = $Question + $(if ($Detail) { [Environment]::NewLine + [Environment]::NewLine + $Detail } else { '' })
 
         # ON PREVIENT AVANT D'OUVRIR. Une modale peut s'ouvrir derriere le terminal :
         # le script semble alors bloque « sans raison », et il attend en fait une reponse
         # que personne ne voit (constate le 27/08, plusieurs minutes perdues).
-        Write-Step (Get-Label 'install-dev.une-fenetre-vient-de' $Titre)
+        Write-Step (Get-Label 'install-dev.une-fenetre-vient-de' $Title)
         Write-Detail (Get-Label 'install-dev.si-vous-ne-la')
 
         # Un PROPRIETAIRE invisible et TopMost force la boite au premier plan. Sans lui,
         # MessageBox n'a pas de fenetre parente et Windows la range ou il veut.
-        $porteur = New-Object System.Windows.Forms.Form
-        $porteur.TopMost        = $true
-        $porteur.ShowInTaskbar  = $false
-        $porteur.FormBorderStyle = 'None'
-        $porteur.Size           = New-Object System.Drawing.Size(1, 1)
-        $porteur.StartPosition  = 'CenterScreen'
-        $porteur.Opacity        = 0
+        $holder = New-Object System.Windows.Forms.Form
+        $holder.TopMost        = $true
+        $holder.ShowInTaskbar  = $false
+        $holder.FormBorderStyle = 'None'
+        $holder.Size           = New-Object System.Drawing.Size(1, 1)
+        $holder.StartPosition  = 'CenterScreen'
+        $holder.Opacity        = 0
         try {
-            $porteur.Show()
-            $porteur.Activate()
-            $r = [System.Windows.Forms.MessageBox]::Show($porteur, $texte, $Titre,
+            $holder.Show()
+            $holder.Activate()
+            $r = [System.Windows.Forms.MessageBox]::Show($holder, $text, $Title,
                     [System.Windows.Forms.MessageBoxButtons]::YesNo,
                     [System.Windows.Forms.MessageBoxIcon]::Question)
         } finally {
-            $porteur.Close()
-            $porteur.Dispose()
+            $holder.Close()
+            $holder.Dispose()
         }
         return ($r -eq [System.Windows.Forms.DialogResult]::Yes)
     } catch {
@@ -144,16 +144,16 @@ function Get-Accord {
 
 # --- Le tri ---------------------------------------------------------------------------
 $aTraiter = $DEPENDANCES
-if ($Nom) {
-    $aTraiter = @($DEPENDANCES | Where-Object { $_.Nom -eq $Nom })
+if ($Name) {
+    $aTraiter = @($DEPENDANCES | Where-Object { $_.Nom -eq $Name })
     if (-not $aTraiter.Count) {
-        Write-Fail (Get-Label 'install-dev.dependance-inconnue-connues' $Nom ($DEPENDANCES | ForEach-Object { $_.Nom }) -join ', ')
+        Write-Fail (Get-Label 'install-dev.dependance-inconnue-connues' $Name ($DEPENDANCES | ForEach-Object { $_.Nom }) -join ', ')
         exit 1
     }
 }
 
 Write-Step (Get-Label 'install-dev.dependances-de-developpement')
-$manquantes = @()
+$missing = @()
 foreach ($d in $aTraiter) {
     $e = Get-Etat -D $d
     if ($e.Present) {
@@ -161,7 +161,7 @@ foreach ($d in $aTraiter) {
     } else {
         Write-Warn (Get-Label 'install-dev.absent' $d.Titre)
         Write-Detail ("            " + $d.Pourquoi)
-        $manquantes += $d
+        $missing += $d
     }
 }
 # --- La session GitHub, proposee a la fin -----------------------------------------------
@@ -176,7 +176,7 @@ function Invoke-SessionGitHub {
         return
     }
     Write-Warn (Get-Label 'install-dev.github-cli-est-installe')
-    $ok = Get-Accord -Titre 'Vigie - session GitHub' `
+    $ok = Get-Accord -Title 'Vigie - session GitHub' `
                      -Question "Ouvrir la session GitHub maintenant ?" `
                      -Detail ("Une fenêtre va s'ouvrir avec un code à huit caractères, puis votre navigateur." +
                               [Environment]::NewLine +
@@ -203,14 +203,14 @@ function Invoke-SessionGitHub {
     }
 }
 
-if (-not $manquantes.Count) {
+if (-not $missing.Count) {
     Write-Ok (Get-Label 'install-dev.tout-est-en-place')
     Invoke-SessionGitHub
     exit 0
 }
 
 if ($Lister) {
-    Write-Warn (Get-Label 'install-dev.dependance-manquante-pour-les' $manquantes.Count)
+    Write-Warn (Get-Label 'install-dev.dependance-manquante-pour-les' $missing.Count)
     Write-Info (Get-Label 'install-dev.pwsh-file-scripts-dev')
     exit 0
 }
@@ -222,9 +222,9 @@ if (-not (Test-Admin)) {
         Write-Warn (Get-Label 'install-dev.installez-app-installer-depuis')
         exit 1
     }
-    $quoi = @($manquantes | ForEach-Object { $_.Titre + " (" + $_.Winget + ")" })
+    $quoi = @($missing | ForEach-Object { $_.Titre + " (" + $_.Winget + ")" })
     $ok = $true
-    if ($avecFenetre) {
+    if ($withWindow) {
         $ok = Show-ElevationRationale -AssumeYes:$Yes `
                 -Title "Installer les dépendances de développement" `
                 -Summary ("Ces outils s'installent pour TOUTE LA MACHINE, jamais pour votre seul compte : un outil posé " +
@@ -234,7 +234,7 @@ if (-not (Test-Admin)) {
                             "Aucune session GitHub n'est ouverte sans votre geste",
                             "Rien n'est supprimé ailleurs sur la machine"))
     } else {
-        $ok = Get-Accord -Titre 'Vigie - dependances de developpement' `
+        $ok = Get-Accord -Title 'Vigie - dependances de developpement' `
                          -Question "Installer ces outils pour toute la machine ?" `
                          -Detail ($quoi -join [Environment]::NewLine)
     }
@@ -244,10 +244,10 @@ if (-not (Test-Admin)) {
     }
 
     $argv = @('-Yes')
-    if ($Nom)         { $argv += @('-Nom', $Nom) }
+    if ($Name)         { $argv += @('-Nom', $Name) }
     if ($SansSession) { $argv += '-SansSession' }
 
-    if ($avecFenetre) {
+    if ($withWindow) {
         # La relance eleve, attend, et RAPPORTE : son journal est relu ici, sinon
         # l'utilisateur ne verrait qu'une fenetre disparaitre.
         $journal = Join-Path $env:TEMP 'vigie-dev'
@@ -281,8 +281,8 @@ if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
     exit 1
 }
 
-$echecs = 0
-foreach ($d in $manquantes) {
+$failures = 0
+foreach ($d in $missing) {
     Write-Step (Get-Label 'install-dev.installation-de-pour-la' $d.Titre $d.Winget)
     $code = -1
     try {
@@ -302,15 +302,15 @@ foreach ($d in $manquantes) {
     if ($e.Present) {
         Write-Ok (Get-Label 'install-dev.est-en-place' $d.Titre $(if ($e.Version) { $e.Version } else { $e.Ou }))
     } else {
-        $echecs++
+        $failures++
         Write-Fail (Get-Label 'install-dev.est-toujours-pas-la' $d.Titre $code)
         Write-Warn (Get-Label 'install-dev.faire-la-main-winget' $d.Winget)
         Write-Detail (Get-Label 'install-dev.un-terminal-deja-ouvert')
     }
 }
 
-if ($echecs) {
-    Write-Fail (Get-Label 'install-dev.installation-en-echec' $echecs)
+if ($failures) {
+    Write-Fail (Get-Label 'install-dev.installation-en-echec' $failures)
     exit 2
 }
 Write-Ok (Get-Label 'install-dev.toutes-les-dependances-de')

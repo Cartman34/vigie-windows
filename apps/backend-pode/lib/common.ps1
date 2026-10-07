@@ -452,7 +452,7 @@ function Get-UpdateLockState {
 # valeur ne change rien et ne doit RIEN signaler d'anormal.
 function Invoke-UpdateLockNative {
     param(
-        [Parameter(Mandatory)][ValidateSet('pose','leve')][string]$Etat,
+        [Parameter(Mandatory)][ValidateSet('pose','leve')][string]$State,
         [string]$Backend = (Get-BackendRoot)
     )
     $cat = Get-UpdateTaskCatalog
@@ -465,7 +465,7 @@ function Invoke-UpdateLockNative {
     # La cle de strategie n'existe PAS sur une machine neuve : l'ecriture y echouait
     # silencieusement. On la cree -- c'est ce qui fait la difference entre « ca marche
     # chez moi » et « ca marche sur une installation propre ».
-    $value = if ($Etat -eq 'pose') { 1 } else { 0 }
+    $value = if ($State -eq 'pose') { 1 } else { 0 }
     try {
         if (-not (Test-Path -LiteralPath $cat.RegAu)) { New-Item -Path $cat.RegAu -Force -ErrorAction Stop | Out-Null }
         New-ItemProperty -Path $cat.RegAu -Name 'NoAutoUpdate' -Value $value -PropertyType DWord -Force -ErrorAction Stop | Out-Null
@@ -488,16 +488,16 @@ function Invoke-UpdateLockNative {
     # dossier sont protegees par Windows et ne se basculent pas -- ce n'est pas un echec.
     foreach ($m in $cat.Managed) {
         try {
-            if ($Etat -eq 'pose') { Disable-ScheduledTask -TaskName $m.Name -TaskPath $m.Path -ErrorAction Stop | Out-Null }
+            if ($State -eq 'pose') { Disable-ScheduledTask -TaskName $m.Name -TaskPath $m.Path -ErrorAction Stop | Out-Null }
             else                  { Enable-ScheduledTask  -TaskName $m.Name -TaskPath $m.Path -ErrorAction Stop | Out-Null }
-            & $noter ("tache " + $m.Name + " -> " + $(if ($Etat -eq 'pose') { 'desactivee' } else { 'activee' }))
+            & $noter ("tache " + $m.Name + " -> " + $(if ($State -eq 'pose') { 'desactivee' } else { 'activee' }))
         } catch {
             # Tache absente selon l'edition de Windows, ou protegee : on le note, on continue.
             & $noter ("tache " + $m.Name + " : ignoree -- " + $_.Exception.Message)
         }
     }
 
-    if ($Etat -eq 'pose') {
+    if ($State -eq 'pose') {
         # 4) Verrou de permissions : prendre la main sur les dossiers, garder l'acces aux
         # administrateurs, puis REFUSER a SYSTEM la creation et la modification. C'est ce
         # refus qui empeche Windows de recreer ses taches et de forcer un redemarrage.
@@ -535,13 +535,13 @@ function Invoke-UpdateLockNative {
 # du fait qu'aucune commande n'a leve d'erreur (D43).
 function Set-UpdateLock {
     param(
-        [Parameter(Mandatory)][ValidateSet('pose','leve')][string]$Etat,
+        [Parameter(Mandatory)][ValidateSet('pose','leve')][string]$State,
         [string]$Backend = (Get-BackendRoot)
     )
     # Sans elevation, icacls et takeown echouent en silence et on croirait avoir verrouille.
     # On refuse AVANT d'agir : l'appelant a un etat faux a annoncer, pas une demi-mesure.
     if (-not (Test-Elevated)) {
-        try { Write-Log -Backend $Backend -Name 'updatelock' -Level 'WARN' -Message (Get-Label 'common.refuse-le-serveur-est' $Etat) } catch { }
+        try { Write-Log -Backend $Backend -Name 'updatelock' -Level 'WARN' -Message (Get-Label 'common.refuse-le-serveur-est' $State) } catch { }
         return $false
     }
     $route = 'native'
@@ -554,19 +554,19 @@ function Set-UpdateLock {
     }
     try {
         if ($script) {
-            if ($Etat -eq 'pose') { & $script -Off *> $null } else { & $script -On *> $null }
+            if ($State -eq 'pose') { & $script -Off *> $null } else { & $script -On *> $null }
         } else {
-            $trace = Invoke-UpdateLockNative -Etat $Etat -Backend $Backend
+            $trace = Invoke-UpdateLockNative -State $State -Backend $Backend
         }
     } catch {
-        try { Write-Log -Backend $Backend -Name 'updatelock' -Level 'ERROR' -Message "$Etat ($route) : $($_.Exception.Message)" } catch { }
+        try { Write-Log -Backend $Backend -Name 'updatelock' -Level 'ERROR' -Message "$State ($route) : $($_.Exception.Message)" } catch { }
     }
     # CONSTAT : on relit l'etat reel, c'est lui qui fait foi.
     $actualState = Get-UpdateLockState
-    $obtenu = if ($Etat -eq 'pose') { $actualState.aclLock } else { -not $actualState.aclLock }
+    $obtenu = if ($State -eq 'pose') { $actualState.aclLock } else { -not $actualState.aclLock }
     try {
         foreach ($t in $trace) { Write-Log -Backend $Backend -Name 'updatelock' -Message "  $t" }
-        Write-Log -Backend $Backend -Name 'updatelock' -Message (Get-Label 'common.obtenu-verrouacl-noautoupdate-tachesdesactivees' $Etat $route $obtenu $($actualState.aclLock) $($actualState.noAutoUpdate) $($actualState.tasksDisabled))
+        Write-Log -Backend $Backend -Name 'updatelock' -Message (Get-Label 'common.obtenu-verrouacl-noautoupdate-tachesdesactivees' $State $route $obtenu $($actualState.aclLock) $($actualState.noAutoUpdate) $($actualState.tasksDisabled))
     } catch { }
     return [bool]$obtenu
 }
@@ -632,7 +632,7 @@ function Get-DeviceGuardState {
         }
     } catch { }
 
-    $etat = [ordered]@{ elevated = (Test-Elevated); vbsStatus = $(if ($dg) { [int]$dg.VirtualizationBasedSecurityStatus } else { $null }) }
+    $State = [ordered]@{ elevated = (Test-Elevated); vbsStatus = $(if ($dg) { [int]$dg.VirtualizationBasedSecurityStatus } else { $null }) }
     foreach ($id in $cat.Features.Keys) {
         $f = $cat.Features[$id]
         $cfg = $null
@@ -645,7 +645,7 @@ function Get-DeviceGuardState {
         # Une demande qui correspond deja a ce qui tourne n'est plus en attente : le
         # marqueur se perime tout seul au redemarrage, sans delai arbitraire a regler.
         $pending = ($null -ne $dem -and [bool]$dem -ne $running[$id])
-        $etat[$id] = [ordered]@{
+        $State[$id] = [ordered]@{
             label      = $f.Label
             court      = $f.Court
             configured = $cfg
@@ -655,8 +655,8 @@ function Get-DeviceGuardState {
             effective  = $(if ($pending) { [bool]$dem } else { $running[$id] })
         }
     }
-    $etat['pending'] = ($etat.vbs.pending -or $etat.hvci.pending)
-    $etat
+    $State['pending'] = ($State.vbs.pending -or $State.hvci.pending)
+    $State
 }
 
 # Sauvegarde de la cle DeviceGuard AVANT toute ecriture, dans var/log.
@@ -764,17 +764,17 @@ function Invoke-DeviceGuardToggle {
         [string]$Backend = (Get-BackendRoot)
     )
     $inv = @('vbs.probe.ps1')
-    $etat = Get-DeviceGuardState -Backend $Backend
-    $name  = $etat[$Feature].court
+    $State = Get-DeviceGuardState -Backend $Backend
+    $name  = $State[$Feature].court
 
-    if (-not $etat.elevated) {
+    if (-not $State.elevated) {
         return @{
             message = "Le serveur de Vigie n'est pas administrateur : la bascule $name est impossible. Vigie doit être relancée en administrateur (l'invite UAC s'affichera)."
             result  = @{ ok = $false }
         }
     }
 
-    $targetValue = -not $etat[$Feature].effective
+    $targetValue = -not $State[$Feature].effective
     $r = Set-DeviceGuardFeature -Feature $Feature -Enable $targetValue -Backend $Backend
     $verbe = if ($targetValue) { 'activée' } else { 'désactivée' }
 
@@ -844,18 +844,18 @@ function Invoke-UpdateAudit {
     $L   = { param($s = '') $lines.Add([string]$s) }
     $Sec = { param($t) & $L ''; & $L ('===== ' + $t + ' =====') }
 
-    $etat = Get-UpdateLockState
+    $State = Get-UpdateLockState
     $rap.at       = (Get-Date).ToString('o')
-    $rap.elevated = $etat.elevated
-    & $L ("Audit Windows Update du " + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + "  (administrateur = " + $etat.elevated + ")")
-    if (-not $etat.elevated) { & $L "ATTENTION : serveur non administrateur — une partie de l'état n'est pas lisible." }
+    $rap.elevated = $State.elevated
+    & $L ("Audit Windows Update du " + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + "  (administrateur = " + $State.elevated + ")")
+    if (-not $State.elevated) { & $L "ATTENTION : serveur non administrateur — une partie de l'état n'est pas lisible." }
 
     & $Sec 'Verrouillage'
-    & $L ("   Mises à jour automatiques coupées : " + $etat.autoUpdatesOff + "   (NoAutoUpdate=" + $etat.noAutoUpdate + ")")
-    & $L ("   Verrou de permissions (ACL)       : " + $etat.aclLock)
-    & $L ("   Verrou complet                    : " + $etat.locked)
-    $rap.lock = @{ autoUpdatesOff = $etat.autoUpdatesOff; noAutoUpdate = $etat.noAutoUpdate
-                   aclLock = $etat.aclLock; locked = $etat.locked }
+    & $L ("   Mises à jour automatiques coupées : " + $State.autoUpdatesOff + "   (NoAutoUpdate=" + $State.noAutoUpdate + ")")
+    & $L ("   Verrou de permissions (ACL)       : " + $State.aclLock)
+    & $L ("   Verrou complet                    : " + $State.locked)
+    $rap.lock = @{ autoUpdatesOff = $State.autoUpdatesOff; noAutoUpdate = $State.noAutoUpdate
+                   aclLock = $State.aclLock; locked = $State.locked }
 
     & $Sec 'Édition et licence'
     try {
@@ -895,17 +895,17 @@ function Invoke-UpdateAudit {
     $rap.pendingReboot = $pending
 
     & $Sec 'Tâches planifiées de mise à jour'
-    if (-not @($etat.tasks).Count) { & $L '   (aucune lisible — accès refusé ?)' }
+    if (-not @($State.tasks).Count) { & $L '   (aucune lisible — accès refusé ?)' }
     foreach ($p in $cat.TaskPaths) {
-        $lot = @($etat.tasks | Where-Object { $_.path -eq $p })
+        $lot = @($State.tasks | Where-Object { $_.path -eq $p })
         & $L ''
         & $L ("[" + $p + "]")
         if (-not $lot.Count) { & $L '   (aucune / accès refusé)'; continue }
         foreach ($t in $lot) { & $L ("   {0,-34} {1}" -f $t.name, $t.state) }
     }
-    $rap.tasks = @($etat.tasks)
-    $rap.tasksDisabled = $etat.tasksDisabled
-    $rap.tasksReady    = $etat.tasksReady
+    $rap.tasks = @($State.tasks)
+    $rap.tasksDisabled = $State.tasksDisabled
+    $rap.tasksReady    = $State.tasksReady
 
     & $Sec 'Services de mise à jour'
     $svc = @()
@@ -949,7 +949,7 @@ function Invoke-UpdateAudit {
     } catch {
         try { Write-Log -Backend $Backend -Name 'updateaudit' -Level 'ERROR' -Message $_.Exception.Message } catch { }
     }
-    return @{ ok = $ecrit; txt = $txt; json = $json; elevated = $etat.elevated; state = $etat; lines = @($lines) }
+    return @{ ok = $ecrit; txt = $txt; json = $json; elevated = $State.elevated; state = $State; lines = @($lines) }
 }
 
 # --- Taches de fond (regle : une action lente ne bloque jamais la requete) ---
@@ -3808,14 +3808,14 @@ function Get-DiskTreeLevel {
         [int]$Top = 0
     )
     $stateFile = Get-VarPath -Backend $Backend -Kind 'cache' -File 'diskscan.json'
-    $etat = $null
+    $State = $null
     if (Test-Path -LiteralPath $stateFile) {
-        try { $etat = Get-Content -LiteralPath $stateFile -Raw | ConvertFrom-Json } catch { }
+        try { $State = Get-Content -LiteralPath $stateFile -Raw | ConvertFrom-Json } catch { }
     }
-    if (-not $etat -or -not $etat.tree) { throw "Aucune analyse disponible : lancez d'abord l'analyse de l'espace." }
+    if (-not $State -or -not $State.tree) { throw "Aucune analyse disponible : lancez d'abord l'analyse de l'espace." }
 
-    $rootPath = if ($etat.result -and $etat.result.root) { "$($etat.result.root)" } else { "$($etat.scan.root)" }
-    $total  = [long]$etat.tree.s
+    $rootPath = if ($State.result -and $State.result.root) { "$($State.result.root)" } else { "$($State.scan.root)" }
+    $total  = [long]$State.tree.s
     if ($Top -le 0) {
         $Top = [int](Get-ModuleSetting -Unit 'system' -Key 'DiskScanTop' -Backend $Backend)
         if ($Top -le 0) { $Top = 10 }
@@ -3830,7 +3830,7 @@ function Get-DiskTreeLevel {
     $pct = { param($o) if ($total -gt 0) { ('{0:N1}' -f ([double]$o / $total * 100)) } else { '0,0' } }
 
     # 1) Le cache de l'analyse contient-il deja ce niveau ?
-    $noeud = $etat.tree
+    $noeud = $State.tree
     $coupe = $rootPath.TrimEnd([char]92).Length
     $reste = $plein.Substring([Math]::Min($coupe, $plein.Length)).Trim([char]92)
     $trouve = $true
@@ -8248,10 +8248,10 @@ function Get-VigieFootprint {
     param([string]$Backend = (Get-BackendRoot))
 
     function Poids {
-        param([string]$Chemin)
-        if (-not (Test-PathSafe $Chemin)) { return 0 }
+        param([string]$Path)
+        if (-not (Test-PathSafe $Path)) { return 0 }
         try {
-            return [long]((Get-ChildItem -LiteralPath $Chemin -Recurse -File -Force -ErrorAction SilentlyContinue |
+            return [long]((Get-ChildItem -LiteralPath $Path -Recurse -File -Force -ErrorAction SilentlyContinue |
                            Measure-Object -Property Length -Sum).Sum)
         } catch { return 0 }
     }
@@ -10015,8 +10015,8 @@ function Clear-ComputerAccountsCache {
 # La carte a affiche « Vigie activee » pendant des heures pour un compte dont la tache
 # avait disparu (28/08). Ces trois champs-la ne sont donc jamais servis depuis le cache.
 function Update-AccountTasks {
-    param([object[]]$Comptes)
-    if (-not $Comptes -or -not $Comptes.Count) { return @($Comptes) }
+    param([object[]]$Accounts)
+    if (-not $Accounts -or -not $Accounts.Count) { return @($Accounts) }
     $tasks = @()
     try {
         $tasks = @(Get-ScheduledTask -ErrorAction Stop |
@@ -10024,9 +10024,9 @@ function Update-AccountTasks {
     } catch {
         # Sans elevation, Windows masque une partie des taches : on ne sait pas, et on ne
         # PRETEND pas savoir. Les valeurs du cache sont conservees telles quelles.
-        return @($Comptes)
+        return @($Accounts)
     }
-    foreach ($c in $Comptes) {
+    foreach ($c in $Accounts) {
         $name = "$($c.name)"
         $task = @($tasks | Where-Object {
             $_.TaskName -eq (Get-VigieAccountTaskName -Name $name) -or
@@ -10046,7 +10046,7 @@ function Update-AccountTasks {
         Set-ObjectProperty -Object $c -Name 'taskPending' `
             -Value $(if ($task -and -not $mal) { Get-VigieTaskHistoryAilment -Task $task } else { $null })
     }
-    return @($Comptes)
+    return @($Accounts)
 }
 
 <#
@@ -10137,17 +10137,17 @@ function Get-AccountRegistryRoot {
 }
 
 function Add-AccountsPerspective {
-    param($Comptes)
+    param($Accounts)
     # Sans session, PERSONNE n'est « vous » : c'est plus vrai, et c'est plus sur que de
     # designer le compte du service.
     $requester = Get-RequesterAccount
-    foreach ($c in @($Comptes)) {
+    foreach ($c in @($Accounts)) {
         $isMe = [bool]$requester -and ("$($c.name)" -eq "$requester")
         $c | Add-Member -NotePropertyName current -NotePropertyValue $isMe -Force
         # Celui qui utilise Vigie en ce moment n'est jamais un compte d'outil.
         if ($isMe) { $c | Add-Member -NotePropertyName technical -NotePropertyValue $false -Force }
     }
-    return $Comptes
+    return $Accounts
 }
 
 <#
@@ -10168,7 +10168,7 @@ function Get-ComputerAccounts {
             $j = Get-Content -LiteralPath $cache -Raw | ConvertFrom-Json
             $age = ((Get-Date).ToUniversalTime() - (ConvertTo-UtcDate $j.at)).TotalHours
             if ($age -lt $script:AccountsTtlHours -and $j.users) {
-                return (Add-AccountsPerspective (Update-AccountTasks -Comptes @($j.users)))
+                return (Add-AccountsPerspective (Update-AccountTasks -Accounts @($j.users)))
             }
         } catch { }
     }
@@ -10220,9 +10220,9 @@ function Get-ComputerAccountsFresh {
 
     $tasks = @()
     try { $tasks = @(Get-ScheduledTask -ErrorAction Stop | Where-Object { $_.TaskName -eq 'Vigie' -or $_.TaskName -like ($script:VigieTaskPrefix + '*') }) } catch { }
-    $comptes = @()
-    try { $comptes = @(Get-LocalUser -ErrorAction Stop | Where-Object { $_.Enabled }) } catch { }
-    @(foreach ($c in $comptes) {
+    $Accounts = @()
+    try { $Accounts = @(Get-LocalUser -ErrorAction Stop | Where-Object { $_.Enabled }) } catch { }
+    @(foreach ($c in $Accounts) {
         $name = "$($c.Name)"
         $task = @($tasks | Where-Object {
             $_.TaskName -eq (Get-VigieAccountTaskName -Name $name) -or
