@@ -961,6 +961,26 @@ function that already existed, the last definition silently overwriting the othe
   exists is enough to prove the file parses.
 - Check the **ASCII** of the launchers, the **UTF-8** of everything else.
 
+## A rename is proven by RUNNING the file, never by the fact that it parses
+
+**A renaming pass is paired with an execution comparison: the file is run before and after on the same input, and
+the two outputs must be identical.** The parser is not a witness here. On 07/10 I renamed `New-Noeud`'s `$Chemin`
+parameter without its `-Chemin` call site: the file parsed, every one of the fifteen checkers was green, and the
+disk worker reported one folder where it had found four. No checker catches that, and none can -- they READ code,
+they do not run workers.
+
+**What that implies about the slice.** A batch is sized by what can be RUN, not by what can be edited. A file that
+cannot be compared -- `show-confirm.ps1` opens a window -- stays out of the batch until there is a way to run it.
+
+**And the comparison is canonical**: keys deep-sorted, timestamps removed. The key order of a PowerShell hashtable
+is not stable between two runs, so a raw text diff shows differences where there are none -- which is exactly how a
+proof gets abandoned as "noisy".
+
+**The tool renames the three faces of a name**: the variable (`$name`), its braced form (`${name}`), and the call
+site of a parameter (`-name`). It works from the AST, relocates by extent offsets, then re-parses and verifies that
+no old name survives either as a variable or as a parameter. Record:
+[`notes/evidence/2026-10-07-a-rename-that-parsed-and-no-longer-worked.md`](../../../notes/evidence/2026-10-07-a-rename-that-parsed-and-no-longer-worked.md).
+
 ## Cache & performance
 - Cache **per probe** (file mtime + TTL); **never** a global recompute.
 - After an action: **targeted invalidation** of the affected probes (`result.invalidate`).

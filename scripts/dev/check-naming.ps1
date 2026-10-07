@@ -58,8 +58,15 @@ $COMMENT_CEILING = 5603
     Widening it moved the count from 277 to 481 without a single name being added: the same debt, finally measured. The
     thirty-one names of the 28/09 batch were then renamed, which brings it to 450. THAT is the ceiling. It is a
     RECOUNT, not a permission: it has never been allowed to rise, and it still is not.
+
+    07/10: three files cleared -- vigie-fetch.ps1, check-probes.ps1 and disk-scan.worker.ps1 -- and the count fell to
+    404. Each one was PROVEN by running it before and after on the same input and comparing the output, because a
+    rename that parses can still be wrong: the day before, renaming New-Noeud's $Chemin parameter without its -Chemin
+    call site left a file that parsed and scanned one folder instead of four. No checker here catches that -- they
+    read code, they do not run workers -- so a rename is now paired with an execution comparison, and the slice is
+    sized by what can be run, not by what can be edited.
 #>
-$CEILING = 450
+$CEILING = 404
 
 # LE PLAFOND DES NOMS DE FICHIERS. Meme cliquet, compte separe : ceux qui restent sont
 # nommes dans des taches planifiees deja posees et dans des raccourcis, donc ils se

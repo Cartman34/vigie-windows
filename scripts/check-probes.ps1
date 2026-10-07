@@ -84,7 +84,7 @@ $actionsConnues = @(Get-ChildItem -Path $actionsDir -Filter '*.action.ps1' -File
 $recordFile = Get-VarPath -Backend $backendRoot -Kind 'cache' -File 'probe-contract.json'
 
 $rang = @{ ok = 0; neutral = 0; warn = 1; error = 2 }
-$manquements = @()
+$shortfalls = @()
 
 # Empreinte du code d'une sonde. Meme principe que le codeStamp du cache d'etat : si le
 # fichier bouge, tout ce qui a ete enregistre a son sujet est perime.
@@ -156,10 +156,10 @@ function Test-Contract {
             # exactement ce qu'il devait attraper (essaye, et pris en flagrant delit).
             # Un identifiant porte un chiffre ou un separateur ; un mot francais, non.
             $val = "$($champ.value)"
-            $ressembleAUneDonnee = ($val -match '^v?[0-9]') -or ($val -match '[\/]') -or
+            $looksLikeData = ($val -match '^v?[0-9]') -or ($val -match '[\/]') -or
                                    ($val -match '^[a-z0-9._-]*[0-9._-][a-z0-9._-]*$') -or
                                    ($val -match '^[a-z0-9_-]+\.[a-z0-9]{2,5}\s')
-            if ($champ.kind -eq 'text' -and $val -cmatch '^[a-zàâäéèêëîïôöùûüç]' -and -not $ressembleAUneDonnee) {
+            if ($champ.kind -eq 'text' -and $val -cmatch '^[a-zàâäéèêëîïôöùûüç]' -and -not $looksLikeData) {
                 $trouves += "{0} -- {1} / {2} : valeur affichee sans majuscule initiale (« {3} »)" -f $Source, $m.id, $champ.key, $val
             }
             if ($champ.fixAction -and $actionsConnues -notcontains "$($champ.fixAction)") {
@@ -189,28 +189,28 @@ if (Test-Path -LiteralPath $recordFile) {
 }
 
 # --- Selection ---------------------------------------------------------------
-$sondes = @(Get-ChildItem -Path $probesDir -Recurse -Filter '*.probe.ps1' -File | Sort-Object FullName)
+$probes = @(Get-ChildItem -Path $probesDir -Recurse -Filter '*.probe.ps1' -File | Sort-Object FullName)
 if ($Only) {
     $motifs = $Only
-    $retenues = @($sondes | Where-Object {
-        $nom    = $_.Name
-        $base   = $nom -replace '\.probe\.ps1$', ''
+    $retenues = @($probes | Where-Object {
+        $name    = $_.Name
+        $base   = $name -replace '\.probe\.ps1$', ''
         $module = Split-Path (Split-Path $_.FullName -Parent) -Leaf
-        @($motifs | Where-Object { $base -like $_ -or $nom -like $_ -or $module -like $_ }).Count -gt 0
+        @($motifs | Where-Object { $base -like $_ -or $name -like $_ -or $module -like $_ }).Count -gt 0
     })
     if ($retenues.Count -eq 0) {
         Write-Fail (Get-Label 'check-probes.aucune-sonde-ne-correspond' ($motifs -join ', '))
-        Write-Info (Get-Label 'check-probes.sondes-disponibles' (($sondes | ForEach-Object { $_.Name -replace '\.probe\.ps1$','' }) -join ', '))
+        Write-Info (Get-Label 'check-probes.sondes-disponibles' (($probes | ForEach-Object { $_.Name -replace '\.probe\.ps1$','' }) -join ', '))
         exit 1
     }
-    $sondes = $retenues
+    $probes = $retenues
 }
 
 # --- Passe -------------------------------------------------------------------
 $executees = 0; $surEnregistrement = 0; $modules = 0
-$lignes = @()
+$reportLines = @()
 
-foreach ($f in $sondes) {
+foreach ($f in $probes) {
     $stamp     = Get-CodeStamp -File $f
     $ancien    = $record[$f.Name]
     $inchangee = ($ancien -and "$($ancien.codeStamp)" -eq $stamp)
@@ -247,24 +247,24 @@ foreach ($f in $sondes) {
         catch {
             $sw.Stop()
             Write-ProbeRun -Backend $backendRoot -Probe $f.Name -Ms $sw.ElapsedMilliseconds -Origin 'check' -Outcome 'error' -Detail $_.Exception.Message
-            $manquements += "{0} : la sonde LEVE une erreur -- {1}" -f $f.Name, $_.Exception.Message
-            $lignes += '  {0,-20} ECHEC a l execution' -f $f.Name
+            $shortfalls += "{0} : la sonde LEVE une erreur -- {1}" -f $f.Name, $_.Exception.Message
+            $reportLines += '  {0,-20} ECHEC a l execution' -f $f.Name
             continue
         }
         finally { if ($job) { Remove-Job -Job $job -Force -ErrorAction SilentlyContinue } }
         $sw.Stop()
         if (-not $rendus) {
             Write-ProbeRun -Backend $backendRoot -Probe $f.Name -Ms $sw.ElapsedMilliseconds -Origin 'check' -Outcome 'empty'
-            $manquements += "$($f.Name) : la sonde ne rend AUCUN module"
-            $lignes += '  {0,-20} ECHEC : aucun module' -f $f.Name
+            $shortfalls += "$($f.Name) : la sonde ne rend AUCUN module"
+            $reportLines += '  {0,-20} ECHEC : aucun module' -f $f.Name
             continue
         }
         $contrat = ConvertTo-Contract -Modules $rendus
         Write-ProbeRun -Backend $backendRoot -Probe $f.Name -Ms $sw.ElapsedMilliseconds -Origin 'check' -Outcome 'ok' -Modules @($contrat).Count
-        $manquements += Test-Contract -Modules $contrat -Source $f.Name
+        $shortfalls += Test-Contract -Modules $contrat -Source $f.Name
         $modules += @($contrat).Count
         $executees++
-        $lignes += '  {0,-20} execute   {1,6:N0} ms   {2} module(s)' -f $f.Name, $sw.ElapsedMilliseconds, @($contrat).Count
+        $reportLines += '  {0,-20} execute   {1,6:N0} ms   {2} module(s)' -f $f.Name, $sw.ElapsedMilliseconds, @($contrat).Count
 
         $record[$f.Name] = [ordered]@{
             at        = [datetime]::UtcNow.ToString('o')
@@ -275,7 +275,7 @@ foreach ($f in $sondes) {
     }
     else {
         $contrat = $ancien.modules
-        $manquements += Test-Contract -Modules $contrat -Source "$($f.Name) (sur enregistrement)"
+        $shortfalls += Test-Contract -Modules $contrat -Source "$($f.Name) (sur enregistrement)"
         $modules += @($contrat).Count
         $surEnregistrement++
         $age = ''
@@ -286,7 +286,7 @@ foreach ($f in $sondes) {
                    elseif ($h -lt 48) { 'il y a {0:N0} h' -f $h }
                    else               { 'il y a {0:N0} j' -f ($h / 24) }
         }
-        $lignes += '  {0,-20} inchangee, verifiee sur sa sortie {1} ({2:N0} ms economisees)' -f $f.Name, $age, [int]$ancien.ms
+        $reportLines += '  {0,-20} inchangee, verifiee sur sa sortie {1} ({2:N0} ms economisees)' -f $f.Name, $age, [int]$ancien.ms
     }
 }
 
@@ -326,12 +326,12 @@ $motsAccentues = @(
 $motifAccents = '(?i)\b(' + ($motsAccentues -join '|') + ')\b'
 $sansAccent = @()
 foreach ($d in @('probes', 'actions', 'lib', 'workers')) {
-    $racineD = Join-Path $backendRoot $d
-    if (-not (Test-Path -LiteralPath $racineD)) { continue }
-    foreach ($f in (Get-ChildItem -LiteralPath $racineD -Recurse -File -Filter '*.ps1' -ErrorAction SilentlyContinue)) {
-        $ligne = 0
+    $rootDir = Join-Path $backendRoot $d
+    if (-not (Test-Path -LiteralPath $rootDir)) { continue }
+    foreach ($f in (Get-ChildItem -LiteralPath $rootDir -Recurse -File -Filter '*.ps1' -ErrorAction SilentlyContinue)) {
+        $lineNo = 0
         foreach ($l in (Get-Content -LiteralPath $f.FullName -Encoding UTF8)) {
-            $ligne++
+            $lineNo++
             # Un commentaire n'est pas affiche : on le laisse tranquille.
             if ($l -match '^\s*#') { continue }
             # LE TIRET DOIT COMMENCER UN PARAMETRE. Sans cette borne, « Get-Label » contient
@@ -341,16 +341,16 @@ foreach ($d in @('probes', 'actions', 'lib', 'workers')) {
                 # Les VARIABLES interpolees ne sont pas du texte affiche tel quel :
                 # « $($apres.noAutoUpdate) » n'est pas le mot « apres ». On les retire
                 # avant de juger.
-                $texte = [regex]::Replace($m.Groups[1].Value, '\$\([^)]*\)|\$[A-Za-z_][A-Za-z0-9_.]*', ' ')
-                if ($texte -match $motifAccents) {
-                    $sansAccent += ("{0}:{1} -- « {2} »" -f $f.Name, $ligne, $Matches[1])
+                $text = [regex]::Replace($m.Groups[1].Value, '\$\([^)]*\)|\$[A-Za-z_][A-Za-z0-9_.]*', ' ')
+                if ($text -match $motifAccents) {
+                    $sansAccent += ("{0}:{1} -- « {2} »" -f $f.Name, $lineNo, $Matches[1])
                 }
             }
         }
     }
 }
 foreach ($x in $sansAccent) {
-    $manquements += "libelle visible sans accent -- $x"
+    $shortfalls += "libelle visible sans accent -- $x"
 }
 
 # --- Garde-fou : AUCUN APPEL EXTERNE QUI PEUT DEMANDER UNE SAISIE -------------
@@ -397,7 +397,7 @@ foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.
         }
     }
 }
-foreach ($x in $interactifs) { $manquements += "appel qui attend une saisie -- $x" }
+foreach ($x in $interactifs) { $shortfalls += "appel qui attend une saisie -- $x" }
 
 # --- Garde-fou : PAS DE TEXTE ACCENTUE EN ARGUMENT D'UN AUTRE PROCESSUS -------
 #
@@ -419,16 +419,16 @@ foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Filter '*.p
     $body = Get-Content -LiteralPath $f.FullName -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
     if (-not $body) { continue }
     if ($body -notmatch 'show-confirm') { continue }
-    foreach ($nom in $plainParams) {
+    foreach ($name in $plainParams) {
         # « -Title » suivi d'autre chose que « Key » : c'est la forme en clair.
         # LE TIRET DOIT COMMENCER UN PARAMETRE : « Write-Title » contient « -Title ».
         # Le nom doit FINIR la : « -DetailsArg » n'est pas « -Details ».
-        if ($body -match ('(?<![\w])-' + $nom + '(?![\w])')) {
-            $plainText += ("{0} -- « -{1} » en clair : passer « -{1}Key »" -f $rel, $nom)
+        if ($body -match ('(?<![\w])-' + $name + '(?![\w])')) {
+            $plainText += ("{0} -- « -{1} » en clair : passer « -{1}Key »" -f $rel, $name)
         }
     }
 }
-foreach ($x in $plainText) { $manquements += "texte accentue en argument -- $x" }
+foreach ($x in $plainText) { $shortfalls += "texte accentue en argument -- $x" }
 
 # --- Garde-fou : AUCUN CARACTERE DE CONTROLE dans les sources -----------------
 #
@@ -441,32 +441,32 @@ foreach ($x in $plainText) { $manquements += "texte accentue en argument -- $x" 
 #
 # On le detecte ici, ou ca coute une seconde, plutot qu'en production ou ca coute une
 # soiree. Seul l'echappement ESC (0x1B) est tolere : il sert a filtrer les codes ANSI.
-$dossiersSources = @('apps', 'scripts', 'config', 'docs')
+$sourceFolders = @('apps', 'scripts', 'config', 'docs')
 $interdits = @()
-foreach ($d in $dossiersSources) {
-    $racineD = Join-Path $repoRoot $d
-    if (-not (Test-Path -LiteralPath $racineD)) { continue }
-    $fichiers = Get-ChildItem -LiteralPath $racineD -Recurse -File -ErrorAction SilentlyContinue |
+foreach ($d in $sourceFolders) {
+    $rootDir = Join-Path $repoRoot $d
+    if (-not (Test-Path -LiteralPath $rootDir)) { continue }
+    $files = Get-ChildItem -LiteralPath $rootDir -Recurse -File -ErrorAction SilentlyContinue |
                 Where-Object { $_.Extension -in @('.ps1', '.psd1', '.psm1', '.html', '.md', '.json', '.cmd') -and
                                $_.FullName -notmatch '\\var\\' -and $_.FullName -notmatch '\\dist\\' }
-    foreach ($f in $fichiers) {
-        $texte = $null
-        try { $texte = Get-Content -LiteralPath $f.FullName -Raw -ErrorAction Stop } catch { continue }
-        if (-not $texte) { continue }
+    foreach ($f in $files) {
+        $text = $null
+        try { $text = Get-Content -LiteralPath $f.FullName -Raw -ErrorAction Stop } catch { continue }
+        if (-not $text) { continue }
         # 0x1B (ESC) exclu : volontaire. 0x09/0x0A/0x0D : tabulation et fins de ligne.
-        if ($texte -match "[\u0000-\u0008\u000B\u000C\u000E-\u001A\u001C-\u001F]") {
-            $ligne = 0
-            foreach ($l in ($texte -split "`r?`n")) {
-                $ligne++
+        if ($text -match "[\u0000-\u0008\u000B\u000C\u000E-\u001A\u001C-\u001F]") {
+            $lineNo = 0
+            foreach ($l in ($text -split "`r?`n")) {
+                $lineNo++
                 if ($l -match "[\u0000-\u0008\u000B\u000C\u000E-\u001A\u001C-\u001F]") {
-                    $interdits += ("{0}:{1}" -f $f.FullName.Substring($repoRoot.Length + 1), $ligne)
+                    $interdits += ("{0}:{1}" -f $f.FullName.Substring($repoRoot.Length + 1), $lineNo)
                 }
             }
         }
     }
 }
 foreach ($i in $interdits) {
-    $manquements += "caractere de controle dans une source (antislash mange ?) -- $i"
+    $shortfalls += "caractere de controle dans une source (antislash mange ?) -- $i"
 }
 
 # --- Garde-fou : PERSONNE NE CALCULE UN CHEMIN DE DONNEES A LA MAIN -----------
@@ -483,24 +483,24 @@ foreach ($i in $interdits) {
 # Get-VarPath et Get-VarRoot savent ou vont les donnees. Personne d'autre.
 $horsRegle = @()
 foreach ($d in @('apps', 'scripts')) {
-    $racineD = Join-Path $repoRoot $d
-    if (-not (Test-Path -LiteralPath $racineD)) { continue }
-    foreach ($f in (Get-ChildItem -LiteralPath $racineD -Recurse -File -Include '*.ps1' -ErrorAction SilentlyContinue)) {
+    $rootDir = Join-Path $repoRoot $d
+    if (-not (Test-Path -LiteralPath $rootDir)) { continue }
+    foreach ($f in (Get-ChildItem -LiteralPath $rootDir -Recurse -File -Include '*.ps1' -ErrorAction SilentlyContinue)) {
         # common.ps1 EST l'implementation de la regle : c'est le seul endroit ou ces
         # chemins se construisent.
         if ($f.Name -eq 'common.ps1') { continue }
         $i = 0
-        foreach ($ligne in (Get-Content -LiteralPath $f.FullName -Encoding UTF8 -ErrorAction SilentlyContinue)) {
+        foreach ($line in (Get-Content -LiteralPath $f.FullName -Encoding UTF8 -ErrorAction SilentlyContinue)) {
             $i++
-            if ($ligne -match '^\s*#') { continue }
-            if (($ligne -match 'Join-Path') -and ($ligne -match 'var[/\\](log|run|cache|secrets|history)')) {
+            if ($line -match '^\s*#') { continue }
+            if (($line -match 'Join-Path') -and ($line -match 'var[/\\](log|run|cache|secrets|history)')) {
                 $horsRegle += ("{0}:{1}" -f (Resolve-Path -LiteralPath $f.FullName -Relative), $i)
             }
         }
     }
 }
 foreach ($x in $horsRegle) {
-    $manquements += "chemin de donnees calcule a la main (utiliser Get-VarPath) -- $x"
+    $shortfalls += "chemin de donnees calcule a la main (utiliser Get-VarPath) -- $x"
 }
 
 # --- Garde-fou : « QUI EXECUTE » N'EST PAS « QUI DEMANDE » --------------------
@@ -517,25 +517,25 @@ foreach ($x in $horsRegle) {
 #   Get-ActionRequester  -- qui demande, avec un repli, pour SIGNER le journal d'audit
 $rawUserVar = @()
 foreach ($d in @('apps', 'scripts')) {
-    $racineD = Join-Path $repoRoot $d
-    if (-not (Test-Path -LiteralPath $racineD)) { continue }
-    foreach ($f in (Get-ChildItem -LiteralPath $racineD -Recurse -File -Include '*.ps1' -ErrorAction SilentlyContinue)) {
+    $rootDir = Join-Path $repoRoot $d
+    if (-not (Test-Path -LiteralPath $rootDir)) { continue }
+    foreach ($f in (Get-ChildItem -LiteralPath $rootDir -Recurse -File -Include '*.ps1' -ErrorAction SilentlyContinue)) {
         # common.ps1 EST l'implementation de la regle : Get-ProcessAccount y vit.
         if ($f.Name -eq 'common.ps1') { continue }
         $i = 0
-        foreach ($ligne in (Get-Content -LiteralPath $f.FullName -Encoding UTF8 -ErrorAction SilentlyContinue)) {
+        foreach ($line in (Get-Content -LiteralPath $f.FullName -Encoding UTF8 -ErrorAction SilentlyContinue)) {
             $i++
-            if ($ligne -match '^\s*#') { continue }
+            if ($line -match '^\s*#') { continue }
             # LE MOTIF S'ECRIT EN MORCEAUX, sinon ce fichier se denonce lui-meme -- comme
             # les motifs de mojibake de check-encoding.
-            if ($ligne -match ('\$env:' + 'USER' + 'NAME')) {
+            if ($line -match ('\$env:' + 'USER' + 'NAME')) {
                 $rawUserVar += ("{0}:{1}" -f (Resolve-Path -LiteralPath $f.FullName -Relative), $i)
             }
         }
     }
 }
 foreach ($x in $rawUserVar) {
-    $manquements += (('$env:' + 'USER' + 'NAME') +
+    $shortfalls += (('$env:' + 'USER' + 'NAME') +
                      " en clair (Get-ProcessAccount, ou Get-RequesterAccount si c'est la personne) -- " + $x)
 }
 
@@ -606,7 +606,7 @@ foreach ($d in @('apps', 'scripts')) {
         }
     }
 }
-foreach ($x in $handBuilt) { $manquements += $x }
+foreach ($x in $handBuilt) { $shortfalls += $x }
 
 # --- Guard rail: WHO LISTENS ON A PORT IS ASKED OF WINDOWS DIRECTLY -----------
 #
@@ -635,10 +635,10 @@ foreach ($d in @('apps', 'scripts')) {
             if ($line -match '<#' -and $line -notmatch '#>') { $inBlockComment = $true; continue }
             if ($line -match '^\s*#') { continue }
             if ($line -match $slowPortCmdlets) {
-                $manquements += ("appel WMI lent pour un port ({0}) : Get-PortListener ou Get-UdpEndpointOwner -- {1}:{2}" -f $Matches[1], (Resolve-Path -LiteralPath $f.FullName -Relative), $i)
+                $shortfalls += ("appel WMI lent pour un port ({0}) : Get-PortListener ou Get-UdpEndpointOwner -- {1}:{2}" -f $Matches[1], (Resolve-Path -LiteralPath $f.FullName -Relative), $i)
             }
             if ($line -match $slowCounterCmdlet) {
-                $manquements += ("compteur de performance lu sans VigiePdh -- {0}:{1}" -f (Resolve-Path -LiteralPath $f.FullName -Relative), $i)
+                $shortfalls += ("compteur de performance lu sans VigiePdh -- {0}:{1}" -f (Resolve-Path -LiteralPath $f.FullName -Relative), $i)
             }
         }
     }
@@ -669,7 +669,7 @@ foreach ($d in @('apps', 'scripts')) {
     }
 }
 foreach ($x in $cutCommand) {
-    $manquements += ("commentaire apres une continuation : la commande est coupee -- " + $x)
+    $shortfalls += ("commentaire apres une continuation : la commande est coupee -- " + $x)
 }
 
 # --- Guard rail: THE SERVER HAS NO AMBIENT USER -------------------------------
@@ -690,21 +690,21 @@ foreach ($f in (Get-ChildItem -LiteralPath $serverRoot -Recurse -File -Include '
     if ($f.Name -eq 'common.ps1') { continue }
     if ($f.FullName -like ('*' + [IO.Path]::DirectorySeparatorChar + 'var' + [IO.Path]::DirectorySeparatorChar + '*')) { continue }
     $i = 0
-    foreach ($ligne in (Get-Content -LiteralPath $f.FullName -Encoding UTF8 -ErrorAction SilentlyContinue)) {
+    foreach ($line in (Get-Content -LiteralPath $f.FullName -Encoding UTF8 -ErrorAction SilentlyContinue)) {
         $i++
-        if ($ligne -match '^\s*#') { continue }
+        if ($line -match '^\s*#') { continue }
         # The pattern is assembled, or this file would report itself.
         # CHAQUE morceau entre parentheses : la virgule lie plus fort que le plus, et
         # sans elles les quatre motifs se recollaient en UN SEUL, qui ne matchait rien.
         foreach ($pattern in @(('HK' + 'CU:'), ('$env:' + 'LOCALAPPDATA'), ('$env:' + 'APPDATA'), ('$env:' + 'USERPROFILE'))) {
-            if ($ligne -like ('*' + $pattern + '*')) {
+            if ($line -like ('*' + $pattern + '*')) {
                 $ambientUser += ("{0}:{1} -- {2}" -f (Resolve-Path -LiteralPath $f.FullName -Relative), $i, $pattern)
             }
         }
     }
 }
 foreach ($x in $ambientUser) {
-    $manquements += ("utilisateur ambiant cote serveur (lire ruche par ruche ou profil par profil) -- " + $x)
+    $shortfalls += ("utilisateur ambiant cote serveur (lire ruche par ruche ou profil par profil) -- " + $x)
 }
 
 # --- Garde-fou : UNE CARTE QUI PARLE DE « VOUS » SE DECLARE PerAccount --------
@@ -737,11 +737,11 @@ foreach ($f in (Get-ChildItem -LiteralPath $probesRoot -Recurse -File -Filter '*
     if (-not $declared) { $personalCards += (Resolve-Path -LiteralPath $f.FullName -Relative) }
 }
 foreach ($x in $personalCards) {
-    $manquements += "carte personnelle sans « PerAccount = `$true » dans son module.psd1 -- $x"
+    $shortfalls += "carte personnelle sans « PerAccount = `$true » dans son module.psd1 -- $x"
 }
 
 # --- Verdict -----------------------------------------------------------------
-$lignes | ForEach-Object { Write-Host $_ }
+$reportLines | ForEach-Object { Write-Host $_ }
 Write-Host ''
 Write-Info (Get-Label 'check-probes.sonde-executee-verifiee-sur' $executees $surEnregistrement $modules)
 if ($surEnregistrement -gt 0) {
@@ -749,10 +749,10 @@ if ($surEnregistrement -gt 0) {
     Write-Detail (Get-Label 'check-probes.passe-complete-avant-livraison')
 }
 
-if ($manquements.Count -eq 0) {
+if ($shortfalls.Count -eq 0) {
     Write-Ok (Get-Label 'check-probes.tous-les-invariants-sont')
     exit 0
 }
-Write-Fail (Get-Label 'check-probes.manquement' $manquements.Count)
-$manquements | ForEach-Object { Write-Host "  - $_" }
+Write-Fail (Get-Label 'check-probes.manquement' $shortfalls.Count)
+$shortfalls | ForEach-Object { Write-Host "  - $_" }
 exit 1

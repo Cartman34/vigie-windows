@@ -41,7 +41,7 @@ param(
 
     # Vides par defaut : l'adresse vient de la configuration commune (voir plus bas).
     # Elles restent surchargeables en parametre, pour un fork ou un essai.
-    [string] $Depot,
+    [string] $RemoteUrl,
     [string] $ApiRepo
 )
 
@@ -51,11 +51,11 @@ $repoRoot = Split-Path $PSScriptRoot -Parent
 . (Join-Path $repoRoot 'apps/backend-pode/lib/common.ps1')
 $backend = Join-Path $repoRoot 'apps/backend-pode'
 # L'ADRESSE DU DEPOT VIENT DE LA CONFIGURATION, jamais d'un litteral recopie ici.
-if (-not $Depot -or -not $ApiRepo) {
+if (-not $RemoteUrl -or -not $ApiRepo) {
     $cfgRepo = Get-Config -Backend $backend
     if (-not $ApiRepo) { $ApiRepo = "$($cfgRepo.Repository)" }
     # L'adresse du clone : le depot public, ou le depot local sur un poste de dev (D112).
-    if (-not $Depot)   { $Depot   = (Get-UpdateRemote -Backend $backend) }
+    if (-not $RemoteUrl)   { $RemoteUrl   = (Get-UpdateRemote -Backend $backend) }
 }
 
 function Noter {
@@ -82,11 +82,11 @@ function ConvertTo-Reperage {
     $t = "$Brut".Trim().TrimStart('v', 'V')
     $suite = 0
     if ($t -match '^(.*)\+(\d+)$') { $t = $Matches[1]; $suite = [int]$Matches[2] }
-    $morceaux = @($t -split '[.\-]' | Where-Object { $_ -match '^\d+$' } | ForEach-Object { [int]$_ })
-    if (-not $morceaux.Count) { return $null }
-    while ($morceaux.Count -lt 3) { $morceaux += 0 }
+    $parts = @($t -split '[.\-]' | Where-Object { $_ -match '^\d+$' } | ForEach-Object { [int]$_ })
+    if (-not $parts.Count) { return $null }
+    while ($parts.Count -lt 3) { $parts += 0 }
     [pscustomobject]@{
-        Cle   = ($morceaux[0] * 1000000 + $morceaux[1] * 1000 + $morceaux[2])
+        Cle   = ($parts[0] * 1000000 + $parts[1] * 1000 + $parts[2])
         Suite = $suite
         Texte = $Brut
     }
@@ -107,25 +107,25 @@ $enPlace = $null
 if ($marque -and $marque.version) { $enPlace = ConvertTo-Reperage -Brut $marque.version }
 Write-Info (Get-Label 'vigie-fetch.version-en-place' $(if ($marque -and $marque.version) { $marque.version } else { 'inconnue' }))
 # --- Quelle voie ? -------------------------------------------------------------------
-$estDepot = $false
+$isRepository = $false
 try {
-    $estDepot = (Test-Path -LiteralPath (Join-Path $repoRoot '.git')) -and
+    $isRepository = (Test-Path -LiteralPath (Join-Path $repoRoot '.git')) -and
                 [bool](Get-Command git -ErrorAction SilentlyContinue)
 } catch { }
 
-$voie = $Source
-if ($voie -eq 'auto') {
-    if ($Ref)          { $voie = 'clone' }
-    elseif ($estDepot) { $voie = 'local' }
-    else               { $voie = 'release' }
+$route = $Source
+if ($route -eq 'auto') {
+    if ($Ref)          { $route = 'clone' }
+    elseif ($isRepository) { $route = 'local' }
+    else               { $route = 'release' }
 }
-if ($Ref -and $voie -ne 'clone') {
-    Sortir 1 ("-Ref impose la voie « clone » : « " + $voie + " » ne sait pas viser une reference precise.")
+if ($Ref -and $route -ne 'clone') {
+    Sortir 1 ("-Ref impose la voie « clone » : « " + $route + " » ne sait pas viser une reference precise.")
 }
-if ($voie -eq 'local' -and -not $estDepot) {
+if ($route -eq 'local' -and -not $isRepository) {
     Sortir 1 "Voie « local » demandee, mais ce dossier n'est pas un depot git utilisable. La voie -Source release reste possible."
 }
-Write-Info (Get-Label 'vigie-fetch.voie-retenue' $voie)
+Write-Info (Get-Label 'vigie-fetch.voie-retenue' $route)
 # --- Un dossier de travail a nous ----------------------------------------------------
 $travail = $null
 try {
@@ -142,19 +142,19 @@ try {
 # Un telechargement coupe laisse un fichier d'allure normale mais illisible. On l'ouvre
 # pour de vrai, et on regarde s'il a la forme d'une Vigie.
 function Test-Archive {
-    param([string]$Chemin)
-    if (-not $Chemin -or -not (Test-Path -LiteralPath $Chemin)) { return "l'archive n'existe pas" }
-    $taille = (Get-Item -LiteralPath $Chemin).Length
-    if ($taille -lt 100KB) { return ("l'archive ne fait que " + [int]($taille / 1KB) + " Ko : elle est tronquee") }
+    param([string]$ArchivePath)
+    if (-not $ArchivePath -or -not (Test-Path -LiteralPath $ArchivePath)) { return "l'archive n'existe pas" }
+    $size = (Get-Item -LiteralPath $ArchivePath).Length
+    if ($size -lt 100KB) { return ("l'archive ne fait que " + [int]($size / 1KB) + " Ko : elle est tronquee") }
     try {
         Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction SilentlyContinue
-        $zip = [IO.Compression.ZipFile]::OpenRead($Chemin)
+        $zip = [IO.Compression.ZipFile]::OpenRead($ArchivePath)
         try {
-            $noms = @($zip.Entries | ForEach-Object { $_.FullName })
-            if (-not ($noms | Where-Object { $_ -match '(^|/)setup\.cmd$' })) {
+            $entryNames = @($zip.Entries | ForEach-Object { $_.FullName })
+            if (-not ($entryNames | Where-Object { $_ -match '(^|/)setup\.cmd$' })) {
                 return "l'archive ne contient pas setup.cmd : ce n'est pas une archive de Vigie"
             }
-            if (-not ($noms | Where-Object { $_ -match '(^|/)apps/backend-pode/server\.ps1$' })) {
+            if (-not ($entryNames | Where-Object { $_ -match '(^|/)apps/backend-pode/server\.ps1$' })) {
                 return "l'archive ne contient pas le serveur : elle est incomplete"
             }
         } finally { $zip.Dispose() }
@@ -165,8 +165,8 @@ function Test-Archive {
 }
 
 function Get-DerniereArchive {
-    param([string]$Dossier)
-    $zip = @(Get-ChildItem -Path $Dossier -Filter 'vigie-*.zip' -File -ErrorAction SilentlyContinue |
+    param([string]$Folder)
+    $zip = @(Get-ChildItem -Path $Folder -Filter 'vigie-*.zip' -File -ErrorAction SilentlyContinue |
              Sort-Object LastWriteTime -Descending | Select-Object -First 1)
     if ($zip.Count) { return $zip[0].FullName }
     return $null
@@ -181,7 +181,7 @@ function Get-DepuisLocal {
     Write-Info (Get-Label 'vigie-fetch.fabrication-de-archive-depuis')
     & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $build | Write-Host
     if ($LASTEXITCODE -ne 0) { Sortir 1 ("La fabrication a echoue (code " + $LASTEXITCODE + ").") }
-    $zip = Get-DerniereArchive -Dossier (Join-Path $repoRoot 'dist')
+    $zip = Get-DerniereArchive -Folder (Join-Path $repoRoot 'dist')
     if (-not $zip) { Sortir 1 "La fabrication n'a laisse aucune archive dans dist/." }
     return $zip
 }
@@ -232,12 +232,12 @@ function Get-DepuisRelease {
     try {
         # Fichier temporaire puis renommage : une coupure ne laisse pas une archive a
         # moitie ecrite portant le nom de la bonne.
-        $avantProgression = $ProgressPreference
+        $previousProgress = $ProgressPreference
         $ProgressPreference = 'SilentlyContinue'   # sinon PowerShell passe son temps a redessiner
         try {
             Invoke-WebRequest -Uri $actif.browser_download_url -OutFile $tmp `
                               -Headers @{ 'User-Agent' = 'Vigie' } -TimeoutSec 300 -ErrorAction Stop
-        } finally { $ProgressPreference = $avantProgression }
+        } finally { $ProgressPreference = $previousProgress }
         Move-Item -LiteralPath $tmp -Destination $target -Force
     } catch {
         Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
@@ -257,7 +257,7 @@ function Get-DepuisClone {
     $clone  = Get-ServiceClonePath -Backend $backend
     # THE CLONE IS NEVER BLOCKED: forced, then recloned if git still refuses (Update-ServiceClone, common.ps1).
     Write-Info (Get-Label 'vigie-fetch.mise-jour-du-clone')
-    $update = Update-ServiceClone -Backend $backend -RemoteUrl $Depot
+    $update = Update-ServiceClone -Backend $backend -RemoteUrl $RemoteUrl
     if ($update.recloned) { Write-Info (Get-Label 'vigie-fetch.clone-recree') }
     # git's own words, never a guessed cause: "unreachable repository" hid a refused tag on 13/09.
     if (-not $update.ok) { Sortir 2 ("La recuperation a echoue : " + $update.error) }
@@ -269,7 +269,7 @@ function Get-DepuisClone {
     # la branche par defaut du remote. Le travail en cours n'est deployable que sur le
     # poste qui l'ecrit, ce qui est exactement le sens du mode developpement.
     $localRemote = $false
-    try { $localRemote = (Test-Path -LiteralPath (Join-Path $Depot '.git')) } catch { }
+    try { $localRemote = (Test-Path -LiteralPath (Join-Path $RemoteUrl '.git')) } catch { }
     $target = $Ref
     if (-not $target -and $localRemote) {
         $target = (& git -C $clone rev-parse --abbrev-ref origin/HEAD 2>$null | Select-Object -First 1)
@@ -302,24 +302,24 @@ function Get-DepuisClone {
     }
     & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $build | Write-Host
     if ($LASTEXITCODE -ne 0) { Sortir 5 ("La fabrication depuis le clone a echoue (code " + $LASTEXITCODE + ").") }
-    $zip = Get-DerniereArchive -Dossier (Join-Path $clone 'dist')
+    $zip = Get-DerniereArchive -Folder (Join-Path $clone 'dist')
     if (-not $zip) { Sortir 5 "La fabrication depuis le clone n'a laisse aucune archive." }
     return $zip
 }
 
 # --- Execution -----------------------------------------------------------------------
-$archive = switch ($voie) {
+$archive = switch ($route) {
     'local'   { Get-DepuisLocal }
     'release' { Get-DepuisRelease }
     'clone'   { Get-DepuisClone }
-    default   { Sortir 1 ("Voie inconnue : " + $voie) }
+    default   { Sortir 1 ("Voie inconnue : " + $route) }
 }
 
-$souci = Test-Archive -Chemin $archive
+$souci = Test-Archive -ArchivePath $archive
 if ($souci) { Sortir 5 ("Archive inexploitable : " + $souci + ". Rien n'a ete deploye.") }
 
 Write-Ok (Get-Label 'vigie-fetch.archive-prete' $archive)
-Noter ("archive prete (" + $voie + ") : " + $archive)
+Noter ("archive prete (" + $route + ") : " + $archive)
 # DERNIERE LIGNE = le chemin. L'appelant ne lit que celle-la.
 Write-Output $archive
 exit 0

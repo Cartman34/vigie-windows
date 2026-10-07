@@ -28,13 +28,13 @@ if (-not $Backend) { exit 1 }
 . (Join-Path $Backend 'lib/common.ps1')
 
 # --- Parametres (JSON base64) ------------------------------------------------
-$racineChemin = 'C:\'
+$rootPath = 'C:\'
 $profondeur   = 3
 $topN         = 10
 try {
     if ($ArgsB64) {
         $a = ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($ArgsB64))) | ConvertFrom-Json
-        if ($a.root)  { $racineChemin = "$($a.root)" }
+        if ($a.root)  { $rootPath = "$($a.root)" }
         if ($a.depth) { $profondeur   = [int]$a.depth }
         if ($a.top)   { $topN         = [int]$a.top }
     }
@@ -51,9 +51,9 @@ if (Test-Path -LiteralPath $stopFile) { Remove-Item -LiteralPath $stopFile -Forc
 
 $debut = Get-Date
 Update-StateJson -Path $outFile -Set @{
-    scan = @{ root = $racineChemin; startedAt = $debut.ToUniversalTime().ToString('s')
+    scan = @{ root = $rootPath; startedAt = $debut.ToUniversalTime().ToString('s')
               at = $debut.ToUniversalTime().ToString('s'); dirs = 0; files = 0; bytes = 0
-              depth = $profondeur; top = $topN; current = $racineChemin }
+              depth = $profondeur; top = $topN; current = $rootPath }
 } | Out-Null
 
 # --- Options d'enumeration ---------------------------------------------------
@@ -78,9 +78,9 @@ function Limit-Detail {
     }
 }
 
-function New-Noeud {
-    param([string]$Chemin, [string]$Nom, [int]$Prof, $Parent)
-    @{ p = $Chemin; n = $Nom; d = $Prof; parent = $Parent; etat = 0
+function New-Node {
+    param([string]$NodePath, [string]$NodeName, [int]$Prof, $Parent)
+    @{ p = $NodePath; n = $NodeName; d = $Prof; parent = $Parent; etat = 0
        own = [long]0; acc = [long]0; total = [long]0; files = 0; maxKid = [long]0
        kids = [System.Collections.Generic.List[hashtable]]::new()
        tops = [System.Collections.Generic.List[hashtable]]::new()
@@ -88,20 +88,20 @@ function New-Noeud {
 }
 
 # --- Parcours ----------------------------------------------------------------
-$racine = New-Noeud -Chemin $racineChemin -Nom $racineChemin -Prof 0 -Parent $null
+$rootNode = New-Node -NodePath $rootPath -NodeName $rootPath -Prof 0 -Parent $null
 $pile = [System.Collections.Generic.Stack[hashtable]]::new()
-$pile.Push($racine)
+$pile.Push($rootNode)
 
 # Palmares GLOBAUX (bornes) : ce que l'utilisateur cherche vraiment, "qui mange la place",
 # sans avoir a deplier l'arbre niveau par niveau.
-$grosDossiers = [System.Collections.Generic.List[hashtable]]::new()
-$grosFichiers = [System.Collections.Generic.List[hashtable]]::new()
+$folderCandidates = [System.Collections.Generic.List[hashtable]]::new()
+$fileCandidates = [System.Collections.Generic.List[hashtable]]::new()
 $PALMARES = 20
 
 $gDirs = 0; $gFiles = 0; $gBytes = [long]0
-$arret = $false; $erreur = $null
+$stopped = $false; $erreur = $null
 $dernierEcrit = Get-Date
-$lgRacine = $racineChemin.TrimEnd('\').Length
+$rootLen = $rootPath.TrimEnd('\').Length
 
 try {
     while ($pile.Count -gt 0) {
@@ -118,27 +118,27 @@ try {
             if ($di) {
                 try {
                     foreach ($f in $di.EnumerateFiles('*', $opts)) {
-                        $taille = [long]$f.Length
-                        $n.own += $taille
+                        $size = [long]$f.Length
+                        $n.own += $size
                         $n.files++
                         $gFiles++
-                        $gBytes += $taille
+                        $gBytes += $size
                         if ($detail) {
-                            $n.tops.Add(@{ n = $f.Name; s = $taille })
+                            $n.tops.Add(@{ n = $f.Name; s = $size })
                             if ($n.tops.Count -gt (4 * $topN)) { Limit-Detail $n.tops $topN $n.af }
                         }
-                        if ($taille -gt 0) {
-                            $grosFichiers.Add(@{ n = $f.FullName; s = $taille })
-                            if ($grosFichiers.Count -gt (4 * $PALMARES)) {
-                                $t = @($grosFichiers | Sort-Object -Property @{ Expression = { [long]$_.s } } -Descending | Select-Object -First $PALMARES)
-                                $grosFichiers.Clear(); foreach ($x in $t) { $grosFichiers.Add($x) }
+                        if ($size -gt 0) {
+                            $fileCandidates.Add(@{ n = $f.FullName; s = $size })
+                            if ($fileCandidates.Count -gt (4 * $PALMARES)) {
+                                $t = @($fileCandidates | Sort-Object -Property @{ Expression = { [long]$_.s } } -Descending | Select-Object -First $PALMARES)
+                                $fileCandidates.Clear(); foreach ($x in $t) { $fileCandidates.Add($x) }
                             }
                         }
                     }
                 } catch { }
                 try {
                     foreach ($d in $di.EnumerateDirectories('*', $opts)) {
-                        $pile.Push((New-Noeud -Chemin $d.FullName -Nom $d.Name -Prof ($n.d + 1) -Parent $n))
+                        $pile.Push((New-Node -NodePath $d.FullName -NodeName $d.Name -Prof ($n.d + 1) -Parent $n))
                     }
                 } catch { }
             }
@@ -146,9 +146,9 @@ try {
             # Progression + demande d'arret : au plus une fois par seconde et demie.
             if (((Get-Date) - $dernierEcrit).TotalMilliseconds -gt 1500) {
                 $dernierEcrit = Get-Date
-                if (Test-Path -LiteralPath $stopFile) { $arret = $true; break }
+                if (Test-Path -LiteralPath $stopFile) { $stopped = $true; break }
                 Update-StateJson -Path $outFile -Set @{
-                    scan = @{ root = $racineChemin
+                    scan = @{ root = $rootPath
                               startedAt = $debut.ToUniversalTime().ToString('s')
                               at = (Get-Date).ToUniversalTime().ToString('s')
                               dirs = $gDirs; files = $gFiles; bytes = $gBytes
@@ -170,11 +170,11 @@ try {
         # presque tout le poids n'apprend rien : c'est l'enfant qu'il faut montrer.
         $revelateur = ($n.total -gt 0 -and (([double]$n.maxKid / [double]$n.total) -lt 0.85))
         if ($n.d -ge 1 -and $revelateur) {
-            $rel = $n.p.Substring([Math]::Min($lgRacine, $n.p.Length)).TrimStart('\')
-            $grosDossiers.Add(@{ n = $rel; s = [long]$n.total; f = $n.files })
-            if ($grosDossiers.Count -gt (10 * $PALMARES)) {
-                $t = @($grosDossiers | Sort-Object -Property @{ Expression = { [long]$_.s } } -Descending | Select-Object -First $PALMARES)
-                $grosDossiers.Clear(); foreach ($x in $t) { $grosDossiers.Add($x) }
+            $rel = $n.p.Substring([Math]::Min($rootLen, $n.p.Length)).TrimStart('\')
+            $folderCandidates.Add(@{ n = $rel; s = [long]$n.total; f = $n.files })
+            if ($folderCandidates.Count -gt (10 * $PALMARES)) {
+                $t = @($folderCandidates | Sort-Object -Property @{ Expression = { [long]$_.s } } -Descending | Select-Object -First $PALMARES)
+                $folderCandidates.Clear(); foreach ($x in $t) { $folderCandidates.Add($x) }
             }
         }
 
@@ -202,24 +202,24 @@ try {
 
 # --- Resultat ----------------------------------------------------------------
 $fin = Get-Date
-if ($arret) {
+if ($stopped) {
     # Un arret rend un resultat PARTIEL : on ne l'ecrit pas par-dessus le dernier resultat
     # complet, qui reste utile. On dit seulement que l'analyse a ete interrompue.
     Update-StateJson -Path $outFile -Set @{
-        scan = @{ canceled = $true; root = $racineChemin
+        scan = @{ canceled = $true; root = $rootPath
                   startedAt = $debut.ToUniversalTime().ToString('s')
                   at = $fin.ToUniversalTime().ToString('s')
                   dirs = $gDirs; files = $gFiles; depth = $profondeur; top = $topN }
     } | Out-Null
     try { Remove-Item -LiteralPath $stopFile -Force -ErrorAction SilentlyContinue } catch { }
-    Write-Log -Backend $Backend -Name 'diskscan' -Message (Get-Label 'disk-scan.analyse-interrompue-apres-dossiers' $racineChemin $gDirs)
+    Write-Log -Backend $Backend -Name 'diskscan' -Message (Get-Label 'disk-scan.analyse-interrompue-apres-dossiers' $rootPath $gDirs)
 } else {
-    $arbre = @{ n = $racineChemin; s = [long]($racine.own + $racine.acc); f = $racine.files
-                k = @($racine.kids); t = @($racine.tops) }
-    if ($racine.au.s -gt 0) { $arbre.o  = @{ s = [long]$racine.au.s; c = $racine.au.c } }
-    if ($racine.af.s -gt 0) { $arbre.of = @{ s = [long]$racine.af.s; c = $racine.af.c } }
-    $topDossiers = @($grosDossiers | Sort-Object -Property @{ Expression = { [long]$_.s } } -Descending | Select-Object -First $PALMARES)
-    $topFichiers = @($grosFichiers | Sort-Object -Property @{ Expression = { [long]$_.s } } -Descending | Select-Object -First $PALMARES)
+    $arbre = @{ n = $rootPath; s = [long]($rootNode.own + $rootNode.acc); f = $rootNode.files
+                k = @($rootNode.kids); t = @($rootNode.tops) }
+    if ($rootNode.au.s -gt 0) { $arbre.o  = @{ s = [long]$rootNode.au.s; c = $rootNode.au.c } }
+    if ($rootNode.af.s -gt 0) { $arbre.of = @{ s = [long]$rootNode.af.s; c = $rootNode.af.c } }
+    $topFolders = @($folderCandidates | Sort-Object -Property @{ Expression = { [long]$_.s } } -Descending | Select-Object -First $PALMARES)
+    $topFiles = @($fileCandidates | Sort-Object -Property @{ Expression = { [long]$_.s } } -Descending | Select-Object -First $PALMARES)
     # DEUX blocs distincts, et c'est voulu : `scan` = l'etat de la DERNIERE tache (en
     # cours, terminee, interrompue) ; `result` = la derniere analyse COMPLETE, celle que
     # l'arbre decrit. Les melanger faisait dater l'arbre du jour d'une interruption.
@@ -227,9 +227,9 @@ if ($arret) {
                 startedAt = $debut.ToUniversalTime().ToString('s')
                 seconds = [int]($fin - $debut).TotalSeconds
                 dirs = $gDirs; files = $gFiles; bytes = [long]$arbre.s
-                root = $racineChemin; depth = $profondeur; top = $topN; error = $erreur }
+                root = $rootPath; depth = $profondeur; top = $topN; error = $erreur }
     Update-StateJson -Path $outFile -Depth 24 -Set @{
-        scan = @{ canceled = $false; root = $racineChemin
+        scan = @{ canceled = $false; root = $rootPath
                   startedAt = $debut.ToUniversalTime().ToString('s')
                   at = $fin.ToUniversalTime().ToString('s')
                   seconds = [int]($fin - $debut).TotalSeconds
@@ -238,10 +238,10 @@ if ($arret) {
                   error = $erreur }
         result     = $bilan
         tree       = $arbre
-        bigFolders = $topDossiers
-        bigFiles   = $topFichiers
+        bigFolders = $topFolders
+        bigFiles   = $topFiles
     } | Out-Null
-    Write-Log -Backend $Backend -Name 'diskscan' -Message (Get-Label 'disk-scan.dossiers-fichiers' $racineChemin $gDirs $gFiles $([int]($fin-$debut).TotalSeconds))
+    Write-Log -Backend $Backend -Name 'diskscan' -Message (Get-Label 'disk-scan.dossiers-fichiers' $rootPath $gDirs $gFiles $([int]($fin-$debut).TotalSeconds))
 }
 
 # La carte se rafraichit au prochain acces, sans attendre le TTL.
