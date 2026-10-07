@@ -149,7 +149,29 @@ $fields = @(
         -FixAction $(if ($missing.Count) { 'repair-tasks' } else { $null }) `
         -Help "Une app cliente par compte : son battement de cœur dit qu'elle est là. Un compte sans session ouverte n'en a pas, et ce n'est pas un défaut."
 )
-$worst = if ($countStatus -eq 'error' -or $memoryStatus -eq 'error') { 'error' }
+<#
+    THE WATCH TASKS, AND THE ONE THAT NEVER RETURNS.
+
+    Vigie does seven jobs by itself every thirty seconds. While they hold their ceiling this line is green and says
+    little. The moment one overruns, it names it -- and since the module declares it as a notification, the bubble
+    leaves on its own: every error reaches the user (07/10).
+
+    The lateness is read from the LIVE mark, not from a memory: a hung task never finished, so it could never write
+    anything. The reading is what judges.
+#>
+$watchRunning = @(Get-RunningOperations -Backend $backend -IncludeWatch | Where-Object { "$($_.module)" -eq 'veille' })
+$watchLate = @($watchRunning | Where-Object { $_.overdue })
+$watchStatus = if ($watchLate.Count) { 'error' } else { 'ok' }
+$watchValue = if ($watchLate.Count) { $watchLate[0].label } else { Get-Label 'self.veille-a-l-heure' }
+$watchReason = if ($watchLate.Count) { Get-Label 'self.veille-bloquee' $watchLate[0].label $watchLate[0].seconds $watchLate[0].maxSeconds } else { '' }
+$fields += New-Field -Key 'watch' -Label 'Tâches de veille' -Value $watchValue -Kind 'text' -Status $watchStatus `
+    -Reason $watchReason `
+    -Help "Les travaux que Vigie lance d'elle-même toutes les trente secondes : relevé des sentinelles, calculs de cartes dus, espace disque, WSL, ports réseau. Chacun a un plafond ; au-delà, il est dit bloqué." `
+    -Guide $(if ($watchLate.Count) {
+        (Get-Label 'self.veille-bloquee-guide' $watchLate[0].label $watchLate[0].seconds $watchLate[0].maxSeconds)
+    } else { Get-Label 'self.veille-guide' })
+
+$worst = if ($countStatus -eq 'error' -or $memoryStatus -eq 'error' -or $watchStatus -eq 'error') { 'error' }
          elseif ($countStatus -eq 'warn' -or $clientStatus -eq 'warn' -or $refreshBad.Count) { 'warn' } else { 'ok' }
 # SCOPE: Vigie's own processes, every session together.
 New-ModuleObject -Id 'vigie-self' -Theme 'debug' -Label 'Processus de Vigie' -Scope 'machine' -Status $worst -Fields $fields

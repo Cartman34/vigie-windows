@@ -24,6 +24,10 @@
 
     # THE ONLY NOTIFICATIONS OF THIS MODULE watch Vigie running away; the other lines describe, they do not alert.
     Notifications = @(
+        @{ Key = 'watch-stalled'; Label = 'Une tâche de veille est bloquée'
+           Card = 'vigie-self'; Field = 'watch'
+           Droits = 'tous'; Critique = $false
+           Help = 'Un des travaux que Vigie lance d''elle-même toutes les trente secondes dépasse son plafond : les cartes qu''il alimente ne se mettent plus à jour.' }
         @{ Key = 'vigie-runaway'; Label = 'Vigie s''emballe'
            Card = 'vigie-self'; Field = 'count'
            Droits = 'tous'; Critique = $false

@@ -108,6 +108,15 @@ Routes de `apps/backend-pode/server.ps1` qui modifient quelque chose. Toutes syn
 
 ## Les tâches de veille de l'app serveur
 
+Depuis le **07/10**, chacune est **entourée** par `Invoke-WatchTask`, et tout le tour par `Invoke-WatchCycle` : une
+marque sous le module réservé `veille`, un plafond déclaré, et un résultat écrit quand il est dépassé. La marque
+n'est **publiée** par `/operations` qu'au-delà du plafond — un tour revient toutes les trente secondes, l'afficher
+à chaque fois ne dirait rien. Le retard est constaté **par la lecture**, pas par la minuterie : une tâche bloquée
+bloque la minuterie avec elle.
+
+La carte « Processus de Vigie » porte la ligne « Tâches de veille », et le module déclare la notification
+`watch-stalled` : une tâche bloquée remonte donc à l'utilisateur.
+
 | Opération | Où | Déclenchement | Erreurs |
 |---|---|---|---|
 | minuteur `vigie-watch` | `server.ps1` | toutes les **30 s**, suspendu pendant une installation | journal `state` |

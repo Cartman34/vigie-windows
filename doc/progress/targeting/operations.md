@@ -61,11 +61,11 @@ ou en échec. Ce qui diffère derrière, un résultat dans la réponse ou un tra
 - **Une opération synchrone ne lance rien qui lui survive.** Si le travail continue après la réponse, l'opération est
   asynchrone, et le protocole s'applique.
 
-## Ce qui n'est pas tenu
+## Ce qui est tenu depuis le 07/10
 
-Les **tâches de veille** et les **tâches clientes** figurent dans l'inventaire et ne taisent aucune erreur. Mais elles
-ne rejoignent **pas** les marques ni les résultats de `/operations` — et c'est un **écart au besoin**, pas une
-question ouverte.
+Les **tâches de veille** et les **tâches clientes** figurent dans l'inventaire, ne taisent aucune erreur, et
+rejoignent les marques et les résultats de `/operations` — **fait le 07/10**. Ce fut longtemps un **écart au
+besoin**, présenté à tort comme une question ouverte.
 
 Cette page a longtemps écrit l'inverse : « n'est pas tranché… aucune demande ne le couvre encore ». C'était faux.
 `features.md` → `CORE-OPERATIONS` dit **toute** opération de Vigie, synchrone ou asynchrone, et qu'une opération
@@ -73,9 +73,9 @@ asynchrone **se voit tant qu'elle dure, depuis toutes les pages ouvertes**. La t
 page comme une famille d'opération à part entière. La demande était là depuis le début ; c'est la conception qui a
 inventé une réserve.
 
-**Ce que ça coûte aujourd'hui** : ce que Vigie décide elle-même — recalculer une carte, lire ce que WSL occupe,
-relever les ports — n'apparaît nulle part. Si l'un de ces travaux se bloque, rien ne le montre, et la carte
-concernée vieillit en silence. Constaté le 06/10 : il a fallu fouiller les journaux du compte de service, illisibles
+**Ce que ça coûtait** : ce que Vigie décide elle-même — recalculer une carte, lire ce que WSL occupe, relever les
+ports — n'apparaissait nulle part. Si l'un de ces travaux se bloquait, rien ne le montrait, et la carte concernée
+vieillissait en silence. Constaté le 06/10 : il a fallu fouiller les journaux du compte de service, illisibles
 depuis une session ordinaire, pour savoir pourquoi une carte restait grise.
 
 Sujet **S14**.

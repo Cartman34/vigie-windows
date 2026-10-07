@@ -588,20 +588,28 @@ Add-PodeTimer -Name 'vigie-watch' -Interval 30 -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
     try {
         if (Get-InstallLockHolder) { return }
+        # THE WHOLE ROUND IS WRAPPED (S14): what Vigie does by itself is seen like the rest, and a hang is found
+        # even when this very timer is what is hung -- the reading is what judges.
+        Invoke-WatchCycle -Backend $env:VIGIE_BACKEND -Body {
         # LES RESIDENTS D ABORD : ce qui doit vivre a cote du serveur est arme ici, et
         # rearme s il est mort (targeting/residents.md). Le premier d entre eux sait
         # quand un jeu demarre ; la sentinelle qui suit ne fait que lire son resultat.
-        $null = Invoke-ResidentPass -Backend $env:VIGIE_BACKEND
+        Invoke-WatchTask -Name 'residents' -Label (Get-Label 'common.veille-residents') -MaxSeconds 10 -Backend $env:VIGIE_BACKEND -Body {
+            $null = Invoke-ResidentPass -Backend $env:VIGIE_BACKEND
+        }
         # THE CLIENT APPS NEXT, for the same reason as a resident: what must live beside the server is seen here, and
         # brought back when it is gone. A dead client app leaves its task reading "Running" with no process behind it,
         # and Windows then refuses every start: the account stayed without Vigie until its next session (28/09).
-        $null = Update-ClientWatch -Backend $env:VIGIE_BACKEND
+        Invoke-WatchTask -Name 'clients' -Label (Get-Label 'common.veille-clientes') -MaxSeconds 10 -Backend $env:VIGIE_BACKEND -Body {
+            $null = Update-ClientWatch -Backend $env:VIGIE_BACKEND
+        }
         $null = Invoke-WatchPass -Backend $env:VIGIE_BACKEND
         # THE NOTIFICATION IDENTITY: read before written, so this pass costs nothing once it
         # is right. Here rather than at install time alone -- an update runs the installer of
         # the version ALREADY in place, which necessarily knows nothing of what was just
         # added (measured on 07/09).
         try { $null = Set-VigieToastIdentity -InstallPath (Get-RepoRoot) } catch { }
+        }
     } catch {
         try { Write-Log -Backend $env:VIGIE_BACKEND -Name 'state' -Level 'ERROR' `
                         -Message ("veille : " + $_.Exception.Message) } catch { }

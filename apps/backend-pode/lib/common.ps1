@@ -6003,6 +6003,71 @@ function Get-RefreshRows {
     return $rows
 }
 
+<#
+    WATCH TASKS: WHAT THE SERVER APP DOES BY ITSELF, SEEN LIKE EVERYTHING ELSE.
+
+    Every thirty seconds the server app does seven jobs nobody asked for: reading the sentinels, launching the card
+    computations that are due, looking at free disk space, questioning WSL, sampling the ports. None of them showed
+    anywhere. If one hung, nothing said so, and the cards it feeds aged in silence -- on 06/10 it took digging
+    through logs an ordinary session cannot even open to learn why a card stayed grey.
+
+    CORE-OPERATIONS required it from the start: EVERY operation of Vigie is seen while it lasts. So this was a
+    defect, not an improvement -- and the design page had written the opposite.
+
+    THE MECHANISM ALREADY EXISTS and is not doubled: a mark set before, a result written after, /operations serving
+    both. A watch task enters it under the reserved module `veille`. Nothing new: no file, no route, no reader.
+
+    WHAT IT COSTS: eight writes of 150 bytes per thirty-second round, 23 000 a day. Measured rather than assumed:
+    4 KB per write, 92 MB a day, 34 GB a year -- one hundredth of a percent of an ordinary disk's endurance. The
+    price is negligible, and it is the minimum: with no mark there is nothing to look at.
+
+    Full design: doc/progress/targeting/operations.md, in the section on the design that was settled.
+#>
+function Invoke-WatchCycle {
+    param([Parameter(Mandatory)][scriptblock]$Body, [string]$Backend = (Get-BackendRoot))
+    # THE ROUND CARRIES A CEILING OF ITS OWN, wider than the sum of theirs: a round that passes it is stuck
+    # somewhere, even if no single task declared itself.
+    Set-ModuleBusyMark -Module 'veille' -Label (Get-Label 'common.veille-tour') -ProcessId $PID `
+                       -Action 'watch-cycle' -Resources @() -MaxSeconds 180 -Backend $Backend
+    try { & $Body }
+    finally { Clear-ModuleBusyMark -Module 'veille' -Backend $Backend }
+}
+
+<#
+    ONE WATCH TASK, WRAPPED.
+
+    The body knows nothing of the mark: it measures, it computes, it returns. The wrapper sets, judges and reports.
+    Adding a task tomorrow means wrapping it in this function, and nothing else.
+
+    An overrun is written ONCE per occurrence, as an operation result: it then shows among the recent results
+    whatever card is switched on, and the card about Vigie's own processes picks it up so the bubble leaves --
+    every error reaches the user, a rule the owner restated on 07/10.
+#>
+function Invoke-WatchTask {
+    param(
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][string]$Label,
+        [Parameter(Mandatory)][int]$MaxSeconds,
+        [Parameter(Mandatory)][scriptblock]$Body,
+        [string]$Backend = (Get-BackendRoot)
+    )
+    Set-ModuleBusyMark -Module 'veille' -Label $Label -ProcessId $PID -Action ('watch:' + $Name) `
+                       -Resources @() -MaxSeconds $MaxSeconds -Backend $Backend
+    $t0 = Get-Date
+    try { & $Body }
+    finally {
+        $seconds = [int]((Get-Date) - $t0).TotalSeconds
+        if ($seconds -gt $MaxSeconds) {
+            try {
+                Set-ModuleLastRun -Module 'veille' -Action ('watch:' + $Name) -Label $Label -Code 1 `
+                                  -Seconds $seconds -Error (Get-Label 'common.veille-trop-longue' $MaxSeconds) -Backend $Backend
+                Write-Log -Backend $Backend -Name 'state' -Level 'ERROR' `
+                          -Message (Get-Label 'common.veille-depassement' $Name $seconds $MaxSeconds)
+            } catch { }
+        }
+    }
+}
+
 function Invoke-WatchPass {
     param([string]$Backend = (Get-BackendRoot))
     <#
@@ -6105,16 +6170,26 @@ function Invoke-WatchPass {
     }
     # AND THE SCHEDULER'S PASS (D124): a change is not the only reason to compute. What must be sampled is sampled
     # because the server watches, not because someone is looking.
-    try { $null = Invoke-RefreshPass -Backend $Backend } catch { }
+    Invoke-WatchTask -Name 'scheduler' -Label (Get-Label 'common.veille-ordonnanceur') -MaxSeconds 10 -Backend $Backend -Body {
+        try { $null = Invoke-RefreshPass -Backend $Backend } catch { }
+    }
     # AND THE DISK, when it empties faster than anyone would notice.
-    try { $null = Invoke-DiskWatch -Backend $Backend } catch { }
+    Invoke-WatchTask -Name 'disk' -Label (Get-Label 'common.veille-disque') -MaxSeconds 5 -Backend $Backend -Body {
+        try { $null = Invoke-DiskWatch -Backend $Backend } catch { }
+    }
     # AND WHAT WSL HOLDS INSIDE, which only a session can see.
-    try { $null = Update-WslUsage -Backend $Backend } catch { }
+    Invoke-WatchTask -Name 'wsl' -Label (Get-Label 'common.veille-wsl') -MaxSeconds 25 -Backend $Backend -Body {
+        try { $null = Update-WslUsage -Backend $Backend } catch { }
+    }
     # AND WHICH PACKAGE MANAGERS EACH ACCOUNT HAS, for the same reason: one installed in a profile is invisible from
     # the service account, and winget was missing from the panel until 05/10 for exactly that.
-    try { $null = Update-PkgInventory -Backend $Backend } catch { }
+    Invoke-WatchTask -Name 'packages' -Label (Get-Label 'common.veille-paquets') -MaxSeconds 65 -Backend $Backend -Body {
+        try { $null = Update-PkgInventory -Backend $Backend } catch { }
+    }
     # AND THE EPHEMERAL PORTS, read every pass, written only when they fill or right after Windows complains.
-    try { $null = Invoke-PortWatch -Backend $Backend } catch { }
+    Invoke-WatchTask -Name 'ports' -Label (Get-Label 'common.veille-ports') -MaxSeconds 5 -Backend $Backend -Body {
+        try { $null = Invoke-PortWatch -Backend $Backend } catch { }
+    }
     return $events
 }
 
@@ -8107,6 +8182,9 @@ function Set-ModuleBusyMark {
         [string]$Button = '',
         [string]$At = '',
         [string]$Log = '',
+        # HOW LONG THIS WORK MAY TAKE before it is treated as stuck. Carried by the mark so that the READER can
+        # judge: if the process that set the mark is blocked, it can no longer judge anything itself.
+        [int]$MaxSeconds = 0,
         [string]$Backend = (Get-BackendRoot)
     )
     $f = Get-ModuleBusyMarkPath -Module $Module -Backend $Backend
@@ -8115,7 +8193,7 @@ function Set-ModuleBusyMark {
     if (-not $Resources -or -not $Resources.Count) { $Resources = @(Get-ActionResources -Type $Action -Module $Module) }
     $o = [ordered]@{ label = $Label; pid = $ProcessId; action = $Action
                      resources = @($Resources)
-                     button = $Button; log = $Log
+                     button = $Button; log = $Log; maxSeconds = $MaxSeconds
                      at = $(if ($At) { $At } else { (Get-Date).ToUniversalTime().ToString('o') }) }
     try { ($o | ConvertTo-Json -Depth 4) | Out-File -FilePath $f -Encoding UTF8 } catch { }
 }
@@ -8247,8 +8325,18 @@ function Get-VigieFootprint {
 #
 # On rend donc l'etat complet -- ce qui tourne, et ce qui vient de se terminer -- et
 # chaque page s'y accorde. Le serveur est la source, les pages sont des reflets.
+<#
+    WHAT IS RUNNING, AND WHAT IS PUBLISHED OF IT.
+
+    A watch task comes round every thirty seconds: showing each one would put something permanently in "what is
+    running", for information nobody reads. Its mark still always exists -- that is what makes a hang visible --
+    but it is PUBLISHED only past its ceiling. -IncludeWatch returns everything, for the debug card, which does
+    want the whole list.
+
+    While all is well: nothing. The moment a task overruns: it appears like any other operation.
+#>
 function Get-RunningOperations {
-    param([string]$Backend = (Get-BackendRoot))
+    param([string]$Backend = (Get-BackendRoot), [switch]$IncludeWatch)
     $ops = @()
     $dossier = Split-Path (Get-ModuleBusyMarkPath -Module 'x' -Backend $Backend) -Parent
     if (Test-Path -LiteralPath $dossier) {
@@ -8260,6 +8348,18 @@ function Get-RunningOperations {
             # ONE place where an operation's state is read. The route dropped it, so through the door the protocol
             # designates nobody could tell a live operation from a dead one -- the check existed, reading the mark
             # directly, elsewhere. Found on 06/10 while proving the protocol on a 613-second disk analysis.
+            <#
+                AND THE READER SAYS WHETHER IT IS LATE.
+
+                The mark carries its own ceiling; here we compare it to the clock. The judgement has to live on this
+                side: a watch task that hangs hangs the timer with it, and nothing in that runspace can report
+                anything any more. This function runs in the HTTP request, which is another thread -- so a blocked
+                task is seen even when everything else is frozen.
+            #>
+            $maxSeconds = 0
+            try { $maxSeconds = [int]$m.maxSeconds } catch { }
+            $running = 0
+            try { $running = [int]([datetime]::UtcNow - (ConvertTo-UtcDate $m.at)).TotalSeconds } catch { }
             $ops += [pscustomobject][ordered]@{
                 module    = $module
                 label     = "$($m.label)"
@@ -8267,8 +8367,14 @@ function Get-RunningOperations {
                 pid       = [int]$m.pid
                 resources = @($m.resources)
                 at        = "$($m.at)"
+                seconds   = $running
+                maxSeconds = $maxSeconds
+                overdue   = ($maxSeconds -gt 0 -and $running -gt $maxSeconds)
             }
         }
+    }
+    if (-not $IncludeWatch) {
+        $ops = @($ops | Where-Object { "$($_.module)" -ne 'veille' -or $_.overdue })
     }
     return $ops
 }

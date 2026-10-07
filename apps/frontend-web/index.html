@@ -2757,12 +2757,15 @@ function applyOperationLock(){
   const tenues = op ? (op.ressources || []) : [];
   const croise = b => {
     if(!op) return false;
-    // ON NE SAIT PAS CE QU'ELLE TIENT -> on bloque tout. Seules les operations passees
-    // par le veilleur declarent leurs ressources ; une verification de paquets ou une
-    // analyse de disque, elles, marquent seulement leur carte « occupee ». Sans ce
-    // repli, elles ne bloquaient plus rien du tout (constate le 27/08 : « je peux
-    // toujours faire des actions alors qu'une operation est en cours »).
-    if(!tenues.length) return true;
+    // AN OPERATION THAT DECLARES NOTHING HOLDS NOTHING.
+    //
+    // Everything was blocked in that case, on the grounds that we did not know what it held (27/08). That was true
+    // while marks did not carry their resources; they have since 06/10, and the page reads them from /operations.
+    // An empty list therefore means what it says: this operation takes nothing.
+    //
+    // Without this, a watch task -- which takes nothing and comes round every thirty seconds -- would freeze the
+    // whole interface while it lasts.
+    if(!tenues.length) return false;
     let r = [];
     try{ r = JSON.parse(b.dataset.res || '[]'); }catch(e){ r = []; }
     if(!r.length) return false;
