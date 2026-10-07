@@ -367,6 +367,23 @@ the burden of remembering where things stood. The tracking holds the state; the 
 options, not a summary of everything open. If what comes next is his to decide, that is the opening, asked in the
 question format.
 
+## One subject, one number -- and an improvised list is not a numbering
+
+**Anything the owner may answer about carries a STABLE identifier: a subject is `SXX`, a question is `Qn`.** Nothing
+else designates it -- not its position in a list I wrote, not "the second point", not a number I made up for one
+message. *07/10: "Faut que tu arrete de mal numeroter les choses apres, on n'arrive pas a travailler", then "Un
+sujet un numero, tu dois t'y tenir."*
+
+**What went wrong.** I listed four worksites as 1, 2, 3, 4 in one message, then listed four different ones as 1, 2,
+3, 4 in the next. He answered "corrige 2" meaning the first list; I read it against the second. Two messages, two
+meanings for the same number, and the work stopped.
+
+**How to apply it.** A worksite that has no number yet is OPENED in `notes/subjects.md` with the next `SXX` before
+it is mentioned -- that is what the file is for, and a number is never reused (`S19`, `S20` and `S21` were opened
+this way on 07/10). An enumeration inside a message is then a list of `SXX`, in any order, and it means the same
+thing tomorrow. Numbers for questions follow the `Qn` rule above, with the same obligation: stable while the series
+is open.
+
 ## The tracking is mine, and it is kept as the work happens
 
 **A subject is closed in the same commit that finishes it**, not in a tidying pass afterwards. The same goes for one
@@ -614,7 +631,8 @@ answer: two red walls of text in a successful deployment.*
 
 **How to apply it:** the function carries the comment saying what the raw call gets wrong —
 without it, someone will rewrite it inline. Examples: `Get-AclAccessRules`, `Get-PortListener`,
-`Invoke-Git`.
+`Invoke-Git`. The batch of 18/09 was measured call by call before being replaced:
+[`notes/evidence/2026-09-18-system-calls-measured.md`](../../../notes/evidence/2026-09-18-system-calls-measured.md).
 
 **The call wrapped is the optimised one that gives the information needed, never the convenient one.** Asked by the
 owner on 14/09, for every system call: the question is answered by the call that asks Windows exactly that, measured,
@@ -999,6 +1017,8 @@ hand. Record:
 
 ## Cache & performance
 - Cache **per probe** (file mtime + TTL); **never** a global recompute.
+- The slow ones are slow because they were MEASURED so, not guessed:
+  [`notes/evidence/2026-09-29-slow-update-probes.md`](../../../notes/evidence/2026-09-29-slow-update-probes.md).
 - After an action: **targeted invalidation** of the affected probes (`result.invalidate`).
 - Slow probes (lock, pending, wsl): long TTLs.
 
