@@ -367,6 +367,29 @@ the burden of remembering where things stood. The tracking holds the state; the 
 options, not a summary of everything open. If what comes next is his to decide, that is the opening, asked in the
 question format.
 
+## "Go, and do not stop" -- the confirmation goes INSIDE the working turn
+
+**Every message I write ENDS my turn. Tool calls do not.** That single mechanical fact is why, on 07/10, he had to
+tell me four times to start: *"Tu n'as rien commence... pourquoi tu ne pars pas ? REPOND"*, then *"MAIS BORDEL DE
+MERDE"*. Each time he asked for a confirmation I wrote one, and writing it was the stop. The more he insisted, the
+more I stopped -- the confirmation WAS the interruption.
+
+**What made it worse:** the rule above, "a question calls for an ANSWER, not an action", is right for a question
+about the work. Applied to an order to start and not stop, it produces the exact opposite of what was asked.
+
+**How to apply it, and it is mechanical, not a matter of good intentions:**
+
+1. The confirmation is ONE short line, placed at the START of the turn, **followed immediately by tool calls in the
+   same turn**. The turn does not end; the work begins behind the confirmation. He gets his confirmation AND his
+   work, which is what he asked for both times.
+2. After that line, **no more user-visible text until the work is done** -- only tool calls. Text is the stop.
+3. **A message arriving mid-turn is not an order to stop** unless it says so. It is answered in one line inside the
+   working turn, in the same way, and the work continues.
+4. What cannot be done at all is said ONCE, in the final report, never as a preamble and never as a reason to pause.
+
+*Measured the same day: once the confirmation was placed before the tool calls instead of in its own message, the
+work ran from S21 to S01 without a single stop.*
+
 ## One subject, one number -- and an improvised list is not a numbering
 
 **Anything the owner may answer about carries a STABLE identifier: a subject is `SXX`, a question is `Qn`.** Nothing

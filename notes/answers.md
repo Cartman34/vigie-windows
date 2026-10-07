@@ -66,3 +66,19 @@ question.
 | 06/10 | Sur quel paquet éprouver le bouton de mise à jour winget ? | `7zip.7zip` (26.02 → 26.03) : petit, autonome, sans conséquence s'il échoue. | `apps/backend-pode/actions/pkg-updates.action.ps1` ; relevé de l'épreuve |
 | 07/10 | Un travail que Vigie lance elle-même sur minuterie et qui se bloque mérite-t-il une bulle ? | **Oui.** « Toutes les erreurs remontent à l'utilisateur, une règle de base, elle doit être appliquée partout. Après, y'a des moyens UX de ne pas que ce soit trop envahissant. » | `targeting/operations.md` ; `targeting/notifications.md` |
 | 07/10 | Comment nomme-t-on le travail que Vigie lance elle-même toutes les trente secondes ? | **« tâche de veille »** — « veille » est déjà le mot du produit, « tâche » rejoint tâche serveur et tâche cliente. | `doc/en/developing/glossary.md` ; `targeting/operations.md` |
+
+## 07/10/2026 — « Je ne veux plus que tu t'arrêtes »
+
+**Ce qu'il a demandé**, quatre fois : partir sur la liste entière des sujets, sans arrêt, sans question, sans
+excuse, après une confirmation de la liste. Ses mots : *« Je ne veux plus que tu t'arrêtes, seulement quand TOUS
+les sujets sont TOUS terminés »*, *« JE VEUX UNE CONFIRMATION : De la liste exhaustive de tous les sujets »*, et
+*« Tu dois confirmer quand tu pars »*.
+
+**Ce que ça vaut désormais** : une confirmation d'une ligne **au début du tour**, suivie immédiatement du travail,
+et plus un mot avant la fin. La règle est en place dans `doc/en/agent-working/disciplines.md`, section « "Go, and
+do not stop" », et son analyse dans
+[`notes/evidence/2026-10-07-four-times-told-to-start.md`](evidence/2026-10-07-four-times-told-to-start.md).
+
+**Et une seconde**, du même jour : *« Un sujet un numéro, tu dois t'y tenir »*. Une liste improvisée (1, 2, 3, 4)
+n'est pas une numérotation ; un chantier sans numéro en reçoit un dans `notes/subjects.md` avant d'être mentionné.
+
