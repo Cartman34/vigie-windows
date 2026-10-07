@@ -15,7 +15,7 @@ Toutes dans `apps/backend-pode/lib/common.ps1`.
 | Fonction | Ce qu'elle lance | Protocole |
 |---|---|---|
 | `Start-Operation` | le veilleur `workers/watched-action.worker.ps1`, qui lance un worker PowerShell ou un programme externe, attend sa fin et écrit le résultat ; la marque d'occupation est posée avant la réponse de l'action | **le protocole commun** |
-| `Start-DetachedAction` | un worker PowerShell détaché, sans attente ni compte rendu ; réservé au recalcul d'une sonde périmée | **hors protocole**, passe interne non arbitrée (**S14**) |
+| `Start-DetachedAction` | un worker PowerShell détaché, sans attente ni compte rendu ; réservé au recalcul d'une sonde périmée | **hors protocole**, tâche de veille non encore visible (**S14**) |
 | `Start-PkgJob` | `workers/pkg-job.worker.ps1`, par `Start-Operation` | **le protocole commun** |
 | `Start-ServerRelauncher` | un relanceur détaché qui arrête le serveur et le redémarre par sa tâche | **hors protocole** |
 | `Start-ChildProcess` | un processus avec ses arguments cités par l'outil (**D116**) | sans objet : lancement synchrone |
@@ -106,7 +106,7 @@ Routes de `apps/backend-pode/server.ps1` qui modifient quelque chose. Toutes syn
 | `POST /notifications` | ce que chaque module notifie |
 | `POST /actions` | toutes les actions ci-dessus |
 
-## Les passes internes de l'app serveur
+## Les tâches de veille de l'app serveur
 
 | Opération | Où | Déclenchement | Erreurs |
 |---|---|---|---|

@@ -14,7 +14,7 @@ Tout ce que Vigie **exécute**, qu'on le lui demande ou qu'elle le fasse d'elle-
 |---|---|
 | **action** | un bouton, un dialogue, l'app cliente ou un script, par `POST /actions` |
 | **écriture par l'API** | une route qui modifie un réglage, un compte ou un accès |
-| **passe interne** | l'app serveur elle-même : minuteur, résidents, recalcul d'une sonde, relance |
+| **tâche de veille** | l'app serveur elle-même, sur son minuteur : sentinelles, résidents, recalculs dus, disque, WSL, ports |
 | **tâche cliente** | l'app serveur, qui confie à l'app cliente ce qui a besoin d'une session |
 | **installation** | une personne ou le bouton de mise à jour ; séquence dans [install-update.md](install-update.md) et [uninstall.md](uninstall.md) |
 
@@ -63,13 +63,13 @@ ou en échec. Ce qui diffère derrière, un résultat dans la réponse ou un tra
 
 ## Ce qui n'est pas tenu
 
-Les **passes internes** et les **tâches clientes** figurent dans l'inventaire et ne taisent aucune erreur. Mais elles
+Les **tâches de veille** et les **tâches clientes** figurent dans l'inventaire et ne taisent aucune erreur. Mais elles
 ne rejoignent **pas** les marques ni les résultats de `/operations` — et c'est un **écart au besoin**, pas une
 question ouverte.
 
 Cette page a longtemps écrit l'inverse : « n'est pas tranché… aucune demande ne le couvre encore ». C'était faux.
 `features.md` → `CORE-OPERATIONS` dit **toute** opération de Vigie, synchrone ou asynchrone, et qu'une opération
-asynchrone **se voit tant qu'elle dure, depuis toutes les pages ouvertes**. La passe interne figure dans cette même
+asynchrone **se voit tant qu'elle dure, depuis toutes les pages ouvertes**. La tâche de veille figure dans cette même
 page comme une famille d'opération à part entière. La demande était là depuis le début ; c'est la conception qui a
 inventé une réserve.
 
@@ -86,22 +86,22 @@ Sujet **S14**.
 cas… pense code maintenable, architecture hexagonale, SOLID, DRY. La sécurité, les performances et l'optimisation
 sont importantes aussi. »*
 
-### Le principe : une passe interne EST une opération, pas une nouveauté
+### Le principe : une tâche de veille EST une opération, pas une nouveauté
 
 Il existe déjà un mécanisme complet pour « ce qui tourne » : une **marque** posée avant, un **résultat** écrit
-après, `/operations` qui sert les deux, et une page qui les affiche. Une passe interne n'a besoin d'**aucun** de ces
+après, `/operations` qui sert les deux, et une page qui les affiche. Une tâche de veille n'a besoin d'**aucun** de ces
 éléments en double. Elle entre dans le mécanisme existant par un espace de noms réservé : `pass:<nom>`.
 
 Rien de neuf n'est donc créé : pas de fichier, pas de route, pas de lecteur, pas de code d'interface.
 
-### Une seule porte : `Invoke-WatchedPass`
+### Une seule porte : `Invoke-WatchTask`
 
 ```
-Invoke-WatchedPass -Name 'sentinels' -Label 'Relevé des sentinelles' -MaxSeconds 30 -Body { ... }
+Invoke-WatchTask -Name 'sentinels' -Label 'Relevé des sentinelles' -MaxSeconds 30 -Body { ... }
 ```
 
-Le corps de la passe **ne sait rien** de la marque : il mesure, il calcule, il rend. C'est l'enveloppe qui pose,
-efface et juge. Ajouter une passe demain, c'est l'entourer de cette fonction — et rien d'autre. Une seule
+Le corps de la tâche **ne sait rien** de la marque : il mesure, il calcule, il rend. C'est l'enveloppe qui pose,
+efface et juge. Ajouter une tâche de veille demain, c'est l'entourer de cette fonction — et rien d'autre. Une seule
 responsabilité, un seul endroit à corriger, et le jour où la détection change, elle change une fois.
 
 ### Ce qui s'écrit, et ce que ça coûte
@@ -109,21 +109,21 @@ responsabilité, un seul endroit à corriger, et le jour où la détection chang
 | Quand | Ce qui est écrit |
 |---|---|
 | au départ du tour de veille | **une** marque, ~150 octets, réécrite sur place |
-| à chaque étape qui dépasse **1 s** | le nom de l'étape dans cette même marque |
+| à chaque tâche qui dépasse **1 s** | le nom de la tâche dans cette même marque |
 | à la fin du tour | la marque est effacée |
-| quand une passe dépasse son plafond | **un** résultat, une seule fois par occurrence |
+| quand une tâche dépasse son plafond | **un** résultat, une seule fois par occurrence |
 
 Soit **deux écritures par tour de trente secondes** en régime normal — 5 760 par jour, d'un fichier de 150 octets.
-Une passe rapide n'écrit rien de plus. C'est le prix minimal pour qu'un blocage soit visible : sans marque, il n'y a
+Une tâche rapide n'écrit rien de plus. C'est le prix minimal pour qu'un blocage soit visible : sans marque, il n'y a
 rien à regarder.
 
 ### Le blocage est constaté par le LECTEUR, pas par l'écrivain
 
-C'est le point qui fait tenir le reste. Si une passe se bloque, la minuterie est bloquée avec elle : **rien dans ce
+C'est le point qui fait tenir le reste. Si une tâche de veille se bloque, la minuterie est bloquée avec elle : **rien dans ce
 processus ne peut plus rien signaler**. La détection ne peut donc pas y vivre.
 
 `Get-RunningOperations` tourne dans la requête HTTP, qui est un autre fil d'exécution. Elle lit la marque, compare
-son heure de départ au plafond déclaré, et conclut. Une passe bloquée se voit même quand tout le reste est figé.
+son heure de départ au plafond déclaré, et conclut. Une tâche bloquée se voit même quand tout le reste est figé.
 
 ### Les marques orphelines s'effacent seules
 
@@ -131,7 +131,7 @@ La marque porte le numéro de processus du serveur. `Get-ModuleBusyMark` efface 
 le processus a disparu. Un serveur qui redémarre après un arrêt brutal a un numéro neuf : l'ancienne marque s'en va
 au premier regard. Aucun nettoyage à écrire, aucun orphelin possible.
 
-### Une passe interne ne bloque aucun bouton
+### Une tâche de veille ne bloque aucun bouton
 
 Elle ne mobilise rien : sa liste de ressources est vide. **Mais la page doit cesser de croire qu'une liste vide veut
 dire « on ne sait pas »** — elle appliquait alors le repli « on bloque tout ». Ce repli datait d'un temps où les
@@ -145,7 +145,7 @@ Sans cette correction, chaque tour de veille gèlerait l'interface pendant qu'il
 Chacun vient de ce que la passe fait, pas d'un chiffre rond : la mesure des paquets attend une tâche cliente avec un
 délai de 60 s, elle ne peut pas tenir en 10.
 
-| Passe | Plafond | Pourquoi |
+| Tâche de veille | Plafond | Pourquoi |
 |---|---|---|
 | résidents | 10 s | lit des processus, ne calcule rien |
 | app clientes | 10 s | lit des tâches planifiées |
@@ -160,12 +160,25 @@ délai de 60 s, elle ne peut pas tenir en 10.
 
 La marque est écrite par l'app serveur dans son propre `var/run`, et lue par `/operations`, déjà authentifiée. Le
 nom d'une passe est une **constante déclarée dans le code**, jamais une entrée : aucun chemin ne se compose à partir
-de ce que quelqu'un envoie. Ce qui est exposé en plus : un nom de passe et une heure de départ.
+de ce que quelqu'un envoie. Ce qui est exposé en plus : un nom de tâche et une heure de départ.
 
-### Ce qui reste à trancher avec le propriétaire
+### Ce qui s'affiche
 
-Deux choix d'interface, posés en questions `Q1` et `Q2` le 07/10 : ce qui s'affiche d'une passe normale, et si une
-passe bloquée mérite une bulle.
+**Tant que tout va bien, rien.** Le cycle revient toutes les trente secondes : afficher chaque tâche ferait
+apparaître quelque chose en permanence dans « ce qui tourne », pour une information que personne ne regarde. La
+marque existe — c'est elle qui permet de voir un blocage — mais `/operations` ne la publie qu'au-delà du plafond.
+
+**Une tâche qui dépasse son plafond apparaît**, avec son nom et depuis combien de temps, exactement comme une
+opération lancée par un bouton.
+
+**Et elle remonte à l'utilisateur.** Règle de base du produit, rappelée par le propriétaire le 07/10 : *« Toutes les
+erreurs remontent à l'utilisateur, une règle de base, elle doit être appliquée partout. »* Une tâche bloquée veut
+dire qu'une partie de Vigie ne fonctionne plus et que les cartes qu'elle alimente vieillissent en silence : elle
+produit donc **une bulle, une seule par blocage**, soumise comme les autres aux réglages de notification et au répit
+de dix minutes (D54, S10). Ce n'est pas envahissant : c'est une fois, et seulement quand quelque chose est cassé.
+
+**Le détail vit sur la carte Débogage** : la liste des tâches de veille, leur dernier passage, leur durée. Visible
+quand on cherche, invisible le reste du temps.
 
 ## L'exception arbitrée
 
