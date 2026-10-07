@@ -87,8 +87,7 @@ inchangés.
   mises à jour et installation passent par la session du compte. Trouvé en chemin, et mesuré : **l'app serveur ne
   peut pas exécuter winget**, un paquet MSIX refusant de se lancer pour un compte où il n'est pas enregistré.
 - **S14 a avancé sans être clos.** `disk-analyze` (613 s) et `pkg-check-updates` sont éprouvées sous protocole, et
-  `/operations` donne enfin le **numéro de processus** que la marque portait. Restent : l'installation Windows
-  Update, geste du propriétaire ; et un **défaut**, non une question ouverte : ce que Vigie fait d'elle-même
+  `/operations` donne enfin le **numéro de processus** que la marque portait. Reste **une seule chose** : l'installation Windows Update, geste du propriétaire ; et un **défaut**, non une question ouverte : ce que Vigie fait d'elle-même
   sur minuterie n'apparaît nulle part, alors que `CORE-OPERATIONS` demande que **toute** opération asynchrone se
   voie tant qu'elle dure. La conception écrivait « n'est pas tranché, aucune demande ne le couvre » ; c'était faux,
   et c'est corrigé le 07/10.
@@ -127,3 +126,19 @@ inchangés.
 | **S10** | Un état qui oscille notifie à chaque oscillation | 30/09/2026 | Le répit de dix minutes par notification est **éprouvé en usage réel** : sur le compte Famille le 28/09, `gaming.hogs` a produit **six bascules, deux bulles, quatre retenues** (`client_20260928.log`). C'est la partie réelle qu'attendait ce sujet. |
 | **S11** | Les bulles s'annonçaient « PowerShell » | 07/09/2026 | Une identité déclarée pour la machine (`AppUserModelId\Sowapps.Vigie` : nom affiché et icône livrée) et portée par le processus avant que son icône n'existe — `a376f76`, maintenue à chaque passage par l'app serveur `21e63d1`. **Vu à l'écran** : la bulle porte « Vigie » et l'icône verte. |
 | **S13** | La grosse icône des bulles était celle de Windows | 11/09/2026 | Une bulle `NotifyIcon` ne choisit son glyphe que parmi `Info`/`Warning`/`Error`. Réglé par une **porte** (`targeting/notifications.md`) : plusieurs outils rangés par préférence, le premier qui sait afficher gagne, et le dernier rang reste toujours disponible. **Vu à l'écran le 10/09**, captures de l'utilisateur : quatre notifications portant les icônes de Vigie, verte et orange, rendues à l'identique par les deux premiers rangs. Je l'ai gardé ouvert un jour de trop contre une condition que j'avais ajoutée moi-même — que la notification vienne de la boucle de l'app cliente — qui ne dit rien sur l'icône et appartient à **S09**. Le rang 60 (Windows App SDK) n'est toujours pas écrit, et n'a pas à l'être : les rangs 20 et 40 affichent. |
+
+## Réanalyse de S14, le 07/10
+
+**`Start-DetachedAction` n'a pas à rejoindre le protocole**, et c'est la réponse après l'avoir relu dans le code.
+Ses deux appelants recalculent une sonde : l'ordonnanceur (`Invoke-RefreshPass`) et le rattrapage en cours de
+requête (`Get-State`). Les faire passer par `Start-Operation` poserait une marque d'occupation à **chaque recalcul
+de carte**, donc en permanence — exactement le bruit supprimé le 07/10 pour les tâches de veille.
+
+**Et leur échec n'est pas muet** : un calcul de l'ordonnanceur qui échoue est compté (`fails`, `lastError`) et
+remonte sur la fraîcheur de la carte depuis **S16**, lisible depuis son menu. Le rattrapage porte sur les mêmes
+sondes : son échec est donc vu par le même compteur.
+
+L'exemption est déclarée dans `check-operations.ps1`, pas subie.
+
+**Il ne reste donc à S14 qu'une preuve, et elle demande un geste du propriétaire** : éprouver l'installation
+Windows Update sous protocole. Je n'installe pas de mise à jour.
