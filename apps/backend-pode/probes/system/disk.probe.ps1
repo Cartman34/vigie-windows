@@ -313,7 +313,10 @@ if ($enCours) {
 } else {
     $arbre = if ($etat) { $etat.tree } else { $null }
     if (-not $arbre) {
-        $quoi = if ($scan -and $scan.canceled) { 'interrompue' } else { 'jamais lancée' }
+        # A displayed value starts with a capital, an invariant check-probes holds. These two are the only
+        # values of the card no analysis has filled yet, so the only ones seen with an empty cache -- the
+        # state of a fresh clone, which is why they went unnoticed.
+        $quoi = if ($scan -and $scan.canceled) { 'Interrompue' } else { 'Jamais lancée' }
         $fields += New-Field -Key 'scan-state' -Label 'Analyse de l''espace' -Value $quoi -Kind 'text' -Status 'neutral' `
             -Help "« Analyser l'espace » montre ce qui occupe $racine." `
             -Guide "Le parcours dure de quelques secondes à quelques minutes selon le nombre de fichiers. Il lit uniquement les tailles, il ne modifie rien et s'arrête à tout moment."
