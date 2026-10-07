@@ -24,8 +24,8 @@ if (-not $pending.ok) {
 
 # Le verrouillage des taches (Mode MAJ) empeche l'installation : on le DIT ici plutot que
 # de laisser l'installation echouer sans explication.
-$verrou = $false
-try { $verrou = Test-UpdateTasksAclLock } catch { }
+$lock = $false
+try { $lock = Test-UpdateTasksAclLock } catch { }
 
 $aside = if ($pending.setAsideOlder -gt 0) {
     " $($pending.setAsideOlder) version(s) plus ancienne(s) du même pilote ne sont pas proposées."
@@ -37,7 +37,7 @@ $aside = if ($pending.setAsideOlder -gt 0) {
         ok       = $true
         choose   = $true          # l'interface doit ouvrir une fenetre de choix
         action   = 'wu-install'   # action a appeler avec les identifiants retenus
-        verrou   = $verrou
+        verrou   = $lock
         updates  = @($pending.offered)
     }
 }

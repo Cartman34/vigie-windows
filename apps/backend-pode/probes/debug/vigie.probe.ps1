@@ -46,31 +46,31 @@ if (-not $eleve) {
 }
 
 # --- Ou vivent les donnees ----------------------------------------------------
-$dossierLog = Get-VarPath -Backend $backend -Kind 'log'
-$journaux = @(Get-ChildItem -Path $dossierLog -Filter '*.log' -File -ErrorAction SilentlyContinue)
+$logFolder = Get-VarPath -Backend $backend -Kind 'log'
+$journaux = @(Get-ChildItem -Path $logFolder -Filter '*.log' -File -ErrorAction SilentlyContinue)
 $poids = 0
 foreach ($j in $journaux) { $poids += $j.Length }
 $fields += New-Field -Key 'journaux' -Label 'Journaux' `
     -Value ("$($journaux.Count) fichier(s) · " + (Format-ByteSize -Bytes $poids)) -Kind 'text' -Status 'neutral' `
     -FixAction 'open-logs' `
     -Help "Tout ce que Vigie fait s'écrit là : démarrages, sondes, actions, déploiements, erreurs." `
-    -Guide ($dossierLog + [Environment]::NewLine +
+    -Guide ($logFolder + [Environment]::NewLine +
             (@($journaux | Sort-Object LastWriteTime -Descending | Select-Object -First 8 |
                ForEach-Object { "  " + $_.Name + "  (" + (Format-ByteSize -Bytes $_.Length) + ")" }) -join [Environment]::NewLine))
 
 # UN CHEMIN N'EST PAS UNE VALEUR DE CARTE : il tient sur trois lignes, se lit mal, et
 # n'apprend rien au premier coup d'oeil. La carte dit CE QUE C'EST et son poids ; le
 # chemin complet vit dans le detail de la ligne (regle utilisateur, 27/08).
-$racineVar = Get-VarRoot -Backend $backend
+$varRoot = Get-VarRoot -Backend $backend
 $poidsVar = 0
 try {
-    $poidsVar = (Get-ChildItem -LiteralPath $racineVar -Recurse -File -ErrorAction SilentlyContinue |
+    $poidsVar = (Get-ChildItem -LiteralPath $varRoot -Recurse -File -ErrorAction SilentlyContinue |
                  Measure-Object -Property Length -Sum).Sum
 } catch { }
 $fields += New-Field -Key 'donnees' -Label 'Données locales' `
     -Value $(if ($poidsVar) { Format-ByteSize -Bytes $poidsVar } else { 'Aucune' }) -Kind 'text' -Status 'neutral' `
     -Help "Cache, historique, jeton et journaux de CE compte. Chaque compte a les siens." `
-    -Guide $racineVar
+    -Guide $varRoot
 
 <#
     LES SENTINELLES, ET CE QU'ELLES ONT RELEVE EN DERNIER.
@@ -144,23 +144,23 @@ if ($residents.Count) {
                   elseif ($_.Operational) { 'opérationnel' }
                   elseif ($_.Present) { 'vivant mais LENT : il ne bat plus' }
                   else { 'MORT, réarmé au prochain passage' }
-        $ligne = "- {0} : {1} ({2})" -f $_.Label, $health, $_.State
-        if ($null -ne $_.BeatAge) { $ligne += " — dernier battement il y a $($_.BeatAge) s" }
-        if ($null -ne $_.MemoryMb) { $ligne += " — processus : $($_.MemoryMb) Mo en mémoire vive, $($_.CpuSeconds) s de processeur" }
-        if ($copyCount -gt 1) { $ligne += " — copies : " + ((@($_.Copies) | ForEach-Object { "PID $($_.Id)" + $(if ($_.StartedAt) { ' depuis ' + ([datetime]$_.StartedAt).ToString('dd/MM HH:mm') } else { '' }) }) -join ', ') }
+        $line = "- {0} : {1} ({2})" -f $_.Label, $health, $_.State
+        if ($null -ne $_.BeatAge) { $line += " — dernier battement il y a $($_.BeatAge) s" }
+        if ($null -ne $_.MemoryMb) { $line += " — processus : $($_.MemoryMb) Mo en mémoire vive, $($_.CpuSeconds) s de processeur" }
+        if ($copyCount -gt 1) { $line += " — copies : " + ((@($_.Copies) | ForEach-Object { "PID $($_.Id)" + $(if ($_.StartedAt) { ' depuis ' + ([datetime]$_.StartedAt).ToString('dd/MM HH:mm') } else { '' }) }) -join ', ') }
         # IN LOCAL TIME: the state keeps UTC, and "19:40:29" was read two hours late on 19/09.
         if ($_.LastEvent) {
             $when = "$($_.LastEvent)"
             try { $when = (ConvertTo-UtcDate $_.LastEvent).ToLocalTime().ToString('dd/MM HH:mm:ss') } catch { }
-            $ligne += " — dernier événement : $when"
+            $line += " — dernier événement : $when"
         }
-        if ($_.Error)     { $ligne += " — $($_.Error)" }
+        if ($_.Error)     { $line += " — $($_.Error)" }
         $conflictAt = Get-RecentConflict $_
         if ($conflictAt) {
-            $ligne += " — DEUX COPIES le " + $conflictAt.ToLocalTime().ToString('dd/MM à HH:mm') + " : l'état désignait le PID " + $_.Conflict.statePid +
+            $line += " — DEUX COPIES le " + $conflictAt.ToLocalTime().ToString('dd/MM à HH:mm') + " : l'état désignait le PID " + $_.Conflict.statePid +
                       ", la copie PID " + $_.Conflict.ownPid + " s'est arrêtée"
         }
-        $ligne
+        $line
     })
     if ($down.Count) {
         $residentLines += ''

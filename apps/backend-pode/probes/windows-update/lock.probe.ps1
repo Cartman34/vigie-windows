@@ -10,15 +10,15 @@ $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 # UNE seule lecture d'etat pour tout le sujet (D15) : la sonde, les actions et l'audit
 # partagent Get-UpdateLockState. La sonde recopiait auparavant la liste des dossiers de
 # taches et le test de la strategie -- deux copies de plus a maintenir.
-$etat = Get-UpdateLockState
+$state = Get-UpdateLockState
 
-$elevated = $etat.elevated
-$locked   = $etat.autoUpdatesOff
-$aclLock  = $etat.aclLock
-$disabled = $etat.tasksDisabled
-$ready    = $etat.tasksReady
+$elevated = $state.elevated
+$locked   = $state.autoUpdatesOff
+$aclLock  = $state.aclLock
+$disabled = $state.tasksDisabled
+$ready    = $state.tasksReady
 
-$taskLines = @($etat.tasks | Sort-Object path, name | ForEach-Object { "{0}{1} : {2}" -f $_.path, $_.name, $_.state })
+$taskLines = @($state.tasks | Sort-Object path, name | ForEach-Object { "{0}{1} : {2}" -f $_.path, $_.name, $_.state })
 $taskDetail = if ($taskLines.Count) { "État réel des tâches de mise à jour :`n- " + ($taskLines -join "`n- ") } else { "Aucune tâche listée (lecture impossible)." }
 
 # Statut de la CARTE = sante fonctionnelle. Les MAJ auto coupees (NoAutoUpdate) = fonction OK.
@@ -27,7 +27,7 @@ $taskDetail = if ($taskLines.Count) { "État réel des tâches de mise à jour :
 # par la carte Windows (probes/system/os.probe.ps1) avec son action de redemarrage.
 $status = if (-not $locked) { 'warn' } else { 'ok' }
 
-$fullyLocked = $etat.locked   # verrou complet = MAJ auto coupees ET verrou ACL applique (defini dans Get-UpdateLockState)
+$fullyLocked = $state.locked   # verrou complet = MAJ auto coupees ET verrou ACL applique (defini dans Get-UpdateLockState)
 $actions = @()
 if ($fullyLocked) { $actions += New-Action -Id 'update-mode-on'  -Label 'Mode MAJ (déverrouiller)' -Confirm `
         -Impact ("Rend à Windows Update ses tâches planifiées et remet les mises à jour automatiques. " +

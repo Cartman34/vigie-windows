@@ -21,7 +21,7 @@ if (-not $audit.ok) {
 }
 
 $e = $audit.state
-$resume = if ($e.locked) { 'verrou complet en place' }
+$summary = if ($e.locked) { 'verrou complet en place' }
           elseif ($e.autoUpdatesOff) { 'MAJ automatiques coupées, verrou ACL absent' }
           elseif ($e.aclLock) { 'verrou ACL posé, MAJ automatiques actives' }
           else { 'aucun verrouillage' }
@@ -32,7 +32,7 @@ $reserve = if ($audit.elevated) { '' } else { " Serveur non administrateur : une
 # as the standard report of an action (result.detail), which the page shows preformatted, columns included; the file
 # stays, named underneath, for whoever wants to keep it or send it.
 @{
-    message = "Audit terminé : $resume ; $($e.tasksDisabled) tâche(s) désactivée(s), $($e.tasksReady) active(s).$reserve"
+    message = "Audit terminé : $summary ; $($e.tasksDisabled) tâche(s) désactivée(s), $($e.tasksReady) active(s).$reserve"
     result  = @{
         ok         = $true
         detail     = (@($audit.lines) -join [Environment]::NewLine)

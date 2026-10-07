@@ -26,7 +26,7 @@ $repoRoot = Split-Path $PSScriptRoot -Parent
 function Show-Comptes {
     # Uniquement les comptes utilisateurs : un profil qui n'a jamais servi est un
     # compte d'outil.
-    $lignes = @(Get-UserAccounts | ForEach-Object {
+    $lines = @(Get-UserAccounts | ForEach-Object {
         '{0} {1,-24} {2,-14} {3}' -f `
             $(if ($_.enabled) { '[x]' } else { '[ ]' }),
             $_.name,
@@ -34,15 +34,15 @@ function Show-Comptes {
             $(if ($_.current) { '(compte en cours)' } else { '' })
     })
     Write-Info (Get-Label 'vigie-comptes.comptes-de-cette-machine')
-    $lignes | ForEach-Object { Write-Host "  $_" }
+    $lines | ForEach-Object { Write-Host "  $_" }
 }
 
 if (-not $Activer -and -not $Retirer) { Show-Comptes; exit 0 }
 
-$cible = if ($Activer) { $Activer } else { $Retirer }
-$connu = @(Get-AccountByName -Name $cible)
+$target = if ($Activer) { $Activer } else { $Retirer }
+$connu = @(Get-AccountByName -Name $target)
 if (-not $connu) {
-    Write-Warn (Get-Label 'vigie-comptes.compte-inconnu-sur-cette' $cible)
+    Write-Warn (Get-Label 'vigie-comptes.compte-inconnu-sur-cette' $target)
     Show-Comptes
     exit 1
 }
@@ -51,8 +51,8 @@ if (-not (Test-IsElevated)) {
     exit 3
 }
 try {
-    Set-VigieAccountEnabled -Name $cible -Enabled ([bool]$Activer) | Out-Null
-    Write-Host $(if ($Activer) { "Vigie demarrera avec le compte $cible." } else { "Vigie ne demarrera plus avec le compte $cible." })
+    Set-VigieAccountEnabled -Name $target -Enabled ([bool]$Activer) | Out-Null
+    Write-Host $(if ($Activer) { "Vigie demarrera avec le compte $target." } else { "Vigie ne demarrera plus avec le compte $target." })
     Show-Comptes
     exit 0
 } catch {

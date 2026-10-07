@@ -142,9 +142,9 @@ switch ("$Target".ToLower()) {
     # --- L'APP CLIENTE : son processus et son journal --------------------------------
     'client' {
         Write-Step (Get-Label 'debug.etape-client')
-        $vus = @(Get-CimInstance Win32_Process -Filter "Name='pwsh.exe' OR Name='powershell.exe'" -ErrorAction SilentlyContinue |
+        $seen = @(Get-CimInstance Win32_Process -Filter "Name='pwsh.exe' OR Name='powershell.exe'" -ErrorAction SilentlyContinue |
                  Where-Object { "$($_.CommandLine)" -match 'client\.ps1' })
-        if ($vus.Count) { Write-Ok (Get-Label 'debug.client-vivant' $vus.Count) ; $rendu = $true }
+        if ($seen.Count) { Write-Ok (Get-Label 'debug.client-vivant' $seen.Count) ; $rendu = $true }
         else { Write-Warn (Get-Label 'debug.client-absent') }
         Show-Journal -Path (Get-LatestJournal -Prefix 'client') -Tail $Lines
     }

@@ -145,13 +145,13 @@ foreach ($attempt in 1..3) {
         $rep = $client.SendAsync($req, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).GetAwaiter().GetResult()
         $brut = $null
         if ($rep.Headers.Contains('Set-Cookie')) { $brut = @($rep.Headers.GetValues('Set-Cookie')) }
-        $valeur = $null
+        $value = $null
         foreach ($c in @($brut)) {
-            if ("$c" -match 'vigie_session=([^;]+)') { $valeur = $Matches[1] }
+            if ("$c" -match 'vigie_session=([^;]+)') { $value = $Matches[1] }
         }
-        if (-not $valeur) { throw (Get-Label 'ask-vigie.pas-de-cookie' ([int]$rep.StatusCode)) }
+        if (-not $value) { throw (Get-Label 'ask-vigie.pas-de-cookie' ([int]$rep.StatusCode)) }
         $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
-        $session.Cookies.Add((New-Object System.Net.Cookie('vigie_session', $valeur, '/', '127.0.0.1')))
+        $session.Cookies.Add((New-Object System.Net.Cookie('vigie_session', $value, '/', '127.0.0.1')))
         break
     } catch {
         $lastError = $_.Exception.Message

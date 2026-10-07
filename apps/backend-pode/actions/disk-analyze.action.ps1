@@ -9,10 +9,10 @@ param([string]$Module, [hashtable]$Params)
 $backend = Split-Path $PSScriptRoot -Parent
 . (Join-Path $backend 'lib/common.ps1')
 
-$racine = 'C:\'
-if ($Params -and $Params.root -and "$($Params.root)" -match '\S') { $racine = "$($Params.root)" }
-if (-not (Test-Path -LiteralPath $racine)) {
-    return @{ message = "Dossier introuvable : $racine"; result = @{ ok = $false } }
+$rootPath = 'C:\'
+if ($Params -and $Params.root -and "$($Params.root)" -match '\S') { $rootPath = "$($Params.root)" }
+if (-not (Test-Path -LiteralPath $rootPath)) {
+    return @{ message = "Dossier introuvable : $rootPath"; result = @{ ok = $false } }
 }
 
 # Reglages du module (D57) : profondeur du detail conserve et nombre d'elements par niveau.
@@ -25,12 +25,12 @@ if (-not $topN)       { $topN = 10 }
 # (doc/progress/targeting/operations.md): no expiry of our own any more.
 $lance = $false
 try {
-    $lance = [bool](Start-Operation -Module 'storage' -Action 'disk-analyze' -Label "Analyse de $racine" `
+    $lance = [bool](Start-Operation -Module 'storage' -Action 'disk-analyze' -Label "Analyse de $rootPath" `
                         -Probes @('disk.probe.ps1') -Worker 'disk-scan.worker.ps1' `
-                        -ArgsMap @{ root = $racine; depth = $profondeur; top = $topN } -Backend $backend)
+                        -ArgsMap @{ root = $rootPath; depth = $profondeur; top = $topN } -Backend $backend)
 } catch { }
 if (-not $lance) { return @{ message = "Impossible de lancer l'analyse du disque."; result = @{ ok = $false } } }
 @{
-    message = "Analyse de $racine lancée en tâche de fond."
+    message = "Analyse de $rootPath lancée en tâche de fond."
     result  = @{ ok = $true; async = $true; module = 'storage'; invalidate = @('disk.probe.ps1') }
 }

@@ -44,14 +44,14 @@ try { $gitDir = (& git rev-parse --git-common-dir 2>$null) } catch { $gitDir = $
 Pop-Location
 if (-not $gitDir) { Write-Fail (Get-Label 'install-hooks.depot-git-introuvable-depuis' $repoRoot); exit 2 }
 if (-not [IO.Path]::IsPathRooted($gitDir)) { $gitDir = Join-Path $repoRoot $gitDir }
-$cible = Join-Path $gitDir 'hooks'
+$target = Join-Path $gitDir 'hooks'
 
 if (-not (Test-Path -LiteralPath $source)) { Write-Host (Get-Label 'install-hooks.aucun-hook-installer' $source); exit 0 }
-if (-not (Test-Path -LiteralPath $cible)) { New-Item -ItemType Directory -Path $cible -Force | Out-Null }
+if (-not (Test-Path -LiteralPath $target)) { New-Item -ItemType Directory -Path $target -Force | Out-Null }
 
 $ecarts = 0
 foreach ($h in Get-ChildItem -LiteralPath $source -File) {
-    $dst = Join-Path $cible $h.Name
+    $dst = Join-Path $target $h.Name
     $identique = (Test-Path -LiteralPath $dst) -and
                  ((Get-FileHash $h.FullName).Hash -eq (Get-FileHash $dst).Hash)
     if ($identique) { Write-Host (Get-Label 'install-hooks.jour' $h.Name); continue }
@@ -65,5 +65,5 @@ if ($Verifier -and $ecarts -gt 0) {
     Write-Info (Get-Label 'install-hooks.hook-manquant-ou-differents' $ecarts)
     exit 1
 }
-Write-Info (Get-Label 'install-hooks.hooks' $source $cible)
+Write-Info (Get-Label 'install-hooks.hooks' $source $target)
 exit 0

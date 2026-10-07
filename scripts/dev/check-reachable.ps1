@@ -85,19 +85,19 @@ foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -ErrorAction
     if ($SKIPPED | Where-Object { $rel -like ($_ + '/*') -or $rel -like ('*/' + $_ + '/*') }) { continue }
     try { [void]$corpus.AppendLine("### $rel"); [void]$corpus.AppendLine([IO.File]::ReadAllText($f.FullName)) } catch { }
 }
-$texte = $corpus.ToString()
+$Text = $corpus.ToString()
 
 $orphelins = @()
 foreach ($rel in $files) {
     if ($ENTRY_POINTS.Contains($rel)) { continue }
     if ($BY_CONVENTION | Where-Object { $rel -like ($_ + '/*') }) { continue }
 
-    $nom = Split-Path $rel -Leaf
+    $name = Split-Path $rel -Leaf
     # On cherche le NOM DU FICHIER, pas son chemin : il est ecrit tantot avec des barres
     # obliques, tantot avec des antislashs, tantot par Join-Path morceau par morceau.
     # Le nom seul est le seul denominateur commun.
-    $motif = [regex]::Escape($nom)
-    $occurrences = ([regex]::Matches($texte, $motif)).Count
+    $motif = [regex]::Escape($name)
+    $occurrences = ([regex]::Matches($Text, $motif)).Count
     # Une occurrence est la sienne : la ligne « ### <chemin> » qu'on a posee en tete.
     if ($occurrences -le 1) { $orphelins += $rel }
 }
@@ -128,7 +128,7 @@ foreach ($rel in $assets) {
     $leaf = Split-Path $rel -Leaf
     # The corpus carries one "### <path>" line per file read; that line is not a designation.
     # Assets are not in the corpus (they are binary), so any occurrence found is a real reference.
-    if (([regex]::Matches($texte, [regex]::Escape($leaf))).Count -eq 0) { $deadAssets += $rel }
+    if (([regex]::Matches($Text, [regex]::Escape($leaf))).Count -eq 0) { $deadAssets += $rel }
 }
 
 # --- Verdict ----------------------------------------------------------------------------

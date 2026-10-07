@@ -7,9 +7,9 @@ $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 # Get-DeviceGuardState. Elle distingue ce qui TOURNE de ce qui est DEMANDE -- une bascule
 # ne prend effet qu'au redemarrage, et la carte doit le dire au lieu de paraitre ignorer
 # le clic qu'on vient de lui donner.
-$dgEtat = Get-DeviceGuardState -Backend $backend
-$vbsOn  = $dgEtat.vbs.running
-$hvciOn = $dgEtat.hvci.running
+$dgState = Get-DeviceGuardState -Backend $backend
+$vbsOn  = $dgState.vbs.running
+$hvciOn = $dgState.hvci.running
 # VBS et HVCI sont un COMPROMIS (sécurité contre performances de virtualisation), pas une
 # conformité : cette sonde les rapportait donc en 'neutral'. Décision de l'utilisateur : une
 # carte porte un statut normal comme les autres. Activé = conforme, désactivé = à voir.
@@ -24,9 +24,9 @@ $statutMod  = 'ok'
 # Une bascule demandee et pas encore appliquee est un ETAT A SIGNALER, pas un echec : la
 # valeur est ecrite, Windows ne la lira qu'au demarrage. Sans cette ligne, l'utilisateur
 # reclique en croyant que rien ne s'est passe.
-$attente = @(@($dgEtat.vbs, $dgEtat.hvci) | Where-Object { $_.pending })
+$waitMs = @(@($dgState.vbs, $dgState.hvci) | Where-Object { $_.pending })
 $phrase = { param($e) "$($e.label) : " + $(if ($e.requested -eq 1) { 'activation' } else { 'désactivation' }) + ' demandée' }
-if ($attente.Count) { $statutMod = 'warn' }
+if ($waitMs.Count) { $statutMod = 'warn' }
 
 # Actions. Le redemarrage n'est propose QUE lorsqu'il sert : une bascule de CETTE carte
 # attend d'etre appliquee. On ne le deduit pas d'un simple ecart entre le registre et
@@ -53,7 +53,7 @@ $actionsVbs = @(
 if (Test-RestartCountdown -Backend $backend) {
     $actionsVbs += New-Action -Id 'system-restart-cancel' -Label 'Annuler le redémarrage' -Severity 'fix' `
         -BusyLabel 'Annulation…' -Confirm -Help "Annule le redémarrage programmé. Windows reste allumé."
-} elseif ($attente.Count) {
+} elseif ($waitMs.Count) {
     $actionsVbs += New-Action -Id 'system-restart' -Label 'Redémarrer Windows' -Severity 'fix' `
         -BusyLabel 'Redémarrage programmé…' -ConfirmTwice -Kind 'confirm' `
         -Help "Redémarre Windows dans 60 secondes pour appliquer la bascule demandée. Le travail en cours est à enregistrer : toutes les applications seront fermées. Le redémarrage reste annulable pendant le délai."
@@ -89,9 +89,9 @@ $champs += New-Field -Key 'hvci' -Label 'Intégrité mémoire (HVCI)' -Value $hv
         })
 # Champ present UNIQUEMENT quand une bascule attend le redemarrage : une ligne permanente
 # « rien en attente » n'apprendrait rien et encombrerait la carte.
-if ($attente.Count) {
+if ($waitMs.Count) {
     $champs += New-Field -Key 'pendingReboot' -Label 'En attente de redémarrage' `
-        -Value (($attente | ForEach-Object { & $phrase $_ }) -join ' ; ') -Kind 'text' -Status 'warn' `
+        -Value (($waitMs | ForEach-Object { & $phrase $_ }) -join ' ; ') -Kind 'text' -Status 'warn' `
         -FixAction 'system-restart' `
         -Help "Une bascule a été écrite dans le registre. Windows ne la lit qu'au démarrage : elle prendra effet au prochain redémarrage." `
         -Guide ("Ce que c'est : la demande est enregistrée ; l'état affiché au-dessus est encore celui qui tourne.`n`n" +

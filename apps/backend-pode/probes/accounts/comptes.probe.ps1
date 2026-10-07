@@ -17,13 +17,13 @@ $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $backend 'lib/common.ps1')
 
 $eleve   = [bool](Test-IsElevated)
-$comptes = @(Get-UserAccounts)
+$accounts = @(Get-UserAccounts)
 
 $fields = @()
-foreach ($c in ($comptes | Sort-Object @{ Expression = { -not $_.current } }, name)) {
-    $etat = @()
-    $etat += $(if ($c.enabled) { 'Vigie activée' } else { 'Vigie inactive' })
-    $etat += $(if ($c.admin) { 'administrateur' } else { 'standard' })
+foreach ($c in ($accounts | Sort-Object @{ Expression = { -not $_.current } }, name)) {
+    $state = @()
+    $state += $(if ($c.enabled) { 'Vigie activée' } else { 'Vigie inactive' })
+    $state += $(if ($c.admin) { 'administrateur' } else { 'standard' })
 
     $aide = @()
     $aide += $(if ($c.enabled) { "Vigie démarre à l'ouverture de session de ce compte." }
@@ -39,7 +39,7 @@ foreach ($c in ($comptes | Sort-Object @{ Expression = { -not $_.current } }, na
     $lineStatus = 'neutral'
     if ($c.enabled -and $c.taskAilment) {
         $lineStatus = 'warn'
-        $etat += 'ne démarre pas'
+        $state += 'ne démarre pas'
         $aide += "Sa tâche de démarrage existe mais " + $c.taskAilment + "."
         $aide += "Le bouton « Vérifier le démarrage de Vigie » l'examine et la remet d'aplomb quand c'est réparable."
     }
@@ -73,20 +73,20 @@ foreach ($c in ($comptes | Sort-Object @{ Expression = { -not $_.current } }, na
     # orange sans geste possible laisse le lecteur devant un probleme et rien d'autre.
     $fields += New-Field -Key ('acc-' + ($c.name -replace '[^A-Za-z0-9]', '')) `
         -Label ($c.name + $(if ($c.current) { ' (vous)' } else { '' })) `
-        -Value ($etat -join ' - ') -Kind 'text' -Status $lineStatus `
+        -Value ($state -join ' - ') -Kind 'text' -Status $lineStatus `
         -FixAction $(if ($lineStatus -eq 'warn') { 'repair-tasks' } else { $null }) `
         -Help ($aide -join ' ') `
         -Guide ($lineDetail -join [Environment]::NewLine)
 }
 
-if (-not $comptes.Count) {
+if (-not $accounts.Count) {
     $fields += New-Field -Key 'aucun' -Label 'Comptes' -Value 'Aucun compte utilisateur' -Kind 'text' -Status 'neutral' `
         -Help "Aucun compte de cet ordinateur n'a encore ouvert de session."
 }
 
 # --- Carte 1 : les COMPTES ---------------------------------------------------
 # SCOPE: the accounts OF THE COMPUTER. What each of them holds is not read here.
-$carteComptes = New-ModuleObject -Id 'accounts' -Theme 'accounts' -Label 'Comptes' -Scope 'machine' `
+$accountsCard = New-ModuleObject -Id 'accounts' -Theme 'accounts' -Label 'Comptes' -Scope 'machine' `
     -Status $(if (@($fields | Where-Object { "$($_.status)" -eq 'error' }).Count) { 'error' }
               elseif (@($fields | Where-Object { "$($_.status)" -eq 'warn' }).Count) { 'warn' }
               else { 'ok' }) `
@@ -129,4 +129,4 @@ if ($cmp) {
     $versVersion = 'première installation'
 }
 
-@($carteComptes)
+@($accountsCard)

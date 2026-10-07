@@ -22,8 +22,8 @@ if ($ids.Count -eq 0) {
 # Le verrou du Mode MAJ est une mecanique INTERNE a l'application : elle le leve le temps
 # d'installer, puis le REPOSE. L'utilisateur est prevenu, pas bloque -- lui demander de
 # defaire a la main un verrou que l'application a pose elle-meme n'a pas de sens.
-$etaitVerrouille = $false
-try { $etaitVerrouille = Test-UpdateTasksAclLock } catch { }
+$wasLocked = $false
+try { $wasLocked = Test-UpdateTasksAclLock } catch { }
 
 # THE MARK EXISTS BEFORE THE ANSWER, written by Start-Operation: the page no longer takes the installation for
 # finished the moment it starts (12/09).
@@ -31,12 +31,12 @@ $lance = $false
 try {
     $lance = [bool](Start-Operation -Module 'wu-pending' -Action 'wu-install' -Label 'Installation des mises à jour' `
                         -Probes @('pending.probe.ps1', 'lock.probe.ps1') -Worker 'wu-install.worker.ps1' `
-                        -ArgsMap @{ ids = $ids; reposerVerrou = $etaitVerrouille } -Button 'wu-list-pending' -Backend $backend)
+                        -ArgsMap @{ ids = $ids; reposerVerrou = $wasLocked } -Button 'wu-list-pending' -Backend $backend)
 } catch {
     return @{ message = "Impossible de lancer l'installation : $($_.Exception.Message)"; result = @{ ok = $false } }
 }
 if (-not $lance) { return @{ message = "Impossible de lancer l'installation."; result = @{ ok = $false } } }
-$avis = if ($etaitVerrouille) { " Le verrou du Mode MAJ est levé le temps de l'opération, puis reposé." } else { "" }
+$avis = if ($wasLocked) { " Le verrou du Mode MAJ est levé le temps de l'opération, puis reposé." } else { "" }
 @{
     message = "Installation de $($ids.Count) mise(s) à jour lancée en tâche de fond.$avis"
     result  = @{ ok = $true; async = $true; module = 'wu-pending'; invalidate = @('pending.probe.ps1','lock.probe.ps1') }

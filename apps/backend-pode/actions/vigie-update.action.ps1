@@ -50,8 +50,8 @@ try {
     # dans la session du demandeur que le tag de version sera pose (D112).
     $argv = @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
               '-File', $script)
-    $demandeur = Get-RequesterAccount
-    if ($demandeur) { $argv += @('-Requester', $demandeur) }
+    $requester = Get-RequesterAccount
+    if ($requester) { $argv += @('-Requester', $requester) }
     # PAS DE FENETRE : le serveur n'a pas de bureau, elle n'irait nulle part.
     $argv += '-NoWindow'
     # ET ON LUI DIT QUE LA MARQUE « une operation tourne » EST LA SIENNE : le veilleur la

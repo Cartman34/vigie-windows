@@ -72,12 +72,12 @@ for ($i = 0; $i -lt $lines.Count; $i++) {
 if ($current) { $entries += $current }
 
 if ($Number) {
-    $cible = @($entries | Where-Object { $_.Id -ieq $Number.Trim() })
-    if (-not $cible.Count) {
+    $target = @($entries | Where-Object { $_.Id -ieq $Number.Trim() })
+    if (-not $target.Count) {
         Write-Fail (Get-Label 'decisions.numero-inconnu' $Number)
         exit 2
     }
-    foreach ($e in $cible) {
+    foreach ($e in $target) {
         Write-Title ($e.Id + ' — ' + $e.Title)
         Write-Detail (Get-Label 'decisions.ligne' $e.Line)
         $e.Body | ForEach-Object { Write-Host $_ }
@@ -89,10 +89,10 @@ $retenues = $entries
 if ($About) {
     $mots = @(ConvertTo-Plain $About) -split '\s+' | Where-Object { $_ }
     $retenues = @($entries | Where-Object {
-        $titre = ConvertTo-Plain $_.Title
-        $texte = if ($Full) { ConvertTo-Plain ($_.Body -join ' ') } else { '' }
+        $title = ConvertTo-Plain $_.Title
+        $Text = if ($Full) { ConvertTo-Plain ($_.Body -join ' ') } else { '' }
         $tous = $true
-        foreach ($m in $mots) { if (($titre -notlike ('*' + $m + '*')) -and ($texte -notlike ('*' + $m + '*'))) { $tous = $false; break } }
+        foreach ($m in $mots) { if (($title -notlike ('*' + $m + '*')) -and ($Text -notlike ('*' + $m + '*'))) { $tous = $false; break } }
         $tous
     })
 }

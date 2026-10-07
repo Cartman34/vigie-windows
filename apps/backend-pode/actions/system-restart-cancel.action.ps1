@@ -10,7 +10,7 @@ $backend = Split-Path $PSScriptRoot -Parent
 . (Join-Path $backend 'lib/common.ps1')
 
 $r = Invoke-Native -File 'shutdown.exe' -Arguments @('/a')
-$fichier = Get-VarPath -Backend $backend -Kind 'cache' -File 'restart.json'
+$file = Get-VarPath -Backend $backend -Kind 'cache' -File 'restart.json'
 
 # Code 1116 = « aucun arret en cours » : ce n'est pas une panne, c'est deja l'etat voulu.
 if (-not $r.Ok -and $r.ExitCode -ne 1116) {
@@ -19,7 +19,7 @@ if (-not $r.Ok -and $r.ExitCode -ne 1116) {
         result  = @{ ok = $false }
     }
 }
-Update-StateJson -Path $fichier -Set @{ pending = $false; at = (Get-Date).ToUniversalTime().ToString('o') } | Out-Null
+Update-StateJson -Path $file -Set @{ pending = $false; at = (Get-Date).ToUniversalTime().ToString('o') } | Out-Null
 
 $msg = if ($r.ExitCode -eq 1116) { "Aucun redémarrage n'était programmé." } else { "Redémarrage annulé." }
 @{ message = $msg; result = @{ ok = $true; invalidate = @('lock.probe.ps1','pending.probe.ps1') } }

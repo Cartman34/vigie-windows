@@ -18,13 +18,13 @@
     Codes de retour : 0 = fait ; 1 = compte ou donnees introuvables ; 2 = Vigie injoignable ;
     3 = refuse (compte non administrateur).
 #>
-param([string] $Compte)
+param([string] $Account)
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path $PSScriptRoot -Parent
 $backend  = Join-Path $repoRoot 'apps/backend-pode'
 . (Join-Path $backend 'lib/common.ps1')
 
-if (-not $Compte) {
+if (-not $Account) {
     Write-Info (Get-Label 'vigie-diag-compte.comptes-de-cette-machine')
     Get-ComputerAccounts | ForEach-Object {
         Write-Host ("  {0} {1,-24} {2}" -f $(if ($_.enabled) { '[x]' } else { '[ ]' }), $_.name,
@@ -41,7 +41,7 @@ $cfg   = Get-Config -Backend $backend
 $token = Get-ApiToken -Backend $backend
 if (-not $token) { Write-Warn (Get-Label 'vigie-diag-compte.jeton-api-introuvable-vigie'); exit 2 }
 
-$corps = @{ type = 'diag-account-logs'; module = 'accounts'; params = @{ account = $Compte } } | ConvertTo-Json -Depth 4
+$corps = @{ type = 'diag-account-logs'; module = 'accounts'; params = @{ account = $Account } } | ConvertTo-Json -Depth 4
 try {
     $rep = Invoke-RestMethod -Method Post -Uri ($url + $cfg.ApiBase + '/actions') -Body $corps -ContentType 'application/json' -Headers @{
         Authorization = 'Bearer ' + $token

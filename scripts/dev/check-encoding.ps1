@@ -282,9 +282,9 @@ foreach ($f in $scannedFiles) {
     $found = $text0.IndexOfAny($CONTROL_CHARS)
     if ($found -ge 0) {
         $code = [int]$text0[$found]
-        $ligne = ($text0.Substring(0, $found) -split "`n").Count
+        $line = ($text0.Substring(0, $found) -split "`n").Count
         $issues += @{ File = $rel; Kind = 'controle'
-                      Message = ("caractere de controle 0x{0:X2} ligne {1} -- un echappement a mal tourne" -f $code, $ligne) }
+                      Message = ("caractere de controle 0x{0:X2} ligne {1} -- un echappement a mal tourne" -f $code, $line) }
     }
 
     $wantBom = ($ext -in '.ps1', '.psd1', '.psm1')

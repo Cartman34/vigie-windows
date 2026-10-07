@@ -20,8 +20,8 @@ param([string]$Module, [hashtable]$Params)
 $backend = Split-Path $PSScriptRoot -Parent
 . (Join-Path $backend 'lib/common.ps1')
 
-$faits = @(Repair-VigieTasks -Backend $backend)
-if (-not $faits.Count) {
+$done = @(Repair-VigieTasks -Backend $backend)
+if (-not $done.Count) {
     return @{ message = "Vérification faite : les tâches de démarrage de Vigie sont saines."
               result  = @{ ok = $true; invalidate = @('comptes.probe.ps1', 'deployment.probe.ps1') } }
 }
@@ -29,12 +29,12 @@ if (-not $faits.Count) {
 # un echec deja inscrit dans son historique ne s'efface qu'a sa prochaine execution,
 # c'est-a-dire a la prochaine ouverture de session du compte. Le dire, plutot que
 # d'annoncer « réparée » pendant que l'ecran affiche « hors service » juste a cote.
-$ok      = @($faits | Where-Object { $_.repare })
-$attente = @($faits | Where-Object { $_.attente })
-$restant = @($faits | Where-Object { -not $_.repare -and -not $_.attente -and $_.reste })
-$ko      = @($faits | Where-Object { -not $_.repare -and -not $_.attente -and -not $_.reste })
+$ok      = @($done | Where-Object { $_.repare })
+$waitMs = @($done | Where-Object { $_.attente })
+$restant = @($done | Where-Object { -not $_.repare -and -not $_.attente -and $_.reste })
+$ko      = @($done | Where-Object { -not $_.repare -and -not $_.attente -and -not $_.reste })
 
-$detail = (($faits | ForEach-Object {
+$detail = (($done | ForEach-Object {
     if ($_.attente) {
         # Rien n'a ete touche : la tache est saine, c'est son dernier passage qui ne
         # l'etait pas. On le dit tel quel, sans repeter la meme phrase deux fois.
@@ -47,14 +47,14 @@ $detail = (($faits | ForEach-Object {
     }
 }) -join [Environment]::NewLine)
 
-$morceaux = @()
-if ($ok.Count)      { $morceaux += ("{0} tâche(s) réparée(s)" -f $ok.Count) }
-if ($attente.Count) { $morceaux += ("{0} saine(s), en attente de leur prochain démarrage" -f $attente.Count) }
-if ($restant.Count) { $morceaux += ("{0} réécrite(s), à confirmer à la prochaine ouverture de session" -f $restant.Count) }
-if ($ko.Count)      { $morceaux += ("{0} en échec" -f $ko.Count) }
-if (-not $morceaux.Count) { $morceaux += "rien à signaler" }
+$parts = @()
+if ($ok.Count)      { $parts += ("{0} tâche(s) réparée(s)" -f $ok.Count) }
+if ($waitMs.Count) { $parts += ("{0} saine(s), en attente de leur prochain démarrage" -f $waitMs.Count) }
+if ($restant.Count) { $parts += ("{0} réécrite(s), à confirmer à la prochaine ouverture de session" -f $restant.Count) }
+if ($ko.Count)      { $parts += ("{0} en échec" -f $ko.Count) }
+if (-not $parts.Count) { $parts += "rien à signaler" }
 
 @{
-    message = (($morceaux -join ', ') + '.')
+    message = (($parts -join ', ') + '.')
     result  = @{ ok = ($ko.Count -eq 0); detail = $detail; invalidate = @('comptes.probe.ps1', 'deployment.probe.ps1') }
 }

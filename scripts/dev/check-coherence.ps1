@@ -217,8 +217,8 @@ if (Test-Path -LiteralPath $actionsDir) {
         $code = ($code -split "`n" | Where-Object { $_ -notmatch '^\s*#' }) -join "`n"
         if ($code -notmatch '(?<![\w$])path\s*=') { continue }
         $duService  = ($code -match 'Get-VarPath|Get-LogDir|Get-VarRoot')
-        $duDemandeur = ($code -match 'Get-AccountVarRoot|Get-RequesterAccount')
-        if ($duService -and -not $duDemandeur) {
+        $ofRequester = ($code -match 'Get-AccountVarRoot|Get-RequesterAccount')
+        if ($duService -and -not $ofRequester) {
             $faults += ("action « {0} » : elle rend un chemin construit sur le var du service -- illisible depuis la session de qui la demande" -f $f.Name)
         }
     }

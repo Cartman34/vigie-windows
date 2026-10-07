@@ -49,15 +49,15 @@ if (-not $analyser) {
     exit 0
 }
 
-$sortie = ''
+$output = ''
 $code = 1
 if ($analyser.Kind -eq 'windows') {
-    $sortie = & $analyser.Exe --check $tmp 2>&1
+    $output = & $analyser.Exe --check $tmp 2>&1
     $code = $LASTEXITCODE
 } else {
     # The Windows path as WSL sees it: C:\Temp\x.js becomes /mnt/c/Temp/x.js.
     $unix = '/mnt/' + $tmp.Substring(0, 1).ToLower() + ($tmp.Substring(2) -replace '\\', '/')
-    $sortie = & $analyser.Exe -e bash -lc ("node --check '" + $unix + "'") 2>&1
+    $output = & $analyser.Exe -e bash -lc ("node --check '" + $unix + "'") 2>&1
     $code = $LASTEXITCODE
 }
 Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
@@ -69,5 +69,5 @@ if ($code -eq 0) {
     exit 0
 }
 Write-Fail 'La page NE SE PARSE PAS : ouverte dans un navigateur, elle resterait sur son écran de chargement.'
-foreach ($ligne in @($sortie | Where-Object { "$_".Trim() })) { Write-Detail "$ligne" }
+foreach ($line in @($output | Where-Object { "$_".Trim() })) { Write-Detail "$line" }
 exit 2

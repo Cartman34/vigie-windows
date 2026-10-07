@@ -72,9 +72,9 @@ try {
     # repropose pas, meme si le gestionnaire l'annonce encore. Le journal fait foi --
     # code de sortie 0 et absent de la liste des echecs.
     if ($op -eq 'upgrade' -and $up -and @($pkgs).Count) {
-        $reussis = @($pkgs | Where-Object { @($up.failed) -notcontains "$_" })
-        if ($reussis.Count) {
-            $restants = @(@($u.pkgs) | Where-Object { $reussis -notcontains "$($_.id)" })
+        $succeeded = @($pkgs | Where-Object { @($up.failed) -notcontains "$_" })
+        if ($succeeded.Count) {
+            $restants = @(@($u.pkgs) | Where-Object { $succeeded -notcontains "$($_.id)" })
             if (@($restants).Count -ne @($u.pkgs).Count) {
                 $u = @{ count      = @($restants).Count
                         items      = @($restants | ForEach-Object { "$($_.titre)" })
@@ -82,20 +82,20 @@ try {
                         supported  = $u.supported
                         selectable = $u.selectable }
                 Write-Log -Backend $Backend -Name 'pkgupgrade' `
-                          -Message (Get-Label 'pkg-job.paquet-retire-de-la' $mgr $reussis.Count)
+                          -Message (Get-Label 'pkg-job.paquet-retire-de-la' $mgr $succeeded.Count)
             }
         }
     }
     # `pkgs` (identifiants ciblables) est conserve avec le reste : la fenetre de choix le
     # relit tel quel, sans relancer une verification lente au moment du clic.
-    $etat = @{ count = [int]$u.count; items = @($u.items); pkgs = @($u.pkgs); at = (Get-Date).ToString('s') }
+    $state = @{ count = [int]$u.count; items = @($u.items); pkgs = @($u.pkgs); at = (Get-Date).ToString('s') }
     # Un redemarrage en attente doit se VOIR dans la carte : c'est une action attendue de
     # l'utilisateur, pas une ligne de journal.
-    if ($op -eq 'upgrade' -and $up -and $up.reboot) { $etat.reboot = $true }
+    if ($op -eq 'upgrade' -and $up -and $up.reboot) { $state.reboot = $true }
     # Le RESULTAT de la mise a jour est conserve pour la carte : sans lui, l'operation se
     # termine en silence et l'utilisateur ne sait pas ce qui a ete fait ni si ca a marche.
     if ($op -eq 'upgrade' -and $up) {
-        $etat.last = @{
+        $state.last = @{
             at      = (Get-Date).ToString('s')
             ok      = [bool]$up.ok
             count   = if ($up.count) { [int]$up.count } else { 0 }   # 0 = tout le gestionnaire
@@ -103,7 +103,7 @@ try {
             reasons = $(if ($up.reasons) { $up.reasons } else { @{} })
         }
     }
-    Update-StateJson -Path $outFile -Set @{ $mgr = $etat } | Out-Null
+    Update-StateJson -Path $outFile -Set @{ $mgr = $state } | Out-Null
     # A failed upgrade leaves by the exit code, so that the card and the notification say it.
     if ($op -eq 'upgrade' -and $up -and -not $up.ok) {
         $exitCode = 1

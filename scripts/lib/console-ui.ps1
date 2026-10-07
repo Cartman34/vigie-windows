@@ -96,11 +96,11 @@ function Close-UiStep {
     $w = $script:UiWarnings - $script:UiStepWarnings
     if ($script:UiStepRelayFail) { $f++ }
     if ($script:UiStepRelayWarn) { $w++ }
-    $texte = if ($f -gt 0)    { $script:UiStepText + " : échec." }
+    $Text = if ($f -gt 0)    { $script:UiStepText + " : échec." }
              elseif ($w -gt 0) { $script:UiStepText + " : fait, avec " + $w + " réserve(s)." }
              else              { $script:UiStepText + " : fait." }
     $couleur = if ($f -gt 0) { 'Red' } elseif ($w -gt 0) { 'Yellow' } else { 'Green' }
-    Write-Host ("       " + $texte) -ForegroundColor $couleur
+    Write-Host ("       " + $Text) -ForegroundColor $couleur
     $script:UiStepText = $null
 }
 

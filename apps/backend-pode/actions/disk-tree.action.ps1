@@ -11,15 +11,15 @@ param([string]$Module, [hashtable]$Params)
 $backend = Split-Path $PSScriptRoot -Parent
 . (Join-Path $backend 'lib/common.ps1')
 
-$chemin = if ($Params -and $Params.path) { "$($Params.path)" } else { $null }
+$path = if ($Params -and $Params.path) { "$($Params.path)" } else { $null }
 try {
-    if (-not $chemin) {
+    if (-not $path) {
         $f = Get-VarPath -Backend $backend -Kind 'cache' -File 'diskscan.json'
         if (-not (Test-Path -LiteralPath $f)) { throw "Aucune analyse disponible : lancez d'abord l'analyse de l'espace." }
         $j = Get-Content -LiteralPath $f -Raw | ConvertFrom-Json
-        $chemin = if ($j.result -and $j.result.root) { "$($j.result.root)" } else { "$($j.scan.root)" }
+        $path = if ($j.result -and $j.result.root) { "$($j.result.root)" } else { "$($j.scan.root)" }
     }
-    $niveau = Get-DiskTreeLevel -Path $chemin -Backend $backend
+    $niveau = Get-DiskTreeLevel -Path $path -Backend $backend
     @{
         message = ("Arborescence de " + $niveau.path + " : " + @($niveau.children).Count + " dossier(s).")
         result  = @{ ok = $true; ui = 'disk-tree'; level = $niveau }

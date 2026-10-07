@@ -11,9 +11,9 @@ param([string]$Module, [hashtable]$Params)
 $backend = Split-Path $PSScriptRoot -Parent
 . (Join-Path $backend 'lib/common.ps1')
 
-$dossier = Get-VarPath -Backend $backend -Kind 'log'
-if (-not (Test-Path -LiteralPath $dossier)) {
-    return @{ message = "Aucun journal pour l'instant : $dossier"; result = @{ ok = $false } }
+$folder = Get-VarPath -Backend $backend -Kind 'log'
+if (-not (Test-Path -LiteralPath $folder)) {
+    return @{ message = "Aucun journal pour l'instant : $folder"; result = @{ ok = $false } }
 }
-Start-ChildProcess -FilePath 'explorer.exe' -Arguments @($dossier) | Out-Null
-@{ message = "Journaux ouverts : $dossier"; result = @{ ok = $true } }
+Start-ChildProcess -FilePath 'explorer.exe' -Arguments @($folder) | Out-Null
+@{ message = "Journaux ouverts : $folder"; result = @{ ok = $true } }

@@ -23,8 +23,8 @@ if (-not (Test-Elevated)) {
     }
 }
 
-$avant = Get-UpdateLockState
-if ($avant.locked) {
+$before = Get-UpdateLockState
+if ($before.locked) {
     return @{
         message = 'Le verrouillage complet est déjà en place : mises à jour automatiques coupées et verrou ACL posé.'
         result  = @{ ok = $true; invalidate = $inv }
@@ -34,23 +34,23 @@ if ($avant.locked) {
 # La valeur de retour de Set-UpdateLock ne porte que la moitie ACL du verrou ; le compte
 # rendu ci-dessous s'appuie sur l'etat COMPLET relu juste apres.
 $null = Set-UpdateLock -State 'pose' -Backend $backend
-$apres = Get-UpdateLockState
+$after = Get-UpdateLockState
 
 # On rapporte l'etat CONSTATE (D43). Les deux moities du verrou sont distinguees : couper
 # les MAJ auto sans poser le verrou ACL est un resultat partiel, pas un succes.
-if ($apres.locked) {
+if ($after.locked) {
     @{
         message = 'Verrou complet appliqué : mises à jour automatiques coupées ET verrou ACL posé.'
         result  = @{ ok = $true; invalidate = $inv }
     }
-} elseif ($apres.autoUpdatesOff) {
+} elseif ($after.autoUpdatesOff) {
     @{
         message = "Mises à jour automatiques coupées, mais le verrou ACL n'a PAS pu être posé (dossiers protégés par Windows). Détails dans apps/backend-pode/var/log/updatelock_*.log."
         result  = @{ ok = $false; invalidate = $inv }
     }
 } else {
     @{
-        message = "Échec du verrouillage : ni verrou ACL, ni coupure des mises à jour automatiques (NoAutoUpdate=$($apres.noAutoUpdate)). Détails dans apps/backend-pode/var/log/updatelock_*.log."
+        message = "Échec du verrouillage : ni verrou ACL, ni coupure des mises à jour automatiques (NoAutoUpdate=$($after.noAutoUpdate)). Détails dans apps/backend-pode/var/log/updatelock_*.log."
         result  = @{ ok = $false; invalidate = $inv }
     }
 }

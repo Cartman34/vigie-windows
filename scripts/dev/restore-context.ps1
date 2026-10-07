@@ -52,7 +52,7 @@ $documents = @(
     @{ path = 'doc/progress/implemented';             role = (Get-Label 'restore-context.role-implemented') }
 )
 
-$manquants = 0
+$missing = 0
 Write-Step (Get-Label 'restore-context.etape-documents')
 foreach ($d in $documents) {
     $complet = Join-Path $repoRoot $d.path
@@ -60,7 +60,7 @@ foreach ($d in $documents) {
         Write-Detail ($d.path + ' — ' + $d.role)
     } else {
         Write-Fail (Get-Label 'restore-context.document-introuvable' $d.path)
-        $manquants++
+        $missing++
     }
 }
 
@@ -85,13 +85,13 @@ if (-not $Court) {
 Write-Step (Get-Label 'restore-context.etape-depot')
 $branche = Invoke-Git -Path $repoRoot -Arguments @('rev-parse', '--abbrev-ref', 'HEAD')
 Write-Detail (Get-Label 'restore-context.branche' "$branche".Trim())
-foreach ($ligne in @(Invoke-Git -Path $repoRoot -Arguments @('log', '--oneline', '-5'))) {
-    if ("$ligne".Trim()) { Write-Detail "$ligne" }
+foreach ($line in @(Invoke-Git -Path $repoRoot -Arguments @('log', '--oneline', '-5'))) {
+    if ("$line".Trim()) { Write-Detail "$line" }
 }
 $enCours = @(Invoke-Git -Path $repoRoot -Arguments @('status', '--short') | Where-Object { "$_".Trim() })
 if ($enCours.Count) {
     Write-Warn (Get-Label 'restore-context.travail-en-cours' $enCours.Count)
-    foreach ($ligne in $enCours) { Write-Detail "$ligne" }
+    foreach ($line in $enCours) { Write-Detail "$line" }
 } else {
     Write-Detail (Get-Label 'restore-context.rien-en-cours')
 }
@@ -109,8 +109,8 @@ Write-Detail (Get-Label 'restore-context.preuve-reachable')
 Write-Detail (Get-Label 'restore-context.preuve-decisions')
 Write-Detail (Get-Label 'restore-context.preuve-verificateurs')
 
-if ($manquants) {
-    Write-Fail (Get-Label 'restore-context.documents-manquants' $manquants)
+if ($missing) {
+    Write-Fail (Get-Label 'restore-context.documents-manquants' $missing)
     exit 1
 }
 Write-Ok (Get-Label 'restore-context.pret')

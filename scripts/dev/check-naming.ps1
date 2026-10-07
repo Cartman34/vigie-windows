@@ -100,8 +100,20 @@ $COMMENT_CEILING = 5603
     and after on the same input, with the same 19 probes, the same 21 modules and the same Get-State. server.ps1
     keeps its five: it only ever runs as the installed server app, so its proof would be a deployment, and a
     deployment delivers, it does not check.
+
+    07/10, the tail: 121 -> 70. Thirty files carrying one to three names each, swept with a single map applied file
+    by file -- each file only ever sees the names it uses. Every one passed the scope checker first, and the two it
+    refused (client.ps1, install-autostart.ps1) were left alone rather than renamed on a hunch. Proof: check-all
+    identical to the character once the durations are removed, the same 19 probes, the same Get-State, and
+    vigie-comptes, debug and decisions giving the same output with the same exit codes.
+
+    WHAT IS LEFT, ALL OF IT, SO NOBODY COUNTS IT AGAIN: 33 in show-confirm.ps1 and client.ps1, which open a window;
+    5 in server.ps1 and 2 in install.ps1, which only run installed; 15 contract KEYS that cross between the back end
+    and the page (index.html, common.ps1, rapport.html), which are a protocol change, not a rename; and 15 scattered
+    over a dozen files, each a key or a parameter of the same kind. None of them is reachable by running a file
+    here, which is the rule this count now obeys.
 #>
-$CEILING = 121
+$CEILING = 70
 
 # LE PLAFOND DES NOMS DE FICHIERS. Meme cliquet, compte separe : ceux qui restent sont
 # nommes dans des taches planifiees deja posees et dans des raccourcis, donc ils se

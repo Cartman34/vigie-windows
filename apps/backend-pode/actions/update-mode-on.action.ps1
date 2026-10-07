@@ -23,8 +23,8 @@ if (-not (Test-Elevated)) {
     }
 }
 
-$avant = Get-UpdateLockState
-if (-not $avant.aclLock -and -not $avant.autoUpdatesOff) {
+$before = Get-UpdateLockState
+if (-not $before.aclLock -and -not $before.autoUpdatesOff) {
     return @{
         message = 'Le mode mise à jour est déjà actif : Windows Update est déverrouillé.'
         result  = @{ ok = $true; invalidate = $inv }
@@ -32,18 +32,18 @@ if (-not $avant.aclLock -and -not $avant.autoUpdatesOff) {
 }
 
 $ok = Set-UpdateLock -State 'leve' -Backend $backend
-$apres = Get-UpdateLockState
+$after = Get-UpdateLockState
 
 # Ce qui est rapporte est ce qui a ete OBSERVE apres coup (D43), jamais « la commande
 # n'a pas leve d'erreur ».
-if ($ok -and -not $apres.autoUpdatesOff) {
+if ($ok -and -not $after.autoUpdatesOff) {
     @{
         message = 'Mode mise à jour ACTIVÉ : Windows Update est déverrouillé. Les mises à jour peuvent s''installer ; redémarrer au moment voulu, puis re-verrouiller.'
         result  = @{ ok = $true; invalidate = $inv }
     }
 } elseif ($ok) {
     @{
-        message = "Verrou des tâches levé, mais les mises à jour automatiques sont restées coupées (NoAutoUpdate=$($apres.noAutoUpdate)). Windows Update reste utilisable manuellement."
+        message = "Verrou des tâches levé, mais les mises à jour automatiques sont restées coupées (NoAutoUpdate=$($after.noAutoUpdate)). Windows Update reste utilisable manuellement."
         result  = @{ ok = $true; invalidate = $inv }
     }
 } else {
