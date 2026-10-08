@@ -23,6 +23,10 @@ chain, and each link obliges the next.
    (`scripts/dev/decisions.ps1 -About "…"`).
 3. `../../progress/targeting/` then `../../progress/implemented/` — the target, then the real
    state. In what order they are touched: `disciplines.md`, section "The order of work".
+4. `agent-clients/` — one file per software that carries an agent, and **only** what is true of that one.
+   `claude.md` is there; `codex.md` will be the day there is one. Read the file for the client you are running in,
+   and no other: with a different agent those words mean nothing. The rest of this chain binds every agent; that
+   folder does not.
 
 None of this is optional because one believes one remembers. **An agent whose context has
 been compacted has nothing left but its summary**: the rules, the decisions and the design

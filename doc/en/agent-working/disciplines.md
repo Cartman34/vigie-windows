@@ -367,63 +367,38 @@ the burden of remembering where things stood. The tracking holds the state; the 
 options, not a summary of everything open. If what comes next is his to decide, that is the opening, asked in the
 question format.
 
-## "Go, and do not stop" -- the confirmation goes INSIDE the working turn
+## "Go, and do not stop" -- confirm, then work, and confirm again at the end
 
-**I CAN write before working, and in the desktop app that text then DISAPPEARS.** A line written ahead of the tool
-calls does not end the turn: the tools run and control comes back. He sees that line while the work runs -- and
-when the final message is posted, **the desktop client erases it**. On the CLI it stays; the desktop app is where
-he works. *Told by him on 08/10: "Tu es bien arrivé à m'envoyer un message de confirmation avant de commencer à
-utiliser tes outils, à la fin ce message disparaît dans le client desktop quand tu postes ton message final."*
+**He asks for a confirmation AND for the work to start. Both, in the same turn.** On 07/10 he had to ask four
+times -- *"Tu n'as rien commence... pourquoi tu ne pars pas ? REPOND"*, then *"MAIS BORDEL DE MERDE"* -- because
+twice I answered in a message of its own, which handed the turn back and waited, and once I confirmed before the
+work, which ran but left him nothing to re-read afterwards.
 
-**So a confirmation given only before the work is a confirmation he ends up without.** That is the real reason he
-asked for one four times on 07/10 -- *"Tu n'as rien commence... pourquoi tu ne pars pas ? REPOND"*, then *"MAIS
-BORDEL DE MERDE"*. Twice I answered in a message of its own, which stopped; once I put it ahead of the tools, which
-worked but left nothing behind.
+**How to apply it, and it is mechanical, not a matter of good intentions:**
 
-**What to do, then:** the confirmation goes BEFORE the tool calls, so he sees it at once and the work starts behind
-it -- AND the final message OPENS by restating what was confirmed, because the first one will have vanished from
-his transcript. Not a repetition: the only copy that survives.
-
-**THE TERMS, AND THEY ARE THE API'S OWN, SO ANY CLAUDE UNDERSTANDS THEM.** He asked for recognised vocabulary
-rather than words invented here, so that saying them to any agent works: *"il faut que n'importe quel agent Claude
-puisse comprendre ce que je veux dire en le disant."* An assistant message carries a list of **content blocks**,
-each with a type -- `text`, `thinking`, `tool_use` -- and it ends with a **`stop_reason`**:
-
-| What he means | What to say | What it is |
-|---|---|---|
-| The line written before the work | **a `text` block in a message whose `stop_reason` is `tool_use`** | the turn continues; his desktop client drops it once the final message lands |
-| The message that closes | **the `text` block of the message whose `stop_reason` is `end_turn`** | control returns to him; this one stays |
-
-In one word each: a **`tool_use` message** and an **`end_turn` message**. `stop_reason` also takes `max_tokens`,
-`pause_turn` and `refusal`, which do not concern this rule.
-
-**The disappearance is NOT in the API.** Nothing in `stop_reason` or in a content block says a message is
-temporary: the Messages API keeps every block of every assistant message. Hiding the non-final `text` blocks is a
-choice of the **desktop client**; the CLI shows them. So the rule above is about his client, not about the protocol
--- and that distinction matters the day the client changes.
-
-*Corrected twice. The first version said "every message I write ends my turn", which is false. The second explained
-it by the last block of the turn, which is beside the point: what matters to him is not when the turn ends, it is
-what is still on his screen afterwards.*
-
-**A message he sends while I work does not interrupt me either.** It arrives attached to a tool result, inside the
-running turn. It is answered in one line, in that turn, and the work continues.
+1. The confirmation is ONE short line, written **before** the first tool call, in the same turn. The turn does not
+   end there: the work begins behind it, and he can interrupt at once if the confirmation is wrong.
+2. **It is said again in the closing message**, because his client may not have kept the first copy -- see
+   `agent-clients/claude.md`, which says exactly what his client does with it. Not a repetition: the only copy he
+   can come back to.
+3. Between the two, **no user-visible text** -- only tool calls.
+4. **A message arriving mid-turn is not an order to stop** unless it says so. It gets one line, inside the working
+   turn, and the work continues.
+5. What cannot be done at all is said ONCE, in the closing message, never as a preamble and never as a reason to
+   pause.
 
 **What made it worse:** the rule above, "a question calls for an ANSWER, not an action", is right for a question
 about the work. Applied to an order to start and not stop, it produces the exact opposite of what was asked.
 
-**How to apply it, and it is mechanical, not a matter of good intentions:**
-
-1. The confirmation is ONE short line, placed at the START of the turn, **followed immediately by tool calls in the
-   same turn**. The turn does not end; the work begins behind the confirmation. He gets his confirmation AND his
-   work, which is what he asked for both times.
-2. After that line, **no more user-visible text until the work is done** -- only tool calls. Text is the stop.
-3. **A message arriving mid-turn is not an order to stop** unless it says so. It is answered in one line inside the
-   working turn, in the same way, and the work continues.
-4. What cannot be done at all is said ONCE, in the final report, never as a preamble and never as a reason to pause.
-
 *Measured the same day: once the confirmation was placed before the tool calls instead of in its own message, the
-work ran from S21 to S01 without a single stop.*
+work ran from S21 to S01 without a single stop. Record:
+[`../../../notes/evidence/2026-10-07-four-times-told-to-start.md`](../../../notes/evidence/2026-10-07-four-times-told-to-start.md).*
+
+**The mechanics behind this rule are NOT written here**, because they are true of one agent client and false of
+the next: what a turn is made of, what survives on his screen, what the words for it are. They live in
+[`agent-clients/claude.md`](agent-clients/claude.md), one file per client, and they expire with it. *Asked for by
+him on 08/10: the terms are "pas du tout dans la discipline... c'est dans la maniere de communiquer ensemble,
+sachant que c'est attribue a Claude uniquement".*
 
 ## One subject, one number -- and an improvised list is not a numbering
 
