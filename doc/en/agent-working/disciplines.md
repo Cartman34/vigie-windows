@@ -384,6 +384,24 @@ worked but left nothing behind.
 it -- AND the final message OPENS by restating what was confirmed, because the first one will have vanished from
 his transcript. Not a repetition: the only copy that survives.
 
+**THE TERMS, AND THEY ARE THE API'S OWN, SO ANY CLAUDE UNDERSTANDS THEM.** He asked for recognised vocabulary
+rather than words invented here, so that saying them to any agent works: *"il faut que n'importe quel agent Claude
+puisse comprendre ce que je veux dire en le disant."* An assistant message carries a list of **content blocks**,
+each with a type -- `text`, `thinking`, `tool_use` -- and it ends with a **`stop_reason`**:
+
+| What he means | What to say | What it is |
+|---|---|---|
+| The line written before the work | **a `text` block in a message whose `stop_reason` is `tool_use`** | the turn continues; his desktop client drops it once the final message lands |
+| The message that closes | **the `text` block of the message whose `stop_reason` is `end_turn`** | control returns to him; this one stays |
+
+In one word each: a **`tool_use` message** and an **`end_turn` message**. `stop_reason` also takes `max_tokens`,
+`pause_turn` and `refusal`, which do not concern this rule.
+
+**The disappearance is NOT in the API.** Nothing in `stop_reason` or in a content block says a message is
+temporary: the Messages API keeps every block of every assistant message. Hiding the non-final `text` blocks is a
+choice of the **desktop client**; the CLI shows them. So the rule above is about his client, not about the protocol
+-- and that distinction matters the day the client changes.
+
 *Corrected twice. The first version said "every message I write ends my turn", which is false. The second explained
 it by the last block of the turn, which is beside the point: what matters to him is not when the turn ends, it is
 what is still on his screen afterwards.*
