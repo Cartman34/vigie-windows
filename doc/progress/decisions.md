@@ -1901,7 +1901,7 @@ réseau) et pourrait les altérer. Cela déferait précisément l'isolation éta
 
 **Décision (utilisateur).**
 1. Le diagnostic est un **script**, pas une fonction du produit :
-   `scripts/vigie-diag-account.ps1`. Sans argument il liste les comptes ; avec `-Compte`,
+   `scripts/vigie-diag-account.ps1`. Sans argument il liste les comptes ; avec `-Account`,
    il rapatrie les journaux du compte visé.
 2. Le script **ne lit rien lui-même** : il **passe par Vigie**, qui détient déjà
    l'élévation. Aucune invite UAC de plus, et surtout **le même filtre que les actions

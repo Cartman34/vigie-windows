@@ -1,22 +1,20 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-<# Sonde : les COMPTES de cet ordinateur. LECTURE SEULE.
+<# Probe: the ACCOUNTS of this computer. READ ONLY.
 
-   Une LIGNE PAR COMPTE (choix utilisateur) : le nom a gauche, et en face l'essentiel --
-   Vigie active ou non, et le type de compte.
+   ONE LINE PER ACCOUNT, as the owner asked: the name on the left, and facing it what
+   matters -- whether Vigie is on, and what kind of account it is.
 
-   TOUS les comptes utilisateurs, UNIQUEMENT eux (regle utilisateur). Un compte
-   utilisateur est un compte dont le PROFIL A DEJA SERVI : c'est le seul fait qui
-   distingue une personne d'un compte d'outil, et il ne demande aucun reglage.
-   (Le LastLogon du compte, lui, ment : un bac a sable affichait « connecte
-   aujourd'hui » sans avoir jamais ouvert de session.)
+   ALL the user accounts, and ONLY those. A user account is one whose PROFILE HAS ALREADY
+   BEEN USED: that single fact is what separates a person from a tool's account, and it
+   needs no setting. (The account's LastLogon lies: a sandbox showed "signed in today"
+   without ever having opened a session.)
 
-   Le detail (derniere session, poids des donnees) tient dans l'action « Details des
-   comptes » : une carte se lit d'un coup d'oeil, elle ne se deplie pas pour livrer son
-   information principale. #>
+   The detail -- last session, weight of the data -- belongs to the "Details des comptes"
+   action: a card is read at a glance, it does not unfold to hand over its main
+   information. #>
 $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $backend 'lib/common.ps1')
 
-$eleve   = [bool](Test-IsElevated)
 $accounts = @(Get-UserAccounts)
 
 $fields = @()
@@ -32,10 +30,9 @@ foreach ($c in ($accounts | Sort-Object @{ Expression = { -not $_.current } }, n
                else { 'Compte standard : Vigie lui refuse les actions administrateur, comme le ferait Windows.' })
     if ($c.current) { $aide += "C'est le compte qui utilise Vigie en ce moment." }
 
-    # ACTIVEE NE VEUT PAS DIRE QUE CA MARCHE. Une tache peut exister, etre bien formee, et
-    # n'avoir jamais demarre une seule fois -- c'est ce qui est arrive sur « Famille » le
-    # 28/08, pendant que cette carte affichait un tranquille « Vigie activée ». Le defaut
-    # se dit donc SUR LA LIGNE DU COMPTE, la ou on le cherche.
+    # ENABLED DOES NOT MEAN IT WORKS. A task can exist, be well formed, and never have run
+    # once -- which is what happened to "Famille" on 28/08 while this card showed a placid
+    # "Vigie activée". So the fault is said ON THE ACCOUNT'S OWN LINE, where it is looked for.
     $lineStatus = 'neutral'
     if ($c.enabled -and $c.taskAilment) {
         $lineStatus = 'warn'
@@ -45,16 +42,15 @@ foreach ($c in ($accounts | Sort-Object @{ Expression = { -not $_.current } }, n
     }
 
     <#
-        LA COULEUR DIT L'ETAT DU COMPTE, PAS « RIEN A SIGNALER ».
+        THE COLOUR SAYS THE STATE OF THE ACCOUNT, NOT "NOTHING TO REPORT".
 
-        Toutes les lignes sortaient en gris : impossible de voir d'un coup d'oeil qui a
-        Vigie et qui ne l'a pas. Un compte qui l'a et dont la tache est saine est VERT ;
-        un compte qui ne l'a pas reste neutre -- ce n'est pas un defaut, c'est un choix.
+        Every line came out grey, so there was no seeing at a glance who has Vigie and who
+        does not. An account that has it, with a healthy task, is GREEN; an account without
+        it stays neutral -- that is not a fault, it is a choice.
 
-        LE DETAIL PAR COMPTE VIT SUR LA LIGNE. Il fallait ouvrir « Details des comptes »
-        pour savoir quand ce compte a ouvert une session pour la derniere fois ou si sa
-        tache a deja tourne. Ces trois faits tiennent dans le detail de la ligne, la ou on
-        les cherche.
+        THE PER-ACCOUNT DETAIL LIVES ON THE LINE. One had to open "Details des comptes" to
+        learn when the account last opened a session, or whether its task had ever run.
+        Those three facts fit in the line's detail, where they are looked for.
     #>
     if ($lineStatus -eq 'neutral' -and $c.enabled) { $lineStatus = 'ok' }
 
@@ -69,8 +65,8 @@ foreach ($c in ($accounts | Sort-Object @{ Expression = { -not $_.current } }, n
         $lineDetail += "Aucune tâche de démarrage posée pour ce compte."
     }
 
-    # Une ligne qui signale un defaut porte le bouton qui le corrige (D66) : un statut
-    # orange sans geste possible laisse le lecteur devant un probleme et rien d'autre.
+    # A line that reports a fault carries the button that fixes it (D66): an orange status
+    # with no gesture available leaves the reader facing a problem and nothing else.
     $fields += New-Field -Key ('acc-' + ($c.name -replace '[^A-Za-z0-9]', '')) `
         -Label ($c.name + $(if ($c.current) { ' (vous)' } else { '' })) `
         -Value ($state -join ' - ') -Kind 'text' -Status $lineStatus `
@@ -84,7 +80,7 @@ if (-not $accounts.Count) {
         -Help "Aucun compte de cet ordinateur n'a encore ouvert de session."
 }
 
-# --- Carte 1 : les COMPTES ---------------------------------------------------
+# --- Card 1: the ACCOUNTS ----------------------------------------------------
 # SCOPE: the accounts OF THE COMPUTER. What each of them holds is not read here.
 $accountsCard = New-ModuleObject -Id 'accounts' -Theme 'accounts' -Label 'Comptes' -Scope 'machine' `
     -Status $(if (@($fields | Where-Object { "$($_.status)" -eq 'error' }).Count) { 'error' }
@@ -99,34 +95,5 @@ $accountsCard = New-ModuleObject -Id 'accounts' -Theme 'accounts' -Label 'Compte
         New-Action -Id 'open-users-settings' -Label 'Gérer les comptes' -Kind 'dialog' -Severity 'info' `
             -Help "Ouvre Paramètres > Utilisateurs : c'est là que l'on choisit les comptes avec lesquels Vigie démarre."
     )
-
-<#
-    CE QU'ON S'APPRETE A DEPLOYER, EN UNE PHRASE.
-
-    La confirmation disait seulement « Deploie la version actuelle vers l'installation
-    partagee ». Laquelle vers laquelle ? On peut cliquer sans savoir si l'on avance de
-    deux commits ou si l'on ecrase une version plus recente.
-
-    LE COMMIT N'EST MONTRE QU'EN DEVELOPPEMENT. En production, deux versions se
-    distinguent par leur numero -- c'est a cela qu'il sert. En developpement, le numero
-    ne bouge pas entre deux commits : sans lui, « v0.1.21 vers v0.1.21 » ne dit rien.
-#>
-$court = { param($c) if ($c) { $c.Substring(0, [Math]::Min(8, $c.Length)) } else { '' } }
-$estDev = ((Get-DeclaredStage -Backend $backend) -eq 'dev')
-$deVersion = ''; $versVersion = ''; $deNote = ''; $versNote = ''
-if ($cmp) {
-    $deVersion   = "$($cmp.there.version)"
-    $versVersion = "$($cmp.here.version)"
-    # Le commit N'APPARAIT QU'EN DEVELOPPEMENT : en production deux versions se
-    # distinguent par leur numero, c'est a cela qu'il sert. En developpement il ne bouge
-    # pas entre deux commits, et « v0.1.25 vers v0.1.25 » ne dirait rien.
-    if ($estDev) {
-        $deNote   = & $court $cmp.there.commit
-        $versNote = & $court $cmp.here.commit
-    }
-} else {
-    $deVersion   = 'rien'
-    $versVersion = 'première installation'
-}
 
 @($accountsCard)

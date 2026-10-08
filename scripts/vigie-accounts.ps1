@@ -16,16 +16,16 @@
     Codes de retour : 0 = fait ; 1 = compte inconnu ; 3 = droits insuffisants.
 #>
 param(
-    [string]$Activer,
-    [string]$Retirer
+    [string]$Enable,
+    [string]$Remove
 )
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path $PSScriptRoot -Parent
 . (Join-Path $repoRoot 'apps/backend-pode/lib/common.ps1')
 
-function Show-Comptes {
-    # Uniquement les comptes utilisateurs : un profil qui n'a jamais servi est un
-    # compte d'outil.
+function Show-Accounts {
+    # User accounts only: a profile that has never been used belongs to a tool, not to
+    # a person.
     $lines = @(Get-UserAccounts | ForEach-Object {
         '{0} {1,-24} {2,-14} {3}' -f `
             $(if ($_.enabled) { '[x]' } else { '[ ]' }),
@@ -37,13 +37,13 @@ function Show-Comptes {
     $lines | ForEach-Object { Write-Host "  $_" }
 }
 
-if (-not $Activer -and -not $Retirer) { Show-Comptes; exit 0 }
+if (-not $Enable -and -not $Remove) { Show-Accounts; exit 0 }
 
-$target = if ($Activer) { $Activer } else { $Retirer }
+$target = if ($Enable) { $Enable } else { $Remove }
 $connu = @(Get-AccountByName -Name $target)
 if (-not $connu) {
     Write-Warn (Get-Label 'vigie-accounts.compte-inconnu-sur-cette' $target)
-    Show-Comptes
+    Show-Accounts
     exit 1
 }
 if (-not (Test-IsElevated)) {
@@ -51,9 +51,9 @@ if (-not (Test-IsElevated)) {
     exit 3
 }
 try {
-    Set-VigieAccountEnabled -Name $target -Enabled ([bool]$Activer) | Out-Null
-    Write-Host $(if ($Activer) { "Vigie demarrera avec le compte $target." } else { "Vigie ne demarrera plus avec le compte $target." })
-    Show-Comptes
+    Set-VigieAccountEnabled -Name $target -Enabled ([bool]$Enable) | Out-Null
+    Write-Host $(if ($Enable) { "Vigie demarrera avec le compte $target." } else { "Vigie ne demarrera plus avec le compte $target." })
+    Show-Accounts
     exit 0
 } catch {
     Write-Fail (Get-Label 'vigie-accounts.echec' $($_.Exception.Message))

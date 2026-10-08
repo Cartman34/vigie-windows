@@ -27,16 +27,16 @@
     Il reste lancable a la main pour les gestes qui ne sont PAS l'installation :
 
       pwsh -File .\scripts\lib\install-service.ps1 -Lister    # etat des lieux, ne change rien
-      pwsh -File .\scripts\lib\install-service.ps1 -Activer   # bascule vers le service
-      pwsh -File .\scripts\lib\install-service.ps1 -Retirer   # revient en arriere
+      pwsh -File .\scripts\lib\install-service.ps1 -Enable   # bascule vers le service
+      pwsh -File .\scripts\lib\install-service.ps1 -Remove   # revient en arriere
 
     Codes de retour : 0 = fait ; 1 = prerequis manquant ; 2 = une etape a echoue ;
                       3 = refuse par l'utilisateur.
 #>
 param(
     [switch] $Lister,
-    [switch] $Activer,
-    [switch] $Retirer,
+    [switch] $Enable,
+    [switch] $Remove,
     # Repairs the account and the task from the running server, without stopping it (service-account-repair).
     [switch] $Repair
 )
@@ -221,7 +221,7 @@ function Register-ServiceTask {
     }
 
     # DESACTIVEE A LA CREATION. Deux serveurs sur le meme port se marcheraient dessus :
-    # la bascule est un geste separe, et volontaire (-Activer).
+    # la bascule est un geste separe, et volontaire (-Enable).
     try { Disable-ScheduledTask -TaskName $SERVICE_TASK -ErrorAction Stop | Out-Null } catch { }
     Write-Ok (Get-Label 'install-service.tache-enregistree-desactivee' $SERVICE_TASK)
     return $true
@@ -284,7 +284,7 @@ if (-not (Test-IsElevated)) {
 }
 
 <#
-    LA BASCULE. -Activer etait declare dans les parametres et decrit dans l'aide, mais
+    LA BASCULE. -Enable etait declare dans les parametres et decrit dans l'aide, mais
     AUCUN code ne le traitait : la commande affichait l'etat et sortait, sans rien faire
     et sans rien dire. Un commutateur documente qui ne fait rien est pire qu'un
     commutateur absent -- celui-la, au moins, provoque une erreur.
@@ -314,7 +314,7 @@ if (-not (Test-IsElevated)) {
     METTRE LA TACHE SERVEUR EN SERVICE. Rend $true si le serveur repond a la fin.
 
     EXTRAITE POUR ETRE APPELABLE DEUX FOIS : par l'installation, qui doit tout installer,
-    et par -Activer, qui remet en service une tache qu'on avait retiree du jeu. Le corps
+    et par -Enable, qui remet en service une tache qu'on avait retiree du jeu. Le corps
     se terminait par « exit » -- utilisable seulement en fin de script, donc pas comme une
     etape.
 
@@ -399,14 +399,14 @@ function Enable-ServiceTask {
     return $true
 }
 
-if ($Activer) {
+if ($Enable) {
     Show-State
     if (-not (Enable-ServiceTask)) { Show-State -NoTitle; exit 2 }
     Show-State -NoTitle
     exit 0
 }
 
-if ($Retirer) {
+if ($Remove) {
     Show-State
     if (Remove-Service) { Show-State; exit 0 }
     exit 2

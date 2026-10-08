@@ -13,7 +13,7 @@
 
     Usage :
       pwsh -File .\scripts\vigie-diag-account.ps1                    # liste les comptes
-      pwsh -File .\scripts\vigie-diag-account.ps1 -Compte Famille
+      pwsh -File .\scripts\vigie-diag-account.ps1 -Account Famille
 
     Codes de retour : 0 = fait ; 1 = compte ou donnees introuvables ; 2 = Vigie injoignable ;
     3 = refuse (compte non administrateur).
@@ -35,7 +35,7 @@ if (-not $Account) {
     exit 0
 }
 
-# On passe par l'API locale : c'est Vigie qui detient l'elevation, pas ce script.
+# Through the local API: Vigie holds the elevation, this script does not.
 $url   = (Get-AppUrl -Backend $backend).TrimEnd('/')
 $cfg   = Get-Config -Backend $backend
 $token = Get-ApiToken -Backend $backend
@@ -45,7 +45,7 @@ $corps = @{ type = 'diag-account-logs'; module = 'accounts'; params = @{ account
 try {
     $rep = Invoke-RestMethod -Method Post -Uri ($url + $cfg.ApiBase + '/actions') -Body $corps -ContentType 'application/json' -Headers @{
         Authorization = 'Bearer ' + $token
-        # L'anti-CSRF du serveur n'accepte que les origines de bouclage.
+        # The server's anti-CSRF accepts loopback origins only.
         Origin        = $url
     } -TimeoutSec 60
 } catch {

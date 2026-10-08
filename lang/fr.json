@@ -886,7 +886,7 @@
   "vigie-diag-account.comptes-de-cette-machine": "Comptes de cet ordinateur",
   "vigie-diag-account.jeton-api-introuvable-vigie": "Jeton d'API introuvable : Vigie a-t-il déjà démarre ?",
   "vigie-diag-account.pour-rapatrier-les-journaux": "Pour rapatrier les journaux de l'un d'eux :",
-  "vigie-diag-account.pwsh-file-scripts-vigie": "  pwsh -File .\\scripts\\vigie-diag-account.ps1 -Compte <nom>",
+  "vigie-diag-account.pwsh-file-scripts-vigie": "  pwsh -File .\\scripts\\vigie-diag-account.ps1 -Account <nom>",
   "vigie-diag-account.verifiez-que-application-tourne": "L'application doit tourner : icone dans la zone de notification.",
   "vigie-diag-account.vigie-injoignable": "Vigie injoignable : {0}",
   "vigie-diag-account.vigie-refuse-cette-operation": "Vigie a refuse : cette opération demande un compte administrateur.",
