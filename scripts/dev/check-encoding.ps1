@@ -1,55 +1,55 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    check-encoding.ps1 - UTF-8 PARTOUT, et du francais qui garde ses accents.
-    LECTURE SEULE par defaut ; -Fix corrige ce qui est mecanique.
+    check-encoding.ps1 -- UTF-8 EVERYWHERE, and French that keeps its accents.
+    READ ONLY by default; -Fix repairs what is mechanical.
 
-    POURQUOI CET OUTIL EXISTE. La consigne « tout en UTF-8 » est ancienne, et elle a ete
-    enfreinte trois fois de suite en une journee : un install.ps1 sans BOM que PowerShell
-    5.1 lisait en latin-1, un setup.cmd dont j'avais retire les accents ET les apostrophes
-    « par prudence », des libelles ecrits sans accent parce que je n'etais pas sur. A
-    chaque fois, la meme cause : je verifiais a l'oeil. Un oeil ne verifie pas un encodage.
+    Intent: stop checking an encoding by eye. The instruction "everything in UTF-8" is an old one, and it was
+    broken three times in a single day: an install.ps1 with no BOM that PowerShell 5.1 read as latin-1, a
+    setup.cmd from which I had removed the accents AND the apostrophes "to be safe", labels written without
+    accents because I was not sure. Every time, the same cause: I was checking by eye. An eye does not check an
+    encoding.
 
-    CE QUI EST VERIFIE
+    Usage:
+      pwsh -File .\scripts\dev\check-encoding.ps1            # the verdict
+      pwsh -File .\scripts\dev\check-encoding.ps1 -Detail    # where and what
+      pwsh -File .\scripts\dev\check-encoding.ps1 -Fix       # repair, then check again
+    Exit codes: 0 = everything conforms; 2 = at least one shortfall.
 
-    1. L'ENCODAGE DE CHAQUE FICHIER, selon ce que son lecteur exige :
+    WHAT IS CHECKED
 
-         .ps1 .psd1   UTF-8 AVEC BOM      TOUS, sans exception. Windows
-                                          PowerShell 5.1 lit un fichier sans BOM dans la
-                                          page ANSI : « installé » devient « installÃ© ».
-                                          PowerShell 7 accepte les deux. Un fichier
-                                          purement ASCII n'a rien a perdre : on ne lui
-                                          impose rien -- une regle qui crie sur 90
-                                          fichiers sans risque ne se fait plus ecouter.
-         .cmd .bat    UTF-8 SANS BOM      cmd.exe AFFICHE le BOM tel quel, avant meme la
-                                          premiere ligne. Et si le fichier contient un
-                                          caractere accentue, il lui faut « chcp 65001 »
-                                          en tete, sinon cmd le lit en page OEM 850.
-         autres       UTF-8 SANS BOM      git, les navigateurs et les editeurs modernes.
+    1. THE ENCODING OF EACH FILE, according to what its reader demands:
 
-    2. LE MOJIBAKE : « Ã© », « Ã¨ », « â€™ ». Ce sont les traces d'un texte UTF-8 relu en
-       latin-1 puis re-enregistre. Le fichier est alors valide en UTF-8 et pourtant faux :
-       aucune verification d'encodage seule ne le voit.
+         .ps1 .psd1   UTF-8 WITH a BOM    ALL of them, without exception. Windows PowerShell 5.1 reads a file
+                                          without a BOM in the ANSI code page, and an accented word comes out
+                                          mangled. PowerShell 7 accepts both. A purely ASCII file has nothing to
+                                          lose: we impose nothing on it -- a rule that shouts at 90 harmless
+                                          files stops being listened to.
+         .cmd .bat    UTF-8 WITHOUT BOM   cmd.exe DISPLAYS the BOM as it stands, before even the first line. And
+                                          if the file holds an accented character, it needs "chcp 65001" at the
+                                          top, otherwise cmd reads it in the OEM 850 code page.
+         others       UTF-8 WITHOUT BOM   git, the browsers and the modern editors.
 
-    3. LES ACCENTS ABSENTS DU TEXTE AFFICHE. On ne regarde QUE ce que l'utilisateur lit :
-       les arguments de Write-Ok / Warn / Fail / Info / Detail / Step / Title, le -Message
-       de Write-Log, et les lignes « echo » des .cmd. Les COMMENTAIRES restent en ASCII,
-       volontairement et par convention dans ce depot : ils ne sont pas verifies.
+    2. MOJIBAKE: the traces of a UTF-8 text read back as latin-1 then saved again. The file is then valid UTF-8
+       and yet wrong: no encoding check on its own sees it.
 
-       Le lexique ne retient que des mots TOUJOURS accentues en francais. « modifie »,
-       « installe », « annule » existent sans accent (« il modifie ») : les corriger
-       casserait des phrases justes. Les participes en -ee, eux, ne trompent pas.
+    3. ACCENTS MISSING FROM DISPLAYED TEXT. We look ONLY at what the user reads: the arguments of Write-Ok /
+       Warn / Fail / Info / Detail / Step / Title, the -Message of Write-Log, and the "echo" lines of the .cmd
+       files. COMMENTS stay in ASCII, deliberately and by convention in this repository: they are not checked.
 
-    Usage :
-      pwsh -File .\scripts\dev\check-encoding.ps1            # verdict
-      pwsh -File .\scripts\dev\check-encoding.ps1 -Detail    # ou et quoi
-      pwsh -File .\scripts\dev\check-encoding.ps1 -Fix       # corrige, puis reverifie
-
-    Codes de retour : 0 = tout est conforme ; 2 = au moins un manquement.
+       The lexicon keeps only words that are ALWAYS accented in French. Some past participles exist without an
+       accent as a present-tense verb, and correcting those would break correct sentences. The feminine ones in
+       -ee, on the other hand, never mislead.
 #>
+
+
+
+
+
+
 param(
-    # Lister chaque manquement, fichier par fichier.
+    # List every shortfall, file by file.
     [switch] $Detail,
-    # Corriger : reecrire avec le bon encodage, poser les accents manquants.
+    # Repair: rewrite with the right encoding, lay down the missing accents.
     [switch] $Fix,
     # ONLY THESE FILES, repository-relative. What a hook needs: judging the whole repository
     # to commit two files is work nobody waits for, and a check nobody waits for is a check
@@ -62,10 +62,10 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $repoRoot 'scripts/lib/console-ui.ps1')
 
-$SKIPPED = @('.claude', '.git', 'dist', 'node_modules', 'local', 'var')   # .claude : les worktrees y vivent, et un worktree est une copie du depot
+$SKIPPED = @('.claude', '.git', 'dist', 'node_modules', 'local', 'var')   # .claude: the worktrees live there, and a worktree is a copy of the repository
 
-# Mots TOUJOURS accentues : aucun d'eux n'existe sans accent en francais.
-# Ecrits en minuscules ; la casse initiale du texte trouve est conservee.
+# Words that are ALWAYS accented: not one of them exists without its accent in French.
+# Written in lower case; the initial case of the text found is preserved.
 $ACCENTED = [ordered]@{
     'deja' = 'déjà'; 'apres' = 'après'; 'tres' = 'très'; 'meme' = 'même'; 'etre' = 'être'
     'etat' = 'état'; 'etape' = 'étape'; 'echec' = 'échec'; 'echoue' = 'échoué'
@@ -81,15 +81,14 @@ $ACCENTED = [ordered]@{
     'premiere' = 'première'; 'derniere' = 'dernière'; 'maniere' = 'manière'
     'entiere' = 'entière'; 'controle' = 'contrôle'; 'arret' = 'arrêt'
     'detaille' = 'détaillé'; 'developpement' = 'développement'
-    # Participes en -ee : jamais valides sans accent.
+    # The feminine past participles in -ee: never valid without an accent.
     'installee' = 'installée'; 'lancee' = 'lancée'; 'terminee' = 'terminée'
     'annulee' = 'annulée'; 'modifiee' = 'modifiée'; 'verifiee' = 'vérifiée'
     'echouee' = 'échouée'; 'deployee' = 'déployée'; 'enregistree' = 'enregistrée'
     'desactivee' = 'désactivée'; 'activee' = 'activée'; 'preparee' = 'préparée'
     'creee' = 'créée'; 'passee' = 'passée'; 'posee' = 'posée'; 'trouvee' = 'trouvée'
-    # Ajoutes au fil des passages : chaque mot qui sort d'une correction partielle vient
-    # ici. Une phrase a moitie accentuee est PIRE que la meme phrase en ASCII -- elle a
-    # l'air d'un defaut d'encodage au lieu d'un choix.
+    # Added as the passes went by: every word that comes out of a partial correction lands here. A sentence half
+    # accented is WORSE than the same sentence in ASCII -- it looks like an encoding defect instead of a choice.
     'deploiement' = 'déploiement'; 'deploie' = 'déploie'
     'execute' = 'exécute'; 'executer' = 'exécuter'; 'reexecute' = 'réexécute'
     'reexecutera' = 'réexécutera'; 'reexecution' = 'réexécution'
@@ -119,28 +118,28 @@ $ACCENTED = [ordered]@{
     'ete' = 'été'; 'inchange' = 'inchangé'; 'complete' = 'complète'; 'negatif' = 'négatif'; 'interet' = 'intérêt'; 'lisere' = 'liséré'
 }
 
-# L'APOSTROPHE EST DE L'ASCII : elle passe partout, et rien ne justifie de la retirer.
-# Je l'ai pourtant supprimee en meme temps que les accents, « par prudence » (28/08).
-# En francais, les seuls mots d'UNE lettre sont « a » et « y » : une lettre parmi
-# l/d/n/j/m/s/t/c suivie d'une voyelle est TOUJOURS une elision.
+# THE APOSTROPHE IS ASCII: it crosses everything, and nothing justifies removing it. I nevertheless deleted it at
+# the same time as the accents, "to be safe" (28/08).
+# In French the only one-letter words are two vowels: one letter among l/d/n/j/m/s/t/c followed by a vowel is
+# ALWAYS an elision.
 $ELISION = [regex]'(?<![\p{L}''])([ldnjmstcLDNJMSTC]) (?=[aeiouyhéèêàâîôûAEIOUYH])'
 
-# LES MOTIFS SE CONSTRUISENT, ils ne s'ecrivent pas. Un fichier qui contient « C3 A9 »
-# en clair se denonce lui-meme a chaque passage : l'outil etait son propre coupable.
+# THE PATTERNS ARE BUILT, they are not written out. A file holding the mojibake byte pair in plain sight reports
+# itself at every pass: the tool was its own culprit.
 $MOJIBAKE = @(
-    ([char]0xC3 + [char]0xA9),   # e accent aigu, relu en latin-1
-    ([char]0xC3 + [char]0xA8),   # e accent grave
-    ([char]0xC3 + [char]0xA0),   # a accent grave
-    ([char]0xC3 + [char]0xA7),   # c cedille
-    ([char]0xC3 + [char]0xAA),   # e accent circonflexe
-    ([char]0xC3 + [char]0xB4),   # o accent circonflexe
-    ([char]0xE2 + [char]0x80 + [char]0x99),   # apostrophe typographique
-    ([char]0xC2 + [char]0xAB),   # guillemet ouvrant
-    ([char]0xC2 + [char]0xBB)    # guillemet fermant
+    ([char]0xC3 + [char]0xA9),   # e acute, read back as latin-1
+    ([char]0xC3 + [char]0xA8),   # e grave
+    ([char]0xC3 + [char]0xA0),   # a grave
+    ([char]0xC3 + [char]0xA7),   # c cedilla
+    ([char]0xC3 + [char]0xAA),   # e circumflex
+    ([char]0xC3 + [char]0xB4),   # o circumflex
+    ([char]0xE2 + [char]0x80 + [char]0x99),   # a typographic apostrophe
+    ([char]0xC2 + [char]0xAB),   # an opening guillemet
+    ([char]0xC2 + [char]0xBB)    # a closing guillemet
 )
 
-# Le texte AFFICHE, et lui seul. Un commentaire non accentue est une convention du depot,
-# pas un defaut : le verifier noierait le vrai signal.
+# DISPLAYED text, and nothing else. An unaccented comment is a convention of this repository, not a defect:
+# checking it would drown the real signal.
 $SHOWN_PS  = [regex]'(?m)(?:Write-(?:Ok|Warn|Fail|Info|Detail|Step|Title)|Say|Dire)\s+"([^"]*)"'
 $SHOWN_MSG = [regex]'(?m)-Message\s+"([^"]*)"'
 $SHOWN_CMD = [regex]'(?m)^\s*echo\s+(.+)$'
@@ -150,7 +149,7 @@ function Test-HasBom {
     param([byte[]]$Bytes)
     return ($Bytes.Length -ge 3 -and $Bytes[0] -eq 0xEF -and $Bytes[1] -eq 0xBB -and $Bytes[2] -eq 0xBF)
 }
-# Le fichier est-il de l'UTF-8 valide ? Un decodage STRICT leve sur le premier octet faux.
+# Is the file valid UTF-8? A STRICT decoding throws on the first wrong byte.
 function Test-IsValidUtf8 {
     param([byte[]]$Bytes)
     try {
@@ -168,10 +167,9 @@ function Set-Text {
     [System.IO.File]::WriteAllText($Path, $Text, (New-Object System.Text.UTF8Encoding($Bom)))
 }
 
-# La casse du mot trouve est rendue au mot corrige : « Deja » -> « Déjà ».
-# LA REGLE PLUTOT QUE LA LISTE. Un mot francais termine par consonne + « ee » est un
-# participe passe feminin : « relancee », « redemarree », « transferee ». Il n'y a pas
-# d'exception -- et une regle n'oublie pas un mot, contrairement a un lexique.
+# The case of the word found is given back to the corrected word.
+# THE RULE RATHER THAN THE LIST. A French word ending in a consonant plus "ee" is a feminine past participle.
+# There is no exception -- and a rule does not forget a word, unlike a lexicon.
 $FEMININE_PAST = [regex]'(?<=[\p{L}]{2})(?<![aeiouy])ee(?![\p{L}])'
 
 function Repair-FemininePast {
@@ -250,31 +248,31 @@ foreach ($f in $scannedFiles) {
     $ext   = $f.Extension.ToLowerInvariant()
     $text0 = Get-Text $f.FullName
     $text  = $text0
-    # LE BOM NE SE JUSTIFIE QUE PAR UN ACCENT A PROTEGER. Sans caractere non-ASCII, un
-    # .ps1 se lit pareil partout, avec ou sans.
-    # TOUS LES .ps1 PORTENT LE BOM, accentues ou non. La regle precedente ne l'exigeait
-    # que des fichiers deja accentues : plus juste techniquement, pire en pratique. Le
-    # jour ou l'on ajoute un accent dans un fichier jusque-la ASCII, il devient
-    # silencieusement non conforme. Une regle uniforme n'a pas de bord ou tomber.
+    # EVERY .ps1 CARRIES THE BOM, accented or not. The previous rule demanded it only of files that were already
+    # accented: more accurate technically, worse in practice. The day one adds an accent to a file that was ASCII
+    # until then, it silently stops conforming. A uniform rule has no edge to fall off.
+
+
+
     <#
-        AUCUN CARACTERE DE CONTROLE DANS UNE SOURCE.
+        NO CONTROL CHARACTER IN A SOURCE.
 
-        Trois fois le 31/08, une chaine ecrite depuis un script Python a transforme un
-        antislash suivi d'une lettre en caractere de controle : «  » est devenu un
-        RETOUR ARRIERE dans une expression reguliere qui ne trouvait plus rien, «  » un
-        SAUT DE PAGE au milieu de « System32ind.exe », « 
- » un retour a la ligne qui
-        a coupe une commande en deux. Chaque fois, le fichier avait l'air normal a la
-        lecture et se comportait de travers.
+        Three times on 31/08, a string written from a Python script turned a backslash followed by a letter into a
+        control character: one became a BACKSPACE inside a regular expression that then found nothing, another a
+        FORM FEED in the middle of a path, a third a line break that cut a command in two. Every time, the file
+        looked normal when read and behaved crookedly.
 
-        Tabulation, retour chariot et saut de ligne sont normaux ; tout le reste en dessous
-        de l'espace est une trace d'echappement rate. C'est mecanique, donc c'est ici que
-        ca se verifie -- pas dans mon attention.
+        Tab, carriage return and line feed are normal; everything else below the space is the trace of a failed
+        escape. It is mechanical, so this is where it is checked -- not in my attention.
     #>
-    # PAS DE REGEX ICI : on compare des CODES. La premiere version de cette regle
-    # portait une classe « backslash-x-zero-zero... » qui a ete detruite par une
-    # echappee de plus -- la regle est devenue « [--] » et accusait les tirets. Une
-    # verification des echappements ne peut pas dependre d une echappee.
+
+
+
+
+    # NO REGEX HERE: we compare CODES. The first version of this rule carried a character class which was itself
+    # destroyed by one escape too many -- the rule became a range of dashes and accused the dashes. A check on
+    # escapes cannot depend on an escape.
+
     #
     # ONE CALL, NOT A LOOP. Walking character by character costs seconds, in interpreted
     # PowerShell, on a four-hundred-thousand-character file -- and that is what made the
@@ -308,9 +306,8 @@ foreach ($f in $scannedFiles) {
     }
 
     # --- 2. Mojibake ---
-    # ON NE REGARDE PAS LES COMMENTAIRES. Cet outil-ci, et console-ui.ps1, CITENT du
-    # mojibake pour expliquer a quoi il ressemble : un verificateur qui s'alarme de sa
-    # propre documentation apprend a son lecteur a ignorer ses alarmes.
+    # WE DO NOT LOOK AT COMMENTS. This tool, and console-ui.ps1, QUOTE mojibake to explain what it looks like:
+    # a checker that raises the alarm about its own documentation teaches its reader to ignore its alarms.
     $code = [regex]::Replace($text, '(?s)<#.*?#>', '')
     $code = [regex]::Replace($code, '(?m)^\s*(#|REM\b).*$', '')
     foreach ($m in $MOJIBAKE) {
@@ -320,7 +317,7 @@ foreach ($f in $scannedFiles) {
         }
     }
 
-    # --- 3. chcp pour un .cmd accentue ---
+    # --- 3. chcp for an accented .cmd ---
     if ($ext -in '.cmd', '.bat') {
         $hasAccent = $text -cmatch '[^\x00-\x7F]'
         $hasChcp   = $text -match '(?im)^\s*@?chcp\s+65001'
@@ -329,7 +326,7 @@ foreach ($f in $scannedFiles) {
         }
     }
 
-    # --- 4. Accents absents du texte affiche ---
+    # --- 4. Accents missing from the displayed text ---
     $shown = @()
     if ($ext -in '.ps1', '.psm1') {
         foreach ($m in $SHOWN_PS.Matches($text))  { $shown += $m }
@@ -345,8 +342,8 @@ foreach ($f in $scannedFiles) {
             $kind = if ((Repair-FemininePast (Repair-Accents $phrase)) -cne $phrase) { 'accents' } else { 'apostrophes' }
             $issues += @{ File = $rel; Kind = $kind; Message = ('« ' + $phrase.Trim() + ' »') }
             if ($Fix) {
-                # On remplace la PHRASE ENTIERE trouvee, pas le mot : deux libelles peuvent
-                # partager un mot, et un remplacement global toucherait aussi les commentaires.
+                # We replace the WHOLE SENTENCE that was found, not the word: two labels can share a word, and a
+                # global replacement would touch the comments as well.
                 $newText = $newText.Replace($m.Value, $m.Value.Replace($phrase, $repaired))
                 $rewrite = $true
             }
@@ -359,11 +356,10 @@ foreach ($f in $scannedFiles) {
     }
 }
 
-# --- 5. Le fichier de libelles ----------------------------------------------------------
+# --- 5. The labels file -------------------------------------------------------
 #
-# LE TEXTE A DEMENAGE, LA VERIFICATION SUIT. Depuis que les libelles vivent dans lang/,
-# c'est LA que les accents manquent ou reviennent : les verifier dans les .ps1 ne dirait
-# plus rien. Le JSON se corrige aussi avec -Fix.
+# THE TEXT HAS MOVED, THE CHECK FOLLOWS. Since the labels live in lang/, THAT is where the accents go missing or
+# come back: checking them in the .ps1 files would say nothing any more. The JSON is repaired by -Fix as well.
 $langDir = Join-Path $repoRoot 'lang'
 if (Test-Path -LiteralPath $langDir) {
     foreach ($lf in (Get-ChildItem -LiteralPath $langDir -File -Filter '*.json')) {

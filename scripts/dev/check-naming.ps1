@@ -43,7 +43,7 @@ $ErrorActionPreference = 'Stop'
     not rewrite it at once -- thousands of touched lines for no gain, and a drowned git
     blame. The ratchet forbids adding any; every conversion lowers the ceiling as much.
 #>
-$COMMENT_CEILING = 1909
+$COMMENT_CEILING = 1675
 
 # 08/10, the second half of common.ps1: 1044 -> 310 French comment lines in the library, and the repository from
 # 4539 to 3805. Then its tail -- the environment, the traceability, the requester, the Atelier, the elevation and
@@ -75,6 +75,10 @@ $COMMENT_CEILING = 1909
 # 08/10, three more to zero: probes/network/net.probe.ps1 (98), scripts/lib/console-ui.ps1 (87),
 # probes/gaming/gaming.probe.ps1 (83), and the repository from 2177 to 1909. All three gained an INTENT and a
 # USAGE. Measured by running them: check-probes judges the network and gaming probes, contract included.
+#
+# 08/10, three more: scripts/dev/check-encoding.ps1 (83), scripts/build-release.ps1 (81),
+# scripts/lib/account-secret.ps1 (70), and the repository from 1909 to 1675. All three gained an INTENT and a
+# USAGE, and all three were RUN: check-encoding judges the repository, build-release lists what would leave.
 #
 # THE METHOD, so the next campaign does not reinvent it. The tools live in the session's scratchpad and are rebuilt
 # in a few lines if lost: blocs.py lists the contiguous French comment blocks of a file with their ranges;

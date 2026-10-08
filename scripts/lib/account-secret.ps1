@@ -1,49 +1,51 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    account-secret.ps1 - Le SECRET DU COMPTE : le poser, le lire, et refuser de s'y fier
-    quand ses droits ne tiennent plus. Chargeable seul (aucune dependance a Pode).
+    account-secret.ps1 -- THE ACCOUNT'S SECRET: laying it down, reading it, and refusing to trust it when its
+    rights no longer hold. Loadable on its own (no dependency on Pode).
 
-    POURQUOI CE FICHIER EXISTE. Un secret que tout le monde peut lire n'est pas un secret,
-    et aucun emplacement n'est sur PAR HERITAGE -- mesure sur la machine du 28/08 :
+    Intent: make sure that only the account itself can read what identifies it, and prove it at every read rather
+    than trust the place it is stored in.
+    Usage: dot-source it, then Get-AccountSecret / New-AccountSecret. The design:
+    doc/progress/targeting/multi-account-server.md, section C7.
 
-      C:\ProgramData          BUILTIN\Utilisateurs a lecture ET ecriture
-      %LOCALAPPDATA%          le compte, SYSTEM, Administrateurs -- ET un groupe ajoute
-                              par un outil tiers, en lecture
+    WHY THIS FILE EXISTS. A secret everybody can read is not a secret, and no location is safe BY INHERITANCE --
+    measured on this machine on 28/08:
 
-    Le second cas est le plus instructif : ce profil est cense etre prive, et il ne
-    l'etait deja plus. On ne se fie donc a aucun heritage : l'ACL est POSEE, et
-    REVERIFIEE a chaque lecture. Un ecart vaut compromission, pas avertissement.
+      C:\ProgramData          the built-in Users group has read AND write
+      %LOCALAPPDATA%          the account, SYSTEM, the Administrators -- AND a group added by a third-party tool,
+                              with read access
 
-    Ce qui est autorise, et rien d'autre :
-      - le compte proprietaire  : lecture et ecriture
-      - SYSTEM                  : total (le service en aura besoin)
-      - Administrateurs         : total (irreductible sous Windows, et sans consequence :
-                                  un administrateur peut deja tout faire)
+    The second case is the more instructive: that profile is supposed to be private, and it already was not. So we
+    trust no inheritance: the ACL is LAID DOWN, and CHECKED AGAIN at every read. A discrepancy counts as a
+    compromise, not as a warning.
 
-    Conception : doc/progress/targeting/multi-account-server.md, section C7.
+    What is allowed, and nothing else:
+      - the owning account   : read and write
+      - SYSTEM               : full (the service will need it)
+      - the Administrators   : full (irreducible under Windows, and without consequence: an administrator can
+                               already do everything)
 #>
 
-# Les identites autorisees, par leur SID -- jamais par leur nom, qui change avec la langue
-# de Windows (« Administrateurs » / « Administrators »).
+# The allowed identities, by their SID -- never by their name, which changes with the language of Windows.
 $script:SecretAllowedSids = @(
     'S-1-5-18',        # SYSTEM
-    'S-1-5-32-544'     # Administrateurs (groupe integre)
+    'S-1-5-32-544'     # the Administrators (built-in group)
 )
 
 <#
-    LES REGLES D'UNE ACL, PAR UN SEUL CHEMIN.
+    THE RULES OF AN ACL, THROUGH ONE SINGLE ROAD.
 
-    Windows expose ces regles de deux facons, et elles ne disent pas la meme chose :
-    « $acl.Access » rend parfois une collection VIDE sur un descripteur pourtant complet
-    -- constate le 28/08, cote serveur, pendant que la meme lecture depuis une session
-    ordinaire montrait bien les trois regles. Le controle de securite en concluait que le
-    proprietaire ne pouvait plus lire son propre secret, et refusait tout.
+    Windows exposes those rules in two ways, and they do not say the same thing: "$acl.Access" sometimes returns an
+    EMPTY collection on a descriptor that is nevertheless complete -- observed on 28/08, on the server side, while
+    the same read from an ordinary session did show the three rules. The security check concluded from that that
+    the owner could no longer read their own secret, and refused everything.
 
-    On enveloppe donc l'appel systeme au lieu de le repeter. GetAccessRules demande
-    explicitement les regles, heritees comprises, et les rend traduites en SID. Un seul
-    point d'entree, un seul comportement -- et le jour ou Windows change d'avis, un seul
-    endroit a corriger.
+    So we wrap the system call instead of repeating it. GetAccessRules asks for the rules explicitly, inherited ones
+    included, and returns them translated into SIDs. One single entry point, one single behaviour -- and the day
+    Windows changes its mind, one single place to fix.
 #>
+
+
 function Get-AclAccessRules {
     param([Parameter(Mandatory)]$Acl)
     return @($Acl.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier]))
@@ -51,42 +53,41 @@ function Get-AclAccessRules {
 
 function Get-AccountSecretPath {
     param(
-        # Racine des donnees du compte. Par defaut : celles du compte courant.
+        # The root of the account's data. By default: the current account's.
         [string]$VarRoot = (Get-VarRoot)
     )
     Join-Path (Join-Path $VarRoot 'secrets') 'account.secret'
 }
 
-# Pose l'ACL VOULUE sur un dossier : heritage coupe, et seulement ce qu'on autorise.
+# Lays the WANTED ACL on a folder: inheritance cut, and only what we allow.
 function Set-SecretFolderAcl {
     param(
         [Parameter(Mandatory)][string]$Path,
-        # SID du compte proprietaire du secret.
+        # The SID of the account that owns the secret.
         [Parameter(Mandatory)][string]$OwnerSid
     )
-    # ON N'ECRIT QUE LA SECTION DES DROITS. Un descripteur de securite en porte trois :
-    # les droits, le proprietaire, et l'audit. Set-Acl les ecrit toutes -- et poser
-    # l'audit exige le privilege SeSecurityPrivilege, qu'un processus non eleve n'a pas.
-    # Les droits etaient bien appliques, mais Windows criait a chaque fois ; la ou
-    # ErrorActionPreference vaut « Stop », ce cri devient une erreur fatale sur une
-    # operation qui a pourtant reussi.
+    # WE WRITE THE RIGHTS SECTION ONLY. A security descriptor carries three: the rights, the owner, and the
+    # auditing. Set-Acl writes all of them -- and laying down the auditing demands the SeSecurityPrivilege, which a
+    # process that is not elevated does not have. The rights were applied correctly, but Windows complained every
+    # time; where ErrorActionPreference is 'Stop', that complaint becomes a fatal error on an operation that
+    # nevertheless succeeded.
     #
-    # GetAccessControl/SetAccessControl avec la section « Access » ne touchent que les
-    # droits, et ne demandent donc rien de particulier.
+    # GetAccessControl/SetAccessControl with the Access section touch the rights only, and so demand nothing in
+    # particular.
+
     $item = Get-Item -LiteralPath $Path -Force
     $acl = [System.IO.FileSystemAclExtensions]::GetAccessControl(
                 $item, [System.Security.AccessControl.AccessControlSections]::Access)
-    # L'HERITAGE EST COUPE, et les regles heritees ne sont PAS recopiees : c'est
-    # exactement ce qui laissait passer un groupe ajoute par un outil tiers.
+    # INHERITANCE IS CUT, and the inherited rules are NOT copied over: that is exactly what let through a group
+    # added by a third-party tool.
     $acl.SetAccessRuleProtection($true, $false)
-    # On enumere par SID : « $acl.Access » rend des entrees nulles sur un descripteur
-    # charge section par section, et RemoveAccessRule refuse alors de travailler.
+    # We enumerate by SID: "$acl.Access" returns null entries on a descriptor loaded section by section, and
+    # RemoveAccessRule then refuses to work.
     foreach ($rule in (Get-AclAccessRules -Acl $acl)) { [void]$acl.RemoveAccessRule($rule) }
 
-    # LES DRAPEAUX D'HERITAGE N'EXISTENT QUE SUR UN DOSSIER. Les poser sur un fichier fait
-    # rejeter la regle en silence : le fichier se retrouve avec une ACL protegee et VIDE,
-    # que plus personne ne peut lire -- pas meme son proprietaire. Constate a l'epreuve
-    # le 28/08, et c'est precisement le genre de defaut qu'une relecture ne voit pas.
+    # THE INHERITANCE FLAGS ONLY EXIST ON A FOLDER. Setting them on a file makes the rule be rejected in silence:
+    # the file ends up with a protected and EMPTY ACL, which nobody can read any more -- not even its owner.
+    # Observed under test on 28/08, and that is precisely the kind of defect a reread does not see.
     $isFile  = Test-Path -LiteralPath $Path -PathType Leaf
     $inherit = if ($isFile) { [System.Security.AccessControl.InheritanceFlags]::None }
                else { [System.Security.AccessControl.InheritanceFlags]'ContainerInherit, ObjectInherit' }
@@ -108,11 +109,10 @@ function Set-SecretFolderAcl {
     [System.IO.FileSystemAclExtensions]::SetAccessControl($item, $acl)
 }
 
-# Les droits sont-ils encore ceux qu'on a poses ? Rend $null si oui, sinon ce qui cloche.
+# Are the rights still the ones we laid down? Returns $null if so, otherwise what is wrong.
 #
-# VERIFIER A L'ECRITURE NE SUFFIT PAS : les droits d'un fichier changent apres sa
-# creation -- un outil, une strategie de groupe, une main humaine. Un secret dont on ne
-# controle les droits qu'une fois est un secret dont on ignore l'etat.
+# CHECKING AT WRITE TIME IS NOT ENOUGH: a file's rights change after it is created -- a tool, a group policy, a
+# human hand. A secret whose rights are checked only once is a secret whose state we do not know.
 function Test-SecretAcl {
     param(
         [Parameter(Mandatory)][string]$Path,
@@ -125,22 +125,21 @@ function Test-SecretAcl {
 
     if (-not $acl.AreAccessRulesProtected) { return "l'héritage n'est pas coupé : des droits peuvent arriver du dossier parent" }
 
-    # ON ENUMERE PAR SID, JAMAIS PAR « $acl.Access ».
+    # WE ENUMERATE BY SID, NEVER BY "$acl.Access".
     #
-    # Selon le contexte, « $acl.Access » rend une collection VIDE alors que le fichier
-    # porte bien ses regles : constate le 28/08, le serveur refusait tout secret en
-    # disant « le proprietaire ne peut plus lire », pendant que la meme verification
-    # passait depuis une session ordinaire sur le meme fichier. Une collection vide
-    # ressemble a « aucun droit » -- le pire des faux positifs pour un controle de
-    # securite, puisqu'il crie a la compromission sur une installation saine.
+    # Depending on the context, "$acl.Access" returns an EMPTY collection while the file does carry its rules:
+    # observed on 28/08, the server refused every secret saying the owner could no longer read, while the same
+    # check passed from an ordinary session on the same file. An empty collection looks like "no rights at all" --
+    # the worst of false positives for a security check, since it cries compromise on a healthy installation.
     #
-    # GetAccessRules demande explicitement les regles, heritees comprises, et les rend
-    # traduites en SID : plus de collection vide, et plus de traduction a faire nous-memes.
+    # GetAccessRules asks for the rules explicitly, inherited ones included, and returns them translated into
+    # SIDs: no more empty collection, and no more translation to do ourselves.
+
+
     $rules = Get-AclAccessRules -Acl $acl
 
-    # UNE ACL VIDE N'EST PAS UNE ACL SURE : c'est un fichier que personne ne peut lire.
-    # Le premier essai a produit exactement ca, et la verification l'avait laisse passer
-    # parce qu'elle ne cherchait que les intrus.
+    # AN EMPTY ACL IS NOT A SAFE ACL: it is a file nobody can read. The first attempt produced exactly that, and
+    # the check had let it through because it was only looking for intruders.
     $ownerCanRead = $false
     $allowed = @($OwnerSid) + $script:SecretAllowedSids
     foreach ($rule in $rules) {
@@ -150,8 +149,8 @@ function Test-SecretAcl {
         }
     }
     if (-not $ownerCanRead) {
-        # UN REFUS DE SECURITE DOIT DIRE CE QU'IL A VU. Sans l'ACL constatee, il faut
-        # deviner -- et on ne devine pas sur un incident de securite.
+        # A SECURITY REFUSAL MUST SAY WHAT IT SAW. Without the ACL it observed, one has to guess -- and one does
+        # not guess on a security incident.
         $vues = @($rules | ForEach-Object { $_.IdentityReference.Value + '=' + $_.FileSystemRights })
         return ("le compte propriétaire n'a plus le droit de lire son propre secret [attendu " +
                 $OwnerSid + " ; vu " + ($vues -join ' | ') + "]")
@@ -201,8 +200,7 @@ function Get-ProtectedSecretFile {
     return $value
 }
 
-# Ecrit un secret neuf, avec ses droits. Rend le secret en clair -- a l'appelant de ne pas
-# le journaliser.
+# Writes a fresh secret, with its rights. Returns the secret in clear -- it is up to the caller not to log it.
 function New-AccountSecret {
     param(
         [string]$VarRoot = (Get-VarRoot),
@@ -221,13 +219,13 @@ function New-AccountSecret {
     return $secret
 }
 
-# Lit le secret APRES avoir verifie ses droits. Rend $null si le fichier manque ; LEVE si
-# les droits ne tiennent plus -- c'est un incident, pas un cas nominal.
+# Reads the secret AFTER checking its rights. Returns $null if the file is missing; THROWS if the rights no longer
+# hold -- that is an incident, not a nominal case.
 function Get-AccountSecret {
     param(
         [string]$VarRoot = (Get-VarRoot),
         [string]$OwnerSid = ([Security.Principal.WindowsIdentity]::GetCurrent()).User.Value,
-        # Recreer le secret s'il manque.
+        # Recreate the secret if it is missing.
         [switch]$Create
     )
     $file = Get-AccountSecretPath -VarRoot $VarRoot
@@ -251,8 +249,8 @@ function Get-AccountSecret {
     return ([System.IO.File]::ReadAllText($file)).Trim()
 }
 
-# L'empreinte, c'est tout ce que le serveur a besoin de garder : comparer une empreinte
-# suffit a reconnaitre, et lire la table du serveur ne donne alors rien d'exploitable.
+# The fingerprint is all the server needs to keep: comparing a fingerprint is enough to recognise, and reading the
+# server's table then gives nothing usable.
 function Get-SecretFingerprint {
     param([Parameter(Mandatory)][string]$Secret)
     $sha = [System.Security.Cryptography.SHA256]::Create()

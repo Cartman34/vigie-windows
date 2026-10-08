@@ -1,38 +1,40 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
 .SYNOPSIS
-    Fabrique l'archive de distribution de Vigie, celle qui est attachee a une Release GitHub.
+    Builds Vigie's distribution archive, the one attached to a GitHub Release.
 
 .DESCRIPTION
-    Produit dist/vigie-<version>.zip. La version vient du dernier TAG git (ou de -Version) et
-    de NULLE PART ailleurs (D15) ; le fichier ne porte que le numero nu, le prefixe « v »
-    reste un detail d'affichage et n'entre pas dans le nom de l'archive.
+    Intent: make an archive one can publish without rereading it. What leaves must be exactly what is tracked and
+    meant for a user -- never a secret, never a working file -- and the script proves it rather than promising it.
 
-    LA LISTE DES FICHIERS VIENT DE GIT, PAS DU DISQUE.
-    C'est le choix de conception central de ce script. Parcourir le systeme de fichiers
-    obligerait a re-deviner tout ce que .gitignore sait deja, et le moindre oubli ferait
-    partir un secret dans une archive publique. `git ls-files` ne connait que les fichiers
-    SUIVIS : le jeton d'API (apps/*/var/secrets/), le cache, les journaux, les
-    config.local.psd1 et les *.bak-* sont ignores par git, donc structurellement absents
-    de la liste. On ne peut pas oublier d'exclure ce qui n'a jamais ete propose.
+    It produces dist/vigie-<version>.zip. The version comes from the last git TAG (or from -Version) and from
+    NOWHERE else (D15); the file carries the bare number only, the "v" prefix staying a display detail that does
+    not enter the archive's name.
 
-    Par-dessus, une liste d'exclusions retire ce qui EST versionne mais n'a rien a faire
-    chez un utilisateur (voir $EXCLUSIONS : chaque regle porte sa raison).
+    THE LIST OF FILES COMES FROM GIT, NOT FROM THE DISC.
+    That is this script's central design choice. Walking the file system would mean guessing again everything
+    .gitignore already knows, and the slightest oversight would send a secret into a public archive. `git
+    ls-files` knows only TRACKED files: the API token (apps/*/var/secrets/), the cache, the logs, the
+    config.local.psd1 files and the *.bak-* ones are ignored by git, so they are structurally absent from the
+    list. One cannot forget to exclude what was never offered.
 
-    Enfin, un GARDE-FOU verifie deux fois qu'aucun chemin interdit ne passe : une fois sur
-    la liste retenue, une fois sur le contenu reel de l'archive produite. Le script refuse
-    d'ecrire, ou supprime ce qu'il vient d'ecrire, plutot que de livrer un doute.
+    On top of that, a list of exclusions takes out what IS versioned but has no business on a user's machine (see
+    $EXCLUSIONS: every rule carries its reason).
 
-    IDEMPOTENT : relance sans effet de bord, l'archive precedente est remplacee.
+    Finally, a GUARD checks twice that no forbidden path gets through: once on the list that was kept, once on the
+    real contents of the archive produced. The script refuses to write, or deletes what it has just written,
+    rather than delivering a doubt.
+
+    IDEMPOTENT: running it again has no side effect, the previous archive is replaced.
 
 .PARAMETER OutDir
-    Dossier de sortie. Defaut : dist/ a la racine du depot (ignore par git).
+    The output folder. Default: dist/ at the root of the repository (ignored by git).
 
 .PARAMETER KeepStaging
-    Conserve le dossier de preparation pour inspecter l'arborescence a l'oeil.
+    Keeps the staging folder so the tree can be inspected by eye.
 
 .PARAMETER ListOnly
-    N'ecrit rien : affiche seulement ce qui serait inclus. Utile pour trancher une exclusion.
+    Writes nothing: only displays what would be included. Useful for settling an exclusion.
 
 .EXAMPLE
     pwsh -File .\scripts\build-release.ps1
@@ -41,18 +43,17 @@
     pwsh -File .\scripts\build-release.ps1 -ListOnly
 
 .NOTES
-    Codes de retour :
-      0 = archive produite (ou liste affichee avec -ListOnly)
-      1 = prerequis manquant (git absent, hors depot git)
-      2 = GARDE-FOU : un chemin interdit a ete detecte, aucune archive n'est laissee
-      3 = echec de fabrication (copie, compression, ou decompte incoherent)
+    Exit codes:
+      0 = the archive was produced (or the list displayed with -ListOnly)
+      1 = a missing prerequisite (git absent, outside a git repository)
+      2 = THE GUARD: a forbidden path was detected, no archive is left behind
+      3 = the build failed (a copy, the compression, or an inconsistent count)
 #>
 [CmdletBinding()]
 param(
     [string] $OutDir,
-    # Numero a graver dans l'archive. Absent : celui du dernier TAG. Le deploiement,
-    # lui, passe le TAG qu'il vient de poser (v0.1.3) : l'archive et le tag disent alors
-    # exactement la meme chose.
+    # The number to engrave into the archive. Absent: the one of the last TAG. The deployment, for its part,
+    # passes the TAG it has just laid down: the archive and the tag then say exactly the same thing.
     [string] $Version,
     [switch] $KeepStaging,
     [switch] $ListOnly
@@ -60,19 +61,18 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-# Les scripts de gestion vivent dans scripts/ : la racine du depot est le dossier parent.
+# The management scripts live in scripts/: the root of the repository is the parent folder.
 $repoRoot = Split-Path $PSScriptRoot -Parent
-# La marque de version (numero + commit) a UNE seule definition, dans common.ps1 : la
-# fabrication et la lecture doivent s'accorder, sinon l'archive dit une chose et
-# l'installation en comprend une autre.
+# The version stamp (number plus commit) has ONE single definition, in common.ps1: the building and the reading
+# must agree, otherwise the archive says one thing and the installation understands another.
 . (Join-Path $repoRoot 'apps/backend-pode/lib/common.ps1')
 
 # ---------------------------------------------------------------------------------------
-# Ce qui est VERSIONNE mais ne part PAS chez l'utilisateur.
+# What IS VERSIONED but does NOT go to the user.
 #
-# Motifs appliques au chemin RELATIF a la racine du depot, en slashs avants (forme rendue
-# par git). Chaque regle porte sa raison : une exclusion sans motif ecrit finit toujours
-# par etre retiree « parce qu'on ne sait plus pourquoi elle est la ».
+# The patterns apply to the path RELATIVE to the root of the repository, with forward slashes (the form git
+# returns). Every rule carries its reason: an exclusion with no written reason always ends up being removed
+# "because nobody knows why it is there any more".
 # ---------------------------------------------------------------------------------------
 $EXCLUSIONS = @(
     @{ Motif = '^\.github/'
@@ -125,10 +125,9 @@ $EXCLUSIONS = @(
 )
 
 # ---------------------------------------------------------------------------------------
-# GARDE-FOU. Ce qui ne doit JAMAIS se retrouver dans une archive publique, quoi qu'il
-# arrive en amont. C'est une seconde barriere, redondante avec .gitignore : elle existe
-# precisement pour le jour ou quelqu'un versionnera par erreur un de ces fichiers.
-# Toute correspondance arrete le script (code 2) au lieu de produire une archive douteuse.
+# THE GUARD. What must NEVER end up in a public archive, whatever happens upstream. It is a second barrier,
+# redundant with .gitignore: it exists precisely for the day somebody versions one of those files by mistake.
+# Any match stops the script (code 2) instead of producing a doubtful archive.
 # ---------------------------------------------------------------------------------------
 $INTERDITS = @(
     @{ Motif = '(^|/)var/';              Quoi = "données d'exécution (cache, journaux, secrets)" }
@@ -147,19 +146,17 @@ function Format-Taille {
     "$Octets o"
 }
 
-# Liens relatifs des .md retenus qui ne resolvent plus UNE FOIS DANS L'ARCHIVE.
+# The relative links of the .md files we keep that no longer resolve ONCE INSIDE THE ARCHIVE.
 #
-# Exclure un fichier casse tous les liens qui le visaient : la documentation livree se
-# retrouve avec des liens morts, sans que rien ne le signale. Le remede est d'ecrire ces
-# liens en URL GitHub absolue (ils marchent alors des deux cotes) ; ce controle est la
-# pour que l'oubli se voie au moment de la fabrication, pas chez l'utilisateur.
+# Excluding a file breaks every link that aimed at it: the documentation delivered ends up with dead links, with
+# nothing to report it. The remedy is to write those links as absolute GitHub URLs (they then work on both sides);
+# this check is here so that the oversight shows up when the archive is built, not on the user's machine.
 function Find-LienMort {
     param([Parameter(Mandatory)][string] $Root)
     $morts = @()
     foreach ($md in (Get-ChildItem -LiteralPath $Root -Recurse -Filter *.md -File)) {
-        # UN FICHIER VIDE REND $null, PAS UNE CHAINE VIDE. « Matches » leve alors
-        # « Value cannot be null », et toute la fabrication s'arrete sur un document sans
-        # une ligne (constate le 01/09 : v0.1.44 n'a jamais ete fabriquee).
+        # AN EMPTY FILE RETURNS $null, NOT AN EMPTY STRING. Matches then throws "Value cannot be null", and the
+        # whole build stops on a document without a single line (observed on 01/09: v0.1.44 was never built).
         $text = Get-Content -LiteralPath $md.FullName -Raw
         if (-not $text) { continue }
         foreach ($m in [regex]::Matches($text, '\]\(([^)]+)\)')) {
@@ -178,7 +175,7 @@ function Find-LienMort {
     $morts
 }
 
-# Renvoie la liste des correspondances interdites trouvees dans $Chemins.
+# Returns the list of forbidden matches found in the paths given.
 function Find-CheminInterdit {
     param([string[]] $Paths)
     $trouves = @()
@@ -196,10 +193,9 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     exit 1
 }
 
-# Le prefixe « v » est un habillage d'affichage : il ne
-# rentre pas dans un nom de fichier, sinon il faudrait le retirer partout ailleurs.
-# Le numero vient du TAG (via Get-BuildStamp), ou de -Version quand le deploiement
-# vient d'en poser un. Plus de fichier VERSION a tenir a jour (D96).
+# The "v" prefix is display dressing: it does not go into a file name, otherwise it would have to be stripped
+# everywhere else. The number comes from the TAG (through Get-BuildStamp), or from -Version when the deployment
+# has just laid one down. No more VERSION file to keep up to date (D96).
 $number = if ($Version) { $Version -replace '^v', '' } else { (Get-BuildStamp -Root $repoRoot).version -replace '^v', '' }
 if (-not $number -or $number -eq 'sans version') { $number = '0.1' }
 # A "+" in a file name is legal but awkward: v0.1.6+6 becomes 0.1.6-dev6 in the ARCHIVE NAME, and there only. The
@@ -207,11 +203,11 @@ if (-not $number -or $number -eq 'sans version') { $number = '0.1' }
 # the repository "v1.1.6+1" -- and deploy-status announced a repository ahead of an installation on the same commit.
 $fileNumber = $number -replace '\+', '-dev'
 
-# --- Inventaire : ce que git suit ------------------------------------------------------
+# --- The inventory: what git tracks -------------------------------------------
 Push-Location $repoRoot
 try {
-    # -z + separateur NUL : robuste aux noms de fichiers exotiques, et evite le quoting
-    # que git applique aux caracteres non-ASCII avec la sortie par lignes.
+    # -z plus a NUL separator: robust against exotic file names, and it avoids the quoting git applies to
+    # non-ASCII characters when its output is line-based.
     $brut = (& git ls-files -z) -join ''
     if ($LASTEXITCODE -ne 0) {
         Write-Warn (Get-Label 'build-release.git-ls-files-echoue')
@@ -237,8 +233,8 @@ foreach ($f in $suivis) {
         $excluded[$regle.Motif]++
         continue
     }
-    # Un fichier suivi mais supprime du disque (suppression non encore committee) ne doit
-    # pas faire echouer la fabrication : on le signale et on continue.
+    # A file that is tracked but deleted from the disc (a deletion not committed yet) must not make the build
+    # fail: we report it and carry on.
     if (-not (Test-Path -LiteralPath (Join-Path $repoRoot $f))) {
         Write-Warn (Get-Label 'build-release.absent-du-disque-ignore' $f)
         continue
@@ -246,7 +242,7 @@ foreach ($f in $suivis) {
     $retenus += $f
 }
 
-# --- GARDE-FOU, avant toute ecriture ---------------------------------------------------
+# --- THE GUARD, before anything is written ------------------------------------
 $interdits = Find-CheminInterdit -Paths $retenus
 if ($interdits.Count -gt 0) {
     Write-Fail (Get-Label 'build-release.arret-des-fichiers-interdits')
@@ -255,7 +251,7 @@ if ($interdits.Count -gt 0) {
     exit 2
 }
 
-# --- Compte rendu de ce qui part --------------------------------------------------------
+# --- A report of what is leaving ----------------------------------------------
 $totalSize = 0
 $byRoot = @{}
 foreach ($f in $retenus) {
@@ -288,19 +284,18 @@ if ($ListOnly) {
     exit 0
 }
 
-# --- Preparation et compression ---------------------------------------------------------
+# --- Staging and compression --------------------------------------------------
 if (-not $OutDir) { $OutDir = Join-Path $repoRoot 'dist' }
 $name     = 'vigie-' + $fileNumber
-# Fichiers AJOUTES par la fabrication (donc absents de git) : le controle final les
-# attend en plus de la liste retenue.
+# Files ADDED by the build (so absent from git): the final check expects them on top of the list that was kept.
 $genereParLaFabrication = @()
 
 $staging = Join-Path $OutDir $name
 $zip     = Join-Path $OutDir ($name + '.zip')
 
 try {
-    # Idempotence : on repart d'une preparation vide, sinon un fichier retire de la liste
-    # survivrait d'une execution a l'autre.
+    # Idempotence: we start again from an empty staging folder, otherwise a file taken out of the list would
+    # survive from one run to the next.
     if (Test-Path -LiteralPath $staging) { Remove-Item -LiteralPath $staging -Recurse -Force }
     New-Item -ItemType Directory -Path $staging -Force | Out-Null
 
@@ -311,8 +306,8 @@ try {
         Copy-Item -LiteralPath (Join-Path $repoRoot $f) -Destination $target -Force
     }
 
-    # Controle de la documentation livree, sur la preparation : c'est le seul moment ou
-    # l'arborescence de l'archive existe reellement sur le disque.
+    # Checking the documentation that is delivered, on the staging folder: that is the only moment where the
+    # archive's tree really exists on the disc.
     $liensMorts = Find-LienMort -Root $staging
     if ($liensMorts.Count -gt 0) {
         Write-Warn (Get-Label 'build-release.attention-lien-de-la' $liensMorts.Count)
@@ -320,21 +315,20 @@ try {
         Write-Warn (Get-Label 'build-release.ces-cibles-sont-exclues')
     }
 
-    # LA MARQUE DE CETTE VERSION, posee dans l'archive : numero ET commit (D84).
-    # Une installation deployee n'a pas de depot git ; sans ce fichier, elle ne peut pas
-    # dire ce qu'elle contient, et on ne peut pas savoir si elle est a jour. Le numero
-    # seul ne suffit pas : deux archives « v0.1 » peuvent differer de vingt commits.
+    # THE STAMP OF THIS VERSION, laid inside the archive: the number AND the commit (D84).
+    # A deployed installation has no git repository; without this file it cannot say what it holds, and there is
+    # no way of knowing whether it is up to date. The number alone is not enough: two archives both called
+    # "v0.1" can differ by twenty commits.
     $commit = Get-GitCommit -Path $repoRoot
     Write-BuildStamp -Root $staging -Version $(if ($number.StartsWith('v')) { $number } else { "v$number" }) -Commit $commit
-    # CE FICHIER N'EST PAS SUIVI PAR GIT : il est fabrique ici. Le controle final compte
-    # les fichiers de l'archive et les compare a la liste retenue -- il faut donc lui
-    # dire. Sans cette ligne, la fabrication s'arretait sur « 146 fichiers pour 145
-    # attendus » et le deploiement etait abandonne (constate le 27/08 : le garde-fou
-    # avait raison, c'est le decompte qui avait tort).
+    # THIS FILE IS NOT TRACKED BY GIT: it is built here. The final check counts the files in the archive and
+    # compares them with the list that was kept -- so it must be told. Without this line, the build stopped on
+    # "146 files for 145 expected" and the deployment was abandoned (observed on 27/08: the guard was right, it
+    # was the count that was wrong).
     $genereParLaFabrication += 'BUILD'
     Write-Info (Get-Label 'build-release.marque-posee' $number -replace '^v', '' $(if ($commit) { $commit.Substring(0, 8) } else { 'commit inconnu' }))
-    # Le dossier lui-meme est compresse, pas son contenu : l'archive porte donc une racine
-    # « vigie-<version>/ ». Sans elle, une decompression deverse tout dans le dossier courant.
+    # The folder itself is compressed, not its contents: so the archive carries a "vigie-<version>/" root.
+    # Without it, unpacking spills everything into the current folder.
     if (Test-Path -LiteralPath $zip) {
         Remove-Item -LiteralPath $zip -Force
         Write-Detail (Get-Label 'build-release.archive-precedente-remplacee' $zip)
@@ -345,8 +339,8 @@ try {
     exit 3
 }
 
-# --- Verification du contenu REEL de l'archive -------------------------------------------
-# On ne se fie pas a la liste d'entree : on relit ce qui a effectivement ete ecrit (D43).
+# --- Checking the REAL contents of the archive --------------------------------
+# We do not trust the input list: we read back what was actually written (D43).
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $archive = [System.IO.Compression.ZipFile]::OpenRead($zip)
 try {
@@ -364,9 +358,9 @@ if ($interditsZip.Count -gt 0) {
     exit 2
 }
 
-# Les entrees de dossier n'ont pas de nom de fichier : on ne compte que les vrais fichiers.
+# Folder entries have no file name: we count only the real files.
 $zipFileCount = @($entries | Where-Object { -not $_.EndsWith('/') }).Count
-# Attendu = ce que git suit ET ce que la fabrication a ajoute (la marque de version).
+# Expected = what git tracks AND what the build added (the version stamp).
 $attendu = $retenus.Count + $genereParLaFabrication.Count
 if ($zipFileCount -ne $attendu) {
     Write-Fail (Get-Label 'build-release.arret-fichier-dans-archive' $zipFileCount $attendu $(if ($genereParLaFabrication.Count) { " (" + $retenus.Count + " suivis par git + " + ($genereParLaFabrication -join ', ') + ")" }))
