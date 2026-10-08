@@ -1,70 +1,72 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
 .SYNOPSIS
-    Verifie le contrat des sondes -- en n'executant que ce qui doit l'etre.
+    Checks the probes' contract -- running only what has to be run.
 
 .DESCRIPTION
-    POURQUOI CE SCRIPT EXISTE
-    Le parseur PowerShell valide la SYNTAXE, pas l'execution. Un parametre passe deux fois
-    (« parameter 'FixAction' is specified more than once ») franchit le parseur sans un
-    mot, puis fait echouer la sonde a l'execution : la carte disparait du tableau de bord
-    sans que rien ne le signale. C'est arrive le 2026-08-24 sur la sonde reseau, livree et
-    annoncee comme faite.
+    Intent: catch what the parser cannot see. A probe that parses perfectly can still fail at RUN time, and its
+    card then disappears from the panel with nothing to report it. So this script runs the probes and judges their
+    output against the contract (D49, D50) -- without paying the price of a full pass at every edit.
 
-    POURQUOI IL N'EXECUTE PAS TOUT A CHAQUE FOIS
-    Une passe complete coute une vingtaine de secondes, dont huit pour la seule sonde du
-    verrou. Payer ce prix pour valider une ligne de la sonde disque decourage de valider
-    tout court -- et un garde-fou qu'on n'appelle plus ne garde rien.
+    Usage: `pwsh -File .\scripts\check-probes.ps1 -Only net` while writing a probe; with no argument before a
+    commit; `-All` before a delivery. READ ONLY as far as the system is concerned: no action is triggered. The only
+    things written are the record of the contracts (var/cache/probe-contract.json) and the log of the passes. Exit
+    codes: 0 = everything conforms; 1 = at least one shortfall.
 
-    La regle est donc : UNE SONDE MODIFIEE EST TOUJOURS EXECUTEE. Les autres, si elles sont
-    couteuses, voient leur contrat verifie sur leur DERNIERE SORTIE REELLE, enregistree ici
-    meme (empreinte du fichier + horodatage). Des que le fichier change, l'enregistrement
-    est perime et la sonde repasse a l'execution : on ne valide jamais du code non execute
+    WHY THIS SCRIPT EXISTS
+    The PowerShell parser validates the SYNTAX, not the execution. A parameter passed twice ("parameter 'FixAction'
+    is specified more than once") crosses the parser without a word, then makes the probe fail at run time: the
+    card disappears from the panel with nothing to signal it. That happened on 2026-08-24 on the network probe,
+    delivered and announced as done.
+
+    WHY IT DOES NOT RUN EVERYTHING EVERY TIME
+    A full pass costs some twenty seconds, eight of them for the lock probe alone. Paying that price to validate
+    one line of the disc probe discourages validating at all -- and a guard nobody calls any more guards nothing.
+
+    So the rule is: A MODIFIED PROBE IS ALWAYS RUN. The others, if they are expensive, have their contract checked
+    against their LAST REAL OUTPUT, recorded here (the file's fingerprint plus a timestamp). As soon as the file
+    changes, the record is stale and the probe goes back to being run: we never validate code that was not run
     (D50bis).
 
-    Le seuil de « couteuse » n'est pas une liste tenue a la main : c'est la duree MESUREE
-    lors de la derniere execution reelle. Le garde-fou se calibre seul.
+    The threshold for "expensive" is not a list kept by hand: it is the duration MEASURED at the last real run.
+    The guard calibrates itself.
 
 .PARAMETER Only
-    Motifs de selection : nom de sonde ou nom de module ('net', 'lock.probe.ps1',
-    'windows-update'). Ce qui est selectionne est TOUJOURS execute pour de vrai.
-    C'est la boucle de developpement : on valide ce qu'on vient d'ecrire, pas toute l'app.
+    Selection patterns: the name of a probe or of a module ('net', 'lock.probe.ps1', 'windows-update'). What is
+    selected is ALWAYS really run. This is the development loop: one validates what one has just written, not the
+    whole app.
 
 .PARAMETER All
-    Execute toutes les sondes, sans exception. C'est la passe d'avant-livraison.
+    Runs every probe, with no exception. This is the pre-delivery pass.
 
 .PARAMETER HeavyMs
-    Au-dela de cette duree mesuree, une sonde inchangee est verifiee sur enregistrement
-    plutot que reexecutee. Defaut : 1000 ms.
+    Beyond this measured duration, an unchanged probe is checked against its record rather than run again.
+    Default: 1000 ms.
 
 .EXAMPLE
     pwsh -File .\scripts\check-probes.ps1 -Only net
-    Boucle de dev : la sonde reseau et elle seule, executee.
+    The dev loop: the network probe and it alone, run for real.
 
 .EXAMPLE
     pwsh -File .\scripts\check-probes.ps1 -Only windows-update
-    La sonde touchee et ses voisines de module -- les regressions proches.
+    The probe that was touched and its neighbours in the module -- the nearby regressions.
 
 .EXAMPLE
     pwsh -File .\scripts\check-probes.ps1
-    Passe courante : les sondes rapides executees, les couteuses inchangees verifiees sur
-    leur derniere sortie reelle.
+    The everyday pass: the fast probes run, the expensive unchanged ones checked against their last real output.
 
 .EXAMPLE
     pwsh -File .\scripts\check-probes.ps1 -All
-    Passe complete d'avant-livraison.
-
-.NOTES
-    LECTURE SEULE cote systeme : aucune action n'est declenchee. Seuls l'enregistrement des
-    contrats (var/cache/probe-contract.json) et le journal des passages sont ecrits.
-    Codes de retour : 0 = tout est conforme ; 1 = au moins un manquement.
+    The full pre-delivery pass.
 #>
+
+
 [CmdletBinding()]
 param(
     [string[]]$Only,
 
-    # Plafond par sonde, en secondes. Au-dela, elle est declaree bloquee et le controle
-    # continue : un verificateur ne doit jamais etre celui qui fait attendre.
+    # A ceiling per probe, in seconds. Beyond it the probe is declared stuck and the check carries on: a checker
+    # must never be the one that makes you wait.
     [int]$ProbeTimeoutSec = 180,
     [switch]$All,
     [int]$HeavyMs = 1000
@@ -72,7 +74,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path $PSScriptRoot -Parent
-. (Join-Path $repoRoot 'scripts/lib/console-ui.ps1')   # le meme affichage que partout
+. (Join-Path $repoRoot 'scripts/lib/console-ui.ps1')   # the same display as everywhere
 . (Join-Path $repoRoot 'apps/backend-pode/lib/common.ps1')
 
 $backendRoot = Join-Path $repoRoot 'apps/backend-pode'
@@ -86,16 +88,15 @@ $recordFile = Get-VarPath -Backend $backendRoot -Kind 'cache' -File 'probe-contr
 $rang = @{ ok = 0; neutral = 0; warn = 1; error = 2 }
 $shortfalls = @()
 
-# Empreinte du code d'une sonde. Meme principe que le codeStamp du cache d'etat : si le
-# fichier bouge, tout ce qui a ete enregistre a son sujet est perime.
+# The fingerprint of a probe's code. The same principle as the state cache's codeStamp: if the file moves,
+# everything recorded about it is stale.
 function Get-CodeStamp {
     param([IO.FileInfo]$File)
     '{0}-{1}' -f $File.LastWriteTimeUtc.Ticks, $File.Length
 }
 
-# Reduit la sortie d'une sonde a ce que le contrat exige -- rien de plus. Les sorties
-# vivantes et les sorties enregistrees passent ensuite par le MEME controle : une seule
-# regle, un seul endroit ou elle peut se tromper.
+# Reduces a probe's output to what the contract demands -- nothing more. Live outputs and recorded outputs then go
+# through the SAME check: one single rule, one single place where it can be wrong.
 function ConvertTo-Contract {
     param($Modules)
     @(foreach ($m in @($Modules)) {
@@ -106,10 +107,9 @@ function ConvertTo-Contract {
                 [ordered]@{
                     key       = "$($c.key)"
                     status    = "$($c.status)"
-                    # La VALEUR et le GENRE sont retenus : sans eux, un controle sur ce
-                    # qui s'affiche regarde du vide. Le controle des majuscules est passe
-                    # au travers pour cette raison, et un piege pose expres n'a pas ete
-                    # attrape -- c'est en le posant qu'on l'a su.
+                    # The VALUE and the KIND are kept: without them, a check on what is displayed looks at nothing.
+                    # The check on initial capitals slipped through for that reason, and a trap laid on purpose was
+                    # not caught -- it is by laying it that we found out.
                     value     = "$($c.value)"
                     kind      = "$($c.kind)"
                     hasHelp   = [bool]$c.help
@@ -124,7 +124,7 @@ function ConvertTo-Contract {
     })
 }
 
-# Les invariants du contrat (D49, D50). Rend la liste des manquements trouves.
+# The contract's invariants (D49, D50). Returns the list of shortfalls found.
 function Test-Contract {
     param($Modules, [string]$Source)
     $trouves = @()
@@ -137,24 +137,23 @@ function Test-Contract {
             if (-not $champ.hasHelp) {
                 $trouves += "{0} -- {1} / {2} : le champ n'a pas d'aide" -f $Source, $m.id, $champ.key
             }
-            # D66 : une resolution est TOUJOURS un bouton. Un guide explique, il ne
-            # resout pas -- « Piste : lancez telle commande en administrateur » laissait
-            # l'utilisateur faire le travail a la main (constate sur les compteurs GPU).
-            # Ce qu'il fait varie selon le cas : reparer, ou ouvrir l'outil Windows qui
-            # convient. Ce qui ne se resout pas ne s'alerte pas : c'est neutre.
+            # D66: a resolution is ALWAYS a button. A guide explains, it does not resolve -- "a hint: run such a
+            # command as an administrator" left the user to do the work by hand (observed on the GPU counters).
+            # What it does varies with the case: repair, or open the Windows tool that fits. What cannot be
+            # resolved is not alerted on: it is neutral.
             if (($st -eq 'warn' -or $st -eq 'error') -and -not $champ.fixAction) {
                 $trouves += "{0} -- {1} / {2} : en '{3}' sans BOUTON de resolution (D66)" -f $Source, $m.id, $champ.key, $st
             }
-            # MAJUSCULE INITIALE (regle utilisateur, 27/08 : « tu oublies souvent ces
-            # majuscules »). Une valeur affichee est une reponse, pas un fragment de
-            # phrase : « À jour », pas « à jour ». Les DONNEES en sont exemptees --
-            # un numero de version (v0.1.4), un nom de fichier (ext4.vhdx), un chemin
-            # ou un nom de processus s'ecrivent comme ils sont.
+            # AN INITIAL CAPITAL (the owner's rule, 27/08: "you often forget those capitals"). A displayed value is
+            # an answer, not a fragment of a sentence. DATA is exempt -- a version number (v0.1.4), a file name
+            # (ext4.vhdx), a path or a process name are written as they are.
             #
-            # ATTENTION a l'exemption : « tout ce qui n'a ni espace ni majuscule » etait
-            # trop large -- le mot « aucun » y entrait, et le garde-fou laissait passer
-            # exactement ce qu'il devait attraper (essaye, et pris en flagrant delit).
-            # Un identifiant porte un chiffre ou un separateur ; un mot francais, non.
+            # BEWARE THE EXEMPTION: "anything with neither a space nor a capital" was too wide -- a plain French
+            # word fell inside it, and the guard let through exactly what it was meant to catch (tried, and caught
+            # red-handed). An identifier carries a digit or a separator; a word does not.
+
+
+
             $val = "$($champ.value)"
             $looksLikeData = ($val -match '^v?[0-9]') -or ($val -match '[\/]') -or
                                    ($val -match '^[a-z0-9._-]*[0-9._-][a-z0-9._-]*$') -or
@@ -179,7 +178,7 @@ function Test-Contract {
     return $trouves
 }
 
-# --- Enregistrement des contrats deja verifies -------------------------------
+# --- The record of the contracts already checked ------------------------------
 $record = @{}
 if (Test-Path -LiteralPath $recordFile) {
     try {
@@ -216,7 +215,7 @@ foreach ($f in $probes) {
     $inchangee = ($ancien -and "$($ancien.codeStamp)" -eq $stamp)
     $couteuse  = ($ancien -and [int]$ancien.ms -ge $HeavyMs)
 
-    # Une sonde explicitement demandee, ou modifiee, ou jamais enregistree, est EXECUTEE.
+    # A probe that was explicitly asked for, or modified, or never recorded, is RUN.
     $doitExecuter = $All -or $Only -or -not $inchangee -or -not $couteuse
 
     if ($doitExecuter) {
@@ -224,17 +223,17 @@ foreach ($f in $probes) {
         $rendus = $null
         $job = $null
         <#
-            UNE SONDE QUI NE REND PAS LA MAIN EST UN MANQUEMENT, PAS UNE ATTENTE.
+            A PROBE THAT DOES NOT HAND BACK CONTROL IS A SHORTFALL, NOT A WAIT.
 
-            Le 01/09, ce controle est reste bloque VINGT-QUATRE MINUTES : la sonde du
-            deploiement interroge le clone git, et une installation tournait au meme
-            moment. Sans limite, un verificateur devient lui-meme le probleme -- on ne
-            sait plus s'il travaille ou s'il est mort.
+            On 01/09 this check stayed stuck for TWENTY-FOUR MINUTES: the deployment probe questions the git clone,
+            and an installation was running at the same moment. Without a limit, a checker becomes the problem
+            itself -- one can no longer tell whether it is working or dead.
 
-            La sonde tourne donc dans un processus a part, avec un plafond. Au-dela, on le
-            dit et on passe a la suivante : le rapport reste complet, et la cause est
-            nommee.
+            So the probe runs in a separate process, with a ceiling. Beyond it, we say so and move on to the next
+            one: the report stays complete, and the cause is named.
         #>
+
+
         try {
             $job = Start-Job -ScriptBlock { param($path) & $path } -ArgumentList $f.FullName
             if (Wait-Job -Job $job -Timeout $ProbeTimeoutSec) {
@@ -296,24 +295,24 @@ try {
     Write-Info (Get-Label 'check-probes.note-enregistrement-des-contrats')
 }
 
-# --- Garde-fou : LES LIBELLES VISIBLES PORTENT LEURS ACCENTS ------------------
+# --- A guard: THE VISIBLE LABELS CARRY THEIR ACCENTS --------------------------
 #
-# Regle du projet (disciplines.md), rappelee le 27/08 : « il ne devrait jamais manquer
-# les accents, tout doit etre en UTF-8 ». Les commentaires du code sont ecrits sans
-# accents -- c'est assume et sans consequence -- mais TOUT ce qui s'affiche doit etre
-# ecrit en francais correct. La carte annoncait « deployee avant le suivi des commits »
-# et « ecart inconnu ».
+# A project rule (disciplines.md), recalled on 27/08: the accents should never be missing, everything must be in
+# UTF-8. The code's comments are written without accents -- that is accepted and without consequence -- but
+# EVERYTHING that is displayed must be written in correct French. The card announced two such labels stripped of
+# their accents.
 #
-# On ne verifie que les chaines DESTINEES A L'ECRAN : celles qui suivent -Value, -Label,
-# -Help, -Guide, -BusyLabel, ou un « message = ». Le reste (chemins, identifiants, noms
-# de fichiers) n'est pas concerne.
+# We check only the strings MEANT FOR THE SCREEN: the ones following -Value, -Label, -Help, -Guide, -BusyLabel, or
+# a "message =". The rest (paths, identifiers, file names) is not concerned.
 #
-# La liste est volontairement COURTE : uniquement des mots qui, dans cette application,
-# ne s'ecrivent jamais sans accent. Un garde-fou qui crie a tort finit ignore.
-# Mots ECARTES apres essai, parce qu'ils s'ecrivent AUSSI sans accent en francais :
-#   « active » (la protection est active), « termine » (il termine), « apres » quand il
-#   s'agit d'un nom de variable. Un garde-fou qui crie a tort finit ignore -- on prefere
-#   en attraper un peu moins et etre cru.
+# The list is deliberately SHORT: only words which, in this application, are never written without an accent. A
+# guard that cries wrongly ends up ignored.
+# Words SET ASIDE after trying, because they are ALSO written without an accent in French: one that is also a
+# verb form, one that is also an adjective, and one that is also a variable name here. We prefer to catch a little
+# less and be believed.
+
+
+
 $motsAccentues = @(
     'deploiement', 'deployee', 'deploye', 'redeploie',
     'echec', 'echoue', 'ecart', 'elevee',
@@ -332,15 +331,13 @@ foreach ($d in @('probes', 'actions', 'lib', 'workers')) {
         $lineNo = 0
         foreach ($l in (Get-Content -LiteralPath $f.FullName -Encoding UTF8)) {
             $lineNo++
-            # Un commentaire n'est pas affiche : on le laisse tranquille.
+            # A comment is not displayed: we leave it alone.
             if ($l -match '^\s*#') { continue }
-            # LE TIRET DOIT COMMENCER UN PARAMETRE. Sans cette borne, « Get-Label » contient
-            # « -Label » : l'invariant lisait la CLE d'un libelle -- volontairement en ASCII --
-            # et reclamait des accents dessus.
+            # THE DASH MUST BEGIN A PARAMETER. Without that boundary, "Get-Label" contains "-Label": the invariant
+            # read the KEY of a label -- deliberately in ASCII -- and demanded accents on it.
             foreach ($m in [regex]::Matches($l, '(?:(?<![\w-])(?:-Value|-Label|-Help|-Guide|-BusyLabel)|message\s*=)\s*("[^"]*"|''[^'']*'')')) {
-                # Les VARIABLES interpolees ne sont pas du texte affiche tel quel :
-                # « $($apres.noAutoUpdate) » n'est pas le mot « apres ». On les retire
-                # avant de juger.
+                # Interpolated VARIABLES are not text displayed as it stands: a property name inside $( ) is not
+                # the French word it happens to contain. We take them out before judging.
                 $text = [regex]::Replace($m.Groups[1].Value, '\$\([^)]*\)|\$[A-Za-z_][A-Za-z0-9_.]*', ' ')
                 if ($text -match $motifAccents) {
                     $sansAccent += ("{0}:{1} -- « {2} »" -f $f.Name, $lineNo, $Matches[1])
@@ -353,43 +350,42 @@ foreach ($x in $sansAccent) {
     $shortfalls += "libelle visible sans accent -- $x"
 }
 
-# --- Garde-fou : AUCUN APPEL EXTERNE QUI PEUT DEMANDER UNE SAISIE -------------
+# --- A guard: NO EXTERNAL CALL THAT CAN ASK FOR INPUT -------------------------
 #
-# Une installation tourne sans personne devant. Un outil externe qui pose une question
-# et attend sur l'entree standard la fige INDEFINIMENT, sans message : on croit a un
-# plantage, ou pire on n'y croit pas et on attend.
+# An installation runs with nobody in front of it. An external tool that asks a question and waits on standard
+# input freezes it INDEFINITELY, with no message: one believes it has crashed, or worse one does not believe it and
+# waits.
 #
-# Constate le 29/08 : « schtasks /change /RU <compte> » sans /RP demande le mot de passe
-# du compte. L'installation est restee bloquee 28 secondes -- le temps que quelqu'un
-# appuie sur Entree, ce qui a fourni un mot de passe VIDE. L'erreur qui suivait etait
-# avalee par un « $null = $out ».
+# Observed on 29/08: "schtasks /change /RU <account>" without /RP asks for the account's password. The installation
+# stayed stuck for 28 seconds -- the time it took for somebody to press Enter, which supplied an EMPTY password.
+# The error that followed was swallowed by a "$null = $out".
 #
-# La liste est volontairement COURTE et precise : on ne devine pas quel outil pose des
-# questions, on ajoute ceux qui nous ont deja coute une soiree.
+# The list is deliberately SHORT and precise: we do not guess which tool asks questions, we add the ones that have
+# already cost us an evening.
+
 $interactifs = @()
 foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.ps1','*.cmd' -ErrorAction SilentlyContinue)) {
     $rel = $f.FullName.Substring($repoRoot.Length).TrimStart([char]92, [char]47).Replace([char]92, [char]47)
-    # « var » contient le CLONE DU SERVICE (D112) : une copie entiere du depot, qu'on
-    # jugerait deux fois -- et dont on ne corrige rien, puisqu'elle se regenere.
+    # "var" holds THE SERVICE'S CLONE (D112): a whole copy of the repository, which we would judge twice -- and in
+    # which we fix nothing, since it regenerates itself.
     if ($rel -like '.claude/*' -or $rel -like 'dist/*' -or $rel -like 'local/*' -or $rel -like '*/var/*') { continue }
-    # Ce fichier-ci CITE les motifs qu'il traque : se juger soi-meme n'a pas de sens,
-    # et un verificateur qui se denonce apprend a son lecteur a l'ignorer.
+    # THIS file QUOTES the patterns it hunts: judging oneself makes no sense, and a checker that denounces itself
+    # teaches its reader to ignore it.
     if ($rel -like '.claude/*' -or $rel -like 'dist/*' -or $rel -like 'local/*' -or
         $rel -eq 'scripts/check-probes.ps1') { continue }
     $lineNo = 0
     foreach ($l in (Get-Content -LiteralPath $f.FullName -Encoding UTF8 -ErrorAction SilentlyContinue)) {
         $lineNo++
         if ($l -match '^\s*#') { continue }
-        # schtasks qui change le compte d'execution SANS fournir le mot de passe.
+        # schtasks changing the account it runs under WITHOUT supplying the password.
         if ($l -match 'schtasks' -and $l -match '/RU\b' -and $l -notmatch '/RP\b') {
             $interactifs += ("{0}:{1} -- schtasks /RU sans /RP : demande le mot de passe et attend" -f $rel, $lineNo)
         }
-        # Read-Host dans un script qui tourne SANS PERSONNE DEVANT.
+        # Read-Host in a script that runs WITH NOBODY IN FRONT OF IT.
         #
-        # L'exception, et sa raison : install-dev.ps1 est un outil de developpement, lance
-        # a la main. Sa question graphique peut echouer (pas d'interface disponible) ; le
-        # repli en ligne de commande s'adresse alors a quelqu'un qui EST devant. Le lui
-        # interdire reviendrait a lui retirer son seul repli.
+        # The exception, and its reason: install-dev.ps1 is a development tool, started by hand. Its graphical
+        # question can fail (no interface available); the command-line fallback then addresses somebody who IS in
+        # front of it. Forbidding it would amount to taking away its only fallback.
         $unattended = ($rel -like 'scripts/*' -or $rel -like 'apps/backend-pode/*') -and
                         $rel -ne 'scripts/dev/install-dev.ps1'
         if ($l -match '\bRead-Host\b' -and $unattended) {
@@ -399,30 +395,30 @@ foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.
 }
 foreach ($x in $interactifs) { $shortfalls += "appel qui attend une saisie -- $x" }
 
-# --- Garde-fou : PAS DE TEXTE ACCENTUE EN ARGUMENT D'UN AUTRE PROCESSUS -------
+# --- A guard: NO ACCENTED TEXT AS AN ARGUMENT TO ANOTHER PROCESS --------------
 #
-# Un texte accentue passe en argument d'un AUTRE processus traverse la ligne de commande,
-# donc la page de code du moment : « securite » y devient « sIcuritI » (constate le 29/08
-# sur la fenetre de fin d'installation). Aucun encodage de FICHIER n'y peut rien -- le mal
-# se fait ENTRE les deux processus.
+# An accented text passed as an argument to ANOTHER process crosses the command line, and so the code page of the
+# moment: an accented word came back mangled (observed on 29/08 on the installation's closing window). No FILE
+# encoding can do anything about it -- the damage is done BETWEEN the two processes.
 #
-# show-confirm.ps1 sait lire les libelles lui-meme : on lui passe des CLES (-TitleKey,
-# -SummaryKey, -DetailsKey), qui sont de l'ASCII pur. Lui passer -Title, -Summary ou
-# -Details en clair, c'est reprendre le chemin qui abime les accents.
+# show-confirm.ps1 can read the labels itself: we pass it KEYS (-TitleKey, -SummaryKey, -DetailsKey), which are
+# pure ASCII. Passing it -Title, -Summary or -Details spelled out means taking again the road that damages the
+# accents.
+
 $plainText = @()
 $plainParams = @('Title', 'Summary', 'Details')
 foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Filter '*.ps1' -ErrorAction SilentlyContinue)) {
     $rel = $f.FullName.Substring($repoRoot.Length).TrimStart([char]92, [char]47).Replace([char]92, [char]47)
     if ($rel -like '.claude/*' -or $rel -like 'dist/*' -or $rel -like 'local/*' -or $rel -like '*/var/*') { continue }
-    # Le porteur du mecanisme et ce verificateur citent forcement ces noms.
+    # The file that carries the mechanism, and this checker, necessarily quote those names.
     if ($rel -eq 'scripts/lib/show-confirm.ps1' -or $rel -eq 'scripts/check-probes.ps1') { continue }
     $body = Get-Content -LiteralPath $f.FullName -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
     if (-not $body) { continue }
     if ($body -notmatch 'show-confirm') { continue }
     foreach ($name in $plainParams) {
-        # « -Title » suivi d'autre chose que « Key » : c'est la forme en clair.
-        # LE TIRET DOIT COMMENCER UN PARAMETRE : « Write-Title » contient « -Title ».
-        # Le nom doit FINIR la : « -DetailsArg » n'est pas « -Details ».
+        # "-Title" followed by anything other than "Key": that is the spelled-out form.
+        # THE DASH MUST BEGIN A PARAMETER: "Write-Title" contains "-Title".
+        # The name must END there: "-DetailsArg" is not "-Details".
         if ($body -match ('(?<![\w])-' + $name + '(?![\w])')) {
             $plainText += ("{0} -- « -{1} » en clair : passer « -{1}Key »" -f $rel, $name)
         }
@@ -430,17 +426,17 @@ foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Filter '*.p
 }
 foreach ($x in $plainText) { $shortfalls += "texte accentue en argument -- $x" }
 
-# --- Garde-fou : AUCUN CARACTERE DE CONTROLE dans les sources -----------------
+# --- A guard: NO CONTROL CHARACTER in the sources -----------------------------
 #
-# Le piege le plus couteux de ce projet, rencontre sept fois en une journee : un
-# antislash disparait a l'ecriture et laisse un caractere de controle. « \var » devient
-# 0x0B, « \7 » devient 0x07, « \t » une tabulation. Le fichier reste valide, le parseur
-# ne dit rien, et un chemin ne designe soudain plus rien -- silencieusement. Deux cas
-# vecus : un inventaire de comptes toujours vide, et un diagnostic qui repondait
-# « ce compte n'a jamais ouvert de session » quoi qu'il arrive.
+# The most expensive trap of this project, met seven times in one day: a backslash disappears on writing and
+# leaves a control character behind. A backslash followed by v becomes 0x0B, by the digit 7 becomes 0x07, by t a
+# tab. The file stays valid, the parser says nothing, and a path suddenly designates nothing at all -- silently.
+# Two cases lived through: an inventory of accounts that was always empty, and a diagnosis that answered that the
+# account had never opened a session, whatever happened.
 #
-# On le detecte ici, ou ca coute une seconde, plutot qu'en production ou ca coute une
-# soiree. Seul l'echappement ESC (0x1B) est tolere : il sert a filtrer les codes ANSI.
+# We detect it here, where it costs a second, rather than in production where it costs an evening. Only the ESC
+# escape (0x1B) is tolerated: it serves to filter the ANSI codes.
+
 $sourceFolders = @('apps', 'scripts', 'config', 'docs')
 $interdits = @()
 foreach ($d in $sourceFolders) {
@@ -453,7 +449,7 @@ foreach ($d in $sourceFolders) {
         $text = $null
         try { $text = Get-Content -LiteralPath $f.FullName -Raw -ErrorAction Stop } catch { continue }
         if (-not $text) { continue }
-        # 0x1B (ESC) exclu : volontaire. 0x09/0x0A/0x0D : tabulation et fins de ligne.
+        # 0x1B (ESC) excluded: deliberately. 0x09/0x0A/0x0D: tab and line endings.
         if ($text -match "[\u0000-\u0008\u000B\u000C\u000E-\u001A\u001C-\u001F]") {
             $lineNo = 0
             foreach ($l in ($text -split "`r?`n")) {
@@ -469,25 +465,23 @@ foreach ($i in $interdits) {
     $shortfalls += "caractere de controle dans une source (antislash mange ?) -- $i"
 }
 
-# --- Garde-fou : PERSONNE NE CALCULE UN CHEMIN DE DONNEES A LA MAIN -----------
+# --- A guard: NOBODY COMPUTES A DATA PATH BY HAND -----------------------------
 #
-# Le programme installe vit dans Program Files, et ce dossier est en LECTURE SEULE
-# (D97) : seules les donnees du compte courant sont ecrites, dans son profil. Un chemin
-# « var/... » assemble a la main court-circuite cette regle et ecrit a cote du programme.
+# The installed program lives in Program Files, and that folder is READ ONLY (D97): only the current account's
+# data is written, inside its profile. A "var/..." path assembled by hand short-circuits that rule and writes
+# beside the program.
 #
-# Ce n'est pas une precaution theorique : c'est exactement ce qui empechait Vigie de
-# demarrer sur un compte standard. L'app cliente calculait « $PSScriptRoot/var/log », Windows
-# refusait la creation du dossier, et le script mourait a sa deuxieme ligne -- sans
-# journal, puisque le journal etait justement ce qu'il essayait de creer.
+# This is not a theoretical precaution: it is exactly what prevented Vigie from starting on a standard account.
+# The client app computed "$PSScriptRoot/var/log", Windows refused to create the folder, and the script died on
+# its second line -- with no log, since the log was precisely what it was trying to create.
 #
-# Get-VarPath et Get-VarRoot savent ou vont les donnees. Personne d'autre.
+# Get-VarPath and Get-VarRoot know where the data goes. Nobody else.
 $horsRegle = @()
 foreach ($d in @('apps', 'scripts')) {
     $rootDir = Join-Path $repoRoot $d
     if (-not (Test-Path -LiteralPath $rootDir)) { continue }
     foreach ($f in (Get-ChildItem -LiteralPath $rootDir -Recurse -File -Include '*.ps1' -ErrorAction SilentlyContinue)) {
-        # common.ps1 EST l'implementation de la regle : c'est le seul endroit ou ces
-        # chemins se construisent.
+        # common.ps1 IS the implementation of the rule: it is the only place where those paths are built.
         if ($f.Name -eq 'common.ps1') { continue }
         $i = 0
         foreach ($line in (Get-Content -LiteralPath $f.FullName -Encoding UTF8 -ErrorAction SilentlyContinue)) {
@@ -503,31 +497,31 @@ foreach ($x in $horsRegle) {
     $shortfalls += "chemin de donnees calcule a la main (utiliser Get-VarPath) -- $x"
 }
 
-# --- Garde-fou : « QUI EXECUTE » N'EST PAS « QUI DEMANDE » --------------------
+# --- A guard: "WHO RUNS" IS NOT "WHO ASKS" ------------------------------------
 #
-# $env:USERNAME rend le compte qui EXECUTE le processus. Tant que l'app serveur tournait
-# sous le compte de quelqu'un, il tombait juste PAR ACCIDENT. Depuis qu'elle tourne en
-# service sous « VigieService », tout endroit qui l'employait pour dire « la personne
-# devant l'ecran » designe le service : la carte Comptes a affiche « VOUS » sur
-# VigieService et l'a sorti de la liste des comptes techniques (constate le 29/08).
+# $env:USERNAME returns the account that RUNS the process. As long as the server app ran under somebody's account,
+# it happened to be right BY ACCIDENT. Since it runs as a service under its own account, every place that used it
+# to mean "the person in front of the screen" designates the service: the Accounts card showed "YOU" on the
+# service account and took it out of the list of technical accounts (observed on 29/08).
 #
-# Trois fonctions, trois sens, et le choix devient conscient :
-#   Get-ProcessAccount   -- qui execute (vrai pour l'app cliente et les scripts)
-#   Get-RequesterAccount -- qui demande, ou $null si personne n'est identifie
-#   Get-ActionRequester  -- qui demande, avec un repli, pour SIGNER le journal d'audit
+# Three functions, three meanings, and the choice becomes a conscious one:
+#   Get-ProcessAccount   -- who runs (true for the client app and for the scripts)
+#   Get-RequesterAccount -- who asks, or $null if nobody is identified
+#   Get-ActionRequester  -- who asks, with a fallback, to SIGN the audit log
+
 $rawUserVar = @()
 foreach ($d in @('apps', 'scripts')) {
     $rootDir = Join-Path $repoRoot $d
     if (-not (Test-Path -LiteralPath $rootDir)) { continue }
     foreach ($f in (Get-ChildItem -LiteralPath $rootDir -Recurse -File -Include '*.ps1' -ErrorAction SilentlyContinue)) {
-        # common.ps1 EST l'implementation de la regle : Get-ProcessAccount y vit.
+        # common.ps1 IS the implementation of the rule: Get-ProcessAccount lives there.
         if ($f.Name -eq 'common.ps1') { continue }
         $i = 0
         foreach ($line in (Get-Content -LiteralPath $f.FullName -Encoding UTF8 -ErrorAction SilentlyContinue)) {
             $i++
             if ($line -match '^\s*#') { continue }
-            # LE MOTIF S'ECRIT EN MORCEAUX, sinon ce fichier se denonce lui-meme -- comme
-            # les motifs de mojibake de check-encoding.
+            # THE PATTERN IS WRITTEN IN PIECES, or this file would report itself -- like the mojibake patterns of
+            # check-encoding.
             if ($line -match ('\$env:' + 'USER' + 'NAME')) {
                 $rawUserVar += ("{0}:{1}" -f (Resolve-Path -LiteralPath $f.FullName -Relative), $i)
             }
@@ -694,8 +688,8 @@ foreach ($f in (Get-ChildItem -LiteralPath $serverRoot -Recurse -File -Include '
         $i++
         if ($line -match '^\s*#') { continue }
         # The pattern is assembled, or this file would report itself.
-        # CHAQUE morceau entre parentheses : la virgule lie plus fort que le plus, et
-        # sans elles les quatre motifs se recollaient en UN SEUL, qui ne matchait rien.
+        # EVERY piece in its own brackets: the comma binds tighter than the plus, and without them the four
+        # patterns glued back into ONE, which matched nothing.
         foreach ($pattern in @(('HK' + 'CU:'), ('$env:' + 'LOCALAPPDATA'), ('$env:' + 'APPDATA'), ('$env:' + 'USERPROFILE'))) {
             if ($line -like ('*' + $pattern + '*')) {
                 $ambientUser += ("{0}:{1} -- {2}" -f (Resolve-Path -LiteralPath $f.FullName -Relative), $i, $pattern)
@@ -707,25 +701,24 @@ foreach ($x in $ambientUser) {
     $shortfalls += ("utilisateur ambiant cote serveur (lire ruche par ruche ou profil par profil) -- " + $x)
 }
 
-# --- Garde-fou : UNE CARTE QUI PARLE DE « VOUS » SE DECLARE PerAccount --------
+# --- A guard: A CARD THAT SPEAKS OF "YOU" DECLARES ITSELF PerAccount ----------
 #
-# Le rendu des sondes est mis en cache dans state-cache.json, qui est COMMUN. Une carte
-# qui ecrit « (vous) », trie sur le compte courant ou n'affiche les donnees que du
-# demandeur y laisse donc la reponse calculee pour UNE personne, servie ensuite a toutes
-# les autres. C'est ce qui est arrive a la carte des comptes.
+# The probes' rendering is cached in state-cache.json, which is SHARED. A card that writes "(you)", sorts on the
+# current account or shows only the requester's data therefore leaves there the answer computed for ONE person,
+# served afterwards to all the others. That is what happened to the accounts card.
 #
-# La declaration « PerAccount = $true » dans module.psd1 donne a la sonde une entree de
-# cache par compte. Elle ne se devine pas : on verifie qu'elle est la des que le code de
-# la sonde regarde le demandeur.
+# The declaration "PerAccount = $true" in module.psd1 gives the probe one cache entry per account. It cannot be
+# guessed: we check that it is there as soon as the probe's code looks at the requester.
+
+
 $personalCards = @()
 $probesRoot = Join-Path $repoRoot 'apps/backend-pode/probes'
 foreach ($f in (Get-ChildItem -LiteralPath $probesRoot -Recurse -File -Filter '*.probe.ps1' -ErrorAction SilentlyContinue)) {
     $text = Get-Content -LiteralPath $f.FullName -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
     if (-not $text) { continue }
-    # LA MARQUE EST LA SOURCE, PAS LE MOT. Chercher « .current » attrapait
-    # « $scan.current » -- le DOSSIER en cours d'analyse dans la carte du disque, qui
-    # n'a rien de personnel. Ce qui rend une carte personnelle, c'est d'ou viennent
-    # ses donnees : la liste des comptes (elle porte « vous ») ou le demandeur.
+    # THE MARK IS THE SOURCE, NOT THE WORD. Looking for ".current" caught "$scan.current" -- the FOLDER being
+    # analysed in the disc card, which has nothing personal about it. What makes a card personal is where its data
+    # comes from: the list of accounts (which carries a "you") or the requester.
     if ($text -notmatch 'Get-ComputerAccounts' -and $text -notmatch 'Get-RequesterAccount') { continue }
     $declared = $false
     try {

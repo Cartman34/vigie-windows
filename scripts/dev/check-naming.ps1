@@ -43,7 +43,7 @@ $ErrorActionPreference = 'Stop'
     not rewrite it at once -- thousands of touched lines for no gain, and a drowned git
     blame. The ratchet forbids adding any; every conversion lowers the ceiling as much.
 #>
-$COMMENT_CEILING = 3138
+$COMMENT_CEILING = 2675
 
 # 08/10, the second half of common.ps1: 1044 -> 310 French comment lines in the library, and the repository from
 # 4539 to 3805. Then its tail -- the environment, the traceability, the requester, the Atelier, the elevation and
@@ -59,6 +59,10 @@ $COMMENT_CEILING = 3138
 # STILL FRENCH THERE, AND NOT COUNTED: the C# of the menu renderer, carried in a here-string, comments itself with
 # `//`. Those lines are inside a STRING, so the lexicon does not see them -- and translating them changes the code,
 # not a comment, so it cannot be proven by stripping comments. They are a job of their own.
+#
+# 08/10, scripts/install.ps1 (301 -> 1) and scripts/check-probes.ps1 (163 -> 0), and the repository from 3138 to
+# 2675. install.ps1 and check-probes.ps1 now say their INTENT and their USAGE in their own header, as the convention
+# asks of a file one touches.
 #
 # THE METHOD, so the next campaign does not reinvent it. The tools live in the session's scratchpad and are rebuilt
 # in a few lines if lost: blocs.py lists the contiguous French comment blocks of a file with their ranges;

@@ -1,27 +1,30 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    install.ps1 - Installe les prerequis. IDEMPOTENT. Cible PowerShell 7.
-    Journalise dans backend/logs/install_*.log (transcript). Fichier en ASCII
-    pour rester lisible par PowerShell 5.1 au moment de basculer en pwsh.
+    install.ps1 -- lays down the prerequisites. IDEMPOTENT. Targets PowerShell 7.
 
-    Portee des modules :
-      - eleve (admin)     -> AllUsers  : C:\Program Files\PowerShell\Modules
-                             (visible par TOUS les PowerShell 7 : MSI, Store,
-                              tache planifiee, eleve ou non). Recommande.
-      - non eleve         -> CurrentUser (repli).
+    Intent: take a computer from nothing at all to a Vigie that runs by itself -- PowerShell 7, the modules, the
+    installation folder, the service account, the scheduled tasks -- and be runnable AGAIN at any time without
+    doing harm, because that is also how an update is applied.
 
-    Usage :  powershell -File .\install.ps1   (basculera en pwsh)
+    Usage: `powershell -File .\install.ps1` (it switches itself to pwsh), or the button on the Deployment card,
+    which passes -Requester and -FromAction. It logs into backend/logs/install_*.log (a transcript). The file is
+    written in ASCII so that it stays readable by PowerShell 5.1 at the moment of switching to pwsh.
+
+    The scope of the modules:
+      - elevated (admin) -> AllUsers: C:\Program Files\PowerShell\Modules (visible to EVERY PowerShell 7: MSI,
+                            Store, a scheduled task, elevated or not). Recommended.
+      - not elevated     -> CurrentUser (the fallback).
 #>
 param(
     <#
-        QUI DEMANDE. Depuis le bouton de la carte, l'installation tourne sous le compte du
-        service : elle n'a pas de session pour le deduire. Le serveur lui passe le compte de
-        la personne qui a clique, car c'est dans SA session que le tag de version sera pose
-        -- dans SON depot, sous SON identite (D112).
+        WHO IS ASKING. From the card's button the installation runs under the service's account: it has no session
+        to deduce it from. The server passes it the account of the person who clicked, because it is in THEIR
+        session that the version tag will be laid -- in THEIR repository, under THEIR identity (D112).
     #>
+
     [string] $Requester,
 
-    # Refaire la sequence entiere meme si l'installation est deja a jour.
+    # Redo the whole sequence even if the installation is already up to date.
     [switch] $Force,
 
     <#
@@ -34,47 +37,46 @@ param(
     [string] $InstallPath,
 
     <#
-        PAS DE FENETRE DE FIN. Le serveur n'a pas de bureau : une fenetre ouverte depuis sa
-        session ne s'afficherait nulle part, et attendrait un clic que personne ne peut
-        donner. Le verdict, lui, part dans le journal comme d'habitude.
+        NO WINDOW AT THE END. The server has no desktop: a window opened from its session would show up nowhere,
+        and would wait for a click nobody can give. The verdict, for its part, goes into the log as usual.
     #>
+
     [switch] $NoWindow,
 
     <#
-        L'ACTION QUI M'A LANCE -- DONT LA MARQUE D'OCCUPATION EST LA MIENNE.
+        THE ACTION THAT STARTED ME -- WHOSE BUSY MARK IS MY OWN.
 
-        Depuis le bouton de la carte, l'app serveur pose une marque « une operation
-        tourne » AVANT de lancer l'installation, pour que la carte le montre et que rien
-        d'autre ne demarre en meme temps. L'installation, elle, refuse de tourner pendant
-        qu'une operation est en cours -- et trouvait donc la SIENNE. Elle s'interdisait
-        elle-meme, et rendait le code 5 (constate le 31/08 : « ECHEC le 31/08/2026 09:27
-        -- code de sortie 5 »).
+        From the card's button, the server app lays down an "an operation is running" mark BEFORE starting the
+        installation, so that the card shows it and nothing else starts at the same time. The installation, for its
+        part, refuses to run while an operation is under way -- and therefore found its OWN. It forbade itself, and
+        returned code 5 (observed on 31/08: a failure reported with exit code 5).
 
-        On ne supprime pas le controle : c'est lui qui empeche d'interrompre une analyse
-        de disque. On en retire la seule operation dont on sait qu'elle EST nous.
+        We do not remove the check: it is what prevents interrupting a disc analysis. We take out of it the one
+        operation we know IS us.
     #>
+
+
     [string] $FromAction
 )
 
 $ErrorActionPreference = 'Stop'
 
-# LE MEME AFFICHAGE QUE PARTOUT. Charge des le debut, avant meme la bascule en
-# PowerShell 7 : cette premiere passe tourne sous 5.1, et elle affiche deja.
+# THE SAME DISPLAY AS EVERYWHERE. Loaded from the start, before even the switch to PowerShell 7: this first pass
+# runs under 5.1, and it already displays.
 . (Join-Path $PSScriptRoot 'lib/console-ui.ps1')
 
-# --- Cible PowerShell 7 : bascule si lance en 5.1 ---
+# --- Target PowerShell 7: switch over if started under 5.1 ---
 if ($PSVersionTable.PSVersion.Major -lt 7) {
-    # L'interpreteur de la MACHINE d'abord : c'est celui que lanceront les taches de
-    # demarrage, donc celui avec lequel il faut installer.
+    # The MACHINE's interpreter first: it is the one the start-up tasks will run, so it is the one to install
+    # with.
     $pwsh = Join-Path (Join-Path (Join-Path $env:ProgramFiles 'PowerShell') '7') 'pwsh.exe'
     if (-not (Test-Path -LiteralPath $pwsh)) {
         $pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
     }
     if ($pwsh) {
         Write-Info (Get-Label 'install.bascule-en-powershell')
-        # LES PARAMETRES SUIVENT LA BASCULE. Sans cela, « -Requester » et « -Force » se
-        # perdaient au passage en PowerShell 7, et la seconde passe ne savait plus qui avait
-        # demande.
+        # THE PARAMETERS FOLLOW THE SWITCH. Without this, -Requester and -Force were lost on the way into
+        # PowerShell 7, and the second pass no longer knew who had asked.
         # RAW VALUES: the call operator quotes each argument itself (D116).
         $nextArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $PSCommandPath)
         if ($Requester) { $nextArgs += @('-Requester', $Requester) }
@@ -84,16 +86,16 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
         # THE CHOSEN FOLDER CROSSES THE SWITCH TOO: it was dropped here, and the second pass installed in the default.
         if ($InstallPath) { $nextArgs += @('-InstallPath', $InstallPath) }
         & $pwsh @nextArgs
-        # LE CODE DE LA PASSE LANCEE EST LE NOTRE. Sans cette ligne, un echec de
-        # l'installation reelle remontait en succes a l'appelant : le lanceur affichait
-        # « Termine » sur une installation ratee (constate le 26/08).
+        # THE EXIT CODE OF THE PASS WE STARTED IS OURS. Without this line, a failure of the real installation came
+        # back as a success to the caller: the launcher displayed "finished" on a failed installation (observed on
+        # 26/08).
         exit $LASTEXITCODE
     }
     Write-Step (Get-Label 'install.powershell-est-absent-installation')
-    # L'ELEVATION est indispensable ici : une installation en portee machine sans droits
-    # administrateur echoue sur « 0x80070005 : Access is denied » -- et winget ayant deja
-    # retire l'eventuelle version du compte, la machine se retrouve SANS PowerShell 7
-    # (vecu le 26/08). On le dit AVANT d'essayer, plutot que de laisser ce trou.
+    # ELEVATION is indispensable here: an installation in machine scope without administrator rights fails on
+    # "0x80070005: Access is denied" -- and since winget has already removed whatever version the account had, the
+    # machine ends up WITHOUT PowerShell 7 at all (lived through on 26/08). We say so BEFORE trying, rather than
+    # leaving that hole.
     $isAdminAccount = $false
     try {
         $id = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -107,43 +109,40 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
     }
     $target = Join-Path (Join-Path (Join-Path $env:ProgramFiles 'PowerShell') '7') 'pwsh.exe'
 
-    # 1) winget, en imposant le MSI.
+    # 1) winget, imposing the MSI.
     #
-    # Deux pieges rencontres le 26/08, dans cet ordre :
-    #   - sans --installer-type msi, winget prend le MSIXBUNDLE et tente de le
-    #     « provisionner » pour tous les comptes : echec 0x80070005 -- et il avait DEJA
-    #     desinstalle la version du compte, la machine s'est donc retrouvee SANS
-    #     PowerShell du tout ;
-    #   - avec --installer-type msi, la source winget n'a AUCUN paquet MSI pour cet
-    #     identifiant : elle balaie toutes les versions puis renonce (0x8a150010).
-    # D'ou le repli ci-dessous. Un installateur doit ABOUTIR, pas renvoyer l'utilisateur
-    # vers une page de telechargement.
+    # Two traps met on 26/08, in this order:
+    #   - without --installer-type msi, winget takes the MSIXBUNDLE and tries to "provision" it for every account:
+    #     failure 0x80070005 -- and it had ALREADY uninstalled the account's version, so the machine found itself
+    #     with no PowerShell at all;
+    #   - with --installer-type msi, the winget source has NO MSI package for that identifier: it sweeps every
+    #     version then gives up (0x8a150010).
+    # Hence the fallback below. An installer must GET THERE, not send the user off to a download page.
+
     if (Get-Command winget -ErrorAction SilentlyContinue) {
         winget install --id Microsoft.PowerShell -e --scope machine --installer-type msi --source winget --accept-package-agreements --accept-source-agreements
     }
 
-    # 2) Repli : le MSI publie par l'equipe PowerShell, installe pour TOUTE la machine.
+    # 2) The fallback: the MSI published by the PowerShell team, installed for the WHOLE machine.
     if (-not (Test-Path -LiteralPath $target)) {
         Write-Warn (Get-Label 'install.winget-pas-de-paquet')
         try {
-            # TLS 1.2 : Windows PowerShell 5.1 ne l'active pas toujours, et GitHub refuse
-            # tout le reste. Sans cette ligne, le telechargement echoue sur une erreur de
-            # connexion qui n'explique rien.
+            # TLS 1.2: Windows PowerShell 5.1 does not always switch it on, and GitHub refuses everything else.
+            # Without this line the download fails on a connection error that explains nothing.
             [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
             $rel = Invoke-RestMethod -Uri 'https://api.github.com/repos/PowerShell/PowerShell/releases/latest' `
                                      -Headers @{ 'User-Agent' = 'Vigie-install' } -TimeoutSec 60
             $asset = @($rel.assets | Where-Object { $_.name -like '*-win-x64.msi' }) | Select-Object -First 1
             if (-not $asset) { throw "aucun MSI x64 dans la derniere version publiee" }
             $msi = Join-Path $env:TEMP $asset.name
-            # SANS CECI, Windows PowerShell 5.1 s'enlise : le rendu de sa barre de
-            # progression coute plus cher que le telechargement lui-meme, et sur 108 Mo
-            # la commande semble figee de longues minutes APRES que le fichier soit
-            # complet -- constate le 26/08, fichier entier sur disque et script toujours
-            # en attente. C'est un defaut connu de 5.1 ; on eteint la barre.
+            # WITHOUT THIS, Windows PowerShell 5.1 bogs down: rendering its progress bar costs more than the
+            # download itself, and over 108 MB the command seems frozen for long minutes AFTER the file is complete
+            # -- observed on 26/08, the whole file on disc and the script still waiting. It is a known defect of
+            # 5.1; we switch the bar off.
             $ProgressPreference = 'SilentlyContinue'
             $mo  = [math]::Round(([double]$asset.size) / 1MB, 1)
-            # Deja telecharge ET complet ? On ne recommence pas : une tentative
-            # precedente peut avoir bute apres coup (voir ci-dessus).
+            # Already downloaded AND complete? We do not start again: an earlier attempt may have stumbled
+            # afterwards (see above).
             $alreadyThere = $false
             if (Test-Path -LiteralPath $msi) {
                 $alreadyThere = ((Get-Item -LiteralPath $msi).Length -eq [long]$asset.size)
@@ -157,16 +156,14 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
                 Write-Detail (Get-Label 'install.telechargement-termine')
             }
             Write-Info (Get-Label 'install.installation-pour-toute-la')
-            # ALLUSERS=1 : installation MACHINE. /qn : sans interface, on est deja eleve.
-            # /qb et non /qn : une installation de deux minutes doit se VOIR. Une barre
-            # de progression vaut mieux qu'une fenetre muette dont on ne sait pas si elle
-            # travaille ou si elle est bloquee.
+            # ALLUSERS=1: a MACHINE installation. /qb and not /qn: an installation that takes two minutes must be
+            # SEEN. A progress bar is better than a silent window of which one cannot tell whether it is working or
+            # stuck.
             $mi = Start-ChildProcess -FilePath 'msiexec.exe' `
                       -Arguments @('/i', $msi, '/qb', 'ALLUSERS=1', 'ADD_PATH=1') `
                       -Options @{ Wait = $true; PassThru = $true }
-            # LE RESULTAT SE LIT. 0 = installe ; 3010 = installe, redemarrage demande ;
-            # 1618 = un autre installateur travaille deja ; le reste est un echec qu'il
-            # faut nommer, pas passer sous silence.
+            # THE RESULT IS READ. 0 = installed; 3010 = installed, a restart is asked for; 1618 = another installer
+            # is already at work; anything else is a failure that must be named, not passed over in silence.
             switch ([int]$mi.ExitCode) {
                 0    { Write-Ok (Get-Label 'install.installation-reussie') }
                 3010 { Write-Warn (Get-Label 'install.installee-windows-demande-un') }
@@ -181,7 +178,7 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
         }
     }
 
-    # 3) On CONSTATE, et on enchaine tout seul : l'utilisateur n'a pas a relancer.
+    # 3) We OBSERVE, and carry on by ourselves: the user has nothing to start again.
     if (Test-Path -LiteralPath $target) {
         Write-Ok (Get-Label 'install.powershell-installe-pour-la' $target)
         Write-Detail (Get-Label 'install.installation-se-poursuit-avec')
@@ -194,43 +191,43 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
     exit 1
 }
 
-# Les scripts de gestion vivent dans scripts/ : les apps sont dans apps/.
+# The management scripts live in scripts/: the apps are in apps/.
 $repoRoot = Split-Path $PSScriptRoot -Parent
 $backend  = Join-Path $repoRoot 'apps/backend-pode'   # BOOTSTRAP, cf. common.ps1
 . (Join-Path $backend 'lib/common.ps1')
 
 <#
-    LE JOURNAL COMMENCE AVANT LA PREMIERE ETAPE.
+    THE LOG BEGINS BEFORE THE FIRST STEP.
 
-    Il demarrait au milieu : la declaration de l'ordinateur, la source et le DEPLOIEMENT
-    se produisaient avant, donc hors journal. Le 30/08, l'installation a fini sur
-    « ECHEC : 2 etape(s) » alors que le fichier ne contenait pas une seule ligne d'erreur
-    -- de quoi chercher longtemps ce qui n'y etait pas.
+    It used to start in the middle: the computer's declaration, the source and the DEPLOYMENT happened before, so
+    outside the log. On 30/08 the installation ended on "2 step(s) failed" while the file did not hold a single line
+    of error -- enough to spend a long time looking for what was not in it.
 
-    Un journal qui commence apres le debut ne sert a rien : c'est justement le debut qu'on
-    relit quand ca se passe mal.
+    A log that begins after the beginning is useless: the beginning is precisely what one reads back when things go
+    wrong.
 #>
+
 $logDir = Get-LogDir -Backend $backend
 $log    = Join-Path $logDir ('install_' + (Get-Date -Format 'yyyyMMdd_HHmmss') + '.log')
 try { Start-Transcript -Path $log -Force | Out-Null } catch { }
 
 <#
-    UNE SEULE INSTALLATION A LA FOIS.
+    ONE INSTALLATION AT A TIME.
 
-    Deux installations simultanees se marchent dessus : l'une arrete ce que l'autre vient
-    de demarrer, l'une copie pendant que l'autre sauvegarde. On refuse, et on dit QUI
-    tient le verrou -- sinon « une installation est deja en cours » ressemble a une panne.
+    Two simultaneous installations tread on each other: one stops what the other has just started, one copies while
+    the other is backing up. We refuse, and we say WHO holds the lock -- otherwise "an installation is already
+    under way" looks like a breakdown.
 
-    Un verrou dont le processus n'existe plus est ignore : un plantage ne doit pas
-    condamner le poste.
+    A lock whose process no longer exists is ignored: a crash must not condemn the workstation.
 #>
+
 $verrou = Lock-Install
 if (-not $verrou) {
     $qui = Get-InstallLockHolder
     Write-Title (Get-Label 'install.titre')
-    # L'HEURE SE LIT A L'HEURE D'ICI. Le verrou la stocke en UTC (une marque, pas un
-    # affichage) ; telle quelle elle annoncait « depuis 04:54 » a 06:54, soit une
-    # installation commencee deux heures plus tot -- de quoi croire a un verrou oublie.
+    # THE TIME IS READ IN LOCAL TIME. The lock stores it in UTC (a mark, not a display); as it stood it announced
+    # "since 04:54" at 06:54, that is, an installation begun two hours earlier -- enough to believe in a forgotten
+    # lock.
     $depuis = "$($qui.at)"
     try { $depuis = ([datetime]::Parse($qui.at)).ToLocalTime().ToString('dd/MM/yyyy HH:mm:ss') } catch { }
     Write-Fail (Get-Label 'install.deja-en-cours' "$($qui.account)" "$($qui.pid)" $depuis)
@@ -240,17 +237,17 @@ if (-not $verrou) {
 
 
 <#
-    INSTALLER OU METTRE A JOUR : CE N'EST PAS LA MEME NOUVELLE.
+    INSTALLING OR UPDATING: IT IS NOT THE SAME PIECE OF NEWS.
 
-    Le meme script fait les deux -- c'est voulu, il est idempotent et c'est le SEUL geste
-    a connaitre. Mais il annoncait « Installation de Vigie » meme quand une version
-    tournait deja, sans dire laquelle ni vers quoi on allait : on relancait sans savoir
-    si quelque chose changeait.
+    The same script does both -- deliberately, it is idempotent and it is the ONLY gesture to know. But it
+    announced "Installation de Vigie" even when a version was already running, without saying which one nor what
+    we were heading for: one started it again without knowing whether anything was changing.
 
-    On regarde donc ce qui est en place AVANT de commencer, et on le dit : d'ou l'on
-    part, ou l'on va, et dans quel environnement -- « developpement » ou « production »,
-    tel qu'il est DECLARE.
+    So we look at what is in place BEFORE beginning, and we say it: where we start from, where we are going, and in
+    which environment -- development or production, as DECLARED.
 #>
+
+
 $current = $null
 try {
     $installedPath = Get-SharedInstallPath
@@ -259,22 +256,22 @@ try {
 $incoming = $null
 try { $incoming = Get-BuildStamp -Root $repoRoot } catch { }
 <#
-    LA VERSION QU'ON POSE : UNE SEULE VALEUR, DU DEBUT A LA FIN.
+    THE VERSION WE ARE LAYING DOWN: ONE SINGLE VALUE, FROM BEGINNING TO END.
 
-    Elle etait recalculee a chaque endroit qui en parlait, et chacun tombait sur une
-    reponse differente : le journal annoncait « vers v0.1.37 » -- la version marquee --
-    pendant que la fenetre de fin disait « v0.1.36 vers v0.1.36+8 », lue avant que le tag
-    ne soit pose. Le meme deploiement racontait deux histoires (constate le 31/08).
+    It was recomputed at every place that spoke of it, and each one landed on a different answer: the log announced
+    "towards v0.1.37" -- the version that would be tagged -- while the closing window said "v0.1.36 to v0.1.36+8",
+    read before the tag was laid. The same deployment told two stories (observed on 31/08).
 
-    On la PREDIT ici, avant de commencer -- c'est le tag qui sera marque -- puis on la
-    CONSTATE apres la copie, sur ce qui est reellement en place. La constatation gagne
-    toujours : c'est la seule qui ne peut pas se tromper.
+    So we PREDICT it here, before beginning -- it is the tag that will be marked -- then we OBSERVE it after the
+    copy, on what is really in place. The observation always wins: it is the only one that cannot be wrong.
 #>
+
+
 $versionPosee = $null
 $isUpdate = [bool]($current -and $current.version)
 
-# DEUX APPELS EN CLAIR plutot qu'une cle calculee : un verificateur ne peut pas juger une
-# cle construite a l'execution, et c'est la porte ouverte au « [?...] » en production.
+# TWO CALLS WRITTEN OUT rather than a computed key: a checker cannot judge a key built at run time, and that is
+# the open door to a "[?...]" in production.
 if ($isUpdate) { Write-Title (Get-Label 'install.titre-maj') }
 else            { Write-Title (Get-Label 'install.titre') }
 if ($isUpdate) {
@@ -288,25 +285,25 @@ if ($isUpdate) {
     if ($versionPosee) { Write-Info (Get-Label 'install.de-vers' $current.version $versionPosee) }
     else               { Write-Info (Get-Label 'install.de-vers-depot' $current.version) }
 }
-# PROD EST LE DEFAUT, ON NE L'ANNONCE PAS. L'application est de production d'abord : le
-# dire a chaque fois n'apprend rien. C'est le stage « developpement » qui merite d'etre
-# signale -- avec ce qu'il implique : une source locale, et des versions marquees ici.
+# PROD IS THE DEFAULT, WE DO NOT ANNOUNCE IT. The application is a production one first: saying so every time
+# teaches nothing. It is the development stage that deserves to be pointed out -- with what it implies: a local
+# source, and versions tagged here.
 if ((Get-DeclaredStage -Backend $backend) -eq 'dev') {
     Write-Info (Get-Label 'install.stage-dev')
 }
 Write-Step (Get-Label 'install.etape-prerequis')
 
-# --- VIGIE S'INSTALLE DANS PROGRAM FILES ------------------------------------
+# --- VIGIE INSTALLS ITSELF INTO PROGRAM FILES -------------------------------
 #
-# Une application Windows vit dans Program Files, pas dans le dossier ou l'archive a
-# ete decompressee. Sans cette copie, la tache de demarrage pointait sur ce dossier :
-# l'utilisateur devait le garder a vie, et le vider par megarde cassait Vigie.
+# A Windows application lives in Program Files, not in the folder where the archive was unpacked. Without this
+# copy, the start-up task pointed at that folder: the user had to keep it for ever, and emptying it by mistake
+# broke Vigie.
 #
-# Trois cas OU L'ON NE BOUGE PAS :
-#   - un DEPOT git : c'est un poste de developpement, Vigie tourne depuis les sources ;
-#   - on y est deja : la copie relancerait le script indefiniment ;
-#   - sans elevation : ecrire dans Program Files est refuse. On le dit, et on continue
-#     sur place plutot que d'echouer -- Vigie reste utilisable.
+# Three cases WHERE WE DO NOT MOVE:
+#   - a git REPOSITORY: this is a development workstation, Vigie runs from the sources;
+#   - we are already there: the copy would restart the script endlessly;
+#   - without elevation: writing into Program Files is refused. We say so, and carry on in place rather than
+#     failing -- Vigie stays usable.
 # WHERE TO INSTALL: what is asked for, else what is already in place, else the default.
 # THE ORDER MATTERS: an existing installation wins over a path passed by mistake -- otherwise
 # an update launched with a wrong argument would create a second one elsewhere.
@@ -338,47 +335,47 @@ if ("$InstallPath".Trim() -and -not $destDeclaree) {
     }
 }
 $here          = (Resolve-Path -LiteralPath $repoRoot).Path
-# LE DEPOT DE CET ORDINATEUR, ou $null. Une seule definition, dans la bibliotheque : la
-# question « suis-je dans un depot ? » ne se repose pas ici, et surtout elle ne decide plus
-# de rien -- elle sert UNIQUEMENT a noter d'ou vient l'installation.
+# THIS COMPUTER'S REPOSITORY, or $null. One single definition, in the library: the question "am I inside a
+# repository?" is not asked again here, and above all it no longer decides anything -- it serves ONLY to note
+# where the installation comes from.
 $repoLocal  = Get-LocalRepoPath -Backend $backend
 $alreadyThere       = ($here.TrimEnd([char]92) -ieq $destPartagee.TrimEnd([char]92))
 
 <#
-    UNE INSTALLATION LANCEE DEPUIS UN DEPOT NOTE D'OU ELLE VIENT.
+    AN INSTALLATION STARTED FROM A REPOSITORY NOTES WHERE IT COMES FROM.
 
-    C'est le PREMIER geste d'un developpeur sur un poste neuf, et il tourne sous SON
-    compte, dans SON depot. On y note donc le chemin de la source, et on declare ce
-    dossier de confiance pour git.
+    This is a developer's FIRST gesture on a new workstation, and it runs under THEIR account, in THEIR repository.
+    So we note the path of the source there, and declare that folder trusted for git.
 
-    Sans cette declaration, l'app serveur -- qui tourne sous un compte de service -- ne
-    peut meme pas CLONER ce depot : git refuse d'ouvrir un dossier appartenant a quelqu'un
-    d'autre. Le bouton « Mettre a jour » echouerait donc avant tout premier deploiement,
-    et le developpeur n'aurait aucun moyen de comprendre pourquoi.
+    Without that declaration the server app -- which runs under a service account -- cannot even CLONE that
+    repository: git refuses to open a folder belonging to somebody else. The "Mettre a jour" button would therefore
+    fail before any first deployment, and the developer would have no way of understanding why.
 
-    L'ENVIRONNEMENT N'EST PAS DEDUIT ICI : il se declare (config.local.psd1). Trouver un
-    depot ne fait pas d'un poste une machine de developpement.
+    THE ENVIRONMENT IS NOT DEDUCED HERE: it is declared (config.local.psd1). Finding a repository does not make a
+    workstation a development machine.
+#>
+
+
+<#
+    THE COMPUTER'S DECLARATION ALWAYS EXISTS.
+
+    It was written only if the installation started from a repository: elsewhere the file did not exist and the
+    stage was prod by default only, with nothing to say so. A setting one sees nowhere is a setting one does not
+    know how to change.
+
+    So we write it at every installation, with the stage SPELLED OUT -- without ever touching a value already
+    declared: that file belongs to whoever filled it in.
 #>
 <#
-    LA DECLARATION DE L'ORDINATEUR EXISTE TOUJOURS.
+    WE DO NOT INTERRUPT AN OPERATION UNDER WAY.
 
-    Elle n'etait ecrite que si l'installation partait d'un depot : ailleurs, le fichier
-    n'existait pas et le stage n'etait « prod » que par defaut, sans que rien ne le dise.
-    Un reglage qu'on ne voit nulle part est un reglage qu'on ne sait pas changer.
-
-    On l'ecrit donc a chaque installation, avec le stage EN CLAIR -- sans jamais toucher
-    a une valeur deja declaree : ce fichier appartient a qui l'a rempli.
+    A disc analysis, an installation of Windows updates: stopping them halfway leaves a job half done, and that is
+    exactly what the busy marks are there to avoid. We refuse, NAMING what is running.
 #>
-<#
-    ON N'INTERROMPT PAS UNE OPERATION EN COURS.
 
-    Une analyse de disque, une installation de mises a jour Windows : les arreter au
-    milieu laisse un travail a moitie fait, et c'est exactement ce que les marques
-    d'occupation servent a eviter. On refuse, en NOMMANT ce qui tourne.
-#>
 $enCours = @()
 try { $enCours = @(Get-RunningOperations -Backend $backend) } catch { }
-# NOTRE PROPRE MARQUE NE NOUS ARRETE PAS.
+# OUR OWN MARK DOES NOT STOP US.
 if ($FromAction) { $enCours = @($enCours | Where-Object { "$($_.action)" -ne $FromAction }) }
 if ($enCours.Count) {
     Write-Title (Get-Label 'install.titre')
@@ -422,75 +419,75 @@ if ($repoLocal) {
             Write-Warn (Get-Label 'install.confiance-impossible' $_.Exception.Message)
         }
     } else {
-        # Sans elevation on ne peut pas ecrire la configuration git de la machine. On le
-        # DIT : c'est exactement ce qui rendrait le bouton de mise a jour inexplicable.
+        # Without elevation we cannot write the machine's git configuration. We SAY SO: that is exactly what would
+        # make the update button inexplicable.
         Write-Warn (Get-Label 'install.confiance-demande-elevation')
     }
 }
 
 <#
-    DEPUIS UN DEPOT, L'INSTALLATION DEPLOIE -- ELLE NE FAIT PAS QUE PREPARER.
+    FROM A REPOSITORY, THE INSTALLATION DEPLOYS -- IT DOES NOT MERELY PREPARE.
 
-    « L'installation doit TOUT installer, l'app est prete ensuite. » Or lancee depuis un
-    depot, elle ne copiait RIEN : elle posait les taches, annoncait « De v0.1.31 vers
-    v0.1.31+8 »... et l'installation partagee restait a v0.1.31. Aucune version marquee
-    non plus, puisque c'est le deploiement qui pose le tag.
+    "The installation must install EVERYTHING, the app is ready afterwards." Yet started from a repository it
+    copied NOTHING: it laid the tasks, announced "from v0.1.31 to v0.1.31+8"... and the shared installation stayed
+    at v0.1.31. No version tagged either, since it is the deployment that lays the tag.
 
-    On appelle donc la mise a jour, qui est la SEULE mise en oeuvre du geste : elle marque
-    la version, fabrique l'archive depuis la source declaree, deploie, et relance. On
-    tourne ici sous le compte de la personne, dans son depot : le tag a un auteur.
+    So we call the update, which is the ONLY implementation of the gesture: it tags the version, builds the archive
+    from the declared source, deploys, and restarts. We are running here under the person's account, in their
+    repository: the tag has an author.
 
-    Code 3 = « deja a jour » : ce n'est pas un echec (D77), on continue.
+    Code 3 = "already up to date": that is not a failure (D77), we carry on.
 #>
+
 <#
-    RECUPERER, ARRETER, SAUVEGARDER, POSER, VERIFIER -- DANS CET ORDRE.
+    FETCH, STOP, BACK UP, LAY DOWN, VERIFY -- IN THAT ORDER.
 
-    C'est la sequence cible (doc/progress/targeting/install-update.md). Elle vaut pour les
-    deux points d'entree, `setup.cmd` et le bouton de la carte : ce qui decide d'une etape,
-    ce sont des FAITS -- y a-t-il une installation en place, un depot, quelle source est
-    declaree -- jamais qui appelle.
+    This is the target sequence (doc/progress/targeting/install-update.md). It holds for both entry points,
+    `setup.cmd` and the card's button: what decides a step are FACTS -- is there an installation in place, a
+    repository, which source is declared -- never who is calling.
 
-    L'ORDRE N'EST PAS ARBITRAIRE. On recupere AVANT d'arreter quoi que ce soit : la
-    fabrication est ce qui prend le plus de temps, et Vigie n'a aucune raison d'etre
-    coupee pendant. On ne s'arrete qu'ensuite, le temps de poser les fichiers.
+    THE ORDER IS NOT ARBITRARY. We fetch BEFORE stopping anything at all: the building is what takes the longest,
+    and Vigie has no reason to be cut off during it. We stop only afterwards, for the time it takes to lay the
+    files down.
 #>
+
 <#
-    ON RECUPERE MEME QUAND ON N'EST PAS DANS UN DEPOT.
+    WE FETCH EVEN WHEN WE ARE NOT INSIDE A REPOSITORY.
 
-    Cette etape ne se declenchait que si le dossier courant etait un depot git. Depuis le
-    BOUTON de la carte, l'installation tourne depuis l'installation partagee -- Program
-    Files, aucun .git : elle ne recuperait donc RIEN, ne deployait rien, et se terminait
-    en succes. « L'app est toujours en 0.1.36 au lieu de 0.1.37 » (constate le 31/08) :
-    elle n'avait jamais eu de version a poser.
+    This step fired only if the current folder was a git repository. From the card's BUTTON, the installation runs
+    from the shared installation -- Program Files, no .git: so it fetched NOTHING, deployed nothing, and ended in
+    success. "The app is still on 0.1.36 instead of 0.1.37" (observed on 31/08): it had never had a version to lay
+    down.
 
-    D'ou vient le code ne se deduit pas de l'endroit d'ou l'on lance : c'est un REGLAGE
-    DECLARE (D99). vigie-update sait deja le lire -- clone du depot declare, ou derniere
-    version publiee -- et sait dire « deja a jour » (code 3). On lui laisse trancher.
+    Where the code comes from is not deduced from where one starts: it is a DECLARED SETTING (D99). vigie-update
+    already knows how to read it -- a clone of the declared repository, or the latest published version -- and
+    knows how to say "already up to date" (code 3). We leave the decision to it.
 
-    Seule exception : une premiere installation depuis une archive posee a la main, ou il
-    n'y a ni depot, ni source declaree, ni rien a chercher.
+    The one exception: a first installation from an archive laid down by hand, where there is neither a repository,
+    nor a declared source, nor anything to look for.
 #>
+
 $prepared = $null
 <#
-    RECUPERER LA VERSION A POSER -- ICI, ET NULLE PART AILLEURS.
+    FETCHING THE VERSION TO LAY DOWN -- HERE, AND NOWHERE ELSE.
 
-    C'etait un script a part, vigie-update.ps1, appele en processus fils et dont on lisait
-    la DERNIERE LIGNE pour connaitre le dossier. Un contrat de sortie entre deux scripts
-    du meme depot, alors qu'ils font un seul geste : le 31/08, ce script s'est relaye vers
-    une autre copie de lui-meme dont la sortie ne revenait pas, l'installation a lu une
-    phrase d'information a la place d'un chemin, et cinquante-six secondes de fabrication
-    sont parties a la poubelle. On avait acte sa disparition ; elle est faite.
+    It used to be a separate script, vigie-update.ps1, called as a child process and whose LAST LINE was read to
+    learn the folder. An exit contract between two scripts of the same repository, when they make one single
+    gesture: on 31/08 this script relayed to another copy of itself whose output did not come back, the
+    installation read a line of information instead of a path, and fifty-six seconds of building went into the bin.
+    Its disappearance had been decided; it is done.
 
-    L'etape tourne AVANT tout arret : fabriquer est la partie longue, et Vigie n'a aucune
-    raison d'etre coupee pendant.
+    The step runs BEFORE any stop: building is the long part, and Vigie has no reason to be cut off during it.
 #>
+
+
 $aRecuperer = $false
 try { $aRecuperer = [bool](Get-UpdateRoute -Backend $backend).route } catch { }
 if ($aRecuperer) {
     Write-Step (Get-Label 'install.etape-recuperation')
 
-    # LE CHOIX DE LA MACHINE. Un poste de developpement peut vouloir se comporter comme
-    # une machine d'utilisateur (UpdateSource = 'release'), ou l'inverse.
+    # THE MACHINE'S CHOICE. A development workstation may want to behave like a user's machine (UpdateSource =
+    # 'release'), or the other way round.
     $updateSource = 'auto'
     $updateRef = ''
     try {
@@ -498,14 +495,14 @@ if ($aRecuperer) {
         $choix = "$($cfgMaj.UpdateSource)".Trim()
         if ($choix -and @('auto','release','clone') -contains $choix) {
             $updateSource = $choix
-            # On n'annonce que ce qui CHANGE quelque chose : « auto » est le defaut.
+            # We announce only what CHANGES something: 'auto' is the default.
             if ($choix -ne 'auto') { Write-Detail (Get-Label 'vigie-update.source-imposee-par-la' $choix) }
         }
         if ("$($cfgMaj.UpdateRef)".Trim()) { $updateRef = "$($cfgMaj.UpdateRef)".Trim() }
     } catch { }
 
-    # LA CARTE ET LE BOUTON LISENT LA MEME RESOLUTION (Get-UpdateRoute) : sans cela, la
-    # carte annonce une reference et le bouton va chercher ailleurs.
+    # THE CARD AND THE BUTTON READ THE SAME RESOLUTION (Get-UpdateRoute): without that, the card announces one
+    # reference and the button goes looking elsewhere.
     $route = $updateSource
     if ($route -eq 'auto') {
         if ($updateRef) { $route = 'clone' }
@@ -519,8 +516,8 @@ if ($aRecuperer) {
     # A DEPLOYMENT TAGS NOTHING (D123): 93 tags in three weeks, one per deployment, where 10 to 20 were expected. A tag
     # marks a stable validated version, at its publication, through the action tag-version.
 
-    # LA FABRICATION reste un script a part : elle a sa propre affaire -- git, archive,
-    # verification du contenu -- et elle sert aussi a fabriquer une release a la main.
+    # THE BUILDING stays a separate script: it has its own business -- git, the archive, checking the contents --
+    # and it also serves to build a release by hand.
     $archive = $null
     $fetch = Join-Path $PSScriptRoot 'vigie-fetch.ps1'
     if (-not (Test-Path -LiteralPath $fetch)) {
@@ -534,8 +531,8 @@ if ($aRecuperer) {
         if ($Force)     { $argv += '-Force' }
 
         Write-Detail (Get-Label 'vigie-update.recuperation')
-        # La sortie est LUE : la derniere ligne porte le chemin de l'archive. Le reste est
-        # du recit, qu'on repete pour que le journal en garde la trace.
+        # The output is READ: the last line carries the path of the archive. The rest is narrative, which we repeat
+        # so that the log keeps a trace of it.
         $lignesFetch = & (Get-Process -Id $PID).Path @argv 2>&1
         $codeFetch = $LASTEXITCODE
         foreach ($l in $lignesFetch) {
@@ -544,7 +541,7 @@ if ($aRecuperer) {
         }
 
         if ($codeFetch -eq 3) {
-            # DEJA A JOUR : c'est un succes, et il n'y a rien a poser.
+            # ALREADY UP TO DATE: that is a success, and there is nothing to lay down.
             Write-Ok (Get-Label 'install.deploiement-inutile')
         } elseif ($codeFetch -ne 0) {
             Write-Fail (Get-Label 'install.recuperation-echouee' $codeFetch)
@@ -569,20 +566,20 @@ if ($aRecuperer) {
 }
 
 <#
-    UNE RECUPERATION QUI ECHOUE ARRETE L'INSTALLATION.
+    A FETCH THAT FAILS STOPS THE INSTALLATION.
 
-    Ce repli existe pour le cas « il n'y avait RIEN a recuperer » : une archive extraite a
-    la main, dont le dossier courant EST la version a poser. Il se declenchait aussi quand
-    la recuperation avait ete TENTEE et RATEE -- l'installation posait alors le dossier
-    d'ou elle tournait, c'est-a-dire le depot de developpement.
+    This fallback exists for the case "there was NOTHING to fetch": an archive extracted by hand, whose current
+    folder IS the version to lay down. It also fired when the fetch had been ATTEMPTED and MISSED -- the
+    installation then laid down the folder it was running from, that is, the development repository.
 
-    Constate le 01/09 : la fabrication de v0.1.44 echoue, l'installation continue, arrete
-    Vigie, sauvegarde, copie le depot par-dessus l'installation, constate « version posee
-    v0.1.43 au lieu de v0.1.44 » et restaure. Tout ce travail, et ce risque, pour un
-    echec connu vingt lignes plus haut.
+    Observed on 01/09: the building of v0.1.44 fails, the installation carries on, stops Vigie, backs up, copies
+    the repository over the installation, observes "version laid down v0.1.43 instead of v0.1.44" and restores. All
+    that work, and that risk, for a failure known twenty lines earlier.
 
-    On ne se rabat donc que si l'on n'a RIEN TENTE.
+    So we fall back only if we have attempted NOTHING.
 #>
+
+
 if (-not $prepared -and -not $alreadyThere -and -not $aRecuperer) { $prepared = $repoRoot }
 if ($aRecuperer -and -not $prepared) {
     Write-Fail (Get-Label 'install.recuperation-arrete-tout')
@@ -618,8 +615,8 @@ if ($prepared) {
         try { $hors = Stop-StandaloneClients } catch { }
         if ($hors -gt 0) { Write-Detail (Get-Label 'install.app-clientes-hors-tache' $hors) }
 
-        # L'APP SERVEUR : si elle tient encore le port apres l'arret force, on ne pose
-        # rien -- remplacer ses fichiers sous elle est exactement ce qu'on evite.
+        # THE SERVER APP: if it still holds the port after the forced stop, we lay nothing down -- replacing its
+        # files underneath it is exactly what we are avoiding.
         if (Stop-ServerApp -Backend $backend) {
             Write-Detail (Get-Label 'install.app-serveur-arretee')
         } else {
@@ -676,13 +673,13 @@ if ($prepared) {
                     $null = Set-ComputerConfigValue -Values @{ InstallSource = $origin }
                 }
             } catch { }
-            # CE QUI EST EN PLACE, LU SUR PLACE : la prediction ne sert plus a rien.
+            # WHAT IS IN PLACE, READ IN PLACE: the prediction is no longer of any use.
             try {
                 $stampPose = Get-BuildStamp -Root $destPartagee
                 if ($stampPose -and $stampPose.version) { $versionPosee = "$($stampPose.version)" }
             } catch { }
             if ($backup) {
-                # LA SAUVEGARDE N'EXISTE QUE LE TEMPS DU RISQUE.
+                # THE BACKUP EXISTS ONLY FOR AS LONG AS THE RISK DOES.
                 Remove-Item -LiteralPath $backup -Recurse -Force -ErrorAction SilentlyContinue
             }
             # THE BACKUPS LEFT BY EARLIER FAILED COPIES GO TOO, once a copy is valid: one stayed per version that failed,
@@ -692,14 +689,14 @@ if ($prepared) {
         } else {
             Write-Fail (Get-Label 'install.copie-invalide' $pose)
             if ($backup) {
-                # UNE ETAPE A PART : restaurer n'est pas « poser ». C'est le filet qui se
-                # deploie, et ca doit se voir comme tel dans le deroule.
+                # A STEP OF ITS OWN: restoring is not "laying down". It is the net being spread, and that must show
+                # as such in the sequence.
                 Write-Step (Get-Label 'install.etape-restauration')
                 try {
                     Restore-Install -Backup $backup -Destination $destPartagee
                     Write-Warn (Get-Label 'install.version-restauree')
                 } catch {
-                    # AUCUNE REPRISE AUTOMATIQUE : on dit ou est la sauvegarde.
+                    # NO AUTOMATIC RECOVERY: we say where the backup is.
                     Write-Fail (Get-Label 'install.restauration-echouee' $_.Exception.Message $backup)
                 }
             }
@@ -721,11 +718,11 @@ try {
         Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
     }
 
-    # Chemin AllUsers de reference (partage par tous les PS7).
+    # The reference AllUsers path (shared by every PS7).
     $allUsersPode = Join-Path $env:ProgramFiles 'PowerShell\Modules\Pode'
 
     if ($isAdmin) {
-        # En admin : on garantit une copie AllUsers, visible par tous les PS7.
+        # As an admin: we guarantee an AllUsers copy, visible to every PS7.
         if (Test-Path $allUsersPode) {
             $v = (Get-ChildItem $allUsersPode -Directory -ErrorAction SilentlyContinue | Select-Object -Last 1).Name
             Write-Log -Backend $backend -Name 'install' -Message (Get-Label 'install.pode-allusers-deja-present' $v)
@@ -744,11 +741,10 @@ try {
         }
     }
 
-    # --- DEPENDANCE : PowerShell 7 doit etre installe POUR LA MACHINE -----------
-    # Vigie demarre par une tache planifiee, une par compte. Un pwsh installe pour le
-    # seul compte courant (paquet du Store) vit dans SON profil : la tache des autres
-    # comptes pointerait dans un dossier qu'ils ne peuvent pas lire. On le traite ICI,
-    # a l'installation, plutot que de le decouvrir le jour ou un compte ne demarre pas.
+    # --- A DEPENDENCY: PowerShell 7 must be installed FOR THE MACHINE -----------
+    # Vigie starts through a scheduled task, one per account. A pwsh installed for the current account alone (the
+    # Store package) lives in ITS profile: the other accounts' tasks would point into a folder they cannot read. We
+    # deal with it HERE, at installation time, rather than discovering it the day an account fails to start.
     $pwshMachine = Get-SharedPwshPath
     if ($pwshMachine) {
         Write-Log -Backend $backend -Name 'install' -Message (Get-Label 'install.powershell-machine-present' $pwshMachine)
@@ -769,9 +765,9 @@ try {
         Write-Detail (Get-Label 'install.winget-install-id-microsoft')
     }
 
-    # LA TRACE AVANT LES DROITS. Poser la source du journal des evenements exige
-    # l'elevation : c'est donc ici, une fois, et pas au premier usage. Sans elle, une
-    # action privilegiee ne laisserait qu'une trace dans un fichier -- effacable.
+    # THE TRACE BEFORE THE RIGHTS. Laying down the event log's source demands elevation: so it happens here, once,
+    # and not at the first use. Without it, a privileged action would leave a trace in a file only -- an erasable
+    # one.
     if ($isAdmin) {
         if (Register-VigieEventSource) {
             Write-Log -Backend $backend -Name 'install' -Message (Get-Label 'install.journal-des-evenements-source')
@@ -790,33 +786,33 @@ try {
     $wv = $false; foreach ($k in $wvKeys) { if (Test-Path $k) { $wv = $true } }
     Write-Log -Backend $backend -Name 'install' -Message (Get-Label 'install.webview2-runtime' $(if ($wv) { 'présent' } else { 'absent' }))
 
-    # --- L'INSTALLATION VA JUSQU'AU BOUT ---------------------------------------
-    # « Le script d'install est cense tout faire » : il ne s'arrete donc pas aux
-    # prerequis pour renvoyer l'utilisateur vers deux autres commandes. Il enregistre
-    # le demarrage automatique et lance l'application.
+    # --- THE INSTALLATION GOES ALL THE WAY ---------------------------------------
+    # "The install script is supposed to do everything": so it does not stop at the prerequisites to send the user
+    # off to two other commands. It registers the automatic start and launches the application.
     #
-    # C'est aussi ce qui REPARE une tache existante : elle est reecrite avec
-    # l'interpreteur de la machine. Le 26/08, la tache pointait vers le pwsh du paquet
-    # Store, supprime entre-temps -- Vigie ne demarrait plus du tout, et rien ne le
-    # disait.
-    # LE SERVICE DE MACHINE, prepare mais pas active. Une seule installation : c'est ici
-    # que les nouvelles pieces arrivent, et l'idempotence fait la difference entre une
-    # premiere pose et une mise a jour. La tache est creee DESACTIVEE -- rien ne change au
-    # demarrage tant que la bascule n'est pas faite.
+    # It is also what REPAIRS an existing task: it is rewritten with the machine's interpreter. On 26/08 the task
+    # pointed at the Store package's pwsh, deleted in the meantime -- Vigie no longer started at all, and nothing
+    # said so.
+    # THE MACHINE SERVICE, prepared but not enabled. One single installation: this is where the new pieces arrive,
+    # and idempotence is what makes the difference between a first laying down and an update. The task is created
+    # DISABLED -- nothing changes at start-up until the switch-over is made.
+
+
+
     $service = Join-Path (Join-Path $PSScriptRoot 'lib') 'install-service.ps1'
     if ($isAdmin -and (Test-Path -LiteralPath $service)) {
         try {
-            # ON GARDE CE QUE L'ETAPE AFFICHE. « | Write-Host » le montrait et le perdait :
-            # le journal du 29/08 s'arretait a « WebView2 runtime », juste avant ce bloc,
-            # alors que l'ecran, lui, montrait toute la suite. Un journal qui s'interrompt
-            # avant la partie interessante ne sert a rien -- et c'est precisement celle
-            # qu'on relit quand l'installation s'est mal passee.
-            # ON REFERME NOTRE ETAPE AVANT DE LUI DONNER LA PAROLE.
+            # WE KEEP WHAT THE STEP DISPLAYS. "| Write-Host" showed it and lost it: the log of 29/08 stopped at the
+            # WebView2 runtime, just before this block, while the screen showed everything that followed. A log
+            # that breaks off before the interesting part is useless -- and that is precisely the part one reads
+            # back when an installation went wrong.
+            # WE CLOSE OUR OWN STEP BEFORE GIVING IT THE FLOOR.
             #
-            # Ce script affiche ses PROPRES etapes, dans son propre processus. Notre
-            # conclusion, elle, n'arrive qu'a l'ouverture de l'etape suivante : elle
-            # tombait donc APRES les siennes, et « Pose de la nouvelle version » restait
-            # sans conclusion visible (constate le 01/09).
+            # That script displays its OWN steps, in its own process. Our conclusion, for its part, arrives only
+            # when the next step opens: so it fell AFTER its ones, and the laying down of the new version was left
+            # with no visible conclusion (observed on 01/09).
+
+
             Close-UiStep
             & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $service 2>&1 |
                 ForEach-Object {
@@ -824,10 +820,9 @@ try {
                     Write-Relayed $line
                     try { Write-Log -Backend $backend -Name 'install' -Message $line -NoEcho } catch { }
                 }
-            # ON LIT LE CODE DE RETOUR. Il etait journalise sans etre teste : le 28/08,
-            # l'enregistrement de la tache a echoue et l'installation a fini en vert.
-            # Un code non nul est un ECHEC -- Write-Log ERROR le compte, et le verdict
-            # final ne peut plus l'ignorer.
+            # WE READ THE EXIT CODE. It was logged without being tested: on 28/08 the registration of the task
+            # failed and the installation ended in green. A non-zero code is a FAILURE -- Write-Log ERROR counts
+            # it, and the final verdict can no longer ignore it.
             if ($LASTEXITCODE -eq 0) {
                 Write-Log -Backend $backend -Name 'install' -Message (Get-Label 'install.service-de-machine-pret')
             } else {
@@ -846,14 +841,14 @@ try {
         Write-Detail (Get-Label 'install.relancez-cette-installation-en')
     } elseif (Test-Path -LiteralPath $autostart) {
         Write-Step (Get-Label 'install.demarrage-automatique')
-        # -Yes : on est deja eleve et l'utilisateur a deja consenti en lancant
-        # l'installation ; une seconde fenetre d'explication serait du bruit.
-        # LE RESULTAT SE LIT : 0 = fait, 3 = refuse, le reste est un echec.
-        # POUR QUI : depuis le bouton, celui qui execute est le service ; la tache de
-        # demarrage appartient a la personne qui a demande.
+        # -Yes: we are already elevated and the user already consented by starting the installation; a second
+        # explanation window would be noise.
+        # THE RESULT IS READ: 0 = done, 3 = refused, anything else is a failure.
+        # FOR WHOM: from the button, whoever runs is the service; the start-up task belongs to the person who
+        # asked.
         $argsAuto = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $autostart, '-Yes')
         if ($Requester) { $argsAuto += @('-Account', $Requester) }
-        Close-UiStep   # meme raison : il affiche ses propres etapes
+        Close-UiStep   # the same reason: it displays its own steps
         & (Get-Process -Id $PID).Path @argsAuto
         $autostartCode = $LASTEXITCODE
         <#
@@ -890,14 +885,13 @@ try {
     }
 
     <#
-        LES TACHES DES AUTRES COMPTES SE REPARENT AUSSI.
+        THE OTHER ACCOUNTS' TASKS ARE REPAIRED TOO.
 
-        L'etape precedente n'enregistre que celle du compte courant. Les autres pointent
-        peut-etre encore sur un ancien emplacement -- c'est arrive le 30/08, ou la tache
-        lancait le depot au lieu de l'installation partagee -- et personne ne les
-        corrigerait jamais.
+        The previous step registers the current account's only. The others may still point at an old location -- it
+        happened on 30/08, where the task started the repository instead of the shared installation -- and nobody
+        would ever fix them.
 
-        Les reenregistrer est idempotent : c'est le meme geste que les activer.
+        Re-registering them is idempotent: it is the same gesture as enabling them.
     #>
     $autres = @()
     try { $autres = @(Get-EnabledAccounts -Backend $backend | Where-Object { "$($_.name)" -ne (Get-ProcessAccount) }) } catch { }
@@ -911,16 +905,15 @@ try {
     }
 
     <#
-        ON REDEMARRE CE QU'ON A ARRETE.
+        WE RESTART WHAT WE STOPPED.
 
-        Les app clientes des autres comptes ont ete arretees pour ne pas remplacer leurs
-        fichiers sous elles ; celle du compte courant vient d'etre relancee par sa tache.
-        On declenche donc les autres -- ce qu'un administrateur peut faire.
+        The other accounts' client apps were stopped so as not to replace their files underneath them; the current
+        account's has just been restarted by its task. So we trigger the others -- which an administrator can do.
 
-        Une tache d'app cliente est INTERACTIVE : sans session ouverte chez ce compte,
-        Windows refuse. Ce n'est pas une erreur, son app repartira a sa prochaine
-        ouverture, avec le nouveau code.
+        A client app's task is INTERACTIVE: without a session open on that account, Windows refuses. That is not an
+        error, its app will set off again at its next logon, with the new code.
     #>
+
     if ($stopped -and @($stopped).Count) {
         $me = Get-ProcessAccount
         $toStart = @($stopped | Where-Object { "$($_.name)" -ne $me })
@@ -931,26 +924,26 @@ try {
     }
 
     <#
-        LA CARTE NE DOIT PAS RESTER SUR L'ETAT D'AVANT.
+        THE CARD MUST NOT STAY ON THE STATE OF BEFORE.
 
-        Deux mensonges constates le 31/08, apres un setup.cmd qui s'etait bien passe :
-        la carte annoncait « Installation partagee v0.1.33 » alors que le pied de page
-        disait v0.1.34 -- son rendu venait du cache, calcule avant le deploiement -- et
-        elle affichait encore « ECHEC le 31/08/2026 09:27 -- code de sortie 5 », le
-        resultat d'une tentative precedente, comme s'il decrivait l'etat actuel.
+        Two lies observed on 31/08, after a setup.cmd that had gone well: the card announced a shared installation
+        at v0.1.33 while the page footer said v0.1.34 -- its rendering came from the cache, computed before the
+        deployment -- and it still showed the failure of 09:27 with exit code 5, the result of an earlier attempt,
+        as if it described the present state.
 
-        Une installation qui reussit efface donc le dernier resultat de ce geste et fait
-        recalculer la carte. Lancee depuis le bouton, c'est le veilleur qui inscrira le
-        resultat reel apres nous.
+        So an installation that succeeds erases the last result of this gesture and has the card recomputed.
+        Started from the button, it is the watcher that will write the real result in after us.
 
-        ON NETTOIE LA OU LA CARTE LIT. Le var d'une installation dans Program Files vit
-        dans le profil du compte qui EXECUTE, donc celui du SERVICE -- pas le notre, alors
-        que l'installation tourne sous la personne qui a clique. On vise donc les deux :
-        le var du service, et celui d'ici pour le cas ou Vigie est lancee depuis le depot.
+        WE CLEAN WHERE THE CARD READS. The var of an installation inside Program Files lives in the profile of the
+        account that RUNS, so the SERVICE's -- not ours, while the installation runs under the person who clicked.
+        So we aim at both: the service's var, and the one here for the case where Vigie is started from the
+        repository.
     #>
+
+
     $failuresBeforeVerdict = Get-UiFailureCount
     if ($failuresBeforeVerdict -eq 0) {
-        $varRoots = @($null)   # $null = notre propre var, deduit du backend
+        $varRoots = @($null)   # $null = our own var, deduced from the server app
         try {
             $serviceVar = Get-AccountVarRoot -Account (Get-ServiceAccountName)
             if ($serviceVar) { $varRoots += $serviceVar }
@@ -961,61 +954,59 @@ try {
         }
 
         <#
-            ON NE RECALCULE RIEN ICI.
+            WE RECOMPUTE NOTHING HERE.
 
-            L'installation vide le rendu de ces deux cartes -- il decrivait la version
-            d'avant -- et s'arrete la. C'est LA PAGE qui redemande une carte marquee « pas
-            encore mesuree », carte par carte, quand quelqu'un la regarde.
+            The installation empties the rendering of those two cards -- it described the version from before -- and
+            stops there. It is THE PAGE that asks again for a card marked as not yet measured, card by card, when
+            somebody looks at it.
 
-            J'avais fait redemander ces deux cartes par l'installation : personne ne l'avait
-            demande, et c'est un recalcul automatique de plus -- exactement ce qui a ete
-            interdit. Une installation installe ; elle ne mesure pas.
+            I had made the installation ask for those two cards again: nobody had asked for that, and it is one more
+            automatic recomputation -- exactly what was forbidden. An installation installs; it does not measure.
         #>
+
     }
-    # LE VERDICT SE CALCULE. Write-Outcome compte ce que Write-Fail et Write-Warn ont
-    # affiche : aucune installation ne peut plus finir en vert avec un echec derriere elle.
+    # THE VERDICT IS COMPUTED. Write-Outcome counts what Write-Fail and Write-Warn displayed: no installation can
+    # end in green any more with a failure behind it.
     $failures = Get-UiFailureCount
     $warnings = Get-UiWarningCount
     Write-Outcome -What (Get-Label 'install.verdict') `
                   -NextStep (Get-Label 'install.verdict-panneau')
 
     <#
-        LE VERROU SE LIBERE ICI : L'INSTALLATION EST FINIE.
+        THE LOCK IS RELEASED HERE: THE INSTALLATION IS FINISHED.
 
-        Il etait rendu apres la fenetre de fin -- qui attend un clic. Tant que personne ne
-        la fermait, le poste se croyait en cours d'installation : le bouton de la carte
-        repondait « une installation est deja en cours » et rendait le code 4, dix minutes
-        apres que tout etait pose (constate le 31/08 : verrou tenu par le pwsh de 10:49,
-        toujours vivant, fenetre ouverte).
+        It used to be given back after the closing window -- which waits for a click. As long as nobody closed it,
+        the workstation believed itself to be installing: the card's button answered that an installation was
+        already under way and returned code 4, ten minutes after everything was laid down (observed on 31/08: the
+        lock held by the pwsh of 10:49, still alive, its window open).
 
-        Ce qui suit -- le verdict affiche, une fenetre, un journal referme -- ne modifie
-        plus rien. Ce n'est pas l'installation, c'est son compte rendu.
+        What follows -- the verdict displayed, a window, a log closed -- changes nothing any more. It is not the
+        installation, it is its report.
     #>
+
     Unlock-Install
 
     <#
-        ET UNE FENETRE, PAS UN « APPUYEZ SUR UNE TOUCHE ».
+        AND A WINDOW, NOT A "PRESS ANY KEY".
 
-        L'installation se lance par un double-clic : elle doit se conclure comme une
-        application, pas comme un script. La fenetre dit ce qui a ete fait et ce qui
-        reste a savoir ; la console garde le detail pour qui veut le lire.
+        The installation is started by a double click: it must conclude like an application, not like a script. The
+        window says what was done and what remains to be known; the console keeps the detail for whoever wants to
+        read it.
 
-        SI ELLE NE PEUT PAS S'AFFICHER -- pas d'interface, session sans bureau -- on ne
-        bloque rien : la conclusion est deja a l'ecran, et setup.cmd garde son « pause »
-        pour les cas d'echec.
+        IF IT CANNOT BE SHOWN -- no interface, a session without a desktop -- we block nothing: the conclusion is
+        already on the screen, and setup.cmd keeps its pause for the failure cases.
     #>
     try {
         $window = Join-Path $PSScriptRoot 'lib/show-confirm.ps1'
         if ((Test-Path -LiteralPath $window) -and -not $NoWindow) {
-            # ON PASSE LES CLES, PAS LES TEXTES : voir show-confirm.ps1, les accents ne
-            # survivent pas a une ligne de commande.
+            # WE PASS THE KEYS, NOT THE TEXTS: see show-confirm.ps1, accents do not survive a command line.
             <#
-                INSTALLATION OU MISE A JOUR : LA FENETRE LE DIT AUSSI.
+                INSTALLATION OR UPDATE: THE WINDOW SAYS SO TOO.
 
-                Elle annoncait « Vigie est installée » apres une mise a jour, et son texte
-                presentait le produit a quelqu'un qui l'utilise depuis des semaines. Ce
-                qu'on veut savoir dans ce cas, c'est ce qui a CHANGE.
+                It announced that Vigie was installed after an update, and its text introduced the product to
+                somebody who has been using it for weeks. What one wants to know in that case is what has CHANGED.
             #>
+
             $titleKey = if ($failures -gt 0) { 'install.fenetre-titre-echec' }
                         elseif ($warnings -gt 0) { 'install.fenetre-titre-reserve' }
                         elseif ($isUpdate) { 'install.fenetre-titre-maj' }
@@ -1023,12 +1014,12 @@ try {
             $summaryKey = if ($failures -gt 0) { 'install.fenetre-resume-echec' }
                           elseif ($isUpdate) { 'install.fenetre-resume-maj' }
                           else { 'install.fenetre-resume' }
-            # L'ESSENTIEL SE LIT, LE RESTE SE DEPLIE. Ce qu'on veut savoir tient en une
-            # phrase ; les chemins et les noms de taches servent apres, si ca cloche.
-            # L'URL VIENT DE LA CONFIGURATION, jamais d'une constante recopiee : le port
-            # est un reglage, et un texte qui le repete finit par mentir.
+            # THE ESSENTIAL IS READ, THE REST UNFOLDS. What one wants to know fits in one sentence; the paths and
+            # the task names serve afterwards, if something is wrong.
+            # THE URL COMES FROM THE CONFIGURATION, never from a copied constant: the port is a setting, and a text
+            # that repeats it ends up lying.
             $url = try { Get-AppUrl -Config (Get-Config -Backend $backend) } catch { '' }
-            # « De v0.1.31 vers v0.1.32 » : le seul detail qui compte apres une mise a jour.
+            # The versions, from one to the other: the only detail that counts after an update.
             # THE END WINDOW CONCLUDES: setup.cmd no longer needs to hold the console open on a failure.
             try { [IO.File]::WriteAllText((Join-Path $env:TEMP 'vigie-install-concluded.flag'), (Get-Date).ToString('o')) } catch { }
             $versions = if ($isUpdate -and $versionPosee) {
@@ -1048,14 +1039,14 @@ try {
 catch {
     Write-Log -Backend $backend -Name 'install' -Level 'ERROR' -Message (Get-Label 'install.fatal' $_.Exception.Message)
     Write-Fail ($_ | Out-String)
-    # ON SORT EN ECHEC. Le bloc se contentait d'afficher l'erreur : le script rendait 0,
-    # et le lanceur enchainait comme si tout allait bien.
+    # WE EXIT IN FAILURE. The block merely displayed the error: the script returned 0, and the launcher carried on
+    # as if all was well.
     try { Stop-Transcript | Out-Null } catch { }
     exit 1
 }
 finally {
-    # LE VERROU SE LIBERE TOUJOURS, quel que soit le chemin de sortie -- succes, echec, ou
-    # exception. Un verrou oublie bloque toutes les installations suivantes.
+    # THE LOCK IS ALWAYS RELEASED, whatever the road out -- success, failure, or an exception. A forgotten lock
+    # blocks every installation that follows.
     try { Unlock-Install } catch { }
     try { Stop-Transcript | Out-Null } catch { }
 }
