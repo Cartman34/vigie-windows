@@ -3,14 +3,13 @@
 # @libelle: Redémarrer Windows | confirm | fix   -- affiche quand un champ cite cette action (D66)
 <# Action : redemarrer Windows.
 
-   C'est le geste le plus intrusif de l'application : il ferme tout ce que l'utilisateur a
-   ouvert. Trois precautions, dans cet ordre :
+   Intent: make the most intrusive gesture of the application safe. It closes everything the user has open.
+   Three precautions, in this order:
 
-   1. l'interface demande DEUX confirmations distinctes (contrat : confirmTwice) ;
-   2. le redemarrage est DIFFERE de 60 secondes, pas immediat ;
-   3. il reste ANNULABLE pendant ce delai (action system-restart-cancel).
+   2. the restart is DEFERRED by 60 seconds, not immediate;
+   3. it stays CANCELLABLE during that delay (the system-restart-cancel action).
 
-   Un redemarrage immediat et irrevocable derriere un seul clic serait un piege.
+   An immediate and irrevocable restart behind a single click would be a trap.
 #>
 param([string]$Module, [hashtable]$Params)
 $backend = Split-Path $PSScriptRoot -Parent
@@ -21,7 +20,7 @@ if ($Params -and $Params.delay) {
     try { $d = [int]$Params.delay; if ($d -ge 0 -and $d -le 3600) { $delai = $d } } catch { }
 }
 
-# shutdown.exe plutot que Restart-Computer : lui seul sait DIFFERER et se laisser annuler.
+# shutdown.exe rather than Restart-Computer: it alone knows how to DEFER and to let itself be cancelled.
 $r = Invoke-Native -File 'shutdown.exe' -Arguments @(
     '/r', '/t', "$delai", '/c', "Redemarrage demande depuis Vigie : le travail en cours est a enregistrer."
 )

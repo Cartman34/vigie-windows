@@ -1,8 +1,8 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
-<# Action : verifie (en tache de fond) les MAJ d'UN gestionnaire.
-   Gestionnaire deduit du module clique (pkg-<id>) ou de params.mgr.
-   Reponse immediate (async) : la carte passe en "en cours" et s'actualise seule. #>
+<# An action: it checks ONE manager's updates (in the background).
+   Intent: answer at once and let the card follow. The manager is deduced from the module that was clicked
+   (pkg-<id>) or from params.mgr. An immediate answer (async): the card goes to "under way" and refreshes itself. #>
 param([string]$Module, [hashtable]$Params)
 $backend = Split-Path $PSScriptRoot -Parent
 . (Join-Path $backend 'lib/common.ps1')

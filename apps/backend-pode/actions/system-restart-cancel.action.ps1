@@ -1,9 +1,9 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
-<# Action : annuler un redemarrage programme.
+<# An action: it cancels a scheduled restart.
 
-   Contrepartie indispensable de system-restart : un compte a rebours qu'on ne peut pas
-   arreter n'est pas un delai de grace, c'est un piege a retardement.
+   Intent: be the indispensable counterpart of system-restart -- a countdown one cannot stop is not a grace
+   period, it is a delayed trap. Usage: it is called from the card that offered the restart.
 #>
 param([string]$Module, [hashtable]$Params)
 $backend = Split-Path $PSScriptRoot -Parent
@@ -12,7 +12,7 @@ $backend = Split-Path $PSScriptRoot -Parent
 $r = Invoke-Native -File 'shutdown.exe' -Arguments @('/a')
 $file = Get-VarPath -Backend $backend -Kind 'cache' -File 'restart.json'
 
-# Code 1116 = « aucun arret en cours » : ce n'est pas une panne, c'est deja l'etat voulu.
+# Code 1116 = "no shutdown in progress": that is not a breakdown, it is already the wanted state.
 if (-not $r.Ok -and $r.ExitCode -ne 1116) {
     return @{
         message = "L'annulation a échoué (code $($r.ExitCode)). $($r.Output)"

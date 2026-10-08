@@ -2,19 +2,19 @@
 # @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 # @libelle: Mettre à jour | dialog | fix   -- affiche quand un champ cite cette action (D66)
 # @execution: session   -- son repli interroge le gestionnaire, qui appartient a la session (D128)
-<# Action : liste les paquets a mettre a jour d'UN gestionnaire, pour la fenetre de choix.
+<# An action: it lists ONE manager's packages to be updated, for the window of choice.
 
-   LECTURE SEULE. Jumelle de wu-list-pending : renvoie result.choose = $true, l'action a
-   rappeler avec la selection (result.action) et la liste (result.updates).
+   Intent: let somebody choose what to update without paying the network's price at the moment of the click.
+   READ ONLY. The twin of wu-list-pending: it returns result.choose = $true, the action to call back with the
+   selection (result.action) and the list (result.updates).
+   Usage: it is called by the interface when the window of choice opens. The list comes from the CACHE written by
+   the last check (pkgupdates.json): the check itself is slow and uses the network. Running a winget command at
+   the moment of the click would make the user wait without teaching them anything new. If the cache does not
+   carry identifiers yet (a cache written by an earlier version), we read live.
 
-   La liste vient du CACHE ecrit par la derniere verification (pkgupdates.json) : la
-   verification, elle, est lente et reseau. Relancer une commande winget au moment du clic
-   ferait attendre l'utilisateur sans rien lui apprendre de neuf. Si le cache ne porte pas
-   encore d'identifiants (cache ecrit par une version anterieure), on lit en direct.
-
-   Gestionnaire qui ne sait PAS cibler un paquet : la liste est quand meme affichee, mais
-   verrouillee (tout coche, rien de decochable) et la fenetre le DIT. Montrer une liste
-   decochable qui serait ensuite ignoree serait un mensonge d'interface.
+   A manager that does NOT know how to target one package: the list is still displayed, but locked (everything
+   ticked, nothing unticked) and the window SAYS SO. Showing an untickable list that would then be ignored would
+   be a lie of the interface. #>
 #>
 param([string]$Module, [hashtable]$Params)
 $backend = Split-Path $PSScriptRoot -Parent
@@ -34,7 +34,7 @@ if (-not $selectable -and -not $upSupported) {
     return @{ message = "Mise à jour automatique non prise en charge pour $($mg.label)."; result = @{ ok = $false } }
 }
 
-# 1) Le cache de la derniere verification.
+# 1) The cache of the last check.
 $updates = @()
 $verifieLe = ''
 $outFile = Get-VarPath -Backend $backend -Kind 'cache' -File 'pkgupdates.json'
@@ -54,7 +54,7 @@ if (Test-Path -LiteralPath $outFile) {
     } catch { }
 }
 
-# 2) Repli : lecture en direct si le cache ne porte aucun identifiant.
+# 2) A fallback: read live if the cache carries no identifier.
 # THAT FALLBACK IS WHY THIS ACTION RUNS IN A SESSION: it questions the manager itself, and one installed in a
 # profile answers only there (D128).
 if (-not $updates.Count) {
@@ -69,8 +69,8 @@ if (-not $updates.Count) {
     } catch { }
 }
 
-# L'ECHEC PRECEDENT d'un paquet se repete sur SA ligne : relancer sans le savoir menerait
-# au meme resultat (constate avec Edge : technologie d'installation differente).
+# A package's PREVIOUS FAILURE is repeated on ITS line: starting again without knowing would lead to the same
+# result (observed with one browser: a different installation technology).
 try {
     $cacheMaj = $null
     $fc = Get-VarPath -Kind 'cache' -File 'pkgupdates.json'
@@ -80,10 +80,10 @@ try {
         foreach ($upd in $updates) {
             if (@($cacheMaj.last.failed) -contains $upd.id) {
                 $r1 = if ($cacheMaj.last.reasons) { $cacheMaj.last.reasons."$($upd.id)" } else { $null }
-                # « Deja a jour » : on RETIRE la ligne au lieu de la presenter en echec.
-                # Proposer une mise a jour accomplie, puis l'accuser d'avoir echoue, c'est
-                # deux erreurs a la suite -- constate avec Edge, qui s'etait mis a jour par
-                # son propre canal entre la verification et le clic.
+                # "Already up to date": we REMOVE the line instead of presenting it as a failure. Offering an
+                # update that is already done, then accusing it of having failed, is two mistakes in a row --
+                # observed with a browser that had updated itself through its own channel between the check and
+                # the click.
                 if (Test-PkgFailureIsDone -Reason $r1) { $aRetirer += $upd.id; continue }
                 $avis = Get-PkgFailureAdvice -Reason $r1
                 $upd.detail = ("$($upd.detail) — ÉCHEC précédent" + $(if ($avis) { ". $avis" } elseif ($r1) { " : $r1" } else { "" })).Trim(' —')
@@ -93,8 +93,8 @@ try {
     }
 } catch { }
 
-# 3) Dernier repli : le gestionnaire ne rend AUCUN identifiant (mode 'lines'). On propose
-#    quand meme la mise a jour globale, en une seule ligne verrouillee et nommee.
+# 3) The last fallback: the manager returns NO identifier at all (the 'lines' mode). We still offer the global
+#    update, as one single locked and named line.
 if (-not $updates.Count -and -not $selectable -and $upSupported) {
     $updates += [ordered]@{ id = '*'; titre = "Tous les paquets de $($mg.label)"; detail = '' }
 }
@@ -104,10 +104,9 @@ $intro = if ($selectable) {
 } else {
     "$($mg.label) ne sait pas mettre à jour un paquet en particulier : la liste est fournie pour information et TOUS les paquets seront mis à jour. La mise à jour continue même si cette fenêtre se ferme."
 }
-# L'AGE de la liste, en francais et en clair. Elle s'affichait telle que JSON l'avait
-# relue -- « 08/25/2026 10:12:03 », un format americain que personne ne lit ici -- et
-# rien ne disait qu'elle datait de la veille. Or c'est justement ce qui trompe : une
-# liste d'hier propose des mises a jour deja faites depuis.
+# The AGE of the list, in plain words. It used to be displayed as JSON had read it back -- an American date
+# format nobody reads here -- and nothing said it dated from the day before. Yet that is precisely what misleads:
+# yesterday's list offers updates that have been done since.
 if ($verifieLe) {
     $quand = $null
     try { $quand = [datetime]::Parse($verifieLe, [Globalization.CultureInfo]::InvariantCulture) } catch { }

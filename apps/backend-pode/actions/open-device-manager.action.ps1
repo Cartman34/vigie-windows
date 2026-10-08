@@ -2,12 +2,12 @@
 # @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 # @execution: session   -- ouvre une fenetre : elle doit s'afficher chez le DEMANDEUR
 # @libelle: Gestionnaire de périphériques | manual | info   -- affiche quand un champ cite cette action (D66)
-<# Action : ouvre le Gestionnaire de peripheriques de Windows.
+<# An action: it opens Windows's Device Manager.
 
-   Resolution proposee quand un adaptateur graphique manque ou que l'outil du pilote est
-   absent : c'est la ou Windows montre l'etat du materiel et propose la mise a jour du
-   pilote. Un compte standard peut l'ouvrir (Windows le passe en lecture seule) : on ne
-   lui interdit donc pas ce que Windows lui accorde (D65). #>
+   Intent: lead the user to where Windows shows the state of the hardware and offers the driver update. It is
+   offered as the resolution when a graphics adapter is missing or the driver's tool is absent. A standard
+   account can open it (Windows puts it in read-only mode): so we do not forbid what Windows grants them (D65).
+   Usage: it is cited by the Gaming card. #>
 param([string]$Module, [hashtable]$Params)
 try {
     Start-ChildProcess -FilePath 'mmc.exe' -Arguments @('devmgmt.msc')

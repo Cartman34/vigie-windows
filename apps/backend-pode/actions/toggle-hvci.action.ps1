@@ -1,11 +1,11 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @droits: admin   -- modifie le systeme : Windows exige l'elevation (D65)
-<# Action toggle-hvci : active ou desactive l'integrite memoire (HVCI).
+<# The toggle-hvci action: it switches memory integrity (HVCI) on or off.
 
-   Capacite NATIVE du produit : aucune dependance a un outillage hors depot. Toute la
-   logique (elevation, sauvegarde du registre, ecriture, relecture, compte rendu) vit
-   dans Invoke-DeviceGuardToggle / Set-DeviceGuardFeature (lib/common.ps1) -- les deux
-   bascules ne different que par le nom de la fonction visee. #>
+   Intent: be a NATIVE ability of the product -- no dependency on tooling outside the repository. All the
+   reasoning (the elevation, the registry backup, the write, the read-back, the report) lives in
+   Invoke-DeviceGuardToggle / Set-DeviceGuardFeature (lib/common.ps1) -- the two switches differ only by the name
+   of the function they aim at. Usage: it is called from the Virtualisation security card. #>
 param([string]$Module, [hashtable]$Params)
 $backend = Split-Path $PSScriptRoot -Parent
 . (Join-Path $backend 'lib/common.ps1')

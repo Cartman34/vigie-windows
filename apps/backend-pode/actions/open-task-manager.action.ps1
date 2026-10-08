@@ -2,11 +2,11 @@
 # @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 # @execution: session   -- ouvre une fenetre : elle doit s'afficher chez le DEMANDEUR
 # @libelle: Gestionnaire des tâches | manual | info   -- affiche quand un champ cite cette action (D66)
-<# Action : ouvre le Gestionnaire des taches de Windows.
+<# An action: it opens Windows's Task Manager.
 
-   C'est la resolution proposee quand des applications pompent les ressources pendant une
-   partie : Vigie DIT lesquelles, l'utilisateur ferme ce qu'il veut. Vigie ne tue aucun
-   processus a sa place -- fermer une application est une decision, pas un automatisme. #>
+   Intent: lead the user there rather than act in their place. It is the resolution offered when applications are
+   draining the resources during a game: Vigie SAYS which ones, the user closes what they want. Vigie kills no
+   process in their place -- closing an application is a decision, not an automatism. Usage: cited by the cards. #>
 param([string]$Module, [hashtable]$Params)
 try {
     Start-Process 'taskmgr.exe'

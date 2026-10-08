@@ -1,10 +1,10 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @droits: admin   -- modifie le systeme : Windows exige l'elevation (D65)
-<# Action : lance une recherche EN LIGNE des mises a jour Windows.
+<# An action: it starts an ONLINE search for Windows updates.
 
-   A ne pas confondre avec ce qu'affiche la carte : celle-ci lit le cache LOCAL de Windows
-   Update, instantanement. Cette action interroge les serveurs Microsoft, ce qui prend des
-   minutes -- d'ou le worker detache et l'etat « en cours » sur la carte.
+   Intent: see what the card cannot. Not to be confused with what the card displays: the card reads Windows
+   Update's LOCAL cache, instantaneously. This action questions Microsoft's servers, which takes minutes --
+   hence the detached worker and the "under way" state on the card.
 #>
 param([string]$Module, [hashtable]$Params)
 $backend = Split-Path $PSScriptRoot -Parent

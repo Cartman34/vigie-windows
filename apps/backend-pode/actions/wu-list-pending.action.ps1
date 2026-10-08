@@ -1,14 +1,12 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
-<# Action : liste les mises a jour Windows detectees et NON installees.
+<# An action: it lists the Windows updates that were detected and NOT installed.
 
-   LECTURE SEULE. Sert a remplir la fenetre de choix de l'interface : on ne peut pas
-   demander a l'utilisateur QUOI installer sans lui montrer la liste avec un identifiant
-   stable par ligne.
-
-   ELLE NE CONSTRUIT PLUS LA LISTE ELLE-MEME. Get-PendingUpdateList la fabrique une fois
-   pour la carte ET pour cette fenetre : les deux ont compte chacun de leur cote jusqu'au
-   11/09, la carte annoncait 49 et la fenetre en proposait 48.
+   Intent: let somebody be asked WHAT to install, which is impossible without showing them the list with a
+   stable identifier per line. READ ONLY.
+   Usage: it fills the interface's window of choice. IT NO LONGER BUILDS THE LIST ITSELF.
+   Get-PendingUpdateList builds it once for the card AND for this window: the two counted on their own side
+   until 11/09, the card announcing 49 while the window offered 48. #>
 #>
 param([string]$Module, [hashtable]$Params)
 $backend = Split-Path $PSScriptRoot -Parent
@@ -22,8 +20,8 @@ if (-not $pending.ok) {
     }
 }
 
-# Le verrouillage des taches (Mode MAJ) empeche l'installation : on le DIT ici plutot que
-# de laisser l'installation echouer sans explication.
+# Locking the tasks (Update Mode) prevents the installation: we SAY SO here rather than let the installation fail
+# with no explanation.
 $lock = $false
 try { $lock = Test-UpdateTasksAclLock } catch { }
 

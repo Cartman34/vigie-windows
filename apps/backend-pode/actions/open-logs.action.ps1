@@ -2,10 +2,10 @@
 # @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 # @execution: session   -- ouvre une fenetre : elle doit s'afficher chez le DEMANDEUR
 # @libelle: Ouvrir les journaux | manual | info   -- affiche quand un champ cite cette action (D66)
-<# Action : ouvre le dossier des journaux de CE compte dans l'explorateur.
+<# An action: it opens THIS account's logs folder in Explorer.
 
-   Les journaux vivent par compte (Get-VarRoot) : on ouvre ceux du compte qui execute le
-   serveur, pas un dossier devine. #>
+   Intent: open the right folder and not a guessed one. The logs live per account (Get-VarRoot): we open those of
+   the account that runs the server. Usage: it is cited by the Debugging card. #>
 param([string]$Module, [hashtable]$Params)
 
 $backend = Split-Path $PSScriptRoot -Parent

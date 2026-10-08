@@ -1,17 +1,15 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @droits: admin   -- installe un logiciel pour toute la machine : Windows exige l'elevation (D65)
 # @libelle: Installer PowerShell 7 pour la machine | confirm | fix   -- affiche quand un champ cite cette action (D66)
-<# Action : installe PowerShell 7 pour TOUTE LA MACHINE (winget, portee machine).
+<# An action: it installs PowerShell 7 for THE WHOLE MACHINE (winget, machine scope).
 
-   Pourquoi cette action existe : les taches de demarrage des autres comptes lancent pwsh.
-   Quand PowerShell 7 vient du Store, son chemin vit dans le profil de celui qui l'a
-   installe -- illisible pour les autres, et l'alias renvoie a un paquet MSIX enregistre
-   pour lui seul. La tache se cree sans erreur et ne lance rien : Vigie ne demarre pas,
-   sans message (constate le 26/08 avec le compte Famille).
-
-   L'installation MSI, elle, pose pwsh sous Program Files : tous les comptes peuvent le
-   lancer. Tache de fond, sortie dans un fichier journal (jamais dans un tuyau que
-   personne ne lit : ca bloque le processus). #>
+   Intent: make sure every account's start-up task can start pwsh. When PowerShell 7 comes from the Store, its
+   path lives in the profile of whoever installed it -- unreadable to the others, and the alias points at an MSIX
+   package registered for them alone. The task is created without an error and starts nothing: Vigie does not
+   start, with no message (observed on 26/08 with one of the accounts).
+   Usage: it is called from the Deployment card's button. An MSI installation lays pwsh under Program Files:
+   every account can start it. It runs in the background, its output going into a log file (never into a pipe
+   nobody reads: that blocks the process). #>
 param([string]$Module, [hashtable]$Params)
 
 $backend = Split-Path $PSScriptRoot -Parent
@@ -31,9 +29,9 @@ $journal = Join-Path (Get-LogDir -Backend $backend) ('pwsh-install_' + (Get-Date
 
 $lance = $false
 try {
-    # Le veilleur attend la fin et RAPPORTE le code de sortie (D82). L'ancienne version
-    # lancait winget et l'oubliait : l'echec du 26/08 (0x80070005, qui avait au passage
-    # desinstalle le PowerShell existant) n'a produit ni ligne rouge ni notification.
+    # The watcher waits for the end and REPORTS the exit code (D82). The old version started winget and forgot
+    # about it: the failure of 26/08 (0x80070005, which had uninstalled the existing PowerShell on the way)
+    # produced neither a red line nor a notification.
     $lance = [bool](Start-Operation -Module 'deployment' -Probes @('deployment.probe.ps1') `
                         -Label 'Installation de PowerShell 7' -Action 'pwsh-install-machine' `
                         -File $winget.Source -Arguments (Get-SharedPwshInstallArgs) `

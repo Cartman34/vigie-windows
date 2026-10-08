@@ -3,44 +3,40 @@
 # @execution: serveur   -- c'est le serveur lui-meme qui doit agir, pas une app cliente
 # @libelle: Redémarrer le serveur | confirm | fix   -- the words of the client app menu, for the same gesture (D66)
 <#
-    Action server-restart : LE SERVEUR SE RELANCE LUI-MEME.
+    The server-restart action: THE SERVER RESTARTS ITSELF.
 
-    POURQUOI PAS L'APP CLIENTE. Jusqu'ici, « Redemarrer le serveur » etait fait par l'app cliente : il
-    tuait le processus et en lancait un autre. Or start.ps1 exige l'elevation -- donc,
-    depuis un compte standard, une fenetre UAC reclamant les identifiants d'un
-    administrateur. Pour un geste aussi banal que relancer l'application.
+    Intent: make restarting the application a banal gesture for every account. WHY NOT THE CLIENT APP. Until now,
+    restarting the server was done by the client app: it killed the process and started another. But start.ps1
+    demands elevation -- so, from a standard account, a UAC window asking for an administrator's credentials. For
+    a gesture as ordinary as restarting the application.
 
-    Le serveur, LUI, est deja eleve. Il peut donc lancer son successeur avec ses propres
-    droits : personne n'a rien a autoriser. C'est la voie normale, et elle marche pour
-    tous les comptes.
+    The server, for ITS part, is already elevated. So it can start its successor with its own rights: nobody has
+    anything to authorise. That is the normal road, and it works for every account.
 
-    Le cas ou le serveur est MORT reste different : il n'y a alors personne pour se
-    relancer, et c'est à l'app cliente de demander l'elevation. Mais ce cas n'est jamais arrive.
+    The case where the server is DEAD stays different: there is then nobody to restart itself, and it is up to
+    the client app to ask for the elevation. But that case has never happened.
 
-    COMMENT. On ne peut pas se tuer et se relancer soi-meme : le processus qui meurt
-    n'execute plus rien. Un RELANCEUR detache s'en charge -- il attend que le port se
-    libere, puis demarre le nouveau serveur. Il attend le port et non un delai fixe :
-    deux serveurs sur le meme port, c'est le second qui meurt.
+    HOW. One cannot kill and restart oneself: the process that dies runs nothing any more. A detached RELAUNCHER
+    takes care of it -- it waits for the port to be released, then starts the new server. It waits for the port
+    and not for a fixed delay: with two servers on the same port, the second one dies.
 #>
 param([string]$Module, [hashtable]$Params)
 $backend = Split-Path $PSScriptRoot -Parent
 . (Join-Path $backend 'lib/common.ps1')
 
 <#
-    UNE OPERATION EN COURS N'EST PAS COUPEE A LA LEGERE.
+    AN OPERATION UNDER WAY IS NOT CUT OFF LIGHTLY.
 
-    Relancer pendant un deploiement laisse une installation a moitie faite, et c'est
-    difficile a rattraper. On refuse donc, EN NOMMANT l'operation -- « Reessayez a la
-    fin » sans dire de quoi ne sert a rien.
+    Restarting during a deployment leaves an installation half done, and that is hard to recover from. So we
+    refuse, NAMING the operation -- "try again at the end" without saying of what is of no use.
 
-    « force » passe outre : c'est l'issue de secours quand l'operation est justement ce
-    qui est bloque. Le choix appartient a la personne, pas a nous ; on lui donne les
-    faits pour qu'elle tranche.
+    "force" overrides it: that is the emergency way out when the operation is precisely what is stuck. The choice
+    belongs to the person, not to us; we give them the facts so they can decide.
 #>
 $force = [bool]($Params -and $Params.force)
-# « wait » : ne pas refuser, ATTENDRE la fin de l'operation puis relancer. C'est le
-# serveur qui patiente, pas l'app cliente : il sait ce qui tourne, et son relanceur est detache
-# -- il n'a donc ni delai a inventer ni boucle a tenir de l'autre cote.
+# "wait": do not refuse, WAIT for the operation to end then restart. It is the server that waits, not the client
+# app: it knows what is running, and its relauncher is detached -- so it has neither a delay to invent nor a loop
+# to hold on the other side.
 $wait  = [bool]($Params -and $Params.wait)
 if (-not $force -and -not $wait) {
     $enCours = @(Get-RunningOperations -Backend $backend)
@@ -57,8 +53,8 @@ if (-not (Test-Path -LiteralPath $start)) {
     return @{ message = (Get-Label 'server-restart.introuvable' $start); result = @{ ok = $false } }
 }
 
-# LE RELANCEUR EST COMMUN (Start-ServerRelauncher) : la mise a jour emprunte exactement le
-# meme chemin. Deux copies du meme geste, c'est une correction sur deux qui se perd.
+# THE RELAUNCHER IS SHARED (Start-ServerRelauncher): the update takes exactly the same road. Two copies of the
+# same gesture means one fix out of two gets lost.
 try {
     $null = Start-ServerRelauncher -StartScript $start -Wait:$wait -Backend $backend
 } catch {

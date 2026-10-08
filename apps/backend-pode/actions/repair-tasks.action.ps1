@@ -2,19 +2,18 @@
 # @droits: admin   -- reecrire une tache planifiee exige l'elevation (D65)
 # @libelle: Vérifier le démarrage de Vigie | immediate | fix   -- affiche quand un champ cite cette action (D66)
 #
-# « Réparer » quand rien n'est cassé sonne faux, et c'est pourtant l'état normal : le bouton
-# reste sur la carte même quand tout va bien (D59, D66). Il VÉRIFIE d'abord, et ne répare
-# que ce qui doit l'être -- son libellé dit donc ce qu'il fait à coup sûr, pas ce qu'il fait
+# Saying "repair" when nothing is broken rings false, and yet that is the normal state: the button stays on the
+# card even when all is well (D59, D66). It CHECKS first, and repairs only what has to be -- so its label says
+# what it does for certain, not what it does
 # parfois.
-<# Action : remet d'aplomb les taches de demarrage DE VIGIE, et rien d'autre.
+<# An action: it puts VIGIE'S start-up tasks back in order, and nothing else.
 
-   Autorise explicitement par l'utilisateur : « l'app peut auto-corriger le systeme tant
-   que c'est du pur Vigie ». On ne touche donc qu'aux taches nommees « Vigie » ou
-   « Vigie - <compte> », jamais a autre chose.
-
-   Le cas qui a motive ceci : les taches pointaient vers un pwsh installe dans le profil
-   d'un compte, disparu apres un changement d'installation de PowerShell. Windows n'a
-   rien dit -- la tache existait, se lancait, et mourait aussitot. #>
+   Intent: repair what Vigie itself laid down, and only that. Explicitly authorised by the owner: "the app may
+   self-correct the system as long as it is pure Vigie". So we touch only the tasks named after Vigie, never
+   anything else.
+   Usage: it is called from the Deployment card's button. The case that motivated this: the tasks pointed at a
+   pwsh installed inside one account's profile, which had gone after a change in the PowerShell installation.
+   Windows said nothing -- the task existed, started, and died at once. #>
 param([string]$Module, [hashtable]$Params)
 
 $backend = Split-Path $PSScriptRoot -Parent
@@ -25,10 +24,9 @@ if (-not $done.Count) {
     return @{ message = "Vérification faite : les tâches de démarrage de Vigie sont saines."
               result  = @{ ok = $true; invalidate = @('accounts.probe.ps1', 'deployment.probe.ps1') } }
 }
-# TROIS SORTS, pas deux. Une tache peut etre reecrite sans que le defaut disparaisse :
-# un echec deja inscrit dans son historique ne s'efface qu'a sa prochaine execution,
-# c'est-a-dire a la prochaine ouverture de session du compte. Le dire, plutot que
-# d'annoncer « réparée » pendant que l'ecran affiche « hors service » juste a cote.
+# THREE FATES, not two. A task can be rewritten without the defect disappearing: a failure already written into
+# its history is only erased at its next run, that is, at the account's next logon. We say so, rather than
+# announcing "repaired" while the screen shows "out of service" right beside it.
 $ok      = @($done | Where-Object { $_.repare })
 $waitMs = @($done | Where-Object { $_.attente })
 $restant = @($done | Where-Object { -not $_.repare -and -not $_.attente -and $_.reste })
@@ -36,8 +34,8 @@ $ko      = @($done | Where-Object { -not $_.repare -and -not $_.attente -and -no
 
 $detail = (($done | ForEach-Object {
     if ($_.attente) {
-        # Rien n'a ete touche : la tache est saine, c'est son dernier passage qui ne
-        # l'etait pas. On le dit tel quel, sans repeter la meme phrase deux fois.
+        # Nothing was touched: the task is sound, it is its last run that was not. We say so as it stands, without
+        # repeating the same sentence twice.
         "{0} : structure saine. {1} — se confirmera à la prochaine ouverture de session." -f $_.tache, $_.mal
     } else {
         $sort = if ($_.repare)   { 'réparée' }

@@ -1,17 +1,15 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @droits: admin   -- modifie le systeme : Windows exige l'elevation (D65)
 # @libelle: Reconstruire les compteurs | immediate | fix   -- affiche quand un champ cite cette action (D66)
-<# Action : reconstruit les compteurs de performance de Windows.
+<# An action: it rebuilds Windows's performance counters.
 
-   Quand les compteurs GPU (ou d'autres) ne repondent plus, la carte Jeux ne peut plus
-   dire QUI utilise le processeur graphique. La reparation officielle est `lodctr /R`,
-   qui reconstruit la base des compteurs depuis les fichiers du systeme, suivie d'une
-   resynchronisation de WMI.
+   Intent: give back to the Gaming card the ability to say WHO is using the graphics processor. When the GPU
+   counters (or others) stop answering, it cannot. The official repair is `lodctr /R`, which rebuilds the
+   counters database from the system's files, followed by a resynchronisation of WMI.
+   Usage: it is called from the Gaming card. Nothing is deleted, nothing is installed: we rebuild an index.
 
-   Rien n'est supprime, rien n'est installe : on reconstruit un index.
-
-   CONSTAT REEL (D43) : on ne se contente pas du code de retour, on redemande les
-   compteurs GPU a Windows pour dire s'ils repondent VRAIMENT apres l'operation. #>
+   A REAL OBSERVATION (D43): we do not make do with the exit code, we ask Windows for the GPU counters again in
+   order to say whether they REALLY answer after the operation. #>
 param([string]$Module, [hashtable]$Params)
 
 $backend = Split-Path $PSScriptRoot -Parent
@@ -19,15 +17,15 @@ $backend = Split-Path $PSScriptRoot -Parent
 
 $etapes = @()
 
-# 1) Reconstruction de la base des compteurs (32 et 64 bits selon la machine).
+# 1) Rebuilding the counters database (32 and 64 bit, depending on the machine).
 $r = Invoke-Native -File "$env:SystemRoot\System32\lodctr.exe" -Arguments @('/R')
 $etapes += $(if ($r.Ok) { 'base des compteurs reconstruite' } else { "lodctr /R : echec (code $($r.ExitCode))" })
 
-# 2) Resynchronisation WMI : sans elle, les compteurs restent absents des requetes.
+# 2) Resynchronising WMI: without it, the counters stay absent from the queries.
 $r2 = Invoke-Native -File "$env:SystemRoot\System32\wbem\winmgmt.exe" -Arguments @('/resyncperf')
 $etapes += $(if ($r2.Ok) { 'WMI resynchronise' } else { "winmgmt /resyncperf : echec (code $($r2.ExitCode))" })
 
-# 3) Constat : les compteurs GPU repondent-ils maintenant ?
+# 3) The observation: do the GPU counters answer now?
 $repondent = $false
 # Read through PDH directly (VigiePdh), like the gaming card: a rate needs two readings, a short moment apart.
 $pdh = $null

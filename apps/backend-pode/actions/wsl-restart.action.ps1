@@ -1,8 +1,8 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
-<# Action : redemarre WSL (arret propre puis boot), borne par des delais. #>
+<# An action: it restarts WSL (a clean stop then a boot), bounded by timeouts. Intent: restart the VM without ever hanging on it. Usage: cited by the WSL card. #>
 param([string]$Module, [hashtable]$Params)
-# 1) Arret.
+# 1) The stop.
 $job = Start-Job { & wsl.exe --shutdown 2>&1 }
 $null = Wait-Job $job -Timeout 15
 Remove-Job $job -Force -ErrorAction SilentlyContinue
@@ -10,7 +10,7 @@ for ($i = 0; $i -lt 12; $i++) {
     if (-not (Get-Process -Name 'vmmemWSL','vmmem','wslservice' -ErrorAction SilentlyContinue)) { break }
     Start-Sleep -Milliseconds 500
 }
-# 2) Redemarrage (boot distrib par defaut).
+# 2) The restart (booting the default distribution).
 $job2 = Start-Job { & wsl.exe -e true 2>&1 }
 $null = Wait-Job $job2 -Timeout 20
 Remove-Job $job2 -Force -ErrorAction SilentlyContinue

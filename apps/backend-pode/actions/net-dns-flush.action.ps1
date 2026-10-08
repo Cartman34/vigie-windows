@@ -1,15 +1,14 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @droits: admin   -- modifie le systeme : Windows exige l'elevation (D65)
 # @libelle: Purger le cache DNS | immediate | fix   -- affiche quand un champ cite cette action (D66)
-<# Action : purge le cache DNS -- Windows ET le proxy local s'il existe (Acrylic).
+<# An action: it purges the DNS cache -- Windows's AND the local proxy's if there is one (Acrylic).
 
-   Pourquoi : un cache DNS perime rend QUELQUES sites inaccessibles (constate le 25/08 :
-   Facebook et Instagram injoignables via Acrylic) alors que la resolution generale
-   fonctionne. Acrylic garde son cache en memoire : le purger = redemarrer son service.
-
-   Constat a chaque etape (D43) : on verifie que le service est revenu ET qu'une
-   resolution reelle aboutit avant d'annoncer un succes. Prudence machine : si le
-   service ne revient pas, on le relance une seconde fois avant d'echouer. #>
+   Intent: fix the case where a stale DNS cache makes SOME sites unreachable (observed on 25/08: two sites
+   unreachable through Acrylic) while the general resolution works. Acrylic keeps its cache in memory: purging it
+   means restarting its service.
+   Usage: it is called from the Network card. Observation at every step (D43): we check that the service has come
+   back AND that a real resolution succeeds before announcing a success. Caution for the machine: if the service
+   does not come back, we start it a second time before failing. #>
 param([string]$Module, [hashtable]$Params)
 
 $backend = Split-Path $PSScriptRoot -Parent
@@ -17,18 +16,18 @@ $backend = Split-Path $PSScriptRoot -Parent
 
 $etapes = @()
 
-# 1) Cache du resolveur Windows : toujours, c'est sans risque.
+# 1) Windows's resolver cache: always, it is without risk.
 $r = Invoke-Native -File "$env:SystemRoot\System32\ipconfig.exe" -Arguments @('/flushdns')
 $etapes += $(if ($r.Ok) { 'cache Windows purgé' } else { 'cache Windows : échec' })
 
-# 2) Proxy DNS local, s'il existe : detecte par le port 53 (Acrylic ou n'importe quel
-#    autre -- et rien du tout si la machine n'en a pas). Redemarrer = cache memoire vide.
+# 2) A local DNS proxy, if there is one: detected by port 53 (Acrylic or any other -- and nothing at all if the
+#    machine has none). Restarting it means an empty memory cache.
 $proxy = Get-LocalDnsProxyService
 $svc = if ($proxy) { Get-Service -Name $proxy.Name -ErrorAction SilentlyContinue } else { $null }
 if ($svc) {
     try {
         Stop-Service -Name $svc.Name -Force -ErrorAction Stop
-        # Le cache disque, s'il a ete ecrit, se supprime service arrete.
+        # The disc cache, if it was written, is deleted with the service stopped.
         try {
             $bin = (Get-CimInstance Win32_Service -Filter "Name='$($svc.Name)'").PathName.Trim('"')
             $dat = Join-Path (Split-Path $bin -Parent) 'AcrylicCache.dat'
@@ -36,7 +35,7 @@ if ($svc) {
         } catch { }
         Start-Service -Name $svc.Name -ErrorAction Stop
     } catch {
-        # Ne jamais laisser la machine sans resolveur : une seconde tentative de demarrage.
+        # Never leave the machine without a resolver: a second attempt at starting it.
         try { Start-Service -Name $svc.Name -ErrorAction SilentlyContinue } catch { }
     }
     $revenu = $false
@@ -51,7 +50,7 @@ if ($svc) {
     }
 }
 
-# 3) Constat final : une resolution reelle doit aboutir.
+# 3) The final observation: a real resolution must succeed.
 $resolu = $false
 for ($i = 0; $i -lt 6; $i++) {
     try { if (Resolve-DnsName 'www.microsoft.com' -Type A -QuickTimeout -ErrorAction Stop) { $resolu = $true; break } } catch { }

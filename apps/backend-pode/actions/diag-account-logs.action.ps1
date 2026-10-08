@@ -1,16 +1,15 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @droits: admin   -- lit dans le profil d'un autre compte : Windows exige l'elevation (D65)
-<# Action : rapatrie les JOURNAUX de Vigie d'un autre compte, pour diagnostic.
+<# An action: it fetches ANOTHER account's Vigie LOGS, for a diagnosis.
 
-   Pourquoi une action et pas une elevation a la demande (choix utilisateur) : le serveur
-   Vigie tourne DEJA eleve quand un administrateur l'utilise. Passer par lui evite une
-   invite UAC de plus, et surtout le filtre est le meme que pour toute action sensible --
-   un compte standard se voit refuser, exactement comme pour le verrou Windows Update.
-
-   LECTURE SEULE chez le compte vise. Le jeton d'API (var/secrets) n'est JAMAIS copie :
-   un secret ne se recopie pas « pour voir », et les journaux suffisent au diagnostic.
-
-   Parametres : account = le compte a diagnostiquer. #>
+   Intent: look into another account's logs without opening a second road to them, and without ever copying a
+   secret. Why an action and not an elevation on demand (the owner's choice): the Vigie server ALREADY runs
+   elevated when an administrator uses it. Going through it avoids one more UAC prompt, and above all the filter
+   is the same as for any sensitive action -- a standard account is refused, exactly as for the Windows Update
+   lock.
+   Usage: params.account = the account to diagnose. READ ONLY on the account aimed at. The API token
+   (var/secrets) is NEVER copied: a secret is not copied "to have a look", and the logs are enough for a
+   diagnosis. #>
 param([string]$Module, [hashtable]$Params)
 
 $backend = Split-Path $PSScriptRoot -Parent
@@ -19,19 +18,16 @@ $backend = Split-Path $PSScriptRoot -Parent
 $account = if ($Params -and $Params.account) { "$($Params.account)" } else { $null }
 if (-not $account) { return @{ message = "Aucun compte precise."; result = @{ ok = $false } } }
 
-# Le compte doit exister sur CETTE machine : on ne va pas lire un chemin quelconque.
+# The account must exist on THIS machine: we are not going to read some arbitrary path.
 $connu = Get-AccountByName -Name $account
 if (-not $connu) { return @{ message = "Compte inconnu sur cette machine : $account"; result = @{ ok = $false } } }
 
 $profil = Join-Path (Join-Path $env:SystemDrive 'Users') $account
-# CHEMIN CONSTRUIT PAR Join-Path, jamais ecrit en toutes lettres : cette ligne
-# portait 'AppData\Local\Vigie\var' et l'antislash de « \var » a ete mange a
-# l'ecriture -- il en restait un caractere de controle, donc un dossier qui n'existe
-# nulle part. Le diagnostic repondait « ce compte n'a jamais ouvert de session »
-# quoi qu'il arrive.
+# THE PATH IS BUILT BY Join-Path, never written out in full: this line carried a profile-relative path and the
+# backslash before "var" was eaten on writing -- what was left was a control character, and so a folder that
+# exists nowhere. The diagnosis answered that the account had never opened a session, whatever happened.
 #
-# L'editeur figure aussi dans le chemin depuis D72 : %LOCALAPPDATA%\Sowapps\Vigie.
-# On essaie les deux, l'ancien emplacement pouvant subsister.
+# The publisher is also in the path since D72. We try both, the old location possibly surviving.
 $local = Join-Path (Join-Path $profil 'AppData') 'Local'
 $source = $null
 foreach ($candidat in @((Join-Path (Join-Path (Join-Path $local 'Sowapps') 'Vigie') 'var'),
@@ -45,17 +41,16 @@ if (-not (Test-Path -LiteralPath $source)) {
 }
 
 <#
-    ON RAPATRIE CHEZ CELUI QUI DEMANDE, PAS CHEZ SOI.
+    WE FETCH TO WHOEVER ASKS, NOT TO OURSELVES.
 
-    La copie atterrissait dans le var de l'APP SERVEUR -- c'est-a-dire dans le profil du
-    compte de service, ou une session ordinaire n'a meme pas le droit de LIRE. « Journaux
-    rapatries : 62 fichiers » etait donc vrai et inutile : personne d'autre que le service
-    ne pouvait les ouvrir. Constate le 31/08, en cherchant pourquoi une mise a jour avait
-    echoue.
+    The copy used to land in the SERVER APP's var -- that is, inside the service account's profile, where an
+    ordinary session does not even have the right to READ. "Logs fetched: 62 files" was therefore true and
+    useless: nobody but the service could open them. Observed on 31/08, while looking for why an update had
+    failed.
 
-    Ils vont donc chez le demandeur, dans SON dossier de donnees Vigie, qu'il peut ouvrir
-    d'un double-clic. Sans demandeur identifie -- appel hors session -- on retombe sur le
-    var du serveur : c'est mieux que de ne rien copier.
+    So they go to the requester, into THEIR Vigie data folder, which they can open with a double click. With no
+    requester identified -- a call outside any session -- we fall back on the server's var: that is better than
+    copying nothing.
 #>
 $diagRoot = $null
 $asker = Get-RequesterAccount
@@ -101,8 +96,8 @@ foreach ($sous in @('cache', 'run')) {
     }
 }
 
-# Un resume de l'etat : ce qui existe, quel poids, quelle fraicheur. C'est ce qui repond a
-# « son Vigie tourne-t-il, et depuis quand ? » sans rien devoiler du contenu.
+# A summary of the state: what exists, what weight, how fresh. That is what answers "is their Vigie running, and
+# since when?" without revealing anything of the content.
 $summary = @("Compte    : $account", "Profil    : $profil", "Donnees   : $source",
             "Releve le : $(Get-Date -Format 's')", "")
 foreach ($sous in @('cache','log','history','secrets')) {
@@ -136,11 +131,10 @@ foreach ($vieux in @(Get-ChildItem -LiteralPath (Split-Path $target -Parent) -Di
 Write-Log -Backend $backend -Name 'diag' -Message (Get-Label 'diag-account-logs.journaux-du-compte-rapatries' $account $nb)
 
 <#
-    ET LA FIN DU DERNIER JOURNAL, DANS LA REPONSE.
+    AND THE END OF THE LAST LOG, IN THE ANSWER.
 
-    Rapatrier des fichiers repond a « je veux tout garder » ; la question courante est
-    « qu'est-ce qui vient d'echouer ? ». On rend donc aussi les dernieres lignes du
-    journal le plus recent : celui qu'on allait ouvrir en premier de toute facon.
+    Fetching files answers "I want to keep everything"; the everyday question is "what has just failed?". So we
+    also return the last lines of the most recent log: the one we were going to open first anyway.
 #>
 $dernier = @(Get-ChildItem -LiteralPath $target -File -ErrorAction SilentlyContinue |
              Sort-Object LastWriteTime -Descending | Select-Object -First 1)

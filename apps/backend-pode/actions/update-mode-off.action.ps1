@@ -1,15 +1,14 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @droits: admin   -- modifie le systeme : Windows exige l'elevation (D65)
 # @libelle: Verrouiller maintenant | immediate | fix   -- affiche quand un champ cite cette action (D66)
-<# Action update-mode-off : RE-VERROUILLE (coupe les MAJ auto + pose le verrou ACL).
+<# The update-mode-off action: it LOCKS AGAIN (it switches automatic updates off and lays the ACL lock down).
 
-   Capacite NATIVE du produit : aucune dependance a un outillage hors depot. Toute
-   l'ecriture passe par Set-UpdateLock (lib/common.ps1), unique porte d'entree (D15),
-   qui relit l'etat reel apres avoir agi.
-
-   Idempotent : re-poser un verrou deja pose rend un succes tranquille. Le verrou est
-   d'ailleurs a REPOSER regulierement -- Windows le defait de lui-meme apres certaines
-   mises a jour. #>
+   Intent: be a NATIVE ability of the product -- no dependency on tooling outside the repository. All the writing
+   goes through Set-UpdateLock (lib/common.ps1), the single entry point (D15), which reads the real state back
+   after acting.
+   Usage: it is called from the Windows Update card. Idempotent: laying down a lock that is already there returns
+   a quiet success. The lock has in fact to be LAID AGAIN regularly -- Windows undoes it by itself after certain
+   updates. #>
 param([string]$Module, [hashtable]$Params)
 $backend = Split-Path $PSScriptRoot -Parent
 . (Join-Path $backend 'lib/common.ps1')
@@ -31,13 +30,13 @@ if ($before.locked) {
     }
 }
 
-# La valeur de retour de Set-UpdateLock ne porte que la moitie ACL du verrou ; le compte
+# Set-UpdateLock's return value carries only the ACL half of the lock; the count
 # rendu ci-dessous s'appuie sur l'etat COMPLET relu juste apres.
 $null = Set-UpdateLock -State 'pose' -Backend $backend
 $after = Get-UpdateLockState
 
-# On rapporte l'etat CONSTATE (D43). Les deux moities du verrou sont distinguees : couper
-# les MAJ auto sans poser le verrou ACL est un resultat partiel, pas un succes.
+# We report the OBSERVED state (D43). The two halves of the lock are told apart: switching automatic updates off
+# without laying the ACL lock down is a partial result, not a success.
 if ($after.locked) {
     @{
         message = 'Verrou complet appliqué : mises à jour automatiques coupées ET verrou ACL posé.'

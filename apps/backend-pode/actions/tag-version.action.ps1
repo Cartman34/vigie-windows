@@ -1,19 +1,19 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @droits: admin   -- marque une version du produit : ce n'est pas un geste anodin (D65)
 # @execution: session   -- le tag s'ecrit dans le depot du DEMANDEUR, sous SON compte
-<# Action : poser le tag de version, dans le depot de la personne qui demande.
+<# An action: it lays the version tag down, inside the repository of the person who asks.
 
-   WHEN. For a stable validated version, at its publication -- never at a deployment (D123).
+   Intent: give the tag an author. WHY INSIDE THE SESSION. Marking a version also pushes it. But the server app
+   runs under a service account: a tag laid by it would have no author, its push would have no credentials, and
+   git refuses to write inside a repository that belongs to somebody else (D112).
+   Usage: it is called from the Deployment card. The requester's client app, for its part, runs under their
+   account, in their repository. It lays the tag and pushes it; the service then only has to build from its
+   clone, where the tag
 
-   POURQUOI DANS LA SESSION. Marquer une version la pousse aussi. Mais l'app serveur tourne sous un compte de service :
-   un tag pose par lui n'aurait pas d'auteur, son push n'aurait pas d'identifiants, et
-   git refuse d'ecrire dans un depot qui appartient a quelqu'un d'autre (D112).
+   It returns the number that was laid, so that the archive carries exactly the same one. #>
 
-   L'app cliente du demandeur, elle, tourne sous son compte, dans son depot. Elle pose
-   le tag et le pousse ; le service n'a plus qu'a fabriquer depuis son clone, ou le tag
-   apparaitra au prochain fetch.
 
-   Rend le numero pose, pour que l'archive porte exactement le meme. #>
+
 param([string]$Module, [hashtable]$Params)
 
 $backend = Split-Path $PSScriptRoot -Parent
@@ -24,8 +24,8 @@ if (-not $repo) {
     return @{ message = (Get-Label 'tag-version.aucun-depot'); result = @{ ok = $false } }
 }
 
-# RIEN A MARQUER S'IL N'Y A RIEN DE NEUF. Un tag par deploiement n'a de sens que s'il
-# designe un etat different du precedent.
+# NOTHING TO MARK IF THERE IS NOTHING NEW. One tag per deployment only means something if it designates a state
+# different from the previous one.
 $head = Get-GitCommit -Path $repo
 $last = @(Invoke-Git -Path $repo -Arguments @('rev-list', '-1', '--tags') | Select-Object -First 1)[0]
 if ($head -and $last -and $head -eq $last) {

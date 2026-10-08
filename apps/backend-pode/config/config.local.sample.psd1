@@ -1,41 +1,40 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 @{
     # ---------------------------------------------------------------------------
-    # MODELE de configuration LOCALE. Copie ce fichier en 'config.local.psd1'
-    # (meme dossier) et adapte-le : il est ignore par git et ne quitte pas ta machine.
+    # A TEMPLATE for the LOCAL configuration. Copy this file as 'config.local.psd1' (same folder) and adapt it: it
+    # is ignored by git and never leaves your machine.
     #
-    #     Copy-Item apps/backend-pode/config/config.local.sample.psd1 apps/backend-pode/config/config.local.psd1
+    # Intent: hold what cannot be generic -- that is, what depends on the machine. Any key present here overrides
+    # the one in config.psd1; any key absent keeps config.psd1's value.
     #
-    # Ne mets ici QUE les valeurs qui ne peuvent pas etre generiques, c'est-a-dire
-    # celles qui dependent de la machine. Toute cle presente ici ecrase celle de
-    # config.psd1 ; toute cle absente garde la valeur de config.psd1.
-    #
-    # N'y mets JAMAIS de secret : le jeton d'API vit dans backend/.secrets/.
+    # NEVER put a secret here: the API token lives in var/secrets/.
+
+
+
     # ---------------------------------------------------------------------------
 
-    # Dossier de scripts d'administration externes. FACULTATIF.
-    # Le verrouillage de Windows Update et son audit sont natifs : ils fonctionnent SANS
-    # cette cle. Elle ne sert plus qu'aux bascules VBS / HVCI et a l'action "ouvrir le
-    # dossier", qui utilisent le dossier PARENT comme racine d'administration.
-    # Si le dossier contient update-mode.ps1, ce script reste prefere pour le verrou.
+    # A folder of external administration scripts. OPTIONAL.
+    # Locking Windows Update and auditing it are native: they work WITHOUT this key. It now serves only the VBS /
+    # HVCI switches and the action that opens the folder, which use the PARENT folder as the administration root.
+    # If the folder holds update-mode.ps1, that script is still preferred for the lock.
     # ToolsPath = 'C:\chemin\vers\LocalAgentAdmin\tools'
 
-    # Decommente seulement si le port par defaut est deja pris sur cette machine.
+    # Uncomment this only if the default port is already taken on this machine.
     # Port = 47601
 
-    # Historique des mesures : surcharge FACULTATIVE de la section History de config.psd1.
-    # ATTENTION : une cle de premier niveau remplace la table ENTIERE -- si tu poses
-    # History ici, les sous-cles absentes reprennent les defauts internes de
-    # Get-HistoryConfig (Enabled=$true, RetentionDays=90, MaxLinesPerMeasure=50000,
-    # Measures vide), PAS les valeurs de config.psd1. Recopie donc tout ce que tu veux garder.
+    # The history of the measurements: an OPTIONAL override of config.psd1's History section.
+    # BEWARE: a top-level key replaces the WHOLE table -- if you lay History down here, the sub-keys that are
+    # absent fall back on the internal defaults (enabled, 90 days, 50 000 lines, an empty Measures), NOT on
+    # config.psd1's values. So copy everything you want to keep.
+
     # History = @{
     #     Enabled            = $true       # $false = plus aucune ecriture (fichiers conserves)
     #     RetentionDays      = 180
     #     MaxLinesPerMeasure = 50000
     #     Measures = @{
     #         'disk.free'   = @{ RetentionDays = 365 }
-    #         # IntervalMinutes surcharge l'intervalle minimal du catalogue ;
-    #         # RetentionDays = 0 coupe l'echantillonnage de la mesure.
+    #         # IntervalMinutes overrides the catalogue's minimum interval;
+    #         # RetentionDays = 0 stops sampling that measurement.
     #         'net.latency' = @{ RetentionDays = 30 }
     #     }
     # }

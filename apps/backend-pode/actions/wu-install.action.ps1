@@ -1,13 +1,12 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @droits: admin   -- modifie le systeme : Windows exige l'elevation (D65)
-<# Action : installe les mises a jour Windows CHOISIES par l'utilisateur.
+<# An action: it installs the Windows updates the user CHOSE.
 
-   Recoit params.ids = identifiants renvoyes par wu-list-pending. Rien n'est installe sans
-   choix explicite : une liste vide est refusee plutot qu'interpretee comme « tout ».
-
-   L'installation part dans un worker DETACHE (elle dure des minutes) : la requete HTTP
-   rend la main tout de suite, la carte passe « en cours » et se met a jour seule. Fermer
-   le navigateur n'interrompt donc rien.
+   Intent: install nothing without an explicit choice -- an empty list is refused rather than read as
+   "everything".
+   Usage: it receives params.ids = the identifiers wu-list-pending returned. The installation leaves in a
+   DETACHED worker (it lasts minutes): the HTTP request hands control back at once, the card goes to "under way"
+   and updates itself. So closing the browser interrupts nothing. #>
 #>
 param([string]$Module, [hashtable]$Params)
 $backend = Split-Path $PSScriptRoot -Parent
@@ -19,9 +18,9 @@ if ($ids.Count -eq 0) {
     return @{ message = "Aucune mise à jour sélectionnée."; result = @{ ok = $false } }
 }
 
-# Le verrou du Mode MAJ est une mecanique INTERNE a l'application : elle le leve le temps
-# d'installer, puis le REPOSE. L'utilisateur est prevenu, pas bloque -- lui demander de
-# defaire a la main un verrou que l'application a pose elle-meme n'a pas de sens.
+# The Update Mode lock is a mechanism INTERNAL to the application: it lifts it for the time it takes to install,
+# then LAYS IT BACK. The user is warned, not blocked -- asking them to undo by hand a lock the application laid
+# down itself makes no sense.
 $wasLocked = $false
 try { $wasLocked = Test-UpdateTasksAclLock } catch { }
 

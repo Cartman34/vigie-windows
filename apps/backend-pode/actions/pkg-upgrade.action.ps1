@@ -1,13 +1,13 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @droits: admin   -- modifie le systeme : Windows exige l'elevation (D65)
-<# Action : met a jour les paquets d'UN gestionnaire (en tache de fond).
-   Gestionnaire deduit du module (pkg-<id>) ou de params.mgr. Modifie le systeme
-   -> passe par la fenetre de choix (pkg-list-updates). Reponse immediate (async) :
-   carte "Mise a jour en cours".
+<# An action: it updates ONE manager's packages (in the background).
+   Intent: update what was chosen, and nothing more. The manager is deduced from the module (pkg-<id>) or from
+   params.mgr. It changes the system -> so it goes through the window of choice (pkg-list-updates). An immediate
+   answer (async):
 
-   params.ids = identifiants retenus dans la fenetre de choix (meme cle que wu-install :
-   c'est le contrat generique du front pour une action de type 'dialog'). Absent, on met
-   a jour TOUT le gestionnaire -- comportement historique, conserve. #>
+   Usage: params.ids = the identifiers kept in the window of choice (the same key as wu-install: that is the
+   front end's generic contract for an action of the 'dialog' kind). Absent, we update the manager's packages
+   ENTIRELY -- the historical behaviour, kept. #>
 param([string]$Module, [hashtable]$Params)
 $backend = Split-Path $PSScriptRoot -Parent
 . (Join-Path $backend 'lib/common.ps1')

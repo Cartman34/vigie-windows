@@ -2,14 +2,13 @@
 # @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 # @execution: session   -- ouvre une fenetre : elle doit s'afficher chez le DEMANDEUR
 # @libelle: Ouvrir le dossier | manual | info   -- affiche quand un champ cite cette action (D66)
-<# Action : ouvre l'explorateur Windows sur un dossier de l'analyse du disque.
+<# An action: it opens Windows Explorer on a folder of the disc analysis.
 
-   Sert depuis l'arborescence de la carte Stockage : on voit ou part la place, et on va y
-   regarder d'un clic. Vigie n'efface RIEN : elle ouvre l'explorateur, l'utilisateur decide.
-
-   PRUDENCE : le chemin vient du client. On n'ouvre donc que ce qui est reellement un
-   DOSSIER EXISTANT, et uniquement SOUS LA RACINE ANALYSEE (var/cache/diskscan.json) --
-   sinon ce serait un moyen de faire ouvrir n'importe quoi a l'application. #>
+   Intent: let one go and look where the space went, in one click. Vigie deletes NOTHING: it opens Explorer, the
+   user decides.
+   Usage: it is called from the Storage card's tree. CAUTION: the path comes from the client. So we open only
+   what really is an EXISTING FOLDER, and only UNDER THE ROOT THAT WAS ANALYSED (var/cache/diskscan.json) --
+   otherwise it would be a way of making the application open anything at all. #>
 param([string]$Module, [hashtable]$Params)
 
 $backend = Split-Path $PSScriptRoot -Parent
@@ -18,7 +17,7 @@ $backend = Split-Path $PSScriptRoot -Parent
 $path = if ($Params -and $Params.path) { "$($Params.path)" } else { $null }
 if (-not $path) { return @{ message = "Aucun dossier precise."; result = @{ ok = $false } } }
 
-# La racine autorisee est celle de la derniere analyse.
+# The allowed root is the one of the last analysis.
 $rootPath = 'C:' + [char]92
 try {
     $f = Get-VarPath -Backend $backend -Kind 'cache' -File 'diskscan.json'

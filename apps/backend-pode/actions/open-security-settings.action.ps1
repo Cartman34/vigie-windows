@@ -2,10 +2,11 @@
 # @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 # @execution: session   -- ouvre une fenetre : elle doit s'afficher chez le DEMANDEUR
 # @libelle: Sécurité Windows | manual | info   -- bouton PERMANENT de sa carte (D114)
-<# Action : ouvre la Sécurité Windows.
+<# An action: it opens Windows Security.
 
-   C'est la que se lisent l'etat de l'antivirus, celui du pare-feu, et que se relance une analyse ou se reactive une protection desactivee. Vigie n'agit pas a la place de l'utilisateur : elle le mene
-   au bon endroit, ce qui est la seconde famille de boutons de D66. #>
+   Intent: lead the user to the right place rather than act in their place, which is the second family of D66
+   buttons. That is where the antivirus state and the firewall's are read, and where a scan is started again or
+   a protection that was switched off is switched back on. Usage: it is cited by the Security cards. #>
 param([string]$Module, [hashtable]$Params)
 try {
     Start-Process 'windowsdefender:'

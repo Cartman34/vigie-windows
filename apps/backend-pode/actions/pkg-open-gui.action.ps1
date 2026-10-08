@@ -1,12 +1,12 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 # @execution: session   -- ouvre une fenetre : elle doit s'afficher chez le DEMANDEUR
-<# Action pkg-open-gui : ouvre l'interface graphique du gestionnaire de paquets.
-   Jumelle de open-windows-update : n'installe rien, elle OUVRE un logiciel externe.
-
-   La cible n'est pas ecrite ici : Get-PkgGui la resout depuis le catalogue ET verifie sa
-   presence reelle. Le bouton n'apparait donc jamais sans cible, et l'action refuse
-   proprement si le logiciel a disparu entre l'affichage et le clic. #>
+<# The pkg-open-gui action: it opens the package manager's graphical interface.
+   Intent: lead the user to the tool rather than act in their place. The twin of open-windows-update: it installs
+   nothing, it OPENS an external program.
+   Usage: it is called from a package card. The target is not written here: Get-PkgGui resolves it from the
+   catalogue AND checks that it is really there. So the button never appears without a target, and the action
+   refuses cleanly if the program has gone between the display and the click. #>
 param([string]$Module, [hashtable]$Params)
 $backend = Split-Path $PSScriptRoot -Parent
 . (Join-Path $backend 'lib/common.ps1')

@@ -2,10 +2,11 @@
 # @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 # @execution: session   -- ouvre une fenetre : elle doit s'afficher chez le DEMANDEUR
 # @libelle: Paramètres de jeu | manual | info   -- bouton PERMANENT de sa carte (D114)
-<# Action : ouvre les parametres de jeu de Windows.
+<# An action: it opens Windows's gaming settings.
 
-   C'est la que se reglent la barre de jeu, le mode Jeu et les captures -- ce qui entoure une partie sans que Vigie ait a y toucher. Vigie n'agit pas a la place de l'utilisateur : elle le mene
-   au bon endroit, ce qui est la seconde famille de boutons de D66. #>
+   Intent: lead the user to the right place rather than act in their place, which is the second family of D66
+   buttons. That is where the game bar, Game Mode and the captures are set -- what surrounds a game without
+   Vigie having to touch any of it. Usage: it is cited by the Gaming card. #>
 param([string]$Module, [hashtable]$Params)
 try {
     Start-Process 'ms-settings:gaming-gamebar'

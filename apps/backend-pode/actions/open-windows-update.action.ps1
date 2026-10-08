@@ -1,8 +1,8 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 # @execution: session   -- ouvre une fenetre : elle doit s'afficher chez le DEMANDEUR
-<# Action open-windows-update : ouvre les Parametres Windows Update (installation manuelle).
-   N'installe rien : respecte le principe "rien sans consentement". #>
+<# The open-windows-update action: it opens the Windows Update settings (a manual installation).
+   Intent: install nothing -- it respects the principle "nothing without consent". Usage: cited by the Windows Update card. #>
 param([string]$Module, [hashtable]$Params)
 try {
     Start-Process 'ms-settings:windowsupdate'

@@ -1,12 +1,11 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-<# Worker DETACHE : recherche EN LIGNE des mises a jour Windows.
+<# A DETACHED worker: an ONLINE search for Windows updates.
 
-   La sonde `pending` ne fait qu'une recherche LOCALE (cache de Windows Update) : elle est
-   instantanee mais ne voit que ce que Windows a deja decouvert. Cette analyse-ci interroge
-   les serveurs : elle prend des minutes, d'ou le worker detache.
-
-   Le verrou du Mode MAJ coupe les analyses : il est leve puis REPOSE, comme pour
-   l'installation. L'utilisateur n'a rien a defaire a la main.
+   Intent: see what Windows has not discovered yet. The `pending` probe only makes a LOCAL search (Windows
+   Update's cache): it is instantaneous but sees only what Windows has already found. This analysis questions the
+   servers: it takes minutes, hence the detached worker.
+   Usage: it is started by the wu-scan action. The Update Mode lock stops the scans: it is lifted then LAID
+   BACK, as for the installation. The user has nothing to undo by hand.
 #>
 param([string]$Backend, [string]$ArgsB64)
 if (-not $Backend) { exit 1 }

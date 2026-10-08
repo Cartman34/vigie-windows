@@ -1,20 +1,20 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @droits: admin   -- lit dans le profil des autres comptes : Windows exige l'elevation (D65)
 # @libelle: Details des comptes | immediate | info   -- affiche quand un champ cite cette action (D66)
-<# Action : le detail des comptes de la machine.
+<# An action: the detail of the machine's accounts.
 
-   La carte dit l'essentiel d'un coup d'oeil (qui, Vigie ou non, quel type) ; ce detail
-   repond aux questions suivantes : quand chacun s'est-il connecte pour la derniere fois,
-   lesquels dorment, et quel poids font leurs donnees Vigie.
-
-   LECTURE SEULE. Reserve a un administrateur, comme toute lecture dans le profil d'autrui. #>
+   Intent: answer the questions that follow the card. The card says the essentials at a glance (who, Vigie or
+   not, what kind); this detail says when each one last signed in, which are dormant, and what weight their Vigie
+   data has.
+   Usage: it is called from the Accounts card. READ ONLY. Reserved to an administrator, like any reading inside
+   somebody else's profile. #>
 param([string]$Module, [hashtable]$Params)
 
 $backend = Split-Path $PSScriptRoot -Parent
 . (Join-Path $backend 'lib/common.ps1')
 
-# Seuil de « compte dormant » : une constante, pas un reglage -- personne n'a demande
-# a le regler, et 90 jours sans session est un repere universel.
+# The "dormant account" threshold: a constant, not a setting -- nobody asked to set it, and 90 days without a
+# session is a universal landmark.
 $dormant = 90
 
 $lines = @()
@@ -47,9 +47,9 @@ foreach ($c in (Get-ComputerAccounts | Sort-Object name)) {
     if ($c.technical) { $qualites += 'compte technique (pas de profil humain)' }
     if ($c.current)   { $qualites += 'compte en cours' }
 
-    # CE QUE LA TACHE LANCE, ET CE QU'ELLE A RENDU. Sans ca, « activee mais rien ne
-    # demarre » reste une enigme : la ligne de commande et le code de retour sont les
-    # deux seules choses qui repondent, et seul un serveur eleve peut les lire (D67).
+    # WHAT THE TASK STARTS, AND WHAT IT RETURNED. Without that, "enabled but nothing starts" stays a riddle: the
+    # command line and the exit code are the only two things that answer, and only an elevated server can read
+    # them (D67).
     $task = @()
     if ($c.task) {
         try {
@@ -58,10 +58,10 @@ foreach ($c in (Get-ComputerAccounts | Sort-Object name)) {
             $act = @($t.Actions)[0]
             $cmd = ("$($act.Execute)" + ' ' + "$($act.Arguments)").Trim()
             if ($cmd.Length -gt 150) { $cmd = $cmd.Substring(0, 147) + '...' }
-            # L'ETAT est la premiere chose a savoir, et c'est justement ce qui manquait :
-            # une tache DESACTIVEE se lit « activee » partout ailleurs, et ne demarre
-            # jamais. Une session non elevee ne voit pas cet etat -- le diagnostic doit
-            # donc le porter, sinon il envoie chercher ailleurs (règle du 28/08).
+            # The STATE is the first thing to know, and that is precisely what was missing: a DISABLED task reads
+            # as "enabled" everywhere else, and never starts. A session that is not elevated does not see that
+            # state -- so the diagnosis must carry it, otherwise it sends one looking elsewhere (the owner's rule
+            # of 28/08).
             $task += ("tâche « " + $c.task + " » : " + "$($t.State)" +
                        ", niveau " + "$($t.Principal.RunLevel)" +
                        ", compte " + "$($t.Principal.UserId)")

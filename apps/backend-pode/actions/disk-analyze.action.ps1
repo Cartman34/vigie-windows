@@ -1,9 +1,9 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 # @libelle: Analyser l'espace | immediate | info   -- affiche quand un champ cite cette action (D66)
-<# Action : lance l'analyse de la consommation du disque (tache de fond).
-   Reponse immediate (async) : la carte passe en "en cours" et suit la progression.
-   Le parcours lui-meme est dans workers/disk-scan.worker.ps1. #>
+<# An action: it starts the analysis of what the disc is used by (in the background).
+   Intent: answer at once and let the card follow. An immediate answer (async): the card goes to "under way" and
+   follows the progress. The walk itself is in workers/disk-scan.worker.ps1. Usage: from the Storage card. #>
 param([string]$Module, [hashtable]$Params)
 
 $backend = Split-Path $PSScriptRoot -Parent
@@ -15,7 +15,7 @@ if (-not (Test-Path -LiteralPath $rootPath)) {
     return @{ message = "Dossier introuvable : $rootPath"; result = @{ ok = $false } }
 }
 
-# Reglages du module (D57) : profondeur du detail conserve et nombre d'elements par niveau.
+# The module's settings (D57): the depth of detail that is kept, and the number of elements per level.
 $profondeur = [int](Get-ModuleSetting -Unit 'system' -Key 'DiskScanDepth')
 $topN       = [int](Get-ModuleSetting -Unit 'system' -Key 'DiskScanTop')
 if (-not $profondeur) { $profondeur = 3 }

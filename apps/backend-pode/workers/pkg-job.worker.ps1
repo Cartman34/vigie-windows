@@ -91,8 +91,8 @@ try {
     $state = @{ count = [int]$u.count; items = @($u.items); pkgs = @($u.pkgs); at = (Get-Date).ToString('s') }
     # A pending restart must be VISIBLE in the card: it is an action expected of the user, not a line of log.
     if ($op -eq 'upgrade' -and $up -and $up.reboot) { $state.reboot = $true }
-    # Le RESULTAT de la mise a jour est conserve pour la carte : sans lui, l'operation se
-    # termine en silence et l'utilisateur ne sait pas ce qui a ete fait ni si ca a marche.
+    # The RESULT of the update is kept for the card: without it, the operation ends in silence and the user does
+    # not know what was done nor whether it worked.
     if ($op -eq 'upgrade' -and $up) {
         $state.last = @{
             at      = (Get-Date).ToString('s')
@@ -116,6 +116,6 @@ try {
     Write-Output ('[X] ' + $_.Exception.Message)
 }
 
-# Rafraichissement immediat de la carte au prochain acces (sans attendre le TTL).
+# An immediate refresh of the card at the next access (without waiting for the TTL).
 try { Remove-ProbeCache -Names @('packages.probe.ps1') -Backend $Backend } catch { }
 exit $exitCode

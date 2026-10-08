@@ -1,37 +1,36 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @droits: admin   -- redeploie hors du profil et relance l'application (D65)
 # @libelle: Mettre a jour Vigie | confirm | fix   -- affiche quand un champ cite cette action (D66)
-<# Action : met a jour Vigie, puis la relance.
+<# An action: it updates Vigie, then restarts it.
 
-   D'ou vient le code depend de la machine, et la recuperation tranche toute seule (D99) :
-   s'il existe un DEPOT sur le poste -- meme quand l'app serveur tourne depuis Program
-   Files, car l'installation sait d'ou elle vient -- c'est lui la source, et le tag est
-   pose au passage. Sinon, la derniere version publiee sur GitHub.
+   Intent: be a button that does nothing of its own -- it starts THE INSTALLATION, the same one setup.cmd starts,
+   described in doc/progress/targeting/install-update.md. Fetch before stopping, check, stop, back up, lay down,
+   verify, restart -- it is the installation that knows in which order, and there is no second copy of that
+   sequence.
+   Usage: it is called from the Deployment card's button. Where the code comes from depends on the machine, and
+   the fetch decides on its own (D99): if there is a REPOSITORY on the workstation -- even when the server app
+   runs from Program Files, because the installation knows where it came from -- that is the source, and the tag
+   is laid on the way. Otherwise, the latest version published on GitHub.
 
-   Ce bouton ne fait rien de particulier : il lance L'INSTALLATION, la meme que
-   setup.cmd, decrite dans doc/progress/targeting/install-update.md. Recuperer avant
-   d'arreter, controler, arreter, sauvegarder, poser, verifier, redemarrer -- c'est elle
-   qui sait dans quel ordre, et il n'y a pas de second exemplaire de cette sequence.
+   All of it under the WATCHER (D82): the exit code is observed and reported, so a failed update becomes a red
+   line on the card instead of a silence. Code 3 -- already up to date -- is NOT a failure (D77). #>
 
-   Le tout sous le VEILLEUR (D82) : le code de sortie est constate et rapporte, une
-   mise a jour ratee devient une ligne rouge sur la carte au lieu d'un silence. Le code
-   3 -- deja a jour -- n'est PAS un echec (D77). #>
+
 param([string]$Module, [hashtable]$Params)
 
 $backend = Split-Path $PSScriptRoot -Parent
 . (Join-Path $backend 'lib/common.ps1')
 
 <#
-    LE BOUTON APPELLE L'INSTALLATION, PAS UN AUTRE GESTE.
+    THE BUTTON CALLS THE INSTALLATION, NOT SOME OTHER GESTURE.
 
-    Il lancait « vigie-update », qui faisait presque la meme chose que l'installation --
-    mais pas tout a fait : deux chemins pour un seul geste, donc deux comportements a
-    tenir et un qui derive. Depuis le 30/08 il n'y en a plus qu'un, decrit dans
-    doc/progress/targeting/install-update.md.
+    It used to start "vigie-update", which did almost the same thing as the installation -- but not quite: two
+    roads for one gesture, so two behaviours to maintain and one that drifts. Since 30/08 there is only one,
+    described in
 
-    L'installation est lancee DETACHEE (le veilleur s'en charge) : elle arrete l'app
-    serveur au milieu de sa sequence, or c'est l'app serveur qui l'a lancee. Un processus
-    enfant mourrait avec elle et tout ce qui suit n'aurait jamais lieu.
+    The installation is started DETACHED (the watcher takes care of it): it stops the server app in the middle of
+    its sequence, and it is the server app that started it. A child process would die with it and everything that
+    follows would never happen.
 #>
 $script = Join-Path (Get-RepoRoot) 'scripts/install.ps1'
 if (-not (Test-Path -LiteralPath $script)) {
@@ -46,19 +45,19 @@ if (-not $pwsh) { $pwsh = 'pwsh.exe' }
 $lance = $false
 try {
     # RAW VALUES: Start-ChildProcess is what quotes them (D116).
-    # QUI DEMANDE suit le script : il tourne detache, sous le compte du service, et c'est
-    # dans la session du demandeur que le tag de version sera pose (D112).
+    # WHO ASKS follows the script: it runs detached, under the service's account, and it is in the requester's
+    # session that the version tag will be laid (D112).
     $argv = @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
               '-File', $script)
     $requester = Get-RequesterAccount
     if ($requester) { $argv += @('-Requester', $requester) }
-    # PAS DE FENETRE : le serveur n'a pas de bureau, elle n'irait nulle part.
+    # NO WINDOW: the server has no desktop, it would go nowhere.
     $argv += '-NoWindow'
-    # ET ON LUI DIT QUE LA MARQUE « une operation tourne » EST LA SIENNE : le veilleur la
-    # pose avant de la lancer, et l'installation refusait de tourner en la voyant.
+    # AND WE TELL IT THAT THE "an operation is running" MARK IS ITS OWN: the watcher lays it down before starting
+    # it, and the installation refused to run when it saw it.
     $argv += @('-FromAction', 'vigie-update')
-    # La carte DEPLOIEMENT gere les deploiements -- et elle est toujours la. La carte de
-    # debogage, elle, peut etre eteinte : le suivi de l'operation y aurait ete invisible.
+    # The DEPLOYMENT card handles the deployments -- and it is always there. The debugging card, for its part, can
+    # be switched off: following the operation there would have been invisible.
     $lance = [bool](Start-Operation -Module 'deployment' -Probes @('deployment.probe.ps1') `
                         -Label 'Mise à jour de Vigie' -Action 'vigie-update' `
                         -File $pwsh -Arguments $argv -Log $journal -Backend $backend)

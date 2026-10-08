@@ -1,9 +1,9 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
-<# Action : demande l'arret de l'analyse du disque en cours.
-   On ne TUE pas le worker : on pose un drapeau qu'il relit a chaque point de progression
-   (environ toutes les 1,5 s). Il s'arrete alors proprement et laisse le dernier resultat
-   complet en place -- un resultat partiel serait trompeur. #>
+<# An action: it asks the disc analysis under way to stop.
+   Intent: stop it cleanly without losing what is known. We do NOT kill the worker: we lay down a flag it reads
+   again at every progress point (about every 1.5 s). It then stops cleanly and leaves the last complete result
+   in place -- a partial result would be misleading. Usage: it is called from the Storage card. #>
 param([string]$Module, [hashtable]$Params)
 
 $backend = Split-Path $PSScriptRoot -Parent

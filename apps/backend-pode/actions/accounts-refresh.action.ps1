@@ -1,11 +1,11 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @droits: tous   -- ne fait que relire l'etat de la machine (D65)
 # @libelle: Actualiser la liste | immediate | info   -- affiche quand un champ cite cette action (D66)
-<# Action : refait le releve des comptes de la machine.
+<# An action: it makes the reading of the machine's accounts again.
 
-   L'inventaire est mémorisé 24 h : il coute deux secondes et ne change qu'exceptionnellement
-   (« y'aura pas des nouveaux comptes tous les jours »). Ce bouton sert quand on vient
-   d'ajouter ou de retirer un compte Windows et qu'on ne veut pas attendre. #>
+   Intent: let one not wait when a Windows account has just been added or removed. The inventory is remembered
+   for 24 h: it costs two seconds and changes only exceptionally ("there will not be new accounts every day").
+   Usage: it is called from the Accounts card. #>
 param([string]$Module, [hashtable]$Params)
 
 $backend = Split-Path $PSScriptRoot -Parent

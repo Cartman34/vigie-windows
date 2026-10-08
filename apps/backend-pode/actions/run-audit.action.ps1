@@ -1,10 +1,10 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
-<# Action run-audit : audit complet de la machinerie Windows Update. LECTURE SEULE.
+<# The run-audit action: a full audit of the Windows Update machinery. READ ONLY.
 
-   Capacite NATIVE du produit (Invoke-UpdateAudit, lib/common.ps1) : un outil de
-   diagnostic qui exige un outillage hors depot ne sert plus au moment ou l'on en a
-   besoin. Le rapport est ecrit sous var/log/ (texte + JSON), comme tout ce que
+   Intent: be a NATIVE ability of the product (Invoke-UpdateAudit, lib/common.ps1): a diagnostic tool that
+   demands tooling outside the repository stops being of use at the very moment one needs it. The report is
+   written under var/log/ (text plus JSON), like everything else Vigie
    l'application genere. #>
 param([string]$Module, [hashtable]$Params)
 $backend = Split-Path $PSScriptRoot -Parent
@@ -12,7 +12,7 @@ $backend = Split-Path $PSScriptRoot -Parent
 
 $audit = Invoke-UpdateAudit -Backend $backend
 
-# D43 : on annonce le rapport parce que le FICHIER existe, pas parce que l'appel est passe.
+# D43: we announce the report because the FILE exists, not because the call went through.
 if (-not $audit.ok) {
     return @{
         message = "L'audit s'est exécuté mais le rapport n'a pas pu être écrit dans apps/backend-pode/var/log/."

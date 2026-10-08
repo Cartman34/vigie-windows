@@ -42,7 +42,7 @@ $ErrorActionPreference = 'Stop'
     not rewrite it at once -- thousands of touched lines for no gain, and a drowned git
     blame. The ratchet forbids adding any; every conversion lowers the ceiling as much.
 #>
-$COMMENT_CEILING = 414
+$COMMENT_CEILING = 44
 
 # 08/10, the second half of common.ps1: 1044 -> 310 French comment lines in the library, and the repository from
 # 4539 to 3805. Then its tail -- the environment, the traceability, the requester, the Atelier, the elevation and
@@ -105,6 +105,23 @@ $COMMENT_CEILING = 414
 # os.probe (6), firewall.probe (4), history.probe (4), perf.probe (2), and the eight module.psd1 files. The
 # repository drops from 776 to 414. Proven by RUNNING: check-probes -All runs the nineteen probes and judges their
 # contract, and every module.psd1 loads through Import-PowerShellDataFile.
+#
+# 08/10, GROUP 4 -- the actions and the shared configuration: the 45 actions, wu-scan.worker, pkg-job.worker's
+# tail, config.local.sample.psd1 and config/common.psd1. The repository drops from 414 to 44, AND THE CAMPAIGN
+# ENDS THERE.
+#
+# THE 44 LINES THAT REMAIN ARE NOT FRENCH PROSE. Every one of them QUOTES French displayed text inside an English
+# sentence -- a label of a card or of the client app's menu, a log message read back after an incident, the title
+# of a page, a `@droits:` keyword that the code parses. Rewriting the quotation would make the comment lie about
+# what the screen says. Two more live in config/modules.local.psd1, which is not versioned at all.
+#
+# So the ceiling stays at 44 and no longer descends: what is above it is a comment that was ADDED, and that is
+# exactly what this ratchet is for.
+#
+# A TRANSLATION BROKE THREE FILES, and my own verification let it through: my loop ran the comment-stripper with
+# its failure swallowed, so a file that no longer PARSED compared as identical. check-powershell caught all three
+# -- an unterminated block comment -- and the loop now fails loudly on a parse error. A proof that cannot fail
+# proves nothing.
 #
 # THE METHOD, so the next campaign does not reinvent it. The tools live in the session's scratchpad and are rebuilt
 # in a few lines if lost: blocs.py lists the contiguous French comment blocks of a file with their ranges;

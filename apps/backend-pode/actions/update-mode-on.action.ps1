@@ -1,20 +1,19 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @droits: admin   -- modifie le systeme : Windows exige l'elevation (D65)
-<# Action update-mode-on : passe en MODE MISE A JOUR (leve le verrou).
+<# The update-mode-on action: it switches to UPDATE MODE (it lifts the lock).
 
-   Capacite NATIVE du produit : aucune dependance a un outillage hors depot. Toute
-   l'ecriture passe par Set-UpdateLock (lib/common.ps1), unique porte d'entree (D15),
-   qui relit l'etat reel apres avoir agi.
-
-   Idempotent : lever un verrou deja leve rend un succes, pas une erreur -- l'etat
-   demande EST celui de la machine, c'est tout ce qui compte. #>
+   Intent: be a NATIVE ability of the product -- no dependency on tooling outside the repository. All the writing
+   goes through Set-UpdateLock (lib/common.ps1), the single entry point (D15), which reads the real state back
+   after acting.
+   Usage: it is called from the Windows Update card. Idempotent: lifting a lock that is already lifted returns a
+   success, not an error -- the state asked for IS the machine's state, and that is all that counts. #>
 param([string]$Module, [hashtable]$Params)
 $backend = Split-Path $PSScriptRoot -Parent          # actions/ -> backend/
 . (Join-Path $backend 'lib/common.ps1')
 
 $inv = @('lock.probe.ps1','pending.probe.ps1')
 
-# L'elevation se dit AVANT d'agir : sans elle, icacls et takeown echouent en silence et
+# The elevation is stated BEFORE acting: without it, icacls and takeown fail in silence and
 # l'utilisateur croirait avoir deverrouille.
 if (-not (Test-Elevated)) {
     return @{
@@ -34,8 +33,7 @@ if (-not $before.aclLock -and -not $before.autoUpdatesOff) {
 $ok = Set-UpdateLock -State 'leve' -Backend $backend
 $after = Get-UpdateLockState
 
-# Ce qui est rapporte est ce qui a ete OBSERVE apres coup (D43), jamais « la commande
-# n'a pas leve d'erreur ».
+# What is reported is what was OBSERVED afterwards (D43), never "the command did not raise an error".
 if ($ok -and -not $after.autoUpdatesOff) {
     @{
         message = 'Mode mise à jour ACTIVÉ : Windows Update est déverrouillé. Les mises à jour peuvent s''installer ; redémarrer au moment voulu, puis re-verrouiller.'

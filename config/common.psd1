@@ -1,28 +1,27 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 @{
     # ---------------------------------------------------------------------------
-    # Configuration COMMUNE a plusieurs apps du depot.
+    # The configuration SHARED by several apps of the repository.
     #
-    # N'y mettre QUE ce qui est reellement partage. Tout ce qui est propre a une app
-    # vit dans apps/<app>/config/config.psd1 (D33).
+    # Intent: hold ONLY what is really shared. Anything specific to one app lives in
+    # apps/<app>/config/config.psd1 (D33).
     #
-    # Chaque app fusionne : ce fichier, PUIS sa config, PUIS sa config locale.
-    # La plus specifique gagne.
+    # Usage: each app merges this file, THEN its own config, THEN its local config. The most specific wins.
     # ---------------------------------------------------------------------------
 
-    # Adresse d'ecoute de TOUS les serveurs locaux du projet (Vigie et Atelier).
-    # STRICTEMENT locale : aucune app de ce depot ne doit jamais etre exposee.
-    # Etait recopiee dans les deux configs : une valeur, une definition (D15).
+    # The listening address of ALL the project's local servers (Vigie and the Atelier).
+    # STRICTLY local: no app of this repository must ever be exposed.
+    # It used to be copied into both configs: one value, one definition (D15).
     BindAddress = '127.0.0.1'
 
-    # Plage de ports reservee au projet. Chaque app choisit LE SIEN dans cette plage,
-    # dans sa propre config : Vigie 47600, Atelier 47610.
+    # The range of ports reserved to the project. Each app picks ITS OWN inside that range, in its own config:
+    # Vigie 47600, the Atelier 47610.
     PortRangeStart = 47600
     PortRangeEnd   = 47699
 
-    # Le depot public : d'ou viennent les mises a jour, et a quoi une machine ordinaire se
-    # compare pour savoir si elle est a jour. L'adresse etait ecrite dans vigie-fetch ET
-    # dans le calcul de la carte : une valeur, une definition (D15).
+    # The public repository: where the updates come from, and what an ordinary machine compares itself with in
+    # order to know whether it is up to date. The address used to be written in vigie-fetch AND in the card's
+    # computation: one value, one definition (D15).
     Repository    = 'Cartman34/vigie-windows'
     RepositoryUrl = 'https://github.com/Cartman34/vigie-windows.git'
 }
