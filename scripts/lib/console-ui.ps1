@@ -1,59 +1,59 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    console-ui.ps1 - LE MEME AFFICHAGE PARTOUT. Aucune dependance : chargeable par
-    n'importe quel script, sous Windows PowerShell 5.1 comme sous PowerShell 7.
+    console-ui.ps1 -- THE SAME DISPLAY EVERYWHERE. No dependency: loadable by any script, under Windows
+    PowerShell 5.1 as well as under PowerShell 7.
 
-    POURQUOI CE FICHIER EXISTE. Chaque script avait invente sa mise en page : ici des
-    fleches, la des tirets, ailleurs rien ; le vert voulait dire « fait » dans l'un et
-    « en cours » dans l'autre. Le 28/08, une etape d'installation a ECHOUE et la ligne
-    finale disait quand meme « Termine. » en vert -- l'utilisateur ne pouvait pas le
-    voir. Un affichage incoherent n'est pas un defaut de style : c'est une information
-    fausse.
+    Intent: make what a script says on screen mean the same thing whichever script says it, and make a verdict
+    impossible to fake -- the colour is deduced from what happened, never asserted by the caller.
+    Usage: dot-source it first (it also brings the labels, see below), then use the vocabulary and nothing else.
 
-    LE VOCABULAIRE, et rien d'autre :
+    WHY THIS FILE EXISTS. Every script had invented its own layout: arrows here, dashes there, nothing elsewhere;
+    green meant "done" in one and "under way" in another. On 28/08 a step of the installation FAILED and the final
+    line still said it was finished, in green -- the user had no way of seeing it. An inconsistent display is not a
+    defect of style: it is false information.
 
-      Write-Title    "Installation"        un bloc commence      (cyan, souligne)
-      Write-Step     "PowerShell 7"        une etape commence    (blanc, prefixe ::)
-                                             et la precedente conclut, en couleur
-      Write-Ok       "installe"            un fait, reussi       (gris, sans marqueur)
-      Write-Warn     "sans les droits"     elle passe, degradee  (jaune,  [!] )
-      Write-Fail     "Windows a refuse"    elle a echoue         (rouge,  [X] )
-      Write-Info     "version 7.4.6"       un fait, sans verdict (gris)
-      Write-Detail   "chemin: C:\..."      un fait secondaire    (gris fonce, indente)
-      Write-Outcome  -Failures 0           le verdict final      (voir plus bas)
+    THE VOCABULARY, and nothing else:
 
-    LA REGLE DE COULEUR, invariable : le vert ne sort QUE d'une reussite, le rouge QUE
-    d'un echec. Aucun script ne peut finir en vert avec un echec derriere lui, parce que
-    Write-Outcome compte les echecs au lieu de les croire sur parole.
+      Write-Title    "Installation"        a block begins        (cyan, underlined)
+      Write-Step     "PowerShell 7"        a step begins         (white, prefixed ::)
+                                             and the previous one concludes, in colour
+      Write-Ok       "installed"           a fact, successful    (grey, no marker)
+      Write-Warn     "without the rights"  it passes, degraded   (yellow,  [!] )
+      Write-Fail     "Windows refused"     it failed             (red,     [X] )
+      Write-Info     "version 7.4.6"       a fact, no verdict    (grey)
+      Write-Detail   "path: C:/..."        a secondary fact      (dark grey, indented)
+      Write-Outcome  -Failures 0           the final verdict     (see further down)
 
-    L'ENCODAGE. Ce fichier est en UTF-8 AVEC BOM : sans lui, Windows PowerShell 5.1 lit
-    les accents comme du latin-1 et affiche « instal­lÃ© ». Les marqueurs restent en ASCII
-    pur ([ok], [X]) : ils traversent toutes les consoles, y compris celles d'un poste ou
-    la page de code n'a pas ete changee.
+    THE COLOUR RULE, invariable: green comes ONLY out of a success, red ONLY out of a failure. No script can end
+    in green with a failure behind it, because Write-Outcome counts the failures instead of taking its word for
+    it.
+
+    THE ENCODING. This file is UTF-8 WITH a BOM: without it, Windows PowerShell 5.1 reads the accents as latin-1
+    and displays them mangled. The markers stay pure ASCII ([ok], [X]): they cross every console, including those
+    of a workstation where the code page has never been changed.
 #>
 
 <#
-    CE QU'ON ECRIT SORT EN UTF-8, MEME REDIRIGE DANS UN FICHIER.
+    WHAT WE WRITE COMES OUT IN UTF-8, EVEN REDIRECTED INTO A FILE.
 
-    Un script lance par le veilleur voit sa sortie redirigee vers un journal. Ce que
-    Windows y ecrit suit [Console]::OutputEncoding, qui vaut la page de code du systeme
-    (1252 ici) : les accents partaient donc en latin-1, et la carte affichait « La
-    r?cup?ration n'a pas rendu de dossier utilisable » (constate le 31/08). Le journal
-    n'etait pas relisible non plus.
+    A script started by the watcher has its output redirected into a log. What Windows writes there follows
+    [Console]::OutputEncoding, which is the system's code page (1252 here): so the accents went out as latin-1,
+    and the card displayed a sentence full of question marks (observed on 31/08). The log was not readable back
+    either.
 
-    C'est pose ICI parce que tout ce qui s'affiche dans ce depot passe par ce fichier :
-    une seule ligne, et aucun script n'a plus a y penser.
+    It is laid down HERE because everything displayed in this repository goes through this file: one single line,
+    and no script has to think about it again.
 #>
+
 try {
     [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
     $OutputEncoding = [Text.UTF8Encoding]::new($false)
 } catch { }
 
-# Compteur d'echecs du script en cours. Write-Fail l'incremente ; Write-Outcome le lit.
-# C'est ce compteur qui empeche un verdict final complaisant.
-# LES LIBELLES VIENNENT AVEC L'AFFICHAGE. Ces deux fichiers sont voisins : charger l'un
-# donne l'autre, et aucun script n'a plus a y penser. C'est la seule dependance de ce
-# fichier, et elle ne sort pas de son dossier.
+# The failure counter of the running script. Write-Fail increments it; Write-Outcome reads it. That counter is what
+# prevents an indulgent final verdict.
+# THE LABELS COME WITH THE DISPLAY. These two files are neighbours: loading one gives the other, and no script has
+# to think about it. It is this file's only dependency, and it does not leave its folder.
 $_i18nPath = Join-Path $PSScriptRoot 'i18n.ps1'
 if (Test-Path -LiteralPath $_i18nPath) { . $_i18nPath }
 
@@ -68,25 +68,25 @@ function Write-Title {
 }
 
 <#
-    CHAQUE ETAPE DIT COMMENT ELLE FINIT.
+    EVERY STEP SAYS HOW IT ENDS.
 
-    Une etape s'ouvrait, deroulait ses lignes, et la suivante commencait : pour savoir si
-    elle avait abouti, il fallait relire ses lignes une par une et decider soi-meme. La
-    conclusion n'existait qu'a la toute fin, pour le script entier.
+    A step used to open, run its lines, and the next one began: to know whether it had got there, one had to read
+    its lines one by one and decide for oneself. The conclusion existed only at the very end, for the whole
+    script.
 
-    Desormais toute etape se referme par une DERNIERE LIGNE COLOREE qui dit son sort. Elle
-    n'est pas ecrite par l'appelant : elle se DEDUIT de ce qui s'est passe entre son
-    ouverture et sa fermeture -- rouge s'il y a eu un echec, jaune s'il y a eu une reserve,
-    vert sinon. Un script ne peut donc pas conclure une etape en vert alors qu'elle a
-    echoue, pas plus qu'il ne le pouvait pour le verdict final.
+    From now on every step closes with a LAST COLOURED LINE stating its fate. It is not written by the caller: it
+    is DEDUCED from what happened between its opening and its closing -- red if there was a failure, yellow if
+    there was a reservation, green otherwise. So a script cannot conclude a step in green when it failed, any more
+    than it could for the final verdict.
 
-    Une etape se ferme toute seule : quand la suivante s'ouvre, ou quand le verdict tombe.
+    A step closes by itself: when the next one opens, or when the verdict falls.
 #>
+
 $script:UiStepText = $null
 $script:UiStepFailures = 0
 $script:UiStepWarnings = 0
-# Un echec ou une reserve venus d'un SOUS-PROCESSUS : ils colorent la conclusion de
-# l'etape sans toucher aux compteurs du script, qui appartiennent a ses propres constats.
+# A failure or a reservation coming from a SUB-PROCESS: they colour the step's conclusion without touching the
+# script's counters, which belong to its own observations.
 $script:UiStepRelayFail = $false
 $script:UiStepRelayWarn = $false
 
@@ -117,42 +117,41 @@ function Write-Step {
 }
 
 <#
-    UN SUCCES INTERMEDIAIRE N'EST PAS UNE CONCLUSION.
+    AN INTERMEDIATE SUCCESS IS NOT A CONCLUSION.
 
-    Le vert etait pose sur chaque reussite, et le lecteur ne savait plus ou regarder : « il
-    y a des ok en vert et pas tous, on ne sait pas trop » (29/08). Le marqueur « [ok] » a
-    suivi le meme chemin : il decorait des faits sans jamais dire ou en etait l'etape.
+    Green was laid on every success, and the reader no longer knew where to look: "there are green ok's and not
+    all of them, one cannot really tell" (29/08). The "[ok]" marker went the same way: it decorated facts without
+    ever saying where the step stood.
 
-    Il n'y a plus de marqueur. Un succes intermediaire est une ligne grise comme les
-    autres faits ; ce qui conclut, c'est la derniere ligne de l'etape, coloree, et le
-    verdict final. Le rouge et le jaune gardent les leurs -- un echec doit sauter aux yeux
-    ou qu'il soit, et « [X] » est ce que relit le serveur pour dire POURQUOI une operation
-    a echoue.
+    There is no marker any more. An intermediate success is a grey line like the other facts; what concludes is
+    the step's last line, in colour, and the final verdict. Red and yellow keep theirs -- a failure must leap to
+    the eye wherever it is, and "[X]" is what the server reads back to say WHY an operation failed.
 #>
+
+
 function Write-Ok      { param([Parameter(Mandatory)][string]$Text) Write-Host ("       " + $Text) -ForegroundColor Gray }
 function Write-Info    { param([Parameter(Mandatory)][string]$Text) Write-Host ("       " + $Text) -ForegroundColor Gray }
 function Write-Detail  { param([Parameter(Mandatory)][string]$Text) Write-Host ("       " + $Text) -ForegroundColor DarkGray }
 
 <#
-    RELAYER LA SORTIE D'UN SOUS-PROCESSUS SANS LUI FAIRE PERDRE SA COULEUR.
+    RELAYING A SUB-PROCESS'S OUTPUT WITHOUT MAKING IT LOSE ITS COLOUR.
 
-    Un script appele en processus fils ecrit ses marqueurs -- [X], [!] -- mais sa sortie
-    revient en TEXTE : l'appelant la reaffichait telle quelle, en blanc. Trois echecs de
-    fabrication defilaient donc en blanc au milieu du reste (constate le 01/09), alors que
-    ce sont exactement les lignes qu'on cherche des yeux.
+    A script called as a child process writes its markers -- [X], [!] -- but its output comes back as TEXT: the
+    caller re-displayed it as it stood, in white. So three build failures scrolled past in white in the middle of
+    the rest (observed on 01/09), while those are exactly the lines one looks for.
 
-    On relit le marqueur et on rend la couleur. Les compteurs, eux, NE BOUGENT PAS : ces
-    echecs appartiennent au fils, et l'appelant decide lui-meme de ce qu'il en fait.
+    We read the marker again and give the colour back. The counters, for their part, DO NOT MOVE: those failures
+    belong to the child, and the caller decides for itself what to make of them.
 #>
+
 function Write-Relayed {
     param([Parameter(Mandatory)][AllowEmptyString()][string]$Text)
     $couleur = if ($Text -match '\[X\]') { 'Red' }
                elseif ($Text -match '\[!\]') { 'Yellow' }
                else { 'Gray' }
-    # UN ECHEC RELAYE MARQUE L'ETAPE. Les compteurs globaux ne bougent pas -- l'appelant
-    # lira le code de sortie du fils et decidera -- mais conclure « fait » en vert sous
-    # trois lignes rouges est un mensonge : « dire que le deploiement est possible quand
-    # il y a plein d'erreurs, c'est tres optimiste ».
+    # A RELAYED FAILURE MARKS THE STEP. The global counters do not move -- the caller will read the child's exit
+    # code and decide -- but concluding "done" in green underneath three red lines is a lie: saying a deployment is
+    # possible when there are plenty of errors is very optimistic.
     if ($Text -match '\[X\]')      { $script:UiStepRelayFail = $true }
     elseif ($Text -match '\[!\]') { $script:UiStepRelayWarn = $true }
     Write-Host $Text -ForegroundColor $couleur
@@ -170,45 +169,42 @@ function Write-Fail {
     Write-Host ("  [X]  " + $Text) -ForegroundColor Red
 }
 
-# Combien d'echecs ce script a-t-il affiches ? Sert a decider d'un code de retour sans
-# tenir un second compteur a la main -- celui qu'on oublie de mettre a jour.
-# Combien d'echecs et de reserves ce script a-t-il affiches ? Sert a decider d'un code de
-# retour, et a titrer la fenetre de fin, sans tenir un second compteur a la main -- celui
-# qu'on oublie de mettre a jour.
+# How many failures and how many reservations has this script displayed? It serves to decide an exit code, and to
+# title the closing window, without keeping a second counter by hand -- the one we forget to update.
 #
-# Get-UiWarningCount avait ete SUPPRIMEE comme code mort, puis reutilisee une heure plus
-# tard par l'installation : « le terme n'est pas reconnu », en toute fin de parcours,
-# apres que tout le reste avait reussi. Supprimer une fonction publique n'est pas gratuit.
+# Get-UiWarningCount had been DELETED as dead code, then used again an hour later by the installation: "the term
+# is not recognised", at the very end of the road, after everything else had succeeded. Deleting a public function
+# is not free.
+
+
+
 function Get-UiFailureCount { return $script:UiFailures }
 function Get-UiWarningCount { return $script:UiWarnings }
 
 <#
-    LE VERDICT FINAL. On ne lui demande pas « dis que c'est bon », on lui donne les
-    faits et il conclut. -Failures / -Warnings sont facultatifs : sans eux, il compte
-    ce que Write-Fail et Write-Warn ont affiche.
+    THE FINAL VERDICT. We do not ask it to say that all is well, we give it the facts and it concludes. -Failures
+    and -Warnings are optional: without them it counts what Write-Fail and Write-Warn displayed.
 
-    Trois issues, et une seule est verte :
-      0 echec, 0 reserve  -> vert   « Termine. »
-      0 echec, n reserves -> jaune  « Termine, avec n reserve(s). »
-      n echecs            -> rouge  « ECHEC : n etape(s) n'ont pas abouti. »
+    Three outcomes, and only one is green:
+      0 failures, 0 reservations  -> green   "Finished."
+      0 failures, n reservations  -> yellow  "Finished, with n reservation(s)."
+      n failures                  -> red     "FAILURE: n step(s) did not get there."
 #>
 function Write-Outcome {
     param(
         [string]$What = 'Terminé',
         [Nullable[int]]$Failures = $null,
         [Nullable[int]]$Warnings = $null,
-        # Ce qu'on conseille de faire ensuite. Une ligne, jamais un paragraphe.
+        # What we advise doing next. One line, never a paragraph.
         [string]$NextStep = ''
     )
-    # L'ETAPE EN COURS SE FERME AVANT LE VERDICT : sinon la derniere de toutes n'aurait
-    # jamais dit comment elle finissait.
+    # THE STEP UNDER WAY CLOSES BEFORE THE VERDICT: otherwise the last of all would never have said how it ended.
     Close-UiStep
     $f = if ($null -ne $Failures) { $Failures } else { $script:UiFailures }
     $w = if ($null -ne $Warnings) { $Warnings } else { $script:UiWarnings }
 
-    # UN ENCART, PAS UNE LIGNE DE PLUS. Apres trente lignes qui defilent, une conclusion
-    # doit se voir sans etre cherchee -- c'est la seule chose que l'on relit quand on
-    # revient devant l'ecran.
+    # A BOX, NOT ONE MORE LINE. After thirty lines scrolling past, a conclusion must be seen without being looked
+    # for -- it is the only thing one reads back when one returns to the screen.
     $text = if ($f -gt 0)    { "ÉCHEC : " + $f + " étape(s) n'ont pas abouti." }
              elseif ($w -gt 0) { $What + ", avec " + $w + " réserve(s)." }
              else              { $What + "." }

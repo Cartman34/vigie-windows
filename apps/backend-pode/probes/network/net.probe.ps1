@@ -1,12 +1,15 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-<# Sonde : réseau (connexion / nom (SSID) / qualite du lien Wi-Fi / IP LAN / IP publique /
-   IPv6 / MAC / VPN + débit).
-   Detection via System.Net.NetworkInformation (.NET pur, fiable dans le runspace Pode).
-   Etat et qualite du Wi-Fi via l'adaptateur + le profil reseau Windows : lisibles SANS
-   privilege et SANS le service de localisation, contrairement a netsh wlan.
-   Seule ecriture : un court historique de debits de liaison dans var/cache/netwifi.json
-   (via Update-StateJson), pour deduire une STABILITE — un releve isole n'en dit rien.
-   IP publique a la demande (action net-publicip). Rien d'autre n'est modifie. #>
+<# A probe: the NETWORK (connection / name (SSID) / quality of the Wi-Fi link / LAN IP / public IP / IPv6 / MAC /
+   VPN + throughput).
+
+   Intent: say whether this machine is really on the network and how well, with nothing invented -- a figure that
+   cannot be measured without elevation or without the location service is not displayed at all.
+   Usage: it is run by the scheduler like any probe. Detection goes through System.Net.NetworkInformation (pure
+   .NET, reliable inside the Pode runspace). The Wi-Fi state and quality come from the adapter plus the Windows
+   network profile: both readable WITHOUT a privilege and WITHOUT the location service, unlike netsh wlan. Its
+   only write: a short history of link rates in var/cache/netwifi.json (through Update-StateJson), to deduce a
+   STABILITY -- a single reading says nothing of one. The public IP is fetched on demand (the net-publicip
+   action). Nothing else is changed. #>
 $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $backend 'lib/common.ps1')
 
@@ -34,8 +37,8 @@ function Format-Mac {
     return '-'
 }
 
-# Profils reseau Windows : lus UNE seule fois. Ils servent a la connectivite ET au nom
-# du reseau — pour une interface sans fil, le nom du profil EST le SSID.
+# The Windows network profiles: read ONCE only. They serve both for connectivity and for the network name -- for a
+# wireless interface, the profile name IS the SSID.
 $profiles = @()
 try { $profiles = @(Get-NetConnectionProfile -ErrorAction Stop) } catch { }
 
@@ -84,21 +87,19 @@ if ($primary) {
 }
 
 # --- Etat Wi-Fi -------------------------------------------------------------------
-# L'ancienne version confiait l'etat a « netsh wlan show interfaces ». Cette commande
-# exige le service de localisation ET l'elevation ; quand elle echoue (cas courant :
-# « WlanQueryInterface renvoie l'erreur 5 »), l'etat restait vide et le champ AFFIRMAIT
-# « non connecté » alors que la machine etait associee a un reseau. On ne devine plus :
-# l'etat vient de l'adaptateur (Get-NetAdapter, repli .NET) et le SSID du profil reseau,
-# tous deux lisibles sans privilege. netsh ne sert plus qu'au bonus « force du signal ».
+# The old version entrusted the state to netsh wlan show interfaces. That command demands the location service AND
+# elevation; when it fails (the common case: WlanQueryInterface returning error 5), the state stayed empty and the
+# field ASSERTED not connected while the machine was associated with a network. We no longer guess: the state
+# comes from the adapter (Get-NetAdapter, with a .NET fallback) and the SSID from the network profile, both
+# readable without a privilege. netsh now serves only for the bonus signal strength.
 $wifiAdapter = $null
 try {
     $wifiAdapter = Get-NetAdapter -Physical -ErrorAction Stop |
                    Where-Object { "$($_.PhysicalMediaType)" -match '802\.11' } | Select-Object -First 1
 } catch { }
 
-# Interface .NET correspondante : c'est elle qui porte adresses et passerelle. Le repli
-# ecarte les pseudo-adaptateurs (pilotes de filtrage, Wi-Fi Direct) : eux n'ont jamais
-# de passerelle.
+# The matching .NET interface: it is the one carrying the addresses and the gateway. The fallback sets aside the
+# pseudo-adapters (filter drivers, Wi-Fi Direct): those never have a gateway.
 $wifiNic = $null
 try {
     if ($wifiAdapter) { $wifiNic = $nics | Where-Object { $_.Name -eq $wifiAdapter.Name } | Select-Object -First 1 }
@@ -114,8 +115,8 @@ $wifiAlias = if ($wifiAdapter) { "$($wifiAdapter.Name)" } elseif ($wifiNic) { "$
 $wifiProfile = if ($wifiAlias) { $profiles | Where-Object { $_.InterfaceAlias -eq $wifiAlias } | Select-Object -First 1 } else { $null }
 $ssid = if ($wifiProfile) { "$($wifiProfile.Name)" } else { '' }
 
-# Get-NetAdapter distingue « pas associe » de « desactive » et de « absent ». Sans lui,
-# on ne sait dire que « le lien est actif », et seulement si l'interface remonte.
+# Get-NetAdapter tells not associated from disabled and from absent. Without it, all one can say is that the link
+# is up, and only if the interface reports at all.
 $wifiUp = $false; $wifiState = 'état inconnu'
 if ($wifiAdapter) {
     switch ("$($wifiAdapter.Status)") {
@@ -127,47 +128,45 @@ if ($wifiAdapter) {
     }
 } elseif ($wifiNic) { $wifiUp = $true; $wifiState = 'Connecté' }
 
-# --- Qualite et stabilite du lien Wi-Fi -------------------------------------------
-# CE QUI EST REELLEMENT MESURABLE ICI (verifie en l'executant sur la machine) :
-#   - le debit NEGOCIE de la liaison radio : Get-NetAdapter, ReceiveLinkSpeed et
-#     TransmitLinkSpeed. La carte descend en modulation des que la reception se
-#     degrade : ce debit est donc un indicateur direct de la qualite du lien, et il
-#     bouge en continu (releve : 39 -> 78 Mb/s en dix secondes). Cout : ~80 ms.
-#   - l'etat du media, pour distinguer une coupure d'une simple baisse.
-# CE QUI N'EST PAS MESURABLE ICI (teste, et negatif) :
-#   - « netsh wlan show interfaces » : erreur 5, exige le service de localisation ET
-#     l'elevation. C'est ce qui faisait afficher « non connecte » a tort.
-#   - la classe WMI root\wmi MSNdis_80211_ReceivedSignalStrength : le pilote de cette
-#     carte repond « non pris en charge ».
-#   - les compteurs de performance reseau : leur nom est traduit, donc non portable.
-# Consequence assumee : AUCUNE force de signal en % ou en dBm n'est affichee. Un
-# chiffre faux serait pire que pas de chiffre — le champ le dit explicitement.
+# --- The quality and stability of the Wi-Fi link ------------------------------
+# WHAT IS REALLY MEASURABLE HERE (checked by running it on the machine):
+#   - the NEGOTIATED rate of the radio link: Get-NetAdapter, ReceiveLinkSpeed and TransmitLinkSpeed. The card
+#     drops its modulation as soon as reception degrades: so that rate is a direct indicator of the quality of
+#     the link, and it moves continuously (measured: 39 -> 78 Mb/s in ten seconds). Cost: ~80 ms.
+#   - the state of the media, to tell a cut from a mere drop.
+# WHAT IS NOT MEASURABLE HERE (tried, and negative):
+#   - netsh wlan show interfaces: error 5, demands the location service AND elevation. That is what made it
+#     display not connected wrongly.
+#   - the WMI class MSNdis_80211_ReceivedSignalStrength under the wmi root: this card driver answers not
+#     supported.
+#   - the network performance counters: their names are translated, so they are not portable.
+# The accepted consequence: NO signal strength in % or in dBm is displayed. A wrong figure would be worse than no
+# figure -- and the field says so explicitly.
 $rxBps = 0L; $txBps = 0L
 if ($wifiAdapter) {
     try { $rxBps = [long]$wifiAdapter.ReceiveLinkSpeed } catch { }
     try { $txBps = [long]$wifiAdapter.TransmitLinkSpeed } catch { }
 }
-# On retient le sens le PLUS RAPIDE des deux, et non le plus lent. Raison : la carte
-# n'entretient une modulation haute que dans le sens ou du trafic circule ; le sens
-# inactif retombe tres bas. Prendre le minimum, c'est mesurer l'inactivite, pas la
-# qualite — verifie ici : emission a 24 Mb/s pendant que la reception tenait 78 Mb/s,
-# sans que rien n'ait bouge.
+# We keep the FASTER of the two directions, not the slower. The reason: the card only keeps a high modulation in
+# the direction where traffic flows; the idle direction falls very low. Taking the minimum means measuring
+# idleness, not quality -- checked here: transmission at 24 Mb/s while reception held 78 Mb/s, with nothing having
+# moved.
 $linkBps = [Math]::Max($rxBps, $txBps)
 $linkMbps = if ($linkBps -gt 0) { [int][Math]::Round($linkBps / 1e6) } else { 0 }
 $rxMbps   = if ($rxBps  -gt 0) { [int][Math]::Round($rxBps  / 1e6) } else { 0 }
 $txMbps   = if ($txBps  -gt 0) { [int][Math]::Round($txBps  / 1e6) } else { 0 }
 
-# Historique court, pour deduire une STABILITE : un seul releve ne dit rien d'une
-# variation. La sonde a un TTL de 15 s, elle passe donc assez souvent pour accumuler.
-# Ecriture par Update-StateJson : c'est le seul code autorise a ecrire dans var/cache.
+# A short history, to deduce a STABILITY: one single reading says nothing of a variation. The probe has a TTL of
+# 15 s, so it passes often enough to accumulate. Writing goes through Update-StateJson: that is the only code
+# allowed to write inside var/cache.
 $wifiHistFile = Get-VarPath -Backend $backend -Kind 'cache' -File 'netwifi.json'
 $nowT = [long][DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
 $samples = @(); $best = 0L
 if ($hasWifi) {
     $hist = $null
     if (Test-Path $wifiHistFile) { try { $hist = Get-Content $wifiHistFile -Raw | ConvertFrom-Json } catch { } }
-    # Changer de reseau remet le compteur a zero : le meilleur debit d'un SSID ne dit
-    # rien d'un autre, et comparer les deux fabriquerait une fausse degradation.
+    # Changing network resets the counter: the best rate of one SSID says nothing of another, and comparing the
+    # two would manufacture a false degradation.
     if ($hist -and "$($hist.ssid)" -eq $ssid) {
         try { $best = [long]$hist.best } catch { }
         try {
@@ -175,8 +174,8 @@ if ($hasWifi) {
                          ForEach-Object { @{ t = [long]$_.t; bps = [long]$_.bps; up = [int]$_.up } })
         } catch { $samples = @() }
     }
-    # Fenetre glissante : 30 minutes, 24 releves au plus. Au-dela, on decrirait un
-    # etat passe (autre piece, autre bande) et non celui de maintenant.
+    # A sliding window: 30 minutes, 24 readings at most. Beyond that we would be describing a past state (another
+    # room, another band) and not the present one.
     $samples = @($samples | Where-Object { ($nowT - $_.t) -le 1800 })
     $samples += ,@{ t = $nowT; bps = $linkBps; up = [int][bool]$wifiUp }
     if ($samples.Count -gt 24) { $samples = @($samples[($samples.Count - 24)..($samples.Count - 1)]) }
@@ -188,20 +187,17 @@ $dropCount  = @($samples | Where-Object { $_.up -ne 1 }).Count
 $sampleCount = $samples.Count
 $spanSec    = if ($sampleCount -ge 2) { $samples[$sampleCount - 1].t - $samples[0].t } else { 0 }
 
-# On juge sur le SOMMET de la fenetre, pas sur l'instant ni sur la moyenne. Une carte
-# Wi-Fi ne monte en modulation que quand elle a du trafic a passer : au repos, le debit
-# negocie s'effondre sans que le lien se soit degrade (releve ici : 6 Mb/s au repos,
-# 116 Mb/s quelques secondes plus tot). Le plus haut debit atteint recemment est donc le
-# seul chiffre qui dise ce que la radio SAIT faire — et une mauvaise reception, elle,
-# plafonne bel et bien ce sommet.
+# We judge on the PEAK of the window, not on the instant nor on the average. A Wi-Fi card only raises its
+# modulation when it has traffic to pass: at rest the negotiated rate collapses without the link having degraded
+# (measured here: 6 Mb/s at rest, 116 Mb/s a few seconds earlier). The highest rate reached recently is therefore
+# the only figure that says what the radio CAN do -- and poor reception does indeed cap that peak.
 $peak = if ($rates.Count) { ($rates | Measure-Object -Maximum).Maximum } else { 0 }
 $peakMbps = if ($peak -gt 0) { [int][Math]::Round($peak / 1e6) } else { 0 }
 
-# Qualite. Deux jugements complementaires, on retient le PIRE : c'est celui que
-# l'utilisateur subit. L'absolu dit ce que le lien peut porter ; le relatif compare au
-# meilleur deja obtenu sur CE reseau, donc detecte une degradation meme sur un lien
-# intrinsequement lent. Le relatif n'entre en jeu qu'avec assez de releves : sans
-# reference etablie, « le premier releve est le maximum » serait un faux « tout va bien ».
+# Quality. Two complementary judgements, and we keep the WORSE: that is the one the user suffers. The absolute one
+# says what the link can carry; the relative one compares with the best already obtained on THIS network, and so
+# detects a degradation even on an intrinsically slow link. The relative one only comes into play with enough
+# readings: without an established reference, a first reading taken as the maximum would be a false all-clear.
 $qualRank = 0   # 0 = inconnue, 1 = bonne, 2 = moyenne, 3 = faible
 if ($wifiUp -and $peak -gt 0) {
     $qualRank = if ($peakMbps -ge 100) { 1 } elseif ($peakMbps -ge 30) { 2 } else { 3 }
@@ -214,18 +210,17 @@ if ($wifiUp -and $peak -gt 0) {
 $qualLabel  = @('', 'Bonne', 'Moyenne', 'Faible')[$qualRank]
 $qualStatus = @('neutral', 'ok', 'warn', 'error')[$qualRank]
 
-# Stabilite : UNIQUEMENT la continuite de l'association. On avait d'abord essaye la
-# dispersion des debits — a jeter : au repos elle atteint 94 % sur un lien parfaitement
-# sain, elle mesure le trafic et non la qualite. Un decrochage, lui, ne s'interprete pas.
-# Il faut aussi que la fenetre couvre une vraie duree : quatre releves en cinq secondes
-# ne prouvent rien sur la tenue d'un lien.
-# La stabilite est un CHAMP a part entiere, distinct de la qualite : chacun porte son
-# statut et son guide. Pas encore etablie = warn avec explication, jamais un champ vide.
+# Stability: ONLY the continuity of the association. We first tried the dispersion of the rates -- to be thrown
+# away: at rest it reaches 94 % on a perfectly healthy link, it measures traffic and not quality. A dropout, on
+# the other hand, needs no interpretation. The window must also cover a real duration: four readings in five
+# seconds prove nothing about how a link holds.
+# Stability is a FIELD in its own right, distinct from quality: each carries its own status and its own guide. Not
+# established yet = warn with an explanation, never an empty field.
 $stabEstablished = ($sampleCount -ge 4 -and $spanSec -ge 120)
 $spanMin = [int][Math]::Round($spanSec / 60)
-# Une mesure qui n'est PAS ENCORE faite n'est pas une alerte : c'est une attente. Elle
-# reste donc neutre -- alerter sans cause use l'attention, et il n'y a rien a resoudre
-# (une alerte doit toujours pouvoir proposer un bouton, D66).
+# A measurement that is NOT MADE YET is not an alert: it is a wait. So it stays neutral -- alerting without a
+# cause wears attention out, and there is nothing to resolve (an alert must always be able to offer a button,
+# D66).
 $stabLabel = ''; $stabStatus = 'neutral'
 if ($stabEstablished) {
     if ($dropCount -eq 0) {
@@ -243,13 +238,13 @@ $wifiText = if (-not $wifiUp)        { $wifiState }
             elseif ($peak -le 0)     { 'Connecté, qualité non mesurable' }
             else                     { "$qualLabel ($peakMbps Mb/s)" }
 
-# Un Wi-Fi eteint n'est pas un probleme en soi (cable Ethernet branche, mode Avion
-# voulu) : c'est la ligne « Connexion » qui porte l'alerte. On reste neutre tant
-# qu'Internet repond par ailleurs.
+# A Wi-Fi that is switched off is not a problem in itself (an Ethernet cable is plugged in, Airplane mode is
+# wanted): it is the Connection line that carries the alert. We stay neutral as long as the Internet answers by
+# another road.
 if (-not $wifiUp) { $qualStatus = if ($connected) { 'neutral' } else { 'warn' } }
 
-# Ce que Windows ne laisse PAS lire ici. Dit une fois, dans le guide, plutot qu'un
-# indicateur invente : c'est la seule facon honnete de traiter une mesure absente.
+# What Windows does NOT let us read here. Said once, in the guide, rather than an invented indicator: that is the
+# only honest way of handling a missing measurement.
 $noSignalNote = "À noter : la force du signal (en %) n'est pas lisible sur ce PC. « netsh wlan » la refuse sans le service de localisation ni droits administrateur, et le pilote de cette carte ne publie pas la classe WMI correspondante. Vigie s'appuie donc sur le débit négocié, qui se lit sans privilège, plutôt que d'afficher un chiffre inventé."
 
 $wifiGuide = if (-not $wifiUp) {
@@ -290,9 +285,8 @@ $wifiGuide = if (-not $wifiUp) {
     } else { '' }) + "`n`n" + $noSignalNote
 }
 
-# Guide de la stabilite : champ separe, donc explication separee. Trois etats reels :
-# pas encore etablie (fenetre trop courte), aucune coupure, ou des coupures — et dans ce
-# dernier cas le guide propose des issues (D49).
+# The stability guide: a separate field, so a separate explanation. Three real states: not established yet (the
+# window is too short), no cut at all, or cuts -- and in that last case the guide offers ways out (D49).
 $stabGuide = if (-not $stabEstablished) {
     "Ce que c'est : la continuité de l'association Wi-Fi — le lien a-t-il décroché du point d'accès ? Un décrochage coupe une visioconférence net, même quand le débit est bon le reste du temps. Ici : pas encore mesurable.`n`n" +
     "Le problème : la mesure demande au moins 4 relevés étalés sur 2 minutes, et Vigie en a $sampleCount" +
@@ -315,8 +309,8 @@ $stabGuide = if (-not $stabEstablished) {
     "- si le besoin est durable, un câble Ethernet règle la question définitivement."
 }
 
-# Nom du reseau : le profil Windows de l'interface principale — pour du Wi-Fi, c'est le
-# SSID. Une seule source, celle qui reste lisible sans autorisation de localisation.
+# The name of the network: the Windows profile of the main interface -- for Wi-Fi, that is the SSID. One single
+# source, the one that stays readable without a location permission.
 $primaryProfile = $null
 if ($primary) { $primaryProfile = $profiles | Where-Object { $_.InterfaceAlias -eq $primary.Name } | Select-Object -First 1 }
 $netName = if ($primaryProfile) { "$($primaryProfile.Name)" }
@@ -333,7 +327,7 @@ foreach ($n in $nics) {
                  ForEach-Object { $_.Address.ToString() })
         $ipTxt = if ($ips.Count) { $ips -join ', ' } else { '-' }
         $adapterLines += ("{0} [{1}] : IPv4 {2} | MAC {3}" -f $n.Name, $n.NetworkInterfaceType, $ipTxt, (Format-Mac $n))
-        # Meme information, en COLONNES : c'est cette forme que l'interface affiche.
+        # The same information, in COLUMNS: that is the form the interface displays.
         $adapterRows  += ,@("$($n.Name)", "$($n.NetworkInterfaceType)", $ipTxt, (Format-Mac $n))
     } catch { }
 }
@@ -354,10 +348,10 @@ if (Test-Path $measFile) {
         if ($m.publicIpAt) { $pubAt = $m.publicIpAt }
     } catch { }
 }
-# Seuils de latence : config du module, surchargeable dans Parametres (D57).
+# The latency thresholds: the module config, overridable in Settings (D57).
 $latWarn = [int](Get-ModuleSetting -Unit 'network' -Key 'LatencyWarnMs');  if (-not $latWarn)  { $latWarn = 80 }
 $latErr  = [int](Get-ModuleSetting -Unit 'network' -Key 'LatencyErrorMs'); if (-not $latErr)   { $latErr = 200 }
-# --- DNS : le resolveur configure et une resolution REELLE -------------------
+# --- DNS: the resolver that is configured, and a REAL resolution --------------
 $dnsServeurs = @()
 try {
     $dnsServeurs = @(Get-DnsClientServerAddress -AddressFamily IPv4 -ErrorAction Stop |
@@ -371,7 +365,7 @@ try {
     $dnsOk = [bool](Resolve-DnsName 'www.microsoft.com' -Type A -QuickTimeout -ErrorAction Stop)
     $sw.Stop(); $dnsMs = [int]$sw.ElapsedMilliseconds
 } catch { }
-# Le nom du proxy local, si un service connu tourne (Acrylic ici) : nommer aide a agir.
+# The name of the local proxy, if a known service is running (Acrylic here): naming it helps one act.
 $dnsProxyName = ''
 if ($dnsLocal) {
     $proxy = Get-LocalDnsProxyService
@@ -391,13 +385,13 @@ $dnsGuide = if ($dnsOk) {
 $latSt = if ($lat -eq '-') { 'neutral' } elseif ([double]($lat) -lt $latWarn) { 'ok' } elseif ([double]($lat) -lt $latErr) { 'warn' } else { 'error' }
 $pubGuide = if ($pubAt) { "Dernière récupération : $pubAt. « Obtenir l'IP publique » l'actualise." } else { "Non récupérée : « Obtenir l'IP publique » la récupère, par un appel à un service externe." }
 
-# REGLE GENERALE de cette sonde : jamais de consigne conditionnelle (« si Non, verifiez
-# X ») quand la sonde SAIT dans quel cas on est. Elle connait la reponse, elle la donne :
-# un guide decrit l'etat REEL, et ne propose des verifications que si elles servent
-# maintenant. Trier la consigne n'est pas le travail de l'utilisateur.
+# A GENERAL RULE of this probe: never a conditional instruction when the probe KNOWS which case we are in. It
+# knows the answer, so it gives it: a guide describes the REAL state, and offers checks only if they help now.
+# Sorting the instruction out is not the user job.
 
-# « Connexion Internet » et « Type de connexion » disaient la meme chose en deux lignes
-# (« Oui » puis « Wi-Fi »). Fusionnees : une seule ligne qui porte l'etat ET le moyen.
+# The Internet connection and the type of connection said the same thing over two lines. Merged: one single line
+# carrying the state AND the means.
+
 $connValue = if (-not $connected) { 'Déconnecté' } elseif ($connType -ne '-') { $connType } else { 'Connecté' }
 $connGuide = if ($connected) {
     "Ce que c'est : la liaison par laquelle ce PC atteint Internet, et le type d'interface qu'elle emprunte. Ici : connecté en $connValue" +
@@ -467,17 +461,16 @@ $fields = @(
     New-Field -Key 'netName'  -Label 'Réseau (nom)' -Value $netName -Kind 'text' -Status 'neutral' -Help "Nom du réseau : SSID en Wi-Fi, sinon nom de l'interface."
 )
 if ($hasWifi) {
-    # UNE ALERTE PORTE TOUJOURS SON BOUTON (D66). Les deux cas ou ce champ alerte -- un
-    # lien radio faible, ou un Wi-Fi decroche alors que rien d'autre ne donne Internet --
-    # se resolvent au meme endroit : la liste des reseaux de Windows, ou l'on se
-    # reconnecte ou l'on choisit une autre bande. Vigie n'y agit pas a la place de
-    # l'utilisateur, elle l'y mene -- c'est la seconde famille de boutons de D66.
+    # AN ALERT ALWAYS CARRIES ITS BUTTON (D66). The two cases where this field alerts -- a weak radio link, or a
+    # Wi-Fi dropped while nothing else is giving Internet -- are resolved in the same place: the Windows list of
+    # networks, where one reconnects or picks another band. Vigie does not act there in the user stead, it leads
+    # them there -- that is the second family of D66 buttons.
     $fields += New-Field -Key 'wifi' -Label 'Lien Wi-Fi' -Value $wifiText -Kind 'text' -Status $qualStatus `
         -Help "Qualité du lien radio, jugée sur le meilleur débit négocié de la liaison au cours des 30 dernières minutes." `
         -FixAction $(if ($qualStatus -in @('warn', 'error')) { 'open-network-settings' } else { $null }) `
         -Guide $wifiGuide
-    # La stabilite n'a de sens que si le lien est etabli : un adaptateur eteint ou non
-    # associe n'a pas d'association a tenir, la ligne « Lien Wi-Fi » dit deja son etat.
+    # Stability only means something if the link is established: an adapter that is off or not associated has no
+    # association to hold, and the Wi-Fi link line already states its condition.
     if ($wifiUp) {
         $fields += New-Field -Key 'wifiStability' -Label 'Stabilité' -Value $stabLabel -Kind 'text' -Status $stabStatus `
             -Help "Continuité de l'association Wi-Fi sur les 30 dernières minutes : compte les décrochages du lien radio." `
@@ -633,10 +626,10 @@ $fields += New-Field -Key 'ports' -Label 'Ports réseau temporaires' -Value $por
                  else { $null }) `
     -Help "Ports que Windows prête aux connexions sortantes, face à sa limite, en TCP et en UDP. À la limite, plus aucune application ne peut ouvrir de connexion."
 
-# Statut de la CARTE : la connectivite d'abord, mais un lien Wi-Fi degrade ou instable
-# doit se voir depuis la liste — sinon la carte reste verte alors qu'une de ses lignes
-# est orange, et l'utilisateur ne la deplie jamais. La stabilite « pas encore etablie »
-# ne degrade PAS la carte : c'est une attente normale, comme la latence non mesuree.
+# The CARD status: connectivity first, but a degraded or unstable Wi-Fi link must be visible from the list --
+# otherwise the card stays green while one of its lines is orange, and the user never unfolds it. A stability that
+# is not established yet does NOT degrade the card: it is a normal wait, like a latency not measured yet.
+
 $modStatus = if ($portsStatus -eq 'error') { 'error' }
              elseif (-not $connected) { 'warn' }
              elseif ($hasWifi -and $qualStatus -eq 'error') { 'error' }
@@ -651,6 +644,6 @@ New-ModuleObject -Id 'net' -Theme 'network' -Label 'Réseau' -Scope 'machine' -S
     New-Action -Id 'net-dns-flush' -Severity 'fix' -Label 'Purger le cache DNS' -BusyLabel 'Purge…' -Kind 'confirm' -Confirm `
         -Help "Vide le cache DNS de Windows et celui du proxy local s’il en existe un (détecté sur le port 53). À utiliser quand quelques sites ne répondent plus alors qu'internet fonctionne. Coupe la résolution une à deux secondes."
     New-Action -Id 'net-speedtest' -Label 'Mesurer débit/latence'  -Kind 'immediate' -Help "Mesure la latence (ping) et le débit descendant en téléchargeant ~10 Mo. Prend quelques secondes et consomme un peu de data."
-    # Destination PERMANENTE (D114) : les paramètres réseau ne servent pas qu'en panne.
+    # A PERMANENT destination (D114): the network settings are not only of use during a breakdown.
     New-Action -Id 'open-network-settings' -Label 'Paramètres réseau' -Kind 'manual' -Severity 'info' -Help "Ouvre les paramètres réseau de Windows : choix du réseau, reconnexion, état de l'adaptateur."
 )

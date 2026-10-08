@@ -1,27 +1,26 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-<# Sonde : session de jeu et allocation des ressources. LECTURE SEULE.
+<# A probe: the gaming session and how the resources are shared out. READ ONLY.
 
-   C'est un OUTIL DE DIAGNOSTIC : quand le jeu rame, la carte doit permettre de voir
-   qui prend quoi -- processeur, GPU, VRAM, memoire, entrees/sorties -- et de reperer
-   l'application qui pompe pendant la partie.
+   Intent: be a DIAGNOSTIC TOOL. When the game stutters, the card must let one see who takes what -- processor,
+   GPU, VRAM, memory, input/output -- and spot the application draining the machine during the game.
+   Usage: it is run by the scheduler like any probe. To test it WITHOUT a game (doc/en/developing/modules.md),
+   VIGIE_FAKE_GAME=<name> forces that process to be treated as the game; the values stay real. For a real GPU
+   load: scripts/dev/gpu-load.html (the recipe is in modules.md).
 
-   Mesures (aucun compteur localise -- le systeme est en francais) :
-     - CPU   : delta de TotalProcessorTime entre deux instantanes (~0,9 s), normalise
-               par le nombre de coeurs ;
-     - GPU   : compteurs '\GPU Engine(*)' sommes par PID, plafonnes a 100 ;
-     - VRAM  : '\GPU Process Memory(*)\Local Usage' par PID -- « Dedicated Usage »
-               additionne des vues qui se recouvrent (6,94 Go annonces pour 1,70 reels) ;
-               total reel de la carte : registre pilote (HardwareInformation.qwMemorySize
-               -- Win32_VideoController.AdapterRAM MENT au-dela de 4 Go, constate) ;
-     - E/S   : delta Read+WriteTransferCount de Win32_Process sur la meme fenetre
-               (disque ET reseau confondus -- Windows ne ventile pas par processus sans
-               ETW ; le libelle le dit honnetement) ;
-     - RAM   : private working set (Get-ProcessMemoryUse), what the process alone holds in RAM. WorkingSet64 counted
-               the shared pages once per process: 7.9 GB for Chrome's 48 processes, which held 2.2 GB (19/09).
+   The measurements (no localised counter -- the system is in French):
+     - CPU   : the delta of TotalProcessorTime between two snapshots (~0.9 s), normalised by the number of cores;
+     - GPU   : the '/GPU Engine(*)' counters summed per PID, capped at 100;
+     - VRAM  : '/GPU Process Memory(*)/Local Usage' per PID -- Dedicated Usage adds up views that overlap
+               (6.94 GB announced for 1.70 real); the card's real total comes from the driver's registry key
+               (HardwareInformation.qwMemorySize -- Win32_VideoController.AdapterRAM LIES beyond 4 GB, observed);
+     - I/O   : the delta of Read+WriteTransferCount from Win32_Process over the same window (disc AND network
+               together -- Windows does not break it down per process without ETW; the label says so honestly);
+     - RAM   : private working set (Get-ProcessMemoryUse), what the process alone holds in RAM. WorkingSet64
+               counted the shared pages once per process: 7.9 GB for Chrome's 48 processes, which held 2.2 GB
+               (19/09).
+#>
 
-   TEST SANS JEU (doc/en/developing/modules.md) : VIGIE_FAKE_GAME=<nom> force ce processus a etre
-   traite comme le jeu ; les valeurs restent reelles. Charge GPU reelle :
-   scripts/dev/gpu-load.html (voir la recette dans modules.md).
+
 #>
 $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $backend 'lib/common.ps1')
@@ -32,10 +31,10 @@ $otherGpuWarn = [int](Get-ModuleSetting -Unit 'gaming' -Key 'OtherGpuWarnPct'); 
 $vramWarn     = [int](Get-ModuleSetting -Unit 'gaming' -Key 'VramWarnPct');     if (-not $vramWarn)     { $vramWarn = 90 }
 $tempWarn     = [int](Get-ModuleSetting -Unit 'gaming' -Key 'GpuTempWarnC');   if (-not $tempWarn)     { $tempWarn = 87 }
 
-# Processus au premier plan : meilleur indice du jeu quand la partie est active.
-# Le PLEIN ECRAN est mesure ici aussi : c'est un comportement de jeu, pas un nom.
-# NB : le type porte un nom NEUF (Win) parce qu'un type deja charge dans le serveur ne
-# peut pas etre complete -- Add-Type serait ignore et les nouvelles methodes absentes.
+# The foreground process: the best clue to the game while a session is active.
+# FULL SCREEN is measured here too: it is a game's behaviour, not a name.
+# NB: the type carries a NEW name (Win) because a type already loaded in the server cannot be completed --
+# Add-Type would be ignored and the new methods absent.
 $fgPid = 0
 $fgPleinEcran = $false
 try {
@@ -58,8 +57,8 @@ public static extern int GetSystemMetrics(int i);
         [void][VigieProbe.Win]::GetWindowThreadProcessId($h, [ref]$fgPid)
         $r = New-Object VigieProbe.Win+RECT
         if ([VigieProbe.Win]::GetWindowRect($h, [ref]$r)) {
-            # Ecran PRINCIPAL : une fenetre sur un second ecran n'est pas vue comme plein
-            # ecran. C'est une limite assumee, pas un oubli.
+            # The MAIN screen: a window on a second screen is not seen as full screen. That is an accepted limit,
+            # not an oversight.
             $width = [VigieProbe.Win]::GetSystemMetrics(0)
             $height = [VigieProbe.Win]::GetSystemMetrics(1)
             if ($width -gt 0 -and $height -gt 0) {
@@ -153,8 +152,8 @@ foreach ($p in (Get-Process -ErrorAction SilentlyContinue)) {
         if ($beforeIo.ContainsKey($p.Id) -and $afterIo.ContainsKey($p.Id)) {
             $ioMo = [Math]::Max(0.0, ($afterIo[$p.Id] - $beforeIo[$p.Id]) / $elapsed * 1000.0 / 1MB)
         }
-        # Chemin de l'executable : c'est lui qui permet de dire si c'est un JEU (voir plus
-        # bas). Inaccessible pour les processus proteges -- on l'accepte, on ne devine pas.
+        # The executable's path: it is what lets us say whether this is a GAME (see further down). Out of reach for
+        # protected processes -- we accept that, we do not guess.
         $path = $null
         try { $path = $p.Path } catch { }
         $procs[$p.Id] = [pscustomobject]@{
@@ -168,19 +167,19 @@ foreach ($p in (Get-Process -ErrorAction SilentlyContinue)) {
     } catch { }
 }
 
-# --- La ou les cartes graphiques ---------------------------------------------
+# --- The graphics card, or cards ----------------------------------------------
 $gpus = @(); $vramTotale = 0.0
 try {
     $gpus = @(Get-CimInstance Win32_VideoController | Select-Object Name, DriverVersion)
-    # Total VRAM REEL : le registre du pilote (AdapterRAM plafonne a 4 Go).
+    # The REAL VRAM total: the driver's registry key (AdapterRAM caps at 4 GB).
     $cles = Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}\0*' `
             -Name 'HardwareInformation.qwMemorySize' -ErrorAction SilentlyContinue
     $vramTotale = ($cles | ForEach-Object { [double]$_.'HardwareInformation.qwMemorySize' } |
                    Measure-Object -Maximum).Maximum
 } catch { }
 
-# Table luid -> nom d'adaptateur (base DirectX du registre) : c'est elle qui permet de
-# dire si un processus est rendu par la carte dediee ou par l'integree.
+# A luid -> adapter name table (the DirectX registry base): it is what lets us say whether a process is rendered
+# by the dedicated card or by the integrated one.
 $nameByLuid = @{}
 try {
     foreach ($k in (Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\DirectX' -ErrorAction Stop)) {
@@ -192,30 +191,30 @@ try {
 } catch { }
 $hasDedicatedCard = [bool]($nameByLuid.Values | Where-Object { $_ -notmatch 'Intel|UHD|Iris|Basic Render' })
 
-# Le compteur « Dedicated Usage » MENT parfois (dwm vu a 32 Go sur une carte de 8) :
-# une valeur par processus superieure a la VRAM physique est aberrante, on l'ecarte.
+# The Dedicated Usage counter sometimes LIES (dwm seen at 32 GB on an 8 GB card): a per-process value higher than
+# the physical VRAM is absurd, so we set it aside.
 if ($vramTotale -gt 0) {
     foreach ($pid2 in @($procs.Keys)) {
         if ($procs[$pid2].VramGb -gt ($vramTotale / 1GB)) { $procs[$pid2].VramGb = 0 }
     }
 }
 
-# Deux natures distinctes (choix utilisateur) :
-# - bruit de MESURE, jamais montre : le faux processus Idle et Vigie elle-meme ;
-# - services WINDOWS legitimes : montres s'ils consomment, mais ANNOTES comme tels --
-#   les masquer cacherait une information, conseiller de les fermer serait faux.
+# Two distinct natures (the owner's choice):
+# - MEASUREMENT noise, never shown: the fake Idle process and Vigie itself;
+# - legitimate WINDOWS services: shown if they consume, but ANNOTATED as such -- hiding them would hide
+#   information, advising one to close them would be wrong.
 $noise = @('Idle','System','Memory Compression','Registry','conhost','pwsh','powershell')
 $servicesWindows = @('lsass','services','wininit','winlogon','smss','csrss','dwm','svchost',
                      'MsMpEng','SearchIndexer','fontdrvhost','WmiPrvSE','RuntimeBroker',
                      'SearchHost','taskhostw')
 
-# Une APPLICATION = tous ses processus du meme nom, sommes. Trois lignes « chrome »
-# separees ne disent rien ; une seule ligne agregee dit qui prend quoi.
+# An APPLICATION = all its processes of the same name, summed. Three separate browser lines say nothing; one
+# single aggregated line says who takes what.
 function Group-ByApp {
     param($Liste)
     @($Liste | Group-Object Name | ForEach-Object {
-        # Nom LISIBLE : « csrss » ne parle a personne. Le chemin vient du premier processus
-        # du groupe qui accepte de le donner.
+        # A READABLE name: a service's internal name speaks to nobody. The path comes from the first process of the
+        # group that agrees to give it.
         $paths = @($_.Group | ForEach-Object { $_.Path } | Where-Object { $_ } | Sort-Object -Unique)
         $path = @($paths | Select-Object -First 1)[0]
         [pscustomobject]@{
@@ -273,7 +272,7 @@ if (-not $game -and $session) {
 
 $fields = @()
 
-# --- Carte graphique et VRAM --------------------------------------------------
+# --- The graphics card and the VRAM -------------------------------------------
 if ($gpus.Count -gt 0) {
     $principal = ($gpus | Sort-Object { $_.Name -match 'Intel|UHD|Iris' } | Select-Object -First 1)
     $gpuLines = @($gpus | ForEach-Object { "- {0} (pilote {1})" -f $_.Name, $_.DriverVersion })
@@ -297,9 +296,8 @@ if ($vramTotale -gt 0) {
             $vramAll = @(Group-ByApp ($procs.Values | Where-Object { $_.VramGb -gt 0 }) |
                             Sort-Object VramGb -Descending)
             $vramApps = @($vramAll | Select-Object -First 6)
-            # CE QUI N'EST PAS LISTE EST AGREGE (demande utilisateur) : sans cette ligne,
-            # l'utilisateur additionne le tableau, ne retrouve pas le total, et a raison
-            # de trouver ca incoherent.
+            # WHAT IS NOT LISTED IS AGGREGATED (asked for by the owner): without this line, the user adds the
+            # table up, does not find the total again, and is right to find that inconsistent.
             $vramReste  = @($vramAll | Select-Object -Skip 6)
             $vramLines = @($vramApps | ForEach-Object { ,@($_.Label, $_.VramGb) })
             $tipsVram   = @($vramApps | ForEach-Object { $_.Tip })
@@ -310,7 +308,7 @@ if ($vramTotale -gt 0) {
             }
             @{ columns = @('Application', 'VRAM (Go)')
                rows = $vramLines
-               # Une infobulle par ligne : chemin absolu, editeur, PID (demande utilisateur).
+               # One tooltip per line: the absolute path, the publisher, the PID (asked for by the owner).
                tips = $tipsVram })
 }
 if (-not $gpuDispo) {
@@ -320,7 +318,7 @@ if (-not $gpuDispo) {
         -Guide "Sans eux, impossible d'attribuer le GPU aux processus.`nLe bouton reconstruit la base des compteurs de Windows (lodctr /R) puis resynchronise WMI, et vérifie ensuite qu'ils répondent. Si ce n'est pas le cas, un redémarrage de Windows les rétablit."
 }
 
-# --- Sante du GPU dedie (nvidia-smi, livre avec le pilote) --------------------
+# --- The health of the dedicated GPU (nvidia-smi, delivered with the driver) ---
 $aNvidia = [bool]($gpus | Where-Object { $_.Name -match 'NVIDIA' })
 if ($aNvidia) {
     $smi = 'C:\Windows\System32\nvidia-smi.exe'
@@ -328,17 +326,16 @@ if ($aNvidia) {
         try {
             $ln = (& $smi '--query-gpu=temperature.gpu,power.draw,clocks.sm,utilization.gpu,clocks_event_reasons.active' '--format=csv,noheader,nounits' 2>$null | Select-Object -First 1)
             if (-not $ln) {
-                # Pilotes plus anciens : l'ancien nom du champ de bridage.
+                # Older drivers: the old name of the throttling field.
                 $ln = (& $smi '--query-gpu=temperature.gpu,power.draw,clocks.sm,utilization.gpu,clocks_throttle_reasons.active' '--format=csv,noheader,nounits' 2>$null | Select-Object -First 1)
             }
             if ($ln) {
                 $c = @(($ln -split ',') | ForEach-Object { "$_".Trim() })
                 $temp = [int]$c[0]
-                # Le masque de raisons melange gestion d'energie NORMALE (repos 0x1,
-                # limite logicielle de puissance 0x4, plafond applicatif 0x2, sync 0x10)
-                # et VRAIS bridages : ralenti materiel 0x8, thermique logiciel 0x20,
-                # thermique materiel 0x40, frein de puissance materiel 0x80. Tout melanger
-                # affichait « bridee » au repos a 48 degres (constate) : faux positif.
+                # The reasons mask mixes NORMAL power management (idle 0x1, a software power limit 0x4, an
+                # application cap 0x2, sync 0x10) with REAL throttling: a hardware slowdown 0x8, a software
+                # thermal limit 0x20, a hardware thermal limit 0x40, a hardware power brake 0x80. Mixing them all
+                # displayed "throttled" at rest at 48 degrees (observed): a false positive.
                 $masque = 0L
                 if ($c.Count -ge 5 -and $c[4] -match '^0x[0-9A-Fa-f]+$') {
                     try { $masque = [Convert]::ToInt64($c[4].Substring(2), 16) } catch { }
@@ -368,20 +365,18 @@ if ($aNvidia) {
     }
 }
 
-# --- Alimentation : jouer sur batterie bride tout -----------------------------
-# Meme lecture que la sentinelle de decharge, au meme endroit : les deux ne peuvent pas
-# se contredire, et VIGIE_FAKE_BATTERY les simule toutes les deux.
+# --- Power: playing on battery throttles everything ---------------------------
+# The same reading as the discharge sentinel, in the same place: the two cannot contradict each other, and
+# VIGIE_FAKE_BATTERY simulates both.
 $alim = Get-BatteryState
 $surSecteur  = -not $alim.OnBattery
 $pctBatterie = $alim.Pct
-# LE MODE D'ALIMENTATION N'EST PAS DIT ICI. powercfg rend celui du compte qui execute --
-# le service -- et pas celui du joueur : une valeur juste par hasard. La machine et son
-# alimentation sont le sujet de la carte Alimentation ; cette carte-ci ne dit que l'effet
-# sur la partie.
+# THE POWER MODE IS NOT STATED HERE. powercfg returns the one of the account that runs -- the service -- and not
+# the player's: a value that is right by accident. The machine and its power supply are the subject of the Power
+# card; this card only states the effect on the game.
 
-# LA PARTIE EST NOTEE ICI, une fois qu'on sait qu'il y en a une : sa sentinelle a besoin
-# de la charge de batterie DU DEBUT pour dire « elle se vide pendant que vous jouez », et
-# elle ne peut pas la retrouver apres coup.
+# THE SESSION IS RECORDED HERE, once we know there is one: its sentinel needs the battery charge AT THE START to
+# say that it is draining while you play, and it cannot find that out after the fact.
 if ($game) { Set-GameSession -Backend $backend -Name (Get-AppDisplayName -ProcessName $game.Name -Path $game.Path -Complet) -ProcessId ([int]$game.Id) -BatteryPct $(if ($null -ne $pctBatterie) { [int]$pctBatterie } else { -1 }) }
 else { Clear-GameSession -Backend $backend }
 $session = Get-GameSession -Backend $backend
@@ -391,15 +386,15 @@ if ($session -and -not $surSecteur -and [int]$session.startPct -ge 0 -and $null 
 }
 $dropThreshold = [int](Get-ModuleSetting -Unit 'gaming' -Key 'BatteryDropWarnPct'); if (-not $dropThreshold) { $dropThreshold = 10 }
 
-# --- Le jeu et les pompeurs ---------------------------------------------------
+# --- The game and the resource hogs -------------------------------------------
 if ($game) {
-    # DIRE POURQUOI : « jeu detecte : X » sans justification a deja design ChatGPT.
+    # SAY WHY: naming a detected game without a justification has already pointed at the wrong program.
     $pourquoi = if ($env:VIGIE_FAKE_GAME) { @("Simulation (VIGIE_FAKE_GAME=$($env:VIGIE_FAKE_GAME)) : les mesures restent réelles.") }
                 elseif ($gameReasons) { @('Reconnu comme jeu parce que :') + @($gameReasons | ForEach-Object { "- $_" }) }
                 else { @() }
     if ($game.Path) { $pourquoi += "Exécutable : $($game.Path)" }
-    # Le jeu reste LE jeu meme quand il ne rend pas : on le dit au lieu de le faire
-    # disparaitre (menu, pause, chargement).
+    # The game stays THE game even when it is not rendering: we say so instead of making it disappear (a menu, a
+    # pause, a loading screen).
     $auRepos = ($game.Gpu -lt $gameGpuMin)
     $fields += New-Field -Key 'game' -Label 'Jeu détecté' `
         -Value ((Get-AppDisplayName -ProcessName $game.Name -Path $game.Path -Complet) + $(if ($auRepos) { ' (menu ou pause)' } else { '' })) -Kind 'text' -Status 'ok' `
@@ -410,8 +405,8 @@ if ($game) {
         -Help "Part de la machine consommée par le jeu à l'instant de la mesure." `
         -Guide ("RAM : {0} Go`nE/S (disque+réseau) : {1} Mo/s" -f $game.RamGb, $game.IoMbs)
 
-    # Sur quel adaptateur le jeu est-il rendu ? Le piege Optimus : la carte integree
-    # rend le jeu pendant que la dediee dort -- performances divisees sans message.
+    # On which adapter is the game being rendered? The Optimus trap: the integrated card renders the game while
+    # the dedicated one sleeps -- performance halved with no message.
     if ($luidParPid.ContainsKey($game.Id) -and $nameByLuid.Count -gt 0) {
         $luDominant = ($luidParPid[$game.Id].GetEnumerator() | Sort-Object Value -Descending | Select-Object -First 1).Key
         $adapterName = $nameByLuid[[int64]$luDominant]
@@ -584,17 +579,15 @@ if ($game) {
                 "marqueurs de moteur posés à côté de son exécutable. Une seule qui répond suffit.")
 }
 
-# --- Alimentation : un fait sur la MACHINE, pas sur la partie ------------------
-# Ce champ vivait dans la branche « un jeu tourne » : sans jeu detecte, aucune
-# alimentation n'etait dite et l'alerte « partie sur batterie » ne pouvait jamais
-# partir -- deux symptomes pour une seule cause (constate le 01/09). Le champ est
-# desormais toujours la ; seul son STATUT depend de ce que la machine est en train de
-# rendre, car c'est le rendu 3D sur batterie qui bride et qui merite l'alerte.
+# --- Power: a fact about the MACHINE, not about the game ----------------------
+# This field used to live inside the "a game is running" branch: with no game detected, no power state was stated
+# and the alert about playing on battery could never go out -- two symptoms for one single cause (observed on
+# 01/09). The field is now always there; only its STATUS depends on what the machine is rendering, because it is
+# 3D rendering on battery that throttles and that deserves the alert.
 $rendering = [bool]$game -or ($rejete -and $rejete.Proc.Gpu -ge $gameGpuMin)
 if (-not $surSecteur) {
-    # LA BAISSE FAIT PARTIE DE LA VALEUR, et pas seulement du guide : c'est la bascule du
-    # champ qui declenche la bulle Windows (D54). Une valeur qui ne bouge pas ne previent
-    # personne, meme si la batterie continue de se vider.
+    # THE DROP IS PART OF THE VALUE, and not only of the guide: it is the field's flip that triggers the Windows
+    # balloon (D54). A value that does not move warns nobody, even if the battery goes on draining.
     $vide = ($session -and $baisse -ge $dropThreshold)
     $fields += New-Field -Key 'power' -Label 'Alimentation' `
         -Value ("Batterie" + $(if ($null -ne $pctBatterie) { " ($pctBatterie %)" }) +
@@ -611,19 +604,19 @@ if (-not $surSecteur) {
         -Help "Sur secteur, la machine donne toute sa puissance."
 }
 
-# --- Repartition : le top par DIMENSION, pour trouver qui prend quoi ----------
-# svchost agrege (des dizaines de services) dominerait sans rien designer ; dwm reste
-# visible, sa VRAM de compositeur est une vraie information.
+# --- The share-out: the top per DIMENSION, to find who takes what -------------
+# An aggregated service host (dozens of services) would dominate without naming anything; the window manager
+# stays visible, its compositor VRAM is real information.
 $horsBruit = @(Group-ByApp ($procs.Values | Where-Object { $noise -notcontains $_.Name }))
-# Un TABLEAU unique : chaque application avec toutes ses dimensions -- c'est la vue
-# « qui prend quoi » demandee, bien plus lisible qu'une liste par dimension.
+# ONE single TABLE: each application with all its dimensions -- that is the "who takes what" view that was
+# asked for, far more readable than one list per dimension.
 $meneur = @($horsBruit | Sort-Object { $_.Cpu * 1.5 + $_.Gpu } -Descending)[0]
 $repTrie = @($horsBruit | Sort-Object { $_.Cpu * 1.5 + $_.Gpu + $_.VramGb * 10 } -Descending)
 $repApps = @($repTrie | Select-Object -First 8)
 $repLines = @($repApps |
     ForEach-Object { ,@(($_.Label + $(if ($servicesWindows -contains $_.Name) { ' (Windows)' } else { '' })), $_.Cpu, $_.Gpu, $_.VramGb, $_.RamGb, $_.IoMbs) })
 $tipsRep = @($repApps | ForEach-Object { $_.Tip })
-# Tout le reste de la machine, en UNE ligne : le tableau redevient additionnable.
+# All the rest of the machine, on ONE line: the table becomes addable again.
 $repReste = @($repTrie | Select-Object -Skip 8)
 if ($repReste.Count) {
     $repLines += ,@(("Autres (" + $repReste.Count + " applications)"),
@@ -644,8 +637,8 @@ $fields += New-Field -Key 'top' -Label 'Répartition des ressources' `
               tips = $tipsRep }
 
 $statut = if (($fields | Where-Object { $_.status -eq 'warn' })) { 'warn' } else { 'ok' }
-# Boutons PERMANENTS (D114) : ce qui entoure une partie se regle chez Windows, et les
-# deux destinations utiles ne dependent pas de l'etat de la carte.
+# PERMANENT buttons (D114): what surrounds a game is set in Windows, and the two useful destinations do not depend
+# on the state of the card.
 # THE MODE SHOWS: while a game lasts, the card does not look like the rest of the time.
 # It is a context, not an alert -- its status does not change.
 <#
@@ -658,7 +651,7 @@ $statut = if (($fields | Where-Object { $_.status -eq 'warn' })) { 'warn' } else
 $lastSession = $null
 try { $lastSession = Get-LastGameSession -Backend $backend } catch { }
 if ($lastSession -and $lastSession.seconds -ge 60) {
-    # [Math]::Floor, JAMAIS [int] : PowerShell ARRONDIT une conversion en entier, et 1 h 35 s'affichait « 2 h 35 ».
+    # [Math]::Floor, NEVER [int]: PowerShell ROUNDS a conversion to an integer, and 1 h 35 displayed as 2 h 35.
     $fr = [Globalization.CultureInfo]::GetCultureInfo('fr-FR')
     function Format-Span {
         param([int]$Secondes)
