@@ -7563,8 +7563,8 @@ function Get-State {
             catch [System.Threading.AbandonedMutexException] { $got = $true }
             catch { $got = $false }
             if ($got) {
-                # L'origine du passage, pour le journal : une demande explicite attend
-                # (WaitSeconds > 0 ou -Force), le reste est un rafraichissement de fond.
+                # Where the run came from, for the log: an explicit request waits
+                # (WaitSeconds > 0 or -Force), and the rest is a background refresh.
                 $origine = if ($Force -or $ForceModule -or $WaitSeconds -gt 0) { 'forced' } else { 'background' }
                 foreach ($sp in $stale) {
                     $t0 = Get-Date
@@ -7577,23 +7577,23 @@ function Get-State {
                         if ($m) { $cache[$sp.Key] = [ordered]@{ module = $m; at = (Get-Date).ToUniversalTime().ToString('o'); codeStamp = $sp.Stamp } }
                         Write-ProbeRun -Backend $Backend -Probe $sp.Name -Ms $elapsedMs -Origin $origine -Outcome ($(if ($m) { 'ok' } else { 'empty' })) -Modules @($m).Count
                         Write-Log -Backend $Backend -Name 'state' -Message (Get-Label 'common.sonde-recalculee-ms' $sp.Name $elapsedMs)
-                        # Historique : echantillonne les mesures du catalogue APRES un
-                        # recalcul reussi. Best-effort (la fonction n'echoue jamais).
+                        # History: samples the catalogue's measurements AFTER a successful
+                        # recomputation. Best effort -- the function never fails.
                         if ($m) { Write-MeasureSamples -Backend $Backend -Probe $sp.Name -Modules @($m) }
                     } catch {
                         Write-ProbeRun -Backend $Backend -Probe $sp.Name -Ms ([int]((Get-Date) - $t0).TotalMilliseconds) -Origin $origine -Outcome 'error' -Detail $_.Exception.Message
                         Write-Log -Backend $Backend -Name 'state' -Level 'ERROR' -Message (Get-Label 'common.sonde-erreur' $sp.Name $_.Exception.Message)
                         <#
-                            UNE ERREUR SE PRESENTE COMME LE RESTE.
+                            AN ERROR LOOKS LIKE EVERYTHING ELSE.
 
-                            La carte d'echec s'appelait « accounts.probe.ps1 » et
-                            atterrissait sous « Systeme » : le nom d'un fichier, dans le
-                            mauvais groupe. Personne ne sait a quelle carte cela
-                            correspond, et c'est justement le moment ou il faut le savoir.
+                            The failure card was called "accounts.probe.ps1" and landed under
+                            "Systeme": a file's name, in the wrong group. Nobody knows which
+                            card that corresponds to, and it is exactly the moment one needs
+                            to know.
 
-                            Le dossier de la sonde EST son module -- probes/<unite>/ --
-                            et son module.psd1 porte le libelle affiche. On s'en sert :
-                            la carte garde sa place et son nom, et dit ce qui a echoue.
+                            The probe's folder IS its module -- probes/<unit>/ -- and its
+                            module.psd1 carries the label displayed. That is used: the card
+                            keeps its place and its name, and says what failed.
                         #>
                         $unit = Split-Path (Split-Path $sp.File -Parent) -Leaf
                         $label = $unit
@@ -7612,17 +7612,17 @@ function Get-State {
                         )
                         $cache[$sp.Key] = [ordered]@{ module = $errMod; at = (Get-Date).ToUniversalTime().ToString('o'); codeStamp = $sp.Stamp }
                     }
-                    # Ecriture FUSIONNEE, entree par entree, sous mutex (Update-StateJson).
+                    # Written MERGED, entry by entry, under a mutex (Update-StateJson).
                     #
-                    # On reecrivait tout le fichier depuis la copie memoire : deux recalculs
-                    # simultanes (la requete forcee et le rafraichissement de fond) se
-                    # clobberaient l'un l'autre, et une entree deja corrigee revenait a son
-                    # ancienne valeur -- une carte en erreur ressuscitait apres correction.
-                    # Ne reecrire QUE la sonde qu'on vient de calculer supprime la course.
-                    # -Depth 24 : une carte peut porter un ARBRE (analyse du disque).
-                    # A la profondeur par defaut (8), ConvertTo-Json tronque en SILENCE et
-                    # les branches profondes arrivent VIDES a l'interface -- constate le
-                    # 26/08 : des lignes sans nom ni taille sous chaque dossier.
+                    # The whole file used to be rewritten from the in-memory copy: two
+                    # simultaneous recomputations -- the forced request and the background
+                    # refresh -- clobbered each other, and an entry already corrected went
+                    # back to its old value: a card in error rose again after being fixed.
+                    # Rewriting ONLY the probe just computed removes the race.
+                    # -Depth 24: a card may carry a TREE (the disk analysis).
+                    # At the default depth (8), ConvertTo-Json truncates IN SILENCE and the
+                    # deep branches reach the interface EMPTY -- seen on 26/08: lines with
+                    # neither name nor size under every folder.
                     try { Update-StateJson -Path $cacheFile -Set @{ $sp.Key = $cache[$sp.Key] } -Depth 24 | Out-Null } catch { }
                 }
             }
@@ -7635,19 +7635,18 @@ function Get-State {
         }
     }
 
-    # Assemble les modules depuis le cache (dans l'ordre des fichiers de sondes).
-    # Une sonde peut renvoyer UN module ou un TABLEAU de modules (aplati ici).
+    # Assembles the modules from the cache, in the order of the probe files.
+    # A probe may return ONE module or an ARRAY of modules (flattened here).
     <#
-        ON MESURE CE QUE COUTE CHAQUE CARTE. Pas le total : le detail.
+        WHAT EACH CARD COSTS IS MEASURED. Not the total: the detail.
 
-        « Je veux voir ce qui prend du temps a charger, par carte. » Sans cela, un /state
-        lent est un chiffre unique dont on ne peut rien deduire -- il a fallu une journee
-        pour trouver que les 28 secondes venaient d'un controle de droits, et non des
-        sondes qu'on soupconnait.
+        "I want to see what takes time to load, card by card." Without that, a slow /state is
+        a single figure from which nothing can be deduced -- it took a day to find that the 28
+        seconds came from a rights check, and not from the probes everyone suspected.
 
-        Le temps est porte par la carte elle-meme (champ « ms ») et recapitule dans le
-        journal « state ». Il compte le SERVICE : lecture du cache, etat des operations,
-        droits des actions -- tout ce qui se passe pendant que la page attend.
+        The time is carried by the card itself (the "ms" field) and summarised in the "state"
+        log. It counts the SERVICE: reading the cache, the state of the operations, the rights
+        of the actions -- everything happening while the page waits.
     #>
     & $markPhase 'fraicheur'
     $modules = @()
@@ -7741,7 +7740,7 @@ function Get-State {
                         else { Add-Member -InputObject $mm -NotePropertyName 'freshness' -NotePropertyValue $fresh -Force }
                     } catch { }
                 }
-                # A RECALCULER : la carte s'affiche, et dit qu'elle attend sa mesure.
+                # TO BE RECOMPUTED: the card shows, and says it is waiting for its measurement.
                 if ($mm -and $e.pending) {
                     try {
                         if ($mm -is [System.Collections.IDictionary]) { $mm['pending'] = $true }
@@ -7753,15 +7752,15 @@ function Get-State {
     }
 
     <#
-        UNE SONDE A TOUJOURS SA CARTE. SANS EXCEPTION.
+        A PROBE ALWAYS HAS ITS CARD. WITHOUT EXCEPTION.
 
-        Une carte s'affiche pleine, vide, ou en erreur -- jamais elle ne manque. Une sonde
-        qui n'a jamais rien produit n'avait aucune entree en cache, donc aucune carte :
-        un trou dans la page, dont personne ne peut deviner le contenu.
+        A card shows full, empty, or in error -- it is never missing. A probe that has never
+        produced anything had no cache entry, and therefore no card: a hole in the page, whose
+        contents nobody can guess.
 
-        On rend donc une carte d'attente, batie sur ce qu'on connait sans executer quoi que
-        ce soit : le module.psd1 du dossier donne son titre, le dossier donne son groupe.
-        Elle porte « en attente de mesure » et son bouton, qui suffit a la remplir.
+        So a waiting card is returned, built on what is known without running anything at all:
+        the folder's module.psd1 gives its title, the folder gives its group. It carries "en
+        attente de mesure" and its button, which is enough to fill it.
     #>
     & $markPhase 'assemblage'
     $known = @($modules | ForEach-Object { "$($_.id)" })
@@ -7775,9 +7774,9 @@ function Get-State {
         try {
             $decl = Import-PowerShellDataFile -Path (Join-Path (Split-Path $pf.FullName -Parent) 'module.psd1')
             if ($decl.Label) { $cardLabel = "$($decl.Label)" }
-            # LE GROUPE EST DECLARE, sinon le dossier sert de defaut. « deployment » n'est
-            # pas un groupe : sa carte se lit sous « Comptes », et l'en-tete affichait
-            # « DEPLOYMENT » en anglais faute de le savoir.
+            # THE GROUP IS DECLARED, and the folder serves as the default otherwise.
+            # "deployment" is not a group: its card is read under "Comptes", and the header
+            # displayed "DEPLOYMENT" in English for want of knowing.
             if ($decl.Theme) { $cardTheme = "$($decl.Theme)" }
         } catch { }
         # SCOPE 'machine': this card says only that a measurement has not happened yet, which is true for everyone.
@@ -7787,17 +7786,17 @@ function Get-State {
     }
 
     <#
-        « OPERATION EN COURS » SE LIT MAINTENANT, PAS AU MOMENT DU CALCUL.
+        "AN OPERATION IS RUNNING" IS READ NOW, NOT AT THE TIME OF THE COMPUTATION.
 
-        Une sonde pose cet etat quand elle s'execute -- et son rendu est ensuite servi
-        depuis le cache. Une operation lancee APRES ce calcul ne se voyait donc pas : la
-        carte Deploiement restait normale, ses boutons actifs, pendant que la mise a jour
-        tournait (constate le 31/08, la notification annoncait « en cours depuis 26 s »
-        alors que la carte ne montrait rien).
+        A probe lays that state while it runs -- and its rendering is then served from the
+        cache. An operation started AFTER that computation therefore did not show: the
+        Deployment card stayed normal, its buttons active, while the update was running (seen
+        on 31/08, the notification announcing "running for 26 s" while the card showed
+        nothing).
 
-        Ce n'est pas une mesure, c'est un fait present : on le relit a chaque reponse, et
-        on le pose par-dessus le rendu, quel que soit son age. Le champ disparait aussi
-        de lui-meme quand la marque n'est plus la.
+        It is not a measurement, it is a present fact: it is read again at every response and
+        laid over the rendering, whatever its age. The field also disappears by itself when
+        the mark is gone.
     #>
     foreach ($m in $modules) {
         if (-not $m -or -not $m.id) { continue }
@@ -7817,10 +7816,10 @@ function Get-State {
         }
     }
 
-    # INVARIANT (D66) : une action CITEE par un champ (fixAction) doit figurer dans les
-    # actions de la carte, sinon l'interface n'a ni libelle ni genre a dessiner et le
-    # bouton de resolution n'apparait pas. On complete ici plutot que d'obliger chaque
-    # sonde a redeclarer l'action dans sa barre.
+    # INVARIANT (D66): an action NAMED by a field (fixAction) must appear among the card's
+    # actions, or the interface has neither label nor kind to draw and the fixing button does
+    # not appear. It is completed here rather than obliging every probe to redeclare the
+    # action in its own bar.
     foreach ($m in $modules) {
         $connues = @(@($m.actions) | Where-Object { $_ -and $_.id } | ForEach-Object { "$($_.id)" })
         foreach ($ch in @($m.fields)) {
@@ -7834,8 +7833,8 @@ function Get-State {
         }
     }
 
-    # Droits : chaque action dit si elle est lancable par CE compte, et sinon pourquoi
-    # (D65). C'est fait ici, une fois pour toutes, plutot que dans chaque sonde.
+    # Rights: every action says whether THIS account can launch it, and if not why (D65). It
+    # is done here, once and for all, rather than in each probe.
     foreach ($m in $modules) {
         $tDroits = [Diagnostics.Stopwatch]::StartNew()
         foreach ($act in @($m.actions)) {
@@ -7863,7 +7862,7 @@ function Get-State {
     }
 
     & $markPhase 'chronometrage'
-    # LE DETAIL, DANS LE JOURNAL : une ligne, triee du plus lent au plus rapide.
+    # THE DETAIL, IN THE LOG: one line, sorted from the slowest to the quickest.
     try {
         $timingLines = @($chrono.GetEnumerator() | Sort-Object Value -Descending |
                           ForEach-Object { "$($_.Key)=$($_.Value)ms" })
@@ -7878,12 +7877,12 @@ function Get-State {
     & $markPhase 'droits-et-operations'
     $present = @($modules | Select-Object -ExpandProperty theme -Unique)
     $themes  = @($script:ThemeCatalog | Where-Object { $present -contains $_.id })
-    # LE CATALOGUE DES MODULES est sorti de l'objet pour etre MESURE : tant qu'il etait
-    # ecrit dans la construction finale, son cout se noyait dans « le reste ».
+    # THE MODULE CATALOGUE was taken out of the object so it could be MEASURED: as long as
+    # it was written inside the final construction, its cost drowned in "the rest".
     $unites = @(Get-UnitCatalog -Backend $Backend)
     & $markPhase 'catalogue-modules'
-    # LE RESTE : version, marque de fabrication, nom de machine. Mesure aussi, sinon
-    # « le reste » redevient l'endroit ou le temps se cache.
+    # THE REST: version, build stamp, machine name. Measured too, or "the rest" becomes the
+    # place where time hides again.
     $version = (Get-AppVersion -Backend $Backend)
     $build   = (Get-AppBuildId -Backend $Backend)
     & $markPhase 'identite-de-version'
@@ -7895,27 +7894,27 @@ function Get-State {
         host        = "$env:COMPUTERNAME"
         themes      = $themes
         modules     = @($modules)
-        # LE DETAIL DU TEMPS, dans la reponse : ce qui ne se mesure pas se soupconne.
+        # THE DETAIL OF THE TIME, in the response: what is not measured gets suspected.
         timings     = $phases
-        # TOUS les modules-dossiers, y compris desactives (D48) : c'est ce qui permet a
-        # la vue de gestion de proposer de rallumer ce qui n'est plus affiche.
+        # ALL the folder-modules, disabled ones included (D48): that is what lets the
+        # management view offer to switch back on what is no longer displayed.
         units       = $unites
     }
 }
 
-# --- FICHE MATERIELLE : ce qui ne bouge pas ----------------------------------
+# --- THE HARDWARE SHEET: what does not move ----------------------------------
 #
-# Deuxieme export demande (l'autre etant l'etat a l'instant) : les caracteristiques
-# PHYSIQUES de la machine. On les releve une fois et on les garde : une barrette de
-# memoire ne change pas d'un rafraichissement a l'autre, et l'inventaire coute plusieurs
-# secondes (CIM sur une dizaine de classes).
+# The second export asked for, the other being the state at this instant: the PHYSICAL
+# characteristics of the machine. They are read once and kept: a memory module does not
+# change between two refreshes, and the inventory costs several seconds (CIM over a dozen
+# classes).
 #
-# Chaque section est independante et defensive : une classe CIM absente ou refusee rend
-# une section vide, jamais une erreur -- une fiche partielle vaut mieux que pas de fiche.
+# Every section is independent and defensive: a CIM class absent or refused gives an empty
+# section, never an error -- a partial sheet beats no sheet.
 function Get-HardwareSpecs {
     param(
         [string]$Backend = (Get-BackendRoot),
-        # Releve neuf : apres un changement de materiel, ou depuis l'export.
+        # A fresh reading: after a hardware change, or from the export.
         [switch]$Force
     )
     $cacheFile = Get-VarPath -Backend $Backend -Kind 'cache' -File 'hardware.json'
@@ -7923,8 +7922,8 @@ function Get-HardwareSpecs {
         try {
             $j = Get-Content -LiteralPath $cacheFile -Raw | ConvertFrom-Json
             $at = ConvertTo-UtcDate $j.at
-            # Sept jours : le materiel ne change pas, mais une fiche eternelle survivrait
-            # a un changement de disque ou de barrette sans qu'on le sache.
+            # Seven days: hardware does not change, but an eternal sheet would survive a new
+            # disk or a new memory module without anybody knowing.
             if ($at -and ([datetime]::UtcNow - $at).TotalDays -lt 7) { return $j }
         } catch { }
     }
@@ -7940,7 +7939,7 @@ function Get-HardwareSpecs {
     $os   = @(Lire 'Win32_OperatingSystem')  | Select-Object -First 1
     $enc  = @(Lire 'Win32_SystemEnclosure')  | Select-Object -First 1
 
-    # Portable ou fixe ? Le type de chassis le dit (8-14 et 30-32 = mobile).
+    # Laptop or desktop? The chassis type says so (8-14 and 30-32 mean mobile).
     $mobile = $false
     try {
         foreach ($t in @($enc.ChassisTypes)) {
@@ -7982,7 +7981,7 @@ function Get-HardwareSpecs {
         }
     })
 
-    # Type de memoire : le code SMBIOS, traduit. Un numero ne dit rien a personne.
+    # Memory type: the SMBIOS code, translated. A number tells nobody anything.
     $typesMem = @{ 20 = 'DDR'; 21 = 'DDR2'; 24 = 'DDR3'; 26 = 'DDR4'; 34 = 'DDR5'; 35 = 'LPDDR4'; 36 = 'LPDDR5' }
     $memoryModules = @(foreach ($m in (Lire 'Win32_PhysicalMemory')) {
         $t = $null
@@ -7999,7 +7998,7 @@ function Get-HardwareSpecs {
     $memoire = [ordered]@{
         totalGo   = (& $go $cs.TotalPhysicalMemory)
         barrettes = $memoryModules
-        # Ce que la carte mere peut accueillir : utile quand on envisage une extension.
+        # What the motherboard can take: useful when an upgrade is being considered.
         emplacements = [int]((@(Lire 'Win32_PhysicalMemoryArray') | Select-Object -First 1).MemoryDevices)
     }
 
@@ -8016,7 +8015,7 @@ function Get-HardwareSpecs {
             numeroSerie = "$($d.SerialNumber)".Trim()
         }
     })
-    # Repli : sur une machine ou l'espace de noms Storage manque, Win32_DiskDrive suffit.
+    # Fallback: on a machine with no Storage namespace, Win32_DiskDrive is enough.
     if (-not $disques.Count) {
         $disques = @(foreach ($d in (Lire 'Win32_DiskDrive')) {
             [ordered]@{ modele = "$($d.Model)".Trim(); tailleGo = (& $go $d.Size)
@@ -8025,17 +8024,16 @@ function Get-HardwareSpecs {
         })
     }
 
-    # LA VRAM NE SE LIT PAS DANS AdapterRAM : ce champ est un entier 32 bits signe, il
-    # plafonne a 4 Go et rend n'importe quoi au-dela (une RTX 4070 de 8 Go y apparait
-    # avec 4 Go, parfois moins). La vraie valeur est dans le registre du pilote,
-    # qwMemorySize, sur 64 bits.
+    # VRAM IS NOT READ FROM AdapterRAM: that field is a signed 32-bit integer, it caps at
+    # 4 GB and returns nonsense beyond it (an 8 GB RTX 4070 appears there with 4 GB, sometimes
+    # less). The real value is in the driver's registry key, qwMemorySize, on 64 bits.
     $vramByName = @{}
     try {
         $classe = 'HKLM:\SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}'
-        # SilentlyContinue et non Stop : une des sous-cles de cette classe est refusee
-        # meme a un administrateur (« Requested registry access is not allowed »), et
-        # avec Stop l'enumeration s'arretait AVANT la carte NVIDIA -- la VRAM retombait
-        # alors sur AdapterRAM, qui plafonne a 4 Go. Constate ici meme.
+        # SilentlyContinue rather than Stop: one of this class's sub-keys is refused even to
+        # an administrator ("Requested registry access is not allowed"), and with Stop the
+        # enumeration stopped BEFORE the NVIDIA card -- the VRAM then fell back on AdapterRAM,
+        # which caps at 4 GB. Seen on this very machine.
         foreach ($k in (Get-ChildItem -Path $classe -ErrorAction SilentlyContinue | Where-Object { $_.PSChildName -match '^\d{4}$' })) {
             $pr = Get-ItemProperty -Path $k.PSPath -ErrorAction SilentlyContinue
             if ($pr -and $pr.DriverDesc -and $pr.'HardwareInformation.qwMemorySize') {
@@ -8055,7 +8053,7 @@ function Get-HardwareSpecs {
         }
     })
 
-    # Ecrans : WmiMonitorID rend des tableaux de codes, pas des chaines.
+    # Monitors: WmiMonitorID returns arrays of codes, not strings.
     $decodeWmiText = { param($codes) if (-not $codes) { return '' }
         (-join ($codes | Where-Object { $_ -gt 0 } | ForEach-Object { [char][int]$_ })).Trim() }
     $ecrans = @(foreach ($e in (Lire 'WmiMonitorID' 'root/wmi')) {
@@ -8067,7 +8065,7 @@ function Get-HardwareSpecs {
             annee     = [int]$e.YearOfManufacture
         }
     })
-    # Pouces : classe distincte (dimensions physiques en centimetres).
+    # Inches: a separate class (physical dimensions, in centimetres).
     $sizes = @(Lire 'WmiMonitorBasicDisplayParams' 'root/wmi')
     for ($i = 0; $i -lt $ecrans.Count -and $i -lt $sizes.Count; $i++) {
         try {
@@ -8079,12 +8077,12 @@ function Get-HardwareSpecs {
         } catch { }
     }
 
-    # Cartes reseau PHYSIQUES.
+    # PHYSICAL network adapters.
     #
-    # Win32_NetworkAdapter.PhysicalAdapter ne suffit PAS : il repond « oui » pour le
-    # Bluetooth PAN, pour les cartes de VirtualBox ou de VMware, et pour les adaptateurs
-    # WAN Miniport. Get-NetAdapter -Physical, lui, s'appuie sur le type de peripherique
-    # reel -- on s'en sert comme liste blanche quand il est disponible.
+    # Win32_NetworkAdapter.PhysicalAdapter is NOT enough: it answers "yes" for Bluetooth PAN,
+    # for VirtualBox and VMware adapters, and for WAN Miniport ones. Get-NetAdapter -Physical,
+    # on the other hand, rests on the real device type -- it is used as a white list wherever
+    # it is available.
     $reelles = $null
     try { $reelles = @((Get-NetAdapter -Physical -ErrorAction Stop).InterfaceDescription) } catch { }
     $reseau = @(foreach ($a in (Lire 'Win32_NetworkAdapter')) {
@@ -8096,9 +8094,9 @@ function Get-HardwareSpecs {
             nom       = "$($a.Name)".Trim()
             fabricant = "$($a.Manufacturer)".Trim()
             mac       = "$($a.MACAddress)"
-            # Windows rend 0xFFFFFFFFFFFFFFFF quand le lien n'est pas etabli : cela
-            # donnait « 9223372036855 Mb/s » sur la fiche. Au-dela de 100 Gb/s, la
-            # valeur ne veut rien dire : on n'affiche rien plutot qu'une absurdite.
+            # Windows returns 0xFFFFFFFFFFFFFFFF when the link is not established, which gave
+            # "9223372036855 Mb/s" on the sheet. Past 100 Gb/s the value means nothing: we
+            # display nothing rather than an absurdity.
             debitMax  = $(if ($a.Speed -and ([double]$a.Speed) -lt 1e11) { [math]::Round(([double]$a.Speed) / 1e6) } else { $null })   # Mb/s
         }
     })
@@ -8135,17 +8133,17 @@ function Get-HardwareSpecs {
     return $fiche
 }
 
-# --- TACHE DE FOND D'UNE CARTE : le dire, et tant que ca dure -----------------
+# --- A CARD'S BACKGROUND TASK: saying it, and for as long as it lasts --------
 #
-# Regle de l'utilisateur : « une carte qui lance une action en background devrait passer
-# immediatement en statut operation en cours ». L'interface le marque des le clic, mais ce
-# marquage ne survit pas au premier rafraichissement : c'est le SERVEUR qui doit porter la
-# verite, sinon la carte redevient calme alors que le travail continue -- constate le
-# 26/08 pendant l'installation de PowerShell 7 depuis la carte Comptes.
+# The owner's rule: "a card that launches an action in the background should go into the
+# operation-running state immediately". The interface marks it from the click, but that
+# marking does not survive the first refresh: it is the SERVER that must carry the truth, or
+# the card goes calm again while the work continues -- seen on 26/08 during the installation
+# of PowerShell 7 from the Accounts card.
 #
-# Le marqueur porte le PID du processus lance : tant qu'il vit, la carte est occupee ;
-# des qu'il meurt, le marqueur s'efface tout seul. Rien a nettoyer a la main, et un arret
-# brutal ne laisse pas une carte occupee pour toujours.
+# The mark carries the process id of what was launched: for as long as it lives, the card is
+# busy; the moment it dies, the mark clears itself. Nothing to clean up by hand, and a brutal
+# stop does not leave a card busy for ever.
 function Get-ModuleBusyMarkPath {
     param([Parameter(Mandatory)][string]$Module, [string]$Backend = (Get-BackendRoot))
     Get-VarPath -Backend $Backend -Kind 'run' -File ('busy-' + $Module + '.json')
@@ -8157,8 +8155,8 @@ function Set-ModuleBusyMark {
         [Parameter(Mandatory)][string]$Label,
         [int]$ProcessId,
         [string]$Action = '',
-        # Ce que ce travail MOBILISE : c'est ce qui permettra de refuser ce qui le
-        # generait, et seulement cela (D93).
+        # What this work TAKES UP: it is what will allow refusing whatever would disturb it,
+        # and only that (D93).
         [string[]]$Resources = @(),
         # The card button that spins when it is not the action itself, the launch time, the operation's log.
         [string]$Button = '',
@@ -8213,19 +8211,19 @@ function Get-ModuleBusyMark {
     return $o
 }
 
-# --- CE QUE VIGIE OCCUPE SUR LA MACHINE --------------------------------------
+# --- WHAT VIGIE TAKES UP ON THE MACHINE --------------------------------------
 #
-# Demande du 27/08 : « ce serait bien de mettre le stockage Vigie (pour tous les
-# utilisateurs) et ainsi faire le suivi de la conso de notre app ». Une application qui
-# surveille l'espace disque des autres se doit de dire ce qu'elle prend elle-meme.
+# Asked for on 27/08: "it would be good to show Vigie's storage, for all the users, and so
+# follow what our app consumes". An application that watches other people's disk space owes
+# it to say what it takes itself.
 #
-# Trois postes, et ils ne se ressemblent pas :
-#   - le PROGRAMME       : l'installation partagee (Program Files), la meme pour tous ;
-#   - les DONNEES        : cache, historique, journaux -- UN JEU PAR COMPTE ;
-#   - le DEPOT           : sur un poste de developpement, les sources et dist/.
+# Three items, and they are not alike:
+#   - the PROGRAM : the shared installation (Program Files), the same for everyone;
+#   - the DATA    : cache, history, logs -- ONE SET PER ACCOUNT;
+#   - the REPOSITORY : on a development workstation, the sources and dist/.
 #
-# Les donnees des AUTRES comptes ne sont lisibles qu'en etant eleve : sans elevation on
-# rend ce qu'on voit, et on le DIT plutot que d'annoncer un total faux.
+# The data of OTHER accounts are only readable when elevated: without elevation we return
+# what we can see, and we SAY so rather than announcing a false total.
 function Get-VigieFootprint {
     param([string]$Backend = (Get-BackendRoot))
 
@@ -8241,8 +8239,8 @@ function Get-VigieFootprint {
     $partagee = Get-SharedInstallPath
     $programme = Poids $partagee
 
-    # Les donnees de CHAQUE compte : %LOCALAPPDATA%\Sowapps\Vigie, et l'ancien
-    # emplacement sans editeur pour les installations d'avant D72.
+    # Each account's data: %LOCALAPPDATA%\Sowapps\Vigie, and the old location without the
+    # publisher's name, for installations from before D72.
     $perAccount = @()
     $inaccessibles = 0
     $currentAccountVar = $null
@@ -8253,12 +8251,12 @@ function Get-VigieFootprint {
         foreach ($d in @((Join-Path (Join-Path $local 'Sowapps') 'Vigie'), (Join-Path $local 'Vigie'))) {
             if (Test-PathSafe $d) { $vu = $true; $total += (Poids $d) }
         }
-        # Un dossier present mais illisible rend 0 : on ne peut pas le distinguer d'un
-        # dossier vide sans elevation. On compte donc l'incertitude a part.
+        # A folder present but unreadable gives 0: without elevation it cannot be told from an
+        # empty one. So the uncertainty is counted separately.
         if ($vu -and $total -eq 0 -and -not $c.current) { $inaccessibles++ }
-        # LE COMPTE COURANT sait ou sont SES donnees : Get-VarRoot fait foi. Sur un poste
-        # de developpement elles vivent dans le depot (var/), pas dans %LOCALAPPDATA% --
-        # sans cela on annoncait 320 o pour un compte qui en occupe des megaoctets.
+        # THE CURRENT ACCOUNT knows where ITS data are: Get-VarRoot is authoritative. On a
+        # development workstation they live in the repository (var/), not in %LOCALAPPDATA% --
+        # without that we announced 320 bytes for an account taking up megabytes.
         if ($c.current) {
             $sien = Get-VarRoot -Backend $Backend
             if ($sien -and (Test-Path -LiteralPath $sien)) {
@@ -8270,13 +8268,13 @@ function Get-VigieFootprint {
         if ($vu) { $perAccount += [pscustomobject]@{ name = $c.name; bytes = $total; current = $c.current } }
     }
 
-    # Le depot de developpement, s'il est distinct de l'installation partagee.
+    # The development repository, when it is distinct from the shared installation.
     $repositoryRoot = Get-RepoRoot
     $sources = 0
     if ($repositoryRoot -and (-not $partagee -or $repositoryRoot -ne $partagee)) {
         $sources = Poids $repositoryRoot
-        # Le var/ du compte courant est DEJA compte dans les donnees : on le retire du
-        # depot, sinon le total le compte deux fois.
+        # The current account's var/ is ALREADY counted in the data: it is taken out of the
+        # repository, or the total counts it twice.
         if ($currentAccountVar -and $currentAccountVar.StartsWith($repositoryRoot, [StringComparison]::OrdinalIgnoreCase)) {
             $sources = [Math]::Max(0, $sources - (Poids $currentAccountVar))
         }
@@ -8298,15 +8296,15 @@ function Get-VigieFootprint {
     }
 }
 
-# --- CE QUI TOURNE, POUR TOUT LE MONDE (D95) ---------------------------------
+# --- WHAT IS RUNNING, FOR EVERYONE (D95) -------------------------------------
 #
-# Les notifications vivaient dans la PAGE : une seconde fenetre ouverte ne savait rien
-# d'une operation lancee depuis la premiere, et une page ouverte APRES le depart d'un
-# deploiement n'en voyait pas la moindre trace. Or le serveur, lui, sait : il tient les
-# marqueurs d'operation et leurs resultats.
+# The notifications lived in the PAGE: a second window open knew nothing of an operation
+# launched from the first, and a page opened AFTER a deployment had left saw no trace of it
+# at all. The server, on the other hand, knows: it holds the operation marks and their
+# results.
 #
-# On rend donc l'etat complet -- ce qui tourne, et ce qui vient de se terminer -- et
-# chaque page s'y accorde. Le serveur est la source, les pages sont des reflets.
+# So the complete state is returned -- what is running, and what has just finished -- and
+# every page agrees with it. The server is the source, the pages are reflections.
 <#
     WHAT IS RUNNING, AND WHAT IS PUBLISHED OF IT.
 
@@ -8361,9 +8359,9 @@ function Get-RunningOperations {
     return $ops
 }
 
-# Les resultats RECENTS : ce qui s'est termine assez recemment pour qu'une page ouverte
-# entre-temps ait encore interet a le montrer. Au-dela, c'est de l'histoire : elle vit
-# sur la carte concernee, pas dans les notifications.
+# The RECENT results: what finished recently enough that a page opened since still has reason
+# to show it. Past that, it is history: it lives on the card concerned, not in the
+# notifications.
 function Get-RecentOperationResults {
     param([int]$Minutes = 15, [string]$Backend = (Get-BackendRoot))
     $res = @()
@@ -8390,20 +8388,19 @@ function Get-RecentOperationResults {
     return $res
 }
 
-# --- QUI TIENT QUOI : le verrou par RESSOURCE (D93) ---------------------------
+# --- WHO HOLDS WHAT: the lock PER RESOURCE (D93) ------------------------------
 #
-# Bloquer TOUTES les actions des qu'une operation tourne etait grossier -- et surtout
-# ca ne protegeait rien : l'interface grisait des boutons, mais une page restee ouverte
-# pouvait toujours envoyer l'action au serveur. C'est le SERVEUR qui doit arbitrer.
+# Blocking EVERY action as soon as an operation runs was crude -- and above all it protected
+# nothing: the interface greyed out buttons, but a page left open could still send the action
+# to the server. It is the SERVER that must arbitrate.
 #
-# Une action declare donc ce qu'elle MOBILISE. Deux actions qui ne partagent aucune
-# ressource peuvent tourner ensemble ; vérifier les mises a jour d'un gestionnaire
-# pendant qu'une analyse de disque tourne n'a aucune raison d'etre interdit.
+# So an action declares what it TAKES UP. Two actions sharing no resource can run together;
+# checking one manager's updates while a disk analysis runs has no reason to be forbidden.
 #
-# La ressource 'machine' est particuliere : elle croise TOUT. C'est celle des gestes qui
-# touchent l'installation entiere ou relancent l'application.
+# The 'machine' resource is a special case: it crosses EVERYTHING. It belongs to the gestures
+# that touch the whole installation or restart the application.
 $script:RessourcesParAction = @{
-    # Ce qui touche l'installation ou relance Vigie : rien d'autre pendant ce temps.
+    # What touches the installation or restarts Vigie: nothing else during that time.
     'vigie-update'         = @('machine')
     'pwsh-install-machine' = @('machine')
     'system-restart'       = @('machine')
@@ -8411,7 +8408,7 @@ $script:RessourcesParAction = @{
     'service-account-repair' = @('machine')
     'service-clone-repair' = @('clone')
     'service-clone-reset'  = @('clone')
-    # Windows Update : le verrou, l'analyse et l'installation se marchent dessus.
+    # Windows Update: the lock, the scan and the installation tread on each other.
     'update-mode-on'       = @('windows-update')
     'update-mode-off'      = @('windows-update')
     'wu-scan'              = @('windows-update')
@@ -8431,7 +8428,7 @@ $script:RessourcesParAction = @{
     'pkg-upgrade'          = @('paquets')
     'pkg-check-updates'    = @('paquets')
     'pkg-list-updates'     = @()               # lecture d'un cache : rien a reserver
-    # Disque, reseau, WSL, comptes.
+    # Disk, network, WSL, accounts.
     'disk-analyze'         = @('disque')
     'disk-analyze-stop'    = @()               # ARRETER doit rester possible pendant
     'disk-tree'            = @()               # lecture d'un cache
@@ -8447,9 +8444,9 @@ $script:RessourcesParAction = @{
     'diag-account-logs'    = @('comptes')
 }
 
-# Ce qu'une action mobilise. Par defaut : RIEN -- une action non declaree est supposee
-# inoffensive (ouvrir un dossier, lire un cache). On declare ce qui gene, pas l'inverse :
-# une liste par defaut trop large finirait par tout bloquer sans qu'on sache pourquoi.
+# What an action takes up. By default: NOTHING -- an undeclared action is assumed harmless
+# (opening a folder, reading a cache). What gets in the way is declared, not the reverse: a
+# default list too wide would end up blocking everything without anyone knowing why.
 function Get-ActionResources {
     param([Parameter(Mandatory)][string]$Type, [string]$Module)
     if (-not $script:RessourcesParAction.ContainsKey($Type)) { return @() }
@@ -8465,8 +8462,8 @@ function Get-ActionResources {
     return @($res)
 }
 
-# Les ressources actuellement TENUES, et par quoi. On relit les marqueurs vivants : un
-# marqueur dont le processus est mort ne tient plus rien (il s'efface a la lecture).
+# The resources currently HELD, and by what. The live marks are read back: a mark whose
+# process is dead holds nothing any more, and it clears itself as it is read.
 function Get-HeldResources {
     param([string]$Backend = (Get-BackendRoot))
     $tenues = @()
@@ -8483,7 +8480,7 @@ function Get-HeldResources {
     return $tenues
 }
 
-# Peut-on lancer CETTE action maintenant ? Rend $null si oui, sinon la raison, en clair.
+# Can THIS action be launched now? Returns $null if so, otherwise the reason, in plain words.
 function Test-ActionResourcesFree {
     param([Parameter(Mandatory)][string]$Type, [string]$Module, [string]$Backend = (Get-BackendRoot))
     $veut = @(Get-ActionResources -Type $Type -Module $Module)
@@ -8491,7 +8488,7 @@ function Test-ActionResourcesFree {
     $tenues = @(Get-HeldResources -Backend $Backend)
     if (-not $tenues.Count) { return $null }
     foreach ($t in $tenues) {
-        # 'machine' croise tout, dans les deux sens.
+        # 'machine' crosses everything, in both directions.
         if ($t.resource -eq 'machine' -or $veut -contains 'machine' -or $veut -contains $t.resource) {
             return ("« " + $t.label + " » est en cours et utilise déjà " +
                     $(if ($t.resource -eq 'machine') { "toute la machine" } else { "la même ressource (" + $t.resource + ")" }) +
@@ -8501,50 +8498,48 @@ function Test-ActionResourcesFree {
     return $null
 }
 
-# --- LE SORT D'UNE TACHE DE FOND : garde, puis dit ---------------------------
+# --- THE FATE OF A BACKGROUND TASK: keep it, then say it ---------------------
 #
-# « Le suivi des erreurs est primordial » : une action asynchrone ne peut pas echouer en
-# silence. Le veilleur (workers/watched-action.worker.ps1) ecrit ici ce qu'il a constate ;
-# la sonde de la carte le relit et en fait une ligne, verte ou rouge.
+# "Following errors is paramount": an asynchronous action cannot fail in silence. The watcher
+# (workers/watched-action.worker.ps1) writes here what it observed; the card's probe reads it
+# back and turns it into a line, green or red.
 function Get-ModuleLastRunPath {
     param([Parameter(Mandatory)][string]$Module, [string]$Backend = (Get-BackendRoot), [string]$VarRoot)
     Get-VarPath -Backend $Backend -VarRoot $VarRoot -Kind 'cache' -File ('lastrun-' + $Module + '.json')
 }
 
 <#
-    POURQUOI CA A ECHOUE : ON LE LIT DANS LE JOURNAL, ON NE LE DEVINE PAS.
+    WHY IT FAILED: WE READ IT IN THE LOG, WE DO NOT GUESS IT.
 
-    Le veilleur ne connait qu'un CODE DE SORTIE. La carte affichait donc « ECHEC le
-    31/08/2026 10:56 -- code de sortie 4 » : un nombre, a une personne qui veut savoir ce
-    qui s'est passe. Or le script, lui, l'a dit -- « Une installation est deja en cours
-    (fhaza, processus 44940...) » -- et cette phrase est dans le journal que le veilleur
-    tient deja par la main.
+    The watcher knows only an EXIT CODE. So the card displayed "ECHEC le 31/08/2026 10:56 --
+    code de sortie 4": a number, to a person who wants to know what happened. The script, on
+    the other hand, said it -- "Une installation est deja en cours (fhaza, processus
+    44940...)" -- and that sentence is in the log the watcher already holds in its hand.
 
-    On y prend donc la DERNIERE ligne d'echec, celle que la console a marquee « [X] ».
-    C'est general : n'importe quel script du depot qui utilise console-ui devient lisible
-    sur la carte, sans rien declarer.
+    So the LAST failure line is taken from it, the one the console marked "[X]". It is
+    general: any script of the repository using console-ui becomes readable on the card,
+    without declaring anything.
 
-    Si le journal n'en contient aucune -- un processus tue, un script qui n'a rien dit --
-    on garde le code de sortie : mieux vaut un nombre que rien.
+    If the log holds none -- a process killed, a script that said nothing -- the exit code is
+    kept: a number beats nothing.
 #>
 function Get-FailureReasonFromLog {
     param([Parameter(Mandatory)][string]$Log)
     if (-not $Log -or -not (Test-PathSafe $Log)) { return $null }
     <#
-        ON LIT EN UTF-8, ET ON SE RATTRAPE SI CE N'EN EST PAS.
+        WE READ IN UTF-8, AND WE CATCH OURSELVES IF IT IS NOT.
 
-        Les journaux ecrits avant que l'affichage ne soit force en UTF-8 sont dans la page
-        de code du systeme : lus en UTF-8, leurs accents deviennent des « ? ». On le
-        DETECTE -- le caractere de remplacement U+FFFD -- et on relit dans la page de code
-        par defaut. Un journal existant ne doit pas devenir illisible parce qu'on a
-        corrige l'ecriture.
+        Logs written before the display was forced to UTF-8 are in the system's code page:
+        read as UTF-8, their accents become "?". It is DETECTED -- the replacement character
+        U+FFFD -- and the file is read again in the default code page. An existing log must
+        not become unreadable because the writing was corrected.
     #>
     $lines = $null
     try { $lines = @(Get-Content -LiteralPath $Log -Encoding UTF8 -ErrorAction Stop) } catch { return $null }
     if (($lines -join '') -match [char]0xFFFD) {
-        # « -Encoding Default » NE VEUT PLUS DIRE « la page de code du systeme » : depuis
-        # PowerShell 7 il vaut UTF-8, donc relire ainsi redonnait exactement les memes
-        # « ? ». On nomme la page de code ANSI de la machine, sans rien supposer.
+        # "-Encoding Default" NO LONGER MEANS "the system's code page": since PowerShell 7 it
+        # is UTF-8, so re-reading that way gave exactly the same "?". We name the machine's
+        # ANSI code page, assuming nothing.
         try {
             $ansi = [Text.Encoding]::GetEncoding([Globalization.CultureInfo]::CurrentCulture.TextInfo.ANSICodePage)
             $lines = @([IO.File]::ReadAllText($Log, $ansi) -split "`r?`n")
@@ -8553,7 +8548,7 @@ function Get-FailureReasonFromLog {
     $reason = $null
     try {
         foreach ($line in $lines) {
-            # « [X] » est la marque d'echec de console-ui, la meme partout.
+            # "[X]" is console-ui's failure mark, the same everywhere.
             if ("$line" -match '\[X\]\s*(.+?)\s*$') { $reason = $Matches[1].Trim() }
         }
     } catch { }
@@ -8569,7 +8564,7 @@ function Set-ModuleLastRun {
         [int]$Seconds = 0, [string]$Log = '', [string]$Error = '',
         [string]$Backend = (Get-BackendRoot)
     )
-    # LA RAISON PLUTOT QUE LE CODE, des qu'on peut la lire.
+    # THE REASON RATHER THAN THE CODE, as soon as it can be read.
     if (-not $Error -and $Code -ne 0 -and $Log) {
         $lu = Get-FailureReasonFromLog -Log $Log
         if ($lu) { $Error = $lu }
@@ -8692,8 +8687,8 @@ function New-UnreportedFailureField {
     return (New-LastRunField -Module $Module -Backend $Backend)
 }
 
-# La ligne que la carte affiche apres coup : rien tant qu'aucun travail n'a eu lieu,
-# une ligne verte s'il a reussi, une ligne ROUGE avec le journal s'il a echoue.
+# The line the card shows afterwards: nothing while no work has happened, a green line when
+# it succeeded, a RED line with its log when it failed.
 function New-LastRunField {
     param(
         [Parameter(Mandatory)][string]$Module,
@@ -8706,9 +8701,9 @@ function New-LastRunField {
     try { $when = (ConvertTo-UtcDate $r.at).ToLocalTime().ToString('dd/MM/yyyy HH:mm') } catch { }
     $elapsedMs = if ([int]$r.seconds -ge 60) { [string][int]([int]$r.seconds / 60) + ' min' } else { "$([int]$r.seconds) s" }
     if ([int]$r.code -eq 0) {
-        # REUSSI : la DATE suffit (regle utilisateur du 27/08). Une operation qui a
-        # abouti n'a rien a raconter sur la carte ; la duree et le journal restent
-        # disponibles dans le detail de la ligne, pour qui les cherche.
+        # SUCCEEDED: the DATE is enough (the owner's rule of 27/08). An operation that
+        # succeeded has nothing to tell on the card; the duration and the log stay available
+        # in the line's detail, for whoever looks for them.
         return (New-Field -Key $Key -Label "$($r.label)" -Value $when `
                           -Kind 'text' -Status 'ok' `
                           -Help "Dernière opération lancée depuis cette carte : elle a abouti." `
