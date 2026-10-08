@@ -1,31 +1,31 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
 .SYNOPSIS
-    Pilote l'app Vigie de la barre systeme : etat, arret, redemarrage.
+    Drives the Vigie client app in the notification area: its state, stopping it, restarting it.
 
 .DESCRIPTION
-    L'app cliente tourne ELEVE. Depuis une session normale on ne peut ni lire sa ligne de
-    commande, ni signaler un objet noyau qu'il a cree : il fallait le tuer a l'aveugle,
-    ce qui laissait son icone en fantome dans la zone de notification.
+    Intent: reach an elevated app from an ordinary session without killing it blind. The client app runs ELEVATED:
+    from a normal session one can neither read its command line nor signal a kernel object it created, so it had
+    to be killed blind, which left its icon behind as a ghost in the notification area.
 
-    Ce script depose un ORDRE dans apps/client/var/run/ ; l'app cliente le lit et sort proprement,
-    en liberant son icone. Le meme dossier porte un battement de coeur (client.alive) qui
-    permet de connaitre son etat sans inspecter le processus.
+    Usage: this script drops an ORDER into apps/client/var/run/; the client app reads it and exits cleanly,
+    releasing its icon. The same folder carries a heartbeat (client.alive), which makes its state knowable without
+    inspecting the process.
 
-    Inspectable a l'oeil, scriptable depuis n'importe quoi, et ouvert aux evolutions :
-    un nouvel ordre est un nouveau nom de fichier, sans toucher au mecanisme.
+    Inspectable by eye, scriptable from anything, and open to change: a new order is a new file name, without
+    touching the mechanism.
 
 .PARAMETER Status
-    Affiche si l'app cliente est vivant, depuis quand, et l'etat qu'il affiche.
+    Displays whether the client app is alive, since when, and the state it is showing.
 
 .PARAMETER Stop
-    Demande l'arret. Attend la confirmation par disparition du battement de coeur.
+    Asks it to stop. It waits for the confirmation through the disappearance of the heartbeat.
 
 .PARAMETER Restart
-    Demande à l'app cliente de se relancer.
+    Asks the client app to restart itself.
 
 .PARAMETER TimeoutSec
-    Delai d'attente de la confirmation (defaut 15 s).
+    How long to wait for the confirmation (15 s by default).
 
 .EXAMPLE
     pwsh -File .\scripts\client.ps1 -Status
@@ -34,39 +34,37 @@
     pwsh -File .\scripts\client.ps1 -Stop
 
 .NOTES
-    Codes de retour : 0 = succes ; 1 = app cliente absente ; 2 = ordre non pris en compte a temps.
-    Demarrer l'app cliente : Start-ScheduledTask -TaskName Vigie
+    Exit codes: 0 = success; 1 = no client app; 2 = the order was not taken into account in time.
+    To start the client app: Start-ScheduledTask -TaskName Vigie
 #>
 [CmdletBinding(DefaultParameterSetName = 'Status')]
 param(
     [Parameter(ParameterSetName = 'Status')]  [switch] $Status,
     [Parameter(ParameterSetName = 'Stop')]    [switch] $Stop,
     [Parameter(ParameterSetName = 'Restart')] [switch] $Restart,
-    # 15 s etait trop juste. Mesure du 26/08 : un redemarrage complet prend 9 a 11 s
-    # (ordre lu dans la seconde, pwsh + compilations C# ~5 s, premier battement 2 s
-    # apres). Machine occupee -- un deploiement en cours, justement -- et le compte y
-    # est. On declarait donc un echec sur une relance qui aboutissait.
+    # 15 s was too tight. Measured on 26/08: a full restart takes 9 to 11 s (the order read within the second,
+    # pwsh plus the C# compilations ~5 s, the first heartbeat 2 s later). On a busy machine -- a deployment under
+    # way, precisely -- and the count is reached. So we were declaring a failure on a restart that got there.
     [int] $TimeoutSec = 45
 )
 
 $ErrorActionPreference = 'Stop'
 $repoRoot  = Split-Path $PSScriptRoot -Parent
-# LE MEME CALCUL QUE L'APP CLIENTE, ET PAR LE MEME CODE. Ce chemin etait ecrit a la main
-# (« apps/client/var/run ») : sur une installation partagee, l'emetteur cherchait donc le
-# battement dans Program Files pendant que l'app cliente l'ecrivait dans le profil du compte.
-# Program Files est en LECTURE SEULE (D97) ; c'est Get-VarPath qui sait ou vont les
-# donnees, et personne d'autre.
+# THE SAME COMPUTATION AS THE CLIENT APP, AND THROUGH THE SAME CODE. This path was written by hand: on a shared
+# installation, the sender therefore looked for the heartbeat inside Program Files while the client app was
+# writing it in the account's profile. Program Files is READ ONLY (D97); it is Get-VarPath that knows where the
+# data goes, and nobody else.
 . (Join-Path $repoRoot 'apps/backend-pode/lib/common.ps1')
 $runDir    = Get-VarPath -Backend (Join-Path $repoRoot 'apps/client') -Kind 'run'
 $heartbeat = Join-Path $runDir 'client.alive'
 
-# L'app cliente ecrit son battement toutes les 8 s : au-dela de 30 s, on le considere mort.
+# The client app writes its heartbeat every 8 s: past 30 s, we consider it dead.
 $THRESHOLD_SEC = 30
 
 function Get-ClientState {
     if (-not (Test-Path -LiteralPath $heartbeat)) { return $null }
     try {
-        # UTF8 explicite : l'etat contient des accents (« Démarrage… »).
+        # UTF8 explicitly: the state carries accents.
         $parts = (Get-Content -LiteralPath $heartbeat -Raw -Encoding UTF8).Trim() -split ';'
         $age = ([datetime]::Now - [datetime]::Parse($parts[1])).TotalSeconds
         return [pscustomobject]@{ Pid = [int]$parts[0]; AgeSec = [int]$age; Etat = $parts[2] }
@@ -94,13 +92,12 @@ if ($PSCmdlet.ParameterSetName -eq 'Status' -or $Status) {
 # --- Arret / redemarrage -----------------------------------------------------
 $before = Get-ClientState
 if (-not $before -or $before.AgeSec -gt $THRESHOLD_SEC) {
-    # RELANCER CE QUI NE TOURNE PLUS, C'EST LE DEMARRER.
+    # RESTARTING WHAT IS NO LONGER RUNNING MEANS STARTING IT.
     #
-    # On rendait 1 en disant « rien a faire » -- et la mise a jour, qui appelle ce script
-    # pour recharger le nouveau code, concluait a un echec alors que le deploiement avait
-    # reussi : « le deploiement est fait, mais la relance n'a pas abouti » (constate le
-    # 28/08). Un arret n'est pas un echec de relance : c'est justement le cas ou il faut
-    # demarrer.
+    # We returned 1 saying "nothing to do" -- and the update, which calls this script to reload the new code,
+    # concluded there had been a failure while the deployment had succeeded: "the deployment is done, but the
+    # restart did not get there" (observed on 28/08). A stop is not a failed restart: it is precisely the case
+    # where one has to start.
     if (-not $Restart) {
         Write-Info (Get-Label 'client.deja-arrete-rien')
         exit 0
@@ -112,7 +109,7 @@ if (-not $before -or $before.AgeSec -gt $THRESHOLD_SEC) {
         Write-Warn (Get-Label 'client.la-tache-de-demarrage' $_.Exception.Message)
         exit 2
     }
-    # ON CONSTATE (D43) : la tache lancee ne prouve pas l'app cliente vivante.
+    # WE OBSERVE (D43): a task that has been started does not prove the client app alive.
     $limite = (Get-Date).AddSeconds($TimeoutSec)
     while ((Get-Date) -lt $limite) {
         Start-Sleep -Milliseconds 800
@@ -131,9 +128,9 @@ $ack   = Join-Path $runDir ($order + '.ack')
 Remove-Item -LiteralPath $ack -Force -ErrorAction SilentlyContinue
 Send-Order $order
 Write-Info (Get-Label 'client.ordre-depose-pid' $order $before.Pid)
-# 1) A-T-IL LU L'ORDRE ? L'app cliente pose un accuse des qu'elle le consomme. Sans cette
-#    etape, un echec ne disait pas s'il fallait depanner une app cliente figee ou une relance
-#    lente : deux causes differentes, deux gestes differents.
+# 1) HAS IT READ THE ORDER? The client app lays an acknowledgement down as soon as it consumes it. Without that
+#    step, a failure did not say whether one had to troubleshoot a frozen client app or a slow restart: two
+#    different causes, two different gestures.
 $vuLe = (Get-Date).AddSeconds(10)
 $lu = $false
 while ((Get-Date) -lt $vuLe) {
@@ -150,20 +147,18 @@ if ($lu) {
 }
 
 <#
-    ON N'ATTEND PAS QU'UNE APPLICATION DEMARRE.
+    WE DO NOT WAIT FOR AN APPLICATION TO START.
 
-    Regle deja posee pour l'app serveur, et violee ici : on guettait pendant 45 secondes
-    l'apparition d'un NOUVEAU numero de processus. Le 30/08, la relance a rendu « code 2 »
-    -- donc l'installation a annonce deux echecs -- alors que l'app cliente tournait :
-    l'ancienne instance n'avait pas encore rendu son verrou quand la nouvelle a demarre,
-    celle-ci est sortie sur « deja lance », et le numero n'a jamais change.
+    A rule already laid down for the server app, and broken here: we were watching for 45 seconds for a NEW
+    process number to appear. On 30/08 the restart returned code 2 -- so the installation announced two failures
+    -- while the client app was running: the old instance had not released its lock yet when the new one started,
+    the new one exited on "already running", and the number never changed.
 
-    L'ACCUSE DE RECEPTION EST LA PREUVE. Il est ecrit par l'app cliente elle-meme, au
-    moment ou elle prend l'ordre : a partir de la, elle s'arrete et repart, et ce qu'elle
-    met a le faire ne regarde pas celui qui a demande.
+    THE ACKNOWLEDGEMENT IS THE PROOF. It is written by the client app itself, at the moment it takes the order:
+    from then on it stops and sets off again, and how long it takes to do so is no business of whoever asked.
 
-    Un ARRET, lui, se constate : le battement de coeur disparait, c'est un fait, pas une
-    estimation -- et c'est justement ce qu'on veut verifier avant de rendre la main.
+    A STOP, on the other hand, is observed: the heartbeat disappears, which is a fact, not an estimate -- and that
+    is precisely what we want to check before handing control back.
 #>
 if ($Restart) {
     Write-Host (Get-Label 'client.relance-demandee')
@@ -178,7 +173,7 @@ while ((Get-Date) -lt $fin) {
     }
 }
 
-# L'ordre a bien ete lu (accuse recu) : ce qui manque, c'est le RETOUR.
+# The order was indeed read (the acknowledgement arrived): what is missing is the RETURN.
 Write-Warn (Get-Label 'client.ordre-lu-mais-rien' $TimeoutSec)
 Write-Info (Get-Label 'client.la-relance-peut-etre')
 exit 2

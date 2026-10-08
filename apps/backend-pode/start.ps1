@@ -1,14 +1,16 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    start.ps1 - Point d'entree du backend. IDEMPOTENT. Cible PowerShell 7.
-    Journalise tout dans backend/logs/ (transcript + Write-Log + logs Pode via
-    server.ps1). Bascule en pwsh si lance en 5.1. Ne relance pas si deja en cours.
-    Si Pode manque, l'installe automatiquement (via install.ps1) puis re-verifie.
+    start.ps1 -- the server app's entry point. IDEMPOTENT. Targets PowerShell 7.
+
+    Intent: be the ONE road into the server -- switch to pwsh if started under 5.1, elevate if needed, install
+    Pode if it is missing, and refuse to start a second one if it is already running.
+    Usage: it is what the scheduled task runs; by hand, pwsh -File .\apps\backend-pode\start.ps1. It logs
+    everything into backend/logs/ (a transcript plus Write-Log plus Pode's own logs through server.ps1).
 #>
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'lib/common.ps1')
 
-# --- Cible PowerShell 7 + droits admin (le serveur doit avoir les droits) ---
+# --- Target PowerShell 7 plus administrator rights (the server needs them) ---
 $isAdmin = Test-Elevated
 if (($PSVersionTable.PSVersion.Major -lt 7) -or (-not $isAdmin)) {
     $pwsh = Get-Command pwsh -ErrorAction SilentlyContinue
@@ -23,9 +25,8 @@ if (($PSVersionTable.PSVersion.Major -lt 7) -or (-not $isAdmin)) {
 $backend = $PSScriptRoot
 . (Join-Path $backend 'lib/common.ps1')
 
-# LA SOURCE DU JOURNAL D'EVENEMENTS, si elle manque. Une installation anterieure a la
-# tracabilite ne l'a pas ; le serveur est eleve, il peut la poser. Silencieux : ce n'est
-# pas une raison de ne pas demarrer.
+# THE EVENT LOG'S SOURCE, if it is missing. An installation older than the traceability does not have it; the
+# server is elevated, so it can lay it down. Silent: that is no reason not to start.
 try { $null = Register-VigieEventSource -Quiet } catch { }
 
 $logDir   = Get-LogDir -Backend $backend
@@ -57,11 +58,10 @@ try {
     $env:VIGIE_TOKEN   = Get-ApiToken -Backend $backend
     $env:VIGIE_PORT    = "$($cfg.Port)"
 
-    # AUTO-REPARATION DE NOS PROPRES TACHES, au demarrage (D83).
-    # Autorise explicitement : « l'app peut auto-corriger le systeme tant que c'est du
-    # pur Vigie ». Une tache qui vise un interpreteur disparu se lance et meurt sans un
-    # mot ; la reparer ici, c'est la reparer avant que quiconque s'en apercoive. Ne
-    # touche a aucune tache qui ne soit pas la notre, et ne cree jamais rien.
+    # SELF-REPAIR OF OUR OWN TASKS, at startup (D83).
+    # Explicitly authorised: "the app may self-correct the system as long as it is pure Vigie". A task aiming at
+    # an interpreter that has gone starts and dies without a word; repairing it here means repairing it before
+    # anybody notices. It touches no task that is not ours, and never creates anything.
     try {
         $repares = @(Repair-VigieTasks -Backend $backend)
         foreach ($r in $repares) {

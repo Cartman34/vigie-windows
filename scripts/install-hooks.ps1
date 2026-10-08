@@ -1,44 +1,44 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
 .SYNOPSIS
-    Installe les hooks git du depot (dossier scripts/hooks) dans .git/hooks.
+    Installs the repository's git hooks (the scripts/hooks folder) into .git/hooks.
 
 .DESCRIPTION
-    Git ne versionne pas .git/hooks : un hook depose la ne survit ni a un clone, ni a un
-    nouveau poste. Les hooks du projet vivent donc dans scripts/hooks/ -- versionnes,
-    relisibles, diffables -- et ce script les installe.
+    Intent: make the project's hooks something a clone receives, instead of something one has to remember. Git
+    does not version .git/hooks: a hook dropped there survives neither a clone nor a new workstation. So the
+    project's hooks live in scripts/hooks/ -- versioned, readable, diffable -- and this script installs them.
 
-    IDEMPOTENT : relance sans effet si les hooks sont deja a jour.
+    IDEMPOTENT: running it again has no effect if the hooks are already up to date.
 
-    Les worktrees partagent les hooks du depot principal : une seule installation suffit.
+    The worktrees share the main repository's hooks: one single installation is enough.
 
 .PARAMETER Verifier
-    N'installe rien ; indique seulement si les hooks installes sont a jour.
-    Code de retour 1 si au moins un hook manque ou differe.
+    Installs nothing; only says whether the installed hooks are up to date.
+    Exit code 1 if at least one hook is missing or differs.
 
 .EXAMPLE
-    pwsh -File .\scripts\installer-hooks.ps1
+    pwsh -File .\scripts\install-hooks.ps1
 
 .EXAMPLE
-    pwsh -File .\scripts\installer-hooks.ps1 -Verifier
+    pwsh -File .\scripts\install-hooks.ps1 -Verifier
 
 .NOTES
-    Codes de retour : 0 = a jour ou installe ; 1 = ecart detecte (avec -Verifier) ;
-                      2 = depot git introuvable.
+    Exit codes: 0 = up to date or installed; 1 = a discrepancy was detected (with -Verifier);
+                2 = no git repository found.
 #>
 [CmdletBinding()]
 param([switch] $Verifier)
 
 $ErrorActionPreference = 'Stop'
-# Ce fichier est isole : il charge lui-meme l'affichage commun, qui apporte aussi
-# les libelles (console-ui.ps1 et i18n.ps1 sont voisins).
+# This file is isolated: it loads the common display itself, which also brings the labels (console-ui.ps1 and
+# i18n.ps1 are its neighbours).
 . (Join-Path (Join-Path $PSScriptRoot 'lib') 'console-ui.ps1')
 
 $repoRoot = Split-Path $PSScriptRoot -Parent
 $source   = Join-Path $PSScriptRoot 'hooks'
 
-# git rev-parse --git-common-dir : donne le .git du depot PRINCIPAL meme depuis un
-# worktree, ou .git est un simple fichier de renvoi.
+# git rev-parse --git-common-dir: it gives the .git of the MAIN repository even from a worktree, where .git is a
+# plain redirection file.
 Push-Location $repoRoot
 try { $gitDir = (& git rev-parse --git-common-dir 2>$null) } catch { $gitDir = $null }
 Pop-Location

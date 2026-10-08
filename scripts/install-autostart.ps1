@@ -1,53 +1,52 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    install-autostart.ps1 - Acces PERMANENT au panneau. IDEMPOTENT.
-    Enregistre une tache planifiee qui lance le serveur a chaque ouverture de
-    session (en eleve, cache).
+    install-autostart.ps1 -- PERMANENT access to the panel. IDEMPOTENT.
 
-    Necessite les droits admin. Avant toute invite UAC, une fenetre explique ce
-    qui va etre modifie et pourquoi (D22) : rien ne s'eleve sans consentement.
+    Intent: register a scheduled task that starts the server at every logon (elevated, hidden), so that Vigie is
+    there without anybody having to launch it.
+    Usage:  pwsh -ExecutionPolicy Bypass -File .\install-autostart.ps1
+            pwsh -ExecutionPolicy Bypass -File .\install-autostart.ps1 -Yes   (no window)
+    Exit codes: 0 = installed; 1 = a missing prerequisite; 3 = refused by the user.
 
-    Usage :  pwsh -ExecutionPolicy Bypass -File .\install-autostart.ps1
-             pwsh -ExecutionPolicy Bypass -File .\install-autostart.ps1 -Yes   (sans fenetre)
-
-    Codes de retour : 0 = installe ; 1 = prerequis manquant ; 3 = refuse par l'utilisateur.
+    It needs administrator rights. Before any UAC prompt, a window explains what is about to be changed and why
+    (D22): nothing is elevated without consent.
 #>
+
 param(
-    # Passe l'explication graphique : execution volontairement automatisee.
+    # Skip the graphical explanation: a deliberately automated run.
     [switch] $Yes,
 
     <#
-        POUR QUI ON POSE LA TACHE -- pas forcement celui qui execute (D109).
+        WHO WE LAY THE TASK DOWN FOR -- not necessarily whoever runs (D109).
 
-        Lancee depuis le bouton de la carte, l'installation tourne sous le compte du
-        SERVICE. Cette tache-ci etait donc enregistree pour lui : le 31/08, « Vigie » est
-        passee de fhaza a VigieService, fhaza s'est retrouve « Vigie inactive » et son app
-        cliente ne s'est plus lancee a l'ouverture de session -- pendant qu'un compte
-        technique, qui n'ouvre jamais de session, heritait d'une tache Interactive.
+        Started from the card's button, the installation runs under the SERVICE's account. So this task was being
+        registered for it: on 31/08 the task moved from a person's account to the service's, that person ended up
+        with Vigie inactive and their client app no longer started at logon -- while a technical account, which
+        never opens a session, inherited an Interactive task.
 
-        Le serveur passe donc le compte de la personne qui a clique. Sans indication, on
-        retombe sur le compte qui execute : c'est le cas d'un lancement a la main, ou il
-        n'y a personne d'autre.
+        So the server passes the account of the person who clicked. With no indication, we fall back on the
+        account that runs: that is the case of a launch by hand, where there is nobody else.
     #>
+
+
     [string] $Account
 )
 
 $ErrorActionPreference = 'Stop'
-# Les scripts de gestion vivent dans scripts/ : les apps sont dans apps/.
+# The management scripts live in scripts/: the apps are in apps/.
 $repoRoot = Split-Path $PSScriptRoot -Parent
-. (Join-Path $repoRoot 'scripts/lib/console-ui.ps1')   # le meme affichage que partout
-$backend  = Join-Path $repoRoot 'apps/backend-pode'   # BOOTSTRAP, cf. common.ps1
+. (Join-Path $repoRoot 'scripts/lib/console-ui.ps1')   # the same display as everywhere
+$backend  = Join-Path $repoRoot 'apps/backend-pode'   # BOOTSTRAP, see common.ps1
 . (Join-Path $backend 'lib/common.ps1')
 <#
-    LA TACHE LANCE L'INSTALLATION PARTAGEE, PAS LE DEPOT.
+    THE TASK STARTS THE SHARED INSTALLATION, NOT THE REPOSITORY.
 
-    Elle pointait sur le dossier d'ou l'installation avait ete lancee : sur un poste de
-    developpement, le DEPOT. Trois consequences, toutes constatees le 30/08 : la carte
-    signale un ecart (« fhaza démarre depuis le dépôt de travail »), la tache est comptee
-    hors service, et surtout elle ne demarrera plus le jour ou ce dossier bouge -- ou
-    depuis un compte qui n'a pas le droit de le lire.
+    It used to point at the folder the installation had been started from: on a development workstation, the
+    REPOSITORY. Three consequences, all observed on 30/08: the card reports a gap (an account starting from the
+    working repository), the task is counted as out of service, and above all it will no longer start the day
+    that folder moves -- or from an account that has no right to read it.
 
-    Tout tourne depuis l'installation partagee. Le depot ne sert qu'a la fabriquer.
+    Everything runs from the shared installation. The repository only serves to build it.
 #>
 $appRoot  = $repoRoot
 try {
@@ -68,7 +67,7 @@ $client     = Join-Path $appRoot 'apps/client/client.ps1'   # l'app cliente est 
 $forAccount = $Account
 if (-not $forAccount) { $forAccount = Get-ProcessAccount }
 $taskName = Get-VigieAccountTaskName -Name $forAccount
-# L'URL derive de config.psd1 : adresse et port n'ont qu'UNE definition (D15).
+# The URL derives from config.psd1: the address and the port have only ONE definition (D15).
 $appUrl   = Get-AppUrl -Backend $backend
 
 if (-not (Test-IsElevated)) {
@@ -87,9 +86,9 @@ if (-not (Test-IsElevated)) {
     exit $code
 }
 
-# L'interpreteur de la MACHINE d'abord : c'est le seul que toutes les sessions peuvent
-# lancer, et il ne depend pas de l'enregistrement d'un paquet du Store. A defaut, celui
-# du compte courant -- suffisant pour SA propre tache, mais pas pour celle d'un autre.
+# The MACHINE's interpreter first: it is the only one every session can start, and it does not depend on the
+# registration of a Store package. Failing that, the current account's -- enough for ITS OWN task, but not for
+# somebody else's.
 $pwsh = Get-SharedPwshPath
 if (-not $pwsh) { $pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Source }
 if (-not $pwsh) { Write-Warn (Get-Label 'install-autostart.pwsh-introuvable-lance-abord'); exit 1 }
@@ -98,29 +97,28 @@ if (-not $pwsh) { Write-Warn (Get-Label 'install-autostart.pwsh-introuvable-lanc
 $action    = New-VigieClientAction -Pwsh $pwsh -Client $client
 
 $trigger   = New-ScheduledTaskTrigger -AtLogOn
-# 45 s de delai : pwsh vient du Microsoft Store (MSIX) et son paquet peut ne pas etre
-# encore disponible a l'instant du logon -- la tache echouait en 0xC0070154 (constate
-# le 24/08, session ouverte a 19:04, Vigie jamais demarre). Trois reprises espacees
-# d'une minute couvrent le cas ou le delai ne suffirait pas.
+# A 45 s delay: pwsh comes from the Microsoft Store (MSIX) and its package may not be available yet at the instant
+# of the logon -- the task failed with 0xC0070154 (observed on 24/08, a session opened at 19:04, Vigie never
+# started). Three retries a minute apart cover the case where the delay would not be enough.
 $trigger.Delay = 'PT45S'
 <#
-    LE COMPTE DE LA TACHE, ET SON NIVEAU, SUIVENT LA PERSONNE.
+    THE TASK'S ACCOUNT, AND ITS LEVEL, FOLLOW THE PERSON.
 
-    Le niveau se deduit du compte, jamais de notre envie : Highest pour un administrateur,
-    Limited pour un compte standard. Donner Highest a un compte standard ne marcherait pas,
-    et ne DOIT pas marcher -- Vigie ne donne rien de plus que Windows.
+    The level is deduced from the account, never from what we fancy: Highest for an administrator, Limited for a
+    standard account. Giving Highest to a standard account would not work, and MUST not work -- Vigie gives
+    nothing more than Windows does.
 #>
 $pourCompte = $forAccount
 <#
-    LA LISTE FAIT FOI : on ne pose une tache cliente que pour un compte a qui l'interface
-    permet d'activer Vigie.
+    THE LIST IS AUTHORITATIVE: we lay a client task down only for an account the interface allows to enable
+    Vigie.
 
-    J'avais ecrit « si c'est le compte du service, refuse » -- un filtre a la main, sur un
-    NOM, alors que le cercle existe : Get-UserAccounts, les comptes de personnes. Un compte
-    technique n'y figure pas, et c'est cela qui doit trancher. Recopier le nom du service
-    ici, c'est dupliquer une regle qui vit ailleurs et rater tous les autres comptes qui ne
-    doivent pas non plus en recevoir.
+    I had written "if it is the service's account, refuse" -- a filter by hand, on a NAME, while the circle
+    exists: Get-UserAccounts, the accounts of people. A technical account is not in it, and that is what must
+    decide. Copying the service's name here means duplicating a rule that lives elsewhere, and missing every other
+    account that must not receive one either.
 #>
+
 if (@(Get-UserAccounts -Backend $backend | ForEach-Object { "$($_.name)" }) -notcontains $pourCompte) {
     Write-Fail (Get-Label 'install-autostart.compte-hors-liste' $pourCompte)
     exit 1
@@ -133,19 +131,18 @@ $settings  = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGo
 Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
 Write-Info (Get-Label 'install-autostart.tache-enregistree-lancement-ouverture' $taskName)
 <#
-    PAS DE RACCOURCI SUR LE BUREAU -- ET ON RETIRE CELUI QU'ON A POSE.
+    NO SHORTCUT ON THE DESKTOP -- AND WE REMOVE THE ONE WE LAID.
 
-    Il pointait droit sur l'URL, donc sur un panneau SANS identite : pas de preuve
-    d'ouverture, pas de cookie, personne n'est « vous », et aucune action ne sait qui la
-    demande. On ouvrait Vigie par une porte degradee, posee par nous, sur le bureau.
+    It pointed straight at the URL, and so at a panel WITHOUT an identity: no opening proof, no cookie, nobody is
+    "you", and no action knows who is asking for it. We were opening Vigie through a degraded door, laid by us, on
+    the desktop.
 
-    Vigie s'ouvre par son icone dans la barre systeme, qui elle emprunte la chaine
-    complete. Ouvrir l'URL a la main reste possible et fonctionne -- c'est ainsi qu'on
-    debogue dans un vrai navigateur -- mais c'est un geste de developpeur, pas ce qu'on
-    installe pour tout le monde.
+    Vigie opens through its icon in the notification area, which borrows the whole chain. Opening the URL by hand
+    stays possible and works -- that is how one debugs in a real browser -- but it is a developer's gesture, not
+    what one installs for everybody.
 
-    Le retrait se fait ICI parce que l'installation est le seul geste : ce qui manque
-    manque dans l'installation, jamais dans une commande a taper une fois.
+    The removal happens HERE because the installation is the only gesture: what is missing is missing from the
+    installation, never from a command to be typed once.
 #>
 $lnk = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Vigie.url'
 if (Test-Path -LiteralPath $lnk) {

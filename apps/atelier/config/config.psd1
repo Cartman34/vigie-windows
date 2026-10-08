@@ -1,23 +1,22 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 @{
     # ---------------------------------------------------------------------------
-    # Configuration de l'app ATELIER (outil de developpement).
+    # Intent: configure the ATELIER app (a development tool).
     #
-    # L'Atelier est une app A PART, distincte de Vigie : il a donc SA config, et
-    # ne lit pas celle du backend. Chaque valeur n'a qu'une seule definition, mais
-    # chaque app est maitresse des siennes.
+    # The Atelier is a SEPARATE app, distinct from Vigie: so it has ITS OWN config, and does not read the server
+    # app's. Every value has one single definition, but each app is master of its own.
     #
-    # Ne jamais confondre avec apps/backend-pode/config/config.psd1, qui configure
-    # l'application livree (port 47600, elevee).
+    # Usage: never confuse this with apps/backend-pode/config/config.psd1, which configures the delivered
+    # application (port 47600, elevated).
     # ---------------------------------------------------------------------------
 
-    # BindAddress vient de config/common.psd1 (racine) : elle est partagee par toutes
-    # les apps du depot et n'est donc pas recopiee ici (D15/D33).
+    # BindAddress comes from config/common.psd1 (at the root): it is shared by every app of the repository and so
+    # is not copied here (D15/D33).
 
-    # Port du serveur de l'Atelier. Meme plage locale que Vigie (47600-47699),
-    # port DISTINCT pour que les deux apps tournent en meme temps sans se gener.
+    # The port of the Atelier's server. The same local range as Vigie (47600-47699), a DISTINCT port so that both
+    # apps can run at the same time without getting in each other's way.
     Port        = 47610
 
-    # Page ouverte au demarrage, relative a la racine du depot (qui est servie).
+    # The page opened at startup, relative to the root of the repository (which is what is served).
     StartPage   = '/apps/atelier/index.html'
 }

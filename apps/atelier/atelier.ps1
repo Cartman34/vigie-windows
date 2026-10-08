@@ -1,65 +1,65 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
 .SYNOPSIS
-    Atelier : app de developpement de Vigie. Sert le depot en local et ouvre la page.
+    The Atelier: Vigie's development app. It serves the repository locally and opens the page.
 
 .DESCRIPTION
-    Demarre un petit serveur web local (serveur integre de PHP) a la racine du depot, puis
-    ouvre apps/atelier/index.html dans le navigateur.
+    Intent: give the developer a page served over http, so that the panel's own screens can be looked at and
+    adjusted without running Vigie itself.
+    Usage: it starts a small local web server (PHP's built-in one) at the root of the repository, then opens
+    apps/atelier/index.html in the browser.
 
-    L'ATELIER N'EST PAS VIGIE. C'est une app DISTINCTE, de developpement :
-      - Vigie    : apps/backend-pode + apps/frontend-web + apps/client, PowerShell + Pode, port 47600,
-                   ELEVEE, lancee par la tache planifiee a l'ouverture de session.
-      - Atelier  : cette app, PHP, port 47610, JAMAIS elevee, lancee a la main.
-    L'Atelier n'expose aucune API, n'execute aucune sonde et n'a acces a aucun secret.
-    Il ne doit pas tourner chez l'utilisateur final.
+    THE ATELIER IS NOT VIGIE. It is a DISTINCT app, for development:
+      - Vigie   : apps/backend-pode + apps/frontend-web + apps/client, PowerShell plus Pode, port 47600,
+                  ELEVATED, started by the scheduled task at logon.
+      - Atelier : this app, PHP, port 47610, NEVER elevated, started by hand.
+    The Atelier exposes no API, runs no probe and has access to no secret. It must not run on an end user's
+    machine.
 
-    SECURITE : il sert la RACINE du depot (il lui faut des fichiers de plusieurs apps),
-    mais router.php refuse var/, config/, les fichiers caches, .psd1, .log et .token.
-    Sans ce routeur, le jeton de l'API de Vigie serait telechargeable en HTTP.
-    Le script REFUSE de demarrer si router.php est absent.
+    SECURITY: it serves the ROOT of the repository (it needs files from several apps), but router.php refuses
+    var/, config/, the hidden files, .psd1, .log and .token. Without that router, Vigie's API token would be
+    downloadable over HTTP. The script REFUSES to start if router.php is missing.
 
-    POURQUOI un serveur plutot qu'un double-clic : ouverte en file://, la page ne peut pas
-    lire les assets (les chemins relatifs cassent des que le fichier est deplace ou copie)
-    et le navigateur refuse d'afficher l'ecran de chargement dans un cadre. Servie en http,
-    elle fonctionne entierement.
+    WHY a server rather than a double click: opened through file://, the page cannot read the assets (the relative
+    paths break as soon as the file is moved or copied) and the browser refuses to show the loading screen inside
+    a frame. Served over http, it works entirely.
 
-    CONFIGURATION : apps/atelier/config/config.psd1 - la config de CETTE app. Elle ne lit pas celle
-    du backend : chaque app est maitresse de ses propres valeurs.
+    CONFIGURATION: apps/atelier/config/config.psd1 -- the config of THIS app. It does not read the server app's:
+    each app is master of its own values.
 
 .PARAMETER Status
-    N'affiche que l'etat (en ligne ou non, port, PID) et sort. Ne demarre rien.
+    Displays the state only (online or not, the port, the PID) and exits. It starts nothing.
 
 .PARAMETER Stop
-    Arrete l'Atelier s'il tourne. Sans effet s'il est deja arrete.
+    Stops the Atelier if it is running. No effect if it is already stopped.
 
 .PARAMETER Background
-    Demarre le serveur en tache de fond et rend la main immediatement, au lieu d'occuper
-    la console jusqu'a Ctrl+C.
+    Starts the server in the background and hands control back at once, instead of holding the console until
+    Ctrl+C.
 
 .PARAMETER NoBrowser
-    Ne pas ouvrir le navigateur (utile quand un onglet est deja ouvert).
+    Do not open the browser (useful when a tab is already open).
 
 .EXAMPLE
     pwsh -File .\apps\atelier\atelier.ps1
-    Demarre l'Atelier et ouvre le navigateur. Ctrl+C pour arreter.
+    Starts the Atelier and opens the browser. Ctrl+C to stop.
 
 .EXAMPLE
     pwsh -File .\apps\atelier\atelier.ps1 -Background
-    Demarre en tache de fond et rend la main.
+    Starts it in the background and hands control back.
 
 .EXAMPLE
     pwsh -File .\apps\atelier\atelier.ps1 -Status
-    Indique si l'Atelier tourne, sur quel port et avec quel PID.
+    Says whether the Atelier is running, on which port and with which PID.
 
 .EXAMPLE
     pwsh -File .\apps\atelier\atelier.ps1 -Stop
-    Arrete l'Atelier.
+    Stops the Atelier.
 
 .NOTES
-    Codes de retour : 0 = succes ; 1 = prerequis manquant (php absent) ; 2 = echec.
-    Documentation : apps/atelier/README.md
-    Aide          : Get-Help .\apps\atelier\atelier.ps1 -Full
+    Exit codes: 0 = success; 1 = a missing prerequisite (php absent); 2 = failure.
+    Documentation: apps/atelier/README.md
+    Help         : Get-Help .\apps\atelier\atelier.ps1 -Full
 #>
 [CmdletBinding(DefaultParameterSetName = 'Start')]
 param(
@@ -70,18 +70,17 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-# Ce fichier est isole : il charge lui-meme l'affichage commun, qui apporte aussi
-# les libelles (console-ui.ps1 et i18n.ps1 sont voisins).
+# This file is isolated: it loads the common display itself, which also brings the labels (console-ui.ps1 and
+# i18n.ps1 are its neighbours).
 . (Join-Path (Join-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) 'scripts/lib') 'console-ui.ps1')
 
 
-# apps/atelier -> apps -> racine du depot (c'est elle qui est servie).
+# apps/atelier -> apps -> the root of the repository (which is what is served).
 $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 
-# Config en deux couches (D33) : config/common.psd1 (racine, partage par les apps)
-# puis la config de CETTE app, qui gagne. L'Atelier ne depend PAS de la bibliotheque
-# du backend : une app de developpement qui s'appuie sur l'app livree, c'est la
-# frontiere percee. Lire un fichier de config commun n'est pas une dependance a une app.
+# The config in two layers (D33): config/common.psd1 (at the root, shared by the apps) then THIS app's config,
+# which wins. The Atelier does NOT depend on the server app's library: a development app leaning on the delivered
+# app is the boundary breached. Reading a shared config file is not a dependency on an app.
 $cfg = @{}
 $commonPath = Join-Path $repoRoot 'config/common.psd1'
 if (Test-Path -LiteralPath $commonPath) {
@@ -100,14 +99,14 @@ $address = $cfg.BindAddress
 $port    = $cfg.Port
 $url     = 'http://{0}:{1}{2}' -f $address, $port, $cfg.StartPage
 
-# Le port est-il en ecoute ? (test autonome : pas de dependance a common.ps1)
+# Is the port listening? (a self-contained test: no dependency on common.ps1)
 function Test-PortOpen {
     param([string]$Address, [int]$Port)
     try { $c = [System.Net.Sockets.TcpClient]::new(); $c.Connect($Address, $Port); $c.Close(); return $true }
     catch { return $false }
 }
 
-# Quel processus tient le port ? (aucun fichier de PID a gerer)
+# Which process holds the port? (no PID file to manage)
 # WHO LISTENS IS ASKED OF WINDOWS DIRECTLY (scripts/lib/tcp-ports.ps1, standalone like this script): through WMI it took
 # 26 seconds on 14/09.
 . (Join-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) (Join-Path 'scripts' (Join-Path 'lib' 'tcp-ports.ps1')))
@@ -147,7 +146,7 @@ if (-not $php) {
     exit 1
 }
 
-# --- Idempotence : deja en ecoute ? ------------------------------------------
+# --- Idempotence: is it already listening? ------------------------------------
 if (Get-AtelierProcess) {
     Write-Info (Get-Label 'atelier.atelier-deja-en-ligne' $url)
     if (-not $NoBrowser) { Start-Process $url }
@@ -156,8 +155,8 @@ if (Get-AtelierProcess) {
 
 Write-Info (Get-Label 'atelier.atelier-app-de-developpement' $url)
 Write-Info (Get-Label 'atelier.racine-servie' $repoRoot)
-# Le routeur FILTRE : l'Atelier sert la racine du depot, il exposerait sinon
-# apps/<app>/var/secrets/api.token, le jeton de l'API de Vigie. Voir router.php.
+# The router FILTERS: the Atelier serves the root of the repository, so it would otherwise expose
+# apps/<app>/var/secrets/api.token, Vigie's API token. See router.php.
 $router  = Join-Path $PSScriptRoot 'router.php'
 if (-not (Test-Path -LiteralPath $router)) {
     Write-Fail (Get-Label 'atelier.router-php-introuvable-refus')
@@ -166,7 +165,7 @@ if (-not (Test-Path -LiteralPath $router)) {
 }
 $phpArgs = @('-S', ("{0}:{1}" -f $address, $port), '-t', $repoRoot, $router)
 
-# --- Tache de fond -----------------------------------------------------------
+# --- In the background --------------------------------------------------------
 if ($Background) {
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     $psi.FileName        = $php
@@ -189,10 +188,10 @@ if ($Background) {
     exit 0
 }
 
-# --- Premier plan : la console montre les requetes, Ctrl+C arrete -------------
+# --- In the foreground: the console shows the requests, Ctrl+C stops ----------
 Write-Info (Get-Label 'atelier.ctrl-pour-arreter')
 if (-not $NoBrowser) {
-    # Le navigateur est lance en differe : le serveur doit d'abord ecouter.
+    # The browser is started after a delay: the server must be listening first.
     Start-Job -ScriptBlock {
         param($u, $a, $p)
         for ($i = 0; $i -lt 40; $i++) {

@@ -1,23 +1,23 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    vigie-diag-account.ps1 - Relit les journaux de Vigie d'un AUTRE compte, pour depannage.
+    vigie-diag-account.ps1 -- reads back ANOTHER account's Vigie logs, for troubleshooting.
 
-    Il ne lit rien lui-meme : il demande a VIGIE de le faire (le serveur tourne deja eleve
-    quand un administrateur l'utilise). Deux consequences voulues :
-      - aucune invite UAC de plus a chaque diagnostic ;
-      - le filtre est celui de toutes les operations sensibles : l'action est declaree
-        « @droits: admin », donc un compte standard se voit refuser -- exactement comme
-        pour le verrou Windows Update (D65).
+    Intent: look into another account without opening a second road to its data. It reads nothing itself: it asks
+    VIGIE to do it (the server already runs elevated when an administrator uses it). Two wanted consequences:
+      - not one more UAC prompt at every diagnosis;
+      - the filter is the one of every sensitive operation: the action is declared as needing an administrator, so
+        a standard account is refused -- exactly as for the Windows Update lock (D65).
 
-    LECTURE SEULE chez le compte vise. Le jeton d'API de ce compte n'est jamais copie.
+    READ ONLY on the account that is aimed at. That account's API token is never copied.
 
-    Usage :
-      pwsh -File .\scripts\vigie-diag-account.ps1                    # liste les comptes
-      pwsh -File .\scripts\vigie-diag-account.ps1 -Account Famille
-
-    Codes de retour : 0 = fait ; 1 = compte ou donnees introuvables ; 2 = Vigie injoignable ;
-    3 = refuse (compte non administrateur).
+    Usage:
+      pwsh -File .\scripts\vigie-diag-account.ps1                    # lists the accounts
+      pwsh -File .\scripts\vigie-diag-account.ps1 -Account <name>
+    Exit codes: 0 = done; 1 = the account or the data could not be found; 2 = Vigie is unreachable;
+    3 = refused (not an administrator account).
 #>
+
+
 param([string] $Account)
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path $PSScriptRoot -Parent

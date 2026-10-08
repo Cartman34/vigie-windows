@@ -1,19 +1,18 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    vigie-accounts.ps1 - QUELS COMPTES Windows ont Vigie. IDEMPOTENT.
+    vigie-accounts.ps1 -- WHICH Windows ACCOUNTS have Vigie. IDEMPOTENT.
 
-    Le meme outil sert pendant l'installation et n'importe quand apres : « un outil doit
-    toujours permettre de changer quel compte a acces » (exigence utilisateur, D65).
+    Intent: let that choice be changed at any time, not only while installing -- "a tool must always allow one to
+    change which account has access" (the owner's requirement, D65).
 
-    Usage :
-      pwsh -File .\scripts\vigie-accounts.ps1                     # liste
-      pwsh -File .\scripts\vigie-accounts.ps1 -Activer Famille    # Vigie demarre pour ce compte
-      pwsh -File .\scripts\vigie-accounts.ps1 -Retirer Famille    # ne demarre plus
+    Usage:
+      pwsh -File .\scripts\vigie-accounts.ps1                      # lists them
+      pwsh -File .\scripts\vigie-accounts.ps1 -Enable <name>       # Vigie starts for that account
+      pwsh -File .\scripts\vigie-accounts.ps1 -Remove <name>       # it no longer starts
+    Exit codes: 0 = done; 1 = unknown account; 3 = insufficient rights.
 
-    Activer = poser SA tache de demarrage, au niveau que Windows accorde a ce compte
-    (administrateur -> eleve, standard -> limite). Vigie ne donne rien de plus que Windows.
-
-    Codes de retour : 0 = fait ; 1 = compte inconnu ; 3 = droits insuffisants.
+    Enabling = laying down ITS start-up task, at the level Windows grants that account (an administrator ->
+    elevated, a standard account -> limited). Vigie gives nothing more than Windows does.
 #>
 param(
     [string]$Enable,

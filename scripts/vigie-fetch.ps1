@@ -1,46 +1,47 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    vigie-fetch.ps1 - Rapporte une archive de Vigie, prete a etre deployee. NE DEPLOIE RIEN.
+    vigie-fetch.ps1 -- brings back an archive of Vigie, ready to be deployed. IT DEPLOYS NOTHING.
 
-    Ce script ne fait qu'une chose : obtenir un `.zip` verifie et en ecrire le chemin sur la derniere ligne de sa
-    sortie. C'est l'installation qui le pose ensuite. Separer les deux evite le pire des cas : une
-    recuperation a moitie faite qui ecrase une installation qui marchait.
+    Intent: do one thing only -- obtain a checked `.zip` and write its path on the last line of its output. It is
+    the installation that lays it down afterwards. Separating the two avoids the worst case: a half-finished fetch
+    overwriting an installation that worked.
 
-    TROIS VOIES, et une regle pour choisir quand on ne le dit pas (-Source auto) :
-      - `local`   : le depot est la (poste de developpement) -> on fabrique depuis lui.
-      - `release` : sinon -> on telecharge la derniere version publiee sur GitHub.
-      - `clone`   : des qu'on force une reference (-Ref), parce qu'une branche ou un commit precis n'existe pas
-                    sous forme de release.
+    Usage: it is called by the installation, or by hand to build a release. Exit codes, all distinct so that the
+    caller knows WHAT to say:
+      0 = the archive is ready (its path is the last line)
+      1 = a missing prerequisite (git absent, an unreadable folder...)
+      2 = the network or GitHub did not answer
+      3 = already up to date: nothing to do, and that is not an error (D77)
+      4 = the reference that was asked for does not exist
+      5 = what was brought back is not usable (an unreadable or truncated archive)
 
-    RESEAU. C'est le seul endroit ou Vigie va chercher du CODE a l'exterieur, et jamais de sa propre initiative :
-    il faut qu'on le lui demande. Ce qui est telecharge vient du depot officiel en HTTPS ; il n'y a pas de
-    signature a verifier, et on ne pretend pas le contraire. Ce qu'on verifie, en revanche : que l'archive
-    s'ouvre, qu'elle a la forme attendue, et qu'elle n'est pas plus ancienne que ce qui tourne deja.
+    THREE ROADS, and a rule for choosing when one does not say (-Source auto):
+      - `local`   : the repository is there (a development workstation) -> we build from it.
+      - `release` : otherwise -> we download the latest version published on GitHub.
+      - `clone`   : as soon as a reference is forced (-Ref), because a branch or a precise commit does not exist
+                    as a release.
 
-    Codes de retour, tous distincts pour que l'appelant sache QUOI dire :
-      0 = archive prete (son chemin est la derniere ligne)
-      1 = prerequis manquant (git absent, dossier illisible...)
-      2 = le reseau ou GitHub n'a pas repondu
-      3 = deja a jour : rien a faire, et ce n'est pas une erreur (D77)
-      4 = la reference demandee n'existe pas
-      5 = ce qui a ete rapporte n'est pas exploitable (archive illisible ou tronquee)
+    THE NETWORK. This is the only place where Vigie goes looking for CODE outside, and never on its own
+    initiative: it has to be asked. What is downloaded comes from the official repository over HTTPS; there is no
+    signature to verify, and we do not pretend otherwise. What we do check: that the archive opens, that it has
+    the expected shape, and that it is not older than what is already running.
 #>
 param(
     [ValidateSet('auto', 'local', 'release', 'clone')]
     [string] $Source = 'auto',
 
-    # Branche, tag ou commit. Le preciser force la voie `clone`.
+    # A branch, a tag or a commit. Giving it forces the `clone` road.
     [string] $Ref,
 
-    # Accepter les pre-versions. GitHub EXCLUT les pre-versions de /releases/latest : sans
-    # ce commutateur, une machine ne verra que les versions stables. C'est voulu.
+    # Accept pre-releases. GitHub EXCLUDES pre-releases from /releases/latest: without this switch, a machine will
+    # see stable versions only. That is deliberate.
     [switch] $PreVersions,
 
-    # Rapporter meme si la version trouvee n'est pas plus recente que celle en place.
+    # Bring it back even if the version found is no more recent than the one in place.
     [switch] $Force,
 
-    # Vides par defaut : l'adresse vient de la configuration commune (voir plus bas).
-    # Elles restent surchargeables en parametre, pour un fork ou un essai.
+    # Empty by default: the address comes from the shared configuration (see further down). They stay overridable
+    # as parameters, for a fork or a trial.
     [string] $RemoteUrl,
     [string] $ApiRepo
 )
@@ -50,11 +51,11 @@ $repoRoot = Split-Path $PSScriptRoot -Parent
 . (Join-Path $repoRoot 'scripts/lib/console-ui.ps1')   # le meme affichage que partout
 . (Join-Path $repoRoot 'apps/backend-pode/lib/common.ps1')
 $backend = Join-Path $repoRoot 'apps/backend-pode'
-# L'ADRESSE DU DEPOT VIENT DE LA CONFIGURATION, jamais d'un litteral recopie ici.
+# THE REPOSITORY'S ADDRESS COMES FROM THE CONFIGURATION, never from a literal copied here.
 if (-not $RemoteUrl -or -not $ApiRepo) {
     $cfgRepo = Get-Config -Backend $backend
     if (-not $ApiRepo) { $ApiRepo = "$($cfgRepo.Repository)" }
-    # L'adresse du clone : le depot public, ou le depot local sur un poste de dev (D112).
+    # The clone's address: the public repository, or the local one on a development workstation (D112).
     if (-not $RemoteUrl)   { $RemoteUrl   = (Get-UpdateRemote -Backend $backend) }
 }
 
@@ -62,9 +63,9 @@ function Noter {
     param([string]$T, [string]$N = 'INFO')
     try { Write-Log -Backend $backend -Name 'update' -Level $N -Message $T } catch { }
 }
-# LE CODE DE RETOUR DECIDE DE LA COULEUR, pas l'appelant. Une couleur choisie a la main
-# finit toujours par mentir : c'est ainsi qu'un echec est deja sorti en vert (28/08).
-# 0 et 3 ne sont pas des echecs -- 3 veut dire « il n'y avait rien a faire ».
+# THE EXIT CODE DECIDES THE COLOUR, not the caller. A colour chosen by hand always ends up lying: that is how a
+# failure once came out in green (28/08).
+# 0 and 3 are not failures -- 3 means there was nothing to do.
 function Sortir {
     param([int]$Code, [string]$Message)
     if ($Code -eq 0 -or $Code -eq 3) { Write-Ok $Message } else { Write-Fail $Message }
@@ -72,10 +73,10 @@ function Sortir {
     exit $Code
 }
 
-# --- Comparer deux versions ---------------------------------------------------------
+# --- Comparing two versions ---------------------------------------------------
 #
-# « v0.1.9 », « 0.1.9 » et « v0.1.9+3 » doivent se comparer entre eux. Le suffixe « +N »
-# compte les commits depuis le tag : il rend la version PLUS recente, pas moins.
+# A version with its "v", without it, and with a "+N" suffix must all compare with each other. The "+N" suffix
+# counts the commits since the tag: it makes the version MORE recent, not less.
 function ConvertTo-Reperage {
     param([string]$Brut)
     if (-not $Brut) { return $null }
@@ -93,14 +94,14 @@ function ConvertTo-Reperage {
 }
 function Test-PlusRecente {
     param($Candidate, $Actuelle)
-    # Un doute ne bloque pas : mieux vaut proposer une mise a jour de trop qu'en rater une.
+    # A doubt does not block: better to offer one update too many than to miss one.
     if (-not $Candidate) { return $true }
     if (-not $Actuelle)  { return $true }
     if ($Candidate.Cle -ne $Actuelle.Cle) { return ($Candidate.Cle -gt $Actuelle.Cle) }
     return ($Candidate.Suite -gt $Actuelle.Suite)
 }
 
-# --- Ce qui tourne ici ---------------------------------------------------------------
+# --- What is running here -----------------------------------------------------
 $marque = $null
 try { $marque = Get-BuildStamp -Root $repoRoot } catch { }
 $enPlace = $null
@@ -126,7 +127,7 @@ if ($route -eq 'local' -and -not $isRepository) {
     Sortir 1 "Voie « local » demandee, mais ce dossier n'est pas un depot git utilisable. La voie -Source release reste possible."
 }
 Write-Info (Get-Label 'vigie-fetch.voie-retenue' $route)
-# --- Un dossier de travail a nous ----------------------------------------------------
+# --- A working folder of our own ----------------------------------------------
 $travail = $null
 try {
     $travail = Join-Path (Get-VarRoot -Backend $backend) 'update'
@@ -137,10 +138,10 @@ try {
     Sortir 1 ("Impossible de preparer le dossier de travail : " + $_.Exception.Message)
 }
 
-# --- Verifier une archive AVANT de s'en servir ---------------------------------------
+# --- Checking an archive BEFORE using it --------------------------------------
 #
-# Un telechargement coupe laisse un fichier d'allure normale mais illisible. On l'ouvre
-# pour de vrai, et on regarde s'il a la forme d'une Vigie.
+# A download that was cut leaves a file of normal appearance but unreadable. We open it for real, and look at
+# whether it has the shape of a Vigie.
 function Test-Archive {
     param([string]$ArchivePath)
     if (-not $ArchivePath -or -not (Test-Path -LiteralPath $ArchivePath)) { return "l'archive n'existe pas" }
@@ -172,7 +173,7 @@ function Get-DerniereArchive {
     return $null
 }
 
-# --- VOIE 1 : le depot local ---------------------------------------------------------
+# --- ROAD 1: the local repository ---------------------------------------------
 function Get-DepuisLocal {
     $build = Join-Path $PSScriptRoot 'build-release.ps1'
     if (-not (Test-Path -LiteralPath $build)) {
@@ -186,7 +187,7 @@ function Get-DepuisLocal {
     return $zip
 }
 
-# --- VOIE 2 : la derniere version publiee --------------------------------------------
+# --- ROAD 2: the latest published version -------------------------------------
 function Get-DepuisRelease {
     $entetes = @{ 'User-Agent' = 'Vigie'; 'Accept' = 'application/vnd.github+json' }
     $base    = 'https://api.github.com/repos/' + $ApiRepo + '/releases'
@@ -230,8 +231,7 @@ function Get-DepuisRelease {
     $tmp   = $target + '.partiel'
     Write-Info (Get-Label 'vigie-fetch.telechargement-de-ko' $actif.name [int]($actif.size / 1KB))
     try {
-        # Fichier temporaire puis renommage : une coupure ne laisse pas une archive a
-        # moitie ecrite portant le nom de la bonne.
+        # A temporary file then a rename: a cut does not leave a half-written archive carrying the right name.
         $previousProgress = $ProgressPreference
         $ProgressPreference = 'SilentlyContinue'   # sinon PowerShell passe son temps a redessiner
         try {
@@ -246,14 +246,14 @@ function Get-DepuisRelease {
     return $target
 }
 
-# --- VOIE 3 : un clone a nous --------------------------------------------------------
+# --- ROAD 3: a clone of our own -----------------------------------------------
 function Get-DepuisClone {
     if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
         Sortir 1 "git est introuvable : la voie « clone » en a besoin. Il s'installe par winget install --id Git.Git --scope machine ; la voie -Source release reste possible."
     }
-    # Le chemin du clone et l'adresse d'ou il se synchronise vivent dans common.ps1 : le
-    # serveur en a besoin AUSSI, pour comparer l'installation a ce que le bouton
-    # fabriquerait (D112). Deux definitions, et la carte compare a autre chose.
+    # The clone's path and the address it synchronises from live in common.ps1: the server needs them TOO, in
+    # order to compare the installation with what the button would build (D112). Two definitions, and the card
+    # compares with something else.
     $clone  = Get-ServiceClonePath -Backend $backend
     # THE CLONE IS NEVER BLOCKED: forced, then recloned if git still refuses (Update-ServiceClone, common.ps1).
     Write-Info (Get-Label 'vigie-fetch.mise-jour-du-clone')
@@ -261,13 +261,12 @@ function Get-DepuisClone {
     if ($update.recloned) { Write-Info (Get-Label 'vigie-fetch.clone-recree') }
     # git's own words, never a guessed cause: "unreachable repository" hid a refused tag on 13/09.
     if (-not $update.ok) { Sortir 2 ("La recuperation a echoue : " + $update.error) }
-    # Sans reference imposee, on ne prend QUE des tags : une branche bouge a chaque
-    # commit, un tag designe une version qu'on a decide de publier (D99).
+    # Without a forced reference, we take tags ONLY: a branch moves at every commit, a tag designates a version
+    # somebody decided to publish (D99).
     #
-    # SAUF DEPUIS UN DEPOT LOCAL. La, c'est justement ce qu'on veut : « en dev, on veut
-    # tester les devs en local » -- et il n'y a pas de tag a chaque correctif. On suit donc
-    # la branche par defaut du remote. Le travail en cours n'est deployable que sur le
-    # poste qui l'ecrit, ce qui est exactement le sens du mode developpement.
+    # EXCEPT FROM A LOCAL REPOSITORY. There, that is precisely what one wants: in dev, one wants to test the dev
+    # work locally -- and there is no tag at every fix. So we follow the remote's default branch. Work in progress
+    # is deployable only on the workstation that writes it, which is exactly what development mode means.
     $localRemote = $false
     try { $localRemote = (Test-Path -LiteralPath (Join-Path $RemoteUrl '.git')) } catch { }
     $target = $Ref
@@ -288,7 +287,7 @@ function Get-DepuisClone {
 
     & git -C $clone rev-parse --verify --quiet ($target + '^{commit}') 2>$null | Out-Null
     if ($LASTEXITCODE -ne 0) {
-        # Peut-etre une branche distante jamais sortie en local.
+        # Perhaps a remote branch that was never brought out locally.
         & git -C $clone rev-parse --verify --quiet ('origin/' + $target + '^{commit}') 2>$null | Out-Null
         if ($LASTEXITCODE -ne 0) { Sortir 4 ("Reference introuvable dans le depot : " + $target) }
         $target = 'origin/' + $target
@@ -320,6 +319,6 @@ if ($souci) { Sortir 5 ("Archive inexploitable : " + $souci + ". Rien n'a ete de
 
 Write-Ok (Get-Label 'vigie-fetch.archive-prete' $archive)
 Noter ("archive prete (" + $route + ") : " + $archive)
-# DERNIERE LIGNE = le chemin. L'appelant ne lit que celle-la.
+# THE LAST LINE = the path. The caller reads only that one.
 Write-Output $archive
 exit 0

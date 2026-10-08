@@ -43,7 +43,7 @@ $ErrorActionPreference = 'Stop'
     not rewrite it at once -- thousands of touched lines for no gain, and a drowned git
     blame. The ratchet forbids adding any; every conversion lowers the ceiling as much.
 #>
-$COMMENT_CEILING = 1395
+$COMMENT_CEILING = 1108
 
 # 08/10, the second half of common.ps1: 1044 -> 310 French comment lines in the library, and the repository from
 # 4539 to 3805. Then its tail -- the environment, the traceability, the requester, the Atelier, the elevation and
@@ -84,6 +84,14 @@ $COMMENT_CEILING = 1395
 # scripts/dev/ask-vigie.ps1 (55), scripts/dev/check-labels.ps1 (55), scripts/dev/install-dev.ps1 (55), and the
 # repository from 1675 to 1395. Each was RUN: the two checkers judge the repository, config.psd1 loads,
 # install-dev surveys the tooling.
+#
+# 08/10, GROUP 1 of the four the owner asked the remainder to be split into -- the management scripts and the two
+# other apps: vigie-fetch (54), install-autostart (50), scripts/client (45), atelier (42), uninstall-legacy (26),
+# install-hooks (13), run (12), start.ps1 (12), vigie-diag-account (10), atelier's config (10),
+# uninstall-autostart (7), vigie-accounts (6). The repository drops from 1395 to 1108.
+#
+# WHAT IS LEFT IN apps/client/client.ps1 AND scripts/install.ps1 is not French prose: those lines quote a label of
+# the client app's own menu, or a title the installation displays, inside an English sentence.
 #
 # THE METHOD, so the next campaign does not reinvent it. The tools live in the session's scratchpad and are rebuilt
 # in a few lines if lost: blocs.py lists the contiguous French comment blocks of a file with their ranges;

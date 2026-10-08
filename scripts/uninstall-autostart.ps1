@@ -1,27 +1,28 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    uninstall-autostart.ps1 - Retire l'acces permanent. IDEMPOTENT.
+    uninstall-autostart.ps1 -- removes the permanent access. IDEMPOTENT.
 
-    Necessite les droits admin. Avant toute invite UAC, une fenetre explique ce
-    qui va etre retire et pourquoi (D22).
+    Intent: take back exactly what install-autostart.ps1 laid down, and nothing else -- the application and its
+    data stay in place.
+    Usage:  pwsh -ExecutionPolicy Bypass -File .\uninstall-autostart.ps1
+            pwsh -ExecutionPolicy Bypass -File .\uninstall-autostart.ps1 -Yes   (no window)
+    Exit codes: 0 = removed; 3 = refused by the user.
 
-    Ne connait QUE les noms courants. Les vestiges d'une installation anterieure
-    au renommage Vigie sont traites par uninstall-legacy.ps1 (D11).
+    It needs administrator rights. Before any UAC prompt, a window explains what is about to be removed and why
+    (D22).
 
-    Usage :  pwsh -ExecutionPolicy Bypass -File .\uninstall-autostart.ps1
-             pwsh -ExecutionPolicy Bypass -File .\uninstall-autostart.ps1 -Yes   (sans fenetre)
-
-    Codes de retour : 0 = retire ; 3 = refuse par l'utilisateur.
+    It knows the current names ONLY. The remains of an installation made before the rename to Vigie are handled
+    by uninstall-legacy.ps1 (D11).
 #>
 param(
     [switch] $Yes
 )
 
 $ErrorActionPreference = 'Stop'
-# Les scripts de gestion vivent dans scripts/ : les apps sont dans apps/.
+# The management scripts live in scripts/: the apps are in apps/.
 $repoRoot = Split-Path $PSScriptRoot -Parent
-. (Join-Path $repoRoot 'scripts/lib/console-ui.ps1')   # le meme affichage que partout
-$backend  = Join-Path $repoRoot 'apps/backend-pode'   # BOOTSTRAP, cf. common.ps1
+. (Join-Path $repoRoot 'scripts/lib/console-ui.ps1')   # the same display as everywhere
+$backend  = Join-Path $repoRoot 'apps/backend-pode'   # BOOTSTRAP, see common.ps1
 . (Join-Path $backend 'lib/common.ps1')
 $taskName = 'Vigie'
 $lnk      = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Vigie.url'

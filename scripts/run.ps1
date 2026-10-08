@@ -1,36 +1,37 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    run.ps1 - Lance le panneau. IDEMPOTENT. Cible PowerShell 7.
-    Journalise ses decisions dans backend/logs/run_*.log. Rebascule en pwsh si
-    lance en 5.1, et s'eleve (UAC) si necessaire : le serveur doit tourner avec
-    les droits admin pour lire/appliquer l'etat Windows Update. Les fenetres
-    relancees gardent -NoExit (elles ne se ferment plus toutes seules en cas
-    d'erreur). Si Pode manque, il est installe automatiquement (install.ps1).
-    Le navigateur n'est ouvert qu'une fois le serveur reellement a l'ecoute.
+    run.ps1 -- starts the panel. IDEMPOTENT. Targets PowerShell 7.
 
-    Usage :
-        pwsh -File .\run.ps1              # lance + ouvre l'UI (demande UAC)
-        pwsh -File .\run.ps1 -NoBrowser   # sans navigateur
+    Intent: one command that gets from nothing to a panel open in the browser, whatever the session it is typed
+    in. It switches back to pwsh if started under 5.1, and elevates (UAC) if needed: the server must run with
+    administrator rights in order to read and apply the Windows Update state. The windows it restarts keep
+    -NoExit (they no longer close by themselves on an error). If Pode is missing, it is installed automatically
+    (install.ps1). The browser is opened only once the server is really listening.
+    It logs its decisions into backend/logs/run_*.log.
+
+    Usage:
+        pwsh -File .\run.ps1              # starts it and opens the interface (asks for UAC)
+        pwsh -File .\run.ps1 -NoBrowser   # without the browser
 #>
 param(
-    [switch]$Admin,      # conserve pour compat ; l'elevation est de toute facon automatique
+    [switch]$Admin,      # kept for compatibility; the elevation is automatic anyway
     [switch]$NoBrowser
 )
 $ErrorActionPreference = 'Stop'
-# Les scripts de gestion vivent dans scripts/ : les apps sont dans apps/.
+# The management scripts live in scripts/: the apps are in apps/.
 $repoRoot = Split-Path $PSScriptRoot -Parent
-$backend  = Join-Path $repoRoot 'apps/backend-pode'   # BOOTSTRAP, cf. common.ps1
+$backend  = Join-Path $repoRoot 'apps/backend-pode'   # BOOTSTRAP, see common.ps1
 . (Join-Path $backend 'lib/common.ps1')
 
 $needPwsh = $PSVersionTable.PSVersion.Major -lt 7
 $isAdmin  = Test-Elevated
-$needElev = (-not $isAdmin)   # le serveur doit tourner avec les droits (UAC si besoin)
+$needElev = (-not $isAdmin)   # the server must run with the rights (UAC if needed)
 
 $runLog = Join-Path (Get-LogDir -Backend $backend) ('run_' + (Get-Date -Format 'yyyyMMdd_HHmmss') + '.log')
 try { Start-Transcript -Path $runLog -Force | Out-Null } catch { }
 Write-Log -Backend $backend -Name 'run' -Message (Get-Label 'run.run-ps1-ps-eleve' $PSVersionTable.PSVersion $isAdmin)
 
-# --- Relance sous pwsh et/ou eleve si necessaire (fenetre maintenue) ---
+# --- Restart under pwsh and/or elevated if needed (the window is kept) ---
 if ($needPwsh -or $needElev) {
     $pwsh = Get-Command pwsh -ErrorAction SilentlyContinue
     if (-not $pwsh) {
@@ -77,8 +78,8 @@ if (Test-ServerUp -Address $cfg.BindAddress -Port $cfg.Port) {
     return
 }
 
-# --- Ouverture du navigateur : on attend que le serveur ecoute reellement ---
-# (job en arriere-plan car start.ps1 est bloquant ; sonde TCP jusqu'a 40 s)
+# --- Opening the browser: we wait until the server really listens ---
+# (a background job, because start.ps1 blocks; a TCP probe for up to 40 s)
 if (-not $NoBrowser) {
     Start-Job -ScriptBlock {
         param($u, $addr, $port)

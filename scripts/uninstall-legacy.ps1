@@ -1,47 +1,46 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    uninstall-legacy.ps1 - Retire les vestiges des installations ANTERIEURES au
-    renommage Vigie (2026-08-22). IDEMPOTENT.
+    uninstall-legacy.ps1 -- removes the remains of installations made BEFORE the rename to Vigie (2026-08-22).
+    IDEMPOTENT.
 
-    Perimetre : tout poste installe AVANT le renommage, quand la tache planifiee,
-    le raccourci bureau et l'espace de travail portaient encore le nom de la machine
-    de l'auteur. Voir doc/progress/decisions.md (D05, D07, D11).
-
-    Ce script est DATE et JETABLE. Il est volontairement SEPARE de
-    uninstall-autostart.ps1, qui ne doit connaitre que les noms courants : les
-    anciens noms vivent ici et disparaitront avec ce fichier une fois tous les
-    postes migres.
-
-    Ce script ne SUPPRIME jamais de dossier : l'ancien espace de travail est
-    seulement mis de cote (suffixe .old).
-
-    Necessite les droits admin (la tache planifiee est en RunLevel Highest). Avant
-    toute invite UAC, une fenetre explique ce qui va etre retire et pourquoi (D22).
-    La session elevee ecrit un journal, restitue ici : rien n'est perdu.
-
-    Usage :
+    Intent: let a workstation installed under the old names come back to a clean state, and let the current
+    uninstaller know nothing of those names.
+    Usage:
       pwsh -ExecutionPolicy Bypass -File .\uninstall-legacy.ps1 -WhatIf
-      pwsh -ExecutionPolicy Bypass -File .\uninstall-legacy.ps1 -LegacyWorkspace 'C:\chemin\vers\ancien-dossier'
+      pwsh -ExecutionPolicy Bypass -File .\uninstall-legacy.ps1 -LegacyWorkspace 'C:/path/to/old-folder'
+    Exit codes: 0 = finished without an error; 2 = at least one step failed; 3 = refused by the user.
 
-    Codes de retour : 0 = termine sans erreur ; 2 = au moins une etape en echec ;
-                      3 = refuse par l'utilisateur.
+    Scope: any workstation installed BEFORE the rename, when the scheduled task, the desktop shortcut and the
+    working folder still carried the name of the author's machine. See doc/progress/decisions.md (D05, D07, D11).
+
+    This script is DATED and DISPOSABLE. It is deliberately SEPARATE from uninstall-autostart.ps1, which must
+    know only the current names: the old names live here and will disappear with this file once every workstation
+    has been migrated.
+
+    This script never DELETES a folder: the old working folder is merely set aside (with a .old suffix).
+
+    It needs administrator rights (the scheduled task is at RunLevel Highest). Before any UAC prompt, a window
+    explains what is about to be removed and why (D22). The elevated session writes a log, handed back here:
+    nothing is lost.
 #>
+
+
 [CmdletBinding(SupportsShouldProcess)]
 param(
-    # Ancien espace de travail a mettre de cote. Machine-specifique : aucune valeur
-    # par defaut, sinon le script porterait un chemin d'une machine particuliere.
+    # The old working folder to set aside. Machine-specific: no default value, otherwise the script would carry
+    # the path of one particular machine.
     [string] $LegacyWorkspace,
-    # Passe l'explication graphique : execution volontairement automatisee.
+    # Skip the graphical explanation: a deliberately automated run.
     [switch] $Yes
 )
 
 $ErrorActionPreference = 'Stop'
-# Les scripts de gestion vivent dans scripts/ : la bibliotheque est dans apps/backend.
+# The management scripts live in scripts/: the library is in apps/backend-pode.
 $repoRoot = Split-Path $PSScriptRoot -Parent
 $backend  = Join-Path $repoRoot 'apps/backend-pode'   # BOOTSTRAP, cf. common.ps1
 . (Join-Path $backend 'lib/common.ps1')
 
-# --- Noms herites, confines a ce fichier ---------------------------------------
+# --- The inherited names, confined to this file -------------------------------
 $LegacyTaskNames     = @('HyperionControlPanel')
 $LegacyShortcutNames = @('HYPERION Control Panel.url')
 
@@ -75,8 +74,8 @@ if (-not (Test-IsElevated)) {
     exit $code
 }
 
-# Trace d'entree : un script de migration doit dire ce qu'il a recu, sinon un compte
-# rendu vide est indistinguable d'un "rien a faire".
+# A trace on entry: a migration script must say what it received, otherwise an empty report cannot be told from a
+# "nothing to do".
 $ws = if ($LegacyWorkspace) { $LegacyWorkspace } else { '(aucun)' }
 Write-Info (Get-Label 'uninstall-legacy.nettoyage-des-vestiges-taches' $LegacyTaskNames -join ', ' $LegacyShortcutNames -join ', ' $ws $WhatIfPreference)
 $done = 0
@@ -84,11 +83,10 @@ $skipped = 0
 $planned = 0
 $failed = 0
 
-# -WhatIf : les messages "What if:" de ShouldProcess sont ecrits DIRECTEMENT sur l'hote
-# et non dans un flux redirigeable. En session elevee cachee, la sortie est capturee par
-# redirection : ces messages sont donc perdus et le compte rendu arrive vide. On emet
-# notre propre ligne, qui passe par le journal comme tout le reste.
-# Renvoie $true s'il faut REELLEMENT appliquer le changement.
+# -WhatIf: the "What if:" messages of ShouldProcess are written DIRECTLY to the host and not into a redirectable
+# stream. In a hidden elevated session the output is captured by redirection: so those messages are lost and the
+# report arrives empty. We emit our own line, which goes through the log like everything else.
+# Returns $true when the change must REALLY be applied.
 function Test-ShouldApply {
     param([Parameter(Mandatory)][string] $Operation, [Parameter(Mandatory)][string] $Target)
     if ($WhatIfPreference) {
@@ -144,7 +142,7 @@ foreach ($shortcut in $LegacyShortcutNames) {
     }
 }
 
-# --- Ancien espace de travail (mise de cote, jamais de suppression) --------------
+# --- The old working folder (set aside, never deleted) ------------------------
 if ($LegacyWorkspace) {
     Invoke-Step ("espace de travail '" + $LegacyWorkspace + "'") {
         if (-not (Test-Path -LiteralPath $LegacyWorkspace)) {
