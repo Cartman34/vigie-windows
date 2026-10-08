@@ -6692,11 +6692,11 @@ function Get-HistoryTailPoints {
             $null = $fs.Read($buffer, 0, $size)
         } finally { $fs.Dispose() }
         $text = [Text.Encoding]::UTF8.GetString($buffer)
-        # La premiere ligne du tampon est probablement coupee : on la jette, sauf si on a
-        # lu le fichier depuis son debut.
+        # The buffer's first line is probably cut in half: it is thrown away, unless the file
+        # was read from its very beginning.
         $lines = $text -split "`r?`n"
         if ($start -gt 0 -and $lines.Count) { $lines = $lines[1..($lines.Count - 1)] }
-        # Offset de chaque ligne conservee, calcule depuis la fin.
+        # The offset of each line kept, counted back from the end.
         $offset = $fi.Length
         for ($i = $lines.Count - 1; $i -ge 0 -and $tail.Count -lt $Count; $i--) {
             $l = $lines[$i]
@@ -6759,8 +6759,8 @@ function Write-HistoryPoint {
         [string]$Backend = (Get-BackendRoot),
         [Parameter(Mandatory)][string]$MeasureId,
         [Parameter(Mandatory)]$Point,
-        # Les EVENEMENTS ne se compactent jamais : chacun est un fait unique, et
-        # « entre deux » n'a aucun sens pour un etat.
+        # EVENTS are never compacted: each one is a unique fact, and "in between" means
+        # nothing for a state.
         [switch]$Compact,
         [double]$Tolerance = 0,
         [int]$MaxBytes = 5242880
@@ -6773,7 +6773,7 @@ function Write-HistoryPoint {
         try { Write-Log -Backend $Backend -Name 'state' -Level 'WARN' -NoEcho `
                         -Message (Get-Label 'common.historique-bride' $MeasureId) } catch { }
     }
-    # Le point PRECEDENT devient jugeable maintenant qu'on connait le suivant.
+    # The PREVIOUS point becomes judgeable now that the next one is known.
     if ($Compact) {
         $v = 0.0
         if ([double]::TryParse("$($Point.v)", [Globalization.NumberStyles]::Float,
@@ -6823,12 +6823,12 @@ function Add-HistoryLine {
     }
 }
 
-# Echantillonne les mesures d'UNE sonde, juste apres son recalcul reussi (appel
-# unique : la boucle de Get-State). Consulte le catalogue, applique l'intervalle
-# minimal via l'index (history-index.json : lastAt/lastValue/lastKey par mesure,
-# ecrit par Update-StateJson donc fusion sous mutex), appende dans
-# var/history/<measureId>.jsonl. Declenche aussi la purge, au plus 1 fois par 24 h.
-# Best-effort de bout en bout : jamais d'echec remonte au recalcul.
+# Samples the measurements of ONE probe, just after its successful recomputation (a single
+# call site: the loop of Get-State). It consults the catalogue, applies the minimum interval
+# through the index (history-index.json: lastAt, lastValue and lastKey per measurement,
+# written by Update-StateJson and therefore merged under a mutex), and appends to
+# var/history/<measureId>.jsonl. It also triggers the purge, at most once per 24 h.
+# Best effort from end to end: no failure ever reaches the recomputation.
 function Write-MeasureSamples {
     param(
         [string]$Backend = (Get-BackendRoot),
@@ -6857,16 +6857,17 @@ function Write-MeasureSamples {
             if ($null -eq $sample -or $null -eq $sample.v) { continue }
             $prop  = if ($index) { $index.PSObject.Properties[$id] } else { $null }
             $entry = if ($prop) { $prop.Value } else { $null }
-            # Mesure a cle (liee a une mesure externe) : on n'ecrit que si la cle change.
-            # La cle relue passe par ConvertTo-UtcDate : ConvertFrom-Json rend la date
-            # stockee en [datetime] (D44), la comparer telle quelle a la chaine 'o' de
-            # l'extracteur ne matchait JAMAIS -- constate en test, un point par recalcul.
+            # A keyed measurement, tied to an external one: a point is written only when the
+            # key changes. The key read back goes through ConvertTo-UtcDate: ConvertFrom-Json
+            # returns the stored date as a [datetime] (D44), and comparing it as it stands
+            # with the extractor's 'o' string NEVER matched -- seen in testing, one point per
+            # recomputation.
             if ($sample.key -and $entry -and $entry.lastKey) {
                 $prevKey = "$($entry.lastKey)"
                 try { $prevKey = (ConvertTo-UtcDate $entry.lastKey).ToString('o') } catch { }
                 if ($prevKey -eq "$($sample.key)") { continue }
             }
-            # Gauge ordinaire : intervalle minimal depuis le dernier point.
+            # An ordinary gauge: the minimum interval since the last point.
             # WHILE A GAME RUNS, a measure may ask for a closer pace (IntervalMinutesInGame): the enquiry needs the
             # minute, the rest of the day does not.
             $interval = [int]$eff.IntervalMinutes
@@ -6877,26 +6878,26 @@ function Write-MeasureSamples {
                     if ($last -and ($nowUtc - $last).TotalMinutes -lt $interval) { continue }
                 } catch { }
             }
-            # ON N'ECRIT PAS DEUX FOIS LA MEME VALEUR.
+            # THE SAME VALUE IS NEVER WRITTEN TWICE.
             #
-            # La valeur notee n'est pas une mesure brute : c'est celle que la CARTE
-            # affiche, donc deja arrondie a ce qui compte (l'espace en Go, le GPU en %,
-            # la latence en ms). Deux relevés identiques portent donc la meme
-            # information, et la reecrire ne fait que remplir le disque.
+            # The value noted is not a raw measurement: it is the one the CARD displays, so
+            # already rounded to what matters -- space in GB, the GPU in per cent, latency in
+            # ms. Two identical readings therefore carry the same information, and rewriting
+            # it only fills the disk.
             #
-            # BATTEMENT DE COEUR : au bout de quinze minutes, on ecrit quand meme. Sans
-            # lui, une serie plate devient un trou, et « stable » ne se distingue plus de
-            # « plus rien ne mesure » -- ce qui est une tout autre nouvelle.
-            # LA TOLERANCE NE FILTRE PAS ICI : elle sert au compactage de la journee close,
-            # ou l'on connait le point suivant et ou l'on peut donc distinguer un vrai
-            # retournement d'une fluctuation. A l'ecriture, on ne sait pas encore.
-            # Ne pas reecrire la MEME valeur, en revanche, ne demande rien a savoir.
+            # A HEARTBEAT: after fifteen minutes, a point is written anyway. Without it a
+            # flat series becomes a hole, and "stable" can no longer be told from "nothing
+            # measures any more" -- which is quite another piece of news.
+            # THE TOLERANCE DOES NOT FILTER HERE: it serves the compaction of a closed day,
+            # where the next point is known and a real turn can be told from a fluctuation.
+            # At write time, that is not yet known.
+            # Not rewriting the SAME value, on the other hand, requires knowing nothing.
             $noise = $false
             if ($entry -and $null -ne $entry.lastValue) {
                 if ("$($entry.lastValue)" -eq "$($sample.v)") { $noise = $true }
-                # BATTEMENT DE COEUR : au bout de quinze minutes on ecrit quand meme. Sans
-                # lui, une serie plate devient un trou, et « stable » ne se distingue plus
-                # de « plus rien ne mesure » -- ce qui est une tout autre nouvelle.
+                # A HEARTBEAT: after fifteen minutes a point is written anyway. Without it a
+                # flat series becomes a hole, and "stable" can no longer be told from
+                # "nothing measures any more" -- which is quite another piece of news.
                 if ($noise -and $entry.lastAt) {
                     try {
                         $last = ConvertTo-UtcDate $entry.lastAt
@@ -6905,8 +6906,8 @@ function Write-MeasureSamples {
                 }
             }
             if ($noise) { continue }
-            # Champ optionnel n : un NOM attache au point (ex. le jeu d'une session) --
-            # c'est lui qui permettra de repondre « qu'est-ce qui tournait a cette heure ? ».
+            # Optional field n: a NAME attached to the point, such as a session's game -- it
+            # is what will answer "what was running at that hour?".
             $obj = [ordered]@{ at = $nowUtc.ToString('o'); v = $sample.v }
             if ($sample.n) { $obj.n = "$($sample.n)" }
             if (Write-HistoryPoint -Backend $Backend -MeasureId $id -Point $obj -Compact -Tolerance $eff.Tolerance) {
@@ -6915,9 +6916,9 @@ function Write-MeasureSamples {
                 try { Update-StateJson -Path $indexFile -Set @{ $id = $set } | Out-Null } catch { }
             }
         }
-        # Purge : au plus une fois par 24 h, adossee a un recalcul deja en cours (jamais
-        # de reveil dedie). La date est posee AVANT de purger, pour que deux recalculs
-        # simultanes ne lancent pas deux purges.
+        # The purge: at most once per 24 h, carried by a recomputation already under way, so
+        # there is never a wake-up of its own. The date is laid BEFORE purging, so that two
+        # simultaneous recomputations do not start two purges.
         $due = $true
         $pp = if ($index) { $index.PSObject.Properties['purgedAt'] } else { $null }
         if ($pp -and $pp.Value) {
@@ -6932,7 +6933,7 @@ function Write-MeasureSamples {
             try { $null = Invoke-LogPurge -Backend $Backend } catch { }
         }
     } catch {
-        # L'historique OBSERVE, il n'arbitre pas : jamais d'echec remonte a Get-State.
+        # The history OBSERVES, it does not arbitrate: no failure ever reaches Get-State.
         try { Write-Log -Backend $Backend -Name 'state' -Level 'WARN' -Message (Get-Label 'common.historique-echantillonnage-ignore' $Probe $_.Exception.Message) } catch { }
     }
 }
@@ -6990,12 +6991,11 @@ function Invoke-LogPurge {
     return $removed
 }
 
-# Purge des fichiers de var/history/ : retention en jours (globale, surchargee par
-# mesure) PLUS plafond de lignes (garde-fou de taille : un intervalle mal regle ne
-# doit pas remplir le disque). Reecriture ATOMIQUE (.tmp + garde + Move-Item) sous
-# le mutex du fichier. Les lignes illisibles (ecriture interrompue) sont eliminees
-# et comptees, jamais bloquantes. probe-runs.jsonl n'est PAS concerne : il vit dans
-# var/cache/ et garde sa purge par taille propre (D52).
+# Purges the files of var/history/: a retention in days (global, overridden per measurement)
+# PLUS a ceiling in lines, a size guard so that a badly set interval cannot fill the disk.
+# Rewriting is ATOMIC (.tmp, a guard, then Move-Item) under the file's mutex. Unreadable
+# lines, from an interrupted write, are removed and counted, never blocking. probe-runs.jsonl
+# is NOT concerned: it lives in var/cache/ and keeps its own purge by size (D52).
 function Invoke-HistoryPurge {
     param([string]$Backend = (Get-BackendRoot))
     try {
@@ -7003,8 +7003,8 @@ function Invoke-HistoryPurge {
         $dir = Get-VarPath -Backend $Backend -Kind 'history'
         $nowUtc = [datetime]::UtcNow
 
-        # LA PURGE DES FICHIERS PAR JOUR : on SUPPRIME, on ne relit rien. Le nom du
-        # fichier porte sa date -- c'est tout ce qu'il faut savoir pour decider.
+        # PURGING THE PER-DAY FILES: we DELETE, we read nothing back. The file's name carries
+        # its date -- which is all one needs to decide.
         foreach ($measure in @(Get-ChildItem -Path $dir -Directory -ErrorAction SilentlyContinue)) {
             $eff = Get-HistoryConfig -Backend $Backend -MeasureId $measure.Name -Config $cfg
             if ($eff.RetentionDays -le 0) { continue }
@@ -7025,14 +7025,14 @@ function Invoke-HistoryPurge {
             }
         }
 
-        # LES ANCIENS FICHIERS A PLAT, eux, se purgent encore ligne a ligne : ils ne
-        # portent pas de date dans leur nom. Ce chemin disparaitra avec eux.
+        # THE OLD FLAT FILES, on the other hand, are still purged line by line: they carry no
+        # date in their name. That path will disappear with them.
         $files = @(Get-ChildItem -Path $dir -Filter '*.jsonl' -File -ErrorAction SilentlyContinue)
         foreach ($fi in $files) {
             $id  = [IO.Path]::GetFileNameWithoutExtension($fi.Name)
             $eff = Get-HistoryConfig -Backend $Backend -MeasureId $id -Config $cfg
-            # Retention <= 0 : la mesure n'est plus echantillonnee, mais on ne vide
-            # jamais une archive existante -- geste manuel uniquement.
+            # Retention <= 0: the measurement is no longer sampled, but an existing archive is
+            # never emptied -- that stays a manual gesture.
             if ($eff.RetentionDays -le 0) { continue }
             $cutoff = $nowUtc.AddDays(-$eff.RetentionDays)
             $mx = Get-HistoryMutex -Name (Get-HistoryMutexName -Path $fi.FullName)
@@ -7062,7 +7062,7 @@ function Invoke-HistoryPurge {
                 if ($dropped -gt 0) {
                     $tmp = $fi.FullName + '.tmp'
                     [IO.File]::WriteAllLines($tmp, $keep, [Text.UTF8Encoding]::new($false))
-                    # Garde de taille : si on garde des lignes, le .tmp ne peut pas etre vide.
+                    # A size guard: if lines are kept, the .tmp cannot be empty.
                     $ok = (Test-Path -LiteralPath $tmp) -and ($keep.Count -eq 0 -or (Get-Item -LiteralPath $tmp).Length -gt 0)
                     if ($ok) { Move-Item -Path $tmp -Destination $fi.FullName -Force }
                     else { try { Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue } catch { } }
@@ -7078,10 +7078,10 @@ function Invoke-HistoryPurge {
     }
 }
 
-# Interprete une fenetre de lecture de l'historique ("24h", "7d") en [TimeSpan].
-# $null = forme invalide : la route repond alors 400, la fonction ne devine jamais.
-# Bornes larges mais finies : une fenetre enorme n'est pas une erreur de forme,
-# elle lit simplement tout le fichier (la retention borne deja les donnees).
+# Reads a history window ("24h", "7d") as a [TimeSpan].
+# $null means an invalid form: the route then answers 400, and this function never guesses.
+# The bounds are wide but finite: a huge window is not a malformed one, it simply reads the
+# whole file (the retention already bounds the data).
 function ConvertTo-HistoryWindow {
     param([string]$Window)
     if (-not $Window) { return $null }
@@ -7092,23 +7092,22 @@ function ConvertTo-HistoryWindow {
     return [TimeSpan]::FromDays($n)
 }
 
-# Lit la serie d'UNE mesure pour GET /history/{measureId} (etape 2 du plan
-# doc/archives/conception/historique-migration.md). Lecture seule, sous le MEME mutex que
-# l'ecriture (Local\VigieHistory_<leaf>) : un append peut etre en cours pendant la
-# lecture. Les lignes illisibles (ecriture interrompue) sont ignorees sans echouer.
+# Reads the series of ONE measurement for GET /history/{measureId}. Read only, under the
+# SAME mutex as the writing: an append may be under way during the reading. Unreadable
+# lines, from an interrupted write, are ignored without failing.
 # Rend $null si la mesure n'est pas au catalogue (la route repond 404) ; sinon un
 # objet conforme au schema History du contrat : points (decimes a ~$MaxPoints pour
-# une gauge, tels quels pour un event -- ils sont rares) + summary calcule AVANT
-# decimation. Fichier absent ou vide = points vides, summary.count = 0 : un
-# historique jeune n'est pas une erreur.
-# LA DEFINITION D'UNE MESURE, catalogue ou SENTINELLE.
+# a gauge, as they stand for an event -- they are rare) plus a summary computed BEFORE the
+# decimation. A file that is missing or empty gives no points and summary.count = 0: a young
+# history is not an error.
+# THE DEFINITION OF A MEASUREMENT, from the catalogue or from a SENTINEL.
 #
-# Le catalogue est fige dans ce fichier ; les sentinelles, elles, sont declarees par les
-# modules (module.psd1, cle Sentinels) et ne peuvent donc pas y figurer. Leur mesure se
-# resout ici, a la volee : identifiant « watch.<cle> », nature 'event' -- un etat qui ne
-# s'ecrit QUE quand il change, exactement ce que la conception de l'historique appelle un
-# event. Rien n'est duplique : meme dossier var/history/, meme purge, meme route
-# GET /history/{measureId}.
+# The catalogue is fixed in this file; the sentinels, on the other hand, are declared by the
+# modules (module.psd1, the Sentinels key) and so cannot appear in it. Their measurement is
+# resolved here, on the fly: the identifier "watch.<key>", nature 'event' -- a state written
+# ONLY when it changes, which is exactly what the history's design calls an event. Nothing is
+# duplicated: the same var/history/ folder, the same purge, the same
+# GET /history/{measureId} route.
 function Get-MeasureDefinition {
     param(
         [string]$Backend = (Get-BackendRoot),
@@ -7123,8 +7122,8 @@ function Get-MeasureDefinition {
     return @{ Probe = ''; Kind = 'event'; Unit = ''; IntervalMinutes = 0; Label = "$($w.Label)" }
 }
 
-# L'identifiant d'historique d'une sentinelle. UN SEUL endroit le fabrique : la lecture
-# et l'ecriture ne peuvent pas diverger.
+# A sentinel's history identifier. ONE single place builds it: the reading and the writing
+# cannot drift apart.
 function Get-SentinelMeasureId {
     param([Parameter(Mandatory)][string]$Key)
     return ('watch.' + $Key)
@@ -7140,16 +7139,16 @@ function Get-MeasureHistory {
     )
     $cat = Get-MeasureDefinition -Backend $Backend -MeasureId $MeasureId
     if (-not $cat) { return $null }
-    # ON N'OUVRE QUE LES JOURS DE LA FENETRE. Un jour de plus de chaque cote : la fenetre
-    # ne commence pas a minuit, et les fichiers sont dates en UTC.
+    # ONLY THE DAYS OF THE WINDOW ARE OPENED. One day more on each side: the window does not
+    # begin at midnight, and the files are dated in UTC.
     $lines = @()
     $firstDay = ([datetime]::UtcNow - $Window).Date.AddDays(-1)
     $days = @()
     for ($j = $firstDay; $j -le ([datetime]::UtcNow.Date); $j = $j.AddDays(1)) {
         $days += (Get-MeasureDayFile -Backend $Backend -MeasureId $MeasureId -Day $j)
     }
-    # L'ANCIEN FICHIER A PLAT reste lu tant qu'il existe : personne ne perd son historique
-    # parce que le rangement a change. Plus rien ne s'y ecrit.
+    # THE OLD FLAT FILE is still read for as long as it exists: nobody loses their history
+    # because the filing changed. Nothing is written to it any more.
     $days += (Get-VarPath -Backend $Backend -Kind 'history' -File ($MeasureId + '.jsonl'))
     foreach ($file in $days) {
         if (-not (Test-Path -LiteralPath $file)) { continue }
@@ -7159,8 +7158,8 @@ function Get-MeasureHistory {
             try { $got = $mx.WaitOne(2000) }
             catch [System.Threading.AbandonedMutexException] { $got = $true }
             catch { $got = $false }
-            # Mutex indisponible : on lit quand meme (pire cas, une ligne finale
-            # tronquee, deja geree) plutot que de rendre une erreur au client.
+            # The mutex is unavailable: we read anyway -- the worst case is a truncated final
+            # line, already handled -- rather than returning an error to the client.
             $lines += [IO.File]::ReadAllLines($file)
         } finally {
             if ($got) { try { $mx.ReleaseMutex() } catch { } }
@@ -7169,9 +7168,9 @@ function Get-MeasureHistory {
     }
     $nowUtc = [datetime]::UtcNow
     $cutoff = $nowUtc - $Window
-    # Filtre + normalisation. Le fichier est append-only donc deja chronologique ;
-    # on retrie malgre tout : une purge interrompue ou une ligne forgee ne doit pas
-    # rendre une serie desordonnee.
+    # Filtering and normalising. The file is append-only and therefore already chronological;
+    # it is sorted again all the same: an interrupted purge or a forged line must not return
+    # a series out of order.
     $pts = New-Object System.Collections.Generic.List[object]
     <#
         SKIPPED LINES ARE COUNTED, AND SAID.
@@ -7186,15 +7185,15 @@ function Get-MeasureHistory {
         $o = $null
         try { $o = $l | ConvertFrom-Json } catch { $unreadable++; continue }
         $at = $null
-        # ConvertFrom-Json rend la date tantot en chaine, tantot en [datetime] (D44) :
-        # ConvertTo-UtcDate normalise, comparer sans lui fausserait la fenetre.
+        # ConvertFrom-Json returns the date sometimes as a string, sometimes as a [datetime]
+        # (D44): ConvertTo-UtcDate normalises, and comparing without it would skew the window.
         try { $at = ConvertTo-UtcDate $o.at } catch { continue }
         if (-not $at -or $null -eq $o.v) { continue }
         if ($at -lt $cutoff) { continue }
-        # UN EVENT N'EST PAS UN NOMBRE. Sa valeur est un etat (« oui », « Actif »,
-        # « erreur: ... ») : la passer a TryParse la jetterait purement et simplement.
-        # On garde aussi d'ou l'on vient et ce que le changement a declenche : c'est ce
-        # qui fait la difference entre une valeur et une ALERTE.
+        # AN EVENT IS NOT A NUMBER. Its value is a state ("oui", "Actif", "erreur: ..."):
+        # handing it to TryParse would throw it away outright.
+        # Where it came from and what the change triggered are kept too: that is what makes
+        # the difference between a value and an ALERT.
         if ("$($cat.Kind)" -eq 'event') {
             $pts.Add([pscustomobject]@{ atUtc = $at; v = "$($o.v)"; from = "$($o.from)"; cards = @($o.cards) })
             continue
@@ -7205,8 +7204,8 @@ function Get-MeasureHistory {
         $pts.Add([pscustomobject]@{ atUtc = $at; v = $v })
     }
     $sorted = @($pts | Sort-Object atUtc)
-    # Summary sur TOUS les points de la fenetre, avant decimation : la decimation
-    # peut faire sauter l'extreme, le resume ne doit pas le perdre.
+    # The summary covers ALL the points of the window, before decimation: decimation can drop
+    # the extreme, and the summary must not lose it.
     $summary = [ordered]@{ count = $sorted.Count; min = $null; max = $null; first = $null; last = $null }
     if ($sorted.Count -gt 0 -and "$($cat.Kind)" -eq 'event') {
         $summary.first = $sorted[0].v
@@ -7219,8 +7218,8 @@ function Get-MeasureHistory {
         $summary.first = $sorted[0].v
         $summary.last  = $sorted[$sorted.Count - 1].v
     }
-    # Decimation uniforme par index, premier et dernier points conserves. Les events
-    # (etape 4) partiront tels quels : ils sont rares et chaque occurrence compte.
+    # Uniform decimation by index, the first and last points kept. Events will go through as
+    # they are: they are rare, and every occurrence counts.
     $kept = $sorted
     if ("$($cat.Kind)" -ne 'event' -and $MaxPoints -gt 0 -and $sorted.Count -gt $MaxPoints) {
         $kept = New-Object System.Collections.Generic.List[object]
@@ -7253,41 +7252,40 @@ function Get-State {
     param(
         [string]$Backend = (Get-BackendRoot),
         [switch]$Force,
-        # Secondes d'attente du verrou de recalcul. 0 = renoncer si un calcul tourne deja.
-        # Seule une demande EXPLICITE de l'utilisateur attend ; le rafraichissement de fond
-        # renonce, sans quoi les workers s'empilent en se bloquant les uns les autres.
-        # Plafonne sous le delai du client (90 s) : attendre plus longtemps que lui
-        # reviendrait a travailler pour une requete deja abandonnee.
+        # Seconds to wait for the recomputation lock. 0 means give up if a computation is
+        # already running. Only an EXPLICIT request from the user waits; the background
+        # refresh gives up, or the workers pile up blocking one another.
+        # Capped below the client's own delay (90 s): waiting longer than it does would mean
+        # working for a request already abandoned.
         [int]$WaitSeconds = 0,
         <#
-            POUR QUI CALCULE-T-ON ? Une carte qui parle de « vous » a une entree de cache
-            par compte. Le rafraichissement de fond tourne sans session : il ne savait pas
-            pour qui garder son resultat, donc ces cartes-la etaient exclues du differe et
-            recalculees DANS chaque requete -- 2 secondes pour les comptes, 5 pour le
-            deploiement, a chaque affichage.
+            WHO ARE WE COMPUTING FOR? A card that speaks of "vous" has one cache entry per
+            account. The background refresh runs with no session: it did not know who to keep
+            its result for, so those cards were left out of the deferred work and recomputed
+            INSIDE each request -- 2 seconds for the accounts, 5 for the deployment, at every
+            display.
 
-            On lui dit donc pour qui. Le compte voyage jusqu'au worker, qui ecrit sous la
-            bonne cle, et plus rien n'oblige a calculer pendant que quelqu'un attend.
+            So it is told who. The account travels all the way to the worker, which writes
+            under the right key, and nothing forces a computation while somebody waits.
         #>
         [string]$Account,
-        # RECALCUL CIBLE : identifiant du module dont on veut des valeurs fraiches, et de
-        # LUI SEUL. C'est ce que demande le bouton « Rafraichir » d'une carte : rendre le
-        # resultat recalcule, et non la derniere valeur connue pendant qu'un
-        # rafraichissement de fond traine derriere -- constate sur la carte Jeux, qui
-        # annoncait « aucun jeu » alors que la sonde voyait deja la partie en cours.
+        # A TARGETED RECOMPUTATION: the identifier of the module whose values must be fresh,
+        # and OF THAT ONE ONLY. It is what a card's "Refresh" button asks for: to be given
+        # the recomputed result, and not the last known value while a background refresh
+        # lags behind -- seen on the Gaming card, which announced "no game" while the probe
+        # already saw the game under way.
         [string]$ForceModule = '',
         <#
-            LES SONDES A RECALCULER, ET ELLES SEULES.
+            THE PROBES TO RECOMPUTE, AND THOSE ALONE.
 
-            Le rafraichissement de fond appelait Get-State -Force : il recalculait les
-            DIX-SEPT sondes, y compris celles qui venaient de l'etre. Une passe complete
-            dure une minute et demie -- lock 11 s, gaming 14 s, deployment 13 s -- et
-            pendant ce temps les delais des autres expirent : la requete suivante deferait
-            de nouveau, relancait une passe complete, et la machine ne s'arretait plus.
-            Mesure le 31/08 dans state_20260831.log : des passes qui s'enchainent sans
-            interruption, et un /state a 27 secondes.
+            The background refresh called Get-State -Force: it recomputed ALL SEVENTEEN
+            probes, including the ones just done. A full pass takes a minute and a half --
+            lock 11 s, gaming 14 s, deployment 13 s -- and during that time the others' delays
+            expire: the next request deferred again, started another full pass, and the
+            machine never stopped. Measured on 31/08 in state_20260831.log: passes chaining
+            without a break, and a /state taking 27 seconds.
 
-            On lui donne donc la liste exacte de ce qui est perime.
+            So it is given the exact list of what is stale.
         #>
         [string[]]$Only = @()
     )
@@ -7296,32 +7294,31 @@ function Get-State {
     $stateDir  = Split-Path $cacheFile -Parent
     if (-not (Test-Path $stateDir)) { New-Item -ItemType Directory -Path $stateDir -Force | Out-Null }
     <#
-        PERSONNE NE VIEILLIT PLUS D'UN JOUR.
+        NOBODY AGES MORE THAN A DAY.
 
-        Regle (utilisateur, 01/09) : chaque carte se recalcule de temps en temps, au moins
-        une fois par jour, et jamais toutes en meme temps. Le « jamais toutes » est tenu
-        par le rafraichissement de fond, qui n'en prend qu'UNE par reponse ; le « au moins
-        une fois par jour » est tenu ici, par ce plafond.
+        The rule, from the owner on 01/09: every card recomputes itself from time to time, at
+        least once a day, and never all of them at once. The "never all" is held by the
+        background refresh, which takes only ONE per response; the "at least once a day" is
+        held here, by this ceiling.
 
-        Sans lui, il suffirait d'un delai genereux -- les comptes sont a une heure -- pour
-        qu'une carte reste des jours sur une mesure fausse si personne ne la regarde.
+        Without it, a generous delay would be enough -- the accounts are at one hour -- for a
+        card to stay for days on a false measurement if nobody looks at it.
     #>
     $maxTtl = 86400
     $defaultTtl = 30
 
-    # Charge le cache existant. TOUJOURS, meme avec -Force : forcer signifie « recalcule »,
-    # pas « oublie tout ». Repartir d'un cache vide faisait disparaitre les modules un a un
-    # du fichier pendant le recalcul, et un lecteur simultane recevait un etat AMPUTE --
-    # une carte s'evanouissait le temps du rafraichissement.
+    # Loads the existing cache. ALWAYS, even with -Force: forcing means "recompute", not
+    # "forget everything". Starting from an empty cache made the modules disappear one by one
+    # from the file during the recomputation, and a simultaneous reader received a TRUNCATED
+    # state -- a card vanished for the length of the refresh.
     <#
-        ON CHRONOMETRE TOUTE LA REPONSE, PAS SEULEMENT LES CARTES.
+        THE WHOLE RESPONSE IS TIMED, NOT ONLY THE CARDS.
 
-        Le detail par carte donnait 140 ms pendant que la reponse en prenait plusieurs
-        SECONDES : le temps etait ailleurs -- lecture du cache, parcours des sondes,
-        catalogue des modules -- et ne se voyait nulle part. Un chronometre partiel est
-        pire que pas de chronometre : il innocente ce qu'il ne mesure pas.
+        The per-card detail gave 140 ms while the response took several SECONDS: the time was
+        elsewhere -- reading the cache, walking the probes, the module catalogue -- and showed
+        nowhere. A partial stopwatch is worse than none: it acquits what it does not measure.
 
-        Chaque phase est mesuree, rendue dans « timings » et ecrite dans le journal.
+        Every phase is measured, returned in "timings" and written to the log.
     #>
     $tPhase = [Diagnostics.Stopwatch]::StartNew()
     $phases = [ordered]@{}
@@ -7337,10 +7334,10 @@ function Get-State {
     }
     & $markPhase 'lecture-cache'
 
-    # Quelle sonde produit le module vise ? Le cache le dit : chaque entree porte le
-    # module rendu par la sonde (ou son tableau de modules).
-    # « -Only » vise des sondes par leur NOM DE FICHIER, comme « -ForceModule » vise une
-    # carte : les deux alimentent la meme liste, il n'y a qu'un mecanisme.
+    # Which probe produces the module aimed at? The cache says so: each entry carries the
+    # module the probe returned, or its array of modules.
+    # "-Only" aims at probes by their FILE NAME, as "-ForceModule" aims at a card: both feed
+    # the same list, and there is only one mechanism.
     $targetedProbes = @()
     foreach ($n in @($Only)) { if ("$n".Trim()) { $targetedProbes += "$n".Trim() } }
     if ($ForceModule) {
@@ -7352,17 +7349,16 @@ function Get-State {
             }
         }
         <#
-            LE CACHE NE SAIT PAS TOUT : IL NE CONNAIT QUE CE QU'IL A DEJA VU.
+            THE CACHE DOES NOT KNOW EVERYTHING: IT ONLY KNOWS WHAT IT HAS ALREADY SEEN.
 
-            Cette correspondance carte -> sonde se lisait UNIQUEMENT dans le cache. Une
-            carte qui n'a jamais ete calculee n'y figure donc pas, et son bouton ne visait
-            RIEN : la reponse revenait en 200, sans champ, toujours « pas encore mesuree ».
-            La carte ne pouvait plus jamais se remplir -- ni par son bouton, ni par la
-            page, ni par l'installation. Mesure le 01/09 :
-            GET /modules/deployment?fresh=1 -> 200, 0 champ, pending encore vrai.
+            That card-to-probe correspondence was read ONLY from the cache. A card never
+            computed does not appear there, so its button aimed at NOTHING: the response came
+            back 200, with no field, still "not measured yet". The card could never fill
+            again -- not by its button, not by the page, not by the installation. Measured on
+            01/09: GET /modules/deployment?fresh=1 -> 200, 0 fields, pending still true.
 
-            Le dossier de la sonde porte le nom de sa carte : quand le cache ne repond
-            pas, on le demande au disque, qui lui sait toujours.
+            The probe's folder carries its card's name: when the cache does not answer, the
+            disk is asked, and it always knows.
         #>
         if (-not $targetedProbes.Count) {
             $probeDir = Join-Path $probesDir $ForceModule
@@ -7374,25 +7370,25 @@ function Get-State {
         }
     }
 
-    # Sondes + fraicheur (invalidation PAR sonde : mtime du fichier + TTL)
+    # Probes and freshness (invalidation PER probe: the file's mtime plus its TTL)
     #
-    # L'age se calcule ENTIEREMENT en UTC. La date est ecrite en UTC (`ToUniversalTime`) ;
-    # elle etait comparee a `Get-Date`, qui rend l'heure LOCALE. Sur un poste a UTC+2,
-    # toute entree paraissait donc vieille de deux heures : aucune n'a jamais ete jugee
-    # fraiche, le cache ne servait a rien et chaque appel a /state recalculait les douze
-    # sondes -- une vingtaine de secondes, dont dix pour la seule sonde `lock`.
+    # The age is computed ENTIRELY in UTC. The date is written in UTC (`ToUniversalTime`); it
+    # used to be compared with `Get-Date`, which returns LOCAL time. On a machine at UTC+2
+    # every entry therefore looked two hours old: not one was ever judged fresh, the cache was
+    # useless, and every call to /state recomputed the twelve probes -- some twenty seconds,
+    # ten of them for the `lock` probe alone.
     & $markPhase 'ciblage'
     $nowUtc = [datetime]::UtcNow
     $probeFiles = @(Get-ChildItem -Path $probesDir -Recurse -Filter '*.probe.ps1' -ErrorAction SilentlyContinue | Sort-Object FullName)
-    # Modules coupes par l'utilisateur (D48) : leurs sondes sortent du calcul ET de
-    # l'affichage. Le filtre se fait sur le DOSSIER parent -- un module est un dossier.
+    # Modules the user has switched off (D48): their probes leave the computation AND the
+    # display. The filter works on the PARENT FOLDER -- a module is a folder.
     $unitsCoupees = @(Get-InactiveUnits -Backend $Backend)
     if ($unitsCoupees.Count -gt 0) {
         $probeFiles = @($probeFiles | Where-Object {
             $unitsCoupees -notcontains (Split-Path (Split-Path $_.FullName -Parent) -Leaf)
         })
     }
-    # QUI DEMANDE : les cartes qui parlent de « vous » ont leur propre entree par compte.
+    # WHO IS ASKING: the cards that speak of "vous" have their own entry per account.
     $stateRequester = $(if ($PSBoundParameters.ContainsKey('Account')) { $Account } else { Get-RequesterAccount })
     # THE PROBES ARE TOLD who this computation is for, just before each one runs (see Get-StateAccount): they take no
     # argument, and the scheduler has no cookie to read.
@@ -7405,8 +7401,8 @@ function Get-State {
         $ttl = Get-ProbeTtlNow -Name $name -Default $defaultTtl -Backend $Backend -InGame:$inGame
         if ($ttl -gt $maxTtl) { $ttl = $maxTtl }
         $entry = $cache[$key]; $fresh = $false
-        # -Force : tout est considere perime, sans rien effacer.
-        # Une sonde VISEE est perimee d'office : c'est tout le sens de la demande.
+        # -Force: everything is considered stale, without anything being erased.
+        # A probe AIMED AT is stale by definition: that is the whole meaning of the request.
         if (-not $Force -and ($targetedProbes -notcontains $key) -and ($targetedProbes -notcontains $name) -and
             $entry -and $entry.at -and ("$($entry.codeStamp)" -eq $stamp)) {
             try {
@@ -7415,9 +7411,9 @@ function Get-State {
             } catch { }
         }
         if (-not $fresh) {
-            # DE COMBIEN EST-ELLE EN RETARD, RAPPORTE A SON PROPRE DELAI ? C'est ce qui
-            # decide laquelle passe en premier : une carte reseau, valable 15 s, est cinq
-            # fois plus en retard qu'une carte systeme valable une heure au meme instant.
+            # HOW LATE IS IT, RELATIVE TO ITS OWN DELAY? That is what decides which goes
+            # first: a network card, valid for 15 s, is five times later than a system card
+            # valid for an hour at the same instant.
             $age = $ttl + 1
             try { if ($entry -and $entry.at) { $age = ($nowUtc - (ConvertTo-UtcDate $entry.at)).TotalSeconds } } catch { }
             $stale += [pscustomobject]@{ File = $pf.FullName; Name = $name; Key = $key; Stamp = $stamp
@@ -7426,39 +7422,38 @@ function Get-State {
         }
     }
 
-    # Recalcul en SINGLE-FLIGHT : un seul thread recalcule a la fois ; les autres requetes
-    # servent le cache existant immediatement (evite l'effet troupeau -> plus de 408).
-    # SERVIR D'ABORD, RECALCULER ENSUITE.
+    # Recomputation is SINGLE-FLIGHT: one thread recomputes at a time, and the other requests
+    # serve the existing cache at once -- which avoids the herd effect, and the 408s with it.
+    # SERVE FIRST, RECOMPUTE AFTERWARDS.
     #
-    # Une sonde perimee qui possede DEJA une valeur en cache ne doit pas faire attendre
-    # l'affichage : on rend la valeur connue tout de suite et on recalcule en tache de
-    # fond. Seules les sondes qui n'ont RIEN en cache sont calculees dans la requete --
-    # sinon il n'y aurait rien a montrer.
+    # A stale probe that ALREADY has a cached value must not keep the display waiting: the
+    # known value is returned at once and the recomputation happens in the background. Only
+    # the probes with NOTHING cached are computed inside the request -- otherwise there would
+    # be nothing to show.
     #
-    # Avant, toute peremption bloquait la reponse : selon l'instant, ouvrir Vigie prenait
-    # de 0,3 s a plus de 20 s, sans que rien n'explique la difference a l'utilisateur.
-    # Le bouton « Rafraichir » (-Force) garde, lui, le recalcul synchrone : c'est ce qu'on
-    # lui demande explicitement.
+    # Before, any staleness blocked the response: depending on the moment, opening Vigie took
+    # from 0.3 s to more than 20 s, with nothing explaining the difference to the user.
+    # The "Refresh" button (-Force) keeps its recomputation synchronous: that is exactly what
+    # it is asked for.
     if (-not $Force -and $stale.Count -gt 0) {
         <#
-            UN AFFICHAGE NE FAIT ATTENDRE PERSONNE.
+            A DISPLAY KEEPS NOBODY WAITING.
 
-            Ni le chargement de la page, ni le sondage automatique : ils servent ce qui est
-            en cache, tel quel, et repartent. Une carte qu'on ne connait pas encore ne
-            s'affiche pas -- elle apparaitra quand quelqu'un l'aura demandee.
+            Neither the loading of the page nor the automatic polling: they serve what is
+            cached, as it stands, and leave. A card not yet known does not display -- it will
+            appear when someone has asked for it.
 
-            La seule exception est la sonde VISEE : le bouton d'une carte, ou le bouton
-            d'actualisation en haut de la page, qui recalculent ce qu'on leur designe. Un
-            recalcul se DEMANDE ; il ne se declenche pas tout seul parce qu'une date a
-            expire.
+            The one exception is the probe AIMED AT: a card's button, or the refresh button at
+            the top of the page, which recompute what they are pointed at. A recomputation is
+            ASKED FOR; it does not start by itself because a date has expired.
 
-            Ce qui se passe DERRIERE, en revanche : une sonde perimee -- une seule, par
-            passage -- part en tache de fond, detachee, pour que la valeur soit prete la
-            fois suivante. Personne n'attend apres elle.
+            What happens BEHIND, on the other hand: one stale probe -- one only, per pass --
+            leaves as a detached background task, so the value is ready next time. Nobody
+            waits for it.
 
-            L'ancienne version recalculait les dix-sept a chaque fois : les delais des
-            autres expiraient pendant la passe, la requete suivante en relancait une, et
-            la machine ne s'arretait plus -- /state a 27 secondes (mesure le 31/08).
+            The old version recomputed all seventeen every time: the delays of the
+            others expired during the pass, the next request started another one, and the
+            machine never stopped -- /state at 27 seconds (measured on 31/08).
         #>
         <#
             NOTHING IS COMPUTED BECAUSE SOMEONE IS LOOKING (D124, and the owner said it again on 29/09: he expects
@@ -7484,21 +7479,21 @@ function Get-State {
         }
 
         <#
-            ET UNE SEULE SONDE PART EN TACHE DE FOND. Non bloquant, rare, par carte.
+            AND ONE SINGLE PROBE LEAVES AS A BACKGROUND TASK. Non-blocking, rare, per card.
 
-            LAQUELLE ? LA PLUS EN RETARD PAR RAPPORT A SON PROPRE DELAI. Prendre la
-            premiere venue faisait tourner les dix-sept a la queue leu leu : une coupure
-            reseau -- carte valable 15 secondes -- attendait son tour derriere des cartes
-            valables une heure, soit un quart d'heure avant d'etre vue. Le rapport age sur
-            delai remet chacune a sa place : ce qui bouge vite passe vite.
+            WHICH ONE? THE LATEST RELATIVE TO ITS OWN DELAY. Taking the first to hand ran all
+            seventeen in single file: a network outage -- a card valid for 15 seconds --
+            waited its turn behind cards valid for an hour, so a quarter of an hour before
+            being seen. The ratio of age to delay puts each back in its place: what moves
+            fast goes fast.
 
-            La reponse est deja constituee quand on arrive ici : personne n'attend. On
-            confie UNE sonde perimee -- la premiere -- a un processus detache, qui la
-            recalculera et ecrira le resultat pour la fois suivante. C'est ainsi que la
-            carte Deploiement finit par voir un commit sans que le chargement le paie.
+            The response is already built by the time we get here: nobody waits. ONE stale
+            probe -- the first -- is handed to a detached process, which will recompute it and
+            write the result for next time. That is how the Deployment card ends up seeing a
+            commit without the page load paying for it.
 
-            UNE seule, et une seule a la fois : recalculer les dix-sept enchainait des
-            passes d'une minute et demie qui se relancaient l'une l'autre.
+            ONE only, and one at a time: recomputing all seventeen chained passes of a minute
+            and a half that kept restarting one another.
         #>
         <#
             A BACKGROUND WORKER NEVER SPAWNS A BACKGROUND WORKER (29/09, and it cost 79 processes).
@@ -7547,19 +7542,19 @@ function Get-State {
         $mx = $null; $got = $false
         try {
             $mx = New-Object System.Threading.Mutex($false, $lockName)
-            # Une demande EXPLICITE (-Force, bouton « Rafraichir ») ATTEND son tour ; les
-            # requetes ordinaires n'attendent pas et se contentent du cache.
-            # Avec WaitOne(0) pour tout le monde, le bouton ne faisait rien des qu'un
-            # rafraichissement de fond tenait le verrou : il rendait la main aussitot.
+            # An EXPLICIT request (-Force, the "Refresh" button) WAITS its turn; ordinary
+            # requests do not wait and make do with the cache.
+            # With WaitOne(0) for everyone, the button did nothing as soon as a background
+            # refresh held the lock: it handed back at once.
             <#
-                UNE CARTE PERSONNELLE DOIT ETRE CALCULEE MAINTENANT, ou elle ne le sera
-                jamais. Le rafraichissement de fond tourne sans session : il ecrit sous la
-                cle anonyme, jamais sous « @<compte> ». Si la requete qui la demande
-                n'attend pas le verrou, son entree reste perimee indefiniment -- constate
-                le 30/08 : la carte annoncait v0.1.29-dev5 alors que l'installation etait
-                en v0.1.30, et deux appels de suite rendaient la meme reponse.
+                A PERSONAL CARD MUST BE COMPUTED NOW, or it never will be. The background
+                refresh runs with no session: it writes under the anonymous key, never under
+                "@<account>". If the request asking for it does not wait for the lock, its
+                entry stays stale indefinitely -- seen on 30/08: the card announced v0.1.29-dev5
+                while the installation was at v0.1.30, and two calls in a row gave the same
+                answer.
 
-                On attend donc son tour pour ces cartes-la, meme sans demande explicite.
+                So for those cards we wait our turn, even without an explicit request.
             #>
             $personnelles = @($stale | Where-Object { $_.PerAccount }).Count
             $secondes = [Math]::Max($WaitSeconds, $(if ($personnelles) { 30 } else { 0 }))
