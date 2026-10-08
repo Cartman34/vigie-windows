@@ -43,11 +43,15 @@ $ErrorActionPreference = 'Stop'
     not rewrite it at once -- thousands of touched lines for no gain, and a drowned git
     blame. The ratchet forbids adding any; every conversion lowers the ceiling as much.
 #>
-$COMMENT_CEILING = 3805
+$COMMENT_CEILING = 3517
 
 # 08/10, the second half of common.ps1: 1044 -> 310 French comment lines in the library, and the repository from
-# 4539 to 3805. What is left there is the tail of the file -- the action rights, the module settings, the
-# notification catalogue, the traceability -- plus the odd line in the middle.
+# 4539 to 3805. Then its tail -- the environment, the traceability, the requester, the Atelier, the elevation and
+# the window dressing -- brought the library to 22 and the repository to 3517.
+#
+# WHAT IS LEFT IN common.ps1 IS NOT FRENCH PROSE: those 22 lines QUOTE French displayed text -- a label, a log
+# message, a page title, a `@droits:` header keyword -- inside an English sentence. The lexicon cannot tell the
+# difference, and rewriting the quotation would make the comment lie about what the screen says. They stay.
 #
 # THE METHOD, so the next campaign does not reinvent it. The tools live in the session's scratchpad and are rebuilt
 # in a few lines if lost: blocs.py lists the contiguous French comment blocks of a file with their ranges;
@@ -142,7 +146,7 @@ $COMMENT_CEILING = 3805
     over a dozen files, each a key or a parameter of the same kind. None of them is reachable by running a file
     here, which is the rule this count now obeys.
 #>
-$CEILING = 70
+$CEILING = 69
 
 # THE FILE-NAME CEILING, AT ZERO SINCE 08/10.
 #

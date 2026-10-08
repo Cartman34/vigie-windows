@@ -1352,7 +1352,7 @@ function Start-PkgJob {
             widest permission. From now on, "all" is asked for.
         #>
         [switch]$All,
-        # POUR QUEL COMPTE (D128). A manager installed in a profile answers only in that profile's session, and the
+        # FOR WHICH ACCOUNT (D128). A manager installed in a profile answers only in that profile's session, and the
         # service account has no winget at all. Without an account there is nobody to ask, and the job is refused
         # rather than answering for the wrong person.
         [string]$Account,
@@ -1781,8 +1781,8 @@ function Get-LocalRepoPath {
     return $declared
 }
 
-<#
-    D'OU VIENDRAIT LA PROCHAINE VERSION ?
+
+
 <#
     WHERE WOULD THE NEXT VERSION COME FROM?
 
@@ -7095,8 +7095,8 @@ function ConvertTo-HistoryWindow {
 # Reads the series of ONE measurement for GET /history/{measureId}. Read only, under the
 # SAME mutex as the writing: an append may be under way during the reading. Unreadable
 # lines, from an interrupted write, are ignored without failing.
-# Rend $null si la mesure n'est pas au catalogue (la route repond 404) ; sinon un
-# objet conforme au schema History du contrat : points (decimes a ~$MaxPoints pour
+# Returns $null when the measurement is not in the catalogue (the route answers 404); otherwise an object matching
+# the contract's History schema: points (decimated to ~$MaxPoints for
 # a gauge, as they stand for an event -- they are rare) plus a summary computed BEFORE the
 # decimation. A file that is missing or empty gives no points and summary.count = 0: a young
 # history is not an error.
@@ -10554,16 +10554,16 @@ function Get-ActionPresentation {
     actions.
 #>
 <#
-    CE COMPTE EST-IL ADMINISTRATEUR ? Une reponse, gardee le temps qu'il faut.
+    IS THIS ACCOUNT AN ADMINISTRATOR? One answer, kept for as long as it holds.
 
-    Cette question est posee pour CHAQUE action de CHAQUE carte a chaque construction de
-    l'etat -- des dizaines de fois. Elle passait par Get-AccountByName, donc par l'
-    inventaire des comptes, qui reinterroge les taches planifiees a chaque appel : 2,2
-    secondes la fois. Mesure le 31/08 : onze appels, 25 secondes, et un /state a 28.
+    That question is asked for EVERY action of EVERY card at each build of the state -- dozens
+    of times. It went through Get-AccountByName, so through the account inventory, which
+    questions the scheduled tasks again at every call: 2.2 seconds a time. Measured on 31/08:
+    eleven calls, 25 seconds, and a /state at 28.
 
-    L'appartenance au groupe des administrateurs ne change pas dans la minute. On la garde
-    cinq minutes, par compte. C'est un cache de LECTURE : il ne decide de rien, il evite
-    de redemander la meme chose a Windows quarante fois de suite.
+    Membership of the administrators group does not change within the minute. It is kept for
+    five minutes, per account. It is a READING cache: it decides nothing, it merely avoids
+    asking Windows the same thing forty times in a row.
 #>
 $script:AdminMemo = @{}
 function Test-RequesterIsAdmin {
@@ -10612,33 +10612,32 @@ function Test-ActionAllowed {
     [pscustomobject]@{ allowed = $true; requirement = 'admin'; reason = $null }
 }
 
-# --- OU vivent les reglages : MACHINE puis UTILISATEUR (D65) -------------------
-# L'ordinateur a plusieurs comptes Windows et chacun doit avoir SES reglages.
-# Trois couches, de la plus generale a la plus personnelle :
-#   1. les defauts VERSIONNES        (probes/<module>/module.psd1, Config)
-#   2. la couche MACHINE             (config/*.local.* dans l'installation) -- ce qui
-#      etait deja regle avant le multi-utilisateur reste donc en place pour tout le monde
-#   3. la couche UTILISATEUR         (%LOCALAPPDATA%\Sowapps\Vigie) -- ce compte-ci
-# On LIT les trois (la plus personnelle gagne) ; on ECRIT toujours dans la couche
-# utilisateur : un compte ne modifie jamais les reglages d'un autre.
+# --- WHERE THE SETTINGS LIVE: MACHINE, then USER (D65) -------------------------
+# The computer has several Windows accounts and each must have ITS settings.
+# Three layers, from the most general to the most personal:
+#   1. the VERSIONED defaults      (probes/<module>/module.psd1, Config)
+#   2. the MACHINE layer           (config/*.local.* in the installation) -- so whatever was
+#      already set before multi-user stays in place for everyone
+#   3. the USER layer              (%LOCALAPPDATA%\Sowapps\Vigie) -- this account's own
+# All three are READ, the most personal winning; writing always goes to the user layer: an
+# account never modifies another's settings.
 #
-# Un processus eleve du meme compte partage son LOCALAPPDATA : le serveur eleve et le
-# app cliente ecrivent donc bien au meme endroit que l'utilisateur connecte.
+# An elevated process of the same account shares its LOCALAPPDATA: the elevated server and
+# the client app therefore do write in the same place as the signed-in user.
 <#
-    LES REGLAGES D'UN COMPTE VIVENT CHEZ LUI, ET ON VA LES Y CHERCHER.
+    AN ACCOUNT'S SETTINGS LIVE AT ITS HOME, AND THAT IS WHERE WE GO FOR THEM.
 
-    Jusqu'ici cette fonction rendait toujours le dossier du compte qui EXECUTE -- donc
-    celui du serveur. Consequence constatee le 28/08 : Famille et fhaza voyaient les
-    memes modules, la meme liste de paquets ignores, les memes notifications, parce que
-    c'etait la configuration de fhaza dans les deux cas. Masquer une carte chez l'un la
-    masquait chez l'autre.
+    Until now this function always returned the folder of the account that RUNS -- so the
+    server's. The consequence, seen on 28/08: Famille and fhaza saw the same modules, the same
+    list of ignored packages, the same notifications, because it was fhaza's configuration in
+    both cases. Hiding a card for one hid it for the other.
 
-    Avec -Account, on lit le dossier de CE compte. Sans, celui du processus : c'est le
-    bon comportement pour un script local ou une tache, qui n'a pas de demandeur.
+    With -Account, THAT account's folder is read. Without it, the process's: the right
+    behaviour for a local script or a task, which has no requester.
 
-    On ne CREE rien dans le profil d'un autre : poser un dossier chez quelqu'un qui n'a
-    jamais ouvert Vigie n'a pas de sens, et le serveur n'a aucune raison d'ecrire chez
-    lui avant qu'il ne le demande.
+    We CREATE nothing in somebody else's profile: laying a folder at the home of someone who
+    has never opened Vigie makes no sense, and the server has no reason to write there before
+    they ask.
 #>
 function Get-AccountConfigDir {
     param([Parameter(Mandatory)][string]$Account)
@@ -10648,15 +10647,15 @@ function Get-AccountConfigDir {
 }
 
 function Get-UserConfigDir {
-    # Vigie est une application de SOWAPPS : ses donnees vivent sous le nom de l'editeur,
-    # comme celles de n'importe quel logiciel installe (Editeur\Produit).
+    # Vigie is an application of SOWAPPS: its data live under the publisher's name, like those
+    # of any installed software (Publisher\Product).
     $base = $env:LOCALAPPDATA
     if (-not $base) { $base = Join-Path $env:USERPROFILE 'AppData\Local' }
     $d = Join-Path (Join-Path $base 'Sowapps') 'Vigie'
     if (-not (Test-Path -LiteralPath $d)) {
         try { New-Item -ItemType Directory -Path $d -Force -WhatIf:$false | Out-Null } catch { }
-        # Reprise de l'emplacement precedent (sans editeur) : personne ne doit perdre ses
-        # reglages parce que le rangement a change.
+        # Taking over the previous location, without the publisher: nobody is to lose their
+        # settings because the filing changed.
         $ancien = Join-Path $base 'Vigie'
         if ((Test-Path -LiteralPath $ancien) -and (Test-Path -LiteralPath $d)) {
             try {
@@ -10672,7 +10671,7 @@ function Get-UserConfigDir {
 function Get-UserConfigPath {
     param(
         [Parameter(Mandatory)][string]$File,
-        # Le compte dont on veut les reglages. Par defaut : celui qui execute.
+        # The account whose settings are wanted. By default: whoever runs.
         [string]$Account
     )
     if ($Account) {
@@ -10683,21 +10682,21 @@ function Get-UserConfigPath {
 }
 function Get-MachineConfigPath { param([Parameter(Mandatory)][string]$File) Join-Path (Get-RepoRoot) (Join-Path 'config' $File) }
 
-# --- Gestion des modules (D48) ------------------------------------------------
-# Un MODULE (unite) = un DOSSIER de sondes, declare par un module.psd1 versionne.
-# L'activation est un choix de l'utilisateur : config/modules.local.psd1, jamais
-# versionne. Un module coupe retire ses sondes du calcul, mais reste EXPOSE dans la
-# cle units[] du contrat -- sinon l'interface ne pourrait plus proposer de le rallumer.
-# Couche utilisateur si elle existe, couche machine sinon (D65). On n'UNIT pas les deux :
-# rallumer chez soi un module coupe pour la machine doit rester possible.
-# LE DEMANDEUR, PAS L'EXECUTANT. Get-ActionRequester rend le compte de la session quand
-# la demande vient d'une page identifiee, et celui du processus sinon : c'est exactement
-# la regle voulue pour des reglages personnels.
+# --- Managing the modules (D48) -----------------------------------------------
+# A MODULE (a unit) is a FOLDER of probes, declared by a versioned module.psd1.
+# Whether it is enabled is the user's choice: config/modules.local.psd1, never versioned. A
+# module switched off takes its probes out of the computation, but stays EXPOSED in the
+# contract's units[] key -- otherwise the interface could no longer offer to switch it back on.
+# The user layer when it exists, the machine layer otherwise (D65). The two are not MERGED:
+# turning back on, for oneself, a module switched off for the machine must stay possible.
+# THE REQUESTER, NOT WHOEVER RUNS. Get-ActionRequester returns the session's account when the
+# request comes from an identified page, and the process's otherwise: exactly the rule wanted
+# for personal settings.
 function Get-UnitsLocalPath { Get-UserConfigPath -File 'modules.local.psd1' -Account (Get-ActionRequester) }
 
-# CE QUE L'UTILISATEUR A EXPLICITEMENT ALLUME. Distinct de « pas eteint » : un module
-# peut naitre ETEINT (module.psd1 : DefautActif = $false), et il faut alors savoir si
-# l'utilisateur l'a allume pour de bon ou s'il n'a simplement jamais eu d'avis.
+# WHAT THE USER HAS EXPLICITLY TURNED ON. Distinct from "not turned off": a module may be
+# born OFF (module.psd1: DefautActif = $false), and one then has to know whether the user
+# turned it on for good or simply never had an opinion.
 function Get-EnabledUnits {
     <#
         A MODULE ONE ACCOUNT HAS TURNED ON IS COMPUTED, whoever asks -- and that includes nobody.
@@ -10742,11 +10741,11 @@ function Get-EnabledUnits {
     return @()
 }
 
-# Le module est-il actif, tout compte fait ? Trois cas, dans cet ordre :
-#   1. l'utilisateur l'a eteint          -> non
-#   2. l'utilisateur l'a allume          -> oui
-#   3. personne n'a rien dit             -> ce que declare le module (actif, sauf avis
-#                                           contraire ecrit dans module.psd1)
+# Is the module active, all things considered? Three cases, in this order:
+#   1. the user turned it off        -> no
+#   2. the user turned it on         -> yes
+#   3. nobody said anything          -> what the module declares (active, unless stated
+#                                       otherwise in module.psd1)
 function Test-UnitEnabled {
     param(
         [Parameter(Mandatory)][string]$UnitId,
@@ -10763,8 +10762,8 @@ function Test-UnitEnabled {
     return $true
 }
 
-# La liste des modules a EXCLURE du calcul, defauts compris. C'est elle que consulte
-# Get-State : un module eteint ne coute rien, ni calcul ni carte.
+# The list of modules to EXCLUDE from the computation, defaults included. It is what Get-State
+# consults: a module switched off costs nothing, neither computation nor card.
 function Get-InactiveUnits {
     param([string]$Backend = (Get-BackendRoot))
     $probesDir = Join-Path $Backend 'probes'
@@ -10790,8 +10789,8 @@ function Set-UnitEnabled {
     $off = [System.Collections.Generic.List[string]]::new()
     foreach ($u in (Get-DisabledUnits)) { if ($u -ne $UnitId) { $off.Add($u) } }
     if (-not $Enabled) { $off.Add($UnitId) }
-    # ALLUMER se garde aussi : un module qui naît éteint (debogage) doit rester allume
-    # apres un redemarrage. Sans cette seconde liste, il se serait ré-éteint tout seul.
+    # TURNING ON is kept too: a module born off, like Debogage, must stay on after a restart.
+    # Without that second list, it would have switched itself off again.
     $on = [System.Collections.Generic.List[string]]::new()
     foreach ($u in (Get-EnabledUnits)) { if ($u -ne $UnitId) { $on.Add($u) } }
     if ($Enabled) { $on.Add($UnitId) }
@@ -10822,23 +10821,23 @@ function Get-UnitCatalog {
             label       = if ($decl.Label) { "$($decl.Label)" } else { $dir.Name }
             description = if ($decl.Description) { "$($decl.Description)" } else { '' }
             enabled     = (Test-UnitEnabled -UnitId $dir.Name -Backend $Backend)
-            # Un module de DEBOGAGE ne s'impose pas : il naît éteint et l'écran de
-            # gestion doit pouvoir le dire au lieu de laisser croire a une panne.
+            # A DEBUGGING module does not impose itself: it is born off, and the management
+            # screen must be able to say so instead of suggesting a breakdown.
             offByDefault = ($decl.ContainsKey('DefautActif') -and -not [bool]$decl.DefautActif)
             probes      = @($probes | ForEach-Object { $_.Name -replace '\.probe\.ps1$', '' })
         }
     })
 }
 
-# --- Parametres de modules (D57) ----------------------------------------------
-# Modele valide par l'utilisateur : la CONFIG (module.psd1, versionnee) porte les valeurs
-# par DEFAUT ; un PARAMETRE est une surcharge de l'utilisateur, posee via le menu
-# Parametres et stockee dans config/parameters.local.json (jamais versionne).
-# Chaque parametre a pour defaut une valeur de config -- c'est la regle, pas l'exception.
-# On ECRIT dans la couche utilisateur (D65).
+# --- Module settings (D57) ----------------------------------------------------
+# The model the owner approved: the CONFIG (module.psd1, versioned) carries the DEFAULT
+# values; a SETTING is the user's override, laid through the Settings menu and stored in
+# config/parameters.local.json, never versioned.
+# Every setting has a config value for its default -- that is the rule, not the exception.
+# Writing goes to the user layer (D65).
 function Get-ParametersLocalPath { Get-UserConfigPath -File 'parameters.local.json' -Account (Get-ActionRequester) }
 
-# Lecture d'UNE couche.
+# Reading ONE layer.
 function Get-ParameterOverridesFrom {
     param([Parameter(Mandatory)][string]$Path)
     $out = @{}
@@ -10854,8 +10853,8 @@ function Get-ParameterOverridesFrom {
     return $out
 }
 
-# Machine PUIS utilisateur : le reglage personnel gagne, cle par cle (et seulement les
-# cles reglees -- le reste continue de suivre la machine, puis le defaut du module).
+# Machine THEN user: the personal setting wins, key by key -- and only the keys actually set;
+# the rest goes on following the machine, then the module's default.
 function Get-ParameterOverrides {
     param([switch]$UtilisateurSeul)
     $out = @{}
@@ -10871,8 +10870,8 @@ function Get-ParameterOverrides {
     return $out
 }
 
-# La valeur EFFECTIVE d'un reglage : surcharge utilisateur si presente, sinon la config
-# du module. C'est LE point d'entree des sondes -- elles ne lisent jamais le fichier local.
+# A setting's EFFECTIVE value: the user override when there is one, otherwise the module's
+# config. It is THE entry point for the probes -- they never read the local file themselves.
 function Get-ModuleSetting {
     param(
         [Parameter(Mandatory)][string]$Unit,
@@ -10891,11 +10890,11 @@ function Get-ModuleSetting {
     return $null
 }
 
-# Catalogue pour l'interface : chaque module declare (module.psd1) ses parametres
-# reglables -- cle, libelle, type, aide -- et la valeur courante est calculee ici.
+# A catalogue for the interface: every module declares (module.psd1) its adjustable settings
+# -- key, label, type, help -- and the current value is computed here.
 function Get-ModuleParameterCatalog {
     param([string]$Backend = (Get-BackendRoot))
-    # `sur` = ce que CE compte a regle ; `mach` = ce qui est regle pour la machine.
+    # `sur` is what THIS account has set; `mach` is what is set for the machine.
     $sur  = Get-ParameterOverrides -UtilisateurSeul
     $mach = Get-ParameterOverridesFrom -Path (Get-MachineConfigPath -File 'parameters.local.json')
     @(foreach ($u in (Get-UnitCatalog -Backend $Backend)) {
@@ -10908,8 +10907,8 @@ function Get-ModuleParameterCatalog {
         $params = @(foreach ($pm in @($decl.Parameters)) {
             $cle = "$($pm.Key)"
             $defaut = if ($decl.Config -and $decl.Config.ContainsKey($cle)) { $decl.Config[$cle] } else { $null }
-            # Ce dont ce compte HERITE s'il n'a rien regle : le defaut du module, ou le
-            # reglage de la machine s'il y en a un (D65).
+            # What this account INHERITS if it has set nothing: the module's default, or the
+            # machine's setting when there is one (D65).
             if ($mach.ContainsKey($u.id) -and $mach[$u.id].ContainsKey($cle)) { $defaut = $mach[$u.id][$cle] }
             $courant = if ($sur.ContainsKey($u.id) -and $sur[$u.id].ContainsKey($cle)) { $sur[$u.id][$cle] } else { $defaut }
             [ordered]@{
@@ -10918,8 +10917,8 @@ function Get-ModuleParameterCatalog {
                 type     = if ($pm.Type) { "$($pm.Type)" } else { 'int' }
                 unit     = if ($pm.Unit) { "$($pm.Unit)" } else { $null }
                 help     = if ($pm.Help) { "$($pm.Help)" } else { '' }
-                # Bornes de curseur : l'interface propose un reglage guide, la saisie
-                # manuelle reste toujours possible (champ nombre synchronise).
+                # Slider bounds: the interface offers a guided setting, and typing a value by
+                # hand always stays possible (a number field kept in step).
                 min      = if ($null -ne $pm.Min)  { [int]$pm.Min }  else { $null }
                 max      = if ($null -ne $pm.Max)  { [int]$pm.Max }  else { $null }
                 step     = if ($null -ne $pm.Step) { [int]$pm.Step } else { $null }
@@ -10932,9 +10931,9 @@ function Get-ModuleParameterCatalog {
     })
 }
 
-# Pose (ou retire) des surcharges. $null pour une cle = retour a la valeur de config.
-# Seules les cles DECLAREES par le module sont acceptees : un parametre non declare
-# n'a pas d'interface, il n'a donc pas non plus de surcharge.
+# Lays down (or removes) overrides. $null for a key means going back to the config value.
+# Only the keys DECLARED by the module are accepted: a setting that is not declared has no
+# interface, so it has no override either.
 function Set-ModuleParameters {
     param(
         [Parameter(Mandatory)][string]$Unit,
@@ -10944,8 +10943,8 @@ function Set-ModuleParameters {
     $cat = @(Get-ModuleParameterCatalog -Backend $Backend | Where-Object { $_.unit -eq $Unit })
     if (-not $cat) { throw "Module sans parametres declares : $Unit" }
     $connues = @($cat[0].params | ForEach-Object { $_.key })
-    # UtilisateurSeul : on ne recopie pas les valeurs de la machine dans le fichier
-    # personnel -- sinon elles y seraient figees et ne suivraient plus l'installation.
+    # UtilisateurSeul: the machine's values are not copied into the personal file -- they
+    # would be frozen there and would no longer follow the installation.
     $sur = Get-ParameterOverrides -UtilisateurSeul
     if (-not $sur.ContainsKey($Unit)) { $sur[$Unit] = @{} }
     foreach ($k in $Values.Keys) {
@@ -10960,19 +10959,19 @@ function Set-ModuleParameters {
     Move-Item -LiteralPath $tmp -Destination $p -Force
 }
 
-# --- Reglages des notifications (D54) ----------------------------------------
-# L'APP CLIENTE notifie sur bascule d'un MODULE (resultat de sonde) ; la couleur de son icone,
-# elle, reste le statut de l'APPLICATION -- les deux roles ne se melangent pas.
+# --- Notification settings (D54) ---------------------------------------------
+# THE CLIENT APP notifies when a MODULE switches state (a probe's result); the colour of its
+# icon stays the state of the APPLICATION -- the two roles do not mix.
 #
-# Reglages : un interrupteur global + un reglage FIN par module. Le global MASQUE, il
-# n'ecrase pas : couper tout puis rallumer retrouve les choix fins intacts. C'est pour
-# cela que les deux vivent dans des cles separees.
+# Settings: one global switch plus a FINE setting per module. The global one MASKS, it does
+# not overwrite: switching everything off and back on finds the fine choices intact. That is
+# why the two live in separate keys.
 #
-# Stockage : config/notifications.local.json a la racine (jamais versionne). JSON et non
-# psd1 : ce fichier est ECRIT par le backend (l'interface le modifie via l'API), et le
-# app cliente le RELIT ; JSON se lit et s'ecrit sans peine des deux cotes.
-# Ecriture : couche utilisateur (D65). Lecture : la sienne si elle existe, celle de la
-# machine sinon.
+# Storage: config/notifications.local.json at the root, never versioned. JSON rather than
+# psd1: this file is WRITTEN by the back end -- the interface changes it through the API --
+# and the client app READS it; JSON reads and writes easily on both sides.
+# Writing: the user layer (D65). Reading: the user's own when it exists, the machine's
+# otherwise.
 function Get-NotificationSettingsPath { Get-UserConfigPath -File 'notifications.local.json' -Account (Get-ActionRequester) }
 function Get-NotificationSettingsReadPath {
     foreach ($p in @((Get-NotificationSettingsPath), (Get-MachineConfigPath -File 'notifications.local.json'))) {
@@ -11000,10 +10999,10 @@ function Set-NotificationSettings {
     param(
         [string]$Backend = (Get-BackendRoot),
         $Enabled,
-        # Table module -> $true/$false. FUSIONNEE avec l'existant : ne fournir que ce qui
-        # change ; une cle absente garde son reglage (le global ne perd jamais le fin).
+        # A module -> $true/$false table. MERGED with what exists: only what changes need be
+        # supplied; an absent key keeps its setting (the global never loses the fine one).
         [hashtable]$Modules,
-        # Table « <module>.<notification> » -> $true/$false. Fusionnee comme le reste.
+        # A "<module>.<notification>" -> $true/$false table. Merged like the rest.
         [hashtable]$Notifs
     )
     $cur = Get-NotificationSettings -Backend $Backend
@@ -11020,22 +11019,22 @@ function Set-NotificationSettings {
     [pscustomobject]$out
 }
 
-# --- CATALOGUE DES NOTIFICATIONS (D54, revu le 26/08) -------------------------
-# Une notification n'est PAS « une carte » : c'est un EVENEMENT nomme, que le module
-# declare. « Session de jeu » ne dit rien a personne ; « Temperature GPU elevee » si.
-# (Signale par l'utilisateur : l'ecran listait les cartes, pas les notifications.)
+# --- THE NOTIFICATION CATALOGUE (D54, revised on 26/08) -----------------------
+# A notification is NOT "a card": it is a named EVENT, declared by the module. "Session de
+# jeu" tells nobody anything; "Temperature GPU elevee" does.
+# (Raised by the owner: the screen listed the cards, not the notifications.)
 #
-# Declaration, dans probes/<module>/module.psd1 :
+# Declared in probes/<module>/module.psd1:
 #   Notifications = @(
 #       @{ Key = 'gpu-temp'; Label = 'Temperature GPU elevee'
 #          Field = 'gpu-temp'; Card = 'gaming'; Help = '...' }
 #   )
-# Key   : identifiant stable du reglage (jamais affiche) ;
-# Label : ce que l'utilisateur lit ;
-# Card / Field : la carte et le champ dont la BASCULE declenche la notification.
+# Key   : the setting's stable identifier, never displayed;
+# Label : what the user reads;
+# Card / Field : the card and the field whose CHANGE OF STATE raises the notification.
 #
-# Un module sans declaration retombe sur une notification unique par carte : l'ancien
-# comportement, pour ne rien perdre en route.
+# A module with no declaration falls back on one notification per card: the old behaviour,
+# so that nothing is lost on the way.
 function Get-NotificationCatalog {
     param([string]$Backend = (Get-BackendRoot))
     @(foreach ($u in (Get-UnitCatalog -Backend $Backend)) {
@@ -11052,7 +11051,7 @@ function Get-NotificationCatalog {
                 help  = if ($nn.Help) { "$($nn.Help)" } else { '' }
                 card  = if ($nn.Card) { "$($nn.Card)" } else { '' }
                 field = if ($nn.Field) { "$($nn.Field)" } else { '' }
-                # QUI peut y faire quelque chose, et faut-il quand meme prevenir ?
+                # WHO can do something about it, and must they be told all the same?
                 rights   = if ($nn.Droits) { "$($nn.Droits)" } else { 'tous' }
                 critical = [bool]$nn.Critique
             }
@@ -11061,24 +11060,24 @@ function Get-NotificationCatalog {
     })
 }
 
-# L'app cliente applique la regle SANS refaire la logique : une notification pour ce module
-# passe-t-elle ? (global coupe = rien ; sinon le reglage fin, actif par defaut)
+# The client app applies the rule WITHOUT redoing the reasoning: does a notification for this
+# module get through? (global off means nothing; otherwise the fine setting, on by default)
 function Test-NotificationAllowed {
     param(
         [Parameter(Mandatory)][string]$ModuleId,
-        # Cle de la notification declaree par le module. Absente : on juge au niveau du
-        # module, comme avant.
+        # The key of the notification the module declared. Absent: we judge at module level,
+        # as before.
         [string]$Key,
         $Settings
     )
     if (-not $Settings) { $Settings = Get-NotificationSettings }
     if (-not [bool]$Settings.enabled) { return $false }
-    # DROITS (regle utilisateur, 26/08) : on ne derange pas quelqu'un avec un probleme
-    # qu'il ne peut pas resoudre. Une notification dont la resolution exige un
-    # administrateur ne s'affiche donc pas pour un compte standard...
-    # ...SAUF si elle est declaree CRITIQUE : antivirus coupe, pare-feu ouvert, mises a
-    # jour en attente. Dans ce cas l'utilisateur doit savoir, ne serait-ce que pour le
-    # signaler a un administrateur -- l'app cliente le lui dit explicitement.
+    # RIGHTS (the owner's rule, 26/08): one does not disturb somebody with a problem they
+    # cannot solve. A notification whose resolution requires an administrator is therefore not
+    # shown to a standard account...
+    # ...UNLESS it is declared CRITICAL: antivirus off, firewall open, updates pending. In
+    # that case the user must know, if only to report it to an administrator -- and the client
+    # app tells them so explicitly.
     if ($Key -and -not (Test-IsElevated)) {
         $decl = $null
         foreach ($u in (Get-NotificationCatalog)) {
@@ -11088,7 +11087,7 @@ function Test-NotificationAllowed {
         }
         if ($decl -and "$($decl.rights)" -eq 'admin' -and -not $decl.critical) { return $false }
     }
-    # Reglage FIN (par notification) : il l'emporte sur celui du module.
+    # The FINE setting, per notification: it wins over the module's.
     if ($Key -and $Settings.notifs) {
         $ref = "$ModuleId.$Key"
         $p = $Settings.notifs.PSObject.Properties | Where-Object { $_.Name -eq $ref } | Select-Object -First 1
@@ -11097,10 +11096,10 @@ function Test-NotificationAllowed {
         }
         if ($p) { return [bool]$p.Value }
     }
-    # `modules` est un DICTIONNAIRE (jamais un objet JSON brut : Get-NotificationSettings
-    # normalise) -- l'acces passe donc par ContainsKey. La premiere version interrogeait
-    # PSObject.Properties, qui sur un dictionnaire decrit le conteneur et pas les cles :
-    # tous les reglages fins etaient silencieusement ignores.
+    # `modules` is a DICTIONARY, never a raw JSON object -- Get-NotificationSettings
+    # normalises it -- so access goes through ContainsKey. The first version questioned
+    # PSObject.Properties, which on a dictionary describes the container and not the keys:
+    # every fine setting was silently ignored.
     if ($Settings.modules.Contains("$ModuleId")) { return [bool]$Settings.modules["$ModuleId"] }
     return $true
 }
@@ -11108,32 +11107,33 @@ function Test-NotificationAllowed {
 # --- Actions ---------------------------------------------------------------
 function New-JobId { [guid]::NewGuid().ToString('N').Substring(0, 12) }
 
-# --- DEUX ENVIRONNEMENTS SUR UNE MEME MACHINE -------------------------------
+# --- TWO ENVIRONMENTS ON ONE MACHINE ----------------------------------------
 #
-# Le depot (developpement) et l'installation partagee (production locale) coexistent sur
-# un poste de developpeur. Savoir LEQUEL repond n'est pas un detail : un correctif
-# deploye au mauvais endroit coute une heure a comprendre.
+# The repository (development) and the shared installation (local production) live side by
+# side on a developer's workstation. Knowing WHICH one answers is no detail: a fix deployed
+# in the wrong place costs an hour to understand.
 #
-# Deux notions, a ne pas confondre :
-#   - l'environnement DECLARE : ce que la machine dit vouloir etre (reglage, defaut prod) ;
-#   - l'environnement OBSERVE : d'ou le code qui tourne vient REELLEMENT.
-# Quand les deux different, c'est un defaut nomme, pas un mystere.
+# Two notions, not to be confused:
+#   - the DECLARED environment: what the machine says it wants to be (a setting, prod by
+#     default);
+#   - the OBSERVED environment: where the running code REALLY comes from.
+# When the two differ, that is a named fault, not a mystery.
 <#
-    CE QUE VOIT UNE FENETRE QUI NE DIT PAS QUI ELLE EST.
+    WHAT A WINDOW THAT DOES NOT SAY WHO IT IS CAN SEE.
 
-    Ouvrir l'adresse a la main -- une navigation privee, un signet, un autre navigateur --
-    ne prouve rien : il n'y a pas de session, donc Vigie ne sait pas qui regarde. Elle
-    servait pourtant le panneau ENTIER, jeton d'API compris. N'importe quel programme du
-    poste pouvait donc lire l'etat de la machine, et agir.
+    Opening the address by hand -- a private window, a bookmark, another browser -- proves
+    nothing: there is no session, so Vigie does not know who is looking. It served the WHOLE
+    panel all the same, API token included. Any program on the workstation could therefore
+    read the state of the machine, and act.
 
-    Deux comportements, et c'est l'ADMINISTRATEUR qui tranche :
-      'error' (defaut) -- une page qui dit qu'on ne sait pas qui vous etes, et rien
-                          d'autre : ni etat, ni jeton, ni liste de cartes ;
-      'cards'          -- le panneau, avec les droits d'un compte standard : les actions
-                          qui touchent la machine restent refusees (Test-ActionAllowed).
+    Two behaviours, and the ADMINISTRATOR decides:
+      'error' (the default) -- a page saying we do not know who you are, and nothing else:
+                               no state, no token, no list of cards;
+      'cards'               -- the panel, with the rights of a standard account: the actions
+                               touching the machine stay refused (Test-ActionAllowed).
 
-    Le reglage vit dans la declaration de l'ORDINATEUR (machine.psd1) : il vaut pour
-    toutes les installations de la machine, et seul un administrateur peut l'ecrire.
+    The setting lives in the COMPUTER's declaration (machine.psd1): it holds for every
+    installation on the machine, and only an administrator can write it.
 #>
 function Get-AnonymousAccess {
     param([string]$Backend = (Get-BackendRoot))
@@ -11146,15 +11146,15 @@ function Get-AnonymousAccess {
 function Get-DeclaredStage {
     param([string]$Backend = (Get-BackendRoot))
     <#
-        LE STAGE, PAS « L'ENVIRONNEMENT ».
+        THE STAGE, NOT "THE ENVIRONMENT".
 
-        « Environnement » ne disait pas de quoi on parlait : ce reglage, le serveur, ou
-        l'ordinateur entier ? C'est un STAGE au sens deploiement -- dev, prod, et la place
-        pour un « staging » plus tard.
+        "Environment" did not say what was being spoken of: this setting, the server, or the whole computer? It is
+        a STAGE in the deployment sense -- dev, prod, and room for a "staging" later.
 
-        L'ancien nom reste LU : un config.local.psd1 deja pose sur une machine ne doit pas
-        cesser de fonctionner parce qu'on a trouve un meilleur mot.
+        The old name is still READ: a config.local.psd1 already laid on a machine must not stop working because a
+        better word was found.
     #>
+
     try {
         $cfg = Get-Config -Backend $Backend
         foreach ($k in @('Stage', 'Environment')) {
@@ -11165,8 +11165,8 @@ function Get-DeclaredStage {
     return 'prod'      # defaut : une machine est en production tant qu'on n'a pas dit l'inverse
 }
 
-# D'ou vient le code qui tourne : sous Program Files, c'est l'installation partagee ;
-# ailleurs, c'est un depot de travail. On lit le CHEMIN, pas une intention.
+# Where the running code comes from: under Program Files it is the shared installation; anywhere else it is a
+# working repository. We read the PATH, not an intention.
 function Get-PathStage {
     param([Parameter(Mandatory)][string]$Path)
     foreach ($root in @($env:ProgramFiles, ${env:ProgramFiles(x86)})) {
@@ -11181,52 +11181,52 @@ function Get-RunningStage {
     Get-PathStage -Path $Backend
 }
 
-# Le libelle affiche, en clair : « Production » ne dit pas d'ou vient le code.
+# The label displayed, in plain words: "Production" does not say where the code comes from.
 <#
-    L'ENVIRONNEMENT DIT LA SOURCE, PAS L'EMPLACEMENT.
+    THE ENVIRONMENT SAYS THE SOURCE, NOT THE LOCATION.
 
-    Les libelles disaient « Developpement (depot) » / « Production (installation
-    partagee) », comme si le code tournait a deux endroits. Il n'en tourne qu'un :
-    l'installation partagee, developpement compris. Ce qui change, c'est CE QU'ON Y
-    DEPLOIE -- une branche du depot, ou une version publiee.
+    The labels read "Developpement (depot)" / "Production (installation partagee)", as if the code ran in two
+    places. It runs in only one: the shared installation, development included. What changes is WHAT IS DEPLOYED
+    THERE -- a branch of the repository, or a published version.
 #>
+
 function Get-StageLabel {
     param([Parameter(Mandatory)][ValidateSet('dev', 'prod')][string]$Stage)
-    # L'ENVIRONNEMENT NE DIT PAS LA SOURCE. Les deux libelles la nommaient (« source : le
-    # depot », « source : versions publiees ») : c'est un REGLAGE A PART (UpdateSource),
-    # et une production peut se synchroniser depuis un clone local sans cesser d'en etre
-    # une. Deux axes, aucun deduit de l'autre.
-    # MAJUSCULE INITIALE : c'est une VALEUR affichee dans une carte, pas un mot au milieu
-    # d'une phrase -- check-probes le verifie. Les phrases, elles, ont leurs propres
-    # libelles.
+    # THE ENVIRONMENT DOES NOT SAY THE SOURCE. Both labels named it ("source: the repository", "source: published
+    # versions"): that is a SEPARATE setting (UpdateSource), and a production machine can synchronise from a local
+    # clone without ceasing to be one. Two axes, neither deduced from the other.
+    # AN INITIAL CAPITAL: this is a VALUE displayed in a card, not a word in the middle of a sentence --
+    # check-probes verifies it. Sentences have labels of their own.
+
+
     if ($Stage -eq 'dev') { return 'Développement' }
     return 'Production'
 }
 
-# --- TRACABILITE : toute action laisse une trace, deux fois ------------------
+# --- TRACEABILITY: every action leaves a trace, twice ------------------------
 #
-# « On doit toujours pouvoir retrouver et justifier une action de Vigie. » Une trace
-# qu'un fichier supprime fait disparaitre n'est pas une trace : chaque action ecrit donc
-# AUSSI dans le journal des evenements Windows, la ou un administrateur va deja chercher
-# quand il enquete, et d'ou Vigie ne peut pas l'effacer.
+# "One must always be able to find and justify an action of Vigie." A trace that a deleted file makes disappear is
+# not a trace: every action therefore writes ALSO into the Windows event log, where an administrator already looks
+# when investigating, and from which Vigie cannot erase it.
 #
-# Ce qui est trace : les actions REUSSIES, les actions REFUSEES et celles qui ECHOUENT.
-# Le refus compte autant que la reussite -- c'est meme lui qu'on relit apres un incident.
+# What is traced: SUCCESSFUL actions, REFUSED actions, and those that FAIL. A refusal counts as much as a success
+# -- it is even the one read back after an incident.
+
 $script:VigieEventSource = 'Vigie'
 $script:VigieEventLog    = 'Application'
 
-# Identifiants d'evenement, stables : ils servent a filtrer dans l'Observateur.
+# Event identifiers, stable: they are what one filters on in the Event Viewer.
 $script:VigieEventIds = @{ done = 1000; denied = 1001; failed = 1002 }
 
-# La source doit exister AVANT d'ecrire, et la creer exige l'elevation. On la pose a
-# l'installation ; ici on se contente de la creer si on peut, et de ne jamais faire
-# echouer une action pour un probleme de journal.
+# The source must exist BEFORE writing, and creating it requires elevation. It is laid at installation time; here
+# we merely create it if we can, and never make an action fail for a problem with the log.
+
 function Register-VigieEventSource {
     param([switch]$Quiet)
     try {
         if ([System.Diagnostics.EventLog]::SourceExists($script:VigieEventSource)) { return $true }
     } catch {
-        # Sans elevation, meme la LECTURE est refusee : on ne sait pas, donc on n'affirme rien.
+        # Without elevation even READING is refused: we do not know, so we assert nothing.
         if (-not $Quiet) { Write-Host (Get-Label 'common.journal-des-evenements-etat') -ForegroundColor DarkGray }
         return $false
     }
@@ -11240,43 +11240,44 @@ function Register-VigieEventSource {
     }
 }
 
-# Le compte qui DEMANDE l'action. Aujourd'hui le serveur tourne dans la session de son
-# utilisateur : c'est donc lui. Quand le serveur deviendra une tache machine servant
-# plusieurs comptes, seule CETTE fonction changera -- tout le reste de la chaine parle
-# deja de « demandeur » et non de « moi ».
+# The account that ASKS for the action. Today the server runs inside its user's session, so it is that user. When
+# the server becomes a machine task serving several accounts, only THIS function will change -- the rest of the
+# chain already speaks of a "requester" and not of "me".
 <#
-    QUI DEMANDE ? Le compte derriere la requete, pas le compte qui fait tourner le serveur.
+    WHO IS ASKING? The account behind the request, not the account running the server.
 
-    Cette fonction rendait l'identite du PROCESSUS -- c'est-a-dire toujours celle du
-    serveur. Tant qu'il y avait un serveur par session, c'etait juste par accident. Avec
-    un serveur unique pour la machine, c est faux pour tout le monde sauf lui : une action
-    demandee par Famille serait journalisee au nom de fhaza, et executee sur SON bureau.
+    This function used to return the identity of the PROCESS -- that is, always the server's. As long as there was
+    one server per session, that was true only by accident. With a single server for the machine it is wrong for
+    everybody but him: an action asked for by Famille would be logged in fhaza's name, and run on HIS desktop.
 
-    L'ordre des preuves :
-      1. le cookie de session, quand la demande vient d une page identifiee -- la seule
-         source qui dise vraiment QUI regarde ;
-      2. a defaut, l identite du processus : un script local, une tache planifiee, un
-         diagnostic. C est alors le compte du serveur, et c est exact.
+    The order of the proofs:
+      1. the session cookie, when the request comes from an identified page -- the only source that really says
+         WHO is looking;
+      2. failing that, the identity of the process: a local script, a scheduled task, a diagnosis. It is then the
+         server's account, and it is accurate.
 
-    LE NOM EST RENDU SANS SON DOMAINE. « HYPERION\fhaza » ne se joint pas a un chemin de
-    profil : Get-AccountVarRoot en tirerait « C:\Users\HYPERION\fhaza ».
+    THE NAME IS RETURNED WITHOUT ITS DOMAIN. "HYPERION\fhaza" does not join onto a profile path:
+    Get-AccountVarRoot would draw "C:\Users\HYPERION\fhaza" from it.
 #>
+
+
+
 <#
-    QUI DEMANDE -- ou RIEN.
+    WHO IS ASKING -- or NOBODY.
 
-    Get-ActionRequester doit toujours rendre un nom : il signe le journal d'audit, et une
-    trace anonyme ne vaut rien. Il retombe donc sur le compte du processus quand aucune
-    session n'est ouverte.
+    Get-ActionRequester must always return a name: it signs the audit log, and an anonymous trace is worth nothing.
+    It therefore falls back on the process's account when no session is open.
 
-    C'EST EXACTEMENT CE QUI NE VA PAS pour tout ce qui parle de « vous ». Une page ouverte
-    sans ticket (un signet, un rechargement) n'a pas de cookie : le repli designe alors le
-    compte du service, et la carte Comptes affiche « VOUS » sur VigieService -- constate le
-    29/08.
+    THAT IS EXACTLY WHAT IS WRONG for everything that speaks of "you". A page opened without a ticket (a bookmark,
+    a reload) has no cookie: the fallback then designates the service's account, and the Accounts card shows "YOU"
+    on VigieService -- observed on 29/08.
 
-    Cette fonction-ci ne se rabat sur rien : pas de session, pas de personne. A l'appelant
-    de dire ce que « personne » signifie chez lui -- souvent « aucun compte n'est vous »,
-    parfois « on previent tout le monde ».
+    This function falls back on nothing: no session, no person. It is up to the caller to say what "nobody" means
+    where it stands -- often "no account is you", sometimes "everybody is warned".
 #>
+
+
+
 <#
     THE ACCOUNT THE CURRENT COMPUTATION IS FOR -- one door, and probes know no other.
 
@@ -11362,17 +11363,17 @@ function Write-VigieAudit {
     if ($Milliseconds -gt 0) { $entry += (" | duree={0} ms" -f $Milliseconds) }
     if ($Detail) { $entry += (" | " + $Detail) }
 
-    # 1. Le journal de Vigie : le detail, relu pendant un depannage.
+    # 1. Vigie's own log: the detail, read back during troubleshooting.
     try {
         $level = if ($Outcome -eq 'failed') { 'ERROR' } elseif ($Outcome -eq 'denied') { 'WARN' } else { 'INFO' }
         Write-Log -Backend $Backend -Name 'audit' -Level $level -Message $entry
     } catch { }
 
-    # 2. Le journal des evenements Windows : la trace opposable.
+    # 2. The Windows event log: the trace one can hold up.
     #
-    # ELLE NE DOIT JAMAIS FAIRE ECHOUER L'ACTION. Un journal indisponible est un probleme
-    # de journal, pas un probleme d'action -- mais il se voit dans celui de Vigie, sinon
-    # on croirait la trace ecrite alors qu'elle ne l'est pas.
+    # IT MUST NEVER MAKE THE ACTION FAIL. A log that is unavailable is a problem with the log, not a problem with
+    # the action -- but it shows up in Vigie's own, otherwise one would believe the trace written when it is not.
+
     try {
         if ([System.Diagnostics.EventLog]::SourceExists($script:VigieEventSource)) {
             $type = switch ($Outcome) {
@@ -11396,15 +11397,15 @@ function Invoke-ActionById {
         [hashtable]$Params,
         [string]$Backend = (Get-BackendRoot)
     )
-    # Sécurité : n'accepter qu'un identifiant simple (pas de traversee de chemin)
+    # Security: accept nothing but a simple identifier (no path traversal)
     if ($Type -notmatch '^[a-z][a-z0-9-]{1,40}$') {
         return [pscustomobject]@{ jobId = (New-JobId); status = 'error'; message = "Type d'action invalide." }
     }
-    # Garde REELLE : le bouton grise n'est qu'un affichage ; c'est ici que le refus
-    # compte, une requete pouvant arriver sans passer par l'interface.
-    # TRACE DE BOUT EN BOUT. Ce point est le seul par ou passe une action : c'est donc ici,
-    # et nulle part ailleurs, qu'on ecrit qui a demande quoi et ce qui en est sorti. Un
-    # REFUS se trace autant qu'une reussite -- c'est meme lui qu'on relit apres un incident.
+    # THE REAL GUARD: a greyed-out button is only a display; the refusal counts HERE, a request being able to
+    # arrive without going through the interface.
+    # TRACED END TO END. This point is the only one an action goes through: it is therefore here, and nowhere else,
+    # that we write who asked for what and what came out of it. A REFUSAL is traced as much as a success -- it is
+    # even the one read back after an incident.
     $requester = Get-ActionRequester
     $rights    = try { (Get-ActionRequirement -Type $Type -Backend $Backend) } catch { 'tous' }
     $timer    = [System.Diagnostics.Stopwatch]::StartNew()
@@ -11421,8 +11422,8 @@ function Invoke-ActionById {
     if (-not $full -or -not $full.StartsWith($actionsDir)) {
         return [pscustomobject]@{ jobId = (New-JobId); status = 'error'; message = "Action inconnue : $Type" }
     }
-    # LE VERROU EST ICI, pas dans l'interface (D93). Une page restee ouverte peut
-    # toujours envoyer une action : c'est le serveur qui doit dire non.
+    # THE LOCK IS HERE, not in the interface (D93). A page left open can always send an action: it is the server
+    # that must say no.
     # THE MODULE COUNTS: "paquets" becomes "paquets-choco" according to the card, so two different managers no
     # longer block one another (D130).
     $conflit = Test-ActionResourcesFree -Type $Type -Module $Module -Backend $Backend
@@ -11432,9 +11433,9 @@ function Invoke-ActionById {
         return [pscustomobject]@{ jobId = (New-JobId); status = 'error'; message = $conflit }
     }
     try {
-        # DANS QUELLE SESSION ? Une action declaree « session » doit s'executer chez le DEMANDEUR,
-        # pas la ou tourne le serveur. On la lui fait executer par son app cliente ; s'il ne
-        # repond pas, on l'execute ici comme avant plutot que de ne rien faire.
+        # IN WHICH SESSION? An action declared as "session" must run at the REQUESTER's, not where the server runs.
+        # We have their client app run it; if it does not answer, we run it here as before rather than doing
+        # nothing.
         $res = $null
         if ((Get-ActionExecutor -Type $Type -Backend $Backend) -eq 'session' -and $requester -and $requester -ne '-') {
             $relais = Invoke-ClientTask -Account $requester -Type $Type -Params $Params -Module $Module -Backend $Backend
@@ -11446,19 +11447,19 @@ function Invoke-ActionById {
             }
         }
         if (-not $res) { $res = & $file -Module $Module -Params $Params }
-        # Invalidation ciblee du cache : les sondes citees seront recalculees au prochain /state
+        # Targeted cache invalidation: the probes named will be recomputed at the next /state
         try {
             $inv = if ($res -and $res.result -and $res.result.invalidate) { @($res.result.invalidate) } else { @() }
             if ($inv.Count) { Remove-ProbeCache -Names $inv -Backend $Backend }
             <#
-                ET ELLE NE SORT PAS D'ICI.
+                AND IT DOES NOT LEAVE HERE.
 
-                « invalidate » est une CONSIGNE INTERNE : quelles sondes recalculer. Elle
-                etait consommee ici puis renvoyee telle quelle au navigateur, qui n'en
-                fait rien -- des noms de fichiers PowerShell dans une reponse JSON, sous
-                les yeux de qui ouvre l'onglet reseau (releve le 01/09). Ce que le client
-                doit connaitre, ce sont des CARTES, pas nos fichiers.
+                "invalidate" is an INTERNAL INSTRUCTION: which probes to recompute. It was consumed here then
+                returned as it stood to the browser, which does nothing with it -- names of PowerShell files in a
+                JSON response, before the eyes of whoever opens the network tab (noted on 01/09). What the client
+                must know are CARDS, not our files.
             #>
+
             if ($res -and $res.result -and $res.result.PSObject.Properties['invalidate']) {
                 try {
                     if ($res.result -is [System.Collections.IDictionary]) { $res.result.Remove('invalidate') }
@@ -11466,8 +11467,8 @@ function Invoke-ActionById {
                 } catch { }
             }
         } catch { }
-        # Une action peut rendre « ok = false » sans lever : c'est un echec, et il se trace
-        # comme tel. Se fier au seul try/catch laisserait passer les echecs polis.
+        # An action can return "ok = false" without throwing: that is a failure, and it is traced as such. Relying
+        # on try/catch alone would let the polite failures through.
         $succeeded = -not ($res -and $res.result -and $res.result.PSObject.Properties['ok'] -and $res.result.ok -eq $false)
         Write-VigieAudit -Outcome $(if ($succeeded) { 'done' } else { 'failed' }) -Action $Type -Module $Module `
                          -Requester $requester -Rights $rights -Detail ("" + $res.message) `
@@ -11481,11 +11482,10 @@ function Invoke-ActionById {
     }
 }
 
-# --- Atelier : present en local ? --------------------------------------------
-# L'Atelier est un outil de developpement lance A LA MAIN : l'interface de Vigie ne
-# montre un lien vers lui QUE s'il repond vraiment. La detection vit ici (serveur) car
-# le front ne peut pas sonder un autre port proprement, et le port de l'Atelier n'est
-# defini que dans SA config (D15) -- on la lit, on ne la recopie pas.
+# --- Atelier: present locally? -----------------------------------------------
+# The Atelier is a development tool started BY HAND: Vigie's interface shows a link to it ONLY if it really
+# answers. The detection lives here (on the server) because the front end cannot probe another port cleanly, and
+# the Atelier's port is defined in ITS OWN config only (D15) -- we read it, we do not copy it.
 function Get-AtelierUrl {
     param([string]$Backend = (Get-BackendRoot))
     try {
@@ -11496,8 +11496,8 @@ function Get-AtelierUrl {
         if (-not $port) { return $null }
         $addr = (Get-Config -Backend $Backend).BindAddress
         if (-not $addr) { $addr = '127.0.0.1' }
-        # Connexion TCP brute, delai court : sur l'hote local, un port ferme repond
-        # immediatement -- ce test ne ralentit pas /health.
+        # A raw TCP connection, short timeout: on the local host a closed port answers immediately -- this test
+        # does not slow /health down.
         $c = [System.Net.Sockets.TcpClient]::new()
         try {
             if (-not $c.ConnectAsync($addr, $port).Wait(250)) { return $null }
@@ -11506,9 +11506,9 @@ function Get-AtelierUrl {
     } catch { return $null }
 }
 
-# --- Idempotence : le serveur ecoute-t-il deja ? ---------------------------
+# --- Idempotence: is the server already listening? ---------------------------
 function Test-ServerUp {
-    # Pas de valeur par defaut : l'adresse et le port n'ont qu'UNE definition (config.psd1).
+    # No default value: the address and the port have only ONE definition (config.psd1).
     param([Parameter(Mandatory)][string]$Address, [Parameter(Mandatory)][int]$Port)
     try {
         $c = [System.Net.Sockets.TcpClient]::new()
@@ -11518,35 +11518,35 @@ function Test-ServerUp {
     } catch { return $false }
 }
 
-# --- Elevation : expliquer AVANT de demander ---------------------------------
-# Principe (demande explicite de l'utilisateur, D22) : on n'envoie jamais l'invite
-# UAC "nue". On affiche d'abord une fenetre qui dit ce qui va etre modifie et
-# pourquoi l'elevation est necessaire, comme le fait Android avant une permission.
-# L'utilisateur peut refuser sans qu'aucune invite systeme n'apparaisse.
+# --- Elevation: EXPLAIN before asking ----------------------------------------
+# The principle (asked for explicitly by the owner, D22): we never send the UAC prompt "bare". We first show a
+# window saying what is about to be changed and why the elevation is necessary, as Android does before a
+# permission. The user can refuse without any system prompt appearing at all.
 
-# Echappe une chaine pour l'inserer dans une commande PowerShell (guillemets simples).
+
+# Escapes a string so it can be inserted into a PowerShell command (single quotes).
 function ConvertTo-PSLiteral {
     param([Parameter(Mandatory)][AllowEmptyString()][string]$Value)
     "'" + $Value.Replace("'", "''") + "'"
 }
 
-# Le processus courant est-il eleve ? (une seule redaction de ce test)
-# Le test d'elevation n'a qu'UNE implementation (Test-Elevated, plus haut). Ce nom-ci
-# est celui qu'emploient les scripts d'installation ; il delegue au lieu de reecrire le
-# meme test une seconde fois (D15). Les deux copies existaient et pouvaient diverger.
+# Is the current process elevated? (one single wording of this test)
+# The elevation test has only ONE implementation (Test-Elevated, further up). THIS name is the one the
+# installation scripts use; it delegates instead of writing the same test a second time (D15). Both copies used to
+# exist, and could diverge.
 function Test-IsElevated { Test-Elevated }
 
-# --- Habillage des fenetres (DWM) --------------------------------------------
-# Barre de titre sombre et coins arrondis Windows 11. Declare UNE SEULE FOIS ici
-# et utilise partout (fenetre de consentement, menu de l'app cliente) : la signature
-# P/Invoke ne doit pas etre recopiee dans chaque script.
-# Sans effet sur les versions de Windows anterieures : l'appel echoue sans dommage.
+# --- Window dressing (DWM) ---------------------------------------------------
+# A dark title bar and Windows 11 rounded corners. Declared ONCE here and used everywhere (the consent window, the
+# client app's menu): the P/Invoke signature must not be copied into every script.
+# No effect on earlier versions of Windows: the call fails without harm.
+
 function Set-WindowChrome {
     param(
         [Parameter(Mandatory)][IntPtr]$Handle,
         [switch]$DarkTitleBar,
         [switch]$RoundedCorners,
-        # Couleur de bordure au format COLORREF (0x00BBGGRR). -1 = ne pas toucher.
+        # Border colour in COLORREF form (0x00BBGGRR). -1 = leave it alone.
         [int]$BorderColor = -1
     )
     if ($Handle -eq [IntPtr]::Zero) { return }
@@ -11561,11 +11561,11 @@ function Set-WindowChrome {
     } catch { }
 }
 
-# D'ou vient ce lancement ? Renvoie une chaine descriptive si un agent automatise
-# est detecte, sinon $null (lancement a la main).
-# Enjeu de securite : une demande de droits administrateur qui ne vient PAS d'un clic
-# de l'utilisateur doit s'annoncer comme telle. Sans cela, un agent pourrait obtenir
-# une elevation que l'utilisateur croirait avoir lui-meme declenchee.
+# Where does this launch come from? Returns a descriptive string when an automated agent is detected, $null
+# otherwise (started by hand).
+# A security matter: a request for administrator rights that does NOT come from a click by the user must announce
+# itself as such. Without that, an agent could obtain an elevation the user would believe they had triggered
+# themselves.
 function Get-LaunchOrigin {
     if ($env:AI_AGENT)       { return $env:AI_AGENT }
     if ($env:CLAUDECODE)     { return 'Claude Code' }
@@ -11574,10 +11574,10 @@ function Get-LaunchOrigin {
     return $null
 }
 
-# Decoupe un controle en rectangle arrondi. Necessaire pour les menus contextuels :
-# DWM (Set-WindowChrome) n'arrondit PAS les fenetres sans cadre standard, ce qui laisse
-# un menu a coins carres. La region, elle, s'applique toujours.
-# Contrepartie assumee : bords sans anticrenelage et ombre coupee au trace.
+# Cuts a control into a rounded rectangle. Necessary for context menus: DWM (Set-WindowChrome) does NOT round
+# windows without a standard frame, which leaves a menu with square corners. The region, on the other hand, always
+# applies.
+# The accepted price: edges without antialiasing, and the shadow cut along the outline.
 function Set-RoundedRegion {
     param(
         [Parameter(Mandatory)][System.Windows.Forms.Control]$Control,
@@ -11600,26 +11600,26 @@ function Set-RoundedRegion {
     } catch { }
 }
 
-# Fenetre explicative. Renvoie $true si l'utilisateur accepte de continuer.
-# -AssumeYes court-circuite l'affichage (execution non interactive, tache planifiee).
+# The explanatory window. Returns $true if the user accepts to carry on.
+# -AssumeYes short-circuits the display (a non-interactive run, a scheduled task).
 function Show-ElevationRationale {
     param(
         [Parameter(Mandatory)][string]$Title,
         [Parameter(Mandatory)][string]$Summary,
         [string[]]$Changes = @(),
-        # Origine du lancement. Par defaut : detectee automatiquement, pour qu'un agent
-        # ne puisse pas masquer son role en oubliant de le declarer.
+        # Where the launch comes from. By default: detected automatically, so that an agent cannot hide its role by
+        # forgetting to declare it.
         [string]$InitiatedBy = (Get-LaunchOrigin),
         [switch]$AssumeYes
     )
     if ($AssumeYes) { return $true }
 
-    # LA FENETRE VIT DANS scripts/lib/show-confirm.ps1, et nulle part ailleurs.
+    # THE WINDOW LIVES IN scripts/lib/show-confirm.ps1, and nowhere else.
     #
-    # Elle doit pouvoir s'afficher AVANT la premiere elevation, quand PowerShell 7 n'est
-    # pas encore installe : elle est donc ecrite pour tourner aussi sous Windows
-    # PowerShell 5.1, et vit hors de cette bibliotheque qui, elle, vise PS7. La dessiner
-    # une seconde fois ici aurait garanti que les deux divergent des la premiere retouche.
+    # It must be able to appear BEFORE the first elevation, when PowerShell 7 is not installed yet: it is therefore
+    # written to run under Windows PowerShell 5.1 as well, and lives outside this library, which targets PS7.
+    # Drawing it a second time here would have guaranteed that the two diverge at the first retouch.
+
     $script = $null
     try { $script = Join-Path (Get-RepoRoot) 'scripts/lib/show-confirm.ps1' } catch { }
 
@@ -11627,11 +11627,11 @@ function Show-ElevationRationale {
         $exe = $null
         try { $exe = (Get-Process -Id $PID).Path } catch { }
         if (-not $exe) { $exe = 'powershell.exe' }
-        # LE TEXTE NE TRAVERSE PAS LA LIGNE DE COMMANDE. Passe en argument, il subit la
-        # page de code du processus appele : « securite » y devient « sIcuritI » (constate
-        # le 29/08). Ces textes-la sont CONSTRUITS -- ils viennent de l'action, pas d'un
-        # libelle -- donc aucune cle ne les designe : ils passent par un fichier, et seul
-        # son chemin, en ASCII, franchit la frontiere.
+        # THE TEXT DOES NOT CROSS THE COMMAND LINE. Passed as an argument, it suffers the code page of the process
+        # called: "securite" became "sIcuritI" there (observed on 29/08). These texts are BUILT -- they come from
+        # the action, not from a label -- so no key designates them: they travel through a file, and only its path,
+        # in ASCII, crosses the border.
+
         $payload = Join-Path ([IO.Path]::GetTempPath()) ('vigie-confirm-' + [guid]::NewGuid().ToString('N') + '.json')
         $data = @{ title = "$Title"; summary = "$Summary"
                    changes = ($Changes -join '|'); initiatedBy = "$InitiatedBy" }
@@ -11643,22 +11643,22 @@ function Show-ElevationRationale {
                   '-PayloadFile', $payload)
         try {
             & $exe @argv
-            # 0 = continuer ; 3 = refus ; 1 = pas d'interface, et le script l'a dit en
-            # console. Tout ce qui n'est pas 0 REFUSE : rien ne s'eleve sans consentement.
+            # 0 = carry on; 3 = refusal; 1 = no interface, and the script said so on the console. Anything that is
+            # not 0 REFUSES: nothing is elevated without consent.
             return ($LASTEXITCODE -eq 0)
         } catch {
             Write-Host (Get-Label 'common.impossible-afficher-la-fenetre' $_.Exception.Message) -ForegroundColor Yellow
         } finally {
-            # DANS UN « finally », pas apres le return : un nettoyage place apres ne
-            # s'execute jamais, et le fichier -- qui porte le texte de la fenetre --
-            # resterait dans le dossier temporaire a chaque elevation. Et « finally »
-            # vient APRES « catch » : l'ordre inverse ne s'analyse pas.
+            # IN A "finally", not after the return: a cleanup placed after one never runs, and the file -- which
+            # carries the window's text -- would stay in the temporary folder at every elevation. And "finally"
+            # comes AFTER "catch": the reverse order does not parse.
+
             try { Remove-Item -LiteralPath $payload -Force -ErrorAction SilentlyContinue } catch { }
         }
     }
 
-    # Repli : le script est introuvable (installation abimee). On explique en console et
-    # on REFUSE -- utiliser -Yes pour un lancement volontairement automatise.
+    # Fallback: the script cannot be found (a damaged installation). We explain on the console and we REFUSE -- use
+    # -Yes for a deliberately automated launch.
     $nl = [Environment]::NewLine
     Write-Host ""
     if ($InitiatedBy) {
@@ -11672,28 +11672,28 @@ function Show-ElevationRationale {
     return $false
 }
 
-# Relance LE MEME script en session elevee en conservant ses parametres, puis
-# restitue sa sortie. On ne peut pas rediriger un processus lance avec -Verb RunAs :
-# la session elevee ecrit donc dans un journal, qu'on relit ensuite.
-# Renvoie le code de retour de la session elevee.
+# Restarts THE SAME script in an elevated session, keeping its parameters, then hands back its output. One cannot
+# redirect a process started with -Verb RunAs: the elevated session therefore writes into a log, which is read
+# back afterwards.
+# Returns the exit code of the elevated session.
 function Invoke-ElevatedSelf {
     param(
         [Parameter(Mandatory)][string]$ScriptPath,
         [string[]]$Arguments = @(),
         [string]$LogDir = $env:TEMP
     )
-    # -WhatIf ne doit PAS s'appliquer a la relance : c'est le script relance qui doit
-    # simuler ses propres operations. Sans -WhatIf:$false, -WhatIf simulerait l'elevation
-    # et rien ne s'executerait - on ne verrait donc jamais ce qui allait etre fait.
+    # -WhatIf must NOT apply to the restart: it is the restarted script that must simulate its own operations.
+    # Without -WhatIf:$false, -WhatIf would simulate the elevation and nothing would run -- so one would never see
+    # what was about to be done.
     if (-not (Test-Path -LiteralPath $LogDir)) { New-Item -ItemType Directory -Path $LogDir -Force -WhatIf:$false | Out-Null }
     $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
     $name  = [IO.Path]::GetFileNameWithoutExtension($ScriptPath)
     $log   = Join-Path $LogDir ('elevated_' + $name + '_' + $stamp + '.log')
 
-    # UTF-8 IMPOSE DES LES DEUX BOUTS. Sans cela, la session elevee ecrit son journal
-    # dans la page de code de la console (850 ou 1252 selon la machine) et le parent le
-    # relit en UTF-8 : « Trouve » revenait « Trouv├® » (constate le 27/08). Les accents
-    # ne sont pas negociables (D41).
+    # UTF-8 IMPOSED AT BOTH ENDS. Without it the elevated session writes its log in the console's code page (850 or
+    # 1252 depending on the machine) and the parent reads it back as UTF-8: an accented "Trouve" came back with its
+    # accent turned into two unrelated characters (observed on 27/08). The accents are not negotiable (D41).
+
     $parts = @('$OutputEncoding=[Text.Encoding]::UTF8;',
                '[Console]::OutputEncoding=[Text.Encoding]::UTF8;',
                '&', (ConvertTo-PSLiteral $ScriptPath))
