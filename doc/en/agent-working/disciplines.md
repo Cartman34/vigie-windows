@@ -369,19 +369,24 @@ question format.
 
 ## "Go, and do not stop" -- the confirmation goes INSIDE the working turn
 
-**What ends a turn is the LAST thing in it, not the fact of writing.** A turn ends when its final block is text; it
-continues as long as the final block is a tool call. Text written BEFORE a tool call ends nothing -- the tools run
-and control comes back to me. So the difference is not between writing and acting: it is between a message that
-stops on a sentence and a message that stops on a tool call.
+**I CAN write before working, and in the desktop app that text then DISAPPEARS.** A line written ahead of the tool
+calls does not end the turn: the tools run and control comes back. He sees that line while the work runs -- and
+when the final message is posted, **the desktop client erases it**. On the CLI it stays; the desktop app is where
+he works. *Told by him on 08/10: "Tu es bien arrivé à m'envoyer un message de confirmation avant de commencer à
+utiliser tes outils, à la fin ce message disparaît dans le client desktop quand tu postes ton message final."*
 
-That is why, on 07/10, he had to tell me four times to start: *"Tu n'as rien commence... pourquoi tu ne pars pas ?
-REPOND"*, then *"MAIS BORDEL DE MERDE"*. Each confirmation I sent was a message ending on a sentence, so each one
-handed the turn back and waited. The more he insisted, the more I stopped -- and nothing forced that: the same
-confirmation with a tool call behind it would have confirmed AND worked.
+**So a confirmation given only before the work is a confirmation he ends up without.** That is the real reason he
+asked for one four times on 07/10 -- *"Tu n'as rien commence... pourquoi tu ne pars pas ? REPOND"*, then *"MAIS
+BORDEL DE MERDE"*. Twice I answered in a message of its own, which stopped; once I put it ahead of the tools, which
+worked but left nothing behind.
 
-*Corrected on 08/10, because the first version of this section said "every message I write ends my turn", which is
-false and he caught it: "tu peux écrire des messages et ton tour ne se termine pas". A rule stated from a wrong
-mechanism is a rule nobody can apply when the case shifts.*
+**What to do, then:** the confirmation goes BEFORE the tool calls, so he sees it at once and the work starts behind
+it -- AND the final message OPENS by restating what was confirmed, because the first one will have vanished from
+his transcript. Not a repetition: the only copy that survives.
+
+*Corrected twice. The first version said "every message I write ends my turn", which is false. The second explained
+it by the last block of the turn, which is beside the point: what matters to him is not when the turn ends, it is
+what is still on his screen afterwards.*
 
 **A message he sends while I work does not interrupt me either.** It arrives attached to a tool result, inside the
 running turn. It is answered in one line, in that turn, and the work continues.

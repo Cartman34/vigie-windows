@@ -5,23 +5,31 @@ Le 07/10, le propriétaire a dû me dire **quatre fois** de me lancer et de ne p
 commencé... pourquoi tu ne pars pas ? REPOND »*, puis *« MAIS BORDEL DE MERDE »*, puis *« TU VAS FAIRE TON TRAVAIL
 CONNARD »*. Il a demandé, à la fin, que j'aille voir pourquoi et que je propose de quoi l'empêcher.
 
-## La cause, et elle est mécanique
+## La cause, et c'est LUI qui me l'a apprise
 
-**Ce qui termine un tour, c'est ce qui le TERMINE — pas le fait d'écrire.** Un tour s'arrête quand son dernier bloc
-est du texte ; il continue tant que son dernier bloc est un appel d'outil. Du texte écrit **avant** un appel d'outil
-n'arrête rien : les outils tournent et la main me revient.
+Je peux parfaitement écrire **avant** de travailler : une ligne posée devant les appels d'outils ne termine pas le
+tour, les outils tournent et la main me revient. Ce n'est donc pas ça qui m'arrêtait.
 
-À chaque fois qu'il réclamait une confirmation, j'envoyais un message qui **se terminait sur une phrase** : il
-rendait donc la main et attendait. Plus il insistait, plus je m'arrêtais — alors que rien ne l'imposait : la même
-confirmation, avec un appel d'outil derrière, aurait confirmé **et** travaillé.
+**Ce qui se passe vraiment, et que je ne pouvais pas voir** : dans le client desktop — celui où il travaille — cette
+ligne **disparaît** quand je poste mon message final. Il la voit pendant le travail, puis elle s'efface. Sur la
+ligne de commande, elle reste. Ses mots, le 08/10 : *« Tu es bien arrivé à m'envoyer un message de confirmation
+avant de commencer à utiliser tes outils, à la fin ce message disparaît dans le client desktop quand tu postes ton
+message final. pas sur cli (pour info). »*
 
-**Corrigé le 08/10.** La première version de ce relevé disait « tout message que j'écris termine mon tour », ce qui
-est **faux**, et c'est lui qui l'a relevé : *« tu peux écrire des messages et ton tour ne se termine pas, je crois
-que c'est juste un type différent de message, j'ai besoin d'identifier la différence »*. La différence n'est pas le
-type du message : c'est **sa dernière pièce**.
+**Donc une confirmation donnée seulement avant le travail est une confirmation dont il se retrouve privé.** C'est
+la vraie raison pour laquelle il l'a réclamée quatre fois : deux fois je l'ai mise dans un message à part, qui
+s'arrêtait ; une fois devant les outils, ce qui a marché mais n'a rien laissé.
 
-Et ses messages à lui, envoyés pendant que je travaille, ne m'interrompent pas non plus : ils arrivent accrochés à
-un résultat d'outil, à l'intérieur du tour en cours.
+**Ce qu'il faut faire** : la confirmation va **devant** les appels d'outils — il la voit tout de suite, le travail
+démarre derrière — **et** le message final **s'ouvre en la redisant**, parce que la première aura disparu de son
+fil. Ce n'est pas une répétition : c'est la seule copie qui survit.
+
+**Deux corrections, pas une.** La première version disait « tout message que j'écris termine mon tour » : faux. La
+deuxième l'expliquait par le dernier bloc du tour : à côté de la question. Ce qui compte pour lui n'est pas le
+moment où mon tour se termine, c'est **ce qui reste à l'écran après**.
+
+Et ses messages à lui, envoyés pendant que je travaille, ne m'interrompent pas : ils arrivent accrochés à un
+résultat d'outil, à l'intérieur du tour en cours.
 
 ## Ce qui a aggravé
 

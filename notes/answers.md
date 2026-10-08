@@ -74,8 +74,11 @@ excuse, après une confirmation de la liste. Ses mots : *« Je ne veux plus que 
 les sujets sont TOUS terminés »*, *« JE VEUX UNE CONFIRMATION : De la liste exhaustive de tous les sujets »*, et
 *« Tu dois confirmer quand tu pars »*.
 
-**Ce que ça vaut désormais** : une confirmation d'une ligne **au début du tour**, suivie immédiatement du travail,
-et plus un mot avant la fin. La règle est en place dans `doc/en/agent-working/disciplines.md`, section « "Go, and
+**Ce que ça vaut désormais** : une confirmation d'une ligne **devant les appels d'outils**, le travail derrière, et
+le message final qui **s'ouvre en la redisant**. Raison, apprise de lui le 08/10 : dans le **client desktop**, la
+ligne écrite avant les outils **disparaît** quand le message final est posté — elle reste sur la ligne de commande,
+mais c'est le client desktop qu'il utilise. Une confirmation donnée seulement avant le travail est donc une
+confirmation dont il se retrouve privé, ce qui explique qu'il l'ait réclamée quatre fois. La règle est en place dans `doc/en/agent-working/disciplines.md`, section « "Go, and
 do not stop" », et son analyse dans
 [`notes/evidence/2026-10-07-four-times-told-to-start.md`](evidence/2026-10-07-four-times-told-to-start.md).
 
