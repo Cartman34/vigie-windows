@@ -1,36 +1,42 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    client.ps1 - App Vigie de la barre systeme (apps/client).
+    client.ps1 -- the Vigie client app, in the notification area (apps/client).
 
-    C'est une app A PART ENTIERE, distincte du backend : elle a son interface
-    WinForms, ses icones (assets/) et son cycle de vie. Elle PILOTE le backend
-    (le demarre, l'arrete, sonde sa sante) sans en faire partie.
-    - Serveur Pode EN FOND (cache). Icone = STATUT DE L'APP (pas des composants) via /health :
-        vert = en marche, orange = demarrage, rouge = erreur/arret. Poll leger toutes les 8 s.
-    - "Afficher l'application" -> fenetre DEDIEE (Edge/Chrome en mode --app). "Ouvrir dans le navigateur" -> onglet.
-    - "Relancer l'application" recharge l'app cliente. Menu sombre. Enfants lances sans fenetre (CreateNoWindow).
-    - Journalise dans logs/client_*.log. UI en runspace STA. Instance unique.
+    Intent: give each account its own presence on its own desktop -- an icon that says whether Vigie is running, a
+    menu to show it, restart it or stop it, and the notifications of the modules it has turned on. It is an app IN
+    ITS OWN RIGHT, distinct from the server app: it has its own WinForms interface, its own icons (assets/) and its
+    own life cycle. It DRIVES the server app -- starts it, stops it, probes its health -- without being part of it.
+
+    Usage: Windows starts it at logon, one instance per account (a mutex named after the account). Started by hand
+    it does the same thing; a second one steps aside. What it does, in brief:
+      - the server app runs IN THE BACKGROUND (hidden). The ICON IS THE STATE OF THE APP, not of the components,
+        read from /health: green = running, orange = starting, red = error or stopped. A light poll every 8 s.
+      - "Afficher l'application" opens a DEDICATED window (Edge or Chrome in --app mode); "Ouvrir dans le
+        navigateur" opens a tab.
+      - "Relancer l'application" reloads the client app itself. A dark menu. Children are started with no window
+        (CreateNoWindow).
+      - it logs into logs/client_*.log. The interface lives in an STA runspace.
 #>
 $ErrorActionPreference = 'Stop'
-# URL du depot : CONSTANTE volontaire (pas un reglage) - elle ne doit pas changer facilement.
-# Equivalent cote front : REPO_URL dans frontend/index.html.
+# The repository URL: a deliberate CONSTANT, not a setting -- it must not be easy to change.
+# Its counterpart on the front end: REPO_URL in frontend/index.html.
 $RepoUrl = 'https://github.com/Cartman34/vigie-windows'
-# Le backend est une app SOEUR (apps/backend), pas le dossier courant.
+# The server app is a SISTER app (apps/backend-pode), not the current folder.
 $appsRoot = Split-Path $PSScriptRoot -Parent
 $backend  = Join-Path $appsRoot 'backend-pode'   # BOOTSTRAP : nom en clair, cf. common.ps1
 $repoRoot = Split-Path $appsRoot -Parent
-# Chaque app gere ses fichiers locaux sous SON var/ (D33) -- MAIS JAMAIS a cote du
-# programme quand celui-ci vit dans Program Files (D97).
+# Every app manages its own local files under ITS OWN var/ (D33) -- BUT NEVER beside the program when the program
+# lives in Program Files (D97).
 #
-# C'est ici que Vigie ne demarrait pas sur un compte standard. Le chemin etait calcule a
-# la main : « $PSScriptRoot/var/log ». Sur le compte administrateur, la tache tourne
-# elevee, le dossier se cree dans Program Files et tout marche. Sur « Famille », niveau
-# Limited, Windows refuse l'ecriture : New-Item leve, $ErrorActionPreference vaut 'Stop',
-# et le script meurt AVANT que TLog n'existe. Code de retour 1, aucun journal nulle part,
-# aucune trace -- exactement ce qui a ete constate le 28/08.
+# THIS is where Vigie failed to start on a standard account. The path was computed by hand: "$PSScriptRoot/var/log".
+# On the administrator's account the task runs elevated, the folder is created inside Program Files and everything
+# works. On "Famille", a Limited account, Windows refuses the write: New-Item throws, $ErrorActionPreference is
+# 'Stop', and the script dies BEFORE TLog exists. Exit code 1, no log anywhere, no trace at all -- exactly what was
+# observed on 28/08.
 #
-# Get-VarPath applique la regle une fois pour toutes : sur place quand c'est possible,
-# dans le profil du compte sinon. On la charge donc AVANT d'ecrire quoi que ce soit.
+# Get-VarPath applies the rule once and for all: in place when that is possible, in the account's profile
+# otherwise. So it is loaded BEFORE anything is written.
+
 $appsRootTmp = Split-Path $PSScriptRoot -Parent
 . (Join-Path (Join-Path $appsRootTmp 'backend-pode') 'lib/common.ps1')
 $clientLog = Get-VarPath -Backend $PSScriptRoot -Kind 'log' -File ('client_' + (Get-Date -Format 'yyyyMMdd') + '.log')
@@ -39,24 +45,24 @@ TLog "demarrage (PS $($PSVersionTable.PSVersion), $([System.Threading.Thread]::C
 # Its own logs are kept 30 days, like everyone else's (Invoke-LogPurge).
 try { $null = Invoke-LogPurge -Backend $PSScriptRoot } catch { }
 
-# UN VERROU PAR COMPTE, pas par session de bureau. Sans nom d'espace explicite, un
-# mutex vit dans « Local\ », c'est-a-dire dans la session Windows -- et deux comptes
-# peuvent partager une session : c'est le cas quand on lance l'app cliente d'un autre compte
-# avec runas, exactement ce qu'on fait pour deboguer. L'app cliente de Famille a demarre,
-# vu le verrou de fhaza, et s'est retire (28/08 22:09). Le verrou porte donc desormais
-# le nom du compte : chacun le sien, quelle que soit la session qui l'heberge.
+# ONE LOCK PER ACCOUNT, not per desktop session. Without an explicit namespace a mutex lives in "Local\", that is,
+# inside the Windows session -- and two accounts can share a session: that is what happens when one starts another
+# account's client app with runas, exactly what we do to debug. Famille's client app started, saw fhaza's lock, and
+# stepped aside (28/08 22:09). The lock is therefore named after the account now: each has its own, whatever
+# session hosts it.
 <#
-    C'EST LE SUCCESSEUR QUI ATTEND, PAS CELUI QUI DEMANDE.
+    IT IS THE SUCCESSOR THAT WAITS, NOT THE ONE ASKING.
 
-    Quatre secondes ne suffisaient pas : lors d'une relance, l'ancienne instance ferme son
-    icone, rend la main a Windows et libere son verrou -- ce qui prend parfois davantage.
-    La nouvelle sortait alors sur « deja lance », le numero de processus ne changeait
-    jamais, et l'installation comptait deux echecs sur une app cliente qui tournait
-    (constate le 30/08).
+    Four seconds were not enough: during a restart the old instance closes its icon, hands control back to Windows
+    and releases its lock -- which sometimes takes longer than that. The new one then exited on "already running",
+    the process number never changed, and the installation counted two failures on a client app that was running
+    (observed on 30/08).
 
-    On attend donc ICI, dans le processus qui demarre : personne en amont n'est bloque,
-    et le cas normal -- aucun predecesseur -- passe sans delai. Vingt secondes couvrent
-    largement une fermeture d'icone ; au-dela, c'est qu'une instance tourne vraiment.
+    So we wait HERE, in the process that is starting: nobody upstream is blocked, and the normal case -- no
+    predecessor -- goes through with no delay. Twenty seconds amply cover the closing of an icon; beyond that, an
+    instance really is running.
+#>
+
 #>
 $mutex = New-Object System.Threading.Mutex($false, ('VigieClient-' + (Get-ProcessAccount)))
 if (-not $mutex.WaitOne(20000)) { TLog "deja lance (mutex) - sortie"; return }
@@ -71,16 +77,16 @@ $uiScript = {
         Add-Type -AssemblyName System.Drawing
         Add-Type -Namespace VigieNative -Name Ico -MemberDefinition '[System.Runtime.InteropServices.DllImport("user32.dll")] public static extern bool DestroyIcon(System.IntPtr handle);'
 
-        # S5 -- CHANGEMENT D'ADRESSE RESEAU, tout de suite.
+        # S5 -- A CHANGE OF NETWORK ADDRESS, at once.
         #
-        # Sans cela, debrancher le cable ou changer de Wi-Fi laissait la carte Reseau
-        # afficher l'ancienne adresse jusqu'a la peremption de sa sonde. Windows sait
-        # dire l'instant du changement : on s'y abonne.
+        # Without this, unplugging the cable or changing Wi-Fi left the Network card showing the old address until
+        # its probe expired. Windows can say the instant of the change: we subscribe to it.
         #
-        # L'abonnement est fait EN C#, pas par un bloc PowerShell : Windows previent sur
-        # un fil du pool, ou executer du PowerShell demande un espace d'execution qui
-        # n'est pas forcement disponible. Le gestionnaire natif ne fait qu'une chose,
-        # poser un drapeau ; c'est la boucle d'interface (chaque seconde) qui agit.
+        # The subscription is made IN C#, not by a PowerShell block: Windows warns on a pool thread, where running
+        # PowerShell demands a runspace that is not necessarily available. The native handler does one thing only,
+        # set a flag; it is the interface loop (every second) that acts.
+
+
         Add-Type -Namespace VigieNative -Name Net -MemberDefinition @'
 public static volatile bool Changed = false;
 public static void Watch() {
@@ -124,9 +130,9 @@ public static bool SomeoneIsWatching(int mySession) {
 public static extern int SetCurrentProcessExplicitAppUserModelID(string AppID);
 '@
 
-        # Retrouver une fenetre par son titre, et la ramener au premier plan.
-        # Sans cela, chaque double-clic ouvrait une fenetre de PLUS : l'application se
-        # retrouvait en deux exemplaires dans la barre des taches.
+        # Find a window by its title, and bring it to the front.
+        # Without this, every double click opened one MORE window: the application ended up twice over in the task
+        # bar.
         Add-Type -Namespace VigieNative -Name Win -MemberDefinition @'
 [System.Runtime.InteropServices.DllImport("user32.dll")]
 public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, System.IntPtr lParam);
@@ -207,41 +213,41 @@ public static bool Close(System.IntPtr h) {
             }
         } catch { TLog ('protocole vigie:// non declare : ' + $_.Exception.Message) }
 
-        # Starting : un demarrage a ete demande et le serveur n'a pas encore repondu.
+        # Starting: a start has been asked for and the server has not answered yet.
         $state     = [hashtable]::Synchronized(@{ Proc = $null; Drawn = ''; EverUp = $false; Starting = $true; StartTicks = [datetime]::UtcNow.Ticks; Mods = @{}; ModsInit = $false; HealthKo = 0; MachineTask = $null; ElevationAsked = $false; SaidDead = $false; Bulles = @{}; DerniereBulle = $null; NotifTicks = 0; ApiSession = $null; Present = $true; NotifPar = @{} })
         # OUR Windows session, read once: it does not change for the life of the process.
         # The console session is compared against it at every pass.
         $mySession = [System.Diagnostics.Process]::GetCurrentProcess().SessionId
-        # Cache d'etat du backend : lu (jamais ecrit) par le guetteur de modules (D54).
-        # (l'etat se demande a l'API : ce fichier n'est plus lu -- voir le bloc des notifications)
+        # The server app's state cache: read (never written) by the module watcher (D54).
+        # (the state is asked of the API: this file is no longer read -- see the notifications block)
         <#
-            COMBIEN DE TEMPS AVANT DE DECLARER UN ECHEC DE DEMARRAGE ?
+            HOW LONG BEFORE DECLARING A FAILED START?
 
-            25 secondes, jusqu'au 28/08. Or le serveur met environ SOIXANTE-CINQ secondes
-            a repondre : le journal de l'app cliente montre la meme sequence a chaque lancement --
-            orange pendant 22 s, puis ROUGE, puis vert une quarantaine de secondes plus
-            tard. L'utilisateur voyait donc une panne a chaque demarrage, alors que tout
-            se passait bien. Un signal qui crie a tort finit ignore, et le jour ou le
-            serveur echoue vraiment, plus personne ne le regarde.
+            25 seconds, until 28/08. But the server takes about SIXTY-FIVE seconds to answer: the client app's log
+            shows the same sequence at every launch -- orange for 22 s, then RED, then green some forty seconds
+            later. So the user saw a breakdown at every start while everything was going well. A signal that cries
+            wrongly ends up ignored, and the day the server really fails nobody is looking at it any more.
 
-            ON NE DEVINE PLUS, ON REGARDE LE PROCESSUS. Tant que celui qu'on a lance est
-            VIVANT, le demarrage est en cours : c'est une preuve, pas une estimation.
-            S'il a disparu, c'est un echec -- et on le dit tout de suite, sans attendre
-            la fin d'un delai. Le plafond ne sert plus que de garde-fou contre un serveur
-            qui resterait vivant sans jamais repondre.
+            WE NO LONGER GUESS, WE WATCH THE PROCESS. As long as the one we started is ALIVE, the start is under
+            way: that is a proof, not an estimate. If it has gone, that is a failure -- and we say so at once,
+            without waiting for a delay to run out. The ceiling now serves only as a guard against a server that
+            would stay alive without ever answering.
 
-            Le cas de l'app cliente qui ADOPTE un serveur deja en place ($state.Proc vide) garde
-            un delai, faute de processus a observer : large, parce qu'on ne sait rien.
+            The case of a client app that ADOPTS a server already in place ($state.Proc empty) keeps a delay, for
+            want of a process to watch: a wide one, because we know nothing.
         #>
-        $startupGrace   = 120   # plafond quand on observe le processus qu'on a lance
-        $startupBlind   = 90    # delai quand on n'a aucun processus a observer
 
-        # --- Auto-reparation de la tache de demarrage -------------------------------
-        # L'app cliente tourne ELEVE : il est le seul a pouvoir corriger sa propre tache
-        # planifiee sans redemander une elevation a l'utilisateur. La tache echouait par
-        # intermittence au logon (0xC0070154 : pwsh vient du Store et son paquet MSIX
-        # n'est pas toujours pret a la seconde ou la session s'ouvre). Idempotent :
-        # ne touche que le delai et les reprises, et seulement s'ils manquent.
+
+
+        $startupGrace   = 120   # the ceiling when we are watching the process we started
+        $startupBlind   = 90    # the delay when we have no process to watch
+
+        # --- Self-repair of the start-up task ---------------------------------------
+        # The client app runs ELEVATED: it is the only one that can fix its own scheduled task without asking the
+        # user for an elevation again. The task failed intermittently at logon (0xC0070154: pwsh comes from the
+        # Store and its MSIX package is not always ready the second the session opens). Idempotent: it touches the
+        # delay and the retries only, and only if they are missing.
+
         # ITS OWN TASK, NOT SOMEBODY ELSE'S. It is called "Vigie - <account>" (D117); plain
         # "Vigie" is the old name, kept as a fallback while machines still carry it. Looking
         # for another account's name is never repairing anything -- which is what the Famille
@@ -265,22 +271,22 @@ public static bool Close(System.IntPtr h) {
         } catch { TLog ("tache planifiee non reparable ici : " + $_.Exception.Message) }
         $iconHandle = [System.IntPtr]::Zero
 
-        # --- Pilotage par ordres deposes dans var/run ----------------------------------
-        # L'app cliente tourne ELEVE : depuis une session normale, on ne peut ni lire sa ligne
-        # de commande ni signaler un objet noyau qu'il a cree. Un dossier d'ordres evite
-        # ces deux obstacles, reste inspectable a l'oeil, scriptable depuis n'importe quoi,
-        # et accepte de nouveaux ordres sans toucher au mecanisme.
-        # Voir scripts/client.ps1 pour le cote emetteur.
+        # --- Driven by orders dropped in var/run -------------------------------------
+        # The client app runs ELEVATED: from an ordinary session one can neither read its command line nor signal a
+        # kernel object it created. A folder of orders avoids both obstacles, stays inspectable by eye, is
+        # scriptable from anything, and accepts new orders without touching the mechanism.
+        # See scripts/client.ps1 for the sending side.
+
         $runDir    = Get-VarPath -Backend $clientRoot -Kind 'run'
         $heartbeat = Join-Path $runDir 'client.alive'
-        # Un arret brutal laisse des ordres non consommes : ils ne doivent pas s'appliquer
-        # au demarrage suivant.
+        # A brutal stop leaves orders unconsumed: they must not apply at the next start.
         #
-        # SAUF les accuses de reception : celui que l'app cliente precedent vient de poser est
-        # justement ce que l'emetteur attend, et nous demarrons dans la seconde qui suit.
-        # Les effacer d'entree, c'etait courir avec lui -- et lui faire conclure « ordre
-        # non lu » sur une relance qui marchait. Un accuse perime ne gene personne :
-        # l'emetteur efface le sien AVANT d'envoyer son ordre.
+        # EXCEPT the acknowledgements: the one the previous client app has just laid down is precisely what the
+        # sender is waiting for, and we are starting within the second that follows. Erasing them on the way in was
+        # racing against it -- and making it conclude "order not read" on a restart that worked. A stale
+        # acknowledgement bothers nobody: the sender erases its own BEFORE sending its order.
+
+
         Get-ChildItem -LiteralPath $runDir -File -ErrorAction SilentlyContinue |
             Where-Object { $_.Extension -ne '.ack' } |
             Remove-Item -Force -ErrorAction SilentlyContinue
@@ -294,21 +300,21 @@ public static bool Close(System.IntPtr h) {
             return [System.Diagnostics.Process]::Start($psi)
         }
         <#
-            LA TACHE SERVEUR TIENT-ELLE DEJA LA MACHINE ?
+            IS THE MACHINE'S SERVER TASK ALREADY HOLDING THE MACHINE?
 
-            C'est LA question de la migration. Tant qu'il y a un serveur par session, le
-            app cliente de chaque compte lance le sien -- c'est le fonctionnement historique. Des
-            que la tache « Vigie - Serveur » est active, un serveur unique repond a toute
-            la machine : si les app clientes continuaient a en lancer, elles se disputeraient le
-            port 47600, et le perdant mourrait sans que personne ne sache lequel repond.
+            That is THE question of the migration. As long as there is one server per session, each account's
+            client app starts its own -- the historical behaviour. As soon as the "Vigie - Serveur" task is
+            enabled, a single server answers for the whole machine: if the client apps went on starting one, they
+            would fight over port 47600, and the loser would die without anybody knowing which one answers.
 
-            LA REPONSE EST MISE EN CACHE. L'etat d'une tache planifiee ne change pas en
-            cours de session, et l'interroger toutes les huit secondes coute pour rien.
+            THE ANSWER IS CACHED. The state of a scheduled task does not change during a session, and asking for
+            it every eight seconds costs for nothing.
 
-            SI ON NE PEUT PAS LIRE LA TACHE, on repond « non ». Un compte a qui Windows
-            refuse la lecture ne doit pas se retrouver sans serveur du tout : on garde le
-            comportement historique, qui marche.
+            IF WE CANNOT READ THE TASK, we answer "no". An account Windows refuses the read to must not end up
+            with no server at all: we keep the historical behaviour, which works.
         #>
+
+
         $machineServerActive = {
             if ($null -ne $state.MachineTask) { return $state.MachineTask }
             $actif = $false
@@ -322,26 +328,26 @@ public static bool Close(System.IntPtr h) {
         }
 
         <#
-            DEMANDER AU SERVEUR DE SE RELANCER LUI-MEME.
+            ASKING THE SERVER TO RESTART ITSELF.
 
-            Il est deja eleve : il lance son successeur avec SES droits, et personne n'a
-            rien a autoriser -- pas meme un compte standard. C'est la voie normale.
+            It is already elevated: it starts its successor with ITS OWN rights, and nobody has anything to
+            authorise -- not even a standard account. This is the normal road.
 
-            Rend : 'ok' s'il a accepte, 'busy:<operation>' s'il refuse parce qu'une
-            operation tourne, 'ko' s'il ne repond pas -- et c'est seulement dans ce
-            dernier cas qu'on parlera d'elevation, puisqu'il n'y a plus personne pour
-            se relancer.
+            Returns: 'ok' if it accepted, 'busy:<operation>' if it refuses because an operation is running, 'ko' if
+            it does not answer -- and only in that last case will we speak of elevation, since there is no longer
+            anybody there to restart itself.
         #>
-        # LA FENETRE DE QUESTION, une seule fois pour tout l'app cliente. Rend 0 (bouton
-        # principal), 4 (troisieme issue) ou 3 (refus).
+
+        # THE QUESTION WINDOW, once for the whole client app. Returns 0 (the main button), 4 (a third way out) or 3
+        # (refusal).
         $askWindow = {
             param($titre, $texte, $okText, $tiersText, $nonText)
             try {
                 $script = Join-Path (Split-Path (Split-Path $backend -Parent) -Parent) 'scripts/lib/show-confirm.ps1'
                 if (-not (Test-Path -LiteralPath $script)) { return 3 }
                 $payload = Join-Path ([IO.Path]::GetTempPath()) ('vigie-client-' + [guid]::NewGuid().ToString('N') + '.json')
-                # Le texte passe par un FICHIER : en argument, ses accents seraient abimes
-                # par la page de code du processus appele.
+                # The text travels through a FILE: as an argument, its accents would be damaged by the code page of
+                # the process called.
                 [IO.File]::WriteAllText($payload,
                     (@{ title = "$titre"; summary = "$texte" } | ConvertTo-Json -Compress),
                     (New-Object Text.UTF8Encoding($false)))
@@ -376,45 +382,45 @@ public static bool Close(System.IntPtr h) {
 
         $startServer = {
             if (Test-ServerUp -Address $cfg.BindAddress -Port $cfg.Port) { return }
-            # LA MACHINE S'EN CHARGE : on n'a rien a lancer, et surtout rien a disputer.
+            # THE MACHINE TAKES CARE OF IT: we have nothing to start, and above all nothing to fight over.
             if (& $machineServerActive) { return }
 
             <#
-                SANS LES DROITS, ON LES DEMANDE -- MAIS UNE SEULE FOIS.
+                WITHOUT THE RIGHTS, WE ASK FOR THEM -- BUT ONCE ONLY.
 
-                start.ps1 exige l'elevation et se relance avec « RunAs » : sur un compte
-                standard, Windows ouvre une fenetre UAC qui reclame les identifiants d'un
-                administrateur. C'est le comportement voulu -- quelqu'un peut passer les
-                saisir -- et l'app cliente doit garder cette capacite.
+                start.ps1 demands elevation and restarts itself with "RunAs": on a standard account Windows opens a
+                UAC window asking for an administrator's credentials. That is the wanted behaviour -- somebody can
+                come and type them -- and the client app must keep that ability.
 
-                Ce qui n'allait pas, c'est la REPETITION : le sondage revient toutes les
-                huit secondes, donc la fenetre revenait toutes les huit secondes. Une
-                demande refusee ne se represente pas d'elle-meme ; elle se represente
-                quand on la demande, par « Redemarrer le serveur » dans le menu.
+                What was wrong is the REPETITION: the poll comes back every eight seconds, so the window came back
+                every eight seconds. A refused request does not present itself again on its own; it presents itself
+                when asked for, through "Redemarrer le serveur" in the menu.
             #>
+
+
             if (-not (Test-IsElevated)) {
                 if ($state.ElevationAsked) { return }
                 $state.ElevationAsked = $true
                 TLog "serveur arrete : demande d'elevation (une fois)"
             }
-            # Un demarrage VOULU rouvre la fenetre de tolerance : pendant $startupGrace
-            # secondes, "injoignable" veut dire "demarre" (orange) et non "en panne" (rouge).
+            # A start that was WANTED reopens the window of tolerance: for $startupGrace seconds, "unreachable"
+            # means "starting" (orange) and not "broken down" (red).
             $state.StartTicks = [datetime]::UtcNow.Ticks
             $state.Starting   = $true
             if ($pwsh) { $state.Proc = & $launchHidden $pwsh @('-NoProfile','-ExecutionPolicy','Bypass','-File', (Join-Path $backend 'start.ps1')) }
         }
-        # ARRETER LE SERVEUR, meme quand ce n'est pas NOTRE enfant.
+        # STOPPING THE SERVER, even when it is not OUR child.
         #
-        # Une app cliente relance ADOPTE le serveur deja en place : $state.Proc est alors vide, et
-        # l'ancien $stopServer ne tuait rien. Consequence mesuree le 26/08 : « Relancer
-        # l'application » (et donc le redemarrage d'apres deploiement) laissait tourner
-        # l'ANCIEN serveur -- le nouveà l'app cliente constatait « serveur ok » et repartait sur
-        # du code perime. Repli : le processus qui ECOUTE le port, et seulement s'il s'agit
-        # d'un interpreteur PowerShell -- on ne tue que ce qu'on aurait pu lancer.
-        # ARRETER LE SERVEUR EST UN GESTE RARE ET DEMANDE. Cette fonction n'est plus
-        # appelee que sur decision explicite de quelqu'un, quand le serveur ne repond
-        # plus. Ni « Quitter », ni « Relancer l'application », ni la detection d'un
-        # serveur coince n'y touchent : ils arrivent apres lui, et il sert tout le monde.
+        # A restarted client app ADOPTS the server already in place: $state.Proc is then empty, and the old
+        # $stopServer killed nothing. The consequence, measured on 26/08: "Relancer l'application" (and so the
+        # restart after a deployment) left the OLD server running -- the new client app saw "server ok" and went on
+        # with stale code. Fallback: the process LISTENING on the port, and only if it is a PowerShell interpreter
+        # -- we kill nothing but what we could have started ourselves.
+        # STOPPING THE SERVER IS A RARE, ASKED-FOR GESTURE. This function is no longer called except on somebody's
+        # explicit decision, when the server no longer answers. Neither "Quitter", nor "Relancer l'application",
+        # nor the detection of a stuck server touches it: they come after it, and it serves everybody.
+
+
         $stopServer = {
             try { if ($state.Proc -and -not $state.Proc.HasExited) { $state.Proc.Kill(); return } } catch { }
             try {
@@ -429,21 +435,21 @@ public static bool Close(System.IntPtr h) {
             } catch { }
         }
 
-        # Sortie PROPRE, seul chemin de fin de vie. Libere l'icone : un processus tue
-        # laisse son icone en fantome dans la zone de notification, qui ne repond plus
-        # a rien et affiche indefiniment le dernier etat connu.
+        # A CLEAN exit, the only end-of-life road. It releases the icon: a process that is killed leaves its icon
+        # behind as a ghost in the notification area, answering nothing and showing the last known state for ever.
         <#
-            QUITTER L'APP CLIENTE QUITTE L'APP CLIENTE -- PAS LE SERVEUR.
+            QUITTING THE CLIENT APP QUITS THE CLIENT APP -- NOT THE SERVER.
 
-            « Quitter » arretait le serveur. C'etait defendable quand chaque session avait
-            le sien ; avec un serveur commun a la machine, quitter depuis un compte le
-            coupe pour TOUS LES AUTRES. Constate le 29/08 : sortie de l'app cliente de Famille,
-            serveur tue, app cliente de fhaza qui le relance, et une demande d'elevation au
-            passage -- pour quelqu'un qui voulait juste fermer une icone.
+            "Quitter" used to stop the server. That was defensible when each session had its own; with a server
+            shared by the machine, quitting from one account cuts it off for ALL THE OTHERS. Observed on 29/08:
+            Famille's client app exits, the server is killed, fhaza's client app restarts it, and an elevation is
+            asked for on the way -- for somebody who only wanted to close an icon.
 
-            Le serveur est un service : il vit sa vie. Pour l'arreter ou le relancer, il y
-            a « Redemarrer le serveur », qui le dit.
+            The server is a service: it lives its own life. To stop it or restart it there is "Redemarrer le
+            serveur", which says so.
         #>
+
+
         $quitApp = {
             param($origine)
             TLog ("arret de l'app cliente (" + $origine + ") -- le serveur reste en marche")
@@ -452,26 +458,25 @@ public static bool Close(System.IntPtr h) {
             [System.Windows.Forms.Application]::Exit()
         }
         <#
-            RELANCER L'APPLICATION RELANCE L'APPLICATION.
+            RESTARTING THE APPLICATION RESTARTS THE APPLICATION.
 
-            Cette fonction tuait aussi le serveur, « pour qu'il reparte avec le nouveau
-            code ». Mais le serveur PRECEDE l'app cliente : avec la tache de machine, il demarre
-            avant meme qu'une session soit ouverte. Un programme lance apres ne ferme pas
-            celui qui l'attendait -- et le couper depuis un compte le coupe pour tous les
-            autres.
+            This function used to kill the server too, "so that it comes back with the new code". But the server
+            PRECEDES the client app: with the machine task it starts before a session is even open. A program
+            started afterwards does not close the one that was waiting for it -- and cutting it off from one
+            account cuts it off for all the others.
 
-            Le serveur se relance LUI-MEME, avec ses droits, par « Redemarrer le
-            serveur ». Deux gestes distincts pour deux choses distinctes.
+            The server restarts ITSELF, with its own rights, through "Redemarrer le serveur". Two distinct
+            gestures for two distinct things.
         #>
+
         $relaunch = {
             # .NET's ArgumentList quotes each value itself: it gets the bare path (D116).
             try { [void](& $launchHidden $pwsh @('-NoProfile','-ExecutionPolicy','Bypass','-File', $clientPath)) } catch { }
             try { $icon.Visible = $false; $icon.Dispose() } catch { }
             [System.Windows.Forms.Application]::Exit()
         }
-        # Chemin de l'executable du navigateur PAR DEFAUT, lu dans l'association http de
-        # l'utilisateur. C'est le seul navigateur dont on sait qu'il fonctionne sur cette
-        # machine -- il est donc essaye en premier.
+        # The path to the DEFAULT browser's executable, read from the user's http association. It is the only
+        # browser we know works on this machine -- so it is tried first.
         $defaultBrowser = {
             try {
                 $key = 'HKCU:\SOFTWARE\Microsoft\Windows\Shell\Associations\UrlAssociations\http\UserChoice'
@@ -484,19 +489,19 @@ public static bool Close(System.IntPtr h) {
             return $null
         }
 
-        # Ouvre la fenetre dediee (navigateur en mode --app).
+        # Opens the dedicated window (a browser in --app mode).
         #
-        # POURQUOI ON VERIFIE AU LIEU DE FAIRE CONFIANCE A Start-Process
-        # L'ancienne version prenait le PREMIER navigateur trouve sur disque, dans l'ordre
-        # Edge puis Chrome. Sur cette machine, Edge est present mais NE DEMARRE PAS : le
-        # processus sort en moins d'une seconde, sans fenetre et sans erreur. Start-Process
-        # rendait donc la main sans lever d'exception et le journal ecrivait « openApp ok »
-        # -- un mensonge, quatre signalements durant. Un double-clic ne faisait rien.
+        # WHY WE CHECK INSTEAD OF TRUSTING Start-Process
+        # The old version took the FIRST browser found on disk, Edge then Chrome. On this machine Edge is present
+        # but DOES NOT START: the process exits in under a second, with no window and no error. Start-Process
+        # therefore handed control back without throwing and the log wrote "openApp ok" -- a lie, for four reports
+        # running. A double click did nothing.
         #
-        # Deux corrections : on essaie d'abord le navigateur PAR DEFAUT (celui qui marche,
-        # par definition, puisque « Ouvrir dans le navigateur » fonctionnait), et surtout
-        # on CONSTATE le resultat avant de le declarer. Un candidat qui meurt fait passer
-        # au suivant ; si aucun ne tient, on ouvre un onglet normal plutot que rien.
+        # Two corrections: we try the DEFAULT browser first (the one that works, by definition, since "Ouvrir dans
+        # le navigateur" did work), and above all we OBSERVE the result before declaring it. A candidate that dies
+        # moves on to the next; if none holds, we open an ordinary tab rather than nothing.
+
+
         $openApp = {
             # -Sur: what the panel must show on opening ('recap' for the last session's recap). Without it, it opens
             # as usual: the parameter adds nothing for those who do not pass it.
@@ -504,8 +509,8 @@ public static bool Close(System.IntPtr h) {
             TLog ("openApp demande" + $(if ($On) { " (sur $On)" } else { '' }))
 
 
-            # DEJA OUVERTE ? On la ramene au premier plan au lieu d'en ouvrir une seconde.
-            # Le suffixe est celui que pose le front (document.title = "<machine> - Vigie").
+            # ALREADY OPEN? We bring it to the front instead of opening a second one.
+            # The suffix is the one the front end lays down (document.title = "<machine> - Vigie").
             $existante = [VigieNative.Win]::FindBySuffix(' — Vigie')
             if ($existante -ne [System.IntPtr]::Zero) {
                 if ([VigieNative.Win]::Focus($existante)) {
@@ -516,18 +521,18 @@ public static bool Close(System.IntPtr h) {
             }
 
             <#
-                LA FENETRE DEDIEE PASSE PAR LA MEME PORTE QUE LE NAVIGATEUR.
+                THE DEDICATED WINDOW GOES THROUGH THE SAME DOOR AS THE BROWSER.
 
-                Deux chemins ouvraient le panneau : « Ouvrir dans le navigateur », qui
-                demandait une adresse d'ouverture, et le DOUBLE-CLIC, qui ouvrait l'adresse
-                nue. Le second ne s'identifiait donc pas : sur la session Famille, le
-                01/09, la fenetre s'est ouverte sur « cette fenetre n'est associee a aucun
-                compte », le panneau refusant desormais une fenetre sans session.
+                Two roads opened the panel: "Ouvrir dans le navigateur", which asked for an opening address, and
+                the DOUBLE CLICK, which opened the bare address. So the second did not identify itself: on the
+                Famille session, on 01/09, the window opened on "cette fenetre n'est associee a aucun compte", the
+                panel now refusing a window without a session.
 
-                C'est ici et pas plus haut : une fenetre deja ouverte se ramene au premier
-                plan, et l'adresse d'ouverture ne sert qu'UNE fois -- la demander pour ne
-                pas s'en servir la gaspille.
+                It is here and not further up: a window already open is brought to the front, and the opening
+                address serves ONCE only -- asking for it in order not to use it wastes it.
             #>
+
+
             $signInUrl = $null
             foreach ($attempt in 1..2) {
                 try { $signInUrl = Get-OpenUrl -BaseUrl $url -TimeoutSec (5 * $attempt) -Backend $backend } catch { }
@@ -544,7 +549,7 @@ public static bool Close(System.IntPtr h) {
             # THE PANEL OPENS ON WHAT IT IS ASKED FOR: the page reads this parameter and opens the right window.
             if ($On) { $url += $(if ($url -like '*`?*') { '&' } else { '?' }) + 'show=' + [uri]::EscapeDataString($On) }
 
-            # Le mode --app n'existe que sur les navigateurs Chromium.
+            # The --app mode exists on Chromium browsers only.
             $chromium = @('chrome', 'msedge', 'brave', 'vivaldi', 'opera')
             $candidats = New-Object System.Collections.Generic.List[string]
             $parDefaut = & $defaultBrowser
@@ -572,9 +577,9 @@ public static bool Close(System.IntPtr h) {
                     continue
                 }
                 Start-Sleep -Milliseconds 1500
-                # Deux facons de reussir : notre processus tient, OU il a delegue a une
-                # instance deja lancee -- dans ce cas il sort vite mais le navigateur a
-                # gagne des processus. Ne tester que HasExited ouvrirait deux fenetres.
+                # Two ways of succeeding: our process holds, OR it handed over to an instance already running -- in
+                # which case it exits quickly but the browser has gained processes. Testing HasExited alone would
+                # open two windows.
                 $apres = @(Get-Process -Name $nom -ErrorAction SilentlyContinue).Count
                 if ((-not $p.HasExited) -or ($apres -gt $avant)) {
                     TLog ("openApp OK (fenetre dediee) : " + $exe)
@@ -590,32 +595,32 @@ public static bool Close(System.IntPtr h) {
         $openUrl     = { param($u) try { Start-Process $u } catch { TLog ("ouverture KO (" + $u + ") : " + $_.Exception.Message) } }
 
         <#
-            OUVRIR LE PANNEAU EN DISANT QUI ON EST.
+            OPENING THE PANEL WHILE SAYING WHO WE ARE.
 
-            L'app cliente est le seul programme a pouvoir lire le secret de SON compte. Il le
-            presente au serveur, recoit un ticket a usage unique, et ouvre la page avec ce
-            ticket. Le serveur l'echange contre un cookie de session : la page sait alors
-            de quel compte elle vient, sans qu'aucun secret n'ait transite par l'URL ni ne
-            reste lisible dans le JavaScript.
+            The client app is the only program able to read ITS OWN account's secret. It presents it to the server,
+            receives a single-use ticket, and opens the page with that ticket. The server exchanges it for a session
+            cookie: the page then knows which account it comes from, without any secret having travelled through
+            the URL or staying readable in the JavaScript.
 
-            SI QUOI QUE CE SOIT ECHOUE, ON OUVRE QUAND MEME la page sans ticket. Vigie
-            reste utilisable comme avant ; c'est l'identification du compte qui manque, pas
-            l'application. Refuser d'ouvrir le panneau parce que l'identification a echoue
-            serait une regression pour un gain nul.
+            IF ANYTHING AT ALL FAILS, WE OPEN THE PAGE ANYWAY, without a ticket. Vigie stays usable as before; what
+            is missing is the identification of the account, not the application. Refusing to open the panel
+            because the identification failed would be a regression for no gain.
         #>
+
+
         $openBrowser = {
             <#
-                SANS IDENTIFICATION, ON N'OUVRE PAS UNE PAGE QUI REFUSE.
+                WITHOUT IDENTIFICATION, WE DO NOT OPEN A PAGE THAT REFUSES.
 
-                Le panneau servi a une fenetre sans session est desormais une page de
-                refus. Ouvrir l'adresse nue quand l'identification a echoue revenait donc
-                a promener l'utilisateur vers un mur : le 31/08 sur le compte Famille,
-                l'icone etait verte et la page disait « aucun compte ».
+                The panel served to a window without a session is now a refusal page. Opening the bare address when
+                the identification had failed therefore amounted to walking the user into a wall: on 31/08 on the
+                Famille account, the icon was green and the page said "aucun compte".
 
-                On redemande une fois, avec un delai plus large -- le serveur peut etre
-                occupe a recalculer -- et si l'on n'obtient toujours rien, on le DIT au
-                lieu d'ouvrir. Une seule mise en oeuvre de la demande : Get-OpenUrl.
+                We ask once more, with a wider timeout -- the server may be busy recomputing -- and if we still get
+                nothing, we SAY SO instead of opening. One single implementation of the request: Get-OpenUrl.
             #>
+
+
             $target = $null
             foreach ($essai in 1..2) {
                 try { $target = Get-OpenUrl -BaseUrl $url -TimeoutSec (5 * $essai) -Backend $backend } catch { }
@@ -633,10 +638,10 @@ public static bool Close(System.IntPtr h) {
         }
         $openRepo    = { & $openUrl $repoUrl }
 
-        # LE COMPTE EST DANS L'INFOBULLE. Il y a une icone par compte ouvert, et elles
-        # disaient toutes « Vigie - <etat> » : impossible de savoir laquelle appartient a
-        # qui. Sur une machine familiale, c'est la premiere question qu'on se pose, et
-        # c'est indispensable pour deboguer un compte depuis la session d'un autre.
+        # THE ACCOUNT IS IN THE TOOLTIP. There is one icon per account that is open, and they all said "Vigie -
+        # <state>": there was no way of knowing which one belongs to whom. On a family machine that is the first
+        # question one asks, and it is indispensable for debugging one account from another's session.
+
         $clientAccount = (Get-ProcessAccount)
         <#
             THE BUBBLES MUST SAY "VIGIE", NOT "POWERSHELL".
@@ -664,8 +669,8 @@ public static bool Close(System.IntPtr h) {
 
         $setIcon = {
             param($status)
-            # L'icone est TOUJOURS le fichier .ico livre (assets/), genere par
-            # assets/generate-icons.ps1. C'est la SEULE representation de la marque.
+            # The icon is ALWAYS the delivered .ico file (assets/), generated by assets/generate-icons.ps1. It is
+            # the ONLY rendering of the brand.
             $name = switch ($status) { 'ok' { 'ok' } 'warn' { 'warn' } 'error' { 'error' } default { 'error' } }
             $icoPath = Join-Path $clientRoot ('assets\' + $name + '.ico')
             if (Test-Path $icoPath) {
@@ -676,22 +681,22 @@ public static bool Close(System.IntPtr h) {
                     $script:iconObj = $newIco
                     return
                 } catch {
-                    # Jamais silencieux : une icone qui change sans raison est
-                    # indiagnosticable si l'echec n'est pas trace.
+                    # Never silent: an icon that changes for no reason cannot be diagnosed if the failure is not
+                    # traced.
                     TLog ("icone : lecture KO (" + $icoPath + ") : " + $_.Exception.Message)
                 }
             } else {
                 TLog ("icone : fichier absent : " + $icoPath)
             }
 
-            # --- Mode degrade -------------------------------------------------------
-            # Volontairement un simple DISQUE, pas une imitation de la marque.
-            # L'ancien repli redessinait la jauge en GDI+ : deux dessins de la meme
-            # marque, qui avaient FINI PAR DIVERGER (aiguille partant du centre, aucune
-            # graduation, epaisseurs et couleur de piste differentes). Comme l'echec de
-            # lecture etait avale, l'app cliente pouvait afficher une AUTRE marque sans que
-            # personne ne le voie. Un disque uni ne trompe personne : il signale que
-            # les assets manquent, tout en gardant l'information de statut (la couleur).
+            # --- Degraded mode ------------------------------------------------------
+            # Deliberately a plain DISC, not an imitation of the brand.
+            # The old fallback redrew the gauge in GDI+: two drawings of the same brand, which HAD ENDED UP
+            # DIVERGING (a needle starting from the centre, no graduations, different thicknesses and track colour).
+            # As the read failure was swallowed, the client app could show ANOTHER brand without anybody seeing it.
+            # A plain disc fools nobody: it signals that the assets are missing, while keeping the state
+            # information (the colour).
+
             $c = switch ($status) {
                 'ok'    { [System.Drawing.Color]::FromArgb(63,185,80) }
                 'warn'  { [System.Drawing.Color]::FromArgb(210,153,34) }
@@ -720,9 +725,9 @@ public static bool Close(System.IntPtr h) {
         $menu = New-Object System.Windows.Forms.ContextMenuStrip
         $menu.ShowImageMargin = $false
         try { $menu.Font = New-Object System.Drawing.Font('Segoe UI', 9.5) } catch { }
-        # --- Style Win11 : coins arrondis natifs (DWM), survol encarte arrondi ---
-        # Tout echec retombe silencieusement sur le rendu par defaut : le menu reste
-        # utilisable meme si le style ne s'applique pas.
+        # --- Win11 style: native rounded corners (DWM), a rounded inset hover ----
+        # Any failure falls back silently on the default rendering: the menu stays usable even if the style does
+        # not apply.
         try {
             $csrc = @'
 using System;
@@ -857,8 +862,8 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
   protected override void OnRenderToolStripBorder(ToolStripRenderEventArgs e) { }
 }
 '@
-            # System.Drawing est scinde : Color vient de System.Drawing.Primitives,
-            # GraphicsPath/Graphics de System.Drawing.Common. Il faut les DEUX.
+            # System.Drawing is split: Color comes from System.Drawing.Primitives, GraphicsPath and Graphics from
+            # System.Drawing.Common. BOTH are needed.
             $refs = @(
                 [System.Windows.Forms.ToolStrip].Assembly.Location,
                 [System.Drawing.Color].Assembly.Location,
@@ -872,19 +877,19 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
             TLog "style menu Win11 applique"
         } catch { TLog ("style menu KO (fallback): " + $_.Exception.Message) }
 
-        # Coins arrondis NATIFS via DWM (Windows 11). Applique a chaque ouverture :
-        # idempotent, et la fenetre du menu peut recreer son handle entre deux affichages.
-        # Set-WindowChrome vient de lib/common.ps1 : la signature P/Invoke n'est
-        # declaree qu'a un seul endroit, partage avec la fenetre de consentement.
-        # DWM d'abord (ombre et anticrenelage natifs quand il veut bien s'appliquer),
-        # puis decoupe de region qui, elle, arrondit TOUJOURS : sans elle le menu reste
-        # a coins carres, DWM n'arrondissant pas les fenetres sans cadre standard.
+        # NATIVE rounded corners through DWM (Windows 11). Applied at every opening: idempotent, and the menu's
+        # window may recreate its handle between two displays.
+        # Set-WindowChrome comes from lib/common.ps1: the P/Invoke signature is declared in one place only, shared
+        # with the consent window.
+        # DWM first (a native shadow and antialiasing when it agrees to apply), then a region cut which, for its
+        # part, ALWAYS rounds: without it the menu keeps square corners, DWM not rounding windows that have no
+        # standard frame.
         $roundCorners = {
             try {
                 Set-WindowChrome  -Handle $menu.Handle -RoundedCorners -BorderColor 0x00564C44
                 Set-RoundedRegion -Control $menu -Radius ([VigieMenuPalette]::MenuRadius)
-                # Trace du RESULTAT, pas de l'intention : "region appliquee" ne prouve rien,
-                # seul le fait qu'un coin soit hors region prouve que l'arrondi a pris.
+                # We trace the RESULT, not the intention: "region applied" proves nothing, only the fact that a
+                # corner falls outside the region proves the rounding took.
                 $horsCoin = if ($menu.Region) {
                     -not $menu.Region.IsVisible((New-Object System.Drawing.Point(0,0)))
                 } else { $false }
@@ -901,26 +906,26 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
         try { $miShow.Font = New-Object System.Drawing.Font('Segoe UI', 9.5, [System.Drawing.FontStyle]::Bold) } catch { }
         [void]$menu.Items.Add('Ouvrir dans le navigateur', $null, [System.EventHandler]{ & $openBrowser })
         [void]$menu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator))
-        # Ligne d'etat : un ToolStripMenuItem DESACTIVE, pas un ToolStripLabel. Le moteur
-        # de disposition pose un Label 8 px plus a droite qu'un item, d'ou un decalage
-        # visible. Meme type d'item = meme geometrie, sans correction a maintenir.
-        # Sa couleur attenuee est appliquee par le renderer (TextDisabled), le gris
-        # systeme etant illisible sur fond sombre.
+        # The state line: a DISABLED ToolStripMenuItem, not a ToolStripLabel. The layout engine places a Label 8 px
+        # further right than an item, hence a visible offset. The same kind of item means the same geometry, with
+        # no correction to maintain.
+        # Its dimmed colour is applied by the renderer (TextDisabled), the system grey being unreadable on a dark
+        # background.
         $miInfo = New-Object System.Windows.Forms.ToolStripMenuItem('État : démarrage…')
         $miInfo.Enabled = $false
         [void]$menu.Items.Add($miInfo)
         [void]$menu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator))
         [void]$menu.Items.Add('Relancer l''application', $null, [System.EventHandler]$relaunch)
         <#
-            TROIS ISSUES QUAND UNE OPERATION TOURNE.
+            THREE WAYS OUT WHEN AN OPERATION IS RUNNING.
 
-            Couper un deploiement en deux laisse une installation a moitie faite. On ne
-            decide pas a la place de la personne : on lui dit ce qui tourne, et on lui
-            laisse le choix -- ne rien faire, attendre la fin, ou forcer.
+            Cutting a deployment in two leaves an installation half done. We do not decide in the person's place:
+            we tell them what is running, and leave them the choice -- do nothing, wait for the end, or force it.
 
-            « Attendre » ne guette pas indefiniment : au bout de dix minutes on renonce et
-            on le dit. Une attente silencieuse et sans fin est un blocage deguise.
+            "Attendre" does not watch for ever: after ten minutes we give up and say so. A silent, endless wait is
+            a deadlock in disguise.
         #>
+
         $restartServer = {
             $r = & $askServerRestart $false $false
 
@@ -931,15 +936,14 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                                       (Get-Label 'client.relance-forcer') `
                                       (Get-Label 'client.relance-attendre') `
                                       (Get-Label 'client.relance-rien')
-                if ($choix -eq 0) { $r = & $askServerRestart $true $false }        # forcer
+                if ($choix -eq 0) { $r = & $askServerRestart $true $false }        # force it
                 elseif ($choix -eq 4) {
-                    # C'EST LE SERVEUR QUI ATTEND. Il sait ce qui tourne, et son relanceur
-                    # est detache : lui faire garder la question evite à l'app cliente une boucle
-                    # de sondage et un delai arbitraire.
+                    # IT IS THE SERVER THAT WAITS. It knows what is running, and its relauncher is detached: making
+                    # it hold the question saves the client app a polling loop and an arbitrary delay.
                     TLog "relance : le serveur attendra la fin de l'operation"
                     $r = & $askServerRestart $false $true
                 }
-                else { return }                                            # ne rien faire
+                else { return }                                            # do nothing
             }
 
             if ($r -eq 'ok') {
@@ -952,22 +956,22 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                 return
             }
 
-            # LE SERVEUR NE REPOND PAS : il n'y a plus personne pour se relancer. C'est le
-            # seul cas ou l'on parle d'elevation, et on le DIT avant de la demander.
+            # THE SERVER DOES NOT ANSWER: there is nobody left to restart itself. This is the only case where we
+            # speak of elevation, and we SAY SO before asking for it.
             $suite = & $askWindow (Get-Label 'client.relance-mort-titre') `
                                   (Get-Label 'client.relance-mort-texte') `
                                   (Get-Label 'client.relance-mort-ok') '' `
                                   (Get-Label 'client.relance-rien')
             if ($suite -ne 0) { return }
 
-            # LE SEUL ENDROIT OU L'APP CLIENTE TOUCHE AU SERVEUR, et ce n'est pas l'app cliente qui
-            # decide : quelqu'un a clique, lu que le serveur ne repond plus, et accorde
-            # l'elevation. Le processus vise est soit mort -- il n'y a rien a arreter --
-            # soit coince, et l'arreter est alors la seule guerison.
+            # THE ONLY PLACE WHERE THE CLIENT APP TOUCHES THE SERVER, and it is not the client app that decides:
+            # somebody clicked, read that the server no longer answers, and granted the elevation. The process
+            # aimed at is either dead -- there is nothing to stop -- or stuck, and stopping it is then the only
+            # cure.
             #
-            # Partout ailleurs, la regle est sans exception : l'app cliente ne ferme jamais le
-            # serveur. Le serveur le PRECEDE -- avec la tache de machine, il demarre avant
-            # qu'une session existe -- et il est commun a tous les comptes.
+            # Everywhere else the rule has no exception: the client app never closes the server. The server
+            # PRECEDES it -- with the machine task it starts before a session exists -- and it is shared by every
+            # account.
             $state.ElevationAsked = $false
             & $stopServer
             Start-Sleep -Milliseconds 600
@@ -976,42 +980,42 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
 
         [void]$menu.Items.Add('Redémarrer le serveur', $null, [System.EventHandler]{
             & $restartServer
-            # Retour visuel immediat : sans cela l'icone garde son etat jusqu'au prochain
-            # sondage (8 s) et l'utilisateur voit un rouge qui n'a pas lieu d'etre.
+            # Immediate visual feedback: without it the icon keeps its state until the next poll (8 s) and the user
+            # sees a red that has no reason to be there.
             & $setIcon 'warn'; $state.Drawn = 'warn'
             $icon.Text = (Get-Label 'client.infobulle-etat' $clientAccount 'Démarrage…'); $miInfo.Text = 'État : Démarrage…'
         })
-        # Les journaux du SERVEUR : c'est ce qu'on veut voir pour diagnostiquer.
+        # The SERVER's logs: that is what one wants to see in order to diagnose.
         [void]$menu.Items.Add('Ouvrir les journaux', $null, [System.EventHandler]{ Start-Process (Get-LogDir -Backend $backend) })
         <#
-            LES NOTIFICATIONS DE WINDOWS, DEPUIS ICI.
+            WINDOWS NOTIFICATIONS, FROM HERE.
 
-            Quand une notification s'emballe, le premier reflexe est de les couper dans
-            Windows -- c'est ce qu'il a fallu faire sur le compte Famille le 31/08. Les
-            rallumer demande ensuite de retrouver « Parametres > Systeme > Notifications »
-            dans la SESSION de ce compte : on cherche, et on n'y pense plus.
+            When a notification runs wild, the first reflex is to switch them off in Windows -- which is what had to
+            be done on the Famille account on 31/08. Switching them back on then means finding "Parametres >
+            Systeme > Notifications" again in THAT account's SESSION: one searches, and then forgets about it.
 
-            Le raccourci est donc la, a cote de l'etat qu'il conditionne. Il ouvre la page
-            de Windows, il ne change rien lui-meme : ce reglage appartient a la personne,
-            et Vigie n'a pas a decider si elle veut etre derangee.
+            So the shortcut is there, beside the state it governs. It opens Windows's own page, it changes nothing
+            itself: that setting belongs to the person, and Vigie has no business deciding whether they want to be
+            disturbed.
         #>
+
         [void]$menu.Items.Add((Get-Label 'client.menu-notifications-windows'), $null, [System.EventHandler]{
             try { Start-Process 'ms-settings:notifications' }
             catch { TLog ("ouverture des notifications Windows impossible : " + $_.Exception.Message) }
         })
         <#
-            « A PROPOS » MONTRE, IL NE PART PAS.
+            "A PROPOS" SHOWS, IT DOES NOT LEAVE.
 
-            Ce menu ouvrait directement le depot GitHub : on quittait Vigie pour un
-            navigateur sans avoir rien appris d'elle. Or c'est exactement la ou l'on va
-            chercher ce qu'on ne sait pas -- quelle version tourne, sous quel compte,
-            depuis quel dossier. Le lien du depot y a sa place, mais comme UNE des
-            informations, pas comme destination.
+            This menu used to open the GitHub repository directly: one left Vigie for a browser without having
+            learned anything about it. Yet that is exactly where one goes to look for what one does not know --
+            which version is running, under which account, from which folder. The repository link has its place
+            there, but as ONE of the pieces of information, not as the destination.
 
-            La fenetre repond aux questions qu'on se pose devant un incident : quelle
-            version, quel compte, quel emplacement, quel serveur. Le lien s'ouvre depuis
-            la fenetre, si on le veut.
+            The window answers the questions one asks in front of an incident: which version, which account, which
+            location, which server. The link opens from the window, if one wants it.
         #>
+
+
         $showAbout = {
             try {
                 $version = try { Get-AppVersion -Backend $backend } catch { 'inconnue' }
@@ -1041,11 +1045,11 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
         [void]$menu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator))
         [void]$menu.Items.Add('Quitter', $null, [System.EventHandler]{ & $quitApp 'menu' })
 
-        # Couleur et HAUTEUR DE LIGNE, en un seul endroit pour tous les items.
-        # Le padding vertical ne sert qu'a fixer la hauteur : la POSITION du texte est
-        # imposee par le renderer (OnRenderItemText), parce que le moteur de disposition
-        # des menus deroulants rend Padding inexploitable pour placer le contenu.
-        # Aucun padding horizontal ici : il ferait doublon avec TextPadX du renderer.
+        # The colour and the LINE HEIGHT, in one place for every item.
+        # The vertical padding serves only to fix the height: the POSITION of the text is imposed by the renderer
+        # (OnRenderItemText), because the layout engine of drop-down menus makes Padding useless for placing the
+        # content.
+        # No horizontal padding here: it would duplicate the renderer's TextPadX.
         $itemPad = New-Object System.Windows.Forms.Padding(0, [VigieMenuPalette]::TextPadY, 0, [VigieMenuPalette]::TextPadY)
         foreach ($it in $menu.Items) {
             if ($it -is [System.Windows.Forms.ToolStripMenuItem]) {
@@ -1054,32 +1058,32 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
             }
         }
         $icon.ContextMenuStrip = $menu
-        # Le double-clic est trace AVANT d'agir : si rien ne se passe, le journal dit
-        # si le clic a seulement atteint l'application. Sans cela, impossible de
-        # distinguer un gestionnaire jamais appele d'une ouverture qui echoue.
+        # The double click is traced BEFORE acting: if nothing happens, the log says whether the click even reached
+        # the application. Without that, there is no telling a handler that was never called from an opening that
+        # fails.
         $icon.add_MouseDoubleClick({ TLog "double-clic sur l'icone"; & $openApp })
 
         & $startServer
         TLog "serveur ok"
 
         <#
-            TOUTES LES BULLES PASSENT PAR ICI, ET ELLES ONT UN FREIN.
+            EVERY BALLOON GOES THROUGH HERE, AND THEY HAVE A BRAKE.
 
-            Sur le compte Famille, le 31/08 : une notification qui se rouvrait des qu'on
-            la fermait, sans fin, jusqu'a masquer les icones de la zone de notification.
-            Il a fallu couper Vigie pour ce compte et interdire les notifications de
-            PowerShell dans Windows.
+            On the Famille account, on 31/08: a notification that reopened as soon as it was closed, endlessly,
+            until it hid the icons of the notification area. Vigie had to be switched off for that account and
+            PowerShell's notifications forbidden in Windows.
 
-            La cause n'est pas la bulle, c'est ce qu'elle annonce : quand le serveur
-            alterne entre injoignable et demarre, les cartes basculent a chaque tour de
-            surveillance -- toutes les huit secondes -- et chaque bascule demandait sa
-            bulle. Une notification qui se repete n'informe plus, elle bloque.
+            The cause is not the balloon, it is what it announces: when the server alternates between unreachable
+            and starting, the cards flip at every round of surveillance -- every eight seconds -- and every flip
+            asked for its balloon. A notification that repeats itself no longer informs, it blocks.
 
-            Trois regles, ici et nulle part ailleurs :
-              - JAMAIS DEUX FOIS LE MEME MESSAGE dans le quart d'heure ;
-              - une minute au moins entre deux bulles, quel qu'en soit le sujet ;
-              - si l'affichage echoue, on n'insiste pas -- on le note et on passe.
+            Three rules, here and nowhere else:
+              - NEVER THE SAME MESSAGE TWICE within the quarter hour;
+              - at least a minute between two balloons, whatever their subject;
+              - if the display fails, we do not insist -- we note it and move on.
         #>
+
+
         $dire = {
             # -Launch: what a click on the notification must open (a vigie:// address). Without it, the notification
             # informs without offering anything -- which most of them still do.
@@ -1103,9 +1107,8 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                 $state.Bulles[$cle] = $maintenant
                 $state.DerniereBulle = $maintenant
             } catch {
-                # ON N'INSISTE PAS. Une bulle qu'on ne sait pas afficher se note et
-                # s'oublie : reessayer a chaque tour est exactement ce qui a bloque
-                # l'ecran de Famille.
+                # WE DO NOT INSIST. A balloon we do not know how to show is noted and forgotten: retrying at every
+                # round is exactly what blocked Famille's screen.
                 $state.Bulles[$cle] = $maintenant
                 $state.DerniereBulle = $maintenant
                 TLog ("bulle refusee par Windows : " + $_.Exception.Message)
@@ -1114,32 +1117,32 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
 
         $poll = {
             <#
-                UNE INSTALLATION EN COURS N'EST PAS UNE PANNE.
+                AN INSTALLATION UNDER WAY IS NOT A BREAKDOWN.
 
-                Pendant une mise a jour, le serveur s'arrete, les cartes tombent en erreur
-                puis reviennent : l'app cliente y voyait des CHANGEMENTS D'ETAT et sortait une
-                bulle Windows pour chacun, plus une « le serveur est mort », plus une
-                tentative de relance concurrente de l'installation. Or c'est le
-                deroulement NORMAL du geste que l'utilisateur vient de demander.
+                During an update the server stops, the cards fall into error then come back: the client app saw
+                STATE CHANGES there and put out a Windows balloon for each one, plus a "the server is dead", plus a
+                restart attempt competing with the installation. Yet that is the NORMAL course of the gesture the
+                user has just asked for.
 
-                Le verrou d'installation vit dans %ProgramData%, lisible par tous les
-                comptes : c'est le signal, et il n'y en a pas besoin d'un autre.
+                The installation lock lives in %ProgramData%, readable by every account: that is the signal, and no
+                other is needed.
             #>
+
             $installEnCours = $false
             try { $installEnCours = [bool](Get-InstallLockHolder) } catch { }
             <#
-                LE SILENCE DURE PLUS LONGTEMPS QUE LE VERROU.
+                THE SILENCE LASTS LONGER THAN THE LOCK.
 
-                Le verrou tombe des que l'installation a fini de poser les fichiers -- mais
-                le serveur, lui, redemarre APRES, par sa tache, et met une bonne minute a
-                repondre. Entre les deux, le port s'ouvre avant que les requetes
-                n'aboutissent : exactement la signature du « serveur bloque », qui sortait
-                donc sa bulle a la fin de chaque mise a jour (constate le 31/08).
+                The lock falls as soon as the installation has finished laying down the files -- but the server
+                restarts AFTERWARDS, through its task, and takes a good minute to answer. In between, the port
+                opens before the requests go through: exactly the signature of a "stuck server", which therefore
+                put out its balloon at the end of every update (observed on 31/08).
 
-                On garde donc le silence deux minutes apres la derniere fois qu'on a vu le
-                verrou. Ce n'est pas un delai d'attente : l'app cliente continue de surveiller et
-                d'afficher, il ne DERANGE pas.
+                So we keep silent for two minutes after the last time we saw the lock. This is not a timeout: the
+                client app goes on watching and displaying, it simply does not DISTURB.
             #>
+
+
             if ($installEnCours) { $state.QuietTicks = [datetime]::UtcNow.AddMinutes(2).Ticks }
             $silence = $installEnCours
             try { if ($state.QuietTicks -and [datetime]::UtcNow.Ticks -lt [long]$state.QuietTicks) { $silence = $true } } catch { }
@@ -1176,18 +1179,16 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                 $state.SaidDead = $false
                 $app = 'ok'; $lbl = 'En marche'
             } catch {
-                # Serveur COINCE : le port repond (TCP) mais plus aucune requete n'aboutit
-                # (constate le 24/08 : bug du listener Pode, tout finissait en 408). Dans ce
-                # cas, relancer est la seule guerison -- et personne d'autre que l'app cliente ne
-                # peut la faire, puisque le port ouvert masque la panne. Trois echecs
-                # consecutifs (~24 s) hors demarrage => on tue l'ecouteur et on repart.
+                # A STUCK server: the port answers (TCP) but no request goes through any more (observed on 24/08: a
+                # bug in the Pode listener, everything ended in 408). In that case restarting is the only cure --
+                # and nobody but the client app can do it, since the open port hides the breakdown. Three
+                # consecutive failures (~24 s) outside a start => we kill the listener and set off again.
                 if (-not $state.Starting -and (Test-ServerUp -Address $cfg.BindAddress -Port $cfg.Port)) {
                     $state.HealthKo = [int]$state.HealthKo + 1
-                    # SERVEUR COINCE : le port repond, les requetes non. L'app cliente le
-                    # CONSTATE et le dit -- il ne le tue plus. Tuer le serveur commun
-                    # depuis une app cliente, c'est le couper pour tous les comptes, et l'app cliente
-                    # arrive apres lui. La guerison appartient a la tache serveur, qui le
-                    # relance, ou a quelqu'un qui clique « Redemarrer le serveur ».
+                    # A STUCK SERVER: the port answers, the requests do not. The client app OBSERVES it and says so
+                    # -- it no longer kills it. Killing the shared server from a client app means cutting it off
+                    # for every account, and the client app comes after it. The cure belongs to the server task,
+                    # which restarts it, or to somebody clicking "Redemarrer le serveur".
                     if ($state.HealthKo -eq 3 -and -not $silence) {
                         TLog "serveur coince (port ouvert, health muet x3) : signale, pas tue"
                         try {
@@ -1199,11 +1200,10 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                 }
                 $elapsed = ([datetime]::UtcNow.Ticks - $state.StartTicks) / 1e7
                 if ($state.Starting) {
-                    # LE PROCESSUS EST-IL ENCORE LA ? C'est la seule preuve qui vaille :
-                    # tant qu'il vit, le demarrage se poursuit, quel que soit le temps
-                    # qu'il y met. On ne connait ce processus que si c'est NOUS qui
-                    # l'avons lance -- une app cliente qui adopte un serveur en place n'a rien a
-                    # observer, et retombe alors sur un delai, volontairement large.
+                    # IS THE PROCESS STILL THERE? That is the only proof worth having: as long as it lives the
+                    # start carries on, however long it takes. We know that process only if WE are the ones who
+                    # started it -- a client app that adopts a server already in place has nothing to watch, and
+                    # falls back on a delay, deliberately a wide one.
                     $known = $false
                     $alive = $false
                     try {
@@ -1213,8 +1213,8 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                     if ($known -and $alive -and $elapsed -le $startupGrace) {
                         $app = 'warn';  $lbl = 'Démarrage…'
                     } elseif ($known -and -not $alive) {
-                        # Il s'est arrete : inutile d'attendre la fin d'un delai pour le
-                        # dire. C'est meme PLUS RAPIDE que l'ancien comportement.
+                        # It has stopped: no need to wait for a delay to run out before saying so. That is even
+                        # FASTER than the old behaviour.
                         $app = 'error'; $lbl = 'Le serveur s''est arrêté au démarrage'
                     } elseif (-not $known -and $elapsed -le $startupBlind) {
                         $app = 'warn';  $lbl = 'Démarrage…'
@@ -1222,26 +1222,23 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                         $app = 'error'; $lbl = 'Échec de démarrage'
                     }
                 } elseif (-not (Test-IsElevated) -and $state.ElevationAsked) {
-                    # L'elevation a ete demandee et refusee -- ou pas encore accordee. Ni
-                    # panne ni attente : on le dit, et « Redemarrer le serveur » redemande.
+                    # The elevation was asked for and refused -- or not granted yet. Neither a breakdown nor a wait:
+                    # we say so, and "Redemarrer le serveur" asks again.
                     $app = 'warn'; $lbl = 'Serveur arrêté : relance à autoriser'
                 } elseif ($silence) {
-                    # Le serveur est coupe PARCE QU'ON LE MET A JOUR. Ni bulle, ni relance
-                    # -- l'installation le redemarrera elle-meme, et deux relances qui se
-                    # croisent, c'est exactement ce qu'on evite.
+                    # The server is off BECAUSE WE ARE UPDATING IT. No balloon, no restart -- the installation will
+                    # restart it itself, and two restarts crossing each other is exactly what we are avoiding.
                     $app = 'warn'; $lbl = 'Mise à jour en cours…'
                 } else {
                     $app = 'error'; $lbl = 'Arrêtée / injoignable'
-                    # Serveur MORT (port ferme) : l'app cliente le relance seul. C'est le
-                    # pendant du cas « coince » ci-dessus -- constate le 25/08 au matin :
-                    # serveur tue, app cliente vivante, et personne pour redemarrer. startServer
-                    # repose la fenetre de tolerance, ce qui espace naturellement les
-                    # tentatives si le demarrage echoue en boucle.
+                    # A DEAD server (a closed port): the client app restarts it on its own. This is the counterpart
+                    # of the "stuck" case above -- observed on 25/08 in the morning: the server killed, the client
+                    # app alive, and nobody to start it again. startServer lays the window of tolerance down again,
+                    # which naturally spaces the attempts out if the start fails in a loop.
                     if ($state.EverUp -and -not (Test-ServerUp -Address $cfg.BindAddress -Port $cfg.Port)) {
-                        # MORT : il n'y a plus personne pour se relancer. On previent par
-                        # une bulle -- elle disparait seule, sans rien reclamer -- et l'on
-                        # tente la relance. Si les droits manquent, l'icone reste orange et
-                        # « Redemarrer le serveur » reste la, a la demande.
+                        # DEAD: there is nobody left to restart itself. We warn through a balloon -- it disappears
+                        # on its own, demanding nothing -- and we attempt the restart. If the rights are missing,
+                        # the icon stays orange and "Redemarrer le serveur" stays there, on demand.
                         if (-not $state.SaidDead) {
                             $state.SaidDead = $true
                             TLog "serveur mort (port ferme)"
@@ -1258,39 +1255,38 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
             }
             $miInfo.Text = "État : $lbl"
             if ($app -ne $state.Drawn) { & $setIcon $app; $state.Drawn = $app; $icon.Text = (Get-Label 'client.infobulle-etat' $clientAccount $lbl); TLog "app=$app" }
-            # Battement de coeur : c'est lui qui permet a un script de savoir si l'app cliente
-            # est vivant, sans avoir a inspecter un processus eleve.
+            # The heartbeat: it is what lets a script know whether the client app is alive, without having to
+            # inspect an elevated process.
             try {
-                # UTF8 et non ASCII : l'etat contient des accents (« Démarrage… »), que
-                # l'ASCII remplace par des points d'interrogation.
+                # UTF8 and not ASCII: the state carries accents, which ASCII replaces with question marks.
                 Set-Content -LiteralPath $heartbeat -Encoding UTF8 -NoNewline `
                     -Value ("{0};{1};{2}" -f $PID, (Get-Date -Format 'o'), $lbl)
             } catch { }
 
-            # --- Notifications sur bascule d'un MODULE (D54) -------------------------
-            # L'icone reste le statut de l'APP ; ici on remonte les RESULTATS de sonde.
-            # Lecture directe du cache d'etat du backend (fichier) : aucun appel /state,
-            # donc aucun recalcul provoque -- on observe ce qui a DEJA ete calcule.
-            # On ne notifie QUE sur changement (jamais de rappel repete), et jamais au
-            # premier passage : au demarrage on prend l'etat comme reference, sinon
-            # chaque lancement arroserait l'utilisateur de tout ce qui est deja connu.
+            # --- Notifications when a MODULE flips (D54) -----------------------------
+            # The icon stays the state of the APP; here we report the probe RESULTS.
+            # We notify ONLY on a change (never a repeated reminder), and never on the first pass: at startup we
+            # take the state as the reference, otherwise every launch would shower the user with everything that is
+            # already known.
+
+
             try {
                 <#
-                    ON DEMANDE L'ETAT A L'APP SERVEUR, ON NE LIT PLUS SON FICHIER.
+                    WE ASK THE SERVER APP FOR THE STATE, WE NO LONGER READ ITS FILE.
 
-                    Ce bloc ouvrait state-cache.json « du backend » -- c'est-a-dire, depuis
-                    que le serveur tourne sous un compte de service, un fichier situe dans
-                    LE PROFIL DE CE COMPTE. L'app cliente regardait donc un fichier que
-                    personne n'ecrit chez elle : plus une seule notification depuis le
-                    28/08, sans que rien ne le dise.
+                    This block used to open "the server app's" state-cache.json -- that is, since the server runs
+                    under a service account, a file sitting IN THAT ACCOUNT'S PROFILE. So the client app was
+                    looking at a file nobody writes on its side: not one notification since 28/08, and nothing to
+                    say so.
 
-                    Elle passe par l'API, avec sa propre session : elle voit ce que le
-                    serveur voit, avec les droits de son compte, sans lire chez autrui. La
-                    reponse est SERVIE DEPUIS LE CACHE -- aucun recalcul n'est provoque.
+                    It goes through the API now, with its own session: it sees what the server sees, with its own
+                    account's rights, without reading in somebody else's home. The answer is SERVED FROM THE CACHE
+                    -- no recomputation is provoked.
 
-                    Une fois par minute suffit : l'icone, elle, continue de suivre la sante
-                    du serveur toutes les huit secondes.
+                    Once a minute is enough: the icon, for its part, goes on following the server's health every
+                    eight seconds.
                 #>
+
                 $mustRead = $false
                 if (-not $state.NotifTicks) { $mustRead = $true }
                 elseif (([datetime]::UtcNow.Ticks - [long]$state.NotifTicks) / 1e7 -ge 60) { $mustRead = $true }
@@ -1305,15 +1301,14 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                             $received = Invoke-RestMethod -Uri ($url.TrimEnd('/') + '/api/v1/state') `
                                             -WebSession $state.ApiSession -TimeoutSec 30
                         } catch {
-                            # Session perdue (serveur redemarre) : on en rouvrira une au
-                            # passage suivant plutot que d'insister maintenant.
+                            # The session is lost (the server restarted): we will open another at the next pass
+                            # rather than insisting now.
                             $state.ApiSession = $null
                         }
                     }
                     $j = $null
                     if ($received) {
-                        # Meme forme que le fichier de cache : une propriete par sonde,
-                        # portant son ou ses modules.
+                        # The same shape as the cache file: one property per probe, carrying its module or modules.
                         $j = [pscustomobject]@{}
                         foreach ($m in @($received.modules)) {
                             if ($m -and $m.id) {
@@ -1324,10 +1319,9 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                     }
                 }
                 if ($j) {
-                    # On observe l'etat des CHAMPS, pas seulement des cartes : une
-                    # notification est un evenement NOMME (« Temperature GPU elevee »),
-                    # declare par le module. « Session de jeu » ne disait rien a personne
-                    # -- signale par l'utilisateur le 26/08.
+                    # We watch the state of the FIELDS, not only of the cards: a notification is a NAMED event,
+                    # declared by the module. A card title said nothing to anybody -- reported by the owner on
+                    # 26/08.
                     $vus = @{}
                     foreach ($pr in $j.PSObject.Properties) {
                         foreach ($m in @($pr.Value.module)) {
@@ -1409,16 +1403,15 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                     if (-not $state.ModsInit) {
                         $state.Mods = $vus; $state.ModsInit = $true
                     } elseif ($silence) {
-                        # PENDANT UNE INSTALLATION, un changement d'etat n'est pas un
-                        # evenement : c'est le geste en train de se faire. On met la
-                        # reference a jour en silence, pour ne pas annoncer a la fin tout
-                        # ce qui a bouge pendant.
+                        # DURING AN INSTALLATION a change of state is not an event: it is the gesture in the course
+                        # of being made. We update the reference silently, so as not to announce at the end
+                        # everything that moved in the meantime.
                         $state.Mods = $vus
                     } else {
                         $reglages = $null
                         $bascules = @()
-                        # Le catalogue dit QUOI notifier et sous quel nom. Il est relu a
-                        # chaque passage : un module rallume doit etre pris en compte.
+                        # The catalogue says WHAT to notify and under what name. It is read again at every pass: a
+                        # module switched back on must be taken into account.
                         $catalogue = @()
                         try { $catalogue = @(Get-NotificationCatalog -Backend $backend) } catch { }
                         foreach ($u in $catalogue) {
@@ -1429,14 +1422,14 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                                 $apres = $vus[$ref]
                                 if (-not $avant -or -not $apres) { continue }
                                 if ($avant.status -eq $apres.status) { continue }
-                                # On ne derange que pour une DEGRADATION ou un RETABLISSEMENT.
+                                # We disturb only for a DEGRADATION or a RECOVERY.
                                 $interessant = ($apres.status -in @('warn','error')) -or
                                                ($apres.status -eq 'ok' -and $avant.status -in @('warn','error'))
                                 if (-not $interessant) { continue }
                                 if ($null -eq $reglages) { $reglages = Get-NotificationSettings -Backend $backend }
                                 if (-not (Test-NotificationAllowed -ModuleId $u.unit -Key $nn.key -Settings $reglages)) { continue }
-                                # Prevenu SANS pouvoir agir : on le dit, au lieu de laisser
-                                # l'utilisateur devant un probleme qui lui echappe.
+                                # Warned WITHOUT being able to act: we say so, instead of leaving the user in front
+                                # of a problem that is beyond them.
                                 <#
                                     THE SAME FIELD DOES NOT SPEAK TWICE WITHIN TEN MINUTES.
 
@@ -1527,9 +1520,9 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
         $timer = New-Object System.Windows.Forms.Timer; $timer.Interval = 8000; $timer.add_Tick($poll); $timer.Start()
         $first = New-Object System.Windows.Forms.Timer; $first.Interval = 2000; $first.add_Tick({ $first.Stop(); & $poll }); $first.Start()
 
-        # Lecture des ordres. Un simple sondage d'un dossier quasi vide : negligeable, et
-        # bien plus simple a maintenir qu'un FileSystemWatcher, dont les evenements
-        # arrivent sur un autre fil et devraient etre remis sur le fil d'interface.
+        # Reading the orders. A plain poll of an almost empty folder: negligible, and far simpler to maintain than
+        # a FileSystemWatcher, whose events arrive on another thread and would have to be put back on the interface
+        # thread.
         $commandes = {
             try {
                 $stop = Join-Path $runDir 'stop'
@@ -1552,11 +1545,11 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                 $restart = Join-Path $runDir 'restart'
                 if (Test-Path -LiteralPath $restart) {
                     Remove-Item -LiteralPath $restart -Force -ErrorAction SilentlyContinue
-                    # ACCUSE DE RECEPTION, avant de partir. L'emetteur ne pouvait juger
-                    # que sur le retour d'une NOUVELLE app cliente (une dizaine de secondes) :
-                    # « ordre non pris en compte » melangeait donc « rien n'a lu l'ordre »
-                    # et « la relance est plus lente que prevu ». Ce n'est pas le meme
-                    # depannage.
+                    # AN ACKNOWLEDGEMENT, before leaving. The sender could only judge on the return of a NEW client
+                    # app (ten seconds or so): "order not taken into account" therefore mixed up "nothing read the
+                    # order" and "the restart is slower than expected". That is not the same troubleshooting.
+
+
                     try { Set-Content -LiteralPath (Join-Path $runDir 'restart.ack') -Value "$PID" -Encoding ASCII -NoNewline } catch { }
                     TLog "arret demande (ordre restart)"
                     & $relaunch
@@ -1564,18 +1557,18 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                 }
 
                 <#
-                    LES ACTIONS QUI ONT BESOIN D'UN ECRAN.
+                    THE ACTIONS THAT NEED A SCREEN.
 
-                    Le serveur n'en a pas -- et le jour ou il devient la tache de machine,
-                    il tournera en session 0, ou « Start-Process explorer.exe » reussit
-                    sans que personne ne voie jamais la fenetre. Il depose donc l'ordre
-                    ici, et c'est l'app cliente qui l'execute : dans SA session, avec SES droits,
-                    sur le bureau de celui qui a demande.
+                    The server has none -- and the day it becomes the machine task, it will run in session 0, where
+                    "Start-Process explorer.exe" succeeds without anybody ever seeing the window. So it drops the
+                    order here, and it is the client app that runs it: in ITS OWN session, with ITS OWN rights, on
+                    the desktop of whoever asked.
 
-                    On rend compte dans un fichier « .done.json » que le serveur attend.
-                    MEME EN CAS D'ECHEC : sans compte rendu, il patiente jusqu'a expiration
-                    puis conclut a tort que l'app cliente est absent.
+                    We report back in a ".done.json" file the server is waiting for. EVEN ON FAILURE: without a
+                    report it waits until the expiry then wrongly concludes the client app is absent.
                 #>
+
+
                 foreach ($order in @(Get-ChildItem -LiteralPath $runDir -Filter 'client-task-*.json' -File -ErrorAction SilentlyContinue |
                                      Where-Object { $_.Name -notlike '*.done.json' })) {
                     $response = Join-Path $runDir ($order.BaseName + '.done.json')
@@ -1584,9 +1577,8 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                         $charge = Get-Content -LiteralPath $order.FullName -Raw -Encoding UTF8 | ConvertFrom-Json
                         Remove-Item -LiteralPath $order.FullName -Force -ErrorAction SilentlyContinue
                         $type = "$($charge.type)"
-                        # Le meme controle que cote serveur : un identifiant simple, et
-                        # rien qui ressemble a un chemin. Un dossier d'ordres est une
-                        # surface d'attaque, meme dans son propre profil.
+                        # The same check as on the server side: a simple identifier, and nothing resembling a path.
+                        # A folder of orders is an attack surface, even inside one's own profile.
                         if ($type -notmatch '^[a-z][a-z0-9-]{1,40}$') { throw "type d'action invalide" }
                         $script = Join-Path (Join-Path $backend 'actions') ($type + '.action.ps1')
                         if (-not (Test-Path -LiteralPath $script)) { throw "action inconnue : $type" }
@@ -1608,8 +1600,8 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
         $cmdTimer = New-Object System.Windows.Forms.Timer
         $cmdTimer.Interval = 1000; $cmdTimer.add_Tick($commandes); $cmdTimer.Start()
 
-        # S5 : on s'abonne, puis on regarde le drapeau a chaque seconde. Un echec ici ne
-        # casse rien -- la sonde reseau se perime de toute facon d'elle-meme.
+        # S5: we subscribe, then look at the flag every second. A failure here breaks nothing -- the network probe
+        # expires on its own anyway.
         try {
             [VigieNative.Net]::Watch()
             $netTimer = New-Object System.Windows.Forms.Timer

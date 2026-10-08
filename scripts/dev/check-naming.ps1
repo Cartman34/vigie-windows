@@ -43,7 +43,7 @@ $ErrorActionPreference = 'Stop'
     not rewrite it at once -- thousands of touched lines for no gain, and a drowned git
     blame. The ratchet forbids adding any; every conversion lowers the ceiling as much.
 #>
-$COMMENT_CEILING = 3517
+$COMMENT_CEILING = 3138
 
 # 08/10, the second half of common.ps1: 1044 -> 310 French comment lines in the library, and the repository from
 # 4539 to 3805. Then its tail -- the environment, the traceability, the requester, the Atelier, the elevation and
@@ -52,6 +52,13 @@ $COMMENT_CEILING = 3517
 # WHAT IS LEFT IN common.ps1 IS NOT FRENCH PROSE: those 22 lines QUOTE French displayed text -- a label, a log
 # message, a page title, a `@droits:` header keyword -- inside an English sentence. The lexicon cannot tell the
 # difference, and rewriting the quotation would make the comment lie about what the screen says. They stay.
+#
+# 08/10, apps/client/client.ps1: 390 -> 11 French comment lines, and the repository from 3517 to 3138. The eleven
+# left quote a label of the client app's own menu, for the same reason as above.
+#
+# STILL FRENCH THERE, AND NOT COUNTED: the C# of the menu renderer, carried in a here-string, comments itself with
+# `//`. Those lines are inside a STRING, so the lexicon does not see them -- and translating them changes the code,
+# not a comment, so it cannot be proven by stripping comments. They are a job of their own.
 #
 # THE METHOD, so the next campaign does not reinvent it. The tools live in the session's scratchpad and are rebuilt
 # in a few lines if lost: blocs.py lists the contiguous French comment blocks of a file with their ranges;
