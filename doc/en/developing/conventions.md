@@ -69,6 +69,34 @@ declaration creates the debt.
 - Documents that exist only in English (`en/developing/`, `agent-working/`) or only in French (`progress/`) fall outside
   this rule: without a twin, no master.
 
+## Every file says its INTENT and its USAGE
+
+Two fields, named with those words, at the top of the file. They answer two different questions, and neither
+answers the other's:
+
+- **Intent** -- what the file is for, why it exists at all. Not what it contains: why one would have written it.
+- **Usage** -- how to use it well. When to open it, what to do with it, what it is not for.
+
+**They do not change over time.** That is the test of a good one: general enough to carry the file's idea, so that
+adding a function or renaming a variable never touches them. A line that has to be rewritten at every change was
+describing the content, not the intent.
+
+**The form follows the language, the words do not.** In Markdown, two lines near the top:
+
+```markdown
+**Intent:** what each layer and each kind of `src/` may do, may call, and never does.
+**Usage:** read when writing a class, to know its contract; read by the reviewer to judge what a class calls.
+```
+
+In PowerShell, Python, PHP, the same two fields inside the file's own header block, under the author line. The
+older Sowapps applications write `Utility` where this says `Intent`, and some carry `Intent` in a PHP `#[Design]`
+attribute with no `Usage` at all; **`Intent` and `Usage` are the words here**, and a file with only one of them is
+half documented.
+
+**It applies AS FILES ARE TOUCHED, not in one campaign.** *08/10: "ça ne veut pas dire que tu dois l'appliquer
+partout maintenant, c'est juste que t'aligner avec ça sur le terme, ça serait bien, mais plus à la modif quand tu
+touches au fichier."* A file one opens to change leaves with its two fields; the rest wait their turn.
+
 ## Tree and naming
 - Sources: see `../README.md`.
 - Probe: `apps/backend-pode/probes/<theme>/<name>.probe.ps1`.

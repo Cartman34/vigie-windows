@@ -99,3 +99,19 @@ ligne d'auteur. Un fichier Python argumenté n'est plus de la dette ; un fichier
 quatre fichiers sur cinq n'avaient aucun auteur. Il la connaît, et pose la ligne **après `<?php`** — posée avant,
 elle sortirait telle quelle dans la réponse HTTP.
 
+## 08/10/2026 — chaque fichier porte son intention et son usage
+
+**Ses mots** : « Chaque fichier doit avoir son intention (son utilité, pourquoi) et son usage, comment bien s'en
+servir. Ça vaut pour la doc et le code. » Puis, sur l'étendue : « ça ne veut pas dire que tu dois l'appliquer
+partout maintenant, c'est juste que t'aligner avec ça sur le terme, ça serait bien, mais plus à la modif quand tu
+touches au fichier. »
+
+**Les termes retenus** : **Intent** et **Usage**. Ses exemples d'autres applications Sowapps écrivent parfois
+`Utility` à la place d'`Intent`, et les attributs PHP `#[Design(... intent: ...)]` n'ont souvent pas d'`Usage` —
+il l'a signalé lui-même comme un manque.
+
+**Ce qui ne doit pas bouger** : l'intention et l'usage sont assez généraux pour ne jamais être réécrits quand le
+contenu change. S'il faut les retoucher à chaque modification, c'est qu'ils décrivaient le contenu.
+
+**Où c'est écrit** : `doc/en/developing/conventions.md`, section « Every file says its INTENT and its USAGE ».
+

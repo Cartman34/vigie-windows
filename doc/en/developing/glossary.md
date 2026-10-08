@@ -83,3 +83,5 @@ resident lasts.*
 | **shared installation** (*installation partagée*) | `C:\Program Files\Sowapps\Vigie`: what every account runs. |
 | **service clone** (*clone du service*) | the copy of the repository the server app synchronises to build a version. The service **never** writes in a person's repository. |
 | **installation lock** (*verrou d'installation*) | the `%ProgramData%` file saying an installation is writing right now. It is released at the last change, not at the last click. |
+| **intent** (*intention*) | What a file is for, why it exists at all -- not what it contains. One of the two fields every file carries at its top, with **usage**. It is written to outlive the file's contents: if a change forces it to be rewritten, it was describing the content. Form per language: `conventions.md`. |
+| **usage** (*usage*) | How to use a file well: when to open it, what to do with it, what it is not for. The second of the two fields every file carries, beside **intent**. Older Sowapps applications often declare an intent and no usage; here a file with only one of the two is half documented. |
