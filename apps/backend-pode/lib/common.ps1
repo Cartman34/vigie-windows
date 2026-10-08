@@ -1202,15 +1202,15 @@ function Get-PkgUpdates {
             }
         }
     } catch { }
-    # La liste choisissable n'est PAS tronquee : on ne peut pas cocher ce qu'on ne voit pas.
-    # Seul l'affichage condense de la carte l'est.
+    # The selectable list is NOT truncated: one cannot tick what one cannot see. Only the
+    # card's condensed display is.
     if ($items.Count -gt 25) { $items = @($items[0..24] + "... (+$($items.Count - 25))") }
     return @{ count = $count; items = @($items); pkgs = @($pkgs); supported = $true; selectable = $selectable }
 }
 
-# Le PROXY DNS LOCAL, s'il existe : le service Windows dont le processus ecoute sur le
-# port 53. Detection par COMPORTEMENT et non par nom -- Acrylic aujourd'hui, n'importe
-# quel autre demain, et null s'il n'y en a pas.
+# The LOCAL DNS PROXY, if there is one: the Windows service whose process listens on port
+# 53. Detected by BEHAVIOUR rather than by name -- Acrylic today, anything else tomorrow,
+# and null when there is none.
 function Get-LocalDnsProxyService {
     try {
         $owner = Get-UdpEndpointOwner -Port 53
@@ -1221,9 +1221,9 @@ function Get-LocalDnsProxyService {
     return $null
 }
 
-# Traduit EN CLAIR un message d'echec de gestionnaire de paquets : ce que ca veut dire,
-# et quoi faire. Le message brut de l'outil est du jargon (constate : « technologie
-# d'installation differente » n'evoque rien) ; la carte doit porter l'explication.
+# Puts a package manager's failure message IN PLAIN WORDS: what it means, and what to do.
+# The tool's raw message is jargon -- "a different installation technology" evokes nothing --
+# and the card must carry the explanation.
 function Get-PkgFailureAdvice {
     param([string]$Reason)
     if (-not $Reason) { return $null }
@@ -1234,11 +1234,11 @@ function Get-PkgFailureAdvice {
                 "Que faire : réinstaller l'application depuis son installateur officiel — l'installation est " +
                 "remplacée proprement, les données et profils sont conservés.")
     }
-    # « Deja fait » n'est PAS un echec : winget refuse parce que la version installee est
-    # deja au moins aussi recente. Vu avec Edge, qui s'etait mis a jour tout seul par son
-    # propre canal entre la verification et le clic -- Vigie proposait donc une mise a jour
-    # accomplie, puis l'affichait en ECHEC. Reconnaitre ce motif permet de retirer la ligne
-    # au lieu de l'accuser.
+    # "Already done" is NOT a failure: winget refuses because the installed version is
+    # already at least as recent. Seen with Edge, which had updated itself through its own
+    # channel between the check and the click -- so Vigie offered an update already carried
+    # out, then displayed it as a FAILURE. Recognising that pattern lets the line be removed
+    # instead of blamed.
     if ($Reason -match 'Aucune version de package plus|No newer package versions are available|No applicable (update|upgrade) found|No available upgrade found') {
         return "En clair : c'est déjà fait — la version installée est au moins aussi récente que celle proposée. La liste datait d'avant. Rien à faire."
     }
@@ -1251,21 +1251,21 @@ function Get-PkgFailureAdvice {
     return $null
 }
 
-# L'echec dit-il simplement que LE TRAVAIL EST DEJA FAIT ? Alors la ligne n'a plus rien
-# a faire dans une liste de mises a jour a proposer.
+# Does the failure merely say THE WORK IS ALREADY DONE? Then the line has no business in a
+# list of updates to offer.
 function Test-PkgFailureIsDone {
     param([string]$Reason)
     if (-not $Reason) { return $false }
     return [bool]($Reason -match 'Aucune version de package plus|No newer package versions are available|No applicable (update|upgrade) found|No available upgrade found')
 }
 
-# Met a jour les paquets d'UN gestionnaire (appel lent, systeme). Herite de l'elevation
-# du serveur. Traite sortie + code de retour. Renvoie @{ ok; supported; exit; output }.
+# Updates the packages of ONE manager (a slow, system-wide call). It inherits the server's
+# elevation. Handles output and exit code. Returns @{ ok; supported; exit; output }.
 #
-# -Pkgs vide  -> comportement historique : TOUT le gestionnaire, en une commande.
-# -Pkgs rempli -> une commande PAR paquet (upgOne), donc uniquement ceux-la. Si le
-#   gestionnaire ne sait pas cibler un paquet, la selection est ignoree et on retombe sur
-#   la mise a jour globale : c'est ce que la fenetre de choix a annonce a l'utilisateur.
+# -Pkgs empty  -> the historical behaviour: the WHOLE manager, in one command.
+# -Pkgs filled -> one command PER package (upgOne), so those only. When the manager cannot
+#   target a package, the selection is ignored and the global update happens instead: which
+#   is what the choice window told the user.
 function Invoke-PkgUpgrade {
     param(
         [Parameter(Mandatory)][string]$Id,
@@ -1288,10 +1288,10 @@ function Invoke-PkgUpgrade {
     $cmd = Get-Command $Id -ErrorAction SilentlyContinue
     if (-not $cmd -or -not $cmd.Source) { return @{ ok = $false; supported = $false; output = '' } }
 
-    # 3010 = ERROR_SUCCESS_REBOOT_REQUIRED : l'installation a REUSSI, elle demande un
-    # redemarrage. Le traiter comme un echec (« ok=False ») etait faux et affichait une
-    # erreur sur une operation qui avait fonctionne -- constate sur Chocolatey.
-    # 1641 = redemarrage DEJA declenche, meme famille.
+    # 3010 = ERROR_SUCCESS_REBOOT_REQUIRED: the installation SUCCEEDED and asks for a
+    # restart. Treating it as a failure ("ok=False") was wrong and showed an error on an
+    # operation that had worked -- seen with Chocolatey.
+    # 1641 = restart ALREADY triggered, the same family.
     if (-not $unParUn) {
         $r = Invoke-Native -File $cmd.Source -Arguments $mg.upgArgs
         $rebootRequired = ($r.ExitCode -eq 3010 -or $r.ExitCode -eq 1641)
@@ -1301,21 +1301,21 @@ function Invoke-PkgUpgrade {
 
     $outputs = @(); $failures = @(); $raisons = @{}; $rebootRequired = $false; $dernier = 0
     foreach ($p in $liste) {
-        # .Replace et non -replace : un identifiant de paquet ('Microsoft.VC++', 'a.b')
-        # contient des caracteres que le moteur d'expressions regulieres interpreterait.
+        # .Replace rather than -replace: a package identifier ('Microsoft.VC++', 'a.b')
+        # contains characters the regular-expression engine would interpret.
         $argv = @($mg.upgOne | ForEach-Object { "$_".Replace('{pkg}', $p) })
         $r = Invoke-Native -File $cmd.Source -Arguments $argv
         $rb = ($r.ExitCode -eq 3010 -or $r.ExitCode -eq 1641)
         if ($rb) { $rebootRequired = $true }
         if (-not ($r.Ok -or $rb)) {
-            # La RAISON de l'echec : la derniere ligne parlante de la sortie winget --
-            # c'est elle qui dit quoi faire (« technologie d'installation differente... »).
+            # The REASON for the failure: the last meaningful line of winget's output --
+            # it is the one that says what to do ("a different installation technology...").
             $usefulLine = @(("$($r.Output)" -split "`r?`n") | Where-Object { $_ -match '\S' } | Select-Object -Last 1)
             $motif = if ($usefulLine) { "$usefulLine".Trim() } else { '' }
-            # « Rien de plus recent a installer » n'est pas un echec : le paquet est deja
-            # a jour (il s'est mis a jour par son propre canal depuis la verification).
-            # Le compter comme rate faisait rougir toute l'operation et affichait une
-            # erreur sur un travail qui n'avait rien a faire -- constate avec Edge.
+            # "Nothing newer to install" is not a failure: the package is already up to date,
+            # having updated itself through its own channel since the check. Counting it as a
+            # failure turned the whole operation red and showed an error on work that had
+            # nothing to do -- seen with Edge.
             if (Test-PkgFailureIsDone -Reason $motif) {
                 $outputs += ("=== $p (code $($r.ExitCode)) === deja a jour, ignore")
                 continue
@@ -1331,9 +1331,9 @@ function Invoke-PkgUpgrade {
               count = $liste.Count; failed = @($failures); reasons = $raisons }
 }
 
-# Lanceur GENERIQUE (non bloquant) d'une operation paquet : 'check' ou 'upgrade'.
-# Marque la carte "en cours" (avec l'operation), lance le worker detache, rend la
-# main immediatement. Code unique partage par les deux actions (pas de duplication).
+# The GENERIC, non-blocking launcher of a package operation: 'check' or 'upgrade'.
+# It marks the card as busy, naming the operation, starts the detached worker and hands back
+# at once. One piece of code shared by both actions, so nothing is duplicated.
 function Start-PkgJob {
     param(
         [Parameter(Mandatory)][string]$Mgr,
@@ -1417,37 +1417,36 @@ function Start-PkgJob {
 }
 
 
-# config.psd1 (versionne) porte LA definition de chaque valeur.
-# config.local.psd1 (ignore par git, optionnel) surcharge les SEULES valeurs qui ne
-# peuvent pas etre generiques : chemins propres a une machine. Voir config.local.sample.psd1.
+# config.psd1, which is versioned, carries THE definition of every value.
+# config.local.psd1, ignored by git and optional, overrides ONLY the values that cannot be
+# generic: paths belonging to one machine. See config.local.sample.psd1.
 <#
-    LE REGLAGE DE LA MACHINE SE RANGE SUR LA MACHINE.
+    WHAT DESCRIBES THE MACHINE IS STORED ON THE MACHINE.
 
-    config.local.psd1 s'annonce comme « les reglages propres A CETTE MACHINE »... et vit
-    DANS CHAQUE COPIE. Sur un poste de developpement, le depot en avait un (« dev ») et
-    l'installation partagee n'en avait pas -- donc « prod ». Une seule machine, deux
-    reponses contradictoires a la question « est-ce un poste de developpement ? », et
-    l'installation qui repondait NON sur la machine ou tout est developpe.
+    config.local.psd1 announces itself as "the settings belonging to THIS MACHINE"... and
+    lives IN EVERY COPY. On a development workstation the repository had one, saying "dev",
+    and the shared installation had none, so it said "prod". One machine, two contradictory
+    answers to "is this a development workstation?", and the installation answering NO on the
+    very machine where everything is developed.
 
-    Ce qui decrit la MACHINE vit desormais a un seul endroit, hors de toute copie :
-    %ProgramData%\Sowapps\Vigie\machine.psd1. Toutes les copies le lisent, aucune ne le
-    possede, et un deploiement ne peut plus l'effacer.
+    What describes the MACHINE now lives in one place, outside every copy:
+    %ProgramData%\Sowapps\Vigie\machine.psd1. All the copies read it, none of them owns it,
+    and a deployment can no longer erase it.
 
-    config.local.psd1 garde son role -- ce qui est propre a CETTE COPIE (un port d'essai,
-    un chemin d'outillage) -- et reste la couche la plus specifique.
+    config.local.psd1 keeps its role -- what belongs to THIS COPY, a test port or a path to a
+    toolkit -- and remains the most specific layer.
 #>
-# LE NOM DE LA TACHE SERVEUR, une seule fois. Il vivait dans install-service.ps1, que le
-# serveur ne charge pas : la relance ne pouvait donc pas savoir a qui appartient le
-# processus qu'elle arrete.
+# THE SERVER TASK'S NAME, once and only once. It lived in install-service.ps1, which the
+# server does not load: the restart therefore could not know who owns the process it stops.
 function Get-ServiceTaskName { return 'Vigie - Serveur' }
 
 function Get-ComputerDataRoot {
     <#
-        LE DOSSIER DE CET ORDINATEUR : %ProgramData%\Sowapps\Vigie.
+        THIS COMPUTER'S FOLDER: %ProgramData%\Sowapps\Vigie.
 
-        Il ne depend d'AUCUNE installation. C'est ce qui compte : ce qui doit survivre au
-        remplacement -- voire a la disparition -- du dossier installe se range ici, jamais
-        sous l'installation elle-meme.
+        It depends on NO installation, and that is what matters: whatever must survive the
+        replacement -- or the disappearance -- of the installed folder is stored here, never
+        under the installation itself.
     #>
     $base = $env:ProgramData
     if (-not $base) { $base = Join-Path $env:SystemDrive 'ProgramData' }
@@ -1456,17 +1455,17 @@ function Get-ComputerDataRoot {
 
 function Get-ComputerConfigPath {
     <#
-        NE PAS CONFONDRE avec Get-MachineConfigPath, qui existe deja plus bas et designe
-        les reglages LIVRES dans le depot (config/<fichier>). J'avais repris son nom : ma
-        definition etait ecrasee en silence par la sienne, et l'appel echouait sur un
-        parametre obligatoire qui n'etait pas le mien. Deux notions, deux noms.
+        NOT TO BE CONFUSED with Get-MachineConfigPath, which already exists further down and
+        names the settings DELIVERED in the repository (config/<file>). I had reused its
+        name: my definition was silently overwritten by its own, and the call failed on a
+        mandatory parameter that was not mine. Two notions, two names.
     #>
     return (Join-Path (Get-ComputerDataRoot) 'machine.psd1')
 }
 
 function Get-Config {
     param([string]$Backend = (Get-BackendRoot))
-    # Fusion en QUATRE couches (D33), de la plus generale a la plus specifique :
+    # Merged in FOUR layers (D33), from the most general to the most specific:
     #   config/common.psd1  ->  apps/<app>/config/config.psd1  ->  machine.psd1  ->  config.local.psd1
     $cfg = @{}
     $commonPath = Join-Path (Get-RepoRoot) 'config/common.psd1'
@@ -1476,7 +1475,7 @@ function Get-Config {
     }
     $appCfg = Import-PowerShellDataFile -Path (Join-Path $Backend 'config/config.psd1')
     foreach ($k in $appCfg.Keys) { $cfg[$k] = $appCfg[$k] }
-    # LA MACHINE, avant la copie : ce qu'elle declare vaut pour toutes ses installations.
+    # THE MACHINE, before the copy: what it declares holds for all its installations.
     $computerPath = Get-ComputerConfigPath
     if (Test-Path -LiteralPath $computerPath) {
         try {
@@ -1494,11 +1493,11 @@ function Get-Config {
 }
 
 <#
-    DECLARER CE QU'EST CETTE MACHINE.
+    DECLARING WHAT THIS MACHINE IS.
 
-    Ecrit par l'installation et par le deploiement, quand ils partent d'un DEPOT : c'est
-    un fait constate au moment ou l'on agit, pas un reglage a saisir. On n'ecrase que les
-    cles qu'on apporte -- le reste du fichier appartient a qui l'a ecrit.
+    Written by the installation and by the deployment, when they start from a REPOSITORY: it
+    is a fact observed at the moment of acting, not a setting to type in. Only the keys being
+    brought are overwritten -- the rest of the file belongs to whoever wrote it.
 #>
 function Set-ComputerConfigValue {
     param([Parameter(Mandatory)][hashtable]$Values)
@@ -1530,8 +1529,8 @@ function Set-ComputerConfigValue {
     return $path
 }
 
-# --- Valeurs derivees de la config : definies ICI et nulle part ailleurs ------
-# L'adresse et le port n'existent qu'une fois (config.psd1) ; toute URL en derive.
+# --- Values derived from the config: defined HERE and nowhere else -----------
+# The address and the port exist once (config.psd1); every URL derives from them.
 function Get-AppUrl {
     param([string]$Backend = (Get-BackendRoot), [hashtable]$Config)
     if (-not $Config) { $Config = Get-Config -Backend $Backend }
@@ -1543,9 +1542,9 @@ function Get-ApiUrl {
     'http://{0}:{1}{2}' -f $Config.BindAddress, $Config.Port, $Config.ApiBase
 }
 
-# --- Outillage externe optionnel (scripts d'administration hors depot) -------
-# ToolsPath vide ou introuvable => $null, et les actions concernees rendent un
-# message clair au lieu d'echouer obscurement.
+# --- Optional external toolkit (administration scripts outside the repository) -------
+# An empty or missing ToolsPath gives $null, and the actions concerned return a clear
+# message instead of failing obscurely.
 function Get-ToolsPath {
     param([string]$Backend = (Get-BackendRoot), [hashtable]$Config)
     if (-not $Config) { $Config = Get-Config -Backend $Backend }
@@ -1560,12 +1559,12 @@ function Get-AdminRoot {
     if (-not $tools) { return $null }
     Split-Path $tools -Parent
 }
-# Reponse commune quand l'outillage externe n'est pas configure (une seule redaction).
-# Reponse commune des actions qui dependent ENCORE d'un chemin d'outillage configure.
-# Depuis que le verrouillage Windows Update et les bascules VBS / HVCI sont natifs, la
-# seule concernee est « ouvrir le dossier » -- et sa sonde ne propose meme plus le bouton
-# quand le chemin manque. Ce garde-fou couvre le cas ou le dossier disparait entre
-# l'affichage de la carte et le clic.
+# The common answer when the external toolkit is not configured (written once).
+# The common answer of the actions that STILL depend on a configured toolkit path.
+# Since the Windows Update locking and the VBS / HVCI switches became native, the only one
+# left is "open the folder" -- and its probe no longer even offers the button when the path
+# is missing. This guard covers the case where the folder disappears between the card being
+# displayed and the click.
 function New-ToolsMissingResult {
     @{
         message = "Aucun dossier d'outillage n'est configuré. Renseignez ToolsPath dans apps/backend-pode/config/config.local.psd1 (modèle : config.local.sample.psd1)."
@@ -1575,12 +1574,12 @@ function New-ToolsMissingResult {
 
 function Get-ApiToken {
     <#
-        LE JETON DU SERVEUR VIT CHEZ LE SERVEUR.
+        THE SERVER'S TOKEN LIVES AT THE SERVER'S.
 
-        Sans « -VarRoot », cette fonction rend le jeton de CELUI QUI EXECUTE : lancee par
-        l'installation, sous le compte de la personne, elle rendait le jeton de fhaza et
-        le serveur repondait 401. Les deux cartes que l'installation redemandait n'ont
-        donc jamais ete recalculees (constate le 01/09).
+        Without "-VarRoot", this function returns the token of WHOEVER RUNS IT: launched by
+        the installation, under the person's account, it returned fhaza's token and the
+        server answered 401. The two cards the installation asked to recompute therefore
+        never were (seen on 01/09).
     #>
     param([string]$Backend = (Get-BackendRoot), [string]$VarRoot)
     $dir  = Get-VarPath -Backend $Backend -VarRoot $VarRoot -Kind 'secrets'
@@ -1603,63 +1602,62 @@ function Get-ApiToken {
     (Get-Content -Path $file -Raw).Trim()
 }
 
-# --- Version applicative (change quand index.html change) -------------------
-# Numero de VERSION du produit : celui de l'installation, ou celui du depot.
+# --- The application's version (it changes when index.html changes) ---------
+# The product's VERSION number: the installation's, or the repository's.
 #
-# UN SEUL numero (D96), et il n'est plus tenu a la main : une archive porte sa marque de
-# fabrication, un depot repond par son dernier TAG. Un fichier VERSION a cote des tags
-# donnait deux reponses possibles a « quelle version tourne ici ? ».
+# ONE single number (D96), and it is no longer kept by hand: an archive carries its build
+# stamp, a repository answers with its last TAG. A VERSION file beside the tags gave two
+# possible answers to "which version runs here?".
 #
-# Une tentative a ete ecartee avant celle-ci : les TICKS de la date du fichier
-# (« version 639231069781032063 »), un jeton de changement deguise en version, illisible
-# et incomparable. Ce role de jeton revient a Get-AppBuildId, ci-dessous.
+# One attempt was discarded before this one: the file date's TICKS ("version
+# 639231069781032063"), a change token disguised as a version, unreadable and incomparable.
+# That token's role belongs to Get-AppBuildId, below.
 function Get-AppVersion {
     param([string]$Backend = (Get-BackendRoot))
-    # UNE SEULE definition : la marque de l'installation si elle en a une (archive
-    # deployee), sinon ce que git dit du depot. Plus de fichier VERSION (D96).
+    # ONE definition only: the installation's stamp when it has one (a deployed archive),
+    # otherwise what git says of the repository. No more VERSION file (D96).
     $m = Get-BuildStamp -Root (Get-RepoRoot)
     if ($m -and $m.version -and $m.version -ne 'sans version') { return "$($m.version)" }
     return 'inconnue'
 }
 
-# Jeton de CHANGEMENT, jamais affiche. Le front le compare au sien et recharge la page des
-# qu'il differe. Il doit donc bouger a chaque modification du fichier servi -- ce que ne
-# fait pas une empreinte de commit, qui ignore les modifications non validees.
+# A CHANGE token, never displayed. The front end compares it with its own and reloads the
+# page as soon as it differs. It must therefore move at every modification of the file
+# served -- which a commit hash does not do, since it ignores uncommitted changes.
 function Get-AppBuildId {
     param([string]$Backend = (Get-BackendRoot))
     $idx = Join-Path (Get-AppPath -Role 'frontend') 'index.html'
     if (Test-Path $idx) { "$((Get-Item $idx).LastWriteTimeUtc.Ticks)" } else { '0' }
 }
 
-# --- IDENTITE PRECISE D'UNE VERSION : le numero ET le commit -----------------
+# --- THE PRECISE IDENTITY OF A VERSION: the number AND the commit -----------
 #
-# « Au niveau technique je conseille de prendre la version ET le commit. » Le numero dit
-# ce qu'on a voulu livrer ; le commit dit ce qui a REELLEMENT ete livre. Deux
-# deploiements du meme v0.1 peuvent differer de vingt commits -- et c'est exactement le
-# cas d'un poste de developpement.
+# "Technically I advise taking the version AND the commit." The number says what was meant
+# to be delivered; the commit says what REALLY was. Two deployments of the same v0.1 can be
+# twenty commits apart -- and that is exactly the case on a development workstation.
 #
-# La marque est POSEE DANS L'ARCHIVE au moment de la fabrication (fichier BUILD, une
-# ligne « version commit date »), parce qu'une installation deployee n'a pas de depot
-# git : elle ne peut pas se decrire elle-meme autrement.
-# LA VERSION D'UN DEPOT : le dernier TAG, et ce qui a ete commit depuis.
+# The stamp is LAID INSIDE THE ARCHIVE at build time (a BUILD file, one line reading
+# "version commit date"), because a deployed installation has no git repository: it cannot
+# describe itself any other way.
+# A REPOSITORY'S VERSION: the last TAG, and what has been committed since.
 #
-# Il n'y a plus qu'UN SEUL numero (D96). Un fichier VERSION tenu a la main a cote des
-# tags, c'etait deux numeros a maintenir -- et ils divergeaient : la carte de debogage
-# affichait « v0.1 » quand l'installation deployee affichait « v0.1.6 ».
+# There is only ONE number left (D96). A VERSION file kept by hand beside the tags meant two
+# numbers to maintain -- and they drifted: the debug card showed "v0.1" while the deployed
+# installation showed "v0.1.6".
 #
-# `git describe` dit tout : « v0.1.6 » si on est pile sur le tag, « v0.1.6+6 » s'il y a
-# eu six commits depuis. C'est la version PRECISE, et elle ne se maintient pas.
+# `git describe` says it all: "v0.1.6" when sitting exactly on the tag, "v0.1.6+6" when six
+# commits have followed. That is the PRECISE version, and it maintains itself.
 <#
-    APPELER GIT ET GARDER SON REFUS.
+    CALLING GIT AND KEEPING ITS REFUSAL.
 
-    Get-GitVersion et Get-GitCommit ecrasaient l'erreur (« 2>$null ») et rendaient $null.
-    Le 30/08, la carte annoncait donc « Depot de ce poste : sans version » -- sans dire si
-    le dossier etait illisible, si git manquait, ou s'il refusait de travailler dans un
-    depot appartenant a quelqu'un d'autre. Trois causes, trois gestes differents, et
-    aucune trace pour trancher.
+    Get-GitVersion and Get-GitCommit crushed the error ("2>$null") and returned $null. On
+    30/08 the card therefore announced "this workstation's repository: no version" -- without
+    saying whether the folder was unreadable, whether git was missing, or whether it refused
+    to work in a repository belonging to someone else. Three causes, three different
+    gestures, and no trace to tell them apart.
 
-    On garde donc le refus. Il n'interrompt rien -- une version inconnue n'est pas une
-    panne -- mais il devient DISABLE : Get-BuildStamp le rapporte, et la carte le dit.
+    So the refusal is kept. It interrupts nothing -- an unknown version is not a breakdown --
+    but it becomes READABLE: Get-BuildStamp reports it, and the card says it.
 #>
 $script:GitLastError = $null
 function Invoke-Git {
@@ -1699,7 +1697,7 @@ function Invoke-Git {
     }
 }
 
-# Le dernier refus de git, ou $null. Lu juste apres un appel.
+# Git's last refusal, or $null. Read just after a call.
 function Get-GitLastError { return $script:GitLastError }
 
 function Get-GitVersion {
@@ -1708,8 +1706,8 @@ function Get-GitVersion {
         $d = @(Invoke-Git -Path $Path -Arguments @('describe', '--tags') | Select-Object -First 1)[0]
         if (-not $d) { return $null }
         $d = "$d".Trim()
-        # git rend « v0.1.6-6-g813205f » : on garde « v0.1.6+6 », plus court a lire, et
-        # le commit est deja affiche a cote.
+        # git returns "v0.1.6-6-g813205f": we keep "v0.1.6+6", shorter to read, and the
+        # commit is already displayed beside it.
         if ($d -match '^(.*)-(\d+)-g[0-9a-f]+$') { return ($Matches[1] + '+' + $Matches[2]) }
         return $d
     } catch { return $null }
@@ -1725,8 +1723,8 @@ function Get-GitCommit {
     return $null
 }
 
-# La marque d'une installation : version, commit, date. Lue dans le fichier BUILD s'il
-# existe (installation deployee), sinon calculee depuis git (poste de developpement).
+# An installation's stamp: version, commit, date. Read from the BUILD file when there is one
+# (a deployed installation), otherwise computed from git (a development workstation).
 function Get-BuildStamp {
     param([string]$Root = (Get-RepoRoot))
     $f = Join-Path $Root 'BUILD'
@@ -1736,9 +1734,9 @@ function Get-BuildStamp {
             if ($j -and $j.version) { return $j }
         } catch { }
     }
-    # Hors archive, la version est celle que git connait : le dernier tag (+ commits).
-    # SI GIT REFUSE, ON GARDE SON MOT : « sans version » ne dit pas si le dossier est
-    # illisible, si git manque, ou s'il refuse un depot appartenant a un autre compte.
+    # Outside an archive, the version is the one git knows: the last tag, plus commits.
+    # IF GIT REFUSES, ITS WORD IS KEPT: "no version" does not say whether the folder is
+    # unreadable, whether git is missing, or whether it refuses a repository owned by another.
     $v = Get-GitVersion -Path $Root
     $c = Get-GitCommit -Path $Root
     return [pscustomobject][ordered]@{
@@ -1751,81 +1749,82 @@ function Get-BuildStamp {
 }
 
 <#
-    LE DEPOT SOURCE DE CETTE MACHINE, ou $null.
+    THIS MACHINE'S SOURCE REPOSITORY, or $null.
 
-    Trois cas, un seul resultat :
-      - on tourne DANS un depot -> c'est lui ;
-      - on tourne depuis une installation qui sait d'ou elle vient, et ce depot est
-        toujours la -> c'est lui ;
-      - machine ordinaire -> $null, et la reference devient la version publiee. C'est la
-        bonne question la-bas : personne n'y a de depot.
+    Three cases, one result:
+      - we are running INSIDE a repository -> that is the one;
+      - we are running from an installation that knows where it came from, and that
+        repository is still there -> that is the one;
+      - an ordinary machine -> $null, and the reference becomes the published version. That
+        is the right question there: nobody has a repository on such a machine.
 #>
 function Get-LocalRepoPath {
     param([string]$Backend = (Get-BackendRoot))
     <#
-        LE DEPOT DE CET ORDINATEUR, ou $null. SANS AUCUN JUGEMENT.
+        THIS COMPUTER'S REPOSITORY, or $null. WITH NO JUDGEMENT AT ALL.
 
-        J'avais mis un garde-fou ici : « pas de depot hors du mode dev ». C'etait faux --
-        un poste de PRODUCTION peut tres bien avoir un depot local et deployer depuis lui,
-        ou preferer les versions publiees. « dev » et « prod » ne repondent pas a cette
-        question-la.
+        I had put a guard here: "no repository outside dev mode". It was wrong -- a
+        PRODUCTION workstation may perfectly well have a local repository and deploy from it,
+        or prefer the published versions. "dev" and "prod" do not answer that question.
 
-        Celui qui y repond existe deja : UpdateSource. Cette fonction se contente donc de
-        dire OU est le depot, s'il y en a un ; le choix appartient a Get-UpdateRoute.
+        What does answer it already exists: UpdateSource. So this function merely says WHERE
+        the repository is, if there is one; the choice belongs to Get-UpdateRoute.
     #>
     $here = Get-RepoRoot
     if (Test-PathSafe (Join-Path $here '.git')) { return $here }
-    # LE CHEMIN VIENT DE L'ORDINATEUR, pas du BUILD de la copie : un deploiement reecrit
-    # le BUILD, tandis que la declaration de l'ordinateur, elle, ne bouge pas.
+    # THE PATH COMES FROM THE COMPUTER, not from the copy's BUILD: a deployment rewrites the
+    # BUILD, while the computer's own declaration does not move.
     $declared = "$((Get-Config -Backend $Backend).SourcePath)"
     if (-not $declared) { return $null }
-    # Le depot a pu etre deplace ou supprime depuis : on verifie qu'il en est encore un.
+    # The repository may have been moved or deleted since: we check it is still one.
     if (-not (Test-PathSafe (Join-Path $declared '.git'))) { return $null }
     return $declared
 }
 
 <#
     D'OU VIENDRAIT LA PROCHAINE VERSION ?
+<#
+    WHERE WOULD THE NEXT VERSION COME FROM?
 
-    UNE SEULE RESOLUTION, POUR TOUT LE MONDE : le bouton « Mettre a jour » l'emprunte pour
-    savoir quoi faire, la carte l'emprunte pour savoir a QUOI se comparer. C'est la seule
-    facon que la carte reponde a la vraie question -- « est-ce que ce bouton changerait
-    quelque chose ? » -- au lieu de se comparer a ce qui lui tombe sous la main.
+    ONE RESOLUTION, FOR EVERYONE: the "Update" button borrows it to know what to do, and the
+    card borrows it to know what to compare itself WITH. It is the only way the card answers
+    the real question -- "would this button change anything?" -- instead of comparing itself
+    with whatever comes to hand.
 
-    Le reglage existe deja : UpdateSource, dans la configuration.
-      local   : le depot de cet ordinateur (on fabrique, et on pose le tag)
-      release : la derniere version publiee sur GitHub
-      clone   : une branche ou un tag precis, rapporte depuis GitHub
-      auto    : le depot s'il y en a un, sinon la version publiee -- c'est le defaut
+    The setting already exists: UpdateSource, in the configuration.
+      local   : this computer's repository (we build, and we lay the tag)
+      release : the latest version published on GitHub
+      clone   : a precise branch or tag, fetched from GitHub
+      auto    : the repository when there is one, otherwise the published version -- the default
 
-    CE N'EST PAS LA MEME QUESTION QUE « dev ou prod » : un poste de production peut avoir
-    un depot local et deployer depuis lui. J'avais confondu les deux.
+    IT IS NOT THE SAME QUESTION AS "dev or prod": a production workstation may have a local
+    repository and deploy from it. I had confused the two.
 #>
 <#
-    LE CLONE DU SERVICE -- son dossier, et d'ou il se synchronise.
+    THE SERVICE CLONE -- its folder, and where it synchronises from.
 
-    Un service ne travaille JAMAIS dans le depot d'une personne (D112) : il a son propre
-    clone, qu'il possede, et fabrique depuis lui. Le chemin est defini ici et nulle part
-    ailleurs -- vigie-fetch l'utilisait sous le nom « $travail\depot », en le recomposant.
+    A service NEVER works inside a person's repository (D112): it has its own clone, which it
+    owns, and builds from that. The path is defined here and nowhere else -- vigie-fetch used
+    it under the name "$travail\depot", recomposing it.
 #>
 <#
-    POSER LE TAG DE VERSION -- ET CE N'EST PAS AU SERVICE DE LE FAIRE.
+    LAYING THE VERSION TAG -- AND IT IS NOT THE SERVICE'S JOB.
 
-    Regle d'origine : on marque une version par un TAG, uniquement au moment d'un
-    deploiement, increment fixe. Elle ne change pas -- « moi je marque rien, le
-    deploiement actuel en dev marque une version et la pousse ».
+    The original rule: a version is marked by a TAG, only at the moment of a deployment, with
+    a fixed increment. It does not change -- "I mark nothing, the current deployment in dev
+    marks a version and pushes it".
 
-    Ce qui change, c'est QUI l'execute. Un tag pose par un compte de service n'a pas
-    d'auteur, son push n'a pas d'identifiants, et git refuse d'ecrire dans le depot d'une
-    personne (D112). L'action « tag-version » appelle donc cette fonction DANS LA SESSION
-    du demandeur, sous son compte, dans son depot.
+    What changes is WHO runs it. A tag laid by a service account has no author, its push has
+    no credentials, and git refuses to write inside a person's repository (D112). So the
+    "tag-version" action calls this function IN THE REQUESTER'S SESSION, under their account,
+    in their repository.
 
-    Le calcul du prochain numero vit ici, dans la bibliotheque : les deux chemins -- le
-    bouton et la ligne de commande -- doivent donner le meme.
+    Computing the next number lives here, in the library: both paths -- the button and the
+    command line -- must give the same one.
 #>
 function Get-NextDeploymentTag {
     param([Parameter(Mandatory)][string]$RepoPath)
-    # La base vient du DERNIER TAG : c'est le seul numero que le projet maintient (D96).
+    # The base comes from the LAST TAG: the only number the project maintains (D96).
     $base = '0.1'
     $last = @(Invoke-Git -Path $RepoPath -Arguments @('describe', '--tags', '--abbrev=0') | Select-Object -First 1)[0]
     if ("$last" -match '^v?(\d+\.\d+)\.\d+$') { $base = $Matches[1] }
@@ -1840,29 +1839,29 @@ function Get-NextDeploymentTag {
 }
 
 <#
-    DECLARER LE DEPOT DE CONFIANCE POUR GIT, A L'ECHELLE DE L'ORDINATEUR.
+    DECLARING THE TRUSTED REPOSITORY TO GIT, AT THE SCALE OF THE COMPUTER.
 
-    Depuis git 2.35, git refuse d'ouvrir un depot appartenant a quelqu'un d'autre :
-    « detected dubious ownership ». L'app serveur tourne sous un compte de service, le
-    depot appartient a une personne -- mesure le 30/08, meme la LECTURE est refusee, et
-    le clone du service ne pouvait donc pas se creer.
+    Since git 2.35, git refuses to open a repository belonging to someone else: "detected
+    dubious ownership". The server app runs under a service account and the repository belongs
+    to a person -- measured on 30/08, even READING is refused, so the service clone could not
+    be created at all.
 
-    On leve le refus pour CE chemin, et rien d'autre. Ce n'est pas un droit d'ecriture :
-    les ACL ne bougent pas, et le service n'ecrit jamais dans ce depot -- le tag est pose
-    dans la session du proprietaire (D112).
+    The refusal is lifted for THAT path, and nothing else. It is not a write permission: the
+    ACLs do not move, and the service never writes in that repository -- the tag is laid in
+    the owner's session (D112).
 
-    Pose a l'echelle machine, la ou l'ordinateur declare deja d'ou vient son code : la
-    declaration et la confiance sont le meme geste.
+    Laid at machine scale, where the computer already declares where its code comes from: the
+    declaration and the trust are the same gesture.
 #>
 function Set-GitSafeDirectory {
     param([Parameter(Mandatory)][string]$RepoPath)
     <#
-        DEUX CHEMINS, PAS UN.
+        TWO PATHS, NOT ONE.
 
-        Declarer le dossier de travail ne suffit pas : lors d'un CLONE LOCAL, git ouvre
-        « <depot>/.git » et c'est ce chemin-la qu'il verifie -- son refus le nomme
-        d'ailleurs mot pour mot. Avec la seule entree « <depot> », le clone du service
-        restait refuse apres declaration (constate le 30/08, trois deploiements de suite).
+        Declaring the working folder is not enough: on a LOCAL CLONE, git opens
+        "<repo>/.git" and that is the path it checks -- its refusal names it word for word.
+        With the single "<repo>" entry, the service clone stayed refused after being
+        declared (seen on 30/08, three deployments in a row).
     #>
     $rootPath = "$RepoPath".Replace([char]92, [char]47).TrimEnd([char]47)
     $declared = @(Invoke-Git -Path $env:SystemDrive -Arguments @('config', '--system', '--get-all', 'safe.directory')) |
@@ -1963,14 +1962,14 @@ function Remove-StaleGitSafeDirectory {
 function New-DeploymentTag {
     param([Parameter(Mandatory)][string]$RepoPath, [switch]$Push)
     $tag = Get-NextDeploymentTag -RepoPath $RepoPath
-    # -f absent VOLONTAIREMENT : un tag ne se reecrit pas. S'il existe deja, c'est que ce
-    # deploiement a deja eu lieu -- on le dit et on continue.
+    # -f is absent ON PURPOSE: a tag is not rewritten. If it already exists, this deployment
+    # has already happened -- we say so and carry on.
     $null = Invoke-Git -Path $RepoPath -Arguments @('tag', '-a', $tag, '-m', ("Deploiement du " + (Get-Date -Format 'dd/MM/yyyy HH:mm')))
     $failure = Get-GitLastError
     $pushed = $false
     if (-not $failure -and $Push) {
-        # Le tag ne vaut que s'il est partage. L'echec de pousse n'est PAS fatal : un
-        # deploiement doit aboutir meme sans reseau.
+        # A tag is only worth anything once shared. A failed push is NOT fatal: a deployment
+        # must succeed even with no network.
         $null = Invoke-Git -Path $RepoPath -Arguments @('push', 'origin', $tag)
         $pushed = -not (Get-GitLastError)
     }
@@ -1983,11 +1982,11 @@ function Get-ServiceClonePath {
 }
 
 <#
-    L'ADRESSE D'OU LE CLONE SE SYNCHRONISE.
+    THE ADDRESS THE CLONE SYNCHRONISES FROM.
 
-    En production : le depot public. Sur un poste de developpement : le depot local, pour
-    fabriquer ce qui vient d'etre ecrit sans avoir a le pousser d'abord. Meme mecanisme,
-    seule l'adresse change -- c'est un reglage, pas une seconde conception.
+    In production: the public repository. On a development workstation: the local repository,
+    so that what has just been written can be built without pushing it first. The same
+    mechanism, only the address changes -- it is a setting, not a second design.
 #>
 function Get-UpdateRemote {
     param([string]$Backend = (Get-BackendRoot))
@@ -2054,15 +2053,15 @@ function Update-ServiceClone {
     return [pscustomobject][ordered]@{ ok = $true; error = $null; recloned = $true }
 }
 <#
-    SYNCHRONISER LE CLONE, ET DIRE CE QU'IL CONTIENT.
+    SYNCHRONISING THE CLONE, AND SAYING WHAT IT HOLDS.
 
-    « Si ca ne met pas a jour le depot du service avant, ca ne sert a rien : ca doit voir
-    les commits du depot de dev. » Exact -- comparer a un clone perime ne compare rien.
-    On rafraichit donc AVANT de lire, avec un court repit : depuis un depot local le fetch
-    coute quelques centaines de millisecondes, mais une carte ne doit pas le payer a chaque
-    affichage. Le bouton « Actualiser » (-Force) le force.
+    "If it does not update the service's repository first, it is no use: it has to see the
+    commits of the dev repository." Exactly -- comparing against a stale clone compares
+    nothing. So it is refreshed BEFORE being read, with a short respite: from a local
+    repository a fetch costs a few hundred milliseconds, but a card must not pay that at every
+    display. The "Refresh" button (-Force) forces it.
 
-    Rend la marque (version, commit) de la reference visee, ou $null avec l'erreur de git.
+    Returns the stamp (version, commit) of the reference aimed at, or $null with git's error.
 #>
 function Sync-ServiceClone {
     param([string]$Backend = (Get-BackendRoot), [switch]$Force, [int]$TtlSeconds = 300)
@@ -2072,13 +2071,13 @@ function Sync-ServiceClone {
     $stampFile = Get-VarPath -Backend $Backend -Kind 'cache' -File 'clone-sync.json'
 
     <#
-        LE REPIT SUIT LA DISTANCE, PAS UNE CONSTANTE.
+        THE RESPITE FOLLOWS THE DISTANCE, NOT A CONSTANT.
 
-        Cinq minutes se justifient pour un depot distant : un fetch part sur le reseau.
-        Depuis un DEPOT LOCAL -- le cas d'un poste de developpement -- il coute quelques
-        centaines de millisecondes, et cinq minutes signifient surtout que la carte
-        continue d'afficher « Conforme » longtemps apres un commit. Ajoute au repit de la
-        sonde, l'ecart pouvait atteindre dix minutes.
+        Five minutes are justified for a remote repository: a fetch goes over the network.
+        From a LOCAL REPOSITORY -- a development workstation -- it costs a few hundred
+        milliseconds, and five minutes mostly mean the card goes on showing "up to date" long
+        after a commit. Added to the probe's own respite, the gap could reach ten minutes.
+    #>
     #>
     if ($remoteUrl -and $remoteUrl -notmatch '^[a-z]+://' -and (Test-PathSafe $remoteUrl)) { $TtlSeconds = 30 }
 
@@ -2100,7 +2099,7 @@ function Sync-ServiceClone {
     if (-not $update.ok) { $failure = $update.error }
     $tagVersion = $null; $headCommit = $null
     if (Test-PathSafe (Join-Path $cloneDir '.git')) {
-        # Sans reference imposee, on suit la branche par defaut du remote.
+        # With no reference imposed, we follow the remote's default branch.
         $target = $(if ($wantedRef) { $wantedRef } else { 'origin/HEAD' })
         $headCommit = @(Invoke-Git -Path $cloneDir -Arguments @('rev-parse', $target) | Select-Object -First 1)[0]
         if (-not $headCommit -and -not $wantedRef) {
@@ -2115,12 +2114,12 @@ function Sync-ServiceClone {
     }
 
     <#
-        ON N'ENREGISTRE PAS UN ECHEC POUR CINQ MINUTES.
+        A FAILURE IS NOT RECORDED FOR FIVE MINUTES.
 
-        Le repit sert a ne pas refaire un fetch reussi a chaque affichage. Un ECHEC, lui,
-        se repare souvent d'un geste -- declarer le depot de confiance pour git, par
-        exemple : le figer ferait mentir la carte cinq minutes de plus, alors que tout est
-        deja rentre dans l'ordre. On le rend, on ne le gele pas.
+        The respite exists so a successful fetch is not redone at every display. A FAILURE,
+        on the other hand, is often repaired by one gesture -- declaring the repository
+        trusted to git, for instance: freezing it would make the card lie for five more
+        minutes when everything is already back in order. It is returned, not frozen.
     #>
     if (-not $failure) {
         try {
@@ -2142,15 +2141,15 @@ function Get-UpdateRoute {
         if ($c -in @('auto', 'local', 'release', 'clone')) { $choice = $c }
     } catch { }
     $repo = Get-LocalRepoPath -Backend $Backend
-    # « LOCAL » N'EST PLUS UNE VOIE POUR LE SERVICE (D112) : fabriquer dans le depot d'une
-    # personne, c'est y ecrire des tags sous une identite de service et se faire refuser
-    # par git. Un depot declare devient donc l'ADRESSE du clone, pas le lieu de travail.
+    # "LOCAL" IS NO LONGER A ROUTE FOR THE SERVICE (D112): building inside a person's
+    # repository means writing tags there under a service identity, and being refused by git.
+    # A declared repository therefore becomes the clone's ADDRESS, not the place of work.
     if ($choice -eq 'local') { $choice = 'clone' }
     if ($choice -eq 'auto')  { $choice = $(if ($repo) { 'clone' } else { 'release' }) }
     return [pscustomobject][ordered]@{ route = $choice; repo = $repo }
 }
 
-# Ecrit la marque : appele par la fabrication de l'archive, une seule fois.
+# Writes the stamp: called by the building of the archive, once.
 function Write-BuildStamp {
     param([Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][string]$Version, [string]$Commit)
     $o = [ordered]@{ version = $Version; commit = $Commit
@@ -2158,20 +2157,21 @@ function Write-BuildStamp {
     ($o | ConvertTo-Json -Depth 4) | Out-File -FilePath (Join-Path $Root 'BUILD') -Encoding UTF8
 }
 
-# L'installation partagee est-elle a jour par rapport a ce depot ? Rend un constat
-# lisible, jamais un simple booleen : « pareil », « en retard de 12 commits », « inconnu ».
+# Is the shared installation up to date against this repository? It returns a readable
+# observation, never a bare boolean: "the same", "12 commits behind", "unknown".
 <#
-    L'INSTALLATION PARTAGEE EST-ELLE A JOUR -- ET PAR RAPPORT A QUOI ?
+    IS THE SHARED INSTALLATION UP TO DATE -- AND AGAINST WHAT?
 
-    La reference n'est pas la meme partout, et c'etait tout le defaut : on comparait
-    toujours a « Get-RepoRoot », qui EST l'installation quand l'app serveur tourne dedans.
+    The reference is not the same everywhere, and that was the whole defect: the comparison
+    was always against "Get-RepoRoot", which IS the installation when the server app runs
+    inside it.
 
-      - un depot existe sur le poste -> reference « depot » : on compare les commits ;
-      - sinon -> reference « publiee » : sur une machine ordinaire, la seule chose qui a
-        du sens est la derniere version publiee.
+      - a repository exists on the workstation -> reference "repository": commits compared;
+      - otherwise -> reference "published": on an ordinary machine the only thing that makes
+        sense is the latest published version.
 
-    Rien n'est devine : quand on ne peut pas trancher, `same` vaut $null et l'appelant le
-    DIT. « Conforme » par defaut est le pire des verdicts -- il rassure sans rien savoir.
+    Nothing is guessed: when it cannot be settled, `same` is $null and the caller SAYS so.
+    "Up to date" by default is the worst of verdicts -- it reassures while knowing nothing.
 #>
 function Compare-SharedInstall {
     param([string]$Backend = (Get-BackendRoot), [switch]$Force)
@@ -2185,9 +2185,9 @@ function Compare-SharedInstall {
     $reference = 'aucune'
     $remote  = $null
 
-    # ON SE COMPARE A CE QUE LE BOUTON IRAIT CHERCHER, jamais a autre chose.
+    # WE COMPARE AGAINST WHAT THE BUTTON WOULD FETCH, never against anything else.
     if ($route.route -eq 'clone') {
-        # ET ON RAFRAICHIT AVANT DE LIRE : comparer a un clone perime ne compare rien.
+        # AND WE REFRESH BEFORE READING: comparing against a stale clone compares nothing.
         $sync = Sync-ServiceClone -Backend $Backend -Force:$Force
         $reference = 'clone'
         $remote = $sync.remote
@@ -2199,7 +2199,7 @@ function Compare-SharedInstall {
             if ($sync.commit -eq $there.commit) { $behind = 0; $same = $true }
             else {
                 $same = $false
-                # Le compte se fait DANS LE CLONE : c'est lui qui a les deux commits.
+                # The counting happens IN THE CLONE: it is the one holding both commits.
                 $c = @(Invoke-Git -Path $sync.path -Arguments @('rev-list', '--count', ($there.commit + '..' + $sync.commit)) |
                        Select-Object -First 1)[0]
                 if ("$c" -match '^\d+$') { $behind = [int]$c }
@@ -2221,7 +2221,7 @@ function Compare-SharedInstall {
     }
 }
 
-# Deux numeros designent-ils la meme version ? « v0.1.26 » et « 0.1.26 » : oui.
+# Do two numbers name the same version? "v0.1.26" and "0.1.26": yes.
 # "v1.1.6-dev1" and "v1.1.6+1" too: archives built before 15/09 wrote the commits count as "-devN" into their stamp.
 function Test-SameVersion {
     param([string]$A, [string]$B)
@@ -2231,15 +2231,14 @@ function Test-SameVersion {
 }
 
 <#
-    LA DERNIERE VERSION PUBLIEE, ou $null.
+    THE LATEST PUBLISHED VERSION, or $null.
 
-    Interrogee au plus une fois par demi-journee : la reponse change rarement, et une carte
-    ne doit pas dependre du reseau pour s'afficher. Hors ligne, quota GitHub atteint,
-    depot prive : on rend $null, et la carte dit « pas encore verifie » plutot que
-    d'inventer un verdict.
+    Asked for at most once per half-day: the answer rarely changes, and a card must not
+    depend on the network to display. Offline, GitHub quota reached, private repository: it
+    returns $null, and the card says "not checked yet" rather than inventing a verdict.
 
-    L'ECHEC EST ENREGISTRE LUI AUSSI : sans cela, une machine hors ligne rappellerait
-    GitHub a chaque affichage.
+    THE FAILURE IS RECORDED TOO: without that, an offline machine would call GitHub again at
+    every display.
 #>
 function Get-LatestPublishedVersion {
     param([string]$Backend = (Get-BackendRoot))
@@ -2268,54 +2267,53 @@ function Get-LatestPublishedVersion {
 }
 
 <#
-    RELANCER L'APP SERVEUR -- UNE SEULE MISE EN OEUVRE.
+    RESTARTING THE SERVER APP -- ONE SINGLE IMPLEMENTATION.
 
-    Elle vivait dans l'action « server-restart ». La mise a jour en avait besoin aussi, et
-    la recopier aurait fait deux chemins pour un seul geste : le jour ou l'un est corrige,
-    l'autre ment. Elle est donc ici, et les deux appellent la meme.
+    It lived inside the "server-restart" action. The update needed it too, and copying it
+    would have made two paths for one gesture: the day one is fixed, the other lies. So it
+    lives here, and both call the same one.
 
-    ON NE PEUT PAS SE TUER ET SE RELANCER SOI-MEME : le processus qui meurt n'execute plus
-    rien. Un RELANCEUR DETACHE s'en charge -- il arrete le serveur, attend que le port se
-    libere, puis demarre le suivant. Il attend le PORT et non un delai : deux serveurs sur
-    le meme port, c'est le second qui meurt.
+    ONE CANNOT KILL AND RESTART ONESELF: a dying process runs nothing more. A DETACHED
+    RELAUNCHER does it -- it stops the server, waits for the port to be released, then starts
+    the next one. It waits for the PORT and not for a delay: with two servers on the same
+    port, it is the second that dies.
 
-    -Wait : attendre que plus aucune operation ne tienne la machine. Sans limite de temps,
-    volontairement -- une operation qui dure a une raison de durer, et l'interrompre est
-    precisement ce qu'on veut eviter. C'est ainsi que la mise a jour se relance : elle
-    demande la relance en commencant, et le relanceur patiente jusqu'a ce qu'elle ait fini.
+    -Wait: wait until no operation holds the machine any more. Deliberately with no time
+    limit -- an operation that lasts has a reason to last, and interrupting it is precisely
+    what we want to avoid. That is how the update restarts itself: it asks for the restart as
+    it begins, and the relauncher waits until it has finished.
 
-    LE PID VIENT DU PORT, pas de $PID : l'appelant n'est pas toujours le serveur. Le
-    script de demarrage, lui, est DIT par l'appelant -- c'est celui de l'installation qui
-    tourne, pas forcement celui du depot d'ou l'on parle.
+    THE PID COMES FROM THE PORT, not from $PID: the caller is not always the server. The
+    start script, on the other hand, is SAID by the caller -- it is the one of the running
+    installation, not necessarily the one of the repository being spoken from.
 #>
 <#
-    ARRETER L'APP SERVEUR, ET CONSTATER QU'ELLE EST ARRETEE.
+    STOPPING THE SERVER APP, AND OBSERVING THAT IT IS STOPPED.
 
-    On modifiait ses fichiers pendant qu'elle tournait, et on ne l'arretait qu'apres, au
-    moment de remettre la tache en service. On ecrasait donc du code sous un processus
-    vivant -- il continuait avec l'ancien en memoire, et le moindre fichier relu en cours
-    de route melangeait deux versions.
+    Its files were modified while it was running, and it was only stopped afterwards, when
+    putting the task back into service. So code was overwritten under a living process -- it
+    carried on with the old one in memory, and the slightest file re-read along the way mixed
+    two versions.
 
-    UN ARRET SE CONSTATE. Le port se libere, c'est un fait : on l'attend, contrairement a
-    un demarrage qu'on ne guette jamais. Et on arrete la TACHE d'abord -- sinon Windows
-    la considere en cours d'execution et la relance sous nos pieds.
+    A STOP IS OBSERVED. The port being released is a fact: we wait for it, unlike a start,
+    which is never watched for. And the TASK is stopped first -- otherwise Windows considers
+    it running and restarts it under our feet.
 
-    Rend $true si plus rien n'ecoute a la fin.
+    Returns $true when nothing listens any more at the end.
 #>
 <#
-    LE VERROU D'INSTALLATION -- UNE SEULE A LA FOIS.
+    THE INSTALLATION LOCK -- ONE AT A TIME.
 
-    Deux installations simultanees se marchent dessus : l'une arrete ce que l'autre vient
-    de demarrer, l'une copie pendant que l'autre sauvegarde. C'est imperatif de l'empecher.
+    Two simultaneous installations tread on each other: one stops what the other has just
+    started, one copies while the other backs up. Preventing it is imperative.
 
-    LE VERROU DIT QUI LE TIENT -- numero de processus et heure -- et un verrou dont le
-    processus n'existe plus est IGNORE. Sans cela, une installation interrompue
-    brutalement condamnerait le poste jusqu'a une suppression a la main, ce qu'on
-    s'interdit : ce qui manque manque dans l'installation, jamais dans une commande a
-    taper.
+    THE LOCK SAYS WHO HOLDS IT -- a process id and a time -- and a lock whose process no
+    longer exists is IGNORED. Without that, an installation interrupted brutally would
+    condemn the workstation until someone deleted a file by hand, which we forbid ourselves:
+    what is missing is missing from the installation, never from a command to type.
 
-    Il vit avec la declaration de l'ordinateur, hors de l'installation partagee : il doit
-    survivre a une copie et rester lisible par les deux points d'entree.
+    It lives with the computer's declaration, outside the shared installation: it must
+    survive a copy and stay readable by both entry points.
 #>
 function Get-InstallLockPath {
     Join-Path (Split-Path (Get-ComputerConfigPath) -Parent) 'install.lock'
@@ -2327,8 +2325,8 @@ function Get-InstallLockHolder {
     $held = $null
     try { $held = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json } catch { return $null }
     if (-not $held -or -not $held.pid) { return $null }
-    # LE PROCESSUS EXISTE-T-IL ENCORE ? C'est la seule question qui compte : un verrou
-    # orphelin ne protege rien, il bloque.
+    # DOES THE PROCESS STILL EXIST? It is the only question that matters: an orphan lock
+    # protects nothing, it blocks.
     $alive = $false
     try { $alive = [bool](Get-Process -Id ([int]$held.pid) -ErrorAction Stop) } catch { }
     if (-not $alive) { return $null }
@@ -2347,8 +2345,8 @@ function Lock-Install {
 }
 
 function Unlock-Install {
-    # ON NE RETIRE QUE LE SIEN. Retirer celui d'un autre reviendrait a autoriser ce qu'on
-    # vient d'interdire.
+    # WE ONLY REMOVE OUR OWN. Removing someone else's would allow exactly what we have just
+    # forbidden.
     $path = Get-InstallLockPath
     if (-not (Test-PathSafe $path)) { return }
     try {
@@ -2359,23 +2357,22 @@ function Unlock-Install {
 }
 
 <#
-    LE DEPLOIEMENT EST-IL POSSIBLE ? -- des controles rapides, avant d'arreter quoi que
-    ce soit.
+    IS THE DEPLOYMENT POSSIBLE? -- quick checks, before stopping anything at all.
 
-    On arretait Vigie, puis on decouvrait que la copie ne passait pas : dossier verrouille,
-    disque plein. Ces deux questions se posent en quelques millisecondes, et evitent
-    d'arreter pour rien.
+    Vigie was stopped, and only then did we discover that the copy would not go through: a
+    locked folder, a full disk. Those two questions are answered in a few milliseconds, and
+    save stopping for nothing.
 
-    On ne cherche pas a prevoir TOUTES les pannes -- seulement celles qui coutent moins a
-    verifier qu'a subir. Rend $null si tout va bien, la raison sinon.
+    We do not try to foresee EVERY failure -- only those that cost less to check than to
+    suffer. Returns $null when all is well, the reason otherwise.
 #>
 function Test-DeploymentPossible {
     param([Parameter(Mandatory)][string]$Destination, [long]$NeededBytes = 0)
     $parent = Split-Path $Destination -Parent
     if (-not (Test-PathSafe $parent)) { return ("dossier d'accueil introuvable : " + $parent) }
 
-    # ECRITURE : on essaie, c'est la seule preuve. Un test de droits mentirait (heritage,
-    # redirections, antivirus qui bloque a l'ecriture reelle).
+    # WRITING: we try, which is the only proof. A rights test would lie -- inheritance,
+    # redirections, an antivirus that blocks at the real write.
     $probe = Join-Path $parent ('.vigie-write-' + [guid]::NewGuid().ToString('N').Substring(0, 8))
     try {
         Set-Content -LiteralPath $probe -Value 'x' -Encoding ASCII -ErrorAction Stop
@@ -2383,14 +2380,13 @@ function Test-DeploymentPossible {
     } catch { return ("écriture refusée dans " + $parent + " : " + $_.Exception.Message) }
 
     <#
-        PLACE : DEUX ENDROITS, ET PLUS FORCEMENT LE MEME DISQUE.
+        ROOM: TWO PLACES, AND NO LONGER NECESSARILY THE SAME DISK.
 
-        On pose la nouvelle version a destination, et on garde la precedente en
-        sauvegarde -- qui vit desormais a l'echelle de la machine, pas sous
-        l'installation. Compter « deux fois, sur le disque de destination » etait juste
-        tant que les deux etaient au meme endroit ; avec une destination sur un autre
-        disque, cela reservait le double la ou il n'en faut qu'un, et rien la ou la
-        sauvegarde va reellement s'ecrire.
+        The new version is laid at the destination, and the previous one is kept as a backup
+        -- which now lives at machine scale, not under the installation. Counting "twice over,
+        on the destination disk" was right as long as both were in the same place; with a
+        destination on another disk it reserved twice the room where only one is needed, and
+        nothing where the backup is actually going to be written.
     #>
     if ($NeededBytes -gt 0) {
         foreach ($lieu in @($parent, (Get-InstallBackupRoot))) {
@@ -2411,15 +2407,15 @@ function Test-DeploymentPossible {
 }
 
 <#
-    SAUVEGARDER, VERIFIER, RESTAURER.
+    BACK UP, CHECK, RESTORE.
 
-    La copie ecrase l'installation en place : si elle echoue a mi-chemin, l'ancienne
-    version est deja detruite et on demarrerait une installation incomplete.
+    The copy overwrites the installation in place: if it fails halfway, the old version is
+    already destroyed and we would start an incomplete installation.
 
-    La sauvegarde vit HORS de l'installation partagee -- sinon elle doublerait le volume et
-    la sauvegarde suivante la sauvegarderait -- et porte la version qu'elle contient, pour
-    qu'on sache ce qu'on restaure. Elle est supprimee des que la copie est verifiee : elle
-    n'existe que le temps du risque.
+    The backup lives OUTSIDE the shared installation -- otherwise it would double the volume
+    and the next backup would back it up -- and carries the version it holds, so one knows
+    what is being restored. It is removed as soon as the copy is checked: it exists only for
+    the length of the risk.
 #>
 function Get-InstallBackupRoot {
     <#
