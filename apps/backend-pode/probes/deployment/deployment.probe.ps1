@@ -1,80 +1,77 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-<# Sonde : LE DEPLOIEMENT de Vigie sur cette machine. LECTURE SEULE.
+<# A probe: THE DEPLOYMENT of Vigie on this machine. READ ONLY.
 
-   Ce que lancent les AUTRES comptes : emplacement partage, version en place, interpreteur,
-   taches de demarrage, sort du dernier deploiement.
+   Intent: say what the OTHER accounts start -- the shared location, the version in place, the interpreter, the
+   start-up tasks, the fate of the last deployment -- and whether that version matches its source.
+   Usage: it is run by the scheduler like any probe; nothing here acts, everything here reads.
 
-   POURQUOI ELLE VIT SEULE, DANS SON PROPRE MODULE. Elle etait rendue par la sonde des
-   comptes, qui est declaree PAR COMPTE (elle ecrit « vous » a cote d'un nom). Or une sonde
-   par compte n'est JAMAIS differee vers le rafraichissement de fond : elle est calculee
-   DANS la requete, parce que le rafraichissement de fond tourne sans session et ne saurait
-   pas pour qui garder son resultat.
+   WHY IT LIVES ALONE, IN ITS OWN MODULE. It used to be returned by the accounts probe, which is declared PER
+   ACCOUNT (it writes a "you" beside a name). Yet a per-account probe is NEVER deferred to the background refresh:
+   it is computed INSIDE the request, because the background refresh runs without a session and would not know
+   whom to keep its result for.
 
-   Cette carte-ci ne parle de personne en particulier : elle compare une installation a sa
-   source. La laisser dans la sonde par compte la rendait obligatoire dans chaque requete,
-   avec ce qu'elle coute -- lecture des comptes, etat des taches, synchronisation du clone.
-   Le 31/08, /api/v1/state mettait jusqu'a 52 secondes. Separee, elle redevient differable :
-   la reponse part avec la valeur connue, le recalcul se fait derriere.
+   This card speaks of nobody in particular: it compares an installation with its source. Leaving it inside the
+   per-account probe made it compulsory in every request, with what it costs -- reading the accounts, the state of
+   the tasks, synchronising the clone. On 31/08, /api/v1/state took up to 52 seconds. Separated, it becomes
+   deferrable again: the answer leaves with the known value, and the recomputation happens behind.
 
-   Le groupe ne change pas : les deux cartes se lisent ensemble, sous « Comptes ». #>
+   The group does not change: the two cards are read together, under Accounts. #>
 $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $backend 'lib/common.ps1')
 
 $elevated   = [bool](Test-IsElevated)
 $accounts = @(Get-UserAccounts)
 # =============================================================================
-# DEUXIEME CARTE : LE DEPLOIEMENT
+# THE SECOND CARD: THE DEPLOYMENT
 #
-# Cette sonde rendait UNE carte qui parlait de deux choses : qui a Vigie sur cette
-# machine, et comment Vigie y est installee. L'utilisateur l'a vu (27/08) -- la carte
-# affichait la liste des comptes, la version deployee, l'interpreteur, et le sort du
-# dernier deploiement. Deux sujets, deux cartes.
+# This probe returned ONE card that spoke of two things: who has Vigie on this machine, and how Vigie is installed
+# there. The owner saw it (27/08) -- the card showed the list of accounts, the deployed version, the interpreter,
+# and the fate of the last deployment. Two subjects, two cards.
 #
-#   « Comptes »      : qui a Vigie, et avec quels droits.
-#   « Deploiement »  : ce que lancent les AUTRES comptes -- emplacement partage,
-#                      interpreteur, taches de demarrage, dernier deploiement.
+#   Accounts   : who has Vigie, and with what rights.
+#   Deployment : what the OTHER accounts start -- the shared location, the interpreter, the start-up tasks, the
+#                last deployment.
 #
-# Les deux restent dans le meme groupe : elles se lisent ensemble.
+# Both stay in the same group: they are read together.
+
 $depl = @()
 
-# Installation lisible par les autres comptes ? Sinon, aucun autre compte ne peut demarrer
-# Vigie -- et c'est le cas sur un poste de developpement. On le DIT sur la carte, avec le
-# bouton qui corrige (D66 : une alerte porte toujours sa resolution).
+# Is the installation readable by the other accounts? If not, no other account can start Vigie -- and that is the
+# case on a development workstation. We SAY SO on the card, with the button that fixes it (D66: an alert always
+# carries its resolution).
 $partagee = [bool](Get-SharedInstallPath)
 if ($partagee) {
-    # A JOUR ? Le numero de version ne suffit pas : deux « v0.1 » peuvent differer de
-    # vingt commits. On compare donc le COMMIT, et on dit l'ecart (D84).
+    # UP TO DATE? The version number is not enough: two "v0.1" can differ by twenty commits. So we compare the
+    # COMMIT, and we state the gap (D84).
     $cmp = Compare-SharedInstall -Backend $backend
     $state = 'accessible à tous les comptes'
     $niveau = 'ok'
     $detail = "Installation partagée : " + (Get-SharedInstallPath)
     if ($cmp) {
-        # LA VALEUR DIT CE QUE C'EST, la COULEUR dit que ca ne va pas, le DETAIL
-        # explique (regle utilisateur du 27/08 : « juste la version en orange, ca
-        # suffit a savoir qu'il y a un souci »). Une ligne de carte se lit d'un coup
-        # d'oeil ; la phrase entiere tient dans l'infobulle.
+        # THE VALUE SAYS WHAT IT IS, the COLOUR says something is wrong, the DETAIL explains (the owner's rule of
+        # 27/08: the version in orange is enough to know there is a problem). A card's line is read at a glance;
+        # the whole sentence fits in the tooltip.
         $state = $cmp.there.version
         $detail += [Environment]::NewLine + "Déployée : " + $cmp.there.version +
                    $(if ($cmp.there.commit) { " (" + $cmp.there.commit.Substring(0, [Math]::Min(8, $cmp.there.commit.Length)) + ")" } else { " (commit inconnu)" })
 
         <#
-            A QUOI COMPARE-T-ON ? La question a une reponse differente selon la machine, et
-            l'ancienne version n'en posait aucune : elle comparait a « ici », qui EST
-            l'installation quand l'app serveur tourne dedans. Elle se declarait donc
-            conforme a elle-meme, quoi qu'il arrive.
+            WHAT DO WE COMPARE WITH? The question has a different answer on each machine, and the old version asked
+            none: it compared with "here", which IS the installation when the server app runs inside it. So it
+            declared itself to match itself, whatever happened.
 
-            On DIT desormais la reference, et quand il n'y en a pas, on dit ca aussi --
-            plutot que de rassurer sans rien savoir.
+            We now STATE the reference, and when there is none we say that too -- rather than reassuring while
+            knowing nothing.
         #>
+
         if ($cmp.reference -eq 'clone') {
             $detail += [Environment]::NewLine + "Source : " + $cmp.here.version +
                        $(if ($cmp.here.commit) { " (" + $cmp.here.commit.Substring(0, [Math]::Min(8, $cmp.here.commit.Length)) + ")" } else { "" })
             $detail += [Environment]::NewLine + "Synchronisé depuis : " + $cmp.remote
-            # LE DEPOT EST DECLARE, MAIS EST-IL LISIBLE ? Le compte qui fait tourner Vigie
-            # n'est pas celui qui developpe : il peut n'avoir aucun droit sur le dossier de
-            # travail, ou git peut refuser un dépôt appartenant à quelqu'un d'autre. On le
-            # DIT, avec le mot de git : « Elle diffère du dépôt » laissait croire à un
-            # écart de code alors qu'on n'avait rien pu lire du tout.
+            # THE REPOSITORY IS DECLARED, BUT IS IT READABLE? The account that runs Vigie is not the one that
+            # develops: it may have no rights at all on the working folder, or git may refuse a repository
+            # belonging to somebody else. We SAY SO, in git's own words: "it differs from the repository" suggested
+            # a gap in the code when in fact nothing could be read at all.
             if ($cmp.here.error) {
                 $niveau = 'warn'
                 $why = "La source n'a pas pu être lue : " + $cmp.here.error +
@@ -100,21 +97,21 @@ if ($partagee) {
                 $why = "Une version plus récente est publiée ($($cmp.here.version))."
             }
         } else {
-            # NI DEPOT, NI RESEAU. On ne sait pas, et on le dit : « conforme » par defaut
-            # est le pire des verdicts, il rassure sans rien savoir.
+            # NEITHER A REPOSITORY NOR A NETWORK. We do not know, and we say so: a default verdict of "conforms" is
+            # the worst of all, it reassures while knowing nothing.
             $niveau = 'neutral'
             $why = "Impossible de dire si elle est à jour : aucun dépôt sur ce poste, et la liste des versions publiées n'a pas pu être consultée."
         }
         $detail = $why + [Environment]::NewLine + [Environment]::NewLine + $detail
     }
-    # DEJA DEPLOYEE : ce qu'on propose est une MISE A JOUR, pas un deploiement --
-    # « Deployer pour tous les comptes » ne veut plus rien dire une fois que c'est fait.
+    # ALREADY DEPLOYED: what we offer is an UPDATE, not a deployment -- "deploy for every account" no longer means
+    # anything once it is done.
     $depl += New-Field -Key 'partage' -Label 'Installation partagée' -Value $state -Kind 'text' -Status $niveau `
         -FixAction $(if ($niveau -eq 'warn') { 'vigie-update' } else { '' }) `
         -Help "Emplacement lisible par tous les comptes de la machine : leurs tâches de démarrage pointent dessus. Les autres comptes lancent CETTE version, pas celle du dépôt." `
         -Guide $detail
 } else {
-    # JAMAIS DEPLOYEE : la, c'est bien un PREMIER deploiement, et le bouton le dit.
+    # NEVER DEPLOYED: here it really is a FIRST deployment, and the button says so.
     $depl += New-Field -Key 'partage' -Label 'Installation partagée' -Value 'Lisible par ce seul compte' -Kind 'text' -Status 'warn' `
         -FixAction 'vigie-update' `
         -Help "Les autres comptes ne peuvent pas lire cette installation : Vigie ne demarrerait pas chez eux." `
@@ -122,17 +119,16 @@ if ($partagee) {
                 "Le bouton installe cette version dans C:\Program Files\Sowapps\Vigie, lisible par tous les comptes, et conserve les reglages deja en place.")
 }
 
-# Meme obstacle, autre cause : l'application est bien partagee, mais l'INTERPRETEUR qui
-# la lance ne l'est pas. Le dire ici, sinon activer un compte cree une tache qui echoue
-# en silence a chaque ouverture de session (constate le 26/08 avec Famille).
+# The same obstacle, another cause: the application is indeed shared, but the INTERPRETER that starts it is not.
+# Say it here, otherwise enabling an account creates a task that fails silently at every logon (observed on 26/08
+# with one of the accounts).
 $pwshPartage = Get-SharedPwshPath
 $pwshAccount  = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
 if (-not $pwshPartage -and -not $pwshAccount) {
-    # ABSENT, ce n'est pas « installe pour vous seul » : la carte doit dire lequel des
-    # deux, sinon elle raconte une situation qui n'existe pas. Cas vecu le 26/08 : une
-    # installation en portee machine a desinstalle le paquet du compte puis a echoue,
-    # et la machine s'est retrouvee SANS PowerShell 7 -- la carte annoncait toujours
-    # « installe pour vous seul ».
+    # ABSENT is not the same as "installed for you alone": the card must say which of the two, otherwise it tells a
+    # story that does not exist. Lived through on 26/08: an installation in machine scope uninstalled the account's
+    # package then failed, and the machine found itself WITHOUT PowerShell 7 -- while the card still announced it
+    # was installed for this account alone.
     $depl += New-Field -Key 'pwsh' -Label 'PowerShell 7' -Value 'Absent de la machine' -Kind 'text' -Status 'error' `
         -FixAction 'pwsh-install-machine' `
         -Help "PowerShell 7 n'est installé nulle part : Vigie ne redémarrera pas, ni pour ce compte ni pour les autres. Les processus en cours survivent, mais le prochain démarrage échouera." `
@@ -158,24 +154,22 @@ if (-not $elevated) {
         -Help "Windows protège le profil de chaque compte : leur détail n'est lisible que par un Vigie lancé en administrateur. Vigie ne montre rien de plus que ce que Windows laisse voir."
 }
 
-# TACHES MALADES : une tache qui vise un interpreteur ou une application disparus se
-# lance et meurt en silence. La sonde ne repare RIEN (lecture seule) : elle constate, et
-# porte le bouton qui repare (D66).
-# --- QUEL ENVIRONNEMENT REPOND ----------------------------------------------
+# AILING TASKS: a task aiming at an interpreter or an application that has gone starts and dies in silence. The
+# probe repairs NOTHING (read only): it observes, and carries the button that repairs (D66).
+# --- WHICH ENVIRONMENT ANSWERS ------------------------------------------------
 #
-# VIGIE TOURNE TOUJOURS DEPUIS L'INSTALLATION PARTAGEE, developpement compris. Seule la
-# SOURCE de ce qu'on y deploie change : une version publiee en production, une branche du
-# depot en developpement -- et l'ecart se lit alors dans le numero de version lui-meme
-# (« v0.1.27+3 »), pas dans un emplacement.
+# VIGIE ALWAYS RUNS FROM THE SHARED INSTALLATION, development included. Only the SOURCE of what is deployed there
+# changes: a published version in production, a branch of the repository in development -- and the gap is then read
+# in the version number itself ("v0.1.27+3"), not in a location.
 #
-# Je signalais donc un ecart permanent et sans objet sur un poste de developpement : « la
-# machine se declare Developpement mais Vigie tourne depuis Production ». Il n'y avait
-# rien a reparer, et la carte passait au orange pour un fonctionnement normal.
+# So I was reporting a permanent and pointless gap on a development workstation: "the machine declares itself
+# Development but Vigie runs from Production". There was nothing to repair, and the card went orange for normal
+# behaviour.
 #
-# CE QUI RESTE UN ECART : une tache qui lance le DEPOT. Le dossier de travail peut etre
-# illisible pour les autres comptes -- « Famille » n'a aucun droit sur C:\EspaceRestreint,
-# et VigieService non plus -- et il peut bouger. Une tache qui pointe dessus ne demarre
-# rien, un jour ou l'autre.
+# WHAT REMAINS A GAP: a task that starts THE REPOSITORY. The working folder may be unreadable to the other
+# accounts -- neither an ordinary account nor the service account has any rights on it -- and it can move. A task
+# pointing at it will fail to start something, one day or another.
+
 $declared = Get-DeclaredStage -Backend $backend
 $running  = Get-RunningStage -Backend $backend
 $envIssues = @()
@@ -192,10 +186,10 @@ foreach ($c in $accounts) {
     } catch { }
 }
 
-# LE CHAMP S'APPELLE « STAGE » : « environnement » ne disait pas de quoi on parlait -- ce
-# reglage, le serveur, ou l'ordinateur entier ? Et la valeur est ce que l'ordinateur
-# DECLARE, pas l'emplacement du code qui tourne : celui-ci est toujours le meme, donc sans
-# information, et trompeur des qu'on le comparait a la declaration.
+# THE FIELD IS CALLED "STAGE": "environment" did not say what was being spoken of -- this setting, the server, or
+# the whole computer? And the value is what the computer DECLARES, not where the running code sits: the latter is
+# always the same, so it carries no information, and it was misleading as soon as it was compared with the
+# declaration.
 $aide = "Le stage déclaré par cet ordinateur : développement ou production. " +
         "Il conditionne le marquage des versions, pas la provenance du code — celle-ci est un réglage à part. Vigie tourne toujours depuis l'installation partagée : " +
         "une tâche qui lance le dépôt de travail ne démarrera pas chez un compte qui n'y a pas accès."
@@ -236,10 +230,9 @@ if ($serviceProfileIssue) {
                 "Si le défaut revient après un redémarrage de l'ordinateur, un administrateur retire la clé « .bak » de ce compte sous HKLM, ProfileList, puis redémarre.")
 }
 
-# HORS SERVICE et EN ATTENTE ne se disent pas de la meme facon. Une tache dont la
-# structure est saine mais dont le dernier lancement a echoue n'est pas cassee : elle se
-# confirmera au prochain demarrage du compte. L'annoncer en rouge etait excessif, et
-# poussait a « reparer » ce qui n'avait rien a reparer.
+# OUT OF SERVICE and WAITING are not said the same way. A task whose structure is sound but whose last launch
+# failed is not broken: it will confirm itself at the account's next logon. Announcing it in red was excessive, and
+# pushed towards repairing what had nothing to repair.
 $malades  = @($accounts | Where-Object { $_.taskAilment })
 $pending = @($accounts | Where-Object { -not $_.taskAilment -and $_.taskPending })
 if ($malades.Count) {
@@ -250,21 +243,21 @@ if ($malades.Count) {
         -Help "Une tâche de démarrage de Vigie ne peut plus lancer l'application : elle démarre et meurt aussitôt, sans message. Vigie ne se lancera pas à l'ouverture de session." `
         -Guide (($malades | ForEach-Object { $_.name + " : " + $_.taskAilment }) -join [Environment]::NewLine)
 } elseif ($pending.Count) {
-    # Pas de bouton : il n'y a rien a reparer. Seule la prochaine ouverture de session
-    # du compte dira si le probleme est derriere nous.
+    # No button: there is nothing to repair. Only the account's next logon will say whether the problem is behind
+    # us.
     <#
-        « 1 tache(s) a confirmer » ne dit rien a personne : confirmer par qui, quoi,
-        comment ? Une valeur de carte se comprend SANS ouvrir l'aide. On dit donc ce qui
-        est vrai : Vigie n'a pas encore demarre chez ce compte.
+        "1 task(s) to confirm" says nothing to anybody: confirmed by whom, what, how? A card's value is understood
+        WITHOUT opening the help. So we say what is true: Vigie has not started yet on that account.
 
-        NEUTRE, PAS « A SURVEILLER » : il n'y a rien a faire et rien a reparer. Un
-        avertissement reclame une action (D66) ; celui-ci n'en avait aucune a proposer, et
-        poussait a « reparer » ce qui va bien.
+        NEUTRAL, NOT "TO WATCH": there is nothing to do and nothing to repair. A warning calls for an action (D66);
+        this one had none to offer, and pushed towards repairing what is fine.
 
-        LE COMMENTAIRE VIT AU-DESSUS DE L'INSTRUCTION. Glisse entre un accent grave de
-        continuation et le parametre suivant, il COUPE l'appel : la sonde levait
-        « missing mandatory parameters: Value Kind » et ne rendait plus aucune carte.
+        THE COMMENT LIVES ABOVE THE STATEMENT. Slipped between a backtick of continuation and the next parameter, it
+        CUTS the call: the probe threw "missing mandatory parameters: Value Kind" and no longer returned any card.
     #>
+
+
+
     # A launch that never happened and a launch that failed are two facts: the value names the one that holds.
     $neverRun = Get-VigieTaskNeverRunText
     $pendingState = if (@($pending | Where-Object { $_.taskPending -ne $neverRun }).Count) { 'Dernier démarrage en échec' } else { 'Jamais démarrée' }
@@ -280,21 +273,21 @@ if ($malades.Count) {
 }
 
 <#
-    LES DEUX VERSIONS DE LA CONFIRMATION : d'ou l'on vient, ou l'on va.
+    THE TWO VERSIONS IN THE CONFIRMATION: where we come from, where we are going.
 
-    « Deploie la version actuelle vers l'installation partagee » ne dit pas laquelle vers
-    laquelle : on cliquait sans savoir si l'on avancait de deux commits ou si l'on ecrasait
-    une version plus recente. La fenetre montre donc deux pastilles, ancienne -> nouvelle.
+    "Deploys the current version to the shared installation" does not say which one to which: one clicked without
+    knowing whether one was moving forward by two commits or overwriting a more recent version. So the window shows
+    two badges, old -> new.
 
-    CE BLOC AVAIT DISPARU quand la carte Deploiement est sortie dans sa propre sonde : il
-    etait reste dans celle des comptes, l'action continuait de citer des variables VIDES,
-    et les deux pastilles ne s'affichaient plus. Rien ne l'avait signale -- une variable
-    absente ne fait pas d'erreur en PowerShell.
+    THIS BLOCK HAD DISAPPEARED when the Deployment card moved into its own probe: it stayed in the accounts one,
+    the action went on quoting EMPTY variables, and the two badges no longer displayed. Nothing had reported it --
+    a missing variable raises no error in PowerShell.
 
-    LE COMMIT N'EST MONTRE QU'EN DEVELOPPEMENT : en production, deux versions se
-    distinguent par leur numero, c'est a cela qu'il sert. En developpement le numero ne
-    bouge pas entre deux commits, et « v0.1.57 vers v0.1.57 » ne dirait rien.
+    THE COMMIT IS SHOWN IN DEVELOPMENT ONLY: in production two versions are told apart by their number, which is
+    what it is for. In development the number does not move between two commits, and the same number twice would
+    say nothing.
 #>
+
 $court = { param($c) if ($c) { $c.Substring(0, [Math]::Min(8, $c.Length)) } else { '' } }
 $estDev = ((Get-DeclaredStage -Backend $backend) -eq 'dev')
 $deVersion = ''; $versVersion = ''; $deNote = ''; $versNote = ''
@@ -310,13 +303,13 @@ if ($cmp) {
     $versVersion = 'première installation'
 }
 
-# LE SORT DE LA DERNIERE OPERATION lancee depuis cette carte (D82). Une ligne verte
-# quand elle a abouti, ROUGE avec son journal quand elle a echoue -- jamais rien.
+# THE FATE OF THE LAST OPERATION started from this card (D82). A green line when it got there, RED with its log
+# when it failed -- never nothing.
 $dernier = New-LastRunField -Module 'deployment'
 if ($dernier) { $depl += $dernier }
 
-# CE QUE VIGIE OCCUPE, tous comptes confondus (demande du 27/08). Une application qui
-# surveille l'espace disque des autres doit dire ce qu'elle prend elle-meme.
+# WHAT VIGIE OCCUPIES, every account together (asked for on 27/08). An application that watches the others' disc
+# space must say what it takes itself.
 $emp = Get-VigieFootprint -Backend $backend
 $detailEmp = @()
 if ($emp.programme) { $detailEmp += "Programme (partagé) : " + (Format-ByteSize -Bytes $emp.programme) + "  —  " + $emp.programmePath }
@@ -331,9 +324,9 @@ $depl += New-Field -Key 'empreinte' -Label 'Stockage occupé' `
     -Help "Tout ce que Vigie occupe sur cette machine : le programme partagé, les données de chaque compte, et le dépôt sur un poste de développement." `
     -Guide ($detailEmp -join [Environment]::NewLine)
 
-# --- Carte 2 : le DEPLOIEMENT ------------------------------------------------
-# Une tache de fond lancee depuis cette carte (deploiement, installation de PowerShell)
-# la garde en « operation en cours » jusqu'a la fin du processus.
+# --- Card 2: the DEPLOYMENT ---------------------------------------------------
+# A background task started from this card (a deployment, an installation of PowerShell) keeps it marked as having
+# an operation under way until the process ends.
 $travail = Get-ModuleBusyMark -Module 'deployment'
 # SCOPE: the computer's installation, a single one for every account.
 $deployCard = New-ModuleObject -Id 'deployment' -Theme 'accounts' -Label 'Déploiement' -Scope 'machine' `
@@ -343,15 +336,13 @@ $deployCard = New-ModuleObject -Id 'deployment' -Theme 'accounts' -Label 'Déplo
     -Fields $depl `
     -Busy:([bool]$travail) -BusyAction $(if ($travail) { "$($travail.action)" } else { '' }) `
     -Actions @(
-        # LES TEXTES DE LA CONFIRMATION. « Ce que ca change » dit ce qui CHANGE, pas ce qui
-        # se passe -- le deroule est montre juste au-dessus par -Steps. Et sans notre
-        # vocabulaire interne : « tag de version », « app cliente », « depot » ne veulent rien
-        # dire pour qui utilise Vigie. « Revenir en arriere » repond OUI, puis comment.
+        # THE CONFIRMATION TEXTS. "What this changes" says what CHANGES, not what happens -- the sequence is shown
+        # just above by -Steps. And without our internal vocabulary: a version tag, a client app, a repository mean
+        # nothing to somebody using Vigie. "Going back" answers YES first, then how.
         #
-        # ATTENTION : ces commentaires sont ICI et pas au milieu de l'appel. Un commentaire
-        # place apres un backtick de continuation la COUPE : la ligne suivante devient
-        # une commande a part, et PowerShell repond « le terme '-Impact' n'est pas
-        # reconnu ». Constate le 29/08, sonde cassee en production.
+        # BEWARE: these comments are HERE and not in the middle of the call. A comment placed after a backtick of
+        # continuation CUTS it: the next line becomes a command of its own, and PowerShell answers that the term
+        # '-Impact' is not recognised. Observed on 29/08, the probe broken in production.
         New-Action -Id 'vigie-update' -Label 'Mettre à jour l''installation' -Kind 'confirm' -Severity 'fix' -Confirm `
             -BusyLabel 'Mise à jour…' `
             -Help "Déploie la version actuelle vers l'installation partagée, puis relance Vigie avec." `

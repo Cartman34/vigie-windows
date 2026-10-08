@@ -43,7 +43,7 @@ $ErrorActionPreference = 'Stop'
     not rewrite it at once -- thousands of touched lines for no gain, and a drowned git
     blame. The ratchet forbids adding any; every conversion lowers the ceiling as much.
 #>
-$COMMENT_CEILING = 2675
+$COMMENT_CEILING = 2177
 
 # 08/10, the second half of common.ps1: 1044 -> 310 French comment lines in the library, and the repository from
 # 4539 to 3805. Then its tail -- the environment, the traceability, the requester, the Atelier, the elevation and
@@ -63,6 +63,14 @@ $COMMENT_CEILING = 2675
 # 08/10, scripts/install.ps1 (301 -> 1) and scripts/check-probes.ps1 (163 -> 0), and the repository from 3138 to
 # 2675. install.ps1 and check-probes.ps1 now say their INTENT and their USAGE in their own header, as the convention
 # asks of a file one touches.
+#
+# 08/10, five more files to zero: apps/backend-pode/server.ps1 (151), scripts/lib/install-service.ps1 (133),
+# probes/deployment/deployment.probe.ps1 (114), scripts/lib/show-confirm.ps1 (100) and the repository from 2675 to
+# 2177. install-service.ps1 and show-confirm.ps1 gained an INTENT and a USAGE.
+#
+# TWICE IN ONE DAY, A TRANSLATED COMMENT LEFT A CONTROL CHARACTER in the file: a comment that QUOTED an escape
+# sequence, or a Windows path, and the backslash was eaten on the way through the tooling. check-encoding caught
+# both -- which is the very trap its own comment documents. A comment never spells out an escape sequence now.
 #
 # THE METHOD, so the next campaign does not reinvent it. The tools live in the session's scratchpad and are rebuilt
 # in a few lines if lost: blocs.py lists the contiguous French comment blocks of a file with their ranges;

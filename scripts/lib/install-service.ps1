@@ -1,38 +1,38 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    install-service.ps1 - Le serveur de Vigie devient un SERVICE DE MACHINE. IDEMPOTENT.
+    install-service.ps1 -- Vigie's server becomes a MACHINE SERVICE. IDEMPOTENT.
 
-    Aujourd'hui, chaque compte lance son propre serveur au moment de sa session. Un compte
-    STANDARD ne le peut pas : le serveur exige l'elevation, et Windows lui reclamerait un
-    mot de passe d'administrateur qu'il n'a pas. Et deux sessions ouvertes en meme temps
-    se disputent le meme port.
+    Intent: give the machine ONE server instead of one per session. Today each account starts its own at the
+    moment of its session. A STANDARD account cannot: the server demands elevation, and Windows would ask it for
+    an administrator's password it does not have. And two sessions open at the same time fight over the same port.
+    Hence a SINGLE server, started when the machine boots, under a DEDICATED administrator account -- not SYSTEM,
+    whose full powers are not justified. The whole design: doc/progress/targeting/multi-account-server.md.
 
-    D'ou un serveur UNIQUE, lance au demarrage de la machine, sous un compte
-    administrateur DEDIE -- pas SYSTEM, dont les pleins pouvoirs ne se justifient pas.
-    Conception complete : doc/progress/targeting/multi-account-server.md.
+    Usage: THIS IS NOT AN ENTRY POINT. Installing Vigie has only ONE -- setup.cmd, which calls install.ps1 -- and
+    it is that one which calls this step. A user has no business knowing it exists, nor in what order to run what:
+    idempotence is what makes the difference between a first installation and an update. It stays runnable by hand
+    for the gestures that are NOT the installation:
 
-    LE MOT DE PASSE N'EST PAS UN SECRET A FAIRE VIVRE. Il est genere ici, passe une seule
-    fois a Register-ScheduledTask, et c'est WINDOWS qui le conserve dans son coffre pour
-    lancer la tache. Ce script ne l'ecrit nulle part et ne le rend pas.
+      pwsh -File .\scripts\lib\install-service.ps1 -Lister    # a survey, changes nothing
+      pwsh -File .\scripts\lib\install-service.ps1 -Enable    # switch over to the service
+      pwsh -File .\scripts\lib\install-service.ps1 -Remove    # go back
 
-    PRUDENCE VOULUE : la tache est creee DESACTIVEE. Tant qu'on ne l'active pas, rien ne
-    change au demarrage de la machine, et le chemin actuel continue de fonctionner. Les
-    deux ne doivent JAMAIS tourner ensemble : ils se disputeraient le port.
+    THE PASSWORD IS NOT A SECRET TO BE KEPT ALIVE. It is generated here, passed once to Register-ScheduledTask,
+    and it is WINDOWS that keeps it in its vault in order to start the task. This script writes it nowhere and
+    does not return it.
 
-    CE N'EST PAS UN POINT D'ENTREE. L'installation de Vigie n'en a qu'UN -- setup.cmd, qui
-    appelle install.ps1 -- et c'est lui qui appelle cette etape. Un utilisateur n'a pas a
-    savoir qu'elle existe, ni dans quel ordre lancer quoi : l'idempotence fait la
-    difference entre une premiere installation et une mise a jour.
+    DELIBERATE CAUTION: the task is created DISABLED. As long as it is not enabled, nothing changes when the
+    machine boots, and the present road goes on working. The two must NEVER run together: they would fight over
+    the port.
 
-    Il reste lancable a la main pour les gestes qui ne sont PAS l'installation :
-
-      pwsh -File .\scripts\lib\install-service.ps1 -Lister    # etat des lieux, ne change rien
-      pwsh -File .\scripts\lib\install-service.ps1 -Enable   # bascule vers le service
-      pwsh -File .\scripts\lib\install-service.ps1 -Remove   # revient en arriere
-
-    Codes de retour : 0 = fait ; 1 = prerequis manquant ; 2 = une etape a echoue ;
-                      3 = refuse par l'utilisateur.
+    Exit codes: 0 = done; 1 = a missing prerequisite; 2 = a step failed; 3 = refused by the user.
 #>
+
+
+
+
+
+
 param(
     [switch] $Lister,
     [switch] $Enable,
@@ -42,15 +42,15 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 
-# Le script a descendu d un cran (scripts/lib/) : la racine est deux niveaux au-dessus.
+# The script has gone down one level (scripts/lib/): the root is two levels above.
 $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $repoRoot 'apps/backend-pode/lib/common.ps1')
 $backend = Join-Path $repoRoot 'apps/backend-pode'
-. (Join-Path $repoRoot 'scripts/lib/console-ui.ps1')   # le meme affichage que tous les autres scripts
+. (Join-Path $repoRoot 'scripts/lib/console-ui.ps1')   # the same display as every other script
 . (Join-Path $repoRoot 'scripts/lib/i18n.ps1')
 
-$SERVICE_ACCOUNT = Get-ServiceAccountName   # une seule definition, dans common.ps1
-$SERVICE_TASK    = Get-ServiceTaskName   # une seule definition, dans common.ps1
+$SERVICE_ACCOUNT = Get-ServiceAccountName   # one single definition, in common.ps1
+$SERVICE_TASK    = Get-ServiceTaskName   # one single definition, in common.ps1
 
 
 function Get-ServiceAccount {
@@ -60,16 +60,16 @@ function Get-ServiceTask {
     try { return (Get-ScheduledTask -TaskName $SERVICE_TASK -ErrorAction Stop) } catch { return $null }
 }
 
-# --- Etat des lieux -------------------------------------------------------------------
+# --- The survey ---------------------------------------------------------------
 <#
-    L'ETAT DES LIEUX. Il sert deux fois : avant le travail, pour dire d'ou l'on part, et
-    apres, pour montrer ce qui a change. Le meme titre revenait donc DEUX FOIS sur le
-    meme ecran, ce qui donnait l'impression d'un doublon plutot que d'un avant/apres
-    (signale le 29/08).
+    THE SURVEY. It serves twice: before the work, to say where we start from, and afterwards, to show what has
+    changed. So the same title came up TWICE on the same screen, which looked like a duplicate rather than a
+    before and after (reported on 29/08).
 
-    -NoTitle laisse l'appelant tenir le fil : dans une installation, le titre de l'etape
-    est deja au-dessus, et l'etat n'est que sa conclusion.
+    -NoTitle leaves the caller holding the thread: inside an installation the step's title is already above, and
+    the survey is only its conclusion.
 #>
+
 function Show-State {
     param([switch]$NoTitle)
     $account = Get-ServiceAccount
@@ -77,22 +77,22 @@ function Show-State {
     if (-not $NoTitle) { Write-Title (Get-Label 'install-service.service-de-machine') }
     Write-Info (Get-Label 'install-service.compte-dedie' $(if ($account) { $SERVICE_ACCOUNT + " (actif=" + $account.Enabled + ")" } else { "absent" }))
     Write-Info (Get-Label 'install-service.tache-machine' $(if ($task) { $SERVICE_TASK + " (" + $task.State + ")" } else { "absente" }))
-    # PROD EST LE DEFAUT, on ne l'annonce pas : seul « developpement » apprend quelque chose.
+    # PROD IS THE DEFAULT, we do not announce it: only the development stage teaches anything.
     if ((Get-DeclaredStage -Backend $backend) -eq 'dev') { Write-Info (Get-Label 'install-service.stage-dev') }
     $listening = Get-PortListener -Port ([int](Get-Config -Backend $backend).Port)
     Write-Info (Get-Label 'install-service.serveur-en-ligne' $(if ($listening) { "oui (PID " + $listening.OwningProcess + ")" } else { "non" }))
 }
 
-# --- Le compte dedie ------------------------------------------------------------------
+# --- The dedicated account ----------------------------------------------------
 #
-# Un mot de passe long et aleatoire, genere ici, passe une seule fois a Windows. On ne le
-# conserve pas : si la tache doit etre reenregistree, on en genere un nouveau et on
-# reinitialise le compte -- geste d'administrateur, comme le reste.
+# A long random password, generated here, passed once to Windows. We do not keep it: if the task has to be
+# re-registered, we generate a new one and reset the account -- an administrator's gesture, like the rest.
+
 function New-ServicePassword {
     $bytes = [byte[]]::new(24)
     [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
-    # Base64 peut contenir des caracteres que certaines API digerent mal : on garde un
-    # alphabet sur, et une longueur qui compense largement.
+    # Base64 can hold characters some APIs digest badly: we keep a safe alphabet, and a length that amply makes up
+    # for it.
     $safe = ([Convert]::ToBase64String($bytes) -replace '[^A-Za-z0-9]', '')
     return ($safe + 'aA1!')
 }
@@ -103,9 +103,9 @@ function Set-ServiceAccountReady {
     $secure = ConvertTo-SecureString $password -AsPlainText -Force
     if (-not $account) {
         Write-Step (Get-Label 'install-service.creation-du-compte' $SERVICE_ACCOUNT)
-        # 48 CARACTERES, PAS UN DE PLUS : c'est la limite que Windows impose a la
-        # description d'un compte local. Une phrase de 66 signes a fait echouer la
-        # premiere installation (28/08) -- et l'echec, lui, etait bien signale.
+        # 48 CHARACTERS, NOT ONE MORE: that is the limit Windows imposes on a local account's description. A
+        # sentence of 66 signs made the first installation fail (28/08) -- and the failure, at least, was properly
+        # reported.
         New-LocalUser -Name $SERVICE_ACCOUNT -Password $secure -FullName 'Vigie - service local' `
                       -Description 'Service local de Vigie (pas de session)' `
                       -PasswordNeverExpires -UserMayNotChangePassword -ErrorAction Stop | Out-Null
@@ -114,7 +114,7 @@ function Set-ServiceAccountReady {
         Set-LocalUser -Name $SERVICE_ACCOUNT -Password $secure -ErrorAction Stop
     }
 
-    # Administrateur : le serveur tient le verrou de Windows Update et ecrit dans HKLM.
+    # An administrator: the server holds the Windows Update lock and writes into HKLM.
     try {
         $admins = (Get-LocalGroup -SID 'S-1-5-32-544').Name
         $member = @(Get-LocalGroupMember -Group $admins -ErrorAction SilentlyContinue |
@@ -125,9 +125,8 @@ function Set-ServiceAccountReady {
         }
     } catch { Write-Warn (Get-Label 'install-service.groupe-administrateurs' $_.Exception.Message) }
 
-    # MASQUE DE L'ECRAN DE CONNEXION. Ce compte n'est pas une personne : il n'a rien a
-    # faire dans la liste des utilisateurs. C'est la meme cle que Vigie lit deja pour
-    # reconnaitre un compte technique -- la boucle est bouclee.
+    # HIDDEN FROM THE SIGN-IN SCREEN. This account is not a person: it has no business in the list of users. It is
+    # the same key Vigie already reads to recognise a technical account -- the circle is closed.
     try {
         $key = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\UserList'
         if (-not (Test-Path -LiteralPath $key)) { New-Item -Path $key -Force | Out-Null }
@@ -138,15 +137,15 @@ function Set-ServiceAccountReady {
     return $password
 }
 
-# LE DROIT « OUVRIR UNE SESSION EN TANT QUE TACHE » (SeBatchLogonRight).
+# THE "LOG ON AS A BATCH JOB" RIGHT (SeBatchLogonRight).
 #
-# Une tache enregistree avec un mot de passe (LogonType Password) ne demarre que si son
-# compte possede ce droit. L'interface graphique du Planificateur l'accorde toute seule ;
-# Register-ScheduledTask, non -- d'ou un enregistrement refuse sans que rien n'explique
-# quoi (code 2 a l'installation du 28/08).
+# A task registered with a password (LogonType Password) starts only if its account holds that right. The Task
+# Scheduler's graphical interface grants it by itself; Register-ScheduledTask does not -- hence a registration
+# refused with nothing to explain what was missing (code 2 at the installation of 28/08).
 #
-# On l'accorde par secedit, qui exige l'elevation -- le script l'a deja. Idempotent : un
-# compte qui l'a deja n'est pas retouche.
+# We grant it through secedit, which demands elevation -- the script already has it. Idempotent: an account that
+# already holds it is not touched.
+
 function Grant-BatchLogonRight {
     param([Parameter(Mandatory)][string]$Sid)
     # THE secedit WORK LIVES IN common.ps1 (Set-BatchLogonRight): the uninstall revokes what this grants, with one code.
@@ -156,7 +155,7 @@ function Grant-BatchLogonRight {
     else { Write-Detail (Get-Label 'install-service.droit-ouvrir-une-session') }
     return $true
 }
-# --- La tache machine -----------------------------------------------------------------
+# --- The machine task ---------------------------------------------------------
 function Register-ServiceTask {
     param([Parameter(Mandatory)][string]$Password)
 
@@ -164,16 +163,16 @@ function Register-ServiceTask {
     if (-not $pwsh) { $pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Source }
     if (-not $pwsh) { Write-Fail (Get-Label 'install-service.powershell-introuvable-pour-la'); return $false }
 
-    # LE SERVEUR VIT TOUJOURS DANS L'INSTALLATION PARTAGEE, quel que soit l'environnement.
+    # THE SERVER ALWAYS LIVES IN THE SHARED INSTALLATION, whatever the environment.
     #
-    # « dev ou prod, c'est juste la SOURCE qui change mais le serveur est dans Program
-    # Files. » C'est la seule position tenable pour un service de machine : un serveur qui
-    # vivrait dans l'espace de travail d'un utilisateur serait illisible pour les autres
-    # comptes -- exactement le piege ou « Famille » est tombee -- et disparaitrait le jour
-    # ou ce dossier bouge.
+    # "Dev or prod, it is just the SOURCE that changes, but the server is in Program Files." That is the only
+    # tenable position for a machine service: a server living inside a user's working space would be unreadable to
+    # the other accounts -- exactly the trap one account fell into -- and would disappear the day that folder
+    # moves.
     #
-    # L'environnement declare ne dit donc pas OU le serveur tourne, mais D'OU vient ce
-    # qu'on y deploie : le depot local en dev, une version publiee en prod.
+    # So the declared environment does not say WHERE the server runs, but WHERE what is deployed there comes from:
+    # the local repository in dev, a published version in prod.
+
     $appRoot = Get-SharedInstallPath
     if (-not $appRoot) {
         Write-Fail (Get-Label 'install-service.aucune-installation-partagee-deployez')
@@ -193,26 +192,25 @@ function Register-ServiceTask {
                     -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew `
                     -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
 
-    # LE DROIT AVANT L'ENREGISTREMENT : sans lui, Windows refuse une tache lancee par mot
-    # de passe -- et son message ne dit pas lequel manque.
+    # THE RIGHT BEFORE THE REGISTRATION: without it Windows refuses a task started by password -- and its message
+    # does not say which one is missing.
     $sid = $null
     try { $sid = (Get-LocalUser -Name $SERVICE_ACCOUNT -ErrorAction Stop).SID.Value } catch { }
     if ($sid) { $null = Grant-BatchLogonRight -Sid $sid }
 
-    # DEUX APPELS, PAS UN. `Register-ScheduledTask` a des JEUX DE PARAMETRES exclusifs :
-    # -Principal appartient a l'un, -Password a l'autre. Les donner ensemble ne produit pas
-    # une erreur qui nomme le fautif, mais « Parameter set cannot be resolved » -- ce qui a
-    # coute une installation entiere le 28/08. On construit donc la tache d'abord (le
-    # principal y entre, RunLevel Highest compris), on l'enregistre ensuite avec le mot de
-    # passe : ce jeu-la accepte -InputObject et -Password.
+    # TWO CALLS, NOT ONE. `Register-ScheduledTask` has exclusive PARAMETER SETS: -Principal belongs to one,
+    # -Password to the other. Giving them together does not produce an error naming the culprit, but "Parameter set
+    # cannot be resolved" -- which cost a whole installation on 28/08. So we build the task first (the principal
+    # goes into it, RunLevel Highest included), then register it with the password: that set accepts -InputObject
+    # and -Password.
+
     try {
         $task = New-ScheduledTask -Action $action -Trigger $trigger -Principal $principal -Settings $settings
         Register-ScheduledTask -TaskName $SERVICE_TASK -InputObject $task `
             -User ("$env:COMPUTERNAME\$SERVICE_ACCOUNT") -Password $Password -Force -ErrorAction Stop | Out-Null
     } catch {
-        # LA TRACE SURVIT A LA CONSOLE. Ce message est parti dans un terminal refermé le
-        # 28/08, et il a fallu deviner ce qu'il disait : il va desormais aussi dans le
-        # journal de Vigie, qui se relit.
+        # THE TRACE OUTLIVES THE CONSOLE. This message went into a terminal that was closed on 28/08, and what it
+        # said had to be guessed: from now on it goes into Vigie's log as well, which can be read back.
         $why = $_.Exception.Message
         Write-Fail (Get-Label 'install-service.windows-refuse-enregistrer-la' $why)
         try { Write-Log -Backend $backend -Name 'install' -Level 'ERROR' `
@@ -220,29 +218,28 @@ function Register-ServiceTask {
         return $false
     }
 
-    # DESACTIVEE A LA CREATION. Deux serveurs sur le meme port se marcheraient dessus :
-    # la bascule est un geste separe, et volontaire (-Enable).
+    # DISABLED WHEN CREATED. Two servers on the same port would tread on each other: the switch-over is a separate
+    # gesture, and a deliberate one (-Enable).
     try { Disable-ScheduledTask -TaskName $SERVICE_TASK -ErrorAction Stop | Out-Null } catch { }
     Write-Ok (Get-Label 'install-service.tache-enregistree-desactivee' $SERVICE_TASK)
     return $true
 }
 
-# --- Le droit de la relancer, pour les comptes ordinaires -----------------------------
+# --- The right to restart it, for ordinary accounts ---------------------------
 #
-# L'app cliente n'est pas eleve : sans ce droit, il ne pourrait ni arreter ni relancer le
-# serveur. Windows l'accorde par le descripteur de securite de la tache.
+# The client app is not elevated: without this right it could neither stop nor restart the server. Windows grants
+# it through the task's security descriptor.
 function Grant-TaskControl {
     try {
-        # PAS DE « schtasks /change /RU » ICI. Il y en avait un, et il BLOQUAIT
-        # l'installation : sans /RP, schtasks demande le mot de passe du compte et attend
-        # sur l'entree standard. L'installation restait figee jusqu'a ce que quelqu'un
-        # appuie sur Entree -- 28 secondes mesurees dans le journal du 29/08, entre deux
-        # lignes qui se suivent -- et cette Entree fournissait un mot de passe VIDE.
+        # NO "schtasks /change /RU" HERE. There was one, and it BLOCKED the installation: without /RP, schtasks asks
+        # for the account's password and waits on standard input. The installation stayed frozen until somebody
+        # pressed Enter -- 28 seconds measured in the log of 29/08, between two consecutive lines -- and that Enter
+        # supplied an EMPTY password.
         #
-        # Son erreur etait avalee par « $null = $out » : un blocage sans message, sur un
-        # appel dont personne ne verifiait le resultat. Il etait de surcroit inutile, le
-        # principal etant deja pose a l'enregistrement de la tache.
-        $sddl = 'D:(A;;GA;;;BA)(A;;GA;;;SY)(A;;GRGX;;;BU)'   # admins+systeme total, utilisateurs lecture+execution
+        # Its error was swallowed by a "$null = $out": a deadlock with no message, on a call whose result nobody
+        # checked. It was useless into the bargain, the principal being already laid down when the task was
+        # registered.
+        $sddl = 'D:(A;;GA;;;BA)(A;;GA;;;SY)(A;;GRGX;;;BU)'   # admins+system full, users read+execute
         $folder = New-Object -ComObject 'Schedule.Service'
         $folder.Connect()
         $task = $folder.GetFolder('\').GetTask($SERVICE_TASK)
@@ -284,44 +281,44 @@ if (-not (Test-IsElevated)) {
 }
 
 <#
-    LA BASCULE. -Enable etait declare dans les parametres et decrit dans l'aide, mais
-    AUCUN code ne le traitait : la commande affichait l'etat et sortait, sans rien faire
-    et sans rien dire. Un commutateur documente qui ne fait rien est pire qu'un
-    commutateur absent -- celui-la, au moins, provoque une erreur.
+    THE SWITCH-OVER. -Enable was declared in the parameters and described in the help, but NO code handled it: the
+    command displayed the state and exited, doing nothing and saying nothing. A documented switch that does
+    nothing is worse than an absent one -- that one, at least, raises an error.
 
-    CE QU'ELLE FAIT, dans cet ordre, et pourquoi :
+    WHAT IT DOES, in this order, and why:
 
-      1. La tache doit EXISTER. Sinon il n'y a rien a activer, et c'est l'installation
-         qui la pose.
-      2. LE PORT DOIT ETRE LIBRE. Deux serveurs sur 47600, c'est le second qui meurt --
-         et on ne sait plus lequel repond aux ordres. Le precedent s'arrete donc, et le
-         suivant prend sa place -- c'est une installation, pas une negociation.
-      3. On ACTIVE, puis on DEMARRE A LA DEMANDE. Windows refuse de demarrer une tache
-         desactivee, meme a la main : les deux gestes sont necessaires, dans cet ordre.
-         Le declencheur « au demarrage » reste pour la suite ; il n'est pas attendu ici.
-      4. ON VERIFIE QU'ELLE ECOUTE. Une tache « demarree » ne prouve rien : le processus
-         peut mourir a la seconde suivante. On attend le port, pas le code de retour.
-      5. SI ELLE N'ECOUTE PAS, ON DESACTIVE. Laisser une tache activee qui ne sert pas
-         signifie qu'au prochain demarrage de la machine, elle reprendra la main sans
-         que personne ne l'ait decide.
+      1. The task must EXIST. Otherwise there is nothing to enable, and it is the installation that lays it down.
+      2. THE PORT MUST BE FREE. Two servers on 47600 means the second one dies -- and one no longer knows which
+         answers the orders. So the previous one stops and the next takes its place -- this is an installation, not
+         a negotiation.
+      3. We ENABLE, then START ON DEMAND. Windows refuses to start a disabled task, even by hand: both gestures
+         are necessary, in that order. The "at startup" trigger remains for later; it is not awaited here.
+      4. WE CHECK THAT IT LISTENS. A task that has "started" proves nothing: the process can die the next second.
+         We wait for the port, not for the exit code.
+      5. IF IT DOES NOT LISTEN, WE DISABLE IT. Leaving an enabled task that serves no purpose means that at the
+         machine's next boot it will take over without anybody having decided so.
 
-    LES DROITS SONT CEUX DE LA TACHE, PAS CEUX DU DEMANDEUR. C'est le principe meme du
-    montage : la tache declare son principal (VigieService, RunLevel Highest), et
-    Grant-TaskControl accorde aux utilisateurs integres le droit de l'EXECUTER. Un compte
-    standard la demarre donc, et elle tourne elevee -- avec les droits qu'elle definit.
+    THE RIGHTS ARE THE TASK'S, NOT THE REQUESTER'S. That is the very principle of the arrangement: the task
+    declares its principal (the service account, RunLevel Highest), and Grant-TaskControl grants the built-in
+    users the right to RUN it. So a standard account starts it, and it runs elevated -- with the rights it defines
+    itself.
 #>
+
+
+
+
 <#
-    METTRE LA TACHE SERVEUR EN SERVICE. Rend $true si le serveur repond a la fin.
+    PUTTING THE SERVER TASK INTO SERVICE. Returns $true if the server answers at the end.
 
-    EXTRAITE POUR ETRE APPELABLE DEUX FOIS : par l'installation, qui doit tout installer,
-    et par -Enable, qui remet en service une tache qu'on avait retiree du jeu. Le corps
-    se terminait par « exit » -- utilisable seulement en fin de script, donc pas comme une
-    etape.
+    EXTRACTED SO AS TO BE CALLABLE TWICE: by the installation, which must install everything, and by -Enable,
+    which puts back into service a task that had been taken out of play. The body used to end with an "exit" --
+    usable only at the end of a script, so not as a step.
 
-    Verifie avant de brancher : l'installation traite la tache serveur AVANT de lancer le
-    d'app cliente, donc l'app cliente ne lancera pas de serveur concurrent -- il constate qu'une tache
-    active s'en charge.
+    It checks before switching on: the installation deals with the server task BEFORE starting the client app, so
+    the client app will not start a competing server -- it observes that an enabled task is taking care of it.
 #>
+
+
 function Enable-ServiceTask {
     $task = Get-ServiceTask
     if (-not $task) {
@@ -330,15 +327,14 @@ function Enable-ServiceTask {
         return $false
     }
 
-    # --- Le port ---
+    # --- The port ---
     $port = [int](Get-Config -Backend $backend).Port
     $held = Get-PortListener -Port $port
-    # LE PRECEDENT S'ARRETE, LE SUIVANT DEMARRE. C'est une installation : on ne demande
-    # pas la permission de remplacer un serveur par sa propre nouvelle version.
+    # THE PREVIOUS ONE STOPS, THE NEXT ONE STARTS. This is an installation: we do not ask permission to replace a
+    # server with its own new version.
     if ($held) {
-        # UNE SEULE MISE EN OEUVRE DE L'ARRET (Stop-ServerApp) : elle arrete la tache
-        # AVANT le processus -- sans quoi Windows le relance sous nos pieds -- et attend
-        # que le port se libere, ce qui est un fait constatable.
+        # ONE SINGLE IMPLEMENTATION OF THE STOP (Stop-ServerApp): it stops the task BEFORE the process -- otherwise
+        # Windows restarts it under our feet -- and waits for the port to be released, which is an observable fact.
         Write-Step (Get-Label 'install-service.activer-arret-du-serveur' $held.OwningProcess)
         if (-not (Stop-ServerApp -Backend $backend -Port $port)) {
             Write-Fail (Get-Label 'install-service.activer-arret-impossible' ("le port " + $port + " est toujours occupe"))
@@ -358,19 +354,19 @@ function Enable-ServiceTask {
     }
 
     <#
-        LA PREUVE, C'EST QUE LA TACHE DEMARRE -- PAS QUE LE SERVEUR REPONDE.
+        THE PROOF IS THAT THE TASK STARTS -- NOT THAT THE SERVER ANSWERS.
 
-        J'attendais le port. Mauvaise question : ce que l'installation installe, c'est une
-        tache qui se lance sous le bon compte. Le temps que l'application mette ENSUITE a
-        ouvrir son port ne la regarde plus -- une minute, deux, selon le disque et le
-        reste. Attendre ce resultat, c'est attendre un delai indetermine, et le 29/08 ca
-        s'est fini par une tache DESACTIVEE alors que le serveur repondait juste apres.
+        I was waiting for the port. The wrong question: what the installation installs is a task that starts under
+        the right account. How long the application then takes to open its port is no longer its business -- a
+        minute, two, depending on the disc and the rest. Waiting for that result means waiting for an undetermined
+        delay, and on 29/08 it ended with a DISABLED task while the server answered just afterwards.
 
-        Ce qui peut rater ICI rate TOUT DE SUITE : mot de passe refuse, droit d'ouverture
-        de session en lot manquant, chemin introuvable. Windows arrete alors la tache
-        aussitot et donne son code. Donc : si la tache TOURNE, c'est installe ; si elle
-        s'est arretee, on lit pourquoi. Quelques secondes suffisent a faire la difference.
+        What can go wrong HERE goes wrong AT ONCE: a refused password, a missing batch logon right, a path that
+        cannot be found. Windows then stops the task immediately and gives its code. So: if the task RUNS, it is
+        installed; if it has stopped, we read why. A few seconds are enough to tell the difference.
     #>
+
+
     $state = 'Unknown'
     $result = $null
     foreach ($n in 1..12) {
@@ -445,8 +441,8 @@ if ($Repair) {
 Write-Step (Get-Label 'install-service.etape')
 Show-State -NoTitle
 
-# UNE ETAPE QUI ECHOUE LE DIT, elle ne plante pas. Sans ce filet, l'erreur remontait
-# brute et le script rendait 1 sans expliquer ce qui n'allait pas.
+# A STEP THAT FAILS SAYS SO, it does not crash. Without this net the error came back raw and the script returned 1
+# without explaining what was wrong.
 try {
     $password = Set-ServiceAccountReady
 } catch {
@@ -455,13 +451,12 @@ try {
 }
 if (-not (Register-ServiceTask -Password $password)) { exit 2 }
 $null = Grant-TaskControl
-# Le mot de passe ne sert plus a rien : Windows le detient. On l'efface de la memoire.
+# The password is of no further use: Windows holds it. We erase it from memory.
 $password = $null
 [System.GC]::Collect()
 
-# UNE INSTALLATION INSTALLE : a la fin, l'application marche. La tache etait laissee
-# desactivee, en attendant un second geste que rien ne rendait evident -- relancer
-# l'installation dix fois n'y changeait rien.
+# AN INSTALLATION INSTALLS: at the end, the application works. The task used to be left disabled, waiting for a
+# second gesture that nothing made obvious -- running the installation ten times changed nothing.
 if (-not (Enable-ServiceTask)) { Show-State -NoTitle; exit 2 }
 Show-State -NoTitle
 exit 0

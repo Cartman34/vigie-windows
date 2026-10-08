@@ -9,14 +9,14 @@
 #>
 $backend = $env:VIGIE_BACKEND
 . "$backend/lib/common.ps1"
-# Le nom du dossier du front n'est ecrit que dans Get-AppPath (common.ps1).
+# The name of the front end's folder is written in Get-AppPath only (common.ps1).
 $front   = Get-AppPath -Role 'frontend'
 $cfg  = Get-Config -Backend $backend
 $base = $cfg.ApiBase
 
 Add-PodeEndpoint -Address $cfg.BindAddress -Port $cfg.Port -Protocol Http
 
-# --- Journalisation Pode sur fichier (erreurs + requetes) ---
+# --- Pode logging to file (errors + requests) ---
 $logDir = Get-VarPath -Backend $backend -Kind 'log'
 if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
 try {
@@ -29,29 +29,28 @@ try {
     }
 } catch { }
 
-# LE DOSSIER DES SESSIONS EST CALCULE UNE FOIS, ici, et passe au middleware par
-# l'environnement. Un middleware Pode tourne dans un runspace separe : il n'a ni les
-# variables ni les fonctions de ce fichier. Y charger common.ps1 a chaque requete
-# couterait un chargement complet par appel d'API.
+# THE SESSIONS FOLDER IS COMPUTED ONCE, here, and passed to the middleware through the environment. A Pode
+# middleware runs in a separate runspace: it has neither the variables nor the functions of this file. Loading
+# common.ps1 there at every request would cost a full load per API call.
 $env:VIGIE_AUTH_SESSIONS = Get-SessionStorePath -Kind 'sessions' -Backend $backend
 
-# --- Securite : jeton Bearer OU cookie de session, + anti-CSRF (origine locale) ---
+# --- Security: a Bearer token OR a session cookie, plus anti-CSRF (a local origin) ---
 Add-PodeMiddleware -Name 'security' -ScriptBlock {
     $req = $WebEvent.Request
     $p = $req.Url.AbsolutePath
-    if ($p -notlike '/api/*') { return $true }      # UI / statique
+    if ($p -notlike '/api/*') { return $true }      # the interface, or a static file
     if ($p -like '*/health')  { return $true }
-    # La demande de ticket s'authentifie AUTREMENT : par le secret du compte, qu'elle
-    # porte dans son corps. L'app cliente n'a pas de jeton d'API -- c'est justement ce qu'on
-    # remplace. La route verifie elle-meme, et refuse si le secret ne correspond pas.
+    # The request for a ticket authenticates ITSELF DIFFERENTLY: through the account's secret, which it carries in
+    # its body. The client app has no API token -- that is precisely what we are replacing. The route checks for
+    # itself, and refuses if the secret does not match.
     if ($p -like '*/session/ticket') { return $true }
 
-    # 1) QUI PARLE ? Deux preuves acceptees, et une seule suffit.
+    # 1) WHO IS SPEAKING? Two proofs accepted, and one is enough.
     #
-    #    - le cookie de session, pose apres consommation d'un ticket : c'est la voie
-    #      normale d'une page ouverte par l'app cliente d'un compte ;
-    #    - le jeton d'API, la voie historique, conservee tant que tous les appelants
-    #      ne sont pas passes au cookie (diagnostics, scripts).
+    #    - the session cookie, laid down after a ticket was consumed: the normal road for a page opened by an
+    #      account's client app;
+    #    - the API token, the historical road, kept as long as not every caller has moved to the cookie
+    #      (diagnostics, scripts).
     $authOk = $false
     if ($req.Headers['Authorization'] -eq ("Bearer " + $env:VIGIE_TOKEN)) { $authOk = $true }
     if (-not $authOk) {
@@ -66,15 +65,14 @@ Add-PodeMiddleware -Name 'security' -ScriptBlock {
         Set-PodeResponseStatus -Code 401
         return $false
     }
-    # 2) Anti-CSRF : les requetes modifiantes doivent venir d'une origine locale
+    # 2) Anti-CSRF: the requests that change something must come from a local origin
     $method = ("" + $WebEvent.Method).ToUpperInvariant()
     if ($method -ne 'GET' -and $method -ne 'HEAD') {
         $origin = $req.Headers['Origin']; if (-not $origin) { $origin = $req.Headers['Referer'] }
-        # Le PORT derive de config.psd1 (via VIGIE_PORT, pose par start.ps1) : pas de duplication.
-        # 127.0.0.1 et localhost ne sont PAS une copie de BindAddress : c'est la liste blanche
-        # des origines de BOUCLAGE, volontairement fixe. Meme si BindAddress changeait, seule
-        # une origine locale doit etre acceptee. Un middleware Pode tourne dans un runspace
-        # separe : $cfg n'y est pas visible, d'ou le passage par les variables d'environnement.
+        # The PORT derives from config.psd1 (through VIGIE_PORT, laid down by start.ps1): no duplication.
+        # 127.0.0.1 and localhost are NOT a copy of BindAddress: they are the white list of LOOPBACK origins,
+        # deliberately fixed. Even if BindAddress changed, only a local origin must be accepted. A Pode middleware
+        # runs in a separate runspace: $cfg is not visible there, hence the passing through environment variables.
         $allowed = @("http://127.0.0.1:$($env:VIGIE_PORT)", "http://localhost:$($env:VIGIE_PORT)")
         $ok = $false
         foreach ($a in $allowed) { if ($origin -and $origin.StartsWith($a)) { $ok = $true } }
@@ -83,11 +81,11 @@ Add-PodeMiddleware -Name 'security' -ScriptBlock {
     return $true
 }
 
-# --- Qui parle : ticket d'ouverture ------------------------------------------------------
+# --- Who is speaking: the opening ticket --------------------------------------
 #
-# L'app cliente d'un compte presente SON secret -- qu'il est seul a pouvoir lire -- et recoit un
-# ticket a usage unique. Il ouvre ensuite la page avec ce ticket dans l'URL. Le secret,
-# lui, ne quitte jamais la machine locale et n'entre jamais dans une URL.
+# An account's client app presents ITS OWN secret -- which it alone can read -- and receives a single-use ticket.
+# It then opens the page with that ticket in the URL. The secret never leaves the local machine and never enters a
+# URL.
 Add-PodeRoute -Method Post -Path "$base/session/ticket" -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
     $body = $WebEvent.Data
@@ -99,8 +97,8 @@ Add-PodeRoute -Method Post -Path "$base/session/ticket" -ScriptBlock {
         return
     }
     if (-not (Test-AccountSecret -Account $account -Secret $secret)) {
-        # REFUS SANS EXPLICATION. Dire « mauvais secret » plutot que « compte inconnu »
-        # renseigne qui essaie. La trace, elle, est complete cote serveur.
+        # A REFUSAL WITHOUT AN EXPLANATION. Saying "wrong secret" rather than "unknown account" informs whoever is
+        # trying. The trace, for its part, is complete on the server side.
         try { Write-Log -Backend $env:VIGIE_BACKEND -Name 'session' -Level 'WARN' `
                         -Message ("Ticket refuse pour le compte " + $account) } catch { }
         Set-PodeResponseStatus -Code 403
@@ -113,11 +111,11 @@ Add-PodeRoute -Method Post -Path "$base/session/ticket" -ScriptBlock {
     Write-PodeJsonResponse -Value @{ ok = $true; ticket = $ticket }
 }
 
-# --- API REST ---
+# --- The REST API ---
 Add-PodeRoute -Method Get -Path "$base/health" -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
-    # QUI PARLE : expose ici, parce qu'un mecanisme d'identification qu'on ne peut pas
-    # observer ne se debogue pas. « - » signifie « personne de reconnu ».
+    # WHO IS SPEAKING: exposed here, because an identification mechanism one cannot observe cannot be debugged. A
+    # dash means "nobody recognised".
     $account = '-'
     try {
         $sid = (Get-PodeCookie -Name 'vigie_session').Value
@@ -134,28 +132,27 @@ Add-PodeRoute -Method Get -Path "$base/health" -ScriptBlock {
         # WHEN THE STATE CACHE LAST MOVED: the panel compares it to what it holds and reads again when it
         # differs, so a computation finished by the server shows up without waiting for the next minute.
         stateStamp = (Get-StateStamp -Backend $env:VIGIE_BACKEND)
-        # URL de l'Atelier si son serveur repond en LOCAL, sinon null. C'est le serveur
-        # qui detecte : le front ne peut pas sonder un autre port proprement
-        # (cross-origin), et le port de l'Atelier ne doit exister que dans SA config (D15).
+        # The Atelier's URL if its server answers LOCALLY, otherwise null. It is the server that detects: the front
+        # end cannot probe another port cleanly (cross-origin), and the Atelier's port must exist in ITS OWN config
+        # only (D15).
         atelier = (Get-AtelierUrl)
     }
 }
 Add-PodeRoute -Method Get -Path "$base/state" -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
-    # fresh=1 : RECALCULE les sondes au lieu de servir le cache. C'est ce que demande le
-    # bouton « Rafraichir » de l'interface, par opposition au chargement de la page, qui
-    # doit s'afficher vite et se contente du cache.
+    # fresh=1: RECOMPUTE the probes instead of serving the cache. This is what the interface's refresh button asks
+    # for, as opposed to loading the page, which must display quickly and makes do with the cache.
     $fresh = ("" + $WebEvent.Query['fresh']) -in @('1','true')
-    # -WaitSeconds : seule la demande explicite attend son tour derriere un calcul
-    # deja lance. 75 s, sous le delai de 90 s du client.
+    # -WaitSeconds: only an explicit request waits its turn behind a computation already under way. 75 s, under the
+    # client's 90 s timeout.
     Write-PodeJsonResponse -Value (Get-State -Backend $env:VIGIE_BACKEND -Force:$fresh -WaitSeconds $(if ($fresh) { 75 } else { 0 })) -Depth 24
 }
 Add-PodeRoute -Method Get -Path "$base/modules/:id" -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
     $id = $WebEvent.Parameters['id']
-    # fresh=1 : le bouton « Rafraichir » de CETTE carte. On recalcule ses sondes et on
-    # ATTEND le resultat (75 s au plus, sous le delai du client) ; sans ce drapeau, le
-    # chargement et le suivi d'une tache de fond se contentent du cache.
+    # fresh=1: THIS card's refresh button. We recompute its probes and WAIT for the result (75 s at most, under the
+    # client's timeout); without that flag, loading the page and following a background task make do with the
+    # cache.
     $fresh = ("" + $WebEvent.Query['fresh']) -in @('1','true')
     $etat = if ($fresh) { Get-State -Backend $env:VIGIE_BACKEND -ForceModule $id -WaitSeconds 75 }
             else        { Get-State -Backend $env:VIGIE_BACKEND }
@@ -163,7 +160,7 @@ Add-PodeRoute -Method Get -Path "$base/modules/:id" -ScriptBlock {
     if ($m) { Write-PodeJsonResponse -Value $m -Depth 24 }
     else    { Write-PodeJsonResponse -StatusCode 404 -Value @{ error = "Module inconnu : $id" } }
 }
-# --- Gestion des modules (D48) : lister, activer, desactiver ------------------
+# --- Managing the modules (D48): list, enable, disable ------------------------
 Add-PodeRoute -Method Get -Path "$base/units" -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
     Write-PodeJsonResponse -Value @{ units = @(Get-UnitCatalog -Backend $env:VIGIE_BACKEND) } -Depth 6
@@ -182,14 +179,14 @@ Add-PodeRoute -Method Post -Path "$base/units/:id" -ScriptBlock {
         return
     }
     Set-UnitEnabled -UnitId $id -Enabled ([bool]$d.enabled)
-    # Rallumer un module doit se VOIR : ses sondes n'ont plus de cache frais garanti,
-    # le prochain /state les recalcule en fond comme n'importe quelle peremption.
+    # Switching a module back on must SHOW: its probes no longer have a guaranteed fresh cache, and the next /state
+    # recomputes them in the background like any other expiry.
     Write-PodeJsonResponse -Value @{ units = @(Get-UnitCatalog -Backend $env:VIGIE_BACKEND) } -Depth 6
 }
 
-# --- Arborescence du disque, UN NIVEAU a la fois (D60 revu) -------------------
-# L'interface n'embarque jamais l'arbre entier : elle demande le niveau qu'elle affiche.
-# Sans `path`, c'est la racine de la derniere analyse.
+# --- The disc tree, ONE LEVEL at a time (D60 revised) -------------------------
+# The interface never embeds the whole tree: it asks for the level it is displaying. Without `path`, that is the
+# root of the last analysis.
 Add-PodeRoute -Method Get -Path "$base/disk/tree" -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
     $chemin = "$($WebEvent.Query['path'])"
@@ -207,36 +204,34 @@ Add-PodeRoute -Method Get -Path "$base/disk/tree" -ScriptBlock {
     }
 }
 
-# --- Comptes Windows autorises (D65) -----------------------------------------
-# Lecture ouverte (savoir QUI a Vigie n'est pas un secret) ; ecriture reservee a un
-# serveur eleve -- creer une tache pour autrui est une operation d'administration.
+# --- The Windows accounts that are allowed (D65) ------------------------------
+# Reading is open (knowing WHO has Vigie is no secret); writing is reserved to an elevated server -- creating a
+# task for somebody else is an administration operation.
 Add-PodeRoute -Method Get -Path "$base/users" -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
     Write-PodeJsonResponse -Value @{
-        # UNIQUEMENT les comptes utilisateurs (regle utilisateur) : un compte dont le
-        # profil n'a jamais servi est un compte d'outil, on ne propose pas de lui donner
-        # Vigie. Meme critere que la carte Comptes -- une seule definition.
+        # USER accounts ONLY (the owner's rule): an account whose profile has never been used is a tool's account,
+        # and we do not offer to give it Vigie. The same criterion as the Accounts card -- one single definition.
         users    = @(Get-UserAccounts -Backend $env:VIGIE_BACKEND)
-        # Installation lisible par les autres comptes ? Sinon l'interface doit le dire au
-        # lieu de proposer une activation qui echouerait.
-        # « partagee » = il existe une installation que les autres comptes peuvent lire,
-        # ici ou ailleurs. C'est ce qui conditionne l'activation d'un autre compte.
+        # Is the installation readable by the other accounts? If not, the interface must say so instead of offering
+        # an activation that would fail.
+        # "shared" = there exists an installation the other accounts can read, here or elsewhere. That is what
+        # governs the activation of another account.
         shared      = [bool](Get-SharedInstallPath)
         installPath = $(if (Get-SharedInstallPath) { Get-SharedInstallPath } else { Get-RepoRoot })
-        # L'interface doit pouvoir dire POURQUOI les interrupteurs sont inertes.
+        # The interface must be able to say WHY the switches are inert.
         canWrite = [bool](Test-IsElevated)
-        # Ce que voit une fenetre sans session. Meme ecran, meme question : qui a le droit
-        # de voir quoi.
+        # What a window without a session sees. The same screen, the same question: who has the right to see what.
         anonymousAccess = (Get-AnonymousAccess -Backend $env:VIGIE_BACKEND)
     } -Depth 6
 }
 
 <#
-    CHANGER CE QUE VOIT UNE FENETRE SANS SESSION -- ADMINISTRATEUR SEULEMENT.
+    CHANGING WHAT A WINDOW WITHOUT A SESSION SEES -- ADMINISTRATOR ONLY.
 
-    Le reglage vit dans la declaration de l'ordinateur : il vaut pour toutes les
-    installations de la machine. On demande donc les memes droits que pour toute action
-    qui la touche, et on le verifie ICI : un bouton grise n'est qu'un affichage.
+    The setting lives in the computer's declaration: it holds for every installation on the machine. So we demand
+    the same rights as for any action that touches it, and we check them HERE: a greyed-out button is only a
+    display.
 #>
 Add-PodeRoute -Method Post -Path "$base/anonymous-access" -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
@@ -283,7 +278,7 @@ Add-PodeRoute -Method Post -Path "$base/users/:name" -ScriptBlock {
     }
 }
 
-# --- Parametres de modules (D57) : defaut = config, surcharge par l'utilisateur ---
+# --- Module settings (D57): the default is the config, overridden by the user ---
 Add-PodeRoute -Method Get -Path "$base/parameters" -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
     Write-PodeJsonResponse -Value @{ modules = @(Get-ModuleParameterCatalog -Backend $env:VIGIE_BACKEND) } -Depth 6
@@ -307,8 +302,8 @@ Add-PodeRoute -Method Post -Path "$base/parameters/:unit" -ScriptBlock {
         Write-PodeJsonResponse -StatusCode 400 -Value @{ error = $_.Exception.Message }
         return
     }
-    # Un reglage change doit se VOIR : les sondes du module sont recalculees au prochain
-    # /state, sans attendre leur TTL.
+    # A setting that changes must SHOW: the module's probes are recomputed at the next /state, without waiting for
+    # their TTL.
     try {
         $probes = @(Get-ChildItem -Path (Join-Path (Join-Path "$env:VIGIE_BACKEND/probes" $unit)) -Filter '*.probe.ps1' -File |
                     ForEach-Object { $_.Name })
@@ -317,15 +312,15 @@ Add-PodeRoute -Method Post -Path "$base/parameters/:unit" -ScriptBlock {
     Write-PodeJsonResponse -Value @{ modules = @(Get-ModuleParameterCatalog -Backend $env:VIGIE_BACKEND) } -Depth 6
 }
 
-# --- Historique des mesures (etape 2 du plan) : lecture seule -----------------
+# --- The history of the measurements: read only -------------------------------
 Add-PodeRoute -Method Get -Path "$base/history/:measureId" -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
     $id  = $WebEvent.Parameters['measureId']
     $win = "" + $WebEvent.Query['window']
-    if (-not $win) { $win = '7d' }   # defaut du contrat
+    if (-not $win) { $win = '7d' }   # the contract's default
     $span = ConvertTo-HistoryWindow -Window $win
-    # -StatusCode et non Set-PodeResponseStatus : ce dernier rend la page d'erreur
-    # HTML de Pode et le corps JSON est perdu (constate sur les routes historiques).
+    # -StatusCode and not Set-PodeResponseStatus: the latter returns Pode's HTML error page and the JSON body is
+    # lost (observed on the history routes).
     if (-not $span) {
         Write-PodeJsonResponse -StatusCode 400 -Value @{ error = "Fenêtre invalide : « $win » (attendu <n>h ou <n>d, ex. 24h, 7d)" }
         return
@@ -338,7 +333,7 @@ Add-PodeRoute -Method Get -Path "$base/history/:measureId" -ScriptBlock {
     Write-PodeJsonResponse -Value $h -Depth 6
 }
 
-# --- Reglages des notifications (D54) : lus/ecrits par l'interface -----------
+# --- Notification settings (D54): read and written by the interface -----------
 Add-PodeRoute -Method Get -Path "$base/notifications" -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
     $cfg = Get-NotificationSettings -Backend $env:VIGIE_BACKEND
@@ -346,7 +341,7 @@ Add-PodeRoute -Method Get -Path "$base/notifications" -ScriptBlock {
         enabled = [bool]$cfg.enabled
         modules = $cfg.modules
         notifs  = $cfg.notifs
-        # Le CATALOGUE : ce que chaque module sait notifier, avec de vrais noms.
+        # The CATALOGUE: what each module knows how to notify, with real names.
         catalog = @(Get-NotificationCatalog -Backend $env:VIGIE_BACKEND)
     } -Depth 6
 }
@@ -355,10 +350,9 @@ Add-PodeRoute -Method Post -Path "$base/notifications" -ScriptBlock {
     $d = $WebEvent.Data
     $mods = $null
     if ($d -and $d.modules) {
-        # Pode livre le corps JSON en DICTIONNAIRE (pas en PSCustomObject) : enumerer
-        # PSObject.Properties decrirait alors le conteneur (Keys, IsReadOnly...) et non
-        # les cles -- c'est arrive : le fichier portait un module « True ». On gere les
-        # deux formes explicitement.
+        # Pode delivers the JSON body as a DICTIONARY (not a PSCustomObject): enumerating PSObject.Properties would
+        # then describe the container (Keys, IsReadOnly...) and not the keys -- it happened: the file carried a
+        # module named after a boolean. We handle both forms explicitly.
         $mods = @{}
         if ($d.modules -is [System.Collections.IDictionary]) {
             foreach ($k in @($d.modules.Keys)) { $mods["$k"] = [bool]$d.modules[$k] }
@@ -366,8 +360,8 @@ Add-PodeRoute -Method Post -Path "$base/notifications" -ScriptBlock {
             foreach ($pr in $d.modules.PSObject.Properties) { $mods["$($pr.Name)"] = [bool]$pr.Value }
         }
     }
-    # Meme traitement pour le reglage FIN, notification par notification (cle
-    # « <module>.<notification> ») : c'est lui qui porte les vrais noms (D54 revu).
+    # The same treatment for the FINE setting, notification by notification (the key "<module>.<notification>"):
+    # that is the one carrying the real names (D54 revised).
     $nots = $null
     if ($d -and $d.notifs) {
         $nots = @{}
@@ -397,18 +391,18 @@ Add-PodeRoute -Method Post -Path "$base/actions" -ScriptBlock {
     $job = Invoke-ActionById -Type $d.type -Module $d.module -Params $params -Backend $env:VIGIE_BACKEND
 
     <#
-        LA REPONSE PORTE L'ETAT DES OPERATIONS.
+        THE ANSWER CARRIES THE STATE OF THE OPERATIONS.
 
-        Sans cela, la page apprend qu'une operation tourne au sondage suivant -- jusqu'a
-        quatre secondes plus tard. Elle affichait donc DEUX notifications pour un seul
-        clic : la sienne, puis celle du sondage qui ne reconnaissait pas encore
-        l'operation (constate le 29/08 : « Mettre a jour l'installation » et « Mise a jour
-        de Vigie » cote a cote).
+        Without that, the page learns an operation is running at the next poll -- up to four seconds later. So it
+        displayed TWO notifications for one single click: its own, then the poll's, which did not recognise the
+        operation yet (observed on 29/08, two notifications for the same update side by side).
 
-        Le serveur SAIT ce qui tourne au moment ou il repond : le lui faire dire coute une
-        lecture de dossier et supprime la course. La page se cale sur cette verite, sans
-        attendre.
+        The server KNOWS what is running at the moment it answers: making it say so costs one folder read and
+        removes the race. The page settles on that truth, without waiting.
     #>
+
+
+
     try {
         $etat = @{
             running = @(Get-RunningOperations -Backend $env:VIGIE_BACKEND)
@@ -421,9 +415,9 @@ Add-PodeRoute -Method Post -Path "$base/actions" -ScriptBlock {
     else { Write-PodeJsonResponse -Value $job -Depth 24 }
 }
 
-# --- CE QUI TOURNE, POUR TOUTES LES PAGES (D95) ------------------------------
-# Toute page ouverte -- meme ouverte APRES le depart de l'operation -- s'accorde sur
-# cet etat : les notifications ne vivent plus dans une seule fenetre.
+# --- WHAT IS RUNNING, FOR EVERY PAGE (D95) ------------------------------------
+# Every page that is open -- even one opened AFTER the operation set off -- agrees on this state: the
+# notifications no longer live inside one single window.
 Add-PodeRoute -Method Get -Path "$base/operations" -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
     Write-PodeJsonResponse -Value @{
@@ -432,18 +426,18 @@ Add-PodeRoute -Method Get -Path "$base/operations" -ScriptBlock {
     } -Depth 8
 }
 
-# --- FICHE MATERIELLE : ce qui ne bouge pas ----------------------------------
-# Releve memorise sept jours (le materiel ne change pas) ; ?fresh=1 pour un neuf.
+# --- THE HARDWARE SHEET: what does not move -----------------------------------
+# The reading is remembered for seven days (the hardware does not change); ?fresh=1 for a new one.
 Add-PodeRoute -Method Get -Path "$base/hardware" -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
     $fresh = ("" + $WebEvent.Query['fresh']) -in @('1','true')
     Write-PodeJsonResponse -Value (Get-HardwareSpecs -Backend $env:VIGIE_BACKEND -Force:$fresh) -Depth 12
 }
 
-# --- RAPPORTS IMPRIMABLES (D86) ---------------------------------------------
-# Meme page pour les deux documents, ?type=materiel|etat. Elle est SERVIE par le
-# serveur, comme le tableau de bord : un fichier ouvert en file:// n'a ni jeton ni
-# meme origine, il ne pourrait rien lire (D47).
+# --- PRINTABLE REPORTS (D86) --------------------------------------------------
+# The same page for both documents, ?type=materiel|etat. It is SERVED by the server, like the panel: a file opened
+# through file:// has neither a token nor the same origin, and could read nothing (D47).
+
 Add-PodeRoute -Method Get -Path '/rapport' -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
     $front = Get-AppPath -Role 'frontend'
@@ -452,35 +446,35 @@ Add-PodeRoute -Method Get -Path '/rapport' -ScriptBlock {
     Write-PodeTextResponse -Value $html -ContentType 'text/html; charset=utf-8'
 }
 
-# --- UI : sert index.html en injectant le jeton (page meme origine) ---
+# --- The interface: serves index.html, injecting the token (a same-origin page) ---
 Add-PodeRoute -Method Get -Path '/' -ScriptBlock {
-    # PREMIERE ligne, comme dans toutes les autres routes. Une route Pode s'execute dans
-    # son PROPRE espace d'execution : rien de ce qui est charge au demarrage du serveur
-    # n'y existe. Ici le chargement etait place APRES deux appels d'aide -- la route
-    # levait donc « Get-AppPath is not recognized » et rendait 500 : l'application ne
-    # s'affichait pas du tout, alors que le serveur repondait.
+    # The FIRST line, as in every other route. A Pode route runs in its OWN runspace: nothing loaded when the
+    # server started exists there. Here the load was placed AFTER two helper calls -- so the route threw
+    # "Get-AppPath is not recognized" and returned 500: the application did not display at all, while the server
+    # was answering.
     . "$env:VIGIE_BACKEND/lib/common.ps1"
     $front = Get-AppPath -Role 'frontend'
 
     <#
-        « ?t=... » S'ECHANGE CONTRE UNE SESSION, PUIS L'ADRESSE REDEVIENT PROPRE.
+        "?t=..." IS EXCHANGED FOR A SESSION, THEN THE ADDRESS BECOMES CLEAN AGAIN.
 
-        L'URL d'ouverture ne vaut QU'UNE FOIS -- 30 secondes, consommee a la premiere
-        presentation -- et ce qu'elle laisse derriere elle, la session, DURE. C'est
-        exactement le partage voulu : ce qui circule est jetable, ce qui reste ne l'est
-        pas.
+        The opening URL is worth ONE USE ONLY -- 30 seconds, consumed at the first presentation -- and what it
+        leaves behind, the session, LASTS. That is exactly the sharing we want: what travels is disposable, what
+        stays is not.
 
-        On REDIRIGE vers l'adresse principale des que la session est posee. Sans cela,
-        « ?t=... » reste dans la barre d'adresse et dans l'historique : rafraichir la page
-        represente un jeton deja consomme, et ce qu'on met en signet ne marche qu'une
-        fois. Apres la redirection, le signet est la bonne adresse, et la session suit.
+        We REDIRECT to the main address as soon as the session is laid down. Without that, "?t=..." stays in the
+        address bar and in the history: refreshing the page presents a ticket already consumed, and what one
+        bookmarks works only once. After the redirection the bookmark is the right address, and the session
+        follows.
 
-        Le cookie est HttpOnly -- hors de portee du JavaScript de la page -- et
-        SameSite=Strict, donc aucun autre site ne le fait voyager. Il porte une duree
-        LONGUE, la un an : sans elle il mourait a la fermeture du navigateur, et l'URL
-        d'ouverture, a usage unique, ne pouvait plus le rendre. On aurait perdu son
-        identite en fermant sa fenetre.
+        The cookie is HttpOnly -- out of reach of the page's JavaScript -- and SameSite=Strict, so no other site
+        makes it travel. It carries a LONG lifetime, a year here: without it the cookie died when the browser
+        closed, and the opening URL, being single-use, could no longer give it back. One would have lost one's
+        identity by closing one's window.
     #>
+
+
+
     $ticket = $null
     try { $ticket = $WebEvent.Query['t'] } catch { }
     if ($ticket) {
@@ -488,17 +482,17 @@ Add-PodeRoute -Method Get -Path '/' -ScriptBlock {
         if ($account) {
             $sid = New-AccountSession -Account $account -Backend $env:VIGIE_BACKEND
             <#
-                LE COOKIE EST ECRIT A LA MAIN, ET C'EST VOULU.
+                THE COOKIE IS WRITTEN BY HAND, AND THAT IS DELIBERATE.
 
-                Set-PodeCookie pose une date d'expiration, que .NET serialise en
-                « Max-Age » avec la CULTURE COURANTE : sur une machine francaise, cela
-                donnait « Max-Age=31535999,9865232 ». Une virgule dans un nombre --
-                l'attribut est alors ignore par le navigateur, le cookie redevient un
-                cookie de session et l'identite se perdait a la fermeture de la fenetre.
-                Mesure le 31/08 dans l'en-tete servi.
+                Set-PodeCookie lays down an expiry date, which .NET serialises as "Max-Age" USING THE CURRENT
+                CULTURE: on a French machine that gave a Max-Age with a comma in the number -- the attribute is then
+                ignored by the browser, the cookie becomes a session cookie again and the identity was lost when the
+                window closed. Measured on 31/08 in the header served.
 
-                On ecrit donc un entier, nous-memes.
+                So we write an integer, ourselves.
             #>
+
+
             Add-PodeHeader -Name 'Set-Cookie' -Value (
                 'vigie_session=' + $sid + '; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000')
             try { Write-Log -Backend $env:VIGIE_BACKEND -Name 'session' `
@@ -508,32 +502,32 @@ Add-PodeRoute -Method Get -Path '/' -ScriptBlock {
                             -Message "URL d'ouverture invalide ou périmée." } catch { }
         }
         <#
-            LE JETON QUITTE L'ADRESSE, QUOI QU'IL ARRIVE.
+            THE TICKET LEAVES THE ADDRESS, WHATEVER HAPPENS.
 
-            La redirection n'etait faite qu'en cas de succes : presentee une seconde fois,
-            ou passe les trente secondes, l'adresse servait la page AVEC « ?t=... » encore
-            dans la barre. Or ce qui doit disparaitre n'est pas « le jeton utile », c'est
-            LE JETON -- reussi ou non, valide ou non, il n'a rien a faire dans l'adresse,
-            dans l'historique ni dans un signet.
+            The redirection was made on success only: presented a second time, or past the thirty seconds, the
+            address served the page WITH "?t=..." still in the bar. Yet what must disappear is not "the useful
+            ticket", it is THE TICKET -- successful or not, valid or not, it has no business in the address, in the
+            history or in a bookmark.
 
-            On redirige donc des qu'il y en a un, sans regarder ce qu'il valait.
+            So we redirect as soon as there is one, without looking at what it was worth.
         #>
+
         Move-PodeResponseUrl -Url '/'
         return
     }
 
     <#
-        SANS SESSION, ON NE SERT PAS LE PANNEAU -- c'est le defaut, et un administrateur
-        peut en decider autrement (Get-AnonymousAccess).
+        WITHOUT A SESSION WE DO NOT SERVE THE PANEL -- that is the default, and an administrator can decide
+        otherwise (Get-AnonymousAccess).
 
-        Le panneau porte le jeton d'API : le servir a une fenetre qui ne dit pas qui elle
-        est, c'est donner l'etat de la machine et le droit d'agir a n'importe quel
-        programme du poste. Constate le 31/08 en navigation privee : tout etait visible.
+        The panel carries the API token: serving it to a window that does not say who it is means giving the state
+        of the machine, and the right to act, to any program on the workstation. Observed on 31/08 in a private
+        window: everything was visible.
 
-        La page rendue a la place ne contient ni etat, ni jeton, ni liste de cartes, et ne
-        dit pas ce qui manque exactement : celui qui a le droit d'etre la ouvre Vigie par
-        son icone, les autres n'apprennent rien.
+        The page returned instead holds no state, no token and no list of cards, and does not say what exactly is
+        missing: whoever has the right to be there opens Vigie through its icon, the others learn nothing.
     #>
+
     if (-not (Get-RequesterAccount) -and (Get-AnonymousAccess -Backend $env:VIGIE_BACKEND) -eq 'error') {
         $refus = Join-Path $front 'no-session.html'
         if (Test-Path -LiteralPath $refus) {
@@ -547,10 +541,9 @@ Add-PodeRoute -Method Get -Path '/' -ScriptBlock {
     $html  = $html.Replace('__APP_VERSION__', (Get-AppVersion -Backend $env:VIGIE_BACKEND))
     $html  = $html.Replace('__APP_BUILD__',   (Get-AppBuildId -Backend $env:VIGIE_BACKEND))
 
-    # LES LIBELLES VOYAGENT AVEC LA PAGE, comme le jeton. L'autre solution -- un fetch au
-    # demarrage -- ajoute un aller-retour ET une course : le premier rendu peut arriver
-    # avant les libelles, et l'ecran clignote en « [?...] ». Injectes ici, ils sont la
-    # avant la premiere ligne de script.
+    # THE LABELS TRAVEL WITH THE PAGE, like the token. The other solution -- a fetch at startup -- adds a round
+    # trip AND a race: the first rendering can arrive before the labels, and the screen flickers with missing-key
+    # placeholders. Injected here, they are there before the first line of script.
     $labelFile = Join-Path (Split-Path (Split-Path $front -Parent) -Parent) 'lang/fr.json'
     $labelJson = if (Test-Path -LiteralPath $labelFile) {
         [System.IO.File]::ReadAllText($labelFile, (New-Object System.Text.UTF8Encoding($false)))
@@ -560,10 +553,9 @@ Add-PodeRoute -Method Get -Path '/' -ScriptBlock {
 }
 Add-PodeStaticRoute -Path '/mock' -Source (Join-Path $front 'mock')
 
-# Favicon : sert le .ico LIVRE de l'app cliente. Sans favicon, la fenetre dediee du navigateur
-# (--app) affiche un globe generique dans la barre des taches -- l'application n'avait
-# pas d'icone. On relit le fichier existant plutot que d'ajouter une copie de la marque
-# dans le front : une seule representation (D15, D38).
+# Favicon: serves the client app's DELIVERED .ico. Without a favicon, the browser's dedicated window (--app) shows
+# a generic globe in the task bar -- the application had no icon. We read the existing file again rather than
+# adding a copy of the brand into the front end: one single rendering (D15, D38).
 Add-PodeRoute -Method Get -Path '/favicon.ico' -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
     $ico = Join-Path (Get-AppPath -Role 'client') 'assets/ok.ico'
@@ -572,21 +564,21 @@ Add-PodeRoute -Method Get -Path '/favicon.ico' -ScriptBlock {
 }
 
 <#
-    LA VEILLE PERMANENTE (CORE-WATCH). Voir doc/progress/targeting/surveillance.md.
+    THE PERMANENT WATCH (CORE-WATCH). See doc/progress/targeting/surveillance.md.
 
-    Elle ne recalcule PAS de cartes en boucle : elle execute les RELEVES declares par les
-    modules -- une lecture bon marche, une valeur comparable -- et, quand une valeur
-    change, elle fait recalculer les cartes que le module a designees, par le chemin
-    existant.
+    It does NOT recompute cards in a loop: it runs the READINGS the modules declare -- a cheap read, a comparable
+    value -- and, when a value changes, it has the cards the module named recomputed, through the existing road.
 
-    Sans elle, rien n'est mesure tant que personne ne regarde : fermez toutes les sessions
-    et aucune notification ne peut plus partir.
+    Without it, nothing is measured as long as nobody is looking: close every session and no notification can set
+    off any more.
 
-    ELLE SE TAIT PENDANT UNE INSTALLATION : les fichiers changent sous ses pieds.
+    IT KEEPS QUIET DURING AN INSTALLATION: the files change under its feet.
 
-    Le travail se fait ICI, dans le minuteur : un releve coute quelques millisecondes, et
-    le recalcul qui suit un changement est rare par construction.
+    The work is done HERE, in the timer: a reading costs a few milliseconds, and the recomputation that follows a
+    change is rare by construction.
 #>
+
+
 Add-PodeTimer -Name 'vigie-watch' -Interval 30 -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
     try {
@@ -594,9 +586,9 @@ Add-PodeTimer -Name 'vigie-watch' -Interval 30 -ScriptBlock {
         # THE WHOLE ROUND IS WRAPPED (S14): what Vigie does by itself is seen like the rest, and a hang is found
         # even when this very timer is what is hung -- the reading is what judges.
         Invoke-WatchCycle -Backend $env:VIGIE_BACKEND -Body {
-        # LES RESIDENTS D ABORD : ce qui doit vivre a cote du serveur est arme ici, et
-        # rearme s il est mort (targeting/residents.md). Le premier d entre eux sait
-        # quand un jeu demarre ; la sentinelle qui suit ne fait que lire son resultat.
+        # THE RESIDENTS FIRST: what must live beside the server is armed here, and armed again if it is dead
+        # (targeting/residents.md). The first of them knows when a game starts; the sentinel that follows only
+        # reads its result.
         Invoke-WatchTask -Name 'residents' -Label (Get-Label 'common.veille-residents') -MaxSeconds 10 -Backend $env:VIGIE_BACKEND -Body {
             $null = Invoke-ResidentPass -Backend $env:VIGIE_BACKEND
         }

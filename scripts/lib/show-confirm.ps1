@@ -1,34 +1,35 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    show-confirm.ps1 - LA fenetre « voici ce qui va se passer, tu continues ? ». Autonome.
+    show-confirm.ps1 -- THE window that says "here is what is about to happen, do you carry on?". Self-contained.
 
-    POURQUOI UN FICHIER A PART. Cette fenetre doit s'afficher AVANT la toute premiere
-    elevation, c'est-a-dire a un moment ou PowerShell 7 n'est peut-etre pas encore installe
-    -- c'est justement ce qu'on s'apprete a installer. Elle est donc ecrite pour tourner
-    AUSSI sous Windows PowerShell 5.1, present sur toute machine Windows.
+    Intent: never send a bare UAC prompt. Before anything is elevated or changed, somebody reads what will be
+    touched and why, and can refuse without any system prompt appearing. The same window also serves to ANNOUNCE a
+    result, where it asks nothing.
 
-    Regle posee par l'utilisateur : « on peut se permettre une compatibilite sur la toute
-    premiere fenetre de confirmation, et apres on ne fait que du PS 7 ». Ce fichier est la
-    seule exception ; tout le reste du projet vise PS7 sans concession.
+    Usage: it is called as a separate process, with KEYS and not texts (see further down), and it answers through
+    its exit code: 0 = the user carries on; 3 = they refuse (or close the window); 1 = no graphical interface is
+    available and nothing was asked; 4 = the third way out.
 
-    ET UNE SEULE IMPLEMENTATION. `Show-ElevationRationale` (common.ps1) ne redessine pas
-    cette fenetre : elle appelle ce script. Deux dessins de la meme boite auraient diverge
-    des la premiere retouche.
+    WHY A SEPARATE FILE. This window must appear BEFORE the very first elevation, that is, at a moment when
+    PowerShell 7 may not be installed yet -- it is precisely what we are about to install. So it is written to run
+    under Windows PowerShell 5.1 as well, present on every Windows machine.
 
-    ENCODAGE : ce fichier est en UTF-8 AVEC BOM. Sans le BOM, PowerShell 5.1 lit un fichier
-    UTF-8 comme du Windows-1252 et les accents deviennent illisibles. Avec, les deux
-    versions le lisent correctement -- les accents ne se negocient pas (D41).
+    A rule laid down by the owner: a compatibility concession is allowed on the very first confirmation window, and
+    afterwards it is PS 7 only. This file is the sole exception; all the rest of the project targets PS7 without
+    concession.
 
-    Codes de retour : 0 = l'utilisateur continue ; 3 = il refuse (ou ferme la fenetre) ;
-                      1 = aucune interface graphique disponible, rien n'a ete demande.
+    AND ONE SINGLE IMPLEMENTATION. `Show-ElevationRationale` (common.ps1) does not redraw this window: it calls
+    this script. Two drawings of the same box would have diverged at the first retouch.
+
+    ENCODING: this file is UTF-8 WITH a BOM. Without the BOM, PowerShell 5.1 reads a UTF-8 file as Windows-1252 and
+    the accents become unreadable. With it, both versions read it correctly -- accents are not negotiable (D41).
 #>
 param(
-    # SCENARIO NOMME : le texte vit ICI, pas chez l'appelant.
+    # A NAMED SCENARIO: the text lives HERE, not in the caller.
     #
-    # `setup.cmd` ne peut pas porter les libelles : un fichier .cmd se lit dans la page de
-    # code OEM, ou les accents deviennent des symboles. Or les accents ne se negocient pas
-    # (D41). L'appelant nomme donc un scenario, et ce script -- en UTF-8 avec BOM -- ecrit
-    # les phrases.
+    # `setup.cmd` cannot carry the labels: a .cmd file is read in the OEM code page, where accents become symbols.
+    # Yet accents are not negotiable (D41). So the caller names a scenario, and this script -- in UTF-8 with a BOM
+    # -- writes the sentences.
     [ValidateSet('', 'installation', 'mise-a-jour', 'dossier', 'desinstallation')]
     [string] $Scenario = '',
 
@@ -53,103 +54,102 @@ param(
     #>
     [string] $OutFile = '',
 
-    # Une ligne par changement annonce. Separateur : « | » (un tableau ne traverse pas
-    # une ligne de commande sans y laisser des plumes).
+    # One line per announced change. The separator is a vertical bar (an array does not cross a command line without
+    # leaving feathers behind).
     [string] $Changes = '',
 
-    # Nom de l'agent a l'origine de la demande, s'il y en a un.
+    # The name of the agent behind the request, if there is one.
     [string] $InitiatedBy = '',
 
-    # Texte du bouton de gauche et du bouton d'action.
+    # The text of the left-hand button and of the action button.
     [string] $OkText     = 'Continuer',
     [string] $CancelText = 'Annuler',
 
     <#
-        UNE TROISIEME ISSUE, quand la question n'est pas binaire.
+        A THIRD WAY OUT, when the question is not a binary one.
 
-        « Une operation est en cours » n'appelle pas oui/non : on peut ne rien faire,
-        attendre la fin, ou forcer. Proposer deux boutons obligerait a choisir entre
-        renoncer et casser -- et l'attente, qui est souvent la bonne reponse, n'existerait
-        pas.
+        "An operation is under way" does not call for yes or no: one can do nothing, wait for the end, or force it.
+        Offering two buttons would force a choice between giving up and breaking -- and waiting, which is often the
+        right answer, would not exist.
 
-        Code de retour 4, distinct du 0 (bouton principal) et du 3 (refus).
+        Exit code 4, distinct from 0 (the main button) and 3 (a refusal).
     #>
+
     [string] $ThirdText = '',
 
-    # Note grise sous le contenu. Vide = pas de note.
+    # A grey note under the content. Empty = no note.
     [string] $Note = "Windows demandera ensuite l'autorisation administrateur.`nRien n'est modifié avant cette étape.",
 
-    # Le texte de la barre de titre. « autorisation requise » convient a une demande,
-    # pas a une fenetre qui annonce un resultat.
+    # The text of the title bar. "Authorisation required" suits a request, not a window announcing a result.
     [string] $Caption = 'Vigie — autorisation requise',
 
     <#
-        LES DETAILS TECHNIQUES SE DEPLIENT, ILS NE S'IMPOSENT PAS.
+        THE TECHNICAL DETAILS UNFOLD, THEY DO NOT IMPOSE THEMSELVES.
 
-        Une fenetre de resultat s'adresse a quelqu'un qui veut savoir si c'est bon. Les
-        chemins de journaux et les noms de taches ne repondent pas a cette question : ils
-        servent APRES, quand quelque chose cloche. Affiches d'entree, ils noient le
-        message (signale le 29/08).
+        A result window addresses somebody who wants to know whether it went well. Log paths and task names do not
+        answer that question: they serve AFTERWARDS, when something is wrong. Displayed up front, they drown the
+        message (reported on 29/08).
 
-        Ils vivent donc derriere « Détails », replie par defaut. La fenetre grandit quand
-        on l'ouvre, et rien n'est perdu pour qui cherche.
+        So they live behind a Details toggle, folded by default. The window grows when it is opened, and nothing is
+        lost for whoever is looking.
     #>
+
     [string] $Details = '',
 
     <#
-        UN CHEMIN NE SE RECOPIE PAS A LA MAIN.
+        A PATH IS NOT RETYPED BY HAND.
 
-        Le journal etait annonce en chemin RELATIF -- « apps\backend-pode\var\log\... » --
-        donc inutilisable : relatif a quoi ? Il est desormais donne en entier, et surtout
-        il s'OUVRE d'un clic. Quelqu'un qui deplie les details cherche a lire ce fichier :
-        lui donner son chemin, c'est lui demander de faire le travail lui-meme.
+        The log was announced as a RELATIVE path, under the server app folder, and so was useless: relative to
+        what? It is now given in full, and above all it OPENS with one click. Somebody who unfolds the details is
+        trying to read that file: giving them its path means asking them to do the work themselves.
     #>
+
     [string] $OpenPath = '',
     [string] $OpenText = 'Ouvrir le journal',
 
     <#
-        LE TEXTE NE TRAVERSE PAS LA LIGNE DE COMMANDE.
+        THE TEXT DOES NOT CROSS THE COMMAND LINE.
 
-        Un texte accentue passe en argument d'un AUTRE processus, donc par la ligne de
-        commande, donc par la page de code du moment : « sécurité » y devient « sÎcuritÎ »
-        (constate le 29/08). Aucun encodage de fichier n'y peut rien -- le mal est fait
-        entre les deux processus.
+        An accented text passed as an argument to ANOTHER process goes through the command line, and so through the
+        code page of the moment: an accented word came back mangled (observed on 29/08). No file encoding can do
+        anything about it -- the damage is done between the two processes.
 
-        On passe donc des CLES, et la fenetre lit lang/fr.json elle-meme : une cle est de
-        l'ASCII pur, elle traverse n'importe quelle page de code sans dommage. Le texte,
-        lui, ne bouge jamais de son fichier.
+        So we pass KEYS, and the window reads lang/fr.json itself: a key is pure ASCII, it crosses any code page
+        without harm. The text never moves from its own file.
     #>
+
+
     <#
-        POUR LE TEXTE QU'ON NE PEUT PAS NOMMER PAR UNE CLE.
+        FOR THE TEXT THAT CANNOT BE NAMED BY A KEY.
 
-        Les cles conviennent aux textes fixes. La fenetre d'elevation, elle, affiche ce
-        que l'ACTION declare -- son impact, son usage, sa reversibilite : du texte
-        construit, different a chaque fois, qu'aucune cle ne designe.
+        Keys suit fixed texts. The elevation window, for its part, displays what the ACTION declares -- its impact,
+        its use, its reversibility: built text, different every time, that no key designates.
 
-        Il passe donc par un fichier JSON en UTF-8, dont seul le CHEMIN traverse la ligne
-        de commande. Un chemin est de l'ASCII ; le texte, lui, ne subit aucune conversion.
+        So it travels through a JSON file in UTF-8, of which only the PATH crosses the command line. A path is
+        ASCII; the text undergoes no conversion at all.
     #>
+
     [string] $PayloadFile = '',
 
     [string] $TitleKey   = '',
     [string] $SummaryKey = '',
     [string] $DetailsKey = '',
-    # La valeur qui remplit le trou {0} du texte des details : une URL, un chemin. ASCII.
+    # The value that fills the {0} hole in the details text: a URL, a path. ASCII.
     [string] $DetailsArg = '',
-    # Idem pour le resume : « v0.1.31 vers v0.1.32 ». ASCII lui aussi.
+    # The same for the summary: one version to another. ASCII as well.
     [string] $SummaryArg = '',
 
-    # Fermeture automatique, en millisecondes. Sert UNIQUEMENT a verifier la mise en page
-    # sans bloquer : la fenetre se ferme seule et le script rend 3 (donc « refus »).
+    # Automatic closing, in milliseconds. It serves ONLY to check the layout without blocking: the window closes by
+    # itself and the script returns 3 (so, a refusal).
     [int] $FermerApresMs = 0
 )
 
 $ErrorActionPreference = 'Stop'
-# Ce fichier est isole : il charge lui-meme l'affichage commun, qui apporte aussi
-# les libelles (console-ui.ps1 et i18n.ps1 sont voisins).
+# This file is isolated: it loads the common display itself, which also brings the labels (console-ui.ps1 and
+# i18n.ps1 are its neighbours).
 . (Join-Path $PSScriptRoot 'console-ui.ps1')
 
-# La charge utile d'abord : c'est elle qui porte le texte construit.
+# The payload first: it is what carries the built text.
 if ($PayloadFile -and (Test-Path -LiteralPath $PayloadFile)) {
     try {
         $charge = [System.IO.File]::ReadAllText($PayloadFile, (New-Object System.Text.UTF8Encoding($false))) | ConvertFrom-Json
@@ -161,7 +161,7 @@ if ($PayloadFile -and (Test-Path -LiteralPath $PayloadFile)) {
     } catch { }
 }
 
-# Les cles l'emportent sur les textes : c'est la voie sure.
+# The keys win over the texts: that is the safe road.
 if ($TitleKey)   { $Title   = Get-Label $TitleKey }
 if ($SummaryKey) { $Summary = if ($SummaryArg) { Get-Label $SummaryKey $SummaryArg } else { Get-Label $SummaryKey } }
 if ($DetailsKey) { $Details = if ($DetailsArg) { Get-Label $DetailsKey $DetailsArg } else { Get-Label $DetailsKey } }
@@ -234,8 +234,8 @@ $form.BackColor       = $bg
 $form.ForeColor       = $fg
 $form.ClientSize      = New-Object System.Drawing.Size(580, 306)
 
-# L'icone de Vigie plutot que celle de l'interpreteur : la fenetre doit s'annoncer comme
-# venant de l'application, pas de ce qui l'execute.
+# Vigie's icon rather than the interpreter's: the window must announce itself as coming from the application, not
+# from what runs it.
 try {
     $racine = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
     # THE ICON LIVES WITH THE CLIENT APP. This pointed at apps/backend-pode/assets/client/, a folder that has
@@ -252,14 +252,14 @@ $fGras  = New-Object System.Drawing.Font('Segoe UI', 9, [System.Drawing.FontStyl
 $marge   = 24
 $width = 532
 
-# MISE EN PAGE MESUREE : chaque bloc prend la hauteur de son texte, et la fenetre s'ajuste.
-# Des hauteurs fixes faisaient passer un resume de trois lignes SOUS la liste (vu le 27/08).
+# A MEASURED LAYOUT: each block takes the height of its own text, and the window adjusts. Fixed heights sent a
+# three-line summary UNDER the list (seen on 27/08).
 <#
-    UN LIBELLE QUI SE DIMENSIONNE SEUL, et dont on lit la hauteur REELLE.
+    A LABEL THAT SIZES ITSELF, and whose REAL height is then read.
 
-    Remplace le couple « mesurer puis poser une taille » : sur un ecran a 125 %, Windows
-    agrandit le texte apres la mesure, la hauteur posee devient trop courte, et la
-    derniere ligne est rognee. Un libelle en AutoSize prend ce qu'il lui faut.
+    It replaces the pair "measure, then set a size": on a screen at 125 %, Windows enlarges the text after the
+    measurement, the height that was set becomes too short, and the last line is clipped. A label in AutoSize takes
+    what it needs.
 #>
 function Ajouter-Libelle {
     param([string]$Texte, $Fonte, $Couleur, [int]$Haut)
@@ -276,11 +276,10 @@ function Ajouter-Libelle {
 function Mesurer {
     param([string]$Texte, $Fonte)
     if (-not $Texte) { return 0 }
-    # UNE LIGNE VIDE OCCUPE DE LA PLACE, ET MeasureText NE LA COMPTE PAS. Un texte en
-    # paragraphes -- separes par une ligne blanche -- etait donc mesure trop court, et le
-    # libelle rognait sa derniere ligne (constate le 29/08 : « Le déroulé complet de cette
-    # installation est conservé ici : » coupe en deux). On remplace chaque ligne vide par
-    # une espace : elle a alors la hauteur d'une ligne, ce qu'elle occupe reellement.
+    # AN EMPTY LINE TAKES UP SPACE, AND MeasureText DOES NOT COUNT IT. A text in paragraphs -- separated by a blank
+    # line -- was therefore measured too short, and the label clipped its last line (observed on 29/08, a sentence
+    # cut in two). We replace every empty line with a space: it then has the height of a line, which is what it
+    # really occupies.
     $mesurable = $Texte -replace '(?m)^\s*$', ' '
     $t = [System.Windows.Forms.TextRenderer]::MeasureText(
             $mesurable, $Fonte,
@@ -323,7 +322,7 @@ $controles += $lblListe
     $y += $h + 18
 }
 
-# --- Les details, replies ---------------------------------------------------------------
+# --- The details, folded ------------------------------------------------------
 $lblDetails = $null
 $lnkDetails = $null
 $lnkOuvrir  = $null
@@ -344,12 +343,11 @@ if ($Details) {
 
     $lblDetails = Ajouter-Libelle -Texte $detailTexte -Fonte $fNote -Couleur $mut -Haut $y
     $hDetails   = $lblDetails.PreferredSize.Height
-    $lblDetails.Visible   = $false      # replie par defaut
+    $lblDetails.Visible   = $false      # folded by default
     $controles += $lblDetails
 
-    # UN CHEMIN DOIT POUVOIR SE COPIER. Un libelle ne se selectionne pas : le chemin
-    # s'affichait, et il fallait le retaper. Une zone de texte en lecture seule se lit
-    # pareil, et se copie.
+    # A PATH MUST BE COPYABLE. A label cannot be selected: the path was displayed, and had to be retyped. A
+    # read-only text box reads the same, and copies.
     if ($OpenPath) {
         $txtChemin = New-Object System.Windows.Forms.TextBox
         $txtChemin.Text       = $OpenPath
@@ -364,7 +362,7 @@ if ($Details) {
         $controles += $txtChemin
     }
 
-    # LE LIEN VIT AVEC LES DETAILS : il apparait et disparait avec eux.
+    # THE LINK LIVES WITH THE DETAILS: it appears and disappears with them.
     if ($OpenPath) {
         $lnkOuvrir           = New-Object System.Windows.Forms.LinkLabel
         $lnkOuvrir.Text      = ($OpenText + '  ' + [char]0x2197)
@@ -410,9 +408,8 @@ $btnNon.FlatAppearance.BorderColor = [System.Drawing.Color]::FromArgb(68, 76, 86
 $btnNon.Size         = New-Object System.Drawing.Size(104, 32)
 $btnNon.Location     = New-Object System.Drawing.Point(318, $y)
 
-# UNE FENETRE DE RESULTAT N'A RIEN A REFUSER. Quand l'appelant ne donne pas de libelle
-# d'annulation, il ne pose pas de question : il annonce. Le second bouton disparait, et
-# la croix ferme normalement au lieu de valoir « non ».
+# A RESULT WINDOW HAS NOTHING TO REFUSE. When the caller gives no cancel label, it is asking no question: it is
+# announcing. The second button disappears, and the cross closes normally instead of meaning "no".
 $noRefusal = [string]::IsNullOrWhiteSpace($CancelText)
 
 $btnTiers = $null
@@ -437,13 +434,12 @@ if ($noRefusal) {
     $btnOk.Location = New-Object System.Drawing.Point(432, $y)
     $form.CancelButton = $btnOk
 } else {
-    $form.CancelButton = $btnNon      # Echap et la croix ferment en REFUSANT
+    $form.CancelButton = $btnNon      # Escape and the cross close by REFUSING
 }
 $form.ClientSize   = New-Object System.Drawing.Size(580, ($y + 32 + 20))
 
-# LE PLIAGE DEPLACE TOUT CE QUI SUIT. Montrer le bloc sans bouger le reste le ferait
-# passer SOUS les boutons : la fenetre grandit de la hauteur exacte du bloc, et les
-# controles places apres lui descendent d'autant.
+# FOLDING MOVES EVERYTHING THAT FOLLOWS. Showing the block without moving the rest would send it UNDER the
+# buttons: the window grows by the block's exact height, and the controls placed after it go down as much.
 if ($lnkDetails -and $lblDetails) {
     $lnkDetails.Add_LinkClicked({
         $ouvert = -not $lblDetails.Visible
@@ -453,10 +449,9 @@ if ($lnkDetails -and $lblDetails) {
         if ($lnkOuvrir) { $lnkOuvrir.Visible = $ouvert; $hLien += 26 }
         $bloc   = $lblDetails.Height + 12 + $hLien
         $delta  = if ($ouvert) { $bloc } else { -$bloc }
-        # « PLUS BAS OU AU MEME NIVEAU ». Les controles poses APRES le bloc replie
-        # commencent exactement a la meme hauteur que lui, puisqu'il ne prend aucune
-        # place tant qu'il est cache. Avec « -gt » ils ne bougeaient pas : le bouton
-        # Fermer se retrouvait SOUS le texte deplie, donc invisible (29/08).
+        # "LOWER OR AT THE SAME LEVEL". The controls laid down AFTER the folded block begin at exactly the same
+        # height as it, since it takes up no space while hidden. With "-gt" they did not move: the Close button
+        # ended up UNDER the unfolded text, and so invisible (29/08).
         foreach ($c in $form.Controls) {
             if ($c -ne $lblDetails -and $c -ne $lnkOuvrir -and $c -ne $txtChemin -and
                 $c.Top -ge $lblDetails.Top) {
@@ -469,8 +464,8 @@ if ($lnkDetails -and $lblDetails) {
     })
 }
 
-# Barre de titre sombre et coins arrondis quand la machine sait le faire. C'est du confort :
-# une machine qui ne connait pas ces attributs affiche une fenetre normale, sans erreur.
+# A dark title bar and rounded corners when the machine knows how. This is comfort: a machine that does not know
+# these attributes shows an ordinary window, without an error.
 try {
     $type = 'ChromeConfirm'
     if (-not ([System.Management.Automation.PSTypeName]$type).Type) {
@@ -480,12 +475,12 @@ public static extern int DwmSetWindowAttribute(System.IntPtr hwnd, int attr, ref
 '@ -ErrorAction Stop
     }
     $vrai = 1
-    [void][Vigie.ChromeConfirm]::DwmSetWindowAttribute($form.Handle, 20, [ref]$vrai, 4)   # barre sombre
+    [void][Vigie.ChromeConfirm]::DwmSetWindowAttribute($form.Handle, 20, [ref]$vrai, 4)   # a dark bar
     $rond = 2
-    [void][Vigie.ChromeConfirm]::DwmSetWindowAttribute($form.Handle, 33, [ref]$rond, 4)   # coins arrondis
+    [void][Vigie.ChromeConfirm]::DwmSetWindowAttribute($form.Handle, 33, [ref]$rond, 4)   # rounded corners
 } catch { }
 
-# Verification de mise en page sans blocage : la fenetre se ferme seule.
+# A layout check without blocking: the window closes by itself.
 if ($FermerApresMs -gt 0) {
     $minuteur = New-Object System.Windows.Forms.Timer
     $minuteur.Interval = $FermerApresMs
@@ -535,7 +530,7 @@ if ($res -eq [System.Windows.Forms.DialogResult]::OK) {
     if ($OutFile -and $InstallPath) { [IO.File]::WriteAllText($OutFile, $InstallPath, (New-Object Text.UTF8Encoding($false))) }
     exit 0
 }
-# 4 = la troisieme issue. Distincte du refus : « attendre » n'est pas « annuler », et
-# l'appelant doit pouvoir faire la difference.
+# 4 = the third way out. Distinct from a refusal: waiting is not cancelling, and the caller must be able to tell
+# the difference.
 if ($res -eq [System.Windows.Forms.DialogResult]::Retry) { exit 4 }
 exit 3
