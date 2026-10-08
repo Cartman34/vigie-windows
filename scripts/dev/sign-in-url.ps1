@@ -1,39 +1,38 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    SIGN-IN-URL : UNE ADRESSE D'OUVERTURE, A COLLER DANS UN VRAI NAVIGATEUR.
+    SIGN-IN-URL: AN OPENING ADDRESS, TO PASTE INTO A REAL BROWSER.
 
-    A QUOI CA SERT. Regarder et deboguer Vigie dans son navigateur habituel -- outils de
-    developpement, console, reseau -- plutot que dans la fenetre de l'app cliente. Ouvrir
-    l'adresse du panneau a la main fonctionne, mais le serveur ne sait pas QUI regarde :
-    « vous » n'apparait sur personne et aucune action ne sait qui la demande.
+    Intent: look at Vigie and debug it in one's usual browser -- developer tools, console, network -- rather than
+    in the client app's window. Opening the panel's address by hand works, but the server does not know WHO is
+    looking: nobody is "you" and no action knows who is asking for it.
 
-    CE QUE RENVOIE CE SCRIPT. Une adresse a USAGE UNIQUE, valable 30 secondes. Le serveur
-    l'echange contre une session, puis renvoie le navigateur sur l'adresse principale --
-    l'adresse d'ouverture ne reste donc ni dans la barre d'adresse, ni dans un signet.
+    Usage: pwsh -File scripts/dev/sign-in-url.ps1 (-Open to open it straight away). Exit codes: 0 = an address
+    was returned; 2 = a silent server, or an unreadable secret; 3 = a prod stage, where this script has no place.
 
-    LA SESSION, ELLE, NE PERIME PAS. C'est le partage voulu : ce qui circule est jetable,
-    ce qui reste ne l'est pas. On remet le pied a l'etrier une fois, et le navigateur
-    continue d'etre identifie.
+    WHAT THIS SCRIPT RETURNS. A SINGLE-USE address, valid for 30 seconds. The server exchanges it for a session,
+    then sends the browser back to the main address -- so the opening address stays neither in the address bar nor
+    in a bookmark.
 
-    POUR SOI, ET SEULEMENT POUR SOI. Le secret qui prouve l'identite vit dans le profil du
-    compte, avec une ACL explicite. Pour ouvrir une session au nom d'un autre compte, il
-    faut lancer ce script DANS SA session.
+    THE SESSION, FOR ITS PART, DOES NOT EXPIRE. That is the intended sharing: what travels is disposable, what
+    stays is not. One gets back in the saddle once, and the browser goes on being identified.
 
-    STAGE DEV UNIQUEMENT. Ouvrir le panneau dans un navigateur separe est un geste de
-    developpement : on regarde la console, le reseau, on rafraichit cinquante fois. En
-    stage prod, Vigie s'ouvre par son icone, et une seconde facon d'obtenir une session
-    n'y a rien a faire.
+    FOR ONESELF, AND ONLY FOR ONESELF. The secret that proves the identity lives in the account's profile, with
+    an explicit ACL. To open a session in another account's name, this script must be run INSIDE that session.
 
-    Ce refus dit une INTENTION, il ne tient pas une frontiere : ce qui protege vraiment la
-    session est le secret du compte, illisible par les autres. Le stage est DECLARE
-    (machine.psd1), jamais deduit.
+    DEV STAGE ONLY. Opening the panel in a separate browser is a development gesture: one looks at the console,
+    the network, one refreshes fifty times. In a prod stage Vigie opens through its icon, and a second way of
+    obtaining a session has no business there.
 
-    Codes de retour : 0 = adresse rendue ; 2 = serveur muet, ou secret illisible ;
-                      3 = stage prod, ce script n'y a pas sa place.
+    That refusal states an INTENTION, it does not hold a boundary: what really protects the session is the
+    account's secret, unreadable by the others. The stage is DECLARED (machine.psd1), never deduced.
 #>
+
+
+
+
 [CmdletBinding()]
 param(
-    # -Open : ouvrir directement dans le navigateur par defaut, au lieu d'afficher.
+    # -Open: open it straight away in the default browser, instead of displaying it.
     [switch] $Open,
     [int] $Port = 0
 )
@@ -44,12 +43,12 @@ $backend  = Join-Path $repoRoot 'apps/backend-pode'
 . (Join-Path $backend 'lib/common.ps1')
 
 <#
-    ON DIT OU ON EN EST, A CHAQUE ETAPE.
+    WE SAY WHERE WE STAND, AT EVERY STEP.
 
-    Le script ne disait rien avant d'avoir fini : quand il ne rendait pas la main, il n'y
-    avait aucun moyen de savoir OU -- lecture du secret, appel au serveur, ou attente d'une
-    reponse qui ne venait pas. Un outil muet qui tourne longtemps est un outil qu'on ne
-    peut pas deboguer.
+    The script said nothing until it had finished: when it did not hand control back, there was no way of knowing
+    WHERE -- reading the secret, calling the server, or waiting for an answer that was not coming. A silent tool
+    that runs for a long time is a tool one cannot debug.
+
 #>
 Write-Step (Get-Label 'sign-in-url.etape-stage')
 $stage = Get-DeclaredStage -Backend $backend
@@ -68,9 +67,8 @@ if (-not (Get-PortListener -Port $Port)) {
 
 $account = Get-ProcessAccount
 Write-Step (Get-Label 'sign-in-url.etape-adresse' $account)
-# LE DELAI EST COURT ET IL EST DIT. Le serveur repond en quelques dixiemes de seconde ou
-# ne repond pas : attendre plus longtemps n'a jamais rien rendu, sinon l'impression que
-# l'outil est bloque.
+# THE TIMEOUT IS SHORT AND IT IS STATED. The server answers in a few tenths of a second or it does not answer:
+# waiting longer has never returned anything, except the impression that the tool is stuck.
 $target = Get-OpenUrl -Account $account -BaseUrl ('http://127.0.0.1:' + $Port) -TimeoutSec 10 -Backend $backend
 if (-not $target) {
     Write-Fail (Get-Label 'sign-in-url.adresse-refusee' $account)

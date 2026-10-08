@@ -1,34 +1,33 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    CHERCHER DANS LES DECISIONS AVANT DE CONCEVOIR.
+    SEARCH THE DECISIONS BEFORE DESIGNING.
 
-    doc/progress/decisions.md est la source de verite du projet -- « a ne JAMAIS perdre ».
-    Elle fait plus de deux mille lignes : personne ne la relit en entier avant chaque
-    modification, et c'est exactement comme ca qu'on refait ce qui est deja decide.
+    Intent: make searching cost TEN SECONDS. doc/progress/decisions.md is the project's source of truth -- "never
+    to be lost". It runs to more than two thousand lines: nobody rereads it in full before every change, and that
+    is exactly how one redoes what is already decided.
 
-    Le 29/08, j'ai reinvente « d'ou vient le code qu'on deploie » alors que D99 et le
-    reglage UpdateSource y repondaient depuis longtemps ; j'ai range un reglage de
-    l'ordinateur dans chaque copie alors que D33 decrit les couches de configuration ;
-    j'ai redefini une fonction qui existait deja. Trois fois le meme defaut : ne pas
-    avoir cherche.
+    Usage:
+        pwsh -File scripts/dev/decisions.ps1              # every title
+        pwsh -File scripts/dev/decisions.ps1 -About <words>
+    The search ignores accents and case, so an unaccented word finds its accented spelling.
 
-    Chercher doit donc couter DIX SECONDES.
-
-        pwsh -File scripts/dev/decisions.ps1 -About "mise a jour deploiement"
-        pwsh -File scripts/dev/decisions.ps1 -Number D99
-        pwsh -File scripts/dev/decisions.ps1              # tous les titres
-
-    La recherche ignore accents et casse : « deploiement » trouve « déploiement ».
+    On 29/08 I reinvented "where the code we deploy comes from" while D99 and the UpdateSource setting had been
+    answering it for a long time; I filed a computer-wide setting inside every copy while D33 describes the
+    configuration layers; I redefined a function that already existed. Three times the same defect: not looking.
 #>
+
+
+
+
 [CmdletBinding()]
 param(
-    # Un ou plusieurs mots. Une decision ressort si son TITRE ou son TEXTE les contient.
+    # One or more words. A decision comes up if its TITLE or its TEXT holds them.
     [string] $About,
 
-    # Le numero d'une decision : affiche son texte entier.
+    # A decision's number: displays its whole text.
     [string] $Number,
 
-    # Chercher dans le texte, pas seulement dans les titres (plus large, plus bruyant).
+    # Search the text, not only the titles (wider, noisier).
     [switch] $Full
 )
 
@@ -42,8 +41,8 @@ if (-not (Test-Path -LiteralPath $file)) {
     exit 2
 }
 
-# Les accents ne doivent pas faire rater une correspondance : « deploiement » doit
-# trouver « déploiement ». On compare des formes sans diacritiques, des deux cotes.
+# Accents must not make a match fail: an unaccented word must find its accented spelling. We compare forms
+# without diacritics, on both sides.
 function ConvertTo-Plain {
     param([string]$Text)
     $d = "$Text".Normalize([Text.NormalizationForm]::FormD)
@@ -55,7 +54,7 @@ function ConvertTo-Plain {
 }
 
 $lines = Get-Content -LiteralPath $file -Encoding UTF8
-# Une decision commence par « ## Dnn — titre » et court jusqu'a la suivante.
+# A decision begins with "## Dnn - title" and runs until the next one.
 $entries = @()
 $current = $null
 for ($i = 0; $i -lt $lines.Count; $i++) {

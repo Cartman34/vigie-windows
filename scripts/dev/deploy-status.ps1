@@ -1,26 +1,26 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    deploy-status.ps1 - OU EN EST LE DEPLOIEMENT ? LECTURE SEULE.
+    deploy-status.ps1 -- WHERE DOES THE DEPLOYMENT STAND? READ ONLY.
 
-    POURQUOI CE SCRIPT EXISTE. Apres chaque installation je repose les memes questions --
-    le serveur est-il revenu, quelle version est posee, le depot est-il en avance, la
-    derniere installation a-t-elle rate quelque chose -- et je les reposais en lignes de
-    commande batardes, illisibles et jamais deux fois pareilles. Une question qui revient
-    est un script, pas une improvisation.
+    Intent: make a recurring question a script rather than an improvisation. After every installation I ask the
+    same things -- has the server come back, which version is laid down, is the repository ahead, did the last
+    installation miss anything -- and I used to ask them through makeshift command lines, unreadable and never
+    twice the same.
 
-    IL N'ECRIT RIEN et ne declenche aucun recalcul : il lit l'etat, les versions et le
-    dernier journal d'installation.
-
-    Usage :
+    Usage:
       pwsh -File .\scripts\dev\deploy-status.ps1
-      pwsh -File .\scripts\dev\deploy-status.ps1 -Attendre 120   # attend le retour du serveur
+      pwsh -File .\scripts\dev\deploy-status.ps1 -Attendre 120   # waits for the server to come back
+    Exit codes: 0 = the installation and the repository are at the same level, the server is up; 1 = the server
+                does not answer; 2 = a gap or a failure to report.
 
-    Codes de retour : 0 = installation et depot au meme niveau, serveur debout ;
-                      1 = le serveur ne repond pas ; 2 = un ecart ou un echec a signaler.
+    IT WRITES NOTHING and triggers no recomputation: it reads the state, the versions and the report.
+#>
+
+
 #>
 [CmdletBinding()]
 param(
-    # Secondes d'attente du retour du serveur. 0 = on constate, on n'attend pas.
+    # Seconds to wait for the server to come back. 0 = we observe, we do not wait.
     [int] $Attendre = 0
 )
 
@@ -32,7 +32,7 @@ $backend = Join-Path $repoRoot 'apps/backend-pode'
 
 Write-Title (Get-Label 'deploy-status.titre')
 
-# --- 1. Le serveur repond-il ? ------------------------------------------------------
+# --- 1. Does the server answer? -----------------------------------------------
 Write-Step (Get-Label 'deploy-status.etape-serveur')
 $port = [int](Get-Config -Backend $backend).Port
 $serverUp = $false
@@ -50,7 +50,7 @@ do {
 if ($serverUp) { Write-Ok (Get-Label 'deploy-status.serveur-repond' $port) }
 else         { Write-Fail (Get-Label 'deploy-status.serveur-muet' $port) }
 
-# --- 2. Les versions ----------------------------------------------------------------
+# --- 2. The versions ----------------------------------------------------------
 Write-Step (Get-Label 'deploy-status.etape-versions')
 $installed = $null
 $here = $null
@@ -93,13 +93,12 @@ if (Get-GitLastError) {
     }
 }
 
-# --- 3. La derniere operation --------------------------------------------------------
+# --- 3. The last operation ----------------------------------------------------
 #
-# ON DEMANDE A VIGIE PLUTOT QUE DE CHERCHER UN FICHIER. Le journal d'une installation
-# lancee par la carte vit dans le profil du compte de service ; celui de ce depot date de
-# la derniere fois qu'on a lance setup.cmd d'ici. Chercher « le dernier journal » a cote
-# de soi, c'est lire le mauvais (constate le 01/09 : un journal du 26/08 presente comme
-# le dernier). Le serveur, lui, sait ce qui s'est reellement passe.
+# WE ASK VIGIE RATHER THAN LOOK FOR A FILE. The log of an installation started from the card lives in the service
+# account's profile; this repository's own dates from the last time setup.cmd was run from here. Looking for "the
+# last log" beside oneself means reading the wrong one (observed on 01/09: a log from 26/08 presented as the
+# latest). The server, for its part, knows what really happened.
 Write-Step (Get-Label 'deploy-status.etape-journal')
 $session = $null
 if ($serverUp) {
@@ -128,12 +127,11 @@ if (-not $session) {
     }
 }
 
-# --- 4. Les sentinelles ---------------------------------------------------------------
+# --- 4. The sentinels ---------------------------------------------------------
 #
-# ON DEMANDE A VIGIE, ON NE LIT PAS SON FICHIER. La memoire de la veille vit dans le var
-# du compte de service : une session ordinaire ne peut meme pas la lire, et ce script
-# annoncait « jamais relevee » alors qu'il ne savait pas (constate le 01/09). La carte
-# Debogage porte l'information, Vigie la sert avec les droits de qui demande.
+# WE ASK VIGIE, WE DO NOT READ ITS FILE. The memory of the watch lives in the service account's var: an ordinary
+# session cannot even read it, and this script announced "never measured" while it did not know (observed on
+# 01/09). The Debugging card carries the information, and Vigie serves it with the rights of whoever asks.
 Write-Step (Get-Label 'deploy-status.etape-sentinelles')
 if (-not $serverUp) {
     Write-Info (Get-Label 'deploy-status.sentinelles-sans-serveur')

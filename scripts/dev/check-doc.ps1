@@ -1,20 +1,18 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-<# check-doc.ps1 - La documentation tient-elle debout ? LECTURE SEULE.
+<# check-doc.ps1 -- does the documentation stand up? READ ONLY.
 
-   Deux controles, tous deux mecaniques -- ils ne jugent pas le texte, seulement sa
-   charpente :
+   Intent: judge the documentation's shape, never its text. Two checks, both mechanical:
 
-     1. LIENS MORTS : tout renvoi relatif doit designer un fichier qui existe.
-     2. SYNCHRONISATION fr/en : les deux langues racontent la meme chose, donc leur
-        STRUCTURE doit coincider -- meme decoupage en titres, memes tableaux, memes
-        blocs de code, meme nombre de renvois. Le texte differe, la charpente non.
-        C'est ce controle qui a rattrape une page anglaise affirmant que l'install
-        n'exige pas les droits administrateur, alors que le francais disait l'inverse.
+     1. DEAD LINKS: every relative reference must designate a file that exists.
+     2. fr/en SYNCHRONISATION: the two languages tell the same thing, so their STRUCTURE must coincide -- the
+        same division into headings, the same tables, the same code blocks, the same number of references. The
+        text differs, the framework does not. It is that check which caught an English page asserting that the
+        installation does not need administrator rights, while the French said the opposite.
 
-   Le francais est la langue MAITRESSE (D93) : un ecart se corrige en alignant
-   l'anglais sur lui, jamais l'inverse.
+   Usage: pwsh -File .\scripts\dev\check-doc.ps1. Exit codes: 0 = nothing to report; 2 = at least one gap.
 
-   Codes de retour : 0 = rien a signaler ; 2 = au moins un ecart.
+   French is the MASTER language (D93): a gap is fixed by bringing the English into line with it, never the other
+   way round.
 #>
 param([switch]$Quiet)
 
@@ -54,9 +52,9 @@ function Get-Profil {
     param([string]$Path)
     $text  = Get-Content -LiteralPath $Path -Raw -Encoding UTF8
     $lines = $text -split "`n"
-    # La mention « traduit du francais » n'existe QUE cote anglais : c'est voulu, elle ne
-    # compte pas comme un ecart. Elle tient sur deux lignes, dont la seconde porte le
-    # renvoi -- il faut donc ecarter les deux, pas seulement celle qui s'annonce.
+    # The "translated from the French" mention exists ONLY on the English side: that is deliberate, it does not
+    # count as a gap. It spans two lines, the second of which carries the reference -- so both must be set aside,
+    # not only the one that announces itself.
     $useful = $lines | Where-Object { $_ -notmatch 'master version' -and $_ -notmatch 'the French page' }
     [pscustomobject]@{
         Titres  = @($useful | Where-Object { $_ -match '^#{1,4} ' }).Count
@@ -103,11 +101,11 @@ if ($ecarts) {
     Ecrire ("{0} paire(s) desynchronisee(s). Le francais fait foi (D93)." -f $ecarts) 'Yellow'
 } else { Ecrire "Les deux langues ont la meme charpente." 'Green' }
 
-# --- 3. Le sommaire des decisions est complet -------------------------------
+# --- 3. The table of decisions is complete ------------------------------------
 #
-# Il s'etait arrete a D50 et personne ne l'a vu : 48 decisions manquaient a l'appel,
-# dans un fichier qui annonce « ajouter une decision = ajouter son numero a une ligne ».
-# Un sommaire incomplet est pire qu'absent -- il donne l'illusion d'avoir tout lu.
+# It had stopped at D50 and nobody saw it: 48 decisions were missing, in a file that announces that adding a
+# decision means adding its number to a line.
+# A table of contents that is incomplete is worse than an absent one -- it gives the illusion of having read everything.
 $dec = Join-Path $doc 'progress/decisions.md'
 if (Test-Path -LiteralPath $dec) {
     $text  = Get-Content -LiteralPath $dec -Raw -Encoding UTF8

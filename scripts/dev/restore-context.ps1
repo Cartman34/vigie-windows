@@ -1,31 +1,31 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    RESTORE-CONTEXT : REMETTRE LES REGLES EN PLACE APRES UNE COMPRESSION DE CONTEXTE.
+    RESTORE-CONTEXT: PUT THE RULES BACK IN PLACE AFTER A CONTEXT COMPACTION.
 
-    LE PROBLEME. Quand le contexte de l'agent est compresse, il ne reste qu'un RESUME.
-    Les disciplines, les decisions et les documents de conception, eux, ne sont plus la.
-    L'agent reprend alors le travail avec ses souvenirs pour seule source -- et un
-    souvenir n'est pas une verification. Constate le 31/08 : j'ai annonce qu'un script
-    n'etait plus appele par personne, et supprime en consequence, alors qu'un bouton de
-    l'interface l'appelait toujours. La phrase venait du resume, pas du depot.
+    Intent: make rereading a command rather than a duty. THE PROBLEM. When the agent's context is compacted, all
+    that is left is a SUMMARY. The disciplines, the decisions and the design documents are no longer there. The
+    agent then takes the work up again with its memories as its only source -- and a memory is not a
+    verification. Observed on 31/08: I announced that a script was no longer called by anybody, and deleted it
+    accordingly, while a button of the interface was still calling it. The sentence came from the summary, not
+    from the repository.
 
-    LE PRINCIPE. On ne compte pas sur la vigilance de l'agent pour se souvenir de relire :
-    ce script remet tout sous ses yeux en une commande. Le point d'entree qui y renvoie est
-    doc/en/agent-working/briefing.md, valable pour n'importe quel agent ; un fichier charge
-    automatiquement par l'un d'eux (CLAUDE.md pour Claude Code) n'est qu'un raccourci
-    FACULTATIF vers lui, et ne porte aucune regle qui lui soit propre.
+    Usage: pwsh -File scripts/dev/restore-context.ps1 (-Court for a shorter pass). Exit codes: 0 = everything is
+    there; 1 = a reference document is missing.
 
-    CE QU'IL FAIT. Il n'invente rien et ne recopie rien : il RELIT les documents du depot
-    et les affiche. Le jour ou une discipline change, ce script dit la nouvelle, sans
-    qu'on ait a y toucher. Si un document a disparu, il le dit et sort en erreur -- un
-    point de reprise qui renvoie vers un fichier absent est pire que pas de point du tout.
+    THE PRINCIPLE. We do not count on the agent's vigilance to remember to reread: this script puts everything
+    back under its eyes in one command. The entry point that refers to it is doc/en/agent-working/briefing.md,
+    valid for any agent; a file one of them loads automatically (CLAUDE.md for Claude Code) is only an OPTIONAL
+    shortcut to it, and carries no rule of its own.
 
-    Codes de retour : 0 = tout est la ; 1 = un document de reference manque.
+    WHAT IT DOES. It invents nothing and copies nothing: it REREADS the repository's documents and displays
+    them. The day a discipline changes, this script says the new one, without anybody touching it. If a document
+    has gone, it says so and exits in error -- a resumption point referring to an absent file is worse than no
+    point at all.
 #>
 [CmdletBinding()]
 param(
-    # -Court : la carte des documents et l'etat du depot, sans le texte des disciplines.
-    # Pour une reprise en cours de session, quand les regles sont encore fraiches.
+    # -Court: the map of the documents and the state of the repository, without the text of the disciplines. For
+    # a resumption inside a session, when the rules are still fresh.
     [switch] $Court
 )
 
@@ -36,13 +36,13 @@ $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 Write-Title (Get-Label 'restore-context.titre')
 
 <#
-    LA CARTE DES DOCUMENTS. Le role de chacun est ecrit ici et NULLE PART AILLEURS sous
-    cette forme : ce sont des phrases d'orientation, pas un doublon du contenu. Le
-    contenu, lui, reste dans les fichiers -- qu'on affiche plus bas.
+    THE MAP OF THE DOCUMENTS. Each one's role is written here and NOWHERE ELSE in this form: these are sentences
+    of orientation, not a duplicate of the content. The content stays in the files -- which are displayed
+    further down.
 
-    La cle du libelle est ECRITE, pas calculee : check-labels lit les appels a froid et ne
-    peut verifier que ce qu'il voit. Une cle rangee dans une variable passe le controle
-    sans etre verifiee -- et c'est exactement la que le libelle manquant se cache.
+    The label's key is WRITTEN, not computed: check-labels reads the calls cold and can only check what it sees.
+    A key stored in a variable passes the check without being checked -- and that is exactly where the missing
+    label hides.
 #>
 $documents = @(
     @{ path = 'doc/en/agent-working/briefing.md';     role = (Get-Label 'restore-context.role-briefing') }
@@ -65,10 +65,10 @@ foreach ($d in $documents) {
 }
 
 <#
-    LES DISCIPLINES, EN ENTIER.
+    THE DISCIPLINES, IN FULL.
 
-    Les resumer serait en perdre, et le resume est justement ce qui a echoue. On les
-    lit telles qu'elles sont ecrites.
+    Summarising them would be losing some of them, and the summary is precisely what failed. We read them as
+    they are written.
 #>
 if (-not $Court) {
     $disciplines = Join-Path $repoRoot 'doc/en/agent-working/disciplines.md'
@@ -79,8 +79,8 @@ if (-not $Court) {
 }
 
 <#
-    OU EN EST LE DEPOT. Le resume dit ce qui a ete fait ; git dit ce qui EST. Quand les
-    deux divergent, c'est git qui a raison.
+    WHERE THE REPOSITORY STANDS. The summary says what has been done; git says what IS. When the two diverge, git
+    is the one that is right.
 #>
 Write-Step (Get-Label 'restore-context.etape-depot')
 $branche = Invoke-Git -Path $repoRoot -Arguments @('rev-parse', '--abbrev-ref', 'HEAD')
@@ -97,12 +97,12 @@ if ($enCours.Count) {
 }
 
 <#
-    CE QU'ON NE CONCLUT PAS SANS PREUVE.
+    WHAT WE DO NOT CONCLUDE WITHOUT A PROOF.
 
-    Une seule regle est rappelee ici, parce que c'est celle que la compression fait
-    enfreindre : le resume affirme des etats du depot (« plus utilise », « deja
-    corrige », « eprouve »), et ces affirmations vieillissent. Les vérificateurs, eux,
-    ne vieillissent pas.
+    One single rule is recalled here, because it is the one compaction makes us break: the summary asserts states
+    of the repository ("no longer used", "already fixed", "proven"), and those assertions grow old. The checkers
+    do not grow old.
+
 #>
 Write-Step (Get-Label 'restore-context.etape-preuve')
 Write-Detail (Get-Label 'restore-context.preuve-reachable')

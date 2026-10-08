@@ -1,39 +1,39 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    extract-labels.ps1 - SORT LE TEXTE FRANÇAIS DES SCRIPTS et le range dans lang/fr.json.
-    LECTURE SEULE par défaut ; -Apply réécrit les fichiers.
+    extract-labels.ps1 -- TAKES THE FRENCH TEXT OUT OF THE SCRIPTS and files it in lang/fr.json.
+    READ ONLY by default; -Apply rewrites the files.
 
-    POURQUOI UN OUTIL ET PAS UNE RELECTURE. Il y a plus de deux cents libellés répartis
-    dans une trentaine de fichiers. Les déplacer à la main, c'est en abîmer quelques-uns
-    sans jamais savoir lesquels. Un outil qui se trompe se trompe pareil partout, et ça,
-    ça se voit et ça se corrige d'un coup.
-
-    IL LIT L'ARBRE, PAS DU TEXTE. Une expression régulière ne sait pas où finit
-    `("Tâche « " + $nom + " » posée.")` -- elle compte mal les parenthèses dès qu'un appel
-    imbriqué s'y trouve. On passe donc par l'analyseur de PowerShell lui-même
-    ([Parser]::ParseFile) : ce qu'il appelle une chaîne EST une chaîne, sans discussion.
-
-    CE QUI EST EXTRAIT
-      - l'argument des fonctions d'affichage : Write-Title/Step/Ok/Warn/Fail/Info/Detail
-      - le -Message de Write-Log
-      - ce qui reste de Write-Host
-
-    LES TROUS. « "Tâche " + $nom + " posée." » devient « Tâche {0} posée. » et l'appel
-    devient `Get-Label 'cle' $nom`. Numérotés et non nommés : une traduction a le droit
-    de changer l'ordre des morceaux, pas d'inventer des noms.
-
-    LES CLÉS sont « <fichier>.<début-du-texte-en-tirets> ». Lisibles dans le code et dans
-    le JSON, et on retrouve d'où vient un message sans le chercher.
-
-    Usage :
-      pwsh -File .\scripts\dev\extract-labels.ps1              # ce qui serait fait
-      pwsh -File .\scripts\dev\extract-labels.ps1 -Apply       # le faire
+    Intent: move two hundred labels without damaging any of them, and without having to know which.
+    Usage:
+      pwsh -File .\scripts\dev\extract-labels.ps1              # what would be done
+      pwsh -File .\scripts\dev\extract-labels.ps1 -Apply       # do it
       pwsh -File .\scripts\dev\extract-labels.ps1 -Apply -Path scripts/install.ps1
+
+    WHY A TOOL AND NOT A REREADING. There are more than two hundred labels spread over some thirty files. Moving
+    them by hand means damaging a few without ever knowing which. A tool that gets it wrong gets it wrong the
+    same way everywhere, and that shows and is fixed in one go.
+
+    IT READS THE TREE, NOT TEXT. A regular expression does not know where a concatenation of a string, a
+    variable and another string ends -- it miscounts the brackets as soon as a nested call is inside. So we go
+    through PowerShell's own parser ([Parser]::ParseFile): what it calls a string IS a string, without
+    discussion.
+
+    WHAT IS EXTRACTED
+      - the argument of the display functions: Write-Title/Step/Ok/Warn/Fail/Info/Detail
+      - the -Message of Write-Log
+      - what is left of Write-Host
+
+    THE HOLES. A concatenation around a variable becomes a label with "{0}" in it and the call becomes
+    `Get-Label 'key' $name`. Numbered and not named: a translation has the right to change the order of the
+    pieces, not to invent names.
+
+    THE KEYS are "<file>.<beginning-of-the-text-in-dashes>". Readable in the code and in the JSON, and one finds
+    where a message comes from without looking for it.
 #>
 param(
-    # Réécrire les fichiers et produire lang/fr.json. Sans lui, on ne fait que lister.
+    # Rewrite the files and produce lang/fr.json. Without it, we only list.
     [switch] $Apply,
-    # Se limiter à un fichier ou un dossier (chemin relatif à la racine du dépôt).
+    # Limit it to one file or folder (a path relative to the root of the repository).
     [string] $Path,
     [string] $Language = 'fr'
 )
@@ -45,12 +45,12 @@ $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 $SHOW_COMMANDS = @('write-title', 'write-step', 'write-ok', 'write-warn', 'write-fail',
                    'write-info', 'write-detail', 'write-host')
 
-# Ces fichiers PORTENT le mécanisme : ils ne peuvent pas en dépendre.
+# These files CARRY the mechanism: they cannot depend on it.
 $EXCLUDED = @('scripts/lib/i18n.ps1', 'scripts/lib/console-ui.ps1',
               'scripts/dev/extract-labels.ps1', 'scripts/dev/check-labels.ps1')
 $SKIPPED_DIRS = @('.claude', '.git', 'dist', 'node_modules', 'local', 'var')   # .claude : les worktrees y vivent, et un worktree est une copie du depot
 
-# --- Fabrique de clés -------------------------------------------------------------------
+# --- The key factory ----------------------------------------------------------
 # « Tâche « Vigie » enregistrée, DÉSACTIVÉE. » -> « tache-vigie-enregistree »
 function ConvertTo-Slug {
     param([string]$Text, [int]$WordCount = 4)
@@ -68,10 +68,10 @@ function ConvertTo-Slug {
     return (($words | Select-Object -First $WordCount) -join '-')
 }
 
-# --- Lecture d'une expression : le texte, et ses trous ----------------------------------
+# --- Reading an expression: the text, and its holes ---------------------------
 #
-# Rend @{ Text = 'Tâche {0} posée.'; Args = @('$nom') } ou $null si l'expression n'a
-# aucune partie littérale -- « Write-Info $ligne » n'a pas de libellé à extraire.
+# It returns @{ Text = '... {0} ...'; Args = @('$name') }, or $null if the expression has no literal part at all
+# -- a display call on a bare variable has no label to extract.
 function Read-Expression {
     param([System.Management.Automation.Language.Ast]$Ast)
 
@@ -82,10 +82,9 @@ function Read-Expression {
     function Walk {
         param($node)
         if ($node -is [System.Management.Automation.Language.ParenExpressionAst]) {
-            # UNE PARENTHESE PEUT CONTENIR UN APPEL, pas seulement une expression :
-            # « (Get-StageLabel -Stage $e) » n'a pas de .Expression. Sans ce
-            # controle, l'argument disparaissait en silence et l'appel produit finissait
-            # par « Get-Label 'cle' ) ».
+            # A BRACKET CAN HOLD A CALL, not only an expression: a parenthesised function call has no
+            # .Expression. Without this check, the argument disappeared in silence and the call that was produced
+            # ended with an orphan closing bracket.
             $inner = $node.Pipeline.PipelineElements[0]
             if ($inner -and $inner.PSObject.Properties['Expression'] -and $inner.Expression) {
                 Walk $inner.Expression
@@ -95,10 +94,10 @@ function Read-Expression {
             }
             return
         }
-        # L'OPERATEUR -f PORTE DEJA SES TROUS. « "Client PID {0}" -f $id » a exactement la
-        # forme qu'on veut : le libelle est a gauche, les valeurs a droite. On ne le
-        # traite que s'il constitue TOUT l'argument, sinon les numeros de trous de la
-        # chaine entreraient en collision avec ceux qu'on a deja poses.
+        # THE -f OPERATOR ALREADY CARRIES ITS HOLES. A format string followed by -f and its values has exactly
+        # the shape we want: the label on the left, the values on the right. We treat it only when it makes up
+        # the WHOLE argument, otherwise the hole numbers of that string would collide with the ones we have
+        # already laid down.
         if ($node -is [System.Management.Automation.Language.BinaryExpressionAst] -and
             $node.Operator -eq [System.Management.Automation.Language.TokenKind]::Format -and
             $node.Left -is [System.Management.Automation.Language.StringConstantExpressionAst] -and
@@ -125,8 +124,7 @@ function Read-Expression {
             return
         }
         if ($node -is [System.Management.Automation.Language.ExpandableStringExpressionAst]) {
-            # « "Version $v posée" » : les morceaux imbriqués deviennent des trous, le
-            # reste du texte est conservé tel quel.
+            # An interpolated string: the nested pieces become holes, the rest of the text is kept as it stands.
             $whole = $node.Extent.Text
             $inner = $whole.Substring(1, $whole.Length - 2)   # sans les guillemets
             $base  = $node.Extent.StartOffset + 1
@@ -141,7 +139,7 @@ function Read-Expression {
             if ($cursor -lt $inner.Length) { $script:_text += $inner.Substring($cursor); $script:_sawLiteral = $true }
             return
         }
-        # Tout le reste est une valeur : un trou.
+        # Everything else is a value: a hole.
         $script:_text += ('{' + $script:_slots.Count + '}')
         $script:_slots += $node.Extent.Text
     }
@@ -151,7 +149,7 @@ function Read-Expression {
     $script:_sawLiteral = $false
     Walk $Ast
     if (-not $script:_sawLiteral) { return $null }
-    # Un texte sans une seule lettre n'est pas un libellé (« {0} », « --- »).
+    # A text without a single letter is not a label.
     if ($script:_text -notmatch '\p{L}') { return $null }
     return @{ Text = $script:_text; Args = @($script:_slots) }
 }
@@ -183,8 +181,8 @@ foreach ($f in ($files | Sort-Object FullName)) {
 
     $stem = [IO.Path]::GetFileNameWithoutExtension($f.Name) -replace '\.(probe|action|worker)$', ''
 
-    # Les remplacements se font de la FIN vers le DÉBUT : sinon chaque réécriture décale
-    # les positions de toutes les suivantes.
+    # The replacements are made from the END towards the BEGINNING: otherwise each rewrite shifts the positions of
+    # all the following ones.
     $replacements = @()
 
     $commands = $ast.FindAll({
@@ -198,7 +196,7 @@ foreach ($f in ($files | Sort-Object FullName)) {
 
         $target = $null
         if ($SHOW_COMMANDS -contains $lower) {
-            # Le premier élément après le nom, s'il n'est pas un paramètre nommé.
+            # The first element after the name, if it is not a named parameter.
             $elems = @($cmd.CommandElements)
             if ($elems.Count -ge 2 -and
                 -not ($elems[1] -is [System.Management.Automation.Language.CommandParameterAst])) {
@@ -214,7 +212,7 @@ foreach ($f in ($files | Sort-Object FullName)) {
             }
         }
         if (-not $target) { continue }
-        # Déjà externalisé : on ne repasse pas dessus.
+        # Already externalised: we do not go over it again.
         if ($target.Extent.Text -match 'Get-Label') { continue }
 
         $read = Read-Expression -Ast $target
@@ -235,10 +233,10 @@ foreach ($f in ($files | Sort-Object FullName)) {
         $edits++
     }
 
-    # LE FICHIER A-T-IL ACCES AUX LIBELLES ? Get-Label vient soit de common.ps1 (tout le
-    # backend), soit de console-ui.ps1 (les scripts). Un fichier qui ne charge ni l'un ni
-    # l'autre casserait A L'EXECUTION, sur sa ligne d'affichage. On ne le touche pas, on
-    # le nomme.
+    # DOES THE FILE HAVE ACCESS TO THE LABELS? Get-Label comes either from common.ps1 (the whole server app) or
+    # from console-ui.ps1 (the scripts). A file that loads neither would break AT RUN TIME, on its display line.
+    # We do not touch it, we name it.
+
     $srcText = [IO.File]::ReadAllText($f.FullName, (New-Object Text.UTF8Encoding($false)))
     $reachable = ($srcText -match '(?m)^\s*\.\s.*(common|console-ui|i18n)\.ps1') -or ($rel -eq 'apps/backend-pode/lib/common.ps1')
     if ($replacements.Count -and -not $reachable) {
@@ -266,8 +264,7 @@ if ($Apply) {
     if (-not (Test-Path -LiteralPath $langDir)) { New-Item -ItemType Directory -Path $langDir -Force | Out-Null }
     $file = Join-Path $langDir ($Language + '.json')
 
-    # On FUSIONNE avec l'existant : une passe sur un seul fichier ne doit pas effacer les
-    # libellés des autres.
+    # We MERGE with what exists: a pass over one single file must not erase the other files' labels.
     $merged = [ordered]@{}
     if (Test-Path -LiteralPath $file) {
         $old = ([IO.File]::ReadAllText($file, (New-Object Text.UTF8Encoding($false))) | ConvertFrom-Json)
@@ -278,7 +275,7 @@ if ($Apply) {
     $sorted = [ordered]@{}
     foreach ($k in ($merged.Keys | Sort-Object)) { $sorted[$k] = $merged[$k] }
     $json = ($sorted | ConvertTo-Json -Depth 3)
-    # JSON : UTF-8 SANS BOM, c'est la norme et c'est ce que fetch() attend.
+    # JSON: UTF-8 WITHOUT a BOM, which is the standard and what fetch() expects.
     [IO.File]::WriteAllText($file, $json, (New-Object Text.UTF8Encoding($false)))
     Write-Ok ("lang/{0}.json : {1} libellé(s)." -f $Language, $sorted.Count)
 } else {

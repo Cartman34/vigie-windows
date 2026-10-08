@@ -1,34 +1,33 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    check-reachable.ps1 - AUCUN FICHIER QUE PLUS RIEN N'APPELLE. LECTURE SEULE.
+    check-reachable.ps1 -- NO FILE THAT NOTHING CALLS ANY MORE. READ ONLY.
 
-    POURQUOI CE FICHIER EXISTE. `scripts/lib/account-secret.ps1` a vécu une journée entière
-    sans être chargé nulle part : écrit avant son consommateur, il ne faisait rien, et
-    AUCUN vérificateur ne pouvait le voir — ni la syntaxe, ni les libellés, ni l'encodage,
-    ni les sondes. Du code invisible qui donne l'illusion d'une fonctionnalité livrée.
+    Intent: catch code that is invisible and gives the illusion of a delivered feature.
+    `scripts/lib/account-secret.ps1` lived a whole day without being loaded anywhere: written before its
+    consumer, it did nothing, and NO checker could see it -- neither the syntax, nor the labels, nor the
+    encoding, nor the probes.
 
-    LE PIÈGE À ÉVITER, ET C'EST LUI QUI DICTE TOUT LE RESTE. Un fichier peut être
-    parfaitement vivant sans qu'aucune ligne de code ne le nomme :
+    Usage: pwsh -File .\scripts\dev\check-reachable.ps1 (-Detail to see each orphan). Exit codes: 0 =
+    everything is reachable; 2 = at least one orphan file.
 
-      - un script que l'humain lance à la main (`pwsh -File scripts\vigie-update.ps1`) ;
-      - un script lancé par une tâche planifiée, un `.cmd`, ou une action ;
-      - une sonde ou une action chargée PAR CONVENTION, par balayage du dossier ;
-      - un outil de développement, appelé depuis la documentation ou par habitude.
+    THE TRAP TO AVOID, AND IT IS WHAT DICTATES ALL THE REST. A file can be perfectly alive without a single line
+    of code naming it:
 
-    Un contrôle qui crierait sur ceux-là serait ignoré en trois jours — c'est exactement ce
-    qui est arrivé au cliquet des noms français quand il annonçait 604 pour un plafond de
-    302. On préfère donc RATER quelques fichiers morts plutôt que d'en accuser un vivant.
+      - a script a human starts by hand (`pwsh -File scripts/vigie-update.ps1`);
+      - a script started by a scheduled task, a `.cmd`, or an action;
+      - a probe or an action loaded BY CONVENTION, by scanning the folder;
+      - a development tool, called from the documentation or out of habit.
 
-    CE QUI COMPTE COMME « ATTEIGNABLE », dans l'ordre :
-      1. il est nommé dans un fichier du dépôt : code, `.cmd`, documentation, JSON ;
-      2. il vit dans un dossier chargé par convention (sondes, actions, travailleurs) ;
-      3. c'est un point d'entrée déclaré ci-dessous, avec sa raison.
+    A check that shouted about those would be ignored within three days -- which is exactly what happened to the
+    French-name ratchet when it announced 604 against a ceiling of 302. So we prefer to MISS a few dead files
+    rather than accuse a live one.
 
-    Usage :
-      pwsh -File .\scripts\dev\check-reachable.ps1
-      pwsh -File .\scripts\dev\check-reachable.ps1 -Detail
+    WHAT COUNTS AS "REACHABLE", in order:
+      1. it is named in a file of the repository: code, a `.cmd`, documentation, JSON;
+      2. it lives in a folder loaded by convention (probes, actions, workers);
+      3. it is an entry point declared below, with its reason.
+#>
 
-    Codes de retour : 0 = tout est atteignable ; 2 = au moins un fichier orphelin.
 #>
 param(
     [switch] $Detail
@@ -40,8 +39,8 @@ $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 
 $SKIPPED = @('.claude', '.git', 'dist', 'node_modules', 'local', 'var')
 
-# Les dossiers dont TOUT le contenu est charge par convention : le serveur les balaie,
-# personne ne nomme leurs fichiers un par un.
+# The folders whose WHOLE content is loaded by convention: the server scans them, nobody names their files one by
+# one.
 $BY_CONVENTION = @(
     'apps/backend-pode/actions',
     'apps/backend-pode/probes',
@@ -49,12 +48,11 @@ $BY_CONVENTION = @(
 )
 
 <#
-    LES POINTS D'ENTREE, chacun avec sa raison d'etre.
+    THE ENTRY POINTS, each with its reason for being.
 
-    Cette liste est le coeur du vérificateur : elle dit ce qu'on lance sans qu'aucun code
-    ne le nomme. Elle doit rester COURTE et JUSTIFIEE — une liste qui enfle est une liste
-    qui ne veut plus rien dire. Ajouter une ligne ici, c'est affirmer « ce fichier est
-    lance par un humain ou par Windows », et la raison doit le montrer.
+    This list is the heart of the checker: it says what is started without any code naming it. It must stay
+    SHORT and JUSTIFIED -- a list that swells is a list that no longer means anything. Adding a line here means
+    asserting that this file is started by a human or by Windows, and the reason must show it.
 #>
 $ENTRY_POINTS = [ordered]@{
     'scripts/install.ps1'            = 'lance par setup.cmd, et par l''utilisateur'
@@ -67,7 +65,7 @@ $ENTRY_POINTS = [ordered]@{
     'scripts/dev/sign-in-url.ps1'    = 'adresse d''ouverture pour un vrai navigateur, lance a la main'
 }
 
-# --- Qui nomme qui ----------------------------------------------------------------------
+# --- Who names whom -----------------------------------------------------------
 $files = @()
 foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -ErrorAction SilentlyContinue |
                 Where-Object { $_.Extension -in '.ps1', '.psm1' })) {
@@ -76,8 +74,8 @@ foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -ErrorAction
     $files += $rel
 }
 
-# Le texte de TOUT le depot, pas seulement des .ps1 : un .cmd, une doc ou un JSON qui
-# nomme un script le rend atteignable. C'est precisement le cas qu'un controle naif rate.
+# The text of the WHOLE repository, not only of the .ps1 files: a .cmd, a document or a JSON that names a script
+# makes it reachable. That is precisely the case a naive check misses.
 $corpus = New-Object System.Text.StringBuilder
 foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -ErrorAction SilentlyContinue |
                 Where-Object { $_.Extension -in '.ps1', '.psm1', '.psd1', '.cmd', '.bat', '.md', '.json', '.html', '.js', '.py' })) {
@@ -93,12 +91,11 @@ foreach ($rel in $files) {
     if ($BY_CONVENTION | Where-Object { $rel -like ($_ + '/*') }) { continue }
 
     $name = Split-Path $rel -Leaf
-    # On cherche le NOM DU FICHIER, pas son chemin : il est ecrit tantot avec des barres
-    # obliques, tantot avec des antislashs, tantot par Join-Path morceau par morceau.
-    # Le nom seul est le seul denominateur commun.
+    # We look for the FILE'S NAME, not its path: it is written sometimes with forward slashes, sometimes with
+    # backslashes, sometimes through Join-Path piece by piece. The name alone is the only common denominator.
     $motif = [regex]::Escape($name)
     $occurrences = ([regex]::Matches($Text, $motif)).Count
-    # Une occurrence est la sienne : la ligne « ### <chemin> » qu'on a posee en tete.
+    # One occurrence is its own: the header line we laid down at the top.
     if ($occurrences -le 1) { $orphelins += $rel }
 }
 

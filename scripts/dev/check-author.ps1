@@ -1,22 +1,22 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    check-author.ps1 - Chaque fichier de CODE porte son auteur. LECTURE SEULE.
+    check-author.ps1 -- every CODE file carries its author. READ ONLY.
 
-    LA REGLE (demande utilisateur, 01/09) : tout fichier de code de ce depot porte la
-    ligne « @author » avec le nom et l'adresse du proprietaire, EN TETE, avant le reste.
+    Intent: make the rule hold for a file added a month later. THE RULE (the owner's request, 01/09): every code
+    file of this repository carries the "@author" line with the owner's name and address, AT THE TOP, before the
+    rest.
 
-    POURQUOI UN VERIFICATEUR ET PAS UNE HABITUDE : un fichier ajoute un mois plus tard ne
-    l'aura pas, et personne ne le verra. Le controle coute une seconde ; relire cent
-    trente fichiers a la main, non.
+    Usage: pwsh -File .\scripts\dev\check-author.ps1 (-Fix lays the line down). Exit codes: 0 = they all carry
+    it; 2 = some are missing.
 
-    Les documents (.md) ne sont pas concernes : c'est la section « Auteur » du README qui
-    porte l'information, une fois pour toutes.
+    WHY A CHECKER AND NOT A HABIT: a file added a month later will not have it, and nobody will see it. The check
+    costs a second; rereading a hundred and thirty files by hand does not.
 
-    Usage :
-      pwsh -File .\scripts\dev\check-author.ps1
-      pwsh -File .\scripts\dev\check-author.ps1 -Fix
+    The documents (.md) are not concerned: it is the README's "Auteur" section that carries the information, once
+    and for all.
+#>
 
-    Codes de retour : 0 = tous la portent ; 2 = il en manque.
+
 #>
 param([switch] $Fix)
 $ErrorActionPreference = 'Stop'
@@ -58,8 +58,8 @@ foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -ErrorAction
 
     if (-not $Fix) { $missing += $rel; continue }
 
-    # ON LIT D'ABORD, ON ECRIT ENSUITE. Jamais les deux dans la meme expression : c'est
-    # ainsi qu'on vide un fichier sans s'en apercevoir.
+    # WE READ FIRST, WE WRITE AFTERWARDS. Never both in the same expression: that is how one empties a file
+    # without noticing.
     $lines = @($text -split "`r?`n")
     $head = if ($lines.Count) { $lines[0].Trim().ToLowerInvariant() } else { '' }
     $after = 0

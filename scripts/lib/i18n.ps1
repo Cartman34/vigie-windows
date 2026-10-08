@@ -1,57 +1,56 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    i18n.ps1 - LES LIBELLÉS VIVENT DANS lang/, PAS DANS LE CODE.
-    Aucune dépendance : chargeable sous Windows PowerShell 5.1 comme sous PowerShell 7.
+    i18n.ps1 -- THE LABELS LIVE IN lang/, NOT IN THE CODE.
+    No dependency: loadable under Windows PowerShell 5.1 as well as under PowerShell 7.
 
-    POURQUOI CE FICHIER EXISTE. Le texte français était écrit à même les scripts. Deux
-    conséquences, et la seconde est la vraie : il fallait un BOM sur chaque fichier pour
-    que 5.1 ne massacre pas les accents, et surtout aucune deuxième langue n'était
-    possible sans réécrire cent fichiers. Les libellés sont des DONNÉES ; ils sortent du
-    code.
-
-    LE FORMAT EST DU JSON, pour une seule raison : c'est le seul que PowerShell et le
-    navigateur lisent tous les deux sans rien installer. Le front et les scripts
-    partagent donc le même fichier, et un libellé ne peut plus diverger entre les deux.
-
-    LE FICHIER EST EN UTF-8 SANS BOM : c'est ce qu'exige la norme JSON, et ce que
-    `fetch()` attend côté navigateur. Le vérificateur d'encodage connaît cette règle.
-
-    LE MODE D'ÉCHEC QU'ON REFUSE. Une clé absente qui rendrait une chaîne vide serait
-    pire que tout : le message disparaîtrait sans que rien ne le signale. Ici, une clé
-    absente rend « [?ma.cle] », visible à l'œil nu, ET part dans le journal. Le
-    vérificateur `scripts/dev/check-labels.ps1` interdit d'en livrer une.
-
-    USAGE
+    Intent: make the displayed text DATA, so that a second language is a file and not a rewrite of a hundred
+    scripts.
+    Usage:
 
         . (Join-Path $repoRoot 'scripts/lib/i18n.ps1')
         Write-Ok (Get-Label 'service.task-registered' $taskName)
 
-    Les trous se notent « {0} », « {1} » : c'est l'opérateur -f de PowerShell, et c'est
-    aussi ce que comprend le petit remplaceur du front. Un trou numéroté, et non nommé,
-    parce qu'une traduction a le droit de changer l'ORDRE des morceaux.
+    WHY THIS FILE EXISTS. The French text was written into the scripts themselves. Two consequences, and the
+    second is the real one: every file needed a BOM so that 5.1 did not mangle the accents, and above all no
+    second language was possible without rewriting a hundred files. Labels are DATA; they come out of the code.
+
+    THE FORMAT IS JSON, for one reason only: it is the only one both PowerShell and the browser read without
+    installing anything. So the front end and the scripts share the same file, and a label can no longer diverge
+    between the two.
+
+    THE FILE IS UTF-8 WITHOUT A BOM: that is what the JSON standard demands, and what `fetch()` expects on the
+    browser side. The encoding checker knows that rule.
+
+    THE FAILURE MODE WE REFUSE. A missing key returning an empty string would be the worst of all: the message
+    would disappear with nothing to report it. Here, a missing key returns a visible marker carrying the key's
+    own name, AND goes into the log. The checker `scripts/dev/check-labels.ps1` forbids delivering one.
+
+    The holes are written "{0}", "{1}": that is PowerShell's -f operator, and it is also what the front end's
+    little replacer understands. A numbered hole, and not a named one, because a translation has the right to
+    change the ORDER of the pieces.
 #>
 
-# La langue en vigueur. Une seule pour l'instant ; le jour où il y en a deux, c'est cette
-# variable qui change, et rien d'autre.
+# The language in force. One only for now; the day there are two, this variable is what changes, and nothing
+# else.
 $script:LabelLanguage = 'fr'
 $script:LabelTable    = $null
 
 function Get-LabelFilePath {
     param([string]$Language = $script:LabelLanguage)
-    # Le dossier lang/ est a la racine du depot : deux niveaux au-dessus de scripts/lib/.
+    # The lang/ folder is at the root of the repository: two levels above scripts/lib/.
     $root = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
     return (Join-Path (Join-Path $root 'lang') ($Language + '.json'))
 }
 
-# Charge la table une fois par session. Un fichier de libelles ne change pas en cours
-# d'execution ; le relire a chaque appel couterait un acces disque par ligne affichee.
+# Loads the table once per session. A labels file does not change during a run; reading it again at every call
+# would cost one disc access per line displayed.
 function Import-Labels {
     param([switch]$Force)
     if ($script:LabelTable -and -not $Force) { return $script:LabelTable }
     $file = Get-LabelFilePath
     if (-not (Test-Path -LiteralPath $file)) {
-        # ON NE PLANTE PAS ICI. Un script d'installation qui meurt parce qu'il ne trouve
-        # pas ses libelles serait absurde : il doit pouvoir dire ce qui ne va pas.
+        # WE DO NOT CRASH HERE. An installation script that dies because it cannot find its labels would be
+        # absurd: it must be able to say what is wrong.
         $script:LabelTable = @{}
         return $script:LabelTable
     }
@@ -64,11 +63,11 @@ function Import-Labels {
 }
 
 <#
-    Le libelle d'une cle, ses trous remplis.
+    The label of a key, with its holes filled.
 
         Get-Label 'service.task-registered' 'Vigie - Serveur'
 
-    Une cle absente rend « [?la.cle] » : visible, cherchable, et jamais vide.
+    A missing key returns a visible marker carrying the key's own name: findable, and never empty.
 #>
 function Get-Label {
     param(
@@ -80,21 +79,20 @@ function Get-Label {
         return ('[?' + $Key + ']')
     }
     $text = $table[$Key]
-    # ZERO N'EST PAS « RIEN ». « if ($Values -and ...) » convertit un tableau d'UN seul
-    # element en la valeur de cet element : @(0) vaut donc FAUX, comme @('') et @($false).
-    # Consequence constatee le 29/08 : « Demarrage automatique : code {0} » -- le code de
-    # retour valait 0, c'est-a-dire la reussite, et c'est exactement la ligne qu'on perdait.
-    # On teste le NOMBRE d'elements, jamais leur verite.
+    # ZERO IS NOT "NOTHING". "if ($Values -and ...)" converts an array of ONE element into the value of that
+    # element: @(0) is therefore FALSE, like @('') and @($false). The consequence observed on 29/08: a line
+    # reporting an exit code -- the code was 0, that is to say success, and that is exactly the line we were
+    # losing. We test the NUMBER of elements, never their truth.
     if ($null -ne $Values -and $Values.Count -gt 0) {
         try { return ($text -f $Values) }
         catch {
-            # UN TROU MAL COMPTE NE DOIT PAS FAIRE TOMBER LE SCRIPT. On rend le libelle
-            # brut, avec sa marque : le verificateur compte les trous, c'est son travail.
+            # A HOLE COUNTED WRONG MUST NOT BRING THE SCRIPT DOWN. We return the label raw, with its marker: the
+            # checker counts the holes, that is its job.
             return ($text + ' [!trous]')
         }
     }
     return $text
 }
 
-# Les cles reclamees pendant cette execution et introuvables. Sert au verificateur, et a
-# un diagnostic quand un message sort en « [?...] ».
+# The keys asked for during this run that could not be found. It serves the checker, and a diagnosis when a
+# message comes out as a marker.

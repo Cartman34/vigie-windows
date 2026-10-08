@@ -1,41 +1,40 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    check-naming.ps1 - Le code est en anglais. CLIQUET, pas grand nettoyage. LECTURE SEULE.
+    check-naming.ps1 -- the code is in English. A RATCHET, not a great clean-up. READ ONLY.
 
-    La regle est ancienne (D41) : on parle francais, le code s'ecrit en anglais. Elle a
-    ete enfreinte peu a peu, y compris par moi, jusqu'a 310 identifiants francais.
+    Intent: stop the drift without demanding that everything be repaired at once. The rule is an old one (D41):
+    we speak French, the code is written in English. It was broken little by little, by me included, up to 310
+    French identifiers. A mass rename would drown `git blame` in noise for no gain, and would break code that
+    works. So this script prevents it from GETTING WORSE: the count can no longer rise; every time it drops, the
+    ceiling drops as much. It is a ratchet: it does not come back up.
 
-    Ce que ce script ne fait PAS : exiger qu'on repare tout d'un coup. Une renommade
-    massive noierait `git blame` sous du bruit pour un gain nul, et casserait du code qui
-    marche. Ce qu'il fait : empecher que ca EMPIRE. Le compte ne peut plus monter ; chaque
-    fois qu'on baisse, on descend le plafond d'autant. C'est un cliquet : ca ne remonte pas.
+    Usage:
+      pwsh -File .\scripts\dev\check-naming.ps1            # the verdict
+      pwsh -File .\scripts\dev\check-naming.ps1 -Detail    # where they are
+    Exit codes: 0 = the ceiling holds; 2 = it is exceeded.
 
-    Ce qui est compte : les NOMS -- fonctions, variables, parametres -- ET LES NOMS DE
-    FICHIERS. Restent en francais, volontairement : les commentaires, les libelles
-    affiches, les messages de journal.
+    What is counted: the NAMES -- functions, variables, parameters -- AND THE FILE NAMES. Deliberately left in
+    French: the comments, the displayed labels, the log messages.
 
-    LES NOMS DE FICHIERS ONT LEUR PROPRE CLIQUET. Le 31/08 j'ai cree « reprise.ps1 » --
-    dans le meme quart d'heure ou j'ecrivais la discipline qui l'interdit. La regle etait
-    ecrite, relue, recopiee : elle n'etait vérifiée nulle part, et ce script comptait les
-    identifiants A L'INTERIEUR des fichiers sans jamais regarder leur nom.
+    THE FILE NAMES HAVE THEIR OWN RATCHET. On 31/08 I created a file with a French name -- in the very quarter
+    hour in which I was writing the discipline that forbids it. The rule was written, reread, copied: it was
+    checked nowhere, and this script counted the identifiers INSIDE the files without ever looking at their
+    names.
 
-    Le lexique ne retient que des mots SANS ambiguite. « source », « note », « archive »,
-    « placement », « format » existent dans les deux langues : les compter punirait du
-    code anglais correct.
-
-    Usage :
-      pwsh -File .\scripts\dev\check-naming.ps1            # verdict
-      pwsh -File .\scripts\dev\check-naming.ps1 -Detail    # ou ils sont
-
-    Codes de retour : 0 = le plafond est tenu ; 2 = il est depasse.
+    The lexicon keeps only words WITHOUT ambiguity. Several words exist in both languages: counting them would
+    punish correct English code.
 #>
+
+
+
+
 param(
-    # Lister les fichiers et les noms trouves.
+    # List the files and the names that were found.
     [switch] $Detail
 )
 $ErrorActionPreference = 'Stop'
 
-# LE PLAFOND. On le baisse a chaque fois qu'on renomme, jamais on ne le monte.
+# THE CEILING. We lower it every time we rename, and never raise it.
 <#
     THE FRENCH COMMENT CEILING, measured on 02/09.
 
@@ -43,7 +42,7 @@ $ErrorActionPreference = 'Stop'
     not rewrite it at once -- thousands of touched lines for no gain, and a drowned git
     blame. The ratchet forbids adding any; every conversion lowers the ceiling as much.
 #>
-$COMMENT_CEILING = 1108
+$COMMENT_CEILING = 776
 
 # 08/10, the second half of common.ps1: 1044 -> 310 French comment lines in the library, and the repository from
 # 4539 to 3805. Then its tail -- the environment, the traceability, the requester, the Atelier, the elevation and
@@ -92,6 +91,13 @@ $COMMENT_CEILING = 1108
 #
 # WHAT IS LEFT IN apps/client/client.ps1 AND scripts/install.ps1 is not French prose: those lines quote a label of
 # the client app's own menu, or a title the installation displays, inside an English sentence.
+#
+# 08/10, GROUP 2 -- the development tooling: extract-labels (51), debug (43), lib/i18n (36), restore-context (35),
+# check-naming (33, this very file), check-reachable (33), sign-in-url (32), deploy-status (24), check-doc (18),
+# decisions (17), check-author (11). The repository drops from 1108 to 776.
+#
+# A TRANSLATED COMMENT WROTE THE WORD BANNED BY D108, inside an ordinary English word that happens to contain it.
+# This ratchet caught it. The pattern catches the isolated word, which is what it is for; the comment was reworded.
 #
 # THE METHOD, so the next campaign does not reinvent it. The tools live in the session's scratchpad and are rebuilt
 # in a few lines if lost: blocs.py lists the contiguous French comment blocks of a file with their ranges;
@@ -265,14 +271,14 @@ $FRENCH_WORDS = @(
 )
 
 <#
-    LE LEXIQUE DES NOMS DE FICHIERS est plus large que celui des identifiants : un nom de
-    fichier porte souvent le GESTE (« reprise », « sauvegarde », « deploiement »), et pas
-    le vocabulaire technique du code. C'est exactement ce qui est passe le 31/08 : aucun
-    des mots de la liste ci-dessus n'apparaissait dans « reprise.ps1 ».
+    THE LEXICON OF FILE NAMES is wider than the one for identifiers: a file name often carries the GESTURE and
+    not the technical vocabulary of the code. That is exactly what got through on 31/08: not one of the words in
+    the list above appeared in the name that slipped by.
 
-    « atelier » n'y est PAS : c'est le nom propre de l'outil de developpement (D28), pas
-    un mot francais qu'on aurait laisse trainer.
+    The Atelier is NOT in it: that is the proper name of the development tool (D28), not a French word left
+    lying around.
 #>
+
 $FRENCH_FILE_WORDS = $FRENCH_WORDS + @(
     'reprise','essai','sauvegarde','deploiement','journal','outil','aide','demarrage',
     'arret','jour','nettoyage','verification','securite','utilisateur','parametre',
@@ -365,10 +371,10 @@ foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.
 }
 
 <#
-    LES NOMS DE FICHIERS. Meme lexique, meme cliquet.
+    THE FILE NAMES. The same lexicon, the same ratchet.
 
-    On ne regarde que ce qu'on ECRIT : scripts et bibliotheques. Les documents restent en
-    francais -- c'est la langue du projet -- et les libelles aussi.
+    We look only at what we WRITE: the scripts and the libraries. The documents stay in French -- it is the
+    project's language -- and so do the labels.
 #>
 $fileTotal = 0
 $frenchFiles = @()
@@ -470,9 +476,8 @@ if ($Detail) {
     foreach ($e in ($perFile.GetEnumerator() | Sort-Object Value -Descending)) {
         Write-Info ("{0,5}  {1}" -f $e.Value, $e.Key)
     }
-    # LE « -join » ETAIT HORS DE LA PARENTHESE : Get-Label recevait le tableau, et
-    # affichait « System.Object[] ». Un verificateur qui compte sans pouvoir dire QUOI
-    # ne sert qu'a rendre le verdict, pas a corriger.
+    # THE "-join" WAS OUTSIDE THE BRACKET: Get-Label received the array, and displayed "System.Object[]". A
+    # checker that counts without being able to say WHAT only serves to return the verdict, not to fix it.
     $liste = (($names.GetEnumerator() | Sort-Object Value -Descending |
                Select-Object -First 30 | ForEach-Object { $_.Key }) -join ', ')
     Write-Host (Get-Label 'check-naming.noms' $liste) -ForegroundColor DarkGray

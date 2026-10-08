@@ -1,48 +1,49 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    debug.ps1 - DEBOGUER UN ELEMENT DE VIGIE, TOUJOURS DE LA MEME FACON.
+    debug.ps1 -- DEBUG ONE PART OF VIGIE, ALWAYS THE SAME WAY.
 
-    POURQUOI CE SCRIPT EXISTE. Chaque fois qu'une chose ne marche pas, je reinventais la
-    facon de l'examiner : une ligne de commande differente, un journal cherche a la main,
-    parfois un second journal cree pour rien par-dessus celui que le programme ecrit deja.
-    Le lendemain, j'avais oublie la maniere de la veille. Une demarche qui revient est un
-    script, pas un souvenir.
+    Intent: make the way of examining something a script rather than a memory. WHY IT EXISTS: every time
+    something did not work, I reinvented the way of looking at it -- a different command line, a log looked for
+    by hand, sometimes a second log created for nothing on top of the one the program already writes. The next
+    day, I had forgotten yesterday's way. A procedure that comes back is a script, not a memory.
 
-    CE QU'IL FAIT, pour chaque cible : il dit CE QU'IL LANCE, il le lance de la maniere
-    standard, puis il montre OU SE TROUVE LE JOURNAL de la chose et ses dernieres lignes.
+    Usage:
 
-    CE QU'IL NE FAIT PAS :
-      - il n'ecrit AUCUN journal a lui : celui du programme suffit, en doubler un donne
-        deux verites et des lignes en double ;
-      - il ne lance ni action ni worker : les executer pour de vrai est un test
-        d'integration, qui SE DEMANDE a l'utilisateur (D62, D63) ;
-      - il ne s'eleve pas : ce qui est illisible depuis une session ordinaire se demande a
-        l'app serveur (ask-vigie.ps1), qui, elle, voit tout.
+        pwsh -File scripts/dev/debug.ps1                      # the available targets
+        pwsh -File scripts/dev/debug.ps1 probe gaming         # a probe, run for real
+        pwsh -File scripts/dev/debug.ps1 sentinel internet    # a sentinel plus its history
+        pwsh -File scripts/dev/debug.ps1 server               # the server app and its log
+        pwsh -File scripts/dev/debug.ps1 client               # the client app and its log
+        pwsh -File scripts/dev/debug.ps1 install              # the last installation
+        pwsh -File scripts/dev/debug.ps1 card gaming          # the card as Vigie returns it
 
-    USAGE
+    Exit codes: 0 = the target answered; 2 = it returned nothing.
 
-        pwsh -File scripts/dev/debug.ps1                      # les cibles disponibles
-        pwsh -File scripts/dev/debug.ps1 probe gaming         # une sonde, executee
-        pwsh -File scripts/dev/debug.ps1 sentinel internet    # une sentinelle + son historique
-        pwsh -File scripts/dev/debug.ps1 server               # l'app serveur et son journal
-        pwsh -File scripts/dev/debug.ps1 client               # l'app cliente et son journal
-        pwsh -File scripts/dev/debug.ps1 install              # la derniere installation
-        pwsh -File scripts/dev/debug.ps1 card gaming          # la carte telle que Vigie la rend
+    WHAT IT DOES, for each target: it says WHAT IT IS STARTING, it starts it the standard way, then it shows
+    WHERE THAT THING'S LOG IS and its last lines.
 
-    UNE REGLE QUI VAUT POUR TOUT SCRIPT DE CE DEPOT, et que ce fichier applique : on le
-    lance dans une VRAIE console, sans rediriger sa sortie. Une sortie redirigee perd ses
-    couleurs et s'affiche avec un tour de retard -- ce qui donne l'illusion d'un blocage
-    (constate le 01/09 sur l'installation).
+    WHAT IT DOES NOT DO:
+      - it writes NO log of its own: the program's log is enough, doubling one gives two truths and duplicate
+        lines;
+      - it runs neither an action nor a worker: running those for real is an integration test, which IS ASKED
+        FOR by the user (D62, D63);
+      - it does not elevate: what is unreadable from an ordinary session is asked of the server app
+        (ask-vigie.ps1), which does see everything.
 
-    Codes de retour : 0 = la cible a repondu ; 2 = elle n'a rien rendu.
+    A RULE THAT HOLDS FOR EVERY SCRIPT IN THIS REPOSITORY, and that this file applies: one runs it in a REAL
+    console, without redirecting its output. A redirected output loses its colours and appears one round late --
+    which gives the illusion of a deadlock (observed on 01/09 on the installation).
 #>
+
+
+
 [CmdletBinding()]
 param(
-    # La famille de ce qu'on examine : probe, sentinel, server, client, install, card.
+    # The family of what we are examining: probe, sentinel, server, client, install, card.
     [string] $Target,
-    # Le nom de la sonde, de la sentinelle ou de la carte, selon la cible.
+    # The name of the probe, of the sentinel or of the card, depending on the target.
     [string] $Name,
-    # Nombre de lignes de journal a montrer.
+    # How many lines of log to show.
     [int] $Lines = 15
 )
 
@@ -54,8 +55,8 @@ $backend = Join-Path $repoRoot 'apps/backend-pode'
 
 Write-Title (Get-Label 'debug.titre')
 
-# Les dernieres lignes d'un journal, avec son chemin : c'est ce qu'on veut voir en
-# premier quand quelque chose s'est mal passe, et on ne le cherche jamais deux fois.
+# The last lines of a log, with its path: that is what one wants to see first when something went wrong, and one
+# never looks for it twice.
 function Show-Journal {
     param([string]$Path, [int]$Tail = 15)
     if (-not $Path -or -not (Test-PathSafe $Path)) {
@@ -68,7 +69,7 @@ function Show-Journal {
     }
 }
 
-# Le journal le plus recent portant ce prefixe, dans le dossier des journaux.
+# The most recent log carrying that prefix, in the logs folder.
 function Get-LatestJournal {
     param([Parameter(Mandatory)][string]$Prefix)
     $dir = Get-LogDir -Backend $backend
@@ -83,7 +84,7 @@ $rendu = $false
 
 switch ("$Target".ToLower()) {
 
-    # --- UNE SONDE : on l'execute pour de vrai, par le controleur des sondes ---------
+    # --- A PROBE: we run it for real, through the probe checker ---------------
     'probe' {
         Write-Step (Get-Label 'debug.etape-sonde' $Name)
         if (-not $Name) { Write-Fail (Get-Label 'debug.nom-manquant' 'probe'); break }
@@ -93,7 +94,7 @@ switch ("$Target".ToLower()) {
         Write-Info (Get-Label 'debug.branches-rares')
     }
 
-    # --- UNE SENTINELLE : sa valeur, puis son historique tel que Vigie le rend -------
+    # --- A SENTINEL: its value, then its history as Vigie returns it ----------
     'sentinel' {
         Write-Step $(if ($Name) { Get-Label 'debug.etape-sentinelle' $Name } else { Get-Label 'debug.etape-sentinelles' })
         $decls = @(Get-WatchDeclarations -Backend $backend)
@@ -107,8 +108,8 @@ switch ("$Target".ToLower()) {
         Write-Info (Get-Label 'debug.lance' $d.Script)
         $value = "$(& $d.Script 2>$null | Select-Object -Last 1)".Trim()
         Write-Ok (Get-Label 'debug.sentinelle-valeur' $Name $value)
-        # L'HISTORIQUE SE DEMANDE A VIGIE, pas au disque : il vit chez le compte de
-        # service, illisible depuis une session ordinaire.
+        # THE HISTORY IS ASKED OF VIGIE, not of the disc: it lives at the service account's, unreadable from an
+        # ordinary session.
         $id = Get-SentinelMeasureId -Key $Name
         try {
             $session = Open-VigieSession
@@ -128,7 +129,7 @@ switch ("$Target".ToLower()) {
         }
     }
 
-    # --- L'APP SERVEUR : debout ou non, et son journal -------------------------------
+    # --- THE SERVER APP: up or not, and its log -------------------------------
     'server' {
         Write-Step (Get-Label 'debug.etape-serveur')
         $port = [int](Get-Config -Backend $backend).Port
@@ -139,7 +140,7 @@ switch ("$Target".ToLower()) {
         Write-Info (Get-Label 'debug.serveur-ailleurs')
     }
 
-    # --- L'APP CLIENTE : son processus et son journal --------------------------------
+    # --- THE CLIENT APP: its process and its log ------------------------------
     'client' {
         Write-Step (Get-Label 'debug.etape-client')
         $seen = @(Get-CimInstance Win32_Process -Filter "Name='pwsh.exe' OR Name='powershell.exe'" -ErrorAction SilentlyContinue |
@@ -149,7 +150,7 @@ switch ("$Target".ToLower()) {
         Show-Journal -Path (Get-LatestJournal -Prefix 'client') -Tail $Lines
     }
 
-    # --- LA DERNIERE INSTALLATION : son etat, puis son propre journal -----------------
+    # --- THE LAST INSTALLATION: its state, then its own log -------------------
     'install' {
         Write-Step (Get-Label 'debug.etape-install')
         & (Join-Path $PSScriptRoot 'deploy-status.ps1')
@@ -157,7 +158,7 @@ switch ("$Target".ToLower()) {
         $rendu = $true
     }
 
-    # --- UNE CARTE, telle que Vigie la rend a celui qui demande ----------------------
+    # --- A CARD, as Vigie returns it to whoever asks --------------------------
     'card' {
         Write-Step (Get-Label 'debug.etape-carte' $Name)
         if (-not $Name) { Write-Fail (Get-Label 'debug.nom-manquant' 'card'); break }
@@ -166,8 +167,8 @@ switch ("$Target".ToLower()) {
     }
 
     default {
-        # Sans cible, on dit ce qu'on sait faire -- et c'est un succes, pas un echec :
-        # celui qui lance le script sans argument a obtenu exactement ce qu'il demandait.
+        # With no target, we say what we know how to do -- and that is a success, not a failure: whoever runs the
+        # script with no argument has obtained exactly what they asked for.
         Write-Step (Get-Label 'debug.etape-cibles')
         $rendu = $true
         foreach ($c in @('probe <id>', 'sentinel [cle]', 'server', 'client', 'install', 'card <id>')) {
