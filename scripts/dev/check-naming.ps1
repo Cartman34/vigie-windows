@@ -43,7 +43,18 @@ $ErrorActionPreference = 'Stop'
     not rewrite it at once -- thousands of touched lines for no gain, and a drowned git
     blame. The ratchet forbids adding any; every conversion lowers the ceiling as much.
 #>
-$COMMENT_CEILING = 5538
+$COMMENT_CEILING = 4539
+
+# 08/10, HALF OF common.ps1: its 2037 French comment lines come down to 1044 -- 993 translated in twenty batches,
+# taken window by window from the top. The library carried 36 % of the repository's debt on its own.
+#
+# WHAT MADE IT CHEAP AND SAFE. The proof needs no run: the file is stripped of every comment, block and
+# end-of-line alike, through the TOKEN STREAM rather than a regular expression, and the bare code must come back
+# byte for byte identical. It was checked after each of the twenty batches, and it held every time. A blind spot
+# worth naming: this says nothing is lost, it does not say the translation is good -- that is read, not measured.
+#
+# AND THE LINES ARE REPLACED BY NUMBER, never by matching their old text: a block is extracted with its range,
+# rewritten, and put back exactly where it was. Ranges are applied bottom-up so the earlier numbers stay valid.
 
 # 08/10: the first slice, and above all the PROOF that makes the rest cheap. Translating a comment changes no
 # behaviour -- PROVIDED only comments were translated. So the file is stripped of every comment, block and

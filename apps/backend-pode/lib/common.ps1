@@ -2419,17 +2419,15 @@ function Test-DeploymentPossible {
 #>
 function Get-InstallBackupRoot {
     <#
-        HORS DE L'INSTALLATION, TOUJOURS.
+        OUTSIDE THE INSTALLATION, ALWAYS.
 
-        La sauvegarde vivait sous var/ de l'app serveur, c'est-a-dire DANS le dossier
-        qu'elle sert a restaurer : le filet etait accroche au trapeze. Trois facons d'y
-        perdre : une copie qui ecrase le dossier emporte la sauvegarde avec, une
-        desinstallation aussi, et le setup.cmd du dossier installe ne peut pas restaurer
-        ce que ce meme dossier contenait.
+        The backup used to live under the server app's var/, that is, INSIDE the folder it
+        serves to restore: the safety net was tied to the trapeze. Three ways to lose it: a
+        copy overwriting the folder takes the backup with it, an uninstall does the same, and
+        the setup.cmd of the installed folder cannot restore what that same folder held.
 
-        Elle vit donc a l'echelle de la MACHINE, la ou vit deja machine.psd1 : le dossier
-        source peut disparaitre, l'installation peut etre remplacee, la version
-        precedente reste la.
+        So it lives at MACHINE scale, where machine.psd1 already lives: the source folder may
+        disappear, the installation may be replaced, the previous version stays.
     #>
     Join-Path (Get-ComputerDataRoot) 'backup'
 }
@@ -2437,10 +2435,10 @@ function Get-InstallBackupRoot {
 function Backup-Install {
     param([Parameter(Mandatory)][string]$Source, [string]$Backend = (Get-BackendRoot))
     if (-not (Test-PathSafe $Source)) { return $null }
-    # L'ANCIEN EMPLACEMENT NE SURVIT PAS A UNE INSTALLATION. Il etait sous var/ de l'app
-    # serveur ; le laisser la, c'est garder une copie entiere de Vigie que plus rien ne
-    # lit et que personne ne pense a effacer. L'installation nettoie, elle est
-    # idempotente -- pas de commande a passer a la main.
+    # THE OLD LOCATION DOES NOT SURVIVE AN INSTALLATION. It was under the server app's var/;
+    # leaving it there means keeping a whole copy of Vigie that nothing reads any more and
+    # nobody thinks to erase. The installation cleans it up, being idempotent -- no command
+    # to type by hand.
     $ancien = Join-Path (Get-VarRoot -Backend $Backend) 'backup'
     if (Test-Path -LiteralPath $ancien) {
         Remove-Item -LiteralPath $ancien -Recurse -Force -ErrorAction SilentlyContinue
@@ -2456,8 +2454,8 @@ function Backup-Install {
 }
 
 <#
-    LA COPIE EST-ELLE VALIDE ? On ne demande pas si elle « semble » faite : on lit la
-    marque de version qu'on attendait et les fichiers sans lesquels Vigie ne demarre pas.
+    IS THE COPY VALID? We do not ask whether it "seems" done: we read the version stamp we
+    were expecting, and the files without which Vigie does not start.
 #>
 function Test-InstallCopy {
     param([Parameter(Mandatory)][string]$Destination, [string]$ExpectedVersion)
@@ -2474,10 +2472,10 @@ function Test-InstallCopy {
 }
 
 <#
-    EXTRAIRE UNE ARCHIVE, ET RENDRE LE DOSSIER QU'ON DEPLOIERA.
+    EXTRACT AN ARCHIVE, AND RETURN THE FOLDER THAT WILL BE DEPLOYED.
 
-    L'archive porte un dossier racine « vigie-<version> » : c'est SON contenu qu'on
-    installe, pas un dossier de plus dans Program Files.
+    The archive carries a root folder "vigie-<version>": it is ITS contents that are
+    installed, not one more folder inside Program Files.
 #>
 function Expand-InstallArchive {
     param([Parameter(Mandatory)][string]$Zip)
@@ -2491,14 +2489,13 @@ function Expand-InstallArchive {
 }
 
 <#
-    COPIER VERS L'INSTALLATION PARTAGEE, SANS PERDRE LES REGLAGES DE L'ORDINATEUR.
+    COPY TO THE SHARED INSTALLATION, WITHOUT LOSING THE COMPUTER'S SETTINGS.
 
-    Les reglages poses sur cette machine survivent au deploiement : mis de cote, puis
-    remis. Les ecraser a chaque livraison serait une regression a chaque mise a jour.
+    The settings laid on this machine survive the deployment: set aside, then put back.
+    Overwriting them at every delivery would be a regression at every update.
 
-    var/ n'existe pas dans l'installation -- les donnees vivent dans les profils (D97) --
-    mais on ne le supprime pas si quelqu'un en a cree un : on ne detruit que ce qu'on sait
-    remplacer.
+    var/ does not exist in the installation -- the data live in the profiles (D97) -- but it
+    is not deleted if someone has created one: we only destroy what we know how to replace.
 #>
 <#
     WHAT THE SOURCE NO LONGER HAS, REMOVED WHEREVER IT IS.
@@ -2715,8 +2712,8 @@ function Start-ServerRelauncher {
     try { $pwsh = (Get-Process -Id $PID).Path } catch { }
     if (-not $pwsh) { $pwsh = 'pwsh.exe' }
 
-    # Le dossier des marques d'occupation vient de Get-VarPath, jamais d'un chemin
-    # recompose : une seule definition, et elle vit ici.
+    # The folder of the busy marks comes from Get-VarPath, never from a recomposed path:
+    # one definition, and it lives here.
     $runDir = Get-VarPath -Backend $Backend -Kind 'run'
     $waitBlock = if ($Wait) { @"
 `$run = '$runDir'
@@ -2728,16 +2725,16 @@ while (`$true) {
 "@ } else { '' }
 
     <#
-        LE SERVEUR APPARTIENT A SA TACHE : ON RELANCE LA TACHE.
+        THE SERVER BELONGS TO ITS TASK: WE RESTART THE TASK.
 
-        Je lancais start.ps1 moi-meme. Resultat le 30/08 : la mise a jour a tue le serveur
-        et le successeur n'a jamais tenu -- lance depuis une session elevee, il tournait
-        sous LE MAUVAIS COMPTE et mourait avec elle. Vigie est restee morte, tache
-        « Ready », port muet.
+        I used to launch start.ps1 myself. The result, on 30/08: the update killed the server
+        and the successor never held -- launched from an elevated session, it ran under THE
+        WRONG ACCOUNT and died with it. Vigie stayed dead, the task "Ready", the port silent.
 
-        La tache, elle, sait ce qu'elle lance : le bon compte, sans session ouverte, avec
-        ses droits. On l'arrete et on la redemarre. start.ps1 en direct ne reste que pour
-        le cas ou il n'y a pas de tache -- un serveur lance a la main, en developpement.
+        The task, on the other hand, knows what it launches: the right account, with no open
+        session, with its own rights. We stop it and start it again. start.ps1 run directly
+        remains only for the case where there is no task -- a server started by hand, in
+        development.
     #>
     $taskName = Get-ServiceTaskName
     $byTask = $false
@@ -2782,40 +2779,40 @@ $startSnippet
     return $target
 }
 
-# --- Journalisation ---------------------------------------------------------
-# --- Donnees d'execution : apps/<app>/var/ (convention Symfony) -----------------
-# Tout ce que l'app GENERE ou gere en local vit sous var/ : cache, journaux, etat,
-# secrets generes. Rien de tout cela n'est versionne.
-# Ces chemins sont ecrits ICI et nulle part ailleurs : ils etaient auparavant
-# recomposes a la main dans 8 fichiers (actions, sondes, workers).
-# L'installation est-elle INSCRIPTIBLE par le compte qui execute ? (D65)
+# --- Logging ----------------------------------------------------------------
+# --- Runtime data: apps/<app>/var/ (the Symfony convention) --------------------
+# Everything the app GENERATES or manages locally lives under var/: cache, logs, state,
+# generated secrets. None of it is versioned.
+# These paths are written HERE and nowhere else: they used to be recomposed by hand in eight
+# files -- actions, probes, workers.
+# Is the installation WRITABLE by the account running? (D65)
 #
-# Deux situations, et une seule regle pour les distinguer : l'ecriture reelle.
-#   - depot de DEV (ou installation dans un espace personnel) : var/ s'ecrit sur place,
-#     comme depuis toujours -- rien ne change ;
-#   - installation PARTAGEE (Program Files) : un compte standard n'y ecrit pas. Ses
-#     donnees d'execution vont alors dans son profil, ou il est chez lui.
-# On ne DEVINE pas d'apres le chemin : on tente d'ecrire, une fois, et on retient.
+# Two situations, and a single rule to tell them apart: writing for real.
+#   - a DEV repository, or an installation in a personal space: var/ is written in place, as
+#     it always has been -- nothing changes;
+#   - a SHARED installation (Program Files): a standard account does not write there. Its
+#     runtime data then go to its profile, where it is at home.
+# We do not GUESS from the path: we try to write, once, and remember.
 $script:VarRootCache = $null
 function Get-VarRoot {
     param([string]$Backend = (Get-BackendRoot))
-    # LE CACHE EST PAR APPLICATION, pas global.
+    # THE CACHE IS PER APPLICATION, not global.
     #
-    # Il ne tenait aucun compte de son argument : le premier appel figeait LA racine, et
-    # tous les suivants recevaient celle-la quel que soit le -Backend demande. L'app cliente
-    # ecrivait donc son battement de coeur dans le var/ du serveur, ou l'emetteur d'ordres
-    # ne le cherchait pas -- « relance impossible, app cliente deja arretee » alors qu'elle tournait
-    # (constate le 28/08). Chaque app garde ses fichiers sous SON var/ (D33) : le cache
-    # doit donc etre indexe par application.
+    # It took no account whatever of its argument: the first call froze THE root, and every
+    # one after it got that root back whatever -Backend was asked for. The client app
+    # therefore wrote its heartbeat into the server's var/, where the order sender did not
+    # look for it -- "restart impossible, client app already stopped" while it was running
+    # (seen on 28/08). Each app keeps its files under ITS var/ (D33), so the cache has to be
+    # indexed by application.
     if ($null -eq $script:VarRootCache) { $script:VarRootCache = @{} }
     $cle = "$Backend".TrimEnd([char]92, [char]47).ToLowerInvariant()
     if ($script:VarRootCache.ContainsKey($cle)) { return $script:VarRootCache[$cle] }
 
-    # INSTALLEE DANS PROGRAM FILES : les donnees vont dans le profil du compte, JAMAIS
-    # a cote du programme. Le serveur tourne eleve, il POURRAIT ecrire la -- et c'est
-    # precisement le piege : tous les comptes partageraient alors le meme jeton, le meme
-    # cache et les memes reglages, alors que chacun doit avoir les siens (D65). Le test
-    # d'ecriture ci-dessous ne verrait rien, puisqu'il reussirait.
+    # INSTALLED IN PROGRAM FILES: the data go into the account's profile, NEVER beside the
+    # program. The server runs elevated, so it COULD write there -- and that is precisely the
+    # trap: every account would then share the same token, the same cache and the same
+    # settings, when each must have its own (D65). The write test below would see nothing,
+    # since it would succeed.
     $programmes = @($env:ProgramFiles, ${env:ProgramFiles(x86)}) | Where-Object { $_ }
     foreach ($p in $programmes) {
         if ("$Backend".StartsWith("$p", [StringComparison]::OrdinalIgnoreCase)) {
@@ -2824,8 +2821,8 @@ function Get-VarRoot {
         }
     }
 
-    # Ailleurs (depot de developpement, dossier personnel) : sur place si on peut y
-    # ecrire, sinon dans le profil.
+    # Elsewhere -- a development repository, a personal folder: in place when it can be
+    # written to, otherwise in the profile.
     $surPlace = Join-Path $Backend 'var'
     $ok = $false
     try {
@@ -2842,18 +2839,18 @@ function Get-VarRoot {
 }
 
 <#
-    UNE CARTE EST-ELLE LA MEME POUR TOUT LE MONDE ?
+    IS A CARD THE SAME FOR EVERYONE?
 
-    La plupart le sont : l'espace disque, les mises a jour, le pare-feu ne dependent pas de
-    qui regarde. Mais la carte des comptes ecrit « (vous) » a cote d'un nom -- et ce rendu
-    part dans state-cache.json, qui est COMMUN. Le premier a ouvrir Vigie y laissait donc
-    son « vous », servi ensuite a tous les autres.
+    Most are: disk space, updates and the firewall do not depend on who is looking. But the
+    accounts card writes "(vous)" beside one name -- and that rendering goes into
+    state-cache.json, which is SHARED. So the first person to open Vigie left their "vous"
+    there, and it was served to everyone else.
 
-    Une sonde le declare dans son module.psd1 :  PerAccount = $true.
+    A probe declares it in its module.psd1:  PerAccount = $true.
 
-    La declaration vaut mieux qu'une devinette : on ne peut pas lire dans un rendu s'il
-    depend de la personne, et le supposer pour toutes couterait un recalcul par compte pour
-    rien. check-probes verifie que celles qui parlent du demandeur l'ont declare.
+    Declaring beats guessing: one cannot read inside a rendering to tell whether it depends on
+    the person, and assuming it for all of them would cost one recomputation per account for
+    nothing. check-probes verifies that the ones speaking of the requester have declared it.
 #>
 $script:ProbePerAccount = @{}
 function Test-ProbeIsPerAccount {
@@ -2873,11 +2870,11 @@ function Test-ProbeIsPerAccount {
 }
 
 <#
-    LA CLE DU CACHE : le nom de la sonde, et le compte quand le rendu en depend.
+    THE CACHE KEY: the probe's name, and the account when the rendering depends on it.
 
-    « accounts.probe.ps1@Famille » et « accounts.probe.ps1@fhaza » cohabitent dans le meme
-    fichier sans se marcher dessus. Sans demandeur identifie, la cle est « @? » : une
-    session anonyme a son entree a elle, ou personne n'est « vous ».
+    "accounts.probe.ps1@Famille" and "accounts.probe.ps1@fhaza" live side by side in the same
+    file without treading on each other. With no requester identified the key is "@?": an
+    anonymous session has an entry of its own, where nobody is "vous".
 #>
 function Get-ProbeCacheKey {
     param([Parameter(Mandatory)][string]$ProbeFile, [string]$Account)
@@ -2890,27 +2887,27 @@ function Get-VarPath {
     param(
         [string]$Backend = (Get-BackendRoot),
         <#
-            LA RACINE D'UN AUTRE COMPTE, quand on doit ecrire ailleurs que chez soi.
+            ANOTHER ACCOUNT'S ROOT, when one must write somewhere other than at home.
 
-            Le var d'une installation dans Program Files vit dans le profil du compte qui
-            EXECUTE (D65) : celui du service pour l'app serveur. L'installation, elle,
-            tourne sous la personne qui a clique -- elle nettoyait donc SON cache, pendant
-            que la carte continuait de lire celui du service. Get-AccountVarRoot donne la
-            bonne racine ; elle passe par ici plutot que d'etre recomposee a la main.
+            The var of an installation inside Program Files lives in the profile of the
+            account that RUNS (D65): the service's, for the server app. The installation, on
+            the other hand, runs under the person who clicked -- so it cleaned THEIR cache
+            while the card went on reading the service's. Get-AccountVarRoot gives the right
+            root, and it goes through here rather than being recomposed by hand.
         #>
         [string]$VarRoot,
-        # 'history' : series de mesures (doc/archives/conception/historique-cible.md). Distinct de
-        # 'cache' : un cache perdu se recalcule, un historique perdu ne se recalcule pas.
-        # 'run' : etat VIVANT, valable le temps d'un processus (marqueurs de tache de
-        # fond). Il ne se sauvegarde pas et ne se relit pas apres un redemarrage.
+        # 'history': series of measurements. Distinct from 'cache': a lost cache recomputes
+        # itself, a lost history does not.
+        # 'run': LIVE state, valid for the length of a process (background-task marks). It is
+        # not backed up and not read back after a restart.
         [Parameter(Mandatory)][ValidateSet('cache','log','secrets','history','run')][string]$Kind,
         [string]$File
     )
     $dir = Join-Path $(if ($VarRoot) { $VarRoot } else { Get-VarRoot -Backend $Backend }) $Kind
-    # TEST-PATHSAFE, ET UNE CREATION QUI NE CRIE PAS. Sur le var d'un AUTRE compte,
-    # Test-Path LEVE au lieu de repondre « non » et New-Item ecrit quatre pavés rouges --
-    # alors qu'on venait seulement lire un chemin pour en effacer un fichier. Un appelant
-    # qui n'a pas le droit s'en apercevra en n'y trouvant rien, sans polluer le journal.
+    # TEST-PATHSAFE, AND A CREATION THAT DOES NOT SHOUT. On ANOTHER account's var, Test-Path
+    # THROWS instead of answering "no", and New-Item writes four red blocks -- when all we
+    # were doing was reading a path to erase a file inside it. A caller without the right
+    # will notice by finding nothing there, without polluting the log.
     if (-not (Test-PathSafe $dir)) {
         New-Item -ItemType Directory -Path $dir -Force -WhatIf:$false -ErrorAction SilentlyContinue | Out-Null
     }
@@ -2921,22 +2918,22 @@ function Get-VarPath {
 function Get-LogDir {
     param([string]$Backend = (Get-BackendRoot))
     $d = Get-VarPath -Backend $Backend -Kind 'log'
-    # -WhatIf:$false : creer le dossier de journaux est de la plomberie, pas une
-    # operation que l'utilisateur simule. Sans cela, -WhatIf empeche toute journalisation.
+    # -WhatIf:$false: creating the log folder is plumbing, not an operation the user
+    # simulates. Without it, -WhatIf prevents any logging at all.
     if (-not (Test-Path $d)) { New-Item -ItemType Directory -Path $d -Force -WhatIf:$false | Out-Null }
     $d
 }
 function Write-Log {
     param(
-        # UNE LIGNE VIDE EST UNE LIGNE. Le journal d'installation relaie ce qu'affiche
-        # chaque sous-script, blancs de mise en page compris : sans cette autorisation,
-        # chaque respiration produisait un « Cannot bind argument to parameter Message »
-        # dans le transcript -- du bruit rouge sur une installation qui se passait bien.
+        # AN EMPTY LINE IS A LINE. The installation log relays what each sub-script displays,
+        # blank layout lines included: without this permission, every breath produced a
+        # "Cannot bind argument to parameter Message" in the transcript -- red noise on an
+        # installation that was going perfectly well.
         [Parameter(Mandatory)][AllowEmptyString()][string]$Message,
         [string]$Level = 'INFO',
         [string]$Name  = 'app',
         [string]$Backend = (Get-BackendRoot),
-        # Ecrire SANS reafficher : la ligne est deja a l'ecran, on ne veut que la garder.
+        # Write WITHOUT displaying again: the line is already on screen, we only want to keep it.
         [switch]$NoEcho
     )
     $dir  = Get-LogDir -Backend $Backend
@@ -2944,16 +2941,16 @@ function Write-Log {
     $line = '{0} [{1}] {2}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Level, $Message
     try { Add-Content -Path $file -Value $line -Encoding UTF8 } catch { }
 
-    # L'ECRAN ET LE FICHIER NE DISENT PAS LA MEME CHOSE, et c'est voulu. Le fichier garde
-    # l'horodatage et le niveau : c'est lui qu'on relit des semaines apres. L'ecran, lui,
-    # parle la langue de tous les autres scripts (scripts/lib/console-ui.ps1).
+    # THE SCREEN AND THE FILE DO NOT SAY THE SAME THING, and that is deliberate. The file
+    # keeps the timestamp and the level: it is the one read back weeks later. The screen
+    # speaks the language of every other script (scripts/lib/console-ui.ps1).
     #
-    # POURQUOI : le 28/08, une etape d'installation a echoue ; son ERROR est sorti en gris
-    # au milieu de vingt lignes grises, et l'utilisateur ne pouvait pas le voir. Un niveau
-    # de journal qui ne se distingue pas a l'ecran ne sert a rien.
+    # WHY: on 28/08 an installation step failed; its ERROR came out grey among twenty grey
+    # lines, and the user could not see it. A log level that does not stand out on screen is
+    # no use at all.
     #
-    # Le repli existe parce que common.ps1 est charge par des scripts qui n'ont pas besoin
-    # de l'affichage (le serveur, les sondes) : on ne leur impose pas la dependance.
+    # The fallback exists because common.ps1 is loaded by scripts that have no need of the
+    # display -- the server, the probes: the dependency is not imposed on them.
     if ($NoEcho) { return }
     $hasUi = [bool](Get-Command Write-Fail -ErrorAction SilentlyContinue)
     switch ($Level) {
@@ -2965,55 +2962,54 @@ function Write-Log {
 
 
 # =============================================================================
-#  QUI PARLE AU SERVEUR ? -- secret de compte, ticket d'ouverture, cookie de session
+#  WHO IS SPEAKING TO THE SERVER? -- account secret, opening ticket, session cookie
 # =============================================================================
 #
-# LE PROBLEME. Un seul serveur eleve repond a toute la machine. Sans moyen de savoir
-# QUEL compte est derriere une requete, il ne peut ni refuser une action a un compte
-# standard, ni servir a chacun ses propres reglages : tout le monde herite de ceux du
-# compte qui fait tourner le serveur. C'est ce qui se passe aujourd'hui.
+# THE PROBLEM. One elevated server answers the whole machine. With no way of knowing WHICH
+# account is behind a request, it can neither refuse an action to a standard account, nor
+# serve each one their own settings: everybody inherits those of the account running the
+# server.
 #
-# TROIS OBJETS, ET ON NE LES CONFOND PAS (conception, section Q1) :
+# THREE OBJECTS, AND THEY ARE NOT CONFUSED (design, section Q1):
 #
-#   secret du compte   durable   dans SON profil, ACL explicite, lui seul le lit
-#   ticket d'ouverture 30 s      passe en URL par l'app cliente, consomme une seule fois
-#   cookie de session  navigateur  identifie la page ensuite ; HttpOnly, donc hors de
-#                                  portee du JavaScript de la page
+#   account secret    lasting    in THEIR profile, explicit ACL, they alone read it
+#   opening ticket    30 s       passed in the URL by the client app, consumed once
+#   session cookie    browser    identifies the page afterwards; HttpOnly, so out of reach
+#                                of the page's own JavaScript
 #
-# POURQUOI CE DETOUR plutot que de mettre le secret dans l'URL. Une URL se retrouve dans
-# l'historique du navigateur, dans les journaux, dans un copier-coller. Un ticket qui
-# meurt en 30 secondes et ne sert qu'une fois n'a aucune valeur une minute plus tard.
+# WHY THAT DETOUR rather than putting the secret in the URL. A URL ends up in the browser's
+# history, in the logs, in a copy-paste. A ticket that dies in 30 seconds and serves once is
+# worth nothing a minute later.
 #
-# CE QUE LE SERVEUR NE STOCKE PAS : le secret. Il n'en garde rien -- il RELIT le fichier
-# du compte au moment de verifier. Etant eleve, il en a le droit ; et il n'y a donc
-# aucune copie a proteger, a synchroniser, ou a revoquer.
+# WHAT THE SERVER DOES NOT STORE: the secret. It keeps none of it -- it RE-READS the
+# account's file at the moment of checking. Being elevated, it has the right; and so there is
+# no copy to protect, to synchronise, or to revoke.
 
 <#
-    RELANCER LES APP CLIENTES DE TOUS LES COMPTES.
+    RESTARTING THE CLIENT APPS OF EVERY ACCOUNT.
 
-    Apres une mise a jour, seule l'app cliente qui l'a lancee repartait. Les autres continuaient
-    de tourner avec le code d'AVANT, charge en memoire depuis une installation qui vient
-    d'etre remplacee sous leurs pieds -- jusqu'a la prochaine ouverture de session.
+    After an update, only the client app that launched it came back. The others went on
+    running the code from BEFORE, loaded in memory from an installation that had just been
+    replaced under their feet -- until the next logon.
 
-    On depose donc un ordre « restart » dans le dossier de chaque compte : leur app cliente le
-    lit dans la seconde et se relance seul. Aucun droit particulier n'est requis d'eux,
-    et celui qui ne tourne pas n'a rien a faire -- il demarrera avec le nouveau code.
+    So a "restart" order is dropped in each account's folder: their client app reads it within
+    the second and restarts itself. No particular right is required of them, and one that is
+    not running has nothing to do -- it will start with the new code.
 
-    Le serveur est eleve : il peut ecrire dans le profil des autres. Une app cliente qui n'a
-    jamais tourne n'a pas de dossier d'ordres, et on ne lui en cree pas : rien a relancer.
+    The server is elevated: it can write into other people's profiles. A client app that has
+    never run has no order folder, and none is created for it: there is nothing to restart.
 #>
 <#
-    ARRETER ET DEMARRER LES APP CLIENTES -- PAR LEUR TACHE, TOUJOURS.
+    STOPPING AND STARTING THE CLIENT APPS -- THROUGH THEIR TASK, ALWAYS.
 
-    C'est la tache qui sait sous quelle identite lancer, et pour l'app cliente d'un AUTRE
-    compte c'est le seul moyen : la demarrer en direct demanderait ses identifiants.
+    The task is what knows which identity to launch under, and for ANOTHER account's client
+    app it is the only way: starting it directly would ask for their credentials.
 
-    UNE TACHE D'APP CLIENTE EST INTERACTIVE : Windows refuse de la demarrer pour un compte
-    sans session. « Ouverte » ne veut pas dire « active » -- un compte laisse par
-    « Changer d'utilisateur » garde une session DECONNECTEE, et sa tache y demarre tres
-    bien (verifie le 30/08, deux sessions coexistaient). Un compte sans session n'est donc
-    pas une erreur : son app cliente repartira a sa prochaine ouverture, avec le nouveau
-    code.
+    A CLIENT APP'S TASK IS INTERACTIVE: Windows refuses to start it for an account with no
+    session. "Open" does not mean "active" -- an account left by "Switch user" keeps a
+    DISCONNECTED session, and its task starts there perfectly well (checked on 30/08, two
+    sessions coexisting). An account with no session is therefore not an error: its client app
+    will come back at its next logon, with the new code.
 #>
 # ASKS EVERY CLIENT APP TO QUIT ON ITS OWN, through the order it reads each second in its run folder: it logs
 # "arret de l'app cliente (ordre stop)", acknowledges, and leaves. Until 19/09 an update ended the tasks and killed what was
@@ -3307,14 +3303,14 @@ function Start-ClientTasks {
 }
 
 <#
-    LES APP CLIENTES LANCEES HORS TACHE.
+    THE CLIENT APPS STARTED OUTSIDE THEIR TASK.
 
-    Arreter la tache ne tue pas ce qu'elle n'a pas lance : une app cliente demarree a la
-    main -- essai de developpement -- continuerait de tourner sur des fichiers qu'on
-    remplace. On balaie donc ce qui reste, en visant ce qui EXECUTE le script de l'app
-    cliente, quel que soit le compte : l'installation est elevee, elle les voit tous.
+    Stopping the task does not kill what it did not start: a client app launched by hand -- a
+    development try -- would go on running on files being replaced. So whatever is left is
+    swept, aiming at what RUNS the client app's script, whatever the account: the installation
+    is elevated and sees them all.
 
-    Rend le nombre de processus arretes.
+    Returns the number of processes stopped.
 #>
 function Stop-StandaloneClients {
     $killed = 0
@@ -3329,40 +3325,40 @@ function Stop-StandaloneClients {
 }
 
 function Send-ClientRestartToAll {
-    # « Sauf moi » veut dire « sauf CELUI QUI DEMANDE » : son app cliente vient de faire la
-    # mise a jour et se relance elle-meme. Le compte du service, lui, n'a pas d'app cliente.
-    # Personne d'identifie : on previent TOUT LE MONDE. C'est le bon defaut -- une app
-    # cliente relancee pour rien redemarre en deux secondes ; une qui garde l'ancien code
-    # ment jusqu'a la prochaine ouverture de session.
+    # "Except me" means "except WHOEVER ASKS": their client app has just carried out the
+    # update and restarts itself. The service account has no client app at all.
+    # Nobody identified: EVERYONE is told. That is the right default -- a client app
+    # restarted for nothing is back in two seconds; one keeping the old code lies until the
+    # next logon.
     param([string]$Except = (Get-RequesterAccount))
     $touches = @()
-    # Les comptes qui ont une app cliente : ceux dont la tache de demarrage existe.
+    # The accounts that have a client app: those whose startup task exists.
     $avecAppCliente = @()
     try { $avecAppCliente = @(Get-EnabledAccounts | ForEach-Object { "$($_.name)" }) } catch { }
     $users = Join-Path $env:SystemDrive 'Users'
     if (-not (Test-Path -LiteralPath $users)) { return $touches }
     foreach ($profil in @(Get-ChildItem -LiteralPath $users -Directory -ErrorAction SilentlyContinue)) {
         if ($Except -and $profil.Name -ieq $Except) { continue }
-        # UN PROFIL QU'ON NE PEUT PAS LIRE N'EST PAS UNE ERREUR. Depuis une session sans
-        # droits, le simple test d'existence sur le dossier d'un autre compte LEVE -- et
-        # sous « ErrorActionPreference = Stop », il emporte toute la fonction. Le serveur
-        # est eleve et n'a pas ce souci, mais une fonction ne doit pas dependre de qui
-        # l'appelle : on passe au suivant, en silence.
-        # AVOIR UN DOSSIER D'ORDRES NE VEUT PAS DIRE AVOIR UNE APP CLIENTE. Le compte du
-        # service en a un -- l'app SERVEUR y depose ses marques d'occupation -- et il a
-        # donc recu un ordre « restart » que personne ne lira jamais : « Relance demandee
-        # aux autres comptes : Famille, fhaza, VigieService » (constate le 30/08).
+        # A PROFILE WE CANNOT READ IS NOT AN ERROR. From a session without rights, the mere
+        # existence test on another account's folder THROWS -- and under
+        # "ErrorActionPreference = Stop" it takes the whole function with it. The server is
+        # elevated and has no such trouble, but a function must not depend on who calls it:
+        # we move on to the next, in silence.
+        # HAVING AN ORDER FOLDER DOES NOT MEAN HAVING A CLIENT APP. The service account has
+        # one -- the SERVER app drops its busy marks there -- and it therefore received a
+        # "restart" order nobody will ever read: "Relance demandee aux autres comptes :
+        # Famille, fhaza, VigieService" (seen on 30/08).
         #
-        # Ce qui prouve qu'un compte a une app cliente, c'est SA TACHE DE DEMARRAGE.
+        # What proves an account has a client app is ITS STARTUP TASK.
         if ($avecAppCliente -notcontains $profil.Name) { continue }
         $run = $null
         try { $run = Get-AccountRunDir -Account $profil.Name } catch { continue }
         if (-not $run) { continue }
         if (-not (Test-PathSafe $run)) { continue }
-        # ON N'A PAS A SAVOIR SI L'APP CLIENTE TOURNE. Une app cliente efface les ordres en attente a son
-        # demarrage : un ordre depose pour une app cliente absente ne survit pas a son retour, et
-        # celui-ci demarre de toute facon avec le nouveau code. Verifier son battement de
-        # coeur ajoutait un acces disque et une condition pour rien.
+        # WE DO NOT HAVE TO KNOW WHETHER THE CLIENT APP IS RUNNING. A client app erases the
+        # pending orders when it starts: an order left for an absent client app does not
+        # survive its return, and that return happens with the new code anyway. Checking its
+        # heartbeat added a disk access and a condition for nothing.
         try {
             Set-Content -LiteralPath (Join-Path $run 'restart') -Value 'update' -Encoding ASCII -NoNewline
             $touches += $profil.Name
@@ -3371,14 +3367,14 @@ function Send-ClientRestartToAll {
     return $touches
 }
 
-# La racine des donnees d'un AUTRE compte. Le chemin etait recopie a la main dans le
-# diagnostic ; une seule definition vaut mieux qu'un accord entre deux copies.
+# The data root of ANOTHER account. The path was copied by hand into the diagnosis; one
+# definition beats an agreement between two copies.
 <#
-    LE COMPTE SOUS LEQUEL TOURNE L'APP SERVEUR.
+    THE ACCOUNT THE SERVER APP RUNS UNDER.
 
-    Il etait ecrit dans install-service.ps1, qui n'est pas la bibliotheque : tout ce qui
-    doit ecrire ou lire CHEZ LUI -- l'installation qui nettoie le cache de la carte, par
-    exemple -- aurait recopie le nom. Une seule definition, comme pour le nom de la tache.
+    It was written in install-service.ps1, which is not the library: everything that must
+    write or read AT ITS HOME -- the installation cleaning the card's cache, for instance --
+    would have copied the name. One definition, as for the task's name.
 #>
 function Get-ServiceAccountName { 'VigieService' }
 
@@ -3416,29 +3412,28 @@ function Get-AccountVarRoot {
 }
 
 <#
-    LE COMPTE QUI EXECUTE CE PROCESSUS. Pas « la personne ».
+    THE ACCOUNT RUNNING THIS PROCESS. Not "the person".
 
-    La distinction n'avait aucune importance tant que l'app serveur tournait sous le
-    compte de quelqu'un : $env:USERNAME tombait juste PAR ACCIDENT. Depuis qu'elle tourne
-    en service sous « VigieService », chaque endroit qui disait $env:USERNAME pour dire
-    « la personne devant l'ecran » designe le service -- et le 29/08 la carte Comptes a
-    donc affiche « VOUS » sur VigieService, et l'a sorti de la liste des comptes
-    techniques.
+    The distinction did not matter while the server app ran under somebody's account:
+    $env:USERNAME happened to be right BY ACCIDENT. Since it runs as a service under
+    "VigieService", every place that said $env:USERNAME meaning "the person in front of the
+    screen" names the service -- and on 29/08 the Accounts card therefore showed "VOUS" on
+    VigieService, and took it out of the list of technical accounts.
 
-    Deux notions, deux fonctions, plus jamais melangees :
-      - Get-ProcessAccount   : QUI EXECUTE. Vrai pour l'app cliente (elle EST la personne)
-                               et pour les scripts lances a la main.
-      - Get-ActionRequester  : QUI DEMANDE, lu dans le cookie de session. C'est la personne,
-                               cote app serveur, et c'est ce qu'il faut presque toujours.
+    Two notions, two functions, never mixed again:
+      - Get-ProcessAccount   : WHO RUNS. True for the client app, which IS the person, and
+                               for scripts launched by hand.
+      - Get-ActionRequester  : WHO ASKS, read from the session cookie. That is the person, on
+                               the server app's side, and it is what is almost always needed.
 
-    check-probes refuse desormais $env:USERNAME partout ailleurs : le prochain qui ecrira
-    ce raccourci se le verra dire avant de livrer, pas trois semaines plus tard.
+    check-probes now refuses $env:USERNAME anywhere else: whoever next writes that shortcut
+    will be told before delivering, not three weeks later.
 #>
 function Get-ProcessAccount {
     return "$env:USERNAME"
 }
 
-# Le SID d'un compte local, par son nom. Rend $null si le compte n'existe pas.
+# A local account's SID, by its name. Returns $null when the account does not exist.
 function Get-AccountSid {
     param([Parameter(Mandatory)][string]$Account)
     try { return (New-Object System.Security.Principal.NTAccount($Account)).Translate(
@@ -3446,11 +3441,11 @@ function Get-AccountSid {
 }
 
 <#
-    Le secret presente est-il bien celui de ce compte ?
+    Is the secret presented really this account's?
 
-    On RELIT le fichier du compte, avec sa verification d'ACL : si ses droits ont bouge
-    depuis qu'il a ete pose, Get-AccountSecret leve et on refuse. Un secret qu'un tiers a
-    pu lire ne vaut rien, et le refuser bruyamment vaut mieux que l'accepter en silence.
+    The account's file is RE-READ, with its ACL check: if its rights have moved since it was
+    laid, Get-AccountSecret throws and we refuse. A secret a third party may have read is
+    worth nothing, and refusing it loudly beats accepting it in silence.
 #>
 function Test-AccountSecret {
     param(
@@ -3471,11 +3466,11 @@ function Test-AccountSecret {
     return ($known -ceq $Secret)
 }
 
-# --- Ou vivent tickets et sessions ------------------------------------------------------
+# --- Where tickets and sessions live ----------------------------------------------------
 #
-# Dans le var DU SERVEUR, sous une ACL fermee : un identifiant de session est une
-# information d'authentification au meme titre qu'un secret. Le dossier est pose avec la
-# meme fonction que les secrets, donc avec la meme rigueur.
+# In the SERVER's var, under a closed ACL: a session identifier is authentication information
+# just as a secret is. The folder is laid with the same function as the secrets, and
+# therefore with the same rigour.
 function Get-SessionStorePath {
     param([string]$Kind = 'sessions', [string]$Backend = (Get-BackendRoot))
     $dir = Join-Path (Join-Path (Get-VarRoot -Backend $Backend) 'auth') $Kind
@@ -3489,10 +3484,10 @@ function Get-SessionStorePath {
     return $dir
 }
 
-# L'AGE SE COMPTE EN SECONDES, PAS EN DATES. Une date ecrite en JSON revient en objet
-# DateTime, deja convertie dans la culture locale : « 08/28/2026 20:43:31 ». La reparser
-# echouait, l'exception passait inapercue, et l'age restait vide -- autrement dit un
-# ticket n'expirait JAMAIS. Un nombre n'a ni culture ni type surprise.
+# AGE IS COUNTED IN SECONDS, NOT IN DATES. A date written to JSON comes back as a DateTime
+# object, already converted into the local culture: "08/28/2026 20:43:31". Re-parsing it
+# failed, the exception went unnoticed, and the age stayed empty -- which is to say a ticket
+# NEVER expired. A number has neither culture nor surprise type.
 function Get-EpochSeconds {
     return [double]([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() / 1000.0)
 }
@@ -3503,7 +3498,7 @@ function New-RandomId {
     return ([Convert]::ToBase64String($bytes) -replace '[^A-Za-z0-9]', '')
 }
 
-# Un ticket d'ouverture, valable une fois et trente secondes.
+# An opening ticket, valid once and for thirty seconds.
 function New-OpenTicket {
     param([Parameter(Mandatory)][string]$Account, [string]$Backend = (Get-BackendRoot))
     $id = New-RandomId
@@ -3513,8 +3508,8 @@ function New-OpenTicket {
     return $id
 }
 
-# Consomme un ticket : rend le compte, ou $null. Le fichier est SUPPRIME dans tous les
-# cas -- un ticket presente une fois, valide ou perime, ne doit pas pouvoir resservir.
+# Consumes a ticket: returns the account, or $null. The file is DELETED in every case -- a
+# ticket presented once, valid or stale, must not be able to serve again.
 function Use-OpenTicket {
     param([Parameter(Mandatory)][string]$Ticket, [string]$Backend = (Get-BackendRoot))
     if ($Ticket -notmatch '^[A-Za-z0-9]{8,64}$') { return $null }
@@ -3528,22 +3523,21 @@ function Use-OpenTicket {
     return "$($data.account)"
 }
 
-# Ouvre une session et rend son identifiant, celui que portera le cookie.
+# Opens a session and returns its identifier, the one the cookie will carry.
 <#
-    L'URL D'OUVERTURE : LE SEUL CHEMIN POUR EN DEMANDER UNE.
+    THE OPENING URL: THE ONLY WAY TO ASK FOR ONE.
 
-    Le geste est toujours le meme -- lire le secret de SON compte, le presenter au
-    serveur, recevoir une adresse a usage unique -- et il s'ecrivait a deux endroits :
-    dans l'app cliente et dans l'outil de questions. Deux exemplaires, donc deux
-    comportements a tenir : ils n'avaient deja pas le meme delai d'attente.
+    The gesture is always the same -- read THEIR account's secret, present it to the server,
+    receive a single-use address -- and it was written in two places: in the client app and in
+    the question tool. Two copies, so two behaviours to keep in step: they already did not
+    have the same timeout.
 
-    ON NE PEUT DEMANDER QUE POUR SOI. Le secret vit dans le profil du compte, avec une ACL
-    explicite : personne d'autre ne le lit, et c'est precisement ce qui fait qu'il prouve
-    une identite. Pour ouvrir une session au nom d'un autre compte, il faut etre dans SA
-    session.
+    ONE CAN ONLY ASK FOR ONESELF. The secret lives in the account's profile, with an explicit
+    ACL: nobody else reads it, and that is precisely what makes it prove an identity. To open
+    a session in another account's name, one has to be inside THEIR session.
 
-    Rend $null si quoi que ce soit echoue -- l'appelant ouvre alors la page sans
-    identification plutot que de refuser d'ouvrir.
+    Returns $null if anything at all fails -- the caller then opens the page without
+    identification rather than refusing to open it.
 #>
 function Get-OpenUrl {
     param(
@@ -3572,19 +3566,19 @@ function Get-OpenUrl {
 }
 
 <#
-    OUVRIR UNE SESSION AUPRES DE L'APP SERVEUR, ET RENDRE DE QUOI L'INTERROGER.
+    OPENING A SESSION WITH THE SERVER APP, AND RETURNING WHAT IT TAKES TO QUESTION IT.
 
-    Le chemin complet, celui de l'app cliente : secret du compte -> adresse d'ouverture ->
-    cookie. Il etait ecrit dans l'outil de questions ; l'app cliente en a besoin aussi,
-    pour LIRE L'ETAT.
+    The whole path, the client app's own: the account's secret -> the opening address -> the
+    cookie. It was written in the question tool; the client app needs it too, to READ THE
+    STATE.
 
-    POURQUOI ELLE EN A BESOIN. Elle lisait le fichier de cache directement -- et depuis que
-    le serveur tourne sous un compte de service, ce fichier vit dans le profil de CE
-    compte : l'app cliente regardait un fichier que personne n'ecrit, et n'a plus emis une
-    seule notification depuis le 28/08. Passer par l'API resout les deux : elle voit ce que
-    le serveur voit, avec les droits de son propre compte, sans lire chez autrui.
+    WHY IT NEEDS IT. It used to read the cache file directly -- and since the server runs
+    under a service account, that file lives in THAT account's profile: the client app was
+    looking at a file nobody writes, and had not raised a single notification since 28/08.
+    Going through the API solves both: it sees what the server sees, with its own account's
+    rights, without reading in someone else's home.
 
-    Rend un objet de session utilisable avec Invoke-RestMethod, ou $null.
+    Returns a session object usable with Invoke-RestMethod, or $null.
 #>
 function Open-VigieSession {
     param(
@@ -3601,8 +3595,8 @@ function Open-VigieSession {
     $handler = $null; $client = $null
     try {
         $handler = New-Object System.Net.Http.HttpClientHandler
-        # ON NE SUIT PAS LA REDIRECTION et on ne laisse pas .NET gerer les cookies : le
-        # cookie arrive sur la reponse 302, et la suivante n'en porte plus.
+        # WE DO NOT FOLLOW THE REDIRECTION, and we do not let .NET manage the cookies: the
+        # cookie arrives on the 302 response, and the next one no longer carries it.
         $handler.UseCookies = $false
         $handler.AllowAutoRedirect = $false
         $client = New-Object System.Net.Http.HttpClient($handler)
@@ -3638,17 +3632,16 @@ function New-AccountSession {
 }
 
 <#
-    LE COMPTE DERRIERE UNE SESSION, ou $null.
+    THE ACCOUNT BEHIND A SESSION, or $null.
 
-    UNE SESSION NE PERIME PAS. Elle expirait au bout de 24 heures : passe ce delai, la
-    fenetre restait ouverte mais n'appartenait plus a personne -- « vous » disparaissait
-    de la carte des comptes et les actions ne savaient plus qui demandait, sans que rien
-    ne l'annonce. Or ce qui est jetable, c'est l'URL D'OUVERTURE : 30 secondes, une seule
-    presentation. Ce qu'elle laisse, l'identite, doit durer, sinon il faut en redemander
-    une a chaque fois pour un poste ou la personne n'a pas change.
+    A SESSION DOES NOT EXPIRE. It used to, after 24 hours: past that delay the window stayed
+    open but belonged to nobody -- "vous" disappeared from the accounts card and the actions
+    no longer knew who was asking, with nothing announcing it. What is disposable is the
+    OPENING URL: 30 seconds, one single presentation. What it leaves behind, the identity,
+    must last, or one has to ask for another every time on a workstation where the person has
+    not changed.
 
-    Une session se termine autrement : le fichier est supprime, ou le compte cesse d'etre
-    active.
+    A session ends otherwise: the file is deleted, or the account stops being enabled.
 #>
 function Get-SessionAccount {
     param([Parameter(Mandatory)][string]$SessionId, [string]$Backend = (Get-BackendRoot))
@@ -3660,23 +3653,23 @@ function Get-SessionAccount {
     return "$($data.account)"
 }
 
-# --- Fabriques d'objets du contrat -----------------------------------------
-# Nom de processus -> nom LISIBLE, celui que Windows affiche lui-meme.
+# --- The contract's object factories ----------------------------------------
+# A process name -> the READABLE name, the one Windows itself displays.
 #
-# « csrss » ne dit rien a personne (signale par l'utilisateur le 25/08). Le vrai nom est
-# dans les informations de version de l'executable (FileDescription) : « Processus
-# d'execution client-serveur », « Explorateur Windows », « Google Chrome ». On le lit sur
-# le FICHIER et non sur le processus : les processus proteges (csrss, lsass) refusent
-# l'acces a leur module principal, alors que leur fichier se lit sans probleme.
+# "csrss" means nothing to anybody (pointed out by the owner on 25/08). The real name is in
+# the executable's version information (FileDescription): "Client Server Runtime Process",
+# "Windows Explorer", "Google Chrome". It is read from the FILE and not from the process:
+# protected processes (csrss, lsass) refuse access to their main module, while their file
+# reads without trouble.
 #
-# Le nom technique n'est pas jete : il est conserve entre parentheses, parce que c'est lui
-# qu'on retrouve dans le Gestionnaire des taches.
+# The technical name is not thrown away: it is kept in brackets, because that is the one
+# found again in the Task Manager.
 $script:AppNameCache = @{}
 function Get-AppDisplayName {
     param(
         [Parameter(Mandatory)][string]$ProcessName,
         [string]$Path,
-        # Sans -Complet, on ne rend que le nom lisible (pour une valeur de champ courte).
+        # Without -Complet, only the readable name is returned (for a short field value).
         [switch]$Complet
     )
     $cle = $ProcessName.ToLower()
@@ -3684,8 +3677,8 @@ function Get-AppDisplayName {
         $desc = $null
         $exe = $Path
         if (-not $exe) {
-            # Processus protege : son chemin est refuse, mais un binaire systeme du meme
-            # nom se lit tres bien. On ne DEVINE pas : on verifie que le fichier existe.
+            # A protected process: its path is refused, but a system binary of the same name
+            # reads perfectly well. We do not GUESS: we check the file exists.
             $candidat = Join-Path $env:SystemRoot ("System32\" + $ProcessName + ".exe")
             if (Test-Path -LiteralPath $candidat) { $exe = $candidat }
         }
@@ -3699,9 +3692,9 @@ function Get-AppDisplayName {
     }
     $lisible = $script:AppNameCache[$cle]
     if (-not $lisible) {
-        # Faute de mieux, on affiche le nom du processus -- mais avec une MAJUSCULE :
-        # c'est un nom propre a l'ecran (« Claude », pas « claude »), et une valeur de
-        # carte commence toujours par une majuscule.
+        # For want of better, the process name is displayed -- but with a CAPITAL: on screen
+        # it is a proper noun ("Claude", not "claude"), and a card's value always begins
+        # with a capital.
         if ($ProcessName.Length -gt 1) { return $ProcessName.Substring(0,1).ToUpper() + $ProcessName.Substring(1) }
         return $ProcessName.ToUpper()
     }
@@ -3709,13 +3702,13 @@ function Get-AppDisplayName {
     return $lisible
 }
 
-# Ce qu'on dit d'une application quand on survole son nom : chemin ABSOLU d'abord (demande
-# utilisateur), puis editeur et version, puis les processus reels derriere le nom.
+# What is said of an application when its name is hovered: the ABSOLUTE path first, as the
+# owner asked, then publisher and version, then the real processes behind the name.
 #
-# HOMONYMES : deux processus du meme nom peuvent venir de DEUX binaires differents (deux
-# installations de chrome, un faux « svchost » pose ailleurs que dans System32). On ne
-# choisit pas a la place de l'utilisateur : tous les emplacements distincts sont dits, et
-# le fait qu'il y en ait plusieurs est annonce.
+# HOMONYMS: two processes of the same name may come from TWO different binaries -- two
+# installations of chrome, a fake "svchost" laid somewhere other than System32. We do not
+# choose in the user's place: every distinct location is named, and the fact that there is
+# more than one is announced.
 function Get-AppInfoTip {
     param(
         [Parameter(Mandatory)][string]$ProcessName,
@@ -3725,9 +3718,9 @@ function Get-AppInfoTip {
     $lines = @()
     $cleanPaths = @($Paths | Where-Object { $_ } | Sort-Object -Unique)
     if ($cleanPaths.Count -eq 0) {
-        # Processus protege (csrss, lsass...) : Windows refuse son chemin. Si un binaire
-        # systeme du meme nom EXISTE, on le nomme -- en disant que c'est le binaire attendu
-        # et non le chemin lu, la nuance compte pour qui traque un imposteur.
+        # A protected process (csrss, lsass...): Windows refuses its path. If a system binary
+        # of the same name EXISTS, it is named -- while saying it is the expected binary and
+        # not the path read; the nuance matters to whoever is hunting an impostor.
         $sys = Join-Path $env:SystemRoot ("System32\" + $ProcessName + ".exe")
         if (Test-Path -LiteralPath $sys) {
             $lines += "Chemin non communiqué (processus protégé par Windows)."
@@ -3762,21 +3755,21 @@ function Get-AppInfoTip {
     $lines -join "`n"
 }
 
-# --- ARBORESCENCE DU DISQUE, NIVEAU PAR NIVEAU (D60, revu le 26/08) ------------
-# L'interface ne recoit JAMAIS l'arbre entier : elle demande UN niveau, et redemande
-# quand l'utilisateur deplie. Exigence utilisateur -- un arbre complet, c'est un JSON
-# qui grossit sans limite et une carte qui transporte ce que personne ne regardera.
+# --- THE DISK TREE, LEVEL BY LEVEL (D60, revised on 26/08) --------------------
+# The interface NEVER receives the whole tree: it asks for ONE level, and asks again when the
+# user unfolds. The owner's requirement -- a complete tree is a JSON that grows without
+# limit, and a card carrying what nobody will look at.
 #
-# Deux sources, dans cet ordre :
-#   1. le CACHE de la derniere analyse (var/cache/diskscan.json) : deja calcule, gratuit ;
-#   2. un CALCUL PARTIEL a la demande, quand le niveau demande est au-dela de ce que
-#      l'analyse a conserve. On ne parcourt alors QUE le sous-arbre demande.
-# Ce qui est calcule a la demande est memorise (diskscan-levels.json) : deplier deux fois
-# le meme dossier ne le reparcourt pas.
+# Two sources, in this order:
+#   1. the CACHE of the last analysis (var/cache/diskscan.json): already computed, free;
+#   2. a PARTIAL COMPUTATION on demand, when the level asked for lies beyond what the
+#      analysis kept. Only the sub-tree asked for is then walked.
+# What is computed on demand is remembered (diskscan-levels.json): unfolding the same folder
+# twice does not walk it twice.
 $script:SEP = [string][char]92
 
-# Taille totale d'un dossier, en un seul passage .NET. Bornee dans le temps : au-dela on
-# rend ce qu'on a en le DISANT (partiel), plutot que de faire attendre l'interface.
+# The total size of a folder, in one .NET pass. Bounded in time: past that, what we have is
+# returned while SAYING so (partial), rather than keeping the interface waiting.
 function Measure-FolderQuick {
     param(
         [Parameter(Mandatory)][string]$Path,
@@ -3799,7 +3792,7 @@ function Measure-FolderQuick {
     [pscustomobject]@{ Size = $size; Files = $nb; Partial = $partial }
 }
 
-# Les enfants DIRECTS de $Path, du plus gros au plus petit.
+# The DIRECT children of $Path, from the largest to the smallest.
 function Get-DiskTreeLevel {
     param(
         [Parameter(Mandatory)][string]$Path,
@@ -3820,15 +3813,15 @@ function Get-DiskTreeLevel {
         if ($Top -le 0) { $Top = 10 }
     }
 
-    # Le chemin demande doit appartenir a l'analyse : on n'explore pas le disque sur
-    # demande d'un client, on explore l'arbre deja analyse.
+    # The path asked for must belong to the analysis: we do not explore the disk on a
+    # client's request, we explore the tree already analysed.
     $plein = $Path
     try { $plein = (Resolve-Path -LiteralPath $Path -ErrorAction Stop).Path } catch { }
     if (-not $plein.ToLower().StartsWith($rootPath.ToLower())) { throw "Hors de l'analyse en cours : $Path" }
 
     $pct = { param($o) if ($total -gt 0) { ('{0:N1}' -f ([double]$o / $total * 100)) } else { '0,0' } }
 
-    # 1) Le cache de l'analyse contient-il deja ce niveau ?
+    # 1) Does the analysis cache already hold this level?
     $noeud = $State.tree
     $coupe = $rootPath.TrimEnd([char]92).Length
     $reste = $plein.Substring([Math]::Min($coupe, $plein.Length)).Trim([char]92)
@@ -3857,7 +3850,7 @@ function Get-DiskTreeLevel {
         return [pscustomobject]@{ path = $plein; source = 'analyse'; children = $enfants; files = $files; others = $autres }
     }
 
-    # 2) Niveau non conserve par l'analyse : CALCUL PARTIEL, borne a ce dossier.
+    # 2) A level the analysis did not keep: a PARTIAL COMPUTATION, bounded to this folder.
     $memo = Get-VarPath -Backend $Backend -Kind 'cache' -File 'diskscan-levels.json'
     $cle  = $plein.ToLower()
     try {
@@ -3903,8 +3896,8 @@ function Get-DiskTreeLevel {
     return [pscustomobject]@{ path = $plein; source = 'calcul'; children = $calcules; files = $fic; others = $null }
 }
 
-# Taille en octets -> texte lisible (une seule decimale : « 12,4 Go »). Point unique de
-# mise en forme des tailles : une carte qui affiche des octets bruts n'apprend rien.
+# A size in bytes -> readable text (one decimal: "12,4 Go"). The single point where sizes are
+# formatted: a card showing raw bytes teaches nothing.
 function Format-ByteSize {
     param([Parameter(Mandatory)][long]$Bytes)
     if ($Bytes -ge 1TB) { return ('{0:N1} To' -f ($Bytes / 1TB)) }
@@ -3925,13 +3918,13 @@ function New-Field {
         [string]$Help,
         [string]$FixAction,
         [string]$Guide,
-        # Detail STRUCTURE : @{ columns = @('...'); rows = @(@('...'), ...) }.
-        # Une liste de plusieurs dizaines de lignes mise en forme dans une chaine reste
-        # illisible ou qu'on l'affiche. Un tableau se parcourt du regard ; le texte, non.
+        # A STRUCTURED detail: @{ columns = @('...'); rows = @(@('...'), ...) }.
+        # A list of several dozen lines formatted into a string stays unreadable wherever it
+        # is displayed. A table is taken in at a glance; text is not.
         [hashtable]$Table,
-        # ARBORESCENCE repliable (S13b/D60) : @{ n; path; size; pct; k = @(...) }. Un
-        # tableau met a plat ce qui est hierarchique ; un arbre se parcourt de branche en
-        # branche, ce qui est justement la question posee (« ou part la place ? »).
+        # A foldable TREE (S13b/D60): @{ n; path; size; pct; k = @(...) }. A table flattens
+        # what is hierarchical; a tree is walked branch by branch, which is exactly the
+        # question being asked ("where is the room going?").
         $Tree,
         # THE PROGRESS OF AN OPERATION IN PROGRESS, in a block of its own under the field, only while it runs:
         # @{ phase; percent; index; total; title; itemPercent; bytesDone; bytesTotal; since } (contract Field.progress).
@@ -3978,47 +3971,47 @@ function New-Action {
         [string]$Module,
         [switch]$Confirm,
         [string]$Help,
-        # 'dialog' : ouvre une fenetre de CHOIX dans l'application (liste a cocher).
-        # Distinct de 'manual', qui ouvre un LOGICIEL EXTERNE, et de 'confirm', qui ne
-        # demande qu'un oui/non. Les trois ne se ressemblaient pas assez a l'ecran.
+        # 'dialog': opens a CHOICE window inside the application (a list to tick).
+        # Distinct from 'manual', which opens EXTERNAL SOFTWARE, and from 'confirm', which
+        # only asks a yes or no. The three did not look different enough on screen.
         [ValidateSet('immediate','confirm','manual','dialog')][string]$Kind,
-        # SEVERITE : ce que l'action represente, independamment de la FORME qu'elle prend.
-        # `kind` choisit l'ICONE (comment ca se passe : oui/non, fenetre de choix, logiciel
-        # externe) ; `severity` choisit la COULEUR (ce que ca vaut) :
-        #   neutral = sans enjeu (gris) | info = consultation, ouverture (bleu)
-        #   fix     = corrige quelque chose (vert)
-        # Les deux etaient confondus : la couleur suivait la forme, ce qui n'apprend rien.
+        # SEVERITY: what the action represents, independently of the FORM it takes.
+        # `kind` chooses the ICON -- how it happens: yes/no, a choice window, external
+        # software; `severity` chooses the COLOUR, what it is worth:
+        #   neutral = nothing at stake (grey) | info = consulting, opening (blue)
+        #   fix     = it corrects something (green)
+        # The two were conflated: the colour followed the form, which teaches nothing.
         [ValidateSet('neutral','info','fix')][string]$Severity,
-        # Libelle affiche PENDANT l'execution. Il doit dire ce qui se passe -- « Mise à
-        # jour… », pas « En cours… ». Les points de suspension sont RESERVES a une action
-        # en cours : un libelle au repos n'en porte jamais.
+        # The label displayed WHILE it runs. It must say what is happening -- "Mise à jour…",
+        # not "En cours…". The ellipsis is RESERVED for an action under way: a label at rest
+        # never carries one.
         [string]$BusyLabel,
-        # DEUX confirmations distinctes avant execution. Reserve aux gestes qui ferment le
-        # travail en cours de l'utilisateur ou touchent la machine entiere : un seul clic
-        # de trop ne doit pas suffire.
+        # TWO distinct confirmations before running. Reserved for gestures that close the
+        # user's work in progress or touch the whole machine: one click too many must not be
+        # enough.
         [switch]$ConfirmTwice,
-        # --- CE QU'UNE CONFIRMATION DOIT DIRE (D91) ------------------------------
-        # « Cette action modifie votre systeme » ne renseigne personne. Avant de dire
-        # oui, on veut savoir CE QUI CHANGE sur la machine, POURQUOI on ferait ca, et
-        # SI on peut revenir en arriere. Les details techniques de surface sont les
-        # bienvenus : un nom de service, une cle de registre, un redemarrage requis.
+        # --- WHAT A CONFIRMATION MUST SAY (D91) ---------------------------------
+        # "This action modifies your system" informs nobody. Before saying yes, one wants
+        # to know WHAT CHANGES on the machine, WHY one would do it, and WHETHER one can go
+        # back. Surface technical details are welcome: a service name, a registry key, a
+        # restart required.
         #
-        #   -Impact     : ce qui change concretement, ici et maintenant.
-        #   -Usage      : dans quel cas on s'en sert (l'intention).
-        #   -Reversible : comment revenir en arriere -- ou pourquoi on ne peut pas.
+        #   -Impact     : what concretely changes, here and now.
+        #   -Usage      : in which case one uses it (the intention).
+        #   -Reversible : how to go back -- or why one cannot.
         [string]$Impact,
         [string]$Usage,
         [string]$Reversible,
 
         <#
-            -From / -To : L'ACTION FAIT PASSER D'UN ETAT A UN AUTRE, et on le MONTRE.
+            -From / -To: THE ACTION MOVES FROM ONE STATE TO ANOTHER, and it is SHOWN.
 
-            « De v0.1.25 vers v0.1.25+1 » colle au bout d'une phrase se lit mal et se
-            perd. Deux valeurs et une fleche se lisent d'un coup d'oeil -- c'est ce que
-            l'on veut savoir avant de cliquer.
+            "From v0.1.25 to v0.1.25+1" stuck at the end of a sentence reads badly and gets
+            lost. Two values and an arrow are taken in at a glance -- and that is what one
+            wants to know before clicking.
 
-            -FromNote / -ToNote portent le detail sous chaque valeur : un commit, une
-            date. Facultatifs : en production, le numero de version se suffit.
+            -FromNote / -ToNote carry the detail under each value: a commit, a date. Both
+            optional: in production the version number says enough.
         #>
         [string]$From,
         [string]$To,
@@ -4026,13 +4019,13 @@ function New-Action {
         [string]$ToNote,
 
         <#
-            -Steps : CE QUI VA SE PASSER, DANS L'ORDRE.
+            -Steps: WHAT IS GOING TO HAPPEN, IN ORDER.
 
-            Une action asynchrone enchaine plusieurs phases -- deployer, redemarrer, verifier.
-            Les enumerer dans une phrase les noie ; les montrer alignees dit d'un coup
-            d'oeil combien il y en a, et laquelle finit le travail.
+            An asynchronous action chains several phases -- deploy, restart, check. Listing
+            them in a sentence drowns them; showing them aligned says at a glance how many
+            there are, and which one finishes the job.
 
-            La derniere est l'ETAT D'ARRIVEE, pas une phase : elle se distingue.
+            The last is the STATE ARRIVED AT, not a phase: it stands apart.
         #>
         [string[]]$Steps = @()
     )
@@ -4048,18 +4041,18 @@ function New-Action {
     }
     if ($Reversible) { $a['reversible'] = $Reversible }
     $a['kind'] = if ($Kind) { $Kind } elseif ($Confirm) { 'confirm' } else { 'immediate' }
-    # Defaut raisonnable : ouvrir quelque chose informe, le reste est neutre. Une action
-    # corrective doit se declarer -- on ne devine pas qu'elle repare.
-    # Defaut : 'info'. Un bouton EST une action : il fait quelque chose, son icone merite
-    # une couleur. Le gris etait le defaut, si bien que toute action ordinaire paraissait
-    # inerte ; il se DECLARE desormais, pour le cas rare ou il n'y a aucun enjeu.
-    # 'fix' se declare aussi : on ne devine pas qu'une action repare.
+    # A reasonable default: opening something informs, the rest is neutral. A corrective
+    # action must declare itself -- one does not guess that it repairs.
+    # Default: 'info'. A button IS an action: it does something, and its icon deserves a
+    # colour. Grey used to be the default, so every ordinary action looked inert; it is now
+    # DECLARED, for the rare case where nothing is at stake.
+    # 'fix' is declared too: one does not guess that an action repairs.
     $a['severity'] = if ($Severity) { $Severity } else { 'info' }
-    # Defaut : le libelle suivi de points de suspension. Correct grammaticalement dans la
-    # plupart des cas ; on precise quand la forme nominale est meilleure.
+    # Default: the label followed by an ellipsis. Grammatically right in most cases; one
+    # spells it out when the noun form reads better.
     $a['busyLabel'] = if ($BusyLabel) { $BusyLabel } else { "$Label…" }
-    # CE QUE L'ACTION MOBILISE (D93). L'interface s'en sert pour griser juste ce qu'il
-    # faut ; le serveur, lui, arbitre pour de bon.
+    # WHAT THE ACTION TAKES UP (D93). The interface uses it to grey out just what it must;
+    # the server is the one that really arbitrates.
     $res = @(Get-ActionResources -Type $Id -Module $Module)
     if ($res.Count) { $a['resources'] = @($res) }
     [pscustomobject]$a
@@ -4093,28 +4086,28 @@ function New-ModuleObject {
         [object[]]$Fields = @(),
         [object[]]$Actions = @(),
         <#
-            -Mode : UN ETAT DURABLE DE LA CARTE, que l'interface donne a voir.
+            -Mode: A LASTING STATE OF THE CARD, which the interface shows.
 
-            Ni une alerte ni une occupation : un CONTEXTE. La carte Jeux entre en mode
-            'game' tant qu'une partie dure, et l'interface le montre -- on doit voir d'un
-            coup d'oeil qu'on est en jeu, sans lire un champ.
+            Neither an alert nor an occupancy: a CONTEXT. The Gaming card enters 'game' mode
+            for as long as a game lasts, and the interface shows it -- one must see at a
+            glance that a game is on, without reading a field.
         #>
         [string]$Mode,
 
         [switch]$Busy,
-        # Identifiant de l'action REELLEMENT en cours. Sans lui, l'interface anime tous les
-        # boutons de la carte : on ne sait plus lequel travaille.
+        # The identifier of the action REALLY under way. Without it the interface animates
+        # every button on the card: one no longer knows which is working.
         [string]$BusyAction,
-        # Ce que l'operation en cours mobilise : sans cela, l'interface ne peut que tout
-        # bloquer ou ne rien bloquer.
+        # What the running operation takes up: without it, the interface can only block
+        # everything or nothing.
         [string[]]$BusyResources = @()
     )
-    # INVARIANT : une carte n'est jamais PLUS GRAVE que le pire de ses champs. Une carte
-    # « Problème » (rouge) dont aucune ligne n'est rouge est une contradiction que
-    # l'utilisateur voit immediatement, et il n'a nulle part ou aller pour la resoudre.
-    # La borne est posee ICI, une seule fois, pour toutes les sondes (aucune ne peut plus
-    # l'oublier). Les champs « neutral » ne bornent RIEN : ils ne portent pas de jugement,
-    # une carte verte faite de lignes neutres reste legitime.
+    # INVARIANT: a card is never MORE SERIOUS than the worst of its fields. A card reading
+    # "Problème" in red with no red line in it is a contradiction the user sees at once, and
+    # there is nowhere for them to go to resolve it.
+    # The bound is set HERE, once, for every probe, so none can forget it any more.
+    # "neutral" fields bound NOTHING: they carry no judgement, and a green card made of
+    # neutral lines is perfectly legitimate.
     $rank = @{ neutral = 0; ok = 1; warn = 2; error = 3 }
     $cap = 0
     foreach ($f in @($Fields)) {
@@ -4148,25 +4141,24 @@ $script:ThemeCatalog = @(
     [pscustomobject]@{ id = 'network';        label = 'Réseau' }
     [pscustomobject]@{ id = 'tools';          label = 'Outils & paquets' }
     [pscustomobject]@{ id = 'gaming';         label = 'Gaming' }
-    # Dernier de la liste : c'est un outil de depannage, eteint par defaut (D85).
+    # Last in the list: it is a troubleshooting tool, off by default (D85).
     [pscustomobject]@{ id = 'debug';          label = 'Débogage' }
 )
 
 <#
-    LES SENTINELLES : DES RELEVES BON MARCHE, ET UN EVENEMENT QUAND LA VALEUR CHANGE.
+    SENTINELS: CHEAP READINGS, AND AN EVENT WHEN THE VALUE CHANGES.
 
-    Ce n'est PAS un recalcul de cartes en boucle. Une carte coute cher -- treize secondes
-    pour le deploiement -- et l'essentiel de ce qu'elle contient ne bouge pas dans la
-    minute. On releve donc quelques FAITS precis et bon marche, declares par chaque
-    module ; quand un releve change, il emet un evenement, et c'est l'evenement qui fait
-    recalculer les cartes que le module a designees.
+    This is NOT recomputing cards in a loop. A card is expensive -- thirteen seconds for the
+    deployment one -- and most of what it holds does not move within the minute. So a few
+    precise, cheap FACTS are read instead, declared by each module; when a reading changes it
+    raises an event, and it is the event that recomputes the cards the module named.
 
-    Un module declare :
-      - un fichier « <cle>.watch.ps1 » dans son dossier : UNE lecture, UNE valeur
-        comparable (booleen, nombre, chaine courte). Rien d'autre.
-      - une entree « Sentinels » dans son module.psd1 : cadence et cartes a recalculer.
+    A module declares:
+      - a "<key>.watch.ps1" file in its folder: ONE reading, ONE comparable value -- a
+        boolean, a number, a short string. Nothing else.
+      - a "Sentinels" entry in its module.psd1: the cadence, and the cards to recompute.
 
-    Le detail : doc/progress/targeting/surveillance.md.
+    The detail: doc/progress/targeting/surveillance.md.
 #>
 <#
     THE MACHINE'S GAME LIBRARIES, read once and kept.
@@ -4186,7 +4178,7 @@ function Get-GameLibraryPaths {
         return $script:GameLibraries
     }
     $found = @()
-    # --- Steam : les bibliotheques declarees, chez chaque utilisateur ---------------
+    # --- Steam: the libraries declared, in each user's own configuration -----------
     foreach ($hive in @(Get-UserRegistryRoots)) {
         try {
             $steamPath = (Get-ItemProperty (Join-Path $hive 'Software\Valve\Steam') -Name 'SteamPath' -ErrorAction Stop).SteamPath
@@ -4202,7 +4194,7 @@ function Get-GameLibraryPaths {
             }
         } catch { }
     }
-    # --- Ubisoft Connect : le dossier de chaque jeu installe ------------------------
+    # --- Ubisoft Connect: the folder of each installed game ------------------------
     foreach ($base in @('HKLM:\SOFTWARE\WOW6432Node\Ubisoft\Launcher\Installs',
                         'HKLM:\SOFTWARE\Ubisoft\Launcher\Installs')) {
         try {
@@ -4221,7 +4213,7 @@ function Get-GameLibraryPaths {
             }
         } catch { }
     }
-    # --- Epic Games : un manifeste par jeu, dans les donnees de la machine ----------
+    # --- Epic Games: one manifest per game, in the machine's data ------------------
     try {
         $manifests = Join-Path $env:ProgramData 'Epic\EpicGamesLauncher\Data\Manifests'
         foreach ($file in @(Get-ChildItem -LiteralPath $manifests -Filter '*.item' -File -ErrorAction Stop)) {
@@ -4636,52 +4628,53 @@ function Get-WatchDeclarations {
     return $out
 }
 
-# OU L'ON GARDE LA DERNIERE VALEUR RELEVEE. Un fichier, a cote du cache d'etat : ce n'est
-# ni une mesure a exposer, ni un reglage -- c'est le souvenir de la boucle.
+# WHERE THE LAST READING IS KEPT. A file, beside the state cache: it is neither a
+# measurement to expose nor a setting -- it is the loop's own memory.
 function Get-WatchMemoryPath {
     param([string]$Backend = (Get-BackendRoot))
     Get-VarPath -Backend $Backend -Kind 'cache' -File 'watch.json'
 }
 
 <#
-    UN TOUR DE VEILLE. Rend la liste des evenements emis, ou un tableau vide.
+    ONE WATCH ROUND. Returns the list of events raised, or an empty array.
 
-    Elle execute les releves DUS, compare, et sur changement fait recalculer les cartes
-    declarees PAR LE CHEMIN EXISTANT (Get-State -Only). Aucun second mecanisme.
+    It runs the readings that are DUE, compares them, and on a change has the declared cards
+    recomputed THROUGH THE EXISTING PATH (Get-State -Only). No second mechanism.
 #>
 <#
-    LA PARTIE EN COURS : un seul fait, ecrit par la sonde Jeux, relu par sa sentinelle.
+    THE GAME UNDER WAY: one single fact, written by the Gaming probe, read back by its sentinel.
 
-    La sonde sait quel jeu tourne -- elle vient de le prouver, deux instantanes de tous
-    les processus a l'appui. La sentinelle, elle, doit rester bon marche : elle tourne
-    toutes les minutes, en permanence. Elle ne refait donc pas le travail, elle lit ce
-    que la sonde a note : le nom, le processus, l'heure de debut et LA CHARGE DE LA
-    BATTERIE AU DEBUT -- sans quoi « la batterie se vide pendant la partie » ne peut pas
-    se dire, seulement « la batterie est basse », qui n'est pas la meme information.
+    The probe knows which game is running -- it has just proved it, with two snapshots of
+    every process to back it. The sentinel, on the other hand, must stay cheap: it runs every
+    minute, permanently. So it does not redo the work, it reads what the probe noted: the
+    name, the process, the start time and THE BATTERY CHARGE AT THE START -- without which
+    "the battery is draining during the game" cannot be said, only "the battery is low",
+    which is not the same information.
 
-    La session vit dans var/run : elle ne survit pas a un redemarrage, et c'est juste --
-    une partie non plus.
+    The session lives in var/run: it does not survive a restart, and rightly so -- neither
+    does a game.
 #>
 <#
-    L'ETAT DE L'ALIMENTATION, en un seul endroit : sur secteur ou non, et la charge.
+    THE STATE OF THE POWER SUPPLY, in one place: on mains or not, and the charge.
 
-    La sonde Jeux et sa sentinelle posaient la meme question a deux endroits, avec deux
-    ecritures : deux occasions de diverger. Et surtout, aucune des deux n'etait TESTABLE
-    sans debrancher la machine et lancer un jeu -- c'est-a-dire jamais.
+    The Gaming probe and its sentinel asked the same question in two places, with two
+    pieces of code: two chances to drift apart. And above all, neither was TESTABLE without
+    unplugging the machine and starting a game -- which is to say never.
 
-    VIGIE_FAKE_BATTERY=<pourcentage> simule une machine sur batterie a cette charge, comme
-    VIGIE_FAKE_GAME simule une partie (doc/en/developing/modules.md). Les deux ensemble
-    rejouent la scene complete : une partie qui vide la batterie.
+    VIGIE_FAKE_BATTERY=<percentage> simulates a machine on battery at that charge, as
+    VIGIE_FAKE_GAME simulates a game (doc/en/developing/modules.md). The two together replay
+    the whole scene: a game draining the battery.
 #>
 <#
-    CHARGE-T-ELLE OU SE VIDE-T-ELLE ? C'est le fait a surveiller, pas la source.
+    IS IT CHARGING OR DRAINING? That is the fact to watch, not the source.
 
-    Etre « sur secteur » ne dit pas grand-chose : branche mais en decharge, c'est un
-    chargeur qui ne suit pas ; debranche, c'est normal. Ce qui interesse, et ce qui doit
-    reveiller une carte, c'est le SENS du courant.
+    Being "on mains" says little: plugged in but discharging means a charger that cannot keep
+    up; unplugged, it is normal. What matters, and what must wake a card, is the DIRECTION of
+    the current.
 
-    Rend 'charge', 'decharge', 'stable' (rien n'entre ni ne sort : batterie pleine sur
-    secteur) ou 'aucune' (machine sans batterie). Une lecture, sans reveil ni calcul.
+    Returns 'charge', 'decharge', 'stable' (nothing coming in or going out: a full battery on
+    mains) or 'aucune' (a machine with no battery). A reading, with no wake-up and no
+    computation.
 #>
 function Get-PowerFlow {
     if ($env:VIGIE_FAKE_BATTERY) { return 'decharge' }
@@ -4698,9 +4691,9 @@ function Get-BatteryState {
         return @{ OnBattery = $true; Pct = [int]$env:VIGIE_FAKE_BATTERY; Simulated = $true }
     }
     $battery = Get-CimInstance Win32_Battery -ErrorAction SilentlyContinue | Select-Object -First 1
-    # Pas de batterie du tout (machine fixe) : sur secteur, et aucune charge a dire.
+    # No battery at all (a desktop machine): on mains, and no charge to speak of.
     if (-not $battery) { return @{ OnBattery = $false; Pct = $null; Simulated = $false } }
-    # BatteryStatus 1 = en decharge ; toute autre valeur veut dire que le secteur alimente.
+    # BatteryStatus 1 = discharging; any other value means the mains is supplying it.
     return @{ OnBattery = ($battery.BatteryStatus -eq 1)
               Pct       = [int]$battery.EstimatedChargeRemaining
               Simulated = $false }
@@ -5005,13 +4998,13 @@ function Get-GameSession {
     $session = $null
     try { $session = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json } catch { return $null }
     if (-not $session -or -not $session.processId) { return $null }
-    # LE PROCESSUS FAIT FOI. Un jeu qui s'arrete ne repasse pas par la sonde pour le dire :
-    # sans cette verification, une partie finie resterait ouverte jusqu'au prochain calcul.
+    # THE PROCESS IS WHAT COUNTS. A game that stops does not come back through the probe to
+    # say so: without this check, a finished game would stay open until the next computation.
     $proc = Get-Process -Id ([int]$session.processId) -ErrorAction SilentlyContinue
     if (-not $proc) { return $null }
-    # ET CE DOIT ETRE LE MEME PROCESSUS. Windows recycle les numeros : un jeu ferme dont le
-    # numero est repris par un navigateur ferait durer la partie indefiniment -- constate
-    # le 02/09 avec une session de simulation qui survivait a sa simulation.
+    # AND IT MUST BE THE SAME PROCESS. Windows recycles ids: a closed game whose id is taken
+    # over by a browser would make the session last for ever -- seen on 02/09 with a
+    # simulated session that outlived its simulation.
     if ($session.path) {
         $exePath = $null
         try { $exePath = $proc.Path } catch { }
@@ -5029,8 +5022,8 @@ function Set-GameSession {
     )
     $path = Get-GameSessionPath -Backend $Backend
     $known = Get-GameSession -Backend $Backend
-    # MEME PROCESSUS = MEME PARTIE : on ne rebase jamais le debut, sinon la baisse de
-    # batterie repartirait de zero a chaque recalcul et ne franchirait jamais un seuil.
+    # SAME PROCESS MEANS SAME GAME: the start is never rebased, or the battery's fall would
+    # start from zero at each computation and never cross a threshold.
     if ($known -and [int]$known.processId -eq $ProcessId) { return }
     $exePath = $null
     try { $exePath = (Get-Process -Id $ProcessId -ErrorAction Stop).Path } catch { }
@@ -5050,10 +5043,9 @@ function Clear-GameSession {
     if (Test-PathSafe $path) { try { Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue } catch { } }
 }
 
-# Une ligne d'historique pour une sentinelle : l'etat atteint, celui d'ou l'on vient, et
-# les cartes que le changement a fait recalculer. Best-effort de bout en bout : la veille
-# OBSERVE, elle n'arbitre pas -- une ecriture qui echoue ne doit jamais empecher un
-# recalcul de partir.
+# One history line for a sentinel: the state reached, the one it came from, and the cards the
+# change had recomputed. Best effort from end to end: the watch OBSERVES, it does not
+# arbitrate -- a failed write must never stop a recomputation from starting.
 function Write-SentinelSample {
     param(
         [string]$Backend = (Get-BackendRoot),
@@ -5070,8 +5062,8 @@ function Write-SentinelSample {
         $obj = [ordered]@{ at = ([datetime]::UtcNow).ToString('o'); v = $To }
         if ($From) { $obj.from = $From }
         if ($Cards.Count) { $obj.cards = @($Cards) }
-        # Une sentinelle n'ecrit deja QUE sur changement : pas de battement de coeur ici,
-        # une serie d'evenements plate n'est pas un trou, c'est une absence d'evenement.
+        # A sentinel already writes ONLY on a change: no heartbeat here, and a flat series of
+        # events is not a gap, it is an absence of events.
         $null = Write-HistoryPoint -Backend $Backend -MeasureId $id -Point $obj
     } catch { }
 }
@@ -6107,15 +6099,14 @@ function Invoke-WatchPass {
         $value = $null
         try { $value = "$(& $w.Script 2>$null | Select-Object -Last 1)".Trim() }
         catch {
-            # UN RELEVE QUI ECHOUE EST UNE VALEUR COMME UNE AUTRE : « on ne sait pas » est
-            # un etat, et son apparition merite un evenement autant qu'un autre changement.
+            # A READING THAT FAILS IS A VALUE LIKE ANY OTHER: "we do not know" is a state,
+            # and its appearance deserves an event as much as any other change.
             #
-            # MAIS LA VALEUR RESTE « erreur », SANS LE MESSAGE. Un message porte souvent un
-            # delai, une heure ou un identifiant : il change a chaque passage, chaque
-            # passage passe alors pour un changement, et une panne qui dure ecrit une
-            # ligne d'historique par minute -- des milliers de lignes qui disent toutes la
-            # meme chose. Le detail va au journal, ou il ne coute rien et ou on le cherche
-            # quand on en a besoin.
+            # BUT THE VALUE STAYS "erreur", WITHOUT THE MESSAGE. A message often carries a
+            # delay, a time or an identifier: it changes at every pass, every pass then
+            # passes for a change, and a breakdown that lasts writes one history line a
+            # minute -- thousands of lines all saying the same thing. The detail goes to the
+            # log, where it costs nothing and where it is looked for when needed.
             $value = 'erreur'
             try { Write-Log -Backend $Backend -Name 'state' -Level 'WARN' -NoEcho `
                             -Message ("veille : " + $w.Key + " a echoue -- " + $_.Exception.Message) } catch { }
@@ -6124,11 +6115,11 @@ function Invoke-WatchPass {
         $before = $(if ($known) { "$($known.value)" } else { $null })
         $memory[$w.Key] = @{ value = $value; at = $now.ToString('o') }
         $changed = $true
-        # UN RELEVE QUI CHANGE FAIT UNE LIGNE D'HISTOIRE. La memoire de veille ne garde
-        # que le dernier etat -- elle repond a « ou en est-on ? », jamais a « depuis
-        # quand ? » ni « combien de fois cette nuit ? ». L'historique, lui, garde la
-        # suite des etats ET ce que chacun a declenche : c'est la trace de l'alerte.
-        # Le tout premier releve est note aussi, sinon la serie commence dans le vide.
+        # A READING THAT CHANGES MAKES A LINE OF HISTORY. The watch's memory keeps only the
+        # last state -- it answers "where are we?", never "since when?" nor "how many times
+        # tonight?". The history keeps the succession of states AND what each one triggered:
+        # it is the trace of the alert.
+        # The very first reading is written down too, or the series begins in a void.
         if ($null -eq $before -or $before -ne $value) {
             Write-SentinelSample -Backend $Backend -Key $w.Key -From $before -To $value -Cards @($w.Cards)
         }
@@ -6151,8 +6142,8 @@ function Invoke-WatchPass {
                   -Message ("veille : " + $e.Label + " passe de « " + $e.From + " » a « " + $e.To + " »")
     }
 
-    # LES CARTES DESIGNEES, PAR LE CHEMIN EXISTANT. On vise les SONDES du dossier de la
-    # carte : c'est la meme resolution que le bouton d'une carte.
+    # THE CARDS NAMED, THROUGH THE EXISTING PATH. We aim at the PROBES of the card's folder:
+    # the same resolution a card's button uses.
     <#
         A SENTINEL THAT CHANGED ASKS, IT DOES NOT COMPUTE. Computing here held the watch loop for as long as the card
         took -- thirteen seconds for the deployment one -- while the scheduler, one line below, is made for exactly
@@ -6192,9 +6183,9 @@ function Invoke-WatchPass {
     return $events
 }
 
-# --- Agregation des sondes (journalisee) -----------------------------------
-# Duree de validite du cache par sonde (secondes) : court pour ce qui bouge vite,
-# long pour ce qui est stable.
+# --- Aggregating the probes (logged) ----------------------------------------
+# How long a probe's cache stays valid, in seconds: short for what moves fast, long for what
+# is stable.
 # THE GAME MODE: WHILE A GAME RUNS, VIGIE STEPS BACK.
 #
 # Measured on 28/09, an ACOdyssey session of 77 minutes: 383 card recomputations, 1582 s of processing, 34 % of one
@@ -6281,11 +6272,11 @@ $script:ProbeTtls = @{
     'vbs.probe.ps1'     = 300
     'lock.probe.ps1'    = 600
     'pending.probe.ps1' = 900
-    # LES COMPTES CHANGENT RAREMENT : creer un compte Windows n'arrive pas dans la
-    # journee. Une heure, et le bouton « Actualiser la liste » pour qui vient d'en creer un.
+    # ACCOUNTS CHANGE RARELY: creating a Windows account does not happen within the day. One
+    # hour, and the "Actualiser la liste" button for whoever has just created one.
     'accounts.probe.ps1' = 3600
-    # LE DEPLOIEMENT, LUI, DOIT VOIR ARRIVER UN COMMIT -- et il est differable, donc ce
-    # delai court ne coute rien a la requete : elle part avec la valeur connue.
+    # THE DEPLOYMENT, on the other hand, MUST SEE A COMMIT ARRIVE -- and it is deferrable, so
+    # this short delay costs the request nothing: it leaves with the value already known.
     'deployment.probe.ps1' = 60
     'os.probe.ps1'      = 3600
     # THE SYSTEM LOG: read in 0.08 s, and a serious error must show within the minute.
@@ -6296,12 +6287,12 @@ $script:ProbeTtls = @{
     'gaming.probe.ps1'  = 30
 }
 
-# Ramene une date lue depuis JSON a un [datetime] UTC, quelle que soit sa forme.
+# Brings a date read from JSON back to a UTC [datetime], whatever its shape.
 #
-# ConvertFrom-Json convertit parfois lui-meme les chaines ISO-8601 en [datetime] : selon le
-# chemin, on recoit une chaine ou un objet, et le Kind peut etre Utc, Local ou Unspecified.
-# Comparer sans normaliser donne un age faux de plusieurs heures -- c'est ce qui rendait le
-# cache d'etat inoperant. La conversion se fait donc ICI, en un seul endroit.
+# ConvertFrom-Json sometimes converts ISO-8601 strings into [datetime] itself: depending on
+# the path one receives a string or an object, and the Kind may be Utc, Local or Unspecified.
+# Comparing without normalising gives an age wrong by several hours -- which is what made the
+# state cache useless. So the conversion happens HERE, in one single place.
 function ConvertTo-UtcDate {
     param($Value)
     if ($null -eq $Value) { return $null }
@@ -6314,15 +6305,15 @@ function ConvertTo-UtcDate {
     }
 }
 
-# --- Journal des passages de sondes ------------------------------------------
-# On conserve SYSTEMATIQUEMENT chaque execution reelle d'une sonde et sa duree, d'ou
-# qu'elle vienne : requete de l'utilisateur, rafraichissement de fond, ou controle du
-# contrat. Sans cette trace, « Vigie met parfois beaucoup de temps a charger » reste une
-# impression : on ne sait ni QUELLE sonde a coute, ni si c'est habituel.
+# --- The log of probe runs ---------------------------------------------------
+# EVERY real run of a probe and its duration are kept, SYSTEMATICALLY, wherever it comes
+# from: a user's request, a background refresh, or the contract check. Without that trace,
+# "Vigie sometimes takes a long time to load" stays an impression: one knows neither WHICH
+# probe cost the time, nor whether it is usual.
 #
-# Format : une ligne JSON par execution (JSONL). Append-only, donc pas de relecture du
-# fichier pour ecrire -- c'est ce qui le rend utilisable sous concurrence.
-# Ce journal est aussi le premier echantillonnage sur lequel l'historique s'appuiera.
+# Format: one JSON line per run (JSONL). Append-only, so the file is never read back in order
+# to write -- which is what makes it usable under concurrency.
+# This log is also the first sampling the history will rest on.
 $script:ProbeRunMaxBytes = 1.5MB   # au-dela, on ne garde que les passages recents
 $script:ProbeRunKeepLines = 5000
 
@@ -6331,8 +6322,8 @@ function Write-ProbeRun {
         [string]$Backend = (Get-BackendRoot),
         [Parameter(Mandatory)][string]$Probe,
         [Parameter(Mandatory)][int]$Ms,
-        # D'ou vient l'execution : 'forced' (bouton Rafraichir), 'background' (worker),
-        # 'check' (controle du contrat).
+        # Where the run came from: 'forced' (the Refresh button), 'background' (a worker),
+        # 'check' (the contract check).
         [string]$Origin = 'background',
         [ValidateSet('ok','error','empty')][string]$Outcome = 'ok',
         [int]$Modules = 0,
@@ -6361,7 +6352,7 @@ function Write-ProbeRun {
 
             [IO.File]::AppendAllText($file, $line + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))
 
-            # Purge paresseuse : on ne lit le fichier que lorsqu'il a vraiment grossi.
+            # A lazy purge: the file is only read when it has really grown.
             $fi = Get-Item -LiteralPath $file -ErrorAction SilentlyContinue
             if ($fi -and $fi.Length -gt $script:ProbeRunMaxBytes) {
                 $lines = [IO.File]::ReadAllLines($file)
@@ -6375,28 +6366,27 @@ function Write-ProbeRun {
             try { $mx.Dispose() } catch { }
         }
     } catch {
-        # Le journal ne doit JAMAIS faire echouer une sonde : il observe, il n'arbitre pas.
+        # The log must NEVER make a probe fail: it observes, it does not arbitrate.
     }
 }
-# --- Historique des mesures (series) ------------------------------------------
-# Etape 1 du plan doc/archives/conception/historique-migration.md. On note AU PASSAGE des
-# valeurs deja calculees par les sondes : le seul point d'accroche est le recalcul
-# reussi d'une sonde dans Get-State -- aucune sonde n'ecrit elle-meme, aucune cadence
-# propre a l'historique. Stockage : un fichier JSONL par mesure dans var/history/
-# (distinct de var/cache/ : un historique perdu ne se recalcule pas). Best-effort :
-# une erreur d'ecriture se journalise et ne fait jamais echouer un recalcul.
-
-# LE catalogue des mesures (D15 : une valeur, une definition). Pour chaque mesure :
-# la sonde source, la nature (gauge/event), l'unite, l'intervalle minimal par defaut
-# (surchargable par la config, voir Get-HistoryConfig) et l'extracteur, qui lit la
-# valeur dans les MODULES RENDUS par la sonde (jamais en relancant quoi que ce soit).
-# L'extracteur rend $null (rien a noter) ou @{ v = <valeur>; key = <jeton optionnel> }.
-# `key` sert aux mesures liees a une mesure externe : on n'ecrit que quand il change.
-# Exemple : net.latency n'a une valeur NOUVELLE que quand `measAt` change, quel que
-# soit le nombre de recalculs de la sonde entre deux mesures de debit/latence.
+# --- The history of measurements (series) -------------------------------------
+# Values already computed by the probes are noted IN PASSING: the only hook is a probe's
+# successful recomputation inside Get-State -- no probe writes by itself, and the history has
+# no cadence of its own. Storage: one JSONL file per measurement in var/history/ (distinct
+# from var/cache/: a lost history does not recompute itself). Best effort: a write error is
+# logged and never makes a recomputation fail.
+#
+# THE catalogue of measurements (D15: one value, one definition). For each of them: the
+# source probe, its nature (gauge/event), its unit, the default minimum interval (which the
+# configuration can override, see Get-HistoryConfig) and the extractor, which reads the value
+# from the MODULES THE PROBE RETURNED -- never by running anything again.
+# The extractor returns $null (nothing to note) or @{ v = <value>; key = <optional token> }.
+# `key` serves measurements tied to an external one: a point is written only when it changes.
+# For instance net.latency only has a NEW value when `measAt` moves, whatever the number of
+# recomputations of the probe between two throughput or latency measurements.
 $script:MeasureCatalog = @{
     'disk.free' = @{
-        # Tolerance : un giga-octet. En dessous, l'espace libre n'a pas bouge pour qui le lit.
+        # Tolerance: one gigabyte. Below that, free space has not moved for whoever reads it.
         Probe = 'disk.probe.ps1'; Kind = 'gauge'; Unit = 'Go'; IntervalMinutes = 30; Tolerance = 1
         Extract = {
             param($Modules)
@@ -6410,13 +6400,13 @@ $script:MeasureCatalog = @{
             return @{ v = $v }
         }
     }
-    # Session de jeu (module gaming) : notee UNIQUEMENT quand un jeu tourne -- la
-    # presence meme des points raconte la session (debut, fin, intensite). Le nom du
-    # jeu accompagne chaque point (champ n), pour repondre a « pourquoi ca ramait
-    # hier soir ? » sans rien afficher (Q2 : enregistrement seul).
+    # A game session (the gaming module): noted ONLY while a game runs -- the very presence of
+    # the points tells the session (start, end, intensity). The game's name travels with each
+    # point (field n), to answer "why was it slow last night?" without displaying anything
+    # (Q2: recording only).
     'game.gpu' = @{
-        # Tolerance : cinq points. Un GPU qui oscille entre 22 et 25 % ne raconte rien --
-        # c'est le bruit d'une mesure instantanee, pas une variation de la partie.
+        # Tolerance: five points. A GPU swinging between 22 and 25 % tells nothing -- that is
+        # the noise of an instantaneous measurement, not a variation of the game.
         Probe = 'gaming.probe.ps1'; Kind = 'gauge'; Unit = '%'; IntervalMinutes = 1; Tolerance = 5
         Extract = {
             param($Modules)
@@ -6430,7 +6420,7 @@ $script:MeasureCatalog = @{
         }
     }
     'game.vram' = @{
-        # Tolerance : deux cents mega-octets, la precision de ce qui est affiche.
+        # Tolerance: two hundred megabytes, the precision of what is displayed.
         Probe = 'gaming.probe.ps1'; Kind = 'gauge'; Unit = 'Go'; IntervalMinutes = 1; Tolerance = 0.2
         Extract = {
             param($Modules)
@@ -6524,7 +6514,7 @@ $script:MeasureCatalog = @{
         }
     }
     'net.latency' = @{
-        # Tolerance : cinq millisecondes. En dessous, c'est la variation normale d'un ping.
+        # Tolerance: five milliseconds. Below that, it is the normal variation of a ping.
         Probe = 'net.probe.ps1'; Kind = 'gauge'; Unit = 'ms'; IntervalMinutes = 0; Tolerance = 5
         Extract = {
             param($Modules)
@@ -6532,14 +6522,14 @@ $script:MeasureCatalog = @{
             if (-not $m) { return $null }
             $lat = @($m.fields) | Where-Object { "$($_.key)" -eq 'latency' } | Select-Object -First 1
             $mea = @($m.fields) | Where-Object { "$($_.key)" -eq 'measAt' }  | Select-Object -First 1
-            # Pas de champ de date = latence jamais mesuree : rien a noter.
+            # No date field means latency never measured: nothing to note.
             if (-not $lat -or -not $mea -or $null -eq $mea.value) { return $null }
-            # La valeur affichee est un texte ("23 ms") : on en extrait le nombre.
+            # The displayed value is text ("23 ms"): the number is extracted from it.
             if ("$($lat.value)" -notmatch '^\s*([0-9]+(?:[.,][0-9]+)?)\s*ms') { return $null }
             $v = [double](($Matches[1]) -replace ',', '.')
-            # La cle est la date de la mesure, NORMALISEE : ConvertFrom-Json rend tantot
-            # une chaine, tantot un [datetime] (D44) -- comparer les formes brutes ecrirait
-            # un point a chaque recalcul.
+            # The key is the measurement's date, NORMALISED: ConvertFrom-Json returns
+            # sometimes a string, sometimes a [datetime] (D44) -- comparing the raw forms
+            # would write a point at every recomputation.
             $key = $null
             try { $key = (ConvertTo-UtcDate $mea.value).ToString('o') } catch { return $null }
             return @{ v = $v; key = $key }
@@ -6547,11 +6537,11 @@ $script:MeasureCatalog = @{
     }
 }
 
-# Resout la configuration de l'historique en COUCHES (meme logique que la config, D33) :
-# defauts internes -> section History de config.psd1 (surchargee par config.local.psd1)
-# -> reglage par mesure, la plus specifique gagne. Sans -MeasureId : les valeurs
-# globales. Avec : les valeurs EFFECTIVES de la mesure (RetentionDays, IntervalMinutes,
-# MaxLines). RetentionDays <= 0 sur une mesure = ne plus l'echantillonner.
+# Resolves the history's configuration in LAYERS (the same logic as the config, D33):
+# internal defaults -> the History section of config.psd1 (overridden by config.local.psd1)
+# -> the per-measurement setting, the most specific winning. Without -MeasureId: the global
+# values. With it: the EFFECTIVE values of that measurement (RetentionDays, IntervalMinutes,
+# MaxLines). RetentionDays <= 0 on a measurement means: stop sampling it.
 function Get-HistoryConfig {
     param([string]$Backend = (Get-BackendRoot), [string]$MeasureId, [hashtable]$Config)
     if (-not $Config) { $Config = Get-Config -Backend $Backend }
@@ -6570,9 +6560,9 @@ function Get-HistoryConfig {
         RetentionDays   = $res.RetentionDays
         MaxLines        = $res.MaxLinesPerMeasure
         IntervalMinutes = $(if ($cat -and $cat.ContainsKey('IntervalMinutes')) { [int]$cat.IntervalMinutes } else { 0 })
-        # DE COMBIEN FAUT-IL QUE CA BOUGE POUR QUE CA COMPTE ? En dessous, c'est du bruit :
-        # un GPU qui oscille entre 22 et 25 % dans la meme minute ne raconte rien, et
-        # l'ecrire trois fois ne fait que remplir le disque. 0 = toute variation compte.
+        # HOW MUCH MUST IT MOVE TO COUNT? Below that, it is noise: a GPU swinging between 22
+        # and 25 % within the same minute tells nothing, and writing it three times only
+        # fills the disk. 0 means every variation counts.
         Tolerance       = $(if ($cat -and $cat.ContainsKey('Tolerance')) { [double]$cat.Tolerance } else { 0 })
     }
     $mo = $res.Measures[$MeasureId]
@@ -6581,24 +6571,23 @@ function Get-HistoryConfig {
         if ($mo.ContainsKey('IntervalMinutes')) { $eff.IntervalMinutes = [int]$mo.IntervalMinutes }
         if ($mo.ContainsKey('Tolerance'))       { $eff.Tolerance       = [double]$mo.Tolerance }
     }
-    # Retention nulle = mesure coupee. Le fichier existant n'est PAS supprime :
-    # detruire une archive reste un geste manuel et volontaire.
+    # Zero retention means the measurement is off. The existing file is NOT deleted:
+    # destroying an archive stays a manual and deliberate gesture.
     if ($eff.RetentionDays -le 0) { $eff.Enabled = $false }
     return $eff
 }
 
-# Append d'UNE ligne dans un fichier d'historique, sous le mutex du fichier
-# (Local\VigieHistory_<leaf>, meme convention que Update-StateJson). Necessaire :
-# deux recalculs simultanes existent reellement (requete forcee + rafraichissement
-# de fond) et leurs ecritures ne doivent pas s'entremeler.
+# Appends ONE line to a history file, under that file's mutex (the same convention as
+# Update-StateJson). It is necessary: two simultaneous recomputations really do exist -- a
+# forced request and a background refresh -- and their writes must not interleave.
 <#
-    UN FICHIER PAR MESURE ET PAR JOUR : var/history/<mesure>/<AAAA-MM-JJ>.jsonl
+    ONE FILE PER MEASUREMENT AND PER DAY: var/history/<measure>/<YYYY-MM-DD>.jsonl
 
-    Un seul fichier par mesure grossissait sans fin, et la purge devait le LIRE EN ENTIER,
-    analyser chaque ligne, jeter les vieilles et tout reecrire -- sous verrou, en bloquant
-    les ecritures. Decoupe par jour, purger revient a SUPPRIMER des fichiers : aucune
-    lecture, aucune analyse, aucune reecriture. Lire une fenetre de 24 h n'ouvre plus
-    qu'un fichier ou deux au lieu de parcourir quatre-vingt-dix jours pour en jeter 98 %.
+    A single file per measurement grew endlessly, and the purge had to READ IT WHOLE, parse
+    every line, throw the old ones away and rewrite everything -- under the lock, blocking the
+    writes. Cut up by day, purging comes down to DELETING files: no reading, no parsing, no
+    rewriting. Reading a 24-hour window now opens one file or two instead of walking ninety
+    days to throw 98 % of them away.
 #>
 function Get-MeasureDayFile {
     param(
@@ -6614,11 +6603,11 @@ function Get-MeasureDayFile {
 }
 
 <#
-    LE NOM DU VERROU TIENT COMPTE DE LA MESURE, pas seulement du fichier.
+    THE LOCK'S NAME TAKES THE MEASUREMENT INTO ACCOUNT, not only the file.
 
-    Depuis la decoupe par jour, tous les fichiers d'un meme jour s'appellent pareil
-    (2026-09-01.jsonl) : un verrou nomme sur le seul nom de fichier ferait attendre la
-    mesure du disque parce que celle du reseau ecrit. Deux mesures n'ont rien a partager.
+    Since the split by day, every file of a given day is called the same thing
+    (2026-09-01.jsonl): a lock named after the file alone would make the disk measurement wait
+    because the network one is writing. Two measurements have nothing to share.
 #>
 <#
     AND IT COVERS THE WHOLE COMPUTER, not one session.
@@ -6669,17 +6658,16 @@ function Get-HistoryMutex {
 }
 
 <#
-    LE DERNIER FILET, ET RIEN DE PLUS.
+    THE LAST SAFETY NET, AND NOTHING MORE.
 
-    Une mesure ne doit pas pouvoir remplir le disque parce qu'elle s'est mise a changer a
-    chaque passage. Le garde-fou se lit en un appel systeme -- la TAILLE du fichier du
-    jour -- sans rien compter ni analyser. Au-dela, la mesure ne se tait pas : elle se
-    BRIDE a une ligne par minute (la date du fichier dit quand la derniere est tombee).
-    Se taire a midi rendrait aveugle sur le vrai incident de l'apres-midi.
+    A measurement must not be able to fill the disk because it has started changing at every
+    pass. The guard reads in one system call -- the SIZE of the day's file -- without counting
+    or parsing anything. Past it, the measurement does not fall silent: it is THROTTLED to one
+    line a minute (the file's date says when the last one landed). Falling silent at noon
+    would leave us blind to the real incident of the afternoon.
 
-    Avec la regle « on n'ecrit pas deux fois la meme valeur », ce filet ne devrait jamais
-    servir : s'il se declenche, c'est un DEFAUT a corriger, et c'est pourquoi il se dit
-    dans le journal.
+    With the rule "the same value is never written twice", this net should never serve: if it
+    triggers, that is a DEFECT to correct, and that is why it says so in the log.
 #>
 <#
     THE LAST POINTS ALREADY WRITTEN, without rereading the file.
