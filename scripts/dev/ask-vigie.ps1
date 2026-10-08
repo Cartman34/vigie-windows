@@ -1,41 +1,41 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    ASK-VIGIE : POSER LA QUESTION A L'APP SERVEUR, PLUTOT QUE FOUILLER WINDOWS.
+    ASK-VIGIE: ASK THE SERVER APP THE QUESTION, RATHER THAN DIGGING THROUGH WINDOWS.
 
-    LE PROBLEME. Depuis une session ordinaire, la moitie de ce qu'on veut savoir est
-    ILLISIBLE : « schtasks /query /tn "Vigie - Famille" » repond « Acces refuse », les
-    proprietaires de processus sont vides, LastUseTime ne rend rien. J'ai rapporte ce
-    refus quatre fois comme s'il etait une information -- alors qu'il ne dit rien du
-    poste, seulement de MES droits. Pire : il m'a fait annoncer qu'une tache n'existait
-    pas alors qu'elle etait la.
+    Intent: get the facts AS VIGIE SEES THEM, from a development session, without inventing a second road to
+    them.
+    Usage: see the examples below. Exit codes: 0 = an answer was obtained; 2 = no answer (a silent server, a
+    refused secret). The message says which.
 
-    LA SOLUTION. L'app serveur est elevee, elle voit tout, et elle a deja une porte
-    d'entree prevue pour ca : le secret du compte -> un ticket -> un cookie de session.
-    C'est exactement le chemin que suit l'app cliente. On l'emprunte, et on obtient les
-    faits TELS QUE VIGIE LES VOIT -- avec les droits du compte qui demande, ce qui est
-    aussi le bon contexte pour juger.
+    THE PROBLEM. From an ordinary session, half of what one wants to know is UNREADABLE: querying another
+    account's scheduled task answers "access denied", process owners come back empty, LastUseTime returns
+    nothing. I reported that refusal four times as if it were information -- when it says nothing about the
+    workstation, only about MY rights. Worse: it made me announce that a task did not exist when it was there.
 
-    Aucun contournement, aucune elevation : ce script ne peut rien voir que l'app cliente
-    du meme compte ne pourrait voir.
+    THE SOLUTION. The server app is elevated, it sees everything, and it already has a front door meant for this:
+    the account's secret -> a ticket -> a session cookie. That is exactly the road the client app follows. We
+    borrow it, and we obtain the facts as Vigie sees them -- with the rights of the account that asks, which is
+    also the right context for judging.
 
-    EXEMPLES
+    No circumvention, no elevation: this script can see nothing that the same account's client app could not see.
+
+    EXAMPLES
 
         pwsh -File scripts/dev/ask-vigie.ps1 -Type accounts-details -Module accounts
         pwsh -File scripts/dev/ask-vigie.ps1 -Type accounts-details -Module accounts -Raw
-        pwsh -File scripts/dev/ask-vigie.ps1 -Modules            # l'etat de toutes les cartes
-        pwsh -File scripts/dev/ask-vigie.ps1 -Modules -Fresh     # ... recalculees, sans le cache
-        pwsh -File scripts/dev/ask-vigie.ps1 -Modules -Module vigie-debug -Fresh   # une seule carte
+        pwsh -File scripts/dev/ask-vigie.ps1 -Modules            # the state of every card
+        pwsh -File scripts/dev/ask-vigie.ps1 -Modules -Fresh     # ... recomputed, without the cache
+        pwsh -File scripts/dev/ask-vigie.ps1 -Modules -Module vigie-debug -Fresh   # one single card
         pwsh -File scripts/dev/ask-vigie.ps1 -Route 'history/net.latency?window=24h'
-
-    Codes de retour : 0 = reponse obtenue ; 2 = pas de reponse (serveur muet, secret
-    refuse). Le message dit lequel.
 #>
+
+
 [CmdletBinding()]
 param(
     [string] $Type,
     [string] $Module,
     [hashtable] $Params = @{},
-    # -Modules : l'etat des cartes, sans passer par une action.
+    # -Modules: the state of the cards, without going through an action.
     [switch] $Modules,
     # -Route: ANY read route, written the way the contract writes it (for instance
     # "/history/net.latency?window=24h"). Without it, checking a route meant rebuilding a
@@ -46,13 +46,13 @@ param(
     # believed the deployment had changed nothing. WITH -Module, only that card is
     # recomputed: asking for all of them exceeds the server's own delay and returns 408.
     [switch] $Fresh,
-    # -Raw : le JSON brut, pour enchainer avec jq. Sinon, un rendu lisible.
+    # -Raw: the raw JSON, to pipe into jq. Otherwise, a readable rendering.
     [switch] $Raw,
     [int] $Port = 0,
 
-    # -Out : ecrire la reponse dans un fichier, en UTF-8. Rediriger la sortie du terminal
-    # la reencode dans la page de code de la console -- les accents arrivent casses et le
-    # JSON n'est plus lisible par un outil. On ecrit donc nous-memes.
+    # -Out: write the answer into a file, in UTF-8. Redirecting the terminal's output re-encodes it in the
+    # console's code page -- the accents arrive broken and the JSON is no longer readable by a tool. So we write it
+    # ourselves.
     [string] $Out
 )
 
@@ -64,15 +64,15 @@ $backend  = Join-Path $repoRoot 'apps/backend-pode'
 if (-not $Port) { $Port = [int](Get-Config -Backend $backend).Port }
 $url = 'http://127.0.0.1:' + $Port
 
-# --- 1. Le serveur repond-il ? -----------------------------------------------------------
+# --- 1. Does the server answer? -----------------------------------------------
 if (-not (Get-PortListener -Port $Port)) {
     Write-Fail (Get-Label 'ask-vigie.personne-n-ecoute' $Port)
     exit 2
 }
 
-# --- 2. Le secret du compte, puis le ticket ----------------------------------------------
-# Le secret vit dans NOTRE profil, avec une ACL explicite : on est le seul a pouvoir le
-# lire, et c'est precisement ce qui fait qu'il prouve notre identite.
+# --- 2. The account's secret, then the ticket ---------------------------------
+# The secret lives in OUR profile, with an explicit ACL: we are the only one able to read it, and that is
+# precisely what makes it prove our identity.
 $account = Get-ProcessAccount
 $secret = $null
 try {
@@ -84,16 +84,16 @@ try {
 }
 
 <#
-    ON LIT LE COOKIE NOUS-MEMES.
+    WE READ THE COOKIE OURSELVES.
 
-    Invoke-WebRequest echoue sur « /?t=... » avec « Unable to read data from the transport
-    connection », alors que la MEME page sans ticket se sert en 0,1 s et que curl reussit
-    a tous les coups. Ce qui distingue cette route : elle POSE UN COOKIE. C'est son analyse
-    par .NET qui casse la lecture de la reponse, pas le serveur.
+    Invoke-WebRequest fails on the opening address with "Unable to read data from the transport connection", while
+    the SAME page without a ticket is served in 0.1 s and curl succeeds every time. What sets that route apart:
+    it LAYS A COOKIE. It is .NET's parsing of it that breaks the reading of the response, not the server.
 
-    On desactive donc le magasin de cookies (UseCookies = $false), on lit l'en-tete
-    Set-Cookie a la main, et on fabrique la session avec. Deux essais suffisent alors --
-    le premier passe.
+    So we switch the cookie store off (UseCookies = $false), read the Set-Cookie header by hand, and build the
+    session with it. Two attempts are then enough -- the first one passes.
+
+
 #>
 $session = $null
 $lastError = $null
@@ -110,7 +110,7 @@ foreach ($attempt in 1..3) {
         continue
     }
     if (-not ($reply -and $reply.ok -and $reply.ticket)) {
-        # Le secret ne correspond pas : reessayer n'y changera rien.
+        # The secret does not match: trying again will change nothing.
         Write-Fail (Get-Label 'ask-vigie.ticket-refuse')
         exit 2
     }
@@ -120,28 +120,26 @@ foreach ($attempt in 1..3) {
         $handler = New-Object System.Net.Http.HttpClientHandler
         $handler.UseCookies = $false
         <#
-            ON NE SUIT PAS LA REDIRECTION.
+            WE DO NOT FOLLOW THE REDIRECTION.
 
-            Depuis que l'adresse d'ouverture renvoie vers l'adresse principale, le cookie
-            arrive sur la reponse 302 -- et si l'on suit, c'est la reponse SUIVANTE qu'on
-            lit : sans cookie envoye (UseCookies = false), le serveur repond alors par la
-            page « aucun compte », en 403, et le cookie de la premiere reponse est perdu.
-            Constate le 31/08 : « L'app serveur n'a pas pose de cookie (code HTTP 403) »,
-            alors qu'il l'avait bel et bien pose.
+            Since the opening address redirects to the main one, the cookie arrives on the 302 response -- and if
+            one follows, it is the NEXT response one reads: with no cookie sent (UseCookies = false), the server
+            then answers with the "no account" page, in 403, and the cookie of the first response is lost.
+            Observed on 31/08: the server app was said not to have laid a cookie (HTTP code 403) when it had laid
+            one.
         #>
         $handler.AllowAutoRedirect = $false
         $client  = New-Object System.Net.Http.HttpClient($handler)
         $client.Timeout = [TimeSpan]::FromSeconds(60)
-        # La methode s'ecrit avec son TYPE : passer la chaine « GET » laisse PowerShell
-        # choisir une surcharge au hasard, et l'appel echoue une fois sur deux.
+        # The method is written with its TYPE: passing the bare string lets PowerShell pick an overload at random,
+        # and the call fails one time in two.
         $req = New-Object System.Net.Http.HttpRequestMessage(
                     [System.Net.Http.HttpMethod]::Get, ($url + '/?t=' + $reply.ticket))
         $req.Headers.Add('Origin', $url)
         $req.Headers.ConnectionClose = $true
-        # ON S ARRETE AUX EN-TETES. Le cookie est dans l'en-tete ; le corps fait 220 Ko
-        # dont on n'a aucun usage, et c'est justement sa copie qui casse (« Error while
-        # copying content to a stream »). Ne pas lire ce qu'on ne veut pas est plus sur
-        # que de reessayer de le lire.
+        # WE STOP AT THE HEADERS. The cookie is in the header; the body is 220 KB we have no use for, and it is
+        # precisely its copying that breaks ("Error while copying content to a stream"). Not reading what one does
+        # not want is safer than trying to read it again.
         $rep = $client.SendAsync($req, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).GetAwaiter().GetResult()
         $brut = $null
         if ($rep.Headers.Contains('Set-Cookie')) { $brut = @($rep.Headers.GetValues('Set-Cookie')) }
@@ -167,7 +165,7 @@ if (-not $session) {
     exit 2
 }
 
-# --- 3. La question ----------------------------------------------------------------------
+# --- 3. The question ----------------------------------------------------------
 try {
     if ($Route) {
         $target = $url + '/api/v1/' + $Route.TrimStart([char]47)
@@ -203,10 +201,10 @@ try {
     exit 2
 }
 
-# --- 4. La reponse -----------------------------------------------------------------------
-# -Raw rend le JSON tel quel : c'est ce qu'on enchaine. Sinon on affiche de quoi lire,
-# profondeur comprise -- un ConvertTo-Json trop court affiche « System.Object[] », et un
-# outil de diagnostic qui cache ce qu'il a trouve ne sert a rien (vu sur check-naming).
+# --- 4. The answer ------------------------------------------------------------
+# -Raw returns the JSON as it stands: that is what one pipes onward. Otherwise we display something readable,
+# depth included -- a ConvertTo-Json that is too shallow displays "System.Object[]", and a diagnostic tool that
+# hides what it found is of no use (seen on check-naming).
 $json = $data | ConvertTo-Json -Depth 12
 if ($Out) {
     [System.IO.File]::WriteAllText($Out, $json, (New-Object System.Text.UTF8Encoding($false)))

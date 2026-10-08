@@ -1,36 +1,36 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    check-labels.ps1 - AUCUNE CLÉ ABSENTE NE PART EN LIVRAISON. LECTURE SEULE.
+    check-labels.ps1 -- NO MISSING KEY GOES OUT IN A DELIVERY. READ ONLY.
 
-    POURQUOI CE FICHIER EXISTE. Sortir les libellés du code a supprimé un défaut -- les
-    accents perdus -- et en a créé un autre, plus sournois : une clé mal tapée ne se voit
-    pas à la relecture, ne fait pas échouer l'analyse syntaxique, et n'apparaît qu'au
-    moment où le message doit s'afficher. C'est-à-dire souvent pendant un incident, quand
-    on a le plus besoin de lire. Ce vérificateur est la contrepartie du mécanisme : sans
-    lui, le mécanisme n'aurait pas dû être adopté.
+    Intent: be the counterpart of the mechanism that took the labels out of the code. That move removed one defect
+    -- lost accents -- and created another, more insidious one: a mistyped key is not seen on rereading, does not
+    make the parsing fail, and only appears at the moment the message must be displayed. That is to say, often
+    during an incident, when one most needs to read. Without this checker, the mechanism should not have been
+    adopted.
 
-    CE QUI EST VÉRIFIÉ
-
-    1. TOUTE CLÉ RÉCLAMÉE EXISTE. `Get-Label 'x.y'` sans « x.y » dans lang/fr.json est une
-       faute bloquante. C'est le mode d'échec qu'on refusait dès le départ.
-
-    2. LES TROUS SE CORRESPONDENT. Un libellé qui dit « {0} » et « {1} » réclame deux
-       valeurs. Trop peu, et le message affiche « {1} » tel quel ; trop, et le surplus est
-       ignoré en silence. On compte des deux côtés.
-
-    3. LES LIBELLÉS ORPHELINS SONT SIGNALÉS, sans bloquer. Une clé que plus personne
-       n'appelle n'est pas une faute : elle peut servir au front, ou à un chemin de code
-       rare. Mais on veut la voir, sinon le fichier enfle indéfiniment.
-
-    4. TOUTES LES LANGUES ONT LES MÊMES CLÉS. Le jour où en.json existe, une clé présente
-       d'un côté et absente de l'autre est un trou de traduction.
-
-    Usage :
+    Usage:
       pwsh -File .\scripts\dev\check-labels.ps1
       pwsh -File .\scripts\dev\check-labels.ps1 -Detail
+    Exit codes: 0 = nothing blocking; 2 = at least one key absent or wrongly filled.
 
-    Codes de retour : 0 = rien de bloquant ; 2 = au moins une clé absente ou mal remplie.
+    WHAT IS CHECKED
+
+    1. EVERY KEY THAT IS ASKED FOR EXISTS. `Get-Label 'x.y'` without "x.y" in lang/fr.json is a blocking fault.
+       It is the failure mode we refused from the start.
+
+    2. THE HOLES MATCH. A label that says "{0}" and "{1}" asks for two values. Too few, and the message displays
+       "{1}" as it stands; too many, and the surplus is ignored in silence. We count on both sides.
+
+    3. ORPHAN LABELS ARE REPORTED, without blocking. A key nobody calls any more is not a fault: it may serve the
+       front end, or a rare code path. But we want to see it, otherwise the file swells indefinitely.
+
+    4. EVERY LANGUAGE HAS THE SAME KEYS. The day en.json exists, a key present on one side and absent on the
+       other is a hole in the translation.
 #>
+
+
+
+
 param(
     [switch] $Detail
 )
@@ -42,7 +42,7 @@ $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 $SKIPPED = @('.claude', '.git', 'dist', 'node_modules', 'local', 'var')   # .claude : les worktrees y vivent, et un worktree est une copie du depot
 $REFERENCE_LANGUAGE = 'fr'
 
-# --- Les libellés déclarés --------------------------------------------------------------
+# --- The labels that are declared ---------------------------------------------
 $langDir = Join-Path $repoRoot 'lang'
 if (-not (Test-Path -LiteralPath $langDir)) {
     Write-Title 'Libellés'
@@ -67,7 +67,7 @@ if (-not $tables.ContainsKey($REFERENCE_LANGUAGE)) {
 }
 $reference = $tables[$REFERENCE_LANGUAGE]
 
-# Combien de trous distincts un libellé réclame-t-il ? « {0} {1} {0} » en réclame deux.
+# How many distinct holes does a label ask for? "{0} {1} {0}" asks for two.
 function Get-SlotCount {
     param([string]$Text)
     $seen = @{}
@@ -76,11 +76,10 @@ function Get-SlotCount {
     return (($seen.Keys | Measure-Object -Maximum).Maximum + 1)
 }
 
-# --- Les clés réclamées par le code -----------------------------------------------------
+# --- The keys the code asks for -----------------------------------------------
 #
-# On passe par l'arbre et non par une expression régulière : il faut COMPTER LES ARGUMENTS
-# de l'appel, ce qu'un motif textuel ne sait pas faire dès qu'une valeur contient elle-même
-# des parenthèses.
+# We go through the syntax tree and not through a regular expression: we have to COUNT THE ARGUMENTS of the call,
+# which a textual pattern cannot do as soon as a value itself holds brackets.
 $missing  = @()
 $mismatch = @()
 $used     = @{}
@@ -104,11 +103,11 @@ foreach ($f in $files) {
         if ($elems.Count -lt 2) { continue }
         $keyAst = $elems[1]
         if (-not ($keyAst -is [System.Management.Automation.Language.StringConstantExpressionAst])) {
-            # Une clé calculée ne se vérifie pas ici ; on la signale plutôt que de l'ignorer.
-            #
-            # SAUF DANS LE RESOLVEUR. show-confirm.ps1 reçoit des clés en paramètre et les
-            # résout : c'est sa raison d'être, et l'y signaler reviendrait à reprocher à
-            # un traducteur de traduire.
+            # A computed key cannot be checked here; we report it rather than ignore it.
+            # EXCEPT IN THE RESOLVER. show-confirm.ps1 receives keys as parameters and resolves them: that is its
+            # reason for being, and reporting it there would amount to blaming a translator for translating.
+
+
             if ($rel -ne 'scripts/lib/show-confirm.ps1') {
                 $mismatch += @{ File = $rel; Line = $c.Extent.StartLineNumber
                                 Message = 'clé calculée : impossible à vérifier à froid' }
@@ -130,21 +129,21 @@ foreach ($f in $files) {
     }
 }
 
-# --- Les cles reclamees par le front ----------------------------------------------------
+# --- The keys the front end asks for ------------------------------------------
 #
-# LE NAVIGATEUR CONSOMME LE MEME FICHIER. Ne verifier que les .ps1 laisserait la moitie des
-# cles sans filet -- et c'est cote interface qu'une cle absente se voit le plus.
+# THE BROWSER CONSUMES THE SAME FILE. Checking only the .ps1 files would leave half the keys without a net -- and
+# it is on the interface side that a missing key shows up most.
 foreach ($h in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Filter '*.html' -ErrorAction SilentlyContinue)) {
     $rel = $h.FullName.Substring($repoRoot.Length).TrimStart([char]92, [char]47).Replace([char]92, [char]47)
     if ($SKIPPED | Where-Object { $rel -like ($_ + '/*') -or $rel -like ('*/' + $_ + '/*') }) { continue }
     $text = [IO.File]::ReadAllText($h.FullName, (New-Object Text.UTF8Encoding($false)))
 
-    # UN COMMENTAIRE QUI EXPLIQUE LE MECANISME N'EST PAS UN APPEL. Le mode d'emploi ecrit
-    # « data-i18n="cle" » ; le verificateur reclamait une cle nommee « cle ». On neutralise
-    # les lignes de commentaire avant de chercher.
+    # A COMMENT EXPLAINING THE MECHANISM IS NOT A CALL. The instructions write a data-i18n attribute with a
+    # placeholder key; the checker then demanded a key by that placeholder's name. We neutralise the comment lines
+    # before looking.
     $text = [regex]::Replace($text, '(?m)^\s*//.*$', '')
 
-    # L('cle'), L('cle', valeur) ... et les marques du HTML statique.
+    # L('key'), L('key', value) ... and the marks of the static HTML.
     foreach ($m in [regex]::Matches($text, "L\('([a-zA-Z0-9._-]+)'")) {
         $key = $m.Groups[1].Value
         $used[$key] = $true
@@ -165,10 +164,9 @@ foreach ($h in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Filter '*.h
     }
 }
 
-# UNE CLE CITEE EST UNE CLE UTILISEE. Depuis que la fenetre de confirmation les recoit
-# en parametre -- « -TitleKey 'install.fenetre-titre' » --, la cle n'apparait plus dans un
-# appel a Get-Label. Chercher le NOM lui-meme, ou qu'il soit, evite de declarer orphelins
-# des libelles bel et bien affiches.
+# A KEY THAT IS CITED IS A KEY THAT IS USED. Since the confirmation window receives them as parameters -- through
+# -TitleKey and its kin -- the key no longer appears inside a call to Get-Label. Looking for the NAME itself,
+# wherever it is, avoids declaring orphan labels that are indeed displayed.
 foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.ps1','*.html' -ErrorAction SilentlyContinue)) {
     $rel = $f.FullName.Substring($repoRoot.Length).TrimStart([char]92, [char]47).Replace([char]92, [char]47)
     if ($SKIPPED | Where-Object { $rel -like ($_ + '/*') -or $rel -like ('*/' + $_ + '/*') }) { continue }
@@ -180,7 +178,7 @@ foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.
 
 $orphans = @($reference.Keys | Where-Object { -not $used.ContainsKey($_) })
 
-# --- Les langues entre elles ------------------------------------------------------------
+# --- The languages against each other -----------------------------------------
 $gaps = @()
 foreach ($lang in ($tables.Keys | Where-Object { $_ -ne $REFERENCE_LANGUAGE })) {
     foreach ($k in $reference.Keys) {
@@ -191,22 +189,22 @@ foreach ($lang in ($tables.Keys | Where-Object { $_ -ne $REFERENCE_LANGUAGE })) 
     }
 }
 
-# --- Les mots bannis --------------------------------------------------------------------
+# --- The banned words ---------------------------------------------------------
 #
-# « MACHINE » NE DIT RIEN A QUI LIT. « Le serveur de machine », « les comptes de la
-# machine » : c'est notre vocabulaire de conception, pas celui de quelqu'un devant son
-# ecran. On parle de « l'ordinateur », ou de « tous les comptes » -- selon ce qu'on veut
-# dire, et c'est justement l'interet : le mot banni cachait deux idees differentes.
+# "MACHINE" SAYS NOTHING TO WHOEVER READS. It is our design vocabulary, not that of somebody in front of their
+# screen. We speak of "l'ordinateur", or of "tous les comptes" -- depending on what we mean, and that is exactly
+# the point: the banned word hid two different ideas.
 #
-# L'exception vaut pour une COMMANDE ou un ARGUMENT, jamais pour une phrase : « --scope machine » est un drapeau de
-# winget, « -Scope machine » la valeur que le code ecrit pour declarer la portee d'une carte (D128). Un identifiant ne se traduit pas.
+# The exception holds for a COMMAND or an ARGUMENT, never for a sentence: "--scope machine" is a winget flag,
+# "-Scope machine" the value the code writes to declare a card's scope (D128). An identifier is not translated.
 #
-# « TRAY » N'EST PAS UN MOT FRANCAIS, ni un mot de personne. Les deux applications
-# s'appellent « l'app serveur » et « l'app cliente » -- la page web comprise : pour qui
-# l'utilise, l'icone et le panneau viennent ensemble, et c'est l'app cliente qui ouvre le
-# navigateur. Les chemins et les noms de fichiers l'ont porte jusqu'au 30/09 ; ils ne le
-# portent plus (apps/client/, client.ps1). Le motif n'attrape que le mot ISOLE : un chemin
-# ou un identifiant qui le contiendrait encore passerait, et c'est check-naming qui compte.
+# THE OTHER BANNED WORD IS NOT A FRENCH WORD, nor anybody's word. The two applications are called "l'app serveur"
+# and "l'app cliente" -- the web page included: for whoever uses it, the icon and the panel come together, and it
+# is the client app that opens the browser. The paths and the file names carried it until 30/09; they no longer do
+# (apps/client/, client.ps1). The pattern catches the ISOLATED word only: a path or an identifier still holding it
+# would pass, and that is what check-naming counts.
+
+
 $regles = @(
     @{ Mot = 'machine'; Motif = '(?i)machine';                          Sauf = '(--scope|-Scope)\s+.?machine' }
     @{ Mot = 'tray';    Motif = '(?i)(?<![\w/\.-])tray(?![\w/\.-])'; Sauf = $null }
@@ -238,8 +236,7 @@ if ($gaps.Count) {
     foreach ($g in ($gaps | Select-Object -First 20)) { Write-Detail $g }
 }
 if ($orphans.Count) {
-    # PAS UNE FAUTE : le front consomme le même fichier, et certains chemins de code sont
-    # rares. On le dit, on ne bloque pas.
+    # NOT A FAULT: the front end consumes the same file, and some code paths are rare. We say it, we do not block.
     Write-Warn ("{0} libellé(s) que plus aucun script ne réclame." -f $orphans.Count)
     if ($Detail) { foreach ($o in ($orphans | Sort-Object)) { Write-Detail $o } }
 }

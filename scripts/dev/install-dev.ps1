@@ -1,52 +1,52 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    install-dev.ps1 - Installe les DEPENDANCES DE DEVELOPPEMENT. IDEMPOTENT.
+    install-dev.ps1 -- installs the DEVELOPMENT DEPENDENCIES. IDEMPOTENT.
 
-    Pourquoi ce script existe (D100) : « si tu as besoin de quelque chose, c'est que c'est
-    une dependance ». Installer un outil a la main, une fois, sur une machine, c'est un
-    savoir qui ne survit pas a la session ou il a ete acquis : le poste suivant retombe sur
-    la meme absence, sans savoir quoi installer ni pourquoi. Une dependance se DECLARE et
-    s'installe par un script -- exactement ce que `scripts/install.ps1` fait pour
-    l'application. Celui-ci fait la meme chose pour l'outillage du developpeur.
+    Intent: make the developer's tooling a thing one installs by running a script, not a thing one remembers.
+    "If you need something, then it is a dependency" (D100): installing a tool by hand, once, on one machine is
+    knowledge that does not outlive the session in which it was acquired -- the next workstation falls back on
+    the same absence, with no idea what to install nor why. A dependency is DECLARED and installed by a script --
+    exactly what `scripts/install.ps1` does for the application. This one does the same for the developer's
+    tooling.
 
-    Ce sont des dependances de DEVELOPPEMENT : elles ne servent qu'a qui travaille sur le
-    depot. Rien ici n'est necessaire pour se servir de Vigie, et rien ici ne part dans
-    l'archive de distribution.
+    Usage:
+      pwsh -File .\scripts\dev\install-dev.ps1 -Lister    # a survey, changes nothing
+      pwsh -File .\scripts\dev\install-dev.ps1            # installs what is missing
+      pwsh -File .\scripts\dev\install-dev.ps1 -Nom gh    # one single dependency
+    Exit codes: 0 = everything is in place; 1 = a missing prerequisite (winget, elevation refused); 2 = at least
+    one installation failed; 3 = elevation refused by the user, nothing was touched.
 
-    IL DEMANDE L'ELEVATION LUI-MEME. Une fenetre explique ce qui va etre installe et
-    pourquoi, AVANT que Windows ne demande son accord (D66 : on n'envoie personne taper une
-    commande a notre place). Portee MACHINE, jamais compte, comme pour PowerShell 7 (D79).
+    These are DEVELOPMENT dependencies: they serve only whoever works on the repository. Nothing here is needed
+    in order to use Vigie, and nothing here goes into the distribution archive.
 
-    CE QU'IL NE FAIT PAS : s'authentifier a votre place. `gh auth login` engage VOS
-    identifiants -- il propose de lancer la procedure, dans une vraie fenetre, et vous
-    laisse la conduire.
+    IT ASKS FOR THE ELEVATION ITSELF. A window explains what is about to be installed and why, BEFORE Windows
+    asks for its agreement (D66: we send nobody off to type a command in our stead). MACHINE scope, never an
+    account's, as for PowerShell 7 (D79).
 
-    Usage :
-      pwsh -File .\scripts\dev\install-dev.ps1 -Lister    # etat des lieux, ne change rien
-      pwsh -File .\scripts\dev\install-dev.ps1            # installe ce qui manque
-      pwsh -File .\scripts\dev\install-dev.ps1 -Nom gh    # une seule dependance
-
-    Codes de retour : 0 = tout est en place ; 1 = prerequis manquant (winget, elevation
-                      refusee) ; 2 = au moins une installation a echoue ; 3 = elevation
-                      refusee par l'utilisateur, rien n'a ete touche.
+    WHAT IT DOES NOT DO: authenticate in your place. `gh auth login` commits YOUR credentials -- it offers to
+    start the procedure, in a real window, and leaves you to drive it.
 #>
+
+
+
+
 param(
-    # Ne rien installer : dire ce qui est la et ce qui manque.
+    # Install nothing: say what is there and what is missing.
     [switch] $Lister,
 
-    # N'agir que sur cette dependance (son nom court, ex. « gh »).
+    # Act on this dependency only (its short name, for instance gh).
     [string] $Name,
 
-    # Ne pas proposer d'ouvrir la session GitHub a la fin.
+    # Do not offer to open the GitHub session at the end.
     [switch] $SansSession,
 
-    # Deja eleve et deja consenti : ne pas redemander (usage interne a la relance).
+    # Already elevated and already consented: do not ask again (used internally by the restart).
     [switch] $Yes
 )
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
-. (Join-Path $repoRoot 'scripts/lib/console-ui.ps1')   # le meme affichage que partout
+. (Join-Path $repoRoot 'scripts/lib/console-ui.ps1')   # the same display as everywhere
 $commun   = Join-Path $repoRoot 'apps/backend-pode/lib/common.ps1'
 $withWindow = $false
 if (Test-Path -LiteralPath $commun) {
@@ -54,10 +54,10 @@ if (Test-Path -LiteralPath $commun) {
     $withWindow = $true
 }
 
-# --- LES DEPENDANCES, DECLAREES ------------------------------------------------------
+# --- THE DEPENDENCIES, DECLARED -----------------------------------------------
 #
-# Chacune dit ce qu'elle est, comment on la reconnait, et SURTOUT a quoi elle sert ici :
-# une dependance sans raison ecrite finit par etre installee « au cas ou ».
+# Each one says what it is, how it is recognised, and ABOVE ALL what it is for here: a dependency with no written
+# reason ends up being installed "just in case".
 $DEPENDANCES = @(
     @{ Nom      = 'git'
        Titre    = 'Git'
@@ -101,22 +101,22 @@ function Test-SessionGitHub {
     return ($LASTEXITCODE -eq 0)
 }
 
-# Une question, dans une vraie fenetre quand c'est possible. En console sinon : ce script
-# tourne aussi dans un terminal sans bureau (session distante, tache planifiee).
+# A question, in a real window when that is possible. On the console otherwise: this script also runs in a
+# terminal with no desktop (a remote session, a scheduled task).
 function Get-Accord {
     param([string]$Title, [string]$Question, [string]$Detail = '')
     try {
         Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
         $text = $Question + $(if ($Detail) { [Environment]::NewLine + [Environment]::NewLine + $Detail } else { '' })
 
-        # ON PREVIENT AVANT D'OUVRIR. Une modale peut s'ouvrir derriere le terminal :
-        # le script semble alors bloque « sans raison », et il attend en fait une reponse
-        # que personne ne voit (constate le 27/08, plusieurs minutes perdues).
+        # WE WARN BEFORE OPENING. A modal can open behind the terminal: the script then seems blocked "for no
+        # reason", while it is in fact waiting for an answer nobody can see (observed on 27/08, several minutes
+        # lost).
         Write-Step (Get-Label 'install-dev.une-fenetre-vient-de' $Title)
         Write-Detail (Get-Label 'install-dev.si-vous-ne-la')
 
-        # Un PROPRIETAIRE invisible et TopMost force la boite au premier plan. Sans lui,
-        # MessageBox n'a pas de fenetre parente et Windows la range ou il veut.
+        # An invisible OWNER plus TopMost forces the box to the front. Without it, MessageBox has no parent window
+        # and Windows puts it where it likes.
         $holder = New-Object System.Windows.Forms.Form
         $holder.TopMost        = $true
         $holder.ShowInTaskbar  = $false
@@ -142,7 +142,7 @@ function Get-Accord {
     }
 }
 
-# --- Le tri ---------------------------------------------------------------------------
+# --- The sorting -------------------------------------------------------------
 $aTraiter = $DEPENDANCES
 if ($Name) {
     $aTraiter = @($DEPENDANCES | Where-Object { $_.Nom -eq $Name })
@@ -164,10 +164,10 @@ foreach ($d in $aTraiter) {
         $missing += $d
     }
 }
-# --- La session GitHub, proposee a la fin -----------------------------------------------
+# --- The GitHub session, offered at the end -----------------------------------
 #
-# gh peut etre installe SANS session ouverte : c'est le cas le plus trompeur, la commande
-# existe et toute publication echoue quand meme.
+# gh can be installed WITHOUT an open session: that is the most misleading case, the command exists and every
+# publication fails all the same.
 function Invoke-SessionGitHub {
     if ($SansSession) { return }
     if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { return }
@@ -186,8 +186,8 @@ function Invoke-SessionGitHub {
         Write-Detail (Get-Label 'install-dev.faire-quand-vous-voudrez')
         return
     }
-    # Fenetre VISIBLE et interactive : la procedure affiche un code a recopier, il faut
-    # pouvoir le lire. -Wait pour constater le resultat plutot que de le supposer (D43).
+    # A VISIBLE and interactive window: the procedure displays a code to copy, and it must be readable. -Wait so
+    # as to observe the result rather than assume it (D43).
     try {
         $p = Start-ChildProcess -FilePath 'gh.exe' `
                                 -Arguments @('auth', 'login', '--web', '--git-protocol', 'https', '--hostname', 'github.com') `
@@ -215,7 +215,7 @@ if ($Lister) {
     exit 0
 }
 
-# --- Elevation : demandee ICI, expliquee AVANT ------------------------------------------
+# --- Elevation: asked for HERE, explained BEFORE ------------------------------
 if (-not (Test-Admin)) {
     if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
         Write-Fail (Get-Label 'install-dev.winget-est-introuvable-impossible')
@@ -248,8 +248,8 @@ if (-not (Test-Admin)) {
     if ($SansSession) { $argv += '-SansSession' }
 
     if ($withWindow) {
-        # La relance eleve, attend, et RAPPORTE : son journal est relu ici, sinon
-        # l'utilisateur ne verrait qu'une fenetre disparaitre.
+        # The restart elevates, waits, and REPORTS: its log is read back here, otherwise the user would see only a
+        # window disappear.
         $journal = Join-Path $env:TEMP 'vigie-dev'
         $code = Invoke-ElevatedSelf -ScriptPath $PSCommandPath -Arguments $argv -LogDir $journal
         $dernier = @(Get-ChildItem -Path $journal -Filter 'elevated_install-dev_*.log' -File -ErrorAction SilentlyContinue |
@@ -258,14 +258,13 @@ if (-not (Test-Admin)) {
             Get-Content -LiteralPath $dernier[0].FullName -Encoding UTF8 -ErrorAction SilentlyContinue |
                 ForEach-Object { Write-Host $_ }
         }
-        # LE PATH SE RELIT AVANT DE CHERCHER gh. La passe elevee vient de l'installer,
-        # mais CETTE session a garde l'ancien PATH : sans ce rafraichissement,
-        # Get-Command gh echoue, la proposition de session est sautee sans un mot, et
-        # l'utilisateur voit l'installation se terminer sur un silence (constate le 27/08).
+        # THE PATH IS READ AGAIN BEFORE LOOKING FOR gh. The elevated pass has just installed it, but THIS session
+        # has kept the old PATH: without that refresh, Get-Command gh fails, the session offer is skipped without
+        # a word, and the user sees the installation end in silence (observed on 27/08).
         $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' +
                     [Environment]::GetEnvironmentVariable('Path', 'User')
-        # La session GitHub se propose depuis la session NON elevee : c'est le compte de
-        # l'utilisateur qui doit porter le jeton, pas l'administrateur.
+        # The GitHub session is offered from the session that is NOT elevated: it is the user's account that must
+        # carry the token, not the administrator's.
         if ($code -eq 0) { Invoke-SessionGitHub }
         exit $code
     }
@@ -286,7 +285,7 @@ foreach ($d in $missing) {
     Write-Step (Get-Label 'install-dev.installation-de-pour-la' $d.Titre $d.Winget)
     $code = -1
     try {
-        # --scope machine : jamais dans le profil d'un compte (D79).
+        # --scope machine: never inside an account's profile (D79).
         & winget install --id $d.Winget --scope machine --silent `
                   --accept-package-agreements --accept-source-agreements | Write-Host
         $code = $LASTEXITCODE
@@ -294,8 +293,8 @@ foreach ($d in $missing) {
         Write-Fail (Get-Label 'install-dev.winget-leve-une-erreur' $_.Exception.Message)
     }
 
-    # LE RESULTAT SE CONSTATE (D43) : winget rend parfois 0 sans avoir rien pose, et
-    # parfois un code non nul pour un paquet deja present. Seule la commande fait foi.
+    # THE RESULT IS OBSERVED (D43): winget sometimes returns 0 without having laid anything down, and sometimes a
+    # non-zero code for a package that is already there. Only the command itself is authoritative.
     $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' +
                 [Environment]::GetEnvironmentVariable('Path', 'User')
     $e = Get-Etat -D $d
@@ -314,6 +313,6 @@ if ($failures) {
     exit 2
 }
 Write-Ok (Get-Label 'install-dev.toutes-les-dependances-de')
-# Sous elevation, on ne propose PAS la session : elle appartiendrait a l'administrateur.
+# Under elevation we do NOT offer the session: it would belong to the administrator.
 if (-not $Yes) { Invoke-SessionGitHub }
 exit 0

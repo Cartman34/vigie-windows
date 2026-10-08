@@ -1,84 +1,79 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 @{
     # ---------------------------------------------------------------------------
-    # Configuration VERSIONNEE : generique, valable sur n'importe quelle machine.
-    # Chaque valeur n'est definie qu'ICI ; tout le reste en derive (Get-AppUrl,
-    # Get-ApiUrl, Get-ToolsPath dans lib/common.ps1). Ne jamais recopier une de ces
-    # valeurs ailleurs dans le code.
+    # Intent: hold the VERSIONED configuration -- generic, valid on any machine. Every value is defined HERE ONLY;
+    # all the rest derives from it (Get-AppUrl, Get-ApiUrl, Get-ToolsPath in lib/common.ps1). Never copy one of
+    # these values anywhere else in the code.
     #
-    # Pour ce qui est propre a TA machine, ne modifie pas ce fichier : cree
-    # apps/backend-pode/config/config.local.psd1 (ignore par git) a partir de config.local.sample.psd1.
+    # Usage: for anything specific to YOUR machine, do not modify this file: create
+    # apps/backend-pode/config/config.local.psd1 (ignored by git) from config.local.sample.psd1.
     # ---------------------------------------------------------------------------
 
-    # BindAddress vient de config/common.psd1 (racine) : partagee par toutes les apps,
-    # elle n'est pas recopiee ici (D15/D33). Ecoute STRICTEMENT locale.
+    # BindAddress comes from config/common.psd1 (at the root): shared by every app, it is not copied here
+    # (D15/D33). It listens STRICTLY locally.
 
-    # Port d'ecoute. Un port fixe par projet, dans la plage locale 47600-47699.
+    # The listening port. One fixed port per project, inside the local range 47600-47699.
     Port        = 47600
 
-    # Prefixe des routes de l'API REST (voir apps/backend-pode/api/openapi.yaml).
+    # The prefix of the REST API's routes (see apps/backend-pode/api/openapi.yaml).
     ApiBase     = '/api/v1'
 
-    # QUEL ENVIRONNEMENT tourne sur cette machine.
+    # WHICH STAGE runs on this machine.
     #
-    #   'prod' : Vigie tourne depuis l'installation partagee (C:\Program Files\Sowapps\Vigie).
-    #            C'est le defaut : une machine est en production tant qu'on n'a pas dit
-    #            l'inverse.
-    #   'dev'  : Vigie tourne depuis le depot. Poste de developpement.
+    #   'prod' : Vigie runs from the shared installation. That is the default: a machine is in production until
+    #            somebody says otherwise.
+    #   'dev'  : Vigie is deployed from the repository. A development workstation.
     #
-    # Ce reglage DECLARE une intention ; Vigie compare ensuite avec ce qui tourne
-    # reellement et signale l'ecart. A poser dans config.local.psd1 : c'est un choix de
-    # machine, comme UpdateSource.
-    # STAGE (dev | prod) : ABSENT VOLONTAIREMENT.
+    # This setting DECLARES an intention; Vigie then compares it with what is really running and reports the gap.
+    # To be laid down in config.local.psd1: it is a choice of machine, like UpdateSource.
     #
-    # Le defaut vit dans le code (Get-DeclaredStage rend « prod » quand rien n'est dit).
-    # Le poser ici en ferait une valeur DECLAREE, qui masquerait celle d'une couche plus
-    # specifique : c'est arrive le 30/08, « Stage = prod » livre ici l'emportait sur le
-    # « Environment = dev » de la machine, et l'installation annoncait Production sur un
-    # poste de developpement.
+    # STAGE (dev | prod): DELIBERATELY ABSENT HERE.
     #
-    # A poser dans config.local.psd1, ou dans machine.psd1 pour tout l'ordinateur.
-    # L'ancien nom « Environment » reste lu.
+    # The default lives in the code (Get-DeclaredStage returns prod when nothing is said). Laying it down here
+    # would make it a DECLARED value, which would mask the one of a more specific layer: that happened on 30/08,
+    # a prod stage delivered here winning over the machine's own dev declaration, and the installation announcing
+    # Production on a development workstation.
+    #
+    # To be laid down in config.local.psd1, or in machine.psd1 for the whole computer.
+    # The old name Environment is still read.
 
-    # D'OU VIGIE SE MET A JOUR quand on appuie sur « Mettre a jour Vigie ».
+
+
+    # WHERE VIGIE UPDATES ITSELF FROM when the update button is pressed.
     #
-    #   'auto'    : le depot est la -> on deploie ce depot (poste de developpement) ;
-    #               sinon -> on telecharge la derniere version publiee. C'est le defaut,
-    #               et il fait ce qu'on attend dans les deux cas.
-    #   'local'   : TOUJOURS le depot local, meme si une version publiee est plus recente.
-    #   'release' : TOUJOURS la derniere version publiee, meme sur un poste de
-    #               developpement -- utile sur un serveur de dev qui doit se comporter
-    #               comme une machine d'utilisateur.
-    #   'clone'   : un clone a part, sur la reference indiquee par UpdateRef.
+    #   'auto'    : the repository is there -> we deploy that repository (a development workstation); otherwise ->
+    #               we download the latest published version. That is the default, and it does what one expects in
+    #               both cases.
+    #   'local'   : ALWAYS the local repository, even if a published version is more recent.
+    #   'release' : ALWAYS the latest published version, even on a development workstation -- useful on a dev
+    #               server that must behave like a user's machine.
+    #   'clone'   : a separate clone, on the reference given by UpdateRef.
     #
-    # A poser dans config.local.psd1 : c'est un choix de MACHINE, pas du produit.
+    # To be laid down in config.local.psd1: it is a choice of MACHINE, not of the product.
     UpdateSource = 'auto'
 
-    # Branche, tag ou commit a deployer quand UpdateSource vaut 'clone'. Vide = le dernier
-    # tag, jamais une branche : suivre une branche reviendrait a installer du travail en
-    # cours (D99).
+    # The branch, tag or commit to deploy when UpdateSource is 'clone'. Empty = the last tag, never a branch:
+    # following a branch would amount to installing work in progress (D99).
     UpdateRef    = ''
 
-    # D'OU LE CLONE DU SERVICE SE SYNCHRONISE (D112). Vide = le depot public
-    # (RepositoryUrl). Sur un poste de developpement, on y met le chemin du depot local :
-    # le service fabrique alors ce qui vient d'etre ecrit, sans qu'on ait a le pousser --
-    # et sans jamais travailler DANS le depot, qui appartient a une personne.
+    # WHERE THE SERVICE'S CLONE SYNCHRONISES FROM (D112). Empty = the public repository (RepositoryUrl). On a
+    # development workstation one puts the path of the local repository here: the service then builds what has just
+    # been written, without our having to push it -- and without ever working INSIDE the repository, which belongs
+    # to a person.
     UpdateRemote = ''
 
-    # Outillage externe OPTIONNEL (scripts d'administration vivant hors du depot).
-    # Le verrouillage de Windows Update et son audit sont NATIFS depuis lib/common.ps1
-    # (Set-UpdateLock, Invoke-UpdateAudit) : ils n'ont plus besoin de ce chemin. S'il est
-    # renseigne ET contient update-mode.ps1, ce script reste prefere -- les installations
-    # historiques gardent leur comportement.
-    # Restent tributaires de ce chemin : bascules VBS / HVCI, action "ouvrir le dossier".
-    # Vide = non configure : ces actions-la rendent un message clair au lieu d'echouer.
-    # Un chemin absolu est propre a une machine : renseigne-le dans config.local.psd1.
+    # OPTIONAL external tooling (administration scripts living outside the repository).
+    # Locking Windows Update and auditing it are NATIVE since lib/common.ps1 (Set-UpdateLock, Invoke-UpdateAudit):
+    # they no longer need this path. If it is filled in AND holds update-mode.ps1, that script is still preferred
+    # -- the historical installations keep their behaviour.
+    # Still dependent on this path: the VBS / HVCI switches, and the action that opens the folder.
+    # Empty = not configured: those actions then return a clear message instead of failing.
+    # An absolute path is specific to a machine: fill it in inside config.local.psd1.
     ToolsPath   = ''
 
-    # --- Historique des mesures (doc/archives/conception/historique-cible.md, section 5) ------
-    # Series echantillonnees au passage des sondes, stockees dans var/history/ (un
-    # fichier JSONL par mesure). Resolution en couches par Get-HistoryConfig
-    # (lib/common.ps1) : ces valeurs globales, puis le reglage par mesure ci-dessous.
+    # --- The history of the measurements ---------------------------------------
+    # Series sampled as the probes pass, stored in var/history/ (one JSONL file per measurement). Resolved in
+    # layers by Get-HistoryConfig (lib/common.ps1): these global values, then the per-measurement setting below.
     # How long the logs are kept, in days: logs, diagnostic copies and .reg backups (Invoke-LogPurge). 30 days,
     # arbitrated by the owner on 13/09.
     LogRetentionDays = 30
@@ -106,17 +101,17 @@
     }
 
     History = @{
-        # Interrupteur general. Desactive = plus aucune ecriture (les fichiers restent).
+        # The master switch. Disabled = no writing at all any more (the files stay).
         Enabled            = $true
-        # Retention PAR DEFAUT, en jours. S'applique a toute mesure sans reglage propre.
+        # The DEFAULT retention, in days. It applies to any measurement without a setting of its own.
         RetentionDays      = 90
-        # Garde-fou de taille par fichier de mesure (lignes), en plus de l'age.
+        # A size guard per measurement file (in lines), on top of the age.
         MaxLinesPerMeasure = 50000
-        # Reglages PAR MESURE : la cle est l'identifiant du catalogue
-        # ($script:MeasureCatalog dans lib/common.ps1). Toute cle absente herite du
-        # global. IntervalMinutes surcharge l'intervalle minimal du catalogue.
-        # RetentionDays = 0 : ne plus echantillonner la mesure (le fichier existant
-        # n'est pas supprime : detruire une archive reste un geste manuel).
+        # PER-MEASUREMENT settings: the key is the catalogue's identifier ($script:MeasureCatalog in
+        # lib/common.ps1). Any absent key inherits from the global. IntervalMinutes overrides the catalogue's
+        # minimum interval.
+        # RetentionDays = 0: stop sampling that measurement (the existing file is not deleted: destroying an
+        # archive stays a manual gesture).
         Measures = @{
             'disk.free'   = @{ RetentionDays = 365 }
             'net.latency' = @{ RetentionDays = 30 }

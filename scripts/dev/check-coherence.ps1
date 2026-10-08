@@ -1,23 +1,24 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    LES INCOHERENCES QUE JE NE VOIS PAS TOUT SEUL.
+    THE INCONSISTENCIES I DO NOT SEE ON MY OWN.
 
-    Deux regles, nees le meme jour, du meme defaut : croire que je me souviens.
+    Intent: catch what no single reading catches -- a name defined twice, a decision cited that does not exist, a
+    filter copied by hand, a variable that is really a parameter. Every rule here was born of a real defect, and
+    the comment above it says which.
+    Usage: pwsh -File .\scripts\dev\check-coherence.ps1 (-Detail to see each shortfall). Exit codes: 0 =
+    consistent; 2 = at least one shortfall. The source of truth for the decisions is doc/progress/decisions.md;
+    to consult it quickly, scripts/dev/decisions.ps1 -About "<words>".
 
-    1. UNE FONCTION N'EST DEFINIE QU'UNE FOIS. J'ai ecrit un Get-MachineConfigPath alors
-       qu'il en existait deja un, trois mille lignes plus bas, avec un tout autre sens. La
-       derniere definition gagne EN SILENCE : ma fonction n'existait pas, et l'appel
-       echouait sur un parametre obligatoire qui n'etait pas le mien. Rien, nulle part,
-       ne l'avait signale.
+    The first two rules were born the same day, of the same defect: believing that I remember.
 
-    2. UNE DECISION CITEE EXISTE. Le code renvoie a « D65 », « D99 », « D107 » -- c'est
-       ce qui relie une ligne a sa raison d'etre. Un renvoi vers un numero inexistant
-       envoie chercher une regle qui n'a jamais ete ecrite.
+    1. A FUNCTION IS DEFINED ONCE ONLY. I wrote a Get-MachineConfigPath while one already existed, three thousand
+       lines further down, with an altogether different meaning. The last definition wins IN SILENCE: my function
+       did not exist, and the call failed on a mandatory parameter that was not mine. Nothing, nowhere, had
+       reported it.
 
-    La source de verite, c'est doc/progress/decisions.md. Pour la consulter vite :
-    scripts/dev/decisions.ps1 -About "<mots>".
-
-    Codes de retour : 0 = coherent ; 2 = au moins un manquement.
+    2. A DECISION THAT IS CITED EXISTS. The code refers to D65, D99, D107 -- that is what ties a line to its
+       reason for being. A reference to a number that does not exist sends one looking for a rule that was never
+       written.
 #>
 [CmdletBinding()]
 param([switch] $Detail)
@@ -41,11 +42,11 @@ function Get-Relative {
 
 $faults = @()
 
-# --- 1. Une fonction, une definition -----------------------------------------------------
+# --- 1. One function, one definition ------------------------------------------
 #
-# On regarde les BIBLIOTHEQUES PARTAGEES : celles que tout le monde charge ensemble, donc
-# celles ou une redefinition ecrase pour de vrai. Deux scripts independants qui nomment
-# chacun leur aide « Sortir » ne se marchent pas dessus, et les denoncer serait du bruit.
+# We look at the SHARED LIBRARIES: the ones everybody loads together, so the ones where a redefinition really
+# overwrites. Two independent scripts each naming their own little helper do not tread on each other, and
+# reporting them would be noise.
 $libs = @()
 foreach ($d in @('apps/backend-pode/lib', 'scripts/lib')) {
     $p = Join-Path $repoRoot $d
@@ -72,7 +73,7 @@ foreach ($name in ($seen.Keys | Sort-Object)) {
     }
 }
 
-# --- 2. Une decision citee existe --------------------------------------------------------
+# --- 2. A decision that is cited exists ---------------------------------------
 $decisionsFile = Join-Path $repoRoot 'doc/progress/decisions.md'
 $known = @{}
 if (Test-Path -LiteralPath $decisionsFile) {
@@ -108,29 +109,28 @@ foreach ($id in ($cited.Keys | Sort-Object)) {
     $faults += ("décision citée mais inexistante — {0} : {1}" -f $id, $extrait)
 }
 
-# --- 3. Les cercles de comptes ne se refiltrent pas a la main -----------------------------
+# --- 3. The circles of accounts are not filtered again by hand ----------------
 #
-# « Where-Object { -not $_.technical } » etait recopie a SEPT endroits. Un filtre recopie
-# est un filtre qu'on oublie quelque part : l'appel qui ne l'avait pas a depose un ordre
-# de relance dans le dossier du compte de SERVICE, que personne ne lira jamais.
+# The same "not technical" filter was copied in SEVEN places. A copied filter is a filter one forgets somewhere:
+# the call that did not have it dropped a restart order inside the SERVICE account's folder, where nobody will
+# ever read it.
 #
-# Les trois cercles ont un nom (common.ps1) : Get-ComputerAccounts, Get-UserAccounts,
-# Get-EnabledAccounts. On passe par eux -- sinon le jour ou la definition d'un cercle
-# change, elle ne change qu'a un endroit sur sept.
+# The three circles have names (common.ps1): Get-ComputerAccounts, Get-UserAccounts, Get-EnabledAccounts. We go
+# through them -- otherwise the day a circle's definition changes, it changes in one place out of seven.
 foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.ps1' -ErrorAction SilentlyContinue)) {
     $rel = Get-Relative $f.FullName
     if (Test-Skipped $rel) { continue }
-    # common.ps1 EST l'implementation des trois cercles.
+    # common.ps1 IS the implementation of the three circles.
     if ($rel -eq 'apps/backend-pode/lib/common.ps1') { continue }
     $n = 0
     foreach ($line in (Get-Content -LiteralPath $f.FullName -Encoding UTF8 -ErrorAction SilentlyContinue)) {
         $n++
         if ($line -match '^\s*#') { continue }
-        # LES MOTIFS S'ECRIVENT EN MORCEAUX, sinon ce fichier se denonce lui-meme.
+        # THE PATTERNS ARE WRITTEN IN PIECES, or this file would report itself.
         #
-        # ET ON NE VISE QUE LES CERCLES. Le premier jet attrapait « Get-ComptesX |
-        # Where-Object { $_.name -eq ... } » -- chercher UN compte par son nom n'est pas
-        # refiltrer un cercle. Seuls « technical » et « enabled » definissent les cercles.
+        # AND WE AIM AT THE CIRCLES ONLY. The first attempt also caught a circle followed by a search on a name --
+        # looking for ONE account by its name is not filtering a circle again. Only "technical" and "enabled"
+        # define the circles.
         $marque = '$_.' + 'technical'
         $actif  = '$_.' + 'enabled'
         if ($line.Contains($marque)) {
@@ -142,23 +142,23 @@ foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.
     }
 }
 
-# --- 4. Une variable ne porte pas le nom d'un parametre -----------------------------------
+# --- 4. A variable does not carry a parameter's name --------------------------
 #
-# POWERSHELL IGNORE LA CASSE : « $source » et « $Source » sont LA MEME VARIABLE. Ecrire
-# « $source = ... » dans un script qui declare un parametre « $Source » n'est pas une
-# variable locale : c'est une AFFECTATION AU PARAMETRE. Si celui-ci porte un ValidateSet,
-# le script meurt sur place, avec un message qui parle d'autre chose.
+# POWERSHELL IGNORES CASE: a lower-case and an upper-case spelling are THE SAME VARIABLE. Writing an assignment
+# with a different case inside a script that declares that parameter is not a local variable: it is an
+# ASSIGNMENT TO THE PARAMETER. If the parameter carries a ValidateSet, the script dies on the spot, with a message
+# about something else.
 #
-# Deux fois le meme jour, le 30/08, dans le meme fichier : « $source = $null » puis
-# « $source = Get-UpdateRemote ». La deuxieme fois, la mise a jour est morte a la ligne
-# 192 devant l'utilisateur.
+# Twice on the same day, 30/08, in the same file. The second time, the update died at line 192 in front of the
+# user.
+
 foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.ps1' -ErrorAction SilentlyContinue)) {
     $rel = Get-Relative $f.FullName
     if (Test-Skipped $rel) { continue }
     $text = Get-Content -LiteralPath $f.FullName -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
     if (-not $text) { continue }
 
-    # Le bloc param() du SCRIPT : ses noms sont ceux qui peuvent etre ecrases.
+    # The SCRIPT's param() block: its names are the ones that can be overwritten.
     $errors = $null; $tokens = $null
     $tree = [System.Management.Automation.Language.Parser]::ParseInput($text, [ref]$tokens, [ref]$errors)
     if ($errors -and $errors.Count) { continue }
@@ -167,16 +167,15 @@ foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.
     $names = @($block.Parameters | ForEach-Object { $_.Name.VariablePath.UserPath })
     if (-not $names.Count) { continue }
 
-    # Toute affectation dont le nom EGALE un parametre a la casse pres, mais s'ecrit
-    # differemment : c'est le signe qu'on croyait creer une variable a soi.
+    # Every assignment whose name EQUALS a parameter's but for the case, while being spelled differently: that is
+    # the sign one believed one was creating a variable of one's own.
     foreach ($a in $tree.FindAll({ param($n) $n -is [System.Management.Automation.Language.AssignmentStatementAst] }, $true)) {
         $left = $a.Left
         if ($left -isnot [System.Management.Automation.Language.VariableExpressionAst]) { continue }
         $used = $left.VariablePath.UserPath
         foreach ($p in $names) {
-            # « -cne » : SENSIBLE A LA CASSE. Avec « -ne », la comparaison ignore la
-            # casse comme le reste de PowerShell -- la regle ne pouvait jamais se
-            # declencher, et je l'ai crue bonne parce qu'elle passait au vert.
+            # "-cne": CASE SENSITIVE. With "-ne", the comparison ignores case like the rest of PowerShell -- the
+            # rule could never fire, and I believed it sound because it was going green.
             if ($used -cne $p -and $used -ieq $p) {
                 $faults += ("variable « `${0} » : c'est le paramètre « `${1} » (la casse ne compte pas) -- {2}:{3}" -f
                             $used, $p, $rel, $left.Extent.StartLineNumber)
@@ -185,34 +184,32 @@ foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.
     }
 }
 
-# --- 5. Ce qu'une action rend a une personne ne vit pas chez le service --------------------
+# --- 5. What an action returns to a person does not live at the service's ------
 #
-# LE DEFAUT. Une action qui rapatriait des journaux les copiait dans le var de l'APP
-# SERVEUR, puis rendait ce chemin a l'utilisateur. C'etait juste le jour ou c'est ete
-# ecrit : le serveur tournait alors sous le compte de la personne. Depuis qu'il tourne
-# sous un compte de service (28/08), ce dossier est illisible pour tout le monde sauf lui
-# -- « 62 fichiers rapatries », vrai et inutile. Le code n'avait pas bouge ; son sol, si.
+# THE DEFECT. An action that fetched logs copied them into the SERVER APP's var, then returned that path to the
+# user. That was right on the day it was written: the server ran under the person's account then. Since it runs
+# under a service account (28/08), that folder is unreadable to everybody but it -- "62 files fetched", true and
+# useless. The code had not moved; the ground under it had.
 #
-# LA REGLE. Une action qui rend un CHEMIN dans son resultat doit l'avoir construit pour
-# quelqu'un : Get-AccountVarRoot, Get-RequesterAccount, un dossier public. Si elle ne cite
-# que Get-VarPath / Get-LogDir / Get-VarRoot, elle rend un chemin de service a une
-# personne, et personne ne s'en apercevra avant d'essayer de l'ouvrir.
+# THE RULE. An action that returns a PATH in its result must have built it for somebody: Get-AccountVarRoot,
+# Get-RequesterAccount, a public folder. If it only cites Get-VarPath / Get-LogDir / Get-VarRoot, it returns a
+# service path to a person, and nobody will notice before trying to open it.
 $actionsDir = Join-Path $repoRoot 'apps/backend-pode/actions'
 if (Test-Path -LiteralPath $actionsDir) {
     foreach ($f in @(Get-ChildItem -LiteralPath $actionsDir -Filter '*.action.ps1' -File -ErrorAction SilentlyContinue)) {
         $text = Get-Content -LiteralPath $f.FullName -Raw -Encoding UTF8
         if (-not $text) { continue }
-        # Rend-elle un chemin ? On cherche « path = » dans le resultat.
-        # « path = » n'importe ou, mais pas « $path = » : le premier est une cle rendue
-        # a l'appelant, le second une variable de travail.
+        # Does it return a path? We look for a "path =" key in the result, anywhere, but not for a variable of the
+        # same name: the first is a key returned to the caller, the second a working variable.
         #
-        # DEUX FOIS LE MEME PIEGE DANS CETTE LIGNE. D'abord une sequence « backslash-b » ecrite depuis un
-        # script Python, ou il vaut le caractere RETOUR ARRIERE : la regle cherchait un
-        # caractere de controle et ne trouvait jamais rien. Ensuite une ancre de debut de
-        # ligne, qui ne voyait rien des que le resultat tenait sur une seule ligne.
-        # Les deux fois, le vert m'a suffi. Une regle se prouve en la faisant ECHOUER.
-        # ON NE LIT PAS LES COMMENTAIRES. « GET /disk/tree?path=... », ecrit dans une
-        # explication, faisait accuser une action qui ne rend aucun chemin.
+        # THE SAME TRAP TWICE IN THIS ONE LINE. First an escape sequence written from a Python script, where it
+        # became the BACKSPACE character: the rule was looking for a control character and never found anything.
+        # Then a start-of-line anchor, which saw nothing as soon as the result fitted on a single line. Both times,
+        # green was enough for me. A rule is proven by making it FAIL.
+        # WE DO NOT READ THE COMMENTS. A route written inside an explanation, query string included, made the
+        # checker accuse an action that returns no path at all.
+
+
         $code = [regex]::Replace($text, '(?s)<#.*?#>', '')
         $code = ($code -split "`n" | Where-Object { $_ -notmatch '^\s*#' }) -join "`n"
         if ($code -notmatch '(?<![\w$])path\s*=') { continue }
