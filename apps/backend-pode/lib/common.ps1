@@ -1999,9 +1999,9 @@ function Get-UpdateRemote {
 }
 
 <#
-    THE SERVICE CLONE IS NEVER BLOCKED. The required behaviour: doc/progress/targeting/install-update.md, section
-    "Le clone du service ne se bloque jamais". It is a copy the service owns alone: it mirrors the declared source,
-    it never resists it.
+    THE SERVICE CLONE IS NEVER BLOCKED. The required behaviour: doc/progress/targeting/install-update.md, in the
+    section bearing that name. It is a copy the service owns alone: it mirrors the declared source, it never
+    resists it.
 
     On 13/09 it refused the version tags a history rewrite had moved, and deployment stopped for good. Fetching is
     therefore FORCED; if git still refuses while the source answers, the clone is rebuilt beside the old one, which
@@ -2550,8 +2550,8 @@ function Copy-InstallFrom {
         apps/, which left everything below untouched: on 06/10 an action deleted from the source and pushed stayed
         installed and ANSWERING after a successful deployment. An action is a door with rights of its own, and
         removing it from the source is the gesture that deletes it; the same goes for a probe, which would keep
-        producing a card, and for a worker, which would stay launchable. "L'installation partagee porte exactement
-        le commit de la source" (targeting/install-update.md) was therefore false below two levels.
+        producing a card, and for a worker, which would stay launchable. The requirement that the shared
+        installation carry exactly the source's commit (targeting/install-update.md) was therefore false below two levels.
 
         var/ is the one thing kept: it is the data, not the code. The settings of this machine are set aside before
         and put back after, so they survive this. Nothing outside the destination is ever touched.
@@ -2842,8 +2842,8 @@ function Get-VarRoot {
     IS A CARD THE SAME FOR EVERYONE?
 
     Most are: disk space, updates and the firewall do not depend on who is looking. But the
-    accounts card writes "(vous)" beside one name -- and that rendering goes into
-    state-cache.json, which is SHARED. So the first person to open Vigie left their "vous"
+    accounts card marks one name as being the reader's own -- and that rendering goes into
+    state-cache.json, which is SHARED. So the first person to open Vigie left that mark
     there, and it was served to everyone else.
 
     A probe declares it in its module.psd1:  PerAccount = $true.
@@ -2874,7 +2874,7 @@ function Test-ProbeIsPerAccount {
 
     "accounts.probe.ps1@Famille" and "accounts.probe.ps1@fhaza" live side by side in the same
     file without treading on each other. With no requester identified the key is "@?": an
-    anonymous session has an entry of its own, where nobody is "vous".
+    anonymous session has an entry of its own, where nobody is the reader.
 #>
 function Get-ProbeCacheKey {
     param([Parameter(Mandatory)][string]$ProbeFile, [string]$Account)
@@ -3011,8 +3011,8 @@ function Write-Log {
     sessions coexisting). An account with no session is therefore not an error: its client app
     will come back at its next logon, with the new code.
 #>
-# ASKS EVERY CLIENT APP TO QUIT ON ITS OWN, through the order it reads each second in its run folder: it logs
-# "arret de l'app cliente (ordre stop)", acknowledges, and leaves. Until 19/09 an update ended the tasks and killed what was
+# ASKS EVERY CLIENT APP TO QUIT ON ITS OWN, through the order it reads each second in its run folder: it logs its
+# own stop, acknowledges, and leaves. Until 19/09 an update ended the tasks and killed what was
 # left: the client apps of Famille vanished seven times on 18/09 without one line saying why. Returns the accounts
 # whose app acknowledged; the forced stop that follows is left for the ones that did not answer. Never throws.
 <#
@@ -3416,8 +3416,8 @@ function Get-AccountVarRoot {
 
     The distinction did not matter while the server app ran under somebody's account:
     $env:USERNAME happened to be right BY ACCIDENT. Since it runs as a service under
-    "VigieService", every place that said $env:USERNAME meaning "the person in front of the
-    screen" names the service -- and on 29/08 the Accounts card therefore showed "VOUS" on
+    the service account, every place that said $env:USERNAME meaning "the person in front of the
+    screen" names the service -- and on 29/08 the Accounts card therefore marked the service account as the reader,
     VigieService, and took it out of the list of technical accounts.
 
     Two notions, two functions, never mixed again:
@@ -3635,7 +3635,7 @@ function New-AccountSession {
     THE ACCOUNT BEHIND A SESSION, or $null.
 
     A SESSION DOES NOT EXPIRE. It used to, after 24 hours: past that delay the window stayed
-    open but belonged to nobody -- "vous" disappeared from the accounts card and the actions
+    open but belonged to nobody -- the mark naming the reader disappeared from the accounts card and the actions
     no longer knew who was asking, with nothing announcing it. What is disposable is the
     OPENING URL: 30 seconds, one single presentation. What it leaves behind, the identity,
     must last, or one has to ask for another every time on a workstation where the person has
@@ -4370,7 +4370,7 @@ function Test-ProcessIsGame {
     A module declares one in its module.psd1:
 
         Residents = @(
-            @{ Key = 'game'; Label = 'Detection des jeux' }
+            @{ Key = 'game'; Label = '<the label the card displays>' }
         )
 
     and drops a "<key>.resident.ps1" script next to it. The server arms it at startup, stops
@@ -6273,7 +6273,7 @@ $script:ProbeTtls = @{
     'lock.probe.ps1'    = 600
     'pending.probe.ps1' = 900
     # ACCOUNTS CHANGE RARELY: creating a Windows account does not happen within the day. One
-    # hour, and the "Actualiser la liste" button for whoever has just created one.
+    # hour, and the refresh button of that card for whoever has just created one.
     'accounts.probe.ps1' = 3600
     # THE DEPLOYMENT, on the other hand, MUST SEE A COMMIT ARRIVE -- and it is deferrable, so
     # this short delay costs the request nothing: it leaves with the value already known.
@@ -7259,7 +7259,7 @@ function Get-State {
         # working for a request already abandoned.
         [int]$WaitSeconds = 0,
         <#
-            WHO ARE WE COMPUTING FOR? A card that speaks of "vous" has one cache entry per
+            WHO ARE WE COMPUTING FOR? A card that names its reader has one cache entry per
             account. The background refresh runs with no session: it did not know who to keep
             its result for, so those cards were left out of the deferred work and recomputed
             INSIDE each request -- 2 seconds for the accounts, 5 for the deployment, at every
@@ -7388,7 +7388,7 @@ function Get-State {
             $unitsCoupees -notcontains (Split-Path (Split-Path $_.FullName -Parent) -Leaf)
         })
     }
-    # WHO IS ASKING: the cards that speak of "vous" have their own entry per account.
+    # WHO IS ASKING: the cards that name their reader have their own entry per account.
     $stateRequester = $(if ($PSBoundParameters.ContainsKey('Account')) { $Account } else { Get-RequesterAccount })
     # THE PROBES ARE TOLD who this computation is for, just before each one runs (see Get-StateAccount): they take no
     # argument, and the scheduler has no cookie to read.
@@ -7759,8 +7759,8 @@ function Get-State {
         contents nobody can guess.
 
         So a waiting card is returned, built on what is known without running anything at all:
-        the folder's module.psd1 gives its title, the folder gives its group. It carries "en
-        attente de mesure" and its button, which is enough to fill it.
+        the folder's module.psd1 gives its title, the folder gives its group. It carries a value saying it is
+        awaiting measurement, and its button, which is enough to fill it.
     #>
     & $markPhase 'assemblage'
     $known = @($modules | ForEach-Object { "$($_.id)" })
@@ -8511,10 +8511,10 @@ function Get-ModuleLastRunPath {
 <#
     WHY IT FAILED: WE READ IT IN THE LOG, WE DO NOT GUESS IT.
 
-    The watcher knows only an EXIT CODE. So the card displayed "ECHEC le 31/08/2026 10:56 --
-    code de sortie 4": a number, to a person who wants to know what happened. The script, on
-    the other hand, said it -- "Une installation est deja en cours (fhaza, processus
-    44940...)" -- and that sentence is in the log the watcher already holds in its hand.
+    The watcher knows only an EXIT CODE. So the card displayed a failure, a date and "exit code 4": a number, to
+    a person who wants to know what happened. The script, on the other hand, said it -- that an installation was
+    already running, under which account and in which process -- and that sentence is in the log the watcher
+    already holds in its hand.
 
     So the LAST failure line is taken from it, the one the console marked "[X]". It is
     general: any script of the repository using console-ui becomes readable on the card,
@@ -8596,8 +8596,8 @@ function Clear-ModuleBusyMark {
                 -Force -ErrorAction SilentlyContinue
 }
 
-# THE ONLY WAY TO LAUNCH AN ASYNCHRONOUS OPERATION. The rules: doc/progress/targeting/operations.md, section
-# "Le protocole des opérations asynchrones". A PowerShell worker and an external program take the same road:
+# THE ONLY WAY TO LAUNCH AN ASYNCHRONOUS OPERATION. The rules: doc/progress/targeting/operations.md, in the
+# section on the protocol of the asynchronous operations. A PowerShell worker and an external program take the same road:
 # the watcher runs either one, waits for its end and writes the result. The busy mark is written HERE,
 # with the watcher's process id, before the action answers.
 function Start-Operation {
@@ -8713,8 +8713,8 @@ function New-LastRunField {
     <#
         THE VALUE SAYS THE STATE, THE DETAIL TELLS THE STORY.
 
-        It used to carry everything: "ECHEC le 31/08/2026 10:56 -- Une installation est deja
-        en cours (fhaza, processus 44940, depuis 10:49:18)". In a card's right-hand column
+        It used to carry everything: the failure, its date, and the whole sentence saying that an installation was
+        already running, under which account, in which process and since when. In a card's right-hand column
         that ran to three lines and pushed the rest away, while the neighbouring lines answer
         in one word. A value is what one reads at a glance.
 
@@ -10025,7 +10025,7 @@ function Update-AccountTasks {
 <#
     WHAT DEPENDS ON WHO IS ASKING.
 
-    "VOUS" and "this account is not a technical account" are not facts about the computer:
+    Naming the reader, and saying "this account is not a technical account", are not facts about the computer:
     they are facts about the RELATION between the computer and the person looking. So they are
     laid at the moment of answering, never in the cached reading -- or the first to ask fixes
     the answer for everybody else.
@@ -10111,7 +10111,7 @@ function Get-AccountRegistryRoot {
 
 function Add-AccountsPerspective {
     param($Accounts)
-    # With no session, NOBODY is "vous": that is truer, and safer than naming the service
+    # With no session, NOBODY is the reader: that is truer, and safer than naming the service
     # account.
     $requester = Get-RequesterAccount
     foreach ($c in @($Accounts)) {
@@ -10467,8 +10467,8 @@ function Invoke-ClientTask {
 #
 # But it is a DEFAULT, not a dogma: one must be able to change one's mind about ONE precise
 # action. Hence two levels:
-#   1. the DECLARATION, at the head of the action's file: `# @droits: admin` or
-#      `# @droits: tous`; it lives beside the code it protects, and is read without running
+#   1. the DECLARATION, at the head of the action's file: the rights keyword followed by admin, or by the value
+#      meaning everyone; it lives beside the code it protects, and is read without running
 #      the script;
 #   2. the machine's POLICY, config/actions.policy.json, which can open or close an action by
 #      name -- that is where the user changes their mind.
@@ -11020,8 +11020,8 @@ function Set-NotificationSettings {
 }
 
 # --- THE NOTIFICATION CATALOGUE (D54, revised on 26/08) -----------------------
-# A notification is NOT "a card": it is a named EVENT, declared by the module. "Session de
-# jeu" tells nobody anything; "Temperature GPU elevee" does.
+# A notification is NOT "a card": it is a named EVENT, declared by the module. A card's own title tells nobody
+# anything; the name of what happened -- a GPU running hot, for instance -- does.
 # (Raised by the owner: the screen listed the cards, not the notifications.)
 #
 # Declared in probes/<module>/module.psd1:

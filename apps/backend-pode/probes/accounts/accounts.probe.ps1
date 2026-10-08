@@ -9,8 +9,8 @@
    needs no setting. (The account's LastLogon lies: a sandbox showed "signed in today"
    without ever having opened a session.)
 
-   The detail -- last session, weight of the data -- belongs to the "Details des comptes"
-   action: a card is read at a glance, it does not unfold to hand over its main
+   The detail -- last session, weight of the data -- belongs to the accounts-details action: a card is read at a
+   glance, it does not unfold to hand over its main
    information. #>
 $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $backend 'lib/common.ps1')
@@ -48,7 +48,7 @@ foreach ($c in ($accounts | Sort-Object @{ Expression = { -not $_.current } }, n
         does not. An account that has it, with a healthy task, is GREEN; an account without
         it stays neutral -- that is not a fault, it is a choice.
 
-        THE PER-ACCOUNT DETAIL LIVES ON THE LINE. One had to open "Details des comptes" to
+        THE PER-ACCOUNT DETAIL LIVES ON THE LINE. One had to open the accounts-details action to
         learn when the account last opened a session, or whether its task had ever run.
         Those three facts fit in the line's detail, where they are looked for.
     #>

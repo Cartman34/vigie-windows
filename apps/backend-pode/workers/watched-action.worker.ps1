@@ -11,7 +11,7 @@
    work -- a PowerShell worker of workers/ or an external program, output redirected to the log --
    waits for its end, writes the result where every page reads it, then clears the mark. If it dies
    before writing, Get-ModuleBusyMark turns the dead mark into a failure.
-   The rules: doc/progress/targeting/operations.md, section "Le protocole des opérations asynchrones". #>
+   The rules: doc/progress/targeting/operations.md, in the section on the protocol of the asynchronous operations. #>
 param(
     [Parameter(Mandatory)][string]$Backend,
     [Parameter(Mandatory)][string]$ArgsB64

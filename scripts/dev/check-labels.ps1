@@ -192,7 +192,7 @@ foreach ($lang in ($tables.Keys | Where-Object { $_ -ne $REFERENCE_LANGUAGE })) 
 # --- The banned words ---------------------------------------------------------
 #
 # "MACHINE" SAYS NOTHING TO WHOEVER READS. It is our design vocabulary, not that of somebody in front of their
-# screen. We speak of "l'ordinateur", or of "tous les comptes" -- depending on what we mean, and that is exactly
+# screen. We speak of the computer, or of every account -- depending on what we mean, and that is exactly
 # the point: the banned word hid two different ideas.
 #
 # The exception holds for a COMMAND or an ARGUMENT, never for a sentence: "--scope machine" is a winget flag,

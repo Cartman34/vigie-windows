@@ -8,10 +8,10 @@
     Label       = 'Comptes'
     Description = 'Les comptes Windows de cet ordinateur, et ceux qui ont Vigie.'
 
-    # THIS CARD IS NOT THE SAME FOR EVERYONE: it writes "(vous)" beside one name, puts that
+    # THIS CARD IS NOT THE SAME FOR EVERYONE: it marks one name as being the reader's own, puts that
     # account first, and shows its data to that account alone. Its rendering is therefore
     # cached PER ACCOUNT (key "accounts.probe.ps1@<account>"), or the first person to open
-    # Vigie would leave their "vous" to everyone after them.
+    # Vigie would leave that mark on everyone after them.
     PerAccount  = $true
 
     # SCHEDULED COMPUTATIONS (D124/D125): the server computes this card by itself, so that nothing is ever computed

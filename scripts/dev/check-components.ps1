@@ -10,7 +10,7 @@
     What is compared. Every call that writes on the machine -- a local account, a scheduled task, a registry value,
     an event source, a user right, a git declaration of the computer, an access rule -- is attributed to its
     enclosing function in lib/common.ps1, or to its file anywhere else. That function or file must appear in the
-    section "Où chaque pièce s'écrit" of the inventory, and a name listed there must still write something.
+    section of the inventory that says where each piece is written, and a name listed there must still write something.
 
     What it does NOT see: files written under var/ or ProgramData, and a write through a command it does not know.
 

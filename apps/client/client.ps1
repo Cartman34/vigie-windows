@@ -11,9 +11,9 @@
     it does the same thing; a second one steps aside. What it does, in brief:
       - the server app runs IN THE BACKGROUND (hidden). The ICON IS THE STATE OF THE APP, not of the components,
         read from /health: green = running, orange = starting, red = error or stopped. A light poll every 8 s.
-      - "Afficher l'application" opens a DEDICATED window (Edge or Chrome in --app mode); "Ouvrir dans le
-        navigateur" opens a tab.
-      - "Relancer l'application" reloads the client app itself. A dark menu. Children are started with no window
+      - the menu entry that shows the application opens a DEDICATED window (Edge or Chrome in --app mode); the
+        one that opens it in the browser opens a tab.
+      - the entry that restarts the application reloads the client app itself. A dark menu. Children are started with no window
         (CreateNoWindow).
       - it logs into logs/client_*.log. The interface lives in an STA runspace.
 #>
@@ -394,7 +394,7 @@ public static bool Close(System.IntPtr h) {
 
                 What was wrong is the REPETITION: the poll comes back every eight seconds, so the window came back
                 every eight seconds. A refused request does not present itself again on its own; it presents itself
-                when asked for, through "Redemarrer le serveur" in the menu.
+                when asked for, through the menu entry that restarts the server.
             #>
 
 
@@ -445,8 +445,8 @@ public static bool Close(System.IntPtr h) {
             Famille's client app exits, the server is killed, fhaza's client app restarts it, and an elevation is
             asked for on the way -- for somebody who only wanted to close an icon.
 
-            The server is a service: it lives its own life. To stop it or restart it there is "Redemarrer le
-            serveur", which says so.
+            The server is a service: it lives its own life. To stop it or restart it there is the menu entry that
+            restarts the server, which says so.
         #>
 
 
@@ -465,7 +465,7 @@ public static bool Close(System.IntPtr h) {
             started afterwards does not close the one that was waiting for it -- and cutting it off from one
             account cuts it off for all the others.
 
-            The server restarts ITSELF, with its own rights, through "Redemarrer le serveur". Two distinct
+            The server restarts ITSELF, with its own rights, through the menu entry that says so. Two distinct
             gestures for two distinct things.
         #>
 
@@ -497,8 +497,8 @@ public static bool Close(System.IntPtr h) {
         # therefore handed control back without throwing and the log wrote "openApp ok" -- a lie, for four reports
         # running. A double click did nothing.
         #
-        # Two corrections: we try the DEFAULT browser first (the one that works, by definition, since "Ouvrir dans
-        # le navigateur" did work), and above all we OBSERVE the result before declaring it. A candidate that dies
+        # Two corrections: we try the DEFAULT browser first (the one that works, by definition, since opening
+        # Vigie in the browser did work), and above all we OBSERVE the result before declaring it. A candidate that dies
         # moves on to the next; if none holds, we open an ordinary tab rather than nothing.
 
 
@@ -523,9 +523,9 @@ public static bool Close(System.IntPtr h) {
             <#
                 THE DEDICATED WINDOW GOES THROUGH THE SAME DOOR AS THE BROWSER.
 
-                Two roads opened the panel: "Ouvrir dans le navigateur", which asked for an opening address, and
-                the DOUBLE CLICK, which opened the bare address. So the second did not identify itself: on the
-                Famille session, on 01/09, the window opened on "cette fenetre n'est associee a aucun compte", the
+                Two roads opened the panel: the menu entry that opens it in the browser, which asked for an
+                opening address, and the DOUBLE CLICK, which opened the bare address. So the second did not
+                identify itself: on one session, on 01/09, the window opened on the page saying it is tied to no account, the
                 panel now refusing a window without a session.
 
                 It is here and not further up: a window already open is brought to the front, and the opening
@@ -1188,7 +1188,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                     # A STUCK SERVER: the port answers, the requests do not. The client app OBSERVES it and says so
                     # -- it no longer kills it. Killing the shared server from a client app means cutting it off
                     # for every account, and the client app comes after it. The cure belongs to the server task,
-                    # which restarts it, or to somebody clicking "Redemarrer le serveur".
+                    # which restarts it, or to somebody clicking the menu entry that restarts the server.
                     if ($state.HealthKo -eq 3 -and -not $silence) {
                         TLog "serveur coince (port ouvert, health muet x3) : signale, pas tue"
                         try {
@@ -1223,7 +1223,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                     }
                 } elseif (-not (Test-IsElevated) -and $state.ElevationAsked) {
                     # The elevation was asked for and refused -- or not granted yet. Neither a breakdown nor a wait:
-                    # we say so, and "Redemarrer le serveur" asks again.
+                    # we say so, and the menu entry that restarts the server asks again.
                     $app = 'warn'; $lbl = 'Serveur arrêté : relance à autoriser'
                 } elseif ($silence) {
                     # The server is off BECAUSE WE ARE UPDATING IT. No balloon, no restart -- the installation will
@@ -1238,7 +1238,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                     if ($state.EverUp -and -not (Test-ServerUp -Address $cfg.BindAddress -Port $cfg.Port)) {
                         # DEAD: there is nobody left to restart itself. We warn through a balloon -- it disappears
                         # on its own, demanding nothing -- and we attempt the restart. If the rights are missing,
-                        # the icon stays orange and "Redemarrer le serveur" stays there, on demand.
+                        # the icon stays orange and the menu entry that restarts the server stays there, on demand.
                         if (-not $state.SaidDead) {
                             $state.SaidDead = $true
                             TLog "serveur mort (port ferme)"

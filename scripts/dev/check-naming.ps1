@@ -42,7 +42,7 @@ $ErrorActionPreference = 'Stop'
     not rewrite it at once -- thousands of touched lines for no gain, and a drowned git
     blame. The ratchet forbids adding any; every conversion lowers the ceiling as much.
 #>
-$COMMENT_CEILING = 44
+$COMMENT_CEILING = 0
 
 # 08/10, the second half of common.ps1: 1044 -> 310 French comment lines in the library, and the repository from
 # 4539 to 3805. Then its tail -- the environment, the traceability, the requester, the Atelier, the elevation and
@@ -110,13 +110,15 @@ $COMMENT_CEILING = 44
 # tail, config.local.sample.psd1 and config/common.psd1. The repository drops from 414 to 44, AND THE CAMPAIGN
 # ENDS THERE.
 #
-# THE 44 LINES THAT REMAIN ARE NOT FRENCH PROSE. Every one of them QUOTES French displayed text inside an English
-# sentence -- a label of a card or of the client app's menu, a log message read back after an incident, the title
-# of a page, a `@droits:` keyword that the code parses. Rewriting the quotation would make the comment lie about
-# what the screen says. Two more live in config/modules.local.psd1, which is not versioned at all.
+# AND THEN THE LAST 44 WENT TOO, ON THE OWNER'S ORDER. I had argued they should stay: each one QUOTED French
+# displayed text inside an English sentence -- a card's label, a menu entry, a log message read back after an
+# incident, a header keyword the code parses -- and rewriting the quotation would make the comment lie about what
+# the screen says. The owner decided otherwise, and he was right: a comment does not need to quote the wording to
+# say which thing it means. They now DESCRIBE what the screen shows instead of copying it, and the code they talk
+# about is named by its identifier, which is the one thing that never gets translated.
 #
-# So the ceiling stays at 44 and no longer descends: what is above it is a comment that was ADDED, and that is
-# exactly what this ratchet is for.
+# SO THE CEILING IS ZERO. Not a single French comment line is left in this repository. From here the ratchet no
+# longer counts a legacy: anything above zero is a comment somebody ADDED, which is exactly what it is for.
 #
 # A TRANSLATION BROKE THREE FILES, and my own verification let it through: my loop ran the comment-stripper with
 # its failure swallowed, so a file that no longer PARSED compared as identical. check-powershell caught all three
@@ -436,7 +438,7 @@ foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.
         if ($trimmed -like '*#>*') { $inBlock = $false }
         if (-not $isComment) { continue }
         <#
-            A HEADER IS A DECLARATION, NOT PROSE. "# @droits: tous", "# @execution: session", "# @libelle: ..." are
+            A HEADER IS A DECLARATION, NOT PROSE. The rights, execution and label keywords of an action's header are
             READ BY THE CODE -- check-operations parses them, the loader obeys them -- and their keywords are French
             by construction. Counting them meant that adding one action, header included, broke the ratchet while not
             one sentence of French had been written (29/09).

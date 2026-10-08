@@ -240,7 +240,7 @@ if (-not $verrou) {
     INSTALLING OR UPDATING: IT IS NOT THE SAME PIECE OF NEWS.
 
     The same script does both -- deliberately, it is idempotent and it is the ONLY gesture to know. But it
-    announced "Installation de Vigie" even when a version was already running, without saying which one nor what
+    announced an installation even when a version was already running, without saying which one nor what
     we were heading for: one started it again without knowing whether anything was changing.
 
     So we look at what is in place BEFORE beginning, and we say it: where we start from, where we are going, and in
