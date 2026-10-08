@@ -43,7 +43,18 @@ $ErrorActionPreference = 'Stop'
     not rewrite it at once -- thousands of touched lines for no gain, and a drowned git
     blame. The ratchet forbids adding any; every conversion lowers the ceiling as much.
 #>
-$COMMENT_CEILING = 4539
+$COMMENT_CEILING = 3805
+
+# 08/10, the second half of common.ps1: 1044 -> 310 French comment lines in the library, and the repository from
+# 4539 to 3805. What is left there is the tail of the file -- the action rights, the module settings, the
+# notification catalogue, the traceability -- plus the odd line in the middle.
+#
+# THE METHOD, so the next campaign does not reinvent it. The tools live in the session's scratchpad and are rebuilt
+# in a few lines if lost: blocs.py lists the contiguous French comment blocks of a file with their ranges;
+# extrait.py prints only the comment lines of a window, with their numbers; remplace.py replaces whole line ranges
+# from a JSON file, applied bottom-up; code-nu.ps1 strips every comment through the token stream so the bare code
+# can be compared. Work window by window from the top, re-extract after each batch because the numbers shift, and
+# compare the bare code every time.
 
 # 08/10, HALF OF common.ps1: its 2037 French comment lines come down to 1044 -- 993 translated in twenty batches,
 # taken window by window from the top. The library carried 36 % of the repository's debt on its own.

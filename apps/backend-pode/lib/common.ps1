@@ -9884,10 +9884,9 @@ function Repair-VigieTasks {
             }
         }
 
-        # ON NE REECRIT PAS UNE TACHE SAINE. Un defaut d'HISTOIRE -- jamais lancee, ou
-        # dernier lancement en echec -- ne se corrige par aucune ecriture : il se
-        # confirmera au prochain demarrage du compte, et pas avant. Le signaler, oui ;
-        # pretendre le reparer, non.
+        # A HEALTHY TASK IS NOT REWRITTEN. A fault of HISTORY -- never launched, or the last
+        # launch failed -- is corrected by no writing at all: it will be confirmed at the
+        # account's next logon, and not before. Reporting it, yes; claiming to repair it, no.
         $mal = Get-VigieTaskStructureAilment -Task $t
         if (-not $mal) {
             $histoire = Get-VigieTaskHistoryAilment -Task $t
@@ -9903,8 +9902,8 @@ function Repair-VigieTasks {
                 try { Stop-ScheduledTask -TaskName $name -ErrorAction Stop } catch { }
             }
             if ($name -eq 'Vigie') {
-                # Notre propre tache : on la reecrit avec l'interpreteur de la machine et
-                # le chemin ou l'application se trouve REELLEMENT maintenant.
+                # Our own task: it is rewritten with the machine's interpreter and the path
+                # where the application REALLY sits now.
                 $pwsh = Get-SharedPwshPath
                 if (-not $pwsh) { $pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Source }
                 $client = Join-Path (Join-Path (Get-RepoRoot) 'apps') (Join-Path 'client' 'client.ps1')
@@ -9918,24 +9917,24 @@ function Repair-VigieTasks {
                     if ($renamed) { $name = $renamed }
                 }
             } else {
-                # Tache d'un autre compte : Set-VigieAccountEnabled sait la refaire
-                # entierement (interpreteur machine, installation partagee, niveau).
+                # Another account's task: Set-VigieAccountEnabled knows how to rebuild it
+                # entirely (machine interpreter, shared installation, run level).
                 $null = Set-VigieAccountEnabled -Name $account -Enabled $true -Backend $Backend
             }
-            # UNE TACHE DESACTIVEE SE REACTIVE. Vigie savait le DIRE depuis ce matin, et
-            # s'arretait la : elle reecrivait l'action puis reannoncait « desactivee »,
-            # ce qui n'aide personne. Enable-ScheduledTask est le geste qui manquait.
-            # Idempotent : une tache deja active ne bouge pas.
+            # A DISABLED TASK IS RE-ENABLED. Vigie could SAY it since that morning and
+            # stopped there: it rewrote the action, then announced "disabled" again, which
+            # helps nobody. Enable-ScheduledTask was the missing gesture.
+            # Idempotent: a task already enabled does not move.
             try { Enable-ScheduledTask -TaskName $name -ErrorAction Stop | Out-Null } catch { }
 
-            # ON CONSTATE (D43). Reecrire la tache ne guerit pas tout : un ECHEC PASSE
-            # reste inscrit dans son historique tant qu'elle n'a pas retourne au travail,
-            # c'est-a-dire tant que ce compte n'a pas rouvert de session. Annoncer
-            # « reparee » dans ce cas serait un faux succes -- et l'ecran continuerait a
-            # afficher « hors service » juste a cote, en se contredisant (vu le 28/08).
-            # ON RELIT APRES COUP, pas dans la foulee : Windows rend l'ancien etat pendant
-            # un court instant apres une reecriture, et la tache paraissait encore
-            # desactivee alors qu'elle ne l'etait deja plus (constate le 28/08).
+            # WE OBSERVE (D43). Rewriting the task does not cure everything: a PAST FAILURE
+            # stays written in its history for as long as it has not gone back to work, that
+            # is, until that account opens a session again. Announcing "repaired" in that
+            # case would be a false success -- and the screen would go on showing "out of
+            # service" right beside it, contradicting itself (seen on 28/08).
+            # WE READ BACK AFTERWARDS, not straight away: Windows returns the old state for a
+            # brief moment after a rewrite, and the task still looked disabled when it no
+            # longer was (seen on 28/08).
             Start-Sleep -Milliseconds 400
             $after = $null
             try { $after = Get-VigieTaskAilment -Task (Get-ScheduledTask -TaskName $name -ErrorAction Stop) } catch { }
@@ -9961,13 +9960,13 @@ function Get-VigieAccountTaskName {
     $script:VigieTaskPrefix + $Name
 }
 
-# Les comptes de la machine, avec pour chacun : est-il administrateur, Vigie demarre-t-il
-# avec lui, et par quelle tache. La tache historique s'appelle « Vigie » tout court : elle
-# compte comme active pour le compte qu'elle vise, sinon l'ecran dirait faussement
-# « inactif » a l'utilisateur qui s'en sert depuis le debut.
-# L'inventaire coute environ deux secondes (comptes, groupes, profils, taches) et ne
-# change qu'exceptionnellement : on le MEMORISE. Un jour de validite, un bouton pour
-# forcer le releve, et toute activation de compte l'invalide d'elle-meme.
+# The machine's accounts, each with: whether it is an administrator, whether Vigie starts
+# with it, and through which task. The legacy task is called plain "Vigie": it counts as
+# enabled for the account it aims at, or the screen would wrongly say "inactive" to the
+# person who has been using it since the beginning.
+# The inventory costs about two seconds (accounts, groups, profiles, tasks) and changes only
+# exceptionally: it is REMEMBERED. One day of validity, a button to force the reading, and
+# enabling any account invalidates it by itself.
 $script:AccountsTtlHours = 24
 
 function Get-ComputerAccountsCachePath {
@@ -9981,13 +9980,13 @@ function Clear-ComputerAccountsCache {
     if (Test-Path -LiteralPath $f) { Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue }
 }
 
-# L'ETAT DES TACHES SE RELIT, TOUJOURS.
+# THE STATE OF THE TASKS IS ALWAYS READ BACK.
 #
-# La liste des comptes est chere a etablir (profils, SID, registre) et change rarement :
-# elle se met en cache 24 h. L'etat de leur tache de demarrage, lui, est bon marche a lire
-# et peut changer a tout moment -- et s'il ment, il ment sur la seule chose qui compte.
-# La carte a affiche « Vigie activee » pendant des heures pour un compte dont la tache
-# avait disparu (28/08). Ces trois champs-la ne sont donc jamais servis depuis le cache.
+# The list of accounts is expensive to establish (profiles, SIDs, registry) and rarely
+# changes: it is cached for 24 h. The state of their startup task, on the other hand, is
+# cheap to read and can change at any moment -- and if it lies, it lies about the only thing
+# that matters. The card showed "Vigie activée" for hours for an account whose task had
+# disappeared (28/08). Those three fields are therefore never served from the cache.
 function Update-AccountTasks {
     param([object[]]$Accounts)
     if (-not $Accounts -or -not $Accounts.Count) { return @($Accounts) }
@@ -9996,8 +9995,8 @@ function Update-AccountTasks {
         $tasks = @(Get-ScheduledTask -ErrorAction Stop |
                     Where-Object { $_.TaskName -eq 'Vigie' -or $_.TaskName -like ($script:VigieTaskPrefix + '*') })
     } catch {
-        # Sans elevation, Windows masque une partie des taches : on ne sait pas, et on ne
-        # PRETEND pas savoir. Les valeurs du cache sont conservees telles quelles.
+        # Without elevation Windows hides part of the tasks: we do not know, and we do not
+        # PRETEND to. The cached values are kept as they are.
         return @($Accounts)
     }
     foreach ($c in $Accounts) {
@@ -10006,15 +10005,15 @@ function Update-AccountTasks {
             $_.TaskName -eq (Get-VigieAccountTaskName -Name $name) -or
             ($_.TaskName -eq 'Vigie' -and (Test-TaskUserIs -UserId "$($_.Principal.UserId)" -Name $name))
         })[0]
-        # UN CACHE PEUT VENIR D'UNE VERSION PLUS ANCIENNE, et ses objets n'ont alors pas
-        # les proprietes qu'on veut ecrire. Assigner une propriete absente LEVE, et la
-        # valeur d'origine -- perimee -- restait affichee (constate le 28/08 : « 1 tache
-        # hors service » pour une tache saine). On les cree si elles manquent.
+        # A CACHE MAY COME FROM AN OLDER VERSION, and its objects then lack the properties we
+        # want to write. Assigning an absent property THROWS, and the original value -- stale
+        # -- stayed on screen (seen on 28/08: "1 tache hors service" for a healthy task). So
+        # they are created when missing.
         Set-ObjectProperty -Object $c -Name 'enabled' -Value ([bool]$task)
         Set-ObjectProperty -Object $c -Name 'task' -Value $(if ($task) { "$($task.TaskName)" } else { $null })
-        # DEUX CHAMPS, deux natures : « taskAilment » est ce qui empeche la tache de
-        # fonctionner ; « taskPending » est ce qui ne se saura qu'a son prochain
-        # demarrage. Les confondre faisait annoncer « hors service » une tache saine.
+        # TWO FIELDS, two natures: "taskAilment" is what stops the task working;
+        # "taskPending" is what will only be known at its next start. Confusing them made a
+        # healthy task be announced as out of service.
         $mal = if ($task) { Get-VigieTaskStructureAilment -Task $task } else { $null }
         Set-ObjectProperty -Object $c -Name 'taskAilment' -Value $mal
         Set-ObjectProperty -Object $c -Name 'taskPending' `
@@ -10024,33 +10023,33 @@ function Update-AccountTasks {
 }
 
 <#
-    CE QUI DEPEND DE QUI DEMANDE.
+    WHAT DEPENDS ON WHO IS ASKING.
 
-    « VOUS » et « ce compte n'est pas un compte technique » ne sont pas des faits sur le
-    poste : ce sont des faits sur la RELATION entre le poste et la personne qui regarde.
-    Ils se posent donc au moment de repondre, jamais dans le releve mis en cache -- sinon
-    le premier a demander fixe la reponse de tous les autres.
+    "VOUS" and "this account is not a technical account" are not facts about the computer:
+    they are facts about the RELATION between the computer and the person looking. So they are
+    laid at the moment of answering, never in the cached reading -- or the first to ask fixes
+    the answer for everybody else.
 #>
 <#
-    LES QUATRE CERCLES DE COMPTES -- ET CHACUN A SON NOM.
+    THE FOUR CIRCLES OF ACCOUNTS -- AND EACH ONE HAS ITS NAME.
 
-    Chaque appelant refiltrait a sa facon (« Where -not technical » recopie a sept
-    endroits), et le seul qui ne l'a pas fait a depose un ordre de relance dans le dossier
-    du compte de SERVICE : « Relance demandee aux autres comptes : Famille, fhaza,
-    VigieService ». Personne ne devait jamais le lire.
+    Every caller filtered again in its own way ("Where -not technical" copied in seven
+    places), and the one that did not dropped a restart order in the SERVICE account's folder:
+    "Relance demandee aux autres comptes : Famille, fhaza, VigieService". Nobody was ever
+    going to read it.
 
-      1. TOUS les comptes de l'ORDINATEUR  Get-ComputerAccounts  -- VigieService en est
-      2. les comptes de PERSONNE           Get-UserAccounts      -- il n'en est pas
-      3. ceux qui ont Vigie ACTIVEE        Get-EnabledAccounts   -- ils ont une app cliente
-      4. ceux qui TOURNENT en ce moment    (tache + app cliente vivante)
+      1. ALL the COMPUTER's accounts   Get-ComputerAccounts  -- VigieService is one
+      2. the accounts of a PERSON      Get-UserAccounts      -- it is not
+      3. those with Vigie ENABLED      Get-EnabledAccounts   -- they have a client app
+      4. those RUNNING right now       (task plus a live client app)
 
-    Le cercle 4 n'a pas de fonction : personne n'en a besoin. Une relance s'adresse au
-    cercle 3 -- une app cliente eteinte demarrera de toute facon avec le nouveau code, et
-    verifier son battement de coeur ajouterait un acces disque pour rien.
+    Circle 4 has no function: nobody needs it. A restart addresses circle 3 -- a client app
+    that is off will start with the new code anyway, and checking its heartbeat would add a
+    disk access for nothing.
 #>
-# UN compte, par son nom. Recopie a trois endroits sous la forme « Get-ComputerAccounts |
-# Where-Object { $_.name -eq X } », avec a chaque fois le meme piege : sans @(...) autour,
-# un resultat unique n'est pas un tableau et l'index [0] rend un caractere.
+# ONE account, by its name. Copied in three places as "Get-ComputerAccounts |
+# Where-Object { $_.name -eq X }", each time with the same trap: without @(...) around it, a
+# single result is not an array and the index [0] returns a character.
 function Get-AccountByName {
     param([Parameter(Mandatory)][string]$Name, [string]$Backend = (Get-BackendRoot))
     @(Get-ComputerAccounts -Backend $Backend | Where-Object { "$($_.name)" -eq $Name })[0]
@@ -10067,19 +10066,19 @@ function Get-EnabledAccounts {
 }
 
 function Get-UserRegistryRoots {
-    <# Les ruches de registre des VRAIS utilisateurs connectes, sous la forme
+    <# The registry hives of the REAL signed-in users, in the form
        'Registry::HKEY_USERS\<SID>'.
 
-       POURQUOI : le serveur tourne sous le compte de service, donc HKCU designe la ruche
-       du service -- celle de personne. Une sonde qui lit un reglage par utilisateur
-       (bibliotheques Steam, jeux reconnus par la Game Bar, preferences d'une appli) ne
-       doit JAMAIS passer par HKCU : elle regarderait a cote et ne verrait rien. Constate
-       le 01/09 : Assassin's Creed Odyssey joue sur le compte Famille n'etait pas reconnu
-       comme jeu, la sonde interrogeant HKCU du service.
+       WHY: the server runs under the service account, so HKCU names the service's hive --
+       nobody's. A probe reading a per-user setting (Steam libraries, the games the Game Bar
+       knows, an application's preferences) must NEVER go through HKCU: it would look beside
+       the point and see nothing. Seen on 01/09: Assassin's Creed Odyssey, played on the
+       Famille account, was not recognised as a game, the probe questioning the service's
+       HKCU.
 
-       On ecarte .DEFAULT, les vues _Classes et les comptes systeme (S-1-5-18/19/20). Une
-       ruche non chargee (utilisateur deconnecte) n'apparait pas : c'est voulu, on ne
-       monte pas les ruches des absents.
+       .DEFAULT, the _Classes views and the system accounts (S-1-5-18/19/20) are left out. A
+       hive that is not loaded, its user being signed out, does not appear: that is intended,
+       we do not mount absent people's hives.
     #>
     $roots = @()
     try {
@@ -10095,10 +10094,10 @@ function Get-UserRegistryRoots {
 }
 
 function Get-AccountRegistryRoot {
-    <# La ruche de registre d'UN compte nomme, ou $null si elle n'est pas chargee.
+    <# The registry hive of ONE named account, or $null when it is not loaded.
 
-       Une ruche n'est montee que pendant la session de son proprietaire : un compte
-       deconnecte n'a rien a lire, et on ne monte pas la ruche des absents.
+       A hive is only mounted during its owner's session: a signed-out account has nothing
+       to read, and we do not mount absent people's hives.
     #>
     param([Parameter(Mandatory)][string]$Account)
     try {
@@ -10112,24 +10111,24 @@ function Get-AccountRegistryRoot {
 
 function Add-AccountsPerspective {
     param($Accounts)
-    # Sans session, PERSONNE n'est « vous » : c'est plus vrai, et c'est plus sur que de
-    # designer le compte du service.
+    # With no session, NOBODY is "vous": that is truer, and safer than naming the service
+    # account.
     $requester = Get-RequesterAccount
     foreach ($c in @($Accounts)) {
         $isMe = [bool]$requester -and ("$($c.name)" -eq "$requester")
         $c | Add-Member -NotePropertyName current -NotePropertyValue $isMe -Force
-        # Celui qui utilise Vigie en ce moment n'est jamais un compte d'outil.
+        # Whoever is using Vigie right now is never a tool's account.
         if ($isMe) { $c | Add-Member -NotePropertyName technical -NotePropertyValue $false -Force }
     }
     return $Accounts
 }
 
 <#
-    LES COMPTES DE CET ORDINATEUR -- pas des « comptes Vigie ».
+    THE ACCOUNTS OF THIS COMPUTER -- not "Vigie accounts".
 
-    La fonction s'appelait Get-VigieAccounts : elle ne rend rien qui appartienne a Vigie,
-    elle rend les comptes que WINDOWS declare, avec pour chacun ce que Vigie en sait.
-    Le nom faisait croire a une liste de comptes autorises, ce qui est le cercle 3.
+    The function was called Get-VigieAccounts: it returns nothing belonging to Vigie, it
+    returns the accounts WINDOWS declares, each with what Vigie knows about it. The name
+    suggested a list of authorised accounts, which is circle 3.
 #>
 function Get-ComputerAccounts {
     param(
@@ -10153,19 +10152,19 @@ function Get-ComputerAccounts {
             Set-Content -LiteralPath $tmp -Encoding UTF8
         Move-Item -LiteralPath $tmp -Destination $cache -Force
     } catch { }
-    # LA PERSPECTIVE APRES LE CACHE, jamais avant : ce qu'on ecrit sur le disque doit
-    # rester vrai pour n'importe qui.
+    # THE PERSPECTIVE COMES AFTER THE CACHE, never before: what is written to disk must stay
+    # true for anybody.
     return (Add-AccountsPerspective $liste)
 }
 
-# Le releve REEL, sans cache.
+# The REAL reading, with no cache.
 function Get-ComputerAccountsFresh {
     param([string]$Backend = (Get-BackendRoot))
-    # PROFILS REELLEMENT UTILISES : c'est LE discriminant entre un compte de personne et un
-    # compte d'outil. Win32_UserProfile.LastUseTime dit quand le profil a servi pour de bon
-    # (ouverture de session). Le LastLogon du COMPTE, lui, ment : un compte de bac a sable
-    # affichait « connecte aujourd'hui » sans avoir jamais ouvert de session -- signale par
-    # l'utilisateur, verifie le 26/08 (LastUseTime vide, profil jamais charge).
+    # PROFILES REALLY USED: that is THE discriminator between a person's account and a tool's.
+    # Win32_UserProfile.LastUseTime says when the profile genuinely served, at a logon. The
+    # ACCOUNT's LastLogon, on the other hand, lies: a sandbox account showed "signed in today"
+    # without ever having opened a session -- reported by the owner, checked on 26/08
+    # (LastUseTime empty, the profile never loaded).
     $profils = @{}
     try {
         foreach ($up in (Get-CimInstance Win32_UserProfile -ErrorAction Stop | Where-Object { -not $_.Special })) {
@@ -10174,13 +10173,13 @@ function Get-ComputerAccountsFresh {
         }
     } catch { }
 
-    # QUELS COMPTES SONT DES COMPTES DE PERSONNE ? Windows le dit lui-meme :
-    # Winlogon\SpecialAccounts\UserList liste les comptes MASQUES de l'ecran de connexion
-    # (valeur 0). C'est ainsi que les outils declarent leurs comptes de service.
-    # Tous les criteres essayes avant etaient faux : le profil (les bacs a sable en ont
-    # un), sa date d'usage (invisible hors elevation, d'ou deux verdicts contradictoires
-    # entre l'agent et le serveur), son contenu (Desktop present quand meme),
-    # l'appartenance au groupe Utilisateurs (ils en sont membres).
+    # WHICH ACCOUNTS BELONG TO A PERSON? Windows says so itself:
+    # Winlogon\SpecialAccounts\UserList lists the accounts HIDDEN from the sign-in screen
+    # (value 0). That is how tools declare their service accounts.
+    # Every criterion tried before was wrong: the profile (sandboxes have one), its date of
+    # use (invisible without elevation, hence two contradictory verdicts between the agent and
+    # the server), its contents (a Desktop is there all the same), and membership of the Users
+    # group (they are members).
     $masquesConnexion = @{}
     try {
         $cleMasques = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\UserList'
@@ -10202,26 +10201,26 @@ function Get-ComputerAccountsFresh {
             $_.TaskName -eq (Get-VigieAccountTaskName -Name $name) -or
             ($_.TaskName -eq 'Vigie' -and (Test-TaskUserIs -UserId "$($_.Principal.UserId)" -Name $name))
         })[0]
-        # VRAI compte ou compte TECHNIQUE ? On ne juge pas sur le NOM (une liste noire
-        # serait fausse le jour ou quelqu'un appelle son compte « Sandbox ») mais sur un
-        # FAIT : ce profil a-t-il deja servi a ouvrir une session ? Un compte d'outil est
-        # cree, parfois authentifie, mais son profil n'est jamais charge.
-        # Ce critere ne demande AUCUNE elevation, contrairement a l'inspection du contenu
-        # du profil qui avait ete essayee d'abord -- et qui laissait passer les bacs a sable.
+        # A REAL account or a TECHNICAL one? We do not judge on the NAME -- a blacklist would
+        # be wrong the day somebody calls their account "Sandbox" -- but on a FACT: has this
+        # profile ever been used to open a session? A tool's account is created, sometimes
+        # authenticated, but its profile is never loaded.
+        # That criterion requires NO elevation, unlike inspecting the profile's contents which
+        # was tried first -- and which let the sandboxes through.
         $profil  = Join-Path (Join-Path $env:SystemDrive 'Users') $name
         $aProfil = Test-Path -LiteralPath $profil
         $up = $profils["$($c.SID)"]
         $alreadyUsed = [bool]($up -and ($up.LastUseTime -or $up.Loaded))
-        # ATTENTION : LastUseTime n'est visible QUE d'un processus eleve. Depuis une
-        # session ordinaire, tous les profils paraissent « jamais utilises » -- le critere
-        # seul se contredisait donc d'un contexte a l'autre (constate le 26/08 : un compte
-        # d'outil ecarte cote agent, affiche cote serveur).
-        # Quand on est eleve, on tranche sur le CONTENU du profil : un compte de personne
-        # a un Bureau ou des Documents ; un compte d'outil n'en a pas.
-        # CE RELEVE NE SAIT PAS QUI REGARDE, et c'est voulu : il est MIS EN CACHE dans un
-        # fichier commun. Y ecrire quoi que ce soit de relatif au demandeur, c'est servir
-        # a Famille la reponse calculee pour fhaza. Tout ce qui depend de la personne est
-        # pose apres coup, par Add-AccountsPerspective.
+        # BEWARE: LastUseTime is visible ONLY to an elevated process. From an ordinary session
+        # every profile looks "never used" -- so the criterion alone contradicted itself from
+        # one context to the other (seen on 26/08: a tool's account ruled out on the agent's
+        # side, displayed on the server's).
+        # When elevated, we decide on the profile's CONTENTS: a person's account has a Desktop
+        # or Documents; a tool's account has none.
+        # THIS READING DOES NOT KNOW WHO IS LOOKING, and that is intended: it is CACHED in a
+        # shared file. Writing anything relative to the requester there means serving Famille
+        # the answer computed for fhaza. Everything depending on the person is laid afterwards,
+        # by Add-AccountsPerspective.
         $technique = [bool]$masquesConnexion[$name.ToLower()]
 
         [pscustomobject][ordered]@{
@@ -10231,27 +10230,27 @@ function Get-ComputerAccountsFresh {
             admin       = (Test-LocalAccountIsAdmin -Name $name)
             hasProfile  = $aProfil
             technical   = $technique
-            # Date de derniere UTILISATION du profil (plus fiable que LastLogon).
+            # The profile's last USE date (more reliable than LastLogon).
             lastUse     = $(if ($up -and $up.LastUseTime) { ([datetime]$up.LastUseTime).ToString('s') } else { $null })
             enabled     = [bool]$task
             task        = if ($task) { "$($task.TaskName)" } else { $null }
-            # La tache existe-t-elle VRAIMENT en etat de marche ? Une tache qui pointe
-            # vers un interpreteur disparu se lance et meurt aussitot, sans un mot :
-            # Vigie ne demarre pas et l'ecran des comptes affiche « activee ». C'est
-            # exactement ce qui est arrive le 26/08 (D83).
+            # Does the task REALLY exist in working order? A task pointing at an interpreter
+            # that is gone starts and dies at once, without a word: Vigie does not start and
+            # the accounts screen shows "activée". That is exactly what happened on 26/08
+            # (D83).
             taskAilment = if ($task) { Get-VigieTaskStructureAilment -Task $task } else { $null }
-            # Ce qui attend son prochain demarrage : signale, mais pas « hors service ».
+            # What is waiting for its next start: reported, but not "out of service".
             taskPending = if ($task -and -not (Get-VigieTaskStructureAilment -Task $task)) { Get-VigieTaskHistoryAilment -Task $task } else { $null }
-            # Le compte qui execute le serveur en ce moment : l'interface doit pouvoir dire
-            # « c'est vous » et empecher de se retirer soi-meme par megarde.
+            # The account running the server right now: the interface must be able to say
+            # "that is you" and stop anyone removing themselves by mistake.
             current     = $false          # pose par Add-AccountsPerspective, jamais mis en cache
             lastLogon   = if ($c.LastLogon) { $c.LastLogon.ToString('s') } else { $null }
         }
     })
 }
 
-# Pose (ou retire) la tache de demarrage d'UN compte. Exige l'elevation : creer une tache
-# pour autrui est une operation d'administration -- Windows l'exige, Vigie aussi.
+# Lays down (or removes) ONE account's startup task. It requires elevation: creating a task
+# for somebody else is an administration operation -- Windows requires it, and so does Vigie.
 function Set-VigieAccountEnabled {
     param(
         [Parameter(Mandatory)][string]$Name,
@@ -10261,24 +10260,24 @@ function Set-VigieAccountEnabled {
     if (-not (Test-IsElevated)) { throw "Modifier les comptes autorises demande un compte administrateur." }
     $account = @(Get-ComputerAccounts -Backend $Backend | Where-Object { $_.name -eq $Name })[0]
     if (-not $account) { throw "Compte inconnu sur cette machine : $Name" }
-    # Un AUTRE compte que le sien exige que l'application lui soit lisible.
+    # An account OTHER than one's own requires the application to be readable by it.
     if ($Enabled -and -not $account.current -and -not (Get-SharedInstallPath)) {
         throw "Aucune installation lisible par les autres comptes : deployez d'abord Vigie pour tous, sinon la tache de $Name echouerait a chaque ouverture de session."
     }
 
     if (-not $Enabled) {
-        # On retire la tache DEDIEE. La tache historique « Vigie » n'est pas supprimee
-        # ici : elle est le demarrage installe par install-autostart, et son retrait a son
-        # propre script (uninstall-autostart) -- supprimer sans le dire serait pire.
+        # The DEDICATED task is removed. The legacy "Vigie" task is not deleted here: it is
+        # the startup installed by install-autostart, and its removal has its own script
+        # (uninstall-autostart) -- deleting without saying so would be worse.
         $t = Get-VigieAccountTaskName -Name $Name
         try { Unregister-ScheduledTask -TaskName $t -Confirm:$false -ErrorAction Stop } catch { }
         Clear-ComputerAccountsCache -Backend $Backend
         return (Get-ComputerAccounts -Backend $Backend | Where-Object { $_.name -eq $Name })
     }
 
-    # POUR SOI : l'interpreteur courant convient, quel que soit son emplacement.
-    # POUR UN AUTRE COMPTE : il lui faut un pwsh installe pour la MACHINE, sinon la tache
-    # pointerait dans notre profil et ne lancerait rien chez lui (constate avec Famille).
+    # FOR ONESELF: the current interpreter will do, wherever it sits.
+    # FOR ANOTHER ACCOUNT: it needs a pwsh installed for the MACHINE, or the task would point
+    # inside our profile and launch nothing for them (seen with Famille).
     $pwsh = if ($account.current) { (Get-Command pwsh -ErrorAction SilentlyContinue).Source }
             else                 { Get-SharedPwshPath }
     if (-not $pwsh -and $account.current) { throw "pwsh introuvable : impossible de creer la tache." }
@@ -10288,24 +10287,23 @@ function Set-VigieAccountEnabled {
                "demarrerait pas, sans message. PowerShell 7 doit etre installe pour toute la machine " +
                "(winget install --id Microsoft.PowerShell --scope machine), puis ce compte reactive.")
     }
-    # Le compte doit pouvoir LIRE ce que sa tache lance.
-    # LE CHEMIN SUIT L'ENVIRONNEMENT DECLARE. Poser systematiquement l'installation
-    # partagee ferait demarrer un autre compte sur la production alors que la machine se
-    # declare en developpement -- et Vigie signalerait ensuite l'ecart qu'elle vient de
-    # creer elle-meme.
-    # LA LISIBILITE PASSE AVANT LA PREFERENCE. L'environnement declare dit ou l'on
-    # VOUDRAIT tourner ; ce que le compte peut LIRE dit ou l'on PEUT tourner. Pointer la
-    # tache de « Famille » vers le depot -- illisible pour elle a partir de Git\ -- a
-    # produit un code 64, « impossible d'ouvrir le fichier », sans le moindre journal.
+    # The account must be able to READ what its task launches.
+    # THE PATH FOLLOWS THE DECLARED ENVIRONMENT. Always laying the shared installation would
+    # start another account on production while the machine declares itself in development --
+    # and Vigie would then report the very gap it had just created itself.
+    # READABILITY COMES BEFORE PREFERENCE. The declared environment says where one WOULD LIKE
+    # to run; what the account can READ says where one CAN run. Pointing Famille's task at the
+    # repository -- unreadable to her from Git\ onwards -- produced exit code 64, "cannot open
+    # the file", with not one log line.
     $targetSid = $null
     try { $targetSid = (Get-LocalUser -Name $Name -ErrorAction Stop).SID.Value } catch { }
     if (-not $targetSid) { throw ("Compte introuvable sur cette machine : " + $Name) }
 
-    # L'INSTALLATION PARTAGEE D'ABORD, TOUJOURS. L'environnement declare dit d'ou vient ce
-    # qu'on deploie, pas ou ca tourne : une tache qui lance un depot personnel est
-    # illisible pour les autres comptes et disparait si le dossier bouge. Le depot ne sert
-    # de repli que s'il n'existe aucune installation partagee -- et seulement pour le
-    # compte qui la possede.
+    # THE SHARED INSTALLATION FIRST, ALWAYS. The declared environment says where what is
+    # deployed comes from, not where it runs: a task launching a personal repository is
+    # unreadable to the other accounts and disappears if the folder moves. The repository
+    # serves as a fallback only when there is no shared installation at all -- and only for
+    # the account that owns it.
     $candidates = @((Get-SharedInstallPath), (Get-RepoRoot))
     $appRoot = $null
     foreach ($candidate in $candidates) {
@@ -10326,7 +10324,7 @@ function Set-VigieAccountEnabled {
 
     $action  = New-VigieClientAction -Pwsh $pwsh -Client $client
     $trigger = New-ScheduledTaskTrigger -AtLogOn
-    # 45 s : pwsh vient du Store (MSIX) et n'est pas toujours pret a l'instant du logon.
+    # 45 s: pwsh comes from the Store (MSIX) and is not always ready at the instant of logon.
     $trigger.Delay = 'PT45S'
     $niveau  = if ($account.admin) { 'Highest' } else { 'Limited' }
     $princ   = New-ScheduledTaskPrincipal -UserId ("$env:COMPUTERNAME\$Name") -LogonType Interactive -RunLevel $niveau
@@ -10334,8 +10332,8 @@ function Set-VigieAccountEnabled {
                   -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew `
                   -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
     $taskName = Get-VigieAccountTaskName -Name $Name
-    # On CONSTATE (D43) : une creation qui ne leve pas n'est pas une creation qui a eu
-    # lieu. Le journal garde la trace des deux, et l'appelant recoit une vraie erreur.
+    # We OBSERVE (D43): a creation that does not throw is not a creation that happened. The
+    # log keeps the trace of both, and the caller receives a real error.
     try {
         Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger `
             -Principal $princ -Settings $set -Force -ErrorAction Stop | Out-Null
@@ -10355,32 +10353,32 @@ function Set-VigieAccountEnabled {
 }
 
 
-# --- OU S'EXECUTE UNE ACTION : sur le serveur, ou sur le bureau d'un compte ? ----------
+# --- WHERE AN ACTION RUNS: on the server, or on an account's desktop? -----------------
 #
-# LE PROBLEME. Un serveur n'a pas d'ecran. Aujourd'hui il en a un par accident -- c'est le
-# app cliente de fhaza qui la lance, donc dans une session de bureau. Le jour ou il devient la
-# tache de machine, il tournera en session 0 : « Start-Process explorer.exe » y reussit
-# sans que PERSONNE ne voie jamais la fenetre. L'action se declarerait faite, et rien ne
-# se passerait a l'ecran.
+# THE PROBLEM. A server has no screen. Today it has one by accident -- fhaza's client app is
+# what launches it, so inside a desktop session. The day it becomes the machine's task it
+# will run in session 0: "Start-Process explorer.exe" succeeds there without ANYBODY ever
+# seeing the window. The action would declare itself done, and nothing would happen on
+# screen.
 #
-# Et meme aujourd'hui, le probleme existe deja : si Famille demande d'ouvrir un dossier,
-# c'est sur le bureau de FHAZA qu'il s'ouvre, parce que c'est la que tourne le serveur.
+# And even today the problem already exists: if Famille asks to open a folder, it opens on
+# FHAZA's desktop, because that is where the server runs.
 #
-# LA REGLE. Une action declare ou elle doit s'executer, en tete de son fichier :
-#     # @execution: session    -- elle s'execute dans la session du DEMANDEUR
-#     # @execution: serveur    -- elle n'a besoin de personne (defaut)
-# Le silence vaut « serveur » : c'est le cas courant, et une action qui n'ouvre rien n'a
-# aucune raison de faire un detour.
+# THE RULE. An action declares where it must run, at the head of its file:
+#     # @execution: session    -- it runs in the REQUESTER's session
+#     # @execution: serveur    -- it needs nobody (the default)
+# Silence means "serveur": that is the common case, and an action that opens nothing has no
+# reason to take a detour.
 #
-# « ADMIN » ET « SESSION » VONT TRES BIEN ENSEMBLE, contrairement a ce que j'avais cru.
-# Test-ActionAllowed refuse une action admin a un compte standard, et a une fenetre qui
-# ne dit pas qui elle est, AVANT toute execution. Une action admin n'est donc demandee que
-# par un administrateur -- et la tache d'app cliente d'un administrateur tourne en RunLevel
-# Highest, donc elevee. Elle peut faire les deux.
+# "ADMIN" AND "SESSION" GO TOGETHER PERFECTLY WELL, contrary to what I had believed.
+# Test-ActionAllowed refuses an admin action to a standard account, and to a window that does
+# not say who it is, BEFORE any execution. So an admin action is only ever asked for by an
+# administrator -- and an administrator's client app task runs at RunLevel Highest, hence
+# elevated. It can do both.
 #
-# Le jour ou l'on voudra qu'un compte standard VOIE ces boutons et declenche une demande
-# d'elevation, ce sera un autre sujet : il faudra qu'un administrateur puisse l'autoriser
-# depuis l'interface, pour toutes les instances de Vigie. Hors perimetre aujourd'hui.
+# The day we want a standard account to SEE those buttons and raise an elevation request
+# will be another subject: an administrator will have to be able to authorise it from the
+# interface, for every instance of Vigie. Out of scope today.
 function Get-ActionExecutor {
     param(
         [Parameter(Mandatory)][string]$Type,
@@ -10397,7 +10395,7 @@ function Get-ActionExecutor {
     return 'serveur'
 }
 
-# Le dossier d'ordres d'un compte : c'est la que son app cliente regarde, une fois par seconde.
+# An account's order folder: that is where its client app looks, once a second.
 function Get-AccountRunDir {
     param([Parameter(Mandatory)][string]$Account)
     $varRoot = Get-AccountVarRoot -Account $Account
@@ -10406,20 +10404,20 @@ function Get-AccountRunDir {
 }
 
 <#
-    FAIRE EXECUTER UNE ACTION PAR L'APP CLIENTE D'UN COMPTE.
+    HAVING AN ACTION RUN BY AN ACCOUNT'S CLIENT APP.
 
-    On depose un ordre dans son dossier, et on attend son compte rendu. L'app cliente tourne
-    dans SA session, avec SES droits et SON bureau : la fenetre s'ouvre la ou le
-    demandeur la voit, et l'action n'obtient rien que Windows lui refuserait.
+    An order is dropped in its folder, and we wait for its report. The client app runs in ITS
+    session, with ITS rights and ITS desktop: the window opens where the requester sees it,
+    and the action obtains nothing Windows would refuse it.
 
-    LE CANAL D'ORDRES EST UNE SURFACE D'ATTAQUE (conception, C8). Il vit dans le profil du
-    compte, ou lui seul et les administrateurs ecrivent. Un dossier ou tout le monde
-    pourrait deposer serait un moyen de faire executer n'importe quoi par n'importe qui.
+    THE ORDER CHANNEL IS AN ATTACK SURFACE (design, C8). It lives in the account's profile,
+    where only that account and the administrators write. A folder anybody could drop into
+    would be a way of having anything run by anyone.
 
-    RIEN N'EST GARANTI DE L'AUTRE COTE : l'app cliente peut etre arrete, la session fermee, le
-    compte deconnecte. On rend alors $null, et l'appelant decide -- ici, il execute
-    lui-meme, comme avant. Une action qui ne s'ouvre pas sur le bon bureau vaut mieux
-    qu'une action qui ne s'ouvre pas du tout.
+    NOTHING IS GUARANTEED ON THE OTHER SIDE: the client app may be stopped, the session
+    closed, the account signed out. We then return $null, and the caller decides -- here, it
+    runs the action itself, as before. An action that does not open on the right desktop beats
+    an action that does not open at all.
 #>
 function Invoke-ClientTask {
     param(
@@ -10456,30 +10454,31 @@ function Invoke-ClientTask {
             return $data
         }
     }
-    # PAS DE REPONSE : on retire notre ordre. Sans cela, une app cliente qui revient dans une
-    # heure ouvrirait une fenetre que plus personne n'attend.
+    # NO ANSWER: our order is withdrawn. Without that, a client app coming back in an hour
+    # would open a window nobody is waiting for any more.
     Remove-Item -LiteralPath $order -Force -ErrorAction SilentlyContinue
     return $null
 }
 
-# --- QUI a le droit de lancer une action (D65) ---------------------------------
-# Regle de BASE, choisie par l'utilisateur : Vigie ne permet rien de plus que ce que
-# Windows permet deja a ce compte. Un compte standard ne doit pas obtenir par Vigie ce que
-# Windows lui refuse -- l'application deviendrait un moyen d'elevation de privileges.
+# --- WHO may launch an action (D65) --------------------------------------------
+# The BASE rule, chosen by the owner: Vigie allows nothing more than Windows already allows
+# that account. A standard account must not obtain through Vigie what Windows refuses it --
+# the application would become a means of privilege escalation.
 #
-# Mais c'est une valeur PAR DEFAUT, pas un dogme : on doit pouvoir changer d'avis sur UNE
-# action precise. D'ou deux niveaux :
-#   1. la DECLARATION, en tete du fichier d'action : `# @droits: admin` ou `# @droits: tous` ;
-#      elle vit a cote du code qu'elle protege, et se lit sans executer le script ;
-#   2. la POLITIQUE de la machine, config/actions.policy.json, qui peut ouvrir ou fermer
-#      une action nommement -- c'est le point ou l'utilisateur change d'avis.
-# En l'absence de declaration : `admin`. Le silence n'ouvre rien.
+# But it is a DEFAULT, not a dogma: one must be able to change one's mind about ONE precise
+# action. Hence two levels:
+#   1. the DECLARATION, at the head of the action's file: `# @droits: admin` or
+#      `# @droits: tous`; it lives beside the code it protects, and is read without running
+#      the script;
+#   2. the machine's POLICY, config/actions.policy.json, which can open or close an action by
+#      name -- that is where the user changes their mind.
+# With no declaration: `admin`. Silence opens nothing.
 function Get-ActionRequirement {
     param(
         [Parameter(Mandatory)][string]$Type,
         [string]$Backend = (Get-BackendRoot)
     )
-    # 1. Politique de la machine (elle tranche).
+    # 1. The machine's policy (it decides).
     try {
         $pol = Get-MachineConfigPath -File 'actions.policy.json'
         if (Test-Path -LiteralPath $pol) {
@@ -10488,12 +10487,12 @@ function Get-ActionRequirement {
             if ($v -and "$($v.Value)" -match '^(admin|tous)$') { return "$($v.Value)" }
         }
     } catch { }
-    # 2. Declaration de l'action.
+    # 2. The action's declaration.
     try {
         $f = Join-Path $Backend ("actions/$Type.action.ps1")
         if (Test-Path -LiteralPath $f) {
             foreach ($line in (Get-Content -LiteralPath $f -TotalCount 40)) {
-                # La valeur peut etre suivie d'un commentaire : on s'arrete au mot, pas a la ligne.
+                # The value may be followed by a comment: we stop at the word, not the line.
                 if ($line -match '^\s*#\s*@droits\s*:\s*(admin|tous)') { return $Matches[1] }
             }
         }
@@ -10501,12 +10500,12 @@ function Get-ActionRequirement {
     return 'admin'
 }
 
-# L'action est-elle lancable ICI et MAINTENANT ? Rend un objet parlant : le front doit
-# pouvoir DIRE pourquoi un bouton est inerte (une action ne disparait jamais -- D59).
-# Ce que l'action AFFICHE quand un champ la cite : libelle, genre, severite. Declares en
-# tete du fichier d'action (`# @libelle: Texte | kind | severity`), a cote des droits.
-# Sans declaration : « Resoudre », en immediate/fix -- un bouton parlant vaut mieux que
-# pas de bouton (D66), mais un libelle precis vaut mieux qu'un mot generique.
+# Can the action be launched HERE and NOW? It returns a speaking object: the front end must
+# be able to SAY why a button is inert -- an action never disappears (D59).
+# What the action DISPLAYS when a field names it: label, kind, severity. Declared at the head
+# of the action's file (`# @libelle: Text | kind | severity`), beside the rights.
+# With no declaration: "Resoudre", in immediate/fix -- a speaking button beats no button
+# (D66), but a precise label beats a generic word.
 function Get-ActionPresentation {
     param(
         [Parameter(Mandatory)][string]$Type,
@@ -10519,7 +10518,7 @@ function Get-ActionPresentation {
             foreach ($line in (Get-Content -LiteralPath $f -TotalCount 40)) {
                 if ($line -match '^\s*#\s*@libelle\s*:\s*(.+)$') {
                     $bouts = @("$($Matches[1])" -split '\|' | ForEach-Object { $_.Trim() })
-                    # Le commentaire qui suit « -- » ne fait pas partie de la declaration.
+                    # The comment following "--" is not part of the declaration.
                     if ($bouts.Count -ge 1 -and $bouts[0]) { $label = ($bouts[0] -replace '\s*--.*$', '').Trim() }
                     if ($bouts.Count -ge 2 -and $bouts[1]) { $kind  = ($bouts[1] -replace '\s*--.*$', '').Trim() }
                     if ($bouts.Count -ge 3 -and $bouts[2]) { $sev   = ($bouts[2] -replace '\s*--.*$', '').Trim() }
@@ -10532,28 +10531,27 @@ function Get-ActionPresentation {
 }
 
 <#
-    QUI DEMANDE A-T-IL LE DROIT ? -- ET NON : LE SERVEUR EST-IL ELEVE ?
+    DOES THE REQUESTER HAVE THE RIGHT? -- AND NOT: IS THE SERVER ELEVATED?
 
-    Cette fonction posait la mauvaise question. Elle repondait « oui » des que
-    Test-IsElevated etait vrai -- or le serveur tourne SOUS UN COMPTE DE SERVICE
-    ADMINISTRATEUR, donc toujours. Une action « @droits: admin » passait pour n'importe
-    qui : un compte standard, et meme un navigateur ouvert sur l'adresse sans aucune
-    identification. Pendant ce temps l'ecran des utilisateurs affichait « un compte
-    standard n'obtient aucun droit en plus : Vigie lui refuse les actions administrateur ».
-    Le texte promettait une garde qui n'existait pas, et le commentaire d'a cote la
-    decrivait comme acquise.
+    This function used to ask the wrong question. It answered "yes" as soon as
+    Test-IsElevated was true -- and the server runs UNDER AN ADMINISTRATOR SERVICE ACCOUNT,
+    so always. An action marked "@droits: admin" went through for anybody: a standard
+    account, and even a browser opened on the address with no identification at all. Meanwhile
+    the users screen displayed "a standard account obtains no extra right: Vigie refuses it
+    the administrator actions". The text promised a guard that did not exist, and the comment
+    beside it described that guard as settled.
 
-    D65 tranche : par defaut Vigie ne permet rien de plus que ce que Windows permet deja a
-    ce compte. Une action qui touche la machine se juge donc sur LE DEMANDEUR.
+    D65 decides: by default Vigie allows nothing more than Windows already allows that
+    account. An action touching the machine is therefore judged on THE REQUESTER.
 
-    TROIS REFUS, ET ILS NE DISENT PAS LA MEME CHOSE :
-      - on ne sait pas qui demande -- fenetre ouverte sans identification ;
-      - on sait, et ce compte n'est pas administrateur ;
-      - le demandeur en a le droit, mais le serveur n'est pas eleve : il ne PEUT pas.
+    THREE REFUSALS, AND THEY DO NOT SAY THE SAME THING:
+      - we do not know who is asking -- a window opened with no identification;
+      - we know, and that account is not an administrator;
+      - the requester has the right, but the server is not elevated: it CANNOT.
 
-    HORS CONTEXTE WEB -- rafraichissement de fond, script lance a la main -- le demandeur
-    est celui qui execute. Sans cela, tout ce qui ne vient pas d'un navigateur se verrait
-    refuser ses propres actions.
+    OUTSIDE A WEB CONTEXT -- a background refresh, a script launched by hand -- the requester
+    is whoever runs. Without that, anything not coming from a browser would be refused its own
+    actions.
 #>
 <#
     CE COMPTE EST-IL ADMINISTRATEUR ? Une reponse, gardee le temps qu'il faut.
