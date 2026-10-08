@@ -1,4 +1,5 @@
 <?php
+/* @author Florent HAZARD <f.hazard@sowapps.com> */
 /**
  * Routeur de l'Atelier — filtre de sécurité du serveur de développement.
  *
@@ -41,3 +42,4 @@ foreach ($denied as $pattern) {
 
 // false = « je ne prends pas en charge », le serveur intégré sert le fichier.
 return false;
+

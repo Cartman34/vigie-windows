@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 """Vigie's OWN icon font (vigie-icons.ttf).
 
-WHY THIS FILE IS STILL IN PYTHON (D41, subject S08)
----------------------------------------------------
+WHY THIS FILE IS IN PYTHON (D41)
+--------------------------------
 PHP is the default tool, PowerShell the one for Windows tools, and a .py file is an argued
 decision -- never a habit. Here is the argument, so it is read here and nowhere else: this
 script WRITES A TrueType FONT. Neither .NET nor PHP can write one. Converting it would mean

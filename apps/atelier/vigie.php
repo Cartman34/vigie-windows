@@ -1,4 +1,5 @@
 <?php
+/* @author Florent HAZARD <f.hazard@sowapps.com> */
 /**
  * Ouvre Vigie depuis l'Atelier — sans recopier le port.
  *
@@ -32,3 +33,4 @@ if ($port === null || !ctype_digit($port)) {
 }
 
 header('Location: http://' . $adresse . ':' . $port . '/', true, 302);
+

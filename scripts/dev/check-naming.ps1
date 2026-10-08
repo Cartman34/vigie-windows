@@ -135,21 +135,26 @@ $CEILING = 70
 # rebuilds it -- seen, then verified by asking for the state as "fhaza": two fields, four actions, as before.
 $FILE_CEILING = 0
 
-# THE THIRD LANGUAGE (D41). PowerShell answers for the Windows tools -- that is what it is
-# here for; everything else is PHP. Python is not forbidden, but its use must be argued and
-# bounded, so a new .py file is a DECISION, never a habit.
-#
-# Two remained, both mine, written before a context compaction erased the rule from my memory: the icon generators.
-# 07/10: the client app's icons left Python for generate-icons.ps1 and GDI+, which ships with Windows, where Pillow
-# had to be installed on any machine that might redraw the mark -- and D41 says a Windows tool is written in
-# PowerShell. The drawing was compared size by size against what Pillow produced: 2 to 5 of deviation out of 255,
-# the mark identical to the eye on the three states.
-#
-# ONE REMAINS, and it is argued rather than hidden: generate-icon-font.py builds vigie-icons.ttf through fontTools.
-# Converting it means writing a TrueType writer -- glyf, loca, cmap, head, hhea, hmtx, maxp, name, post, OS/2 and
-# their checksums -- because neither .NET nor PHP can write a font. That is a disproportionate rewrite for a
-# generator run when an icon changes, so the ceiling stands at one and the file says why in its own header.
-$PYTHON_CEILING = 1
+<#
+    THE THIRD LANGUAGE (D41), AND IT IS A RULE NOW, NOT A COUNTDOWN.
+
+    PowerShell answers for the Windows tools -- that is what it is here for; everything else is PHP. Python is
+    allowed, and a .py file is not debt to be repaid: what is required is that it SAYS WHY it is Python, in its
+    own header, where whoever opens it reads it. His words, on 08/10, are in notes/answers.md.
+
+    So this check no longer counts down to zero. It reads every .py and asks for the same two things a .php file
+    carries, adapted to the language:
+      - the author line, which check-author already holds for .py;
+      - a module docstring opening on what the file is, then a section saying WHY THIS FILE IS IN PYTHON.
+
+    A .py without that section is refused -- not because Python is unwelcome, but because an unargued choice of
+    language is exactly what D41 forbids. The one file here, generate-icon-font.py, writes a TrueType font, and
+    neither .NET nor PHP can write one.
+
+    History: the icon generators were two. The client app's left Python on 07/10 for GDI+, which ships with
+    Windows, where Pillow had to be installed on any machine that might redraw the mark.
+#>
+$PYTHON_REASON_HEADING = 'WHY THIS FILE IS IN PYTHON'
 
 <#
     AND A FOURTH COUNT: THE WORD « tray », WHICH IS AT ZERO AND STAYS THERE (D108, S06).
@@ -378,15 +383,21 @@ if ($commentTotal -gt $COMMENT_CEILING) {
 
 Write-Info (Get-Label 'check-naming.identifiants-francais-plafond' $total $CEILING)
 Write-Info (Get-Label 'check-naming.fichiers-francais-plafond' $fileTotal $FILE_CEILING)
-Write-Info (Get-Label 'check-naming.fichiers-python-plafond' $pythonFiles.Count $PYTHON_CEILING)
+Write-Info (Get-Label 'check-naming.fichiers-python' $pythonFiles.Count)
 Write-Info (Get-Label 'check-naming.tray-plafond' $trayTotal $TRAY_CEILING)
 Write-Info (Get-Label 'check-naming.terme-invente-plafond' $desktopTotal $DESKTOP_CEILING)
-if ($pythonFiles.Count -gt $PYTHON_CEILING) {
+# EVERY .py SAYS WHY IT IS PYTHON, in its own header. Nothing is counted any more: it is read.
+$pythonWithoutReason = @()
+foreach ($rel in $pythonFiles) {
+    $head = (Get-Content -LiteralPath (Join-Path $repoRoot $rel) -Encoding UTF8 -TotalCount 40 -ErrorAction SilentlyContinue) -join ' '
+    if ($head -notmatch [regex]::Escape($PYTHON_REASON_HEADING)) { $pythonWithoutReason += $rel }
+}
+if ($pythonWithoutReason.Count) {
     $pythonExceeded = $true
-    Write-Fail (Get-Label 'check-naming.python-au-dessus' ($pythonFiles.Count - $PYTHON_CEILING))
-    foreach ($rel in $pythonFiles) { Write-Detail $rel }
-} elseif ($pythonFiles.Count -lt $PYTHON_CEILING) {
-    Write-Ok (Get-Label 'check-naming.python-de-moins' ($PYTHON_CEILING - $pythonFiles.Count))
+    Write-Fail (Get-Label 'check-naming.python-sans-raison' $pythonWithoutReason.Count $PYTHON_REASON_HEADING)
+    foreach ($rel in $pythonWithoutReason) { Write-Detail $rel }
+} elseif ($pythonFiles.Count) {
+    Write-Ok (Get-Label 'check-naming.python-argumentes' $pythonFiles.Count)
 }
 
 if ($Detail) {

@@ -85,3 +85,17 @@ do not stop" », et son analyse dans
 **Et une seconde**, du même jour : *« Un sujet un numéro, tu dois t'y tenir »*. Une liste improvisée (1, 2, 3, 4)
 n'est pas une numérotation ; un chantier sans numéro en reçoit un dans `notes/subjects.md` avant d'être mentionné.
 
+## 08/10/2026 — Python est permis, à condition de dire pourquoi
+
+**Ses mots** : « tu as le droit d'avoir des fichiers python mais la raison de pourquoi c'est un python doit être
+en entête, et il doit respecter les mêmes entêtes que pour php, adaptés pour le langage. Du coup, tu ne dois pas
+le lister comme fichier à convertir en php. »
+
+**Ce que ça change** : le compte des fichiers `.py` cesse d'être un cliquet qui descend vers zéro. `check-naming`
+lit désormais chaque `.py` et exige dans son en-tête la section **« WHY THIS FILE IS IN PYTHON »**, en plus de la
+ligne d'auteur. Un fichier Python argumenté n'est plus de la dette ; un fichier Python muet est refusé.
+
+**Et les en-têtes PHP eux-mêmes n'étaient pas tenus** : `check-author` ne connaissait pas l'extension `.php`, et
+quatre fichiers sur cinq n'avaient aucun auteur. Il la connaît, et pose la ligne **après `<?php`** — posée avant,
+elle sortirait telle quelle dans la réponse HTTP.
+

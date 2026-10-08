@@ -1,4 +1,5 @@
 <?php
+/* @author Florent HAZARD <f.hazard@sowapps.com> */
 /**
  * Jetons de design du front — lus dans apps/frontend-web/index.html, jamais recopiés.
  *
@@ -44,3 +45,4 @@ if (!$out['dark']) {
 }
 
 echo json_encode($out, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+

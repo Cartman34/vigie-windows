@@ -1,4 +1,5 @@
 <?php
+/* @author Florent HAZARD <f.hazard@sowapps.com> */
 /**
  * Palette du menu de l'app cliente, lue DANS apps/client/client.ps1.
  *
@@ -90,3 +91,4 @@ echo json_encode([
     'source'  => 'apps/client/client.ps1',
     'palette' => $palette,
 ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+

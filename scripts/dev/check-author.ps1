@@ -34,6 +34,10 @@ function Get-AuthorLine {
     if ($Extension -eq '.vbs')                          { return "' $MARQUE $AUTEUR" }
     if ($Extension -eq '.html')                         { return "<!-- $MARQUE $AUTEUR -->" }
     if ($Extension -in '.js', '.css')                   { return "/* $MARQUE $AUTEUR */" }
+    # PHP CARRIES THE SAME LINE AS THE REST, and it did not: four of the five .php files had no author at all,
+    # because this verifier simply did not know the extension. A convention nobody checks is a convention that
+    # holds only where someone happened to remember it.
+    if ($Extension -eq '.php')                          { return "/* $MARQUE $AUTEUR */" }
     return $null
 }
 
@@ -60,6 +64,11 @@ foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -ErrorAction
     $head = if ($lines.Count) { $lines[0].Trim().ToLowerInvariant() } else { '' }
     $after = 0
     if ($head.StartsWith('<!doctype') -or $head.StartsWith('@echo') -or $head.StartsWith('#!')) { $after = 1 }
+    # AND IN PHP THE LINE GOES AFTER "<?php", NEVER BEFORE. Placed before, it is written
+    # straight into the HTTP response: the file stops being PHP and becomes text followed
+    # by PHP. Done once, seen at once -- and exactly the kind of automatism that breaks in
+    # silence when nobody looks at the output.
+    if ($head.StartsWith('<?php')) { $after = 1 }
     $new = @()
     if ($after -gt 0) { $new += $lines[0] }
     $new += $line
