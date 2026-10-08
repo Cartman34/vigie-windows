@@ -1,15 +1,15 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    Sonde : WSL2. LECTURE SEULE. N'appelle PAS wsl.exe (risque de blocage) :
-    lit le registre + les processus. Rapide et sans figeage.
+    Probe: WSL2. READ ONLY. It does NOT call wsl.exe -- that call can hang -- and reads the
+    registry and the processes instead. Fast, and nothing can freeze on it.
 #>
 $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $backend 'lib/common.ps1')
 $installed = [bool](Get-Command wsl.exe -ErrorAction SilentlyContinue)
 $default = '(aucune)'
-# Les distributions WSL sont installees PAR UTILISATEUR. Le serveur tourne sous le compte
-# de service : la ruche ambiante serait la sienne, et il n'a jamais installe WSL. On lit
-# donc la ruche du DEMANDEUR, et a defaut celles des utilisateurs connectes (D113).
+# WSL distributions are installed PER USER. The server runs under the service account, so the
+# ambient hive would be its own -- and it has never installed WSL. The REQUESTER's hive is read
+# instead, falling back to the hives of the signed-in users (D113).
 $wslHives = @()
 $requester = Get-StateAccount
 if ($requester) { $wslHives += @(Get-AccountRegistryRoot -Account $requester) }
@@ -76,20 +76,20 @@ if ($vmStatus -eq 'warn') {
 }
 
 # =============================================================================
-# GRAVITE DE L'ETAT "INACTIF" - decision produit, UNE SEULE LIGNE A CHANGER.
-# Le champ ET la carte en derivent : ils ne peuvent plus se contredire.
-#   'error'   -> rouge  : WSL inactif est signale franchement   (choix actuel, D20)
-#   'warn'    -> orange : a surveiller, sans alarmer
-#   'neutral' -> gris   : etat normal, aucune alerte
+# HOW SERIOUS "INACTIVE" IS -- a product decision, ONE LINE TO CHANGE.
+# The field AND the card derive from it, so they can no longer contradict each other.
+#   'error'   -> red    : WSL being inactive is said plainly    (current choice, D20)
+#   'warn'    -> orange : worth watching, without alarming
+#   'neutral' -> grey   : an ordinary state, no alert
 # =============================================================================
 $inactiveSeverity = 'error'
 
-# Statut lisible + colore (Actif/Inactif) plutot qu'un simple Oui/Non.
+# A readable, coloured status (Actif/Inactif) rather than a bare Yes/No.
 $statutValue = if ($running) { 'Actif' } else { 'Inactif' }
 $statutStat  = if ($running) { 'ok' } else { $inactiveSeverity }
 
-# La carte porte le MEME jugement que le champ : une seule source de verite.
-# WSL absent reste neutre : on ne reproche pas a la machine de ne pas l'avoir installe.
+# The card carries the SAME judgement as the field: one source of truth.
+# WSL being absent stays neutral -- the computer is not blamed for not having installed it.
 $st = if (-not $installed) { 'neutral' } elseif ($running -and $vmStatus -eq 'warn') { 'warn' } elseif ($running) { 'ok' } else { $inactiveSeverity }
 
 # Start, restart, stop: only the buttons the current state makes sense of.

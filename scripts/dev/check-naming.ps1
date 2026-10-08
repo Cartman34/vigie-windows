@@ -43,7 +43,14 @@ $ErrorActionPreference = 'Stop'
     not rewrite it at once -- thousands of touched lines for no gain, and a drowned git
     blame. The ratchet forbids adding any; every conversion lowers the ceiling as much.
 #>
-$COMMENT_CEILING = 5603
+$COMMENT_CEILING = 5580
+
+# 08/10: the first slice, and above all the PROOF that makes the rest cheap. Translating a comment changes no
+# behaviour -- PROVIDED only comments were translated. So the file is stripped of every comment, block and
+# end-of-line alike, through the token stream rather than a regular expression, and the bare code must come back
+# byte for byte identical. Nothing has to be executed: if not one line of code differs, there is nothing to prove.
+# That also reaches the files an identifier rename cannot touch -- the two that open a window -- because this
+# proof never runs them. The wsl module went first, 23 lines, as the sample.
 <#
     THE IDENTIFIER CEILING -- RECOUNTED ON 29/09, BECAUSE THE COUNTER WAS HALF-BLIND.
 

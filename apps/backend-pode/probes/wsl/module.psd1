@@ -1,11 +1,11 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 @{
-    # Declaration du MODULE (D48) : un module = ce dossier de sondes.
-    # Le label et la description servent a la vue de gestion des modules.
-    # L'activation ne vit PAS ici : elle est un choix de l'utilisateur, dans
-    # config/modules.local.psd1 (jamais versionne).
-    # La distribution par defaut est un reglage PERSONNEL : chaque compte a la sienne.
-    # La carte depend donc de qui regarde, et son cache doit etre par compte (D113).
+    # The MODULE's declaration (D48): a module IS this folder of probes.
+    # The label and the description are what the module management view shows.
+    # Whether it is enabled does NOT live here: that is the user's choice, in
+    # config/modules.local.psd1, which is never versioned.
+    # The default distribution is a PERSONAL setting: every account has its own.
+    # The card therefore depends on who is looking, and its cache is per account (D113).
     PerAccount  = $true
     Label       = 'WSL'
     Description = 'Sous-système Linux : état et distribution.'
@@ -19,8 +19,8 @@
            Help = 'Au-delà de cette part de la mémoire vive prise par la machine virtuelle de WSL, la carte alerte et dit comment la borner dans .wslconfig.' }
     )
 
-    # NOTIFICATIONS emises par ce module (D54) : un evenement nomme, pas un nom de
-    # carte. C'est la bascule du champ cite qui declenche la bulle.
+    # NOTIFICATIONS this module raises (D54): a named event, not a card's name.
+    # What triggers the bubble is the quoted field changing state.
     Notifications = @(
         @{ Key = 'wsl-down'; Label = 'WSL arrêté'
            Card = 'wsl'; Field = 'running'
