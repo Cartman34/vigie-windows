@@ -8711,16 +8711,15 @@ function New-LastRunField {
                                   $(if ($r.log) { [Environment]::NewLine + "Journal : " + $r.log } else { '' })))
     }
     <#
-        LA VALEUR DIT L'ETAT, LE DETAIL DIT L'HISTOIRE.
+        THE VALUE SAYS THE STATE, THE DETAIL TELLS THE STORY.
 
-        Elle portait tout : « ECHEC le 31/08/2026 10:56 -- Une installation est deja en
-        cours (fhaza, processus 44940, depuis 10:49:18) ». Dans la colonne de droite d'une
-        carte, cela tenait sur trois lignes et poussait le reste ; a cote, les lignes
-        voisines repondent par un mot. Une valeur est ce qu'on lit d'un coup d'oeil.
+        It used to carry everything: "ECHEC le 31/08/2026 10:56 -- Une installation est deja
+        en cours (fhaza, processus 44940, depuis 10:49:18)". In a card's right-hand column
+        that ran to three lines and pushed the rest away, while the neighbouring lines answer
+        in one word. A value is what one reads at a glance.
 
-        On garde donc « Echec » a droite -- rouge, il n'y a rien a ajouter pour le voir --
-        et QUAND, POURQUOI, COMBIEN DE TEMPS et OU LIRE vont dans le detail de la ligne,
-        qui existe pour ca.
+        So "Echec" stays on the right -- in red, nothing need be added to see it -- and WHEN,
+        WHY, HOW LONG and WHERE TO READ go into the line's detail, which exists for that.
     #>
     $detail = if ($r.error) { "$($r.error)" } else { "code de sortie " + [int]$r.code }
     return (New-Field -Key $Key -Label "$($r.label)" -Value 'Échec' `
@@ -8731,44 +8730,44 @@ function New-LastRunField {
                               $(if ($r.log) { [Environment]::NewLine + "Journal complet : " + $r.log } else { '' })))
 }
 
-# --- QUELS COMPTES Windows ont Vigie (D65) ------------------------------------
-# L'ordinateur a plusieurs comptes ; l'utilisateur choisit ceux qui ont Vigie, et peut
-# changer d'avis a tout moment (exigence : « un outil doit toujours permettre de changer
-# quel compte a acces »).
+# --- WHICH Windows ACCOUNTS have Vigie (D65) ----------------------------------
+# The computer has several accounts; the user chooses which ones have Vigie, and may change
+# their mind at any time (the requirement: "a tool must always allow changing which account
+# has access").
 #
-# Activer un compte = lui poser SA tache planifiee de demarrage. Rien d'autre : les
-# reglages sont deja par compte (couche %LOCALAPPDATA%), et les donnees d'execution
-# suivent le compte des que l'installation n'est pas inscriptible (Get-VarRoot).
+# Enabling an account means laying down ITS startup scheduled task. Nothing else: the
+# settings are already per account (the %LOCALAPPDATA% layer), and the runtime data follow
+# the account as soon as the installation is not writable (Get-VarRoot).
 #
-# Le niveau d'execution suit le COMPTE, pas notre envie : `Highest` pour un
-# administrateur, `Limited` pour un compte standard. Donner Highest a un compte standard
-# ne marcherait pas -- et ne DOIT pas marcher : Vigie ne donne rien de plus que Windows.
+# The run level follows the ACCOUNT, not our wishes: `Highest` for an administrator,
+# `Limited` for a standard account. Giving Highest to a standard account would not work --
+# and MUST not: Vigie gives nothing more than Windows does.
 $script:VigieTaskPrefix = 'Vigie - '
 
-# QUEL pwsh un AUTRE compte peut-il lancer ?
+# WHICH pwsh can ANOTHER account launch?
 #
-# Piege coute cher, constate le 26/08 : la tache de « Famille » a ete creee avec
-# (Get-Command pwsh).Source, qui vaut ici
-# C:\Users\fhaza\AppData\Local\Microsoft\WindowsApps\pwsh.exe -- un chemin situe dans
-# LE PROFIL DE L'ADMINISTRATEUR. Aucun autre compte ne peut lire ca, et l'alias Store
-# renvoie de toute facon vers un paquet MSIX enregistre pour le seul compte qui l'a
-# installe. La tache s'est donc creee sans erreur... et n'a jamais rien lance chez
-# Famille : Vigie ne demarrait pas, sans le moindre message.
+# An expensive trap, seen on 26/08: the task for "Famille" was created with
+# (Get-Command pwsh).Source, which here is
+# C:\Users\fhaza\AppData\Local\Microsoft\WindowsApps\pwsh.exe -- a path inside THE
+# ADMINISTRATOR'S PROFILE. No other account can read that, and the Store alias points in any
+# case to an MSIX package registered for the one account that installed it. So the task was
+# created without an error... and never launched anything for Famille: Vigie did not start,
+# with not one message.
 #
-# Seule une installation MACHINE (le MSI, sous Program Files) convient. On la cherche, et
-# si elle manque, on REFUSE d'activer le compte en disant quoi faire -- plutot que de
-# poser une tache qui echouera en silence a chaque ouverture de session.
-# COMMENT on installe PowerShell 7 pour la machine. Definition UNIQUE (D15) : le script
-# d'installation et le bouton de la carte Comptes lancent exactement la meme chose.
-# `--scope machine` est le point essentiel : sans lui, winget pose le paquet MSIX dans le
-# profil de celui qui installe, et les autres comptes ne peuvent pas le lancer.
+# Only a MACHINE installation -- the MSI, under Program Files -- will do. It is looked for,
+# and when it is missing we REFUSE to enable the account, saying what to do, rather than
+# laying a task that will fail silently at every logon.
+# HOW PowerShell 7 is installed for the machine. A SINGLE definition (D15): the installation
+# script and the Accounts card's button run exactly the same thing.
+# `--scope machine` is the essential point: without it, winget lays the MSIX package in the
+# profile of whoever installs, and the other accounts cannot launch it.
 function Get-SharedPwshInstallArgs {
-    # --installer-type msi : SANS lui, winget choisit le paquet MSIX et tente de le
-    # « provisionner » pour tous les comptes -- operation qui echoue sur cette machine
-    # avec 0x80070005 (journal winget du 26/08 : ProvisionPackageOperation). Or c'est
-    # justement le MSI qu'on veut : lui pose pwsh.exe dans C:\Program Files\PowerShell\7,
-    # un vrai chemin que toutes les sessions peuvent lancer, sans enregistrement par
-    # compte. Le MSIX, meme provisionne, reste un paquet par utilisateur.
+    # --installer-type msi: WITHOUT it, winget chooses the MSIX package and tries to
+    # "provision" it for every account -- an operation that fails on this machine with
+    # 0x80070005 (winget's log of 26/08: ProvisionPackageOperation). And the MSI is precisely
+    # what we want: it lays pwsh.exe in C:\Program Files\PowerShell\7, a real path every
+    # session can launch, with no per-account registration. The MSIX, even provisioned,
+    # remains a per-user package.
     @('install', '--id', 'Microsoft.PowerShell', '-e', '--scope', 'machine',
       '--installer-type', 'msi',
       '--source', 'winget', '--accept-package-agreements', '--accept-source-agreements',
@@ -8790,8 +8789,8 @@ function Get-SharedPwshPath {
 }
 
 
-# Le groupe des administrateurs par son SID : le nom depend de la langue de Windows
-# (« Administrateurs » ici, « Administrators » ailleurs) -- le SID, non.
+# The administrators group by its SID: the name depends on the language of Windows
+# ("Administrateurs" here, "Administrators" elsewhere) -- the SID does not.
 function Test-LocalAccountIsAdmin {
     param([Parameter(Mandatory)][string]$Name)
     try {
@@ -8801,29 +8800,29 @@ function Test-LocalAccountIsAdmin {
     } catch { return $false }
 }
 
-# Le principal d'une tache s'ecrit « MACHINE\compte » ou « compte » selon l'outil qui
-# l'a creee. On compare le NOM DE COMPTE, sans expression reguliere : les echappements de
-# l'antislash sont un nid a fautes (une regex mal echappee a fait echouer tout l'inventaire
-# des comptes, silencieusement, sur chaque compte de la machine).
+# A task's principal is written "MACHINE\account" or "account", depending on the tool that
+# created it. We compare the ACCOUNT NAME, with no regular expression: escaping the backslash
+# is a nest of mistakes -- a badly escaped regex made the whole account inventory fail,
+# silently, on every account of the machine.
 function Test-TaskUserIs {
     param([string]$UserId, [Parameter(Mandatory)][string]$Name)
     if (-not $UserId) { return $false }
-    # [char]92 = l antislash, construit plutot qu ecrit : les couches d ecriture
-    # successives mangent les echappements (constate plusieurs fois ce jour).
+    # [char]92 is the backslash, built rather than written: the successive layers of writing
+    # eat the escapes (seen several times that day).
     $court = @(("$UserId").Split([char]92))[-1]
     return ($court -eq $Name)
 }
 
-# L'INSTALLATION EST-ELLE PARTAGEE ? Autrement dit : un autre compte de la machine
-# peut-il seulement LIRE l'application ?
+# IS THE INSTALLATION SHARED? In other words: can another account of the machine so much as
+# READ the application?
 #
-# La question n'est pas theorique : sur un poste de developpement (ou un clone du depot),
-# Vigie vit dans l'espace personnel de quelqu'un, et proposer de l'activer pour un autre
-# compte serait proposer une tache qui echouerait en silence a chaque ouverture de session
-# (releve par l'utilisateur). On regarde donc les droits REELS, on ne suppose rien.
+# The question is not theoretical: on a development workstation, or a clone of the
+# repository, Vigie lives in somebody's personal space, and offering to enable it for another
+# account would mean offering a task that fails silently at every logon (raised by the
+# owner). So the REAL rights are looked at, and nothing is assumed.
 #
-# Groupes qui, s'ils ont la lecture, rendent l'installation accessible a tous :
-#   S-1-5-32-545 Utilisateurs | S-1-1-0 Tout le monde | S-1-5-11 Utilisateurs authentifies
+# The groups whose read access makes the installation reachable by everyone:
+#   S-1-5-32-545 Users | S-1-1-0 Everyone | S-1-5-11 Authenticated Users
 function Test-InstallationPartagee {
     param([string]$Path = (Get-RepoRoot))
     $sids = @('S-1-5-32-545', 'S-1-1-0', 'S-1-5-11')
@@ -8840,13 +8839,12 @@ function Test-InstallationPartagee {
     return $false
 }
 
-# OU se trouve l'installation PARTAGEE, celle que tous les comptes peuvent lire ?
+# WHERE is the SHARED installation, the one every account can read?
 #
-# Sur un poste de developpement, Vigie tourne depuis le depot (illisible par les autres) ;
-# une copie deployee peut exister a cote. La tache de demarrage d'un compte doit pointer
-# vers CELLE-LA, sinon elle echoue en silence a chaque ouverture de session -- c'est
-# exactement le piege releve : le deploiement etait fait, mais la tache aurait vise le
-# depot personnel.
+# On a development workstation Vigie runs from the repository, which the others cannot read;
+# a deployed copy may exist beside it. An account's startup task must point at THAT ONE, or
+# it fails silently at every logon -- which is exactly the trap that was raised: the
+# deployment had been done, but the task would have aimed at the personal repository.
 <#
     WHERE THE SHARED INSTALLATION LIVES.
 
@@ -9495,22 +9493,22 @@ function Get-SharedInstallPath {
         $marqueurDeclare = Join-Path (Join-Path (Join-Path $declared 'apps') 'client') 'client.ps1'
         if (Test-Path -LiteralPath $marqueurDeclare -ErrorAction SilentlyContinue) { return $declared }
     }
-    # Program Files est lisible par tous les comptes PAR CONSTRUCTION : une installation
-    # qui s'y trouve est partagee, sans qu'on ait besoin d'interroger les ACL. On garde la
-    # lecture des droits pour les emplacements hors Program Files (choix de l'utilisateur).
-    # La version precedente s'appuyait uniquement sur Get-Acl et repondait « non partagee »
-    # depuis le serveur alors que le deploiement etait fait -- diagnostic difficile.
+    # Program Files is readable by every account BY CONSTRUCTION: an installation sitting
+    # there is shared, with no need to question the ACLs. Reading the rights is kept for
+    # locations outside Program Files, which the user chose.
+    # The previous version relied on Get-Acl alone and answered "not shared" from the server
+    # while the deployment had been done -- a hard thing to diagnose.
     $bases = @($env:ProgramFiles, ${env:ProgramFiles(x86)}) | Where-Object { $_ }
     foreach ($b in $bases) {
         foreach ($name in @((Join-Path 'Sowapps' 'Vigie'), 'Vigie')) {
             $c = Join-Path $b $name
-            # Chemin construit par Join-Path : un antislash litteral a deja ete mange par
-            # mes outils d ecriture et transforme en tabulations (constate ici meme).
+            # A path built by Join-Path: a literal backslash has already been eaten by my
+            # writing tools and turned into tabs (seen on this very file).
             $marqueur = Join-Path (Join-Path (Join-Path $c 'apps') 'client') 'client.ps1'
             if (Test-Path -LiteralPath $marqueur) { return $c }
         }
     }
-    # Installation hors Program Files : c'est l'ACL qui tranche.
+    # An installation outside Program Files: the ACL decides.
     if (Test-InstallationPartagee) { return (Get-RepoRoot) }
     return $null
 }
@@ -9543,24 +9541,24 @@ function Set-InstallPathDeclaration {
     if (-not (Test-Path -LiteralPath $key)) { New-Item -Path $key -Force | Out-Null }
     New-ItemProperty -Path $key -Name 'InstallPath' -Value $Path -PropertyType String -Force | Out-Null
 }
-# Ce qui CLOCHE, en clair, pour l'afficher. $null si tout va bien.
-# DEUX NATURES DE DEFAUT, et une seule se repare.
+# What is WRONG, in plain words, ready to be displayed. $null when all is well.
+# TWO NATURES OF FAULT, and only one of them repairs.
 #
-#   STRUCTURE : l'interpreteur, le chemin, l'activation. Ca se corrige tout de suite.
-#   HISTOIRE  : la tache n'a jamais tourne, ou son dernier lancement a echoue. Aucune
-#               reecriture n'efface ca -- seule sa prochaine execution le dira.
+#   STRUCTURE: the interpreter, the path, whether it is enabled. That is corrected at once.
+#   HISTORY  : the task never ran, or its last launch failed. No rewriting erases that --
+#              only its next run will say.
 #
-# Les confondre menait a reecrire une tache parfaitement saine, puis a reannoncer le meme
-# defaut : « reecrite, mais : <exactement ce qu'on venait de lire> » (constate le 28/08).
-# ECRIRE UNE PROPRIETE QUI N'EXISTE PEUT-ETRE PAS ENCORE.
+# Confusing the two led to rewriting a perfectly healthy task, then announcing the same
+# fault again: "rewritten, but: <exactly what we had just read>" (seen on 28/08).
+# WRITING A PROPERTY THAT MAY NOT EXIST YET.
 #
-# Un objet rendu par ConvertFrom-Json a une forme FIGEE : ses proprietes sont celles du
-# JSON, et lui en assigner une autre LEVE une erreur. Quand ce JSON est un cache ecrit par
-# une version anterieure du produit, tout code qui ajoute un champ casse silencieusement
-# -- et la valeur perimee reste affichee. C'est ce qui a fait annoncer « 1 tache hors
-# service » pour une tache saine (28/08) : le cache de la veille avait le dernier mot.
+# An object returned by ConvertFrom-Json has a FIXED shape: its properties are the JSON's,
+# and assigning another one THROWS. When that JSON is a cache written by an earlier version
+# of the product, any code adding a field breaks silently -- and the stale value stays on
+# screen. That is what announced "1 tache hors service" for a healthy task (28/08): the
+# previous day's cache had the last word.
 #
-# A utiliser des qu'on ecrit dans un objet qui PEUT venir d'un cache ou d'une API.
+# To be used whenever writing into an object that MAY come from a cache or from an API.
 function Set-ObjectProperty {
     param(
         [Parameter(Mandatory)]$Object,
@@ -9574,32 +9572,31 @@ function Set-ObjectProperty {
     $Object.$Name = $Value
 }
 
-# UN COMPTE PEUT-IL LIRE CE FICHIER ? La question n'est pas theorique : « Famille » a
-# tous les droits sur C:\EspaceRestreint et Workspaces, et AUCUN a partir de Git\. Sa
-# tache lancait donc un script qu'elle ne pouvait pas ouvrir, et PowerShell rendait 64 --
-# « impossible d'ouvrir le fichier » -- sans le moindre journal (constate le 28/08).
+# CAN AN ACCOUNT READ THIS FILE? The question is not theoretical: "Famille" has every right
+# on C:\EspaceRestreint and Workspaces, and NONE from Git\ onwards. Its task therefore
+# launched a script it could not open, and PowerShell returned 64 -- "cannot open the file"
+# -- with not one log line (seen on 28/08).
 #
-# ON NE REMONTE PAS LE CHEMIN. Windows accorde par defaut aux utilisateurs le
-# « contournement de verification transversale » : traverser un dossier ne demande aucun
-# droit dessus, seuls comptent ceux du fichier vise. Remonter chaque niveau ajoutait des
-# verdicts qui variaient selon qui posait la question -- une session elevee lisait des ACL
-# qu'une session ordinaire ne lisait pas, et les deux ne repondaient pas pareil.
+# WE DO NOT WALK UP THE PATH. Windows grants users the "bypass traverse checking" privilege
+# by default: crossing a folder requires no right on it, and only the rights of the target
+# file count. Walking up each level added verdicts that varied with who asked -- an elevated
+# session read ACLs an ordinary session could not, and the two did not answer alike.
 function Test-PathReadableByAccount {
     param(
         [Parameter(Mandatory)][string]$Path,
         [Parameter(Mandatory)][string]$Sid,
-        # Le compte appartient-il aux administrateurs ? Sans cette precision, on prendrait
-        # un droit accorde aux administrateurs pour un droit accorde a tous.
+        # Does the account belong to the administrators? Without that precision, a right
+        # granted to administrators would be taken for a right granted to everyone.
         [switch]$IsAdmin
     )
     if (-not (Test-Path -LiteralPath $Path)) { return $false }
     $acl = $null
     try { $acl = Get-Acl -LiteralPath $Path -ErrorAction Stop } catch { return $true }   # on ne conclut pas d'une ACL illisible
 
-    # Groupes qui contiennent n'importe quel compte local ORDINAIRE. « Administrateurs »
-    # n'en est pas : le compter faisait dire que Famille pouvait lire un dossier reserve a
-    # fhaza, aux administrateurs et a SYSTEM -- le garde-fou se trompait exactement comme
-    # le code qu'il devait proteger.
+    # The groups that contain any ORDINARY local account. "Administrators" is not one of
+    # them: counting it made us say Famille could read a folder reserved to fhaza, to the
+    # administrators and to SYSTEM -- the guard was wrong in exactly the same way as the code
+    # it was meant to protect.
     $universal = @('S-1-1-0', 'S-1-5-32-545', 'S-1-5-11')
     if ($IsAdmin) { $universal += 'S-1-5-32-544' }
 
@@ -9714,13 +9711,13 @@ function Get-VigieTaskStructureAilment {
         $exe = $Matches[1]
     }
     if (-not (Test-Path -LiteralPath $exe)) { return "l'interpréteur n'existe plus : $exe" }
-    # EXISTER NE SUFFIT PAS. Deux chemins sont valides a l'oeil et pourtant inutilisables :
-    #   - un paquet MSIX (C:\Program Files\WindowsApps\...) n'est lancable que par les comptes
-    #     pour lesquels il est ENREGISTRE, et son dossier reste sur le disque apres
-    #     desinscription : Test-Path repond oui, le lancement echoue ;
-    #   - un chemin dans le profil d'un compte (C:\Users\quelqu-un\...) est illisible
-    #     par les autres.
-    # C'est exactement ce qui a empeche Vigie de demarrer chez « Famille » (D79, D83).
+    # EXISTING IS NOT ENOUGH. Two paths look valid and are nonetheless unusable:
+    #   - an MSIX package (C:\Program Files\WindowsApps\...) can only be launched by the
+    #     accounts it is REGISTERED for, and its folder stays on disk after deregistration:
+    #     Test-Path answers yes, the launch fails;
+    #   - a path inside an account's profile (C:\Users\somebody\...) is unreadable by the
+    #     others.
+    # That is exactly what stopped Vigie starting for "Famille" (D79, D83).
     $profilesFolder = Join-Path $env:SystemDrive 'Users'
     $msixFolder    = Join-Path $env:ProgramFiles 'WindowsApps'
     if ($exe.StartsWith($msixFolder, [StringComparison]::OrdinalIgnoreCase)) {
@@ -9750,9 +9747,9 @@ function Get-VigieTaskStructureAilment {
         line works; it merely shows a window, and that is repaired by rewriting the task at the next installation,
         not by alarming whoever reads the card.
     #>
-    # DESACTIVEE, c'est structurel : la tache est la, bien formee, et Windows refuse de
-    # la lancer. Ca se repare d'un geste (Enable-ScheduledTask), donc ca appartient ici
-    # et pas a l'histoire.
+    # DISABLED is structural: the task is there, well formed, and Windows refuses to launch
+    # it. One gesture repairs it (Enable-ScheduledTask), so it belongs here and not to the
+    # history.
     if ("$($Task.State)" -eq 'Disabled') { return "la tâche est désactivée dans Windows" }
 
     # STUCK IN "RUNNING": structural too, and one gesture repairs it (Stop-ScheduledTask).
@@ -9761,29 +9758,29 @@ function Get-VigieTaskStructureAilment {
         return "Windows la croit en cours alors que rien ne tourne : elle ne redémarrera plus"
     }
 
-    # PAS DE VERDICT DE LISIBILITE ICI, et c'est un choix.
+    # NO READABILITY VERDICT HERE, and that is a choice.
     #
-    # Cette meme verification sert a CHOISIR le chemin d'une tache (Set-VigieAccountEnabled)
-    # et elle y fait ses preuves : elle a bien renvoye « Famille » du depot, illisible pour
-    # elle, vers l'installation partagee. Mais quand elle JUGE une tache existante, elle a
-    # declare illisible un fichier que la meme fonction, appelee depuis une session
-    # ordinaire sur le meme fichier et le meme compte, disait lisible.
+    # This same check serves to CHOOSE a task's path (Set-VigieAccountEnabled) and proves
+    # itself there: it did send "Famille" away from the repository, unreadable for
+    # it, towards the shared installation. But when it JUDGES an existing task, it declared
+    # unreadable a file that the same function, called from an ordinary session on the same
+    # file and the same account, called readable.
     #
-    # Un diagnostic qui se contredit selon l'observateur ne diagnostique rien -- et
-    # afficher « cassé » sur ce qui marche est pire que se taire (D105). Tant que cet
-    # ecart n'est pas compris, la question ne se pose qu'au moment ou l'on ecrit une
-    # tache, la ou une erreur se corrige immediatement.
+    # A diagnosis that contradicts itself depending on the observer diagnoses nothing -- and
+    # showing "broken" on something that works is worse than staying silent (D105). Until
+    # that gap is understood, the question is only asked at the moment a task is written,
+    # where a mistake is corrected at once.
 
-    # UNE TACHE QUI LANCE LE DEPOT est un defaut structurel : le dossier de travail peut
-    # etre illisible pour le compte qui demarre -- « Famille » n'a aucun droit sur
-    # C:\EspaceRestreint, VigieService non plus -- et il peut bouger ou disparaitre. La
-    # tache ne demarre alors rien, sans un mot.
+    # A TASK THAT LAUNCHES THE REPOSITORY is a structural fault: the working folder may be
+    # unreadable to the account starting -- "Famille" has no right at all on
+    # C:\EspaceRestreint, and neither has VigieService -- and it may move or disappear. The
+    # task then starts nothing, without a word.
     #
-    # Ce n'est PAS une question d'environnement declare : Vigie tourne toujours depuis
-    # l'installation partagee, developpement compris. En dev, c'est la SOURCE de ce qu'on
-    # y deploie qui change -- une branche plutot qu'une version publiee -- et cela se lit
-    # dans le numero de version. Comparer l'emplacement a la declaration signalait donc un
-    # ecart permanent qui n'avait rien a reparer (constate le 30/08).
+    # It is NOT a matter of the declared environment: Vigie always runs from the shared
+    # installation, development included. In dev it is the SOURCE of what is deployed there
+    # that changes -- a branch rather than a published version -- and that reads in the
+    # version number. Comparing the location with the declaration therefore reported a
+    # permanent gap with nothing to repair (seen on 30/08).
     if ("$($a.Arguments)" -match '-File\s+"([^"]+)"') {
         if ((Get-PathStage -Path $Matches[1]) -ne 'prod') {
             return "elle démarre depuis le dépôt de travail, pas depuis l'installation partagée"
@@ -9796,7 +9793,7 @@ function Get-VigieTaskStructureAilment {
 # What Get-VigieTaskHistoryAilment says of a task never launched: the cards tell it apart from a failed launch.
 function Get-VigieTaskNeverRunText { "la tâche n'a jamais été exécutée" }
 
-# L'etat COMPLET : la structure, puis l'histoire.
+# The COMPLETE state: the structure first, then the history.
 function Get-VigieTaskHistoryAilment {
     param([Parameter(Mandatory)]$Task)
     $a = @($Task.Actions)[0]
@@ -9806,33 +9803,33 @@ function Get-VigieTaskHistoryAilment {
     # card said "never started" of a client app in front of him. The process decides, not the state, which a
     # re-registration resets while the instance still runs.
     if (Test-VigieTaskProcessAlive -Task $Task) { return $null }
-    # UNE TACHE SAINE SUR LE PAPIER PEUT N'AVOIR JAMAIS TOURNE.
+    # A TASK HEALTHY ON PAPER MAY NEVER HAVE RUN.
     #
-    # Tout ce qui precede examine la DEFINITION : l'interpreteur existe, le script existe.
-    # Ca ne dit rien de ce qui s'est passe. « Vigie activee » s'affichait donc pour un
-    # compte ou Vigie n'avait jamais demarre une seule fois -- constate sur Famille le
-    # 28/08 : tache presente, session ouverte, aucun journal nulle part.
+    # Everything above examines the DEFINITION: the interpreter exists, the script exists.
+    # That says nothing about what happened. So "Vigie activée" was displayed for an account
+    # where Vigie had never started once -- seen on Famille on 28/08: the task present, the
+    # session open, and no log anywhere.
     $info = $null
     try { $info = $Task | Get-ScheduledTaskInfo -ErrorAction Stop } catch { }
     if ($info) {
-        # NON SIGNE, ET C'EST TOUT LE PROBLEME. Windows rend un HRESULT sur 32 bits non
-        # signes : 0x800710E0 vaut 2 147 946 720, au-dela de Int32. Le cast levait, et
-        # l'action entiere echouait sur « Cannot convert value ... to type System.Int32 »
-        # -- au moment precis ou l'on cherchait a lire pourquoi une tache avait echoue.
+        # UNSIGNED, AND THAT IS THE WHOLE PROBLEM. Windows returns an HRESULT on 32 unsigned
+        # bits: 0x800710E0 is 2 147 946 720, beyond Int32. The cast threw, and the whole
+        # action failed on "Cannot convert value ... to type System.Int32" -- at the precise
+        # moment one was trying to read why a task had failed.
         $code = [long]$info.LastTaskResult
-        # Les codes qui ne sont PAS des echecs : 0 succes ; 0x00041301 en cours ;
-        # 0x00041302 terminaison demandee ; 0x00041303 jamais lancee (traite juste apres).
+        # The codes that are NOT failures: 0 success; 0x00041301 running; 0x00041302
+        # termination requested; 0x00041303 never launched (handled just below).
         $benins = @(0, 267009, 267010, 267011)
         $jamais = (-not $info.LastRunTime) -or ($info.LastRunTime.Year -lt 2000) -or ($code -eq 267011)
         if ($jamais) { return (Get-VigieTaskNeverRunText) }
         if ($benins -notcontains $code) {
-            # UN ECHEC PLUS VIEUX QUE LE CODE INSTALLE NE CONCERNE PLUS PERSONNE.
+            # A FAILURE OLDER THAN THE INSTALLED CODE CONCERNS NOBODY ANY MORE.
             #
-            # La tache de « Famille » avait echoue a 05:55 ; le correctif a ete deploye a
-            # 08:44. Continuer a l'afficher demandait a l'utilisateur de « confirmer »
-            # l'echec d'un programme qui n'existe plus -- alors que le deploiement, lui,
-            # s'etait fait tout seul. On compare donc la date de l'echec a celle du
-            # fichier que la tache lance : si l'application a change depuis, on se tait.
+            # The "Famille" task had failed at 05:55; the fix was deployed at 08:44. Going on
+            # showing it asked the user to "confirm" the failure of a program that no longer
+            # exists -- while the deployment had happened by itself. So the failure's date is
+            # compared with that of the file the task launches: if the application has changed
+            # since, we say nothing.
             $since = $null
             if ("$($a.Arguments)" -match '-File\s+"([^"]+)"') {
                 try { $since = (Get-Item -LiteralPath $Matches[1] -ErrorAction Stop).LastWriteTime } catch { }
@@ -9852,8 +9849,8 @@ function Get-VigieTaskAilment {
     return (Get-VigieTaskHistoryAilment -Task $Task)
 }
 
-# Repare ce qui peut l'etre, et RAPPORTE ce qu'elle a fait. Silencieuse quand tout va
-# bien. Ne cree jamais une tache absente : activer un compte reste une decision.
+# Repairs what can be repaired, and REPORTS what it did. Silent when all is well. It never
+# creates a missing task: enabling an account stays a decision.
 function Repair-VigieTasks {
     param([string]$Backend = (Get-BackendRoot))
     $repairs = @()
