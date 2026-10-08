@@ -10,19 +10,18 @@
 #>
 
 <#
-    « CE CHEMIN EXISTE-T-IL ? » NE DOIT JAMAIS FAIRE TOMBER UN APPELANT.
+    "DOES THIS PATH EXIST?" MUST NEVER BRING A CALLER DOWN.
 
-    Test-Path LEVE sur un chemin dont les droits sont refuses -- le profil d'un autre
-    compte, typiquement. Sous « ErrorActionPreference = Stop », la question emporte alors
-    tout le script. Constate deux fois le 29/08 : une sonde entiere en erreur, et une
-    relance d'app clientes interrompue, dans les deux cas parce qu'on demandait si un dossier
-    existait.
+    Test-Path THROWS on a path whose rights are refused -- another account's profile,
+    typically. Under "ErrorActionPreference = Stop" the question then takes the whole script
+    with it. Seen twice on 29/08: an entire probe in error, and a restart of client apps cut
+    short, both times because something asked whether a folder existed.
 
-    Un refus d'acces N'EST PAS une reponse a la question posee : on ne sait pas si le
-    chemin existe, et « je ne sais pas » se traite comme « non » ici -- on ne peut de
-    toute facon rien en faire.
+    A refusal of access IS NOT an answer to the question asked: we do not know whether the
+    path exists, and "I do not know" is treated as "no" here -- there is nothing to be done
+    with it either way.
 
-    Regle du depot : un appel systeme qui se repete devient une fonction a nous.
+    The repository's rule: a system call that repeats becomes a function of ours.
 #>
 function Test-PathSafe {
     param([string]$Path)
@@ -32,19 +31,19 @@ function Test-PathSafe {
 
 function Get-BackendRoot { Split-Path $PSScriptRoot -Parent }
 
-# LES LIBELLES SONT DISPONIBLES PARTOUT OU common.ps1 L'EST -- c'est-a-dire dans le
-# serveur, les sondes, les actions et les travailleurs. Sans ce chargement ici, chaque
-# fichier devrait penser a charger i18n.ps1, et celui qui l'oublierait ne casserait
-# qu'a l'execution, sur la ligne qui affiche : le pire endroit pour l'apprendre.
-# console-ui.ps1 apporte le vocabulaire d'affichage ET, par ricochet, les libelles :
-# les deux fichiers sont voisins et l'un charge l'autre. Charger common.ps1 suffit donc
-# a tout avoir. Sans cela, un fichier du backend converti a Write-Ok mourait sur
-# « terme non reconnu » -- a l'execution, sur sa ligne d'affichage.
+# THE LABELS ARE AVAILABLE WHEREVER common.ps1 IS -- that is, in the server, the probes, the
+# actions and the workers. Without loading them here, every file would have to remember to
+# load i18n.ps1, and whoever forgot would only break at run time, on the line that displays:
+# the worst possible place to learn it.
+# console-ui.ps1 brings the display vocabulary AND, through it, the labels: the two files are
+# neighbours and one loads the other. Loading common.ps1 is therefore enough to have it all.
+# Without this, a back-end file converted to Write-Ok died on "term not recognised" -- at run
+# time, on its display line.
 $script:_uiLib = Join-Path (Split-Path (Split-Path (Get-BackendRoot) -Parent) -Parent) 'scripts/lib/console-ui.ps1'
 if (Test-Path -LiteralPath $script:_uiLib) { . $script:_uiLib }
 
-# Le secret de compte : sa pose, ses droits, sa relecture mefiante. Ce fichier existait
-# depuis le 28/08 sans etre charge nulle part -- du code qu'aucun test ne voyait.
+# The account secret: laying it down, its rights, reading it back suspiciously. This file had
+# existed since 28/08 without being loaded anywhere -- code no test could see.
 $script:_secretLib = Join-Path (Split-Path (Split-Path (Get-BackendRoot) -Parent) -Parent) 'scripts/lib/account-secret.ps1'
 if (Test-Path -LiteralPath $script:_secretLib) { . $script:_secretLib }
 
@@ -60,15 +59,15 @@ if (Test-Path -LiteralPath $script:_metricsLib) { . $script:_metricsLib }
 $script:_lockLib = Join-Path (Split-Path (Split-Path (Get-BackendRoot) -Parent) -Parent) 'scripts/lib/file-locks.ps1'
 if (Test-Path -LiteralPath $script:_lockLib) { . $script:_lockLib }
 
-# --- Reperes de l'arborescence ------------------------------------------------
-# Le depot contient PLUSIEURS apps (apps/backend, apps/frontend, apps/client,
-# apps/atelier) plus scripts/ et doc/. Ces reperes sont calcules ICI et nulle
-# part ailleurs : aucun script ne doit recomposer un chemin inter-apps a la main.
+# --- Landmarks of the tree ---------------------------------------------------
+# The repository holds SEVERAL apps (apps/backend, apps/frontend, apps/client,
+# apps/atelier) plus scripts/ and doc/. These landmarks are computed HERE and nowhere
+# else: no script may recompose a cross-app path by hand.
 function Get-RepoRoot { Split-Path (Split-Path (Get-BackendRoot) -Parent) -Parent }
 function Get-AppsRoot { Split-Path (Get-BackendRoot) -Parent }
-# Les noms de dossiers d'apps portent leur TECHNO : ce sont des implementations
-# remplacables (principe n.1). Ils ne sont ecrits QU'ICI ; tout le code passe par
-# Get-AppPath. Seul le bootstrap fait exception (voir la note plus bas).
+# App folder names carry their TECHNOLOGY: they are replaceable implementations
+# (principle no. 1). They are written ONLY HERE; all the code goes through Get-AppPath.
+# Only the bootstrap is an exception -- see the note further down.
 function Get-AppPath {
     param([Parameter(Mandatory)][ValidateSet('backend','frontend','client','atelier')][string]$Role)
     $folder = switch ($Role) {
@@ -80,14 +79,14 @@ function Get-AppPath {
     Join-Path (Get-AppsRoot) $folder
 }
 
-# NOTE sur le bootstrap : un script qui doit CHARGER cette bibliotheque ne peut pas
-# encore appeler Get-AppPath. Le nom du dossier backend y figure donc en clair
-# (client.ps1, scripts/*.ps1). C'est inevitable : il faut savoir ou est la bibliotheque
-# avant de pouvoir s'en servir. Ces lignes sont signalees par un commentaire.
+# A NOTE ON THE BOOTSTRAP: a script that must LOAD this library cannot call Get-AppPath
+# yet. The backend folder's name is therefore spelled out there (client.ps1,
+# scripts/*.ps1). It is unavoidable: one has to know where the library is before being
+# able to use it. Those lines are marked with a comment of their own.
 
-# --- Helpers partages (regle : une fonctionnalite = un seul code) -----------
+# --- Shared helpers (the rule: one feature, one piece of code) ---------------
 
-# Le processus courant est-il eleve (administrateur) ?
+# Is the current process elevated (administrator)?
 function Test-Elevated {
     try {
         return ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -166,13 +165,13 @@ function Start-ChildProcess {
     Start-Process @splat
 }
 
-# Execute une commande native en traitant sortie ET code de retour (regle :
-# toujours traiter erreurs/affichages/codes de retour). Renvoie un objet uniforme.
+# Runs a native command handling its output AND its exit code (the rule: errors, output and
+# exit codes are always handled). Returns one uniform object.
 function Invoke-Native {
     param([Parameter(Mandatory)][string]$File, [string[]]$Arguments = @())
-    # winget (et d'autres outils modernes) emettent de l'UTF-8 ; PowerShell decodait avec
-    # la page de code OEM (850) et chaque accent devenait « ├® » -- jusque dans les
-    # messages d'erreur montres a l'utilisateur. On force UTF-8 le temps de la capture.
+    # winget, like other modern tools, emits UTF-8; PowerShell decoded it with the OEM code
+    # page (850) and every accent became a pair of symbols -- including in the error messages
+    # shown to the user. UTF-8 is forced for the length of the capture.
     $before = [Console]::OutputEncoding
     try { [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false) } catch { }
     try {
@@ -181,22 +180,22 @@ function Invoke-Native {
     } finally {
         try { [Console]::OutputEncoding = $before } catch { }
     }
-    # winget decore sa sortie de sequences ANSI (surlignage) : illisibles une fois
-    # capturees, on les retire. [...lettre = la forme CSI standard.
+    # winget decorates its output with ANSI sequences for highlighting: unreadable once
+    # captured, so they are stripped. [...letter is the standard CSI form.
     $text = (($out | Out-String).TrimEnd()) -replace "\[[0-9;]*[A-Za-z]", ''
     [pscustomobject]@{ Ok = ($code -eq 0); ExitCode = $code; Output = $text }
 }
 
-# Fusionne des cles dans un fichier JSON d'etat (lecture-fusion-ecriture ATOMIQUE),
-# serialise par un mutex nomme derive du fichier : plusieurs ecrivains (actions,
-# workers detaches) ne s'ecrasent pas entre eux. Regle : un seul code pour ecrire
-# les fichiers de var/cache (netmeasure.json, pkgupdates.json, ...).
+# Merges keys into a JSON state file (an ATOMIC read-merge-write), serialised by a named
+# mutex derived from the file, so several writers -- actions, detached workers -- do not
+# overwrite one another. The rule: one single piece of code writes the files of var/cache
+# (netmeasure.json, pkgupdates.json, ...).
 function Update-StateJson {
     param(
         [Parameter(Mandatory)][string]$Path,
         [Parameter(Mandatory)][hashtable]$Set,
-        # Profondeur de serialisation. 8 suffit aux etats plats ; un ARBRE (analyse du
-        # disque) depasse cette limite et ConvertTo-Json tronque alors en SILENCE.
+        # Serialisation depth. 8 is enough for flat states; a TREE -- the disk analysis --
+        # goes past it, and ConvertTo-Json then truncates IN SILENCE.
         [int]$Depth = 8
     )
     $dir = Split-Path $Path -Parent
@@ -223,13 +222,13 @@ function Update-StateJson {
     }
 }
 
-# Invalide (supprime) des entrees du cache d'etat : les sondes citees seront
-# recalculees au prochain /state. Code unique (reutilise par Invoke-ActionById
-# ET les workers detaches). Best-effort, ecriture atomique.
+# Invalidates -- removes -- entries of the state cache: the probes named will be recomputed
+# at the next /state. One single piece of code, reused by Invoke-ActionById AND by the
+# detached workers. Best effort, written atomically.
 function Remove-ProbeCache {
     param([Parameter(Mandatory)][string[]]$Names, [string]$Backend = (Get-BackendRoot), [string]$VarRoot)
     $cacheFile = Get-VarPath -Backend $Backend -VarRoot $VarRoot -Kind 'cache' -File 'state-cache.json'
-    # TEST-PATHSAFE : sur le var d'un autre compte, Test-Path LEVE au lieu de dire « non ».
+    # TEST-PATHSAFE: on another account's var, Test-Path THROWS instead of saying "no".
     if (-not (Test-PathSafe $cacheFile)) { return }
     try {
         $obj = Get-Content $cacheFile -Raw | ConvertFrom-Json
@@ -237,30 +236,30 @@ function Remove-ProbeCache {
         foreach ($pp in $obj.PSObject.Properties) { $ht[$pp.Name] = $pp.Value }
         $changed = $false
         <#
-            ON RETIRE AUSSI LES ENTREES PAR COMPTE.
+            THE PER-ACCOUNT ENTRIES GO TOO.
 
-            Une action cite la SONDE (« accounts.probe.ps1 ») ; depuis que les cartes
-            personnelles ont une cle par compte, les vraies entrees s'appellent
-            « accounts.probe.ps1@fhaza », « accounts.probe.ps1@Famille »... L'invalidation ne
-            retirait donc plus rien, et la carte gardait son rendu d'avant la mise a jour.
+            An action names the PROBE ("accounts.probe.ps1"); since personal cards have one key
+            per account, the real entries are called "accounts.probe.ps1@fhaza",
+            "accounts.probe.ps1@Famille"... so the invalidation removed nothing at all, and the
+            card kept the rendering it had before the update.
         #>
         <#
-            INVALIDER N'EST PAS OUBLIER.
+            INVALIDATING IS NOT FORGETTING.
 
-            On supprimait l'entree. Depuis qu'un affichage ne recalcule plus rien, une
-            sonde sans entree n'a plus de carte du tout : apres une installation, Comptes
-            et Deploiement avaient purement DISPARU de la page. Or une carte vide, en
-            chargement, ne pose aucun probleme -- c'est ce qui avait ete convenu.
+            The entry used to be deleted. Since a display no longer computes anything, a probe
+            with no entry has no card at all: after an installation, Accounts and Deployment had
+            purely VANISHED from the page. An empty card, loading, is no trouble at all -- which
+            is what had been agreed.
 
-            On garde donc le rendu connu et on le marque A RECALCULER : la carte s'affiche,
-            avec son titre et sa place, et dit qu'elle attend sa mesure.
+            So the known rendering is kept and marked TO BE RECOMPUTED: the card shows, with its
+            title and its place, and says it is waiting for its measurement.
         #>
         foreach ($k in $Names) {
             foreach ($present in @($ht.Keys)) {
                 if ($present -eq $k -or $present -like ($k + '@*')) {
                     $entry = $ht[$present]
                     if ($entry -and $entry.module) {
-                        # « at » a l'epoque zero : perimee quel que soit le delai.
+                        # "at" at epoch zero: stale whatever the delay.
                         try { $entry.at = '0001-01-01T00:00:00.0000000Z' } catch { }
                         try { Add-Member -InputObject $entry -NotePropertyName 'pending' -NotePropertyValue $true -Force } catch { }
                         <#
@@ -297,36 +296,36 @@ function Remove-ProbeCache {
     } catch { }
 }
 
-# --- Machinerie Windows Update : LE catalogue ------------------------------------
-# Chemins, comptes et taches du verrouillage, definis UNE SEULE FOIS (D15). La sonde,
-# la lecture d'etat, la pose du verrou et l'audit y puisent tous : ces listes etaient
-# auparavant recopiees dans la sonde, dans le helper de lecture et dans un script
-# EXTERIEUR au depot -- trois copies qui ne pouvaient que diverger.
+# --- The Windows Update machinery: THE catalogue ------------------------------------
+# Paths, accounts and tasks of the locking, defined ONCE AND ONLY ONCE (D15). The probe, the
+# state reading, the laying of the lock and the audit all draw on them: these lists used to
+# be copied into the probe, into the reading helper and into a script OUTSIDE the repository
+# -- three copies that could only drift apart.
 function Get-UpdateTaskCatalog {
     [ordered]@{
-        # Strategie : NoAutoUpdate=1 coupe les mises a jour automatiques.
+        # The policy: NoAutoUpdate=1 turns automatic updates off.
         RegAu    = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU'
         RegWu    = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate'
         RegUx    = 'HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings'
-        # Comptes vises, en SID : jamais par nom, qui est traduit selon la langue de Windows.
+        # The accounts aimed at, by SID: never by name, which Windows translates per language.
         SidSystem = 'S-1-5-18'
         SidAdmins = 'S-1-5-32-544'
-        # Dossiers de taches sur DISQUE : c'est la que se pose le verrou de permissions.
+        # Task folders ON DISK: that is where the permission lock is laid.
         Dirs = @(
             "$env:windir\System32\Tasks\Microsoft\Windows\UpdateOrchestrator"
             "$env:windir\System32\Tasks\Microsoft\Windows\WindowsUpdate"
             "$env:windir\System32\Tasks\Microsoft\Windows\InstallService"
             "$env:windir\System32\Tasks\Microsoft\Windows\WaaSMedic"
         )
-        # Memes dossiers vus par le PLANIFICATEUR (lecture d'etat).
+        # The same folders as the SCHEDULER sees them (reading the state).
         TaskPaths = @(
             '\Microsoft\Windows\UpdateOrchestrator\'
             '\Microsoft\Windows\WindowsUpdate\'
             '\Microsoft\Windows\InstallService\'
             '\Microsoft\Windows\WaaSMedic\'
         )
-        # Les SEULES taches que Windows laisse desactiver. Les autres sont protegees :
-        # tenter de les basculer echoue, c'est normal et ce n'est pas une panne.
+        # The ONLY tasks Windows lets one disable. The others are protected: trying to switch
+        # them fails, which is normal and is not a breakdown.
         Managed = @(
             [pscustomobject]@{ Path = '\Microsoft\Windows\WindowsUpdate\';  Name = 'Scheduled Start' }
             [pscustomobject]@{ Path = '\Microsoft\Windows\InstallService\'; Name = 'RestoreDevice' }
@@ -334,25 +333,25 @@ function Get-UpdateTaskCatalog {
             [pscustomobject]@{ Path = '\Microsoft\Windows\InstallService\'; Name = 'ScanForUpdatesAsUser' }
             [pscustomobject]@{ Path = '\Microsoft\Windows\InstallService\'; Name = 'SmartRetry' }
         )
-        # Services de la machinerie de MAJ (WaaSMedicSvc est le « reparateur » qui defait
-        # les reglages : son etat explique bien des retours en arriere inexpliques).
+        # Services of the update machinery (WaaSMedicSvc is the "repairer" that undoes the
+        # settings: its state explains a good many unexplained reversals).
         Services = @('wuauserv','UsoSvc','WaaSMedicSvc','BITS','DoSvc','InstallService')
     }
 }
 
-# Le verrou ACL (refus d'ecriture a SYSTEM) est-il pose sur le dossier de taches ?
-# Comparaison par SID (S-1-5-18), independante de la langue et de la traduction du compte.
+# Is the ACL lock -- writing refused to SYSTEM -- laid on the task folder?
+# Compared by SID (S-1-5-18), independent of the language and of the account's translation.
 function Test-UpdateTasksAclLock {
     param([string]$Path = (Get-UpdateTaskCatalog).Dirs[0])
     if (-not (Test-Path -LiteralPath $Path)) { return $false }
-    # icacls est la source autoritaire (c'est aussi ce que pose update-mode.ps1). Le seul
-    # refus applique est celui de SYSTEM : une entree (DENY) => verrou pose. "(DENY)" n'est
-    # PAS localise par icacls -> test fiable quelle que soit la langue de Windows.
+    # icacls is the authoritative source (it is also what update-mode.ps1 lays down). The only
+    # refusal applied is SYSTEM's: one (DENY) entry means the lock is on. "(DENY)" is NOT
+    # localised by icacls, so the test holds whatever the language of Windows.
     try {
         $r = Invoke-Native -File 'icacls.exe' -Arguments @($Path)
         if ($r.Output -match '\(DENY\)') { return $true }
     } catch { }
-    # Repli .NET (par SID) si icacls indisponible.
+    # A .NET fallback, by SID, when icacls is unavailable.
     try {
         $acl = Get-Acl -LiteralPath $Path -ErrorAction Stop
         $sysSid = New-Object System.Security.Principal.SecurityIdentifier(
@@ -365,13 +364,13 @@ function Test-UpdateTasksAclLock {
     return $false
 }
 
-# Etat REEL et complet du verrouillage Windows Update. LECTURE SEULE.
+# The REAL and complete state of the Windows Update locking. READ ONLY.
 #
-# C'est la seule lecture d'etat du sujet : la sonde l'affiche, les actions s'en servent
-# pour dire ce qui a ete OBSERVE apres avoir agi (D43), l'audit la reprend telle quelle.
+# It is the single state reading of this subject: the probe displays it, the actions use it to
+# say what was OBSERVED after acting (D43), and the audit takes it as it stands.
 #
-# `locked` = verrou COMPLET : mises a jour automatiques coupees ET verrou de permissions
-# pose. Les deux moities repondent a des questions differentes et ne se confondent pas.
+# `locked` means the lock is COMPLETE: automatic updates off AND the permission lock laid.
+# The two halves answer different questions and are never conflated.
 <#
     THE TASKS OF ONE FOLDER, IN FORTY MILLISECONDS INSTEAD OF SIX SECONDS AND A HALF.
 
@@ -428,10 +427,10 @@ function Get-UpdateLockState {
     try { $noAuto = (Get-ItemProperty -Path $cat.RegAu -Name NoAutoUpdate -ErrorAction SilentlyContinue).NoAutoUpdate } catch { }
     $tasks = @()
     foreach ($p in $cat.TaskPaths) {
-        # -ErrorAction Ignore et non SilentlyContinue : un dossier vide ou dont l'acces est
-        # refuse (c'est precisement l'effet du verrou) fait lever une erreur que
-        # SilentlyContinue masque a l'ecran mais empile quand meme dans $Error. L'absence
-        # est ici une information attendue, rapportee plus bas, pas un incident a collecter.
+        # -ErrorAction Ignore rather than SilentlyContinue: a folder that is empty or whose
+        # access is refused -- which is precisely what the lock does -- raises an error that
+        # SilentlyContinue hides on screen while still stacking it in $Error. Absence here is
+        # expected information, reported further down, not an incident to collect.
         $tasks += @(Get-TasksInFolder -Path $p)
     }
     $acl = Test-UpdateTasksAclLock
@@ -448,12 +447,12 @@ function Get-UpdateLockState {
     }
 }
 
-# Ecriture NATIVE du verrou : ni script externe, ni dependance hors depot.
-# Interne -- l'unique porte d'entree reste Set-UpdateLock, qui constate le resultat.
+# NATIVE writing of the lock: no external script, no dependency outside the repository.
+# Internal -- the only entry point stays Set-UpdateLock, which observes the result.
 #
-# Idempotence : chaque geste est deja ecrit pour supporter d'etre rejoue. Poser un refus
-# deja pose, desactiver une tache deja desactivee ou reecrire NoAutoUpdate a la meme
-# valeur ne change rien et ne doit RIEN signaler d'anormal.
+# Idempotence: every gesture is already written to withstand being replayed. Laying a refusal
+# already laid, disabling a task already disabled or writing NoAutoUpdate to the same value
+# changes nothing and must report NOTHING abnormal.
 function Invoke-UpdateLockNative {
     param(
         [Parameter(Mandatory)][ValidateSet('pose','leve')][string]$State,
@@ -465,10 +464,10 @@ function Invoke-UpdateLockNative {
     $trace = New-Object System.Collections.Generic.List[string]
     $noter = { param($m) $trace.Add([string]$m) }
 
-    # 1) Strategie : couper ou rendre les mises a jour automatiques.
-    # La cle de strategie n'existe PAS sur une machine neuve : l'ecriture y echouait
-    # silencieusement. On la cree -- c'est ce qui fait la difference entre « ca marche
-    # chez moi » et « ca marche sur une installation propre ».
+    # 1) The policy: turn automatic updates off, or give them back.
+    # The policy key does NOT exist on a fresh machine, and writing to it failed silently.
+    # It is created -- that is the difference between "it works on my machine" and "it works
+    # on a clean installation".
     $value = if ($State -eq 'pose') { 1 } else { 0 }
     try {
         if (-not (Test-Path -LiteralPath $cat.RegAu)) { New-Item -Path $cat.RegAu -Force -ErrorAction Stop | Out-Null }
@@ -478,9 +477,9 @@ function Invoke-UpdateLockNative {
         & $noter "NoAutoUpdate : ECHEC -- $($_.Exception.Message)"
     }
 
-    # 2) Rendre les dossiers ecrivables AVANT toute autre chose. Meme pour poser le
-    # verrou : on ne peut pas desactiver une tache dans un dossier dont l'acces est
-    # refuse. Retirer un refus absent est sans effet -- donc rejouable.
+    # 2) Make the folders writable BEFORE anything else, even to LAY the lock: one cannot
+    # disable a task inside a folder whose access is refused. Removing a refusal that is not
+    # there has no effect, so this replays.
     foreach ($d in $cat.Dirs) {
         if (-not (Test-Path -LiteralPath $d)) { continue }
         $r1 = Invoke-Native -File 'icacls.exe' -Arguments @($d, '/remove:d', $sys, '/t', '/c', '/q')
@@ -488,23 +487,23 @@ function Invoke-UpdateLockNative {
         & $noter ("deverrouillage " + (Split-Path $d -Leaf) + " : remove:d=" + $r1.ExitCode + " grant=" + $r2.ExitCode)
     }
 
-    # 3) Taches gerees : desactiver (pose) ou reactiver (levee). Les autres taches du
-    # dossier sont protegees par Windows et ne se basculent pas -- ce n'est pas un echec.
+    # 3) Managed tasks: disabled when laying, re-enabled when lifting. The folder's other
+    # tasks are protected by Windows and do not switch -- that is not a failure.
     foreach ($m in $cat.Managed) {
         try {
             if ($State -eq 'pose') { Disable-ScheduledTask -TaskName $m.Name -TaskPath $m.Path -ErrorAction Stop | Out-Null }
             else                  { Enable-ScheduledTask  -TaskName $m.Name -TaskPath $m.Path -ErrorAction Stop | Out-Null }
             & $noter ("tache " + $m.Name + " -> " + $(if ($State -eq 'pose') { 'desactivee' } else { 'activee' }))
         } catch {
-            # Tache absente selon l'edition de Windows, ou protegee : on le note, on continue.
+            # Task absent in this edition of Windows, or protected: noted, and we carry on.
             & $noter ("tache " + $m.Name + " : ignoree -- " + $_.Exception.Message)
         }
     }
 
     if ($State -eq 'pose') {
-        # 4) Verrou de permissions : prendre la main sur les dossiers, garder l'acces aux
-        # administrateurs, puis REFUSER a SYSTEM la creation et la modification. C'est ce
-        # refus qui empeche Windows de recreer ses taches et de forcer un redemarrage.
+        # 4) The permission lock: take ownership of the folders, keep access for the
+        # administrators, then REFUSE creation and modification to SYSTEM. It is that refusal
+        # which stops Windows recreating its tasks and forcing a restart.
         foreach ($d in $cat.Dirs) {
             if (-not (Test-Path -LiteralPath $d)) { continue }
             $name = Split-Path $d -Leaf
@@ -515,8 +514,8 @@ function Invoke-UpdateLockNative {
             if (-not $rd.Ok) { & $noter ("  detail deny $name : " + (($rd.Output -split "`r?`n" | Select-Object -Last 3) -join ' | ')) }
         }
     } else {
-        # 4bis) Levee : prevenir Windows que la strategie a change, sinon l'interface de
-        # Windows Update continue d'afficher l'ancien reglage jusqu'a son propre cycle.
+        # 4b) Lifting: tell Windows the policy has changed, or the Windows Update interface
+        # goes on showing the old setting until its own cycle comes round.
         $uso = Join-Path $env:windir 'System32\UsoClient.exe'
         if (Test-Path -LiteralPath $uso) {
             $ru = Invoke-Native -File $uso -Arguments @('RefreshSettings')
@@ -526,24 +525,24 @@ function Invoke-UpdateLockNative {
     return @($trace)
 }
 
-# Pose ou leve le verrou des mises a jour. UNIQUE porte d'entree en ECRITURE (D15) :
-# les actions update-mode-on / update-mode-off, l'installation et l'analyse des MAJ
-# passent toutes par ici. Sans cela, chaque appelant recopierait la manoeuvre.
+# Lays or lifts the update lock. The ONLY entry point for WRITING (D15): the update-mode-on
+# and update-mode-off actions, the installation and the update scan all come through here.
+# Without it, every caller would copy the manoeuvre.
 #
-# Implementation NATIVE : le verrouillage est une capacite du produit, pas un service
-# rendu par un script exterieur au depot. Un outillage `ToolsPath` fourni et portant
-# `update-mode.ps1` reste PREFERE quand il existe (installations historiques), mais son
-# absence n'empeche plus rien.
+# A NATIVE implementation: locking is a capability of the product, not a service rendered by
+# a script outside the repository. A supplied `ToolsPath` carrying `update-mode.ps1` is still
+# PREFERRED where it exists, for historical installations, but its absence no longer stops
+# anything.
 #
-# Renvoie $true si l'etat demande est REELLEMENT obtenu, relu APRES coup et jamais deduit
-# du fait qu'aucune commande n'a leve d'erreur (D43).
+# Returns $true when the state asked for is REALLY obtained, read back AFTERWARDS and never
+# inferred from the fact that no command raised an error (D43).
 function Set-UpdateLock {
     param(
         [Parameter(Mandatory)][ValidateSet('pose','leve')][string]$State,
         [string]$Backend = (Get-BackendRoot)
     )
-    # Sans elevation, icacls et takeown echouent en silence et on croirait avoir verrouille.
-    # On refuse AVANT d'agir : l'appelant a un etat faux a annoncer, pas une demi-mesure.
+    # Without elevation, icacls and takeown fail silently and one would believe the lock laid.
+    # We refuse BEFORE acting: the caller has a false state to announce, not a half measure.
     if (-not (Test-Elevated)) {
         try { Write-Log -Backend $Backend -Name 'updatelock' -Level 'WARN' -Message (Get-Label 'common.refuse-le-serveur-est' $State) } catch { }
         return $false
@@ -565,7 +564,7 @@ function Set-UpdateLock {
     } catch {
         try { Write-Log -Backend $Backend -Name 'updatelock' -Level 'ERROR' -Message "$State ($route) : $($_.Exception.Message)" } catch { }
     }
-    # CONSTAT : on relit l'etat reel, c'est lui qui fait foi.
+    # THE OBSERVATION: the real state is read back, and it is what counts.
     $actualState = Get-UpdateLockState
     $obtenu = if ($State -eq 'pose') { $actualState.aclLock } else { -not $actualState.aclLock }
     try {
@@ -575,14 +574,14 @@ function Set-UpdateLock {
     return [bool]$obtenu
 }
 
-# --- Securite de la virtualisation (VBS / HVCI) ---------------------------------
-# LE catalogue du sujet, defini une seule fois (D15) : cles de registre, noms de valeurs
-# et libelles. La sonde, la lecture d'etat et la bascule y puisent tous.
+# --- Virtualisation security (VBS / HVCI) ---------------------------------------
+# THE catalogue of this subject, defined once (D15): registry keys, value names and labels.
+# The probe, the state reading and the switch all draw on them.
 #
-# Ce qui distingue ce sujet du verrou Windows Update : une valeur ecrite ici ne prend
-# effet qu'au REDEMARRAGE. Il y a donc DEUX etats a ne jamais confondre --
-#   `configured` : ce que demande le registre (ce qu'on ecrit, verifiable tout de suite) ;
-#   `running`    : ce que Windows execute reellement (ne bougera qu'apres un redemarrage).
+# What sets this subject apart from the Windows Update lock: a value written here only takes
+# effect at the next RESTART. So there are TWO states never to be confused --
+#   `configured`: what the registry asks for (what is written, verifiable at once);
+#   `running`   : what Windows actually runs (it will not move before a restart).
 function Get-DeviceGuardCatalog {
     $rootPath = 'HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard'
     [ordered]@{
@@ -601,24 +600,24 @@ function Get-DeviceGuardCatalog {
     }
 }
 
-# Marqueur des bascules DEMANDEES et pas encore effectives (var/cache). Il sert a deux
-# choses : savoir quoi afficher (« demandé, effectif au redémarrage ») et sur quelle
-# valeur basculer quand on reclique avant d'avoir redemarre.
+# The marker of switches ASKED FOR and not yet effective (var/cache). It serves two purposes:
+# knowing what to display ("demandé, effectif au redémarrage") and knowing which value to
+# switch to when one clicks again before having restarted.
 function Get-DeviceGuardMarkerPath {
     param([string]$Backend = (Get-BackendRoot))
     Get-VarPath -Backend $Backend -Kind 'cache' -File 'deviceguard.json'
 }
 
-# Etat REEL et complet de VBS / HVCI. LECTURE SEULE.
+# The REAL and complete state of VBS / HVCI. READ ONLY.
 #
-# Pour chaque fonction :
-#   configured : valeur du registre (0/1), $null si la valeur n'existe pas
-#   running    : ce que Windows execute maintenant (Win32_DeviceGuard)
-#   requested  : ce que Vigie a demande et qui attend un redemarrage ($null sinon)
-#   pending    : une demande de Vigie n'est pas encore effective
-#   effective  : l'etat a AFFICHER et celui sur lequel une bascule s'appuie -- la demande
-#                en attente si elle existe, sinon ce qui tourne. Basculer depuis `running`
-#                alors qu'une demande attend ferait revenir en arriere sans le dire.
+# For each feature:
+#   configured : the registry value (0/1), $null when the value does not exist
+#   running    : what Windows runs right now (Win32_DeviceGuard)
+#   requested  : what Vigie asked for and which is waiting for a restart ($null otherwise)
+#   pending    : a request of Vigie's is not yet effective
+#   effective  : the state to DISPLAY and the one a switch works from -- the pending request
+#                if there is one, otherwise what is running. Switching from `running` while a
+#                request waits would go backwards without saying so.
 function Get-DeviceGuardState {
     param([string]$Backend = (Get-BackendRoot))
     $cat = Get-DeviceGuardCatalog
@@ -646,8 +645,8 @@ function Get-DeviceGuardState {
         } catch { }
         $dem = $null
         try { if ($marque[$id] -and $null -ne $marque[$id].requested) { $dem = [int]$marque[$id].requested } } catch { }
-        # Une demande qui correspond deja a ce qui tourne n'est plus en attente : le
-        # marqueur se perime tout seul au redemarrage, sans delai arbitraire a regler.
+        # A request that already matches what is running is no longer pending: the marker
+        # goes stale on its own at the restart, with no arbitrary delay to tune.
         $pending = ($null -ne $dem -and [bool]$dem -ne $running[$id])
         $State[$id] = [ordered]@{
             label      = $f.Label
@@ -663,27 +662,27 @@ function Get-DeviceGuardState {
     $State
 }
 
-# Sauvegarde de la cle DeviceGuard AVANT toute ecriture, dans var/log.
-# Un reglage de demarrage se defait mal a la main : on garde de quoi revenir en arriere.
+# Backs up the DeviceGuard key BEFORE any writing, into var/log.
+# A startup setting is hard to undo by hand: we keep what it takes to go back.
 function Backup-DeviceGuardKey {
     param([string]$Backend = (Get-BackendRoot))
     $cat = Get-DeviceGuardCatalog
     $f = Join-Path (Get-LogDir -Backend $Backend) ('deviceguard_' + (Get-Date -Format 'yyyyMMdd_HHmmss') + '.reg')
     try {
         $r = Invoke-Native -File 'reg.exe' -Arguments @('export', $cat.RootReg, $f, '/y')
-        # D43 : la sauvegarde existe quand le FICHIER est la, pas quand l'appel est passe.
+        # D43: the backup exists when the FILE is there, not when the call has returned.
         if ((Test-Path -LiteralPath $f) -and $r.Ok) { return $f }
     } catch { }
     return $null
 }
 
-# Ecrit la valeur d'UNE fonction. UNIQUE porte d'entree en ECRITURE (D15).
+# Writes the value of ONE feature. The ONLY entry point for WRITING (D15).
 #
-# Renvoie un objet (et non un booleen comme Set-UpdateLock) parce qu'il n'y a rien a
-# preserver ici : aucun appelant existant, et « ecrit » ne suffit pas a raconter ce qui
-# s'est passe -- il faut distinguer « deja a cette valeur », « ecrit, attend le
-# redemarrage » et « ecrit mais toujours actif » (valeur imposee par l'UEFI ou une
-# strategie). Le resultat est RELU dans le registre, jamais suppose (D43).
+# It returns an object, where Set-UpdateLock returns a boolean, because there is nothing to
+# preserve here: no existing caller, and "written" does not tell the story -- one has to tell
+# "already at that value", "written, waiting for the restart" and "written but still running"
+# apart, the last being a value imposed by the UEFI or by a policy. The result is READ BACK
+# from the registry, never assumed (D43).
 function Set-DeviceGuardFeature {
     param(
         [Parameter(Mandatory)][ValidateSet('vbs','hvci')][string]$Feature,
@@ -699,11 +698,11 @@ function Set-DeviceGuardFeature {
     $before = Get-DeviceGuardState -Backend $Backend
     $sauvegarde = Backup-DeviceGuardKey -Backend $Backend
 
-    # Les valeurs a poser. HVCI ne peut PAS tourner sans VBS : desactiver VBS en laissant
-    # l'integrite memoire demandee laisse une configuration incoherente, que Windows
-    # resout parfois en rallumant VBS. On coupe donc les deux -- et on le DIT.
-    # L'inverse n'est pas vrai : activer VBS n'active pas l'integrite memoire dans le dos
-    # de l'utilisateur, c'est une decision distincte avec ses propres contreparties.
+    # The values to lay down. HVCI CANNOT run without VBS: disabling VBS while leaving memory
+    # integrity asked for leaves an inconsistent configuration, which Windows sometimes
+    # resolves by switching VBS back on. So both are turned off -- and it is SAID.
+    # The converse is not true: enabling VBS does not enable memory integrity behind the
+    # user's back; that is a separate decision with its own trade-offs.
     $toWrite = @( [pscustomobject]@{ Id = $Feature; Valeur = $targetValue } )
     $hvciCoupeAussi = $false
     if ($Feature -eq 'vbs' -and $targetValue -eq 0) {
@@ -715,8 +714,8 @@ function Set-DeviceGuardFeature {
     foreach ($e in $toWrite) {
         $f = $cat.Features[$e.Id]
         try {
-            # Idempotent : New-Item -Force sur une cle existante ne l'efface pas, et
-            # reecrire la meme valeur est sans effet. Rejouer la bascule ne casse rien.
+            # Idempotent: New-Item -Force on an existing key does not erase it, and writing
+            # the same value again has no effect. Replaying the switch breaks nothing.
             if (-not (Test-Path -LiteralPath $f.Key)) { New-Item -Path $f.Key -Force -ErrorAction Stop | Out-Null }
             New-ItemProperty -Path $f.Key -Name $f.Name -Value $e.Valeur -PropertyType DWord -Force -ErrorAction Stop | Out-Null
         } catch {
@@ -724,17 +723,17 @@ function Set-DeviceGuardFeature {
         }
     }
 
-    # Marqueur : ce que Vigie a demande. Il sert a proposer le redemarrage et a savoir sur
-    # quelle valeur rebasculer si l'utilisateur reclique avant d'avoir redemarre.
+    # The marker: what Vigie asked for. It is used to offer the restart, and to know which
+    # value to switch back to if the user clicks again before restarting.
     try {
         $set = @{}
         foreach ($e in $toWrite) { $set[$e.Id] = @{ requested = $e.Valeur; at = (Get-Date).ToUniversalTime().ToString('o') } }
         Update-StateJson -Path (Get-DeviceGuardMarkerPath -Backend $Backend) -Set $set | Out-Null
     } catch { }
 
-    # CONSTAT : on relit le REGISTRE, seul etat qui puisse avoir change maintenant.
-    # Relire `running` pour juger serait un faux echec garanti -- il ne bougera qu'au
-    # redemarrage. C'est la difference a ne pas rater avec le verrou Windows Update.
+    # THE OBSERVATION: the REGISTRY is read back, the only state that can have changed now.
+    # Reading `running` to judge would be a guaranteed false failure -- it will not move
+    # before the restart. That is the difference not to miss with the Windows Update lock.
     $after = Get-DeviceGuardState -Backend $Backend
     $ecrit = ($after[$Feature].configured -eq $targetValue)
     try {
@@ -756,12 +755,12 @@ function Set-DeviceGuardFeature {
     }
 }
 
-# Bascule d'UNE fonction, du point de vue de l'utilisateur : on inverse ce que la carte
-# AFFICHE (`effective`), pas ce qui tourne. Recliquer avant d'avoir redemarre revient
-# donc bien a l'etat de depart, au lieu de reecrire deux fois la meme valeur.
+# Switches ONE feature, from the user's point of view: what the card DISPLAYS (`effective`)
+# is inverted, not what is running. Clicking again before restarting therefore returns to the
+# starting state, instead of writing the same value twice.
 #
-# Renvoie directement @{ message; result } : les deux actions ne different que par le nom
-# de la fonction, il n'y a aucune raison d'ecrire ce compte rendu deux fois (D15).
+# It returns @{ message; result } directly: the two actions differ only by the feature's
+# name, and there is no reason to write that report twice (D15).
 function Invoke-DeviceGuardToggle {
     param(
         [Parameter(Mandatory)][ValidateSet('vbs','hvci')][string]$Feature,
@@ -794,7 +793,7 @@ function Invoke-DeviceGuardToggle {
     $garde = if ($r.backup) { " Sauvegarde du registre : $($r.backup)." } else { " Attention : la sauvegarde du registre n'a pas pu être écrite." }
 
     if (-not $r.rebootNeeded) {
-        # Valeur ecrite ET deja conforme a ce qui tourne : rien a attendre.
+        # Value written AND already matching what runs: nothing to wait for.
         return @{
             message = "$name déjà $verbe : la configuration et l'état actif concordent, aucun redémarrage nécessaire.$bonus"
             result  = @{ ok = $true; invalidate = $inv }
@@ -807,11 +806,11 @@ function Invoke-DeviceGuardToggle {
     }
 }
 
-# Un redemarrage differe est-il en cours (et donc encore annulable) ?
-# Borne dans le TEMPS : un compte a rebours expire n'est plus annulable -- soit la machine
-# a redemarre, soit il a ete annule ailleurs. Le drapeau seul resterait vrai pour toujours.
-# Partage par les cartes qui proposent un redemarrage (Windows Update, virtualisation) :
-# ce calcul vivait dans une seule sonde et allait etre recopie dans une seconde (D15).
+# Is a deferred restart under way, and therefore still cancellable?
+# Bounded in TIME: an expired countdown is no longer cancellable -- either the machine has
+# restarted, or it was cancelled elsewhere. The flag alone would stay true for ever.
+# Shared by the cards that offer a restart (Windows Update, virtualisation): this
+# computation lived in one probe and was about to be copied into a second (D15).
 function Test-RestartCountdown {
     param([string]$Backend = (Get-BackendRoot))
     $f = Get-VarPath -Backend $Backend -Kind 'cache' -File 'restart.json'
@@ -825,14 +824,14 @@ function Test-RestartCountdown {
     } catch { return $false }
 }
 
-# Audit complet de la machinerie Windows Update. LECTURE SEULE, ne modifie rien.
+# A complete audit of the Windows Update machinery. READ ONLY, it changes nothing.
 #
-# Reimplemente dans le depot : l'audit servait a comprendre pourquoi un verrouillage ne
-# tient pas (service reparateur, strategie ecrasee, tache recreee). Une fonction de
-# diagnostic qui exige un outillage absent ne sert justement plus quand on en a besoin.
+# Reimplemented inside the repository: the audit served to understand why a lock does not
+# hold -- a repairing service, a policy overwritten, a task recreated. A diagnostic function
+# that requires an absent toolkit is precisely no use when one needs it.
 #
-# Le rapport va dans var/log/ (convention du projet : tout ce que l'app genere vit sous
-# var/), en texte pour etre lu et en JSON pour etre repris.
+# The report goes to var/log/ (the project's convention: everything the app generates lives
+# under var/), in text to be read and in JSON to be reused.
 #
 # ITS LINES ARE SHOWN IN THE PANEL (S04, 30/09): the action hands them back and the page lays them out preformatted.
 # They are therefore INTERFACE, and carry their accents -- the report used to be written for a file, read by nobody.
@@ -868,18 +867,18 @@ function Invoke-UpdateAudit {
         $rap.edition = @{ product = "$($cv.ProductName)"; editionId = "$($cv.EditionID)"; build = "$($cv.CurrentBuild).$($cv.UBR)" }
     } catch { & $L "   (illisible)" }
 
-    # Les strategies expliquent la plupart des « le verrou n'a pas tenu » : une valeur
-    # ecrite ailleurs (GPO, autre outil) ecrase la notre sans rien dire.
+    # Policies explain most of the "the lock did not hold": a value written elsewhere, by a
+    # GPO or another tool, overwrites ours without a word.
     $vider = {
         param($exePath, $title)
         & $Sec $title
         $o = [ordered]@{}
         if (-not (Test-Path -LiteralPath $exePath)) { & $L '   (absente)'; return $o }
         $p = Get-ItemProperty -LiteralPath $exePath -ErrorAction SilentlyContinue
-        # Une cle qui EXISTE peut rendre $null (aucune valeur, ou lecture refusee sans
-        # elevation). Or $null.PSObject.Properties.Name rend un element $null, qui passe le
-        # filtre et sert ensuite d'index -- constate : « the array index evaluated to null ».
-        # On ecarte donc explicitement le vide, plutot que de supposer une liste de noms.
+        # A key that EXISTS can return $null -- no value at all, or a reading refused without
+        # elevation. And $null.PSObject.Properties.Name returns one $null element, which gets
+        # through the filter and is then used as an index: seen as "the array index evaluated
+        # to null". So emptiness is ruled out explicitly, rather than a list of names assumed.
         if ($null -eq $p) { & $L '   (illisible ou vide)'; return $o }
         $names = @($p.PSObject.Properties.Name | Where-Object { $_ -and ("$_" -notlike 'PS*') })
         foreach ($n in $names) { & $L ("   {0,-40} = {1}" -f $n, $p.$n); $o[$n] = $p.$n }
@@ -921,8 +920,8 @@ function Invoke-UpdateAudit {
         & $L ("   {0,-16} statut={1,-10} démarrage={2}" -f $n, $s.Status, $dem)
         $svc += @{ name = $n; status = "$($s.Status)"; start = $dem }
     }
-    # WaaSMedicSvc remet volontiers la machinerie en marche : son mode de demarrage lu
-    # dans le registre est plus fiable que celui rapporte par le gestionnaire de services.
+    # WaaSMedicSvc happily puts the machinery back to work: its start mode read from the
+    # registry is more reliable than the one the service manager reports.
     try {
         $wm = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Services\WaaSMedicSvc' -Name Start -ErrorAction SilentlyContinue).Start
         if ($null -ne $wm) { & $L ("   WaaSMedicSvc Start (registre) = " + $wm + "  (2=automatique, 3=manuel, 4=désactivé)"); $rap.waasMedicStart = $wm }
@@ -948,7 +947,7 @@ function Invoke-UpdateAudit {
     try {
         ($lines -join "`r`n") | Out-File -FilePath $txt  -Encoding UTF8
         ($rap | ConvertTo-Json -Depth 8) | Out-File -FilePath $json -Encoding UTF8
-        # D43 : le rapport est « ecrit » quand le fichier EXISTE, pas quand l'appel est passe.
+        # D43: the report is "written" when the FILE EXISTS, not when the call has returned.
         $ecrit = (Test-Path -LiteralPath $txt) -and (Test-Path -LiteralPath $json)
     } catch {
         try { Write-Log -Backend $Backend -Name 'updateaudit' -Level 'ERROR' -Message $_.Exception.Message } catch { }
@@ -956,11 +955,11 @@ function Invoke-UpdateAudit {
     return @{ ok = $ecrit; txt = $txt; json = $json; elevated = $State.elevated; state = $State; lines = @($lines) }
 }
 
-# --- Taches de fond (regle : une action lente ne bloque jamais la requete) ---
-# Lance un script worker dans un pwsh DETACHE, fenetre cachee (aucune console
-# visible, pas de restauration d'onglets Terminal). L'executable pwsh est celui
-# du processus courant (generique : aucun chemin d'installation code en dur).
-# Les parametres sont passes en JSON base64 (robuste au quoting). Renvoie le PID.
+# --- Background tasks (the rule: a slow action never blocks the request) ----
+# Starts a worker script in a DETACHED pwsh, window hidden -- no console appears and no
+# Terminal tab is restored. The pwsh executable is the current process's own, so no
+# installation path is hard-coded anywhere. Parameters travel as base64 JSON, which is
+# robust to quoting. Returns the process id.
 # RESERVED FOR THE INTERNAL RECOMPUTE OF A STALE PROBE, whose place in the protocol is not settled (S14). An
 # action never calls it: an asynchronous operation goes through Start-Operation, and check-operations refuses the rest.
 function Start-DetachedAction {
@@ -1009,8 +1008,8 @@ function Start-DetachedAction {
     $b64  = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($json))
     $psi = [System.Diagnostics.ProcessStartInfo]::new()
     $psi.FileName = $exe
-    # NB : pas d'argument -WindowStyle (non implemente hors Windows). L'absence de
-    # fenetre est garantie par CreateNoWindow + UseShellExecute=$false ci-dessous.
+    # NB: no -WindowStyle argument -- it is not implemented outside Windows. The absence of a
+    # window is guaranteed by CreateNoWindow + UseShellExecute=$false below.
     # ArgumentList, NOT Arguments: .NET quotes each value itself, while a command line built
     # by hand carries the trap a path ending with a backslash sets (D116).
     foreach ($piece in @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
@@ -1034,19 +1033,19 @@ function Start-DetachedAction {
     return $p.Id
 }
 
-# --- Gestionnaires de paquets (source unique : sonde, verif MAJ ET upgrade) --
-# Un seul catalogue : id, libelle, args version, args/mode de MAJ, args upgrade.
-# upgArgs vide = pas de mise a jour automatique proposee pour ce gestionnaire.
+# --- Package managers (one source for the probe, the update check AND the upgrade) --
+# One catalogue: id, label, version arguments, update arguments and mode, upgrade arguments.
+# An empty upgArgs means no automatic update is offered for that manager.
 #
-# upgOne = args pour mettre a jour UN SEUL paquet, `{pkg}` etant remplace par son
-# identifiant. C'est ce qui rend le CHOIX possible : sans upgOne, le gestionnaire ne sait
-# que « tout mettre a jour » et l'interface le dit au lieu de laisser croire au contraire.
+# upgOne holds the arguments to update ONE package, `{pkg}` being replaced by its
+# identifier. That is what makes CHOICE possible: without upgOne a manager only knows how to
+# "update everything", and the interface says so rather than suggesting otherwise.
 #
-# gui* = interface graphique du gestionnaire, quand elle existe ET qu'elle est installee.
-#   guiKind 'uri' -> protocole verifie dans HKEY_CLASSES_ROOT (le Store n'est pas un .exe)
-#   guiKind 'exe' -> executable cherche dans le PATH puis dans guiPaths
-# Un bouton qui ouvre un logiciel absent est pire que pas de bouton : la presence est
-# verifiee a chaque passage de la sonde, jamais supposee.
+# gui* describes the manager's graphical interface, when it exists AND is installed.
+#   guiKind 'uri' -> a protocol checked in HKEY_CLASSES_ROOT (the Store is not an .exe)
+#   guiKind 'exe' -> an executable looked for in the PATH, then in guiPaths
+# A button that opens an absent program is worse than no button: presence is checked at
+# every pass of the probe, never assumed.
 function Get-PackageManagerCatalog {
     @(
         [pscustomobject]@{ id='winget'; label='winget';       verArgs=@('--version'); updArgs=@('upgrade','--include-unknown','--disable-interactivity','--accept-source-agreements'); updMode='winget';   upgArgs=@('upgrade','--all','--silent','--include-unknown','--disable-interactivity','--accept-source-agreements','--accept-package-agreements')
@@ -1069,8 +1068,8 @@ function Get-PackageManagerCatalog {
     )
 }
 
-# Interface graphique REELLEMENT presente pour un gestionnaire, ou $null.
-# Renvoie @{ target; label; help } : de quoi construire le bouton et l'action.
+# The graphical interface REALLY present for a manager, or $null.
+# Returns @{ target; label; help }: enough to build the button and the action.
 function Get-PkgGui {
     param([Parameter(Mandatory)][string]$Id)
     $mg = Get-PackageManagerCatalog | Where-Object { $_.id -eq $Id } | Select-Object -First 1
@@ -1078,7 +1077,7 @@ function Get-PkgGui {
     $targetPath = $null
     switch ($mg.guiKind) {
         'uri' {
-            # Un protocole non enregistre ouvrirait une boite « application introuvable ».
+            # An unregistered protocol would open an "application not found" dialog.
             if (Test-Path -LiteralPath ("Registry::HKEY_CLASSES_ROOT\" + $mg.guiProbe)) { $targetPath = $mg.guiTarget }
         }
         'exe' {
@@ -1096,13 +1095,13 @@ function Get-PkgGui {
     return @{ target = $targetPath; label = $mg.guiLabel; help = $mg.guiHelp }
 }
 
-# Verifie les MAJ disponibles d'UN gestionnaire (appel lent/reseau). Traite la
-# sortie ET le code de retour via Invoke-Native.
-# Renvoie @{ count; items; pkgs; supported; selectable }.
-#   items = chaines d'AFFICHAGE (tronquees a 25, elles remplissent le detail de la carte)
-#   pkgs  = liste COMPLETE @{ id; titre; detail }, `id` etant l'identifiant a passer au
-#           gestionnaire pour ne mettre a jour QUE ce paquet. Sans lui, aucun choix n'est
-#           possible : on ne peut pas demander « lesquels ? » avec des libelles d'affichage.
+# Checks the updates available from ONE manager (a slow call, over the network). Handles the
+# output AND the exit code through Invoke-Native.
+# Returns @{ count; items; pkgs; supported; selectable }.
+#   items = DISPLAY strings, cut at 25, which fill the card's detail
+#   pkgs  = the COMPLETE list @{ id; titre; detail }, `id` being the identifier to hand the
+#           manager to update THAT package only. Without it no choice is possible: one
+#           cannot ask "which ones?" holding nothing but display labels.
 function Get-PkgUpdates {
     param([Parameter(Mandatory)][string]$Id)
     $mg = Get-PackageManagerCatalog | Where-Object { $_.id -eq $Id } | Select-Object -First 1
@@ -1148,16 +1147,16 @@ function Get-PkgUpdates {
                 $lines = @($out -split "`r?`n"); $idx = -1
                 for ($i = 0; $i -lt $lines.Count; $i++) { if ($lines[$i] -match '^-{3,}') { $idx = $i; break } }
                 if ($idx -ge 0 -and $idx -lt ($lines.Count - 1)) {
-                    # Colonnes winget : Nom | Id | Version | Disponible | Source. L'Id est la
-                    # SEULE colonne utilisable pour cibler un paquet -- le nom n'est pas unique.
+                    # winget's columns: Name | Id | Version | Available | Source. The Id is
+                    # the ONLY column one can target a package with -- the name is not unique.
                     #
-                    # Decoupage a POSITION FIXE, pas sur « deux espaces ou plus » : winget
-                    # remplit chaque colonne a la largeur de son plus long element, si bien
-                    # qu'un nom long ne laisse qu'UN espace avant l'Id, et qu'un numero de
-                    # version large en laisse un seul avant le suivant. Constate en reel :
-                    # le decoupage par espaces rendait « 12.0.40664.0 » comme identifiant du
-                    # Redistribuable Visual C++ -- une mise a jour aurait vise un paquet
-                    # inexistant. Les debuts de colonne sont lus dans la ligne d'en-tete.
+                    # Cut at FIXED POSITIONS, not on "two spaces or more": winget fills each
+                    # column to the width of its longest element, so a long name leaves just
+                    # ONE space before the Id, and a wide version number leaves one before the
+                    # next. Seen for real: splitting on spaces returned "12.0.40664.0" as the
+                    # identifier of the Visual C++ Redistributable -- an update would have
+                    # aimed at a package that does not exist. The column starts are read from
+                    # the header line.
                     $hdr = if ($idx -ge 1) { "$($lines[$idx-1])" } else { '' }
                     $debuts = @()
                     if ($hdr.Length) {
@@ -1177,17 +1176,17 @@ function Get-PkgUpdates {
                                 $cols += $l.Substring($s, $e - $s).Trim()
                             }
                         } else {
-                            # Repli si l'en-tete est absent (sortie inattendue) : mieux vaut une
-                            # liste approximative que rien du tout.
+                            # A fallback when the header is missing, on unexpected output:
+                            # an approximate list beats nothing at all.
                             $cols = @(($l -split '\s{2,}') | Where-Object { $_ } | ForEach-Object { "$_".Trim() })
                         }
                         if (-not $cols.Count) { continue }
                         $name = "$($cols[0])"
                         if (-not $name) { continue }
                         $items += $name
-                        # PAS de variable nommee $pid : c'est une variable automatique en
-                        # lecture seule (identifiant du processus). L'affectation levait une
-                        # exception avalee par le catch, et la liste revenait VIDE.
+                        # NO variable named $pid: it is a read-only automatic variable, the
+                        # process id. Assigning to it raised an exception the catch swallowed,
+                        # and the list came back EMPTY.
                         $ident = if ($cols.Count -ge 2) { "$($cols[1])" } else { '' }
                         if ($ident) {
                             $det = if ($cols.Count -ge 4 -and $cols[3]) { ("{0} -> {1}" -f "$($cols[2])", "$($cols[3])") } else { $ident }

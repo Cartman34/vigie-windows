@@ -97,6 +97,21 @@ half documented.
 partout maintenant, c'est juste que t'aligner avec ça sur le terme, ça serait bien, mais plus à la modif quand tu
 touches au fichier."* A file one opens to change leaves with its two fields; the rest wait their turn.
 
+## A generalist file is split BY SUBJECT, down to reusable bricks
+
+A file that aggregates -- a bootstrap, a shared library, anything carrying many unrelated subjects at once -- is not
+split by size or by line count. **It is split by SUBJECT, and each subject leaves the others.**
+
+**And a subject that is itself heavy splits again**, into sub-subjects. Those sub-subjects gather into reusable
+bricks, which may reach down to a low level: a dedicated class for one job, named after it -- `CurlClient` for
+cURL, and nothing else in it.
+
+**The new files follow the conventions strictly**, with no exception granted for being extracted rather than
+written: their names, their language, their Intent and their Usage, like any other file.
+
+*Asked for on 08/10, about `common.ps1`: 11 756 lines, 318 functions, and thirty-three subjects already named in
+its own comments.*
+
 ## Tree and naming
 - Sources: see `../README.md`.
 - Probe: `apps/backend-pode/probes/<theme>/<name>.probe.ps1`.
