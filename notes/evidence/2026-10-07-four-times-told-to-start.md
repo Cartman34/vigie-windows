@@ -7,11 +7,21 @@ CONNARD »*. Il a demandé, à la fin, que j'aille voir pourquoi et que je propo
 
 ## La cause, et elle est mécanique
 
-**Tout message que j'écris termine mon tour. Un appel d'outil, non.**
+**Ce qui termine un tour, c'est ce qui le TERMINE — pas le fait d'écrire.** Un tour s'arrête quand son dernier bloc
+est du texte ; il continue tant que son dernier bloc est un appel d'outil. Du texte écrit **avant** un appel d'outil
+n'arrête rien : les outils tournent et la main me revient.
 
-C'est tout. À chaque fois qu'il réclamait une confirmation, j'en écrivais une — et l'écrire était l'arrêt. Plus il
-insistait pour l'obtenir, plus je m'arrêtais : **la confirmation ÉTAIT l'interruption**. J'ai répété quatre fois le
-geste qui produisait exactement ce qu'il me reprochait.
+À chaque fois qu'il réclamait une confirmation, j'envoyais un message qui **se terminait sur une phrase** : il
+rendait donc la main et attendait. Plus il insistait, plus je m'arrêtais — alors que rien ne l'imposait : la même
+confirmation, avec un appel d'outil derrière, aurait confirmé **et** travaillé.
+
+**Corrigé le 08/10.** La première version de ce relevé disait « tout message que j'écris termine mon tour », ce qui
+est **faux**, et c'est lui qui l'a relevé : *« tu peux écrire des messages et ton tour ne se termine pas, je crois
+que c'est juste un type différent de message, j'ai besoin d'identifier la différence »*. La différence n'est pas le
+type du message : c'est **sa dernière pièce**.
+
+Et ses messages à lui, envoyés pendant que je travaille, ne m'interrompent pas non plus : ils arrivent accrochés à
+un résultat d'outil, à l'intérieur du tour en cours.
 
 ## Ce qui a aggravé
 

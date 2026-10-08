@@ -369,10 +369,22 @@ question format.
 
 ## "Go, and do not stop" -- the confirmation goes INSIDE the working turn
 
-**Every message I write ENDS my turn. Tool calls do not.** That single mechanical fact is why, on 07/10, he had to
-tell me four times to start: *"Tu n'as rien commence... pourquoi tu ne pars pas ? REPOND"*, then *"MAIS BORDEL DE
-MERDE"*. Each time he asked for a confirmation I wrote one, and writing it was the stop. The more he insisted, the
-more I stopped -- the confirmation WAS the interruption.
+**What ends a turn is the LAST thing in it, not the fact of writing.** A turn ends when its final block is text; it
+continues as long as the final block is a tool call. Text written BEFORE a tool call ends nothing -- the tools run
+and control comes back to me. So the difference is not between writing and acting: it is between a message that
+stops on a sentence and a message that stops on a tool call.
+
+That is why, on 07/10, he had to tell me four times to start: *"Tu n'as rien commence... pourquoi tu ne pars pas ?
+REPOND"*, then *"MAIS BORDEL DE MERDE"*. Each confirmation I sent was a message ending on a sentence, so each one
+handed the turn back and waited. The more he insisted, the more I stopped -- and nothing forced that: the same
+confirmation with a tool call behind it would have confirmed AND worked.
+
+*Corrected on 08/10, because the first version of this section said "every message I write ends my turn", which is
+false and he caught it: "tu peux écrire des messages et ton tour ne se termine pas". A rule stated from a wrong
+mechanism is a rule nobody can apply when the case shifts.*
+
+**A message he sends while I work does not interrupt me either.** It arrives attached to a tool result, inside the
+running turn. It is answered in one line, in that turn, and the work continues.
 
 **What made it worse:** the rule above, "a question calls for an ANSWER, not an action", is right for a question
 about the work. Applied to an order to start and not stop, it produces the exact opposite of what was asked.
