@@ -1,4 +1,4 @@
-# Claude — what is true of this agent client, and of no other
+# Claude Code — what is true of this agent client, and of no other
 
 **Read the folder's `README.md` first**: everything here describes the software that carries the agent, not the way
 of working. With another agent, none of these words mean anything.

@@ -379,7 +379,7 @@ work, which ran but left him nothing to re-read afterwards.
 1. The confirmation is ONE short line, written **before** the first tool call, in the same turn. The turn does not
    end there: the work begins behind it, and he can interrupt at once if the confirmation is wrong.
 2. **It is said again in the closing message**, because his client may not have kept the first copy -- see
-   `agent-clients/claude.md`, which says exactly what his client does with it. Not a repetition: the only copy he
+   `agent-clients/client-claude.md`, which says exactly what his client does with it. Not a repetition: the only copy he
    can come back to.
 3. Between the two, **no user-visible text** -- only tool calls.
 4. **A message arriving mid-turn is not an order to stop** unless it says so. It gets one line, inside the working
@@ -396,7 +396,8 @@ work ran from S21 to S01 without a single stop. Record:
 
 **The mechanics behind this rule are NOT written here**, because they are true of one agent client and false of
 the next: what a turn is made of, what survives on his screen, what the words for it are. They live in
-[`agent-clients/claude.md`](agent-clients/claude.md), one file per client, and they expire with it. *Asked for by
+[`agent-clients/client-claude.md`](agent-clients/client-claude.md), one file per client, and they expire with
+it. *Asked for by
 him on 08/10: the terms are "pas du tout dans la discipline... c'est dans la maniere de communiquer ensemble,
 sachant que c'est attribue a Claude uniquement".*
 
