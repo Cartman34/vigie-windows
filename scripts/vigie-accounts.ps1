@@ -1,14 +1,14 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    vigie-comptes.ps1 - QUELS COMPTES Windows ont Vigie. IDEMPOTENT.
+    vigie-accounts.ps1 - QUELS COMPTES Windows ont Vigie. IDEMPOTENT.
 
     Le meme outil sert pendant l'installation et n'importe quand apres : « un outil doit
     toujours permettre de changer quel compte a acces » (exigence utilisateur, D65).
 
     Usage :
-      pwsh -File .\scripts\vigie-comptes.ps1                     # liste
-      pwsh -File .\scripts\vigie-comptes.ps1 -Activer Famille    # Vigie demarre pour ce compte
-      pwsh -File .\scripts\vigie-comptes.ps1 -Retirer Famille    # ne demarre plus
+      pwsh -File .\scripts\vigie-accounts.ps1                     # liste
+      pwsh -File .\scripts\vigie-accounts.ps1 -Activer Famille    # Vigie demarre pour ce compte
+      pwsh -File .\scripts\vigie-accounts.ps1 -Retirer Famille    # ne demarre plus
 
     Activer = poser SA tache de demarrage, au niveau que Windows accorde a ce compte
     (administrateur -> eleve, standard -> limite). Vigie ne donne rien de plus que Windows.
@@ -33,7 +33,7 @@ function Show-Comptes {
             $(if ($_.admin) { 'administrateur' } else { 'standard' }),
             $(if ($_.current) { '(compte en cours)' } else { '' })
     })
-    Write-Info (Get-Label 'vigie-comptes.comptes-de-cette-machine')
+    Write-Info (Get-Label 'vigie-accounts.comptes-de-cette-machine')
     $lines | ForEach-Object { Write-Host "  $_" }
 }
 
@@ -42,12 +42,12 @@ if (-not $Activer -and -not $Retirer) { Show-Comptes; exit 0 }
 $target = if ($Activer) { $Activer } else { $Retirer }
 $connu = @(Get-AccountByName -Name $target)
 if (-not $connu) {
-    Write-Warn (Get-Label 'vigie-comptes.compte-inconnu-sur-cette' $target)
+    Write-Warn (Get-Label 'vigie-accounts.compte-inconnu-sur-cette' $target)
     Show-Comptes
     exit 1
 }
 if (-not (Test-IsElevated)) {
-    Write-Warn (Get-Label 'vigie-comptes.cette-operation-demande-un')
+    Write-Warn (Get-Label 'vigie-accounts.cette-operation-demande-un')
     exit 3
 }
 try {
@@ -56,6 +56,6 @@ try {
     Show-Comptes
     exit 0
 } catch {
-    Write-Fail (Get-Label 'vigie-comptes.echec' $($_.Exception.Message))
+    Write-Fail (Get-Label 'vigie-accounts.echec' $($_.Exception.Message))
     exit 3
 }

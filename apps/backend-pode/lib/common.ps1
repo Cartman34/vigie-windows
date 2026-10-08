@@ -235,9 +235,9 @@ function Remove-ProbeCache {
         <#
             ON RETIRE AUSSI LES ENTREES PAR COMPTE.
 
-            Une action cite la SONDE (« comptes.probe.ps1 ») ; depuis que les cartes
+            Une action cite la SONDE (« accounts.probe.ps1 ») ; depuis que les cartes
             personnelles ont une cle par compte, les vraies entrees s'appellent
-            « comptes.probe.ps1@fhaza », « comptes.probe.ps1@Famille »... L'invalidation ne
+            « accounts.probe.ps1@fhaza », « accounts.probe.ps1@Famille »... L'invalidation ne
             retirait donc plus rien, et la carte gardait son rendu d'avant la mise a jour.
         #>
         <#
@@ -2876,7 +2876,7 @@ function Test-ProbeIsPerAccount {
 <#
     LA CLE DU CACHE : le nom de la sonde, et le compte quand le rendu en depend.
 
-    « comptes.probe.ps1@Famille » et « comptes.probe.ps1@fhaza » cohabitent dans le meme
+    « accounts.probe.ps1@Famille » et « accounts.probe.ps1@fhaza » cohabitent dans le meme
     fichier sans se marcher dessus. Sans demandeur identifie, la cle est « @? » : une
     session anonyme a son entree a elle, ou personne n'est « vous ».
 #>
@@ -5327,8 +5327,8 @@ function Get-ProbeCacheStamp {
         <#
             THE MOST RECENT OF THE MATCHING ENTRIES, never the first one met.
 
-            A probe whose rendering depends on who looks has ONE entry PER ACCOUNT (D109): comptes.probe.ps1@fhaza,
-            comptes.probe.ps1@Famille. The scheduler computes with no requester, so it writes its own entry -- and
+            A probe whose rendering depends on who looks has ONE entry PER ACCOUNT (D109): accounts.probe.ps1@fhaza,
+            accounts.probe.ps1@Famille. The scheduler computes with no requester, so it writes its own entry -- and
             this function was answering with whichever entry came first in the file. It was therefore comparing the
             stamp of SOMEONE ELSE'S entry before and after, saw it unchanged, and the worker concluded "the
             computation wrote nothing". Measured on 30/09: the accounts card had failed eight times in a row that
@@ -6211,7 +6211,7 @@ function Invoke-WatchPass {
 # 5.5 s per recomputation (244 times on 28/09, 22 minutes of processor for the day alone).
 $script:GameModeUseful = @{ 'gaming.probe.ps1' = 30; 'perf.probe.ps1' = 20; 'self.probe.ps1' = 120; 'vigie.probe.ps1' = 300 }
 $script:GameModeHeavy  = @('packages.probe.ps1', 'deployment.probe.ps1', 'lock.probe.ps1', 'pending.probe.ps1',
-                           'comptes.probe.ps1', 'history.probe.ps1', 'wsl.probe.ps1', 'os.probe.ps1')
+                           'accounts.probe.ps1', 'history.probe.ps1', 'wsl.probe.ps1', 'os.probe.ps1')
 $script:GameModeFloor  = 900      # the other cards: a quarter of an hour at least
 $script:GameModeHeavyTtl = 3600   # the heavy ones: one hour
 
@@ -6284,7 +6284,7 @@ $script:ProbeTtls = @{
     'pending.probe.ps1' = 900
     # LES COMPTES CHANGENT RAREMENT : creer un compte Windows n'arrive pas dans la
     # journee. Une heure, et le bouton « Actualiser la liste » pour qui vient d'en creer un.
-    'comptes.probe.ps1' = 3600
+    'accounts.probe.ps1' = 3600
     # LE DEPLOIEMENT, LUI, DOIT VOIR ARRIVER UN COMMIT -- et il est differable, donc ce
     # delai court ne coute rien a la requete : elle part avec la valeur connue.
     'deployment.probe.ps1' = 60
@@ -7604,7 +7604,7 @@ function Get-State {
                         <#
                             UNE ERREUR SE PRESENTE COMME LE RESTE.
 
-                            La carte d'echec s'appelait « comptes.probe.ps1 » et
+                            La carte d'echec s'appelait « accounts.probe.ps1 » et
                             atterrissait sous « Systeme » : le nom d'un fichier, dans le
                             mauvais groupe. Personne ne sait a quelle carte cela
                             correspond, et c'est justement le moment ou il faut le savoir.

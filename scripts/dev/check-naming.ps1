@@ -115,10 +115,18 @@ $COMMENT_CEILING = 5603
 #>
 $CEILING = 70
 
-# LE PLAFOND DES NOMS DE FICHIERS. Meme cliquet, compte separe : ceux qui restent sont
-# nommes dans des taches planifiees deja posees et dans des raccourcis, donc ils se
-# renomment un par un, pas d'un coup.
-$FILE_CEILING = 3
+# THE FILE-NAME CEILING, AT ZERO SINCE 08/10.
+#
+# The three that were left -- comptes.probe.ps1, vigie-comptes.ps1, vigie-diag-compte.ps1 -- were to be renamed one
+# at a time because they were believed to be named in scheduled tasks already registered. Checked rather than
+# assumed: every reference lives in the repository, and one of them was not in the code but in the LABELS, whose
+# key carries the file name as a prefix (check-labels requires it) -- "vigie-comptes.echec" had to become
+# "vigie-accounts.echec" in the same move, or the panel would lose its sentences.
+#
+# A consequence that is not a defect: renaming a PER-ACCOUNT probe empties its cache entries, whose key is
+# "<probe>@<account>" (D109). The Accounts card therefore renders empty until the first request from an account
+# rebuilds it -- seen, then verified by asking for the state as "fhaza": two fields, four actions, as before.
+$FILE_CEILING = 0
 
 # THE THIRD LANGUAGE (D41). PowerShell answers for the Windows tools -- that is what it is
 # here for; everything else is PHP. Python is not forbidden, but its use must be argued and

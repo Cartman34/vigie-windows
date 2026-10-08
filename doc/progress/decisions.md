@@ -1848,7 +1848,7 @@ On contrôle sur l'exécution réelle des sondes — c'est ce que fait `check-pr
   pour un compte standard — Vigie ne donne rien de plus que Windows. La tâche historique
   `Vigie` compte comme active pour le compte qu'elle vise.
 - **Trois portes d'entrée, une seule logique** : `GET/POST /users` (contrat),
-  `scripts/vigie-comptes.ps1` (ligne de commande, utilisable pendant l'installation), et
+  `scripts/vigie-accounts.ps1` (ligne de commande, utilisable pendant l'installation), et
   **Paramètres > Utilisateurs** dans l'application. « Un outil doit toujours permettre de
   changer quel compte a accès » : c'est modifiable à tout moment, pas seulement à
   l'installation. Sans élévation, les interrupteurs restent **visibles mais inertes** et
@@ -1901,7 +1901,7 @@ réseau) et pourrait les altérer. Cela déferait précisément l'isolation éta
 
 **Décision (utilisateur).**
 1. Le diagnostic est un **script**, pas une fonction du produit :
-   `scripts/vigie-diag-compte.ps1`. Sans argument il liste les comptes ; avec `-Compte`,
+   `scripts/vigie-diag-account.ps1`. Sans argument il liste les comptes ; avec `-Compte`,
    il rapatrie les journaux du compte visé.
 2. Le script **ne lit rien lui-même** : il **passe par Vigie**, qui détient déjà
    l'élévation. Aucune invite UAC de plus, et surtout **le même filtre que les actions

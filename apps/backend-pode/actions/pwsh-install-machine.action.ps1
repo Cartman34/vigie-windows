@@ -19,7 +19,7 @@ $backend = Split-Path $PSScriptRoot -Parent
 
 if (Get-SharedPwshPath) {
     return @{ message = "PowerShell 7 est déjà installé pour la machine : " + (Get-SharedPwshPath)
-              result  = @{ ok = $true; invalidate = @('comptes.probe.ps1', 'deployment.probe.ps1') } }
+              result  = @{ ok = $true; invalidate = @('accounts.probe.ps1', 'deployment.probe.ps1') } }
 }
 $winget = (Get-Command winget -ErrorAction SilentlyContinue)
 if (-not $winget) {
@@ -47,5 +47,5 @@ if (-not $lance) { return @{ message = "Impossible de lancer l'installation."; r
 
 @{
     message = "Installation de PowerShell 7 pour la machine lancée. Elle dure une à deux minutes ; réactivez ensuite les comptes concernés."
-    result  = @{ ok = $true; async = $true; module = 'deployment'; invalidate = @('comptes.probe.ps1', 'deployment.probe.ps1') }
+    result  = @{ ok = $true; async = $true; module = 'deployment'; invalidate = @('accounts.probe.ps1', 'deployment.probe.ps1') }
 }

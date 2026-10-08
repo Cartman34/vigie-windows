@@ -165,7 +165,7 @@ l'appel qui l'avait oublié déposait un ordre de relance chez le compte de serv
 ## Le cache
 
 Le rendu des sondes est mis en cache dans un fichier **commun**. Une sonde dont la carte dépend de qui regarde se
-déclare `PerAccount = $true` dans son `module.psd1` et obtient une clé par compte (`comptes.probe.ps1@fhaza`). Le relevé
+déclare `PerAccount = $true` dans son `module.psd1` et obtient une clé par compte (`accounts.probe.ps1@fhaza`). Le relevé
 lui-même reste neutre : ce qu'on écrit sur le disque doit rester vrai pour n'importe qui.
 
 L'invalidation demandée par une action retire aussi les entrées par compte.

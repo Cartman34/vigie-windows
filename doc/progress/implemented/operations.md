@@ -32,9 +32,9 @@ définition de `../targeting/operations.md`, section « Ce qu'est une opération
 
 | Action | Proposée par | Droits | S'exécute | Mode | Lancement | Protocole |
 |---|---|---|---|---|---|---|
-| `accounts-details` | `comptes.probe.ps1`, `scripts/dev/ask-vigie.ps1` | admin | serveur | synchrone | lecture directe | sans objet |
-| `accounts-refresh` | `comptes.probe.ps1` | tous | serveur | synchrone | lecture directe | sans objet |
-| `diag-account-logs` | `scripts/vigie-diag-compte.ps1` | admin | serveur | synchrone | copie de journaux | sans objet |
+| `accounts-details` | `accounts.probe.ps1`, `scripts/dev/ask-vigie.ps1` | admin | serveur | synchrone | lecture directe | sans objet |
+| `accounts-refresh` | `accounts.probe.ps1` | tous | serveur | synchrone | lecture directe | sans objet |
+| `diag-account-logs` | `scripts/vigie-diag-account.ps1` | admin | serveur | synchrone | copie de journaux | sans objet |
 | `disk-analyze` | `disk.probe.ps1` | tous | serveur | asynchrone | `Start-Operation`, `workers/disk-scan.worker.ps1` | commun |
 | `disk-analyze-stop` | `disk.probe.ps1` | tous | serveur | synchrone | drapeau relu par le worker | sans objet |
 | `disk-cleanup` | `disk.probe.ps1` | tous | session | synchrone | `Start-Process` | sans objet |
@@ -60,7 +60,7 @@ définition de `../targeting/operations.md`, section « Ce qu'est une opération
 | `open-security-settings` | `defender.probe.ps1`, `firewall.probe.ps1` | tous | session | synchrone | `Start-Process` | sans objet |
 | `open-storage-settings` | `disk.probe.ps1` | tous | session | synchrone | `Start-Process` | sans objet |
 | `open-task-manager` | `gaming.probe.ps1`, `perf.probe.ps1` | tous | session | synchrone | `Start-Process` | sans objet |
-| `open-users-settings` | `comptes.probe.ps1` | tous | serveur | synchrone | aucun : l'interface ouvre elle-même le panneau | sans objet |
+| `open-users-settings` | `accounts.probe.ps1` | tous | serveur | synchrone | aucun : l'interface ouvre elle-même le panneau | sans objet |
 | `open-windows-update` | `pending.probe.ps1` | tous | session | synchrone | `Start-Process` | sans objet |
 | `perf-counters-rebuild` | `gaming.probe.ps1` | admin | serveur | synchrone | `Invoke-Native` | sans objet |
 | `pkg-check-updates` | `packages.probe.ps1` | tous | serveur | asynchrone | `Start-PkgJob`, `workers/pkg-job.worker.ps1` | commun |
@@ -154,8 +154,8 @@ La séquence d'installation et de mise à jour est décrite dans [update-chain.m
 | `scripts/install-autostart.ps1`, `install-autostart.cmd`, `install-autostart.vbs` | enregistre la tâche de démarrage de l'app cliente |
 | `scripts/uninstall-autostart.ps1` | retire cette tâche |
 | `scripts/uninstall-legacy.ps1` | retire les vestiges d'avant le nom Vigie |
-| `scripts/vigie-comptes.ps1` | active ou désactive Vigie pour un compte |
-| `scripts/vigie-diag-compte.ps1` | demande `diag-account-logs` au serveur |
+| `scripts/vigie-accounts.ps1` | active ou désactive Vigie pour un compte |
+| `scripts/vigie-diag-account.ps1` | demande `diag-account-logs` au serveur |
 | `scripts/vigie-fetch.ps1` | rapporte une archive vérifiée, sans rien déployer |
 | `scripts/build-release.ps1` | fabrique l'archive de distribution |
 | `scripts/run.ps1`, `run.cmd` | lance le panneau |

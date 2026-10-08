@@ -23,7 +23,7 @@ $backend = Split-Path $PSScriptRoot -Parent
 $done = @(Repair-VigieTasks -Backend $backend)
 if (-not $done.Count) {
     return @{ message = "Vérification faite : les tâches de démarrage de Vigie sont saines."
-              result  = @{ ok = $true; invalidate = @('comptes.probe.ps1', 'deployment.probe.ps1') } }
+              result  = @{ ok = $true; invalidate = @('accounts.probe.ps1', 'deployment.probe.ps1') } }
 }
 # TROIS SORTS, pas deux. Une tache peut etre reecrite sans que le defaut disparaisse :
 # un echec deja inscrit dans son historique ne s'efface qu'a sa prochaine execution,
@@ -56,5 +56,5 @@ if (-not $parts.Count) { $parts += "rien à signaler" }
 
 @{
     message = (($parts -join ', ') + '.')
-    result  = @{ ok = ($ko.Count -eq 0); detail = $detail; invalidate = @('comptes.probe.ps1', 'deployment.probe.ps1') }
+    result  = @{ ok = ($ko.Count -eq 0); detail = $detail; invalidate = @('accounts.probe.ps1', 'deployment.probe.ps1') }
 }

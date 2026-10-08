@@ -89,7 +89,7 @@ $entete = "Comptes de cet ordinateur"
 if ($dormants -gt 0) { $entete += " ($dormants dormant(s) depuis plus de $dormant jours)" }
 
 $detail = ($entete, '') + $lines + ('',
-    "Pour relire les journaux de l'un d'eux : scripts/vigie-diag-compte.ps1 -Compte <nom>",
+    "Pour relire les journaux de l'un d'eux : scripts/vigie-diag-account.ps1 -Compte <nom>",
     "Pour choisir qui a Vigie : Paramètres > Utilisateurs.")
 
 @{
