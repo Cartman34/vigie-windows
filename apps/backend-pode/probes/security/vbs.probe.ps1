@@ -1,38 +1,35 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-<# Sonde : sécurité de la virtualisation (VBS / intégrité mémoire). LECTURE SEULE. #>
+<# A probe: virtualisation security (VBS / memory integrity). READ ONLY. Intent: say which of the two branches of the compromise this computer is on, and report only the state that calls for a gesture. Usage: run by the scheduler like any probe. #>
 $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $backend 'lib/common.ps1')
 
-# UNE seule lecture d'etat pour tout le sujet (D15) : la sonde et les bascules partagent
-# Get-DeviceGuardState. Elle distingue ce qui TOURNE de ce qui est DEMANDE -- une bascule
-# ne prend effet qu'au redemarrage, et la carte doit le dire au lieu de paraitre ignorer
-# le clic qu'on vient de lui donner.
+# ONE single reading of the state for the whole subject (D15): the probe and the switches share
+# Get-DeviceGuardState. It tells what is RUNNING from what is REQUESTED -- a switch only takes effect at the next
+# restart, and the card must say so instead of appearing to ignore the click it has just been given.
 $dgState = Get-DeviceGuardState -Backend $backend
 $vbsOn  = $dgState.vbs.running
 $hvciOn = $dgState.hvci.running
-# VBS et HVCI sont un COMPROMIS (sécurité contre performances de virtualisation), pas une
-# conformité : cette sonde les rapportait donc en 'neutral'. Décision de l'utilisateur : une
-# carte porte un statut normal comme les autres. Activé = conforme, désactivé = à voir.
-# Desactive n'est PAS un defaut : c'est l'autre branche du compromis (compatibilite
-# pilotes et performances de virtualisation contre durcissement). Verifie sur cette
-# machine : HVCI ni configure ni en attente, WSL2 fonctionnel. Le warn est reserve a
-# une bascule EN ATTENTE de redemarrage -- le seul etat qui appelle un geste.
+# VBS and HVCI are a COMPROMISE (security against virtualisation performance), not a conformity: so this probe
+# used to report them as 'neutral'. The owner's decision: a card carries a normal status like the others. Enabled
+# = conforming, disabled = to be looked at.
+# Disabled is NOT a defect: it is the other branch of the compromise (driver compatibility and virtualisation
+# performance against hardening). Checked on this machine: HVCI neither configured nor pending, WSL2 working. The
+# warn is reserved for a switch PENDING a restart -- the only state that calls for a gesture.
 $statutVbs  = if ($vbsOn)  { 'ok' } else { 'neutral' }
 $statutHvci = if ($hvciOn) { 'ok' } else { 'neutral' }
 $statutMod  = 'ok'
 
-# Une bascule demandee et pas encore appliquee est un ETAT A SIGNALER, pas un echec : la
-# valeur est ecrite, Windows ne la lira qu'au demarrage. Sans cette ligne, l'utilisateur
-# reclique en croyant que rien ne s'est passe.
+# A switch that was asked for and not applied yet is a STATE TO REPORT, not a failure: the value is written,
+# Windows will only read it at the next start. Without this line, the user clicks again believing nothing
+# happened.
 $waitMs = @(@($dgState.vbs, $dgState.hvci) | Where-Object { $_.pending })
 $phrase = { param($e) "$($e.label) : " + $(if ($e.requested -eq 1) { 'activation' } else { 'désactivation' }) + ' demandée' }
 if ($waitMs.Count) { $statutMod = 'warn' }
 
-# Actions. Le redemarrage n'est propose QUE lorsqu'il sert : une bascule de CETTE carte
-# attend d'etre appliquee. On ne le deduit pas d'un simple ecart entre le registre et
-# l'etat actif -- cet ecart peut etre permanent (valeur imposee par l'UEFI), et la carte
-# reclamerait alors un redemarrage pour toujours. L'action et son annulation sont celles
-# qui existent deja (system-restart / system-restart-cancel) : rien n'est duplique.
+# The actions. The restart is offered ONLY when it serves: a switch of THIS card is waiting to be applied. We do
+# not deduce it from a plain gap between the registry and the active state -- that gap can be permanent (a value
+# imposed by the UEFI), and the card would then demand a restart for ever. The action and its cancellation are
+# the ones that already exist (system-restart / system-restart-cancel): nothing is duplicated.
 $actionsVbs = @(
     New-Action -Id 'toggle-vbs' -Severity 'fix'  -Label 'Basculer VBS' -Confirm `
         -Impact ("Écrit la valeur EnableVirtualizationBasedSecurity dans le registre. Rien ne change avant le " +
@@ -87,8 +84,8 @@ $champs += New-Field -Key 'hvci' -Label 'Intégrité mémoire (HVCI)' -Value $hv
             "- la laisser désactivée si un matériel indispensable en dépend (pilote ancien), en sachant ce que cela coûte ;`n" +
             "- vérifier d'abord que VBS est activée : l'intégrité mémoire s'appuie dessus."
         })
-# Champ present UNIQUEMENT quand une bascule attend le redemarrage : une ligne permanente
-# « rien en attente » n'apprendrait rien et encombrerait la carte.
+# A field present ONLY when a switch is waiting for the restart: a permanent line saying nothing is pending
+# would teach nothing and clutter the card.
 if ($waitMs.Count) {
     $champs += New-Field -Key 'pendingReboot' -Label 'En attente de redémarrage' `
         -Value (($waitMs | ForEach-Object { & $phrase $_ }) -join ' ; ') -Kind 'text' -Status 'warn' `

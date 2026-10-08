@@ -1,14 +1,14 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 @{
-    # Declaration du MODULE (D48) : un module = ce dossier de sondes.
-    # Le label et la description servent a la vue de gestion des modules.
-    # L'activation ne vit PAS ici : elle est un choix de l'utilisateur, dans
-    # config/modules.local.psd1 (jamais versionne).
+    # The MODULE's declaration (D48): one module = this folder of probes.
+    # Intent: say what this module is, what it computes and when, and what it may notify. The label and the
+    # description serve the module management view. Usage: whether it is enabled does NOT live here: that is the
+    # user's choice, in config/modules.local.psd1 (never versioned).
     Label       = 'Sécurité'
     Description = 'Antivirus, pare-feu et sécurité de la virtualisation.'
 
-    # NOTIFICATIONS emises par ce module (D54) : un evenement nomme, pas un nom de
-    # carte. C'est la bascule du champ cite qui declenche la bulle.
+    # NOTIFICATIONS emitted by this module (D54): a named event, not a card's name. It is the flip of the field
+    # that is cited which triggers the balloon.
     Notifications = @(
         @{ Key = 'av-off'; Label = 'Antivirus inactif'
            Card = 'antivirus'; Field = 'enabled'

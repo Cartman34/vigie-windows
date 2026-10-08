@@ -1,17 +1,17 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-<# RELEVE : Internet repond-il ? Rend « oui » ou « non ». Rien d'autre.
+<# A READING: does the Internet answer? It returns yes or no. Nothing else.
 
-   BON MARCHE, c'est la condition : ce fichier tourne toutes les minutes, en permanence,
-   meme sans session ouverte. Un ping vers une adresse qui repond toujours suffit -- on ne
-   mesure ni la latence ni le debit ici, la carte Reseau s'en charge quand on la demande.
-
-   La valeur rendue est COMPARABLE : c'est son changement qui fait evenement, et
-   l'evenement fait recalculer la carte Reseau. Voir doc/progress/targeting/surveillance.md.
+   Intent: be CHEAP, which is the condition: this file runs every minute, permanently, even with no session
+   open. A ping to an address that always answers is enough -- we measure neither the latency nor the throughput
+   here, the Network card does that when it is asked for.
+   Usage: it is declared as a sentinel in the module's module.psd1. The value returned is COMPARABLE: it is its
+   change that makes an event, and the event makes the Network card be recomputed. See
+   doc/progress/targeting/surveillance.md.
 #>
 $ok = $false
 try {
-    # -Quiet : un booleen, pas un objet. 1 tentative, 1 seconde : on veut savoir si ca
-    # repond, pas combien de temps ca met.
+    # -Quiet: a boolean, not an object. 1 attempt, 1 second: we want to know whether it answers, not how long it
+    # takes.
     $ok = [bool](Test-Connection -TargetName '1.1.1.1' -Count 1 -TimeoutSeconds 1 -Quiet -ErrorAction Stop)
 } catch { $ok = $false }
 if ($ok) { 'oui' } else { 'non' }

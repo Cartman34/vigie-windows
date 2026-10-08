@@ -1,5 +1,5 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-<# Sonde : Windows (edition / activation / build / redemarrage en attente). LECTURE SEULE, rapide. #>
+<# A probe: WINDOWS (edition / activation / build / pending restart). READ ONLY, fast. Intent: say what this Windows is and whether it is waiting for a restart. Usage: run by the scheduler like any probe. #>
 $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $backend 'lib/common.ps1')
 $os = Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue
@@ -10,13 +10,13 @@ $isPro   = ($edId -like 'Professional*') -or ($caption -match 'Pro')
 $lic = Get-CimInstance SoftwareLicensingProduct -Filter "ApplicationID='55c92734-d682-4d71-983e-d6ec3f16059f' AND PartialProductKey IS NOT NULL" -ErrorAction SilentlyContinue | Select-Object -First 1
 $activated = [bool]($lic -and $lic.LicenseStatus -eq 1)
 
-# Redemarrage en attente : etat GENERAL de Windows (deux marqueurs du registre poses par
-# la maintenance systeme, mises a jour comprises). Le champ vivait dans la carte du
-# verrouillage Windows Update ; il concerne la machine entiere, il vit donc ici.
+# A pending restart: a GENERAL state of Windows (two registry markers laid down by system maintenance, updates
+# included). The field used to live in the Windows Update lock card; it concerns the whole machine, so it lives
+# here.
 $reboot = (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending') -or
           (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired')
 
-# Redemarrage : propose SEULEMENT quand il est utile, et toujours annulable.
+# A restart: offered ONLY when it is useful, and always cancellable.
 $restartPending = Test-RestartCountdown -Backend $backend
 $actions = @()
 if ($restartPending) {
@@ -33,8 +33,8 @@ New-ModuleObject -Id 'os' -Theme 'system' -Label 'Windows' -Scope 'machine' -Sta
     New-Field -Key 'edition'   -Label 'Édition'    -Value $caption    -Kind 'text' -Status $(if ($isPro) {'ok'} else {'neutral'}) -Help 'Édition de Windows installée (Pro attendu).'
     New-Field -Key 'activated' -Label 'Activation' -Value $activated  -Kind 'bool' -Status $(if ($activated) {'ok'} else {'warn'})    -Help 'Windows est activé (licence valide).'
     New-Field -Key 'build'     -Label 'Version'    -Value $build      -Kind 'text' -Status 'neutral'                                 -Help 'Version et numéro de build de Windows.'
-    # Un redemarrage en attente n'est PAS une erreur : c'est l'issue NORMALE d'une mise a
-    # jour ou d'une maintenance installee. C'est un point a traiter, donc « à voir ».
+    # A pending restart is NOT an error: it is the NORMAL outcome of an update or of an installed maintenance. It
+    # is a point to deal with, so it is "to be looked at".
     New-Field -Key 'rebootPending' -Label 'Redémarrage en attente' -Value ([bool]$reboot) -Kind 'bool' -Status $(if ($reboot) {'warn'} else {'ok'}) `
         -Help "Une mise à jour ou une maintenance est installée mais ne sera active qu'après un redémarrage de Windows." `
         -FixAction $(if ($reboot -and -not $restartPending) { 'system-restart' } else { $null }) `

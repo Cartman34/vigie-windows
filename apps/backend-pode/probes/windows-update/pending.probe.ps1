@@ -1,9 +1,9 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
     Sonde : mises à jour en attente. LECTURE SEULE, recherche LOCALE (cache) :
-    ne lance PAS d'analyse en ligne et n'installe rien (Online = $false).
-    Distingue les pilotes/optionnels (que l'écran principal de Windows ne compte pas)
-    et fournit la liste des titres (dépliable).
+    It does NOT run an online scan and installs nothing (Online = $false).
+    It tells the drivers and optional updates apart (which Windows's main screen does not count) and provides the
+    list of titles (unfoldable).
 #>
 $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $backend 'lib/common.ps1')
@@ -22,7 +22,7 @@ if ($null -eq $count) {
 } else {
     # THE OFFERED COUNT IS COMPUTED BEFORE THE GUIDE, which announces it.
     $effectif = @($pending.offered).Count
-    # Etat d'une installation lancee depuis l'application (worker wu-install).
+    # The state of an installation started from the application (the wu-install worker).
     $inst = $null
     try {
         $f = Get-VarPath -Backend $backend -Kind 'cache' -File 'wu-install.json'
@@ -36,10 +36,9 @@ if ($null -eq $count) {
     if ($drivers -gt 0) { $parts += "Dont $drivers pilote(s)/optionnel(s)." }
     $parts += $note
     if ($count -gt 0 -and $titles.Count) { $parts += "Liste des mises à jour détectées :`n- " + ($titles -join "`n- ") }
-    # REPROPOSITION : Windows dit « installee avec succes » puis redetecte la MEME mise a
-    # jour (boucle classique des pilotes OEM mal cibles -- constate sur deux pilotes
-    # Lenovo poses en machine et redetectes). Sans explication, l'utilisateur reessaie
-    # en vain et croit Vigie en panne.
+    # OFFERED AGAIN: Windows says "installed successfully" then detects the SAME update again (the classic loop of
+    # badly targeted OEM drivers -- observed on two drivers laid down machine-wide and detected again). Without an
+    # explanation, the user tries again in vain and believes Vigie broken.
     $alreadyDone = @($pending.alreadyDone)
     if ($true) {
         if ($alreadyDone.Count -gt 0) {
@@ -70,16 +69,16 @@ if ($null -eq $count) {
         $champs += New-Field -Key 'scan' -Label 'Analyse en ligne' -Value 'en cours…' -Kind 'text' -Status 'neutral' `
             -Help "Interrogation des serveurs Microsoft. Elle continue même si la fenêtre se ferme."
     } elseif ($scan -and $null -ne $scan.trouvees) {
-        # QUAND, pas seulement COMBIEN : « 2 trouvee(s) » sans date ne dit pas si le
-        # renseignement remonte a ce matin ou au mois dernier (signale par l'utilisateur).
+        # WHEN, not only HOW MANY: a count without a date does not say whether the reading dates from this morning
+        # or from last month (reported by the owner).
         $quandScan = $null
         try { if ($scan.at) { $quandScan = (ConvertTo-UtcDate $scan.at).ToLocalTime() } } catch { }
         $ageScan = if ($quandScan) { [int]((Get-Date) - $quandScan).TotalDays } else { -1 }
-        # La ligne au-dessus dit deja COMBIEN de mises a jour attendent : celle-ci dit
-        # QUAND on a regarde. Repeter le nombre n'apprend rien (signale par l'utilisateur).
+        # The line above already says HOW MANY updates are waiting: this one says WHEN we looked. Repeating the
+        # number teaches nothing (reported by the owner).
         $scanValue = if ($quandScan) { $quandScan.ToString('s') } else { 'jamais' }
-        # Un renseignement vieux de plus d'une semaine se signale : il ne prouve plus rien
-        # sur l'etat actuel de la machine. Il porte alors son bouton (D66).
+        # A reading more than a week old is reported: it no longer proves anything about the present state of the
+        # machine. It then carries its button (D66).
         $statutScan = if ($scan.error) { 'error' } elseif ($ageScan -ge 7) { 'warn' } else { 'ok' }
         $guideScan = @()
         if ($scan.error) { $guideScan += "Erreur : $($scan.error)" }
@@ -98,8 +97,8 @@ if ($null -eq $count) {
             -Guide $(if ($guideScan.Count) { $guideScan -join [Environment]::NewLine } else { '' })
     }
     if ($enCours) {
-        # Les phases sont des identifiants techniques : elles se traduisent avant d'etre
-        # montrees. « demarrage… » s'affichait tel quel, sans accent ni majuscule.
+        # The phases are technical identifiers: they are translated before being shown. One of them used to be
+        # displayed as it stood, with neither an accent nor a capital.
         $phaseLabel = switch ("$($inst.phase)") {
             'demarrage'      { 'Démarrage…' }
             'telechargement' { 'Téléchargement…' }
@@ -133,16 +132,15 @@ if ($null -eq $count) {
             -Help "Installation lancée depuis Vigie. Elle continue même si la fenêtre se ferme." `
             -Guide $(if ($inst.titres -and "$($inst.phase)" -ne 'termine') { "Mises à jour retenues :`n- " + (@($inst.titres) -join "`n- ") } else { '' })
     } elseif ($inst -and $inst.phase -eq 'termine') {
-        # On rapporte le RESULTAT constate, code de retour compris (D43) -- mais le code
-        # global 3 (« reussi avec erreurs ») ne dit PAS qu'une mise a jour a echoue : il
-        # sort aussi quand tout s'est installe et qu'il ne manque qu'un redemarrage. On
-        # tranche donc sur le detail PAR mise a jour : 4 = echec, 5 = annulee.
-        # @($null) rend un tableau d'UN element nul : indexer dessus leve « Cannot index
-        # into a null array ». Les entrees de cache anterieures n'ont pas de `detail`.
+        # We report the OBSERVED result, exit code included (D43) -- but the global code 3 ("succeeded with
+        # errors") does NOT say that an update failed: it also comes out when everything installed and only a
+        # restart is missing. So we decide on the detail PER update: 4 = failed, 5 = cancelled.
+        # @($null) returns an array of ONE null element: indexing into it throws "Cannot index into a null
+        # array". Earlier cache entries have no `detail`.
         $detailInst = @()
         if ($inst.detail) { $detailInst = @($inst.detail | Where-Object { $_ -and @($_).Count -ge 2 }) }
-        # Un redemarrage SURVENU APRES l'installation solde le « redemarrage requis » :
-        # sans cette comparaison, la mention survivait indefiniment au redemarrage
+        # A restart that HAPPENED AFTER the installation settles the "restart required": without this comparison,
+        # the mention survived the restart indefinitely
         # (constate). On compare en UTC (D44).
         $rebootDone = $false
         if ($inst.redemarrage -and $inst.at) {
@@ -154,16 +152,16 @@ if ($null -eq $count) {
         }
         $failures = 0
         foreach ($d in $detailInst) { if ("$($d[1])" -match '^(Échec|Annulée)') { $failures++ } }
-        # La date de l'installation, en heure locale : c'est ELLE l'information une fois
-        # l'operation soldee -- « terminee » sans date ne disait plus rien d'utile.
+        # The date of the installation, in local time: once the operation is settled it is THAT which is the
+        # information -- "finished" without a date no longer said anything useful.
         $quand = ''
         try {
             $d0 = ConvertTo-UtcDate $inst.at
             if ($d0) { $quand = $d0.ToLocalTime().ToString('dd/MM/yyyy HH:mm') }
         } catch { }
-        # QUAND TOUT S'EST BIEN PASSE, la DATE suffit (D89) : « 2 le 25/08/2026 07:58 »
-        # se lisait mal -- ce « 2 » nu ne disait pas de quoi il parlait. Le nombre de
-        # mises a jour est dans le detail de la ligne, avec le tableau qui les nomme.
+        # WHEN ALL WENT WELL, the DATE is enough (D89): a bare count followed by a date read badly -- that bare
+        # number did not say what it was talking about. The number of updates is in the line's detail, with the
+        # table that names them.
         $val = if ($inst.error)          { 'Échec' }
                elseif ($failures -gt 0)    { "$failures sur $($inst.total) en échec" }
                elseif ($inst.redemarrage -and -not $rebootDone) { 'Installée, redémarrage requis' }
@@ -184,8 +182,8 @@ if ($null -eq $count) {
             $g += "Ce qui a échoué : $failures mise(s) à jour sur $($inst.total). Le détail par mise à jour est dans le tableau ci-dessous, avec le code d'erreur Windows."
             $g += "Ce qui est possible : relancer l'installation (une seconde tentative suffit souvent), ou passer par « Ouvrir Windows Update » qui affiche le message d'erreur complet de Windows."
         }
-        # Le detail PAR mise a jour, en tableau : « terminé avec erreurs » ne dit pas
-        # laquelle a echoue, ce tableau si.
+        # The detail PER update, as a table: "finished with errors" does not say which one failed, this table
+        # does.
         $lines = @()
         if ($detailInst.Count) { foreach ($d in $detailInst) { $lines += ,@("$($d[0])", "$($d[1])") } }
         elseif ($inst.titres)   { foreach ($t in @($inst.titres)) { $lines += ,@("$t", '—') } }
@@ -207,9 +205,9 @@ if ($null -eq $count) {
     }
 
     $actions = @()
-    # Le besoin et le geste au MEME endroit : quand la derniere installation attend un
-    # redemarrage, le bouton de redemarrage est disponible dans cette carte aussi (le
-    # champ general « Redémarrage en attente » vit dans la carte Windows, theme system).
+    # The need and the gesture in the SAME place: when the last installation is waiting for a restart, the restart
+    # button is available in this card too (the general field about a pending restart lives in the Windows card,
+    # under the system theme).
     if ($inst -and $inst.phase -eq 'termine' -and $inst.redemarrage) {
         if ($restartCountdown) {
             $actions += New-Action -Id 'system-restart-cancel' -Label 'Annuler le redémarrage' -Severity 'fix' `
@@ -220,8 +218,8 @@ if ($null -eq $count) {
                 -Help "Redémarre Windows dans 60 secondes pour terminer les mises à jour installées. Le travail en cours est à enregistrer : toutes les applications seront fermées. Le redémarrage reste annulable pendant le délai."
         }
     }
-    # Recherche EN LIGNE : la sonde ne lit que le cache local de Windows, qui peut etre
-    # perime. Ce bouton interroge les serveurs -- c'est long, donc detache.
+    # An ONLINE search: the probe reads only Windows's local cache, which can be stale. This button questions the
+    # servers -- which is slow, so it is detached.
     # EVERY PROBLEM IS REPORTED (asked on 20/09), in a line of its own: an update reinstalled in a loop, an installation
     # in failure, the ones Windows no longer served when installing, a local cache that disagrees with the last online
     # search, and the errors Windows itself logged. The card said nothing of all this: it showed a number.
@@ -268,11 +266,10 @@ if ($null -eq $count) {
     # SCOPE: the computer's updates. An ailment that belongs to ONE account -- a package held open -- names it in
     # its own text, because only that account can close the application.
     New-ModuleObject -Id 'wu-pending' -Theme 'windows-update' -Label 'Mise à jour du système' -Scope 'machine' -Status $(if ($ailmentStatus -eq 'error') {'error'} elseif ($enCours -or $scanEnCours) {'neutral'} elseif ($count -gt 0 -or $ailmentStatus -eq 'warn') {'warn'} else {'ok'}) -Fields (@(
-        # La resolution est l'INSTALLATION, pas l'ouverture de Windows Update. Elle reste
-        # visible dans la barre d'actions : une action designee comme correctif n'en est
-        # plus retiree.
-        # Decompte EFFECTIF : les reproposees (deja installees avec succes) ne comptent
-        # pas et ne declenchent pas d'avertissement -- reinstaller ne changerait rien.
+        # The resolution is the INSTALLATION, not opening Windows Update. It stays visible in the actions bar: an
+        # action designated as a fix is not
+        # An EFFECTIVE count: the ones offered again (already installed successfully) do not count and do not
+        # raise a warning -- reinstalling would change nothing.
         New-Field -Key 'pending' -Label 'À installer' -Value $effectif -Kind 'number' `
             -Status $(if ($effectif -gt 0) {'warn'} else {'ok'}) -Help $help -Guide $guide `
             -FixAction $(if ($effectif -gt 0) { 'wu-list-pending' } else { $null })

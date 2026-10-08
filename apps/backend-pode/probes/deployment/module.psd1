@@ -1,19 +1,17 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 @{
-    # Declaration du MODULE (D48) : la carte du DEPLOIEMENT de Vigie.
+    # The MODULE's declaration (D48): Vigie's DEPLOYMENT card.
     #
-    # PAS DE « PerAccount » ICI, ET C'EST TOUT L'INTERET. Cette carte ne parle de personne
-    # en particulier : elle compare une installation a sa source. Elle peut donc etre
-    # differee vers le rafraichissement de fond, alors qu'une carte par compte est
-    # toujours calculee dans la requete -- ce qui faisait durer /state jusqu'a 52 secondes.
-    # LE GROUPE : cette carte se lit avec celle des comptes, pas dans un groupe a elle.
+    # NO "PerAccount" HERE, AND THAT IS THE WHOLE POINT. This card speaks of nobody in particular: it compares an
+    # installation with its source. So it can be deferred to the background refresh, whereas a per-account card is
+    # always computed inside the request -- which made /state last up to 52 seconds.
+    # THE GROUP: this card is read together with the accounts one, not in a group of its own.
     Theme       = 'accounts'
     Label       = 'Déploiement'
     Description = 'Ce que lancent les autres comptes : version en place, interpréteur, tâches de démarrage.'
 
-    # Une operation lancee depuis cette carte (deploiement, installation d'une
-    # dependance) peut durer et peut ECHOUER. « Le suivi des erreurs est primordial » :
-    # son sort remonte donc comme n'importe quel autre constat (D82).
+    # An operation started from this card (a deployment, the installation of a dependency) can last and can FAIL.
+    # "Tracking the errors is paramount": so its fate is reported like any other observation (D82).
     Notifications = @(
         @{ Key = 'operation'; Label = 'Déploiement terminé ou en échec'
            Card = 'deployment'; Field = 'lastrun'

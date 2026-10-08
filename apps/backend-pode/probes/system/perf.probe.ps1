@@ -120,8 +120,8 @@ if ($pageFile) {
     }
 }
 $worst = if ($commitStatus -eq 'error') { 'error' } elseif ($ramStatus -eq 'warn' -or $commitStatus -eq 'warn' -or $cpuStatus -eq 'warn') { 'warn' } else { 'ok' }
-# Bouton PERMANENT (D114) : voir QUI consomme est la suite naturelle de « combien est
-# consomme », que la machine aille bien ou non.
+# A PERMANENT button (D114): seeing WHO is consuming is the natural sequel to "how much is consumed", whether the
+# machine is well or not.
 # SCOPE: the computer's loads, every session added together.
 New-ModuleObject -Id 'perf' -Theme 'system' -Label 'Ressources' -Scope 'machine' -Status $worst -Fields @(
     New-Field -Key 'ramUsed' -Label 'RAM utilisée' -Value $ramValue -Kind 'text' -Status $ramStatus `

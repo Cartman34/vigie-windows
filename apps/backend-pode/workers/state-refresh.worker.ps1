@@ -1,19 +1,19 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-<# Worker DETACHE : recalcule UNE sonde perimee, hors de toute requete HTTP.
+<# A DETACHED worker: it recomputes ONE stale probe, outside any HTTP request.
 
-   LA REGLE (utilisateur) : « le serveur peut le lancer seul en background mais ca doit
-   etre non bloquant », et « rare, et par carte uniquement ». Personne n'attend derriere
-   ce processus : la reponse est deja partie avec la valeur connue.
+   Intent: let the server compute by itself without anybody waiting. THE RULE (the owner's): "the server may
+   start it on its own in the background but it must be non-blocking", and "rare, and per card only". Nobody is
+   waiting behind this process: the answer has already left with the known value.
+   Usage: it is started by the scheduler. The 'VigieStateRecompute' lock prevents two simultaneous passes; the
+   caller checks it BEFORE starting, so as not to pay for a pwsh startup for nothing.
 
-   UNE SEULE SONDE PAR PASSAGE. La version precedente appelait Get-State -Force et
-   recalculait les dix-sept : une passe durait une minute et demie, les delais des autres
-   expiraient pendant ce temps, et la requete suivante en relancait une -- la machine ne
-   s'arretait plus (mesure le 31/08, /state a 27 secondes). On en prend UNE, la plus
-   ancienne, et on s'arrete.
-
-   Le verrou 'VigieStateRecompute' empeche deux passages simultanes ; l'appelant le
-   verifie AVANT de lancer, pour ne pas payer un demarrage de pwsh pour rien.
+   ONE SINGLE PROBE PER PASS. The previous version called Get-State -Force and recomputed all seventeen: one
+   pass lasted a minute and a half, the others' delays expired meanwhile, and the next request started another
+   one -- the machine never stopped (measured on 31/08, /state at 27 seconds). We take ONE, the oldest, and we
+   stop.
 #>
+
+
 param([string]$Backend, [string]$ArgsB64)
 if (-not $Backend) { return }
 . (Join-Path $Backend 'lib/common.ps1')

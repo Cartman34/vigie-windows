@@ -1,15 +1,16 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    Sonde : etat du verrouillage Windows Update. LECTURE SEULE, rapide.
-    Le verrou ACL n'est fiable/applicable que si le serveur est administrateur :
-    sinon on l'affiche comme neutre plutot qu'un faux avertissement.
+    A probe: the state of the Windows Update lock. READ ONLY, fast.
+    Intent: say whether automatic updates are held back, and say nothing one cannot know -- the ACL lock is only
+    reliable and applicable if the server is an administrator, so otherwise it is shown as neutral rather than as
+    a false warning. Usage: it is run by the scheduler like any probe.
 #>
 $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $backend 'lib/common.ps1')
 
-# UNE seule lecture d'etat pour tout le sujet (D15) : la sonde, les actions et l'audit
-# partagent Get-UpdateLockState. La sonde recopiait auparavant la liste des dossiers de
-# taches et le test de la strategie -- deux copies de plus a maintenir.
+# ONE single reading of the state for the whole subject (D15): the probe, the actions and the audit share
+# Get-UpdateLockState. The probe used to copy the list of task folders and the policy test -- two more copies to
+# maintain.
 $state = Get-UpdateLockState
 
 $elevated = $state.elevated
@@ -21,10 +22,10 @@ $ready    = $state.tasksReady
 $taskLines = @($state.tasks | Sort-Object path, name | ForEach-Object { "{0}{1} : {2}" -f $_.path, $_.name, $_.state })
 $taskDetail = if ($taskLines.Count) { "État réel des tâches de mise à jour :`n- " + ($taskLines -join "`n- ") } else { "Aucune tâche listée (lecture impossible)." }
 
-# Statut de la CARTE = sante fonctionnelle. Les MAJ auto coupees (NoAutoUpdate) = fonction OK.
-# Le verrou ACL, s'il manque, reste un avertissement de LIGNE (sans impact) mais ne degrade pas la carte.
-# Le redemarrage en attente ne vit PLUS ici : c'est un etat GENERAL de la machine, porte
-# par la carte Windows (probes/system/os.probe.ps1) avec son action de redemarrage.
+# The CARD's status = functional health. Automatic updates held back (NoAutoUpdate) = the function is working.
+# The ACL lock, if it is missing, stays a LINE warning (with no impact) but does not degrade the card.
+# The pending restart no longer lives here: it is a GENERAL state of the machine, carried by the Windows card
+# (probes/system/os.probe.ps1) with its restart action.
 $status = if (-not $locked) { 'warn' } else { 'ok' }
 
 $fullyLocked = $state.locked   # verrou complet = MAJ auto coupees ET verrou ACL applique (defini dans Get-UpdateLockState)

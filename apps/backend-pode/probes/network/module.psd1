@@ -1,16 +1,16 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 @{
-    # Declaration du MODULE (D48) : un module = ce dossier de sondes.
-    # Le label et la description servent a la vue de gestion des modules.
-    # L'activation ne vit PAS ici : elle est un choix de l'utilisateur, dans
-    # config/modules.local.psd1 (jamais versionne).
+    # The MODULE's declaration (D48): one module = this folder of probes.
+    # Intent: say what this module is, what it computes and when, and what it may notify. The label and the
+    # description serve the module management view. Usage: whether it is enabled does NOT live here: that is the
+    # user's choice, in config/modules.local.psd1 (never versioned).
     Label       = 'Réseau'
     Description = 'Connexion, Wi-Fi, adresses et débit.'
 
-    # CONFIG : les valeurs par defaut, versionnees (D57).
+    # CONFIG: the default values, versioned (D57).
     Config = @{
-        LatencyWarnMs  = 80    # au-dela : latence moyenne (warn)
-        LatencyErrorMs = 200   # au-dela : latence penible (error)
+        LatencyWarnMs  = 80    # beyond this: a middling latency (warn)
+        LatencyErrorMs = 200   # beyond this: a painful latency (error)
         # THE PORT WATCH: reading costs 2,8 ms, so it happens at every pass; WRITING is what is rationed. Nothing is
         # kept while the reserve is idle -- at 1 % occupancy a line every thirty seconds teaches no one anything.
         PortWatchPercent = 50   # written as soon as the occupancy reaches this share
@@ -35,16 +35,16 @@
            Help = 'Après un événement « Ports réseau épuisés » de Windows, Vigie note l''occupation à chaque passage pendant ce délai, quel que soit le seuil. 0 désactive.' }
     )
 
-    # SENTINELLES (CORE-WATCH) : les releves bon marche que l'app serveur execute en
-    # permanence, meme sans session ouverte. Quand la valeur CHANGE, les cartes citees
-    # sont recalculees -- et c'est leur bascule qui produit la notification (D54).
-    # Le vocabulaire suit les autres cles de ce fichier : anglais, comme Label et Config.
+    # SENTINELS (CORE-WATCH): the cheap readings the server app runs permanently, even with no session open. When
+    # the value CHANGES, the cards that are cited are recomputed -- and it is their flip that produces the
+    # notification (D54).
+    # The vocabulary follows the other keys of this file: English, like Label and Config.
     Sentinels = @(
         @{ Key = 'internet'; Label = 'Connexion Internet'; Seconds = 60; Cards = @('net') }
     )
 
-    # NOTIFICATIONS emises par ce module (D54) : un evenement nomme, pas un nom de
-    # carte. C'est la bascule du champ cite qui declenche la bulle.
+    # NOTIFICATIONS emitted by this module (D54): a named event, not a card's name. It is the flip of the field
+    # that is cited which triggers the balloon.
     Notifications = @(
         @{ Key = 'offline'; Label = 'Perte de connexion Internet'
            Card = 'net'; Field = 'connected'

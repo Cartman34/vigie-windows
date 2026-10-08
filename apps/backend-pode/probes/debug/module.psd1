@@ -1,12 +1,12 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 @{
-    # Declaration du MODULE (D48) : la sante de VIGIE ELLE-MEME.
+    # The MODULE's declaration (D48): the health of VIGIE ITSELF. Intent: say what it computes and what it may notify.
     Label       = 'Débogage'
     Description = 'L''état de Vigie elle-même : tâches de démarrage, dépendances, journaux.'
 
-    # NAIT ETEINT (D85). C'est un module de DEBOGAGE : il ne parle qu'a qui developpe ou
-    # depanne, et n'a rien a faire sur le tableau de bord de tous les jours. L'utilisateur
-    # l'allume dans Parametres > Modules quand il en a besoin ; son choix est garde.
+    # IT IS BORN SWITCHED OFF (D85). It is a DEBUGGING module: it speaks only to whoever is developing or
+    # troubleshooting, and has no business on the everyday panel. The user switches it on in Settings > Modules
+    # when they need it; their choice is kept.
     DefautActif = $false
 
     # THE SELF-WATCH THRESHOLDS (CORE-SELFWATCH): what Vigie may occupy before its own card alerts. On 17/09, 115 copies

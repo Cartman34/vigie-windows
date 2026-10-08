@@ -1,21 +1,21 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-<# Sonde : l'etat de VIGIE ELLE-MEME. LECTURE SEULE.
+<# A probe: the state of VIGIE ITSELF. READ ONLY.
 
-   Pourquoi cette carte existe (D85) : tout ce qui a fait perdre du temps le 26/08 etait
-   invisible depuis l'application. Une tache de demarrage visant un interpreteur disparu,
-   une dependance installee pour un seul compte, une installation partagee en retard de
-   vingt commits : rien de tout cela n'apparaissait nulle part, et il a fallu fouiller le
-   registre et les journaux a la main.
+   Intent: make visible from the application what cost time on 26/08 and was visible nowhere (D85) -- a start-up
+   task aiming at an interpreter that had gone, a dependency installed for one account only, a shared
+   installation twenty commits behind. None of that appeared anywhere, and the registry and the logs had to be
+   searched by hand.
+   Usage: it is run by the scheduler like any probe. Its module is born SWITCHED OFF: it is a troubleshooting
+   tool, not an everyday card. #>
 
-   Elle est ETEINTE par defaut : c'est un outil de depannage, pas une carte de tous les
-   jours. #>
+
 $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $backend 'lib/common.ps1')
 
 $fields = @()
 $eleve  = Test-IsElevated
 
-# --- Ce qui tourne ------------------------------------------------------------
+# --- What is running ----------------------------------------------------------
 $marque = Get-BuildStamp
 $court  = if ($marque.commit) { $marque.commit.Substring(0, [Math]::Min(8, $marque.commit.Length)) } else { '' }
 $fields += New-Field -Key 'version' -Label 'Version en cours' `
@@ -45,7 +45,7 @@ if (-not $eleve) {
         -Help "Les tâches des AUTRES comptes ne sont pas visibles d'une session ordinaire : ce relevé peut être incomplet."
 }
 
-# --- Ou vivent les donnees ----------------------------------------------------
+# --- Where the data lives -----------------------------------------------------
 $logFolder = Get-VarPath -Backend $backend -Kind 'log'
 $journaux = @(Get-ChildItem -Path $logFolder -Filter '*.log' -File -ErrorAction SilentlyContinue)
 $poids = 0
@@ -58,9 +58,8 @@ $fields += New-Field -Key 'journaux' -Label 'Journaux' `
             (@($journaux | Sort-Object LastWriteTime -Descending | Select-Object -First 8 |
                ForEach-Object { "  " + $_.Name + "  (" + (Format-ByteSize -Bytes $_.Length) + ")" }) -join [Environment]::NewLine))
 
-# UN CHEMIN N'EST PAS UNE VALEUR DE CARTE : il tient sur trois lignes, se lit mal, et
-# n'apprend rien au premier coup d'oeil. La carte dit CE QUE C'EST et son poids ; le
-# chemin complet vit dans le detail de la ligne (regle utilisateur, 27/08).
+# A PATH IS NOT A CARD'S VALUE: it spans three lines, reads badly, and teaches nothing at a glance. The card says
+# WHAT IT IS and its weight; the full path lives in the line's detail (the owner's rule, 27/08).
 $varRoot = Get-VarRoot -Backend $backend
 $poidsVar = 0
 try {
@@ -73,15 +72,15 @@ $fields += New-Field -Key 'donnees' -Label 'Données locales' `
     -Guide $varRoot
 
 <#
-    LES SENTINELLES, ET CE QU'ELLES ONT RELEVE EN DERNIER.
+    THE SENTINELS, AND WHAT THEY LAST MEASURED.
 
-    Leur memoire vit dans le var du compte qui EXECUTE l'app serveur : une session
-    ordinaire ne peut meme pas la lire, et mon outil de suivi annoncait « jamais relevee »
-    alors qu'il ne savait tout simplement pas (constate le 01/09). C'est Vigie qui doit le
-    dire -- elle, elle voit.
+    Their memory lives in the var of the account that RUNS the server app: an ordinary session cannot even read
+    it, and my tracking tool announced "never measured" while it simply did not know (observed on 01/09). It is
+    Vigie that must say it -- Vigie can see.
 
-    C'est aussi la seule preuve qu'on ait que la veille tourne : sans releve, elle est
-    peut-etre arretee depuis des heures sans que rien ne le signale.
+    It is also the only proof we have that the watch is running: with no reading, it may have been stopped for
+    hours with nothing to report it.
+
 #>
 $sentinels = @()
 try { $sentinels = @(Get-WatchDeclarations -Backend $backend) } catch { }
@@ -111,8 +110,8 @@ if ($sentinels.Count) {
         }
     }
 
-    # ELLE TOURNE, OU ELLE NE TOURNE PLUS. Un releve plus vieux que trois fois sa cadence
-    # la plus lente n'est pas un retard, c'est un arret.
+    # IT IS RUNNING, OR IT IS NOT RUNNING ANY MORE. A reading older than three times its slowest cadence is not a
+    # delay, it is a stop.
     $staleAfter = ([int](($sentinels | Measure-Object Seconds -Maximum).Maximum)) * 3
     $stopped = $never.Count -eq $sentinels.Count
     if (-not $stopped -and $oldest) { $stopped = ((Get-Date) - $oldest).TotalSeconds -gt $staleAfter }
@@ -174,7 +173,7 @@ if ($residents.Count) {
         -Guide ($residentLines -join [Environment]::NewLine)
 }
 
-# LE SORT DE LA DERNIERE OPERATION lancee depuis cette carte (D82).
+# THE FATE OF THE LAST OPERATION started from this card (D82).
 $dernier = New-LastRunField -Module 'vigie-debug' -Backend $backend
 if ($dernier) { $fields += $dernier }
 

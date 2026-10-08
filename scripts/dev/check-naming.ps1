@@ -42,7 +42,7 @@ $ErrorActionPreference = 'Stop'
     not rewrite it at once -- thousands of touched lines for no gain, and a drowned git
     blame. The ratchet forbids adding any; every conversion lowers the ceiling as much.
 #>
-$COMMENT_CEILING = 776
+$COMMENT_CEILING = 414
 
 # 08/10, the second half of common.ps1: 1044 -> 310 French comment lines in the library, and the repository from
 # 4539 to 3805. Then its tail -- the environment, the traceability, the requester, the Atelier, the elevation and
@@ -98,6 +98,13 @@ $COMMENT_CEILING = 776
 #
 # A TRANSLATED COMMENT WROTE THE WORD BANNED BY D108, inside an ordinary English word that happens to contain it.
 # This ratchet caught it. The pattern catches the isolated word, which is what it is for; the comment was reworded.
+#
+# 08/10, GROUP 3 -- the probes, the watchers and the workers: pending.probe (40), disk-scan.worker (41),
+# disk.probe (29), power.probe (25), packages.probe (25), vigie.probe (22), vbs.probe (22), pkg-job.worker (21),
+# wu-install.worker (16), state-refresh.worker (11), lock.probe (10), internet.watch (8), defender.probe (7),
+# os.probe (6), firewall.probe (4), history.probe (4), perf.probe (2), and the eight module.psd1 files. The
+# repository drops from 776 to 414. Proven by RUNNING: check-probes -All runs the nineteen probes and judges their
+# contract, and every module.psd1 loads through Import-PowerShellDataFile.
 #
 # THE METHOD, so the next campaign does not reinvent it. The tools live in the session's scratchpad and are rebuilt
 # in a few lines if lost: blocs.py lists the contiguous French comment blocks of a file with their ranges;

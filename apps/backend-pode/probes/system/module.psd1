@@ -1,36 +1,35 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 @{
-    # Declaration du MODULE (D48) : un module = ce dossier de sondes.
-    # Le label et la description servent a la vue de gestion des modules.
-    # L'activation ne vit PAS ici : elle est un choix de l'utilisateur, dans
-    # config/modules.local.psd1 (jamais versionne).
+    # The MODULE's declaration (D48): one module = this folder of probes.
+    # Intent: say what this module is, what it computes and when, and what it may notify. The label and the
+    # description serve the module management view. Usage: whether it is enabled does NOT live here: that is the
+    # user's choice, in config/modules.local.psd1 (never versioned).
     Label       = 'Système'
     Description = 'Windows, ressources et disque.'
 
-    # CONFIG : les valeurs par defaut, versionnees (D57). Une sonde les lit via
-    # Get-ModuleSetting, qui applique d'abord l'eventuelle surcharge utilisateur.
+    # CONFIG: the default values, versioned (D57). A probe reads them through Get-ModuleSetting, which applies the
+    # user's override first if there is one.
     Config = @{
-        DiskWarnGb    = 60   # espace libre (Go) sous lequel la carte Disque passe en warn
-        # Analyse de la consommation : ce qui borne le DETAIL conserve (le parcours, lui,
-        # est toujours complet). Plus la profondeur est grande, plus le resultat est fin
-        # et gros ; le cout memoire de l'analyse est en topN^profondeur.
-        DiskScanDepth = 3    # niveaux de detail conserves sous la racine
-        DiskScanTop   = 10   # elements gardes par niveau (le reste est replie en « autres »)
+        DiskWarnGb    = 60   # the free space (GB) below which the Disc card goes to warn
+        # The analysis of what the space is used by: what bounds the DETAIL that is kept (the walk itself is
+        # always complete). The greater the depth, the finer and the larger the result; the memory cost of the
+        # analysis is topN^depth.
+        DiskScanDepth = 3    # levels of detail kept under the root
+        DiskScanTop   = 10   # elements kept per level (the rest is folded into an "others" line)
         # THE DISK ANALYSED WITHOUT BEING ASKED, when the free space falls hard. 10 GB in a day is a fall; a disk
         # that has been low for months is not. Zero switches it off.
-        AutoScanDropGb   = 10   # Go perdus sur la fenetre ci-dessous avant de regarder de soi-meme
-        AutoScanMinHours = 24   # la fenetre, et le temps minimal entre deux analyses automatiques
-        # Alimentation d'un portable : ce qui distingue une charge normale d'un
-        # chargeur qui ne suit pas.
-        ChargeSlowW   = 10   # puissance de charge (W) sous laquelle la charge est jugee trop lente
-        BatteryLowPct = 20   # charge restante (%) sous laquelle la batterie est signalee basse
+        AutoScanDropGb   = 10   # GB lost over the window below before looking of its own accord
+        AutoScanMinHours = 24   # the window, and the minimum time between two automatic analyses
+        # The power supply of a laptop: what tells a normal charge from a charger that is not keeping up.
+        ChargeSlowW   = 10   # the charging power (W) below which the charge is judged too slow
+        BatteryLowPct = 20   # the remaining charge (%) below which the battery is reported as low
         # A FACT FROM THE LOG STOPS BEING HIGHLIGHTED (D127). Past this delay it stays in the detail, findable, but
         # carries the card's status no longer -- a blue screen included. What is CONFIRMED to be still happening
         # carries it whatever its age, and what the measure DENIES never carries it. 0 declasses nothing.
         EventHighlightMinutes = 60
     }
 
-    # PARAMETRES : les cles de Config reglables dans le menu Parametres de l'app.
+    # PARAMETERS: the Config keys that can be set from the app's Settings menu.
     Parameters = @(
         @{ Key = 'EventHighlightMinutes'; Label = 'Mettre en avant une erreur du journal pendant'; Type = 'int'; Unit = 'min'; Min = 0; Max = 1440; Step = 15
            Help = 'Passé ce délai, une erreur du journal Windows reste dans le détail mais ne met plus la carte en défaut. Une erreur dont Vigie vérifie qu''elle dure encore la met en défaut quel que soit son âge ; une erreur démentie par la mesure, jamais.' }
@@ -48,12 +47,12 @@
            Help = 'Sur batterie, en dessous de cette charge restante, la carte Alimentation passe en avertissement.' }
     )
 
-    # NOTIFICATIONS emises par ce module (D54) : un evenement nomme, pas un nom de
-    # carte. C'est la bascule du champ cite qui declenche la bulle.
-    # SENTINELLES : les releves permanents de ce module.
-    # Le sens du courant change quand on branche, quand on debranche, et quand le
-    # chargeur cesse de suivre : trois faits que la carte doit dire SANS attendre
-    # qu'on la rafraichisse. Une lecture WMI toutes les trente secondes.
+    # NOTIFICATIONS emitted by this module (D54): a named event, not a card's name. It is the flip of the field
+    # that is cited which triggers the balloon.
+    # SENTINELS: this module's permanent readings.
+    # The direction of the current changes when one plugs in, when one unplugs, and when the charger stops
+    # keeping up: three facts the card must state WITHOUT waiting to be refreshed. One WMI reading every thirty
+    # seconds.
     # MODES (D124): this one has its own reading -- 250 ms of processor load -- because no sentinel measures it.
     Modes = @(
         @{ Key = 'calm'; Label = 'Machine au calme'; Script = 'calm.mode.ps1'; Off = @('non', 'inconnu') }

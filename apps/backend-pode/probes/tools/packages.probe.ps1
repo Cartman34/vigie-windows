@@ -1,8 +1,8 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-<# Sonde : UNE carte par gestionnaire de paquets detecte (presence + version + MAJ).
-   LECTURE SEULE et RAPIDE. La verification des MAJ (lente/reseau) est faite a la
-   demande par l'action pkg-check-updates (worker detache) ; ici on ne fait que
-   LIRE var/cache/pkgupdates.json (compte, elements, etat "en cours"). #>
+<# A probe: ONE card per package manager that is detected (presence, version, updates).
+   Intent: say what is installed and what could be updated, without ever paying the network's price here.
+   READ ONLY and FAST: checking for updates (slow, network) is done on demand by the pkg-check-updates action (a
+   detached worker); here we only READ var/cache/pkgupdates.json (the count, the items, the "under way" state). #>
 param()
 $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $backend 'lib/common.ps1')
@@ -10,7 +10,7 @@ $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 # WHO IS LOOKING, read first thing: everything below depends on it (D128).
 $requester = Get-StateAccount
 
-# Etat des MAJ / verification en cours (ecrit par l'action + le worker).
+# The state of the updates, or of a check under way (written by the action plus the worker).
 # ONE STORE PER ACCOUNT (D128): one account's packages are not another's, and a single file served each to the
 # other. With no requester there is nothing to read, and the card says so rather than showing someone else's.
 $upd = @{}
@@ -83,27 +83,26 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
     $checking = [bool]$operation
     $op = if ($operation -and "$($operation.action)" -eq 'pkg-upgrade') { 'upgrade' } else { 'check' }
     $supported   = ($mg.updMode -ne 'none' -and @($mg.updArgs).Count -gt 0)
-    # Deux capacites DISTINCTES : savoir tout mettre a jour, et savoir n'en cibler qu'un.
-    # pip ne sait que la seconde ; scoop, npm et gem que la premiere.
+    # Two DISTINCT abilities: knowing how to update everything, and knowing how to target one. pip knows only the
+    # second; scoop, npm and gem only the first.
     $selectable  = ($null -ne $mg.upgOne  -and @($mg.upgOne).Count  -gt 0)
     $upSupported = (($null -ne $mg.upgArgs -and @($mg.upgArgs).Count -gt 0) -or $selectable)
     $cnt         = if ($u -and $null -ne $u.count) { [int]$u.count } else { -1 }
 
-    # Paquets IGNORES par l'utilisateur (Parametres > Modules > Outils & paquets) :
-    # exclus du decompte et de la liste, mais dits dans le guide -- une exclusion
-    # silencieuse finirait par faire croire qu'une MAJ n'existe pas.
+    # Packages IGNORED by the user (Settings > Modules > Tools and packages): excluded from the count and from the
+    # list, but stated in the guide -- a silent exclusion would end up making one believe an update does not
+    # exist.
     $ignores = @(Get-ModuleSetting -Unit 'tools' -Key 'IgnoredPackages' | Where-Object { "$_" -match '\S' })
     $nbIgnores = 0
     $itemsAff = @($u.items)
     if ($ignores.Count -gt 0 -and $itemsAff.Count -gt 0) {
-        # Un motif peut viser la ligne AFFICHEE (« Microsoft GameInput 3.3 -> 3.4 ») ou
-        # l'IDENTIFIANT ciblable (« Microsoft.GameInput ») : items et pkgs sont paralleles
-        # (meme source, meme ordre), on teste les deux formes.
+        # A pattern can aim at the DISPLAYED line (a title with its two versions) or at the TARGETABLE identifier:
+        # items and pkgs run in parallel (the same source, the same order), so we test both forms.
         $pkgsIds = @($u.pkgs)
         $garde = @()
         for ($i = 0; $i -lt $itemsAff.Count; $i++) {
             $line = "$($itemsAff[$i])"
-            # pkgs est une liste d'OBJETS { id, titre, detail } : c'est l'id qu'on vise.
+            # pkgs is a list of OBJECTS { id, title, detail }: it is the id we aim at.
             $idPkg = if ($i -lt $pkgsIds.Count) { "$($pkgsIds[$i].id)" } else { '' }
             $vise = @($ignores | Where-Object {
                 $line -like ('*' + $_ + '*') -or ($idPkg -and $idPkg -like $_)
@@ -115,7 +114,7 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
         if ($cnt -gt 0) { $cnt = [Math]::Max(0, $cnt - $nbIgnores) }
     }
 
-    # Champ Version (toujours present).
+    # The Version field (always present).
     $vg = @()
     if ($raw) { $vg += $raw }
     $vg += ("Chemin : " + $src)
@@ -135,8 +134,8 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
         $majValue = 'non pris en charge'
         $mg2 += "La vérification automatique des MAJ n'est pas disponible pour ce gestionnaire."
     } elseif ($checking) {
-        # La carte dit EXACTEMENT ce qui tourne : quoi, sur combien, depuis quand.
-        # « Mise à jour en cours... » seul laissait l'utilisateur sans reponse (constate).
+        # The card says EXACTLY what is running: what, on how many, since when. An "update under way" on its own
+        # left the user without an answer (observed).
         $elapsed = ''
         if ($u.startedAt) {
             try {
@@ -171,8 +170,8 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
         if ($nbIgnores -gt 0) { $mg2 += ("($nbIgnores mise(s) à jour masquée(s) par la liste des paquets ignorés.)") }
         $mg2 += ""
         $mg2 += ("Vérifié le : " + $u.at)
-        # Le resultat de la DERNIERE mise a jour reste visible : une operation qui se
-        # termine en silence laisse croire qu'il ne s'est rien passe.
+        # The result of the LAST update stays visible: an operation that ends in silence makes one believe nothing
+        # happened.
         if ($u.last) {
             $quoi = if ([int]$u.last.count -gt 0) { "$([int]$u.last.count) paquet(s)" } else { "tout le gestionnaire" }
             $failures = @($u.last.failed)
@@ -198,8 +197,8 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
         $majValue = 'Non vérifiées'
         $mg2 += "« Vérifier les mises à jour » lance la vérification, en tâche de fond."
     }
-    # Le champ MAJ pointe vers l'action d'upgrade (bouton "Mettre a jour") quand
-    # des MAJ existent ET que le gestionnaire sait se mettre a jour tout seul.
+    # The updates field points at the upgrade action when updates exist AND the manager knows how to update
+    # itself.
     $majFieldArgs = @{
         Key = 'updates'; Label = 'Mises à jour'; Value = $majValue; Kind = 'text'; Status = $majStatus
         Help = "Nombre de mises à jour disponibles (vérifié à la demande, sans bloquer)."; Guide = ($mg2 -join "`n")
@@ -212,7 +211,7 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
         if ($failure) { $fields += $failure }
     }
 
-    # Statut de la carte : neutre pendant l'operation, sinon selon les MAJ.
+    # The card's status: neutral while the operation runs, otherwise according to the updates.
     $modStatus = if ($checking) { 'neutral' } elseif ($majStatus -eq 'warn') { 'warn' } else { 'ok' }
 
     $actions = @()
@@ -220,8 +219,8 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
         $actions += New-Action -Id 'pkg-check-updates' -Module ("pkg-" + $mg.id) -Label 'Vérifier les mises à jour' -BusyLabel 'Vérification…' -Kind 'immediate' `
             -Help ("Interroge " + $mg.label + " pour lister les MAJ disponibles. S'exécute en tâche de fond ; la carte s'actualise seule.")
     }
-    # Le bouton ouvre la fenetre de CHOIX (comme Windows Update), il ne lance plus la mise
-    # a jour sur un simple oui/non : mettre a jour « tout » sans voir quoi n'est pas un choix.
+    # The button opens the window of CHOICE (like Windows Update), it no longer starts the update on a plain yes
+    # or no: updating "everything" without seeing what is not a choice.
     if ($upSupported -and $cnt -gt 0 -and -not $checking) {
         $aide = if ($selectable) {
             "Ouvre la liste des paquets de " + $mg.label + " : cochez ceux à mettre à jour. La mise à jour s'exécute en tâche de fond."
@@ -230,8 +229,8 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
         }
         $actions += New-Action -Id 'pkg-list-updates' -Module ("pkg-" + $mg.id) -Severity 'fix' -Label 'Mettre à jour' -BusyLabel 'Mise à jour…' -Kind 'dialog' -Help $aide
     }
-    # Interface graphique du gestionnaire, UNIQUEMENT si elle est installee (Get-PkgGui le
-    # verifie). Meme role que « Ouvrir Windows Update » sur la carte Windows Update.
+    # The manager's graphical interface, ONLY if it is installed (Get-PkgGui checks). The same role as the button
+    # that opens Windows Update on the Windows Update card.
     $gui = $null
     try { $gui = Get-PkgGui -Id $mg.id } catch { }
     if ($gui) {

@@ -1,28 +1,27 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-<# Worker DETACHE : analyse de la consommation du disque.
+<# A DETACHED worker: the analysis of what the disc is used by.
 
-   POURQUOI UN WORKER : parcourir un disque prend des dizaines de secondes ; la requete
-   HTTP, elle, doit repondre tout de suite. L'action lance ce worker (fenetre cachee), la
-   carte passe en "en cours" et suit la progression ecrite ici.
+   Intent: walk a tree that can be ENORMOUS without ever making a request wait, and without memory growing with
+   the number of files.
+   Usage: the disk-analyze action starts it (in a hidden window), the card goes to "under way" and follows the
+   progress written here. It writes ONLY into var/cache/diskscan.json. Read only on the disc being analysed.
 
-   COMMENT C'EST OPTIMISE (exigence utilisateur : l'arborescence peut etre ENORME) :
-   - Un SEUL passage, en .NET (System.IO.DirectoryInfo.EnumerateFiles/Directories avec
-     EnumerationOptions). Les FileInfo rendus par l'enumeration portent deja leur taille :
-     aucun appel systeme supplementaire par fichier.
-   - Parcours ITERATIF (pile explicite) en post-ordre : pas de recursion PowerShell, donc
-     pas de limite de profondeur ni de cout d'appel.
-   - RIEN n'est conserve globalement : chaque dossier remonte a son parent une SOMME, et
-     le parent ne garde que les $topN plus gros enfants ; le reste est replie dans un
-     cumul "autres". La memoire est donc bornee par topN^profondeur, pas par le nombre
-     de fichiers du disque (des millions restent a cout memoire constant).
-   - Au-dela de la profondeur demandee, on continue de MESURER mais on ne garde plus les
-     noms : la somme reste juste, le detail inutile disparait.
-   - Les points de jonction / liens symboliques (ReparsePoint) sont ignores : sans cela
-     C:\Users\...\Application Data reboucle a l'infini et les tailles sont comptees deux
-     fois. Les dossiers CACHES et SYSTEME, eux, sont bien comptes (ils pesent souvent le
-     plus lourd) -- ce que le defaut de .NET ecarte, d'ou l'AttributesToSkip explicite.
+   WHY A WORKER: walking a disc takes tens of seconds; the HTTP request must answer at once.
 
-   N'ecrit QUE dans var/cache/diskscan.json. Lecture seule sur le disque analyse. #>
+   HOW IT IS OPTIMISED (the owner's requirement: the tree can be ENORMOUS):
+   - ONE single pass, in .NET (System.IO.DirectoryInfo.EnumerateFiles/Directories with EnumerationOptions). The
+     FileInfo objects the enumeration returns already carry their size: not one extra system call per file.
+   - An ITERATIVE walk (an explicit stack) in post-order: no PowerShell recursion, so no depth limit and no call
+     cost.
+   - NOTHING is kept globally: each folder passes a SUM up to its parent, and the parent keeps only its $topN
+     largest children; the rest is folded into an "others" total. So the memory is bounded by topN^depth, not by
+     the number of files on the disc (millions stay at a constant memory cost).
+   - Beyond the depth that was asked for, we go on MEASURING but no longer keep the names: the sum stays right,
+     the useless detail disappears.
+   - The junction points and symbolic links (ReparsePoint) are ignored: without that, a profile's legacy
+     Application Data loops for ever and the sizes are counted twice. The HIDDEN and SYSTEM folders, on the other
+     hand, are counted (they are often the heaviest) -- which .NET's default sets aside, hence the explicit
+     AttributesToSkip. #>
 param([string]$Backend, [string]$ArgsB64)
 if (-not $Backend) { exit 1 }
 . (Join-Path $Backend 'lib/common.ps1')
@@ -46,7 +45,7 @@ if ($topN -gt 30)       { $topN = 30 }
 
 $outFile  = Get-VarPath -Backend $Backend -Kind 'cache' -File 'diskscan.json'
 $stopFile = Get-VarPath -Backend $Backend -Kind 'cache' -File 'diskscan.stop'
-# Un drapeau d'arret laisse par une analyse precedente arreterait celle-ci aussitot.
+# A stop flag left by an earlier analysis would stop this one at once.
 if (Test-Path -LiteralPath $stopFile) { Remove-Item -LiteralPath $stopFile -Force -ErrorAction SilentlyContinue }
 
 $debut = Get-Date
@@ -64,8 +63,8 @@ $opts.ReturnSpecialDirectories = $false
 $opts.AttributesToSkip        = [System.IO.FileAttributes]::ReparsePoint
 
 # --- Outils ------------------------------------------------------------------
-# Ne conserve que les $Max plus gros elements ; les autres sont replies dans un cumul
-# (taille + nombre), qui sera dit a l'ecran : rien ne disparait en silence.
+# It keeps only the $Max largest elements; the others are folded into a total (size plus count), which will be
+# stated on screen: nothing disappears in silence.
 function Limit-Detail {
     param($Liste, [int]$Max, [hashtable]$Autres)
     if ($Liste.Count -le $Max) { return }
@@ -92,8 +91,8 @@ $rootNode = New-Node -NodePath $rootPath -NodeName $rootPath -Prof 0 -Parent $nu
 $pile = [System.Collections.Generic.Stack[hashtable]]::new()
 $pile.Push($rootNode)
 
-# Palmares GLOBAUX (bornes) : ce que l'utilisateur cherche vraiment, "qui mange la place",
-# sans avoir a deplier l'arbre niveau par niveau.
+# GLOBAL rankings (bounded): what the user is really looking for, "who is eating the space", without having to
+# unfold the tree level by level.
 $folderCandidates = [System.Collections.Generic.List[hashtable]]::new()
 $fileCandidates = [System.Collections.Generic.List[hashtable]]::new()
 $PALMARES = 20
@@ -108,7 +107,7 @@ try {
         $n = $pile.Pop()
 
         if ($n.etat -eq 0) {
-            # PREMIERE visite : mesurer les fichiers du dossier, empiler ses sous-dossiers.
+            # The FIRST visit: measure the folder's files, push its subfolders.
             $n.etat = 1
             $pile.Push($n)                     # revisite APRES ses enfants (post-ordre)
             $gDirs++
@@ -143,7 +142,7 @@ try {
                 } catch { }
             }
 
-            # Progression + demande d'arret : au plus une fois par seconde et demie.
+            # Progress plus the stop request: at most once every second and a half.
             if (((Get-Date) - $dernierEcrit).TotalMilliseconds -gt 1500) {
                 $dernierEcrit = Get-Date
                 if (Test-Path -LiteralPath $stopFile) { $stopped = $true; break }
@@ -158,16 +157,16 @@ try {
             continue
         }
 
-        # SECONDE visite : tous les enfants ont fini, le total est connu.
+        # The SECOND visit: every child has finished, the total is known.
         $n.total = $n.own + $n.acc
         Limit-Detail $n.kids $topN $n.au
         Limit-Detail $n.tops $topN $n.af
 
-        # Palmares des gros dossiers : on ne retient que les dossiers OU LA PLACE SE
-        # PARTAGE. Sans ce filtre, le classement est une chaine d'ancetres qui pesent tous
-        # la meme chose (Jeux > Steam > steamapps > common, 259 Go a chaque ligne) : vingt
-        # lignes pour un seul renseignement. Un dossier dont un unique enfant explique
-        # presque tout le poids n'apprend rien : c'est l'enfant qu'il faut montrer.
+        # The ranking of the large folders: we keep only the folders WHERE THE SPACE IS SHARED OUT. Without that
+        # filter, the ranking is a chain of ancestors all weighing the same thing (a game folder, then its
+        # launcher, then its library, then its common folder, 259 GB on every line): twenty lines for one single
+        # piece of information. A folder of which a single child explains almost all the weight teaches nothing:
+        # it is the child that must be shown.
         $revelateur = ($n.total -gt 0 -and (([double]$n.maxKid / [double]$n.total) -lt 0.85))
         if ($n.d -ge 1 -and $revelateur) {
             $rel = $n.p.Substring([Math]::Min($rootLen, $n.p.Length)).TrimStart('\')
@@ -192,7 +191,7 @@ try {
                 $p.kids.Add($e)
                 if ($p.kids.Count -gt (4 * $topN)) { Limit-Detail $p.kids $topN $p.au }
             }
-            # Le noeud a rendu sa somme : on le libere (memoire bornee).
+            # The node has passed its sum up: we release it (bounded memory).
             $n.parent = $null; $n.kids = $null; $n.tops = $null
         }
     }
@@ -203,8 +202,8 @@ try {
 # --- Resultat ----------------------------------------------------------------
 $fin = Get-Date
 if ($stopped) {
-    # Un arret rend un resultat PARTIEL : on ne l'ecrit pas par-dessus le dernier resultat
-    # complet, qui reste utile. On dit seulement que l'analyse a ete interrompue.
+    # A stop returns a PARTIAL result: we do not write it over the last complete result, which stays useful. We
+    # only say that the analysis was interrupted.
     Update-StateJson -Path $outFile -Set @{
         scan = @{ canceled = $true; root = $rootPath
                   startedAt = $debut.ToUniversalTime().ToString('s')
@@ -220,9 +219,9 @@ if ($stopped) {
     if ($rootNode.af.s -gt 0) { $arbre.of = @{ s = [long]$rootNode.af.s; c = $rootNode.af.c } }
     $topFolders = @($folderCandidates | Sort-Object -Property @{ Expression = { [long]$_.s } } -Descending | Select-Object -First $PALMARES)
     $topFiles = @($fileCandidates | Sort-Object -Property @{ Expression = { [long]$_.s } } -Descending | Select-Object -First $PALMARES)
-    # DEUX blocs distincts, et c'est voulu : `scan` = l'etat de la DERNIERE tache (en
-    # cours, terminee, interrompue) ; `result` = la derniere analyse COMPLETE, celle que
-    # l'arbre decrit. Les melanger faisait dater l'arbre du jour d'une interruption.
+    # TWO distinct blocks, and that is deliberate: `scan` = the state of the LAST task (under way, finished,
+    # interrupted); `result` = the last COMPLETE analysis, the one the tree describes. Mixing them made the tree
+    # date from the day of an interruption.
     $bilan = @{ at = $fin.ToUniversalTime().ToString('s')
                 startedAt = $debut.ToUniversalTime().ToString('s')
                 seconds = [int]($fin - $debut).TotalSeconds
@@ -244,7 +243,7 @@ if ($stopped) {
     Write-Log -Backend $Backend -Name 'diskscan' -Message (Get-Label 'disk-scan.dossiers-fichiers' $rootPath $gDirs $gFiles $([int]($fin-$debut).TotalSeconds))
 }
 
-# La carte se rafraichit au prochain acces, sans attendre le TTL.
+# The card refreshes at the next access, without waiting for the TTL.
 try { Remove-ProbeCache -Names @('disk.probe.ps1') -Backend $Backend } catch { }
 # THE OUTCOME LEAVES BY THE EXIT CODE, read by the watcher. An analysis stopped on request is not a failure.
 if ($erreur) { Write-Output ('[X] ' + $erreur); exit 1 }

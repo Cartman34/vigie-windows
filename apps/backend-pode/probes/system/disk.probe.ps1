@@ -1,23 +1,22 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-<# Sonde : LE STOCKAGE DU PC. LECTURE SEULE, rapide.
+<# A probe: THE COMPUTER'S STORAGE. READ ONLY, fast.
 
-   UNE SEULE carte pour tout ce qui touche au stockage (choix utilisateur) : l'espace
-   libre, les disques fixes de la machine, et le resultat de l'ANALYSE de la consommation
-   -- qui est une ACTION de cette carte, pas une carte de plus.
+   Intent: ONE single card for everything to do with storage (the owner's choice): the free space, the machine's
+   fixed discs, and the result of the ANALYSIS of what the space is used by -- which is an ACTION of this card,
+   not one more card.
+   Usage: it is run by the scheduler like any probe. The analysis itself is not done here: it is entrusted to a
+   background task (workers/disk-scan.worker.ps1, started by the disk-analyze action, see D60) which drops its
+   result into var/cache/diskscan.json. This probe only READS it: it stays instantaneous, a probe has no right to
+   make the display wait.
 
-   L'analyse elle-meme ne se fait pas ici : elle est confiee a une tache de fond
-   (workers/disk-scan.worker.ps1, lancee par l'action « disk-analyze », voir D60) qui
-   depose son resultat dans var/cache/diskscan.json. Cette sonde ne fait que le LIRE :
-   elle reste instantanee, une sonde n'a pas le droit de faire attendre l'affichage.
-
-   Epreuve sans attendre une vraie analyse : VIGIE_FAKE_DISKSCAN=<chemin d'un JSON> fait
-   lire ce fichier a la place du cache (les donnees restent de vraies mesures). #>
+   To try it without waiting for a real analysis: VIGIE_FAKE_DISKSCAN=<path to a JSON> makes it read that file
+   instead of the cache (the data stays real measurements). #>
 $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $backend 'lib/common.ps1')
 
-# --- Les disques FIXES de la machine -----------------------------------------
-# Generique : le disque systeme donne le statut de la carte, les autres disques fixes
-# (s'il y en a) sont listes. Rien n'est code en dur sur « C: ».
+# --- The machine's FIXED discs ------------------------------------------------
+# Generic: the system disc gives the card's status, the other fixed discs (if there are any) are listed. Nothing
+# is hard-coded about the system drive letter.
 $sysLettre = "$($env:SystemDrive)"                       # « C: » sur cette machine
 $disques = @()
 try { $disques = @(Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=3' -ErrorAction Stop) } catch { }
@@ -28,7 +27,7 @@ $freeGB  = if ($sys) { [math]::Round($sys.FreeSpace/1GB) } else { 0 }
 $totGB   = if ($sys) { [math]::Round($sys.Size/1GB) } else { 0 }
 $usedPct = if ($sys -and $sys.Size) { [math]::Round(($sys.Size - $sys.FreeSpace)/$sys.Size*100) } else { 0 }
 
-# Seuil : config du module (module.psd1), surchargeable dans le menu Parametres (D57).
+# The threshold: the module's config (module.psd1), overridable in the Settings menu (D57).
 $threshold = [int](Get-ModuleSetting -Unit 'system' -Key 'DiskWarnGb')
 if (-not $threshold) { $threshold = 60 }   # filet si la declaration disparaissait
 $st = if ($freeGB -lt 20) { 'error' } elseif ($freeGB -lt $threshold) { 'warn' } else { 'ok' }
@@ -45,8 +44,8 @@ $fields += New-Field -Key 'used' -Label 'Occupation' -Value $usedPct -Kind 'numb
 $fields += New-Field -Key 'total' -Label 'Taille totale' -Value $totGB -Kind 'number' -Unit 'Go' -Status 'neutral' `
     -Help "Capacité totale du disque système ($sysLettre)."
 
-# Les AUTRES disques fixes : une ligne chacun. Absents ici (une seule machine, un seul
-# disque), la boucle ne produit rien -- pas de ligne muette (D49).
+# The OTHER fixed discs: one line each. Absent here (one machine, one disc), the loop produces nothing -- no
+# silent line (D49).
 foreach ($d in @($disques | Where-Object { $_.DeviceID -ne $sys.DeviceID })) {
     $libre = [math]::Round($d.FreeSpace/1GB)
     $tot   = [math]::Round($d.Size/1GB)
@@ -58,7 +57,7 @@ foreach ($d in @($disques | Where-Object { $_.DeviceID -ne $sys.DeviceID })) {
         -Guide $(if ($stD -eq 'warn') { 'Moins de 20 Go libres sur ce disque.' } else { $null })
 }
 
-# --- L'ANALYSE de la consommation (resultat de l'action « disk-analyze », D60) --
+# --- The ANALYSIS of what the space is used by (the disk-analyze action's result, D60) --
 $file = if ($env:VIGIE_FAKE_DISKSCAN) { $env:VIGIE_FAKE_DISKSCAN }
            else { Get-VarPath -Backend $backend -Kind 'cache' -File 'diskscan.json' }
 $state = $null
@@ -71,8 +70,8 @@ $scan = if ($state) { $state.scan } else { $null }
 $enCours = [bool](Get-ModuleBusyMark -Module 'storage' -Backend $backend)
 $rootPath = if ($scan -and $scan.root) { "$($scan.root)" } else { "$sysLettre\" }
 
-# Destination PERMANENTE (D114) : les parametres de stockage de Windows montrent ce qui
-# occupe le disque par categorie, que la carte alerte ou non.
+# A PERMANENT destination (D114): Windows's storage settings show what the disc is used by, per category,
+# whether the card is alerting or not.
 <#
     WHERE THE SPACE WENT, WITHOUT ASKING FOR A SCAN.
 
@@ -294,7 +293,7 @@ $actions = @(New-Action -Id 'open-storage-settings' -Label 'Paramètres de stock
     -Help "Ouvre l'outil Windows 'Nettoyage de disque' (cleanmgr). Rien n'est supprimé sans un choix explicite dans l'outil.")
 
 if ($enCours) {
-    # Dire QUOI, sur COMBIEN, DEPUIS QUAND (D50) : un « en cours… » muet n'apprend rien.
+    # Say WHAT, on HOW MUCH, SINCE WHEN (D50): a silent "under way" teaches nothing.
     $depuisTxt = ''
     if ($scan.startedAt) {
         try {
@@ -322,8 +321,8 @@ if ($enCours) {
             -Guide "Le parcours dure de quelques secondes à quelques minutes selon le nombre de fichiers. Il lit uniquement les tailles, il ne modifie rien et s'arrête à tout moment."
     } else {
         # `result` decrit l'analyse COMPLETE a laquelle l'arbre appartient ; `scan` ne dit
-        # que l'etat de la derniere tache. Les confondre ferait dater l'arbre du jour d'une
-        # interruption. (Filet : un cache ecrit avant cette distinction n'a que `scan`.)
+        # than the state of the last task. Confusing them would make the tree date from the day of an
+        # interruption. (A net: a cache written before that distinction has only `scan`.)
         $bilan = if ($state.result) { $state.result } else { $scan }
         $rootPath = if ($bilan.root) { "$($bilan.root)" } else { $rootPath }
         if ($scan -and $scan.canceled) {
@@ -331,7 +330,7 @@ if ($enCours) {
                 -Help "La dernière analyse a été arrêtée : le résultat affiché est celui du parcours complet précédent." `
                 -FixAction 'disk-analyze'
         }
-        # Date de l'analyse, en heure locale (le fichier est ecrit en UTC -- D44).
+        # The date of the analysis, in local time (the file is written in UTC -- D44).
         $when = $null
         try { $when = (ConvertTo-UtcDate $bilan.at).ToLocalTime() } catch { }
         $ageDays = if ($when) { [int]((Get-Date) - $when).TotalDays } else { 0 }
@@ -345,7 +344,7 @@ if ($enCours) {
         $total = [long]$arbre.s
         $enfants = @($arbre.k | Sort-Object -Property @{ Expression = { [long]$_.s } } -Descending)
 
-        # 1) Repartition du premier niveau : ou part la place.
+        # 1) The share-out of the first level: where the space goes.
         $lines = @()
         foreach ($e in $enfants) {
             $pc = if ($total -gt 0) { [math]::Round(([double]$e.s / $total) * 100, 1) } else { 0 }
@@ -363,18 +362,18 @@ if ($enCours) {
         $fields += New-Field -Key 'scan-total' -Label 'Total mesuré' -Value (Format-ByteSize $total) -Kind 'text' -Status 'neutral' `
             -Help "Somme des fichiers réellement lus. Elle peut être inférieure à l'espace occupé du disque : les dossiers protégés (System Volume Information, corbeilles d'autres comptes) ne sont pas lisibles, et les liens de jonction ne sont comptés qu'une fois."
 
-        # 2) Les plus gros dossiers, tous niveaux confondus : le coupable est souvent profond.
+        # 2) The largest folders, all levels together: the culprit is often deep.
         $rowsD = @()
         foreach ($d in @($state.bigFolders)) { $rowsD += ,@("$($d.n)", (Format-ByteSize ([long]$d.s)), "$([int]$d.f)") }
         if ($rowsD.Count) {
-            # La VALEUR dit le coupable ; le tableau donne le classement complet.
+            # The VALUE names the culprit; the table gives the whole ranking.
             $coupable = "$($state.bigFolders[0].n) — $(Format-ByteSize ([long]$state.bigFolders[0].s))"
             $fields += New-Field -Key 'scan-folders' -Label 'Où part la place' -Value $coupable -Kind 'text' -Status 'neutral' `
                 -Help "Le dossier le plus lourd où la place se partage vraiment, tous niveaux confondus (chemins relatifs à $rootPath). Les dossiers dont un seul enfant explique tout le poids sont écartés : c'est l'enfant qui est montré." `
                 -Table @{ columns = @('Dossier', 'Taille', 'Fichiers'); rows = $rowsD }
         }
 
-        # 3) Les plus gros fichiers.
+        # 3) The largest files.
         $rowsF = @()
         foreach ($f in @($state.bigFiles)) { $rowsF += ,@("$($f.n)", (Format-ByteSize ([long]$f.s))) }
         if ($rowsF.Count) {
@@ -389,8 +388,8 @@ if ($enCours) {
                 -FixAction 'disk-analyze' -Help "Le parcours s'est arrêté sur une erreur : le résultat est partiel."
         }
     }
-    # L'exploration est une ACTION (choix utilisateur), pas une ligne de la carte : elle
-    # ouvre une fenetre qui demande les niveaux au serveur au fur et a mesure.
+    # Exploring is an ACTION (the owner's choice), not a line of the card: it opens a window that asks the server
+    # for the levels as it goes.
     if ($arbre) {
         $actions += New-Action -Id 'disk-tree' -Label 'Explorer l''arborescence' -Kind 'dialog' -Severity 'info' `
             -Help "Parcourt les dossiers du plus gros au plus petit, niveau par niveau. Chaque niveau est demandé au moment où il se déplie."

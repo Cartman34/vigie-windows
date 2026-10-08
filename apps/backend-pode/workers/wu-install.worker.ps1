@@ -1,12 +1,11 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-<# Worker DETACHE : telecharge puis installe les mises a jour Windows choisies.
+<# A DETACHED worker: it downloads then installs the Windows updates that were chosen.
 
-   DETACHE volontairement : une installation dure des minutes. Si la requete HTTP la
-   portait, une fermeture d'onglet ou une coupure reseau l'interromprait en plein
-   telechargement. Ici le navigateur peut disparaitre, l'installation continue ; la carte
-   se met a jour toute seule quand elle se termine.
-
-   N'ecrit que dans var/cache (etat lisible par la sonde) et var/log (trace complete).
+   Intent: let an installation that lasts minutes survive the browser. DETACHED deliberately: if the HTTP request
+   carried it, closing a tab or a network cut would interrupt it in mid-download. Here the browser can disappear,
+   the installation carries on; the card updates itself when it finishes.
+   Usage: it is started by the wu-install action. It writes only into var/cache (the state the probe reads) and
+   var/log (the full trace).
 #>
 param([string]$Backend, [string]$ArgsB64)
 if (-not $Backend) { exit 1 }
@@ -197,10 +196,9 @@ function Set-Etat {
     try { Update-StateJson -Path $outFile -Set $Set | Out-Null } catch { }
 }
 
-# Le verrou du Mode MAJ empeche l'installation. On le LEVE ici et on le REPOSE dans le
-# finally : quoi qu'il arrive -- succes, echec, exception -- la machine retrouve l'etat dans
-# lequel l'utilisateur l'avait laissee. Un verrou de securite qu'on oublie de remettre est
-# pire que pas de verrou du tout.
+# The Update Mode lock prevents the installation. We LIFT it here and we LAY IT BACK in the finally: whatever
+# happens -- success, failure, an exception -- the machine comes back to the state the user left it in. A safety
+# lock one forgets to put back is worse than no lock at all.
 $lockLifted = $false
 $exitCode = 0
 try {
@@ -221,7 +219,7 @@ try {
     for ($i = 0; $i -lt $res.Updates.Count; $i++) {
         $u = $res.Updates.Item($i)
         if ($ids -notcontains "$($u.Identity.UpdateID)") { continue }
-        # Le CLUF doit etre accepte avant tout telechargement, sinon Download() echoue.
+        # The licence terms must be accepted before any download, otherwise Download() fails.
         try { if (-not $u.EulaAccepted) { $u.AcceptEula() } } catch { }
         [void]$coll.Add($u)
         $retenus += "$($u.Title)"
@@ -247,12 +245,12 @@ try {
     $inst.Updates = $coll
     $rIn = Invoke-UpdateJob -Phase 'installation' -Operator $inst -Titles $retenus -StartedAt $startedAt
 
-    # ResultCode : 2 = reussi, 3 = reussi avec erreurs. Tout le reste est un echec.
+    # ResultCode: 2 = succeeded, 3 = succeeded with errors. Everything else is a failure.
     $ok = ($rIn.ResultCode -eq 2)
     $partial = ($rIn.ResultCode -eq 3)
 
-    # « Termine avec erreurs » sans dire LAQUELLE n'apprend rien. Windows fournit un
-    # resultat PAR mise a jour : on le releve et on l'expose.
+    # "Finished with errors" without saying WHICH ONE teaches nothing. Windows provides a result PER update: we
+    # read it and expose it.
     $detail = @()
     $failures = @{}
     for ($i = 0; $i -lt $coll.Count; $i++) {
@@ -318,12 +316,12 @@ try {
         $repose = Set-UpdateLock -State 'pose' -Backend $Backend
         Write-Log -Backend $Backend -Name 'wuinstall' -Message (Get-Label 'wu-install.verrou-repose' $repose)
         if (-not $repose) {
-            # Etat anormal : on le SIGNALE au lieu de le taire, la machine reste ouverte.
+            # An abnormal state: we REPORT it instead of keeping quiet, and the machine stays open.
             Set-Etat @{ verrouNonRepose = $true }
             Write-Log -Backend $Backend -Name 'wuinstall' -Level 'ERROR' -Message (Get-Label 'wu-install.verrou-non-repose')
         }
     }
-    # Les deux cartes doivent refleter le resultat sans attendre le TTL des sondes.
+    # Both cards must reflect the result without waiting for the probes' TTL.
     try { Remove-ProbeCache -Names @('pending.probe.ps1','lock.probe.ps1') -Backend $Backend } catch { }
 }
 exit $exitCode

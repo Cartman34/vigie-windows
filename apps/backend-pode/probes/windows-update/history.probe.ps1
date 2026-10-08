@@ -10,10 +10,9 @@ $lastBoot = (Get-BootTime).ToString('o')
 $wm    = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Services\WaaSMedicSvc' -Name Start -ErrorAction SilentlyContinue).Start
 $wmTxt = switch ($wm) { 4 {'Désactivé'} 3 {'Manuel'} 2 {'Auto'} default {'inconnu'} }
 
-# « Ouvrir le dossier » ouvre un dossier d'administration CONFIGURE (Get-AdminRoot). Qu'il
-# depende d'un chemin de la machine est legitime -- mais un bouton qui ne peut rien faire
-# est pire que pas de bouton : sans chemin configure, ou s'il pointe dans le vide,
-# l'action n'est pas proposee du tout.
+# The button that opens the folder opens a CONFIGURED administration folder (Get-AdminRoot). That it depends on a
+# path of the machine is legitimate -- but a button that can do nothing is worse than no button: with no path
+# configured, or if it points into the void, the action is not offered at all.
 $actions = @()
 $adminRoot = $null
 try { $adminRoot = Get-AdminRoot -Backend $backend } catch { }

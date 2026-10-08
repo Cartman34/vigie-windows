@@ -1,8 +1,8 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-<# Worker DETACHE unique : execute une operation paquet ('check' ou 'upgrade')
-   pour UN gestionnaire, puis rafraichit le compte de MAJ et invalide la sonde.
-   Lance par Start-PkgJob via Start-DetachedAction (pwsh cache). N'ecrit QUE dans
-   var/cache + var/log. Traite erreurs + sortie via Get-PkgUpdates / Invoke-PkgUpgrade. #>
+<# A single DETACHED worker: it runs one package operation ('check' or 'upgrade') for ONE manager, then refreshes
+   the update count and invalidates the probe.
+   Started by Start-PkgJob through Start-DetachedAction (a hidden pwsh). It writes ONLY into var/cache and
+   var/log. Errors and output go through Get-PkgUpdates / Invoke-PkgUpgrade. #>
 param([string]$Backend, [string]$ArgsB64)
 if (-not $Backend) { exit 1 }
 . (Join-Path $Backend 'lib/common.ps1')
@@ -50,8 +50,8 @@ try {
     $u = $answer.updates
     if ($op -eq 'upgrade') {
         $up = $answer.upgrade
-        # On journalise ce qui a ETE FAIT (nombre de paquets, echecs constates), pas ce qui
-        # a ete demande : un paquet peut echouer seul sans faire echouer les autres.
+        # We log what WAS DONE (the number of packages, the failures observed), not what was asked for: a package
+        # can fail on its own without making the others fail.
         $detail = if ($up.count) { " paquets=$($up.count)" } else { " (tout le gestionnaire)" }
         if ($up.failed -and @($up.failed).Count) { $detail += " echecs=" + (@($up.failed) -join ',') }
         try { Write-Log -Backend $Backend -Name 'pkgupgrade' -Message (Get-Label 'pkg-job.exit-ok-reboot' $mgr $($up.exit) $($up.ok) $($up.reboot) $detail) } catch { }
@@ -60,17 +60,17 @@ try {
             "$($up.output)" | Out-File -FilePath $logf -Encoding UTF8
         } catch { }
     }
-    # LAISSER LE GESTIONNAIRE REPRENDRE SON SOUFFLE.
+    # LET THE MANAGER CATCH ITS BREATH.
     #
-    # Le controle qui suit une mise a jour tournait dans la SECONDE : winget n'avait pas
-    # encore rafraichi son inventaire et re-listait le paquet qu'il venait d'installer.
-    # Vecu le 27/08 : Insomnia mis a jour avec succes (« Installe correctement », code 0)
-    # et propose a nouveau deux secondes plus tard -- « j'ai demande a l'installer et en
-    # retour, ce n'est pas installe ».
+    # The check that follows an update used to run within the SECOND: winget had not refreshed its inventory yet
+    # and listed again the package it had just installed. Lived through on 27/08: one package updated successfully
+    # ("installed correctly", code 0) and offered again two seconds later -- "I asked to install it and in return,
+    # it is not installed".
+    #
+    # AND WE KNOW WHAT WE HAVE JUST DONE: a package whose update SUCCEEDED is not offered again, even if the
+    # manager still announces it. The log is authoritative -- exit code 0 and absent from the list of failures.
 
-    # ET ON SAIT CE QU'ON VIENT DE FAIRE : un paquet dont la mise a jour a REUSSI ne se
-    # repropose pas, meme si le gestionnaire l'annonce encore. Le journal fait foi --
-    # code de sortie 0 et absent de la liste des echecs.
+
     if ($op -eq 'upgrade' -and $up -and @($pkgs).Count) {
         $succeeded = @($pkgs | Where-Object { @($up.failed) -notcontains "$_" })
         if ($succeeded.Count) {
@@ -86,11 +86,10 @@ try {
             }
         }
     }
-    # `pkgs` (identifiants ciblables) est conserve avec le reste : la fenetre de choix le
-    # relit tel quel, sans relancer une verification lente au moment du clic.
+    # `pkgs` (the targetable identifiers) is kept with the rest: the window of choice reads it as it stands,
+    # without starting a slow check at the moment of the click.
     $state = @{ count = [int]$u.count; items = @($u.items); pkgs = @($u.pkgs); at = (Get-Date).ToString('s') }
-    # Un redemarrage en attente doit se VOIR dans la carte : c'est une action attendue de
-    # l'utilisateur, pas une ligne de journal.
+    # A pending restart must be VISIBLE in the card: it is an action expected of the user, not a line of log.
     if ($op -eq 'upgrade' -and $up -and $up.reboot) { $state.reboot = $true }
     # Le RESULTAT de la mise a jour est conserve pour la carte : sans lui, l'operation se
     # termine en silence et l'utilisateur ne sait pas ce qui a ete fait ni si ca a marche.

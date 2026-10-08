@@ -1,8 +1,9 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    Sonde : Antivirus. LECTURE SEULE. Lit le Centre de sécurité Windows
-    (root/SecurityCenter2) pour refleter l'antivirus REELLEMENT actif
-    (Avast, Defender, etc.), pas seulement Defender.
+    A probe: the ANTIVIRUS. READ ONLY.
+    Intent: reflect the antivirus that is REALLY active (a third-party one, Defender, whichever), not Defender
+    alone -- so it reads the Windows Security Centre (root/SecurityCenter2) and not Defender's own module.
+    Usage: it is run by the scheduler like any probe.
 #>
 $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $backend 'lib/common.ps1')
@@ -25,7 +26,7 @@ $parsed = foreach ($a in $avs) {
         isDefender = ($a.displayName -match 'Defender')
     }
 }
-# Antivirus principal : un antivirus tiers actif en priorite, sinon le premier actif, sinon le premier
+# The main antivirus: an active third-party one first, otherwise the first active one, otherwise the first
 $primary = $parsed | Where-Object { $_.enabled -and -not $_.isDefender } | Select-Object -First 1
 if (-not $primary) { $primary = $parsed | Where-Object { $_.enabled } | Select-Object -First 1 }
 if (-not $primary) { $primary = $parsed | Select-Object -First 1 }
@@ -44,9 +45,9 @@ if ($others.Count -gt 0) {
     $fields += New-Field -Key 'others' -Label 'Autres détectés' -Value (($others | ForEach-Object { $_.name }) -join ', ') -Kind 'text' -Status 'neutral' -Help "Autres antivirus enregistrés (souvent Windows Defender en veille)."
 }
 
-# LE BOUTON EST LA MEME QUAND TOUT VA BIEN (D114) : une carte porte en permanence la
-# destination utile de son sujet -- ici la Securite Windows, ou l'on relance une
-# analyse et ou l'on rallume une protection. On ne le decouvre pas le jour de la panne.
+# THE BUTTON IS THERE EVEN WHEN ALL IS WELL (D114): a card permanently carries the useful destination of its
+# subject -- here Windows Security, where one starts a scan again and switches a protection back on. One does not
+# discover it on the day of the breakdown.
 # SCOPE: the protection of the whole computer, never of one account.
 New-ModuleObject -Id 'antivirus' -Theme 'security' -Label 'Antivirus' -Scope 'machine' -Status $modSt -Fields $fields `
     -Actions @(New-Action -Id 'open-security-settings' -Label 'Sécurité Windows' -Kind 'manual' -Severity 'info' `

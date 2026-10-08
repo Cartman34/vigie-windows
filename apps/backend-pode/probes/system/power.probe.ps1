@@ -1,20 +1,19 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-<# Sonde : ALIMENTATION d'un portable. LECTURE SEULE, rapide.
+<# A probe: the POWER SUPPLY of a laptop. READ ONLY, fast.
 
-   La question posee : « je peux etre sur secteur mais SOUS-ALIMENTE, j'aimerais le
-   voir et etre alerte ». Le fait qui le prouve est mesurable : branche au secteur ET
-   batterie en decharge, c'est que le chargeur ne couvre pas la consommation. Une
-   charge qui traine alors que la batterie est loin d'etre pleine dit la meme chose,
-   en moins brutal.
+   Intent: answer the question that was asked -- "I may be on mains power and yet UNDER-POWERED, I would like to
+   see it and be warned". The fact that proves it is measurable: plugged into the mains AND the battery
+   discharging means the charger does not cover the consumption. A charge that drags on while the battery is far
+   from full says the same thing, less brutally.
+   Usage: it is run by the scheduler like any probe.
 
-   Machine SANS batterie (fixe) : la sonde ne rend RIEN, donc pas de carte.
-#>
+   A machine WITHOUT a battery (a desktop): the probe returns NOTHING, so there is no card. #>
+
 $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $backend 'lib/common.ps1')
 
-# root/wmi BatteryStatus est la seule source qui dise les trois choses a la fois :
-# secteur present, sens du courant, et sa puissance. Win32_Battery ne donne qu'un
-# statut agrege et le pourcentage.
+# The WMI BatteryStatus class is the only source that says all three things at once: the mains present, the
+# direction of the current, and its power. Win32_Battery gives only an aggregated status and the percentage.
 function Get-EtatAlim {
     $b = Get-CimInstance -Namespace 'root/wmi' -ClassName 'BatteryStatus' -ErrorAction SilentlyContinue | Select-Object -First 1
     if (-not $b) { return $null }
@@ -36,11 +35,11 @@ $pct = if ($bat -and $null -ne $bat.EstimatedChargeRemaining) { [int]$bat.Estima
 $loadWattsThreshold = [int](Get-ModuleSetting -Unit 'system' -Key 'ChargeSlowW')
 $batteryPctThreshold  = [int](Get-ModuleSetting -Unit 'system' -Key 'BatteryLowPct')
 
-# --- Sous-alimentation ---------------------------------------------------------
-# Une pointe de consommation peut faire basculer la batterie en decharge une seconde
-# alors que tout va bien. On ne crie donc qu'apres une SECONDE mesure, prise un peu
-# plus tard -- et seulement quand la premiere a vu un probleme : le cas normal ne
-# paie pas cette attente.
+# --- Under-powering -----------------------------------------------------------
+# A spike of consumption can flip the battery into discharge for a second while all is well. So we cry out only
+# after a SECOND measurement, taken a little later -- and only when the first saw a problem: the normal case does
+# not pay for that wait.
+
 $soucis = $null
 if ($state.Secteur -and $state.Decharge) {
     Start-Sleep -Milliseconds 800
@@ -60,7 +59,7 @@ if ($state.Secteur -and $state.Decharge) {
     }
 }
 
-# --- Ce qui se passe, en clair -------------------------------------------------
+# --- What is happening, in plain words ----------------------------------------
 $source = if ($state.Secteur) { 'Secteur' } else { 'Batterie' }
 $sens =
     if ($state.Decharge)  { $w = [math]::Round(($state.DechMw / 1000.0), 1);   "Décharge de $w W" }
@@ -72,8 +71,8 @@ $fields += New-Field -Key 'source' -Label 'Source' -Value $source -Kind 'text' `
     -Status $(if ($state.Secteur) { 'ok' } else { 'neutral' }) `
     -Help 'Ce qui alimente la machine en ce moment.'
 
-# CE CHAMP EXISTE TOUJOURS, meme quand tout va bien : l'app cliente notifie sur la BASCULE
-# d'un champ, et un champ qui n'apparait qu'en cas de probleme ne bascule jamais.
+# THIS FIELD ALWAYS EXISTS, even when all is well: the client app notifies on a field's FLIP, and a field that
+# only appears when there is a problem never flips.
 $fields += $(if ($soucis) {
         New-Field -Key 'under' -Label 'Alimentation' -Value $soucis -Kind 'text' -Status 'warn' `
             -FixAction 'open-power-options' `
@@ -93,13 +92,13 @@ if ($null -ne $pct) {
         -Status $(if ($batBas) { 'warn' } else { 'neutral' }) `
         -Help 'Charge restante de la batterie.'
 }
-# « Courant » etait faux : un courant se mesure en amperes, et cette valeur est une
-# PUISSANCE, en watts. Le sens se lit dans les mots (« Charge a », « Decharge de »)
-# plutot que dans un signe a interpreter.
-# « Puissance » tout court se lisait comme la consommation de la MACHINE. C'est faux :
-# seul le flux de la batterie est mesurable ici -- Windows n'expose ni la consommation
-# totale (aucune interface de comptage sur cette machine) ni ce que le chargeur fournit.
-# Le libelle le dit donc, et le guide donne la seule mesure honnete du total.
+# "Current" was wrong: a current is measured in amperes, and this value is a POWER, in watts. The direction is
+# read in the words (charging at, discharging by) rather than in a sign to be interpreted.
+# "Power" on its own read as the consumption of the MACHINE. That is false: only the battery's flow is measurable
+# here -- Windows exposes neither the total consumption (no metering interface on this machine) nor what the
+# charger supplies. So the label says it, and the guide gives the only honest measurement of the total.
+
+
 $fields += New-Field -Key 'rate' -Label 'Puissance batterie' -Value $sens -Kind 'text' -Status 'neutral' `
     -Help 'Puissance échangée avec la batterie, en watts : ce qui y entre en charge, ce qui en sort en décharge. Ce n''est PAS la consommation de la machine.' `
     -Guide ("Sur secteur avec une batterie pleine, rien ne circule : il n'y a donc pas de watts à afficher." + [Environment]::NewLine +

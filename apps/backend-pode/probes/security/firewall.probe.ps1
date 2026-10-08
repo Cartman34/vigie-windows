@@ -25,10 +25,10 @@ function FwField($key, $label, $val) {
             -Guide "À faire : activer le pare-feu pour ce profil, dans Sécurité Windows > Pare-feu et protection réseau."
     }
 }
-# UN COMMENTAIRE NE SE GLISSE JAMAIS entre une continuation ( ` ) et le parametre qui
-# suit : PowerShell casse la commande. Deja constate, deja repare -- il vit donc ICI.
-# Bouton PERMANENT (D114) : le pare-feu se regle dans la Securite Windows, qu'il aille
-# bien ou non. On ne decouvre pas la destination le jour de la panne.
+# A COMMENT IS NEVER SLIPPED between a continuation ( ` ) and the parameter that follows: PowerShell breaks the
+# command. Already observed, already repaired -- so it lives HERE.
+# A PERMANENT button (D114): the firewall is set in Windows Security, whether it is well or not. One does not
+# discover the destination on the day of the breakdown.
 # SCOPE: the computer's firewall profiles.
 New-ModuleObject -Id 'firewall' -Theme 'security' -Label 'Pare-feu' -Scope 'machine' -Status $modSt -Fields @(
     (FwField 'domain'  'Profil Domaine' $dom)

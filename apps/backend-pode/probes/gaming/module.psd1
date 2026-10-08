@@ -1,20 +1,20 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 @{
-    # Declaration du MODULE (D48) : un module = ce dossier de sondes.
+    # The MODULE's declaration (D48): one module = this folder of probes. Intent: say what it computes, when, and what it may notify.
     Label       = 'Gaming'
     Description = 'Le jeu en cours, sa part de ressources, et les applis qui pompent pendant.'
 
-    # CONFIG : les valeurs par defaut, versionnees (D57).
+    # CONFIG: the default values, versioned (D57).
     Config = @{
-        GameGpuMinPct   = 15   # % GPU minimal pour considerer qu'un jeu tourne
+        GameGpuMinPct   = 15   # the minimum GPU % for considering that a game is running
         # 8 %, and no longer 1 %: the share is normalised over ALL cores, so 1 % was a sixth of one core on this
         # computer -- the window compositor crossed it just by drawing the game, and the alert fired fourteen times
         # on 16/09 for nothing. 8 % is more than one core busy, which deserves the word (owner, 28/09).
-        OtherCpuWarnPct = 8    # % CPU (normalise TOUS coeurs)
-        OtherGpuWarnPct = 15   # % GPU d'une AUTRE appli qui declenche l'avertissement
-        VramWarnPct     = 90   # % de VRAM occupee au-dela duquel on avertit
-        GpuTempWarnC    = 87   # temperature GPU au-dela de laquelle on avertit
-        BatteryDropWarnPct = 10 # points de batterie perdus pendant la partie avant d'alerter
+        OtherCpuWarnPct = 8    # CPU % (normalised over ALL cores)
+        OtherGpuWarnPct = 15   # the GPU % of ANOTHER application that raises the warning
+        VramWarnPct     = 90   # the % of VRAM in use beyond which we warn
+        GpuTempWarnC    = 87   # the GPU temperature beyond which we warn
+        BatteryDropWarnPct = 10 # battery points lost during the game before alerting
         # THE RECAP OPENS BY ITSELF at the end of a session, unless the owner says otherwise (on by default, 28/09).
         OpenRecapAtEnd  = $true
         # HOW LONG A JAM MUST LAST before Vigie says so on the desktop. A jam of a few seconds is the game loading;
@@ -22,7 +22,7 @@
         JamNotifyMinutes = 5
     }
 
-    # PARAMETRES : les cles de Config reglables dans le menu Parametres de l'app.
+    # PARAMETERS: the Config keys that can be set from the app's Settings menu.
     Parameters = @(
         @{ Key = 'OpenRecapAtEnd'; Label = 'Ouvrir le récapitulatif à la fin d''une partie'; Type = 'bool'
            Help = 'À la fin d''une partie, Vigie ouvre son récapitulatif. La fenêtre se ferme d''elle-même si une nouvelle partie commence, ou après dix minutes sans être regardée. Éteint, Vigie se contente d''une notification.' }
@@ -42,19 +42,19 @@
            Help = 'Pendant une partie sur batterie, alerte dès que la charge a baissé de tant de points depuis le début.' }
     )
 
-    # RESIDENT : ce qui vit avec l app serveur pour savoir, a la seconde, qu un jeu a
-    # demarre. Il s abonne aux demarrages de processus au lieu de mesurer le GPU.
+    # A RESIDENT: what lives with the server app in order to know, to the second, that a game has started. It
+    # subscribes to process starts instead of measuring the GPU.
     Residents = @(
         @{ Key = 'game'; Label = 'Détection des jeux' }
     )
 
-    # SENTINELLES : les releves permanents de ce module. Voir
-    # doc/progress/targeting/surveillance.md.
+    # SENTINELS: this module's permanent readings. See doc/progress/targeting/surveillance.md.
+
     Sentinels = @(
-        # Ce que le resident a trouve : le jeu en cours, ou son absence.
+        # What the resident found: the game that is running, or its absence.
         @{ Key = 'game'; Label = 'Jeu en cours'; Seconds = 60; Cards = @('gaming') }
-        # Jouer sur batterie est la seule chose de cette carte qui ne peut pas attendre
-        # qu'on regarde : quand la charge fond, on veut le savoir PENDANT la partie.
+        # Playing on battery is the only thing on this card that cannot wait to be looked at: when the charge
+        # melts away, one wants to know DURING the game.
         @{ Key = 'game-battery'; Label = 'Décharge pendant une partie'; Seconds = 60; Cards = @('gaming') }
     )
 
@@ -72,8 +72,8 @@
            Seconds = @{ default = 600; game = 30 }; MaxSeconds = 60 }
     )
 
-    # NOTIFICATIONS emises par ce module (D54) : un evenement nomme, pas un nom de
-    # carte. C'est la bascule du champ cite qui declenche la bulle.
+    # NOTIFICATIONS emitted by this module (D54): a named event, not a card's name. It is the flip of the field
+    # that is cited which triggers the balloon.
     Notifications = @(
         @{ Key = 'game-recap'; Label = 'Récapitulatif de partie'
            Card = 'gaming'; Field = 'last-session'
