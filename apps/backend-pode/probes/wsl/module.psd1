@@ -1,5 +1,11 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 @{
+    # Intent: declare what this folder of probes IS to the rest of Vigie -- its name, its
+    # cards, how often they are computed and what they may notify. Nothing is measured here.
+    # Usage: edit it to add a card, a setting or a notification to the module; the code that
+    # measures lives in the .probe.ps1 beside it, and whether the module is enabled is the
+    # user's choice, in config/modules.local.psd1.
+    #
     # The MODULE's declaration (D48): a module IS this folder of probes.
     # The label and the description are what the module management view shows.
     # Whether it is enabled does NOT live here: that is the user's choice, in

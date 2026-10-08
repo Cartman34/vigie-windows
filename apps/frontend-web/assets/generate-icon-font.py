@@ -2,6 +2,11 @@
 # -*- coding: utf-8 -*-
 """Vigie's OWN icon font (vigie-icons.ttf).
 
+Intent: hold the drawing of every interface icon as code, so the mark is defined once and
+cannot drift between what is shipped and what is validated.
+Usage: run it after changing or adding a glyph below, then commit the .ttf it writes beside
+it; the font is generated, never edited by hand.
+
 WHY THIS FILE IS IN PYTHON (D41)
 --------------------------------
 PHP is the default tool, PowerShell the one for Windows tools, and a .py file is an argued

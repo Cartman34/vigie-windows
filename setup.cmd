@@ -3,6 +3,12 @@ REM @author Florent HAZARD <f.hazard@sowapps.com>
 REM ---------------------------------------------------------------------------
 REM setup.cmd - THE entry point of Vigie. Double-click, and that is all.
 REM
+REM Intent: give whoever receives Vigie a single gesture that installs it entirely, with
+REM nothing to read, nothing to choose and no command to type.
+REM Usage: double-click it, or run it again at any time -- it is idempotent and repairs
+REM what is missing. It stays ASCII and PowerShell 5.1 compatible: it is the only file
+REM that runs BEFORE PowerShell 7 exists.
+REM
 REM It does the whole thing: PowerShell 7 for the computer, the Pode module, the
 REM local token, the startup task of THIS account, and the launch of the app.
 REM

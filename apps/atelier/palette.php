@@ -3,6 +3,12 @@
 /**
  * Palette du menu de l'app cliente, lue DANS apps/client/client.ps1.
  *
+ * Intent: serve the Atelier the colours the client app ACTUALLY ships, read from its
+ * source, so that what is validated and what is delivered can never be two different
+ * things.
+ * Usage: called by the Atelier's pages; change a colour in client.ps1, not here -- this
+ * file only reads. It answers with an explicit error rather than a fallback value.
+ *
  * POURQUOI CE FICHIER EXISTE
  * L'Atelier affichait des valeurs recopiées à la main. Elles ont divergé de ce qui est
  * livré — fond bleuté #2b3038 dans l'Atelier contre gris neutre #2c2c2c dans l'app cliente —

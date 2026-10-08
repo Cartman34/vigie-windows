@@ -1,5 +1,10 @@
 # PROCESS DISCIPLINES — to hold continuously
 
+**Intent:** the way of working here, written down so it survives the agent, the session and the memory -- every
+rule in it comes from a real failure, and exists so that failure is not repeated.
+**Usage:** read in full before working and held continuously, never consulted in case of doubt; a new discipline
+the owner asks for is added HERE, with the reproach that caused it, and nothing is removed without him.
+
 > Rules Claude must follow systematically on this project.
 > Every new discipline the owner asks for is added here.
 >

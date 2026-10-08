@@ -1,8 +1,11 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    server.ps1 - Endpoints et routes Pode (implementation du contrat).
-    Dot-source depuis start.ps1 dans le contexte du serveur. Journalise les
-    erreurs et requetes dans backend/logs/ via la journalisation Pode.
+    Intent: the HTTP surface of the server app, and nothing else -- every route the panel
+    and the client app can call, and the thirty-second timer that does what Vigie does by
+    itself. The reasoning lives in the library; this file exposes it.
+    Usage: read it to find what a route answers, or to add one; a route states its case and
+    delegates -- a computation written here instead of in the library is in the wrong file.
+    It is dot-sourced by start.ps1 inside the server's own context, never run on its own.
 #>
 $backend = $env:VIGIE_BACKEND
 . "$backend/lib/common.ps1"

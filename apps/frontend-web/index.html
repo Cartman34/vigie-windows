@@ -1,5 +1,13 @@
 <!DOCTYPE html>
 <!-- @author Florent HAZARD <f.hazard@sowapps.com> -->
+<!--
+    Intent: the whole panel -- every card the user reads and every button they press, in
+    one page served by the server app. It holds no measurement of its own: it renders what
+    the back end states and sends back what the user asks for.
+    Usage: open it to change what is DISPLAYED; a value, a threshold or a judgement belongs
+    to a probe, never here. It has no build step and no dependency: what is written is what
+    runs, and scripts/dev/check-front.ps1 says whether it still parses.
+-->
 <html lang="fr">
 <head>
 <meta charset="UTF-8">

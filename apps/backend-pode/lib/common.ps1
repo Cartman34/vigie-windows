@@ -1,8 +1,12 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    common.ps1 - Bibliotheque partagee du backend. Aucune dependance a Pode.
-    Fabriques d'objets (contrat), config, jeton, agregation des sondes (avec
-    journalisation par sonde), execution des actions, utilitaires.
+    Intent: the one place where everything the back end shares lives, so that no mechanism
+    exists twice -- the card contract, the configuration, the token, the aggregation of the
+    probes, the running of the actions, the data paths. It depends on nothing of Pode, so a
+    script, a probe or a worker can load it without a server.
+    Usage: dot-source it (`. (Join-Path $backend 'lib/common.ps1')`) before anything else,
+    and look here FIRST for a function that already does what you are about to write; add
+    one here rather than beside it, and never a second way to do the same thing.
 #>
 
 <#
