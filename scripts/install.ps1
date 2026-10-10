@@ -221,8 +221,8 @@ try { Start-Transcript -Path $log -Force | Out-Null } catch { }
     A lock whose process no longer exists is ignored: a crash must not condemn the workstation.
 #>
 
-$verrou = Lock-Install
-if (-not $verrou) {
+$lock = Lock-Install
+if (-not $lock) {
     $qui = Get-InstallLockHolder
     Write-Title (Get-Label 'install.titre')
     # THE TIME IS READ IN LOCAL TIME. The lock stores it in UTC (a mark, not a display); as it stood it announced
@@ -533,9 +533,9 @@ if ($aRecuperer) {
         Write-Detail (Get-Label 'vigie-update.recuperation')
         # The output is READ: the last line carries the path of the archive. The rest is narrative, which we repeat
         # so that the log keeps a trace of it.
-        $lignesFetch = & (Get-Process -Id $PID).Path @argv 2>&1
+        $fetchLines = & (Get-Process -Id $PID).Path @argv 2>&1
         $codeFetch = $LASTEXITCODE
-        foreach ($l in $lignesFetch) {
+        foreach ($l in $fetchLines) {
             Write-Relayed "$l"
             try { Write-Log -Backend $backend -Name 'install' -Message "$l" -NoEcho } catch { }
         }
@@ -546,7 +546,7 @@ if ($aRecuperer) {
         } elseif ($codeFetch -ne 0) {
             Write-Fail (Get-Label 'install.recuperation-echouee' $codeFetch)
         } else {
-            $archive = "$(@($lignesFetch | Where-Object { "$_".Trim() } | Select-Object -Last 1))".Trim()
+            $archive = "$(@($fetchLines | Where-Object { "$_".Trim() } | Select-Object -Last 1))".Trim()
             if (-not (Test-PathSafe $archive)) {
                 Write-Fail (Get-Label 'vigie-update.la-recuperation-dit-avoir' $archive)
                 $archive = $null

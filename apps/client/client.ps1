@@ -341,7 +341,7 @@ public static bool Close(System.IntPtr h) {
         # THE QUESTION WINDOW, once for the whole client app. Returns 0 (the main button), 4 (a third way out) or 3
         # (refusal).
         $askWindow = {
-            param($titre, $texte, $okText, $tiersText, $nonText)
+            param($Subject, $Body, $okText, $tiersText, $nonText)
             try {
                 $script = Join-Path (Split-Path (Split-Path $backend -Parent) -Parent) 'scripts/lib/show-confirm.ps1'
                 if (-not (Test-Path -LiteralPath $script)) { return 3 }
@@ -349,7 +349,7 @@ public static bool Close(System.IntPtr h) {
                 # The text travels through a FILE: as an argument, its accents would be damaged by the code page of
                 # the process called.
                 [IO.File]::WriteAllText($payload,
-                    (@{ title = "$titre"; summary = "$texte" } | ConvertTo-Json -Compress),
+                    (@{ title = "$Subject"; summary = "$Body" } | ConvertTo-Json -Compress),
                     (New-Object Text.UTF8Encoding($false)))
                 # RAW VALUES: the call operator quotes each argument itself, and a value
                 # wrapped by hand would arrive WITH its quotes (D116).
@@ -541,8 +541,8 @@ public static bool Close(System.IntPtr h) {
             }
             if (-not $signInUrl) {
                 TLog "openApp : pas d'adresse d'ouverture, on n'ouvre pas"
-                & $dire -Titre (Get-Label 'client.bulle-identite-titre') `
-                        -Texte (Get-Label 'client.bulle-identite-texte') -Icone 'Warning' -Duree 8000
+                & $dire -Subject (Get-Label 'client.bulle-identite-titre') `
+                        -Body (Get-Label 'client.bulle-identite-texte') -Icon 'Warning' -Duration 8000
                 return
             }
             $url = $signInUrl
@@ -567,8 +567,8 @@ public static bool Close(System.IntPtr h) {
             }
 
             foreach ($exe in $candidats) {
-                $nom = [IO.Path]::GetFileNameWithoutExtension($exe)
-                $avant = @(Get-Process -Name $nom -ErrorAction SilentlyContinue).Count
+                $procName = [IO.Path]::GetFileNameWithoutExtension($exe)
+                $before = @(Get-Process -Name $procName -ErrorAction SilentlyContinue).Count
                 try {
                     $p = Start-ChildProcess -FilePath $exe -Arguments @("--app=$url", '--window-size=1240,840') `
                                             -Options @{ PassThru = $true }
@@ -580,8 +580,8 @@ public static bool Close(System.IntPtr h) {
                 # Two ways of succeeding: our process holds, OR it handed over to an instance already running -- in
                 # which case it exits quickly but the browser has gained processes. Testing HasExited alone would
                 # open two windows.
-                $apres = @(Get-Process -Name $nom -ErrorAction SilentlyContinue).Count
-                if ((-not $p.HasExited) -or ($apres -gt $avant)) {
+                $after = @(Get-Process -Name $procName -ErrorAction SilentlyContinue).Count
+                if ((-not $p.HasExited) -or ($after -gt $before)) {
                     TLog ("openApp OK (fenetre dediee) : " + $exe)
                     return
                 }
@@ -629,8 +629,8 @@ public static bool Close(System.IntPtr h) {
             }
             if (-not $target) {
                 TLog "adresse d'ouverture refusee : on n'ouvre pas"
-                & $dire -Titre (Get-Label 'client.bulle-identite-titre') `
-                        -Texte (Get-Label 'client.bulle-identite-texte') -Icone 'Warning' -Duree 8000
+                & $dire -Subject (Get-Label 'client.bulle-identite-titre') `
+                        -Body (Get-Label 'client.bulle-identite-texte') -Icon 'Warning' -Duration 8000
                 return
             }
             TLog "adresse d'ouverture obtenue"
@@ -1022,7 +1022,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                 $srv = if (Test-ServerUp -Address $cfg.BindAddress -Port $cfg.Port) {
                            (Get-Label 'client.apropos-serveur-en-ligne' $cfg.Port)
                        } else { (Get-Label 'client.apropos-serveur-hors-ligne') }
-                $lignes = @(
+                $lines = @(
                     (Get-Label 'client.apropos-version'     $version),
                     (Get-Label 'client.apropos-compte'      $clientAccount),
                     (Get-Label 'client.apropos-application' (Split-Path $backend -Parent)),
@@ -1033,7 +1033,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                     (Get-Label 'client.apropos-ouvrir-depot')
                 )
                 $response = [System.Windows.Forms.MessageBox]::Show(
-                    ($lignes -join [Environment]::NewLine),
+                    ($lines -join [Environment]::NewLine),
                     (Get-Label 'client.apropos-titre'),
                     [System.Windows.Forms.MessageBoxButtons]::YesNo,
                     [System.Windows.Forms.MessageBoxIcon]::Information)
@@ -1087,9 +1087,9 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
         $dire = {
             # -Launch: what a click on the notification must open (a vigie:// address). Without it, the notification
             # informs without offering anything -- which most of them still do.
-            param([string]$Titre, [string]$Texte, [string]$Icone = 'Info', [int]$Duree = 6000, [string]$Key = '', [string]$Launch = '')
+            param([string]$Subject, [string]$Body, [string]$Icon = 'Info', [int]$Duration = 6000, [string]$Key = '', [string]$Launch = '')
             $maintenant = [datetime]::UtcNow
-            $cle = "$Titre|$Texte"
+            $cle = "$Subject|$Body"
             if (-not $state.Bulles) { $state.Bulles = @{} }
             $vue = $state.Bulles[$cle]
             if ($vue -and ($maintenant - [datetime]$vue).TotalMinutes -lt 15) { return }
@@ -1097,10 +1097,10 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
             # WHICH TOOL SHOWS IT IS NOT DECIDED HERE (targeting/notifications.md).
             # We describe the event; the door picks -- and its last rank, the balloon,
             # is always available.
-            $level = switch ($Icone) { 'Error' { 'error' } 'Warning' { 'warn' } default { 'ok' } }
+            $level = switch ($Icon) { 'Error' { 'error' } 'Warning' { 'warn' } default { 'ok' } }
             try {
                 $outil = Show-VigieNotification `
-                    -Notification @{ Subject = $Titre; Body = $Texte; State = $level; Duration = $Duree; Key = $Key; Launch = $Launch } `
+                    -Notification @{ Subject = $Subject; Body = $Body; State = $level; Duration = $Duration; Key = $Key; Launch = $Launch } `
                     -Context @{ ClientRoot = $clientRoot; Aumid = (Get-VigieToastIdentity); Icon = $icon }
                 if ($outil) { TLog ("notification montree par " + $outil) }
                 else { TLog "aucun outil n'a su montrer la notification" }
@@ -1192,9 +1192,9 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                     if ($state.HealthKo -eq 3 -and -not $silence) {
                         TLog "serveur coince (port ouvert, health muet x3) : signale, pas tue"
                         try {
-                            & $dire -Titre (Get-Label 'client.bulle-coince-titre') `
-                                    -Texte ((Get-Label 'client.bulle-coince-texte') + (Format-TroubleReasons)) `
-                                    -Icone 'Warning' -Duree 8000
+                            & $dire -Subject (Get-Label 'client.bulle-coince-titre') `
+                                    -Body ((Get-Label 'client.bulle-coince-texte') + (Format-TroubleReasons)) `
+                                    -Icon 'Warning' -Duration 8000
                         } catch { }
                     }
                 }
@@ -1243,9 +1243,9 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                             $state.SaidDead = $true
                             TLog "serveur mort (port ferme)"
                             try {
-                                & $dire -Titre (Get-Label 'client.bulle-mort-titre') `
-                                        -Texte ((Get-Label 'client.bulle-mort-texte') + (Format-TroubleReasons)) `
-                                        -Icone 'Warning' -Duree 8000
+                                & $dire -Subject (Get-Label 'client.bulle-mort-titre') `
+                                        -Body ((Get-Label 'client.bulle-mort-texte') + (Format-TroubleReasons)) `
+                                        -Icon 'Warning' -Duration 8000
                             } catch { }
                         }
                         & $startServer
@@ -1322,13 +1322,13 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                     # We watch the state of the FIELDS, not only of the cards: a notification is a NAMED event,
                     # declared by the module. A card title said nothing to anybody -- reported by the owner on
                     # 26/08.
-                    $vus = @{}
+                    $seen = @{}
                     foreach ($pr in $j.PSObject.Properties) {
                         foreach ($m in @($pr.Value.module)) {
                             if (-not $m -or -not $m.id) { continue }
-                            $vus["$($m.id)"] = @{ status = "$($m.status)"; label = "$($m.label)" }
+                            $seen["$($m.id)"] = @{ status = "$($m.status)"; label = "$($m.label)" }
                             foreach ($c in @($m.fields)) {
-                                if ($c -and $c.key) { $vus["$($m.id)/$($c.key)"] = @{ status = "$($c.status)"; label = "$($c.label)"; value = "$($c.value)"; reason = "$($c.reason)"; identity = "$($c.identity)" } }
+                                if ($c -and $c.key) { $seen["$($m.id)/$($c.key)"] = @{ status = "$($c.status)"; label = "$($c.label)"; value = "$($c.value)"; reason = "$($c.reason)"; identity = "$($c.identity)" } }
                             }
                         }
                     }
@@ -1359,11 +1359,11 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                     #>
                     $recapNow = $null
                     try {
-                        $f = $vus['gaming/last-session']
+                        $f = $seen['gaming/last-session']
                         $recapNow = if ($f.identity) { "$($f.identity)" } else { "$($f.value)" }
                     } catch { }
                     $inGame = $false
-                    try { $inGame = ($vus['gaming/game'] -and "$($vus['gaming/game'].value)" -notin @('Aucun', 'Surveillance indisponible')) } catch { }
+                    try { $inGame = ($seen['gaming/game'] -and "$($seen['gaming/game'].value)" -notin @('Aucun', 'Surveillance indisponible')) } catch { }
                     if ($recapNow -and $state.RecapSeen -and $recapNow -ne $state.RecapSeen -and -not $silence -and $state.Present) {
                         $auto = $true
                         try { $auto = [bool](Get-ModuleSetting -Unit 'gaming' -Key 'OpenRecapAtEnd' -Backend $backend) } catch { }
@@ -1376,7 +1376,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                         } else {
                             $allowed = $true
                             try { $allowed = Test-NotificationAllowed -ModuleId 'gaming' -Key 'game-recap' -Settings (Get-NotificationSettings -Backend $backend) } catch { }
-                            if ($allowed) { & $dire -Titre (Get-Label 'client.bulle-partie-titre') -Texte (Get-Label 'client.bulle-partie-texte') -Icone 'Info' -Duree 8000 -Key 'gaming.recap' -Launch 'vigie://session-recap' }
+                            if ($allowed) { & $dire -Subject (Get-Label 'client.bulle-partie-titre') -Body (Get-Label 'client.bulle-partie-texte') -Icon 'Info' -Duration 8000 -Key 'gaming.recap' -Launch 'vigie://session-recap' }
                         }
                     }
                     if ($recapNow) { $state.RecapSeen = $recapNow }
@@ -1401,14 +1401,14 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                         }
                     }
                     if (-not $state.ModsInit) {
-                        $state.Mods = $vus; $state.ModsInit = $true
+                        $state.Mods = $seen; $state.ModsInit = $true
                     } elseif ($silence) {
                         # DURING AN INSTALLATION a change of state is not an event: it is the gesture in the course
                         # of being made. We update the reference silently, so as not to announce at the end
                         # everything that moved in the meantime.
-                        $state.Mods = $vus
+                        $state.Mods = $seen
                     } else {
-                        $reglages = $null
+                        $settings = $null
                         $bascules = @()
                         # The catalogue says WHAT to notify and under what name. It is read again at every pass: a
                         # module switched back on must be taken into account.
@@ -1418,16 +1418,16 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                             foreach ($nn in @($u.notifications)) {
                                 $ref = if ($nn.card -and $nn.field) { "$($nn.card)/$($nn.field)" } else { $null }
                                 if (-not $ref) { continue }
-                                $avant = $state.Mods[$ref]
-                                $apres = $vus[$ref]
-                                if (-not $avant -or -not $apres) { continue }
-                                if ($avant.status -eq $apres.status) { continue }
+                                $before = $state.Mods[$ref]
+                                $after = $seen[$ref]
+                                if (-not $before -or -not $after) { continue }
+                                if ($before.status -eq $after.status) { continue }
                                 # We disturb only for a DEGRADATION or a RECOVERY.
-                                $interessant = ($apres.status -in @('warn','error')) -or
-                                               ($apres.status -eq 'ok' -and $avant.status -in @('warn','error'))
+                                $interessant = ($after.status -in @('warn','error')) -or
+                                               ($after.status -eq 'ok' -and $before.status -in @('warn','error'))
                                 if (-not $interessant) { continue }
-                                if ($null -eq $reglages) { $reglages = Get-NotificationSettings -Backend $backend }
-                                if (-not (Test-NotificationAllowed -ModuleId $u.unit -Key $nn.key -Settings $reglages)) { continue }
+                                if ($null -eq $settings) { $settings = Get-NotificationSettings -Backend $backend }
+                                if (-not (Test-NotificationAllowed -ModuleId $u.unit -Key $nn.key -Settings $settings)) { continue }
                                 # Warned WITHOUT being able to act: we say so, instead of leaving the user in front
                                 # of a problem that is beyond them.
                                 <#
@@ -1454,15 +1454,15 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                                 if ($dernier -and ([datetime]::UtcNow - [datetime]$dernier).TotalMinutes -lt 10) {
                                     # LOGGED ANYWAY: without this line, a deliberate silence
                                     # and a broken watcher look exactly the same in the log.
-                                    TLog ("notification retenue (moins de 10 min) : " + $refNotif + " " + $avant.status + "->" + $apres.status)
+                                    TLog ("notification retenue (moins de 10 min) : " + $refNotif + " " + $before.status + "->" + $after.status)
                                     continue
                                 }
                                 $state.NotifPar[$refNotif] = [datetime]::UtcNow
                                 $aPrevenir = ("$($nn.rights)" -eq 'admin' -and -not (Test-IsElevated))
-                                $bascules += [pscustomobject]@{ id = $refNotif; label = "$($nn.label)"; value = "$($apres.value)"; de = $avant.status; vers = $apres.status; prevenir = $aPrevenir; reason = "$($apres.reason)" }
+                                $bascules += [pscustomobject]@{ id = $refNotif; label = "$($nn.label)"; value = "$($after.value)"; de = $before.status; vers = $after.status; prevenir = $aPrevenir; reason = "$($after.reason)" }
                             }
                         }
-                        $state.Mods = $vus
+                        $state.Mods = $seen
                         if ($bascules.Count -gt 0) {
                             # ONE BUBBLE, even for several changes at once:
                             # three notifications in a row are noise.
@@ -1511,7 +1511,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                             # Several changes at once have no single field, so they share
                             # one label.
                             $fieldKey = $(if ($bascules.Count -eq 1) { "$($bascules[0].id)" } else { 'vigie.modules' })
-                            & $dire -Titre $title -Texte $body -Icone $tipIc -Duree 6000 -Key $fieldKey
+                            & $dire -Subject $title -Body $body -Icon $tipIc -Duration 6000 -Key $fieldKey
                         }
                     }
                 }
@@ -1572,7 +1572,7 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                 foreach ($order in @(Get-ChildItem -LiteralPath $runDir -Filter 'client-task-*.json' -File -ErrorAction SilentlyContinue |
                                      Where-Object { $_.Name -notlike '*.done.json' })) {
                     $response = Join-Path $runDir ($order.BaseName + '.done.json')
-                    $sortie = @{ message = ''; result = @{ ok = $false } }
+                    $outcome = @{ message = ''; result = @{ ok = $false } }
                     try {
                         $charge = Get-Content -LiteralPath $order.FullName -Raw -Encoding UTF8 | ConvertFrom-Json
                         Remove-Item -LiteralPath $order.FullName -Force -ErrorAction SilentlyContinue
@@ -1588,12 +1588,12 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                         }
                         TLog "tache cliente : $type"
                         $r = & $script -Module "$($charge.module)" -Params $p
-                        $sortie = @{ message = "$($r.message)"; result = $r.result }
+                        $outcome = @{ message = "$($r.message)"; result = $r.result }
                     } catch {
                         TLog ("tache cliente KO : " + $_.Exception.Message)
-                        $sortie = @{ message = $_.Exception.Message; result = @{ ok = $false } }
+                        $outcome = @{ message = $_.Exception.Message; result = @{ ok = $false } }
                     }
-                    try { ($sortie | ConvertTo-Json -Compress -Depth 6) | Out-File -FilePath $response -Encoding UTF8 } catch { }
+                    try { ($outcome | ConvertTo-Json -Compress -Depth 6) | Out-File -FilePath $response -Encoding UTF8 } catch { }
                 }
             } catch { TLog ("lecture des ordres KO : " + $_.Exception.Message) }
         }

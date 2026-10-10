@@ -14,7 +14,7 @@ $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 
 # The WMI BatteryStatus class is the only source that says all three things at once: the mains present, the
 # direction of the current, and its power. Win32_Battery gives only an aggregated status and the percentage.
-function Get-EtatAlim {
+function Get-PowerState {
     $b = Get-CimInstance -Namespace 'root/wmi' -ClassName 'BatteryStatus' -ErrorAction SilentlyContinue | Select-Object -First 1
     if (-not $b) { return $null }
     [pscustomobject]@{
@@ -26,7 +26,7 @@ function Get-EtatAlim {
     }
 }
 
-$state = Get-EtatAlim
+$state = Get-PowerState
 if (-not $state) { return }   # pas de batterie : rien a dire
 
 $bat = Get-CimInstance Win32_Battery -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -43,7 +43,7 @@ $batteryPctThreshold  = [int](Get-ModuleSetting -Unit 'system' -Key 'BatteryLowP
 $soucis = $null
 if ($state.Secteur -and $state.Decharge) {
     Start-Sleep -Milliseconds 800
-    $e2 = Get-EtatAlim
+    $e2 = Get-PowerState
     if ($e2 -and $e2.Secteur -and $e2.Decharge) {
         $w = [math]::Round((([math]::Max($state.DechMw, $e2.DechMw)) / 1000.0), 1)
         $soucis = "Le secteur ne suit pas : la batterie se décharge" + $(if ($w -gt 0) { " ($w W)" })
@@ -52,7 +52,7 @@ if ($state.Secteur -and $state.Decharge) {
     $wc = [math]::Round(($state.ChargeMw / 1000.0), 1)
     if ($wc -gt 0 -and $wc -lt $loadWattsThreshold) {
         Start-Sleep -Milliseconds 800
-        $e2 = Get-EtatAlim
+        $e2 = Get-PowerState
         if ($e2 -and $e2.Secteur -and $e2.Charge -and (($e2.ChargeMw / 1000.0) -lt $loadWattsThreshold)) {
             $soucis = "Charge très lente ($wc W) : chargeur sous-dimensionné ou port peu puissant"
         }

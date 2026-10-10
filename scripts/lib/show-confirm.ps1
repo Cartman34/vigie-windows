@@ -141,7 +141,7 @@ param(
 
     # Automatic closing, in milliseconds. It serves ONLY to check the layout without blocking: the window closes by
     # itself and the script returns 3 (so, a refusal).
-    [int] $FermerApresMs = 0
+    [int] $CloseAfterMs = 0
 )
 
 $ErrorActionPreference = 'Stop'
@@ -201,9 +201,9 @@ if (-not $Title -or -not $Summary) {
     Write-Host (Get-Label 'show-confirm.rien-afficher-precisez-scenario') -ForegroundColor Yellow
     exit 1
 }
-$puces = @()
-if ($Changes) { $puces = @($Changes -split '\|' | ForEach-Object { "$_".Trim() } | Where-Object { $_ }) }
-$listeTexte = if ($puces.Count) { ($puces | ForEach-Object { "   - $_" }) -join $nl } else { '' }
+$bullets = @()
+if ($Changes) { $bullets = @($Changes -split '\|' | ForEach-Object { "$_".Trim() } | Where-Object { $_ }) }
+$bulletText = if ($bullets.Count) { ($bullets | ForEach-Object { "   - $_" }) -join $nl } else { '' }
 
 try {
     Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
@@ -213,7 +213,7 @@ try {
     if ($InitiatedBy) { Write-Host (Get-Label 'show-confirm.demande-par-un-agent' $InitiatedBy) -ForegroundColor Yellow }
     Write-Host $Title -ForegroundColor Cyan
     Write-Host $Summary
-    if ($listeTexte) { Write-Host $listeTexte }
+    if ($bulletText) { Write-Host $bulletText }
     Write-Host (Get-Label 'show-confirm.interface-graphique-indisponible-rien') -ForegroundColor Yellow
     exit 1
 }
@@ -237,15 +237,15 @@ $form.ClientSize      = New-Object System.Drawing.Size(580, 306)
 # Vigie's icon rather than the interpreter's: the window must announce itself as coming from the application, not
 # from what runs it.
 try {
-    $racine = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+    $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
     # THE ICON LIVES WITH THE CLIENT APP. This pointed at apps/backend-pode/assets/client/, a folder that has
     # never existed: the test failed in silence and the window kept the interpreter's icon.
-    $ico = Join-Path $racine 'apps/client/assets/ok.ico'
+    $ico = Join-Path $repoRoot 'apps/client/assets/ok.ico'
     if (Test-Path -LiteralPath $ico) { $form.Icon = New-Object System.Drawing.Icon($ico) }
 } catch { }
 
-$fTitre = New-Object System.Drawing.Font('Segoe UI', 13, [System.Drawing.FontStyle]::Bold)
-$fTexte = New-Object System.Drawing.Font('Segoe UI', 9.5)
+$fontTitle = New-Object System.Drawing.Font('Segoe UI', 13, [System.Drawing.FontStyle]::Bold)
+$fontBody = New-Object System.Drawing.Font('Segoe UI', 9.5)
 $fNote  = New-Object System.Drawing.Font('Segoe UI', 9)
 $fGras  = New-Object System.Drawing.Font('Segoe UI', 9, [System.Drawing.FontStyle]::Bold)
 
@@ -261,28 +261,28 @@ $width = 532
     measurement, the height that was set becomes too short, and the last line is clipped. A label in AutoSize takes
     what it needs.
 #>
-function Ajouter-Libelle {
-    param([string]$Texte, $Fonte, $Couleur, [int]$Haut)
+function New-WrappedLabel {
+    param([string]$Text, $Font, $Colour, [int]$Top)
     $lbl           = New-Object System.Windows.Forms.Label
-    $lbl.Text      = $Texte
-    $lbl.Font      = $Fonte
-    $lbl.ForeColor = $Couleur
+    $lbl.Text      = $Text
+    $lbl.Font      = $Font
+    $lbl.ForeColor = $Colour
     $lbl.AutoSize    = $true
     $lbl.MaximumSize = New-Object System.Drawing.Size($width, 0)
-    $lbl.Location    = New-Object System.Drawing.Point($marge, $Haut)
+    $lbl.Location    = New-Object System.Drawing.Point($marge, $Top)
     return $lbl
 }
 
-function Mesurer {
-    param([string]$Texte, $Fonte)
-    if (-not $Texte) { return 0 }
+function Measure-TextHeight {
+    param([string]$Text, $Font)
+    if (-not $Text) { return 0 }
     # AN EMPTY LINE TAKES UP SPACE, AND MeasureText DOES NOT COUNT IT. A text in paragraphs -- separated by a blank
     # line -- was therefore measured too short, and the label clipped its last line (observed on 29/08, a sentence
     # cut in two). We replace every empty line with a space: it then has the height of a line, which is what it
     # really occupies.
-    $mesurable = $Texte -replace '(?m)^\s*$', ' '
+    $mesurable = $Text -replace '(?m)^\s*$', ' '
     $t = [System.Windows.Forms.TextRenderer]::MeasureText(
-            $mesurable, $Fonte,
+            $mesurable, $Font,
             (New-Object System.Drawing.Size($width, 0)),
             ([System.Windows.Forms.TextFormatFlags]::WordBreak))
     return [int]$t.Height + 4
@@ -298,25 +298,25 @@ if ($InitiatedBy) {
     $lblOrigine.ForeColor = [System.Drawing.Color]::FromArgb(210, 153, 34)
     $lblOrigine.BackColor = [System.Drawing.Color]::FromArgb(38, 34, 22)
     $lblOrigine.Padding   = New-Object System.Windows.Forms.Padding(10, 6, 10, 6)
-    $h                    = (Mesurer -Texte $lblOrigine.Text -Fonte $fGras) + 12
+    $h                    = (Measure-TextHeight -Text $lblOrigine.Text -Font $fGras) + 12
     $lblOrigine.Location  = New-Object System.Drawing.Point($marge, $y)
     $lblOrigine.Size      = New-Object System.Drawing.Size($width, $h)
     $controles += $lblOrigine
     $y += $h + 16
 }
 
-$lblTitre = Ajouter-Libelle -Texte $Title -Fonte $fTitre -Couleur $fg -Haut $y
-$h = $lblTitre.PreferredSize.Height
-$controles += $lblTitre
+$lblTitle = New-WrappedLabel -Text $Title -Font $fontTitle -Colour $fg -Top $y
+$h = $lblTitle.PreferredSize.Height
+$controles += $lblTitle
 $y += $h + 12
 
-$lblResume = Ajouter-Libelle -Texte $Summary -Fonte $fTexte -Couleur $fg -Haut $y
-$h = $lblResume.PreferredSize.Height
-$controles += $lblResume
+$lblSummary = New-WrappedLabel -Text $Summary -Font $fontBody -Colour $fg -Top $y
+$h = $lblSummary.PreferredSize.Height
+$controles += $lblSummary
 $y += $h + 14
 
-if ($listeTexte) {
-    $lblListe = Ajouter-Libelle -Texte $listeTexte -Fonte $fTexte -Couleur $fg -Haut $y
+if ($bulletText) {
+    $lblListe = New-WrappedLabel -Text $bulletText -Font $fontBody -Colour $fg -Top $y
 $h = $lblListe.PreferredSize.Height
 $controles += $lblListe
     $y += $h + 18
@@ -326,9 +326,9 @@ $controles += $lblListe
 $lblDetails = $null
 $lnkDetails = $null
 $lnkOuvrir  = $null
-$txtChemin  = $null
+$txtPath  = $null
 if ($Details) {
-    $detailTexte = ($Details -split '\|') -join [Environment]::NewLine
+    $detailText = ($Details -split '\|') -join [Environment]::NewLine
 
     $lnkDetails           = New-Object System.Windows.Forms.LinkLabel
     $lnkDetails.Text      = ([char]0x25B8 + ' Détails')
@@ -341,7 +341,7 @@ if ($Details) {
     $controles += $lnkDetails
     $y += 26
 
-    $lblDetails = Ajouter-Libelle -Texte $detailTexte -Fonte $fNote -Couleur $mut -Haut $y
+    $lblDetails = New-WrappedLabel -Text $detailText -Font $fNote -Colour $mut -Top $y
     $hDetails   = $lblDetails.PreferredSize.Height
     $lblDetails.Visible   = $false      # folded by default
     $controles += $lblDetails
@@ -349,17 +349,17 @@ if ($Details) {
     # A PATH MUST BE COPYABLE. A label cannot be selected: the path was displayed, and had to be retyped. A
     # read-only text box reads the same, and copies.
     if ($OpenPath) {
-        $txtChemin = New-Object System.Windows.Forms.TextBox
-        $txtChemin.Text       = $OpenPath
-        $txtChemin.Font       = $fNote
-        $txtChemin.ReadOnly   = $true
-        $txtChemin.BorderStyle = 'FixedSingle'
-        $txtChemin.BackColor  = [System.Drawing.Color]::FromArgb(33, 38, 45)
-        $txtChemin.ForeColor  = $mut
-        $txtChemin.Location   = New-Object System.Drawing.Point($marge, ($y + $hDetails + 8))
-        $txtChemin.Size       = New-Object System.Drawing.Size($width, 24)
-        $txtChemin.Visible    = $false
-        $controles += $txtChemin
+        $txtPath = New-Object System.Windows.Forms.TextBox
+        $txtPath.Text       = $OpenPath
+        $txtPath.Font       = $fNote
+        $txtPath.ReadOnly   = $true
+        $txtPath.BorderStyle = 'FixedSingle'
+        $txtPath.BackColor  = [System.Drawing.Color]::FromArgb(33, 38, 45)
+        $txtPath.ForeColor  = $mut
+        $txtPath.Location   = New-Object System.Drawing.Point($marge, ($y + $hDetails + 8))
+        $txtPath.Size       = New-Object System.Drawing.Size($width, 24)
+        $txtPath.Visible    = $false
+        $controles += $txtPath
     }
 
     # THE LINK LIVES WITH THE DETAILS: it appears and disappears with them.
@@ -382,7 +382,7 @@ if ($Details) {
 }
 
 if ($Note) {
-    $lblNote = Ajouter-Libelle -Texte $Note -Fonte $fNote -Couleur $mut -Haut $y
+    $lblNote = New-WrappedLabel -Text $Note -Font $fNote -Colour $mut -Top $y
 $h = $lblNote.PreferredSize.Height
 $controles += $lblNote
     $y += $h + 18
@@ -445,7 +445,7 @@ if ($lnkDetails -and $lblDetails) {
         $ouvert = -not $lblDetails.Visible
         $lblDetails.Visible = $ouvert
         $hLien = 0
-        if ($txtChemin) { $txtChemin.Visible = $ouvert; $hLien += 32 }
+        if ($txtPath) { $txtPath.Visible = $ouvert; $hLien += 32 }
         if ($lnkOuvrir) { $lnkOuvrir.Visible = $ouvert; $hLien += 26 }
         $bloc   = $lblDetails.Height + 12 + $hLien
         $delta  = if ($ouvert) { $bloc } else { -$bloc }
@@ -453,7 +453,7 @@ if ($lnkDetails -and $lblDetails) {
         # height as it, since it takes up no space while hidden. With "-gt" they did not move: the Close button
         # ended up UNDER the unfolded text, and so invisible (29/08).
         foreach ($c in $form.Controls) {
-            if ($c -ne $lblDetails -and $c -ne $lnkOuvrir -and $c -ne $txtChemin -and
+            if ($c -ne $lblDetails -and $c -ne $lnkOuvrir -and $c -ne $txtPath -and
                 $c.Top -ge $lblDetails.Top) {
                 $c.Top = $c.Top + $delta
             }
@@ -481,11 +481,11 @@ public static extern int DwmSetWindowAttribute(System.IntPtr hwnd, int attr, ref
 } catch { }
 
 # A layout check without blocking: the window closes by itself.
-if ($FermerApresMs -gt 0) {
-    $minuteur = New-Object System.Windows.Forms.Timer
-    $minuteur.Interval = $FermerApresMs
-    $minuteur.Add_Tick({ $minuteur.Stop(); $form.Close() })
-    $minuteur.Start()
+if ($CloseAfterMs -gt 0) {
+    $timer = New-Object System.Windows.Forms.Timer
+    $timer.Interval = $CloseAfterMs
+    $timer.Add_Tick({ $timer.Stop(); $form.Close() })
+    $timer.Start()
     $form.Add_Shown({
         Write-Host (Get-Label 'show-confirm.hauteur-de-fenetre-calculee' $form.ClientSize.Height)
         foreach ($c in $form.Controls) {

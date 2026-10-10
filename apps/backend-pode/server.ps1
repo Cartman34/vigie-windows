@@ -154,9 +154,9 @@ Add-PodeRoute -Method Get -Path "$base/modules/:id" -ScriptBlock {
     # client's timeout); without that flag, loading the page and following a background task make do with the
     # cache.
     $fresh = ("" + $WebEvent.Query['fresh']) -in @('1','true')
-    $etat = if ($fresh) { Get-State -Backend $env:VIGIE_BACKEND -ForceModule $id -WaitSeconds 75 }
+    $state = if ($fresh) { Get-State -Backend $env:VIGIE_BACKEND -ForceModule $id -WaitSeconds 75 }
             else        { Get-State -Backend $env:VIGIE_BACKEND }
-    $m  = $etat.modules | Where-Object { $_.id -eq $id }
+    $m  = $state.modules | Where-Object { $_.id -eq $id }
     if ($m) { Write-PodeJsonResponse -Value $m -Depth 24 }
     else    { Write-PodeJsonResponse -StatusCode 404 -Value @{ error = "Module inconnu : $id" } }
 }
@@ -189,15 +189,15 @@ Add-PodeRoute -Method Post -Path "$base/units/:id" -ScriptBlock {
 # root of the last analysis.
 Add-PodeRoute -Method Get -Path "$base/disk/tree" -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
-    $chemin = "$($WebEvent.Query['path'])"
+    $path = "$($WebEvent.Query['path'])"
     try {
-        if (-not $chemin) {
+        if (-not $path) {
             $f = Get-VarPath -Backend $env:VIGIE_BACKEND -Kind 'cache' -File 'diskscan.json'
             if (-not (Test-Path -LiteralPath $f)) { throw "Aucune analyse disponible." }
             $j = Get-Content -LiteralPath $f -Raw | ConvertFrom-Json
-            $chemin = if ($j.result -and $j.result.root) { "$($j.result.root)" } else { "$($j.scan.root)" }
+            $path = if ($j.result -and $j.result.root) { "$($j.result.root)" } else { "$($j.scan.root)" }
         }
-        $niveau = Get-DiskTreeLevel -Path $chemin -Backend $env:VIGIE_BACKEND
+        $niveau = Get-DiskTreeLevel -Path $path -Backend $env:VIGIE_BACKEND
         Write-PodeJsonResponse -Value $niveau -Depth 6
     } catch {
         Write-PodeJsonResponse -StatusCode 400 -Value @{ error = "$($_.Exception.Message)" }
@@ -259,19 +259,19 @@ Add-PodeRoute -Method Post -Path "$base/anonymous-access" -ScriptBlock {
 }
 Add-PodeRoute -Method Post -Path "$base/users/:name" -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
-    $nom = $WebEvent.Parameters['name']
+    $name = $WebEvent.Parameters['name']
     $d = $WebEvent.Data
     if (-not $d -or $null -eq $d.enabled) {
         Write-PodeJsonResponse -StatusCode 400 -Value @{ error = "Champ 'enabled' requis" }
         return
     }
     try {
-        $target = Get-AccountByName -Name $nom -Backend $env:VIGIE_BACKEND
+        $target = Get-AccountByName -Name $name -Backend $env:VIGIE_BACKEND
         if ($target -and $target.technical) {
-            Write-PodeJsonResponse -StatusCode 400 -Value @{ error = "$nom n'est pas un compte utilisateur : son profil n'a jamais servi." }
+            Write-PodeJsonResponse -StatusCode 400 -Value @{ error = "$name n'est pas un compte utilisateur : son profil n'a jamais servi." }
             return
         }
-        Set-VigieAccountEnabled -Name $nom -Enabled ([bool]$d.enabled) -Backend $env:VIGIE_BACKEND | Out-Null
+        Set-VigieAccountEnabled -Name $name -Enabled ([bool]$d.enabled) -Backend $env:VIGIE_BACKEND | Out-Null
         Write-PodeJsonResponse -Value @{ users = @(Get-UserAccounts); canWrite = [bool](Test-IsElevated) } -Depth 6
     } catch {
         Write-PodeJsonResponse -StatusCode 403 -Value @{ error = "$($_.Exception.Message)" }
@@ -404,11 +404,11 @@ Add-PodeRoute -Method Post -Path "$base/actions" -ScriptBlock {
 
 
     try {
-        $etat = @{
+        $state = @{
             running = @(Get-RunningOperations -Backend $env:VIGIE_BACKEND)
             results = @(Get-RecentOperationResults -Backend $env:VIGIE_BACKEND)
         }
-        $job | Add-Member -NotePropertyName 'operations' -NotePropertyValue $etat -Force
+        $job | Add-Member -NotePropertyName 'operations' -NotePropertyValue $state -Force
     } catch { }
 
     if ($job.status -eq 'error') { Write-PodeJsonResponse -StatusCode 400 -Value $job -Depth 24 }

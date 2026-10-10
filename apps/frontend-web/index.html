@@ -2746,7 +2746,7 @@ function clearCardBusy(moduleId){
     // Les boutons de la carte redeviennent ce que le rendu dit d'eux : c'est le verrou,
     // juste apres, qui tranche s'ils restent bloques par une AUTRE operation.
     card.querySelectorAll('.act, .fsolve').forEach(b=>{
-      if(b.dataset.verrou) return;          // bloque par le verrou : il s'en occupe
+      if(b.dataset.held) return;          // bloque par le verrou : il s'en occupe
       if(b.classList.contains('denied')) return;   // interdit par les droits (D65)
       b.disabled=false;
       b.classList.remove('busy');
@@ -2784,18 +2784,18 @@ function applyOperationLock(){
     if(op && croise(b)){
       // On garde en memoire ce qui etait DEJA desactive pour une autre raison (droits
       // refuses, par exemple) : le verrou ne doit pas reactiver un bouton interdit.
-      if(!b.dataset.verrou){
-        b.dataset.verrou = b.disabled ? 'deja' : 'oui';
-        b.dataset.titreAvant = b.title || '';
+      if(!b.dataset.held){
+        b.dataset.held = b.disabled ? 'deja' : 'oui';
+        b.dataset.titleBefore = b.title || '';
       }
       b.disabled = true;
       // La marque ne va QUE sur ce que le verrou retient lui-meme : un bouton deja
       // refuse par les droits reste un bouton refuse, il ne devient pas une attente.
-      if(b.dataset.verrou === 'oui'){ b.title = raison; b.classList.add('retenu'); }
-    } else if(b.dataset.verrou){
-      if(b.dataset.verrou === 'oui'){ b.disabled = false; b.title = b.dataset.titreAvant || ''; b.classList.remove('retenu'); }
-      delete b.dataset.verrou;
-      delete b.dataset.titreAvant;
+      if(b.dataset.held === 'oui'){ b.title = raison; b.classList.add('retenu'); }
+    } else if(b.dataset.held){
+      if(b.dataset.held === 'oui'){ b.disabled = false; b.title = b.dataset.titleBefore || ''; b.classList.remove('retenu'); }
+      delete b.dataset.held;
+      delete b.dataset.titleBefore;
     }
   });
 }
@@ -3126,9 +3126,9 @@ function updateRefreshButton(){
   if(!btn) return;
   const op = runningOperation();
   const pris = !!(op && (op.ressources || []).includes('machine'));
-  if(btn.dataset.titre === undefined) btn.dataset.titre = btn.title;
+  if(btn.dataset.titleWas === undefined) btn.dataset.titleWas = btn.title;
   btn.classList.toggle('inerte', pris);
-  btn.title = pris ? (L('ui.recalcul-pendant-operation') + (op.titre || '')) : btn.dataset.titre;
+  btn.title = pris ? (L('ui.recalcul-pendant-operation') + (op.titre || '')) : btn.dataset.titleWas;
 }
 function setLoading(on, complete){
   const btn=document.getElementById('btnRefresh');
@@ -3152,7 +3152,7 @@ function setLoading(on, complete){
   if(meta){
     meta.classList.toggle('busy', !!on);
     if(on){
-      if(meta.dataset.avant === undefined) meta.dataset.avant = meta.textContent;
+      if(meta.dataset.textBefore === undefined) meta.dataset.textBefore = meta.textContent;
       // DEUX GESTES, DEUX PHRASES. « Actualisation en cours » disait la meme chose pour
       // une relecture de l'etat -- quelques dixiemes de seconde, servie depuis le cache --
       // et pour un recalcul complet, qui refait toutes les mesures et peut durer une
@@ -3161,10 +3161,10 @@ function setLoading(on, complete){
     } else {
       // Si le rendu n'a pas eu lieu (erreur reseau), le texte serait reste sur « en cours ».
       if((meta.textContent === L('ui.actualisation-en-cours') || meta.textContent === L('ui.recalcul-en-cours'))
-         && meta.dataset.avant !== undefined) {
-        meta.textContent = meta.dataset.avant;
+         && meta.dataset.textBefore !== undefined) {
+        meta.textContent = meta.dataset.textBefore;
       }
-      delete meta.dataset.avant;
+      delete meta.dataset.textBefore;
     }
   }
   // Non bloquant : on garde les cartes existantes pendant l'actualisation.

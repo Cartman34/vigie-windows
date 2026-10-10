@@ -246,7 +246,7 @@ async function ficheMaterielle(){
 }
 
 // ------------------------------------------------------------------- ETAT
-function valeurLisible(f){
+function readableValue(f){
   if (f.kind === 'bool') return f.value ? 'Oui' : 'Non';
   let v = f.value;
   if (v === null || v === undefined || v === '') return '—';
@@ -255,7 +255,7 @@ function valeurLisible(f){
   return String(v);
 }
 
-async function etatActuel(){
+async function currentState(){
   const s = await lire('/state');
   document.getElementById('titre').textContent = 'État de la machine';
   document.getElementById('sous').textContent = s.host + ' · relevé du ' + heure(s.generatedAt);
@@ -267,10 +267,10 @@ async function etatActuel(){
   // Ce qui demande attention, en tete : c'est la premiere question qu'on se pose.
   const alertes = [];
   for (const m of s.modules) for (const f of (m.fields || [])) {
-    if (f.status === 'warn' || f.status === 'error') alertes.push([m.label, f.label, valeurLisible(f), f.status]);
+    if (f.status === 'warn' || f.status === 'error') alertes.push([m.label, f.label, readableValue(f), f.status]);
   }
-  const resume = E('section');
-  resume.append(E('h2', null, 'Ce qui demande attention'));
+  const summary = E('section');
+  summary.append(E('h2', null, 'Ce qui demande attention'));
   if (alertes.length) {
     const t = tableau(['Carte', 'Point', 'Constat'], alertes.map(a => [a[0], a[1], a[2]]));
     // Le point de couleur va sur la ligne, pas sur toute la cellule.
@@ -279,11 +279,11 @@ async function etatActuel(){
       c.prepend(E('span', {class:'pt ' + alertes[i][3]}));
       tr.lastElementChild.className = 'v-' + alertes[i][3];
     });
-    resume.append(t);
+    summary.append(t);
   } else {
-    resume.append(E('p', {class:'vide'}, 'Rien à signaler : tous les points relevés sont conformes.'));
+    summary.append(E('p', {class:'vide'}, 'Rien à signaler : tous les points relevés sont conformes.'));
   }
-  corps.append(resume);
+  corps.append(summary);
 
   // Puis le detail, groupe par theme, dans l'ordre de l'application.
   for (const theme of s.themes) {
@@ -297,7 +297,7 @@ async function etatActuel(){
       for (const f of (m.fields || [])) {
         if (f.kind === 'tree' || f.table) continue;   // pas de structures profondes dans un document
         const dd = E('dd', f.status === 'warn' || f.status === 'error' ? {class:'v-' + f.status} : null,
-                     valeurLisible(f));
+                     readableValue(f));
         const dt = E('dt', null);
         dt.append(E('span', {class:'pt ' + (f.status || 'neutral')}), f.label);
         dl.append(dt, dd);
@@ -312,7 +312,7 @@ async function etatActuel(){
 (async () => {
   document.getElementById('lien' + (TYPE === 'etat' ? 'Etat' : 'Mat')).style.fontWeight = '700';
   try {
-    const d = (TYPE === 'etat') ? await etatActuel() : await ficheMaterielle();
+    const d = (TYPE === 'etat') ? await currentState() : await ficheMaterielle();
     document.title = document.getElementById('titre').textContent + ' — Vigie';
     document.getElementById('pied').textContent =
       'Vigie · ' + document.getElementById('titre').textContent + ' · ' +

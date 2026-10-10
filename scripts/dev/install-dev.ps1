@@ -86,7 +86,7 @@ function Test-Admin {
     } catch { return $false }
 }
 
-function Get-Etat {
+function Get-DependencyState {
     param([hashtable]$D)
     $c = Get-Command $D.Commande -ErrorAction SilentlyContinue
     if (-not $c) { return @{ Present = $false; Ou = $null; Version = $null } }
@@ -155,7 +155,7 @@ if ($Name) {
 Write-Step (Get-Label 'install-dev.dependances-de-developpement')
 $missing = @()
 foreach ($d in $aTraiter) {
-    $e = Get-Etat -D $d
+    $e = Get-DependencyState -D $d
     if ($e.Present) {
         Write-Ok (Get-Label 'install-dev.ok' $d.Titre $(if ($e.Version) { $e.Version } else { $e.Ou }))
     } else {
@@ -297,7 +297,7 @@ foreach ($d in $missing) {
     # non-zero code for a package that is already there. Only the command itself is authoritative.
     $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' +
                 [Environment]::GetEnvironmentVariable('Path', 'User')
-    $e = Get-Etat -D $d
+    $e = Get-DependencyState -D $d
     if ($e.Present) {
         Write-Ok (Get-Label 'install-dev.est-en-place' $d.Titre $(if ($e.Version) { $e.Version } else { $e.Ou }))
     } else {

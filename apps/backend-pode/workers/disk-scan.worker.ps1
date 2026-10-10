@@ -79,7 +79,7 @@ function Limit-Detail {
 
 function New-Node {
     param([string]$NodePath, [string]$NodeName, [int]$Prof, $Parent)
-    @{ p = $NodePath; n = $NodeName; d = $Prof; parent = $Parent; etat = 0
+    @{ p = $NodePath; n = $NodeName; d = $Prof; parent = $Parent; visited = 0
        own = [long]0; acc = [long]0; total = [long]0; files = 0; maxKid = [long]0
        kids = [System.Collections.Generic.List[hashtable]]::new()
        tops = [System.Collections.Generic.List[hashtable]]::new()
@@ -106,9 +106,9 @@ try {
     while ($pile.Count -gt 0) {
         $n = $pile.Pop()
 
-        if ($n.etat -eq 0) {
+        if ($n.visited -eq 0) {
             # The FIRST visit: measure the folder's files, push its subfolders.
-            $n.etat = 1
+            $n.visited = 1
             $pile.Push($n)                     # revisite APRES ses enfants (post-ordre)
             $gDirs++
             $detail = ($n.d -lt $profondeur)   # au-dela, on mesure sans garder les noms

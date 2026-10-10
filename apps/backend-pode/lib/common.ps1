@@ -2761,8 +2761,8 @@ $waitBlock
 $stopSnippet
 `$fin = (Get-Date).AddSeconds(30)
 while ((Get-Date) -lt `$fin) {
-    `$occupe = Get-PortListener -Port $Port
-    if (-not `$occupe) { break }
+    `$held = Get-PortListener -Port $Port
+    if (-not `$held) { break }
     Start-Sleep -Milliseconds 300
 }
 $startSnippet
@@ -9208,7 +9208,7 @@ function Get-PendingUpdateList {
             id = "$($u.Identity.UpdateID)"; titre = "$($u.Title)"; kb = ($kb -join ', ')
             octets = $size; pilote = $driver; modele = $model; classe = $class; dateP = $when
             provider = $provider; telecharge = [bool]$u.IsDownloaded
-            groupe = ''; libelle = ''; remplacee = $false; echec = ''; dejaFaite = $false
+            groupe = ''; libelle = ''; remplacee = $false; echec = ''; alreadyDone = $false
         }
     }
 
@@ -9247,7 +9247,7 @@ function Get-PendingUpdateList {
         if ($failed.ContainsKey("$($line.id)")) { $line.echec = $failed["$($line.id)"] }
         # RE-OFFERED: Windows says "installed successfully" then detects the SAME update
         # again -- the known loop of badly targeted OEM drivers. Reinstalling changes nothing.
-        if ($installed -contains "$($line.titre)") { $line.dejaFaite = $true }
+        if ($installed -contains "$($line.titre)") { $line.alreadyDone = $true }
     }
 
     # --- Two versions of one driver: the newest is the one we keep -------------------------
@@ -9281,7 +9281,7 @@ function Get-PendingUpdateList {
     $older = 0
     $offered = @()
     foreach ($line in $lines) {
-        if ($line.dejaFaite) { continue }
+        if ($line.alreadyDone) { continue }
         if (-not $line.remplacee) { $offered += $line; continue }
         $key = "$($line.groupe)|$($line.modele)|$($line.classe)".ToLowerInvariant()
         # When the newest one failed, the older one is the only way forward left.
@@ -9297,7 +9297,7 @@ function Get-PendingUpdateList {
         offered = @($offered)
         drivers = @($lines | Where-Object { $_.pilote }).Count
         setAsideOlder = $older
-        alreadyDone = @($lines | Where-Object { $_.dejaFaite } | ForEach-Object { "$($_.titre)" })
+        alreadyDone = @($lines | Where-Object { $_.alreadyDone } | ForEach-Object { "$($_.titre)" })
     }
 }
 

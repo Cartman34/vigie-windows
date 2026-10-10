@@ -20,7 +20,7 @@ try {
 } catch { }
 
 $outFile = Get-VarPath -Backend $Backend -Kind 'cache' -File 'wu-scan.json'
-function Set-Etat { param([hashtable]$Set) try { Update-StateJson -Path $outFile -Set $Set | Out-Null } catch { } }
+function Set-JobState { param([hashtable]$Set) try { Update-StateJson -Path $outFile -Set $Set | Out-Null } catch { } }
 
 $lockLifted = $false
 $exitCode = 0
@@ -35,11 +35,11 @@ try {
     $res = $searcher.Search("IsInstalled=0 And IsHidden=0")
     $n = [int]$res.Updates.Count
 
-    Set-Etat @{ ok = $true; trouvees = $n; error = $null
+    Set-JobState @{ ok = $true; trouvees = $n; error = $null
                 at = (Get-Date).ToUniversalTime().ToString('o') }
     Write-Log -Backend $Backend -Name 'wuscan' -Message (Get-Label 'wu-scan.analyse-en-ligne-mise' $n)
 } catch {
-    Set-Etat @{ ok = $false; error = $_.Exception.Message
+    Set-JobState @{ ok = $false; error = $_.Exception.Message
                 at = (Get-Date).ToUniversalTime().ToString('o') }
     Write-Log -Backend $Backend -Name 'wuscan' -Level 'ERROR' -Message $_.Exception.Message
     $exitCode = 1
@@ -49,7 +49,7 @@ try {
         $repose = Set-UpdateLock -State 'pose' -Backend $Backend
         Write-Log -Backend $Backend -Name 'wuscan' -Message (Get-Label 'wu-scan.verrou-repose' $repose)
         if (-not $repose) {
-            Set-Etat @{ verrouNonRepose = $true }
+            Set-JobState @{ verrouNonRepose = $true }
             Write-Log -Backend $Backend -Name 'wuscan' -Level 'ERROR' -Message (Get-Label 'wu-scan.verrou-non-repose')
         }
     }

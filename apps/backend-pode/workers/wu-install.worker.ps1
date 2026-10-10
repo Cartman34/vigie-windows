@@ -181,7 +181,7 @@ function Invoke-UpdateJob {
                     lastChange  = $lastChange.ToString('o')
                     since       = $StartedAt
                 }
-                Set-Etat @{ progress = $progress }
+                Set-JobState @{ progress = $progress }
             } catch { }
             $lastWrite = Get-Date
         }
@@ -191,7 +191,7 @@ function Invoke-UpdateJob {
     return $Operator.EndInstall($job)
 }
 
-function Set-Etat {
+function Set-JobState {
     param([hashtable]$Set)
     try { Update-StateJson -Path $outFile -Set $Set | Out-Null } catch { }
 }
@@ -232,7 +232,7 @@ try {
     # were installed or refused, and the fourth vanished from the report without a word.
     $missing = @($ids | Where-Object { $keptIds -notcontains "$_" })
     foreach ($id in $missing) { Write-Log -Backend $Backend -Name 'wuinstall' -Message (Get-Label 'wu-install.introuvable' $id) }
-    Set-Etat @{ phase = 'telechargement'; total = $coll.Count
+    Set-JobState @{ phase = 'telechargement'; total = $coll.Count
                 titres = @($retenus); at = (Get-Date).ToUniversalTime().ToString('o') }
     $startedAt = (Get-Date).ToUniversalTime().ToString('o')
     $dl = $session.CreateUpdateDownloader()
@@ -240,7 +240,7 @@ try {
     $rDl = Invoke-UpdateJob -Phase 'telechargement' -Operator $dl -Titles $retenus -StartedAt $startedAt
     Write-Log -Backend $Backend -Name 'wuinstall' -Message (Get-Label 'wu-install.telechargement-code' $rDl.ResultCode)
 
-    Set-Etat @{ phase = 'installation'; progress = $null }
+    Set-JobState @{ phase = 'installation'; progress = $null }
     $inst = $session.CreateUpdateInstaller()
     $inst.Updates = $coll
     $rIn = Invoke-UpdateJob -Phase 'installation' -Operator $inst -Titles $retenus -StartedAt $startedAt
@@ -280,7 +280,7 @@ try {
         $detail += ,@("$id", 'Introuvable')
         $failures["$id"] = 'Introuvable'
     }
-    Set-Etat @{
+    Set-JobState @{
         phase      = 'termine'
         progress   = $null
         at         = (Get-Date).ToUniversalTime().ToString('o')
@@ -306,7 +306,7 @@ try {
         Write-Output ('[X] ' + (Get-Label 'wu-install.code-global' $rIn.ResultCode))
     }
 } catch {
-    Set-Etat @{ phase = 'termine'; ok = $false; progress = $null
+    Set-JobState @{ phase = 'termine'; ok = $false; progress = $null
                 at = (Get-Date).ToUniversalTime().ToString('o'); error = $_.Exception.Message }
     Write-Log -Backend $Backend -Name 'wuinstall' -Level 'ERROR' -Message $_.Exception.Message
     $exitCode = 1
@@ -317,7 +317,7 @@ try {
         Write-Log -Backend $Backend -Name 'wuinstall' -Message (Get-Label 'wu-install.verrou-repose' $repose)
         if (-not $repose) {
             # An abnormal state: we REPORT it instead of keeping quiet, and the machine stays open.
-            Set-Etat @{ verrouNonRepose = $true }
+            Set-JobState @{ verrouNonRepose = $true }
             Write-Log -Backend $Backend -Name 'wuinstall' -Level 'ERROR' -Message (Get-Label 'wu-install.verrou-non-repose')
         }
     }

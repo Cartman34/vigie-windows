@@ -120,6 +120,18 @@ $COMMENT_CEILING = 0
 # SO THE CEILING IS ZERO. Not a single French comment line is left in this repository. From here the ratchet no
 # longer counts a legacy: anything above zero is a comment somebody ADDED, which is exactly what it is for.
 #
+# 10/10, THE IDENTIFIERS: 69 -> 4, and the four that stay are not names, they are a PROTOCOL -- the keys `groupe`,
+# `libelle` and `echec` of the hardware sheet, which index.html reads. Changing one side alone blanks a card, so
+# that one is a decision and not a cleanup.
+#
+# THREE OF THE 69 WERE NEVER FRENCH. "detached" carries "tache" inside it, so Start-DetachedAction, detachedHead
+# and detachedAllowedIn had been counted for three weeks, and renaming them would have made the code worse. The
+# lexicon now takes those English words out of the name before testing it ($ENGLISH_CARRYING_FRENCH), and the
+# comment above that list says why it must stay short.
+#
+# dejaFaite was listed here as a contract key. It is not, and it had stopped being one: the front end holds no
+# reference to it. It was checked against the whole of apps/frontend-web before being renamed to alreadyDone.
+#
 # A TRANSLATION BROKE THREE FILES, and my own verification let it through: my loop ran the comment-stripper with
 # its failure swallowed, so a file that no longer PARSED compared as identical. check-powershell caught all three
 # -- an unterminated block comment -- and the loop now fails loudly on a parse error. A proof that cannot fail
@@ -218,7 +230,7 @@ $COMMENT_CEILING = 0
     over a dozen files, each a key or a parameter of the same kind. None of them is reachable by running a file
     here, which is the rule this count now obeys.
 #>
-$CEILING = 69
+$CEILING = 4
 
 # THE FILE-NAME CEILING, AT ZERO SINCE 08/10.
 #
@@ -297,6 +309,18 @@ $FRENCH_WORDS = @(
 )
 
 <#
+    THE ENGLISH WORDS THAT CARRY A FRENCH ONE INSIDE THEM.
+
+    The test above is a plain Contains, which is what makes the lexicon cheap and predictable. But "detached"
+    contains "tache": `Start-DetachedAction`, `detachedHead` and `detachedAllowedIn` were counted as French for
+    three weeks, and renaming them would have made the code WORSE -- they are correct English.
+
+    So these words are taken out of the name before it is tested. The list stays short and each entry is an English
+    word that really appears in this repository: a long list would end up hiding a real French name.
+#>
+$ENGLISH_CARRYING_FRENCH = @('detached', 'detach')
+
+<#
     THE LEXICON OF FILE NAMES is wider than the one for identifiers: a file name often carries the GESTURE and
     not the technical vocabulary of the code. That is exactly what got through on 31/08: not one of the words in
     the list above appeared in the name that slipped by.
@@ -346,6 +370,7 @@ foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.
         foreach ($g in 1..5) { if ($m.Groups[$g].Success -and $m.Groups[$g].Value) { $name = $m.Groups[$g].Value; break } }
         if (-not $name) { continue }
         $lower = $name.ToLowerInvariant()
+        foreach ($english in $ENGLISH_CARRYING_FRENCH) { $lower = $lower.Replace($english, '') }
         foreach ($word in $FRENCH_WORDS) {
             if ($lower.Contains($word)) {
                 $n++; $total++

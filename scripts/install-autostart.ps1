@@ -108,7 +108,7 @@ $trigger.Delay = 'PT45S'
     standard account. Giving Highest to a standard account would not work, and MUST not work -- Vigie gives
     nothing more than Windows does.
 #>
-$pourCompte = $forAccount
+$forWhom = $forAccount
 <#
     THE LIST IS AUTHORITATIVE: we lay a client task down only for an account the interface allows to enable
     Vigie.
@@ -119,12 +119,12 @@ $pourCompte = $forAccount
     account that must not receive one either.
 #>
 
-if (@(Get-UserAccounts -Backend $backend | ForEach-Object { "$($_.name)" }) -notcontains $pourCompte) {
-    Write-Fail (Get-Label 'install-autostart.compte-hors-liste' $pourCompte)
+if (@(Get-UserAccounts -Backend $backend | ForEach-Object { "$($_.name)" }) -notcontains $forWhom) {
+    Write-Fail (Get-Label 'install-autostart.compte-hors-liste' $forWhom)
     exit 1
 }
-$niveau = $(if (Test-LocalAccountIsAdmin -Name $pourCompte) { 'Highest' } else { 'Limited' })
-$principal = New-ScheduledTaskPrincipal -UserId ("$env:USERDOMAIN\" + $pourCompte) -LogonType Interactive -RunLevel $niveau
+$niveau = $(if (Test-LocalAccountIsAdmin -Name $forWhom) { 'Highest' } else { 'Limited' })
+$principal = New-ScheduledTaskPrincipal -UserId ("$env:USERDOMAIN\" + $forWhom) -LogonType Interactive -RunLevel $niveau
 $settings  = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
                 -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew `
                 -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)

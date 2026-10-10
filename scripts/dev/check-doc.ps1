@@ -18,9 +18,9 @@ param([switch]$Quiet)
 
 $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 $doc      = Join-Path $repoRoot 'doc'
-$souci    = 0
+$problems    = 0
 
-function Ecrire { param([string]$text, [string]$Couleur = 'Gray')
+function Write-Line { param([string]$text, [string]$Couleur = 'Gray')
     if (-not $Quiet) { Write-Host $text -ForegroundColor $Couleur } }
 
 # --- 1. Liens morts ---------------------------------------------------------
@@ -40,12 +40,12 @@ foreach ($f in $files) {
         }
     }
 }
-Ecrire ("{0} fichier(s) markdown lus." -f $files.Count)
+Write-Line ("{0} fichier(s) markdown lus." -f $files.Count)
 if ($morts.Count) {
-    $souci = 2
-    Ecrire ("{0} lien(s) mort(s) :" -f $morts.Count) 'Red'
-    foreach ($x in $morts) { Ecrire ("   " + $x) 'Red' }
-} else { Ecrire "Aucun lien mort." 'Green' }
+    $problems = 2
+    Write-Line ("{0} lien(s) mort(s) :" -f $morts.Count) 'Red'
+    foreach ($x in $morts) { Write-Line ("   " + $x) 'Red' }
+} else { Write-Line "Aucun lien mort." 'Green' }
 
 # --- 2. Synchronisation fr / en ---------------------------------------------
 function Get-Profil {
@@ -81,7 +81,7 @@ foreach ($paire in $paires) {
     $fr, $en = $paire[0], $paire[1]
     $name = (Resolve-Path -LiteralPath $fr -Relative)
     if (-not (Test-Path -LiteralPath $en)) {
-        $ecarts++; Ecrire ("SANS JUMEAU  " + $name) 'Yellow'; continue
+        $ecarts++; Write-Line ("SANS JUMEAU  " + $name) 'Yellow'; continue
     }
     $a = Get-Profil -Path $fr
     $b = Get-Profil -Path $en
@@ -92,14 +92,14 @@ foreach ($paire in $paires) {
     if ($a.Renvois -ne $b.Renvois) { $d += ("renvois {0} vs {1}"           -f $a.Renvois, $b.Renvois) }
     if ($d.Count) {
         $ecarts++
-        Ecrire ("{0,-42} {1}" -f $name, ($d -join ' | ')) 'Yellow'
+        Write-Line ("{0,-42} {1}" -f $name, ($d -join ' | ')) 'Yellow'
     }
 }
-Ecrire ("{0} paire(s) fr/en comparee(s)." -f $paires.Count)
+Write-Line ("{0} paire(s) fr/en comparee(s)." -f $paires.Count)
 if ($ecarts) {
-    if ($souci -eq 0) { $souci = 2 }
-    Ecrire ("{0} paire(s) desynchronisee(s). Le francais fait foi (D93)." -f $ecarts) 'Yellow'
-} else { Ecrire "Les deux langues ont la meme charpente." 'Green' }
+    if ($problems -eq 0) { $problems = 2 }
+    Write-Line ("{0} paire(s) desynchronisee(s). Le francais fait foi (D93)." -f $ecarts) 'Yellow'
+} else { Write-Line "Les deux langues ont la meme charpente." 'Green' }
 
 # --- 3. The table of decisions is complete ------------------------------------
 #
@@ -117,12 +117,12 @@ if (Test-Path -LiteralPath $dec) {
         $headings = @([regex]::Matches($text, '(?m)^## (D\d+(?:bis)?)') | ForEach-Object { $_.Groups[1].Value }) | Select-Object -Unique
         $absents = @($headings | Where-Object { $cites -notcontains $_ })
         if ($absents.Count) {
-            if ($souci -eq 0) { $souci = 2 }
-            Ecrire ("{0} decision(s) absente(s) du sommaire : {1}" -f $absents.Count, ($absents -join ' ')) 'Yellow'
+            if ($problems -eq 0) { $problems = 2 }
+            Write-Line ("{0} decision(s) absente(s) du sommaire : {1}" -f $absents.Count, ($absents -join ' ')) 'Yellow'
         } else {
-            Ecrire ("Sommaire des decisions complet ({0} entrees)." -f $headings.Count) 'Green'
+            Write-Line ("Sommaire des decisions complet ({0} entrees)." -f $headings.Count) 'Green'
         }
     }
 }
 
-exit $souci
+exit $problems

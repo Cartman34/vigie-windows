@@ -139,7 +139,7 @@ $INTERDITS = @(
     @{ Motif = '\.log$';                 Quoi = "journal" }
 )
 
-function Format-Taille {
+function Format-Size {
     param([long] $Octets)
     if ($Octets -ge 1MB) { return ('{0:N1} Mo' -f ($Octets / 1MB)) }
     if ($Octets -ge 1KB) { return ('{0:N0} Ko' -f ($Octets / 1KB)) }
@@ -176,7 +176,7 @@ function Find-LienMort {
 }
 
 # Returns the list of forbidden matches found in the paths given.
-function Find-CheminInterdit {
+function Find-ForbiddenPath {
     param([string[]] $Paths)
     $trouves = @()
     foreach ($c in $Paths) {
@@ -243,7 +243,7 @@ foreach ($f in $suivis) {
 }
 
 # --- THE GUARD, before anything is written ------------------------------------
-$interdits = Find-CheminInterdit -Paths $retenus
+$interdits = Find-ForbiddenPath -Paths $retenus
 if ($interdits.Count -gt 0) {
     Write-Fail (Get-Label 'build-release.arret-des-fichiers-interdits')
     foreach ($i in $interdits) { Write-Fail ("  " + $i.Chemin + "   <- " + $i.Quoi) }
@@ -264,9 +264,9 @@ foreach ($f in $retenus) {
 }
 
 Write-Step (Get-Label 'build-release.vigie-contenu-de-archive' $number)
-Write-Info (Get-Label 'build-release.fichier-avant-compression' $retenus.Count (Format-Taille $totalSize))
+Write-Info (Get-Label 'build-release.fichier-avant-compression' $retenus.Count (Format-Size $totalSize))
 foreach ($k in ($byRoot.Keys | Sort-Object)) {
-    Write-Info (Get-Label 'build-release.18-fichier' $k $byRoot[$k].N (Format-Taille $byRoot[$k].Taille))
+    Write-Info (Get-Label 'build-release.18-fichier' $k $byRoot[$k].N (Format-Size $byRoot[$k].Taille))
 }
 
 $excludedCount = ($excluded.Values | Measure-Object -Sum).Sum
@@ -349,7 +349,7 @@ try {
     $archive.Dispose()
 }
 
-$interditsZip = Find-CheminInterdit -Paths $entries
+$interditsZip = Find-ForbiddenPath -Paths $entries
 if ($interditsZip.Count -gt 0) {
     Write-Fail (Get-Label 'build-release.arret-archive-produite-contient')
     foreach ($i in $interditsZip) { Write-Fail ("  " + $i.Chemin + "   <- " + $i.Quoi) }
@@ -371,7 +371,7 @@ if (-not $KeepStaging) { Remove-Item -LiteralPath $staging -Recurse -Force }
 
 $zipSize = (Get-Item -LiteralPath $zip).Length
 Write-Ok (Get-Label 'build-release.archive-prete' $zip)
-Write-Info (Get-Label 'build-release.fichier-compresses-racine' $zipFileCount (Format-Taille $zipSize) $name)
+Write-Info (Get-Label 'build-release.fichier-compresses-racine' $zipFileCount (Format-Size $zipSize) $name)
 Write-Ok (Get-Label 'build-release.verifie-dans-archive-elle')
 if ($KeepStaging) { Write-Detail (Get-Label 'build-release.preparation-conservee' $staging) }
 exit 0
