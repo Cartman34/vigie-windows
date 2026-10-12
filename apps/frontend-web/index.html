@@ -2485,7 +2485,7 @@ const HDS = (function(){
     // les parametres -- exigence utilisateur.
     const rowOf = it =>
       '<div class="hds-choice-row"><label class="hds-choice'+(lock?' hds-choice--fige':'')+'"><input type="checkbox" value="'+esc(it.id)+'"'+((lock||cocheDefaut)?' checked':'')+(lock?' tabindex="-1"':'')+'>'
-      + '<span class="hds-choice-t">'+esc(it.titre)+'</span>'
+      + '<span class="hds-choice-t">'+esc(it.title)+'</span>'
       + (it.detail?'<span class="hds-choice-d">'+esc(it.detail)+'</span>':'')
       + '</label>'
       + (opts.exclure ? '<button type="button" class="hds-exclu" data-exclu="'+esc(it.id)+'" title="Ne plus proposer cette mise à jour">Ignorer</button>' : '')
@@ -2495,13 +2495,13 @@ const HDS = (function(){
       + '<button type="button" class="hds-lnk" id="hdsNone" title="Désélectionner toutes les lignes de la liste">Tout décocher</button>'
       + '<span class="hds-count" id="hdsCount"></span></div>';
     const groupWeight = liste => {
-      const sum = liste.reduce((t,x)=>t+(Number(x.octets)||0),0);
+      const sum = liste.reduce((t,x)=>t+(Number(x.bytes)||0),0);
       return sum ? ' · '+octets(sum) : '';
     };
     const render = liste => {
-      if(!liste.some(x=>x.groupe)) return liste.map(rowOf).join('');
+      if(!liste.some(x=>x.group)) return liste.map(rowOf).join('');
       const byGroup = new Map();
-      liste.forEach(x=>{ const g = x.groupe || '—'; if(!byGroup.has(g)) byGroup.set(g,[]); byGroup.get(g).push(x); });
+      liste.forEach(x=>{ const g = x.group || '—'; if(!byGroup.has(g)) byGroup.set(g,[]); byGroup.get(g).push(x); });
       // Windows first -- it carries the security fix -- then makers alphabetically. An
       // order by volume would reshuffle at every scan.
       //
@@ -2614,7 +2614,7 @@ const HDS = (function(){
         const lib = res && res.confirmLabel;
         if(lib){ const b=valider(); if(b) b.textContent = lib; }
         if(!items.length){
-          elBody.innerHTML = '<p class="hds-intro">'+esc((res && res.vide) || L('ui.rien-afficher'))+'</p>';
+          elBody.innerHTML = '<p class="hds-intro">'+esc((res && res.empty) || L('ui.rien-afficher'))+'</p>';
           return;
         }
         elBody.innerHTML = corps(intro, render(items));
@@ -2677,19 +2677,19 @@ function itemsDeMaj(j){
     id:u.id,
     // LE MODELE NOMME LA LIGNE quand le serveur en a un : le titre de Windows porte parfois
     // la version a la place du modele, et trois appareils differents se lisent alors pareil.
-    titre:u.libelle||u.titre,
+    title:u.label||u.title,
     // Le GROUPE et le POIDS viennent du serveur : c'est lui qui a vu toutes les
     // orthographes d'un constructeur, et lui seul pouvait les replier (D118).
-    groupe:u.groupe||'', octets:u.octets||0, remplacee:!!u.remplacee, echec:u.echec||'',
+    group:u.group||'', bytes:u.bytes||0, superseded:!!u.superseded, failure:u.failure||'',
     // Detail deja compose par le serveur (paquets), sinon assemble ici (Windows Update).
-    detail: u.detail || [u.libelle?u.titre:u.modele, u.kb, u.pilote?'pilote':null, u.dateP, u.octets?octets(u.octets):null,
-            u.telecharge?L('ui.deja-telechargee'):null,
+    detail: u.detail || [u.label?u.title:u.model, u.kb, u.driver?'pilote':null, u.driverDate, u.bytes?octets(u.bytes):null,
+            u.downloaded?L('ui.deja-telechargee'):null,
             // Deux lignes du meme modele ne se distinguent que par leur date : on le DIT,
             // au lieu de laisser l'utilisateur les comparer chiffre par chiffre.
-            u.remplacee?'version plus ancienne':null,
+            u.superseded?'version plus ancienne':null,
             // THE LAST ATTEMPT FAILED: say it, rather than re-offering the line as though
             // it had never been tried.
-            u.echec?('dernier essai : '+u.echec):null].filter(Boolean).join(' · ')
+            u.failure?('dernier essai : '+u.failure):null].filter(Boolean).join(' · ')
   }));
 }
 
@@ -2991,7 +2991,7 @@ async function doAction(type,module,confirmNeeded,label,help,btnEl,params,kind,c
                  verrouille: (r.selection === false),
                  confirmLabel: r.confirmLabel,
                  intro: r.intro || (L('ui.cochez-les-mises-jour')+avis),
-                 vide: r.vide || L('ui.aucune-mise-jour-installer') };
+                 empty: r.empty || L('ui.aucune-mise-jour-installer') };
       }
     });
     if(!choisis || !choisis.length) return;

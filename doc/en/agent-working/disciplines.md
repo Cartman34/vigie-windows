@@ -1029,6 +1029,8 @@ they do not run workers.
 **What that implies about the slice.** A batch is sized by what can be RUN, not by what can be edited. A file that
 cannot be compared -- `show-confirm.ps1` opens a window -- stays out of the batch until there is a way to run it.
 
+**A KEY THAT LIVES IN A FILE IS RENAMED WITH NOTHING LOST, and that is written code, not a hope.** A contract key also sits in the files the application has already written -- `wu-install.json` holds what the last Windows Update installation did, and nothing recomputes it. So the reader accepts BOTH spellings for one version and the writer writes the new one, exactly as `Get-UserConfigDir` takes over the settings folder it used to use: a filing change is never a reason for somebody to lose what they had. The proof runs three times -- no file, a file written with the old names, a file written with the new ones -- and the three results must be the same. Asked by the owner on 12/10, in these words: "everything is to be renamed with nothing lost".
+
 **And the comparison is canonical**: keys deep-sorted, timestamps removed. The key order of a PowerShell hashtable
 is not stable between two runs, so a raw text diff shows differences where there are none -- which is exactly how a
 proof gets abandoned as "noisy".

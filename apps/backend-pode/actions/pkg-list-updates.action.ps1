@@ -48,7 +48,7 @@ if (Test-Path -LiteralPath $outFile) {
                 if (-not $p) { continue }
                 $id = "$($p.id)"
                 if (-not ($id -match '\S')) { continue }
-                $updates += [ordered]@{ id = $id; titre = "$($p.titre)"; detail = "$($p.detail)" }
+                $updates += [ordered]@{ id = $id; title = "$($p.title)"; detail = "$($p.detail)" }
             }
         }
     } catch { }
@@ -63,7 +63,7 @@ if (-not $updates.Count) {
         foreach ($p in @($u.pkgs)) {
             $id = "$($p.id)"
             if (-not ($id -match '\S')) { continue }
-            $updates += [ordered]@{ id = $id; titre = "$($p.titre)"; detail = "$($p.detail)" }
+            $updates += [ordered]@{ id = $id; title = "$($p.title)"; detail = "$($p.detail)" }
         }
         if ($updates.Count) { $verifieLe = (Get-Date).ToString('s') }
     } catch { }
@@ -96,7 +96,7 @@ try {
 # 3) The last fallback: the manager returns NO identifier at all (the 'lines' mode). We still offer the global
 #    update, as one single locked and named line.
 if (-not $updates.Count -and -not $selectable -and $upSupported) {
-    $updates += [ordered]@{ id = '*'; titre = "Tous les paquets de $($mg.label)"; detail = '' }
+    $updates += [ordered]@{ id = '*'; title = "Tous les paquets de $($mg.label)"; detail = '' }
 }
 
 $intro = if ($selectable) {
@@ -135,7 +135,7 @@ if ($verifieLe) {
         preselect    = [bool](Get-ModuleSetting -Unit 'tools' -Key 'PreselectAllUpdates')
         confirmLabel = 'Mettre à jour'
         intro        = $intro
-        vide         = "Aucun paquet à mettre à jour. « Vérifier les mises à jour » actualise une liste ancienne."
+        empty        = "Aucun paquet à mettre à jour. « Vérifier les mises à jour » actualise une liste ancienne."
         updates      = @($updates)
     }
 }

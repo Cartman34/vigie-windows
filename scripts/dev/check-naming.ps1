@@ -229,8 +229,24 @@ $COMMENT_CEILING = 0
     and the page (index.html, common.ps1, rapport.html), which are a protocol change, not a rename; and 15 scattered
     over a dozen files, each a key or a parameter of the same kind. None of them is reachable by running a file
     here, which is the rule this count now obeys.
+
+    12/10, THE UPDATE SHEET: the ceiling reaches zero. The owner's instruction was "everything is to be renamed
+    with NOTHING LOST -- we have a protocol for that", and the three keys that were left (`groupe`, `libelle`,
+    `echec`) moved on BOTH sides in one commit, with the eight others of the same line (`titre`, `octets`,
+    `pilote`, `modele`, `classe`, `dateP`, `telecharge`, `remplacee`) and the two keys of the choice window
+    (`verrou`, `vide`).
+
+    NOTHING LOST MEANT WRITING THE READER, not accepting a loss. A renamed key that lives in a FILE on disk --
+    wu-install.json keeps what the last Windows Update installation did -- is read under both spellings for one
+    version, and rewritten in English by the next installation. Three runs proved it: no record, a record written
+    with the French keys, a record written with the English ones. The same sheet all three times.
+
+    AND THE NUMBER THIS SCRIPT PRINTS IS NOT THE FRENCH THAT IS LEFT. It is what the pattern below can see: a
+    variable, a function, a declaration, a property WRITTEN TO. A hashtable key -- `titres = @(...)` -- is seen by
+    none of them, and a contract key is exactly that. The sweep that found this one listed around seventy more by
+    reading the syntax tree. Sharpening the measure is the next commit, not a lower ceiling.
 #>
-$CEILING = 4
+$CEILING = 0
 
 # THE FILE-NAME CEILING, AT ZERO SINCE 08/10.
 #

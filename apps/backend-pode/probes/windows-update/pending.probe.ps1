@@ -12,7 +12,7 @@ $backend = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 # where the dialog offered 48, seen on screen on 11/09. Two numbers for one thing.
 $pending = Get-PendingUpdateList -Backend $backend
 $count = $(if ($pending.ok) { @($pending.all).Count } else { $null })
-$titles = @($pending.all | ForEach-Object { "$($_.titre)" })
+$titles = @($pending.all | ForEach-Object { "$($_.title)" })
 $drivers = [int]$pending.drivers
 
 if ($null -eq $count) {
@@ -28,6 +28,17 @@ if ($null -eq $count) {
         $f = Get-VarPath -Backend $backend -Kind 'cache' -File 'wu-install.json'
         if (Test-Path $f) { $inst = Get-Content $f -Raw | ConvertFrom-Json }
     } catch { }
+    # ONE NAME PER THING, WHATEVER WROTE THE FILE. A record left by the previous version names three of its fields
+    # in French; they are read here, once, and the rest of this probe knows only the English name. Nothing is lost
+    # by the rename, and the file is rewritten in English by the next installation.
+    if ($inst) {
+        foreach ($pair in @(@{ en = 'titles'; fr = 'titres' }, @{ en = 'failures'; fr = 'echecs' },
+                            @{ en = 'rebootRequired'; fr = 'redemarrage' })) {
+            if ($null -eq $inst.($pair.en) -and $null -ne $inst.($pair.fr)) {
+                $inst | Add-Member -NotePropertyName $pair.en -NotePropertyValue $inst.($pair.fr) -Force
+            }
+        }
+    }
 
     $help = "Ce que Vigie propose d'installer. Recherche LOCALE dans le cache de Windows : aucune analyse en ligne, aucune installation."
     $note = "Pilotes/MAJ facultatives : non comptés par l'écran principal de Windows. Rien ne s'installe sans un geste explicite : « Ouvrir Windows Update », après déverrouillage par le Mode MAJ si besoin."
@@ -130,7 +141,7 @@ if ($null -eq $count) {
             -FixAction $(if ($installStatus -ne 'neutral') { 'open-windows-update' } else { $null }) `
             -Progress $progress `
             -Help "Installation lancée depuis Vigie. Elle continue même si la fenêtre se ferme." `
-            -Guide $(if ($inst.titres -and "$($inst.phase)" -ne 'termine') { "Mises à jour retenues :`n- " + (@($inst.titres) -join "`n- ") } else { '' })
+            -Guide $(if ($inst.titles -and "$($inst.phase)" -ne 'termine') { "Mises à jour retenues :`n- " + (@($inst.titles) -join "`n- ") } else { '' })
     } elseif ($inst -and $inst.phase -eq 'termine') {
         # We report the OBSERVED result, exit code included (D43) -- but the global code 3 ("succeeded with
         # errors") does NOT say that an update failed: it also comes out when everything installed and only a
@@ -143,7 +154,7 @@ if ($null -eq $count) {
         # the mention survived the restart indefinitely
         # (constate). On compare en UTC (D44).
         $rebootDone = $false
-        if ($inst.redemarrage -and $inst.at) {
+        if ($inst.rebootRequired -and $inst.at) {
             try {
                 $boot = Get-BootTime
                 $finInst = ConvertTo-UtcDate $inst.at
@@ -164,17 +175,17 @@ if ($null -eq $count) {
         # table that names them.
         $val = if ($inst.error)          { 'Échec' }
                elseif ($failures -gt 0)    { "$failures sur $($inst.total) en échec" }
-               elseif ($inst.redemarrage -and -not $rebootDone) { 'Installée, redémarrage requis' }
+               elseif ($inst.rebootRequired -and -not $rebootDone) { 'Installée, redémarrage requis' }
                elseif ($quand)           { $quand }
                else                      { 'Terminée' }
         $st  = if ($inst.error -or $failures -gt 0) { 'error' }
-               elseif ($inst.redemarrage -and -not $rebootDone) { 'warn' }
+               elseif ($inst.rebootRequired -and -not $rebootDone) { 'warn' }
                else                               { 'neutral' }
         $g = @()
         if ($quand) { $g += "Installation lancée depuis Vigie, terminée le $quand ($($inst.total) mise(s) à jour)." }
         if ($rebootDone) { $g += "Le redémarrage demandé a été effectué depuis : rien à faire." }
         if ($inst.error) { $g += "Erreur : $($inst.error)" }
-        if ($inst.redemarrage -and -not $rebootDone) {
+        if ($inst.rebootRequired -and -not $rebootDone) {
             $g += "Ce que c'est : les mises à jour sont installées, mais Windows doit redémarrer pour les activer. Ce n'est pas une panne."
             $g += "Ce qui est possible : redémarrer au moment voulu (le bouton « Redémarrer Windows » de cette carte, ou menu Démarrer > Redémarrer). Vigie ne redémarre jamais de lui-même."
         }
@@ -186,11 +197,11 @@ if ($null -eq $count) {
         # does.
         $lines = @()
         if ($detailInst.Count) { foreach ($d in $detailInst) { $lines += ,@("$($d[0])", "$($d[1])") } }
-        elseif ($inst.titres)   { foreach ($t in @($inst.titres)) { $lines += ,@("$t", '—') } }
+        elseif ($inst.titles)   { foreach ($t in @($inst.titles)) { $lines += ,@("$t", '—') } }
         $restartCountdown = Test-RestartCountdown -Backend $backend
         $champs += New-Field -Key 'install' -Label 'Dernière installation' -Value $val -Kind 'text' -Status $st `
             -Help "Résultat de la dernière installation lancée depuis Vigie." -Guide ($g -join "`n`n") `
-            -FixAction $(if ($inst.redemarrage -and -not $rebootDone -and -not $inst.error -and $failures -eq 0 -and -not $restartCountdown) { 'system-restart' } else { $null }) `
+            -FixAction $(if ($inst.rebootRequired -and -not $rebootDone -and -not $inst.error -and $failures -eq 0 -and -not $restartCountdown) { 'system-restart' } else { $null }) `
             -Table @{ columns = @('Mise à jour', 'Résultat'); rows = $lines }
     }
 
@@ -208,7 +219,7 @@ if ($null -eq $count) {
     # The need and the gesture in the SAME place: when the last installation is waiting for a restart, the restart
     # button is available in this card too (the general field about a pending restart lives in the Windows card,
     # under the system theme).
-    if ($inst -and $inst.phase -eq 'termine' -and $inst.redemarrage) {
+    if ($inst -and $inst.phase -eq 'termine' -and $inst.rebootRequired) {
         if ($restartCountdown) {
             $actions += New-Action -Id 'system-restart-cancel' -Label 'Annuler le redémarrage' -Severity 'fix' `
                 -BusyLabel 'Annulation…' -Confirm -Help "Annule le redémarrage programmé. Windows reste allumé."

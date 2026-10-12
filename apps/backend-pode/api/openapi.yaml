@@ -480,7 +480,7 @@ components:
             intro:
               type: string
               description: "phrase d'introduction de la fenetre de choix, imposee par le serveur"
-            vide:
+            empty:
               type: string
               description: "phrase affichee quand `updates` est vide"
             updates:
@@ -490,10 +490,10 @@ components:
                 dans `params.ids` de l'action citee par `action`.
               items:
                 type: object
-                required: [id, titre]
+                required: [id, title]
                 properties:
                   id:     { type: string, description: "identifiant stable, passe tel quel a l'action de suite" }
-                  titre:  { type: string, description: "libelle affiche" }
+                  title:  { type: string, description: "libelle affiche" }
                   detail: { type: string, description: "complement d'une ligne (ex. « 1.2 -> 1.3 ») ; sinon compose par le client" }
             invalidate:
               type: array

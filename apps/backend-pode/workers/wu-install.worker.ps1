@@ -233,7 +233,7 @@ try {
     $missing = @($ids | Where-Object { $keptIds -notcontains "$_" })
     foreach ($id in $missing) { Write-Log -Backend $Backend -Name 'wuinstall' -Message (Get-Label 'wu-install.introuvable' $id) }
     Set-JobState @{ phase = 'telechargement'; total = $coll.Count
-                titres = @($retenus); at = (Get-Date).ToUniversalTime().ToString('o') }
+                titles = @($retenus); at = (Get-Date).ToUniversalTime().ToString('o') }
     $startedAt = (Get-Date).ToUniversalTime().ToString('o')
     $dl = $session.CreateUpdateDownloader()
     $dl.Updates = $coll
@@ -285,14 +285,14 @@ try {
         progress   = $null
         at         = (Get-Date).ToUniversalTime().ToString('o')
         total      = $ids.Count
-        titres     = @($retenus)
+        titles     = @($retenus)
         # THE ONES WINDOWS NO LONGER SERVED are kept in the state, not only in the log: the card reports them (20/09).
         introuvables = @($missing)
         detail     = @($detail)
-        echecs     = $failures
+        failures   = $failures
         ok         = $ok
         partiel    = $partial
-        redemarrage = [bool]$rIn.RebootRequired
+        rebootRequired = [bool]$rIn.RebootRequired
         code       = [int]$rIn.ResultCode
         error      = $(if ($ok -or $partial) { $null } else { "Installation en échec (code $($rIn.ResultCode))." })
     }

@@ -35,7 +35,7 @@ $aside = if ($pending.setAsideOlder -gt 0) {
         ok       = $true
         choose   = $true          # l'interface doit ouvrir une fenetre de choix
         action   = 'wu-install'   # action a appeler avec les identifiants retenus
-        verrou   = $lock
+        locked   = $lock
         updates  = @($pending.offered)
     }
 }

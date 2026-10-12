@@ -1099,7 +1099,7 @@ function Get-PkgGui {
 # output AND the exit code through Invoke-Native.
 # Returns @{ count; items; pkgs; supported; selectable }.
 #   items = DISPLAY strings, cut at 25, which fill the card's detail
-#   pkgs  = the COMPLETE list @{ id; titre; detail }, `id` being the identifier to hand the
+#   pkgs  = the COMPLETE list @{ id; title; detail }, `id` being the identifier to hand the
 #           manager to update THAT package only. Without it no choice is possible: one
 #           cannot ask "which ones?" holding nothing but display labels.
 function Get-PkgUpdates {
@@ -1120,7 +1120,7 @@ function Get-PkgUpdates {
                     $j = $out | ConvertFrom-Json
                     foreach ($e in @($j)) {
                         $items += ("{0}  {1} -> {2}" -f $e.name, $e.version, $e.latest_version)
-                        $pkgs  += [ordered]@{ id = "$($e.name)"; titre = "$($e.name)"; detail = ("{0} -> {1}" -f $e.version, $e.latest_version) }
+                        $pkgs  += [ordered]@{ id = "$($e.name)"; title = "$($e.name)"; detail = ("{0} -> {1}" -f $e.version, $e.latest_version) }
                     }
                     $count = $items.Count
                 }
@@ -1130,7 +1130,7 @@ function Get-PkgUpdates {
                     $j = $out | ConvertFrom-Json
                     foreach ($e in @($j.PSObject.Properties)) {
                         $items += ("{0} -> {1}" -f $e.Name, $e.Value.latest)
-                        $pkgs  += [ordered]@{ id = "$($e.Name)"; titre = "$($e.Name)"; detail = "$($e.Value.latest)" }
+                        $pkgs  += [ordered]@{ id = "$($e.Name)"; title = "$($e.Name)"; detail = "$($e.Value.latest)" }
                     }
                     $count = $items.Count
                 }
@@ -1139,7 +1139,7 @@ function Get-PkgUpdates {
                 foreach ($l in (($out -split "`r?`n") | Where-Object { $_ -match '\|' })) {
                     $p = $l.Split('|')
                     $items += ("{0}  {1} -> {2}" -f $p[0], $p[1], $p[2])
-                    $pkgs  += [ordered]@{ id = "$($p[0])"; titre = "$($p[0])"; detail = ("{0} -> {1}" -f $p[1], $p[2]) }
+                    $pkgs  += [ordered]@{ id = "$($p[0])"; title = "$($p[0])"; detail = ("{0} -> {1}" -f $p[1], $p[2]) }
                 }
                 $count = $items.Count
             }
@@ -1190,7 +1190,7 @@ function Get-PkgUpdates {
                         $ident = if ($cols.Count -ge 2) { "$($cols[1])" } else { '' }
                         if ($ident) {
                             $det = if ($cols.Count -ge 4 -and $cols[3]) { ("{0} -> {1}" -f "$($cols[2])", "$($cols[3])") } else { $ident }
-                            $pkgs += [ordered]@{ id = $ident; titre = $name; detail = $det }
+                            $pkgs += [ordered]@{ id = $ident; title = $name; detail = $det }
                         }
                     }
                     $count = $items.Count
@@ -9205,27 +9205,27 @@ function Get-PendingUpdateList {
         $when = '';     try { if ($u.DriverVerDate) { $when = ([datetime]$u.DriverVerDate).ToString('yyyy-MM-dd') } } catch { }
         $provider = ''; try { if ($u.DriverProvider) { $provider = "$($u.DriverProvider)" } } catch { }
         $lines += [pscustomobject][ordered]@{
-            id = "$($u.Identity.UpdateID)"; titre = "$($u.Title)"; kb = ($kb -join ', ')
-            octets = $size; pilote = $driver; modele = $model; classe = $class; dateP = $when
-            provider = $provider; telecharge = [bool]$u.IsDownloaded
-            groupe = ''; libelle = ''; remplacee = $false; echec = ''; alreadyDone = $false
+            id = "$($u.Identity.UpdateID)"; title = "$($u.Title)"; kb = ($kb -join ', ')
+            bytes = $size; driver = $driver; model = $model; driverClass = $class; driverDate = $when
+            provider = $provider; downloaded = [bool]$u.IsDownloaded
+            group = ''; label = ''; superseded = $false; failure = ''; alreadyDone = $false
         }
     }
 
     # --- The group, once the list is complete (D118) ---------------------------------------
     $seenByKey = @{}
     foreach ($line in $lines) {
-        if (-not $line.pilote -or -not "$($line.provider)".Trim()) { continue }
+        if (-not $line.driver -or -not "$($line.provider)".Trim()) { continue }
         $key = Get-VendorKey "$($line.provider)"
         if (-not $seenByKey.ContainsKey($key)) { $seenByKey[$key] = @() }
         $seenByKey[$key] += "$($line.provider)"
     }
     foreach ($line in $lines) {
-        if (-not $line.pilote) { $line.groupe = 'Windows'; continue }
+        if (-not $line.driver) { $line.group = 'Windows'; continue }
         $key = Get-VendorKey "$($line.provider)"
-        $line.groupe = $(if ($key) { Get-VendorName -Key $key -Seen $seenByKey[$key] -Backend $Backend }
+        $line.group = $(if ($key) { Get-VendorName -Key $key -Seen $seenByKey[$key] -Backend $Backend }
                          else { 'Pilotes sans constructeur déclaré' })
-        if ("$($line.modele)".Trim()) { $line.libelle = "$($line.modele)" }
+        if ("$($line.model)".Trim()) { $line.label = "$($line.model)" }
     }
 
     # --- What the last installation failed at, and what it succeeded at ---------------------
@@ -9235,19 +9235,25 @@ function Get-PendingUpdateList {
         $file = Get-VarPath -Backend $Backend -Kind 'cache' -File 'wu-install.json'
         if (Test-PathSafe $file) {
             $last = Get-Content -LiteralPath $file -Raw -Encoding UTF8 | ConvertFrom-Json
-            foreach ($entry in @($last.echecs.PSObject.Properties)) { $failed[$entry.Name] = "$($entry.Value)" }
+            # THE FILE MAY HAVE BEEN WRITTEN BY THE PREVIOUS VERSION, which named these two in French. They are read
+            # under both spellings HERE, so a record of an installation that already happened is not lost by a
+            # rename -- the same takeover Get-UserConfigDir does for the settings folder. The old spelling can go
+            # once an installation has been run by this version, which rewrites the file.
+            $lastFailures = $(if ($null -ne $last.failures) { $last.failures } else { $last.echecs })
+            $lastTitles   = $(if ($null -ne $last.titles)   { $last.titles }   else { $last.titres })
+            foreach ($entry in @($lastFailures.PSObject.Properties)) { $failed[$entry.Name] = "$($entry.Value)" }
             if ($last.phase -eq 'termine' -and -not $last.error) {
                 if ($last.detail) {
                     foreach ($d in @($last.detail)) { if (@($d).Count -ge 2 -and "$($d[1])" -match 'Install') { $installed += "$($d[0])" } }
-                } elseif ($last.titres) { $installed = @($last.titres) }
+                } elseif ($lastTitles) { $installed = @($lastTitles) }
             }
         }
     } catch { }
     foreach ($line in $lines) {
-        if ($failed.ContainsKey("$($line.id)")) { $line.echec = $failed["$($line.id)"] }
+        if ($failed.ContainsKey("$($line.id)")) { $line.failure = $failed["$($line.id)"] }
         # RE-OFFERED: Windows says "installed successfully" then detects the SAME update
         # again -- the known loop of badly targeted OEM drivers. Reinstalling changes nothing.
-        if ($installed -contains "$($line.titre)") { $line.alreadyDone = $true }
+        if ($installed -contains "$($line.title)") { $line.alreadyDone = $true }
     }
 
     # --- Two versions of one driver: the newest is the one we keep -------------------------
@@ -9257,36 +9263,36 @@ function Get-PendingUpdateList {
     # components of one device, not two versions of one component.
     $byModel = @{}
     foreach ($line in $lines) {
-        if (-not "$($line.modele)".Trim()) { continue }
-        $key = "$($line.groupe)|$($line.modele)|$($line.classe)".ToLowerInvariant()
+        if (-not "$($line.model)".Trim()) { continue }
+        $key = "$($line.group)|$($line.model)|$($line.driverClass)".ToLowerInvariant()
         if (-not $byModel.ContainsKey($key)) { $byModel[$key] = @() }
         $byModel[$key] += $line
     }
     foreach ($key in @($byModel.Keys)) {
         $family = @($byModel[$key])
         if ($family.Count -lt 2) { continue }
-        $dates = @($family | ForEach-Object { "$($_.dateP)" } | Sort-Object -Unique)
+        $dates = @($family | ForEach-Object { "$($_.driverDate)" } | Sort-Object -Unique)
         if ($dates.Count -lt 2) { continue }
-        $newest = @($family | Sort-Object { "$($_.dateP)" } -Descending)[0]
-        foreach ($line in $family) { if ("$($line.dateP)" -ne "$($newest.dateP)") { $line.remplacee = $true } }
+        $newest = @($family | Sort-Object { "$($_.driverDate)" } -Descending)[0]
+        foreach ($line in $family) { if ("$($line.driverDate)" -ne "$($newest.driverDate)") { $line.superseded = $true } }
     }
 
     # --- The order puts the two versions side by side inside their group -------------------
-    $lines = @($lines | Sort-Object @{ Expression = { "$($_.groupe)" } },
-                                    @{ Expression = { "$($_.modele)" } },
-                                    @{ Expression = { "$($_.classe)" } },
-                                    @{ Expression = { "$($_.dateP)" }; Descending = $true })
+    $lines = @($lines | Sort-Object @{ Expression = { "$($_.group)" } },
+                                    @{ Expression = { "$($_.model)" } },
+                                    @{ Expression = { "$($_.driverClass)" } },
+                                    @{ Expression = { "$($_.driverDate)" }; Descending = $true })
 
     # --- What we offer ----------------------------------------------------------------------
     $older = 0
     $offered = @()
     foreach ($line in $lines) {
         if ($line.alreadyDone) { continue }
-        if (-not $line.remplacee) { $offered += $line; continue }
-        $key = "$($line.groupe)|$($line.modele)|$($line.classe)".ToLowerInvariant()
+        if (-not $line.superseded) { $offered += $line; continue }
+        $key = "$($line.group)|$($line.model)|$($line.driverClass)".ToLowerInvariant()
         # When the newest one failed, the older one is the only way forward left.
         $newerFailed = @($lines | Where-Object {
-            -not $_.remplacee -and "$($_.groupe)|$($_.modele)|$($_.classe)".ToLowerInvariant() -eq $key -and "$($_.echec)".Trim()
+            -not $_.superseded -and "$($_.group)|$($_.model)|$($_.driverClass)".ToLowerInvariant() -eq $key -and "$($_.failure)".Trim()
         }).Count -gt 0
         if ($newerFailed) { $offered += $line } else { $older++ }
     }
@@ -9295,9 +9301,9 @@ function Get-PendingUpdateList {
         ok = $true
         all = @($lines)
         offered = @($offered)
-        drivers = @($lines | Where-Object { $_.pilote }).Count
+        drivers = @($lines | Where-Object { $_.driver }).Count
         setAsideOlder = $older
-        alreadyDone = @($lines | Where-Object { $_.alreadyDone } | ForEach-Object { "$($_.titre)" })
+        alreadyDone = @($lines | Where-Object { $_.alreadyDone } | ForEach-Object { "$($_.title)" })
     }
 }
 

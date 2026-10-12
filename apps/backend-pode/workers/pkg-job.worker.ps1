@@ -77,7 +77,7 @@ try {
             $restants = @(@($u.pkgs) | Where-Object { $succeeded -notcontains "$($_.id)" })
             if (@($restants).Count -ne @($u.pkgs).Count) {
                 $u = @{ count      = @($restants).Count
-                        items      = @($restants | ForEach-Object { "$($_.titre)" })
+                        items      = @($restants | ForEach-Object { "$($_.title)" })
                         pkgs       = @($restants)
                         supported  = $u.supported
                         selectable = $u.selectable }
