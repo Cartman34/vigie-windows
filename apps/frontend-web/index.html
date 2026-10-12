@@ -1749,6 +1749,10 @@ async function pollCardUntilIdle(moduleId, entry, name){
       refreshCard(moduleId);
       if(entry) updateNotif(entry,'error', name+L('ui.toujours-en-cours-apres')+ecoule()+L('ui.suivi-abandonne'));
     } else {
+      // MEME ENCHAINEMENT A LA FIN D'UNE TACHE DE FOND. Le worker invalide la carte en terminant, donc cette
+      // derniere lecture de cache porte encore le rendu d'avant : on recalcule la carte, une seule fois, sur
+      // l'evenement « plus occupee ».
+      refreshCard(moduleId, null, true);
       if(entry) updateNotif(entry,'done', name+L('ui.termine-en')+ecoule()+'.');
     }
   }
@@ -3062,7 +3066,15 @@ async function doAction(type,module,confirmNeeded,label,help,btnEl,params,kind,c
       HDS.open({ title:name, variant:'info', large:true,
                  html:'<pre class="hds-report">' + esc(String(j.result.detail)) + '</pre>' + source });
     }
-    setTimeout(()=>{ if(module){ refreshCard(module); } else { refresh(); } }, 700);
+    // LA FIN DE L'OPERATION EST L'EVENEMENT, et la suite s'enchaine dessus : resultat + toast, puis RECALCUL
+    // PARTIEL de la carte, puis affichage. C'est GET /modules/:id?fresh=1, le chemin du bouton de la carte, et une
+    // action qui invalide une carte a le droit de le demander (D124, point 2).
+    //
+    // Avant, un minuteur de 700 ms relisait le CACHE. A cet instant le serveur a invalide la carte mais ne l'a pas
+    // encore recalculee : la page reaffichait donc l'ANCIENNE valeur, jusqu'au passage de l'ordonnanceur -- 26
+    // secondes plus tard sur l'IP publique, constate par le proprietaire le 12/10, qui a du rafraichir a la main.
+    // Un delai n'est pas un evenement, et il n'y avait pas besoin d'en inventer un.
+    if(module){ refreshCard(module, null, true); } else { refresh(); }
   }catch(e){ updateNotif(entry,'error','Erreur : '+e.message); clearBtnBusy(btnEl); }
 }
 
