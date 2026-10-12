@@ -1012,11 +1012,20 @@ function that already existed, the last definition silently overwriting the othe
 - Every `.ps1` / `.psd1`: **parser** via
   `[System.Management.Automation.Language.Parser]::ParseFile` (the machine's `pwsh`), and the
   **real output** is reported.
-- The JS in `index.html`: **load the page over `file://` and read the console** (**D06**). Node is
-  not installed and must not be: the project has no JS dependency. A syntax error prevents **the
-  whole** `<script>` block from running — checking that a constant defined at the end of the script
-  exists is enough to prove the file parses.
+- The JS in `index.html`: the page is loaded and its console read (**D06**) — Node is not installed and must
+  not be, the project has no JS dependency, and a syntax error prevents **the whole** `<script>` block from
+  running, so checking that a constant defined at the end of the script exists is enough to prove the file
+  parses. **BUT THAT LOADING IS A WINDOW ON HIS SCREEN, so it is asked for and never done on one's own** — see
+  the discipline below.
 - Check the **ASCII** of the launchers, the **UTF-8** of everything else.
+
+## Nothing opens on his screen without him asking
+
+**No window, no browser, no page: not a WinForms window, not the browser, not a `file://` preview, not the agent's own preview pane. It is ASKED FOR, every time, and a yes covers that one opening and no other.**
+
+He is working on that machine while I work in it. A window that appears takes his screen, and a browser that opens takes his attention — twice on 10/10 I opened real windows proving a dialog's layout, and he had to tell me; on 12/10 I opened the browser four times to prove a chain in the panel, and he had to forbid it: *« Arrête d'ouvrir le navigateur du client sans que je ne le demande !! Tu as interdiction de faire ça ! »*
+
+**What this does NOT excuse.** The proof is still owed. What replaces it: run what runs with no display (the parser, the checkers, `check-probes`, a probe, a function dot-sourced in `pwsh`), and when the proof really needs a page or a window, **ask for that opening**, saying what will open and what it will show — or hand him the gesture and read what he reports. A proof that cannot be run without his screen is announced as not run, never assumed.
 
 ## A rename is proven by RUNNING the file, never by the fact that it parses
 
