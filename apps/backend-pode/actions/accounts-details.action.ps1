@@ -37,7 +37,7 @@ foreach ($c in (Get-ComputerAccounts | Sort-Object name)) {
             $size = ($f | Measure-Object Length -Sum).Sum
             $recent = ($f | Sort-Object LastWriteTime -Descending | Select-Object -First 1).LastWriteTime
             $data = "{0} de données Vigie, dernière activité {1}" -f (Format-ByteSize ([long]$size)),
-                       $(if ($recent) { $recent.ToString('dd/MM/yyyy HH:mm') } else { 'inconnue' })
+                       $(if ($recent) { Format-DateForDisplay $recent } else { 'inconnue' })
         }
     } catch { $data = 'données illisibles' }
 
@@ -67,7 +67,7 @@ foreach ($c in (Get-ComputerAccounts | Sort-Object name)) {
                        ", compte " + "$($t.Principal.UserId)")
             $task += ("lance : " + $cmd)
             if ($i) {
-                $quand = if ($i.LastRunTime -and $i.LastRunTime.Year -gt 2000) { $i.LastRunTime.ToString('dd/MM/yyyy HH:mm') } else { 'jamais' }
+                $quand = if ($i.LastRunTime -and $i.LastRunTime.Year -gt 2000) { Format-DateForDisplay $i.LastRunTime } else { 'jamais' }
                 # UNSIGNED, AND THAT IS THE WHOLE PROBLEM -- the same trap as in Get-VigieTaskHistoryAilment, fixed
                 # there and left here: Windows returns a 32-bit UNSIGNED HRESULT, and 0x800710E0 is 2 147 946 720,
                 # past Int32. The cast threw, the catch swallowed the whole block, and the account's line read "tâche

@@ -115,7 +115,7 @@ if ($verifieLe) {
         $ageTxt = if ($age.TotalMinutes -lt 60) { "il y a $([int]$age.TotalMinutes) min" }
                   elseif ($age.TotalHours -lt 24) { "il y a $([int]$age.TotalHours) h" }
                   else { "il y a $([int]$age.TotalDays) j" }
-        $intro += " Liste vérifiée le " + $quand.ToString('dd/MM/yyyy à HH:mm') + " ($ageTxt)."
+        $intro += " Liste vérifiée le " + (Format-DateForDisplay $quand -Spelled) + " ($ageTxt)."
         if ($age.TotalHours -ge 12) {
             $intro += " Elle peut être dépassée : lancez « Vérifier les mises à jour » pour la rafraîchir."
         }

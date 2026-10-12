@@ -383,7 +383,7 @@ $dnsGuide = if ($dnsOk) {
 }
 
 $latSt = if ($lat -eq '-') { 'neutral' } elseif ([double]($lat) -lt $latWarn) { 'ok' } elseif ([double]($lat) -lt $latErr) { 'warn' } else { 'error' }
-$pubGuide = if ($pubAt) { "Dernière récupération : $pubAt. « Obtenir l'IP publique » l'actualise." } else { "Non récupérée : « Obtenir l'IP publique » la récupère, par un appel à un service externe." }
+$pubGuide = if ($pubAt) { "Dernière récupération : $(Format-DateForDisplay $pubAt). « Obtenir l'IP publique » l'actualise." } else { "Non récupérée : « Obtenir l'IP publique » la récupère, par un appel à un service externe." }
 
 # A GENERAL RULE of this probe: never a conditional instruction when the probe KNOWS which case we are in. It
 # knows the answer, so it gives it: a guide describes the REAL state, and offers checks only if they help now.

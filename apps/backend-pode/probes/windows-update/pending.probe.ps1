@@ -168,7 +168,7 @@ if ($null -eq $count) {
         $quand = ''
         try {
             $d0 = ConvertTo-UtcDate $inst.at
-            if ($d0) { $quand = $d0.ToLocalTime().ToString('dd/MM/yyyy HH:mm') }
+            if ($d0) { $quand = Format-DateForDisplay $d0 }
         } catch { }
         # WHEN ALL WENT WELL, the DATE is enough (D89): a bare count followed by a date read badly -- that bare
         # number did not say what it was talking about. The number of updates is in the line's detail, with the

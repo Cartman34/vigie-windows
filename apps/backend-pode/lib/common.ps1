@@ -6305,6 +6305,58 @@ function ConvertTo-UtcDate {
     }
 }
 
+<#
+    THE DATE AS THE READER READS IT, AND IN ONE PLACE.
+
+    A date formatted anywhere else is formatted under the culture of the account that RUNS -- the service's, which
+    is not the reader's. The public IP tooltip announced "10/12/2026" for the 12th of October, seen by the owner on
+    12/10; and `pkg-list-updates` had already repaired exactly that in its own corner, by hand, with the comment
+    "an American date format nobody reads here". The fix lived in one FILE instead of one PLACE (D15).
+
+    THE ZONE IS THE WHOLE DIFFICULTY, and this repository stores three shapes: UTC carrying its zone
+    (`ToUniversalTime().ToString('o')`, the marks and the workers), UTC without it (`ToUniversalTime().ToString('s')`),
+    and LOCAL without it (`(Get-Date).ToString('s')`, several actions). A moment with no zone is taken AS WRITTEN
+    here, unless -AssumeUtc says it is UTC -- the caller knows what it stored.
+
+    AND THE MIXTURE IS NOT A DEFECT, measured rather than assumed: I announced a second defect -- the local offset
+    moving every age read from a zone-less write -- and it does not exist. ConvertTo-UtcDate, which feeds those
+    computations, reads a STRING through `[datetimeoffset]::Parse`, which assumes the LOCAL zone when the string
+    carries none; the reading is therefore right, and the measured gap is zero. It assumes UTC only for a
+    `[datetime]` whose Kind is Unspecified. Two conventions in one function: worth knowing before 'repairing' one
+    of them by the other, which is what I was about to do.
+
+    Usage: Format-DateForDisplay $value [-AssumeUtc] [-Short] [-Spelled]. Nothing in, nothing out -- so a caller
+    tests the result instead of guarding the call -- and a value that cannot be read comes back as it was, never
+    swallowed.
+#>
+function Format-DateForDisplay {
+    param(
+        $Value,
+        # The stored moment is UTC although it carries no zone: convert it to the reader's time.
+        [switch]$AssumeUtc,
+        [switch]$Short,
+        [switch]$Spelled
+    )
+    if ($null -eq $Value) { return '' }
+    $dt = $null
+    if ($Value -is [datetime]) { $dt = $Value }
+    else {
+        $txt = "$Value".Trim()
+        if (-not $txt) { return '' }
+        $parsed = [datetime]::MinValue
+        $ok = [datetime]::TryParse($txt, [Globalization.CultureInfo]::InvariantCulture,
+                                   [Globalization.DateTimeStyles]::RoundtripKind, [ref]$parsed)
+        if (-not $ok) { return "$Value" }
+        $dt = $parsed
+    }
+    if ($dt.Kind -eq [DateTimeKind]::Unspecified -and $AssumeUtc) {
+        $dt = [datetime]::SpecifyKind($dt, [DateTimeKind]::Utc)
+    }
+    if ($dt.Kind -eq [DateTimeKind]::Utc) { $dt = $dt.ToLocalTime() }
+    $fmt = if ($Short) { 'dd/MM HH:mm' } elseif ($Spelled) { 'dd/MM/yyyy à HH:mm' } else { 'dd/MM/yyyy HH:mm' }
+    return $dt.ToString($fmt, [Globalization.CultureInfo]::InvariantCulture)
+}
+
 # --- The log of probe runs ---------------------------------------------------
 # EVERY real run of a probe and its duration are kept, SYSTEMATICALLY, wherever it comes
 # from: a user's request, a background refresh, or the contract check. Without that trace,
@@ -8698,7 +8750,7 @@ function New-LastRunField {
     $r = Get-ModuleLastRun -Module $Module -Backend $Backend
     if (-not $r) { return $null }
     $when = ''
-    try { $when = (ConvertTo-UtcDate $r.at).ToLocalTime().ToString('dd/MM/yyyy HH:mm') } catch { }
+    try { $when = Format-DateForDisplay $r.at -AssumeUtc } catch { }
     $elapsedMs = if ([int]$r.seconds -ge 60) { [string][int]([int]$r.seconds / 60) + ' min' } else { "$([int]$r.seconds) s" }
     if ([int]$r.code -eq 0) {
         # SUCCEEDED: the DATE is enough (the owner's rule of 27/08). An operation that
@@ -9842,7 +9894,7 @@ function Get-VigieTaskHistoryAilment {
             }
             if ($since -and $since -gt $info.LastRunTime) { return $null }
             return ("la dernière exécution a échoué (code 0x" + ([uint32]$code).ToString('X8') + ", le " +
-                    $info.LastRunTime.ToString('dd/MM/yyyy HH:mm') + ")")
+                    (Format-DateForDisplay $info.LastRunTime) + ")")
         }
     }
     return $null

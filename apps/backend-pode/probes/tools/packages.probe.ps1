@@ -153,10 +153,10 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
                 $mg2 += "Paquets en cours de mise à jour :"
                 foreach ($p0 in $sel) { $mg2 += ("- " + $p0) }
             } else { $mg2 += "Mise à jour de TOUT le gestionnaire." }
-            $mg2 += ("Lancée" + $(if ($u.startedAt) { " le $($u.startedAt)" } else { "" }) + $elapsed + ".")
+            $mg2 += ("Lancée" + $(if ($u.startedAt) { " le " + (Format-DateForDisplay $u.startedAt) } else { "" }) + $elapsed + ".")
         } else {
             $majValue = "Vérification en cours…"
-            $mg2 += ("Vérification lancée" + $(if ($u.startedAt) { " le $($u.startedAt)" } else { "" }) + $elapsed + ".")
+            $mg2 += ("Vérification lancée" + $(if ($u.startedAt) { " le " + (Format-DateForDisplay $u.startedAt) } else { "" }) + $elapsed + ".")
             if ($null -ne $u.count) { $mg2 += ("Dernier résultat connu : $([int]$u.count) MAJ.") }
         }
     } elseif ($u -and $u.at) {
@@ -169,7 +169,7 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
         }
         if ($nbIgnores -gt 0) { $mg2 += ("($nbIgnores mise(s) à jour masquée(s) par la liste des paquets ignorés.)") }
         $mg2 += ""
-        $mg2 += ("Vérifié le : " + $u.at)
+        $mg2 += ("Vérifié le : " + (Format-DateForDisplay $u.at))
         # The result of the LAST update stays visible: an operation that ends in silence makes one believe nothing
         # happened.
         if ($u.last) {
@@ -177,7 +177,7 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
             $failures = @($u.last.failed)
             if ($failures.Count -gt 0) {
                 $majStatus = 'warn'
-                $mg2 += ("Dernière mise à jour ($($u.last.at)) : $quoi, $($failures.Count) ÉCHEC(S) :")
+                $mg2 += ("Dernière mise à jour (" + (Format-DateForDisplay $u.last.at) + ") : $quoi, $($failures.Count) ÉCHEC(S) :")
                 foreach ($e0 in $failures) {
                     $r0 = if ($u.last.reasons) { $u.last.reasons."$e0" } else { $null }
                     $mg2 += ("- " + $e0 + $(if ($r0) { " : " + $r0 } else { "" }))
@@ -185,10 +185,10 @@ foreach ($mg in (Get-PackageManagerCatalog)) {
                     if ($avis) { $mg2 += ("  " + $avis) }
                 }
             } elseif ([bool]$u.last.ok) {
-                $mg2 += ("Dernière mise à jour ($($u.last.at)) : $quoi, réussie.")
+                $mg2 += ("Dernière mise à jour (" + (Format-DateForDisplay $u.last.at) + ") : $quoi, réussie.")
             } else {
                 $majStatus = 'warn'
-                $mg2 += ("Dernière mise à jour ($($u.last.at)) : $quoi, EN ERREUR — voir le journal pkgupgrade dans var/log.")
+                $mg2 += ("Dernière mise à jour (" + (Format-DateForDisplay $u.last.at) + ") : $quoi, EN ERREUR — voir le journal pkgupgrade dans var/log.")
             }
         }
         if ($u.reboot) { $mg2 += "Un REDÉMARRAGE est nécessaire pour terminer la dernière mise à jour." }
