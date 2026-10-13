@@ -42,7 +42,13 @@ $ErrorActionPreference = 'Stop'
     not rewrite it at once -- thousands of touched lines for no gain, and a drowned git
     blame. The ratchet forbids adding any; every conversion lowers the ceiling as much.
 #>
-$COMMENT_CEILING = 0
+<#
+    13/10, THE MEASURE GETS SHARPER, AND THE NUMBER RISES FROM 0 TO 713. The French did not grow: this count read
+    `.ps1` and `.psd1` only, so the page's own comments were never counted. index.html alone holds 639 French
+    comment lines, and the Atelier's pages 60 more. The ceiling is the measured number, and it goes down from here
+    exactly as the previous one did -- a ratchet measures what is there, not what is comfortable.
+#>
+$COMMENT_CEILING = 713
 
 # 08/10, the second half of common.ps1: 1044 -> 310 French comment lines in the library, and the repository from
 # 4539 to 3805. Then its tail -- the environment, the traceability, the requester, the Atelier, the elevation and
@@ -244,9 +250,19 @@ $COMMENT_CEILING = 0
     AND THE NUMBER THIS SCRIPT PRINTS IS NOT THE FRENCH THAT IS LEFT. It is what the pattern below can see: a
     variable, a function, a declaration, a property WRITTEN TO. A hashtable key -- `titres = @(...)` -- is seen by
     none of them, and a contract key is exactly that. The sweep that found this one listed around seventy more by
-    reading the syntax tree. Sharpening the measure is the next commit, not a lower ceiling.
+    reading the syntax tree. Sharpening the measure is the commit that follows -- done on 13/10.
+
+    13/10, THE SAME SHARPENING ON THE NAMES: 0 -> 52. The pattern saw a variable, a function, a declaration and a
+    property written to; it did not see a HASHTABLE KEY, which is where a contract key lives, nor a parameter whose
+    name is written once. The tree sees both. What it turns up: `nom`, `tache`, `Chemin`, `Compte`, `Titre`, `etat`,
+    `duree`, `redemarrage`, `Taille`, `Valeur`, `Ordre`, `Texte`, `carteMere`, `barrettes`, `economies`... the
+    hardware sheet, the virtual disks, a dozen parameters.
+
+    AND ONE FILE IS EXEMPT, for the same reason the banned word has its exemptions: check-encoding carries the
+    accent dictionary, whose keys ARE French words (19 of them). Counting them asked for the dictionary to be
+    translated away.
 #>
-$CEILING = 0
+$CEILING = 52
 
 # THE FILE-NAME CEILING, AT ZERO SINCE 08/10.
 #
@@ -378,12 +394,57 @@ $names = @{}
 foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.ps1','*.html','*.psd1' -ErrorAction SilentlyContinue)) {
     $rel = $f.FullName.Substring($repoRoot.Length).TrimStart([char]92, [char]47).Replace([char]92, [char]47)
     if ($skipped | Where-Object { $rel -like ($_ + '/*') -or $rel -like ('*/' + $_ + '/*') }) { continue }
+    # ONE FILE'S KEYS ARE FRENCH WORDS ON PURPOSE: check-encoding carries the accent dictionary, `'etat' =
+    # 'etat accentue'`. Those keys are DATA -- the very list that lets it find a missing accent -- and counting
+    # them would ask for the dictionary to be translated out of existence. Same exception as the files that state
+    # the banned word below.
+    if ($rel -eq 'scripts/dev/check-encoding.ps1') { continue }
     $text = Get-Content -LiteralPath $f.FullName -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
     if (-not $text) { continue }
     $n = 0
-    foreach ($m in [regex]::Matches($text, $pattern)) {
-        $name = ''
-        foreach ($g in 1..5) { if ($m.Groups[$g].Success -and $m.Groups[$g].Value) { $name = $m.Groups[$g].Value; break } }
+    <#
+        THE NAMES ARE READ FROM THE SYNTAX TREE, not from a pattern.
+
+        The pattern below sees a variable, a function, a declaration and a property WRITTEN TO. It does NOT see a
+        HASHTABLE KEY -- `titres = @(...)` -- and a contract key is exactly that: eleven French keys of the update
+        sheet crossed to the page for weeks while this script printed 4, then 0. The tree sees them, and it sees a
+        parameter whose name is only ever written once. The pattern stays for `.html`, which has no tree here.
+
+        WHAT IS COUNTED IS A NAME WE GIVE: a function, a parameter, a variable being assigned, a key, a property
+        being written. Never a name we READ -- `.Name` of a Windows object is not ours to translate.
+    #>
+    $found = @()
+    if ($rel -like '*.ps1' -or $rel -like '*.psd1') {
+        $errors = $null; $tokens = $null
+        $tree = [System.Management.Automation.Language.Parser]::ParseInput($text, [ref]$tokens, [ref]$errors)
+        if ($errors.Count) {
+            # A file that does not parse is check-powershell's business. Here we fall back on the pattern rather
+            # than counting nothing, which would be a hole in the ratchet exactly when the code is broken.
+            foreach ($m in [regex]::Matches($text, $pattern)) {
+                foreach ($g in 1..5) { if ($m.Groups[$g].Success -and $m.Groups[$g].Value) { $found += $m.Groups[$g].Value; break } }
+            }
+        } else {
+            foreach ($node in $tree.FindAll({ param($x) $x -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)) { $found += $node.Name }
+            foreach ($node in $tree.FindAll({ param($x) $x -is [System.Management.Automation.Language.ParameterAst] }, $true)) { $found += $node.Name.VariablePath.UserPath }
+            foreach ($node in $tree.FindAll({ param($x) $x -is [System.Management.Automation.Language.AssignmentStatementAst] }, $true)) {
+                $left = $node.Left
+                if ($left -is [System.Management.Automation.Language.ConvertExpressionAst]) { $left = $left.Child }
+                if ($left -is [System.Management.Automation.Language.VariableExpressionAst]) { $found += $left.VariablePath.UserPath }
+                elseif ($left -is [System.Management.Automation.Language.MemberExpressionAst] -and
+                        $left.Member -is [System.Management.Automation.Language.StringConstantExpressionAst]) { $found += $left.Member.Value }
+            }
+            foreach ($node in $tree.FindAll({ param($x) $x -is [System.Management.Automation.Language.HashtableAst] }, $true)) {
+                foreach ($pair in $node.KeyValuePairs) {
+                    if ($pair.Item1 -is [System.Management.Automation.Language.StringConstantExpressionAst]) { $found += $pair.Item1.Value }
+                }
+            }
+        }
+    } else {
+        foreach ($m in [regex]::Matches($text, $pattern)) {
+            foreach ($g in 1..5) { if ($m.Groups[$g].Success -and $m.Groups[$g].Value) { $found += $m.Groups[$g].Value; break } }
+        }
+    }
+    foreach ($name in $found) {
         if (-not $name) { continue }
         $lower = $name.ToLowerInvariant()
         foreach ($english in $ENGLISH_CARRYING_FRENCH) { $lower = $lower.Replace($english, '') }
@@ -467,16 +528,28 @@ foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.
 #>
 $commentTotal = 0
 $commentPerFile = @{}
-foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.ps1','*.psd1' -ErrorAction SilentlyContinue)) {
+# AND THE PAGE IS CODE. This count read `.ps1` and `.psd1` only, so the 614 French comment lines of index.html
+# were never counted while the script announced zero for the whole repository. A `//` or `/* */` comment of the
+# page follows D115 like any other.
+foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.ps1','*.psd1','*.html' -ErrorAction SilentlyContinue)) {
     $rel = $f.FullName.Substring($repoRoot.Length).TrimStart([char]92, [char]47).Replace([char]92, [char]47)
     if ($skipped | Where-Object { $rel -like ($_ + '/*') -or $rel -like ('*/' + $_ + '/*') }) { continue }
     $n = 0
     $inBlock = $false
+    $web = ($rel -like '*.html')
     foreach ($line in (Get-Content -LiteralPath $f.FullName -Encoding UTF8 -ErrorAction SilentlyContinue)) {
         $trimmed = "$line".Trim()
+        if ($web) {
+            # The page's own comment marks. A line that OPENS a block counts from that line on, and `//` is only
+            # taken at the START of a line: in the middle it is as often an address as a comment.
+            if ($trimmed -like '/*' + '*' -or $trimmed -like '<!--*') { $inBlock = $true }
+            $isComment = $inBlock -or $trimmed.StartsWith('//')
+            if ($trimmed -like '*' + '*/*' -or $trimmed -like '*-->*') { $inBlock = $false }
+        } else {
         if ($trimmed -like '<#*') { $inBlock = $true }
         $isComment = $inBlock -or $trimmed.StartsWith('#')
         if ($trimmed -like '*#>*') { $inBlock = $false }
+        }
         if (-not $isComment) { continue }
         <#
             A HEADER IS A DECLARATION, NOT PROSE. The rights, execution and label keywords of an action's header are
