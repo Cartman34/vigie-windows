@@ -261,8 +261,13 @@ $COMMENT_CEILING = 713
     AND ONE FILE IS EXEMPT, for the same reason the banned word has its exemptions: check-encoding carries the
     accent dictionary, whose keys ARE French words (19 of them). Counting them asked for the dictionary to be
     translated away.
+
+    13/10, THE HARDWARE SHEET: 52 -> 42. Its forty-five keys moved on BOTH sides in one commit -- Get-HardwareSpecs
+    and rapport.html, the page that reads it and that no verifier parsed until that same day. A cached sheet of the
+    old shape is NOT migrated: every value in it comes from the hardware, so it is read again, which is the
+    difference between a derived reading and the record of something that happened.
 #>
-$CEILING = 52
+$CEILING = 42
 
 # THE FILE-NAME CEILING, AT ZERO SINCE 08/10.
 #

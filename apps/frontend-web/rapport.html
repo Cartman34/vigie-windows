@@ -170,76 +170,76 @@ function section(titre, ...contenu){
 // ---------------------------------------------------------------- MATERIEL
 async function ficheMaterielle(){
   const h = await lire('/hardware');
-  const m = h.machine, cm = h.carteMere;
+  const m = h.machine, cm = h.motherboard;
   document.getElementById('titre').textContent = 'Fiche matérielle';
-  document.getElementById('sous').textContent = [m.fabricant, m.modele].filter(Boolean).join(' ') + ' · ' + m.nom;
+  document.getElementById('sous').textContent = [m.manufacturer, m.model].filter(Boolean).join(' ') + ' · ' + m.name;
   document.getElementById('meta').innerHTML =
-    'Relevé du ' + jour(h.at) + '<br>' + txt(m.forme) + '<br>' + txt(m.os);
+    'Relevé du ' + jour(h.at) + '<br>' + txt(m.form) + '<br>' + txt(m.os);
 
   const corps = document.getElementById('corps');
   corps.textContent = '';
 
   corps.append(section('La machine', paires([
-    ['Nom sur le réseau', m.nom],
-    ['Fabricant', m.fabricant],
-    ['Modèle', m.modele + (m.famille && m.famille !== m.modele ? ' (' + m.famille + ')' : '')],
-    ['Type', m.forme],
-    ['Numéro de série', m.numeroSerie],
-    ['Système', m.os + (m.osArchi ? ' · ' + m.osArchi : '')],
+    ['Nom sur le réseau', m.name],
+    ['Fabricant', m.manufacturer],
+    ['Modèle', m.model + (m.family && m.family !== m.model ? ' (' + m.family + ')' : '')],
+    ['Type', m.form],
+    ['Numéro de série', m.serialNumber],
+    ['Système', m.os + (m.osArchitecture ? ' · ' + m.osArchitecture : '')],
     ['Version de Windows', m.osVersion],
-    ['Installé le', m.installeLe ? jour(m.installeLe) : null],
+    ['Installé le', m.installedAt ? jour(m.installedAt) : null],
   ])));
 
   corps.append(section('Carte mère et BIOS', paires([
-    ['Fabricant', cm.fabricant],
-    ['Modèle', cm.modele],
+    ['Fabricant', cm.manufacturer],
+    ['Modèle', cm.model],
     ['BIOS', cm.bios],
     ['Date du BIOS', cm.biosDate ? jour(cm.biosDate) : null],
   ])));
 
-  const p = (h.processeurs || [])[0];
+  const p = (h.processors || [])[0];
   if (p) corps.append(section('Processeur', paires([
-    ['Modèle', p.nom],
-    ['Cœurs', p.coeurs + ' cœurs · ' + p.fils + ' threads'],
-    ['Fréquence maximale', p.frequence ? (p.frequence / 1000).toFixed(2) + ' GHz' : null],
-    ['Cache L3', p.cacheL3Ko ? Math.round(p.cacheL3Ko / 1024) + ' Mo' : null],
+    ['Modèle', p.name],
+    ['Cœurs', p.cores + ' cœurs · ' + p.threads + ' threads'],
+    ['Fréquence maximale', p.frequency ? (p.frequency / 1000).toFixed(2) + ' GHz' : null],
+    ['Cache L3', p.cacheL3Kb ? Math.round(p.cacheL3Kb / 1024) + ' Mo' : null],
     ['Socket', p.socket],
   ])));
 
-  const mem = h.memoire || {};
+  const mem = h.memory || {};
   corps.append(section('Mémoire vive',
     paires([
-      ['Total installé', mem.totalGo + ' Go'],
-      ['Emplacements', (mem.barrettes || []).length + ' occupé(s) sur ' + txt(mem.emplacements)],
+      ['Total installé', mem.totalGb + ' Go'],
+      ['Emplacements', (mem.sticks || []).length + ' occupé(s) sur ' + txt(mem.slots)],
     ]),
-    (mem.barrettes || []).length
+    (mem.sticks || []).length
       ? tableau(['Emplacement', 'Type', '#Taille', '#Vitesse', 'Fabricant', 'Référence'],
-          mem.barrettes.map(b => [b.emplacement, b.type, b.tailleGo + ' Go',
-                                  b.vitesse ? b.vitesse + ' MT/s' : '—', b.fabricant, b.reference]))
+          mem.sticks.map(b => [b.slot, b.type, b.sizeGb + ' Go',
+                                  b.speed ? b.speed + ' MT/s' : '—', b.manufacturer, b.partNumber]))
       : null));
 
-  if ((h.disques || []).length) corps.append(section('Stockage',
+  if ((h.disks || []).length) corps.append(section('Stockage',
     tableau(['Modèle', 'Type', '#Capacité', 'Interface', 'État', 'Firmware'],
-      h.disques.map(d => [d.modele, d.type, d.tailleGo + ' Go', d.bus, d.sante, d.firmware]))));
+      h.disks.map(d => [d.model, d.type, d.sizeGb + ' Go', d.bus, d.health, d.firmware]))));
 
-  if ((h.graphiques || []).length) corps.append(section('Affichage',
+  if ((h.graphics || []).length) corps.append(section('Affichage',
     tableau(['Carte graphique', '#Mémoire', 'Pilote', 'Date du pilote'],
-      h.graphiques.map(g => [g.nom, g.vramGo ? g.vramGo + ' Go' : '—', g.pilote,
-                             g.piloteDate ? jour(g.piloteDate) : '—'])),
-    (h.ecrans || []).length
+      h.graphics.map(g => [g.name, g.vramGb ? g.vramGb + ' Go' : '—', g.driver,
+                             g.driverDate ? jour(g.driverDate) : '—'])),
+    (h.screens || []).length
       ? tableau(['Écran', 'Fabricant', '#Diagonale', '#Année'],
-          h.ecrans.map(e => [e.modele, e.fabricant, e.pouces ? e.pouces + ' pouces' : '—', e.annee || '—']))
+          h.screens.map(e => [e.model, e.manufacturer, e.inches ? e.inches + ' pouces' : '—', e.year || '—']))
       : null));
 
-  if ((h.reseau || []).length) corps.append(section('Réseau',
+  if ((h.network || []).length) corps.append(section('Réseau',
     tableau(['Interface', '#Débit maximal', 'Adresse MAC'],
-      h.reseau.map(r => [r.nom, r.debitMax ? r.debitMax + ' Mb/s' : '—', r.mac]))));
+      h.network.map(r => [r.name, r.maxSpeedMbps ? r.maxSpeedMbps + ' Mb/s' : '—', r.mac]))));
 
-  if (h.batterie) corps.append(section('Batterie', paires([
-    ['Référence', h.batterie.nom],
-    ['Technologie', h.batterie.chimie],
-    ['Capacité à pleine charge', h.batterie.capaciteMwh ? (h.batterie.capaciteMwh / 1000).toFixed(1) + ' Wh' : null],
-    ['Tension nominale', h.batterie.tension ? (h.batterie.tension / 1000).toFixed(1) + ' V' : null],
+  if (h.battery) corps.append(section('Batterie', paires([
+    ['Référence', h.battery.name],
+    ['Technologie', h.battery.chemistry],
+    ['Capacité à pleine charge', h.battery.capacityMwh ? (h.battery.capacityMwh / 1000).toFixed(1) + ' Wh' : null],
+    ['Tension nominale', h.battery.voltage ? (h.battery.voltage / 1000).toFixed(1) + ' V' : null],
   ])));
 
   return h;

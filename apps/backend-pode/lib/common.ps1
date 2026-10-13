@@ -7973,6 +7973,11 @@ function Get-HardwareSpecs {
     if (-not $Force -and (Test-Path -LiteralPath $cacheFile)) {
         try {
             $j = Get-Content -LiteralPath $cacheFile -Raw | ConvertFrom-Json
+            # A SHEET OF THE PREVIOUS SHAPE IS NOT MIGRATED, IT IS READ AGAIN. Its keys were French until 13/10;
+            # every one of its values comes from the hardware, so one CIM pass rebuilds the whole of it. Nothing
+            # is lost by dropping it -- unlike the record of something that HAPPENED, which is kept and read under
+            # both names (wu-install.json). The absence of `machine.name` is the mark of the old shape.
+            if (-not $j.machine -or -not $j.machine.name) { throw 'fiche de forme precedente' }
             $at = ConvertTo-UtcDate $j.at
             # Seven days: hardware does not change, but an eternal sheet would survive a new
             # disk or a new memory module without anybody knowing.
@@ -7980,16 +7985,16 @@ function Get-HardwareSpecs {
         } catch { }
     }
 
-    function Lire { param([string]$Classe, [string]$Espace = 'root/cimv2')
-        try { return @(Get-CimInstance -Namespace $Espace -ClassName $Classe -ErrorAction Stop) } catch { return @() }
+    function Read-CimClass { param([string]$classKey, [string]$Espace = 'root/cimv2')
+        try { return @(Get-CimInstance -Namespace $Espace -ClassName $classKey -ErrorAction Stop) } catch { return @() }
     }
-    $go = { param($octets) if ($octets) { [math]::Round(([double]$octets) / 1GB, 1) } else { $null } }
+    $toGb = { param($octets) if ($octets) { [math]::Round(([double]$octets) / 1GB, 1) } else { $null } }
 
-    $cs   = @(Lire 'Win32_ComputerSystem')   | Select-Object -First 1
-    $bios = @(Lire 'Win32_BIOS')             | Select-Object -First 1
-    $cb   = @(Lire 'Win32_BaseBoard')        | Select-Object -First 1
-    $os   = @(Lire 'Win32_OperatingSystem')  | Select-Object -First 1
-    $enc  = @(Lire 'Win32_SystemEnclosure')  | Select-Object -First 1
+    $cs   = @(Read-CimClass 'Win32_ComputerSystem')   | Select-Object -First 1
+    $bios = @(Read-CimClass 'Win32_BIOS')             | Select-Object -First 1
+    $cb   = @(Read-CimClass 'Win32_BaseBoard')        | Select-Object -First 1
+    $os   = @(Read-CimClass 'Win32_OperatingSystem')  | Select-Object -First 1
+    $enc  = @(Read-CimClass 'Win32_SystemEnclosure')  | Select-Object -First 1
 
     # Laptop or desktop? The chassis type says so (8-14 and 30-32 mean mobile).
     $mobile = $false
@@ -8000,79 +8005,79 @@ function Get-HardwareSpecs {
     } catch { }
 
     $machine = [ordered]@{
-        nom          = "$env:COMPUTERNAME"
-        fabricant    = "$($cs.Manufacturer)"
-        modele       = "$($cs.Model)"
-        famille      = "$($cs.SystemFamily)"
-        forme        = $(if ($mobile) { 'Portable' } else { 'Poste fixe' })
-        numeroSerie  = "$($bios.SerialNumber)"
-        uuid         = "$((@(Lire 'Win32_ComputerSystemProduct') | Select-Object -First 1).UUID)"
+        name          = "$env:COMPUTERNAME"
+        manufacturer    = "$($cs.Manufacturer)"
+        model       = "$($cs.Model)"
+        family      = "$($cs.SystemFamily)"
+        form        = $(if ($mobile) { 'Portable' } else { 'Poste fixe' })
+        serialNumber  = "$($bios.SerialNumber)"
+        uuid         = "$((@(Read-CimClass 'Win32_ComputerSystemProduct') | Select-Object -First 1).UUID)"
         os           = "$($os.Caption)"
         osVersion    = "$($os.Version)"
-        osArchi      = "$($os.OSArchitecture)"
-        installeLe   = $(try { ([datetime]$os.InstallDate).ToString('o') } catch { '' })
+        osArchitecture      = "$($os.OSArchitecture)"
+        installedAt   = $(try { ([datetime]$os.InstallDate).ToString('o') } catch { '' })
     }
 
     $motherboard = [ordered]@{
-        fabricant = "$($cb.Manufacturer)"
-        modele    = "$($cb.Product)"
+        manufacturer = "$($cb.Manufacturer)"
+        model    = "$($cb.Product)"
         version   = "$($cb.Version)"
         bios      = "$($bios.Manufacturer) $($bios.SMBIOSBIOSVersion)"
         biosDate  = $(try { ([datetime]$bios.ReleaseDate).ToString('o') } catch { '' })
     }
 
-    $processeurs = @(foreach ($c in (Lire 'Win32_Processor')) {
+    $processors = @(foreach ($c in (Read-CimClass 'Win32_Processor')) {
         [ordered]@{
-            nom       = "$($c.Name)".Trim()
-            fabricant = "$($c.Manufacturer)"
-            coeurs    = [int]$c.NumberOfCores
-            fils      = [int]$c.NumberOfLogicalProcessors
-            frequence = [int]$c.MaxClockSpeed          # MHz
+            name       = "$($c.Name)".Trim()
+            manufacturer = "$($c.Manufacturer)"
+            cores    = [int]$c.NumberOfCores
+            threads      = [int]$c.NumberOfLogicalProcessors
+            frequency = [int]$c.MaxClockSpeed          # MHz
             socket    = "$($c.SocketDesignation)"
-            cacheL3Ko = [int]$c.L3CacheSize
+            cacheL3Kb = [int]$c.L3CacheSize
         }
     })
 
     # Memory type: the SMBIOS code, translated. A number tells nobody anything.
-    $typesMem = @{ 20 = 'DDR'; 21 = 'DDR2'; 24 = 'DDR3'; 26 = 'DDR4'; 34 = 'DDR5'; 35 = 'LPDDR4'; 36 = 'LPDDR5' }
-    $memoryModules = @(foreach ($m in (Lire 'Win32_PhysicalMemory')) {
+    $memoryTypes = @{ 20 = 'DDR'; 21 = 'DDR2'; 24 = 'DDR3'; 26 = 'DDR4'; 34 = 'DDR5'; 35 = 'LPDDR4'; 36 = 'LPDDR5' }
+    $memoryModules = @(foreach ($m in (Read-CimClass 'Win32_PhysicalMemory')) {
         $t = $null
-        try { if ($typesMem.ContainsKey([int]$m.SMBIOSMemoryType)) { $t = $typesMem[[int]$m.SMBIOSMemoryType] } } catch { }
+        try { if ($memoryTypes.ContainsKey([int]$m.SMBIOSMemoryType)) { $t = $memoryTypes[[int]$m.SMBIOSMemoryType] } } catch { }
         [ordered]@{
-            emplacement = "$($m.DeviceLocator)"
-            tailleGo    = (& $go $m.Capacity)
+            slot = "$($m.DeviceLocator)"
+            sizeGb    = (& $toGb $m.Capacity)
             type        = $(if ($t) { $t } else { '' })
-            vitesse     = [int]$m.Speed                # MT/s
-            fabricant   = "$($m.Manufacturer)".Trim()
-            reference   = "$($m.PartNumber)".Trim()
+            speed     = [int]$m.Speed                # MT/s
+            manufacturer   = "$($m.Manufacturer)".Trim()
+            partNumber   = "$($m.PartNumber)".Trim()
         }
     })
-    $memoire = [ordered]@{
-        totalGo   = (& $go $cs.TotalPhysicalMemory)
-        barrettes = $memoryModules
+    $memory = [ordered]@{
+        totalGb   = (& $toGb $cs.TotalPhysicalMemory)
+        sticks = $memoryModules
         # What the motherboard can take: useful when an upgrade is being considered.
-        emplacements = [int]((@(Lire 'Win32_PhysicalMemoryArray') | Select-Object -First 1).MemoryDevices)
+        slots = [int]((@(Read-CimClass 'Win32_PhysicalMemoryArray') | Select-Object -First 1).MemoryDevices)
     }
 
-    $disques = @(foreach ($d in (Lire 'MSFT_PhysicalDisk' 'root/microsoft/windows/storage')) {
+    $disks = @(foreach ($d in (Read-CimClass 'MSFT_PhysicalDisk' 'root/microsoft/windows/storage')) {
         $bus = switch ([int]$d.BusType) { 7 { 'USB' } 8 { 'RAID' } 11 { 'SATA' } 17 { 'NVMe' } default { '' } }
         $media = switch ([int]$d.MediaType) { 3 { 'Disque dur' } 4 { 'SSD' } 5 { 'SCM' } default { '' } }
         [ordered]@{
-            modele    = "$($d.FriendlyName)".Trim()
-            tailleGo  = (& $go $d.Size)
+            model    = "$($d.FriendlyName)".Trim()
+            sizeGb  = (& $toGb $d.Size)
             type      = $media
             bus       = $bus
-            sante     = $(switch ([int]$d.HealthStatus) { 0 { 'Sain' } 1 { 'A surveiller' } 2 { 'Defaillant' } default { '' } })
+            health     = $(switch ([int]$d.HealthStatus) { 0 { 'Sain' } 1 { 'A surveiller' } 2 { 'Defaillant' } default { '' } })
             firmware  = "$($d.FirmwareVersion)"
-            numeroSerie = "$($d.SerialNumber)".Trim()
+            serialNumber = "$($d.SerialNumber)".Trim()
         }
     })
     # Fallback: on a machine with no Storage namespace, Win32_DiskDrive is enough.
-    if (-not $disques.Count) {
-        $disques = @(foreach ($d in (Lire 'Win32_DiskDrive')) {
-            [ordered]@{ modele = "$($d.Model)".Trim(); tailleGo = (& $go $d.Size)
-                        type = ''; bus = "$($d.InterfaceType)"; sante = ''
-                        firmware = "$($d.FirmwareRevision)".Trim(); numeroSerie = "$($d.SerialNumber)".Trim() }
+    if (-not $disks.Count) {
+        $disks = @(foreach ($d in (Read-CimClass 'Win32_DiskDrive')) {
+            [ordered]@{ model = "$($d.Model)".Trim(); sizeGb = (& $toGb $d.Size)
+                        type = ''; bus = "$($d.InterfaceType)"; health = ''
+                        firmware = "$($d.FirmwareRevision)".Trim(); serialNumber = "$($d.SerialNumber)".Trim() }
         })
     }
 
@@ -8081,12 +8086,12 @@ function Get-HardwareSpecs {
     # less). The real value is in the driver's registry key, qwMemorySize, on 64 bits.
     $vramByName = @{}
     try {
-        $classe = 'HKLM:\SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}'
+        $classKey = 'HKLM:\SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}'
         # SilentlyContinue rather than Stop: one of this class's sub-keys is refused even to
         # an administrator ("Requested registry access is not allowed"), and with Stop the
         # enumeration stopped BEFORE the NVIDIA card -- the VRAM then fell back on AdapterRAM,
         # which caps at 4 GB. Seen on this very machine.
-        foreach ($k in (Get-ChildItem -Path $classe -ErrorAction SilentlyContinue | Where-Object { $_.PSChildName -match '^\d{4}$' })) {
+        foreach ($k in (Get-ChildItem -Path $classKey -ErrorAction SilentlyContinue | Where-Object { $_.PSChildName -match '^\d{4}$' })) {
             $pr = Get-ItemProperty -Path $k.PSPath -ErrorAction SilentlyContinue
             if ($pr -and $pr.DriverDesc -and $pr.'HardwareInformation.qwMemorySize') {
                 $vramByName["$($pr.DriverDesc)"] = [math]::Round(([double]$pr.'HardwareInformation.qwMemorySize') / 1GB, 1)
@@ -8094,13 +8099,13 @@ function Get-HardwareSpecs {
         }
     } catch { }
 
-    $graphiques = @(foreach ($g in (Lire 'Win32_VideoController')) {
+    $graphics = @(foreach ($g in (Read-CimClass 'Win32_VideoController')) {
         $gpuName = "$($g.Name)".Trim()
         [ordered]@{
-            nom        = $gpuName
-            vramGo     = $(if ($vramByName.ContainsKey($gpuName)) { $vramByName[$gpuName] } else { (& $go $g.AdapterRAM) })
-            pilote     = "$($g.DriverVersion)"
-            piloteDate = $(try { ([datetime]$g.DriverDate).ToString('o') } catch { '' })
+            name        = $gpuName
+            vramGb     = $(if ($vramByName.ContainsKey($gpuName)) { $vramByName[$gpuName] } else { (& $toGb $g.AdapterRAM) })
+            driver     = "$($g.DriverVersion)"
+            driverDate = $(try { ([datetime]$g.DriverDate).ToString('o') } catch { '' })
             resolution = $(if ($g.CurrentHorizontalResolution) { "$($g.CurrentHorizontalResolution) x $($g.CurrentVerticalResolution)" } else { '' })
         }
     })
@@ -8108,23 +8113,23 @@ function Get-HardwareSpecs {
     # Monitors: WmiMonitorID returns arrays of codes, not strings.
     $decodeWmiText = { param($codes) if (-not $codes) { return '' }
         (-join ($codes | Where-Object { $_ -gt 0 } | ForEach-Object { [char][int]$_ })).Trim() }
-    $ecrans = @(foreach ($e in (Lire 'WmiMonitorID' 'root/wmi')) {
+    $screens = @(foreach ($e in (Read-CimClass 'WmiMonitorID' 'root/wmi')) {
         $size = ''
         [ordered]@{
-            fabricant = (& $decodeWmiText $e.ManufacturerName)
-            modele    = (& $decodeWmiText $e.UserFriendlyName)
-            serie     = (& $decodeWmiText $e.SerialNumberID)
-            annee     = [int]$e.YearOfManufacture
+            manufacturer = (& $decodeWmiText $e.ManufacturerName)
+            model    = (& $decodeWmiText $e.UserFriendlyName)
+            serial     = (& $decodeWmiText $e.SerialNumberID)
+            year     = [int]$e.YearOfManufacture
         }
     })
     # Inches: a separate class (physical dimensions, in centimetres).
-    $sizes = @(Lire 'WmiMonitorBasicDisplayParams' 'root/wmi')
-    for ($i = 0; $i -lt $ecrans.Count -and $i -lt $sizes.Count; $i++) {
+    $sizes = @(Read-CimClass 'WmiMonitorBasicDisplayParams' 'root/wmi')
+    for ($i = 0; $i -lt $screens.Count -and $i -lt $sizes.Count; $i++) {
         try {
             $l = [double]$sizes[$i].MaxHorizontalImageSize
             $h = [double]$sizes[$i].MaxVerticalImageSize
             if ($l -gt 0 -and $h -gt 0) {
-                $ecrans[$i]['pouces'] = [math]::Round([math]::Sqrt($l * $l + $h * $h) / 2.54, 1)
+                $screens[$i]['inches'] = [math]::Round([math]::Sqrt($l * $l + $h * $h) / 2.54, 1)
             }
         } catch { }
     }
@@ -8135,54 +8140,54 @@ function Get-HardwareSpecs {
     # for VirtualBox and VMware adapters, and for WAN Miniport ones. Get-NetAdapter -Physical,
     # on the other hand, rests on the real device type -- it is used as a white list wherever
     # it is available.
-    $reelles = $null
-    try { $reelles = @((Get-NetAdapter -Physical -ErrorAction Stop).InterfaceDescription) } catch { }
-    $reseau = @(foreach ($a in (Lire 'Win32_NetworkAdapter')) {
+    $physical = $null
+    try { $physical = @((Get-NetAdapter -Physical -ErrorAction Stop).InterfaceDescription) } catch { }
+    $network = @(foreach ($a in (Read-CimClass 'Win32_NetworkAdapter')) {
         if (-not $a.PhysicalAdapter) { continue }
         if (-not "$($a.MACAddress)") { continue }
-        if ($reelles -and ($reelles -notcontains "$($a.Description)")) { continue }
-        if (-not $reelles -and "$($a.Name)" -match 'Virtual|Host-Only|Bluetooth|Miniport|Loopback') { continue }
+        if ($physical -and ($physical -notcontains "$($a.Description)")) { continue }
+        if (-not $physical -and "$($a.Name)" -match 'Virtual|Host-Only|Bluetooth|Miniport|Loopback') { continue }
         [ordered]@{
-            nom       = "$($a.Name)".Trim()
-            fabricant = "$($a.Manufacturer)".Trim()
+            name       = "$($a.Name)".Trim()
+            manufacturer = "$($a.Manufacturer)".Trim()
             mac       = "$($a.MACAddress)"
             # Windows returns 0xFFFFFFFFFFFFFFFF when the link is not established, which gave
             # "9223372036855 Mb/s" on the sheet. Past 100 Gb/s the value means nothing: we
             # display nothing rather than an absurdity.
-            debitMax  = $(if ($a.Speed -and ([double]$a.Speed) -lt 1e11) { [math]::Round(([double]$a.Speed) / 1e6) } else { $null })   # Mb/s
+            maxSpeedMbps  = $(if ($a.Speed -and ([double]$a.Speed) -lt 1e11) { [math]::Round(([double]$a.Speed) / 1e6) } else { $null })   # Mb/s
         }
     })
 
-    $batterie = $null
-    $bat = @(Lire 'Win32_Battery') | Select-Object -First 1
+    $battery = $null
+    $bat = @(Read-CimClass 'Win32_Battery') | Select-Object -First 1
     if ($bat) {
-        $pleine = @(Lire 'BatteryFullChargedCapacity' 'root/wmi') | Select-Object -First 1
-        $batterie = [ordered]@{
-            nom         = "$($bat.Name)".Trim()
-            chimie      = $(switch ([int]$bat.Chemistry) { 3 { 'Nickel-Cadmium' } 4 { 'Nickel-Hydrure' } 5 { 'Lithium-ion' } 6 { 'Zinc-air' } 7 { 'Lithium-polymere' } default { '' } })
-            capaciteMwh = $(if ($pleine) { [int]$pleine.FullChargedCapacity } else { $null })
-            tension     = $(if ($bat.DesignVoltage) { [int]$bat.DesignVoltage } else { $null })   # mV
+        $full = @(Read-CimClass 'BatteryFullChargedCapacity' 'root/wmi') | Select-Object -First 1
+        $battery = [ordered]@{
+            name         = "$($bat.Name)".Trim()
+            chemistry      = $(switch ([int]$bat.Chemistry) { 3 { 'Nickel-Cadmium' } 4 { 'Nickel-Hydrure' } 5 { 'Lithium-ion' } 6 { 'Zinc-air' } 7 { 'Lithium-polymere' } default { '' } })
+            capacityMwh = $(if ($full) { [int]$full.FullChargedCapacity } else { $null })
+            voltage     = $(if ($bat.DesignVoltage) { [int]$bat.DesignVoltage } else { $null })   # mV
         }
     }
 
-    $fiche = [pscustomobject][ordered]@{
+    $sheet = [pscustomobject][ordered]@{
         at          = (Get-Date).ToUniversalTime().ToString('o')
         machine     = $machine
-        carteMere   = $motherboard
-        processeurs = $processeurs
-        memoire     = $memoire
-        disques     = $disques
-        graphiques  = $graphiques
-        ecrans      = $ecrans
-        reseau      = $reseau
-        batterie    = $batterie
+        motherboard   = $motherboard
+        processors = $processors
+        memory     = $memory
+        disks     = $disks
+        graphics  = $graphics
+        screens      = $screens
+        network      = $network
+        battery    = $battery
     }
     try {
         $d = Split-Path $cacheFile -Parent
         if (-not (Test-Path -LiteralPath $d)) { New-Item -ItemType Directory -Path $d -Force | Out-Null }
-        ($fiche | ConvertTo-Json -Depth 12) | Out-File -FilePath $cacheFile -Encoding UTF8
+        ($sheet | ConvertTo-Json -Depth 12) | Out-File -FilePath $cacheFile -Encoding UTF8
     } catch { }
-    return $fiche
+    return $sheet
 }
 
 # --- A CARD'S BACKGROUND TASK: saying it, and for as long as it lasts --------
