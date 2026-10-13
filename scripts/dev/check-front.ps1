@@ -10,6 +10,10 @@
     WHAT IT DOES. It extracts the <script> blocks of the page and hands them to a parser, without executing them. Node
     is not installed under Windows here, but it is inside WSL: it is used when it answers, and its absence is said
     plainly -- a verifier that cannot verify must say so, never keep quiet.
+
+    EVERY PAGE OF THE PANEL, not just index.html. It read one file, so the report page and the no-session page were
+    never parsed -- and the report page is the one a rename of the hardware sheet touches. A page nobody checks is a
+    page that breaks in front of its reader.
 #>
 param([switch]$Detail)
 
@@ -17,17 +21,10 @@ $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $repoRoot 'scripts/lib/console-ui.ps1')
 Write-Title 'La page du panneau'
 
-$page = Join-Path $repoRoot 'apps/frontend-web/index.html'
-if (-not (Test-Path -LiteralPath $page)) { Write-Fail "Page introuvable : $page"; exit 2 }
-
-# THE <script> BLOCKS OF THE PAGE, in order, leaving out those that point at a file.
-$html = Get-Content -LiteralPath $page -Raw -Encoding UTF8
-$blocs = @([regex]::Matches($html, '(?s)<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>') | ForEach-Object { $_.Groups[1].Value })
-if (-not $blocs.Count) { Write-Fail 'Aucun bloc <script> dans la page : lecture impossible.'; exit 2 }
-
-$tmp = Join-Path ([IO.Path]::GetTempPath()) ('vigie-front-' + [guid]::NewGuid().ToString('N') + '.js')
-# A semicolon between two blocks: they are independent in the page, they must stay independent here.
-[IO.File]::WriteAllText($tmp, ($blocs -join ([Environment]::NewLine + ';' + [Environment]::NewLine)), [Text.UTF8Encoding]::new($false))
+# THE PAGES OF THE PANEL, in the order a reader meets them.
+$pages = @('apps/frontend-web/index.html', 'apps/frontend-web/rapport.html', 'apps/frontend-web/no-session.html')
+$missing = @($pages | Where-Object { -not (Test-Path -LiteralPath (Join-Path $repoRoot $_)) })
+if ($missing.Count) { Write-Fail ('Page introuvable : ' + ($missing -join ', ')); exit 2 }
 
 function Get-Analyser {
     $node = (Get-Command node -ErrorAction SilentlyContinue).Source
@@ -43,31 +40,51 @@ function Get-Analyser {
 
 $analyser = Get-Analyser
 if (-not $analyser) {
-    Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
-    Write-Warn "Aucun analyseur JavaScript disponible (ni node sous Windows, ni node dans WSL) : la page n'a PAS été vérifiée."
+    Write-Warn "Aucun analyseur JavaScript disponible (ni node sous Windows, ni node dans WSL) : les pages n'ont PAS été vérifiées."
     Write-Info 'Installer Node, ou lancer ce vérificateur depuis une machine qui en a un.'
     exit 0
 }
 
-$output = ''
-$code = 1
-if ($analyser.Kind -eq 'windows') {
-    $output = & $analyser.Exe --check $tmp 2>&1
-    $code = $LASTEXITCODE
-} else {
-    # The Windows path as WSL sees it: C:\Temp\x.js becomes /mnt/c/Temp/x.js.
-    $unix = '/mnt/' + $tmp.Substring(0, 1).ToLower() + ($tmp.Substring(2) -replace '\\', '/')
-    $output = & $analyser.Exe -e bash -lc ("node --check '" + $unix + "'") 2>&1
-    $code = $LASTEXITCODE
+# ONE PAGE, PARSED. It returns @{ Ok; Blocks; Kb; Output } and executes nothing.
+function Test-PageScript {
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)]$Analyser)
+    $html = Get-Content -LiteralPath $Path -Raw -Encoding UTF8
+    # THE <script> BLOCKS OF THE PAGE, in order, leaving out those that point at a file.
+    $blocs = @([regex]::Matches($html, '(?s)<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>') | ForEach-Object { $_.Groups[1].Value })
+    # A PAGE WITHOUT A SCRIPT IS NOT A FAILURE: a page may be pure markup, and then there is nothing to parse.
+    if (-not $blocs.Count) { return @{ Ok = $true; Blocks = 0; Kb = 0; Output = '' } }
+    $tmp = Join-Path ([IO.Path]::GetTempPath()) ('vigie-front-' + [guid]::NewGuid().ToString('N') + '.js')
+    # A semicolon between two blocks: they are independent in the page, they must stay independent here.
+    [IO.File]::WriteAllText($tmp, ($blocs -join ([Environment]::NewLine + ';' + [Environment]::NewLine)), [Text.UTF8Encoding]::new($false))
+    $output = ''
+    $code = 1
+    if ($Analyser.Kind -eq 'windows') {
+        $output = & $Analyser.Exe --check $tmp 2>&1
+        $code = $LASTEXITCODE
+    } else {
+        # The Windows path as WSL sees it: the drive letter becomes /mnt/<letter>, and the separators turn round.
+        $unix = '/mnt/' + $tmp.Substring(0, 1).ToLower() + ($tmp.Substring(2).Replace([char]92, [char]47))
+        $output = & $Analyser.Exe -e bash -lc ("node --check '" + $unix + "'") 2>&1
+        $code = $LASTEXITCODE
+    }
+    Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
+    return @{ Ok = ($code -eq 0); Blocks = $blocs.Count
+              Kb = [math]::Round((($blocs -join '').Length / 1KB)); Output = $output }
 }
-Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
 
-Write-Step 'Syntaxe du script de la page'
-if ($code -eq 0) {
-    Write-Ok ("La page se parse : $($blocs.Count) bloc(s), " + [math]::Round((($blocs -join '').Length / 1KB)) + ' Ko.')
-    Write-Outcome -What 'La page du panneau se parse'
-    exit 0
+Write-Step 'Syntaxe du script des pages'
+$bad = 0
+foreach ($rel in $pages) {
+    $r = Test-PageScript -Path (Join-Path $repoRoot $rel) -Analyser $analyser
+    if ($r.Ok) {
+        $what = $(if ($r.Blocks) { "$($r.Blocks) bloc(s), $($r.Kb) Ko" } else { 'aucun script à parser' })
+        Write-Ok ($rel + ' : ' + $what + '.')
+    } else {
+        $bad++
+        Write-Fail ($rel + " NE SE PARSE PAS : ouverte dans un navigateur, elle resterait sur son écran de chargement.")
+        foreach ($line in @($r.Output | Where-Object { "$_".Trim() })) { Write-Detail "$line" }
+    }
 }
-Write-Fail 'La page NE SE PARSE PAS : ouverte dans un navigateur, elle resterait sur son écran de chargement.'
-foreach ($line in @($output | Where-Object { "$_".Trim() })) { Write-Detail "$line" }
-exit 2
+if ($bad) { exit 2 }
+Write-Outcome -What 'Les pages du panneau se parsent'
+exit 0
