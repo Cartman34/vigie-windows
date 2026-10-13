@@ -130,14 +130,14 @@ if ($trendPoints.Count -ge 2) {
     foreach ($pt in $trendPoints) {
         $when = $null
         try { $when = (ConvertTo-UtcDate $pt.at).ToLocalTime() } catch { continue }
-        $jour = $when.ToString('dd/MM')
-        if (-not $perDay.ContainsKey($jour)) { $perDay[$jour] = @{ Premier = [double]$pt.v; Dernier = [double]$pt.v; Ordre = $when } }
-        $perDay[$jour].Dernier = [double]$pt.v
+        $day = $when.ToString('dd/MM')
+        if (-not $perDay.ContainsKey($day)) { $perDay[$day] = @{ First = [double]$pt.v; Last = [double]$pt.v; Order = $when } }
+        $perDay[$day].Last = [double]$pt.v
     }
-    $rows = @(foreach ($jour in @($perDay.Keys | Sort-Object { $perDay[$_].Ordre })) {
-        $e = $perDay[$jour]
-        $gap = [math]::Round($e.Dernier - $e.Premier)
-        ,@($jour, "$([math]::Round($e.Dernier)) Go", $(if ($gap -eq 0) { '—' } elseif ($gap -gt 0) { "+$gap Go" } else { "$gap Go" }))
+    $rows = @(foreach ($day in @($perDay.Keys | Sort-Object { $perDay[$_].Order })) {
+        $e = $perDay[$day]
+        $gap = [math]::Round($e.Last - $e.First)
+        ,@($day, "$([math]::Round($e.Last)) Go", $(if ($gap -eq 0) { '—' } elseif ($gap -gt 0) { "+$gap Go" } else { "$gap Go" }))
     })
     $fields += New-Field -Key 'trend' -Label 'Évolution' -Value $value -Kind 'text' -Status $trendStatus `
         -Table @{ columns = @('Jour', 'Libre en fin de journée', 'Variation'); rows = $rows } `
@@ -189,12 +189,16 @@ if (Test-Path $vdiskFile) { try { $vdiskCache = Get-Content $vdiskFile -Raw | Co
 $vdiskFresh = $false
 if ($vdiskCache -and $vdiskCache.at) {
     try { $vdiskFresh = (([datetime]::UtcNow - (ConvertTo-UtcDate $vdiskCache.at)).TotalMinutes -lt 30) } catch { }
+    # A LIST OF THE PREVIOUS SHAPE IS READ AGAIN, NOT MIGRATED: its keys were French until 13/10, and every one
+    # of its values is a file found on the disks. Without this, a cache still inside its half hour gave not one
+    # usable line, and the card lost its virtual disks until it expired -- silently.
+    if ($vdiskFresh -and @($vdiskCache.disks).Count -and -not @($vdiskCache.disks)[0].Path) { $vdiskFresh = $false }
 }
 if ($vdiskFresh) {
     foreach ($v in @($vdiskCache.disks)) {
-        if (-not $v -or -not $v.Chemin) { continue }
-        $vdisks += [pscustomobject]@{ Nom = "$($v.Nom)"; Machine = "$($v.Machine)"; Compte = "$($v.Compte)"
-                                      Go = [double]$v.Go; Quand = (ConvertTo-UtcDate $v.Quand).ToLocalTime(); Chemin = "$($v.Chemin)" }
+        if (-not $v -or -not $v.Path) { continue }
+        $vdisks += [pscustomobject]@{ Name = "$($v.Name)"; Machine = "$($v.Machine)"; Account = "$($v.Account)"
+                                      Go = [double]$v.Go; When = (ConvertTo-UtcDate $v.When).ToLocalTime(); Path = "$($v.Path)" }
     }
 } else {
     $vdiskRoots = @()
@@ -210,16 +214,16 @@ if ($vdiskFresh) {
         foreach ($ext in $rootPath.Ext) {
             foreach ($f in @(Get-ChildItem -LiteralPath $rootPath.Path -Filter $ext -File -Recurse -Depth $rootPath.Depth -Force -ErrorAction SilentlyContinue)) {
                 if ($f.Length -lt 5GB) { continue }
-                $vdisks += [pscustomobject]@{ Nom = $f.Name; Machine = (Get-VirtualMachineName -Path $f.FullName)
-                                              Compte = (Get-OwningAccountName -Path $f.FullName)
-                                              Go = [math]::Round($f.Length / 1GB, 1); Quand = $f.LastWriteTime; Chemin = $f.FullName }
+                $vdisks += [pscustomobject]@{ Name = $f.Name; Machine = (Get-VirtualMachineName -Path $f.FullName)
+                                              Account = (Get-OwningAccountName -Path $f.FullName)
+                                              Go = [math]::Round($f.Length / 1GB, 1); When = $f.LastWriteTime; Path = $f.FullName }
             }
         }
     }
     try {
         Update-StateJson -Path $vdiskFile -Set @{ at = ([datetime]::UtcNow).ToString('o')
-                                                  disks = @($vdisks | ForEach-Object { @{ Nom = $_.Nom; Machine = $_.Machine; Compte = $_.Compte
-                                                                                          Go = $_.Go; Quand = $_.Quand.ToUniversalTime().ToString('o'); Chemin = $_.Chemin } }) } | Out-Null
+                                                  disks = @($vdisks | ForEach-Object { @{ Name = $_.Name; Machine = $_.Machine; Account = $_.Account
+                                                                                          Go = $_.Go; When = $_.When.ToUniversalTime().ToString('o'); Path = $_.Path } }) } | Out-Null
     } catch { }
 }
 if ($vdisks.Count) {
@@ -257,8 +261,8 @@ if ($vdisks.Count) {
             $insideLines += ,@("$($d.name)", ($usedGo.ToString('N1', $fr) + ' Go'))
         }
         $usedTotal = [math]::Round((@($wslUsage.distributions | ForEach-Object { [double]$_.usedBytes / 1GB }) | Measure-Object -Sum).Sum, 1)
-        $wslDisks = @($vdisks | Where-Object { "$($_.Nom)" -like '*.vhdx' -and "$($_.Machine)" -like '*WSL*' })
-        if (-not $wslDisks.Count) { $wslDisks = @($vdisks | Where-Object { "$($_.Nom)" -like 'ext4.vhdx' }) }
+        $wslDisks = @($vdisks | Where-Object { "$($_.Name)" -like '*.vhdx' -and "$($_.Machine)" -like '*WSL*' })
+        if (-not $wslDisks.Count) { $wslDisks = @($vdisks | Where-Object { "$($_.Name)" -like 'ext4.vhdx' }) }
         if ($wslDisks.Count -and $usedTotal -gt 0) {
             $filesTotal = [math]::Round((($wslDisks | Measure-Object Go -Sum).Sum), 1)
             $notReturned = [math]::Round($filesTotal - $usedTotal, 1)
@@ -270,8 +274,8 @@ if ($vdisks.Count) {
     # distributions occupy INSIDE them is only readable from an account's session, and the guide names which one.
     $fields += New-Field -Key 'vdisks' -Label 'Disques virtuels' -Scope 'user' -Value $vdValue -Kind 'text' -Status $vdStatus `
         -Table @{ columns = @('Machine virtuelle', 'Compte', 'Place prise', 'Écrit le')
-                  rows = @(foreach ($v in @($vdisks | Select-Object -First 8)) { ,@($v.Machine, $v.Compte, ($v.Go.ToString('N1', $fr) + ' Go'), $v.Quand.ToString('dd/MM HH:mm')) })
-                  tips = @(foreach ($v in @($vdisks | Select-Object -First 8)) { $v.Chemin }) } `
+                  rows = @(foreach ($v in @($vdisks | Select-Object -First 8)) { ,@($v.Machine, $v.Account, ($v.Go.ToString('N1', $fr) + ' Go'), $v.When.ToString('dd/MM HH:mm')) })
+                  tips = @(foreach ($v in @($vdisks | Select-Object -First 8)) { $v.Path }) } `
         -Help "Les disques des machines virtuelles (WSL, Docker, Hyper-V, VirtualBox). Ils grossissent avec ce qu'ils contiennent et ne rendent jamais la place d'eux-mêmes, même quand on efface à l'intérieur." `
         -Guide ($(if ($insideLines.Count) { "Ce que les distributions occupent réellement, lu dans chacune : " +
                      ((@($insideLines | ForEach-Object { $_[0] + ' ' + $_[1] })) -join ', ') + '.' +

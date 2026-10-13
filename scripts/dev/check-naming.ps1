@@ -266,8 +266,14 @@ $COMMENT_CEILING = 713
     and rapport.html, the page that reads it and that no verifier parsed until that same day. A cached sheet of the
     old shape is NOT migrated: every value in it comes from the hardware, so it is read again, which is the
     difference between a derived reading and the record of something that happened.
+
+    13/10, THE VIRTUAL DISKS: 42 -> 32. The four keys of a virtual disk in disk.probe -- its name, the account, the
+    path, the moment it was written -- and the per-day table of the trend. Their cache gets the same treatment as
+    the sheet, with one difference that had to be WRITTEN: the
+    reader skipped an entry that had no path, so a list of the old shape, still inside its half hour, gave not one
+    usable line and the card would have lost its virtual disks silently. The shape is now tested, not the field.
 #>
-$CEILING = 42
+$CEILING = 32
 
 # THE FILE-NAME CEILING, AT ZERO SINCE 08/10.
 #
