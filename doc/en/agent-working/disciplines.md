@@ -1019,6 +1019,14 @@ function that already existed, the last definition silently overwriting the othe
   the discipline below.
 - Check the **ASCII** of the launchers, the **UTF-8** of everything else.
 
+## What waits for HIM is listed apart from what waits for ME
+
+**Anything that needs his gesture -- a test to run, a proof that takes a machine, a printer, a game, a public gesture on his repository -- is presented in a list of ITS OWN, never mixed into the work that is mine to do. He must be able to read, in one place, what is waiting for him.**
+
+*Asked by the owner on 15/10, after a report where a real Windows Update installation (S14), the uninstall never run (S03) and the four proofs of S09 sat in the same list as the comment lines left to translate. The two are not the same kind of thing: one is a queue I work through, the other is a queue only he can move.*
+
+**How to apply it.** Two headings, always, and each line says what it needs: "waiting for you" says WHICH gesture and what it would prove; "mine" says what I do next. A line that waits for a deployment belongs to him until the deployment happens, because the gesture is his. The register of open subjects (`notes/subjects.md`) already marks them -- S03 and S09 are written there as proofs that "ask his gesture, not my work" -- so the report follows the register rather than inventing its own order.
+
 ## Nothing opens on his screen without him asking
 
 **No window, no browser, no page: not a WinForms window, not the browser, not a `file://` preview, not the agent's own preview pane. It is ASKED FOR, every time, and a yes covers that one opening and no other.**
