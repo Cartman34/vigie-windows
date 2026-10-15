@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 <#
-    RENOMMER UN FICHIER ET REPRENDRE TOUT CE QUI LE DÉSIGNE, EN UNE COMMANDE.
+    RENAME A FILE AND CARRY EVERY REFERENCE WITH IT, IN ONE COMMAND.
 
     Intent: make a rename a gesture one runs, not a hunt one conducts. On 15/10, renaming two verifiers touched
     SEVEN files -- the orchestrator's table, three documents, a measurement note, two verifiers naming each other
@@ -9,7 +9,7 @@
 
     Usage:
       pwsh -File .\scripts\dev\rename-file.ps1 -From scripts/dev/a.ps1 -To scripts/dev/b.ps1
-      pwsh -File .\scripts\dev\rename-file.ps1 -From a.ps1 -To b.ps1 -Essai     # says what it WOULD do
+      pwsh -File .\scripts\dev\rename-file.ps1 -From a.ps1 -To b.ps1 -DryRun     # says what it WOULD do
     Exit codes: 0 = renamed; 2 = refused before touching anything.
 
     WHAT IT DOES: `git mv`, then it rewrites every tracked text file that names the old file -- by its path and by
@@ -25,7 +25,7 @@ param(
     [Parameter(Mandatory)][string] $From,
     [Parameter(Mandatory)][string] $To,
     # Say what would be done, change nothing.
-    [switch] $Essai
+    [switch] $DryRun
 )
 
 $ErrorActionPreference = 'Stop'
@@ -71,7 +71,7 @@ if ($records.Count) {
     foreach ($rel in $records) { Write-Detail $rel }
 }
 
-if ($Essai) {
+if ($DryRun) {
     Write-Info "Essai : rien n'a été touché. $($toRewrite.Count) fichier(s) seraient repris."
     Write-Outcome -What 'Renommage simulé'
     exit 0
@@ -86,14 +86,20 @@ Write-Step 'Les références'
 $changed = 0
 foreach ($rel in $toRewrite) {
     $full = Join-Path $repoRoot $rel
-    $text = Get-Content -LiteralPath $full -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
-    if (-not $text) { continue }
+    # THE BYTES, NOT THE TEXT. `Get-Content -Raw` strips the byte-order mark before anyone can test for it, so
+    # the first version of this script rewrote every .ps1 WITHOUT its mark -- which this repository requires, and
+    # which check-encoding refuses. Caught by renaming a file and renaming it back: the tree did not come back
+    # clean. A rename must be reversible to the byte.
+    $bytes = [IO.File]::ReadAllBytes($full)
+    if (-not $bytes.Length) { continue }
+    $hasMark = ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF)
+    $text = [Text.Encoding]::UTF8.GetString($bytes, $(if ($hasMark) { 3 } else { 0 }), $bytes.Length - $(if ($hasMark) { 3 } else { 0 }))
     # From the most precise to the least: the full path, then the file name, then the bare name. In that order a
     # path is never half-rewritten by the pass that follows.
     $new = $text.Replace($fromRel, $toRel).Replace($fromName, $toName).Replace($fromBase, $toBase)
     if ($new -eq $text) { continue }
     $tmp = "$full.tmp"
-    [IO.File]::WriteAllText($tmp, $new, [Text.UTF8Encoding]::new($text.StartsWith([char]0xFEFF)))
+    [IO.File]::WriteAllText($tmp, $new, [Text.UTF8Encoding]::new($hasMark))
     Move-Item -LiteralPath $tmp -Destination $full -Force
     $changed++
     Write-Detail $rel
