@@ -56,10 +56,10 @@ $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 #>
 $WAKES = [ordered]@{
     'check-author'      = @(@{ Folder = ''; Patterns = @('*') })                       # l'en-tete de tout fichier
-    'check-coherence'   = @(@{ Folder = ''; Patterns = @('*.ps1', '*.psd1', '*.html', '*.md') })
+    'check-repo-coherence'   = @(@{ Folder = ''; Patterns = @('*.ps1', '*.psd1', '*.html', '*.md') })
     'check-components'  = @(@{ Folder = 'apps/'; Patterns = @('*.ps1') },
                             @{ Folder = 'doc/progress/implemented/'; Patterns = @('components.md') })
-    'check-local'       = @(@{ Folder = ''; Patterns = @('*.ps1') })      # les regles locales a un fichier
+    'check-file-coherence'       = @(@{ Folder = ''; Patterns = @('*.ps1') })      # les regles locales a un fichier
     'check-contract'    = @(@{ Folder = 'apps/backend-pode/'; Patterns = @('server.ps1', 'openapi.yaml') })
     'check-decisions'   = @(@{ Folder = 'doc/progress/'; Patterns = @('decisions.md') })
     'check-doc'         = @(@{ Folder = 'doc/'; Patterns = @('*.md') })
@@ -138,7 +138,7 @@ function Expand-RelatedFiles {
 #    patterns. No entry in the table: it is woken by anything.
 <#
     WHO RECEIVES THE LIST. A verifier that declares a `-Files` parameter is asked about those files and nothing
-    else -- check-local does. The others are run whole: they read what they have always read, and the selection
+    else -- check-file-coherence does. The others are run whole: they read what they have always read, and the selection
     only decided whether to wake them.
 
     It is READ from the verifier, not held in a table here: the day one of them learns to take a list, it says so

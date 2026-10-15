@@ -3,15 +3,15 @@
     THE RULES THAT ARE DECIDED INSIDE ONE FILE.
 
     Intent: hold the three rules that need nothing but the file they read -- so they can be asked of the CHANGED
-    files instead of the whole repository. They lived in check-coherence until 15/10, where they were mixed with
+    files instead of the whole repository. They lived in check-repo-coherence until 15/10, where they were mixed with
     rules that need every file; a verifier with a mixed scope cannot be run on a list, and the splat rule alone
     cost 3 715 ms of a 7 500 ms pass, all of it spent parsing 153 files to ask each one a local question
-    (notes/evidence/2026-10-15-what-makes-check-coherence-slow.md).
+    (notes/evidence/2026-10-15-what-makes-check-repo-coherence-slow.md).
 
     Usage:
-      pwsh -File .\scripts\dev\check-local.ps1                      # every .ps1 of the repository
-      pwsh -File .\scripts\dev\check-local.ps1 -Files a.ps1,b.ps1   # these files only
-      pwsh -File .\scripts\dev\check-local.ps1 -FilesFrom list.txt  # the same, one path per line
+      pwsh -File .\scripts\dev\check-file-coherence.ps1                      # every .ps1 of the repository
+      pwsh -File .\scripts\dev\check-file-coherence.ps1 -Files a.ps1,b.ps1   # these files only
+      pwsh -File .\scripts\dev\check-file-coherence.ps1 -FilesFrom list.txt  # the same, one path per line
     Exit codes: 0 = nothing to report; 2 = at least one shortfall.
 
     Each rule carries, above it, the defect it was born of. They are moved here word for word: that history is

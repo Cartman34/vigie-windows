@@ -1,7 +1,7 @@
-# Ce qui rend `check-coherence` long — et les deux optimisations qui ne paient pas
+# Ce qui rendait `check-coherence` long — et les deux optimisations qui ne paient pas
 
-**15/10/2026.** `check-coherence` prend 7,5 s, la moitié du coût d'une passe complète des seize vérificateurs
-(29 s). Demandé par le propriétaire : « tu vois que c'est anormalement long, tu dois établir un diag et soit
+**15/10/2026.** `check-coherence` — avant sa scission, qui a eu lieu le même jour — prenait 7,5 s, la moitié du
+coût d'une passe complète des seize vérificateurs (29 s). Demandé par le propriétaire : « tu vois que c'est anormalement long, tu dois établir un diag et soit
 corriger soit le stocker pour le retrouver ensuite avec justification de pourquoi ce n'est pas corrigé. » Voici le
 diagnostic, les deux corrections tentées, et pourquoi aucune n'est gardée.
 
@@ -55,3 +55,16 @@ Ce qui ferait réellement baisser ce coût est d'un autre ordre, et n'est pas fa
 
 En attendant, le coût est connu, chiffré, et il se paie une fois par passe complète — que la sélection par
 changement rend désormais rare.
+
+## Ce qui a été fait ensuite, le même jour
+
+Le propriétaire a tranché : **un vérificateur ne porte pas deux périmètres**. Les trois contrôles locaux sont
+partis dans `check-file-coherence.ps1`, qui lit les fichiers qu'on lui donne ; `check-repo-coherence.ps1` garde
+les quatre qui demandent le dépôt entier.
+
+Ce que ça donne, mesuré : `check-repo-coherence` **2,1 s** (contre 7,5 s), `check-file-coherence` **0,5 s** sur
+les fichiers touchés, la passe ordinaire **19 s** contre 29 s. Les 3,7 s de l'analyse ne se paient plus que sur
+`-All`, où elles sont à leur place.
+
+Ce qui reste vrai de ce relevé : les deux optimisations tentées ne paient toujours pas, et les deux vrais leviers
+— ne lire que les fichiers modifiés, découper `common.ps1` — sont les mêmes.

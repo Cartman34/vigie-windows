@@ -159,7 +159,7 @@ Cible : [`../targeting/surveillance.md`](../targeting/surveillance.md).
 | 3 | ceux qui ont Vigie activée | `Get-EnabledAccounts` |
 | 4 | ceux qui tournent | tâche + app cliente vivante — pas de fonction, personne n'en a besoin |
 
-`check-coherence` refuse qu'un de ces cercles soit refiltré à la main : le filtre était recopié à sept endroits, et
+`check-repo-coherence` refuse qu'un de ces cercles soit refiltré à la main : le filtre était recopié à sept endroits, et
 l'appel qui l'avait oublié déposait un ordre de relance chez le compte de service.
 
 ## Le cache

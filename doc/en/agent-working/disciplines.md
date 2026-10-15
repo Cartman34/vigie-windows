@@ -651,7 +651,7 @@ apostrophes stripped "to be safe" — all from the same cause: no mechanical che
 
 **How to apply it:** the checker lives in `scripts/dev/check-*.ps1`, returns a usable exit
 code, and offers `-Fix` when the correction is mechanical. In place: `check-encoding`,
-`check-naming` (ratchet), `check-labels`, `check-reachable`, `check-doc`, `check-coherence`,
+`check-naming` (ratchet), `check-labels`, `check-reachable`, `check-doc`, `check-repo-coherence`,
 `check-decisions` (ratchet), `check-author`, `check-operations`, `check-components`, `check-language` (ratchet),
 `check-powershell` (does every script still parse?), `check-scope` (does every card say whose information it
 carries?), `check-sets` (is « all » asked for rather than assumed?), plus `scripts/check-probes.ps1`.
@@ -675,7 +675,7 @@ and running everything becomes an OPTION one asks for -- never the automatic roa
 **Three cases, and each is declared where it belongs:**
 
 - **by scope** -- the checker reads the whole repository, because its answer depends on what the OTHER files
-  contain: the ratchets, `check-coherence`, `check-reachable`, `check-sets`, `check-components`. A ratchet that
+  contain: the ratchets, `check-repo-coherence`, `check-reachable`, `check-sets`, `check-components`. A ratchet that
   counted only the touched file would stop measuring. What wakes it is a TABLE IN `check-all`, one line per
   checker: a FOLDER, plus a pattern when it must be narrowed -- `apps/frontend-web/` (`*.html`), `doc/` (`*.md`).
   A folder says where the subject lives; a bare extension says only what it is made of.
@@ -737,7 +737,7 @@ not a local variable, it is an assignment to the parameter — and if that param
 
 **The convention:** a local variable carries a **qualified** name — `$sourceRepo`,
 `$sourcePath`, `$targetPath` — never the bare name that could be a parameter.
-`check-coherence` refuses collisions, comparing **case-sensitively** (`-cne`; with `-ne` the
+`check-repo-coherence` refuses collisions, comparing **case-sensitively** (`-cne`; with `-ne` the
 rule never fires — I caught myself with it while writing it).
 
 **The other conventions already held by a tool:** code names in English (`check-naming`
@@ -1038,7 +1038,7 @@ A design — how it works — goes in `doc/en/developing/`. On 29/08 I wrote a d
 searched. Reinvented "where does the deployed code come from" when `UpdateSource` answered it;
 filed a machine setting into every copy when D33 describes the configuration layers; redefined a
 function that already existed, the last definition silently overwriting the other.*
-`scripts/dev/check-coherence.ps1` now catches the last two.
+`scripts/dev/check-repo-coherence.ps1` now catches the last two.
 
 ## Validation before saying "ready"
 - Every `.ps1` / `.psd1`: **parser** via

@@ -7,10 +7,10 @@
 
     WHAT IS HERE NEEDS THE WHOLE REPOSITORY: each of these rules is a RELATION BETWEEN FILES, and no single file
     can answer it. What is decided inside one file -- a variable carrying a parameter's name, a splat nobody
-    assigns, a concatenation inside a comma list -- moved to check-local.ps1 on 15/10, where it can be asked of
+    assigns, a concatenation inside a comma list -- moved to check-file-coherence.ps1 on 15/10, where it can be asked of
     the changed files alone. A verifier with a mixed scope cannot be run on a list: splitting it is what makes
-    the ordinary pass cheap (notes/evidence/2026-10-15-what-makes-check-coherence-slow.md).
-    Usage: pwsh -File .\scripts\dev\check-coherence.ps1 (-Detail to see each shortfall). Exit codes: 0 =
+    the ordinary pass cheap (notes/evidence/2026-10-15-what-makes-check-repo-coherence-slow.md).
+    Usage: pwsh -File .\scripts\dev\check-repo-coherence.ps1 (-Detail to see each shortfall). Exit codes: 0 =
     consistent; 2 = at least one shortfall. The source of truth for the decisions is doc/progress/decisions.md;
     to consult it quickly, scripts/dev/decisions.ps1 -About "<words>".
 

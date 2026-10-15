@@ -85,7 +85,7 @@ $COMMENT_CEILING = 713
 # scripts/lib/account-secret.ps1 (70), and the repository from 1909 to 1675. All three gained an INTENT and a
 # USAGE, and all three were RUN: check-encoding judges the repository, build-release lists what would leave.
 #
-# 08/10, five more: scripts/dev/check-coherence.ps1 (61), apps/backend-pode/config/config.psd1 (55),
+# 08/10, five more: scripts/dev/check-repo-coherence.ps1 (61), apps/backend-pode/config/config.psd1 (55),
 # scripts/dev/ask-vigie.ps1 (55), scripts/dev/check-labels.ps1 (55), scripts/dev/install-dev.ps1 (55), and the
 # repository from 1675 to 1395. Each was RUN: the two checkers judge the repository, config.psd1 loads,
 # install-dev surveys the tooling.
