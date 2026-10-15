@@ -120,12 +120,16 @@ replacement script — and re-run the JS string guardrail afterwards (an untermi
 single-quoted string, a regular expression cut by a newline: two writing layers have already
 eaten escapes).
 
-**Redeploying** = commit on the branch, `git merge --ff-only` into `main` from the main
-checkout, `git push origin main`, then ask the server for the update:
+**Redeploying = ONE SCRIPT**, which does the whole chain and verifies what it installed:
 
 ```powershell
-pwsh -File scripts/dev/ask-vigie.ps1 -Type vigie-update -Module vigie
+pwsh -File scripts/dev/deploy.ps1
 ```
+
+It refuses a dirty tree, runs the fifteen checkers, merges `--ff-only` into `main` **from the main checkout**,
+pushes, asks the server for the update, then waits until the installed `BUILD` carries the commit that was
+pushed. The steps are written down because they were skipped by hand on 15/10 -- that is what a mechanical
+procedure is for: it is run, not remembered.
 
 **AND IT IS THE MERGE, NEVER A PUSH STRAIGHT FROM A WORKTREE.** `git push origin <branch>:main` moves the
 REMOTE branch and leaves the LOCAL `main` where it was -- and the update chain reads the local repository. On

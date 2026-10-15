@@ -104,6 +104,22 @@ if ($enCours.Count) {
     do not grow old.
 
 #>
+<#
+    THE GESTURES THAT HAVE A SCRIPT, named here so the procedure is never redone from memory.
+
+    This is what a compaction loses: not the rules -- they are displayed above -- but the PROCEDURE. On 15/10 I
+    deployed by pushing a worktree branch straight onto the remote main, while the briefing says to merge from the
+    main checkout; the local main stayed behind, the chain read it, and the deployment reinstalled the commit
+    already in place and called it a success. The answer the owner asked for is not more vigilance: it is that a
+    mechanical procedure is A SCRIPT ONE RUNS, and that the resumption point names it.
+#>
+Write-Step (Get-Label 'restore-context.etape-gestes')
+foreach ($geste in @((Get-Label 'restore-context.geste-deploy'), (Get-Label 'restore-context.geste-verifier'),
+                     (Get-Label 'restore-context.geste-etat'), (Get-Label 'restore-context.geste-regarder'),
+                     (Get-Label 'restore-context.geste-reponse'))) {
+    Write-Detail $geste
+}
+
 Write-Step (Get-Label 'restore-context.etape-preuve')
 Write-Detail (Get-Label 'restore-context.preuve-reachable')
 Write-Detail (Get-Label 'restore-context.preuve-decisions')
