@@ -64,9 +64,13 @@ if ($dirty.Count) {
 }
 Write-Detail "Branche : $branch"
 
-$mainRepo = Get-LocalRepoPath -Backend $backend
-if (-not $mainRepo) { Stop-Deployment "Aucun dépôt local sur cette machine : il n'y a rien à fusionner." }
-$mainRepo = (Resolve-Path -LiteralPath $mainRepo).Path
+# THE CHECKOUT THAT HOLDS `main`, and not merely "a local repository". Get-LocalRepoPath answered with the
+# WORKTREE this script runs in, so the first run concluded "nothing to merge from elsewhere" and then refused
+# itself, local main being two commits behind. The shared .git says it without guessing: its parent folder is the
+# main checkout, and that is where main is checked out.
+$commonDir = "$(Invoke-Git -Path $repoRoot -Arguments @('rev-parse', '--git-common-dir'))".Trim()
+if (-not $commonDir) { Stop-Deployment "git ne dit pas où est son dossier commun : impossible de situer le dépôt principal." }
+$mainRepo = (Resolve-Path -LiteralPath (Split-Path -Parent $commonDir)).Path
 Write-Detail "Dépôt principal : $mainRepo"
 if ($mainRepo -eq (Resolve-Path -LiteralPath $repoRoot).Path) {
     Write-Detail "Nous y sommes déjà : la fusion se fera sur place."
