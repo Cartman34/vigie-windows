@@ -127,6 +127,12 @@ checkout, `git push origin main`, then ask the server for the update:
 pwsh -File scripts/dev/ask-vigie.ps1 -Type vigie-update -Module vigie
 ```
 
+**AND IT IS THE MERGE, NEVER A PUSH STRAIGHT FROM A WORKTREE.** `git push origin <branch>:main` moves the
+REMOTE branch and leaves the LOCAL `main` where it was -- and the update chain reads the local repository. On
+15/10 a deployment therefore reinstalled the commit already in place, announced as a success, and the whole thing
+had to be done again after a `git pull --ff-only` in the main checkout. That push is the workaround subagents use
+to deliver their work; it is not a deployment road.
+
 It fetches, builds, installs and restarts on its own. **Restarting the client app does NOT
 restart the server**: the old one becomes an orphan and `$startServer` exits immediately
 since the port answers — one then serves stale code indefinitely.
