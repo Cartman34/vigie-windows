@@ -1019,6 +1019,47 @@ function that already existed, the last definition silently overwriting the othe
   the discipline below.
 - Check the **ASCII** of the launchers, the **UTF-8** of everything else.
 
+## My own tools are mine to keep, and the cause comes before the fix
+
+**A tool of mine that misbehaves -- a checker, a renamer, a deployment script, this very resumption point -- is a
+defect like any other, and nobody else will find it. I watch them as closely as the product, I fix them, and I fix
+them in the right order: the CAUSE first, established, then the change. And the depth of the analysis follows the
+IMPACT of the change, never my appetite for it.**
+
+*Asked by the owner on 15/10, in these terms: "you must be vigilant about errors in your own tools or your own
+procedures, it is yours to keep them... you must not fix them without having really established the root cause and
+without questioning everything easily. That does not mean it must not be done. The bigger the impact of your
+refactoring, the bigger the analysis must be: it has to be proportionate."*
+
+**Vigilance.** Three of my own tools were wrong that week, and each was found by asking what it actually measures:
+`check-naming` counted names with a pattern that cannot see a hashtable key -- so eleven French contract keys
+crossed to the page while it printed 4, then 0; `check-front` parsed one page out of three, and the one it skipped
+was the report page; `restore-context` displayed the disciplines in full but named not one PROCEDURE, which is
+exactly what a compaction loses. A tool that reports zero is not a tool that found nothing.
+
+**The cause before the fix.** On 15/10 I announced a second defect -- a moment stored without its zone moving every
+age computed from it -- and had already begun rewriting the writers when the measurement said **zero**:
+`[datetimeoffset]::Parse` assumes the LOCAL zone when the string carries none, so the reading was right all along.
+The changes were reverted. A fix built on a hypothesis is a refactoring built on nothing, and it costs twice: once
+to write, once to undo.
+
+**Proportionate.** A guard added to a script I have just written is proven by RUNNING it -- and that is how
+`deploy.ps1` caught itself taking the worktree for the main checkout, on its first use. A rename across eleven
+thousand lines is proven by an equivalence comparison, both sides read at the SAME instant, because a battery
+voltage or a Wi-Fi link moves between two readings and will otherwise pass for a regression. What a confidence out
+of proportion costs is written above: a renamer that emptied every variable name of `common.ps1`, caught only by
+the re-parse.
+
+**Questioning everything easily is not fixing things lightly.** Nothing here is untouchable -- the ratchet's
+pattern, the front checker's scope, the comment counter's file list were all wrong and all changed. The rule is not
+to leave things alone: it is to KNOW before changing, and to say what the change makes measurable that was not.
+
+**And the correction is a mechanism, never a resolution.** When a procedure fails, what replaces it is a script or
+a check -- see "Never a one-off command" above. "I will be more careful" has never held, and a procedure one
+redoes from memory is a procedure one redoes badly: deploying by hand on 15/10 reinstalled the commit already in
+place and reported a success, which is why `scripts/dev/deploy.ps1` now does the chain and verifies what it
+installed.
+
 ## What waits for HIM is listed apart from what waits for ME
 
 **Anything that needs his gesture -- a test to run, a proof that takes a machine, a printer, a game, a public gesture on his repository -- is presented in a list of ITS OWN, never mixed into the work that is mine to do. He must be able to read, in one place, what is waiting for him.**
