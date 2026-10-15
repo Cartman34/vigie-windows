@@ -1,3 +1,4 @@
+# @related: apps/backend-pode/server.ps1   -- le contrat et le serveur se valident ensemble
 ﻿openapi: 3.0.3
 info:
   title: Vigie API

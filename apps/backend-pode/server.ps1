@@ -1,4 +1,5 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
+# @related: apps/backend-pode/api/openapi.yaml   -- le contrat et le serveur se valident ensemble
 <#
     Intent: the HTTP surface of the server app, and nothing else -- every route the panel
     and the client app can call, and the thirty-second timer that does what Vigie does by
