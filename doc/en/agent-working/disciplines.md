@@ -657,6 +657,38 @@ code, and offers `-Fix` when the correction is mechanical. In place: `check-enco
 carries?), `check-sets` (is « all » asked for rather than assumed?), plus `scripts/check-probes.ps1`.
 `scripts/dev/check-all.ps1` runs every `check-*.ps1` of `scripts/dev`, found by name, and `-Probes` adds the probes check.
 
+### The validation runs what the change calls for -- decided 15/10, before a line of it exists
+
+**A validation that always runs everything is a validation one stops running.** The sixteen checkers cost forty
+seconds, plus a minute when the probes join in; paid on a one-line change to a document, that cost buys nothing
+and teaches the habit of skipping it. So the ordinary pass looks at WHAT CHANGED and runs what that calls for,
+and running everything becomes an OPTION one asks for -- never the automatic road.
+
+**How it is asked:**
+
+- `-All` -- every checker, whatever changed. That is what a DELIVERY uses.
+- `-Files <paths>` -- these files, and what they drag in.
+- `-Uncommitted` -- the same treatment, with the list asked of git instead of received.
+- nothing -- the ordinary road: what is not committed, and failing that the files of the last commit, so a
+  validation run right after committing still has something to say.
+
+**Three cases, and each is declared where it belongs:**
+
+- **by scope** -- the checker reads the whole repository, because its answer depends on what the OTHER files
+  contain: the ratchets, `check-coherence`, `check-reachable`, `check-sets`, `check-components`. A ratchet that
+  counted only the touched file would stop measuring. What wakes it is a TABLE IN `check-all`, one line per
+  checker: a FOLDER, plus a pattern when it must be narrowed -- `apps/frontend-web/` (`*.html`), `doc/` (`*.md`).
+  A folder says where the subject lives; a bare extension says only what it is made of.
+- **by changed files** -- it works on the list and needs no declaration at all.
+- **by pair** -- it needs the files BOUND to the ones that changed. That link is a relation BETWEEN FILES, so it
+  is declared on the files, `@related: <path>`, and never in the orchestrator: `server.ps1` and
+  `api/openapi.yaml` each name the other, so the pair forms whichever side moves. The orchestrator reads the
+  `@related` of the CHANGED files only -- which is why a link that must work both ways is written on both sides.
+
+**The defaults fail towards checking MORE.** A checker with no entry in the table is woken by any change; a file
+with no `@related` drags nothing in. The selection exists to make the ordinary pass cheap, never to decide that a
+delivery needs less.
+
 ## Wrapping system calls
 
 **An external call that appears a second time is wrapped in a function of ours**, which
