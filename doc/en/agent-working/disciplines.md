@@ -1068,6 +1068,25 @@ installed.
 
 **How to apply it.** Two headings, always, and each line says what it needs: "waiting for you" says WHICH gesture and what it would prove; "mine" says what I do next. A line that waits for a deployment belongs to him until the deployment happens, because the gesture is his. The register of open subjects (`notes/subjects.md`) already marks them -- S03 and S09 are written there as proofs that "ask his gesture, not my work" -- so the report follows the register rather than inventing its own order.
 
+## A gesture on his machine is ANNOUNCED first, and it has a reason
+
+**Deploying, restarting the server app, touching the installation: it is written in the message BEFORE it is done,
+in one line, with the reason. Never chained inside a command where it shows up as "17 commands run".**
+
+*Reproached by the owner on 15/10, twice in the same hour: "why are you deploying?", then "nothing said you were
+going to deploy, and you had NO reason to do it". He was right on both counts -- the commit held a development
+checker and a contract document, which change nothing in what the application does, and the deployment was
+chained after the commit in a single command, invisible until it ran.*
+
+**The reason comes first.** A deployment carries what the application DOES: a correction, a probe, a page, an
+action. A checker, a discipline, a note, a contract document change nothing for whoever uses Vigie, and
+deploying them restarts his server app for nothing. When in doubt: it waits for the next real change, and the
+message says so.
+
+**And it is announced as its own sentence**, not as a side effect of a command. What the terminal shows of a
+chained call is a count; what he reads is my message. A gesture he discovers afterwards is a gesture he did not
+allow.
+
 ## Nothing opens on his screen without him asking
 
 **No window, no browser, no page: not a WinForms window, not the browser, not a `file://` preview, not the agent's own preview pane. It is ASKED FOR, every time, and a yes covers that one opening and no other.**
