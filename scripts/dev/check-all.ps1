@@ -59,6 +59,7 @@ $WAKES = [ordered]@{
     'check-coherence'   = @(@{ Folder = ''; Patterns = @('*.ps1', '*.psd1', '*.html', '*.md') })
     'check-components'  = @(@{ Folder = 'apps/'; Patterns = @('*.ps1') },
                             @{ Folder = 'doc/progress/implemented/'; Patterns = @('components.md') })
+    'check-local'       = @(@{ Folder = ''; Patterns = @('*.ps1') })      # les regles locales a un fichier
     'check-contract'    = @(@{ Folder = 'apps/backend-pode/'; Patterns = @('server.ps1', 'openapi.yaml') })
     'check-decisions'   = @(@{ Folder = 'doc/progress/'; Patterns = @('decisions.md') })
     'check-doc'         = @(@{ Folder = 'doc/'; Patterns = @('*.md') })
@@ -135,6 +136,27 @@ function Expand-RelatedFiles {
 
 # 3. THE SELECTION. A verifier is woken when one of the files falls in one of its folders AND matches one of its
 #    patterns. No entry in the table: it is woken by anything.
+<#
+    WHO RECEIVES THE LIST. A verifier that declares a `-Files` parameter is asked about those files and nothing
+    else -- check-local does. The others are run whole: they read what they have always read, and the selection
+    only decided whether to wake them.
+
+    It is READ from the verifier, not held in a table here: the day one of them learns to take a list, it says so
+    itself and the orchestrator follows without being told.
+#>
+function Test-AcceptsFiles {
+    param([Parameter(Mandatory)][string]$Path)
+    $errors = $null; $tokens = $null
+    $tree = [System.Management.Automation.Language.Parser]::ParseFile($Path, [ref]$tokens, [ref]$errors)
+    if (-not $tree -or ($errors -and $errors.Count)) { return $false }
+    $block = $tree.ParamBlock
+    if (-not $block) { return $false }
+    foreach ($parameter in $block.Parameters) {
+        if ($parameter.Name.VariablePath.UserPath -eq 'Files') { return $true }
+    }
+    return $false
+}
+
 function Test-Woken {
     param([Parameter(Mandatory)][string]$Name, [Parameter(Mandatory)][AllowEmptyCollection()][string[]]$Paths)
     if (-not $WAKES.Contains($Name)) { return $true }
@@ -157,12 +179,22 @@ $runs = @(Get-ChildItem -LiteralPath $PSScriptRoot -Filter 'check-*.ps1' -File |
 
 $subject = @()
 $asleep = @()
+$temporaries = @()
 if (-not $All) {
     $subject = Expand-RelatedFiles -Root $repoRoot -Paths (Get-SubjectFiles -Root $repoRoot -Given $Files -FromFile $FilesFrom -FromGit:$Uncommitted)
     if ($subject.Count) {
         $awake = @()
         foreach ($run in $runs) {
-            if (Test-Woken -Name $run.Name -Paths $subject) { $awake += $run } else { $asleep += $run.Name }
+            if (-not (Test-Woken -Name $run.Name -Paths $subject)) { $asleep += $run.Name; continue }
+            # THE LIST GOES THROUGH A FILE, always: a command line has a ceiling, and a list of changed files has
+            # none. One road, whatever its length -- no special case to discover the day it is long.
+            if (Test-AcceptsFiles -Path $run.Path) {
+                $listFile = Join-Path ([IO.Path]::GetTempPath()) ('vigie-' + $run.Name + '-' + [guid]::NewGuid().ToString('N') + '.txt')
+                Set-Content -LiteralPath $listFile -Value $subject -Encoding UTF8
+                $run.Arguments = @('-FilesFrom', $listFile)
+                $temporaries += $listFile
+            }
+            $awake += $run
         }
         $runs = $awake
     }
@@ -200,6 +232,8 @@ foreach ($run in $runs) {
         $failed += $run.Name
     }
 }
+
+foreach ($t in $temporaries) { Remove-Item -LiteralPath $t -Force -ErrorAction SilentlyContinue }
 
 if ($failed.Count) { Write-Warn (Get-Label 'check-all.echecs' ($failed -join ', ')) }
 Write-Outcome -What (Get-Label 'check-all.termine') -Failures $failed.Count
