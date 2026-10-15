@@ -200,6 +200,169 @@ paths:
         Une action ASYNCHRONE renvoie elle aussi 200, avec result.async = true et
         result.module : le client suit alors ce module jusqu'a ce que son champ `busy`
         retombe a faux. Aucun code 202 n'est emis.
+  /operations:
+    get:
+      summary: Ce qui tourne, et les resultats recents (D95)
+      description: >
+        LA SEULE PORTE ou se lit l'etat d'une operation : marques d'occupation et resultats.
+        Toute page ouverte s'y aligne, meme ouverte APRES le depart de l'operation. Aucun
+        fichier d'etat propre a une operation ne dit « en cours » (targeting/operations.md).
+      responses:
+        "200":
+          description: Marques en cours et resultats recents
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  running:
+                    type: array
+                    items: { $ref: "#/components/schemas/Operation" }
+                  results:
+                    type: array
+                    items: { $ref: "#/components/schemas/OperationResult" }
+  /hardware:
+    get:
+      summary: La fiche materielle de l'ordinateur
+      description: >
+        Lecture CIM/WMI, gardee sept jours : le materiel ne change pas. `?fresh=1` relit tout
+        de suite. Une fiche gardee dont la forme n'est plus celle-ci est relue, jamais migree :
+        chacune de ses valeurs vient du materiel. C'est rapport.html qui la lit.
+      parameters:
+        - name: fresh
+          in: query
+          required: false
+          schema: { type: string, enum: ["1", "true"] }
+          description: relit le materiel au lieu de servir la fiche gardee
+      responses:
+        "200":
+          description: Fiche materielle
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HardwareSheet" }
+  /disk/tree:
+    get:
+      summary: UN niveau de l'arborescence analysee (D60)
+      description: >
+        L'interface ne recoit jamais l'arbre entier : elle demande le niveau qu'elle affiche.
+        Sans `path`, c'est la racine de la derniere analyse.
+      parameters:
+        - name: path
+          in: query
+          required: false
+          schema: { type: string }
+          description: dossier dont on veut le niveau ; absent = racine de la derniere analyse
+      responses:
+        "200":
+          description: Le niveau demande (dossiers et poids)
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "400": { description: Aucune analyse disponible, ou chemin illisible }
+  /users:
+    get:
+      summary: Les comptes Windows et ce que l'interface peut leur proposer
+      description: >
+        Lecture ouverte : savoir QUI a Vigie n'est pas un secret (D65). Seuls les comptes
+        UTILISATEUR sont rendus -- un profil jamais utilise est le compte d'un outil.
+      responses:
+        "200":
+          description: Comptes, installation partagee et droits d'ecriture
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:       { type: array, items: { type: object, additionalProperties: true } }
+                  shared:      { type: boolean, description: "une installation lisible par les autres comptes existe" }
+                  installPath: { type: string }
+                  canWrite:    { type: boolean, description: "le serveur est eleve : les interrupteurs agissent" }
+                  anonymousAccess: { type: string, enum: [error, cards] }
+  /users/{name}:
+    post:
+      summary: Donner ou retirer Vigie a un compte
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties:
+                enabled: { type: boolean }
+      responses:
+        "200":
+          description: La liste des comptes apres le changement
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:    { type: array, items: { type: object, additionalProperties: true } }
+                  canWrite: { type: boolean }
+        "400": { description: Champ `enabled` absent, ou compte technique }
+        "403": { description: Refuse (droits insuffisants) }
+  /anonymous-access:
+    post:
+      summary: Ce qu'une fenetre sans session voit -- ADMINISTRATEUR
+      description: >
+        Le reglage vit dans la declaration de l'ordinateur : il vaut pour toutes les
+        installations de la machine. Les droits sont verifies ICI, un bouton grise n'etant
+        qu'un affichage.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mode]
+              properties:
+                mode: { type: string, enum: [error, cards] }
+      responses:
+        "200":
+          description: Le reglage apres le changement
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  anonymousAccess: { type: string, enum: [error, cards] }
+        "400": { description: Valeur attendue : « error » ou « cards » }
+        "403": { description: Reserve a un administrateur }
+        "500": { description: Le reglage n'a pas pu etre ecrit }
+  /session/ticket:
+    post:
+      summary: Echanger le secret d'un compte contre un ticket a usage unique
+      description: >
+        L'app cliente d'un compte presente SON secret, qu'elle seule peut lire, et recoit un
+        ticket a usage unique dont elle ouvre la page. Le secret ne quitte jamais la machine
+        et n'entre jamais dans une adresse. Un refus ne dit pas POURQUOI : « mauvais secret »
+        plutot que « compte inconnu » renseignerait celui qui essaie ; la trace, elle, est
+        complete cote serveur.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [account, secret]
+              properties:
+                account: { type: string }
+                secret:  { type: string }
+      responses:
+        "200":
+          description: Ticket delivre
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:     { type: boolean }
+                  ticket: { type: string }
+        "400": { description: Compte ou secret absent }
+        "403": { description: Secret refuse }
   # NOTE : il n'existe PAS de route /actions/{jobId}. Elle a ete decrite ici sans jamais
   # etre implementee, et retiree du contrat le 2026-08-24. Le suivi d'une action asynchrone se
   # fait en relisant le module concerne (GET /modules/{id}) : son champ `busy` retombe a
@@ -210,6 +373,137 @@ components:
       type: http
       scheme: bearer
   schemas:
+    Operation:
+      type: object
+      description: Une marque d'occupation, telle que /operations la sert.
+      properties:
+        module:     { type: string }
+        label:      { type: string }
+        action:     { type: string }
+        pid:        { type: integer, description: "le processus qui fait le travail ; 0 = inconnu" }
+        resources:  { type: array, items: { type: string } }
+        at:         { type: string }
+        seconds:    { type: integer }
+        maxSeconds: { type: integer, description: "plafond declare ; 0 = aucun" }
+        overdue:    { type: boolean, description: "au-dela de son plafond ; elle n'est JAMAIS arretee pour autant" }
+    OperationResult:
+      type: object
+      description: Le resultat d'une operation terminee. Toute fin en ecrit un.
+      properties:
+        module:  { type: string }
+        label:   { type: string }
+        action:  { type: string }
+        code:    { type: integer, description: "0 = aboutie" }
+        seconds: { type: integer }
+        at:      { type: string }
+        error:   { type: string }
+        log:     { type: string }
+    HardwareSheet:
+      type: object
+      description: >
+        Ce qui ne bouge pas dans l'ordinateur, par sections. Les cles sont en anglais depuis
+        le 13/10, des deux cotes a la fois : rapport.html les lit.
+      properties:
+        at: { type: string, description: "moment de la lecture, UTC" }
+        machine:
+          type: object
+          properties:
+            name:           { type: string }
+            manufacturer:   { type: string }
+            model:          { type: string }
+            family:         { type: string }
+            form:           { type: string, description: "« Portable » ou « Poste fixe », deja traduit" }
+            serialNumber:   { type: string }
+            uuid:           { type: string }
+            os:             { type: string }
+            osVersion:      { type: string }
+            osArchitecture: { type: string }
+            installedAt:    { type: string }
+        motherboard:
+          type: object
+          properties:
+            manufacturer: { type: string }
+            model:        { type: string }
+            version:      { type: string }
+            bios:         { type: string }
+            biosDate:     { type: string }
+        processors:
+          type: array
+          items:
+            type: object
+            properties:
+              name:         { type: string }
+              manufacturer: { type: string }
+              cores:        { type: integer }
+              threads:      { type: integer }
+              frequency:    { type: integer, description: MHz }
+              socket:       { type: string }
+              cacheL3Kb:    { type: integer }
+        memory:
+          type: object
+          properties:
+            totalGb: { type: number }
+            slots:   { type: integer, description: "ce que la carte mere peut prendre" }
+            sticks:
+              type: array
+              items:
+                type: object
+                properties:
+                  slot:         { type: string }
+                  sizeGb:       { type: number }
+                  type:         { type: string, description: "DDR4, LPDDR5... traduit du code SMBIOS" }
+                  speed:        { type: integer, description: MT/s }
+                  manufacturer: { type: string }
+                  partNumber:   { type: string }
+        disks:
+          type: array
+          items:
+            type: object
+            properties:
+              model:        { type: string }
+              sizeGb:       { type: number }
+              type:         { type: string }
+              bus:          { type: string }
+              health:       { type: string }
+              firmware:     { type: string }
+              serialNumber: { type: string }
+        graphics:
+          type: array
+          items:
+            type: object
+            properties:
+              name:       { type: string }
+              vramGb:     { type: number, description: "lue dans la cle du pilote : AdapterRAM plafonne a 4 Go" }
+              driver:     { type: string }
+              driverDate: { type: string }
+              resolution: { type: string }
+        screens:
+          type: array
+          items:
+            type: object
+            properties:
+              manufacturer: { type: string }
+              model:        { type: string }
+              serial:       { type: string }
+              year:         { type: integer }
+              inches:       { type: number }
+        network:
+          type: array
+          items:
+            type: object
+            properties:
+              name:         { type: string }
+              manufacturer: { type: string }
+              mac:          { type: string }
+              maxSpeedMbps: { type: integer, description: "absent quand le lien n'est pas etabli" }
+        battery:
+          type: object
+          nullable: true
+          properties:
+            name:        { type: string }
+            chemistry:   { type: string }
+            capacityMwh: { type: integer }
+            voltage:     { type: integer, description: mV }
     Unit:
       type: object
       required: [id, label, enabled]
