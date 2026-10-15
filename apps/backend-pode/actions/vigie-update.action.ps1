@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: admin   -- redeploie hors du profil et relance l'application (D65)
-# @libelle: Mettre a jour Vigie | confirm | fix   -- affiche quand un champ cite cette action (D66)
+# @rights: admin   -- redeploie hors du profil et relance l'application (D65)
+# @label: Mettre a jour Vigie | confirm | fix   -- affiche quand un champ cite cette action (D66)
 <# An action: it updates Vigie, then restarts it.
 
    Intent: be a button that does nothing of its own -- it starts THE INSTALLATION, the same one setup.cmd starts,

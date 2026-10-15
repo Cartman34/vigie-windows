@@ -1,5 +1,5 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: admin   -- lit dans le profil d'un autre compte : Windows exige l'elevation (D65)
+# @rights: admin   -- lit dans le profil d'un autre compte : Windows exige l'elevation (D65)
 <# An action: it fetches ANOTHER account's Vigie LOGS, for a diagnosis.
 
    Intent: look into another account's logs without opening a second road to them, and without ever copying a

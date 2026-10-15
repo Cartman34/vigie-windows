@@ -1,7 +1,7 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+# @rights: all   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 # @execution: session   -- ouvre une fenetre : elle doit s'afficher chez le DEMANDEUR
-# @libelle: Gestionnaire de périphériques | manual | info   -- affiche quand un champ cite cette action (D66)
+# @label: Gestionnaire de périphériques | manual | info   -- affiche quand un champ cite cette action (D66)
 <# An action: it opens Windows's Device Manager.
 
    Intent: lead the user to where Windows shows the state of the hardware and offers the driver update. It is

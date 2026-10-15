@@ -1,5 +1,5 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: admin   -- it rewrites the service account and the server task (D65)
+# @rights: admin   -- it rewrites the service account and the server task (D65)
 <# Action: repairs the service account -- a new password, the right to run tasks, the line that hides it -- and
    re-registers the server task with that password, then enables it again. The running server is not stopped: it
    keeps its token, and the next start uses the new password. The maintenance doc/progress/targeting/components.md

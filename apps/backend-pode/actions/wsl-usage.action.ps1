@@ -1,5 +1,5 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: tous   -- needs no privilege Windows does not already grant (D65)
+# @rights: all   -- needs no privilege Windows does not already grant (D65)
 # @execution: session   -- WSL belongs to the session: the service account has no distribution
 <#
     Action: what the WSL distributions really hold, seen from the inside.

@@ -1,5 +1,5 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+# @rights: all   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 # @execution: session   -- ouvre une fenetre : elle doit s'afficher chez le DEMANDEUR
 <# The open-windows-update action: it opens the Windows Update settings (a manual installation).
    Intent: install nothing -- it respects the principle "nothing without consent". Usage: cited by the Windows Update card. #>

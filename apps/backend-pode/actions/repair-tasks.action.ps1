@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: admin   -- reecrire une tache planifiee exige l'elevation (D65)
-# @libelle: Vérifier le démarrage de Vigie | immediate | fix   -- affiche quand un champ cite cette action (D66)
+# @rights: admin   -- reecrire une tache planifiee exige l'elevation (D65)
+# @label: Vérifier le démarrage de Vigie | immediate | fix   -- affiche quand un champ cite cette action (D66)
 #
 # Saying "repair" when nothing is broken rings false, and yet that is the normal state: the button stays on the
 # card even when all is well (D59, D66). It CHECKS first, and repairs only what has to be -- so its label says

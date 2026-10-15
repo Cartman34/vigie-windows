@@ -48,23 +48,23 @@
     Notifications = @(
         @{ Key = 'offline'; Label = 'Perte de connexion Internet'
            Card = 'net'; Field = 'connected'
-           Droits = 'tous'; Critique = $false
+           Rights = 'all'; Critical = $false
            Help = 'Vigie ne joint plus Internet.' }
         @{ Key = 'wifi-weak'; Label = 'Lien Wi-Fi dégradé'
            Card = 'net'; Field = 'wifi'
-           Droits = 'tous'; Critique = $false
+           Rights = 'all'; Critical = $false
            Help = 'La qualité du lien radio baisse.' }
         @{ Key = 'wifi-drops'; Label = 'Coupures Wi-Fi répétées'
            Card = 'net'; Field = 'wifiStability'
-           Droits = 'tous'; Critique = $false
+           Rights = 'all'; Critical = $false
            Help = 'L''association Wi-Fi décroche.' }
         @{ Key = 'ports-low'; Label = 'Ports réseau bientôt épuisés'
            Card = 'net'; Field = 'ports'
-           Droits = 'tous'; Critique = $false
+           Rights = 'all'; Critical = $false
            Help = 'Les ports réseau temporaires approchent de la limite de Windows : à la limite, plus aucune application ne peut ouvrir de connexion. La bulle nomme les processus qui en tiennent le plus.' }
         @{ Key = 'dns-ko'; Label = 'Résolution DNS en échec'
            Card = 'net'; Field = 'dns'
-           Droits = 'admin'; Critique = $true
+           Rights = 'admin'; Critical = $true
            Help = 'Les noms de domaine ne se résolvent plus.' }
     )
 

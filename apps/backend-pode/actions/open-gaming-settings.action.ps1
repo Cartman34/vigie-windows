@@ -1,7 +1,7 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+# @rights: all   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 # @execution: session   -- ouvre une fenetre : elle doit s'afficher chez le DEMANDEUR
-# @libelle: Paramètres de jeu | manual | info   -- bouton PERMANENT de sa carte (D114)
+# @label: Paramètres de jeu | manual | info   -- bouton PERMANENT de sa carte (D114)
 <# An action: it opens Windows's gaming settings.
 
    Intent: lead the user to the right place rather than act in their place, which is the second family of D66

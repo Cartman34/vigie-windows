@@ -30,11 +30,11 @@
     Notifications = @(
         @{ Key = 'wsl-down'; Label = 'WSL arrêté'
            Card = 'wsl'; Field = 'running'
-           Droits = 'tous'; Critique = $false
+           Rights = 'all'; Critical = $false
            Help = 'La machine virtuelle WSL ne tourne plus.' }
         @{ Key = 'wsl-memory'; Label = 'WSL occupe beaucoup de mémoire'
            Card = 'wsl'; Field = 'vmMemory'
-           Droits = 'tous'; Critique = $false
+           Rights = 'all'; Critical = $false
            Help = 'La machine virtuelle de WSL dépasse le seuil de mémoire. La carte dit comment la borner dans .wslconfig.' }
     )
 

@@ -77,27 +77,27 @@
     Notifications = @(
         @{ Key = 'game-recap'; Label = 'Récapitulatif de partie'
            Card = 'gaming'; Field = 'last-session'
-           Droits = 'tous'; Critique = $false
+           Rights = 'all'; Critical = $false
            Help = 'À la fin d''une partie, propose d''ouvrir son récapitulatif. Sans effet si l''ouverture automatique est activée.' }
         @{ Key = 'game-jam'; Label = 'Quelque chose gêne la partie'
            Card = 'gaming'; Field = 'jam'
-           Droits = 'tous'; Critique = $false
+           Rights = 'all'; Critical = $false
            Help = 'La machine est à son plafond depuis plusieurs minutes et une application étrangère au jeu y prend une part à elle seule.' }
         @{ Key = 'gpu-temp'; Label = 'Température GPU élevée'
            Card = 'gaming'; Field = 'gpu-temp'
-           Droits = 'tous'; Critique = $false
+           Rights = 'all'; Critical = $false
            Help = 'La carte graphique chauffe au-delà du seuil, ou se bride.' }
         @{ Key = 'vram-full'; Label = 'Mémoire graphique saturée'
            Card = 'gaming'; Field = 'vram'
-           Droits = 'tous'; Critique = $false
+           Rights = 'all'; Critical = $false
            Help = 'La VRAM est pleine : saccades à prévoir en jeu.' }
         @{ Key = 'hogs'; Label = 'Applications gourmandes pendant une partie'
            Card = 'gaming'; Field = 'hogs'
-           Droits = 'tous'; Critique = $false
+           Rights = 'all'; Critical = $false
            Help = 'Une application consomme beaucoup pendant que le jeu tourne.' }
         @{ Key = 'battery'; Label = 'Partie sur batterie'
            Card = 'gaming'; Field = 'power'
-           Droits = 'tous'; Critique = $false
+           Rights = 'all'; Critical = $false
            Help = 'Sur batterie, processeur et carte graphique sont bridés.' }
     )
 }

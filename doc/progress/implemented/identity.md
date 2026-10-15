@@ -68,7 +68,7 @@ d'ouverture, et donc un arbitrage à consigner.
 ## Les droits : on juge LE DEMANDEUR
 
 **D65 : par défaut, Vigie ne permet rien de plus que ce que Windows permet déjà à ce compte.** Une action déclare
-`# @droits: admin` ou `# @droits: tous` en tête de son fichier ; `config/actions.policy.json` (couche machine) peut
+`# @rights: admin` ou `# @rights: all` en tête de son fichier ; `config/actions.policy.json` (couche machine) peut
 ouvrir ou fermer une action nommément — c'est là que l'utilisateur change d'avis sur une action précise. Sans
 déclaration : `admin`. Le silence n'ouvre rien.
 

@@ -1,5 +1,5 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+# @rights: all   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 <# An action: it stops WSL (bounded by a timeout so as not to freeze). Intent: stop the VM without ever hanging on it. Usage: cited by the WSL card. #>
 param([string]$Module, [hashtable]$Params)
 $job = Start-Job { & wsl.exe --shutdown 2>&1 }

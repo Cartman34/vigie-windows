@@ -31,7 +31,7 @@
     Notifications = @(
         @{ Key = 'pkg-updates'; Label = 'Mises à jour de logiciels disponibles'
            Card = ''; Field = 'updates'
-           Droits = 'admin'; Critique = $false
+           Rights = 'admin'; Critical = $false
            Help = 'Un gestionnaire de paquets signale des mises à jour.' }
     )
 

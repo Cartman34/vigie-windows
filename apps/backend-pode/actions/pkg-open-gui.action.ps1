@@ -1,5 +1,5 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+# @rights: all   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 # @execution: session   -- ouvre une fenetre : elle doit s'afficher chez le DEMANDEUR
 <# The pkg-open-gui action: it opens the package manager's graphical interface.
    Intent: lead the user to the tool rather than act in their place. The twin of open-windows-update: it installs

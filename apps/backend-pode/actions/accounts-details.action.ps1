@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: admin   -- lit dans le profil des autres comptes : Windows exige l'elevation (D65)
-# @libelle: Details des comptes | immediate | info   -- affiche quand un champ cite cette action (D66)
+# @rights: admin   -- lit dans le profil des autres comptes : Windows exige l'elevation (D65)
+# @label: Details des comptes | immediate | info   -- affiche quand un champ cite cette action (D66)
 <# An action: the detail of the machine's accounts.
 
    Intent: answer the questions that follow the card. The card says the essentials at a glance (who, Vigie or

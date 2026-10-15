@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: admin   -- installe un logiciel pour toute la machine : Windows exige l'elevation (D65)
-# @libelle: Installer PowerShell 7 pour la machine | confirm | fix   -- affiche quand un champ cite cette action (D66)
+# @rights: admin   -- installe un logiciel pour toute la machine : Windows exige l'elevation (D65)
+# @label: Installer PowerShell 7 pour la machine | confirm | fix   -- affiche quand un champ cite cette action (D66)
 <# An action: it installs PowerShell 7 for THE WHOLE MACHINE (winget, machine scope).
 
    Intent: make sure every account's start-up task can start pwsh. When PowerShell 7 comes from the Store, its

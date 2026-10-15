@@ -1,5 +1,5 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+# @rights: all   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 # @execution: session   -- un gestionnaire de paquets appartient a la session qui l'a installe (D128)
 <#
     Action: ask ONE package manager what it has to update, or update it, in the session of whoever asks.

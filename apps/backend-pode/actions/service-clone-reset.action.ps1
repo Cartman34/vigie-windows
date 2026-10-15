@@ -1,5 +1,5 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: admin   -- it rewrites data the service account owns (D65)
+# @rights: admin   -- it rewrites data the service account owns (D65)
 <# Action: rebuilds the service clone from the declared source, whatever its state. The old clone goes only once
    the new one exists. The maintenance of the clone, as doc/progress/targeting/components.md requires it. #>
 param([string]$Module, [hashtable]$Params)

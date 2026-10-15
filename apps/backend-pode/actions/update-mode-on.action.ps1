@@ -1,5 +1,5 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: admin   -- modifie le systeme : Windows exige l'elevation (D65)
+# @rights: admin   -- modifie le systeme : Windows exige l'elevation (D65)
 <# The update-mode-on action: it switches to UPDATE MODE (it lifts the lock).
 
    Intent: be a NATIVE ability of the product -- no dependency on tooling outside the repository. All the writing

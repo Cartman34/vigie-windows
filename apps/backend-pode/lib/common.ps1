@@ -10536,6 +10536,22 @@ function Invoke-ClientTask {
 #   2. the machine's POLICY, config/actions.policy.json, which can open or close an action by
 #      name -- that is where the user changes their mind.
 # With no declaration: `admin`. Silence opens nothing.
+<#
+    THE VALUE OF A RIGHT, IN ONE WORD AND IN ONE PLACE.
+
+    The word was French until 15/10 -- the line below is the only place that still spells it -- and it is `all`
+    now. Files on disk, a configuration written by hand, an installation half upgraded: any of them may still
+    carry the old spelling, and none should lose its rights over it. Everything that reads a right passes through
+    here, so the day the old spelling is gone, it is removed HERE and nowhere else.
+#>
+function ConvertTo-RightsValue {
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$Value)
+    $v = "$Value".Trim().ToLowerInvariant()
+    if ($v -eq 'tous') { return 'all' }
+    if (-not $v) { return 'all' }
+    return $v
+}
+
 function Get-ActionRequirement {
     param(
         [Parameter(Mandatory)][string]$Type,
@@ -10547,7 +10563,7 @@ function Get-ActionRequirement {
         if (Test-Path -LiteralPath $pol) {
             $j = Get-Content -LiteralPath $pol -Raw -Encoding UTF8 | ConvertFrom-Json
             $v = $j.PSObject.Properties | Where-Object { $_.Name -eq $Type } | Select-Object -First 1
-            if ($v -and "$($v.Value)" -match '^(admin|tous)$') { return "$($v.Value)" }
+            if ($v -and "$($v.Value)" -match '^(admin|tous|all)$') { return (ConvertTo-RightsValue "$($v.Value)") }
         }
     } catch { }
     # 2. The action's declaration.
@@ -10556,7 +10572,9 @@ function Get-ActionRequirement {
         if (Test-Path -LiteralPath $f) {
             foreach ($line in (Get-Content -LiteralPath $f -TotalCount 40)) {
                 # The value may be followed by a comment: we stop at the word, not the line.
-                if ($line -match '^\s*#\s*@droits\s*:\s*(admin|tous)') { return $Matches[1] }
+                # BOTH SPELLINGS, the time of the pass: `@droits:` was the keyword until 15/10, and a file that
+                # still carries it must keep working -- an action nobody can read is an action that vanishes.
+                if ($line -match '^\s*#\s*@(?:droits|rights)\s*:\s*(admin|tous|all)') { return (ConvertTo-RightsValue $Matches[1]) }
             }
         }
     } catch { }
@@ -10566,7 +10584,7 @@ function Get-ActionRequirement {
 # Can the action be launched HERE and NOW? It returns a speaking object: the front end must
 # be able to SAY why a button is inert -- an action never disappears (D59).
 # What the action DISPLAYS when a field names it: label, kind, severity. Declared at the head
-# of the action's file (`# @libelle: Text | kind | severity`), beside the rights.
+# of the action's file (`# @label: Text | kind | severity`), beside the rights.
 # With no declaration: "Resoudre", in immediate/fix -- a speaking button beats no button
 # (D66), but a precise label beats a generic word.
 function Get-ActionPresentation {
@@ -10579,7 +10597,7 @@ function Get-ActionPresentation {
         $f = Join-Path $Backend ("actions/$Type.action.ps1")
         if (Test-Path -LiteralPath $f) {
             foreach ($line in (Get-Content -LiteralPath $f -TotalCount 40)) {
-                if ($line -match '^\s*#\s*@libelle\s*:\s*(.+)$') {
+                if ($line -match '^\s*#\s*@(?:libelle|label)\s*:\s*(.+)$') {
                     $bouts = @("$($Matches[1])" -split '\|' | ForEach-Object { $_.Trim() })
                     # The comment following "--" is not part of the declaration.
                     if ($bouts.Count -ge 1 -and $bouts[0]) { $label = ($bouts[0] -replace '\s*--.*$', '').Trim() }
@@ -10598,7 +10616,7 @@ function Get-ActionPresentation {
 
     This function used to ask the wrong question. It answered "yes" as soon as
     Test-IsElevated was true -- and the server runs UNDER AN ADMINISTRATOR SERVICE ACCOUNT,
-    so always. An action marked "@droits: admin" went through for anybody: a standard
+    so always. An action marked "@rights: admin" went through for anybody: a standard
     account, and even a browser opened on the address with no identification at all. Meanwhile
     the users screen displayed "a standard account obtains no extra right: Vigie refuses it
     the administrator actions". The text promised a guard that did not exist, and the comment
@@ -11115,8 +11133,11 @@ function Get-NotificationCatalog {
                 card  = if ($nn.Card) { "$($nn.Card)" } else { '' }
                 field = if ($nn.Field) { "$($nn.Field)" } else { '' }
                 # WHO can do something about it, and must they be told all the same?
-                rights   = if ($nn.Droits) { "$($nn.Droits)" } else { 'tous' }
-                critical = [bool]$nn.Critique
+                # The manifest said `Droits` and `Critique` until 15/10: both spellings are read, the English one
+                # first, so a module declared either way keeps its notifications.
+                rights   = $(if ($nn.Rights) { ConvertTo-RightsValue "$($nn.Rights)" }
+                             elseif ($nn.Droits) { ConvertTo-RightsValue "$($nn.Droits)" } else { 'all' })
+                critical = [bool]$(if ($null -ne $nn.Critical) { $nn.Critical } else { $nn.Critique })
             }
         })
         [pscustomobject][ordered]@{ unit = $u.id; label = $u.label; enabled = $u.enabled; notifications = $notifs }
@@ -11411,7 +11432,7 @@ function Write-VigieAudit {
         [Parameter(Mandatory)][string]$Action,
         [string]$Module,
         [string]$Requester = (Get-ActionRequester),
-        [string]$Rights = 'tous',
+        [string]$Rights = 'all',
         [string]$Detail,
         [int]$Milliseconds = 0,
         [string]$Backend = (Get-BackendRoot)
@@ -11470,7 +11491,7 @@ function Invoke-ActionById {
     # that we write who asked for what and what came out of it. A REFUSAL is traced as much as a success -- it is
     # even the one read back after an incident.
     $requester = Get-ActionRequester
-    $rights    = try { (Get-ActionRequirement -Type $Type -Backend $Backend) } catch { 'tous' }
+    $rights    = try { (Get-ActionRequirement -Type $Type -Backend $Backend) } catch { 'all' }
     $timer    = [System.Diagnostics.Stopwatch]::StartNew()
 
     $droit = Test-ActionAllowed -Type $Type -Backend $Backend

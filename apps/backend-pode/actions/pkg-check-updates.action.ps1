@@ -1,5 +1,5 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+# @rights: all   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 <# An action: it checks ONE manager's updates (in the background).
    Intent: answer at once and let the card follow. The manager is deduced from the module that was clicked
    (pkg-<id>) or from params.mgr. An immediate answer (async): the card goes to "under way" and refreshes itself. #>

@@ -12,27 +12,27 @@
     Notifications = @(
         @{ Key = 'av-off'; Label = 'Antivirus inactif'
            Card = 'antivirus'; Field = 'enabled'
-           Droits = 'admin'; Critique = $true
+           Rights = 'admin'; Critical = $true
            Help = 'La protection en temps réel n''est plus active.' }
         @{ Key = 'av-old'; Label = 'Antivirus non à jour'
            Card = 'antivirus'; Field = 'upToDate'
-           Droits = 'admin'; Critique = $true
+           Rights = 'admin'; Critical = $true
            Help = 'Les signatures de l''antivirus datent.' }
         @{ Key = 'fw-domain'; Label = 'Pare-feu : profil Domaine coupé'
            Card = 'firewall'; Field = 'domain'
-           Droits = 'admin'; Critique = $true
+           Rights = 'admin'; Critical = $true
            Help = 'Le pare-feu est désactivé sur le profil Domaine.' }
         @{ Key = 'fw-private'; Label = 'Pare-feu : profil Privé coupé'
            Card = 'firewall'; Field = 'private'
-           Droits = 'admin'; Critique = $true
+           Rights = 'admin'; Critical = $true
            Help = 'Le pare-feu est désactivé sur le profil Privé.' }
         @{ Key = 'fw-public'; Label = 'Pare-feu : profil Public coupé'
            Card = 'firewall'; Field = 'public'
-           Droits = 'admin'; Critique = $true
+           Rights = 'admin'; Critical = $true
            Help = 'Le pare-feu est désactivé sur le profil Public.' }
         @{ Key = 'vbs-off'; Label = 'Sécurité par virtualisation coupée'
            Card = 'vbs'; Field = 'vbs'
-           Droits = 'admin'; Critique = $false
+           Rights = 'admin'; Critical = $false
            Help = 'VBS n''est plus activée.' }
     )
 

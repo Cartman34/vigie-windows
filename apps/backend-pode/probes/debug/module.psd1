@@ -26,15 +26,15 @@
     Notifications = @(
         @{ Key = 'watch-stalled'; Label = 'Une tâche de veille est bloquée'
            Card = 'vigie-self'; Field = 'watch'
-           Droits = 'tous'; Critique = $false
+           Rights = 'all'; Critical = $false
            Help = 'Un des travaux que Vigie lance d''elle-même toutes les trente secondes dépasse son plafond : les cartes qu''il alimente ne se mettent plus à jour.' }
         @{ Key = 'vigie-runaway'; Label = 'Vigie s''emballe'
            Card = 'vigie-self'; Field = 'count'
-           Droits = 'tous'; Critique = $false
+           Rights = 'all'; Critical = $false
            Help = 'Vigie a lancé plus de processus que le seuil, ou un résident tourne hors de l''app serveur. La bulle dit lesquels.' }
         @{ Key = 'vigie-memory'; Label = 'Vigie occupe trop de mémoire'
            Card = 'vigie-self'; Field = 'memory'
-           Droits = 'tous'; Critique = $false
+           Rights = 'all'; Critical = $false
            Help = 'Les processus de Vigie réunis dépassent le seuil de mémoire. La bulle nomme les plus lourds.' }
     )
 

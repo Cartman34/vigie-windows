@@ -1,5 +1,5 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+# @rights: all   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 <# An action: it lists the Windows updates that were detected and NOT installed.
 
    Intent: let somebody be asked WHAT to install, which is impossible without showing them the list with a

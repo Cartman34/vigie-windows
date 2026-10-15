@@ -1,7 +1,7 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: tous   -- needs no privilege Windows does not already grant (D65)
+# @rights: all   -- needs no privilege Windows does not already grant (D65)
 # @execution: session   -- opens a window: it must appear in the REQUESTER's session
-# @libelle: Observateur d'événements | manual | info   -- shown when a field names this action (D66)
+# @label: Observateur d'événements | manual | info   -- shown when a field names this action (D66)
 <# Action: opens the Windows Event Viewer, where the errors named by the card "Journal Windows" are read in full. #>
 param([string]$Module, [hashtable]$Params)
 try {

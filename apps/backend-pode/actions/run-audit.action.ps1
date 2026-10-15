@@ -1,5 +1,5 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+# @rights: all   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 <# The run-audit action: a full audit of the Windows Update machinery. READ ONLY.
 
    Intent: be a NATIVE ability of the product (Invoke-UpdateAudit, lib/common.ps1): a diagnostic tool that

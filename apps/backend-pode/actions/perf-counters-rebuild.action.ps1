@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: admin   -- modifie le systeme : Windows exige l'elevation (D65)
-# @libelle: Reconstruire les compteurs | immediate | fix   -- affiche quand un champ cite cette action (D66)
+# @rights: admin   -- modifie le systeme : Windows exige l'elevation (D65)
+# @label: Reconstruire les compteurs | immediate | fix   -- affiche quand un champ cite cette action (D66)
 <# An action: it rebuilds Windows's performance counters.
 
    Intent: give back to the Gaming card the ability to say WHO is using the graphics processor. When the GPU

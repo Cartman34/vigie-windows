@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
-# @libelle: Gerer les comptes | dialog | info   -- affiche quand un champ cite cette action (D66)
+# @rights: all   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+# @label: Gerer les comptes | dialog | info   -- affiche quand un champ cite cette action (D66)
 <# An action: it opens Settings > Users.
 
    Intent: be known to the controller and to the rights policy even though THE INTERFACE handles it (the front

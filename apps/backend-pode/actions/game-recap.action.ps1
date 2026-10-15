@@ -1,7 +1,7 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: tous   -- reads what Vigie kept of a past session (D65)
+# @rights: all   -- reads what Vigie kept of a past session (D65)
 # @execution: serveur   -- the sessions are kept by the server app, which alone writes them
-# @libelle: Voir le récapitulatif | dialog | info   -- shown when a field names this action (D66)
+# @label: Voir le récapitulatif | dialog | info   -- shown when a field names this action (D66)
 <# Action: hands over the recap of a game session -- the last one, or the one asked for.
 
    The recap is ALWAYS a popin (owner, 28/09): there is too much in it for a card, and the same window must open

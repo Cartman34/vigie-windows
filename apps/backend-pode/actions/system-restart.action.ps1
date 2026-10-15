@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
-# @libelle: Redémarrer Windows | confirm | fix   -- affiche quand un champ cite cette action (D66)
+# @rights: all   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+# @label: Redémarrer Windows | confirm | fix   -- affiche quand un champ cite cette action (D66)
 <# Action : redemarrer Windows.
 
    Intent: make the most intrusive gesture of the application safe. It closes everything the user has open.

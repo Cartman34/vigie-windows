@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: admin   -- modifie le systeme : Windows exige l'elevation (D65)
-# @libelle: Purger le cache DNS | immediate | fix   -- affiche quand un champ cite cette action (D66)
+# @rights: admin   -- modifie le systeme : Windows exige l'elevation (D65)
+# @label: Purger le cache DNS | immediate | fix   -- affiche quand un champ cite cette action (D66)
 <# An action: it purges the DNS cache -- Windows's AND the local proxy's if there is one (Acrylic).
 
    Intent: fix the case where a stale DNS cache makes SOME sites unreachable (observed on 25/08: two sites

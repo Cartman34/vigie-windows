@@ -1,5 +1,5 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: admin   -- modifie le systeme : Windows exige l'elevation (D65)
+# @rights: admin   -- modifie le systeme : Windows exige l'elevation (D65)
 <# The toggle-vbs action: it switches virtualisation-based security (VBS) on or off.
 
    Intent: be a NATIVE ability of the product -- no dependency on tooling outside the repository. All the

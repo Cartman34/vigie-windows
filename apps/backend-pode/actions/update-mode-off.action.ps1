@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: admin   -- modifie le systeme : Windows exige l'elevation (D65)
-# @libelle: Verrouiller maintenant | immediate | fix   -- affiche quand un champ cite cette action (D66)
+# @rights: admin   -- modifie le systeme : Windows exige l'elevation (D65)
+# @label: Verrouiller maintenant | immediate | fix   -- affiche quand un champ cite cette action (D66)
 <# The update-mode-off action: it LOCKS AGAIN (it switches automatic updates off and lays the ACL lock down).
 
    Intent: be a NATIVE ability of the product -- no dependency on tooling outside the repository. All the writing

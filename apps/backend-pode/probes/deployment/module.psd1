@@ -15,11 +15,11 @@
     Notifications = @(
         @{ Key = 'operation'; Label = 'Déploiement terminé ou en échec'
            Card = 'deployment'; Field = 'lastrun'
-           Droits = 'admin'; Critique = $false
+           Rights = 'admin'; Critical = $false
            Help = 'Le déploiement ou l''installation d''une dépendance vient de se terminer, ou a échoué.' }
         @{ Key = 'pwsh-manquant'; Label = 'PowerShell 7 absent ou limité à un compte'
            Card = 'deployment'; Field = 'pwsh'
-           Droits = 'admin'; Critique = $true
+           Rights = 'admin'; Critical = $true
            Help = 'Les tâches de démarrage lancent PowerShell 7 : sans lui, Vigie ne redémarre pas.' }
     )
 

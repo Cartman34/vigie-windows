@@ -1,5 +1,5 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: admin   -- modifie le systeme : Windows exige l'elevation (D65)
+# @rights: admin   -- modifie le systeme : Windows exige l'elevation (D65)
 <# An action: it starts an ONLINE search for Windows updates.
 
    Intent: see what the card cannot. Not to be confused with what the card displays: the card reads Windows

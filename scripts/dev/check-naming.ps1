@@ -55,7 +55,7 @@ $COMMENT_CEILING = 713
 # the window dressing -- brought the library to 22 and the repository to 3517.
 #
 # WHAT IS LEFT IN common.ps1 IS NOT FRENCH PROSE: those 22 lines QUOTE French displayed text -- a label, a log
-# message, a page title, a `@droits:` header keyword -- inside an English sentence. The lexicon cannot tell the
+# message, a page title, a `@rights:` header keyword -- inside an English sentence. The lexicon cannot tell the
 # difference, and rewriting the quotation would make the comment lie about what the screen says. They stay.
 #
 # 08/10, apps/client/client.ps1: 390 -> 11 French comment lines, and the repository from 3517 to 3138. The eleven

@@ -30,7 +30,7 @@ at zero (**D108**, closed on 30/09).*
 | **group** (*groupe*) | a card's family, shown above its title: Comptes, Système, Réseau… |
 | **field** (*champ*) | a row of a card: a label, a value, a status, a help text, sometimes a button. |
 | **status** (*statut*) | `ok` · `warn` · `error` · `neutral`. A `warn` or an `error` **always carries** the gesture that fixes it (D66). |
-| **action** | what a button triggers. It declares its rights (`@droits`) and where it runs (`@execution`). |
+| **action** | what a button triggers. It declares its rights (`@rights`) and where it runs (`@execution`). |
 
 ## What measures
 

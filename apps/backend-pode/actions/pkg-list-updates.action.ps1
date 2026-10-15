@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
-# @libelle: Mettre à jour | dialog | fix   -- affiche quand un champ cite cette action (D66)
+# @rights: all   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+# @label: Mettre à jour | dialog | fix   -- affiche quand un champ cite cette action (D66)
 # @execution: session   -- son repli interroge le gestionnaire, qui appartient a la session (D128)
 <# An action: it lists ONE manager's packages to be updated, for the window of choice.
 

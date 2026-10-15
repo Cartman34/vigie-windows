@@ -1,5 +1,5 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+# @rights: all   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 <# An action: it starts WSL (booting the default distribution), bounded by a timeout. Intent: boot the VM without ever freezing on it. Usage: cited by the WSL card. #>
 param([string]$Module, [hashtable]$Params)
 # -e true: it runs /bin/true inside the default distribution -> which boots the WSL VM.

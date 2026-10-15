@@ -81,27 +81,27 @@
     Notifications = @(
         @{ Key = 'disk-low'; Label = 'Espace disque faible'
            Card = 'storage'; Field = 'free'
-           Droits = 'tous'; Critique = $false
+           Rights = 'all'; Critical = $false
            Help = 'Le disque système passe sous le seuil d''alerte.' }
         @{ Key = 'reboot'; Label = 'Redémarrage en attente'
            Card = 'os'; Field = 'rebootPending'
-           Droits = 'tous'; Critique = $false
+           Rights = 'all'; Critical = $false
            Help = 'Windows attend un redémarrage pour finir une installation.' }
         @{ Key = 'ram-high'; Label = 'Mémoire vive saturée'
            Card = 'perf'; Field = 'ramUsed'
-           Droits = 'tous'; Critique = $false
+           Rights = 'all'; Critical = $false
            Help = 'La mémoire utilisée dépasse le seuil : la machine va ralentir.' }
         @{ Key = 'commit-high'; Label = 'Mémoire engagée proche de sa limite'
            Card = 'perf'; Field = 'commit'
-           Droits = 'tous'; Critique = $false
+           Rights = 'all'; Critical = $false
            Help = 'La mémoire promise aux applications approche de sa limite : Windows va refuser des allocations et alerter de saturation. La bulle nomme les applications qui en occupent le plus.' }
         @{ Key = 'system-errors'; Label = 'Erreur système'
            Card = 'events'; Field = 'known'
-           Droits = 'tous'; Critique = $false
+           Rights = 'all'; Critical = $false
            Help = 'Windows a consigné une erreur grave : ports réseau ou mémoire épuisés, arrêt inattendu, pilote graphique, disque, matériel. La bulle la nomme.' }
         @{ Key = 'power-under'; Label = 'Machine sous-alimentée'
            Card = 'power'; Field = 'under'
-           Droits = 'tous'; Critique = $false
+           Rights = 'all'; Critical = $false
            Help = 'Branchée au secteur, la machine se décharge quand même ou charge trop lentement : le chargeur ne couvre pas la consommation.' }
     )
 }

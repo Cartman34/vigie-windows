@@ -1,5 +1,5 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: admin   -- touche le cache commun, donc ce que tous les comptes voient (D65)
+# @rights: admin   -- touche le cache commun, donc ce que tous les comptes voient (D65)
 # @execution: serveur   -- le cache des sondes vit chez l'app serveur
 <#
     Action: mark a probe's cache stale, so that the scheduler computes it again at its next pass.

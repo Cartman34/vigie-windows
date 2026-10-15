@@ -1,7 +1,7 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: tous   -- le serveur se relance avec SES droits, il n'en accorde aucun (D65)
+# @rights: all   -- le serveur se relance avec SES droits, il n'en accorde aucun (D65)
 # @execution: serveur   -- c'est le serveur lui-meme qui doit agir, pas une app cliente
-# @libelle: Redémarrer le serveur | confirm | fix   -- the words of the client app menu, for the same gesture (D66)
+# @label: Redémarrer le serveur | confirm | fix   -- the words of the client app menu, for the same gesture (D66)
 <#
     The server-restart action: THE SERVER RESTARTS ITSELF.
 

@@ -1,5 +1,5 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: admin   -- modifie le systeme : Windows exige l'elevation (D65)
+# @rights: admin   -- modifie le systeme : Windows exige l'elevation (D65)
 <# The toggle-hvci action: it switches memory integrity (HVCI) on or off.
 
    Intent: be a NATIVE ability of the product -- no dependency on tooling outside the repository. All the

@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: tous   -- lecture seule : n'exige aucun privilege (D65)
-# @libelle: Explorer l'arborescence | dialog | info   -- affiche quand un champ cite cette action (D66)
+# @rights: all   -- lecture seule : n'exige aucun privilege (D65)
+# @label: Explorer l'arborescence | dialog | info   -- affiche quand un champ cite cette action (D66)
 <# An action: it opens the disc tree explorer.
 
    Intent: answer something useful even when the interface is not the caller. The interface intercepts it to open

@@ -1,5 +1,5 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: admin   -- it deletes data the service account owns (D65)
+# @rights: admin   -- it deletes data the service account owns (D65)
 <# Action: resets one part of the server's data -- params.part = 'cache' or 'history'. The cache is recomputed at the
    next reading; the history starts again from the next measurement. Busy marks live in var/run and are not touched:
    an operation in progress stays visible. The maintenance doc/progress/targeting/components.md requires for both. #>

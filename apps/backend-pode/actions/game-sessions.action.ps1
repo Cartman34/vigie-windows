@@ -1,7 +1,7 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: tous   -- reads what Vigie kept of past sessions (D65)
+# @rights: all   -- reads what Vigie kept of past sessions (D65)
 # @execution: serveur   -- the sessions are kept by the server app, which alone writes them
-# @libelle: Parties précédentes | dialog | info   -- shown when a field names this action (D66)
+# @label: Parties précédentes | dialog | info   -- shown when a field names this action (D66)
 <# Action: the list of the game sessions kept, most recent first.
 
    One line per game: when, which game, how long, and the bottleneck worth naming. The full recap of any of them is

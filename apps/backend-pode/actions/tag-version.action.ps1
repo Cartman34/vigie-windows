@@ -1,5 +1,5 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: admin   -- marque une version du produit : ce n'est pas un geste anodin (D65)
+# @rights: admin   -- marque une version du produit : ce n'est pas un geste anodin (D65)
 # @execution: session   -- le tag s'ecrit dans le depot du DEMANDEUR, sous SON compte
 <# An action: it lays the version tag down, inside the repository of the person who asks.
 

@@ -1,5 +1,5 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: admin   -- it rewrites data the service account owns (D65)
+# @rights: admin   -- it rewrites data the service account owns (D65)
 <# Action: repairs the service clone -- forced fetch, then a fresh clone if git still refuses.
    The maintenance of the clone, as doc/progress/targeting/components.md requires it. #>
 param([string]$Module, [hashtable]$Params)

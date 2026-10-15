@@ -185,11 +185,11 @@ dans le profil du compte, `%LOCALAPPDATA%\Sowapps\Vigie\var\run\`,
 
 ### Ce qu'une action doit déclarer
 
-**Rien de nouveau du côté des droits : ils sont déjà déclarés.** Chaque action porte son `# @droits:` depuis le début —
+**Rien de nouveau du côté des droits : ils sont déjà déclarés.** Chaque action porte son `# @rights:` depuis le début —
 **15 `admin`, 26 `tous`** au 28/08/2026. Il n'y a pas de taxonomie à réinventer, seulement une sémantique à faire
 tenir.
 
-| `# @droits:` | Qui peut lancer | Ce qui change |
+| `# @rights:` | Qui peut lancer | Ce qui change |
 |---|---|---|
 | `tous` | tout compte activé | Aujourd'hui l'action s'exécute avec les droits du compte. Demain elle s'exécute **dans le serveur élevé, au nom du demandeur** — c'est exactement ce qui manquait à un compte standard. |
 | `admin` | comptes administrateurs uniquement | inchangé |
@@ -204,7 +204,7 @@ compte standard ne peut pas les mener à bien aujourd'hui faute d'élévation. L
 | *(absent)* | serveur, session 0 | tout ce qui touche la machine : verrou Windows Update, disque, tâches, déploiement |
 | `utilisateur` | **app cliente du demandeur** | les 9 `open-*`, les `wsl-*`, les `pkg-*` — elles n'ont de sens que dans sa session (C3, C4) |
 
-**Refus par défaut sur les deux axes** : sans `@droits`, c'est `admin` ; une action `@session: utilisateur` sans app cliente
+**Refus par défaut sur les deux axes** : sans `@rights`, c'est `admin` ; une action `@session: utilisateur` sans app cliente
 en ligne est refusée avec sa raison, jamais mise en attente indéfiniment.
 
 ---

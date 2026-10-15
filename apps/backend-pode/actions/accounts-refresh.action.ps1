@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: tous   -- ne fait que relire l'etat de la machine (D65)
-# @libelle: Actualiser la liste | immediate | info   -- affiche quand un champ cite cette action (D66)
+# @rights: all   -- ne fait que relire l'etat de la machine (D65)
+# @label: Actualiser la liste | immediate | info   -- affiche quand un champ cite cette action (D66)
 <# An action: it makes the reading of the machine's accounts again.
 
    Intent: let one not wait when a Windows account has just been added or removed. The inventory is remembered

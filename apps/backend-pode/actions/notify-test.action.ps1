@@ -1,7 +1,7 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: tous   -- shows a notification in the requester's own session (D65)
+# @rights: all   -- shows a notification in the requester's own session (D65)
 # @execution: session   -- a notification belongs to a session: it must appear where somebody looks
-# @libelle: Envoyer une notification d'essai | immediate | info   -- shown when a field names this action (D66)
+# @label: Envoyer une notification d'essai | immediate | info   -- shown when a field names this action (D66)
 <# Action: sends a real notification, by the same door as the others.
 
    Why it exists: memory saturation, exhausted ports, system errors, Vigie running away -- every alert added in

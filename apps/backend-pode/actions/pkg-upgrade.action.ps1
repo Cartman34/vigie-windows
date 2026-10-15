@@ -1,5 +1,5 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: admin   -- modifie le systeme : Windows exige l'elevation (D65)
+# @rights: admin   -- modifie le systeme : Windows exige l'elevation (D65)
 <# An action: it updates ONE manager's packages (in the background).
    Intent: update what was chosen, and nothing more. The manager is deduced from the module (pkg-<id>) or from
    params.mgr. It changes the system -> so it goes through the window of choice (pkg-list-updates). An immediate

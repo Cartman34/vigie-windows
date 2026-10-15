@@ -1,5 +1,5 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+# @rights: all   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 <# An action: it restarts WSL (a clean stop then a boot), bounded by timeouts. Intent: restart the VM without ever hanging on it. Usage: cited by the WSL card. #>
 param([string]$Module, [hashtable]$Params)
 # 1) The stop.

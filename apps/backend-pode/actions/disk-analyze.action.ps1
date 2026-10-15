@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
-# @libelle: Analyser l'espace | immediate | info   -- affiche quand un champ cite cette action (D66)
+# @rights: all   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+# @label: Analyser l'espace | immediate | info   -- affiche quand un champ cite cette action (D66)
 <# An action: it starts the analysis of what the disc is used by (in the background).
    Intent: answer at once and let the card follow. An immediate answer (async): the card goes to "under way" and
    follows the progress. The walk itself is in workers/disk-scan.worker.ps1. Usage: from the Storage card. #>

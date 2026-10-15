@@ -1,5 +1,5 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: admin   -- modifie le systeme : Windows exige l'elevation (D65)
+# @rights: admin   -- modifie le systeme : Windows exige l'elevation (D65)
 <# An action: it installs the Windows updates the user CHOSE.
 
    Intent: install nothing without an explicit choice -- an empty list is refused rather than read as

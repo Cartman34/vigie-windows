@@ -1,7 +1,7 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+# @rights: all   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 # @execution: session   -- ouvre une fenetre : elle doit s'afficher chez le DEMANDEUR
-# @libelle: Ouvrir les journaux | manual | info   -- affiche quand un champ cite cette action (D66)
+# @label: Ouvrir les journaux | manual | info   -- affiche quand un champ cite cette action (D66)
 <# An action: it opens THIS account's logs folder in Explorer.
 
    Intent: open the right folder and not a guessed one. The logs live per account (Get-VarRoot): we open those of

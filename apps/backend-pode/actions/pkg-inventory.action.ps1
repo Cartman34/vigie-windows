@@ -1,5 +1,5 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: tous   -- needs no privilege Windows does not already grant (D65)
+# @rights: all   -- needs no privilege Windows does not already grant (D65)
 # @execution: session   -- a package manager belongs to the session that installed it
 <#
     Action: which package managers this account really has, and which version.

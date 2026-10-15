@@ -1,7 +1,7 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
-# @droits: tous   -- n'exige aucun privilege que Windows n'accorde deja (D65)
+# @rights: all   -- n'exige aucun privilege que Windows n'accorde deja (D65)
 # @execution: session   -- ouvre une fenetre : elle doit s'afficher chez le DEMANDEUR
-# @libelle: Gestionnaire des tâches | manual | info   -- affiche quand un champ cite cette action (D66)
+# @label: Gestionnaire des tâches | manual | info   -- affiche quand un champ cite cette action (D66)
 <# An action: it opens Windows's Task Manager.
 
    Intent: lead the user there rather than act in their place. It is the resolution offered when applications are
