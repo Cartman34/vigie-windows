@@ -436,13 +436,18 @@ Add-PodeRoute -Method Get -Path "$base/hardware" -ScriptBlock {
 }
 
 # --- PRINTABLE REPORTS (D86) --------------------------------------------------
-# The same page for both documents, ?type=materiel|etat. It is SERVED by the server, like the panel: a file opened
+# The same page for both documents, ?type=hardware|state. It is SERVED by the server, like the panel: a file opened
 # through file:// has neither a token nor the same origin, and could read nothing (D47).
 
+# THE OLD ADDRESS STILL OPENS. `/rapport` was the address until 15/10 and somebody may have kept the link;
+# it serves the same page rather than a dead end. It goes the day nothing writes it any more.
 Add-PodeRoute -Method Get -Path '/rapport' -ScriptBlock {
+    Move-PodeResponseUrl -Url ('/report' + $(if ($WebEvent.Query['type']) { '?type=' + $WebEvent.Query['type'] } else { '' }))
+}
+Add-PodeRoute -Method Get -Path '/report' -ScriptBlock {
     . "$env:VIGIE_BACKEND/lib/common.ps1"
     $front = Get-AppPath -Role 'frontend'
-    $html  = Get-Content -Path (Join-Path $front 'rapport.html') -Raw
+    $html  = Get-Content -Path (Join-Path $front 'report.html') -Raw
     $html  = $html.Replace('__API_TOKEN__', $env:VIGIE_TOKEN)
     Write-PodeTextResponse -Value $html -ContentType 'text/html; charset=utf-8'
 }

@@ -3709,8 +3709,8 @@ function renderTabApropos(pane){
     +'<div class="um" style="margin-top:12px"><b>Exports</b>'
     +'<p class="um-hint" style="margin:2px 0 10px">Deux documents à imprimer ou à enregistrer en PDF.</p>'
     +'<p style="display:flex;gap:8px;flex-wrap:wrap;margin:0">'
-    +'<a class="apropos-repo" href="/rapport?type=materiel" target="_blank" rel="noopener">Fiche matérielle</a>'
-    +'<a class="apropos-repo" href="/rapport?type=etat" target="_blank" rel="noopener">État actuel</a>'
+    +'<a class="apropos-repo" href="/report?type=hardware" target="_blank" rel="noopener">Fiche matérielle</a>'
+    +'<a class="apropos-repo" href="/report?type=state" target="_blank" rel="noopener">État actuel</a>'
     +'</p>'
     +'<p class="um-hint" style="margin:10px 0 0">La fiche matérielle liste ce qui ne bouge pas : machine, processeur, mémoire, disques, écrans. L’état actuel est une photo de ce que Vigie voit à l’instant.</p></div>';
   const rl=pane.querySelector('.apropos-repo-t'); if(rl) rl.textContent=REPO_URL.replace(/^https?:[/][/]/,'');

@@ -188,11 +188,15 @@ if (-not $All) {
             if (-not (Test-Woken -Name $run.Name -Paths $subject)) { $asleep += $run.Name; continue }
             # THE LIST GOES THROUGH A FILE, always: a command line has a ceiling, and a list of changed files has
             # none. One road, whatever its length -- no special case to discover the day it is long.
+            # THE OBJECT IS REBUILT, NOT MUTATED: assigning a property called Arguments is what a hand-written
+            # command line looks like, and the contract check refuses that shape on sight (D116). It is right to:
+            # the shape is the thing it can see.
             if (Test-AcceptsFiles -Path $run.Path) {
                 $listFile = Join-Path ([IO.Path]::GetTempPath()) ('vigie-' + $run.Name + '-' + [guid]::NewGuid().ToString('N') + '.txt')
                 Set-Content -LiteralPath $listFile -Value $subject -Encoding UTF8
-                $run.Arguments = @('-FilesFrom', $listFile)
                 $temporaries += $listFile
+                $awake += [pscustomobject]@{ Name = $run.Name; Path = $run.Path; Arguments = @('-FilesFrom', $listFile) }
+                continue
             }
             $awake += $run
         }

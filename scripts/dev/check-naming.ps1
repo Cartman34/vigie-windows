@@ -232,7 +232,7 @@ $COMMENT_CEILING = 713
 
     WHAT IS LEFT, ALL OF IT, SO NOBODY COUNTS IT AGAIN: 33 in show-confirm.ps1 and client.ps1, which open a window;
     5 in server.ps1 and 2 in install.ps1, which only run installed; 15 contract KEYS that cross between the back end
-    and the page (index.html, common.ps1, rapport.html), which are a protocol change, not a rename; and 15 scattered
+    and the page (index.html, common.ps1, report.html), which are a protocol change, not a rename; and 15 scattered
     over a dozen files, each a key or a parameter of the same kind. None of them is reachable by running a file
     here, which is the rule this count now obeys.
 
@@ -263,7 +263,7 @@ $COMMENT_CEILING = 713
     translated away.
 
     13/10, THE HARDWARE SHEET: 52 -> 42. Its forty-five keys moved on BOTH sides in one commit -- Get-HardwareSpecs
-    and rapport.html, the page that reads it and that no verifier parsed until that same day. A cached sheet of the
+    and report.html, the page that reads it and that no verifier parsed until that same day. A cached sheet of the
     old shape is NOT migrated: every value in it comes from the hardware, so it is read again, which is the
     difference between a derived reading and the record of something that happened.
 

@@ -12,8 +12,10 @@
       pwsh -File .\scripts\dev\rename-file.ps1 -From a.ps1 -To b.ps1 -DryRun     # says what it WOULD do
     Exit codes: 0 = renamed; 2 = refused before touching anything.
 
-    WHAT IT DOES: `git mv`, then it rewrites every tracked text file that names the old file -- by its path and by
-    its bare name -- and it SAYS which ones, with the count. What it refuses: a destination that already exists,
+    WHAT IT DOES: `git mv`, then it rewrites every tracked text file that names the old file -- by its path and
+    by its file name -- and it SAYS which ones, with the count. The BARE name, without its extension, is rewritten
+    only on -BareName: a base name can be an ordinary word of the language, and rewriting it translated French
+    prose the first time it was used. What it refuses: a destination that already exists,
     a source git does not track, a name git would consider the same file (Windows ignores case).
 
     WHAT IT DOES NOT DO, and that is deliberate: it does not touch the dated records of notes/evidence/. A record
@@ -25,7 +27,19 @@ param(
     [Parameter(Mandatory)][string] $From,
     [Parameter(Mandatory)][string] $To,
     # Say what would be done, change nothing.
-    [switch] $DryRun
+    [switch] $DryRun,
+    <#
+        ALSO REWRITE THE BARE NAME -- the file name without its extension -- which is OFF by default.
+
+        A base name can be an ordinary word of the language. Renaming the report page with this on rewrote
+        twenty-two files and translated that word wherever it stood in a sentence -- in the prose of the
+        documentation, and inside messages the application displays. A file name is a technical token; a word of a
+        sentence is not, and nothing tells them apart but the eye.
+
+        Ask for it when the name is a token nobody would write as a word -- `check-file-coherence`, `vigie-fetch`
+        -- and read the list it prints before saying yes.
+    #>
+    [switch] $BareName
 )
 
 $ErrorActionPreference = 'Stop'
@@ -56,7 +70,9 @@ $toBase   = [IO.Path]::GetFileNameWithoutExtension($toName)
 # a reference of the project.
 Write-Step 'Ce qui le désigne'
 $named = @()
-foreach ($rel in @(& git -C $repoRoot grep -l -F -e $fromRel -e $fromName -e $fromBase -- . 2>$null)) {
+$needles = @($fromRel, $fromName)
+if ($BareName) { $needles += $fromBase }
+foreach ($rel in @(& git -C $repoRoot grep -l -F @($needles | ForEach-Object { '-e'; $_ }) -- . 2>$null)) {
     $clean = "$rel".Trim()
     if (-not $clean -or $clean -eq $fromRel) { continue }
     $named += $clean.Replace([char]92, [char]47)
@@ -96,7 +112,8 @@ foreach ($rel in $toRewrite) {
     $text = [Text.Encoding]::UTF8.GetString($bytes, $(if ($hasMark) { 3 } else { 0 }), $bytes.Length - $(if ($hasMark) { 3 } else { 0 }))
     # From the most precise to the least: the full path, then the file name, then the bare name. In that order a
     # path is never half-rewritten by the pass that follows.
-    $new = $text.Replace($fromRel, $toRel).Replace($fromName, $toName).Replace($fromBase, $toBase)
+    $new = $text.Replace($fromRel, $toRel).Replace($fromName, $toName)
+    if ($BareName) { $new = $new.Replace($fromBase, $toBase) }
     if ($new -eq $text) { continue }
     $tmp = "$full.tmp"
     [IO.File]::WriteAllText($tmp, $new, [Text.UTF8Encoding]::new($hasMark))

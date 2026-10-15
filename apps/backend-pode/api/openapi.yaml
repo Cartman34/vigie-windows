@@ -228,7 +228,7 @@ paths:
       description: >
         Lecture CIM/WMI, gardee sept jours : le materiel ne change pas. `?fresh=1` relit tout
         de suite. Une fiche gardee dont la forme n'est plus celle-ci est relue, jamais migree :
-        chacune de ses valeurs vient du materiel. C'est rapport.html qui la lit.
+        chacune de ses valeurs vient du materiel. C'est report.html qui la lit.
       parameters:
         - name: fresh
           in: query
@@ -403,7 +403,7 @@ components:
       type: object
       description: >
         Ce qui ne bouge pas dans l'ordinateur, par sections. Les cles sont en anglais depuis
-        le 13/10, des deux cotes a la fois : rapport.html les lit.
+        le 13/10, des deux cotes a la fois : report.html les lit.
       properties:
         at: { type: string, description: "moment de la lecture, UTC" }
         machine:

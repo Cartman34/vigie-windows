@@ -94,8 +94,8 @@ td.num{text-align:right;white-space:nowrap}
 <body>
 <div class="barre">
   <button class="primaire" onclick="window.print()">Imprimer / Enregistrer en PDF</button>
-  <a href="/rapport?type=materiel" id="lienMat">Fiche matérielle</a>
-  <a href="/rapport?type=etat" id="lienEtat">État actuel</a>
+  <a href="/report?type=hardware" id="lienMat">Fiche matérielle</a>
+  <a href="/report?type=state" id="lienEtat">État actuel</a>
   <span class="info">Dans la fenêtre d'impression, choisissez « Enregistrer au format PDF ».</span>
 </div>
 
@@ -115,7 +115,8 @@ td.num{text-align:right;white-space:nowrap}
 <script>
 const TOKEN = '__API_TOKEN__';
 const API   = '/api/v1';
-const TYPE  = (new URLSearchParams(location.search).get('type') || 'materiel');
+const TYPE  = (t => (t === 'etat' ? 'state' : (t === 'materiel' ? 'hardware' : t)))
+              (new URLSearchParams(location.search).get('type') || 'hardware');
 
 const E = (t, a, ...enfants) => {
   const n = document.createElement(t);
@@ -310,9 +311,9 @@ async function currentState(){
 }
 
 (async () => {
-  document.getElementById('lien' + (TYPE === 'etat' ? 'Etat' : 'Mat')).style.fontWeight = '700';
+  document.getElementById('lien' + (TYPE === 'state' ? 'Etat' : 'Mat')).style.fontWeight = '700';
   try {
-    const d = (TYPE === 'etat') ? await currentState() : await ficheMaterielle();
+    const d = (TYPE === 'state') ? await currentState() : await ficheMaterielle();
     document.title = document.getElementById('titre').textContent + ' — Vigie';
     document.getElementById('pied').textContent =
       'Vigie · ' + document.getElementById('titre').textContent + ' · ' +

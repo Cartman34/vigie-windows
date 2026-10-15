@@ -22,7 +22,7 @@ $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 Write-Title 'La page du panneau'
 
 # THE PAGES OF THE PANEL, in the order a reader meets them.
-$pages = @('apps/frontend-web/index.html', 'apps/frontend-web/rapport.html', 'apps/frontend-web/no-session.html')
+$pages = @('apps/frontend-web/index.html', 'apps/frontend-web/report.html', 'apps/frontend-web/no-session.html')
 $missing = @($pages | Where-Object { -not (Test-Path -LiteralPath (Join-Path $repoRoot $_)) })
 if ($missing.Count) { Write-Fail ('Page introuvable : ' + ($missing -join ', ')); exit 2 }
 

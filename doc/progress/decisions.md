@@ -2337,7 +2337,7 @@ Demande : « les specs de l'ordi, le materiel, les choses qui ne bougent pas » 
 qui rappelle celui de l'app mais moins charge, ca doit faire plus document, avec un peu
 notre patte ».
 
-**Une seule page**, `rapport.html`, servie par le serveur comme le tableau de bord
+**Une seule page**, `report.html`, servie par le serveur comme le tableau de bord
 (jamais en `file://` : sans meme origine, elle ne pourrait rien lire -- D47), et deux
 contenus selon `?type=materiel|etat`. Le PDF sort de l'impression du navigateur : aucune
 dependance a installer, et le rendu suit la feuille `@media print` (A4, marges, pas de
