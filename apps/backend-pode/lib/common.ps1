@@ -6969,7 +6969,7 @@ function Write-MeasureSamples {
     try {
         # THE MOMENT IS ITS OWN. This function used to read $nowUtc from whoever called it -- Get-State defines one
         # before recomputing, so it worked by the accident of scope, and failed in silence anywhere else: the catch
-        # below turned it into « echantillonnage ignore ». Caught on 16/10 while adding a measurement.
+        # below turned it into a warning saying the sampling was skipped. Caught on 16/10 while adding a measure.
         $nowUtc = [datetime]::UtcNow
         $ids = @($script:MeasureCatalog.Keys | Where-Object { $script:MeasureCatalog[$_].Probe -eq $Probe })
         if ($ids.Count -eq 0) { return }
