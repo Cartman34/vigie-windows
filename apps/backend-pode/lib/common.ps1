@@ -6487,6 +6487,35 @@ function Write-ProbeRun {
 # For instance net.latency only has a NEW value when `measAt` moves, whatever the number of
 # recomputations of the probe between two throughput or latency measurements.
 $script:MeasureCatalog = @{
+    <#
+        VIGIE SE MESURE ELLE-MEME.
+
+        On 16/10 the owner asked whether 325 Mo for the server app was a lot, and whether it GROWS. Nothing could
+        answer: the catalogue held the machine's processor, memory, commit, latency, free space and the game's
+        graphics card -- nothing about Vigie. A reading taken in a message answers for one instant and dies with
+        the message; a series answers for good, and survives a restart.
+
+        The card already measures it (`vigie-self`, field `memory`, the sum over every process of Vigie). All that
+        was missing was to keep it. Tolerance of twenty megabytes: below that, the figure has not moved for anyone
+        reading it, and the history does not swell for nothing.
+
+        It depends on the `debug` module being enabled, since that is the card which measures. Disabled, the series
+        simply has no points -- which is honest, and visible.
+    #>
+    'vigie.memory' = @{
+        Probe = 'self.probe.ps1'; Kind = 'gauge'; Unit = 'Mo'; IntervalMinutes = 10; Tolerance = 20
+        Extract = {
+            param($Modules)
+            $m = @($Modules) | Where-Object { "$($_.id)" -eq 'vigie-self' } | Select-Object -First 1
+            if (-not $m) { return $null }
+            $f = @($m.fields) | Where-Object { "$($_.key)" -eq 'memory' } | Select-Object -First 1
+            if ($null -eq $f -or $null -eq $f.value) { return $null }
+            $v = 0.0
+            if (-not [double]::TryParse("$($f.value)", [Globalization.NumberStyles]::Float,
+                    [Globalization.CultureInfo]::InvariantCulture, [ref]$v)) { return $null }
+            return @{ v = $v }
+        }
+    }
     'disk.free' = @{
         # Tolerance: one gigabyte. Below that, free space has not moved for whoever reads it.
         Probe = 'disk.probe.ps1'; Kind = 'gauge'; Unit = 'Go'; IntervalMinutes = 30; Tolerance = 1
@@ -6938,6 +6967,10 @@ function Write-MeasureSamples {
         [Parameter(Mandatory)]$Modules
     )
     try {
+        # THE MOMENT IS ITS OWN. This function used to read $nowUtc from whoever called it -- Get-State defines one
+        # before recomputing, so it worked by the accident of scope, and failed in silence anywhere else: the catch
+        # below turned it into « echantillonnage ignore ». Caught on 16/10 while adding a measurement.
+        $nowUtc = [datetime]::UtcNow
         $ids = @($script:MeasureCatalog.Keys | Where-Object { $script:MeasureCatalog[$_].Probe -eq $Probe })
         if ($ids.Count -eq 0) { return }
         $cfg = Get-Config -Backend $Backend
