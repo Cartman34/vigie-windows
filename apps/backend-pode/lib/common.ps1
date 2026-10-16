@@ -990,14 +990,44 @@ function Start-DetachedAction {
                 try { if (Get-Process -Id ([int]$id) -ErrorAction Stop) { $live += [int]$id } } catch { }
             }
         }
-        $max = 8
-        try { $max = [int](Get-RefreshConfig -Backend $Backend).MaxChildren } catch { }
-        if ($max -le 0) { $max = 8 }
-        if ($live.Count -ge $max) {
-            Write-Log -Backend $Backend -Name 'state' -Level 'ERROR' -Message (
-                "lancement REFUSE : $($live.Count) taches de fond vivantes, plafond $max -- " + (Split-Path $Script -Leaf))
+        $max = 12
+        $reserve = 0
+        try {
+            $cfgChild = Get-RefreshConfig -Backend $Backend
+            $max = [int]$cfgChild.MaxChildren
+            $reserve = [int]$cfgChild.RefreshReserve
+        } catch { }
+        if ($max -le 0) { $max = 12 }
+        if ($reserve -lt 0) { $reserve = 0 }
+        <#
+            WHAT IS SACRIFICED FIRST IS NOT THE REFRESH OF THE CARDS.
+
+            On 15/10 the ceiling turned a launch away twenty-six times, and every single one of them was the
+            scheduler's refresh worker: the screen therefore aged precisely while the machine was busy, which is
+            when one looks at it. Everything else -- a disk scan, a package job, a client task -- can wait a pass
+            without anybody noticing.
+
+            So the ceiling is reached SOONER for everything else: the last places are kept for the refresh.
+        #>
+        $leaf = Split-Path $Script -Leaf
+        $ceiling = $(if ($leaf -eq 'refresh.worker.ps1') { $max } else { [Math]::Max(1, $max - $reserve) })
+        if ($live.Count -ge $ceiling) {
+            <#
+                A REFUSAL AT THE CEILING IS A REGULATION, NOT A BREAKDOWN.
+
+                It used to be written as an ERROR, with the same words as a launch that could not start at all,
+                and the caller counted it as a failure with a doubling delay. Twenty-six ERROR lines in one day
+                for a guard doing exactly what it was asked to do (D126) drown the lines that mean something.
+
+                The reason is left here for the caller to read: refusing to wait a pass is not the same thing as
+                failing to start.
+            #>
+            $script:LastChildRefusal = 'plafond'
+            Write-Log -Backend $Backend -Name 'state' -Level 'WARN' -Message (
+                "lancement differe : $($live.Count) taches de fond vivantes, plafond $ceiling -- " + $leaf)
             return $null
         }
+        $script:LastChildRefusal = ''
         $script:PendingChildren = $live
     } catch { $script:PendingChildren = @() }
     $exe = $null
@@ -5091,11 +5121,15 @@ function Write-SentinelSample {
     A COMPUTATION THAT RUNS TOO LONG IS NAMED. Past its MaxSeconds it is logged, written to the history and shown on
     the self-watch card, and it stops counting against the limit. It is never stopped: the owner alone decides that.
 #>
+# WHY THE LAST LAUNCH DID NOT HAPPEN: 'plafond' when the guard turned it away to protect the machine, empty
+# otherwise. Read by the scheduler, which does not count a regulation as a failure.
+function Get-LastChildRefusal { return "$script:LastChildRefusal" }
+
 function Get-RefreshConfig {
     param([string]$Backend = (Get-BackendRoot))
     $cfg = $null
     try { $cfg = (Get-Config -Backend $Backend).Refresh } catch { }
-    $out = @{ MaxParallel = 3; MaxChildren = 12; DefaultMaxSeconds = 300; FailBackoffSeconds = 60; FailBackoffMaxSeconds = 3600 }
+    $out = @{ MaxParallel = 3; MaxChildren = 12; RefreshReserve = 2; DefaultMaxSeconds = 300; FailBackoffSeconds = 60; FailBackoffMaxSeconds = 3600 }
     if ($cfg) {
         foreach ($k in @($out.Keys)) {
             try { if ($null -ne $cfg[$k]) { $out[$k] = [int]$cfg[$k] } } catch { }
@@ -5862,7 +5896,9 @@ function Invoke-RefreshPass {
             Update-RefreshState -Backend $Backend -Key $d.Key -Entry $entry
             continue
         }
-        $elapsed = ($nowTicks - [long]$entry.startedAt) / 1e7
+        # Awake time when the entry carries it; the wall clock for an entry written by the previous version.
+        $elapsed = $(if ($entry.startedTick) { ([Environment]::TickCount64 - [long]$entry.startedTick) / 1000 }
+                     else { ($nowTicks - [long]$entry.startedAt) / 1e7 })
         $max = $(if ($d.MaxSeconds) { [int]$d.MaxSeconds } else { [int]$cfg.DefaultMaxSeconds })
         if ($elapsed -ge $max -and -not $entry.long) {
             $entry.long = $true
@@ -5931,6 +5967,9 @@ function Invoke-RefreshPass {
             holding the first place, and the card says it.
         #>
         if (-not $childPid) {
+            # DEFERRED IS NOT FAILED. The ceiling protects the machine; the calculation simply waits for the next
+            # pass, with no doubling delay and no failure counted against it.
+            if ((Get-LastChildRefusal) -eq 'plafond') { continue }
             $entry = $state[$d.Key]
             if (-not $entry) { $entry = @{ fails = 0 } }
             $cfgFail = Get-RefreshConfig -Backend $Backend
@@ -5950,6 +5989,10 @@ function Invoke-RefreshPass {
         if (-not $entry) { $entry = @{ fails = 0 } }
         $entry.pid = [int]$childPid
         $entry.startedAt = $nowTicks
+        # THE CLOCK ON THE WALL SAYS WHEN, THE COUNTER SAYS HOW LONG. A computation started before the machine
+        # went to sleep and finished after it woke up was credited with the whole night: 34 722 332 ms read on
+        # 16/10 for a card that had worked a few seconds. This counter does not advance while the machine sleeps.
+        $entry.startedTick = [Environment]::TickCount64
         $entry.lastStartedAt = $nowTicks
         $entry.long = $false
         $state[$d.Key] = $entry
@@ -5976,7 +6019,8 @@ function Get-RefreshRows {
         $said = $(if ($interval -gt 0) { "toutes les $interval s" } else { 'à la demande' })
         $status = 'ok'
         if ($entry -and [int]$entry.pid) {
-            $elapsed = [int](($nowTicks - [long]$entry.startedAt) / 1e7)
+            $elapsed = [int]$(if ($entry.startedTick) { ([Environment]::TickCount64 - [long]$entry.startedTick) / 1000 }
+                               else { ($nowTicks - [long]$entry.startedAt) / 1e7 })
             $said = "en cours depuis $elapsed s"
             if ($entry.long) { $said = "TROP LONG : $elapsed s"; $status = 'warn' }
         } elseif ($entry -and [int]$entry.fails) {

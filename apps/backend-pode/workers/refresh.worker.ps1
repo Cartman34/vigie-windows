@@ -29,7 +29,9 @@ if (-not $key -or -not $probe) { return }
 $state = Get-RefreshState -Backend $Backend
 $entry = $state[$key]
 if (-not $entry) { $entry = @{ fails = 0 } }
-$t0 = Get-Date
+# The time the machine was AWAKE, not the time on the wall: a sleep in the middle used to be counted in
+# (S22, read in the logs on 16/10).
+$t0 = [Environment]::TickCount64
 try {
     # THE PROOF OF A RESULT is that the cache moved. An exception is not the only way to fail: Get-State catches a
     # probe's error so the other cards still answer, and the computation then returns having written nothing.
@@ -43,7 +45,7 @@ try {
     $entry.nextAt = 0
     $entry.lastError = ''
     Write-Log -Backend $Backend -Name 'state' -NoEcho `
-              -Message ("planifie : " + $key + " calcule en " + [int]((Get-Date) - $t0).TotalMilliseconds + " ms")
+              -Message ("planifie : " + $key + " calcule en " + [int]([Environment]::TickCount64 - $t0) + " ms")
 } catch {
     $cfg = Get-RefreshConfig -Backend $Backend
     $entry.fails = [int]$entry.fails + 1
@@ -57,5 +59,5 @@ try {
 $entry.pid = 0
 $entry.long = $false
 $entry.lastEndedAt = [datetime]::UtcNow.Ticks
-$entry.lastMs = [int]((Get-Date) - $t0).TotalMilliseconds
+$entry.lastMs = [int]([Environment]::TickCount64 - $t0)
 Update-RefreshState -Backend $Backend -Key $key -Entry $entry

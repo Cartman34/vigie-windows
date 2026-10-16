@@ -91,6 +91,10 @@
         # THE HARD CEILING on everything Vigie starts in the background, scheduler or not. Past this, a launch is
         # REFUSED and logged. It exists because nothing counted on 29/09: 150 processes, and a machine on its knees.
         MaxChildren           = 12
+        # The last places of the ceiling are kept for the refresh of the cards: everything else -- a scan, a
+        # package job, a client task -- waits a pass instead. On 15/10 the ceiling turned the refresh away
+        # twenty-six times, so the screen aged exactly when the machine was busy.
+        RefreshReserve        = 2
         # Past this, a computation is called TOO LONG: logged, shown on the self-watch card, and it
         # stops holding a place. It is never stopped.
         DefaultMaxSeconds     = 300

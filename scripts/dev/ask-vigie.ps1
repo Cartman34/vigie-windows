@@ -34,7 +34,14 @@
 param(
     [string] $Type,
     [string] $Module,
-    [hashtable] $Params = @{},
+    <#
+        A HASHTABLE WHEN CALLED IN PROCESS, A JSON STRING WHEN CALLED THROUGH `pwsh -File`.
+
+        Declared `[hashtable]`, this parameter could not survive `-File`: everything arrives there as a
+        string, and the conversion failed before the question was even asked. Found on 16/10 while asking
+        for the service's logs -- the tool that exists to get the facts refused to be given one.
+    #>
+    [object] $Params = @{},
     # -Modules: the state of the cards, without going through an action.
     [switch] $Modules,
     # -Route: ANY read route, written the way the contract writes it (for instance
@@ -182,7 +189,15 @@ try {
         if (-not $Type) { Write-Fail (Get-Label 'ask-vigie.quelle-question'); exit 2 }
         $payload = @{ type = $Type }
         if ($Module) { $payload.module = $Module }
-        if ($Params -and $Params.Count) { $payload.params = $Params }
+        $asked = @{}
+        if ($Params -is [hashtable]) { $asked = $Params }
+        elseif ("$Params".Trim()) {
+            try {
+                $read = ConvertFrom-Json "$Params"
+                foreach ($prop in $read.PSObject.Properties) { $asked[$prop.Name] = $prop.Value }
+            } catch { throw "-Params : ni une table, ni du JSON lisible -- $($_.Exception.Message)" }
+        }
+        if ($asked.Count) { $payload.params = $asked }
         $data = Invoke-RestMethod -Method Post -Uri ($url + '/api/v1/actions') `
                                   -ContentType 'application/json' `
                                   -Body ($payload | ConvertTo-Json -Depth 8 -Compress) `
