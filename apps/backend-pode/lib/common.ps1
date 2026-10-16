@@ -6488,7 +6488,7 @@ function Write-ProbeRun {
 # recomputations of the probe between two throughput or latency measurements.
 $script:MeasureCatalog = @{
     <#
-        VIGIE SE MESURE ELLE-MEME.
+        VIGIE MEASURES HERSELF.
 
         On 16/10 the owner asked whether 325 Mo for the server app was a lot, and whether it GROWS. Nothing could
         answer: the catalogue held the machine's processor, memory, commit, latency, free space and the game's
