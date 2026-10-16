@@ -1098,6 +1098,20 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
             # We describe the event; the door picks -- and its last rank, the balloon,
             # is always available.
             $level = switch ($Icon) { 'Error' { 'error' } 'Warning' { 'warn' } default { 'ok' } }
+            <#
+                HOW LONG IT STAYS IS DECIDED HERE, AND BY WHAT IT MEANS.
+
+                The owner, 16/10: the alerts do not stay long enough to be read. The duration was carried all the
+                way down -- 6 000 ms, 8 000 for a few -- but the tools that show it read only ONE thing in that
+                number: whether it reaches ten seconds. Below, Windows shows the notification for about seven
+                seconds; at or above, about twenty-five. Every notification of Vigie was therefore short, whatever
+                it had to say.
+
+                So: what ALERTS stays long, what merely informs stays short, and a caller that already asks for
+                long keeps it. Note for whoever reads this later: a notification that disappears is not lost, it
+                waits in the notification centre of Windows.
+            #>
+            if ($level -in @('warn', 'error') -and [int]$Duration -lt 10000) { $Duration = 25000 }
             try {
                 $outil = Show-VigieNotification `
                     -Notification @{ Subject = $Subject; Body = $Body; State = $level; Duration = $Duration; Key = $Key; Launch = $Launch } `
@@ -1176,6 +1190,19 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                 $state.EverUp   = $true
                 $state.Starting = $false
                 $state.HealthKo = 0
+                <#
+                    IT CAME BACK, AND THAT IS SAID.
+
+                    On 16/10 the server stopped answering for two minutes under memory pressure, the alert went
+                    out, and it recovered ON ITS OWN -- without a word. Whoever read the alert was left believing
+                    Vigie was down, and went looking for a cure nobody needed. An alert that is raised must be
+                    seen to be lowered.
+                #>
+                if ($state.SaidStuck) {
+                    $state.SaidStuck = $false
+                    try { & $dire -Subject (Get-Label 'client.bulle-revenu-titre') `
+                                  -Body (Get-Label 'client.bulle-revenu-texte') -Icon 'Info' } catch { }
+                }
                 $state.SaidDead = $false
                 $app = 'ok'; $lbl = 'En marche'
             } catch {
@@ -1194,7 +1221,9 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                         try {
                             & $dire -Subject (Get-Label 'client.bulle-coince-titre') `
                                     -Body ((Get-Label 'client.bulle-coince-texte') + (Format-TroubleReasons)) `
-                                    -Icon 'Warning' -Duration 8000
+                                    -Icon 'Warning'
+                            # An alert that was raised is an alert one must be able to see lowered.
+                            $state.SaidStuck = $true
                         } catch { }
                     }
                 }

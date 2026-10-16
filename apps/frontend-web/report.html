@@ -108,11 +108,25 @@ td.num{text-align:right;white-space:nowrap}
     </div>
     <div class="droite" id="meta"></div>
   </div>
-  <div id="corps"><p class="vide">Lecture en cours…</p></div>
+  <div id="corps"><p class="vide" id="wait">Lecture en cours…</p></div>
 </div>
 <div class="pied" id="pied"></div>
 
 <script>
+// A WAIT SAYS WHAT IT WAITS FOR, AND FOR HOW LONG (S32). On 16/10 this page showed the same sentence for
+// minutes with the server stuck: nothing told the reading under way from the breakdown.
+(() => {
+  const debut = Date.now();
+  const tic = setInterval(() => {
+    const el = document.getElementById('wait');
+    if (!el || !el.isConnected) { clearInterval(tic); return; }
+    const s = Math.round((Date.now() - debut) / 1000);
+    if (s < 3) return;
+    el.textContent = (s < 20)
+      ? 'Lecture du relevé — ' + s + ' s'
+      : 'Lecture du relevé — ' + s + ' s. Le serveur ne répond pas encore ; ouvrez Vigie pour voir ce qu\'il fait.';
+  }, 1000);
+})();
 const TOKEN = '__API_TOKEN__';
 const API   = '/api/v1';
 const TYPE  = (t => (t === 'etat' ? 'state' : (t === 'materiel' ? 'hardware' : t)))

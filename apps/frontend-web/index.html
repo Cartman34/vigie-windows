@@ -2527,7 +2527,23 @@ const HDS = (function(){
     };
     const corps = (intro, dedans) =>
       (intro ? '<p class="hds-intro">'+esc(intro)+'</p>' : '') + barre() + '<div class="hds-choices">'+dedans+'</div>';
-    const chargeur = '<div class="hds-loading"><span class="spin"></span> Lecture en cours…</div>';
+    // A WAIT SAYS WHAT IT WAITS FOR, AND FOR HOW LONG (S32). On 16/10 this sentence stayed on screen for
+    // minutes while the server was stuck: motionless, it tells a computation under way from a breakdown in no
+    // way at all. The counter starts again at every opening, and past a threshold the sentence says what to do.
+    const chargeur = '<div class="hds-loading" id="hdsWait"><span class="spin"></span> <span id="hdsWaitText">Lecture en cours…</span></div>';
+    const startWaitNotice = (quoi) => {
+      const debut = Date.now();
+      const tic = setInterval(() => {
+        const el = document.getElementById('hdsWaitText');
+        if (!el) { clearInterval(tic); return; }
+        const s = Math.round((Date.now() - debut) / 1000);
+        if (s < 3) return;
+        el.textContent = (s < 20)
+          ? quoi + ' — ' + s + ' s'
+          : quoi + ' — ' + s + ' s. Le serveur ne répond pas encore ; la carte Vigie dit ce qu\'il fait.';
+      }, 1000);
+      return () => clearInterval(tic);
+    };
 
     const p = open({ title:opts.title||'Choisir',
       html: corps(opts.intro, opts.charger ? chargeur : render(items)),
@@ -2603,10 +2619,13 @@ const HDS = (function(){
     };
     brancher();
 
+    let stopWaitNotice = null;
     if(opts.charger){
+      stopWaitNotice = startWaitNotice('Lecture de la liste');
       // Le bouton reste desactive tant qu'il n'y a rien a valider.
       const v=valider(); if(v) v.disabled=true;
       opts.charger().then(res=>{
+        if(stopWaitNotice){ stopWaitNotice(); stopWaitNotice = null; }
         items = (res && res.items) || [];
         lock = !!(res && res.verrouille);
         // Le serveur peut trancher le precochage (reglage utilisateur, D57).
