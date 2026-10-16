@@ -5419,6 +5419,7 @@ function Get-RefreshState {
                     lastStartedAt = [long]$e.lastStartedAt
                     lastEndedAt   = [long]$e.lastEndedAt
                     lastMs        = [int]$e.lastMs
+                    waiting       = [bool]$e.waiting
                     fails         = [int]$e.fails
                     nextAt        = [long]$e.nextAt
                     long          = [bool]$e.long
@@ -6023,6 +6024,11 @@ function Get-RefreshRows {
                                else { ($nowTicks - [long]$entry.startedAt) / 1e7 })
             $said = "en cours depuis $elapsed s"
             if ($entry.long) { $said = "TROP LONG : $elapsed s"; $status = 'warn' }
+        } elseif ($entry -and $entry.waiting) {
+            # WAITING IS NOT FAILING, and the card must not say the second when it is the first: without a living
+            # client app, a measure that belongs to an account cannot be computed, and nothing is broken.
+            $said = "$($entry.lastError)"
+            $status = 'neutral'
         } elseif ($entry -and [int]$entry.fails) {
             $said = "$($entry.fails) échec(s) : $($entry.lastError)"
             $status = 'warn'
