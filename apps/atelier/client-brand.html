@@ -98,8 +98,8 @@
 </main>
 <script>
 // =============================================================================
-// 1) MARQUE — reproduction EXACTE de apps/client/assets/generate-icons.ps1.
-//    Ne modifier qu'en miroir du generateur, sinon l'atelier ment.
+// 1) THE MARK -- an EXACT reproduction of apps/client/assets/generate-icons.ps1.
+//    Change it only in step with the generator, or the Atelier lies.
 // =============================================================================
 const COLORS = { ok:'#3fb950', warn:'#d29922', err:'#f85149' };
 const A0 = 135, SPAN = 270, R = 35;
@@ -116,11 +116,11 @@ const ARC = (() => {
 })();
 const ARCLEN = 2 * Math.PI * R * (SPAN / 360);
 
-// Niveaux de detail — MIROIR EXACT de apps/client/assets/generate-icons.ps1 (D37).
-// En dessous d'un certain nombre de pixels, un element cesse d'etre lisible et devient
-// du bruit : on le retire plutot que de le laisser se transformer en tache.
-// Si ces seuils changent d'un cote, ils DOIVENT changer de l'autre, sinon l'atelier
-// montre autre chose que ce que Windows affiche — et il ne sert plus a rien.
+// Levels of detail -- an EXACT MIRROR of apps/client/assets/generate-icons.ps1 (D37).
+// Below a certain number of pixels, an element stops being readable and becomes
+// noise: we take it away rather than let it turn into a smudge.
+// If those thresholds change on one side, they MUST change on the other, or the Atelier
+// shows something other than what Windows displays -- and it is of no use any more.
 const DETAIL = { ring: 48, ticks: 64, edge: 32 };
 function strokeWidths(px){
   if (px >= 48) return { arc:11.0, needle:8.2,  edge:9.8,  hub:9.5,  dot:4.2 };
@@ -165,8 +165,8 @@ function markSvg(frac, key, px){
 function renderMark(){
   const frac = parseFloat(document.getElementById('frac').value);
   document.getElementById('fracTxt').textContent = frac.toFixed(2);
-  // La plus grande vignette prend sa propre ligne : la largeur maximale est connue,
-  // une cellule de grille calibree sur les petites tailles ne peut pas la contenir.
+  // The largest thumbnail takes a line of its own: the maximum width is known, and a
+  // grid cell calibrated on the small sizes cannot hold it.
   const maxPx = Math.max.apply(null, SIZES);
   document.getElementById('preview').innerHTML = SIZES.map(px =>
     '<div class="cell' + (px === maxPx ? ' wide' : '') + '"><div class="art">'
@@ -188,8 +188,8 @@ document.getElementById('btnNeedle').addEventListener('click', e => {
 renderMark();
 
 // =============================================================================
-// 2) ICONES LIVREES — une ligne par etat. Un chargement rate est SIGNALE,
-//    jamais laisse en image cassee silencieuse.
+// 2) THE DELIVERED ICONS -- one row per state. A failed load is REPORTED,
+//    never left as a silently broken image.
 // =============================================================================
 const ICO_SIZES = [16, 20, 24, 32, 48, 128];
 document.getElementById('icos').innerHTML = [
@@ -206,16 +206,16 @@ document.getElementById('icos').innerHTML = [
        + '</div>';
 }).join('');
 
-// Un echec de chargement est d'abord suppose PASSAGER : le serveur de l'Atelier est
-// arrete et relance a la main, et une image qui echoue pendant ce laps de temps n'a rien
-// d'anormal. Sans nouvelle tentative, un incident de quelques secondes marquait la page
-// "illisible" DEFINITIVEMENT -- indiscernable d'un vrai probleme d'assets.
+// A failure to load is first assumed to be PASSING: the Atelier's server is stopped and
+// started again by hand, and an image failing during that moment is nothing out of the
+// ordinary. Without another attempt, an incident of a few seconds marked the page
+// "unreadable" FOR GOOD -- indistinguishable from a real problem with the assets.
 const ICO_RETRIES = 2, ICO_RETRY_MS = 700;
 
-// La cause se DETECTE, elle ne se devine pas : ouverte en file://, la page ne peut
-// structurellement pas lire les assets ; servie en http, un echec est probablement
-// passager (serveur relance). Afficher la mauvaise cause envoie chercher au mauvais
-// endroit -- c'est arrive.
+// The cause is DETECTED, not guessed: opened over file://, the page structurally cannot
+// read the assets; served over http, a failure is probably passing (the server was
+// restarted). Showing the wrong cause sends one looking in the wrong place -- which has
+// happened.
 const SERVIE = location.protocol.startsWith('http');
 document.getElementById('alertBody').innerHTML = SERVIE
   ? "<b>Des icônes n'ont pas pu être chargées.</b> Le serveur de l'Atelier a probablement "
@@ -229,7 +229,7 @@ document.getElementById('alertBody').innerHTML = SERVIE
     + "<code>http://127.0.0.1:47610/apps/atelier/index.html</code>. "
     + "Les autres sections fonctionnent ici.";
 
-// En file://, on le dit TOUT DE SUITE, sans attendre que 18 images echouent une a une.
+// Over file://, we say it AT ONCE, without waiting for 18 images to fail one by one.
 if (!SERVIE) document.getElementById('alertPaths').classList.add('show');
 
 function watchIco(img){
@@ -248,7 +248,7 @@ function watchIco(img){
     document.getElementById('alertPaths').classList.add('show');
   });
   img.addEventListener('load', () => {
-    // Une image qui finit par arriver efface son propre echec.
+    // An image that does arrive in the end erases its own failure.
     const cell = img.closest('.cell');
     if (cell.classList.contains('dead')) {
       cell.classList.remove('dead');
@@ -261,7 +261,7 @@ function watchIco(img){
 }
 document.querySelectorAll('#icos img').forEach(watchIco);
 
-// Bouton de reprise : recharge toutes les vignettes sans recharger la page.
+// A retry button: reloads every thumbnail without reloading the page.
 document.getElementById('retryIco').addEventListener('click', () => {
   document.querySelectorAll('#icos .cell').forEach(cell => {
     cell.classList.remove('dead');

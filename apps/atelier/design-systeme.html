@@ -6,8 +6,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Design système — atelier Vigie</title>
 <!--
-  PAGE MAQUETTE DU DESIGN SYSTÈME — à maintenir à jour à CHAQUE évolution visuelle du
-  front (c'est une discipline du projet, voir doc/en/developing/design.md).
+  THE DESIGN SYSTEM'S MOCK-UP PAGE -- to be kept up to date at EVERY visual change in the
+  front end (it is a discipline of the project, see doc/en/developing/design.md).
 
   La PALETTE est lue en direct dans apps/frontend-web/index.html via tokens.php : elle ne
   peut pas dériver. Les EXEMPLES de composants sont des reproductions locales : si un
@@ -22,7 +22,7 @@
   .crumb.vigie:hover{background:var(--accent);color:#fff}
   .badge{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:2px 9px;border-radius:999px}
   .badge.encours{color:var(--accent);background:rgba(56,139,253,.14)}
-  /* --- Accordeon : copie des regles .acc de apps/frontend-web/index.html --- */
+  /* --- Accordion: a copy of the .acc rules from apps/frontend-web/assets/css/panel.css --- */
   .acc-h{cursor:pointer;list-style:none;user-select:none}
   .acc-h::-webkit-details-marker{display:none}
   .acc-fl{flex:0 0 auto;color:var(--muted);font-size:10px;transition:transform .18s ease}
@@ -31,7 +31,7 @@
   .acc--anime > .acc-b{overflow:hidden}
   @media (prefers-reduced-motion:reduce){ .acc-fl{transition:none} }
 
-  /* --- Suivi d'une operation en cours : copie des regles .fprog de apps/frontend-web/index.html --- */
+  /* --- Following an operation under way: a copy of the .fprog rules from panel.css --- */
   .fprog{margin:4px 0 6px 22px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--panel-2);display:flex;flex-direction:column;gap:7px;font-size:12px}
   .fprog-current{display:flex;flex-direction:column;gap:4px}
   .fprog-current .fprog-title{color:var(--text);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -77,7 +77,7 @@
   .sw .t code{color:var(--muted)}
   .sw .t b{font-variant-numeric:tabular-nums;font-weight:600}
 
-  /* --- Reproductions de composants (miroir du front) --- */
+  /* --- Reproductions of components (mirroring the front end) --- */
   .demo{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;background:var(--bg);
         border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px}
   .lgd{color:var(--muted);font-size:12px;margin:0 0 14px;max-width:80ch}
@@ -343,7 +343,7 @@
 
 </main>
 <script>
-// Palette en direct : tokens.php lit le :root du front. En cas d'echec, on le DIT.
+// The palette live: tokens.php reads the front end's :root. If it fails, we SAY so.
 (async () => {
   const warn = document.getElementById('tokWarn');
   try {
@@ -386,8 +386,8 @@ function accordionAnimate(details){
     if(!ouvrir) details.open = false;
   };
 }
-// LA DELEGATION, posee une fois : tout accordeon ajoute plus tard est pris en charge, y compris celui qu'une
-// fenetre vient de construire. Un en-tete qui a son propre gestionnaire (groupe de mises a jour) decide seul.
+// DELEGATION, SET ONCE: every accordion added later is covered, including one a window has just built. A
+// header with a handler of its own (an update group) decides for itself.
 function accordionInit(){
   document.addEventListener('click', ev => {
     const head = ev.target.closest && ev.target.closest('.acc > .acc-h');

@@ -1,6 +1,6 @@
 /* @author Florent HAZARD <f.hazard@sowapps.com> */
-/* Styles communs de l'Atelier. UNE definition pour toutes les pages (D15) :
-   chaque sujet vit dans sa page (D55), le style reste partage ici. */
+/* The Atelier's shared styles. ONE definition for every page (D15):
+   each subject lives in its own page (D55), the style stays shared here. */
   :root{
     --bg:#0d1117; --panel:#161b22; --panel-2:#1c2230; --border:#2d333b;
     --text:#e6edf3; --muted:#8b949e; --accent:#388bfd;
@@ -40,17 +40,17 @@
   button.on{background:var(--accent);border-color:var(--accent);color:#fff}
   .val{font-variant-numeric:tabular-nums;font-weight:700;color:var(--text)}
 
-  /* Cellules de hauteur FIXE : toutes les tailles s'alignent sur une meme ligne. */
+  /* Cells of FIXED height: every size lines up on the same line. */
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(94px,1fr));gap:12px;
         align-items:stretch}
-  /* La plus grande vignette ne tient pas dans une colonne calibree sur les petites
-     tailles : elle en occupe deux. Pleine largeur serait disproportionne. */
+  /* The largest thumbnail does not fit a column calibrated on the small
+     sizes: it takes two. Full width would be out of proportion. */
   .cell.wide{grid-column:span 2}
   .cell{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:8px;
         min-height:148px;padding:12px 10px;background:var(--panel-2);
         border:1px solid var(--border);border-radius:9px;overflow:hidden}
-  /* flex:1 0 auto + pas de min-height:0 : la zone de dessin ne peut plus etre comprimee
-     sous la taille de la vignette, c'est la CELLULE qui s'agrandit. */
+  /* flex:1 0 auto and no min-height:0: the drawing area can no longer be squeezed
+     below the thumbnail's size, it is the CELL that grows. */
   .cell .art{display:flex;align-items:center;justify-content:center;flex:1 0 auto}
   .cell .cap{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
   .cell.dead{border-color:var(--err);background:rgba(248,81,73,.07)}
@@ -86,7 +86,7 @@
   .prop-bilan div{font-size:12.5px}
   .prop-bilan b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.5px;
                 color:var(--muted);margin-bottom:3px}
-  /* Maquette de carte, pour juger le rendu sans lancer l'application. */
+  /* A card mock-up, to judge the rendering without starting the application. */
   .mk{background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--warn);
       border-radius:10px;padding:13px 15px;max-width:340px;font-size:13px}
   .mk-t{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)}
@@ -96,7 +96,7 @@
   .mk-l:last-child{border-bottom:none}
   .mk-v{font-weight:700;font-variant-numeric:tabular-nums}
   .mk-baisse{color:var(--warn)}
-  /* Maquette de notification Windows. */
+  /* A Windows notification mock-up. */
   .toastw{background:#2b2b2b;border:1px solid #3d3d3d;border-radius:8px;padding:13px 15px;
           max-width:370px;box-shadow:0 8px 28px rgba(0,0,0,.5);display:flex;gap:12px}
   .toastw .app{font-size:11px;color:#9aa0a6;margin-bottom:5px}
@@ -115,7 +115,7 @@
   .frame{width:100%;height:500px;border:1px solid var(--border);border-radius:10px;
          background:var(--bg);display:block}
 
-  /* --- Reproduction du menu de l'app cliente --- */
+  /* --- Reproduction of the client app's menu --- */
   .desk{border:1px solid var(--border);border-radius:10px;padding:36px;display:flex;
         justify-content:center;background-image:linear-gradient(135deg,#1b2733,#26384c)}
   .menu{min-width:242px;padding:4px 0;font-size:13px;user-select:none;

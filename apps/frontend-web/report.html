@@ -24,11 +24,11 @@
 *{box-sizing:border-box}
 body{margin:0;background:#e9edf4;color:var(--encre);font-family:var(--sans);font-size:13px;line-height:1.5}
 
-/* La feuille : une largeur de page, centree, avec de vraies marges. */
+/* The sheet: a page width, centred, with real margins. */
 .feuille{max-width:190mm;margin:24px auto;background:var(--papier);padding:18mm 16mm;
          box-shadow:0 2px 18px rgba(20,26,34,.13)}
 
-/* --- En-tete : la signature du document ---------------------------------- */
+/* --- The header: the document's signature ------------------------------- */
 .entete{border-bottom:2px solid var(--encre);padding-bottom:10px;margin-bottom:22px;
         display:flex;justify-content:space-between;align-items:flex-end;gap:16px}
 .marque{font-family:var(--serif);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--gris)}
@@ -42,21 +42,21 @@ h2{font-family:var(--serif);font-size:15px;font-weight:700;margin:24px 0 8px;
 h3{font-size:12px;font-weight:600;color:var(--gris);margin:14px 0 5px;
    text-transform:uppercase;letter-spacing:.06em;page-break-after:avoid}
 
-/* --- Le corps : des paires « intitule / valeur », pas des cartes ---------- */
+/* --- The body: "label / value" pairs, not cards ------------------------- */
 dl{display:grid;grid-template-columns:minmax(150px,34%) 1fr;gap:0;margin:0}
 dt,dd{padding:5px 0;border-bottom:1px solid #eef1f5;margin:0}
 dt{color:var(--gris)}
 dd{font-weight:600;text-align:right}
 dl.plein dd{text-align:left;font-weight:400}
 
-/* Tableaux : pour ce qui se compte (barrettes, disques, ecrans). */
+/* Tables: for what is counted (memory sticks, disks, screens). */
 table{width:100%;border-collapse:collapse;margin:6px 0 2px}
 th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--gris);
    font-weight:600;padding:5px 8px 5px 0;border-bottom:1px solid var(--trait)}
 td{padding:5px 8px 5px 0;border-bottom:1px solid #eef1f5;vertical-align:top}
 td.num{text-align:right;white-space:nowrap}
 
-/* Le seul usage de la couleur : dire qu'une valeur sort de l'ordinaire. */
+/* The only use of colour: to say that a value is out of the ordinary. */
 .pt{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:7px;
     vertical-align:baseline;background:var(--gris)}
 .pt.ok{background:var(--ok)} .pt.warn{background:var(--warn)} .pt.error{background:var(--err)}
@@ -150,7 +150,7 @@ async function lire(url){
   return r.json();
 }
 
-// Une liste de paires : c'est la forme de base du document.
+// A list of pairs: that is the document's basic shape.
 function paires(entrees, plein){
   const dl = E('dl', plein ? {class:'plein'} : null);
   for (const [cle, val] of entrees) {
@@ -279,7 +279,7 @@ async function currentState(){
   const corps = document.getElementById('corps');
   corps.textContent = '';
 
-  // Ce qui demande attention, en tete : c'est la premiere question qu'on se pose.
+  // What needs attention, at the top: it is the first question one asks.
   const alertes = [];
   for (const m of s.modules) for (const f of (m.fields || [])) {
     if (f.status === 'warn' || f.status === 'error') alertes.push([m.label, f.label, readableValue(f), f.status]);
@@ -288,7 +288,7 @@ async function currentState(){
   summary.append(E('h2', null, 'Ce qui demande attention'));
   if (alertes.length) {
     const t = tableau(['Carte', 'Point', 'Constat'], alertes.map(a => [a[0], a[1], a[2]]));
-    // Le point de couleur va sur la ligne, pas sur toute la cellule.
+    // The coloured dot goes on the row, not on the whole cell.
     [...t.querySelectorAll('tbody tr')].forEach((tr, i) => {
       const c = tr.firstElementChild;
       c.prepend(E('span', {class:'pt ' + alertes[i][3]}));
@@ -300,7 +300,7 @@ async function currentState(){
   }
   corps.append(summary);
 
-  // Puis le detail, groupe par theme, dans l'ordre de l'application.
+  // Then the detail, grouped by theme, in the application's order.
   for (const theme of s.themes) {
     const mods = s.modules.filter(m => m.theme === theme.id);
     if (!mods.length) continue;

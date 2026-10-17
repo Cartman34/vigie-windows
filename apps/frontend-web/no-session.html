@@ -6,13 +6,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Vigie</title>
 <!--
-  LA PAGE SERVIE QUAND VIGIE NE SAIT PAS QUI REGARDE.
+  THE PAGE SERVED WHEN VIGIE DOES NOT KNOW WHO IS LOOKING.
 
-  Elle ne contient AUCUN état, AUCUN jeton, AUCUNE liste de cartes : c'est tout son
-  intérêt. Elle ne dit pas non plus ce qui manque exactement -- « ouvrez Vigie depuis son
-  icône » suffit à celui qui a le droit d'être là, et n'apprend rien aux autres.
+  It holds NO state, NO token, NO list of cards: that is the whole point of it. Nor does
+  it say what exactly is missing -- "open Vigie from its icon" is enough for whoever has
+  the right to be here, and teaches the others nothing.
 
-  Un administrateur peut choisir l'autre comportement dans Paramètres > Utilisateurs.
+  An administrator can choose the other behaviour in Settings > Users.
 -->
 <style>
   :root{ --bg:#0d1117; --panel:#161b22; --text:#e6edf3; --muted:#8b949e; --err:#f85149; --border:#30363d }
@@ -30,9 +30,9 @@
 </head>
 <body>
   <div class="box">
-    <!-- LA MARQUE, EN ETAT D'ERREUR. Meme geometrie que partout ailleurs (D01) et memes
-         valeurs que l'icone error.ico : couleur #f85149, jauge a 17 % -- soit une aiguille
-         a 0,17 x 270 degres. Une page qui refuse doit se reconnaitre d'un coup d'oeil. -->
+    <!-- THE MARK, IN ITS ERROR STATE. The same geometry as everywhere else (D01) and the same
+         values as the error.ico icon: colour #f85149, gauge at 17 % -- that is a needle
+         at 0.17 x 270 degrees. A page that refuses must be recognisable at a glance. -->
     <svg viewBox="0 0 100 100" aria-hidden="true">
       <defs><path id="arc" d="M 25.251 74.749 A 35 35 0 1 1 74.749 74.749"/></defs>
       <circle cx="50" cy="50" r="45" fill="none" stroke="var(--err)" stroke-opacity=".35" stroke-width="2.4"/>

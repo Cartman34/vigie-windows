@@ -58,7 +58,21 @@ $ErrorActionPreference = 'Stop'
     A CEILING THAT RISES IS ALLOWED ONLY HERE: when the measure starts seeing something it never saw, the old
     number was never the truth. It is not allowed when French is added -- that is what this ratchet refuses.
 #>
-$COMMENT_CEILING = 81
+<#
+    17/10, AND THE COMMENT CAMPAIGN REACHES ZERO (S26). 719 -> 0 in one day, which was only possible because the
+    panel had just been cut up the day before: 24 modules read one at a time instead of one file of 2 824 lines.
+
+    EVERY SLICE WAS PROVEN THE SAME WAY: the code STRIPPED OF ITS COMMENTS, identical byte for byte before and
+    after. The stripper lives in local/ and it was wrong three times before it was right -- a comment inside a
+    ${} interpolation, an apostrophe inside such a comment, and a whole HTML page read as JavaScript. Each time
+    the proof refused, which is the only reason those three never reached a commit.
+
+    AND ZERO IS NOT THE END OF FRENCH IN THIS REPOSITORY. It is the end of what THIS measure sees: comment lines
+    carrying a word of its lexicon, in .ps1, .psd1, .html, .js, .css and .pode. What stays, and is meant to:
+    everything the user READS -- labels, messages, the pages of doc/fr -- and the French of notes/ and of the
+    decisions, which are written for him.
+#>
+$COMMENT_CEILING = 0
 
 # 08/10, the second half of common.ps1: 1044 -> 310 French comment lines in the library, and the repository from
 # 4539 to 3805. Then its tail -- the environment, the traceability, the requester, the Atelier, the elevation and

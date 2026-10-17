@@ -80,7 +80,7 @@
 </main>
 <script>
 // =============================================================================
-// 3) MENU DE L'APP CLIENTE — reproduction reglable. Produit les valeurs a reporter.
+// 3) THE CLIENT APP'S MENU -- an adjustable reproduction. It produces the values to carry over.
 // =============================================================================
 const ITEMS = [
   { t:'Afficher l\u2019application', bold:true },
@@ -97,14 +97,14 @@ const ITEMS = [
 ];
 const NUMS = ['menuR','hovR','inset','padX','padY'];
 const COLS = ['cSurface','cHover','cBorder','cSep','cText'];
-// Ancienne palette bleutee, conservee comme point de comparaison : c'est elle qui avait
-// pris le pas sur la reference Win11 et qu'on a fini par abandonner.
+// The old bluish palette, kept as a point of comparison: it is the one that had taken
+// over from the Win11 reference and that was dropped in the end.
 const VIGIE = { cSurface:'#2b3038', cHover:'#3c434d', cBorder:'#444c56', cSep:'#3a414a', cText:'#e6edf3' };
-// Rempli par palette.php au chargement : les valeurs REELLEMENT livrees. Les valeurs des
-// champs HTML n'en sont qu'un repli, affiche avec un avertissement si la lecture echoue.
+// Filled by palette.php on load: the values ACTUALLY delivered. The values in the HTML
+// fields are only a fallback, shown with a warning if the reading fails.
 let SHIPPED = null;
 
-// Correspondance nom de constante C# -> identifiant du champ. Unique endroit ou les deux
+// The map from a C# constant's name to a field's identifier. The only place where the two
 // vocabulaires se rencontrent.
 const FROM_PALETTE = {
   Surface:'cSurface', Hover:'cHover', Border:'cBorder', Separator:'cSep', Text:'cText',
@@ -124,8 +124,8 @@ async function loadShippedPalette(){
     applyPreset(SHIPPED, 'pShipped', 'pVigie');
     warn.hidden = true;
   } catch (e) {
-    // Repli explicite : les champs gardent leurs valeurs HTML, mais on DIT qu'elles ne
-    // sont pas verifiees. Une valeur fausse mais plausible se ferait valider sans bruit.
+    // An explicit fallback: the fields keep their HTML values, but we SAY they are not
+    // verified. A wrong but plausible value would be approved without a sound.
     const cause = location.protocol === 'file:'
       ? 'la page est ouverte en file:// — passe par http://127.0.0.1:47610/apps/atelier/index.html'
       : e.message;
@@ -150,8 +150,8 @@ function renderMenu(){
   el.style.color        = v.cText;
   el.innerHTML = ITEMS.map(it => it.sep
     ? '<div class="sep" style="background:'+v.cSep+';margin:5px '+(v.inset+3)+'px"></div>'
-    // Hauteur = hauteur de ligne + 2 x retrait vertical, exactement comme le fait le
-    // Padding des ToolStripMenuItem dans client.ps1. Elle n'est donc PAS un reglage.
+    // Height = line height + 2 x vertical padding, exactly as the Padding of the
+    // ToolStripMenuItem does in client.ps1. It is therefore NOT a setting.
     : '<div class="mi'+(it.bold?' bold':'')+(it.dim?' dim':'')+'" style="height:'+(20 + v.padY*2)+'px;'
       + 'margin:0 '+v.inset+'px;padding:0 '+v.padX+'px;border-radius:'+v.hovR+'px;'
       + 'background:'+(it.hover ? v.cHover : 'transparent')+'">'+it.t+'</div>').join('');
@@ -188,8 +188,8 @@ function applyPreset(preset, onBtn, offBtn){
   document.getElementById(offBtn).classList.remove('on');
   renderMenu();
 }
-// « Livre » ne fait rien tant que la palette n'a pas ete lue : proposer un retour a des
-// valeurs inconnues serait mensonger. L'avertissement au-dessus dit deja pourquoi.
+// "Delivered" does nothing until the palette has been read: offering a return to unknown
+// values would be a lie. The warning above already says why.
 document.getElementById('pShipped').addEventListener('click', () => {
   if (SHIPPED) applyPreset(SHIPPED, 'pShipped', 'pVigie');
 });
