@@ -5,9 +5,9 @@
     --ok:#3fb950; --warn:#d29922; --err:#f85149;
     --ok-bg:rgba(63,185,80,.12); --warn-bg:rgba(210,153,34,.12); --err-bg:rgba(248,81,73,.12);
     --radius:12px; --shadow:0 1px 3px rgba(0,0,0,.4);
-    /* Marque Vigie (D01) : liseré = teinte du statut assombrie (facteur 0,72) ; piste de jauge. */
+    /* The Vigie mark (D01): the stripe = the status's hue darkened (by 0.72); the gauge's track. */
     --warn-dark:#976e18; --ok-dark:#2d853a; --gauge-track:#30363d;
-    --splash-fade:.45s;   /* doit rester egal a SPLASH_FADE_MS cote JS */
+    --splash-fade:.45s;   /* must stay equal to SPLASH_FADE_MS on the JS side */
   }
   [data-theme="light"] {
     --bg:#e9edf4; --panel:#ffffff; --panel-2:#e6ebf2; --border:#c2cbd8;
@@ -18,14 +18,14 @@
     --warn-dark:#6e4100; --ok-dark:#0a5828; --gauge-track:#c2cbd8;
   }
   *{box-sizing:border-box}
-  /* Colonne pleine hauteur : le pied de page tombe EN BAS de la fenetre meme quand le
-     contenu est court, au lieu de remonter coller sous la derniere carte. */
+  /* A full-height column: the footer falls to the BOTTOM of the window even when the
+     content is short, instead of riding up under the last card. */
   body{margin:0;font-family:-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.45;
        min-height:100vh;display:flex;flex-direction:column}
-  /* width:100% est INDISPENSABLE : dans un conteneur flex, les marges laterales
-     `auto` de main desactivent l etirement transversal. Sans cette ligne, main
-     tombe a sa largeur de contenu (627 px sur 1404) et la grille perd la moitie
-     de ses colonnes. */
+  /* width:100% is INDISPENSABLE: in a flex container, main's `auto` side margins
+     switch off the cross-axis stretching. Without this line, main falls back to its
+     content width (627 px out of 1404) and the grid loses half of its
+     columns. */
   body > main{flex:1 0 auto;width:100%}
   header{position:sticky;top:0;z-index:10;background:var(--panel);border-bottom:1px solid var(--border);padding:14px 22px;display:flex;align-items:center;gap:16px;box-shadow:var(--shadow)}
   header .title{font-weight:700;font-size:16px} header .title small{color:var(--muted);font-weight:500;margin-left:8px}
@@ -33,28 +33,28 @@
   .spacer{flex:1}
   .meta{color:var(--muted);font-size:12.5px}
   .meta.busy{color:var(--accent);font-weight:600}
-  /* Fonte d'icones MAISON (apps/frontend-web/assets/generate-icon-font.py, D58) :
-     de vrais caracteres en zone privee, embarques en data-URI pour rester autonome.
-     Usage : <span class="vi">&#xE001;</span> - la table des noms vit dans le generateur. */
+  /* An IN-HOUSE icon font (apps/frontend-web/assets/generate-icon-font.py, D58):
+     real characters in the private use area, embedded as a data URI to stay self-contained.
+     Use: <span class="vi">&#xE001;</span> - the table of names lives in the generator. */
   @font-face{font-family:'Vigie Icons';src:url(data:font/ttf;base64,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) format('truetype')}
-  /* vi-fw : largeur FIXE (1.28em, centre), comme fa-fw - pour des boutons simples
-     ou toutes les icones occupent la meme place quelle que soit leur forme. */
-  /* Le centrage optique est corrige DANS la fonte (voir generate-icon-font.py) :
-     aucune rustine par contexte.*/
+  /* vi-fw: a FIXED width (1.28em, centred), like fa-fw - for plain buttons
+     where every icon takes the same room whatever its shape. */
+  /* The optical centring is corrected INSIDE the font (see generate-icon-font.py):
+     no patch per context.*/
   .vi{font-family:'Vigie Icons';font-style:normal;font-weight:400;line-height:1;
       display:inline-block;vertical-align:-0.08em;-webkit-font-smoothing:antialiased}
-  /* Comme Font Awesome : vi-fw = BOITE FIXE (1.25em x 1em, centrage interne),
-     vi-lg = taille relative. Declarees APRES .vi et en double classe : mesure faite,
-     .vi puis .card-refresh .cr-ic ecrasaient le display et annulaient le centrage. */
+  /* As in Font Awesome: vi-fw = a FIXED BOX (1.25em x 1em, centred inside),
+     vi-lg = a relative size. Declared AFTER .vi and as a double class: measured,
+     .vi then .card-refresh .cr-ic overrode the display and cancelled the centring. */
   .vi.vi-fw{display:inline-flex;width:1.25em;height:1em;align-items:center;
             justify-content:center;vertical-align:-0.125em}
   .vi.vi-lg{font-size:1.25em}
   button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);padding:7px 12px;transition:.15s}
   button:hover{border-color:var(--accent)}
   .modebar{height:3px;padding:0;border:none;position:relative;overflow:hidden}
-  /* Actualisation en cours : le liseré de l'APPLICATION le montre, en gardant la couleur
-     de l'etat de connexion en fond. Une barre d'etat avait ete supprimee sans que cette
-     indication soit reportee ailleurs -- elle l'est ici, et dans l'en-tete en toutes lettres. */
+  /* A refresh under way: the APPLICATION's stripe shows it, while keeping the colour
+     of the connection state behind. A status bar had been removed without this
+     indication being carried anywhere else -- it is here, and in the header in plain words. */
   .modebar.busy::after{content:'';position:absolute;inset:0;width:38%;
     background:var(--accent);animation:modebar-run 1.1s ease-in-out infinite}
   @keyframes modebar-run{0%{transform:translateX(-110%)}100%{transform:translateX(370%)}}
@@ -70,9 +70,9 @@
   .theme-head .count{color:var(--muted);font-size:12px}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
   .card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);display:flex;flex-direction:column}
-  /* EN HAUT, PAS AU MILIEU. Un titre sur deux lignes ('Verrouillage des mises a jour')
-     faisait descendre le badge et les boutons a mi-hauteur, decales de toutes les autres
-     cartes. Ils s'alignent sur la premiere ligne du titre, quelle que soit sa longueur. */
+  /* AT THE TOP, NOT IN THE MIDDLE. A title on two lines ("Update lock")
+     pushed the badge and the buttons down to mid-height, out of line with every other
+     card. They align on the title's first line, whatever its length. */
   .card-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:12px}
   .card-head .name{font-weight:600;font-size:15px;flex:1}
   .badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px}
@@ -88,8 +88,8 @@
   .pill.yes{color:var(--ok);background:var(--ok-bg)} .pill.no{color:var(--muted);background:var(--panel-2)}
   .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto}
   .actions button{font-size:13px;padding:6px 11px}
-  /* z-index au-dessus du tiroir (50) et de son voile (49) : un message qui s'affiche
-     DERRIERE ce qu'on regarde n'existe pas. */
+  /* A z-index above the drawer (50) and its veil (49): a message displayed
+     BEHIND what one is looking at does not exist. */
   .toast-stack{position:fixed;right:18px;bottom:52px;display:flex;flex-direction:column;gap:8px;z-index:60;max-width:min(380px,92vw)}
   .toast{display:flex;align-items:flex-start;gap:9px;background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--muted);border-radius:10px;padding:10px 12px;box-shadow:0 10px 30px rgba(0,0,0,.4);font-size:13px;opacity:0;transform:translateX(14px);transition:.2s;pointer-events:auto}
   .toast.show{opacity:1;transform:none}
@@ -98,11 +98,11 @@
   .toast .t-x{margin-left:4px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;line-height:1}
   .t-dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;margin-top:4px;background:var(--muted)}
   .t-dot.done{background:var(--ok)} .t-dot.error{background:var(--err)} .t-dot.running{background:var(--accent)}
-  /* Bouton a ICONE SEULE : le padding des boutons a texte (7px 12px) decentrait
-     le glyphe. Meme boite carree que .repo-ic, contenu centre. */
+  /* An ICON-ONLY button: the padding of text buttons (7px 12px) knocked
+     the glyph off centre. The same square box as .repo-ic, content centred. */
   .ic-btn{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;flex:0 0 auto}
-  /* La meme apparence pour un LIEN habille en ic-btn : une ancre n'herite pas du
-     style des <button> et prenait le bleu souligne des liens. */
+  /* The same appearance for a LINK dressed as an ic-btn: an anchor does not inherit
+     the style of <button>s and took the underlined blue of links. */
   a.ic-btn{cursor:pointer;border-radius:8px;border:1px solid var(--border);
     background:var(--panel-2);color:var(--text);text-decoration:none;transition:.15s}
   a.ic-btn:hover{border-color:var(--accent)}
@@ -114,8 +114,8 @@
   .drawer{position:fixed;top:0;right:0;height:100%;width:min(360px,92vw);background:var(--panel);border-left:1px solid var(--border);box-shadow:-12px 0 40px rgba(0,0,0,.4);transform:translateX(100%);transition:transform .2s;z-index:50;display:flex;flex-direction:column}
   .drawer.open{transform:none}
   .drawer-head{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);font-weight:700}
-  /* Regle commune a TOUS les tiroirs : le titre prend l espace, la croix de fermeture
-     finit toujours au bord droit, avec ou sans bouton intermediaire. */
+  /* A rule common to EVERY drawer: the title takes the room, the closing cross
+     always ends at the right edge, with or without a button in between. */
   .drawer-head > span:first-child{flex:1}
   .drawer-clear{font-size:12px;font-weight:600;color:var(--muted);background:none;border:1px solid var(--border);border-radius:8px;padding:4px 9px;cursor:pointer}
   .drawer-clear:hover{border-color:var(--accent);color:var(--text)}
@@ -126,33 +126,33 @@
   .dn.done{border-left-color:var(--ok)} .dn.error{border-left-color:var(--err)} .dn.running{border-left-color:var(--accent)}
   .dn-head{display:flex;align-items:center;gap:8px;font-weight:600}
   .dn-del{margin-left:auto;background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;line-height:1}
-  /* Verrou d'une notification d'operation en cours : on montre POURQUOI on ne peut pas
-     l'effacer, au lieu de retirer le bouton sans explication. */
+  /* The lock of a notification for an operation under way: we show WHY it cannot
+     be erased, instead of removing the button without explanation. */
   .dn-lock{margin-left:auto;color:var(--accent);opacity:.75;cursor:help;font-size:13px;line-height:1}
   .dn-note{font-size:12px;line-height:1.5;color:var(--accent);background:var(--panel-2);
            border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin:0 0 10px}
-  /* Refus de suppression : la ligne cligne LA OU on a clique, une seule fois. */
+  /* A refusal to delete: the row blinks WHERE the click happened, once only. */
   @keyframes dnrefus{0%,100%{box-shadow:none}30%{box-shadow:0 0 0 2px var(--accent)}}
   .dn.refus{animation:dnrefus .5s ease}
   .dn-del:hover{color:var(--err)}
   .dn-msg{color:var(--muted);margin-top:4px;word-break:break-word}
   .dn-time{color:var(--muted);opacity:.75;font-size:11px;margin-top:3px;display:flex;align-items:center;gap:5px}
-  /* Accent de statut de la CARTE : liseré à GAUCHE. A ne pas confondre avec la barre
-     horizontale sous l'en-tete (.modebar), qui porte le statut de l'APPLICATION.
-     Ce sont deux informations differentes, a deux endroits differents. */
+  /* The CARD's status accent: a stripe on the LEFT. Not to be confused with the
+     horizontal bar under the header (.modebar), which carries the APPLICATION's status.
+     Those are two different pieces of information, in two different places. */
   .card{border-left:4px solid var(--border)}
   .card.st-ok{border-left-color:var(--ok)}
   .card.st-warn{border-left-color:var(--warn)}
   .card.st-error{border-left-color:var(--err)}
   .badge{font-size:12.5px;padding:4px 10px}
   .badge .ic{font-weight:800;font-size:13px;line-height:1}
-  /* statut par parametre (ligne) */
+  /* status per parameter (row) */
   .fdot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:8px;background:var(--border);vertical-align:middle}
   .fdot{box-sizing:border-box}
   .fdot.ok{background:var(--ok)} .fdot.warn{background:var(--warn)} .fdot.error{background:var(--err)}
   .fdot.neutral{background:transparent;border:1.5px solid var(--muted)}
   .field .v.ok{color:var(--ok)} .field .v.warn{color:var(--warn)} .field .v.error{color:var(--err)}
-  /* Le cercle est DANS le glyphe (fonte D58) : le bouton n'en dessine plus un second. */
+  /* The circle is INSIDE the glyph (font D58): the button no longer draws a second one. */
   .fhelp{margin-left:7px;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;color:var(--muted);border:none;border-radius:50%;background:none;cursor:pointer;padding:0;flex:0 0 auto}
   .fhelp svg{width:9px;height:9px;display:block}
   .fhelp:hover{color:var(--accent)}
@@ -162,7 +162,7 @@
   .field-detail.warn{color:var(--warn)} .field-detail.error{color:var(--err)}
   .badge.neutral{color:var(--muted);background:var(--panel-2)}
   .card.st-neutral{border-left-color:var(--muted)}
-  /* panneau de suivi des actions */
+  /* the panel that follows the actions */
   .actions-panel{position:fixed;right:18px;bottom:18px;width:340px;max-height:62vh;overflow:auto;display:flex;flex-direction:column;gap:8px;z-index:20}
   .act-panel-head{font-size:10.5px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);font-weight:800;padding:3px 9px;align-self:flex-end;background:var(--panel-2);border:1px solid var(--border);border-radius:999px;box-shadow:var(--shadow)}
   .act-item{background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--muted);border-radius:10px;padding:10px 12px;box-shadow:0 8px 26px rgba(15,23,42,.38),0 0 0 1px var(--border);font-size:13px}
@@ -178,7 +178,7 @@
   .act-close{margin-left:auto;cursor:pointer;color:var(--muted);border:none;background:none;font-size:15px;line-height:1}
   .spin{display:inline-block;width:10px;height:10px;border:2px solid var(--accent);border-top-color:transparent;border-radius:50%;animation:sp .7s linear infinite}
   @keyframes sp{to{transform:rotate(360deg)}}
-  /* --- Vue dense (compacte) : beaucoup d'infos d'un coup --- */
+  /* --- Dense (compact) view: a lot of information at once --- */
   main{max-width:none;padding:16px 16px 60px}
   .theme-block{margin-bottom:16px}
   .theme-head{margin-bottom:8px}
@@ -193,42 +193,42 @@
   .actions{gap:6px}
   .actions button{font-size:12px;padding:5px 9px}
   .field-detail{padding:0 8px 7px 24px;font-size:12px}
-  /* --- Filtre rapide par groupe (chips en haut) --- */
+  /* --- Quick filter by group (chips at the top) --- */
   .filterbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:16px}
   .filterbar .flabel{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:700;margin-right:2px}
   .fchip{font:inherit;cursor:pointer;font-size:12px;font-weight:600;padding:4px 12px;border-radius:999px;border:1px solid var(--border);background:var(--panel-2);color:var(--muted);transition:.12s}
   .fchip.active{background:var(--accent);border-color:var(--accent);color:#fff}
   .fchip:hover{border-color:var(--accent)}
-  /* --- Masonry : les cartes remplissent les colonnes (plusieurs groupes possibles par colonne) --- */
-  /* Chaque carte porte le nom de son groupe, et reste insecable (break-inside:avoid). */
+  /* --- Masonry: the cards fill the columns (several groups may share a column) --- */
+  /* Each card carries its group's name, and stays unbreakable (break-inside:avoid). */
   .loading-note{display:flex;flex-direction:column;align-items:center;gap:12px;justify-content:center;color:var(--muted);font-size:13.5px;padding:64px 0}
   .loading-note .spin{width:22px;height:22px;border-width:3px}
-  /* COLONNES REELLES, pas des colonnes CSS.
-     `columns: 280px` reflue TOUT ce qui suit des qu'une carte grandit : une carte qui
-     passe en « operation en cours » ou une section qu'on deplie faisaient sauter les
-     cartes suivantes d'une colonne a l'autre, sous les yeux. Signale le 27/08 :
-     « c'est tres destabilisant ».
-     Ici, chaque colonne est un vrai element et chaque carte lui appartient : une carte
-     qui grandit ne pousse que ce qui est SOUS ELLE, dans SA colonne. Rien d'autre ne
-     bouge. */
-  /* MODE REORGANISATION (D92). Hors de ce mode, aucune carte n'est saisissable :
-     l'accident est structurellement impossible, ce n'est pas une question de vigilance.
-     Dedans, tout ce qui agit sur la machine est neutralise -- on range, on n'exploite
-     pas. */
+  /* REAL COLUMNS, not CSS columns.
+     `columns: 280px` reflows EVERYTHING that follows as soon as a card grows: a card
+     going to "operation under way", or a section being unfolded, made the cards after it
+     jump from one column to another, before one's eyes. Reported on 27/08:
+     "it is very unsettling".
+     Here each column is a real element and each card belongs to it: a card that grows
+     pushes only what is UNDER IT, in ITS column. Nothing else
+     moves. */
+  /* REARRANGE MODE (D92). Outside this mode, no card can be grabbed:
+     the accident is structurally impossible, it is not a matter of vigilance.
+     Inside it, everything that acts on the machine is switched off -- one is tidying up,
+     not operating. */
   body.reorg .card{cursor:grab; user-select:none}
   body.reorg .card:active{cursor:grabbing}
-  /* EN REAGENCEMENT, AUCUNE ACTION, SUR AUCUNE CARTE (D130, demande du proprietaire le 06/10) : boutons, menu,
-     rafraichissement, et jusqu'aux lignes qui ouvrent un detail. Le DEPLACEMENT, lui, n'est jamais bloque -- c'est
-     la seule chose que ce mode sert a faire. La teinte dit dans quel mode on est, sans rien eteindre de plus. */
+  /* WHILE REARRANGING, NO ACTION, ON ANY CARD (D130, asked by the owner on 06/10): buttons, menu,
+     refresh, down to the rows that open a detail. MOVING, on the other hand, is never blocked -- that is
+     the only thing this mode is for. The hue says which mode one is in, without switching anything else off. */
   body.reorg .card .actions, body.reorg .card .fsolve, body.reorg .card .fhelp,
   body.reorg .card summary,
   body.reorg .card-refresh, body.reorg .card-menu{pointer-events:none; opacity:.35}
   body.reorg .card{background:color-mix(in srgb, var(--accent) 6%, var(--card))}
   body.reorg .card{outline:1px dashed var(--border); outline-offset:3px}
   body.reorg .card.drag{opacity:.45; outline-color:var(--accent)}
-  /* Les colonnes s'etirent sur toute la hauteur : sans cela, une colonne ne mesure que
-     ses cartes et le vide en dessous n'appartient a personne -- on ne pouvait pas y
-     deposer (signale le 27/08). En mode rangement, la zone de depot EST la colonne. */
+  /* The columns stretch to the full height: without that, a column measures only
+     its cards and the emptiness below belongs to nobody -- one could not drop
+     there (reported on 27/08). In rearrange mode, the drop zone IS the column. */
   body.reorg .masonry{align-items:stretch; min-height:60vh}
   body.reorg .mcol{min-height:220px}
   body.reorg .mcol::after{content:'';display:block;flex:1 1 auto;min-height:60px}
@@ -251,25 +251,25 @@
   .card-group{font-size:10.5px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);font-weight:700;line-height:1.3}
   .card-refresh{background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;width:26px;height:26px;line-height:1;cursor:pointer;flex:0 0 auto;font-size:14px;padding:0}
   .card-refresh:hover{border-color:var(--accent);color:var(--text)}
-  /* EN RETARD (S16, choix du proprietaire) : le bouton qui remet la carte a jour est celui qui dit qu'elle en a
-     besoin. Aucun texte, aucun element de plus -- la teinte d'alerte sur l'icone qu'on allait cliquer de toute
-     facon. Le detail des trois moments s'ouvre depuis le menu de la carte. */
-  /* DE QUI LA CARTE PARLE (D128) : seule l'EXCEPTION se dit. La plupart des cartes parlent de l'ordinateur, et le
-     redire sur chacune serait du bruit ; celles qui parlent du compte connecte le marquent, en petit, a cote du
-     groupe. « mixed » ne se marque pas sur la carte : ce sont ses CHAMPS qui portent la mention, la ou elle est
-     vraie -- une carte a moitie marquee tromperait sur la moitie qui ne l'est pas. */
+  /* LATE (S16, the owner's choice): the button that brings the card up to date is the one that says it needs
+     it. No text, no extra element -- the alert hue on the icon one was going to click anyway. The detail of
+     the three moments opens from the card's menu. */
+  /* WHO THE CARD SPEAKS OF (D128): only the EXCEPTION is said. Most cards speak of the computer, and saying
+     it again on each would be noise; those that speak of the connected account mark it, in small type, next to
+     the group. "mixed" is not marked on the card: it is its FIELDS that carry the mention, where it is
+     true -- a half-marked card would mislead about the half that is not. */
   .card-scope{font-size:10.5px;text-transform:none;letter-spacing:0;color:var(--muted);font-weight:600}
   .card-scope::before{content:' · '}
   .card-refresh.stale{border-color:var(--warn);color:var(--warn)}
   .card-refresh.stale:hover{border-color:var(--warn);color:var(--warn)}
-  /* UNE CARTE OCCUPEE N'EST PAS ETEINTE EN ENTIER (D130). Elle l'etait -- `pointer-events:none` sur la carte --
-     et sa poignee de deplacement avec elle : on ne pouvait plus la bouger pendant une analyse de disque. Seules les
-     actions s'eteignent ; deplacer, ouvrir le menu, demander un rafraichissement restent possibles. */
+  /* A BUSY CARD IS NOT SWITCHED OFF ENTIRELY (D130). It was -- `pointer-events:none` on the card --
+     and its drag handle with it: one could no longer move it during a disk scan. Only the
+     actions switch off; moving it, opening the menu, asking for a refresh stay possible. */
   .card.card-loading{opacity:.55}
   .card.card-loading .actions, .card.card-loading .fsolve{pointer-events:none}
-  /* EN ATTENTE DE MESURE : on la voit, on la lit, et surtout on peut la demander --
-     « pointer-events:none » aurait rendu son propre bouton d'actualisation inutilisable,
-     donc la carte serait restee vide pour toujours. */
+  /* WAITING FOR A MEASURE: one sees it, one reads it, and above all one can ask for it --
+     "pointer-events:none" would have made its own refresh button unusable,
+     so the card would have stayed empty for ever. */
 
   .card-attente{font-size:12.5px;color:var(--muted)}
   .card-menu{font-weight:700;letter-spacing:1px}
@@ -278,7 +278,7 @@
   .card-menu-pop button{display:block;width:100%;text-align:left;font:inherit;font-size:12.5px;
     color:var(--text);background:none;border:0;border-radius:7px;padding:7px 10px;cursor:pointer}
   .card-menu-pop button:hover{background:var(--panel)}
-  /* --- Tiroir de gestion des modules (D48) --- */
+  /* --- The modules drawer (D48) --- */
   .um{border:1px solid var(--border);border-radius:10px;padding:0;margin:0 0 10px;overflow:hidden}
   .um > summary{list-style:none;cursor:pointer;padding:12px 16px;display:flex;
                 align-items:center;gap:10px}
@@ -290,25 +290,25 @@
   .um > summary:hover{background:var(--panel-2)}
   .um[open] > summary{border-bottom:1px solid var(--border)}
   .um > *:not(summary){padding-left:16px;padding-right:16px}
-  /* Un bloc SANS en-tete depliable (« A propos ») n'a pas de summary pour poser sa
-     marge haute : son titre collait au bord du cadre. On le rend bloc pour que la
-     marge compte vraiment -- sur un <b> inline, un padding ne pousse rien. */
+  /* A block with NO unfolding header ("About") has no summary to carry its
+     top margin: its title stuck to the frame's edge. We make it a block so that the
+     margin really counts -- on an inline <b>, padding pushes nothing. */
   .um > b:first-child{display:block;padding-top:14px;margin-bottom:2px}
   .um > *:last-child{padding-bottom:16px}
-  /* Ce qui doit toucher les DEUX bords : bandes de titre et listes. Elles portent
-     leur propre padding interne, ligne par ligne. */
-  /* La bande de titre est pleine largeur, mais son TEXTE garde le meme retrait que
-     celui des lignes (16 px) : sinon il se colle au bord, alors que tout ce qui est
-     en dessous commence a 16 px. Constate a l'oeil, puis mesure : 1 px contre 17 px.
-     On redonne donc les quatre cotes -- une regle qui n'annule que la gauche et la
-     droite ecrasait le retrait de la forme courte. */
+  /* What must touch BOTH edges: title bands and lists. They carry
+     their own inner padding, row by row. */
+  /* The title band is full width, but its TEXT keeps the same indent as
+     the rows (16 px): otherwise it sticks to the edge, while everything
+     below starts at 16 px. Seen by eye, then measured: 1 px against 17 px.
+     So all four sides are given back -- a rule cancelling only the left and the
+     right crushed the short form's indent. */
   .um > .um-sub{padding:13px 16px 9px}
-  /* Les listes, elles, ne portent aucun retrait : ce sont leurs LIGNES qui le font,
-     pour que le surlignement aille d'un bord a l'autre. */
+  /* The lists carry no indent at all: it is their ROWS that do,
+     so that the highlight runs from one edge to the other. */
   .um > .um-list, .um > .um-liste{padding-left:0;padding-right:0}
   .um > .um-list:last-child, .um > .um-liste:last-child, .um > .um-sub:last-child{padding-bottom:0}
-  /* Une bande de titre qui suit immediatement l'en-tete depliable n'a pas besoin de
-     son filet : le summary en pose deja un. */
+  /* A title band immediately following the unfolding header does not need
+     its rule: the summary already lays one down. */
   .um > summary + .um-sub{border-top:0}
   .um.off{opacity:.65}
   .um.flash{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
@@ -319,16 +319,16 @@
   .um-sw{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);
          cursor:pointer;white-space:nowrap;padding-top:2px}
   .um-sw input{accent-color:var(--accent)}
-  /* Titre de section DANS un module : discret, souligne d'un filet, aere au-dessus. */
+  /* A section title INSIDE a module: discreet, underlined by a rule, with air above. */
   /* ---------------------------------------------------------------------------
-     SECTIONS A PLAT (regle posee le 26/08 : « un radius dans un radius, ca ne rend
-     pas bien »). Le cadre arrondi appartient au bloc PARENT, un seul niveau. Ce qui
-     est dedans ne redessine ni bordure ni coin : une bande de titre, puis des lignes
-     pleine largeur separees par un simple filet.
+     FLAT SECTIONS (rule set on 26/08: "a radius inside a radius does not look
+     good"). The rounded frame belongs to the PARENT block, one level only. What
+     is inside redraws neither border nor corner: a title band, then full-width
+     rows separated by a plain rule.
 
-     Consequence directe et voulue : le surlignement d'une ligne va d'un bord a
-     l'autre du cadre, au lieu de s'arreter avant -- ce qui donnait cette bande
-     flottante, avec une marge batarde en bas.
+     A direct and wanted consequence: a row's highlight runs from one edge of the
+     frame to the other, instead of stopping before -- which gave that floating
+     band, with a bastard margin at the bottom.
      --------------------------------------------------------------------------- */
   .um-sub{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;
           color:var(--muted);margin:0;padding:11px 16px 9px;display:flex;align-items:baseline;gap:8px;
@@ -344,14 +344,14 @@
   .um-card small{margin-left:auto;color:var(--muted);font-size:11px}
   .um-note{color:var(--muted);font-size:12px;line-height:1.5;margin:0;padding:10px 16px}
   .um > .um-note{padding-left:16px;padding-right:16px}
-  /* Carte de reglage isolee (hors accordeon) : titre + explication a gauche,
-     interrupteur a droite, toujours dans le cadre. */
+  /* A setting on its own (outside the accordion): title plus explanation on the left,
+     switch on the right, always inside the frame. */
   .setcard{display:flex;align-items:center;gap:14px;border:1px solid var(--border);
            border-radius:10px;padding:12px 14px;margin:0 0 4px}
   .setcard-t{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:3px}
   .setcard-t b{font-size:13.5px}
   .setcard-t small{color:var(--muted);font-size:12px;line-height:1.45}
-  /* Liste geree en SECTION : lire, ajouter, retirer sans se battre avec une ligne. */
+  /* A list managed as a SECTION: read, add, remove without fighting a row. */
   .um-liste{border:0;border-radius:0;margin:0}
   .um-lrow{display:flex;align-items:center;justify-content:space-between;gap:8px;
            padding:9px 16px;font-size:13px;min-height:38px;border-bottom:1px solid var(--border)}
@@ -371,8 +371,8 @@
           border:1px solid var(--border);border-radius:999px;padding:1px 6px;margin-left:4px}
   .um-mut{font-size:11.5px;color:var(--muted)}
   .um-hint{color:var(--muted);font-size:12px;line-height:1.5;margin:0 0 12px}
-  /* Parametres : tiroir LARGE, navigation verticale a gauche (elle ne casse jamais a
-     la ligne et accueille autant de sections qu'il faudra), contenu a droite. */
+  /* Settings: a WIDE drawer, vertical navigation on the left (it never wraps
+     and takes as many sections as needed), content on the right. */
   #settingsDrawer{width:min(920px,96vw)}
   #settingsDrawer .drawer-body{padding:0;overflow:hidden;flex-direction:row;gap:0;flex:1;min-height:0}
   .set-wrap{display:flex;flex:1;min-height:0;width:100%}
@@ -383,28 +383,28 @@
             border-radius:8px;padding:10px 12px;cursor:pointer;white-space:nowrap}
   .set-item:hover{background:var(--panel-2);color:var(--text)}
   .set-item.on{background:var(--panel-2);color:var(--text);box-shadow:inset 3px 0 0 var(--accent)}
-  /* La boite de l'icone CENTRE son contenu au lieu de le poser sur une ligne de
-     texte. Avec text-align seul, l'icone (inline-flex, avec son propre
-     vertical-align) retombait sur la baseline du libelle : les cinq icones ne
-     partageaient donc ni le meme axe vertical, ni la meme colonne -- d'autant que
-     celle d'« A propos » est plus grande que les autres. */
+  /* The icon's box CENTRES its content instead of setting it on a line of
+     text. With text-align alone, the icon (inline-flex, with its own
+     vertical-align) fell back onto the label's baseline: the five icons
+     shared neither the same vertical axis nor the same column -- all the more as
+     the "About" one is larger than the others. */
   .set-ic{flex:0 0 18px;width:18px;min-width:0;height:1.25em;display:flex;align-items:center;justify-content:center}
   .set-ic .vi{vertical-align:0}
-  /* i cercle en POLICE + CSS (regle du projet : icones a partir d'une font). */
+  /* a circled i in FONT plus CSS (project rule: icons come from a font). */
   .ic-round{width:15px;height:15px;border:1.5px solid currentColor;border-radius:50%;
             display:inline-flex;align-items:center;justify-content:center;
             font-size:10px;font-weight:700;line-height:1}
   /* ---------------------------------------------------------------------------
-     RYTHME VERTICAL : c'est le CONTENEUR qui espace, pas les composants.
-     Chaque fois qu'un bloc etait ajoute dans un panneau, il fallait penser a sa marge
-     -- et on l'oubliait (constate deux fois le 27/08 : titre colle au cadre, puis
-     bloc « Disposition des cartes » colle a la grille des themes). Une regle de flux
-     ici, et tout element ajoute demain est espace sans qu'on ait a y penser.
+     VERTICAL RHYTHM: it is the CONTAINER that spaces things out, not the components.
+     Every time a block was added to a panel, one had to think of its margin
+     -- and one forgot (seen twice on 27/08: a title stuck to the frame, then the
+     "Card layout" block stuck to the themes grid). One flow rule
+     here, and anything added tomorrow is spaced without anyone having to think about it.
      --------------------------------------------------------------------------- */
   .set-pane{flex:1;min-width:0;overflow-y:auto;padding:16px 18px}
   .set-pane > * + *{margin-top:14px}
-  /* Les composants n'apportent plus leur propre marge basse dans ce flux : deux
-     sources d'espacement donnaient des ecarts inegaux d'un panneau a l'autre. */
+  /* The components no longer bring their own bottom margin into this flow: two
+     sources of spacing gave uneven gaps from one panel to the next. */
   .set-pane > *{margin-bottom:0}
   @media (max-width:560px){
     .set-wrap{flex-direction:column}
@@ -415,8 +415,8 @@
                 text-decoration:none;font-size:13px;border:1px solid var(--border);
                 border-radius:8px;padding:7px 12px}
   .apropos-repo:hover{border-color:var(--accent)}
-  /* Apparence : cartes-radio de themes. La coche native est masquee, la carte entiere
-     est le controle ; d'autres themes s'ajoutent en une entree de la liste THEMES. */
+  /* Appearance: theme radio cards. The native tick is hidden, the whole card
+     is the control; other themes are added as one entry in the THEMES list. */
   .theme-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
   .theme-opt{border:2px solid var(--border);border-radius:11px;padding:10px;cursor:pointer;
              display:flex;flex-direction:column;gap:8px;align-items:stretch}
@@ -430,8 +430,8 @@
   .theme-nom{font-size:12.5px;font-weight:600;text-align:center}
   .um-param{margin-left:auto;display:flex;align-items:center;gap:7px;font-size:11.5px;
             color:var(--muted);cursor:pointer;white-space:nowrap}
-  /* Interrupteur : la case native est masquee, le rail/bouton sont dessines en CSS.
-     Un seul composant pour tous les reglages on/off (Actif, notification, global). */
+  /* A switch: the native box is hidden, the rail and knob are drawn in CSS.
+     One single component for every on/off setting (Active, a notification, the global one). */
   .swx{position:relative;display:inline-block;width:32px;height:18px;flex:0 0 auto}
   .swx input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer}
   .swx i{position:absolute;inset:0;border-radius:999px;background:var(--border);
@@ -452,7 +452,7 @@
              padding:6px 0;border-bottom:1px dashed var(--border)}
   .apropos-l span{color:var(--muted)}
   .card.card-loading .card-refresh .cr-ic{animation:sp .7s linear infinite}
-  /* --- Parametres : label a gauche, valeur coloree en face (dessous si longue, alignee a droite) --- */
+  /* --- Parameters: label on the left, coloured value facing it (below if long, right-aligned) --- */
   .fields{margin-bottom:8px}
   .frow{padding:4px 2px;border-bottom:1px dashed var(--border)}
   .frow:last-child{border-bottom:none}
@@ -463,7 +463,7 @@
   .fk-label.clickable:hover{color:var(--text);text-decoration:underline dotted}
   .v-ok{color:var(--ok)} .v-warn{color:var(--warn)} .v-error{color:var(--err)} .v-neutral{color:var(--text)}
   .frow-actions{padding:3px 0 2px 22px}
-  /* LE SUIVI D'UNE OPERATION EN COURS : un bloc a part sous la ligne, qui n'existe que tant qu'elle dure. */
+  /* FOLLOWING AN OPERATION UNDER WAY: a block of its own under the row, which exists only while it lasts. */
   .fprog{margin:4px 0 6px 22px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--panel-2);display:flex;flex-direction:column;gap:7px;font-size:12px}
   .fprog-current{display:flex;flex-direction:column;gap:4px}
   .fprog-current .fprog-title{color:var(--text);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -487,14 +487,14 @@
   .fprog-more:hover,.fprog-more:focus-visible{color:var(--text);border-color:var(--accent)}
   .fprog-total{display:flex;flex-direction:column;gap:4px;border-top:1px dashed var(--border);padding-top:6px}
   @media (prefers-reduced-motion: reduce){.fprog-bar > span{transition:none}}
-  /* Le passage d'un etat a un autre, dans une confirmation : deux valeurs, une fleche. */
+  /* The move from one state to another, in a confirmation: two values, an arrow. */
   .cf-trans{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:2px}
   .cf-v{background:var(--panel-2);border:1px solid var(--border);border-radius:8px;
         padding:6px 12px;font-weight:600;font-size:13px;line-height:1.25}
   .cf-v-to{border-color:var(--accent);color:var(--accent)}
   .cf-vn{font-weight:400;font-size:11px;color:var(--muted);margin-top:2px}
   .cf-fl{color:var(--muted);font-size:16px;line-height:1}
-  /* Le deroule : des pastilles numerotees, la derniere marquee comme l'arrivee. */
+  /* The sequence: numbered pills, the last one marked as the arrival. */
   .cf-flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px}
   .cf-step{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted)}
   .cf-dot{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;
@@ -503,48 +503,48 @@
   .cf-step-fin{color:var(--ok);font-weight:600}
   .cf-step-fin .cf-dot{border-color:var(--ok);color:var(--ok)}
   .cf-sep{color:var(--muted);font-size:13px}
-  /* PREMIER MENU DEROULANT DE L'INTERFACE : il n'existait aucun style pour un <select>.
-     Il reprend celui des champs voisins plutot que le rendu brut du navigateur, qui
-     ignore le theme sombre sur Windows. */
+  /* THE INTERFACE'S FIRST DROP-DOWN: there was no style at all for a <select>.
+     It takes the one of the neighbouring fields rather than the browser's raw
+     rendering, which ignores the dark theme on Windows. */
   .um-select{font:inherit;font-size:12.5px;color:var(--text);background:var(--panel-2);
     border:1px solid var(--border);border-radius:8px;padding:5px 8px;cursor:pointer}
   .um-select:disabled{opacity:.5;cursor:default}
   .fsolve{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px;border:1px solid currentColor;background:none;cursor:pointer}
   .fsolve svg{width:11px;height:11px;flex:0 0 auto}
-  /* L'icone du bouton Resoudre se fond dans la couleur du texte (le type reste indique par la FORME) */
+  /* The Fix button's icon melts into the text colour (the kind stays shown by the SHAPE) */
   .fsolve svg{color:currentColor}
 
   .fsolve:hover{background:rgba(127,127,127,.14)}
-  /* DESACTIVE : ca se VOIT, et ca ne reagit plus. Un bouton bloque par une operation en
-     cours gardait son survol et sa couleur pleine : rien ne disait qu'il etait mort
-     (signale le 28/08). Le sablier, lui, est reserve au bouton de l'operation -- c'est
-     la regle « .busy l'emporte », juste en dessous. */
+  /* SWITCHED OFF: it SHOWS, and it no longer reacts. A button blocked by an operation
+     under way kept its hover and its full colour: nothing said it was dead
+     (reported on 28/08). The hourglass is reserved for the operation's own button -- that
+     is the ".busy wins" rule, just below. */
   .act:disabled,.fsolve:disabled{opacity:.4;cursor:not-allowed;filter:grayscale(1)}
-  /* RETENU N'EST PAS INTERDIT. Un bouton bloque le temps d'une operation qui se passe
-     AILLEURS avait exactement l'aspect d'un bouton refuse par les droits : la carte
-     semblait en panne (signale le 28/08, carte Comptes pendant un deploiement). Il
-     reste desactive -- c'est bien le but -- mais il se lit comme une attente. */
+  /* HELD BACK IS NOT FORBIDDEN. A button blocked for the time of an operation happening
+     SOMEWHERE ELSE looked exactly like a button refused by the rights: the card
+     seemed broken (reported on 28/08, the Accounts card during a deployment). It
+     stays switched off -- that is the point -- but it reads as a wait. */
   .act.retenu:disabled,.fsolve.retenu:disabled{opacity:.62;cursor:progress;filter:grayscale(.35)}
   .act:disabled:hover,.fsolve:disabled:hover{background:none}
-  /* Etat "action en cours" sur un bouton : il tourne, donc il n'est pas grise. */
+  /* The "action under way" state on a button: it spins, so it is not greyed out. */
   .act.busy,.fsolve.busy{opacity:.9;cursor:progress;filter:none}
   .act.busy:disabled,.fsolve.busy:disabled{opacity:.9;cursor:progress;filter:none}
-  /* « En cours » est un ETAT de la carte : il s'exprime donc dans le MEME liséré que le
-     statut, et non dans un halo separe. Un halo autour de la carte dissociait deux
-     informations qui parlent de la meme chose, et se lisait comme une alerte. */
-  /* UN MODE SE VOIT SANS SE LIRE. La carte Jeux entre en mode 'game' pendant une partie :
-     ce n'est ni une alerte ni une occupation, c'est un contexte -- son statut ne change
-     pas, son air si. Le liseré et le fond suffisent : on doit reconnaitre l'etat d'un coup
-     d'oeil, sans que la carte crie. */
+  /* "Under way" is a STATE of the card: it is therefore expressed in the SAME stripe as the
+     status, and not in a separate halo. A halo around the card split two
+     pieces of information that speak of the same thing, and read as an alert. */
+  /* A MODE IS SEEN WITHOUT BEING READ. The Games card enters 'game' mode during a session:
+     it is neither an alert nor a busy state, it is a context -- its status does not change,
+     its air does. The stripe and the background are enough: one must recognise the state at a
+     glance, without the card shouting. */
   .card.mode-game{border-left-color:#7c5cff;background:linear-gradient(180deg,rgba(124,92,255,.10),transparent 60%)}
   .card.mode-game .card-group::after{content:' — en jeu';color:#7c5cff;font-weight:600}
-  /* EN RETRAIT : la carte n'est plus recalculee a sa cadence habituelle (contrat Module.pace). Dit dans l'en-tete,
-     pres du nom, parce qu'une valeur vieille de vingt minutes lue comme une valeur de l'instant est un mensonge. */
+  /* HELD BACK: the card is no longer recomputed at its usual pace (Module.pace contract). Said in the header,
+     near the name, because a value twenty minutes old read as a value of this instant is a lie. */
   .card-pace{font-size:10.5px;font-weight:600;color:var(--muted);border:1px solid var(--border);border-radius:999px;
              padding:1px 7px;white-space:nowrap;cursor:help}
-  /* CE QUI OCCUPE LA CARTE, NOMME (D130). Elle se grisait sans dire ni quoi ni depuis quand -- signale le 06/10,
-     capture a l'appui : carte Stockage grise, trois boutons eteints, « dossiers parcourus : 0 », et rien pour dire
-     qu'une analyse tournait. Une ligne sous l'en-tete, de la couleur de l'occupation, le dit. */
+  /* WHAT IS KEEPING THE CARD BUSY, NAMED (D130). It greyed out without saying what, or since when -- reported on
+     06/10 with a screenshot: the Storage card grey, three buttons off, "folders walked: 0", and nothing to say
+     that a scan was running. One line under the header, in the colour of the busy state, says it. */
   .card-op{display:flex;gap:8px;align-items:center;margin:0 0 10px;padding:6px 10px;border-radius:8px;
            background:color-mix(in srgb, var(--accent) 12%, transparent);color:var(--text);font-size:12.5px}
   .card-op .vi{color:var(--accent)}
@@ -556,21 +556,21 @@
   .frow .field-detail{display:none;margin-top:2px;padding:0 2px 4px 22px;border:none;font-size:12px;color:var(--muted);white-space:pre-line;overflow-wrap:anywhere;word-break:break-word}
   .frow .field-detail.open{display:block}
   .frow .field-detail.warn{color:var(--warn)} .frow .field-detail.error{color:var(--err)}
-  /* icones par type d'action */
+  /* icons by kind of action */
   .actions button.act{display:inline-flex;align-items:center;gap:6px}
-  /* Action refusee a ce compte Windows (D65) : lisible, inerte, et le curseur dit qu'il y
-     a une explication au survol -- on ne la retire pas de la carte. */
+  /* An action refused to this Windows account (D65): readable, inert, and the cursor says there
+     is an explanation on hover -- it is not taken off the card. */
   .actions button.act.denied{opacity:.45;cursor:help;border-style:dashed}
   .actions button.act svg{flex:none}
-  /* SEVERITE = ce que l'action vaut ; TYPE = comment elle se passe (l'icone).
-     Les deux etaient confondus : la couleur suivait la forme, ce qui n'apprenait rien.
+  /* SEVERITY = what the action is worth; KIND = how it happens (the icon).
+     The two were confused: the colour followed the shape, which taught nothing.
 
-     Deux traitements, selon la place du bouton :
-     - action PRINCIPALE (barre d'actions) : bouton NEUTRE au repos, il prend sa couleur
-       au SURVOL. Une barre entierement coloree crie autant qu'elle informe ;
-     - bouton de RESOLUTION (dans la ligne du champ) : colore en permanence, c'est un
-       correctif propose sur un defaut, il doit se remarquer.
-     Dans les deux cas, l'ICONE porte toujours la couleur de la severite. */
+     Two treatments, depending on where the button sits:
+     - a MAIN action (the action bar): a NEUTRAL button at rest, it takes its colour
+       on HOVER. A fully coloured bar shouts as much as it informs;
+     - a FIX button (inside the field's row): coloured permanently, it is a
+       fix offered for a fault, it has to be noticed.
+     In both cases the ICON always carries the severity's colour. */
   .act.sev-neutral svg{color:var(--muted)}
   .act.sev-info    svg{color:var(--accent)}
   .act.sev-fix     svg{color:var(--ok)}
@@ -583,15 +583,15 @@
   .fsolve.sev-info{color:var(--accent);border-color:var(--accent)}
   .fsolve.sev-fix{color:var(--ok);border-color:var(--ok)}
   .k-manual{border-style:dashed}
-  /* ===== Design system : Dialog (modale in-app reutilisable) ===== */
+  /* ===== Design system: Dialog (a reusable in-app modal) ===== */
   .hds-back{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:50;padding:20px;backdrop-filter:blur(2px)}
   .hds-back.show{display:flex;animation:hds-fade .12s ease}
-  /* Emplacement HAUT : reserve a la seconde confirmation d'une action critique. Les deux
-     fenetres ne doivent jamais se superposer, sinon un double clic rapide les valide
-     toutes les deux sans qu'aucune ait ete lue. */
+  /* The HIGH position: reserved for the second confirmation of a critical action. The two
+     windows must never overlap, otherwise a quick double click confirms them
+     both without either having been read. */
   .hds-back.haut{align-items:flex-start;padding-top:7vh}
-  /* Alerte d'action critique : en gras, pleine largeur, impossible a manquer.
-     Orange a la premiere confirmation, rouge a la seconde. */
+  /* A critical action's warning: bold, full width, impossible to miss.
+     Amber on the first confirmation, red on the second. */
   .hds-alerte{display:flex;align-items:flex-start;gap:9px;font-weight:700;line-height:1.45;
               border-radius:9px;padding:11px 13px;margin:0 0 14px}
   .hds-alerte .ic{font-weight:800;flex:0 0 auto}
@@ -599,8 +599,8 @@
   .hds-alerte.danger{color:var(--err);background:var(--err-bg);border:1px solid var(--err)}
   @keyframes hds-fade{from{opacity:0}to{opacity:1}}
   .hds-dialog{background:var(--panel);border:1px solid var(--border);border-radius:12px;max-width:520px;width:100%;box-shadow:0 12px 44px rgba(0,0,0,.55);animation:hds-pop .14s ease}
-  /* LARGE : pour ce qui porte un tableau. 520 px serraient le récapitulatif de partie, six colonnes
-     repliées sur deux lignes chacune (signalé le 29/09). On s'arrête à 880 px, jamais plus que l'écran. */
+  /* LARGE: for whatever carries a table. 520 px squeezed the game recap, six columns
+     folded onto two lines each (reported on 29/09). We stop at 880 px, never more than the screen. */
   .hds-dialog--large{max-width:min(880px, 94vw)}
   .hds-dialog--large .hds-dialog-body{max-height:70vh}
   @keyframes hds-pop{from{transform:translateY(6px) scale(.98);opacity:.5}to{transform:none;opacity:1}}
@@ -621,7 +621,7 @@
   .hds-choice-bar{display:flex;align-items:center;gap:12px;margin-bottom:8px;font-size:12.5px}
   .hds-lnk{background:none;border:none;color:var(--accent);cursor:pointer;padding:0;font:inherit;text-decoration:underline}
   .hds-count{margin-left:auto;color:var(--muted);font-variant-numeric:tabular-nums}
-  /* Arborescence du disque (S13b) : une ligne = un dossier, sa taille, sa part. */
+  /* The disk tree (S13b): one row = one folder, its size, its share. */
   .tree-root{font-size:12.5px}
   .tree-node>summary{display:flex;align-items:center;gap:8px;padding:4px 2px;cursor:pointer;
                      border-bottom:1px solid var(--border);list-style:none}
@@ -641,7 +641,7 @@
   .tree-open{flex:none;font:inherit;font-size:12px;line-height:1;color:var(--muted);background:none;
              border:1px solid var(--border);border-radius:6px;padding:2px 6px;cursor:pointer}
   .tree-open:hover{color:var(--accent);border-color:var(--accent)}
-  /* Une ligne de choix = la case a cocher + son bouton « Ignorer » (D69). */
+  /* A choice row = the tick box plus its "Ignore" button (D69). */
   .hds-choice-row{display:flex;align-items:center;gap:8px}
   .hds-choice-row .hds-choice{flex:1 1 auto}
   .hds-exclu{flex:none;font:inherit;font-size:11.5px;color:var(--muted);background:none;
@@ -655,7 +655,7 @@
   .hds-table td{padding:6px 10px 6px 0;border-bottom:1px solid var(--border);vertical-align:top;
                 overflow-wrap:anywhere}
   .hds-table tr:last-child td{border-bottom:none}
-  /* Une ligne qui porte une infobulle le dit : sans repere visuel, personne ne survole. */
+  /* A row that carries a tooltip says so: with no visual cue, nobody hovers. */
   .hds-table tr[title]{cursor:help}
   .hds-table tr[title]:hover td{background:var(--panel-2)}
   /* Figures stay on one line -- except the LAST column, which is where the long text lives in every one of these
@@ -667,20 +667,20 @@
   /* And a floor under the first column, so a long name never ends up one letter per line. */
   .hds-table th:first-child, .hds-table td:first-child{min-width:14ch}
   .hds-loading{display:flex;align-items:center;gap:9px;color:var(--muted);padding:14px 2px}
-  /* Confirmation EXPLICITE (D91) : des blocs titres plutot qu'un paragraphe. On lit
-     « ce que ca change » avant de dire oui, pas apres. */
+  /* An EXPLICIT confirmation (D91): titled blocks rather than a paragraph. One reads
+     "what this changes" before saying yes, not after. */
   .cf-bloc{margin:0 0 10px}
   .cf-bloc:last-child{margin-bottom:0}
   .cf-t{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;
         color:var(--muted);margin-bottom:2px}
   .cf-c{font-size:13px;line-height:1.5}
-  /* L'ACCORDEON, COMPOSANT STANDARD (demande du 20/09). Trois classes et rien d'autre :
+  /* THE ACCORDION, A STANDARD COMPONENT (asked for on 20/09). Three classes and nothing else:
        <details class="acc"><summary class="acc-h"><span class="acc-fl">&#9654;</span> … </summary>
        <div class="acc-b"> … </div></details>
-     Le pli s'anime tout seul : accordionInit l'attrape a la delegation, sans code par usage. La fleche tourne
-     avec lui. Le CSS seul ne suffisait pas -- ::details-content avec interpolate-size laissait le contenu
-     affiche une fois replie sous Chrome 152 (mesure du 20/09), donc la hauteur s'anime en JavaScript.
-     Ce que ce composant ne decide pas : les bordures, les fonds, les tailles -- chaque usage garde les siennes. */
+     The fold animates by itself: accordionInit catches it through delegation, with no code per use. The arrow turns
+     with it. CSS alone was not enough -- ::details-content with interpolate-size left the content
+     displayed once folded under Chrome 152 (measured on 20/09), so the height is animated in JavaScript.
+     What this component does not decide: borders, backgrounds, sizes -- each use keeps its own. */
   .acc-h{cursor:pointer;list-style:none;user-select:none}
   .acc-h::-webkit-details-marker{display:none}
   .acc-fl{flex:0 0 auto;color:var(--muted);font-size:10px;transition:transform .18s ease}
@@ -689,21 +689,21 @@
   .acc--anime > .acc-b{overflow:hidden}
   @media (prefers-reduced-motion:reduce){ .acc-fl{transition:none} }
   .hds-choices{display:flex;flex-direction:column;gap:2px}
-  /* Un GROUPE (D118) : un repli par constructeur. L'en-tete porte de quoi decider sans
-     l'ouvrir -- le nom, le nombre, le poids -- et sa case coche tout le groupe. */
+  /* A GROUP (D118): one fold per vendor. The header carries enough to decide without
+     opening it -- the name, the count, the weight -- and its box ticks the whole group. */
   .hds-grp{border:1px solid var(--border);border-radius:8px;margin-bottom:4px;overflow:hidden}
   .hds-grp-h{display:flex;align-items:center;gap:9px;padding:7px 10px;font-size:13px}
   .hds-grp-h:hover{background:var(--panel-2)}
   .hds-grp-h input{accent-color:var(--accent)}
-  /* LE LIBELLE COCHE, LE RESTE DE LA LIGNE REPLIE (demande du 20/09). Le nom ne prend que sa largeur : tout
-     ce qui reste -- la fleche, le vide apres le nom, le compte -- garde le repli du <summary>. */
+  /* THE LABEL TICKS, THE REST OF THE ROW FOLDS (asked for on 20/09). The name takes only its width: everything
+     left -- the arrow, the space after the name, the count -- keeps the <summary>'s fold. */
   .hds-grp-n{flex:0 0 auto;font-weight:600;cursor:pointer}
   .hds-grp-fill{flex:1 1 auto;align-self:stretch}
   .hds-grp-c{flex:none;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
   .hds-grp-b{padding:2px 6px 6px}
-  /* LE PLI S'ANIME, comme la fleche qui l'annonce (demande du 20/09). La hauteur d'un contenu replie n'est pas
-     animable par defaut : interpolate-size l'autorise vers auto, et allow-discrete garde le contenu affiche le
-     temps de la fermeture. Un navigateur qui l'ignore replie d'un coup, comme avant : rien n'est perdu. */
+  /* THE FOLD ANIMATES, like the arrow that announces it (asked for on 20/09). The height of folded content is not
+     animatable by default: interpolate-size allows it towards auto, and allow-discrete keeps the content displayed
+     while it closes. A browser that ignores it folds in one go, as before: nothing is lost. */
 
   .hds-choice{display:grid;grid-template-columns:auto 1fr;gap:4px 9px;align-items:start;
               padding:7px 8px;border-radius:8px;cursor:pointer}
@@ -716,7 +716,7 @@
   .hds-btn:disabled{opacity:.45;cursor:not-allowed}
   .hds-dialog-foot{display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid var(--border);flex-wrap:wrap}
   .hds-dialog-foot:empty{display:none}
-  /* Boutons reutilisables */
+  /* Reusable buttons */
   .hds-btn{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);padding:8px 16px;font-weight:600;transition:.15s}
   .hds-btn:hover{border-color:var(--accent)}
   .hds-btn--primary{background:var(--accent);border-color:var(--accent);color:#fff}
@@ -726,28 +726,28 @@
   .hds-btn--ghost{background:transparent}
   .hds-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
-  /* ================= Ecran de chargement (D08) =================
-     Present dans le HTML statique : visible avant meme l'execution du JS.
-     S'efface des le premier chargement (reussi ou en erreur : l'erreur doit rester lisible). */
+  /* ================= Loading screen (D08) =================
+     Present in the static HTML: visible before the JS has even run.
+     Cleared on the first load (successful or in error: the error must stay readable). */
   #splash{position:fixed;inset:0;z-index:9999;background:var(--bg);
     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;
     transition:opacity var(--splash-fade,.45s) ease}
   #splash.splash-off{opacity:0;pointer-events:none}
   #splash[hidden]{display:none}
   .splash-mark{width:104px;height:104px;display:block}
-  /* La jauge monte AVEC le chargement. Tant que la progression est inconnue, elle monte
-     d'un CRAN a la fois -- les 7 graduations de D01, donc 6 intervalles -- puis repart de
-     zero. Un balayage continu se lirait comme une progression reelle qu'on ne mesure pas.
-     L'animation va jusqu'a 315deg (7 crans) pour que steps(7,end) affiche bien la position
-     pleine 270deg : avec 270deg, le dernier cran ne serait jamais atteint. */
+  /* The gauge climbs WITH the loading. As long as progress is unknown, it climbs
+     one NOTCH at a time -- D01's 7 graduations, so 6 intervals -- then starts again from
+     zero. A continuous sweep would read as a real progress that nobody measures.
+     The animation goes up to 315deg (7 notches) so that steps(7,end) does show the full
+     position of 270deg: with 270deg, the last notch would never be reached. */
   .splash-arc-val{stroke-dasharray:164.93;stroke-dashoffset:164.93;
     animation:splash-fill 2.8s steps(7,end) infinite}
   .splash-needle{transform-origin:50px 50px;animation:splash-sweep 2.8s steps(7,end) infinite}
   @keyframes splash-fill{from{stroke-dashoffset:164.93}to{stroke-dashoffset:-27.49}}
   @keyframes splash-sweep{from{transform:rotate(0deg)}to{transform:rotate(315deg)}}
-  /* Progression CONNUE : le JS pose --splash-frac et coupe la boucle.
-     ELLE SE PARCOURT, ELLE NE SAUTE PAS. Sans transition, l'aiguille se tele-portait
-     d'une fraction a l'autre : deux images fixes au lieu d'un mouvement. */
+  /* KNOWN progress: the JS sets --splash-frac and stops the loop.
+     IT TRAVELS, IT DOES NOT JUMP. Without a transition, the needle teleported
+     from one fraction to the next: two still images instead of a movement. */
   #splash.splash-determine .splash-arc-val{animation:none;
     stroke-dashoffset:calc(164.93 - 164.93 * var(--splash-frac,0));
     transition:stroke-dashoffset .45s ease}
@@ -755,8 +755,8 @@
     transform:rotate(calc(270deg * var(--splash-frac,0)));
     transition:transform .45s ease}
   .splash-id{display:flex;flex-direction:column;align-items:center;gap:16px}
-  /* line-height 1 coupait la boite au ras de la ligne de base : la jambe du « g » plongeait
-     dans la gouttiere de 6 px et le sous-titre paraissait colle. */
+  /* line-height 1 cut the box flush with the baseline: the leg of the "g" dived
+     into the 6 px gutter and the subtitle looked stuck. */
   .splash-name{font-size:clamp(54px,11vw,88px);font-weight:700;letter-spacing:-.035em;line-height:1.1;margin:0}
   .splash-sub{color:var(--muted);font-size:13.5px;letter-spacing:.4px;margin:0}
   .splash-bar{width:186px;height:3px;border-radius:999px;background:var(--border);overflow:hidden}
@@ -770,7 +770,7 @@
     .splash-needle{animation:none;transform:rotate(135deg)}
     .splash-bar i{animation:none;width:100%}
   }
-  /* ================= Lien vers le depot (D09) ================= */
+  /* ================= Link to the repository (D09) ================= */
   .svg-sprite{position:absolute;width:0;height:0;overflow:hidden}
   .repo-link{color:var(--muted);text-decoration:none;border-bottom:1px solid transparent;transition:.15s}
   .repo-link:hover{color:var(--text);border-bottom-color:var(--border)}
