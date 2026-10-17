@@ -2,10 +2,10 @@
 import { esc } from './format.js';
 
 // ===== COMPOSANTS D'INTERFACE ================================================
-// One single place draws a title band, a row, a switch or a tag. Before, every Settings tab rebuilt
-// those pieces by hand: the same thing was written three ways, and fixing the alignment of one row
-// meant finding all of its copies.
-//
+// One single place draws a title band, a row, a switch or a tag. Before, every Settings tab
+// rebuilt those pieces by hand: the same thing was written three ways, and fixing the
+// alignment of one row meant finding all of its copies -- and knowing they were all of
+// them.
 //
 // Composition rule (26/08): the rounded frame belongs to the parent block. These components therefore
 // NEVER draw a border or a corner -- they fill.

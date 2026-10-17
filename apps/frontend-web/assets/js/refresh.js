@@ -8,31 +8,31 @@ import { hideSplash, pageBusy, progresSplash, setLoading, updateRefreshButton } 
 let lastStateStamp = '';
 
 export async function refresh(force){
-  // Rafraichissement AUTOMATIQUE seulement : une demande explicite n'est jamais differee.
+  // AUTOMATIC refresh only: an explicit request is never deferred.
   if(!force){
     const raison = pageBusy();
     if(raison) return;
   }
-  // PENDANT UNE OPERATION QUI TIENT LA MACHINE, ON NE RECALCULE PAS.
+  // WHILE AN OPERATION HOLDS THE MACHINE, WE DO NOT RECOMPUTE.
   //
-  // Le recalcul complet refait TOUTES les mesures et dure une minute : demande pendant
-  // une mise a jour, il tombe au moment ou le serveur s'arrete. Il ne rend rien, il
-  // ajoute de la charge a un geste deja long, et il finit en erreur -- pour une question
-  // dont la reponse est de toute facon perimee des que la mise a jour aura fini.
+  // A full recompute redoes EVERY measure and takes a minute: asked for during an update,
+  // it falls at the very moment the server stops. It returns nothing, it adds load to a
+  // gesture that is already long, and it ends in an error -- for a question whose answer
+  // is stale anyway as soon as the update has finished.
   //
-  // On le dit, on ne le fait pas. La relecture automatique, elle, continue : c'est elle
-  // qui verra la fin de l'operation.
+  // We say it, we do not do it. The automatic re-reading carries on: that is what will
+  // see the end of the operation.
   const op = runningOperation();
   if(force && op && (op.ressources || []).includes('machine')){
     toast(L('ui.recalcul-pendant-operation') + (op.titre || ''));
     return;
   }
   setLoading(true, !!force);
-  // PAS DE PROGRESSION AU DEPART. Annoncer 20 % des que la requete part FIGEAIT l'ecran
-  // d'attente : passer en mode « progression connue » coupe l'animation en boucle, et
-  // l'aiguille restait plantee tout le temps de la reponse -- une minute entiere quand le
-  // serveur redemarre. Tant qu'on ne sait rien, la jauge TOURNE ; elle ne se fige qu'a
-  // partir du moment ou elle a une vraie fraction a montrer.
+  // NO PROGRESS AT THE START. Announcing 20 % as soon as the request leaves FROZE the
+  // waiting screen: switching to "known progress" mode stops the looping animation, and
+  // the needle stayed planted for the whole of the answer -- a full minute when the
+  // server restarts. As long as we know nothing, the gauge TURNS; it only settles once
+  // it has a real fraction to show.
   try{
     const {data,mode}=await fetchState(force);
     if(mode==='live' && data && data.build && window.APP_BUILD && !window.APP_BUILD.includes('__') && data.build!==window.APP_BUILD){ location.reload(); return; }
@@ -41,10 +41,10 @@ export async function refresh(force){
     progresSplash(1);             // panneau affiche
   }
   catch(e){
-    // UNE COUPURE ATTENDUE N'EST PAS UNE PANNE. Pendant une mise a jour, le serveur
-    // s'arrete : c'est le deroulement du geste demande, pas un incident. On le dit
-    // ainsi, en orange, au lieu d'afficher « Hors ligne » en rouge sur ce que
-    // l'utilisateur vient lui-meme de declencher.
+    // AN EXPECTED CUT IS NOT A BREAKDOWN. During an update the server stops: that
+    // is the course of the gesture asked for, not an incident. We say it that way,
+    // in amber, instead of showing "Offline" in red over something the user has
+    // just triggered themselves.
     const attendu = runningOperation();
     const mb=document.getElementById('modebar'); const busyErr=mb.classList.contains('busy'); mb.className='modebar err'+(busyErr?' busy':''); mb.title=attendu?L('ui.mise-a-jour-en-cours'):L('ui.connexion-api-impossible'); mb.textContent='';
     const msg = (e && e.name==='AbortError') ? L('ui.delai-depasse-le-premier') : (e && e.message ? e.message : e);
@@ -57,13 +57,13 @@ export async function checkVersion(){
   try{
     const r=await fetch(API+'/health'); if(!r.ok) return;
     const j=await r.json();
-    // Bouton Atelier : visible UNIQUEMENT si son serveur repond en local (outil de dev).
+    // Atelier button: shown ONLY if its server answers locally (a development tool).
     const ab=document.getElementById('atelierBtn');
     if(ab){ if(j && j.atelier){ ab.href=j.atelier; ab.hidden=false; } else { ab.hidden=true; } }
-    // L'APP SERVEUR A CALCULE QUELQUE CHOSE : on relit le cache, sans attendre notre minute.
-    // Elle ne peut pas nous prevenir d'elle-meme -- elle repond, elle n'appelle pas --, mais
-    // cette reponse-ci coute trois fois rien et nous passons deja toutes les 15 s. On ne
-    // recalcule rien : /state sans « fresh » sert ce qui est deja ecrit (D124).
+    // THE SERVER APP HAS COMPUTED SOMETHING: we re-read the cache, without waiting for our minute.
+    // It cannot warn us by itself -- it answers, it does not call -- but this particular answer
+    // costs next to nothing and we already come by every 15 s. We recompute nothing: /state
+    // without "fresh" serves what is already written (D124).
     if(j && j.stateStamp){
       if(lastStateStamp && j.stateStamp!==lastStateStamp && !runningOperation()){
         lastStateStamp=j.stateStamp; refresh();
@@ -71,11 +71,11 @@ export async function checkVersion(){
     }
     if(!window.APP_BUILD || window.APP_BUILD.includes('__')) return;
     if(j && j.build && j.build!==window.APP_BUILD){
-      // PAS PENDANT UNE OPERATION. Une mise a jour de Vigie sert forcement une nouvelle
-      // version : la page se rechargeait donc AU MILIEU de l'operation qui l'avait
-      // declenchee. Au retour, le front ne savait plus qu'elle tournait -- boutons
-      // reactives, sablier disparu, cartes redistribuees. On attend la fin, et le
-      // prochain passage (toutes les 15 s) rechargera.
+      // NOT DURING AN OPERATION. An update of Vigie necessarily serves a new version: the
+      // page therefore reloaded IN THE MIDDLE of the operation that had triggered it. On
+      // the way back, the front end no longer knew it was running -- buttons live again,
+      // hourglass gone, cards redistributed. We wait for the end, and the next pass (every
+      // 15 s) will reload.
       if(runningOperation()){ return; }
       location.reload();
     }
@@ -84,14 +84,14 @@ export async function checkVersion(){
 
 let dark=true;
 export function toggleTheme(){
-  // L'icone du footer montre le theme CIBLE : lune quand on est en clair, soleil sinon.
+  // The footer icon shows the TARGET theme: a moon when we are in light, a sun otherwise.
   setTimeout(()=>{ const ic=document.getElementById('themeIc'); if(ic) ic.innerHTML=(dark?'&#xE005;':'&#xE006;'); },0); dark=!dark;
   document.documentElement.setAttribute('data-theme',dark?'':'light');
   const tb=document.getElementById('themeBtn');
   tb.textContent = dark ? '☀' : '☾';
   tb.title = dark ? L('ui.passer-au-theme-clair') : L('ui.passer-au-theme-sombre'); }
-// Message bref et autonome, dans la MEME pile que les toasts d’actions (#toastStack).
-// L’ancienne version visait un #toast qui n’existe plus : tout appel levait une erreur.
+// A brief, self-contained message, in the SAME stack as the action toasts (#toastStack).
+// The old version aimed at a #toast that no longer exists: every call raised an error.
 export function toast(msg){
   const stack=document.getElementById('toastStack'); if(!stack) return;
   const el=document.createElement('div'); el.className='toast'; el.textContent=msg;

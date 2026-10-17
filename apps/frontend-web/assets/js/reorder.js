@@ -22,8 +22,8 @@ function entrerReorg(){
   document.body.classList.add('reorg');
   // The banner is placed NEXT TO #app, not inside it: #app is redrawn entirely on every render, and the
   // banner vanished leaving the cards in dotted outlines -- the mode was active with nothing left to say
-  // so, nor to leave it (reported on 27/08: "make everything come and go together").
-  //
+  // so, nor to leave it. Reported on 27/08, in these words: "make everything come and go
+  // together".
   const app = document.getElementById('app');
   const bar = document.createElement('div');
   bar.className = 'reorg-bar'; bar.id = 'reorgBar';
