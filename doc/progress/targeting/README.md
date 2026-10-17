@@ -11,6 +11,7 @@ realisation sans reecrire l'enonce.
 - Pièces de Vigie et leur réponse à chaque situation de leur vie : **`components.md`**.
 - Désinstallation : **`uninstall.md`**.
 - Un serveur élevé par machine, pour plusieurs comptes : **`multi-account-server.md`**.
+- Le panneau, ce qu'il doit être et ce qu'une page ne doit jamais redevenir : **`panel.md`**.
 - Surveillance permanente : **`surveillance.md`**.
 - Résidents de l'app serveur : **`residents.md`**.
 - Jeux : **`gaming.md`**.

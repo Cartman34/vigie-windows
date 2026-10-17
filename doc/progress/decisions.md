@@ -40,7 +40,7 @@ ligne — `scripts/dev/check-doc.ps1` refuse une décision absente d'ici.
 - **Structure du dépôt** — D29 · D32 · D33 · D35 · D55
 - **Documentation** — D91 · D92 · D93 (revu) · D98 · D119 · D120
 - **Configuration** — D15 · D18 · D56 · D57
-- **Interface** — **D130** · D127 · D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46 · D48 · D49 · D50 · D58 · D59 · D66 · D68 · D69 · D70 · D71 · D88 · D89 · D94 · D95 · D102 · D105 · D114
+- **Interface** — **D132** · **D130** · D127 · D01 · D02 · D08 · D09 · D19 · D20 · D23 · D25 · D26 · D27 · D37 · D38 · D42 · D45 · D46 · D48 · D49 · D50 · D58 · D59 · D66 · D68 · D69 · D70 · D71 · D88 · D89 · D94 · D95 · D102 · D105 · D114
 - **Installation, déploiement et mise à jour** — D07 · D11 · D22 · D77 · D78 · D79 · D81 · D84 · D87 · D96 · D97 · D99 · D101 · D106 · D107 (revu) · D110 · D112 · D117 · D123
 - **Sécurité, droits et multi-comptes** — **D131** · **D128** · D34 · D65 · D67 · D73 · D104 · D109
 - **Sondes, actions et tâches de fond** — D50bis · D53 · D54 · D60 · D61 · D80 · D82 · D83 · D85 · D113 · D124 · D125 · D126
@@ -3519,3 +3519,30 @@ Relevé : [Seize logiciels installés au lieu d'un](../../notes/evidence/2026-10
 
 Où c'est réalisé : `doc/en/developing/conventions.md` (« "All" is asked for, never assumed »), `Start-PkgJob`,
 `actions/pkg-upgrade.action.ps1`, `scripts/dev/check-sets.ps1`.
+
+## D132 — Le panneau est rendu par le serveur, et découpé par sujet (2026-10-17)
+
+*Demandé par l'utilisateur, en lisant la page : « je ne sais même pas pourquoi tu as un index.html alors que tu as
+un serveur web », puis « pour moi, tu montais un serveur avec PS comme tu l'aurais fait avec php donc ça se
+construit dynamiquement ».*
+
+**Ce qui n'allait pas.** Une seule page de **3 736 lignes** — 784 de style, 2 810 de script, 83 de balisage — parce
+que la page existait avant le serveur et que personne ne s'est demandé une seule fois comment une page se rend
+quand on a un serveur. Aucune décision ne portait la question, donc rien n'a jamais été enfreint : la page a
+grossi à chaque ajout, et moi avec.
+
+**Décision.** Le panneau est **rendu par l'app serveur**, qui a un moteur de vues : une vue porte la coquille et le
+jeton, les styles et les scripts sont de **vrais fichiers servis**, le script est découpé en **modules par sujet**
+sans variable globale. Rien n'est engendré — ni dans le dépôt, ni dans `var/`, ni à l'installation — donc rien ne
+peut dériver ni manquer. Le tout **sans build ni Node** (**D06**).
+
+**Et un cliquet sur la taille**, qui ne monte jamais : c'est le seul mécanisme qui empêche la récidive. L'habitude
+d'ajouter dans le fichier qui existe déjà a produit les deux monolithes du projet, `index.html` et `common.ps1`.
+
+**Ce que ça ne change pas** : ce que voit celui qui regarde le panneau. Un découpage qui change l'écran n'est pas
+un découpage.
+
+Preuve : [2026-10-17-the-panel-is-one-file-of-3736-lines.md](../../notes/evidence/2026-10-17-the-panel-is-one-file-of-3736-lines.md) — la page mesurée, ce que Pode sait faire et qui n'est pas utilisé.
+
+Cible : [targeting/panel.md](targeting/panel.md). Sujet : **S25**.
+

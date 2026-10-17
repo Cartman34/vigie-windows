@@ -180,6 +180,7 @@ Format : `ID` — Titre, puis le besoin et ses critères. On n'écrit **pas** ic
 - **UI-LAYOUT** — Colonnes stables, cartes d'un même module placées à la suite ou à proximité.
 - **UI-REORG** — Un mode réorganisation explicite où l'utilisateur ordonne ses cartes, y compris vers une colonne vide.
 - **UI-SETTINGS** — Un menu Paramètres unique ; le défaut vient de la configuration.
+- **UI-RENDER**, **UI-ASSETS**, **UI-MODULES**, **UI-SUBJECT**, **UI-STATE-OWNER**, **UI-SIZE**, **UI-HTML-IN-JS**, **UI-NO-BUILD** — Comment le panneau est fabriqué : [panel.md](panel.md).
 
 ## Abandonné
 
