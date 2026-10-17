@@ -3,7 +3,7 @@ import { esc } from './format.js';
 import { toast } from './refresh.js';
 
 // ===== Design system : Dialog reutilisable (modales in-app) =====
-// HDS.open(opts) -> Promise(valeur du bouton clique)
+// HDS.open(opts) -> Promise(value of the button clicked)
 // HDS.confirm({title,body,confirmLabel,cancelLabel,danger}) -> Promise(bool)
 // HDS.info(title, body) -> Promise (bouton Fermer)
 export const HDS = (function(){
@@ -41,8 +41,8 @@ export const HDS = (function(){
     const variant=opts.variant||'info';
     cancelValue=('cancelValue' in opts)?opts.cancelValue:null;
     elTitle.textContent=opts.title||'';
-    // `html` est reserve a du contenu que NOUS composons (les libelles venant du
-    // serveur y sont echappes par esc()). `body` reste du texte brut, jamais interprete.
+    // `html` is reserved for content WE compose (labels coming from the server are escaped
+    // through esc()). `body` stays plain text, never interpreted.
     const alerte = opts.alerte
       ? '<div class="hds-alerte '+(opts.alerteNiveau||'warn')+'"><span class="ic">!</span><span>'+esc(opts.alerte)+'</span></div>'
       : '';
@@ -50,7 +50,7 @@ export const HDS = (function(){
     else if(alerte){ const t=document.createElement('div'); t.textContent=opts.body||'';
                      elBody.innerHTML = alerte; elBody.appendChild(t); }
     else { elBody.textContent = opts.body||''; }
-    // `large` : la popin s'élargit pour ce qui porte un tableau, sans changer le reste.
+    // `large`: the popup widens for whatever carries a table, without changing the rest.
     dlg.className='hds-dialog hds-dialog--'+variant+(opts.large?' hds-dialog--large':'')+(opts.icon===false?'':' has-ic');
     back.classList.toggle('haut', opts.placement==='haut');
     elIc.textContent=ICON[variant]||'i';
@@ -88,9 +88,9 @@ export const HDS = (function(){
         {label:opts.confirmLabel||'Confirmer',kind:danger?'danger':'primary',value:true,default:true}
       ]});
   }
-  // Fermer UNIQUEMENT si l'appui ET le relachement ont eu lieu sur le voile : un clic
-  // entame dans la fenetre (selection de texte...) et relache dehors declenchait
-  // 'click' sur l'ancetre commun -- le voile -- et fermait la popin (constate).
+  // Close ONLY if the press AND the release happened on the veil: a click started inside
+  // the window (selecting text, say) and released outside fired 'click' on the common
+  // ancestor -- the veil -- and closed the popup (seen).
   let appuiSurVoile=false;
   back.addEventListener('mousedown',e=>{ appuiSurVoile=(e.target===back); });
   back.addEventListener('mouseup',e=>{
@@ -98,30 +98,30 @@ export const HDS = (function(){
     appuiSurVoile=false;
   });
   elX.addEventListener('click',()=>settle(cancelValue));
-  // Fenetre de CHOIX : une case a cocher par element, resultat = tableau d'identifiants
-  // retenus, ou null si l'utilisateur annule. Rien n'est preselectionne par defaut quand
-  // `tousCoches` est faux : une action qui installe ne doit pas partir sur un choix subi.
-  // Fenetre de CHOIX : une case a cocher par element, resultat = tableau d'identifiants
-  // retenus, ou null si l'utilisateur annule.
+  // A CHOICE window: one tick box per item, result = an array of the identifiers kept, or
+  // null if the user cancels. Nothing is pre-ticked by default when `tousCoches` is false:
+  // an action that installs must not start on a choice the user never made.
+  // The window opens IMMEDIATELY. If the items have to be fetched (`charger`), it shows a
+  // loader and keeps its confirm button disabled, then fills up.
   //
-  // Elle s'ouvre IMMEDIATEMENT. Si les elements doivent etre charges (`charger`), la
-  // fenetre affiche un chargeur et garde son bouton de validation desactive, puis se
-  // remplit. Attendre le serveur AVANT d'ouvrir donnait un clic sans reaction visible :
-  // l'utilisateur ne savait pas si son clic avait ete pris.
+  // Waiting for the server BEFORE opening gave a click with no visible reaction: the user
+  // could not tell whether the click had been taken. An interface that takes a gesture
+  // says so at once, even when it has nothing to show yet -- the loader IS the answer to
+  // the click.
   function choose(opts){
     opts=opts||{};
     let cocheDefaut = opts.tousCoches!==false;
     let items = opts.items || [];
 
-    // Liste VERROUILLEE (`verrouille`) : la source ne sait pas traiter un element en
-    // particulier. On montre quand meme la liste -- elle informe -- mais les cases sont
-    // cochees et NON decochables, et l'intro dit pourquoi. Laisser decocher un choix qui
-    // serait ensuite ignore serait un mensonge d'interface.
+    // A LOCKED list (`verrouille`): the source cannot deal with one item in particular. We
+    // still show the list -- it informs -- but the boxes are ticked and CANNOT be
+    // unticked, and the intro says why. Letting someone untick a choice that would then be
+    // ignored would be an interface telling a lie.
     let lock = false;
-    // EXCLURE un element depuis la liste (`opts.exclure`) : la fenetre qui montre les
-    // mises a jour est exactement l'endroit ou l'on decide qu'un paquet ne doit plus
-    // etre propose. Sans cela il fallait retenir son identifiant et aller le taper dans
-    // les parametres -- exigence utilisateur.
+    // EXCLUDING an item from the list (`opts.exclure`): the window that shows the updates
+    // is exactly the place where one decides that a package must no longer be offered.
+    // Without it one had to remember its identifier and go and type it into the settings
+    // -- the owner asked for this.
     const rowOf = it =>
       '<div class="hds-choice-row"><label class="hds-choice'+(lock?' hds-choice--fige':'')+'"><input type="checkbox" value="'+esc(it.id)+'"'+((lock||cocheDefaut)?' checked':'')+(lock?' tabindex="-1"':'')+'>'
       + '<span class="hds-choice-t">'+esc(it.title)+'</span>'
@@ -188,9 +188,9 @@ export const HDS = (function(){
 
     const boites=()=>[...elBody.querySelectorAll('input[type=checkbox]:not([data-groupe])')];
     const groupBoxes=()=>[...elBody.querySelectorAll('input[data-groupe]')];
-    // L'ETAT D'UN GROUPE SE DEDUIT DE SES LIGNES, jamais l'inverse : cocher une ligne a la
-    // main doit se voir en haut, et le troisieme etat -- ni tout, ni rien -- est le seul
-    // qui dise la verite sur une selection partielle.
+    // A GROUP'S STATE IS DEDUCED FROM ITS ROWS, never the other way round: ticking a row
+    // by hand must show at the top, and the third state -- neither all nor none -- is the
+    // only one that tells the truth about a partial selection.
     const refreshGroups=()=>{
       groupBoxes().forEach(g=>{
         const block = g.closest('.hds-grp');
@@ -203,9 +203,9 @@ export const HDS = (function(){
     const valider=()=>elFoot.querySelector('[data-default]');
     let retenus=[];
     const maj=()=>{
-      // Liste figee : la case reste ACTIVE (une case `disabled` est grisee par le
-      // navigateur, on ne verrait plus qu'elle est cochee). L'interaction est coupee par
-      // le CSS ; ce filet garantit qu'aucune ne peut se retrouver decochee.
+      // A frozen list: the box stays ACTIVE (a `disabled` box is greyed by the browser,
+      // and one could no longer see that it is ticked). The interaction is cut by the CSS;
+      // this net makes sure none can end up unticked.
       if(lock) boites().forEach(b=>{ b.checked = true; });
       retenus = boites().filter(b=>b.checked).map(b=>b.value);
       refreshGroups();
@@ -219,8 +219,8 @@ export const HDS = (function(){
       if(n) n.onclick=()=>{ boites().forEach(b=>b.checked=false); maj(); };
       boites().forEach(b=>b.addEventListener('change',maj));
       groupBoxes().forEach(g=>{
-        // Un clic sur la case NE PLIE PAS le groupe : sans cela, cocher un constructeur
-        // refermait ce qu'on venait d'ouvrir pour le regarder.
+        // A click on the box DOES NOT FOLD the group: without this, ticking a vendor
+        // closed again what one had just opened to look at.
         g.addEventListener('click',e=>e.stopPropagation());
         g.addEventListener('change',()=>{
           const block = g.closest('.hds-grp');
@@ -229,9 +229,9 @@ export const HDS = (function(){
           maj();
         });
       });
-      // « Ignorer » : l'element sort de la liste ET du perimetre, durablement. On attend
-      // que l'enregistrement ait REUSSI avant de retirer la ligne : sinon l'utilisateur
-      // croirait avoir exclu un paquet qui reviendrait au prochain passage.
+      // "Ignore": the item leaves the list AND the scope, for good. We wait for the save
+      // to have SUCCEEDED before removing the row: otherwise the user would believe they
+      // had excluded a package that would come back on the next pass.
       elBody.querySelectorAll('[data-exclu]').forEach(b=>{ b.onclick=async()=>{
         const id=b.getAttribute('data-exclu');
         b.disabled=true; b.textContent='…';
@@ -257,18 +257,18 @@ export const HDS = (function(){
     let stopWaitNotice = null;
     if(opts.charger){
       stopWaitNotice = startWaitNotice('Lecture de la liste');
-      // Le bouton reste desactive tant qu'il n'y a rien a valider.
+      // The button stays disabled as long as there is nothing to confirm.
       const v=valider(); if(v) v.disabled=true;
       opts.charger().then(res=>{
         if(stopWaitNotice){ stopWaitNotice(); stopWaitNotice = null; }
         items = (res && res.items) || [];
         lock = !!(res && res.verrouille);
-        // Le serveur peut trancher le precochage (reglage utilisateur, D57).
+        // The server may settle the pre-ticking (a user setting, D57).
         if(res && res.tousCoches!==undefined) cocheDefaut = !!res.tousCoches;
         const intro = (res && res.intro) || opts.intro;
-        // Le libelle du bouton n'est connu qu'apres lecture (« Installer » pour Windows
-        // Update, « Mettre a jour » pour un gestionnaire de paquets) : la fenetre, elle,
-        // s'ouvre AVANT. On le corrige a l'arrivee de la liste.
+        // The button's label is only known after reading ("Install" for Windows Update,
+        // "Update" for a package manager): the window itself opens BEFORE. We correct it
+        // when the list arrives.
         const lib = res && res.confirmLabel;
         if(lib){ const b=valider(); if(b) b.textContent = lib; }
         if(!items.length){
@@ -310,6 +310,6 @@ export function octets(n){
   while(n>=1024 && i<u.length-1){ n/=1024; i++; }
   return (i?n.toFixed(1):n)+' '+u[i];
 }
-// Listes de choix deja obtenues, par action+module. Une fenetre de choix ne redemande au
-// serveur QUE si son information locale a vieilli : rouvrir la meme fenetre dans la foulee
-// ne doit pas relancer une lecture.
+// Choice lists already obtained, by action plus module. A choice window only asks the
+// server again if its local information has aged: reopening the same window straight away
+// must not start another read.

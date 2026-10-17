@@ -22,13 +22,13 @@ export async function renderTabModules(pane){
   const on=id=> (id in cfg.modules)? !!cfg.modules[id] : true;
   pane.innerHTML='<p class="um-hint">Couper un module retire ses cartes et ses calculs ; il reste listé ici pour être rallumé. Dépliez-en un pour régler <b>ses notifications</b> et <b>ses paramètres</b>.</p>'+units.map(u=>{
     const cards=(lastModules||[]).filter(m=>m.theme===u.id);
-    // NOTIFICATIONS : les evenements que le module sait signaler, avec leur vrai nom
-    // (« Temperature GPU elevee »), pas le nom des cartes -- exigence utilisateur.
+    // NOTIFICATIONS: the events the module knows how to report, under their real name
+    // ("GPU temperature high"), not the name of the cards -- the owner asked for that.
     const decl=((notifCat||[]).find(x=>x.unit===u.id)||{}).notifications||[];
     const onNotif=(unit,key)=>{ const r=unit+'.'+key; return (cfg.notifs && (r in cfg.notifs)) ? !!cfg.notifs[r] : on(unit); };
-    // Qui peut agir : une notification « admin » ne derange pas un compte standard,
-    // sauf si elle est critique -- alors elle remonte quand meme, en invitant a
-    // prevenir un administrateur.
+    // Who can act: an "admin" notification does not disturb a standard account, unless it
+    // is critical -- then it comes through anyway, inviting the user to warn an
+    // administrator.
     const etiquettesNotif=nn=>[].concat(nn.rights==='admin'?['admin']:[], nn.critical?['critique']:[]);
     const fieldCount=(decl.length
       ? UI.bande('Notifications', decl.length)
@@ -37,10 +37,10 @@ export async function renderTabModules(pane){
             droite: UI.interrupteur('data-unotif="'+esc(u.id)+'::'+esc(nn.key)+'"', onNotif(u.id,nn.key))
           })))
       : UI.bande('Notifications') + UI.note(L('ui.ce-module-ne-signale')));
-    // ACCORDEON, coherent avec le reste de l'app (l'arbre du disque et les details de
-    // champ se deplient deja ainsi ; les onglets, eux, sont deja pris par la navigation
-    // des Parametres). Tout est replie : la liste des modules se lit d'un coup d'oeil,
-    // et on ouvre celui qu'on veut regler.
+    // AN ACCORDION, consistent with the rest of the app (the disk tree and the field
+    // details already unfold this way; tabs are already taken by the Settings' own
+    // navigation). Everything starts folded: the list of modules reads at a glance, and
+    // one opens the one to be tuned.
     const targetIndex=(pendingUnitFocus===u.id);
     return '<details class="um'+(u.enabled?'':' off')+'" id="um-'+esc(u.id)+'"'+(targetIndex?' open':'')+'>'
       +'<summary class="um-head"><div class="um-t"><b>'+esc(u.label)+'</b><small>'+esc(u.description||'')+'</small></div>'
@@ -61,13 +61,13 @@ export async function renderTabModules(pane){
             +(pr.min!=null?' min="'+pr.min+'"':'')+(pr.max!=null?' max="'+pr.max+'"':'')
             +' value="'+esc(String(pr.value))+'">'+(pr.unit?'<span>'+esc(pr.unit)+'</span>':'');
         }
-        // um-pline : une ligne de parametre porte des commandes plus larges qu'un
-        // interrupteur ; la classe ne change que cet espacement.
+        // um-pline: a parameter row carries controls wider than a switch; the class
+        // changes that spacing and nothing else.
         return UI.ligneHtml(esc(pr.label), btnDef+ctl, pr.help||'').replace('class="um-card"', 'class="um-card um-pline"');
       }).join('')+'</div>' : '')
-      // LISTES : une SECTION dediee par liste (exigence utilisateur). Une ligne de
-      // parametre est trop etroite pour lire, ajouter et retirer ; ici la liste prend
-      // toute la largeur, chaque element porte sa croix, le champ d'ajout est visible.
+      // LISTS: one dedicated SECTION per list (the owner asked for it). A parameter row is
+      // too narrow to read, add and remove in; here the list takes the full width, each
+      // item carries its cross, and the field to add is visible.
       +(u.enabled ? (paramCat[u.id]||[]).filter(pr=>pr.type==='list').map(pr=>{
         const ref=esc(u.id)+'::'+esc(pr.key);
         const items=Array.isArray(pr.value)?pr.value:[];
@@ -84,12 +84,12 @@ export async function renderTabModules(pane){
       }).join('') : '')
       +'</details>';
   }).join('');
-  // L interrupteur vit DANS l en-tete depliante : sans cela, le clic dessus replierait
-  // le module au lieu de le couper.
+  // The switch lives INSIDE the unfolding header: without that, clicking it would fold the
+  // module instead of switching it off.
   pane.querySelectorAll('.um-head .swx').forEach(sw=>{ sw.addEventListener('click', e=>{ e.stopPropagation(); }); });
-  // Un interrupteur = UNE notification (« module::cle »). Le reglage part dans `notifs`,
-  // qui l'emporte sur le reglage du module : couper une notification precise ne coupe pas
-  // les autres.
+  // One switch = ONE notification ("module::key"). The setting goes into `notifs`, which
+  // wins over the module's own setting: switching off one precise notification does not
+  // switch off the others.
   pane.querySelectorAll('[data-unotif]').forEach(c=>{ c.onchange=async()=>{
     const [unit,key]=c.getAttribute('data-unotif').split('::');
     const notifs={}; notifs[unit+'.'+key]=c.checked;
@@ -103,11 +103,11 @@ export async function renderTabModules(pane){
       body: JSON.stringify({ values }) });
     if(!r.ok) throw new Error('HTTP '+r.status);
   }
-  // Un parametre change ne recalcule QUE les cartes de son module : le serveur a deja
-  // invalide leurs sondes, chaque carte se recharge fraiche sans payer les autres.
+  // A changed parameter recomputes ONLY its module's cards: the server has already
+  // invalidated their probes, each card reloads fresh without paying for the others.
   async function afterParam(unit){
-    // Le panneau d abord (valeur et bouton defaut a jour tout de suite), les cartes
-    // ensuite, sans bloquer : chacune se remplace quand son calcul aboutit.
+    // The panel first (value and default button up to date straight away), the cards
+    // after, without blocking: each one is replaced when its computation lands.
     await renderSettings();
     (lastModules||[]).filter(m=>m.theme===unit).forEach(m=>{ refreshCard(m.id); });
   }
@@ -117,14 +117,14 @@ export async function renderTabModules(pane){
     try{ await postParam(unit,key,inputValue); toast(L('ui.parametre-enregistre')); await afterParam(unit); }
     catch(e){ toast(L('ui.reglage-impossible')+(e.message||e)); }
   }; });
-  // Curseur : il suit le champ nombre et reciproquement ; seul le relachement enregistre.
+  // Slider: it follows the number field and the other way round; only the release saves.
   pane.querySelectorAll('[data-prange]').forEach(r=>{
     const num=pane.querySelector('[data-pval="'+r.getAttribute('data-prange')+'"]');
     r.oninput=()=>{ if(num) num.value=r.value; };
     r.onchange=()=>{ if(num){ num.value=r.value; num.dispatchEvent(new Event('change')); } };
     if(num){ num.addEventListener('input',()=>{ r.value=num.value; }); }
   });
-  // Jetons : ajout par Entree, retrait par la croix ; chaque geste enregistre la liste.
+  // Chips: added with Enter, removed with the cross; each gesture saves the list.
   pane.querySelectorAll('[data-plist]').forEach(bloc=>{
     const [unit,key]=bloc.getAttribute('data-plist').split('::');
     const envoyer=async()=>{
@@ -180,9 +180,9 @@ const THEMES=[
   {id:'dark',  nom:L('ui.theme-sombre'), fond:'#0d1117', panneau:'#161b22', texte:'#e6edf3'},
   {id:'light', nom:L('ui.theme-clair'),  fond:'#e9edf4', panneau:'#ffffff', texte:'#1c2230'}
 ];
-// --- Onglet Utilisateurs (D65) : qui, sur cette machine, a Vigie au demarrage ---
-// L'ecriture demande un serveur eleve : sinon les interrupteurs restent VISIBLES mais
-// inertes, et disent pourquoi (rien ne disparait de l'interface -- D59).
+// --- Users tab (D65): who, on this machine, has Vigie at startup ---
+// Writing needs an elevated server: without it the switches stay VISIBLE but inert, and
+// say why (nothing disappears from the interface -- D59).
 export async function renderTabUtilisateurs(pane){
   pane.innerHTML='<div class="hds-loading"><span class="spin"></span>Lecture des comptes de la machine…</div>';
   let data={users:[],canWrite:false};
@@ -192,8 +192,8 @@ export async function renderTabUtilisateurs(pane){
   }catch(e){}
   const users=data.users||[];
   const inerte=!data.canWrite;
-  // Installation PERSONNELLE (poste de developpement, depot clone) : les autres comptes
-  // ne peuvent pas lire l'application. On ne propose alors pas ce qui echouerait.
+  // A PERSONAL installation (a development workstation, a cloned repository): the other
+  // accounts cannot read the application. So we do not offer what would fail.
   const partage=(data.shared!==false);
   pane.innerHTML=
     '<div class="um-sub">Comptes de cet ordinateur</div>'
@@ -203,8 +203,8 @@ export async function renderTabUtilisateurs(pane){
     +"<li>Un compte standard n'obtient <b>aucun droit en plus</b> : Vigie lui refuse les actions administrateur, comme Windows.</li>"
     +'</ul>'
     +(inerte?'<div class="um-note">Modifier ces choix demande un Vigie lancé en administrateur.</div>':'')
-    // CE QUE VOIT UNE FENETRE QUI NE DIT PAS QUI ELLE EST. Meme ecran que les comptes :
-    // c'est la meme question -- qui a le droit de voir quoi.
+    // WHAT A WINDOW THAT DOES NOT SAY WHO IT IS CAN SEE. The same screen as the accounts:
+    // it is the same question -- who has the right to see what.
     +UI.carte({
         titre:L('ui.fenetre-sans-session'),
         detail:L('ui.fenetre-sans-session-detail'),
@@ -213,12 +213,12 @@ export async function renderTabUtilisateurs(pane){
               +'<option value="cards"'+((data.anonymousAccess==='cards')?' selected':'')+'>'+L('ui.anon-cartes')+'</option>'
               +'</select>'
       })
-    // CET ECRAN CHOISIT DES COMPTES. RIEN D'AUTRE.
+    // THIS SCREEN CHOOSES ACCOUNTS. NOTHING ELSE.
     //
-    // Il portait aussi un bouton « Deployer pour tous », qui installait Vigie dans
-    // Program Files par un chemin a lui : un second geste d'installation, avec son propre
-    // comportement a tenir, cache dans l'ecran des comptes. On dit ce qui manque, et on
-    // renvoie la ou l'installation se fait -- une seule fois, au meme endroit.
+    // It also carried a "Deploy for everyone" button, which installed Vigie into Program
+    // Files by a path of its own: a second installation gesture, with its own behaviour to
+    // keep, hidden inside the accounts screen. We say what is missing, and we send the
+    // user where the installation happens -- once, in one place.
     +(partage?'':UI.carte({
         titre:L('ui.cette-installation-est-lisible'),
         detail: esc(data.installPath||'')+L('ui.les-autres-comptes-ne')
@@ -268,9 +268,9 @@ export function renderTabApparence(pane){
       +'<span class="theme-prev-card" style="background:'+t.panneau+';color:'+t.texte+'">Aa</span></span>'
       +'<span class="theme-nom">'+t.nom+'</span></label>').join('')
     +'</div>'
-    // ENTREE DU MODE REORGANISATION (D92). Elle vit ici, dans les Parametres, et non
-    // dans l'en-tete : un bouton de plus en haut de page se clique par megarde, et
-    // l'en-tete n'accueille aucun bouton epars (D56).
+    // THE WAY INTO REARRANGE MODE (D92). It lives here, in the Settings, and not in the
+    // header: one more button at the top of the page gets clicked by mistake, and the
+    // header holds no stray buttons (D56).
     +UI.carte({
         titre:L('ui.disposition-des-cartes'),
         detail:L('ui.ranger-les-cartes-comme'),
@@ -294,9 +294,9 @@ export function renderTabApropos(pane){
     +'<div class="apropos-l"><span>Auteur</span><b>Florent HAZARD</b></div>'
     +'<div class="apropos-l"><span>Licence</span><b>MIT</b></div>'
     +'<p style="margin:14px 0 0"><a class="apropos-repo" data-repo-link><svg width="16" height="16" aria-hidden="true"><use href="#ghMark"/></svg><span class="apropos-repo-t"></span></a></p></div>'
-    // EXPORTS : deux documents distincts, ouverts dans un onglet et imprimables en PDF
-    // depuis le navigateur (D86). Pas de dependance a installer : la page se sert
-    // elle-meme des donnees que Vigie possede deja.
+    // EXPORTS: two separate documents, opened in a tab and printable to PDF from the
+    // browser (D86). No dependency to install: the page serves itself from the data Vigie
+    // already holds.
     +'<div class="um" style="margin-top:12px"><b>Exports</b>'
     +'<p class="um-hint" style="margin:2px 0 10px">Deux documents à imprimer ou à enregistrer en PDF.</p>'
     +'<p style="display:flex;gap:8px;flex-wrap:wrap;margin:0">'

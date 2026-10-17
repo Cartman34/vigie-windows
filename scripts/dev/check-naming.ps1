@@ -58,7 +58,7 @@ $ErrorActionPreference = 'Stop'
     A CEILING THAT RISES IS ALLOWED ONLY HERE: when the measure starts seeing something it never saw, the old
     number was never the truth. It is not allowed when French is added -- that is what this ratchet refuses.
 #>
-$COMMENT_CEILING = 548
+$COMMENT_CEILING = 463
 
 # 08/10, the second half of common.ps1: 1044 -> 310 French comment lines in the library, and the repository from
 # 4539 to 3805. Then its tail -- the environment, the traceability, the requester, the Atelier, the elevation and
