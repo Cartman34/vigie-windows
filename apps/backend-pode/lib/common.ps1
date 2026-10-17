@@ -703,10 +703,10 @@ function Set-DeviceGuardFeature {
     # resolves by switching VBS back on. So both are turned off -- and it is SAID.
     # The converse is not true: enabling VBS does not enable memory integrity behind the
     # user's back; that is a separate decision with its own trade-offs.
-    $toWrite = @( [pscustomobject]@{ Id = $Feature; Valeur = $targetValue } )
+    $toWrite = @( [pscustomobject]@{ Id = $Feature; Value = $targetValue } )
     $hvciCoupeAussi = $false
     if ($Feature -eq 'vbs' -and $targetValue -eq 0) {
-        $toWrite += [pscustomobject]@{ Id = 'hvci'; Valeur = 0 }
+        $toWrite += [pscustomobject]@{ Id = 'hvci'; Value = 0 }
         $hvciCoupeAussi = $true
     }
 
@@ -717,7 +717,7 @@ function Set-DeviceGuardFeature {
             # Idempotent: New-Item -Force on an existing key does not erase it, and writing
             # the same value again has no effect. Replaying the switch breaks nothing.
             if (-not (Test-Path -LiteralPath $f.Key)) { New-Item -Path $f.Key -Force -ErrorAction Stop | Out-Null }
-            New-ItemProperty -Path $f.Key -Name $f.Name -Value $e.Valeur -PropertyType DWord -Force -ErrorAction Stop | Out-Null
+            New-ItemProperty -Path $f.Key -Name $f.Name -Value $e.Value -PropertyType DWord -Force -ErrorAction Stop | Out-Null
         } catch {
             $erreurs += "$($e.Id) : $($_.Exception.Message)"
         }
@@ -727,7 +727,7 @@ function Set-DeviceGuardFeature {
     # value to switch back to if the user clicks again before restarting.
     try {
         $set = @{}
-        foreach ($e in $toWrite) { $set[$e.Id] = @{ requested = $e.Valeur; at = (Get-Date).ToUniversalTime().ToString('o') } }
+        foreach ($e in $toWrite) { $set[$e.Id] = @{ requested = $e.Value; at = (Get-Date).ToUniversalTime().ToString('o') } }
         Update-StateJson -Path (Get-DeviceGuardMarkerPath -Backend $Backend) -Set $set | Out-Null
     } catch { }
 
@@ -8426,8 +8426,8 @@ function Get-VigieFootprint {
     [pscustomobject][ordered]@{
         programme     = $programme          # installation partagee
         programmePath = $partagee
-        donnees       = $dataBytes            # somme des donnees par compte
-        parCompte     = $perAccount
+        data       = $dataBytes            # somme des donnees par compte
+        perAccount     = $perAccount
         sources       = $sources            # depot de developpement (0 en usage normal)
         sourcesPath   = $(if ($sources) { $repositoryRoot } else { $null })
         total         = ($programme + $dataBytes + $sources)
@@ -9528,13 +9528,13 @@ function Get-VendorName {
     # one here and it SHOUTS: at equal information, mixed case wins.
     $best = $candidates | Group-Object | ForEach-Object {
         [pscustomobject]@{
-            Nom   = $_.Name
-            Crie  = [bool]($_.Name -cmatch '^[^a-z]+$')
-            Vues  = $_.Count
-            Long  = $_.Name.Length
+            Spelling = $_.Name
+            Shouts   = [bool]($_.Name -cmatch '^[^a-z]+$')
+            Seen     = $_.Count
+            Length   = $_.Name.Length
         }
-    } | Sort-Object Crie, @{ Expression = 'Vues'; Descending = $true }, Long
-    @($best)[0].Nom
+    } | Sort-Object Shouts, @{ Expression = 'Seen'; Descending = $true }, Length
+    @($best)[0].Spelling
 }
 <#
     THE NOTIFICATION DOOR -- conception : doc/progress/targeting/notifications.md.
@@ -10028,7 +10028,7 @@ function Repair-VigieTasks {
         if ($name -eq 'Vigie' -and $account) {
             $renamed = Rename-VigieLegacyTask -Account $account -Backend $Backend
             if ($renamed) {
-                $repairs += [pscustomobject]@{ tache = $name; mal = "elle portait l'ancien nom"; repare = $true; attente = $false }
+                $repairs += [pscustomobject]@{ task = $name; problem = "elle portait l'ancien nom"; repaired = $true; waiting = $false }
                 try { $t = Get-ScheduledTask -TaskName $renamed -ErrorAction Stop } catch { continue }
                 $name = $renamed
             }
@@ -10041,7 +10041,7 @@ function Repair-VigieTasks {
         if (-not $mal) {
             $histoire = Get-VigieTaskHistoryAilment -Task $t
             if ($histoire) {
-                $repairs += [pscustomobject]@{ tache = $name; mal = $histoire; repare = $false; attente = $true }
+                $repairs += [pscustomobject]@{ task = $name; problem = $histoire; repaired = $false; waiting = $true }
             }
             continue
         }
@@ -10089,14 +10089,14 @@ function Repair-VigieTasks {
             $after = $null
             try { $after = Get-VigieTaskAilment -Task (Get-ScheduledTask -TaskName $name -ErrorAction Stop) } catch { }
             if ($after) {
-                $repairs += [pscustomobject]@{ tache = $name; mal = $mal; repare = $false; reste = $after }
+                $repairs += [pscustomobject]@{ task = $name; problem = $mal; repaired = $false; remains = $after }
                 Write-Log -Backend $Backend -Name 'comptes' -Message (Get-Label 'common.tache-reecrite-mais' $name $after)
             } else {
-                $repairs += [pscustomobject]@{ tache = $name; mal = $mal; repare = $true }
+                $repairs += [pscustomobject]@{ task = $name; problem = $mal; repaired = $true }
                 Write-Log -Backend $Backend -Name 'comptes' -Message (Get-Label 'common.tache-reparee' $name $mal)
             }
         } catch {
-            $repairs += [pscustomobject]@{ tache = $name; mal = $mal; repare = $false; erreur = "$($_.Exception.Message)" }
+            $repairs += [pscustomobject]@{ task = $name; problem = $mal; repaired = $false; erreur = "$($_.Exception.Message)" }
             Write-Log -Backend $Backend -Name 'comptes' -Level 'ERROR' `
                       -Message (Get-Label 'common.tache-non-reparee' $name $mal $_.Exception.Message)
         }

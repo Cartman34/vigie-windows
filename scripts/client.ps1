@@ -67,7 +67,7 @@ function Get-ClientState {
         # UTF8 explicitly: the state carries accents.
         $parts = (Get-Content -LiteralPath $heartbeat -Raw -Encoding UTF8).Trim() -split ';'
         $age = ([datetime]::Now - [datetime]::Parse($parts[1])).TotalSeconds
-        return [pscustomobject]@{ Pid = [int]$parts[0]; AgeSec = [int]$age; Etat = $parts[2] }
+        return [pscustomobject]@{ Pid = [int]$parts[0]; AgeSec = [int]$age; State = $parts[2] }
     } catch { return $null }
 }
 
@@ -81,7 +81,7 @@ function Send-Order {
 if ($PSCmdlet.ParameterSetName -eq 'Status' -or $Status) {
     $t = Get-ClientState
     if ($t -and $t.AgeSec -le $THRESHOLD_SEC) {
-        Write-Info (Get-Label 'client.en-marche-pid' $t.Pid $t.Etat $t.AgeSec)
+        Write-Info (Get-Label 'client.en-marche-pid' $t.Pid $t.State $t.AgeSec)
         exit 0
     }
     if ($t) { Write-Host (Get-Label 'client.arrete-dernier-signe' $t.AgeSec $t.Pid) }

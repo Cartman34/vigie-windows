@@ -89,7 +89,7 @@ function ConvertTo-Reperage {
     [pscustomobject]@{
         Cle   = ($parts[0] * 1000000 + $parts[1] * 1000 + $parts[2])
         Suite = $suite
-        Texte = $Brut
+        Text = $Brut
     }
 }
 function Test-PlusRecente {

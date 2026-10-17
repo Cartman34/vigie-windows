@@ -57,7 +57,7 @@ function Get-Profil {
     # not only the one that announces itself.
     $useful = $lines | Where-Object { $_ -notmatch 'master version' -and $_ -notmatch 'the French page' }
     [pscustomobject]@{
-        Titres  = @($useful | Where-Object { $_ -match '^#{1,4} ' }).Count
+        Titles  = @($useful | Where-Object { $_ -match '^#{1,4} ' }).Count
         Tableau = @($useful | Where-Object { $_ -match '^\|' }).Count
         Code    = @($useful | Where-Object { $_ -match '^```' }).Count
         Renvois = @([regex]::Matches(($useful -join "`n"), '\]\(([^)\s]+)\)') |
@@ -86,7 +86,7 @@ foreach ($paire in $paires) {
     $a = Get-Profil -Path $fr
     $b = Get-Profil -Path $en
     $d = @()
-    if ($a.Titres  -ne $b.Titres)  { $d += ("titres {0} vs {1}"            -f $a.Titres,  $b.Titres) }
+    if ($a.Titles  -ne $b.Titles)  { $d += ("titres {0} vs {1}"            -f $a.Titles,  $b.Titles) }
     if ($a.Tableau -ne $b.Tableau) { $d += ("lignes de tableau {0} vs {1}" -f $a.Tableau, $b.Tableau) }
     if ($a.Code    -ne $b.Code)    { $d += ("blocs de code {0} vs {1}"     -f ($a.Code/2), ($b.Code/2)) }
     if ($a.Renvois -ne $b.Renvois) { $d += ("renvois {0} vs {1}"           -f $a.Renvois, $b.Renvois) }

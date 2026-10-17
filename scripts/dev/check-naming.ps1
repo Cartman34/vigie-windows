@@ -272,8 +272,18 @@ $COMMENT_CEILING = 713
     the sheet, with one difference that had to be WRITTEN: the
     reader skipped an entry that had no path, so a list of the old shape, still inside its half hour, gave not one
     usable line and the card would have lost its virtual disks silently. The shape is now tested, not the field.
+
+    17/10, THE LAST THIRTY-TWO: 32 -> 0 (S27). All of them were hashtable KEYS, which the pattern could not see
+    before 13/10 and which the tree sees. Each family moved on BOTH sides in one pass -- the repair report and the
+    action that reads it, the flag an action hands to its background task and the task that reads it, the
+    installation's footprint and the card that shows it -- because a key nobody reads any more is worse than a
+    French one.
+
+    AND THE NUMBER IS NOT THE END OF THE CAMPAIGN. What stays French in this repository is counted elsewhere: 713
+    comment lines, 639 of them in a page this ratchet now reads, and the French that no lexicon can see -- a word
+    nobody listed. Zero means this measure finds nothing, not that there is nothing.
 #>
-$CEILING = 32
+$CEILING = 0
 
 # THE FILE-NAME CEILING, AT ZERO SINCE 08/10.
 #

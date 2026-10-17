@@ -166,7 +166,7 @@ function Find-LienMort {
             if (-not $path) { continue }
             if (-not (Test-Path -LiteralPath (Join-Path $md.DirectoryName $path))) {
                 $morts += [pscustomobject]@{
-                    Fichier = $md.FullName.Substring($Root.Length).TrimStart('\', '/')
+                    File = $md.FullName.Substring($Root.Length).TrimStart('\', '/')
                     Lien    = $lien
                 }
             }
@@ -181,7 +181,7 @@ function Find-ForbiddenPath {
     $trouves = @()
     foreach ($c in $Paths) {
         foreach ($i in $INTERDITS) {
-            if ($c -match $i.Motif) { $trouves += [pscustomobject]@{ Chemin = $c; Quoi = $i.Quoi } }
+            if ($c -match $i.Motif) { $trouves += [pscustomobject]@{ Path = $c; Quoi = $i.Quoi } }
         }
     }
     $trouves
@@ -246,7 +246,7 @@ foreach ($f in $suivis) {
 $interdits = Find-ForbiddenPath -Paths $retenus
 if ($interdits.Count -gt 0) {
     Write-Fail (Get-Label 'build-release.arret-des-fichiers-interdits')
-    foreach ($i in $interdits) { Write-Fail ("  " + $i.Chemin + "   <- " + $i.Quoi) }
+    foreach ($i in $interdits) { Write-Fail ("  " + $i.Path + "   <- " + $i.Quoi) }
     Write-Fail (Get-Label 'build-release.rien-ete-ecrit-corrige')
     exit 2
 }
@@ -258,15 +258,15 @@ foreach ($f in $retenus) {
     $size = (Get-Item -LiteralPath (Join-Path $repoRoot $f)).Length
     $totalSize += $size
     $Root = if ($f -match '/') { ($f -split '/')[0] + '/' } else { '(racine)' }
-    if (-not $byRoot.ContainsKey($Root)) { $byRoot[$Root] = @{ N = 0; Taille = 0 } }
+    if (-not $byRoot.ContainsKey($Root)) { $byRoot[$Root] = @{ N = 0; Size = 0 } }
     $byRoot[$Root].N++
-    $byRoot[$Root].Taille += $size
+    $byRoot[$Root].Size += $size
 }
 
 Write-Step (Get-Label 'build-release.vigie-contenu-de-archive' $number)
 Write-Info (Get-Label 'build-release.fichier-avant-compression' $retenus.Count (Format-Size $totalSize))
 foreach ($k in ($byRoot.Keys | Sort-Object)) {
-    Write-Info (Get-Label 'build-release.18-fichier' $k $byRoot[$k].N (Format-Size $byRoot[$k].Taille))
+    Write-Info (Get-Label 'build-release.18-fichier' $k $byRoot[$k].N (Format-Size $byRoot[$k].Size))
 }
 
 $excludedCount = ($excluded.Values | Measure-Object -Sum).Sum
@@ -311,7 +311,7 @@ try {
     $liensMorts = Find-LienMort -Root $staging
     if ($liensMorts.Count -gt 0) {
         Write-Warn (Get-Label 'build-release.attention-lien-de-la' $liensMorts.Count)
-        foreach ($l in $liensMorts) { Write-Warn ("    " + $l.Fichier + " -> " + $l.Lien) }
+        foreach ($l in $liensMorts) { Write-Warn ("    " + $l.File + " -> " + $l.Lien) }
         Write-Warn (Get-Label 'build-release.ces-cibles-sont-exclues')
     }
 
@@ -352,7 +352,7 @@ try {
 $interditsZip = Find-ForbiddenPath -Paths $entries
 if ($interditsZip.Count -gt 0) {
     Write-Fail (Get-Label 'build-release.arret-archive-produite-contient')
-    foreach ($i in $interditsZip) { Write-Fail ("  " + $i.Chemin + "   <- " + $i.Quoi) }
+    foreach ($i in $interditsZip) { Write-Fail ("  " + $i.Path + "   <- " + $i.Quoi) }
     Remove-Item -LiteralPath $zip -Force
     Write-Fail (Get-Label 'build-release.archive-supprimee-rien-de')
     exit 2

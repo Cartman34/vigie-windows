@@ -27,21 +27,21 @@ if (-not $done.Count) {
 # THREE FATES, not two. A task can be rewritten without the defect disappearing: a failure already written into
 # its history is only erased at its next run, that is, at the account's next logon. We say so, rather than
 # announcing "repaired" while the screen shows "out of service" right beside it.
-$ok      = @($done | Where-Object { $_.repare })
-$waitMs = @($done | Where-Object { $_.attente })
-$restant = @($done | Where-Object { -not $_.repare -and -not $_.attente -and $_.reste })
-$ko      = @($done | Where-Object { -not $_.repare -and -not $_.attente -and -not $_.reste })
+$ok      = @($done | Where-Object { $_.repaired })
+$waitMs = @($done | Where-Object { $_.waiting })
+$restant = @($done | Where-Object { -not $_.repaired -and -not $_.waiting -and $_.remains })
+$ko      = @($done | Where-Object { -not $_.repaired -and -not $_.waiting -and -not $_.remains })
 
 $detail = (($done | ForEach-Object {
-    if ($_.attente) {
+    if ($_.waiting) {
         # Nothing was touched: the task is sound, it is its last run that was not. We say so as it stands, without
         # repeating the same sentence twice.
-        "{0} : structure saine. {1} — se confirmera à la prochaine ouverture de session." -f $_.tache, $_.mal
+        "{0} : structure saine. {1} — se confirmera à la prochaine ouverture de session." -f $_.task, $_.problem
     } else {
-        $sort = if ($_.repare)   { 'réparée' }
-                elseif ($_.reste) { "réécrite, mais : " + $_.reste }
+        $sort = if ($_.repaired)   { 'réparée' }
+                elseif ($_.remains) { "réécrite, mais : " + $_.remains }
                 else             { 'ÉCHEC : ' + $_.erreur }
-        "{0} : {1} -> {2}" -f $_.tache, $_.mal, $sort
+        "{0} : {1} -> {2}" -f $_.task, $_.problem, $sort
     }
 }) -join [Environment]::NewLine)
 

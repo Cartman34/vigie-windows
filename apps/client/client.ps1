@@ -1563,11 +1563,11 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                 }
                 # THE OPEN ORDERS come from the protocol: a notification is clicked, Windows calls protocol.ps1,
                 # which drops the file read here. The app that owns the screen stays the only one that opens.
-                foreach ($order in @(@{ nom = 'open-recap'; sur = 'recap' }, @{ nom = 'open'; sur = '' })) {
-                    $orderFile = Join-Path $runDir $order.nom
+                foreach ($order in @(@{ name = 'open-recap'; sur = 'recap' }, @{ name = 'open'; sur = '' })) {
+                    $orderFile = Join-Path $runDir $order.name
                     if (Test-Path -LiteralPath $orderFile) {
                         Remove-Item -LiteralPath $orderFile -Force -ErrorAction SilentlyContinue
-                        TLog ("ordre recu : " + $order.nom)
+                        TLog ("ordre recu : " + $order.name)
                         if ($order.sur) { & $openApp $order.sur } else { & $openApp }
                     }
                 }

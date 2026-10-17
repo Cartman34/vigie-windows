@@ -15,7 +15,7 @@ $restoreLock = $false
 try {
     if ($ArgsB64) {
         $a = ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($ArgsB64))) | ConvertFrom-Json
-        $restoreLock = [bool]$a.reposerVerrou
+        $restoreLock = [bool]$a.relockAfter
     }
 } catch { }
 
@@ -49,7 +49,7 @@ try {
         $repose = Set-UpdateLock -State 'pose' -Backend $Backend
         Write-Log -Backend $Backend -Name 'wuscan' -Message (Get-Label 'wu-scan.verrou-repose' $repose)
         if (-not $repose) {
-            Set-JobState @{ verrouNonRepose = $true }
+            Set-JobState @{ lockNotRestored = $true }
             Write-Log -Backend $Backend -Name 'wuscan' -Level 'ERROR' -Message (Get-Label 'wu-scan.verrou-non-repose')
         }
     }

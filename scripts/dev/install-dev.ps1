@@ -59,20 +59,20 @@ if (Test-Path -LiteralPath $commun) {
 # Each one says what it is, how it is recognised, and ABOVE ALL what it is for here: a dependency with no written
 # reason ends up being installed "just in case".
 $DEPENDANCES = @(
-    @{ Nom      = 'git'
-       Titre    = 'Git'
+    @{ Name      = 'git'
+       Title    = 'Git'
        Winget   = 'Git.Git'
        Commande = 'git'
        Pourquoi = "Fabriquer l'archive de distribution : build-release.ps1 lit la liste des fichiers avec « git ls-files », ce qui garantit qu'aucun fichier ignore -- jeton, cache, journal -- ne parte chez l'utilisateur. Sert aussi a la voie « clone » de la mise a jour." }
 
-    @{ Nom      = 'gh'
-       Titre    = 'GitHub CLI'
+    @{ Name      = 'gh'
+       Title    = 'GitHub CLI'
        Winget   = 'GitHub.cli'
        Commande = 'gh'
        Pourquoi = "Publier une version : creer la release GitHub et y attacher l'archive. Sans lui, la publication se fait a la main dans le navigateur, a refaire integralement a chaque version." }
 
-    @{ Nom      = 'php'
-       Titre    = 'PHP'
+    @{ Name      = 'php'
+       Title    = 'PHP'
        Winget   = 'PHP.PHP.8.4'
        Commande = 'php'
        Pourquoi = "Servir l'Atelier (apps/atelier), l'outil de validation visuelle : il tourne sur le serveur integre de PHP. Volontairement cantonne a l'outillage -- PHP n'entre jamais dans l'application. N'importe quel PHP 8.x recent convient : l'identifiant winget ci-dessus ne sert qu'a l'installation automatique." }
@@ -145,9 +145,9 @@ function Get-Accord {
 # --- The sorting -------------------------------------------------------------
 $aTraiter = $DEPENDANCES
 if ($Name) {
-    $aTraiter = @($DEPENDANCES | Where-Object { $_.Nom -eq $Name })
+    $aTraiter = @($DEPENDANCES | Where-Object { $_.Name -eq $Name })
     if (-not $aTraiter.Count) {
-        Write-Fail (Get-Label 'install-dev.dependance-inconnue-connues' $Name ($DEPENDANCES | ForEach-Object { $_.Nom }) -join ', ')
+        Write-Fail (Get-Label 'install-dev.dependance-inconnue-connues' $Name ($DEPENDANCES | ForEach-Object { $_.Name }) -join ', ')
         exit 1
     }
 }
@@ -157,9 +157,9 @@ $missing = @()
 foreach ($d in $aTraiter) {
     $e = Get-DependencyState -D $d
     if ($e.Present) {
-        Write-Ok (Get-Label 'install-dev.ok' $d.Titre $(if ($e.Version) { $e.Version } else { $e.Ou }))
+        Write-Ok (Get-Label 'install-dev.ok' $d.Title $(if ($e.Version) { $e.Version } else { $e.Ou }))
     } else {
-        Write-Warn (Get-Label 'install-dev.absent' $d.Titre)
+        Write-Warn (Get-Label 'install-dev.absent' $d.Title)
         Write-Detail ("            " + $d.Pourquoi)
         $missing += $d
     }
@@ -222,7 +222,7 @@ if (-not (Test-Admin)) {
         Write-Warn (Get-Label 'install-dev.installez-app-installer-depuis')
         exit 1
     }
-    $quoi = @($missing | ForEach-Object { $_.Titre + " (" + $_.Winget + ")" })
+    $quoi = @($missing | ForEach-Object { $_.Title + " (" + $_.Winget + ")" })
     $ok = $true
     if ($withWindow) {
         $ok = Show-ElevationRationale -AssumeYes:$Yes `
@@ -282,7 +282,7 @@ if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
 
 $failures = 0
 foreach ($d in $missing) {
-    Write-Step (Get-Label 'install-dev.installation-de-pour-la' $d.Titre $d.Winget)
+    Write-Step (Get-Label 'install-dev.installation-de-pour-la' $d.Title $d.Winget)
     $code = -1
     try {
         # --scope machine: never inside an account's profile (D79).
@@ -299,10 +299,10 @@ foreach ($d in $missing) {
                 [Environment]::GetEnvironmentVariable('Path', 'User')
     $e = Get-DependencyState -D $d
     if ($e.Present) {
-        Write-Ok (Get-Label 'install-dev.est-en-place' $d.Titre $(if ($e.Version) { $e.Version } else { $e.Ou }))
+        Write-Ok (Get-Label 'install-dev.est-en-place' $d.Title $(if ($e.Version) { $e.Version } else { $e.Ou }))
     } else {
         $failures++
-        Write-Fail (Get-Label 'install-dev.est-toujours-pas-la' $d.Titre $code)
+        Write-Fail (Get-Label 'install-dev.est-toujours-pas-la' $d.Title $code)
         Write-Warn (Get-Label 'install-dev.faire-la-main-winget' $d.Winget)
         Write-Detail (Get-Label 'install-dev.un-terminal-deja-ouvert')
     }

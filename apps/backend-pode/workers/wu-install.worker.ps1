@@ -17,7 +17,7 @@ try {
     if ($ArgsB64) {
         $a = ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($ArgsB64))) | ConvertFrom-Json
         $ids = @($a.ids)
-        $restoreLock = [bool]$a.reposerVerrou
+        $restoreLock = [bool]$a.relockAfter
     }
 } catch { }
 if (-not $ids -or $ids.Count -eq 0) { Write-Output ('[X] ' + (Get-Label 'wu-install.aucun-identifiant')); exit 1 }
@@ -291,7 +291,7 @@ try {
         detail     = @($detail)
         failures   = $failures
         ok         = $ok
-        partiel    = $partial
+        partial    = $partial
         rebootRequired = [bool]$rIn.RebootRequired
         code       = [int]$rIn.ResultCode
         error      = $(if ($ok -or $partial) { $null } else { "Installation en échec (code $($rIn.ResultCode))." })
@@ -317,7 +317,7 @@ try {
         Write-Log -Backend $Backend -Name 'wuinstall' -Message (Get-Label 'wu-install.verrou-repose' $repose)
         if (-not $repose) {
             # An abnormal state: we REPORT it instead of keeping quiet, and the machine stays open.
-            Set-JobState @{ verrouNonRepose = $true }
+            Set-JobState @{ lockNotRestored = $true }
             Write-Log -Backend $Backend -Name 'wuinstall' -Level 'ERROR' -Message (Get-Label 'wu-install.verrou-non-repose')
         }
     }

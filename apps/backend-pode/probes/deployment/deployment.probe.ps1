@@ -313,7 +313,7 @@ if ($dernier) { $depl += $dernier }
 $emp = Get-VigieFootprint -Backend $backend
 $detailEmp = @()
 if ($emp.programme) { $detailEmp += "Programme (partagé) : " + (Format-ByteSize -Bytes $emp.programme) + "  —  " + $emp.programmePath }
-foreach ($x in @($emp.parCompte)) {
+foreach ($x in @($emp.perAccount)) {
     $detailEmp += "Données de " + $x.name + $(if ($x.current) { " (vous)" } else { "" }) + " : " + (Format-ByteSize -Bytes $x.bytes)
 }
 if ($emp.sources) { $detailEmp += "Dépôt de développement : " + (Format-ByteSize -Bytes $emp.sources) + "  —  " + $emp.sourcesPath }

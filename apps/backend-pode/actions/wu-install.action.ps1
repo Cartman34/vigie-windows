@@ -30,7 +30,7 @@ $lance = $false
 try {
     $lance = [bool](Start-Operation -Module 'wu-pending' -Action 'wu-install' -Label 'Installation des mises à jour' `
                         -Probes @('pending.probe.ps1', 'lock.probe.ps1') -Worker 'wu-install.worker.ps1' `
-                        -ArgsMap @{ ids = $ids; reposerVerrou = $wasLocked } -Button 'wu-list-pending' -Backend $backend)
+                        -ArgsMap @{ ids = $ids; relockAfter = $wasLocked } -Button 'wu-list-pending' -Backend $backend)
 } catch {
     return @{ message = "Impossible de lancer l'installation : $($_.Exception.Message)"; result = @{ ok = $false } }
 }

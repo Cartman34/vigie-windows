@@ -17,7 +17,7 @@ $lance = $false
 try {
     $lance = [bool](Start-Operation -Module 'wu-pending' -Action 'wu-scan' -Label 'Recherche en ligne des mises à jour' `
                         -Probes @('pending.probe.ps1', 'lock.probe.ps1') -Worker 'wu-scan.worker.ps1' `
-                        -ArgsMap @{ reposerVerrou = $wasLocked } -Backend $backend)
+                        -ArgsMap @{ relockAfter = $wasLocked } -Backend $backend)
 } catch {
     return @{ message = "Impossible de lancer l'analyse : $($_.Exception.Message)"; result = @{ ok = $false } }
 }
