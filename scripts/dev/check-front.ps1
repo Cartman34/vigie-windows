@@ -72,12 +72,15 @@ function Test-PageScript {
     # "assets/js/panel.js" because the browser resolves that against the ADDRESS of the page, which is "/".
     $folder = Split-Path -Parent $Path
     if ($Path -like '*.pode') { $folder = Split-Path -Parent $folder }
-    foreach ($m in [regex]::Matches($html, '<script[^>]*\bsrc="([^"]+)"')) {
-        $src = $m.Groups[1].Value
+    foreach ($m in [regex]::Matches($html, '<script([^>]*)\bsrc="([^"]+)"')) {
+        $src = $m.Groups[2].Value
         if ($src -match '^[a-z]+:' -or $src.StartsWith('//')) { continue }
         $file = Join-Path $folder ($src -replace '\?.*$', '')
         if (-not (Test-Path -LiteralPath $file)) { return @{ Ok = $false; Blocks = 0; Kb = 0
                                                             Output = "Script introuvable : $src" } }
+        # A MODULE IS NOT A BLOCK OF THE PAGE. It is parsed on its own, with its imports, by Test-ModuleGraph
+        # below: glued to the others it would not even parse, since `import` is only legal at the top of a module.
+        if ($m.Groups[1].Value -match 'type="module"') { $script:ModuleEntries += $file; continue }
         $blocs += (Get-Content -LiteralPath $file -Raw -Encoding UTF8)
     }
     # A PAGE WITHOUT A SCRIPT IS NOT A FAILURE: a page may be pure markup, and then there is nothing to parse.
@@ -101,6 +104,97 @@ function Test-PageScript {
               Kb = [math]::Round((($blocs -join '').Length / 1KB)); Output = $output }
 }
 
+# THE MODULES OF THE PANEL, walked from the entry the page loads (D132, UI-MODULES).
+#
+# Two failures, and only the second one is new. A module must PARSE as a module -- node reads a ".mjs" file that
+# way -- and every name it IMPORTS must actually be EXPORTED where it comes from. The second is the one that bit:
+# cutting 2 800 lines into modules, an import that points at a name nobody exported kills the WHOLE page at load,
+# before the first line runs, and nothing in the syntax says so.
+function Test-ModuleGraph {
+    param([Parameter(Mandatory)][string[]]$Entries, [Parameter(Mandatory)]$Analyser)
+    $seen = @{}
+    $queue = [System.Collections.Queue]::new()
+    foreach ($e in $Entries) { $queue.Enqueue((Resolve-Path -LiteralPath $e).Path) }
+    $problems = @()
+    $files = @()
+    while ($queue.Count) {
+        $file = $queue.Dequeue()
+        if ($seen.ContainsKey($file)) { continue }
+        $seen[$file] = $true
+        $files += $file
+        $text = Get-Content -LiteralPath $file -Raw -Encoding UTF8
+        foreach ($i in [regex]::Matches($text, "(?m)^import\s*\{([^}]+)\}\s*from\s*'([^']+)'")) {
+            $names = @($i.Groups[1].Value -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+            $target = Join-Path (Split-Path -Parent $file) $i.Groups[2].Value
+            if (-not (Test-Path -LiteralPath $target)) {
+                $problems += ((Split-Path -Leaf $file) + " importe un fichier qui n'existe pas : " + $i.Groups[2].Value)
+                continue
+            }
+            $target = (Resolve-Path -LiteralPath $target).Path
+            $targetText = Get-Content -LiteralPath $target -Raw -Encoding UTF8
+            foreach ($n in $names) {
+                $exported = [regex]::IsMatch($targetText, "(?m)^export\s+(?:async\s+)?(?:function|class|const|let|var)\s+[^;]*?\b" + [regex]::Escape($n) + "\b")
+                if (-not $exported) {
+                    $problems += ((Split-Path -Leaf $file) + " importe « $n » de " + (Split-Path -Leaf $target) + ", qui ne l'exporte pas")
+                }
+            }
+            $queue.Enqueue($target)
+        }
+    }
+    # AND A NAME CALLED WITHOUT BEING IMPORTED, which no parser can see: it is valid JavaScript right up to the
+    # moment the button is pressed. Cutting the panel up produced three of them in one go -- a call written inside
+    # a template string, which the cutting tool had read as text rather than as code.
+    $exported = @{}
+    foreach ($file in $files) {
+        $t = Get-Content -LiteralPath $file -Raw -Encoding UTF8
+        foreach ($e in [regex]::Matches($t, '(?m)^export\s+(?:async\s+)?(?:function|class|const|let|var)\s+([A-Za-z_$][\w$]*)')) {
+            $exported[$e.Groups[1].Value] = $file
+        }
+        # `export let lastUnits=[], lastHost='';` exports TWO names, and the second is as importable as the first.
+        foreach ($e in [regex]::Matches($t, '(?m)^export\s+(?:const|let|var)\s+[^;]*?,\s*([A-Za-z_$][\w$]*)\s*=')) {
+            $exported[$e.Groups[1].Value] = $file
+        }
+    }
+    foreach ($file in $files) {
+        $text = Get-Content -LiteralPath $file -Raw -Encoding UTF8
+        $imported = @{}
+        foreach ($i in [regex]::Matches($text, "(?m)^import\s*\{([^}]+)\}")) {
+            foreach ($n in ($i.Groups[1].Value -split ',')) { $imported[$n.Trim()] = $true }
+        }
+        # The code, without its imports, its comments and its quoted text: "card-refresh" is a CSS class, not a
+        # call to refresh, and an apostrophe in a French comment is enough to desynchronise a reader of quotes.
+        $body = [regex]::Replace($text, '(?m)^import .*$', '')
+        $body = [regex]::Replace($body, '(?s)/\*.*?\*/', ' ')
+        $body = [regex]::Replace($body, '(?m)//.*$', ' ')
+        $body = [regex]::Replace($body, "'(?:\\.|[^'\\])*'", "''")
+        $body = [regex]::Replace($body, '"(?:\\.|[^"\\])*"', '""')
+        foreach ($n in $exported.Keys) {
+            if ($exported[$n] -eq $file -or $imported.ContainsKey($n)) { continue }
+            # a module may declare a name of its own that another one also exports: then it is not a borrowing
+            if ([regex]::IsMatch($body, '(?m)^\s*(?:export\s+)?(?:async\s+)?(?:function|class|const|let|var)\s+[^;]*?\b' + [regex]::Escape($n) + '\b')) { continue }
+            if ([regex]::IsMatch($body, '(?<![\w$.])' + [regex]::Escape($n) + '(?![\w$])')) {
+                $problems += ((Split-Path -Leaf $file) + " se sert de « $n » sans l'importer (il vient de " + (Split-Path -Leaf $exported[$n]) + ')')
+            }
+        }
+    }
+
+    # AND EACH ONE PARSES AS A MODULE. The extension is what tells node which language it is reading.
+    foreach ($file in $files) {
+        $tmp = Join-Path ([IO.Path]::GetTempPath()) ('vigie-mod-' + [guid]::NewGuid().ToString('N') + '.mjs')
+        Copy-Item -LiteralPath $file -Destination $tmp -Force
+        if ($Analyser.Kind -eq 'windows') { $out = & $Analyser.Exe --check $tmp 2>&1; $code = $LASTEXITCODE }
+        else {
+            $unix = '/mnt/' + $tmp.Substring(0, 1).ToLower() + ($tmp.Substring(2).Replace([char]92, [char]47))
+            $out = & $Analyser.Exe -e bash -lc ("node --check '" + $unix + "'") 2>&1
+            $code = $LASTEXITCODE
+        }
+        Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
+        if ($code -ne 0) { $problems += ((Split-Path -Leaf $file) + ' ne se parse pas : ' + ($out -join ' ')) }
+    }
+    return @{ Ok = ($problems.Count -eq 0); Count = $files.Count; Problems = $problems }
+}
+
+$script:ModuleEntries = @()
 Write-Step 'Syntaxe du script des pages'
 $bad = 0
 foreach ($rel in $pages) {
@@ -112,6 +206,47 @@ foreach ($rel in $pages) {
         $bad++
         Write-Fail ($rel + " NE SE PARSE PAS : ouverte dans un navigateur, elle resterait sur son écran de chargement.")
         foreach ($line in @($r.Output | Where-Object { "$_".Trim() })) { Write-Detail "$line" }
+    }
+}
+if ($script:ModuleEntries.Count) {
+    Write-Step 'Les modules du panneau'
+    $g = Test-ModuleGraph -Entries $script:ModuleEntries -Analyser $analyser
+    if ($g.Ok) {
+        Write-Ok ("$($g.Count) module(s) : chaque import trouve son export, et chacun se parse.")
+    } else {
+        $bad++
+        Write-Fail "Les modules ne tiennent pas ensemble : la page mourrait au chargement, avant la première ligne."
+        foreach ($line in $g.Problems) { Write-Detail $line }
+    }
+}
+<#
+    THE SIZE RATCHET (D132, UI-SIZE). IT NEVER GOES UP.
+
+    It is the only mechanism that stops the habit coming back: adding to the file that already exists is what
+    produced both of this project's monoliths, index.html at 3 736 lines and common.ps1 at 11 791. No decision
+    had allowed it -- and none forbade it either.
+
+    17/10: the ceiling is set at 784, which is the style sheet, the largest piece left after the cut. The
+    heaviest script is cards.js at 423 lines. Every cut that follows brings this number down as much.
+#>
+$PANEL_CEILING = 784
+$panelFiles = @(Get-ChildItem -LiteralPath (Join-Path $repoRoot 'apps/frontend-web') -Recurse -File -Include '*.js', '*.css', '*.pode' -ErrorAction SilentlyContinue)
+if ($panelFiles.Count) {
+    Write-Step 'La taille des fichiers du panneau'
+    $tooBig = @()
+    $biggest = 0
+    foreach ($f in $panelFiles) {
+        $n = (Get-Content -LiteralPath $f.FullName -Encoding UTF8 | Measure-Object).Count
+        if ($n -gt $biggest) { $biggest = $n }
+        if ($n -gt $PANEL_CEILING) { $tooBig += ('{0} : {1} lignes' -f $f.Name, $n) }
+    }
+    if ($tooBig.Count) {
+        $bad++
+        Write-Fail ("Plafond dépassé ($PANEL_CEILING lignes) : un fichier du panneau grossit au lieu d'être découpé (D132, UI-SIZE).")
+        foreach ($line in $tooBig) { Write-Detail $line }
+    } else {
+        Write-Ok ("$($panelFiles.Count) fichier(s), le plus gros à $biggest lignes (plafond $PANEL_CEILING).")
+        if ($biggest -lt $PANEL_CEILING) { Write-Info "Le plafond peut descendre à $biggest." }
     }
 }
 if ($bad) { exit 2 }

@@ -120,13 +120,13 @@
   <div class="global" id="global"><span class="dot"></span><span id="globalTxt">—</span></div>
   <div class="spacer"></div>
   <div class="meta" id="lastRefresh">—</div>
-  <button id="btnRefresh" class="ic-btn" onclick="refresh(true)" aria-label="Actualiser" title="Actualiser : recalcule toutes les sondes sans utiliser le cache (peut prendre plusieurs minutes)" data-i18n-attr="title:ui.actualiser-recalcule-toutes-les"><span class="vi vi-fw">&#xE008;</span></button>
-  <button class="bell" id="bellBtn" onclick="toggleDrawer()" title="Notifications">
+  <button id="btnRefresh" class="ic-btn" onclick="panel.refresh(true)" aria-label="Actualiser" title="Actualiser : recalcule toutes les sondes sans utiliser le cache (peut prendre plusieurs minutes)" data-i18n-attr="title:ui.actualiser-recalcule-toutes-les"><span class="vi vi-fw">&#xE008;</span></button>
+  <button class="bell" id="bellBtn" onclick="panel.toggleDrawer()" title="Notifications">
     <span class="vi vi-fw vi-lg">&#xE004;</span>
     <span id="bellCount" class="bell-count"></span>
   </button>
   <a class="ic-btn" id="atelierBtn" target="_blank" rel="noopener" hidden title="Ouvrir l’atelier de validation (détecté en local)" data-i18n-attr="title:ui.ouvrir-atelier-de-validation">⚒</a>
-  <button class="ic-btn" id="settingsBtn" onclick="openSettings()" aria-label="Paramètres" title="Paramètres : notifications, modules, apparence, à propos" data-i18n-attr="title:ui.parametres-notifications-modules-apparence;aria-label:ui.parametres"><span class="vi vi-fw">&#xE001;</span></button>
+  <button class="ic-btn" id="settingsBtn" onclick="panel.openSettings()" aria-label="Paramètres" title="Paramètres : notifications, modules, apparence, à propos" data-i18n-attr="title:ui.parametres-notifications-modules-apparence;aria-label:ui.parametres"><span class="vi vi-fw">&#xE001;</span></button>
 </header>
 <div class="modebar neutral" id="modebar"></div>
 <main id="app"></main>
@@ -134,21 +134,21 @@
   <span>Vigie</span><span class="sep">·</span>
   <span id="footVersion"></span>
   <span class="spacer"></span>
-  <button onclick="toggleTheme()" id="themeBtn" class="ic-btn" title="Basculer entre le thème sombre et le thème clair" data-i18n-attr="title:ui.basculer-entre-le-theme"><span class="vi vi-fw" id="themeIc">&#xE005;</span></button>
+  <button onclick="panel.toggleTheme()" id="themeBtn" class="ic-btn" title="Basculer entre le thème sombre et le thème clair" data-i18n-attr="title:ui.basculer-entre-le-theme"><span class="vi vi-fw" id="themeIc">&#xE005;</span></button>
   <a class="repo-ic" data-repo-link aria-label="Depot du projet sur GitHub" data-i18n-attr="aria-label:ui.depot-du-projet-sur"><svg width="16" height="16" aria-hidden="true"><use href="#ghMark"/></svg></a>
 </footer>
 <div class="toast-stack" id="toastStack"></div>
-<div class="drawer-back" id="drawerBack" onclick="toggleDrawer()"></div>
+<div class="drawer-back" id="drawerBack" onclick="panel.toggleDrawer()"></div>
 <aside class="drawer" id="drawer" aria-label="Notifications">
   <div class="drawer-head"><span>Notifications</span>
-    <button class="drawer-clear" onclick="clearNotifs()" title="Tout effacer" data-i18n="ui.tout-effacer" data-i18n-attr="title:ui.tout-effacer">Tout effacer</button>
-    <button class="drawer-x" onclick="toggleDrawer()" title="Fermer" aria-label="Fermer">×</button></div>
+    <button class="drawer-clear" onclick="panel.clearNotifs()" title="Tout effacer" data-i18n="ui.tout-effacer" data-i18n-attr="title:ui.tout-effacer">Tout effacer</button>
+    <button class="drawer-x" onclick="panel.toggleDrawer()" title="Fermer" aria-label="Fermer">×</button></div>
   <div class="drawer-body" id="drawerBody"></div>
 </aside>
-<div class="drawer-back" id="settingsBack" onclick="toggleSettings()"></div>
+<div class="drawer-back" id="settingsBack" onclick="panel.toggleSettings()"></div>
 <aside class="drawer" id="settingsDrawer" aria-label="Paramètres">
   <div class="drawer-head"><span data-i18n="ui.parametres">Paramètres</span>
-    <button class="drawer-x" onclick="toggleSettings()" title="Fermer" aria-label="Fermer">×</button></div>
+    <button class="drawer-x" onclick="panel.toggleSettings()" title="Fermer" aria-label="Fermer">×</button></div>
   <div class="drawer-body" id="settingsBody"></div>
 </aside>
 <div class="hds-back" id="hdsBack">
@@ -159,6 +159,9 @@
   </div>
 </div>
 
-<script src="assets/js/panel.js"></script>
+<!-- A MODULE, which is what makes `import` legal in a browser, and what keeps the panel's names out of the
+     global scope (D132, UI-MODULES). A module is deferred by design: it runs once the markup is parsed, as
+     this script already did by sitting at the end of the body. -->
+<script type="module" src="assets/js/panel.js"></script>
 </body>
 </html>
