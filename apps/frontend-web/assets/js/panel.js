@@ -1,0 +1,2825 @@
+// @author Florent HAZARD <f.hazard@sowapps.com>
+// ===== Constantes de l'application (source unique de verite) =====
+// L'URL du depot est volontairement une CONSTANTE et non un reglage : elle ne doit pas
+// pouvoir changer facilement. Cote PowerShell, son equivalent est $RepoUrl dans client.ps1.
+const REPO_URL        = 'https://github.com/Cartman34/vigie-windows';   // D09
+const SPLASH_MIN_MS   = 550;     // duree minimale d'affichage (evite un flash desagreable)
+const SPLASH_MAX_MS   = 90000;   // garde-fou : l'ecran ne reste jamais bloque (delai max de /state)
+const SPLASH_FADE_MS  = 450;     // doit rester egal a la transition CSS de #splash (--splash-fade)
+const REFRESH_MS      = 60000;   // rafraichissement automatique de l'etat
+const VERSION_POLL_MS = 15000;   // detection d'une nouvelle version servie
+let lastStateStamp    = '';      // derniere ecriture du cache d'etat vue par cette page
+
+// ===== Detection du mode : API en direct ou mock =====
+const TOKEN = window.API_TOKEN || "";
+const API   = window.API_BASE || "/api/v1";
+const API_MODE = TOKEN && !TOKEN.includes("__");   // jeton reel injecte par le back
+const openDetails = new Set();     // details deplies conserves entre refresh
+let fieldsByKey = {};              // index des champs pour la remediation
+const ICONS = {
+  immediate:'<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>',
+  // confirm = TRIANGLE d'avertissement (validé). Le rectangle de fenêtre affiché
+  // jusqu'ici se lisait comme une case vide, pas comme une mise en garde.
+  confirm:'<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>',
+  manual:'<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7zM19 19H5V5h7V3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7h-2v7z"/></svg>',
+  // dialog = liste a COCHER : ouvre une fenetre de choix DANS l'application. A ne pas
+  // confondre avec manual (fleche sortante = logiciel externe) ni avec confirm (triangle
+  // = simple oui/non). Les trois etaient trop proches a l'ecran.
+  dialog:'<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M3 5h8v2H3V5zm0 6h8v2H3v-2zm0 6h8v2H3v-2zm16.3-9.3l-4.6 4.6-2-2L11.3 12l3.4 3.4 6-6-1.4-1.7z"/></svg>'
+};
+const KIND_LABEL = { immediate:L('ui.action-immediate'), confirm:L('ui.ouvre-une-fenetre-de'),
+                     dialog:L('ui.ouvre-une-fenetre-de-2'), manual:L('ui.ouvre-un-logiciel-externe') };
+
+// Mock inline = ultime repli si ni API ni fichier mock accessibles (file://).
+const INLINE_MOCK = {
+  generatedAt: new Date().toISOString(),
+  themes: [{id:"windows-update",label:"Windows Update"}],
+  modules: [{ id:"wu-lock", theme:"windows-update", label:L('ui.verrouillage-des-mises-jour'), status:"warn",
+    fields:[{key:"info",label:"Mode",value:L('ui.maquette-aucune-donnee-reelle'),kind:"text"}],
+    actions:[] }]
+};
+
+function withTimeout(ms){ const c=new AbortController(); const id=setTimeout(()=>c.abort(),ms); return {signal:c.signal,done:()=>clearTimeout(id)}; }
+// force = true : on demande au back de RECALCULER les sondes au lieu de servir son cache.
+// C'est ce que doit faire le bouton « Rafraichir » -- sans cela il rendait la main
+// instantanement en reaffichant les memes valeurs, donc il ne rafraichissait rien.
+// Le chargement de la page, lui, se contente du cache : il doit s'afficher vite.
+async function fetchState(force){
+  if (API_MODE){
+    const t=withTimeout(90000);
+    try {
+      const r = await fetch(API + "/state" + (force ? "?fresh=1" : ""), { headers:{ Authorization:"Bearer "+TOKEN }, signal:t.signal });
+      if(!r.ok) throw new Error("API "+r.status);
+      return { data: await r.json(), mode:"live" };
+    } finally { t.done(); }
+  }
+  try {
+    const r = await fetch("./mock/state.json");
+    if(!r.ok) throw new Error();
+    return { data: await r.json(), mode:"mock" };
+  } catch(e){
+    return { data: INLINE_MOCK, mode:"mock" };
+  }
+}
+
+const STATUS_RANK = { neutral:0, ok:0, warn:1, error:2 };
+function esc(s){ return (''+(s==null?'':s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function att(t){ return esc(t==null?'':t).replace(/"/g,'&quot;'); }
+
+/*
+   UNE ACTION, UNE SEULE FACON DE LA DECLARER.
+
+   La meme action se lance depuis deux endroits : le bas de la carte, et le bouton de
+   resolution d'un champ. C'etaient deux rendus SEPARES, et ils avaient divergé -- celui
+   du champ ne portait ni impact, ni usage, ni reversibilite. Sa confirmation se resumait
+   donc a « ce que ca fait », alors que le meme geste, lance de l'autre endroit,
+   expliquait tout. Et c'est le chemin le plus visible qui en disait le moins.
+
+   Cette fonction est desormais la SEULE a ecrire les attributs d'une action. Les deux
+   boutons different par leur apparence -- classe, libelle, icone -- jamais par ce qu'ils
+   declarent. Ajouter un champ a une action le fait apparaitre aux deux endroits, ou a
+   aucun : plus de divergence possible.
+*/
+function attributsAction(a, moduleId, kind){
+  a = a || {};
+  return ` data-a="${att(a.id)}" data-m="${att(moduleId)}"`
+       + ` data-k="${att(kind)}" data-c="${a.confirm?1:0}" data-c2="${a.confirmTwice?1:0}"`
+       + ` data-h="${att(a.help)}"`
+       + ` data-imp="${att(a.impact)}" data-usg="${att(a.usage)}" data-rev="${att(a.reversible)}"`
+       + ` data-res="${att(JSON.stringify(a.resources||[]))}"`
+       + ` data-trn="${att(a.transition?JSON.stringify(a.transition):'')}"`
+       + ` data-stp="${att(a.steps?JSON.stringify(a.steps):'')}"`;
+}
+function fmt(f){
+  if(f.kind==="bool") return f.value?'Oui':'Non';
+  if(f.kind==="number") return `${f.value}${f.unit?(' '+f.unit):''}`;
+  if(f.kind==="date"){ const d=new Date(f.value);
+    return isNaN(d)?(f.value||'—'):d.toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); }
+  return f.value;
+}
+
+let themeLabels={};
+let lastModules=[];
+let lastStateReadAt='';
+let lastUnits=[], unitsOpen=false, pendingUnitFocus=null, lastHost='';
+// Persistes : un rechargement (frequent, l'app se recharge a chaque build) ne doit
+// pas rendre les groupes que l'utilisateur a masques.
+let hiddenThemes=new Set();
+try{ hiddenThemes=new Set(JSON.parse(localStorage.getItem('vigie.hiddenThemes')||'[]')); }catch(e){}
+function applyFilter(){
+  document.querySelectorAll('.masonry .card[data-theme]').forEach(c=>{
+    c.style.display = hiddenThemes.has(c.dataset.theme) ? 'none' : '';
+  });
+  // ET ON REDISTRIBUE. Masquer une carte la sort de l'affichage, pas de sa colonne : en
+  // decochant un groupe on laissait des colonnes vides et un trou au milieu de la grille
+  // (constate le 01/09). Les cartes visibles se repartissent donc a nouveau, comme apres
+  // un rendu -- c'est la meme operation, elle vit deja dans layoutColumns.
+  const masonry = document.querySelector('.masonry');
+  if (masonry) layoutColumns(masonry);
+}
+function toggleGroup(id){
+  if(hiddenThemes.has(id)) hiddenThemes.delete(id); else hiddenThemes.add(id);
+  try{ localStorage.setItem('vigie.hiddenThemes', JSON.stringify([...hiddenThemes])); }catch(e){}
+  document.querySelectorAll('.fchip[data-theme="'+id+'"]').forEach(b=>b.classList.toggle('active', !hiddenThemes.has(id)));
+  applyFilter();
+}
+
+// Rendu d'UNE carte (reutilise par le rendu complet ET le rafraichissement par carte).
+// D59 : une exception de rendu ne fait JAMAIS disparaitre la carte -- elle s'affiche
+// en carte d'erreur minimale, diagnosticable, a sa place dans la grille.
+function cardHtmlSafe(m, groupLabel){
+  try{ return cardHtml(m, groupLabel); }
+  catch(e){
+    console.error(L('ui.rendu-de-carte-en'), m && m.id, e);
+    return '<div class="card st-error" data-module="'+esc((m&&m.id)||'?')+'" data-theme="'+esc((m&&m.theme)||'')+'">'
+      +'<div class="card-head"><div class="card-titles"><span class="card-group">'+esc(groupLabel||'')+scopeHtml(m)+'</span>'
+      +'<span class="name">'+esc((m&&m.label)||'Carte')+'</span></div>'
+      +'<span class="badge error"><span class="ic vi">&#xE00C;</span>Affichage en erreur</span></div>'
+      +'<div class="fields"><div class="frow"><span style="font-size:12.5px;color:var(--muted)">Le rendu de cette carte a échoué ('+esc(String(e&&e.message||e))+'). Les données du module sont intactes ; rechargez ou signalez.</span></div></div></div>';
+  }
+}
+/* LA CADENCE D'UNE CARTE TENUE EN RETRAIT (contrat Module.pace).
+
+   Pendant une partie, Vigie espace le recalcul des cartes qui ne regardent pas le jeu : jusqu'a vingt minutes,
+   une heure pour les plus lourdes. Sans le dire, la carte donnerait une mesure d'il y a vingt minutes avec
+   l'aplomb d'une mesure de l'instant. Seules les cartes reellement ralenties portent cette mention -- le serveur
+   ne l'envoie pas pour les autres. */
+function paceLabel(seconds){
+  const s = Number(seconds) || 0;
+  if (s >= 3600) { const h = Math.round(s / 3600); return h > 1 ? `${h} h` : '1 h'; }
+  if (s >= 60)   { return `${Math.round(s / 60)} min`; }
+  return `${s} s`;
+}
+function paceHtml(m){
+  if (!m || !m.pace || !m.pace.seconds) return '';
+  const quoi = m.pace.reason === 'jeu' ? 'Une partie est en cours : Vigie se met en retrait pour la laisser tourner.'
+                                       : 'Cette carte est recalculée moins souvent que d\'habitude.';
+  return `<span class="card-pace" title="${esc(quoi)} Recalculée toutes les ${esc(paceLabel(m.pace.seconds))}.">en retrait · ${esc(paceLabel(m.pace.seconds))}</span>`;
+}
+
+/* LA FRAICHEUR D'UNE CARTE (contrat Module.freshness, S16).
+
+   Une valeur vieille de vingt-deux heures s'affichait comme une valeur de la seconde. La carte porte desormais trois
+   moments : quand la sonde a produit ce qu'elle montre, quand l'ordonnanceur est passe, et l'intervalle attendu.
+
+   EN RETARD, ce n'est pas "une seconde de plus que l'intervalle" : un calcul de trente secondes qui arrive a
+   trente-deux est a l'heure. On laisse passer le double de l'intervalle, et au moins deux minutes -- la meme regle
+   que la mise en retrait, pour la meme raison : ne pas alerter sur du bruit.
+
+   Un calcul qui ENCHAINE LES ECHECS est en retard quoi qu'il arrive : il ne reviendra pas tout seul. */
+// DE QUI CETTE CARTE PARLE (D128). Rien pour l'ordinateur, qui est le cas ordinaire ; rien pour « mixed », dont ce
+// sont les champs qui parlent. La mention ne sort que pour une carte qui ne dit QUE le compte connecte : sans elle,
+// on lit la valeur d'un compte comme une valeur de l'ordinateur, ce qui est arrive le 05/10 avec winget.
+function scopeHtml(m){
+  if(!m || m.scope !== 'user') return '';
+  return '<span class="card-scope" title="'+esc(L('ui.portee-compte-aide'))+'">'+esc(L('ui.portee-compte'))+'</span>';
+}
+function cardAgeSeconds(iso){
+  if (!iso) return null;
+  const t = Date.parse(iso);
+  if (isNaN(t)) return null;
+  return Math.max(0, Math.round((Date.now() - t) / 1000));
+}
+function cardIsStale(m){
+  const f = m && m.freshness;
+  if (!f) return false;
+  if (f.fails) return true;
+  const age = cardAgeSeconds(f.computedAt);
+  if (age === null) return false;
+  const expected = Number(f.seconds) || 0;
+  if (!expected) return false;
+  return age > Math.max(120, 2 * expected);
+}
+
+function cardHtml(m, groupLabel){
+  const st=['ok','warn','error','neutral'].includes(m.status)?m.status:'neutral';
+  const stTxt={ok:'Conforme',warn:L('ui.voir'),error:L('ui.probleme')}[st];
+  const stIc={ok:'&#xE00A;',warn:'&#xE00B;',error:'&#xE00C;'}[st];
+  const actById={}; (m.actions||[]).forEach(a=>{ actById[a.id]=a; });
+  const fields=(m.fields||[]).map(f=>{
+    const stt=f.status||'neutral';
+    const key=m.id+'::'+f.key;
+    const fa=f.fixAction?actById[f.fixAction]:null;
+    const fkind = fa ? (fa.kind||'immediate') : (f.fixAction ? 'confirm' : 'manual');
+    const fconfirm = fa ? !!fa.confirm : true;
+    fieldsByKey[key]=Object.assign({},f,{moduleId:m.id,fixKind:fkind,fixConfirm:fconfirm});
+    const help=(f.help||'').replace(/"/g,'&quot;');
+    const isProblem=(stt==='warn'||stt==='error');
+    // SEUL le guide s'affiche sous la ligne : ce sont les informations SUPPLEMENTAIRES
+    // (liste, valeurs detaillees, mode d'emploi). La description de ce que montre le
+    // champ (`help`) reste une INFOBULLE.
+    const detTxt=(f.guide||'');
+    const open=openDetails.has(key)?' open':'';
+    // Un detail COURT se deplie dans la carte ; un detail LONG ouvre une fenetre. Deplie
+    // dans la carte, il la fait exploser en hauteur et noie le reste du tableau de bord
+    // -- constate sur la liste des interfaces reseau, plusieurs dizaines de lignes.
+    const aTable  = !!(f.table && f.table.rows && f.table.rows.length);
+    const aTree   = !!f.tree;
+    const detLong = aTable || aTree || (!!detTxt && (detTxt.length > 400 || detTxt.split(String.fromCharCode(10)).length > 8));
+    // UN CLIC DOIT TOUJOURS FAIRE QUELQUE CHOSE (signale par l'utilisateur : le (i) et le
+    // libelle restaient inertes). Trois cas :
+    //   - detail court   -> il se deplie sous la ligne ;
+    //   - detail long, tableau, arbre -> fenetre dediee ;
+    //   - AIDE SEULE (ni guide ni tableau) -> fenetre aussi, au lieu d'un dépliant vide.
+    // Avant, ce dernier cas appelait un depliant qui n'existait pas : rien ne se passait.
+    const aQuoiVoir  = !!(detTxt || aTable || aTree || f.help);
+    const clicDetail = !aQuoiVoir ? ''
+      : ((detLong || !detTxt) ? `ouvrirDetail('${key}')` : 'toggleDetail(this)');
+    const info=aQuoiVoir?`<button class="fhelp ${stt}" title="${help}" onclick="${clicDetail}"><span class="vi vi-fw vi-lg">&#xE007;</span></button>`:'';
+    // BOUTON DE RESOLUTION (D66) : un champ orange ou rouge qui cite une action porte
+    // TOUJOURS son bouton, juste sous la ligne. Il etait neutralise en dur ici (`const
+    // solve=''`) : aucune carte n'en affichait, quelle que soit la sonde -- c'est le
+    // defaut signale sur « Compteurs GPU ».
+    // Le libelle vient de l'action quand la carte la declare aussi ; sinon le serveur
+    // l'a completee depuis la declaration du fichier d'action.
+    const interditeF = fa && (fa.allowed===false);
+    // SON OPERATION TOURNE : il tourne aussi. La rangee d'actions savait deja le faire ;
+    // le bouton de resolution, lui, restait intact et cliquable pendant que l'operation
+    // qu'il venait de lancer se deroulait -- « il ne tourne pas, n'est pas grise, et est
+    // toujours present » (constate le 28/08). Meme regle, meme rendu.
+    // STRICTEMENT l'action qui tourne. Avec « ou busyAction inconnu », TOUS les boutons
+    // de resolution de la carte se mettaient a tourner alors qu'un seul travaillait
+    // (signale le 28/08). Quand le serveur ne dit pas quelle action tourne, aucun ne
+    // tourne : le verrou les desactivera, ce qui est l'information juste.
+    const solveRunning = !!m.busy && !!m.busyAction && m.busyAction===f.fixAction;
+    const solve = (f.fixAction && isProblem)
+      ? `<button class="fsolve sev-${fa?(fa.severity||'fix'):'fix'}${interditeF?' denied':''}${solveRunning?' busy':''}"${(interditeF||solveRunning)?' disabled':''}`
+        // MEME SOURCE que le bouton du bas de carte : c'est la meme action, elle ne peut
+        // pas se declarer de deux facons. Seule l'apparence differe.
+        + attributsAction(fa || { id: f.fixAction }, m.id, fkind)
+        + ` title="${att(interditeF?(fa.deniedReason||L('ui.action-reservee-un-compte')):((fa&&fa.help)||L('ui.resoudre-ce-point')))}">`
+        + (solveRunning
+             ? `<span class="spin"></span><span>${esc((fa&&fa.label)||L('ui.resoudre'))}…</span></button>`
+             : `${ICONS[fkind]||''}<span>${esc((fa&&fa.label)||L('ui.resoudre'))}</span></button>`)
+      : '';
+    const det = (detTxt && !detLong) ? `<div class="field-detail ${stt}${open}" data-k="${key}">${esc(detTxt)}</div>` : '';
+    return `<div class="frow">
+      <div class="field"><span class="k"><span class="fdot ${stt}"></span><span class="fk-label${aQuoiVoir?' clickable':''}"${help?` title="${help}"`:''}${clicDetail?` onclick="${clicDetail}"`:''}>${f.label}</span>${info}</span><span class="v v-${stt}">${fmt(f)}</span></div>
+      ${det}
+      ${progressHtml(f)}
+      ${solve?`<div class="frow-actions">${solve}</div>`:''}
+    </div>`;
+  }).join('');
+  const busy=!!m.busy;
+  // Aucune action n'est retiree de la barre : celle qui resout un champ y reste, meme
+  // si le champ la designe. C'est en bas qu'on cherche les boutons.
+  const actions=(m.actions||[]).map(a=>{
+    const h=(a.help||'').replace(/"/g,'&quot;');
+    const kind=a.kind||'immediate';
+    const sev=a.severity||'neutral';
+    // SEULE l'action reellement en cours s'anime. Toutes les autres restent lisibles, mais
+    // desactivees : lancer une seconde operation pendant la premiere n'aurait pas de sens.
+    // Animer les trois boutons faisait perdre lequel travaillait.
+    // STRICTEMENT celle-la : sans busyAction, plus AUCUNE ne s'anime. Le repli
+    // « ou busyAction inconnu » les faisait toutes tourner -- ce que ce commentaire
+    // dit vouloir eviter, et que le code faisait quand meme.
+    const cetteAction = busy && !!m.busyAction && m.busyAction===a.id;
+    // Droits (D65) : une action que ce compte Windows n'a pas le droit de lancer reste
+    // VISIBLE et dit pourquoi -- rien ne disparait d'une carte (D59). `allowed` n'est
+    // absent que d'un etat servi par une version anterieure : on le lit alors comme oui.
+    const interdite = (a.allowed===false);
+    const bcls = cetteAction ? ' busy' : (interdite ? ' denied' : '');
+    const dis = (busy || interdite) ? ' disabled' : '';
+    const inner = cetteAction
+      ? `<span class="spin"></span><span>${esc(a.busyLabel || (a.label+'…'))}</span>`
+      : `${ICONS[kind]||''}<span>${esc(a.label)}</span>`;
+    const bulle = interdite ? (a.deniedReason||L('ui.action-reservee-un-compte'))
+                : (busy&&!cetteAction ? L('ui.operation-en-cours-sur') : (h||a.label));
+    return `<button class="act k-${kind} sev-${sev}${bcls}"${dis}${attributsAction(a, m.id, kind)} title="${att(bulle)}">${inner}</button>`;
+  }).join('');
+  // A RECALCULER : la carte existe, sa mesure n'est pas encore faite. Elle s'affiche
+  // avec sa place et son titre, en attente -- une carte qui disparait laisse un trou que
+  // personne ne comprend, alors qu'une carte vide se lit tout de suite. Et si elle n'a
+  // AUCUNE ligne a montrer, elle le dit : une carte vide et muette n'apprend rien.
+  /*
+      A CARD HELD BY AN OPERATION SHOWS NOTHING BUT THAT OPERATION (D102, D130).
+
+      On 17/10, during a real Windows Update installation, the card announced the operation under its header AND
+      showed its fields just below -- one of them stating that the count was unavailable, which is a statement
+      about a measurement, while nothing could be measured as long as the lock was working. Two sentences
+      contradicting each other on the same card. While an operation holds it, its fields and its buttons are not
+      rendered; the note under the header says what is running and since when.
+
+      Held means either: what the server rendered (`busy`), or what the page knows is running right now
+      (`opsByCard`) -- the second arrives first, the first survives a reload.
+  */
+  const held = !!m.busy || !!(typeof opsByCard !== 'undefined' && opsByCard[m.id]);
+  return `<div class="card st-${st}${m.busy?' busy':''}${m.pending?' card-loading':''}${m.mode?(' mode-'+m.mode):''}" data-module="${m.id}" data-theme="${m.theme}">
+    <div class="card-head">
+      <div class="card-titles"><span class="card-group">${esc(groupLabel||'')}${scopeHtml(m)}</span><span class="name">${m.label}</span>${paceHtml(m)}</div>
+      ${stTxt?`<span class="badge ${st}"><span class="ic vi vi-fw">${stIc}</span>${stTxt}</span>`:''}
+      <button class="card-refresh${cardIsStale(m)?' stale':''}" title="${L('ui.rafraichir-cette-carte')}${(m.ms!==undefined&&m.ms!==null)?` — ${L('ui.servie-en')}${m.ms} ms`:''}" onclick="refreshCard('${m.id}',this,true)"><span class="cr-ic vi vi-fw vi-lg">&#xE008;</span></button>
+      <button class="card-refresh card-menu" title="${L('ui.menu-de-cette-carte')}" onclick="openCardMenu(event,'${m.id}','${m.theme}')"><span class="vi vi-fw vi-lg">&#xE009;</span></button>
+    </div>
+    <div class="fields">${held
+      ? `<div class="frow"><span class="card-attente">${L('ui.carte-occupee')}</span></div>`
+      : (fields || `<div class="frow"><span class="card-attente">${L(m.pending?'ui.carte-en-attente':'ui.carte-sans-ligne')}</span></div>`)}</div>
+    ${(!held && actions)?`<div class="actions">${actions}</div>`:''}
+  </div>`;
+}
+
+/*
+    LE MENU DE LA CARTE -- un bouton a trois points annonce un MENU, pas une destination.
+
+    Il ouvrait directement les parametres du module. C'etait la demande, elle n'avait pas
+    ete respectee : les trois points doivent donner le CHOIX, dont l'acces aux parametres
+    du module fait partie.
+*/
+function closeCardMenu(ev){
+  // LE BOUTON QUI A OUVERT LE MENU N'EST PAS « AILLEURS ».
+  //
+  // Ce gestionnaire ecoute en phase de CAPTURE : il passait donc avant le clic du bouton.
+  // Recliquer sur « ... » fermait puis rouvrait aussitot -- le menu ne se refermait
+  // jamais par la ou on l'avait ouvert. On laisse le bouton decider dans ce cas.
+  if (ev && ev.target && ev.target.closest && ev.target.closest('.card-menu')) return;
+  const m = document.getElementById('cardMenu');
+  if (m) m.remove();
+  document.removeEventListener('click', closeCardMenu, true);
+}
+function openCardMenu(ev, moduleId, theme){
+  ev.stopPropagation();
+  const already = document.getElementById('cardMenu');
+  closeCardMenu();
+  if (already && already.dataset.module === moduleId) return;   // second clic : on referme
+  const el = document.createElement('div');
+  el.id = 'cardMenu';
+  el.className = 'card-menu-pop';
+  el.dataset.module = moduleId;
+  el.innerHTML =
+      `<button type="button" data-do="settings">${L('ui.menu-parametres-du-module')}</button>`
+    + `<button type="button" data-do="refresh">${L('ui.menu-recalculer-la-carte')}</button>`
+    + `<button type="button" data-do="freshness">${L('ui.menu-detail-du-rafraichissement')}</button>`;
+  document.body.appendChild(el);
+  const r = ev.currentTarget.getBoundingClientRect();
+  el.style.top  = (window.scrollY + r.bottom + 4) + 'px';
+  el.style.left = (window.scrollX + Math.min(r.left, window.innerWidth - el.offsetWidth - 12)) + 'px';
+  el.querySelector('[data-do="settings"]').onclick = () => { closeCardMenu(); openSettings('modules', theme); };
+  el.querySelector('[data-do="refresh"]').onclick  = () => { closeCardMenu(); refreshCard(moduleId, null, true); };
+  el.querySelector('[data-do="freshness"]').onclick = () => { closeCardMenu(); openFreshness(moduleId); };
+  // Un clic AILLEURS referme : un menu qui reste ouvert derriere soi est un piege.
+  setTimeout(() => document.addEventListener('click', closeCardMenu, true), 0);
+}
+
+/*
+    UNE CARTE SANS MESURE SE DEMANDE, TOUT DE SUITE.
+
+    Une carte « pas encore mesuree » ne se remplit pas toute seule : le serveur ne
+    recalcule rien de lui-meme, et c'est voulu. Mais la page, elle, SAIT qu'il lui manque
+    quelque chose -- et rester devant une carte vide en attendant un clic n'est pas un
+    comportement, c'est un oubli.
+
+    Elle demande donc chaque carte manquante, UNE PAR UNE : chacune a son propre appel,
+    donc une carte lente ne retient pas les autres, et le chargement de la page n'a rien
+    paye. C'est la seule demande automatique de recalcul, et elle ne porte que sur ce qui
+    n'existe pas encore -- jamais sur ce qui est simplement vieux.
+*/
+let pendingAsked = new Set();
+function askMissingCards(s){
+  if(!API_MODE) return;
+  const missing = (s && s.modules || []).filter(m => m && m.pending && m.id);
+  for(const m of missing){
+    if(pendingAsked.has(m.id)) continue;   // une seule fois par carte et par page
+    pendingAsked.add(m.id);
+    refreshCard(m.id, null, true).finally(() => pendingAsked.delete(m.id));
+  }
+}
+
+function wireCardActions(root){
+  // Les boutons de la barre ET ceux des lignes (resolution d'un champ, D66) : meme
+  // chemin d'execution, pour que l'etat « en cours » et les confirmations se comportent
+  // pareil des deux endroits.
+  (root||document).querySelectorAll('.actions button, .frow-actions button.fsolve').forEach(b=>{
+    if (b.disabled) return;
+    b.onclick=()=>doAction(b.dataset.a,b.dataset.m,b.dataset.c==='1',b.textContent,b.dataset.h,b,null,b.dataset.k,b.dataset.c2==='1',
+                           { impact:b.dataset.imp, usage:b.dataset.usg, reversible:b.dataset.rev,
+                             // Deux objets, donc du JSON : un attribut ne porte que du texte.
+                             transition:(function(){ try{ return JSON.parse(b.dataset.trn||'null'); }catch(e){ return null; } })(),
+                             steps:(function(){ try{ return JSON.parse(b.dataset.stp||'[]'); }catch(e){ return []; } })() });
+  });
+}
+
+function renderState(s, mode){
+  // ON NE REMONTE PAS LA PAGE SOUS LES YEUX DE QUI LIT.
+  //
+  // Cette fonction reconstruit tout le tableau, et le navigateur remet alors le defilement a zero. La page relit le
+  // cache toutes les minutes : quiconque lisait une carte en bas se retrouvait en haut, sans avoir rien demande.
+  // Signale par le proprietaire le 30/09 -- « on doit pouvoir lire l'app sans etre gene ».
+  //
+  // On repose donc le defilement ou il etait, tout de suite apres avoir ecrit le DOM, dans le meme tour de boucle :
+  // rien ne s'affiche entre les deux, donc rien ne saute a l'ecran.
+  const scrollBefore = window.scrollY;
+  const app=document.getElementById('app'); app.innerHTML='';
+  fieldsByKey={};
+  themeLabels={}; (s.themes||[]).forEach(t=>{ themeLabels[t.id]=t.label; });
+  // AUCUN ETAT NE FAIT DISPARAITRE UNE CARTE (D59). Une sonde en cours de recalcul n'a
+  // rien dans le cache du serveur : son module manque alors dans /state. On garde donc la
+  // DERNIERE version connue de la carte, marquee « recalcul en cours », au lieu de la
+  // retirer -- signale par l'utilisateur : la carte Windows Update disparaissait pendant
+  // presque une minute apres un clic.
+  const recus = new Set((s.modules||[]).map(m=>m.id));
+  const survivants = (lastModules||[]).filter(m=>m && !recus.has(m.id))
+    .map(m=>Object.assign({}, m, { busy:true, _survivant:true }));
+  if(survivants.length){ s = Object.assign({}, s, { modules: (s.modules||[]).concat(survivants) }); }
+  lastModules=(s.modules||[]).map(m=>{ const c=Object.assign({},m); delete c._survivant; return c; });
+  // LE TROISIEME MOMENT (S16) : les deux autres viennent du serveur, celui-ci n'existe que dans la page.
+  lastStateReadAt = new Date().toISOString();
+  lastUnits=(s.units||[]).slice();
+  lastHost=s.host||'';
+  let worst='ok';
+  let html='';
+  (s.themes||[]).forEach(theme=>{
+    (s.modules||[]).filter(m=>m.theme===theme.id).forEach(m=>{
+      if(STATUS_RANK[m.status]>STATUS_RANK[worst]) worst=m.status;
+      html+=cardHtmlSafe(m, theme.label);
+    });
+  });
+  (s.modules||[]).filter(m=>!themeLabels[m.theme]).forEach(m=>{
+    if(STATUS_RANK[m.status]>STATUS_RANK[worst]) worst=m.status;
+    html+=cardHtmlSafe(m, m.theme||'');
+  });
+  // Filtre rapide par groupe (afficher/masquer)
+  const themesWithMods=(s.themes||[]).filter(t=>(s.modules||[]).some(m=>m.theme===t.id));
+  if(themesWithMods.length>1){
+    const fbar=document.createElement('div'); fbar.className='filterbar';
+    fbar.innerHTML='<span class="flabel">Groupes</span>'+themesWithMods.map(t=>{
+      const active=!hiddenThemes.has(t.id);
+      return `<button class="fchip${active?' active':''}" data-theme="${t.id}" onclick="toggleGroup('${t.id}')" title="${active?'Masquer':'Afficher'} ${L('ui.le-groupe')} ${esc(t.label)} »">${esc(t.label)}</button>`;
+    }).join('');
+    app.appendChild(fbar);
+  }
+  const masonry=document.createElement('div'); masonry.className='masonry';
+  masonry.innerHTML=html;
+  layoutColumns(masonry);
+  app.appendChild(masonry);
+  wireCardActions(masonry);
+  // Le defilement, remis ou il etait (voir en tete de cette fonction). Apres layoutColumns, donc sur une page qui a
+  // deja sa hauteur definitive : repose avant, il aurait ete borne a la hauteur d'un tableau encore vide.
+  if (scrollBefore) { window.scrollTo(0, scrollBefore); }
+  applyOperationLock();
+  // Si le rangement est en cours, les cartes fraichement rendues redeviennent
+  // saisissables : le mode et l'affichage restent d'accord.
+  if(modeReorg) armerGlisser();
+  applyFilter();
+  askMissingCards(s);
+  const g=document.getElementById('global'), gt=document.getElementById('globalTxt');
+  // Le badge de l'en-tete et le liseré disent la MEME chose : l'etat de l'application
+  // elle-meme (connectee, en maquette, en erreur). Ils portaient auparavant deux
+  // informations differentes -- badge rouge « Action requise » au-dessus d'un liseré vert
+  // -- et se contredisaient a l'oeil. La sante des cartes se lit sur les cartes.
+  const uiState = mode==='live'
+    ? { col:'var(--ok)',   txt:L('ui.connecte'),  aide:L('ui.connecte-api-locale-les') }
+    : { col:'var(--warn)', txt:'Maquette',  aide:L('ui.le-service-est-pas') };
+  g.querySelector('.dot').style.cssText=`width:9px;height:9px;border-radius:50%;background:${uiState.col}`;
+  gt.textContent=uiState.txt;
+  gt.style.color=uiState.col;
+  g.title=uiState.aide;
+  const meta=document.getElementById('lastRefresh');
+  meta.textContent=L('ui.mis-jour')+new Date().toLocaleTimeString('fr-FR');
+  // CE QUI A PRIS DU TEMPS, dans l'infobulle : le total, puis chaque phase du serveur et
+  // les trois cartes les plus lentes. Un chiffre unique ne dit pas ou regarder.
+  try{
+    const ph = s.timings || {};
+    const rows = Object.keys(ph).map(k=>`${k} : ${ph[k]} ms`);
+    const total = Object.keys(ph).reduce((a,k)=>a+(+ph[k]||0),0);
+    const slowest = (s.modules||[]).filter(m=>m.ms!==undefined&&m.ms!==null)
+                    .sort((a,b)=>b.ms-a.ms).slice(0,3).map(m=>`${m.label} : ${m.ms} ms`);
+    if(rows.length){
+      meta.textContent += ` · ${Math.round(total)} ms`;
+      // LES SAUTS DE LIGNE SONT CONSTRUITS, PAS ECHAPPES. Ecrits « backslash-n » depuis
+      // un script, ils sont devenus de VRAIS retours a la ligne dans une chaine JS : la
+      // page ne se chargeait plus du tout, bloquee sur son ecran d'attente (01/09).
+      const saut = String.fromCharCode(10);
+      meta.title = L('ui.temps-de-reponse') + saut + rows.join(saut)
+                 + (slowest.length ? (saut + saut + L('ui.cartes-les-plus-lentes') + saut + slowest.join(saut)) : '');
+    }
+  }catch(e){}
+  setMachineName(s.host);
+  const mb=document.getElementById('modebar'); const isBusy=mb.classList.contains('busy'); mb.className='modebar '+(mode==='live'?'ok':'warn')+(isBusy?' busy':''); mb.title=(mode==='live'?L('ui.connecte-api-locale-donnees'):L('ui.maquette-back-non-lance')); mb.textContent='';
+}
+
+// Repartit les cartes en COLONNES REELLES, une fois, dans un ordre stable.
+//
+// La largeur d'une colonne (280 px + gouttiere) reprend celle de l'ancienne mise en
+// page : le nombre de colonnes ne change donc qu'au redimensionnement de la fenetre.
+//
+// L'equilibrage se fait sur une hauteur ESTIMEE (nombre de lignes et de boutons), et
+// surtout PAS sur la hauteur mesuree : une carte qui passe en « operation en cours »
+// grandit, et rebalancer a ce moment-la ferait exactement le saut qu'on veut supprimer.
+// L'estimation, elle, ne depend que de ce que la carte CONTIENT.
+const COL_WIDTH = 296;
+
+// ===== ORDRE DES CARTES, CHOISI PAR L'UTILISATEUR (D92) ======================
+//
+// Un ordre est une PREFERENCE : il vit dans le navigateur de ce compte, pas dans la
+// configuration de la machine. Un module inconnu (nouveau, ou rallume) n'est pas une
+// erreur : il se range simplement a la fin.
+const ORDER_KEY = 'vigie.ordreCartes';
+let cardOrder = null;
+function loadOrder(){
+  if(cardOrder) return cardOrder;
+  try{ cardOrder = JSON.parse(localStorage.getItem(ORDER_KEY) || 'null'); }catch(e){ cardOrder = null; }
+  return cardOrder;
+}
+function saveOrder(liste){
+  cardOrder = liste;
+  try{ localStorage.setItem(ORDER_KEY, JSON.stringify(liste)); }catch(e){}
+}
+function forgetOrder(){
+  cardOrder = null;
+  try{ localStorage.removeItem(ORDER_KEY); }catch(e){}
+}
+// L'ordre enregistre est une liste de colonnes, chacune listant des identifiants de
+// carte. On ne fait confiance a rien : ce qui n'existe plus est ignore, ce qui est
+// nouveau est ajoute a la fin.
+function applyStoredOrder(cardEls, nb){
+  const memo = loadOrder();
+  if(!memo || !Array.isArray(memo)) return null;
+  const parId = new Map(cardEls.map(c => [c.dataset.module, c]));
+  const columnList = [];
+  const places = new Set();
+  for(let i = 0; i < nb; i++) columnList.push([]);
+  memo.forEach((ids, i) => {
+    const targetIndex = Math.min(i, nb - 1);
+    (ids || []).forEach(id => {
+      const c = parId.get(id);
+      if(c && !places.has(id)){ columnList[targetIndex].push(c); places.add(id); }
+    });
+  });
+  const restants = cardEls.filter(c => !places.has(c.dataset.module));
+  if(restants.length){
+    // Les nouvelles cartes vont dans la colonne la moins chargee, sans deranger le reste.
+    restants.forEach(c => {
+      let k = 0;
+      for(let i = 1; i < nb; i++){ if(columnList[i].length < columnList[k].length) k = i; }
+      columnList[k].push(c);
+    });
+  }
+  return columnList;
+}
+function estimatedHeight(cardEl){
+  const fieldCount  = cardEl.querySelectorAll('.field').length;
+  const buttons = cardEl.querySelectorAll('.actions button').length;
+  return 92 + fieldCount * 30 + Math.ceil(buttons / 2) * 34;
+}
+// Placement retenu des groupes : { nb: nombre de colonnes, col: Map(groupe -> colonne) }.
+// Remis a zero quand le nombre de colonnes change (redimensionnement) ou quand
+// l'utilisateur reorganise lui-meme ses cartes.
+let groupPlacement = null;
+function layoutColumns(masonry){
+  // LES CARTES, OU QU'ELLES SOIENT. Apres une premiere repartition, les enfants directs
+  // sont les COLONNES : ne regarder que ceux-la ne trouvait plus une seule carte, et un
+  // second appel ne faisait rien -- c'est ce qui laissait des colonnes vides quand on
+  // decochait un groupe.
+  const cardEls = [...masonry.querySelectorAll('.card')];
+  if(!cardEls.length) return;
+  // UN GROUPE MASQUE NE COMPTE PLUS. Ses cartes restent dans le document, invisibles,
+  // mais elles ne prennent plus de place dans le calcul.
+  const visibles = cardEls.filter(c => c.style.display !== 'none');
+  const dispo = masonry.clientWidth || document.body.clientWidth || 1200;
+  const nb = Math.max(1, Math.min(Math.max(visibles.length, 1), Math.floor(dispo / COL_WIDTH)));
+  const columnList = [], hauteurs = [];
+  for(let i = 0; i < nb; i++){
+    const c = document.createElement('div'); c.className = 'mcol';
+    columnList.push(c); hauteurs.push(0);
+  }
+  // UN ORDRE CHOISI PAR L'UTILISATEUR l'emporte sur tout le reste.
+  const memo = applyStoredOrder(visibles, nb);
+  if(memo){
+    memo.forEach((liste, i) => liste.forEach(c => columnList[i].appendChild(c)));
+  // LES CARTES MASQUEES RESTENT DANS LE DOCUMENT. « masonry.textContent = '' » efface
+  // tout : sans cette ligne, decocher un groupe SUPPRIMAIT ses cartes, et les recocher
+  // ne les ramenait qu'au prochain etat recu. Elles vont dans la premiere colonne, en
+  // display:none -- invisibles, mais la.
+  const caches = cardEls.filter(c => c.style.display === 'none');
+  if (caches.length && columnList.length) caches.forEach(c => columnList[0].appendChild(c));
+    masonry.textContent = '';
+    columnList.forEach(c => masonry.appendChild(c));
+    return;
+  }
+
+  // PAR GROUPE, et non carte par carte : les trois cartes d'« Outils & paquets » se
+  // retrouvaient dans trois colonnes differentes, alors qu'elles se lisent ensemble
+  // (signale le 27/08). On pose donc un GROUPE ENTIER dans la colonne la moins
+  // remplie ; ses cartes restent contigues, et l'equilibre se fait entre groupes.
+  const groups = [];
+  const parTheme = new Map();
+  for(const cardEl of visibles){
+    const g = cardEl.dataset.theme || cardEl.dataset.module || '';
+    if(!parTheme.has(g)){ parTheme.set(g, []); groups.push(g); }
+    parTheme.get(g).push(cardEl);
+  }
+  // UNE FOIS POSE, UN GROUPE NE BOUGE PLUS.
+  //
+  // L'equilibrage se fait sur des hauteurs ESTIMEES : dès qu'une carte grandit -- un
+  // champ de plus, un defaut qui s'affiche -- le calcul rendait un autre resultat et les
+  // cartes changeaient de colonne sous les yeux de qui les lisait (signale le 28/08).
+  // On garde donc le placement precedent tant que la fenetre garde le meme nombre de
+  // colonnes et que les memes groupes sont la. Un groupe nouveau, lui, prend la colonne
+  // la moins remplie -- et y reste.
+  // LE PLACEMENT MEMORISE VAUT POUR UN JEU DE GROUPES DONNE.
+  //
+  // Il n'etait garde que sur le nombre de colonnes : en decochant un groupe, les autres
+  // restaient epingles a leur colonne d'avant et celle qui se vidait le restait -- un
+  // trou au milieu de la grille (constate le 01/09, apres le premier correctif qui, lui,
+  // ne redistribuait rien du tout).
+  //
+  // On garde donc aussi QUELS groupes sont affiches. Tant qu'ils ne changent pas, rien ne
+  // bouge sous les yeux du lecteur ; des qu'on en masque un, tout se retasse.
+  const signature = groups.join('|');
+  const memePlacement = groupPlacement && groupPlacement.nb === nb && groupPlacement.signature === signature;
+  if(!memePlacement) groupPlacement = { nb: nb, signature: signature, col: new Map() };
+  for(const g of groups){
+    let targetIndex;
+    if(groupPlacement.col.has(g)){
+      targetIndex = Math.min(groupPlacement.col.get(g), nb - 1);
+    } else {
+      targetIndex = 0;
+      for(let i = 1; i < nb; i++){ if(hauteurs[i] < hauteurs[targetIndex]) targetIndex = i; }
+      groupPlacement.col.set(g, targetIndex);
+    }
+    for(const cardEl of parTheme.get(g)){
+      columnList[targetIndex].appendChild(cardEl);
+      hauteurs[targetIndex] += estimatedHeight(cardEl);
+    }
+  }
+  // LES CARTES MASQUEES RESTENT DANS LE DOCUMENT. « masonry.textContent = '' » efface
+  // tout : sans cette ligne, decocher un groupe SUPPRIMAIT ses cartes, et les recocher
+  // ne les ramenait qu'au prochain etat recu. Elles vont dans la premiere colonne, en
+  // display:none -- invisibles, mais la.
+  const caches = cardEls.filter(c => c.style.display === 'none');
+  if (caches.length && columnList.length) caches.forEach(c => columnList[0].appendChild(c));
+  masonry.textContent = '';
+  columnList.forEach(c => masonry.appendChild(c));
+}
+// Le nombre de colonnes suit la largeur de la fenetre. On ne refait le partage QUE si
+// ce nombre change : redistribuer a chaque pixel ferait danser la page.
+let currentColumns = 0;
+window.addEventListener('resize', () => {
+  const masonry = document.querySelector('.masonry');
+  if(!masonry) return;
+  const nb = Math.max(1, Math.floor((masonry.clientWidth || 1200) / COL_WIDTH));
+  if(nb === currentColumns) return;
+  currentColumns = nb;
+  // On remet les cartes a plat, puis on repartage.
+  const cardEls = [...masonry.querySelectorAll('.card')];
+  masonry.textContent = '';
+  cardEls.forEach(c => masonry.appendChild(c));
+  layoutColumns(masonry);
+});
+
+// ===== MODE REORGANISATION ===================================================
+//
+// Pourquoi un MODE, et pas une poignee de deplacement : « pas que ca puisse arriver par
+// erreur ». Une poignee, meme discrete, se saisit un jour sans le vouloir. Ici, tant
+// qu'on n'est pas entre dans le mode, rien n'est saisissable -- et une fois dedans, les
+// actions des cartes sont neutralisees : on range, on n'exploite pas.
+let modeReorg = false;
+let inputCard = null;
+
+function currentOrder(){
+  return [...document.querySelectorAll('.mcol')].map(col =>
+    [...col.querySelectorAll('.card')].map(c => c.dataset.module));
+}
+
+function entrerReorg(){
+  if(modeReorg) return;
+  modeReorg = true;
+  document.body.classList.add('reorg');
+  // Le bandeau est pose A COTE de #app, pas dedans : #app est entierement redessine a
+  // chaque rendu, et le bandeau disparaissait en laissant les cartes en pointilles --
+  // le mode etait actif sans plus rien pour le dire ni pour en sortir (signale le
+  // 27/08 : « fais en sorte que tout vienne et parte ensemble »).
+  const app = document.getElementById('app');
+  const bar = document.createElement('div');
+  bar.className = 'reorg-bar'; bar.id = 'reorgBar';
+  bar.innerHTML = '<div><b>Réorganisation</b><br><small>Glisser les cartes. '
+                + 'Les actions sont suspendues le temps du rangement.</small></div>'
+                + '<div class="sp"><button id="reorgDefaut">Rétablir l’ordre par défaut</button>'
+                + '<button class="primaire" id="reorgFin">Terminer</button></div>';
+  app.parentElement.insertBefore(bar, app);
+  document.getElementById('reorgFin').onclick = () => quitterReorg(true);
+  document.getElementById('reorgDefaut').onclick = () => { forgetOrder(); quitterReorg(false); refresh(); };
+  armerGlisser();
+}
+
+function quitterReorg(garder){
+  if(!modeReorg) return;
+  if(garder) saveOrder(currentOrder());
+  modeReorg = false;
+  document.body.classList.remove('reorg');
+  const bar = document.getElementById('reorgBar'); if(bar) bar.remove();
+  document.querySelectorAll('.card[draggable]').forEach(c => { c.removeAttribute('draggable'); });
+  document.querySelectorAll('.mcol.cible').forEach(c => c.classList.remove('cible'));
+  if(garder) toast(L('ui.disposition-enregistree'));
+}
+
+// Glisser-deposer natif : pas de bibliotheque, et le clavier reste possible via les
+// boutons de la barre. On depose DANS une colonne, avant la carte survolee.
+function armerGlisser(){
+  document.querySelectorAll('.masonry .card').forEach(cardEl => {
+    cardEl.setAttribute('draggable', 'true');
+    cardEl.ondragstart = e => {
+      if(!modeReorg) return false;
+      inputCard = cardEl; cardEl.classList.add('drag');
+      try{ e.dataTransfer.setData('text/plain', cardEl.dataset.module); }catch(err){}
+      e.dataTransfer.effectAllowed = 'move';
+    };
+    cardEl.ondragend = () => { cardEl.classList.remove('drag'); inputCard = null;
+                              document.querySelectorAll('.mcol.cible').forEach(c => c.classList.remove('cible')); };
+  });
+  document.querySelectorAll('.mcol').forEach(col => {
+    col.ondragover = e => {
+      if(!modeReorg || !inputCard) return;
+      e.preventDefault();
+      col.classList.add('cible');
+      // Insertion AVANT la carte dont on survole la moitie haute : le repere suit le
+      // curseur, on voit ou la carte va tomber.
+      const after = [...col.querySelectorAll('.card:not(.drag)')].find(c => {
+        const r = c.getBoundingClientRect();
+        return e.clientY < r.top + r.height / 2;
+      });
+      if(after) col.insertBefore(inputCard, after); else col.appendChild(inputCard);
+    };
+    col.ondragleave = () => col.classList.remove('cible');
+    col.ondrop = e => { e.preventDefault(); col.classList.remove('cible'); };
+  });
+}
+
+// Remplace le DOM d'une carte par son rendu a jour. Renvoie l'element cree (ou null).
+function replaceCardDom(m){
+  const sel='.card[data-module="'+((window.CSS&&CSS.escape)?CSS.escape(m.id):m.id)+'"]';
+  const card=document.querySelector(sel);
+  if(!card) return null;
+  const tmp=document.createElement('div');
+  // Le libelle du GROUPE vient du catalogue des themes. S'il manque -- la carte a ete
+  // rafraichie avant le premier /state --, on garde CELUI QUI EST DEJA AFFICHE plutot
+  // que de retomber sur l'identifiant technique : la carte Comptes s'est retrouvee
+  // titree « ACCOUNTS » (constate le 27/08).
+  const alreadyShown=(card.querySelector('.card-group')||{}).textContent;
+  tmp.innerHTML=cardHtmlSafe(m, themeLabels[m.theme]||alreadyShown||m.theme||'');
+  const fresh=tmp.firstElementChild;
+  // LE GROUPE MASQUE LE RESTE. Le noeud neuf arrive sans le display:none que le filtre
+  // avait pose sur l'ancien : une carte d'un groupe decoche revenait donc a l'ecran des
+  // qu'elle se rafraichissait seule -- et elles se rafraichissent tout le temps depuis
+  // que le serveur calcule en fond (constate le 30/09 sur le groupe Comptes).
+  if(hiddenThemes.has(fresh.dataset.theme)) fresh.style.display='none';
+  card.replaceWith(fresh);
+  wireCardActions(fresh);
+  // Le serveur fait foi : si la carte n'est plus occupee, le verrou tombe.
+  applyOperationLock();
+  const i=(lastModules||[]).findIndex(x=>x.id===m.id);
+  if(i>=0) lastModules[i]=m; else lastModules.push(m);
+  return fresh;
+}
+// Recupere l'etat d'un module (live) ou le dernier connu (maquette).
+async function fetchModule(moduleId, frais){
+  if(API_MODE){
+    try{
+      // frais : le serveur RECALCULE la carte et attend le resultat. Reserve au bouton
+      // de la carte ; le suivi d'une tache de fond, lui, lit le cache.
+      const r=await fetch(API+'/modules/'+encodeURIComponent(moduleId)+(frais?'?fresh=1':''),{ headers:{ Authorization:'Bearer '+TOKEN } });
+      if(r.ok){ markOnline(); return await r.json(); }
+    }catch(e){}
+    return null;
+  }
+  return (lastModules||[]).find(x=>x.id===moduleId)||null;
+}
+// Rafraichit UNE seule carte (via GET /modules/:id), sans recharger toute la page.
+async function refreshCard(moduleId, btn, frais){
+  const sel='.card[data-module="'+((window.CSS&&CSS.escape)?CSS.escape(moduleId):moduleId)+'"]';
+  const card=document.querySelector(sel);
+  if(!card) return;
+  card.classList.add('card-loading');
+  const m=await fetchModule(moduleId, frais);
+  if(m){ replaceCardDom(m); } else { card.classList.remove('card-loading'); }
+}
+// Interroge une carte jusqu'a la fin d'une tache de fond (m.busy faux), sans bloquer.
+//
+// PLAFOND A 1 HEURE, pas 3 minutes. Une mise a jour de paquets prend couramment dix
+// minutes ou plus : l'ancien plafond abandonnait en plein travail, la carte restait
+// « en cours » et plus rien n'arrivait -- constate sur une mise a jour Chocolatey.
+// Le compteur de temps ecoule s'affiche : une operation asynchrone doit se VOIR vivante.
+const POLL_MAX_MS = 3600000;
+async function pollCardUntilIdle(moduleId, entry, name){
+  const startTs=Date.now();
+  let delay=1400;
+  const ecoule=()=>{ const s=Math.round((Date.now()-startTs)/1000);
+                     return s<60 ? s+' s' : Math.floor(s/60)+' min '+(s%60)+' s'; };
+  async function tick(){
+    const m=await fetchModule(moduleId);
+    if(m) replaceCardDom(m);
+    // Une reponse ABSENTE n'est pas une fin : le serveur peut etre en train de recalculer
+    // (verrou anti-troupeau) et ne rien renvoyer pour cette carte. L'ancien test prenait
+    // ce vide pour un succes et annoncait « termine » aussitot, alors que la tache de fond
+    // tournait encore et que la valeur affichee restait « non verifiees ».
+    const stillBusy = (!m) || m.busy;
+    if(stillBusy && (Date.now()-startTs)<POLL_MAX_MS){
+      if(entry) updateNotif(entry,'running', name+' : en cours depuis '+ecoule()+'…');
+      delay=Math.min(delay+400, 4000);
+      setTimeout(tick, delay);
+    } else if(stillBusy){
+      // On rend la carte a un etat lisible au lieu de la laisser tourner indefiniment.
+      refreshCard(moduleId);
+      if(entry) updateNotif(entry,'error', name+L('ui.toujours-en-cours-apres')+ecoule()+L('ui.suivi-abandonne'));
+    } else {
+      // MEME ENCHAINEMENT A LA FIN D'UNE TACHE DE FOND. Le worker invalide la carte en terminant, donc cette
+      // derniere lecture de cache porte encore le rendu d'avant : on recalcule la carte, une seule fois, sur
+      // l'evenement « plus occupee ».
+      refreshCard(moduleId, null, true);
+      if(entry) updateNotif(entry,'done', name+L('ui.termine-en')+ecoule()+'.');
+    }
+  }
+  setTimeout(tick, 900);
+}
+
+// ===== Notifications : toasts auto-dismiss + drawer (historique, supprimable) =====
+function heure(d){ return d.toLocaleTimeString('fr-FR'); }
+let notifs=[]; let toastEls={}; let nextNotifId=1;
+function addNotif(label, status, message){
+  const n={ id:nextNotifId++, label, message, status, ts:new Date() };
+  notifs.unshift(n); showToast(n); renderDrawer(); updateBell(); return n;
+}
+function updateNotif(n, status, message){
+  n.status=status; n.message=message; n.ts=new Date(); showToast(n); renderDrawer();
+}
+function toastHtml(n){
+  return `<span class="t-dot ${n.status}"></span><div class="t-body"><span class="t-label">${esc(n.label)}</span><span class="t-msg">${esc(n.message||'')}</span></div><button class="t-x" title="Fermer" onclick="dismissToast(${n.id})">×</button>`;
+}
+function showToast(n){
+  const stack=document.getElementById('toastStack'); if(!stack) return;
+  let rec=toastEls[n.id];
+  if(!rec){ const el=document.createElement('div'); el.className='toast'; stack.appendChild(el); rec={el,timer:null}; toastEls[n.id]=rec; requestAnimationFrame(()=>el.classList.add('show')); }
+  rec.el.className='toast show '+n.status;
+  rec.el.innerHTML=toastHtml(n);
+  if(rec.timer){ clearTimeout(rec.timer); rec.timer=null; }
+  if(n.status==='done') rec.timer=setTimeout(()=>dismissToast(n.id), 4500);
+  else if(n.status==='error') rec.timer=setTimeout(()=>dismissToast(n.id), 9000);
+}
+function dismissToast(id){
+  const rec=toastEls[id]; if(!rec) return;
+  if(rec.timer) clearTimeout(rec.timer);
+  rec.el.classList.remove('show');
+  setTimeout(()=>{ if(rec.el&&rec.el.parentNode) rec.el.remove(); }, 220);
+  delete toastEls[id];
+}
+// UNE OPERATION EN COURS NE S'EFFACE PAS (D94). Effacer sa notification ne l'arrete
+// pas : le travail continue en fond, et on vient de supprimer le seul endroit qui en
+// disait quelque chose. A la fin, cette notification n'est pas effacee : elle est
+// REMPLACEE par son resultat (reussi ou echoue), qui s'efface, lui.
+function notifLocked(n){ return n && n.status === 'running'; }
+
+function deleteNotif(id){
+  const n = notifs.find(x => x.id === id);
+  if(notifLocked(n)){
+    // PAS de message fugace : il s'affichait DERRIERE le tiroir, une seconde et demie
+    // -- autant ne rien dire (signale le 27/08). La raison est ecrite en tete du
+    // tiroir, en permanence tant qu'elle est vraie ; ici on fait juste clignoter la
+    // ligne concernee, la ou le clic a eu lieu.
+    const el = document.querySelector('.dn[data-id="' + id + '"]');
+    if(el){ el.classList.remove('refus'); void el.offsetWidth; el.classList.add('refus'); }
+    return;
+  }
+  notifs=notifs.filter(n=>n.id!==id); dismissToast(id); renderDrawer(); updateBell();
+}
+function clearNotifs(){
+  // « Tout effacer » respecte le verrou : ce qui tourne reste, le reste part. Rien a
+  // annoncer -- le tiroir montre lui-meme ce qui reste, et pourquoi.
+  notifs.filter(n => !notifLocked(n)).forEach(n => dismissToast(n.id));
+  notifs = notifs.filter(notifLocked);
+  renderDrawer(); updateBell();
+}
+function renderDrawer(){
+  const body=document.getElementById('drawerBody'); if(!body) return;
+  if(!notifs.length){ body.innerHTML='<div class="drawer-empty">Aucune notification.</div>'; return; }
+  // EN TETE DU TIROIR : ce qui tourne, et pourquoi ces notifications ne s'effacent
+  // pas. Permanent tant que c'est vrai, a l'endroit meme ou l'on clique.
+  const enCours = notifs.filter(notifLocked).length;
+  const entete = enCours
+    ? '<div class="dn-note">' + (enCours === 1
+        ? L('ui.une-operation-est-en')
+        : enCours + L('ui.operations-sont-en-cours'))
+      + '</div>'
+    : '';
+  body.innerHTML = entete + notifs.map(n=>{
+    const chip=n.status==='running'?'<span class="spin"></span>En cours':n.status==='done'?L('ui.reussi'):L('ui.echec');
+    return `<div class="dn ${n.status}" data-id="${n.id}">
+      <div class="dn-head"><span class="t-dot ${n.status}"></span><span class="dn-label">${esc(n.label)}</span>
+        ${notifLocked(n)
+            // La fonte maison n'a pas de cadenas, et on n'invente pas un glyphe pour
+            // ca : le SABLIER de l'application dit deja « en cours », c'est exactement
+            // la raison du verrou.
+            ? '<span class="dn-lock" title="Opération en cours : sa notification ne peut pas être effacée."><span class="spin"></span></span>'
+            : `<button class="dn-del" title="Supprimer" onclick="deleteNotif(${n.id})">×</button>`}</div>
+      <div class="dn-msg">${esc(n.message||'')}</div>
+      <div class="dn-time">${chip} — ${heure(n.ts)}</div>
+    </div>`;
+  }).join('');
+}
+// ===== LES OPERATIONS SONT PARTAGEES (D95) ===================================
+//
+// Les notifications vivaient dans la PAGE : une seconde fenetre ne savait rien d'une
+// operation lancee depuis la premiere, et une page ouverte APRES le depart d'un
+// deploiement n'en voyait aucune trace. Le serveur, lui, sait -- il tient les marqueurs
+// d'operation et leurs resultats. Chaque page s'y accorde donc, a intervalle court.
+//
+// Une notification portee par le serveur est reconnue a sa CLE (module + action) : la
+// page qui a lance l'operation garde la sienne, les autres en creent une identique, et
+// personne ne se retrouve avec un doublon.
+let opsConnues = {};      // cle -> id de notification locale
+const OPS_MS = 4000;
+
+function operationKey(o){ return (o.module || '') + '|' + (o.action || ''); }
+
+// L'ETAT PEUT VENIR D'AILLEURS QUE DU SONDAGE.
+//
+// La reponse d'une action le porte deja : s'en servir tout de suite evite d'attendre le
+// prochain tour (jusqu'a 4 s) et supprime la course qui creait une seconde notification
+// pour la meme operation.
+async function syncOperations(etatFourni){
+  if(!API_MODE) return;
+  let uiState = etatFourni || null;
+  if(!uiState){
+    try{
+      const r = await fetch(API + '/operations', { headers:{ Authorization:'Bearer ' + TOKEN } });
+      if(!r.ok) return;
+      uiState = await r.json();
+      markOnline();   // le serveur a repondu : la page n'est plus hors ligne
+    }catch(e){ return; }
+  }
+
+  // CE QUE LE SERVEUR DIT DES OPERATIONS EN COURS, garde tel quel et range par carte.
+  //
+  // La page le reconstituait depuis le DOM, en lisant `busyResources` sur la carte -- que la plupart des cartes ne
+  // portent pas. Les ressources arrivaient donc vides, et le repli « on ne sait pas ce qu'elle tient, on bloque
+  // tout » s'appliquait : le 06/10, une analyse de disque qui ne retient que le disque eteignait aussi le bouton de
+  // Chocolatey. La route /operations, elle, porte le libelle, l'action, les ressources et l'heure de depart.
+  opsByCard = {};
+  for(const op of (uiState.running || [])){
+    if(op && op.module) opsByCard[op.module] = op;
+  }
+  // CE QUI EST OCCUPE SE LIT SUR LE VIVANT, JAMAIS SUR UN RENDU (D130). Une carte calculee pendant une operation
+  // porte `busy` dans son rendu, et ce rendu est servi jusqu'au recalcul suivant -- un jour pour la carte des
+  // paquets. La carte restait grise apres la fin, et il fallait recharger la page. La liste des operations, elle,
+  // dit ce qui tourne a l'instant : c'est elle qui pose et retire la classe.
+  document.querySelectorAll('.card').forEach(card => {
+    card.classList.toggle('busy', !!opsByCard[card.dataset.module]);
+  });
+  for(const m of (lastModules || [])){
+    if(!opsByCard[m.id]){ m.busy = false; delete m.busyAction; delete m.busyResources; }
+  }
+  paintOperationNotes();
+  applyOperationLock();
+  const enCours = new Set();
+  for(const op of (uiState.running || [])){
+    const cle = operationKey(op);
+    enCours.add(cle);
+    // UNE OPERATION N'A QU'UNE NOTIFICATION, et la suivante REMPLACE la precedente.
+    //
+    // On ne se fie pas au seul registre des cles : il peut avoir ete vide -- page
+    // rechargee, notification effacee a la main -- alors qu'une notification de cette
+    // operation existe encore. On cherche donc aussi par la cle PORTEE par la
+    // notification. Sans cela, deux annonces de la meme chose se retrouvent cote a cote.
+    const connue = opsConnues[cle];
+    if(connue && notifs.some(x => x.id === connue)) continue;
+    const alreadyNotified = notifs.find(x => x.op === cle);
+    if(alreadyNotified){
+      opsConnues[cle] = alreadyNotified.id;
+      updateNotif(alreadyNotified, 'running', (op.label || L('ui.operation')) + L('ui.en-cours'));
+      continue;
+    }
+    // Nouvelle a NOS yeux : on la montre, toast compris -- c'est le but, toutes les
+    // pages sont prevenues.
+    const n = addNotif(op.label || L('ui.operation'), 'running', (op.label || L('ui.operation')) + L('ui.en-cours'));
+    n.op = cle;
+    opsConnues[cle] = n.id;
+  }
+
+  // Ce qui a disparu de la liste des operations en cours s'est termine : on lui donne
+  // son resultat, s'il est connu.
+  for(const cle of Object.keys(opsConnues)){
+    if(enCours.has(cle)) continue;
+    const id = opsConnues[cle];
+    const n = notifs.find(x => x.id === id);
+    delete opsConnues[cle];
+    // La carte cesse d'etre occupee MEME si sa notification a ete perdue entre-temps :
+    // le lisere ne doit pas dependre d'un objet d'interface.
+    const moduleFini = cle.split('|')[0];
+    clearCardBusy(moduleFini);
+
+    // ET ELLE SE RECHARGE. La fin d'operation eteignait le lisere et mettait a jour la
+    // notification, mais ne redemandait JAMAIS les donnees : la carte gardait les
+    // chiffres d'avant. Apres un deploiement, elle annoncait encore « 34 commits a
+    // ajouter » et rouvrait son bouton -- signale le 28/08.
+    //
+    // « frais » est indispensable : sans lui la sonde repond depuis son cache, c'est-a-
+    // dire l'etat qu'on vient precisement de changer.
+    //
+    // Le cas qui a masque le defaut : certaines operations RELANCENT LE SERVEUR
+    // (deploiement, mise a jour). Pendant ce temps la page ne recoit plus rien ; elle
+    // apprend la fin au premier echange qui repasse. C'est donc ici, et pas dans la
+    // reponse de l'action, que le rechargement doit se faire.
+    if(moduleFini){ refreshCard(moduleFini, null, true); }
+    if(!n) continue;
+    const res = (uiState.results || []).find(r => operationKey(r) === cle);
+    if(res){
+      const ok = Number(res.code) === 0;
+      updateNotif(n, ok ? 'done' : 'error',
+        ok ? (res.label || L('ui.operation')) + L('ui.terminee') + (res.seconds ? ' en ' + res.seconds + ' s.' : '.')
+           : (res.label || L('ui.operation')) + L('ui.echec-code') + res.code + ')' + (res.log ? ' — journal : ' + res.log : ''));
+    } else {
+      updateNotif(n, 'done', (n.label || L('ui.operation')) + L('ui.terminee-2'));
+    }
+  }
+}
+
+// RETOUR EN LIGNE : le constater des qu'un echange reussit, quel qu'il soit.
+//
+// L'etat « Hors ligne » n'etait leve que par un rafraichissement COMPLET. Or celui-ci
+// attend maintenant que la page soit libre (tiroir ferme, rangement termine) : avec le
+// tiroir ouvert, les cartes se mettaient a jour et le bandeau restait rouge -- signale
+// le 27/08. Le moindre appel qui aboutit prouve pourtant que le serveur repond.
+function markOnline(){
+  const gt = document.getElementById('globalTxt');
+  if(!gt || gt.textContent !== 'Hors ligne') return;
+  gt.textContent = L('ui.connecte');
+  gt.style.color = 'var(--ok)';
+  if(gt.parentElement) gt.parentElement.title = L('ui.connecte-api-locale-les');
+  const gdot = document.querySelector('#global .dot');
+  if(gdot) gdot.style.cssText = 'width:9px;height:9px;border-radius:50%;background:var(--ok)';
+  const mb = document.getElementById('modebar');
+  if(mb){ const isBusy = mb.classList.contains('busy'); mb.className = 'modebar ok' + (isBusy ? ' busy' : ''); mb.title = ''; }
+}
+
+function updateBell(){ const b=document.getElementById('bellCount'); if(!b) return; b.textContent=notifs.length; b.style.display=notifs.length?'inline-flex':'none'; }
+function toggleDrawer(){ const d=document.getElementById('drawer'); const bk=document.getElementById('drawerBack'); const open=d.classList.toggle('open'); if(bk) bk.classList.toggle('show', open); }
+
+function toggleDetail(btn){
+  const t=btn.closest('.frow'); const d=t&&t.querySelector('.field-detail');
+  if(!d) return;
+  d.classList.toggle('open');
+  const k=d.dataset.k;
+  if(k){ if(d.classList.contains('open')) openDetails.add(k); else openDetails.delete(k); }
+}
+// Detail long : fenetre dediee. Elle a la place et le defilement qu'une carte n'a pas.
+// --- Arborescence du disque : UN NIVEAU A LA FOIS (D60 revu) ------------------
+// Le serveur ne renvoie que les enfants directs du dossier demande ; on redemande au
+// depliage. Un arbre complet embarque dans la carte, c'est un JSON sans limite de taille
+// et du calcul pour des branches que personne n'ouvrira.
+const TREE_CACHE = {};
+async function treeNiveau(chemin){
+  if(TREE_CACHE[chemin]) return TREE_CACHE[chemin];
+  const u = API + '/disk/tree' + (chemin ? ('?path=' + encodeURIComponent(chemin)) : '');
+  const r = await fetch(u, {headers:{Authorization:'Bearer '+TOKEN}});
+  if(!r.ok){ const j = await r.json().catch(()=>({})); throw new Error(j.error || ('HTTP '+r.status)); }
+  const j = await r.json();
+  TREE_CACHE[chemin||''] = j;
+  return j;
+}
+function treeRowHtml(e){
+  const button = '<button class="tree-open" data-path="'+esc(e.path).replace(/"/g,'&quot;')+'" title="Ouvrir ce dossier dans l\u2019explorateur Windows">\u2197</button>';
+  const entete = '<span class="tree-n">'+esc(e.n)+'</span>'
+    + '<span class="tree-s">'+esc(e.size||'')+'</span>'
+    + '<span class="tree-p">'+esc(String(e.pct==null?'':e.pct))+' %</span>'
+    + button;
+  return '<details class="tree-node" data-path="'+esc(e.path).replace(/"/g,'&quot;')+'">'
+    + '<summary>'+entete+'</summary>'
+    + '<div class="tree-kids"><div class="tree-attente">\u2026</div></div></details>';
+}
+function treeCorpsHtml(niveau){
+  const enfants = (niveau.children||[]);
+  const fileList = (niveau.files||[]);
+  let html = enfants.map(treeRowHtml).join('');
+  if(niveau.others && niveau.others.c){
+    html += '<div class="tree-leaf tree-mut">'+niveau.others.c+' autres dossiers<span class="tree-s">'+esc(niveau.others.size)+'</span></div>';
+  }
+  html += fileList.map(f=>'<div class="tree-leaf tree-file">'+esc(f.n)+'<span class="tree-s">'+esc(f.size||'')+'</span></div>').join('');
+  if(!html) html = '<div class="tree-leaf tree-mut">Ce dossier ne contient rien de mesurable.</div>';
+  return html;
+}
+// Un dossier ne se charge qu'a sa PREMIERE ouverture ; ensuite il est en cache.
+function treeBrancher(racineEl){
+  racineEl.querySelectorAll('details.tree-node').forEach(d=>{
+    if(d.dataset.pret) return;
+    d.dataset.pret = '1';
+    d.addEventListener('toggle', async ()=>{
+      if(!d.open || d.dataset.charge) return;
+      d.dataset.charge = '1';
+      const zone = d.querySelector('.tree-kids');
+      try{
+        const niveau = await treeNiveau(d.dataset.path);
+        zone.innerHTML = treeCorpsHtml(niveau);
+        treeBrancher(zone);
+        treeBrancherOuvrir(zone);
+      }catch(e){
+        d.dataset.charge = '';
+        zone.innerHTML = '<div class="tree-leaf tree-mut">Lecture impossible : '+esc(e.message||String(e))+'</div>';
+      }
+    });
+  });
+}
+function treeBrancherOuvrir(zone){
+  zone.querySelectorAll('.tree-open').forEach(b=>{
+    if(b.dataset.pret) return;
+    b.dataset.pret = '1';
+    b.onclick = async ev=>{
+      ev.preventDefault(); ev.stopPropagation();
+      try{ await doAction('open-scan-folder', 'storage', false, L('ui.ouvrir-le-dossier'), '', b, { path: b.dataset.path }, 'manual', false); }
+      catch(e){ toast(L('ui.ouverture-impossible')+(e.message||e)); }
+    };
+  });
+}
+async function ouvrirArborescence(){
+  HDS.open({ title:L('ui.arborescence-du-disque'), variant:'info',
+             html:'<div class="hds-loading"><span class="spin"></span> Lecture du premier niveau\u2026</div>' });
+  try{
+    const niveau = await treeNiveau('');
+    const el = document.querySelector('.hds-body') || document.getElementById('hdsBody');
+    const html = '<p class="hds-intro">'+esc(niveau.path)+L('ui.u2014-u00e9pliez-un-dossier')
+      + 'Chaque niveau est demand\u00e9 au serveur au moment o\u00f9 il s\u2019ouvre.</p>'
+      + '<div class="tree-root">'+treeCorpsHtml(niveau)+'</div>';
+    if(el){ el.innerHTML = html; treeBrancher(el); treeBrancherOuvrir(el); }
+  }catch(e){
+    const el = document.querySelector('.hds-body') || document.getElementById('hdsBody');
+    if(el) el.innerHTML = '<p class="hds-intro">Lecture impossible : '+esc(e.message||String(e))+'</p>';
+  }
+}
+// LE BLOC DE SUIVI (contrat Field.progress). En tete, l'element en cours : son titre, ce qu'il fait, sa barre, et en
+// clair s'il ne progresse plus ou s'il a echoue. Dessous, chaque element avec son etat. En bas, l'avancement total.
+function progressHtml(f){
+  const p=f.progress; if(!p||!p.phase) return '';
+  const pct=v=>(typeof v==='number'&&isFinite(v))?Math.max(0,Math.min(100,Math.round(v))):null;
+  const duration=s=>s>=60?(Math.floor(s/60)+' min '+String(s%60).padStart(2,'0')+' s'):(s+' s');
+  const secondsSince=d=>d?Math.max(0,Math.round((Date.now()-new Date(d).getTime())/1000)):null;
+  const g=pct(p.percent), it=pct(p.itemPercent);
+  const items=Array.isArray(p.items)?p.items:[];
+  const current=items.find(x=>x&&x.state==='en cours')||null;
+  const failures=items.filter(x=>x&&(x.state==='échec'||x.state==='annulée'));
+  const idle=secondsSince(p.lastChange);
+  const stalled=idle!==null&&idle>=120;
+  const bytesText=(p.bytesTotal>0)?(octets(p.bytesDone||0)+' sur '+octets(p.bytesTotal)):'';
+  const currentTitle=(current&&current.title)||p.title||'';
+  let html='<div class="fprog">';
+  // 1. The current item.
+  if(currentTitle){
+    html+='<div class="fprog-current"><div class="fprog-title" title="'+att(currentTitle)+'">'+esc(currentTitle)+'</div>'
+      +'<div class="fprog-line"><span>'+esc(p.activity||p.phase)+(bytesText?' · '+esc(bytesText):'')+'</span><span>'+(it!==null?it+' %':'')+'</span></div>'
+      +(it!==null?'<div class="fprog-bar"><span style="width:'+it+'%"></span></div>':'')+'</div>';
+  }
+  if(stalled) html+='<div class="fprog-alert warn">Aucun progrès depuis '+esc(duration(idle))+' : Windows Update peut attendre une autre installation ou le réseau.</div>';
+  if(failures.length) html+='<div class="fprog-alert error">'+failures.length+' mise(s) à jour en échec : '+esc(failures.map(x=>x.title+(x.code?' ('+x.code+')':'')).join(' ; '))+'</div>';
+  // 2. Every item, with its state: the current one first, then the failures, then the waiting ones. The successful ones
+  //    fold behind a button, so that forty updates do not stretch the card.
+  if(items.length){
+    const rankOf=x=>{ const s=String((x&&x.state)||''); return s==='en cours'?0:((s==='échec'||s==='annulée')?1:(s==='en attente'?2:3)); };
+    const row=x=>{
+      const state=String((x&&x.state)||'');
+      const cls=(state==='échec'||state==='annulée')?'error':(state==='en cours'?'run':((state==='en attente')?'wait':'done'));
+      const stateText=state+(x.percent!=null&&state==='en cours'?' · '+pct(x.percent)+' %':'')+(x.code?' · '+x.code:'');
+      return '<li class="'+cls+'"><span class="fprog-dot"></span><span class="fprog-name" title="'+att(x.title||'')+'">'+esc(x.title||'')+'</span><span class="fprog-state">'+esc(stateText)+'</span></li>';
+    };
+    const pending=items.filter(x=>rankOf(x)<3).sort((a,b)=>rankOf(a)-rankOf(b));
+    const succeeded=items.filter(x=>rankOf(x)===3);
+    if(pending.length) html+='<ul class="fprog-items">'+pending.map(row).join('')+'</ul>';
+    if(succeeded.length){
+      const open=progressDoneOpen.has(f.key);
+      html+='<button type="button" class="fprog-more" data-n="'+succeeded.length+'" onclick="toggleProgressDone(this,\''+att(f.key)+'\')">'
+        +(open?'Masquer ':'Afficher ')+succeeded.length+' mise(s) à jour réussie(s)</button>'
+        +'<ul class="fprog-items succeeded"'+(open?'':' hidden')+'>'+succeeded.map(row).join('')+'</ul>';
+    }
+  }
+  // 3. The overall progress, at the bottom.
+  const rank=(p.index&&p.total)?(' · '+p.index+' sur '+p.total):'';
+  const elapsed=secondsSince(p.since);
+  html+='<div class="fprog-total"><div class="fprog-line"><span>'+esc(p.phase)+esc(rank)+(elapsed!==null?' · depuis '+esc(duration(elapsed)):'')+'</span><span>'+(g!==null?g+' %':'')+'</span></div>'
+    +(g!==null?'<div class="fprog-bar total"><span style="width:'+g+'%"></span></div>':'')+'</div>';
+  return html+'</div>';
+}// THE FOLDED SUCCESSFUL UPDATES STAY OPEN ACROSS REFRESHES: the card is redrawn every few seconds, and a list that closes
+// itself under the reader's eyes would have to be reopened each time.
+const progressDoneOpen=new Set();
+function toggleProgressDone(btn,key){
+  const list=btn.nextElementSibling; if(!list) return;
+  const open=list.hidden;
+  list.hidden=!open;
+  if(open) progressDoneOpen.add(key); else progressDoneOpen.delete(key);
+  btn.textContent=(open?'Masquer ':'Afficher ')+btn.dataset.n+' mise(s) à jour réussie(s)';
+}
+/* L'EN-TETE D'UN GROUPE FAIT DEUX CHOSES, ET CHAQUE ZONE DIT LAQUELLE.
+
+   Tout clic sur un <summary> replie : la case et le nom du groupe repliaient donc au lieu de cocher, alors que
+   les lignes en dessous sont des <label> ou le texte coche. Signale le 20/09. Le nom et la case cochent ; la
+   fleche, le vide qui suit le nom et le compte replient. Le pli natif est annule pour ces deux zones seulement,
+   et la bascule de la case est alors faite a la main -- annuler le geste par defaut annule aussi son cochage.
+   Le clavier ne perd rien : Entree sur l'en-tete replie, Tab puis Espace cochent. */
+/* L'ACCORDEON : UNE SEULE MISE EN OEUVRE POUR TOUTE L'APPLICATION.
+
+   Un <details> ne s'anime pas : il montre ou il cache. La hauteur du corps est donc animee ici, a l'ouverture
+   comme a la fermeture, et l'element ne se referme qu'une fois l'animation finie. Tout <details class="acc">
+   en profite sans une ligne de plus : la delegation attrape le clic sur son en-tete. Qui a besoin d'un
+   accordeon demain pose les trois classes -- acc, acc-h, acc-b -- et n'ecrit rien.
+
+   Le reglage « animations reduites » de Windows est respecte : le pli devient instantane. */
+const ACCORDION_MS = 180;
+function accordionAnimate(details){
+  const body = details.querySelector(':scope > .acc-b');
+  const doux = !window.matchMedia('(prefers-reduced-motion: reduce)').matches && body && body.animate;
+  if(!doux){ details.open = !details.open; return; }
+  if(details.dataset.accBusy === '1') return;
+  const ouvrir = !details.open;
+  details.dataset.accBusy = '1';
+  details.classList.add('acc--anime');
+  if(ouvrir) details.open = true;              // le contenu doit exister pour etre mesure
+  const haut = body.scrollHeight;
+  const de = ouvrir ? 0 : haut, vers = ouvrir ? haut : 0;
+  const anim = body.animate([{ height: de + 'px' }, { height: vers + 'px' }],
+                            { duration: ACCORDION_MS, easing: 'ease' });
+  anim.onfinish = anim.oncancel = () => {
+    details.classList.remove('acc--anime');
+    details.dataset.accBusy = '0';
+    if(!ouvrir) details.open = false;
+  };
+}
+// LA DELEGATION, posee une fois : tout accordeon ajoute plus tard est pris en charge, y compris celui qu'une
+// fenetre vient de construire. Un en-tete qui a son propre gestionnaire (groupe de mises a jour) decide seul.
+function accordionInit(){
+  document.addEventListener('click', ev => {
+    const head = ev.target.closest && ev.target.closest('.acc > .acc-h');
+    if(!head || head.hasAttribute('onclick')) return;
+    ev.preventDefault();
+    accordionAnimate(head.parentElement);
+  });
+}
+accordionInit();
+
+function onGroupHeadClick(ev, head){
+  const cb = head.querySelector('input[data-groupe]');
+  if(!cb) return;
+  const target = ev.target;
+  const onCheckbox = (target === cb);
+  const onName = target.closest && target.closest('.hds-grp-n');
+  if(!onCheckbox && !onName){          // fleche, vide, compte : le pli, anime par le composant standard
+    ev.preventDefault();
+    accordionAnimate(head.parentElement);
+    return;
+  }
+  ev.preventDefault();
+  const flip = () => { cb.checked = !cb.checked; cb.dispatchEvent(new Event('change', { bubbles:true })); };
+  // SUR LA CASE, LA BASCULE ATTEND LA FIN DU GESTE. Annuler le pli annule aussi le cochage que le navigateur
+  // venait d'appliquer, et il le retablit APRES les gestionnaires : basculer tout de suite ne laissait rien.
+  if(onCheckbox) { queueMicrotask(flip); } else { flip(); }
+}
+
+/* LE DETAIL DU RAFRAICHISSEMENT D'UNE CARTE (S16, demande le 30/09).
+
+   Trois moments, trois questions differentes, et il faut les trois pour savoir a quoi on a affaire :
+     - la page a lu le cache a telle heure          -- rien ne prouve que le cache, lui, ait bouge ;
+     - la sonde a produit cette mesure a telle heure -- c'est l'age de ce qui est affiche ;
+     - l'ordonnanceur est passe a telle heure        -- s'il ne passe plus, la carte ne bougera plus.
+
+   Et quand le calcul enchaine les echecs, c'est dit avec sa derniere erreur : sans cela, la carte sert
+   indefiniment sa derniere valeur reussie sans que personne puisse le savoir. */
+function freshnessRow(label, iso, whenNever){
+  if (!iso) return `<tr><td>${esc(label)}</td><td>${esc(whenNever || L('ui.jamais'))}</td></tr>`;
+  const d = new Date(iso);
+  const age = cardAgeSeconds(iso);
+  const shown = isNaN(d.getTime()) ? String(iso) : d.toLocaleString();
+  return `<tr><td>${esc(label)}</td><td>${esc(shown)} — ${esc(paceLabel(age))}</td></tr>`;
+}
+function openFreshness(moduleId){
+  const m = (lastModules||[]).find(x => x && x.id === moduleId);
+  if (!m) return;
+  const f = m.freshness || {};
+  const rows =
+      freshnessRow(L('ui.fraicheur-lue-par-la-page'), lastStateReadAt)
+    + freshnessRow(L('ui.fraicheur-mesure-produite'), f.computedAt, L('ui.fraicheur-jamais-mesuree'))
+    + freshnessRow(L('ui.fraicheur-dernier-depart'), f.startedAt, L('ui.fraicheur-aucun-depart'))
+    + freshnessRow(L('ui.fraicheur-dernier-passage'), f.refreshedAt, L('ui.fraicheur-aucun-passage'));
+  const expected = f.seconds
+    ? `<tr><td>${esc(L('ui.fraicheur-intervalle'))}</td><td>${esc(paceLabel(f.seconds))}</td></tr>`
+    : `<tr><td>${esc(L('ui.fraicheur-intervalle'))}</td><td>${esc(L('ui.fraicheur-aucun-intervalle'))}</td></tr>`;
+  const failed = f.fails
+    ? `<div class="hds-report-source">${esc(L('ui.fraicheur-echecs', f.fails))} ${esc(f.lastError || '')}</div>`
+    : '';
+  HDS.open({ title: m.label, variant: 'info', large: true,
+             html: `<table class="hds-table"><tbody>${rows}${expected}</tbody></table>${failed}` });
+}
+
+function ouvrirDetail(key){
+  const f=fieldsByKey[key]; if(!f) return;
+  if(f.table && f.table.rows && f.table.rows.length){
+    const cols=f.table.columns||[];
+    const html = '<table class="hds-table"><thead><tr>'
+      + cols.map(c=>'<th>'+esc(c)+'</th>').join('')
+      + '</tr></thead><tbody>'
+      + f.table.rows.map((r,i)=>{
+          // Infobulle FACULTATIVE par ligne (contrat : table.tips, parallele a rows) :
+          // survoler un nom de processus doit dire d'ou il vient (chemin absolu, editeur,
+          // PID). Le title est pose sur la LIGNE : une seule bulle, pas une par cellule
+          // qui se disputeraient le survol.
+          const tip=(f.table.tips&&f.table.tips[i])?' title="'+esc(String(f.table.tips[i]))+'"':'';
+          return '<tr'+tip+'>'+(r||[]).map(v=>'<td>'+esc(v===null||v===undefined?'':String(v))+'</td>').join('')+'</tr>';
+        }).join('')
+      + '</tbody></table>';
+    // A TABLE NEEDS ROOM. 520 px left four columns fighting over the width, the first breaking letter by letter
+    // and the last behind a scrollbar. The recap already opened wide for the same reason.
+    HDS.open({ title:f.label, html, variant:'info', large:true });
+    return;
+  }
+  HDS.info(f.label, f.guide || f.help || L('ui.aucun-detail-disponible'), {variant:'info'});
+}
+/* THE RECAP OF A GAME SESSION, ALWAYS IN A POPIN.
+
+   There is too much in it for a card (owner, 28/09): the bottlenecks, the game, then every application. And the same
+   window opens through every door -- the card's button, the end of a session, the notification, the list of past
+   games -- so that one fact never gets two layouts.
+
+   THE BOTTLENECKS COME FIRST: what got in the way answers the question asked after a session that stuttered. The
+   rest explains. */
+function shortSpan(secondes){
+  const s = Math.max(0, Number(secondes) || 0);
+  if (s >= 3600) { const h = Math.floor(s / 3600); return `${h} h ${String(Math.floor((s % 3600) / 60)).padStart(2,'0')}`; }
+  if (s >= 60) { return `${Math.floor(s / 60)} min`; }
+  return `${Math.round(s)} s`;
+}
+function asPercent(inputValue){ return String(inputValue).replace('.', ',') + ' %'; }
+function recapHtml(session){
+  const jams = session.jams || [];
+  const apps = session.apps || [];
+  const quand = session.endedAt ? new Date(session.endedAt) : null;
+  const quandTxt = quand ? (quand.toDateString() === new Date().toDateString()
+      ? `terminée à ${String(quand.getHours()).padStart(2,'0')}:${String(quand.getMinutes()).padStart(2,'0')}`
+      : `terminée le ${String(quand.getDate()).padStart(2,'0')}/${String(quand.getMonth()+1).padStart(2,'0')} à ${String(quand.getHours()).padStart(2,'0')}:${String(quand.getMinutes()).padStart(2,'0')}`) : '';
+  // WHAT WAS NOT COUNTED IS SAID HERE. Time between two readings counts, but never more than five minutes at a
+  // time, so that a computer asleep or restarted in the middle of a game is not counted as played. Without this
+  // line the count looked wrong: on 05/10 a game of 2 h 06 showed 1 h 41 and nothing explained the difference.
+  const coupures = session.breaks || [];
+  const perdu = session.lostSeconds || 0;
+  const quandCoupure = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
+  const coupureTxt = !perdu ? '' :
+    `<p class="hds-intro">Non compté : <b>${esc(shortSpan(perdu))}</b> — ${coupures.length} interruption${coupures.length>1?'s':''} de plus de cinq minutes`
+    + (coupures.length ? ' (' + coupures.slice(0,3).map(c=>`${esc(shortSpan(c.seconds))} à ${esc(quandCoupure(c.at))}`).join(', ') + ')' : '')
+    + '. Un ordinateur en veille ou redémarré ne compte pas comme du jeu.</p>';
+  const intro = `<p class="hds-intro">Partie de <b>${esc(shortSpan(session.seconds))}</b>${quandTxt?', '+esc(quandTxt):''}. Relevé toutes les trente secondes.</p>` + coupureTxt;
+  const jamRows = jams.map(j=>{
+    const qui = (j.who && j.who.length)
+      ? j.who.map(w=>`${esc(w.label)} ${esc(asPercent(w.share))}`).join(', ')
+      : 'la machine elle-même';
+    return `<tr><td>${esc(j.label)}</td><td>${esc(shortSpan(j.seconds))}</td><td>${qui}</td></tr>`;
+  }).join('');
+  const bloc = (headingText, contenu) => `<div class="cf-bloc"><div class="cf-t">${headingText}</div><div class="cf-c">${contenu}</div></div>`;
+  const blocJams = jams.length
+    ? bloc('Ce qui a gêné la partie', `<table class="hds-table"><thead><tr><th>Bouchon</th><th>Durée</th><th>Qui était en travers</th></tr></thead><tbody>${jamRows}</tbody></table>`)
+    : bloc('Ce qui a gêné la partie', 'Rien : la machine a suivi du début à la fin.');
+  const firstGame = apps.length ? apps[0] : null;
+  const gameBlock = firstGame ? bloc('Le jeu', `Processeur ${esc(asPercent(firstGame.cpu))} en moyenne (pointe ${esc(asPercent(firstGame.cpuMax))}) · Carte graphique ${esc(asPercent(firstGame.gpu))} (pointe ${esc(asPercent(firstGame.gpuMax))}) · Mémoire vive ${esc(String(firstGame.ram).replace('.', ','))} Go`) : '';
+  const appRows = apps.map(a=>{
+    const shareOfSession = session.seconds ? Math.round(100 * (a.seconds||0) / session.seconds) : 0;
+    return `<tr><td>${esc(a.label)}</td><td>${esc(shortSpan(a.seconds))} (${shareOfSession} %)</td><td>${esc(asPercent(a.cpu))}</td><td>${esc(asPercent(a.gpu))}</td><td>${esc(asPercent(a.cpuMax))}</td></tr>`;
+  }).join('');
+  const blocApps = bloc('Ce que chaque application a pris',
+    `<table class="hds-table"><thead><tr><th>Application</th><th>Présente</th><th>CPU moyen</th><th>GPU moyen</th><th>Pointe CPU</th></tr></thead><tbody>${appRows}</tbody></table>`);
+  return intro + blocJams + gameBlock + blocApps;
+}
+async function runGamingAction(type, params){
+  const r = await fetch(API+'/actions', { method:'POST',
+      headers:{ Authorization:'Bearer '+TOKEN, 'Content-Type':'application/json' },
+      body: JSON.stringify(params ? { type, module:'gaming', params } : { type, module:'gaming' }) });
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  return await r.json();
+}
+async function openSessionRecap(startedAt){
+  let j;
+  try { j = await runGamingAction('game-recap', startedAt ? { session:startedAt } : null); }
+  catch(e){ HDS.info('Récapitulatif', 'Vigie n\'a pas répondu : '+e.message, {variant:'warn'}); return; }
+  const session = j && j.result && j.result.session;
+  if(!session){ HDS.info('Récapitulatif', (j && j.message) || 'Aucune partie gardée.', {variant:'info'}); return; }
+  HDS.open({ title:'Récapitulatif — '+session.game, variant:'info', large:true, html:recapHtml(session),
+             actions:[{ label:'Parties précédentes', value:'sessions' }, { label:'Fermer', kind:'primary', value:'close', default:true }] })
+    .then(v=>{ if(v==='sessions') openPastSessions(); });
+}
+/* THE PANEL CAN BE ASKED TO OPEN ON SOMETHING (?show=recap).
+
+   The client app opens this window at the end of a game session: it must land on the recap, not on the dashboard
+   with the recap one click away. The parameter is read once, then dropped from the address so that a reload does
+   not reopen it for ever. */
+function openRequestedView(){
+  try {
+    const params = new URLSearchParams(location.search);
+    const quoi = params.get('show');
+    if(!quoi) return;
+    params.delete('show');
+    const reste = params.toString();
+    history.replaceState(null, '', location.pathname + (reste ? '?'+reste : '') + location.hash);
+    if(quoi === 'recap') setTimeout(()=>openSessionRecap(), 400);
+    if(quoi === 'sessions') setTimeout(()=>openPastSessions(), 400);
+  } catch(e) { }
+}
+
+async function openPastSessions(){
+  let j;
+  try { j = await runGamingAction('game-sessions'); }
+  catch(e){ HDS.info('Parties précédentes', 'Vigie n\'a pas répondu : '+e.message, {variant:'warn'}); return; }
+  const sessions = (j && j.result && j.result.sessions) || [];
+  if(!sessions.length){ HDS.info('Parties précédentes', (j && j.message) || 'Aucune partie gardée.', {variant:'info'}); return; }
+  const rows = sessions.map(s=>{
+    const d = s.endedAt ? new Date(s.endedAt) : null;
+    const dayLabel = d ? (d.toDateString()===new Date().toDateString() ? "Aujourd'hui" : `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`) : '';
+    const heure = d ? `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}` : '';
+    const stub = s.jam ? `${esc(s.jam)} ${esc(shortSpan(s.jamSeconds))}` : 'Aucun bouchon';
+    return `<div class="hds-choice-row"><label class="hds-choice">
+        <span class="hds-choice-t"><b>${esc(dayLabel)} ${esc(heure)}</b> — ${esc(s.game)}</span>
+        <span class="hds-choice-d">${esc(shortSpan(s.seconds))} · ${stub}</span></label>
+        <button type="button" class="hds-exclu" data-session="${att(s.startedAt)}">Ouvrir</button></div>`;
+  }).join('');
+  HDS.open({ title:'Parties précédentes', variant:'info',
+             html:`<p class="hds-intro">Les parties gardées, la plus récente en haut. Conservées trente jours.</p><div class="hds-choices">${rows}</div>`,
+             actions:[{ label:'Fermer', kind:'primary', value:'close', default:true }] });
+  // THE ROW BUTTONS are wired AFTER opening: HDS offers no ready callback, and the body of the window exists as
+  // soon as open() has returned.
+  const body = document.querySelector('.hds-dialog-body');
+  if(body){ body.querySelectorAll('button[data-session]').forEach(b=>{
+    b.addEventListener('click', ()=>{ HDS.close(); openSessionRecap(b.dataset.session); }); }); }
+}
+
+// ===== Design system : Dialog reutilisable (modales in-app) =====
+// HDS.open(opts) -> Promise(valeur du bouton clique)
+// HDS.confirm({title,body,confirmLabel,cancelLabel,danger}) -> Promise(bool)
+// HDS.info(title, body) -> Promise (bouton Fermer)
+const HDS = (function(){
+  const back=document.getElementById('hdsBack');
+  const dlg=back.querySelector('.hds-dialog');
+  const elTitle=document.getElementById('hdsTitle');
+  const elBody=document.getElementById('hdsBody');
+  const elFoot=document.getElementById('hdsFoot');
+  const elIc=document.getElementById('hdsIc');
+  const elX=document.getElementById('hdsX');
+  const ICON={info:'i',warn:'!',danger:'!'};
+  let resolver=null, lastFocus=null, cancelValue=null;
+
+  function settle(v){
+    if(!resolver) return;
+    back.classList.remove('haut');
+    const r=resolver; resolver=null;
+    back.classList.remove('show');
+    document.removeEventListener('keydown',onKey,true);
+    if(lastFocus&&lastFocus.focus){ try{lastFocus.focus();}catch(e){} }
+    r(v);
+  }
+  function onKey(e){
+    if(e.key==='Escape'){ e.preventDefault(); settle(cancelValue); }
+    else if(e.key==='Enter'){ const b=elFoot.querySelector('[data-default]'); if(b){ e.preventDefault(); b.click(); } }
+    else if(e.key==='Tab'){
+      const f=dlg.querySelectorAll('button'); if(!f.length) return;
+      const first=f[0], last=f[f.length-1];
+      if(e.shiftKey&&document.activeElement===first){ e.preventDefault(); last.focus(); }
+      else if(!e.shiftKey&&document.activeElement===last){ e.preventDefault(); first.focus(); }
+    }
+  }
+  function open(opts){
+    opts=opts||{};
+    const variant=opts.variant||'info';
+    cancelValue=('cancelValue' in opts)?opts.cancelValue:null;
+    elTitle.textContent=opts.title||'';
+    // `html` est reserve a du contenu que NOUS composons (les libelles venant du
+    // serveur y sont echappes par esc()). `body` reste du texte brut, jamais interprete.
+    const alerte = opts.alerte
+      ? '<div class="hds-alerte '+(opts.alerteNiveau||'warn')+'"><span class="ic">!</span><span>'+esc(opts.alerte)+'</span></div>'
+      : '';
+    if(opts.html!==undefined){ elBody.innerHTML = alerte + opts.html; }
+    else if(alerte){ const t=document.createElement('div'); t.textContent=opts.body||'';
+                     elBody.innerHTML = alerte; elBody.appendChild(t); }
+    else { elBody.textContent = opts.body||''; }
+    // `large` : la popin s'élargit pour ce qui porte un tableau, sans changer le reste.
+    dlg.className='hds-dialog hds-dialog--'+variant+(opts.large?' hds-dialog--large':'')+(opts.icon===false?'':' has-ic');
+    back.classList.toggle('haut', opts.placement==='haut');
+    elIc.textContent=ICON[variant]||'i';
+    elX.style.display=(opts.dismissable===false)?'none':'';
+    elFoot.innerHTML='';
+    const actions=opts.actions||[{label:'Fermer',kind:'primary',value:true,default:true}];
+    actions.forEach(a=>{
+      const b=document.createElement('button');
+      b.className='hds-btn'+(a.kind?(' hds-btn--'+a.kind):'');
+      b.textContent=a.label;
+      if(a.default) b.setAttribute('data-default','1');
+      b.onclick=()=>settle('value' in a?a.value:true);
+      elFoot.appendChild(b);
+    });
+    lastFocus=document.activeElement;
+    back.classList.add('show');
+    document.addEventListener('keydown',onKey,true);
+    const def=elFoot.querySelector('[data-default]')||elFoot.querySelector('button');
+    if(def) setTimeout(()=>{ try{def.focus();}catch(e){} },0);
+    return new Promise(res=>{ resolver=res; });
+  }
+  function info(title, body, opts){
+    opts=opts||{};
+    return open({ title, body, variant:opts.variant||'info',
+      actions:[{label:opts.okLabel||'Fermer',kind:'primary',value:true,default:true}] });
+  }
+  function confirm(opts){
+    opts=opts||{};
+    const danger=!!opts.danger;
+    return open({ title:opts.title||'Confirmer', body:opts.body||'', html:opts.html,
+      variant:danger?'danger':'warn', cancelValue:false,
+      placement:opts.placement, alerte:opts.alerte, alerteNiveau:opts.alerteNiveau,
+      actions:[
+        {label:opts.cancelLabel||'Annuler',kind:'ghost',value:false},
+        {label:opts.confirmLabel||'Confirmer',kind:danger?'danger':'primary',value:true,default:true}
+      ]});
+  }
+  // Fermer UNIQUEMENT si l'appui ET le relachement ont eu lieu sur le voile : un clic
+  // entame dans la fenetre (selection de texte...) et relache dehors declenchait
+  // 'click' sur l'ancetre commun -- le voile -- et fermait la popin (constate).
+  let appuiSurVoile=false;
+  back.addEventListener('mousedown',e=>{ appuiSurVoile=(e.target===back); });
+  back.addEventListener('mouseup',e=>{
+    if(appuiSurVoile && e.target===back) settle(cancelValue);
+    appuiSurVoile=false;
+  });
+  elX.addEventListener('click',()=>settle(cancelValue));
+  // Fenetre de CHOIX : une case a cocher par element, resultat = tableau d'identifiants
+  // retenus, ou null si l'utilisateur annule. Rien n'est preselectionne par defaut quand
+  // `tousCoches` est faux : une action qui installe ne doit pas partir sur un choix subi.
+  // Fenetre de CHOIX : une case a cocher par element, resultat = tableau d'identifiants
+  // retenus, ou null si l'utilisateur annule.
+  //
+  // Elle s'ouvre IMMEDIATEMENT. Si les elements doivent etre charges (`charger`), la
+  // fenetre affiche un chargeur et garde son bouton de validation desactive, puis se
+  // remplit. Attendre le serveur AVANT d'ouvrir donnait un clic sans reaction visible :
+  // l'utilisateur ne savait pas si son clic avait ete pris.
+  function choose(opts){
+    opts=opts||{};
+    let cocheDefaut = opts.tousCoches!==false;
+    let items = opts.items || [];
+
+    // Liste VERROUILLEE (`verrouille`) : la source ne sait pas traiter un element en
+    // particulier. On montre quand meme la liste -- elle informe -- mais les cases sont
+    // cochees et NON decochables, et l'intro dit pourquoi. Laisser decocher un choix qui
+    // serait ensuite ignore serait un mensonge d'interface.
+    let lock = false;
+    // EXCLURE un element depuis la liste (`opts.exclure`) : la fenetre qui montre les
+    // mises a jour est exactement l'endroit ou l'on decide qu'un paquet ne doit plus
+    // etre propose. Sans cela il fallait retenir son identifiant et aller le taper dans
+    // les parametres -- exigence utilisateur.
+    const rowOf = it =>
+      '<div class="hds-choice-row"><label class="hds-choice'+(lock?' hds-choice--fige':'')+'"><input type="checkbox" value="'+esc(it.id)+'"'+((lock||cocheDefaut)?' checked':'')+(lock?' tabindex="-1"':'')+'>'
+      + '<span class="hds-choice-t">'+esc(it.title)+'</span>'
+      + (it.detail?'<span class="hds-choice-d">'+esc(it.detail)+'</span>':'')
+      + '</label>'
+      + (opts.exclure ? '<button type="button" class="hds-exclu" data-exclu="'+esc(it.id)+'" title="Ne plus proposer cette mise à jour">Ignorer</button>' : '')
+      + '</div>';
+    const barre = () => lock ? '' :
+      '<div class="hds-choice-bar"><button type="button" class="hds-lnk" id="hdsAll" title="Sélectionner toutes les lignes de la liste">Tout cocher</button>'
+      + '<button type="button" class="hds-lnk" id="hdsNone" title="Désélectionner toutes les lignes de la liste">Tout décocher</button>'
+      + '<span class="hds-count" id="hdsCount"></span></div>';
+    const groupWeight = liste => {
+      const sum = liste.reduce((t,x)=>t+(Number(x.bytes)||0),0);
+      return sum ? ' · '+octets(sum) : '';
+    };
+    const render = liste => {
+      if(!liste.some(x=>x.group)) return liste.map(rowOf).join('');
+      const byGroup = new Map();
+      liste.forEach(x=>{ const g = x.group || '—'; if(!byGroup.has(g)) byGroup.set(g,[]); byGroup.get(g).push(x); });
+      // Windows first -- it carries the security fix -- then makers alphabetically. An
+      // order by volume would reshuffle at every scan.
+      //
+      // GROUPS OPEN. Grouping was asked for, folding was not: collapsing them by default
+      // was my decision and it HID the list the owner wanted to read (10/09). The header
+      // carries the count and the weight either way, and a group closes on a click.
+      const names = [...byGroup.keys()].sort((a,b)=>
+        (a==='Windows'?0:1)-(b==='Windows'?0:1) || a.localeCompare(b,'fr'));
+      return names.map(name=>{
+        const inside = byGroup.get(name);
+        return '<details class="acc hds-grp" open><summary class="acc-h hds-grp-h" onclick="onGroupHeadClick(event,this)">'
+          + '<span class="acc-fl" title="Replier ou déplier ce groupe">&#9654;</span>'
+          + '<input type="checkbox" data-groupe="'+esc(name)+'" title="Cocher ou décocher tout ce groupe">'
+          + '<span class="hds-grp-n" title="Cocher ou décocher tout ce groupe">'+esc(name)+'</span>'
+          + '<span class="hds-grp-fill" title="Replier ou déplier ce groupe"></span>'
+          + '<span class="hds-grp-c" title="Replier ou déplier ce groupe">'+inside.length+groupWeight(inside)+'</span>'
+          + '</summary><div class="acc-b hds-grp-b">'+inside.map(rowOf).join('')+'</div></details>';
+      }).join('');
+    };
+    const corps = (intro, dedans) =>
+      (intro ? '<p class="hds-intro">'+esc(intro)+'</p>' : '') + barre() + '<div class="hds-choices">'+dedans+'</div>';
+    // A WAIT SAYS WHAT IT WAITS FOR, AND FOR HOW LONG (S32). On 16/10 this sentence stayed on screen for
+    // minutes while the server was stuck: motionless, it tells a computation under way from a breakdown in no
+    // way at all. The counter starts again at every opening, and past a threshold the sentence says what to do.
+    const chargeur = '<div class="hds-loading" id="hdsWait"><span class="spin"></span> <span id="hdsWaitText">Lecture en cours…</span></div>';
+    const startWaitNotice = (quoi) => {
+      const debut = Date.now();
+      const tic = setInterval(() => {
+        const el = document.getElementById('hdsWaitText');
+        if (!el) { clearInterval(tic); return; }
+        const s = Math.round((Date.now() - debut) / 1000);
+        if (s < 3) return;
+        el.textContent = (s < 20)
+          ? quoi + ' — ' + s + ' s'
+          : quoi + ' — ' + s + ' s. Le serveur ne répond pas encore ; la carte Vigie dit ce qu\'il fait.';
+      }, 1000);
+      return () => clearInterval(tic);
+    };
+
+    const p = open({ title:opts.title||'Choisir',
+      html: corps(opts.intro, opts.charger ? chargeur : render(items)),
+      variant:opts.variant||'info', cancelValue:null,
+      actions:[ {label:opts.cancelLabel||'Annuler',kind:'ghost',value:null},
+                {label:opts.confirmLabel||'Valider',kind:'primary',value:'__ok__',default:true} ] });
+
+    const boites=()=>[...elBody.querySelectorAll('input[type=checkbox]:not([data-groupe])')];
+    const groupBoxes=()=>[...elBody.querySelectorAll('input[data-groupe]')];
+    // L'ETAT D'UN GROUPE SE DEDUIT DE SES LIGNES, jamais l'inverse : cocher une ligne a la
+    // main doit se voir en haut, et le troisieme etat -- ni tout, ni rien -- est le seul
+    // qui dise la verite sur une selection partielle.
+    const refreshGroups=()=>{
+      groupBoxes().forEach(g=>{
+        const block = g.closest('.hds-grp');
+        const inside = block ? [...block.querySelectorAll('input[type=checkbox]:not([data-groupe])')] : [];
+        const ticked = inside.filter(b=>b.checked).length;
+        g.checked = inside.length>0 && ticked===inside.length;
+        g.indeterminate = ticked>0 && ticked<inside.length;
+      });
+    };
+    const valider=()=>elFoot.querySelector('[data-default]');
+    let retenus=[];
+    const maj=()=>{
+      // Liste figee : la case reste ACTIVE (une case `disabled` est grisee par le
+      // navigateur, on ne verrait plus qu'elle est cochee). L'interaction est coupee par
+      // le CSS ; ce filet garantit qu'aucune ne peut se retrouver decochee.
+      if(lock) boites().forEach(b=>{ b.checked = true; });
+      retenus = boites().filter(b=>b.checked).map(b=>b.value);
+      refreshGroups();
+      const c=elBody.querySelector('#hdsCount');
+      if(c) c.textContent = items.length ? (retenus.length+' / '+items.length+L('ui.selectionnee')) : '';
+      const v=valider(); if(v) v.disabled = (retenus.length===0);
+    };
+    const brancher=()=>{
+      const a=elBody.querySelector('#hdsAll'), n=elBody.querySelector('#hdsNone');
+      if(a) a.onclick=()=>{ boites().forEach(b=>b.checked=true); maj(); };
+      if(n) n.onclick=()=>{ boites().forEach(b=>b.checked=false); maj(); };
+      boites().forEach(b=>b.addEventListener('change',maj));
+      groupBoxes().forEach(g=>{
+        // Un clic sur la case NE PLIE PAS le groupe : sans cela, cocher un constructeur
+        // refermait ce qu'on venait d'ouvrir pour le regarder.
+        g.addEventListener('click',e=>e.stopPropagation());
+        g.addEventListener('change',()=>{
+          const block = g.closest('.hds-grp');
+          if(block) block.querySelectorAll('input[type=checkbox]:not([data-groupe])')
+                       .forEach(b=>{ b.checked = g.checked; });
+          maj();
+        });
+      });
+      // « Ignorer » : l'element sort de la liste ET du perimetre, durablement. On attend
+      // que l'enregistrement ait REUSSI avant de retirer la ligne : sinon l'utilisateur
+      // croirait avoir exclu un paquet qui reviendrait au prochain passage.
+      elBody.querySelectorAll('[data-exclu]').forEach(b=>{ b.onclick=async()=>{
+        const id=b.getAttribute('data-exclu');
+        b.disabled=true; b.textContent='…';
+        try{
+          await opts.exclure(id);
+          const rangee=b.closest('.hds-choice-row');
+          items = items.filter(x=>String(x.id)!==String(id));
+          if(rangee) rangee.remove();
+          if(!items.length){
+            const z=elBody.querySelector('.hds-choices');
+            if(z) z.innerHTML='<p class="hds-intro">Plus rien à proposer : tout est ignoré.</p>';
+          }
+          maj();
+        }catch(e){
+          b.disabled=false; b.textContent='Ignorer';
+          toast(L('ui.impossible-ignorer')+(e.message||e));
+        }
+      }; });
+      maj();
+    };
+    brancher();
+
+    let stopWaitNotice = null;
+    if(opts.charger){
+      stopWaitNotice = startWaitNotice('Lecture de la liste');
+      // Le bouton reste desactive tant qu'il n'y a rien a valider.
+      const v=valider(); if(v) v.disabled=true;
+      opts.charger().then(res=>{
+        if(stopWaitNotice){ stopWaitNotice(); stopWaitNotice = null; }
+        items = (res && res.items) || [];
+        lock = !!(res && res.verrouille);
+        // Le serveur peut trancher le precochage (reglage utilisateur, D57).
+        if(res && res.tousCoches!==undefined) cocheDefaut = !!res.tousCoches;
+        const intro = (res && res.intro) || opts.intro;
+        // Le libelle du bouton n'est connu qu'apres lecture (« Installer » pour Windows
+        // Update, « Mettre a jour » pour un gestionnaire de paquets) : la fenetre, elle,
+        // s'ouvre AVANT. On le corrige a l'arrivee de la liste.
+        const lib = res && res.confirmLabel;
+        if(lib){ const b=valider(); if(b) b.textContent = lib; }
+        if(!items.length){
+          elBody.innerHTML = '<p class="hds-intro">'+esc((res && res.empty) || L('ui.rien-afficher'))+'</p>';
+          return;
+        }
+        elBody.innerHTML = corps(intro, render(items));
+        brancher();
+      }).catch(e=>{
+        elBody.innerHTML = '<p class="hds-intro">Lecture impossible : '+esc(e.message||String(e))+'</p>';
+      });
+    }
+    return p.then(v => v==='__ok__' ? retenus : null);
+  }
+
+  return { open, info, confirm, choose, close:()=>settle(cancelValue) };
+})();
+
+// Compat : anciens appels -> HDS
+function closeModal(){ HDS.close(); }
+function setBtnBusy(btn){
+  if(!btn||btn.dataset.busy) return;
+  btn.dataset.busy='1';
+  btn.dataset.prevHtml=btn.innerHTML;
+  btn.style.minWidth=btn.offsetWidth+'px';
+  btn.disabled=true; btn.classList.add('busy');
+  btn.innerHTML='<span class="spin"></span>En cours…';
+}
+function clearBtnBusy(btn){
+  if(!btn||!btn.dataset.busy) return;
+  btn.innerHTML=btn.dataset.prevHtml;
+  btn.disabled=false; btn.classList.remove('busy');
+  btn.style.minWidth='';
+  delete btn.dataset.busy; delete btn.dataset.prevHtml;
+}
+function octets(n){
+  n=+n||0; if(!n) return '';
+  const u=['o','Ko','Mo','Go']; let i=0;
+  while(n>=1024 && i<u.length-1){ n/=1024; i++; }
+  return (i?n.toFixed(1):n)+' '+u[i];
+}
+// Listes de choix deja obtenues, par action+module. Une fenetre de choix ne redemande au
+// serveur QUE si son information locale a vieilli : rouvrir la meme fenetre dans la foulee
+// ne doit pas relancer une lecture.
+const CHOIX_CACHE = {};
+const CHOIX_FRAIS_MS = 60000;
+async function poster(type, module, params){
+  const r = await fetch(API+"/actions", { method:"POST",
+    headers:{ "Content-Type":"application/json", Authorization:"Bearer "+TOKEN },
+    body: JSON.stringify(params ? { type, module, params } : { type, module }) });
+  const j = await r.json().catch(()=>({}));
+  return { r, j };
+}
+async function listeDeChoix(type, module){
+  const cle = type+'|'+module;
+  const c = CHOIX_CACHE[cle];
+  if(c && (Date.now()-c.at) < CHOIX_FRAIS_MS) return c.j;
+  const { j } = await poster(type, module);
+  CHOIX_CACHE[cle] = { at: Date.now(), j };
+  return j;
+}
+function itemsDeMaj(j){
+  return (j.result && j.result.updates || []).map(u=>({
+    id:u.id,
+    // LE MODELE NOMME LA LIGNE quand le serveur en a un : le titre de Windows porte parfois
+    // la version a la place du modele, et trois appareils differents se lisent alors pareil.
+    title:u.label||u.title,
+    // Le GROUPE et le POIDS viennent du serveur : c'est lui qui a vu toutes les
+    // orthographes d'un constructeur, et lui seul pouvait les replier (D118).
+    group:u.group||'', bytes:u.bytes||0, superseded:!!u.superseded, failure:u.failure||'',
+    // Detail deja compose par le serveur (paquets), sinon assemble ici (Windows Update).
+    detail: u.detail || [u.label?u.title:u.model, u.kb, u.driver?'pilote':null, u.driverDate, u.bytes?octets(u.bytes):null,
+            u.downloaded?L('ui.deja-telechargee'):null,
+            // Deux lignes du meme modele ne se distinguent que par leur date : on le DIT,
+            // au lieu de laisser l'utilisateur les comparer chiffre par chiffre.
+            u.superseded?'version plus ancienne':null,
+            // THE LAST ATTEMPT FAILED: say it, rather than re-offering the line as though
+            // it had never been tried.
+            u.failure?('dernier essai : '+u.failure):null].filter(Boolean).join(' · ')
+  }));
+}
+
+// ===== VERROU PENDANT UNE OPERATION =========================================
+//
+// Regle posee le 27/08 : « quand une operation est en cours, les autres ne doivent pas
+// etre disponibles ». Y compris les lectures : selon ce qui tourne, relire pendant
+// qu'on ecrit donne un resultat qui ne veut rien dire -- une carte qui interroge
+// l'installation partagee au milieu d'un deploiement, par exemple.
+//
+// Ce qui reste permis : RAFRAICHIR une carte. C'est ainsi qu'on regarde l'operation
+// avancer, et cela ne fait que relire. Tout le reste -- actions de la barre, boutons de
+// resolution des lignes -- est suspendu, sur TOUTES les cartes : les operations de Vigie
+// (deploiement, mise a jour, installation d'une dependance) touchent la machine entiere,
+// pas seulement la carte d'ou elles partent.
+function runningOperation(){
+  // UNE CARTE QUI N'EXISTE PLUS NE TIENT PLUS RIEN.
+  //
+  // Une carte disparue de l'etat -- la carte d'erreur d'une sonde, une fois la sonde
+  // reparee -- restait dans la page avec son marqueur « occupee ». Le verrou s'appuyait
+  // dessus et desactivait TOUS les boutons de l'interface, sans qu'aucune operation ne
+  // tourne (signale le 29/08 : « c'est grise sans raison », 31 boutons bloques).
+  //
+  // On ne nettoie que si l'on a bien recu un etat : quand le serveur ne repond pas,
+  // lastModules est vide et l'occupation en cours reste vraie.
+  if((lastModules||[]).length){
+    document.querySelectorAll('.card.busy').forEach(c => {
+      if(!lastModules.some(x => x.id === c.dataset.module)) c.remove();
+    });
+  }
+  const c = document.querySelector('.card.busy');
+  if(!c) return null;
+  const t = c.querySelector('.card-titles .name');
+  const m = (lastModules || []).find(x => x.id === c.dataset.module);
+  // LES RESSOURCES VIENNENT DU SERVEUR quand il les donne : c'est lui qui tient la marque, et elle les porte.
+  // La carte ne les porte que si sa sonde les a declarees, ce que presque aucune ne fait.
+  const seen = opsByCard[c.dataset.module];
+  return { module: c.dataset.module, titre: (seen && seen.label) || (t ? t.textContent : c.dataset.module),
+           ressources: (seen && seen.resources) || (m && m.busyResources) || [] };
+}
+// FIN D'OPERATION : on eteint ce que markCardBusy avait allume.
+//
+// Le lisere bleu « operation en cours » restait allume apres la fin, alors que plus rien
+// ne tournait ; seul un rafraichissement complet le rendait a sa vraie couleur (signale
+// le 28/08). La liste des operations dit pourtant exactement quand ca s'arrete.
+function clearCardBusy(moduleId){
+  if(!moduleId) return;
+  const sel='.card[data-module="'+((window.CSS&&CSS.escape)?CSS.escape(moduleId):moduleId)+'"]';
+  const card=document.querySelector(sel);
+  const m=(lastModules||[]).find(x=>x.id===moduleId);
+  if(m){ m.busy=false; delete m.busyAction; delete m.busyResources; }
+  if(card){
+    card.classList.remove('busy');
+    // Les boutons de la carte redeviennent ce que le rendu dit d'eux : c'est le verrou,
+    // juste apres, qui tranche s'ils restent bloques par une AUTRE operation.
+    card.querySelectorAll('.act, .fsolve').forEach(b=>{
+      if(b.dataset.held) return;          // bloque par le verrou : il s'en occupe
+      if(b.classList.contains('denied')) return;   // interdit par les droits (D65)
+      b.disabled=false;
+      b.classList.remove('busy');
+    });
+  }
+  applyOperationLock();
+}
+
+function applyOperationLock(){
+  const op = runningOperation();
+  const raison = op
+    ? L('ui.une-operation-est-en-2') + op.titre + L('ui.les-autres-actions-reprendront')
+    : '';
+  // CE QUI CROISE, et seulement cela (D93). « machine » croise tout. Une action sans
+  // ressource declaree est inoffensive : elle reste disponible.
+  const tenues = op ? (op.ressources || []) : [];
+  const croise = b => {
+    if(!op) return false;
+    // AN OPERATION THAT DECLARES NOTHING HOLDS NOTHING.
+    //
+    // Everything was blocked in that case, on the grounds that we did not know what it held (27/08). That was true
+    // while marks did not carry their resources; they have since 06/10, and the page reads them from /operations.
+    // An empty list therefore means what it says: this operation takes nothing.
+    //
+    // Without this, a watch task -- which takes nothing and comes round every thirty seconds -- would freeze the
+    // whole interface while it lasts.
+    if(!tenues.length) return false;
+    let r = [];
+    try{ r = JSON.parse(b.dataset.res || '[]'); }catch(e){ r = []; }
+    if(!r.length) return false;
+    if(tenues.indexOf('machine') >= 0 || r.indexOf('machine') >= 0) return true;
+    return r.some(x => tenues.indexOf(x) >= 0);
+  };
+  document.querySelectorAll('.act, .fsolve').forEach(b => {
+    if(op && croise(b)){
+      // On garde en memoire ce qui etait DEJA desactive pour une autre raison (droits
+      // refuses, par exemple) : le verrou ne doit pas reactiver un bouton interdit.
+      if(!b.dataset.held){
+        b.dataset.held = b.disabled ? 'deja' : 'oui';
+        b.dataset.titleBefore = b.title || '';
+      }
+      b.disabled = true;
+      // La marque ne va QUE sur ce que le verrou retient lui-meme : un bouton deja
+      // refuse par les droits reste un bouton refuse, il ne devient pas une attente.
+      if(b.dataset.held === 'oui'){ b.title = raison; b.classList.add('retenu'); }
+    } else if(b.dataset.held){
+      if(b.dataset.held === 'oui'){ b.disabled = false; b.title = b.dataset.titleBefore || ''; b.classList.remove('retenu'); }
+      delete b.dataset.held;
+      delete b.dataset.titleBefore;
+    }
+  });
+}
+
+// LES OPERATIONS EN COURS, telles que /operations les donne, rangees par identifiant de carte.
+let opsByCard = {};
+
+function sinceWhen(iso){
+  const d = new Date(iso);
+  if(isNaN(d)) return '';
+  const s = Math.max(0, Math.round((Date.now() - d.getTime()) / 1000));
+  if(s < 60) return L('ui.operation-depuis-secondes', s);
+  if(s < 3600) return L('ui.operation-depuis-minutes', Math.floor(s / 60));
+  return L('ui.operation-depuis-heures', Math.floor(s / 3600));
+}
+
+// LA NOTE SOUS L'EN-TETE : une ligne, le libelle de l'operation et depuis combien de temps. Elle est posee et
+// retiree ici, jamais reconstruite par la carte -- une carte se redessine a chaque mesure, l'operation non.
+function paintOperationNotes(){
+  document.querySelectorAll('.card').forEach(card => {
+    const op = opsByCard[card.dataset.module];
+    let note = card.querySelector('.card-op');
+    if(!op){ if(note) note.remove(); return; }
+    const text = esc(op.label || op.action || '');
+    const since = sinceWhen(op.at);
+    if(!note){
+      note = document.createElement('div');
+      note.className = 'card-op';
+      const head = card.querySelector('.card-head');
+      if(head && head.parentNode) head.parentNode.insertBefore(note, head.nextSibling);
+      else card.insertBefore(note, card.firstChild);
+    }
+    note.innerHTML = '<span class="vi vi-fw">&#xE008;</span><span>' + text + '</span>'
+                   + (since ? '<span class="card-op-since">· ' + esc(since) + '</span>' : '');
+  });
+}
+
+// « Operation en cours » sur une carte, sans attendre le serveur : on reutilise l'etat
+// `busy` que le contrat porte deja (liseré animé, boutons neutralises), on n'invente pas
+// un statut de plus.
+function markCardBusy(moduleId, quoi){
+  if(!moduleId) return;
+  const sel='.card[data-module="'+((window.CSS&&CSS.escape)?CSS.escape(moduleId):moduleId)+'"]';
+  const card=document.querySelector(sel);
+  if(!card) return;
+  card.classList.add('busy');
+  card.querySelectorAll('.actions button').forEach(b=>{ b.disabled=true; });
+  const m=(lastModules||[]).find(x=>x.id===moduleId);
+  if(m){ m.busy=true; }
+  applyOperationLock();
+}
+
+// Le corps d'une confirmation : ce que ca FAIT, ce que ca CHANGE, QUAND s'en servir,
+// et comment REVENIR EN ARRIERE. Chaque partie ne s'affiche que si l'action l'a
+// declaree -- une confirmation a rallonge de generalites ne vaut pas mieux qu'une
+// phrase vague (D91).
+function corpsConfirmation(help, ex){
+  ex = ex || {};
+  const bloc = (headingText, texte) => texte
+    ? '<div class="cf-bloc"><div class="cf-t">'+esc(headingText)+'</div><div class="cf-c">'+esc(texte)+'</div></div>'
+    : '';
+  // CE QUI PASSE D'UN ETAT A L'AUTRE SE MONTRE, il ne se raconte pas. Deux valeurs et
+  // une fleche se lisent d'un coup d'oeil ; la meme chose collee au bout d'une phrase se
+  // perd (signale le 29/08 sur « De v0.1.25 vers v0.1.25+1 »).
+  const t = ex.transition;
+  const note = n => n ? '<div class="cf-vn">'+esc(n)+'</div>' : '';
+  const blocTransition = (t && (t.from || t.to))
+    ? '<div class="cf-bloc"><div class="cf-t">'+esc(L('ui.ce-qui-change-de-version'))+'</div>'
+      + '<div class="cf-trans">'
+      + '<div class="cf-v">'+esc(t.from||'—')+note(t.fromNote)+'</div>'
+      + '<div class="cf-fl">\u2192</div>'
+      + '<div class="cf-v cf-v-to">'+esc(t.to||'—')+note(t.toNote)+'</div>'
+      + '</div></div>'
+    : '';
+  // LE DEROULE, EN ETAPES. Combien il y en a, et laquelle finit le travail : c'est ce
+  // qu'on veut savoir avant de lancer quelque chose qui dure. La derniere est l'etat
+  // d'arrivee, pas une phase -- elle se distingue.
+  const etapes = (ex.steps || []);
+  const blocEtapes = etapes.length
+    ? '<div class="cf-bloc"><div class="cf-t">'+esc(L('ui.ce-qui-va-se-passer'))+'</div>'
+      + '<div class="cf-flow">'
+      + etapes.map((e, i) => {
+          const fin = (i === etapes.length - 1);
+          return '<div class="cf-step'+(fin?' cf-step-fin':'')+'">'
+               + '<span class="cf-dot">'+(fin?'\u2713':(i+1))+'</span>'
+               + '<span class="cf-lbl">'+esc(e)+'</span></div>';
+        }).join('<span class="cf-sep">\u2192</span>')
+      + '</div></div>'
+    : '';
+  return blocTransition
+       + blocEtapes
+       + bloc(L('ui.ce-que-ca-fait'), help)
+       + bloc(L('ui.ce-que-ca-change'), ex.impact)
+       + bloc(L('ui.quand-en-servir'), ex.usage)
+       + bloc(L('ui.revenir-en-arriere'), ex.reversible);
+}
+
+async function doAction(type,module,confirmNeeded,label,help,btnEl,params,kind,confirmerDeuxFois,explications){
+  const name = label || type;
+  // Une action peut viser l'INTERFACE et non la machine : « Gerer les comptes » ouvre
+  // simplement le panneau Parametres > Utilisateurs. Rien a envoyer au serveur -- lui
+  // faire un aller-retour pour ouvrir un ecran serait un detour sans objet.
+  if(type==='open-users-settings'){ openSettings('utilisateurs'); return; }
+  // L'exploration de l'arborescence est une ACTION (choix utilisateur) : elle ouvre sa
+  // fenetre, qui demandera les niveaux au serveur au fur et a mesure.
+  if(type==='disk-tree'){ await ouvrirArborescence(); return; }
+  // THE RECAP AND THE LIST OF SESSIONS open their own window: the action only READS what Vigie kept, and the page
+  // lays it out. A card would not carry that table (owner, 28/09).
+  if(type==='game-recap'){ await openSessionRecap(); return; }
+  if(type==='game-sessions'){ await openPastSessions(); return; }
+  /* WSL QUI ACCAPARE LES PORTS : UNE FENETRE, TROIS ISSUES.
+
+     La carte Reseau propose « Redemarrer WSL » quand c'est son hote reseau qui tient le tas de ports -- lui seul les
+     rend. Mais arreter WSL suffit parfois, et ne rien faire est un choix aussi : tant que la reserve n'est pas
+     pleine, rien ne casse. La fenetre dit ce que ca coute et laisse les trois, plutot que de poser une question
+     fermee a laquelle la bonne reponse depend de ce qu'on a ouvert dans Linux. */
+  if(type==='wsl-restart' && !params){
+    const choix = await HDS.open({
+      title: L('ui.wsl-fenetre-titre'), variant:'warn', cancelValue:null,
+      html: '<p>' + esc(L('ui.wsl-fenetre-texte')) + '</p><p>' + esc(L('ui.wsl-fenetre-perte')) + '</p>',
+      actions: [
+        { label: 'Annuler',                kind:'ghost',  value:null },
+        { label: L('ui.wsl-arreter'),    kind:'danger', value:'wsl-shutdown' },
+        { label: L('ui.wsl-redemarrer'), kind:'primary', value:'wsl-restart', default:true }
+      ]
+    });
+    if(!choix) return;
+    // Le choix est DEJA confirme par cette fenetre : on ne redemande pas derriere.
+    return doAction(choix, module, false, null, null, btnEl, { confirme:true }, 'confirm');
+  }
+  // ACTION CRITIQUE = double confirmation. C'est le standard du projet pour tout geste
+  // qui ferme le travail en cours ou touche la machine entiere.
+  //
+  // Les deux fenetres ne s'affichent PAS au meme endroit : la premiere au centre, la
+  // seconde en haut. Superposees, un double clic rapide les validerait toutes les deux
+  // sans qu'aucune ait ete lue. Chacune porte une alerte en gras -- orange, puis rouge.
+  if(confirmNeeded){
+    const ok = await HDS.confirm({
+      title: name,
+      html: corpsConfirmation(help, explications),
+      alerte: confirmerDeuxFois
+        ? L('ui.action-critique-elle-affecte')
+        : L('ui.cette-action-modifie-votre'),
+      alerteNiveau: 'warn',
+      confirmLabel: 'Continuer', cancelLabel: 'Annuler'
+    });
+    if(!ok) return;
+    if(confirmerDeuxFois){
+      const sur = await HDS.confirm({
+        title: name,
+        body: L('ui.cette-confirmation-est-la'),
+        alerte: L('ui.toutes-vos-applications-vont'),
+        alerteNiveau: 'danger',
+        placement: 'haut',
+        confirmLabel: 'Oui, je confirme', cancelLabel: 'Non, annuler', danger: true
+      });
+      if(!sur) return;
+    }
+  }
+  // Action de type « fenetre de choix » : la fenetre s'ouvre TOUT DE SUITE, avec son
+  // chargeur, et n'interroge le serveur que si sa liste locale a expire. Auparavant on
+  // attendait la reponse avant d'ouvrir : le clic restait sans effet visible.
+  if(kind === 'dialog'){
+    let charge = null;
+    const choisis = await HDS.choose({
+      // Exclure un paquet DEPUIS la liste : il part dans « Paquets ignores » du module
+      // Outils & paquets, et ne sera plus propose. C'est ici qu'on le decide, pas dans
+      // les parametres -- exigence utilisateur.
+      exclure: async id=>{
+        const r=await fetch(API+'/parameters',{headers:{Authorization:'Bearer '+TOKEN}});
+        if(!r.ok) throw new Error('HTTP '+r.status);
+        const j=await r.json();
+        const mod=(j.modules||[]).find(m=>m.unit==='tools')||{};
+        const pr=(mod.params||[]).find(x=>x.key==='IgnoredPackages')||{};
+        const liste=Array.isArray(pr.value)?pr.value.slice():[];
+        if(liste.indexOf(id)<0) liste.push(id);
+        const w=await fetch(API+'/parameters/tools',{ method:'POST',
+          headers:{ Authorization:'Bearer '+TOKEN, 'Content-Type':'application/json' },
+          body: JSON.stringify({values:{IgnoredPackages:liste}}) });
+        if(!w.ok) throw new Error('HTTP '+w.status);
+        toast(id+L('ui.ne-sera-plus-propose'));
+      },
+      title: name, variant: 'warn', tousCoches: false, confirmLabel: 'Installer',
+      charger: async () => {
+        charge = await listeDeChoix(type, module);
+        const r = charge.result || {};
+        const avis = r.verrou
+          ? L('ui.le-verrou-du-mode') : "";
+        // Le serveur peut imposer ses textes et INTERDIRE la selection (`selection:false`).
+        // Sans cela, tous les gestionnaires auraient l'air de savoir cibler un paquet.
+        return { items: itemsDeMaj(charge),
+                 tousCoches: (r.preselect === true),
+                 verrouille: (r.selection === false),
+                 confirmLabel: r.confirmLabel,
+                 intro: r.intro || (L('ui.cochez-les-mises-jour')+avis),
+                 empty: r.empty || L('ui.aucune-mise-jour-installer') };
+      }
+    });
+    if(!choisis || !choisis.length) return;
+    const suite = (charge && charge.result && charge.result.action) || null;
+    if(!suite){ addNotif(name,'error',L('ui.reponse-du-serveur-inattendue')); return; }
+    delete CHOIX_CACHE[type+'|'+module];   // la liste va changer : ne pas la resservir
+    return doAction(suite, module, false, name, help, btnEl, { ids: choisis });
+  }
+
+  setBtnBusy(btnEl);
+  // La carte passe en « operation en cours » DES LE CLIC : attendre la reponse du serveur
+  // laissait une seconde ou rien ne bougeait, puis une carte qui semblait figee.
+  if(module) markCardBusy(module, name);
+  const entry=addNotif(name, 'running', L('ui.envoi-de-la-commande'));
+
+  // ON RESERVE LA CLE AVANT D'ENVOYER, PAS APRES.
+  //
+  // La synchronisation des operations tourne toutes les 4 s. Si le serveur met plus
+  // longtemps a repondre -- et une action qui lance une tache de fond y met souvent
+  // plusieurs secondes --, elle voit l'operation AVANT que nous ayons note sa cle, ne la
+  // reconnait pas, et cree une SECONDE notification pour la meme chose. Constate le
+  // 29/08 : « Mettre a jour l'installation » et « Mise a jour de Vigie » cote a cote.
+  //
+  // Poser la cle des maintenant supprime la course. Si la reponse n'est pas asynchrone,
+  // on la retire : rien ne tourne, il n'y a rien a reconnaitre.
+  const cleAttendue = (module || '') + '|' + type;
+  entry.op = cleAttendue;
+  opsConnues[cleAttendue] = entry.id;
+  if(!API_MODE){ updateNotif(entry,'done','(maquette) POST /actions {type:"'+type+'"}'); clearBtnBusy(btnEl); return; }
+  try{
+    const r=await fetch(API+"/actions",{ method:"POST",
+      headers:{ "Content-Type":"application/json", Authorization:"Bearer "+TOKEN },
+      body: JSON.stringify(params ? { type, module, params } : { type, module }) });
+    const j=await r.json().catch(()=>({}));
+    const okFlag = !j.result || j.result.ok!==false;   // result.ok===false => echec logique meme si HTTP 200
+    const st = (r.ok && j.status==='done' && okFlag) ? 'done' : 'error';
+    const msg = (j.message || j.status || ('HTTP '+r.status)) + (j.jobId ? ('  [job '+j.jobId+']') : '');
+    if(st==='done' && j.result && j.result.async){
+      // Action asynchrone non bloquante : la carte passe en "en cours" et s'actualise seule.
+      const pollMod = j.result.module || module;
+      // Le serveur peut viser un AUTRE module que celui du bouton : on corrige alors
+      // la reservation posee avant l'envoi.
+      const cleReelle = (pollMod || '') + '|' + type;
+      if (cleReelle !== cleAttendue) { delete opsConnues[cleAttendue]; }
+      entry.op = cleReelle;
+      opsConnues[cleReelle] = entry.id;
+      markCardBusy(pollMod, name);
+      updateNotif(entry, 'running', j.message || (name+L('ui.en-cours')));
+      clearBtnBusy(btnEl);
+      // La reponse dit ce qui tourne MAINTENANT : on se cale dessus sans attendre le
+      // prochain sondage.
+      if(j.operations){ syncOperations(j.operations); }
+      if(pollMod){ refreshCard(pollMod); pollCardUntilIdle(pollMod, entry, name); }
+      return;
+    }
+    // Rien ne tourne en fond : la reservation n'a plus lieu d'etre.
+    delete opsConnues[cleAttendue];
+    updateNotif(entry, st, msg);
+    clearBtnBusy(btnEl);
+    if(j.operations){ syncOperations(j.operations); }
+    // AN ACTION MAY ANSWER A REPORT (result.detail): a long text, aligned in columns, that a toast would truncate and
+    // that the dialog's ordinary body would fold -- it collapses runs of spaces, so every audit and every account
+    // listing read crooked. It opens preformatted, in a wide window, and names the file where the report is kept when
+    // the action gives one (result.source). Generic on purpose: no action has its own code here.
+    if(st==='done' && j.result && j.result.detail){
+      const source = j.result.source
+        ? '<div class="hds-report-source">' + L('ui.rapport-garde-dans') + esc(String(j.result.source)) + '</div>' : '';
+      HDS.open({ title:name, variant:'info', large:true,
+                 html:'<pre class="hds-report">' + esc(String(j.result.detail)) + '</pre>' + source });
+    }
+    // LA FIN DE L'OPERATION EST L'EVENEMENT, et la suite s'enchaine dessus : resultat + toast, puis RECALCUL
+    // PARTIEL de la carte, puis affichage. C'est GET /modules/:id?fresh=1, le chemin du bouton de la carte, et une
+    // action qui invalide une carte a le droit de le demander (D124, point 2).
+    //
+    // Avant, un minuteur de 700 ms relisait le CACHE. A cet instant le serveur a invalide la carte mais ne l'a pas
+    // encore recalculee : la page reaffichait donc l'ANCIENNE valeur, jusqu'au passage de l'ordonnanceur -- 26
+    // secondes plus tard sur l'IP publique, constate par le proprietaire le 12/10, qui a du rafraichir a la main.
+    // Un delai n'est pas un evenement, et il n'y avait pas besoin d'en inventer un.
+    if(module){ refreshCard(module, null, true); } else { refresh(); }
+  }catch(e){ updateNotif(entry,'error','Erreur : '+e.message); clearBtnBusy(btnEl); }
+}
+
+// Un seul endroit connait REPO_URL : tous les liens marques data-repo-link la recoivent d'ici.
+// data-repo-link="label" => le texte affiche est derive de l'URL (pas de duplication).
+function wireRepoLinks(){
+  const label = REPO_URL.replace(/^https?:\/\//, '');
+  document.querySelectorAll('[data-repo-link]').forEach(a=>{
+    a.href = REPO_URL;
+    a.target = '_blank';          // jamais dans la fenetre --app, qui n'a pas de barre d'adresse
+    a.rel = 'noopener';
+    if(a.dataset.repoLink === 'label') a.textContent = label;
+    if(!a.title) a.title = L('ui.ouvrir-le-depot-du') + label + ')';
+  });
+}
+
+// Le nom de la machine s'affiche a deux endroits : titre de la barre et sous-titre du splash.
+function setMachineName(host){
+  if(!host) return;
+  const at = document.getElementById('appTitle');  if(at) at.textContent = host;
+  const ss = document.getElementById('splashSub'); if(ss) ss.textContent = host;
+  document.title = host + ' — Vigie';
+}
+
+function setFootVersion(){
+  const el = document.getElementById('footVersion'); if(!el) return;
+  const v = window.APP_VERSION;
+  // « version v0.1 » serait redondant : le prefixe porte deja le sens.
+  el.textContent = (v && !v.includes('__')) ? v : 'maquette';
+}
+
+// Efface l'ecran de chargement, une seule fois, apres une duree minimale d'affichage.
+// Appele aussi en cas d'erreur : le message d'erreur doit devenir visible.
+// Progression REELLE du chargement, en trois etapes connues. Tant que la progression est
+// inconnue, la jauge monte par crans en boucle ; des qu'une etape est franchie, elle
+// affiche l'avancement veritable. Le mode « progression connue » existait en CSS sans
+// que rien ne l'active : du decor.
+function progresSplash(fraction){
+  const el = document.getElementById('splash');
+  if(!el || splashDone) return;
+  el.classList.add('splash-determine');
+  el.style.setProperty('--splash-frac', String(Math.max(0, Math.min(1, fraction))));
+}
+let splashDone = false;
+const splashShownAt = Date.now();
+function hideSplash(){
+  if(splashDone) return;
+  splashDone = true;
+  const el = document.getElementById('splash'); if(!el) return;
+  const wait = Math.max(0, SPLASH_MIN_MS - (Date.now() - splashShownAt));
+  setTimeout(()=>{
+    el.classList.add('splash-off');
+    setTimeout(()=>{ el.hidden = true; }, SPLASH_FADE_MS);
+  }, wait);
+}
+
+// LE BOUTON SUIT L'ETAT DE LA MACHINE. Actif alors qu'il refuserait, il ment ; inerte
+// avec sa raison en infobulle, il enseigne.
+function updateRefreshButton(){
+  const btn=document.getElementById('btnRefresh');
+  if(!btn) return;
+  const op = runningOperation();
+  const pris = !!(op && (op.ressources || []).includes('machine'));
+  if(btn.dataset.titleWas === undefined) btn.dataset.titleWas = btn.title;
+  btn.classList.toggle('inerte', pris);
+  btn.title = pris ? (L('ui.recalcul-pendant-operation') + (op.titre || '')) : btn.dataset.titleWas;
+}
+function setLoading(on, complete){
+  const btn=document.getElementById('btnRefresh');
+  // Bouton a ICONE SEULE : le libelle vit dans l'infobulle, comme pour les autres boutons
+  // d'icone. L'animation de rotation reste, c'est elle qui dit que ca travaille.
+  if(btn){ btn.disabled=on; btn.innerHTML = on ? '<span class="spin"></span>' : '↻'; }
+  // Le liseré de l'application ET l'en-tete disent tous deux qu'une actualisation a lieu :
+  // le premier se voit du coin de l'oeil, le second l'ecrit noir sur blanc.
+  const mb=document.getElementById('modebar');
+  if(mb) mb.classList.toggle('busy', !!on);
+  // SEULEMENT POUR UN VRAI RECALCUL, jamais pour la relecture automatique.
+  //
+  // Pendant un recalcul complet, les valeurs des cartes sont en sursis : les ternir le dit, et leurs boutons restent
+  // cliquables. Mais la page RELIT le cache toutes les minutes, et cette relecture passait par le meme chemin : toute
+  // l'interface se ternissait a chaque fois. Signale par le proprietaire le 30/09 -- « ca grise l'interface, c'est
+  // trop visible, ca ne devrait pas se voir car il arrive tres frequemment ».
+  //
+  // Le lisere de l'en-tete continue de dire que quelque chose se passe : discret, il ne coupe pas la lecture.
+  document.querySelectorAll('.card').forEach(c => c.classList.toggle('card-loading', !!(on && complete)));
+  const meta=document.getElementById('lastRefresh');
+  if(meta){
+    meta.classList.toggle('busy', !!on);
+    if(on){
+      if(meta.dataset.textBefore === undefined) meta.dataset.textBefore = meta.textContent;
+      // DEUX GESTES, DEUX PHRASES. « Actualisation en cours » disait la meme chose pour
+      // une relecture de l'etat -- quelques dixiemes de seconde, servie depuis le cache --
+      // et pour un recalcul complet, qui refait toutes les mesures et peut durer une
+      // minute. L'attente n'a pas le meme sens, elle ne doit pas avoir le meme texte.
+      meta.textContent = complete ? L('ui.recalcul-en-cours') : L('ui.actualisation-en-cours');
+    } else {
+      // Si le rendu n'a pas eu lieu (erreur reseau), le texte serait reste sur « en cours ».
+      if((meta.textContent === L('ui.actualisation-en-cours') || meta.textContent === L('ui.recalcul-en-cours'))
+         && meta.dataset.textBefore !== undefined) {
+        meta.textContent = meta.dataset.textBefore;
+      }
+      delete meta.dataset.textBefore;
+    }
+  }
+  // Non bloquant : on garde les cartes existantes pendant l'actualisation.
+  // Seulement au TOUT premier chargement (aucune carte), on affiche un repere.
+  const app=document.getElementById('app');
+  if(on && app && !app.querySelector('.masonry')){
+    app.innerHTML='<div class="loading-note"><span class="spin"></span> Chargement du panneau…</div>';
+  }
+}
+// La page est-elle EN TRAIN DE SERVIR ? On ne redessine pas sous les doigts de
+// quelqu'un : rangement en cours, fenetre de dialogue ouverte, panneau des reglages
+// deploye, ou tiroir des notifications ouvert. Le rafraichissement automatique
+// attendra le tour suivant ; une demande EXPLICITE (bouton Actualiser), elle, passe.
+function pageBusy(){
+  if(modeReorg) return 'rangement';
+  const modale = document.getElementById('hdsBack');
+  if(modale && modale.classList.contains('show')) return L('ui.fenetre-ouverte');
+  if(typeof unitsOpen !== 'undefined' && unitsOpen) return L('ui.reglages-ouverts');
+  const tiroir = document.getElementById('drawer');
+  if(tiroir && tiroir.classList.contains('open')) return 'tiroir ouvert';
+  return null;
+}
+
+async function refresh(force){
+  // Rafraichissement AUTOMATIQUE seulement : une demande explicite n'est jamais differee.
+  if(!force){
+    const raison = pageBusy();
+    if(raison) return;
+  }
+  // PENDANT UNE OPERATION QUI TIENT LA MACHINE, ON NE RECALCULE PAS.
+  //
+  // Le recalcul complet refait TOUTES les mesures et dure une minute : demande pendant
+  // une mise a jour, il tombe au moment ou le serveur s'arrete. Il ne rend rien, il
+  // ajoute de la charge a un geste deja long, et il finit en erreur -- pour une question
+  // dont la reponse est de toute facon perimee des que la mise a jour aura fini.
+  //
+  // On le dit, on ne le fait pas. La relecture automatique, elle, continue : c'est elle
+  // qui verra la fin de l'operation.
+  const op = runningOperation();
+  if(force && op && (op.ressources || []).includes('machine')){
+    toast(L('ui.recalcul-pendant-operation') + (op.titre || ''));
+    return;
+  }
+  setLoading(true, !!force);
+  // PAS DE PROGRESSION AU DEPART. Annoncer 20 % des que la requete part FIGEAIT l'ecran
+  // d'attente : passer en mode « progression connue » coupe l'animation en boucle, et
+  // l'aiguille restait plantee tout le temps de la reponse -- une minute entiere quand le
+  // serveur redemarre. Tant qu'on ne sait rien, la jauge TOURNE ; elle ne se fige qu'a
+  // partir du moment ou elle a une vraie fraction a montrer.
+  try{
+    const {data,mode}=await fetchState(force);
+    if(mode==='live' && data && data.build && window.APP_BUILD && !window.APP_BUILD.includes('__') && data.build!==window.APP_BUILD){ location.reload(); return; }
+    progresSplash(0.75);          // etat recu
+    renderState(data,mode);
+    progresSplash(1);             // panneau affiche
+  }
+  catch(e){
+    // UNE COUPURE ATTENDUE N'EST PAS UNE PANNE. Pendant une mise a jour, le serveur
+    // s'arrete : c'est le deroulement du geste demande, pas un incident. On le dit
+    // ainsi, en orange, au lieu d'afficher « Hors ligne » en rouge sur ce que
+    // l'utilisateur vient lui-meme de declencher.
+    const attendu = runningOperation();
+    const mb=document.getElementById('modebar'); const busyErr=mb.classList.contains('busy'); mb.className='modebar err'+(busyErr?' busy':''); mb.title=attendu?L('ui.mise-a-jour-en-cours'):L('ui.connexion-api-impossible'); mb.textContent='';
+    const msg = (e && e.name==='AbortError') ? L('ui.delai-depasse-le-premier') : (e && e.message ? e.message : e);
+    const gt=document.getElementById('globalTxt'); if(gt){ gt.textContent=attendu?L('ui.mise-a-jour-en-cours'):'Hors ligne'; gt.style.color=attendu?'var(--warn)':'var(--err)'; gt.parentElement.title=attendu?L('ui.mise-a-jour-en-cours'):(L('ui.connexion-impossible')+msg); }
+    const gdot=document.querySelector('#global .dot'); if(gdot){ gdot.style.cssText='width:9px;height:9px;border-radius:50%;background:'+(attendu?'var(--warn)':'var(--err)'); }
+  }
+  finally{ setLoading(false); updateRefreshButton(); hideSplash(); }
+}
+async function checkVersion(){
+  try{
+    const r=await fetch(API+'/health'); if(!r.ok) return;
+    const j=await r.json();
+    // Bouton Atelier : visible UNIQUEMENT si son serveur repond en local (outil de dev).
+    const ab=document.getElementById('atelierBtn');
+    if(ab){ if(j && j.atelier){ ab.href=j.atelier; ab.hidden=false; } else { ab.hidden=true; } }
+    // L'APP SERVEUR A CALCULE QUELQUE CHOSE : on relit le cache, sans attendre notre minute.
+    // Elle ne peut pas nous prevenir d'elle-meme -- elle repond, elle n'appelle pas --, mais
+    // cette reponse-ci coute trois fois rien et nous passons deja toutes les 15 s. On ne
+    // recalcule rien : /state sans « fresh » sert ce qui est deja ecrit (D124).
+    if(j && j.stateStamp){
+      if(lastStateStamp && j.stateStamp!==lastStateStamp && !runningOperation()){
+        lastStateStamp=j.stateStamp; refresh();
+      } else { lastStateStamp=j.stateStamp; }
+    }
+    if(!window.APP_BUILD || window.APP_BUILD.includes('__')) return;
+    if(j && j.build && j.build!==window.APP_BUILD){
+      // PAS PENDANT UNE OPERATION. Une mise a jour de Vigie sert forcement une nouvelle
+      // version : la page se rechargeait donc AU MILIEU de l'operation qui l'avait
+      // declenchee. Au retour, le front ne savait plus qu'elle tournait -- boutons
+      // reactives, sablier disparu, cartes redistribuees. On attend la fin, et le
+      // prochain passage (toutes les 15 s) rechargera.
+      if(runningOperation()){ return; }
+      location.reload();
+    }
+  }catch(e){}
+}
+
+let dark=true;
+function toggleTheme(){
+  // L'icone du footer montre le theme CIBLE : lune quand on est en clair, soleil sinon.
+  setTimeout(()=>{ const ic=document.getElementById('themeIc'); if(ic) ic.innerHTML=(dark?'&#xE005;':'&#xE006;'); },0); dark=!dark;
+  document.documentElement.setAttribute('data-theme',dark?'':'light');
+  const tb=document.getElementById('themeBtn');
+  tb.textContent = dark ? '☀' : '☾';
+  tb.title = dark ? L('ui.passer-au-theme-clair') : L('ui.passer-au-theme-sombre'); }
+// Message bref et autonome, dans la MEME pile que les toasts d’actions (#toastStack).
+// L’ancienne version visait un #toast qui n’existe plus : tout appel levait une erreur.
+function toast(msg){
+  const stack=document.getElementById('toastStack'); if(!stack) return;
+  const el=document.createElement('div'); el.className='toast'; el.textContent=msg;
+  stack.appendChild(el); requestAnimationFrame(()=>el.classList.add('show'));
+  setTimeout(()=>{ el.classList.remove('show'); setTimeout(()=>el.remove(),220); },3200);
+}
+
+// ===== Paramètres de l’application =====
+// Un seul menu, quatre onglets : Notifications, Modules (D48), Apparence, À propos.
+// Il remplace l’ancienne popin de notifications et l’ancien tiroir des modules.
+let settingsTab='notifications';
+function toggleSettings(){
+  unitsOpen=!unitsOpen;
+  document.getElementById('settingsBack').classList.toggle('show',unitsOpen);
+  document.getElementById('settingsDrawer').classList.toggle('open',unitsOpen);
+  if(unitsOpen) renderSettings();
+}
+// Lien profond : #parametres ou #parametres/<onglet> ouvre le menu au chargement.
+function ouvrirDepuisHash(){
+  const h=(location.hash||'').replace(/^#/,'');
+  if(!h.startsWith('parametres')) return;
+  const parts=h.split('/');
+  const onglet=parts[1]||null;
+  const targetIndex=parts.length>2?parts[2]:null;
+  // #parametres/modules/<module> ouvre le panneau ET deplie ce module.
+  setTimeout(()=>{ openSettings(onglet, targetIndex||null); }, 400);
+}
+window.addEventListener('hashchange', ouvrirDepuisHash);
+function openSettings(tab, unitFocus){
+  if(tab) settingsTab=tab;
+  pendingUnitFocus=unitFocus||null;
+  if(!unitsOpen) toggleSettings(); else renderSettings();
+}
+async function renderSettings(){
+  const body=document.getElementById('settingsBody');
+  const TABS=[['notifications','Notifications','<span class="vi vi-fw">&#xE004;</span>'],['modules','Modules','<span class="vi vi-fw">&#xE002;</span>'],['utilisateurs','Utilisateurs','<span class="vi vi-fw">&#xE00D;</span>'],['apparence','Apparence','<span class="vi vi-fw">&#xE005;</span>'],['apropos','\u00c0 propos','<span class="vi vi-fw">&#xE007;</span>']];
+  body.innerHTML='<div class="set-wrap"><nav class="set-nav">'+TABS.map(t=>
+    '<button class="set-item'+(settingsTab===t[0]?' on':'')+'" data-tab="'+t[0]+'">'
+    +'<span class="set-ic">'+t[2]+'</span>'+t[1]+'</button>').join('')
+    +'</nav><div class="set-pane" id="setPane"></div></div>';
+  body.querySelectorAll('.set-item').forEach(b=>{ b.onclick=()=>{ settingsTab=b.getAttribute('data-tab'); renderSettings(); }; });
+  const pane=document.getElementById('setPane');
+  if(settingsTab==='notifications') await renderTabNotifs(pane);
+  else if(settingsTab==='modules') await renderTabModules(pane);
+  else if(settingsTab==='utilisateurs') await renderTabUtilisateurs(pane);
+  else if(settingsTab==='apparence') renderTabApparence(pane);
+  else renderTabApropos(pane);
+}
+async function getNotifCfg(){
+  let cfg={enabled:true,modules:{}};
+  try{
+    const r=await fetch(API+"/notifications",{headers:{Authorization:"Bearer "+TOKEN}});
+    if(r.ok) cfg=await r.json();
+  }catch(e){}
+  if(!cfg.modules) cfg.modules={};
+  return cfg;
+}
+async function postNotif(payload){
+  const r=await fetch(API+'/notifications',{ method:'POST',
+    headers:{ Authorization:'Bearer '+TOKEN, 'Content-Type':'application/json' },
+    body: JSON.stringify(payload) });
+  if(!r.ok) throw new Error('HTTP '+r.status);
+}
+// --- Onglet Notifications : interrupteur global + réglage fin par carte (D54) ---
+async function renderTabNotifs(pane){
+  const cfg=await getNotifCfg();
+  const on=id=> (id in cfg.modules)? !!cfg.modules[id] : true;
+  const mods=(lastModules||[]);
+  // Combien d'evenements Vigie sait-il signaler ? Le dire donne la mesure de ce que
+  // l'interrupteur commande.
+  const total=(cfg.catalog||[]).reduce((t,u)=>t+((u.notifications||[]).length),0);
+  pane.innerHTML=
+     UI.carte({ titre:L('ui.activer-les-notifications'),
+                detail:L('ui.coupe-plus-aucune-bulle'),
+                droite: UI.interrupteur('id="ntfGlobal"', cfg.enabled) })
+    +UI.bande(L('ui.comment-ca-marche'), total+L('ui.evenements-suivis'))
+    +'<ul class="um-points">'
+    +'<li>Une bulle apparaît quand un événement <b>survient</b> ou qu’il est <b>résolu</b> — jamais en rappel.</li>'
+    +'<li>Elle <b>nomme</b> l’événement : « Température GPU élevée », « Antivirus inactif »…</li>'
+    +'<li>Un événement qui demande un administrateur n’est pas signalé à un compte standard, <b>sauf s’il est critique</b> — il l’est alors avec la mention « signalez-le à un administrateur ».</li>'
+    +'<li>Le détail se règle dans l’onglet <b>Modules</b>, un interrupteur par événement.</li>'
+    +'</ul>';
+  pane.querySelector('#ntfGlobal').onchange=async e=>{
+    try{ await postNotif({enabled:e.target.checked}); }
+    catch(err){ e.target.checked=!e.target.checked; toast(L('ui.reglage-impossible')+(err.message||err)); }
+  };
+}
+// ===== COMPOSANTS D'INTERFACE ================================================
+// Un seul endroit dessine une bande de titre, une ligne, un interrupteur ou une
+// etiquette. Avant, chaque onglet des Parametres reconstruisait ces morceaux a la
+// main : la meme chose s'ecrivait de trois facons, et corriger l'alignement d'une
+// ligne demandait de retrouver toutes ses copies.
+//
+// Regle de composition (26/08) : le cadre arrondi appartient au bloc parent. Ces
+// composants ne dessinent donc JAMAIS de bordure ni de coin -- ils remplissent.
+const UI = {
+  // Bande de titre d'une sous-section, avec son compteur eventuel.
+  bande(headingText, compteur){
+    return '<div class="um-sub">'+esc(headingText)
+      +(compteur!==undefined && compteur!==null && compteur!=='' ? '<span class="um-cpt">'+esc(String(compteur))+'</span>' : '')
+      +'</div>';
+  },
+  // Conteneur de lignes : pleine largeur, sans cadre a lui.
+  liste(fieldCount){ return '<div class="um-list">'+(Array.isArray(fieldCount)?fieldCount.join(''):fieldCount)+'</div>'; },
+  // UNE ligne : libelle (+ etiquettes) a gauche, commande a droite.
+  ligne(o){
+    return '<div class="um-card"'+(o.aide?' title="'+esc(o.aide)+'"':'')+'>'
+      +'<span>'+esc(o.libelle)+(o.etiquettes||[]).map(t=>UI.etiquette(t)).join('')+'</span>'
+      +(o.droite?'<span class="um-param">'+o.droite+'</span>':'')
+      +'</div>';
+  },
+  // Interrupteur : la seule ecriture de ce balisage dans toute l'application.
+  interrupteur(attrs, actif){
+    return '<span class="swx"><input type="checkbox" '+attrs+(actif?' checked':'')+'><i></i></span>';
+  },
+  etiquette(t){ return ' <span class="um-tag">'+esc(t)+'</span>'; },
+  note(texte){ return '<div class="um-note">'+esc(texte)+'</div>'; },
+  // Carte de reglage ISOLEE : un titre, son explication, une commande a droite.
+  // C'est le seul cas ou un cadre arrondi est legitime -- elle n'est dans rien.
+  carte(o){
+    return '<div class="setcard"><div class="setcard-t"><b>'+esc(o.titre)+'</b>'
+      +(o.detail?'<small>'+(o.detailHtml?o.detail:esc(o.detail))+'</small>':'')
+      +'</div>'+(o.droite||'')+'</div>';
+  },
+  // Ligne dont le libelle contient deja du balisage (nom + etiquettes + sous-titre).
+  ligneHtml(gauche, droite, aide){
+    return '<div class="um-card"'+(aide?' title="'+esc(aide)+'"':'')+'>'
+      +'<span>'+gauche+'</span>'
+      +(droite?'<span class="um-param">'+droite+'</span>':'')+'</div>';
+  }
+};
+
+// --- Onglet Modules (D48) : activer / couper, cartes du module en rappel ---
+async function renderTabModules(pane){
+  const units=lastUnits||[];
+  if(!units.length){ pane.innerHTML='<div class="drawer-empty">Aucun module connu (maquette&nbsp;?).</div>'; return; }
+  let paramCat={};
+  try{
+    const r=await fetch(API+"/parameters",{headers:{Authorization:"Bearer "+TOKEN}});
+    if(r.ok){ const j=await r.json(); (j.modules||[]).forEach(m=>{ paramCat[m.unit]=m.params||[]; }); }
+  }catch(e){}
+  const cfg=await getNotifCfg();
+  const notifCat=cfg.catalog||[];
+  const on=id=> (id in cfg.modules)? !!cfg.modules[id] : true;
+  pane.innerHTML='<p class="um-hint">Couper un module retire ses cartes et ses calculs ; il reste listé ici pour être rallumé. Dépliez-en un pour régler <b>ses notifications</b> et <b>ses paramètres</b>.</p>'+units.map(u=>{
+    const cards=(lastModules||[]).filter(m=>m.theme===u.id);
+    // NOTIFICATIONS : les evenements que le module sait signaler, avec leur vrai nom
+    // (« Temperature GPU elevee »), pas le nom des cartes -- exigence utilisateur.
+    const decl=((notifCat||[]).find(x=>x.unit===u.id)||{}).notifications||[];
+    const onNotif=(unit,key)=>{ const r=unit+'.'+key; return (cfg.notifs && (r in cfg.notifs)) ? !!cfg.notifs[r] : on(unit); };
+    // Qui peut agir : une notification « admin » ne derange pas un compte standard,
+    // sauf si elle est critique -- alors elle remonte quand meme, en invitant a
+    // prevenir un administrateur.
+    const etiquettesNotif=nn=>[].concat(nn.rights==='admin'?['admin']:[], nn.critical?['critique']:[]);
+    const fieldCount=(decl.length
+      ? UI.bande('Notifications', decl.length)
+        + UI.liste(decl.map(nn=>UI.ligne({
+            libelle: nn.label, aide: nn.help||'', etiquettes: etiquettesNotif(nn),
+            droite: UI.interrupteur('data-unotif="'+esc(u.id)+'::'+esc(nn.key)+'"', onNotif(u.id,nn.key))
+          })))
+      : UI.bande('Notifications') + UI.note(L('ui.ce-module-ne-signale')));
+    // ACCORDEON, coherent avec le reste de l'app (l'arbre du disque et les details de
+    // champ se deplient deja ainsi ; les onglets, eux, sont deja pris par la navigation
+    // des Parametres). Tout est replie : la liste des modules se lit d'un coup d'oeil,
+    // et on ouvre celui qu'on veut regler.
+    const targetIndex=(pendingUnitFocus===u.id);
+    return '<details class="um'+(u.enabled?'':' off')+'" id="um-'+esc(u.id)+'"'+(targetIndex?' open':'')+'>'
+      +'<summary class="um-head"><div class="um-t"><b>'+esc(u.label)+'</b><small>'+esc(u.description||'')+'</small></div>'
+      +'<span class="um-sw"><span>'+(u.enabled?'Actif':L('ui.coupe'))+'</span>'
+      +UI.interrupteur('data-unit="'+esc(u.id)+'"', u.enabled)+'</span></summary>'
+      +(u.enabled ? fieldCount : '<div class="um-note">Module coupé : ses cartes ne sont ni calculées ni affichées.</div>')
+      +(u.enabled && (paramCat[u.id]||[]).filter(pr=>pr.type!=='list').length ? UI.bande(L('ui.parametres'), (paramCat[u.id]||[]).filter(pr=>pr.type!=='list').length)+'<div class="um-list">'+(paramCat[u.id]||[]).filter(pr=>pr.type!=='list').map(pr=>{
+        const ref=esc(u.id)+'::'+esc(pr.key);
+        const btnDef=pr.overridden?'<button class="um-reset" data-preset="'+ref+L('ui.title-revenir-la-valeur')+esc(Array.isArray(pr.default)?(pr.default.join(', ')||'vide'):String(pr.default))+(pr.unit?' '+esc(pr.unit):'')+')">défaut</button>':'';
+        let ctl='';
+        if(pr.type==='bool'){
+          ctl=UI.interrupteur('data-pval="'+ref+'"', pr.value);
+        } else {
+          const curseur=(pr.min!=null&&pr.max!=null)
+            ? '<input class="um-range" type="range" data-prange="'+ref+'" min="'+pr.min+'" max="'+pr.max+'" step="'+(pr.step||1)+'" value="'+esc(String(pr.value))+'">'
+            : '';
+          ctl=curseur+'<input class="um-num" type="number" data-pval="'+ref+'"'
+            +(pr.min!=null?' min="'+pr.min+'"':'')+(pr.max!=null?' max="'+pr.max+'"':'')
+            +' value="'+esc(String(pr.value))+'">'+(pr.unit?'<span>'+esc(pr.unit)+'</span>':'');
+        }
+        // um-pline : une ligne de parametre porte des commandes plus larges qu'un
+        // interrupteur ; la classe ne change que cet espacement.
+        return UI.ligneHtml(esc(pr.label), btnDef+ctl, pr.help||'').replace('class="um-card"', 'class="um-card um-pline"');
+      }).join('')+'</div>' : '')
+      // LISTES : une SECTION dediee par liste (exigence utilisateur). Une ligne de
+      // parametre est trop etroite pour lire, ajouter et retirer ; ici la liste prend
+      // toute la largeur, chaque element porte sa croix, le champ d'ajout est visible.
+      +(u.enabled ? (paramCat[u.id]||[]).filter(pr=>pr.type==='list').map(pr=>{
+        const ref=esc(u.id)+'::'+esc(pr.key);
+        const items=Array.isArray(pr.value)?pr.value:[];
+        return '<div class="um-sub">'+esc(pr.label)+'<span class="um-cpt">'+(items.length?(items.length+' \u00e9l\u00e9ment'+(items.length>1?'s':'')):'vide')+'</span></div>'
+          +(pr.help?'<div class="um-note">'+esc(pr.help)+'</div>':'')
+          +'<div class="um-liste" data-plist="'+ref+'">'
+          +(items.length
+             ? items.map(v=>'<div class="um-lrow"><span>'+esc(String(v))+'</span>'
+               +'<button class="um-ldel" data-pdel title="Retirer de la liste">×</button></div>').join('')
+             : '<div class="um-lvide">Aucun élément.</div>')
+          +'<div class="um-ladd"><input class="um-chip-add" type="text" placeholder="ajouter… (Entrée)">'
+          +'<button class="um-lplus" data-padd title="Ajouter a la liste">Ajouter</button></div>'
+          +'</div>';
+      }).join('') : '')
+      +'</details>';
+  }).join('');
+  // L interrupteur vit DANS l en-tete depliante : sans cela, le clic dessus replierait
+  // le module au lieu de le couper.
+  pane.querySelectorAll('.um-head .swx').forEach(sw=>{ sw.addEventListener('click', e=>{ e.stopPropagation(); }); });
+  // Un interrupteur = UNE notification (« module::cle »). Le reglage part dans `notifs`,
+  // qui l'emporte sur le reglage du module : couper une notification precise ne coupe pas
+  // les autres.
+  pane.querySelectorAll('[data-unotif]').forEach(c=>{ c.onchange=async()=>{
+    const [unit,key]=c.getAttribute('data-unotif').split('::');
+    const notifs={}; notifs[unit+'.'+key]=c.checked;
+    try{ await postNotif({notifs}); }
+    catch(e){ c.checked=!c.checked; toast(L('ui.reglage-impossible')+(e.message||e)); }
+  }; });
+  async function postParam(unit, key, inputValue){
+    const values={}; values[key]=inputValue;
+    const r=await fetch(API+'/parameters/'+encodeURIComponent(unit),{ method:'POST',
+      headers:{ Authorization:'Bearer '+TOKEN, 'Content-Type':'application/json' },
+      body: JSON.stringify({ values }) });
+    if(!r.ok) throw new Error('HTTP '+r.status);
+  }
+  // Un parametre change ne recalcule QUE les cartes de son module : le serveur a deja
+  // invalide leurs sondes, chaque carte se recharge fraiche sans payer les autres.
+  async function afterParam(unit){
+    // Le panneau d abord (valeur et bouton defaut a jour tout de suite), les cartes
+    // ensuite, sans bloquer : chacune se remplace quand son calcul aboutit.
+    await renderSettings();
+    (lastModules||[]).filter(m=>m.theme===unit).forEach(m=>{ refreshCard(m.id); });
+  }
+  pane.querySelectorAll('[data-pval]').forEach(c=>{ c.onchange=async()=>{
+    const [unit,key]=c.getAttribute('data-pval').split('::');
+    const inputValue=(c.type==='checkbox')?c.checked:Number(c.value);
+    try{ await postParam(unit,key,inputValue); toast(L('ui.parametre-enregistre')); await afterParam(unit); }
+    catch(e){ toast(L('ui.reglage-impossible')+(e.message||e)); }
+  }; });
+  // Curseur : il suit le champ nombre et reciproquement ; seul le relachement enregistre.
+  pane.querySelectorAll('[data-prange]').forEach(r=>{
+    const num=pane.querySelector('[data-pval="'+r.getAttribute('data-prange')+'"]');
+    r.oninput=()=>{ if(num) num.value=r.value; };
+    r.onchange=()=>{ if(num){ num.value=r.value; num.dispatchEvent(new Event('change')); } };
+    if(num){ num.addEventListener('input',()=>{ r.value=num.value; }); }
+  });
+  // Jetons : ajout par Entree, retrait par la croix ; chaque geste enregistre la liste.
+  pane.querySelectorAll('[data-plist]').forEach(bloc=>{
+    const [unit,key]=bloc.getAttribute('data-plist').split('::');
+    const envoyer=async()=>{
+      const items=[...block.querySelectorAll('.um-lrow > span')].map(sp=>sp.textContent);
+      try{ await postParam(unit,key,items); toast(L('ui.liste-enregistree')); await afterParam(unit); }
+      catch(e){ toast(L('ui.reglage-impossible')+(e.message||e)); }
+    };
+    block.querySelectorAll('[data-pdel]').forEach(b2=>{ b2.onclick=()=>{ b2.closest('.um-lrow').remove(); envoyer(); }; });
+    const champ=bloc.querySelector('.um-chip-add');
+    const ajouter=()=>{
+      const v=(champ.value||'').trim();
+      if(!v) return;
+      const vide=bloc.querySelector('.um-lvide'); if(vide) vide.remove();
+      const rowOf=document.createElement('div'); rowOf.className='um-lrow';
+      const txt=document.createElement('span'); txt.textContent=v; rowOf.appendChild(txt);
+      const x=document.createElement('button'); x.className='um-ldel'; x.textContent='×';
+      x.title=L('ui.retirer-de-la-liste');
+      x.onclick=()=>{ rowOf.remove(); envoyer(); };
+      rowOf.appendChild(x);
+      bloc.insertBefore(rowOf, bloc.querySelector('.um-ladd'));
+      champ.value=''; envoyer();
+    };
+    if(champ){ champ.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); ajouter(); } }; }
+    const plus=bloc.querySelector('[data-padd]'); if(plus){ plus.onclick=ajouter; }
+  });
+  pane.querySelectorAll('.um-reset').forEach(b=>{ b.onclick=async()=>{
+    const [unit,key]=b.getAttribute('data-preset').split('::');
+    try{ await postParam(unit,key,null); toast(L('ui.retour-la-valeur-par')); await afterParam(unit); }
+    catch(e){ toast(L('ui.reglage-impossible')+(e.message||e)); }
+  }; });
+  pane.querySelectorAll('[data-unit]').forEach(c=>{ c.onchange=async()=>{
+    const id=c.getAttribute('data-unit');
+    c.disabled=true;
+    try{
+      const r=await fetch(API+'/units/'+encodeURIComponent(id),{ method:'POST',
+        headers:{ Authorization:'Bearer '+TOKEN, 'Content-Type':'application/json' },
+        body: JSON.stringify({ enabled: c.checked }) });
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      toast(c.checked ? L('ui.module-active-recalcul-en') : L('ui.module-desactive'));
+      await refresh();
+      renderSettings();
+    }catch(e){ c.checked=!c.checked; c.disabled=false; toast(L('ui.changement-impossible')+(e.message||e)); }
+  }; });
+  if(pendingUnitFocus){
+    const el=document.getElementById('um-'+pendingUnitFocus);
+    if(el){ el.scrollIntoView({block:'start',behavior:'smooth'}); el.classList.add('flash');
+            setTimeout(()=>el.classList.remove('flash'),1400); }
+    pendingUnitFocus=null;
+  }
+}
+// --- Onglet Apparence : cartes-radio, pretes a accueillir d autres themes ---
+const THEMES=[
+  {id:'dark',  nom:L('ui.theme-sombre'), fond:'#0d1117', panneau:'#161b22', texte:'#e6edf3'},
+  {id:'light', nom:L('ui.theme-clair'),  fond:'#e9edf4', panneau:'#ffffff', texte:'#1c2230'}
+];
+// --- Onglet Utilisateurs (D65) : qui, sur cette machine, a Vigie au demarrage ---
+// L'ecriture demande un serveur eleve : sinon les interrupteurs restent VISIBLES mais
+// inertes, et disent pourquoi (rien ne disparait de l'interface -- D59).
+async function renderTabUtilisateurs(pane){
+  pane.innerHTML='<div class="hds-loading"><span class="spin"></span>Lecture des comptes de la machine…</div>';
+  let data={users:[],canWrite:false};
+  try{
+    const r=await fetch(API+'/users',{headers:{Authorization:'Bearer '+TOKEN}});
+    if(r.ok) data=await r.json();
+  }catch(e){}
+  const users=data.users||[];
+  const inerte=!data.canWrite;
+  // Installation PERSONNELLE (poste de developpement, depot clone) : les autres comptes
+  // ne peuvent pas lire l'application. On ne propose alors pas ce qui echouerait.
+  const partage=(data.shared!==false);
+  pane.innerHTML=
+    '<div class="um-sub">Comptes de cet ordinateur</div>'
+    +'<ul class="um-points">'
+    +'<li>Un compte <b>coché</b> démarre Vigie à son ouverture de session.</li>'
+    +'<li>Chacun garde <b>ses</b> réglages, ses notifications et son historique.</li>'
+    +"<li>Un compte standard n'obtient <b>aucun droit en plus</b> : Vigie lui refuse les actions administrateur, comme Windows.</li>"
+    +'</ul>'
+    +(inerte?'<div class="um-note">Modifier ces choix demande un Vigie lancé en administrateur.</div>':'')
+    // CE QUE VOIT UNE FENETRE QUI NE DIT PAS QUI ELLE EST. Meme ecran que les comptes :
+    // c'est la meme question -- qui a le droit de voir quoi.
+    +UI.carte({
+        titre:L('ui.fenetre-sans-session'),
+        detail:L('ui.fenetre-sans-session-detail'),
+        droite:'<select id="anonMode" class="um-select"'+(inerte?' disabled':'')+'>'
+              +'<option value="error"'+((data.anonymousAccess!=='cards')?' selected':'')+'>'+L('ui.anon-page-erreur')+'</option>'
+              +'<option value="cards"'+((data.anonymousAccess==='cards')?' selected':'')+'>'+L('ui.anon-cartes')+'</option>'
+              +'</select>'
+      })
+    // CET ECRAN CHOISIT DES COMPTES. RIEN D'AUTRE.
+    //
+    // Il portait aussi un bouton « Deployer pour tous », qui installait Vigie dans
+    // Program Files par un chemin a lui : un second geste d'installation, avec son propre
+    // comportement a tenir, cache dans l'ecran des comptes. On dit ce qui manque, et on
+    // renvoie la ou l'installation se fait -- une seule fois, au meme endroit.
+    +(partage?'':UI.carte({
+        titre:L('ui.cette-installation-est-lisible'),
+        detail: esc(data.installPath||'')+L('ui.les-autres-comptes-ne')
+               +L('ui.installer-depuis-la-carte'),
+        detailHtml:true
+      }))
+    +UI.liste(users.map(u=>UI.ligneHtml(
+        esc(u.name)
+        +(u.current?UI.etiquette('vous'):'')
+        +(u.admin?UI.etiquette('administrateur'):'')
+        +((u.fullName&&u.fullName!==u.name)?'<br><span class="um-mut">'+esc(u.fullName)+'</span>':''),
+        UI.interrupteur('data-user="'+esc(u.name)+'"'+((inerte||(!partage&&!u.current))?' disabled':''), u.enabled)
+      )));
+  const am=pane.querySelector('#anonMode');
+  if(am){ am.onchange=async()=>{
+    const previous = (data.anonymousAccess==='cards') ? 'cards' : 'error';
+    am.disabled=true;
+    try{
+      const r=await fetch(API+'/anonymous-access',{ method:'POST',
+        headers:{ Authorization:'Bearer '+TOKEN, 'Content-Type':'application/json' },
+        body: JSON.stringify({ mode:am.value }) });
+      if(!r.ok){ const j=await r.json().catch(()=>({})); throw new Error(j.error||('HTTP '+r.status)); }
+      const j=await r.json(); data.anonymousAccess=j.anonymousAccess;
+      toast(j.anonymousAccess==='cards' ? L('ui.anon-cartes-confirme') : L('ui.anon-erreur-confirme'));
+    }catch(e){ am.value=previous; toast(L('ui.reglage-impossible')+(e.message||e)); }
+    am.disabled=false;
+  }; }
+  pane.querySelectorAll('[data-user]').forEach(c=>{ c.onchange=async()=>{
+    const accountName=c.getAttribute('data-user');
+    try{
+      const r=await fetch(API+'/users/'+encodeURIComponent(accountName),{ method:'POST',
+        headers:{ Authorization:'Bearer '+TOKEN, 'Content-Type':'application/json' },
+        body: JSON.stringify({enabled:c.checked}) });
+      if(!r.ok){ const j=await r.json().catch(()=>({})); throw new Error(j.error||('HTTP '+r.status)); }
+      toast(c.checked?(L('ui.vigie-demarrera-avec')+accountName):(L('ui.vigie-ne-demarrera-plus')+accountName));
+    }catch(e){ toast(L('ui.impossible')+(e.message||e)); c.checked=!c.checked; }
+  }; });
+}
+
+function renderTabApparence(pane){
+  const courant = dark ? 'dark' : 'light';
+  pane.innerHTML='<p class="um-hint">Le thème s’applique immédiatement. Le bouton rapide reste disponible dans le pied de page.</p>'
+    +'<div class="theme-grid">'+THEMES.map(t=>
+      '<label class="theme-opt'+(t.id===courant?' on':'')+'">'
+      +'<input type="radio" name="setTheme" value="'+t.id+'"'+(t.id===courant?' checked':'')+'>'
+      +'<span class="theme-prev" style="background:'+t.fond+'">'
+      +'<span class="theme-prev-card" style="background:'+t.panneau+';color:'+t.texte+'">Aa</span></span>'
+      +'<span class="theme-nom">'+t.nom+'</span></label>').join('')
+    +'</div>'
+    // ENTREE DU MODE REORGANISATION (D92). Elle vit ici, dans les Parametres, et non
+    // dans l'en-tete : un bouton de plus en haut de page se clique par megarde, et
+    // l'en-tete n'accueille aucun bouton epars (D56).
+    +UI.carte({
+        titre:L('ui.disposition-des-cartes'),
+        detail:L('ui.ranger-les-cartes-comme'),
+        droite:'<button class="fsolve sev-info" id="btnReorg">Réorganiser</button>'
+      });
+  const br = pane.querySelector('#btnReorg');
+  if(br) br.onclick = () => { if(unitsOpen) toggleSettings(); entrerReorg(); };
+  pane.querySelectorAll('[name="setTheme"]').forEach(r=>{ r.onchange=()=>{
+    const versSombre = (r.value==='dark');
+    if(versSombre!==dark) toggleTheme();
+    pane.querySelectorAll('.theme-opt').forEach(o=>o.classList.toggle('on', o.querySelector('input').value===r.value));
+  }; });
+}
+// --- Onglet À propos ---
+function renderTabApropos(pane){
+  pane.innerHTML='<div class="um"><b>Vigie</b><p class="um-hint" style="margin:2px 0 10px">Tableau de bord local Windows.</p>'
+    +'<div class="apropos-l"><span>Version</span><b>'+esc(window.APP_VERSION&&!window.APP_VERSION.includes('__')?window.APP_VERSION:'—')+'</b></div>'
+    +'<div class="apropos-l"><span>Build</span><b>'+esc(window.APP_BUILD&&!window.APP_BUILD.includes('__')?window.APP_BUILD:'—')+'</b></div>'
+    +'<div class="apropos-l"><span>Machine</span><b>'+esc(lastHost||'—')+'</b></div>'
+    +'<div class="apropos-l"><span>Éditeur</span><b>Sowapps</b></div>'
+    +'<div class="apropos-l"><span>Auteur</span><b>Florent HAZARD</b></div>'
+    +'<div class="apropos-l"><span>Licence</span><b>MIT</b></div>'
+    +'<p style="margin:14px 0 0"><a class="apropos-repo" data-repo-link><svg width="16" height="16" aria-hidden="true"><use href="#ghMark"/></svg><span class="apropos-repo-t"></span></a></p></div>'
+    // EXPORTS : deux documents distincts, ouverts dans un onglet et imprimables en PDF
+    // depuis le navigateur (D86). Pas de dependance a installer : la page se sert
+    // elle-meme des donnees que Vigie possede deja.
+    +'<div class="um" style="margin-top:12px"><b>Exports</b>'
+    +'<p class="um-hint" style="margin:2px 0 10px">Deux documents à imprimer ou à enregistrer en PDF.</p>'
+    +'<p style="display:flex;gap:8px;flex-wrap:wrap;margin:0">'
+    +'<a class="apropos-repo" href="/report?type=hardware" target="_blank" rel="noopener">Fiche matérielle</a>'
+    +'<a class="apropos-repo" href="/report?type=state" target="_blank" rel="noopener">État actuel</a>'
+    +'</p>'
+    +'<p class="um-hint" style="margin:10px 0 0">La fiche matérielle liste ce qui ne bouge pas : machine, processeur, mémoire, disques, écrans. L’état actuel est une photo de ce que Vigie voit à l’instant.</p></div>';
+  const rl=pane.querySelector('.apropos-repo-t'); if(rl) rl.textContent=REPO_URL.replace(/^https?:[/][/]/,'');
+  wireRepoLinks();
+}
+
+// ===== Demarrage =====
+wireRepoLinks();
+ouvrirDepuisHash();
+openRequestedView();   // ?show=recap: the window the client app opens lands on the recap
+setFootVersion();
+setTimeout(hideSplash, SPLASH_MAX_MS);   // garde-fou si /state ne repond jamais
+refresh();
+setInterval(refresh, REFRESH_MS);
+// Les operations, elles, se relevent souvent et SANS condition : une page occupee
+// (tiroir ouvert, rangement en cours) doit quand meme savoir ce qui tourne ailleurs.
+setInterval(syncOperations, OPS_MS);
+syncOperations();
+checkVersion();
+setInterval(checkVersion, VERSION_POLL_MS);

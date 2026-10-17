@@ -14,6 +14,12 @@
     EVERY PAGE OF THE PANEL, not just index.html. It read one file, so the report page and the no-session page were
     never parsed -- and the report page is the one a rename of the hardware sheet touches. A page nobody checks is a
     page that breaks in front of its reader.
+
+    AND THE SCRIPT FILES THE PAGE POINTS AT (17/10, S25). This read the <script> blocks written INSIDE the page and
+    left out those with a src, which was right while the whole script lived in the page. The moment the panel's
+    2 824 lines moved to a real file (UI-ASSETS), that rule made this verifier parse nothing at all: it would have
+    said "aucun script a parser" about the page it exists to protect. A local file the page loads is the page's
+    script, wherever it is stored.
 #>
 param([switch]$Detail)
 
@@ -51,6 +57,17 @@ function Test-PageScript {
     $html = Get-Content -LiteralPath $Path -Raw -Encoding UTF8
     # THE <script> BLOCKS OF THE PAGE, in order, leaving out those that point at a file.
     $blocs = @([regex]::Matches($html, '(?s)<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>') | ForEach-Object { $_.Groups[1].Value })
+    # AND THE FILES IT POINTS AT, in the same order, when they are ours: a relative path next to the page. An
+    # address with a scheme belongs to someone else and is not read here.
+    $folder = Split-Path -Parent $Path
+    foreach ($m in [regex]::Matches($html, '<script[^>]*\bsrc="([^"]+)"')) {
+        $src = $m.Groups[1].Value
+        if ($src -match '^[a-z]+:' -or $src.StartsWith('//')) { continue }
+        $file = Join-Path $folder ($src -replace '\?.*$', '')
+        if (-not (Test-Path -LiteralPath $file)) { return @{ Ok = $false; Blocks = 0; Kb = 0
+                                                            Output = "Script introuvable : $src" } }
+        $blocs += (Get-Content -LiteralPath $file -Raw -Encoding UTF8)
+    }
     # A PAGE WITHOUT A SCRIPT IS NOT A FAILURE: a page may be pure markup, and then there is nothing to parse.
     if (-not $blocs.Count) { return @{ Ok = $true; Blocks = 0; Kb = 0; Output = '' } }
     $tmp = Join-Path ([IO.Path]::GetTempPath()) ('vigie-front-' + [guid]::NewGuid().ToString('N') + '.js')

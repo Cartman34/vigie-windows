@@ -48,7 +48,17 @@ $ErrorActionPreference = 'Stop'
     comment lines, and the Atelier's pages 60 more. The ceiling is the measured number, and it goes down from here
     exactly as the previous one did -- a ratchet measures what is there, not what is comfortable.
 #>
-$COMMENT_CEILING = 713
+<#
+    17/10, THE LENS WIDENS AGAIN, AND THE NUMBER RISES FROM 713 TO 720. Same reason as 13/10 and the same
+    arithmetic: the panel's code left the page for real files (S25), so `.js` and `.css` are read here now -- and
+    reading `.css` showed a file nobody had ever counted, `apps/atelier/atelier.css`, with 7 French comment lines.
+    Those 7 are the whole rise. The repository holds 720: 541 in panel.js, 74 in panel.css, 24 in index.html, 7 in
+    atelier.css, and 74 in the PowerShell that is left.
+
+    A CEILING THAT RISES IS ALLOWED ONLY HERE: when the measure starts seeing something it never saw, the old
+    number was never the truth. It is not allowed when French is added -- that is what this ratchet refuses.
+#>
+$COMMENT_CEILING = 720
 
 # 08/10, the second half of common.ps1: 1044 -> 310 French comment lines in the library, and the repository from
 # 4539 to 3805. Then its tail -- the environment, the traceability, the requester, the Atelier, the elevation and
@@ -412,7 +422,7 @@ $total = 0
 $perFile = @{}
 $names = @{}
 
-foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.ps1','*.html','*.psd1' -ErrorAction SilentlyContinue)) {
+foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.ps1','*.html','*.psd1','*.js' -ErrorAction SilentlyContinue)) {
     $rel = $f.FullName.Substring($repoRoot.Length).TrimStart([char]92, [char]47).Replace([char]92, [char]47)
     if ($skipped | Where-Object { $rel -like ($_ + '/*') -or $rel -like ('*/' + $_ + '/*') }) { continue }
     # ONE FILE'S KEYS ARE FRENCH WORDS ON PURPOSE: check-encoding carries the accent dictionary, `'etat' =
@@ -430,6 +440,11 @@ foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.
         HASHTABLE KEY -- `titres = @(...)` -- and a contract key is exactly that: eleven French keys of the update
         sheet crossed to the page for weeks while this script printed 4, then 0. The tree sees them, and it sees a
         parameter whose name is only ever written once. The pattern stays for `.html`, which has no tree here.
+
+        AND FOR `.js` AND `.css` SINCE 17/10, because the panel's own code left the page (S25, UI-ASSETS). A
+        measure that reads a file BY ITS EXTENSION falls when the code moves, and the fall is pure
+        bookkeeping: the style took 74 French comment lines to `panel.css` and the count went 713 -> 639, then
+        the script took 541 more to `panel.js` and it went to 98. Not one French word had been translated.
 
         WHAT IS COUNTED IS A NAME WE GIVE: a function, a parameter, a variable being assigned, a key, a property
         being written. Never a name we READ -- `.Name` of a Windows object is not ours to translate.
@@ -552,12 +567,12 @@ $commentPerFile = @{}
 # AND THE PAGE IS CODE. This count read `.ps1` and `.psd1` only, so the 614 French comment lines of index.html
 # were never counted while the script announced zero for the whole repository. A `//` or `/* */` comment of the
 # page follows D115 like any other.
-foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.ps1','*.psd1','*.html' -ErrorAction SilentlyContinue)) {
+foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.ps1','*.psd1','*.html','*.js','*.css' -ErrorAction SilentlyContinue)) {
     $rel = $f.FullName.Substring($repoRoot.Length).TrimStart([char]92, [char]47).Replace([char]92, [char]47)
     if ($skipped | Where-Object { $rel -like ($_ + '/*') -or $rel -like ('*/' + $_ + '/*') }) { continue }
     $n = 0
     $inBlock = $false
-    $web = ($rel -like '*.html')
+    $web = ($rel -like '*.html' -or $rel -like '*.js' -or $rel -like '*.css')
     foreach ($line in (Get-Content -LiteralPath $f.FullName -Encoding UTF8 -ErrorAction SilentlyContinue)) {
         $trimmed = "$line".Trim()
         if ($web) {
