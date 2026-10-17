@@ -15,22 +15,25 @@
 <title>Vigie</title>
 <!-- Servi par la route /favicon.ico du back, qui relit le .ico LIVRE de l'app cliente :
      une seule representation de la marque, pas une copie de plus (D15). -->
-<link rel="icon" href="/favicon.ico?v=__APP_BUILD__" sizes="any">
+<link rel="icon" href="/favicon.ico?v=$($data.build)" sizes="any">
 <!--
-  Front statique. Ne connait QUE le contrat REST (apps/backend-pode/api/openapi.yaml).
-  NE PAS ouvrir ce fichier en file:// : sans jeton d'API il n'affiche rien de reel (D47).
-  Toute verification passe par le serveur -> http://127.0.0.1:47600.
-  Servi par le back : le jeton est injecte dans __API_TOKEN__ (route GET / de Pode).
-  Ouvert en file:// : pas de jeton -> repli sur ./mock/state.json puis mock inline.
+  A VIEW, rendered by the server app (D132, UI-RENDER). What is written between `$( and )
+  is evaluated when the page is served; everything else is sent as it stands. The session
+  token, the version, the build stamp and the labels arrive that way -- no marker is
+  replaced in a string any more.
+  It knows ONLY the REST contract (apps/backend-pode/api/openapi.yaml), and it is read
+  through the server -> http://127.0.0.1:47600. A view is not a file to open (D47).
+  When the back end does not answer, the script falls back on mock/state.json, and the
+  stripe under the header turns amber to say so.
 -->
 <script>
-  window.API_TOKEN = "__API_TOKEN__";
+  window.API_TOKEN = "$($data.token)";
   window.API_BASE  = "/api/v1";
   // Deux valeurs distinctes, deux usages : APP_VERSION s'AFFICHE (lisible, issue de git),
   // APP_BUILD sert UNIQUEMENT a detecter qu'une nouvelle version est servie. Les confondre
   // obligeait a afficher un jeton de changement -- « version 639231069781032063 ».
-  window.APP_VERSION = "__APP_VERSION__";
-  window.APP_BUILD   = "__APP_BUILD__";
+  window.APP_VERSION = "$($data.version)";
+  window.APP_BUILD   = "$($data.build)";
 
   // ---- LES LIBELLES ---------------------------------------------------------------
   // Le texte francais ne vit plus ici : il est dans lang/fr.json, partage avec les
@@ -42,7 +45,7 @@
   // Le try/catch couvre le seul cas ou le jeton n'est pas remplace : la page ouverte
   // directement depuis le disque, sans serveur. On se replie sur les cles plutot que
   // de casser la page entiere.
-  try { window.__LABELS = __LABELS_JSON__; } catch (e) { window.__LABELS = {}; }
+  try { window.__LABELS = $($data.labels); } catch (e) { window.__LABELS = {}; }
 
   // L('cle', valeur, ...) : le libelle, ses trous {0} {1} remplis dans l'ordre.
   // Une cle absente rend « [?cle] » -- visible et cherchable, JAMAIS une chaine vide :

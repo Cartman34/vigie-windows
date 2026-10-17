@@ -422,7 +422,7 @@ $total = 0
 $perFile = @{}
 $names = @{}
 
-foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.ps1','*.html','*.psd1','*.js' -ErrorAction SilentlyContinue)) {
+foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.ps1','*.html','*.psd1','*.js','*.pode' -ErrorAction SilentlyContinue)) {
     $rel = $f.FullName.Substring($repoRoot.Length).TrimStart([char]92, [char]47).Replace([char]92, [char]47)
     if ($skipped | Where-Object { $rel -like ($_ + '/*') -or $rel -like ('*/' + $_ + '/*') }) { continue }
     # ONE FILE'S KEYS ARE FRENCH WORDS ON PURPOSE: check-encoding carries the accent dictionary, `'etat' =
@@ -567,12 +567,12 @@ $commentPerFile = @{}
 # AND THE PAGE IS CODE. This count read `.ps1` and `.psd1` only, so the 614 French comment lines of index.html
 # were never counted while the script announced zero for the whole repository. A `//` or `/* */` comment of the
 # page follows D115 like any other.
-foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.ps1','*.psd1','*.html','*.js','*.css' -ErrorAction SilentlyContinue)) {
+foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.ps1','*.psd1','*.html','*.js','*.css','*.pode' -ErrorAction SilentlyContinue)) {
     $rel = $f.FullName.Substring($repoRoot.Length).TrimStart([char]92, [char]47).Replace([char]92, [char]47)
     if ($skipped | Where-Object { $rel -like ($_ + '/*') -or $rel -like ('*/' + $_ + '/*') }) { continue }
     $n = 0
     $inBlock = $false
-    $web = ($rel -like '*.html' -or $rel -like '*.js' -or $rel -like '*.css')
+    $web = ($rel -like '*.html' -or $rel -like '*.js' -or $rel -like '*.css' -or $rel -like '*.pode')
     foreach ($line in (Get-Content -LiteralPath $f.FullName -Encoding UTF8 -ErrorAction SilentlyContinue)) {
         $trimmed = "$line".Trim()
         if ($web) {

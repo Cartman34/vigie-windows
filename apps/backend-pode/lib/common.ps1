@@ -1632,7 +1632,7 @@ function Get-ApiToken {
     (Get-Content -Path $file -Raw).Trim()
 }
 
-# --- The application's version (it changes when index.html changes) ---------
+# --- The application's version (it changes when the panel's files change) ---
 # The product's VERSION number: the installation's, or the repository's.
 #
 # ONE single number (D96), and it is no longer kept by hand: an archive carries its build
@@ -1656,8 +1656,18 @@ function Get-AppVersion {
 # served -- which a commit hash does not do, since it ignores uncommitted changes.
 function Get-AppBuildId {
     param([string]$Backend = (Get-BackendRoot))
-    $idx = Join-Path (Get-AppPath -Role 'frontend') 'index.html'
-    if (Test-Path $idx) { "$((Get-Item $idx).LastWriteTimeUtc.Ticks)" } else { '0' }
+    # THE WHOLE PANEL, NOT ONE FILE. This watched index.html alone, which was the panel entire. Since the style
+    # and the script moved to their own files (D132, UI-ASSETS), watching the page alone would have left the
+    # browser on an old script for as long as nobody touched the page: the most recent write of the view AND of
+    # the files it loads is what "the panel changed" means.
+    $front = Get-AppPath -Role 'frontend'
+    $watched = @()
+    foreach ($sub in @('views', 'assets')) {
+        $dir = Join-Path $front $sub
+        if (Test-Path -LiteralPath $dir) { $watched += @(Get-ChildItem -LiteralPath $dir -Recurse -File -ErrorAction SilentlyContinue) }
+    }
+    if (-not $watched.Count) { return '0' }
+    "$((($watched | Sort-Object LastWriteTimeUtc -Descending)[0]).LastWriteTimeUtc.Ticks)"
 }
 
 # --- THE PRECISE IDENTITY OF A VERSION: the number AND the commit -----------

@@ -28,7 +28,7 @@ $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 Write-Title 'La page du panneau'
 
 # THE PAGES OF THE PANEL, in the order a reader meets them.
-$pages = @('apps/frontend-web/index.html', 'apps/frontend-web/report.html', 'apps/frontend-web/no-session.html')
+$pages = @('apps/frontend-web/views/index.pode', 'apps/frontend-web/report.html', 'apps/frontend-web/no-session.html')
 $missing = @($pages | Where-Object { -not (Test-Path -LiteralPath (Join-Path $repoRoot $_)) })
 if ($missing.Count) { Write-Fail ('Page introuvable : ' + ($missing -join ', ')); exit 2 }
 
@@ -55,11 +55,23 @@ if (-not $analyser) {
 function Test-PageScript {
     param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)]$Analyser)
     $html = Get-Content -LiteralPath $Path -Raw -Encoding UTF8
+    # A VIEW IS RENDERED BEFORE IT IS READ (D132, UI-RENDER). What the browser receives is the RESULT, and the
+    # template is not valid JavaScript on its own: the labels arrive as a bare JSON object, so `= $($data.labels);`
+    # only becomes a statement once the view is rendered. The engine is Pode's own, with stand-in data.
+    if ($Path -like '*.pode') {
+        Import-Module Pode -ErrorAction Stop
+        $render = & (Get-Module Pode) { Get-Command ConvertFrom-PodeFile }
+        $html = & $render -Content $html -Data @{ token = 'x'; version = 'v0.0'; build = '0'; labels = '{}' }
+    }
     # THE <script> BLOCKS OF THE PAGE, in order, leaving out those that point at a file.
     $blocs = @([regex]::Matches($html, '(?s)<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>') | ForEach-Object { $_.Groups[1].Value })
     # AND THE FILES IT POINTS AT, in the same order, when they are ours: a relative path next to the page. An
     # address with a scheme belongs to someone else and is not read here.
+    # WHERE A RELATIVE ADDRESS POINTS: at the front end's folder, which is what the server serves at "/" -- not at
+    # the folder the file happens to sit in. A view lives one level down, in views/, and still writes
+    # "assets/js/panel.js" because the browser resolves that against the ADDRESS of the page, which is "/".
     $folder = Split-Path -Parent $Path
+    if ($Path -like '*.pode') { $folder = Split-Path -Parent $folder }
     foreach ($m in [regex]::Matches($html, '<script[^>]*\bsrc="([^"]+)"')) {
         $src = $m.Groups[1].Value
         if ($src -match '^[a-z]+:' -or $src.StartsWith('//')) { continue }

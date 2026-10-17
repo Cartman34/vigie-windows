@@ -19,7 +19,7 @@
 #>
 $ErrorActionPreference = 'Stop'
 # The repository URL: a deliberate CONSTANT, not a setting -- it must not be easy to change.
-# Its counterpart on the front end: REPO_URL in frontend/index.html.
+# Its counterpart on the front end: REPO_URL in frontend-web/assets/js/panel.js.
 $RepoUrl = 'https://github.com/Cartman34/vigie-windows'
 # The server app is a SISTER app (apps/backend-pode), not the current folder.
 $appsRoot = Split-Path $PSScriptRoot -Parent

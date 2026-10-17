@@ -17,6 +17,12 @@ $base = $cfg.ApiBase
 
 Add-PodeEndpoint -Address $cfg.BindAddress -Port $cfg.Port -Protocol Http
 
+# THE VIEW ENGINE, which this server app owns and had never used (D132, UI-RENDER). "Pode" means a view is HTML
+# plus what stands between a dollar sign and its closing parenthesis, evaluated when the page is served. The
+# panel's views do not live here but in the front end's own folder, which is what a named view folder is for.
+Set-PodeViewEngine -Type Pode
+Add-PodeViewFolder -Name 'panel' -Source (Join-Path $front 'views')
+
 # --- Pode logging to file (errors + requests) ---
 $logDir = Get-VarPath -Backend $backend -Kind 'log'
 if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
@@ -452,7 +458,7 @@ Add-PodeRoute -Method Get -Path '/report' -ScriptBlock {
     Write-PodeTextResponse -Value $html -ContentType 'text/html; charset=utf-8'
 }
 
-# --- The interface: serves index.html, injecting the token (a same-origin page) ---
+# --- The interface: renders the panel's view, which carries the token (a same-origin page) ---
 Add-PodeRoute -Method Get -Path '/' -ScriptBlock {
     # The FIRST line, as in every other route. A Pode route runs in its OWN runspace: nothing loaded when the
     # server started exists there. Here the load was placed AFTER two helper calls -- so the route threw
@@ -542,20 +548,24 @@ Add-PodeRoute -Method Get -Path '/' -ScriptBlock {
         }
     }
 
-    $html  = Get-Content -Path (Join-Path $front 'index.html') -Raw
-    $html  = $html.Replace('__API_TOKEN__', $env:VIGIE_TOKEN)
-    $html  = $html.Replace('__APP_VERSION__', (Get-AppVersion -Backend $env:VIGIE_BACKEND))
-    $html  = $html.Replace('__APP_BUILD__',   (Get-AppBuildId -Backend $env:VIGIE_BACKEND))
-
     # THE LABELS TRAVEL WITH THE PAGE, like the token. The other solution -- a fetch at startup -- adds a round
     # trip AND a race: the first rendering can arrive before the labels, and the screen flickers with missing-key
-    # placeholders. Injected here, they are there before the first line of script.
+    # placeholders. Handed to the view, they are there before the first line of script.
     $labelFile = Join-Path (Split-Path (Split-Path $front -Parent) -Parent) 'lang/fr.json'
     $labelJson = if (Test-Path -LiteralPath $labelFile) {
         [System.IO.File]::ReadAllText($labelFile, (New-Object System.Text.UTF8Encoding($false)))
     } else { '{}' }
-    $html  = $html.Replace('__LABELS_JSON__', $labelJson)
-    Write-PodeTextResponse -Value $html -ContentType 'text/html; charset=utf-8'
+
+    # THE PAGE IS RENDERED, NOT PATCHED (D132, UI-RENDER). Until 17/10 this route read index.html as text and
+    # replaced four markers in it with String.Replace -- a marker left behind, or one written twice, and the
+    # panel shipped the literal "__API_TOKEN__" to the browser. The view states what it needs; the route hands it
+    # over by name.
+    Write-PodeViewResponse -Path 'index' -Folder 'panel' -Data @{
+        token   = $env:VIGIE_TOKEN
+        version = (Get-AppVersion -Backend $env:VIGIE_BACKEND)
+        build   = (Get-AppBuildId -Backend $env:VIGIE_BACKEND)
+        labels  = $labelJson
+    }
 }
 # The panel's own files -- styles, scripts -- served as what they are, so the browser caches them and the tools
 # read them for what they are (UI-ASSETS, D132). Until 17/10 the style lived inside the page, 784 lines of it.
