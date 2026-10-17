@@ -14,23 +14,23 @@ import { openSettings } from './settings.js';
 
 export async function doAction(type,module,confirmNeeded,label,help,btnEl,params,kind,confirmerDeuxFois,explications){
   const name = label || type;
-  // Une action peut viser l'INTERFACE et non la machine : « Gerer les comptes » ouvre
-  // simplement le panneau Parametres > Utilisateurs. Rien a envoyer au serveur -- lui
-  // faire un aller-retour pour ouvrir un ecran serait un detour sans objet.
+  // An action may aim at the INTERFACE rather than at the machine: "Manage accounts"
+  // simply opens the Settings > Users panel. Nothing to send to the server -- a round
+  // trip just to open a screen would be a detour with no purpose.
   if(type==='open-users-settings'){ openSettings('utilisateurs'); return; }
-  // L'exploration de l'arborescence est une ACTION (choix utilisateur) : elle ouvre sa
-  // fenetre, qui demandera les niveaux au serveur au fur et a mesure.
+  // Walking the disk tree is an ACTION (the user's choice): it opens its window, which
+  // will ask the server for each level as it goes.
   if(type==='disk-tree'){ await ouvrirArborescence(); return; }
   // THE RECAP AND THE LIST OF SESSIONS open their own window: the action only READS what Vigie kept, and the page
   // lays it out. A card would not carry that table (owner, 28/09).
   if(type==='game-recap'){ await openSessionRecap(); return; }
   if(type==='game-sessions'){ await openPastSessions(); return; }
-  /* WSL QUI ACCAPARE LES PORTS : UNE FENETRE, TROIS ISSUES.
+  /* WSL HOGGING THE PORTS: ONE WINDOW, THREE WAYS OUT.
 
-     La carte Reseau propose « Redemarrer WSL » quand c'est son hote reseau qui tient le tas de ports -- lui seul les
-     rend. Mais arreter WSL suffit parfois, et ne rien faire est un choix aussi : tant que la reserve n'est pas
-     pleine, rien ne casse. La fenetre dit ce que ca coute et laisse les trois, plutot que de poser une question
-     fermee a laquelle la bonne reponse depend de ce qu'on a ouvert dans Linux. */
+     The Network card offers "Restart WSL" when it is its network host holding the pile of ports -- only it can
+     give them back. But stopping WSL is sometimes enough, and doing nothing is a choice too: as long as the
+     reserve is not full, nothing breaks. The window says what each one costs and leaves all three, rather than
+     asking a closed question whose right answer depends on what is open inside Linux. */
   if(type==='wsl-restart' && !params){
     const choix = await HDS.open({
       title: L('ui.wsl-fenetre-titre'), variant:'warn', cancelValue:null,
@@ -42,15 +42,15 @@ export async function doAction(type,module,confirmNeeded,label,help,btnEl,params
       ]
     });
     if(!choix) return;
-    // Le choix est DEJA confirme par cette fenetre : on ne redemande pas derriere.
+    // The choice is ALREADY confirmed by this window: we do not ask again behind it.
     return doAction(choix, module, false, null, null, btnEl, { confirme:true }, 'confirm');
   }
-  // ACTION CRITIQUE = double confirmation. C'est le standard du projet pour tout geste
-  // qui ferme le travail en cours ou touche la machine entiere.
+  // A CRITICAL ACTION = a double confirmation. That is the project's standard for any
+  // gesture that closes the work under way or touches the whole machine.
   //
-  // Les deux fenetres ne s'affichent PAS au meme endroit : la premiere au centre, la
-  // seconde en haut. Superposees, un double clic rapide les validerait toutes les deux
-  // sans qu'aucune ait ete lue. Chacune porte une alerte en gras -- orange, puis rouge.
+  // The two windows do NOT appear in the same place: the first in the middle, the second
+  // at the top. Stacked, a quick double click would confirm both without either having
+  // been read. Each carries a warning in bold -- amber, then red.
   if(confirmNeeded){
     const ok = await HDS.confirm({
       title: name,
@@ -74,15 +74,15 @@ export async function doAction(type,module,confirmNeeded,label,help,btnEl,params
       if(!sur) return;
     }
   }
-  // Action de type « fenetre de choix » : la fenetre s'ouvre TOUT DE SUITE, avec son
-  // chargeur, et n'interroge le serveur que si sa liste locale a expire. Auparavant on
-  // attendait la reponse avant d'ouvrir : le clic restait sans effet visible.
+  // An action of the "choice window" kind: the window opens AT ONCE, with its loader, and
+  // only asks the server if its local list has expired. Before, we waited for the answer
+  // before opening: the click stayed without visible effect.
   if(kind === 'dialog'){
     let charge = null;
     const choisis = await HDS.choose({
-      // Exclure un paquet DEPUIS la liste : il part dans « Paquets ignores » du module
-      // Outils & paquets, et ne sera plus propose. C'est ici qu'on le decide, pas dans
-      // les parametres -- exigence utilisateur.
+      // Excluding a package FROM the list: it goes into "Ignored packages" of the Tools &
+      // packages module, and will not be offered again. This is where one decides it, not
+      // in the settings -- the owner asked for that.
       exclure: async id=>{
         const r=await fetch(API+'/parameters',{headers:{Authorization:'Bearer '+TOKEN}});
         if(!r.ok) throw new Error('HTTP '+r.status);
@@ -103,8 +103,8 @@ export async function doAction(type,module,confirmNeeded,label,help,btnEl,params
         const r = charge.result || {};
         const avis = r.verrou
           ? L('ui.le-verrou-du-mode') : "";
-        // Le serveur peut imposer ses textes et INTERDIRE la selection (`selection:false`).
-        // Sans cela, tous les gestionnaires auraient l'air de savoir cibler un paquet.
+        // The server may impose its own wording and FORBID selection (`selection:false`).
+        // Without it, every package manager would look able to target one package.
         return { items: itemsDeMaj(charge),
                  tousCoches: (r.preselect === true),
                  verrouille: (r.selection === false),
@@ -121,21 +121,21 @@ export async function doAction(type,module,confirmNeeded,label,help,btnEl,params
   }
 
   setBtnBusy(btnEl);
-  // La carte passe en « operation en cours » DES LE CLIC : attendre la reponse du serveur
-  // laissait une seconde ou rien ne bougeait, puis une carte qui semblait figee.
+  // The card goes to "operation under way" FROM THE CLICK: waiting for the server's answer
+  // left a second where nothing moved, then a card that looked frozen.
   if(module) markCardBusy(module, name);
   const entry=addNotif(name, 'running', L('ui.envoi-de-la-commande'));
 
-  // ON RESERVE LA CLE AVANT D'ENVOYER, PAS APRES.
+  // WE RESERVE THE KEY BEFORE SENDING, NOT AFTER.
   //
-  // La synchronisation des operations tourne toutes les 4 s. Si le serveur met plus
-  // longtemps a repondre -- et une action qui lance une tache de fond y met souvent
-  // plusieurs secondes --, elle voit l'operation AVANT que nous ayons note sa cle, ne la
-  // reconnait pas, et cree une SECONDE notification pour la meme chose. Constate le
-  // 29/08 : « Mettre a jour l'installation » et « Mise a jour de Vigie » cote a cote.
+  // The operations sync runs every 4 s. If the server takes longer to answer -- and an
+  // action that starts a background task often takes several seconds -- it sees the
+  // operation BEFORE we have noted its key, does not recognise it, and creates a SECOND
+  // notification for the same thing. Seen on 29/08: "Update the installation" and "Vigie
+  // update" side by side.
   //
-  // Poser la cle des maintenant supprime la course. Si la reponse n'est pas asynchrone,
-  // on la retire : rien ne tourne, il n'y a rien a reconnaitre.
+  // Laying the key down now removes the race. If the answer is not asynchronous, we take
+  // it away again: nothing is running, there is nothing to recognise.
   const cleAttendue = (module || '') + '|' + type;
   entry.op = cleAttendue;
   opsConnues[cleAttendue] = entry.id;
@@ -149,10 +149,10 @@ export async function doAction(type,module,confirmNeeded,label,help,btnEl,params
     const st = (r.ok && j.status==='done' && okFlag) ? 'done' : 'error';
     const msg = (j.message || j.status || ('HTTP '+r.status)) + (j.jobId ? ('  [job '+j.jobId+']') : '');
     if(st==='done' && j.result && j.result.async){
-      // Action asynchrone non bloquante : la carte passe en "en cours" et s'actualise seule.
+      // A non-blocking asynchronous action: the card goes to "under way" and refreshes itself.
       const pollMod = j.result.module || module;
-      // Le serveur peut viser un AUTRE module que celui du bouton : on corrige alors
-      // la reservation posee avant l'envoi.
+      // The server may aim at a module OTHER than the button's: we then correct the
+      // reservation laid down before sending.
       const cleReelle = (pollMod || '') + '|' + type;
       if (cleReelle !== cleAttendue) { delete opsConnues[cleAttendue]; }
       entry.op = cleReelle;
@@ -160,13 +160,13 @@ export async function doAction(type,module,confirmNeeded,label,help,btnEl,params
       markCardBusy(pollMod, name);
       updateNotif(entry, 'running', j.message || (name+L('ui.en-cours')));
       clearBtnBusy(btnEl);
-      // La reponse dit ce qui tourne MAINTENANT : on se cale dessus sans attendre le
-      // prochain sondage.
+      // The answer says what is running NOW: we align on it without waiting for the
+      // next poll.
       if(j.operations){ syncOperations(j.operations); }
       if(pollMod){ refreshCard(pollMod); pollCardUntilIdle(pollMod, entry, name); }
       return;
     }
-    // Rien ne tourne en fond : la reservation n'a plus lieu d'etre.
+    // Nothing is running in the background: the reservation has no reason to exist.
     delete opsConnues[cleAttendue];
     updateNotif(entry, st, msg);
     clearBtnBusy(btnEl);
@@ -181,17 +181,17 @@ export async function doAction(type,module,confirmNeeded,label,help,btnEl,params
       HDS.open({ title:name, variant:'info', large:true,
                  html:'<pre class="hds-report">' + esc(String(j.result.detail)) + '</pre>' + source });
     }
-    // LA FIN DE L'OPERATION EST L'EVENEMENT, et la suite s'enchaine dessus : resultat + toast, puis RECALCUL
-    // PARTIEL de la carte, puis affichage. C'est GET /modules/:id?fresh=1, le chemin du bouton de la carte, et une
-    // action qui invalide une carte a le droit de le demander (D124, point 2).
+    // THE END OF THE OPERATION IS THE EVENT, and what follows chains onto it: result plus toast, then a PARTIAL
+    // RECOMPUTE of the card, then display. That is GET /modules/:id?fresh=1, the path of the card's own button, and
+    // an action that invalidates a card has the right to ask for it (D124, point 2).
     //
-    // Avant, un minuteur de 700 ms relisait le CACHE. A cet instant le serveur a invalide la carte mais ne l'a pas
-    // encore recalculee : la page reaffichait donc l'ANCIENNE valeur, jusqu'au passage de l'ordonnanceur -- 26
-    // secondes plus tard sur l'IP publique, constate par le proprietaire le 12/10, qui a du rafraichir a la main.
-    // Un delai n'est pas un evenement, et il n'y avait pas besoin d'en inventer un.
+    // Before, a 700 ms timer re-read the CACHE. At that instant the server has invalidated the card but has not
+    // recomputed it yet: the page therefore showed the OLD value again, until the scheduler came by -- 26 seconds
+    // later on the public IP, seen by the owner on 12/10, who had to refresh by hand.
+    // A delay is not an event, and there was no need to invent one.
     if(module){ refreshCard(module, null, true); } else { refresh(); }
   }catch(e){ updateNotif(entry,'error','Erreur : '+e.message); clearBtnBusy(btnEl); }
 }
 
-// Un seul endroit connait REPO_URL : tous les liens marques data-repo-link la recoivent d'ici.
-// data-repo-link="label" => le texte affiche est derive de l'URL (pas de duplication).
+// One single place knows REPO_URL: every link marked data-repo-link receives it from here.
+// data-repo-link="label" => the text shown is derived from the URL (no duplication).

@@ -2,28 +2,28 @@
 import { lastModules } from './cards.js';
 import { esc } from './format.js';
 
-// ===== VERROU PENDANT UNE OPERATION =========================================
+// ===== THE LOCK WHILE AN OPERATION RUNS =====================================
 //
-// Regle posee le 27/08 : « quand une operation est en cours, les autres ne doivent pas
-// etre disponibles ». Y compris les lectures : selon ce qui tourne, relire pendant
-// qu'on ecrit donne un resultat qui ne veut rien dire -- une carte qui interroge
-// l'installation partagee au milieu d'un deploiement, par exemple.
+// Rule set on 27/08: "when an operation is under way, the others must not be available".
+// Readings included: depending on what is running, reading while something writes gives a
+// result that means nothing -- a card questioning the shared installation in the middle of
+// a deployment, for instance.
 //
-// Ce qui reste permis : RAFRAICHIR une carte. C'est ainsi qu'on regarde l'operation
-// avancer, et cela ne fait que relire. Tout le reste -- actions de la barre, boutons de
-// resolution des lignes -- est suspendu, sur TOUTES les cartes : les operations de Vigie
-// (deploiement, mise a jour, installation d'une dependance) touchent la machine entiere,
-// pas seulement la carte d'ou elles partent.
+// What stays allowed: REFRESHING a card. That is how one watches the operation move on,
+// and it only reads. Everything else -- the bar's actions, the rows' fix buttons -- is
+// suspended, on EVERY card: Vigie's operations (a deployment, an update, installing a
+// dependency) touch the whole machine, not only the card they started from.
+// not only the card they started from.
 export function runningOperation(){
-  // UNE CARTE QUI N'EXISTE PLUS NE TIENT PLUS RIEN.
+  // A CARD THAT NO LONGER EXISTS HOLDS NOTHING ANY MORE.
   //
-  // Une carte disparue de l'etat -- la carte d'erreur d'une sonde, une fois la sonde
-  // reparee -- restait dans la page avec son marqueur « occupee ». Le verrou s'appuyait
-  // dessus et desactivait TOUS les boutons de l'interface, sans qu'aucune operation ne
-  // tourne (signale le 29/08 : « c'est grise sans raison », 31 boutons bloques).
+  // A card gone from the state -- a probe's error card, once the probe was repaired --
+  // stayed in the page with its "busy" marker. The lock leaned on it and switched off
+  // EVERY button of the interface, with no operation running at all (reported on 29/08:
+  // "it is greyed out for no reason", 31 buttons blocked).
   //
-  // On ne nettoie que si l'on a bien recu un etat : quand le serveur ne repond pas,
-  // lastModules est vide et l'occupation en cours reste vraie.
+  // We only clean up if a state was actually received: when the server does not answer,
+  // lastModules is empty and the busy state in force stays true.
   if((lastModules||[]).length){
     document.querySelectorAll('.card.busy').forEach(c => {
       if(!lastModules.some(x => x.id === c.dataset.module)) c.remove();
@@ -33,17 +33,17 @@ export function runningOperation(){
   if(!c) return null;
   const t = c.querySelector('.card-titles .name');
   const m = (lastModules || []).find(x => x.id === c.dataset.module);
-  // LES RESSOURCES VIENNENT DU SERVEUR quand il les donne : c'est lui qui tient la marque, et elle les porte.
-  // La carte ne les porte que si sa sonde les a declarees, ce que presque aucune ne fait.
+  // THE RESOURCES COME FROM THE SERVER when it gives them: it is the one holding the mark, and the mark carries them.
+  // The card only carries them if its probe declared them, which almost none does.
   const seen = opsByCard[c.dataset.module];
   return { module: c.dataset.module, titre: (seen && seen.label) || (t ? t.textContent : c.dataset.module),
            ressources: (seen && seen.resources) || (m && m.busyResources) || [] };
 }
-// FIN D'OPERATION : on eteint ce que markCardBusy avait allume.
+// END OF AN OPERATION: we switch off what markCardBusy had switched on.
 //
-// Le lisere bleu « operation en cours » restait allume apres la fin, alors que plus rien
-// ne tournait ; seul un rafraichissement complet le rendait a sa vraie couleur (signale
-// le 28/08). La liste des operations dit pourtant exactement quand ca s'arrete.
+// The blue "operation under way" stripe stayed lit after the end, while nothing was
+// running any more; only a full refresh gave it back its true colour (reported on 28/08).
+// The list of operations says exactly when it stops, though.
 export function clearCardBusy(moduleId){
   if(!moduleId) return;
   const sel='.card[data-module="'+((window.CSS&&CSS.escape)?CSS.escape(moduleId):moduleId)+'"]';
@@ -52,8 +52,8 @@ export function clearCardBusy(moduleId){
   if(m){ m.busy=false; delete m.busyAction; delete m.busyResources; }
   if(card){
     card.classList.remove('busy');
-    // Les boutons de la carte redeviennent ce que le rendu dit d'eux : c'est le verrou,
-    // juste apres, qui tranche s'ils restent bloques par une AUTRE operation.
+    // The card's buttons become again what the rendering says of them: it is the lock,
+    // just afterwards, that settles whether they stay blocked by ANOTHER operation.
     card.querySelectorAll('.act, .fsolve').forEach(b=>{
       if(b.dataset.held) return;          // bloque par le verrou : il s'en occupe
       if(b.classList.contains('denied')) return;   // interdit par les droits (D65)
@@ -69,8 +69,8 @@ export function applyOperationLock(){
   const raison = op
     ? L('ui.une-operation-est-en-2') + op.titre + L('ui.les-autres-actions-reprendront')
     : '';
-  // CE QUI CROISE, et seulement cela (D93). « machine » croise tout. Une action sans
-  // ressource declaree est inoffensive : elle reste disponible.
+  // WHAT CROSSES, and only that (D93). "machine" crosses everything. An action with no
+  // declared resource is harmless: it stays available.
   const tenues = op ? (op.ressources || []) : [];
   const croise = b => {
     if(!op) return false;
@@ -91,15 +91,15 @@ export function applyOperationLock(){
   };
   document.querySelectorAll('.act, .fsolve').forEach(b => {
     if(op && croise(b)){
-      // On garde en memoire ce qui etait DEJA desactive pour une autre raison (droits
-      // refuses, par exemple) : le verrou ne doit pas reactiver un bouton interdit.
+      // We remember what was ALREADY switched off for another reason (rights refused, for
+      // instance): the lock must not bring a forbidden button back to life.
       if(!b.dataset.held){
         b.dataset.held = b.disabled ? 'deja' : 'oui';
         b.dataset.titleBefore = b.title || '';
       }
       b.disabled = true;
-      // La marque ne va QUE sur ce que le verrou retient lui-meme : un bouton deja
-      // refuse par les droits reste un bouton refuse, il ne devient pas une attente.
+      // The mark goes ONLY on what the lock holds back itself: a button already refused by
+      // the rights stays a refused button, it does not become a wait.
       if(b.dataset.held === 'oui'){ b.title = raison; b.classList.add('retenu'); }
     } else if(b.dataset.held){
       if(b.dataset.held === 'oui'){ b.disabled = false; b.title = b.dataset.titleBefore || ''; b.classList.remove('retenu'); }
@@ -109,7 +109,7 @@ export function applyOperationLock(){
   });
 }
 
-// LES OPERATIONS EN COURS, telles que /operations les donne, rangees par identifiant de carte.
+// THE OPERATIONS UNDER WAY, as /operations gives them, arranged by card identifier.
 export let opsByCard = {};
 export function resetOpsByCard(){ for(const k of Object.keys(opsByCard)) delete opsByCard[k]; }
 
@@ -122,8 +122,8 @@ function sinceWhen(iso){
   return L('ui.operation-depuis-heures', Math.floor(s / 3600));
 }
 
-// LA NOTE SOUS L'EN-TETE : une ligne, le libelle de l'operation et depuis combien de temps. Elle est posee et
-// retiree ici, jamais reconstruite par la carte -- une carte se redessine a chaque mesure, l'operation non.
+// THE NOTE UNDER THE HEADER: one line, the operation's label and for how long. It is laid down and taken away
+// here, never rebuilt by the card -- a card redraws itself on every measure, an operation does not.
 export function paintOperationNotes(){
   document.querySelectorAll('.card').forEach(card => {
     const op = opsByCard[card.dataset.module];
@@ -143,9 +143,9 @@ export function paintOperationNotes(){
   });
 }
 
-// « Operation en cours » sur une carte, sans attendre le serveur : on reutilise l'etat
-// `busy` que le contrat porte deja (liseré animé, boutons neutralises), on n'invente pas
-// un statut de plus.
+// "Operation under way" on a card, without waiting for the server: we reuse the `busy`
+// state the contract already carries (animated stripe, buttons switched off), we do not
+// invent one more status.
 export function markCardBusy(moduleId, quoi){
   if(!moduleId) return;
   const sel='.card[data-module="'+((window.CSS&&CSS.escape)?CSS.escape(moduleId):moduleId)+'"]';
@@ -158,18 +158,18 @@ export function markCardBusy(moduleId, quoi){
   applyOperationLock();
 }
 
-// Le corps d'une confirmation : ce que ca FAIT, ce que ca CHANGE, QUAND s'en servir,
-// et comment REVENIR EN ARRIERE. Chaque partie ne s'affiche que si l'action l'a
-// declaree -- une confirmation a rallonge de generalites ne vaut pas mieux qu'une
-// phrase vague (D91).
+// The body of a confirmation: what it DOES, what it CHANGES, WHEN to use it, and how to
+// GO BACK. Each part is shown only if the action declared it -- a confirmation padded out
+// with generalities is worth no more than
+// a vague sentence (D91).
 export function corpsConfirmation(help, ex){
   ex = ex || {};
   const bloc = (headingText, texte) => texte
     ? '<div class="cf-bloc"><div class="cf-t">'+esc(headingText)+'</div><div class="cf-c">'+esc(texte)+'</div></div>'
     : '';
-  // CE QUI PASSE D'UN ETAT A L'AUTRE SE MONTRE, il ne se raconte pas. Deux valeurs et
-  // une fleche se lisent d'un coup d'oeil ; la meme chose collee au bout d'une phrase se
-  // perd (signale le 29/08 sur « De v0.1.25 vers v0.1.25+1 »).
+  // WHAT GOES FROM ONE STATE TO ANOTHER IS SHOWN, it is not narrated. Two values and an
+  // arrow read at a glance; the same thing stuck at the end of a sentence gets lost
+  // (reported on 29/08 about "From v0.1.25 to v0.1.25+1").
   const t = ex.transition;
   const note = n => n ? '<div class="cf-vn">'+esc(n)+'</div>' : '';
   const blocTransition = (t && (t.from || t.to))
@@ -180,9 +180,9 @@ export function corpsConfirmation(help, ex){
       + '<div class="cf-v cf-v-to">'+esc(t.to||'—')+note(t.toNote)+'</div>'
       + '</div></div>'
     : '';
-  // LE DEROULE, EN ETAPES. Combien il y en a, et laquelle finit le travail : c'est ce
-  // qu'on veut savoir avant de lancer quelque chose qui dure. La derniere est l'etat
-  // d'arrivee, pas une phase -- elle se distingue.
+  // THE SEQUENCE, IN STEPS. How many there are, and which one finishes the work: that is
+  // what one wants to know before starting something long. The last one is the state
+  // arrived at, not a phase -- it is set apart.
   const etapes = (ex.steps || []);
   const blocEtapes = etapes.length
     ? '<div class="cf-bloc"><div class="cf-t">'+esc(L('ui.ce-qui-va-se-passer'))+'</div>'
