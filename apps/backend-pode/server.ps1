@@ -557,6 +557,9 @@ Add-PodeRoute -Method Get -Path '/' -ScriptBlock {
     $html  = $html.Replace('__LABELS_JSON__', $labelJson)
     Write-PodeTextResponse -Value $html -ContentType 'text/html; charset=utf-8'
 }
+# The panel's own files -- styles, scripts -- served as what they are, so the browser caches them and the tools
+# read them for what they are (UI-ASSETS, D132). Until 17/10 the style lived inside the page, 784 lines of it.
+Add-PodeStaticRoute -Path '/assets' -Source (Join-Path $front 'assets')
 Add-PodeStaticRoute -Path '/mock' -Source (Join-Path $front 'mock')
 
 # Favicon: serves the client app's DELIVERED .ico. Without a favicon, the browser's dedicated window (--app) shows
