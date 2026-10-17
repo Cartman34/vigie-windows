@@ -16,18 +16,18 @@ export let themeLabels={};
 export let lastModules=[];
 export let lastStateReadAt='';
 export let lastUnits=[], lastHost='';
-// Persistes : un rechargement (frequent, l'app se recharge a chaque build) ne doit
-// pas rendre les groupes que l'utilisateur a masques.
+// Persisted: a reload (frequent -- the app reloads on every build) must not bring back
+// the groups the user has hidden.
 export let hiddenThemes=new Set();
 try{ hiddenThemes=new Set(JSON.parse(localStorage.getItem('vigie.hiddenThemes')||'[]')); }catch(e){}
 function applyFilter(){
   document.querySelectorAll('.masonry .card[data-theme]').forEach(c=>{
     c.style.display = hiddenThemes.has(c.dataset.theme) ? 'none' : '';
   });
-  // ET ON REDISTRIBUE. Masquer une carte la sort de l'affichage, pas de sa colonne : en
-  // decochant un groupe on laissait des colonnes vides et un trou au milieu de la grille
-  // (constate le 01/09). Les cartes visibles se repartissent donc a nouveau, comme apres
-  // un rendu -- c'est la meme operation, elle vit deja dans layoutColumns.
+  // AND WE REDISTRIBUTE. Hiding a card takes it out of the display, not out of its
+  // column: unticking a group left empty columns and a hole in the middle of the grid
+  // (seen on 01/09). So the visible cards are shared out again, as after a rendering --
+  // it is the same operation, and it already lives in layoutColumns.
   const masonry = document.querySelector('.masonry');
   if (masonry) layoutColumns(masonry);
 }
@@ -38,9 +38,9 @@ export function toggleGroup(id){
   applyFilter();
 }
 
-// Rendu d'UNE carte (reutilise par le rendu complet ET le rafraichissement par carte).
-// D59 : une exception de rendu ne fait JAMAIS disparaitre la carte -- elle s'affiche
-// en carte d'erreur minimale, diagnosticable, a sa place dans la grille.
+// Rendering of ONE card (reused by the full rendering AND by the per-card refresh).
+// D59: a rendering exception NEVER makes the card disappear -- it is shown as a minimal
+// error card, diagnosable, in its place in the grid.
 export function cardHtmlSafe(m, groupLabel){
   try{ return cardHtml(m, groupLabel); }
   catch(e){
@@ -52,12 +52,12 @@ export function cardHtmlSafe(m, groupLabel){
       +'<div class="fields"><div class="frow"><span style="font-size:12.5px;color:var(--muted)">Le rendu de cette carte a échoué ('+esc(String(e&&e.message||e))+'). Les données du module sont intactes ; rechargez ou signalez.</span></div></div></div>';
   }
 }
-/* LA CADENCE D'UNE CARTE TENUE EN RETRAIT (contrat Module.pace).
+/* THE PACE OF A CARD HELD BACK (Module.pace contract).
 
-   Pendant une partie, Vigie espace le recalcul des cartes qui ne regardent pas le jeu : jusqu'a vingt minutes,
-   une heure pour les plus lourdes. Sans le dire, la carte donnerait une mesure d'il y a vingt minutes avec
-   l'aplomb d'une mesure de l'instant. Seules les cartes reellement ralenties portent cette mention -- le serveur
-   ne l'envoie pas pour les autres. */
+   During a game, Vigie spaces out the recomputing of the cards that are not watching the game: up to twenty
+   minutes, an hour for the heaviest. Without saying so, the card would give a measure from twenty minutes ago
+   with the assurance of a measure from this instant. Only the cards really slowed down carry this mention --
+   the server does not send it for the others. */
 export function paceLabel(seconds){
   const s = Number(seconds) || 0;
   if (s >= 3600) { const h = Math.round(s / 3600); return h > 1 ? `${h} h` : '1 h'; }
@@ -71,19 +71,19 @@ function paceHtml(m){
   return `<span class="card-pace" title="${esc(quoi)} Recalculée toutes les ${esc(paceLabel(m.pace.seconds))}.">en retrait · ${esc(paceLabel(m.pace.seconds))}</span>`;
 }
 
-/* LA FRAICHEUR D'UNE CARTE (contrat Module.freshness, S16).
+/* HOW FRESH A CARD IS (Module.freshness contract, S16).
 
-   Une valeur vieille de vingt-deux heures s'affichait comme une valeur de la seconde. La carte porte desormais trois
-   moments : quand la sonde a produit ce qu'elle montre, quand l'ordonnanceur est passe, et l'intervalle attendu.
+   A value twenty-two hours old was displayed like a value from this second. The card now carries three moments:
+   when the probe produced what it shows, when the scheduler came by, and the interval expected.
 
-   EN RETARD, ce n'est pas "une seconde de plus que l'intervalle" : un calcul de trente secondes qui arrive a
-   trente-deux est a l'heure. On laisse passer le double de l'intervalle, et au moins deux minutes -- la meme regle
-   que la mise en retrait, pour la meme raison : ne pas alerter sur du bruit.
+   LATE is not "one second more than the interval": a thirty-second computation arriving at thirty-two is on
+   time. We allow twice the interval, and at least two minutes -- the same rule as holding back, for the same
+   reason: not to raise an alarm about noise.
 
-   Un calcul qui ENCHAINE LES ECHECS est en retard quoi qu'il arrive : il ne reviendra pas tout seul. */
-// DE QUI CETTE CARTE PARLE (D128). Rien pour l'ordinateur, qui est le cas ordinaire ; rien pour « mixed », dont ce
-// sont les champs qui parlent. La mention ne sort que pour une carte qui ne dit QUE le compte connecte : sans elle,
-// on lit la valeur d'un compte comme une valeur de l'ordinateur, ce qui est arrive le 05/10 avec winget.
+   A computation that FAILS AGAIN AND AGAIN is late whatever happens: it will not come back on its own. */
+// WHO THIS CARD SPEAKS OF (D128). Nothing for the computer, which is the ordinary case; nothing for "mixed", whose
+// fields speak for themselves. The mention only comes out for a card that says ONLY the connected account: without
+// it, one reads an account's value as the computer's, which happened on 05/10 with winget.
 function scopeHtml(m){
   if(!m || m.scope !== 'user') return '';
   return '<span class="card-scope" title="'+esc(L('ui.portee-compte-aide'))+'">'+esc(L('ui.portee-compte'))+'</span>';
@@ -119,47 +119,47 @@ function cardHtml(m, groupLabel){
     fieldsByKey[key]=Object.assign({},f,{moduleId:m.id,fixKind:fkind,fixConfirm:fconfirm});
     const help=(f.help||'').replace(/"/g,'&quot;');
     const isProblem=(stt==='warn'||stt==='error');
-    // SEUL le guide s'affiche sous la ligne : ce sont les informations SUPPLEMENTAIRES
-    // (liste, valeurs detaillees, mode d'emploi). La description de ce que montre le
-    // champ (`help`) reste une INFOBULLE.
+    // ONLY the guide is shown under the row: those are the EXTRA pieces of information
+    // (a list, detailed values, instructions). The description of what the field shows
+    // (`help`) stays a TOOLTIP.
     const detTxt=(f.guide||'');
     const open=openDetails.has(key)?' open':'';
-    // Un detail COURT se deplie dans la carte ; un detail LONG ouvre une fenetre. Deplie
-    // dans la carte, il la fait exploser en hauteur et noie le reste du tableau de bord
-    // -- constate sur la liste des interfaces reseau, plusieurs dizaines de lignes.
+    // A SHORT detail unfolds inside the card; a LONG detail opens a window. Unfolded in
+    // the card, it blows its height up and drowns the rest of the dashboard -- seen on
+    // the list of network interfaces, several dozen rows.
     const aTable  = !!(f.table && f.table.rows && f.table.rows.length);
     const aTree   = !!f.tree;
     const detLong = aTable || aTree || (!!detTxt && (detTxt.length > 400 || detTxt.split(String.fromCharCode(10)).length > 8));
-    // UN CLIC DOIT TOUJOURS FAIRE QUELQUE CHOSE (signale par l'utilisateur : le (i) et le
-    // libelle restaient inertes). Trois cas :
-    //   - detail court   -> il se deplie sous la ligne ;
-    //   - detail long, tableau, arbre -> fenetre dediee ;
-    //   - AIDE SEULE (ni guide ni tableau) -> fenetre aussi, au lieu d'un dépliant vide.
-    // Avant, ce dernier cas appelait un depliant qui n'existait pas : rien ne se passait.
+    // A CLICK MUST ALWAYS DO SOMETHING (reported by the user: the (i) and the label
+    // stayed inert). Three cases:
+    //   - a short detail -> it unfolds under the row;
+    //   - a long detail, a table, a tree -> a dedicated window;
+    //   - HELP ALONE (no guide, no table) -> a window too, instead of an empty fold.
+    // Before, that last case called a fold that did not exist: nothing happened.
     const aQuoiVoir  = !!(detTxt || aTable || aTree || f.help);
     const clicDetail = !aQuoiVoir ? ''
       : ((detLong || !detTxt) ? `panel.ouvrirDetail('${key}')` : 'panel.toggleDetail(this)');
     const info=aQuoiVoir?`<button class="fhelp ${stt}" title="${help}" onclick="${clicDetail}"><span class="vi vi-fw vi-lg">&#xE007;</span></button>`:'';
-    // BOUTON DE RESOLUTION (D66) : un champ orange ou rouge qui cite une action porte
-    // TOUJOURS son bouton, juste sous la ligne. Il etait neutralise en dur ici (`const
-    // solve=''`) : aucune carte n'en affichait, quelle que soit la sonde -- c'est le
-    // defaut signale sur « Compteurs GPU ».
-    // Le libelle vient de l'action quand la carte la declare aussi ; sinon le serveur
-    // l'a completee depuis la declaration du fichier d'action.
+    // THE FIX BUTTON (D66): an amber or red field that names an action ALWAYS carries its
+    // button, right under the row. It was switched off in hard here (`const solve=''`):
+    // not one card showed one, whatever the probe -- that is the fault reported about
+    // "GPU counters".
+    // The label comes from the action when the card declares it too; otherwise the server
+    // completed it from the action file's own declaration.
     const interditeF = fa && (fa.allowed===false);
-    // SON OPERATION TOURNE : il tourne aussi. La rangee d'actions savait deja le faire ;
-    // le bouton de resolution, lui, restait intact et cliquable pendant que l'operation
-    // qu'il venait de lancer se deroulait -- « il ne tourne pas, n'est pas grise, et est
-    // toujours present » (constate le 28/08). Meme regle, meme rendu.
-    // STRICTEMENT l'action qui tourne. Avec « ou busyAction inconnu », TOUS les boutons
-    // de resolution de la carte se mettaient a tourner alors qu'un seul travaillait
-    // (signale le 28/08). Quand le serveur ne dit pas quelle action tourne, aucun ne
-    // tourne : le verrou les desactivera, ce qui est l'information juste.
+    // ITS OPERATION IS RUNNING: it spins too. The row of actions already knew how to do
+    // that; the fix button stayed intact and clickable while the operation it had just
+    // started was running -- "it does not spin, it is not greyed out, and it is still
+    // there" (seen on 28/08). Same rule, same rendering.
+    // STRICTLY the action that is running. With "or busyAction unknown", EVERY fix button
+    // of the card started spinning while only one was working (reported on 28/08). When
+    // the server does not say which action is running, none spins: the lock will switch
+    // them off, which is the right information.
     const solveRunning = !!m.busy && !!m.busyAction && m.busyAction===f.fixAction;
     const solve = (f.fixAction && isProblem)
       ? `<button class="fsolve sev-${fa?(fa.severity||'fix'):'fix'}${interditeF?' denied':''}${solveRunning?' busy':''}"${(interditeF||solveRunning)?' disabled':''}`
-        // MEME SOURCE que le bouton du bas de carte : c'est la meme action, elle ne peut
-        // pas se declarer de deux facons. Seule l'apparence differe.
+        // THE SAME SOURCE as the button at the bottom of the card: it is the same action,
+        // it cannot declare itself two ways. Only the appearance differs.
         + attributsAction(fa || { id: f.fixAction }, m.id, fkind)
         + ` title="${att(interditeF?(fa.deniedReason||L('ui.action-reservee-un-compte')):((fa&&fa.help)||L('ui.resoudre-ce-point')))}">`
         + (solveRunning
@@ -175,22 +175,22 @@ function cardHtml(m, groupLabel){
     </div>`;
   }).join('');
   const busy=!!m.busy;
-  // Aucune action n'est retiree de la barre : celle qui resout un champ y reste, meme
-  // si le champ la designe. C'est en bas qu'on cherche les boutons.
+  // No action is taken out of the bar: the one that fixes a field stays there, even if
+  // the field names it. The buttons are looked for at the bottom.
   const actions=(m.actions||[]).map(a=>{
     const h=(a.help||'').replace(/"/g,'&quot;');
     const kind=a.kind||'immediate';
     const sev=a.severity||'neutral';
-    // SEULE l'action reellement en cours s'anime. Toutes les autres restent lisibles, mais
-    // desactivees : lancer une seconde operation pendant la premiere n'aurait pas de sens.
-    // Animer les trois boutons faisait perdre lequel travaillait.
-    // STRICTEMENT celle-la : sans busyAction, plus AUCUNE ne s'anime. Le repli
-    // « ou busyAction inconnu » les faisait toutes tourner -- ce que ce commentaire
-    // dit vouloir eviter, et que le code faisait quand meme.
+    // ONLY the action really under way is animated. All the others stay readable, but
+    // switched off: starting a second operation during the first would make no sense.
+    // Animating all three buttons made one lose which was working.
+    // STRICTLY that one: without busyAction, NONE is animated any more. The fallback
+    // "or busyAction unknown" made them all spin -- which this very comment says it wants
+    // to avoid, and which the code did anyway.
     const cetteAction = busy && !!m.busyAction && m.busyAction===a.id;
-    // Droits (D65) : une action que ce compte Windows n'a pas le droit de lancer reste
-    // VISIBLE et dit pourquoi -- rien ne disparait d'une carte (D59). `allowed` n'est
-    // absent que d'un etat servi par une version anterieure : on le lit alors comme oui.
+    // Rights (D65): an action this Windows account is not allowed to start stays VISIBLE
+    // and says why -- nothing disappears from a card (D59). `allowed` is only missing
+    // from a state served by an earlier version: we then read it as yes.
     const interdite = (a.allowed===false);
     const bcls = cetteAction ? ' busy' : (interdite ? ' denied' : '');
     const dis = (busy || interdite) ? ' disabled' : '';
@@ -201,10 +201,10 @@ function cardHtml(m, groupLabel){
                 : (busy&&!cetteAction ? L('ui.operation-en-cours-sur') : (h||a.label));
     return `<button class="act k-${kind} sev-${sev}${bcls}"${dis}${attributsAction(a, m.id, kind)} title="${att(bulle)}">${inner}</button>`;
   }).join('');
-  // A RECALCULER : la carte existe, sa mesure n'est pas encore faite. Elle s'affiche
-  // avec sa place et son titre, en attente -- une carte qui disparait laisse un trou que
-  // personne ne comprend, alors qu'une carte vide se lit tout de suite. Et si elle n'a
-  // AUCUNE ligne a montrer, elle le dit : une carte vide et muette n'apprend rien.
+  // TO BE RECOMPUTED: the card exists, its measure is not done yet. It is shown with its
+  // place and its title, waiting -- a card that disappears leaves a hole nobody
+  // understands, while an empty card reads at once. And if it has NO row to show, it says
+  // so: a card both empty and silent teaches nothing.
   /*
       A CARD HELD BY AN OPERATION SHOWS NOTHING BUT THAT OPERATION (D102, D130).
 
@@ -240,11 +240,11 @@ function cardHtml(m, groupLabel){
     du module fait partie.
 */
 function closeCardMenu(ev){
-  // LE BOUTON QUI A OUVERT LE MENU N'EST PAS « AILLEURS ».
+  // THE BUTTON THAT OPENED THE MENU IS NOT "SOMEWHERE ELSE".
   //
-  // Ce gestionnaire ecoute en phase de CAPTURE : il passait donc avant le clic du bouton.
-  // Recliquer sur « ... » fermait puis rouvrait aussitot -- le menu ne se refermait
-  // jamais par la ou on l'avait ouvert. On laisse le bouton decider dans ce cas.
+  // This handler listens in the CAPTURE phase: it therefore ran before the button's own
+  // click. Clicking "..." again closed it and reopened it straight away -- the menu never
+  // closed by the very place it had been opened from. We let the button decide in that case.
   if (ev && ev.target && ev.target.closest && ev.target.closest('.card-menu')) return;
   const m = document.getElementById('cardMenu');
   if (m) m.remove();
@@ -270,7 +270,7 @@ export function openCardMenu(ev, moduleId, theme){
   el.querySelector('[data-do="settings"]').onclick = () => { closeCardMenu(); openSettings('modules', theme); };
   el.querySelector('[data-do="refresh"]').onclick  = () => { closeCardMenu(); refreshCard(moduleId, null, true); };
   el.querySelector('[data-do="freshness"]').onclick = () => { closeCardMenu(); openFreshness(moduleId); };
-  // Un clic AILLEURS referme : un menu qui reste ouvert derriere soi est un piege.
+  // A click ELSEWHERE closes it: a menu left open behind one is a trap.
   setTimeout(() => document.addEventListener('click', closeCardMenu, true), 0);
 }
 
@@ -299,43 +299,43 @@ function askMissingCards(s){
 }
 
 export function wireCardActions(root){
-  // Les boutons de la barre ET ceux des lignes (resolution d'un champ, D66) : meme
-  // chemin d'execution, pour que l'etat « en cours » et les confirmations se comportent
-  // pareil des deux endroits.
+  // The bar's buttons AND the rows' ones (fixing a field, D66): the same execution path,
+  // so that the "under way" state and the confirmations behave the same in both places.
+  //
   (root||document).querySelectorAll('.actions button, .frow-actions button.fsolve').forEach(b=>{
     if (b.disabled) return;
     b.onclick=()=>doAction(b.dataset.a,b.dataset.m,b.dataset.c==='1',b.textContent,b.dataset.h,b,null,b.dataset.k,b.dataset.c2==='1',
                            { impact:b.dataset.imp, usage:b.dataset.usg, reversible:b.dataset.rev,
-                             // Deux objets, donc du JSON : un attribut ne porte que du texte.
+                             // Two objects, so JSON: an attribute carries nothing but text.
                              transition:(function(){ try{ return JSON.parse(b.dataset.trn||'null'); }catch(e){ return null; } })(),
                              steps:(function(){ try{ return JSON.parse(b.dataset.stp||'[]'); }catch(e){ return []; } })() });
   });
 }
 
 export function renderState(s, mode){
-  // ON NE REMONTE PAS LA PAGE SOUS LES YEUX DE QUI LIT.
+  // WE DO NOT PULL THE PAGE BACK UP UNDER THE EYES OF WHOEVER IS READING.
   //
-  // Cette fonction reconstruit tout le tableau, et le navigateur remet alors le defilement a zero. La page relit le
-  // cache toutes les minutes : quiconque lisait une carte en bas se retrouvait en haut, sans avoir rien demande.
-  // Signale par le proprietaire le 30/09 -- « on doit pouvoir lire l'app sans etre gene ».
+  // This function rebuilds the whole board, and the browser then sets the scrolling back to zero. The page re-reads
+  // the cache every minute: anyone reading a card at the bottom found themselves at the top, having asked for
+  // nothing. Reported by the owner on 30/09 -- "one must be able to read the app without being bothered".
   //
-  // On repose donc le defilement ou il etait, tout de suite apres avoir ecrit le DOM, dans le meme tour de boucle :
-  // rien ne s'affiche entre les deux, donc rien ne saute a l'ecran.
+  // So the scrolling is put back where it was, immediately after writing the DOM, in the same turn of the loop:
+  // nothing is displayed between the two, so nothing jumps on screen.
   const scrollBefore = window.scrollY;
   const app=document.getElementById('app'); app.innerHTML='';
   fieldsByKey={};
   themeLabels={}; (s.themes||[]).forEach(t=>{ themeLabels[t.id]=t.label; });
-  // AUCUN ETAT NE FAIT DISPARAITRE UNE CARTE (D59). Une sonde en cours de recalcul n'a
-  // rien dans le cache du serveur : son module manque alors dans /state. On garde donc la
-  // DERNIERE version connue de la carte, marquee « recalcul en cours », au lieu de la
-  // retirer -- signale par l'utilisateur : la carte Windows Update disparaissait pendant
-  // presque une minute apres un clic.
+  // NO STATE MAKES A CARD DISAPPEAR (D59). A probe being recomputed has nothing in the
+  // server's cache: its module is then missing from /state. So we keep the LAST known
+  // version of the card, marked "being recomputed", instead of removing it -- reported by
+  // the user: the Windows Update card disappeared for almost a minute after
+  // a click.
   const recus = new Set((s.modules||[]).map(m=>m.id));
   const survivants = (lastModules||[]).filter(m=>m && !recus.has(m.id))
     .map(m=>Object.assign({}, m, { busy:true, _survivant:true }));
   if(survivants.length){ s = Object.assign({}, s, { modules: (s.modules||[]).concat(survivants) }); }
   lastModules=(s.modules||[]).map(m=>{ const c=Object.assign({},m); delete c._survivant; return c; });
-  // LE TROISIEME MOMENT (S16) : les deux autres viennent du serveur, celui-ci n'existe que dans la page.
+  // THE THIRD MOMENT (S16): the other two come from the server, this one exists only in the page.
   lastStateReadAt = new Date().toISOString();
   lastUnits=(s.units||[]).slice();
   lastHost=s.host||'';
@@ -351,7 +351,7 @@ export function renderState(s, mode){
     if(STATUS_RANK[m.status]>STATUS_RANK[worst]) worst=m.status;
     html+=cardHtmlSafe(m, m.theme||'');
   });
-  // Filtre rapide par groupe (afficher/masquer)
+  // Quick filter by group (show/hide)
   const themesWithMods=(s.themes||[]).filter(t=>(s.modules||[]).some(m=>m.theme===t.id));
   if(themesWithMods.length>1){
     const fbar=document.createElement('div'); fbar.className='filterbar';
@@ -366,20 +366,20 @@ export function renderState(s, mode){
   layoutColumns(masonry);
   app.appendChild(masonry);
   wireCardActions(masonry);
-  // Le defilement, remis ou il etait (voir en tete de cette fonction). Apres layoutColumns, donc sur une page qui a
-  // deja sa hauteur definitive : repose avant, il aurait ete borne a la hauteur d'un tableau encore vide.
+  // The scrolling, put back where it was (see the head of this function). After layoutColumns, so on a page that
+  // already has its final height: put back before, it would have been capped to the height of an empty board.
   if (scrollBefore) { window.scrollTo(0, scrollBefore); }
   applyOperationLock();
-  // Si le rangement est en cours, les cartes fraichement rendues redeviennent
-  // saisissables : le mode et l'affichage restent d'accord.
+  // If the rearranging is under way, the freshly rendered cards become grabbable again:
+  // the mode and the display stay in agreement.
   if(modeReorg) armerGlisser();
   applyFilter();
   askMissingCards(s);
   const g=document.getElementById('global'), gt=document.getElementById('globalTxt');
-  // Le badge de l'en-tete et le liseré disent la MEME chose : l'etat de l'application
-  // elle-meme (connectee, en maquette, en erreur). Ils portaient auparavant deux
-  // informations differentes -- badge rouge « Action requise » au-dessus d'un liseré vert
-  // -- et se contredisaient a l'oeil. La sante des cartes se lit sur les cartes.
+  // The header's badge and the stripe say the SAME thing: the state of the application
+  // itself (connected, on mock data, in error). They used to carry two different pieces
+  // of information -- a red "Action required" badge above a green stripe -- and
+  // contradicted each other to the eye. The cards' health is read on the cards.
   const uiState = mode==='live'
     ? { col:'var(--ok)',   txt:L('ui.connecte'),  aide:L('ui.connecte-api-locale-les') }
     : { col:'var(--warn)', txt:'Maquette',  aide:L('ui.le-service-est-pas') };
@@ -389,8 +389,8 @@ export function renderState(s, mode){
   g.title=uiState.aide;
   const meta=document.getElementById('lastRefresh');
   meta.textContent=L('ui.mis-jour')+new Date().toLocaleTimeString('fr-FR');
-  // CE QUI A PRIS DU TEMPS, dans l'infobulle : le total, puis chaque phase du serveur et
-  // les trois cartes les plus lentes. Un chiffre unique ne dit pas ou regarder.
+  // WHAT TOOK TIME, in the tooltip: the total, then each of the server's phases and the
+  // three slowest cards. A single figure does not say where to look.
   try{
     const ph = s.timings || {};
     const rows = Object.keys(ph).map(k=>`${k} : ${ph[k]} ms`);
@@ -399,9 +399,9 @@ export function renderState(s, mode){
                     .sort((a,b)=>b.ms-a.ms).slice(0,3).map(m=>`${m.label} : ${m.ms} ms`);
     if(rows.length){
       meta.textContent += ` · ${Math.round(total)} ms`;
-      // LES SAUTS DE LIGNE SONT CONSTRUITS, PAS ECHAPPES. Ecrits « backslash-n » depuis
-      // un script, ils sont devenus de VRAIS retours a la ligne dans une chaine JS : la
-      // page ne se chargeait plus du tout, bloquee sur son ecran d'attente (01/09).
+      // LINE BREAKS ARE BUILT, NOT ESCAPED. Written as "backslash n" from a script, they
+      // became REAL line breaks inside a JS string: the page no longer loaded at all,
+      // stuck on its waiting screen (01/09).
       const saut = String.fromCharCode(10);
       meta.title = L('ui.temps-de-reponse') + saut + rows.join(saut)
                  + (slowest.length ? (saut + saut + L('ui.cartes-les-plus-lentes') + saut + slowest.join(saut)) : '');
@@ -411,13 +411,13 @@ export function renderState(s, mode){
   const mb=document.getElementById('modebar'); const isBusy=mb.classList.contains('busy'); mb.className='modebar '+(mode==='live'?'ok':'warn')+(isBusy?' busy':''); mb.title=(mode==='live'?L('ui.connecte-api-locale-donnees'):L('ui.maquette-back-non-lance')); mb.textContent='';
 }
 
-// Repartit les cartes en COLONNES REELLES, une fois, dans un ordre stable.
+// Shares the cards out into REAL COLUMNS, once, in a stable order.
 //
-// La largeur d'une colonne (280 px + gouttiere) reprend celle de l'ancienne mise en
-// page : le nombre de colonnes ne change donc qu'au redimensionnement de la fenetre.
+// A column's width (280 px plus the gutter) takes over from the former layout: the number
+// of columns therefore only changes when the window is resized.
 //
-// L'equilibrage se fait sur une hauteur ESTIMEE (nombre de lignes et de boutons), et
-// surtout PAS sur la hauteur mesuree : une carte qui passe en « operation en cours »
-// grandit, et rebalancer a ce moment-la ferait exactement le saut qu'on veut supprimer.
-// L'estimation, elle, ne depend que de ce que la carte CONTIENT.
+// Balancing works on an ESTIMATED height (the number of rows and buttons), and certainly
+// NOT on the measured height: a card going to "operation under way" grows, and rebalancing
+// at that moment would make exactly the jump we want to remove. The estimate depends only
+// on what the card CONTAINS.
 export const COL_WIDTH = 296;
