@@ -652,6 +652,7 @@
   "ui.aucune-mise-jour-installer": "Aucune mise à jour à installer.",
   "ui.basculer-entre-le-theme": "Basculer entre le thème sombre et le thème clair",
   "ui.carte-en-attente": "Pas encore mesurée. Le bouton de cette carte la remplit.",
+  "ui.carte-occupee": "Op\u00e9ration en cours : rien n'est mesur\u00e9 tant qu'elle dure.",
   "ui.carte-sans-ligne": "Rien à afficher pour cette carte.",
   "ui.cartes-les-plus-lentes": "Cartes les plus lentes :",
   "ui.ce-module-ne-signale": "Ce module ne signale aucun événement : il décrit un état.",

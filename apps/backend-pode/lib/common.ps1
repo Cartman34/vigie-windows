@@ -8486,7 +8486,11 @@ function Get-RunningOperations {
                 action    = "$($m.action)"
                 pid       = [int]$m.pid
                 resources = @($m.resources)
-                at        = "$($m.at)"
+                # ISO, WITH ITS ZONE. The mark is written in ISO, but ConvertFrom-Json hands back a date OBJECT:
+                # written out again as a string, it left under the culture of the service account -- UTC with no
+                # zone at all. The page read that as a local time and announced two hours for an operation
+                # started one minute earlier, seen on 17/10 during a real installation.
+                at        = $(try { (ConvertTo-UtcDate $m.at).ToString("o") } catch { "$($m.at)" })
                 seconds   = $running
                 maxSeconds = $maxSeconds
                 overdue   = ($maxSeconds -gt 0 -and $running -gt $maxSeconds)
@@ -8522,7 +8526,7 @@ function Get-RecentOperationResults {
             seconds = [int]$r.seconds
             log     = "$($r.log)"
             error   = "$($r.error)"
-            at      = "$($r.at)"
+            at      = $(try { (ConvertTo-UtcDate $r.at).ToString("o") } catch { "$($r.at)" })
         }
     }
     return $res

@@ -1233,6 +1233,19 @@ function cardHtml(m, groupLabel){
   // avec sa place et son titre, en attente -- une carte qui disparait laisse un trou que
   // personne ne comprend, alors qu'une carte vide se lit tout de suite. Et si elle n'a
   // AUCUNE ligne a montrer, elle le dit : une carte vide et muette n'apprend rien.
+  /*
+      A CARD HELD BY AN OPERATION SHOWS NOTHING BUT THAT OPERATION (D102, D130).
+
+      On 17/10, during a real Windows Update installation, the card announced the operation under its header AND
+      showed its fields just below -- one of them stating that the count was unavailable, which is a statement
+      about a measurement, while nothing could be measured as long as the lock was working. Two sentences
+      contradicting each other on the same card. While an operation holds it, its fields and its buttons are not
+      rendered; the note under the header says what is running and since when.
+
+      Held means either: what the server rendered (`busy`), or what the page knows is running right now
+      (`opsByCard`) -- the second arrives first, the first survives a reload.
+  */
+  const held = !!m.busy || !!(typeof opsByCard !== 'undefined' && opsByCard[m.id]);
   return `<div class="card st-${st}${m.busy?' busy':''}${m.pending?' card-loading':''}${m.mode?(' mode-'+m.mode):''}" data-module="${m.id}" data-theme="${m.theme}">
     <div class="card-head">
       <div class="card-titles"><span class="card-group">${esc(groupLabel||'')}${scopeHtml(m)}</span><span class="name">${m.label}</span>${paceHtml(m)}</div>
@@ -1240,8 +1253,10 @@ function cardHtml(m, groupLabel){
       <button class="card-refresh${cardIsStale(m)?' stale':''}" title="${L('ui.rafraichir-cette-carte')}${(m.ms!==undefined&&m.ms!==null)?` — ${L('ui.servie-en')}${m.ms} ms`:''}" onclick="refreshCard('${m.id}',this,true)"><span class="cr-ic vi vi-fw vi-lg">&#xE008;</span></button>
       <button class="card-refresh card-menu" title="${L('ui.menu-de-cette-carte')}" onclick="openCardMenu(event,'${m.id}','${m.theme}')"><span class="vi vi-fw vi-lg">&#xE009;</span></button>
     </div>
-    <div class="fields">${fields || `<div class="frow"><span class="card-attente">${L(m.pending?'ui.carte-en-attente':'ui.carte-sans-ligne')}</span></div>`}</div>
-    ${actions?`<div class="actions">${actions}</div>`:''}
+    <div class="fields">${held
+      ? `<div class="frow"><span class="card-attente">${L('ui.carte-occupee')}</span></div>`
+      : (fields || `<div class="frow"><span class="card-attente">${L(m.pending?'ui.carte-en-attente':'ui.carte-sans-ligne')}</span></div>`)}</div>
+    ${(!held && actions)?`<div class="actions">${actions}</div>`:''}
   </div>`;
 }
 
