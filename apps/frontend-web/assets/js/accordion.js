@@ -20,8 +20,8 @@ function accordionAnimate(details){
     if(!ouvrir) details.open = false;
   };
 }
-// LA DELEGATION, posee une fois : tout accordeon ajoute plus tard est pris en charge, y compris celui qu'une
-// fenetre vient de construire. Un en-tete qui a son propre gestionnaire (groupe de mises a jour) decide seul.
+// DELEGATION, SET ONCE: every accordion added later is covered, including one a window has just built. A
+// header with a handler of its own (an update group) decides for itself.
 function accordionInit(){
   document.addEventListener('click', ev => {
     const head = ev.target.closest && ev.target.closest('.acc > .acc-h');
@@ -45,17 +45,17 @@ export function onGroupHeadClick(ev, head){
   }
   ev.preventDefault();
   const flip = () => { cb.checked = !cb.checked; cb.dispatchEvent(new Event('change', { bubbles:true })); };
-  // SUR LA CASE, LA BASCULE ATTEND LA FIN DU GESTE. Annuler le pli annule aussi le cochage que le navigateur
-  // venait d'appliquer, et il le retablit APRES les gestionnaires : basculer tout de suite ne laissait rien.
+  // ON THE BOX, THE TOGGLE WAITS FOR THE END OF THE GESTURE. Cancelling the fold also cancels the ticking the
+  // browser had just applied, and it restores it AFTER the handlers: toggling straight away left nothing.
   if(onCheckbox) { queueMicrotask(flip); } else { flip(); }
 }
 
-/* LE DETAIL DU RAFRAICHISSEMENT D'UNE CARTE (S16, demande le 30/09).
+/* WHAT A CARD'S REFRESH DETAIL SAYS (S16, asked for on 30/09).
 
-   Trois moments, trois questions differentes, et il faut les trois pour savoir a quoi on a affaire :
-     - la page a lu le cache a telle heure          -- rien ne prouve que le cache, lui, ait bouge ;
-     - la sonde a produit cette mesure a telle heure -- c'est l'age de ce qui est affiche ;
-     - l'ordonnanceur est passe a telle heure        -- s'il ne passe plus, la carte ne bougera plus.
+   Three moments, three different questions, and all three are needed to know what one is dealing with:
+     - the page read the cache at such an hour     -- nothing proves the cache itself has moved;
+     - the probe produced this measure at such an hour -- that is the age of what is displayed;
+     - the scheduler came by at such an hour       -- if it stops coming, the card will stop moving.
 
-   Et quand le calcul enchaine les echecs, c'est dit avec sa derniere erreur : sans cela, la carte sert
-   indefiniment sa derniere valeur reussie sans que personne puisse le savoir. */
+   And when the computation fails again and again, it is said with its last error: without that, the card
+   serves its last successful value for ever without anyone being able to know. */

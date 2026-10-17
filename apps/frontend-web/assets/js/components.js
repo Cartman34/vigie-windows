@@ -2,43 +2,43 @@
 import { esc } from './format.js';
 
 // ===== COMPOSANTS D'INTERFACE ================================================
-// Un seul endroit dessine une bande de titre, une ligne, un interrupteur ou une
-// etiquette. Avant, chaque onglet des Parametres reconstruisait ces morceaux a la
-// main : la meme chose s'ecrivait de trois facons, et corriger l'alignement d'une
-// ligne demandait de retrouver toutes ses copies.
+// One single place draws a title band, a row, a switch or a tag. Before, every Settings tab rebuilt
+// those pieces by hand: the same thing was written three ways, and fixing the alignment of one row
+// meant finding all of its copies.
 //
-// Regle de composition (26/08) : le cadre arrondi appartient au bloc parent. Ces
-// composants ne dessinent donc JAMAIS de bordure ni de coin -- ils remplissent.
+//
+// Composition rule (26/08): the rounded frame belongs to the parent block. These components therefore
+// NEVER draw a border or a corner -- they fill.
 export const UI = {
-  // Bande de titre d'une sous-section, avec son compteur eventuel.
+  // A sub-section's title band, with its count when it has one.
   bande(headingText, compteur){
     return '<div class="um-sub">'+esc(headingText)
       +(compteur!==undefined && compteur!==null && compteur!=='' ? '<span class="um-cpt">'+esc(String(compteur))+'</span>' : '')
       +'</div>';
   },
-  // Conteneur de lignes : pleine largeur, sans cadre a lui.
+  // A row container: full width, with no frame of its own.
   liste(fieldCount){ return '<div class="um-list">'+(Array.isArray(fieldCount)?fieldCount.join(''):fieldCount)+'</div>'; },
-  // UNE ligne : libelle (+ etiquettes) a gauche, commande a droite.
+  // ONE row: label (plus tags) on the left, control on the right.
   ligne(o){
     return '<div class="um-card"'+(o.aide?' title="'+esc(o.aide)+'"':'')+'>'
       +'<span>'+esc(o.libelle)+(o.etiquettes||[]).map(t=>UI.etiquette(t)).join('')+'</span>'
       +(o.droite?'<span class="um-param">'+o.droite+'</span>':'')
       +'</div>';
   },
-  // Interrupteur : la seule ecriture de ce balisage dans toute l'application.
+  // A switch: the only place this markup is written in the whole application.
   interrupteur(attrs, actif){
     return '<span class="swx"><input type="checkbox" '+attrs+(actif?' checked':'')+'><i></i></span>';
   },
   etiquette(t){ return ' <span class="um-tag">'+esc(t)+'</span>'; },
   note(texte){ return '<div class="um-note">'+esc(texte)+'</div>'; },
-  // Carte de reglage ISOLEE : un titre, son explication, une commande a droite.
-  // C'est le seul cas ou un cadre arrondi est legitime -- elle n'est dans rien.
+  // A SETTING ON ITS OWN: a title, its explanation, a control on the right.
+  // It is the only case where a rounded frame is legitimate -- it sits inside nothing.
   carte(o){
     return '<div class="setcard"><div class="setcard-t"><b>'+esc(o.titre)+'</b>'
       +(o.detail?'<small>'+(o.detailHtml?o.detail:esc(o.detail))+'</small>':'')
       +'</div>'+(o.droite||'')+'</div>';
   },
-  // Ligne dont le libelle contient deja du balisage (nom + etiquettes + sous-titre).
+  // A row whose label already carries markup (name plus tags plus subtitle).
   ligneHtml(gauche, droite, aide){
     return '<div class="um-card"'+(aide?' title="'+esc(aide)+'"':'')+'>'
       +'<span>'+gauche+'</span>'
@@ -46,4 +46,4 @@ export const UI = {
   }
 };
 
-// --- Onglet Modules (D48) : activer / couper, cartes du module en rappel ---
+// --- Modules tab (D48): switch on or off, the module's cards as a reminder ---

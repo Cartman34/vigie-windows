@@ -32,19 +32,19 @@ export function dismissToast(id){
   setTimeout(()=>{ if(rec.el&&rec.el.parentNode) rec.el.remove(); }, 220);
   delete toastEls[id];
 }
-// UNE OPERATION EN COURS NE S'EFFACE PAS (D94). Effacer sa notification ne l'arrete
-// pas : le travail continue en fond, et on vient de supprimer le seul endroit qui en
-// disait quelque chose. A la fin, cette notification n'est pas effacee : elle est
-// REMPLACEE par son resultat (reussi ou echoue), qui s'efface, lui.
+// AN OPERATION UNDER WAY IS NOT ERASED (D94). Erasing its notification does not stop it:
+// the work carries on in the background, and the only place that said anything about it has
+// just been deleted. At the end, that notification is not erased: it is REPLACED by its
+// result (succeeded or failed), and that one does erase.
 function notifLocked(n){ return n && n.status === 'running'; }
 
 export function deleteNotif(id){
   const n = notifs.find(x => x.id === id);
   if(notifLocked(n)){
-    // PAS de message fugace : il s'affichait DERRIERE le tiroir, une seconde et demie
-    // -- autant ne rien dire (signale le 27/08). La raison est ecrite en tete du
-    // tiroir, en permanence tant qu'elle est vraie ; ici on fait juste clignoter la
-    // ligne concernee, la ou le clic a eu lieu.
+    // NO fleeting message: it appeared BEHIND the drawer, for a second and a half -- one may
+    // as well say nothing (reported on 27/08). The reason is written at the top of the
+    // drawer, permanently for as long as it is true; here we only make the row concerned
+    // blink, where the click happened.
     const el = document.querySelector('.dn[data-id="' + id + '"]');
     if(el){ el.classList.remove('refus'); void el.offsetWidth; el.classList.add('refus'); }
     return;
@@ -52,8 +52,8 @@ export function deleteNotif(id){
   notifs=notifs.filter(n=>n.id!==id); dismissToast(id); renderDrawer(); updateBell();
 }
 export function clearNotifs(){
-  // « Tout effacer » respecte le verrou : ce qui tourne reste, le reste part. Rien a
-  // annoncer -- le tiroir montre lui-meme ce qui reste, et pourquoi.
+  // "Clear all" honours the lock: what is running stays, the rest goes. Nothing to announce
+  // -- the drawer itself shows what is left, and why.
   notifs.filter(n => !notifLocked(n)).forEach(n => dismissToast(n.id));
   notifs = notifs.filter(notifLocked);
   renderDrawer(); updateBell();
@@ -61,8 +61,8 @@ export function clearNotifs(){
 function renderDrawer(){
   const body=document.getElementById('drawerBody'); if(!body) return;
   if(!notifs.length){ body.innerHTML='<div class="drawer-empty">Aucune notification.</div>'; return; }
-  // EN TETE DU TIROIR : ce qui tourne, et pourquoi ces notifications ne s'effacent
-  // pas. Permanent tant que c'est vrai, a l'endroit meme ou l'on clique.
+  // AT THE TOP OF THE DRAWER: what is running, and why those notifications do not erase.
+  // Permanent for as long as it is true, in the very place where one clicks.
   const enCours = notifs.filter(notifLocked).length;
   const entete = enCours
     ? '<div class="dn-note">' + (enCours === 1
@@ -75,9 +75,9 @@ function renderDrawer(){
     return `<div class="dn ${n.status}" data-id="${n.id}">
       <div class="dn-head"><span class="t-dot ${n.status}"></span><span class="dn-label">${esc(n.label)}</span>
         ${notifLocked(n)
-            // La fonte maison n'a pas de cadenas, et on n'invente pas un glyphe pour
-            // ca : le SABLIER de l'application dit deja « en cours », c'est exactement
-            // la raison du verrou.
+            // The in-house font has no padlock, and one does not invent a glyph for that:
+            // the application's HOURGLASS already says "under way", which is exactly the
+            // reason for the lock.
             ? '<span class="dn-lock" title="Opération en cours : sa notification ne peut pas être effacée."><span class="spin"></span></span>'
             : `<button class="dn-del" title="Supprimer" onclick="panel.deleteNotif(${n.id})">×</button>`}</div>
       <div class="dn-msg">${esc(n.message||'')}</div>

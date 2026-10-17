@@ -35,8 +35,8 @@ setFootVersion();
 setTimeout(hideSplash, SPLASH_MAX_MS);   // garde-fou si /state ne repond jamais
 refresh();
 setInterval(refresh, REFRESH_MS);
-// Les operations, elles, se relevent souvent et SANS condition : une page occupee
-// (tiroir ouvert, rangement en cours) doit quand meme savoir ce qui tourne ailleurs.
+// The operations, on the other hand, are read often and WITHOUT condition: a busy page
+// (drawer open, cards being rearranged) must still know what is running elsewhere.
 setInterval(syncOperations, OPS_MS);
 syncOperations();
 checkVersion();

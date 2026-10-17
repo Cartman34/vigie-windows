@@ -4,10 +4,10 @@ import { refresh, toast } from './refresh.js';
 
 // ===== MODE REORGANISATION ===================================================
 //
-// Pourquoi un MODE, et pas une poignee de deplacement : « pas que ca puisse arriver par
-// erreur ». Une poignee, meme discrete, se saisit un jour sans le vouloir. Ici, tant
-// qu'on n'est pas entre dans le mode, rien n'est saisissable -- et une fois dedans, les
-// actions des cartes sont neutralisees : on range, on n'exploite pas.
+// Why a MODE, and not a drag handle: "so that it cannot just happen by accident". A handle, however
+// discreet, gets grabbed one day without meaning to. Here, as long as one has not entered the mode,
+// nothing can be grabbed -- and once inside, the cards' actions are switched off: one is tidying up,
+// not operating.
 export let modeReorg = false;
 let inputCard = null;
 
@@ -20,10 +20,10 @@ function entrerReorg(){
   if(modeReorg) return;
   modeReorg = true;
   document.body.classList.add('reorg');
-  // Le bandeau est pose A COTE de #app, pas dedans : #app est entierement redessine a
-  // chaque rendu, et le bandeau disparaissait en laissant les cartes en pointilles --
-  // le mode etait actif sans plus rien pour le dire ni pour en sortir (signale le
-  // 27/08 : « fais en sorte que tout vienne et parte ensemble »).
+  // The banner is placed NEXT TO #app, not inside it: #app is redrawn entirely on every render, and the
+  // banner vanished leaving the cards in dotted outlines -- the mode was active with nothing left to say
+  // so, nor to leave it (reported on 27/08: "make everything come and go together").
+  //
   const app = document.getElementById('app');
   const bar = document.createElement('div');
   bar.className = 'reorg-bar'; bar.id = 'reorgBar';
@@ -48,8 +48,8 @@ function quitterReorg(garder){
   if(garder) toast(L('ui.disposition-enregistree'));
 }
 
-// Glisser-deposer natif : pas de bibliotheque, et le clavier reste possible via les
-// boutons de la barre. On depose DANS une colonne, avant la carte survolee.
+// Native drag and drop: no library, and the keyboard stays possible through the bar's buttons. One drops
+// INTO a column, before the card being hovered.
 export function armerGlisser(){
   document.querySelectorAll('.masonry .card').forEach(cardEl => {
     cardEl.setAttribute('draggable', 'true');
@@ -67,8 +67,8 @@ export function armerGlisser(){
       if(!modeReorg || !inputCard) return;
       e.preventDefault();
       col.classList.add('cible');
-      // Insertion AVANT la carte dont on survole la moitie haute : le repere suit le
-      // curseur, on voit ou la carte va tomber.
+      // Insertion BEFORE the card whose upper half is hovered: the marker follows the cursor, one sees
+      // where the card will land.
       const after = [...col.querySelectorAll('.card:not(.drag)')].find(c => {
         const r = c.getBoundingClientRect();
         return e.clientY < r.top + r.height / 2;
@@ -80,4 +80,4 @@ export function armerGlisser(){
   });
 }
 
-// Remplace le DOM d'une carte par son rendu a jour. Renvoie l'element cree (ou null).
+// Replaces a card's DOM with its up-to-date rendering. Returns the element created (or null).

@@ -60,18 +60,18 @@ export function toggleProgressDone(btn,key){
   if(open) progressDoneOpen.add(key); else progressDoneOpen.delete(key);
   btn.textContent=(open?'Masquer ':'Afficher ')+btn.dataset.n+' mise(s) à jour réussie(s)';
 }
-/* L'EN-TETE D'UN GROUPE FAIT DEUX CHOSES, ET CHAQUE ZONE DIT LAQUELLE.
+/* A GROUP'S HEADER DOES TWO THINGS, AND EACH ZONE SAYS WHICH.
 
-   Tout clic sur un <summary> replie : la case et le nom du groupe repliaient donc au lieu de cocher, alors que
-   les lignes en dessous sont des <label> ou le texte coche. Signale le 20/09. Le nom et la case cochent ; la
-   fleche, le vide qui suit le nom et le compte replient. Le pli natif est annule pour ces deux zones seulement,
-   et la bascule de la case est alors faite a la main -- annuler le geste par defaut annule aussi son cochage.
-   Le clavier ne perd rien : Entree sur l'en-tete replie, Tab puis Espace cochent. */
-/* L'ACCORDEON : UNE SEULE MISE EN OEUVRE POUR TOUTE L'APPLICATION.
+   Any click on a <summary> folds: the box and the group's name folded instead of ticking, while the rows
+   below are <label>s where the text ticks. Reported on 20/09. The name and the box tick; the arrow, the
+   empty space after the name and the count fold. The native fold is cancelled for those two zones only,
+   and the box is then toggled by hand -- cancelling the default gesture cancels its ticking as well.
+   The keyboard loses nothing: Enter on the header folds, Tab then Space ticks. */
+/* THE ACCORDION: ONE IMPLEMENTATION FOR THE WHOLE APPLICATION.
 
-   Un <details> ne s'anime pas : il montre ou il cache. La hauteur du corps est donc animee ici, a l'ouverture
-   comme a la fermeture, et l'element ne se referme qu'une fois l'animation finie. Tout <details class="acc">
-   en profite sans une ligne de plus : la delegation attrape le clic sur son en-tete. Qui a besoin d'un
-   accordeon demain pose les trois classes -- acc, acc-h, acc-b -- et n'ecrit rien.
+   A <details> does not animate: it shows or it hides. So the body's height is animated here, on opening as
+   on closing, and the element only closes once the animation has finished. Every <details class="acc">
+   benefits without one more line: delegation catches the click on its header. Whoever needs an accordion
+   tomorrow sets the three classes -- acc, acc-h, acc-b -- and writes nothing.
 
-   Le reglage « animations reduites » de Windows est respecte : le pli devient instantane. */
+   Windows's "reduced animations" setting is honoured: the fold becomes instant. */

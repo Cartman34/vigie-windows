@@ -5,9 +5,9 @@ import { UI } from './components.js';
 import { toast } from './refresh.js';
 import { renderTabApparence, renderTabApropos, renderTabModules, renderTabUtilisateurs } from './settings-tabs.js';
 
-// ===== Paramètres de l’application =====
-// Un seul menu, quatre onglets : Notifications, Modules (D48), Apparence, À propos.
-// Il remplace l’ancienne popin de notifications et l’ancien tiroir des modules.
+// ===== The application's settings =====
+// One menu, four tabs: Notifications, Modules (D48), Appearance, About.
+// It replaces the old notifications popup and the old modules drawer.
 let settingsTab='notifications';
 // The settings drawer's state: open or not, and the module we want to land on.
 export let unitsOpen=false, pendingUnitFocus=null;
@@ -18,14 +18,14 @@ export function toggleSettings(){
   document.getElementById('settingsDrawer').classList.toggle('open',unitsOpen);
   if(unitsOpen) renderSettings();
 }
-// Lien profond : #parametres ou #parametres/<onglet> ouvre le menu au chargement.
+// Deep link: #parametres, or #parametres/<tab>, opens the menu on load.
 export function ouvrirDepuisHash(){
   const h=(location.hash||'').replace(/^#/,'');
   if(!h.startsWith('parametres')) return;
   const parts=h.split('/');
   const onglet=parts[1]||null;
   const targetIndex=parts.length>2?parts[2]:null;
-  // #parametres/modules/<module> ouvre le panneau ET deplie ce module.
+  // #parametres/modules/<module> opens the panel AND unfolds that module.
   setTimeout(()=>{ openSettings(onglet, targetIndex||null); }, 400);
 }
 window.addEventListener('hashchange', ouvrirDepuisHash);
@@ -64,13 +64,13 @@ export async function postNotif(payload){
     body: JSON.stringify(payload) });
   if(!r.ok) throw new Error('HTTP '+r.status);
 }
-// --- Onglet Notifications : interrupteur global + réglage fin par carte (D54) ---
+// --- Notifications tab: the global switch, plus per-card tuning (D54) ---
 async function renderTabNotifs(pane){
   const cfg=await getNotifCfg();
   const on=id=> (id in cfg.modules)? !!cfg.modules[id] : true;
   const mods=(lastModules||[]);
-  // Combien d'evenements Vigie sait-il signaler ? Le dire donne la mesure de ce que
-  // l'interrupteur commande.
+  // How many events does Vigie know how to report? Saying it gives the measure of what
+  // the switch commands.
   const total=(cfg.catalog||[]).reduce((t,u)=>t+((u.notifications||[]).length),0);
   pane.innerHTML=
      UI.carte({ titre:L('ui.activer-les-notifications'),

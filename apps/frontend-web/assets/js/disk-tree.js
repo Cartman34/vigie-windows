@@ -36,7 +36,7 @@ function treeCorpsHtml(niveau){
   if(!html) html = '<div class="tree-leaf tree-mut">Ce dossier ne contient rien de mesurable.</div>';
   return html;
 }
-// Un dossier ne se charge qu'a sa PREMIERE ouverture ; ensuite il est en cache.
+// A folder is fetched on its FIRST opening only; after that it is cached.
 function treeBrancher(racineEl){
   racineEl.querySelectorAll('details.tree-node').forEach(d=>{
     if(d.dataset.pret) return;
@@ -83,5 +83,5 @@ export async function ouvrirArborescence(){
     if(el) el.innerHTML = '<p class="hds-intro">Lecture impossible : '+esc(e.message||String(e))+'</p>';
   }
 }
-// LE BLOC DE SUIVI (contrat Field.progress). En tete, l'element en cours : son titre, ce qu'il fait, sa barre, et en
-// clair s'il ne progresse plus ou s'il a echoue. Dessous, chaque element avec son etat. En bas, l'avancement total.
+// THE PROGRESS BLOCK (Field.progress contract). At the top, the item under way: its title, what it is doing, its bar,
+// and in plain words if it has stopped progressing or has failed. Below, each item with its state. At the bottom, the total.

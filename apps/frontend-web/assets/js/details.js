@@ -37,10 +37,10 @@ export function ouvrirDetail(key){
       + cols.map(c=>'<th>'+esc(c)+'</th>').join('')
       + '</tr></thead><tbody>'
       + f.table.rows.map((r,i)=>{
-          // Infobulle FACULTATIVE par ligne (contrat : table.tips, parallele a rows) :
-          // survoler un nom de processus doit dire d'ou il vient (chemin absolu, editeur,
-          // PID). Le title est pose sur la LIGNE : une seule bulle, pas une par cellule
-          // qui se disputeraient le survol.
+          // OPTIONAL tooltip per row (contract: table.tips, parallel to rows):
+          // hovering a process name must say where it comes from (absolute path, publisher,
+          // PID). The title is set on the ROW: one tooltip, not one per cell
+          // fighting over the hover.
           const tip=(f.table.tips&&f.table.tips[i])?' title="'+esc(String(f.table.tips[i]))+'"':'';
           return '<tr'+tip+'>'+(r||[]).map(v=>'<td>'+esc(v===null||v===undefined?'':String(v))+'</td>').join('')+'</tr>';
         }).join('')
