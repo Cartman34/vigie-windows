@@ -1044,10 +1044,11 @@ function that already existed, the last definition silently overwriting the othe
 - Every `.ps1` / `.psd1`: **parser** via
   `[System.Management.Automation.Language.Parser]::ParseFile` (the machine's `pwsh`), and the
   **real output** is reported.
-- The JS in `index.html`: the page is loaded and its console read (**D06**) — Node is not installed and must
-  not be, the project has no JS dependency, and a syntax error prevents **the whole** `<script>` block from
-  running, so checking that a constant defined at the end of the script exists is enough to prove the file
-  parses. **BUT THAT LOADING IS A WINDOW ON HIS SCREEN, so it is asked for and never done on one's own** — see
+- The panel's JavaScript: `scripts/dev/check-front.ps1`, which walks the module graph from the entry the view
+  loads — each file must parse AS A MODULE, each `import` must find its `export`, and no module may use a name it
+  does not import. One missing import kills the whole page at load, before the first line runs (**D133**). What
+  the graph cannot see is the screen, and that needs the **served** page loaded once —
+  **BUT THAT LOADING IS A WINDOW ON HIS SCREEN, so it is asked for and never done on one's own** — see
   the discipline below.
 - Check the **ASCII** of the launchers, the **UTF-8** of everything else.
 
@@ -1183,7 +1184,7 @@ hand. Record:
 ## Delivery (device)
 - **Live** changes: `common.ps1`, probes, actions (re-sourced on every request) → immediate effect.
 - `server.ps1` / `start.ps1` → **server restart** required.
-- `apps/frontend-web/index.html` → auto-reload via version.
+- `apps/frontend-web/` (the view, the style, the modules) → auto-reload via version.
 
 ## Documentation (always up to date)
 - `briefing.md` (resumption at any time), `CHANGELOG.md`, `doc/en/developing/conventions.md`,

@@ -48,7 +48,7 @@ change of the front end is carried onto that page in the same delivery*.
 
 ## Where the values live
 
-- **Front-end palette and type**: the `:root` block of `apps/frontend-web/index.html` — the single definition (D15).
+- **Front-end palette and type**: the `:root` block of `apps/frontend-web/assets/css/panel.css` — the single definition (D15).
   `tokens.php` serves it to the Atelier.
 - **Interface icons**: `apps/frontend-web/assets/generate-icon-font.py` (D58) — the glyph table (name → code point)
   lives there; the generated `.ttf` font is versioned next to it and shown on the Atelier's "Design système" page.

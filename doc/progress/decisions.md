@@ -44,7 +44,7 @@ ligne — `scripts/dev/check-doc.ps1` refuse une décision absente d'ici.
 - **Installation, déploiement et mise à jour** — D07 · D11 · D22 · D77 · D78 · D79 · D81 · D84 · D87 · D96 · D97 · D99 · D101 · D106 · D107 (revu) · D110 · D112 · D117 · D123
 - **Sécurité, droits et multi-comptes** — **D131** · **D128** · D34 · D65 · D67 · D73 · D104 · D109
 - **Sondes, actions et tâches de fond** — D50bis · D53 · D54 · D60 · D61 · D80 · D82 · D83 · D85 · D113 · D124 · D125 · D126
-- **Outillage** — D06 · D21 · D24 · D40 · D44 · D47 · D52 · D64 · D75 · D86 · D90 · D116 · D118
+- **Outillage** — **D133** · D06 · D21 · D24 · D40 · D44 · D47 · D52 · D64 · D75 · D86 · D90 · D116 · D118
 - **Méthode de travail** — D10 · D12 · D13 · D14 · D16 · D17 · D31 · D36 · D39 · D43 · D51 · D62 · D63 · D74 · D76 · D100 · D103 · D121
 ---
 
@@ -3546,3 +3546,26 @@ Preuve : [2026-10-17-the-panel-is-one-file-of-3736-lines.md](../../notes/evidenc
 
 Cible : [targeting/panel.md](targeting/panel.md). Sujet : **S25**.
 
+## D133 — Le front se valide par le serveur, plus en `file://` (2026-10-17)
+
+*Arbitrage posé à l'utilisateur en découpant le panneau, et tranché par lui : « Ok, avance ».*
+
+**Ce qui change.** **D06** retenait, faute de Node sous Windows, un chemin de validation du JavaScript : charger
+`apps/frontend-web/index.html` en `file://` dans un navigateur et lire la console. Ce chemin n'existe plus. Un
+navigateur **refuse les modules ES en `file://`**, et la page n'est plus un fichier à ouvrir mais une vue rendue
+par le serveur (**D132**).
+
+**Décision.** Le front se valide **par le serveur** — `http://127.0.0.1:47600`, la page servie, la console lue —
+et par `scripts/dev/check-front.ps1`, qui utilise le Node de WSL. Le reste de D06 ne bouge pas : **aucune
+dépendance JS, aucun build, aucun Node installé sous Windows**.
+
+**Ce que ça ne retire pas.** Le repli sur `mock/state.json` reste : il se déclenche quand le serveur ne répond
+pas, et le liseré ambre le dit. C'était une fonctionnalité de l'écran, pas un mode de développement.
+
+**Et le filet est plus serré qu'avant**, ce qui est la raison d'accepter : `check-front` parcourt le graphe des
+modules, exige que chacun se parse en tant que module, que chaque `import` trouve son `export`, et que nul ne se
+serve d'un nom sans l'importer. Cette dernière règle a trouvé sept ruptures réelles le jour du découpage.
+
+Preuve : [2026-10-17-the-file-mode-can-no-longer-validate-the-panel.md](../../notes/evidence/2026-10-17-the-file-mode-can-no-longer-validate-the-panel.md) — pourquoi le chemin disparaît, et ce qui le remplace.
+
+Sujet : **S25**.

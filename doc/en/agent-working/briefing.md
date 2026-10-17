@@ -51,7 +51,8 @@ See the discipline "Coming back from a context compaction".
 
 - **PowerShell + Pode** back end (`apps/backend-pode/`), listens on **127.0.0.1:47600**,
   Bearer token + anti-CSRF + action whitelist.
-- **Plain HTML/JS** front end (`apps/frontend-web/index.html`), serves the mock
+- **Front end rendered by the server** (D132): the view `apps/frontend-web/views/index.pode`, a real style sheet
+  and **24 ES modules** under `apps/frontend-web/assets/`. No build, no Node (D06). It serves the mock
   `apps/frontend-web/mock/state.json` if the back end is absent.
 - **WinForms client app** (`apps/client/client.ps1`): notification-area icon = the app's status (gauge), menu,
   dedicated window (Edge/Chrome `--app`).
@@ -89,7 +90,7 @@ See the discipline "Coming back from a context compaction".
 | a **module** (creation/evolution) | follow **`../developing/modules.md`** — THE reference, to be quoted in any subagent brief touching probes | a forgotten D48/D49/D57 rule |
 | any `.ps1` | `[Parser]::ParseFile` on each file | the syntax, **nothing more** |
 | a **probe** | `pwsh -File .\scripts\check-probes.ps1 -Only <probe\|module>` (dev, targeted — D51) then `-All` before delivery | the real execution + the **D49**/**D50** invariants |
-| `apps/frontend-web/index.html` | reload the **served** page (`http://127.0.0.1:47600`) and read the console | JS syntax and runtime errors |
+| the panel (`apps/frontend-web/`) | `check-front.ps1` (the module graph), then reload the **served** page (`http://127.0.0.1:47600`) and read the console | an import that resolves to nothing, then what the eye alone sees |
 | a contract (`openapi.yaml`) | re-reading — no YAML parser on this machine | nothing automatic, to be said as such |
 
 **The parser is not enough** (**D50bis**): a parameter passed twice gets through it without a
@@ -213,7 +214,7 @@ time, framed; the main agent's role is **orchestration**.
 Split by **disjoint files**, not by theme: two agents in `common.ps1` at the same time is a
 guaranteed conflict. The split that held: probes on one side · package managers and back end
 on the other · documentation alone (it touches no `.ps1`). The main agent keeps the front end
-(`index.html`) and the foundation.
+(`apps/frontend-web/`) and the foundation.
 
 ### What a brief must contain, without exception
 
@@ -327,11 +328,10 @@ history is in **D40**, do not do it again.
 
 - **PowerShell**: `[System.Management.Automation.Language.Parser]::ParseFile(...)` on every
   `.ps1` / `.psd1` changed, and the real output is reported.
-- **Front-end JavaScript**: load `apps/frontend-web/index.html` over `file://` in a browser
-  and read the console (**D06**). A syntax error prevents the whole `<script>` block from
-  running: checking that a constant defined at the end of the script exists is enough to
-  prove the file parses. This test also covers runtime errors and the fallback to
-  `mock/state.json`.
+- **Front-end JavaScript**: `scripts/dev/check-front.ps1`, which walks the module graph from the entry the view
+  loads -- each file must parse AS A MODULE, each `import` must find its `export`, and no module may use a name it
+  does not import. Then the **served** page (`http://127.0.0.1:47600`) with its console, for what no parser sees.
+  The `file://` path is gone: a browser refuses ES modules there, and a view is not a file to open (**D133**).
 - **Launchers** (`.cmd`, `.vbs`): must stay **pure ASCII** (checked byte by byte). The rest of
   the code is **UTF-8 with accents**.
 

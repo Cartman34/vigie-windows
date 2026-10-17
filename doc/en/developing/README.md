@@ -21,7 +21,10 @@ apps/
     actions/<id>.action.ps1        Side effects, one button each
     workers/*.worker.ps1           Long jobs, detached
     config/                        config.psd1 + config.local.sample.psd1
-  frontend-web/index.html  The whole front end: one static HTML file
+  frontend-web/            The panel, rendered by the server (D132)
+    views/index.pode         The shell: markup, the session token, the labels
+    assets/css/panel.css     The style
+    assets/js/panel.js       The entry, plus 23 modules, one subject each
     mock/state.json          Sample state, used when the API is unreachable
   client/client.ps1            The client app, in the notification area, (WinForms) + assets/
   atelier/                 Internal visual-validation tool (PHP) — not part of the product
@@ -61,9 +64,9 @@ pwsh -ExecutionPolicy Bypass -File .\scripts\install.ps1   # prerequisites, once
 pwsh -ExecutionPolicy Bypass -File .\scripts\run.ps1       # start (elevates via UAC)
 ```
 
-The front end alone, without the server, falls back to `apps/frontend-web/mock/state.json`
-— but **serve it over HTTP**, never open it as `file://`: relative asset paths break and
-the browser refuses to frame the page.
+The front end falls back to `apps/frontend-web/mock/state.json` when the API does not answer, and the stripe
+under the header turns amber. It is **always read over HTTP**: the panel is a view rendered by the server, and a
+browser refuses ES modules opened as `file://` (**D133**).
 
 ## Two things never to confuse
 
