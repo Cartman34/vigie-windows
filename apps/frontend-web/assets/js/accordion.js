@@ -21,11 +21,11 @@ function accordionAnimate(details){
   };
 }
 // DELEGATION, SET ONCE: every accordion added later is covered, including one a window has just built. A
-// header with a handler of its own (an update group) decides for itself.
+// header that declares an action of its own (an update group, data-act) decides for itself.
 function accordionInit(){
   document.addEventListener('click', ev => {
     const head = ev.target.closest && ev.target.closest('.acc > .acc-h');
-    if(!head || head.hasAttribute('onclick')) return;
+    if(!head || head.hasAttribute('data-act')) return;
     ev.preventDefault();
     accordionAnimate(head.parentElement);
   });

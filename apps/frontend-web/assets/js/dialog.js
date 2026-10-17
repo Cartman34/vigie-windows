@@ -151,7 +151,7 @@ export const HDS = (function(){
         (a==='Windows'?0:1)-(b==='Windows'?0:1) || a.localeCompare(b,'fr'));
       return names.map(name=>{
         const inside = byGroup.get(name);
-        return '<details class="acc hds-grp" open><summary class="acc-h hds-grp-h" onclick="panel.onGroupHeadClick(event,this)">'
+        return '<details class="acc hds-grp" open><summary class="acc-h hds-grp-h" data-act="group-head">'
           + '<span class="acc-fl" title="Replier ou déplier ce groupe">&#9654;</span>'
           + '<input type="checkbox" data-groupe="'+esc(name)+'" title="Cocher ou décocher tout ce groupe">'
           + '<span class="hds-grp-n" title="Cocher ou décocher tout ce groupe">'+esc(name)+'</span>'

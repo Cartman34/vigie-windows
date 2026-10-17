@@ -39,7 +39,7 @@ function progressHtml(f){
     if(pending.length) html+='<ul class="fprog-items">'+pending.map(row).join('')+'</ul>';
     if(succeeded.length){
       const open=progressDoneOpen.has(f.key);
-      html+='<button type="button" class="fprog-more" data-n="'+succeeded.length+'" onclick="panel.toggleProgressDone(this,\''+att(f.key)+'\')">'
+      html+='<button type="button" class="fprog-more" data-n="'+succeeded.length+'" data-act="progress-more" data-key="'+att(f.key)+'">'
         +(open?'Masquer ':'Afficher ')+succeeded.length+' mise(s) à jour réussie(s)</button>'
         +'<ul class="fprog-items succeeded"'+(open?'':' hidden')+'>'+succeeded.map(row).join('')+'</ul>';
     }

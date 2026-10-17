@@ -229,6 +229,19 @@ if ($script:ModuleEntries.Count) {
     17/10: the ceiling is set at 784, which is the style sheet, the largest piece left after the cut. The
     heaviest script is cards.js at 423 lines. Every cut that follows brings this number down as much.
 #>
+<#
+    NO HANDLER NAMED INSIDE THE MARKUP (D132, UI-HTML-IN-JS), since 17/10.
+
+    An onclick="doSomething()" written into a page, or built into a string by a component, is resolved by the
+    browser ON THE GLOBAL OBJECT -- which modules do not have. Fifteen functions were published through one door,
+    window.panel, to keep those buttons alive while the script was being cut up. The door is closed: the markup
+    now declares an intention, `data-act="card-refresh"`, and one delegated listener turns it into a call.
+
+    This rule keeps the door shut. `el.onclick = () => ...` in JavaScript is NOT what it refuses: that is a
+    closure, it belongs to the module that wrote it and needs no global.
+#>
+$script:InlineHandler = '\son[a-z]+\s*=\s*"'
+
 $PANEL_CEILING = 784
 $panelFiles = @(Get-ChildItem -LiteralPath (Join-Path $repoRoot 'apps/frontend-web') -Recurse -File -Include '*.js', '*.css', '*.pode' -ErrorAction SilentlyContinue)
 if ($panelFiles.Count) {
@@ -247,6 +260,26 @@ if ($panelFiles.Count) {
     } else {
         Write-Ok ("$($panelFiles.Count) fichier(s), le plus gros à $biggest lignes (plafond $PANEL_CEILING).")
         if ($biggest -lt $PANEL_CEILING) { Write-Info "Le plafond peut descendre à $biggest." }
+    }
+
+    Write-Step 'Les gestes du panneau passent par la délégation'
+    $inline = @()
+    foreach ($f in $panelFiles) {
+        $text = Get-Content -LiteralPath $f.FullName -Raw -Encoding UTF8
+        # The reference page of the design system is a MOCK-UP, not the panel: it is read by eye, never served.
+        if ($f.FullName -like '*atelier*') { continue }
+        foreach ($m in [regex]::Matches($text, $script:InlineHandler)) {
+            $line = ($text.Substring(0, $m.Index) -split "`n").Count
+            $inline += ('{0}:{1} : {2}' -f $f.Name, $line, $m.Value.Trim())
+        }
+    }
+    if ($inline.Count) {
+        $bad++
+        Write-Fail "Un gestionnaire est écrit DANS le balisage : il serait cherché sur l'objet global, que les modules n'ont pas (D132, UI-HTML-IN-JS)."
+        foreach ($line in $inline) { Write-Detail $line }
+        Write-Info 'Déclarer une intention -- data-act="..." -- et la servir dans assets/js/delegate.js.'
+    } else {
+        Write-Ok 'Aucun gestionnaire nommé dans le balisage : le panneau ne pose aucune variable globale.'
     }
 }
 if ($bad) { exit 2 }

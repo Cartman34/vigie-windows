@@ -13,7 +13,7 @@ export function updateNotif(n, status, message){
   n.status=status; n.message=message; n.ts=new Date(); showToast(n); renderDrawer();
 }
 function toastHtml(n){
-  return `<span class="t-dot ${n.status}"></span><div class="t-body"><span class="t-label">${esc(n.label)}</span><span class="t-msg">${esc(n.message||'')}</span></div><button class="t-x" title="Fermer" onclick="panel.dismissToast(${n.id})">×</button>`;
+  return `<span class="t-dot ${n.status}"></span><div class="t-body"><span class="t-label">${esc(n.label)}</span><span class="t-msg">${esc(n.message||'')}</span></div><button class="t-x" title="Fermer" data-act="toast-dismiss" data-id="${n.id}">×</button>`;
 }
 function showToast(n){
   const stack=document.getElementById('toastStack'); if(!stack) return;
@@ -79,7 +79,7 @@ function renderDrawer(){
             // the application's HOURGLASS already says "under way", which is exactly the
             // reason for the lock.
             ? '<span class="dn-lock" title="Opération en cours : sa notification ne peut pas être effacée."><span class="spin"></span></span>'
-            : `<button class="dn-del" title="Supprimer" onclick="panel.deleteNotif(${n.id})">×</button>`}</div>
+            : `<button class="dn-del" title="Supprimer" data-act="notif-delete" data-id="${n.id}">×</button>`}</div>
       <div class="dn-msg">${esc(n.message||'')}</div>
       <div class="dn-time">${chip} — ${heure(n.ts)}</div>
     </div>`;

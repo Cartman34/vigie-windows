@@ -138,8 +138,8 @@ function cardHtml(m, groupLabel){
     // Before, that last case called a fold that did not exist: nothing happened.
     const aQuoiVoir  = !!(detTxt || aTable || aTree || f.help);
     const clicDetail = !aQuoiVoir ? ''
-      : ((detLong || !detTxt) ? `panel.ouvrirDetail('${key}')` : 'panel.toggleDetail(this)');
-    const info=aQuoiVoir?`<button class="fhelp ${stt}" title="${help}" onclick="${clicDetail}"><span class="vi vi-fw vi-lg">&#xE007;</span></button>`:'';
+      : ((detLong || !detTxt) ? `data-act="detail-open" data-key="${att(key)}"` : 'data-act="detail-toggle"');
+    const info=aQuoiVoir?`<button class="fhelp ${stt}" title="${help}" ${clicDetail}><span class="vi vi-fw vi-lg">&#xE007;</span></button>`:'';
     // THE FIX BUTTON (D66): an amber or red field that names an action ALWAYS carries its
     // button, right under the row. It was switched off in hard here (`const solve=''`):
     // not one card showed one, whatever the probe -- that is the fault reported about
@@ -168,7 +168,7 @@ function cardHtml(m, groupLabel){
       : '';
     const det = (detTxt && !detLong) ? `<div class="field-detail ${stt}${open}" data-k="${key}">${esc(detTxt)}</div>` : '';
     return `<div class="frow">
-      <div class="field"><span class="k"><span class="fdot ${stt}"></span><span class="fk-label${aQuoiVoir?' clickable':''}"${help?` title="${help}"`:''}${clicDetail?` onclick="${clicDetail}"`:''}>${f.label}</span>${info}</span><span class="v v-${stt}">${fmt(f)}</span></div>
+      <div class="field"><span class="k"><span class="fdot ${stt}"></span><span class="fk-label${aQuoiVoir?' clickable':''}"${help?` title="${help}"`:''}${clicDetail?` ${clicDetail}`:''}>${f.label}</span>${info}</span><span class="v v-${stt}">${fmt(f)}</span></div>
       ${det}
       ${progressHtml(f)}
       ${solve?`<div class="frow-actions">${solve}</div>`:''}
@@ -222,8 +222,8 @@ function cardHtml(m, groupLabel){
     <div class="card-head">
       <div class="card-titles"><span class="card-group">${esc(groupLabel||'')}${scopeHtml(m)}</span><span class="name">${m.label}</span>${paceHtml(m)}</div>
       ${stTxt?`<span class="badge ${st}"><span class="ic vi vi-fw">${stIc}</span>${stTxt}</span>`:''}
-      <button class="card-refresh${cardIsStale(m)?' stale':''}" title="${L('ui.rafraichir-cette-carte')}${(m.ms!==undefined&&m.ms!==null)?` — ${L('ui.servie-en')}${m.ms} ms`:''}" onclick="panel.refreshCard('${m.id}',this,true)"><span class="cr-ic vi vi-fw vi-lg">&#xE008;</span></button>
-      <button class="card-refresh card-menu" title="${L('ui.menu-de-cette-carte')}" onclick="panel.openCardMenu(event,'${m.id}','${m.theme}')"><span class="vi vi-fw vi-lg">&#xE009;</span></button>
+      <button class="card-refresh${cardIsStale(m)?' stale':''}" title="${L('ui.rafraichir-cette-carte')}${(m.ms!==undefined&&m.ms!==null)?` — ${L('ui.servie-en')}${m.ms} ms`:''}" data-act="card-refresh" data-module="${att(m.id)}"><span class="cr-ic vi vi-fw vi-lg">&#xE008;</span></button>
+      <button class="card-refresh card-menu" title="${L('ui.menu-de-cette-carte')}" data-act="card-menu" data-module="${att(m.id)}" data-theme="${att(m.theme)}"><span class="vi vi-fw vi-lg">&#xE009;</span></button>
     </div>
     <div class="fields">${held
       ? `<div class="frow"><span class="card-attente">${L('ui.carte-occupee')}</span></div>`
@@ -357,7 +357,7 @@ export function renderState(s, mode){
     const fbar=document.createElement('div'); fbar.className='filterbar';
     fbar.innerHTML='<span class="flabel">Groupes</span>'+themesWithMods.map(t=>{
       const active=!hiddenThemes.has(t.id);
-      return `<button class="fchip${active?' active':''}" data-theme="${t.id}" onclick="panel.toggleGroup('${t.id}')" title="${active?'Masquer':'Afficher'} ${L('ui.le-groupe')} ${esc(t.label)} »">${esc(t.label)}</button>`;
+      return `<button class="fchip${active?' active':''}" data-theme="${t.id}" data-act="group-toggle" title="${active?'Masquer':'Afficher'} ${L('ui.le-groupe')} ${esc(t.label)} »">${esc(t.label)}</button>`;
     }).join('');
     app.appendChild(fbar);
   }
