@@ -20,8 +20,12 @@
     and never call upwards. Above them, subjects call each other as the subject requires, with one rule: no cycle.
 #>
 . "$PSScriptRoot/paths.ps1"         # the landmarks of the tree, and "does this path exist?"
+. "$PSScriptRoot/var.ps1"           # where what the app generates may be written, and by which account
+. "$PSScriptRoot/log.ps1"           # writing down what happened, in one shape
+. "$PSScriptRoot/store.ps1"         # writing a JSON file without losing what another writer wrote
 . "$PSScriptRoot/format.ps1"        # sizes, dates, PowerShell literals: shaping a value into text
 . "$PSScriptRoot/native.ps1"        # elevation, command lines, running a native command
+. "$PSScriptRoot/contract.ps1"      # the shape of what the panel receives: a field, an action, a card
 
 
 # THE LABELS ARE AVAILABLE WHEREVER common.ps1 IS -- that is, in the server, the probes, the
@@ -54,42 +58,6 @@ if (Test-Path -LiteralPath $script:_lockLib) { . $script:_lockLib }
 
 # --- Shared helpers (the rule: one feature, one piece of code) ---------------
 
-
-# Merges keys into a JSON state file (an ATOMIC read-merge-write), serialised by a named
-# mutex derived from the file, so several writers -- actions, detached workers -- do not
-# overwrite one another. The rule: one single piece of code writes the files of var/cache
-# (netmeasure.json, pkgupdates.json, ...).
-function Update-StateJson {
-    param(
-        [Parameter(Mandatory)][string]$Path,
-        [Parameter(Mandatory)][hashtable]$Set,
-        # Serialisation depth. 8 is enough for flat states; a TREE -- the disk analysis --
-        # goes past it, and ConvertTo-Json then truncates IN SILENCE.
-        [int]$Depth = 8
-    )
-    $dir = Split-Path $Path -Parent
-    if ($dir -and -not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
-    $leaf = (Split-Path $Path -Leaf) -replace '[^A-Za-z0-9]', '_'
-    $mx = $null; $held = $false
-    try {
-        $mx = New-Object System.Threading.Mutex($false, "Local\VigieState_$leaf")
-        try { $held = $mx.WaitOne(5000) }
-        catch [System.Threading.AbandonedMutexException] { $held = $true }
-        catch { $held = $false }
-        $data = @{}
-        if (Test-Path $Path) {
-            try { $j = Get-Content $Path -Raw | ConvertFrom-Json; foreach ($pp in $j.PSObject.Properties) { $data[$pp.Name] = $pp.Value } } catch { }
-        }
-        foreach ($k in $Set.Keys) { $data[$k] = $Set[$k] }
-        $tmp = "$Path.tmp"
-        ($data | ConvertTo-Json -Depth $Depth) | Out-File -FilePath $tmp -Encoding UTF8
-        Move-Item -Path $tmp -Destination $Path -Force
-        return $data
-    } finally {
-        if ($held -and $mx) { try { $mx.ReleaseMutex() } catch { } }
-        if ($mx) { try { $mx.Dispose() } catch { } }
-    }
-}
 
 # Invalidates -- removes -- entries of the state cache: the probes named will be recomputed
 # at the next /state. One single piece of code, reused by Invoke-ActionById AND by the
@@ -2688,64 +2656,6 @@ $startSnippet
     return $target
 }
 
-# --- Logging ----------------------------------------------------------------
-# --- Runtime data: apps/<app>/var/ (the Symfony convention) --------------------
-# Everything the app GENERATES or manages locally lives under var/: cache, logs, state,
-# generated secrets. None of it is versioned.
-# These paths are written HERE and nowhere else: they used to be recomposed by hand in eight
-# files -- actions, probes, workers.
-# Is the installation WRITABLE by the account running? (D65)
-#
-# Two situations, and a single rule to tell them apart: writing for real.
-#   - a DEV repository, or an installation in a personal space: var/ is written in place, as
-#     it always has been -- nothing changes;
-#   - a SHARED installation (Program Files): a standard account does not write there. Its
-#     runtime data then go to its profile, where it is at home.
-# We do not GUESS from the path: we try to write, once, and remember.
-$script:VarRootCache = $null
-function Get-VarRoot {
-    param([string]$Backend = (Get-BackendRoot))
-    # THE CACHE IS PER APPLICATION, not global.
-    #
-    # It took no account whatever of its argument: the first call froze THE root, and every
-    # one after it got that root back whatever -Backend was asked for. The client app
-    # therefore wrote its heartbeat into the server's var/, where the order sender did not
-    # look for it -- "restart impossible, client app already stopped" while it was running
-    # (seen on 28/08). Each app keeps its files under ITS var/ (D33), so the cache has to be
-    # indexed by application.
-    if ($null -eq $script:VarRootCache) { $script:VarRootCache = @{} }
-    $cle = "$Backend".TrimEnd([char]92, [char]47).ToLowerInvariant()
-    if ($script:VarRootCache.ContainsKey($cle)) { return $script:VarRootCache[$cle] }
-
-    # INSTALLED IN PROGRAM FILES: the data go into the account's profile, NEVER beside the
-    # program. The server runs elevated, so it COULD write there -- and that is precisely the
-    # trap: every account would then share the same token, the same cache and the same
-    # settings, when each must have its own (D65). The write test below would see nothing,
-    # since it would succeed.
-    $programmes = @($env:ProgramFiles, ${env:ProgramFiles(x86)}) | Where-Object { $_ }
-    foreach ($p in $programmes) {
-        if ("$Backend".StartsWith("$p", [StringComparison]::OrdinalIgnoreCase)) {
-            $script:VarRootCache[$cle] = Join-Path (Get-UserConfigDir) 'var'
-            return $script:VarRootCache[$cle]
-        }
-    }
-
-    # Elsewhere -- a development repository, a personal folder: in place when it can be
-    # written to, otherwise in the profile.
-    $surPlace = Join-Path $Backend 'var'
-    $ok = $false
-    try {
-        if (-not (Test-Path -LiteralPath $surPlace)) {
-            New-Item -ItemType Directory -Path $surPlace -Force -WhatIf:$false | Out-Null
-        }
-        $temoin = Join-Path $surPlace ('.ecriture-' + [guid]::NewGuid().ToString('N').Substring(0,8))
-        [IO.File]::WriteAllText($temoin, 'x')
-        Remove-Item -LiteralPath $temoin -Force -ErrorAction SilentlyContinue
-        $ok = $true
-    } catch { $ok = $false }
-    $script:VarRootCache[$cle] = if ($ok) { $surPlace } else { Join-Path (Get-UserConfigDir) 'var' }
-    return $script:VarRootCache[$cle]
-}
 
 <#
     IS A CARD THE SAME FOR EVERYONE?
@@ -2792,82 +2702,7 @@ function Get-ProbeCacheKey {
     return ($leaf + '@' + $(if ($Account) { $Account } else { '?' }))
 }
 
-function Get-VarPath {
-    param(
-        [string]$Backend = (Get-BackendRoot),
-        <#
-            ANOTHER ACCOUNT'S ROOT, when one must write somewhere other than at home.
 
-            The var of an installation inside Program Files lives in the profile of the
-            account that RUNS (D65): the service's, for the server app. The installation, on
-            the other hand, runs under the person who clicked -- so it cleaned THEIR cache
-            while the card went on reading the service's. Get-AccountVarRoot gives the right
-            root, and it goes through here rather than being recomposed by hand.
-        #>
-        [string]$VarRoot,
-        # 'history': series of measurements. Distinct from 'cache': a lost cache recomputes
-        # itself, a lost history does not.
-        # 'run': LIVE state, valid for the length of a process (background-task marks). It is
-        # not backed up and not read back after a restart.
-        [Parameter(Mandatory)][ValidateSet('cache','log','secrets','history','run')][string]$Kind,
-        [string]$File
-    )
-    $dir = Join-Path $(if ($VarRoot) { $VarRoot } else { Get-VarRoot -Backend $Backend }) $Kind
-    # TEST-PATHSAFE, AND A CREATION THAT DOES NOT SHOUT. On ANOTHER account's var, Test-Path
-    # THROWS instead of answering "no", and New-Item writes four red blocks -- when all we
-    # were doing was reading a path to erase a file inside it. A caller without the right
-    # will notice by finding nothing there, without polluting the log.
-    if (-not (Test-PathSafe $dir)) {
-        New-Item -ItemType Directory -Path $dir -Force -WhatIf:$false -ErrorAction SilentlyContinue | Out-Null
-    }
-    if ($File) { return (Join-Path $dir $File) }
-    return $dir
-}
-
-function Get-LogDir {
-    param([string]$Backend = (Get-BackendRoot))
-    $d = Get-VarPath -Backend $Backend -Kind 'log'
-    # -WhatIf:$false: creating the log folder is plumbing, not an operation the user
-    # simulates. Without it, -WhatIf prevents any logging at all.
-    if (-not (Test-Path $d)) { New-Item -ItemType Directory -Path $d -Force -WhatIf:$false | Out-Null }
-    $d
-}
-function Write-Log {
-    param(
-        # AN EMPTY LINE IS A LINE. The installation log relays what each sub-script displays,
-        # blank layout lines included: without this permission, every breath produced a
-        # "Cannot bind argument to parameter Message" in the transcript -- red noise on an
-        # installation that was going perfectly well.
-        [Parameter(Mandatory)][AllowEmptyString()][string]$Message,
-        [string]$Level = 'INFO',
-        [string]$Name  = 'app',
-        [string]$Backend = (Get-BackendRoot),
-        # Write WITHOUT displaying again: the line is already on screen, we only want to keep it.
-        [switch]$NoEcho
-    )
-    $dir  = Get-LogDir -Backend $Backend
-    $file = Join-Path $dir ($Name + '_' + (Get-Date -Format 'yyyyMMdd') + '.log')
-    $line = '{0} [{1}] {2}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Level, $Message
-    try { Add-Content -Path $file -Value $line -Encoding UTF8 } catch { }
-
-    # THE SCREEN AND THE FILE DO NOT SAY THE SAME THING, and that is deliberate. The file
-    # keeps the timestamp and the level: it is the one read back weeks later. The screen
-    # speaks the language of every other script (scripts/lib/console-ui.ps1).
-    #
-    # WHY: on 28/08 an installation step failed; its ERROR came out grey among twenty grey
-    # lines, and the user could not see it. A log level that does not stand out on screen is
-    # no use at all.
-    #
-    # The fallback exists because common.ps1 is loaded by scripts that have no need of the
-    # display -- the server, the probes: the dependency is not imposed on them.
-    if ($NoEcho) { return }
-    $hasUi = [bool](Get-Command Write-Fail -ErrorAction SilentlyContinue)
-    switch ($Level) {
-        'ERROR' { if ($hasUi) { Write-Fail $Message } else { Write-Host $line -ForegroundColor Red } }
-        'WARN'  { if ($hasUi) { Write-Warn $Message } else { Write-Host $line -ForegroundColor Yellow } }
-        default { if ($hasUi) { Write-Info $Message } else { Write-Host $line } }
-    }
-}
 
 
 # =============================================================================
@@ -3806,230 +3641,6 @@ function Get-DiskTreeLevel {
 }
 
 
-function New-Field {
-    param(
-        [Parameter(Mandatory)][string]$Key,
-        [Parameter(Mandatory)][string]$Label,
-        [Parameter(Mandatory)]$Value,
-        [Parameter(Mandatory)][ValidateSet('bool','number','text','date')][string]$Kind,
-        [string]$Unit,
-        [ValidateSet('ok','warn','error','neutral')][string]$Status,
-        [string]$Help,
-        [string]$FixAction,
-        [string]$Guide,
-        # A STRUCTURED detail: @{ columns = @('...'); rows = @(@('...'), ...) }.
-        # A list of several dozen lines formatted into a string stays unreadable wherever it
-        # is displayed. A table is taken in at a glance; text is not.
-        [hashtable]$Table,
-        # A foldable TREE (S13b/D60): @{ n; path; size; pct; k = @(...) }. A table flattens
-        # what is hierarchical; a tree is walked branch by branch, which is exactly the
-        # question being asked ("where is the room going?").
-        $Tree,
-        # THE PROGRESS OF AN OPERATION IN PROGRESS, in a block of its own under the field, only while it runs:
-        # @{ phase; percent; index; total; title; itemPercent; bytesDone; bytesTotal; since } (contract Field.progress).
-        [hashtable]$Progress,
-        # THE REASON OF AN ALERT, one short line, carried as is into the desktop notification (CORE-ERRORS).
-        [string]$Reason,
-        <#
-            -Scope: WHOSE INFORMATION THIS FIELD CARRIES, when it is not its card's (D128).
-
-            'machine' or 'user'. A 'mixed' card requires one on EVERY field; on a 'machine' or
-            'user' card it is written only for the exception.
-        #>
-        [ValidateSet('machine','user')][string]$Scope,
-        # THE IDENTITY OF THE FACT STATED, when the displayed value is a rendering of it and not the fact itself.
-        # Never displayed. It exists for whoever WATCHES the field: a watcher that compares values alone cannot tell
-        # "the same fact, worded differently" from "a new fact". Measured on 05/10: the last session's line reads
-        # the last session's line names its end time one way on the day and another way afterwards, so at the first
-        # computation past midnight the client app took a twelve-hour-old session for a session that had just ended,
-        # and opened its recap at 06:45. Every field whose value carries a date, a duration or any wording that
-        # drifts with time owes an identity.
-        [string]$Identity
-    )
-    $f = [ordered]@{ key = $Key; label = $Label; value = $Value; kind = $Kind }
-    if ($Reason) { $f['reason'] = $Reason }
-    if ($Identity) { $f['identity'] = $Identity }
-    if ($Scope) { $f['scope'] = $Scope }
-    if ($Unit)      { $f['unit']      = $Unit }
-    if ($Status)    { $f['status']    = $Status }
-    if ($Help)      { $f['help']      = $Help }
-    if ($FixAction) { $f['fixAction'] = $FixAction }
-    if ($Guide)     { $f['guide']     = $Guide }
-    if ($Table -and $Table.rows -and @($Table.rows).Count) { $f['table'] = $Table }
-    if ($Tree) { $f['tree'] = $Tree }
-    if ($Progress -and $Progress.phase) { $f['progress'] = $Progress }
-    [pscustomobject]$f
-}
-function New-Action {
-    param(
-        [Parameter(Mandatory)][string]$Id,
-        [Parameter(Mandatory)][string]$Label,
-        # THE CARD THAT CARRIES THIS ACTION, when the resource it takes depends on it: "pkg-choco" turns "paquets"
-        # into "paquets-choco", so checking pip during an upgrade of Chocolatey stays possible. Optional: an action
-        # whose resource does not depend on its card has nothing to say here.
-        [string]$Module,
-        [switch]$Confirm,
-        [string]$Help,
-        # 'dialog': opens a CHOICE window inside the application (a list to tick).
-        # Distinct from 'manual', which opens EXTERNAL SOFTWARE, and from 'confirm', which
-        # only asks a yes or no. The three did not look different enough on screen.
-        [ValidateSet('immediate','confirm','manual','dialog')][string]$Kind,
-        # SEVERITY: what the action represents, independently of the FORM it takes.
-        # `kind` chooses the ICON -- how it happens: yes/no, a choice window, external
-        # software; `severity` chooses the COLOUR, what it is worth:
-        #   neutral = nothing at stake (grey) | info = consulting, opening (blue)
-        #   fix     = it corrects something (green)
-        # The two were conflated: the colour followed the form, which teaches nothing.
-        [ValidateSet('neutral','info','fix')][string]$Severity,
-        # The label displayed WHILE it runs. It must say what is happening -- "Mise à jour…",
-        # not "En cours…". The ellipsis is RESERVED for an action under way: a label at rest
-        # never carries one.
-        [string]$BusyLabel,
-        # TWO distinct confirmations before running. Reserved for gestures that close the
-        # user's work in progress or touch the whole machine: one click too many must not be
-        # enough.
-        [switch]$ConfirmTwice,
-        # --- WHAT A CONFIRMATION MUST SAY (D91) ---------------------------------
-        # "This action modifies your system" informs nobody. Before saying yes, one wants
-        # to know WHAT CHANGES on the machine, WHY one would do it, and WHETHER one can go
-        # back. Surface technical details are welcome: a service name, a registry key, a
-        # restart required.
-        #
-        #   -Impact     : what concretely changes, here and now.
-        #   -Usage      : in which case one uses it (the intention).
-        #   -Reversible : how to go back -- or why one cannot.
-        [string]$Impact,
-        [string]$Usage,
-        [string]$Reversible,
-
-        <#
-            -From / -To: THE ACTION MOVES FROM ONE STATE TO ANOTHER, and it is SHOWN.
-
-            "From v0.1.25 to v0.1.25+1" stuck at the end of a sentence reads badly and gets
-            lost. Two values and an arrow are taken in at a glance -- and that is what one
-            wants to know before clicking.
-
-            -FromNote / -ToNote carry the detail under each value: a commit, a date. Both
-            optional: in production the version number says enough.
-        #>
-        [string]$From,
-        [string]$To,
-        [string]$FromNote,
-        [string]$ToNote,
-
-        <#
-            -Steps: WHAT IS GOING TO HAPPEN, IN ORDER.
-
-            An asynchronous action chains several phases -- deploy, restart, check. Listing
-            them in a sentence drowns them; showing them aligned says at a glance how many
-            there are, and which one finishes the job.
-
-            The last is the STATE ARRIVED AT, not a phase: it stands apart.
-        #>
-        [string[]]$Steps = @()
-    )
-    $a = [ordered]@{ id = $Id; label = $Label }
-    if ($Confirm -or $ConfirmTwice) { $a['confirm'] = $true }
-    if ($ConfirmTwice) { $a['confirmTwice'] = $true }
-    if ($Help)    { $a['help']    = $Help }
-    if ($Impact)     { $a['impact']     = $Impact }
-    if ($Usage)      { $a['usage']      = $Usage }
-    if ($Steps -and $Steps.Count) { $a['steps'] = @($Steps) }
-    if ($From -or $To) {
-        $a['transition'] = @{ from = "$From"; to = "$To"; fromNote = "$FromNote"; toNote = "$ToNote" }
-    }
-    if ($Reversible) { $a['reversible'] = $Reversible }
-    $a['kind'] = if ($Kind) { $Kind } elseif ($Confirm) { 'confirm' } else { 'immediate' }
-    # A reasonable default: opening something informs, the rest is neutral. A corrective
-    # action must declare itself -- one does not guess that it repairs.
-    # Default: 'info'. A button IS an action: it does something, and its icon deserves a
-    # colour. Grey used to be the default, so every ordinary action looked inert; it is now
-    # DECLARED, for the rare case where nothing is at stake.
-    # 'fix' is declared too: one does not guess that an action repairs.
-    $a['severity'] = if ($Severity) { $Severity } else { 'info' }
-    # Default: the label followed by an ellipsis. Grammatically right in most cases; one
-    # spells it out when the noun form reads better.
-    $a['busyLabel'] = if ($BusyLabel) { $BusyLabel } else { "$Label…" }
-    # WHAT THE ACTION TAKES UP (D93). The interface uses it to grey out just what it must;
-    # the server is the one that really arbitrates.
-    $res = @(Get-ActionResources -Type $Id -Module $Module)
-    if ($res.Count) { $a['resources'] = @($res) }
-    [pscustomobject]$a
-}
-function New-ModuleObject {
-    param(
-        [Parameter(Mandatory)][string]$Id,
-        [Parameter(Mandatory)][string]$Theme,
-        [Parameter(Mandatory)][string]$Label,
-        [Parameter(Mandatory)][ValidateSet('ok','warn','error','neutral')][string]$Status,
-        <#
-            -Scope: WHOSE INFORMATION THIS CARD CARRIES, and it is mandatory (D128).
-
-              'machine' -- facts about the computer, true with nobody signed in.
-              'user'    -- facts about the account looking, which are read IN ITS OWN SESSION.
-              'mixed'   -- both on one card; every field then declares its own.
-
-            WHAT IT IS FOR. Information carried by a user account is fetched from that account,
-            never from the service account: the server app has no winget, no WSL, no Game Bar
-            and nobody's settings. Measured on 05/10: the winget card was missing from the
-            panel entirely, and its first fix then showed one account's winget to another
-            account's session. A per-account measurement borrowed from another account is
-            wrong even when it is exact.
-
-            WHY DECLARE IT RATHER THAN KNOW IT. Because forgetting does not show: the card
-            appears, the value reads plausibly, and it belongs to someone else. Declared, the
-            gap becomes mechanical -- `check-scope.ps1` refuses a card without a scope, and a
-            'mixed' card one of whose fields does not declare one.
-        #>
-        [Parameter(Mandatory)][ValidateSet('machine','user','mixed')][string]$Scope,
-        [object[]]$Fields = @(),
-        [object[]]$Actions = @(),
-        <#
-            -Mode: A LASTING STATE OF THE CARD, which the interface shows.
-
-            Neither an alert nor an occupancy: a CONTEXT. The Gaming card enters 'game' mode
-            for as long as a game lasts, and the interface shows it -- one must see at a
-            glance that a game is on, without reading a field.
-        #>
-        [string]$Mode,
-
-        [switch]$Busy,
-        # The identifier of the action REALLY under way. Without it the interface animates
-        # every button on the card: one no longer knows which is working.
-        [string]$BusyAction,
-        # What the running operation takes up: without it, the interface can only block
-        # everything or nothing.
-        [string[]]$BusyResources = @()
-    )
-    # INVARIANT: a card is never MORE SERIOUS than the worst of its fields. A card reading
-    # "Problème" in red with no red line in it is a contradiction the user sees at once, and
-    # there is nowhere for them to go to resolve it.
-    # The bound is set HERE, once, for every probe, so none can forget it any more.
-    # "neutral" fields bound NOTHING: they carry no judgement, and a green card made of
-    # neutral lines is perfectly legitimate.
-    $rank = @{ neutral = 0; ok = 1; warn = 2; error = 3 }
-    $cap = 0
-    foreach ($f in @($Fields)) {
-        $s = "$($f.status)"
-        if ($s -and $rank.ContainsKey($s) -and $rank[$s] -gt $cap) { $cap = $rank[$s] }
-    }
-    $effective = $Status
-    if ($cap -gt 0 -and $rank["$Status"] -gt $cap) {
-        $effective = ($rank.GetEnumerator() | Where-Object { $_.Value -eq $cap }).Name
-    }
-    $o = [ordered]@{
-        id = $Id; theme = $Theme; label = $Label; status = $effective; scope = $Scope
-        fields = @($Fields); actions = @($Actions)
-    }
-    if ($Busy) { $o['busy'] = $true }
-    if ($Busy -and $BusyAction) { $o['busyAction'] = $BusyAction }
-    if ($Mode) { $o['mode'] = $Mode }
-    if ($Busy) {
-        $br = if ($BusyResources.Count) { @($BusyResources) } elseif ($BusyAction) { @(Get-ActionResources -Type $BusyAction -Module $Id) } else { @() }
-        if ($br.Count) { $o['busyResources'] = @($br) }
-    }
-    [pscustomobject]$o
-}
 
 $script:ThemeCatalog = @(
     [pscustomobject]@{ id = 'windows-update'; label = 'Windows Update' }
@@ -10615,28 +10226,6 @@ function Get-AccountConfigDir {
     return (Join-Path (Join-Path (Join-Path (Join-Path $profil 'AppData') 'Local') 'Sowapps') 'Vigie')
 }
 
-function Get-UserConfigDir {
-    # Vigie is an application of SOWAPPS: its data live under the publisher's name, like those
-    # of any installed software (Publisher\Product).
-    $base = $env:LOCALAPPDATA
-    if (-not $base) { $base = Join-Path $env:USERPROFILE 'AppData\Local' }
-    $d = Join-Path (Join-Path $base 'Sowapps') 'Vigie'
-    if (-not (Test-Path -LiteralPath $d)) {
-        try { New-Item -ItemType Directory -Path $d -Force -WhatIf:$false | Out-Null } catch { }
-        # Taking over the previous location, without the publisher: nobody is to lose their
-        # settings because the filing changed.
-        $ancien = Join-Path $base 'Vigie'
-        if ((Test-Path -LiteralPath $ancien) -and (Test-Path -LiteralPath $d)) {
-            try {
-                foreach ($x in (Get-ChildItem -LiteralPath $ancien -Force -ErrorAction SilentlyContinue)) {
-                    $targetPath = Join-Path $d $x.Name
-                    if (-not (Test-Path -LiteralPath $targetPath)) { Move-Item -LiteralPath $x.FullName -Destination $targetPath -Force }
-                }
-            } catch { }
-        }
-    }
-    $d
-}
 function Get-UserConfigPath {
     param(
         [Parameter(Mandatory)][string]$File,
