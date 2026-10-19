@@ -460,6 +460,17 @@ card's shape, an interval. Presenting first is what keeps his arbitrations stand
 **What does not need a plan**: reading, measuring, running a verifier -- anything that does not write. And writing
 down what he has just asked for, which IS the execution of his instruction, not new work.
 
+**AND SETTING OFF IS ANNOUNCED, IN TEXT, ON THE FIRST TOOL CALL.** Not after the first file is written, not in the
+report at the end: the message that carries the first call says what is being started and with what. *19/10:
+« Tu dois avoir validation que tu pars à dev AVANT de partir. De plus quand tu pars, tu DOIS OBLIGATOIREMENT
+l'annoncer avec une confirmation de texte sur le premier tool use. »*
+
+**Why both halves.** The validation is his; the announcement is what lets him stop me at the first gesture instead
+of reading fifteen commits afterwards. On 19/10 he answered a question about HOW to keep a strategy -- keep it
+aside, apply it, test it, amend it -- and I read « apply it » as the go-ahead for the gesture itself: three pieces
+of `common.ps1` were cut, proven and committed before he could say a word. The question I had asked, "do I start
+the cut?", had never been answered.
+
 ## Whose information is this? (D128)
 
 **Before reading anything, ask whose it is.** The server app runs under a service account: it has no winget, no WSL,
@@ -749,6 +760,14 @@ by hand.
 
 **A commit = one correction, or one addition, and nothing else.** Its title says it in full.
 If you need "and" to summarise it, it was two commits.
+
+**AND A WORKSITE IS ONE COMMIT, NOT ONE PER FILE TOUCHED.** The rule above answers "what belongs together"; it
+does not license a commit per gesture inside the same piece of work. Cutting a library into pieces, translating a
+file, moving a style sheet out: one commit, even when it took six files and an afternoon. An intermediate commit
+or two is allowed when there IS a reason -- a slice that must be revertible on its own -- never as a habit.
+*19/10, after I had made three commits for three small files of the same cut: « 3 commits ? franchement tu abuses,
+t'as fait 3 modifs et tu fais un commit chacune ? », then « pour la suite, évite de faire 300 commits, ça serait
+n'importe quoi. Tu fais un chantier, un commit, tu travailles sur le même fichier. »*
 
 **Why:** on 30/08, nine commits for the day while there were far more fixes. `6d02bf6`
 carried three unrelated pieces of work (the question tool for Vigie, "who executes" ≠ "who
