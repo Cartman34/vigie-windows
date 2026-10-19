@@ -65,6 +65,7 @@ $WAKES = [ordered]@{
     'check-doc'         = @(@{ Folder = 'doc/'; Patterns = @('*.md') })
     'check-encoding'    = @(@{ Folder = ''; Patterns = @('*') })                       # accents, BOM, caracteres de controle
     'check-front'       = @(@{ Folder = 'apps/frontend-web/'; Patterns = @('*.html') })
+    'check-layers'      = @(@{ Folder = 'apps/backend-pode/lib/'; Patterns = @('*.ps1') })
     'check-labels'      = @(@{ Folder = ''; Patterns = @('*.ps1', '*.html', '*.json') })
     'check-language'    = @(@{ Folder = 'doc/'; Patterns = @('*.md') })
     'check-naming'      = @(@{ Folder = ''; Patterns = @('*.ps1', '*.psm1', '*.psd1', '*.html', '*.php', '*.py',

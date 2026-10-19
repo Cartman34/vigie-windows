@@ -10,26 +10,19 @@
 #>
 
 <#
-    "DOES THIS PATH EXIST?" MUST NEVER BRING A CALLER DOWN.
+    THE PIECES, SOURCED HERE, AND THIS FILE IS THEIR FACADE (S28).
 
-    Test-Path THROWS on a path whose rights are refused -- another account's profile,
-    typically. Under "ErrorActionPreference = Stop" the question then takes the whole script
-    with it. Seen twice on 29/08: an entire probe in error, and a restart of client apps cut
-    short, both times because something asked whether a folder existed.
+    Every caller dot-sources this one file and nothing else -- a route, a probe, an action, a background task.
+    What used to be 11 910 lines in one place is leaving by subject, and the callers do not change: that is what
+    makes the cut provable, since the surface loaded has to stay identical.
 
-    A refusal of access IS NOT an answer to the question asked: we do not know whether the
-    path exists, and "I do not know" is treated as "no" here -- there is nothing to be done
-    with it either way.
-
-    The repository's rule: a system call that repeats becomes a function of ours.
+    THE FLOOR IS FROZEN: `paths`, `format`, and the pieces that will follow them, depend on nothing of the project
+    and never call upwards. Above them, subjects call each other as the subject requires, with one rule: no cycle.
 #>
-function Test-PathSafe {
-    param([string]$Path)
-    if (-not $Path) { return $false }
-    try { return [bool](Test-Path -LiteralPath $Path -ErrorAction Stop) } catch { return $false }
-}
+. "$PSScriptRoot/paths.ps1"         # the landmarks of the tree, and "does this path exist?"
+. "$PSScriptRoot/format.ps1"        # sizes, dates, PowerShell literals: shaping a value into text
+. "$PSScriptRoot/native.ps1"        # elevation, command lines, running a native command
 
-function Get-BackendRoot { Split-Path $PSScriptRoot -Parent }
 
 # THE LABELS ARE AVAILABLE WHEREVER common.ps1 IS -- that is, in the server, the probes, the
 # actions and the workers. Without loading them here, every file would have to remember to
@@ -59,132 +52,8 @@ if (Test-Path -LiteralPath $script:_metricsLib) { . $script:_metricsLib }
 $script:_lockLib = Join-Path (Split-Path (Split-Path (Get-BackendRoot) -Parent) -Parent) 'scripts/lib/file-locks.ps1'
 if (Test-Path -LiteralPath $script:_lockLib) { . $script:_lockLib }
 
-# --- Landmarks of the tree ---------------------------------------------------
-# The repository holds SEVERAL apps (apps/backend, apps/frontend, apps/client,
-# apps/atelier) plus scripts/ and doc/. These landmarks are computed HERE and nowhere
-# else: no script may recompose a cross-app path by hand.
-function Get-RepoRoot { Split-Path (Split-Path (Get-BackendRoot) -Parent) -Parent }
-function Get-AppsRoot { Split-Path (Get-BackendRoot) -Parent }
-# App folder names carry their TECHNOLOGY: they are replaceable implementations
-# (principle no. 1). They are written ONLY HERE; all the code goes through Get-AppPath.
-# Only the bootstrap is an exception -- see the note further down.
-function Get-AppPath {
-    param([Parameter(Mandatory)][ValidateSet('backend','frontend','client','atelier')][string]$Role)
-    $folder = switch ($Role) {
-        'backend'  { 'backend-pode' }    # PowerShell + Pode
-        'frontend' { 'frontend-web' }    # HTML/CSS/JS, sans framework ni build
-        'client'   { 'client' }          # pas de suffixe : n'implemente aucun contrat
-        'atelier'  { 'atelier' }         # idem
-    }
-    Join-Path (Get-AppsRoot) $folder
-}
-
-# A NOTE ON THE BOOTSTRAP: a script that must LOAD this library cannot call Get-AppPath
-# yet. The backend folder's name is therefore spelled out there (client.ps1,
-# scripts/*.ps1). It is unavoidable: one has to know where the library is before being
-# able to use it. Those lines are marked with a comment of their own.
-
 # --- Shared helpers (the rule: one feature, one piece of code) ---------------
 
-# Is the current process elevated (administrator)?
-function Test-Elevated {
-    try {
-        return ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()
-            ).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-    } catch { return $false }
-}
-
-<#
-    ONE VALUE, ONE ARGUMENT -- whatever that value contains.
-
-    A Windows command line is a SINGLE STRING; the child splits it again with the rules of
-    CommandLineToArgvW. Start-Process joins -ArgumentList with spaces and quotes NOTHING, so
-    each value handed to it must already be a valid token.
-
-    Wrapping it by hand -- ('"' + $path + '"') -- is the trap that looks like the fix: it
-    holds for "C:\Program Files\Sowapps\Vigie" and breaks on a path that ends with a
-    backslash, because "C:\dir\" escapes its own closing quote and swallows the argument
-    that follows.
-
-    Three rules, and no others:
-      - an empty value is not nothing, it is a pair of quotes;
-      - a backslash only matters in front of a quote (the end of the value counts, since the
-        closing quote comes next): there, it doubles;
-      - a value carrying a space, a tab or a quote is wrapped -- anything else is passed as
-        it stands, because wrapping what needs nothing hides what does.
-
-    The sibling of ConvertTo-PSLiteral, which answers the same question for the OTHER world:
-    a value inserted into PowerShell source. Neither escaping fits the other's world.
-#>
-function ConvertTo-ProcessArgument {
-    param([Parameter(Mandatory)][AllowEmptyString()][AllowNull()][string]$Value)
-    if ($null -eq $Value -or $Value -eq '') { return '""' }
-    if ($Value -notmatch '[\s"]') { return $Value }
-    $out = [Text.StringBuilder]::new('"')
-    $backslashes = 0
-    foreach ($ch in $Value.ToCharArray()) {
-        if ($ch -eq '\') { $backslashes++; continue }
-        if ($ch -eq '"') { [void]$out.Append('\' * (2 * $backslashes + 1)); [void]$out.Append('"'); $backslashes = 0; continue }
-        if ($backslashes -gt 0) { [void]$out.Append('\' * $backslashes); $backslashes = 0 }
-        [void]$out.Append($ch)
-    }
-    # Trailing backslashes sit just before the closing quote: they double, or they escape it.
-    if ($backslashes -gt 0) { [void]$out.Append('\' * (2 * $backslashes)) }
-    [void]$out.Append('"')
-    $out.ToString()
-}
-
-<#
-    STARTING A PROCESS WITH ARGUMENTS GOES THROUGH HERE, ALWAYS (D116).
-
-    Arguments are given RAW, as values; the quoting happens here, once, for everyone. That is
-    the whole point: the fault it prevents cannot be seen when rereading the line, and says
-    nothing at run time -- on 02/09 the game resident died at every arming on "C:\Program is
-    not a script", and only its health field ever revealed it. A rule nobody can check is a
-    rule nobody keeps, so check-probes refuses a bare Start-Process everywhere but here.
-
-    Everything else Start-Process accepts -- Wait, PassThru, Verb, WindowStyle,
-    WorkingDirectory, redirections -- travels untouched through -Options.
-
-    THE CALL OPERATOR IS ANOTHER WORLD: "& $exe @arguments" quotes each value ITSELF, so a
-    value wrapped by hand arrives WITH its quotes. Invoke-Native, which uses it, therefore
-    takes raw values too -- the same discipline, the opposite mechanism.
-#>
-function Start-ChildProcess {
-    param(
-        [Parameter(Mandatory)][string]$FilePath,
-        [string[]]$Arguments = @(),
-        [hashtable]$Options = @{}
-    )
-    $splat = @{}
-    foreach ($k in $Options.Keys) { $splat[$k] = $Options[$k] }
-    $splat['FilePath'] = $FilePath
-    if ($Arguments.Count -gt 0) {
-        $splat['ArgumentList'] = @($Arguments | ForEach-Object { ConvertTo-ProcessArgument ([string]$_) })
-    }
-    Start-Process @splat
-}
-
-# Runs a native command handling its output AND its exit code (the rule: errors, output and
-# exit codes are always handled). Returns one uniform object.
-function Invoke-Native {
-    param([Parameter(Mandatory)][string]$File, [string[]]$Arguments = @())
-    # winget, like other modern tools, emits UTF-8; PowerShell decoded it with the OEM code
-    # page (850) and every accent became a pair of symbols -- including in the error messages
-    # shown to the user. UTF-8 is forced for the length of the capture.
-    $before = [Console]::OutputEncoding
-    try { [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false) } catch { }
-    try {
-        $out = & $File @Arguments 2>&1
-        $code = $LASTEXITCODE
-    } finally {
-        try { [Console]::OutputEncoding = $before } catch { }
-    }
-    # winget decorates its output with ANSI sequences for highlighting: unreadable once
-    # captured, so they are stripped. [...letter is the standard CSI form.
-    $text = (($out | Out-String).TrimEnd()) -replace "\[[0-9;]*[A-Za-z]", ''
-    [pscustomobject]@{ Ok = ($code -eq 0); ExitCode = $code; Output = $text }
-}
 
 # Merges keys into a JSON state file (an ATOMIC read-merge-write), serialised by a named
 # mutex derived from the file, so several writers -- actions, detached workers -- do not
@@ -3936,16 +3805,6 @@ function Get-DiskTreeLevel {
     return [pscustomobject]@{ path = $plein; source = 'calcul'; children = $calcules; files = $fic; others = $null }
 }
 
-# A size in bytes -> readable text (one decimal: "12,4 Go"). The single point where sizes are
-# formatted: a card showing raw bytes teaches nothing.
-function Format-ByteSize {
-    param([Parameter(Mandatory)][long]$Bytes)
-    if ($Bytes -ge 1TB) { return ('{0:N1} To' -f ($Bytes / 1TB)) }
-    if ($Bytes -ge 1GB) { return ('{0:N1} Go' -f ($Bytes / 1GB)) }
-    if ($Bytes -ge 1MB) { return ('{0:N1} Mo' -f ($Bytes / 1MB)) }
-    if ($Bytes -ge 1KB) { return ('{0:N0} Ko' -f ($Bytes / 1KB)) }
-    return ("$Bytes o")
-}
 
 function New-Field {
     param(
@@ -6347,75 +6206,7 @@ $script:ProbeTtls = @{
     'gaming.probe.ps1'  = 30
 }
 
-# Brings a date read from JSON back to a UTC [datetime], whatever its shape.
-#
-# ConvertFrom-Json sometimes converts ISO-8601 strings into [datetime] itself: depending on
-# the path one receives a string or an object, and the Kind may be Utc, Local or Unspecified.
-# Comparing without normalising gives an age wrong by several hours -- which is what made the
-# state cache useless. So the conversion happens HERE, in one single place.
-function ConvertTo-UtcDate {
-    param($Value)
-    if ($null -eq $Value) { return $null }
-    $d = if ($Value -is [datetime]) { $Value }
-         else { [datetimeoffset]::Parse([string]$Value, [Globalization.CultureInfo]::InvariantCulture).UtcDateTime }
-    switch ($d.Kind) {
-        'Local'       { return $d.ToUniversalTime() }
-        'Unspecified' { return [datetime]::SpecifyKind($d, [DateTimeKind]::Utc) }
-        default       { return $d }
-    }
-}
 
-<#
-    THE DATE AS THE READER READS IT, AND IN ONE PLACE.
-
-    A date formatted anywhere else is formatted under the culture of the account that RUNS -- the service's, which
-    is not the reader's. The public IP tooltip announced "10/12/2026" for the 12th of October, seen by the owner on
-    12/10; and `pkg-list-updates` had already repaired exactly that in its own corner, by hand, with the comment
-    "an American date format nobody reads here". The fix lived in one FILE instead of one PLACE (D15).
-
-    THE ZONE IS THE WHOLE DIFFICULTY, and this repository stores three shapes: UTC carrying its zone
-    (`ToUniversalTime().ToString('o')`, the marks and the workers), UTC without it (`ToUniversalTime().ToString('s')`),
-    and LOCAL without it (`(Get-Date).ToString('s')`, several actions). A moment with no zone is taken AS WRITTEN
-    here, unless -AssumeUtc says it is UTC -- the caller knows what it stored.
-
-    AND THE MIXTURE IS NOT A DEFECT, measured rather than assumed: I announced a second defect -- the local offset
-    moving every age read from a zone-less write -- and it does not exist. ConvertTo-UtcDate, which feeds those
-    computations, reads a STRING through `[datetimeoffset]::Parse`, which assumes the LOCAL zone when the string
-    carries none; the reading is therefore right, and the measured gap is zero. It assumes UTC only for a
-    `[datetime]` whose Kind is Unspecified. Two conventions in one function: worth knowing before 'repairing' one
-    of them by the other, which is what I was about to do.
-
-    Usage: Format-DateForDisplay $value [-AssumeUtc] [-Short] [-Spelled]. Nothing in, nothing out -- so a caller
-    tests the result instead of guarding the call -- and a value that cannot be read comes back as it was, never
-    swallowed.
-#>
-function Format-DateForDisplay {
-    param(
-        $Value,
-        # The stored moment is UTC although it carries no zone: convert it to the reader's time.
-        [switch]$AssumeUtc,
-        [switch]$Short,
-        [switch]$Spelled
-    )
-    if ($null -eq $Value) { return '' }
-    $dt = $null
-    if ($Value -is [datetime]) { $dt = $Value }
-    else {
-        $txt = "$Value".Trim()
-        if (-not $txt) { return '' }
-        $parsed = [datetime]::MinValue
-        $ok = [datetime]::TryParse($txt, [Globalization.CultureInfo]::InvariantCulture,
-                                   [Globalization.DateTimeStyles]::RoundtripKind, [ref]$parsed)
-        if (-not $ok) { return "$Value" }
-        $dt = $parsed
-    }
-    if ($dt.Kind -eq [DateTimeKind]::Unspecified -and $AssumeUtc) {
-        $dt = [datetime]::SpecifyKind($dt, [DateTimeKind]::Utc)
-    }
-    if ($dt.Kind -eq [DateTimeKind]::Utc) { $dt = $dt.ToLocalTime() }
-    $fmt = if ($Short) { 'dd/MM HH:mm' } elseif ($Spelled) { 'dd/MM/yyyy à HH:mm' } else { 'dd/MM/yyyy HH:mm' }
-    return $dt.ToString($fmt, [Globalization.CultureInfo]::InvariantCulture)
-}
 
 # --- The log of probe runs ---------------------------------------------------
 # EVERY real run of a probe and its duration are kept, SYSTEMATICALLY, wherever it comes
@@ -11705,11 +11496,6 @@ function Test-ServerUp {
 # permission. The user can refuse without any system prompt appearing at all.
 
 
-# Escapes a string so it can be inserted into a PowerShell command (single quotes).
-function ConvertTo-PSLiteral {
-    param([Parameter(Mandatory)][AllowEmptyString()][string]$Value)
-    "'" + $Value.Replace("'", "''") + "'"
-}
 
 # Is the current process elevated? (one single wording of this test)
 # The elevation test has only ONE implementation (Test-Elevated, further up). THIS name is the one the
