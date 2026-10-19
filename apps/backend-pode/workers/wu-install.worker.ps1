@@ -40,15 +40,36 @@ function Get-ResultVerdict {
 }
 
 # The latest installation entry of Windows Update's history for one update, most recent first; $null if none.
+<#
+    THE HISTORY ANSWERS FOR THIS ATTEMPT, NOT FOR A PREVIOUS ONE.
+
+    Windows sometimes gives no verdict for an update in a job; its history usually has one, which is why this
+    fallback exists. But the history holds EVERY installation of that update, including the ones that worked
+    months ago -- and a driver re-offered after a successful install is the ordinary case here.
+
+    Seen on 19/10, and it is what made the panel lie: the job came back with code 4 (failed) while the card's
+    table said "Installée" for the only update in it. That "Installée" was the PREVIOUS install, found by
+    identifier in the history, with nothing comparing its date to this attempt. Red at the top, green in the
+    table, and the owner left to guess which one to believe.
+
+    An entry from before the job started says nothing about the job. It is refused.
+#>
 function Get-InstallHistoryEntry {
-    param([Parameter(Mandatory)]$Session, [Parameter(Mandatory)][string]$UpdateId)
+    param([Parameter(Mandatory)]$Session, [Parameter(Mandatory)][string]$UpdateId, [datetime]$Since)
     try {
         $historySearcher = $Session.CreateUpdateSearcher()
         $count = $historySearcher.GetTotalHistoryCount()
         if ($count -le 0) { return $null }
         foreach ($entry in @($historySearcher.QueryHistory(0, [Math]::Min($count, 100)))) {
             # Operation 1 is an installation, 2 an uninstallation.
-            if ("$($entry.UpdateIdentity.UpdateID)" -eq $UpdateId -and [int]$entry.Operation -eq 1) { return $entry }
+            if ("$($entry.UpdateIdentity.UpdateID)" -ne $UpdateId -or [int]$entry.Operation -ne 1) { continue }
+            if ($PSBoundParameters.ContainsKey('Since')) {
+                $at = $null
+                try { $at = ([datetime]$entry.Date).ToUniversalTime() } catch { }
+                # A date we cannot read is not a date that proves anything: the entry is left alone.
+                if (-not $at -or $at -lt $Since) { continue }
+            }
+            return $entry
         }
     } catch { }
     return $null
@@ -261,7 +282,7 @@ try {
         # NO FINAL VERDICT IN THE RESULT: Windows Update's history usually has it. On 12/09 the result gave nothing
         # for PowerShell 7.6.6, shown "Inconnu", while the history said failed, 0x80242008.
         if ($c -lt 2 -or $c -gt 5) {
-            $entry = Get-InstallHistoryEntry -Session $session -UpdateId "$($keptIds[$i])"
+            $entry = Get-InstallHistoryEntry -Session $session -UpdateId "$($keptIds[$i])" -Since ([datetime]$startedAt).ToUniversalTime()
             if ($entry -and [int]$entry.ResultCode -ge 2 -and [int]$entry.ResultCode -le 5) {
                 $c = [int]$entry.ResultCode
                 $h = [int]$entry.HResult
