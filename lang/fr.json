@@ -562,6 +562,8 @@
   "restore-context.branche": "Branche : {0}",
   "restore-context.document-introuvable": "Document de référence introuvable : {0}",
   "restore-context.documents-manquants": "{0} document(s) de référence manquant(s) : ce point de reprise est incomplet.",
+  "restore-context.etape-suivi": "Mon suivi de séance",
+  "restore-context.suivi-absent": "Aucun suivi de séance dans local/session-state.md : le premier geste est de l'écrire.",
   "restore-context.etape-depot": "Où en est le dépôt",
   "restore-context.etape-disciplines": "Les disciplines, telles qu'elles sont écrites",
   "restore-context.etape-documents": "Où vit la vérité",

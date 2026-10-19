@@ -82,6 +82,26 @@ if (-not $Court) {
     WHERE THE REPOSITORY STANDS. The summary says what has been done; git says what IS. When the two diverge, git
     is the one that is right.
 #>
+<#
+    MY OWN TRACKING, AND IT IS READ BACK BEFORE ANYTHING ELSE.
+
+    A cleared context loses what the repository does not hold: which fix is waiting for HIS eyes, which worksite
+    was agreed and not started, which rule he gave an hour ago. That is not documentation -- it belongs to no
+    agent but the one at work -- so it lives in local/, which survives the clearing and is committed nowhere.
+
+    Printing it here is what makes the resumption mechanical rather than remembered: whoever reads this script
+    reads the tracking with it, and a missing tracking is said out loud instead of being discovered three
+    answers later. Asked for on 19/10: "tu dois pouvoir reprendre apres clear, aucune perte".
+#>
+Write-Step (Get-Label 'restore-context.etape-suivi')
+$tracking = Join-Path $repoRoot 'local/session-state.md'
+if (Test-Path -LiteralPath $tracking) {
+    # An empty line is a line: it carries the shape of the document, and Write-Detail refuses an empty string.
+    foreach ($line in (Get-Content -LiteralPath $tracking -Encoding UTF8)) { Write-Detail $(if ("$line".Trim()) { $line } else { " " }) }
+} else {
+    Write-Warn (Get-Label 'restore-context.suivi-absent')
+}
+
 Write-Step (Get-Label 'restore-context.etape-depot')
 $branche = Invoke-Git -Path $repoRoot -Arguments @('rev-parse', '--abbrev-ref', 'HEAD')
 Write-Detail (Get-Label 'restore-context.branche' "$branche".Trim())
