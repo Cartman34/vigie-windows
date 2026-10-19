@@ -125,8 +125,10 @@ foreach ($id in ($cited.Keys | Sort-Object)) {
 foreach ($f in (Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Include '*.ps1' -ErrorAction SilentlyContinue)) {
     $rel = Get-Relative $f.FullName
     if (Test-Skipped $rel) { continue }
-    # common.ps1 IS the implementation of the three circles.
-    if ($rel -eq 'apps/backend-pode/lib/common.ps1') { continue }
+    # THE PIECE THAT IMPLEMENTS THE THREE CIRCLES is not copying them. It was common.ps1; since the library
+    # was cut by subject (S28) it is lib/accounts.ps1, and naming the file rather than the library is what
+    # kept this rule true through the cut.
+    if ($rel -eq 'apps/backend-pode/lib/accounts.ps1') { continue }
     $n = 0
     foreach ($line in (Get-Content -LiteralPath $f.FullName -Encoding UTF8 -ErrorAction SilentlyContinue)) {
         $n++

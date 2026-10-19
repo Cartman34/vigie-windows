@@ -9,7 +9,7 @@
 
     What is compared. Every call that writes on the machine -- a local account, a scheduled task, a registry value,
     an event source, a user right, a git declaration of the computer, an access rule -- is attributed to its
-    enclosing function in lib/common.ps1, or to its file anywhere else. That function or file must appear in the
+    enclosing function when it lives in lib/, or to its file anywhere else. That function or file must appear in the
     section of the inventory that says where each piece is written, and a name listed there must still write something.
 
     What it does NOT see: files written under var/ or ProgramData, and a write through a command it does not know.
@@ -25,7 +25,10 @@ $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 
 $inventoryRel  = 'doc/progress/implemented/components.md'
 $inventoryPath = Join-Path $repoRoot $inventoryRel
-$library       = 'apps/backend-pode/lib/common.ps1'
+# THE SHARED LIBRARY, which is a FOLDER since the cut by subject (S28): a write is credited to the function
+# that encloses it, whichever piece of lib/ it now lives in. Naming common.ps1 alone made eleven writes look
+# like eleven new files the day the library was cut.
+$libraryDir    = 'apps/backend-pode/lib/'
 $newline       = [string][char]10
 $writePatterns = @(
     'New-LocalUser|Set-LocalUser|Remove-LocalUser|Add-LocalGroupMember',
@@ -79,7 +82,7 @@ foreach ($file in $files) {
         if ($line.TrimStart().StartsWith('#')) { continue }
         if ($line -notmatch $writePattern) { continue }
         $writes++
-        $writer = if ($rel -eq $library -and $owner) { $owner } else { $rel }
+        $writer = if ($rel.StartsWith($libraryDir) -and $owner) { $owner } else { $rel }
         $writers[$writer] = $true
     }
 }

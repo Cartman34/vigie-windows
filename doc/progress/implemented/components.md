@@ -65,7 +65,8 @@ une réponse que le code laisse supposer sans qu'elle ait été constatée.
 
 ## Où chaque pièce s'écrit
 
-Chaque fonction de `apps/backend-pode/lib/common.ps1`, ou chaque fichier ailleurs, qui écrit sur la machine.
+Chaque fonction de la bibliothèque partagée — `apps/backend-pode/lib/`, découpée par sujet depuis le 19/10 —
+ou chaque fichier ailleurs, qui écrit sur la machine.
 
 | Qui écrit | Pièce |
 |---|---|

@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @layer: subject
-# @uses: format, paths, store, var
+# @uses: format, paths, settings, store, var
 <#
     Intent: WALKING THE DISK ONE LEVEL AT A TIME (D60). The interface never receives a whole tree -- it asks for
     one level and asks again when the user unfolds -- because a complete tree is a JSON that grows without limit

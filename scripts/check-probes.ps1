@@ -481,8 +481,9 @@ foreach ($d in @('apps', 'scripts')) {
     $rootDir = Join-Path $repoRoot $d
     if (-not (Test-Path -LiteralPath $rootDir)) { continue }
     foreach ($f in (Get-ChildItem -LiteralPath $rootDir -Recurse -File -Include '*.ps1' -ErrorAction SilentlyContinue)) {
-        # common.ps1 IS the implementation of the rule: it is the only place where those paths are built.
-        if ($f.Name -eq 'common.ps1') { continue }
+        # THE SHARED LIBRARY IS THE RULE'S IMPLEMENTATION, and since 19/10 it is a FOLDER: lib/ holds the
+        # pieces the rule points at -- var.ps1 builds those paths, accounts.ps1 reads the accounts.
+        if ($f.Directory.Name -eq 'lib' -and $f.Directory.Parent.Name -eq 'backend-pode') { continue }
         $i = 0
         foreach ($line in (Get-Content -LiteralPath $f.FullName -Encoding UTF8 -ErrorAction SilentlyContinue)) {
             $i++
@@ -514,8 +515,9 @@ foreach ($d in @('apps', 'scripts')) {
     $rootDir = Join-Path $repoRoot $d
     if (-not (Test-Path -LiteralPath $rootDir)) { continue }
     foreach ($f in (Get-ChildItem -LiteralPath $rootDir -Recurse -File -Include '*.ps1' -ErrorAction SilentlyContinue)) {
-        # common.ps1 IS the implementation of the rule: Get-ProcessAccount lives there.
-        if ($f.Name -eq 'common.ps1') { continue }
+        # THE SHARED LIBRARY IS THE RULE'S IMPLEMENTATION, and since 19/10 it is a FOLDER: lib/ holds the
+        # pieces the rule points at -- var.ps1 builds those paths, accounts.ps1 reads the accounts.
+        if ($f.Directory.Name -eq 'lib' -and $f.Directory.Parent.Name -eq 'backend-pode') { continue }
         $i = 0
         foreach ($line in (Get-Content -LiteralPath $f.FullName -Encoding UTF8 -ErrorAction SilentlyContinue)) {
             $i++
@@ -680,8 +682,8 @@ foreach ($x in $cutCommand) {
 $ambientUser = @()
 $serverRoot = Join-Path $repoRoot 'apps/backend-pode'
 foreach ($f in (Get-ChildItem -LiteralPath $serverRoot -Recurse -File -Include '*.ps1' -ErrorAction SilentlyContinue)) {
-    # common.ps1 IS the rule's implementation; var/ is a working copy.
-    if ($f.Name -eq 'common.ps1') { continue }
+    # THE SHARED LIBRARY IS THE RULE'S IMPLEMENTATION, and since 19/10 it is a FOLDER (lib/); var/ is a copy.
+    if ($f.Directory.Name -eq 'lib' -and $f.Directory.Parent.Name -eq 'backend-pode') { continue }
     if ($f.FullName -like ('*' + [IO.Path]::DirectorySeparatorChar + 'var' + [IO.Path]::DirectorySeparatorChar + '*')) { continue }
     $i = 0
     foreach ($line in (Get-Content -LiteralPath $f.FullName -Encoding UTF8 -ErrorAction SilentlyContinue)) {
