@@ -141,6 +141,20 @@ its own comments.*
 - Scheduled task scripts: **idempotent** (`Register-ScheduledTask -Force`).
 - Always **check prerequisites up front** (rights, modules, runtime).
 
+## Size of a code file
+
+- **A warning past 800 lines**, and a change that CREATES a file over **1 000 lines**, or pushes it over, is
+  **refused**. A file already past 1 000 is not refused for an ordinary change: a fix is not blocked behind a debt
+  it did not create.
+- The figure is not the rule, it is the alarm. What to do when it rings is above: **split by subject**, in layers.
+  A file is never chopped to satisfy a number -- if no layer is in it, the ceiling becomes the thing to look into
+  and the record says why the file stays big.
+
+## Size of a documentation file
+
+- **Consider splitting past 400 lines, split past 600.** A document one scans instead of reading carries nothing.
+- Same reasoning as for code: it splits by subject, and the page that lists the subjects stays.
+
 ## Line length
 - **200 characters**, code and documentation. A line breaks because it changes idea, not because an arbitrary counter
   rang: breaking at 80 or 100 chops Windows paths, tables and strings, and makes diffs unreadable.

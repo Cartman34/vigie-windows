@@ -12,6 +12,7 @@ realisation sans reecrire l'enonce.
 - Désinstallation : **`uninstall.md`**.
 - Un serveur élevé par machine, pour plusieurs comptes : **`multi-account-server.md`**.
 - Le panneau, ce qu'il doit être et ce qu'une page ne doit jamais redevenir : **`panel.md`**.
+- La forme du code, ce qu'un fichier doit rester : **`code-shape.md`**.
 - Surveillance permanente : **`surveillance.md`**.
 - Résidents de l'app serveur : **`residents.md`**.
 - Jeux : **`gaming.md`**.
