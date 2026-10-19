@@ -144,14 +144,20 @@ function Test-ModuleGraph {
     # AND A NAME CALLED WITHOUT BEING IMPORTED, which no parser can see: it is valid JavaScript right up to the
     # moment the button is pressed. Cutting the panel up produced three of them in one go -- a call written inside
     # a template string, which the cutting tool had read as text rather than as code.
+    #
+    # EVERY TOP-LEVEL NAME COUNTS HERE, EXPORTED OR NOT, and that is the whole lesson of 19/10: this map was built
+    # from `export` alone, so a name declared WITHOUT export was invisible to the rule -- and three of them were.
+    # The panel was deployed with every card showing "fmt is not defined", because `fmt` lived in format.js
+    # without an export and cards.js called it all the same. A name one module declares and another calls is a
+    # borrowing whether or not the first module remembered to export it; refusing it names the missing export too.
     $exported = @{}
     foreach ($file in $files) {
         $t = Get-Content -LiteralPath $file -Raw -Encoding UTF8
-        foreach ($e in [regex]::Matches($t, '(?m)^export\s+(?:async\s+)?(?:function|class|const|let|var)\s+([A-Za-z_$][\w$]*)')) {
+        foreach ($e in [regex]::Matches($t, '(?m)^(?:export\s+)?(?:async\s+)?(?:function|class|const|let|var)\s+([A-Za-z_$][\w$]*)')) {
             $exported[$e.Groups[1].Value] = $file
         }
-        # `export let lastUnits=[], lastHost='';` exports TWO names, and the second is as importable as the first.
-        foreach ($e in [regex]::Matches($t, '(?m)^export\s+(?:const|let|var)\s+[^;]*?,\s*([A-Za-z_$][\w$]*)\s*=')) {
+        # `let lastUnits=[], lastHost='';` declares TWO names, and the second is as borrowable as the first.
+        foreach ($e in [regex]::Matches($t, '(?m)^(?:export\s+)?(?:const|let|var)\s+[^;]*?,\s*([A-Za-z_$][\w$]*)\s*=')) {
             $exported[$e.Groups[1].Value] = $file
         }
     }
@@ -173,7 +179,11 @@ function Test-ModuleGraph {
             # a module may declare a name of its own that another one also exports: then it is not a borrowing
             if ([regex]::IsMatch($body, '(?m)^\s*(?:export\s+)?(?:async\s+)?(?:function|class|const|let|var)\s+[^;]*?\b' + [regex]::Escape($n) + '\b')) { continue }
             if ([regex]::IsMatch($body, '(?<![\w$.])' + [regex]::Escape($n) + '(?![\w$])')) {
-                $problems += ((Split-Path -Leaf $file) + " se sert de « $n » sans l'importer (il vient de " + (Split-Path -Leaf $exported[$n]) + ')')
+                $owner = Split-Path -Leaf $exported[$n]
+                $ownerText = Get-Content -LiteralPath $exported[$n] -Raw -Encoding UTF8
+                $isExported = [regex]::IsMatch($ownerText, '(?m)^export\s+[^;]*?\b' + [regex]::Escape($n) + '\b')
+                $problems += ((Split-Path -Leaf $file) + " se sert de « $n » sans l'importer (il vient de $owner" +
+                              $(if ($isExported) { ')' } else { ", qui ne l'exporte pas non plus)" }))
             }
         }
     }

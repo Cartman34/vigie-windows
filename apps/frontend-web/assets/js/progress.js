@@ -2,7 +2,7 @@
 import { octets } from './dialog.js';
 import { att, esc } from './format.js';
 
-function progressHtml(f){
+export function progressHtml(f){
   const p=f.progress; if(!p||!p.phase) return '';
   const pct=v=>(typeof v==='number'&&isFinite(v))?Math.max(0,Math.min(100,Math.round(v))):null;
   const duration=s=>s>=60?(Math.floor(s/60)+' min '+String(s%60).padStart(2,'0')+' s'):(s+' s');

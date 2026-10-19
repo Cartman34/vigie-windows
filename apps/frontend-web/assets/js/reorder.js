@@ -16,7 +16,7 @@ function currentOrder(){
     [...col.querySelectorAll('.card')].map(c => c.dataset.module));
 }
 
-function entrerReorg(){
+export function entrerReorg(){
   if(modeReorg) return;
   modeReorg = true;
   document.body.classList.add('reorg');

@@ -1,10 +1,11 @@
 // @author Florent HAZARD <f.hazard@sowapps.com>
+import { progressHtml } from './progress.js';
 import { doAction } from './actions.js';
 import { API_MODE, ICONS, openDetails } from './api.js';
 import { layoutColumns } from './card-order.js';
 import { refreshCard } from './card-refresh.js';
 import { openFreshness } from './details.js';
-import { STATUS_RANK, att, attributsAction, esc } from './format.js';
+import { STATUS_RANK, att, attributsAction, esc, fmt } from './format.js';
 import { applyOperationLock, opsByCard } from './operation-lock.js';
 import { armerGlisser, modeReorg } from './reorder.js';
 import { openSettings } from './settings.js';

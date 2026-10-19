@@ -28,7 +28,7 @@ export function attributsAction(a, moduleId, kind){
        + ` data-trn="${att(a.transition?JSON.stringify(a.transition):'')}"`
        + ` data-stp="${att(a.steps?JSON.stringify(a.steps):'')}"`;
 }
-function fmt(f){
+export function fmt(f){
   if(f.kind==="bool") return f.value?'Oui':'Non';
   if(f.kind==="number") return `${f.value}${f.unit?(' '+f.unit):''}`;
   if(f.kind==="date"){ const d=new Date(f.value);

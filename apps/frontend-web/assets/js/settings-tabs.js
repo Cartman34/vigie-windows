@@ -1,4 +1,5 @@
 // @author Florent HAZARD <f.hazard@sowapps.com>
+import { entrerReorg } from './reorder.js';
 import { REPO_URL } from './config.js';
 import { API, TOKEN } from './api.js';
 import { refreshCard } from './card-refresh.js';
