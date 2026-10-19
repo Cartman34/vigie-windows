@@ -1111,7 +1111,11 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                 long keeps it. Note for whoever reads this later: a notification that disappears is not lost, it
                 waits in the notification centre of Windows.
             #>
-            if ($level -in @('warn', 'error') -and [int]$Duration -lt 10000) { $Duration = 25000 }
+            # 19/10, AND THE RULE NARROWS: the owner reported a toast that stayed so long he had to close it by
+            # hand. A memory warning saying the machine is worth watching INFORMS -- it does not alert -- and
+            # twenty-five seconds of it is a window one has to close. What stays long is what demands a gesture:
+            # an error.
+            if ($level -eq 'error' -and [int]$Duration -lt 10000) { $Duration = 25000 }
             try {
                 $outil = Show-VigieNotification `
                     -Notification @{ Subject = $Subject; Body = $Body; State = $level; Duration = $Duration; Key = $Key; Launch = $Launch } `

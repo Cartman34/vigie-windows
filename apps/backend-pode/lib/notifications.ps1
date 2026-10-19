@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @layer: subject
-# @uses: elevation, paths, rights, settings
+# @uses: elevation, paths, rights, settings, var
 <#
     Intent: WHAT VIGIE IS ALLOWED TO SAY, and to whom: the catalogue each module declares, the settings that switch one event off without touching the others, and the Windows toast itself -- its identity, its image, its XML.
     Usage: dot-sourced by common.ps1, never run on its own.
@@ -96,15 +96,64 @@ function Remove-VigieToastIdentity {
     THE LAST RANK IS ALWAYS AVAILABLE, and that is what makes the rest safe: a tool can be
     added, removed or wrong without a notification ever being lost.
 #>
+<#
+    THE IMAGE A NOTIFICATION SHOWS, AND WHY IT IS BUILT RATHER THAN DELIVERED.
+
+    Windows picks a SMALL frame out of a .ico and blows it up: the outline comes out as a staircase, seen on
+    screen on 10/09, and again on 19/10, when the owner said the quality had been good before and had become
+    appalling.
+
+    Between the two, the cause changed. A .png used to sit beside the .ico and was preferred; on 07/10 the three
+    of them were deleted as "assets nothing opens", because the name is BUILT here (`$name + $extension`) and no
+    checker can see a reference that no file spells out. The delivery lost its images and nobody noticed for
+    twelve days.
+
+    So the image is no longer delivered: it is DRAWN from the .ico's largest frame, once, into var/cache. The
+    repository holds no image -- which is the rule that deletion was serving -- and the notification gets a real
+    256-pixel picture. Nothing to regenerate by hand, nothing to forget in a release.
+#>
 function Get-VigieToastImage {
-    param([Parameter(Mandatory)][string]$ClientRoot, [string]$State = 'ok')
+    param([Parameter(Mandatory)][string]$ClientRoot, [string]$State = 'ok', [string]$Backend = (Get-BackendRoot))
     $name = switch ($State) { 'ok' { 'ok' } 'warn' { 'warn' } 'error' { 'error' } default { 'error' } }
-    # THE PNG FIRST. Notification rendering picks a small frame out of a .ico and blows it
-    # up -- the outline comes out as a staircase, seen on screen on 10/09. The .ico stays
-    # as the answer of last resort: an installation from before the PNG must still notify.
+    # A .png beside the .ico still wins, for an installation that carries one.
     foreach ($extension in @('.png', '.ico')) {
         $path = Join-Path (Join-Path $ClientRoot 'assets') ($name + $extension)
-        if (Test-PathSafe $path) { return $path }
+        if (-not (Test-PathSafe $path)) { continue }
+        if ($extension -eq '.png') { return $path }
+
+        # THE BIGGEST FRAME, TAKEN OUT OF THE CONTAINER. An .ico holds several sizes -- 16 to 256 here -- and
+        # System.Drawing.Icon will not hand over the 256 one: asked for it, it returns the 48, because the large
+        # frame is PNG-compressed inside the container and that class ignores those. Measured on 19/10.
+        #
+        # So the container is read directly: its directory says where each frame sits, and the bytes of the
+        # largest are ALREADY a PNG. They are copied out as they are -- nothing is decoded, nothing recompressed,
+        # so what the notification shows is exactly what the generator drew.
+        try {
+            $out = Get-VarPath -Backend $Backend -Kind 'cache' -File ('toast-' + $name + '.png')
+            $fresh = (Test-PathSafe $out) -and ((Get-Item $out).LastWriteTimeUtc -ge (Get-Item $path).LastWriteTimeUtc)
+            if (-not $fresh) {
+                $bytes = [IO.File]::ReadAllBytes($path)
+                $count = [BitConverter]::ToUInt16($bytes, 4)
+                $best = $null
+                for ($e = 0; $e -lt $count; $e++) {
+                    $at = 6 + ($e * 16)
+                    $w = [int]$bytes[$at]
+                    if ($w -eq 0) { $w = 256 }        # 0 means 256: one byte cannot hold it
+                    $size = [BitConverter]::ToUInt32($bytes, $at + 8)
+                    $offset = [BitConverter]::ToUInt32($bytes, $at + 12)
+                    if (-not $best -or $w -gt $best.Width) { $best = @{ Width = $w; Size = $size; Offset = $offset } }
+                }
+                # A frame that is not a PNG is a bitmap, which cannot be copied out as a file: we leave it.
+                if ($best -and $best.Size -gt 8 -and $bytes[$best.Offset] -eq 0x89 -and $bytes[$best.Offset + 1] -eq 0x50) {
+                    $frame = New-Object byte[] $best.Size
+                    [Array]::Copy($bytes, [int]$best.Offset, $frame, 0, [int]$best.Size)
+                    [IO.File]::WriteAllBytes($out, $frame)
+                }
+            }
+            if (Test-PathSafe $out) { return $out }
+        } catch { }
+        # No large frame to be had: the .ico still shows something, badly, which beats showing nothing.
+        return $path
     }
     return $null
 }
