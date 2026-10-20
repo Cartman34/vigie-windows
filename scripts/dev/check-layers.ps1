@@ -44,7 +44,11 @@ $facade = 'common.ps1'
 # Raising it once, with the reason written, is what the comment ratchet did when it learnt to read the pages.
 # What is forbidden is raising it to make room.
 # common.ps1 is the facade and is counted apart: it is what is emptying.
-$PIECE_CEILING = 809
+#
+# 20/10, `updates` cut into layers -- the Windows task scheduler read fast (win-tasks), the access rights of a
+# path (win-acl) and the diagnosis (update-audit) left it, 809 -> 390. The largest is now `deployment`, and the
+# ceiling follows it down: 782.
+$PIECE_CEILING = 782
 
 $pieces = @(Get-ChildItem -LiteralPath $libDir -File -Filter '*.ps1' | Where-Object { $_.Name -ne $facade })
 if (-not $pieces.Count) { Write-Warn 'Aucun morceau dans lib/ : rien à vérifier.'; exit 0 }

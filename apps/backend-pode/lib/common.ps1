@@ -25,10 +25,13 @@
 . "$PSScriptRoot/store.ps1"         # writing a JSON file without losing what another writer wrote
 . "$PSScriptRoot/format.ps1"        # sizes, dates, PowerShell literals: shaping a value into text
 . "$PSScriptRoot/native.ps1"        # elevation, command lines, running a native command
+. "$PSScriptRoot/win-acl.ps1"       # win-acl
+. "$PSScriptRoot/win-tasks.ps1"     # win-tasks
 . "$PSScriptRoot/contract.ps1"      # the shape of what the panel receives: a field, an action, a card
 . "$PSScriptRoot/disk-tree.ps1"     # walking the disk one level at a time (D60)
 . "$PSScriptRoot/games.ps1"         # recognising a game, and the tally of a session
 . "$PSScriptRoot/updates.ps1"       # updates
+. "$PSScriptRoot/update-audit.ps1"  # update-audit
 . "$PSScriptRoot/device-guard.ps1"  # device-guard
 . "$PSScriptRoot/packages.ps1"      # packages
 . "$PSScriptRoot/hardware.ps1"      # hardware

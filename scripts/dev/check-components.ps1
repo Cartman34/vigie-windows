@@ -38,7 +38,12 @@ $writePatterns = @(
     'safe[.]directory.*--(add|unset)|--(add|unset).*safe[.]directory',
     'New-ItemProperty|Set-ItemProperty|Remove-ItemProperty',
     'icacls([.]exe)?.*/(grant|deny|remove|reset|setowner)',
-    'takeown'
+    'takeown',
+    # THE ACCESS-RIGHTS LAYER (win-acl), AND NOT ONLY THE COMMAND IT RUNS. Passing the arguments as a list moved
+    # `icacls` off the line that carries its verb, and the two patterns above stopped seeing three real writes:
+    # a rule that recognises a command only in the shape it was first written in stops watching the day the
+    # command is wrapped. Whoever calls the layer writes on the computer, and is credited for it.
+    'Set-PathFullControl|Add-PathWriteDenial|Remove-PathDenial|Set-PathOwnerAdmins'
 )
 $writePattern = '(' + ($writePatterns -join ')|(') + ')'
 

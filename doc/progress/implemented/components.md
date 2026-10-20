@@ -70,7 +70,9 @@ ou chaque fichier ailleurs, qui écrit sur la machine.
 
 | Qui écrit | Pièce |
 |---|---|
+| `Add-PathWriteDenial` | refus d'écriture sur un dossier |
 | `Invoke-UpdateLockNative` | verrou de Windows Update |
+| `Remove-PathDenial` | refus d'écriture sur un dossier |
 | `Register-VigieEventSource` | source du journal d'événements `Vigie` |
 | `Remove-GitSafeDirectory` | déclarations `safe.directory` |
 | `Rename-VigieLegacyTask` | tâches `Vigie - <compte>` |
@@ -78,6 +80,8 @@ ou chaque fichier ailleurs, qui écrit sur la machine.
 | `Set-BatchLogonRight` | droit « ouvrir une session en tant que tâche » |
 | `Set-DeviceGuardFeature` | bascules VBS et HVCI |
 | `Set-GitSafeDirectory` | déclarations `safe.directory` |
+| `Set-PathFullControl` | droits d'accès d'un dossier |
+| `Set-PathOwnerAdmins` | propriétaire d'un dossier |
 | `Set-InstallPathDeclaration` | déclaration du dossier d'installation |
 | `Set-VigieAccountEnabled` | tâches `Vigie - <compte>` |
 | `Set-VigieToastIdentity` | identité des notifications |
