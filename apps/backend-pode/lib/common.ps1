@@ -54,6 +54,7 @@
 . "$PSScriptRoot/audit.ps1"         # audit
 . "$PSScriptRoot/elevation.ps1"     # elevation
 . "$PSScriptRoot/residents.ps1"     # residents
+. "$PSScriptRoot/watch-engine.ps1"  # watch-engine
 . "$PSScriptRoot/watches.ps1"       # watches
 . "$PSScriptRoot/tasks.ps1"         # tasks
 . "$PSScriptRoot/scheduler.ps1"     # scheduler

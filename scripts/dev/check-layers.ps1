@@ -136,8 +136,12 @@ Write-Step 'Les circuits entre morceaux'
     A cycle breaks nothing at run time: the facade sources everything and a function resolves when it is called.
     It costs the ability to read one piece without reading the others. So none is added, and each is undone later
     -- by moving a function, which is a different piece of work from moving a subject.
+    20/10, `watches` cut in two: the mechanism (watch-engine) and the watches posed on it. SIX circuits went with
+    the cut, 21 -> 15, without one function being moved on its own -- the scheduler called the MECHANISM, and
+    only the one file made it look as though it called the watches. A circuit is sometimes the shape of a piece
+    that holds two subjects.
 #>
-$CYCLE_CEILING = 21
+$CYCLE_CEILING = 15
 $state = @{}
 $backEdges = @()
 function Test-Cycle {

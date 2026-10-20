@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @layer: subject
-# @uses: accounts, config, log, measures, operations, paths, probes, server-process, settings, store, var, watches
+# @uses: accounts, config, log, measures, operations, paths, probes, server-process, settings, store, var, watch-engine
 <#
     Intent: THE SCHEDULER COMPUTES, A REQUEST NEVER DOES (D124, D125): what each card declares about its cadence, which modes slow it down, when it is due again, and the pass that goes round and recomputes what has fallen due. The ceiling on background tasks lives here too (D126).
     Usage: dot-sourced by common.ps1, never run on its own.

@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @layer: subject
-# @uses: config, format, games, log, paths, store, var, watches
+# @uses: config, format, games, log, paths, store, var, watch-engine
 <#
     Intent: THE HISTORY OF A MEASURE, kept as a series: one file per day per measure, a point written only when it says something new, and a window of it read back for a graph. The purge is part of the subject -- a history that grows without limit is a disk that fills.
     Usage: dot-sourced by common.ps1, never run on its own.
