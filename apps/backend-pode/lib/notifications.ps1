@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @layer: subject
-# @uses: elevation, paths, rights, settings, var
+# @uses: elevation, paths, requester, rights, settings, var
 <#
     Intent: WHAT VIGIE IS ALLOWED TO SAY, and to whom: the catalogue each module declares, the settings that switch one event off without touching the others, and the Windows toast itself -- its identity, its image, its XML.
     Usage: dot-sourced by common.ps1, never run on its own.

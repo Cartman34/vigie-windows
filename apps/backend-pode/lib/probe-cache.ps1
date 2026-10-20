@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @layer: subject
-# @uses: format, paths, probes, settings, store, var
+# @uses: format, paths, probe-file, settings, store, var
 <#
     Intent: WHAT THE PROBES HAVE ALREADY PRODUCED, AND HOW OLD IT IS: the file where every probe's last answer is
     kept, which probe answers for a given card, which entries have gone stale against the delay each one

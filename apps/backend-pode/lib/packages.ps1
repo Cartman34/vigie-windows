@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @layer: subject
-# @uses: client-app, native, operations, paths, probes, rights, store, var
+# @uses: client-app, native, operations, paths, probes, requester, store, var
 <#
     Intent: THE PACKAGE MANAGERS, through one door: what each one can do, what it has to update, how an upgrade runs and what its failure means. One source for the probe, the update check AND the upgrade.
     Usage: dot-sourced by common.ps1, never run on its own.

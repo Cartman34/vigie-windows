@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @layer: subject
-# @uses: accounts, format, games, log, paths, rights, series, sessions, tasks, var
+# @uses: accounts, format, games, log, paths, requester, series, sessions, var, win-accounts, win-tasks
 <#
     Intent: THE CLIENT APP SEEN FROM THE SERVER: its heartbeat, the accounts whose app has gone quiet, and the orders it is given -- stop, start, restart everywhere. The app answers, it is never commanded blind.
     Usage: dot-sourced by common.ps1, never run on its own.
@@ -412,30 +412,7 @@ function Send-ClientRestartToAll {
     return $touches
 }
 
-<#
-    HOW A CLIENT APP IS STARTED -- written ONCE, used by everyone who builds that task.
 
-    It was written in three places: the installer, the repair of the legacy task, and the enabling of an account. On
-    29/09 I changed one of them and the two others kept the old line, so the fault stayed exactly where it had been
-    reported. Three copies of a launch line is three launch lines.
-
-    conhost --headless creates the console WITHOUT a window. "-WindowStyle Hidden" only hides one that Windows has
-    already made: unnoticed on an administrator account, an empty terminal at every logon on a standard one, and a
-    flash that steals the focus whenever a deployment restarts a client app.
-#>
-function Get-HeadlessConsolePath {
-    $conhost = Join-Path $env:SystemRoot 'System32\conhost.exe'
-    if (Test-PathSafe $conhost) { return $conhost }
-    return $null
-}
-
-function New-VigieClientAction {
-    param([Parameter(Mandatory)][string]$Pwsh, [Parameter(Mandatory)][string]$Client)
-    $arg = '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $Client + '"'
-    $conhost = Get-HeadlessConsolePath
-    if ($conhost) { return (New-ScheduledTaskAction -Execute $conhost -Argument ('--headless "' + $Pwsh + '" ' + $arg)) }
-    return (New-ScheduledTaskAction -Execute $Pwsh -Argument $arg)
-}
 
 <#
     HAVING AN ACTION RUN BY AN ACCOUNT'S CLIENT APP.

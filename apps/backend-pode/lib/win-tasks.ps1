@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @layer: floor
-# @uses:
+# @uses: paths
 <#
     Intent: THE WINDOWS TASK SCHEDULER, READ FAST: the tasks of ONE folder, through the scheduler's own interface. Get-ScheduledTask -TaskPath walks the whole tree on every call -- 6 682 ms for four folders, measured on 29/09 -- and the same six tasks are read in 43 ms here. Vigie's own tasks are another subject (tasks.ps1), and the cadence of the cards yet another (scheduler.ps1).
     Usage: dot-sourced by common.ps1, never run on its own.
@@ -61,4 +61,59 @@ function Get-TasksInFolder {
         }
     } catch { }
     return $out
+}
+
+<#
+    IS THAT TASK REALLY RUNNING?
+
+    A scheduled task killed by a shutdown can stay in state Running with no process left.
+    Declared MultipleInstances=IgnoreNew, it then IGNORES every logon trigger: the account
+    never gets Vigie again, and rebooting does not clear it. Measured on 04/09 -- « Vigie -
+    Famille » still Running at 22:15, last run 18:38, no process, no icon on that session.
+
+    So we do not believe the state: we look for the process the task launches, owned by the
+    account the task runs as. No process, no run.
+#>
+function Test-VigieTaskProcessAlive {
+    param([Parameter(Mandatory)]$Task)
+    $action = @($Task.Actions)[0]
+    $file = $null
+    if ("$($action.Arguments)" -match '-File\s+"([^"]+)"') { $file = $Matches[1] }
+    if (-not $file) { return $true }   # rien a comparer : on ne conclut pas
+    $wanted = (Split-Path $file -Leaf)
+    $owner = ("$($Task.Principal.UserId)" -split [regex]::Escape([string][char]92))[-1]
+    foreach ($p in @(Get-CimInstance Win32_Process -Filter "Name='pwsh.exe'" -ErrorAction SilentlyContinue)) {
+        if ("$($p.CommandLine)" -notlike ('*' + $wanted + '*')) { continue }
+        $who = $null
+        try { $who = "$((Invoke-CimMethod -InputObject $p -MethodName GetOwner -ErrorAction Stop).User)" } catch { }
+        # NO READABLE OWNER, NO VERDICT: a process we can see without knowing whose it is
+        # remains a reason to stay silent.
+        if (-not $who -or $who -eq $owner) { return $true }
+    }
+    return $false
+}
+
+function New-VigieClientAction {
+    param([Parameter(Mandatory)][string]$Pwsh, [Parameter(Mandatory)][string]$Client)
+    $arg = '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $Client + '"'
+    $conhost = Get-HeadlessConsolePath
+    if ($conhost) { return (New-ScheduledTaskAction -Execute $conhost -Argument ('--headless "' + $Pwsh + '" ' + $arg)) }
+    return (New-ScheduledTaskAction -Execute $Pwsh -Argument $arg)
+}
+
+<#
+    HOW A CLIENT APP IS STARTED -- written ONCE, used by everyone who builds that task.
+
+    It was written in three places: the installer, the repair of the legacy task, and the enabling of an account. On
+    29/09 I changed one of them and the two others kept the old line, so the fault stayed exactly where it had been
+    reported. Three copies of a launch line is three launch lines.
+
+    conhost --headless creates the console WITHOUT a window. "-WindowStyle Hidden" only hides one that Windows has
+    already made: unnoticed on an administrator account, an empty terminal at every logon on a standard one, and a
+    flash that steals the focus whenever a deployment restarts a client app.
+#>
+function Get-HeadlessConsolePath {
+    $conhost = Join-Path $env:SystemRoot 'System32\conhost.exe'
+    if (Test-PathSafe $conhost) { return $conhost }
+    return $null
 }

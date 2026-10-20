@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @layer: subject
-# @uses: accounts, contract, deployment, elevation, format, log, paths, var
+# @uses: accounts, action-resources, contract, deployment, elevation, format, log, paths, var
 <#
     Intent: WHAT IS RUNNING, FOR EVERYONE (D95), AND WHO HOLDS WHAT (D93): the mark a card wears while it is busy, the resources an action takes, the lock that keeps two actions off the same thing, and the fate of a background task -- kept, then said.
     Usage: dot-sourced by common.ps1, never run on its own.
@@ -265,23 +265,6 @@ function Get-RecentOperationResults {
     return $res
 }
 
-# What an action takes up. By default: NOTHING -- an undeclared action is assumed harmless
-# (opening a folder, reading a cache). What gets in the way is declared, not the reverse: a
-# default list too wide would end up blocking everything without anyone knowing why.
-function Get-ActionResources {
-    param([Parameter(Mandatory)][string]$Type, [string]$Module)
-    if (-not $script:RessourcesParAction.ContainsKey($Type)) { return @() }
-    $res = @($script:RessourcesParAction[$Type])
-    # THE MANAGER AS A SUFFIX when the card names it: "pkg-choco" gives "paquets-choco". With no module -- a
-    # declaration read out of context -- the family resource is kept, which is wider and never wrong.
-    if ($Module -and $Module -like 'pkg-*') {
-        $manager = $Module -replace '^pkg-', ''
-        if ($manager -and $manager -ne 'none') {
-            $res = @($res | ForEach-Object { if ("$_" -eq 'paquets') { 'paquets-' + $manager } else { "$_" } })
-        }
-    }
-    return @($res)
-}
 
 # The resources currently HELD, and by what. The live marks are read back: a mark whose
 # process is dead holds nothing any more, and it clears itself as it is read.

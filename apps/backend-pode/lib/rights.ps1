@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @layer: subject
-# @uses: accounts, elevation, paths, sessions, settings
+# @uses: elevation, paths, requester, settings, win-accounts
 <#
     Intent: WHO MAY LAUNCH WHAT (D65): what an action requires, how it presents itself, and whether the requester is allowed. A refused action stays VISIBLE and says why -- nothing disappears from a card (D59).
     Usage: dot-sourced by common.ps1, never run on its own.
@@ -218,40 +218,5 @@ function Test-ActionAllowed {
     [pscustomobject]@{ allowed = $true; requirement = 'admin'; reason = $null }
 }
 
-function Get-StateAccount {
-    if ($global:VigieStateAccount) { return $global:VigieStateAccount }
-    return (Get-RequesterAccount)
-}
 
-function Get-RequesterAccount {
-    try {
-        if ($WebEvent) {
-            $sid = $null
-            try { $sid = $WebEvent.Cookies['vigie_session'].Value } catch { }
-            if ($sid) {
-                $account = Get-SessionAccount -SessionId $sid
-                if ($account) { return $account }
-            }
-        }
-    } catch { }
-    return $null
-}
 
-function Get-ActionRequester {
-    try {
-        if ($WebEvent) {
-            $sid = $null
-            try { $sid = $WebEvent.Cookies['vigie_session'].Value } catch { }
-            if ($sid) {
-                $account = Get-SessionAccount -SessionId $sid
-                if ($account) { return $account }
-            }
-        }
-    } catch { }
-    try {
-        $name = ([Security.Principal.WindowsIdentity]::GetCurrent()).Name
-        $sep = $name.LastIndexOf([char]92)
-        if ($sep -ge 0) { $name = $name.Substring($sep + 1) }
-        return $name
-    } catch { return 'inconnu' }
-}

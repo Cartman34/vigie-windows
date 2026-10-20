@@ -54,9 +54,10 @@ $facade = 'common.ps1'
 # thrown away (retention) left it, 715 -> 287.
 # 20/10, `state` cut into layers -- the probe cache (probe-cache), running a probe (probe-run) and what a card
 # gains before it leaves (card-shape) left it, 661 -> 221. It was ONE function of 653 lines, so this one changed
-# code and is proven by the state it produces, not by an identical surface. The largest piece is now `games`:
-# 552.
-$PIECE_CEILING = 552
+# code and is proven by the state it produces, not by an identical surface.
+# 20/10, the circuits undone: six facts moved down into pieces of their own, and the largest piece is `games`,
+# 548.
+$PIECE_CEILING = 548
 
 $pieces = @(Get-ChildItem -LiteralPath $libDir -File -Filter '*.ps1' | Where-Object { $_.Name -ne $facade })
 if (-not $pieces.Count) { Write-Warn 'Aucun morceau dans lib/ : rien à vérifier.'; exit 0 }
@@ -150,8 +151,17 @@ Write-Step 'Les circuits entre morceaux'
     20/10, `measures` cut: two more went, 15 -> 13. Moving Get-HistoryConfig, which three pieces read, down with
     the series it describes undid the pair `measures <-> retention` that the cut had just created -- a circuit
     appears the moment a piece keeps something its own sub-layer needs.
+
+    20/10, THE LAST THIRTEEN: ZERO. Not one function was rewritten -- each pair was undone by moving down the
+    FACT the other piece was coming back up for: who the computation is for (requester), what an action takes up
+    (action-resources), what a probe file declares (probe-file), what is wrong with a scheduled task
+    (task-ailment), the accounts of this computer (win-accounts), writing a value on a dictionary or an object
+    (property). The eight long circuits all ran through the short ones, and fell with them.
+
+    THE CEILING IS NOW ZERO, which is the only honest value: a circuit is not a quantity to keep under control,
+    it is a thing that does not exist. The first one added will be refused by name.
 #>
-$CYCLE_CEILING = 13
+$CYCLE_CEILING = 0
 $state = @{}
 $backEdges = @()
 function Test-Cycle {

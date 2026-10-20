@@ -226,3 +226,16 @@ function Get-AnonymousAccess {
     if ($value -in @('error', 'cards')) { return $value }
     return 'error'
 }
+
+function Get-RefreshConfig {
+    param([string]$Backend = (Get-BackendRoot))
+    $cfg = $null
+    try { $cfg = (Get-Config -Backend $Backend).Refresh } catch { }
+    $out = @{ MaxParallel = 3; MaxChildren = 12; RefreshReserve = 2; DefaultMaxSeconds = 300; FailBackoffSeconds = 60; FailBackoffMaxSeconds = 3600 }
+    if ($cfg) {
+        foreach ($k in @($out.Keys)) {
+            try { if ($null -ne $cfg[$k]) { $out[$k] = [int]$cfg[$k] } } catch { }
+        }
+    }
+    $out
+}

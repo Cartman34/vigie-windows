@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @layer: subject
-# @uses: audit, client-app, deployment, elevation, format, log, paths, rights, tasks, var
+# @uses: deployment, elevation, format, log, paths, property, requester, task-ailment, var, win-accounts, win-tasks
 <#
     Intent: WHICH WINDOWS ACCOUNTS HAVE VIGIE (D65): who exists on this machine, who is enabled, whose profile can be read, and the scheduled task that starts the client app for each. Writing needs an elevated server; without it the switches stay visible and say why.
     Usage: dot-sourced by common.ps1, never run on its own.
@@ -43,52 +43,9 @@ function Get-ServiceProfileAilment {
     return $null
 }
 
-function Get-AccountVarRoot {
-    param([Parameter(Mandatory)][string]$Account)
-    $profil = Join-Path $env:SystemDrive (Join-Path 'Users' $Account)
-    if (-not (Test-PathSafe $profil)) { return $null }
-    return (Join-Path (Join-Path (Join-Path (Join-Path $profil 'AppData') 'Local') 'Sowapps') 'Vigie/var')
-}
 
-<#
-    THE ACCOUNT RUNNING THIS PROCESS. Not "the person".
 
-    The distinction did not matter while the server app ran under somebody's account:
-    $env:USERNAME happened to be right BY ACCIDENT. Since it runs as a service under
-    the service account, every place that said $env:USERNAME meaning "the person in front of the
-    screen" names the service -- and on 29/08 the Accounts card therefore marked the service account as the reader,
-    VigieService, and took it out of the list of technical accounts.
 
-    Two notions, two functions, never mixed again:
-      - Get-ProcessAccount   : WHO RUNS. True for the client app, which IS the person, and
-                               for scripts launched by hand.
-      - Get-ActionRequester  : WHO ASKS, read from the session cookie. That is the person, on
-                               the server app's side, and it is what is almost always needed.
-
-    check-probes now refuses $env:USERNAME anywhere else: whoever next writes that shortcut
-    will be told before delivering, not three weeks later.
-#>
-function Get-ProcessAccount {
-    return "$env:USERNAME"
-}
-
-# A local account's SID, by its name. Returns $null when the account does not exist.
-function Get-AccountSid {
-    param([Parameter(Mandatory)][string]$Account)
-    try { return (New-Object System.Security.Principal.NTAccount($Account)).Translate(
-                    [System.Security.Principal.SecurityIdentifier]).Value } catch { return $null }
-}
-
-# The administrators group by its SID: the name depends on the language of Windows
-# ("Administrateurs" here, "Administrators" elsewhere) -- the SID does not.
-function Test-LocalAccountIsAdmin {
-    param([Parameter(Mandatory)][string]$Name)
-    try {
-        $grp = Get-LocalGroup -SID 'S-1-5-32-544' -ErrorAction Stop
-        $membres = @(Get-LocalGroupMember -Group $grp.Name -ErrorAction Stop)
-        return [bool](@($membres | Where-Object { "$($_.Name)" -like "*\$Name" }).Count -gt 0)
-    } catch { return $false }
-}
 
 # A task's principal is written "MACHINE\account" or "account", depending on the tool that
 # created it. We compare the ACCOUNT NAME, with no regular expression: escaping the backslash
@@ -194,14 +151,14 @@ function Update-AccountTasks {
         # want to write. Assigning an absent property THROWS, and the original value -- stale
         # -- stayed on screen (seen on 28/08: "1 tache hors service" for a healthy task). So
         # they are created when missing.
-        Set-ObjectProperty -Object $c -Name 'enabled' -Value ([bool]$task)
-        Set-ObjectProperty -Object $c -Name 'task' -Value $(if ($task) { "$($task.TaskName)" } else { $null })
+        Set-ObjectValue -Object $c -Name 'enabled' -Value ([bool]$task)
+        Set-ObjectValue -Object $c -Name 'task' -Value $(if ($task) { "$($task.TaskName)" } else { $null })
         # TWO FIELDS, two natures: "taskAilment" is what stops the task working;
         # "taskPending" is what will only be known at its next start. Confusing them made a
         # healthy task be announced as out of service.
         $mal = if ($task) { Get-VigieTaskStructureAilment -Task $task } else { $null }
-        Set-ObjectProperty -Object $c -Name 'taskAilment' -Value $mal
-        Set-ObjectProperty -Object $c -Name 'taskPending' `
+        Set-ObjectValue -Object $c -Name 'taskAilment' -Value $mal
+        Set-ObjectValue -Object $c -Name 'taskPending' `
             -Value $(if ($task -and -not $mal) { Get-VigieTaskHistoryAilment -Task $task } else { $null })
     }
     return @($Accounts)
@@ -240,43 +197,12 @@ function Get-AccountByName {
     @(Get-ComputerAccounts -Backend $Backend | Where-Object { "$($_.name)" -eq $Name })[0]
 }
 
-function Get-UserAccounts {
-    param([switch]$Force, [string]$Backend = (Get-BackendRoot))
-    @(Get-ComputerAccounts -Force:$Force -Backend $Backend | Where-Object { -not $_.technical })
-}
 
 function Get-EnabledAccounts {
     param([string]$Backend = (Get-BackendRoot))
     @(Get-UserAccounts -Backend $Backend | Where-Object { $_.enabled })
 }
 
-function Get-UserRegistryRoots {
-    <# The registry hives of the REAL signed-in users, in the form
-       'Registry::HKEY_USERS\<SID>'.
-
-       WHY: the server runs under the service account, so HKCU names the service's hive --
-       nobody's. A probe reading a per-user setting (Steam libraries, the games the Game Bar
-       knows, an application's preferences) must NEVER go through HKCU: it would look beside
-       the point and see nothing. Seen on 01/09: Assassin's Creed Odyssey, played on the
-       Famille account, was not recognised as a game, the probe questioning the service's
-       HKCU.
-
-       .DEFAULT, the _Classes views and the system accounts (S-1-5-18/19/20) are left out. A
-       hive that is not loaded, its user being signed out, does not appear: that is intended,
-       we do not mount absent people's hives.
-    #>
-    $roots = @()
-    try {
-        # SilentlyContinue and not Stop: enumeration trips on protected hives while still
-        # returning the others; stopping at the first would lose them all.
-        foreach ($k in (Get-ChildItem Registry::HKEY_USERS -ErrorAction SilentlyContinue)) {
-            $sid = Split-Path $k.Name -Leaf
-            if ($sid -notmatch '^S-1-5-21-[\d-]+$') { continue }
-            $roots += "Registry::HKEY_USERS\$sid"
-        }
-    } catch { }
-    $roots
-}
 
 function Get-AccountRegistryRoot {
     <# The registry hive of ONE named account, or $null when it is not loaded.
@@ -543,4 +469,9 @@ function Get-AccountRunDir {
     $varRoot = Get-AccountVarRoot -Account $Account
     if (-not $varRoot) { return $null }
     return (Join-Path $varRoot 'run')
+}
+
+function Get-UserAccounts {
+    param([switch]$Force, [string]$Backend = (Get-BackendRoot))
+    @(Get-ComputerAccounts -Force:$Force -Backend $Backend | Where-Object { -not $_.technical })
 }

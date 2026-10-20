@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @layer: subject
-# @uses: contract, format, operations, probes, rights, scheduler
+# @uses: contract, format, operations, probe-file, property, rights, scheduler
 <#
     Intent: WHAT A CARD GAINS BEFORE IT LEAVES, and which no probe has to know about: its freshness, the pace it
     is held back to, the operation running on it, the action named by one of its lines, and whether this account
@@ -8,27 +8,6 @@
     never missing.
     Usage: dot-sourced by common.ps1, never run on its own.
 #>
-
-<#
-    A CARD IS SOMETIMES A DICTIONARY AND SOMETIMES AN OBJECT, and writing a value on it was spelled out at each
-    of the six places that write one -- six copies of the same `if ($x -is [IDictionary])`, and a seventh would
-    have been written the next time. A probe returns what it returns; here it is one gesture.
-
-    An empty value REMOVES the key on a dictionary: "busy = false" has nothing to say, and the field disappears by
-    itself when the mark is gone.
-#>
-function Set-CardValue {
-    param([Parameter(Mandatory)]$Card, [Parameter(Mandatory)][string]$Key, $Value, [switch]$RemoveWhenEmpty)
-    if (-not $Card) { return }
-    try {
-        if ($Card -is [System.Collections.IDictionary]) {
-            if ($RemoveWhenEmpty -and -not ($Value -or $Value -is [array])) { $Card.Remove($Key) | Out-Null }
-            else { $Card[$Key] = $Value }
-        } else {
-            Add-Member -InputObject $Card -NotePropertyName $Key -NotePropertyValue $Value -Force
-        }
-    } catch { }
-}
 
 <#
     WHAT THE SCHEDULER KNOWS ABOUT EACH CARD, READ ONCE FOR ALL OF THEM (S16).
@@ -107,7 +86,7 @@ function Add-CardFreshness {
             if ($Declaration.StartedAt) { $fresh.startedAt = "$($Declaration.StartedAt)" }
             if ([int]$Declaration.Fails -gt 0) { $fresh.fails = [int]$Declaration.Fails; $fresh.lastError = "$($Declaration.LastError)" }
         }
-        Set-CardValue -Card $Card -Key 'freshness' -Value $fresh
+        Set-ObjectValue -Object $Card -Name 'freshness' -Value $fresh
     } catch { }
 }
 
@@ -126,10 +105,10 @@ function Add-CardBusy {
     param([Parameter(Mandatory)]$Card, [Parameter(Mandatory)][string]$Backend)
     if (-not $Card -or -not $Card.id) { return }
     $mark = Get-ModuleBusyMark -Module "$($Card.id)" -Backend $Backend
-    Set-CardValue -Card $Card -Key 'busy' -Value ([bool]$mark) -RemoveWhenEmpty
-    Set-CardValue -Card $Card -Key 'busyAction' -RemoveWhenEmpty `
+    Set-ObjectValue -Object $Card -Name 'busy' -Value ([bool]$mark) -RemoveWhenEmpty
+    Set-ObjectValue -Object $Card -Name 'busyAction' -RemoveWhenEmpty `
                   -Value $(if ($mark) { $(if ("$($mark.button)") { "$($mark.button)" } else { "$($mark.action)" }) } else { $null })
-    Set-CardValue -Card $Card -Key 'busyResources' -RemoveWhenEmpty `
+    Set-ObjectValue -Object $Card -Name 'busyResources' -RemoveWhenEmpty `
                   -Value $(if ($mark -and $mark.resources) { @($mark.resources) } else { @() })
 }
 
@@ -158,8 +137,8 @@ function Add-CardRights {
     foreach ($act in @($Card.actions)) {
         if (-not $act -or -not $act.id) { continue }
         $right = Test-ActionAllowed -Type "$($act.id)" -Backend $Backend
-        Set-CardValue -Card $act -Key 'allowed' -Value $right.allowed
-        if (-not $right.allowed) { Set-CardValue -Card $act -Key 'deniedReason' -Value $right.reason }
+        Set-ObjectValue -Object $act -Name 'allowed' -Value $right.allowed
+        if (-not $right.allowed) { Set-ObjectValue -Object $act -Name 'deniedReason' -Value $right.reason }
     }
     $t.Stop()
     return $t.Elapsed.TotalMilliseconds
@@ -190,7 +169,7 @@ function New-PendingCard {
         if ($decl.Theme) { $theme = "$($decl.Theme)" }
     } catch { }
     $card = New-ModuleObject -Id $unit -Theme $theme -Label $label -Scope 'machine' -Status 'neutral' -Fields @() -Actions @()
-    Set-CardValue -Card $card -Key 'pending' -Value $true
+    Set-ObjectValue -Object $card -Name 'pending' -Value $true
     return $card
 }
 

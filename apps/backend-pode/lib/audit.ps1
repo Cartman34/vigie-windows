@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @layer: subject
-# @uses: client-app, log, operations, paths, probes, rights
+# @uses: client-app, log, operations, paths, probes, requester, rights
 <#
     Intent: EVERY ACTION LEAVES A TRACE, TWICE: in Vigie's own journal and in the Windows event log, with who asked, who ran it and what came of it. A trace written afterwards from memory is not a trace.
     Usage: dot-sourced by common.ps1, never run on its own.
@@ -24,18 +24,7 @@
 # previous day's cache had the last word.
 #
 # To be used whenever writing into an object that MAY come from a cache or from an API.
-function Set-ObjectProperty {
-    param(
-        [Parameter(Mandatory)]$Object,
-        [Parameter(Mandatory)][string]$Name,
-        $Value
-    )
-    if (-not $Object) { return }
-    if (-not $Object.PSObject.Properties[$Name]) {
-        $Object | Add-Member -NotePropertyName $Name -NotePropertyValue $null -Force
-    }
-    $Object.$Name = $Value
-}
+
 
 # --- Actions ---------------------------------------------------------------
 function New-JobId { [guid]::NewGuid().ToString('N').Substring(0, 12) }

@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @layer: subject
-# @uses: accounts, config, log, paths, var
+# @uses: config, log, paths, var, win-accounts
 <#
     Intent: WHO IS SPEAKING TO THE SERVER: the account secret, the opening ticket worth one use and thirty seconds, and the session it leaves behind. What travels is disposable, what lasts is the session.
     Usage: dot-sourced by common.ps1, never run on its own.

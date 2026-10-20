@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @layer: subject
-# @uses: config, format, log, native, paths, scheduler, settings, var
+# @uses: config, format, log, native, paths, settings, var
 <#
     Intent: THE SERVER APP AS A PROCESS: is it alive, why is it struggling, how is it stopped and brought back. Stopping it is Vigie's own business and nobody else's -- the reasons it reports are measured, never guessed.
     Usage: dot-sourced by common.ps1, never run on its own.

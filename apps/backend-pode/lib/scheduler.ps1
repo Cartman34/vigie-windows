@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @layer: subject
-# @uses: accounts, config, log, operations, paths, probes, series, server-process, settings, store, var, watch-engine
+# @uses: config, log, operations, paths, probe-file, series, server-process, settings, store, var, watch-engine, win-accounts
 <#
     Intent: THE SCHEDULER COMPUTES, A REQUEST NEVER DOES (D124, D125): what each card declares about its cadence, which modes slow it down, when it is due again, and the pass that goes round and recomputes what has fallen due. The ceiling on background tasks lives here too (D126).
     Usage: dot-sourced by common.ps1, never run on its own.
@@ -33,18 +33,6 @@
 # otherwise. Read by the scheduler, which does not count a regulation as a failure.
 function Get-LastChildRefusal { return "$script:LastChildRefusal" }
 
-function Get-RefreshConfig {
-    param([string]$Backend = (Get-BackendRoot))
-    $cfg = $null
-    try { $cfg = (Get-Config -Backend $Backend).Refresh } catch { }
-    $out = @{ MaxParallel = 3; MaxChildren = 12; RefreshReserve = 2; DefaultMaxSeconds = 300; FailBackoffSeconds = 60; FailBackoffMaxSeconds = 3600 }
-    if ($cfg) {
-        foreach ($k in @($out.Keys)) {
-            try { if ($null -ne $cfg[$k]) { $out[$k] = [int]$cfg[$k] } } catch { }
-        }
-    }
-    $out
-}
 
 <#
     ONE DISCOVERY FOR EVERY DECLARATION. Sentinels, modes and computations are all sections of the same module.psd1,

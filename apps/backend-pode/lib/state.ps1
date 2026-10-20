@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @layer: subject
-# @uses: card-shape, games, log, paths, probe-cache, probe-run, probes, rights, scheduler, settings, version
+# @uses: card-shape, games, log, paths, probe-cache, probe-file, probe-run, property, requester, scheduler, settings, version
 <#
     Intent: THE STATE THE PANEL READS: every card gathered in one answer, served from the cache or recomputed, with what each probe cost. It sits at the top of the graph without being put there -- it calls everything, and nothing calls it.
     Usage: dot-sourced by common.ps1, never run on its own.
@@ -142,13 +142,13 @@ function Get-State {
         foreach ($mm in @($e.module)) {
             $modules += $mm
             if ($mm -and $mm.id) { $chrono["$($mm.id)"] = [double]$t.Elapsed.TotalMilliseconds }
-            if ($mm -and $pace.HeldBack) { Set-CardValue -Card $mm -Key 'pace' -Value @{ seconds = $pace.Seconds; reason = 'jeu' } }
+            if ($mm -and $pace.HeldBack) { Set-ObjectValue -Object $mm -Name 'pace' -Value @{ seconds = $pace.Seconds; reason = 'jeu' } }
             if ($mm -and $mm.id) {
                 Add-CardFreshness -Card $mm -Backend $Backend -ProbeName $pf.Name -Entry $e `
                                   -Declaration (@($refreshByCard["$($mm.id)"])[0])
             }
             # TO BE RECOMPUTED: the card shows, and says it is waiting for its measurement.
-            if ($mm -and $e.pending) { Set-CardValue -Card $mm -Key 'pending' -Value $true }
+            if ($mm -and $e.pending) { Set-ObjectValue -Object $mm -Name 'pending' -Value $true }
         }
     }
 
@@ -175,7 +175,7 @@ function Get-State {
         if ($m -and $m.id) {
             $ms = [math]::Round(([double]$chrono["$($m.id)"] + $rightsMs), 1)
             $chrono["$($m.id)"] = $ms
-            Set-CardValue -Card $m -Key 'ms' -Value $ms
+            Set-ObjectValue -Object $m -Name 'ms' -Value $ms
         }
     }
 

@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @layer: subject
-# @uses: operations
+# @uses: action-resources
 <#
     Intent: THE SHAPE OF WHAT THE PANEL RECEIVES -- a field, an action, a card -- built in one place so that no
     probe invents a key. The contract itself is declared in api/openapi.yaml; these factories are what makes a

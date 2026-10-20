@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @layer: subject
-# @uses: accounts, config, paths, var, version
+# @uses: config, paths, var, version, win-accounts
 <#
     Intent: COPYING AN INSTALLATION WITHOUT LOSING THE ONE IN PLACE: the lock that keeps two installations from running at once, the backup taken first, the archive expanded, the files copied, the surplus removed, and the restore that puts back what was there. The gestures only; WHETHER to deploy is decided by deployment.ps1.
     Usage: dot-sourced by common.ps1, never run on its own.

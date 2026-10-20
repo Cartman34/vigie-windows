@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @layer: subject
-# @uses: paths, rights, var
+# @uses: paths, requester, var
 <#
     Intent: WHERE THE SETTINGS LIVE: the machine first, then the user (D65). Which modules are on (D48), what each module's parameters are worth (D57), and the catalogue that says what may be set at all.
     Usage: dot-sourced by common.ps1, never run on its own.
