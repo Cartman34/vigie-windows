@@ -65,6 +65,9 @@
 . "$PSScriptRoot/measures.ps1"      # measures
 . "$PSScriptRoot/operations.ps1"    # operations
 . "$PSScriptRoot/naming.ps1"        # naming
+. "$PSScriptRoot/probe-cache.ps1"   # what the probes have produced, and how old it is
+. "$PSScriptRoot/probe-run.ps1"     # running a probe, one at a time, and keeping its answer
+. "$PSScriptRoot/card-shape.ps1"    # what a card gains before it leaves: freshness, rights, the operation on it
 . "$PSScriptRoot/state.ps1"         # state
 
 

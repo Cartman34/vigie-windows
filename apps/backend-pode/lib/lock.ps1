@@ -67,6 +67,21 @@ function Get-NamedLock {
 }
 
 <#
+    A LOCK THAT ONLY CONCERNS ONE SESSION, named after a key rather than a file.
+
+    Not everything needs the whole computer: the single-flight recomputation of a card serialises the server's
+    threads and the worker it detaches, which live in the same session. Saying "Local" out loud, next to the
+    computer-wide name above, is what keeps the choice a decision rather than an accident -- the state cache's own
+    lock was "Local" by accident, and that was a hole.
+#>
+function Get-SessionLockName {
+    param([Parameter(Mandatory)][string]$Family, [string]$Key = '')
+    $name = 'Local\Vigie' + $Family
+    if ($Key) { $name += '_' + ($Key -replace '[^A-Za-z0-9]', '_') }
+    return $name
+}
+
+<#
     WHY TAKING AND RELEASING IS NOT IN HERE.
 
     The four places that lock all wrap the same five lines -- wait, treat an ABANDONED lock as taken because its

@@ -51,9 +51,12 @@ $facade = 'common.ps1'
 # service follows (service-clone) and copying an installation (install-copy) left it, 782 -> 262. The largest is
 # now `measures`, and the ceiling follows it down: 715.
 # 20/10, `measures` cut into layers -- the named lock (lock), a series of points in a file (series) and what is
-# thrown away (retention) left it, 715 -> 287. What is left above the ceiling is `state` alone, 661 lines of ONE
-# function: the ceiling is therefore 661, and it will only come down by changing that code.
-$PIECE_CEILING = 661
+# thrown away (retention) left it, 715 -> 287.
+# 20/10, `state` cut into layers -- the probe cache (probe-cache), running a probe (probe-run) and what a card
+# gains before it leaves (card-shape) left it, 661 -> 221. It was ONE function of 653 lines, so this one changed
+# code and is proven by the state it produces, not by an identical surface. The largest piece is now `games`:
+# 552.
+$PIECE_CEILING = 552
 
 $pieces = @(Get-ChildItem -LiteralPath $libDir -File -Filter '*.ps1' | Where-Object { $_.Name -ne $facade })
 if (-not $pieces.Count) { Write-Warn 'Aucun morceau dans lib/ : rien à vérifier.'; exit 0 }
