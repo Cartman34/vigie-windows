@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @layer: subject
-# @uses: accounts, format, measures, paths, store, var
+# @uses: accounts, format, paths, series, store, var
 <#
     Intent: IS A GAME RUNNING, AND HOW DID THE SESSION GO? Recognising a game among the processes -- by the
     store libraries it was installed in, then by what it does to the machine -- then keeping the tally of the

@@ -50,7 +50,10 @@ $facade = 'common.ps1'
 # 20/10, `deployment` cut into layers -- git, the user rights granted by secedit (privileges), the clone the
 # service follows (service-clone) and copying an installation (install-copy) left it, 782 -> 262. The largest is
 # now `measures`, and the ceiling follows it down: 715.
-$PIECE_CEILING = 715
+# 20/10, `measures` cut into layers -- the named lock (lock), a series of points in a file (series) and what is
+# thrown away (retention) left it, 715 -> 287. What is left above the ceiling is `state` alone, 661 lines of ONE
+# function: the ceiling is therefore 661, and it will only come down by changing that code.
+$PIECE_CEILING = 661
 
 $pieces = @(Get-ChildItem -LiteralPath $libDir -File -Filter '*.ps1' | Where-Object { $_.Name -ne $facade })
 if (-not $pieces.Count) { Write-Warn 'Aucun morceau dans lib/ : rien à vérifier.'; exit 0 }
@@ -140,8 +143,12 @@ Write-Step 'Les circuits entre morceaux'
     the cut, 21 -> 15, without one function being moved on its own -- the scheduler called the MECHANISM, and
     only the one file made it look as though it called the watches. A circuit is sometimes the shape of a piece
     that holds two subjects.
+
+    20/10, `measures` cut: two more went, 15 -> 13. Moving Get-HistoryConfig, which three pieces read, down with
+    the series it describes undid the pair `measures <-> retention` that the cut had just created -- a circuit
+    appears the moment a piece keeps something its own sub-layer needs.
 #>
-$CYCLE_CEILING = 15
+$CYCLE_CEILING = 13
 $state = @{}
 $backEdges = @()
 function Test-Cycle {

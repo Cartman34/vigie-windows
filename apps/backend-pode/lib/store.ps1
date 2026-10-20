@@ -1,12 +1,12 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @layer: floor
-# @uses:
+# @uses: lock
 <#
     Intent: WRITING A JSON FILE WITHOUT LOSING WHAT SOMEONE ELSE WROTE -- an atomic read-merge-write, serialised
-    by a named mutex derived from the file itself, because several writers exist at once: actions, detached
-    workers, the scheduler. One single piece of code writes the files of var/cache.
-    Usage: dot-sourced by common.ps1, never run on its own. It takes the path it is given and calls nothing of
-    the project (S28).
+    by the named lock of `lock.ps1`, because several writers exist at once: actions, detached workers, the
+    scheduler, and the client app of each account. One single piece of code writes the files of var/cache.
+    Usage: dot-sourced by common.ps1, never run on its own. It takes the path it is given, and the lock is all it
+    asks of the rest.
 #>
 
 
@@ -24,10 +24,12 @@ function Update-StateJson {
     )
     $dir = Split-Path $Path -Parent
     if ($dir -and -not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
-    $leaf = (Split-Path $Path -Leaf) -replace '[^A-Za-z0-9]', '_'
     $mx = $null; $held = $false
     try {
-        $mx = New-Object System.Threading.Mutex($false, "Local\VigieState_$leaf")
+        # THE LOCK COMES FROM `lock.ps1`, and it used to be built here. Its own version was named "Local\", which
+        # exists inside ONE Windows session: the service wrote from its session and a client app from its
+        # account's, each taking a different lock of the same name -- that is to say no lock at all between them.
+        $mx = Get-NamedLock -Name (Get-LockName -Family 'State' -Path $Path)
         try { $held = $mx.WaitOne(5000) }
         catch [System.Threading.AbandonedMutexException] { $held = $true }
         catch { $held = $false }

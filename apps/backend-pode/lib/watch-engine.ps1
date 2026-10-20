@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @layer: subject
-# @uses: config, log, measures, operations, paths, settings, var
+# @uses: config, log, operations, paths, series, settings, var
 <#
     Intent: THE MECHANISM OF A WATCH, WHICH KNOWS NO WATCH: what each unit declares as a sentinel, where the loop keeps its last reading, how a change becomes a sample, and the wrapper that marks a task as busy, times it and reports an overrun. Wrapping a new task in it is all there is to do; WHICH watches run is watches.ps1.
     Usage: dot-sourced by common.ps1, never run on its own.

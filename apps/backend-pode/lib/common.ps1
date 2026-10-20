@@ -22,7 +22,10 @@
 . "$PSScriptRoot/paths.ps1"         # the landmarks of the tree, and "does this path exist?"
 . "$PSScriptRoot/var.ps1"           # where what the app generates may be written, and by which account
 . "$PSScriptRoot/log.ps1"           # writing down what happened, in one shape
+. "$PSScriptRoot/lock.ps1"          # lock
 . "$PSScriptRoot/store.ps1"         # writing a JSON file without losing what another writer wrote
+. "$PSScriptRoot/series.ps1"        # series
+. "$PSScriptRoot/retention.ps1"     # retention
 . "$PSScriptRoot/format.ps1"        # sizes, dates, PowerShell literals: shaping a value into text
 . "$PSScriptRoot/native.ps1"        # elevation, command lines, running a native command
 . "$PSScriptRoot/git.ps1"           # git

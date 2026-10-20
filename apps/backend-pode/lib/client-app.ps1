@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @layer: subject
-# @uses: accounts, format, games, log, measures, paths, rights, sessions, tasks, var
+# @uses: accounts, format, games, log, paths, rights, series, sessions, tasks, var
 <#
     Intent: THE CLIENT APP SEEN FROM THE SERVER: its heartbeat, the accounts whose app has gone quiet, and the orders it is given -- stop, start, restart everywhere. The app answers, it is never commanded blind.
     Usage: dot-sourced by common.ps1, never run on its own.

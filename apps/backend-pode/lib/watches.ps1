@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @layer: subject
-# @uses: client-app, format, log, measures, operations, packages, paths, scheduler, settings, state, store, var, watch-engine
+# @uses: client-app, format, log, measures, operations, packages, paths, scheduler, series, settings, state, store, var, watch-engine
 <#
     Intent: CHEAP READINGS, AND AN EVENT WHEN THE VALUE CHANGES: not recomputing cards in a loop. A module declares one reading and one comparable value; when it changes, the cards that module named are recomputed.
     Usage: dot-sourced by common.ps1, never run on its own.
