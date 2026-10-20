@@ -46,9 +46,11 @@ $facade = 'common.ps1'
 # common.ps1 is the facade and is counted apart: it is what is emptying.
 #
 # 20/10, `updates` cut into layers -- the Windows task scheduler read fast (win-tasks), the access rights of a
-# path (win-acl) and the diagnosis (update-audit) left it, 809 -> 390. The largest is now `deployment`, and the
-# ceiling follows it down: 782.
-$PIECE_CEILING = 782
+# path (win-acl) and the diagnosis (update-audit) left it, 809 -> 374.
+# 20/10, `deployment` cut into layers -- git, the user rights granted by secedit (privileges), the clone the
+# service follows (service-clone) and copying an installation (install-copy) left it, 782 -> 262. The largest is
+# now `measures`, and the ceiling follows it down: 715.
+$PIECE_CEILING = 715
 
 $pieces = @(Get-ChildItem -LiteralPath $libDir -File -Filter '*.ps1' | Where-Object { $_.Name -ne $facade })
 if (-not $pieces.Count) { Write-Warn 'Aucun morceau dans lib/ : rien à vérifier.'; exit 0 }

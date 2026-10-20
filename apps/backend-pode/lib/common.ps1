@@ -25,6 +25,10 @@
 . "$PSScriptRoot/store.ps1"         # writing a JSON file without losing what another writer wrote
 . "$PSScriptRoot/format.ps1"        # sizes, dates, PowerShell literals: shaping a value into text
 . "$PSScriptRoot/native.ps1"        # elevation, command lines, running a native command
+. "$PSScriptRoot/git.ps1"           # git
+. "$PSScriptRoot/service-clone.ps1" # service-clone
+. "$PSScriptRoot/install-copy.ps1"  # install-copy
+. "$PSScriptRoot/privileges.ps1"    # privileges
 . "$PSScriptRoot/win-acl.ps1"       # win-acl
 . "$PSScriptRoot/win-tasks.ps1"     # win-tasks
 . "$PSScriptRoot/contract.ps1"      # the shape of what the panel receives: a field, an action, a card

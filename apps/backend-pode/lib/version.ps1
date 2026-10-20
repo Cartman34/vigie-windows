@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @layer: subject
-# @uses: config, format, paths, var
+# @uses: config, format, git, paths, var
 <#
     Intent: WHICH VERSION RUNS HERE, and which commit it really is. One number (D96): the installation stamp when there is one, otherwise what git says of the repository -- and git's refusals are kept rather than crushed.
     Usage: dot-sourced by common.ps1, never run on its own.
@@ -44,75 +44,7 @@ function Get-AppBuildId {
     "$((($watched | Sort-Object LastWriteTimeUtc -Descending)[0]).LastWriteTimeUtc.Ticks)"
 }
 
-# --- THE PRECISE IDENTITY OF A VERSION: the number AND the commit -----------
-#
-# "Technically I advise taking the version AND the commit." The number says what was meant
-# to be delivered; the commit says what REALLY was. Two deployments of the same v0.1 can be
-# twenty commits apart -- and that is exactly the case on a development workstation.
-#
-# The stamp is LAID INSIDE THE ARCHIVE at build time (a BUILD file, one line reading
-# "version commit date"), because a deployed installation has no git repository: it cannot
-# describe itself any other way.
-# A REPOSITORY'S VERSION: the last TAG, and what has been committed since.
-#
-# There is only ONE number left (D96). A VERSION file kept by hand beside the tags meant two
-# numbers to maintain -- and they drifted: the debug card showed "v0.1" while the deployed
-# installation showed "v0.1.6".
-#
-# `git describe` says it all: "v0.1.6" when sitting exactly on the tag, "v0.1.6+6" when six
-# commits have followed. That is the PRECISE version, and it maintains itself.
-<#
-    CALLING GIT AND KEEPING ITS REFUSAL.
 
-    Get-GitVersion and Get-GitCommit crushed the error ("2>$null") and returned $null. On
-    30/08 the card therefore announced "this workstation's repository: no version" -- without
-    saying whether the folder was unreadable, whether git was missing, or whether it refused
-    to work in a repository belonging to someone else. Three causes, three different
-    gestures, and no trace to tell them apart.
-
-    So the refusal is kept. It interrupts nothing -- an unknown version is not a breakdown --
-    but it becomes READABLE: Get-BuildStamp reports it, and the card says it.
-#>
-$script:GitLastError = $null
-function Invoke-Git {
-    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string[]]$Arguments)
-    $script:GitLastError = $null
-    $git = (Get-Command git -ErrorAction SilentlyContinue)
-    if (-not $git) {
-        $script:GitLastError = 'git est introuvable pour ce compte.'
-        return $null
-    }
-    try {
-        $err = @()
-        $out = & $git.Source -C $Path @Arguments 2>&1 | ForEach-Object {
-            if ($_ -is [System.Management.Automation.ErrorRecord]) { $err += "$_"; } else { $_ }
-        }
-        <#
-            THE EXIT CODE JUDGES, NOT THE ERROR STREAM.
-
-            git speaks on stderr when everything is fine: "Everything up-to-date",
-            "To https://...", "* [new tag] v0.1.67 -> v0.1.67", and every progress line of a
-            fetch or a clone. Taking that for a failure made EVERY successful push report
-            itself as failed -- so a deployment announced "tag posed, local only" while the
-            tag had just been published, and nobody could tell a real refusal from a normal
-            one. Measured on 03/09: five versions believed unpublished.
-
-            The stderr text is kept, because a real failure explains itself there; it just
-            no longer decides.
-        #>
-        if ($LASTEXITCODE -ne 0) {
-            $script:GitLastError = if ($err.Count) { ($err | Select-Object -First 2) -join ' ' }
-                                   else { "git a rendu le code $LASTEXITCODE" }
-        }
-        return @($out | Where-Object { "$_".Trim() })
-    } catch {
-        $script:GitLastError = $_.Exception.Message
-        return $null
-    }
-}
-
-# Git's last refusal, or $null. Read just after a call.
-function Get-GitLastError { return $script:GitLastError }
 
 function Get-GitVersion {
     param([string]$Path = (Get-RepoRoot))
