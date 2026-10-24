@@ -1620,7 +1620,25 @@ public class VigieMenuRenderer : ToolStripProfessionalRenderer {
                             foreach ($prop in $charge.params.PSObject.Properties) { $p[$prop.Name] = $prop.Value }
                         }
                         TLog "tache cliente : $type"
-                        $r = & $script -Module "$($charge.module)" -Params $p
+                        <#
+                            AND IT RUNS UNDER THE PROTOCOL OF OPERATIONS (D82, D95).
+
+                            It did not. Measured on 16/10: `pkg-inventory`, started at 17:24:51, alive for 24
+                            minutes, 154 MB and 54 s of processor -- and /operations answered `running: []`,
+                            `results: []`. No mark, no result, no overrun reported, while that route is the ONLY
+                            door where the state of an operation is read. The server's own tasks had entered the
+                            protocol on 07/10; the ones running HERE had never been wrapped at all.
+
+                            The mark is laid in THIS account's var, where this app is at home (D65), and the
+                            elevated server gathers every account's marks when it answers /operations.
+                        #>
+                        $ceiling = 0
+                        try { $ceiling = [int](Get-RefreshConfig -Backend $backend).DefaultMaxSeconds } catch { }
+                        $r = Invoke-MarkedTask -Module "$($charge.module)" -Action $type -Backend $backend `
+                                               -Label (Get-Label 'common.tache-cliente' $type) `
+                                               -What (Get-Label 'common.tache-cliente-sujet' $type) `
+                                               -MaxSeconds $ceiling `
+                                               -Body { & $script -Module "$($charge.module)" -Params $p }
                         $outcome = @{ message = "$($r.message)"; result = $r.result }
                     } catch {
                         TLog ("tache cliente KO : " + $_.Exception.Message)

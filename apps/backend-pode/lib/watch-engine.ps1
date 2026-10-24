@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @layer: subject
-# @uses: config, log, operations, paths, series, settings, var
+# @uses: config, operations, paths, series, settings, var
 <#
     Intent: THE MECHANISM OF A WATCH, WHICH KNOWS NO WATCH: what each unit declares as a sentinel, where the loop keeps its last reading, how a change becomes a sample, and the wrapper that marks a task as busy, times it and reports an overrun. Wrapping a new task in it is all there is to do; WHICH watches run is watches.ps1.
     Usage: dot-sourced by common.ps1, never run on its own.
@@ -131,21 +131,11 @@ function Invoke-WatchTask {
         [Parameter(Mandatory)][scriptblock]$Body,
         [string]$Backend = (Get-BackendRoot)
     )
-    Set-ModuleBusyMark -Module 'veille' -Label $Label -ProcessId $PID -Action ('watch:' + $Name) `
-                       -Resources @() -MaxSeconds $MaxSeconds -Backend $Backend
-    $t0 = Get-Date
-    try { & $Body }
-    finally {
-        $seconds = [int]((Get-Date) - $t0).TotalSeconds
-        if ($seconds -gt $MaxSeconds) {
-            try {
-                Set-ModuleLastRun -Module 'veille' -Action ('watch:' + $Name) -Label $Label -Code 1 `
-                                  -Seconds $seconds -Error (Get-Label 'common.veille-trop-longue' $MaxSeconds) -Backend $Backend
-                Write-Log -Backend $Backend -Name 'state' -Level 'ERROR' `
-                          -Message (Get-Label 'common.veille-depassement' $Name $seconds $MaxSeconds)
-            } catch { }
-        }
-    }
+    # THE FIVE STEPS LIVE IN ONE PLACE NOW (Invoke-MarkedTask): the round owns the mark, so this one leaves it
+    # standing, and a result every five seconds would bury the real ones, so only an overrun is reported.
+    return (Invoke-MarkedTask -Module 'veille' -Label $Label -Action ('watch:' + $Name) -MaxSeconds $MaxSeconds `
+                              -What (Get-Label 'common.veille-tache' $Name) -ReportOnlyWhenOverdue -KeepMark `
+                              -Backend $Backend -Body $Body)
 }
 
 # A sentinel's history identifier. ONE single place builds it: the reading and the writing

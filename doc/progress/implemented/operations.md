@@ -106,9 +106,29 @@ Routes de `apps/backend-pode/server.ps1` qui modifient quelque chose. Toutes syn
 | `POST /notifications` | ce que chaque module notifie |
 | `POST /actions` | toutes les actions ci-dessus |
 
+## Une opération se marque là où elle tourne, et la lecture rassemble
+
+Depuis le **24/10**, le protocole est **un seul geste**, `Invoke-MarkedTask` : marque avant, mesure, retrait,
+résultat écrit. Les cinq étapes étaient recopiées à la main partout où le protocole était respecté — et
+simplement **absentes** là où personne ne les avait écrites.
+
+Une opération qui tourne dans la session d'un compte écrit sa marque dans **le `var/` de ce compte** (D65), parce
+que c'est là qu'elle est chez elle. Les trois lectures du protocole — `Get-RunningOperations`,
+`Get-RecentOperationResults`, `Get-HeldResources` — parcourent donc **toutes les racines** : la nôtre, puis celle
+de chaque compte activé, par `Get-OperationVarRoots`. Lire le profil d'un autre compte demande l'élévation, que
+l'app serveur a ; sans elle on ne trouve rien là-bas et la réponse est ce qui est visible, jamais un refus
+présenté comme « rien ne tourne ».
+
+Chaque ligne de `/operations` porte désormais le **compte** dans lequel l'opération tourne, vide quand c'est la
+nôtre : deux comptes peuvent relever leurs paquets à la même seconde, et le lecteur ne doit pas les confondre.
+
+**Dans le `var/` d'un autre compte on ne conclut ni n'efface** : une marque dont le processus a disparu n'est plus
+rapportée, mais le résultat reste à son propriétaire à écrire.
+
 ## Les tâches de veille de l'app serveur
 
-Depuis le **07/10**, chacune est **entourée** par `Invoke-WatchTask`, et tout le tour par `Invoke-WatchCycle` : une
+Depuis le **07/10**, chacune est **entourée** par `Invoke-WatchTask` — qui depuis le 24/10 n'est qu'un appel à
+`Invoke-MarkedTask` —, et tout le tour par `Invoke-WatchCycle` : une
 marque sous le module réservé `veille`, un plafond déclaré, et un résultat écrit quand il est dépassé. La marque
 n'est **publiée** par `/operations` qu'au-delà du plafond — un tour revient toutes les trente secondes, l'afficher
 à chaque fois ne dirait rien. Le retard est constaté **par la lecture**, pas par la minuterie : une tâche bloquée
@@ -128,7 +148,7 @@ La carte « Processus de Vigie » porte la ligne « Tâches de veille », et le 
 | surveillance des app clientes | `Update-ClientWatch` ; relance la tâche d'une app cliente absente, jamais si son processus vit | chaque passe du minuteur | journal `state`, `var/history/client-vanished.jsonl` |
 | recalcul d'une sonde périmée | `Get-State`, puis `Start-DetachedAction` sur `workers/state-refresh.worker.ps1` ; une seule à la fois, par mutex | un affichage qui trouve une sonde périmée | ignorées au lancement, **hors protocole** |
 | réparation des tâches au démarrage | `start.ps1`, `Repair-VigieTasks` | démarrage du serveur | journal |
-| tâche cliente | `Invoke-ClientTask` | une action `@execution: session` | compte rendu `.done.json`, écrit même en cas d'échec |
+| tâche cliente | `Invoke-ClientTask` | une action `@execution: session` | compte rendu `.done.json`, écrit même en cas d'échec, **et depuis le 24/10 une marque et un résultat sous protocole**, écrits dans le `var/` du compte qui l'exécute |
 
 ## Les passes de l'app cliente
 

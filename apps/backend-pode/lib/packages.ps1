@@ -426,9 +426,9 @@ function Get-PkgInventory {
 
 function Update-PkgInventory {
     param([string]$Backend = (Get-BackendRoot), [int]$EveryMinutes = 60)
-    foreach ($held in @(Get-HeldResources -Backend $Backend)) {
-        if ("$($held.resource)" -eq 'machine') { return $null }
-    }
+    # WHAT THE INVENTORY TAKES UP IS ASKED FOR BEFORE IT STARTS, like any other action (D93). Testing 'machine'
+    # alone let it launch every manager while an upgrade of one of them was running.
+    if (Test-ActionResourcesFree -Type 'pkg-inventory' -Module 'tools' -Backend $Backend) { return $null }
     $path = Get-PkgInventoryPath -Backend $Backend
     # ONE ACCOUNT PER PASS, the most overdue of them. Asking three accounts at once would launch eleven processes in
     # three sessions in the same second, and the gate below would hide it.

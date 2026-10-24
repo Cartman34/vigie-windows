@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @layer: subject
-# @uses: accounts, action-resources, contract, deployment, elevation, format, log, paths, var
+# @uses: accounts, action-resources, contract, format, log, paths, var, win-accounts
 <#
     Intent: WHAT IS RUNNING, FOR EVERYONE (D95), AND WHO HOLDS WHAT (D93): the mark a card wears while it is busy, the resources an action takes, the lock that keeps two actions off the same thing, and the fate of a background task -- kept, then said.
     Usage: dot-sourced by common.ps1, never run on its own.
@@ -18,8 +18,8 @@
 # busy; the moment it dies, the mark clears itself. Nothing to clean up by hand, and a brutal
 # stop does not leave a card busy for ever.
 function Get-ModuleBusyMarkPath {
-    param([Parameter(Mandatory)][string]$Module, [string]$Backend = (Get-BackendRoot))
-    Get-VarPath -Backend $Backend -Kind 'run' -File ('busy-' + $Module + '.json')
+    param([Parameter(Mandatory)][string]$Module, [string]$Backend = (Get-BackendRoot), [string]$VarRoot)
+    Get-VarPath -Backend $Backend -VarRoot $VarRoot -Kind 'run' -File ('busy-' + $Module + '.json')
 }
 
 function Set-ModuleBusyMark {
@@ -52,8 +52,10 @@ function Set-ModuleBusyMark {
 }
 
 function Get-ModuleBusyMark {
-    param([Parameter(Mandatory)][string]$Module, [string]$Backend = (Get-BackendRoot))
-    $f = Get-ModuleBusyMarkPath -Module $Module -Backend $Backend
+    # ANOTHER ACCOUNT'S ROOT, because an operation is marked WHERE IT RUNS. A client task works in its account's
+    # session and writes at home (D65); the reader is the elevated server, and it is the one that gathers.
+    param([Parameter(Mandatory)][string]$Module, [string]$Backend = (Get-BackendRoot), [string]$VarRoot)
+    $f = Get-ModuleBusyMarkPath -Module $Module -Backend $Backend -VarRoot $VarRoot
     if (-not (Test-Path -LiteralPath $f)) { return $null }
     $o = $null
     try { $o = Get-Content -LiteralPath $f -Raw | ConvertFrom-Json } catch { }
@@ -71,103 +73,23 @@ function Get-ModuleBusyMark {
     if (-not $alive) {
         # A PROCESS GONE WITHOUT A RESULT IS A FAILURE, never a silent end: the disappearance of the mark was read
         # as "finished" (12/09). A result written since the launch means the operation did end properly.
-        $lastRun = Get-ModuleLastRun -Module $Module -Backend $Backend
+        $lastRun = Get-ModuleLastRun -Module $Module -Backend $Backend -VarRoot $VarRoot
         $resultAt = if ($lastRun) { ConvertTo-UtcDate $lastRun.at } else { $null }
         $launchedAt = ConvertTo-UtcDate $o.at
-        if (-not $resultAt -or ($launchedAt -and $resultAt -lt $launchedAt)) {
-            Set-ModuleLastRun -Module $Module -Action "$($o.action)" -Label "$($o.label)" -Code -1 -Log "$($o.log)" `
-                              -Error (Get-Label 'common.operation-sans-resultat') -Backend $Backend
+        # IN SOMEBODY ELSE'S VAR WE NEITHER WRITE NOR ERASE: the process that marked is theirs, the result is
+        # theirs to write, and a reader passing by must not conclude in their name. We simply stop reporting it.
+        if (-not $VarRoot) {
+            if (-not $resultAt -or ($launchedAt -and $resultAt -lt $launchedAt)) {
+                Set-ModuleLastRun -Module $Module -Action "$($o.action)" -Label "$($o.label)" -Code -1 -Log "$($o.log)" `
+                                  -Error (Get-Label 'common.operation-sans-resultat') -Backend $Backend
+            }
+            Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue
         }
-        Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue
         return $null
     }
     return $o
 }
 
-# --- WHAT VIGIE TAKES UP ON THE MACHINE --------------------------------------
-#
-# Asked for on 27/08: "it would be good to show Vigie's storage, for all the users, and so
-# follow what our app consumes". An application that watches other people's disk space owes
-# it to say what it takes itself.
-#
-# Three items, and they are not alike:
-#   - the PROGRAM : the shared installation (Program Files), the same for everyone;
-#   - the DATA    : cache, history, logs -- ONE SET PER ACCOUNT;
-#   - the REPOSITORY : on a development workstation, the sources and dist/.
-#
-# The data of OTHER accounts are only readable when elevated: without elevation we return
-# what we can see, and we SAY so rather than announcing a false total.
-function Get-VigieFootprint {
-    param([string]$Backend = (Get-BackendRoot))
-
-    function Poids {
-        param([string]$Path)
-        if (-not (Test-PathSafe $Path)) { return 0 }
-        try {
-            return [long]((Get-ChildItem -LiteralPath $Path -Recurse -File -Force -ErrorAction SilentlyContinue |
-                           Measure-Object -Property Length -Sum).Sum)
-        } catch { return 0 }
-    }
-
-    $partagee = Get-SharedInstallPath
-    $programme = Poids $partagee
-
-    # Each account's data: %LOCALAPPDATA%\Sowapps\Vigie, and the old location without the
-    # publisher's name, for installations from before D72.
-    $perAccount = @()
-    $inaccessibles = 0
-    $currentAccountVar = $null
-    foreach ($c in @(Get-UserAccounts -Backend $Backend)) {
-        $local = Join-Path (Join-Path (Join-Path $env:SystemDrive 'Users') $c.name) 'AppData\Local'
-        $total = 0
-        $vu = $false
-        foreach ($d in @((Join-Path (Join-Path $local 'Sowapps') 'Vigie'), (Join-Path $local 'Vigie'))) {
-            if (Test-PathSafe $d) { $vu = $true; $total += (Poids $d) }
-        }
-        # A folder present but unreadable gives 0: without elevation it cannot be told from an
-        # empty one. So the uncertainty is counted separately.
-        if ($vu -and $total -eq 0 -and -not $c.current) { $inaccessibles++ }
-        # THE CURRENT ACCOUNT knows where ITS data are: Get-VarRoot is authoritative. On a
-        # development workstation they live in the repository (var/), not in %LOCALAPPDATA% --
-        # without that we announced 320 bytes for an account taking up megabytes.
-        if ($c.current) {
-            $sien = Get-VarRoot -Backend $Backend
-            if ($sien -and (Test-Path -LiteralPath $sien)) {
-                $total = Poids $sien
-                $vu = $true
-                $currentAccountVar = $sien
-            }
-        }
-        if ($vu) { $perAccount += [pscustomobject]@{ name = $c.name; bytes = $total; current = $c.current } }
-    }
-
-    # The development repository, when it is distinct from the shared installation.
-    $repositoryRoot = Get-RepoRoot
-    $sources = 0
-    if ($repositoryRoot -and (-not $partagee -or $repositoryRoot -ne $partagee)) {
-        $sources = Poids $repositoryRoot
-        # The current account's var/ is ALREADY counted in the data: it is taken out of the
-        # repository, or the total counts it twice.
-        if ($currentAccountVar -and $currentAccountVar.StartsWith($repositoryRoot, [StringComparison]::OrdinalIgnoreCase)) {
-            $sources = [Math]::Max(0, $sources - (Poids $currentAccountVar))
-        }
-    }
-
-    $dataBytes = 0
-    foreach ($x in $perAccount) { $dataBytes += $x.bytes }
-
-    [pscustomobject][ordered]@{
-        programme     = $programme          # installation partagee
-        programmePath = $partagee
-        data       = $dataBytes            # somme des donnees par compte
-        perAccount     = $perAccount
-        sources       = $sources            # depot de developpement (0 en usage normal)
-        sourcesPath   = $(if ($sources) { $repositoryRoot } else { $null })
-        total         = ($programme + $dataBytes + $sources)
-        complet       = (Test-IsElevated) -and ($inaccessibles -eq 0)
-        inaccessibles = $inaccessibles
-    }
-}
 
 # --- WHAT IS RUNNING, FOR EVERYONE (D95) -------------------------------------
 #
@@ -188,14 +110,45 @@ function Get-VigieFootprint {
 
     While all is well: nothing. The moment a task overruns: it appears like any other operation.
 #>
+<#
+    EVERY VAR WHERE AN OPERATION MAY BE MARKED: the server's own, and one per account.
+
+    WHY. An operation marks itself WHERE IT RUNS, and that is not always here. A client task works in its
+    account's session, so it writes in that account's var (D65) -- and the three readers of the protocol looked
+    in one single folder, the server's. Measured on 16/10: `pkg-inventory` alive for 24 minutes, 154 MB, 54 s of
+    processor, and /operations answering `running: []`, `results: []`. The protocol makes that route the ONLY
+    door where the state of an operation is read; the door was looking in one room.
+
+    Reading another account's profile needs elevation, which the server has. Without it, nothing is found there
+    and the answer is simply what is visible -- never a refusal passed off as "nothing is running".
+#>
+function Get-OperationVarRoots {
+    param([string]$Backend = (Get-BackendRoot))
+    # The first entry is OURS, named by an empty root: the writer's own var, resolved as usual.
+    $roots = @([pscustomobject]@{ Account = ''; VarRoot = '' })
+    foreach ($account in @(Get-EnabledAccounts -Backend $Backend)) {
+        $name = "$($account.name)"
+        if (-not $name) { continue }
+        $root = $null
+        try { $root = Get-AccountVarRoot -Account $name } catch { }
+        if (-not $root -or -not (Test-PathSafe $root)) { continue }
+        # OUR OWN VAR IS NOT READ TWICE: on a development workstation the server runs under the person's account,
+        # so their profile IS our var and every mark would be reported in duplicate.
+        if ("$root".TrimEnd([char]92, [char]47) -ieq "$(Get-VarRoot -Backend $Backend)".TrimEnd([char]92, [char]47)) { continue }
+        $roots += [pscustomobject]@{ Account = $name; VarRoot = $root }
+    }
+    return $roots
+}
+
 function Get-RunningOperations {
     param([string]$Backend = (Get-BackendRoot), [switch]$IncludeWatch)
     $ops = @()
-    $folder = Split-Path (Get-ModuleBusyMarkPath -Module 'x' -Backend $Backend) -Parent
-    if (Test-Path -LiteralPath $folder) {
+    foreach ($where in @(Get-OperationVarRoots -Backend $Backend)) {
+        $folder = Split-Path (Get-ModuleBusyMarkPath -Module 'x' -Backend $Backend -VarRoot $where.VarRoot) -Parent
+        if (-not (Test-PathSafe $folder)) { continue }
         foreach ($f in @(Get-ChildItem -LiteralPath $folder -Filter 'busy-*.json' -File -ErrorAction SilentlyContinue)) {
             $module = ($f.BaseName -replace '^busy-', '')
-            $m = Get-ModuleBusyMark -Module $module -Backend $Backend
+            $m = Get-ModuleBusyMark -Module $module -Backend $Backend -VarRoot $where.VarRoot
             if (-not $m) { continue }
             # THE PROCESS NUMBER TRAVELS TOO. The protocol says the mark carries it, and that /operations is the
             # ONE place where an operation's state is read. The route dropped it, so through the door the protocol
@@ -215,6 +168,9 @@ function Get-RunningOperations {
             try { $running = [int]([datetime]::UtcNow - (ConvertTo-UtcDate $m.at)).TotalSeconds } catch { }
             $ops += [pscustomobject][ordered]@{
                 module    = $module
+                # WHOSE SESSION IT RUNS IN, empty when it is the server's own. Two accounts can inventory their
+                # packages at the same second: same module, two operations, and the reader must not merge them.
+                account   = "$($where.Account)"
                 label     = "$($m.label)"
                 action    = "$($m.action)"
                 pid       = [int]$m.pid
@@ -242,17 +198,19 @@ function Get-RunningOperations {
 function Get-RecentOperationResults {
     param([int]$Minutes = 15, [string]$Backend = (Get-BackendRoot))
     $res = @()
-    $folder = Split-Path (Get-ModuleLastRunPath -Module 'x' -Backend $Backend) -Parent
-    if (-not (Test-Path -LiteralPath $folder)) { return $res }
     $limit = [datetime]::UtcNow.AddMinutes(-$Minutes)
-    foreach ($f in @(Get-ChildItem -LiteralPath $folder -Filter 'lastrun-*.json' -File -ErrorAction SilentlyContinue)) {
+    foreach ($where in @(Get-OperationVarRoots -Backend $Backend)) {
+      $folder = Split-Path (Get-ModuleLastRunPath -Module 'x' -Backend $Backend -VarRoot $where.VarRoot) -Parent
+      if (-not (Test-PathSafe $folder)) { continue }
+      foreach ($f in @(Get-ChildItem -LiteralPath $folder -Filter 'lastrun-*.json' -File -ErrorAction SilentlyContinue)) {
         $module = ($f.BaseName -replace '^lastrun-', '')
-        $r = Get-ModuleLastRun -Module $module -Backend $Backend
+        $r = Get-ModuleLastRun -Module $module -Backend $Backend -VarRoot $where.VarRoot
         if (-not $r) { continue }
         $when = ConvertTo-UtcDate $r.at
         if (-not $when -or $when -lt $limit) { continue }
         $res += [pscustomobject][ordered]@{
             module  = $module
+            account = "$($where.Account)"
             label   = "$($r.label)"
             action  = "$($r.action)"
             code    = [int]$r.code
@@ -261,6 +219,7 @@ function Get-RecentOperationResults {
             error   = "$($r.error)"
             at      = $(try { (ConvertTo-UtcDate $r.at).ToString("o") } catch { "$($r.at)" })
         }
+      }
     }
     return $res
 }
@@ -271,14 +230,18 @@ function Get-RecentOperationResults {
 function Get-HeldResources {
     param([string]$Backend = (Get-BackendRoot))
     $tenues = @()
-    $folder = Split-Path (Get-ModuleBusyMarkPath -Module 'x' -Backend $Backend) -Parent
-    if (-not (Test-Path -LiteralPath $folder)) { return $tenues }
-    foreach ($f in @(Get-ChildItem -LiteralPath $folder -Filter 'busy-*.json' -File -ErrorAction SilentlyContinue)) {
-        $module = ($f.BaseName -replace '^busy-', '')
-        $m = Get-ModuleBusyMark -Module $module -Backend $Backend
-        if (-not $m) { continue }
-        foreach ($r in @($m.resources)) {
-            if ("$r") { $tenues += [pscustomobject]@{ resource = "$r"; label = "$($m.label)"; module = $module } }
+    # EVERY SESSION'S MARKS: a resource taken by a client task is taken for the whole machine. Reading our own
+    # folder alone let an action start on something already in use elsewhere.
+    foreach ($where in @(Get-OperationVarRoots -Backend $Backend)) {
+        $folder = Split-Path (Get-ModuleBusyMarkPath -Module 'x' -Backend $Backend -VarRoot $where.VarRoot) -Parent
+        if (-not (Test-PathSafe $folder)) { continue }
+        foreach ($f in @(Get-ChildItem -LiteralPath $folder -Filter 'busy-*.json' -File -ErrorAction SilentlyContinue)) {
+            $module = ($f.BaseName -replace '^busy-', '')
+            $m = Get-ModuleBusyMark -Module $module -Backend $Backend -VarRoot $where.VarRoot
+            if (-not $m) { continue }
+            foreach ($r in @($m.resources)) {
+                if ("$r") { $tenues += [pscustomobject]@{ resource = "$r"; label = "$($m.label)"; module = $module; account = "$($where.Account)" } }
+            }
         }
     }
     return $tenues
@@ -302,6 +265,67 @@ function Test-ActionResourcesFree {
     return $null
 }
 
+<#
+    THE PROTOCOL AROUND A PIECE OF WORK, IN ONE GESTURE.
+
+    Mark before, measure, clear, say what happened. It was written out by hand at every place that respected the
+    protocol -- and simply ABSENT wherever nobody had written it out: a client task ran for 24 minutes with no
+    mark and no result (16/10), because respecting the protocol meant remembering five steps.
+
+    Two policies, because the callers are not alike:
+      - a WATCH task reports only when it overruns -- a result every five seconds would bury the real ones -- and
+        leaves the mark alone, since the round that encloses it owns one of its own;
+      - an OPERATION reports always, and takes its mark down when it ends (D82, D43).
+
+    The work's own value is handed back, and a failure is RECORDED then re-thrown: the caller stays the one who
+    decides, and the result exists either way.
+#>
+function Invoke-MarkedTask {
+    param(
+        [Parameter(Mandatory)][string]$Module,
+        [Parameter(Mandatory)][string]$Label,
+        [Parameter(Mandatory)][scriptblock]$Body,
+        [string]$Action = '',
+        [string]$Button = '',
+        # HOW TO NAME THIS WORK in the overrun line, phrased by the caller, who alone knows whether it is one of
+        # its watches or a task running for an account. One sentence then serves every kind of task.
+        [string]$What = '',
+        [int]$MaxSeconds = 0,
+        [switch]$ReportOnlyWhenOverdue,
+        [switch]$KeepMark,
+        [string]$Backend = (Get-BackendRoot)
+    )
+    Set-ModuleBusyMark -Module $Module -Label $Label -ProcessId $PID -Action $Action -Button $Button `
+                       -MaxSeconds $MaxSeconds -Backend $Backend
+    $t0 = Get-Date
+    $result = $null
+    $failure = $null
+    try { $result = & $Body }
+    catch { $failure = $_ }
+    $seconds = [int]((Get-Date) - $t0).TotalSeconds
+    $overdue = ($MaxSeconds -gt 0 -and $seconds -gt $MaxSeconds)
+    if (-not $KeepMark) { Clear-ModuleBusyMark -Module $Module -Backend $Backend }
+    $say = $failure -or $overdue -or -not $ReportOnlyWhenOverdue
+    if ($say) {
+        $code = 0
+        $reason = ''
+        if ($failure) { $code = 1; $reason = "$($failure.Exception.Message)" }
+        elseif ($overdue) { $code = 1; $reason = (Get-Label 'common.veille-trop-longue' $MaxSeconds) }
+        try {
+            Set-ModuleLastRun -Module $Module -Action $Action -Label $Label -Code $code -Seconds $seconds `
+                              -Error $reason -Backend $Backend
+        } catch { }
+        if ($code -ne 0) {
+            try {
+                Write-Log -Backend $Backend -Name 'state' -Level 'ERROR' `
+                          -Message (Get-Label 'common.tache-depassement' $(if ($What) { $What } else { $Action }) $seconds $MaxSeconds)
+            } catch { }
+        }
+    }
+    if ($failure) { throw $failure }
+    return $result
+}
+
 # --- THE FATE OF A BACKGROUND TASK: keep it, then say it ---------------------
 #
 # "Following errors is paramount": an asynchronous action cannot fail in silence. The watcher
@@ -312,53 +336,6 @@ function Get-ModuleLastRunPath {
     Get-VarPath -Backend $Backend -VarRoot $VarRoot -Kind 'cache' -File ('lastrun-' + $Module + '.json')
 }
 
-<#
-    WHY IT FAILED: WE READ IT IN THE LOG, WE DO NOT GUESS IT.
-
-    The watcher knows only an EXIT CODE. So the card displayed a failure, a date and "exit code 4": a number, to
-    a person who wants to know what happened. The script, on the other hand, said it -- that an installation was
-    already running, under which account and in which process -- and that sentence is in the log the watcher
-    already holds in its hand.
-
-    So the LAST failure line is taken from it, the one the console marked "[X]". It is
-    general: any script of the repository using console-ui becomes readable on the card,
-    without declaring anything.
-
-    If the log holds none -- a process killed, a script that said nothing -- the exit code is
-    kept: a number beats nothing.
-#>
-function Get-FailureReasonFromLog {
-    param([Parameter(Mandatory)][string]$Log)
-    if (-not $Log -or -not (Test-PathSafe $Log)) { return $null }
-    <#
-        WE READ IN UTF-8, AND WE CATCH OURSELVES IF IT IS NOT.
-
-        Logs written before the display was forced to UTF-8 are in the system's code page:
-        read as UTF-8, their accents become "?". It is DETECTED -- the replacement character
-        U+FFFD -- and the file is read again in the default code page. An existing log must
-        not become unreadable because the writing was corrected.
-    #>
-    $lines = $null
-    try { $lines = @(Get-Content -LiteralPath $Log -Encoding UTF8 -ErrorAction Stop) } catch { return $null }
-    if (($lines -join '') -match [char]0xFFFD) {
-        # "-Encoding Default" NO LONGER MEANS "the system's code page": since PowerShell 7 it
-        # is UTF-8, so re-reading that way gave exactly the same "?". We name the machine's
-        # ANSI code page, assuming nothing.
-        try {
-            $ansi = [Text.Encoding]::GetEncoding([Globalization.CultureInfo]::CurrentCulture.TextInfo.ANSICodePage)
-            $lines = @([IO.File]::ReadAllText($Log, $ansi) -split "`r?`n")
-        } catch { }
-    }
-    $reason = $null
-    try {
-        foreach ($line in $lines) {
-            # "[X]" is console-ui's failure mark, the same everywhere.
-            if ("$line" -match '\[X\]\s*(.+?)\s*$') { $reason = $Matches[1].Trim() }
-        }
-    } catch { }
-    if ($reason) { return $reason }
-    return $null
-}
 
 function Set-ModuleLastRun {
     param(
@@ -382,8 +359,8 @@ function Set-ModuleLastRun {
 }
 
 function Get-ModuleLastRun {
-    param([Parameter(Mandatory)][string]$Module, [string]$Backend = (Get-BackendRoot))
-    $f = Get-ModuleLastRunPath -Module $Module -Backend $Backend
+    param([Parameter(Mandatory)][string]$Module, [string]$Backend = (Get-BackendRoot), [string]$VarRoot)
+    $f = Get-ModuleLastRunPath -Module $Module -Backend $Backend -VarRoot $VarRoot
     if (-not (Test-Path -LiteralPath $f)) { return $null }
     try { return (Get-Content -LiteralPath $f -Raw | ConvertFrom-Json) } catch { return $null }
 }

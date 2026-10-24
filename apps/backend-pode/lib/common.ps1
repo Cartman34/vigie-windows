@@ -21,6 +21,7 @@
 #>
 . "$PSScriptRoot/paths.ps1"         # the landmarks of the tree, and "does this path exist?"
 . "$PSScriptRoot/var.ps1"           # where what the app generates may be written, and by which account
+. "$PSScriptRoot/footprint.ps1"     # footprint
 . "$PSScriptRoot/win-accounts.ps1"  # win-accounts
 . "$PSScriptRoot/probe-file.ps1"    # probe-file
 . "$PSScriptRoot/requester.ps1"     # requester

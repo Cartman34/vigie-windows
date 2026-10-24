@@ -46,6 +46,10 @@ $script:RessourcesParAction = @{
     'pkg-upgrade'          = @('paquets')
     'pkg-check-updates'    = @('paquets')
     'pkg-list-updates'     = @()               # lecture d'un cache : rien a reserver
+    # THE INVENTORY LAUNCHES EVERY MANAGER to ask it its version, in an account's session. It declared nothing,
+    # so it ran for 24 minutes beside an upgrade of the same manager without either knowing (16/10). It is a
+    # reading OF THE MANAGERS, not of a cache: it takes them up for as long as it asks.
+    'pkg-inventory'        = @('paquets')
     # Disk, network, WSL, accounts.
     'disk-analyze'         = @('disque')
     'disk-analyze-stop'    = @()               # ARRETER doit rester possible pendant
