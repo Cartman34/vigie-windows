@@ -111,12 +111,67 @@ if ($installed) {
     }
 }
 
+<#
+    WHAT WSL SAID, REPORTED WORD FOR WORD.
+
+    WSL speaks only on the console of whoever runs it, and nothing of it reaches the Windows journal: a warning
+    is therefore seen by the person typing, once, and by nobody afterwards. A key written in the wrong section of
+    `.wslconfig` was ignored for weeks that way -- the reclaiming of memory it was meant to switch on never ran,
+    and WSL kept everything it took.
+
+    This card does not judge the configuration: judging it would mean writing a second WSL, which would be wrong
+    the day WSL changes. It REPEATS what WSL answered, and that is the job (the owner, 25/10).
+
+    The reading is taken in the session of an account, by the task that already measures what the distributions
+    hold: the configuration and the distributions belong to the account, and the service account has neither.
+#>
+$wslSaid = @()
+$wslSilent = $false
+$saidForNow = $true
+$usage = Get-WslUsage -Backend $backend
+if ($usage) {
+    $wslSaid = @(@($usage.messages) | Where-Object { "$_".Trim() })
+    $wslSilent = [bool]$usage.timedOut
+    # IS IT STILL ABOUT THE WSL RUNNING NOW? What WSL said concerns the start that read the configuration. If the
+    # machine has restarted since, the warning is a memory, and it is said as such instead of being asserted.
+    $heardFor = "$($usage.messagesVm)"
+    $nowVm = ''
+    foreach ($vm in @(Get-Process -Name 'vmmemWSL', 'wslservice' -ErrorAction SilentlyContinue)) {
+        try { $nowVm = $vm.StartTime.ToUniversalTime().ToString('o'); break } catch { }
+    }
+    if ($wslSaid.Count -and $heardFor -and $nowVm -and $heardFor -ne $nowVm) { $saidForNow = $false }
+}
+$saidStatus = 'ok'
+$saidValue = 'Rien à signaler'
+if ($wslSaid.Count -and $saidForNow) { $saidStatus = 'warn'; $saidValue = "$($wslSaid.Count) avertissement(s)" }
+elseif ($wslSaid.Count) { $saidStatus = 'neutral'; $saidValue = "$($wslSaid.Count) avertissement(s) au démarrage précédent" }
+elseif ($wslSilent) { $saidStatus = 'warn'; $saidValue = "WSL n'a pas répondu dans le délai" }
+elseif (-not $usage) { $saidStatus = 'neutral'; $saidValue = 'Pas encore demandé' }
+$saidGuide = $null
+if ($wslSaid.Count) {
+    $saidGuide = $(if ($saidForNow) { "Ce que WSL a répondu, mot pour mot :" } else { "Ce que WSL avait répondu lors d'un démarrage précédent de sa machine virtuelle — elle a redémarré depuis, et il n'a rien répété :" }) + [Environment]::NewLine + [Environment]::NewLine +
+                 (($wslSaid | ForEach-Object { '« ' + $_ + ' »' }) -join [Environment]::NewLine) +
+                 [Environment]::NewLine + [Environment]::NewLine +
+                 "Vigie ne juge pas la configuration de WSL : elle rapporte ce que WSL dit, parce que lui seul " +
+                 "sait ce qu'il accepte. Ces lignes ne s'affichent nulle part ailleurs — WSL ne les écrit ni " +
+                 "dans le journal de Windows, ni dans un fichier." + [Environment]::NewLine + [Environment]::NewLine +
+                 "WSL ne relit sa configuration qu'au démarrage de sa machine virtuelle : interrogé pendant " +
+                 "qu'il tourne, il ne répète rien. C'est pourquoi ce qu'il a dit est conservé."
+} elseif ($wslSilent) {
+    $saidGuide = "WSL n'a pas répondu dans les trente secondes qui lui étaient laissées. L'appel a été coupé, " +
+                 "rien n'est resté en attente. Une machine virtuelle froide peut être lente : si cela se " +
+                 "reproduit à chaque relevé, c'est que WSL ne répond plus."
+}
+
 # A MIXED SCOPE, and this card is what 'mixed' exists for: WSL is installed for the computer, while the default
 # distribution is each account's own choice, read in the requester's hive. Every field says which one it speaks of.
+if ($saidStatus -eq 'warn' -and $st -eq 'ok') { $st = 'warn' }
 New-ModuleObject -Id 'wsl' -Theme 'wsl' -Label 'WSL2' -Scope 'mixed' -Status $st -Fields @(
     New-Field -Key 'installed' -Label 'WSL installé'      -Scope 'machine' -Value $installed -Kind 'bool' -Status $(if ($installed) {'ok'} else {'neutral'}) -Help 'Sous-système Windows pour Linux présent sur la machine.'
     New-Field -Key 'default'   -Label 'Distribution défaut' -Scope 'user' -Value $default -Kind 'text' -Status 'neutral' -Help 'Distribution WSL par défaut, lue dans le registre du compte qui regarde : chaque compte a la sienne.'
     New-Field -Key 'running'   -Label 'Statut' -Scope 'machine' -Value $statutValue -Kind 'text' -Status $statutStat -Help 'État actuel de WSL (Actif si un processus vmmem/wslservice tourne, sinon Inactif).'
+    New-Field -Key 'said'      -Label 'Ce que WSL signale' -Scope 'user' -Value $saidValue -Kind 'text' -Status $saidStatus -Guide $saidGuide `
+        -Help "Les avertissements que WSL imprime quand on lui parle. Il ne les écrit nulle part ailleurs : sans cette ligne, ils ne sont vus que par celui qui tape la commande."
     New-Field -Key 'vmMemory'  -Label 'Mémoire de la machine virtuelle' -Scope 'machine' -Value $vmValue -Kind 'text' -Status $vmStatus -Guide $vmGuide -Reason $vmReason `
         -FixAction $(if ($vmStatus -eq 'warn' -and $running) { 'wsl-shutdown' } else { $null }) `
         -Help "Mémoire vive réellement occupée par la machine virtuelle qui fait tourner les distributions Linux, cache de fichiers de Linux compris, puis la mémoire qu'elle s'est réservée, et la borne réglée dans .wslconfig."

@@ -10,6 +10,61 @@
     it never calls upwards (S28).
 #>
 
+<#
+    RUNNING A COMMAND WITH A DEADLINE, AND KILLING IT WHOLE.
+
+    The output is read while the command runs, not after: a pipe that fills up with nobody emptying it blocks the
+    command, and we would then kill for a deadline we had caused ourselves.
+
+    The children go with it. A tool that launches a helper -- which is what talking to a virtual machine does --
+    leaves it behind when only the parent is killed, and that orphan goes on holding what it holds.
+#>
+function Invoke-NativeWithDeadline {
+    param(
+        [Parameter(Mandatory)][string]$File,
+        [string[]]$Arguments = @(),
+        [Parameter(Mandatory)][int]$TimeoutSeconds
+    )
+    $info = New-Object System.Diagnostics.ProcessStartInfo
+    $info.FileName = $File
+    foreach ($a in @($Arguments)) { $info.ArgumentList.Add("$a") }
+    $info.RedirectStandardOutput = $true
+    $info.RedirectStandardError = $true
+    $info.UseShellExecute = $false
+    $info.CreateNoWindow = $true
+    # UTF-8 BOTH WAYS: modern tools emit it, and the OEM code page turned every accent into a pair of symbols.
+    $info.StandardOutputEncoding = [Text.UTF8Encoding]::new($false)
+    $info.StandardErrorEncoding = [Text.UTF8Encoding]::new($false)
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $info
+    $timedOut = $false
+    $code = -1
+    $text = ''
+    try {
+        $null = $process.Start()
+        # READ WHILE IT RUNS: both streams at once, so neither pipe can fill and block the command.
+        $outTask = $process.StandardOutput.ReadToEndAsync()
+        $errTask = $process.StandardError.ReadToEndAsync()
+        if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+            $timedOut = $true
+            try { $process.Kill($true) } catch { try { $process.Kill() } catch { } }
+            try { $null = $process.WaitForExit(2000) } catch { }
+        } else {
+            $code = $process.ExitCode
+        }
+        $parts = @()
+        foreach ($task in @($outTask, $errTask)) {
+            try { if ($task.Wait(2000)) { $parts += "$($task.Result)" } } catch { }
+        }
+        $text = (($parts -join [Environment]::NewLine).Trim()) -replace (([char]0x1B) + '\[[0-9;]*[A-Za-z]'), ''
+    } catch {
+        $text = "$($_.Exception.Message)"
+    } finally {
+        try { $process.Dispose() } catch { }
+    }
+    return [pscustomobject]@{ Ok = (-not $timedOut -and $code -eq 0); ExitCode = $code; Output = $text; TimedOut = $timedOut }
+}
+
 # Is the current process elevated (administrator)?
 function Test-Elevated {
     try {
@@ -91,8 +146,28 @@ function Start-ChildProcess {
 
 # Runs a native command handling its output AND its exit code (the rule: errors, output and
 # exit codes are always handled). Returns one uniform object.
+<#
+    AND IT CAN BE GIVEN A DEADLINE.
+
+    Without one, a command that never returns takes its caller with it: a card's value is computed in a
+    background task, and a frozen command keeps that task, its place among the eight allowed, and the card's
+    freshness. That is why the WSL card refused to ask WSL anything at all -- the tool can be slow to answer when
+    its machine is cold, and there was no way to be patient without risking everything.
+
+    With a deadline, waiting becomes a choice: the command is given its seconds, and what passes them is KILLED,
+    it and its children. An expiry is said -- `TimedOut`, and an exit code of -1 -- because "it did not answer in
+    thirty seconds" is an answer, where a blank is not.
+
+    No deadline means the old road, unchanged: thirty-odd callers rely on it, and none of them had to move.
+#>
 function Invoke-Native {
-    param([Parameter(Mandatory)][string]$File, [string[]]$Arguments = @())
+    param(
+        [Parameter(Mandatory)][string]$File,
+        [string[]]$Arguments = @(),
+        # Seconds before the command is killed. 0 = wait as long as it takes, as before.
+        [int]$TimeoutSeconds = 0
+    )
+    if ($TimeoutSeconds -gt 0) { return (Invoke-NativeWithDeadline -File $File -Arguments $Arguments -TimeoutSeconds $TimeoutSeconds) }
     # winget, like other modern tools, emits UTF-8; PowerShell decoded it with the OEM code
     # page (850) and every accent became a pair of symbols -- including in the error messages
     # shown to the user. UTF-8 is forced for the length of the capture.

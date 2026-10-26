@@ -77,7 +77,9 @@ function Get-WslUsage {
         $path = Get-WslUsagePath -Backend $Backend
         if (-not (Test-PathSafe $path)) { return $null }
         $j = Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json
-        if (-not $j -or -not $j.distributions) { return $null }
+        # A READING WITH NO DISTRIBUTION RUNNING IS STILL A READING: it may carry what WSL had to say, which is
+        # the part nobody else can see.
+        if (-not $j) { return $null }
         return $j
     } catch { return $null }
 }
@@ -93,10 +95,11 @@ function Update-WslUsage {
         date back into a [datetime], whose string form is then local and no longer parses (D44). Read as text, the
         gate never held and a client app was asked every thirty seconds instead of every hour -- seen in its log.
     #>
+    $kept = $null
     try {
         if (Test-PathSafe $path) {
-            $j = Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json
-            $ticks = [long]$j.atTicks
+            $kept = Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json
+            $ticks = [long]$kept.atTicks
             if ($ticks -and ([datetime]::UtcNow - [datetime]$ticks).TotalMinutes -lt $EveryMinutes) { return $null }
         }
     } catch { }
@@ -111,6 +114,16 @@ function Update-WslUsage {
         atTicks       = ([datetime]::UtcNow).Ticks
         account       = "$($account[0].Account)"
         distributions = @($answer.result.distributions)
+        # WHAT WSL SAID, kept with the measurement: it speaks on a console nobody is watching.
+        #
+        # AND A SILENCE DOES NOT ERASE IT. WSL reads its configuration when it starts and says what it thinks of
+        # it then; asked an hour later it repeats nothing. Overwriting with that silence would lose the warning
+        # exactly when it becomes useful. What was heard is kept, with the start of the machine it concerned --
+        # the reader then knows whether it is still about the WSL running now.
+        messages      = @($(if (@($answer.result.messages).Count) { @($answer.result.messages) } elseif ($kept) { @($kept.messages) } else { @() }))
+        messagesVm    = $(if (@($answer.result.messages).Count) { "$($answer.result.vmStartedAt)" } elseif ($kept) { "$($kept.messagesVm)" } else { '' })
+        vmStartedAt   = "$($answer.result.vmStartedAt)"
+        timedOut      = [bool]$answer.result.timedOut
     }
     try { Set-Content -LiteralPath $path -Value ($entry | ConvertTo-Json -Depth 6 -Compress) -Encoding UTF8 } catch { }
     return $entry

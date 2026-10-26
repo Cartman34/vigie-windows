@@ -13,6 +13,38 @@
 #>
 param([string]$Module, [hashtable]$Params)
 
+<#
+    AND WHAT WSL ITSELF HAS TO SAY, brought back with the measurement.
+
+    WSL speaks only on the console of whoever runs it: nothing of it reaches the Windows journal. Its warnings
+    were therefore visible to nobody but the person typing -- a key written in the wrong section of `.wslconfig`
+    was ignored for weeks, and the reclaiming of memory it was meant to switch on never ran.
+
+    It has to be asked HERE: the configuration and the distributions belong to the account, and the server app
+    runs under a service account that has neither. `--status` and `--version` answer without starting anything,
+    and both carry a deadline: a cold WSL can be slow, and being patient is a choice, not a risk.
+#>
+$messages = @()
+$timedOut = $false
+foreach ($question in @(@('--status'), @('--version'))) {
+    $r = Invoke-Native -File 'wsl.exe' -Arguments $question -TimeoutSeconds 30
+    if ($r.TimedOut) { $timedOut = $true; continue }
+    foreach ($line in @("$($r.Output)" -split "`r?`n")) {
+        # WSL PREFIXES WHAT IT HAS TO SAY WITH ITS OWN NAME. Everything else is the answer we asked for.
+        $t = "$line".Trim() -replace "`0", ''
+        if ($t -match '^wsl\s*:\s*(.+)$') { $messages += $Matches[1].Trim() }
+    }
+}
+$messages = @($messages | Select-Object -Unique)
+
+# WHICH START OF THE VIRTUAL MACHINE WE ARE TALKING ABOUT. WSL reads its configuration when it STARTS, and says
+# what it thinks of it then -- asked later, while it runs, it repeats nothing. So what it said is only true of
+# the instance that was up at the time, and the reader needs to know which one.
+$vmStarted = ''
+foreach ($vm in @(Get-Process -Name 'vmmemWSL', 'wslservice' -ErrorAction SilentlyContinue)) {
+    try { $vmStarted = $vm.StartTime.ToUniversalTime().ToString('o'); break } catch { }
+}
+
 $distributions = @()
 try {
     $running = (& wsl.exe --list --running --quiet 2>$null) -replace "`0", '' | ForEach-Object { "$_".Trim() } | Where-Object { $_ }
@@ -35,5 +67,6 @@ try {
 
 @{
     message = $(if ($distributions.Count) { "$($distributions.Count) distribution(s) lue(s)." } else { 'Aucune distribution WSL en marche.' })
-    result  = @{ ok = $true; distributions = $distributions; at = (Get-Date).ToUniversalTime().ToString('o') }
+    result  = @{ ok = $true; distributions = $distributions; messages = @($messages); timedOut = $timedOut
+                 vmStartedAt = $vmStarted; at = (Get-Date).ToUniversalTime().ToString('o') }
 }

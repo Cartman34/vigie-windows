@@ -106,6 +106,16 @@ Routes de `apps/backend-pode/server.ps1` qui modifient quelque chose. Toutes syn
 | `POST /notifications` | ce que chaque module notifie |
 | `POST /actions` | toutes les actions ci-dessus |
 
+## Une commande du système peut porter une échéance
+
+Depuis le **26/10**, lancer une commande du système accepte un délai : ce qui le dépasse est **tué, avec ses
+enfants**, et l'expiration est dite (`TimedOut`, code `-1`) au lieu de laisser un blanc. Sans délai, la route est
+inchangée — une trentaine d'appelants s'y appuient et aucun n'a bougé.
+
+C'est ce qui manquait pour interroger WSL : la sonde refusait de l'appeler, avec raison, parce qu'un appel figé
+aurait gardé la tâche de fond qui la calcule, sa place parmi les huit, et la fraîcheur de la carte. Avec une
+échéance, être patient devient un choix.
+
 ## Une opération se marque là où elle tourne, et la lecture rassemble
 
 Depuis le **24/10**, le protocole est **un seul geste**, `Invoke-MarkedTask` : marque avant, mesure, retrait,
