@@ -65,6 +65,51 @@ function Invoke-NativeWithDeadline {
     return [pscustomobject]@{ Ok = (-not $timedOut -and $code -eq 0); ExitCode = $code; Output = $text; TimedOut = $timedOut }
 }
 
+<#
+    THE TIME A PIECE OF WORK REALLY TOOK, WHICH IS NOT THE TIME ON THE CLOCK.
+
+    Measured on 30/10, on this machine: 158 251 seconds since boot on the clock, 158 251 counted by the tick
+    counter, and 111 871 of real activity -- THIRTEEN HOURS of sleep that the tick counter includes as if work had
+    been happening. That is where "computed in 34 722 332 ms", nine and a half hours, came from on 16/10: the
+    machine slept in the middle of a computation that had long since finished, and the overrun was logged,
+    historised and shown on a card, drowning the real ones.
+
+    Windows has the right counter for this, and only this one: unbiased interrupt time, which stops while the
+    machine sleeps. It is asked for here, once, and the whole repository has one place to ask.
+
+    WHAT MUST NOT USE IT: how long the machine has been UP, which is a clock question -- a person who left their
+    PC asleep for the night expects "up for 2 days", not "up for 13 hours".
+
+    The declaration is compiled on the FIRST call, not when this file loads: every probe loads this library, and
+    none of them should pay for a compilation it will not use. Without the counter, we fall back on the tick
+    counter: a biased duration beats no duration.
+#>
+$script:UnbiasedReady = $null
+function Get-ActiveMilliseconds {
+    if ($null -eq $script:UnbiasedReady) {
+        $script:UnbiasedReady = $false
+        try {
+            if (-not ('Vigie.Clock' -as [type])) {
+                Add-Type -Name 'Clock' -Namespace 'Vigie' -ErrorAction Stop -MemberDefinition @'
+[System.Runtime.InteropServices.DllImport("kernel32.dll")]
+public static extern bool QueryUnbiasedInterruptTime(out ulong UnbiasedTime);
+'@
+            }
+            $script:UnbiasedReady = [bool]('Vigie.Clock' -as [type])
+        } catch { $script:UnbiasedReady = $false }
+    }
+    if ($script:UnbiasedReady) {
+        try {
+            [ulong]$ticks = 0
+            if ([Vigie.Clock]::QueryUnbiasedInterruptTime([ref]$ticks)) {
+                # The counter is in units of 100 nanoseconds.
+                return [long]($ticks / 10000)
+            }
+        } catch { }
+    }
+    return [long][Environment]::TickCount64
+}
+
 # Is the current process elevated (administrator)?
 function Test-Elevated {
     try {

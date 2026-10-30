@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @layer: subject
-# @uses: config, log, operations, paths, probe-file, series, server-process, settings, store, var, watch-engine, win-accounts
+# @uses: config, log, native, operations, paths, probe-file, series, server-process, settings, store, var, watch-engine, win-accounts
 <#
     Intent: THE SCHEDULER COMPUTES, A REQUEST NEVER DOES (D124, D125): what each card declares about its cadence, which modes slow it down, when it is due again, and the pass that goes round and recomputes what has fallen due. The ceiling on background tasks lives here too (D126).
     Usage: dot-sourced by common.ps1, never run on its own.
@@ -335,7 +335,7 @@ function Invoke-RefreshPass {
             continue
         }
         # Awake time when the entry carries it; the wall clock for an entry written by the previous version.
-        $elapsed = $(if ($entry.startedTick) { ([Environment]::TickCount64 - [long]$entry.startedTick) / 1000 }
+        $elapsed = $(if ($entry.startedTick) { ((Get-ActiveMilliseconds) - [long]$entry.startedTick) / 1000 }
                      else { ($nowTicks - [long]$entry.startedAt) / 1e7 })
         $max = $(if ($d.MaxSeconds) { [int]$d.MaxSeconds } else { [int]$cfg.DefaultMaxSeconds })
         if ($elapsed -ge $max -and -not $entry.long) {
@@ -430,7 +430,7 @@ function Invoke-RefreshPass {
         # THE CLOCK ON THE WALL SAYS WHEN, THE COUNTER SAYS HOW LONG. A computation started before the machine
         # went to sleep and finished after it woke up was credited with the whole night: 34 722 332 ms read on
         # 16/10 for a card that had worked a few seconds. This counter does not advance while the machine sleeps.
-        $entry.startedTick = [Environment]::TickCount64
+        $entry.startedTick = (Get-ActiveMilliseconds)
         $entry.lastStartedAt = $nowTicks
         $entry.long = $false
         $state[$d.Key] = $entry
@@ -457,7 +457,7 @@ function Get-RefreshRows {
         $said = $(if ($interval -gt 0) { "toutes les $interval s" } else { 'à la demande' })
         $status = 'ok'
         if ($entry -and [int]$entry.pid) {
-            $elapsed = [int]$(if ($entry.startedTick) { ([Environment]::TickCount64 - [long]$entry.startedTick) / 1000 }
+            $elapsed = [int]$(if ($entry.startedTick) { ((Get-ActiveMilliseconds) - [long]$entry.startedTick) / 1000 }
                                else { ($nowTicks - [long]$entry.startedAt) / 1e7 })
             $said = "en cours depuis $elapsed s"
             if ($entry.long) { $said = "TROP LONG : $elapsed s"; $status = 'warn' }

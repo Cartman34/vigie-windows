@@ -31,7 +31,7 @@ $entry = $state[$key]
 if (-not $entry) { $entry = @{ fails = 0 } }
 # The time the machine was AWAKE, not the time on the wall: a sleep in the middle used to be counted in
 # (S22, read in the logs on 16/10).
-$t0 = [Environment]::TickCount64
+$t0 = (Get-ActiveMilliseconds)
 try {
     # THE PROOF OF A RESULT is that the cache moved. An exception is not the only way to fail: Get-State catches a
     # probe's error so the other cards still answer, and the computation then returns having written nothing.
@@ -46,7 +46,7 @@ try {
     $entry.lastError = ''
     $entry.waiting = $false
     Write-Log -Backend $Backend -Name 'state' -NoEcho `
-              -Message ("planifie : " + $key + " calcule en " + [int]([Environment]::TickCount64 - $t0) + " ms")
+              -Message ("planifie : " + $key + " calcule en " + [int]((Get-ActiveMilliseconds) - $t0) + " ms")
 } catch {
     <#
         AN ABSENCE IS NOT A BREAKDOWN.
@@ -95,5 +95,5 @@ try {
 $entry.pid = 0
 $entry.long = $false
 $entry.lastEndedAt = [datetime]::UtcNow.Ticks
-$entry.lastMs = [int]([Environment]::TickCount64 - $t0)
+$entry.lastMs = [int]((Get-ActiveMilliseconds) - $t0)
 Update-RefreshState -Backend $Backend -Key $key -Entry $entry
