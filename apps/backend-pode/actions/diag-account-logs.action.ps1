@@ -16,6 +16,20 @@ $backend = Split-Path $PSScriptRoot -Parent
 . (Join-Path $backend 'lib/common.ps1')
 
 $account = if ($Params -and $Params.account) { "$($Params.account)" } else { $null }
+<#
+    HOW FAR BACK WE GO, AND WHY IT IS BOUNDED.
+
+    It copied EVERYTHING: 182 log files, close to 60 MB, plus the state files, at every call -- and into a new
+    dated folder each time, so the requester's disk grew by sixty megabytes per diagnosis. The copy outlasted the
+    patience of whoever asked: two calls out of two came back as an expiry (408 on 31/10), which left the only
+    road to another account's logs unusable exactly when it was needed.
+
+    A diagnosis looks at what has just happened. Two days by default, `days` to ask for more, and what is left
+    behind is NAMED rather than silently dropped -- "182 files, 60 MB" told nobody which ones were missing.
+#>
+$days = 2
+if ($Params -and $Params.days) { try { $days = [Math]::Max(1, [int]$Params.days) } catch { } }
+$since = (Get-Date).AddDays(-$days)
 if (-not $account) { return @{ message = "Aucun compte precise."; result = @{ ok = $false } } }
 
 # The account must exist on THIS machine: we are not going to read some arbitrary path.
@@ -63,9 +77,12 @@ $target = Join-Path (Join-Path $diagRoot 'diag') ($account + '-' + (Get-Date -Fo
 New-Item -ItemType Directory -Path $target -Force | Out-Null
 
 $nb = 0
+$skipped = 0
+$skippedBytes = 0.0
 $logs = Join-Path $source 'log'
 if (Test-Path -LiteralPath $logs) {
     foreach ($f in @(Get-ChildItem -LiteralPath $logs -File -ErrorAction SilentlyContinue)) {
+        if ($f.LastWriteTime -lt $since) { $skipped++; $skippedBytes += [double]$f.Length; continue }
         Copy-Item -LiteralPath $f.FullName -Destination $target -Force
         $nb++
     }
@@ -91,6 +108,7 @@ foreach ($sous in @('cache', 'run')) {
     New-Item -ItemType Directory -Path $into -Force | Out-Null
     foreach ($f in @(Get-ChildItem -LiteralPath $folder -File -Recurse -ErrorAction SilentlyContinue)) {
         if ($f.Length -gt 16MB) { $heavy += ("{0}/{1} ({2})" -f $sous, $f.Name, (Format-ByteSize ([long]$f.Length))); continue }
+        if ($f.LastWriteTime -lt $since) { $skipped++; $skippedBytes += [double]$f.Length; continue }
         Copy-Item -LiteralPath $f.FullName -Destination $into -Force -ErrorAction SilentlyContinue
         $nb++
     }
@@ -143,9 +161,13 @@ if ($dernier.Count) {
     try { $fin = @(Get-Content -LiteralPath $dernier[0].FullName -Encoding UTF8 -Tail 60 -ErrorAction Stop) } catch { }
 }
 
+# WHAT WAS LEFT BEHIND IS SAID, with its weight: a diagnosis that silently drops half of what it was asked for
+# sends the reader looking for a file that was never copied.
+$laisse = $(if ($skipped) { " " + $skipped + " fichier(s) plus anciens que " + $days + " jour(s) laisses sur place (" + (Format-ByteSize ([long]$skippedBytes)) + ") : relancer avec days pour les avoir." } else { '' })
 @{
-    message = ("Journaux du compte " + $account + " rapatries : " + $nb + " fichier(s).")
-    result  = @{ ok = $true; path = $target; files = $nb
+    message = ("Journaux du compte " + $account + " rapatries : " + $nb + " fichier(s)." + $laisse)
+    result  = @{ ok = $true; path = $target; files = $nb; days = $days
+                 skipped = $skipped; skippedBytes = [long]$skippedBytes
                  last = $(if ($dernier.Count) { $dernier[0].Name } else { $null })
                  tail = $fin }
 }
