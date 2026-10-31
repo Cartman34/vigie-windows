@@ -23,7 +23,16 @@ param(
     [Parameter(Mandatory)][int]$ServerPid
 )
 $ErrorActionPreference = 'Stop'
-. (Join-Path $Backend 'lib/common.ps1')
+<#
+    ONLY WHAT THIS RESIDENT USES, not the whole library.
+
+    It calls five subjects -- games, residents, naming, power, and writing a line down -- and loading the
+    fifty-six pieces of `common.ps1` costs 62 MB measured, for a process whose job is to look at a list of
+    running programs every few seconds. `pieces.ps1` pulls in what those five need in turn, read from their own
+    `@uses:` headers, so this list stays true without being maintained here.
+#>
+. (Join-Path $Backend 'lib/pieces.ps1')
+foreach ($piece in (Get-VigiePieceFiles -LibDir (Join-Path $Backend 'lib') -Pieces @('games', 'residents', 'naming', 'power'))) { . $piece }
 
 $KEY = 'game'
 
