@@ -193,6 +193,22 @@ if ($vdiskCache -and $vdiskCache.at) {
     # of its values is a file found on the disks. Without this, a cache still inside its half hour gave not one
     # usable line, and the card lost its virtual disks until it expired -- silently.
     if ($vdiskFresh -and @($vdiskCache.disks).Count -and -not @($vdiskCache.disks)[0].Path) { $vdiskFresh = $false }
+    <#
+        AND THE HALF HOUR ENDS EARLY WHEN THE DISK HAS MOVED.
+
+        On 31/10, 81 GB came back to C: by compacting a virtual disk. The card went on announcing "WSL 150,7 Go"
+        for the rest of the half hour -- the very figure that had just become false, and the one the reader was
+        looking at to judge what he had gained. A cache is kept because what it holds does not move; the moment
+        the free space jumps, that premise is gone.
+
+        FIVE GIGABYTES IN EITHER DIRECTION: below that, nothing that changes a decision has happened, and the
+        walk costs three seconds.
+    #>
+    if ($vdiskFresh -and $vdiskCache.freeGb) {
+        try {
+            if ([Math]::Abs([double]$vdiskCache.freeGb - [double]$freeGB) -ge 5) { $vdiskFresh = $false }
+        } catch { }
+    }
 }
 if ($vdiskFresh) {
     foreach ($v in @($vdiskCache.disks)) {
@@ -221,7 +237,7 @@ if ($vdiskFresh) {
         }
     }
     try {
-        Update-StateJson -Path $vdiskFile -Set @{ at = ([datetime]::UtcNow).ToString('o')
+        Update-StateJson -Path $vdiskFile -Set @{ at = ([datetime]::UtcNow).ToString('o'); freeGb = [double]$freeGB
                                                   disks = @($vdisks | ForEach-Object { @{ Name = $_.Name; Machine = $_.Machine; Account = $_.Account
                                                                                           Go = $_.Go; When = $_.When.ToUniversalTime().ToString('o'); Path = $_.Path } }) } | Out-Null
     } catch { }

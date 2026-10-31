@@ -1185,6 +1185,42 @@ parameter names in its KEYS, and a key is not a variable -- so renaming a parame
 hand. Record:
 [`notes/evidence/2026-10-07-a-rename-that-parsed-and-no-longer-worked.md`](../../../notes/evidence/2026-10-07-a-rename-that-parsed-and-no-longer-worked.md).
 
+## A PLAN IS PROPOSED BEFORE ANYTHING IS CORRECTED, AND IT HAS ONE SHAPE
+
+**Finding a defect is not permission to fix it.** The plan goes out first, he arbitrates, then it is done. *Asked
+on 31/10: "Tu dois maintenant arreter de vouloir corriger immediatement par toi meme. Tu dois toujours proposer
+un plan listant les points, avec un format bien determine et que tu dois respecter."*
+
+The shape, one line per point, and nothing else on the line:
+
+```
+N. <what changes> — <why> · fait par <moi|toi> · preuve par <moi|toi> : <how it is demonstrated>
+```
+
+**WHO ACTS AND WHO PROVES ARE TWO QUESTIONS.** A fix of mine can need a gesture only he can make -- putting the
+machine to sleep, installing an update -- and writing "moi" on such a line promises something I cannot do. They
+are therefore named apart. *31/10, on a line where I had written the proof as mine while it needed his machine
+asleep: "Qui fait la preuve ?"*
+
+## A SUITE IS ALWAYS PROPOSED
+
+A finished piece of work ends with what comes next, as a plan. Stopping on "done" leaves him to find the thread
+again, and he has to ask every time. *31/10: "Tu ne proposes rien ensuite ? Tu dois toujours proposer une suite."*
+
+## WHAT IS WRITTEN BEFORE A COMMAND IS WHAT THE COMMAND DOES
+
+One sentence, the effect, nothing else: no context, no reason, no consequence mixed in. *31/10, after a command
+he did not run: "Quand tu donnes des commandes, ce que tu dis avant, ca DOIT etre ce que cette commande fait,
+rien d'autre" -- then "je n'ai pas execute les commandes que tu as donne juste avant car elles n'etaient pas
+claires".*
+
+## A LOG, A FILE, A THING IS NAMED -- AND THE NAME IS THE SAME EVERYWHERE
+
+What is spoken of carries a defined name, used everywhere: in the message, in the code, in the documentation. A
+path is not a name, and an internal identifier is not a name either. *31/10, after three answers in a row that
+gave a path, then an identifier, then nothing: "je veux que tu nommes bien les journaux et fichiers que ce soit
+clair quand tu me parles, ces noms doivent bien definis et utilises, sans quoi tu te manges un refus".*
+
 ## Cache & performance
 - Cache **per probe** (file mtime + TTL); **never** a global recompute.
 - The slow ones are slow because they were MEASURED so, not guessed:

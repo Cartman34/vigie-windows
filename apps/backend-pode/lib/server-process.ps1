@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @layer: subject
-# @uses: config, format, log, native, paths, settings, var
+# @uses: config, format, log, native, operations, paths, settings, store, var
 <#
     Intent: THE SERVER APP AS A PROCESS: is it alive, why is it struggling, how is it stopped and brought back. Stopping it is Vigie's own business and nobody else's -- the reasons it reports are measured, never guessed.
     Usage: dot-sourced by common.ps1, never run on its own.
@@ -317,6 +317,102 @@ $startSnippet
 }
 
 # --- Idempotence: is the server already listening? ---------------------------
+<#
+    DOES IT STILL ANSWER? A PORT THAT IS OPEN PROVES NOTHING.
+
+    On the night of 30/10 the machine slept at 21:07 with the server app running. At the wake, the watch loop and
+    the scheduler started again and worked all morning -- 1 197 lines in the state log -- but the HTTP listener
+    never came back: not one request was served between 21:07:37 and the manual restart at 07:41. The port stayed
+    bound, so every test of "is the server up" answered yes, and the panel showed figures thirteen hours old
+    without anything saying why.
+
+    So we ASK IT. Any HTTP answer proves the listener is alive -- a refusal (403 without a token) just as much as
+    a success: what is being tested is that somebody answers, not what they say.
+#>
+function Test-ServerAnswers {
+    param([Parameter(Mandatory)][string]$Address, [Parameter(Mandatory)][int]$Port, [int]$TimeoutSeconds = 5)
+    $url = 'http://' + $Address + ':' + $Port + '/api/v1/health'
+    try {
+        $null = Invoke-WebRequest -Uri $url -TimeoutSec $TimeoutSeconds -UseBasicParsing -ErrorAction Stop
+        return $true
+    } catch {
+        # AN HTTP STATUS IS AN ANSWER. Only a connection that fails, or a wait that expires, means silence.
+        $r = $null
+        try { $r = $_.Exception.Response } catch { }
+        if ($r) { return $true }
+        return $false
+    }
+}
+
+<#
+    THE SERVER APP WATCHES ITS OWN DOOR.
+
+    Every other watch asks a question about the machine. This one asks whether the panel can still be served:
+    after the sleep of 30/10 the HTTP listener never came back, while everything else in the process kept working.
+    Nothing noticed, because the port stayed bound -- so the only honest test is to send a request and see if
+    anybody answers.
+
+    TWO FAILURES BEFORE ACTING, never one: a request can be refused for a second while a card of twenty
+    measurements is being assembled. Two passes in a row, thirty seconds apart, is silence.
+
+    AND ONE RELAUNCH, NOT A LOOP: a relaunch that fails must not be tried every thirty seconds for ever. One
+    every ten minutes at most, and the refusal to try again is written down like everything else.
+#>
+function Invoke-ServerDoorWatch {
+    param([string]$Backend = (Get-BackendRoot))
+    $cfg = Get-Config -Backend $Backend
+    $port = [int]$cfg.Port
+    $address = "$($cfg.Address)"
+    if (-not $address) { $address = '127.0.0.1' }
+    # ITS OWN MEMORY, not the watch loop's: this is the server speaking about itself, and the piece that does
+    # so must not have to know how the watches remember things.
+    $path = Get-VarPath -Backend $Backend -Kind 'run' -File 'server-door.json'
+    $memory = @{}
+    if (Test-PathSafe $path) {
+        try { $j = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json; foreach ($pr in $j.PSObject.Properties) { $memory[$pr.Name] = $pr.Value } } catch { }
+    }
+    $kept = $memory['porte-serveur']
+    $misses = 0
+    try { $misses = [int]$kept.misses } catch { }
+    $lastRelaunch = 0
+    try { $lastRelaunch = [long]$kept.lastRelaunchTicks } catch { }
+
+    if (Test-ServerAnswers -Address $address -Port $port -TimeoutSeconds 5) {
+        if ($misses) {
+            Write-Log -Backend $Backend -Name 'state' -Message (Get-Label 'common.porte-serveur-revenue' $misses)
+        }
+        Update-StateJson -Path $path -Set @{ 'porte-serveur' = [ordered]@{ misses = 0; at = (Get-Date).ToUniversalTime().ToString('o')
+                                                                          lastRelaunchTicks = $lastRelaunch } } | Out-Null
+        return $true
+    }
+
+    $misses++
+    Write-Log -Backend $Backend -Name 'state' -Level 'ERROR' -Message (Get-Label 'common.porte-serveur-muette' $misses)
+    $relaunched = $false
+    if ($misses -ge 2) {
+        $sinceMinutes = 999.0
+        if ($lastRelaunch) { try { $sinceMinutes = ([datetime]::UtcNow - [datetime]$lastRelaunch).TotalMinutes } catch { } }
+        if ($sinceMinutes -ge 10) {
+            try {
+                Start-ServerRelauncher -StartScript (Join-Path $Backend 'start.ps1') -Port $port -Backend $Backend
+                $relaunched = $true
+                $lastRelaunch = [datetime]::UtcNow.Ticks
+                Write-Log -Backend $Backend -Name 'state' -Level 'WARN' -Message (Get-Label 'common.porte-serveur-relance')
+            } catch {
+                Write-Log -Backend $Backend -Name 'state' -Level 'ERROR' -Message (Get-Label 'common.porte-serveur-relance-impossible' $_.Exception.Message)
+            }
+        } else {
+            Write-Log -Backend $Backend -Name 'state' -Level 'WARN' -Message (Get-Label 'common.porte-serveur-relance-trop-tot' ([int]$sinceMinutes))
+        }
+    }
+    Update-StateJson -Path $path -Set @{ 'porte-serveur' = [ordered]@{ misses = $misses; at = (Get-Date).ToUniversalTime().ToString('o')
+                                                                      lastRelaunchTicks = $lastRelaunch } } | Out-Null
+    # THE SILENCE IS AN OPERATION RESULT, so it reaches the panel and the notification like any other failure.
+    Set-ModuleLastRun -Module 'vigie-self' -Action 'server-door' -Label (Get-Label 'common.porte-serveur-libelle') `
+                      -Code 1 -Seconds 0 -Error (Get-Label 'common.porte-serveur-muette' $misses) -Backend $Backend
+    return $relaunched
+}
+
 function Test-ServerUp {
     # No default value: the address and the port have only ONE definition (config.psd1).
     param([Parameter(Mandatory)][string]$Address, [Parameter(Mandatory)][int]$Port)

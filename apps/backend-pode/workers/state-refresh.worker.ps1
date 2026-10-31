@@ -30,12 +30,12 @@ if ($ArgsB64) {
 if (-not $probe) { return }
 
 try {
-    $t0 = Get-Date
+    $t0 = Get-ActiveMilliseconds
     $stateArgs = @{ Backend = $Backend; Only = @($probe) }
     if ($account) { $stateArgs['Account'] = $account }
     $null = Get-State @stateArgs
     Write-Log -Backend $Backend -Name 'state' -NoEcho `
-              -Message ("fond : " + $probe + " recalculee en " + [int]((Get-Date) - $t0).TotalMilliseconds + " ms")
+              -Message ("fond : " + $probe + " recalculee en " + [int]((Get-ActiveMilliseconds) - $t0) + " ms")
 } catch {
     Write-Log -Backend $Backend -Name 'state' -Level 'ERROR' `
               -Message ("fond : " + $probe + " -- " + $_.Exception.Message)

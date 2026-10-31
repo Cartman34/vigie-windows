@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @layer: subject
-# @uses: card-shape, lock, log, measures, probe-cache, probes
+# @uses: card-shape, lock, log, measures, native, probe-cache, probes
 <#
     Intent: RUNNING A PROBE AND KEEPING WHAT IT ANSWERED: one at a time for a given probe, the account it is
     computing for said just before and taken back just after, the result written entry by entry, and a card
@@ -44,11 +44,11 @@ function Invoke-ProbeRecompute {
         [string]$Origin = 'background'
     )
     foreach ($sp in $Stale) {
-        $t0 = Get-Date
+        $t0 = Get-ActiveMilliseconds
         try {
             $global:VigieStateAccount = $Account
             $m = & $sp.File
-            $elapsedMs = [int]((Get-Date) - $t0).TotalMilliseconds
+            $elapsedMs = [int]((Get-ActiveMilliseconds) - $t0)
             if ($m) { $Cache[$sp.Key] = New-ProbeCacheEntry -Module $m -Stamp $sp.Stamp }
             Write-ProbeRun -Backend $Backend -Probe $sp.Name -Ms $elapsedMs -Origin $Origin `
                            -Outcome ($(if ($m) { 'ok' } else { 'empty' })) -Modules @($m).Count
@@ -57,7 +57,7 @@ function Invoke-ProbeRecompute {
             # function never fails.
             if ($m) { Write-MeasureSamples -Backend $Backend -Probe $sp.Name -Modules @($m) }
         } catch {
-            Write-ProbeRun -Backend $Backend -Probe $sp.Name -Ms ([int]((Get-Date) - $t0).TotalMilliseconds) `
+            Write-ProbeRun -Backend $Backend -Probe $sp.Name -Ms ([int]((Get-ActiveMilliseconds) - $t0)) `
                            -Origin $Origin -Outcome 'error' -Detail $_.Exception.Message
             Write-Log -Backend $Backend -Name 'state' -Level 'ERROR' `
                       -Message (Get-Label 'common.sonde-erreur' $sp.Name $_.Exception.Message)

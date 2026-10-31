@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @layer: subject
-# @uses: accounts, action-resources, contract, format, log, paths, var, win-accounts
+# @uses: accounts, action-resources, contract, format, log, native, paths, var, win-accounts
 <#
     Intent: WHAT IS RUNNING, FOR EVERYONE (D95), AND WHO HOLDS WHAT (D93): the mark a card wears while it is busy, the resources an action takes, the lock that keeps two actions off the same thing, and the fate of a background task -- kept, then said.
     Usage: dot-sourced by common.ps1, never run on its own.
@@ -297,12 +297,16 @@ function Invoke-MarkedTask {
     )
     Set-ModuleBusyMark -Module $Module -Label $Label -ProcessId $PID -Action $Action -Button $Button `
                        -MaxSeconds $MaxSeconds -Backend $Backend
-    $t0 = Get-Date
+    # THE DURATION OF THE WORK, NOT THE TIME ON THE CLOCK. The machine went to sleep at 21:07 with a watch round
+    # under way and woke at 06:53: the round was credited with 35 157 seconds for a ceiling of 10, logged as an
+    # error, and the real overruns drowned among false ones. This counter does not advance while the machine
+    # sleeps. The clock still says WHEN it started, which is a different question (S22).
+    $t0 = Get-ActiveMilliseconds
     $result = $null
     $failure = $null
     try { $result = & $Body }
     catch { $failure = $_ }
-    $seconds = [int]((Get-Date) - $t0).TotalSeconds
+    $seconds = [int](((Get-ActiveMilliseconds) - $t0) / 1000)
     $overdue = ($MaxSeconds -gt 0 -and $seconds -gt $MaxSeconds)
     if (-not $KeepMark) { Clear-ModuleBusyMark -Module $Module -Backend $Backend }
     $say = $failure -or $overdue -or -not $ReportOnlyWhenOverdue

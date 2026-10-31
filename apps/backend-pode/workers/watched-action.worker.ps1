@@ -37,7 +37,7 @@ $argv   = @($a.arguments)
 $log    = "$($a.log)"
 $probes = @($a.probes | Where-Object { "$_" })
 
-$t0 = Get-Date
+$t0 = Get-ActiveMilliseconds
 $code = -1
 $failure = ''
 if (-not $a.file) {
@@ -58,7 +58,7 @@ if (-not $a.file) {
     }
 }
 
-$seconds = [int]((Get-Date) - $t0).TotalSeconds
+$seconds = [int](((Get-ActiveMilliseconds) - $t0) / 1000)
 Set-ModuleLastRun -Module $module -Action $action -Label $label -Code $code -Seconds $seconds `
                   -Log $log -Error $failure -Backend $Backend
 Clear-ModuleBusyMark -Module $module -Backend $Backend

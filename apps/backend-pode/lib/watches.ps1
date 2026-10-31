@@ -1,6 +1,6 @@
 ﻿# @author Florent HAZARD <f.hazard@sowapps.com>
 # @layer: subject
-# @uses: client-app, format, log, measures, operations, packages, paths, scheduler, series, settings, state, store, var, watch-engine
+# @uses: client-app, format, log, measures, operations, packages, paths, scheduler, series, server-process, settings, state, store, var, watch-engine
 <#
     Intent: CHEAP READINGS, AND AN EVENT WHEN THE VALUE CHANGES: not recomputing cards in a loop. A module declares one reading and one comparable value; when it changes, the cards that module named are recomputed.
     Usage: dot-sourced by common.ps1, never run on its own.
@@ -113,7 +113,12 @@ function Update-WslUsage {
         at            = ([datetime]::UtcNow).ToString('o')
         atTicks       = ([datetime]::UtcNow).Ticks
         account       = "$($account[0].Account)"
-        distributions = @($answer.result.distributions)
+        # A SILENCE DOES NOT ERASE WHAT WAS MEASURED. The reading is only taken if a distribution happens to be
+        # running at the hour of the poll; otherwise there is nothing to say, and saying nothing used to wipe the
+        # last known figure. On 31/10 the card therefore showed "WSL 150,7 Go" with no mention that 99 of them
+        # were empty -- the disk looked legitimate while it was about to kill WSL.
+        distributions = @($(if (@($answer.result.distributions).Count) { @($answer.result.distributions) } elseif ($kept) { @($kept.distributions) } else { @() }))
+        distributionsAt = $(if (@($answer.result.distributions).Count) { ([datetime]::UtcNow).ToString('o') } elseif ($kept) { "$($kept.distributionsAt)" } else { '' })
         # WHAT WSL SAID, kept with the measurement: it speaks on a console nobody is watching.
         #
         # AND A SILENCE DOES NOT ERASE IT. WSL reads its configuration when it starts and says what it thinks of
@@ -470,6 +475,10 @@ function Invoke-WatchPass {
     # because the server watches, not because someone is looking.
     Invoke-WatchTask -Name 'scheduler' -Label (Get-Label 'common.veille-ordonnanceur') -MaxSeconds 10 -Backend $Backend -Body {
         try { $null = Invoke-RefreshPass -Backend $Backend } catch { }
+    }
+    # AND ITS OWN DOOR: a listener that never came back after a sleep left the panel mute for thirteen hours.
+    Invoke-WatchTask -Name 'porte' -Label (Get-Label 'common.veille-porte') -MaxSeconds 10 -Backend $Backend -Body {
+        try { $null = Invoke-ServerDoorWatch -Backend $Backend } catch { }
     }
     # AND THE DISK, when it empties faster than anyone would notice.
     Invoke-WatchTask -Name 'disk' -Label (Get-Label 'common.veille-disque') -MaxSeconds 5 -Backend $Backend -Body {

@@ -158,6 +158,7 @@ La carte « Processus de Vigie » porte la ligne « Tâches de veille », et le 
 | surveillance des app clientes | `Update-ClientWatch` ; relance la tâche d'une app cliente absente, jamais si son processus vit | chaque passe du minuteur | journal `state`, `var/history/client-vanished.jsonl` |
 | recalcul d'une sonde périmée | `Get-State`, puis `Start-DetachedAction` sur `workers/state-refresh.worker.ps1` ; une seule à la fois, par mutex | un affichage qui trouve une sonde périmée | ignorées au lancement, **hors protocole** |
 | réparation des tâches au démarrage | `start.ps1`, `Repair-VigieTasks` | démarrage du serveur | journal |
+| la porte du serveur | `Invoke-ServerDoorWatch`, qui relance par `Start-ServerRelauncher` | chaque passe du minuteur, relance après **deux silences** et au plus une fois par dix minutes | journal `state`, résultat publié sous `vigie-self` |
 | tâche cliente | `Invoke-ClientTask` | une action `@execution: session` | compte rendu `.done.json`, écrit même en cas d'échec, **et depuis le 24/10 une marque et un résultat sous protocole**, écrits dans le `var/` du compte qui l'exécute |
 
 ## Les passes de l'app cliente
