@@ -197,6 +197,23 @@ function Invoke-ActionById {
         Write-VigieAudit -Outcome $(if ($succeeded) { 'done' } else { 'failed' }) -Action $Type -Module $Module `
                          -Requester $requester -Rights $rights -Detail ("" + $res.message) `
                          -Milliseconds ([int]$timer.ElapsedMilliseconds) -Backend $Backend
+        <#
+            AND THE RESULT IS PUBLISHED WHERE OPERATIONS ARE READ (D82).
+
+            An action runs inside the HTTP request. One that lasts longer than the server allows leaves the
+            caller with an expiry while it carries on and finishes -- and the caller had no way to learn what
+            became of it: the deployment announced a failure on 31/10 while the update had succeeded, and
+            fetching another account's logs did the same, twice, after 21 seconds of honest work.
+
+            The audit already said it, in the Windows event log, which no route reads. The same verdict now goes
+            where the protocol says an operation's fate is read.
+        #>
+        try {
+            Set-ModuleLastRun -Module $Module -Action $Type -Label "$($res.message)" `
+                              -Code $(if ($succeeded) { 0 } else { 1 }) `
+                              -Seconds ([int]($timer.ElapsedMilliseconds / 1000)) `
+                              -Error $(if ($succeeded) { '' } else { "$($res.message)" }) -Backend $Backend
+        } catch { }
         [pscustomobject]@{ jobId = (New-JobId); status = 'done'; message = $res.message; result = $res.result }
     } catch {
         Write-VigieAudit -Outcome 'failed' -Action $Type -Module $Module -Requester $requester `

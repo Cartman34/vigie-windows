@@ -204,6 +204,46 @@ try {
                                   -WebSession $session -Headers @{ Origin = $url } -TimeoutSec 300
     }
 } catch {
+    <#
+        AN EXPIRY IS NOT A FAILURE: THE ACTION OUTLIVED THE REQUEST.
+
+        An action runs inside the HTTP request. One that lasts longer than the server allows gives the caller a
+        408 while it carries on and finishes -- the deployment announced "the server did not take the request"
+        on 31/10 while the update had started and succeeded, and fetching another account's logs did the same,
+        twice, in 21 seconds each.
+
+        The protocol already knows what became of it: an operation leaves a mark while it runs and a result when
+        it ends, and /operations is the one door where that is read (D82). So on an expiry we ask that door
+        instead of concluding, for as long as the action may reasonably last.
+    #>
+    $expire = $false
+    try { $expire = ([int]$_.Exception.Response.StatusCode -eq 408) } catch { }
+    if ($expire -and $Type) {
+        Write-Warn (Get-Label 'ask-vigie.expire-on-regarde' $Type)
+        $deadline = (Get-Date).AddSeconds(300)
+        $verdict = $null
+        while (-not $verdict -and (Get-Date) -lt $deadline) {
+            Start-Sleep -Seconds 5
+            $ops = $null
+            try {
+                $ops = Invoke-RestMethod -Method Get -Uri ($url + '/api/v1/operations') `
+                                         -WebSession $session -Headers @{ Origin = $url } -TimeoutSec 30
+            } catch { continue }
+            # STILL RUNNING: we wait. Its mark names it.
+            if (@($ops.running | Where-Object { "$($_.action)" -eq $Type }).Count) { continue }
+            $verdict = @($ops.results | Where-Object { "$($_.action)" -eq $Type } | Select-Object -First 1)[0]
+        }
+        if ($verdict) {
+            if ([int]$verdict.code -eq 0) {
+                Write-Ok (Get-Label 'ask-vigie.expire-mais-reussie' $Type ([int]$verdict.seconds))
+                exit 0
+            }
+            Write-Fail (Get-Label 'ask-vigie.expire-et-echouee' $Type "$($verdict.error)")
+            exit 2
+        }
+        Write-Fail (Get-Label 'ask-vigie.expire-sans-verdict' $Type)
+        exit 2
+    }
     # WHAT THE SERVER ANSWERED, not only the code: a bare "400" sends you looking in the wrong
     # place -- half an hour lost on 29/09 over a disk analysis that was simply still running.
     $detail = ''
